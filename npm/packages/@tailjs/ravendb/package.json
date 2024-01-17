@@ -1,0 +1,22 @@
+{
+  "name": "@tailjs/ravendb",
+  "description": "tail.js RavenDB backend.",
+  "license": "MIT",
+  "version": "0.17.24",
+  "main": "src/index.ts",
+  "author": "RelevantEdge (https://www.relevant-edge.com)",
+  "homepage": "https://github.com/relevantedge/tailjs",
+  "scripts": {
+    "build": "rollup --config ../../../build/rollup.mjs",
+    "build:watch": "pnpm run build -w"
+  },
+  "dependencies": {
+    "@tailjs/engine": "workspace:*",
+    "@tailjs/types": "workspace:*",
+    "ravendb": "^5.2.8",
+    "semaphore-async-await": "^1.5.1"
+  },
+  "publishConfig": {
+    "directory": "dist"
+  }
+}

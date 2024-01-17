@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>netstandard2.1;net481;net7</TargetFrameworks>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>11</LangVersion>
+        <RootNamespace>TailJs</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup Condition=" '$(TargetFramework)'=='net481'">
+        <PackageReference Include="Brotli.NET" Version="2.1.1"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.ClearScript.V8" Version="7.4.3"/>
+        <PackageReference Include="Microsoft.ClearScript.V8.Native.linux-x64" Version="7.4.3"/>
+        <PackageReference Include="Microsoft.ClearScript.V8.Native.osx-arm64" Version="7.4.3"/>
+        <PackageReference Include="Microsoft.ClearScript.V8.Native.osx-x64" Version="7.4.3"/>
+        <PackageReference Include="Microsoft.ClearScript.V8.Native.win-x64" Version="7.4.3"/>
+        <PackageReference Include="Microsoft.ClearScript.V8.Native.win-x86" Version="7.4.3"/>
+        <PackageReference Include="Microsoft.Extensions.Configuration" Version="7.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="7.0.12"/>
+        <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="7.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0"/>
+        <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.3.2"/>
+        <PackageReference Include="System.Runtime" Version="4.3.1"/>
+        <PackageReference Include="System.Text.Json" Version="7.0.3"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="js\engine.js"/>
+        <EmbeddedResource Include="js\environment.js"/>
+        <EmbeddedResource Include="js\host.js"/>
+        <EmbeddedResource Include="js\maxmind.js"/>
+        <EmbeddedResource Include="js\ravendb.js"/>
+        <EmbeddedResource Include="js\request-handler.js"/>
+        <EmbeddedResource Include="js\timeouts.js"/>
+        <EmbeddedResource Include="js\types.js"/>
+        <EmbeddedResource Include="js\tail.js"/>
+        <EmbeddedResource Include="js\tail.debug.js"/>
+        <EmbeddedResource Include="js\tail.debug.map.js"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Folder Include="Model\"/>
+    </ItemGroup>
+
+
+</Project>

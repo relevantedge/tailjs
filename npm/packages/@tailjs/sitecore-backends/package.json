@@ -1,0 +1,20 @@
+{
+  "name": "@tailjs/sitecore-backends",
+  "description": "tail.js extensions for Sitecore CDP.",
+  "license": "MIT",
+  "version": "0.17.24",
+  "main": "src/index.ts",
+  "author": "RelevantEdge (https://www.relevant-edge.com)",
+  "homepage": "https://github.com/relevantedge/tailjs",
+  "scripts": {
+    "build": "rollup --config ../../../build/rollup.mjs",
+    "build:watch": "pnpm run build -w"
+  },
+  "dependencies": {
+    "@tailjs/engine": "workspace:*",
+    "@tailjs/types": "workspace:*"
+  },
+  "publishConfig": {
+    "directory": "dist"
+  }
+}

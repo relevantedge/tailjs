@@ -1,0 +1,34 @@
+{
+  "name": "@tailjs/engine",
+  "description": "tail.js server engine (@tailjs/server/external can be used directly from an external V8 engine without nodejs. This is how e.g. the .NET interop works).",
+  "license": "MIT",
+  "version": "0.17.24",
+  "main": "src/index.ts",
+  "author": "RelevantEdge (https://www.relevant-edge.com)",
+  "homepage": "https://github.com/relevantedge/tailjs",
+  "scripts": {
+    "build": "rollup --config ../../../build/rollup.mjs",
+    "build:watch": "pnpm run build -w"
+  },
+  "dependencies": {
+    "@tailjs/client": "workspace:*",
+    "@tailjs/types": "workspace:*",
+    "@tailjs/util": "workspace:*",
+    "@ygoe/msgpack": "^1.0.3",
+    "base64-arraybuffer": "^1.0.2",
+    "jsonschema": "^1.4.1",
+    "query-string": "^8.1.0",
+    "semaphore-async-await": "^1.5.1",
+    "short-unique-id": "^5.0.3",
+    "url-parse": "^1.5.10",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.16.3",
+    "@types/url-parse": "^1.4.8",
+    "@types/uuid": "^9.0.1"
+  },
+  "publishConfig": {
+    "directory": "dist"
+  }
+}

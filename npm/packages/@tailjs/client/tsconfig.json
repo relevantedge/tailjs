@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "dom"],
+    "strictNullChecks": true,
+    "noErrorTruncation": false,
+    "preserveConstEnums": false
+  },
+  "include": ["./src", "../types/src/events/included-entities.ts"]
+}

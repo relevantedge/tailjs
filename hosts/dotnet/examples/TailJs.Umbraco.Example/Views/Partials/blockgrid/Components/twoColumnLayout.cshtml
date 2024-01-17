@@ -1,0 +1,13 @@
+@using TailJs.Umbraco.Example.Util
+@using Umbraco.Cms.Core.Models.Blocks
+@model Umbraco.Cms.Core.Models.Blocks.BlockGridItem<TwoColumnLayout>
+
+@{
+  var state = ViewData.UpdateBlockState(Model.Content);
+}
+
+<div class="@state.GetComponentClassName()">
+  <div class="gc-inner">
+    @await Html.GetBlockGridItemAreasHtmlAsync(Model)
+  </div>
+</div>

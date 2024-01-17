@@ -1,0 +1,13 @@
+!*/
+
+node_modules/
+dist/
+dist-dev/
+__pycache__/
+.tmp/
+
+!packages/
+
+.env.local
+
+**/data/*.json

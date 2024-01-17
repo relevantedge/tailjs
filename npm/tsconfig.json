@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ESNext",
+    "module": "ESNext",
+    "strictNullChecks": true,
+    "noErrorTruncation": true,
+    "moduleResolution": "node",
+    "preserveConstEnums": false,
+    "allowSyntheticDefaultImports": true,
+    "stripInternal": true,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "paths": {
+      "@constants": ["./constants"],
+      "@tailjs/types": ["./packages/@tailjs/types/src"],
+      "@tailjs/types/schema": ["./packages/@tailjs/types/src/schema"],
+      "@tailjs/engine": ["./packages/@tailjs/engine/src"],
+      "@tailjs/engine/native": ["./packages/@tailjs/engine/src/native.pkg"],
+      "@tailjs/maxmind": ["./packages/@tailjs/maxmind/src"],
+      "@tailjs/react": ["./packages/@tailjs/react/src"],
+      "@tailjs/client": ["./packages/@tailjs/client/src"],
+      "@tailjs/util": ["./packages/@tailjs/util/src"],
+      "@tailjs/client/external": ["packages/@tailjs/client/src/external.pkg"],
+      "@tailjs/client/build": [
+        "./packages/@tailjs/client/src/lib/build-constants"
+      ],
+      "@tailjs/client/script": ["packages/@tailjs/client/src/script.pkg"]
+    },
+    "types": ["jest"]
+  },
+  "exclude": ["**/dist"]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@tailjs/util",
+  "description": "Common utilities for all @tailjs packages.",
+  "license": "MIT",
+  "version": "0.17.24",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "rollup --config ../../../build/rollup.mjs",
+    "build:watch": "pnpm run build -w"
+  },
+  "publishConfig": {
+    "directory": "dist"
+  },
+  "dependencies": {
+    "@ygoe/msgpack": "^1.0.3"
+  }
+}

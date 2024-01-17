@@ -1,0 +1,24 @@
+
+@using TailJs.Umbraco.Example.Util
+@model Umbraco.Cms.Core.Models.Blocks.BlockGridItem<HubSpotForm>
+@{
+  var state = ViewData.UpdateBlockState(Model.Content);
+
+  var content = Model.Content;
+}
+@if ((bool?)Context.Items["HubSpotScript"] != (bool)(Context.Items["HubSpotScript"] = true))
+  {
+    <script charset="utf-8" type="text/javascript" src="//js-eu1.hsforms.net/forms/embed/v2.js"></script>  
+  }
+
+<div class="@state.GetComponentClassName()" track-form-name="@content.FormName">
+  <div class="gc-inner">
+    <script>
+    hbspt.forms.create({
+      region: "eu1",
+      portalId: "@content.PortalId",
+      formId: "@content.FormId"
+    });
+  </script>
+    </div>
+</div>

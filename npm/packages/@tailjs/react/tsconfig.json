@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["es2019", "dom"],
+    "strictNullChecks": true,
+    "jsx": "react",
+    "noErrorTruncation": false,
+    "preserveConstEnums": false
+  }
+}
