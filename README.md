@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/relevantedge/tailjs/static/logo.svg" width=400 alt="tail.js logo">
+<img src="https://raw.githubusercontent.com/relevantedge/tailjs/main/static/logo.svg" width=400 alt="tail.js logo">
 
 Repository for tail.js packages.
 
