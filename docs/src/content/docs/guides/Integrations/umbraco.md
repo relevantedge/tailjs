@@ -1,5 +1,6 @@
 ---
 title: Umbraco
+sidebar: { order: 10 }
 ---
 
 This is the shortest guide of them all.

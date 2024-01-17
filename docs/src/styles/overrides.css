@@ -31,6 +31,7 @@
 }
 
 :root {
+  --sl-text-h3: var(--sl-text-2xl);
   .dark-one {
     display: none;
   }

@@ -1,5 +1,6 @@
 ---
 title: Sitecore XM Cloud and JSS
+sidebar: { order: 20 }
 ---
 
 Using tail.js with headless Sitecore solutions is exactly the same as normal React and NextJS.
