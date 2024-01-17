@@ -19,7 +19,7 @@ pnpm add @tailjs/react
 
 #### Add root tag
 
-```jsx
+```jsx ins={1,3}
 <Tracker>
   <Router>...etc</Router>
 </Tracker>
@@ -29,7 +29,6 @@ For an elaborate example refer to `@tailjs/sitecore-jss`.
 
 ## Backend
 
-You will also need a backend. Install `@tailjs/express` or `@tailjs/next` to your taste and following the instructions for those packages.
-(Will be added here).
+You will also need a backend. Install `@tailjs/express` or `@tailjs/next` to your taste and follow the instructions for those packages.
 
 Note that any platform hosting the engine will do. In the Umbraco example in the git repository .NET is used as the backend for a React frontend.

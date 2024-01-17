@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/monorepo",
-  "description": "Monorepo for tail -f",
+  "description": "Monorepo for tail.js",
   "license": "MIT",
   "private": true,
   "author": "RelevantEdge (https://www.relevant-edge.com)",

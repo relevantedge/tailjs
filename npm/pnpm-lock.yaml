@@ -186,6 +186,7 @@ importers:
 
   packages/@tailjs/express:
     specifiers:
+      '@tailjs/client': workspace:*
       '@tailjs/engine': workspace:*
       '@tailjs/maxmind': workspace:*
       '@tailjs/ravendb': workspace:*
@@ -193,6 +194,7 @@ importers:
       '@tailjs/util': workspace:*
       '@types/express': ^4.17.17
       '@types/node': ^18.16.3
+      '@types/request-ip': ^0.0.38
       '@ygoe/msgpack': ^1.0.3
       concurrently: ^8.1.0
       dotenv: ^16.0.3
@@ -202,10 +204,12 @@ importers:
       msgpack-lite: ^0.1.26
       msgpackr: ^1.10.1
       nodemon: ^2.0.20
+      request-ip: ^3.3.0
       tiny-msgpack: ^2.2.0
       ts-node: ^10.9.1
       ts-node-dev: ^2.0.0
     dependencies:
+      '@tailjs/client': link:../client
       '@tailjs/engine': link:../engine
       '@tailjs/maxmind': link:../maxmind
       '@tailjs/ravendb': link:../ravendb
@@ -218,9 +222,11 @@ importers:
       jsonschema: 1.4.1
       msgpack-lite: 0.1.26
       msgpackr: 1.10.1
+      request-ip: 3.3.0
       tiny-msgpack: 2.2.0
     devDependencies:
       '@types/node': 18.16.3
+      '@types/request-ip': 0.0.38
       '@ygoe/msgpack': 1.0.3
       concurrently: 8.1.0
       nodemon: 2.0.22
@@ -1997,7 +2003,6 @@ packages:
     resolution: {integrity: sha512-1yeq8UuK/tUBqLXRY24gjeFvrSNaGNcOcZLQjHlnuw8iu+qE/vTQ64TUcLWorr607NKLfFakdoYEXXHXrLLKCw==}
     dependencies:
       '@types/node': 18.16.3
-    dev: false
 
   /@types/resolve/1.20.2:
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}

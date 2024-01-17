@@ -1,1 +1,1 @@
-export * from "./setupServer";
+export * from "./setup";

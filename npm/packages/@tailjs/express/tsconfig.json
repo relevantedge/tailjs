@@ -3,14 +3,9 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "target": "ES2022",
-    "module": "CommonJS",
-    //"lib": ["es2022"],
+    "strictNullChecks": true,
+
     "types": ["node"]
   },
-  "include": [
-    "./src",
-    "../util/src/base64.ts",
-    "../util/src/transport.ts",
-    "../util/src/priorityQueue.ts"
-  ]
+  "include": ["./src"]
 }

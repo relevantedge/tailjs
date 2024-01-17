@@ -1,0 +1,65 @@
+---
+title: MaxMind GeoIP2
+---
+
+This extension provides client location info based on users' IP address, and is absolutely recommended.
+
+Due to MaxMind's licensing this cannot be bundled directly with the engine. Instead you need to go to 
+[https://dev.maxmind.com/geoip/geolite2-free-geolocation-data] and download the `GeoLite2-City` database yourself.
+
+(A feature where you can just specify an API key, so this database gets updated automatically is under development).
+
+The default location is `maxmind/GeoLite2-City.mmdb` in your ressource directory.
+
+
+## Installation
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+<Tabs>
+<TabItem label="TypeScript">
+
+```sh frame="none"
+pnpm add @tailjs/maxmind
+# or
+npm install @tailjs/maxmind
+# or
+yarn add @tailjs/maxmind
+```
+
+```js [TypeScript]
+import { ClientLocation } from "@tailjs/maxmind";
+
+tailjs({
+  // ...
+  extensions: [
+    // ...
+    new ClientLocation({ language: "en", mmdb: 'maxmind/GeoLite2-City.mmdb' }),
+    // ...
+  ]
+});
+```
+</TabItem>
+<TabItem label=".NET">
+
+  The MaxMind package comes bundles with the NuGet package so no additional installation is needed.
+
+```json title="appsettings.json"
+ "TailJs": {
+  // ...
+    "ScriptExtensions": [
+      // ...
+      {
+        "Module": "js/maxmind.js",
+        "Import": "ClientLocation",
+        "Settings": {
+          "mmdb": "maxmind/GeoLite2-City.mmdb",
+          "language": "en"          
+        }
+      }
+      // ...
+    ]
+}
+```
+</TabItem>
+</Tabs>
