@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "dom"],
+    "strictNullChecks": true,
+    "jsx": "react",
+    "noErrorTruncation": false,
+    "preserveConstEnums": false
+  },
+  "include": ["./src", "../sitecore-backends/src/CdpTracker.ts"]
+}

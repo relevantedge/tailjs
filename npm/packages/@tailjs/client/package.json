@@ -1,0 +1,19 @@
+{
+  "name": "@tailjs/client",
+  "description": "tail.js client library",
+  "license": "MIT",
+  "version": "0.17.24",
+  "scripts": {
+    "build": "rollup --config ../../../build/rollup.client.mjs",
+    "build:watch": "pnpm run build -w"
+  },
+  "main": "src/index.ts",
+  "dependencies": {
+    "@tailjs/types": "workspace:*",
+    "@tailjs/util": "workspace:*",
+    "@ygoe/msgpack": "^1.0.3"
+  },
+  "publishConfig": {
+    "directory": "dist"
+  }
+}

@@ -1,0 +1,17 @@
+
+@using TailJs.Umbraco.Example.Util
+@using TailJs.Model
+@model Umbraco.Cms.Core.Models.Blocks.BlockGridItem<PowerBireport>
+@{
+  var content = Model.Content;
+  
+  var state = ViewData.UpdateBlockState(Model.Content);
+
+}
+
+
+<div class="@state.GetComponentClassName()" track-content="@(new Content(content.ReportName??"", Source:"Power BI"))">
+  <div class="gc-inner">
+    <iframe title="@content.ReportName" width="100%" height="@(content.Height <= 0 ? 800 : content.Height)" src="@content.PublicLink" frameborder="0" allowFullScreen="true"></iframe>
+  </div>
+</div>

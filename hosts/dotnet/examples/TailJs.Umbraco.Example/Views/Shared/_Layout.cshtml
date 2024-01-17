@@ -1,0 +1,61 @@
+﻿@using React.AspNet
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@using TailJs.AspNet
+@using TailJs.AspNet.Helpers
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+  var root = Model.Root();
+
+}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>@root.Name</title>
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <link rel="stylesheet" href="~/static/style.css" asp-append-version="true"/>
+
+  @RenderSection("Header", required: false)
+
+</head>
+<body>
+@Html.React("Components.Navigation", new
+{
+  items = root.Children.Where(item => item.IsVisible()).ToComponentProperties(item =>
+    new
+    {
+      label = item.Name,
+      href = item.Url(),
+      selected = item.IsAncestorOrSelf(Model),
+      childSelected = item.IsAncestor(root),
+      children = item.Children.Select(item=>new
+      {
+        label = item.Name,
+        href = item.Url(),
+        selected = item.IsAncestorOrSelf(Model),
+      })
+    })
+   
+})
+
+@* @Html.React("Components.TestForm", new{}) *@
+
+@RenderBody()
+
+
+@Html.React("Components.Cart", new{})
+
+
+
+
+<script src="@Url.Content("~/static/client.js")" asp-append-version="true"></script>
+@Html.ReactInitJavaScript()
+
+@($"{TrackerMiddleware.Elapsed.TotalMilliseconds/TrackerMiddleware.RequestCount:N2} ms/req ({TrackerMiddleware.RequestCount:N0} requests).")
+
+</body>
+</html>

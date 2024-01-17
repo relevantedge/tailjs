@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "target": "ES2022",
+    "module": "CommonJS",
+    //"lib": ["es2022"],
+    "types": ["node"]
+  },
+  "include": [
+    "./src",
+    "../util/src/base64.ts",
+    "../util/src/transport.ts",
+    "../util/src/priorityQueue.ts"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "lib": ["ES2022", "dom"],
+    "strictNullChecks": true,
+    "noErrorTruncation": false,
+    "preserveConstEnums": false
+  },
+  "include": ["./src"]
+}

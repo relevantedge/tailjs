@@ -1,0 +1,69 @@
+﻿@using TailJs.Umbraco.Example.Util
+@using Umbraco.Cms.Core.Models.Blocks
+@using TailJs.AspNet.Helpers
+@using Umbraco.Cms.Core
+@using Umbraco.Cms.Core.PropertyEditors.ValueConverters
+@model Umbraco.Cms.Core.Models.Blocks.BlockGridItem<ContentBlock>
+
+@{
+  var content = Model.Content;
+  var state = ViewData.UpdateBlockState(Model.Content);
+
+  var headline = content.Headline?.AsNonNullOrEmpty();
+  var tagLine = content.TagLine?.AsNonNullOrEmpty();
+  var caption = content.Caption?.ToHtmlString().AsNonNullOrEmpty();
+  var body = content.BodyText?.ToHtmlString().AsNonNullOrEmpty();
+
+  var tags = content.TrackingTags is {} tagList ? string.Join(",",
+    tagList) : null;
+}
+
+<div class="@state.GetComponentClassName()" track-impressions="@content.TrackImpressions" track-tags="@tags">
+  <div class="gc-inner @(content.BackgroundImage != null ? "gc-bg" : "gc-no-bg") @(body != null ? "gc-has-body" : "") @(content.ToneImage ? "gc-tone" : "") @(tagLine == null && caption == null ? "gc-headline" : "gc-text")"
+    background="content.BackgroundImage">
+    <div class="gc-text-wrapper ">
+      @if (tagLine != null)
+      {
+        <h3>@tagLine</h3>
+      }
+      @if (content.Image is {} image)
+      {
+        <div class="gc-img @(image.ContentType.Alias == Constants.Conventions.MediaTypes.VectorGraphicsAlias ? "gc-svg" : "gc-photo")">
+          <img alt="@image.Name" src="@image.Url()"/>
+        </div>
+      }
+      @if (headline != null)
+      {
+        <h1>
+          @headline
+        </h1>
+      }
+      @if (caption != null)
+      {
+        <h4>
+          @Html.Raw(caption)
+        </h4>
+      }
+      @if (body != null)
+      {
+        <div class="gc-body">@Html.Raw(body)</div>
+      }
+    </div>
+    @if (Model.Content.Actions?.OfType<BlockListItem<ActionComponent>>().ToList() is {Count: > 0} actions)
+    {
+      <div class="gc-actions">
+        @foreach (var action in actions.TrackContent())
+        {
+          <a href="@action.Content.Target?.Url" class="gc-action @(action.Content.IsPrimary ? "gc-action-primary" : "")">
+            @action.Content.Label
+          </a>
+        }
+      </div>
+    }
+    @* @if (block.Parent != null && !string.IsNullOrEmpty(Model.Content.Headline)) *@
+    @* { *@
+    @*   @Html.React("Components.CartButtons", Model.Content.ToComponentProperties("item")) *@
+    @* } *@
+  </div>
+
+</div>

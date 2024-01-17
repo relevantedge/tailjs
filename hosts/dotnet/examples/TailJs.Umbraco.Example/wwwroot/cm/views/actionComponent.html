@@ -1,0 +1,12 @@
+<style>
+    @import "/static/style.css";
+    button.btn-primary {
+        background-color: #1b264f;
+        border-color: #1b264f #1b264f #080b16;
+    }
+</style>
+
+<div ng-click="block.edit()"
+     class="blockelement__draggable-element gc-action {{1*block.data.isPrimary ? 'gc-action-primary' : ''}} cursor-pointer m-2">
+    {{block.data.label}}
+</div>

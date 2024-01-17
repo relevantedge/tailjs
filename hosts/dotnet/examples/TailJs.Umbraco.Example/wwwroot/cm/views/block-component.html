@@ -1,0 +1,35 @@
+<style>
+    @import "/static/style.css";
+</style>
+
+<div class="blockelement__draggable-element backoffice gc gc-{{block.content.contentTypeAlias}} {{1*block.data.fullWidth ? 'gc-full' : ''}} gc-theme-{{block.data.theme[0]||'default'}}"
+     ng-switch="block.content.contentTypeAlias">
+    <div class="gc-click-capture" ng-click="block.edit(); $event.stopPropagation();"></div>
+    <div ng-switch-when="contentBlock"
+         class="gc-inner {{!!block.data.backgroundImage[0] ? 'gc-bg' : 'gc-no-bg'}} {{!!block.data.bodyText ? 'gc-has-body' : ''}} {{1*block.data.toneImage ? 'gc-tone' : ''}} {{!(block.data.tagLine || block.data.caption) ? 'gc-header' : 'gc-text'}}"
+         style="background-image: url({{(block.data.backgroundImage[0].mediaKey|mediaItemResolver).mediaLink}}); background-repeat: no-repeat; background-size: cover;">
+        
+        <div class="gc-text-wrapper">
+            <h3>{{block.data.tagLine}}</h3>
+            <div ng-if="!!block.data.image[0]" class="gc-img {{(block.data.image[0].mediaKey|mediaItemResolver).contentType.alias === 'umbracoMediaVectorGraphics' ? 'gc-svg' : 'gc-photo'}}">
+                <img src="{{(block.data.image[0].mediaKey|mediaItemResolver).mediaLink}}"/>
+            </div>
+            <h1>{{block.data.headline}}</h1>
+            <h4 ng-bind-html="block.data.caption"></h4>
+            <div class="gc-body" ng-bind-html="block.data.bodyText"></div>
+        </div>
+        <div ng-if="block.data.actions.contentData.length" class="gc-actions">
+            <div ng-repeat="action in block.data.actions.contentData"
+                 class="gc-action {{1*action.isPrimary ? 'gc-action-primary' : ''}}">
+                {{action.label}}
+            </div>
+        </div>
+    </div>
+    <div ng-switch-when="twoColumnLayout" class="gc-inner">
+        <umb-block-grid-render-area-slots></umb-block-grid-render-area-slots>
+    </div>
+    <div ng-switch-when="multiColumn" class="gc-inner">
+        <umb-block-grid-render-area-slots></umb-block-grid-render-area-slots>
+    </div>
+    <div class="gc-error" ng-switch-default>(Unknown component "{{block.content.contentTypeAlias}}")</div>
+</div>

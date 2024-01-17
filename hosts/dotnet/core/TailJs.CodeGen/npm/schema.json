@@ -1,0 +1,2104 @@
+{
+  "$id": "urn:tailjs-#0.17.24",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "UserInteractionEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "$ref": "#/definitions/ViewTimingEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ActivatedComponent"
+              },
+              "description": "Relevant components and content in the scope of the activated element."
+            },
+            "pos": {
+              "$ref": "#/definitions/ScreenPosition",
+              "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled)."
+            },
+            "viewport": {
+              "$ref": "#/definitions/Viewport",
+              "description": "The viewport of the user's browser when the event happened."
+            },
+            "area": {
+              "type": "string",
+              "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash."
+            },
+            "element": {
+              "type": "object",
+              "properties": {
+                "tagName": {
+                  "type": "string",
+                  "description": "The tag name of the activated element."
+                },
+                "text": {
+                  "type": "string",
+                  "description": "The textual content of the element that was clicked (e.g. the label on a button, or the alt text of an image)"
+                }
+              },
+              "unevaluatedProperties": false,
+              "description": "Information about the activated element, if any."
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "TrackedEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "schema": {
+              "type": "string",
+              "description": "The ID of the schema the event comes from. It is suggested that the schema ID ends with a hash followed by a SemVer version number. (e.g. urn:tailjs#0.9.0)"
+            },
+            "affinity": {
+              "description": "A token that may be included by the client to ensure that session state does not get lost if cookies are missing. It should only be included in the first event if multiple events are posted to avoid transmitting unnecessary data.\n\nIt gets cleared by the request handler before sent to backends and should not be considered for analytics since it is an internal implementation detail."
+            },
+            "id": {
+              "$ref": "#/definitions/LocalID",
+              "description": "This may be assigned or transformed by backends if needed. It is client-assigned for  {@link  ViewEvent } s"
+            },
+            "clientId": {
+              "$ref": "#/definitions/LocalID",
+              "description": "This is set by the client and can be used to dedupplicate events sent multiple times if the endpoint timed out."
+            },
+            "retry": {
+              "$ref": "#/definitions/Integer",
+              "description": "The number of times the client tried to sent the event if the endpoint timed out",
+              "default": 0
+            },
+            "related": {
+              "$ref": "#/definitions/LocalID",
+              "description": "The event that caused this event to be triggered or got triggered in the same context. For example a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , or a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } ."
+            },
+            "session": {
+              "$ref": "#/definitions/Session",
+              "description": "The session associated with the event."
+            },
+            "view": {
+              "$ref": "#/definitions/LocalID",
+              "description": "When applicable, the view where the event happened (related by  {@link  ViewEvent } )."
+            },
+            "timestamp": {
+              "$ref": "#/definitions/Timestamp",
+              "description": "This timestamp will always have a value before it reaches a backend. If specified, it must be a negative number when sent from the client (difference between when the event was generated and when is was posted in milliseconds).",
+              "default": "now"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happend, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense."
+    },
+    "Tagged": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Tag"
+          },
+          "description": "Tags in tailjs are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxnonmy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `conversion:high-value`, `rendering:component:theme=dark`, `ad-campaign=43899` and `ext1:video:play`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the names can be organized in taxonomies with each rank separated by colon (`:`). If there are more than one tag they are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters to store a list of values in the same tag is strongly discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` LESS BAD: `event:eventbrite=8487912` GOOD: Use an  {@link  ExternalReference } .\n\nBAD: `campaign:promo=1, campaign:length:4` GOOD: `campaign:promo, campaign:length=4`\n\nTags can be either be added directly to content and component definitions, or added to HTML tags with the `track-tags` attribute or `--track-tags` CSS property. In the latter case all tags from the HTML elements that contain a component or surround content are added to tracking when the user clicks around.\n\nThis allows some tags to be managed via e.g. CMS and follow thec content around wherever it is used on the website, and other tags to be included by the logic that puts the bits and pieces together to the final webpage the user sees.\n\nThis unified approach gives a clear way to store all domain-specific data in a way that goes very well with analytics. If the shape of the data you want to store is too complex to easily fit into tags, you can instead extend the tracker's event schema."
+        }
+      },
+      "unevaluatedProperties": false,
+      "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details."
+    },
+    "Tag": {
+      "type": "string"
+    },
+    "LocalID": {
+      "type": "string",
+      "description": "An ID that is unique to the current client."
+    },
+    "Integer": {
+      "type": "number"
+    },
+    "Session": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "$ref": "#/definitions/UUID",
+          "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+        },
+        "deviceId": {
+          "$ref": "#/definitions/UUID",
+          "description": "The unique ID of the user's device. This ID does most likely not identify the device reliably over time, since it may be reset if the user purges tracking data, e.g. clears cookies or changes browser.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+        },
+        "deviceSessionId": {
+          "$ref": "#/definitions/UUID",
+          "description": "The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again. This means that device sessions can both be significantly shorter and longer that \"normal\" sessions in that it restarts whenever the user navigates completely away from the site and comes back (e.g. while evaluating search results), but it will also survive the user putting their computer to sleep or leaving their browser app in the background for a long time on their phone.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+        },
+        "username": {
+          "type": "string",
+          "description": "The current user."
+        },
+        "timestamp": {
+          "$ref": "#/definitions/Timestamp",
+          "description": "When the session started."
+        },
+        "ip": {
+          "type": "string",
+          "description": "The client's IP if enabled in configuration."
+        },
+        "nonEssentialTrackingConsent": {
+          "type": "boolean",
+          "description": "If the user had consented to non-essential tracking during this session.",
+          "default": false
+        }
+      },
+      "required": [
+        "sessionId",
+        "timestamp"
+      ],
+      "unevaluatedProperties": false
+    },
+    "UUID": {
+      "type": "string"
+    },
+    "Timestamp": {
+      "type": "number"
+    },
+    "ViewTimingEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "timing": {
+              "type": "object",
+              "properties": {
+                "interactiveTime": {
+                  "$ref": "#/definitions/Duration",
+                  "description": "The time the user has been active in the view/tab. Interactive time is measured as the time where the user is actively scrolling, typing or similar. Specifically defined as [transient activation](https://developer.mozilla.org/en-US/docs/Glossary/Transient_activation) with a timeout of 10 seconds."
+                },
+                "visibleTime": {
+                  "$ref": "#/definitions/Duration",
+                  "description": "The time the view/tab has been visible."
+                },
+                "totalTime": {
+                  "$ref": "#/definitions/Duration",
+                  "description": "The time elapsed since the view/tab was opened."
+                },
+                "activations": {
+                  "$ref": "#/definitions/Integer",
+                  "description": "The number of times the user toggled away from the view/tab and back."
+                }
+              },
+              "unevaluatedProperties": false
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "Duration": {
+      "type": "number"
+    },
+    "ActivatedComponent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Component"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ActivatedContent"
+              },
+              "description": "The activated content in the component."
+            },
+            "rect": {
+              "$ref": "#/definitions/Rectangle",
+              "description": "The size and position of the component when it was activated relative to the document top (not viewport)."
+            },
+            "area": {
+              "type": "string",
+              "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash."
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The component definition related to a user activation."
+    },
+    "Component": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExternalReference"
+        },
+        {
+          "$ref": "#/definitions/Personalizable"
+        },
+        {
+          "$ref": "#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "typeName": {
+              "type": "string",
+              "description": "An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial."
+            },
+            "dataSource": {
+              "$ref": "#/definitions/ExternalReference",
+              "description": "Optional references to the content that was used to render the component."
+            },
+            "instanceId": {
+              "type": "string",
+              "description": "An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree."
+            },
+            "instanceNumber": {
+              "$ref": "#/definitions/Integer",
+              "description": "If the same component type is used multiple times on the same page this number indicates which one it is. (As defined in the page's markup, typically this amounts to left-to-right/top-to-bottom)."
+            },
+            "inferred": {
+              "type": "boolean",
+              "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
+              "default": false
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "ExternalReference": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
+        },
+        "version": {
+          "type": "string",
+          "description": "Optionally, the version of the item in case the external source supports versioning."
+        },
+        "language": {
+          "type": "string",
+          "description": "Optionally, the language of the item in case the external source supports localization."
+        },
+        "source": {
+          "type": "string",
+          "description": "Optionally, the ID of the external system referenced."
+        },
+        "referenceType": {
+          "type": "string",
+          "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
+        },
+        "isExternal": {
+          "type": "boolean",
+          "description": "Flag to indicate that this data comes from an external system that you do not control."
+        },
+        "name": {
+          "type": "string",
+          "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
+        },
+        "itemType": {
+          "type": "string",
+          "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
+        },
+        "path": {
+          "type": "string",
+          "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "unevaluatedProperties": false,
+      "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.\n\nAgain, if you only have some hard-coded value, you can just make an external reference and use its  {@link  id }  property for the value. Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID."
+    },
+    "Personalizable": {
+      "type": "object",
+      "properties": {
+        "personalization": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Personalization"
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "Personalization": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "$ref": "#/definitions/ExternalReference",
+              "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s."
+            },
+            "variables": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PersonalizationVariable"
+              },
+              "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms."
+            },
+            "variants": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PersonalizationVariant"
+              },
+              "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources."
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more."
+    },
+    "PersonalizationVariable": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "A reference to a variable and its value in personalization."
+    },
+    "PersonalizationVariant": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sources": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PersonalizationSource"
+              },
+              "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time."
+            },
+            "default": {
+              "type": "boolean",
+              "description": "If the reference is the default variant.",
+              "default": false
+            },
+            "eligible": {
+              "type": "boolean",
+              "description": "If the variant could have been picked."
+            },
+            "selected": {
+              "type": "boolean",
+              "description": "If the variant was chosen."
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "A reference to the data/content item related to a variant in personalization."
+    },
+    "PersonalizationSource": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "relatedVariable": {
+              "type": "string",
+              "description": "In case of a multi-variate test (or similar) that runs over multiple components and/or pages, this can be the ID of the specific variable that decided personalization for a specific component."
+            },
+            "personalizationType": {
+              "type": "string",
+              "description": "The kind of personalization that relates to this item."
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } ."
+    },
+    "ActivatedContent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Content"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rect": {
+              "$ref": "#/definitions/Rectangle",
+              "description": "The current size and position of the element representing the content relative to the document top (not viewport)."
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The content definition related to a user activation."
+    },
+    "Content": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExternalReference"
+        },
+        {
+          "$ref": "#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "commerce": {
+              "$ref": "#/definitions/CommerceData"
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria"
+    },
+    "CommerceData": {
+      "type": "object",
+      "properties": {
+        "price": {
+          "$ref": "#/definitions/Decimal",
+          "description": "The unit price."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The unit the item is sold by."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency of the price. This field does not have a default value; if unspecified it must be assumed from context."
+        },
+        "variation": {
+          "$ref": "#/definitions/ExternalReference",
+          "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple)."
+        },
+        "stock": {
+          "$ref": "#/definitions/Float",
+          "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many)."
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "Decimal": {
+      "type": "number"
+    },
+    "Float": {
+      "type": "number"
+    },
+    "Rectangle": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Position"
+        },
+        {
+          "$ref": "#/definitions/Size"
+        },
+        {
+          "type": "object",
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "Position": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "$ref": "#/definitions/Float"
+        },
+        "y": {
+          "$ref": "#/definitions/Float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "unevaluatedProperties": false,
+      "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio]."
+    },
+    "Size": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "$ref": "#/definitions/Float"
+        },
+        "height": {
+          "$ref": "#/definitions/Float"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "unevaluatedProperties": false
+    },
+    "ScreenPosition": {
+      "type": "object",
+      "properties": {
+        "xpx": {
+          "$ref": "#/definitions/Integer"
+        },
+        "ypx": {
+          "$ref": "#/definitions/Integer"
+        },
+        "x": {
+          "$ref": "#/definitions/Percentage"
+        },
+        "y": {
+          "$ref": "#/definitions/Percentage"
+        },
+        "pageFolds": {
+          "$ref": "#/definitions/Float",
+          "description": "The vertical position as a multiple of the page fold position (less than 1 means that the element was visible without scrolling)."
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "unevaluatedProperties": false,
+      "description": "Represents a position where the units are percentages relative to an element or page."
+    },
+    "Percentage": {
+      "type": "number"
+    },
+    "Viewport": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Rectangle"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "totalWidth": {
+              "$ref": "#/definitions/Float"
+            },
+            "totalHeight": {
+              "$ref": "#/definitions/Float"
+            }
+          },
+          "required": [
+            "totalWidth",
+            "totalHeight"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "ComponentClickEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "COMPONENT_CLICK",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The event is triggered when a component is clicked.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS."
+    },
+    "ComponentViewEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "COMPONENT_VIEW",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "This event is triggered when the user scrolls a component into view if it is configured for this kind of tracking."
+    },
+    "NavigationEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "NAVIGATION",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "id": {
+              "$ref": "#/definitions/LocalID",
+              "description": "The ID of the navigation event. This will be added as  {@link  TrackedEvent.related }  to view event that followed after the navigation."
+            },
+            "href": {
+              "type": "string",
+              "description": "The destination URL of the navigation"
+            },
+            "exit": {
+              "type": "boolean",
+              "description": "Indicates that the user went away from the site to an external URL."
+            },
+            "anchor": {
+              "type": "string",
+              "description": "The anchor specified in the href if any."
+            },
+            "external": {
+              "type": "boolean",
+              "description": "Indicates that the navigation is to an external domain"
+            },
+            "domain": {
+              "$ref": "#/definitions/Domain",
+              "description": "The domain of the destination"
+            },
+            "self": {
+              "type": "boolean",
+              "description": "Whether the navigation happened in the current view or a new tab/window was opened."
+            }
+          },
+          "required": [
+            "type",
+            "id",
+            "href",
+            "self"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "Domain": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "type": "string"
+        },
+        "domainName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol",
+        "domainName"
+      ],
+      "unevaluatedProperties": false,
+      "description": "Represents a domain name, e.g. https://www.foo.co.uk"
+    },
+    "ScrollEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "SCROLL",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "offset": {
+              "$ref": "#/definitions/ScreenPosition",
+              "description": "The offset relative to the page size (100 % is bottom, 0 % is top)"
+            },
+            "scrollType": {
+              "type": "string",
+              "enum": [
+                "fold",
+                "article-end",
+                "page-middle",
+                "page-end",
+                "reading",
+                "offset"
+              ],
+              "description": "The type of scrolling."
+            }
+          },
+          "required": [
+            "type",
+            "offset"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "SearchEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "SEARCH",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "query": {
+              "type": "string"
+            },
+            "searchParameter": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/SearchParameter"
+              },
+              "unevaluatedProperties": false
+            },
+            "resultCount": {
+              "$ref": "#/definitions/Integer"
+            },
+            "significantResults": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/SearchResult"
+              }
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "SearchParameter": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            },
+            "comparison": {
+              "type": "string",
+              "enum": [
+                "lt",
+                "eq",
+                "gt"
+              ]
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "SearchResult": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rank": {
+              "$ref": "#/definitions/Integer"
+            }
+          },
+          "required": [
+            "rank"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "SessionStartedEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "SESSION_STARTED",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "url": {
+              "type": "string"
+            },
+            "sessionNumber": {
+              "$ref": "#/definitions/Integer",
+              "description": "The total number of sessions from the given device (regardless of username)."
+            },
+            "timeSinceLastSession": {
+              "$ref": "#/definitions/Duration",
+              "description": "The time since the last session from this device."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "UserAgentLanguage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The full language tag as specified by (RFC 5646/BCP 47)[https://datatracker.ietf.org/doc/html/rfc5646]"
+        },
+        "language": {
+          "type": "string",
+          "description": "The language name (ISO 639)."
+        },
+        "region": {
+          "type": "string",
+          "description": "Dialect (ISO 3166 region)."
+        },
+        "primary": {
+          "type": "boolean",
+          "description": "If it is the users primary preference."
+        },
+        "preference": {
+          "$ref": "#/definitions/Integer",
+          "description": "The user's preference of the language (1 is highest)."
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "primary",
+        "preference"
+      ],
+      "unevaluatedProperties": false
+    },
+    "UserAgentEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "$ref": "#/definitions/SessionScoped"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "USER_AGENT",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "hasTouch": {
+              "type": "boolean",
+              "description": "Has touch"
+            },
+            "deviceType": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "tablet",
+                "desktop"
+              ],
+              "description": "The device type (inferred from screen size). The assumption is:   - anything width a logical device pixel width less than 480 is a phone,   - anything with a logical device pixel width less than or equal to 1024 (iPad Pro12.9\") is a tablet,   - the rest are desktops.\n\nDevice width is the physical width of the device regardless of its orientation."
+            },
+            "userAgent": {
+              "type": "string",
+              "description": "User agent string"
+            },
+            "languages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/UserAgentLanguage"
+              },
+              "description": "The user's language preferences as configured in the user's device."
+            },
+            "timezone": {
+              "type": "object",
+              "properties": {
+                "iana": {
+                  "type": "string"
+                },
+                "offset": {
+                  "$ref": "#/definitions/Float",
+                  "description": "The offset from GMT in hours."
+                }
+              },
+              "required": [
+                "iana",
+                "offset"
+              ],
+              "unevaluatedProperties": false
+            },
+            "screen": {
+              "type": "object",
+              "properties": {
+                "dpr": {
+                  "$ref": "#/definitions/Float",
+                  "description": "Device pixel ratio (i.e. how many physical pixels per logical CSS pixel)"
+                },
+                "width": {
+                  "$ref": "#/definitions/Float",
+                  "description": "Device width."
+                },
+                "height": {
+                  "$ref": "#/definitions/Float",
+                  "description": "Device height."
+                },
+                "landscape": {
+                  "type": "boolean",
+                  "description": "Whether the device is held in landscape mode.",
+                  "default": false
+                }
+              },
+              "required": [
+                "dpr",
+                "width",
+                "height"
+              ],
+              "unevaluatedProperties": false,
+              "description": "Screen"
+            }
+          },
+          "required": [
+            "type",
+            "userAgent",
+            "timezone"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "SessionScoped": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Scoped"
+        },
+        {
+          "type": "object",
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened."
+    },
+    "Scoped": {
+      "type": "object",
+      "unevaluatedProperties": false,
+      "description": "Base interface for other marker interfaces that specifies that an event is scoped to something else than page views."
+    },
+    "ClickIds": {
+      "type": "object",
+      "properties": {
+        "google": {
+          "type": "string"
+        },
+        "googleDoubleClick": {
+          "type": "string"
+        },
+        "facebook": {
+          "type": "string"
+        },
+        "microsoft": {
+          "type": "string"
+        },
+        "googleAnalytics": {
+          "type": "string"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "ViewEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "VIEW",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "id": {
+              "$ref": "#/definitions/LocalID",
+              "description": "The ID of the view event that is referenced by  {@link  ViewContext  } ."
+            },
+            "definition": {
+              "$ref": "#/definitions/View",
+              "description": "The primary content used to generate the view including the personalization that led to the decision, if any."
+            },
+            "tab": {
+              "$ref": "#/definitions/LocalID",
+              "description": "The tab where the view was shown."
+            },
+            "href": {
+              "type": "string",
+              "description": "The fully qualified URL as shown in the address line of the browser excluding the domain."
+            },
+            "hash": {
+              "type": "string",
+              "description": "The hash part of the URL (/about-us#address)."
+            },
+            "path": {
+              "type": "string",
+              "description": "The path portion of the URL."
+            },
+            "utm": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "medium": {
+                  "type": "string"
+                },
+                "campaign": {
+                  "type": "string"
+                },
+                "term": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              },
+              "unevaluatedProperties": false,
+              "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters]."
+            },
+            "queryString": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "unevaluatedProperties": false,
+              "description": "The query string parameters in the URL, e.g. utm_campaign. Each parameter can have multiple values, for example If the parameter is specified more than once. If the parameter is only specified once pipes, semicolons and commas are assumed to separate values (in that order). A parameter without a value will get recorded as an empty string."
+            },
+            "domain": {
+              "$ref": "#/definitions/Domain",
+              "description": "The domain part of the href, if any."
+            },
+            "landingPage": {
+              "type": "boolean",
+              "description": "Indicates that this was the first view in the first tab the user opened. Note that this is NOT tied to the session. If a user closes all tabs and windows for the site and then later navigates back to the site in the same session this flag will be set again.",
+              "default": false
+            },
+            "firstTab": {
+              "type": "boolean",
+              "description": "Indicates that no other tabs were open when the view happened. This flag allows a backend to extend the definition of a session that can last indefinitely but still restart after inactivity. By measuring the time between a view with this flag and the previous event from the same device, it is possible to see for how long the device has been away from the site.",
+              "default": false
+            },
+            "tabIndex": {
+              "$ref": "#/definitions/Integer",
+              "description": "The 1-indexed view number in the current tab. This is kept as a convenience, yet technically redundant since it follows from timestamps and context.",
+              "default": 1
+            },
+            "redirects": {
+              "$ref": "#/definitions/Integer",
+              "description": "Number of redirects that happened during navigation to this view."
+            },
+            "navigationType": {
+              "type": "string",
+              "enum": [
+                "navigate",
+                "back-forward",
+                "prerender",
+                "reload"
+              ],
+              "description": "Navigation type."
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "manual",
+                "automatic"
+              ],
+              "description": "Indicates whether the event was manually triggered through a tracker command, or happened automatically by the tracker's ability to infer navigation.",
+              "default": "automatic"
+            },
+            "externalReferrer": {
+              "type": "object",
+              "properties": {
+                "href": {
+                  "type": "string"
+                },
+                "domain": {
+                  "$ref": "#/definitions/Domain"
+                }
+              },
+              "unevaluatedProperties": false,
+              "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field."
+            },
+            "viewport": {
+              "$ref": "#/definitions/Size",
+              "description": "The size of the user's view port (e.g. browser window) when the page was opened."
+            },
+            "viewType": {
+              "type": "string",
+              "description": "The type of view, e.g. \"page\" or \"screen\".",
+              "default": "page"
+            }
+          },
+          "required": [
+            "type",
+            "id",
+            "href"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "View": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Content"
+        },
+        {
+          "$ref": "#/definitions/Personalizable"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "preview": {
+              "type": "boolean",
+              "description": "The page was shown in preview/staging mode."
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "ViewEndedEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "$ref": "#/definitions/ViewTimingEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "VIEW_ENDED",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "bounce": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "SessionLocationEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "$ref": "#/definitions/SessionScoped"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "SESSION_LOCATION",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "accuracy": {
+              "$ref": "#/definitions/Float",
+              "description": "This number is like the precise definition of what the bars indicating signal strength on mobile phones represents. Nobody knows. Yet, for this number lower is better."
+            },
+            "city": {
+              "$ref": "#/definitions/GeoEntity"
+            },
+            "zip": {
+              "type": "string"
+            },
+            "subdivision": {
+              "$ref": "#/definitions/GeoEntity"
+            },
+            "country": {
+              "$ref": "#/definitions/GeoEntity"
+            },
+            "continent": {
+              "$ref": "#/definitions/GeoEntity"
+            },
+            "lat": {
+              "$ref": "#/definitions/Float"
+            },
+            "lng": {
+              "$ref": "#/definitions/Float"
+            },
+            "providerData": {
+              "type": "object",
+              "unevaluatedProperties": false
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "GeoEntity": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "geonames": {
+          "$ref": "#/definitions/Integer"
+        },
+        "iso": {
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "#/definitions/Float"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "unevaluatedProperties": false
+    },
+    "AnchorNavigationEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "ANCHOR_NAVIGATION",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "anchor": {
+              "type": "string",
+              "description": "The name of the anchor."
+            }
+          },
+          "required": [
+            "type",
+            "anchor"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)"
+    },
+    "ConsentEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "CONSENT",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "nonEssentialTracking": {
+              "type": "boolean",
+              "description": "Whether the user has consented to non-essential tracking."
+            }
+          },
+          "required": [
+            "type",
+            "nonEssentialTracking"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are required to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
+    },
+    "CommerceEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "CartAction": {
+      "type": "string",
+      "enum": [
+        "add",
+        "remove",
+        "update",
+        "clear"
+      ]
+    },
+    "CartUpdatedEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserInteractionEvent"
+        },
+        {
+          "$ref": "#/definitions/CommerceEvent"
+        },
+        {
+          "$ref": "#/definitions/CartEventData"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "CART_UPDATED",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Indicates that a shopping cart was updated."
+    },
+    "CartEventData": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/OrderQuantity"
+        },
+        {
+          "$ref": "#/definitions/ExternalUse"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "$ref": "#/definitions/CartAction",
+              "description": "The way the cart was modified.",
+              "default": "add"
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "OrderQuantity": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/CommerceData"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "units": {
+              "$ref": "#/definitions/Integer",
+              "description": "The number of units.",
+              "default": 1
+            },
+            "item": {
+              "$ref": "#/definitions/ExternalReference",
+              "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context."
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Base information for the amount of an item added to an  {@link  Order }  or cart that is shared between  {@link  CartUpdatedEvent }  and  {@link  OrderLine } ."
+    },
+    "ExternalUse": {
+      "type": "object",
+      "unevaluatedProperties": false,
+      "description": "Types and interfaces extending this marker interface directly must have a concrete type that can be instantiated in code-generation scenarios because they are referenced directly outside of the types package."
+    },
+    "OrderEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/CommerceEvent"
+        },
+        {
+          "$ref": "#/definitions/Order"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "ORDER",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "An order submitted by a user."
+    },
+    "Order": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "internalId": {
+              "type": "string",
+              "description": "A reference that can be used both before the order is completed, and if the order ID shown to the user is different from how the order is stored in underlying systems."
+            },
+            "orderId": {
+              "type": "string",
+              "description": "The order ID as shown to the user."
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/OrderLine"
+              },
+              "description": "Optionally, all the items in the order at the time the order was made."
+            },
+            "discount": {
+              "$ref": "#/definitions/Decimal",
+              "description": "The total discount given for this order including the sum of individual order line discounts"
+            },
+            "delivery": {
+              "$ref": "#/definitions/Decimal",
+              "description": "The delivery cost, if any, and it is not included as an order line."
+            },
+            "vat": {
+              "$ref": "#/definitions/Decimal",
+              "description": "The VAT included in the total."
+            },
+            "total": {
+              "$ref": "#/definitions/Decimal",
+              "description": "The total of the order including VAT, delivery, discounts and any other costs added."
+            },
+            "paymentMethod": {
+              "type": "string",
+              "description": "The payment method selected for the order."
+            },
+            "currency": {
+              "type": "string",
+              "description": "The currency used for the order.\n\nThe order lines are assumed to be in this currency if not explicitly specified for each. (It is not an error to have order lines with different currencies it is just a bit... unusual)."
+            }
+          },
+          "required": [
+            "orderId"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Represents an order for tracking purposes."
+    },
+    "OrderLine": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/OrderQuantity"
+        },
+        {
+          "$ref": "#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lineId": {
+              "type": "string",
+              "description": "An optional identifier that makes it possible to reference this order line directly."
+            },
+            "vat": {
+              "$ref": "#/definitions/Decimal",
+              "description": "The VAT included in the total."
+            },
+            "total": {
+              "$ref": "#/definitions/Decimal",
+              "description": "The total for this order line including VAT"
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "CartAbandonedEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/CommerceEvent"
+        },
+        {
+          "$ref": "#/definitions/Order"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "CART_ABANDONED",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "lastCartEvent": {
+              "$ref": "#/definitions/Timestamp",
+              "description": "The timestamp for the last time the shopping cart was modified by the user before abandonment."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The shopping cart was abandoned. Currently there is no logic in the tracker to trigger this event automatically, hence a custom trigger must be implemented."
+    },
+    "OrderStatusEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "order": {
+              "type": "string",
+              "description": "A reference to the order that changed status."
+            }
+          },
+          "required": [
+            "order"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Base event for events that related to an order changing status."
+    },
+    "OrderConfirmedEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "ORDER_CONFIRMED",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "An order was accepted.\n\nThis may be useful to track if some backend system needs to validate if the order submitted by the user is possible, or just for monitoring whether your site is healthy and actually processes the orders that come in.\n\nThis event should also imply that the user got a confirmation."
+    },
+    "OrderCancelledEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "ORDER_CANCELLED",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "cancelledByUser": {
+              "type": "boolean",
+              "description": "Indicates if the user cancelled the order or it happended during a background process.",
+              "default": "false;"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "An order was cancelled."
+    },
+    "OrderCompletedEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "ORDER_COMPLETED",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "An order was cancelled."
+    },
+    "PaymentEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/CommerceEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "orderReference": {
+              "type": "string",
+              "description": "The reference to order for which payment was made, either  {@link  Order.orderId }  or  {@link  Order.internalId } ."
+            },
+            "amount": {
+              "$ref": "#/definitions/Decimal",
+              "description": "The amount paid."
+            },
+            "paymentMethod": {
+              "type": "string",
+              "description": "A domain specific value for the payment method."
+            },
+            "currency": {
+              "type": "string",
+              "description": "The currency of the payment."
+            }
+          },
+          "required": [
+            "orderReference",
+            "amount"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Events related to order payments."
+    },
+    "PaymentAcceptedEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/PaymentEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "PAYMENT_ACCEPTED",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "finalPayment": {
+              "type": "boolean",
+              "description": "The payment was the final payment, hence completed the order.",
+              "default": "true;"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The payment for an order was accepted."
+    },
+    "PaymentRejectedEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/PaymentEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "PAYMENT_REJECTED",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "A payment for the order was rejected."
+    },
+    "AuthenticationEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Events related to users signing in, out etc.."
+    },
+    "SignInEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/AuthenticationEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "SIGN_IN",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "username": {
+              "type": "string",
+              "description": "The user that signed in."
+            }
+          },
+          "required": [
+            "type",
+            "username"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "A user signed in."
+    },
+    "SignOutEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/AuthenticationEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "SIGN_OUT",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "username": {
+              "type": "string",
+              "description": "The user that signed out."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "A user actively signed out. (Session expiry doesn't count)."
+    },
+    "SystemEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics."
+    },
+    "HeartbeatEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "$ref": "#/definitions/ViewTimingEvent"
+        },
+        {
+          "$ref": "#/definitions/SystemEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "HEARTBEAT",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "An event that may be sent regularaly from the client to indicate how long it has been alive. In case  {@link  ViewEndedEvent } s are not sent or gets lost these heartbeats can be used to approximate page view durations."
+    },
+    "ImpressionEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "IMPRESSION",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "duration": {
+              "$ref": "#/definitions/Duration"
+            },
+            "impressions": {
+              "$ref": "#/definitions/Integer"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the amount of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } ."
+    },
+    "ResetEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TrackedEvent"
+        },
+        {
+          "$ref": "#/definitions/SystemEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "RESET",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "includeDevice": {
+              "type": "boolean",
+              "description": "Whether only the session or also the device should be reset.",
+              "default": true
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "An event that can be used to reset the current session and optionally also device. Intended for debugging and not relayed to backends."
+    },
+    "FormEvent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "FORM",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "name": {
+              "type": "string",
+              "description": "The name of the form that was submitted."
+            },
+            "completed": {
+              "type": "boolean",
+              "description": "Indicates whether the form was completed (that is, submitted). If this is false it means that the form was abandoned.",
+              "default": false
+            },
+            "activeTime": {
+              "$ref": "#/definitions/Duration",
+              "description": "The duration the user was actively filling the form."
+            },
+            "totalTime": {
+              "$ref": "#/definitions/Duration",
+              "description": "The total duration from the user started filling out the form until completion or abandoment.."
+            },
+            "fields": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/FormField"
+              },
+              "unevaluatedProperties": false,
+              "description": "All fields in the form (as detected)."
+            },
+            "ref": {
+              "type": "string",
+              "description": "A correlation ID. If a hidden input element has the name \"_tailref\", the HTML attribute \"track-ref\" or css variable \"--track-ref: 1\" its value will be used. If all of the above is difficult to inject in the way the form is embedded, the form element or any of its ancestors may alternatively have the HTML attribute \"track-ref\" with the name of the hidden input field that contains the reference.\n\nIf no initial value a unique one will be assigned. Make sure to store the value in receiving end."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "FormField": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the form field."
+        },
+        "label": {
+          "type": "string",
+          "description": "The label of the form field."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of the input field."
+        },
+        "filled": {
+          "type": "boolean",
+          "description": "If a user provided a value for the form field.\n\nFor checkboxes and prefilled drop-downs this is only set if the user changed the value (for checkboxes that is clicked them)."
+        },
+        "corrections": {
+          "$ref": "#/definitions/Integer",
+          "description": "The number of times the field was changed after initially being filled."
+        },
+        "activeTime": {
+          "$ref": "#/definitions/Duration",
+          "description": "How long the user was active in the field (field had focus on active tab)."
+        },
+        "totalTime": {
+          "$ref": "#/definitions/Duration",
+          "description": "How long the user was in the field (including if the user left the tab and came back)."
+        },
+        "value": {
+          "type": "string",
+          "description": "The value of the form field. Be careful with this one, if you have connected a backend where you don't control the data. This value will not be populated unless the user has consented."
+        },
+        "fillOrder": {
+          "$ref": "#/definitions/Integer",
+          "description": "This field's number in the order the form was filled. A field is \"filled\" the first time the user types something in it.\n\nIf a checkbox or pre-filled drop down is left unchanged it will not get assigned a number."
+        },
+        "lastField": {
+          "type": "boolean",
+          "description": "The field was the last one to be filled before the form was either submitted or abandoned."
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "unevaluatedProperties": false,
+      "description": "A form field value in a  {@link  FormEvent } ."
+    },
+    "ConfiguredComponent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Component"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "track": {
+              "$ref": "#/definitions/TrackingSettings",
+              "description": "Settings for how the component will be tracked.\n\nThese settings are not tracked, that is, this property is stripped from the data sent to the server."
+            }
+          },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "TrackingSettings": {
+      "type": "object",
+      "properties": {
+        "promote": {
+          "type": "boolean",
+          "description": "Always include in  {@link  UserInteractionEvent.components } , also if it is a parent component. By default only the closest component will be included.\n\nThis does not apply to impression tracking.\n\nNot inherited by child components.\n\nHTML attribute: `track-promote`. CSS: `--track-promote: 1/yes/true`.",
+          "default": false
+        },
+        "secondary": {
+          "type": "boolean",
+          "description": "The component will only be tracked with the closest non-secondary component as if the latter had the  {@link  promote }  flag.\n\nThis does not apply to impression tracking.\n\nNot inherited by child components.\n\nHTML attribute: `track-secondary`. \\ CSS: `--track-secondary: 1/yes/true`.",
+          "default": false
+        },
+        "region": {
+          "type": "boolean",
+          "description": "Track the visible region occupied by the component or content.\n\nInherited by child components (also if specified on non-component DOM element).\n\nHTML attribute: `track-region`. \\ CSS: `--track-region: 1/yes/true`.",
+          "default": false
+        },
+        "clicks": {
+          "type": "boolean",
+          "description": "Track clicks. Note that clicks are always tracked if they cause navigation.\n\nInherited by child components (also if specified on non-component DOM element).\n\nHTML attribute: `track-clicks`. CSS: `--track-clicks: 1/yes/true`.",
+          "default": "true unless in a `<nav>` tag"
+        },
+        "impressions": {
+          "type": "boolean",
+          "description": "Track impressions, that is, when the component becomes visible in the user's browser for the first time. This goes well with  {@link  region } .\n\nNot inherited by child components.\n\nHTML attribute: `track-impressions`. CSS: `--track-impressions: 1/yes/true`.",
+          "default": false
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}
