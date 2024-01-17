@@ -1,0 +1,78 @@
+---
+title: RavenDB
+sidebar: { order: 50 }
+---
+
+
+Raven DB is a very efficient way to store and analyze the collected events.
+The package `@tailjs/ravendb` provides an integration for this.
+
+## Configuration
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+
+### Example configuration
+<Tabs>
+<TabItem label="NextJS and Express">
+
+```ts
+import {RavenDbTracker} from "@tailjs/ravendb";
+
+tailjs({
+  // ...
+  extensions: [
+    // ...
+    new RavenDbTracker({
+      url: "https://a.your-account.ravendb.community",
+      database: "tailjs",
+      cert: {
+        certPath: "ravendb/your-license.pfx",
+      },
+    });
+    // ...
+  ]
+});
+```
+</TabItem>
+<TabItem label=".NET">
+
+  The RavenDB package comes bundles with the NuGet package so no additional installation is needed.
+
+```json title="appsettings.json"
+ "TailJs": {
+  // ...
+    "ScriptExtensions": [
+      // ...
+      {
+        "Module": "js/ravendb.js",
+        "Import": "RavenDbTracker",
+        "Settings": {
+          "url": "https://a.your-account.ravendb.community",
+          "database": "tailjs",
+          "x509": {
+            "certPath": "ravendb/your-license.pfx"
+          }
+        }
+      }
+      // ...
+    ]
+}
+```
+</TabItem>
+</Tabs>
+
+### url 
+
+The URL for the server/cluster. For example <code><span>htt</span>ps://a.<i>your-account</i>.ravendb.community</code>
+
+### database
+
+The name of the database to use. Events will go into a collection named "events".
+
+### x509
+
+Use any of the parameters `cert`, `certPath`, `key` and `keyPath` to specify your certifacte for authentication with the server.
+
+The cert path is relative to the resources directory the server engine is using. The default is `res` in the root of your project.
+

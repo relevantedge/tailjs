@@ -1,4 +1,4 @@
-import type { TrackerConfiguration } from "@tailjs/client";
+import type { TrackerConfiguration } from "@tailjs/client/external";
 import { DEFAULT_CLIENT_CONFIG } from "@tailjs/client/external";
 
 import type { ViewEvent } from "@tailjs/types";

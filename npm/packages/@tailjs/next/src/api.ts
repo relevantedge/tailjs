@@ -1,3 +1,4 @@
+import { TrackerConfiguration } from "@tailjs/client/external";
 import type { RequestHandler, TrackerExtension } from "@tailjs/engine";
 import { bootstrap } from "@tailjs/engine";
 import { NativeHost } from "@tailjs/engine/native";
@@ -65,6 +66,11 @@ export interface ApiSettings {
   cookieKeys?: string[];
 
   /**
+   * Configuration for the tracker client.
+   */
+  client?: TrackerConfiguration;
+
+  /**
    * Controls whether logs are written to files in the `res/logs` directory or only printed to the console.
    * The latter is preferable in production environments like Vercel where stdout is collected, and files have very limited use (might even cause issues as they grow).
    *
@@ -88,7 +94,7 @@ export interface ApiSettings {
   fakeIp?(request: NextApiRequest): string | undefined;
 }
 
-export const api = ({
+export const tailjs = ({
   resourcePath = "res",
   resourceDeploymentPath,
   endpoint = "/api/t.js",
@@ -170,17 +176,6 @@ export const api = ({
 
       function send(status: number, content?: string | Uint8Array | null) {
         res.statusCode = status;
-
-        // res.setHeader("Access-Control-Allow-Credentials", "true");
-        // res.setHeader("Access-Control-Allow-Origin", "*"); // replace this your actual origin
-        // res.setHeader(
-        //   "Access-Control-Allow-Methods",
-        //   "GET,DELETE,PATCH,POST,PUT"
-        // );
-        // res.setHeader(
-        //   "Access-Control-Allow-Headers",
-        //   "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
-        // );
 
         if (response) {
           for (const [name, value] of Object.entries(response.headers)) {

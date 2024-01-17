@@ -3,11 +3,12 @@ import {
   CryptoProvider,
   EngineHost,
   EventParser,
-  TrackerExtension,
   RequestHandler,
   RequestHandlerConfiguration,
+  TrackerExtension,
 } from "./shared";
 
+import type { TrackerConfiguration } from "@tailjs/client";
 import { map } from "./lib";
 
 export type BootstrapSettings = {
@@ -25,6 +26,7 @@ export type BootstrapSettings = {
   useSession?: boolean;
   debugScript?: boolean | string;
   environmentTags?: string[];
+  client?: TrackerConfiguration;
 };
 
 export function bootstrap({
