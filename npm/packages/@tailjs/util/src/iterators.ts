@@ -1,4 +1,5 @@
 import {
+  IsAny,
   hasValue,
   identity,
   isArray,
@@ -28,15 +29,15 @@ export type IteratorSource<T, Start = undefined> =
 
 export type IteratorItem<S extends IteratorSource<any>> = S extends number
   ? number
-  : S extends string
-  ? [char: string, code: number]
   : S extends Record<infer K, infer V> & { [Symbol.iterator]?: never }
   ? S extends (...args: any) => infer T | undefined
     ? T
     : [K, V]
-  : S extends IteratorSource<infer T, any>
-  ? T
-  : never;
+  : S extends Iterable<infer T>
+  ? T extends string
+    ? string
+    : T
+  : unknown;
 
 export type IteratorAction<S extends IteratorSource<any>, R> = (
   value: IteratorItem<S>,
@@ -112,6 +113,103 @@ function* createFunctionIterator<T, Start extends T | undefined>(
   }
 }
 
+//const iteratorScopes:
+
+export type Control2<S, T, P> = {
+  source: S;
+  prev: T | undefined;
+  skip(): void;
+  return(value?: P): P | undefined;
+};
+
+export function slice<T>(
+  source: Iterable<T>,
+  start: number,
+  end: number
+): Iterable<T> {
+  if (start < 0 || end < 0) {
+    source = [...source];
+  }
+  if (isArray(source)) {
+    return source.slice(start, end);
+  }
+
+  return sliceIt();
+
+  function* sliceIt() {
+    for (const item of source) {
+      if (start--) continue;
+      if (!end--) break;
+      yield item;
+    }
+  }
+}
+
+export function* traverse<T>(start: T, step: (current: T) => T | undefined) {
+  if (start !== undefined) {
+    yield start;
+  }
+  while ((start = step(start)!) !== undefined) {
+    yield start;
+  }
+}
+
+export function* project2<T, S extends Iterable<T>, P = T>(
+  source: S,
+  action: (item: T, index: number, control: Control2<S, T, P>) => P = (item) =>
+    item as any,
+  collect?: (result: P) => void
+) {
+  let i = 0;
+  let flag = 0;
+  let result: P | undefined;
+  const control: Control2<S, T, P> = {
+    prev: undefined,
+    source,
+    skip: () => (flag = 1),
+    return: (value?: P) => ((flag = value ? 2 : 3), value),
+  };
+
+  for (const item of source) {
+    result = action(item, i++, control);
+    if (!(flag % 2)) {
+      if (!collect) {
+        yield result;
+      } else {
+        collect(result);
+      }
+      control.prev = item;
+    }
+    if (flag > 1) {
+      break;
+    }
+  }
+}
+
+export function* project3<T>(source: Iterable<T>, action: (item: T) => any) {
+  for (const item of source) {
+    yield action(item);
+  }
+}
+
+export const forEach2Basic = <T, R>(
+  source: Iterable<T>,
+  action: (item: T) => R
+) => {
+  let returnValue: R | undefined;
+  for (const item of project3(source, action)) {
+    returnValue = item;
+  }
+  return returnValue;
+};
+export const forEach2 = <T, R>(source: Iterable<T>, action: (item: T) => R) => {
+  let returnValue: R | undefined;
+
+  for (const _ of project2(source, action, (value) => (returnValue = value)));
+
+  return returnValue;
+};
+
 export function* project<
   S extends IteratorSource<any, Start>,
   R = IteratorItem<S>,
@@ -121,24 +219,25 @@ export function* project<
   action: IteratorAction<S, R>,
   ...[start, end]: StartEndArgs<S, Start>
 ) {
+  let i = -1;
   let n: number | undefined = isNumber(source)
     ? source
     : (source as any)?.length;
 
   if (source == null || n === 0) {
-    return null;
+    return;
   }
 
   let actionResult: any;
   let value: any = undefined;
   let done = false;
-  let i = -1;
+
   let iteratorItem: IteratorResult<IteratorItem<S>>;
   let iterationLimit: number;
   const moveNext = (peeking = false) => {
     if (done) return false;
     ++i;
-    if (!peeking || !peeked.length) {
+    if (!peeking || !peeked?.length) {
       iteratorItem = it.next();
       value = iteratorItem.value;
     } else {
@@ -147,12 +246,12 @@ export function* project<
     (control as any).previous = value;
     return !(done = iteratorItem.done!);
   };
-  const peeked: IteratorItem<S>[] = [];
-  const appended: R[] = [];
+  let peeked: IteratorItem<S>[] | null = null;
+  let appended: R[] | null = null;
   const skip = (count: number, peek: boolean) => {
     while (count-- && moveNext()) {
       if (peek) {
-        peeked.push(value);
+        (peeked ??= []).push(value);
       }
     }
   };
@@ -163,14 +262,14 @@ export function* project<
     },
     previous: undefined,
     peek: (delta = 1) => {
-      if (delta < peeked.length) return peeked[delta];
+      if (delta < (peeked?.length as any)) return peeked![delta];
       skip(delta, true);
       return value;
     },
     skip: (count = 1) => skip(count, false) as any,
     next: (count = 1) => (control.skip(count), value),
     append: (value: R) => {
-      appended.push(value);
+      (appended ??= []).push(value);
     },
     end: (returnValue) => ((done = true), returnValue),
   };
@@ -201,8 +300,6 @@ export function* project<
           : source
         : isNumber(source)
         ? createRangeIterator(source, start!)
-        : isString(source)
-        ? createStringIterator(source, start!, end as any)
         : isObject(source)
         ? createArrayIterator(Object.entries(source), start!, end as any)
         : createRangeIterator(source, start as any)
@@ -215,8 +312,8 @@ export function* project<
       yield actionResult;
     }
 
-    while (appended.length) {
-      yield appended.shift();
+    while ((appended as any)?.length) {
+      yield appended!.shift();
     }
   }
 }

@@ -4,16 +4,29 @@
         <TargetFramework>net7.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <Version>0.17.24</Version>
+        <Title>Umbraco integration for tail.js</Title>
+        <Authors>tail.js</Authors>
+        <Copyright>RelevantEdge</Copyright>
+        <PackageProjectUrl>https://www.tailjs.org/</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/relevantedge/tailjs/blob/main/LICENSE</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/relevantedge/tailjs</RepositoryUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <ItemGroup>
-      
+        <None Include="README.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="TailJs.AspNet" Version="0.17.24" />
         <PackageReference Include="Umbraco.Cms.Core" Version="12.2.0"/>
         <PackageReference Include="Umbraco.Cms.Web.Common" Version="12.2.0"/>
+        
     </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\..\core\TailJs.AspNet\TailJs.AspNet.csproj"/>
-    </ItemGroup>
+<!--    <ItemGroup>-->
+<!--        <ProjectReference Include="..\..\core\TailJs.AspNet\TailJs.AspNet.csproj"/>-->
+<!--    </ItemGroup>-->
 
 </Project>
