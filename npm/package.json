@@ -82,5 +82,8 @@
     "@ygoe/msgpack": "^1.0.3",
     "rollup-plugin-visualizer": "^5.9.2",
     "text-encoding-polyfill": "^0.6.7"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

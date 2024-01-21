@@ -1,4 +1,4 @@
-import { forEach, map, mapFiltered } from "../src";
+import { forEach, forEach2, forEach2Basic, map, mapFiltered } from "../src";
 
 describe("Iterator functionality iterates iterably", () => {
   it("Makes ranges", () => {
@@ -13,12 +13,60 @@ describe("Iterator functionality iterates iterably", () => {
     expect(map("abc")).not.toEqual(["a", "b", "c"]);
   });
 
-  it("Projects strings as characters with code points", () =>
-    expect(map("abc")).toEqual([
-      ["a", 97],
-      ["b", 98],
-      ["c", 99],
-    ]));
+  function* source() {
+    yield 1;
+    yield 2;
+    yield 3;
+  }
+
+  let perfs: [number, number][] = [];
+  for (let run = 0; run < 100; run++) {
+    const perf = [0, 0];
+    let t0 = performance.now();
+    //  const source = [1, 2, 3];
+    let n1 = 0;
+    for (let i = 0; i < 1000; i++) {
+      forEach2Basic(source(), (item) => (n1 += item));
+    }
+    perf[0] = performance.now() - t0;
+    t0 = performance.now();
+    let n2 = 0;
+
+    for (let i = 0; i < 1000; i++) {
+      forEach2(source(), (item) => (n2 += item));
+    }
+
+    if (n1 !== n2) {
+      throw new Error(`Nix ${n1} vs ${n2}`);
+    }
+    perf[1] = performance.now() - t0;
+    perfs.push(perf as any);
+  }
+
+  let ps1 = 0;
+  let ps2 = 0;
+  let np = 0;
+  for (const [p1, p2] of perfs) {
+    if (np++ > 5) {
+      ps1 += p1;
+      ps2 += p2;
+    }
+  }
+  ps1 /= np - 3;
+  ps2 /= np - 3;
+
+  console.log(
+    `${ps1.toFixed(2)} ms vs. ${ps2.toFixed(2)} ms (diff ${(ps2 - ps1).toFixed(
+      2
+    )} ms/${(100 * (ps2 / ps1)).toFixed(2)} %).`
+  );
+
+  // it("Projects strings as characters with code points", () =>
+  //   expect(map("abc")).toEqual([
+  //     ["a", 97],
+  //     ["b", 98],
+  //     ["c", 99],
+  //   ]));
 
   it("Offsets and peeks", () => {});
 

@@ -139,8 +139,8 @@ const createConfig = (debug) =>
       uglify({
         compress: {
           evaluate: "eager",
-          passes: 2,
         },
+        mangle: false,
       }),
       // uglify({
       //   mangle: {

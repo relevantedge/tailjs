@@ -40,7 +40,6 @@ export const debug: {
   ): true;
   //} = (() => true) as any;
 } = (...args: any[]) => {
-  return;
   if (!chat) {
     chat = createChannel<Text>("chat");
     chat((payload, source) => print(payload, source), T);

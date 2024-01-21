@@ -22,14 +22,12 @@ import {
   ERR_INVALID_COMMAND,
   F,
   T,
-  USR_URL,
   addGlobalStateResolvedListener,
   addQueuePostListener,
   addResponseListener,
   array,
   assign,
   commit,
-  createChannel,
   define,
   del,
   enqueueEvent,
@@ -40,13 +38,11 @@ import {
   globalStateResolved,
   httpDecode,
   isTracker,
-  listen,
   map,
   mapUrl,
   nextId,
   nil,
   now,
-  openPromise,
   push,
   registerSharedState,
   setStorageKey,
@@ -64,6 +60,7 @@ import {
 export let tracker: Tracker;
 export const initializeTracker = (config: TrackerConfiguration | string) => {
   if (tracker) return tracker;
+
   str(config) && (config = httpDecode(config)!);
 
   // Make sure the configuration has all parameters set to valid values.

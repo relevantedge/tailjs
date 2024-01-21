@@ -12,7 +12,24 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1756235-4424-458f-b8f3-c8bf8d7b92a2" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/examples/TailJs.Umbraco.Example/appsettings.local.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/TailJs.AspNet/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/core/TailJs/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/integrations/TailJs.Umbraco/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/TailJs.AspNet.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/TailJs.AspNet.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/TailJs.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/TailJs.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/integrations/TailJs.Umbraco/TailJs.Umbraco.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/integrations/TailJs.Umbraco/TailJs.Umbraco.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/index.browser.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/index.browser.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/initializeTracker.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/initializeTracker.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/debug.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/debug.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/tsconfig.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -23,6 +40,9 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandlerPool.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/TrackerConfiguration.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/d099f075e45d2aa6007a22b71b45a08758559f80/src/libraries/Microsoft.Extensions.Logging/src/Logger.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/3418ebfaf0184f13884ad24607e606c7a8b0/8a/fa810e6e/IStartupFilter.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/5755466c10f44d58afccfa51830f971310278/6b/80053cfc/ILoggerFactory.cs" root0="SKIP_HIGHLIGHTING" />
@@ -32,6 +52,9 @@
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/9d5aa63b38f1c8bf2c7dffafaf1a6fa0fce0feaed0a2fd70d98a35f9979275/ConsoleLoggerProvider.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/c2d5fa29e54f7ed444294e3d02efee4713b16cbe44c8690efbc22cf7eb7b/ILogger.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/eacce541aea4343da72fa852aadb945151e86e945e6ae0b260527f81a84e2e/ILoggerFactory.cs" root0="SKIP_HIGHLIGHTING" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
   </component>
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="ProjectColorInfo">{
@@ -122,7 +145,7 @@
       <workItem from="1705295516382" duration="12000000" />
       <workItem from="1705317884389" duration="684000" />
       <workItem from="1705318635295" duration="32255000" />
-      <workItem from="1705480434063" duration="604000" />
+      <workItem from="1705480434063" duration="15441000" />
     </task>
     <task id="LOCAL-00001" summary="Adjusted project for new repo. Consumed latest event schema.">
       <option name="closed" value="true" />
@@ -167,19 +190,6 @@
             </endOffsets>
           </properties>
           <option name="timeStamp" value="3" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="DotNet Breakpoints">
-          <url>file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs</url>
-          <line>211</line>
-          <properties documentPath="C:\Projects\rlvedge\devops\tail.js\hosts\dotnet\core\TailJs\Scripting\RequestHandler.cs" initialLine="211" containingFunctionPresentation="Method 'InitializeAsync'">
-            <startOffsets>
-              <option value="7631" />
-            </startOffsets>
-            <endOffsets>
-              <option value="7651" />
-            </endOffsets>
-          </properties>
-          <option name="timeStamp" value="5" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

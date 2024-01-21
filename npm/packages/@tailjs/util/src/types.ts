@@ -133,15 +133,9 @@ export type IterableOrSelf<T> = IterableOrArrayLike<T> | T;
 /**
  * Tests if a type is `any`. The test used is technically impossable to succeed unless the type is in fact `any`.
  */
-export type IsAny<T> =
-  | [
-      {
-        d7d52e56b9c14b2b99c207f89f839630: T;
-      }
-    ]
-  | ((unlikely: { d7d52e56b9c14b2b99c207f89f839630: T }) => {
-      bd88181902d54401bb37e71194dd8b7d: T;
-    }) extends T
+export type IsAny<T> = ((unlikely: { d7d52e56b9c14b2b99c207f89f839630: T }) => {
+  bd88181902d54401bb37e71194dd8b7d: T;
+}) extends T
   ? true
   : false;
 
@@ -226,7 +220,7 @@ export type TypeConverter<T> = (value: any, parse?: boolean) => T | undefined;
 export const undefined = void 0;
 export const nil = null;
 
-const createParser =
+const createConverter =
   <T>(typeTester: TypeTester<T>, parser?: (value: any) => T | undefined) =>
   (value: any, parse = true) =>
     typeTester(value)
@@ -238,14 +232,14 @@ const createParser =
 export const tryCatch = <T, C = undefined>(
   expression: () => T,
   errorHandler?: (error: any) => C,
-  always?: () => void
+  clean?: () => void
 ): T | C => {
   try {
     return expression();
   } catch (e) {
     return errorHandler?.(e) as any;
   } finally {
-    always?.();
+    clean?.();
   }
 };
 
@@ -275,55 +269,62 @@ export const hasValue = <T>(
 
 export const isBoolean = (value: any): value is boolean =>
   typeof value === "boolean";
-export const parseBoolean = createParser(isBoolean, (value) => !!value);
+export const parseBoolean = createConverter(isBoolean, (value) => !!value);
 
 export const isNumber = (value: any): value is number =>
   typeof value === "number";
-export const parseNumber = createParser(isNumber, (value) => parseFloat(value));
+export const parseNumber = createConverter(isNumber, (value) =>
+  parseFloat(value)
+);
 
 export const isBigInt = (value: any): value is bigint =>
   typeof value === "bigint";
-export const parseBigInt = createParser(isBigInt, (value) =>
+export const parseBigInt = createConverter(isBigInt, (value) =>
   tryCatch(() => BigInt(value))
 );
 
 export const isString = (value: any): value is string =>
   typeof value === "string";
-export const parseString = createParser(isString, (value) =>
+
+export const toString = createConverter(isString, (value) =>
   hasValue(value) ? "" + value : value
 );
 
 export const isArray = Array.isArray;
-export const parseArray = createParser(isArray, (value) =>
-  isNull(value) ? [] : isIterable(value) ? [...value] : undefined
-);
+export const toArray = <T>(value: T | Iterable<T>): T[] =>
+  value == null
+    ? []
+    : isArray(value)
+    ? value
+    : isIterable(value)
+    ? [...value]
+    : ([value] as any);
 
 export const isObject = (value: any): value is object =>
   value && typeof value === "object";
-export const parseObject = createParser(isObject);
 
 /** Tests whether a value is an object but not an array. */
 export const isPureObject = (
   value: any
 ): value is object & { [Symbol.iterator]?: never } =>
   isObject(value) && !isIterable(value);
-export const parsePureObject = createParser(isPureObject);
 
 export const isDate = (value: any): value is Date => value instanceof Date;
-export const parseDate = createParser(isDate, (value) =>
+export const parseDate = createConverter(isDate, (value) =>
   isNaN((value = Date.parse(value))) ? undefined : value
 );
 
 export const isSymbol = (value: any): value is symbol =>
   typeof value === "symbol";
-export const parseSymbol = createParser(isSymbol);
 
 export const isFunction = (value: any): value is (...args: any) => any =>
   typeof value === "function";
-export const parseFunction = isFunction;
 
 export const isIterable = (value: any): value is Iterable<any> =>
   value?.[Symbol.iterator] && !isString(value);
+
+export const toIterable = <T>(value: T | Iterable<T>): Iterable<T> =>
+  isIterable(value) ? value : [value];
 
 export const isMap = (value: any): value is Map<any, any> =>
   value instanceof Map;
