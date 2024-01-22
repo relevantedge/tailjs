@@ -2,8 +2,12 @@ import {
   count,
   every,
   filter,
+  flatForEach,
+  flatMap,
+  flatProject,
   forEach,
   map,
+  project,
   reduce,
   some,
   sum,
@@ -136,5 +140,24 @@ describe("Iterator functionality iterates iterably", () => {
   it("Filters", () => {
     expect(filter(3, (n) => n % 2, true)).toEqual([1]);
     expect(filter([1, 2, null, 3])).toEqual([1, 2, 3]);
+  });
+
+  it("Flattens", () => {
+    expect(flatMap([{ a: 10 }, { b: 20, c: true }])).toEqual([
+      ["a", 10],
+      ["b", 20],
+      ["c", true],
+    ]);
+    expect(flatMap([[1, 2, 3], 4, [5, 6]], (item) => item)).toEqual([
+      1, 2, 3, 4, 5, 6,
+    ]);
+
+    expect(flatForEach(2, (i) => [i, -i])).toEqual([1, -1]);
+    expect(
+      flatForEach(
+        project(2, (i) => [i, -i]),
+        (i) => i
+      )
+    ).toEqual(-1);
   });
 });
