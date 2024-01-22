@@ -1,5 +1,5 @@
 import { MUTEX_REQUEST_COOKIE, MUTEX_RESPONSE_COOKIE } from "@constants";
-import { EncodableObject } from "@tailjs/util";
+import { EncodableObject } from "@tailjs/util/transport";
 import {
   F,
   T,

@@ -1,6 +1,6 @@
 import { any, clone, equals } from "./lib";
 import { RequestHandler, Tracker } from "./shared";
-import { Encodable, EncodableObject } from "@tailjs/util";
+import { Encodable, EncodableObject } from "@tailjs/util/transport";
 
 export const CLIENT_STATE_DATA_VERSION = 2;
 

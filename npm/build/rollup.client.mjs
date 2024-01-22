@@ -90,6 +90,10 @@ const createConfig = (debug) =>
             replacement: `${pkg.workspace}/packages/@tailjs/util/src/index.ts`,
           },
           {
+            find: "@tailjs/util/transport",
+            replacement: `${pkg.workspace}/packages/@tailjs/util/src/transport.pkg/index.ts`,
+          },
+          {
             find: "@constants",
             replacement: `${pkg.workspace}/constants/index.ts`,
           },
@@ -138,6 +142,7 @@ const createConfig = (debug) =>
 
       uglify({
         compress: {
+          passes: 2,
           evaluate: "eager",
         },
         mangle: false,

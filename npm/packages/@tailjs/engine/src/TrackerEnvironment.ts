@@ -1,4 +1,9 @@
-import { Encodable, Nulls, hash, httpDecode, httpEncode } from "@tailjs/util";
+import {
+  Encodable,
+  hash,
+  httpDecode,
+  httpEncode,
+} from "@tailjs/util/transport";
 import ShortUniqueId from "short-unique-id";
 
 import { formatError, params } from "./lib";
@@ -12,6 +17,7 @@ import {
   type LogMessage,
   type ModelMetadata,
 } from "./shared";
+import { Nulls } from "@tailjs/util";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 

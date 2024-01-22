@@ -1,5 +1,5 @@
 import type { TrackedEvent } from "@tailjs/types";
-import { Encodable, Transport, createTransport, lfsr } from "@tailjs/util";
+import { Encodable, Transport, createTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, map, params, unparam } from "./lib";
 import {
   ClientState,

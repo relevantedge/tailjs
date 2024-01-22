@@ -1,4 +1,5 @@
-import { type Nullish, createTransport } from "@tailjs/util";
+import { type Nullish } from "@tailjs/util";
+import { createTransport } from "@tailjs/util/transport";
 
 export const [httpEncode, httpDecode] = createTransport();
 

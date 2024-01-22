@@ -1,6 +1,6 @@
 import type { TrackerConfiguration } from "@tailjs/client";
 import { Tracker } from "..";
-import { httpEncode } from "@tailjs/util";
+import { httpEncode } from "@tailjs/util/transport";
 import { INITIALIZE_TRACKER_FUNCTION } from "@constants";
 
 export const generateClientConfigScript = (

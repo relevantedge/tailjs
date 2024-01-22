@@ -1,4 +1,4 @@
-import { charCode, hasValue, isBoolean } from ".";
+import { hasValue, isBoolean } from "..";
 
 /** The number of leading entropy bytes. */
 const ENTROPY = 4;
@@ -81,7 +81,7 @@ export const lfsr = (key = ""): CipherFunctions => {
   /** Initial bytes for the mixer. */
   const window0: number[] = [];
 
-  for (iw = 0; iw < key.length; mixer0 += window0[iw] = charCode(key, iw++));
+  for (iw = 0; iw < key.length; mixer0 += window0[iw] = key.charCodeAt(iw++));
 
   /** Resets the mixer when (en/de)cryption starts. */
   const resetMixer = key

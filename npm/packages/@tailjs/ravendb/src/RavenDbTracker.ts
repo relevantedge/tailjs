@@ -5,7 +5,7 @@ import {
   TrackerExtension,
 } from "@tailjs/engine";
 import { TrackedEvent, transformLocalIds } from "@tailjs/types";
-import { parseString } from "@tailjs/util";
+import { toString } from "@tailjs/util";
 import { Lock } from "semaphore-async-await";
 
 export interface RavenDbSettings {
@@ -77,9 +77,9 @@ export class RavenDbTracker implements TrackerExtension {
     try {
       const commands: any[] = [];
 
-      let sessionId = parseString(tracker.vars["rd_s"]?.value);
-      let deviceId = parseString(tracker.vars["rd_d"]?.value);
-      let deviceSessionId = parseString(tracker.vars["rd_ds"]?.value);
+      let sessionId = toString(tracker.vars["rd_s"]?.value);
+      let deviceId = toString(tracker.vars["rd_d"]?.value);
+      let deviceSessionId = toString(tracker.vars["rd_ds"]?.value);
 
       tracker.vars["rd_s"] = {
         scope: "session",

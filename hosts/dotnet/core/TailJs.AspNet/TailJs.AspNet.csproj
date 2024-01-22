@@ -25,12 +25,12 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0"/>
-        <PackageReference Include="TailJs" Version="0.17.24"/>
+<!--        <PackageReference Include="TailJs" Version="0.17.24"/>-->
     </ItemGroup>
 
-<!--    <ItemGroup>-->
-<!--        <ProjectReference Include="..\TailJs\TailJs.csproj"/>-->
-<!--    </ItemGroup>-->
+    <ItemGroup>
+        <ProjectReference Include="..\TailJs\TailJs.csproj"/>
+    </ItemGroup>
 
 
 </Project>

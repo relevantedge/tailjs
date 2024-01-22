@@ -1,4 +1,4 @@
-import { Encodable } from "@tailjs/util";
+import { Encodable } from "@tailjs/util/transport";
 import {
   F,
   T,

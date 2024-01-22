@@ -1,4 +1,4 @@
-import { bindStickyStorage, createBinders, listen } from ".";
+import { createBinders, listen } from ".";
 
 export const STATE_READY = "_t.sr";
 

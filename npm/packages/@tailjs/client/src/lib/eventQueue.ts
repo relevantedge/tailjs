@@ -1,5 +1,5 @@
 import type { TrackedEvent } from "@tailjs/types";
-import { httpEncode } from "@tailjs/util";
+import { httpEncode } from "@tailjs/util/transport";
 import {
   ERR_POST_FAILED,
   F,
