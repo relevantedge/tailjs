@@ -19,14 +19,14 @@
         <None Include="README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="TailJs.AspNet" Version="0.17.24" />
+<!--        <PackageReference Include="TailJs.AspNet" Version="0.17.24" />-->
         <PackageReference Include="Umbraco.Cms.Core" Version="12.2.0"/>
         <PackageReference Include="Umbraco.Cms.Web.Common" Version="12.2.0"/>
         
     </ItemGroup>
 
-<!--    <ItemGroup>-->
-<!--        <ProjectReference Include="..\..\core\TailJs.AspNet\TailJs.AspNet.csproj"/>-->
-<!--    </ItemGroup>-->
+    <ItemGroup>
+        <ProjectReference Include="..\..\core\TailJs.AspNet\TailJs.AspNet.csproj"/>
+    </ItemGroup>
 
 </Project>

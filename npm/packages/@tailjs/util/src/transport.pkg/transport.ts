@@ -1,32 +1,118 @@
 import { deserialize, serialize } from "@ygoe/msgpack";
 
-// Use below when ad-hoc testing with nodmon. It doesn't like the import above (probabaly because of mangling).
-//import msgpack from "@ygoe/msgpack";
-//const { serialize, deserialize } = msgpack;
-
+import { HashFunction, from64u, lfsr, to64u } from ".";
 import {
-  Encodable,
-  EncodableContract,
-  HashFunction,
+  IsNever,
   Nullish,
-  from64u,
   hasValue,
   isArray,
   isDefined,
   isFunction,
   isIterable,
   isNull,
-  isNumber,
   isObject,
-  isPureObject,
   isSymbol,
   isUndefined,
-  lfsr,
   nil,
-  to64u,
   tryCatch,
-} from ".";
-import { isFloat64Array } from "util/types";
+} from "..";
+
+type ConverterFunctionValue<T> = T extends { toJSON(): infer V }
+  ? V
+  : T extends { valueOf(): infer V }
+  ? V
+  : T;
+
+type ConverterValue<T> = T extends ConverterFunctionValue<T>
+  ? never
+  : ConverterFunctionValue<T>;
+
+export type EncodableArray = Encodable[];
+
+export type EncodableTuple = [...Items: Encodable[]];
+
+export type EncodableObject = Partial<{
+  [K in string | number]?: Encodable;
+}>;
+
+/**
+ * All possible values that can be represented with JSON.
+ */
+export type Encodable =
+  | null
+  | undefined
+  | string
+  | number
+  | boolean
+  | EncodableArray
+  | EncodableTuple
+  | EncodableObject;
+
+/**
+ * The shape of the data that will come back when decoding the encoded value of a type.
+ *
+ * This assumes that only the shapes permitted by {@link Encodable} are serialized.
+ * Otherwise not ignored since functions are in fact serialized as `{}`.
+ */
+export type Decoded<T = Encodable> = Encodable extends T
+  ? Encodable
+  : T extends void
+  ? undefined // For annoying reason, TypeScript differentiates between `undefined` and `void`. We want `void`.
+  : T extends string | number | boolean | null | undefined
+  ? T
+  : IsNever<ConverterValue<T>> extends false
+  ? Decoded<ConverterValue<T>>
+  : T extends any[]
+  ? { [index in keyof T]: Decoded<T[index]> }
+  : T extends Iterable<infer T>
+  ? Decoded<T>[]
+  : T extends (...args: any[]) => any
+  ? undefined
+  : T extends object
+  ? {
+      -readonly [P in keyof T as P extends string | number
+        ? Decoded<T[P]> extends undefined
+          ? never
+          : P
+        : never]: Decoded<T[P]>;
+    }
+  : never;
+
+/**
+ * The broadest possible subtype of a given type that can be serialized and then deserialized without violating the type's contract,
+ * with the exception of well-known symbol properties. Those are ignored.
+ *
+ * Not violating the constract does not mean that the type can loslessly be serialized and then deserialized back.
+ * It just means that its contract will not be violated if values of a certain type are omitted or deserialized back to another valid subtype.
+ * For example, an iterable that is not an array will be deserialized as an array.
+ *
+ * In particular functions or promises are serialized as empty objects `{}`, and cannot be deserialized back.
+ * This means that required constraints on properies that only allow these types can never be met.
+ * Similarly, arrays the can only hold functions or promises must be empty (`never[]`) to satisfy the type constraint.
+ *
+ */
+export type EncodableContract<T = Encodable> = Encodable extends T
+  ? Encodable
+  : T extends void
+  ? undefined // For annoying reasons, TypeScript differentiates between `undefined` and `void`. We want `void`.
+  : T extends string | number | boolean | null | undefined | void
+  ? T
+  : IsNever<ConverterValue<T>> extends false
+  ? EncodableContract<ConverterValue<T>>
+  : T extends any[]
+  ? { [index in keyof T]: EncodableContract<T[index]> }
+  : T extends Iterable<any>
+  ? T
+  : T extends (...args: any[]) => any
+  ? undefined
+  : T extends object
+  ? {
+      // Fun fact: TypeScript keeps optional properties if we iterate keyof P and then exclude symbols with the `extends` construct.
+      //  `(keyof T & symbol)` or `Exclude <keyof T, symbol>` makes all properties required. (`{ a?: undefined}` becomes `{a:undefined}`)
+      // Keeping optional `undefined` properties means that the property name is still allowed in a type like `{a()?: boolean}`, even though functions are not allowed.
+      [P in keyof T as P extends symbol ? never : P]: EncodableContract<T[P]>;
+    }
+  : never;
 
 /**
  * Encodes the specified value to an HTTP querystring/header safe string, that is, does not need to be URI escaped.
@@ -71,8 +157,7 @@ const patchSerialize = (value: any) => {
   const addCleaner = (cleaner: () => void) => (cleaners ??= []).push(cleaner);
 
   const inner = (value: any) => {
-    if (isNull(value)) return nil;
-    if (isUndefined(value) || isFunction(value) || isSymbol(value)) {
+    if (value == null || isFunction(value) || isSymbol(value)) {
       return null;
     }
 
@@ -82,7 +167,7 @@ const patchSerialize = (value: any) => {
       return { "": [...new Uint32Array(floatBuffer)] };
     }
 
-    if (!isObject(value)) {
+    if (!isObject(value, true)) {
       return value;
     }
 
@@ -99,8 +184,9 @@ const patchSerialize = (value: any) => {
       return { [REF_PROP]: refIndex };
     }
 
-    if (isPureObject(value)) {
+    if (isObject(value)) {
       refs.set(value, refs.size + 1);
+
       Object.keys(value).forEach(
         (k) =>
           (isUndefined(patchProperty(value, k)) || isSymbol(k)) &&
@@ -131,7 +217,7 @@ const patchDeserialize = (value: Uint8Array) => {
   let matchedRef: any;
 
   const inner = (value: any) => {
-    if (!isObject(value)) return value;
+    if (!isObject(value, true)) return value;
 
     if (isArray(value[""]) && (value = value[""]).length === 2) {
       return new DataView(new Uint32Array(value).buffer).getFloat64(0, true);

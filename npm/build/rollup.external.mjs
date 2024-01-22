@@ -3,13 +3,12 @@ import cjs from "@rollup/plugin-commonjs";
 import inject from "@rollup/plugin-inject";
 import json from "@rollup/plugin-json";
 import resolve from "@rollup/plugin-node-resolve";
+import replace from "@rollup/plugin-replace";
+import terser from "@rollup/plugin-terser";
 import * as fs from "fs";
 import { join } from "path";
 import dts from "rollup-plugin-dts";
 import esbuild from "rollup-plugin-esbuild";
-import { uglify } from "rollup-plugin-uglify";
-import terser from "@rollup/plugin-terser";
-import replace from "@rollup/plugin-replace";
 
 import package_json from "rollup-plugin-generate-package-json";
 import {
@@ -48,7 +47,7 @@ export async function getExternalBundles() {
 
     return [
       applyDefaultConfiguration({
-        external: [/\@tail\-f\/(?!util)[^\/]+$/g],
+        external: [/\@tailjs\/(?!util)[^\/]+$/g],
         input: join("src/index.external.ts"),
         plugins: [
           esbuild({
@@ -96,11 +95,11 @@ export async function getExternalBundles() {
               { find: "fs", replacement: "memfs" },
               { find: "emitter", replacement: "component-emitter" },
               {
-                find: /^@tailjs\/(engine|maxmind|ravendb|util|sitecore-backends)(\/(.+))?$/,
+                find: /^@tailjs\/(engine|maxmind|ravendb|sitecore-backends)(\/(.+))?$/,
                 replacement: "../$1/dist/$2/v8/dist/index.mjs",
               },
               {
-                find: /^@tailjs\/([^\/]+)(\/(.+))?$/,
+                find: /^@tailjs\/([^\/]+)(?:\/(.+))?$/,
                 replacement: "../$1/dist/$2/dist/index.mjs",
               },
               {
@@ -148,10 +147,11 @@ export async function getExternalBundles() {
                       module: true,
                       toplevel: false,
                     },
-                    mangle: {
-                      properties: false,
-                      toplevel: false,
-                    },
+                    mangle: false,
+                    // mangle: {
+                    //   properties: false,
+                    //   toplevel: false,
+                    // },
                   }),
                 ]
               : []),

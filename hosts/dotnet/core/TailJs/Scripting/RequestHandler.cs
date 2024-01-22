@@ -175,7 +175,7 @@ public class RequestHandler : IRequestHandler
               _configuration.Endpoint,
               JsonSerializer.Serialize(_configuration.CookieKeys),
               _configuration.Secure,
-              _configuration.ClientScript ?? (object)_configuration.Debug, //(_configuration.Debug ? "js/tail-f.debug.js" : "js/tail-f.js"),
+              _configuration.ClientScript ?? (object)_configuration.Debug,
               _configuration.UseSession,
               _configuration.ClientKeySeed,
               _trackerExtensions
@@ -285,7 +285,8 @@ public class RequestHandler : IRequestHandler
       DocumentContextCallback contextCallback
     )
     {
-      specifier = Regex.Replace(specifier, @"^@tail-f\/(?<Package>.*)", "js/${Package}.js");
+      specifier = Regex.Replace(specifier, @"^@tailjs\/(?<Package>.*)", "js/${Package}.js");
+      
       if (specifier.StartsWith("js/"))
       {
         sourceInfo ??= new DocumentInfo(specifier);

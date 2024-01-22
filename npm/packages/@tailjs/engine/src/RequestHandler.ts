@@ -33,7 +33,7 @@ import {
   MUTEX_RESPONSE_COOKIE,
 } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
-import { from64u } from "@tailjs/util";
+import { from64u } from "@tailjs/util/transport";
 import { generateClientConfigScript } from "./lib/clientConfigScript";
 
 const scripts = {

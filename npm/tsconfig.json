@@ -21,6 +21,7 @@
       "@tailjs/react": ["./packages/@tailjs/react/src"],
       "@tailjs/client": ["./packages/@tailjs/client/src"],
       "@tailjs/util": ["./packages/@tailjs/util/src"],
+      "@tailjs/util/transport": ["./packages/@tailjs/util/src/transport.pkg"],
       "@tailjs/client/external": ["packages/@tailjs/client/src/external.pkg"],
       "@tailjs/client/build": [
         "./packages/@tailjs/client/src/lib/build-constants"

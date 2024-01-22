@@ -1,4 +1,4 @@
-import { isPureObject } from "@tailjs/util";
+import { cast, forEach, isNull, isObject, map } from "@tailjs/util";
 import { TAB_ID, bindStorage, listen, now } from "./lib2";
 
 const enum TabState {
@@ -31,8 +31,7 @@ export const attach = async () => {
     () =>
       activeTabs.update(
         (current) => (
-          ((current = isPureObject(current) ? current : {})[TAB_ID] = now()),
-          current
+          ((current = cast(current, isObject) ?? {})[TAB_ID] = now()), current
         )
       )
     //activeStorage.update((current) => (current ?? 0) + 1)
@@ -42,7 +41,7 @@ export const attach = async () => {
     "pagehide",
     () =>
       activeTabs.update(
-        (current) => (isPureObject(current) && delete current[TAB_ID], current)
+        (current) => (isObject(current) && delete current[TAB_ID], current)
       )
     // activeStorage.update((current: any) =>
     //   current > 0 ? current - 1 : current

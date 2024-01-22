@@ -1,4 +1,4 @@
-import { Encodable, createTransport, lfsr } from "../src";
+import { Encodable, createTransport, lfsr } from "../src/transport.pkg";
 
 describe("LSFR implementation encodes and decodes as it should.", () => {
   function encryptDecrypt(key: string, data: number[]) {
@@ -11,12 +11,6 @@ describe("LSFR implementation encodes and decodes as it should.", () => {
 
   it("Does it normally.", () => {
     encryptDecrypt("Hello", [1, 2, 3, 4]);
-    // const [, decryptiz] = createTransport("bj8tddnsyd8w3yi5hc5hahy64");
-    // console.log(
-    //   decryptiz(
-    //     "rFYSKkI7gz0AmkdfbSBOsy9BaEE8gmLBRrr7RBQsJR31GfQzXHnC_hyhpxVUXDN-FBIkggfKwz4lE-J_6vdIgQ"
-    //   )
-    // );
   });
 
   it("Adds entropy.", () => {

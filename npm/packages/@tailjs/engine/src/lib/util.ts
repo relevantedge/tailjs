@@ -1,5 +1,5 @@
 import { Expand } from ".";
-import { Encodable, EncodableObject } from "@tailjs/util";
+import { Encodable, EncodableObject } from "@tailjs/util/transport";
 
 export function any<T>(
   value: T

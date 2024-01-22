@@ -1,101 +1,6 @@
-export type EncodableArray = Encodable[];
+import { toObject, type reduce } from ".";
 
-export type EncodableTuple = [...Items: Encodable[]];
-
-export type EncodableObject = Partial<{
-  [K in string | number]?: Encodable;
-}>;
-
-/**
- * All possible values that can be represented with JSON.
- */
-export type Encodable =
-  | null
-  | undefined
-  | string
-  | number
-  | boolean
-  | EncodableArray
-  | EncodableTuple
-  | EncodableObject;
-
-type ConverterFunctionValue<T> = T extends { toJSON(): infer V }
-  ? V
-  : T extends { valueOf(): infer V }
-  ? V
-  : T;
-
-type ConverterValue<T> = T extends ConverterFunctionValue<T>
-  ? never
-  : ConverterFunctionValue<T>;
-
-type IsNever<T> = [T] extends [never] ? true : false;
-
-/**
- * The shape of the data that will come back when decoding the encoded value of a type.
- *
- * This assumes that only the shapes permitted by {@link Encodable} are serialized.
- * Otherwise not ignored since functions are in fact serialized as `{}`.
- */
-export type Decoded<T = Encodable> = Encodable extends T
-  ? Encodable
-  : T extends void
-  ? undefined // For annoying reason, TypeScript differentiates between `undefined` and `void`. We want `void`.
-  : T extends string | number | boolean | null | undefined
-  ? T
-  : IsNever<ConverterValue<T>> extends false
-  ? Decoded<ConverterValue<T>>
-  : T extends any[]
-  ? { [index in keyof T]: Decoded<T[index]> }
-  : T extends Iterable<infer T>
-  ? Decoded<T>[]
-  : T extends (...args: any[]) => any
-  ? undefined
-  : T extends object
-  ? {
-      -readonly [P in keyof T as P extends string | number
-        ? Decoded<T[P]> extends undefined
-          ? never
-          : P
-        : never]: Decoded<T[P]>;
-    }
-  : never;
-
-/**
- * The broadest possible subtype of a given type that can be serialized and then deserialized without violating the type's contract,
- * with the exception of well-known symbol properties. Those are ignored.
- *
- * Not violating the constract does not mean that the type can loslessly be serialized and then deserialized back.
- * It just means that its contract will not be violated if values of a certain type are omitted or deserialized back to another valid subtype.
- * For example, an iterable that is not an array will be deserialized as an array.
- *
- * In particular functions or promises are serialized as empty objects `{}`, and cannot be deserialized back.
- * This means that required constraints on properies that only allow these types can never be met.
- * Similarly, arrays the can only hold functions or promises must be empty (`never[]`) to satisfy the type constraint.
- *
- */
-export type EncodableContract<T = Encodable> = Encodable extends T
-  ? Encodable
-  : T extends void
-  ? undefined // For annoying reasons, TypeScript differentiates between `undefined` and `void`. We want `void`.
-  : T extends string | number | boolean | null | undefined | void
-  ? T
-  : IsNever<ConverterValue<T>> extends false
-  ? EncodableContract<ConverterValue<T>>
-  : T extends any[]
-  ? { [index in keyof T]: EncodableContract<T[index]> }
-  : T extends Iterable<any>
-  ? T
-  : T extends (...args: any[]) => any
-  ? undefined
-  : T extends object
-  ? {
-      // Fun fact: TypeScript keeps optional properties if we iterate keyof P and then exclude symbols with the `extends` construct.
-      //  `(keyof T & symbol)` or `Exclude <keyof T, symbol>` makes all properties required. (`{ a?: undefined}` becomes `{a:undefined}`)
-      // Keeping optional `undefined` properties means that the property name is still allowed in a type like `{a()?: boolean}`, even though functions are not allowed.
-      [P in keyof T as P extends symbol ? never : P]: EncodableContract<T[P]>;
-    }
-  : never;
+export type IsNever<T> = [T] extends [never] ? true : false;
 
 /**
  * Shorthand for a value that is optionally awaitable.
@@ -130,21 +35,31 @@ export type KeyValueProjection<K, V, R> = (
  */
 export type IterableOrSelf<T> = IterableOrArrayLike<T> | T;
 
+type FunctionComparisonEqualsWrapped<T> = T extends (
+  T extends {} ? infer R & {} : infer R
+)
+  ? { [P in keyof R]: R[P] }
+  : never;
+
+type FunctionComparisonEquals<A, B> = (<
+  T
+>() => T extends FunctionComparisonEqualsWrapped<A> ? 1 : 2) extends <
+  T
+>() => T extends FunctionComparisonEqualsWrapped<B> ? 1 : 2
+  ? true
+  : false;
+
 /**
  * Tests if a type is `any`. The test used is technically impossable to succeed unless the type is in fact `any`.
  */
-export type IsAny<T> = ((unlikely: { d7d52e56b9c14b2b99c207f89f839630: T }) => {
-  bd88181902d54401bb37e71194dd8b7d: T;
-}) extends T
-  ? true
-  : false;
+export type IsAny<T> = FunctionComparisonEquals<T, any>;
 
 /**
  * Utility type to allow `as const` to be used on tuples returned from functions without actually making them `readonly` (which is annoying).
  * Normally TypeScript considers the return value of a function like `x=>[10,"four"]` to be `(string|number)[]` (which is also annoying).
  */
 export type ConstToTuples<T> = T extends readonly any[]
-  ? { -readonly [P in keyof T]: T[P] }
+  ? { -readonly [P in keyof T]: ConstToTuples<T[P]> }
   : Voidefined<T>;
 
 /**
@@ -153,7 +68,65 @@ export type ConstToTuples<T> = T extends readonly any[]
 export type ArgNulls<T, Arg> = (T | Nullish) & Arg;
 
 /**
- * Trick for having a function that returns a non-null value, if a formal paramter always has a non-null value.
+ *  TypeScript may be very literal when it infers types. The type fo a function parameter with the value `10` may be inferred as `10` and not `number`.
+ *  This is an issue in e.g. {@link reduce}.
+ */
+export type GeneralizeContstants<T> = T extends number
+  ? number
+  : T extends string
+  ? string
+  : T extends boolean
+  ? boolean
+  : unknown extends T
+  ? unknown
+  : {
+      [P in keyof T]: GeneralizeContstants<T[P]>;
+    };
+
+/**
+ * The eclectic type found everywhere on the Internet.
+ * It convers a union like `{a:1}|{b:2}` to the intersection `{a:1, b:2}`
+ */
+export type UnionToIntersection<U> = (
+  U extends any ? (k: U) => void : never
+) extends (k: infer I) => void
+  ? I
+  : never;
+
+/**
+ * Makes a union of objects like `{a:1}&{b:2}` appear as `{a:1,b:2}` in intellisense.
+ */
+export type PrettifyIntersection<T> = T extends { [P in infer K]: any }
+  ? { [P in K]: T[P] }
+  : never;
+
+/**
+ * Makes an array of key/value pairs to an object with the corresponding properties.
+ */
+export type KeyValuePairsToObject<T> = PrettifyIntersection<
+  UnionToIntersection<
+    T extends any[] | readonly any[] ? KeyValuePairToObject<T[number]> : never
+  >
+>;
+
+/**
+ * Makes a key/value pair in to an object with the corresponding property.
+ */
+export type KeyValuePairToObject<T> = T extends readonly [
+  infer K & keyof any,
+  infer V
+]
+  ? { [P in K & keyof any]: V }
+  : ((value: T) => never) extends (
+      value: [infer K & keyof any, infer V]
+    ) => never
+  ? { [P in K & keyof any]: ConstToTuples<V> }
+  : unknown;
+
+/**
+ * Trick for having a function that returns a non-null value, if a formal paramter always has a non-null value,
+ * simliar to .NET's [NotNullIfNotNull].
+ *
  * If the actual parameter can have a null or undefined value the return value will include these options.
  *
  * `function example<T,A>(arg: (T|null|undefined)&A): string | Null<A> {...}`
@@ -257,11 +230,27 @@ export const tryCatchAsync = async <T, C = undefined>(
   }
 };
 
+export const as = <T, D = undefined, Args extends any[] = []>(
+  value: any,
+  converter: (value: any, ...rest: Args) => T | undefined,
+  defaultValue?: D,
+  ...args: Args
+): T | D => ((value = converter(value, ...args)) ?? defaultValue) as any;
+
+export const cast = <T, V, Args extends any[] = []>(
+  value: V,
+  typeTest: (value: any, ...args: Args) => value is T,
+  ...args: Args
+): V extends T ? V : undefined =>
+  typeTest(value, ...args) ? (value as any) : undefined;
+
 export const isNull = (value: any): value is null => value === nil;
+
 export const isUndefined = (value: any): value is undefined | void =>
   value === undefined;
+
 export const isDefined = <T>(value: T): value is Exclude<T, undefined | void> =>
-  !isUndefined(value);
+  value !== undefined;
 
 export const hasValue = <T>(
   value: T
@@ -296,18 +285,15 @@ export const toArray = <T>(value: T | Iterable<T>): T[] =>
     ? []
     : isArray(value)
     ? value
-    : isIterable(value)
+    : isIterable(value, true)
     ? [...value]
     : ([value] as any);
 
-export const isObject = (value: any): value is object =>
-  value && typeof value === "object";
-
-/** Tests whether a value is an object but not an array. */
-export const isPureObject = (
-  value: any
-): value is object & { [Symbol.iterator]?: never } =>
-  isObject(value) && !isIterable(value);
+export const isObject = (
+  value: any,
+  acceptIterables = false
+): value is { [P in keyof any]: any } =>
+  value && typeof value === "object" && (acceptIterables || !isIterable(value));
 
 export const isDate = (value: any): value is Date => value instanceof Date;
 export const parseDate = createConverter(isDate, (value) =>
@@ -320,8 +306,11 @@ export const isSymbol = (value: any): value is symbol =>
 export const isFunction = (value: any): value is (...args: any) => any =>
   typeof value === "function";
 
-export const isIterable = (value: any): value is Iterable<any> =>
-  value?.[Symbol.iterator] && !isString(value);
+export const isIterable = (
+  value: any,
+  acceptStrings = false
+): value is Iterable<any> =>
+  !!value?.[Symbol.iterator] && (acceptStrings || !isString(value));
 
 export const toIterable = <T>(value: T | Iterable<T>): Iterable<T> =>
   isIterable(value) ? value : [value];
@@ -345,8 +334,17 @@ export const typeCode = (value: any, typeName = typeof value) =>
 export const identity = <T = any>(value: T) => value;
 
 export const clone = <T>(value: T): T =>
-  isArray(value)
-    ? [...value]
-    : isPureObject(value)
-    ? { ...value }
-    : (value as any);
+  isArray(value) ? [...value] : isObject(value) ? { ...value } : (value as any);
+
+type UseCallback<Args extends any[], R> = (
+  ...args: [...args: Args, self: UseCallback<Args, R>]
+) => R;
+export const use = <Args extends any[], R>(
+  ...args: [...args: Args, callback: UseCallback<Args, R>]
+) => args[args.length - 1](...args);
+export const useSome = <Args extends any[], R>(
+  ...args: [...args: Args, callback: UseCallback<Args, R>]
+) => (args.some((v) => v) ? use(...args) : undefined);
+export const useEvery = <Args extends any[], R>(
+  ...args: [...args: Args, callback: UseCallback<Args, R>]
+) => (args.every((v) => v) ? use(...args) : undefined);
