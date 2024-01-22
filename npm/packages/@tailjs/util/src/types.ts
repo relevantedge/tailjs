@@ -103,16 +103,14 @@ export type PrettifyIntersection<T> = T extends { [P in infer K]: any }
 /**
  * Makes an array of key/value pairs to an object with the corresponding properties.
  */
-export type KeyValuePairsToObject<T> = PrettifyIntersection<
-  UnionToIntersection<
-    T extends any[] | readonly any[] ? KeyValuePairToObject<T[number]> : never
-  >
+export type KeyValuePairsToObject<T> = UnionToIntersection<
+  _KeyValuePairToObject<T>
 >;
 
 /**
  * Makes a key/value pair in to an object with the corresponding property.
  */
-export type KeyValuePairToObject<T> = T extends readonly [
+type _KeyValuePairToObject<T> = T extends readonly [
   infer K & keyof any,
   infer V
 ]
@@ -122,6 +120,22 @@ export type KeyValuePairToObject<T> = T extends readonly [
     ) => never
   ? { [P in K & keyof any]: ConstToTuples<V> }
   : unknown;
+
+/**
+ * Anything but a function.
+ */
+export type NotFunction =
+  | bigint
+  | boolean
+  | null
+  | number
+  | string
+  | symbol
+  | undefined
+  | {
+      [key: string | number | symbol]: any;
+      [Symbol.hasInstance]?: never;
+    };
 
 /**
  * Trick for having a function that returns a non-null value, if a formal paramter always has a non-null value,
@@ -295,6 +309,17 @@ export const isObject = (
 ): value is { [P in keyof any]: any } =>
   value && typeof value === "object" && (acceptIterables || !isIterable(value));
 
+export const hasMethod = <T, Name extends keyof any>(
+  value: T,
+  name: Name
+): value is T &
+  Record<
+    Name,
+    T extends { [P in Name]?: (...args: infer Args) => infer R }
+      ? (...args: Args) => R
+      : (...args: any) => any
+  > => typeof (value as any)?.[name] === "function";
+
 export const isDate = (value: any): value is Date => value instanceof Date;
 export const parseDate = createConverter(isDate, (value) =>
   isNaN((value = Date.parse(value))) ? undefined : value
@@ -336,15 +361,26 @@ export const identity = <T = any>(value: T) => value;
 export const clone = <T>(value: T): T =>
   isArray(value) ? [...value] : isObject(value) ? { ...value } : (value as any);
 
-type UseCallback<Args extends any[], R> = (
-  ...args: [...args: Args, self: UseCallback<Args, R>]
+type CaptureCallback<Args extends any[], R> = (
+  ...args: [...args: Args, self: CaptureCallback<Args, R>]
 ) => R;
-export const use = <Args extends any[], R>(
-  ...args: [...args: Args, callback: UseCallback<Args, R>]
+/**
+ * Captures the specified values. It has the same effect as declaring the variables in their own block scope.
+ */
+export const capture = <Args extends any[], R>(
+  ...args: [...args: Args, callback: CaptureCallback<Args, R>]
 ) => args[args.length - 1](...args);
-export const useSome = <Args extends any[], R>(
-  ...args: [...args: Args, callback: UseCallback<Args, R>]
-) => (args.some((v) => v) ? use(...args) : undefined);
-export const useEvery = <Args extends any[], R>(
-  ...args: [...args: Args, callback: UseCallback<Args, R>]
-) => (args.every((v) => v) ? use(...args) : undefined);
+
+/**
+ * Like {@link capture}, but is only invoked if at least one of the parameters have a non-null/undefined value.
+ */
+export const captureSome = <Args extends any[], R>(
+  ...args: [...args: Args, callback: CaptureCallback<Args, R>]
+) => (args.some((v) => v) ? capture(...args) : undefined);
+
+/**
+ * Like{@link capture}, but is only invoked if all the parameters have a non-null/undefined value.
+ */
+export const captureEvery = <Args extends any[], R>(
+  ...args: [...args: Args, callback: CaptureCallback<Args, R>]
+) => (args.every((v) => v) ? capture(...args) : undefined);
