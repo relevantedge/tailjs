@@ -1,4 +1,4 @@
-import { get, set, update } from "../src";
+import { get, clear, set, update, add, map, clone } from "../src";
 
 const createTestTargets = () =>
   [
@@ -28,11 +28,11 @@ describe("Accessors accesses what they access", () => {
   it("Sets and updates.", () => {
     let [o, a, m, s] = createTestTargets();
 
-    expect(set(o, "b", 30)).toEqual(true);
-    expect(set(o, [[["c", "test"]]])).toEqual({ a: 10, b: 30, c: "test" });
+    expect(set(o, "b", 30)).toEqual(30);
+    expect(set(o, [["c", "test"]])).toEqual({ a: 10, b: 30, c: "test" });
 
-    expect(update(o, "a", (current) => current + 5)).toEqual(true);
-    expect(update(o, [{ a: (current) => current + 3 }])).toEqual({
+    expect(update(o, "a", (current) => current + 5)).toEqual(15);
+    expect(update(o, { a: (current) => current + 3 })).toEqual({
       a: 18,
       b: 30,
       c: "test",
@@ -44,7 +44,7 @@ describe("Accessors accesses what they access", () => {
       c: "test",
     });
 
-    expect(set(m, "c", 80)).toBe(true);
+    expect(set(m, "c", 80)).toBe(80);
     expect(m.get("c")).toBe(80);
 
     expect(set(s, "c", true)).toBe(true);
@@ -52,5 +52,58 @@ describe("Accessors accesses what they access", () => {
     expect(s.has("c")).toBe(true);
     set(s, "c", false);
     expect(s.has("c")).toBe(false);
+
+    clear(o, "a");
+    expect(o.a).toBe(undefined);
+
+    const obj = set(
+      {},
+      map(2, (i) => ["T" + i, i] as const)
+    );
+    expect(obj["T1"]).toBe(1);
+
+    expect(add(s, "test")).toBe(true);
+    expect(add(s, "test")).toBe(false);
+    expect(clear(s, "test")).toBe(true);
+    expect(clear(s, "test")).toBe(false);
+
+    expect(get(o, "gazonk", () => 80)).toBe(80);
+    expect(get(o, "gazonk")).toBe(80);
+    get(o, "gazonk", () => 37);
+    expect(get(o, "gazonk")).toBe(80);
+
+    expect(get(o, "test37", 37)).toBe(37);
+    set(o, "test37", 38);
+    expect(get(o, "test37", 37)).toBe(38);
+  });
+  it("clones", () => {
+    let [o, a, m, s] = createTestTargets();
+
+    expect(clone(o)).toEqual(o);
+    expect(clone(o)).not.toBe(o);
+
+    expect(clone(a)).toEqual(a);
+    expect(clone(a)).not.toBe(a);
+
+    expect(clone(s)).toEqual(s);
+    expect(clone(s)).not.toBe(s);
+
+    expect(clone(m)).toEqual(m);
+    expect(clone(m)).not.toBe(false);
+
+    const deep = {
+      a: [1, 2, new Set([1, 2, 3])],
+      b: {
+        c: new Map([[1, [2, 3, 4]]]),
+      },
+    };
+    let cloned = clone(deep, true);
+    expect(cloned).toEqual(deep);
+    expect(cloned.b.c).not.toBe(deep.b.c);
+    expect(cloned.b.c.get(1)).not.toBe(deep.b.c.get(1));
+
+    cloned = clone(deep, false);
+    expect(cloned).not.toBe(deep);
+    expect(cloned.b.c.get(1)).toBe(deep.b.c.get(1));
   });
 });
