@@ -1,22 +1,32 @@
-import { get, clear, set, update, add, map, clone } from "../src";
+import {
+  get,
+  clear,
+  set,
+  update,
+  add,
+  map,
+  clone,
+  ConstToTuples,
+} from "../src";
 
+const tuple = <R extends any[]>(...values: R): R => values;
 const createTestTargets = () =>
-  [
+  tuple(
     { a: 10, b: 20 },
     [10, 20],
     new Map<string, number>([
       ["a", 10],
       ["b", 20],
     ]),
-    new Set<string>(["a", "b"]),
-  ] as const;
+    new Set<string>(["a", "b"])
+  );
 
 describe("Accessors accesses what they access", () => {
   it("Gets", () => {
     const [o, a, m, s] = createTestTargets();
 
     expect(get(o, "a")).toBe(10);
-    expect(get(o, "g")).toBe(undefined);
+    expect(get(o as any, "g")).toBe(undefined);
     expect(get(m, "a")).toBe(10);
     expect(get(m, "g")).toBe(undefined);
     expect(get(s, "a")).toBe(true);
@@ -29,7 +39,7 @@ describe("Accessors accesses what they access", () => {
     let [o, a, m, s] = createTestTargets();
 
     expect(set(o, "b", 30)).toEqual(30);
-    expect(set(o, [["c", "test"]])).toEqual({ a: 10, b: 30, c: "test" });
+    expect(set(o as any, [["c", "test"]])).toEqual({ a: 10, b: 30, c: "test" });
 
     expect(update(o, "a", (current) => current + 5)).toEqual(15);
     expect(update(o, { a: (current) => current + 3 })).toEqual({
@@ -67,14 +77,14 @@ describe("Accessors accesses what they access", () => {
     expect(clear(s, "test")).toBe(true);
     expect(clear(s, "test")).toBe(false);
 
-    expect(get(o, "gazonk", () => 80)).toBe(80);
-    expect(get(o, "gazonk")).toBe(80);
-    get(o, "gazonk", () => 37);
-    expect(get(o, "gazonk")).toBe(80);
+    expect(get(o as any, "gazonk", () => 80)).toBe(80);
+    expect(get(o as any, "gazonk")).toBe(80);
+    get(o as any, "gazonk", () => 37);
+    expect(get(o as any, "gazonk")).toBe(80);
 
-    expect(get(o, "test37", 37)).toBe(37);
-    set(o, "test37", 38);
-    expect(get(o, "test37", 37)).toBe(38);
+    expect(get(o as any, "test37", 37)).toBe(37);
+    set(o as any, "test37", 38);
+    expect(get(o as any, "test37", 37)).toBe(38);
   });
   it("clones", () => {
     let [o, a, m, s] = createTestTargets();

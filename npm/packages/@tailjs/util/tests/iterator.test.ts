@@ -119,6 +119,9 @@ describe("Iterator functionality iterates iterably", () => {
       forEach([1, 2], (item, index, { skip }) => (index ? true : skip())) ??
         false
     ).toEqual(true);
+
+    expect(map([1, 2, 3], null, 1, 2)).toEqual([2]);
+    expect(map([1, 2, 3], 1, 2)).toEqual([2]);
   });
 
   it("Iterates navigator functions", () => {

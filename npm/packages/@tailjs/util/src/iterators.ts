@@ -4,13 +4,13 @@ import {
   IsAny,
   KeyValuePairsToObject,
   hasMethod,
+  hasValue,
   isArray,
   isDefined,
   isFunction,
   isIterable,
   isObject,
   toArray,
-  toIterable,
 } from ".";
 
 export const UTF16MAX = 0xffff;
@@ -221,10 +221,9 @@ const mapIterator = <S extends IteratorSource>(
   end?: any
 ) => {
   if (isIterable(source, true)) {
-    if (start || end) {
-      return sliceIterator(mapIterator(source), start, end);
-    }
-    return source;
+    return start || end
+      ? sliceIterator(mapIterator(source), start, end)
+      : source;
   }
   if (!isDefined(source)) return [];
   if (isObject(source)) return mapIterator(Object.entries(source), start, end);
@@ -270,14 +269,23 @@ export const map: {
     projection?: IteratorAction<S, R | RT> | null,
     ...rest: StartEndArgs<S>
   ): IteratorProjection<S, R, RT>[];
-} = (source: any, projection: any, ...rest: any) => {
+  <S extends IteratorSource, R, RT extends AnyTuple>(
+    source: S,
+    ...rest: StartEndArgs<S>
+  ): IteratorProjection<S, R, RT>[];
+} = ((source: any, projection: any, ...rest: any[]) => {
+  if (!isFunction(projection) && hasValue(projection)) {
+    // The "projection" parameter is the start index.
+    rest.unshift(projection);
+    projection = null;
+  }
   source = mapIterator(source, ...rest);
   return projection
     ? isArray(source) && projection.length < 3
       ? source.map(projection as any).filter((item) => item !== undefined)
       : [...createControllableIterator(source as any, projection)]
     : (toArray(source, true) as any);
-};
+}) as any;
 
 type FlatIteratorItem<S extends IteratorSource> =
   IteratorItem<S> extends Iterable<infer T>

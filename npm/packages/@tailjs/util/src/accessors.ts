@@ -1,8 +1,8 @@
 import {
+  GeneralizeContstants,
+  IsAny,
   KeyValuePairsToObject,
   NotFunction,
-  PrettifyIntersection,
-  flatForEach,
   forEach,
   hasMethod,
   isArray,
@@ -33,39 +33,32 @@ type PropertyContainer<K extends any = any, V extends any = any> =
   | MapLike<K, V>
   | SetLike<K>;
 
-type _KeyType<T extends PropertyContainer> = T extends MapLike<infer K, any>
+export type KeyType<T extends PropertyContainer> = T extends MapLike<
+  infer K,
+  any
+>
   ? K
   : T extends SetLike<infer K>
   ? K
   : T extends any[]
   ? number
-  : keyof any;
-
-export type KeyType<T extends PropertyContainer> = T extends MapLike | SetLike
-  ? _KeyType<T>
-  : _KeyType<T> | keyof T;
+  : keyof T;
 
 export type ValueType<
   T extends PropertyContainer,
-  K = KeyType<T>,
-  IncludeDefault = false
-> = T extends {
-  [P in keyof any]: any;
-}
-  ?
-      | (T extends MapLike<any, infer V>
-          ? V
-          : T extends SetLike
-          ? boolean
-          : K extends keyof T
-          ? T[K]
-          : any)
-      | (IncludeDefault extends true
-          ? T extends SetLike
-            ? never
-            : undefined
-          : never)
-  : never;
+  K,
+  Default = never
+> = IsAny<T> extends true
+  ? any
+  : T extends MapLike<any, infer V>
+  ? V | Default
+  : T extends SetLike
+  ? boolean | Default
+  : T extends (infer T)[]
+  ? T
+  : K extends keyof T
+  ? T[K]
+  : any;
 
 // #endregion
 
@@ -74,8 +67,8 @@ export type ValueType<
 export const get = <T extends PropertyContainer, K extends KeyType<T>>(
   target: T,
   key: K,
-  initializer?: Updater<T, K, false, true>
-): ValueType<T, K, true> => {
+  initializer?: Updater<T, K, ValueType<T, K>, false, true>
+): ValueType<T, K, undefined> => {
   let value = hasMethod(target, "get")
     ? target.get(key)
     : hasMethod(target, "has")
@@ -83,7 +76,7 @@ export const get = <T extends PropertyContainer, K extends KeyType<T>>(
     : (target as any)[key];
   if (!isDefined(value) && isDefined(initializer)) {
     isDefined(
-      (value = isFunction(initializer) ? initializer() : initializer)
+      (value = isFunction(initializer) ? (initializer as any)() : initializer)
     ) && set(target, key, value);
   }
   return value;
@@ -93,28 +86,32 @@ export const get = <T extends PropertyContainer, K extends KeyType<T>>(
 
 // #region set and update
 
-type UpdateFunction<C, R = C, Factory = false> = (
-  ...args: Factory extends true ? [] : [current: C]
-) => R | undefined;
+type UpdateFunction<
+  T extends PropertyContainer,
+  Key,
+  Current,
+  Factory
+> = Factory extends false
+  ? (
+      current: Current,
+      key: Key,
+      target: T
+    ) => GeneralizeContstants<ValueType<T, Key>> | undefined
+  : (key: Key, target: T) => GeneralizeContstants<ValueType<T, Key>>;
 
 type Updater<
   T extends PropertyContainer,
-  K = KeyType<T>,
+  Key,
+  Current = ValueType<T, Key>,
   SettersOnly = false,
   Factory = false
-> = T extends MapLike | SetLike
-  ?
-      | ValueType<T>
-      | (SettersOnly extends true
-          ? never
-          : UpdateFunction<
-              ValueType<T> | undefined,
-              ValueType<T> | undefined,
-              Factory
-            >)
-  : SettersOnly extends true
-  ? any
-  : NotFunction | UpdateFunction<K extends keyof T ? T[K] : any, any, Factory>;
+> = SettersOnly extends true
+  ? ValueType<T, Key>
+  : IsAny<T> extends true
+  ? NotFunction | UpdateFunction<any, any, any, Factory>
+  :
+      | (ValueType<T, Key> extends Function ? never : ValueType<T, Key>)
+      | UpdateFunction<T, Key, Current, Factory>;
 
 type UpdaterType<T, SettersOnly = false> = SettersOnly extends true
   ? T
@@ -122,59 +119,35 @@ type UpdaterType<T, SettersOnly = false> = SettersOnly extends true
   ? T
   : T;
 
-type PropertiesToTuples<T, SettersOnly = false> = keyof T extends infer K
-  ? K extends keyof T
-    ? [K, UpdaterType<T[K], SettersOnly>]
-    : never
+type PropertiesToTuples<T, SettersOnly = false, K = keyof T> = K extends any
+  ? [K, UpdaterType<T, SettersOnly>]
   : never;
-
-type MergeUpdates<
-  Source,
-  Updates,
-  SettersOnly = false,
-  Unwrapped = KeyValuePairsToObject<UnwrapBulkUpdates<Updates, SettersOnly>>
-> = Source extends MapLike | SetLike
-  ? Source
-  : Source & Unwrapped extends {
-      [P in infer K]: any;
-    }
-  ? {
-      [P in K as P extends keyof Unwrapped
-        ? Unwrapped[P] extends never | undefined | void
-          ? never
-          : P
-        : P extends keyof Source
-        ? P
-        : never]: P extends keyof Unwrapped
-        ? Unwrapped[P]
-        : P extends keyof Source
-        ? Source[P]
-        : never;
-    }
-  : never;
-
-type UnwrapBulkUpdates<T, SettersOnly = false> = T extends (infer T)[]
-  ? T extends [infer K, infer V]
-    ? [K, UpdaterType<V, SettersOnly>]
-    : PropertiesToTuples<T, SettersOnly>
-  : PropertiesToTuples<T>;
 
 type BulkUpdateObject<
   T extends PropertyContainer,
   SettersOnly = false,
   Factory = false
-> = {
-  [P in
-    | KeyType<T>
-    | (T extends MapLike | SetLike ? never : keyof T)]: P extends keyof T
-    ? Updater<T, P, SettersOnly, Factory>
-    : Updater<T, P, SettersOnly, Factory>;
-};
+> = T extends MapLike | SetLike | any[]
+  ? {
+      [P in KeyType<T>]: Updater<T, P, ValueType<T, P>, SettersOnly, Factory>;
+    }
+  : { [P in keyof T & KeyType<T>]?: Updater<T, P, T[P], SettersOnly, Factory> };
+
 type BulkUpdateKeyValue<
   T extends PropertyContainer,
   SettersOnly = false,
-  Factory = false
-> = [KeyType<T>, Updater<T, KeyType<T>, SettersOnly, Factory>];
+  Factory = false,
+  K extends keyof T = keyof T
+> = IsAny<T> extends true
+  ? [any, Updater<T, any, any, SettersOnly, Factory>]
+  : T extends MapLike | SetLike | any[]
+  ? [
+      KeyType<T>,
+      Updater<T, KeyType<T>, ValueType<T, KeyType<T>>, SettersOnly, Factory>
+    ]
+  : K extends any
+  ? [K, Updater<T, KeyType<T>, any, SettersOnly, Factory>]
+  : never;
 
 type BulkUpdates<
   T extends PropertyContainer,
@@ -187,24 +160,26 @@ type BulkUpdates<
       | BulkUpdateObject<T, SettersOnly, Factory>
     >;
 
+type UnwrapBulkUpdates<T, SettersOnly = false> = T extends (infer T)[]
+  ? T extends [infer K, infer V]
+    ? [K, UpdaterType<V, SettersOnly>]
+    : PropertiesToTuples<T, SettersOnly>
+  : PropertiesToTuples<T>;
+
 type SetOrUpdateFunction<SettersOnly> = {
   <
     T extends PropertyContainer,
-    K extends KeyType<T>,
-    U extends Updater<T, K, SettersOnly>
+    U extends Updater<T, K, ValueType<T, K>, SettersOnly>,
+    K extends KeyType<T>
   >(
     target: T,
     key: K,
     value: U
-  ): UpdaterType<U, SettersOnly>;
-  <T extends PropertyContainer, Values extends BulkUpdates<T, SettersOnly>>(
+  ): ValueType<T, K>; //  UpdaterType<U, SettersOnly>;
+  <T extends PropertyContainer>(
     target: T,
-    values: Values
-  ): MergeUpdates<T, Values, SettersOnly>;
-};
-
-() => {
-  update({ a: 32 }, { a: (current) => current + 2 });
+    values: BulkUpdates<T, SettersOnly>
+  ): T;
 };
 
 const createSetOrUpdateFunction =
@@ -276,9 +251,14 @@ export const has = <T extends PropertyContainer>(target: T, key: KeyType<T>) =>
     : isDefined((target as any).get?.(key) ?? (target as any)[key]);
 
 export const clear: {
-  <T extends PropertyContainer>(target: T, key: KeyType<T>): ValueType<T, true>;
+  <T extends PropertyContainer>(target: T, key: KeyType<T>): ValueType<
+    T,
+    KeyType<T>,
+    true
+  >;
   <T extends PropertyContainer>(target: T, ...keys: KeyType<T>[]): ValueType<
     T,
+    KeyType<T>,
     true
   >[];
 } = (target: PropertyContainer, key: any, ...keys: any[]) => {
