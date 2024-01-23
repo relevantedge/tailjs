@@ -3,6 +3,7 @@ import {
   GeneralizeContstants,
   IsAny,
   KeyValuePairsToObject,
+  hasMethod,
   isArray,
   isDefined,
   isFunction,
@@ -273,9 +274,9 @@ export const map: {
   source = mapIterator(source, ...rest);
   return projection
     ? isArray(source) && projection.length < 3
-      ? source.map(projection as any)
+      ? source.map(projection as any).filter((item) => item !== undefined)
       : [...createControllableIterator(source as any, projection)]
-    : (toArray(source) as any);
+    : (toArray(source, true) as any);
 };
 
 type FlatIteratorItem<S extends IteratorSource> =
@@ -303,11 +304,18 @@ export const forEach = <S extends IteratorSource, R>(
 ): R | undefined => {
   let returnValue: R | undefined = undefined;
   source = mapIterator(source, ...rest);
-  for (const _ of createControllableIterator(
-    source as any,
-    action as any,
-    (value) => (returnValue = value as any)
-  ));
+  if (hasMethod(source, "forEach") && action.length < 3) {
+    source.forEach(
+      (item: any, index: any) =>
+        (returnValue = (action as any)(item, index) ?? returnValue)
+    );
+  } else {
+    for (const _ of createControllableIterator(
+      source as any,
+      action as any,
+      (value) => (returnValue = value as any)
+    ));
+  }
   return returnValue;
 };
 

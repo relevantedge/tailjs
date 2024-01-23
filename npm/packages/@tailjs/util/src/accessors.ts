@@ -1,6 +1,7 @@
 import {
   KeyValuePairsToObject,
   NotFunction,
+  PrettifyIntersection,
   flatForEach,
   forEach,
   hasMethod,
@@ -25,12 +26,12 @@ type SetLike<K = any> = {
   delete(key: K): any;
 };
 
-type PropertyContainer =
+type PropertyContainer<K extends any = any, V extends any = any> =
   | {
-      [P in keyof any]: any;
+      [P in keyof K]: V;
     }
-  | MapLike
-  | SetLike;
+  | MapLike<K, V>
+  | SetLike<K>;
 
 type _KeyType<T extends PropertyContainer> = T extends MapLike<infer K, any>
   ? K
@@ -72,34 +73,48 @@ export type ValueType<
 
 export const get = <T extends PropertyContainer, K extends KeyType<T>>(
   target: T,
-  key: K
+  key: K,
+  initializer?: Updater<T, K, false, true>
 ): ValueType<T, K, true> => {
-  return hasMethod(target, "get")
+  let value = hasMethod(target, "get")
     ? target.get(key)
     : hasMethod(target, "has")
     ? target.has(key)
     : (target as any)[key];
+  if (!isDefined(value) && isDefined(initializer)) {
+    isDefined(
+      (value = isFunction(initializer) ? initializer() : initializer)
+    ) && set(target, key, value);
+  }
+  return value;
 };
 
 // #endregion
 
 // #region set and update
 
-type UpdateFunction<C, R = C> = (current: C) => R | undefined;
+type UpdateFunction<C, R = C, Factory = false> = (
+  ...args: Factory extends true ? [] : [current: C]
+) => R | undefined;
 
 type Updater<
   T extends PropertyContainer,
   K = KeyType<T>,
-  SettersOnly = false
+  SettersOnly = false,
+  Factory = false
 > = T extends MapLike | SetLike
   ?
       | ValueType<T>
       | (SettersOnly extends true
           ? never
-          : UpdateFunction<ValueType<T> | undefined>)
+          : UpdateFunction<
+              ValueType<T> | undefined,
+              ValueType<T> | undefined,
+              Factory
+            >)
   : SettersOnly extends true
   ? any
-  : NotFunction | UpdateFunction<K extends keyof T ? T[K] : any, any>;
+  : NotFunction | UpdateFunction<K extends keyof T ? T[K] : any, any, Factory>;
 
 type UpdaterType<T, SettersOnly = false> = SettersOnly extends true
   ? T
@@ -138,23 +153,39 @@ type MergeUpdates<
     }
   : never;
 
-type UnwrapBulkUpdates<T, SettersOnly = false> = T extends any[]
-  ? T extends [[infer K, infer V]]
+type UnwrapBulkUpdates<T, SettersOnly = false> = T extends (infer T)[]
+  ? T extends [infer K, infer V]
     ? [K, UpdaterType<V, SettersOnly>]
-    : T extends [[infer K, infer V], ...infer Rest]
-    ? [K, UpdaterType<V, SettersOnly>] | UnwrapBulkUpdates<Rest>
-    : T extends Iterable<[infer K, infer V]>
-    ? [K, UpdaterType<V, SettersOnly>]
-    : never
+    : PropertiesToTuples<T, SettersOnly>
   : PropertiesToTuples<T>;
 
-type BulkUpdate<T extends PropertyContainer, SettersOnly = false> =
+type BulkUpdateObject<
+  T extends PropertyContainer,
+  SettersOnly = false,
+  Factory = false
+> = {
+  [P in
+    | KeyType<T>
+    | (T extends MapLike | SetLike ? never : keyof T)]: P extends keyof T
+    ? Updater<T, P, SettersOnly, Factory>
+    : Updater<T, P, SettersOnly, Factory>;
+};
+type BulkUpdateKeyValue<
+  T extends PropertyContainer,
+  SettersOnly = false,
+  Factory = false
+> = [KeyType<T>, Updater<T, KeyType<T>, SettersOnly, Factory>];
+
+type BulkUpdates<
+  T extends PropertyContainer,
+  SettersOnly = false,
+  Factory = false
+> =
+  | BulkUpdateObject<T, SettersOnly, Factory>
   | Iterable<
-      KeyType<T> extends infer K ? [K, Updater<T, K, SettersOnly>] : never
-    >
-  | {
-      [P in KeyType<T>]: Updater<T, P, SettersOnly>;
-    };
+      | BulkUpdateKeyValue<T, SettersOnly, Factory>
+      | BulkUpdateObject<T, SettersOnly, Factory>
+    >;
 
 type SetOrUpdateFunction<SettersOnly> = {
   <
@@ -165,35 +196,32 @@ type SetOrUpdateFunction<SettersOnly> = {
     target: T,
     key: K,
     value: U
-  ): boolean;
-  <
-    T extends PropertyContainer,
-    Values extends {
-      [P in KeyType<T>]: Updater<T, P, SettersOnly>;
-    }
-  >(
+  ): UpdaterType<U, SettersOnly>;
+  <T extends PropertyContainer, Values extends BulkUpdates<T, SettersOnly>>(
     target: T,
     values: Values
   ): MergeUpdates<T, Values, SettersOnly>;
-  <T extends PropertyContainer, Values extends BulkUpdate<T>[]>(
-    target: T,
-    values: Values
-  ): MergeUpdates<T, Values[number], SettersOnly>;
+};
+
+() => {
+  update({ a: 32 }, { a: (current) => current + 2 });
 };
 
 const createSetOrUpdateFunction =
   <B extends boolean>(settersOnly: B): SetOrUpdateFunction<B> =>
   (target: PropertyContainer, ...args: any[]) => {
-    const setSingle = (key: any, value: any, diff: boolean) => {
+    let bulk: boolean;
+    let [key, value] = args;
+    const setSingle = ([key, value]: [any, any]) => {
       if (!settersOnly && isFunction(value)) {
         value = value(get(target, key));
       }
 
       if (isUndefined(value)) {
-        return remove(target, key);
+        return clear(target, key);
       }
 
-      if (!diff || get(target, key) !== value) {
+      if (bulk || get(target, key) !== value) {
         hasMethod(target, "set")
           ? target.set(key, value)
           : hasMethod(target, "add")
@@ -201,20 +229,35 @@ const createSetOrUpdateFunction =
             ? target.add(key)
             : target.delete(key)
           : (target[key] = value);
-        return diff ? true : target;
       }
-      return diff ? false : target;
+
+      return value;
     };
 
-    let [key, value] = args;
-
-    if (args.length === 1) {
-      flatForEach(isObject(key) ? [key] : key, ([key, value]) =>
-        setSingle(key, value, true)
-      );
+    if ((bulk = args.length === 1)) {
+      // Fast path
+      if (settersOnly) {
+        if (isArray(key) && key.every((item) => isObject(item))) {
+          key = Object.assign({}, ...key);
+        }
+        if (isObject(key)) {
+          Object.assign(target, key);
+          Object.entries(key).forEach(
+            ([k, v]) => !isDefined(v) && delete target[k]
+          );
+          return target;
+        }
+      }
+      if (isObject(key)) {
+        forEach(key, setSingle);
+      } else {
+        forEach(key, (item) =>
+          isObject(item) ? forEach(item, setSingle) : setSingle(item)
+        );
+      }
       return target;
     }
-    return setSingle(key, value, true);
+    return setSingle([key, value]);
   };
 
 export const set = createSetOrUpdateFunction(true);
@@ -222,29 +265,33 @@ export const update = createSetOrUpdateFunction(false);
 
 // #endregion
 
+export const add = <T extends PropertyContainer<any, boolean>>(
+  target: T,
+  key: KeyType<T>
+) => get(target, key) !== set(target, key, true as any);
+
 export const has = <T extends PropertyContainer>(target: T, key: KeyType<T>) =>
   hasMethod(target, "has")
     ? target.has(key)
     : isDefined((target as any).get?.(key) ?? (target as any)[key]);
 
-export const remove: {
+export const clear: {
   <T extends PropertyContainer>(target: T, key: KeyType<T>): ValueType<T, true>;
   <T extends PropertyContainer>(target: T, ...keys: KeyType<T>[]): ValueType<
     T,
     true
   >[];
-} = (target: PropertyContainer, ...keys: any[]) => {
-  if (keys.length > 1) {
-    return keys.map((key) => remove(target, key));
+} = (target: PropertyContainer, key: any, ...keys: any[]) => {
+  if (keys.length) {
+    return keys.map((key) => clear(target, key));
   }
-  const key = keys[0];
-  const oldValue = get(target, key);
 
+  const current = get(target, key);
   hasMethod(target, "delete")
     ? target.delete(key)
     : isArray(target)
     ? target.splice(key, 1)
     : delete target[key];
 
-  return oldValue;
+  return current;
 };
