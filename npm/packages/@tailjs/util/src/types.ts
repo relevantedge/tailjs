@@ -104,22 +104,14 @@ export type PrettifyIntersection<T> = T extends { [P in infer K]: any }
  * Makes an array of key/value pairs to an object with the corresponding properties.
  */
 export type KeyValuePairsToObject<T> = UnionToIntersection<
-  _KeyValuePairToObject<T>
+  T extends readonly [infer K & keyof any, infer V]
+    ? { [P in K & keyof any]: V }
+    : ((value: T) => never) extends (
+        value: [infer K & keyof any, infer V]
+      ) => never
+    ? { [P in K & keyof any]: ConstToTuples<V> }
+    : unknown
 >;
-
-/**
- * Makes a key/value pair in to an object with the corresponding property.
- */
-type _KeyValuePairToObject<T> = T extends readonly [
-  infer K & keyof any,
-  infer V
-]
-  ? { [P in K & keyof any]: V }
-  : ((value: T) => never) extends (
-      value: [infer K & keyof any, infer V]
-    ) => never
-  ? { [P in K & keyof any]: ConstToTuples<V> }
-  : unknown;
 
 /**
  * Anything but a function.
@@ -265,6 +257,10 @@ export const isUndefined = (value: any): value is undefined | void =>
 
 export const isDefined = <T>(value: T): value is Exclude<T, undefined | void> =>
   value !== undefined;
+
+export const isNullish = <T>(
+  value: T
+): value is Exclude<T, undefined | void | null> => value == nil;
 
 export const hasValue = <T>(
   value: T
