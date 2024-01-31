@@ -1,3 +1,4 @@
+import { isDefined } from "@tailjs/util";
 import { TAB_ID, bindStorage, sharedStorage } from ".";
 
 export type Channel<T> = {
@@ -28,7 +29,7 @@ export const createChannel = <T>(
       storage.delete();
     },
     unsubscribe: storage.observe((value) => {
-      if (value && (!value.target || value.target === TAB_ID)) {
+      if (isDefined(value) && (!value.target || value.target === TAB_ID)) {
         handler(value.sender, value.payload);
       }
     })[0],
@@ -55,74 +56,12 @@ export const error: {
   }
 };
 export const log = (message: any) => {
+  const source = message;
   typeof message === "object" && (message = JSON.stringify(message));
 
   (chatChannel ??= createChannel<string>("chat", (sender, message) => {
     console.log(`Other tab (${sender}): ${message}`);
   })).post(TAB_ID, message);
   console.log(`This tab: ${message}`);
+  return source;
 };
-
-// export const createSynchronizedStorage = <T>(id: string) => {
-//   type V = { serial: number; value: null };
-
-//   let currentValue: V = { serial: 0, value: null };
-
-//   const refresh = () => {
-//     const storedValue = deserialize<V>(localStorage.getItem(id));
-//     if (storedValue && storedValue.serial > currentValue.serial) {
-//       log("Value updated.");
-//       currentValue = storedValue;
-//     } else if (
-//       !storedValue?.serial ||
-//       storedValue.serial < currentValue.serial
-//     ) {
-//       log("Restored the value.");
-//       // Someone deleted the key, or the current value is not compatible with us.
-//       localStorage.setItem(id, serialize(currentValue));
-//     }
-//     return currentValue;
-//   };
-
-//   const storageHandler = ({ key }: StorageEvent) => {
-//     if (key === id) {
-//       refresh();
-//     }
-//   };
-
-//   const recover = () => {
-//     const storedValue = deserialize<V>(localStorage.getItem(id));
-//     if (!storedValue?.serial || storedValue.serial < currentValue.serial) {
-//       //localStorage.setItem
-//     }
-//   };
-//   const wire = () => {
-//     refresh();
-//     window.addEventListener("storage", storageHandler);
-//   };
-
-//   const unwire = () => window.removeEventListener("storage", storageHandler);
-
-//   window.addEventListener("pageshow", wire);
-//   window.addEventListener("pagehide", unwire);
-
-//   wire();
-
-//   let storage: SynchronizedStorage<T> = {
-//     get: () => refresh().value,
-//     update: (update) => {
-//       const updated = update(refresh().value);
-//       localStorage.setItem(
-//         id,
-//         serialize(
-//           (currentValue = {
-//             serial: currentValue.serial + 1,
-//             value: updated as any,
-//           })
-//         )
-//       );
-//       return updated;
-//     },
-//   };
-//   return storage;
-// };

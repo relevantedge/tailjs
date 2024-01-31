@@ -136,28 +136,28 @@ export const getDistBundles = async (variables = {}, subPackages = {}) => {
                     },
                   ],
                 }),
-                terser({
-                  compress: {
-                    passes: 2,
-                    ecma: 2020,
-                    unsafe_comps: true,
-                    module: true,
-                    toplevel: true,
-                  },
-                  mangle: {
-                    properties: {
-                      keep_quoted: true,
-                    },
-                    toplevel: true,
-                  },
-                }),
+                // terser({
+                //   compress: {
+                //     passes: 2,
+                //     ecma: 2020,
+                //     unsafe_comps: true,
+                //     module: true,
+                //     toplevel: true,
+                //   },
+                //   mangle: {
+                //     properties: {
+                //       keep_quoted: true,
+                //     },
+                //     toplevel: true,
+                //   },
+                // }),
 
-                uglify({
-                  compress: {
-                    evaluate: "eager",
-                    passes: 2,
-                  },
-                }),
+                // uglify({
+                //   compress: {
+                //     evaluate: "eager",
+                //     passes: 2,
+                //   },
+                // }),
               ]
             : []),
           ,

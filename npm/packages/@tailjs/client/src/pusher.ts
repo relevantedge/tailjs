@@ -1,50 +1,57 @@
-import { cast, forEach, isNull, isObject, map } from "@tailjs/util";
-import { TAB_ID, bindStorage, listen, now } from "./lib2";
+import { clock, createLock, listen, now, updateTabState, wait } from "./lib2";
 
-const enum TabState {
-  Open = 1,
-  Active = 2,
-  Closed = 3,
-}
-
-type ChatMessage = {
-  message?: string;
-  tab?: TabState;
-};
-
-type TabData = {};
-
-type State = {
-  openTabs: Record<string, TabData>;
-};
-
-const state: State = {
-  openTabs: { [TAB_ID]: {} },
-};
-
-const activeTabs = bindStorage<Record<string, number>>("active2");
-
+//const lck = createLock("test");
 export const attach = async () => {
-  listen(
-    window,
-    "pageshow",
-    () =>
-      activeTabs.update(
-        (current) => (
-          ((current = cast(current, isObject) ?? {})[TAB_ID] = now()), current
-        )
-      )
-    //activeStorage.update((current) => (current ?? 0) + 1)
+  let invocations = 0;
+  let clicked = false;
+  const pump = clock(
+    async () => {
+      const capturedClick = clicked;
+      if (!clicked && invocations % 2 === 1) {
+        await wait(1500);
+      }
+      console.log(`${++invocations}, clicked: ${capturedClick}.`);
+    },
+    { frequency: 1000, queue: false }
   );
-  listen(
-    window,
-    "pagehide",
-    () =>
-      activeTabs.update(
-        (current) => (isObject(current) && delete current[TAB_ID], current)
-      )
-    // activeStorage.update((current: any) =>
-    //   current > 0 ? current - 1 : current
-    // )
-  );
+
+  listen(document.body, "click", async (e) => {
+    clicked = true;
+    console.log(pump.active, pump.busy);
+    e.shiftKey && pump.toggle(!pump.active);
+    console.log(await pump.trigger(true));
+    (async () => {
+      clicked = false;
+    })();
+  });
+  // listen(document.body, "click", () => {
+  //   updateTabState((tab) => (tab.navigated = now()));
+
+  //   lck(async () => {
+  //     console.log("Lock acquired.");
+  //     await wait(5000);
+  //   });
+  // });
+  // listen(
+  //   window,
+  //   "pageshow",
+  //   () =>
+  //     activeTabs.update(
+  //       (current) => (
+  //         ((current = cast(current, isObject) ?? {})[TAB_ID] = now()), current
+  //       )
+  //     )
+  //   //activeStorage.update((current) => (current ?? 0) + 1)
+  // );
+  // listen(
+  //   window,
+  //   "pagehide",
+  //   () =>
+  //     activeTabs.update(
+  //       (current) => (isObject(current) && delete current[TAB_ID], current)
+  //     )
+  //   // activeStorage.update((current: any) =>
+  //   //   current > 0 ? current - 1 : current
+  //   // )
+  // );
 };

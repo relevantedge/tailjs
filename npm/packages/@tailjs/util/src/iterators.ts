@@ -7,9 +7,11 @@ import {
   hasValue,
   isArray,
   isDefined,
+  isFalsish,
   isFunction,
   isIterable,
   isObject,
+  isTruish,
   toArray,
 } from ".";
 
@@ -51,7 +53,7 @@ type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
   ? T extends string
     ? string
     : T
-  : unknown;
+  : never;
 
 export interface IteratorControl<S extends IteratorSource> {
   source: S;
@@ -281,8 +283,8 @@ export const map: {
   }
   source = mapIterator(source, ...rest);
   return projection
-    ? isArray(source) && projection.length < 3
-      ? source.map(projection as any).filter((item) => item !== undefined)
+    ? projection.length < 3 && hasMethod(source, "map")
+      ? source["map"](projection).filter(isDefined)
       : [...createControllableIterator(source as any, projection)]
     : (toArray(source, true) as any);
 }) as any;
@@ -311,11 +313,13 @@ export const forEach = <S extends IteratorSource, R>(
   ...rest: StartEndArgs<S>
 ): R | undefined => {
   let returnValue: R | undefined = undefined;
+  let innerReturnValue: any;
   source = mapIterator(source, ...rest);
-  if (hasMethod(source, "forEach") && action.length < 3) {
+  if (action.length < 3 && hasMethod(source, "forEach")) {
     source.forEach(
       (item: any, index: any) =>
-        (returnValue = (action as any)(item, index) ?? returnValue)
+        isDefined((innerReturnValue = (action as any)(item, index))) &&
+        (returnValue = innerReturnValue)
     );
   } else {
     for (const _ of createControllableIterator(
@@ -383,7 +387,7 @@ export const filter = <
   MapToArray extends boolean = false
 >(
   source: S,
-  filter: Filter<S> = (item) => item as any,
+  filter: Filter<S> = isTruish,
   map?: MapToArray,
   ...rest: StartEndArgs<S>
 ): S extends any[] | null | undefined | (MapToArray extends true ? any : never)
@@ -434,13 +438,22 @@ export const some = <S extends IteratorSource>(
   filter?: Filter<S> | null,
   ...rest: StartEndArgs<S>
 ) =>
-  filter
+  hasMethod(source, "some")
+    ? source.some(
+        filter ? (item: any, index: number) => filter(item, index) : isTruish
+      )
+    : filter
     ? some(filterInternal(source as any, filter, false, ...rest))
     : forEach<any, boolean>(source, (item, index, { end }) => end(true)) ??
       false;
 
 export const every = <S extends IteratorSource>(
   source: S,
-  filter: Filter<S>,
+  filter?: Filter<S>,
   ...rest: StartEndArgs<S>
-) => !some(source, (item, index) => !filter(item, index), ...rest);
+) =>
+  !some(
+    source,
+    filter ? (item, index) => !filter(item, index) : isFalsish,
+    ...rest
+  );

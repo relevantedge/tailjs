@@ -1,34 +1,20 @@
+import { isArray, map } from "@tailjs/util";
+import {
+  Binders,
+  Listener,
+  Unbinder,
+  createBinders,
+  createEvent,
+  mergeBinders,
+} from ".";
+
+type PageListenerArgs = [visible: boolean, loaded: boolean];
+const [addListener, dispatch] = createEvent<PageListenerArgs>();
+
 type AllMaps = WindowEventMap &
   GlobalEventHandlersEventMap &
   DocumentEventMap &
   HTMLElementEventMap;
-
-export type Rebinder = () => boolean;
-export type Unbinder = () => boolean;
-export type Binders = [unbind: Unbinder, rebind: Rebinder];
-
-export const combine = <T extends (...args: any) => any>(
-  ...functions: T[]
-): T extends (...args: infer A) => infer R
-  ? (...args: A) => R extends void ? void : R[]
-  : never => ((...args: any[]) => functions.map((f) => f(...args))) as any;
-
-export type Listener<Arg> = (arg: Arg, unbind: Unbinder) => void;
-export const createBinders = <Arg>(
-  listener: Listener<Arg>,
-  attach: (listener: (arg: Arg) => void) => void,
-  detach: (listener: (arg: Arg) => void) => void
-): Binders => {
-  let bound = false;
-  const unbind = () =>
-    bound !== (bound = false) && (detach(outerListener), true);
-  const rebind = () =>
-    bound !== (bound = true) && (attach(outerListener), true);
-
-  const outerListener = (arg: Arg) => listener(arg, unbind);
-  rebind();
-  return [unbind, rebind];
-};
 
 export const listen = <K extends keyof AllMaps>(
   target: {
@@ -43,36 +29,49 @@ export const listen = <K extends keyof AllMaps>(
       options?: boolean | EventListenerOptions
     ): void;
   },
-  name: K,
-  listener: (ev: AllMaps[K], unbind?: Unbinder) => any,
+  name: K | K[],
+  listener: (
+    ev: AllMaps[K extends any[] ? K[number] : K],
+    unbind?: Unbinder
+  ) => any,
   options: AddEventListenerOptions = { capture: true, passive: true }
-) =>
-  createBinders(
-    listener,
-    (listener) => target.addEventListener(name, listener, options),
-    (listener) => target.addEventListener(name, listener, options)
-  );
+): Binders => {
+  return isArray(name)
+    ? mergeBinders(
+        ...map(name, (name) => listen(target, name as any, listener, options))
+      )
+    : createBinders(
+        listener,
+        (listener) => target.addEventListener(name, listener, options),
+        (listener) => target.addEventListener(name, listener, options)
+      );
+};
 
-// export const listen = <K extends keyof AllMaps>(
-//   el: any,
-//   names: K[] | K,
-//   cb: (ev: AllMaps[K], unbind: () => void) => void,
-//   capture = true,
-//   passive = true
-// ) => {
-//   let unbinders: any[] = [];
+let binders: ReturnType<typeof addListener>;
+export const addPageListener = (
+  listener: Listener<PageListenerArgs>,
+  triggerLoaded = true
+) => (
+  (binders = addListener(listener)),
+  loaded && triggerLoaded && listener(visible, false, binders[0]),
+  binders
+);
 
-//   return (
-//     toArray(names).map((name, i) => {
-//       const mapped = (ev: any) => {
-//         cb(ev, unbinders[i]);
-//       };
-//       push(unbinders, () => el.removeEventListener(name, mapped, capture));
-//       return el.addEventListener(name, mapped, { capture, passive });
-//     }),
-//     () =>
-//       unbinders.length > 0 && map(unbinders, (unbind) => unbind())
-//         ? ((unbinders = []), T)
-//         : F
-//   );
-// };
+let visible = true;
+let loaded = false;
+
+const dispatchVisible = () =>
+  (!loaded || !visible) &&
+  dispatch((visible = true), loaded || !(loaded = true));
+
+listen(
+  window,
+  "pagehide",
+  () => (visible || loaded) && dispatch((visible = false), (loaded = false))
+);
+listen(window, "pageshow", dispatchVisible);
+listen(document, "visibilitychange", () =>
+  document.visibilityState === "visible"
+    ? dispatchVisible()
+    : visible && dispatch((visible = false), loaded)
+);

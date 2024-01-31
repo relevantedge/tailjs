@@ -1,37 +1,72 @@
-import { createBinders, listen } from ".";
+import { clear, forEach, set } from "@tailjs/util";
+import {
+  STATE_KEY,
+  TAB_HEARTBEAT,
+  TAB_ID,
+  addPageListener,
+  bindStorage,
+  createEvent,
+  now,
+  clock,
+  sharedStorage,
+} from ".";
 
-export const STATE_READY = "_t.sr";
-
-export type EventHandler<T> = (payload: T) => void;
-
-export const createEvent = <T>(): [
-  listen: (listener: EventHandler<T>) => ReturnType<typeof listen>,
-  dispatch: (payload: T) => void
-] => {
-  const listeners = new Set<EventHandler<T>>();
-
-  return [
-    (handler) =>
-      createBinders(
-        handler,
-        (handler) => listeners.add(handler),
-        (handler) => listeners.delete(handler)
-      ),
-    (payload) => listeners.forEach((handler) => handler(payload)),
-  ];
+export type TabState = {
+  hearbeat: number;
+  view?: number;
+  navigated?: number;
 };
 
 export type State = {
-  knownTabs: string[];
+  knownTabs: Record<string, TabState>;
+  variables: Record<string, any>;
 };
 
-const initialState: State = { knownTabs: [] };
+const initialState: State = {
+  knownTabs: {},
+  variables: {},
+};
 
-const [addStateListener, dispatch] = createEvent<State>();
+const [addStateListener, dispatch] =
+  createEvent<[event: "ready" | "update", state: State]>();
+
+const storage = bindStorage<State>(STATE_KEY, sharedStorage);
+
+const heartbeat = clock(() => toggleTab(true), TAB_HEARTBEAT);
+let tabState: TabState = { hearbeat: now() };
+
+const toggleTab = (loading: boolean) => {
+  const deadline = now() - TAB_HEARTBEAT * 2;
+  heartbeat.toggle(loading, true);
+
+  return dispatch(
+    "ready",
+    storage.update((state) => {
+      forEach(
+        state?.knownTabs,
+        // Remove interval tabs.
+        ([tabId, tabState]) =>
+          tabState[0] < deadline && clear(state!.knownTabs, tabId)
+      );
+
+      tabState.hearbeat = now();
+
+      return (
+        set(
+          (state ??= initialState).knownTabs,
+          TAB_ID,
+          loading ? tabState : undefined
+        ),
+        state
+      );
+    })
+  );
+};
+
+addPageListener((visible, loaded) => !loaded && toggleTab(visible));
+
+export const updateTabState = (update: (tabState: TabState) => void) => (
+  update(tabState), toggleTab(true)
+);
+
 export { addStateListener };
-
-// const stateStorage = bindStickyStorage();
-
-// setTimeout(() => {
-//   dispatch(true);
-// }, 100);
