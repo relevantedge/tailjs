@@ -70,6 +70,12 @@ export interface TrackerExtension {
     environment: TrackerEnvironment
   ): Promise<void>;
 
+  patch?(
+    events: Partial<TrackedEvent> & { id: string },
+    tracker: Tracker,
+    environment: TrackerEnvironment
+  ): Promise<void>;
+
   getClientScripts?(
     tracker: Tracker,
     environment: TrackerEnvironment

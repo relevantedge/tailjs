@@ -55,9 +55,9 @@ export type ValueType<
   : T extends SetLike
   ? boolean | Default
   : T extends (infer T)[]
-  ? T
+  ? T | Default
   : K extends keyof T
-  ? T[K]
+  ? T[K] | Default
   : any;
 
 // #endregion
@@ -106,11 +106,13 @@ type Updater<
   SettersOnly = false,
   Factory = false
 > = SettersOnly extends true
-  ? ValueType<T, Key>
+  ? ValueType<T, Key, Factory extends true ? never : undefined>
   : IsAny<T> extends true
   ? NotFunction | UpdateFunction<any, any, any, Factory>
   :
-      | (ValueType<T, Key> extends Function ? never : ValueType<T, Key>)
+      | (ValueType<T, Key> extends Function
+          ? never
+          : ValueType<T, Key, Factory extends true ? never : undefined>)
       | UpdateFunction<T, Key, Current, Factory>;
 
 type UpdaterType<T, SettersOnly = false> = SettersOnly extends true
@@ -175,7 +177,7 @@ type SetOrUpdateFunction<SettersOnly> = {
     target: T,
     key: K,
     value: U
-  ): ValueType<T, K>; //  UpdaterType<U, SettersOnly>;
+  ): UpdaterType<U>; //  UpdaterType<U, SettersOnly>;
   <T extends PropertyContainer>(
     target: T,
     values: BulkUpdates<T, SettersOnly>

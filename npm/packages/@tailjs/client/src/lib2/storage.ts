@@ -1,67 +1,91 @@
-import { tryCatch } from "@tailjs/util";
-import { Binders, TAB_ID, error, listen } from ".";
-
-type Observer<T = any> = (
-  newValue: T | null,
-  oldValue: T | null,
-  key: string | null
-) => void;
+import { isUndefined } from "@tailjs/util";
+import { createTransport } from "@tailjs/util/transport";
+import {
+  Binders,
+  DEBUG,
+  Listener,
+  TAB_ID,
+  addPageListener,
+  createEvent,
+  error,
+  listen,
+  mergeBinders,
+} from ".";
 
 export type Metadata<T = any> = [value: T, source?: string, expires?: number];
 
+export type StorageProviderObserver<T = any> = (
+  newValue: Metadata<T> | undefined,
+  oldValue: Metadata<T> | undefined,
+  key: string | null
+) => void;
+
 export interface StorageProvider {
   getItem<T = any>(key: string): Metadata<T> | null;
-  setItem<T>(key: string, value: Metadata<T>): void;
+  setItem<T = any>(key: string, value: Metadata<T>): void;
   removeItem(key: string): void;
-  observe?<T>(key: string, observer: Observer<T>): Binders;
+  observe?<T = any>(key: string, observer: StorageProviderObserver<T>): Binders;
 }
 
+type TypedStorageObserverArgs<T = any> = [
+  newValue: T | undefined,
+  context: {
+    key: string | null;
+    oldValue: string | undefined;
+    source?: string | undefined;
+    self?: boolean;
+  }
+];
+export type TypedStorageObserver<T = any> = Listener<
+  TypedStorageObserverArgs<T>
+>;
+
 export interface TypedStorage {
-  get<T = any>(key: string): T | null;
+  get<T = any>(key: string): T | undefined;
   set<T>(key: string, value: T, timeout?: number): T;
   delete(key: string): void;
   update<T = any>(
     key: string,
-    newValue: (current: T | null) => T,
+    newValue: (current: T | undefined) => T,
     timeout?: number
   ): T;
-  observe?<T = any>(key: string, observer: Observer<T>): Binders;
+  observe?<T = any>(
+    key: string,
+    observer: TypedStorageObserver<T>,
+    includeSelf?: boolean
+  ): Binders;
 }
 
 export interface BoundStorage<T = any> {
-  get(): T | null;
-  set<Nulls extends null | undefined = never>(
-    value: T | Nulls,
+  get(): T | undefined;
+  set<Undefined extends undefined | never = never>(
+    value: T | undefined,
     timeout?: number
-  ): T | Nulls;
+  ): T | Undefined;
   delete(): void;
-  update<Nulls extends null | undefined = never>(
-    newValue: (current: T | null) => T | Nulls,
+  update<Undefined extends undefined | T = T>(
+    newValue: (current: T | undefined) => T | Undefined,
     timeout?: number
-  ): T | Nulls;
-  observe?(observer: Observer<T>): Binders;
+  ): T | Undefined;
+  observe?(observer: TypedStorageObserver<T>, includeSelf?: boolean): Binders;
 }
 
-const serialize = JSON.stringify;
-
-const deserialize: {
-  <T = any>(payload: string | null | undefined): T | null;
-} = (payload: string | null) =>
-  payload == null
-    ? null
-    : tryCatch(
-        () => JSON.parse(payload),
-        () => null
-      );
+const [serialize, deserialize] = createTransport("foo", DEBUG);
 
 export const mapStorage = <P extends StorageProvider>(
   provider: P
 ): P["observe"] extends undefined ? TypedStorage : Required<TypedStorage> => {
-  const set = <T>(key: string, value: T | null, timeout?: number) => {
-    if (value == null) {
+  const [addOwnListener, dispatchOwn] = createEvent<TypedStorageObserverArgs>();
+
+  const get = (key: string) => provider.getItem(key)?.[0];
+  const set = <T>(key: string, value: T | undefined, timeout?: number) => {
+    const oldValue = get(key);
+    if (isUndefined(value)) {
       provider.removeItem(key);
+      dispatchOwn(undefined, { key, oldValue, source: TAB_ID, self: true });
     } else {
       provider.setItem(key, [value, TAB_ID, timeout]);
+      dispatchOwn(value, { key, oldValue, source: TAB_ID, self: true });
     }
     return value as any;
   };
@@ -69,13 +93,13 @@ export const mapStorage = <P extends StorageProvider>(
   let retries = 0;
   const update = <T>(
     key: string,
-    newValue: (current: T | null) => T | null,
+    newValue: (current: T | undefined) => T | undefined,
     timeout: number
   ) => {
     if (retries++ > 3) {
       error(`Race condition ('${key}').`, true);
     }
-    const value = set(key, newValue(provider.getItem<T>(key)?.[0] ?? null));
+    const value = set(key, newValue(provider.getItem<T>(key)?.[0]));
     const writtenValue = provider.getItem(key);
     if (writtenValue?.[1] && writtenValue?.[1] !== TAB_ID) {
       return update(key, newValue, timeout);
@@ -85,16 +109,35 @@ export const mapStorage = <P extends StorageProvider>(
   };
 
   return {
-    get: (key) => provider.getItem(key)?.[0] ?? null,
+    get,
     set,
-    delete: (key) => set(key, null),
+    delete: (key) => set(key, undefined),
     update,
-    observe: provider.observe ? provider.observe.bind(provider) : undefined,
-  };
+    observe: provider.observe
+      ? (key, listener, includeSelf) => {
+          const [unbind, bind] = mergeBinders(
+            provider.observe!(key, (newValue, oldValue, key) =>
+              listener(
+                newValue?.[0],
+                { key, oldValue: oldValue?.[0], source: newValue?.[1] },
+                unbind
+              )
+            ),
+            includeSelf
+              ? addOwnListener(
+                  (value, context, unbind) =>
+                    context.key === key && listener(value, context, unbind)
+                )
+              : undefined
+          );
+          return [unbind, bind];
+        }
+      : undefined,
+  } as TypedStorage as any;
 };
 
 export const sharedStorage = mapStorage({
-  getItem: (key) => deserialize(localStorage.getItem(key)),
+  getItem: (key) => deserialize(localStorage.getItem(key)) ?? null,
   setItem: (key, value) =>
     localStorage.setItem(
       key,
@@ -110,21 +153,12 @@ export const sharedStorage = mapStorage({
         observer(deserialize(newValue), deserialize(oldValue), key)
     );
 
-    const [unbindShow, bindShow] = listen(window, "pageshow", bind);
-    const [unbindHide, bindHide] = listen(window, "pagehide", unbind);
-
-    return [
-      () => {
-        unbindHide();
-        unbindShow();
-        return unbind();
-      },
-      () => {
-        bindHide();
-        bindShow();
-        return bind();
-      },
-    ];
+    return mergeBinders(
+      [unbind, bind],
+      addPageListener(
+        (visible, loaded) => !loaded && (visible ? bind() : unbind())
+      )
+    );
   },
 });
 
@@ -136,72 +170,10 @@ export const bindStorage: {
   storage: TypedStorage = sharedStorage
 ): Required<BoundStorage<T>> => ({
   get: () => storage.get<T>(key),
-  set: (value, timeout) => storage.set(key, value, timeout),
+  set: (value, timeout) => storage.set(key, value as any, timeout),
   delete: () => storage.delete(key),
   update: (updater, timeout) => storage.update(key, updater as any, timeout),
   observe: storage.observe
-    ? (observer) => storage.observe!(key, observer)
+    ? (observer, includeSelf) => storage.observe!(key, observer, includeSelf)
     : undefined!,
 });
-
-export const bindStickyStorage = <T>(
-  key: string,
-  storage: Required<TypedStorage> = sharedStorage
-): Required<BoundStorage<T>> => {
-  if (!storage.observe) {
-    throw new TypeError("Storage must be observable.");
-  }
-
-  type V = [value: T | null, version: number];
-
-  const inner = bindStorage<V>(key, storage);
-  let current: V = inner.get() ?? [null, 0];
-  let stored: V | null;
-
-  const isValid = (stored: any | null) =>
-    stored === null || (stored.length === 2 && typeof stored[1] === "number");
-  const isStale = (stored: V | null) => !((stored?.[1] as any) >= current[1]);
-
-  const ensureValue = () => {
-    stored = inner.get();
-    if (isStale(stored)) {
-      inner.set(current);
-      return current;
-    }
-    return (current = stored!);
-  };
-
-  inner.observe((value) => {
-    if (isStale(value)) {
-      ensureValue();
-    } else {
-      current = value!;
-    }
-  });
-
-  return {
-    get: () => ensureValue()[0],
-    set: (value, timeout) =>
-      inner.set(
-        value === null ? null : ([value, ensureValue()[1] + 1] as any),
-        timeout
-      )?.[0],
-    delete: () => inner.delete(),
-    update: (updater, timeout) =>
-      inner.update(() => {
-        const current = ensureValue();
-        return [updater(current[0]), current[1] + 1] as any;
-      }, timeout),
-    observe: (observer) =>
-      inner.observe!((newValue, previousValue, key) => {
-        if (!isValid(newValue)) return;
-        if (!isStale(newValue)) {
-          observer(
-            newValue![0],
-            (isValid(previousValue) && previousValue?.[0]) || null,
-            key
-          );
-        }
-      }),
-  };
-};

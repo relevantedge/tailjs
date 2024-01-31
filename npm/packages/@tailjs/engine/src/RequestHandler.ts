@@ -27,11 +27,7 @@ import {
   ValidationError,
 } from "./shared";
 
-import {
-  CONTEXT_MENU_COOKIE,
-  MUTEX_REQUEST_COOKIE,
-  MUTEX_RESPONSE_COOKIE,
-} from "@constants";
+import { CONTEXT_MENU_COOKIE, MUTEX_REQUEST_COOKIE } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
 import { from64u } from "@tailjs/util/transport";
 import { generateClientConfigScript } from "./lib/clientConfigScript";

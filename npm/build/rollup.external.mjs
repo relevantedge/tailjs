@@ -9,6 +9,7 @@ import * as fs from "fs";
 import { join } from "path";
 import dts from "rollup-plugin-dts";
 import esbuild from "rollup-plugin-esbuild";
+import { visualizer } from "rollup-plugin-visualizer";
 
 import package_json from "rollup-plugin-generate-package-json";
 import {
@@ -20,6 +21,8 @@ import {
 
 export async function getExternalBundles() {
   const pkg = await env();
+
+  const shimOnly = pkg.name === "engine" ? new Set(["process"]) : null;
 
   const targets = [
     [`${pkg.path}/dist/v8`, false],
@@ -59,41 +62,43 @@ export async function getExternalBundles() {
 
           alias({
             entries: [
-              {
-                find: "net",
-                replacement: `${pkg.workspace}/build/shims/net.ts`,
-              },
-              { find: "assert", replacement: "assert" },
-              { find: "buffer", replacement: "buffer" },
-              {
-                find: "console",
-                replacement: "console-browserify",
-              },
-              { find: "crypto", replacement: "crypto-browserify" },
-              { find: "stream", replacement: "stream-browserify" },
-              { find: "domain", replacement: "domain-browser" },
-              { find: "events", replacement: "events" },
-              { find: "http", replacement: "stream-http" },
-              { find: "https", replacement: "stream-http" },
-              { find: "os", replacement: "os" },
-              { find: "path", replacement: "path" },
-              { find: "process", replacement: "process-es6" },
-              { find: "punycode", replacement: "punycode" },
-              { find: "querystring", replacement: "querystring" },
-              { find: "stream", replacement: "stream-browserify" },
-              {
-                find: "string_decoder",
-                replacement: "string_decoder",
-              },
-              { find: "sys", replacement: "util" },
-              { find: "timers", replacement: "timers-browserify" },
-              { find: "tty", replacement: "tty-browserify" },
-              { find: "url", replacement: "url" },
-              { find: "util", replacement: "util" },
-              { find: "vm", replacement: "vm-browserify" },
-              { find: "zlib", replacement: "browserify-zlib" },
-              { find: "fs", replacement: "memfs" },
-              { find: "emitter", replacement: "component-emitter" },
+              ...[
+                {
+                  find: "net",
+                  replacement: `${pkg.workspace}/build/shims/net.ts`,
+                },
+                { find: "assert", replacement: "assert" },
+                //{ find: "buffer", replacement: "buffer" },
+                {
+                  find: "console",
+                  replacement: "console-browserify",
+                },
+                // { find: "crypto", replacement: "crypto-browserify" },
+                { find: "stream", replacement: "stream-browserify" },
+                { find: "domain", replacement: "domain-browser" },
+                { find: "events", replacement: "events" },
+                { find: "http", replacement: "stream-http" },
+                { find: "https", replacement: "stream-http" },
+                { find: "os", replacement: "os" },
+                { find: "path", replacement: "path" },
+                { find: "process", replacement: "process-es6" },
+                { find: "punycode", replacement: "punycode" },
+                { find: "querystring", replacement: "querystring" },
+                { find: "stream", replacement: "stream-browserify" },
+                {
+                  find: "string_decoder",
+                  replacement: "string_decoder",
+                },
+                { find: "sys", replacement: "util" },
+                { find: "timers", replacement: "timers-browserify" },
+                { find: "tty", replacement: "tty-browserify" },
+                { find: "url", replacement: "url" },
+                { find: "util", replacement: "util" },
+                { find: "vm", replacement: "vm-browserify" },
+                { find: "zlib", replacement: "browserify-zlib" },
+                { find: "fs", replacement: "memfs" },
+                { find: "emitter", replacement: "component-emitter" },
+              ].filter((entry) => shimOnly?.has(entry) ?? true),
               {
                 find: /^@tailjs\/(engine|maxmind|ravendb|sitecore-backends)(\/(.+))?$/,
                 replacement: "../$1/dist/$2/v8/dist/index.mjs",
@@ -109,11 +114,15 @@ export async function getExternalBundles() {
             ].filter((item) => item),
           }),
           inject({
-            Buffer: ["buffer", "Buffer"],
-            process: "process",
-            crypto: "crypto-browserify",
-            TextEncoder: ["text-encoding-polyfill", "TextEncoder"],
-            TextDecoder: ["text-encoding-polyfill", "TextDecoder"],
+            ...Object.fromEntries(
+              [
+                ["Buffer", ["buffer", "Buffer"]],
+                ["process", "process"],
+                ["crypto", "crypto-browserify"],
+              ].filter((item) => shimOnly?.has(item[0]) ?? true)
+            ),
+            //TextEncoder: ["text-encoding-polyfill", "TextEncoder"],
+            //TextDecoder: ["text-encoding-polyfill", "TextDecoder"],
             global: `${pkg.workspace}/build/shims/global.ts`,
           }),
 
@@ -147,7 +156,7 @@ export async function getExternalBundles() {
                       module: true,
                       toplevel: false,
                     },
-                    mangle: false,
+                    mangle: true,
                     // mangle: {
                     //   properties: false,
                     //   toplevel: false,
@@ -156,6 +165,7 @@ export async function getExternalBundles() {
                 ]
               : []),
           ],
+          visualizer({ sourceMap: true, emitFile: "tailjs.html" }),
         ].filter((item) => item),
         output: targetOutputs.flatMap((path) =>
           [

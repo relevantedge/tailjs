@@ -244,7 +244,7 @@ const patchDeserialize = (value: Uint8Array) => {
         () => inner(deserialize(value)),
         () => undefined
       )
-    : value;
+    : undefined;
 };
 
 export type Transport = [
@@ -257,16 +257,30 @@ export type Transport = [
  * Creates a pair of {@link Encoder} and {@link Decoder}s as well as a {@link HashFunction<string>}.
  * MessagePack is used for serialization, {@link lsfr} encryption is optionally used if a key is specified, and the input and outputs are Base64URL encoded.
  */
-export const createTransport = (key?: null | string): Transport => {
+export const createTransport = (
+  key?: null | string,
+  json = false
+): Transport => {
   const [encrypt, decrypt, hash] = lfsr(key ?? "");
-
-  return [
-    (data: any) => to64u(encrypt(patchSerialize(data))),
-    (encoded: any) =>
-      hasValue(encoded) ? patchDeserialize(decrypt(from64u(encoded))) : null,
-    (data: any, numericOrBits?: any) =>
-      hash(serialize(data), numericOrBits) as any,
-  ];
+  return json
+    ? [
+        (data: any) => JSON.stringify(data),
+        (encoded) =>
+          encoded == null
+            ? undefined
+            : tryCatch(() => JSON.parse(encoded, undefined)),
+        (data: any, numericOrBits?: any) =>
+          hash(serialize(data), numericOrBits) as any,
+      ]
+    : [
+        (data: any) => to64u(encrypt(patchSerialize(data))),
+        (encoded: any) =>
+          hasValue(encoded)
+            ? patchDeserialize(decrypt(from64u(encoded)))
+            : null,
+        (data: any, numericOrBits?: any) =>
+          hash(patchSerialize(data), numericOrBits) as any,
+      ];
 };
 
 export const defaultTransport = createTransport();

@@ -210,29 +210,43 @@ const createConverter =
 
 export const tryCatch = <T, C = undefined>(
   expression: () => T,
-  errorHandler?: (error: any) => C,
+  errorHandler: boolean | ((error: any) => C) = true as any,
   clean?: () => void
 ): T | C => {
   try {
     return expression();
   } catch (e) {
-    return errorHandler?.(e) as any;
+    if (!isBoolean(errorHandler)) {
+      return errorHandler?.(e) as any;
+    }
+    if (errorHandler) {
+      throw e;
+    }
+    console.error(e);
+    return undefined as any;
   } finally {
     clean?.();
   }
 };
 
 export const tryCatchAsync = async <T, C = undefined>(
-  expression: () => Promise<T> | T,
-  errorHandler?: (error: any) => Promise<C> | C,
-  always?: () => void
+  expression: () => PromiseLike<T> | T,
+  errorHandler: boolean | ((error: any) => Promise<C> | C) = true as any,
+  clean?: () => void
 ): Promise<T | C> => {
   try {
     return await expression();
   } catch (e) {
-    return (await errorHandler?.(e)) as any;
+    if (!isBoolean(errorHandler)) {
+      return (await errorHandler(e)) as any;
+    }
+    if (errorHandler) {
+      throw e;
+    }
+    console.error(e);
+    return undefined as any;
   } finally {
-    always?.();
+    clean?.();
   }
 };
 
@@ -268,7 +282,10 @@ export const hasValue = <T>(
 
 export const isBoolean = (value: any): value is boolean =>
   typeof value === "boolean";
+
 export const parseBoolean = createConverter(isBoolean, (value) => !!value);
+export const isTruish = (value: any) => !!value;
+export const isFalsish = (value: any) => !value;
 
 export const isNumber = (value: any): value is number =>
   typeof value === "number";
@@ -309,7 +326,7 @@ export const isObject = (
 
 export const hasMethod = <T, Name extends keyof any>(
   value: T,
-  name: Name
+  name: Name | keyof T
 ): value is T &
   Record<
     Name,
@@ -381,23 +398,10 @@ export const clone = <T>(value: T, deep = true): T =>
 type CaptureCallback<Args extends any[], R> = (
   ...args: [...args: Args, self: CaptureCallback<Args, R>]
 ) => R;
-/**
- * Captures the specified values. It has the same effect as declaring the variables in their own block scope.
- */
-export const capture = <Args extends any[], R>(
-  ...args: [...args: Args, callback: CaptureCallback<Args, R>]
-) => args[args.length - 1](...args);
 
 /**
- * Like {@link capture}, but is only invoked if at least one of the parameters have a non-null/undefined value.
+ * Evaluates a function that can be used to capture values using parameter default values.
+ *
+ * For example `(previous=current)=>(current+=2, previous)
  */
-export const captureSome = <Args extends any[], R>(
-  ...args: [...args: Args, callback: CaptureCallback<Args, R>]
-) => (args.some((v) => v) ? capture(...args) : undefined);
-
-/**
- * Like{@link capture}, but is only invoked if all the parameters have a non-null/undefined value.
- */
-export const captureEvery = <Args extends any[], R>(
-  ...args: [...args: Args, callback: CaptureCallback<Args, R>]
-) => (args.every((v) => v) ? capture(...args) : undefined);
+export const capture = <R>(capture: (...args: any[]) => R) => capture();

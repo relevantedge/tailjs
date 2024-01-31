@@ -157,9 +157,7 @@ importers:
       '@tailjs/util': workspace:*
       '@types/node': ^18.16.3
       '@types/url-parse': ^1.4.8
-      '@types/uuid': ^9.0.1
       '@ygoe/msgpack': ^1.0.3
-      base64-arraybuffer: ^1.0.2
       jsonschema: ^1.4.1
       query-string: ^8.1.0
       semaphore-async-await: ^1.5.1
@@ -171,7 +169,6 @@ importers:
       '@tailjs/types': link:../types
       '@tailjs/util': link:../util
       '@ygoe/msgpack': 1.0.3
-      base64-arraybuffer: 1.0.2
       jsonschema: 1.4.1
       query-string: 8.1.0
       semaphore-async-await: 1.5.1
@@ -181,7 +178,6 @@ importers:
     devDependencies:
       '@types/node': 18.16.3
       '@types/url-parse': 1.4.8
-      '@types/uuid': 9.0.1
     publishDirectory: dist
 
   packages/@tailjs/express:
@@ -278,6 +274,36 @@ importers:
     devDependencies:
       '@types/fs-extra': 11.0.1
       '@types/node': 18.16.3
+    publishDirectory: dist
+
+  packages/@tailjs/node:
+    specifiers:
+      '@tailjs/engine': workspace:*
+      '@types/node': ^18.16.3
+      '@types/url-parse': ^1.4.8
+      '@types/uuid': ^9.0.1
+      '@ygoe/msgpack': ^1.0.3
+      base64-arraybuffer: ^1.0.2
+      jsonschema: ^1.4.1
+      query-string: ^8.1.0
+      semaphore-async-await: ^1.5.1
+      short-unique-id: ^5.0.3
+      url-parse: ^1.5.10
+      uuid: ^9.0.0
+    dependencies:
+      '@tailjs/engine': link:../engine
+      '@ygoe/msgpack': 1.0.3
+      base64-arraybuffer: 1.0.2
+      jsonschema: 1.4.1
+      query-string: 8.1.0
+      semaphore-async-await: 1.5.1
+      short-unique-id: 5.0.3
+      url-parse: 1.5.10
+      uuid: 9.0.0
+    devDependencies:
+      '@types/node': 18.16.3
+      '@types/url-parse': 1.4.8
+      '@types/uuid': 9.0.1
     publishDirectory: dist
 
   packages/@tailjs/ravendb:
