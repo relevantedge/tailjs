@@ -1,5 +1,12 @@
-import { isDefined, isUndefined, tryCatchAsync } from "@tailjs/util";
-import { bindStorage, clock, sharedStorage, wait } from ".";
+import {
+  Lock,
+  clock,
+  isDefined,
+  isUndefined,
+  tryCatchAsync,
+  delay,
+} from "@tailjs/util";
+import { bindStorage } from ".";
 
 export type MaybePromise<T> = T extends PromiseLike<infer T>
   ? MaybePromise<T>
@@ -38,23 +45,10 @@ export const promise = <T = void>(initialValue?: T): OpenPromise<T> => {
     reject: (value) => (capturedReject(value), instance),
     signal: (value) => (capturedResolve(value), instance.reset()),
     then: (...args) => currentPromise.then(...args),
-    wait: (timeout) => Promise.race([wait(timeout), currentPromise]) as any,
+    wait: (timeout) => Promise.race([delay(timeout), currentPromise]) as any,
   };
   instance.reset();
   return initialValue ? instance.resolve(initialValue) : instance;
-};
-
-export type Lock<D = any> = {
-  <T = void>(action: () => Promise<T> | T): Promise<T>;
-  <T = void>(action: () => Promise<T> | T, waitTimeout: number): Promise<
-    [value: T | undefined, acquired: boolean]
-  >;
-  data: {
-    get(): D | undefined;
-    update<Undefined extends undefined | never = never>(
-      newValue: (current: D | undefined) => D | Undefined
-    ): D | Undefined;
-  };
 };
 
 export const createLock = <Data = any>(
@@ -78,7 +72,7 @@ export const createLock = <Data = any>(
         }
         const waitHandleWait = waitHandle.wait(timeout);
         if (isDefined(waitTimeout)) {
-          const waitTimeoutWait = wait(waitTimeout, -1);
+          const waitTimeoutWait = delay(waitTimeout, -1);
           if ((await Promise.race([waitHandleWait, waitTimeoutWait])) === -1) {
             return [undefined, false];
           }

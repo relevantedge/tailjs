@@ -1,12 +1,5 @@
-import {
-  filter,
-  flatMap,
-  isArray,
-  isDefined,
-  isObject,
-  map,
-} from "@tailjs/util";
-import { TAB_ID, bindStorage, sharedStorage } from ".";
+import { filter, flatMap, isDefined, isObject } from "@tailjs/util";
+import { TAB_ID, bindStorage } from ".";
 
 export type Channel<T> = {
   post(payload: T): void;

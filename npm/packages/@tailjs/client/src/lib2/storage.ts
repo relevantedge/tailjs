@@ -1,18 +1,18 @@
-import { clear, forEach, isDefined, isString, isUndefined } from "@tailjs/util";
-import { createTransport, hash } from "@tailjs/util/transport";
 import {
   Binders,
-  DEBUG,
   Listener,
-  TAB_ID,
-  addPageListener,
+  clear,
   clock,
   createEvent,
-  error,
-  listen,
-  mergeBinders,
+  forEach,
+  isDefined,
+  isString,
+  isUndefined,
+  joinEventBinders,
   now,
-} from ".";
+} from "@tailjs/util";
+import { createTransport } from "@tailjs/util/transport";
+import { DEBUG, TAB_ID, addPageListener, error, listen } from ".";
 
 export type Metadata<T = any> = [value: T, source?: string, expires?: number];
 
@@ -123,7 +123,7 @@ export const mapStorage = <P extends StorageProvider>(
     update,
     observe: provider.observe
       ? (key, listener, observeSelf) => {
-          const [unbind, bind] = mergeBinders(
+          const [unbind, bind] = joinEventBinders(
             provider.observe!(key, (newValue, oldValue, key) =>
               listener(
                 newValue?.[0],
@@ -153,7 +153,7 @@ const parsePayload = (value: any): [value: string, timeout?: number] => {
     isDefined(parsedTimeout) ? parseInt(parsedTimeout, 36) : undefined,
   ];
 };
-const purgeExpired = (key: string, value: any) => {
+const purgeIfExpired = (key: string, value: any) => {
   const [payload, timeout] = parsePayload(value);
   if (timeout && timeout - now() < 0) {
     clear(localStorage, key);
@@ -163,7 +163,7 @@ const purgeExpired = (key: string, value: any) => {
 };
 
 export const sharedStorage = mapStorage({
-  getItem: (key) => deserialize(purgeExpired(key, localStorage.getItem(key))),
+  getItem: (key) => deserialize(purgeIfExpired(key, localStorage.getItem(key))),
   setItem: (key, value, source, timeout) =>
     localStorage.setItem(
       key,
@@ -184,7 +184,7 @@ export const sharedStorage = mapStorage({
         )
     );
 
-    return mergeBinders(
+    return joinEventBinders(
       [unbind, bind],
       addPageListener(
         (visible, loaded) => !loaded && (visible ? bind() : unbind())
@@ -193,15 +193,16 @@ export const sharedStorage = mapStorage({
   },
 });
 
-clock(
+const purgeTask = clock(
   () => {
-    forEach(localStorage, ([key, value]) => !purgeExpired(key as any, value));
+    forEach(localStorage, ([key, value]) => !purgeIfExpired(key as any, value));
   },
   {
     frequency: 2000,
     trigger: true,
   }
 );
+addPageListener((visible) => purgeTask.toggle(visible));
 
 export const bindStorage: {
   <T>(

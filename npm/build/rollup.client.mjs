@@ -59,6 +59,9 @@ const destinations = [
 const createConfig = (debug) =>
   applyDefaultConfiguration({
     input: "src/index.browser.ts",
+    watch: {
+      exclude: ["**/node_modules/**"],
+    },
     plugins: [
       // {
       //   transform: (script) =>
@@ -167,6 +170,7 @@ const createConfig = (debug) =>
       //   ? []
       //   : [visualizer({ sourceMap: true, emitFile: "tailjs.html" })]),
     ],
+
     output: destinations
       .flatMap((name) => [
         {

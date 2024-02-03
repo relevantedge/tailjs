@@ -67,14 +67,14 @@ export const pop = <T>(array: { pop(): T } | Nullish) => array?.pop();
 export const concat = <T>(...sources: (IterableOrSelf<T> | Nullish)[]): T[] =>
   size((sources = filter(sources))) < 2
     ? map(sources[0])
-    : [].concat(...(map(sources as any, map as any) as any));
+    : ([].concat(...(map(sources as any, map as any) as any)) as any);
 
 /**
  * Gives the distinct elements of the specified values. If a value is iterable it is expanded.
  */
 export const distinct = <T>(
   ...values: (IterableOrSelf<T | Nullish> | Nullish)[]
-): T[] => map(hashSet<T>(filter(concat(...values))));
+): T[] => map(hashSet<T>(filter(concat(...values)))) as any;
 
 /**
  * Constructs a range (or empty array) with the given attributes.
