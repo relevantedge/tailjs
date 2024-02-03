@@ -16,6 +16,7 @@ export interface ClockSettings {
   frequency?: number;
   queue?: boolean;
   paused?: boolean;
+  trigger?: boolean;
 }
 
 type ClockSettingsParameter = ClockSettings & { frequency: number };
@@ -30,6 +31,7 @@ export const clock: {
   let {
     queue = true,
     paused = false,
+    trigger = false,
     frequency,
   } = isNumber(settings) ? { frequency: settings } : settings;
 
@@ -74,17 +76,18 @@ export const clock: {
       start !== instance.active
         ? start
           ? trigger
-            ? (instance.trigger(), instance)
+            ? (reset(true), instance.trigger(), instance)
             : reset(true)
           : reset(false)
         : instance,
     trigger: async (skipQueue) =>
       (await outerCallback(skipQueue)) && (reset(true), true),
   };
-  return instance.toggle(!paused);
+
+  return instance.toggle(!paused, trigger);
 };
 
-export const wait = (timeout: number = 0) =>
-  new Promise<void>((resolve) =>
-    timeout ? setTimeout(resolve, timeout) : resolve()
+export const wait = <T = void>(timeout: number = 0, value?: T): Promise<T> =>
+  new Promise<any>((resolve) =>
+    timeout ? setTimeout(() => resolve(value), timeout) : resolve(value)
   );

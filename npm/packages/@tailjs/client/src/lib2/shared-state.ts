@@ -30,7 +30,7 @@ const initialState: State = {
 const [addStateListener, dispatch] =
   createEvent<[event: "ready" | "update", state: State]>();
 
-const storage = bindStorage<State>(STATE_KEY, sharedStorage);
+const storage = bindStorage<State>(STATE_KEY);
 
 const heartbeat = clock(() => toggleTab(true), TAB_HEARTBEAT);
 let tabState: TabState = { hearbeat: now() };

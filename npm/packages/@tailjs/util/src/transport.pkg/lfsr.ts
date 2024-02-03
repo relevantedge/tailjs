@@ -17,8 +17,8 @@ const FNVs: Record<number, Fnv1aConfiguration> = {
 const entropy = (max = 256) => (max * Math.random()) | 0;
 
 export type HashFunction<T> = {
-  <B extends boolean>(source: T, numeric: B): B extends true ? number : string;
-  (source: T, bits?: 32 | 64 | 128): string;
+  (value: T, bits?: 32 | 64 | 128): string;
+  <B extends boolean>(value: T, numeric: B): B extends true ? number : string;
 };
 
 export type CipherFunction = (data: Uint8Array) => Uint8Array;
@@ -147,9 +147,9 @@ export const lfsr = (key = ""): CipherFunctions => {
       : (cipher) => cipher,
 
     // FNV1a hash code.
-    (source: any, numericOrBits: any = 64) => {
+    (source: Uint8Array, numericOrBits: any = 64) => {
       if (!hasValue(source)) return null;
-      let bits = isBoolean(numericOrBits) ? 64 : numericOrBits;
+      bits = isBoolean(numericOrBits) ? 64 : numericOrBits;
 
       resetMixer();
 
