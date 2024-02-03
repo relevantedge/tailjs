@@ -9,13 +9,15 @@ import {
   isDefined,
   isFunction,
   isIterable,
-  isNull,
+  isNumber,
   isObject,
+  isString,
   isSymbol,
   isUndefined,
-  nil,
+  map,
   tryCatch,
 } from "..";
+import { isStringObject } from "util/types";
 
 type ConverterFunctionValue<T> = T extends { toJSON(): infer V }
   ? V
@@ -250,7 +252,7 @@ const patchDeserialize = (value: Uint8Array) => {
 export type Transport = [
   encode: Encoder,
   decode: Decoder,
-  hash: HashFunction<string>
+  hash: HashFunction<any>
 ];
 
 /**
@@ -262,6 +264,16 @@ export const createTransport = (
   json = false
 ): Transport => {
   const [encrypt, decrypt, hash] = lfsr(key ?? "");
+  const fastStringHash = (value: any, bitsOrNumeric: any) => {
+    if (isNumber(value) && bitsOrNumeric === true) return value;
+
+    value = isString(value)
+      ? new Uint8Array(map(value.length, (i) => value.charCodeAt(i) & 255))
+      : json
+      ? JSON.stringify(value)
+      : patchSerialize(value);
+    return hash(value, bitsOrNumeric);
+  };
   return json
     ? [
         (data: any) => JSON.stringify(data),
@@ -269,8 +281,8 @@ export const createTransport = (
           encoded == null
             ? undefined
             : tryCatch(() => JSON.parse(encoded, undefined)),
-        (data: any, numericOrBits?: any) =>
-          hash(serialize(data), numericOrBits) as any,
+        (value: any, numericOrBits?: any) =>
+          fastStringHash(value, numericOrBits) as any,
       ]
     : [
         (data: any) => to64u(encrypt(patchSerialize(data))),
@@ -278,8 +290,8 @@ export const createTransport = (
           hasValue(encoded)
             ? patchDeserialize(decrypt(from64u(encoded)))
             : null,
-        (data: any, numericOrBits?: any) =>
-          hash(patchSerialize(data), numericOrBits) as any,
+        (value: any, numericOrBits?: any) =>
+          fastStringHash(value, numericOrBits) as any,
       ];
 };
 

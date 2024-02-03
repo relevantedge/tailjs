@@ -1,8 +1,15 @@
-import { isDefined } from "@tailjs/util";
+import {
+  filter,
+  flatMap,
+  isArray,
+  isDefined,
+  isObject,
+  map,
+} from "@tailjs/util";
 import { TAB_ID, bindStorage, sharedStorage } from ".";
 
 export type Channel<T> = {
-  post(sender: string, payload: T): void;
+  post(payload: T): void;
   unsubscribe: () => void;
 };
 
@@ -19,24 +26,25 @@ type ChannelPayload<T> = {
 
 export const createChannel = <T>(
   id: string,
-  handler: (sender: string, payload: T) => void
+  handler: (sender: string, payload: T) => void,
+  listenSelf = false
 ): Channel<T> => {
-  const storage = bindStorage<ChannelPayload<T>>(id, sharedStorage);
+  const storage = bindStorage<ChannelPayload<T>>(id);
 
   return {
-    post: (sender, payload) => {
-      storage.set({ sender, payload });
+    post: (payload) => {
+      storage.set({ sender: TAB_ID, payload });
       storage.delete();
     },
     unsubscribe: storage.observe((value) => {
       if (isDefined(value) && (!value.target || value.target === TAB_ID)) {
         handler(value.sender, value.payload);
       }
-    })[0],
+    }, true)[0],
   };
 };
 
-let chatChannel: Channel<string> | undefined;
+let chatChannel: Channel<[message: string, error?: string]> | undefined;
 export const error: {
   (message: string, fatal: boolean): void;
   (message: string, cause?: any, fatal?: boolean);
@@ -45,23 +53,34 @@ export const error: {
     throwError = error;
     error = null;
   }
-  if (error?.message) {
-    message += "(" + error.message;
-    error.stack && (message += "\n\n" + error.stack);
-    message += ")";
-  }
-  console.error(message);
+  log(error ? message : null, error ?? message);
   if (throwError) {
     throw new Error(message);
   }
 };
-export const log = (message: any) => {
-  const source = message;
-  typeof message === "object" && (message = JSON.stringify(message));
 
-  (chatChannel ??= createChannel<string>("chat", (sender, message) => {
-    console.log(`Other tab (${sender}): ${message}`);
-  })).post(TAB_ID, message);
-  console.log(`This tab: ${message}`);
+export const log = (message: any, error?: any) => {
+  const source = message;
+  if (error) {
+    error = JSON.stringify(
+      (error = isObject(error)
+        ? {
+            message: error.message ?? error,
+            stack: error.stack,
+          }
+        : error)
+    );
+  }
+
+  message = JSON.stringify(message);
+  (chatChannel ??= createChannel<[string, string]>(
+    "chat",
+    (sender, parts) =>
+      console[parts[1] ? "error" : "log"](
+        sender === TAB_ID ? "This tab" : `Other tab (${sender})`,
+        ...flatMap(filter(parts), (value) => JSON.parse(value))
+      ),
+    true
+  )).post([message, error]);
   return source;
 };

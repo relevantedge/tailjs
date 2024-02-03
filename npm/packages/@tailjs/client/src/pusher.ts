@@ -1,28 +1,39 @@
-import { clock, createLock, listen, now, updateTabState, wait } from "./lib2";
+import {
+  clock,
+  createLock,
+  post,
+  listen,
+  now,
+  updateTabState,
+  wait,
+  bindStorage,
+} from "./lib2";
 
 //const lck = createLock("test");
 export const attach = async () => {
-  let invocations = 0;
-  let clicked = false;
-  const pump = clock(
-    async () => {
-      const capturedClick = clicked;
-      if (!clicked && invocations % 2 === 1) {
-        await wait(1500);
-      }
-      console.log(`${++invocations}, clicked: ${capturedClick}.`);
-    },
-    { frequency: 1000, queue: false }
-  );
+  // let invocations = 0;
+  // let clicked = false;
+  // const pump = clock(
+  //   async () => {
+  //     const capturedClick = clicked;
+  //     if (!clicked && invocations % 2 === 1) {
+  //       await wait(1500);
+  //     }
+  //     console.log(`${++invocations}, clicked: ${capturedClick}.`);
+  //   },
+  //   { frequency: 1000, queue: false }
+  // );
 
+  let testId = 1;
   listen(document.body, "click", async (e) => {
-    clicked = true;
-    console.log(pump.active, pump.busy);
-    e.shiftKey && pump.toggle(!pump.active);
-    console.log(await pump.trigger(true));
-    (async () => {
-      clicked = false;
-    })();
+    // clicked = true;
+    // console.log(pump.active, pump.busy);
+    // e.shiftKey && pump.toggle(!pump.active);
+    // console.log(await pump.trigger(true));
+    // (async () => {
+    //   clicked = false;
+    // })();
+    post([`Test ${testId++}`]);
   });
   // listen(document.body, "click", () => {
   //   updateTabState((tab) => (tab.navigated = now()));

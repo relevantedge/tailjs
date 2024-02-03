@@ -229,25 +229,30 @@ export const tryCatch = <T, C = undefined>(
   }
 };
 
-export const tryCatchAsync = async <T, C = undefined>(
+export const tryCatchAsync = async <T, C = void>(
   expression: () => PromiseLike<T> | T,
-  errorHandler: boolean | ((error: any) => Promise<C> | C) = true as any,
-  clean?: () => void
+  errorHandler:
+    | boolean
+    | ((error: any, last: boolean) => Promise<C> | C) = true as any,
+  clean?: () => void,
+  retries = 1
 ): Promise<T | C> => {
-  try {
-    return await expression();
-  } catch (e) {
-    if (!isBoolean(errorHandler)) {
-      return (await errorHandler(e)) as any;
+  while (retries--) {
+    try {
+      return await expression();
+    } catch (e) {
+      if (!isBoolean(errorHandler)) {
+        (await errorHandler(e, !retries)) as any;
+      } else if (errorHandler && !retries) {
+        throw e;
+      } else {
+        console.error(e);
+      }
+    } finally {
+      clean?.();
     }
-    if (errorHandler) {
-      throw e;
-    }
-    console.error(e);
-    return undefined as any;
-  } finally {
-    clean?.();
   }
+  return undefined as any;
 };
 
 export const as = <T, D = undefined, Args extends any[] = []>(

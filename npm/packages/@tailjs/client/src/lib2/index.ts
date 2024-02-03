@@ -15,3 +15,5 @@ export * from "./storage";
 export * from "./channel";
 
 export * from "./shared-state";
+
+export * from "./request";

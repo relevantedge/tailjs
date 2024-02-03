@@ -1,5 +1,5 @@
 import { isDefined, isUndefined, tryCatchAsync } from "@tailjs/util";
-import { bindStorage, wait } from ".";
+import { bindStorage, clock, sharedStorage, wait } from ".";
 
 export type MaybePromise<T> = T extends PromiseLike<infer T>
   ? MaybePromise<T>
@@ -44,10 +44,24 @@ export const promise = <T = void>(initialValue?: T): OpenPromise<T> => {
   return initialValue ? instance.resolve(initialValue) : instance;
 };
 
-export type Lock = <T = void>(action: () => Promise<T> | T) => Promise<T>;
+export type Lock<D = any> = {
+  <T = void>(action: () => Promise<T> | T): Promise<T>;
+  <T = void>(action: () => Promise<T> | T, waitTimeout: number): Promise<
+    [value: T | undefined, acquired: boolean]
+  >;
+  data: {
+    get(): D | undefined;
+    update<Undefined extends undefined | never = never>(
+      newValue: (current: D | undefined) => D | Undefined
+    ): D | Undefined;
+  };
+};
 
-export const createLock = (id: string, timeout = 1000): Lock => {
-  const storage = bindStorage<boolean>(id);
+export const createLock = <Data = any>(
+  id: string,
+  timeout = 1000
+): Lock<Data> => {
+  const storage = bindStorage<[Data | undefined]>(id, timeout);
   let waitHandle = promise();
   storage.observe((value) => {
     if (isUndefined(value)) {
@@ -55,15 +69,43 @@ export const createLock = (id: string, timeout = 1000): Lock => {
     }
   });
 
-  return async <T>(action: () => Promise<T>) => {
-    let timeouts = 0;
-    while (storage.get()) {
-      if (timeouts > 3) {
-        throw new Error(`Could not acquire lock after ${timeouts} attempts.`);
+  return Object.assign(
+    async <T>(action: () => Promise<T>, waitTimeout?: number) => {
+      let timeouts = 0;
+      while (storage.get()) {
+        if (timeouts > 3) {
+          throw new Error(`Could not acquire lock after ${timeouts} attempts.`);
+        }
+        const waitHandleWait = waitHandle.wait(timeout);
+        if (isDefined(waitTimeout)) {
+          const waitTimeoutWait = wait(waitTimeout, -1);
+          if ((await Promise.race([waitHandleWait, waitTimeoutWait])) === -1) {
+            return [undefined, false];
+          }
+        } else {
+          await waitHandleWait;
+        }
       }
-      await waitHandle.wait(timeout);
+      const refresher = clock(
+        () => {
+          storage.update((current) => [current?.[0]]);
+        },
+        { frequency: timeout / 2, trigger: true }
+      );
+
+      let result = await tryCatchAsync(action, true, () => {
+        refresher.toggle(false);
+        storage.delete();
+      });
+
+      return isDefined(waitTimeout) ? [result, true] : result;
+    },
+    {
+      data: {
+        get: () => storage.get()?.[0],
+        update: (newValue: (current: any) => any) =>
+          storage.update((current) => [newValue(current?.[0])] as any),
+      },
     }
-    storage.update(() => true);
-    return await tryCatchAsync(action, true, () => storage.delete());
-  };
+  );
 };
