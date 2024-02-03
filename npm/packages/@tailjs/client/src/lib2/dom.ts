@@ -1,14 +1,14 @@
-import { isArray, map } from "@tailjs/util";
 import {
   Binders,
   Listener,
   Unbinder,
-  createBinders,
   createEvent,
-  mergeBinders,
-} from ".";
-
-type PageListenerArgs = [visible: boolean, loaded: boolean];
+  createEventBinders,
+  isArray,
+  joinEventBinders,
+  map,
+} from "@tailjs/util";
+type PageListenerArgs = [visible: boolean, loaded: boolean, focused: boolean];
 const [addListener, dispatch] = createEvent<PageListenerArgs>();
 
 type AllMaps = WindowEventMap &
@@ -37,10 +37,10 @@ export const listen = <K extends keyof AllMaps>(
   options: AddEventListenerOptions = { capture: true, passive: true }
 ): Binders => {
   return isArray(name)
-    ? mergeBinders(
+    ? joinEventBinders(
         ...map(name, (name) => listen(target, name as any, listener, options))
       )
-    : createBinders(
+    : createEventBinders(
         listener,
         (listener) => target.addEventListener(name, listener, options),
         (listener) => target.addEventListener(name, listener, options)
@@ -53,25 +53,28 @@ export const addPageListener = (
   triggerLoaded = true
 ) => (
   (binders = addListener(listener)),
-  loaded && triggerLoaded && listener(visible, false, binders[0]),
+  loaded && triggerLoaded && listener(visible, false, focused, binders[0]),
   binders
 );
 
 let visible = true;
 let loaded = false;
+let focused = true;
 
 const dispatchVisible = () =>
   (!loaded || !visible) &&
-  dispatch((visible = true), loaded || !(loaded = true));
+  dispatch((visible = true), loaded || !(loaded = true), focused);
 
 listen(
   window,
   "pagehide",
-  () => (visible || loaded) && dispatch((visible = false), (loaded = false))
+  () =>
+    (visible || loaded) &&
+    dispatch((visible = false), (loaded = false), focused)
 );
 listen(window, "pageshow", dispatchVisible);
 listen(document, "visibilitychange", () =>
   document.visibilityState === "visible"
     ? dispatchVisible()
-    : visible && dispatch((visible = false), loaded)
+    : visible && dispatch((visible = false), loaded, focused)
 );

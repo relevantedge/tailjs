@@ -1,5 +1,5 @@
-import { tryCatchAsync } from "@tailjs/util";
-import { createLock, error, log, wait } from ".";
+import { tryCatchAsync, delay } from "@tailjs/util";
+import { createLock, error, log } from ".";
 
 const postLock = createLock<string[]>("test_queue_lck", 2000);
 export const post = async (data: string[]) => {
@@ -22,7 +22,7 @@ export const post = async (data: string[]) => {
               }
 
               log(["Posting", pending]);
-              await wait(2000);
+              await delay(2000);
               if (Math.random() < 0.5) {
                 throw new Error("Eeek!");
               }
@@ -42,7 +42,7 @@ export const post = async (data: string[]) => {
                   (current) => ((current ??= []).unshift(...pending!), current)
                 );
               error(`Post failed, retrying...`, e);
-              await wait(250);
+              await delay(250);
             }
           },
           undefined,

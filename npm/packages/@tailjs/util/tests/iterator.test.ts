@@ -4,7 +4,6 @@ import {
   filter,
   flatForEach,
   flatMap,
-  flatProject,
   forEach,
   map,
   project,

@@ -33,8 +33,7 @@ export const priorityQueue = <T>() => {
   const peek = () => heap[0];
   const push = (value: T, priority: number) =>
     (selected = map.get(value)!) != null
-      ? //priority < 0 && (priority = heap[heap.length - 1][1] - 1);
-        priority > (heap[selected][1] = priority)
+      ? priority > (heap[selected][1] = priority)
         ? siftUp(selected)
         : siftDown(selected && parent(selected))
       : priority > 0 &&

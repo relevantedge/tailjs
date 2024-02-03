@@ -1,7 +1,6 @@
 import {
   GeneralizeContstants,
   IsAny,
-  KeyValuePairsToObject,
   NotFunction,
   forEach,
   hasMethod,

@@ -1,14 +1,10 @@
-import { clear, forEach, set } from "@tailjs/util";
+import { clear, clock, createEvent, forEach, now, set } from "@tailjs/util";
 import {
   STATE_KEY,
   TAB_HEARTBEAT,
   TAB_ID,
   addPageListener,
   bindStorage,
-  createEvent,
-  now,
-  clock,
-  sharedStorage,
 } from ".";
 
 export type TabState = {

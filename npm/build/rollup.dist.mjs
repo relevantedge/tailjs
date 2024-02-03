@@ -69,6 +69,9 @@ export const getDistBundles = async (variables = {}, subPackages = {}) => {
     ].flatMap((minify) => [
       applyDefaultConfiguration({
         input: source,
+        watch: {
+          exclude: ["**/node_modules/**"],
+        },
         plugins: [
           esbuild({
             treeShaking: true,
@@ -214,6 +217,9 @@ export const getDistBundles = async (variables = {}, subPackages = {}) => {
       }),
       {
         input: source,
+        watch: {
+          exclude: ["**/node_modules/**"],
+        },
         plugins: [dts()],
         output: destinations.map(([path, asSource]) => {
           const dir = join(path, target);

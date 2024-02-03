@@ -52,6 +52,9 @@ export async function getExternalBundles() {
       applyDefaultConfiguration({
         external: [/\@tailjs\/(?!util)[^\/]+$/g],
         input: join("src/index.external.ts"),
+        watch: {
+          exclude: ["**/node_modules/**"],
+        },
         plugins: [
           esbuild({
             treeShaking: true,
@@ -195,6 +198,9 @@ export async function getExternalBundles() {
       !ext && {
         input: `src/index.external.ts`,
         plugins: [dts()],
+        watch: {
+          exclude: ["**/node_modules/**"],
+        },
         external: [/\@tail\-f\/.+/g],
         output: targetOutputs.map((path) => ({
           dir: path[0],

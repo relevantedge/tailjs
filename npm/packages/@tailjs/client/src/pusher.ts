@@ -1,16 +1,31 @@
-import {
-  clock,
-  createLock,
-  post,
-  listen,
-  now,
-  updateTabState,
-  wait,
-  bindStorage,
-} from "./lib2";
+import { createChainedEvent } from "@tailjs/util";
 
 //const lck = createLock("test");
 export const attach = async () => {
+  const [register, invoke] = createChainedEvent<Promise<number>>();
+
+  const [unbind2] = register(async (next) => {
+    //console.log("Basso");
+    return (await next()) + 1;
+  });
+
+  register(async (next) => {
+    //console.log("Basso2");
+    return 12;
+  });
+
+  const [unbind, bind] = register(async (next) => {
+    return (await next()) + 4;
+  }, -1);
+
+  console.log(await invoke());
+  unbind();
+  console.log(await invoke());
+  bind();
+  console.log(await invoke());
+  unbind2();
+  console.log(await invoke());
+
   // let invocations = 0;
   // let clicked = false;
   // const pump = clock(
@@ -24,17 +39,17 @@ export const attach = async () => {
   //   { frequency: 1000, queue: false }
   // );
 
-  let testId = 1;
-  listen(document.body, "click", async (e) => {
-    // clicked = true;
-    // console.log(pump.active, pump.busy);
-    // e.shiftKey && pump.toggle(!pump.active);
-    // console.log(await pump.trigger(true));
-    // (async () => {
-    //   clicked = false;
-    // })();
-    post([`Test ${testId++}`]);
-  });
+  // let testId = 1;
+  // listen(document.body, "click", async (e) => {
+  //   // clicked = true;
+  //   // console.log(pump.active, pump.busy);
+  //   // e.shiftKey && pump.toggle(!pump.active);
+  //   // console.log(await pump.trigger(true));
+  //   // (async () => {
+  //   //   clicked = false;
+  //   // })();
+  //   post([`Test ${testId++}`]);
+  // });
   // listen(document.body, "click", () => {
   //   updateTabState((tab) => (tab.navigated = now()));
 

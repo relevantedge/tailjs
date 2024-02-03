@@ -1,4 +1,4 @@
-import { now } from ".";
+import { now } from "@tailjs/util";
 
 export type UUID = string;
 
