@@ -1,4 +1,4 @@
-import { TrackedEvent } from "..";
+import type { ConsentLevel, TrackedEvent } from "..";
 import { typeTest } from "../util/type-test";
 
 /**
@@ -20,6 +20,7 @@ import { typeTest } from "../util/type-test";
 export interface ConsentEvent extends TrackedEvent {
   type: "CONSENT";
 
+  level: ConsentLevel;
   /**
    * Whether the user has consented to non-essential tracking.
    */

@@ -2,7 +2,7 @@ export * from "./consts";
 
 export * from "./ids";
 
-export * from "./dom";
+export * from "./page-events";
 
 export * from "./storage";
 

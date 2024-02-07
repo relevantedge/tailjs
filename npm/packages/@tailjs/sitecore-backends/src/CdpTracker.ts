@@ -14,7 +14,7 @@ export interface CdpSettings {
 }
 
 export class CdpTracker implements TrackerExtension {
-  public readonly name = "sitecore-cdp";
+  public readonly id = "sitecore-cdp";
   private readonly _settings: Required<CdpSettings>;
 
   constructor(settings: CdpSettings) {
@@ -72,17 +72,17 @@ export class CdpTracker implements TrackerExtension {
           method: "POST",
         });
         await env.log({
-          group: this.name,
+          group: this.id,
           level: "info",
-          source: this.name,
+          source: this.id,
           data: JSON.stringify([url, browserRef, eventResponse.body]),
         });
       }
     } catch (e) {
       await env.log({
-        group: this.name,
+        group: this.id,
         level: "error",
-        source: this.name,
+        source: this.id,
         data: "" + e,
       });
     }

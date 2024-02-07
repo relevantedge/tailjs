@@ -20,7 +20,7 @@ export interface RavenDbSettings {
  * It maps and assign IDs (and references to them) to events and sessions with incrementing base 36 numbers to reduce space.
  */
 export class RavenDbTracker implements TrackerExtension {
-  public readonly name = "ravendb";
+  public readonly id = "ravendb";
   private readonly _settings: RavenDbSettings;
   private _lock: Lock;
   private _env: TrackerEnvironment;
@@ -54,16 +54,16 @@ export class RavenDbTracker implements TrackerExtension {
           throw new Error("Certificate not found.");
         }
         this._cert = {
-          id: this.name,
+          id: this.id,
           cert,
           key,
         };
       }
     } catch (e) {
       env.log({
-        group: this.name,
+        group: this.id,
         level: "error",
-        source: `${this.name}:initialize`,
+        source: `${this.id}:initialize`,
         data: "" + e,
       });
     }
@@ -144,9 +144,9 @@ export class RavenDbTracker implements TrackerExtension {
       });
     } catch (e) {
       env.log({
-        group: this.name,
+        group: this.id,
         level: "error",
-        source: `${this.name}:post`,
+        source: `${this.id}:post`,
         data: "" + e,
       });
     }
@@ -198,7 +198,7 @@ export class RavenDbTracker implements TrackerExtension {
             idMax = value + this._idBatchSize;
 
             this._env.log({
-              group: this.name,
+              group: this.id,
               level: "debug",
               source: "ids",
               data: `The server reported the next global ID to be ${value}. Retrying with next ID ${idMax}.`,
@@ -208,9 +208,9 @@ export class RavenDbTracker implements TrackerExtension {
         }
       } catch (e) {
         this._env.log({
-          group: this.name,
+          group: this.id,
           level: "error",
-          source: this.name,
+          source: this.id,
           data: "" + e,
         });
       } finally {

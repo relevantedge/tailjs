@@ -31,14 +31,6 @@ export interface TrackedEvent extends Tagged {
   schema?: string;
 
   /**
-   * A token that may be included by the client to ensure that session state does not get lost if cookies are missing.
-   * It should only be included in the first event if multiple events are posted to avoid transmitting unnecessary data.
-   *
-   * It gets cleared by the request handler before sent to backends and should not be considered for analytics since it is an internal implementation detail.
-   */
-  affinity?: any;
-
-  /**
    * This may be assigned or transformed by backends if needed.
    * It is client-assigned for {@link ViewEvent}s
    */
@@ -84,3 +76,6 @@ export interface TrackedEvent extends Tagged {
 
 export const isTrackedEvent = (ev: any): ev is TrackedEvent =>
   ev && typeof ev.type === "string";
+
+export type TrackedEventPatch = Partial<TrackEvent> &
+  Required<Pick<TrackedEvent, "id" | "type">>;

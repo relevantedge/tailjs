@@ -55,14 +55,14 @@ export class TrackerEnvironment {
     return httpEncode(value);
   }
 
-  public httpDecode<T>(encoded: string): T;
-  public httpDecode<T>(encoded: string | null | undefined): T | null;
+  public httpDecode<T = any>(encoded: string): T;
+  public httpDecode<T = any>(encoded: string | null | undefined): T | null;
   public httpDecode(encoded: string): any {
     return httpDecode(encoded);
   }
 
-  public httpDecrypt<T>(encoded: string): T;
-  public httpDecrypt<T>(encoded: string | null | undefined): T | null;
+  public httpDecrypt<T = any>(encoded: string): T;
+  public httpDecrypt<T = any>(encoded: string | null | undefined): T | null;
   public httpDecrypt(encoded: string): any {
     if (encoded == null) return encoded as any;
     return this._crypto.decrypt(encoded);

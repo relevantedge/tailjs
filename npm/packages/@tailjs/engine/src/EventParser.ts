@@ -1,4 +1,4 @@
-import { TrackedEvent } from "@tailjs/types";
+import { TrackedEvent, TrackedEventPatch } from "@tailjs/types";
 import { Schema, Validator } from "jsonschema";
 import { JsonString } from "./shared";
 import { ReadOnlyRecord } from "./lib";

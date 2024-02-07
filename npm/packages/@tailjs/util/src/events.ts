@@ -41,19 +41,25 @@ export const joinEventBinders = (
 export type EventHandler<Args extends any[]> = (...payload: Args) => void;
 
 export const createEvent = <Args extends any[]>(): [
-  listen: (listener: Listener<Args>) => Binders,
+  listen: (listener: Listener<Args>, triggerCurrent?: boolean) => Binders,
   dispatch: (...payload: Args) => void
 ] => {
   const listeners = new Set<SourceListener<Args>>();
-
+  let dispatchedArgs: Args | undefined;
   return [
-    (handler) =>
-      createEventBinders(
+    (handler, trigger) => {
+      const binders = createEventBinders(
         handler,
         (handler) => listeners.add(handler),
         (handler) => listeners.delete(handler)
-      ),
-    (...payload) => listeners.forEach((handler) => handler(...payload)),
+      );
+      trigger && dispatchedArgs && handler(...dispatchedArgs, binders[0]);
+      return binders;
+    },
+    (...payload) => (
+      (dispatchedArgs = payload),
+      listeners.forEach((handler) => handler(...payload))
+    ),
   ];
 };
 

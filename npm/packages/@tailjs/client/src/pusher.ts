@@ -1,30 +1,27 @@
-import { createChainedEvent } from "@tailjs/util";
+import {
+  addPageActivatedListener,
+  addStateListener,
+  getActiveTime,
+  listen,
+  log,
+  enqueueEvent,
+} from "./lib2";
 
 //const lck = createLock("test");
 export const attach = async () => {
-  const [register, invoke] = createChainedEvent<Promise<number>>();
+  addPageActivatedListener((activated) => {
+    // console.log(
+    //   `Activated: ${activated}. Total active time: ${getActiveTime()}.`
+    // );
+  }, true);
 
-  const [unbind2] = register(async (next) => {
-    //console.log("Basso");
-    return (await next()) + 1;
+  addStateListener((event, state) => {
+    log(state.tab);
   });
 
-  register(async (next) => {
-    //console.log("Basso2");
-    return 12;
+  listen(document.body, "click", () => {
+    enqueueEvent("Click!");
   });
-
-  const [unbind, bind] = register(async (next) => {
-    return (await next()) + 4;
-  }, -1);
-
-  console.log(await invoke());
-  unbind();
-  console.log(await invoke());
-  bind();
-  console.log(await invoke());
-  unbind2();
-  console.log(await invoke());
 
   // let invocations = 0;
   // let clicked = false;

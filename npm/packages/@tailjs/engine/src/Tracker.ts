@@ -1,14 +1,23 @@
-import type { TrackedEvent } from "@tailjs/types";
+import type {
+  PostResponse,
+  TrackedEvent,
+  VariableGetRequest,
+  VariableGetResponse,
+  VariableScope,
+  VariableSetRequest,
+} from "@tailjs/types";
+import { isString, set } from "@tailjs/util";
 import { Encodable, Transport, createTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, map, params, unparam } from "./lib";
 import {
-  ClientState,
   Cookie,
   HttpRequest,
   HttpResponse,
   RequestHandler,
   RequestHandlerConfiguration,
+  TrackedEventBatch,
   TrackerEnvironment,
+  VariableStore,
 } from "./shared";
 
 export type TrackerSettings = Pick<
@@ -34,30 +43,31 @@ const enum ExtensionState {
 
 export type TrackerPostOptions = {
   routeToClient?: boolean;
-  affinity?: any;
+  deviceSessionId?: string;
+  deviceId?: string;
 };
-export class Tracker
-  implements Pick<ClientState, "username" | "consent" | "purgeCookies">
-{
+export class Tracker {
   /**
    * Used for queueing up events so they do not get posted before all extensions have been applied to the request.
    *
    * Without this queue this might happen if one of the first extensions posted an event in the apply method.
    * It would then pass through the post pipeline in a nested call and see `_extensionsApplied` to be `true` even though they were not, hence miss their logic.
    */
-  private _eventQueue: [events: TrackedEvent[], options: TrackerPostOptions][] =
-    [];
+  private _eventQueue: [
+    events: TrackedEventBatch,
+    options: TrackerPostOptions
+  ][] = [];
   private _extensionState = ExtensionState.Pending;
   private _initialized: boolean;
   private _requestId: string | undefined;
 
   /** @internal  */
   public readonly _clientEvents: TrackedEvent[] = [];
-  /** @internal */
-  public readonly _clientState: ClientState = null!;
+
   /** @internal */
   public readonly _requestHandler: RequestHandler;
   public readonly clientIp: string | null;
+
   public readonly cookies: Record<string, Cookie>;
   public readonly disabled: boolean;
   public readonly env: TrackerEnvironment;
@@ -69,7 +79,7 @@ export class Tracker
   public readonly transient: Record<string, any>;
 
   private readonly _clientCipher: Transport;
-  public readonly clientKey: string | null;
+  public readonly clientKey: string;
 
   public host: string;
   public path: string;
@@ -108,8 +118,7 @@ export class Tracker
       null;
 
     this.referrer = this.headers["referer"] ?? null;
-    this._clientState = new ClientState(this);
-    let clientKey = headers?.["user-agent"] ?? "";
+    let clientKey = `${this.clientIp}_${headers?.["user-agent"] ?? ""}`;
     clientKey = `${clientKey.substring(
       0,
       clientKey.length / 2
@@ -123,41 +132,113 @@ export class Tracker
     return this._clientEvents;
   }
 
-  public get consent() {
-    return this._clientState.consent;
+  private _deviceId?: string;
+  private _deviceSessionId?: string;
+  private _sessionId?: string;
+  private _consentLevel: string = "none";
+
+  private get _activeStore(): VariableStore {
+    return this._consentLevel === "none"
+      ? this._requestHandler._globalStore
+      : this._requestHandler._cookieStore;
   }
 
-  public set consent(value: ClientState["consent"]) {
-    this._clientState.consent = value;
+  public async purge(scopes: VariableScope[] | null = null) {
+    scopes ??= ["session", "device-session", "device"];
+    await this._requestHandler._globalStore.purge(scopes, this);
+    await this._requestHandler._cookieStore.purge(scopes, this);
   }
 
-  public get device() {
-    return this._clientState!.device;
+  public async get<T = any>(
+    scope: VariableScope,
+    key: string
+  ): Promise<T | undefined>;
+  public async get(variables: VariableGetRequest): Promise<VariableGetResponse>;
+  public async get(
+    variables: VariableGetRequest | VariableScope,
+    key?: string
+  ): Promise<VariableGetResponse> {
+    if (isString(variables)) {
+      return (
+        await this._activeStore.get([{ scope: variables, key: key! }], this)
+      )?.[variables]?.[key!];
+    }
+    return await this._activeStore.get(variables, this);
   }
 
-  public get deviceSession() {
-    return this._clientState!.deviceSession;
+  public async set(
+    scope: VariableScope,
+    key: string,
+    value: any,
+    ttl?: number
+  ): Promise<void>;
+  public async set(
+    variables: VariableSetRequest,
+    key: string,
+    value: any
+  ): Promise<void>;
+  public async set(
+    variables: VariableSetRequest | VariableScope,
+    key?: string,
+    value?: any,
+    ttl?: number
+  ) {
+    if (isString(variables)) {
+      return await this._activeStore.set(
+        { [variables]: { [key!]: { value, ttl } } },
+        this
+      );
+    }
+    return await this._activeStore.set(variables, this);
+  }
+
+  public get consentLevel() {
+    return this._consentLevel;
   }
 
   public get requestId() {
-    return `${this._requestId}: ${this.url}`;
+    return `${this._requestId}`;
   }
 
-  public get vars() {
-    return this._clientState!.vars;
+  public get sessionId() {
+    return this._sessionId;
   }
 
-  public get session() {
-    return this._clientState!.session;
+  public get deviceSessionId() {
+    return this._deviceSessionId;
   }
 
-  public get username() {
-    return this._clientState.username;
+  public get deviceId() {
+    return this._deviceId;
   }
 
-  public set username(value: string | undefined) {
-    this._clientState.username = value;
+  public async consent(consentLevel: string): Promise<void> {
+    if (consentLevel === this._consentLevel) return;
+    this._consentLevel = consentLevel;
+    if (consentLevel === "none") {
+      this._requestHandler._cookieStore.purge(null, this);
+    } else {
+      // Copy current values from cookie-less store.
+      await this._requestHandler._cookieStore.set(
+        set(
+          {},
+          map(
+            (
+              await this._requestHandler._globalStore.getAll("session", this)
+            )?.["session"],
+            ([key, value]) => [key, { scope: "session", value }]
+          )
+        ),
+        this
+      );
+      this._requestHandler._cookieStore.set(
+        { session: { consent: { value: consentLevel } } },
+        this
+      );
+    }
   }
+
+  public userid?: string;
 
   public httpClientEncrypt(value: any): string {
     return this._clientCipher[0](value);
@@ -168,15 +249,12 @@ export class Tracker
   }
 
   /** @internal */
-  public async _applyExtensions(
-    affinity?: Encodable | null,
-    variables?: Record<string, any>
-  ) {
-    await this._initialize(affinity);
+  public async _applyExtensions(deviceSessionId?: string, deviceId?: string) {
+    await this._initialize(deviceSessionId, deviceId);
     if (this._extensionState === ExtensionState.Pending) {
       this._extensionState = ExtensionState.Applying;
       try {
-        await this._requestHandler.applyExtensions(this, variables);
+        await this._requestHandler.applyExtensions(this);
       } finally {
         this._extensionState = ExtensionState.Done;
         if (this._eventQueue.length) {
@@ -186,11 +264,6 @@ export class Tracker
         }
       }
     }
-  }
-
-  /** @internal */
-  public _persist() {
-    this._clientState.persist();
   }
 
   public async forwardRequest(request: HttpRequest): Promise<HttpResponse> {
@@ -224,26 +297,98 @@ export class Tracker
     return this._requestHandler.getClientScripts(this);
   }
 
-  public async post(events: TrackedEvent[], options: TrackerPostOptions = {}) {
+  public async post(
+    events: TrackedEventBatch,
+    options: TrackerPostOptions = {}
+  ): Promise<PostResponse> {
     if (this._extensionState === ExtensionState.Applying) {
       this._eventQueue.push([events, options]);
-      return;
+      return {};
     }
     return await this._requestHandler.post(this, events, options);
   }
 
-  public purgeCookies(includeDevice = false) {
-    this._clientState.purgeCookies(includeDevice);
+  private async _getStoreValue(
+    store: VariableStore,
+    scope: VariableScope,
+    key: string
+  ) {
+    return (
+      await this._requestHandler._cookieStore.get([{ scope, key }], this)
+    )?.[scope]?.[key];
   }
 
   /** @internal */
-  public async _initialize(affinity?: Encodable | null) {
+  public async _initialize(deviceSessionId?: string, deviceId?: string) {
     if (this._initialized === (this._initialized = true)) {
       return false;
     }
     this._requestId = await this.env.nextId("request");
+    this._consentLevel =
+      (await this._getStoreValue(
+        this._requestHandler._cookieStore,
+        "session",
+        "consent"
+      )) ?? "none";
 
-    await this._clientState.initialize(affinity);
+    if (this.consentLevel === "none") {
+      this._sessionId = await this._getStoreValue(
+        this._requestHandler._globalStore,
+        "global",
+        this.clientKey
+      );
+
+      if (!this._sessionId) {
+        this._sessionId = await this.env.nextId();
+        await this._requestHandler._globalStore.set(
+          {
+            global: {
+              [this.clientKey]: {
+                value: this._sessionId,
+                ttl: 30 * 60 * 1000,
+              },
+            },
+          },
+          this
+        );
+      }
+    } else {
+      this._sessionId = await this._getStoreValue(
+        this._requestHandler._cookieStore,
+        "session",
+        "id"
+      );
+      if (!this._sessionId) {
+        this._sessionId = await this.env.nextId();
+        await this._requestHandler._cookieStore.set(
+          {
+            session: {
+              ["id"]: {
+                value: this._sessionId,
+              },
+            },
+          },
+          this
+        );
+      }
+    }
+
+    this._deviceSessionId = deviceSessionId;
+    this._deviceId = deviceId ?? (await this.get("device", "id"));
+    if (!this._deviceId && this._consentLevel !== "none") {
+      this._deviceId = await this.env.nextId();
+      await this._requestHandler._cookieStore.set(
+        {
+          device: {
+            ["id"]: {
+              value: this._sessionId,
+            },
+          },
+        },
+        this
+      );
+    }
+
     return true;
   }
 }

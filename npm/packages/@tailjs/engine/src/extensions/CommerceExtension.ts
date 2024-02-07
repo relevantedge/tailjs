@@ -81,11 +81,11 @@ function normalizeOrderLine<T extends OrderLine>(line: T): T {
 }
 
 export class CommerceExtension implements TrackerExtension {
-  public readonly name = "commerce";
+  public readonly id = "commerce";
 
   patch?(
-    next: NextPatchExtension,
-    events: TrackedEvent[]
+    events: TrackedEvent[],
+    next: NextPatchExtension
   ): Promise<TrackedEvent[]> {
     return next(
       events.map((event) =>

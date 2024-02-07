@@ -1,4 +1,3 @@
-// MUST MATCH packages\@tailjs\engine\src\RequestHandler.ts
 export const MUTEX_REQUEST_COOKIE = ".tail.rq";
 export const MUTEX_RESPONSE_COOKIE = ".tail.rs";
 export const CONTEXT_MENU_COOKIE = ".tail.cm";

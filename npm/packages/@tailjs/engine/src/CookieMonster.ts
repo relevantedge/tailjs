@@ -1,3 +1,4 @@
+import { isDefined } from "@tailjs/util";
 import { forEach } from "./lib";
 import { ClientResponseCookie, Cookie, CookieConfiguration } from "./shared";
 
@@ -85,6 +86,8 @@ export class CookieMonster {
     name: string,
     cookie: Cookie
   ): [header: string, overflow: string] {
+    const clear = !isDefined(cookie.value) || (cookie.maxAge as any) <= 0;
+
     const parts = ["Path=/"];
     if (this._secure) {
       parts.push("Secure");
@@ -92,8 +95,8 @@ export class CookieMonster {
     if (cookie.httpOnly) {
       parts.push("HttpOnly");
     }
-    if (cookie.maxAge != null || !cookie.value) {
-      parts.push(`Max-Age=${cookie.value ? cookie.maxAge : 0}`);
+    if (cookie.maxAge != null || clear) {
+      parts.push(`Max-Age=${clear ? 0 : cookie.maxAge}`);
     }
     parts.push(
       `SameSite=${
@@ -159,20 +162,22 @@ export class CookieMonster {
         cookie = { ...cookie, maxAge: 0, value: "" };
       }
 
-      const chunkCookieName = getCookieChunkName(name, i);
-      responseCookies.push({
-        name: chunkCookieName,
-        value: cookie.value,
-        maxAge: cookie.maxAge,
-        httpOnly: cookie.httpOnly ?? true,
-        sameSitePolicy:
-          cookie.sameSitePolicy === "None" && !this._secure
-            ? "Lax"
-            : cookie.sameSitePolicy ?? "Lax",
-        essential: cookie.essential ?? false,
-        secure: this._secure,
-        headerString: this._getHeaderValue(chunkCookieName, cookie)[0],
-      });
+      if (i < originalChunks || cookie.value) {
+        const chunkCookieName = getCookieChunkName(name, i);
+        responseCookies.push({
+          name: chunkCookieName,
+          value: cookie.value,
+          maxAge: cookie.maxAge,
+          httpOnly: cookie.httpOnly ?? true,
+          sameSitePolicy:
+            cookie.sameSitePolicy === "None" && !this._secure
+              ? "Lax"
+              : cookie.sameSitePolicy ?? "Lax",
+          essential: cookie.essential ?? false,
+          secure: this._secure,
+          headerString: this._getHeaderValue(chunkCookieName, cookie)[0],
+        });
+      }
       cookie = { ...cookie, value: overflow };
 
       if (!overflow && i >= originalChunks) {
