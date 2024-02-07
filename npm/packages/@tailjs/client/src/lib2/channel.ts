@@ -1,39 +1,52 @@
-import { filter, flatMap, isDefined, isObject } from "@tailjs/util";
-import { TAB_ID, bindStorage } from ".";
+import {
+  filter,
+  isDefined,
+  isObject,
+  joinEventBinders,
+  map,
+} from "@tailjs/util";
+import { TAB_ID, bindStorage, sharedStorage } from ".";
 
+/**
+ * A channel is used by tabs to communicate with each other.
+ */
 export type Channel<T> = {
-  post(payload: T): void;
+  /**
+   * Posts a message in the channel.
+   *
+   * @param payload The payload of the message.
+   * @param target If specified, on the tab with this ID will get the message.
+   */
+  post(payload: T, target?: string): void;
+
+  /**
+   * Stop receiving messages from the channel.
+   * A tab automatically subscribes/unsubscribes when it enters and leaves bfcache.
+   */
   unsubscribe: () => void;
 };
 
-export type SynchronizedStorage<T> = {
-  get(): T | null;
-  update<V extends T | null>(update: (oldValue: T | null) => V): V;
-};
+type ChannelPayload<T> = [sender: string, payload: T, target?: string];
 
-type ChannelPayload<T> = {
-  sender: string;
-  payload: T;
-  target?: string;
-};
-
-export const createChannel = <T>(
+/**
+ * Subscribes to the channel with the specified id.
+ */
+export const subscribeChannel = <T>(
   id: string,
-  handler: (sender: string, payload: T) => void,
-  listenSelf = false
+  handler: (sender: string, payload: T, direct: boolean) => void,
+  listenSelf = false,
+  storage = sharedStorage
 ): Channel<T> => {
-  const storage = bindStorage<ChannelPayload<T>>(id);
-
+  const channel = bindStorage<ChannelPayload<T>>(id, 0, storage);
   return {
-    post: (payload) => {
-      storage.set({ sender: TAB_ID, payload });
-      storage.delete();
-    },
-    unsubscribe: storage.observe((value) => {
-      if (isDefined(value) && (!value.target || value.target === TAB_ID)) {
-        handler(value.sender, value.payload);
-      }
-    }, true)[0],
+    post: (payload, target) => channel.set([TAB_ID, payload, target]),
+    unsubscribe: channel.observe(
+      (value) =>
+        isDefined(value) &&
+        (!value[2] || value[2] === TAB_ID) &&
+        handler(value[0], value[1], isDefined(value[2])),
+      listenSelf
+    )[0],
   };
 };
 
@@ -66,12 +79,12 @@ export const log = (message: any, error?: any) => {
   }
 
   message = JSON.stringify(message);
-  (chatChannel ??= createChannel<[string, string]>(
+  (chatChannel ??= subscribeChannel<[string, string]>(
     "chat",
     (sender, parts) =>
       console[parts[1] ? "error" : "log"](
         sender === TAB_ID ? "This tab" : `Other tab (${sender})`,
-        ...flatMap(filter(parts), (value) => JSON.parse(value))
+        ...map(filter(parts), (value) => JSON.parse(value))
       ),
     true
   )).post([message, error]);

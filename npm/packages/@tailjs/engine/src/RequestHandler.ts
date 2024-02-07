@@ -1,5 +1,11 @@
 import clientScripts from "@tailjs/client/script";
-import { isResetEvent, TrackedEvent } from "@tailjs/types";
+import {
+  isResetEvent,
+  PostRequest,
+  PostResponse,
+  TrackedEvent,
+  TrackedEventPatch,
+} from "@tailjs/types";
 import queryString from "query-string";
 import { Lock } from "semaphore-async-await";
 import urlParse from "url-parse";
@@ -13,6 +19,7 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
+  TrackedEventBatch,
   EventParser,
   isValidationError,
   ParseResult,
@@ -25,12 +32,15 @@ import {
   TrackerExtension,
   TrackerPostOptions,
   ValidationError,
+  VariableStore,
 } from "./shared";
 
 import { CONTEXT_MENU_COOKIE, MUTEX_REQUEST_COOKIE } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
 import { from64u } from "@tailjs/util/transport";
 import { generateClientConfigScript } from "./lib/clientConfigScript";
+import { InMemoryStore } from "./extensions/InMemoryStorage";
+import { CookieStorage } from "./extensions/CookieStorage";
 
 const scripts = {
   main: {
@@ -42,11 +52,6 @@ const scripts = {
 };
 
 export let SCRIPT_CACHE_CONTROL: string = "private, max-age=604800"; // A week
-
-export type PostRequest = [
-  events: TrackedEvent[],
-  env?: [affinity?: any, discard?: boolean]
-];
 
 export class RequestHandler {
   private readonly _allowUnknownEventTypes: boolean;
@@ -74,6 +79,11 @@ export class RequestHandler {
 
   /** @internal */
   public _sessionTimeout: number;
+  /** @internal */
+  public readonly _cookieStore = new CookieStorage();
+  /** @internal */
+  public readonly _globalStore: VariableStore;
+
   private readonly _clientKeySeed: string;
   private readonly _clientConfig: TrackerConfiguration;
 
@@ -103,6 +113,8 @@ export class RequestHandler {
 
     this._parser = parser;
 
+    this._globalStore = config.globalStore ?? new InMemoryStore();
+
     this.environment = new TrackerEnvironment(
       host,
       crypto ?? new DefaultCryptoProvider(encryptionKeys),
@@ -129,15 +141,12 @@ export class RequestHandler {
     this._clientConfig.src = this._endpoint;
   }
 
-  public async applyExtensions(
-    tracker: Tracker,
-    variables: Record<string, any> = {}
-  ) {
+  public async applyExtensions(tracker: Tracker) {
     //console.log(`EXT.IN: ${++this._activeExtensionRequests}`);
     for (const extension of this._extensions) {
       // Call the apply method in post context to let extension do whatever they need before events are processed (e.g. initialize session).
       try {
-        await extension.apply?.(tracker, variables);
+        await extension.apply?.(tracker);
       } catch (e) {
         this._logExtensionError(extension, "apply", e);
       }
@@ -170,9 +179,13 @@ export class RequestHandler {
           }
         );
       }
+
+      await this._globalStore.initialize?.(this.environment);
+
       this._extensions = [
         Timestamps,
         this._useSession ? new SessionEvents() : null,
+        this._cookieStore,
         new CommerceExtension(),
         ...(await Promise.all(
           this._extensionFactories.map(async (factory) => {
@@ -182,7 +195,7 @@ export class RequestHandler {
               if (extension?.initialize) {
                 await extension.initialize?.(this.environment);
                 this.environment.log({
-                  data: `The extension ${extension.name} was initialized.`,
+                  data: `The extension ${extension.id} was initialized.`,
                 });
               }
               return extension;
@@ -205,9 +218,10 @@ export class RequestHandler {
 
   public async post(
     tracker: Tracker,
-    events: TrackedEvent[],
-    { routeToClient, affinity }: TrackerPostOptions
-  ): Promise<void> {
+    eventBatch: TrackedEventBatch,
+    { deviceSessionId, deviceId, routeToClient }: TrackerPostOptions
+  ): Promise<PostResponse> {
+    let events = eventBatch.add;
     await this.initialize();
     let parsed = this._parser.parseAndValidate(
       events,
@@ -217,7 +231,12 @@ export class RequestHandler {
     const sourceIndices = new Map<{}, number>();
     parsed = parsed.filter((item) =>
       !isValidationError(item) && isResetEvent(item)
-        ? (tracker.purgeCookies(item.includeDevice), false)
+        ? (tracker.purge(
+            item.includeDevice
+              ? ["session", "device", "device-session"]
+              : ["session"]
+          ),
+          false)
         : true
     );
 
@@ -225,7 +244,7 @@ export class RequestHandler {
       sourceIndices.set(item, i);
     });
 
-    await tracker._applyExtensions(affinity);
+    await tracker._applyExtensions(deviceSessionId, deviceId);
 
     const validationErrors: (ValidationError & { sourceIndex?: number })[] = [];
 
@@ -259,10 +278,10 @@ export class RequestHandler {
         return collectValidationErrors(
           this._parser.validate(
             await extension.patch!(
+              events,
               async (events) => {
                 return await callPatch(index + 1, events);
               },
-              events,
               tracker,
               this.environment
             )
@@ -273,7 +292,8 @@ export class RequestHandler {
         return events;
       }
     };
-    events = await callPatch(0, parsed);
+
+    eventBatch.add = await callPatch(0, parsed);
     const extensionErrors: Record<string, Error> = {};
     if (routeToClient) {
       tracker._clientEvents.push(...events);
@@ -281,10 +301,10 @@ export class RequestHandler {
       await Promise.all(
         this._extensions.map(async (extension) => {
           try {
-            (await extension.post?.(events, tracker, this.environment)) ??
+            (await extension.post?.(eventBatch, tracker, this.environment)) ??
               Promise.resolve();
           } catch (e) {
-            extensionErrors[extension.name] =
+            extensionErrors[extension.id] =
               e instanceof Error ? e : new Error(e?.toString());
           }
         })
@@ -294,6 +314,8 @@ export class RequestHandler {
     if (validationErrors.length || any(extensionErrors)) {
       throw new PostError(validationErrors, extensionErrors);
     }
+
+    return {};
   }
 
   public async processRequest({
@@ -350,44 +372,24 @@ export class RequestHandler {
 
     try {
       let extensionRequestType: null | "post" | "usr" = null;
-      const result = (
+      const result = async (
         response: Partial<CallbackResponse> | null,
         discardTrackerCookies = false
       ) => {
         if (extensionRequestType) {
-          !discardTrackerCookies && tracker._persist();
+          !discardTrackerCookies &&
+            (await this._cookieStore.persist(tracker, this.environment));
 
           console.log(
             tracker.httpClientDecrypt(
               tracker.cookies[MUTEX_REQUEST_COOKIE]?.value
             )
           );
-          // tracker.cookies[MUTEX_RESPONSE_COOKIE] = {
-          //   httpOnly: false,
-          //   value: tracker.httpClientEncrypt([
-          //     [
-          //       tracker._clientState.affinity,
-          //       // Client request data is encoded per protocol definition.
-          //       tracker.httpClientDecrypt(
-          //         tracker.cookies[MUTEX_REQUEST_COOKIE]?.value
-          //       ),
-          //       response?.error?.toString(),
-          //       tracker._clientState.getChangedVariables(),
-          //     ],
-          //     0, // No expiration for the client storage
-          //   ]),
-          // };
-          // tracker.cookies[MUTEX_REQUEST_COOKIE] = {
-          //   httpOnly: false,
-          //   value: null,
-          // };
         }
         if (response) {
           response.headers ??= {};
           response.cookies = this.getClientCookies(tracker);
         }
-
-        //requestTimer.print("end");
 
         return {
           tracker,
@@ -398,8 +400,6 @@ export class RequestHandler {
       let requestPath = path;
 
       if (requestPath.startsWith(this._endpoint)) {
-        //requestTimer.print("endpoint start");
-
         requestPath = requestPath.substring(this._endpoint.length);
 
         if ("init" in parsedQuery) {
@@ -407,7 +407,7 @@ export class RequestHandler {
           // It prevents external scripts to try to get a hold of the storage key via XHR.
           const secDest = headers["sec-fetch-dest"];
           if (secDest && secDest !== "script") {
-            return result({
+            return await result({
               status: 400,
               body: "This script can only be loaded from a script tag.",
               headers: {
@@ -417,7 +417,7 @@ export class RequestHandler {
               },
             });
           }
-          return result({
+          return await result({
             status: 200,
             body: generateClientConfigScript(tracker, {
               ...this._clientConfig,
@@ -431,48 +431,10 @@ export class RequestHandler {
           });
         }
 
-        if ("usr" in parsedQuery) {
-          await tracker._initialize();
-          tracker.vars.test = {
-            essential: true,
-            scope: "session",
-            value: (parseInt(tracker.vars.test?.value as any) || 0) + 1,
-          };
-          tracker._persist();
-          console.log(
-            tracker.vars.test,
-            payload ? await payload() : "no payload"
-          );
-          //console.log(tracker.vars);
-          // This both responds to GET and POST.
-          // extensionRequestType = "usr";
-
-          // await new Promise((resolve) => {
-          //   setTimeout(() => resolve(null as any), 2000);
-          // });
-          return result({
-            status: 200,
-            body: "ok",
-            headers: {
-              "content-type": "text/plain",
-            },
-          });
-          // await tracker._applyExtensions(payload ? await payload() : null);
-          // return result({
-          //   status: 200,
-          //   body: JSON.stringify(this._getClientVariables(tracker)),
-          //   headers: {
-          //     "cache-control": "no-cache, no-store, must-revalidate",
-          //     "content-type": "application/json",
-          //     pragma: "no-cache",
-          //     expires: "0",
-          //   },
-          // });
-        }
         switch (method.toUpperCase()) {
           case "GET": {
             if ("opt" in parsedQuery) {
-              return result({
+              return await result({
                 status: 200,
                 body: this._getClientScripts(tracker, false),
 
@@ -507,7 +469,7 @@ export class RequestHandler {
                   sameSitePolicy: "Lax",
                 };
               }
-              return result({
+              return await result({
                 status: 301,
                 headers: {
                   location: mnt + "",
@@ -519,7 +481,7 @@ export class RequestHandler {
             }
 
             if ("$types" in parsedQuery) {
-              return result({
+              return await result({
                 status: 200,
                 body: JSON.stringify(this._parser.events, null, 2),
                 headers: {
@@ -554,7 +516,7 @@ export class RequestHandler {
                 }
               }
             }
-            return result({
+            return await result({
               status: 200,
               body: script,
               cacheKey: "script",
@@ -566,7 +528,7 @@ export class RequestHandler {
             const payloadString = payload ? await payload() : null;
 
             if (payloadString == null || payloadString === "") {
-              return result({
+              return await result({
                 status: 400,
                 body: "No data.",
                 headers: {
@@ -580,12 +542,27 @@ export class RequestHandler {
 
             try {
               extensionRequestType = "post";
-              //requestTimer.print("post start");
-              await tracker.post(postRequest[0], {
-                affinity: postRequest[1]?.[0],
-              });
-              //requestTimer.print("post end");
-              return result({ status: 202 }, postRequest[1]?.[1]);
+              const response: PostResponse = {};
+
+              if (postRequest.add || postRequest.patch) {
+                //requestTimer.print("post start");
+                await tracker.post(
+                  {
+                    add: postRequest.add ?? [],
+                    patch: postRequest.patch ?? [],
+                  },
+                  {
+                    deviceSessionId: postRequest.deviceSessionId,
+                    deviceId: postRequest.deviceId,
+                  }
+                );
+              }
+
+              return await result(
+                response.eventIds || response.variables
+                  ? { status: 200, body: tracker.httpClientEncrypt(response) }
+                  : { status: 202 }
+              );
             } catch (error) {
               this.environment.log(
                 {
@@ -718,7 +695,7 @@ export class RequestHandler {
   private _getClientVariables(tracker: Tracker) {
     return {
       ...tracker.transient,
-      consent: tracker.consent,
+      consent: tracker.consentLevel,
     };
   }
 
@@ -730,7 +707,7 @@ export class RequestHandler {
     this.environment.log(
       {
         group: "extensions",
-        source: extension ? `${extension.name}.${method}` : method,
+        source: extension ? `${extension.id}.${method}` : method,
       },
       error
     );

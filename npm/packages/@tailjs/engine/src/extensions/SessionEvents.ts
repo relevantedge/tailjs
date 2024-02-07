@@ -47,15 +47,15 @@ const applyDefaults = (
 export class SessionEvents implements TrackerExtension {
   private _configuration: Required<SessionConfiguration>;
 
-  public readonly name = "session";
+  public readonly id = "session";
 
   constructor(configuration: SessionConfiguration = {}) {
     this._configuration = applyDefaults(configuration);
   }
 
   public async patch(
-    next: NextPatchExtension,
     events: TrackedEvent[],
+    next: NextPatchExtension,
     tracker: Tracker
   ) {
     const session = tracker.session;
@@ -125,12 +125,12 @@ export class SessionEvents implements TrackerExtension {
           }
         }
       } else if (isSignInEvent(event)) {
-        const changed = tracker.username && tracker.username != event.username;
+        const changed = tracker.userid && tracker.userid != event.username;
         if (changed) {
           await tracker.session.reset();
           await tracker.deviceSession.reset();
         }
-        tracker.username = event.session.username = event.username;
+        tracker.userid = event.session.username = event.username;
         if (changed) {
           patched.splice(
             -1,
@@ -139,8 +139,8 @@ export class SessionEvents implements TrackerExtension {
           );
         }
       } else if (isSignOutEvent(event)) {
-        event.username = tracker.username;
-        tracker.username = undefined;
+        event.username = tracker.userid;
+        tracker.userid = undefined;
         await tracker.session.reset();
         patched.push(this._getSessionStartedEvent(tracker, event.timestamp));
       }

@@ -17,7 +17,8 @@ import type {
   ViewCommand,
 } from "..";
 
-export interface TrackEventCommand extends TrackedEvent {}
+export type TrackEventCommand = Omit<TrackedEvent, "id"> &
+  Partial<Pick<TrackedEvent, "id">>;
 
 export type TrackerCommand =
   | TrackEventCommand

@@ -8,6 +8,7 @@ import {
   EngineHost,
   EventParser,
   TrackerExtension,
+  VariableStore,
 } from "./shared";
 
 /** Gives a hint what a string might be for methods that serialize results to strings */
@@ -35,6 +36,7 @@ export type RequestHandlerConfiguration = {
   environmentTags?: string[];
   clientKeySeed?: string;
   client?: TrackerConfiguration;
+  globalStore?: VariableStore;
 
   /**
    * The session timeout in minutes.
@@ -74,6 +76,7 @@ export const DEFAULT: Omit<
   | "environmentTags"
   | "crypto"
   | "encryptionKeys"
+  | "globalStore"
 > = {
   trackerName: "tail",
   cookies: {

@@ -12,7 +12,7 @@ import {
   now,
 } from "@tailjs/util";
 import { createTransport } from "@tailjs/util/transport";
-import { DEBUG, TAB_ID, addPageListener, error, listen } from ".";
+import { DEBUG, TAB_ID, addPageLoadedListener, error, listen, log } from ".";
 
 export type Metadata<T = any> = [value: T, source?: string, expires?: number];
 
@@ -77,7 +77,8 @@ export interface BoundStorage<T = any> {
   observe?(observer: TypedStorageObserver<T>, observeSelf?: boolean): Binders;
 }
 
-const [serialize, deserialize] = createTransport("foo", DEBUG);
+// TODO: Initialize from tailjs.init.
+export const [serialize, deserialize] = createTransport("foo", DEBUG);
 
 export const mapStorage = <P extends StorageProvider>(
   provider: P
@@ -94,6 +95,9 @@ export const mapStorage = <P extends StorageProvider>(
     } else {
       provider.setItem(key, value, TAB_ID, timeout);
       dispatchOwn(value, { key, oldValue, source: TAB_ID, self: true });
+    }
+    if ((timeout as any) <= 0) {
+      provider.removeItem(key);
     }
     return value as any;
   };
@@ -186,9 +190,7 @@ export const sharedStorage = mapStorage({
 
     return joinEventBinders(
       [unbind, bind],
-      addPageListener(
-        (visible, loaded) => !loaded && (visible ? bind() : unbind())
-      )
+      addPageLoadedListener((loaded) => (loaded ? bind() : unbind()))
     );
   },
 });
@@ -202,7 +204,7 @@ const purgeTask = clock(
     trigger: true,
   }
 );
-addPageListener((visible) => purgeTask.toggle(visible));
+addPageLoadedListener((loaded) => purgeTask.toggle(loaded));
 
 export const bindStorage: {
   <T>(

@@ -1,7 +1,7 @@
 import type { TrackerExtension } from "../shared";
 
 export const Timestamps: TrackerExtension = {
-  name: "core-validation",
+  id: "core-validation",
   async patch(next, events) {
     const now = Date.now();
     return (

@@ -1,4 +1,4 @@
-import { UUID, TrackedEvent, Timestamp, Tagged, SignOutEvent } from ".";
+import type { ConsentLevel, SignOutEvent, Timestamp, UUID } from ".";
 
 export interface Session {
   /**
@@ -49,6 +49,11 @@ export interface Session {
    * The client's IP if enabled in configuration.
    */
   ip?: string;
+
+  /**
+   * The user's level of consent. `none` implies that only anonymous data has been collected with cookie-less tracking.
+   */
+  consentLevel?: ConsentLevel;
 
   /**
    * If the user had consented to non-essential tracking during this session.

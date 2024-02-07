@@ -1,16 +1,38 @@
-import { MaybePromise, isNumber, promise, tryCatchAsync } from ".";
+import {
+  MaybePromise,
+  isDefined,
+  isNumber,
+  isObject,
+  isUndefined,
+  promise,
+  tryCatchAsync,
+} from ".";
 
 export let now = () =>
   typeof performance !== "undefined"
     ? Math.trunc(performance.timeOrigin + performance.now())
     : Date.now();
 
-export type CancelableCallback = (cancel: () => void) => MaybePromise<void>;
+export type CancellableCallback = (cancel: () => void) => MaybePromise<any>;
+
+export type Timer = {
+  (toggle?: boolean): number;
+};
+
+export const createTimer = (started = true): Timer => {
+  let t0 = started ? now() : undefined;
+  let elapsed = 0;
+  return (toggle) => {
+    isDefined(t0) && (elapsed += now() - t0);
+    isDefined(toggle) && (t0 = toggle ? Date.now() : undefined);
+    return elapsed;
+  };
+};
 
 export interface Clock {
   readonly active: boolean;
   readonly busy: boolean;
-  restart(callback?: CancelableCallback, frequency?: number): Clock;
+  restart(frequency?: number, callback?: CancellableCallback): Clock;
   toggle(start: boolean, trigger?: boolean): Clock;
   trigger(skipQueue?: boolean): Promise<boolean>;
 }
@@ -20,23 +42,27 @@ export interface ClockSettings {
   queue?: boolean;
   paused?: boolean;
   trigger?: boolean;
+  once?: boolean;
 }
 
 type ClockSettingsParameter = ClockSettings & { frequency: number };
 
 export const clock: {
-  (callback: CancelableCallback, frequency: number): Clock;
-  (callback: CancelableCallback, settings: ClockSettingsParameter): Clock;
+  (callback: CancellableCallback, frequency: number): Clock;
+  (callback: CancellableCallback, settings: ClockSettingsParameter): Clock;
 } = (
-  callback: CancelableCallback,
+  callback: CancellableCallback,
   settings: number | ClockSettingsParameter
 ): Clock => {
   let {
+    frequency,
     queue = true,
     paused = false,
     trigger = false,
-    frequency,
-  } = isNumber(settings) ? { frequency: settings } : settings;
+    once = false,
+  } = isNumber(settings)
+    ? ({ frequency: settings } as ClockSettingsParameter)
+    : settings;
 
   let timeoutId = 0;
   const mutex = promise().resolve();
@@ -51,14 +77,14 @@ export const clock: {
     }
 
     mutex.reset();
-    let cancelled = frequency < 0;
+    let cancelled = frequency < 0 || once;
     await tryCatchAsync(
       () => callback(() => (cancelled = true)),
       false,
       () => mutex.resolve()
     );
     if (cancelled) {
-      reset(true);
+      reset(false);
     }
 
     (instance as any).busy = false;
@@ -79,10 +105,10 @@ export const clock: {
   const instance: Clock = {
     active: false,
     busy: false,
-    restart: (newCallback, newFrequency) => {
-      callback = newCallback ?? callback;
+    restart: (newFrequency, newCallback) => {
       frequency = newFrequency ?? frequency;
-      return newCallback || newFrequency || !timeoutId ? reset(true) : instance;
+      callback = newCallback ?? callback;
+      return reset(true);
     },
     toggle: (start, trigger) =>
       start !== instance.active
@@ -93,7 +119,7 @@ export const clock: {
           : reset(false)
         : instance,
     trigger: async (skipQueue) =>
-      (await outerCallback(skipQueue)) && (reset(true), true),
+      (await outerCallback(skipQueue)) && (reset(instance.active), true),
   };
 
   return instance.toggle(!paused, trigger);

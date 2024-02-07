@@ -326,7 +326,7 @@ export const toArray = <T>(value: T | Iterable<T>, clone = false): T[] =>
 export const isObject = (
   value: any,
   acceptIterables = false
-): value is { [P in keyof any]: any } =>
+): value is Record<keyof any, any> & { [Symbol.hasInstance]?: never } =>
   value && typeof value === "object" && (acceptIterables || !isIterable(value));
 
 export const hasMethod = <T, Name extends keyof any>(

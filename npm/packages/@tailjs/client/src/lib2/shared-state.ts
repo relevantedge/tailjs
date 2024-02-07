@@ -1,15 +1,15 @@
 import { clear, clock, createEvent, forEach, now, set } from "@tailjs/util";
 import {
-  STATE_KEY,
   TAB_HEARTBEAT,
   TAB_ID,
-  addPageListener,
-  bindStorage,
+  addPageLoadedListener,
+  subscribeChannel,
 } from ".";
 
 export type TabState = {
+  id: string;
   hearbeat: number;
-  view?: number;
+  viewId?: string;
   navigated?: number;
 };
 
@@ -18,51 +18,87 @@ export type State = {
   variables: Record<string, any>;
 };
 
-const initialState: State = {
-  knownTabs: {},
+const tabState: TabState = {
+  id: TAB_ID,
+  hearbeat: now(),
+};
+
+const state: State = {
+  knownTabs: {
+    [TAB_ID]: tabState,
+  },
   variables: {},
 };
 
-const [addStateListener, dispatch] =
-  createEvent<[event: "ready" | "update", state: State]>();
+type StateMessage =
+  | { type: "query"; data?: undefined }
+  | {
+      type: "set";
+      data: State;
+    }
+  | {
+      type: "patch";
+      data: State["variables"];
+    }
+  | {
+      type: "tab";
+      data?: TabState;
+    };
 
-const storage = bindStorage<State>(STATE_KEY);
+const initTimeout = clock(() => dispatchState("ready", { state }), -25);
+const stateChannel = subscribeChannel<StateMessage>(
+  "state",
+  (sender, { type, data }) => {
+    if (type === "query") {
+      !initTimeout.active &&
+        stateChannel.post({ type: "set", data: state }, sender);
+    } else if (type === "set" && initTimeout.active) {
+      set(state, data);
+      initTimeout.trigger();
+    } else if (type === "patch") {
+      set(state, data);
+      dispatchState("update", { state, variables: data });
+    } else if (type === "tab") {
+      set(state.knownTabs, sender, data);
+      dispatchState("update", { state, tab: data });
+    }
+  }
+);
 
-const heartbeat = clock(() => toggleTab(true), TAB_HEARTBEAT);
-let tabState: TabState = { hearbeat: now() };
+const [addStateListener, dispatchState] = createEvent<
+  [
+    event: "ready" | "update",
+    state: {
+      state: State;
+      variables?: State["variables"];
+      tab?: TabState;
+    }
+  ]
+>();
+
+const heartbeat = clock(() => {
+  const timeout = now() - TAB_HEARTBEAT * 2;
+  forEach(
+    state?.knownTabs,
+    // Remove interval tabs.
+    ([tabId, tabState]) =>
+      tabState[0] < timeout && clear(state!.knownTabs, tabId)
+  );
+  tabState.hearbeat = now();
+  stateChannel.post({ type: "tab", data: tabState });
+}, TAB_HEARTBEAT);
 
 const toggleTab = (loading: boolean) => {
-  const deadline = now() - TAB_HEARTBEAT * 2;
-  heartbeat.toggle(loading, true);
-
-  return dispatch(
-    "ready",
-    storage.update((state) => {
-      forEach(
-        state?.knownTabs,
-        // Remove interval tabs.
-        ([tabId, tabState]) =>
-          tabState[0] < deadline && clear(state!.knownTabs, tabId)
-      );
-
-      tabState.hearbeat = now();
-
-      return (
-        set(
-          (state ??= initialState).knownTabs,
-          TAB_ID,
-          loading ? tabState : undefined
-        ),
-        state
-      );
-    })
-  );
+  stateChannel.post({ type: "tab", data: loading ? tabState : undefined });
+  if (loading) {
+    initTimeout.restart();
+    stateChannel.post({ type: "query" });
+  } else {
+    initTimeout.toggle(false);
+  }
+  heartbeat.toggle(loading);
 };
 
-addPageListener((visible, loaded) => !loaded && toggleTab(visible));
-
-export const updateTabState = (update: (tabState: TabState) => void) => (
-  update(tabState), toggleTab(true)
-);
+addPageLoadedListener((loaded) => toggleTab(loaded), true);
 
 export { addStateListener };

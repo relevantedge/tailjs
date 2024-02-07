@@ -15,7 +15,7 @@ export class ClientLocation implements TrackerExtension {
   private _initialized = false;
   private _reader: Reader<CityResponse> | null;
 
-  public readonly name = "ClientLocation";
+  public readonly id = "ClientLocation";
 
   constructor({
     language = "en",
@@ -26,12 +26,12 @@ export class ClientLocation implements TrackerExtension {
   }
 
   public async patch(
-    next: NextPatchExtension,
     events: TrackedEvent[],
+    next: NextPatchExtension,
     tracker: Tracker
   ) {
     if (!this._initialized) throw new Error("Not initialized");
-    if (!tracker.consent?.active) return events;
+    //if (!tracker.consent?.active) return events;
 
     const env = tracker.env;
     let country = "NA";
@@ -40,7 +40,7 @@ export class ClientLocation implements TrackerExtension {
 
     if (ip) {
       const clientHash = env.hash(tracker.clientIp);
-      if (tracker.vars["mx"]?.value !== clientHash) {
+      if ((await tracker.get("session", "mx")) !== clientHash) {
         const location = this.filterNames(this._reader?.get(ip));
         tracker.requestItems.set(
           ClientLocation.name,
@@ -53,13 +53,6 @@ export class ClientLocation implements TrackerExtension {
             cast<SessionLocationEvent>({
               type: "SESSION_LOCATION",
               accuracy: location.location?.accuracy_radius,
-              session: {
-                sessionId: tracker.session.id,
-                timestamp: tracker.session.started,
-                deviceId: tracker.device.id,
-                username: tracker._clientState.username,
-              },
-
               city: location.city
                 ? {
                     name: location.city.names[this._language],
@@ -100,21 +93,10 @@ export class ClientLocation implements TrackerExtension {
           ];
         }
         country = location?.country?.names[this._language] ?? "NA";
-        tracker.vars["mx"] = {
-          scope: "session",
-          essential: false,
-          critical: true,
-          value: clientHash,
-        };
+        await tracker.set("session", "mx", clientHash);
+        await tracker.set("session", "country", country);
       }
     }
-
-    tracker.vars["country"] = {
-      scope: "session",
-      essential: false,
-      client: true,
-      value: country,
-    };
 
     return await next(events);
   }

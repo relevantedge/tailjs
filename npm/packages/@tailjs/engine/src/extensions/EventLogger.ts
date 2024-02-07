@@ -2,7 +2,7 @@ import { TrackedEvent } from "@tailjs/types";
 import type { Tracker, TrackerEnvironment, TrackerExtension } from "../shared";
 
 export class EventLogger implements TrackerExtension {
-  public readonly name = "event-logger";
+  public readonly id = "event-logger";
 
   constructor(public readonly configuration: { group: string }) {}
 
@@ -15,7 +15,7 @@ export class EventLogger implements TrackerExtension {
       env.log({
         group: this.configuration.group,
         level: "info",
-        source: this.name,
+        source: this.id,
         data: ev,
       });
     }
