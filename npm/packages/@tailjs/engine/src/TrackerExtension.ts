@@ -1,16 +1,11 @@
-import type {
-  TrackedEvent,
-  VariableGetRequest,
-  VariableGetResponse,
-  VariableScope,
-  VariableSetRequest,
-} from "@tailjs/types";
+import type { TrackedEvent } from "@tailjs/types";
 import type {
   ParseResult,
   Tracker,
   TrackerEnvironment,
-  VariableStore,
+  TrackerStorage,
 } from "./shared";
+import { MaybePromise } from "@tailjs/util";
 
 export type NextPatchExtension = (
   events: ParseResult[]
@@ -40,30 +35,22 @@ export type TrackedEventBatch = {
  *
  * An extension
  */
-export interface TrackerExtension extends Partial<VariableStore> {
+export interface TrackerExtension extends Partial<TrackerStorage> {
   readonly id: string;
 
-  initialize?(environment: TrackerEnvironment): Promise<void>;
+  initialize?(environment: TrackerEnvironment): MaybePromise<void>;
 
-  apply?(tracker: Tracker): Promise<void>;
+  apply?(tracker: Tracker): MaybePromise<void>;
 
   patch?(
     events: TrackedEvent[],
     next: NextPatchExtension,
-    tracker: Tracker,
-    environment: TrackerEnvironment
-  ): Promise<ParseResult[]>;
+    tracker: Tracker
+  ): MaybePromise<ParseResult[]>;
 
-  post?(
-    events: TrackedEventBatch,
-    tracker: Tracker,
-    environment: TrackerEnvironment
-  ): Promise<void>;
+  post?(events: TrackedEventBatch, tracker: Tracker): MaybePromise<void>;
 
-  getClientScripts?(
-    tracker: Tracker,
-    environment: TrackerEnvironment
-  ): ClientScript[] | undefined | null;
+  getClientScripts?(tracker: Tracker): ClientScript[] | undefined | null;
 }
 
 /**

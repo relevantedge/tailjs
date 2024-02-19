@@ -3,6 +3,8 @@ import {
   GeneralizeContstants,
   IsAny,
   KeyValuePairsToObject,
+  Minus,
+  add,
   hasMethod,
   hasValue,
   isArray,
@@ -50,9 +52,7 @@ type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
     ? T
     : [keyof S, S[keyof S]]
   : S extends Iterable<infer T>
-  ? T extends string
-    ? string
-    : T
+  ? T
   : never;
 
 export interface IteratorControl<S extends IteratorSource> {
@@ -93,6 +93,16 @@ type StartEndArgs<S extends IteratorSource> = S extends number
 export type NavigatingIteratorStep<T = any> = (
   current: T | undefined
 ) => T | undefined;
+
+type FlatIteratorItem<T, Depth extends number = 1> = T extends undefined | void
+  ? never
+  : Depth extends 0
+  ? FlatIteratorItem<T, 100>
+  : T extends Iterable<infer T>
+  ? Depth extends 1
+    ? T
+    : FlatIteratorItem<T, Minus<Depth, 1>>
+  : T;
 
 function* createRangeIterator(length = 0, offset = 0): Iterable<number> {
   while (length--) yield offset++;
@@ -233,39 +243,19 @@ const mapIterator = <S extends IteratorSource>(
   return createRangeIterator(source as number, start);
 };
 
-export const project: {
+type ProjectFunction = {
   <S extends IteratorSource, R, RT extends AnyTuple>(
     source: S,
     projection?: IteratorAction<S, R | RT> | null,
     ...rest: StartEndArgs<S>
-  ): IteratorProjection<S, R, RT>[];
-} = (source, projection, ...rest) => {
-  return createControllableIterator(
-    mapIterator(source, ...rest),
-    projection as any
-  ) as any;
+  ): Iterable<IteratorProjection<S, R, RT>>;
+  <S extends IteratorSource, R, RT extends AnyTuple>(
+    source: S,
+    ...rest: StartEndArgs<S>
+  ): Iterable<IteratorProjection<S, R, RT>>;
 };
 
-export function* flatProject<S extends IteratorSource, R, RT extends AnyTuple>(
-  source: S,
-  projection?: IteratorAction<S, R | RT> | null,
-  ...rest: StartEndArgs<S>
-): Iterable<FlatIteratorItem<IteratorProjection<S, R, RT>>> {
-  for (const item of project(
-    mapIterator(source, ...(rest as any)),
-    projection as any
-  )) {
-    if (isIterable(item)) {
-      yield* item;
-    } else if (isObject(item)) {
-      yield* Object.entries(item) as any;
-    } else {
-      yield item;
-    }
-  }
-}
-
-export const map: {
+type MapFunction = {
   <S extends IteratorSource, R, RT extends AnyTuple>(
     source: S,
     projection?: IteratorAction<S, R | RT> | null,
@@ -275,7 +265,13 @@ export const map: {
     source: S,
     ...rest: StartEndArgs<S>
   ): IteratorProjection<S, R, RT>[];
-} = ((source: any, projection: any, ...rest: any[]) => {
+};
+
+export const project: ProjectFunction = ((
+  source: any,
+  projection: any,
+  ...rest: any[]
+) => {
   if (!isFunction(projection) && hasValue(projection)) {
     // The "projection" parameter is the start index.
     rest.unshift(projection);
@@ -283,29 +279,88 @@ export const map: {
   }
   source = mapIterator(source, ...rest);
   return projection
-    ? projection.length < 3 && hasMethod(source, "map")
-      ? source["map"](projection).filter(isDefined)
+    ? (createControllableIterator(
+        mapIterator(source, ...rest),
+        projection as any
+      ) as any)
+    : mapIterator(source, ...rest);
+}) as any;
+
+export function* flatProject<
+  S extends IteratorSource,
+  R = IteratorItem<S>,
+  Depth extends number = 1
+>(
+  source: S,
+  projection?: IteratorAction<S, R> | null,
+  depth: Depth = 1 as any,
+  ...rest: StartEndArgs<S>
+): Iterable<FlatIteratorItem<R, Depth>> {
+  yield* flatten(
+    project(mapIterator(source, ...(rest as any)), projection as any),
+    depth
+  );
+
+  function* flatten(value: any, depth: number) {
+    if (isIterable(value)) {
+      for (const item of value) {
+        if (depth > 1 || depth <= 0) {
+          yield* flatten(value, depth - 1);
+        } else {
+          yield* item;
+        }
+      }
+    } else {
+      yield value;
+    }
+  }
+}
+
+export const map: MapFunction = ((
+  source: any,
+  projection: any,
+  ...rest: any[]
+) => {
+  if (!isFunction(projection) && hasValue(projection)) {
+    // The "projection" parameter is the start index.
+    rest.unshift(projection);
+    projection = null;
+  }
+  source = mapIterator(source, ...rest);
+  return projection
+    ? projection.length < 3 &&
+      hasMethod(source, "map") &&
+      hasMethod(source, "filter")
+      ? source.map(projection).filter(isDefined)
       : [...createControllableIterator(source as any, projection)]
     : (toArray(source, true) as any);
 }) as any;
 
-type FlatIteratorItem<S extends IteratorSource> =
-  IteratorItem<S> extends Iterable<infer T>
-    ? T
-    : IteratorItem<S> extends Record<infer K, infer V>
-    ? [K, V]
-    : IteratorItem<S>;
+function* distinctInternal(source: any, projection: any, ...rest: any[]) {
+  const seen = new Set<any>();
+  for (const item of project(source, projection, ...(rest as any))) {
+    if (seen.has(source)) continue;
+    seen.add(source);
+    yield item;
+  }
+}
+
+export const distinct = distinctInternal as any as ProjectFunction;
+export const mapDistinct: MapFunction = (...args: any[]) => [
+  ...(distinctInternal as any)(...args),
+];
 
 export const flatMap = <
-  S extends IteratorSourceOf<any | Iterable<any>>,
-  R,
-  RT extends AnyTuple
+  S extends IteratorSource,
+  R = IteratorItem<S>,
+  Depth extends number = 1
 >(
   source: S,
   action: IteratorAction<S, R> = (item) => item as any,
+  depth: Depth = 1 as any,
   ...rest: StartEndArgs<S>
-): FlatIteratorItem<IteratorProjection<S, R, RT>>[] =>
-  map(flatProject(source, action, ...rest)) as any;
+): FlatIteratorItem<R, Depth>[] =>
+  map(flatProject(source, action, depth, ...rest)) as any;
 
 export const forEach = <S extends IteratorSource, R>(
   source: S,
@@ -331,13 +386,14 @@ export const forEach = <S extends IteratorSource, R>(
   return returnValue;
 };
 
-export const flatForEach = <S extends IteratorSourceOf<any | Iterable<any>>, R>(
+export const flatForEach = <S extends IteratorSource, R, Depth extends number>(
   source: S,
   action: IteratorAction<FlatIteratorItem<S>, R>,
+  depth: Depth = 1 as any,
   ...rest: StartEndArgs<S>
 ): R | undefined =>
   forEach(
-    flatProject(source, undefined, ...(rest as any)),
+    flatProject(source, undefined, depth, ...(rest as any)),
     action as any
   ) as any;
 
@@ -398,12 +454,13 @@ export const filter = <
     : (filterIterator(mapIterator(source, ...rest) as any, filter) as any);
 
 let filterInternal = filter;
-
 export const count = <S extends IteratorSource>(
   source: S,
   filter?: Filter<S> | null,
   ...rest: StartEndArgs<S>
 ): number => {
+  if (!source) return 0;
+
   if (filter) {
     source = filterInternal(source, filter, false, ...rest) as any;
   } else {

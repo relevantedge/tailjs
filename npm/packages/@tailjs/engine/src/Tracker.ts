@@ -1,13 +1,14 @@
-import type {
+import {
+  DataConsentLevel,
   PostResponse,
   TrackedEvent,
-  VariableGetRequest,
-  VariableGetResponse,
-  VariableScope,
-  VariableSetRequest,
+  TrackerVariableFilter,
+  TrackerScope,
+  TrackerVariable,
+  TRACKER_SCOPES,
 } from "@tailjs/types";
 import { isString, set } from "@tailjs/util";
-import { Encodable, Transport, createTransport } from "@tailjs/util/transport";
+import { Transport, createTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, map, params, unparam } from "./lib";
 import {
   Cookie,
@@ -17,7 +18,7 @@ import {
   RequestHandlerConfiguration,
   TrackedEventBatch,
   TrackerEnvironment,
-  VariableStore,
+  TrackerStorage,
 } from "./shared";
 
 export type TrackerSettings = Pick<
@@ -135,62 +136,44 @@ export class Tracker {
   private _deviceId?: string;
   private _deviceSessionId?: string;
   private _sessionId?: string;
-  private _consentLevel: string = "none";
 
-  private get _activeStore(): VariableStore {
-    return this._consentLevel === "none"
-      ? this._requestHandler._globalStore
-      : this._requestHandler._cookieStore;
-  }
+  /** @Internal */
+  public _consentLevel: DataConsentLevel = DataConsentLevel.None;
 
-  public async purge(scopes: VariableScope[] | null = null) {
-    scopes ??= ["session", "device-session", "device"];
-    await this._requestHandler._globalStore.purge(scopes, this);
-    await this._requestHandler._cookieStore.purge(scopes, this);
-  }
+  // #region  Variables
 
-  public async get<T = any>(
-    scope: VariableScope,
-    key: string
-  ): Promise<T | undefined>;
-  public async get(variables: VariableGetRequest): Promise<VariableGetResponse>;
+  private async _ensureVariables() {}
+
   public async get(
-    variables: VariableGetRequest | VariableScope,
-    key?: string
-  ): Promise<VariableGetResponse> {
-    if (isString(variables)) {
-      return (
-        await this._activeStore.get([{ scope: variables, key: key! }], this)
-      )?.[variables]?.[key!];
-    }
-    return await this._activeStore.get(variables, this);
+    scope: TrackerScope,
+    key: string
+  ): Promise<TrackerVariable | undefined> {
+    return undefined;
   }
 
-  public async set(
-    scope: VariableScope,
-    key: string,
-    value: any,
-    ttl?: number
-  ): Promise<void>;
-  public async set(
-    variables: VariableSetRequest,
-    key: string,
-    value: any
-  ): Promise<void>;
-  public async set(
-    variables: VariableSetRequest | VariableScope,
-    key?: string,
-    value?: any,
-    ttl?: number
-  ) {
-    if (isString(variables)) {
-      return await this._activeStore.set(
-        { [variables]: { [key!]: { value, ttl } } },
-        this
-      );
-    }
-    return await this._activeStore.set(variables, this);
+  public async query(
+    ...filters: TrackerVariableFilter[]
+  ): Promise<TrackerVariable[]> {
+    return [];
   }
+
+  public async purge(scopes: TrackerScope[] | null = null) {
+    scopes ??= [
+      TrackerScope.Session,
+      TrackerScope.DeviceSession,
+      TrackerScope.Device,
+    ];
+    await this._requestHandler._globalStorage.purge(
+      this,
+      ...scopes.map((scope) => ({ scope }))
+    );
+    await this._requestHandler._sessionStore.purge(
+      this,
+      ...scopes.map((scope) => ({ scope }))
+    );
+  }
+
+  // #endregion
 
   public get consentLevel() {
     return this._consentLevel;
@@ -212,29 +195,28 @@ export class Tracker {
     return this._deviceId;
   }
 
-  public async consent(consentLevel: string): Promise<void> {
+  public async consent(consentLevel: DataConsentLevel): Promise<void> {
     if (consentLevel === this._consentLevel) return;
     this._consentLevel = consentLevel;
     if (consentLevel === "none") {
-      this._requestHandler._cookieStore.purge(null, this);
+      this._requestHandler._sessionStore.purge(this);
     } else {
       // Copy current values from cookie-less store.
-      await this._requestHandler._cookieStore.set(
-        set(
-          {},
-          map(
-            (
-              await this._requestHandler._globalStore.getAll("session", this)
-            )?.["session"],
-            ([key, value]) => [key, { scope: "session", value }]
-          )
-        ),
-        this
+      await this._requestHandler._sessionStore.set(
+        this,
+        ...(await this._requestHandler._globalStorage.get(
+          this,
+          { scope: "session" },
+          { scope: "device-session" },
+          { scope: "device" },
+          { scope: "user" }
+        ))
       );
-      this._requestHandler._cookieStore.set(
-        { session: { consent: { value: consentLevel } } },
-        this
-      );
+      await this._requestHandler._sessionStore.set(this, {
+        scope: "session",
+        key: "consent",
+        value: consentLevel,
+      });
     }
   }
 
@@ -309,13 +291,11 @@ export class Tracker {
   }
 
   private async _getStoreValue(
-    store: VariableStore,
-    scope: VariableScope,
+    store: TrackerStorage,
+    scope: TrackerScope,
     key: string
   ) {
-    return (
-      await this._requestHandler._cookieStore.get([{ scope, key }], this)
-    )?.[scope]?.[key];
+    return (await store.get(this, { scope, key }))?.[0]?.value;
   }
 
   /** @internal */
@@ -326,50 +306,41 @@ export class Tracker {
     this._requestId = await this.env.nextId("request");
     this._consentLevel =
       (await this._getStoreValue(
-        this._requestHandler._cookieStore,
+        this._requestHandler._sessionStore,
         "session",
         "consent"
       )) ?? "none";
 
     if (this.consentLevel === "none") {
       this._sessionId = await this._getStoreValue(
-        this._requestHandler._globalStore,
+        this._requestHandler._globalStorage,
         "global",
         this.clientKey
       );
 
       if (!this._sessionId) {
         this._sessionId = await this.env.nextId();
-        await this._requestHandler._globalStore.set(
-          {
-            global: {
-              [this.clientKey]: {
-                value: this._sessionId,
-                ttl: 30 * 60 * 1000,
-              },
-            },
-          },
-          this
-        );
+        await this._requestHandler._globalStorage.set(this, {
+          scope: "global",
+          key: this.clientKey,
+          value: this._sessionId,
+          ttl: 30 * 60 * 1000,
+        });
       }
     } else {
       this._sessionId = await this._getStoreValue(
-        this._requestHandler._cookieStore,
+        this._requestHandler._sessionStore,
         "session",
         "id"
       );
       if (!this._sessionId) {
         this._sessionId = await this.env.nextId();
-        await this._requestHandler._cookieStore.set(
-          {
-            session: {
-              ["id"]: {
-                value: this._sessionId,
-              },
-            },
-          },
-          this
-        );
+        await this._requestHandler._sessionStore.set(this, {
+          key: "id",
+          scope: "session",
+          value: this._sessionId,
+          consentLevel: "essential",
+        });
       }
     }
 
@@ -377,16 +348,11 @@ export class Tracker {
     this._deviceId = deviceId ?? (await this.get("device", "id"));
     if (!this._deviceId && this._consentLevel !== "none") {
       this._deviceId = await this.env.nextId();
-      await this._requestHandler._cookieStore.set(
-        {
-          device: {
-            ["id"]: {
-              value: this._sessionId,
-            },
-          },
-        },
-        this
-      );
+      await this._requestHandler._sessionStore.set(this, {
+        key: "id",
+        scope: "device",
+        value: this._sessionId,
+      });
     }
 
     return true;
