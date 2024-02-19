@@ -1,4 +1,5 @@
 import {
+  ConstToTuples,
   GeneralizeContstants,
   IsAny,
   NotFunction,
@@ -32,10 +33,11 @@ type PropertyContainer<K extends any = any, V extends any = any> =
   | MapLike<K, V>
   | SetLike<K>;
 
-export type KeyType<T extends PropertyContainer> = T extends MapLike<
-  infer K,
-  any
->
+export type KeyType<T extends PropertyContainer | null | undefined> = T extends
+  | null
+  | undefined
+  ? never
+  : T extends MapLike<infer K, any>
   ? K
   : T extends SetLike<infer K>
   ? K
@@ -44,11 +46,13 @@ export type KeyType<T extends PropertyContainer> = T extends MapLike<
   : keyof T;
 
 export type ValueType<
-  T extends PropertyContainer,
+  T extends PropertyContainer | null | undefined,
   K,
   Default = never
 > = IsAny<T> extends true
   ? any
+  : T extends null | undefined
+  ? never
   : T extends MapLike<any, infer V>
   ? V | Default
   : T extends SetLike
@@ -63,11 +67,17 @@ export type ValueType<
 
 // #region get
 
-export const get = <T extends PropertyContainer, K extends KeyType<T>>(
+export const get = <
+  T extends PropertyContainer | null | undefined,
+  K extends KeyType<T>,
+  R extends ValueType<T, K>
+>(
   target: T,
-  key: K,
-  initializer?: Updater<T, K, ValueType<T, K>, false, true>
-): ValueType<T, K, undefined> => {
+  key: K | undefined,
+  initializer?: () => R | Readonly<R>
+): T extends null | undefined ? undefined : R => {
+  if (!target || !isDefined(key)) return undefined as any;
+
   let value = hasMethod(target, "get")
     ? target.get(key)
     : hasMethod(target, "has")
@@ -161,25 +171,24 @@ type BulkUpdates<
       | BulkUpdateObject<T, SettersOnly, Factory>
     >;
 
-type UnwrapBulkUpdates<T, SettersOnly = false> = T extends (infer T)[]
-  ? T extends [infer K, infer V]
-    ? [K, UpdaterType<V, SettersOnly>]
-    : PropertiesToTuples<T, SettersOnly>
-  : PropertiesToTuples<T>;
-
 type SetOrUpdateFunction<SettersOnly> = {
   <
-    T extends PropertyContainer,
-    U extends Updater<T, K, ValueType<T, K>, SettersOnly>,
+    T extends PropertyContainer | null | undefined,
+    U extends Updater<
+      T extends null | undefined ? never : T,
+      K,
+      ValueType<T, K>,
+      SettersOnly
+    >,
     K extends KeyType<T>
   >(
     target: T,
     key: K,
     value: U
-  ): UpdaterType<U>; //  UpdaterType<U, SettersOnly>;
-  <T extends PropertyContainer>(
+  ): UpdaterType<U>;
+  <T extends PropertyContainer | null | undefined>(
     target: T,
-    values: BulkUpdates<T, SettersOnly>
+    values: BulkUpdates<T extends null | undefined ? never : T, SettersOnly>
   ): T;
 };
 
@@ -194,7 +203,7 @@ const createSetOrUpdateFunction =
       }
 
       if (isUndefined(value)) {
-        return clear(target, key);
+        return remove(target, key);
       }
 
       if (bulk || get(target, key) !== value) {
@@ -204,26 +213,15 @@ const createSetOrUpdateFunction =
           ? value
             ? target.add(key)
             : target.delete(key)
-          : (target[key] = value);
+          : (target![key] = value);
       }
 
       return value;
     };
 
+    if (!target) return target;
+
     if ((bulk = args.length === 1)) {
-      // Fast path
-      if (settersOnly) {
-        if (isArray(key) && key.every((item) => isObject(item))) {
-          key = Object.assign({}, ...key);
-        }
-        if (isObject(key)) {
-          Object.assign(target, key);
-          Object.entries(key).forEach(
-            ([k, v]) => !isDefined(v) && delete target[k]
-          );
-          return target;
-        }
-      }
       if (isObject(key)) {
         forEach(key, setSingle);
       } else {
@@ -251,28 +249,27 @@ export const has = <T extends PropertyContainer>(target: T, key: KeyType<T>) =>
     ? target.has(key)
     : isDefined((target as any).get?.(key) ?? (target as any)[key]);
 
-export const clear: {
-  <T extends PropertyContainer>(target: T, key: KeyType<T>): ValueType<
-    T,
-    KeyType<T>,
-    true
-  >;
-  <T extends PropertyContainer>(target: T, ...keys: KeyType<T>[]): ValueType<
-    T,
-    KeyType<T>,
-    true
-  >[];
+export const remove: {
+  <T extends PropertyContainer | null | undefined>(
+    target: T,
+    key: KeyType<T> | undefined
+  ): T extends null | undefined ? T : ValueType<T, KeyType<T>, undefined>;
+  <T extends PropertyContainer | null | undefined>(
+    target: T,
+    ...keys: (KeyType<T> | undefined)[]
+  ): (T extends null | undefined ? T : ValueType<T, KeyType<T>, undefined>)[];
 } = (target: PropertyContainer, key: any, ...keys: any[]) => {
-  if (keys.length) {
-    return keys.map((key) => clear(target, key));
-  }
-
+  if (!target) return undefined;
   const current = get(target, key);
-  hasMethod(target, "delete")
+  isDefined(key) && hasMethod(target, "delete")
     ? target.delete(key)
     : isArray(target)
     ? target.splice(key, 1)
     : delete target[key];
+
+  if (keys.length) {
+    return keys.map((key) => remove(target, key));
+  }
 
   return current;
 };

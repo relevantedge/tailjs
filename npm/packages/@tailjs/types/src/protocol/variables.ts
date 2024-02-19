@@ -1,29 +1,58 @@
-import { ConsentLevel } from "../ConsentLevel";
+import { DataConsentLevel } from "../ConsentLevel";
 
-export type VariableScope =
-  | "session"
-  | "device-session"
-  | "user"
-  | "device"
-  | "global";
-
-export type VariableGetRequest = {
-  key: string;
-  scope?: VariableScope;
+export interface VariableFilter {
+  keys?: string[];
   tags?: string[];
-}[];
+}
 
-export type VariableGetResponse = Partial<
-  Record<VariableScope, Record<string, any>>
->;
-
-export type VariableValueConfiguration = {
+export interface Variable {
+  key: string;
   value: any | undefined;
-  consentLevel?: ConsentLevel;
   tags?: string[];
   ttl?: number;
-};
+}
 
-export type VariableSetRequest = Partial<
-  Record<VariableScope, Record<string, VariableValueConfiguration>>
->;
+export const enum VariablePatchType {
+  Add,
+  IfGreater,
+  IfSmaller,
+  IfMatch,
+}
+export type VariableSetter =
+  | (Variable & { patch?: undefined })
+  | (Omit<Variable, "value"> & {
+      value?: undefined;
+      patch: {
+        value: any;
+        type: VariablePatchType;
+      };
+    });
+
+export const enum TrackerScope {
+  Session = "session",
+  DeviceSession = "device-session",
+  Device = "device",
+  User = "user",
+}
+
+export const TRACKER_SCOPES = [
+  TrackerScope.Session,
+  TrackerScope.DeviceSession,
+  TrackerScope.Device,
+  TrackerScope.User,
+];
+
+export interface TrackerVariableFilter extends VariableFilter {
+  scopes?: TrackerScope[];
+  consentLevels?: DataConsentLevel[];
+}
+
+export interface TrackerVariable extends Variable {
+  scope: TrackerScope;
+  consentLevel: DataConsentLevel;
+}
+
+export type TrackerVariableSetter = VariableSetter & {
+  scope: TrackerScope;
+  consentLevel: DataConsentLevel;
+};

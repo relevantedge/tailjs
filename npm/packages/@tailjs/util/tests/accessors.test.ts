@@ -1,6 +1,6 @@
 import {
   get,
-  clear,
+  remove,
   set,
   update,
   add,
@@ -63,7 +63,7 @@ describe("Accessors accesses what they access", () => {
     set(s, "c", false);
     expect(s.has("c")).toBe(false);
 
-    clear(o, "a");
+    remove(o, "a");
     expect(o.a).toBe(undefined);
 
     const obj = set(
@@ -74,8 +74,8 @@ describe("Accessors accesses what they access", () => {
 
     expect(add(s, "test")).toBe(true);
     expect(add(s, "test")).toBe(false);
-    expect(clear(s, "test")).toBe(true);
-    expect(clear(s, "test")).toBe(false);
+    expect(remove(s, "test")).toBe(true);
+    expect(remove(s, "test")).toBe(false);
 
     expect(get(o as any, "gazonk", () => 80)).toBe(80);
     expect(get(o as any, "gazonk")).toBe(80);

@@ -4,7 +4,7 @@ import {
   PostRequest,
   PostResponse,
   TrackedEvent,
-  TrackedEventPatch,
+  TrackerScope,
 } from "@tailjs/types";
 import queryString from "query-string";
 import { Lock } from "semaphore-async-await";
@@ -19,7 +19,6 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
-  TrackedEventBatch,
   EventParser,
   isValidationError,
   ParseResult,
@@ -27,20 +26,22 @@ import {
   RequestHandlerConfiguration,
   SessionEvents,
   Timestamps,
+  TrackedEventBatch,
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
   TrackerPostOptions,
   ValidationError,
-  VariableStore,
+  TrackerStorage,
+  GlobalStorage,
+  VariableStorage,
 } from "./shared";
 
 import { CONTEXT_MENU_COOKIE, MUTEX_REQUEST_COOKIE } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
 import { from64u } from "@tailjs/util/transport";
+import { CookieStorage, InMemoryStore } from "./extensions";
 import { generateClientConfigScript } from "./lib/clientConfigScript";
-import { InMemoryStore } from "./extensions/InMemoryStorage";
-import { CookieStorage } from "./extensions/CookieStorage";
 
 const scripts = {
   main: {
@@ -70,8 +71,9 @@ export class RequestHandler {
 
   /** @internal */
   public readonly _cookieNames: {
-    optInIdentifiers: string;
-    essentialIdentifiers: string;
+    consentLevel: string;
+    optInDevice: string;
+    essentialDevice: string;
     optInSession: string;
     essentialSession: string;
   };
@@ -80,9 +82,13 @@ export class RequestHandler {
   /** @internal */
   public _sessionTimeout: number;
   /** @internal */
-  public readonly _cookieStore = new CookieStorage();
+  public readonly _sessionStore;
+
   /** @internal */
-  public readonly _globalStore: VariableStore;
+  public readonly _globalStorage: GlobalStorage;
+
+  /** @internal */
+  public readonly _trackerStorage: TrackerStorage;
 
   private readonly _clientKeySeed: string;
   private readonly _clientConfig: TrackerConfiguration;
@@ -113,7 +119,22 @@ export class RequestHandler {
 
     this._parser = parser;
 
-    this._globalStore = config.globalStore ?? new InMemoryStore();
+    this._globalStorage = config.globalStorage!;
+    this._trackerStorage = config.trackerStorage!;
+    if (!this._trackerStorage && !this._globalStorage) {
+      this._globalStorage = this._trackerStorage = new InMemoryStore();
+    } else if (!this._trackerStorage) {
+      if (!(this._globalStorage as any as TrackerStorage)?.isTrackerStorage) {
+        throw new TypeError(
+          "If only a global storage is specified it must also implement a tracker storage."
+        );
+      }
+      this._trackerStorage = this._globalStorage as any;
+    } else if (!this._globalStorage) {
+      throw new TypeError(
+        "If a tracker storage is specified a global storage must also be specified explicitly."
+      );
+    }
 
     this.environment = new TrackerEnvironment(
       host,
@@ -130,10 +151,11 @@ export class RequestHandler {
 
     this._sessionTimeout = sessionTimeout;
     this._cookieNames = {
-      optInIdentifiers: `${cookies.namePrefix}.id`,
-      essentialIdentifiers: `${cookies.namePrefix}.e.id`,
-      optInSession: `${cookies.namePrefix}.s`,
-      essentialSession: `${cookies.namePrefix}.e.s`,
+      consentLevel: `${cookies.namePrefix}.cl`,
+      optInDevice: `${cookies.namePrefix}.d.opt`,
+      essentialDevice: `${cookies.namePrefix}.d`,
+      optInSession: `${cookies.namePrefix}.s.opt`,
+      essentialSession: `${cookies.namePrefix}.s`,
     };
 
     this._clientKeySeed = clientKeySeed;
@@ -163,6 +185,7 @@ export class RequestHandler {
 
   public async initialize() {
     if (this._initialized) return;
+
     await this._lock.acquire();
     try {
       if (this._initialized) return;
@@ -180,12 +203,12 @@ export class RequestHandler {
         );
       }
 
-      await this._globalStore.initialize?.(this.environment);
+      await this._globalStorage.initialize?.(this.environment);
 
       this._extensions = [
         Timestamps,
         this._useSession ? new SessionEvents() : null,
-        this._cookieStore,
+        this._sessionStore,
         new CommerceExtension(),
         ...(await Promise.all(
           this._extensionFactories.map(async (factory) => {
@@ -233,8 +256,12 @@ export class RequestHandler {
       !isValidationError(item) && isResetEvent(item)
         ? (tracker.purge(
             item.includeDevice
-              ? ["session", "device", "device-session"]
-              : ["session"]
+              ? [
+                  TrackerScope.Session,
+                  TrackerScope.DeviceSession,
+                  TrackerScope.Device,
+                ]
+              : [TrackerScope.Session]
           ),
           false)
         : true
@@ -282,8 +309,7 @@ export class RequestHandler {
               async (events) => {
                 return await callPatch(index + 1, events);
               },
-              tracker,
-              this.environment
+              tracker
             )
           )
         );
@@ -301,8 +327,7 @@ export class RequestHandler {
       await Promise.all(
         this._extensions.map(async (extension) => {
           try {
-            (await extension.post?.(eventBatch, tracker, this.environment)) ??
-              Promise.resolve();
+            (await extension.post?.(eventBatch, tracker)) ?? Promise.resolve();
           } catch (e) {
             extensionErrors[extension.id] =
               e instanceof Error ? e : new Error(e?.toString());
@@ -377,8 +402,7 @@ export class RequestHandler {
         discardTrackerCookies = false
       ) => {
         if (extensionRequestType) {
-          !discardTrackerCookies &&
-            (await this._cookieStore.persist(tracker, this.environment));
+          !discardTrackerCookies && (await this._sessionStore.persist(tracker));
 
           console.log(
             tracker.httpClientDecrypt(
@@ -623,9 +647,7 @@ export class RequestHandler {
     const otherScripts: ClientScript[] = [];
 
     this._extensions
-      .map((extension) =>
-        extension.getClientScripts?.(tracker, this.environment)
-      )
+      .map((extension) => extension.getClientScripts?.(tracker))
       .flatMap((item) => item ?? [])
       .forEach((script) => {
         if ("inline" in script) {

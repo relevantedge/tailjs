@@ -1,20 +1,16 @@
-import {
-  VariableGetRequest,
-  VariableGetResponse,
-  VariableSetRequest,
-} from "@tailjs/types";
+import { TrackerVariableFilter, TrackerVariable } from "@tailjs/types";
 import { Tracker } from ".";
 
 export class TrackerVariables {
   constructor(public tracker: Tracker) {}
 
   public async get(
-    variables: VariableGetRequest
-  ): Promise<VariableGetResponse> {
+    variables: TrackerVariableFilter[]
+  ): Promise<TrackerVariable[]> {
     return null as any;
   }
 
-  public async set(variables: VariableSetRequest) {
+  public async set(variables: TrackerVariable[]) {
     return null as any;
   }
 }

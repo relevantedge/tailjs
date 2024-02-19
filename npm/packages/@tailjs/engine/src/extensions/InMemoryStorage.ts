@@ -1,156 +1,324 @@
+import { Lock } from "semaphore-async-await";
+
 import {
-  VariableGetRequest,
-  VariableGetResponse,
-  VariableScope,
-  VariableValueConfiguration,
+  DataConsentLevel,
+  TRACKER_SCOPES,
+  TrackerScope,
+  TrackerVariable,
+  TrackerVariableFilter,
+  TrackerVariableSetter,
+  Variable,
+  VariableFilter,
+  VariablePatchType,
+  VariableSetter,
 } from "@tailjs/types";
 import {
-  clear,
   clock,
+  flatMap,
   forEach,
+  get,
+  isDefined,
   isUndefined,
   now,
+  remove,
   set,
-  update,
 } from "@tailjs/util";
-import { size } from "packages/@tailjs/client/src/lib";
-import { Tracker, TrackerEnvironment, VariableStore } from "..";
 
-export class InMemoryStore implements VariableStore {
+import { GlobalStorage, Tracker, TrackerStorage } from "..";
+
+const isExpired = (value: { expires?: number }, referenceTime = now()) =>
+  isUndefined(value.expires) || value.expires > referenceTime;
+
+const mapValue = (
+  scopeId: TrackerScope | undefined,
+  value: InMemoryValue,
+  t0 = now()
+): TrackerVariable =>
+  ({
+    key: value.key,
+    scope: scopeId,
+    value: value.value,
+    consentLevel: value.consentLevel,
+    tags: value.tags,
+    ttl: isDefined(value.expires) ? value.expires - t0 : undefined,
+  } as any);
+
+const getScopeKey = (tracker: Tracker, scope: TrackerScope) =>
+  scope === "user"
+    ? tracker.consentLevel < DataConsentLevel.Direct
+      ? undefined
+      : "u" + tracker.userid
+    : scope === "device"
+    ? tracker.consentLevel < DataConsentLevel.Indirect
+      ? undefined
+      : "d" + tracker.deviceId
+    : scope === "device-session"
+    ? "S" + tracker.deviceSessionId
+    : "s" + tracker.sessionId;
+
+type InMemoryValue = {
+  key: string;
+  value: any;
+  consentLevel?: DataConsentLevel;
+  tags?: string[];
+  expires?: number;
+};
+
+export class InMemoryStore implements TrackerStorage, GlobalStorage {
   public readonly id = "memory";
 
-  private _values: Record<
-    VariableScope,
-    Map<string, Record<string, { value: any; expires?: number }>>
-  >;
+  public readonly isGlobalStorage = true;
+  public readonly isTrackerStorage = true;
 
-  async initialize(environment: TrackerEnvironment): Promise<void> {
+  private readonly _values = new Map<string, Record<string, InMemoryValue>>();
+  private readonly _locks = new Map<string, [lock: Lock, count: number]>();
+
+  private _initialized = false;
+  initialize() {
+    if (this._initialized === (this._initialized = true)) {
+      return;
+    }
+
     const expireBefore = now();
     clock(() => {
-      forEach(this._values, ([, scopes]) =>
-        forEach(scopes, ([scopeId, values]) => {
-          forEach(values, ([key, value]) => {
-            if ((value.expires as any) < expireBefore) {
-              clear(values, key);
-            }
-          });
-          if (!size(values)) {
-            clear(scopes, scopeId);
+      this._values.forEach((values, key) => {
+        let n = 0;
+        forEach(values, ([key, value]) => {
+          if ((value.expires as any) < expireBefore) {
+            this._values.delete(key);
+          } else {
+            ++n;
           }
-        })
-      );
+        });
+        if (!n) {
+          this._values.delete(key);
+        }
+      });
     }, 2000);
   }
 
-  private _setValue(
-    scope: VariableScope,
-    scopeId: string,
-    key: string,
-    value: any,
-    ttl: number | undefined
+  public get(key: string): Variable | undefined;
+  public get(
+    tracker: Tracker,
+    scope: TrackerScope,
+    key: string
+  ): TrackerVariable | undefined;
+
+  get(trackerOrKey: Tracker | string, scope?: TrackerScope, key?: string) {
+    let variables: Record<string, InMemoryValue> | undefined;
+    if (trackerOrKey instanceof Tracker) {
+      const scopeKey = getScopeKey(trackerOrKey, scope!);
+      if (!scopeKey) return undefined;
+      variables = this._values.get(scopeKey);
+    } else {
+      variables = this._values.get("");
+    }
+    if (!variables) return undefined;
+
+    const t0 = now();
+    const value = variables?.[key!];
+    return !value || isExpired(value, t0) ? undefined : mapValue(scope, value);
+  }
+
+  public query(...filters: VariableFilter[]): Variable[];
+  public query(
+    tracker: Tracker,
+    ...filters: TrackerVariableFilter[]
+  ): TrackerVariable[];
+
+  query(
+    filterOrTracker?: Tracker | TrackerVariableFilter,
+    ...filters: TrackerVariableFilter[]
   ) {
-    return set(
-      update(
-        (this._values[scope] ??= new Map()),
-        scopeId,
-        (current) => current ?? {}
-      ),
-      key,
-      value === undefined || (ttl as any) <= 0
-        ? undefined
-        : { value, expires: ttl ? now() + ttl : undefined }
-    );
-  }
+    let tracker: Tracker | undefined;
+    if (filterOrTracker instanceof Tracker) {
+      tracker = filterOrTracker;
+    } else if (filterOrTracker) {
+      filters.unshift(filterOrTracker);
+    }
 
-  private _getScopeKey(tracker: Tracker, scope: VariableScope) {
-    return scope === "global"
-      ? ""
-      : scope === "device"
-      ? tracker.deviceId
-      : scope === "device-session"
-      ? tracker.deviceSessionId
-      : tracker.sessionId;
-  }
-
-  public async getAll(
-    scope: VariableScope | null,
-    tracker: Tracker
-  ): Promise<Partial<Record<VariableScope, Record<string, any>>>> {
-    const response: VariableGetResponse = {};
-
-    forEach(this._values, ([valueScope, values]) => {
-      if (scope && scope !== valueScope) return;
-      const scopeKey = this._getScopeKey(tracker, valueScope);
-      if (!scopeKey) return;
-
-      const trackerValues = values.get(scopeKey);
-      if (!trackerValues) return;
-
-      forEach(trackerValues, ([name, { value }]) => {
-        if (!scope || valueScope === scope) {
-          value && ((response[valueScope] ??= {})[name] = value);
+    if (!filters.length) {
+      filters = [{}];
+    }
+    const t0 = now();
+    const results: TrackerVariable[] = [];
+    forEach(filters, ({ keys, consentLevels, tags, scopes }) => {
+      forEach(
+        tracker ? (scopes ? scopes : TRACKER_SCOPES) : [undefined],
+        (scopeId: TrackerScope | undefined) => {
+          const scopeKey = tracker ? getScopeKey(tracker, scopeId!) : "";
+          if (!scopeKey) return;
+          const scope = this._values.get(scopeKey);
+          if (scope) {
+            forEach(
+              keys
+                ? flatMap(keys, (key) => {
+                    if (key.endsWith("*")) {
+                      const prefix = key.substring(0, key.length - 1);
+                      return Object.entries(scope)
+                        .filter(([key]) => key.startsWith(prefix))
+                        .map(([, value]) => value);
+                    }
+                    return scope[key];
+                  })
+                : Object.values(scope),
+              (value) => {
+                if (
+                  (consentLevels &&
+                    !consentLevels.includes(value.consentLevel!)) ||
+                  isExpired(value, t0)
+                )
+                  return;
+                if (tags) {
+                  if (
+                    !value.tags?.some((tag) =>
+                      tags.some((filterTag) => tag === filterTag)
+                    )
+                  ) {
+                    return undefined;
+                  }
+                }
+                results.push(mapValue(scopeId, value));
+              }
+            );
+          }
         }
-      });
+      );
     });
 
-    return response;
+    return results;
   }
 
-  public async get(
-    variables: VariableGetRequest,
-    tracker: Tracker
-  ): Promise<Partial<Record<VariableScope, Record<string, any>>>> {
-    const response: VariableGetResponse = {};
-    forEach(variables, ({ key: name, scope = "session" }) => {
-      const scopeKey = this._getScopeKey(tracker, scope);
-      if (isUndefined(scopeKey)) return;
-      (response[scope] ??= {})[name] =
-        this._values[scope]?.get(scopeKey)?.[name];
-    });
+  public set(...values: VariableSetter[]): (Variable | undefined)[];
+  public set(
+    tracker: Tracker,
+    ...values: TrackerVariableSetter[]
+  ): (undefined | TrackerVariable)[];
 
-    return response;
-  }
+  set(
+    trackerOrValue: VariableSetter | Tracker,
+    ...values: TrackerVariableSetter[]
+  ) {
+    const results: (TrackerVariable | undefined)[] = [];
+    let tracker: Tracker | undefined;
+    if (trackerOrValue instanceof Tracker) {
+      tracker = trackerOrValue;
+    } else {
+      values.unshift(trackerOrValue as any);
+    }
 
-  public async purge(
-    scope: VariableScope[] | null,
-    tracker: Tracker
-  ): Promise<void> {
-    forEach(
-      scope ?? (["session", "device-session", "device"] as VariableScope[]),
-      (valueScope: VariableScope) => {
-        const scopeKey = this._getScopeKey(tracker, valueScope);
-        if (!scopeKey) return;
-        clear(this._values[scopeKey], scopeKey);
+    forEach(values, ({ key, scope, value, patch, consentLevel, tags, ttl }) => {
+      const scopeKey = tracker ? getScopeKey(tracker, scope) : "";
+      if (!isDefined(scopeKey)) return;
+      if (!value && !this._values[scope]?.get(scopeKey)) return;
+
+      if (patch) {
+        const current = tracker
+          ? this.get(tracker, scope, key)?.value
+          : this.get(key)?.value;
+        if (patch.type === VariablePatchType.Add) {
+          value = (current ?? 0) + patch.value;
+        } else if (
+          patch.type === VariablePatchType.IfGreater &&
+          current >= value
+        ) {
+          results.push(undefined);
+          return;
+        } else if (
+          patch.type === VariablePatchType.IfSmaller &&
+          current <= value
+        ) {
+          results.push(undefined);
+          return;
+        } else if (
+          patch.type === VariablePatchType.IfMatch &&
+          current !== value
+        ) {
+          results.push(undefined);
+          return;
+        } else {
+          value = patch.value;
+        }
       }
-    );
-    // forEach(this._values, ([valueScope, values]) => {
-    //   if (scope && scope !== valueScope) return;
-    //   const scopeKey = this._getScopeKey(tracker, valueScope);
-    //   if (!scopeKey) return;
-
-    //   const trackerValues = values.get(scopeKey);
-    //   if (!trackerValues) return;
-
-    //   forEach(trackerValues, ([name, { value }]) => {
-    //     if (!scope || valueScope === scope) {
-    //       value && ((response[valueScope] ??= {})[name] = value);
-    //     }
-    //   });
-    // });
+      results.push({ key, scope, value, consentLevel, tags, ttl });
+      set(
+        get(this._values, scopeKey, () => ({})) as Record<
+          string,
+          InMemoryValue
+        >,
+        key,
+        value === undefined || (ttl as any) <= 0
+          ? undefined
+          : {
+              key,
+              value,
+              consentLevel,
+              tags,
+              expires: ttl ? now() + ttl : undefined,
+            }
+      );
+    });
+    return results;
   }
 
-  public async set(
-    variables: Partial<
-      Record<VariableScope, Record<string, VariableValueConfiguration>>
-    >,
-    tracker: Tracker
-  ): Promise<void> {
-    forEach(variables, ([scope, values]) =>
-      forEach(values, ([key, { value, ttl }]) => {
-        const scopeKey = this._getScopeKey(tracker, scope);
-        if (!scopeKey) return;
-        return this._setValue(scope, scopeKey, key, value, ttl);
-      })
-    );
+  public async lock(key: string): Promise<() => void>;
+  public async lock(tracker: Tracker, key?: string): Promise<() => void>;
+  async lock(trackerOrKey: Tracker | string, key?: string) {
+    key =
+      trackerOrKey instanceof Tracker
+        ? trackerOrKey.sessionId + "_" + key
+        : trackerOrKey;
+    const lock = get(this._locks, key, () => [new Lock(), 0] as const);
+    ++lock[1];
+    await lock[0].acquire();
+    return () => {
+      lock[0].release();
+      if (--lock[1] <= 0) {
+        remove(this._locks, key);
+      }
+    };
+  }
+
+  public purge(...filters: VariableFilter[]): void;
+  public purge(tracker: Tracker, ...filters: TrackerVariableFilter[]): void;
+  purge(
+    filterOrTracker: Tracker | TrackerVariableFilter,
+    ...filters: TrackerVariableFilter[]
+  ) {
+    let tracker: Tracker | undefined;
+    if (filterOrTracker instanceof Tracker) {
+      tracker = filterOrTracker;
+    } else if (filterOrTracker) {
+      filters.unshift(filterOrTracker);
+    }
+    if (!filters.length) {
+      filters = [{}];
+    }
+    forEach(filters, (filter) => {
+      if (filter.keys || filter.tags || filter.consentLevels) {
+        tracker
+          ? this.set(
+              tracker,
+              ...this.query(tracker, filter).map((value) => ({
+                ...value,
+                value: undefined,
+              }))
+            )
+          : this.set(
+              ...this.query(filter).map((value) => ({
+                ...value,
+                value: undefined,
+              }))
+            );
+      } else {
+        forEach(
+          tracker ? filter.scopes ?? TRACKER_SCOPES : [undefined],
+          (scopeId) => {
+            const scopeKey = tracker ? getScopeKey(tracker, scopeId!) : "";
+            remove(this._values, scopeKey);
+          }
+        );
+      }
+    });
   }
 }

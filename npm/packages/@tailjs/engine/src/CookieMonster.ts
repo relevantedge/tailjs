@@ -96,7 +96,7 @@ export class CookieMonster {
       parts.push("HttpOnly");
     }
     if (cookie.maxAge != null || clear) {
-      parts.push(`Max-Age=${clear ? 0 : cookie.maxAge}`);
+      parts.push(`Max-Age=${clear ? 0 : Math.min(34560000, cookie.maxAge!)}`);
     }
     parts.push(
       `SameSite=${

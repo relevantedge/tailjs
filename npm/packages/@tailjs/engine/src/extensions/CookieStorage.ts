@@ -1,258 +1,246 @@
 import {
-  VariableGetRequest,
-  VariableGetResponse,
-  VariableScope,
-  VariableSetRequest,
+  DataConsentLevel,
+  TrackerScope,
+  TrackerVariable,
+  TrackerVariableFilter,
+  TrackerVariableSetter,
 } from "@tailjs/types";
 import {
-  clear,
-  filter,
+  MaybePromise,
+  flatMap,
   forEach,
-  isUndefined,
+  isDefined,
   map,
-  set,
-  update,
+  now,
+  some,
 } from "@tailjs/util";
 import {
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
-  VariableStore,
+  TrackerStorage,
 } from "..";
+import { InMemoryStore } from "./InMemoryStorage";
 
-export class CookieStorage implements VariableStore, TrackerExtension {
+type CookieValue = [
+  value: any,
+  consentLevel: number,
+  expires?: number,
+  tags?: string[]
+];
+type CookieValueCollection = Record<string, CookieValue>;
+type SessionCookieValue = [
+  server: CookieValueCollection,
+  device: CookieValueCollection
+];
+
+const mapCookieValue = (
+  scope: TrackerScope,
+  key: string,
+  value: CookieValue,
+  t0 = now()
+): TrackerVariable => ({
+  key,
+  value: value[0],
+  scope,
+  consentLevel: value[1],
+  tags: value[3],
+  ttl: value[2] ? t0 - value[2] : undefined,
+});
+
+const mapTrackerVariable = (
+  variable: TrackerVariable,
+  t0 = now()
+): CookieValue | undefined => {
+  if (variable.ttl! < 0) return undefined;
+  const expires = variable.ttl ? t0 + variable.ttl : undefined;
+  return expires || variable.tags
+    ? variable.tags
+      ? [variable.value, variable.consentLevel, expires, variable.tags]
+      : [variable.value, variable.consentLevel, expires]
+    : [variable.value, variable.consentLevel];
+};
+
+export class CookieStorage implements TrackerStorage {
   id = "cookies";
-  tags = ["*", "runtime"];
 
-  private _variables: WeakMap<Tracker, VariableSetRequest> = new WeakMap();
+  private readonly _storage: TrackerStorage;
 
-  async apply(tracker: Tracker): Promise<void> {
+  public readonly isTrackerStorage = true;
+
+  constructor(backingStore: TrackerStorage) {
+    this._storage = backingStore;
+  }
+
+  apply(tracker: Tracker) {
+    //if( !)
     const cookieNames = tracker._requestHandler._cookieNames;
-    const variables = update(
-      this._variables,
-      tracker,
-      (current) => current ?? {}
+    const consentLevel = parseInt(
+      tracker.cookies[cookieNames.consentLevel]?.value!
     );
+    if (
+      consentLevel >= DataConsentLevel.None &&
+      consentLevel <= DataConsentLevel.Sensitive
+    ) {
+      tracker._consentLevel = consentLevel;
+    }
 
-    const session = (variables["session"] ??= {});
-    const deviceSession = (variables["device-session"] ??= {});
-    const device = (variables["device"] ??= {});
+    const t0 = now();
 
     forEach(
-      [
-        [cookieNames.essentialSession, true],
-        [cookieNames.optInSession, false],
-      ] as const,
-      ([cookie, essential]) =>
+      [cookieNames.essentialSession, cookieNames.optInSession],
+      (cookie) =>
         forEach(
-          tracker.env.httpDecrypt(tracker.cookies[cookie]?.value) ?? {},
-          ([key, value]) => {
-            session[key] = {
-              value,
-              consentLevel: essential ? "essential" : "user-data",
-            };
-          }
+          (tracker.env.httpDecrypt(tracker.cookies[cookie]?.value) ??
+            []) as SessionCookieValue,
+          (values, i) =>
+            this._storage.set(
+              tracker,
+              ...map(values, ([key, value]) =>
+                mapCookieValue(
+                  i ? TrackerScope.DeviceSession : TrackerScope.Session,
+                  key,
+                  value,
+                  t0
+                )
+              )
+            )
         )
     );
 
-    forEach(
-      [
-        [cookieNames.essentialIdentifiers, true],
-        [cookieNames.optInIdentifiers, false],
-      ] as const,
-      ([cookie, essential]) =>
-        forEach(
-          tracker.env.httpDecrypt(
-            tracker.cookies[cookieNames.essentialSession]?.value
-          ) ?? {},
-          ([key, value]) => {
-            const parts =
-              tracker.env.httpDecrypt(tracker.cookies[cookie]?.value) ?? [];
-            forEach(
-              parts?.[0] ?? {},
-              ([key, value]) =>
-                (deviceSession[key] = {
-                  value,
-                  consentLevel: essential ? "essential" : "user-data",
-                })
-            );
-            forEach(
-              parts?.[1] ?? {},
-              ([key, value]) =>
-                (device[key] = {
-                  value,
-                  consentLevel: essential ? "essential" : "user-data",
-                })
-            );
-          }
-        )
-    );
-  }
-
-  public async getAll(
-    scope: VariableScope | null,
-    tracker: Tracker
-  ): Promise<Partial<Record<VariableScope, Record<string, any>>>> {
-    const response: VariableGetResponse = {};
-
-    const variables = update(
-      this._variables,
-      tracker,
-      (current) => current ?? {}
-    );
-
-    forEach(variables, ([scopeKey, values]) => {
-      if (!scope || scopeKey === scope) {
-        forEach(values, ([name, { value }]) => {
-          value && ((response[scopeKey] ??= {})[name] = value);
-        });
-      }
-    });
-
-    return response;
-  }
-  public async get(
-    variables: VariableGetRequest,
-    tracker: Tracker
-  ): Promise<VariableGetResponse> {
-    const response: VariableGetResponse = {};
-    const trackerVariables = update(
-      this._variables,
-      tracker,
-      (current) => current ?? {}
-    );
-
-    forEach(variables, ({ key: name, scope = "session", tags }) => {
-      const value = trackerVariables[scope]?.[name]?.value;
-      value && ((response[scope] ??= {})[name] = value);
-    });
-
-    return response;
-  }
-
-  public async set(
-    variables: VariableSetRequest,
-    tracker: Tracker
-  ): Promise<void> {
-    if (tracker.consentLevel === "none") return;
-    const trackerVariables = update(
-      this._variables,
-      tracker,
-      (current) => current ?? {}
-    );
-
-    forEach(variables, ([scope, values]) =>
-      forEach(values, ([key, value]) =>
-        set(
-          (trackerVariables[scope] ??= {}),
-          key,
-          isUndefined(value.value) || (value.ttl as any) <= 0
-            ? undefined
-            : value
+    forEach([cookieNames.essentialDevice, cookieNames.optInDevice], (cookie) =>
+      this._storage.set(
+        tracker,
+        ...map(
+          (tracker.env.httpDecrypt(tracker.cookies[cookie]?.value) ??
+            {}) as CookieValueCollection,
+          ([key, value]) => mapCookieValue(TrackerScope.Device, key, value, t0)
         )
       )
     );
-
-    this._filterVariables(tracker);
   }
 
-  private _filterVariables(tracker: Tracker) {
-    forEach(
-      this._variables.get(tracker),
-      ([scope, values]) =>
-        values &&
-        clear(
-          values,
-          ...map(
-            filter(
-              values,
-              ([, value]) =>
-                value.consentLevel !== "none" &&
-                (tracker.consentLevel === "none" ||
-                  (value.consentLevel === "user-data" &&
-                    tracker.consentLevel === "essential"))
-            ),
-            ([key]) => key
-          )
-        )
-    );
-    return this._variables;
+  public async query(
+    tracker: Tracker,
+    ...filters: TrackerVariableFilter[]
+  ): Promise<TrackerVariable[]> {
+    return this._storage.query(tracker, ...filters);
   }
 
-  async purge(scopes: VariableScope[] | null, tracker: Tracker): Promise<void> {
-    const variables = update(
-      this._filterVariables(tracker),
-      tracker,
-      (current) => current ?? {}
-    );
-
-    forEach(
-      scopes ?? ["session", "device-session", "device"],
-      (scopeKey: VariableScope) => {
-        clear(variables, scopeKey);
-      }
-    );
+  public async get(
+    tracker: Tracker,
+    scope: TrackerScope,
+    key: string
+  ): Promise<TrackerVariable | undefined> {
+    return this._storage.get(tracker, scope, key);
   }
 
-  async persist(tracker: Tracker, env: TrackerEnvironment): Promise<void> {
+  public async set(
+    tracker: Tracker,
+    ...values: TrackerVariableSetter[]
+  ): Promise<(undefined | TrackerVariable)[]> {
+    return this._storage.set(tracker, ...values);
+  }
+
+  public purge(tracker: Tracker, ...filters: TrackerVariableFilter[]) {
+    return this._storage.purge(tracker, ...filters);
+  }
+
+  public lock(tracker: Tracker, key?: string) {
+    return this._storage.lock(tracker, key);
+  }
+
+  public async persist(tracker: Tracker): Promise<void> {
     const cookieNames = tracker._requestHandler._cookieNames;
+    const t0 = now();
 
-    const variables = update(
-      this._filterVariables(tracker),
-      tracker,
-      (current) => current ?? {}
-    );
+    // const getScopeVariables = (
+    //   scopes: TrackerScope[],
+    //   consentLevels: DataConsentLevel[]
+    // ) => {
+    //     map(
+    //       await this._storage.query(tracker, { scopes, consentLevel }),
+    //       (variable) => {
+    //         const value = mapTrackerVariable(variable, t0);
+    //         return isDefined(value) ? [variable.key, value] : undefined;
+    //       }
+    //     )
 
-    const getScopeValues = (scope: VariableScope, essential: boolean) => {
-      const values =
-        tracker.consentLevel === "none" || !variables[scope]
-          ? []
-          : filter(
-              variables[scope],
-              ([, value]) => value.consentLevel === "essential" || !essential,
-              true
-            );
+    //   return values.length ? values : undefined;
+    // };
 
-      if (values.length) {
-        return set(
-          {},
-          map(values, ([key, value]) => [key, value.value])
-        );
-      }
-      return undefined;
+    const getCookieValue = async (
+      scopes: TrackerScope[],
+      consentLevels: DataConsentLevel[]
+    ) => {
+      let values: CookieValue[][] = [];
+
+      forEach(
+        await this._storage.query(tracker, { scopes, consentLevels }),
+        (variable) => {
+          const value = mapTrackerVariable(variable, t0);
+          if (isDefined(value)) {
+            (values[variable.consentLevel] ??= []).push(value);
+          }
+        }
+      );
+      values = scopes.map((scope) => values[scope]);
+
+      return some(values, (values) => values?.length)
+        ? tracker.httpClientEncrypt(scopes.length === 1 ? values[0] : values)
+        : undefined;
     };
 
-    forEach(
-      [
-        [cookieNames.essentialSession, true],
-        [cookieNames.optInSession, false],
-      ] as const,
-      ([cookie, essential]) =>
-        (tracker.cookies[cookie] = {
-          httpOnly: true,
-          sameSitePolicy: "None",
-          value: env.httpEncrypt(getScopeValues("session", essential)),
-        })
-    );
+    const essentialLevels =
+      tracker.consentLevel > DataConsentLevel.None
+        ? [DataConsentLevel.None, DataConsentLevel.Indirect]
+        : [];
 
-    forEach(
-      [
-        [cookieNames.essentialIdentifiers, true],
-        [cookieNames.optInIdentifiers, false],
-      ] as const,
-      ([cookie, essential]) => {
-        const deviceSession = getScopeValues("device-session", essential);
-        const device = getScopeValues("device", essential);
-        tracker.cookies[cookie] = {
-          httpOnly: true,
-          sameSitePolicy: "None",
-          maxAge: 34560000,
-          value:
-            deviceSession || device
-              ? env.httpEncrypt([deviceSession, device])
-              : null,
-        };
-      }
-    );
+    const optInLevels =
+      tracker.consentLevel > DataConsentLevel.Indirect
+        ? tracker.consentLevel > DataConsentLevel.Direct
+          ? [DataConsentLevel.Direct, DataConsentLevel.Sensitive]
+          : [DataConsentLevel.Direct]
+        : [];
+
+    tracker.cookies[cookieNames.consentLevel] = {
+      httpOnly: true,
+      sameSitePolicy: "None",
+      value:
+        tracker.consentLevel === DataConsentLevel.None
+          ? undefined
+          : "" + tracker.consentLevel,
+    };
+
+    tracker.cookies[cookieNames.essentialSession] = {
+      httpOnly: true,
+      sameSitePolicy: "None",
+      value: await getCookieValue(
+        [TrackerScope.Session, TrackerScope.DeviceSession],
+        essentialLevels
+      ),
+    };
+    tracker.cookies[cookieNames.optInSession] = {
+      httpOnly: true,
+      sameSitePolicy: "None",
+      value: await getCookieValue(
+        [TrackerScope.Session, TrackerScope.DeviceSession],
+        optInLevels
+      ),
+    };
+
+    tracker.cookies[cookieNames.essentialDevice] = {
+      httpOnly: true,
+      maxAge: Number.MAX_SAFE_INTEGER,
+      sameSitePolicy: "None",
+      value: await getCookieValue([TrackerScope.Device], essentialLevels),
+    };
+
+    tracker.cookies[cookieNames.optInDevice] = {
+      httpOnly: true,
+      maxAge: Number.MAX_SAFE_INTEGER,
+      sameSitePolicy: "None",
+      value: await getCookieValue([TrackerScope.Device], optInLevels),
+    };
   }
 }
