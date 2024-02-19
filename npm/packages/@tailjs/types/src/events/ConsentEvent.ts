@@ -1,4 +1,4 @@
-import type { DataConsentLevel, TrackedEvent } from "..";
+import type { DataClassification, DataPurpose, TrackedEvent } from "..";
 import { typeTest } from "../util/type-test";
 
 /**
@@ -20,11 +20,9 @@ import { typeTest } from "../util/type-test";
 export interface ConsentEvent extends TrackedEvent {
   type: "CONSENT";
 
-  level: DataConsentLevel;
-  /**
-   * Whether the user has consented to non-essential tracking.
-   */
-  nonEssentialTracking: boolean;
+  level: DataClassification;
+
+  purposes?: DataPurpose[];
 }
 
 export const isConsentEvent = typeTest<ConsentEvent>("CONSENT");

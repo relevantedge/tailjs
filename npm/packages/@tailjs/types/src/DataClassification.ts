@@ -3,7 +3,7 @@
  *
  * YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
  */
-export const enum DataConsentLevel {
+export const enum DataClassification {
   /**
    * The user has not consented to the collection of any personal data.
    *

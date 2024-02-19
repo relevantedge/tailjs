@@ -19,4 +19,4 @@ export * from "./CookieMonster";
 export * from "./PostError";
 export * from "./TrackerEnvironment";
 //export * from "./ClientState";
-export * from "./TrackerVariableStore";
+export * from "./VariableStore";
