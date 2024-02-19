@@ -1,4 +1,4 @@
-import type { DataConsentLevel, SignOutEvent, Timestamp, UUID } from ".";
+import type { DataClassification, SignOutEvent, Timestamp, UUID } from ".";
 
 export interface Session {
   /**
@@ -53,7 +53,7 @@ export interface Session {
   /**
    * The user's level of consent. `none` implies that only anonymous data has been collected with cookie-less tracking.
    */
-  consentLevel?: DataConsentLevel;
+  consentLevel?: DataClassification;
 
   /**
    * If the user had consented to non-essential tracking during this session.

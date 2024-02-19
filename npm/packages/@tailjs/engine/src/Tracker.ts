@@ -1,5 +1,5 @@
 import {
-  DataConsentLevel,
+  DataClassification,
   PostResponse,
   TrackedEvent,
   TrackerVariableFilter,
@@ -138,7 +138,7 @@ export class Tracker {
   private _sessionId?: string;
 
   /** @Internal */
-  public _consentLevel: DataConsentLevel = DataConsentLevel.None;
+  public _consentLevel: DataClassification = DataClassification.None;
 
   // #region  Variables
 
@@ -195,7 +195,7 @@ export class Tracker {
     return this._deviceId;
   }
 
-  public async consent(consentLevel: DataConsentLevel): Promise<void> {
+  public async consent(consentLevel: DataClassification): Promise<void> {
     if (consentLevel === this._consentLevel) return;
     this._consentLevel = consentLevel;
     if (consentLevel === "none") {

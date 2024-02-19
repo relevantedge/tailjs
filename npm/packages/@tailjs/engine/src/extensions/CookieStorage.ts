@@ -1,5 +1,5 @@
 import {
-  DataConsentLevel,
+  DataClassification,
   TrackerScope,
   TrackerVariable,
   TrackerVariableFilter,
@@ -79,8 +79,8 @@ export class CookieStorage implements TrackerStorage {
       tracker.cookies[cookieNames.consentLevel]?.value!
     );
     if (
-      consentLevel >= DataConsentLevel.None &&
-      consentLevel <= DataConsentLevel.Sensitive
+      consentLevel >= DataClassification.None &&
+      consentLevel <= DataClassification.Sensitive
     ) {
       tracker._consentLevel = consentLevel;
     }
@@ -171,7 +171,7 @@ export class CookieStorage implements TrackerStorage {
 
     const getCookieValue = async (
       scopes: TrackerScope[],
-      consentLevels: DataConsentLevel[]
+      consentLevels: DataClassification[]
     ) => {
       let values: CookieValue[][] = [];
 
@@ -192,22 +192,22 @@ export class CookieStorage implements TrackerStorage {
     };
 
     const essentialLevels =
-      tracker.consentLevel > DataConsentLevel.None
-        ? [DataConsentLevel.None, DataConsentLevel.Indirect]
+      tracker.consentLevel > DataClassification.None
+        ? [DataClassification.None, DataClassification.Indirect]
         : [];
 
     const optInLevels =
-      tracker.consentLevel > DataConsentLevel.Indirect
-        ? tracker.consentLevel > DataConsentLevel.Direct
-          ? [DataConsentLevel.Direct, DataConsentLevel.Sensitive]
-          : [DataConsentLevel.Direct]
+      tracker.consentLevel > DataClassification.Indirect
+        ? tracker.consentLevel > DataClassification.Direct
+          ? [DataClassification.Direct, DataClassification.Sensitive]
+          : [DataClassification.Direct]
         : [];
 
     tracker.cookies[cookieNames.consentLevel] = {
       httpOnly: true,
       sameSitePolicy: "None",
       value:
-        tracker.consentLevel === DataConsentLevel.None
+        tracker.consentLevel === DataClassification.None
           ? undefined
           : "" + tracker.consentLevel,
     };
