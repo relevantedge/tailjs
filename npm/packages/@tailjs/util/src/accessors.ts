@@ -2,7 +2,9 @@ import {
   ConstToTuples,
   GeneralizeContstants,
   IsAny,
+  Minus,
   NotFunction,
+  count,
   forEach,
   hasMethod,
   isArray,
@@ -10,6 +12,7 @@ import {
   isFunction,
   isObject,
   isUndefined,
+  some,
 } from ".";
 
 // #region Shared types
@@ -47,7 +50,7 @@ export type KeyType<T extends PropertyContainer | null | undefined> = T extends
 
 export type ValueType<
   T extends PropertyContainer | null | undefined,
-  K,
+  K = KeyType<T>,
   Default = never
 > = IsAny<T> extends true
   ? any
@@ -83,7 +86,8 @@ export const get = <
     : hasMethod(target, "has")
     ? target.has(key)
     : (target as any)[key];
-  if (!isDefined(value) && isDefined(initializer)) {
+
+  if (isUndefined(value) && isDefined(initializer)) {
     isDefined(
       (value = isFunction(initializer) ? (initializer as any)() : initializer)
     ) && set(target, key, value);
@@ -197,7 +201,7 @@ const createSetOrUpdateFunction =
   (target: PropertyContainer, ...args: any[]) => {
     let bulk: boolean;
     let [key, value] = args;
-    const setSingle = ([key, value]: [any, any]) => {
+    const setSingle = (key: any, value: any) => {
       if (!settersOnly && isFunction(value)) {
         value = value(get(target, key));
       }
@@ -226,12 +230,14 @@ const createSetOrUpdateFunction =
         forEach(key, setSingle);
       } else {
         forEach(key, (item) =>
-          isObject(item) ? forEach(item, setSingle) : setSingle(item)
+          isObject(item)
+            ? forEach(item, setSingle)
+            : setSingle(item[0], item[1])
         );
       }
       return target;
     }
-    return setSingle([key, value]);
+    return setSingle(key, value);
   };
 
 export const set = createSetOrUpdateFunction(true);
@@ -249,6 +255,106 @@ export const has = <T extends PropertyContainer>(target: T, key: KeyType<T>) =>
     ? target.has(key)
     : isDefined((target as any).get?.(key) ?? (target as any)[key]);
 
+type RemoveDeepArgs<
+  T,
+  Current extends any[] = [],
+  Depth extends number = 20
+> = T extends PropertyContainer
+  ? Depth extends 0
+    ? Current
+    :
+        | (Depth extends 20 ? never : Current)
+        | RemoveDeepArgs<
+            ValueType<T>,
+            [...Current, KeyType<T>[] | KeyType<T>],
+            Minus<Depth, 1>
+          >
+  : Current;
+
+type RemoveDeepValue<
+  T,
+  Args extends any[],
+  ArrayIt = false
+> = T extends PropertyContainer
+  ? ArrayIt extends true
+    ? (ValueType<T> | undefined)[]
+    : Args extends [KeyType<T>[]]
+    ? (ValueType<T> | undefined)[]
+    : Args extends [KeyType<T>]
+    ? ValueType<T> | undefined
+    : Args extends [infer R, ...infer Rest]
+    ? RemoveDeepValue<ValueType<T>, Rest, R extends any[] ? true : ArrayIt>
+    : never
+  : never;
+
+const clearSingle = (target: any, key: any) => {
+  if (isUndefined(target ?? key)) return undefined;
+
+  let current = get(target, key);
+
+  if (hasMethod(target, "delete")) {
+    target.delete(key);
+  } else {
+    delete target[key];
+  }
+  return current;
+};
+
+/**
+ * Removes one or more values from a property container specified by the provided key or array of keys.
+ *
+ * If more than one level of key arguments are specified, values will be removed from the property container at the deepest level.
+ * If a property container becomes empty along the path of keys, it will be removed from its parent.
+ *
+ */
+export const clear = <
+  T extends PropertyContainer | null | undefined,
+  Args extends RemoveDeepArgs<T>
+>(
+  target: T,
+  ...keys: Args
+): RemoveDeepValue<T, Args> => {
+  const removed: any[] = [];
+  let array = false;
+
+  const clearStep = (
+    target: any,
+    index: number,
+    parent?: any,
+    parentKey?: any
+  ) => {
+    if (!target) return;
+    const targetKeys = keys[index];
+    if (index === keys.length - 1) {
+      if (isArray(targetKeys)) {
+        array = true;
+        targetKeys.forEach((key) => removed.push(clearSingle(target, key)));
+      } else {
+        removed.push(clearSingle(target, targetKeys));
+      }
+    } else {
+      if (isArray(targetKeys)) {
+        array = true;
+        targetKeys.forEach((key) =>
+          clearStep(get(target, key), index + 1, target, key)
+        );
+      } else {
+        clearStep(get(target, targetKeys), index + 1, target, targetKeys);
+      }
+      if (!count(target) && parent) {
+        remove(parent, parentKey);
+      }
+    }
+  };
+  clearStep(target, 0);
+  return array ? removed : removed[0];
+};
+
+/**
+ * Removes the specified keys from a  property container.
+ *
+ * The difference between {@link clear} and this function is that it does not consider nested property containers and that arrays will be spliced (as opposed to `clear` where the index will be set to `undefined`).
+ */
 export const remove: {
   <T extends PropertyContainer | null | undefined>(
     target: T,
@@ -260,16 +366,16 @@ export const remove: {
   ): (T extends null | undefined ? T : ValueType<T, KeyType<T>, undefined>)[];
 } = (target: PropertyContainer, key: any, ...keys: any[]) => {
   if (!target) return undefined;
-  const current = get(target, key);
-  isDefined(key) && hasMethod(target, "delete")
-    ? target.delete(key)
-    : isArray(target)
-    ? target.splice(key, 1)
-    : delete target[key];
-
   if (keys.length) {
-    return keys.map((key) => remove(target, key));
+    // Sort array keys descending as they would otherwise not match their offset as the array is spliced along the way.
+    return (isArray(target) ? keys.sort((x, y) => y - x) : keys).map((key) =>
+      remove(target, key)
+    );
   }
 
-  return current;
+  return isArray(target)
+    ? key < target.length
+      ? target.splice(key, 1)[0]
+      : undefined
+    : clearSingle(target, key);
 };

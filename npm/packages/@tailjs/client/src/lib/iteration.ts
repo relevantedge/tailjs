@@ -1,13 +1,14 @@
 // Utility functions for arrays and iterables.
 
-import type {
-  ArgNulls,
-  ConstToTuples,
-  IterableOrArrayLike,
-  IterableOrSelf,
-  KeyValueProjection,
-  Nullish,
-  Nulls,
+import {
+  isObject,
+  type ArgNulls,
+  type ConstToTuples,
+  type IterableOrArrayLike,
+  type IterableOrSelf,
+  type KeyValueProjection,
+  type Nullish,
+  type Nulls,
 } from "@tailjs/util";
 import { F, T, array, bool, fun, hashSet, iterable, nil, num, obj } from ".";
 
@@ -326,12 +327,15 @@ export const any = <T>(
   value: IterableOrSelf<T>,
   predicate: (item: T, index: number) => any = (item) =>
     item != (nil as any) && item !== F
-): boolean =>
-  value != nil &&
-  (iterable(value) || (value = [value as any])) &&
-  (!predicate
-    ? !!size(value as any)
-    : forEach(value, (item, i, stop) => predicate(item, i) && stop(T), F));
+): boolean => {
+  return (
+    value != nil &&
+    (iterable(value) || isObject(value)) &&
+    (!predicate
+      ? !!size(value as any)
+      : forEach(value, (item, i, stop) => predicate(item, i) && stop(T), F))
+  );
+};
 
 /**
  * Array's `reduce` method that also works for iterables.

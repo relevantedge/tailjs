@@ -1,3 +1,4 @@
+export * from "./ExtensionError";
 export * from "./Cookie";
 export { EventLogger, SessionEvents, Timestamps } from "./extensions";
 export * from "./CryptoProvider";
@@ -18,5 +19,4 @@ export * from "./EngineHost";
 export * from "./CookieMonster";
 export * from "./PostError";
 export * from "./TrackerEnvironment";
-//export * from "./ClientState";
-export * from "./VariableStore";
+export * from "./VariableStorage";

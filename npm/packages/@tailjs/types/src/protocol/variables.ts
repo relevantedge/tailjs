@@ -1,7 +1,8 @@
 import { DataClassification, DataPurpose } from "..";
 
 export interface VariableFilter {
-  targets: { id: string; scopes?: VariableScope[] }[];
+  targetIds?: string[];
+  scopes?: VariableScope[];
   keys?: string[];
   tags?: string[];
   classifications?: {
@@ -16,18 +17,27 @@ export interface VariableTarget {
   id: string;
   scope: VariableScope;
 }
+
 export interface Variable {
+  target?: VariableTarget;
   key: string;
   value: any | undefined;
-  target?: VariableTarget;
   classification: DataClassification;
   purposes?: DataPurpose[];
   tags?: string[];
+  expires?: number;
   ttl?: number;
+  version?: string;
+}
+
+export interface VariableQueryResult {
+  count?: number;
+  results: Variable[];
+  cursor?: string;
 }
 
 export const enum VariableScope {
-  Other = 0,
+  None = 0,
   Session = 1,
   DeviceSession = 2,
   Device = 3,
@@ -42,22 +52,40 @@ export const enum VariablePatchType {
   IfMatch,
 }
 
-export interface VariableSetResult {
-  success: boolean;
-  newValue?: any;
-  source: VariableSetter;
-  error?: string;
+export const enum VariableSetStatus {
+  Success = 0,
+  Unchanged = 1,
+  Conflict = 2,
+  Unsupported = 3,
+  Denied = 4,
+  ReadOnly = 5,
+  Error = 6,
 }
 
-export type VariableSetter =
-  | (Variable & { patch?: undefined })
-  | (Omit<Variable, "value"> & {
-      value?: undefined;
-      patch: {
-        value: any;
-        type: VariablePatchType;
-      };
-    });
+export type VariableSetResult = {
+  source: VariableSetter;
+} & (
+  | {
+      status: VariableSetStatus.Success | VariableSetStatus.Unchanged;
+      value?: any;
+    }
+  | {
+      status:
+        | VariableSetStatus.Unsupported
+        | VariableSetStatus.Denied
+        | VariableSetStatus.ReadOnly;
+    }
+  | { status: VariableSetStatus.Conflict; current?: Variable }
+  | { status: VariableSetStatus.Error; error: any }
+);
+
+export type VariableSetter = Variable & {
+  ttl?: number;
+  patch?: {
+    type: VariablePatchType;
+    match?: any;
+  };
+};
 
 export const enum TrackerScope {
   Session = "session",

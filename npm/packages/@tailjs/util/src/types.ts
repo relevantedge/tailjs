@@ -1,3 +1,4 @@
+import { isWeakMap } from "util/types";
 import { toObject, type reduce, forEach, update, map } from ".";
 
 export type IsNever<T> = [T] extends [never] ? true : false;
@@ -394,26 +395,37 @@ export const typeCode = (value: any, typeName = typeof value) =>
 
 export const identity = <T = any>(value: T) => value;
 
-export const clone = <T>(value: T, deep = true): T =>
-  isArray(value)
-    ? deep
-      ? (map as any)(value, (value: any) => clone(value, true))
-      : [...value]
-    : isObject(value)
-    ? deep
-      ? toObject(map(value as any, ([k, v]) => [k, clone(v, true)]))
-      : { ...value }
-    : isSet(value)
-    ? new Set<any>(
-        (map as any)(value, (value: any) => (deep ? clone(value, true) : value))
-      )
-    : isMap(value)
-    ? new Map<any, any>(
-        (map as any)(value, (value: any) =>
-          // Does not clone keys.
-          deep ? [value[0], clone(value[1], true)] : value
+export const clone = <T>(value: T, depth: number | boolean = true): T =>
+  typeof value === "object"
+    ? isArray(value)
+      ? depth
+        ? value.map((value) => clone(value, depth === true || --(depth as any)))
+        : [...value]
+      : isSet(value)
+      ? new Set<any>(
+          depth
+            ? (map as any)(value, (value: any) =>
+                clone(value, depth === true || --(depth as any))
+              )
+            : value
         )
-      )
+      : isMap(value)
+      ? new Map<any, any>(
+          depth
+            ? (map as any)(value, (value: any) =>
+                // Does not clone keys.
+                [value[0], clone(value[1], depth === true || --(depth as any))]
+              )
+            : value
+        )
+      : depth
+      ? toObject(
+          map(value as any, ([k, v]) => [
+            k,
+            clone(v, depth === true || --(depth as any)),
+          ])
+        )
+      : { ...value }
     : (value as any);
 
 type CaptureCallback<Args extends any[], R> = (

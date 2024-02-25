@@ -4,7 +4,6 @@ import {
   IsAny,
   KeyValuePairsToObject,
   Minus,
-  add,
   hasMethod,
   hasValue,
   isArray,
@@ -14,6 +13,7 @@ import {
   isIterable,
   isObject,
   isTruish,
+  isUndefined,
   toArray,
 } from ".";
 
@@ -84,11 +84,13 @@ type IteratorProjection<
   ? ConstToTuples<TupleProjection>
   : ConstToTuples<Projection>;
 
-type StartEndArgs<S extends IteratorSource> = S extends number
-  ? [offset?: number]
-  : S extends NavigatingIteratorStep<infer T>
-  ? [offset?: T, maxIterations?: number]
-  : [start?: number, end?: number];
+type StartEndArgs<S extends IteratorSource> =
+  | []
+  | (S extends number
+      ? [offset?: number]
+      : S extends NavigatingIteratorStep<infer T>
+      ? [offset?: T, maxIterations?: number]
+      : [start?: number, end?: number]);
 
 export type NavigatingIteratorStep<T = any> = (
   current: T | undefined
@@ -411,6 +413,55 @@ export const toObject: {
 } = (source: any, selector: any, ...rest: any[]) =>
   Object.fromEntries((map as any)(source, selector, ...rest));
 
+export const groupReduce = <
+  S extends IteratorSource,
+  Key,
+  Accumulator = unknown
+>(
+  source: S,
+  keySelector: (item: IteratorItem<S>) => Key,
+  reducer: (
+    accumulator: GeneralizeContstants<Accumulator>,
+    ...rest: Parameters<IteratorAction<S, Accumulator>>
+  ) => Accumulator,
+  seed?: Accumulator | (() => Accumulator),
+  ...rest: StartEndArgs<S>
+): Map<Key, Accumulator> => {
+  const groups = new Map<any, any>();
+  const seedFactory = () => (isFunction(seed) ? seed() : seed);
+  const action: IteratorAction<S, any> = (item, index, control) => {
+    const key = keySelector(item);
+    let acc = groups.get(key) ?? seedFactory();
+    const value = reducer(acc, item, index, control);
+    if (isDefined(value)) {
+      groups.set(key, value);
+    }
+  };
+  forEach(
+    source,
+    reducer.length > 3 ? action : (item, index) => (action as any)(item, index),
+    ...rest
+  );
+  return groups as any;
+};
+
+export const group = <S, Key, R = IteratorItem<S>>(
+  source: S,
+  keySelector: (item: IteratorItem<S>) => Key,
+  valueSelector: IteratorAction<S, R> = (item: any) => item,
+  ...rest: StartEndArgs<S>
+): Map<Key, R[]> => {
+  const reducer = (acc: any[], item: any, index: number, control: any) => {
+    const value = valueSelector(item, index, control);
+    if (isDefined(value)) {
+      acc.push(value);
+    }
+    return acc;
+  };
+
+  return groupReduce(source, keySelector, reducer, () => [] as R[]);
+};
+
 export const reduce = <
   S extends IteratorSource,
   Reducer extends (
@@ -425,18 +476,28 @@ export const reduce = <
 >(
   source: S,
   reducer: Reducer,
-  seed?: Accumulator,
+  seed?: Accumulator | (() => Accumulator),
   ...rest: StartEndArgs<S>
 ): Reducer extends (...args: any) => infer R
   ? R | (unknown extends Accumulator ? undefined : never)
-  : never =>
-  forEach(
-    source,
-    (value, index, control) =>
-      (seed =
-        (reducer(seed as any, value, index, control as any) as any) ?? seed),
-    ...rest
-  ) ?? (seed as any);
+  : never => {
+  const seedFactory = () => (isFunction(seed) ? seed() : seed);
+  return (
+    forEach(
+      source,
+      reducer.length > 3
+        ? (value, index, control) =>
+            (seed =
+              (reducer(seed as any, value, index, control as any) as any) ??
+              seedFactory())
+        : (value, index) =>
+            (seed =
+              ((reducer as any)(seed as any, value, index) as any) ??
+              seedFactory()),
+      ...rest
+    ) ?? (seed as any)
+  );
+};
 
 export const filter = <
   S extends IteratorSource,
@@ -454,7 +515,8 @@ export const filter = <
     : (filterIterator(mapIterator(source, ...rest) as any, filter) as any);
 
 let filterInternal = filter;
-export const count = <S extends IteratorSource>(
+
+export const count = <S>(
   source: S,
   filter?: Filter<S> | null,
   ...rest: StartEndArgs<S>
@@ -464,10 +526,16 @@ export const count = <S extends IteratorSource>(
   if (filter) {
     source = filterInternal(source, filter, false, ...rest) as any;
   } else {
+    if (isObject(source)) {
+      return Object.keys(source).length;
+    }
+    let n = source!["length"] ?? source!["size"];
+    if (isDefined(n)) {
+      return n;
+    }
     source = mapIterator(source, ...rest);
   }
-  let n = source!["length"] ?? source!["size"];
-  return isDefined(n) ? n : reduce(source, (n) => n + 1, 0, ...rest);
+  return reduce(source, (n) => n + 1, 0, ...rest);
 };
 
 export const sum: {
@@ -495,7 +563,9 @@ export const some = <S extends IteratorSource>(
   filter?: Filter<S> | null,
   ...rest: StartEndArgs<S>
 ) =>
-  hasMethod(source, "some")
+  isUndefined(filter)
+    ? count(source) > 0
+    : hasMethod(source, "some")
     ? source.some(
         filter ? (item: any, index: number) => filter(item, index) : isTruish
       )
