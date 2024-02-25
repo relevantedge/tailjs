@@ -1,12 +1,4 @@
-import {
-  MaybePromise,
-  isDefined,
-  isNumber,
-  isObject,
-  isUndefined,
-  promise,
-  tryCatchAsync,
-} from ".";
+import { MaybePromise, isDefined, isNumber, promise, tryCatchAsync } from ".";
 
 export let now = () =>
   typeof performance !== "undefined"
