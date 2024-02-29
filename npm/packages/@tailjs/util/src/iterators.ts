@@ -106,6 +106,10 @@ type FlatIteratorItem<T, Depth extends number = 1> = T extends undefined | void
     : FlatIteratorItem<T, Minus<Depth, 1>>
   : T;
 
+type UndefinedIfUndefined<S, T> = S extends null | void | undefined
+  ? undefined
+  : T;
+
 function* createRangeIterator(length = 0, offset = 0): Iterable<number> {
   while (length--) yield offset++;
 }
@@ -170,7 +174,7 @@ export type Filter<S extends IteratorSource> = (
 
 const filterIterator = <T>(
   source: Iterable<T>,
-  filter: (item: T, index: number) => any
+  filter: (item: T, index: number) => any = isTruish
 ): Iterable<T> => {
   if (isArray(source)) return source.filter(filter);
   return (function* () {
@@ -262,7 +266,9 @@ type MapFunction = {
     source: S,
     projection?: IteratorAction<S, R | RT> | null,
     ...rest: StartEndArgs<S>
-  ): IteratorProjection<S, R, RT>[];
+  ): S extends null | void | undefined
+    ? undefined
+    : IteratorProjection<S, R, RT>[];
   <S extends IteratorSource, R, RT extends AnyTuple>(
     source: S,
     ...rest: StartEndArgs<S>
@@ -294,7 +300,7 @@ export function* flatProject<
   Depth extends number = 1
 >(
   source: S,
-  projection?: IteratorAction<S, R> | null,
+  projection?: IteratorAction<S, R>,
   depth: Depth = 1 as any,
   ...rest: StartEndArgs<S>
 ): Iterable<FlatIteratorItem<R, Depth>> {
@@ -323,6 +329,8 @@ export const map: MapFunction = ((
   projection: any,
   ...rest: any[]
 ) => {
+  if (!source) return undefined;
+
   if (!isFunction(projection) && hasValue(projection)) {
     // The "projection" parameter is the start index.
     rest.unshift(projection);
@@ -330,9 +338,8 @@ export const map: MapFunction = ((
   }
   source = mapIterator(source, ...rest);
   return projection
-    ? projection.length < 3 &&
-      hasMethod(source, "map") &&
-      hasMethod(source, "filter")
+    ? (projection.length < 3 && isArray(source)) ||
+      (hasMethod(source, "map") && hasMethod(source, "filter"))
       ? source.map(projection).filter(isDefined)
       : [...createControllableIterator(source as any, projection)]
     : (toArray(source, true) as any);
@@ -504,30 +511,32 @@ export const filter = <
   MapToArray extends boolean = false
 >(
   source: S,
-  filter: Filter<S> = isTruish,
+  predicate?: Filter<S>,
   map?: MapToArray,
   ...rest: StartEndArgs<S>
-): S extends any[] | null | undefined | (MapToArray extends true ? any : never)
-  ? IteratorItem<S>[]
+): MapToArray extends true
+  ? UndefinedIfUndefined<S, IteratorItem<S>[]>
   : Iterable<IteratorItem<S>> =>
   map
-    ? toArray((filter as any)(source, filter, false, ...rest))
-    : (filterIterator(mapIterator(source, ...rest) as any, filter) as any);
+    ? !source
+      ? undefined
+      : toArray(filter(source, predicate, false, ...rest))
+    : (filterIterator(mapIterator(source, ...rest) as any, predicate) as any);
 
 let filterInternal = filter;
 
 export const count = <S>(
   source: S,
-  filter?: Filter<S> | null,
+  filter?: Filter<S>,
   ...rest: StartEndArgs<S>
-): number => {
-  if (!source) return 0;
+): UndefinedIfUndefined<S, number> => {
+  if (!source) return undefined as any;
 
   if (filter) {
     source = filterInternal(source, filter, false, ...rest) as any;
   } else {
     if (isObject(source)) {
-      return Object.keys(source).length;
+      return Object.keys(source).length as any;
     }
     let n = source!["length"] ?? source!["size"];
     if (isDefined(n)) {
@@ -535,7 +544,8 @@ export const count = <S>(
     }
     source = mapIterator(source, ...rest);
   }
-  return reduce(source, (n) => n + 1, 0, ...rest);
+  let n = 0;
+  return forEach(source, () => ++n) as any;
 };
 
 export const sum: {
@@ -558,32 +568,60 @@ export const sum: {
     ...rest
   );
 
+export const first = <S extends IteratorSource>(
+  source: S,
+  ...rest: StartEndArgs<S>
+): IteratorItem<S> | undefined => {
+  if (!source || isArray(source)) return source?.[0];
+  for (const item of mapIterator(source, ...rest)) {
+    return item;
+  }
+  return undefined;
+};
+
+export const find = <S extends IteratorSource>(
+  source: S,
+  predicate: Filter<S>,
+  ...rest: StartEndArgs<S>
+): UndefinedIfUndefined<S, IteratorItem<S>> =>
+  !source
+    ? undefined
+    : (source as any).find
+    ? (source as any).find(predicate)
+    : first(filterInternal(source as any, predicate, false, ...rest));
+
 export const some = <S extends IteratorSource>(
   source: S,
-  filter?: Filter<S> | null,
+  predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
-) =>
-  isUndefined(filter)
+): UndefinedIfUndefined<S, boolean> =>
+  !source
+    ? undefined
+    : isUndefined(predicate)
     ? count(source) > 0
     : hasMethod(source, "some")
     ? source.some(
-        filter ? (item: any, index: number) => filter(item, index) : isTruish
+        predicate
+          ? (item: any, index: number) => predicate(item, index)
+          : isTruish
       )
-    : filter
-    ? some(filterInternal(source as any, filter, false, ...rest))
+    : predicate
+    ? some(filterInternal(source as any, predicate, false, ...rest))
     : forEach<any, boolean>(source, (item, index, { end }) => end(true)) ??
       false;
 
 export const every = <S extends IteratorSource>(
   source: S,
-  filter?: Filter<S>,
+  predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
-) =>
-  !some(
-    source,
-    filter ? (item, index) => !filter(item, index) : isFalsish,
-    ...rest
-  );
+): UndefinedIfUndefined<S, boolean> =>
+  !source
+    ? undefined
+    : (!some(
+        source,
+        predicate ? (item, index) => !predicate(item, index) : isFalsish,
+        ...rest
+      ) as any);
 
 export const binarySearch: {
   (arr: Array<number>, find: number): number;

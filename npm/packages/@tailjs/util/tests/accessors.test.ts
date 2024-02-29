@@ -1,7 +1,7 @@
 import {
   get,
   remove,
-  set,
+  assign,
   update,
   add,
   map,
@@ -38,8 +38,12 @@ describe("Accessors accesses what they access", () => {
   it("Sets and updates.", () => {
     let [o, a, m, s] = createTestTargets();
 
-    expect(set(o, "b", 30)).toEqual(30);
-    expect(set(o as any, [["c", "test"]])).toEqual({ a: 10, b: 30, c: "test" });
+    expect(assign(o, "b", 30)).toEqual(30);
+    expect(assign(o as any, [["c", "test"]])).toEqual({
+      a: 10,
+      b: 30,
+      c: "test",
+    });
 
     expect(update(o, "a", (current) => current + 5)).toEqual(15);
     expect(update(o, { a: (current) => current + 3 })).toEqual({
@@ -54,19 +58,19 @@ describe("Accessors accesses what they access", () => {
       c: "test",
     });
 
-    expect(set(m, "c", 80)).toBe(80);
+    expect(assign(m, "c", 80)).toBe(80);
     expect(m.get("c")).toBe(80);
 
-    expect(set(s, "c", true)).toBe(true);
+    expect(assign(s, "c", true)).toBe(true);
     expect(get(s, "c")).toBe(true);
     expect(s.has("c")).toBe(true);
-    set(s, "c", false);
+    assign(s, "c", false);
     expect(s.has("c")).toBe(false);
 
     remove(o, "a");
     expect(o.a).toBe(undefined);
 
-    const obj = set(
+    const obj = assign(
       {},
       map(2, (i) => ["T" + i, i] as const)
     );
@@ -83,7 +87,7 @@ describe("Accessors accesses what they access", () => {
     expect(get(o as any, "gazonk")).toBe(80);
 
     expect(get(o as any, "test37", 37)).toBe(37);
-    set(o as any, "test37", 38);
+    assign(o as any, "test37", 38);
     expect(get(o as any, "test37", 37)).toBe(38);
   });
   it("clones", () => {

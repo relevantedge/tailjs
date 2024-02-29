@@ -7,7 +7,7 @@ import {
   TrackerVariable,
   TRACKER_SCOPES,
 } from "@tailjs/types";
-import { isString, set } from "@tailjs/util";
+import { isString, assign } from "@tailjs/util";
 import { Transport, createTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, map, params, unparam } from "./lib";
 import {
