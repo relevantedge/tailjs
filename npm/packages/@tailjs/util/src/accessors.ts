@@ -10,6 +10,7 @@ import {
   isArray,
   isDefined,
   isFunction,
+  isIterable,
   isObject,
   isUndefined,
   some,
@@ -54,7 +55,7 @@ export type ValueType<
   Default = never
 > = IsAny<T> extends true
   ? any
-  : T extends null | undefined
+  : T extends null | undefined | void
   ? never
   : T extends MapLike<any, infer V>
   ? V | Default
@@ -70,27 +71,54 @@ export type ValueType<
 
 // #region get
 
+type AcceptUnknown<T> = T extends Set<any>
+  ? Set<unknown>
+  : T extends Map<any, any>
+  ? Map<unknown, unknown>
+  : T extends any[] | never[]
+  ? unknown[]
+  : never;
+
+const updateSingle = (target: any, key: any, value: any) =>
+  setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
+
+const setSingle = (target: any, key: any, value: any) => {
+  value === undefined
+    ? target.delete
+      ? target.delete(key)
+      : delete target[key]
+    : target.set
+    ? target.set(key, value)
+    : target.add
+    ? value
+      ? target.add(key)
+      : target.delete(value)
+    : (target[key] = value);
+
+  return value;
+};
+
 export const get = <
   T extends PropertyContainer | null | undefined,
   K extends KeyType<T>,
-  R extends ValueType<T, K>
+  R = undefined
 >(
   target: T,
   key: K | undefined,
-  initializer?: () => R | Readonly<R>
-): T extends null | undefined ? undefined : R => {
-  if (!target || !isDefined(key)) return undefined as any;
+  initializer?: () => R & (ValueType<T> | Readonly<ValueType<T>> | undefined)
+): T extends null | undefined | void
+  ? undefined
+  : ValueType<T, K, R extends undefined ? undefined : never> => {
+  if (!target) return undefined as any;
 
-  let value = hasMethod(target, "get")
-    ? target.get(key)
-    : hasMethod(target, "has")
-    ? target.has(key)
-    : (target as any)[key];
+  let value = (target as any).get
+    ? (target as any).get(key)
+    : (target as any).has
+    ? (target as any).has(key)
+    : target[key as any];
 
-  if (isUndefined(value) && isDefined(initializer)) {
-    isDefined(
-      (value = isFunction(initializer) ? (initializer as any)() : initializer)
-    ) && set(target, key, value);
+  if (value === undefined && initializer) {
+    isDefined((value = initializer())) && setSingle(target, key, value);
   }
   return value;
 };
@@ -196,59 +224,41 @@ type SetOrUpdateFunction<SettersOnly> = {
   ): T;
 };
 
+const NO_ARG = Symbol();
+
 const createSetOrUpdateFunction =
-  <B extends boolean>(settersOnly: B): SetOrUpdateFunction<B> =>
-  (target: PropertyContainer, ...args: any[]) => {
-    let bulk: boolean;
-    let [key, value] = args;
-    const setSingle = (key: any, value: any) => {
-      if (!settersOnly && isFunction(value)) {
-        value = value(get(target, key));
-      }
-
-      if (isUndefined(value)) {
-        return remove(target, key);
-      }
-
-      if (bulk || get(target, key) !== value) {
-        hasMethod(target, "set")
-          ? target.set(key, value)
-          : hasMethod(target, "add")
-          ? value
-            ? target.add(key)
-            : target.delete(key)
-          : (target![key] = value);
-      }
-
-      return value;
-    };
-
-    if (!target) return target;
-
-    if ((bulk = args.length === 1)) {
-      if (isObject(key)) {
-        forEach(key, setSingle);
-      } else {
-        forEach(key, (item) =>
-          isObject(item)
-            ? forEach(item, setSingle)
-            : setSingle(item[0], item[1])
-        );
-      }
-      return target;
+  <B extends boolean>(
+    setter: (target: any, key: any, value: any) => any
+  ): SetOrUpdateFunction<B> =>
+  (target: PropertyContainer, key: any, value: any = NO_ARG) => {
+    if (!target) return;
+    if (value !== NO_ARG) {
+      const currentValue = get(target, key);
+      setter(target, key, value);
+      return currentValue;
     }
-    return setSingle(key, value);
+
+    if (isIterable(key)) {
+      forEach(key, (item) =>
+        isObject(item)
+          ? forEach(item, setSingle)
+          : setter(target, item[0], item[1])
+      );
+    } else {
+      forEach(key, setSingle);
+    }
+    return target;
   };
 
-export const set = createSetOrUpdateFunction(true);
-export const update = createSetOrUpdateFunction(false);
+export const assign = createSetOrUpdateFunction(setSingle);
+export const update = createSetOrUpdateFunction(updateSingle);
 
 // #endregion
 
 export const add = <T extends PropertyContainer<any, boolean>>(
   target: T,
   key: KeyType<T>
-) => get(target, key) !== set(target, key, true as any);
+) => get(target, key) !== assign(target, key, true as any);
 
 export const has = <T extends PropertyContainer>(target: T, key: KeyType<T>) =>
   hasMethod(target, "has")

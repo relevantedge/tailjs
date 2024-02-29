@@ -347,15 +347,17 @@ export const isObject = (
   value && typeof value === "object" && (acceptIterables || !isIterable(value));
 
 export const hasMethod = <T, Name extends keyof any>(
-  value: T,
+  value: T | unknown,
   name: Name | keyof T
-): value is T &
-  Record<
-    Name,
-    T extends { [P in Name]?: (...args: infer Args) => infer R }
-      ? (...args: Args) => R
+): value is {
+  [P in keyof T]: P extends Name
+    ? T extends { [P in Name]?: (...args: infer Args) => infer R }
+      ? Args extends unknown
+        ? (...args: any) => any
+        : (...args: Args) => R
       : (...args: any) => any
-  > => typeof (value as any)?.[name] === "function";
+    : T[P];
+} => typeof (value as any)?.[name] === "function";
 
 export const isDate = (value: any): value is Date => value instanceof Date;
 export const parseDate = createConverter(isDate, (value) =>

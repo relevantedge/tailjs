@@ -1,4 +1,4 @@
-import { clear, clock, createEvent, forEach, now, set } from "@tailjs/util";
+import { clear, clock, createEvent, forEach, now, assign } from "@tailjs/util";
 import {
   TAB_HEARTBEAT,
   TAB_ID,
@@ -53,13 +53,13 @@ const stateChannel = subscribeChannel<StateMessage>(
       !initTimeout.active &&
         stateChannel.post({ type: "set", data: state }, sender);
     } else if (type === "set" && initTimeout.active) {
-      set(state, data);
+      assign(state, data);
       initTimeout.trigger();
     } else if (type === "patch") {
-      set(state, data);
+      assign(state, data);
       dispatchState("update", { state, variables: data });
     } else if (type === "tab") {
-      set(state.knownTabs, sender, data);
+      assign(state.knownTabs, sender, data);
       dispatchState("update", { state, tab: data });
     }
   }

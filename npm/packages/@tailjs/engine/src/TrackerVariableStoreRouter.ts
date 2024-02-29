@@ -4,7 +4,7 @@ import {
   TrackerVariableFilter,
   TrackerVariableSetter,
 } from "@tailjs/types";
-import { filter, forEach, map, set } from "@tailjs/util";
+import { filter, forEach, map, assign } from "@tailjs/util";
 import {
   ReadOnlyTrackerStorage,
   Tracker,
@@ -26,7 +26,7 @@ export class VariableStoreRouter implements TrackerStorage {
   public constructor(
     public readonly stores: Record<string, ReadOnlyTrackerStorage>
   ) {
-    this._writableStores = set(
+    this._writableStores = assign(
       {},
       filter(stores, ([, value]) => value["get"])
     );

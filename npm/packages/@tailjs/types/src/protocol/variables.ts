@@ -1,9 +1,11 @@
 import { DataClassification, DataPurpose } from "..";
 
 export interface VariableFilter {
+  variables?: Variable[];
   targetIds?: string[];
   scopes?: VariableScope[];
   keys?: string[];
+  prefixes?: string[];
   tags?: string[];
   classifications?: {
     min?: DataClassification;
@@ -25,17 +27,18 @@ export interface Variable {
   classification: DataClassification;
   purposes?: DataPurpose[];
   tags?: string[];
-  expires?: number;
-  ttl?: number;
+  created?: number;
+  modified?: number;
   version?: string;
 }
 
 export interface VariableQueryResult {
   count?: number;
   results: Variable[];
-  cursor?: string;
+  cursor?: any;
 }
 
+export const VariableScopes = [0, 1, 2, 3, 4, 5];
 export const enum VariableScope {
   None = 0,
   Session = 1,
@@ -59,7 +62,8 @@ export const enum VariableSetStatus {
   Unsupported = 3,
   Denied = 4,
   ReadOnly = 5,
-  Error = 6,
+  NotFound = 6,
+  Error = 7,
 }
 
 export type VariableSetResult = {
@@ -73,45 +77,17 @@ export type VariableSetResult = {
       status:
         | VariableSetStatus.Unsupported
         | VariableSetStatus.Denied
+        | VariableSetStatus.NotFound
         | VariableSetStatus.ReadOnly;
     }
   | { status: VariableSetStatus.Conflict; current?: Variable }
-  | { status: VariableSetStatus.Error; error: any }
+  | { status: VariableSetStatus.Error; transient?: boolean; error: any }
 );
 
-export type VariableSetter = Variable & {
-  ttl?: number;
-  patch?: {
-    type: VariablePatchType;
-    match?: any;
-  };
-};
-
-export const enum TrackerScope {
-  Session = "session",
-  DeviceSession = "device-session",
-  Device = "device",
-  User = "user",
+export interface VariablePatch {
+  type: VariablePatchType;
+  match?: any;
 }
-
-export const TRACKER_SCOPES = [
-  TrackerScope.Session,
-  TrackerScope.DeviceSession,
-  TrackerScope.Device,
-  TrackerScope.User,
-];
-
-// export interface TrackerVariableFilter extends VariableFilter {
-//   scopes?: TrackerScope[];
-//   consentLevels?: DataClassification[];
-// }
-
-// export interface TrackerVariable extends Variable {
-//   scope: TrackerScope;
-//   consentLevel: DataClassification;
-// }
-
-// export type TrackerVariableSetter = VariableSetter & {
-//   scope: TrackerScope;
-//   consentLevel: DataClassification;
-// };
+export interface VariableSetter extends Variable {
+  patch?: VariablePatch;
+}
