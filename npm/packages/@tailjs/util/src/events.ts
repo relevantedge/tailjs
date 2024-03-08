@@ -131,7 +131,7 @@ export const createChainedEvent = <T = void, Args extends any[] = []>(): [
         tail = tail![2] = node;
       } else {
         // INV: priority < tail.priority, so next will be non-null after loop;
-        while ((next![1][1] as any) <= priority) {
+        while (next![1][1]! <= priority) {
           next = next[2]!;
         }
 

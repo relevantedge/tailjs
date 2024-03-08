@@ -64,7 +64,7 @@ export class RavenDbTracker implements TrackerExtension {
         group: this.id,
         level: "error",
         source: `${this.id}:initialize`,
-        data: "" + e,
+        message: "" + e,
       });
     }
   }
@@ -147,7 +147,7 @@ export class RavenDbTracker implements TrackerExtension {
         group: this.id,
         level: "error",
         source: `${this.id}:post`,
-        data: "" + e,
+        message: "" + e,
       });
     }
   }
@@ -201,7 +201,7 @@ export class RavenDbTracker implements TrackerExtension {
               group: this.id,
               level: "debug",
               source: "ids",
-              data: `The server reported the next global ID to be ${value}. Retrying with next ID ${idMax}.`,
+              message: `The server reported the next global ID to be ${value}. Retrying with next ID ${idMax}.`,
             });
           }
           id = ++this._nextId;
@@ -211,7 +211,7 @@ export class RavenDbTracker implements TrackerExtension {
           group: this.id,
           level: "error",
           source: this.id,
-          data: "" + e,
+          message: "" + e,
         });
       } finally {
         this._lock.release();

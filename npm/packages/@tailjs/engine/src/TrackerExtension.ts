@@ -1,11 +1,11 @@
 import type { TrackedEvent } from "@tailjs/types";
+import { MaybePromise } from "@tailjs/util";
 import type {
   ParseResult,
   Tracker,
   TrackerEnvironment,
-  TrackerStorage,
+  VariableStorage,
 } from "./shared";
-import { MaybePromise } from "@tailjs/util";
 
 export type NextPatchExtension = (
   events: ParseResult[]
@@ -35,7 +35,7 @@ export type TrackedEventBatch = {
  *
  * An extension
  */
-export interface TrackerExtension extends Partial<TrackerStorage> {
+export interface TrackerExtension {
   readonly id: string;
 
   initialize?(environment: TrackerEnvironment): MaybePromise<void>;

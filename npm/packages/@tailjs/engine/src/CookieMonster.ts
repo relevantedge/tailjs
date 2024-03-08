@@ -86,7 +86,7 @@ export class CookieMonster {
     name: string,
     cookie: Cookie
   ): [header: string, overflow: string] {
-    const clear = !isDefined(cookie.value) || (cookie.maxAge as any) <= 0;
+    const clear = !isDefined(cookie.value) || cookie.maxAge! <= 0;
 
     const parts = ["Path=/"];
     if (this._secure) {

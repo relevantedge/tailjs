@@ -8,6 +8,7 @@ import ShortUniqueId from "short-unique-id";
 
 import { formatError, params } from "./lib";
 import {
+  VariableStorage,
   type ChangeHandler,
   type Cookie,
   type CryptoProvider,
@@ -16,26 +17,56 @@ import {
   type HttpResponse,
   type LogMessage,
   type ModelMetadata,
+  LogLevel,
 } from "./shared";
-import { Nulls } from "@tailjs/util";
+import { Nulls, isObject, isString } from "@tailjs/util";
+import {
+  InMemoryStorage,
+  StorageRoute,
+  VariableStorageRouter,
+} from "./extensions";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
 const uuid = new ShortUniqueId();
 
+const getDefaultLogSourceName = (source: any): string => {
+  if (!source) return "";
+  if (isString(source)) return source;
+
+  let logName = source.logName?.();
+  if (!logName) {
+    logName = source?.constructor?.name;
+    if (logName === "Object" || logName === "Function") {
+      logName = "" + source;
+    }
+
+    return logName;
+  }
+
+  return source?.logId?.() || source?.constructor.name || "" + source;
+};
+
 export class TrackerEnvironment {
   private readonly _crypto: CryptoProvider;
   private readonly _host: EngineHost;
+  private readonly _logGroups = new Map<
+    any,
+    { group: string; name?: string }
+  >();
+
   public readonly metadata: ModelMetadata;
   public readonly tags?: string[];
   public readonly hasManagedConsents: boolean;
   public readonly cookieVersion: string;
+  public readonly storage: VariableStorage;
 
   constructor(
     host: EngineHost,
     crypto: CryptoProvider,
     metadata: ModelMetadata,
     hasManagedConsents: boolean,
+    storage: VariableStorage,
     tags?: string[],
     cookieVersion = "C"
   ) {
@@ -45,6 +76,19 @@ export class TrackerEnvironment {
     this.tags = tags;
     this.cookieVersion = cookieVersion;
     this.hasManagedConsents = hasManagedConsents;
+    this.storage = storage;
+  }
+
+  /** @internal */
+  public _setLogInfo(
+    ...sources: { source: any; group: string; name: string }[]
+  ) {
+    sources.forEach((source) =>
+      this._logGroups.set(source, {
+        group: source.group,
+        name: source.name ?? getDefaultLogSourceName(source),
+      })
+    );
   }
 
   public httpEncrypt(value: Encodable) {
@@ -86,20 +130,49 @@ export class TrackerEnvironment {
       : hash(value, numericOrBits);
   }
 
-  public log(message: LogMessage<string | Record<string, any>>): void;
+  public log(source: any, message: LogMessage): void;
   public log(
-    message: Omit<LogMessage<string | Record<string, any>>, "data">,
-    error: any
+    source: any,
+    message: string | null | undefined,
+    error: Error,
+    logLevel?: LogLevel
   ): void;
+  public log(source: any, message: string, level?: LogLevel): void;
   public log(
-    message: LogMessage<string | Record<string, any>>,
-    error?: Error
+    source: any,
+    arg: LogMessage | string | null | undefined,
+    levelOrEror?: LogLevel | Error,
+    errorLevel?: LogLevel
   ): void {
-    if (error) {
-      message.data = formatError(error);
-      message.level ??= "error";
+    const message: Partial<LogMessage> | null =
+      levelOrEror instanceof Error
+        ? {
+            message: arg
+              ? `${arg}: ${formatError(levelOrEror)}`
+              : formatError(levelOrEror),
+            level: errorLevel ?? "error",
+          }
+        : isString(arg)
+        ? {
+            message: arg,
+            level: levelOrEror ?? "info",
+          }
+        : arg
+        ? arg
+        : null;
+    if (!message) {
+      return;
     }
-    this._host.log(message);
+
+    const { group, name } = this._logGroups.get(source) ?? {
+      group: "",
+      source: getDefaultLogSourceName(source),
+    };
+
+    message.group ??= group;
+    message.source ??= name;
+
+    this._host.log(message as LogMessage);
   }
 
   public async nextId(scope?: string) {

@@ -17,7 +17,7 @@ export class EventLogger implements TrackerExtension {
         group: this.configuration.group,
         level: "info",
         source: this.id,
-        data: ev,
+        message: ev,
       });
     }
   }

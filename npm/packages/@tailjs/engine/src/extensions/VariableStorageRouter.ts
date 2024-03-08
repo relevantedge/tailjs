@@ -1,17 +1,25 @@
 import {
   Variable,
   VariableFilter,
+  VariableKeyWithInitializer,
+  VariablePatchAction,
+  VariableQueryParameters,
   VariableQueryResult,
   VariableScope,
   VariableScopes,
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
-  VariableTarget,
+  VariableValuePatch,
+  isConflictResult,
+  isSuccessResult,
 } from "@tailjs/types";
 import {
+  ValueType,
+  delay,
   filter,
   get,
+  group,
   isArray,
   isDefined,
   isUndefined,
@@ -19,10 +27,10 @@ import {
 } from "@tailjs/util";
 import {
   ReadOnlyVariableStorage,
-  VariableQueryParameters,
+  VariableGetResults,
   VariableStorage,
   getPatchedValue,
-  getVariableKey,
+  getVariableMapKey,
   isWritable,
 } from "..";
 
@@ -30,6 +38,12 @@ export interface StorageRoute {
   storage: ReadOnlyVariableStorage;
   match?: StorageRouteMatch[];
   renames?: Record<string, string>;
+}
+
+export interface StorageRouteMatch {
+  scope?: ArrayOrSingle<VariableScope>;
+  prefix?: ArrayOrSingle<string>;
+  key?: ArrayOrSingle<string>;
 }
 
 type ArrayOrSingle<T> = T | T[];
@@ -40,12 +54,6 @@ const mapSet = <T>(source: T | T[] | undefined): Set<T> | undefined => {
   }
   return new Set(source);
 };
-
-export interface StorageRouteMatch {
-  scope?: ArrayOrSingle<VariableScope>;
-  prefix?: ArrayOrSingle<string>;
-  key?: ArrayOrSingle<string>;
-}
 
 type StorageMapping = {
   storage: ReadOnlyVariableStorage;
@@ -71,13 +79,24 @@ interface KeyMapping {
   match: RouteRegistrationMatch;
 }
 
+type SetterMapping<T extends VariableSetter = VariableSetter> = {
+  setter: T;
+  source: VariableSetter;
+  sourceIndex: number;
+};
+
+type PatchCollection = Map<
+  VariableStorage,
+  Map<string, SetterMapping<VariableValuePatch | VariablePatchAction>[]>
+>;
+
 export type VariableStorageRouterSettings = {
   routes: StorageRoute[];
   retries?: number;
   retryDelay?: number;
 };
 
-export class VariableStorageRouter {
+export class VariableStorageRouter implements VariableStorage {
   private readonly _keyMappings: Map<string, KeyMapping>[] = [];
   private readonly _routes: RouteRegistration[];
   private readonly _prefixMappings: Map<
@@ -122,6 +141,7 @@ export class VariableStorageRouter {
       return scopes;
     };
 
+    // Project source routes to internal set-based objects for faster lookups.
     this._routes = routes.map(({ storage, match }) => {
       const reg: RouteRegistration = {
         storage: storage,
@@ -137,6 +157,7 @@ export class VariableStorageRouter {
       return reg;
     });
 
+    // Index storages by prefix. Routes without explicit prefixes implicitly have [""]
     for (const { storage, matches, renames } of this._routes) {
       matches.forEach((match) =>
         (match.prefixes ?? [""]).forEach((prefix: string) => {
@@ -197,14 +218,15 @@ export class VariableStorageRouter {
   }
 
   private _mapKey<T extends boolean = true>(
-    key: string,
     scope: VariableScope,
+    key: string,
     throwIfNoMatch: T = true as any
   ): KeyMapping | (T extends false ? undefined : never) {
     const scopeMappings = (this._keyMappings[scope ?? -1] ??= new Map());
 
     let mapped = scopeMappings.get(key);
     if (!mapped && key) {
+      // Only evaluate the logic to find the storage for a key once, and then cache it to avoid performance overhead.
       const prefixIndex = key.indexOf(":");
       let prefix = prefixIndex < 0 ? "" : key.substring(0, prefixIndex);
       if (prefixIndex > -1) {
@@ -242,22 +264,6 @@ export class VariableStorageRouter {
     return mapped as any;
   }
 
-  private _mapVariable<T extends Variable | undefined>(
-    source: ReadOnlyVariableStorage,
-    variable: T
-  ): T {
-    if (!variable) return variable;
-
-    const keyMappings =
-      this._sourceKeyMappings.get(source)?.[
-        variable.target?.scope ?? VariableScope.None
-      ];
-    variable.key =
-      keyMappings?.get(variable.key) ??
-      (keyMappings?.get("") ?? "") + variable.key;
-    return variable;
-  }
-
   private _splitFilters(filters: VariableFilter[]) {
     const splits = new Map<ReadOnlyVariableStorage, VariableFilter[]>();
 
@@ -291,7 +297,7 @@ export class VariableStorageRouter {
         for (const key of filter.keys) {
           // If the filter includes specific keys, figure out which key belongs to which providers.
           for (const scope of filter.scopes ?? VariableScopes) {
-            const mapped = this._mapKey(key, scope, false);
+            const mapped = this._mapKey(scope, key, false);
             if (mapped) {
               // Since a key is mapped for a specific scope (no scopes in the route means "all scopes"),
               // we need to add a filter for each scope since different providers may handle the same key for different scopes.
@@ -330,25 +336,74 @@ export class VariableStorageRouter {
     return splits;
   }
 
+  private async _distpatchSetters(
+    storage: VariableStorage,
+    mappings: SetterMapping[],
+    results: VariableSetResult[],
+    patches: PatchCollection
+  ) {
+    let storageResults: VariableSetResult[];
+    let error: Error | undefined = undefined;
+    try {
+      storageResults = await storage.set(
+        ...mappings.map((mapping) => mapping.setter)
+      );
+    } catch (e) {
+      for (const mapping of mappings) {
+        results[mapping.sourceIndex] = {
+          status: VariableSetStatus.Error,
+          error,
+          source: mapping.source,
+        };
+      }
+      return;
+    }
+
+    for (let i = 0; i < mappings.length; i++) {
+      const mapping = mappings[i];
+      const result = storageResults[i];
+
+      if (result.status === VariableSetStatus.Unsupported) {
+        // The storage did not support the requested kind of patch.
+        // Collect the setter so it can be applied later via optimistic concurrency.
+        get(
+          get(patches, storage, () => new Map()),
+          getVariableMapKey(mapping.setter),
+          () => []
+        ).push(mapping as any);
+        continue;
+      }
+
+      const storageResult = storageResults[i];
+      results[mapping.sourceIndex] = (mapping.setter !== mapping.source
+        ? {
+            ...storageResult,
+            source: mapping.source,
+          }
+        : storageResult) ?? {
+        status: VariableSetStatus.Error,
+        error: new Error(
+          `The storage for setter #${mapping.sourceIndex} did not return a result.`
+        ),
+      };
+    }
+  }
+
   async _set(variables: VariableSetter[]): Promise<VariableSetResult[]> {
-    type SetterMapping = [
-      setter: VariableSetter,
-      source: VariableSetter,
-      sourceIndex: number
-    ];
+    type SetterMapping<T extends VariableSetter = VariableSetter> = {
+      setter: T;
+      source: VariableSetter;
+      sourceIndex: number;
+    };
 
     const results: VariableSetResult[] = [];
 
+    // Split variables to their respective source storages.
     const splits = new Map<VariableStorage, SetterMapping[]>();
     let sourceIndex = -1;
     for (const source of variables) {
-      // Map variables to their source storages.
       ++sourceIndex;
-      const { storage, key } =
-        this._mapKey(
-          source.key,
-          source.target?.id ? source.target.scope : VariableScope.None
-        ) ?? {};
+      const { storage, key } = this._mapKey(source.scope, source.key) ?? {};
       if (!storage) {
         results[sourceIndex] = { status: VariableSetStatus.NotFound, source };
         continue;
@@ -359,58 +414,92 @@ export class VariableStorageRouter {
         continue;
       }
 
-      get(splits, storage, () => []).push([
-        key !== source.key ? { ...source, key } : source,
+      get(splits, storage, () => []).push({
+        setter: key !== source.key ? { ...source, key } : source,
         source,
         sourceIndex,
-      ]);
+      });
     }
 
     let promises: Promise<void>[] = [];
-    let patches: Map<VariableStorage, SetterMapping[]> | undefined;
 
+    // Patches that were not supported by their storage grouped by storage, then by key.
+    // (Multiple patches may exist for the same key with different selectors).
+    let patches: PatchCollection | undefined;
+
+    // Dispatch setters to their respective source stages in parallel.
     splits.forEach((setters, storage) => {
-      promises.push(execSetters(storage, setters));
+      promises.push(
+        this._distpatchSetters(
+          storage,
+          setters,
+          results,
+          (patches ??= new Map())
+        )
+      );
     });
 
     await Promise.all(promises);
 
-    if (patches) {
+    // One or more of the storages did not supported the requested kind of patch operation.
+    // We apply the patches via optimistic concurrency.
+    if (patches?.size) {
       promises = [];
-      patches.forEach((setters, storage) => {
+      patches.forEach((mappings, storage) => {
         promises.push(
           (async () => {
+            const keys = map(mappings, ([, values]) => values[0].setter);
+
             const vars = new Map(
-              (
-                await storage.query([
-                  { variables: setters.map((setter) => setter[0]) },
-                ])
-              ).results.map((result) => [getVariableKey(result), result])
+              filter(await storage.get(...keys)).map((value) => [
+                getVariableMapKey(value),
+                value,
+              ])
             );
 
-            const updates: SetterMapping[] = [];
-            for (let i = 0; i < setters.length; i++) {
-              const setter = setters[i];
-              const current = vars.get(getVariableKey(setter[1])) ?? {
-                ...setter[1],
-                version: undefined,
-                value: undefined,
-              };
-              const patchedValue = getPatchedValue(current, setter[1]);
-              if (patchedValue) {
-                updates.push([
-                  setter[0],
-                  {
-                    ...setter[1],
-                    version: current.version,
-                    value: patchedValue[0],
-                  },
-                  setter[2],
-                ]);
+            keys.forEach((key) => {
+              const mapKey = getVariableMapKey(key);
+              if (!vars.has(mapKey)) {
+                // Add new values (that is, keys that did not exist in the storage).
+                vars.set(mapKey, {
+                  ...key,
+                  value: undefined,
+                  version: undefined,
+                });
               }
-            }
+            });
+
+            const updates: SetterMapping[] = [];
+            mappings.forEach((mappings) =>
+              mappings.forEach((mapping) => {
+                const key = getVariableMapKey(mapping.setter);
+                const current = vars.get(key) ?? {
+                  ...mapping.setter,
+                  version: undefined,
+                  value: undefined,
+                };
+                const patchedValue = getPatchedValue(current, mapping.setter);
+                if (patchedValue.changed) {
+                  current.value = patchedValue.patchedValue;
+                  updates.push({
+                    ...mapping,
+                    setter: {
+                      ...mapping.setter,
+                      version: current.version,
+                      value: patchedValue[0],
+                    },
+                  });
+                }
+              })
+            );
+
             if (updates.length) {
-              await execSetters(storage, updates);
+              await this._distpatchSetters(
+                storage,
+                updates,
+                results,
+                (patches ??= new Map())
+              );
             }
           })()
         );
@@ -419,109 +508,84 @@ export class VariableStorageRouter {
     }
 
     return results;
+  }
 
-    async function execSetters(
-      storage: VariableStorage,
-      setters: SetterMapping[]
-    ) {
-      let storageResults: VariableSetResult[];
-      let error: Error | undefined = undefined;
-      try {
-        storageResults = await storage.set(setters.map((setter) => setter[0]));
-      } catch (e) {
-        storageResults = [];
-        error = e;
-      }
-
-      for (let i = 0; i < setters.length; i++) {
-        const setter = setters[i];
-        if (error) {
-          results[setter[2]] = {
-            status: VariableSetStatus.Error,
-            error,
-            source: setter[1],
-          };
-          continue;
-        }
-
-        if (storageResults[i].status === VariableSetStatus.Unsupported) {
-          get((patches ??= new Map()), storage, () => []).push(setter);
-          continue;
-        }
-
-        results[setter[2]] = (setter[0] !== setter[1]
-          ? { ...storageResults[i], source: setter[0] }
-          : storageResults[i]) ?? {
-          status: VariableSetStatus.Error,
-          error: new Error(
-            `The storage for setter #${setter[2]} did not return a result.`
-          ),
-        };
-      }
+  public async get<K extends (VariableKeyWithInitializer | null | undefined)[]>(
+    ...keys: K
+  ): Promise<VariableGetResults<K>> {
+    if (keys.length === 1) {
+      const key = keys[0];
+      if (!key) return [undefined] as any;
+      const mapping = this._mapKey(key.scope, key.key);
+      return (await mapping.storage.get({
+        scope: key.scope,
+        key: mapping.key,
+        targetId: key.targetId,
+      })) as any;
     }
-  }
+    const finalResults: (Variable | undefined)[] = [];
+    const mappedKeys = map(keys, (key, sourceIndex) => {
+      return key
+        ? {
+            scope: key.scope,
+            sourceIndex,
+            originalKey: key.key,
+            ...this._mapKey(key.scope, key.key),
+            targetId: key.targetId,
+            initializer: key.initializer,
+          }
+        : undefined;
+    });
 
-  async renew(scopes: VariableScope[], targetIds: string[]) {
+    const mappings = group(mappedKeys, (item) => item.storage);
     await Promise.all(
-      map(this._storages.values(), (mapping) => {
-        const storageScopes = scopes.filter((scope) =>
-          mapping.scopes.has(scope)
-        );
-        return isWritable(mapping.storage) && storageScopes.length
-          ? mapping.storage.renew(scopes, targetIds)
-          : undefined;
-      })
-    );
-  }
+      map(mappings, ([storage, mappedKeys]) => async () => {
+        let missingInit: ValueType<typeof mappedKeys>[] = null!;
+        (await storage.get(...mappedKeys)).forEach((result, i) => {
+          const mapped = mappedKeys[i];
 
-  async set(variables: VariableSetter[]): Promise<VariableSetResult[]> {
-    const finalResults: VariableSetResult[] = [];
-    let pending = variables;
-    const sourceIndices = new Map(
-      variables.map((variable, index) => [variable, index])
-    );
-    for (let i = 0; i <= this._retries; i++) {
-      const results = await this._set(pending);
-      pending = [];
-      for (const result of results) {
-        if (
-          result.status === VariableSetStatus.Conflict ||
-          (result.status === VariableSetStatus.Error && result.transient)
-        ) {
-          pending.push(result.source);
-          continue;
-        }
-        finalResults[sourceIndices.get(result.source)!] = result;
-      }
-      if (!pending.length) {
-        break;
-      }
-    }
-    return finalResults;
-  }
+          finalResults[mapped.sourceIndex] =
+            result &&
+            (mapped.originalKey !== result.key
+              ? {
+                  ...result,
+                  key: mapped.originalKey,
+                }
+              : result);
+          if (!result && mapped.initializer) {
+            (missingInit ??= []).push(mapped);
+          }
+        });
+        if (missingInit) {
+          if (!isWritable(storage)) {
+            throw new Error(
+              `The variables ${missingInit
+                .map((mapping) => `'${mapping.originalKey}'`)
+                .join(
+                  ", "
+                )} can not be initialized since their storage is not writable.`
+            );
+          }
+          const setters: Variable[] = missingInit.map((mapping) => ({
+            ...mapping.initializer!(),
+            scope: mapping.scope,
+            key: mapping.key,
+            targetId: mapping.targetId,
+          }));
 
-  async purge(filters: VariableFilter[], batch?: boolean): Promise<void> {
-    const split = this._splitFilters(filters);
-    await Promise.all(
-      map(split, ([storage, filters]) => {
-        return isWritable(storage)
-          ? async () => {
-              await storage.purge(filters, batch);
+          const results = await storage.set(...setters);
+          results.forEach((result, i) => {
+            if (isConflictResult(result)) {
+              finalResults[i] = result.current;
+            } else if (isSuccessResult(result)) {
+              finalResults[i] = { ...setters[i], ...result };
             }
-          : undefined;
+          });
+        }
       })
     );
-  }
 
-  async get(
-    key: string,
-    target?: VariableTarget | null | undefined
-  ): Promise<Variable | undefined> {
-    const mapping = this._mapKey(key, target?.scope ?? VariableScope.None);
-    return this._mapVariable(
-      mapping.storage,
-      await mapping.storage.get(key, target)
-    );
+    return finalResults as any;
   }
 
   async query(
@@ -610,5 +674,80 @@ export class VariableStorageRouter {
       finalResults.cursor = nextCursor;
     }
     return finalResults;
+  }
+
+  async configureScopeDurations(
+    durations: Partial<Record<VariableScope, number>>
+  ) {
+    this._storages.forEach(({ storage, scopes }) => {
+      const storageDurations = Object.entries(durations).filter(([scope]) =>
+        scopes.has(+scope)
+      );
+      if (!storageDurations.length || !isWritable(storage)) return;
+      storage.configureScopeDurations(Object.fromEntries(storageDurations));
+    });
+  }
+
+  set(...variables: VariableSetter[]): Promise<VariableSetResult[]>;
+  set(
+    ...variables: (VariableSetter | undefined | null)[]
+  ): Promise<(VariableSetResult | undefined)[]>;
+  async set(
+    ...variables: (VariableSetter | undefined | null)[]
+  ): Promise<(VariableSetResult | undefined)[]> {
+    const finalResults: (VariableSetResult | undefined)[] = [];
+    let pending = filter(variables);
+    const sourceIndices = new Map<VariableSetter, number>();
+
+    variables.forEach(
+      (variable, index) => variable && sourceIndices.set(variable, index)
+    );
+
+    new Map(variables.map((setter, index) => [setter, index]));
+    for (let i = 0; i <= this._retries; i++) {
+      const results = await this._set(pending);
+      pending = [];
+      for (const result of results) {
+        if (
+          result.status === VariableSetStatus.Conflict ||
+          (result.status === VariableSetStatus.Error && result.transient)
+        ) {
+          pending.push(result.source);
+          continue;
+        }
+        finalResults[sourceIndices.get(result.source)!] = result;
+      }
+      if (!pending.length) {
+        break;
+      }
+      await delay((0.8 + 0.2 * Math.random()) & this._retryDelay);
+    }
+    return finalResults;
+  }
+
+  async renew(scopes: VariableScope[], targetIds: string[]) {
+    await Promise.all(
+      map(this._storages.values(), (mapping) => {
+        const storageScopes = scopes.filter((scope) =>
+          mapping.scopes.has(scope)
+        );
+        return isWritable(mapping.storage) && storageScopes.length
+          ? mapping.storage.renew(scopes, targetIds)
+          : undefined;
+      })
+    );
+  }
+
+  async purge(filters: VariableFilter[], batch?: boolean): Promise<void> {
+    const split = this._splitFilters(filters);
+    await Promise.all(
+      map(split, ([storage, filters]) => {
+        return isWritable(storage)
+          ? async () => {
+              await storage.purge(filters, batch);
+            }
+          : undefined;
+      })
+    );
   }
 }

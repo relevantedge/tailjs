@@ -61,7 +61,7 @@ export class NativeHost implements EngineHost {
 
   async log<T extends string | Record<string, any>>({
     group = "console",
-    data,
+    message: data,
     level = "info",
     source,
   }: LogMessage<T>) {

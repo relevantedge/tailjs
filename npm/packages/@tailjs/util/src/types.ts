@@ -51,9 +51,16 @@ type FunctionComparisonEquals<A, B> = (<
   : false;
 
 /**
- * Tests if a type is `any`. The test used is technically impossable to succeed unless the type is in fact `any`.
+ * Tests if a type is `any`.
  */
 export type IsAny<T> = FunctionComparisonEquals<T, any>;
+
+/**
+ * Tests if a type is undefined but not `any`.
+ */
+export type IsUndefinedNotAny<T> = T extends undefined
+  ? false
+  : FunctionComparisonEquals<T, any>;
 
 /**
  * Utility type to allow `as const` to be used on tuples returned from functions without actually making them `readonly` (which is annoying).
@@ -398,7 +405,7 @@ export const typeCode = (value: any, typeName = typeof value) =>
 export const identity = <T = any>(value: T) => value;
 
 export const clone = <T>(value: T, depth: number | boolean = true): T =>
-  typeof value === "object"
+  isObject(value, true)
     ? isArray(value)
       ? depth
         ? value.map((value) => clone(value, depth === true || --(depth as any)))
