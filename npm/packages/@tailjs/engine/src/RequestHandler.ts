@@ -4,12 +4,16 @@ import {
   PostRequest,
   PostResponse,
   TrackedEvent,
-  TrackerScope,
+  VariableScope,
 } from "@tailjs/types";
 import queryString from "query-string";
 import { Lock } from "semaphore-async-await";
 import urlParse from "url-parse";
-import { CommerceExtension } from "./extensions";
+import {
+  CommerceExtension,
+  InMemoryStorage,
+  VariableStorageRouter,
+} from "./extensions";
 import { any, DefaultCryptoProvider, map, merge } from "./lib";
 
 import {
@@ -21,6 +25,7 @@ import {
   DEFAULT,
   EventParser,
   isValidationError,
+  isWritable,
   ParseResult,
   PostError,
   RequestHandlerConfiguration,
@@ -32,15 +37,11 @@ import {
   TrackerExtension,
   TrackerPostOptions,
   ValidationError,
-  TrackerStorage,
-  GlobalStorage,
-  VariableStorage,
 } from "./shared";
 
 import { CONTEXT_MENU_COOKIE, MUTEX_REQUEST_COOKIE } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
 import { from64u } from "@tailjs/util/transport";
-import { CookieStorage, InMemoryStore } from "./extensions";
 import { generateClientConfigScript } from "./lib/clientConfigScript";
 
 const scripts = {
@@ -81,20 +82,12 @@ export class RequestHandler {
 
   /** @internal */
   public _sessionTimeout: number;
-  /** @internal */
-  public readonly _sessionStore;
-
-  /** @internal */
-  public readonly _globalStorage: GlobalStorage;
-
-  /** @internal */
-  public readonly _trackerStorage: TrackerStorage;
 
   private readonly _clientKeySeed: string;
   private readonly _clientConfig: TrackerConfiguration;
 
   constructor(config: RequestHandlerConfiguration) {
-    const {
+    let {
       trackerName,
       endpoint,
       host,
@@ -108,9 +101,11 @@ export class RequestHandler {
       environmentTags,
       manageConsents,
       sessionTimeout,
+      deviceSessionTimeout,
       clientKeySeed,
       encryptionKeys,
       client,
+      storage,
     } = merge({}, DEFAULT, config);
 
     this._trackerName = trackerName;
@@ -119,21 +114,25 @@ export class RequestHandler {
 
     this._parser = parser;
 
-    this._globalStorage = config.globalStorage!;
-    this._trackerStorage = config.trackerStorage!;
-    if (!this._trackerStorage && !this._globalStorage) {
-      this._globalStorage = this._trackerStorage = new InMemoryStore();
-    } else if (!this._trackerStorage) {
-      if (!(this._globalStorage as any as TrackerStorage)?.isTrackerStorage) {
-        throw new TypeError(
-          "If only a global storage is specified it must also implement a tracker storage."
-        );
-      }
-      this._trackerStorage = this._globalStorage as any;
-    } else if (!this._globalStorage) {
-      throw new TypeError(
-        "If a tracker storage is specified a global storage must also be specified explicitly."
-      );
+    if (!storage || !storage.length) {
+      storage = [
+        {
+          storage: new InMemoryStorage(),
+        },
+      ];
+    }
+
+    storage.forEach(
+      ({ storage }) =>
+        isWritable(storage) &&
+        storage.configureScopeDurations({
+          [VariableScope.Session]: sessionTimeout,
+          [VariableScope.DeviceSession]: deviceSessionTimeout,
+        })
+    );
+
+    if (!storage || !storage.length) {
+      storage = [{ storage: new InMemoryStorage({}) }];
     }
 
     this.environment = new TrackerEnvironment(
@@ -141,6 +140,7 @@ export class RequestHandler {
       crypto ?? new DefaultCryptoProvider(encryptionKeys),
       parser,
       manageConsents,
+      new VariableStorageRouter({ routes: storage }),
       environmentTags
     );
 
@@ -203,12 +203,11 @@ export class RequestHandler {
         );
       }
 
-      await this._globalStorage.initialize?.(this.environment);
+      await this.environment.storage.initialize?.(this.environment);
 
       this._extensions = [
         Timestamps,
         this._useSession ? new SessionEvents() : null,
-        this._sessionStore,
         new CommerceExtension(),
         ...(await Promise.all(
           this._extensionFactories.map(async (factory) => {
@@ -218,7 +217,7 @@ export class RequestHandler {
               if (extension?.initialize) {
                 await extension.initialize?.(this.environment);
                 this.environment.log({
-                  data: `The extension ${extension.id} was initialized.`,
+                  message: `The extension ${extension.id} was initialized.`,
                 });
               }
               return extension;
@@ -257,11 +256,11 @@ export class RequestHandler {
         ? (tracker.purge(
             item.includeDevice
               ? [
-                  TrackerScope.Session,
-                  TrackerScope.DeviceSession,
-                  TrackerScope.Device,
+                  VariableScope.Session,
+                  VariableScope.DeviceSession,
+                  VariableScope.Device,
                 ]
-              : [TrackerScope.Session]
+              : [VariableScope.Session]
           ),
           false)
         : true

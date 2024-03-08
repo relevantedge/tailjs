@@ -1,34 +1,27 @@
 import {
   Variable,
   VariableFilter,
-  VariablePatch,
-  VariablePatchType,
+  VariableKey,
+  VariableQueryParameters,
   VariableQueryResult,
   VariableScope,
   VariableScopes,
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
-  VariableTarget,
+  isVariableValuePatch,
+  isVariablePatchAction,
+  VariableKeyWithInitializer,
 } from "@tailjs/types";
 import {
+  MaybePromise,
   clock,
   forEach,
   get,
-  isDefined,
-  isNumber,
   isUndefined,
   now,
-  some,
 } from "@tailjs/util";
-import {
-  VariableQueryParameters,
-  VariableStorage,
-  expandVariableFilters,
-  getPatchedValue,
-} from "..";
-
-const DEFAULT_TARGET = { id: "", scope: 0 as any };
+import { VariableGetResults, VariableStorage, getPatchedValue } from "..";
 
 type ScopeVariables = [expires: number | undefined, Map<string, Variable>];
 
@@ -36,7 +29,6 @@ const clone = <T extends Variable | undefined>(variable: T): T => {
   return (
     variable && {
       ...variable,
-      target: variable.target ? { ...variable.target } : undefined,
       purposes: variable.purposes && [...variable.purposes],
       tags: variable.tags && [...variable.tags],
     }
@@ -48,33 +40,34 @@ export class InMemoryStorage implements VariableStorage {
     VariableScopes.map(() => new Map());
 
   private _nextVersion = 0;
-  private readonly _ttl: Partial<Record<VariableScope, number>> | undefined;
+  private _ttl: Partial<Record<VariableScope, number>> | undefined;
+
+  /** For testing purposes to have the router apply the patches. @internal */
+  public _testDisablePatch: boolean;
 
   constructor(ttl?: Partial<Record<VariableScope, number>>) {
-    this._ttl = ttl;
-    if (some(ttl, ([, value]) => isDefined(value))) {
-      clock(() => {
-        const t0 = now();
-        forEach(ttl, ([scope]) => {
-          const variables = this._variables[scope];
-          variables?.forEach(
-            (variable, key) =>
-              (variable[0] as any) <= t0 && variables.delete(key)
-          );
-        });
-      }, 10000);
-    }
+    this._ttl = ttl
+      ? Object.fromEntries(Object.entries(ttl).filter(([, value]) => value > 0))
+      : undefined;
+
+    clock(() => {
+      const t0 = now();
+      forEach(this._ttl, ([scope, ttl]) => {
+        if (isUndefined(ttl)) return;
+
+        const variables = this._variables[scope];
+        variables?.forEach(
+          (variable, key) => variable[0]! <= t0 - ttl && variables.delete(key)
+        );
+      });
+    }, 10000);
   }
 
   private _remove(variable: Variable) {
-    return this._variables[
-      variable.target?.scope ?? DEFAULT_TARGET.scope
-    ].delete(variable.key);
+    return this._variables[variable.scope].delete(variable.key);
   }
 
   private _query(filters: VariableFilter[]): Variable[] {
-    filters = expandVariableFilters(filters);
-
     const results: Variable[] = [];
     const t0 = now();
     for (const filter of filters) {
@@ -83,7 +76,7 @@ export class InMemoryStorage implements VariableStorage {
         for (const scopeVars of filter.targetIds?.map((targetId) =>
           targets.get(targetId)
         ) ?? targets.values()) {
-          if (!scopeVars || (scopeVars[0] as any) <= t0) continue;
+          if (!scopeVars || scopeVars[0]! <= t0) continue;
           const vars = scopeVars[1];
           for (const key of filter.keys ?? vars.keys()) {
             const variable = vars.get(key);
@@ -128,11 +121,27 @@ export class InMemoryStorage implements VariableStorage {
     }
   }
 
-  get(key: string, target?: VariableTarget | null): Variable | undefined {
-    if (!target?.id) {
-      target = DEFAULT_TARGET;
+  configureScopeDurations(
+    durations: Partial<Record<VariableScope, number>>
+  ): MaybePromise<void> {
+    this._ttl ??= {};
+    for (const [scope, duration] of Object.entries(durations)) {
+      duration! > 0 ? (this._ttl![scope] = duration) : delete this._ttl![scope];
     }
-    return clone(this._variables[target.scope]?.get(target.id)?.[1].get(key));
+  }
+
+  get<K extends (VariableKeyWithInitializer | null | undefined)[]>(
+    ...keys: K
+  ): VariableGetResults<K> {
+    return keys.map((key) =>
+      key
+        ? clone(
+            this._variables[key.scope]
+              ?.get(key.targetId ?? "")?.[1]
+              .get(key.key)
+          )
+        : undefined
+    ) as any;
   }
 
   query(
@@ -148,42 +157,55 @@ export class InMemoryStorage implements VariableStorage {
     };
   }
 
-  set(variables: VariableSetter[]): VariableSetResult[] {
+  set(...variables: VariableSetter[]): VariableSetResult[];
+  set(
+    ...variables: (VariableSetter | null | undefined)[]
+  ): (VariableSetResult | undefined)[];
+  set(...variables: (VariableSetter | null | undefined)[]) {
     const t0 = now();
-    const results: VariableSetResult[] = [];
+    const results: (VariableSetResult | undefined)[] = [];
     for (const source of variables) {
+      if (!source) {
+        results.push(undefined);
+        continue;
+      }
       let {
         key,
-        value,
-        target,
+        targetId,
+        scope,
         classification,
         purposes,
         tags,
+        value,
         version,
-        patch,
-      } = source;
+      } = source as Variable;
 
-      if (!target?.id) {
-        target = DEFAULT_TARGET;
-      }
-
-      let scopeVars = this._variables[target.scope].get(target.id);
-      if ((scopeVars?.[1] as any) < t0) {
+      let scopeVars = this._variables[scope ?? 0].get(targetId ?? "");
+      if (scopeVars?.[0]! < t0) {
         scopeVars = undefined;
       }
       let current = scopeVars?.[1].get(key);
+      let newValue: any;
 
-      if (patch) {
+      if (isVariableValuePatch(source) || isVariablePatchAction(source)) {
+        if (this._testDisablePatch) {
+          results.push({ status: VariableSetStatus.Unsupported, source });
+          continue;
+        }
+
         const patched = getPatchedValue(current, source);
-        if (!patched) {
+        value = patched.patchedValue;
+        newValue = patched.patchedValue;
+
+        if (!patched.changed) {
           results.push({
             status: VariableSetStatus.Unchanged,
             source,
+            version: current?.version,
             value: current?.value,
           });
           continue;
         }
-        value = patched[0];
       } else if (current?.version !== version) {
         results.push({
           status: VariableSetStatus.Conflict,
@@ -200,6 +222,8 @@ export class InMemoryStorage implements VariableStorage {
               ? VariableSetStatus.Success
               : VariableSetStatus.Unchanged,
           source,
+          version: undefined,
+          value: undefined,
         });
         continue;
       }
@@ -211,24 +235,27 @@ export class InMemoryStorage implements VariableStorage {
         version: "" + ++this._nextVersion,
 
         // Put last to keep V8 shape when cloning in get and query.
-        target: target === DEFAULT_TARGET ? undefined : { ...target },
+        targetId,
+        scope,
         purposes: purposes && [...purposes],
         tags: tags && [...tags],
       };
 
       let scopeValues = get(
-        this._variables[target.scope],
-        target.id,
+        this._variables[scope],
+        targetId ?? "",
         () => [0, new Map()] as const
       );
-      const ttl = this._ttl?.[target.scope];
+
+      const ttl = this._ttl?.[scope];
       scopeValues[0] = ttl ? t0 + ttl : undefined;
       scopeValues[1].set(current.key, current);
 
       results.push({
         status: VariableSetStatus.Success,
-        value,
         source,
+        version: current.version,
+        value: newValue,
       });
     }
 
@@ -241,8 +268,6 @@ export class InMemoryStorage implements VariableStorage {
         "The batch must be specified when not addressing individual IDs."
       );
     }
-
-    filters = expandVariableFilters(filters);
 
     const queryFilters: VariableFilter[] = [];
     for (const filter of filters) {

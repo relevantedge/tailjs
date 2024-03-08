@@ -96,7 +96,7 @@ export const mapStorage = <P extends StorageProvider>(
       provider.setItem(key, value, TAB_ID, timeout);
       dispatchOwn(value, { key, oldValue, source: TAB_ID, self: true });
     }
-    if ((timeout as any) <= 0) {
+    if (timeout! <= 0) {
       provider.removeItem(key);
     }
     return value as any;

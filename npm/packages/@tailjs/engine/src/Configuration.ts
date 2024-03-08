@@ -2,14 +2,13 @@ import type { TrackerConfiguration } from "@tailjs/client/external";
 import { DEFAULT_CLIENT_CONFIG } from "@tailjs/client/external";
 
 import type { ViewEvent } from "@tailjs/types";
+import { StorageRoute } from "./extensions";
 import { AllRequired } from "./lib";
 import {
   CryptoProvider,
   EngineHost,
   EventParser,
-  GlobalStorage,
   TrackerExtension,
-  TrackerStorage,
 } from "./shared";
 
 /** Gives a hint what a string might be for methods that serialize results to strings */
@@ -38,8 +37,7 @@ export type RequestHandlerConfiguration = {
   clientKeySeed?: string;
   client?: TrackerConfiguration;
 
-  trackerStorage?: TrackerStorage;
-  globalStorage?: GlobalStorage;
+  storage?: StorageRoute[];
 
   /**
    * The session timeout in minutes.
@@ -79,8 +77,7 @@ export const DEFAULT: Omit<
   | "environmentTags"
   | "crypto"
   | "encryptionKeys"
-  | "globalStorage"
-  | "trackerStorage"
+  | "storage"
 > = {
   trackerName: "tail",
   cookies: {

@@ -1,5 +1,5 @@
 import type { Tracker } from "../src/Tracker";
-import { InMemoryStore } from "../src/extensions/InMemoryStorage";
+import { InMemoryStorage } from "../src/extensions";
 
 describe("Variable stores store.", () => {
   const fakeTracker: Tracker = {
@@ -9,14 +9,8 @@ describe("Variable stores store.", () => {
   } as any;
 
   it("Is the case for InMemoryStore.", async () => {
-    const store = new InMemoryStore();
+    const store = new InMemoryStorage();
 
-    expect(
-      await store.get([{ scope: "session", key: "test" }], fakeTracker)
-    ).toEqual({
-      session: {
-        test: undefined,
-      },
-    });
+    expect(store.get("test")).toBeUndefined();
   });
 });

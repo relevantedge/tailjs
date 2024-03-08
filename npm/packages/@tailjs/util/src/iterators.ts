@@ -2,6 +2,7 @@ import {
   ConstToTuples,
   GeneralizeContstants,
   IsAny,
+  IsUndefinedNotAny,
   KeyValuePairsToObject,
   Minus,
   hasMethod,
@@ -76,12 +77,11 @@ type AnyTuple = [any, ...any[]];
 
 type IteratorProjection<
   S extends IteratorSource,
-  Projection,
-  TupleProjection extends AnyTuple
+  Projection
 > = unknown extends Projection
   ? IteratorItem<S>
-  : TupleProjection extends Projection
-  ? ConstToTuples<TupleProjection>
+  : Projection extends AnyTuple
+  ? ConstToTuples<Projection>
   : ConstToTuples<Projection>;
 
 type StartEndArgs<S extends IteratorSource> =
@@ -152,7 +152,7 @@ const sliceIterator = <T>(
 
   if (source["slice"]) {
     return source["slice"](start, end);
-  } else if (start < 0 || (end as any) < 0) {
+  } else if (start < 0 || end! < 0) {
     return sliceIterator([...source], start, end);
   }
 
@@ -250,29 +250,26 @@ const mapIterator = <S extends IteratorSource>(
 };
 
 type ProjectFunction = {
-  <S extends IteratorSource, R, RT extends AnyTuple>(
+  <S extends IteratorSource, R>(
     source: S,
-    projection?: IteratorAction<S, R | RT> | null,
+    projection?: IteratorAction<S, R> | null,
     ...rest: StartEndArgs<S>
-  ): Iterable<IteratorProjection<S, R, RT>>;
-  <S extends IteratorSource, R, RT extends AnyTuple>(
-    source: S,
-    ...rest: StartEndArgs<S>
-  ): Iterable<IteratorProjection<S, R, RT>>;
+  ): Iterable<IteratorProjection<S, R>>;
+  <S extends IteratorSource, R>(source: S, ...rest: StartEndArgs<S>): Iterable<
+    IteratorProjection<S, R>
+  >;
 };
 
 type MapFunction = {
-  <S extends IteratorSource, R, RT extends AnyTuple>(
+  <S extends IteratorSource, R>(
     source: S,
-    projection?: IteratorAction<S, R | RT> | null,
+    projection?: IteratorAction<S, R> | null,
     ...rest: StartEndArgs<S>
-  ): S extends null | void | undefined
-    ? undefined
-    : IteratorProjection<S, R, RT>[];
-  <S extends IteratorSource, R, RT extends AnyTuple>(
+  ): IsUndefinedNotAny<S> extends true ? undefined : IteratorProjection<S, R>[];
+  <S extends IteratorSource, R>(
     source: S,
     ...rest: StartEndArgs<S>
-  ): IteratorProjection<S, R, RT>[];
+  ): IteratorProjection<S, R>[];
 };
 
 export const project: ProjectFunction = ((
@@ -426,7 +423,7 @@ export const groupReduce = <
   Accumulator = unknown
 >(
   source: S,
-  keySelector: (item: IteratorItem<S>) => Key,
+  keySelector: (item: IteratorItem<S>, index: number) => Key,
   reducer: (
     accumulator: GeneralizeContstants<Accumulator>,
     ...rest: Parameters<IteratorAction<S, Accumulator>>
@@ -437,7 +434,7 @@ export const groupReduce = <
   const groups = new Map<any, any>();
   const seedFactory = () => (isFunction(seed) ? seed() : seed);
   const action: IteratorAction<S, any> = (item, index, control) => {
-    const key = keySelector(item);
+    const key = keySelector(item, index);
     let acc = groups.get(key) ?? seedFactory();
     const value = reducer(acc, item, index, control);
     if (isDefined(value)) {
@@ -454,7 +451,7 @@ export const groupReduce = <
 
 export const group = <S, Key, R = IteratorItem<S>>(
   source: S,
-  keySelector: (item: IteratorItem<S>) => Key,
+  keySelector: (item: IteratorItem<S>, index: number) => Key,
   valueSelector: IteratorAction<S, R> = (item: any) => item,
   ...rest: StartEndArgs<S>
 ): Map<Key, R[]> => {
@@ -466,7 +463,7 @@ export const group = <S, Key, R = IteratorItem<S>>(
     return acc;
   };
 
-  return groupReduce(source, keySelector, reducer, () => [] as R[]);
+  return groupReduce(source, keySelector, reducer, () => [] as R[], ...rest);
 };
 
 export const reduce = <
@@ -506,21 +503,33 @@ export const reduce = <
   );
 };
 
-export const filter = <
-  S extends IteratorSource,
-  MapToArray extends boolean = false
->(
-  source: S,
-  predicate?: Filter<S>,
-  map?: MapToArray,
-  ...rest: StartEndArgs<S>
-): MapToArray extends true
-  ? UndefinedIfUndefined<S, IteratorItem<S>[]>
-  : Iterable<IteratorItem<S>> =>
+export const filter: {
+  <S extends IteratorSource>(source: S): S extends any[]
+    ? Exclude<IteratorItem<S>, undefined | null>[]
+    : Iterable<Exclude<IteratorItem<S>, undefined | null>>;
+  <
+    S extends IteratorSource,
+    MapToArray extends boolean = S extends any[] ? true : false
+  >(
+    source: S,
+    predicate?: Filter<S>,
+    map?: MapToArray,
+    ...rest: StartEndArgs<S>
+  ): MapToArray extends true
+    ? UndefinedIfUndefined<S, IteratorItem<S>[]>
+    : Iterable<IteratorItem<S>>;
+} = (
+  source: IteratorSource,
+  predicate: Filter<any> = (item: any) => item != null,
+  map = isArray(source) as any,
+  ...rest: any[]
+) =>
   map
     ? !source
       ? undefined
-      : toArray(filter(source, predicate, false, ...rest))
+      : isArray(source)
+      ? source.filter(predicate)
+      : toArray((filter as any)(source, predicate, false, ...rest))
     : (filterIterator(mapIterator(source, ...rest) as any, predicate) as any);
 
 let filterInternal = filter;

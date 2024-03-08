@@ -7,9 +7,28 @@ import {
   isUserAgentEvent,
   isViewEvent,
   cast,
+  Timestamp,
+  VariableScope,
+  DataClassification,
+  VariableValuePatch,
+  VariablePatchType,
+  VariableHeader,
+  VariableSetResult,
+  isSuccessResult,
 } from "@tailjs/types";
-import { NextPatchExtension, Tracker, TrackerExtension } from "../shared";
+import {
+  NextPatchExtension,
+  Tracker,
+  TrackerExtension,
+  TrackerVariable,
+  TrackerVariableHeader,
+  TrackerVariableKey,
+  TrackerVariableSetResult,
+  TrackerVariableValuePatch,
+  formatSetResultError,
+} from "../shared";
 import { QUERY_DEVICE } from "@constants";
+import { now } from "@tailjs/util";
 
 export type SessionConfiguration = {
   /**
@@ -44,6 +63,42 @@ const applyDefaults = (
   return configuration as any;
 };
 
+export interface Data {
+  lastSeen: Timestamp;
+  views: number;
+}
+
+export interface SessionData extends Data {
+  timestamp: Timestamp;
+  isNew: boolean;
+}
+
+export interface ServerSessionData extends SessionData {
+  queryDevice?: boolean;
+}
+
+export interface DeviceSessionData extends SessionData {}
+
+export interface DeviceData extends Data {
+  firstSeen: Timestamp;
+}
+
+const DATA_KEY = "stat";
+const QUERY_DEVICE = "query_device";
+
+const createInitialSessionStats = (timestamp: Timestamp): SessionData => ({
+  timestamp,
+  isNew: true,
+  views: 0,
+  lastSeen: timestamp,
+});
+
+const createInitialDeviceStats = (timestamp: Timestamp): DeviceData => ({
+  firstSeen: timestamp,
+  lastSeen: timestamp,
+  views: 0,
+});
+
 export class SessionEvents implements TrackerExtension {
   private _configuration: Required<SessionConfiguration>;
 
@@ -53,32 +108,58 @@ export class SessionEvents implements TrackerExtension {
     this._configuration = applyDefaults(configuration);
   }
 
+  public static async initializeSessionData(tracker: Tracker, 
+    internalServerSessionId: string,
+    internalClientSessionId: string|undefined,
+    deviceId: string | undefined){
+
+    }
+
   public async patch(
     events: TrackedEvent[],
     next: NextPatchExtension,
     tracker: Tracker
   ) {
-    const session = tracker.session;
-    if (!session) {
-      return await next(events);
+    events = await next(events);
+    if (!tracker.sessionId) {
+      return events;
     }
 
-    if (!session.persisted) {
-      for (const event of events) {
-        session.started = Math.min(
-          event.timestamp ?? session.started,
-          session.started
-        );
-      }
-      tracker.vars[QUERY_DEVICE] = {
-        scope: "session",
-        essential: true,
-        client: true,
-        value: !tracker.vars[QUERY_DEVICE]?.value || session.isNew,
-      };
-      events.unshift(this._getSessionStartedEvent(tracker, session.started));
-    }
-    events = await next(events);
+    let timestamp = now();
+    events.forEach(
+      (ev) => ev.timestamp! < timestamp && (timestamp = ev.timestamp!)
+    );
+
+    let [serverSession, deviceSession, device] = await tracker.get(
+      {
+        key: DATA_KEY,
+        scope: VariableScope.Session,
+        initializer: () => ({
+          classification: DataClassification.Indirect,
+          value: createInitialSessionStats(timestamp),
+        }),
+      },
+      tracker.deviceSessionId
+        ? {
+            key: DATA_KEY,
+            scope: VariableScope.DeviceSession,
+            initializer: () => ({
+              classification: DataClassification.Indirect,
+              value: createInitialSessionStats(timestamp),
+            }),
+          }
+        : null,
+      tracker.deviceId
+        ? {
+            key: DATA_KEY,
+            scope: VariableScope.DeviceSession,
+            initializer: () => ({
+              classification: DataClassification.Indirect,
+              value: createInitialDeviceStats(timestamp),
+            }),
+          }
+        : null
+    );
 
     const patched: TrackedEvent[] = [];
 
@@ -86,10 +167,10 @@ export class SessionEvents implements TrackerExtension {
       patched.push(event);
 
       event.session = {
-        sessionId: tracker.session.id,
-        timestamp: tracker.session.started,
-        deviceId: tracker.device.id,
-        username: tracker._clientState.username,
+        sessionId: tracker.sessionId,
+        timestamp: serverSession.,
+        deviceId: tracker.deviceId,
+        username: tracker.userid,
       };
 
       if (this._configuration.includeIp !== false) {
@@ -97,23 +178,17 @@ export class SessionEvents implements TrackerExtension {
       }
 
       if (isConsentEvent(event)) {
-        tracker.consent = {
-          active: event.nonEssentialTracking !== false,
-          timestamp: event.timestamp,
-        };
+        // TODO!
       }
 
       if (isUserAgentEvent(event)) {
-        tracker.vars[QUERY_DEVICE] = {
-          scope: "session",
-          essential: true,
-          client: true,
-          value: false,
-        };
+        tracker.set();
       } else if (isViewEvent(event)) {
-        ++tracker.session.views;
-        ++tracker.device.views;
-        ++tracker.deviceSession.views;
+        serverSession = { ...serverSession, views: serverSession.views + 1 };
+        device && (device = { ...device, views: device.views + 1 });
+        deviceSession &&
+          (deviceSession = { ...device, views: deviceSession.views + 1 });
+
         if (event.landingPage) {
           if (
             Date.now() - (tracker.deviceSession.lastSeen ?? 0) >

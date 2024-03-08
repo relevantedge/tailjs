@@ -2,12 +2,20 @@ import {
   DataClassification,
   PostResponse,
   TrackedEvent,
-  TrackerVariableFilter,
-  TrackerScope,
-  TrackerVariable,
-  TRACKER_SCOPES,
+  Variable,
+  VariableFilter,
+  VariableHeader,
+  VariableKey,
+  VariableKeyWithInitializer,
+  VariablePatchAction,
+  VariableQueryResult,
+  VariableScope,
+  VariableSetResult,
+  VariableSetStatus,
+  VariableSetter,
+  VariableValuePatch,
+  isSuccessResult,
 } from "@tailjs/types";
-import { isString, assign } from "@tailjs/util";
 import { Transport, createTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, map, params, unparam } from "./lib";
 import {
@@ -18,7 +26,7 @@ import {
   RequestHandlerConfiguration,
   TrackedEventBatch,
   TrackerEnvironment,
-  TrackerStorage,
+  VariableSetError,
 } from "./shared";
 
 export type TrackerSettings = Pick<
@@ -42,11 +50,64 @@ const enum ExtensionState {
   Done = 2,
 }
 
+type PendingSetter = {
+  setter: VariableSetter;
+  resolve: (value: VariableSetResult) => void;
+};
+
+type TrackerScopedOnly<
+  T extends undefined | { scope: VariableScope; targetId?: string }
+> = T extends undefined
+  ? undefined
+  : Omit<T, "scope" | "targetId"> & {
+      scope:
+        | VariableScope.Session
+        | VariableScope.DeviceSession
+        | VariableScope.Device
+        | VariableScope.User;
+      key: string;
+    };
+
+export type TrackerVariableKey = TrackerScopedOnly<VariableKey>;
+export type TrackerVariableKeyWithInitializer<T = any> = TrackerScopedOnly<
+  VariableKeyWithInitializer<T>
+>;
+export type TrackerVariableHeader = TrackerScopedOnly<VariableHeader>;
+export type TrackerVariable<T = any> = TrackerScopedOnly<Variable<T>>;
+export type TrackerVariableSetter<T = any> = TrackerScopedOnly<
+  VariableSetter<T>
+>;
+export type TrackerVariableValuePatch<T = any> = TrackerScopedOnly<
+  VariableValuePatch<T>
+>;
+export type TrackerVariablePatchAction<T = any> = TrackerScopedOnly<
+  VariablePatchAction<T>
+>;
+export type TrackerVariablePatch<T = any> = TrackerScopedOnly<
+  VariableValuePatch<T>
+>;
+
+export type TrackerVariableSetResult = () => Promise<VariableSetResult>;
+
 export type TrackerPostOptions = {
   routeToClient?: boolean;
   deviceSessionId?: string;
   deviceId?: string;
 };
+
+type TrackerVariableGetResult<Result> =
+  Result extends TrackerVariableKeyWithInitializer<infer T>
+    ? Variable<unknown extends T ? any : T>
+    : undefined;
+
+type VariableGetResults<K extends any[]> = K extends [infer Item]
+  ? [TrackerVariableGetResult<Item>]
+  : K extends [infer Item, ...infer Rest]
+  ? [TrackerVariableGetResult<Item>, ...VariableGetResults<Rest>]
+  : K extends (infer T)[]
+  ? TrackerVariableGetResult<T>[]
+  : never;
+
 export class Tracker {
   /**
    * Used for queueing up events so they do not get posted before all extensions have been applied to the request.
@@ -136,41 +197,142 @@ export class Tracker {
   private _deviceId?: string;
   private _deviceSessionId?: string;
   private _sessionId?: string;
+  private _userId: string;
 
   /** @Internal */
   public _consentLevel: DataClassification = DataClassification.None;
 
   // #region  Variables
+  private _pendingSetters: PendingSetter[] = [];
 
-  private async _ensureVariables() {}
-
-  public async get(
-    scope: TrackerScope,
-    key: string
-  ): Promise<TrackerVariable | undefined> {
-    return undefined;
+  public async get<
+    K extends (TrackerVariableKeyWithInitializer | null | undefined)[]
+  >(...keys: K): Promise<VariableGetResults<K>> {
+    return (await this.env.storage.get(
+      ...keys.map((key) => this._mapTargetId(key))
+    )) as any;
   }
+
+  private _mapTargetId<T extends VariableKey | undefined | null>(
+    variable: T
+  ): T | undefined {
+    if (!variable) return variable;
+    if (variable.scope === VariableScope.Session) {
+      variable.targetId = this._sessionId;
+    } else if (variable.scope === VariableScope.DeviceSession) {
+      variable.targetId = this._deviceSessionId;
+    } else if (variable.scope === VariableScope.Device) {
+      variable.targetId = this._deviceId;
+    } else if (variable.scope === VariableScope.User) {
+      variable.targetId = this._userId;
+    } else {
+      throw new TypeError(
+        `Setting variables for the scope ${variable.scope} is not supported via a tracker.`
+      );
+    }
+    return variable.targetId ? variable : undefined;
+  }
+
+  private _addPendingSetter(
+    setter: TrackerVariableSetter
+  ): TrackerVariableSetResult {
+    const mapped = this._mapTargetId(setter);
+    // Variable is for a scope that is not included in the consent.
+
+    if (!mapped) {
+      return () =>
+        Promise.resolve<VariableSetResult>({
+          status: VariableSetStatus.Denied,
+          source: setter,
+        });
+    }
+
+    let resolve: (value: VariableSetResult) => void = null!;
+    let resolved = false;
+    let result = new Promise<VariableSetResult>(
+      (innerResolve) => ((resolved = true), (resolve = innerResolve))
+    );
+
+    this._pendingSetters.push({
+      setter,
+      resolve,
+    });
+
+    return async () => {
+      if (!resolved) {
+        await this._commitPendingSetters();
+      }
+      let resultValue = await result;
+      if (!isSuccessResult(await result)) {
+        throw new VariableSetError(resultValue);
+      }
+      return resultValue;
+    };
+  }
+
+  private async _commitPendingSetters() {
+    if (!this._pendingSetters.length) {
+      return;
+    }
+    const capturedPending = this._pendingSetters;
+    this._pendingSetters = [];
+    const results = await this.env.storage.set(
+      ...capturedPending.map((pending) => pending.setter)
+    );
+    for (let i = 0; i < capturedPending.length; i++) {
+      capturedPending[i].resolve(
+        results[i] ?? {
+          status: VariableSetStatus.Error,
+          error: new Error(
+            "The provider did not return a result for the setter."
+          ),
+        }
+      );
+    }
+  }
+
+  public set(...setters: TrackerVariableSetter[]): TrackerVariableSetResult[];
+  public set(
+    ...setters: (TrackerVariableSetter | undefined)[]
+  ): (TrackerVariableSetResult | undefined)[];
+  public set(
+    ...setters: (TrackerVariableSetter | undefined)[]
+  ): (TrackerVariableSetResult | undefined)[] {
+    return setters.map((setter) => setter && this._addPendingSetter(setter));
+  }
+
+  public async commit() {}
 
   public async query(
-    ...filters: TrackerVariableFilter[]
-  ): Promise<TrackerVariable[]> {
-    return [];
+    ...filters: VariableFilter[]
+  ): Promise<VariableQueryResult> {
+    return { count: 0, results: [] };
   }
 
-  public async purge(scopes: TrackerScope[] | null = null) {
+  public async purge(scopes: VariableScope[] | null = null) {
     scopes ??= [
-      TrackerScope.Session,
-      TrackerScope.DeviceSession,
-      TrackerScope.Device,
+      VariableScope.Session,
+      VariableScope.DeviceSession,
+      VariableScope.Device,
     ];
-    await this._requestHandler._globalStorage.purge(
-      this,
-      ...scopes.map((scope) => ({ scope }))
-    );
-    await this._requestHandler._sessionStore.purge(
-      this,
-      ...scopes.map((scope) => ({ scope }))
-    );
+
+    const filters: (VariableFilter | boolean)[] = [
+      scopes.includes(VariableScope.Session) && {
+        targetIds: [this.sessionId!],
+        scopes: [VariableScope.Session],
+      },
+      scopes.includes(VariableScope.DeviceSession) && {
+        targetIds: [this.deviceSessionId!],
+        scopes: [VariableScope.DeviceSession],
+      },
+      scopes.includes(VariableScope.Device) && {
+        targetIds: [this.deviceId!],
+        scopes: [VariableScope.Device],
+      },
+    ].filter((item) => item !== false && item.targetIds[0]);
+    if (filters.length) {
+      await this.env.storage.purge(filters as any);
+    }
   }
 
   // #endregion
@@ -195,30 +357,34 @@ export class Tracker {
     return this._deviceId;
   }
 
-  public async consent(consentLevel: DataClassification): Promise<void> {
-    if (consentLevel === this._consentLevel) return;
-    this._consentLevel = consentLevel;
-    if (consentLevel === "none") {
-      this._requestHandler._sessionStore.purge(this);
-    } else {
-      // Copy current values from cookie-less store.
-      await this._requestHandler._sessionStore.set(
-        this,
-        ...(await this._requestHandler._globalStorage.get(
-          this,
-          { scope: "session" },
-          { scope: "device-session" },
-          { scope: "device" },
-          { scope: "user" }
-        ))
-      );
-      await this._requestHandler._sessionStore.set(this, {
-        scope: "session",
-        key: "consent",
-        value: consentLevel,
-      });
-    }
+  public get userId() {
+    return this._userId;
   }
+
+  // public async consent(consentLevel: DataClassification): Promise<void> {
+  //   if (consentLevel === this._consentLevel) return;
+  //   this._consentLevel = consentLevel;
+  //   if (consentLevel === DataClassification.None) {
+  //     this._requestHandler._sessionStore.purge(this);
+  //   } else {
+  //     // Copy current values from cookie-less store.
+  //     await this._requestHandler._sessionStore.set(
+  //       this,
+  //       ...(await this._requestHandler._globalStorage.get(
+  //         this,
+  //         { scope: "session" },
+  //         { scope: "device-session" },
+  //         { scope: "device" },
+  //         { scope: "user" }
+  //       ))
+  //     );
+  //     await this._requestHandler._sessionStore.set(this, {
+  //       scope: "session",
+  //       key: "consent",
+  //       value: consentLevel,
+  //     });
+  //   }
+  // }
 
   public userid?: string;
 
@@ -290,13 +456,13 @@ export class Tracker {
     return await this._requestHandler.post(this, events, options);
   }
 
-  private async _getStoreValue(
-    store: TrackerStorage,
-    scope: TrackerScope,
-    key: string
-  ) {
-    return (await store.get(this, { scope, key }))?.[0]?.value;
-  }
+  // private async _getStoreValue(
+  //   store: TrackerStorage,
+  //   scope: TrackerScope,
+  //   key: string
+  // ) {
+  //   return (await store.get(this, { scope, key }))?.[0]?.value;
+  // }
 
   /** @internal */
   public async _initialize(deviceSessionId?: string, deviceId?: string) {
@@ -304,57 +470,55 @@ export class Tracker {
       return false;
     }
     this._requestId = await this.env.nextId("request");
-    this._consentLevel =
-      (await this._getStoreValue(
-        this._requestHandler._sessionStore,
-        "session",
-        "consent"
-      )) ?? "none";
+    this._consentLevel = DataClassification.None;
+    // (await this._getStoreValue(
+    //   this._requestHandler._sessionStore,
+    //   "session",
+    //   "consent"
+    // )) ?? "none";
 
-    if (this.consentLevel === "none") {
-      this._sessionId = await this._getStoreValue(
-        this._requestHandler._globalStorage,
-        "global",
-        this.clientKey
-      );
+    // if (this.consentLevel === "none") {
+    //   this._sessionId = await this._getStoreValue(
+    //     this._requestHandler._globalStorage,
+    //     "global",
+    //     this.clientKey
+    //   );
 
-      if (!this._sessionId) {
-        this._sessionId = await this.env.nextId();
-        await this._requestHandler._globalStorage.set(this, {
-          scope: "global",
-          key: this.clientKey,
-          value: this._sessionId,
-          ttl: 30 * 60 * 1000,
-        });
-      }
-    } else {
-      this._sessionId = await this._getStoreValue(
-        this._requestHandler._sessionStore,
-        "session",
-        "id"
-      );
-      if (!this._sessionId) {
-        this._sessionId = await this.env.nextId();
-        await this._requestHandler._sessionStore.set(this, {
-          key: "id",
-          scope: "session",
-          value: this._sessionId,
-          consentLevel: "essential",
-        });
-      }
-    }
+    //   if (!this._sessionId) {
+    //     this._sessionId = await this.env.nextId();
+    //     await this._requestHandler._globalStorage.set(this, {
+    //       scope: "global",
+    //       key: this.clientKey,
+    //       value: this._sessionId,
+    //       ttl: 30 * 60 * 1000,
+    //     });
+    //   }
+    // } else {
+    //   this._sessionId = await this._getStoreValue(
+    //     this._requestHandler._sessionStore,
+    //     "session",
+    //     "id"
+    //   );
+    //   if (!this._sessionId) {
+    //     this._sessionId = await this.env.nextId();
+    //     await this._requestHandler._sessionStore.set(this, {
+    //       key: "id",
+    //       scope: "session",
+    //       value: this._sessionId,
+    //       consentLevel: "essential",
+    //     });
+    //   }
+    // }
 
-    this._deviceSessionId = deviceSessionId;
-    this._deviceId = deviceId ?? (await this.get("device", "id"));
-    if (!this._deviceId && this._consentLevel !== "none") {
-      this._deviceId = await this.env.nextId();
-      await this._requestHandler._sessionStore.set(this, {
-        key: "id",
-        scope: "device",
-        value: this._sessionId,
-      });
-    }
-
-    return true;
+    // this._deviceSessionId = deviceSessionId;
+    // this._deviceId = deviceId ?? (await this.get("device", "id"));
+    // if (!this._deviceId && this._consentLevel !== "none") {
+    //   this._deviceId = await this.env.nextId();
+    //   await this._requestHandler._sessionStore.set(this, {
+    //     key: "id",
+    //     scope: "device",
+    //     value: this._sessionId,
+    //   });
+    // }
   }
 }

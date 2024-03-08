@@ -19,6 +19,7 @@ import {
   TrackerEnvironment,
   TrackerExtension,
   TrackerStorage,
+  VariableStorage,
 } from "..";
 import { InMemoryStore } from "./InMemoryStorage";
 
@@ -61,16 +62,12 @@ const mapTrackerVariable = (
     : [variable.value, variable.consentLevel];
 };
 
-export class CookieStorage implements TrackerStorage {
+export class CookieStorage {
   id = "cookies";
-
-  private readonly _storage: TrackerStorage;
 
   public readonly isTrackerStorage = true;
 
-  constructor(backingStore: TrackerStorage) {
-    this._storage = backingStore;
-  }
+  constructor() {}
 
   apply(tracker: Tracker) {
     //if( !)
@@ -120,18 +117,7 @@ export class CookieStorage implements TrackerStorage {
     );
   }
 
-  public async query(
-    tracker: Tracker,
-    ...filters: TrackerVariableFilter[]
-  ): Promise<TrackerVariable[]> {
-    return this._storage.query(tracker, ...filters);
-  }
-
-  public async get(
-    tracker: Tracker,
-    scope: TrackerScope,
-    key: string
-  ): Promise<TrackerVariable | undefined> {
+  public async get(): Promise<TrackerVariable | undefined> {
     return this._storage.get(tracker, scope, key);
   }
 
