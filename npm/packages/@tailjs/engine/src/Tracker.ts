@@ -6,7 +6,7 @@ import {
   VariableFilter,
   VariableHeader,
   VariableKey,
-  VariableKeyWithInitializer,
+  VariableGetter,
   VariablePatchAction,
   VariableQueryResult,
   VariableScope,
@@ -15,6 +15,7 @@ import {
   VariableSetter,
   VariableValuePatch,
   isSuccessResult,
+  Timestamp,
 } from "@tailjs/types";
 import { Transport, createTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, map, params, unparam } from "./lib";
@@ -70,7 +71,7 @@ type TrackerScopedOnly<
 
 export type TrackerVariableKey = TrackerScopedOnly<VariableKey>;
 export type TrackerVariableKeyWithInitializer<T = any> = TrackerScopedOnly<
-  VariableKeyWithInitializer<T>
+  VariableGetter<T>
 >;
 export type TrackerVariableHeader = TrackerScopedOnly<VariableHeader>;
 export type TrackerVariable<T = any> = TrackerScopedOnly<Variable<T>>;
@@ -93,6 +94,7 @@ export type TrackerPostOptions = {
   routeToClient?: boolean;
   deviceSessionId?: string;
   deviceId?: string;
+  userId?: string;
 };
 
 type TrackerVariableGetResult<Result> =
@@ -107,6 +109,28 @@ type VariableGetResults<K extends any[]> = K extends [infer Item]
   : K extends (infer T)[]
   ? TrackerVariableGetResult<T>[]
   : never;
+
+export interface ScopeData {
+  firstSeen: Timestamp;
+  lastSeen: Timestamp;
+  views: number;
+}
+
+export interface SessionData extends ScopeData {
+  id: string;
+  isNew: boolean;
+  previous?: Timestamp;
+}
+
+export interface ServerSessionData extends SessionData {
+  consentLevel: DataClassification;
+  deviceSession?: SessionData;
+  device?: DeviceData;
+}
+
+export interface DeviceData extends ScopeData {
+  values: Partial<Record<DataClassification, any>>;
+}
 
 export class Tracker {
   /**
@@ -194,10 +218,27 @@ export class Tracker {
     return this._clientEvents;
   }
 
-  private _deviceId?: string;
-  private _deviceSessionId?: string;
-  private _sessionId?: string;
-  private _userId: string;
+  /** A unique ID used to look up session data. This is a pointer to the session data that includes the actual session ID.
+   *
+   * In this way the session ID for a pseudonomized cookie-less identifier may be truly anonymized.
+   * It also protects against race conditions. If one concurrent request changes the session (e.g. resets it), the other(s) will see it.
+   */
+  private _sessionReference: String;
+  private _serverSession: ServerSessionData;
+  private _deviceSession?: ServerSessionData;
+  private _device?: DeviceData;
+
+  public get serverSession(): SessionData {
+    return this._serverSession!;
+  }
+
+  public get deviceSession() {
+    return this._deviceSession;
+  }
+
+  public get device() {
+    return this._device;
+  }
 
   /** @Internal */
   public _consentLevel: DataClassification = DataClassification.None;
@@ -520,5 +561,11 @@ export class Tracker {
     //     value: this._sessionId,
     //   });
     // }
+  }
+
+  public async persistScopeData() {}
+
+  private async _initializeScopeData() {
+    //this._sessionReference = this._cons
   }
 }

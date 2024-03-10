@@ -1,8 +1,9 @@
+import { isSet } from "util/types";
 import {
   ConstToTuples,
   GeneralizeContstants,
   IsAny,
-  IsUndefinedNotAny,
+  IterableOrArrayLike,
   KeyValuePairsToObject,
   Minus,
   hasMethod,
@@ -54,6 +55,14 @@ type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
     : [keyof S, S[keyof S]]
   : S extends Iterable<infer T>
   ? T
+  : never;
+
+export type IteratorItems<S extends IteratorSource[]> = S extends [infer S]
+  ? IteratorItem<S>
+  : S extends [infer S, ...infer Rest]
+  ? IteratorItem<S> | IteratorItems<Rest>
+  : S extends (infer S)[]
+  ? IteratorItem<S>
   : never;
 
 export interface IteratorControl<S extends IteratorSource> {
@@ -265,11 +274,11 @@ type MapFunction = {
     source: S,
     projection?: IteratorAction<S, R> | null,
     ...rest: StartEndArgs<S>
-  ): IsUndefinedNotAny<S> extends true ? undefined : IteratorProjection<S, R>[];
+  ): S extends undefined ? undefined : IteratorProjection<S, R>[];
   <S extends IteratorSource, R>(
     source: S,
     ...rest: StartEndArgs<S>
-  ): IteratorProjection<S, R>[];
+  ): S extends undefined ? undefined : IteratorProjection<S, R>[];
 };
 
 export const project: ProjectFunction = ((
@@ -342,19 +351,79 @@ export const map: MapFunction = ((
     : (toArray(source, true) as any);
 }) as any;
 
-function* distinctInternal(source: any, projection: any, ...rest: any[]) {
+export const distinct: ProjectFunction = function* (
+  source: any,
+  projection: any,
+  ...rest: any[]
+) {
   const seen = new Set<any>();
   for (const item of project(source, projection, ...(rest as any))) {
     if (seen.has(source)) continue;
     seen.add(source);
     yield item;
   }
+} as any;
+
+export const mapDistinct = ((source: any, projection: any, ...rest: any[]) =>
+  isDefined(source)
+    ? [...(distinct as any)(source, projection, ...rest)]
+    : source) as MapFunction;
+
+export function* concatIterators<S extends IteratorSource[]>(
+  ...iterators: S
+): Iterable<IteratorItems<S>> {
+  for (const iterator of iterators) {
+    if (!iterator) continue;
+    yield* mapIterator(iterator);
+  }
 }
 
-export const distinct = distinctInternal as any as ProjectFunction;
-export const mapDistinct: MapFunction = (...args: any[]) => [
-  ...(distinctInternal as any)(...args),
-];
+type AllCanBeUndefined<T extends any[]> = T extends [infer S]
+  ? undefined extends S
+    ? true
+    : false
+  : T extends [infer S, ...infer Rest]
+  ? AllCanBeUndefined<Rest> extends false
+    ? false
+    : undefined extends S
+    ? true
+    : false
+  : true;
+
+export const concat = <S extends (IterableOrArrayLike<any> | undefined)[]>(
+  ...iterators: S
+):
+  | (AllCanBeUndefined<S> extends true ? undefined : never)
+  | IteratorItems<S>[] =>
+  iterators.reduce(
+    (r: undefined | any[], it) => (it ? (r ?? []).concat(toArray(it)) : r),
+    undefined
+  ) as any;
+
+export const intersection = <
+  T,
+  A extends Iterable<T> | undefined,
+  B extends Iterable<T> | undefined,
+  MapToArray extends boolean = A extends any[]
+    ? true
+    : B extends any[]
+    ? true
+    : false
+>(
+  a: A,
+  b: B,
+  mapToArray?: MapToArray
+): MapToArray extends true ? T[] : Iterable<T> => {
+  if (!a || !b) return [];
+  isSet(b) && ([b, a] = [a, b] as any);
+  const lookup = isSet(a) ? a : new Set(a);
+  return filter(b, (value) => lookup.has(value), mapToArray) as any;
+};
+
+export const intersects = (
+  a: Iterable<any> | undefined,
+  b: Iterable<any> | undefined
+) => !!count(intersection(a, b));
 
 export const flatMap = <
   S extends IteratorSource,
@@ -541,19 +610,19 @@ export const count = <S>(
 ): UndefinedIfUndefined<S, number> => {
   if (!source) return undefined as any;
 
+  let n: number;
   if (filter) {
     source = filterInternal(source, filter, false, ...rest) as any;
   } else {
+    if (isDefined((n = source!["length"] ?? source!["size"]))) {
+      return n as any;
+    }
     if (isObject(source)) {
       return Object.keys(source).length as any;
     }
-    let n = source!["length"] ?? source!["size"];
-    if (isDefined(n)) {
-      return n;
-    }
     source = mapIterator(source, ...rest);
   }
-  let n = 0;
+  n = 0;
   return forEach(source, () => ++n) as any;
 };
 

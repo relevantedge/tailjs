@@ -1,11 +1,14 @@
 import {
+  VariableGetter,
   VariableKey,
-  VariableKeyWithInitializer,
   VariablePatchAction,
   VariablePatchType,
-  VariableQueryParameters,
+  VariableQuerySettings,
   VariableScope,
+  VariableScopeNames,
   VariableValuePatch,
+  VersionedVariableKey,
+  isErrorResult,
   isSuccessResult,
   isVariablePatchAction,
   type Variable,
@@ -13,11 +16,9 @@ import {
   type VariableQueryResult,
   type VariableSetResult,
   type VariableSetter,
-  VariableScopeNames,
-  isErrorResult,
 } from "@tailjs/types";
 import { MaybePromise, filter, isDefined } from "@tailjs/util";
-import type { TrackerEnvironment, TrackerVariableKeyWithInitializer } from ".";
+import type { TrackerEnvironment } from ".";
 
 export class VariableSetError extends Error {
   constructor(result: VariableSetResult) {
@@ -31,9 +32,7 @@ export class VariableSetError extends Error {
   }
 }
 
-type VariableGetResult<Result> = Result extends VariableKeyWithInitializer<
-  infer T
->
+type VariableGetResult<Result> = Result extends VariableGetter<infer T>
   ? Variable<unknown extends T ? any : T>
   : undefined;
 
@@ -52,9 +51,7 @@ export const getVariableMapKey = <T extends VariableKey | undefined | null>(
   variable: T
 ) =>
   variable
-    ? `${variable.targetId ? variable.scope + variable.targetId : ""}-${
-        variable.key
-      }`
+    ? `${variable.scope}${variable.targetId ?? ""}:${variable.key}`
     : undefined;
 
 export const formatSetResultError = (result?: VariableSetResult) => {
@@ -65,6 +62,17 @@ export const formatSetResultError = (result?: VariableSetResult) => {
     result["error"]?.toString(),
   ]).join(" - ");
 };
+
+export const applyGetFilters = (
+  getter: VariableGetter,
+  variable: Variable | undefined
+) =>
+  !variable ||
+  (isDefined(getter.version) && variable.version === getter.version) ||
+  (isDefined(getter.purpose) &&
+    variable.purposes?.includes(getter.purpose) === false)
+    ? undefined
+    : variable;
 
 export const getPatchedValue = (
   current: Variable | undefined,
@@ -132,14 +140,18 @@ export const getPatchedValue = (
 export interface ReadOnlyVariableStorage {
   initialize?(environment: TrackerEnvironment): MaybePromise<void>;
 
-  get<K extends (VariableKey | null | undefined)[]>(
+  get<K extends (VariableGetter | null | undefined)[]>(
     ...keys: K
   ): MaybePromise<VariableGetResults<K>>;
 
+  head(
+    filters: VariableFilter[],
+    options?: VariableQuerySettings
+  ): MaybePromise<VariableQueryResult<VersionedVariableKey>>;
   query(
     filters: VariableFilter[],
-    options?: VariableQueryParameters
-  ): MaybePromise<VariableQueryResult>;
+    options?: VariableQuerySettings
+  ): MaybePromise<VariableQueryResult<Variable>>;
 }
 
 export const isWritable = (
@@ -153,7 +165,7 @@ export interface VariableStorage extends ReadOnlyVariableStorage {
 
   renew(scopes: VariableScope[], scopeIds: string[]): MaybePromise<void>;
 
-  get<K extends (VariableKeyWithInitializer | null | undefined)[]>(
+  get<K extends (VariableGetter | null | undefined)[]>(
     ...keys: K
   ): MaybePromise<VariableGetResults<K>>;
 

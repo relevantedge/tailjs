@@ -1,20 +1,23 @@
 import {
   Variable,
   VariableFilter,
-  VariableKeyWithInitializer,
+  VariableGetter,
+  VariableKey,
   VariablePatchAction,
-  VariableQueryParameters,
   VariableQueryResult,
+  VariableQuerySettings,
   VariableScope,
   VariableScopes,
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
   VariableValuePatch,
+  VersionedVariableKey,
   isConflictResult,
   isSuccessResult,
 } from "@tailjs/types";
 import {
+  AsyncValue,
   ValueType,
   delay,
   filter,
@@ -24,11 +27,13 @@ import {
   isDefined,
   isUndefined,
   map,
+  waitAll,
 } from "@tailjs/util";
 import {
   ReadOnlyVariableStorage,
   VariableGetResults,
   VariableStorage,
+  applyGetFilters,
   getPatchedValue,
   getVariableMapKey,
   isWritable,
@@ -309,7 +314,14 @@ export class VariableStorageRouter implements VariableStorage {
           }
         }
       } else {
-        for (const prefix of filter.prefixes ?? this._prefixMappings.keys()) {
+        const include = filter.prefixes?.include ?? this._prefixMappings.keys();
+        const exclude = filter.prefixes?.exclude
+          ? new Set(filter.prefixes?.exclude)
+          : null;
+
+        for (const prefix of include) {
+          if (exclude?.has(prefix)) continue;
+
           // Apply the filters from the route mapping before forwarding the filters to the source storages
           // to make sure that we don't get data from a storage beyond what is routed.
           this._prefixMappings.get(prefix)?.forEach((mapping) => {
@@ -334,6 +346,11 @@ export class VariableStorageRouter implements VariableStorage {
     }
 
     return splits;
+  }
+
+  public isRouted(key: VariableKey) {
+    let routedKey = this._mapKey(key.scope, key.key, false)?.key;
+    return routedKey && routedKey !== key.key;
   }
 
   private async _distpatchSetters(
@@ -421,7 +438,7 @@ export class VariableStorageRouter implements VariableStorage {
       });
     }
 
-    let promises: Promise<void>[] = [];
+    let promises: AsyncValue<void>[] = [];
 
     // Patches that were not supported by their storage grouped by storage, then by key.
     // (Multiple patches may exist for the same key with different selectors).
@@ -439,92 +456,100 @@ export class VariableStorageRouter implements VariableStorage {
       );
     });
 
-    await Promise.all(promises);
+    await waitAll(promises);
 
     // One or more of the storages did not supported the requested kind of patch operation.
     // We apply the patches via optimistic concurrency.
     if (patches?.size) {
       promises = [];
       patches.forEach((mappings, storage) => {
-        promises.push(
-          (async () => {
-            const keys = map(mappings, ([, values]) => values[0].setter);
+        promises.push(async () => {
+          const keys = map(mappings, ([, values]) => values[0].setter);
 
-            const vars = new Map(
-              filter(await storage.get(...keys)).map((value) => [
-                getVariableMapKey(value),
-                value,
-              ])
-            );
+          const vars = new Map(
+            filter(await storage.get(...keys)).map((value) => [
+              getVariableMapKey(value),
+              value,
+            ])
+          );
 
-            keys.forEach((key) => {
-              const mapKey = getVariableMapKey(key);
-              if (!vars.has(mapKey)) {
-                // Add new values (that is, keys that did not exist in the storage).
-                vars.set(mapKey, {
-                  ...key,
-                  value: undefined,
-                  version: undefined,
+          keys.forEach((key) => {
+            const mapKey = getVariableMapKey(key);
+            if (!vars.has(mapKey)) {
+              // Add new values (that is, keys that did not exist in the storage).
+              vars.set(mapKey, {
+                ...key,
+                value: undefined,
+                version: undefined,
+              });
+            }
+          });
+
+          const updates: SetterMapping[] = [];
+          mappings.forEach((mappings) =>
+            mappings.forEach((mapping) => {
+              const key = getVariableMapKey(mapping.setter);
+              const current = vars.get(key) ?? {
+                ...mapping.setter,
+                version: undefined,
+                value: undefined,
+              };
+              const patchedValue = getPatchedValue(current, mapping.setter);
+              if (patchedValue.changed) {
+                current.value = patchedValue.patchedValue;
+                updates.push({
+                  ...mapping,
+                  setter: {
+                    ...mapping.setter,
+                    version: current.version,
+                    value: patchedValue[0],
+                  },
                 });
               }
-            });
+            })
+          );
 
-            const updates: SetterMapping[] = [];
-            mappings.forEach((mappings) =>
-              mappings.forEach((mapping) => {
-                const key = getVariableMapKey(mapping.setter);
-                const current = vars.get(key) ?? {
-                  ...mapping.setter,
-                  version: undefined,
-                  value: undefined,
-                };
-                const patchedValue = getPatchedValue(current, mapping.setter);
-                if (patchedValue.changed) {
-                  current.value = patchedValue.patchedValue;
-                  updates.push({
-                    ...mapping,
-                    setter: {
-                      ...mapping.setter,
-                      version: current.version,
-                      value: patchedValue[0],
-                    },
-                  });
-                }
-              })
+          if (updates.length) {
+            await this._distpatchSetters(
+              storage,
+              updates,
+              results,
+              (patches ??= new Map())
             );
-
-            if (updates.length) {
-              await this._distpatchSetters(
-                storage,
-                updates,
-                results,
-                (patches ??= new Map())
-              );
-            }
-          })()
-        );
+          }
+        });
       });
-      await Promise.all(promises);
+      await waitAll(promises);
     }
 
     return results;
   }
 
-  public async get<K extends (VariableKeyWithInitializer | null | undefined)[]>(
-    ...keys: K
+  public async get<K extends (VariableGetter | null | undefined)[]>(
+    ...getters: K
   ): Promise<VariableGetResults<K>> {
-    if (keys.length === 1) {
-      const key = keys[0];
-      if (!key) return [undefined] as any;
-      const mapping = this._mapKey(key.scope, key.key);
-      return (await mapping.storage.get({
-        scope: key.scope,
-        key: mapping.key,
-        targetId: key.targetId,
-      })) as any;
+    if (getters.length === 1 && !getters[0]?.initializer) {
+      // Fast path if no initializer and a single variable.
+      const getter = getters[0];
+      if (!getter) return [undefined] as any;
+      const mapping = this._mapKey(getter.scope, getter.key);
+      const result = applyGetFilters(
+        getter,
+        await mapping.storage.get({
+          scope: getter.scope,
+          key: mapping.key,
+          targetId: getter.targetId,
+        })[0]
+      );
+      return [
+        result && result.key !== mapping.key
+          ? { ...result, key: mapping.key }
+          : result,
+      ] as any;
     }
+
     const finalResults: (Variable | undefined)[] = [];
-    const mappedKeys = map(keys, (key, sourceIndex) => {
+    const mappedKeys = map(getters, (key, sourceIndex) => {
       return key
         ? {
             scope: key.scope,
@@ -540,7 +565,7 @@ export class VariableStorageRouter implements VariableStorage {
     const mappings = group(mappedKeys, (item) => item.storage);
     await Promise.all(
       map(mappings, ([storage, mappedKeys]) => async () => {
-        let missingInit: ValueType<typeof mappedKeys>[] = null!;
+        let pendingInitializers: ValueType<typeof mappedKeys>[] = null!;
         (await storage.get(...mappedKeys)).forEach((result, i) => {
           const mapped = mappedKeys[i];
 
@@ -553,25 +578,27 @@ export class VariableStorageRouter implements VariableStorage {
                 }
               : result);
           if (!result && mapped.initializer) {
-            (missingInit ??= []).push(mapped);
+            (pendingInitializers ??= []).push(mapped);
           }
         });
-        if (missingInit) {
+        if (pendingInitializers) {
           if (!isWritable(storage)) {
             throw new Error(
-              `The variables ${missingInit
+              `The variables ${pendingInitializers
                 .map((mapping) => `'${mapping.originalKey}'`)
                 .join(
                   ", "
                 )} can not be initialized since their storage is not writable.`
             );
           }
-          const setters: Variable[] = missingInit.map((mapping) => ({
-            ...mapping.initializer!(),
-            scope: mapping.scope,
-            key: mapping.key,
-            targetId: mapping.targetId,
-          }));
+          const setters: Variable[] = await waitAll(
+            pendingInitializers.map(async (mapping) => ({
+              ...(await mapping.initializer!()),
+              scope: mapping.scope,
+              key: mapping.key,
+              targetId: mapping.targetId,
+            }))
+          );
 
           const results = await storage.set(...setters);
           results.forEach((result, i) => {
@@ -588,10 +615,17 @@ export class VariableStorageRouter implements VariableStorage {
     return finalResults as any;
   }
 
+  head(
+    filters: VariableFilter[],
+    options?: VariableQuerySettings | undefined
+  ): Promise<VariableQueryResult<VersionedVariableKey>> {
+    return this.query(filters, options);
+  }
+
   async query(
     filters: VariableFilter[],
-    options?: VariableQueryParameters | undefined
-  ): Promise<VariableQueryResult> {
+    options?: VariableQuerySettings | undefined
+  ): Promise<VariableQueryResult<Variable>> {
     const split = this._splitFilters(filters);
     // We keep the last count returned from each storage.
     // If at least one of the storages returns a cursor, we have then captured the count from those that didn't.
@@ -605,33 +639,31 @@ export class VariableStorageRouter implements VariableStorage {
 
     const storageResults = new Map<
       ReadOnlyVariableStorage,
-      VariableQueryResult
+      VariableQueryResult<Variable>
     >();
 
-    await Promise.all(
-      map(split, ([storage, filters]) =>
-        (async () => {
-          const storageCursor =
-            split.size > 1
-              ? cursor?.[this._storages.get(storage)!.id]?.[1]
-              : options?.cursor;
-          if (cursor && !isDefined(storageCursor)) {
-            return;
-          }
-          storageResults.set(
-            storage,
-            await storage.query(
-              filters,
-              options
-                ? {
-                    ...options,
-                    cursor: storageCursor,
-                  }
-                : undefined
-            )
-          );
-        })()
-      )
+    await waitAll(
+      map(split, ([storage, filters]) => async () => {
+        const storageCursor =
+          split.size > 1
+            ? cursor?.[this._storages.get(storage)!.id]?.[1]
+            : options?.cursor;
+        if (cursor && !isDefined(storageCursor)) {
+          return;
+        }
+        storageResults.set(
+          storage,
+          await storage.query(
+            filters,
+            options
+              ? {
+                  ...options,
+                  cursor: storageCursor,
+                }
+              : undefined
+          )
+        );
+      })
     );
 
     if (storageResults.size === 1) {
@@ -641,7 +673,10 @@ export class VariableStorageRouter implements VariableStorage {
       }
     }
 
-    const finalResults: VariableQueryResult = { count: 0, results: [] };
+    const finalResults: VariableQueryResult<Variable> = {
+      count: 0,
+      results: [],
+    };
     let anyCursor = false;
     const nextCursor: typeof cursor = {};
     for (const storage of split.keys()) {
@@ -726,7 +761,7 @@ export class VariableStorageRouter implements VariableStorage {
   }
 
   async renew(scopes: VariableScope[], targetIds: string[]) {
-    await Promise.all(
+    await waitAll(
       map(this._storages.values(), (mapping) => {
         const storageScopes = scopes.filter((scope) =>
           mapping.scopes.has(scope)
@@ -740,7 +775,7 @@ export class VariableStorageRouter implements VariableStorage {
 
   async purge(filters: VariableFilter[], batch?: boolean): Promise<void> {
     const split = this._splitFilters(filters);
-    await Promise.all(
+    await waitAll(
       map(split, ([storage, filters]) => {
         return isWritable(storage)
           ? async () => {

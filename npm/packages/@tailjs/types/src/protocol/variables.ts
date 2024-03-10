@@ -16,13 +16,6 @@ export interface VariableFilter {
   keys?: string[];
 
   /**
-   * Limits the results to variables created or updated after this timestamp.
-   */
-  ifModifiedSince?: Timestamp;
-
-  //ifChanged?:
-
-  /**
    * When multiple storages are used for different purposes, the query only goes to the storages registered for these prefixes.
    * Storages that are not explicitly registered for a prefix implicitly have the prefix "".
    */
@@ -35,6 +28,11 @@ export interface VariableFilter {
    * For example [["tag1", "tag2"], ["tag3"]] will match variables that either have _both_  "tag1" and "tag2" or just "tag3".
    */
   tags?: string[][];
+
+  /**
+   * Limits the variables by their origin. This is in particular useful for purging all data related to an extension or feature.
+   */
+  origins?: string[];
 
   /**
    * Limits the results to variables with these classifications.
@@ -56,6 +54,37 @@ export interface VariableFilter {
   purposes?: DataPurpose[];
 }
 
+/** Settings that controls how results are returned when querying variables. */
+export interface VariableQuerySettings {
+  /**
+   * Do not return more results than this.
+   */
+  top?: number;
+
+  /**
+   * Used for paging by specifying the value of {@link VariableQueryResult.cursor} from a previous query result.
+   */
+  cursor?: any;
+
+  /**
+   * Limits the results to variables created or updated after this timestamp.
+   */
+  ifModifiedSince?: Timestamp;
+
+  /**
+   * Limits the results to variables that are not included here or have a different version.
+   *
+   * Can be used to reduce the data transferred when refreshing the values of variables already loaded.
+   */
+  ifNoneMatch?: VersionedVariableKey[];
+}
+
+export interface VariableQueryResult<T> {
+  count?: number;
+  results: T[];
+  cursor?: any;
+}
+
 /**
  * Uniquely addresses a variable by scope, target and key name.
  */
@@ -69,6 +98,8 @@ export interface VariableKey {
  * Defines the version of a variable value.
  * The storage containing the variable defines the semantics of the version and what it contains.
  *
+ * If the version is undefined it means the variable does not yet exist.
+ *
  * Versioning is used for what is called "optimistic concurrency" to make sure that if two things try to update the same variable
  * at the same time, one of them will get an error and be told that the value has changed since it was read.
  */
@@ -79,16 +110,35 @@ export interface VariableVersion {
 /**
  *  Uniquely addresses a variable's value by its version and the variable's scope, target and key name.
  */
-export interface VersionedVariableKey extends VariableKey, VariableValue {}
+export interface VersionedVariableKey extends VariableKey, VariableVersion {}
 
 /**
  * Defines how the value of variable is classified and for which purposes it can be used.
- * A variable can also have optional tags that can be used for queries, for example all fields related to an address may have the tag "address".
  */
-export interface VariableSettings {
+export interface VariableMetadata {
+  /**
+   * The legal classification of the kind of data a variable holds.
+   * This limits which data will be stored based on a user's consent.
+   */
   classification: DataClassification;
+
+  /**
+   * Optionally defines the possible uses of the data a variables holds.
+   * When a variable is requested by some logic, it may be stated what the data is used for.
+   * If the user has not consented to data being used for this purpose the variable will not be avaiable.
+   */
   purposes?: DataPurpose[];
+
+  /**
+   * Optional tags that can be used for queries, for example all variables related to an address (address, postal code, city, ...) may have the tag "address".
+   */
   tags?: string[];
+
+  /**
+   * An optional string describing the origin of the variable.
+   * It is best practice that extensions include their name or purpose here, e.g. "geo-data".
+   */
+  origin?: string;
 }
 
 /**
@@ -96,18 +146,37 @@ export interface VariableSettings {
  */
 export interface VariableHeader
   extends VariableKey,
-    VariableSettings,
+    VariableMetadata,
     VariableVersion {}
 
 /**
  * Represents the value of a variable regardless of its key, version and other settings.
  */
 export interface VariableValue<T = any> {
-  created?: number;
-  modified?: number;
+  /**
+   * The date the variable was stored for the first time.
+   * This value comes from a storage and cannot be set via the API.
+   */
+  created?: Timestamp;
+
+  /**
+   * The date the variable was last stored including both updates and creation.
+   * This value comes from a storage and cannot be set via the API.
+   */
+  modified?: Timestamp;
+
+  /**
+   * The value of a variable. This can be both primitive and structured values.
+   *
+   * If a variable is saved with the value of `undefined` it will be deleted.
+   * A storage will never return a value with the value `undefined`
+   */
   value: T | undefined;
 }
 
+/**
+ * Represents a variable with its key, settings, version and value.
+ */
 export interface Variable<T = any> extends VariableHeader, VariableValue<T> {}
 
 export type VariableForScope<
@@ -130,23 +199,22 @@ export interface TargetedVariable<T = any> extends Variable<T> {
   scope: TargetedVariableScope;
 }
 
-export interface VariableQueryParameters {
-  top?: number;
-  cursor?: any;
-}
-
-export interface VariableQueryResult {
-  count?: number;
-  results: Variable[];
-  cursor?: any;
-}
-
-export interface VariableKeyInitializer<T = any> extends VariableSettings {
+export interface VariableKeyInitializer<T = any> extends VariableMetadata {
   value: T;
 }
 
-export interface VariableKeyWithInitializer<T = any> extends VariableKey {
-  initializer?: () => VariableKeyInitializer<T>;
+/**
+ * Uniquely addresses a variable by scope, target and key name, optionally with the purpose(s) it will be used for.
+ *
+ * - If a version is specified and the stored version matches this, a result will not be returned.
+ * - If a purpose is specified, the variable is stored with the purposes it can be used for and do not include this,
+ * a result will also not be returned. (best practice)
+ */
+export interface VariableGetter<T = any> extends VersionedVariableKey {
+  initializer?: () =>
+    | VariableKeyInitializer<T>
+    | Promise<VariableKeyInitializer<T>>;
+  purpose?: DataPurpose;
 }
 
 export const VariableScopes = [0, 1, 2, 3, 4, 5];
@@ -217,7 +285,8 @@ export type VariableSetResult<T = any> = {
 } & (
   | ({
       status: VariableSetStatus.Success | VariableSetStatus.Unchanged;
-    } & VariableValue<T>)
+    } & VariableVersion &
+      VariableValue<T>)
   | {
       status:
         | VariableSetStatus.Denied
