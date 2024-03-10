@@ -376,6 +376,7 @@ export const remove: {
   ): (T extends null | undefined ? T : ValueType<T, KeyType<T>, undefined>)[];
 } = (target: PropertyContainer, key: any, ...keys: any[]) => {
   if (!target) return undefined;
+
   if (keys.length) {
     // Sort array keys descending as they would otherwise not match their offset as the array is spliced along the way.
     return (isArray(target) ? keys.sort((x, y) => y - x) : keys).map((key) =>

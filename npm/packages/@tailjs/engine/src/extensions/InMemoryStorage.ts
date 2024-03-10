@@ -1,27 +1,36 @@
 import {
   Variable,
   VariableFilter,
-  VariableKey,
-  VariableQueryParameters,
+  VariableGetter,
   VariableQueryResult,
+  VariableQuerySettings,
   VariableScope,
   VariableScopes,
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
-  isVariableValuePatch,
+  VersionedVariableKey,
   isVariablePatchAction,
-  VariableKeyWithInitializer,
+  isVariableValuePatch,
 } from "@tailjs/types";
 import {
   MaybePromise,
   clock,
+  concat,
   forEach,
   get,
+  isDefined,
   isUndefined,
+  mapDistinct,
   now,
 } from "@tailjs/util";
-import { VariableGetResults, VariableStorage, getPatchedValue } from "..";
+import {
+  VariableGetResults,
+  VariableStorage,
+  applyGetFilters,
+  getPatchedValue,
+  getVariableMapKey,
+} from "..";
 
 type ScopeVariables = [expires: number | undefined, Map<string, Variable>];
 
@@ -50,26 +59,41 @@ export class InMemoryStorage implements VariableStorage {
       ? Object.fromEntries(Object.entries(ttl).filter(([, value]) => value > 0))
       : undefined;
 
-    clock(() => {
-      const t0 = now();
-      forEach(this._ttl, ([scope, ttl]) => {
-        if (isUndefined(ttl)) return;
+    ttl &&
+      clock(() => {
+        const t0 = now();
+        forEach(this._ttl, ([scope, ttl]) => {
+          if (isUndefined(ttl)) return;
 
-        const variables = this._variables[scope];
-        variables?.forEach(
-          (variable, key) => variable[0]! <= t0 - ttl && variables.delete(key)
-        );
-      });
-    }, 10000);
+          const variables = this._variables[scope];
+          variables?.forEach(
+            (variable, key) => variable[0]! <= t0 - ttl && variables.delete(key)
+          );
+        });
+      }, 10000);
   }
 
   private _remove(variable: Variable) {
     return this._variables[variable.scope].delete(variable.key);
   }
 
-  private _query(filters: VariableFilter[]): Variable[] {
+  private _query(
+    filters: VariableFilter[],
+    settings?: VariableQuerySettings
+  ): Variable[] {
     const results: Variable[] = [];
     const t0 = now();
+
+    const ifNoneMatch = settings?.ifNoneMatch
+      ? new Map(
+          settings.ifNoneMatch.map((variable) => [
+            getVariableMapKey(variable),
+            variable.version,
+          ])
+        )
+      : null;
+    const ifModifiedSince = settings?.ifModifiedSince ?? 0;
+
     for (const filter of filters) {
       for (const scope of filter.scopes ?? VariableScopes) {
         const targets = this._variables[scope];
@@ -85,7 +109,12 @@ export class InMemoryStorage implements VariableStorage {
               filter.purposes?.every(
                 (purpose) => variable.purposes?.includes(purpose) === false
               ) ||
-              filter.tags?.every((tag) => variable.tags?.includes(tag)) ===
+              filter.tags?.some(
+                (tags) =>
+                  tags.every((tag) => variable.tags?.includes(tag) === true) ===
+                  false
+              ) ||
+              filter.origins?.some((origin) => variable.origin === origin) ===
                 false ||
               (filter.classifications &&
                 (variable.classification <
@@ -96,8 +125,22 @@ export class InMemoryStorage implements VariableStorage {
                     (level) => variable.classification === level
                   ) === false))
             ) {
+              // The variable did not match the query filters.
               continue;
             }
+
+            let matchVersion: string | undefined;
+            if (
+              (ifModifiedSince && variable.modified! < ifModifiedSince!) ||
+              (isDefined(
+                (matchVersion = ifNoneMatch?.get(getVariableMapKey(variable)))
+              ) &&
+                variable.version === matchVersion)
+            ) {
+              // Skip the variable because it is too old or unchanged based on the settings provided for the query.
+              continue;
+            }
+
             results.push(variable);
           }
         }
@@ -130,25 +173,35 @@ export class InMemoryStorage implements VariableStorage {
     }
   }
 
-  get<K extends (VariableKeyWithInitializer | null | undefined)[]>(
+  get<K extends (VariableGetter | null | undefined)[]>(
     ...keys: K
   ): VariableGetResults<K> {
-    return keys.map((key) =>
-      key
+    return keys.map((getter) =>
+      getter
         ? clone(
-            this._variables[key.scope]
-              ?.get(key.targetId ?? "")?.[1]
-              .get(key.key)
+            applyGetFilters(
+              getter,
+              this._variables[getter.scope]
+                ?.get(getter.targetId ?? "")?.[1]
+                .get(getter.key)
+            )
           )
         : undefined
     ) as any;
   }
 
+  head(
+    filters: VariableFilter[],
+    options?: VariableQuerySettings | undefined
+  ): VariableQueryResult<VersionedVariableKey> {
+    return this.query(filters, options);
+  }
+
   query(
     filters: VariableFilter[],
-    options?: VariableQueryParameters
-  ): VariableQueryResult {
-    const results = this._query(filters);
+    options?: VariableQuerySettings
+  ): VariableQueryResult<Variable> {
+    const results = this._query(filters, options);
     return {
       count: results.length,
       results: (options?.top ? results.slice(options.top) : results).map(
@@ -233,11 +286,9 @@ export class InMemoryStorage implements VariableStorage {
         value,
         classification,
         version: "" + ++this._nextVersion,
-
-        // Put last to keep V8 shape when cloning in get and query.
         targetId,
         scope,
-        purposes: purposes && [...purposes],
+        purposes: mapDistinct(concat(current?.purposes, purposes)),
         tags: tags && [...tags],
       };
 

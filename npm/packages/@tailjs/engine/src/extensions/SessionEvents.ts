@@ -63,34 +63,16 @@ const applyDefaults = (
   return configuration as any;
 };
 
-export interface Data {
-  lastSeen: Timestamp;
-  views: number;
-}
-
-export interface SessionData extends Data {
-  timestamp: Timestamp;
-  isNew: boolean;
-}
-
-export interface ServerSessionData extends SessionData {
-  queryDevice?: boolean;
-}
-
-export interface DeviceSessionData extends SessionData {}
-
-export interface DeviceData extends Data {
-  firstSeen: Timestamp;
-}
 
 const DATA_KEY = "stat";
 const QUERY_DEVICE = "query_device";
 
-const createInitialSessionStats = (timestamp: Timestamp): SessionData => ({
-  timestamp,
+const createInitialSessionStats = (id: string, firstSeen: Timestamp): SessionData => ({
+  id,
+  firstSeen,
+  lastSeen: firstSeen,
   isNew: true,
   views: 0,
-  lastSeen: timestamp,
 });
 
 const createInitialDeviceStats = (timestamp: Timestamp): DeviceData => ({
@@ -112,6 +94,7 @@ export class SessionEvents implements TrackerExtension {
     internalServerSessionId: string,
     internalClientSessionId: string|undefined,
     deviceId: string | undefined){
+      const device = tracker.deviceId && (await tracker.get({key: DATA_KEY, scope: VariableScope.Device}));
 
     }
 
@@ -130,6 +113,7 @@ export class SessionEvents implements TrackerExtension {
       (ev) => ev.timestamp! < timestamp && (timestamp = ev.timestamp!)
     );
 
+    const device = await tracker.get
     let [serverSession, deviceSession, device] = await tracker.get(
       {
         key: DATA_KEY,

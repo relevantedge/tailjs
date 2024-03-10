@@ -6,8 +6,10 @@ import {
 } from "@tailjs/util/transport";
 import ShortUniqueId from "short-unique-id";
 
+import { Nulls, isString } from "@tailjs/util";
 import { formatError, params } from "./lib";
 import {
+  LogLevel,
   VariableStorage,
   type ChangeHandler,
   type Cookie,
@@ -17,14 +19,8 @@ import {
   type HttpResponse,
   type LogMessage,
   type ModelMetadata,
-  LogLevel,
 } from "./shared";
-import { Nulls, isObject, isString } from "@tailjs/util";
-import {
-  InMemoryStorage,
-  StorageRoute,
-  VariableStorageRouter,
-} from "./extensions";
+import { VariableStorageRouter } from "./extensions";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
@@ -59,14 +55,14 @@ export class TrackerEnvironment {
   public readonly tags?: string[];
   public readonly hasManagedConsents: boolean;
   public readonly cookieVersion: string;
-  public readonly storage: VariableStorage;
+  public readonly storage: VariableStorageRouter;
 
   constructor(
     host: EngineHost,
     crypto: CryptoProvider,
     metadata: ModelMetadata,
     hasManagedConsents: boolean,
-    storage: VariableStorage,
+    storage: VariableStorageRouter,
     tags?: string[],
     cookieVersion = "C"
   ) {

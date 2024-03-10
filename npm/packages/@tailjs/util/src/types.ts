@@ -56,11 +56,11 @@ type FunctionComparisonEquals<A, B> = (<
 export type IsAny<T> = FunctionComparisonEquals<T, any>;
 
 /**
- * Tests if a type is undefined but not `any`.
+ * Only returns the type if it is not `any`.
  */
-export type IsUndefinedNotAny<T> = T extends undefined
-  ? false
-  : FunctionComparisonEquals<T, any>;
+export type ExcludeAny<T> = FunctionComparisonEquals<T, any> extends true
+  ? never
+  : T;
 
 /**
  * Utility type to allow `as const` to be used on tuples returned from functions without actually making them `readonly` (which is annoying).
@@ -432,7 +432,7 @@ export const clone = <T>(value: T, depth: number | boolean = true): T =>
           map(value as any, ([k, v]) => [
             k,
             clone(v, depth === true || --(depth as any)),
-          ])
+          ])!
         )
       : { ...value }
     : (value as any);
