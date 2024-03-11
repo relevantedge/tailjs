@@ -1,21 +1,27 @@
 import {
   Variable,
   VariableClassification,
+  VariableGetter,
   VariableKey,
   VariableScope,
 } from "@tailjs/types";
 import { isDefined, isUndefined } from "@tailjs/util";
-import { Tracker, VariableStorage } from "..";
+import { Tracker, VariableGetResults, VariableStorage, parseKey } from "..";
 import { InMemoryStorageBase, ScopeVariables } from "./InMemoryStorage";
+
+const validateTargetId = (
+  targetId: string | undefined,
+  allowed: string | undefined
+) => isDefined(allowed) && (isUndefined(targetId) || targetId === allowed);
 
 export class TrackerStorage extends InMemoryStorageBase {
   private readonly _variables: ScopeVariables[];
-  private readonly _persistentStorage: VariableStorage;
+  private readonly _backingStorage: VariableStorage;
 
   constructor(public readonly tracker: Tracker) {
     super();
     this._variables = [];
-    this._persistentStorage = tracker.env.storage;
+    this._backingStorage = tracker.env.storage;
 
     [VariableScope.Session, VariableScope.Device].forEach(
       (scope) => (this._variables[scope] = [undefined, new Map()])
@@ -91,5 +97,54 @@ export class TrackerStorage extends InMemoryStorageBase {
     return this._variables[scope] && targetId
       ? [[targetId, this._variables[scope]]]
       : [];
+  }
+
+  private _validateKey({ scope, targetId }: VariableKey) {
+    return (
+      (scope !== VariableScope.Device ||
+        validateTargetId(targetId, this.tracker.deviceId)) &&
+      (scope !== VariableScope.User ||
+        validateTargetId(targetId, this.tracker.userId)) &&
+      (scope !== VariableScope.Session ||
+        validateTargetId(targetId, this.tracker.sessionId))
+    );
+  }
+
+  async get<K extends (VariableGetter | null | undefined)[]>(
+    ...getters: K
+  ): Promise<VariableGetResults<K>> {
+    const results: VariableGetResults<K> = Array(getters.length) as any;
+
+    const own: { sourceIndex: number; getter: VariableGetter }[] = [];
+    const external: typeof own = [];
+
+    getters.forEach((getter, sourceIndex) => {
+      if (!getter || !this._validateKey(getter)) {
+        return;
+      }
+
+      const parsed = parseKey(getter.key);
+      (parsed.prefix || !this._variables[getter.scope] ? external : own).push({
+        sourceIndex,
+        getter,
+      });
+    });
+
+    if (external.length) {
+      (
+        await this._backingStorage.get(
+          ...external.map((item) => item.getter as VariableGetter<any, false>)
+        )
+      ).forEach((result, i) => (results[external[i][0]] = result));
+    }
+    if (own.length) {
+      (
+        await super.get(
+          ...own.map((item) => item.getter as VariableGetter<any, false>)
+        )
+      ).forEach((result, i) => (results[own[i][0]] = result));
+    }
+
+    return results;
   }
 }

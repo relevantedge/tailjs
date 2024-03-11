@@ -1,4 +1,5 @@
 import {
+  DataPurpose,
   Variable,
   VariableClassification,
   VariableGetter,
@@ -142,6 +143,8 @@ export type ParsedKey = {
   prefix: string;
   localKey: string;
   sourceKey: string;
+
+  purpose?: DataPurpose;
 };
 
 export const parseKey = <T extends string | undefined>(

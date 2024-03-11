@@ -250,9 +250,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   async get<K extends (VariableGetter | null | undefined)[]>(
-    ...keys: K
+    ...getters: K
   ): Promise<VariableGetResults<K>> {
-    const values = keys.map((getter) => ({
+    const values = getters.map((getter) => ({
       value: getter
         ? applyGetFilters(
             getter,

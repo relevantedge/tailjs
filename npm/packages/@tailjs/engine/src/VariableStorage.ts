@@ -62,10 +62,10 @@ export type VariableSetResults<K extends any[]> = K extends [infer Item]
   ? MapVariableSetResult<T>[]
   : never;
 
-export interface ReadOnlyVariableStorage {
+export interface ReadOnlyVariableStorage<Scoped extends boolean = false> {
   initialize?(environment: TrackerEnvironment): MaybePromise<void>;
 
-  get<K extends (VariableGetter<any, false> | null | undefined)[]>(
+  get<K extends (VariableGetter<any, Scoped> | null | undefined)[]>(
     ...keys: K
   ): MaybePromise<VariableGetResults<K>>;
 
@@ -83,14 +83,15 @@ export const isWritable = (
   storage: ReadOnlyVariableStorage
 ): storage is VariableStorage => (storage as any).set;
 
-export interface VariableStorage extends ReadOnlyVariableStorage {
+export interface VariableStorage<Scoped extends boolean = false>
+  extends ReadOnlyVariableStorage<Scoped> {
   configureScopeDurations(
     durations: Partial<Record<VariableScope, number>>
   ): void;
 
   renew(scopes: VariableScope[], scopeIds: string[]): MaybePromise<void>;
 
-  set<K extends VariableSetter<any, false>[]>(
+  set<K extends VariableSetter<any, Scoped>[]>(
     ...variables: K
   ): MaybePromise<VariableSetResults<K>>;
 
