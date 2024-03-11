@@ -431,7 +431,7 @@ export class Tracker {
   //   }
   // }
 
-  public userid?: string;
+  public userId?: string;
 
   public httpClientEncrypt(value: any): string {
     return this._clientCipher[0](value);

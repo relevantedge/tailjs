@@ -143,7 +143,7 @@ export class SessionEvents implements TrackerExtension {
         sessionId: tracker.sessionId,
         timestamp: serverSession.,
         deviceId: tracker.deviceId,
-        username: tracker.userid,
+        username: tracker.userId,
       };
 
       if (this._configuration.includeIp !== false) {
@@ -173,12 +173,12 @@ export class SessionEvents implements TrackerExtension {
           }
         }
       } else if (isSignInEvent(event)) {
-        const changed = tracker.userid && tracker.userid != event.username;
+        const changed = tracker.userId && tracker.userId != event.username;
         if (changed) {
           await tracker.session.reset();
           await tracker.deviceSession.reset();
         }
-        tracker.userid = event.session.username = event.username;
+        tracker.userId = event.session.username = event.username;
         if (changed) {
           patched.splice(
             -1,
@@ -187,8 +187,8 @@ export class SessionEvents implements TrackerExtension {
           );
         }
       } else if (isSignOutEvent(event)) {
-        event.username = tracker.userid;
-        tracker.userid = undefined;
+        event.username = tracker.userId;
+        tracker.userId = undefined;
         await tracker.session.reset();
         patched.push(this._getSessionStartedEvent(tracker, event.timestamp));
       }
