@@ -195,15 +195,12 @@ export const sharedStorage = mapStorage({
   },
 });
 
-const purgeTask = clock(
-  () => {
-    forEach(localStorage, ([key, value]) => !purgeIfExpired(key as any, value));
-  },
-  {
-    frequency: 2000,
-    trigger: true,
-  }
-);
+const purgeTask = clock({
+  frequency: 2000,
+  callback: () =>
+    forEach(localStorage, ([key, value]) => !purgeIfExpired(key as any, value)),
+  trigger: true,
+});
 addPageLoadedListener((loaded) => purgeTask.toggle(loaded));
 
 export const bindStorage: {

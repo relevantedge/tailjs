@@ -16,25 +16,33 @@ export type Lock<D = any> = {
 export class ResetablePromise<T = void, E = any> implements PromiseLike<T> {
   private _promise: OpenPromise<T>;
 
+  constructor() {
+    this.reset();
+  }
+
   public get value() {
     return this._promise.value;
   }
   public get error() {
     return this._promise.error;
   }
-  constructor() {
-    this.reset();
+  public get pending() {
+    return this._promise.pending;
   }
 
   public resolve(value: T, ifPending = false) {
     this._promise.resolve(value, ifPending);
+    return this;
   }
+
   public reject(value?: E, ifPending = false) {
     this._promise.reject(value, ifPending);
+    return this;
   }
 
   public reset() {
     this._promise = new OpenPromise<T>();
+    return this;
   }
 
   public signal(value: T) {
@@ -58,18 +66,18 @@ export class ResetablePromise<T = void, E = any> implements PromiseLike<T> {
 }
 
 export class OpenPromise<T = void, E = any> extends Promise<T> {
-  public readonly resolve: (value: T, ifPending?: boolean) => T;
-  public readonly reject: (reason: E | undefined, ifPending?: boolean) => E;
+  public readonly resolve: (value: T, ifPending?: boolean) => this;
+  public readonly reject: (reason: E | undefined, ifPending?: boolean) => this;
   public readonly value: (T extends void ? true : T) | undefined;
   public readonly error: E | true;
-  public readonly pending = true;
+  public pending = true;
 
   constructor() {
     super((...args: any[]) => {
       [(this as any).resolve, (this as any).reject] = args.map(
         (inner, i) => (value: any, ifPending: boolean) => {
           if (!this.pending) {
-            if (ifPending) return;
+            if (ifPending) return this;
             throw new TypeError("Promise already resolved/rejected.");
           }
 
@@ -86,7 +94,7 @@ export class OpenPromise<T = void, E = any> extends Promise<T> {
 export const delay = <T = void>(ms: number, action?: () => T): Promise<T> =>
   new Promise<T>((resolve) => setTimeout(() => resolve(action?.() as T), ms));
 
-export const promise = <T, Resetable extends boolean = false>(
+export const promise = <T = void, Resetable extends boolean = false>(
   resetable?: Resetable
 ): Resetable extends true ? ResetablePromise<T> : OpenPromise<T> =>
   resetable ? new ResetablePromise<T>() : (new OpenPromise<T>() as any);

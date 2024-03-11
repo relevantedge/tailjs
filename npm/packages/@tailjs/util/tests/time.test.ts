@@ -1,14 +1,14 @@
-import { clock, createTimer, delay } from "../src";
+import { clock, timer, delay } from "../src";
 
 describe("Timer functions works as well as they can be tested.", () => {
   it("Times.", async () => {
-    let timer = createTimer(false);
+    let timer = timer(false);
     expect(timer()).toBe(0);
     timer(true);
     await delay(10);
     expect(timer()).toBeGreaterThan(0);
 
-    timer = createTimer();
+    timer = timer();
     await delay(10);
     expect(timer()).toBeGreaterThan(0);
     let current = timer(false);

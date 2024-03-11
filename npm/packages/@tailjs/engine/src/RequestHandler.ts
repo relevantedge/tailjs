@@ -126,7 +126,7 @@ export class RequestHandler {
       ({ storage }) =>
         isWritable(storage) &&
         storage.configureScopeDurations({
-          [VariableScope.Session]: sessionTimeout,
+          [VariableScope.ServerSession]: sessionTimeout,
           [VariableScope.DeviceSession]: deviceSessionTimeout,
         })
     );
@@ -256,11 +256,11 @@ export class RequestHandler {
         ? (tracker.purge(
             item.includeDevice
               ? [
-                  VariableScope.Session,
+                  VariableScope.ServerSession,
                   VariableScope.DeviceSession,
                   VariableScope.Device,
                 ]
-              : [VariableScope.Session]
+              : [VariableScope.ServerSession]
           ),
           false)
         : true

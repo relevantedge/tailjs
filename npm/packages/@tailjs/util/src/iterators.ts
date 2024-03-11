@@ -6,6 +6,7 @@ import {
   IterableOrArrayLike,
   KeyValuePairsToObject,
   Minus,
+  get,
   hasMethod,
   hasValue,
   isArray,
@@ -518,21 +519,27 @@ export const groupReduce = <
   return groups as any;
 };
 
-export const group = <S, Key, R = IteratorItem<S>>(
+export const group = <S extends IteratorSource, Key, R = IteratorItem<S>>(
   source: S,
   keySelector: (item: IteratorItem<S>, index: number) => Key,
-  valueSelector: IteratorAction<S, R> = (item: any) => item,
+  valueSelector: (item: IteratorItem<S>, index: number) => R = (item: any) =>
+    item,
   ...rest: StartEndArgs<S>
-): Map<Key, R[]> => {
-  const reducer = (acc: any[], item: any, index: number, control: any) => {
-    const value = valueSelector(item, index, control);
-    if (isDefined(value)) {
-      acc.push(value);
-    }
-    return acc;
-  };
+): S extends undefined ? undefined : Map<Key, R[]> => {
+  if (!source) return undefined as any;
 
-  return groupReduce(source, keySelector, reducer, () => [] as R[], ...rest);
+  const groups = new Map<Key, R[]>();
+  forEach(
+    source,
+    (item, index) => {
+      const key = keySelector(item, index);
+      const value = valueSelector(item, index);
+      get(groups, key, () => []).push(value);
+    },
+    ...rest
+  );
+
+  return groups as any;
 };
 
 export const reduce = <

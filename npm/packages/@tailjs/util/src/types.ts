@@ -24,6 +24,11 @@ export type Nullish = null | undefined;
 export type OmitNullish<T> = T extends Nullish ? never : T;
 
 /**
+ * A record that may have the specified keys and values.
+ */
+export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
+
+/**
  * Common function type used for projection of [key,value] entries.
  */
 export type KeyValueProjection<K, V, R> = (

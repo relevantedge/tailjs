@@ -1,4 +1,11 @@
-import { MaybePromise, isDefined, isNumber, promise, tryCatchAsync } from ".";
+import {
+  MaybePromise,
+  isDefined,
+  isFunction,
+  isNumber,
+  promise,
+  tryCatchAsync,
+} from ".";
 
 export let now = () =>
   typeof performance !== "undefined"
@@ -11,7 +18,7 @@ export type Timer = {
   (toggle?: boolean): number;
 };
 
-export const createTimer = (started = true): Timer => {
+export const timer = (started = true): Timer => {
   let t0 = started ? now() : undefined;
   let elapsed = 0;
   return (toggle) => {
@@ -35,32 +42,37 @@ export interface ClockSettings {
   paused?: boolean;
   trigger?: boolean;
   once?: boolean;
+  callback?: CancellableCallback;
 }
-
-type ClockSettingsParameter = ClockSettings & { frequency: number };
 
 export const clock: {
   (callback: CancellableCallback, frequency: number): Clock;
-  (callback: CancellableCallback, settings: ClockSettingsParameter): Clock;
+  (settings: ClockSettings): Clock;
 } = (
-  callback: CancellableCallback,
-  settings: number | ClockSettingsParameter
+  callbackOrSettings: CancellableCallback | ClockSettings,
+  frequency = 0
 ): Clock => {
+  const settings = isFunction(callbackOrSettings)
+    ? {
+        frequency,
+        callback: callbackOrSettings,
+      }
+    : callbackOrSettings;
+
   let {
-    frequency,
     queue = true,
     paused = false,
     trigger = false,
     once = false,
-  } = isNumber(settings)
-    ? ({ frequency: settings } as ClockSettingsParameter)
-    : settings;
+    callback = () => {},
+  } = settings;
+  frequency = settings.frequency ?? 0;
 
   let timeoutId = 0;
-  const mutex = promise().resolve();
+  const mutex = promise(true).resolve();
 
   const outerCallback = async (skipQueue?: boolean) => {
-    if (!timeoutId || (!queue && !mutex.resolved && skipQueue !== true)) {
+    if (!timeoutId || (!queue && mutex.pending && skipQueue !== true)) {
       return false;
     }
     (instance as any).busy = true;
@@ -71,7 +83,7 @@ export const clock: {
     mutex.reset();
     let cancelled = frequency < 0 || once;
     await tryCatchAsync(
-      () => callback(() => (cancelled = true)),
+      () => callback!(() => (cancelled = true)),
       false,
       () => mutex.resolve()
     );

@@ -1,21 +1,18 @@
 import {
   VariableGetter,
   VariableKey,
-  VariablePatchAction,
-  VariablePatchType,
   VariableQuerySettings,
   VariableScope,
   VariableScopeNames,
-  VariableValuePatch,
   VersionedVariableKey,
   isErrorResult,
   isSuccessResult,
-  isVariablePatchAction,
   type Variable,
   type VariableFilter,
   type VariableQueryResult,
   type VariableSetResult,
   type VariableSetter,
+  VariableHeader,
 } from "@tailjs/types";
 import { MaybePromise, filter, isDefined } from "@tailjs/util";
 import type { TrackerEnvironment } from ".";
@@ -32,26 +29,40 @@ export class VariableSetError extends Error {
   }
 }
 
-type VariableGetResult<Result> = Result extends VariableGetter<infer T>
-  ? Variable<unknown extends T ? any : T>
+type MapVariableGetResult<Getter> = Getter extends VariableGetter<infer T>
+  ? Variable<unknown extends T ? any : T> | undefined
   : undefined;
 
 export type VariableGetResults<K extends any[]> = K extends [infer Item]
-  ? [VariableGetResult<Item>]
+  ? [MapVariableGetResult<Item>]
   : K extends [infer Item, ...infer Rest]
-  ? [VariableGetResult<Item>, ...VariableGetResults<Rest>]
+  ? [MapVariableGetResult<Item>, ...VariableGetResults<Rest>]
   : K extends (infer T)[]
-  ? VariableGetResult<T>[]
+  ? MapVariableGetResult<T>[]
+  : never;
+
+type MapVariableSetResult<Source> = [Source] extends [VariableSetter<infer T>]
+  ? VariableSetResult<T, Source>
+  : never;
+
+export type VariableSetResults<K extends any[]> = K extends [infer Item]
+  ? [MapVariableSetResult<Item>]
+  : K extends [infer Item, ...infer Rest]
+  ? [MapVariableSetResult<Item>, ...VariableSetResults<Rest>]
+  : K extends (infer T)[]
+  ? MapVariableSetResult<T>[]
   : never;
 
 /**
  * A key that can be used to look up {@link Variable}s in Maps and Sets.
  */
-export const getVariableMapKey = <T extends VariableKey | undefined | null>(
+export const variableKey = <T extends VariableKey | undefined | null>(
   variable: T
 ) =>
   variable
-    ? `${variable.scope}${variable.targetId ?? ""}:${variable.key}`
+    ? variable.targetId
+      ? variable.scope + variable.targetId + variable.key
+      : "0" + variable.key
     : undefined;
 
 export const formatSetResultError = (result?: VariableSetResult) => {
@@ -74,69 +85,6 @@ export const applyGetFilters = (
     ? undefined
     : variable;
 
-export const getPatchedValue = (
-  current: Variable | undefined,
-  patch: VariableValuePatch | VariablePatchAction
-): {
-  changed: boolean;
-  patchedContainer: Variable | undefined;
-  patchedValue: any;
-} => {
-  if (isVariablePatchAction(patch)) {
-    const update = patch.patch(current?.value);
-    return isDefined(update)
-      ? { changed: true, patchedContainer: current, patchedValue: update.set }
-      : {
-          changed: false,
-          patchedContainer: current,
-          patchedValue: current?.value,
-        };
-  }
-
-  let { value, patchType, selector, match } = patch;
-  let currentValue = current?.value;
-  let patchedValue = selector ? currentValue?.[selector] : currentValue;
-
-  if (selector) {
-    patchedValue = patchedValue?.[selector];
-  }
-
-  if (patchType === VariablePatchType.Add) {
-    patchedValue = (patchedValue ?? 0) + (value ?? 1);
-  } else if (
-    (patchType === VariablePatchType.IfMatch && patchedValue !== match) ||
-    (patchType === VariablePatchType.IfGreater &&
-      (!isDefined(patchedValue) || patchedValue >= match)) ||
-    (patchType === VariablePatchType.IfSmaller &&
-      (!isDefined(patchedValue) || patchedValue <= match))
-  ) {
-    return {
-      changed: false,
-      patchedContainer: current,
-      patchedValue: currentValue,
-    };
-  }
-
-  if (selector) {
-    if (!currentValue && !patchedValue) {
-      return {
-        changed: false,
-        patchedContainer: current,
-        patchedValue: currentValue,
-      };
-    }
-    currentValue = currentValue ? { ...currentValue } : {};
-    currentValue[selector] = patchedValue;
-  } else {
-    currentValue = patchedValue;
-  }
-  return {
-    changed: true,
-    patchedContainer: currentValue,
-    patchedValue: currentValue,
-  };
-};
-
 export interface ReadOnlyVariableStorage {
   initialize?(environment: TrackerEnvironment): MaybePromise<void>;
 
@@ -147,7 +95,7 @@ export interface ReadOnlyVariableStorage {
   head(
     filters: VariableFilter[],
     options?: VariableQuerySettings
-  ): MaybePromise<VariableQueryResult<VersionedVariableKey>>;
+  ): MaybePromise<VariableQueryResult<VariableHeader>>;
   query(
     filters: VariableFilter[],
     options?: VariableQuerySettings
@@ -165,14 +113,9 @@ export interface VariableStorage extends ReadOnlyVariableStorage {
 
   renew(scopes: VariableScope[], scopeIds: string[]): MaybePromise<void>;
 
-  get<K extends (VariableGetter | null | undefined)[]>(
-    ...keys: K
-  ): MaybePromise<VariableGetResults<K>>;
-
-  set(...variables: VariableSetter[]): MaybePromise<VariableSetResult[]>;
-  set(
-    ...variables: (VariableSetter | undefined | null)[]
-  ): MaybePromise<(VariableSetResult | undefined)[]>;
+  set<K extends VariableSetter[]>(
+    ...variables: K
+  ): MaybePromise<VariableSetResults<K>>;
 
   purge(filters: VariableFilter[], batch?: boolean): MaybePromise<void>;
 }

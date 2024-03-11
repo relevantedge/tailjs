@@ -2,6 +2,7 @@ import {
   Variable,
   VariableFilter,
   VariableGetter,
+  VariableHeader,
   VariableQueryResult,
   VariableQuerySettings,
   VariableScope,
@@ -9,27 +10,29 @@ import {
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
-  VersionedVariableKey,
-  isVariablePatchAction,
-  isVariableValuePatch,
+  isVariablePatch,
 } from "@tailjs/types";
 import {
+  Clock,
   MaybePromise,
   clock,
   concat,
+  filter,
   forEach,
   get,
   isDefined,
   isUndefined,
   mapDistinct,
   now,
+  project,
+  some,
 } from "@tailjs/util";
 import {
   VariableGetResults,
+  VariableSetResults,
   VariableStorage,
   applyGetFilters,
-  getPatchedValue,
-  getVariableMapKey,
+  variableKey,
 } from "..";
 
 type ScopeVariables = [expires: number | undefined, Map<string, Variable>];
@@ -39,7 +42,6 @@ const clone = <T extends Variable | undefined>(variable: T): T => {
     variable && {
       ...variable,
       purposes: variable.purposes && [...variable.purposes],
-      tags: variable.tags && [...variable.tags],
     }
   );
 };
@@ -50,28 +52,12 @@ export class InMemoryStorage implements VariableStorage {
 
   private _nextVersion = 0;
   private _ttl: Partial<Record<VariableScope, number>> | undefined;
+  private _cleaner: Clock | undefined;
 
   /** For testing purposes to have the router apply the patches. @internal */
   public _testDisablePatch: boolean;
 
-  constructor(ttl?: Partial<Record<VariableScope, number>>) {
-    this._ttl = ttl
-      ? Object.fromEntries(Object.entries(ttl).filter(([, value]) => value > 0))
-      : undefined;
-
-    ttl &&
-      clock(() => {
-        const t0 = now();
-        forEach(this._ttl, ([scope, ttl]) => {
-          if (isUndefined(ttl)) return;
-
-          const variables = this._variables[scope];
-          variables?.forEach(
-            (variable, key) => variable[0]! <= t0 - ttl && variables.delete(key)
-          );
-        });
-      }, 10000);
-  }
+  constructor() {}
 
   private _remove(variable: Variable) {
     return this._variables[variable.scope].delete(variable.key);
@@ -87,66 +73,88 @@ export class InMemoryStorage implements VariableStorage {
     const ifNoneMatch = settings?.ifNoneMatch
       ? new Map(
           settings.ifNoneMatch.map((variable) => [
-            getVariableMapKey(variable),
+            variableKey(variable),
             variable.version,
           ])
         )
       : null;
     const ifModifiedSince = settings?.ifModifiedSince ?? 0;
 
-    for (const filter of filters) {
-      for (const scope of filter.scopes ?? VariableScopes) {
+    for (const queryFilter of filters) {
+      const match = (variable: Variable | undefined): variable is Variable => {
+        const { purposes, classification: classifications } = queryFilter;
+        if (
+          !variable ||
+          purposes?.every(
+            (purpose) => variable.purposes?.includes(purpose) === false
+          ) ||
+          (classifications &&
+            (variable.classification < classifications.min! ||
+              variable.classification > classifications.max! ||
+              classifications.levels?.some(
+                (level) => variable.classification === level
+              ) === false))
+        ) {
+          return false;
+        }
+
+        let matchVersion: string | undefined;
+        if (
+          (ifModifiedSince && variable.modified! < ifModifiedSince!) ||
+          (isDefined(
+            (matchVersion = ifNoneMatch?.get(variableKey(variable)))
+          ) &&
+            variable.version === matchVersion)
+        ) {
+          // Skip the variable because it is too old or unchanged based on the settings provided for the query.
+          return false;
+        }
+
+        return true;
+      };
+
+      for (const scope of queryFilter.scopes ?? VariableScopes) {
         const targets = this._variables[scope];
-        for (const scopeVars of filter.targetIds?.map((targetId) =>
+        for (const scopeVars of queryFilter.targetIds?.map((targetId) =>
           targets.get(targetId)
         ) ?? targets.values()) {
           if (!scopeVars || scopeVars[0]! <= t0) continue;
           const vars = scopeVars[1];
-          for (const key of filter.keys ?? vars.keys()) {
-            const variable = vars.get(key);
-            if (
-              !variable ||
-              filter.purposes?.every(
-                (purpose) => variable.purposes?.includes(purpose) === false
-              ) ||
-              filter.tags?.some(
-                (tags) =>
-                  tags.every((tag) => variable.tags?.includes(tag) === true) ===
-                  false
-              ) ||
-              filter.origins?.some((origin) => variable.origin === origin) ===
-                false ||
-              (filter.classifications &&
-                (variable.classification <
-                  (filter.classifications.min as any) ||
-                  variable.classification >
-                    (filter.classifications.max as any) ||
-                  filter.classifications.levels?.some(
-                    (level) => variable.classification === level
-                  ) === false))
-            ) {
-              // The variable did not match the query filters.
-              continue;
+          for (const key of queryFilter.keys ?? vars.keys()) {
+            if (key.endsWith("*")) {
+              const prefix = key.slice(0, -1);
+              results.push(
+                ...project(
+                  filter(
+                    vars,
+                    ([key, value]) => key.startsWith(prefix) && match(value)
+                  ),
+                  ([, value]) => value
+                )
+              );
+            } else {
+              const value = vars.get(key);
+              if (match(value)) {
+                results.push(value);
+              }
             }
-
-            let matchVersion: string | undefined;
-            if (
-              (ifModifiedSince && variable.modified! < ifModifiedSince!) ||
-              (isDefined(
-                (matchVersion = ifNoneMatch?.get(getVariableMapKey(variable)))
-              ) &&
-                variable.version === matchVersion)
-            ) {
-              // Skip the variable because it is too old or unchanged based on the settings provided for the query.
-              continue;
-            }
-
-            results.push(variable);
           }
         }
       }
     }
     return results;
+  }
+
+  public clean() {
+    const t0 = now();
+    forEach(this._ttl, ([scope, ttl]) => {
+      if (isUndefined(ttl)) return;
+
+      const variables = this._variables[scope];
+      variables?.forEach(
+        (variable, key) => variable[0]! <= t0 - ttl && variables.delete(key)
+      );
+    });
   }
 
   renew(scopes: VariableScope[], targetIds: string[]) {
@@ -171,6 +179,14 @@ export class InMemoryStorage implements VariableStorage {
     for (const [scope, duration] of Object.entries(durations)) {
       duration! > 0 ? (this._ttl![scope] = duration) : delete this._ttl![scope];
     }
+
+    let hasTtl = some(this._ttl, ([, ttl]) => ttl! > 0);
+    if (this._cleaner || hasTtl) {
+      (this._cleaner ??= clock({
+        callback: () => this.clean(),
+        frequency: 10000,
+      })).toggle(hasTtl);
+    }
   }
 
   get<K extends (VariableGetter | null | undefined)[]>(
@@ -193,7 +209,7 @@ export class InMemoryStorage implements VariableStorage {
   head(
     filters: VariableFilter[],
     options?: VariableQuerySettings | undefined
-  ): VariableQueryResult<VersionedVariableKey> {
+  ): VariableQueryResult<VariableHeader> {
     return this.query(filters, options);
   }
 
@@ -210,10 +226,9 @@ export class InMemoryStorage implements VariableStorage {
     };
   }
 
-  set(...variables: VariableSetter[]): VariableSetResult[];
-  set(
-    ...variables: (VariableSetter | null | undefined)[]
-  ): (VariableSetResult | undefined)[];
+  set<Setters extends (VariableSetter | null | undefined)[]>(
+    ...variables: Setters
+  ): VariableSetResults<Setters>;
   set(...variables: (VariableSetter | null | undefined)[]) {
     const t0 = now();
     const results: (VariableSetResult | undefined)[] = [];
@@ -228,9 +243,8 @@ export class InMemoryStorage implements VariableStorage {
         scope,
         classification,
         purposes,
-        tags,
         value,
-        version,
+        version: version,
       } = source as Variable;
 
       let scopeVars = this._variables[scope ?? 0].get(targetId ?? "");
@@ -238,27 +252,26 @@ export class InMemoryStorage implements VariableStorage {
         scopeVars = undefined;
       }
       let current = scopeVars?.[1].get(key);
-      let newValue: any;
 
-      if (isVariableValuePatch(source) || isVariablePatchAction(source)) {
+      if (isVariablePatch(source)) {
         if (this._testDisablePatch) {
           results.push({ status: VariableSetStatus.Unsupported, source });
           continue;
         }
 
-        const patched = getPatchedValue(current, source);
-        value = patched.patchedValue;
-        newValue = patched.patchedValue;
+        const patched = source.patch(current);
 
-        if (!patched.changed) {
+        if (!isDefined(patched)) {
           results.push({
             status: VariableSetStatus.Unchanged,
             source,
-            version: current?.version,
-            value: current?.value,
+            current: clone(current),
           });
           continue;
         }
+        classification = patched.classification;
+        purposes = patched.purposes;
+        value = patched.value;
       } else if (current?.version !== version) {
         results.push({
           status: VariableSetStatus.Conflict,
@@ -275,8 +288,7 @@ export class InMemoryStorage implements VariableStorage {
               ? VariableSetStatus.Success
               : VariableSetStatus.Unchanged,
           source,
-          version: undefined,
-          value: undefined,
+          current: undefined,
         });
         continue;
       }
@@ -289,7 +301,6 @@ export class InMemoryStorage implements VariableStorage {
         targetId,
         scope,
         purposes: mapDistinct(concat(current?.purposes, purposes)),
-        tags: tags && [...tags],
       };
 
       let scopeValues = get(
@@ -305,8 +316,7 @@ export class InMemoryStorage implements VariableStorage {
       results.push({
         status: VariableSetStatus.Success,
         source,
-        version: current.version,
-        value: newValue,
+        current,
       });
     }
 
@@ -322,13 +332,7 @@ export class InMemoryStorage implements VariableStorage {
 
     const queryFilters: VariableFilter[] = [];
     for (const filter of filters) {
-      if (
-        filter.keys ||
-        filter.prefixes ||
-        filter.classifications ||
-        filter.purposes ||
-        filter.tags
-      ) {
+      if (filter.keys || filter.classification || filter.purposes) {
         // These filters address individual variables and they must be queired and removed individually.
         queryFilters.push(filter);
         continue;
