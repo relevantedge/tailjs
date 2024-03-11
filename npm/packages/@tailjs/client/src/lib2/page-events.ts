@@ -5,7 +5,7 @@ import {
   clock,
   createEvent,
   createEventBinders,
-  createTimer,
+  timer,
   isArray,
   joinEventBinders,
   map,
@@ -75,7 +75,7 @@ dispatchPageLoaded(loaded);
 
 type PageActivatedListenerArgs = [activated: boolean, totalDuration: number];
 let activated = false;
-let activeTime = createTimer(false);
+let activeTime = timer(false);
 
 const [addPageActivatedListener, dispatchPageActivated] =
   createEvent<PageActivatedListenerArgs>();

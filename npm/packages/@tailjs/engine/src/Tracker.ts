@@ -7,7 +7,7 @@ import {
   VariableHeader,
   VariableKey,
   VariableGetter,
-  VariablePatchAction,
+  VariablePatch,
   VariableQueryResult,
   VariableScope,
   VariableSetResult,
@@ -62,7 +62,7 @@ type TrackerScopedOnly<
   ? undefined
   : Omit<T, "scope" | "targetId"> & {
       scope:
-        | VariableScope.Session
+        | VariableScope.ServerSession
         | VariableScope.DeviceSession
         | VariableScope.Device
         | VariableScope.User;
@@ -82,7 +82,7 @@ export type TrackerVariableValuePatch<T = any> = TrackerScopedOnly<
   VariableValuePatch<T>
 >;
 export type TrackerVariablePatchAction<T = any> = TrackerScopedOnly<
-  VariablePatchAction<T>
+  VariablePatch<T>
 >;
 export type TrackerVariablePatch<T = any> = TrackerScopedOnly<
   VariableValuePatch<T>
@@ -111,13 +111,13 @@ type VariableGetResults<K extends any[]> = K extends [infer Item]
   : never;
 
 export interface ScopeData {
+  id: string;
   firstSeen: Timestamp;
   lastSeen: Timestamp;
   views: number;
 }
 
 export interface SessionData extends ScopeData {
-  id: string;
   isNew: boolean;
   previous?: Timestamp;
 }
@@ -126,11 +126,10 @@ export interface ServerSessionData extends SessionData {
   consentLevel: DataClassification;
   deviceSession?: SessionData;
   device?: DeviceData;
+  userId?: string;
 }
 
-export interface DeviceData extends ScopeData {
-  values: Partial<Record<DataClassification, any>>;
-}
+export interface DeviceData extends ScopeData {}
 
 export class Tracker {
   /**
@@ -258,14 +257,14 @@ export class Tracker {
     variable: T
   ): T | undefined {
     if (!variable) return variable;
-    if (variable.scope === VariableScope.Session) {
-      variable.targetId = this._sessionId;
+    if (variable.scope === VariableScope.ServerSession) {
+      variable.targetId = this._serverSession.id;
     } else if (variable.scope === VariableScope.DeviceSession) {
-      variable.targetId = this._deviceSessionId;
+      variable.targetId = this._deviceSession?.id;
     } else if (variable.scope === VariableScope.Device) {
-      variable.targetId = this._deviceId;
+      variable.targetId = this._device?.id;
     } else if (variable.scope === VariableScope.User) {
-      variable.targetId = this._userId;
+      variable.targetId = this._serverSession.userId;
     } else {
       throw new TypeError(
         `Setting variables for the scope ${variable.scope} is not supported via a tracker.`
@@ -352,15 +351,15 @@ export class Tracker {
 
   public async purge(scopes: VariableScope[] | null = null) {
     scopes ??= [
-      VariableScope.Session,
+      VariableScope.ServerSession,
       VariableScope.DeviceSession,
       VariableScope.Device,
     ];
 
     const filters: (VariableFilter | boolean)[] = [
-      scopes.includes(VariableScope.Session) && {
+      scopes.includes(VariableScope.ServerSession) && {
         targetIds: [this.sessionId!],
-        scopes: [VariableScope.Session],
+        scopes: [VariableScope.ServerSession],
       },
       scopes.includes(VariableScope.DeviceSession) && {
         targetIds: [this.deviceSessionId!],

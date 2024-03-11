@@ -67,17 +67,22 @@ export type ValueType<
   ? T[K] | Default
   : any;
 
+type AcceptUnknownContainers<T extends PropertyContainer | null | undefined> =
+  IsAny<T> extends true
+    ? T
+    : T extends null | undefined | void
+    ? never
+    : T extends MapLike
+    ? MapLike<unknown, unknown> | T
+    : T extends SetLike
+    ? SetLike<unknown> | T
+    : T extends (infer T)[]
+    ? unknown[] | T
+    : T;
+
 // #endregion
 
 // #region get
-
-type AcceptUnknown<T> = T extends Set<any>
-  ? Set<unknown>
-  : T extends Map<any, any>
-  ? Map<unknown, unknown>
-  : T extends any[] | never[]
-  ? unknown[]
-  : never;
 
 const updateSingle = (target: any, key: any, value: any) =>
   setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
@@ -105,7 +110,8 @@ export const get = <
 >(
   target: T,
   key: K | undefined,
-  initializer?: () => R & (ValueType<T> | Readonly<ValueType<T>> | undefined)
+  initializer?: () => R &
+    (AcceptUnknownContainers<ValueType<T>> | Readonly<ValueType<T>> | undefined)
 ): T extends null | undefined | void
   ? undefined
   : ValueType<T, K, R extends undefined ? undefined : never> => {

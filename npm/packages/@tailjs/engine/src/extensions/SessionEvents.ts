@@ -1,34 +1,23 @@
+import { QUERY_DEVICE } from "@constants";
 import {
+  DataClassification,
   SessionStartedEvent,
+  Timestamp,
   TrackedEvent,
+  VariableScope,
+  cast,
   isConsentEvent,
   isSignInEvent,
   isSignOutEvent,
   isUserAgentEvent,
-  isViewEvent,
-  cast,
-  Timestamp,
-  VariableScope,
-  DataClassification,
-  VariableValuePatch,
-  VariablePatchType,
-  VariableHeader,
-  VariableSetResult,
-  isSuccessResult,
+  isViewEvent
 } from "@tailjs/types";
+import { now } from "@tailjs/util";
 import {
   NextPatchExtension,
   Tracker,
-  TrackerExtension,
-  TrackerVariable,
-  TrackerVariableHeader,
-  TrackerVariableKey,
-  TrackerVariableSetResult,
-  TrackerVariableValuePatch,
-  formatSetResultError,
+  TrackerExtension
 } from "../shared";
-import { QUERY_DEVICE } from "@constants";
-import { now } from "@tailjs/util";
 
 export type SessionConfiguration = {
   /**
@@ -117,7 +106,7 @@ export class SessionEvents implements TrackerExtension {
     let [serverSession, deviceSession, device] = await tracker.get(
       {
         key: DATA_KEY,
-        scope: VariableScope.Session,
+        scope: VariableScope.ServerSession,
         initializer: () => ({
           classification: DataClassification.Indirect,
           value: createInitialSessionStats(timestamp),

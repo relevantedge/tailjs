@@ -12,32 +12,14 @@ export interface VariableFilter {
 
   /**
    * Limits the results to variables with one of these keys.
+   * A key ending with `*` returns all variables where the key starts with the prefix (excluding `*`).
    */
   keys?: string[];
 
   /**
-   * When multiple storages are used for different purposes, the query only goes to the storages registered for these prefixes.
-   * Storages that are not explicitly registered for a prefix implicitly have the prefix "".
-   */
-  prefixes?: { include: string[]; exclude: string[] };
-
-  /**
-   * Limits the results to variables with these tag combiniations.
-   * Each entry is a combination, that is, the first level means "any", and the second level means "all".
-   *
-   * For example [["tag1", "tag2"], ["tag3"]] will match variables that either have _both_  "tag1" and "tag2" or just "tag3".
-   */
-  tags?: string[][];
-
-  /**
-   * Limits the variables by their origin. This is in particular useful for purging all data related to an extension or feature.
-   */
-  origins?: string[];
-
-  /**
    * Limits the results to variables with these classifications.
    */
-  classifications?: {
+  classification?: {
     /** The variable must have at least this classification. */
     min?: DataClassification;
 
@@ -95,27 +77,17 @@ export interface VariableKey {
 }
 
 /**
- * Defines the version of a variable value.
- * The storage containing the variable defines the semantics of the version and what it contains.
- *
- * If the version is undefined it means the variable does not yet exist.
- *
- * Versioning is used for what is called "optimistic concurrency" to make sure that if two things try to update the same variable
- * at the same time, one of them will get an error and be told that the value has changed since it was read.
+ * A {@link VariableKey} that optionally includes the expected version of a variable value.
+ * This is used for "if none match" queries to invalidate caches efficiently.
  */
-export interface VariableVersion {
+export interface VersionedVariableKey extends VariableKey {
   version?: string;
 }
 
 /**
- *  Uniquely addresses a variable's value by its version and the variable's scope, target and key name.
- */
-export interface VersionedVariableKey extends VariableKey, VariableVersion {}
-
-/**
  * Defines how the value of variable is classified and for which purposes it can be used.
  */
-export interface VariableMetadata {
+export interface VariableClassification {
   /**
    * The legal classification of the kind of data a variable holds.
    * This limits which data will be stored based on a user's consent.
@@ -130,64 +102,53 @@ export interface VariableMetadata {
   purposes?: DataPurpose[];
 
   /**
-   * Optional tags that can be used for queries, for example all variables related to an address (address, postal code, city, ...) may have the tag "address".
+   * The value of the variable is read-only. Trying to update its value in its storage will result in an error.
    */
-  tags?: string[];
-
-  /**
-   * An optional string describing the origin of the variable.
-   * It is best practice that extensions include their name or purpose here, e.g. "geo-data".
-   */
-  origin?: string;
+  readonly?: boolean;
 }
 
 /**
- * The combination of a variable key and the variable's settings. The actual value and version is not included.
+ * Information about when a variable's value was modified and a unqiue version (ETag) used for conflict resolution
+ * in case multiple processes try to update it at the same time (optimistic concurrency).
+ *
+ * Only the version, and not the modified timestamp must be relied on during conflict resolution.
  */
-export interface VariableHeader
-  extends VariableKey,
-    VariableMetadata,
-    VariableVersion {}
-
-/**
- * Represents the value of a variable regardless of its key, version and other settings.
- */
-export interface VariableValue<T = any> {
+export interface VariableVersion {
   /**
-   * The date the variable was stored for the first time.
-   * This value comes from a storage and cannot be set via the API.
+   * Timestamp for when the variable was created.
    */
   created?: Timestamp;
 
   /**
-   * The date the variable was last stored including both updates and creation.
-   * This value comes from a storage and cannot be set via the API.
+   * Timestamp for when the variable was created or modified.
    */
   modified?: Timestamp;
 
   /**
-   * The value of a variable. This can be both primitive and structured values.
+   * A unique token that changes everytime a variable is changed.
+   * It follows the semantics of a "weak" ETag in the HTTP protocol.
+   * How the value is generated is an internal implementation detail specific to the storage that manages the variable.
    *
-   * If a variable is saved with the value of `undefined` it will be deleted.
-   * A storage will never return a value with the value `undefined`
+   * The value is only undefined if it is not assumed to exist before a set operation.
    */
-  value: T | undefined;
+  version?: string | undefined;
 }
 
 /**
- * Represents a variable with its key, settings, version and value.
+ * All data related to a variable except its value.
  */
-export interface Variable<T = any> extends VariableHeader, VariableValue<T> {}
+export interface VariableHeader
+  extends VariableKey,
+    VariableClassification,
+    VariableVersion {}
 
-export type VariableForScope<
-  Scope extends VariableScope,
-  T = any
-> = Scope extends VariableScope.Global
-  ? GlobalVariable<T>
-  : TargetedVariable<T>;
-
-export type TargetIdForScope<Scope extends VariableScope> =
-  Scope extends VariableScope.Global ? undefined : string;
+/**
+ * A variable is a specific piece of information that can be classified and changed independently.
+ * A variable can either be global or related to a specific entity or tracker scope.
+ */
+export interface Variable<T = any> extends VariableHeader {
+  value: T | undefined;
+}
 
 export interface GlobalVariable<T = any> extends Variable<T> {
   targetId?: "";
@@ -199,9 +160,9 @@ export interface TargetedVariable<T = any> extends Variable<T> {
   scope: TargetedVariableScope;
 }
 
-export interface VariableKeyInitializer<T = any> extends VariableMetadata {
-  value: T;
-}
+export type VariableInitializer<T = any> = () =>
+  | VariablePatchResult<T>
+  | Promise<VariablePatchResult<T>>;
 
 /**
  * Uniquely addresses a variable by scope, target and key name, optionally with the purpose(s) it will be used for.
@@ -211,16 +172,14 @@ export interface VariableKeyInitializer<T = any> extends VariableMetadata {
  * a result will also not be returned. (best practice)
  */
 export interface VariableGetter<T = any> extends VersionedVariableKey {
-  initializer?: () =>
-    | VariableKeyInitializer<T>
-    | Promise<VariableKeyInitializer<T>>;
+  initializer?: VariableInitializer<T>;
   purpose?: DataPurpose;
 }
 
 export const VariableScopes = [0, 1, 2, 3, 4, 5];
 export const enum VariableScope {
   Global = 0,
-  Session = 1,
+  ServerSession = 1,
   DeviceSession = 2,
   Device = 3,
   User = 4,
@@ -229,7 +188,7 @@ export const enum VariableScope {
 
 export const VariableScopeNames = [
   "global",
-  "session",
+  "server session",
   "device session",
   "device",
   "user",
@@ -237,19 +196,11 @@ export const VariableScopeNames = [
 ];
 
 export type TargetedVariableScope =
-  | VariableScope.Session
+  | VariableScope.ServerSession
   | VariableScope.DeviceSession
   | VariableScope.Device
   | VariableScope.User
   | VariableScope.Entity;
-
-export const enum VariablePatchType {
-  Add,
-  IfGreater,
-  IfSmaller,
-  IfMatch,
-  Always,
-}
 
 export const enum VariableSetStatus {
   Success = 0,
@@ -262,31 +213,37 @@ export const enum VariableSetStatus {
   Error = 7,
 }
 
-export const isSuccessResult = <T>(
-  result: VariableSetResult<T>
-): result is VariableSetResult<T> & {
+export const isSuccessResult = <T extends VariableSetResult>(
+  result: T
+): result is T & {
   status: VariableSetStatus.Success | VariableSetStatus.Unchanged;
-} => result.status <= VariableSetStatus.Unchanged;
+} => result?.status! <= VariableSetStatus.Unchanged;
 
-export const isErrorResult = <T>(
-  result: VariableSetResult<T>
-): result is VariableSetResult<T> & {
-  status: VariableSetStatus.Error;
-} => result.status === VariableSetStatus.Error;
-
-export const isConflictResult = <T>(
-  result: VariableSetResult<T>
-): result is VariableSetResult<T> & {
+export const isConflictResult = <T, S extends VariableSetter<T> = any>(
+  result: VariableSetResult<T, S>
+): result is VariableSetResult<T, S> & {
   status: VariableSetStatus.Conflict;
-} => result.status === VariableSetStatus.Conflict;
+} => result?.status === VariableSetStatus.Conflict;
 
-export type VariableSetResult<T = any> = {
-  source: VariableSetter;
+export const isErrorResult = <T, S extends VariableSetter<T> = any>(
+  result: VariableSetResult<T, S>
+): result is VariableSetResult<T, S> & {
+  status: VariableSetStatus.Error;
+} => result?.status === VariableSetStatus.Error;
+
+export type VariableSetResult<
+  T = any,
+  Source extends VariableSetter<T> = VariableSetter<T>
+> = {
+  source: Source;
 } & (
-  | ({
-      status: VariableSetStatus.Success | VariableSetStatus.Unchanged;
-    } & VariableVersion &
-      VariableValue<T>)
+  | {
+      status:
+        | VariableSetStatus.Success
+        | VariableSetStatus.Unchanged
+        | VariableSetStatus.Conflict;
+      current: Variable<T> | undefined;
+    }
   | {
       status:
         | VariableSetStatus.Denied
@@ -294,37 +251,28 @@ export type VariableSetResult<T = any> = {
         | VariableSetStatus.Unsupported
         | VariableSetStatus.ReadOnly;
     }
-  | {
-      status: VariableSetStatus.Conflict;
-      current: Variable | undefined;
-    }
   | { status: VariableSetStatus.Error; transient?: boolean; error: any }
 );
 
-export const isVariablePatchAction = <T = any>(
-  setter: any
-): setter is VariablePatchAction<T> => !!setter["setter"];
-
-export interface VariablePatchAction<T = any> extends VariableHeader {
-  patch: (current: T | undefined) => { set: T | undefined } | undefined;
+export interface VariablePatchSource<T = any>
+  extends VariableVersion,
+    VariableClassification {
+  value: T;
 }
 
-export const isVariableValuePatch = <T = any>(
-  setter: any
-): setter is VariableValuePatch<T> => !!setter["patchType"];
-
-export interface VariableValuePatch<T = any> extends Variable<T> {
-  patchType: VariablePatchType;
-  /** The path to the property of an object addressed by the {@link Variable<T>.key} the patch applies to. */
-  selector?: string;
-  match?: any;
+export interface VariablePatchResult<T = any> extends VariableClassification {
+  value: T;
 }
 
-export type VariablePatch<T = any> =
-  | VariablePatchAction<T>
-  | VariableValuePatch<T>;
+export type VariablePatchAction<T = any> = (
+  current: VariablePatchSource<T> | undefined
+) => VariablePatchResult<T> | undefined;
 
-export type VariableSetter<T = any> =
-  | Variable<T>
-  | VariableValuePatch<T>
-  | VariablePatchAction<T>;
+export const isVariablePatch = (setter: any): setter is VariablePatch =>
+  !!setter["patch"];
+
+export interface VariablePatch<T = any> extends VariableKey {
+  patch: VariablePatchAction<T>;
+}
+
+export type VariableSetter<T = any> = Variable<T> | VariablePatch<T>;

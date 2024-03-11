@@ -81,12 +81,13 @@ export const createLock = <Data = any>(
           await waitHandleWait;
         }
       }
-      const refresher = clock(
-        () => {
+      const refresher = clock({
+        frequency: timeout / 2,
+        callback: () => {
           storage.update((current) => [current?.[0]]);
         },
-        { frequency: timeout / 2, trigger: true }
-      );
+        trigger: true,
+      });
 
       let result = await tryCatchAsync(action, true, () => {
         refresher.toggle(false);
