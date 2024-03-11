@@ -1,6 +1,6 @@
 // General utility functions.
 
-import type { ConstToTuples, Nullish } from "@tailjs/util";
+import type { ConstToNormal, Nullish } from "@tailjs/util";
 import {
   F,
   bool,

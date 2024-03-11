@@ -13,9 +13,11 @@ import {
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
-  VariableValuePatch,
   isSuccessResult,
   Timestamp,
+  Scoped,
+  DataPurpose,
+  VariableClassification,
 } from "@tailjs/types";
 import { Transport, createTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, map, params, unparam } from "./lib";
@@ -27,7 +29,11 @@ import {
   RequestHandlerConfiguration,
   TrackedEventBatch,
   TrackerEnvironment,
+  VariableContext,
+  VariableGetResults,
   VariableSetError,
+  copy,
+  parseKey,
 } from "./shared";
 
 export type TrackerSettings = Pick<
@@ -56,40 +62,6 @@ type PendingSetter = {
   resolve: (value: VariableSetResult) => void;
 };
 
-type TrackerScopedOnly<
-  T extends undefined | { scope: VariableScope; targetId?: string }
-> = T extends undefined
-  ? undefined
-  : Omit<T, "scope" | "targetId"> & {
-      scope:
-        | VariableScope.ServerSession
-        | VariableScope.DeviceSession
-        | VariableScope.Device
-        | VariableScope.User;
-      key: string;
-    };
-
-export type TrackerVariableKey = TrackerScopedOnly<VariableKey>;
-export type TrackerVariableKeyWithInitializer<T = any> = TrackerScopedOnly<
-  VariableGetter<T>
->;
-export type TrackerVariableHeader = TrackerScopedOnly<VariableHeader>;
-export type TrackerVariable<T = any> = TrackerScopedOnly<Variable<T>>;
-export type TrackerVariableSetter<T = any> = TrackerScopedOnly<
-  VariableSetter<T>
->;
-export type TrackerVariableValuePatch<T = any> = TrackerScopedOnly<
-  VariableValuePatch<T>
->;
-export type TrackerVariablePatchAction<T = any> = TrackerScopedOnly<
-  VariablePatch<T>
->;
-export type TrackerVariablePatch<T = any> = TrackerScopedOnly<
-  VariableValuePatch<T>
->;
-
-export type TrackerVariableSetResult = () => Promise<VariableSetResult>;
-
 export type TrackerPostOptions = {
   routeToClient?: boolean;
   deviceSessionId?: string;
@@ -97,39 +69,33 @@ export type TrackerPostOptions = {
   userId?: string;
 };
 
-type TrackerVariableGetResult<Result> =
-  Result extends TrackerVariableKeyWithInitializer<infer T>
-    ? Variable<unknown extends T ? any : T>
-    : undefined;
-
-type VariableGetResults<K extends any[]> = K extends [infer Item]
-  ? [TrackerVariableGetResult<Item>]
-  : K extends [infer Item, ...infer Rest]
-  ? [TrackerVariableGetResult<Item>, ...VariableGetResults<Rest>]
-  : K extends (infer T)[]
-  ? TrackerVariableGetResult<T>[]
-  : never;
+const SCOPE_DATA_KEY = "_data";
 
 export interface ScopeData {
   id: string;
   firstSeen: Timestamp;
   lastSeen: Timestamp;
   views: number;
-}
 
-export interface SessionData extends ScopeData {
-  isNew: boolean;
-  previous?: Timestamp;
-}
+  /**
+   * Variables with classifications higher than this will not be stored.
+   * If purposes are not `undefined`, variables that do not contain one of these purposes will not be stored.
+   */
+  consent: VariableClassification;
 
-export interface ServerSessionData extends SessionData {
-  consentLevel: DataClassification;
-  deviceSession?: SessionData;
-  device?: DeviceData;
-  userId?: string;
+  /** Variable version for optimistic concurrency. */
+  version?: string;
 }
 
 export interface DeviceData extends ScopeData {}
+
+export interface SessionData extends ScopeData {
+  deviceSessionId?: string;
+  device?: DeviceData;
+  userId?: string;
+  isNew: boolean;
+  previouslySeen?: Timestamp;
+}
 
 export class Tracker {
   /**
@@ -145,6 +111,8 @@ export class Tracker {
   private _extensionState = ExtensionState.Pending;
   private _initialized: boolean;
   private _requestId: string | undefined;
+
+  private _variables: Map<string, Variable>[];
 
   /** @internal  */
   public readonly _clientEvents: TrackedEvent[] = [];
@@ -222,21 +190,41 @@ export class Tracker {
    * In this way the session ID for a pseudonomized cookie-less identifier may be truly anonymized.
    * It also protects against race conditions. If one concurrent request changes the session (e.g. resets it), the other(s) will see it.
    */
-  private _sessionReference: String;
-  private _serverSession: ServerSessionData;
-  private _deviceSession?: ServerSessionData;
+  private _sessionReference: string;
+  private _session: SessionData;
   private _device?: DeviceData;
 
-  public get serverSession(): SessionData {
-    return this._serverSession!;
+  private _consent: {
+    level: DataClassification;
+    purposes?: Set<DataPurpose>;
+  } = { level: DataClassification.None };
+
+  public get consent() {
+    return this._consent;
   }
 
-  public get deviceSession() {
-    return this._deviceSession;
+  public get requestId() {
+    return `${this._requestId}`;
+  }
+
+  public get session(): SessionData {
+    return this._session!;
+  }
+
+  public get sessionId(): string {
+    return this._session!.id;
+  }
+
+  public get deviceSessionId() {
+    return this._session.deviceSessionId;
   }
 
   public get device() {
     return this._device;
+  }
+
+  public get deviceId() {
+    return this._device?.id;
   }
 
   /** @Internal */
@@ -245,38 +233,79 @@ export class Tracker {
   // #region  Variables
   private _pendingSetters: PendingSetter[] = [];
 
-  public async get<
-    K extends (TrackerVariableKeyWithInitializer | null | undefined)[]
-  >(...keys: K): Promise<VariableGetResults<K>> {
-    return (await this.env.storage.get(
-      ...keys.map((key) => this._mapTargetId(key))
-    )) as any;
+  private _mapVariable(variable: Variable | undefined) {
+    return copy(
+      variable,
+      variable && {
+        version:
+          variable.scope === VariableScope.Session
+            ? this._session.version
+            : variable.scope === VariableScope.Device
+            ? this._device?.version
+            : undefined,
+      }
+    );
   }
 
-  private _mapTargetId<T extends VariableKey | undefined | null>(
-    variable: T
-  ): T | undefined {
-    if (!variable) return variable;
-    if (variable.scope === VariableScope.ServerSession) {
-      variable.targetId = this._serverSession.id;
-    } else if (variable.scope === VariableScope.DeviceSession) {
-      variable.targetId = this._deviceSession?.id;
+  public async get<K extends (VariableGetter<any, true> | undefined)[]>(
+    ...getters: K
+  ): Promise<VariableGetResults<K>> {
+    const targetedGetters = getters.map((getter) =>
+      this._mapTrackerContext(getter)
+    );
+    const results: (Variable | undefined)[] = Array(getters.length);
+
+    const external = map(
+      // Find getters that must got to the actual story, if any.
+      // At the same time populate the results with the variables we know from the tracker
+      targetedGetters,
+      (getter, sourceIndex) =>
+        getter &&
+        (getter.scope === VariableScope.Global ||
+        getter.scope === VariableScope.Entity ||
+        parseKey(getter.key)?.prefix
+          ? { sourceIndex, getter }
+          : ((results[sourceIndex] = this._mapVariable(
+              this._variables[getter.scope]?.get(getter.key)
+            )),
+            undefined))
+    );
+
+    if (external.length) {
+      (
+        await this.env.storage.get(
+          ...external.map((item) => item.getter as VariableGetter<any, false>)
+        )
+      ).forEach((result, i) => (results[i] = result));
+    }
+
+    return results as any;
+  }
+
+  private _mapTrackerContext<
+    T extends (VariableKey & VariableContext) | undefined | null
+  >(variable: T): T | undefined {
+    if (!variable) return undefined;
+    if (variable.scope === VariableScope.Session) {
+      variable.targetId = this._session.id;
     } else if (variable.scope === VariableScope.Device) {
       variable.targetId = this._device?.id;
     } else if (variable.scope === VariableScope.User) {
-      variable.targetId = this._serverSession.userId;
-    } else {
-      throw new TypeError(
-        `Setting variables for the scope ${variable.scope} is not supported via a tracker.`
-      );
+      variable.targetId = this._session.userId;
     }
-    return variable.targetId ? variable : undefined;
+
+    if (variable.scope !== VariableScope.Global && variable.targetId) {
+      return undefined;
+    }
+
+    variable.context = { tracker: this };
+    return variable;
   }
 
   private _addPendingSetter(
     setter: TrackerVariableSetter
   ): TrackerVariableSetResult {
-    const mapped = this._mapTargetId(setter);
+    const mapped = this._mapTrackerContext(setter);
     // Variable is for a scope that is not included in the consent.
 
     if (!mapped) {
@@ -351,15 +380,15 @@ export class Tracker {
 
   public async purge(scopes: VariableScope[] | null = null) {
     scopes ??= [
-      VariableScope.ServerSession,
+      VariableScope.Session,
       VariableScope.DeviceSession,
       VariableScope.Device,
     ];
 
     const filters: (VariableFilter | boolean)[] = [
-      scopes.includes(VariableScope.ServerSession) && {
+      scopes.includes(VariableScope.Session) && {
         targetIds: [this.sessionId!],
-        scopes: [VariableScope.ServerSession],
+        scopes: [VariableScope.Session],
       },
       scopes.includes(VariableScope.DeviceSession) && {
         targetIds: [this.deviceSessionId!],
@@ -376,30 +405,6 @@ export class Tracker {
   }
 
   // #endregion
-
-  public get consentLevel() {
-    return this._consentLevel;
-  }
-
-  public get requestId() {
-    return `${this._requestId}`;
-  }
-
-  public get sessionId() {
-    return this._sessionId;
-  }
-
-  public get deviceSessionId() {
-    return this._deviceSessionId;
-  }
-
-  public get deviceId() {
-    return this._deviceId;
-  }
-
-  public get userId() {
-    return this._userId;
-  }
 
   // public async consent(consentLevel: DataClassification): Promise<void> {
   //   if (consentLevel === this._consentLevel) return;
@@ -511,6 +516,14 @@ export class Tracker {
     }
     this._requestId = await this.env.nextId("request");
     this._consentLevel = DataClassification.None;
+
+    //if( this.cookies[this._requestHandler._cookieNames.essentialSession]?.value);
+
+    await this.env.storage.get({
+      scope: VariableScope.Session,
+      key: SCOPE_DATA_KEY,
+      targetId: this._sessionReference,
+    });
     // (await this._getStoreValue(
     //   this._requestHandler._sessionStore,
     //   "session",

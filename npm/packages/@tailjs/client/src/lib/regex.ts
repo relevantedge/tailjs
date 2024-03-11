@@ -1,5 +1,5 @@
 import type {
-  ConstToTuples,
+  ConstToNormal,
   IterableOrSelf,
   Nullish,
   Nulls,
@@ -56,13 +56,13 @@ export const match: {
     match: RegExp | Nullish,
     selector: (...args: string[]) => R | Nullish,
     defaultValue: R[]
-  ): ConstToTuples<R>[];
+  ): ConstToNormal<R>[];
   <R>(
     s: string | Nullish,
     match: RegExp | Nullish,
     selector: (...args: string[]) => R,
     defaultValue?: R
-  ): ConstToTuples<R> | undefined;
+  ): ConstToNormal<R> | undefined;
   (s: string | Nullish, match: RegExp | Nullish): RegExpMatchArray | null;
 } = <R>(
   s: string,

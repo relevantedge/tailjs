@@ -106,7 +106,7 @@ export class SessionEvents implements TrackerExtension {
     let [serverSession, deviceSession, device] = await tracker.get(
       {
         key: DATA_KEY,
-        scope: VariableScope.ServerSession,
+        scope: VariableScope.Session,
         initializer: () => ({
           classification: DataClassification.Indirect,
           value: createInitialSessionStats(timestamp),

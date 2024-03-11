@@ -4,7 +4,9 @@ import {
   VariableGetter,
   VariableHeader,
   VariableInitializer,
+  VariableKey,
   VariablePatch,
+  VariablePatchResult,
   VariableQueryResult,
   VariableQuerySettings,
   VariableScope,
@@ -21,6 +23,7 @@ import {
 import {
   PartialRecord,
   delay,
+  first,
   forEach,
   get,
   group,
@@ -28,6 +31,7 @@ import {
   isDefined,
   isUndefined,
   map,
+  project,
   waitAll,
 } from "@tailjs/util";
 import {
@@ -35,15 +39,14 @@ import {
   VariableGetResults,
   VariableSetResults,
   VariableStorage,
+  applyPatchOffline,
   isWritable,
+  parseKey,
 } from "..";
 
 export interface StorageScopeMapping {
   default?: ReadOnlyVariableStorage;
   session?: ReadOnlyVariableStorage;
-
-  /** Defaults to session if unspecified. */
-  deviceSession?: ReadOnlyVariableStorage;
 
   device?: ReadOnlyVariableStorage;
   user?: ReadOnlyVariableStorage;
@@ -78,30 +81,11 @@ type KeyMapping = {
   sourceKey: string;
 };
 
-type ParsedKey = {
-  prefix: string;
-  localKey: string;
-  localKeyQuery: string;
+type MappedSetter<T extends VariableSetter = VariableSetter> = T & {
+  original: { index: number; source: T };
 };
-
-type MappedSetter<T extends VariableSetter = VariableSetter> =
-  VariableSetter & {
-    original: { index: number; source: T };
-  };
 
 type StorageInfo = { id: number; scopes: Set<VariableScope> };
-
-const parseKey = (key: string): ParsedKey => {
-  const prefixIndex = key.indexOf(":");
-  const prefix = prefixIndex < 0 ? "" : key.substring(0, prefixIndex);
-  const localKey = prefixIndex > -1 ? key.slice(prefixIndex + 1) : key;
-
-  return {
-    prefix,
-    localKey: localKey.endsWith("*") ? localKey.slice(0, -1) : localKey,
-    localKeyQuery: localKey,
-  };
-};
 
 export class VariableStorageRouter implements VariableStorage {
   private readonly _storageMappings = new Map<
@@ -133,7 +117,6 @@ export class VariableStorageRouter implements VariableStorage {
       [
         mapping.global ?? mapping.default,
         mapping.session ?? mapping.default,
-        mapping.deviceSession ?? mapping.session ?? mapping.default,
         mapping.device ?? mapping.default,
         mapping.user ?? mapping.default,
         mapping.entity ?? mapping.global ?? mapping.default,
@@ -182,18 +165,23 @@ export class VariableStorageRouter implements VariableStorage {
     const splits = new Map<ReadOnlyVariableStorage, VariableFilter[]>();
 
     for (const queryFilter of filters) {
-      const prefixKeyQueries = group(
-        queryFilter.keys?.map(parseKey),
-        (parsed) => parsed.prefix,
-        (parsed) => parsed.localKeyQuery
-      );
+      const prefixKeyQueries: Iterable<[prefix: string, keys: string[]]> =
+        queryFilter.keys.includes("*")
+          ? project(
+              this._storageMappings.keys(),
+              (prefix) => [prefix, ["*"]] as const
+            )
+          : group(
+              queryFilter.keys.map(parseKey),
+              (parsed) => parsed.prefix,
+              (parsed) => parsed.localKey
+            );
       const scopeSplits = new Map<
         ReadOnlyVariableStorage,
-        { scopes: Set<VariableScope>; keys?: Set<string> }
+        { scopes: Set<VariableScope>; keys: Set<string> }
       >();
 
-      for (const prefix of prefixKeyQueries?.keys() ??
-        this._storageMappings.keys()) {
+      for (const [prefix, keys] of prefixKeyQueries) {
         const scopeMappings = this._storageMappings.get(prefix);
         if (!scopeMappings) {
           continue;
@@ -206,9 +194,7 @@ export class VariableStorageRouter implements VariableStorage {
             keys: new Set(),
           }));
           local.scopes.add(scope);
-          prefixKeyQueries
-            ?.get(prefix)
-            ?.forEach((key) => (local.keys ??= new Set()).add(key));
+          keys.forEach((key) => local.keys.add(key));
         }
       }
 
@@ -219,7 +205,7 @@ export class VariableStorageRouter implements VariableStorage {
             storageFilters.scopes.size < VariableScopes.length
               ? map(storageFilters)
               : undefined,
-          keys: map(storageFilters.keys),
+          keys: [...storageFilters.keys],
         });
       }
     }
@@ -231,14 +217,16 @@ export class VariableStorageRouter implements VariableStorage {
     storage: VariableStorage,
     setters: T[]
   ): Promise<VariableSetResult<any, T>[]> {
-    const finalResults: VariableSetResult<any, T>[] = [];
-    let pending = setters;
+    const finalResults: VariableSetResult[] = [];
+    let pending = setters as T[];
 
     const dispatchValueSetters = async <T extends VariableSetter>(
       setters: T[]
     ) => {
       try {
-        return await storage.set(...setters);
+        return (await storage.set(
+          ...(setters as VariableSetter<any, false>[])
+        )) as VariableSetResult<any, T>[];
       } catch (e) {
         finalResults.push(
           ...pending.map((source) => ({
@@ -257,7 +245,7 @@ export class VariableStorageRouter implements VariableStorage {
         break;
       }
 
-      let patches: (VariablePatch & T)[] = [];
+      let patches: VariablePatch[] = [];
 
       pending = [];
       for (const result of results) {
@@ -274,15 +262,17 @@ export class VariableStorageRouter implements VariableStorage {
         }
       }
       if (patches.length) {
-        const current = await storage.get(...patches);
+        const current = await storage.get(
+          ...(patches as VariableGetter<any, false>[])
+        );
         patches = [];
-        const patchSetters: MappedSetter<T>[] = [];
+        const patchSetters: MappedSetter[] = [];
         for (let i = 0; i < patches.length; i++) {
-          const patched = patches[i].patch(current[i]);
+          const patched = applyPatchOffline(current[i], patches[i]);
           if (patched) {
             patchSetters.push({
-              ...current[i],
-              ...(patched as VariableSetter),
+              ...(current[i] as Variable),
+              ...(patched as VariablePatchResult),
               original: { index: i, source: patches[i] },
             });
           }
@@ -295,7 +285,7 @@ export class VariableStorageRouter implements VariableStorage {
           for (const result of results) {
             const source = result.source.original.source;
             if (isErrorResult(result) && result.transient) {
-              pending.push(source);
+              pending.push(source as T);
               continue;
             } else {
               finalResults.push({
@@ -321,17 +311,17 @@ export class VariableStorageRouter implements VariableStorage {
         await delay((0.8 + 0.2 * Math.random()) & this._retryDelay);
       }
     }
-    return finalResults;
+    return finalResults as VariableSetResults<T[]>;
   }
 
-  public async get<K extends (VariableGetter | null | undefined)[]>(
+  public async get<K extends (VariableGetter<any, false> | null | undefined)[]>(
     ...getters: K
   ): Promise<VariableGetResults<K>> {
     const results: (Variable | undefined)[] = [];
     const mappedGetters = map(getters, (getter, sourceIndex) => {
       return getter
         ? {
-            ...(getter as VariableGetter),
+            ...(getter as VariableGetter<any, false>),
             ...this._mapKey(getter.scope, getter.key),
             sourceIndex,
           }
@@ -393,7 +383,21 @@ export class VariableStorageRouter implements VariableStorage {
     filters: VariableFilter[],
     options?: VariableQuerySettings | undefined
   ): Promise<VariableQueryResult<Variable>> {
-    const split = this._splitFilters(filters);
+    const split = [...this._splitFilters(filters)];
+    let finalResults: VariableQueryResult<Variable> = {
+      count: options?.count ? 0 : undefined,
+      results: [],
+    };
+
+    if (split.length <= 1) {
+      // No need to apply additional logic or bloat the cursor if there is only one storage.
+      if (split.length) {
+        const [storage, query] = split[0];
+        return await storage.query(query, options);
+      }
+      return finalResults;
+    }
+
     // We keep the last count returned from each storage.
     // If at least one of the storages returns a cursor, we have then captured the count from those that didn't.
     // In this way we can return the correct count from those storages not involved in paging with subsequent queries.
@@ -401,88 +405,63 @@ export class VariableStorageRouter implements VariableStorage {
     // Also not that we only make a special joined cursor if multiple storages are involved.
     // Otherwise, we just return whatever cursor the single storage came up with.
     const cursor:
-      | Record<number, [count: number | undefined, cursor?: any]>
-      | undefined = options?.cursor;
+      | Record<number, [count: number | undefined, cursor?: string]>
+      | undefined = options?.cursor ? JSON.parse(options.cursor) : undefined;
 
     const storageResults = new Map<
       ReadOnlyVariableStorage,
       VariableQueryResult<Variable>
     >();
 
-    await waitAll(
-      map(split, ([storage, filters]) => async () => {
-        const storageCursor =
-          split.size > 1
-            ? cursor?.[this._storages.get(storage)!.id]?.[1]
-            : options?.cursor;
-        if (cursor && !isDefined(storageCursor)) {
-          return;
-        }
-        storageResults.set(
-          storage,
-          await storage.query(
-            filters,
-            options
-              ? {
-                  ...options,
-                  cursor: storageCursor,
-                }
-              : undefined
-          )
-        );
-      })
-    );
-
-    if (storageResults.size === 1) {
-      for (const [storage, result] of storageResults) {
-        // Single storage involved. Just forward its results after checking the read-only flag.
-        !isWritable(storage) &&
-          result.results.forEach((result) => (result.readonly ??= true));
-
-        return result;
-      }
-    }
-
-    const finalResults: VariableQueryResult<Variable> = {
-      count: 0,
-      results: [],
-    };
+    let top = options?.top ?? 100;
     let anyCursor = false;
-    const nextCursor: typeof cursor = {};
-    for (const storage of split.keys()) {
-      const storageIndex = this._storages.get(storage)!.id;
-      const results = storageResults.get(storage);
+    let nextCursor: typeof cursor | undefined;
+
+    for (
+      let i = 0;
+      // Keep going as long as we need the total count, or have not sufficient results to meet top (or done).
+      // If one of the storages returns an undefined count even though requested, we will also blank out the count in the combined results
+      // and stop reading from additional storages since total count is no longer needed.
+      i < split.length && (top > 0 || isDefined(finalResults.count));
+      i++
+    ) {
+      const [storage, query] = split[0];
+      const storageId = this._storages.get(storage)!.id;
+      const storageState = cursor?.[storageId];
       let count: number | undefined;
-
-      if (results) {
-        anyCursor ||= isDefined(results.cursor);
-        count = results.count;
-        if (
-          !isDefined(options?.top) ||
-          finalResults.results.length < options.top
-        ) {
-          !isWritable(storage) &&
-            results.results.forEach((result) => (result.readonly ??= true));
-
-          finalResults.results.push(...results.results);
-          if (results.results.length > (options?.top as any)) {
-            finalResults.results.length = options!.top!;
-          }
-        }
+      if (storageState && (!isDefined(storageState[1]) || !top)) {
+        // We have persisted the total count from the storage in the combined cursor.
+        // If the cursor is empty it means that we have exhausted the storage.
+        // If there is a cursor but `top` is zero (we don't need more results), we use the count cached from the initial query.
+        count = storageState[0];
       } else {
-        count = cursor?.[storageIndex]?.[0];
+        const {
+          count: resultCount,
+          results,
+          cursor,
+        } = await storage.query(query, {
+          ...options,
+          top,
+          cursor: storageState?.[1],
+        });
+
+        count = resultCount;
+        anyCursor ||= !!cursor;
+        (nextCursor ??= [])[storageId] = [count, cursor];
+        finalResults.results.push(...results);
+        top = Math.max(0, top - results.length);
       }
 
-      if (isDefined(finalResults.count)) {
-        finalResults.count =
-          !cursor && isDefined(count) ? finalResults.count + count : undefined;
-      }
-      nextCursor[storageIndex] = [count, results?.cursor];
+      isDefined(finalResults.count) &&
+        (finalResults.count = isDefined(count)
+          ? finalResults.count + 1
+          : undefined);
     }
-    if (anyCursor && !isDefined(options?.top)) {
+
+    if (anyCursor) {
       // Only if any of the storages returned a cursor, we do this.
-      // Otherwise we must return an empty cursor to indicate that we are done.
-      finalResults.cursor = nextCursor;
+      // Otherwise we must return an undefined cursor to indicate that we are done.
+      finalResults.cursor = JSON.stringify(nextCursor);
     }
     return finalResults;
   }

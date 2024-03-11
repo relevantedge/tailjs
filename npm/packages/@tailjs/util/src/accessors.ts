@@ -1,5 +1,5 @@
 import {
-  ConstToTuples,
+  ConstToNormal,
   GeneralizeContstants,
   IsAny,
   Minus,
