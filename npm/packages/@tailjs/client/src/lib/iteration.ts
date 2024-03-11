@@ -3,7 +3,7 @@
 import {
   isObject,
   type ArgNulls,
-  type ConstToTuples,
+  type ConstToNormal,
   type IterableOrArrayLike,
   type IterableOrSelf,
   type KeyValueProjection,
@@ -121,15 +121,15 @@ export const entries: {
         }
       | Nullish,
     project?: KeyValueProjection<K, V, P>
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
   <V, P = [number, V]>(
     array: V[],
     project?: KeyValueProjection<number, V, P>
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
   <K extends keyof any = keyof any, V = any, P = [K, V]>(
     record: { [key in K]?: V },
     project?: KeyValueProjection<K, V, P>
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
 } = (mapOrRecord: any, project?: any) =>
   !mapOrRecord
     ? []
@@ -150,11 +150,11 @@ export const keys: {
         }
       | Nullish,
     project?: (key: K, index: number) => P
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
   <K extends keyof any = keyof any, P = K>(
     record: { [key in K]?: any },
     project?: (key: K, index: number) => P
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
 } = (mapOrRecord: any, project?: any) =>
   !mapOrRecord
     ? []
@@ -171,11 +171,11 @@ export const values: {
         }
       | Nullish,
     project?: (value: V, index: number) => P
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
   <V = any, P = V>(
     record: { [key in keyof any]?: V },
     project?: (value: V, index: number) => P
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
 } = (mapOrRecord: any, project?: any) =>
   !mapOrRecord
     ? []
@@ -236,11 +236,11 @@ export const map: {
   <T, P = T extends IterableOrArrayLike<infer T> ? T : T>(
     value: IterableOrSelf<T> | Nullish,
     projection: (item: T, index: number) => P
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
   <T, P = T extends IterableOrArrayLike<infer T> ? T : T>(
     value: IterableOrSelf<T> | Nullish,
     clone?: boolean
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
 } = (value: any, cloneOrProject?: any): any[] =>
   value == nil
     ? []
@@ -257,11 +257,11 @@ export const flatMap: {
   <T, P = T extends Iterable<infer T> ? T : T>(
     value: IterableOrArrayLike<T> | T | Nullish,
     project: (item: T, index: number) => P | P[]
-  ): ConstToTuples<P>[];
+  ): ConstToNormal<P>[];
 } = <T, P = T>(
   value: T | Iterable<T | Nullish> | Nullish,
   projection: (item: T, index: number) => P | P[] = (item) => item as any
-): ConstToTuples<P>[] =>
+): ConstToNormal<P>[] =>
   value == nil
     ? []
     : (filter(map(value, F)).flatMap((item, index) =>

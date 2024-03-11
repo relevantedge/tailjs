@@ -71,8 +71,8 @@ export type ExcludeAny<T> = FunctionComparisonEquals<T, any> extends true
  * Utility type to allow `as const` to be used on tuples returned from functions without actually making them `readonly` (which is annoying).
  * Normally TypeScript considers the return value of a function like `x=>[10,"four"]` to be `(string|number)[]` (which is also annoying).
  */
-export type ConstToTuples<T> = T extends readonly any[]
-  ? { -readonly [P in keyof T]: ConstToTuples<T[P]> }
+export type ConstToNormal<T> = T extends readonly [...any[]]
+  ? { -readonly [P in keyof T]: ConstToNormal<T[P]> }
   : Voidefined<T>;
 
 /**
@@ -122,7 +122,7 @@ export type KeyValuePairsToObject<T> = UnionToIntersection<
     : ((value: T) => never) extends (
         value: [infer K & keyof any, infer V]
       ) => never
-    ? { [P in K & keyof any]: ConstToTuples<V> }
+    ? { [P in K & keyof any]: ConstToNormal<V> }
     : unknown
 >;
 

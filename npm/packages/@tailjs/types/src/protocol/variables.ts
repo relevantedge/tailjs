@@ -12,9 +12,11 @@ export interface VariableFilter {
 
   /**
    * Limits the results to variables with one of these keys.
-   * A key ending with `*` returns all variables where the key starts with the prefix (excluding `*`).
+   *
+   * A key ending with `*` returns all variables where their key starts with the value (excluding `*`).
+   * Specifically `*` returns all variables.
    */
-  keys?: string[];
+  keys: string[];
 
   /**
    * Limits the results to variables with these classifications.
@@ -39,14 +41,20 @@ export interface VariableFilter {
 /** Settings that controls how results are returned when querying variables. */
 export interface VariableQuerySettings {
   /**
-   * Do not return more results than this.
+   * Include the total number of matching of variables in the results (not just the top N first).
+   * Default is `false`.
+   */
+  count?: number;
+
+  /**
+   * Do not return more results than this. A storage will decide its own default value if not specified.
    */
   top?: number;
 
   /**
    * Used for paging by specifying the value of {@link VariableQueryResult.cursor} from a previous query result.
    */
-  cursor?: any;
+  cursor?: string;
 
   /**
    * Limits the results to variables created or updated after this timestamp.
@@ -64,7 +72,7 @@ export interface VariableQuerySettings {
 export interface VariableQueryResult<T> {
   count?: number;
   results: T[];
-  cursor?: any;
+  cursor?: string;
 }
 
 /**
@@ -100,11 +108,6 @@ export interface VariableClassification {
    * If the user has not consented to data being used for this purpose the variable will not be avaiable.
    */
   purposes?: DataPurpose[];
-
-  /**
-   * The value of the variable is read-only. Trying to update its value in its storage will result in an error.
-   */
-  readonly?: boolean;
 }
 
 /**
@@ -147,17 +150,15 @@ export interface VariableHeader
  * A variable can either be global or related to a specific entity or tracker scope.
  */
 export interface Variable<T = any> extends VariableHeader {
+  /**
+   * The value of the variable is read-only. Trying to update its value in its storage will result in an error.
+   */
+  readonly?: boolean;
+
+  /**
+   * The value of the variable. It must only be undefined in a set operation in which case it means "delete".
+   */
   value: T | undefined;
-}
-
-export interface GlobalVariable<T = any> extends Variable<T> {
-  targetId?: "";
-  scope: VariableScope.Global;
-}
-
-export interface TargetedVariable<T = any> extends Variable<T> {
-  targetId: string;
-  scope: TargetedVariableScope;
 }
 
 export type VariableInitializer<T = any> = () =>
@@ -171,33 +172,59 @@ export type VariableInitializer<T = any> = () =>
  * - If a purpose is specified, the variable is stored with the purposes it can be used for and do not include this,
  * a result will also not be returned. (best practice)
  */
-export interface VariableGetter<T = any> extends VersionedVariableKey {
-  initializer?: VariableInitializer<T>;
-  purpose?: DataPurpose;
-}
+export type VariableGetter<
+  T = any,
+  Scoped extends boolean = boolean
+> = VersionedVariableKey &
+  MatchTarget<Scoped> & {
+    initializer?: VariableInitializer<T>;
+    purpose?: DataPurpose;
+  };
 
 export const VariableScopes = [0, 1, 2, 3, 4, 5];
 export const enum VariableScope {
   Global = 0,
-  ServerSession = 1,
-  DeviceSession = 2,
-  Device = 3,
-  User = 4,
-  Entity = 5,
+  Session = 1,
+  Device = 2,
+  User = 3,
+  Entity = 4,
 }
 
 export const VariableScopeNames = [
   "global",
-  "server session",
-  "device session",
+  "session",
   "device",
   "user",
   "entity",
 ];
 
+export type MatchTarget<Scoped extends boolean> = boolean extends Scoped
+  ? {}
+  : Scoped extends true
+  ? ScopedTarget
+  : RequireTarget;
+
+export type ScopedTarget =
+  | {
+      scope: VariableScope.Entity;
+      targetId: string;
+    }
+  | {
+      scope: Exclude<VariableScope, VariableScope.Entity>;
+    };
+
+export type RequireTarget =
+  | {
+      scope: VariableScope.Global;
+      targetId?: "";
+    }
+  | {
+      scope: Exclude<VariableScope, VariableScope.Global>;
+      targetId: string;
+    };
+
 export type TargetedVariableScope =
-  | VariableScope.ServerSession
-  | VariableScope.DeviceSession
+  | VariableScope.Session
   | VariableScope.Device
   | VariableScope.User
   | VariableScope.Entity;
@@ -236,23 +263,24 @@ export type VariableSetResult<
   Source extends VariableSetter<T> = VariableSetter<T>
 > = {
   source: Source;
-} & (
-  | {
-      status:
-        | VariableSetStatus.Success
-        | VariableSetStatus.Unchanged
-        | VariableSetStatus.Conflict;
-      current: Variable<T> | undefined;
-    }
-  | {
-      status:
-        | VariableSetStatus.Denied
-        | VariableSetStatus.NotFound
-        | VariableSetStatus.Unsupported
-        | VariableSetStatus.ReadOnly;
-    }
-  | { status: VariableSetStatus.Error; transient?: boolean; error: any }
-);
+} & (Source extends VariableSetter<any, infer S> ? MatchTarget<S> : never) &
+  (
+    | {
+        status:
+          | VariableSetStatus.Success
+          | VariableSetStatus.Unchanged
+          | VariableSetStatus.Conflict;
+        current: Variable<T> | undefined;
+      }
+    | {
+        status:
+          | VariableSetStatus.Denied
+          | VariableSetStatus.NotFound
+          | VariableSetStatus.Unsupported
+          | VariableSetStatus.ReadOnly;
+      }
+    | { status: VariableSetStatus.Error; transient?: boolean; error: any }
+  );
 
 export interface VariablePatchSource<T = any>
   extends VariableVersion,
@@ -268,11 +296,46 @@ export type VariablePatchAction<T = any> = (
   current: VariablePatchSource<T> | undefined
 ) => VariablePatchResult<T> | undefined;
 
+export const enum VariablePatchType {
+  Add,
+  Min,
+  Max,
+  IfMatch,
+}
+
+export type VariableValuePatch<T = any> = VariableClassification & {
+  selector?: string;
+} & (
+    | {
+        type: VariablePatchType.Add;
+        by: number;
+      }
+    | {
+        type: VariablePatchType.Min | VariablePatchType.Max;
+        value: number;
+      }
+    | {
+        type: VariablePatchType.IfMatch;
+        match: T | undefined;
+        value: T | undefined;
+      }
+  );
+
 export const isVariablePatch = (setter: any): setter is VariablePatch =>
   !!setter["patch"];
 
-export interface VariablePatch<T = any> extends VariableKey {
-  patch: VariablePatchAction<T>;
-}
+export const isVariablePatchAction = (
+  setter: any
+): setter is VariablePatchAction => typeof setter?.["patch"] === "function";
 
-export type VariableSetter<T = any> = Variable<T> | VariablePatch<T>;
+export type VariablePatch<
+  T = any,
+  Scoped extends boolean = boolean
+> = VariableKey &
+  MatchTarget<Scoped> & {
+    patch: VariablePatchAction<T> | VariableValuePatch;
+  };
+
+export type VariableSetter<T = any, Scoped extends boolean = boolean> =
+  | (Variable<T> & MatchTarget<Scoped>)
+  | VariablePatch<T, Scoped>;

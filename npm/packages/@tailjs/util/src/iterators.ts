@@ -1,6 +1,6 @@
 import { isSet } from "util/types";
 import {
-  ConstToTuples,
+  ConstToNormal,
   GeneralizeContstants,
   IsAny,
   IterableOrArrayLike,
@@ -91,8 +91,8 @@ type IteratorProjection<
 > = unknown extends Projection
   ? IteratorItem<S>
   : Projection extends AnyTuple
-  ? ConstToTuples<Projection>
-  : ConstToTuples<Projection>;
+  ? ConstToNormal<Projection>
+  : ConstToNormal<Projection>;
 
 type StartEndArgs<S extends IteratorSource> =
   | []
@@ -215,26 +215,29 @@ function* createControllableIterator<
   let i = 0;
   let flag = IterationFlag.Yield;
   let result: P | undefined;
-  const control: IteratorControl<S> = {
-    prev: undefined,
-    source,
-    skip: () => (flag = IterationFlag.Skip),
-    end: (value?: any) => (
-      (flag = isDefined(value)
-        ? IterationFlag.YieldThenEnd
-        : IterationFlag.End),
-      value
-    ),
-  };
+  const control: IteratorControl<S> | null =
+    action.length < 3
+      ? null
+      : {
+          prev: undefined,
+          source,
+          skip: () => (flag = IterationFlag.Skip),
+          end: (value?: any) => (
+            (flag = isDefined(value)
+              ? IterationFlag.YieldThenEnd
+              : IterationFlag.End),
+            value
+          ),
+        };
 
   for (const item of source) {
-    if ((result = action(item, i++, control)!) !== undefined && !(flag % 2)) {
+    if ((result = action(item, i++, control!)!) !== undefined && !(flag % 2)) {
       if (!collect) {
         yield result;
       } else {
         collect(result);
       }
-      control.prev = item;
+      control && (control.prev = item);
     }
     if (flag > 1) {
       break;
@@ -247,16 +250,18 @@ const mapIterator = <S extends IteratorSource>(
   source: S,
   start?: any,
   end?: any
-) => {
+): Iterable<IteratorItem<S>> => {
   if (isIterable(source, true)) {
     return start || end
       ? sliceIterator(mapIterator(source), start, end)
       : source;
   }
   if (!isDefined(source)) return [];
-  if (isObject(source)) return mapIterator(Object.entries(source), start, end);
-  if (isFunction(source)) return createNavigatingIterator(source, start, end);
-  return createRangeIterator(source as number, start);
+  if (isObject(source))
+    return mapIterator(Object.entries(source), start, end) as any;
+  if (isFunction(source))
+    return createNavigatingIterator(source, start, end) as any;
+  return createRangeIterator(source as number, start) as any;
 };
 
 type ProjectFunction = {
@@ -294,11 +299,8 @@ export const project: ProjectFunction = ((
   }
   source = mapIterator(source, ...rest);
   return projection
-    ? (createControllableIterator(
-        mapIterator(source, ...rest),
-        projection as any
-      ) as any)
-    : mapIterator(source, ...rest);
+    ? (createControllableIterator(source, projection as any) as any)
+    : source;
 }) as any;
 
 export function* flatProject<
@@ -351,6 +353,14 @@ export const map: MapFunction = ((
       : [...createControllableIterator(source as any, projection)]
     : (toArray(source, true) as any);
 }) as any;
+
+export const zip = <Lhs extends IteratorSource, Rhs extends IteratorSource>(
+  lhs: Lhs,
+  rhs: Rhs
+): Iterable<[IteratorItem<Lhs>, IteratorItem<Rhs> | undefined]> => {
+  const it2 = mapIterator(rhs)[Symbol.iterator]();
+  return project(lhs, (lhs) => [lhs, it2.next()?.value] as [any, any]);
+};
 
 export const distinct: ProjectFunction = function* (
   source: any,
@@ -445,7 +455,7 @@ export const forEach = <S extends IteratorSource, R>(
 ): R | undefined => {
   let returnValue: R | undefined = undefined;
   let innerReturnValue: any;
-  source = mapIterator(source, ...rest);
+  source = mapIterator(source, ...rest) as S;
   if (action.length < 3 && hasMethod(source, "forEach")) {
     source.forEach(
       (item: any, index: any) =>
@@ -627,7 +637,7 @@ export const count = <S>(
     if (isObject(source)) {
       return Object.keys(source).length as any;
     }
-    source = mapIterator(source, ...rest);
+    source = mapIterator(source, ...rest) as S;
   }
   n = 0;
   return forEach(source, () => ++n) as any;

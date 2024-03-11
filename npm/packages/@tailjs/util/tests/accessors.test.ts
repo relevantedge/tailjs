@@ -6,7 +6,7 @@ import {
   add,
   map,
   clone,
-  ConstToTuples,
+  ConstToNormal,
 } from "../src";
 
 const tuple = <R extends any[]>(...values: R): R => values;

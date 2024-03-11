@@ -126,7 +126,7 @@ export class RequestHandler {
       ({ storage }) =>
         isWritable(storage) &&
         storage.configureScopeDurations({
-          [VariableScope.ServerSession]: sessionTimeout,
+          [VariableScope.Session]: sessionTimeout,
           [VariableScope.DeviceSession]: deviceSessionTimeout,
         })
     );
@@ -256,11 +256,11 @@ export class RequestHandler {
         ? (tracker.purge(
             item.includeDevice
               ? [
-                  VariableScope.ServerSession,
+                  VariableScope.Session,
                   VariableScope.DeviceSession,
                   VariableScope.Device,
                 ]
-              : [VariableScope.ServerSession]
+              : [VariableScope.Session]
           ),
           false)
         : true
@@ -716,7 +716,7 @@ export class RequestHandler {
   private _getClientVariables(tracker: Tracker) {
     return {
       ...tracker.transient,
-      consent: tracker.consentLevel,
+      consent: tracker.consent.classification,
     };
   }
 

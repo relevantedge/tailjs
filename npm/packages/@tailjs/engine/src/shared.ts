@@ -19,4 +19,5 @@ export * from "./EngineHost";
 export * from "./CookieMonster";
 export * from "./PostError";
 export * from "./TrackerEnvironment";
+export * from "./Variable.util";
 export * from "./VariableStorage";

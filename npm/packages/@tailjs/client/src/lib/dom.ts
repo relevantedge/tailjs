@@ -8,7 +8,7 @@ import {
   type Viewport,
 } from "@tailjs/types";
 import type {
-  ConstToTuples,
+  ConstToNormal,
   Nullish,
   Nulls,
   ValueOrDefault,
@@ -296,7 +296,7 @@ export const tryCatch = <T, R = undefined>(
   action: () => T,
   error: ((e: any) => R) | any[] | false = (e) => err(nil, nil, e) as R,
   finallyCallback?: () => void
-): ConstToTuples<T | R | undefined> => {
+): ConstToNormal<T | R | undefined> => {
   const unbind = listen(window, "error", (ev) => ev.stopImmediatePropagation());
   try {
     return action() as any;
