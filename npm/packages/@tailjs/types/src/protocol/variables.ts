@@ -13,10 +13,25 @@ export interface VariableFilter {
   /**
    * Limits the results to variables with one of these keys.
    *
-   * A key ending with `*` returns all variables where their key starts with the value (excluding `*`).
-   * Specifically `*` returns all variables.
+   * Use the wildcard `*` to return all keys. The wildcard may optionally have a prefix, as example,  `crm:*` will limit the query
+   * to the storage mapped to the `crm` prefix. To limit the query to the default storage (that does not have a prefix) use `:*`.
+   *
+   * Wildcards can also be used for prefixes. `*:name` will query all storages for a variable with the name `name`.
+   *
+   * Using wildcards for partial matching is not supported, so the query `*name` will _not_ return all variables
+   * where their name ends with  "name". Use tags to group and organize variables instead.
    */
   keys: string[];
+
+  /**
+   * Specific keys or key patterns to exclude. The syntax is the same as for {@link keys}.
+   */
+  exclude?: string[];
+
+  /**
+   * Limit the results to variables that has any of these tag combinations.
+   */
+  tags?: string[][];
 
   /**
    * Limits the results to variables with these classifications.
@@ -39,7 +54,7 @@ export interface VariableFilter {
 }
 
 /** Settings that controls how results are returned when querying variables. */
-export interface VariableQuerySettings {
+export interface VariableQueryOptions {
   /**
    * Include the total number of matching of variables in the results (not just the top N first).
    * Default is `false`.
@@ -69,7 +84,7 @@ export interface VariableQuerySettings {
   ifNoneMatch?: VersionedVariableKey[];
 }
 
-export interface VariableQueryResult<T> {
+export interface VariableQueryResult<T = Variable> {
   count?: number;
   results: T[];
   cursor?: string;
@@ -79,8 +94,21 @@ export interface VariableQueryResult<T> {
  * Uniquely addresses a variable by scope, target and key name.
  */
 export interface VariableKey {
+  /** The scope the variable belongs to. */
   scope: VariableScope;
+
+  /**
+   * The name of the variable.
+   *
+   * A key may have a prefix that decides which variable storage it is routed to.
+   * The prefix and the key are separated by colon (`prefix:key`). Additional colons will be considered part of the variable name.
+   * To address a variable with a colon in its name without prefix use `:key`, for example `:colon:in:my:name`.
+   */
   key: string;
+
+  /**
+   * The ID of the entity in the scope the variable belongs to.
+   */
   targetId?: string;
 }
 
@@ -108,6 +136,14 @@ export interface VariableClassification {
    * If the user has not consented to data being used for this purpose the variable will not be avaiable.
    */
   purposes?: DataPurpose[];
+
+  /**
+   * Optionally categorizes variables.
+   *
+   * For example, the tag `address` could be used for all variables related to a user's address,
+   * or `newsletter` for everything related to newsletter subscriptions.
+   */
+  tags?: string[];
 }
 
 /**
@@ -163,22 +199,47 @@ export interface Variable<T = any> extends VariableHeader {
 
 export type VariableInitializer<T = any> = () =>
   | VariablePatchResult<T>
-  | Promise<VariablePatchResult<T>>;
+  | undefined
+  | Promise<VariablePatchResult<T> | undefined>;
 
 /**
  * Uniquely addresses a variable by scope, target and key name, optionally with the purpose(s) it will be used for.
  *
  * - If a version is specified and the stored version matches this, a result will not be returned.
- * - If a purpose is specified, the variable is stored with the purposes it can be used for and do not include this,
- * a result will also not be returned. (best practice)
+ * - If a purpose is specified and the variable is only stored for other purposes, a result will also not be returned. (best practice)
  */
 export type VariableGetter<
   T = any,
   Scoped extends boolean = boolean
 > = VersionedVariableKey &
   MatchTarget<Scoped> & {
+    /**
+     * If the variable does not exist, it will be created with the value returned from this function.
+     * Since another value from another process may have been used at the same time,
+     * you cannot trust that just because the function was called, its value was used.
+     *
+     * However, it is guaranteed that the returned value is the most current at the time the request was made.
+     */
     initializer?: VariableInitializer<T>;
+
+    /**
+     * Optionally, the purpose the variable will be used for in the context it is requested.
+     *
+     * A variable may be used for multiple purposes but only stored for the purpose a user has consented to.
+     * For example, a user's country may be used both in analytics and for personalization purposes.
+     * However, if the user has only consented to "Performance", but not "Functionality", the value must not be used for personalization.
+     *
+     * It should be considered best practice always to include the intended purpose when requesting data about the user
+     * to be sure their consent is respected.
+     *
+     * It is currently not mandatory to specify the purpose but this requirement may change in the future.
+     */
     purpose?: DataPurpose;
+
+    /**
+     * Indicates that the value must be re-read from the source storage if a caching layer is used on top.
+     */
+    refresh?: boolean;
   };
 
 export const VariableScopes = [0, 1, 2, 3, 4, 5];
@@ -324,10 +385,6 @@ export type VariableValuePatch<T = any> = VariableClassification & {
 export const isVariablePatch = (setter: any): setter is VariablePatch =>
   !!setter["patch"];
 
-export const isVariablePatchAction = (
-  setter: any
-): setter is VariablePatchAction => typeof setter?.["patch"] === "function";
-
 export type VariablePatch<
   T = any,
   Scoped extends boolean = boolean
@@ -339,3 +396,10 @@ export type VariablePatch<
 export type VariableSetter<T = any, Scoped extends boolean = boolean> =
   | (Variable<T> & MatchTarget<Scoped>)
   | VariablePatch<T, Scoped>;
+
+/**
+ * The information needed about a variable to validate whether it complies with a user's consents,
+ * or meets other authorization based requirements.
+ */
+export type VariableValidationBasis = VariableKey &
+  Partial<VariableClassification>;
