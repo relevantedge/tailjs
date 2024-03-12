@@ -106,15 +106,27 @@ const setSingle = (target: any, key: any, value: any) => {
 export const get = <
   T extends PropertyContainer | null | undefined,
   K extends KeyType<T>,
-  R = undefined
+  I extends () =>
+    | AcceptUnknownContainers<ValueType<T>>
+    | Readonly<ValueType<T>>
+    | undefined
 >(
   target: T,
   key: K | undefined,
-  initializer?: () => R &
-    (AcceptUnknownContainers<ValueType<T>> | Readonly<ValueType<T>> | undefined)
+  initializer?: I
 ): T extends null | undefined | void
   ? undefined
-  : ValueType<T, K, R extends undefined ? undefined : never> => {
+  : ValueType<
+      T,
+      K,
+      unknown extends I
+        ? undefined
+        : I extends () => infer R
+        ? undefined extends R
+          ? undefined
+          : never
+        : never
+    > => {
   if (!target) return undefined as any;
 
   let value = (target as any).get
@@ -123,7 +135,7 @@ export const get = <
     ? (target as any).has(key)
     : target[key as any];
 
-  if (value === undefined && initializer) {
+  if (isUndefined(value) && initializer) {
     isDefined((value = initializer())) && setSingle(target, key, value);
   }
   return value;

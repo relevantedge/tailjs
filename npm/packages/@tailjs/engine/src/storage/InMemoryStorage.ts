@@ -1,18 +1,17 @@
 import {
   Variable,
-  VariableClassification,
   VariableFilter,
   VariableGetter,
   VariableHeader,
   VariableKey,
-  VariablePatchResult,
+  VariableQueryOptions,
   VariableQueryResult,
-  VariableQuerySettings,
   VariableScope,
   VariableScopes,
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
+  VariableValidationBasis,
   VersionedVariableKey,
   isVariablePatch,
 } from "@tailjs/types";
@@ -31,14 +30,9 @@ import {
   project,
   some,
 } from "@tailjs/util";
-import {
-  VariableGetResults,
-  VariableSetResults,
-  VariableStorage,
-  applyPatchOffline,
-  copy,
-  variableId,
-} from "..";
+import { applyPatchOffline as applyPatch, copy, variableId } from "../lib";
+
+import { VariableGetResults, VariableSetResults, VariableStorage } from "..";
 
 export type ScopeVariables = [
   expires: number | undefined,
@@ -49,18 +43,6 @@ export const hasChanged = (
   getter: VersionedVariableKey,
   current: Variable | undefined
 ) => isUndefined(getter.version) || current?.version !== getter.version;
-
-export const applyGetFilters = (
-  getter: VariableGetter,
-  variable: Variable | undefined
-) =>
-  !variable ||
-  (isDefined(getter.purpose) &&
-    variable.purposes?.includes(getter.purpose) === false)
-    ? undefined
-    : isDefined(getter.version) && variable?.version == getter.version
-    ? variable
-    : copy(variable);
 
 export abstract class InMemoryStorageBase implements VariableStorage {
   private _ttl: Partial<Record<VariableScope, number>> | undefined;
@@ -91,10 +73,6 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     scope: VariableScope
   ): Iterable<[string, ScopeVariables]>;
 
-  protected _mapResultVariable(variable: Variable): Variable | undefined {
-    return variable;
-  }
-
   private _remove(variable: VariableKey, timestamp?: number) {
     const values = this._getScopeValues(variable.scope, variable.key, false);
     if (values?.[1].has(variable.key)) {
@@ -107,12 +85,6 @@ export abstract class InMemoryStorageBase implements VariableStorage {
 
   private _update(variable: Variable, timestamp?: number) {
     let scopeValues = this._getScopeValues(variable.scope, variable.key, true)!;
-    variable.version = this._getNextVersion(variable);
-
-    if (!variable.version) {
-      // Don't want it.
-      return undefined;
-    }
 
     const ttl = this._ttl?.[variable.scope];
     scopeValues[0] = ttl ? (timestamp ?? now()) + ttl : undefined;
@@ -121,9 +93,13 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     return variable;
   }
 
+  protected _validate(variable: VariableValidationBasis) {
+    return true;
+  }
+
   private _query(
     filters: VariableFilter[],
-    settings?: VariableQuerySettings
+    settings?: VariableQueryOptions
   ): Variable[] {
     const results: Variable[] = [];
     const timestamp = now();
@@ -136,6 +112,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           ])
         )
       : null;
+
     const ifModifiedSince = settings?.ifModifiedSince ?? 0;
 
     for (const queryFilter of filters) {
@@ -143,6 +120,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         const { purposes, classification: classifications } = queryFilter;
         if (
           !variable ||
+          !this._validate(variable) ||
           purposes?.every(
             (purpose) => variable.purposes?.includes(purpose) === false
           ) ||
@@ -177,29 +155,16 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           if (!scopeVars || scopeVars[0]! <= timestamp) continue;
           const vars = scopeVars[1];
           for (const key of queryFilter.keys ?? vars.keys()) {
-            if (key.endsWith("*")) {
-              const prefix = key.slice(0, -1);
-              results.push(
-                ...project(
-                  filter(
-                    vars,
-                    ([key, value]) => key.startsWith(prefix) && match(value)
-                  ),
-                  ([, value]) => value
-                )
-              );
-            } else {
-              const value = vars.get(key);
-              if (match(value)) {
-                results.push(value);
-              }
+            const value = vars.get(key);
+            if (match(value)) {
+              results.push(value);
             }
           }
         }
       }
     }
 
-    return map(results, (result) => this._mapResultVariable(result));
+    return results;
   }
 
   public clean() {
@@ -249,12 +214,26 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     }
   }
 
-  async get<K extends (VariableGetter | null | undefined)[]>(
+  private _applyGetFilters(
+    getter: VariableGetter,
+    variable: Variable | undefined
+  ) {
+    return !variable ||
+      !this._validate(variable) ||
+      (isDefined(getter.purpose) &&
+        variable.purposes?.includes(getter.purpose) === false)
+      ? undefined
+      : isDefined(getter.version) && variable?.version == getter.version
+      ? variable
+      : copy(variable);
+  }
+
+  async get<K extends (VariableGetter<any, false> | null | undefined)[]>(
     ...getters: K
   ): Promise<VariableGetResults<K>> {
     const values = getters.map((getter) => ({
       value: getter
-        ? applyGetFilters(
+        ? this._applyGetFilters(
             getter,
             this._getScopeValues(getter.scope, getter.targetId, false)?.[1].get(
               getter.key
@@ -266,29 +245,30 @@ export abstract class InMemoryStorageBase implements VariableStorage {
 
     for (const item of values) {
       if (item.getter?.initializer && !isDefined(item[0])) {
-        const initialValue = await item[1].initializer();
+        const initialValue = await item.getter.initializer();
         if (initialValue) {
-          item.value = this._update({ ...item[1], ...initialValue });
+          const newValue = { ...item[1], ...initialValue };
+          if (this._validate(newValue)) {
+            item.value = this._update({ ...item[1], ...initialValue });
+          }
         }
       }
     }
 
-    return values.map(
-      (item) => item.value && this._mapResultVariable(item.value)
-    ) as VariableGetResults<K>;
+    return values as VariableGetResults<K>;
   }
 
-  head(
+  async head(
     filters: VariableFilter[],
-    options?: VariableQuerySettings | undefined
-  ): VariableQueryResult<VariableHeader> {
+    options?: VariableQueryOptions | undefined
+  ): Promise<VariableQueryResult<VariableHeader>> {
     return this.query(filters, options);
   }
 
-  query(
+  async query(
     filters: VariableFilter[],
-    options?: VariableQuerySettings
-  ): VariableQueryResult<Variable> {
+    options?: VariableQueryOptions
+  ): Promise<VariableQueryResult<Variable>> {
     const results = this._query(filters, options);
     return {
       count: results.length,
@@ -298,10 +278,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     };
   }
 
-  set<Setters extends (VariableSetter | null | undefined)[]>(
+  async set<Setters extends (VariableSetter<any, false> | null | undefined)[]>(
     ...variables: Setters
-  ): VariableSetResults<Setters>;
-  set(...variables: (VariableSetter | null | undefined)[]) {
+  ): Promise<VariableSetResults<Setters>> {
     const timestamp = now();
     const results: (VariableSetResult | undefined)[] = [];
     for (const source of variables) {
@@ -309,6 +288,14 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         results.push(undefined);
         continue;
       }
+      if (!this._validate(source)) {
+        results.push({
+          status: VariableSetStatus.Denied,
+          source,
+        });
+        continue;
+      }
+
       let {
         key,
         targetId,
@@ -335,7 +322,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           continue;
         }
 
-        const patched = applyPatchOffline(current, source);
+        const patched = applyPatch(current, source);
 
         if (!isDefined(patched)) {
           results.push({
@@ -369,20 +356,27 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         continue;
       }
 
-      current = this._update(
-        {
-          key,
-          value,
-          classification,
-          targetId,
-          scope,
-          purposes:
-            current?.purposes && purposes
-              ? mapDistinct(concat(current?.purposes, purposes))
-              : current?.purposes ?? purposes,
-        },
-        timestamp
-      );
+      const nextValue: Variable = {
+        key,
+        value,
+        classification,
+        targetId,
+        scope,
+        purposes:
+          current?.purposes && purposes
+            ? mapDistinct(concat(current?.purposes, purposes))
+            : current?.purposes ?? purposes,
+      };
+      if (!this._validate(nextValue)) {
+        results.push({
+          status: VariableSetStatus.Denied,
+          source,
+        });
+        continue;
+      }
+
+      nextValue.version = this._getNextVersion(nextValue);
+      current = this._update(nextValue, timestamp);
 
       results.push(
         current
@@ -395,7 +389,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       );
     }
 
-    return results;
+    return results as VariableSetResults<Setters>;
   }
 
   purge(filters: VariableFilter[], batch = false) {

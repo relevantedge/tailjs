@@ -1,8 +1,8 @@
 import {
+  MatchTarget,
   VariableGetter,
   VariableHeader,
-  VariablePatch,
-  VariableQuerySettings,
+  VariableQueryOptions,
   VariableScope,
   VariableScopeNames,
   isErrorResult,
@@ -11,11 +11,9 @@ import {
   type VariableQueryResult,
   type VariableSetResult,
   type VariableSetter,
-  RequireTarget,
-  MatchTarget,
 } from "@tailjs/types";
 import { MaybePromise } from "@tailjs/util";
-import type { Tracker, TrackerEnvironment } from ".";
+import type { Tracker, TrackerEnvironment } from "..";
 
 export class VariableSetError extends Error {
   constructor(result: VariableSetResult) {
@@ -36,8 +34,8 @@ type MapVariableGetResult<Getter> = Getter extends VariableGetter<
   ? (Variable<unknown extends T ? any : T> & MatchTarget<S>) | undefined
   : undefined;
 
-export type VariableGetResults<K extends any[]> = K extends [infer Item]
-  ? [MapVariableGetResult<Item>]
+export type VariableGetResults<K extends any[]> = K extends []
+  ? []
   : K extends [infer Item, ...infer Rest]
   ? [MapVariableGetResult<Item>, ...VariableGetResults<Rest>]
   : K extends (infer T)[]
@@ -54,8 +52,8 @@ type MapVariableSetResult<Source> = [Source] extends [VariableSetter<infer T>]
   ? VariableSetResult<T, Source>
   : never;
 
-export type VariableSetResults<K extends any[]> = K extends [infer Item]
-  ? [MapVariableSetResult<Item>]
+export type VariableSetResults<K extends any[] = any[]> = K extends []
+  ? []
   : K extends [infer Item, ...infer Rest]
   ? [MapVariableSetResult<Item>, ...VariableSetResults<Rest>]
   : K extends (infer T)[]
@@ -71,11 +69,11 @@ export interface ReadOnlyVariableStorage<Scoped extends boolean = false> {
 
   head(
     filters: VariableFilter[],
-    options?: VariableQuerySettings
+    options?: VariableQueryOptions
   ): MaybePromise<VariableQueryResult<VariableHeader>>;
   query(
     filters: VariableFilter[],
-    options?: VariableQuerySettings
+    options?: VariableQueryOptions
   ): MaybePromise<VariableQueryResult<Variable>>;
 }
 
@@ -91,7 +89,7 @@ export interface VariableStorage<Scoped extends boolean = false>
 
   renew(scopes: VariableScope[], scopeIds: string[]): MaybePromise<void>;
 
-  set<K extends VariableSetter<any, Scoped>[]>(
+  set<K extends (VariableSetter<any, Scoped> | null | undefined)[]>(
     ...variables: K
   ): MaybePromise<VariableSetResults<K>>;
 

@@ -2,24 +2,27 @@ import {
   DataPurpose,
   Variable,
   VariableClassification,
-  VariableGetter,
+  VariableFilter,
   VariableKey,
   VariablePatch,
   VariablePatchResult,
   VariablePatchSource,
   VariablePatchType,
+  VariableQueryOptions,
+  VariableScope,
   VariableSetResult,
-  VersionedVariableKey,
   isSuccessResult,
-  isVariablePatchAction,
 } from "@tailjs/types";
 import {
+  MaybePromise,
   filter,
   isDefined,
+  isFunction,
   isNumber,
   isObject,
   isUndefined,
 } from "@tailjs/util";
+import { ReadOnlyVariableStorage } from "..";
 
 /**
  * A key that can be used to look up {@link Variable}s in Maps and Sets.
@@ -30,7 +33,7 @@ export const variableId = <T extends VariableKey | undefined | null>(
   variable
     ? variable.targetId
       ? variable.scope + variable.targetId + variable.key
-      : "0" + variable.key
+      : variable.scope + variable.key
     : undefined;
 
 export const copy = <T extends Variable | undefined>(
@@ -55,6 +58,17 @@ export const formatSetResultError = (result?: VariableSetResult) => {
     result["error"]?.toString(),
   ]).join(" - ");
 };
+
+export const extractKey = <T extends VariableKey>(
+  variable: T
+): T extends undefined ? undefined : VariableKey =>
+  variable
+    ? ({
+        scope: variable.scope,
+        targetId: variable.targetId,
+        key: variable.key,
+      } as Required<VariableKey> as any)
+    : undefined;
 
 const patchSelector = (
   value: any,
@@ -96,7 +110,7 @@ export const applyPatchOffline = (
   current: VariablePatchSource | undefined,
   { patch }: VariablePatch
 ): VariablePatchResult | undefined => {
-  if (isVariablePatchAction(patch)) {
+  if (isFunction(patch)) {
     return patch(current);
   }
   const classification: VariableClassification = {
@@ -141,11 +155,37 @@ export const applyPatchOffline = (
 
 export type ParsedKey = {
   prefix: string;
-  localKey: string;
+  key: string;
   sourceKey: string;
-
   purpose?: DataPurpose;
 };
+
+export type PartitionItem<T> = [sourceIndex: number, item: T];
+export type PartitionItems<T extends any[] = any[]> = T extends []
+  ? []
+  : T extends [infer Item, ...infer Rest]
+  ? [PartitionItem<Item>, ...PartitionItems<Rest>]
+  : PartitionItem<T[number]>[];
+
+export const withSourceIndex = <T extends any[]>(items: T): PartitionItems<T> =>
+  items.map(
+    (item, sourceIndex) => [sourceIndex, item] as const
+  ) as PartitionItems<T>;
+
+export const partitionItems = <T extends any[]>(items: PartitionItems<T>): T =>
+  items.map((item) => item[1]) as T;
+
+export const mergeKeys = async <K extends any[], T extends any[]>(
+  results: T,
+  partitionMappings: PartitionItems<K>,
+  partitionResults: (items: K) => MaybePromise<T>
+) =>
+  partitionMappings?.length &&
+  (
+    await partitionResults(partitionMappings.map((item) => item?.[1]) as K)
+  ).forEach((result) => result && (results[result[0]] = result[1]));
+
+export const hasPrefix = (key: string | undefined) => key?.includes(":");
 
 export const parseKey = <T extends string | undefined>(
   sourceKey: T
@@ -162,3 +202,47 @@ export const parseKey = <T extends string | undefined>(
     sourceKey,
   } as any;
 };
+
+export type FilterTarget = {
+  targetIndex: number;
+  scopes: Set<VariableScope>;
+  prefixes: { exclude?: boolean; match: Set<string> };
+};
+
+export const splitFilters = (
+  filters: VariableFilter[],
+  splits: FilterTarget[],
+  keepPrefix = false
+) => {
+  const splitFilters: VariableFilter[][] = splits.map(() => []);
+  for (const filter of filters) {
+    const keys = filter.keys?.map(parseKey);
+    for (const { targetIndex: target, scopes, prefixes } of splits) {
+      let splitKeys = keys;
+      if (prefixes && splitKeys) {
+        const { exclude = false, match } = prefixes;
+        splitKeys = splitKeys.filter(
+          (key) =>
+            key.prefix === "*" ||
+            key.sourceKey === "*" ||
+            match.has(key.prefix) !== exclude
+        );
+      }
+
+      if (splitKeys?.length !== 0) {
+        splitFilters[target].push({
+          ...filter,
+          scopes: [...scopes],
+          keys: splitKeys?.map((key) => (keepPrefix ? key.sourceKey : key.key)),
+        });
+      }
+    }
+  }
+  return splitFilters;
+};
+
+export const distributeQueries = async (
+  storages: ReadOnlyVariableStorage[],
+  filters: VariableFilter[][],
+  options: VariableQueryOptions
+) => {};
