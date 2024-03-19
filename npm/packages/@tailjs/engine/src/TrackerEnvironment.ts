@@ -10,7 +10,6 @@ import { Nulls, isString } from "@tailjs/util";
 import { formatError, params } from "./lib";
 import {
   LogLevel,
-  VariableStorage,
   type ChangeHandler,
   type Cookie,
   type CryptoProvider,
@@ -19,8 +18,8 @@ import {
   type HttpResponse,
   type LogMessage,
   type ModelMetadata,
+  VariableStorage,
 } from "./shared";
-import { VariableStorageRouter } from "./extensions";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
@@ -55,14 +54,14 @@ export class TrackerEnvironment {
   public readonly tags?: string[];
   public readonly hasManagedConsents: boolean;
   public readonly cookieVersion: string;
-  public readonly storage: VariableStorageRouter;
+  public readonly storage: VariableStorage;
 
   constructor(
     host: EngineHost,
     crypto: CryptoProvider,
     metadata: ModelMetadata,
     hasManagedConsents: boolean,
-    storage: VariableStorageRouter,
+    storage: VariableStorage,
     tags?: string[],
     cookieVersion = "C"
   ) {
@@ -130,28 +129,25 @@ export class TrackerEnvironment {
   public log(
     source: any,
     message: string | null | undefined,
-    error: Error,
-    logLevel?: LogLevel
+    logLevel?: LogLevel,
+    error?: Error
   ): void;
-  public log(source: any, message: string, level?: LogLevel): void;
   public log(
     source: any,
     arg: LogMessage | string | null | undefined,
-    levelOrEror?: LogLevel | Error,
-    errorLevel?: LogLevel
+    level?: LogLevel,
+    error?: Error
   ): void {
     const message: Partial<LogMessage> | null =
-      levelOrEror instanceof Error
+      error instanceof Error
         ? {
-            message: arg
-              ? `${arg}: ${formatError(levelOrEror)}`
-              : formatError(levelOrEror),
-            level: errorLevel ?? "error",
+            message: arg ? `${arg}: ${formatError(error)}` : formatError(error),
+            level: level ?? "error",
           }
         : isString(arg)
         ? {
             message: arg,
-            level: levelOrEror ?? "info",
+            level: level ?? "info",
           }
         : arg
         ? arg
@@ -241,4 +237,27 @@ export class TrackerEnvironment {
       body: response.body,
     };
   }
+
+  // #region LogShortcuts
+
+  public warn(source: any, message: string, error?: Error): void;
+  public warn(
+    source: any,
+    message: string | null | undefined,
+    error: Error
+  ): void;
+  public warn(source: any, message: string, error?: Error) {
+    this.log(source, message, "warn", error);
+  }
+
+  public error(source: any, message: string, error?: Error): void;
+  public error(
+    source: any,
+    message: string | null | undefined,
+    error: Error
+  ): void;
+  public error(source: any, message: string, error?: Error) {
+    this.log(source, message, "warn", error);
+  }
+  // #endregion
 }

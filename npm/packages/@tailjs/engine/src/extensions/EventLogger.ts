@@ -13,7 +13,7 @@ export class EventLogger implements TrackerExtension {
 
   async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
     for (const ev of events.add) {
-      tracker.env.log({
+      tracker.env.log(this, {
         group: this.configuration.group,
         level: "info",
         source: this.id,

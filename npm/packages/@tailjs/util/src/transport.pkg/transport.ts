@@ -17,7 +17,6 @@ import {
   map,
   tryCatch,
 } from "..";
-import { isStringObject } from "util/types";
 
 type ConverterFunctionValue<T> = T extends { toJSON(): infer V }
   ? V
@@ -164,8 +163,10 @@ const patchSerialize = (value: any) => {
     }
 
     if (Number.isFinite(value) && !Number.isSafeInteger(value)) {
+      // A bug in @ygoe/msgpack means floats do not get encoded. We need to encode them in a different way.
+      // This is how it landed, since data structure is highly unlikely to be encountered,
+      // yet it is probably not the best way to do this (apart from fixing the bug ofc.)
       floatView.setFloat64(0, value, true);
-
       return { "": [...new Uint32Array(floatBuffer)] };
     }
 

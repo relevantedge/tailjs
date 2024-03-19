@@ -1,5 +1,4 @@
 import {
-  MatchTarget,
   VariableGetter,
   VariableHeader,
   VariableQueryOptions,
@@ -11,6 +10,7 @@ import {
   type VariableQueryResult,
   type VariableSetResult,
   type VariableSetter,
+  VariablePatchResult,
 } from "@tailjs/types";
 import { MaybePromise } from "@tailjs/util";
 import type { Tracker, TrackerEnvironment } from "..";
@@ -27,11 +27,34 @@ export class VariableSetError extends Error {
   }
 }
 
-type MapVariableGetResult<Getter> = Getter extends VariableGetter<
-  infer T,
-  infer S
->
-  ? (Variable<unknown extends T ? any : T> & MatchTarget<S>) | undefined
+export type VariableStorageContext = {
+  tracker?: Tracker;
+  // Reserved for future use so one endpoint can be shared between multiple projects (e.g. by an API key - TBD).
+  tenant?: string;
+};
+
+export interface VariableGetResult<T = any> extends Variable<T> {
+  /**
+   * The initializer was used to create the variable.
+   */
+  initialized?: boolean;
+
+  /**
+   * The variable has not changed since the version requested.
+   */
+  unchanged?: boolean;
+
+  value: T;
+}
+
+type MapVariableGetResult<Getter> = Getter extends VariableGetter<infer T>
+  ? Getter extends {
+      initializer: () => infer R;
+    }
+    ? Awaited<R> extends VariablePatchResult<infer T>
+      ? VariableGetResult<T>
+      : VariableGetResult<unknown extends T ? any | undefined : T | undefined>
+    : VariableGetResult<unknown extends T ? any | undefined : undefined>
   : undefined;
 
 export type VariableGetResults<K extends any[]> = K extends []
@@ -42,14 +65,10 @@ export type VariableGetResults<K extends any[]> = K extends []
   ? MapVariableGetResult<T>[]
   : never;
 
-export type VariableContext = {
-  context?: {
-    tracker?: Tracker;
-  };
-};
-
-type MapVariableSetResult<Source> = [Source] extends [VariableSetter<infer T>]
-  ? VariableSetResult<T, Source>
+type MapVariableSetResult<Source> = Source extends VariableSetter<infer T>
+  ? Source extends { value: undefined }
+    ? undefined
+    : VariableSetResult<T>
   : never;
 
 export type VariableSetResults<K extends any[] = any[]> = K extends []
@@ -60,20 +79,23 @@ export type VariableSetResults<K extends any[] = any[]> = K extends []
   ? MapVariableSetResult<T>[]
   : never;
 
-export interface ReadOnlyVariableStorage<Scoped extends boolean = false> {
+export interface ReadOnlyVariableStorage {
   initialize?(environment: TrackerEnvironment): MaybePromise<void>;
 
-  get<K extends (VariableGetter<any, Scoped> | null | undefined)[]>(
-    ...keys: K
+  get<K extends (VariableGetter<any> | null | undefined)[]>(
+    keys: K & (VariableGetter<any> | null | undefined)[], // K & and the base type to enable intellisense.
+    context?: VariableStorageContext
   ): MaybePromise<VariableGetResults<K>>;
 
   head(
     filters: VariableFilter[],
-    options?: VariableQueryOptions
+    options?: VariableQueryOptions,
+    context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<VariableHeader>>;
   query(
     filters: VariableFilter[],
-    options?: VariableQueryOptions
+    options?: VariableQueryOptions,
+    context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<Variable>>;
 }
 
@@ -82,16 +104,25 @@ export const isWritable = (
 ): storage is VariableStorage => (storage as any).set;
 
 export interface VariableStorage<Scoped extends boolean = false>
-  extends ReadOnlyVariableStorage<Scoped> {
+  extends ReadOnlyVariableStorage {
   configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>
+    durations: Partial<Record<VariableScope, number>>,
+    context?: VariableStorageContext
   ): void;
 
-  renew(scopes: VariableScope[], scopeIds: string[]): MaybePromise<void>;
+  renew(
+    scope: VariableScope,
+    scopeIds: string[],
+    context?: VariableStorageContext
+  ): MaybePromise<void>;
 
-  set<K extends (VariableSetter<any, Scoped> | null | undefined)[]>(
-    ...variables: K
-  ): MaybePromise<VariableSetResults<K>>;
+  set<V extends (VariableSetter<any> | null | undefined)[]>(
+    variables: V & (VariableSetter<any> | null | undefined)[], // V & and the base type to enable intellisense.
+    context?: VariableStorageContext
+  ): MaybePromise<VariableSetResults<V>>;
 
-  purge(filters: VariableFilter[], batch?: boolean): MaybePromise<void>;
+  purge(
+    filters: VariableFilter[],
+    context?: VariableStorageContext
+  ): MaybePromise<void>;
 }

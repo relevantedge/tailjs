@@ -11,7 +11,6 @@ import {
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
-  VariableValidationBasis,
   VersionedVariableKey,
   isVariablePatch,
 } from "@tailjs/types";
@@ -19,20 +18,27 @@ import {
   Clock,
   MaybePromise,
   clock,
-  concat,
-  filter,
   forEach,
   isDefined,
   isUndefined,
-  map,
-  mapDistinct,
   now,
-  project,
   some,
 } from "@tailjs/util";
-import { applyPatchOffline as applyPatch, copy, variableId } from "../lib";
+import {
+  applyPatchOffline as applyPatch,
+  applyPatchOffline,
+  copy,
+  parseKey,
+  variableId,
+} from "../lib";
 
-import { VariableGetResults, VariableSetResults, VariableStorage } from "..";
+import {
+  VariableGetResult,
+  VariableGetResults,
+  VariableSetResults,
+  VariableStorage,
+  VariableStorageContext,
+} from "..";
 
 export type ScopeVariables = [
   expires: number | undefined,
@@ -93,8 +99,11 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     return variable;
   }
 
-  protected _validate(variable: VariableValidationBasis) {
-    return true;
+  private _validateKey<T extends VariableKey | null | undefined>(key: T): T {
+    if (key && key.scope !== VariableScope.Global && !key.targetId) {
+      throw new TypeError(`Target ID is required for non-global scopes.`);
+    }
+    return key;
   }
 
   private _query(
@@ -120,9 +129,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         const { purposes, classification: classifications } = queryFilter;
         if (
           !variable ||
-          !this._validate(variable) ||
           purposes?.every(
-            (purpose) => variable.purposes?.includes(purpose) === false
+            (purpose) => variable.purposes && !(purpose & variable.purposes)
           ) ||
           (classifications &&
             (variable.classification < classifications.min! ||
@@ -154,7 +162,19 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         ) ?? this._getTargetsInScope(scope)) {
           if (!scopeVars || scopeVars[0]! <= timestamp) continue;
           const vars = scopeVars[1];
-          for (const key of queryFilter.keys ?? vars.keys()) {
+          let nots: Set<string> | undefined = undefined;
+          const includes =
+            queryFilter.keys?.filter((key) => {
+              // Find keys that starts with `!` to exclude them from the results.
+              const parsed = parseKey(key);
+              if (parsed.not) {
+                (nots ??= new Set()).add(parsed.sourceKey);
+              }
+            }) ?? vars.keys();
+
+          for (const key of includes) {
+            if (nots!?.has(key)) continue;
+
             const value = vars.get(key);
             if (match(value)) {
               results.push(value);
@@ -182,23 +202,27 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     });
   }
 
-  renew(scopes: VariableScope[], targetIds: string[]) {
+  public renew(
+    scope: VariableScope,
+    targetIds: string[],
+    context?: VariableStorageContext
+  ) {
     const timestamp = now();
-    for (const scope of scopes) {
-      const ttl = this._ttl?.[scope];
-      if (!ttl) continue;
 
-      for (const targetId of targetIds) {
-        const vars = this._getScopeValues(scope, targetId, false);
-        if (vars) {
-          vars[0] = timestamp;
-        }
+    const ttl = this._ttl?.[scope];
+    if (!ttl) return;
+
+    for (const targetId of targetIds) {
+      const vars = this._getScopeValues(scope, targetId, false);
+      if (vars) {
+        vars[0] = timestamp;
       }
     }
   }
 
-  configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>
+  public configureScopeDurations(
+    durations: Partial<Record<VariableScope, number>>,
+    context?: VariableStorageContext
   ): MaybePromise<void> {
     this._ttl ??= {};
     for (const [scope, duration] of Object.entries(durations)) {
@@ -219,80 +243,97 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     variable: Variable | undefined
   ) {
     return !variable ||
-      !this._validate(variable) ||
-      (isDefined(getter.purpose) &&
-        variable.purposes?.includes(getter.purpose) === false)
+      (getter.purpose && // The variable has explicit purposes and not the one requested.
+        isDefined(variable.purposes) &&
+        !(variable.purposes & getter.purpose))
       ? undefined
       : isDefined(getter.version) && variable?.version == getter.version
       ? variable
       : copy(variable);
   }
 
-  async get<K extends (VariableGetter<any, false> | null | undefined)[]>(
-    ...getters: K
+  async get<K extends (VariableGetter<any> | null | undefined)[]>(
+    getters: K,
+    context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
-    const values = getters.map((getter) => ({
-      value: getter
-        ? this._applyGetFilters(
+    const results = getters.map((getter) => ({
+      current: (getter = this._validateKey(getter))
+        ? (this._applyGetFilters(
             getter,
             this._getScopeValues(getter.scope, getter.targetId, false)?.[1].get(
               getter.key
             )
-          )
+          ) as VariableGetResult<any>)
         : undefined,
       getter,
     }));
 
-    for (const item of values) {
+    for (const item of results) {
       if (item.getter?.initializer && !isDefined(item[0])) {
         const initialValue = await item.getter.initializer();
         if (initialValue) {
-          const newValue = { ...item[1], ...initialValue };
-          if (this._validate(newValue)) {
-            item.value = this._update({ ...item[1], ...initialValue });
+          // Check if the variable has been created by someone else while the initializer was running.
+          const current = this._getScopeValues(
+            item.getter.scope,
+            item.getter.targetId,
+            false
+          )?.[1].get(item.getter.key);
+          if (!current) {
+            item.current = copy(this._update({ ...item[1], ...initialValue }));
+            item.current.initialized = true;
           }
         }
       }
     }
 
-    return values as VariableGetResults<K>;
+    return results.map((item) => {
+      const variable = copy(item.current);
+      if (
+        variable &&
+        item.getter?.version &&
+        item.getter?.version === item.current?.version
+      ) {
+        variable.unchanged = true;
+      }
+      return variable;
+    }) as VariableGetResults<K>;
   }
 
   async head(
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined
+    options?: VariableQueryOptions | undefined,
+    context?: VariableStorageContext
   ): Promise<VariableQueryResult<VariableHeader>> {
     return this.query(filters, options);
   }
 
   async query(
     filters: VariableFilter[],
-    options?: VariableQueryOptions
+    options?: VariableQueryOptions,
+    context?: VariableStorageContext
   ): Promise<VariableQueryResult<Variable>> {
     const results = this._query(filters, options);
     return {
       count: results.length,
-      results: (options?.top ? results.slice(options.top) : results).map(
-        (variable) => copy(variable)
-      ),
+      // This current implementation does not bother with cursors. If one is requested we just return all results. Boom.
+      results: (options?.top && !options?.cursor?.include
+        ? results.slice(options.top)
+        : results
+      ).map((variable) => copy(variable)),
     };
   }
 
-  async set<Setters extends (VariableSetter<any, false> | null | undefined)[]>(
-    ...variables: Setters
+  async set<Setters extends (VariableSetter<any> | null | undefined)[]>(
+    variables: Setters,
+    context?: VariableStorageContext
   ): Promise<VariableSetResults<Setters>> {
     const timestamp = now();
     const results: (VariableSetResult | undefined)[] = [];
     for (const source of variables) {
+      this._validateKey(source);
+
       if (!source) {
         results.push(undefined);
-        continue;
-      }
-      if (!this._validate(source)) {
-        results.push({
-          status: VariableSetStatus.Denied,
-          source,
-        });
         continue;
       }
 
@@ -322,7 +363,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           continue;
         }
 
-        const patched = applyPatch(current, source);
+        const patched = applyPatchOffline(current, source);
 
         if (!isDefined(patched)) {
           results.push({
@@ -332,7 +373,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           });
           continue;
         }
-        classification = patched.classification;
+        classification = patched.classification!;
         purposes = patched.purposes;
         value = patched.value;
       } else if (current?.version !== version) {
@@ -363,17 +404,10 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         targetId,
         scope,
         purposes:
-          current?.purposes && purposes
-            ? mapDistinct(concat(current?.purposes, purposes))
-            : current?.purposes ?? purposes,
+          isDefined(current?.purposes) || purposes
+            ? (current?.purposes ?? 0) | (purposes ?? 0)
+            : undefined,
       };
-      if (!this._validate(nextValue)) {
-        results.push({
-          status: VariableSetStatus.Denied,
-          source,
-        });
-        continue;
-      }
 
       nextValue.version = this._getNextVersion(nextValue);
       current = this._update(nextValue, timestamp);
@@ -392,13 +426,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     return results as VariableSetResults<Setters>;
   }
 
-  purge(filters: VariableFilter[], batch = false) {
-    if (!batch && filters.some((filter) => !filter.targetIds)) {
-      throw new Error(
-        "The batch must be specified when not addressing individual IDs."
-      );
-    }
-
+  public purge(filters: VariableFilter[], context?: VariableStorageContext) {
     const queryFilters: VariableFilter[] = [];
     for (const filter of filters) {
       if (filter.keys || filter.classification || filter.purposes) {

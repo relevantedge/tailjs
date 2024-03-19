@@ -1,5 +1,5 @@
 import {
-  DataPurpose,
+  DataClassification,
   Variable,
   VariableClassification,
   VariableFilter,
@@ -11,18 +11,21 @@ import {
   VariableQueryOptions,
   VariableScope,
   VariableSetResult,
+  isConflictResult,
   isSuccessResult,
 } from "@tailjs/types";
 import {
   MaybePromise,
+  delay,
   filter,
   isDefined,
   isFunction,
   isNumber,
   isObject,
   isUndefined,
+  now,
 } from "@tailjs/util";
-import { ReadOnlyVariableStorage } from "..";
+import { ReadOnlyVariableStorage, VariableStorage } from "..";
 
 /**
  * A key that can be used to look up {@link Variable}s in Maps and Sets.
@@ -36,15 +39,14 @@ export const variableId = <T extends VariableKey | undefined | null>(
       : variable.scope + variable.key
     : undefined;
 
-export const copy = <T extends Variable | undefined>(
+export const copy = <T extends (Variable & { value: any }) | undefined>(
   variable: T,
   overrides?: Partial<Variable>
 ): T => {
   return (
     variable && {
       ...variable,
-      purposes: !overrides?.purposes &&
-        variable.purposes && [...variable.purposes],
+      ...(variable.tags ? [...variable.tags] : {}),
       ...overrides,
     }
   );
@@ -111,7 +113,14 @@ export const applyPatchOffline = (
   { patch }: VariablePatch
 ): VariablePatchResult | undefined => {
   if (isFunction(patch)) {
-    return patch(current);
+    const patched = patch(current);
+    if (patched) {
+      patched.classification ??=
+        current?.classification ?? DataClassification.None;
+      !("purposes" in patched) && (patched.purposes = current?.purposes);
+      !("tags" in patched) && (patched.tags = current?.tags);
+    }
+    return patched;
   }
   const classification: VariableClassification = {
     classification: patch.classification,
@@ -119,6 +128,7 @@ export const applyPatchOffline = (
   };
 
   const value = current?.value;
+
   switch (patch.type) {
     case VariablePatchType.Add:
       return {
@@ -157,7 +167,8 @@ export type ParsedKey = {
   prefix: string;
   key: string;
   sourceKey: string;
-  purpose?: DataPurpose;
+  // For filters.
+  not?: boolean;
 };
 
 export type PartitionItem<T> = [sourceIndex: number, item: T];
@@ -191,6 +202,10 @@ export const parseKey = <T extends string | undefined>(
   sourceKey: T
 ): Exclude<T, string> | ParsedKey => {
   if (isUndefined(sourceKey)) return undefined as any;
+  const not = sourceKey[0] === "1";
+  if (not) {
+    sourceKey = (sourceKey.slice(1) as T)!;
+  }
   const prefixIndex = sourceKey.indexOf(":");
   const prefix = prefixIndex < 0 ? "" : sourceKey.substring(0, prefixIndex);
   const localKey =
@@ -200,6 +215,7 @@ export const parseKey = <T extends string | undefined>(
     prefix,
     localKey,
     sourceKey,
+    not,
   } as any;
 };
 

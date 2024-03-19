@@ -1,4 +1,10 @@
-import type { DataClassification, SignOutEvent, Timestamp, UUID } from ".";
+import type {
+  DataClassification,
+  DataPurposes,
+  SignOutEvent,
+  UUID,
+  UserConsent,
+} from ".";
 
 export interface Session {
   /**
@@ -36,29 +42,18 @@ export interface Session {
   deviceSessionId?: UUID;
 
   /**
-   * The current user.
+   * The current user owning the session.
    */
-  username?: string;
+  userId?: string;
 
   /**
-   * When the session started.
+   * The user's consent choices. {@link DataClassification.None} means the session is cookie-less.
    */
-  timestamp: Timestamp;
+  consent: UserConsent;
 
   /**
-   * The client's IP if enabled in configuration.
+   * This value indicates that an old device session "woke up" with an old device session ID and took over a new one.
+   * This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session).
    */
-  ip?: string;
-
-  /**
-   * The user's level of consent. `none` implies that only anonymous data has been collected with cookie-less tracking.
-   */
-  consentLevel?: DataClassification;
-
-  /**
-   * If the user had consented to non-essential tracking during this session.
-   *
-   * @default false
-   */
-  nonEssentialTrackingConsent?: boolean;
+  expiredDeviceSessionId?: string;
 }

@@ -1,5 +1,5 @@
 import { isWeakMap } from "util/types";
-import { toObject, type reduce, forEach, update, map } from ".";
+import { obj, type reduce, forEach, update, map } from ".";
 
 export type IsNever<T> = [T] extends [never] ? true : false;
 
@@ -113,17 +113,21 @@ export type PrettifyIntersection<T> = T extends { [P in infer K]: any }
   ? { [P in K]: T[P] }
   : never;
 
+type KeyValuePairToProperty<K, V> = K extends keyof any
+  ? { [P in K]: V }
+  : never;
+
 /**
  * Makes an array of key/value pairs to an object with the corresponding properties.
  */
-export type KeyValuePairsToObject<T> = UnionToIntersection<
-  T extends readonly [infer K & keyof any, infer V]
-    ? { [P in K & keyof any]: V }
-    : ((value: T) => never) extends (
-        value: [infer K & keyof any, infer V]
-      ) => never
-    ? { [P in K & keyof any]: ConstToNormal<V> }
-    : unknown
+export type KeyValuePairsToObject<T> = PrettifyIntersection<
+  T extends []
+    ? {}
+    : T extends [[infer K, infer V], ...infer Rest]
+    ? KeyValuePairToProperty<K, V> & KeyValuePairsToObject<Rest>
+    : T extends [infer K, infer V][]
+    ? UnionToIntersection<KeyValuePairToProperty<K, V>>
+    : never
 >;
 
 /**
@@ -433,7 +437,7 @@ export const clone = <T>(value: T, depth: number | boolean = true): T =>
             : value
         )
       : depth
-      ? toObject(
+      ? obj(
           map(value as any, ([k, v]) => [
             k,
             clone(v, depth === true || --(depth as any)),
@@ -441,10 +445,6 @@ export const clone = <T>(value: T, depth: number | boolean = true): T =>
         )
       : { ...value }
     : (value as any);
-
-type CaptureCallback<Args extends any[], R> = (
-  ...args: [...args: Args, self: CaptureCallback<Args, R>]
-) => R;
 
 /**
  * Evaluates a function that can be used to capture values using parameter default values.
