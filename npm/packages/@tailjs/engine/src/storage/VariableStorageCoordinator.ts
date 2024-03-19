@@ -20,6 +20,7 @@ import {
 import {
   PrefixMappings,
   ReadOnlyVariableStorage,
+  VariableStorageContext,
   VariableSplitStorage,
   VariableStorage,
   isWritable,
@@ -53,6 +54,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
   private async _setWithRetry(
     setters: (VariableSetter<any, false> | null | undefined)[],
     targetStorage?: VariableStorage,
+    context?: VariableStorageContext,
     patch?: (
       sourceIndex: number,
       result: VariableSetResult
@@ -69,7 +71,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
       try {
         const results: VariableSetResult[] = await (targetStorage
           ? targetStorage.set
-          : super.set)(...partitionItems(current));
+          : super.set)(partitionItems(current), context);
 
         results.forEach((result, j) => {
           finalResults[j] = result;
@@ -141,7 +143,8 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
   protected async _patchSetResults(
     storage: VariableStorage<false>,
     setters: VariableSetter<any, false>[],
-    results: (VariableSetResult | undefined)[]
+    results: (VariableSetResult | undefined)[],
+    context?: VariableStorageContext
   ): Promise<(VariableSetResult | undefined)[]> {
     const patches: PartitionItem<VariablePatch<any, false>>[] = [];
 
@@ -172,7 +175,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
       };
 
       const patchSetters: PartitionItem<VariableSetter<any, false>>[] = [];
-      const currentValues = storage.get(...partitionItems(patches));
+      const currentValues = storage.get(partitionItems(patches), context);
 
       for (let i = 0; i < patches.length; i++) {
         const patched = applyPatch(i, currentValues[i]);
@@ -186,6 +189,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
           await this._setWithRetry(
             partitionItems(patchSetters),
             storage,
+            context,
             (sourceIndex, result) =>
               isConflictResult(result)
                 ? applyPatch(patchSetters[sourceIndex][0], result.current)

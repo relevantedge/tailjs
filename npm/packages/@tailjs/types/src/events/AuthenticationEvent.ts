@@ -14,7 +14,13 @@ export interface SignInEvent extends AuthenticationEvent {
   /**
    * The user that signed in.
    */
-  username: string;
+  userId: string;
+
+  /**
+   * Custom data that can be used to validate the login server-side to make sure that userdata cannot get hijacked
+   * by abusing the API.
+   */
+  evidence: string;
 }
 
 /**
@@ -25,7 +31,7 @@ export interface SignOutEvent extends AuthenticationEvent {
   /**
    * The user that signed out.
    */
-  username?: string;
+  userId?: string;
 }
 
 export const isSignOutEvent = typeTest<SignOutEvent>("SIGN_OUT");

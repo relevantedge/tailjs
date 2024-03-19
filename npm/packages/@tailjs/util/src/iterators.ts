@@ -178,7 +178,7 @@ export type Filter<S extends IteratorSource> = (
 
 const filterIterator = <T>(
   source: Iterable<T>,
-  filter: (item: T, index: number) => any = isTruish
+  filter: Filter<Iterable<T>> = isTruish
 ): Iterable<T> => {
   if (isArray(source)) return source.filter(filter);
   return (function* () {
@@ -482,19 +482,18 @@ export const flatForEach = <S extends IteratorSource, R, Depth extends number>(
     action as any
   ) as any;
 
-export const toObject: {
-  <S extends IteratorSourceOf<[keyof any, any]>>(
-    source: S,
-    selector?: null,
-    ...rest: StartEndArgs<S>
-  ): KeyValuePairsToObject<S>;
+export const obj: {
   <S extends IteratorSource, P extends [keyof any, any]>(
     source: S,
     selector: IteratorAction<S, P>,
     ...rest: StartEndArgs<S>
   ): KeyValuePairsToObject<P[]>;
-} = (source: any, selector: any, ...rest: any[]) =>
-  Object.fromEntries((map as any)(source, selector, ...rest));
+  <S extends IteratorSourceOf<[keyof any, any]>>(
+    source: S,
+    ...rest: StartEndArgs<S>
+  ): KeyValuePairsToObject<S>;
+} = ((source: any, selector: any, ...rest: any[]) =>
+  Object.fromEntries((map as any)(source, selector, ...rest))) as any;
 
 export const groupReduce = <
   S extends IteratorSource,
@@ -588,18 +587,26 @@ export const reduce = <
   );
 };
 
+type FilterItem<S extends IteratorSource, F> = F extends (
+  value: any,
+  ...args: any
+) => value is infer T
+  ? T
+  : IteratorItem<S>;
+
 export const filter: {
   <
     S extends IteratorSource,
-    MapToArray extends boolean = S extends any[] ? true : false
+    MapToArray extends boolean = S extends any[] ? true : false,
+    P extends Filter<S> = Filter<S>
   >(
     source: S,
-    predicate?: Filter<S>,
+    predicate?: P,
     map?: MapToArray,
     ...rest: StartEndArgs<S>
   ): MapToArray extends true
-    ? UndefinedIfUndefined<S, IteratorItem<S>[]>
-    : Iterable<IteratorItem<S>>;
+    ? UndefinedIfUndefined<S, FilterItem<S, P>[]>
+    : Iterable<FilterItem<S, P>>;
 } = (
   source: IteratorSource,
   predicate: Filter<any> = (item: any) => item != null,

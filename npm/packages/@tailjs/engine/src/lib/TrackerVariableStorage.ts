@@ -1,7 +1,7 @@
 import {
   DataClassification,
+  DataPurposes,
   Variable,
-  VariableClassification,
   VariableFilter,
   VariableGetter,
   VariableHeader,
@@ -14,34 +14,19 @@ import {
   VariableSetStatus,
   VariableSetter,
   VariableValidationBasis,
+  isSuccessResult,
   isVariablePatch,
 } from "@tailjs/types";
-import { MaybePromise, isDefined, isFunction, isUndefined } from "@tailjs/util";
+import { MaybePromise, isDefined, isFunction } from "@tailjs/util";
 import {
-  InMemoryStorageBase,
-  ScopeVariables,
   Tracker,
+  VariableStorageContext,
   VariableGetResults,
   VariableSetResults,
   VariableStorage,
-  isWritable,
 } from "..";
 
-import { PartitionItem, extractKey, hasPrefix } from ".";
-
-const validateTargetId = (
-  targetId: string | undefined,
-  allowed: string | undefined
-) => isDefined(allowed) && (isUndefined(targetId) || targetId === allowed);
-
-const enum VariableTarget {
-  Denied = -1,
-  None = 0,
-  Tracker = 1,
-  External = 2,
-}
-
-type VariableValidationSource = VariableKey & Partial<VariableClassification>;
+import { PartitionItem, extractKey, parseKey } from ".";
 
 const trackerScopes = new Set([
   VariableScope.User,
@@ -50,26 +35,36 @@ const trackerScopes = new Set([
 ]);
 const nonTrackerScopes = new Set([VariableScope.Global, VariableScope.Entity]);
 
-class TrackerVariableStorage implements VariableStorage {
+export class TrackerVariableStorage implements VariableStorage {
   private _storage: VariableStorage;
-  public readonly tracker: Tracker;
 
-  constructor(tracker: Tracker) {
-    this.tracker = tracker;
-    this._storage = tracker.env.storage;
+  constructor(storage: VariableStorage) {
+    this._storage = storage;
   }
 
-  configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>
+  public configureScopeDurations(
+    durations: Partial<Record<VariableScope, number>>,
+    context?: VariableStorageContext
   ): void {
-    this._storage.configureScopeDurations(durations);
+    this._storage.configureScopeDurations(durations, context);
   }
 
-  renew(scopes: VariableScope[], scopeIds: string[]): MaybePromise<void> {
-    return this._storage.renew(scopes, scopeIds);
+  public renew(
+    scope: VariableScope,
+    scopeIds: string[],
+    context?: VariableStorageContext
+  ): MaybePromise<void> {
+    if (context?.tracker && this._isRestrictedScope(scope)) {
+      const scopeId = this._getScopeTargetId(scope, context.tracker);
+      if (!scopeId) {
+        return;
+      }
+      scopeIds = [scopeId];
+    }
+    return this._storage.renew(scope, scopeIds, context);
   }
 
-  private _isValidationScope(scope: VariableScope) {
+  private _isRestrictedScope(scope: VariableScope) {
     return (
       scope === VariableScope.Session ||
       scope === VariableScope.Device ||
@@ -77,41 +72,55 @@ class TrackerVariableStorage implements VariableStorage {
     );
   }
 
-  private _getScopeTargetId(scope: VariableScope) {
+  private _getScopeTargetId(scope: VariableScope, tracker: Tracker) {
     return scope === VariableScope.Session
-      ? this.tracker.sessionId
+      ? tracker.session.id
       : scope === VariableScope.Device
-      ? this.tracker.deviceId
+      ? tracker.session.deviceId
       : scope === VariableScope.User
-      ? this.tracker.userId
+      ? tracker.session.userId
       : undefined;
   }
 
+  private _getMaxConsentLevel(scope: VariableScope, tracker: Tracker) {
+    // If a user is authenticated, it is assumed that there is consent for storing direct personal data,
+    // (right? The user must have provided a user name somehow...).
+
+    // This also means that a user may have consented to having their profile data such as name stored,
+    // but still do not want to be tracked.
+    return scope === VariableScope.User
+      ? DataClassification.Direct
+      : tracker.consent.level;
+  }
+
   private _validate<T extends VariableValidationBasis>(
-    variable: T | null | undefined
+    variable: T | null | undefined,
+    tracker: Tracker
   ) {
     if (!variable) return undefined;
 
-    if (this._isValidationScope(variable.scope)) {
+    if (this._isRestrictedScope(variable.scope)) {
       const originalTargetId = variable.targetId;
-      variable.targetId = this._getScopeTargetId(variable.scope);
+      variable.targetId = this._getScopeTargetId(variable.scope, tracker);
 
-      if (
-        !variable.targetId ||
-        (originalTargetId && variable.targetId !== originalTargetId)
-      ) {
+      if (originalTargetId && variable.targetId !== originalTargetId) {
+        throw new TypeError(
+          `Target ID must either match the tracker or be unspecified.`
+        );
+      }
+
+      if (!variable.targetId) {
         // There is not consented ID for the scope in the tracker, or an ID unrelated to the current tracker was used.
         return undefined;
       }
 
       if (isDefined(variable.classification)) {
         if (
-          this.tracker.consent.level < variable.classification ||
+          this._getMaxConsentLevel(variable.scope, tracker) <
+            variable.classification ||
           (variable.purposes &&
-            this.tracker.consent.purposes &&
-            !variable.purposes.some((purpose) =>
-              this.tracker.consent.purposes!.has(purpose)
-            ))
+            tracker.consent.purposes && // This check ignores Necessary (which is 0)
+            !(tracker.consent.purposes & variable.purposes))
         ) {
           return undefined;
         }
@@ -121,21 +130,43 @@ class TrackerVariableStorage implements VariableStorage {
     return variable;
   }
 
-  async set<K extends (VariableSetter<any, false> | null | undefined)[]>(
-    ...variables: K
+  public async set<K extends (VariableSetter<any> | null | undefined)[]>(
+    variables: K,
+    context?: VariableStorageContext
   ): Promise<VariableSetResults<K>> {
-    const validated = variables.map((variable) => this._validate(variable));
+    const tracker = context?.tracker;
+
+    if (!tracker) {
+      return await this._storage.set(variables, context);
+    }
+
+    const validated = variables.map((variable) =>
+      this._validate(variable, tracker)
+    );
+
+    validated.forEach(
+      (setter) =>
+        // Any attempt to change a device variable (even if it fails) must trigger the tracker to refresh all device variables and send them to the the client,
+        // to avoid race conditions (requests may complete out of request order, hence send stale cookies otherwise).
+        setter &&
+        setter.scope === VariableScope.Device &&
+        tracker._touchClientDeviceData()
+    );
 
     const denied: PartitionItem<VariableSetResult>[] = [];
     validated.forEach((source, sourceIndex) => {
       if (!source) return;
+
       if (isVariablePatch(source) && isFunction(source.patch)) {
         const captured = source.patch;
         source.patch = (current) => {
           // If the patch returns something that does not match the current consent,
           // we need to 1) return undefined to avoid the storage to save anything, 2) patch the results with a "denied" status.
           const inner = captured(current);
-          if (inner && !this._validate({ ...extractKey(source), ...current })) {
+          if (
+            inner &&
+            !this._validate({ ...extractKey(source), ...current }, tracker)
+          ) {
             denied.push([
               sourceIndex,
               { status: VariableSetStatus.Denied, source },
@@ -146,48 +177,21 @@ class TrackerVariableStorage implements VariableStorage {
         };
       }
     });
-    const results = (await this._storage.set(
-      ...validated
-    )) as VariableSetResult[];
+    const results = (await this.set(validated, context)) as VariableSetResult[];
     denied.forEach(([sourceIndex, status]) => (results[sourceIndex] = status));
+    for (const result of results) {
+      isSuccessResult(result) &&
+        (await tracker._maybeUpdate(result.source, result.current));
+    }
 
     return results as VariableSetResults<K>;
   }
 
-  private _validateFilters(filters: VariableFilter[]) {
+  private _validateFilters(filters: VariableFilter[], tracker: Tracker) {
     let validatedFilters: VariableFilter[] = [];
 
-    const consent = this.tracker.consent;
+    const consent = tracker.consent;
     for (let filter of filters) {
-      const scopedFilter: VariableFilter =
-        // Template for filters that queries any of the scopes related to consent.
-        consent.purposes || consent.level < DataClassification.Sensitive
-          ? {
-              ...filter,
-              // Remove purposes without consent (if purposes are undefined in consent, it means "I am good with all").
-              purposes: filter.purposes?.filter(
-                (purpose) => consent.purposes?.has(purpose) !== false
-              ),
-              classification: filter.classification && {
-                // Cap classification filter so no criteria exceeds the consent's level.
-
-                min:
-                  filter.classification.min! > consent.level
-                    ? consent.level
-                    : filter.classification.min,
-                // If no explicit levels are set, limit the max value to the consent's level.
-                max:
-                  filter.classification.max! > consent.level ||
-                  !filter.classification.levels
-                    ? consent.level
-                    : filter.classification.max,
-                levels: filter.classification.levels?.filter(
-                  (level) => level <= consent.level
-                ),
-              },
-            }
-          : filter;
-
       // For each scope that intersects the tracker scopes, add a separate filter restricted to the target ID
       // that matches the current tracker.
       const scopes = filter.scopes ?? VariableScopes;
@@ -195,11 +199,39 @@ class TrackerVariableStorage implements VariableStorage {
       safe.length && validatedFilters.push({ ...filter, scopes: safe });
       validatedFilters.push(
         ...scopes
+          .filter((scope) => trackerScopes.has(scope))
           .map((scope) => {
-            const targetId = this._getScopeTargetId(scope);
+            const targetId = this._getScopeTargetId(scope, tracker);
+            const consentLevel = this._getMaxConsentLevel(scope, tracker);
             return targetId
               ? {
-                  ...scopedFilter,
+                  ...(consent.purposes ||
+                  consentLevel < DataClassification.Sensitive
+                    ? {
+                        ...filter,
+                        // Remove purposes without consent (if purposes are undefined in consent, it means "I am good with all").
+                        purposes: filter.purposes?.filter(
+                          (purpose) => !purpose || purpose & consent.purposes
+                        ),
+                        classification: filter.classification && {
+                          // Cap classification filter so no criteria exceeds the consent's level.
+
+                          min:
+                            filter.classification.min! > consentLevel
+                              ? consentLevel
+                              : filter.classification.min,
+                          // If no explicit levels are set, limit the max value to the consent's level.
+                          max:
+                            filter.classification.max! > consentLevel ||
+                            !filter.classification.levels
+                              ? consentLevel
+                              : filter.classification.max,
+                          levels: filter.classification.levels?.filter(
+                            (level) => level <= consentLevel
+                          ),
+                        },
+                      }
+                    : filter),
                   scopes: [scope],
                   targetIds: [targetId],
                 }
@@ -211,195 +243,99 @@ class TrackerVariableStorage implements VariableStorage {
     return validatedFilters;
   }
 
-  async purge(filters: VariableFilter[]): Promise<void> {
-    if (isWritable(this._storage)) {
-      await this._storage.purge(this._validateFilters(filters));
+  async purge(
+    filters: VariableFilter[],
+    context?: VariableStorageContext
+  ): Promise<void> {
+    if (!context?.tracker) {
+      return this._storage.purge(filters, context);
     }
+
+    await this._storage.purge(
+      this._validateFilters(filters, context.tracker),
+      context
+    );
   }
 
-  async get<K extends (VariableGetter<any, false> | null | undefined)[]>(
-    ...keys: K
+  private _trackDeviceData(
+    getter: VariableGetter<any> | undefined,
+    tracker: Tracker
+  ) {
+    if (
+      getter &&
+      getter.scope === VariableScope.Device &&
+      !parseKey(getter.key).prefix
+    ) {
+      if (!getter.initializer) {
+        // Try read the value from the device if it is not cached.
+        getter.initializer = () =>
+          tracker._getClientDeviceVariables()?.variables?.[getter.key];
+      }
+
+      // Only load new if changed since persisted version.
+      getter.version ??=
+        tracker._getClientDeviceVariables()?.[getter.key]?.version;
+    }
+    return getter;
+  }
+
+  async get<K extends (VariableGetter<any> | null | undefined)[]>(
+    keys: K,
+    context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
+    if (!context?.tracker) {
+      return this._storage.get(keys, context);
+    }
     const results = await this._storage.get(
-      ...keys.map((key) => this._validate(key))
+      keys.map((key) =>
+        this._trackDeviceData(
+          this._validate(key, context.tracker!),
+          context.tracker!
+        )
+      ),
+      context
     );
+
     return results.map((result) =>
-      this._validate(result)
+      this._validate(result, context.tracker!)
     ) as VariableGetResults<K>;
   }
 
   private _queryOrHead(
     method: "head" | "query",
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined
+    options?: VariableQueryOptions | undefined,
+    context?: VariableStorageContext
   ) {
+    // Queries always go straight to the storage (not looking at cached device variables).
+    if (!context?.tracker) {
+      return this._storage[method](filters, options, context);
+    }
+
     return this._storage[method](
-      this._validateFilters(filters),
-      options
+      this._validateFilters(filters, context.tracker),
+      options,
+      context
     ) as VariableQueryResult;
   }
 
   head(
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined
+    options?: VariableQueryOptions | undefined,
+    context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<VariableHeader>> {
-    return this._queryOrHead("head", filters, options);
+    return this._queryOrHead("head", filters, options, context);
   }
   query(
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined
+    options?: VariableQueryOptions | undefined,
+    context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<Variable<any>>> {
-    return this._queryOrHead("query", filters, options);
-  }
-}
-
-export class TrackerMemoryVariableStorage extends InMemoryStorageBase {
-  private readonly _variables: ScopeVariables[];
-
-  constructor(public readonly tracker: Tracker) {
-    super();
-    this._variables = [];
-
-    [VariableScope.Session, VariableScope.Device].forEach(
-      (scope) => (this._variables[scope] = [undefined, new Map()])
-    );
-  }
-
-  protected _mapResultVariable(variable: Variable): Variable | undefined {
-    const version = this._getNextVersion(variable);
-    return isDefined(version)
-      ? ((variable.version = version), variable)
-      : undefined;
-  }
-
-  private _getTargetIdForScope(scope: VariableScope) {
-    if (scope === VariableScope.Session) {
-      return this.tracker.sessionId;
-    } else if (scope === VariableScope.Device) {
-      return this.tracker.deviceId;
-    }
-    return undefined;
-  }
-
-  private _isTrackerScope(scope: VariableScope) {
-    return scope === VariableScope.Device || scope === VariableScope.Session;
-  }
-
-  protected _getNextVersion(variable: Variable): string | undefined {
-    const { level, purposes } = this.tracker.consent;
-    if (
-      // The tracker don't want it!
-      variable.classification > level ||
-      (purposes &&
-        variable.purposes &&
-        !variable.purposes.some((variable) => purposes.has(variable)))
-    ) {
-      return undefined;
-    }
-
-    if (variable.scope === VariableScope.Session) {
-      return this.tracker.session.version;
-    } else if (variable.scope === VariableScope.Device) {
-      return this.tracker.device?.version;
-    }
-
-    return undefined;
-  }
-
-  protected _getScopeValues(
-    scope: VariableScope,
-    targetId: string | undefined
-  ): [expires: number | undefined, Map<string, Variable<any>>] | undefined {
-    if (isUndefined(targetId) || targetId != this._getTargetIdForScope(scope))
-      return undefined;
-
-    return this._variables[scope];
-  }
-
-  protected _resetScope(scope: VariableScope): void {
-    const variables = this._variables[scope];
-    if (variables) {
-      variables[0] = undefined;
-      variables[1].clear();
-    }
-  }
-
-  protected _deleteTarget(scope: VariableScope, targetId: string): void {
-    if (isDefined(targetId) && targetId === this._getTargetIdForScope(scope)) {
-      this._resetScope(scope);
-    }
-  }
-  protected _getTargetsInScope(
-    scope: VariableScope
-  ): Iterable<
-    [string, [expires: number | undefined, Map<string, Variable<any>>]]
-  > {
-    const targetId = this._getTargetIdForScope(scope);
-    return this._variables[scope] && targetId
-      ? [[targetId, this._variables[scope]]]
-      : [];
-  }
-
-  private _getVariableTarget(
-    variable: undefined | null | VariableValidationSource
-  ): VariableTarget {
-    if (!variable) return VariableTarget.None;
-
-    if (!this._isTrackerScope(variable.scope)) {
-      // Not related to the tracker.
-      return VariableTarget.External;
-    }
-
-    if (isDefined(variable.classification)) {
-      const consent = this.tracker.consent;
-      if (
-        variable.classification > consent.level ||
-        (variable.purposes &&
-          consent.purposes &&
-          !variable.purposes.some((purpose) => consent.purposes!.has(purpose)))
-      ) {
-        return VariableTarget.Denied;
-      }
-    }
-    if (hasPrefix(variable.key)) {
-      // Prefixed session and device variables are also routed to external storage.
-      return VariableTarget.External;
-    }
-
-    const { scope, targetId } = variable;
-    return (scope !== VariableScope.Device ||
-      validateTargetId(targetId, this.tracker.deviceId)) &&
-      (scope !== VariableScope.User ||
-        validateTargetId(targetId, this.tracker.userId)) &&
-      (scope !== VariableScope.Session ||
-        validateTargetId(targetId, this.tracker.sessionId))
-      ? VariableTarget.Tracker
-      : VariableTarget.Denied;
-  }
-
-  private _filterKeys<
-    K extends (VariableValidationSource | undefined | null)[]
-  >(getters: K): K {
-    const keys: K = [] as any;
-
-    getters.forEach((item: VariableValidationSource) => {
-      const target = this._getVariableTarget(item);
-      if (!item || target !== VariableTarget.Tracker) return;
-      keys.push(item);
-    });
-
-    return keys;
-  }
-
-  async get<K extends (VariableGetter<any, false> | null | undefined)[]>(
-    ...getters: K
-  ): Promise<VariableGetResults<K>> {
-    return super.get(...this._filterKeys(getters));
-  }
-
-  async set<Setters extends (VariableSetter<any, false> | null | undefined)[]>(
-    ...setters: Setters
-  ): Promise<VariableSetResults<Setters>> {
-    return super.set(...this._filterKeys(setters));
+    return this._queryOrHead(
+      "query",
+      filters,
+      options,
+      context
+    ) as MaybePromise<VariableQueryResult<Variable<any>>>;
   }
 }

@@ -14,6 +14,11 @@ export interface ResetEvent extends TrackedEvent, SystemEvent {
    * @default true
    */
   includeDevice?: boolean;
+
+  /**
+   * Whether to also reset the consent.
+   */
+  includeConsent?: boolean;
 }
 
 export const isResetEvent = typeTest<ResetEvent>("RESET");

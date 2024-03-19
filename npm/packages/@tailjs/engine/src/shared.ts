@@ -1,6 +1,10 @@
 export * from "./ExtensionError";
 export * from "./Cookie";
-export { EventLogger, SessionEvents, Timestamps } from "./extensions";
+export {
+  EventLogger,
+  TrackerCoreEvents as SessionEvents,
+  Timestamps,
+} from "./extensions";
 export * from "./CryptoProvider";
 export * from "./bootstrap";
 export * from "./ClientCertificate";

@@ -23,6 +23,7 @@ import { ParsedKey, PartitionItems, mergeKeys, parseKey } from "../lib";
 
 import {
   ReadOnlyVariableStorage,
+  VariableStorageContext,
   VariableGetResults,
   VariableSetResults,
   VariableStorage,
@@ -30,7 +31,7 @@ import {
 } from "..";
 
 export type PrefixMapping = Map<string, ReadOnlyVariableStorage>;
-export type PrefixMappings = Map<string, ReadOnlyVariableStorage>[];
+export type PrefixMappings = (PrefixMapping | undefined)[];
 
 export class VariableSplitStorage implements VariableStorage {
   private readonly _mappings: PrefixMappings;
@@ -84,24 +85,28 @@ export class VariableSplitStorage implements VariableStorage {
   }
 
   configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>
+    durations: Partial<Record<VariableScope, number>>,
+    context?: VariableStorageContext
   ): void {
     this._storageScopes.forEach(
       (_, storage) =>
-        isWritable(storage) && storage.configureScopeDurations(durations)
+        isWritable(storage) &&
+        storage.configureScopeDurations(durations, context)
     );
   }
 
-  async renew(scopes: VariableScope[], scopeIds: string[]): Promise<void> {
-    let matchingScopes: VariableScope[];
+  public async renew(
+    scope: VariableScope,
+    scopeIds: string[],
+    context?: VariableStorageContext
+  ): Promise<void> {
     await waitAll(
       map(
         this._storageScopes,
         ([storage, mappedScopes]) =>
           isWritable(storage) &&
-          (matchingScopes = scopes.filter((scope) => mappedScopes.has(scope)))
-            .length &&
-          storage.renew(matchingScopes, scopeIds)
+          mappedScopes.has(scope) &&
+          storage.renew(scope, scopeIds, context)
       )
     );
   }
@@ -173,14 +178,15 @@ export class VariableSplitStorage implements VariableStorage {
 
   protected async _patchGetResults(
     storage: ReadOnlyVariableStorage,
-    getters: VariableGetter<any, false>[],
+    getters: VariableGetter<any>[],
     results: (Variable | undefined)[]
   ) {
     return results;
   }
 
-  async get<K extends (VariableGetter<any, false> | null | undefined)[]>(
-    ...keys: K
+  async get<K extends (VariableGetter<any> | null | undefined)[]>(
+    keys: K,
+    context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
     const results: VariableGetResults<K> = [] as any;
     await waitAll(
@@ -194,8 +200,8 @@ export class VariableSplitStorage implements VariableStorage {
             async (variables) =>
               await this._patchGetResults(
                 storage,
-                variables as VariableGetter<any, false>[],
-                await storage.get(...variables)
+                variables as VariableGetter<any>[],
+                await storage.get(variables, context)
               )
           )
       )
@@ -207,7 +213,8 @@ export class VariableSplitStorage implements VariableStorage {
   private async _queryOrHead(
     method: "query" | "head",
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined
+    options?: VariableQueryOptions | undefined,
+    context?: VariableStorageContext
   ): Promise<VariableQueryResult<any>> {
     const partitions = this._splitFilters(filters);
     const results: VariableQueryResult = {
@@ -222,8 +229,12 @@ export class VariableSplitStorage implements VariableStorage {
     }
 
     type Cursor = [count: number | undefined, cursor: string | undefined][];
-    let cursor = options?.cursor
-      ? (JSON.parse(options.cursor) as Cursor)
+
+    const includeCursor =
+      options?.cursor?.include || !!options?.cursor?.previous;
+
+    let cursor = options?.cursor?.previous
+      ? (JSON.parse(options.cursor.previous) as Cursor)
       : undefined;
 
     let top = options?.top ?? 100;
@@ -254,12 +265,20 @@ export class VariableSplitStorage implements VariableStorage {
         } = await storage[method](query, {
           ...options,
           top,
-          cursor: storageState?.[1],
+          cursor: {
+            include: includeCursor,
+            previous: storageState?.[1],
+          },
         });
 
         count = storageCount;
-        anyCursor ||= !!storageCursor;
-        (cursor ??= [])[i] = [count, storageCursor];
+        if (includeCursor) {
+          anyCursor ||= !!storageCursor;
+          (cursor ??= [])[i] = [count, storageCursor];
+        } else if (storageResults.length > top) {
+          // No cursor needed. Cut off results to avoid returning excessive amounts of data to the client.
+          storageResults.length = top;
+        }
         results.results.push(...(storageResults as Variable[])); // This is actually only the header for head requests.
         top = Math.max(0, top - storageResults.length);
       }
@@ -278,28 +297,31 @@ export class VariableSplitStorage implements VariableStorage {
 
   head(
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined
+    options?: VariableQueryOptions | undefined,
+    context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<VariableHeader>> {
-    return this._queryOrHead("head", filters, options);
+    return this._queryOrHead("head", filters, options, context);
   }
 
   query(
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined
+    options?: VariableQueryOptions | undefined,
+    context?: VariableStorageContext
   ): Promise<VariableQueryResult> {
-    return this._queryOrHead("query", filters, options);
+    return this._queryOrHead("query", filters, options, context);
   }
 
   protected async _patchSetResults(
     storage: VariableStorage,
-    setters: VariableSetter<any, false>[],
+    setters: VariableSetter<any>[],
     results: (VariableSetResult | undefined)[]
   ) {
     return results;
   }
 
-  async set<K extends (VariableSetter<any, false> | null | undefined)[]>(
-    ...variables: K
+  async set<K extends (VariableSetter<any> | null | undefined)[]>(
+    variables: K,
+    context?: VariableStorageContext
   ): Promise<VariableSetResults<K>> {
     const results: VariableSetResults<K> = [] as any;
     await waitAll(
@@ -313,8 +335,8 @@ export class VariableSplitStorage implements VariableStorage {
             async (variables) =>
               await this._patchSetResults(
                 storage,
-                variables as VariableSetter<any, false>[],
-                await storage.set(...variables)
+                variables as VariableSetter<any>[],
+                await storage.set(variables, context)
               )
           )
       )
@@ -323,14 +345,18 @@ export class VariableSplitStorage implements VariableStorage {
     return results;
   }
 
-  async purge(filters: VariableFilter[]): Promise<void> {
+  async purge(
+    filters: VariableFilter[],
+    context?: VariableStorageContext
+  ): Promise<void> {
     const partitions = this._splitFilters(filters);
     if (!partitions.length) {
       return;
     }
     await waitAll(
       partitions.map(
-        ([storage, filters]) => isWritable(storage) && storage.purge(filters)
+        ([storage, filters]) =>
+          isWritable(storage) && storage.purge(filters, context)
       )
     );
   }

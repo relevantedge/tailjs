@@ -1,15 +1,21 @@
 import type { TrackerConfiguration } from "@tailjs/client/external";
 import { DEFAULT_CLIENT_CONFIG } from "@tailjs/client/external";
 
-import type { ViewEvent } from "@tailjs/types";
-import { StorageRoute } from "./extensions";
+import { VariableScopeNames, type ViewEvent } from "@tailjs/types";
 import { AllRequired } from "./lib";
 import {
   CryptoProvider,
   EngineHost,
   EventParser,
+  ReadOnlyVariableStorage,
   TrackerExtension,
+  VariableStorage,
+  VariableStorageCoordinatorSettings,
 } from "./shared";
+import {
+  DefaultSessionReferenceMapper,
+  SessionReferenceMapper,
+} from "./ClientIdGenerator";
 
 /** Gives a hint what a string might be for methods that serialize results to strings */
 export type JsonString<T> = string;
@@ -18,6 +24,22 @@ export type CookieConfiguration = {
   namePrefix?: string;
   secure?: boolean;
 };
+
+export interface StorageMappings<
+  T extends ReadOnlyVariableStorage = ReadOnlyVariableStorage
+> {
+  default?: T;
+  global?: T;
+  session?: T;
+  device?: T;
+  user?: T;
+  entity?: T;
+}
+
+export interface DefaultStorageMappings
+  extends StorageMappings<VariableStorage> {
+  prefixes?: Record<string, StorageMappings>;
+}
 
 export type RequestHandlerConfiguration = {
   trackerName?: string;
@@ -36,8 +58,11 @@ export type RequestHandlerConfiguration = {
   environmentTags?: string[];
   clientKeySeed?: string;
   client?: TrackerConfiguration;
+  sessionReferenceMapper?: SessionReferenceMapper;
 
-  storage?: StorageRoute[];
+  storage?: Omit<VariableStorageCoordinatorSettings, "mappings"> & {
+    mappings: DefaultStorageMappings;
+  };
 
   /**
    * The session timeout in minutes.
@@ -78,6 +103,7 @@ export const DEFAULT: Omit<
   | "crypto"
   | "encryptionKeys"
   | "storage"
+  | "sessionReferenceMapper"
 > = {
   trackerName: "tail",
   cookies: {

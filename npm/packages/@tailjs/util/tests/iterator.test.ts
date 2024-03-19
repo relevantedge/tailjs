@@ -10,7 +10,7 @@ import {
   reduce,
   some,
   sum,
-  toObject,
+  obj,
 } from "../src";
 
 describe("Iterator functionality iterates iterably", () => {
@@ -81,15 +81,15 @@ describe("Iterator functionality iterates iterably", () => {
   });
 
   it("Maps iterators to objects with properties", () => {
-    expect(toObject({ a: 32, b: "test" })).toEqual({ a: 32, b: "test" });
+    expect(obj({ a: 32, b: "test" })).toEqual({ a: 32, b: "test" });
     expect(
-      toObject([
+      obj([
         ["a", 32],
         ["b", "test"],
       ])
     ).toEqual({ a: 32, b: "test" });
 
-    expect(toObject(3, (x) => (x > 1 ? ["a", x] : [x, "b"]))).toEqual({
+    expect(obj(3, (x) => (x > 1 ? ["a", x] : [x, "b"]))).toEqual({
       a: 2,
       0: "b",
       1: "b",

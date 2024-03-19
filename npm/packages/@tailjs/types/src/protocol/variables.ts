@@ -1,4 +1,4 @@
-import { DataClassification, DataPurpose, Timestamp } from "..";
+import { DataClassification, DataPurposes, Timestamp } from "..";
 
 /** Defines a filter used to query variables.  */
 export interface VariableFilter {
@@ -20,13 +20,14 @@ export interface VariableFilter {
    *
    * Using wildcards for partial matching is not supported, so the query `*name` will _not_ return all variables
    * where their name ends with  "name". Use tags to group and organize variables instead.
+   *
+   * If a key starts with `!` it means "not", and these kind of filters takes precedence over the others.
+   *
+   * For example the query ["*", "!test"] will return all keys in the default storage except "test".
+   * Conversely, the query ["test", "!*"] will not return anything since all keys has been excluded.
+   *
    */
   keys: string[];
-
-  /**
-   * Specific keys or key patterns to exclude. The syntax is the same as for {@link keys}.
-   */
-  exclude?: string[];
 
   /**
    * Limit the results to variables that has any of these tag combinations.
@@ -50,7 +51,7 @@ export interface VariableFilter {
   /**
    * Limits the results to variables with any of these purposes.
    */
-  purposes?: DataPurpose[];
+  purposes?: DataPurposes[];
 }
 
 /** Settings that controls how results are returned when querying variables. */
@@ -62,14 +63,26 @@ export interface VariableQueryOptions {
   count?: number;
 
   /**
-   * Do not return more results than this. A storage will decide its own default value if not specified.
+   * Hint to indicate that no more results than this are needed.
+   * A storage will decide its own default value if not specified, and may choose to return fewer results if more efficient.
+   *
+   * If a cursor is requested this property changes its meaning slightly to be the prefered page size instead of max results.
+   * In this case a storage may also decide to return more results than requested if that is more efficient for paging.
+   *
    */
   top?: number;
 
   /**
    * Used for paging by specifying the value of {@link VariableQueryResult.cursor} from a previous query result.
+   * If a previous cursor is specified, the `include` property is ignored.
+   *
+   * Please not that the results may not neccessarily contain a cursor. If a cursor was requested and none returned,
+   * it means that there are no more data.
    */
-  cursor?: string;
+  cursor?: {
+    include?: boolean;
+    previous?: string;
+  };
 
   /**
    * Limits the results to variables created or updated after this timestamp.
@@ -108,6 +121,7 @@ export interface VariableKey {
 
   /**
    * The ID of the entity in the scope the variable belongs to.
+   * This is ignored for global variables, and can be set to `""`.
    */
   targetId?: string;
 }
@@ -118,6 +132,10 @@ export interface VariableKey {
  */
 export interface VersionedVariableKey extends VariableKey {
   version?: string;
+}
+
+export interface ScopedVariableKey extends VariableKey {
+  targetId: string;
 }
 
 /**
@@ -131,11 +149,11 @@ export interface VariableClassification {
   classification: DataClassification;
 
   /**
-   * Optionally defines the possible uses of the data a variables holds.
+   * Optionally defines the possible uses of the data a variables holds (they are binary flags).
    * When a variable is requested by some logic, it may be stated what the data is used for.
    * If the user has not consented to data being used for this purpose the variable will not be avaiable.
    */
-  purposes?: DataPurpose[];
+  purposes?: DataPurposes;
 
   /**
    * Optionally categorizes variables.
@@ -194,13 +212,13 @@ export interface Variable<T = any> extends VariableHeader {
   /**
    * The value of the variable. It must only be undefined in a set operation in which case it means "delete".
    */
-  value: T | undefined;
+  value: T;
 }
 
 export type VariableInitializer<T = any> = () =>
-  | VariablePatchResult<T>
+  | (VariableClassification & { value: T })
   | undefined
-  | Promise<VariablePatchResult<T> | undefined>;
+  | Promise<(VariableClassification & { value: T }) | undefined>;
 
 /**
  * Uniquely addresses a variable by scope, target and key name, optionally with the purpose(s) it will be used for.
@@ -208,39 +226,35 @@ export type VariableInitializer<T = any> = () =>
  * - If a version is specified and the stored version matches this, a result will not be returned.
  * - If a purpose is specified and the variable is only stored for other purposes, a result will also not be returned. (best practice)
  */
-export type VariableGetter<
-  T = any,
-  Scoped extends boolean = boolean
-> = VersionedVariableKey &
-  MatchTarget<Scoped> & {
-    /**
-     * If the variable does not exist, it will be created with the value returned from this function.
-     * Since another value from another process may have been used at the same time,
-     * you cannot trust that just because the function was called, its value was used.
-     *
-     * However, it is guaranteed that the returned value is the most current at the time the request was made.
-     */
-    initializer?: VariableInitializer<T>;
+export interface VariableGetter<T = any> extends VersionedVariableKey {
+  /**
+   * If the variable does not exist, it will be created with the value returned from this function.
+   * Since another value from another process may have been used at the same time,
+   * you cannot trust that just because the function was called, its value was used.
+   *
+   * However, it is guaranteed that the returned value is the most current at the time the request was made.
+   */
+  initializer?: VariableInitializer<T>;
 
-    /**
-     * Optionally, the purpose the variable will be used for in the context it is requested.
-     *
-     * A variable may be used for multiple purposes but only stored for the purpose a user has consented to.
-     * For example, a user's country may be used both in analytics and for personalization purposes.
-     * However, if the user has only consented to "Performance", but not "Functionality", the value must not be used for personalization.
-     *
-     * It should be considered best practice always to include the intended purpose when requesting data about the user
-     * to be sure their consent is respected.
-     *
-     * It is currently not mandatory to specify the purpose but this requirement may change in the future.
-     */
-    purpose?: DataPurpose;
+  /**
+   * Optionally, the purpose the variable will be used for in the context it is requested.
+   *
+   * A variable may be used for multiple purposes but only stored for the purpose a user has consented to.
+   * For example, a user's country may be used both in analytics and for personalization purposes.
+   * However, if the user has only consented to "Performance", but not "Functionality", the value must not be used for personalization.
+   *
+   * It should be considered best practice always to include the intended purpose when requesting data about the user
+   * to be sure their consent is respected.
+   *
+   * It is currently not mandatory to specify the purpose but this requirement may change in the future.
+   */
+  purpose?: DataPurposes;
 
-    /**
-     * Indicates that the value must be re-read from the source storage if a caching layer is used on top.
-     */
-    refresh?: boolean;
-  };
+  /**
+   * Indicates that the value must be re-read from the source storage if a caching layer is used on top.
+   */
+  refresh?: boolean;
+}
 
 export const VariableScopes = [0, 1, 2, 3, 4, 5];
 export const enum VariableScope {
@@ -258,31 +272,6 @@ export const VariableScopeNames = [
   "user",
   "entity",
 ];
-
-export type MatchTarget<Scoped extends boolean> = boolean extends Scoped
-  ? {}
-  : Scoped extends true
-  ? ScopedTarget
-  : RequireTarget;
-
-export type ScopedTarget =
-  | {
-      scope: VariableScope.Entity;
-      targetId: string;
-    }
-  | {
-      scope: Exclude<VariableScope, VariableScope.Entity>;
-    };
-
-export type RequireTarget =
-  | {
-      scope: VariableScope.Global;
-      targetId?: "";
-    }
-  | {
-      scope: Exclude<VariableScope, VariableScope.Global>;
-      targetId: string;
-    };
 
 export type TargetedVariableScope =
   | VariableScope.Session
@@ -302,20 +291,20 @@ export const enum VariableSetStatus {
 }
 
 export const isSuccessResult = <T extends VariableSetResult>(
-  result: T
+  result: T | undefined
 ): result is T & {
   status: VariableSetStatus.Success | VariableSetStatus.Unchanged;
 } => result?.status! <= VariableSetStatus.Unchanged;
 
-export const isConflictResult = <T, S extends VariableSetter<T> = any>(
-  result: VariableSetResult<T, S>
-): result is VariableSetResult<T, S> & {
+export const isConflictResult = <T>(
+  result: VariableSetResult<T> | undefined
+): result is VariableSetResult<T> & {
   status: VariableSetStatus.Conflict;
 } => result?.status === VariableSetStatus.Conflict;
 
-export const isErrorResult = <T, S extends VariableSetter<T> = any>(
-  result: VariableSetResult<T, S>
-): result is VariableSetResult<T, S> & {
+export const isErrorResult = <T>(
+  result: VariableSetResult<T> | undefined
+): result is VariableSetResult<T> & {
   status: VariableSetStatus.Error;
 } => result?.status === VariableSetStatus.Error;
 
@@ -324,24 +313,25 @@ export type VariableSetResult<
   Source extends VariableSetter<T> = VariableSetter<T>
 > = {
   source: Source;
-} & (Source extends VariableSetter<any, infer S> ? MatchTarget<S> : never) &
-  (
-    | {
-        status:
-          | VariableSetStatus.Success
-          | VariableSetStatus.Unchanged
-          | VariableSetStatus.Conflict;
-        current: Variable<T> | undefined;
-      }
-    | {
-        status:
-          | VariableSetStatus.Denied
-          | VariableSetStatus.NotFound
-          | VariableSetStatus.Unsupported
-          | VariableSetStatus.ReadOnly;
-      }
-    | { status: VariableSetStatus.Error; transient?: boolean; error: any }
-  );
+} & (
+  | {
+      status:
+        | VariableSetStatus.Success
+        | VariableSetStatus.Unchanged
+        | VariableSetStatus.Conflict;
+      current: Source extends VariableSetter<undefined>
+        ? Variable<T> | undefined
+        : Variable<T>;
+    }
+  | {
+      status:
+        | VariableSetStatus.Denied
+        | VariableSetStatus.NotFound
+        | VariableSetStatus.Unsupported
+        | VariableSetStatus.ReadOnly;
+    }
+  | { status: VariableSetStatus.Error; transient?: boolean; error: any }
+);
 
 export interface VariablePatchSource<T = any>
   extends VariableVersion,
@@ -349,9 +339,11 @@ export interface VariablePatchSource<T = any>
   value: T;
 }
 
-export interface VariablePatchResult<T = any> extends VariableClassification {
-  value: T;
-}
+export type VariablePatchResult<T = any> =
+  | (Partial<VariableClassification> & {
+      value: T | undefined;
+    })
+  | undefined;
 
 export type VariablePatchAction<T = any> = (
   current: VariablePatchSource<T> | undefined
@@ -385,17 +377,15 @@ export type VariableValuePatch<T = any> = VariableClassification & {
 export const isVariablePatch = (setter: any): setter is VariablePatch =>
   !!setter["patch"];
 
-export type VariablePatch<
-  T = any,
-  Scoped extends boolean = boolean
-> = VariableKey &
-  MatchTarget<Scoped> & {
+export type VariablePatch<T = any> = VariableKey &
+  Partial<Variable<T>> & {
     patch: VariablePatchAction<T> | VariableValuePatch;
   };
 
-export type VariableSetter<T = any, Scoped extends boolean = boolean> =
-  | (Variable<T> & MatchTarget<Scoped>)
-  | VariablePatch<T, Scoped>;
+export type VariableSetter<T = any> =
+  | Variable<T>
+  | (VersionedVariableKey & { value: undefined })
+  | VariablePatch<T>;
 
 /**
  * The information needed about a variable to validate whether it complies with a user's consents,

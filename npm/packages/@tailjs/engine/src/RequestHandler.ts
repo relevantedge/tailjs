@@ -1,5 +1,6 @@
 import clientScripts from "@tailjs/client/script";
 import {
+  dataPurposes,
   isResetEvent,
   PostRequest,
   PostResponse,
@@ -9,12 +10,14 @@ import {
 import queryString from "query-string";
 import { Lock } from "semaphore-async-await";
 import urlParse from "url-parse";
+import { CommerceExtension } from "./extensions";
 import {
-  CommerceExtension,
-  InMemoryStorage,
-  VariableStorageRouter,
-} from "./extensions";
-import { any, DefaultCryptoProvider, map, merge } from "./lib";
+  any,
+  DefaultCryptoProvider,
+  map,
+  merge,
+  TrackerVariableStorage,
+} from "./lib";
 
 import {
   CallbackResponse,
@@ -23,13 +26,19 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
+  DefaultStorageMappings,
   EventParser,
+  InMemoryStorage,
   isValidationError,
   isWritable,
   ParseResult,
   PostError,
+  PrefixMapping,
+  PrefixMappings,
+  ReadOnlyVariableStorage,
   RequestHandlerConfiguration,
   SessionEvents,
+  StorageMappings,
   Timestamps,
   TrackedEventBatch,
   Tracker,
@@ -37,12 +46,18 @@ import {
   TrackerExtension,
   TrackerPostOptions,
   ValidationError,
+  VariableStorageCoordinator,
 } from "./shared";
 
 import { CONTEXT_MENU_COOKIE, MUTEX_REQUEST_COOKIE } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
 import { from64u } from "@tailjs/util/transport";
 import { generateClientConfigScript } from "./lib/clientConfigScript";
+import { forEach, obj } from "@tailjs/util";
+import {
+  DefaultSessionReferenceMapper,
+  SessionReferenceMapper,
+} from "./ClientIdGenerator";
 
 const scripts = {
   main: {
@@ -72,11 +87,11 @@ export class RequestHandler {
 
   /** @internal */
   public readonly _cookieNames: {
-    consentLevel: string;
-    optInDevice: string;
-    essentialDevice: string;
-    optInSession: string;
-    essentialSession: string;
+    consent: string;
+    session: string;
+    device: Record<keyof typeof dataPurposes, string> & {
+      all: string;
+    };
   };
   public readonly environment: TrackerEnvironment;
 
@@ -85,6 +100,9 @@ export class RequestHandler {
 
   private readonly _clientKeySeed: string;
   private readonly _clientConfig: TrackerConfiguration;
+
+  /** @internal */
+  public readonly _sessionReferenceMapper: SessionReferenceMapper;
 
   constructor(config: RequestHandlerConfiguration) {
     let {
@@ -106,6 +124,7 @@ export class RequestHandler {
       encryptionKeys,
       client,
       storage,
+      sessionReferenceMapper,
     } = merge({}, DEFAULT, config);
 
     this._trackerName = trackerName;
@@ -114,33 +133,51 @@ export class RequestHandler {
 
     this._parser = parser;
 
-    if (!storage || !storage.length) {
-      storage = [
-        {
-          storage: new InMemoryStorage(),
+    if (!storage) {
+      storage = {
+        mappings: {
+          default: new InMemoryStorage(),
         },
-      ];
+      };
     }
 
-    storage.forEach(
-      ({ storage }) =>
-        isWritable(storage) &&
-        storage.configureScopeDurations({
-          [VariableScope.Session]: sessionTimeout,
-          [VariableScope.DeviceSession]: deviceSessionTimeout,
-        })
-    );
+    const storageMappings: PrefixMappings = [];
+    const mapPrefix = (
+      scope: VariableScope,
+      prefix: string,
+      storage: ReadOnlyVariableStorage | undefined
+    ) => storage && (storageMappings[scope] ??= new Map()).set(prefix, storage);
 
-    if (!storage || !storage.length) {
-      storage = [{ storage: new InMemoryStorage({}) }];
-    }
+    const mapStorages = (
+      prefix: string,
+      mappings: StorageMappings<ReadOnlyVariableStorage>
+    ) => {
+      (
+        [
+          [VariableScope.Global, "global"],
+          [VariableScope.User, "user"],
+          [VariableScope.Device, "device"],
+          [VariableScope.Session, "session"],
+          [VariableScope.Entity, "entity"],
+        ] as [VariableScope, keyof StorageMappings][]
+      ).forEach(([scope, key]) =>
+        mapPrefix(scope, prefix, mappings[key] ?? mappings.default)
+      );
+
+      forEach(
+        (mappings as DefaultStorageMappings)?.prefixes,
+        ([prefix, mappings]) => mapStorages(prefix, mappings)
+      );
+    };
 
     this.environment = new TrackerEnvironment(
       host,
       crypto ?? new DefaultCryptoProvider(encryptionKeys),
       parser,
       manageConsents,
-      new VariableStorageRouter({ routes: storage }),
+      new TrackerVariableStorage(
+        new VariableStorageCoordinator({ mappings: storageMappings })
+      ),
       environmentTags
     );
 
@@ -148,14 +185,26 @@ export class RequestHandler {
     this._allowUnknownEventTypes = allowUnknownEventTypes;
     this._useSession = useSession;
     this._debugScript = debugScript;
+    this._sessionReferenceMapper =
+      sessionReferenceMapper ?? new DefaultSessionReferenceMapper();
 
     this._sessionTimeout = sessionTimeout;
     this._cookieNames = {
-      consentLevel: `${cookies.namePrefix}.cl`,
-      optInDevice: `${cookies.namePrefix}.d.opt`,
-      essentialDevice: `${cookies.namePrefix}.d`,
-      optInSession: `${cookies.namePrefix}.s.opt`,
-      essentialSession: `${cookies.namePrefix}.s`,
+      consent: `${cookies.namePrefix}.consent`,
+      session: `${cookies.namePrefix}.s`,
+      device: Object.assign(
+        obj(
+          dataPurposes,
+          ([name, flag]) =>
+            [
+              name,
+              // Necessary device data is just ".d" (no suffix)
+              `${cookies.namePrefix}.d${
+                flag !== dataPurposes.necessary ? `.${name[0]}` : ""
+              }`,
+            ] as const
+        )
+      ),
     };
 
     this._clientKeySeed = clientKeySeed;
@@ -173,6 +222,12 @@ export class RequestHandler {
         this._logExtensionError(extension, "apply", e);
       }
     }
+  }
+
+  /** @internal */
+  public async _validateLoginEvent(userId: string, evidence: string) {
+    //TODO
+    return true;
   }
 
   public getClientCookies(tracker: Tracker): ClientResponseCookie[] {
@@ -216,9 +271,10 @@ export class RequestHandler {
               extension = await factory();
               if (extension?.initialize) {
                 await extension.initialize?.(this.environment);
-                this.environment.log({
-                  message: `The extension ${extension.id} was initialized.`,
-                });
+                this.environment.log(
+                  extension,
+                  `The extension ${extension.id} was initialized.`
+                );
               }
               return extension;
             } catch (e) {
@@ -251,20 +307,6 @@ export class RequestHandler {
     );
 
     const sourceIndices = new Map<{}, number>();
-    parsed = parsed.filter((item) =>
-      !isValidationError(item) && isResetEvent(item)
-        ? (tracker.purge(
-            item.includeDevice
-              ? [
-                  VariableScope.Session,
-                  VariableScope.DeviceSession,
-                  VariableScope.Device,
-                ]
-              : [VariableScope.Session]
-          ),
-          false)
-        : true
-    );
 
     parsed.forEach((item, i) => {
       sourceIndices.set(item, i);
@@ -401,7 +443,7 @@ export class RequestHandler {
         discardTrackerCookies = false
       ) => {
         if (extensionRequestType) {
-          !discardTrackerCookies && (await this._sessionStore.persist(tracker));
+          !discardTrackerCookies && (await tracker._persist());
 
           console.log(
             tracker.httpClientDecrypt(
@@ -716,7 +758,7 @@ export class RequestHandler {
   private _getClientVariables(tracker: Tracker) {
     return {
       ...tracker.transient,
-      consent: tracker.consent.classification,
+      consent: tracker.consent,
     };
   }
 
