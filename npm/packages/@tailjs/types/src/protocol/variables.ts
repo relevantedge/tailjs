@@ -1,4 +1,14 @@
-import { DataClassification, DataPurposes, Timestamp } from "..";
+import {
+  DataClassification,
+  DataPurposes,
+  ParsableDataClassification,
+  ParsableDataPurposes,
+  ParsableVariableScope,
+  Timestamp,
+  dataClassification,
+  dataPurposes,
+  variableScope,
+} from "..";
 
 /** Defines a filter used to query variables.  */
 export interface VariableFilter {
@@ -106,9 +116,9 @@ export interface VariableQueryResult<T = Variable> {
 /**
  * Uniquely addresses a variable by scope, target and key name.
  */
-export interface VariableKey {
+export interface VariableKey<Strict = true> {
   /** The scope the variable belongs to. */
-  scope: VariableScope;
+  scope: ParsableVariableScope<Strict>;
 
   /**
    * The name of the variable.
@@ -130,30 +140,27 @@ export interface VariableKey {
  * A {@link VariableKey} that optionally includes the expected version of a variable value.
  * This is used for "if none match" queries to invalidate caches efficiently.
  */
-export interface VersionedVariableKey extends VariableKey {
+export interface VersionedVariableKey<Strict = true>
+  extends VariableKey<Strict> {
   version?: string;
-}
-
-export interface ScopedVariableKey extends VariableKey {
-  targetId: string;
 }
 
 /**
  * Defines how the value of variable is classified and for which purposes it can be used.
  */
-export interface VariableClassification {
+export interface VariableClassification<Strict = true> {
   /**
    * The legal classification of the kind of data a variable holds.
    * This limits which data will be stored based on a user's consent.
    */
-  classification: DataClassification;
+  classification: ParsableDataClassification<Strict>;
 
   /**
    * Optionally defines the possible uses of the data a variables holds (they are binary flags).
    * When a variable is requested by some logic, it may be stated what the data is used for.
    * If the user has not consented to data being used for this purpose the variable will not be avaiable.
    */
-  purposes?: DataPurposes;
+  purposes?: ParsableDataPurposes<Strict>;
 
   /**
    * Optionally categorizes variables.
@@ -194,16 +201,17 @@ export interface VariableVersion {
 /**
  * All data related to a variable except its value.
  */
-export interface VariableHeader
-  extends VariableKey,
-    VariableClassification,
+export interface VariableHeader<Strict = true>
+  extends VariableKey<Strict>,
+    VariableClassification<Strict>,
     VariableVersion {}
 
 /**
  * A variable is a specific piece of information that can be classified and changed independently.
  * A variable can either be global or related to a specific entity or tracker scope.
  */
-export interface Variable<T = any> extends VariableHeader {
+export interface Variable<T = any, Strict = true>
+  extends VariableHeader<Strict> {
   /**
    * The value of the variable is read-only. Trying to update its value in its storage will result in an error.
    */
@@ -218,7 +226,7 @@ export interface Variable<T = any> extends VariableHeader {
 export type VariableInitializer<T = any> = () =>
   | (VariableClassification & { value: T })
   | undefined
-  | Promise<(VariableClassification & { value: T }) | undefined>;
+  | Promise<(VariableClassification<false> & { value: T }) | undefined>;
 
 /**
  * Uniquely addresses a variable by scope, target and key name, optionally with the purpose(s) it will be used for.
@@ -226,7 +234,8 @@ export type VariableInitializer<T = any> = () =>
  * - If a version is specified and the stored version matches this, a result will not be returned.
  * - If a purpose is specified and the variable is only stored for other purposes, a result will also not be returned. (best practice)
  */
-export interface VariableGetter<T = any> extends VersionedVariableKey {
+export interface VariableGetter<T = any, Strict = false>
+  extends VersionedVariableKey<Strict> {
   /**
    * If the variable does not exist, it will be created with the value returned from this function.
    * Since another value from another process may have been used at the same time,
@@ -248,7 +257,7 @@ export interface VariableGetter<T = any> extends VersionedVariableKey {
    *
    * It is currently not mandatory to specify the purpose but this requirement may change in the future.
    */
-  purpose?: DataPurposes;
+  purpose?: ParsableDataPurposes<Strict>;
 
   /**
    * Indicates that the value must be re-read from the source storage if a caching layer is used on top.
@@ -310,7 +319,8 @@ export const isErrorResult = <T>(
 
 export type VariableSetResult<
   T = any,
-  Source extends VariableSetter<T> = VariableSetter<T>
+  Strict = false,
+  Source extends VariableSetter<T, Strict> = VariableSetter<T, Strict>
 > = {
   source: Source;
 } & (
@@ -333,20 +343,20 @@ export type VariableSetResult<
   | { status: VariableSetStatus.Error; transient?: boolean; error: any }
 );
 
-export interface VariablePatchSource<T = any>
+export interface VariablePatchSource<T = any, Strict = false>
   extends VariableVersion,
-    VariableClassification {
+    VariableClassification<Strict> {
   value: T;
 }
 
-export type VariablePatchResult<T = any> =
-  | (Partial<VariableClassification> & {
+export type VariablePatchResult<T = any, Strict = false> =
+  | (Partial<VariableClassification<Strict>> & {
       value: T | undefined;
     })
   | undefined;
 
 export type VariablePatchAction<T = any> = (
-  current: VariablePatchSource<T> | undefined
+  current: VariablePatchSource<T, true> | undefined
 ) => VariablePatchResult<T> | undefined;
 
 export const enum VariablePatchType {
@@ -356,40 +366,69 @@ export const enum VariablePatchType {
   IfMatch,
 }
 
-export type VariableValuePatch<T = any> = VariableClassification & {
+export type VariableValuePatch<T = any> = {
   selector?: string;
 } & (
-    | {
-        type: VariablePatchType.Add;
-        by: number;
-      }
-    | {
-        type: VariablePatchType.Min | VariablePatchType.Max;
-        value: number;
-      }
-    | {
-        type: VariablePatchType.IfMatch;
-        match: T | undefined;
-        value: T | undefined;
-      }
-  );
+  | {
+      type: VariablePatchType.Add;
+      by: number;
+    }
+  | {
+      type: VariablePatchType.Min | VariablePatchType.Max;
+      value: number;
+    }
+  | {
+      type: VariablePatchType.IfMatch;
+      match: T | undefined;
+      value: T | undefined;
+    }
+);
 
 export const isVariablePatch = (setter: any): setter is VariablePatch =>
   !!setter["patch"];
 
-export type VariablePatch<T = any> = VariableKey &
-  Partial<Variable<T>> & {
-    patch: VariablePatchAction<T> | VariableValuePatch;
-  };
+type StrictTypes = {
+  scope: VariableScope;
+  purpose: DataPurposes;
+  purposes: DataPurposes;
+  classification: DataClassification;
+};
 
-export type VariableSetter<T = any> =
-  | Variable<T>
-  | (VersionedVariableKey & { value: undefined })
-  | VariablePatch<T>;
+export const toStrict: <T>(value: T) => T extends null | undefined
+  ? T
+  : {
+      [P in keyof T]: P extends keyof StrictTypes ? StrictTypes[P] : T[P];
+    } = (value: any) => {
+  (value as VariableClassification)?.classification != null &&
+    (value.classification = dataClassification.parse(value.classification));
+
+  (value as VariableClassification)?.purposes != null &&
+    (value.purposes = dataPurposes.parse(value.purposes));
+
+  (value as VariableKey)?.scope != null &&
+    (value.scope = variableScope.parse(value.scope));
+  return value as any;
+};
+
+export type VariablePatch<T = any, Strict = false> = VariableKey<Strict> &
+  Partial<Variable<T, Strict>> &
+  (
+    | {
+        patch: VariablePatchAction<T>;
+      }
+    | (VariableClassification<Strict> & {
+        patch: VariableValuePatch<T>;
+      })
+  );
+
+export type VariableSetter<T = any, Strict = false> =
+  | Variable<T, Strict>
+  | (VersionedVariableKey<Strict> & { value: undefined })
+  | VariablePatch<T, Strict>;
 
 /**
  * The information needed about a variable to validate whether it complies with a user's consents,
  * or meets other authorization based requirements.
  */
-export type VariableValidationBasis = VariableKey &
-  Partial<VariableClassification>;
+export type VariableValidationBasis<Strict = false> = VariableKey<Strict> &
+  Partial<VariableClassification<Strict>>;

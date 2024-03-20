@@ -1,4 +1,5 @@
-import { deserialize, serialize } from "@ygoe/msgpack";
+import msgpack from "@ygoe/msgpack";
+const { deserialize, serialize } = msgpack;
 
 import { HashFunction, from64u, lfsr, to64u } from ".";
 import {

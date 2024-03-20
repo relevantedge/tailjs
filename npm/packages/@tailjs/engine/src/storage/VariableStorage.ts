@@ -11,6 +11,7 @@ import {
   type VariableSetResult,
   type VariableSetter,
   VariablePatchResult,
+  variableScope,
 } from "@tailjs/types";
 import { MaybePromise } from "@tailjs/util";
 import type { Tracker, TrackerEnvironment } from "..";
@@ -18,9 +19,9 @@ import type { Tracker, TrackerEnvironment } from "..";
 export class VariableSetError extends Error {
   constructor(result: VariableSetResult) {
     super(
-      `The variable '${result.source.key}' in ${
-        VariableScopeNames[result.source.scope]
-      } scope could not be set${
+      `The variable '${result.source.key}' in ${variableScope.name(
+        result.source.scope
+      )} scope could not be set${
         isErrorResult(result) ? `: ${result.error}` : ""
       }.`
     );

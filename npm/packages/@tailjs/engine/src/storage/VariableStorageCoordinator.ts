@@ -52,13 +52,13 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
   }
 
   private async _setWithRetry(
-    setters: (VariableSetter<any, false> | null | undefined)[],
+    setters: (VariableSetter<any> | null | undefined)[],
     targetStorage?: VariableStorage,
     context?: VariableStorageContext,
     patch?: (
       sourceIndex: number,
       result: VariableSetResult
-    ) => VariableSetter<any, false> | undefined
+    ) => VariableSetter<any> | undefined
   ): Promise<(VariableSetResult | undefined)[]> {
     const finalResults: (VariableSetResult | undefined)[] = [];
     let pending = withSourceIndex(setters);
@@ -69,9 +69,10 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
       let retryDelay = this._settings.transientRetryDelay;
       pending = [];
       try {
-        const results: VariableSetResult[] = await (targetStorage
-          ? targetStorage.set
-          : super.set)(partitionItems(current), context);
+        const results = await (targetStorage ? targetStorage.set : super.set)(
+          partitionItems(current),
+          context
+        );
 
         results.forEach((result, j) => {
           finalResults[j] = result;
@@ -110,11 +111,11 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
   }
 
   protected async _patchGetResults(
-    storage: ReadOnlyVariableStorage<false>,
-    getters: VariableGetter<any, false>[],
+    storage: ReadOnlyVariableStorage,
+    getters: VariableGetter<any>[],
     results: (Variable<any> | undefined)[]
   ): Promise<(Variable<any> | undefined)[]> {
-    const initializerSetters: VariableSetter<any, false>[] = [];
+    const initializerSetters: VariableSetter<any>[] = [];
 
     for (let i = 0; i < getters.length; i++) {
       const getter = getters[i];
@@ -142,13 +143,13 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
 
   protected async _patchSetResults(
     storage: VariableStorage<false>,
-    setters: VariableSetter<any, false>[],
+    setters: VariableSetter<any, true>[],
     results: (VariableSetResult | undefined)[],
     context?: VariableStorageContext
   ): Promise<(VariableSetResult | undefined)[]> {
-    const patches: PartitionItem<VariablePatch<any, false>>[] = [];
+    const patches: PartitionItem<VariablePatch<any, true>>[] = [];
 
-    let setter: VariableSetter<any, false>;
+    let setter: VariableSetter<any, true>;
     results.forEach(
       (result, i) =>
         result?.status === VariableSetStatus.Unsupported &&
@@ -174,7 +175,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
         return patched ? { ...setters[sourceIndex], ...patched } : undefined;
       };
 
-      const patchSetters: PartitionItem<VariableSetter<any, false>>[] = [];
+      const patchSetters: PartitionItem<VariableSetter<any>>[] = [];
       const currentValues = storage.get(partitionItems(patches), context);
 
       for (let i = 0; i < patches.length; i++) {
