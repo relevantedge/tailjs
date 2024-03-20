@@ -145,12 +145,35 @@ describe("Iterator functionality iterates iterably", () => {
   });
 
   it("Flattens", () => {
-    expect(flatMap([{ a: 10 }, { b: 20, c: true }])).toEqual([
-      ["a", 10],
-      ["b", 20],
-      ["c", true],
+    expect(flatMap([{ a: 10 }, { b: 20, c: true }], (x) => x)).toEqual([
+      { a: 10 },
+      { b: 20, c: true },
     ]);
-    expect(flatMap([[1, 2, 3], 4, [5, 6]], (item) => item)).toEqual([
+
+    expect(flatMap([{ a: 10 }, { b: 20, c: true }], (x) => x, 2, true)).toEqual(
+      [
+        ["a", 10],
+        ["b", 20],
+        ["c", true],
+      ]
+    );
+
+    expect(flatMap([[1, [2], 3], 4, [5, 6]], (item) => item, 1)).toEqual([
+      [1, [2], 3],
+      4,
+      [5, 6],
+    ]);
+
+    expect(flatMap([[1, [2], 3], 4, [5, 6]], (item) => item)).toEqual([
+      1,
+      [2],
+      3,
+      4,
+      5,
+      6,
+    ]);
+
+    expect(flatMap([[1, [2], 3], 4, [5, 6]], (item) => item, 3)).toEqual([
       1, 2, 3, 4, 5, 6,
     ]);
 

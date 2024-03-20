@@ -39,10 +39,15 @@ describe("Accessors accesses what they access", () => {
     let [o, a, m, s] = createTestTargets();
 
     expect(assign(o, "b", 30)).toEqual(30);
+
     expect(assign(o as any, [["c", "test"]])).toEqual({
       a: 10,
       b: 30,
       c: "test",
+    });
+
+    expect(assign({}, { g: 90 })).toEqual({
+      g: 90,
     });
 
     expect(update(o, "a", (current) => current + 5)).toEqual(15);
@@ -64,7 +69,9 @@ describe("Accessors accesses what they access", () => {
     expect(assign(s, "c", true)).toBe(true);
     expect(get(s, "c")).toBe(true);
     expect(s.has("c")).toBe(true);
+
     assign(s, "c", false);
+
     expect(s.has("c")).toBe(false);
 
     remove(o, "a");
@@ -86,7 +93,7 @@ describe("Accessors accesses what they access", () => {
     get(o as any, "gazonk", () => 37);
     expect(get(o as any, "gazonk")).toBe(80);
 
-    expect(get(o as any, "test37", 37)).toBe(37);
+    expect(get(o as any, "test37", () => 37)).toBe(37);
     assign(o as any, "test37", 38);
     expect(get(o as any, "test37", 37)).toBe(38);
   });

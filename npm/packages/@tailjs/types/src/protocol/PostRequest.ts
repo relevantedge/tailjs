@@ -1,4 +1,4 @@
-import { TrackedEvent, TrackerVariableFilter, TrackerVariable } from "..";
+import { TrackedEvent } from "..";
 
 export interface PostRequest {
   /** New events to add. */
@@ -9,8 +9,8 @@ export interface PostRequest {
 
   /** Variables to set. */
   variables?: {
-    get: TrackerVariableFilter;
-    set: TrackerVariable;
+    // get: TrackerVariableFilter;
+    // set: TrackerVariable;
   };
 
   /**

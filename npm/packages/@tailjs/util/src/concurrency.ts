@@ -65,7 +65,9 @@ export class ResetablePromise<T = void, E = any> implements PromiseLike<T> {
   }
 }
 
-export class OpenPromise<T = void, E = any> extends Promise<T> {
+export class OpenPromise<T = void, E = any> implements PromiseLike<T> {
+  private readonly _promise: Promise<T>;
+
   public readonly resolve: (value: T, ifPending?: boolean) => this;
   public readonly reject: (reason: E | undefined, ifPending?: boolean) => this;
   public readonly value: (T extends void ? true : T) | undefined;
@@ -73,21 +75,35 @@ export class OpenPromise<T = void, E = any> extends Promise<T> {
   public pending = true;
 
   constructor() {
-    super((...args: any[]) => {
-      [(this as any).resolve, (this as any).reject] = args.map(
-        (inner, i) => (value: any, ifPending: boolean) => {
-          if (!this.pending) {
-            if (ifPending) return this;
-            throw new TypeError("Promise already resolved/rejected.");
-          }
-
-          (this as any).pending = false;
-          (this as any)[i ? "error" : "value"] = !isDefined(value) || value;
-          inner(value);
-          return this;
+    let captured: any[];
+    this._promise = new Promise((...args: any[]) => {
+      captured = args.map((inner, i) => (value: any, ifPending: boolean) => {
+        if (!this.pending) {
+          if (ifPending) return this;
+          throw new TypeError("Promise already resolved/rejected.");
         }
-      );
+
+        (this as any).pending = false;
+        (this as any)[i ? "error" : "value"] = !isDefined(value) || value;
+        inner(value);
+        return this;
+      });
     });
+
+    [this.resolve, this.reject] = captured!;
+  }
+
+  public then<TResult1 = T, TResult2 = never>(
+    onfulfilled?:
+      | ((value: T) => TResult1 | PromiseLike<TResult1>)
+      | null
+      | undefined,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | null
+      | undefined
+  ): Promise<TResult1 | TResult2> {
+    return this._promise.then(onfulfilled, onrejected);
   }
 }
 
