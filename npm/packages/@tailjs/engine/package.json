@@ -16,15 +16,15 @@
     "@tailjs/util": "workspace:*",
     "@ygoe/msgpack": "^1.0.3",
     "jsonschema": "^1.4.1",
-    "query-string": "^8.1.0",
+    "query-string": "^8.2.0",
     "semaphore-async-await": "^1.5.1",
     "short-unique-id": "^5.0.3",
     "url-parse": "^1.5.10",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@types/node": "^18.16.3",
-    "@types/url-parse": "^1.4.8"
+    "@types/node": "^18.19.26",
+    "@types/url-parse": "^1.4.11"
   },
   "publishConfig": {
     "directory": "dist"

@@ -13,6 +13,7 @@ import {
   VariableSetResult,
   isConflictResult,
   isSuccessResult,
+  toStrict,
 } from "@tailjs/types";
 import {
   MaybePromise,
@@ -109,11 +110,12 @@ const requireNumberOrUndefined = (value: any): number | undefined => {
 };
 
 export const applyPatchOffline = (
-  current: VariablePatchSource | undefined,
-  { patch }: VariablePatch
-): VariablePatchResult | undefined => {
+  current: VariablePatchSource<any, true> | undefined,
+  { classification: level, purposes, patch }: VariablePatch<any, true>
+): VariablePatchResult<any, true> | undefined => {
   if (isFunction(patch)) {
-    const patched = patch(current);
+    const patched = toStrict(patch(current));
+
     if (patched) {
       patched.classification ??=
         current?.classification ?? DataClassification.None;
@@ -122,9 +124,10 @@ export const applyPatchOffline = (
     }
     return patched;
   }
+
   const classification: VariableClassification = {
-    classification: patch.classification,
-    purposes: patch.purposes,
+    classification: level!,
+    purposes: purposes,
   };
 
   const value = current?.value;

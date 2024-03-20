@@ -10,6 +10,7 @@ import {
   VariableScopes,
   VariableSetResult,
   VariableSetter,
+  toStrict,
 } from "@tailjs/types";
 import {
   MaybePromise,
@@ -121,7 +122,7 @@ export class VariableSplitStorage implements VariableStorage {
 
       const { storage, key } = this._mapKey(sourceKey);
       const keepPrefix = this._keepPrefix(storage);
-      get(partitions, storage, () => [] as PartitionItems<K>).push([
+      (get(partitions, storage, () => [] as any) as any).push([
         sourceIndex,
         !keepPrefix && key !== sourceKey.key
           ? { ...sourceKey, key: key }
@@ -191,7 +192,7 @@ export class VariableSplitStorage implements VariableStorage {
     const results: VariableGetResults<K> = [] as any;
     await waitAll(
       map(
-        this._splitKeys(keys),
+        this._splitKeys(keys.map(toStrict)),
         ([storage, split]) =>
           isWritable(storage) &&
           mergeKeys(
@@ -326,7 +327,7 @@ export class VariableSplitStorage implements VariableStorage {
     const results: VariableSetResults<K> = [] as any;
     await waitAll(
       map(
-        this._splitKeys(variables),
+        this._splitKeys(variables.map(toStrict)),
         ([storage, split]) =>
           isWritable(storage) &&
           mergeKeys(
@@ -335,7 +336,7 @@ export class VariableSplitStorage implements VariableStorage {
             async (variables) =>
               await this._patchSetResults(
                 storage,
-                variables as VariableSetter<any>[],
+                variables as VariableSetter<any, true>[],
                 await storage.set(variables, context)
               )
           )

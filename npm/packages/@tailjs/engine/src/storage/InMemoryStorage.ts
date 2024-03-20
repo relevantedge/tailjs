@@ -4,6 +4,7 @@ import {
   VariableGetter,
   VariableHeader,
   VariableKey,
+  VariablePatchAction,
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
@@ -13,6 +14,7 @@ import {
   VariableSetter,
   VersionedVariableKey,
   isVariablePatch,
+  toStrict,
 } from "@tailjs/types";
 import {
   Clock,
@@ -92,6 +94,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   private _update(variable: Variable, timestamp?: number) {
     let scopeValues = this._getScopeValues(variable.scope, variable.key, true)!;
 
+    variable = toStrict(variable);
+
     const ttl = this._ttl?.[variable.scope];
     scopeValues[0] = ttl ? (timestamp ?? now()) + ttl : undefined;
     scopeValues[1].set(variable.key, variable);
@@ -99,7 +103,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     return variable;
   }
 
-  private _validateKey<T extends VariableKey | null | undefined>(key: T): T {
+  private _validateKey<T extends VariableKey<true> | null | undefined>(
+    key: T
+  ): T {
     if (key && key.scope !== VariableScope.Global && !key.targetId) {
       throw new TypeError(`Target ID is required for non-global scopes.`);
     }
@@ -239,7 +245,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   private _applyGetFilters(
-    getter: VariableGetter,
+    getter: VariableGetter<any, true>,
     variable: Variable | undefined
   ) {
     return !variable ||
@@ -256,7 +262,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     getters: K,
     context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
-    const results = getters.map((getter) => ({
+    const results = getters.map(toStrict).map((getter) => ({
       current: (getter = this._validateKey(getter))
         ? (this._applyGetFilters(
             getter,
@@ -329,7 +335,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   ): Promise<VariableSetResults<Setters>> {
     const timestamp = now();
     const results: (VariableSetResult | undefined)[] = [];
-    for (const source of variables) {
+    for (const source of variables.map(toStrict)) {
       this._validateKey(source);
 
       if (!source) {
@@ -363,7 +369,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           continue;
         }
 
-        const patched = applyPatchOffline(current, source);
+        const patched = toStrict(applyPatchOffline(current, source));
 
         if (!isDefined(patched)) {
           results.push({

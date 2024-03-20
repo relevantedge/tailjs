@@ -1,11 +1,9 @@
 import {
   DataClassification,
-  DataPurposes,
   Variable,
   VariableFilter,
   VariableGetter,
   VariableHeader,
-  VariableKey,
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
@@ -16,14 +14,15 @@ import {
   VariableValidationBasis,
   isSuccessResult,
   isVariablePatch,
+  toStrict,
 } from "@tailjs/types";
 import { MaybePromise, isDefined, isFunction } from "@tailjs/util";
 import {
   Tracker,
-  VariableStorageContext,
   VariableGetResults,
   VariableSetResults,
   VariableStorage,
+  VariableStorageContext,
 } from "..";
 
 import { PartitionItem, extractKey, parseKey } from ".";
@@ -93,7 +92,7 @@ export class TrackerVariableStorage implements VariableStorage {
       : tracker.consent.level;
   }
 
-  private _validate<T extends VariableValidationBasis>(
+  private _validate<T extends VariableValidationBasis<true>>(
     variable: T | null | undefined,
     tracker: Tracker
   ) {
@@ -141,7 +140,7 @@ export class TrackerVariableStorage implements VariableStorage {
     }
 
     const validated = variables.map((variable) =>
-      this._validate(variable, tracker)
+      this._validate(toStrict(variable), tracker)
     );
 
     validated.forEach(
@@ -153,7 +152,7 @@ export class TrackerVariableStorage implements VariableStorage {
         tracker._touchClientDeviceData()
     );
 
-    const denied: PartitionItem<VariableSetResult>[] = [];
+    const denied: PartitionItem<VariableSetResult<any, true>>[] = [];
     validated.forEach((source, sourceIndex) => {
       if (!source) return;
 
@@ -177,7 +176,10 @@ export class TrackerVariableStorage implements VariableStorage {
         };
       }
     });
-    const results = (await this.set(validated, context)) as VariableSetResult[];
+    const results = (await this.set(validated, context)) as VariableSetResult<
+      any,
+      true
+    >[];
     denied.forEach(([sourceIndex, status]) => (results[sourceIndex] = status));
     for (const result of results) {
       isSuccessResult(result) &&
@@ -289,7 +291,7 @@ export class TrackerVariableStorage implements VariableStorage {
     const results = await this._storage.get(
       keys.map((key) =>
         this._trackDeviceData(
-          this._validate(key, context.tracker!),
+          this._validate(toStrict(key), context.tracker!),
           context.tracker!
         )
       ),

@@ -1,4 +1,6 @@
+import { Variable } from "..";
+
 export interface PostResponse {
   eventIds?: string[];
-  //variables?: VariableGetResponse;
+  variables?: Variable[];
 }

@@ -1,4 +1,4 @@
-import { DataClassification, DataPurposes } from ".";
+import { DataClassification, DataPurposes, VariableScope } from ".";
 
 /**
  * To be used in functions that both alow enum values and their names.
@@ -19,40 +19,26 @@ type ParsedValue<T, V, Flags extends boolean> = V extends keyof T
     : undefined
   : undefined;
 
+type MaybeArray<T, Flags> = Flags extends true ? T | T[] : T;
+
 type ParseFunction<T, Flags> = {
-  <
-    V extends
-      | (Flags extends true
-          ? (KeysOrValues<T, true> | null | undefined)[]
-          : never)
-      | KeysOrValues<T, true>
-      | null
-      | undefined
-  >(
+  <V extends MaybeArray<KeysOrValues<T, true> | null | undefined, Flags>>(
     value: V
   ): ParsedValue<T, V extends any[] ? V[number] : V, true>;
 
-  (
-    value:
-      | (Flags extends true ? (string | number | null | undefined)[] : never)
-      | string
-      | number
-      | null
-      | undefined
-  ): T[keyof T] | undefined;
+  (value: MaybeArray<string | number | null | undefined, Flags>):
+    | T[keyof T]
+    | undefined;
 };
 
-type NameFunction<T, Flags> = <
-  V extends
-    | (Flags extends true
-        ? (KeysOrValues<T, true> | null | undefined)[]
-        : never)
-    | KeysOrValues<T, true>
-    | null
-    | undefined
->(
-  value: V
-) => Flags extends true ? (keyof T)[] : keyof T;
+type NameFunction<T, Flags extends boolean> = {
+  <V extends MaybeArray<KeysOrValues<T, Flags> | null | undefined, Flags>>(
+    value: V
+  ): Flags extends true ? (keyof T)[] : keyof T;
+  (
+    value: MaybeArray<string | number | null | undefined, Flags>
+  ): Flags extends true ? (keyof T)[] : keyof T | undefined;
+};
 
 // type NameFunction<T> =
 //   <V extends null | undefined | KeysOrValues<T, false>>()
@@ -132,30 +118,24 @@ export const addEnumParsers = <
       enumerable: false,
       configurable: false,
       value: flags
-        ? (value: any) =>
-            typeof value === "number"
-              ? values
-                  .map((flag) => (value & flag ? lookup[flag] : undefined))
-                  .filter((value) => value)
-              : name(value)
+        ? (value: any) => (
+            (value = parse(value)),
+            values
+              .map((flag) => (value & flag ? lookup[flag] : undefined))
+              .filter((value) => value)
+          )
         : name,
     },
   });
   return names as any;
 };
 
-export type ParsableEnumValue<T, Flags> =
-  | number
-  | keyof T
-  | (Flags extends true ? ParsableEnumValue<T, false>[] : never);
-
 export type NamedDataClassification =
   (typeof dataClassification)["levels"][number];
 
-export type ParsableDataClassification = ParsableEnumValue<
-  DataClassification,
-  false
->;
+export type ParsableDataClassification<Strict = false> = Strict extends true
+  ? DataClassification
+  : NamedDataClassification | DataClassification;
 
 export const dataClassification = addEnumParsers(
   {
@@ -168,7 +148,9 @@ export const dataClassification = addEnumParsers(
 );
 
 export type NamedDataPurposes = (typeof dataPurposes)["levels"];
-export type ParsableDataPurposes = ParsableEnumValue<DataPurposes, true>;
+export type ParsableDataPurposes<Strict = false> = Strict extends true
+  ? DataPurposes
+  : MaybeArray<NamedDataPurposes[number] | DataPurposes, true>;
 
 export const dataPurposes = addEnumParsers(
   {
@@ -180,3 +162,19 @@ export const dataPurposes = addEnumParsers(
   },
   true
 );
+
+export const variableScope = addEnumParsers(
+  {
+    global: VariableScope.Global,
+    session: VariableScope.Session,
+    device: VariableScope.Device,
+    user: VariableScope.User,
+    entity: VariableScope.Entity,
+  },
+  false
+);
+
+export type NamedVariableScope = (typeof variableScope)["levels"][number];
+export type ParsableVariableScope<Strict = false> = Strict extends true
+  ? VariableScope
+  : NamedVariableScope | VariableScope;

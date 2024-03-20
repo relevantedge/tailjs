@@ -1,7 +1,6 @@
 import clientScripts from "@tailjs/client/script";
 import {
   dataPurposes,
-  isResetEvent,
   PostRequest,
   PostResponse,
   TrackedEvent,
@@ -30,10 +29,8 @@ import {
   EventParser,
   InMemoryStorage,
   isValidationError,
-  isWritable,
   ParseResult,
   PostError,
-  PrefixMapping,
   PrefixMappings,
   ReadOnlyVariableStorage,
   RequestHandlerConfiguration,
@@ -51,13 +48,13 @@ import {
 
 import { CONTEXT_MENU_COOKIE, MUTEX_REQUEST_COOKIE } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
-import { from64u } from "@tailjs/util/transport";
-import { generateClientConfigScript } from "./lib/clientConfigScript";
 import { forEach, obj } from "@tailjs/util";
+import { from64u } from "@tailjs/util/transport";
 import {
   DefaultSessionReferenceMapper,
   SessionReferenceMapper,
 } from "./ClientIdGenerator";
+import { generateClientConfigScript } from "./lib/clientConfigScript";
 
 const scripts = {
   main: {
@@ -192,18 +189,14 @@ export class RequestHandler {
     this._cookieNames = {
       consent: `${cookies.namePrefix}.consent`,
       session: `${cookies.namePrefix}.s`,
-      device: Object.assign(
-        obj(
-          dataPurposes,
-          ([name, flag]) =>
-            [
-              name,
-              // Necessary device data is just ".d" (no suffix)
-              `${cookies.namePrefix}.d${
-                flag !== dataPurposes.necessary ? `.${name[0]}` : ""
-              }`,
-            ] as const
-        )
+      device: obj(
+        dataPurposes.map(([name, flag]) => [
+          name,
+          // Necessary device data is just ".d" (no suffix)
+          `${cookies.namePrefix}.d${
+            flag !== dataPurposes.necessary ? `.${name[0]}` : ""
+          }`,
+        ])
       ),
     };
 

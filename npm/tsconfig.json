@@ -8,6 +8,7 @@
     "moduleResolution": "node",
     "preserveConstEnums": false,
     "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "stripInternal": true,
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",
@@ -30,5 +31,9 @@
     },
     "types": ["jest"]
   },
-  "exclude": ["**/dist"]
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  },
+  "exclude": ["**/dist", "**/build", "*config.js"]
 }
