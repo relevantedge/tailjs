@@ -97,7 +97,7 @@ const setSingle = (target: any, key: any, value: any) => {
     : target.add
     ? value
       ? target.add(key)
-      : target.delete(value)
+      : target.delete(key)
     : (target[key] = value);
 
   return value;
@@ -106,10 +106,12 @@ const setSingle = (target: any, key: any, value: any) => {
 export const get = <
   T extends PropertyContainer | null | undefined,
   K extends KeyType<T>,
-  I extends () =>
-    | AcceptUnknownContainers<ValueType<T>>
-    | Readonly<ValueType<T>>
-    | undefined
+  I extends
+    | ValueType<T, K>
+    | (() =>
+        | AcceptUnknownContainers<ValueType<T, K>>
+        | Readonly<ValueType<T, K>>
+        | undefined)
 >(
   target: T,
   key: K | undefined,
@@ -135,8 +137,10 @@ export const get = <
     ? (target as any).has(key)
     : target[key as any];
 
-  if (isUndefined(value) && initializer) {
-    isDefined((value = initializer())) && setSingle(target, key, value);
+  if (isUndefined(value) && isDefined(initializer)) {
+    isDefined(
+      (value = isFunction(initializer) ? initializer() : initializer)
+    ) && setSingle(target, key, value);
   }
   return value;
 };
@@ -249,21 +253,19 @@ const createSetOrUpdateFunction =
     setter: (target: any, key: any, value: any) => any
   ): SetOrUpdateFunction<B> =>
   (target: PropertyContainer, key: any, value: any = NO_ARG) => {
-    if (!target) return;
+    if (!target) return undefined;
     if (value !== NO_ARG) {
-      const currentValue = get(target, key);
-      setter(target, key, value);
-      return currentValue;
+      return setter(target, key, value);
     }
 
-    if (isIterable(key)) {
+    if (isObject(key, true)) {
       forEach(key, (item) =>
         isObject(item)
           ? forEach(item, setSingle)
           : setter(target, item[0], item[1])
       );
     } else {
-      forEach(key, setSingle);
+      setter(target, key, value);
     }
     return target;
   };

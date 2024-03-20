@@ -1,5 +1,5 @@
-import type { Tracker } from "../src/Tracker";
-import { InMemoryStorage } from "../src/extensions";
+import { VariableScope } from "@tailjs/types";
+import { InMemoryStorage, Tracker } from "../src";
 
 describe("Variable stores store.", () => {
   const fakeTracker: Tracker = {
@@ -11,6 +11,8 @@ describe("Variable stores store.", () => {
   it("Is the case for InMemoryStore.", async () => {
     const store = new InMemoryStorage();
 
-    expect(store.get("test")).toBeUndefined();
+    expect(
+      store.get([{ key: "test", scope: VariableScope.Global }]),
+    ).toBeUndefined();
   });
 });

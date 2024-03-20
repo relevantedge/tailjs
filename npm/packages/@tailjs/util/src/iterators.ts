@@ -2,13 +2,10 @@ import { isSet } from "util/types";
 import {
   ConstToNormal,
   GeneralizeContstants,
-  IsAny,
-  IterableOrArrayLike,
-  KeyValuePairsToObject,
-  Minus,
   get,
   hasMethod,
   hasValue,
+  IsAny,
   isArray,
   isDefined,
   isFalsish,
@@ -17,6 +14,9 @@ import {
   isObject,
   isTruish,
   isUndefined,
+  IterableOrArrayLike,
+  KeyValuePairsToObject,
+  Minus,
   toArray,
 } from ".";
 
@@ -76,9 +76,10 @@ export interface IteratorControl<S extends IteratorSource> {
 
 export type IteratorAction<
   S extends IteratorSource = IteratorSource,
-  Projection = IteratorItem<S>
+  Projection = IteratorItem<S>,
+  Value = IteratorItem<S>
 > = (
-  value: IteratorItem<S>,
+  value: Value,
   index: number,
   control: IteratorControl<S>
 ) => Projection | undefined | void;
@@ -100,14 +101,16 @@ export type NavigatingIteratorStep<T = any> = (
   current: T | undefined
 ) => T | undefined;
 
-type FlatIteratorItem<T, Depth extends number = 1> = T extends undefined | void
+type FlatIteratorItem<T, D extends number = 2, O = false> = T extends
+  | undefined
+  | void
   ? never
-  : Depth extends 0
+  : D extends 0
   ? FlatIteratorItem<T, 100>
-  : T extends Iterable<infer T>
-  ? Depth extends 1
-    ? T
-    : FlatIteratorItem<T, Minus<Depth, 1>>
+  : T extends Iterable<any> | (O extends true ? Record<keyof any, any> : never)
+  ? D extends 1
+    ? IteratorItem<T>
+    : FlatIteratorItem<IteratorItem<T>, Minus<D, 1>, O>
   : T;
 
 type UndefinedIfUndefined<S, T> = S extends null | void | undefined
@@ -201,13 +204,12 @@ const enum IterationFlag {
 // Important, this must only be called if the action has less than 3 arguments (no requirement for control).
 const createFilteringIterator = <S extends Iterable<any>, P = IteratorItem<S>>(
   source: S,
-  action?: (value: IteratorItem<S>, index: number) => P
-) => {
+  action?: (value: IteratorItem<S>, index: number) => P,
+  includeUndefined = false
+): Iterable<P> => {
   if (isArray(source)) {
-    const mapped = (action ? source.map(action as any) : source).filter(
-      isDefined
-    );
-    return mapped;
+    source = (action ? source.map(action as any) : source) as any;
+    return includeUndefined ? source : (source as any).filter(isDefined);
   }
 
   return (function* (source: S, capturedAction: typeof action) {
@@ -226,7 +228,7 @@ const createFilteringIterator = <S extends Iterable<any>, P = IteratorItem<S>>(
 function* createControllableIterator<
   S extends Iterable<any>,
   P = IteratorItem<S>
->(source: S, action: IteratorAction<S, P>) {
+>(source: S, action: IteratorAction<S, P>): Iterable<P> {
   let i = 0;
   let flag = IterationFlag.Yield;
   let result: P | undefined;
@@ -258,11 +260,16 @@ const createIterator = <S extends IteratorSource, P = IteratorItem<S>>(
   source: S,
   action?: IteratorAction<S, P>,
   start?: any,
-  end?: any
-) =>
+  end?: any,
+  includeUndefined = false
+): Iterable<P> =>
   action?.length! >= 3
     ? createControllableIterator(mapIterator(source, start, end), action as any)
-    : createFilteringIterator(mapIterator(source, start, end), action as any);
+    : createFilteringIterator(
+        mapIterator(source, start, end),
+        action as any,
+        includeUndefined
+      );
 
 const mapIterator = <S extends IteratorSource>(
   source: S,
@@ -306,14 +313,16 @@ type MapFunction = {
 
 type FlatProjectFunction = <
   S extends IteratorSource,
-  R = IteratorItem<S>,
-  Depth extends number = 1
+  D extends number = 2,
+  R = FlatIteratorItem<S, D>,
+  O extends boolean = false
 >(
   source: S,
-  projection?: IteratorAction<S, R>,
-  depth?: Depth,
+  projection?: FlatIteratorAction<S, R, D, O>,
+  depth?: D,
+  expandObjects?: O,
   ...rest: StartEndArgs<S>
-) => Iterable<FlatIteratorItem<R, Depth>>;
+) => Iterable<R>;
 
 export const project: ProjectFunction = ((
   source: any,
@@ -327,22 +336,28 @@ export const project: ProjectFunction = ((
   return createIterator(source, projection, start, end);
 }) as any;
 
-export const flatProject: FlatProjectFunction = function* (
+export const flatProject: FlatProjectFunction = function (
   source,
   projection?,
-  depth = 1 as any,
+  depth = 2 as any,
+  expandObjects = false as any,
   start?: any,
   end?: any
 ) {
-  yield* flatten(createIterator(source, projection, start, end), depth);
+  return createIterator(
+    flatten(mapIterator(source, start, end), depth),
+    projection as any,
+    start,
+    end
+  );
 
   function* flatten(value: any, depth: number) {
-    if (isIterable(value)) {
-      for (const item of value) {
+    if (expandObjects ? isObject(value, true) : isIterable(value)) {
+      for (const item of mapIterator(value)) {
         if (depth > 1 || depth <= 0) {
-          yield* flatten(value, depth - 1);
+          yield* flatten(item, depth - 1);
         } else {
-          yield* item;
+          yield item;
         }
       }
     } else {
@@ -447,17 +462,26 @@ export const intersects = (
   b: Iterable<any> | undefined
 ) => !!count(intersection(a, b));
 
+type FlatIteratorAction<
+  S extends IteratorSource,
+  R = FlatIteratorItem<S>,
+  D extends number = 1,
+  O = false
+> = IteratorAction<S, R, FlatIteratorItem<S, D, O>>;
+
 export const flatMap = <
   S extends IteratorSource,
-  R = IteratorItem<S>,
-  Depth extends number = 1
+  D extends number = 2,
+  O extends boolean = false,
+  R = FlatIteratorItem<IteratorItem<S>, D>
 >(
   source: S,
-  action: IteratorAction<S, R> = (item) => item as any,
-  depth: Depth = 1 as any,
+  action: FlatIteratorAction<S, R, D, O> = (item) => item as any,
+  depth: D = 2 as any,
+  expandObjects: O = false as any,
   ...rest: StartEndArgs<S>
-): FlatIteratorItem<R, Depth>[] =>
-  map(flatProject(source, action, depth, ...rest)) as any;
+): R[] =>
+  map(flatProject(source, action, depth, expandObjects, ...rest)) as any;
 
 export const forEach: <S extends IteratorSource, R>(
   source: S,
@@ -471,14 +495,20 @@ export const forEach: <S extends IteratorSource, R>(
   return returnValue;
 };
 
-export const flatForEach = <S extends IteratorSource, R, Depth extends number>(
+export const flatForEach = <
+  S extends IteratorSource,
+  R,
+  Depth extends number,
+  O extends boolean = false
+>(
   source: S,
-  action: IteratorAction<FlatIteratorItem<S>, R>,
-  depth: Depth = 1 as any,
+  action: FlatIteratorAction<S, R, Depth, O>,
+  depth: Depth = 2 as any,
+  expandObjects: O = false as any,
   ...rest: StartEndArgs<S>
 ): R | undefined =>
   forEach(
-    flatProject(source, undefined, depth, ...(rest as any)),
+    flatProject(source, undefined, depth, expandObjects, ...(rest as any)),
     action as any
   ) as any;
 
