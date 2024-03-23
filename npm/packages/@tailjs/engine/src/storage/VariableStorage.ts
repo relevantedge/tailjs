@@ -1,17 +1,16 @@
 import {
-  VariableGetter,
-  VariableHeader,
-  VariableQueryOptions,
-  VariableScope,
-  VariableScopeNames,
   isErrorResult,
+  variableScope,
   type Variable,
   type VariableFilter,
+  type VariableGetter,
+  type VariableHeader,
+  type VariablePatchResult,
+  type VariableQueryOptions,
   type VariableQueryResult,
+  type VariableScope,
   type VariableSetResult,
   type VariableSetter,
-  VariablePatchResult,
-  variableScope,
 } from "@tailjs/types";
 import { MaybePromise } from "@tailjs/util";
 import type { Tracker, TrackerEnvironment } from "..";

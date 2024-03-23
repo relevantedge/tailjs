@@ -4,17 +4,18 @@ import {
   VariableGetter,
   VariableHeader,
   VariableKey,
-  VariablePatchAction,
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
-  VariableScopes,
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
   VersionedVariableKey,
+  dataClassification,
+  dataPurposes,
   isVariablePatch,
   toStrict,
+  variableScope,
 } from "@tailjs/types";
 import {
   Clock,
@@ -23,16 +24,11 @@ import {
   forEach,
   isDefined,
   isUndefined,
+  map,
   now,
   some,
 } from "@tailjs/util";
-import {
-  applyPatchOffline as applyPatch,
-  applyPatchOffline,
-  copy,
-  parseKey,
-  variableId,
-} from "../lib";
+import { applyPatchOffline, copy, parseKey, variableId } from "../lib";
 
 import {
   VariableGetResult,
@@ -135,12 +131,14 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         const { purposes, classification: classifications } = queryFilter;
         if (
           !variable ||
-          purposes?.every(
-            (purpose) => variable.purposes && !(purpose & variable.purposes)
-          ) ||
+          (variable.purposes &&
+            purposes &&
+            !(variable.purposes & dataPurposes(purposes))) ||
           (classifications &&
-            (variable.classification < classifications.min! ||
-              variable.classification > classifications.max! ||
+            (variable.classification <
+              dataClassification(classifications.min)! ||
+              variable.classification >
+                dataClassification(classifications.max)! ||
               classifications.levels?.some(
                 (level) => variable.classification === level
               ) === false))
@@ -161,7 +159,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         return true;
       };
 
-      for (const scope of queryFilter.scopes ?? VariableScopes) {
+      for (const scope of map(queryFilter.scopes, variableScope) ??
+        variableScope.values) {
         for (const [, scopeVars] of queryFilter.targetIds?.map(
           (targetId) =>
             [targetId, this._getScopeValues(scope, targetId, false)] as const
@@ -258,7 +257,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       : copy(variable);
   }
 
-  async get<K extends (VariableGetter<any> | null | undefined)[]>(
+  async get<K extends (VariableGetter<any, any> | null | undefined)[]>(
     getters: K,
     context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
@@ -330,7 +329,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   async set<Setters extends (VariableSetter<any> | null | undefined)[]>(
-    variables: Setters,
+    variables: Setters & VariableSetter<any>[],
     context?: VariableStorageContext
   ): Promise<VariableSetResults<Setters>> {
     const timestamp = now();
@@ -441,7 +440,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         continue;
       }
 
-      for (const scope of filter.scopes ?? VariableScopes) {
+      for (const scope of filter.scopes?.map((scope) => variableScope(scope)) ??
+        variableScope.values) {
         if (filter.targetIds) {
           for (const targetId of filter.targetIds) {
             this._deleteTarget(scope, targetId);
@@ -462,7 +462,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
 
 export class InMemoryStorage extends InMemoryStorageBase {
   private readonly _variables: Map<string, ScopeVariables>[] =
-    VariableScopes.map(() => new Map());
+    variableScope.values.map(() => new Map());
 
   private _nextVersion = 0;
 

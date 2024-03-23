@@ -16,5 +16,8 @@
   },
   "publishConfig": {
     "directory": "dist"
+  },
+  "dependencies": {
+    "@tailjs/util": "workspace:^0.17.24"
   }
 }

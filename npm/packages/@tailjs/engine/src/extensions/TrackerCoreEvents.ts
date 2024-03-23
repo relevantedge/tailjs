@@ -158,8 +158,8 @@ export class TrackerCoreEvents implements TrackerExtension {
     for (let event of events) {
       if (isConsentEvent(event)) {
         await tracker.updateConsent(
-          dataClassification.parse(event.level),
-          dataPurposes.parse(event.purposes)
+          dataClassification.tryParse(event.level),
+          dataPurposes.tryParse(event.purposes)
         );
       }
 

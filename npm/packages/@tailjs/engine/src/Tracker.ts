@@ -20,6 +20,7 @@ import {
   dataPurposes,
   isSuccessResult,
   Session,
+  variableScope,
 } from "@tailjs/types";
 import { Transport, createTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, map, params, unparam } from "./lib";
@@ -414,13 +415,17 @@ export class Tracker {
    *
    * @internal
    */
-  public async _maybeUpdate(key: VariableKey, current: Variable | undefined) {
+  public async _maybeUpdate(
+    key: VariableKey<boolean>,
+    current: Variable | undefined
+  ) {
+    const scope = variableScope(key.scope);
     if (key.key === SCOPE_DATA_KEY) {
-      if (key.scope === VariableScope.Session) {
+      if (scope === VariableScope.Session) {
         // TODO: Reset session if purged.
         current && (this._session = current);
       } else if (
-        key.scope === VariableScope.Device &&
+        scope === VariableScope.Device &&
         this._consent.level > DataClassification.None
       ) {
         this._device = current;
@@ -498,9 +503,10 @@ export class Tracker {
 
     this._consent = {
       level:
-        dataClassification.parse(consentData[0]) ?? DataClassification.None,
+        dataClassification.tryParse(consentData[0]) ?? DataClassification.None,
       purposes:
-        dataPurposes.parse(consentData[1].split(",")) ?? DataPurposes.Necessary,
+        dataPurposes.tryParse(consentData[1].split(",")) ??
+        DataPurposes.Necessary,
     };
     await this._ensureSession(timestamp, deviceId, deviceSessionId);
   }
