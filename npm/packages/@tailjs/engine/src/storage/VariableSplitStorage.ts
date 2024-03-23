@@ -7,10 +7,10 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
-  VariableScopes,
   VariableSetResult,
   VariableSetter,
   toStrict,
+  variableScope,
 } from "@tailjs/types";
 import {
   MaybePromise,
@@ -24,10 +24,10 @@ import { ParsedKey, PartitionItems, mergeKeys, parseKey } from "../lib";
 
 import {
   ReadOnlyVariableStorage,
-  VariableStorageContext,
   VariableGetResults,
   VariableSetResults,
   VariableStorage,
+  VariableStorageContext,
   isWritable,
 } from "..";
 
@@ -146,7 +146,7 @@ export class VariableSplitStorage implements VariableStorage {
           this._keepPrefix(storage) ? key.sourceKey : key.key
         );
 
-      const scopes = filter.scopes ?? VariableScopes;
+      const scopes = map(filter.scopes, variableScope) ?? variableScope.values;
       for (const scope of scopes) {
         const scopePrefixes = this._mappings[scope];
         if (!scopePrefixes) continue;
@@ -169,7 +169,9 @@ export class VariableSplitStorage implements VariableStorage {
           ...filter,
           keys: [...keys],
           scopes: filter.scopes
-            ? filter.scopes.filter((scope) => storageScopes.has(scope))
+            ? filter.scopes.filter((scope) =>
+                storageScopes.has(variableScope(scope))
+              )
             : [...storageScopes],
         });
       }
@@ -336,7 +338,7 @@ export class VariableSplitStorage implements VariableStorage {
             async (variables) =>
               await this._patchSetResults(
                 storage,
-                variables as VariableSetter<any, true>[],
+                variables as VariableSetter<any, boolean>[],
                 await storage.set(variables, context)
               )
           )

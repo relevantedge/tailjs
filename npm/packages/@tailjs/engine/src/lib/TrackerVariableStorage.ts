@@ -7,14 +7,16 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
-  VariableScopes,
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
   VariableValidationBasis,
+  dataClassification,
+  dataPurposes,
   isSuccessResult,
   isVariablePatch,
   toStrict,
+  variableScope,
 } from "@tailjs/types";
 import { MaybePromise, isDefined, isFunction } from "@tailjs/util";
 import {
@@ -152,7 +154,7 @@ export class TrackerVariableStorage implements VariableStorage {
         tracker._touchClientDeviceData()
     );
 
-    const denied: PartitionItem<VariableSetResult<any, true>>[] = [];
+    const denied: PartitionItem<VariableSetResult<any>>[] = [];
     validated.forEach((source, sourceIndex) => {
       if (!source) return;
 
@@ -176,10 +178,11 @@ export class TrackerVariableStorage implements VariableStorage {
         };
       }
     });
-    const results = (await this.set(validated, context)) as VariableSetResult<
-      any,
-      true
-    >[];
+    const results = (await this._storage.set(
+      validated,
+      context
+    )) as VariableSetResult<any>[];
+
     denied.forEach(([sourceIndex, status]) => (results[sourceIndex] = status));
     for (const result of results) {
       isSuccessResult(result) &&
@@ -196,7 +199,9 @@ export class TrackerVariableStorage implements VariableStorage {
     for (let filter of filters) {
       // For each scope that intersects the tracker scopes, add a separate filter restricted to the target ID
       // that matches the current tracker.
-      const scopes = filter.scopes ?? VariableScopes;
+      const scopes =
+        filter.scopes?.map(variableScope.parse) ?? variableScope.values;
+
       const safe = scopes.filter((scope) => nonTrackerScopes.has(scope));
       safe.length && validatedFilters.push({ ...filter, scopes: safe });
       validatedFilters.push(
@@ -212,24 +217,25 @@ export class TrackerVariableStorage implements VariableStorage {
                     ? {
                         ...filter,
                         // Remove purposes without consent (if purposes are undefined in consent, it means "I am good with all").
-                        purposes: filter.purposes?.filter(
-                          (purpose) => !purpose || purpose & consent.purposes
-                        ),
+                        purposes: filter.purposes
+                          ? dataPurposes(filter.purposes) & consent.purposes
+                          : undefined,
+
                         classification: filter.classification && {
                           // Cap classification filter so no criteria exceeds the consent's level.
-
                           min:
-                            filter.classification.min! > consentLevel
+                            dataClassification(filter.classification.min)! >
+                            consentLevel
                               ? consentLevel
                               : filter.classification.min,
                           // If no explicit levels are set, limit the max value to the consent's level.
                           max:
-                            filter.classification.max! > consentLevel ||
-                            !filter.classification.levels
+                            dataClassification(filter.classification.max)! >
+                              consentLevel || !filter.classification.levels
                               ? consentLevel
                               : filter.classification.max,
                           levels: filter.classification.levels?.filter(
-                            (level) => level <= consentLevel
+                            (level) => dataClassification(level) <= consentLevel
                           ),
                         },
                       }
@@ -265,7 +271,7 @@ export class TrackerVariableStorage implements VariableStorage {
   ) {
     if (
       getter &&
-      getter.scope === VariableScope.Device &&
+      variableScope.tryParse(getter.scope) === VariableScope.Device &&
       !parseKey(getter.key).prefix
     ) {
       if (!getter.initializer) {
@@ -289,12 +295,10 @@ export class TrackerVariableStorage implements VariableStorage {
       return this._storage.get(keys, context);
     }
     const results = await this._storage.get(
-      keys.map((key) =>
-        this._trackDeviceData(
-          this._validate(toStrict(key), context.tracker!),
-          context.tracker!
-        )
-      ),
+      keys.map((key) => {
+        const ged = this._validate(toStrict(key), context.tracker!);
+        return this._trackDeviceData(ged, context.tracker!);
+      }),
       context
     );
 

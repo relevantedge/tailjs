@@ -4,6 +4,8 @@ import {
   IsAny,
   Minus,
   NotFunction,
+  PrettifyIntersection,
+  UnionToIntersection,
   count,
   forEach,
   hasMethod,
@@ -13,6 +15,7 @@ import {
   isIterable,
   isObject,
   isUndefined,
+  map,
   some,
 } from ".";
 
@@ -409,4 +412,79 @@ export const remove: {
       ? target.splice(key, 1)[0]
       : undefined
     : clearSingle(target, key);
+};
+
+type AddProperty<T, Definition> = Definition extends null | undefined | boolean
+  ? T
+  : Definition extends [infer Key, infer Value]
+  ? Value extends undefined
+    ? T
+    : T & {
+        [P in Key & keyof any]: GeneralizeContstants<
+          Value extends { value: infer Value } | { get: () => infer Value }
+            ? Value
+            : Value
+        >;
+      }
+  : AddProperties<T, Definition>;
+
+type AddProperties<T, Definitions> = PrettifyIntersection<
+  UnionToIntersection<
+    Definitions extends (infer Definitions)[]
+      ? AddProperty<T, Definitions>
+      : AddProperty<
+          T,
+          {
+            [P in keyof Definitions]: [P, Definitions[P]];
+          }[keyof Definitions]
+        >
+  >
+>;
+
+export const define: {
+  <
+    T,
+    P extends
+      | (
+          | [key: keyof any, descriptor: PropertyDescriptor]
+          | [key: keyof any, value: any]
+          | ({ [P in string | symbol]: PropertyDescriptor | any } & {
+              [Symbol.iterator]?: never;
+            })
+          | boolean
+          | null
+          | undefined
+        )[]
+      | ({ [P in string | symbol]: PropertyDescriptor | any } & {
+          [Symbol.iterator]?: never;
+        })
+  >(
+    target: T,
+    properties: P,
+    defaults?: Pick<
+      PropertyDescriptor,
+      "configurable" | "enumerable" | "writable"
+    >
+  ): AddProperties<T, P>;
+} = (target: any, properties: any, defaults: any) => {
+  if (isObject(properties)) {
+    properties = [properties];
+  }
+  const add = (properties: any[]) =>
+    properties.forEach(([key, value]) =>
+      isObject(value)
+        ? add(map(value))
+        : Object.defineProperty(target, key, {
+            configurable: false,
+            enumerable: true,
+            ...defaults,
+            ...(isArray(value)
+              ? {
+                  value,
+                }
+              : value),
+          })
+    );
+  add(target);
+  return target as any;
 };

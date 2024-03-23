@@ -32,7 +32,7 @@ export * from "./Perzonalizable";
 export * from "./OrderQuantity";
 export * from "./OrderLine";
 export * from "./ActivationTracking";
+export * from "./schema/Schema";
 export * from "./protocol";
 export * from "./events";
 export * from "./util";
-export * from "./enum-names";

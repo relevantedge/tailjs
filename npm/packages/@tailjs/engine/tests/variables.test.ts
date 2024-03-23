@@ -1,4 +1,10 @@
-import { DataClassification, VariableScope } from "@tailjs/types";
+import {
+  DataClassification,
+  DataPurposes,
+  VariableKey,
+  VariableScope,
+  VariableSetStatus,
+} from "@tailjs/types";
 import { InMemoryStorage, Tracker } from "../src";
 
 describe("Variable stores store.", () => {
@@ -11,17 +17,25 @@ describe("Variable stores store.", () => {
   it("Is the case for InMemoryStore.", async () => {
     const store = new InMemoryStorage();
 
+    const key: VariableKey = {
+      key: "test",
+      scope: "global",
+    };
     expect(
-      (await store.get([{ key: "test", scope: VariableScope.Global }]))[0]
+      (await store.get([{ key: "test", scope: "global" }]))[0]
     ).toBeUndefined();
 
-    await store.set([
-      {
-        key: "test",
-        scope: "global",
-        classification: DataClassification.Direct,
-        value: "test",
-      },
-    ]);
+    expect(
+      (
+        await store.set([
+          {
+            key: "test",
+            scope: "global",
+            classification: "direct",
+            value: "test",
+          },
+        ])
+      )[0].status
+    ).toBe(VariableSetStatus.Success);
   });
 });

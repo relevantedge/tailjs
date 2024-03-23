@@ -1,8 +1,8 @@
 import type {
   DataClassification,
-  ParsableDataClassification,
+  DataClassificationValue,
   DataPurposes,
-  ParsableDataPurposes,
+  DataPurposeValue,
   TrackedEvent,
 } from "..";
 import { typeTest } from "../util/type-test";
@@ -26,9 +26,9 @@ import { typeTest } from "../util/type-test";
 export interface ConsentEvent extends TrackedEvent {
   type: "CONSENT";
 
-  level: ParsableDataClassification;
+  level?: DataClassification;
 
-  purposes?: ParsableDataPurposes;
+  purposes?: DataPurposeValue;
 }
 
 export const isConsentEvent = typeTest<ConsentEvent>("CONSENT");
