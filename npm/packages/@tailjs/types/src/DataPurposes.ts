@@ -52,10 +52,10 @@ export const enum DataPurposes {
   Security = 1 << 4,
 
   /**
-   * Data stored for this purpose may be similar to the performance category, however if it is stored for this purpose it is specifically
-   * only used for things such as health monitoring, performance scaling and error logging unrelated to individual users.
+   * Data stored for this purpose may be similar to the performance category, however it is specifically
+   * only used for things such as health monitoring, performance, scaling and error logging unrelated to user behavior.
    */
-  Operations = 1 << 8,
+  Infrastructure = 1 << 5,
 }
 
 const purposes = {
@@ -64,6 +64,7 @@ const purposes = {
   performance: DataPurposes.Performance,
   targeting: DataPurposes.Targeting,
   security: DataPurposes.Security,
+  infrastructure: DataPurposes.Infrastructure,
 } as const;
 
 export const dataPurposes = createEnumAccessor(purposes, true, "data purpose");

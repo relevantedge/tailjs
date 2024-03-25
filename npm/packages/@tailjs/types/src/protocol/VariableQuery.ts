@@ -11,12 +11,12 @@ import {
 /** Defines a filter used to query variables.  */
 export interface VariableFilter<NumericEnums extends boolean = boolean> {
   /** Limits the results to variables for these specific target IDs. */
-  targetIds?: string[];
+  targetIds?: readonly string[];
 
   /**
    * Limits the results to variables from any of these scopes.
    */
-  scopes?: VariableScopeValue<NumericEnums>[];
+  scopes?: readonly VariableScopeValue<NumericEnums>[];
 
   /**
    * Limits the results to variables with one of these keys.
@@ -35,12 +35,12 @@ export interface VariableFilter<NumericEnums extends boolean = boolean> {
    * Conversely, the query ["test", "!*"] will not return anything since all keys has been excluded.
    *
    */
-  keys: string[];
+  keys: readonly string[];
 
   /**
    * Limit the results to variables that has any of these tag combinations.
    */
-  tags?: string[][];
+  tags?: readonly (readonly string[])[];
 
   /**
    * Limits the results to variables with these classifications.
@@ -53,7 +53,7 @@ export interface VariableFilter<NumericEnums extends boolean = boolean> {
     max?: DataClassificationValue<NumericEnums>;
 
     /** The variable must have any of these classifications. */
-    levels?: DataClassificationValue<NumericEnums>[];
+    levels?: readonly DataClassificationValue<NumericEnums>[];
   };
 
   /**
@@ -68,7 +68,7 @@ export interface VariableQueryOptions<NumericEnums extends boolean = boolean> {
    * Include the total number of matching of variables in the results (not just the top N first).
    * Default is `false`.
    */
-  count?: number;
+  count?: boolean;
 
   /**
    * Hint to indicate that no more results than this are needed.

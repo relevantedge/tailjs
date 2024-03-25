@@ -29,7 +29,7 @@ export const enum VariableSetStatus {
   Error = 7,
 }
 
-const statuses = {
+const setStatusNames = {
   success: VariableSetStatus.Success,
   unchanged: VariableSetStatus.Unchanged,
   conflict: VariableSetStatus.Conflict,
@@ -41,14 +41,14 @@ const statuses = {
 } as const;
 
 export const setStatus = createEnumAccessor(
-  statuses,
+  setStatusNames,
   false,
   "variable set status"
 );
 
 export type VariableSetStatusValue<
   Numeric extends boolean | undefined = boolean
-> = ParsableEnumValue<typeof statuses, Numeric, false>;
+> = ParsableEnumValue<typeof setStatusNames, Numeric, false>;
 
 export type VariableSetResult<
   T = any,
@@ -105,19 +105,36 @@ export const enum VariablePatchType {
   IfMatch,
 }
 
+const patchTypeNames = {
+  add: VariablePatchType.Add,
+  min: VariablePatchType.Min,
+  max: VariablePatchType.Max,
+  ifMatch: VariablePatchType.IfMatch,
+} as const;
+
+export type VariablePatchTypeValue<
+  Numeric extends boolean | undefined = boolean
+> = ParsableEnumValue<typeof patchTypeNames, Numeric, false>;
+
+export const patchType = createEnumAccessor(
+  patchTypeNames,
+  false,
+  "variable patch type"
+);
+
 export type VariableValuePatch<T = any> = {
   selector?: string;
 } & (
   | {
-      type: VariablePatchType.Add;
+      type: VariablePatchType.Add | "add";
       by: number;
     }
   | {
-      type: VariablePatchType.Min | VariablePatchType.Max;
+      type: VariablePatchType.Min | VariablePatchType.Max | "min" | "max";
       value: number;
     }
   | {
-      type: VariablePatchType.IfMatch;
+      type: VariablePatchType.IfMatch | "ifMatch";
       match: T | undefined;
       value: T | undefined;
     }
