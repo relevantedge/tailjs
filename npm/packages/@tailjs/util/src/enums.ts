@@ -170,7 +170,7 @@ export const createEnumAccessor = <
         )
       : value;
 
-  return define(parse, [
+  return define(parse, names, [
     { enumerable: false },
     {
       parse,
@@ -179,7 +179,6 @@ export const createEnumAccessor = <
       values,
       lookup,
     } as const,
-
     flags &&
       ({
         all,

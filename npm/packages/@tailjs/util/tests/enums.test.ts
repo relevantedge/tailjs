@@ -8,6 +8,7 @@ describe("Enum utilities works as they should.", () => {
       "non-flag test"
     );
 
+    expect(helper.value1).toBe(10);
     expect(helper.parse("value1")).toBe(10);
     expect(helper.parse(10)).toBe(10);
     expect(helper.parse(undefined)).toBeUndefined();
@@ -45,6 +46,6 @@ describe("Enum utilities works as they should.", () => {
     ]);
 
     expect(() => helper.parse("fanda")).toThrow('fanda" is not a valid');
-    expect(helper.tryParse("fandag")).toBeUndefined();
+    expect(helper.tryParse("fanda")).toBeUndefined();
   });
 });

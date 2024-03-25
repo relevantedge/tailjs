@@ -91,7 +91,11 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   private _update(variable: Variable<any, true>, timestamp?: number) {
-    let scopeValues = this._getScopeValues(variable.scope, variable.key, true)!;
+    let scopeValues = this._getScopeValues(
+      variable.scope,
+      variable.targetId,
+      true
+    )!;
 
     variable = toStrict(variable);
 
@@ -264,7 +268,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       : copy(variable);
   }
 
-  async get<K extends (VariableGetter<any, any> | null | undefined)[]>(
+  async get<K extends (VariableGetter<any, boolean> | null | undefined)[]>(
     getters: K,
     context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
