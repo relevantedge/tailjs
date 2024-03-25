@@ -371,7 +371,10 @@ export const map: MapFunction = (
   projection?: any,
   start?: any,
   end?: any
-) => (source ? toArray(project(source, projection, start, end)) : undefined);
+) =>
+  isDefined(source)
+    ? toArray(project(source, projection, start, end))
+    : undefined;
 
 export const zip = <Lhs extends IteratorSource, Rhs extends IteratorSource>(
   lhs: Lhs,

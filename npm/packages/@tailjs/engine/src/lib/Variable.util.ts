@@ -13,6 +13,7 @@ import {
   VariableSetResult,
   isConflictResult,
   isSuccessResult,
+  patchType,
   toStrict,
 } from "@tailjs/types";
 import {
@@ -134,6 +135,8 @@ export const applyPatchOffline = (
 
   const value = current?.value;
 
+  patch.type = patchType(patch.type);
+
   switch (patch.type) {
     case VariablePatchType.Add:
       return {
@@ -213,12 +216,11 @@ export const parseKey = <T extends string | undefined>(
   }
   const prefixIndex = sourceKey.indexOf(":");
   const prefix = prefixIndex < 0 ? "" : sourceKey.substring(0, prefixIndex);
-  const localKey =
-    prefixIndex > -1 ? sourceKey.slice(prefixIndex + 1) : sourceKey;
+  const key = prefixIndex > -1 ? sourceKey.slice(prefixIndex + 1) : sourceKey;
 
   return {
     prefix,
-    localKey,
+    key,
     sourceKey,
     not,
   } as any;

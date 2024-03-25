@@ -1,4 +1,5 @@
 import {
+  DataPurposes,
   Variable,
   VariableFilter,
   VariableGetter,
@@ -81,9 +82,14 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   ): Iterable<[string, ScopeVariables]>;
 
   private _remove(variable: VariableKey<true>, timestamp?: number) {
-    const values = this._getScopeValues(variable.scope, variable.key, false);
+    const values = this._getScopeValues(
+      variable.scope,
+      variable.targetId,
+      false
+    );
     if (values?.[1].has(variable.key)) {
-      values[0] = timestamp ?? now();
+      const ttl = this._ttl?.[variable.scope];
+      values[0] = ttl ? (timestamp ?? now()) + ttl : undefined;
       values[1].delete(variable.key);
       return true;
     }
@@ -119,7 +125,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     filters: VariableFilter[],
     settings?: VariableQueryOptions
   ): Variable<any, true>[] {
-    const results: Variable<any, true>[] = [];
+    const results = new Set<Variable<any, true>>();
     const timestamp = now();
 
     const ifNoneMatch = settings?.ifNoneMatch
@@ -137,20 +143,25 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       const match = (
         variable: Variable<any, true> | undefined
       ): variable is Variable<any, true> => {
-        const { purposes, classification: classifications } = queryFilter;
+        const { purposes, classification, tags } = queryFilter;
         if (
           !variable ||
           (variable.purposes &&
             purposes &&
             !(variable.purposes & dataPurposes(purposes))) ||
-          (classifications &&
+          (classification &&
             (variable.classification <
-              dataClassification(classifications.min)! ||
+              dataClassification(classification.min)! ||
               variable.classification >
-                dataClassification(classifications.max)! ||
-              classifications.levels?.some(
-                (level) => variable.classification === level
-              ) === false))
+                dataClassification(classification.max)! ||
+              classification.levels?.some(
+                (level) => variable.classification === dataClassification(level)
+              ) === false)) ||
+          (tags &&
+            (!variable.tags ||
+              !tags.some((tags) =>
+                tags.every((tag) => variable.tags!.includes(tag))
+              )))
         ) {
           return false;
         }
@@ -167,7 +178,6 @@ export abstract class InMemoryStorageBase implements VariableStorage {
 
         return true;
       };
-
       for (const scope of map(queryFilter.scopes, variableScope) ??
         variableScope.values) {
         for (const [, scopeVars] of queryFilter.targetIds?.map(
@@ -177,28 +187,31 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           if (!scopeVars || scopeVars[0]! <= timestamp) continue;
           const vars = scopeVars[1];
           let nots: Set<string> | undefined = undefined;
-          const includes =
-            queryFilter.keys?.filter((key) => {
+          const mappedKeys =
+            queryFilter.keys?.map((key) => {
               // Find keys that starts with `!` to exclude them from the results.
               const parsed = parseKey(key);
               if (parsed.not) {
                 (nots ??= new Set()).add(parsed.sourceKey);
               }
+              return parsed.key;
             }) ?? vars.keys();
 
-          for (const key of includes) {
+          for (const key of mappedKeys.includes("*")
+            ? vars.keys()
+            : mappedKeys) {
             if (nots!?.has(key)) continue;
 
             const value = vars.get(key);
             if (match(value)) {
-              results.push(value);
+              results.add(value);
             }
           }
         }
       }
     }
 
-    return results;
+    return [...results];
   }
 
   public clean() {
@@ -268,7 +281,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       : copy(variable);
   }
 
-  async get<K extends (VariableGetter<any, boolean> | null | undefined)[]>(
+  public async get<
+    K extends (VariableGetter<any, boolean> | null | undefined)[]
+  >(
     getters: K,
     context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
@@ -315,22 +330,22 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     }) as VariableGetResults<K>;
   }
 
-  async head(
+  public head(
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
     context?: VariableStorageContext
-  ): Promise<VariableQueryResult<VariableHeader<true>>> {
+  ) {
     return this.query(filters, options);
   }
 
-  async query(
+  public query(
     filters: VariableFilter[],
     options?: VariableQueryOptions,
     context?: VariableStorageContext
-  ): Promise<VariableQueryResult<Variable<any, true>>> {
+  ) {
     const results = this._query(filters, options);
     return {
-      count: results.length,
+      count: options?.count ? results.length : undefined,
       // This current implementation does not bother with cursors. If one is requested we just return all results. Boom.
       results: (options?.top && !options?.cursor?.include
         ? results.slice(options.top)
@@ -339,10 +354,10 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     };
   }
 
-  async set<Setters extends (VariableSetter<any> | null | undefined)[]>(
+  public set<Setters extends (VariableSetter<any> | null | undefined)[]>(
     variables: Setters & VariableSetter<any>[],
     context?: VariableStorageContext
-  ): Promise<VariableSetResults<Setters>> {
+  ): VariableSetResults<Setters> {
     const timestamp = now();
     const results: (VariableSetResult | undefined)[] = [];
     for (const source of variables.map(toStrict)) {
@@ -360,7 +375,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         classification,
         purposes,
         value,
-        version: version,
+        version,
+        tags,
       } = source as Variable<any, true>;
 
       let scopeVars = this._getScopeValues(
@@ -422,7 +438,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         purposes:
           isDefined(current?.purposes) || purposes
             ? (current?.purposes ?? 0) | (purposes ?? 0)
-            : undefined,
+            : DataPurposes.Necessary,
+        tags: tags && [...tags],
       };
 
       nextValue.version = this._getNextVersion(nextValue);
@@ -443,31 +460,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   public purge(filters: VariableFilter[], context?: VariableStorageContext) {
-    const queryFilters: VariableFilter[] = [];
-    for (const filter of filters) {
-      if (filter.keys || filter.classification || filter.purposes) {
-        // These filters address individual variables and they must be queired and removed individually.
-        queryFilters.push(filter);
-        continue;
-      }
-
-      for (const scope of filter.scopes?.map((value) =>
-        variableScope.parse(value)
-      ) ?? variableScope.values) {
-        if (filter.targetIds) {
-          for (const targetId of filter.targetIds) {
-            this._deleteTarget(scope, targetId);
-          }
-        } else {
-          this._resetScope(scope);
-        }
-      }
-    }
-
-    if (queryFilters.length) {
-      for (const variable of this._query(filters)) {
-        this._remove(variable);
-      }
+    for (const variable of this._query(filters)) {
+      this._remove(variable);
     }
   }
 }
