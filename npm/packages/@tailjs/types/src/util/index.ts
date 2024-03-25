@@ -1,6 +1,6 @@
 export * from "./transformLocalIds";
 export * from "./parseTagString";
-export * from "./enum-helpers";
+
 /**
  *  No-op function to validate event types in TypeScript. Because function parameters are contravariant, passing an event that does not match on all properties will get red wiggly lines)
  *

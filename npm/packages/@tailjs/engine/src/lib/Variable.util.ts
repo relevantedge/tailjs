@@ -40,7 +40,9 @@ export const variableId = <T extends VariableKey | undefined | null>(
       : variable.scope + variable.key
     : undefined;
 
-export const copy = <T extends (Variable & { value: any }) | undefined>(
+export const copy = <
+  T extends (Variable<any, any> & { value: any }) | undefined
+>(
   variable: T,
   overrides?: Partial<Variable>
 ): T => {
@@ -64,7 +66,7 @@ export const formatSetResultError = (result?: VariableSetResult) => {
 
 export const extractKey = <T extends VariableKey>(
   variable: T
-): T extends undefined ? undefined : VariableKey =>
+): T extends undefined ? undefined : T =>
   variable
     ? ({
         scope: variable.scope,
@@ -118,14 +120,14 @@ export const applyPatchOffline = (
 
     if (patched) {
       patched.classification ??=
-        current?.classification ?? DataClassification.None;
+        current?.classification ?? DataClassification.Anonymous;
       !("purposes" in patched) && (patched.purposes = current?.purposes);
       !("tags" in patched) && (patched.tags = current?.tags);
     }
     return patched;
   }
 
-  const classification: VariableClassification = {
+  const classification: VariableClassification<true> = {
     classification: level!,
     purposes: purposes,
   };

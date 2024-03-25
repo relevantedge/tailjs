@@ -190,7 +190,7 @@ export class RequestHandler {
       consent: `${cookies.namePrefix}.consent`,
       session: `${cookies.namePrefix}.s`,
       device: obj(
-        dataPurposes.map(([name, flag]) => [
+        dataPurposes.entries.map(([name, flag]) => [
           name,
           // Necessary device data is just ".d" (no suffix)
           `${cookies.namePrefix}.d${

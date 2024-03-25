@@ -11,6 +11,7 @@ import {
   type VariableScope,
   type VariableSetResult,
   type VariableSetter,
+  VariableScopeValue,
 } from "@tailjs/types";
 import { MaybePromise } from "@tailjs/util";
 import type { Tracker, TrackerEnvironment } from "..";
@@ -18,7 +19,7 @@ import type { Tracker, TrackerEnvironment } from "..";
 export class VariableSetError extends Error {
   constructor(result: VariableSetResult) {
     super(
-      `The variable '${result.source.key}' in ${variableScope.name(
+      `The variable '${result.source.key}' in ${variableScope.lookup(
         result.source.scope
       )} scope could not be set${
         isErrorResult(result) ? `: ${result.error}` : ""
@@ -91,22 +92,22 @@ export interface ReadOnlyVariableStorage {
     filters: VariableFilter[],
     options?: VariableQueryOptions,
     context?: VariableStorageContext
-  ): MaybePromise<VariableQueryResult<VariableHeader>>;
+  ): MaybePromise<VariableQueryResult<VariableHeader<true>>>;
+
   query(
     filters: VariableFilter[],
     options?: VariableQueryOptions,
     context?: VariableStorageContext
-  ): MaybePromise<VariableQueryResult<Variable>>;
+  ): MaybePromise<VariableQueryResult<Variable<any>>>;
 }
 
 export const isWritable = (
   storage: ReadOnlyVariableStorage
 ): storage is VariableStorage => (storage as any).set;
 
-export interface VariableStorage<Scoped extends boolean = false>
-  extends ReadOnlyVariableStorage {
+export interface VariableStorage extends ReadOnlyVariableStorage {
   configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>,
+    durations: Partial<Record<VariableScopeValue<false>, number>>,
     context?: VariableStorageContext
   ): void;
 

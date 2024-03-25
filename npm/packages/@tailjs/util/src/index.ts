@@ -5,3 +5,4 @@ export * from "./time";
 export * from "./concurrency";
 export * from "./events";
 export * from "./priorityQueue";
+export * from "./enums";

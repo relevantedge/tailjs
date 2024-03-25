@@ -7,6 +7,7 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
+  VariableScopeValue,
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
@@ -44,7 +45,7 @@ export class TrackerVariableStorage implements VariableStorage {
   }
 
   public configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>,
+    durations: Partial<Record<VariableScopeValue<false>, number>>,
     context?: VariableStorageContext
   ): void {
     this._storage.configureScopeDurations(durations, context);
@@ -329,7 +330,7 @@ export class TrackerVariableStorage implements VariableStorage {
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
     context?: VariableStorageContext
-  ): MaybePromise<VariableQueryResult<VariableHeader>> {
+  ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
     return this._queryOrHead("head", filters, options, context);
   }
   query(

@@ -7,6 +7,7 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
+  VariableScopeValue,
   VariableSetResult,
   VariableSetStatus,
   VariableSetter,
@@ -40,7 +41,7 @@ import {
 
 export type ScopeVariables = [
   expires: number | undefined,
-  Map<string, Variable>
+  Map<string, Variable<any, true>>
 ];
 
 export const hasChanged = (
@@ -58,7 +59,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   constructor() {}
 
   /** If this method return `undefined`, the variable in question will not be updated. */
-  protected abstract _getNextVersion(variable: Variable): string | undefined;
+  protected abstract _getNextVersion(
+    variable: Variable<any, true>
+  ): string | undefined;
 
   protected abstract _getScopeValues(
     scope: VariableScope,
@@ -77,7 +80,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     scope: VariableScope
   ): Iterable<[string, ScopeVariables]>;
 
-  private _remove(variable: VariableKey, timestamp?: number) {
+  private _remove(variable: VariableKey<true>, timestamp?: number) {
     const values = this._getScopeValues(variable.scope, variable.key, false);
     if (values?.[1].has(variable.key)) {
       values[0] = timestamp ?? now();
@@ -87,7 +90,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     return false;
   }
 
-  private _update(variable: Variable, timestamp?: number) {
+  private _update(variable: Variable<any, true>, timestamp?: number) {
     let scopeValues = this._getScopeValues(variable.scope, variable.key, true)!;
 
     variable = toStrict(variable);
@@ -111,8 +114,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   private _query(
     filters: VariableFilter[],
     settings?: VariableQueryOptions
-  ): Variable[] {
-    const results: Variable[] = [];
+  ): Variable<any, true>[] {
+    const results: Variable<any, true>[] = [];
     const timestamp = now();
 
     const ifNoneMatch = settings?.ifNoneMatch
@@ -127,7 +130,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     const ifModifiedSince = settings?.ifModifiedSince ?? 0;
 
     for (const queryFilter of filters) {
-      const match = (variable: Variable | undefined): variable is Variable => {
+      const match = (
+        variable: Variable<any, true> | undefined
+      ): variable is Variable<any, true> => {
         const { purposes, classification: classifications } = queryFilter;
         if (
           !variable ||
@@ -226,11 +231,13 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   public configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>,
+    durations: Partial<Record<VariableScopeValue<false>, number>>,
     context?: VariableStorageContext
   ): MaybePromise<void> {
     this._ttl ??= {};
-    for (const [scope, duration] of Object.entries(durations)) {
+    for (const [scope, duration] of Object.entries(durations).map(
+      ([scope, duration]) => [variableScope(scope), duration]
+    )) {
       duration! > 0 ? (this._ttl![scope] = duration) : delete this._ttl![scope];
     }
 
@@ -245,7 +252,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
 
   private _applyGetFilters(
     getter: VariableGetter<any, true>,
-    variable: Variable | undefined
+    variable: Variable<any, true> | undefined
   ) {
     return !variable ||
       (getter.purpose && // The variable has explicit purposes and not the one requested.
@@ -308,7 +315,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
     context?: VariableStorageContext
-  ): Promise<VariableQueryResult<VariableHeader>> {
+  ): Promise<VariableQueryResult<VariableHeader<true>>> {
     return this.query(filters, options);
   }
 
@@ -316,7 +323,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     filters: VariableFilter[],
     options?: VariableQueryOptions,
     context?: VariableStorageContext
-  ): Promise<VariableQueryResult<Variable>> {
+  ): Promise<VariableQueryResult<Variable<any, true>>> {
     const results = this._query(filters, options);
     return {
       count: results.length,
@@ -350,7 +357,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         purposes,
         value,
         version: version,
-      } = source as Variable;
+      } = source as Variable<any, true>;
 
       let scopeVars = this._getScopeValues(
         source.scope,
@@ -402,7 +409,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         continue;
       }
 
-      const nextValue: Variable = {
+      const nextValue: Variable<any, true> = {
         key,
         value,
         classification,
@@ -440,8 +447,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         continue;
       }
 
-      for (const scope of filter.scopes?.map((scope) => variableScope(scope)) ??
-        variableScope.values) {
+      for (const scope of filter.scopes?.map((value) =>
+        variableScope.parse(value)
+      ) ?? variableScope.values) {
         if (filter.targetIds) {
           for (const targetId of filter.targetIds) {
             this._deleteTarget(scope, targetId);

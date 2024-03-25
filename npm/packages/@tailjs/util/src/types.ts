@@ -90,6 +90,8 @@ export type GeneralizeContstants<T> = T extends number
   ? string
   : T extends boolean
   ? boolean
+  : T extends (...args: infer A) => infer R
+  ? (...args: GeneralizeContstants<A>) => GeneralizeContstants<R>
   : unknown extends T
   ? unknown
   : {
@@ -161,6 +163,28 @@ export type Minus<A extends number, B extends number> = CreateArray<
 > extends [...CreateArray<B, 1>, ...infer R]
   ? R["length"]
   : never;
+
+export type Entries<T> = UnionToTuple<
+  {
+    [P in keyof T]: [P, T[P]];
+  } extends infer T
+    ? T[keyof T]
+    : never
+>;
+
+// From https://www.hacklewayne.com/typescript-convert-union-to-tuple-array-yes-but-how.
+
+export type UnionToTuple<T> = PickOne<T> extends infer U // assign PickOne<T> to U
+  ? Exclude<T, U> extends never // T and U are the same
+    ? [T]
+    : [...UnionToTuple<Exclude<T, U>>, U] // recursion
+  : never;
+
+type Contra<T> = T extends any ? (arg: T) => void : never;
+
+type InferContra<T> = [T] extends [(arg: infer I) => void] ? I : never;
+
+type PickOne<T> = InferContra<InferContra<Contra<Contra<T>>>>;
 
 /**
  * Trick for having a function that returns a non-null value, if a formal paramter always has a non-null value,

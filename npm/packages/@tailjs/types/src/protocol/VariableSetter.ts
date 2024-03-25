@@ -1,7 +1,4 @@
 import {
-  DataClassification,
-  DataPurposes,
-  EnumHelper,
   Variable,
   VariableClassification,
   VariableKey,
@@ -43,8 +40,8 @@ export type VariableSetResult<
         | VariableSetStatus.Unchanged
         | VariableSetStatus.Conflict;
       current: Source extends VariableSetter<undefined>
-        ? Variable<T> | undefined
-        : Variable<T>;
+        ? Variable<T, true> | undefined
+        : Variable<T, true>;
     }
   | {
       status:
@@ -58,7 +55,7 @@ export type VariableSetResult<
 
 export interface VariablePatchSource<
   T = any,
-  NumericEnums extends boolean = false
+  NumericEnums extends boolean = boolean
 > extends VariableVersion,
     VariableClassification<NumericEnums> {
   value: T;
@@ -66,7 +63,7 @@ export interface VariablePatchSource<
 
 export type VariablePatchResult<
   T = any,
-  NumericEnums extends boolean = false
+  NumericEnums extends boolean = boolean
 > =
   | (Partial<VariableClassification<NumericEnums>> & {
       value: T | undefined;
@@ -143,14 +140,14 @@ export const toStrict: <T>(value: T) => T extends null | undefined
 
 export type VariablePatch<
   T = any,
-  Strict extends boolean = boolean
-> = VariableKey<Strict> &
-  Partial<Variable<T, Strict>> &
+  NumericEnums extends boolean = boolean
+> = VariableKey<NumericEnums> &
+  Partial<Variable<T, NumericEnums>> &
   (
     | {
         patch: VariablePatchAction<T>;
       }
-    | (VariableClassification<Strict> & {
+    | (VariableClassification<NumericEnums> & {
         patch: VariableValuePatch<T>;
       })
   );

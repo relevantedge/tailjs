@@ -248,7 +248,7 @@ export class Tracker {
   private _consent: {
     level: DataClassification;
     purposes: DataPurposes;
-  } = { level: DataClassification.None, purposes: DataPurposes.Necessary };
+  } = { level: DataClassification.Anonymous, purposes: DataPurposes.Necessary };
 
   public get consent() {
     return this._consent;
@@ -299,7 +299,7 @@ export class Tracker {
             VariableScope.Device,
             VariableScope.User,
           ],
-          purposes: dataPurposes.map(([, flag]) => flag, ~purposes),
+          purposes: ~purposes,
           classification: {
             min: level + 1,
           },
@@ -308,8 +308,8 @@ export class Tracker {
     }
 
     if (
-      (level === DataClassification.None) !==
-      (this.consent.level === DataClassification.None)
+      (level === DataClassification.Anonymous) !==
+      (this.consent.level === DataClassification.Anonymous)
     ) {
       // We need to transition to or from cookie-less tracking which means the key used to refer to the session data changes.
       // (Non-cookieless uses a unique session ID, cookie-less uses a hash of request headers which is not guaranteed to be unique).
@@ -426,7 +426,7 @@ export class Tracker {
         current && (this._session = current);
       } else if (
         scope === VariableScope.Device &&
-        this._consent.level > DataClassification.None
+        this._consent.level > DataClassification.Anonymous
       ) {
         this._device = current;
       }
@@ -441,7 +441,7 @@ export class Tracker {
     if (!this._clientDeviceCache) {
       const deviceCache = (this._clientDeviceCache = {} as DeviceVariableCache);
 
-      dataPurposes.map(([purpose, flag]) => {
+      dataPurposes.entries.map(([purpose, flag]) => {
         // Device variables are stored with a cookie for each purpose.
 
         forEach(
@@ -498,12 +498,13 @@ export class Tracker {
     const timestamp = now();
     const consentData = (
       this.cookies["consent"]?.value ??
-      `${dataClassification.none}:${dataPurposes.necessary}`
+      `${dataClassification.anonymous}:${dataPurposes.necessary}`
     ).split(":");
 
     this._consent = {
       level:
-        dataClassification.tryParse(consentData[0]) ?? DataClassification.None,
+        dataClassification.tryParse(consentData[0]) ??
+        DataClassification.Anonymous,
       purposes:
         dataPurposes.tryParse(consentData[1].split(",")) ??
         DataPurposes.Necessary,
@@ -520,7 +521,10 @@ export class Tracker {
     deviceSessionId?: string
   ) {
     if (consent) {
-      await this.updateConsent(DataClassification.None, DataPurposes.Necessary);
+      await this.updateConsent(
+        DataClassification.Anonymous,
+        DataPurposes.Necessary
+      );
     }
     await this._ensureSession(
       referenceTimestamp ?? now(),
@@ -556,7 +560,7 @@ export class Tracker {
       ]);
     }
 
-    if (this._consent.level > DataClassification.None) {
+    if (this._consent.level > DataClassification.Anonymous) {
       // CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
       // This means clients must make sure the initial request to endpoint completes before more or send (or at least do a fair effort).
       this._sessionReferenceId =
@@ -587,7 +591,7 @@ export class Tracker {
             targetId: this._sessionReferenceId,
             initializer: async () => {
               let cachedDeviceData: DeviceData | undefined;
-              if (this.consent.level > DataClassification.None) {
+              if (this.consent.level > DataClassification.Anonymous) {
                 cachedDeviceData = resetDevice
                   ? undefined
                   : (this._getClientDeviceVariables()?.[SCOPE_DATA_KEY]
@@ -595,14 +599,14 @@ export class Tracker {
               }
 
               return {
-                classification: DataClassification.None,
+                classification: DataClassification.Anonymous,
                 purpose: DataPurposes.Necessary,
                 value: createInitialScopeData<InternalSessionData>(
                   await this.env.nextId(),
                   timestamp,
                   {
                     deviceId:
-                      this._consent.level > DataClassification.None
+                      this._consent.level > DataClassification.Anonymous
                         ? deviceId ??
                           (resetDevice ? undefined : cachedDeviceData?.id) ??
                           (await this.env.nextId("device"))
@@ -702,22 +706,20 @@ export class Tracker {
       ).results;
 
       forEach(deviceValues, (variable) => {
-        dataPurposes.map(
-          ([purpose]) =>
-            (splits[purpose] ??= []).push([
-              variable.key,
-              variable.classification,
-              variable.version,
-              variable.value,
-            ]),
-          variable.purposes
+        dataPurposes.map(variable.purposes, ([purpose]) =>
+          (splits[purpose] ??= []).push([
+            variable.key,
+            variable.classification,
+            variable.version,
+            variable.value,
+          ])
         );
       });
     }
 
-    dataPurposes.map(([purpose, flag]) => {
+    dataPurposes.entries.map(([purpose, flag]) => {
       const remove =
-        this.consent.level === DataClassification.None || !splits[purpose];
+        this.consent.level === DataClassification.Anonymous || !splits[purpose];
       const cookieName = this._requestHandler._cookieNames.device[purpose];
 
       if (remove) {
@@ -767,7 +769,7 @@ export class Tracker {
   head(
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined
-  ): MaybePromise<VariableQueryResult<VariableHeader>> {
+  ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
     return this.env.storage.head(filters, options, this._getStorageContext());
   }
   query(
