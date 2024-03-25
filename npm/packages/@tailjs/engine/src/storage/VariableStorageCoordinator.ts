@@ -142,7 +142,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
   }
 
   protected async _patchSetResults(
-    storage: VariableStorage<false>,
+    storage: VariableStorage,
     setters: VariableSetter<any, true>[],
     results: (VariableSetResult | undefined)[],
     context?: VariableStorageContext

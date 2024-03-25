@@ -1,7 +1,7 @@
-import { TrackedEvent, TrackedEventPatch } from "@tailjs/types";
+import { TrackedEvent } from "@tailjs/types";
 import { Schema, Validator } from "jsonschema";
-import { JsonString } from "./shared";
 import { ReadOnlyRecord } from "./lib";
+import { JsonString } from "./shared";
 
 export function getErrorMessage(validationResult: any) {
   return !validationResult["type"] ? validationResult["error"] : null;
@@ -246,7 +246,7 @@ export class EventParser implements ModelMetadata {
       }
     };
 
-    for (const [name, source] of Object.entries(schema)) {
+    for (const [_, source] of Object.entries(schema)) {
       const schema: Schema = appendSubtypes(
         mergeAllOf(typeof source === "string" ? JSON.parse(source) : source)
       );
@@ -305,6 +305,7 @@ export class EventParser implements ModelMetadata {
 
     this.events = events;
   }
+
   hasProperty(
     event: TrackedEvent | null | undefined,
     property: string
@@ -313,6 +314,7 @@ export class EventParser implements ModelMetadata {
       event != null && this.events[event.type]?.properties?.[property] != null
     );
   }
+
   is<T = TrackedEvent>(
     event: T | TrackedEvent | null | undefined,
     baseType: string | null | undefined,

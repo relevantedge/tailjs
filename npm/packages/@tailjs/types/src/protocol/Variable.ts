@@ -1,13 +1,10 @@
+import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
 import {
   DataClassification,
   DataPurposes,
   DataClassificationValue,
   DataPurposeValue,
-  VariableScopeValue,
   Timestamp,
-  dataClassification,
-  dataPurposes,
-  variableScope,
 } from "..";
 
 export const enum VariableScope {
@@ -18,12 +15,43 @@ export const enum VariableScope {
   Entity = 4,
 }
 
+const scopes = {
+  global: VariableScope.Global,
+  session: VariableScope.Session,
+  device: VariableScope.Device,
+  user: VariableScope.User,
+  entity: VariableScope.Entity,
+} as const;
+export const variableScope = createEnumAccessor(
+  scopes,
+  false,
+  "variable scope"
+);
+
+export type VariableScopeValue<Numeric extends boolean | undefined = boolean> =
+  ParsableEnumValue<typeof scopes, Numeric, false>;
+
+type UndefinedIfUndefined<Src, T> = Src extends undefined | null
+  ? T | undefined
+  : T;
+
+/** Transforms properties with known enum types to their parsable counterparts. */
+export type Parsable<T, Numeric extends boolean | undefined = boolean> = {
+  [P in keyof T]: T[P] extends DataClassification | undefined | null
+    ? DataClassificationValue<UndefinedIfUndefined<T[P], Numeric>>
+    : T[P] extends DataPurposes | undefined | null
+    ? DataPurposeValue<UndefinedIfUndefined<T[P], Numeric>>
+    : T[P] extends VariableScope | undefined | null
+    ? VariableScopeValue<UndefinedIfUndefined<T[P], Numeric>>
+    : Parsable<T[P], Numeric>;
+};
+
 /**
  * Uniquely addresses a variable by scope, target and key name.
  */
-export interface VariableKey<Strict extends boolean = true> {
+export interface VariableKey<NumericEnums extends boolean = boolean> {
   /** The scope the variable belongs to. */
-  scope: VariableScopeValue<Strict>;
+  scope: VariableScopeValue<NumericEnums>;
 
   /**
    * The name of the variable.
@@ -45,27 +73,29 @@ export interface VariableKey<Strict extends boolean = true> {
  * A {@link VariableKey} that optionally includes the expected version of a variable value.
  * This is used for "if none match" queries to invalidate caches efficiently.
  */
-export interface VersionedVariableKey<Strict extends boolean = true>
-  extends VariableKey<Strict> {
+export interface VersionedVariableKey<NumericEnums extends boolean = boolean>
+  extends VariableKey<NumericEnums> {
   version?: string;
 }
 
 /**
  * Defines how the value of variable is classified and for which purposes it can be used.
  */
-export interface VariableClassification<Strict extends boolean = true> {
+export interface VariableClassification<
+  NumericEnums extends boolean = boolean
+> {
   /**
    * The legal classification of the kind of data a variable holds.
    * This limits which data will be stored based on a user's consent.
    */
-  classification: DataClassificationValue<Strict>;
+  classification: DataClassificationValue<NumericEnums>;
 
   /**
    * Optionally defines the possible uses of the data a variables holds (they are binary flags).
    * When a variable is requested by some logic, it may be stated what the data is used for.
    * If the user has not consented to data being used for this purpose the variable will not be avaiable.
    */
-  purposes?: DataPurposeValue<Strict>;
+  purposes?: DataPurposeValue<NumericEnums>;
 
   /**
    * Optionally categorizes variables.
@@ -106,17 +136,17 @@ export interface VariableVersion {
 /**
  * All data related to a variable except its value.
  */
-export interface VariableHeader<Strict extends boolean = true>
-  extends VariableKey<Strict>,
-    VariableClassification<Strict>,
+export interface VariableHeader<NumericEnums extends boolean = true>
+  extends VariableKey<NumericEnums>,
+    VariableClassification<NumericEnums>,
     VariableVersion {}
 
 /**
  * A variable is a specific piece of information that can be classified and changed independently.
  * A variable can either be global or related to a specific entity or tracker scope.
  */
-export interface Variable<T = any, Strict extends boolean = true>
-  extends VariableHeader<Strict> {
+export interface Variable<T = any, NumericEnums extends boolean = true>
+  extends VariableHeader<NumericEnums> {
   /**
    * The value of the variable is read-only. Trying to update its value in its storage will result in an error.
    */
@@ -132,5 +162,5 @@ export interface Variable<T = any, Strict extends boolean = true>
  * The information needed about a variable to validate whether it complies with a user's consents,
  * or meets other authorization based requirements.
  */
-export type VariableValidationBasis<Strict extends boolean = boolean> =
-  VariableKey<Strict> & Partial<VariableClassification<Strict>>;
+export type VariableValidationBasis<NumericEnums extends boolean = boolean> =
+  VariableKey<NumericEnums> & Partial<VariableClassification<NumericEnums>>;

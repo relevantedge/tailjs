@@ -1,4 +1,4 @@
-import { DataClassificationValue, DataPurposeValue } from "./util/enum-helpers";
+import { DataClassificationValue, DataPurposeValue } from ".";
 
 /** A user's consent choices.  */
 export interface UserConsent {

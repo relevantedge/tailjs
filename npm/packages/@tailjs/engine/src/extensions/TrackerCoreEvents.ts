@@ -205,8 +205,8 @@ export class TrackerCoreEvents implements TrackerExtension {
         deviceId: tracker.deviceId,
         userId: tracker.authenticatedUserId,
         consent: {
-          level: dataClassification.name(tracker.consent.level),
-          purposes: dataPurposes.names(tracker.consent.purposes),
+          level: dataClassification.lookup(tracker.consent.level),
+          purposes: dataPurposes.lookup(tracker.consent.purposes),
         },
         expiredDeviceSessionId: tracker._expiredDeviceSessionId,
       };

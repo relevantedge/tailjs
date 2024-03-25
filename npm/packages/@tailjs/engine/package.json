@@ -15,6 +15,7 @@
     "@tailjs/types": "workspace:*",
     "@tailjs/util": "workspace:*",
     "@ygoe/msgpack": "^1.0.3",
+    "ajv": "^8.12.0",
     "jsonschema": "^1.4.1",
     "query-string": "^8.2.0",
     "semaphore-async-await": "^1.5.1",

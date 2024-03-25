@@ -47,7 +47,7 @@ export interface Session {
   userId?: string;
 
   /**
-   * The user's consent choices. {@link DataClassification.None} means the session is cookie-less.
+   * The user's consent choices. {@link DataClassification.Anonymous} means the session is cookie-less.
    */
   consent: UserConsent;
 

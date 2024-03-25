@@ -1,3 +1,5 @@
+import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
+
 export const enum DataPurposes {
   /**
    * Data stored for this purpose is vital for the system, website or app to function.
@@ -55,3 +57,21 @@ export const enum DataPurposes {
    */
   Operations = 1 << 8,
 }
+
+const purposes = {
+  necessary: DataPurposes.Necessary,
+  functionality: DataPurposes.Functionality,
+  performance: DataPurposes.Performance,
+  targeting: DataPurposes.Targeting,
+  security: DataPurposes.Security,
+} as const;
+
+export const dataPurposes = createEnumAccessor(purposes, true, "data purpose");
+export const dataPurpose = createEnumAccessor(purposes, false, "data purpose");
+
+export type DataPurposeValue<Numeric extends boolean | undefined = boolean> =
+  ParsableEnumValue<typeof purposes, Numeric, true>;
+
+export type SingleDataPurposeValue<
+  Numeric extends boolean | undefined = boolean
+> = ParsableEnumValue<typeof purposes, Numeric, false>;

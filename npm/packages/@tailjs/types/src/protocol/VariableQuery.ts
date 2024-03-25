@@ -1,24 +1,22 @@
 import {
-  DataClassification,
   DataClassificationValue,
   DataPurposeValue,
-  DataPurposes,
   Timestamp,
   Variable,
-  VariableScope,
+  VariableKey,
   VariableScopeValue,
   VersionedVariableKey,
 } from "..";
 
 /** Defines a filter used to query variables.  */
-export interface VariableFilter {
+export interface VariableFilter<NumericEnums extends boolean = boolean> {
   /** Limits the results to variables for these specific target IDs. */
   targetIds?: string[];
 
   /**
    * Limits the results to variables from any of these scopes.
    */
-  scopes?: VariableScopeValue[];
+  scopes?: VariableScopeValue<NumericEnums>[];
 
   /**
    * Limits the results to variables with one of these keys.
@@ -49,23 +47,23 @@ export interface VariableFilter {
    */
   classification?: {
     /** The variable must have at least this classification. */
-    min?: DataClassificationValue;
+    min?: DataClassificationValue<NumericEnums>;
 
     /** The variable must not have a higher classification than this. */
-    max?: DataClassificationValue;
+    max?: DataClassificationValue<NumericEnums>;
 
     /** The variable must have any of these classifications. */
-    levels?: DataClassificationValue[];
+    levels?: DataClassificationValue<NumericEnums>[];
   };
 
   /**
    * Limits the results to variables with any of these purposes.
    */
-  purposes?: DataPurposeValue;
+  purposes?: DataPurposeValue<NumericEnums>;
 }
 
 /** Settings that controls how results are returned when querying variables. */
-export interface VariableQueryOptions {
+export interface VariableQueryOptions<NumericEnums extends boolean = boolean> {
   /**
    * Include the total number of matching of variables in the results (not just the top N first).
    * Default is `false`.
@@ -104,10 +102,10 @@ export interface VariableQueryOptions {
    *
    * Can be used to reduce the data transferred when refreshing the values of variables already loaded.
    */
-  ifNoneMatch?: VersionedVariableKey[];
+  ifNoneMatch?: VersionedVariableKey<NumericEnums>[];
 }
 
-export interface VariableQueryResult<T = Variable> {
+export interface VariableQueryResult<T extends VariableKey = Variable> {
   count?: number;
   results: T[];
   cursor?: string;

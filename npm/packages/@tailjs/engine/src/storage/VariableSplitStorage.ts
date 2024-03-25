@@ -7,6 +7,7 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
+  VariableScopeValue,
   VariableSetResult,
   VariableSetter,
   toStrict,
@@ -86,7 +87,7 @@ export class VariableSplitStorage implements VariableStorage {
   }
 
   configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>,
+    durations: Partial<Record<VariableScopeValue<false>, number>>,
     context?: VariableStorageContext
   ): void {
     this._storageScopes.forEach(

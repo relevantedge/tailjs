@@ -414,77 +414,81 @@ export const remove: {
     : clearSingle(target, key);
 };
 
-type AddProperty<T, Definition> = Definition extends null | undefined | boolean
-  ? T
-  : Definition extends [infer Key, infer Value]
-  ? Value extends undefined
-    ? T
-    : T & {
-        [P in Key & keyof any]: GeneralizeContstants<
-          Value extends { value: infer Value } | { get: () => infer Value }
-            ? Value
-            : Value
-        >;
-      }
-  : AddProperties<T, Definition>;
+type EntryToObject<Item> = Item extends readonly [infer K & keyof any, infer V]
+  ? {
+      [P in K & keyof any]: V;
+    }
+  : never;
 
-type AddProperties<T, Definitions> = PrettifyIntersection<
-  UnionToIntersection<
-    Definitions extends (infer Definitions)[]
-      ? AddProperty<T, Definitions>
-      : AddProperty<
-          T,
-          {
-            [P in keyof Definitions]: [P, Definitions[P]];
-          }[keyof Definitions]
-        >
+type EntriesToObject<Entries> = UnionToIntersection<
+  InlinePropertyDescriptors<
+    Entries extends null | undefined | boolean
+      ? {}
+      : Entries extends readonly [
+          Partial<Readonly<PropertyDescriptor>>,
+          ...infer Rest
+        ]
+      ? EntriesToObject<Rest[number]>
+      : Entries extends readonly [infer Item, ...infer Rest]
+      ? EntryToObject<Item> & EntriesToObject<Rest>
+      : Entries extends readonly (infer Items)[]
+      ? EntryToObject<Items>
+      : Entries
   >
 >;
 
+type InlinePropertyDescriptors<T> = {
+  [P in keyof T]: T[P] extends { value: infer V }
+    ? V
+    : T[P] extends { get(): infer V }
+    ? V
+    : T[P];
+};
+
+type PropertyList =
+  | boolean
+  | null
+  | undefined
+  | [defaults: Partial<PropertyDescriptor>, ...items: PropertyList[]]
+  | [key: keyof any, value: any][]
+  | (Record<keyof any, any> & { [Symbol.iterator]?: never });
+
 export const define: {
-  <
-    T,
-    P extends
-      | (
-          | [key: keyof any, descriptor: PropertyDescriptor]
-          | [key: keyof any, value: any]
-          | ({ [P in string | symbol]: PropertyDescriptor | any } & {
-              [Symbol.iterator]?: never;
-            })
-          | boolean
-          | null
-          | undefined
-        )[]
-      | ({ [P in string | symbol]: PropertyDescriptor | any } & {
-          [Symbol.iterator]?: never;
-        })
-  >(
+  <T, P extends PropertyList[]>(
     target: T,
-    properties: P,
-    defaults?: Pick<
-      PropertyDescriptor,
-      "configurable" | "enumerable" | "writable"
-    >
-  ): AddProperties<T, P>;
-} = (target: any, properties: any, defaults: any) => {
-  if (isObject(properties)) {
-    properties = [properties];
-  }
-  const add = (properties: any[]) =>
+    ...properties: P
+  ): PrettifyIntersection<T & EntriesToObject<P[number]>>;
+} = (target: any, ...args: any[]) => {
+  const add = (arg: any, defaults?: any) => {
+    if (!arg) return;
+    let properties: any[];
+    if (isArray(arg)) {
+      if (isObject(arg[0])) {
+        // Tuple with the first item the defaults and the next the definitions with those defaults,
+        // ([{enumerable: false, ...}, ...])
+        arg.splice(1).forEach((items) => add(items, arg[0]));
+        return;
+      }
+      // ([[key1, value1], [key2, value2], ...])
+      properties = arg;
+    } else {
+      // An object.
+      properties = map(arg)!;
+    }
+
     properties.forEach(([key, value]) =>
-      isObject(value)
-        ? add(map(value))
-        : Object.defineProperty(target, key, {
-            configurable: false,
-            enumerable: true,
-            ...defaults,
-            ...(isArray(value)
-              ? {
-                  value,
-                }
-              : value),
-          })
+      Object.defineProperty(target, key, {
+        configurable: false,
+        enumerable: true,
+        writable: false,
+        ...defaults,
+        ...(isObject(value) && ("get" in value || "value" in value)
+          ? value
+          : { value }),
+      })
     );
-  add(target);
+  };
+
+  args.forEach((arg) => add(arg));
   return target as any;
 };
