@@ -1,3 +1,4 @@
+import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
 import {
   Variable,
   VariableClassification,
@@ -28,6 +29,27 @@ export const enum VariableSetStatus {
   Error = 7,
 }
 
+const statuses = {
+  success: VariableSetStatus.Success,
+  unchanged: VariableSetStatus.Unchanged,
+  conflict: VariableSetStatus.Conflict,
+  unsupported: VariableSetStatus.Unsupported,
+  denied: VariableSetStatus.Denied,
+  readonly: VariableSetStatus.ReadOnly,
+  notFound: VariableSetStatus.NotFound,
+  error: VariableSetStatus.Error,
+} as const;
+
+export const setStatus = createEnumAccessor(
+  statuses,
+  false,
+  "variable set status"
+);
+
+export type VariableSetStatusValue<
+  Numeric extends boolean | undefined = boolean
+> = ParsableEnumValue<typeof statuses, Numeric, false>;
+
 export type VariableSetResult<
   T = any,
   Source extends VariableSetter<T> = VariableSetter<T>
@@ -43,14 +65,16 @@ export type VariableSetResult<
         ? Variable<T, true> | undefined
         : Variable<T, true>;
     }
-  | {
-      status:
-        | VariableSetStatus.Denied
-        | VariableSetStatus.NotFound
-        | VariableSetStatus.Unsupported
-        | VariableSetStatus.ReadOnly;
-    }
-  | { status: VariableSetStatus.Error; transient?: boolean; error: any }
+  | ((
+      | {
+          status:
+            | VariableSetStatus.Denied
+            | VariableSetStatus.NotFound
+            | VariableSetStatus.Unsupported
+            | VariableSetStatus.ReadOnly;
+        }
+      | { status: VariableSetStatus.Error; transient?: boolean; error: any }
+    ) & { current?: never })
 );
 
 export interface VariablePatchSource<
