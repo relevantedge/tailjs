@@ -46,8 +46,29 @@ describe("Variable stores store.", () => {
               "x-privacy-class": "indirect",
               $ref: "urn:acme:other#/$defs/type2",
             },
+            foo: {
+              type: "array",
+              items: {
+                $ref: "#/$defs/type3",
+              },
+            },
           },
           additionalProperties: false,
+        },
+        type3: {
+          type: "object",
+          "x-privacy-class": "sensitive",
+
+          properties: {
+            test: {
+              type: "string",
+              format: "date-time",
+            },
+            lax: {
+              "x-privacy-class": "anonymous",
+              type: "string",
+            },
+          },
         },
 
         "urn:acme:other": {
@@ -107,7 +128,8 @@ describe("Variable stores store.", () => {
           testNumber: 20,
         },
       },
-    } as const);
+      foo: [{ test: "2023-01-01T00:00:00Z", lax: "gazonk" }] as any,
+    } as any);
 
     expect(manager.validate("urn:tailjs:core#type1", data)).toBe(data);
 
@@ -125,6 +147,7 @@ describe("Variable stores store.", () => {
       })
     ).toEqual({
       testNumber: data.testNumber,
+      foo: [{ lax: "gazonk" }],
     } as Partial<typeof data>);
   });
 
