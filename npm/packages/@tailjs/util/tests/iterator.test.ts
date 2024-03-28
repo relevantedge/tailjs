@@ -150,7 +150,7 @@ describe("Iterator functionality iterates iterably", () => {
       { b: 20, c: true },
     ]);
 
-    expect(flatMap([{ a: 10 }, { b: 20, c: true }], (x) => x, 2, true)).toEqual(
+    expect(flatMap([{ a: 10 }, { b: 20, c: true }], (x) => x, 1, true)).toEqual(
       [
         ["a", 10],
         ["b", 20],
@@ -158,7 +158,7 @@ describe("Iterator functionality iterates iterably", () => {
       ]
     );
 
-    expect(flatMap([[1, [2], 3], 4, [5, 6]], (item) => item, 1)).toEqual([
+    expect(flatMap([[1, [2], 3], 4, [5, 6]], (item) => item, 0)).toEqual([
       [1, [2], 3],
       4,
       [5, 6],

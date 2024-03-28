@@ -1,4 +1,9 @@
-import { DataClassificationValue, DataPurposeValue } from ".";
+import {
+  DataClassification,
+  DataClassificationValue,
+  DataPurposeValue,
+  DataPurposes,
+} from ".";
 
 /** A user's consent choices.  */
 export interface UserConsent {
@@ -12,3 +17,10 @@ export interface UserConsent {
    */
   purposes: DataPurposeValue;
 }
+
+export const validateConsent = (
+  source: { classification: DataClassification; purposes: DataPurposes },
+  consent: { classification: DataClassification; purposes: DataPurposes }
+) =>
+  source.classification <= consent.classification &&
+  (source.classification === 0 || (source.purposes & consent.purposes) > 0);

@@ -1,4 +1,4 @@
-import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
+import { ParsableEnumValue, createEnumAccessor, map } from "@tailjs/util";
 
 /**
  * Defines to which extend a piece of information relates to a natural person (user of your app or website).

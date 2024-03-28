@@ -1,5 +1,6 @@
 import { isSet } from "util/types";
 import {
+  add,
   ConstToNormal,
   GeneralizeContstants,
   get,
@@ -53,7 +54,7 @@ type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
   : S extends Record<any, any> & { [Symbol.iterator]?: never }
   ? S extends (...args: any) => infer T | undefined
     ? T
-    : [keyof S, S[keyof S]]
+    : readonly [keyof S, S[keyof S]]
   : S extends Iterable<infer T>
   ? T
   : never;
@@ -101,12 +102,12 @@ export type NavigatingIteratorStep<T = any> = (
   current: T | undefined
 ) => T | undefined;
 
-type FlatIteratorItem<T, D extends number = 2, O = false> = T extends
+type FlatIteratorItem<T, D extends number = 1, O = false> = T extends
   | undefined
   | void
   ? never
   : D extends 0
-  ? FlatIteratorItem<T, 100>
+  ? T
   : T extends Iterable<any> | (O extends true ? Record<keyof any, any> : never)
   ? D extends 1
     ? IteratorItem<T>
@@ -313,8 +314,8 @@ type MapFunction = {
 
 type FlatProjectFunction = <
   S extends IteratorSource,
-  D extends number = 2,
-  R = FlatIteratorItem<S, D>,
+  D extends number = 1,
+  R = IteratorItem<S>,
   O extends boolean = false
 >(
   source: S,
@@ -322,7 +323,7 @@ type FlatProjectFunction = <
   depth?: D,
   expandObjects?: O,
   ...rest: StartEndArgs<S>
-) => Iterable<R>;
+) => FlatIteratorItem<Iterable<R>, D>;
 
 export const project: ProjectFunction = ((
   source: any,
@@ -339,17 +340,17 @@ export const project: ProjectFunction = ((
 export const flatProject: FlatProjectFunction = function (
   source,
   projection?,
-  depth = 2 as any,
+  depth = 1 as any,
   expandObjects = false as any,
   start?: any,
   end?: any
 ) {
   return createIterator(
-    flatten(mapIterator(source, start, end), depth),
+    flatten(mapIterator(source, start, end), depth + 1),
     projection as any,
     start,
     end
-  );
+  ) as any;
 
   function* flatten(value: any, depth: number) {
     if (expandObjects ? isObject(value, true) : isIterable(value)) {
@@ -474,17 +475,48 @@ type FlatIteratorAction<
 
 export const flatMap = <
   S extends IteratorSource,
-  D extends number = 2,
+  D extends number = 1,
   O extends boolean = false,
-  R = FlatIteratorItem<IteratorItem<S>, D>
+  R = IteratorItem<S>
 >(
   source: S,
   action: FlatIteratorAction<S, R, D, O> = (item) => item as any,
-  depth: D = 2 as any,
+  depth: D = 1 as any,
   expandObjects: O = false as any,
   ...rest: StartEndArgs<S>
-): R[] =>
+): FlatIteratorItem<R, D>[] =>
   map(flatProject(source, action, depth, expandObjects, ...rest)) as any;
+
+const traverseInternal = <T>(
+  root: T | T[] | undefined,
+  selector: (current: T) => Iterable<T> | undefined,
+  include: boolean,
+  results: T[],
+  seen: Set<T>
+) => {
+  if (isArray(root)) {
+    forEach(root, (item) =>
+      traverseInternal(item, selector, include, results, seen)
+    );
+    return results;
+  }
+  if (!root || !add(seen, root)) {
+    return undefined;
+  }
+  include && results.push(root);
+  forEach(selector(root), (item) =>
+    traverseInternal(item, selector, true, results, seen)
+  );
+
+  return results;
+};
+
+export const expand = <T>(
+  root: T | T[],
+  selector: (current: T) => Iterable<T | undefined> | undefined,
+  includeSelf = false
+): T extends undefined ? undefined : Exclude<T, undefined>[] =>
+  traverseInternal(root, selector, includeSelf, [], new Set()) as any;
 
 export const forEach: <S extends IteratorSource, R>(
   source: S,
@@ -506,7 +538,7 @@ export const flatForEach = <
 >(
   source: S,
   action: FlatIteratorAction<S, R, Depth, O>,
-  depth: Depth = 2 as any,
+  depth: Depth = 1 as any,
   expandObjects: O = false as any,
   ...rest: StartEndArgs<S>
 ): R | undefined =>
@@ -516,12 +548,12 @@ export const flatForEach = <
   ) as any;
 
 export const obj: {
-  <S extends IteratorSource, P extends [keyof any, any]>(
+  <S extends IteratorSource, P extends readonly [keyof any, any]>(
     source: S,
     selector: IteratorAction<S, P>,
     ...rest: StartEndArgs<S>
   ): KeyValuePairsToObject<P[]>;
-  <S extends IteratorSourceOf<[keyof any, any]>>(
+  <S extends IteratorSourceOf<readonly [keyof any, any]>>(
     source: S,
     ...rest: StartEndArgs<S>
   ): KeyValuePairsToObject<S>;
@@ -724,6 +756,16 @@ export const first = <S extends IteratorSource>(
   }
   return undefined;
 };
+
+export const last = <S extends IteratorSource>(
+  source: S,
+  ...rest: StartEndArgs<S>
+): IteratorItem<S> | undefined =>
+  !source
+    ? undefined
+    : isArray(source)
+    ? source[source.length - 1]
+    : forEach(source, (item) => item, ...rest);
 
 export const find = <S extends IteratorSource>(
   source: S,

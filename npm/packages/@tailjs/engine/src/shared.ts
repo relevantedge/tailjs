@@ -24,3 +24,4 @@ export * from "./CookieMonster";
 export * from "./PostError";
 export * from "./TrackerEnvironment";
 export * from "./storage";
+export * from "./SchemaManager";

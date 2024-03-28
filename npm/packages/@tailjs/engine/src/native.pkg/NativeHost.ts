@@ -10,6 +10,7 @@ import type {
   HostResponse,
   HttpRequest,
   LogMessage,
+  ResourceEntry,
 } from "../shared";
 
 export class NativeHost implements EngineHost {
@@ -19,6 +20,50 @@ export class NativeHost implements EngineHost {
   constructor(rootPath: string, console = true) {
     this._rootPath = p.resolve(rootPath);
     this._console = console;
+  }
+  async ls(
+    path: string,
+    rercursively?: boolean | undefined
+  ): Promise<ResourceEntry[] | null> {
+    path = p.join(this._rootPath, path);
+    if (!path.startsWith(this._rootPath)) {
+      throw new Error(`Invalid path (it is outside the root scope).`);
+    }
+    if (!fs.existsSync(path)) {
+      return null;
+    }
+
+    const filePaths = await fs.promises.readdir(path);
+    const resources: ResourceEntry[] = [];
+    for (const path in filePaths) {
+      if (!path.startsWith(this._rootPath)) {
+        continue;
+      }
+      const stat = fs.statSync(path);
+      const type = stat.isFile()
+        ? "file"
+        : stat.isDirectory()
+        ? "dir"
+        : undefined;
+      if (!type) {
+        continue;
+      }
+
+      resources.push({
+        created: stat.birthtimeMs,
+        modified: stat.mtimeMs,
+        path: path.substring(this._rootPath.length),
+        type,
+        name: p.basename(path),
+      });
+      if (rercursively && stat.isDirectory()) {
+        const children = await this.ls(path, true);
+        if (children) {
+          resources.push(...children);
+        }
+      }
+    }
+    return resources;
   }
 
   public async compress(
