@@ -53,9 +53,14 @@ export const enum DataPurposes {
 
   /**
    * Data stored for this purpose may be similar to the performance category, however it is specifically
-   * only used for things such as health monitoring, performance, scaling and error logging unrelated to user behavior.
+   * only used for things such as health monitoring, system performance and error logging and unrelated to user behavior.
    */
   Infrastructure = 1 << 5,
+
+  /**
+   * Any purpose.
+   */
+  Any = ~(1 << 6),
 }
 
 const purposes = {

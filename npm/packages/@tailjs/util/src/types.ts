@@ -29,6 +29,19 @@ export type OmitNullish<T> = T extends Nullish ? never : T;
 export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
 
 /**
+ * The ECMAScript primitive types.
+ */
+export type Primitives =
+  | null
+  | undefined
+  | boolean
+  | number
+  | bigint
+  | string
+  | symbol
+  | Date;
+
+/**
  * Common function type used for projection of [key,value] entries.
  */
 export type KeyValueProjection<K, V, R> = (
@@ -171,6 +184,23 @@ export type Entries<T> = UnionToTuple<
     ? T[keyof T]
     : never
 >;
+
+const internal = Symbol();
+type Token = typeof internal;
+
+/** Can be used to avoid infinite recursion by recognizing if a type has already been seen. Use with {@link CurrentRecursion}. */
+
+export type RecursionKey<T, Seen> = Seen extends [Token, T, ...infer Rest]
+  ? [Token, T, T, ...Rest]
+  : [Token, T, T];
+
+/** Can be used to avoid infinite recursion by recognizing if how many times a type has already been seen. Use with {@link RecursionKey}. */
+export type CurrentRecursion<T, Seen> = Seen extends [Token, T, ...infer Rest]
+  ? Rest["length"]
+  : 0;
+
+/** Can be used to avoid infinite recursion by recognizing if how many times a type has already been seen. Use instead of `never` as the seed for seen types. */
+export type RecursionSeed = Token;
 
 // From https://www.hacklewayne.com/typescript-convert-union-to-tuple-array-yes-but-how.
 
@@ -383,9 +413,11 @@ export const toArray = <T>(value: T | Iterable<T>, clone = false): T[] =>
 export const isObject = <AcceptIterables extends boolean = false>(
   value: any,
   acceptIterables: AcceptIterables = false as any
-): value is Record<keyof any, any> &
-  (AcceptIterables extends true ? {} : { [Symbol.iterator]: never }) =>
-  value && typeof value === "object" && (acceptIterables || !isIterable(value));
+): value is object &
+  (AcceptIterables extends true ? object : { [Symbol.iterator]?: never }) =>
+  value != null &&
+  typeof value === "object" &&
+  (acceptIterables || !value[Symbol.iterator]);
 
 export const hasMethod = <T, Name extends keyof any>(
   value: T | unknown,
@@ -477,3 +509,16 @@ export const clone = <T>(value: T, depth: number | boolean = true): T =>
  * For example `(previous=current)=>(current+=2, previous)
  */
 export const capture = <R>(capture: (...args: any[]) => R) => capture();
+
+export const required = <T>(
+  value: T,
+  error?: string | Error | (() => string | Error)
+): Exclude<T, undefined> => {
+  if (isUndefined(value)) {
+    isFunction(error) && (error = error());
+    throw !((error ??= "A required value is missing") instanceof Error)
+      ? new TypeError(error.replace("...", " is required."))
+      : error;
+  }
+  return value as any;
+};

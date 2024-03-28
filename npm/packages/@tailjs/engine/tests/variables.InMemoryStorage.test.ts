@@ -1,13 +1,133 @@
 import {
+  DataClassification,
+  DataPurposes,
   VariableFilter,
   VariableHeader,
   VariableKey,
   VariableSetStatus,
+  dataClassification,
+  dataPurpose,
+  dataPurposes,
   setStatus,
+  validateConsent,
 } from "@tailjs/types";
-import { InMemoryStorage, VariableStorage } from "../src";
+import {
+  add,
+  expand,
+  flatMap,
+  forEach,
+  isArray,
+  isDefined,
+  isObject,
+  isUndefined,
+  required,
+} from "@tailjs/util";
+import Ajv from "ajv";
+import { InMemoryStorage, SchemaManager, VariableStorage } from "../src";
 
 describe("Variable stores store.", () => {
+  it.only("Schema tests should not go here. Yet, they did.", () => {
+    const schema = {
+      //$schema: "https://json-schema.org/draft/2020-12",
+      $id: "urn:tailjs:core",
+      "x-privacy-class": "anonymous",
+      "x-privacy-purposes": "necessary",
+      $defs: {
+        type1: {
+          type: "object",
+
+          properties: {
+            type: { type: "string" },
+            testNumber: {
+              "x-privacy-class": "anonymous",
+              type: "number",
+            },
+            testReference: {
+              "x-privacy-class": "indirect",
+              $ref: "urn:acme:other#/$defs/type2",
+            },
+          },
+          additionalProperties: false,
+        },
+
+        "urn:acme:other": {
+          $id: "urn:acme:other",
+          "x-privacy-purposes": "functionality",
+
+          $defs: {
+            type2: {
+              "x-privacy-class": "indirect",
+              type: "object",
+              properties: {
+                nestedNumber: {
+                  "x-privacy-class": "anonymous",
+                  type: "number",
+                },
+                nestedReference: {
+                  "x-privacy-class": "direct",
+                  $ref: "urn:tailjs:core#/$defs/type1",
+                },
+              },
+              additionalProperties: false,
+            },
+          },
+        },
+      },
+    };
+
+    type TestType1 = {
+      testNumber?: number;
+      testReference?: TestType2;
+    };
+
+    type TestType2 = {
+      nestedNumber?: number;
+      nestedReference?: TestType1;
+    };
+
+    const manager = new SchemaManager([schema]);
+
+    type NoAdditional<T, Base> = Base extends T
+      ? T
+      : {
+          [P in keyof T]: P extends keyof Base
+            ? NoAdditional<T[P], Base[P]>
+            : never;
+        };
+
+    const validate = <T extends TestType1>(
+      data: T & NoAdditional<T, TestType1>
+    ): T extends NoAdditional<T, TestType1> ? T : never => data as any;
+
+    const data = validate({
+      testNumber: 20,
+      testReference: {
+        nestedNumber: 11,
+        nestedReference: {
+          testNumber: 20,
+        },
+      },
+    } as const);
+
+    expect(manager.validate("urn:tailjs:core#type1", data)).toBe(data);
+
+    expect(
+      manager.censor("urn:tailjs:core#type1", data, {
+        classification: DataClassification.Sensitive,
+        purposes: DataPurposes.Any,
+      })
+    ).toEqual(data);
+
+    expect(
+      manager.censor("urn:tailjs:core#type1", data, {
+        classification: DataClassification.Anonymous,
+        purposes: DataPurposes.Any,
+      })
+    ).toEqual({
+      testNumber: data.testNumber,
+    } as Partial<typeof data>);
+  });
+
   it("InMemoryStore handles get/set.", async () => {
     const store = new InMemoryStorage() as VariableStorage;
 

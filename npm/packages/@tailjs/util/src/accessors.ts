@@ -1,5 +1,4 @@
 import {
-  ConstToNormal,
   GeneralizeContstants,
   IsAny,
   Minus,
@@ -12,11 +11,9 @@ import {
   isArray,
   isDefined,
   isFunction,
-  isIterable,
   isObject,
   isUndefined,
   map,
-  some,
 } from ".";
 
 // #region Shared types
@@ -281,7 +278,12 @@ export const update = createSetOrUpdateFunction(updateSingle);
 export const add = <T extends PropertyContainer<any, boolean>>(
   target: T,
   key: KeyType<T>
-) => get(target, key) !== assign(target, key, true as any);
+) =>
+  target instanceof Set
+    ? target.has(key)
+      ? false
+      : (target.add(key), true)
+    : get(target, key) !== assign(target, key, true as any);
 
 export const has = <T extends PropertyContainer>(target: T, key: KeyType<T>) =>
   hasMethod(target, "has")
@@ -491,4 +493,56 @@ export const define: {
 
   args.forEach((arg) => add(arg));
   return target as any;
+};
+
+type PropertySelector<T> =
+  | keyof T
+  | {
+      [P in keyof T]?: PropertySelector<T[P]> | [...keys: (keyof T[P])[]];
+    };
+
+type SinglePickResult<T, Selected> = Selected extends
+  | (string & infer K)
+  | (infer K)[]
+  ? { [P in keyof T & K]: T[P] }
+  : keyof Selected extends infer Keys
+  ? {
+      [P in Keys & keyof any & keyof Selected]: P extends keyof T
+        ? Selected[P] extends true
+          ? T[P]
+          : SinglePickResult<T[P], Selected[P]>
+        : never;
+    }
+  : never;
+
+type PickResults<T, Selectors> = PrettifyIntersection<
+  Selectors extends [infer Item, ...infer Rest]
+    ? SinglePickResult<T, Item> & SinglePickResult<T, Rest>
+    : never
+>;
+
+export const pick = <T, Selectors extends PropertySelector<T>[], U>(
+  source: T | (null | (undefined & U)),
+  ...args: Selectors
+): U extends undefined ? undefined : PickResults<T, Selectors> => {
+  if (source === undefined) return undefined as any;
+
+  return Object.fromEntries(
+    args.flatMap((arg) =>
+      isObject(arg, true)
+        ? isArray(arg)
+          ? arg.map((args) =>
+              isArray(args)
+                ? args.length === 1
+                  ? [args[0], source![args[0]]]
+                  : pick(source![args[0]], ...(args[1] as any[]))
+                : [args[0], source![args[1]]]
+            )
+          : Object.entries(args).map(([key, value]) => [
+              key,
+              value === true ? source![key] : pick(source![key], value),
+            ])
+        : ([[arg, source![arg]]] as any)
+    )
+  ) as any;
 };

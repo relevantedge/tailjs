@@ -24,6 +24,7 @@
     "@rollup/plugin-strip": "^3.0.4",
     "@rollup/plugin-terser": "^0.4.4",
     "@swc/core": "^1.4.8",
+    "@swc/jest": "^0.2.36",
     "@types/jest": "^29.5.12",
     "@types/node": "^18.19.26",
     "as": "^0.4.1",
