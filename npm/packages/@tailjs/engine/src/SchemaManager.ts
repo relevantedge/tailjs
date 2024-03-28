@@ -20,6 +20,7 @@ import {
   required,
 } from "@tailjs/util";
 import Ajv from "ajv";
+import addFormats from "ajv-formats";
 
 const ids = {
   TrackedEvent: "urn:tailjs:core#TrackedEvent",
@@ -224,6 +225,8 @@ export class SchemaManager {
       .addKeyword("x-privacy-purposes")
       .addKeyword("x-privacy-ignore");
 
+    addFormats(this._ajv);
+
     this._ajv.compile(schemaCollection);
 
     const [parsedSchemas, parsedTypes] = parse(schemaCollection, this._ajv);
@@ -313,7 +316,12 @@ export class SchemaManager {
             parsedProperty.objectType
               ? typeMap.get(parsedProperty.objectType)
               : tryParsePrimitiveType(parsedProperty.typeNode),
-            contextError(parsed.context, "Unknown property type.")
+            contextError(
+              parsed.context,
+              `Unknown property type. (${JSON.stringify(
+                parsedProperty.typeNode
+              )})`
+            )
           ),
         };
         ((type.properties ??= new Map()) as Map<string, SchemaProperty>).set(
@@ -516,9 +524,10 @@ const parse = (schema: any, ajv: Ajv) => {
         }
         return structure;
       };
+      const structure = parseStructure(definition);
 
       let objectType = typeNode.$ref
-        ? getRefType(context.schema!, definition.$ref)
+        ? getRefType(context.schema!, typeNode.$ref)
         : undefined;
 
       const ownClassification = parseClassifications(definition);
@@ -528,7 +537,7 @@ const parse = (schema: any, ajv: Ajv) => {
         name: key,
         context,
         declaringType: type,
-        structure: parseStructure(definition),
+        structure,
         // Leave properties that references types undefined for now.
         // They will be inferred from context and the referenced type later, state invariants are preserved when the function returns
         classification:
@@ -682,9 +691,10 @@ const censorProperty = (
   if (structure?.array) {
     if (!isArray(value)) return undefined;
     structure = isObject(structure.array) ? structure.array : undefined;
-    return value
+    value = value
       .map((item) => censorProperty(type, item, classification))
       .filter((item) => item);
+    return value.length ? value : undefined;
   }
 
   return censor(type, value, classification);
