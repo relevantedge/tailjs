@@ -60,7 +60,7 @@ export const enum DataPurposes {
   /**
    * Any purpose.
    */
-  Any = ~(1 << 6),
+  Any = ~0,
 }
 
 const purposes = {

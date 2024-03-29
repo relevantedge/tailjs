@@ -1,5 +1,4 @@
-import { isWeakMap } from "util/types";
-import { obj, type reduce, forEach, update, map } from ".";
+import { Wrapped, map, obj, unwrap, type reduce } from ".";
 
 export type IsNever<T> = [T] extends [never] ? true : false;
 
@@ -24,9 +23,20 @@ export type Nullish = null | undefined;
 export type OmitNullish<T> = T extends Nullish ? never : T;
 
 /**
+ * The defined part of a type, excluding undefined and void (which is also undefined).
+ */
+export type Defined<T> = Exclude<T, undefined | void>;
+
+/**
  * A record that may have the specified keys and values.
  */
 export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
+
+/**
+ * Makes the specified properties partial.
+ */
+export type PickPartial<T, K extends keyof T> = Omit<T, K> &
+  Partial<Pick<T, K>>;
 
 /**
  * The ECMAScript primitive types.
@@ -40,6 +50,22 @@ export type Primitives =
   | string
   | symbol
   | Date;
+
+/** Simplifies the return value for functions like `get<T,Required extends boolean>(value: T, required?:Required): MaybeRequired<T,Required> => ...` */
+export type MaybeRequired<T, Required> = IIf<Required, T, T | undefined>;
+
+/** Negates a Boolean value */
+export type Not<B> = IIf<B, false, true>;
+
+/** Simplifies Boolean checks (insted of having to write B extends bla, bla...).  */
+export type IfNot<B, T> = IIf<B, never, T>;
+
+/** Simplifies Boolean checks (insted of having to write B extends bla, bla...).  */
+export type IIf<B, True, False = never> = B extends true
+  ? True
+  : B extends (unknown extends B ? any : false)
+  ? False
+  : never;
 
 /**
  * Common function type used for projection of [key,value] entries.
@@ -361,7 +387,7 @@ export const isNull = (value: any): value is null => value === nil;
 export const isUndefined = (value: any): value is undefined | void =>
   value === undefined;
 
-export const isDefined = <T>(value: T): value is Exclude<T, undefined | void> =>
+export const isDefined = <T>(value: T): value is Defined<T> =>
   value !== undefined;
 
 export const isNullish = <T>(
@@ -377,7 +403,13 @@ export const isBoolean = (value: any): value is boolean =>
 
 export const parseBoolean = createConverter(isBoolean, (value) => !!value);
 export const isTruish = (value: any) => !!value;
-export const isFalsish = (value: any) => !value;
+
+export type Falsish = void | null | undefined | 0 | "" | false;
+
+export const isFalsish = (value: any): value is Falsish => !value;
+
+export const isInteger: (value: any) => value is number =
+  Number.isSafeInteger as any;
 
 export const isNumber = (value: any): value is number =>
   typeof value === "number";
@@ -401,12 +433,22 @@ export const toString = createConverter(isString, (value) =>
 const capturedIsArray = Array.isArray;
 export const isArray = (value: any): value is any[] => capturedIsArray(value);
 
-export const toArray = <T>(value: T | Iterable<T>, clone = false): T[] =>
-  value == null
-    ? []
+/**
+ * Returns the value as an array following these rules:
+ * - If the value is undefined (this does not include `null`), so is the return value.
+ * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
+ * - If the value is iterable, an array containing its values is returned
+ * - Otherwise, an array with the value as its single item is returned.
+ */
+export const toArray = <T>(
+  value: T | Iterable<T>,
+  clone = false
+): T extends undefined ? undefined : T[] =>
+  isUndefined(value)
+    ? undefined
     : !clone && isArray(value)
     ? value
-    : isIterable(value, true)
+    : isIterable(value, false)
     ? [...value]
     : ([value] as any);
 
@@ -510,15 +552,86 @@ export const clone = <T>(value: T, depth: number | boolean = true): T =>
  */
 export const capture = <R>(capture: (...args: any[]) => R) => capture();
 
-export const required = <T>(
-  value: T,
-  error?: string | Error | (() => string | Error)
-): Exclude<T, undefined> => {
-  if (isUndefined(value)) {
-    isFunction(error) && (error = error());
-    throw !((error ??= "A required value is missing") instanceof Error)
-      ? new TypeError(error.replace("...", " is required."))
-      : error;
-  }
-  return value as any;
+type ErrorGenerator = string | Error | (() => string | Error);
+
+export const throwError = <T = any>(
+  error: ErrorGenerator,
+  transform: (string: string) => Error = (message) => new TypeError(message)
+): T => {
+  throw isString((error = unwrap(error))) ? transform(error) : error;
 };
+
+type CombineTypeTests<T> = T extends []
+  ? {}
+  : T extends [infer F, ...infer Rest]
+  ? F extends (value: any) => value is infer R
+    ? (IsAny<R> extends true ? T : R) & CombineTypeTests<Rest>
+    : never
+  : never;
+
+export const validate = <
+  T,
+  Validator extends
+    | ((candidate: T) => candidate is any)
+    | ((candiate: T) => R)
+    | [
+        validate: (candiate: T) => any,
+        ...typeTests: ((candidate: T) => candidate is any)[]
+      ]
+    | (R & NotFunction),
+  R
+>(
+  value: T,
+  validate: Validator | R,
+  validationError?: ErrorGenerator,
+  undefinedError?: ErrorGenerator
+): Defined<
+  Validator extends [any, ...infer TypeTests]
+    ? CombineTypeTests<TypeTests>
+    : Validator extends ((value: any) => infer R) | infer R
+    ? R extends Falsish
+      ? never
+      : Validator extends (value: any) => value is infer R
+      ? IsAny<R> extends true
+        ? T
+        : Defined<R>
+      : T
+    : never
+> =>
+  (
+    isArray(validate)
+      ? validate.every((test) => test(value))
+      : isFunction(validate)
+      ? validate(value)
+      : validate
+  )
+    ? value
+    : required(value, undefinedError ?? validationError) &&
+      (throwError(validationError ?? "Validation failed.") as any);
+
+export class InvariantViolatedError extends Error {
+  constructor(invariant?: string) {
+    super(invariant ? "INV: " + invariant : "An invariant was violated.");
+  }
+}
+
+/**
+ * States an invariant.
+ */
+export const invariant = <T>(
+  test: Wrapped<T | false>,
+  description?: string
+): Defined<T> => {
+  const valid = unwrap(test);
+  return isDefined(valid) && valid !== false
+    ? (valid as any)
+    : throwError(new InvariantViolatedError(description));
+};
+
+export const required = <T>(value: T, error?: ErrorGenerator): Defined<T> =>
+  isDefined(value)
+    ? value
+    : throwError(
+        error ?? "A required value is missing",
+        (text) => new TypeError(text.replace("...", " is required."))
+      );
