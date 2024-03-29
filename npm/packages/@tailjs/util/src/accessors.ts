@@ -1,5 +1,6 @@
 import {
   GeneralizeContstants,
+  IIf,
   IsAny,
   Minus,
   NotFunction,
@@ -9,57 +10,66 @@ import {
   forEach,
   hasMethod,
   isArray,
+  isAwaitable,
   isDefined,
   isFunction,
   isObject,
   isUndefined,
   map,
+  throwError,
 } from ".";
 
-// #region Shared types
-type MapLike<K = any, V = any> = {
+type ReadonlyMapLike<K = any, V = any> = {
   has?(key: K): boolean;
   get(key: K): V | undefined;
+};
+
+// #region Shared types
+type MapLike<K = any, V = any> = ReadonlyMapLike<K, V> & {
   set(key: K, value: V): any;
   delete(key: K): any;
 };
 
-type SetLike<K = any> = {
-  has?(key: K): boolean;
+type ReadonlySetLike<K = any, V = any> = {
+  has(key: K): boolean;
+};
+type SetLike<K = any> = ReadonlySetLike<K> & {
   add(key: K): any;
   delete(key: K): any;
 };
 
-type PropertyContainer<K extends any = any, V extends any = any> =
+type ReadonlyPropertyContainer<K extends any = any, V extends any = any> =
   | {
       [P in keyof K]: V;
     }
+  | ReadonlyMapLike<K, V>
+  | ReadonlySetLike<K>;
+
+type PropertyContainer<K extends any = any, V extends any = any> =
+  | ReadonlyPropertyContainer<K, V>
   | MapLike<K, V>
   | SetLike<K>;
 
-export type KeyType<T extends PropertyContainer | null | undefined> = T extends
-  | null
-  | undefined
-  ? never
-  : T extends MapLike<infer K, any>
-  ? K
-  : T extends SetLike<infer K>
-  ? K
-  : T extends any[]
-  ? number
-  : keyof T;
+export type KeyType<T extends ReadonlyPropertyContainer | null | undefined> =
+  T extends null | undefined
+    ? never
+    : T extends ReadonlyMapLike<infer K, any> | ReadonlySetLike<infer K>
+    ? K
+    : T extends any[]
+    ? number
+    : keyof T;
 
 export type ValueType<
-  T extends PropertyContainer | null | undefined,
+  T extends ReadonlyPropertyContainer | null | undefined,
   K = KeyType<T>,
   Default = never
 > = IsAny<T> extends true
   ? any
   : T extends null | undefined | void
   ? never
-  : T extends MapLike<any, infer V>
+  : T extends ReadonlyMapLike<any, infer V>
   ? V | Default
-  : T extends SetLike
+  : T extends ReadonlySetLike
   ? boolean | Default
   : T extends (infer T)[]
   ? T | Default
@@ -67,18 +77,19 @@ export type ValueType<
   ? T[K] | Default
   : any;
 
-type AcceptUnknownContainers<T extends PropertyContainer | null | undefined> =
-  IsAny<T> extends true
-    ? T
-    : T extends null | undefined | void
-    ? never
-    : T extends MapLike
-    ? MapLike<unknown, unknown> | T
-    : T extends SetLike
-    ? SetLike<unknown> | T
-    : T extends (infer T)[]
-    ? unknown[] | T
-    : T;
+type AcceptUnknownContainers<
+  T extends ReadonlyPropertyContainer | null | undefined
+> = IsAny<T> extends true
+  ? T
+  : T extends null | undefined | void
+  ? never
+  : T extends MapLike
+  ? MapLike<unknown, unknown> | T
+  : T extends SetLike
+  ? SetLike<unknown> | T
+  : T extends (infer T)[]
+  ? unknown[] | T
+  : T;
 
 // #endregion
 
@@ -103,8 +114,26 @@ const setSingle = (target: any, key: any, value: any) => {
   return value;
 };
 
+export const setSingleIfNotDefined = (
+  target: any,
+  key: any,
+  value: any,
+  error: (
+    key: string,
+    currentValue: any,
+    newValue: any,
+    target: any
+  ) => string | Error
+) => {
+  const currentValue = get(target, key);
+  if (isDefined(currentValue)) {
+    throwError(error(key, currentValue, value, target));
+  }
+  return setSingle(target, key, value);
+};
+
 export const get = <
-  T extends PropertyContainer | null | undefined,
+  T extends ReadonlyPropertyContainer | null | undefined,
   K extends KeyType<T>,
   I extends
     | ValueType<T, K>
@@ -150,7 +179,7 @@ export const get = <
 // #region set and update
 
 type UpdateFunction<
-  T extends PropertyContainer,
+  T extends ReadonlyPropertyContainer,
   Key,
   Current,
   Factory
@@ -163,7 +192,7 @@ type UpdateFunction<
   : (key: Key, target: T) => GeneralizeContstants<ValueType<T, Key>>;
 
 type Updater<
-  T extends PropertyContainer,
+  T extends ReadonlyPropertyContainer,
   Key,
   Current = ValueType<T, Key>,
   SettersOnly = false,
@@ -184,12 +213,8 @@ type UpdaterType<T, SettersOnly = false> = SettersOnly extends true
   ? T
   : T;
 
-type PropertiesToTuples<T, SettersOnly = false, K = keyof T> = K extends any
-  ? [K, UpdaterType<T, SettersOnly>]
-  : never;
-
 type BulkUpdateObject<
-  T extends PropertyContainer,
+  T extends ReadonlyPropertyContainer,
   SettersOnly = false,
   Factory = false
 > = T extends MapLike | SetLike | any[]
@@ -199,7 +224,7 @@ type BulkUpdateObject<
   : { [P in keyof T & KeyType<T>]?: Updater<T, P, T[P], SettersOnly, Factory> };
 
 type BulkUpdateKeyValue<
-  T extends PropertyContainer,
+  T extends ReadonlyPropertyContainer,
   SettersOnly = false,
   Factory = false,
   K extends keyof T = keyof T
@@ -215,7 +240,7 @@ type BulkUpdateKeyValue<
   : never;
 
 type BulkUpdates<
-  T extends PropertyContainer,
+  T extends ReadonlyPropertyContainer,
   SettersOnly = false,
   Factory = false
 > =
@@ -225,9 +250,23 @@ type BulkUpdates<
       | BulkUpdateObject<T, SettersOnly, Factory>
     >;
 
-type SetOrUpdateFunction<SettersOnly> = {
+type SetErrorHandler<T extends ReadonlyPropertyContainer | null | undefined> = (
+  key: KeyType<T>,
+  currentValue: ValueType<T>,
+  newValue: ValueType<T>,
+  target: T
+) => string | Error;
+
+type SetOrUpdateFunction<
+  SettersOnly,
+  ErrorHandler = false,
+  Readonly = false
+> = {
   <
-    T extends PropertyContainer | null | undefined,
+    T extends
+      | IIf<Readonly, ReadonlyPropertyContainer, PropertyContainer>
+      | null
+      | undefined,
     U extends Updater<
       T extends null | undefined ? never : T,
       K,
@@ -238,24 +277,31 @@ type SetOrUpdateFunction<SettersOnly> = {
   >(
     target: T,
     key: K,
-    value: U
+    value: U,
+    ...args: ErrorHandler extends true ? [error: SetErrorHandler<T>] : []
   ): UpdaterType<U>;
-  <T extends PropertyContainer | null | undefined>(
+  <
+    T extends
+      | IIf<Readonly, ReadonlyPropertyContainer, PropertyContainer>
+      | null
+      | undefined
+  >(
     target: T,
-    values: BulkUpdates<T extends null | undefined ? never : T, SettersOnly>
+    values: BulkUpdates<T extends null | undefined ? never : T, SettersOnly>,
+    ...args: ErrorHandler extends true ? [error: SetErrorHandler<T>] : []
   ): T;
 };
 
 const NO_ARG = Symbol();
 
 const createSetOrUpdateFunction =
-  <B extends boolean>(
-    setter: (target: any, key: any, value: any) => any
-  ): SetOrUpdateFunction<B> =>
-  (target: PropertyContainer, key: any, value: any = NO_ARG) => {
+  <SettersOnly, Error>(
+    setter: (target: any, key: any, value: any, error?: any) => any
+  ): SetOrUpdateFunction<SettersOnly, Error> =>
+  (target: PropertyContainer, key: any, value: any = NO_ARG, error?: any) => {
     if (!target) return undefined;
     if (value !== NO_ARG) {
-      return setter(target, key, value);
+      return setter(target, key, value, error);
     }
 
     if (isObject(key, true)) {
@@ -265,13 +311,16 @@ const createSetOrUpdateFunction =
           : setter(target, item[0], item[1])
       );
     } else {
-      setter(target, key, value);
+      setter(target, key, value, error);
     }
     return target;
   };
 
-export const assign = createSetOrUpdateFunction(setSingle);
-export const update = createSetOrUpdateFunction(updateSingle);
+export const assign = createSetOrUpdateFunction<true, false>(setSingle);
+export const update = createSetOrUpdateFunction<false, false>(updateSingle);
+export const assignIfUndefined = createSetOrUpdateFunction<false, true>(
+  setSingleIfNotDefined
+);
 
 // #endregion
 
@@ -285,7 +334,10 @@ export const add = <T extends PropertyContainer<any, boolean>>(
       : (target.add(key), true)
     : get(target, key) !== assign(target, key, true as any);
 
-export const has = <T extends PropertyContainer>(target: T, key: KeyType<T>) =>
+export const has = <T extends ReadonlyPropertyContainer>(
+  target: T,
+  key: KeyType<T>
+) =>
   hasMethod(target, "has")
     ? target.has(key)
     : isDefined((target as any).get?.(key) ?? (target as any)[key]);
@@ -546,3 +598,24 @@ export const pick = <T, Selectors extends PropertySelector<T>[], U>(
     )
   ) as any;
 };
+
+export type Wrapped<T> =
+  | T
+  | (() => Wrapped<T>)
+  | ((arg: any, ...args: any) => never);
+export type Unwrap<T> = T extends Wrapped<infer T> ? T : never;
+
+export const unwrap = <T extends Wrapped<any>>(value: T): Unwrap<T> =>
+  isFunction(value)
+    ? unwrap(value())
+    : isAwaitable(value)
+    ? value.then((result) => unwrap(result))
+    : value;
+
+export const unlock = <T extends ReadonlyPropertyContainer>(
+  readonly: T
+): T extends ReadonlyMapLike<infer K, infer V>
+  ? MapLike<K, V>
+  : T extends ReadonlySetLike<infer T>
+  ? SetLike<T>
+  : T => readonly as any;

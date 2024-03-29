@@ -3,6 +3,8 @@ import {
   DataClassificationValue,
   DataPurposeValue,
   DataPurposes,
+  dataClassification,
+  dataPurposes,
 } from ".";
 
 /** A user's consent choices.  */
@@ -18,9 +20,19 @@ export interface UserConsent {
   purposes: DataPurposeValue;
 }
 
+export const isUserConsent = (value: any) => !!value?.["level"];
+
 export const validateConsent = (
-  source: { classification: DataClassification; purposes: DataPurposes },
-  consent: { classification: DataClassification; purposes: DataPurposes }
+  source:
+    | { classification?: DataClassificationValue; purposes?: DataPurposeValue }
+    | undefined,
+  consent:
+    | UserConsent
+    | { classification: DataClassificationValue; purposes: DataPurposeValue }
 ) =>
-  source.classification <= consent.classification &&
-  (source.classification === 0 || (source.purposes & consent.purposes) > 0);
+  source &&
+  dataClassification(source.classification)! <=
+    dataClassification(consent["classification"] ?? consent["level"]) &&
+  (source.classification === 0 ||
+    ((dataPurposes(source.purposes) ?? 0) & dataPurposes(consent.purposes)) >
+      0);

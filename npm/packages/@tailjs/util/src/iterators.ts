@@ -400,6 +400,23 @@ export const distinct: {
     ? new Set<any>([...project(source, projection, start, end)])
     : undefined;
 
+export const single: {
+  <S extends IteratorSource, R>(
+    source: S,
+    projection?: IteratorAction<S, R> | null,
+    ...rest: StartEndArgs<S>
+  ): S extends undefined ? undefined : IteratorProjection<S, R> | undefined;
+  <S extends IteratorSource>(
+    source: S,
+    ...rest: StartEndArgs<S>
+  ): S extends undefined ? undefined : IteratorItem<S> | undefined;
+} = (source: any, projection?: any, start?: any, end?: any) =>
+  !source
+    ? undefined
+    : (source = mapDistinct(source, projection, start, end) as any).length > 1
+    ? undefined
+    : source[0];
+
 export const mapDistinct: MapFunction = (
   source: any,
   projection?: any,
