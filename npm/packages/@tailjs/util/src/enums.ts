@@ -1,11 +1,4 @@
-import {
-  Entries,
-  UnionToTuple,
-  define,
-  isDefined,
-  isNumber,
-  isString,
-} from ".";
+import { Entries, define, isDefined, isNumber, isString } from ".";
 
 type MaybeArray<T, Flags, ArrayIfArray = false> = Flags extends true
   ? (ArrayIfArray extends true ? never : T) | T[]
@@ -36,11 +29,13 @@ export type ParsableEnumValue<
       ? MaybeArray<
           | (Flags extends true ? number : T[keyof T])
           | keyof T
-          | (Flags extends true ? "all" : never),
+          | (Flags extends true ? "any" : never),
           Flags
         >
       : Numeric extends true
-      ? T[keyof T]
+      ? Flags extends true
+        ? number
+        : T[keyof T]
       : Flags extends true
       ? (keyof T)[]
       : keyof T)
@@ -56,14 +51,15 @@ type ParseFunction<
   T extends Record<string, number>,
   Flags extends boolean,
   Numeric extends boolean,
-  InvalidValue extends undefined | never = never
+  InvalidValue extends undefined | never = never,
+  MainFunction = false
 > = {
   <V extends string | number | symbol | null | undefined>(
     value:
       | V
       | ParsableArg<T, Flags>
       | (Flags extends true ? V[] | ParsableArg<T, Flags>[] : never),
-    validateNumbers?: boolean
+    ...args: MainFunction extends true ? [] : [validateNumbers?: boolean]
   ): V extends null | undefined
     ? undefined
     : Numeric extends false
@@ -87,7 +83,7 @@ export type EnumHelper<
   T extends Record<string, number> = Record<string, number>,
   Flags extends boolean = boolean
 > = T &
-  ParseFunction<T, Flags, true> & {
+  ParseFunction<T, Flags, true, never, true> & {
     parse: ParseFunction<T, Flags, true>;
     tryParse: ParseFunction<T, Flags, true, undefined>;
     values: T[keyof T][];
@@ -95,7 +91,7 @@ export type EnumHelper<
     lookup: ParseFunction<T, Flags, false>;
   } & (Flags extends true
     ? {
-        all: T[keyof T];
+        any: T[keyof T];
         map<R = T[keyof T]>(
           flags: ParsableEnumValue<T, boolean | undefined, Flags>,
           map?: (entry: Entries<T>[number], index: number) => R
@@ -113,11 +109,9 @@ export const createEnumAccessor = <
 ): EnumHelper<T, Flags> => {
   const entries = Object.entries(names);
   const values = Object.values(names);
-  const all = values.reduce((all, flag) => all | flag, 0);
+  const any = values.reduce((any, flag) => any | flag, 0);
 
-  const nameLookup: Record<string, number> = flags
-    ? { ...names, all: all }
-    : names;
+  const nameLookup: Record<string, number> = flags ? { ...names, any } : names;
   const valueLookup = Object.fromEntries(
     entries.map(([key, value]) => [value, key])
   );
@@ -182,7 +176,7 @@ export const createEnumAccessor = <
     } as const,
     flags &&
       ({
-        all,
+        any,
         map: (flags: any, map?: (flag: any, index: number) => any) => (
           (flags = parse(flags)),
           entries

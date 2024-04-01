@@ -1,15 +1,8 @@
-import {
-  UserConsent,
-  VariableKey,
-  VariableScope,
-  variableScope,
-} from "@tailjs/types";
+import { UserConsent, variableScope } from "@tailjs/types";
 import {
   MaybeRequired,
-  PartialRecord,
   assignIfUndefined,
   forEach,
-  get,
   invariant,
   isString,
   obj,
@@ -27,6 +20,8 @@ import {
   SchemaProperty,
   SchemaType,
   SchemaVariable,
+  SchemaVariableSet,
+  VariableMap,
   tryParsePrimitiveType,
 } from "..";
 import {
@@ -44,11 +39,6 @@ export class SchemaManager {
   public readonly schema: Schema;
   public readonly subSchemas: ReadonlyMap<string, Schema> = new Map();
   public readonly types: ReadonlyMap<string, SchemaType> = new Map();
-
-  private readonly _variables: Record<
-    VariableScope,
-    Map<string, Map<Schema, SchemaVariable>>
-  > = [] as any;
 
   constructor(schemas: any[]) {
     const combinedSchema = {
@@ -231,15 +221,11 @@ export class SchemaManager {
 
             property.scope = scopeId;
 
-            unlock(
-              ((type.schema!.variables ??= [] as any)[scopeId] ??= new Map())
-            ).set(property.name, property);
-
-            get(
-              (this._variables[scopeId] ??= new Map()),
-              key,
-              () => new Map()
-            ).set(type.schema, property);
+            (type.schema!.variables ??= new VariableMap()).set(
+              scopeId,
+              property.name,
+              property
+            );
           });
         }
       });
@@ -321,37 +307,6 @@ export class SchemaManager {
           );
   }
 
-  public getVariable<Required = true>(
-    key: MaybeRequired<Pick<VariableKey, "scope" | "key">, Required>,
-    require?: Required & boolean,
-    schemas?: Iterable<Schema>
-  ): MaybeRequired<SchemaVariable, Required> {
-    if (require) {
-      return required(
-        this.getVariable(key, false as any, schemas),
-        () =>
-          `The variable '${
-            key!.key
-          }' is not defined in the ${variableScope.lookup(key!.scope)} scope.`
-      );
-    }
-
-    if (key) {
-      const candidates = this._variables[variableScope.parse(key.scope)]?.get(
-        key.key
-      );
-      if (candidates) {
-        for (const schema of schemas ?? this.subSchemas.values()) {
-          const match = candidates.get(schema);
-          if (match) {
-            return match as any;
-          }
-        }
-      }
-    }
-    return undefined as any;
-  }
-
   public tryValidate<T>(
     typeId: string | null | undefined,
     value: T
@@ -360,106 +315,50 @@ export class SchemaManager {
     eventType: string | null | undefined,
     event: T
   ): T | undefined;
-  public tryValidate<T>(
-    variable: Pick<VariableKey, "scope" | "key"> | null | undefined,
-    value: T,
-    schemas?: Iterable<Schema>
-  ): T | undefined;
-  public tryValidate(
-    id: string | VariableKey | null | undefined,
-    value: any,
-    schemas?: Iterable<Schema>
-  ) {
+  public tryValidate(id: string | null | undefined, value: any) {
     return (
       id &&
-      (isString(id)
-        ? this.schema.events?.get(id) ?? this.getType(id, false)
-        : this.getVariable(id, false, schemas)
-      )?.tryValidate(value)
+      (this.schema.events?.get(id) ?? this.getType(id, false))?.tryValidate(
+        value
+      )
     );
   }
 
   public validate<T>(typeId: string, value: T): T;
   public validate<T>(eventType: string, event: T): T;
-  public validate<T>(
-    variable: Pick<VariableKey, "scope" | "key">,
-    value: T,
-    schemas?: Iterable<Schema>
-  ): T;
-  public validate(
-    id: string | VariableKey,
-    value: any,
-    schemas?: Iterable<Schema>
-  ) {
-    return (
-      isString(id)
-        ? this.schema.events?.get(id) ?? this.getType(id, true)
-        : this.getVariable(id, true, schemas)
-    ).validate(value);
+  public validate(id: string, value: any) {
+    return (this.schema.events?.get(id) ?? this.getType(id, true)).validate(
+      value
+    );
   }
 
   public censor<T>(
     typeId: string,
     value: T,
     consent: SchemaClassification | UserConsent
-  ): T;
+  ): T | undefined;
   public censor<T>(
     eventType: string,
     event: T,
     consent: SchemaClassification | UserConsent
-  ): T;
-  public censor<T>(
-    variable: Pick<VariableKey, "scope" | "key">,
-    value: T,
-    consent: SchemaClassification | UserConsent,
-    schemas?: Iterable<Schema>
-  ): T;
+  ): T | undefined;
   public censor(
-    id: string | VariableKey,
+    id: string,
     value: any,
-    classification: SchemaClassification,
-    schemas?: Iterable<Schema>
+    consent: SchemaClassification | UserConsent
   ) {
-    return (
-      isString(id)
-        ? this.schema.events?.get(id) ?? this.getType(id, true)
-        : this.getVariable(id, true, schemas)
-    ).censor(value, classification);
+    return (this.schema.events?.get(id) ?? this.getType(id, true)).censor(
+      value,
+      consent
+    );
   }
 
-  public validateVariableUniqueness(schemas?: Iterable<Schema>) {
-    const seen: PartialRecord<
-      VariableScope,
-      Map<string, SchemaVariable[]>
-    > = [] as any;
-
-    const conflicts: SchemaVariable[] = [];
-
-    for (const schema of schemas ?? this.subSchemas.values()) {
-      forEach(schema.variables, ([, variables]) =>
-        variables?.forEach((variable) => {
-          const current = get(
-            (seen[variable.scope] ??= new Map()) as Map<
-              string,
-              SchemaVariable[]
-            >,
-            variable.name,
-            () => []
-          );
-          if (current.length) {
-            conflicts.push(variable);
-          } else {
-            current.push(variable);
-          }
-        })
-      );
-    }
-
-    return conflicts;
+  public createVariableSet(
+    schemas?: string | Iterable<string | Schema | undefined>
+  ) {
+    return new SchemaVariableSet(
+      this,
+      isString(schemas) ? [schemas] : schemas ?? this.subSchemas.values()
+    );
   }
 }
-
-// export class VariableSet {
-
-//   constructor(variables: Map<)
-// }

@@ -1,8 +1,8 @@
 import { VariableScope } from "@tailjs/types";
 import { map } from "@tailjs/util";
-import { TargetedVariableCollection } from "../src/storage/TargetedVariableCollection";
+import { TargetedVariableCollection } from "../src/storage/TargetedVariableMap";
 
-describe("TargetedVariableCollection", () => {
+describe("TargetedVariableMap", () => {
   it("Can get items, and add items if an initializer is provided..", () => {
     const variables = new TargetedVariableCollection<number>();
 

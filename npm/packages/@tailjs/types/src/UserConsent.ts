@@ -31,8 +31,12 @@ export const validateConsent = (
     | { classification: DataClassificationValue; purposes: DataPurposeValue }
 ) =>
   source &&
-  dataClassification(source.classification)! <=
-    dataClassification(consent["classification"] ?? consent["level"]) &&
+  dataClassification.parse(source.classification)! <=
+    dataClassification.parse(
+      consent["classification"] ?? consent["level"],
+      false
+    ) &&
   (source.classification === 0 ||
-    ((dataPurposes(source.purposes) ?? 0) & dataPurposes(consent.purposes)) >
+    ((dataPurposes.parse(source.purposes, false) ?? 0) &
+      dataPurposes.parse(consent.purposes, false)) >
       0);

@@ -24,7 +24,7 @@ export const mapKey = (
 ) =>
   scope === VariableScope.Global ? { scope, key } : { scope, key, targetId };
 
-export class VariableCollection<T = any>
+export class VariableMap<T = any>
   implements Iterable<readonly [readonly [VariableScope, string], T]>
 {
   private readonly _values = new Map<VariableScope, Map<string, T>>();
@@ -52,30 +52,30 @@ export class VariableCollection<T = any>
   }
 
   public get<
-    K extends VariableKey<boolean>,
+    K extends VariableKey<boolean> | null | undefined,
     R extends T | undefined = T | undefined
   >(
     key: K,
     initializer?: (scope: VariableScope, key: string) => R
-  ): K extends undefined ? undefined : R;
+  ): K extends undefined | null ? undefined : R;
   public get<
-    S extends VariableScopeValue | undefined,
+    S extends VariableScopeValue | undefined | null,
     R extends T | undefined = T | undefined
   >(
     scope: S,
     key: string,
     initializer?: (scope: VariableScope, key: string) => R
-  ): S extends undefined ? undefined : R;
+  ): S extends undefined | null ? undefined : R;
   public get(
-    scope: VariableScopeValue
+    scope: VariableScopeValue | null | undefined
   ): Iterable<readonly [string, T]> | undefined;
 
   public get(
-    source: VariableScopeValue | VariableKey<boolean>,
+    source: VariableScopeValue | VariableKey<boolean> | null | undefined,
     arg2?: string | ((scope: VariableScope, key: string) => any),
     initializer?: (scope: VariableScope, key: string) => any
   ) {
-    if (isUndefined(source)) return undefined;
+    if (source == null) return undefined;
     let scope: VariableScope, key: string;
     if (isObject(source, true)) {
       scope = variableScope.parse(source.scope, false);
@@ -103,13 +103,16 @@ export class VariableCollection<T = any>
     return values as Iterable<readonly [string, T]>;
   }
 
-  public has(scope: VariableScopeValue, key?: string): boolean;
-  public has(key: VariableKey<boolean> | undefined): boolean;
   public has(
-    source: VariableKey<boolean> | VariableScopeValue | undefined,
+    scope: VariableScopeValue | null | undefined,
+    key?: string
+  ): boolean;
+  public has(key: VariableKey<boolean> | null | undefined): boolean;
+  public has(
+    source: VariableKey<boolean> | VariableScopeValue | undefined | null,
     key?: string
   ) {
-    if (isUndefined(source)) return undefined;
+    if (source == null) return undefined;
 
     if (isObject(source, true)) {
       return (
@@ -131,15 +134,23 @@ export class VariableCollection<T = any>
     return this;
   }
 
-  public delete(scope: VariableScopeValue): boolean;
-  public delete(scope: VariableScopeValue | undefined, key: string): boolean;
-  public delete(key: VariableKey<boolean> | undefined): boolean;
-  public delete(values: Iterable<ScopeKey | undefined>): boolean;
+  public delete(scope: VariableScopeValue | null | undefined): boolean;
   public delete(
-    arg1: VariableScopeValue | VariableKey<boolean> | Iterable<any> | undefined,
+    scope: VariableScopeValue | null | undefined,
+    key: string
+  ): boolean;
+  public delete(key: VariableKey<boolean> | null | undefined): boolean;
+  public delete(values: Iterable<ScopeKey | null | undefined>): boolean;
+  public delete(
+    arg1:
+      | VariableScopeValue
+      | VariableKey<boolean>
+      | Iterable<any>
+      | null
+      | undefined,
     arg2?: string
   ) {
-    if (isUndefined(arg1)) return false;
+    if (arg1 == null) return false;
 
     let scope: VariableScope, key: string | undefined;
 
@@ -180,20 +191,28 @@ export class VariableCollection<T = any>
   }
 
   public set(
-    scope: VariableScopeValue | undefined,
+    scope: VariableScopeValue | undefined | null,
     key: string,
     value: T | undefined
   ): this;
-  public set(key: VariableKey<boolean> | undefined, value: T | undefined): this;
+  public set(
+    key: VariableKey<boolean> | undefined | null,
+    value: T | undefined
+  ): this;
   public set(
     values: Iterable<readonly [key: ScopeKey, value: T | undefined] | undefined>
   ): this;
   public set(
-    arg1: VariableScopeValue | VariableKey<boolean> | Iterable<any> | undefined,
+    arg1:
+      | VariableScopeValue
+      | VariableKey<boolean>
+      | Iterable<any>
+      | undefined
+      | null,
     arg2?: string | T | undefined,
     arg3?: T | undefined
   ): this {
-    if (!arg1) return this;
+    if (arg1 == null) return this;
 
     let scope: VariableScope, key: string | undefined, value: any;
 
@@ -234,13 +253,13 @@ export class VariableCollection<T = any>
   }
 
   public update<
-    S extends VariableScopeValue | undefined,
+    S extends VariableScopeValue | undefined | null,
     R extends T | undefined
   >(
     scope: S,
     key: string,
     update: (current: T | undefined) => R
-  ): T extends undefined ? undefined : R;
+  ): T extends undefined | null ? undefined : R;
   public update<
     K extends VariableKey<boolean> | undefined,
     R extends T | undefined
@@ -249,11 +268,11 @@ export class VariableCollection<T = any>
     update: (current: T | undefined) => R
   ): T extends undefined ? undefined : R;
   public update(
-    arg1: VariableKey<boolean> | VariableScopeValue | undefined,
+    arg1: VariableKey<boolean> | VariableScopeValue | undefined | null,
     arg2: string | ((current: T | undefined) => any),
     update?: (current: T | undefined) => any
   ): T | undefined {
-    if (isUndefined(arg1)) return undefined;
+    if (arg1 == null) return undefined;
     let scope: VariableScope, key: string;
     if (isObject(arg1, true)) {
       scope = variableScope.parse(arg1.scope);

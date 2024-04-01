@@ -124,6 +124,9 @@ export const testSchema1 = {
           "x-privacy-class": "indirect",
           type: "number",
         },
+        test2: {
+          type: "string",
+        },
       },
     },
 

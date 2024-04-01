@@ -27,7 +27,7 @@ describe("Enum utilities works as they should.", () => {
       "flag test"
     );
 
-    expect(helper.all).toBe(2 | 4);
+    expect(helper.any).toBe(2 | 4);
 
     expect(helper.parse("value1")).toBe(2);
     expect(helper.parse(["value1", "value1"])).toBe(2);
