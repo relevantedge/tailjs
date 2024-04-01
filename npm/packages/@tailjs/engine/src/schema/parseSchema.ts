@@ -1,5 +1,7 @@
 import {
   DataClassification,
+  DataClassificationValue,
+  DataPurposeValue,
   DataPurposes,
   UserConsent,
   dataClassification,
@@ -25,7 +27,7 @@ import {
 import Ajv, { ErrorObject } from "ajv";
 import { SchemaClassification, SchemaPropertyStructure } from "..";
 
-export interface TraverseContext extends Partial<SchemaClassification> {
+export interface TraverseContext extends Partial<SchemaClassification<true>> {
   ajv: Ajv;
   id?: string;
   path: string[];
@@ -48,14 +50,14 @@ export interface ParsedSchemaEntity {
 }
 export interface ParsedSchema
   extends ParsedSchemaEntity,
-    Partial<SchemaClassification> {
+    Partial<SchemaClassification<true>> {
   types: Map<string, ParsedType>;
   subSchemas?: Map<string, ParsedSchema>;
 }
 
 export interface ParsedType
   extends ParsedSchemaEntity,
-    Partial<SchemaClassification> {
+    Partial<SchemaClassification<true>> {
   name: string;
   declaringProperty?: ParsedProperty;
   extends?: Set<ParsedType>;
@@ -70,7 +72,7 @@ export interface ParsedType
 
 export interface ParsedProperty
   extends ParsedSchemaEntity,
-    SchemaClassification {
+    SchemaClassification<true> {
   name: string;
   declaringType: ParsedType;
   objectType?: ParsedType;
@@ -115,8 +117,8 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
 
   const parseClassifications = (
     node: any,
-    defaults?: Partial<SchemaClassification>
-  ): Partial<SchemaClassification> => ({
+    defaults?: Partial<SchemaClassification<true>>
+  ): Partial<SchemaClassification<true>> => ({
     classification:
       dataClassification(node?.["x-privacy-class"]) ??
       (node?.["x-privacy-ignore"]
@@ -427,8 +429,8 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
   };
 
   const updateMinClassifications = (
-    type: Partial<SchemaClassification>,
-    classifications: Partial<SchemaClassification>
+    type: Partial<SchemaClassification<true>>,
+    classifications: Partial<SchemaClassification<true>>
   ) => {
     if (isDefined(classifications.classification)) {
       type.classification = Math.min(

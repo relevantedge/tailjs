@@ -1,14 +1,14 @@
 import {
-  DataClassification,
-  DataPurposes,
+  DataClassificationValue,
+  DataPurposeValue,
   UserConsent,
   VariableScope,
-  VariableScopeValue,
 } from "@tailjs/types";
+import { VariableMap } from "..";
 
-export interface SchemaClassification {
-  classification: DataClassification;
-  purposes: DataPurposes;
+export interface SchemaClassification<NumericEnums extends boolean = boolean> {
+  classification: DataClassificationValue<NumericEnums>;
+  purposes: DataPurposeValue<NumericEnums>;
 }
 
 export type SchemaPropertyStructure = {
@@ -16,7 +16,7 @@ export type SchemaPropertyStructure = {
   array?: boolean | SchemaPropertyStructure;
 };
 
-export interface SchemaEntity extends SchemaClassification {
+export interface SchemaEntity extends SchemaClassification<true> {
   id: string;
   description?: string;
 }
@@ -24,9 +24,8 @@ export interface SchemaEntity extends SchemaClassification {
 export interface Schema extends SchemaEntity {
   parent?: Schema;
   events?: ReadonlyMap<string, SchemaType>;
-  variables?: {
-    [P in VariableScopeValue<false>]?: ReadonlyMap<string, SchemaVariable>;
-  };
+  variables?: VariableMap<SchemaVariable>;
+
   types: ReadonlyMap<string, SchemaType>;
 
   subSchemas?: ReadonlyMap<string, Schema>;

@@ -524,7 +524,7 @@ export const expand = <T>(
 ): T extends undefined ? undefined : Exclude<T, undefined>[] =>
   traverseInternal(root, selector, includeSelf, [], new Set()) as any;
 
-const forEachArray = (source: any[], action: any) => {
+const forEachArray = (source: readonly any[], action: any) => {
   let returnValue: any;
   let i = 0;
   for (let j = 0, n = source.length; j < n; j++) {

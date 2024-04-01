@@ -101,18 +101,36 @@ describe("SchemaManager.", () => {
       })
     );
 
+    expect(() => manager.createVariableSet()).toThrow("already");
+
+    const variables = manager.createVariableSet("urn:tailjs:core");
+
     expect(
-      manager.getVariable({ scope: "session", key: "test" })?.classification
+      variables.get({ scope: "session", key: "test" })?.classification
     ).toBe(DataClassification.Indirect);
 
+    expect(variables.get({ scope: "session", key: "404" })).toBeUndefined();
+
+    expect(variables.tryValidate({ scope: "session", key: "test" }, 20)).toBe(
+      20
+    );
+
     expect(
-      manager.getVariable({ scope: "session", key: "404" })
+      variables.censor({ scope: "session", key: "test" }, 20, {
+        classification: "anonymous",
+        purposes: "any",
+      })
     ).toBeUndefined();
 
-    expect(manager.tryValidate({ scope: "session", key: "test" }, 20)).toBe(20);
+    expect(
+      variables.censor({ scope: "session", key: "test" }, 20, {
+        classification: "indirect",
+        purposes: "any",
+      })
+    ).toBe(20);
 
     expect(
-      manager.tryValidate({ scope: "session", key: "test" }, "test")
+      variables.tryValidate({ scope: "session", key: "test" }, "test")
     ).toBeUndefined();
 
     //expect(manager.validateVariableUniqueness().length).toBe(2);

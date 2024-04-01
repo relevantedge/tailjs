@@ -590,7 +590,7 @@ export const remove: {
 
   return isArray(target)
     ? key < target.length
-      ? target.splice(key, 1)[0]
+      ? (target as any[]).splice(key, 1)[0]
       : undefined
     : clearSingle(target, key);
 };
@@ -642,12 +642,12 @@ export const define: {
 } = (target: any, ...args: any[]) => {
   const add = (arg: any, defaults?: any) => {
     if (!arg) return;
-    let properties: any[];
+    let properties: readonly any[];
     if (isArray(arg)) {
       if (isObject(arg[0])) {
         // Tuple with the first item the defaults and the next the definitions with those defaults,
         // ([{enumerable: false, ...}, ...])
-        arg.splice(1).forEach((items) => add(items, arg[0]));
+        (arg as any[]).splice(1).forEach((items) => add(items, arg[0]));
         return;
       }
       // ([[key1, value1], [key2, value2], ...])

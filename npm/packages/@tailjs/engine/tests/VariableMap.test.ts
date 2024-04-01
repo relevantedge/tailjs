@@ -1,10 +1,10 @@
 import { map } from "@tailjs/util";
-import { VariableCollection } from "../src/storage/VariableCollection";
+import { VariableMap } from "../src/storage/VariableMap";
 import { VariableScope } from "@tailjs/types";
 
-describe("VariableCollection", () => {
+describe("VariableMap", () => {
   it("Can get items, and add items if an initializer is provided..", () => {
-    const variables = new VariableCollection<number>();
+    const variables = new VariableMap<number>();
 
     expect(variables.get("device", "test")).toBeUndefined();
     expect(variables.get("device", "test", () => 10)).toBe(10);
@@ -32,7 +32,7 @@ describe("VariableCollection", () => {
   });
 
   it("Sets", () => {
-    const variables = new VariableCollection<number>();
+    const variables = new VariableMap<number>();
 
     expect(variables.get("entity", "abc")).toBeUndefined();
     variables.set("entity", "abc", 10);

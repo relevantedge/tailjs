@@ -1,11 +1,36 @@
 import { VariableKey, VariableScopeValue } from "@tailjs/types";
 import { isDefined, isIterable, isString, isUndefined } from "@tailjs/util";
-import { VariableCollection, mapKey } from "./VariableCollection";
+import { VariableMap, mapKey } from "..";
+
+export interface ReadOnlyTargetedVariableMap<T = any>
+  extends Iterable<readonly [VariableKey, T]> {
+  readonly size: number;
+
+  get<
+    K extends VariableKey<boolean> | undefined,
+    R extends T | undefined = T | undefined
+  >(
+    key: K,
+    initializer?: (key: VariableKey<true>) => R
+  ): R;
+  get(target: string): VariableMap<T>;
+
+  has(targetId: string, scope?: VariableScopeValue): boolean;
+  has(key: VariableKey<boolean> | undefined): boolean;
+
+  targets<Keys extends boolean = false>(
+    keys?: Keys
+  ): Iterable<
+    Keys extends true
+      ? string[]
+      : readonly [targetId: string, values: VariableMap]
+  >;
+}
 
 export class TargetedVariableCollection<T = any>
-  implements Iterable<readonly [VariableKey, T]>
+  implements ReadOnlyTargetedVariableMap<T>
 {
-  private _scopes = new Map<string, VariableCollection<T>>();
+  private _scopes = new Map<string, VariableMap<T>>();
 
   private _size: number = 0;
   public get size() {
@@ -30,7 +55,7 @@ export class TargetedVariableCollection<T = any>
     K extends VariableKey<boolean> | undefined,
     R extends T | undefined = T | undefined
   >(key: K, initializer?: (key: VariableKey<true>) => R): R;
-  public get(target: string): VariableCollection<T>;
+  public get(target: string): VariableMap<T>;
   public get(
     key: string | VariableKey<boolean> | undefined,
     initializer?: (key: VariableKey<true>) => any
@@ -46,7 +71,7 @@ export class TargetedVariableCollection<T = any>
     if (initializer && !collection) {
       this._scopes.set(
         targetId,
-        (collection = new VariableCollection(this._updateSize))
+        (collection = new VariableMap(this._updateSize))
       );
     }
     return collection?.get(
@@ -132,10 +157,7 @@ export class TargetedVariableCollection<T = any>
     const targetId = key.targetId ?? "";
     let scopes = this._scopes.get(targetId);
     if (!this._scopes.has(targetId)) {
-      this._scopes.set(
-        targetId,
-        (scopes = new VariableCollection(this._updateSize))
-      );
+      this._scopes.set(targetId, (scopes = new VariableMap(this._updateSize)));
     }
     scopes?.set(key, value);
     return this;
@@ -157,7 +179,7 @@ export class TargetedVariableCollection<T = any>
   ): Iterable<
     Keys extends true
       ? string[]
-      : readonly [targetId: string, values: VariableCollection]
+      : readonly [targetId: string, values: VariableMap]
   > {
     return keys ? this._scopes.keys() : (this._scopes.entries() as any);
   }
