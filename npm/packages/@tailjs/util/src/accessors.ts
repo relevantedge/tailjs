@@ -3,8 +3,11 @@ import {
   IIf,
   IsAny,
   Minus,
+  NO_ARG,
   NotFunction,
   PrettifyIntersection,
+  Primitives,
+  RecordType,
   UnionToIntersection,
   count,
   forEach,
@@ -50,32 +53,37 @@ type PropertyContainer<K extends any = any, V extends any = any> =
   | MapLike<K, V>
   | SetLike<K>;
 
+export type TupleIndices<T extends readonly any[]> = T extends readonly []
+  ? never
+  : number extends T["length"]
+  ? number
+  : T extends readonly [any, ...infer Rest]
+  ? TupleIndices<Rest> | Rest["length"]
+  : never;
+
 export type KeyType<T extends ReadonlyPropertyContainer | null | undefined> =
-  T extends null | undefined
+  T extends Primitives
     ? never
     : T extends ReadonlyMapLike<infer K, any> | ReadonlySetLike<infer K>
     ? K
-    : T extends any[]
-    ? number
+    : T extends readonly any[]
+    ? TupleIndices<T>
     : keyof T;
 
 export type ValueType<
   T extends ReadonlyPropertyContainer | null | undefined,
-  K = KeyType<T>,
-  Default = never
+  K = KeyType<T>
 > = IsAny<T> extends true
   ? any
   : T extends null | undefined | void
   ? never
-  : T extends ReadonlyMapLike<any, infer V>
-  ? V | Default
-  : T extends ReadonlySetLike
-  ? boolean | Default
-  : T extends (infer T)[]
-  ? T | Default
-  : K extends keyof T
-  ? T[K] | Default
-  : any;
+  : K extends KeyType<T>
+  ? T extends ReadonlyMapLike<K, infer V>
+    ? V
+    : T extends ReadonlySetLike<K>
+    ? boolean
+    : T[K]
+  : never;
 
 type AcceptUnknownContainers<
   T extends ReadonlyPropertyContainer | null | undefined
@@ -87,8 +95,10 @@ type AcceptUnknownContainers<
   ? MapLike<unknown, unknown> | T
   : T extends SetLike
   ? SetLike<unknown> | T
-  : T extends (infer T)[]
-  ? unknown[] | T
+  : T extends readonly any[]
+  ? number extends T["length"]
+    ? readonly unknown[] | [] | T
+    : T
   : T;
 
 // #endregion
@@ -135,29 +145,20 @@ export const setSingleIfNotDefined = (
 export const get = <
   T extends ReadonlyPropertyContainer | null | undefined,
   K extends KeyType<T>,
-  I extends
-    | ValueType<T, K>
-    | (() =>
-        | AcceptUnknownContainers<ValueType<T, K>>
-        | Readonly<ValueType<T, K>>
-        | undefined)
+  R extends ValueType<T, K> | undefined = undefined
 >(
   target: T,
   key: K | undefined,
-  initializer?: I
+  initializer?: (() => R) | R
 ): T extends null | undefined | void
   ? undefined
-  : ValueType<
-      T,
-      K,
-      unknown extends I
-        ? undefined
-        : I extends () => infer R
-        ? undefined extends R
-          ? undefined
-          : never
-        : never
-    > => {
+  :
+      | ValueType<T, K>
+      | (R extends undefined
+          ? T extends ReadonlyMapLike
+            ? undefined
+            : never
+          : never) => {
   if (!target) return undefined as any;
 
   let value = (target as any).get
@@ -168,7 +169,7 @@ export const get = <
 
   if (isUndefined(value) && isDefined(initializer)) {
     isDefined(
-      (value = isFunction(initializer) ? initializer() : initializer)
+      (value = isFunction(initializer) ? (initializer as any)() : initializer)
     ) && setSingle(target, key, value);
   }
   return value;
@@ -198,13 +199,13 @@ type Updater<
   SettersOnly = false,
   Factory = false
 > = SettersOnly extends true
-  ? ValueType<T, Key, Factory extends true ? never : undefined>
+  ? ValueType<T, Key> | (Factory extends true ? never : undefined)
   : IsAny<T> extends true
   ? NotFunction | UpdateFunction<any, any, any, Factory>
   :
       | (ValueType<T, Key> extends Function
           ? never
-          : ValueType<T, Key, Factory extends true ? never : undefined>)
+          : ValueType<T, Key> | (Factory extends true ? never : undefined))
       | UpdateFunction<T, Key, Current, Factory>;
 
 type UpdaterType<T, SettersOnly = false> = SettersOnly extends true
@@ -257,6 +258,137 @@ type SetErrorHandler<T extends ReadonlyPropertyContainer | null | undefined> = (
   target: T
 ) => string | Error;
 
+type SettableKeyType<T extends PropertyContainer> = T extends readonly any[]
+  ? // `KeyType<T>` won't do.
+    // If this `keyof` constraint is not set TypeScript will only constrain values for readonly tuple items to T[number] and not T[K].
+    keyof T
+  : T extends RecordType
+  ? keyof any
+  : KeyType<T>;
+
+type SettableValueType<T extends PropertyContainer, K> = K extends KeyType<T>
+  ?
+      | ValueType<T, K>
+      // `undefined` removes elements from maps and sets so also allowed.
+      | (T extends MapLike | SetLike ? undefined : never)
+  : T extends RecordType
+  ? any
+  : never;
+
+type SettableValueFunctionType<T extends PropertyContainer, K, V> = (
+  current: SettableValueType<T, K>
+) => V;
+
+type IsGeneralKey<T, S = keyof any> = S extends T ? true : false;
+
+/** List of keys in T that has undefined values. If Template does not allow undefined values for a key it is excluded from the reuslts. */
+type UndefinedKeys<
+  T,
+  Template = {},
+  K extends keyof T = keyof T
+> = K extends keyof T
+  ? T[K] extends undefined
+    ? K extends keyof Template
+      ? undefined extends Template[K]
+        ? K
+        : never
+      : K
+    : never
+  : never;
+
+type SetSingleResultType<
+  T extends PropertyContainer,
+  K,
+  V
+> = T extends RecordType
+  ? AssignRecord<T, { [P in K & keyof any]: V }>
+  : K extends KeyType<T>
+  ? V extends ValueType<T, K> | (T extends readonly any[] ? never : undefined)
+    ? T
+    : never
+  : never;
+
+type SettableKeyValueTuple<T extends PropertyContainer> =
+  KeyType<T> extends keyof any
+    ?
+        | {
+            [P in KeyType<T>]: readonly [P, SettableValueType<T, P>];
+          }[KeyType<T>]
+        | (T extends RecordType ? [keyof any, any] : never)
+    : readonly [KeyType<T>, SettableValueType<T, KeyType<T>>];
+
+type SettableKeyValueRecord<T extends PropertyContainer> =
+  SettableKeyType<T> extends keyof any
+    ? RecordType &
+        ({
+          [P in KeyType<T>]?: SettableValueType<T, P>;
+        } & {
+          [P in SettableKeyType<T>]?: P extends KeyType<T>
+            ? ValueType<T, P>
+            : SettableValueType<T, P>;
+        })
+    : never;
+
+type SettableValueList<T extends PropertyContainer> = T extends Primitives
+  ? never
+  :
+      | SettableKeyValueRecord<T>
+      | readonly (SettableKeyValueRecord<T> | SettableKeyValueTuple<T>)[];
+
+type AllKeys<T> = T extends infer T ? keyof T : never;
+type AnyValue<T, K> = T extends infer T
+  ? K extends keyof T
+    ? T[K]
+    : never
+  : never;
+
+type MergeObjects<T> = {
+  [P in AllKeys<T>]: AnyValue<T, P>;
+};
+
+type KeyValueTupleToRecord<Item> = Item extends readonly [infer K, infer V]
+  ? {
+      [P in K & keyof any]: V;
+    }
+  : Item extends readonly (infer KV)[]
+  ? { [P in KV & keyof any]: KV }
+  : Item extends RecordType
+  ? Item
+  : never;
+
+type AssignRecord<T, S> = {
+  [P in Exclude<
+    keyof T | keyof S,
+    IsGeneralKey<keyof T | keyof S> extends true ? never : UndefinedKeys<S, T>
+  >]: P extends keyof S
+    ? IsGeneralKey<P> extends true
+      ? AnyValue<S | T, P>
+      : P extends keyof T
+      ? S[P] extends T[P]
+        ? GeneralizeContstants<S[P]> extends T[P]
+          ? GeneralizeContstants<S[P]>
+          : S[P]
+        : never
+      : GeneralizeContstants<S[P]>
+    : P extends keyof T
+    ? T[P]
+    : never;
+};
+
+type SetResult<
+  T extends PropertyContainer,
+  V extends any
+> = T extends RecordType
+  ? PrettifyIntersection<
+      AssignRecord<
+        T,
+        V extends RecordType
+          ? V
+          : MergeObjects<KeyValueTupleToRecord<V[keyof V]>>
+      >
+    >
+  : T;
+
 type SetOrUpdateFunction<
   SettersOnly,
   ErrorHandler = false,
@@ -292,8 +424,6 @@ type SetOrUpdateFunction<
   ): T;
 };
 
-const NO_ARG = Symbol();
-
 const createSetOrUpdateFunction =
   <SettersOnly, Error>(
     setter: (target: any, key: any, value: any, error?: any) => any
@@ -304,15 +434,12 @@ const createSetOrUpdateFunction =
       return setter(target, key, value, error);
     }
 
-    if (isObject(key, true)) {
-      forEach(key, (item) =>
-        isObject(item)
-          ? forEach(item, setSingle)
-          : setter(target, item[0], item[1])
-      );
-    } else {
-      setter(target, key, value, error);
-    }
+    forEach(key, (item) =>
+      isArray(item)
+        ? setter(target, item[0], item[1])
+        : forEach(item, ([key, value]) => setter(target, key, value))
+    );
+
     return target;
   };
 
@@ -446,11 +573,11 @@ export const remove: {
   <T extends PropertyContainer | null | undefined>(
     target: T,
     key: KeyType<T> | undefined
-  ): T extends null | undefined ? T : ValueType<T, KeyType<T>, undefined>;
+  ): T extends null | undefined ? T : ValueType<T, KeyType<T>> | undefined;
   <T extends PropertyContainer | null | undefined>(
     target: T,
     ...keys: (KeyType<T> | undefined)[]
-  ): (T extends null | undefined ? T : ValueType<T, KeyType<T>, undefined>)[];
+  ): (T extends null | undefined ? T : ValueType<T, KeyType<T>> | undefined)[];
 } = (target: PropertyContainer, key: any, ...keys: any[]) => {
   if (!target) return undefined;
 

@@ -5,23 +5,26 @@ import {
   GeneralizeContstants,
   get,
   hasMethod,
-  hasValue,
   IsAny,
   isArray,
   isDefined,
   isFalsish,
   isFunction,
-  isIterable,
-  isObject,
   isTruish,
-  isUndefined,
   IterableOrArrayLike,
   KeyValuePairsToObject,
+  MAX_SAFE_INTEGER,
   Minus,
+  NotFunction,
+  symbolIterator,
   toArray,
+  undefined,
 } from ".";
 
 export const UTF16MAX = 0xffff;
+
+let stopInvoked = false;
+export const stop = (yieldValue?: any) => ((stopInvoked = true), yieldValue);
 
 export const toCharCodes = (s: string) =>
   [...new Array(s.length)].map((_, i) => s.charCodeAt(i));
@@ -34,13 +37,13 @@ export type IteratorSource =
   | undefined
   | number
   | Iterable<any>
-  | { [P in keyof any]: any }
+  | NotFunction
   | NavigatingIteratorStep;
 
 export type IteratorSourceOf<T> =
   | (T extends number ? number : never)
   | Iterable<T>
-  | (T extends [infer K, infer V]
+  | (T extends readonly [infer K, infer V]
       ? K extends keyof any
         ? { [P in K]: V }
         : never
@@ -54,14 +57,16 @@ type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
   : S extends Record<any, any> & { [Symbol.iterator]?: never }
   ? S extends (...args: any) => infer T | undefined
     ? T
-    : readonly [keyof S, S[keyof S]]
+    : [keyof S, S[keyof S]]
   : S extends Iterable<infer T>
   ? T
   : never;
 
-export type IteratorItems<S extends IteratorSource[]> = S extends [infer S]
+export type IteratorItems<S extends IteratorSource[]> = S extends readonly [
+  infer S
+]
   ? IteratorItem<S>
-  : S extends [infer S, ...infer Rest]
+  : S extends readonly [infer S, ...infer Rest]
   ? IteratorItem<S> | IteratorItems<Rest>
   : S extends (infer S)[]
   ? IteratorItem<S>
@@ -81,9 +86,8 @@ export type IteratorAction<
   Value = IteratorItem<S>
 > = (
   value: Value,
-  index: number,
-  control: IteratorControl<S>
-) => Projection | undefined | void;
+  index: number
+) => Projection | typeof stop | undefined | void;
 
 type IteratorProjection<
   S extends IteratorSource,
@@ -118,6 +122,46 @@ type UndefinedIfUndefined<S, T> = S extends null | void | undefined
   ? undefined
   : T;
 
+type ProjectedItem<P> = Exclude<P, undefined | void | typeof stop>;
+
+function* createFilteringIterator<
+  S extends IteratorSource,
+  P = IteratorItem<S>
+>(source: S, action?: IteratorAction<S, P>): Iterable<ProjectedItem<P>> {
+  if (!source) return;
+
+  let i = 0;
+  for (let item of source as any) {
+    action && (item = action(item, i++));
+    if (item !== undefined) {
+      yield item;
+    }
+    if (stopInvoked) {
+      stopInvoked = false;
+      break;
+    }
+  }
+}
+
+function* createObjectIterator<
+  S extends Record<keyof any, any>,
+  P = IteratorItem<S>
+>(source: S, action?: IteratorAction<S, P>): Iterable<P> {
+  let i = 0;
+  for (const key in source) {
+    let value = [key, source[key]] as any;
+    action && (value = action(value, i++));
+
+    if (value !== undefined) {
+      yield value;
+    }
+    if (stopInvoked) {
+      stopInvoked = false;
+      break;
+    }
+  }
+}
+
 function* createRangeIterator(length = 0, offset = 0): Iterable<number> {
   while (length--) yield offset++;
 }
@@ -149,145 +193,62 @@ export function* createNavigatingIterator<T>(
   }
 }
 
-const sliceIterator = <T>(
-  source: Iterable<T>,
-  start = 0,
-  end?: number
-): Iterable<T> => {
-  if (!start && !isDefined(end)) {
-    return source;
-  }
-
-  if (source["slice"]) {
-    return source["slice"](start, end);
-  } else if (start < 0 || end! < 0) {
-    return sliceIterator([...source], start, end);
-  }
-
-  return (function* () {
-    end ??= Number.MAX_SAFE_INTEGER;
-
-    for (const item of source) {
-      if (start--) continue;
-      if (!end--) break;
-      yield item;
-    }
-  })();
-};
+const sliceAction = <
+  S extends IteratorSource,
+  A extends IteratorAction<S, any> | undefined
+>(
+  action: A,
+  start: any,
+  end: any
+): A =>
+  (start ?? end) !== undefined
+    ? ((start ??= 0),
+      (end ??= MAX_SAFE_INTEGER),
+      (value, index) =>
+        start--
+          ? undefined
+          : end!--
+          ? action
+            ? action(value, index)
+            : value
+          : end)
+    : (action as any);
 
 export type Filter<S extends IteratorSource> = (
   value: IteratorItem<S>,
   index: number
 ) => any;
 
-const filterIterator = <T>(
-  source: Iterable<T>,
-  filter: Filter<Iterable<T>> = isTruish
-): Iterable<T> => {
-  if (isArray(source)) return source.filter(filter);
-  return (function* () {
-    let i = 0;
-    for (const item of source) {
-      if (filter(item, i++)) {
-        yield item;
-      }
-    }
-  })();
-};
-
-const enum IterationFlag {
-  Yield = 0,
-  Skip = 1,
-  YieldThenEnd = 2,
-  End = 3,
-}
-
-// Important, this must only be called if the action has less than 3 arguments (no requirement for control).
-const createFilteringIterator = <S extends Iterable<any>, P = IteratorItem<S>>(
-  source: S,
-  action?: (value: IteratorItem<S>, index: number) => P,
-  includeUndefined = false
-): Iterable<P> => {
-  if (isArray(source)) {
-    source = (action ? source.map(action as any) : source) as any;
-    return includeUndefined ? source : (source as any).filter(isDefined);
-  }
-
-  return (function* (source: S, capturedAction: typeof action) {
-    let i = 0;
-    // Capture the action parameter. Seems like functions that close over variables from outer scope are slower.
-    for (let item of source) {
-      if (
-        isDefined(capturedAction ? (item = capturedAction(item, i++)) : item)
-      ) {
-        yield item;
-      }
-    }
-  })(source, action);
-};
-
-function* createControllableIterator<
-  S extends Iterable<any>,
-  P = IteratorItem<S>
->(source: S, action: IteratorAction<S, P>): Iterable<P> {
-  let i = 0;
-  let flag = IterationFlag.Yield;
-  let result: P | undefined;
-  const control: IteratorControl<S> = {
-    prev: undefined,
-    source,
-    skip: () => (flag = IterationFlag.Skip),
-    end: (value?: any) => (
-      (flag = isDefined(value)
-        ? IterationFlag.YieldThenEnd
-        : IterationFlag.End),
-      value
-    ),
-  };
-
-  for (const item of source) {
-    if ((result = action(item, i++, control!)!) !== undefined && !(flag % 2)) {
-      yield result;
-      control.prev = item;
-    }
-    if (flag > 1) {
-      break;
-    }
-    flag = IterationFlag.Yield;
-  }
-}
-
 const createIterator = <S extends IteratorSource, P = IteratorItem<S>>(
   source: S,
   action?: IteratorAction<S, P>,
   start?: any,
-  end?: any,
-  includeUndefined = false
+  end?: any
 ): Iterable<P> =>
-  action?.length! >= 3
-    ? createControllableIterator(mapIterator(source, start, end), action as any)
-    : createFilteringIterator(
-        mapIterator(source, start, end),
-        action as any,
-        includeUndefined
+  source == null
+    ? ([] as any)
+    : source[symbolIterator]
+    ? createFilteringIterator(
+        source,
+        start === undefined ? action : sliceAction(action, start as any, end)
+      )
+    : typeof source === "object"
+    ? createObjectIterator(
+        source as any,
+        sliceAction(action, start as any, end)
+      )
+    : createIterator(
+        isFunction(source)
+          ? createNavigatingIterator(source, start, end)
+          : (createRangeIterator(source as number, start as any) as any),
+        action
       );
 
-const mapIterator = <S extends IteratorSource>(
-  source: S,
-  start?: any,
-  end?: any
-): Iterable<IteratorItem<S>> =>
-  isIterable(source, true)
-    ? isDefined(end)
-      ? sliceIterator(mapIterator(source), start, end)
-      : source
-    : !isDefined(source)
-    ? []
-    : isObject(source)
-    ? (mapIterator(Object.entries(source), start, end) as any)
-    : isFunction(source)
-    ? (createNavigatingIterator(source, start, end) as any)
-    : (createRangeIterator(source as number, start) as any);
+const mapToArray = <T, M>(
+  projected: Iterable<T>,
+  map: M
+): true extends M ? T[] : Iterable<T> =>
+  map && !isArray(projected) ? [...projected] : (projected as any);
 
 type ProjectFunction = {
   <S extends IteratorSource, R>(
@@ -330,39 +291,51 @@ export const project: ProjectFunction = ((
   projection: any,
   start: any,
   end: any
-) => {
-  if (!isFunction(projection) && hasValue(projection)) {
-    [start, end, projection] = [projection, start, end];
-  }
-  return createIterator(source, projection, start, end);
-}) as any;
+) =>
+  projection != null && !isFunction(projection)
+    ? // The second argument is the value of `start`.
+      createIterator(source, undefined, projection, start)
+    : createIterator(source, projection, start, end)) as any;
 
 export const flatProject: FlatProjectFunction = function (
   source,
   projection?,
   depth = 1 as any,
-  expandObjects = false as any,
+  expandObjects: any = false,
   start?: any,
   end?: any
 ) {
   return createIterator(
-    flatten(mapIterator(source, start, end), depth + 1),
-    projection as any,
-    start,
-    end
+    flatten(
+      createIterator(source, undefined, start, end),
+      depth + 1,
+      expandObjects,
+      false
+    ),
+    projection
   ) as any;
 
-  function* flatten(value: any, depth: number) {
-    if (expandObjects ? isObject(value, true) : isIterable(value)) {
-      for (const item of mapIterator(value)) {
-        if (depth > 1 || depth <= 0) {
-          yield* flatten(item, depth - 1);
-        } else {
-          yield item;
+  function* flatten(
+    value: any,
+    depth: number,
+    expandObjects: boolean,
+    nested: boolean
+  ) {
+    if (value != null) {
+      if (
+        value?.[symbolIterator] ||
+        (expandObjects && value && typeof value === "object")
+      ) {
+        for (const item of nested ? createIterator(value) : value) {
+          if (depth > 1 || depth <= 0) {
+            yield* flatten(item, depth - 1, expandObjects, true);
+          } else {
+            yield item;
+          }
         }
+      } else {
+        yield value;
       }
-    } else {
-      yield value;
     }
   }
 };
@@ -370,18 +343,34 @@ export const flatProject: FlatProjectFunction = function (
 export const map: MapFunction = (
   source: any,
   projection?: any,
-  start?: any,
+  start: any = undefined,
   end?: any
-) =>
-  isDefined(source)
+) => {
+  if (start === undefined && isArray(source)) {
+    let i = 0;
+    const mapped: any[] = [];
+    for (let j = 0, n = source.length; j < n && !stopInvoked; j++) {
+      let value = source[j];
+      if (projection && value !== undefined) {
+        value = projection(value, i++);
+      }
+      if (value !== undefined) {
+        mapped.push(value);
+      }
+    }
+    stopInvoked = false;
+    return mapped;
+  }
+  return source !== undefined
     ? toArray(project(source, projection, start, end))
     : undefined;
+};
 
 export const zip = <Lhs extends IteratorSource, Rhs extends IteratorSource>(
   lhs: Lhs,
   rhs: Rhs
 ): Iterable<[IteratorItem<Lhs>, IteratorItem<Rhs> | undefined]> => {
-  const it2 = mapIterator(rhs)[Symbol.iterator]();
+  const it2 = createIterator(rhs)[Symbol.iterator]();
   return createIterator(lhs, (lhs) => [lhs, it2.next()?.value] as [any, any]);
 };
 
@@ -432,15 +421,15 @@ export function* concatIterators<S extends IteratorSource[]>(
 ): Iterable<IteratorItems<S>> {
   for (const iterator of iterators) {
     if (!iterator) continue;
-    yield* mapIterator(iterator);
+    yield* createIterator(iterator);
   }
 }
 
-type AllCanBeUndefined<T extends any[]> = T extends [infer S]
+type AllCanBeUndefined<T extends any[]> = T extends readonly [infer S]
   ? undefined extends S
     ? true
     : false
-  : T extends [infer S, ...infer Rest]
+  : T extends readonly [infer S, ...infer Rest]
   ? AllCanBeUndefined<Rest> extends false
     ? false
     : undefined extends S
@@ -512,7 +501,7 @@ const traverseInternal = <T>(
   seen: Set<T>
 ) => {
   if (isArray(root)) {
-    forEach(root, (item) =>
+    forEachInternal(root, (item) =>
       traverseInternal(item, selector, include, results, seen)
     );
     return results;
@@ -521,7 +510,7 @@ const traverseInternal = <T>(
     return undefined;
   }
   include && results.push(root);
-  forEach(selector(root), (item) =>
+  forEachInternal(selector(root), (item) =>
     traverseInternal(item, selector, true, results, seen)
   );
 
@@ -535,17 +524,78 @@ export const expand = <T>(
 ): T extends undefined ? undefined : Exclude<T, undefined>[] =>
   traverseInternal(root, selector, includeSelf, [], new Set()) as any;
 
-export const forEach: <S extends IteratorSource, R>(
-  source: S,
-  action: IteratorAction<S, R>,
-  ...rest: StartEndArgs<S>
-) => R | undefined = (source, action, start?: any, end?: any) => {
-  let returnValue: any = undefined;
-  for (const value of createIterator(source, action, start, end)) {
-    returnValue = value as any;
+const forEachArray = (source: any[], action: any) => {
+  let returnValue: any;
+  let i = 0;
+  for (let j = 0, n = source.length; j < n; j++) {
+    if (
+      source[j] !== undefined &&
+      ((returnValue = action(source[j], i++) ?? returnValue), stopInvoked)
+    ) {
+      stopInvoked = false;
+      break;
+    }
   }
   return returnValue;
 };
+
+const forEachItereable = (source: Iterable<any>, action: any) => {
+  let returnValue: any;
+  let i = 0;
+  for (let value of source as any) {
+    if (
+      value !== undefined &&
+      ((returnValue = action(value, i++) ?? returnValue), stopInvoked)
+    ) {
+      stopInvoked = false;
+      break;
+    }
+  }
+  return returnValue;
+};
+
+const forEachObject = (source: any, action: any) => {
+  let returnValue: any;
+  let i = 0;
+  for (let key in source) {
+    if (
+      ((returnValue = action([key, source[key]], i++) ?? returnValue),
+      stopInvoked)
+    ) {
+      stopInvoked = false;
+      break;
+    }
+  }
+  return returnValue;
+};
+
+const forEachInternal: <S extends IteratorSource, R>(
+  source: S,
+  action: IteratorAction<S, R>,
+  start?: any,
+  end?: any
+) => R | undefined = (source, action, start = undefined, end?: any) => {
+  if (source == null) return;
+
+  let returnValue: any;
+  if (start === undefined) {
+    if (isArray(source)) return forEachArray(source, action);
+    if (source[symbolIterator]) return forEachItereable(source as any, action);
+    if (typeof source === "object") return forEachObject(source, action);
+  }
+
+  for (const value of createIterator(source, action, start, end)) {
+    returnValue = (value as any) ?? returnValue;
+  }
+
+  return returnValue;
+};
+
+export const forEach = forEachInternal as <S extends IteratorSource, R>(
+  source: S,
+  action: IteratorAction<S, R>,
+  ...rest: StartEndArgs<S>
+) => R | undefined;
 
 export const flatForEach = <
   S extends IteratorSource,
@@ -559,7 +609,7 @@ export const flatForEach = <
   expandObjects: O = false as any,
   ...rest: StartEndArgs<S>
 ): R | undefined =>
-  forEach(
+  forEachInternal(
     flatProject(source, undefined, depth, expandObjects, ...(rest as any)),
     action as any
   ) as any;
@@ -577,7 +627,7 @@ export const obj: {
 } = ((source: any, selector: any, ...rest: any[]) =>
   Object.fromEntries((map as any)(source, selector, ...rest))) as any;
 
-export const groupReduce = <
+export const groupReduce: <
   S extends IteratorSource,
   Key,
   Accumulator = unknown
@@ -589,50 +639,57 @@ export const groupReduce = <
     ...rest: Parameters<IteratorAction<S, Accumulator>>
   ) => Accumulator,
   seed?: Accumulator | (() => Accumulator),
-  ...rest: StartEndArgs<S>
-): Map<Key, Accumulator> => {
+  ...reset: StartEndArgs<S>
+) => Map<Key, Accumulator> = (
+  source,
+  keySelector,
+  reducer,
+  seed,
+  start?: any,
+  end?: any
+) => {
   const groups = new Map<any, any>();
   const seedFactory = () => (isFunction(seed) ? seed() : seed);
-  const action: IteratorAction<S, any> = (item, index, control) => {
+  const action: IteratorAction<any, any> = (item, index) => {
     const key = keySelector(item, index);
     let acc = groups.get(key) ?? seedFactory();
-    const value = reducer(acc, item, index, control);
+    const value = reducer(acc, item, index);
     if (isDefined(value)) {
       groups.set(key, value);
     }
   };
-  forEach(
-    source,
-    reducer.length > 3 ? action : (item, index) => (action as any)(item, index),
-    ...rest
-  );
+  forEachInternal(source, action, start, end);
   return groups as any;
 };
 
-export const group = <S extends IteratorSource, Key, R = IteratorItem<S>>(
+export const group: <S extends IteratorSource, Key, R = IteratorItem<S>>(
   source: S,
   keySelector: (item: IteratorItem<S>, index: number) => Key,
-  valueSelector: (item: IteratorItem<S>, index: number) => R = (item: any) =>
-    item,
+  valueSelector?: (item: IteratorItem<S>, index: number) => R,
   ...rest: StartEndArgs<S>
-): S extends undefined ? undefined : Map<Key, R[]> => {
-  if (!source) return undefined as any;
-
-  const groups = new Map<Key, R[]>();
-  forEach(
+) => S extends undefined ? undefined : Map<Key, R[]> = (
+  source,
+  keySelector,
+  valueSelector = (item: any) => item,
+  start?: any,
+  end?: any
+) => {
+  if (source == null) return undefined as any;
+  const groups = new Map<any, any[]>();
+  (forEachInternal as any)(
     source,
-    (item, index) => {
+    (item: any, index: number) => {
       const key = keySelector(item, index);
       const value = valueSelector(item, index);
-      get(groups, key, () => []).push(value);
+      get(groups, key as any, () => []).push(value);
     },
-    ...rest
+    start,
+    end
   );
-
   return groups as any;
 };
 
-export const reduce = <
+export const reduce: <
   S extends IteratorSource,
   Reducer extends (
     ...args: [
@@ -648,24 +705,20 @@ export const reduce = <
   reducer: Reducer,
   seed?: Accumulator | (() => Accumulator),
   ...rest: StartEndArgs<S>
-): Reducer extends (...args: any) => infer R
+) => Reducer extends (...args: any) => infer R
   ? R | (unknown extends Accumulator ? undefined : never)
-  : never => {
+  : never = (source, reducer, seed, start?: any, end?: any) => {
   const seedFactory = () => (isFunction(seed) ? seed() : seed);
   return (
-    forEach(
+    forEachInternal(
       source,
-      reducer.length > 3
-        ? (value, index, control) =>
-            (seed =
-              (reducer(seed as any, value, index, control as any) as any) ??
-              seedFactory())
-        : (value, index) =>
-            (seed =
-              ((reducer as any)(seed as any, value, index) as any) ??
-              seedFactory()),
-      ...rest
-    ) ?? (seed as any)
+      (value, index) =>
+        (seed =
+          ((reducer as any)(seed as any, value, index) as any) ??
+          seedFactory()),
+      start,
+      end
+    ) ?? (seedFactory() as any)
   );
 };
 
@@ -696,16 +749,15 @@ export const filter: {
   start?: any,
   end?: any
 ) =>
-  map
-    ? !source
-      ? undefined
-      : isArray(source)
-      ? source.filter(predicate)
-      : toArray((filter as any)(source, predicate, false, start, end))
-    : (filterIterator(
-        mapIterator(source, start, end) as any,
-        predicate
-      ) as any);
+  mapToArray(
+    createIterator(
+      source,
+      (item, index) => (predicate(item, index) ? item : undefined),
+      start,
+      end
+    ),
+    map
+  ) as any;
 
 let filterInternal = filter;
 
@@ -728,13 +780,12 @@ export const count: <S>(
     if (isDefined((n = source!["length"] ?? source!["size"]))) {
       return n;
     }
-    if (isObject(source)) {
+    if (!source[symbolIterator]) {
       return Object.keys(source).length;
     }
-    source = mapIterator(source, start, end);
   }
   n = 0;
-  return forEach(source, () => ++n) as any;
+  return forEachInternal(source, () => ++n) as any;
 };
 
 export const sum: {
@@ -756,33 +807,29 @@ export const sum: {
 ) =>
   reduce(
     source,
-    (sum, value, index, control) =>
-      sum + (selector(value, index, control) ?? 0),
+    (sum, value, index) => sum + (selector(value, index) ?? 0),
     0,
     start,
     end
   );
 
-export const first = <S extends IteratorSource>(
+export const first: <S extends IteratorSource>(
   source: S,
   ...rest: StartEndArgs<S>
-): IteratorItem<S> | undefined => {
-  if (!source || isArray(source)) return source?.[0];
-  for (const item of mapIterator(source, ...rest)) {
-    return item;
-  }
-  return undefined;
-};
+) => IteratorItem<S> | undefined = (source, start?: any, end?: any) =>
+  !source || isArray(source)
+    ? source?.[0]
+    : forEachInternal(source, (value) => end(value), start, end);
 
-export const last = <S extends IteratorSource>(
+export const last: <S extends IteratorSource>(
   source: S,
   ...rest: StartEndArgs<S>
-): IteratorItem<S> | undefined =>
+) => IteratorItem<S> | undefined = (source, start?: any, end?: any) =>
   !source
     ? undefined
     : isArray(source)
     ? source[source.length - 1]
-    : forEach(source, (item) => item, ...rest);
+    : forEachInternal(source, (item) => item, start, end);
 
 export const find = <S extends IteratorSource>(
   source: S,
@@ -795,25 +842,28 @@ export const find = <S extends IteratorSource>(
     ? (source as any).find(predicate)
     : first(filterInternal(source as any, predicate, false, ...rest));
 
-export const some = <S extends IteratorSource>(
+export const some: <S extends IteratorSource>(
   source: S,
   predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
-): UndefinedIfUndefined<S, boolean> =>
-  !source
+) => UndefinedIfUndefined<S, boolean> = (
+  source,
+  predicate,
+  start?: any,
+  rangeEnd?: any
+) =>
+  source === undefined
     ? undefined
-    : isUndefined(predicate)
-    ? count(source) > 0
     : hasMethod(source, "some")
-    ? source.some(
+    ? source.some(predicate ?? isTruish)
+    : forEachInternal<any, boolean>(
+        source,
         predicate
-          ? (item: any, index: number) => predicate(item, index)
-          : isTruish
-      )
-    : predicate
-    ? some(filterInternal(source as any, predicate, false, ...rest))
-    : forEach<any, boolean>(source, (item, index, { end }) => end(true)) ??
-      false;
+          ? (item, index) => (predicate(item, index) ? stop(true) : false)
+          : () => stop(true),
+        start,
+        rangeEnd
+      ) ?? false;
 
 export const every = <S extends IteratorSource>(
   source: S,
