@@ -62,7 +62,8 @@ type ParseFunction<
     value:
       | V
       | ParsableArg<T, Flags>
-      | (Flags extends true ? V[] | ParsableArg<T, Flags>[] : never)
+      | (Flags extends true ? V[] | ParsableArg<T, Flags>[] : never),
+    validateNumbers?: boolean
   ): V extends null | undefined
     ? undefined
     : Numeric extends false
@@ -121,15 +122,15 @@ export const createEnumAccessor = <
     entries.map(([key, value]) => [value, key])
   );
 
-  const parseValue = (value: any) =>
+  const parseValue = (value: any, validateNumbers?: boolean) =>
     isString(value)
       ? nameLookup[value]
       : isNumber(value)
-      ? flags
-        ? value
-        : isDefined(valueLookup[value])
-        ? value
-        : undefined
+      ? !flags && validateNumbers
+        ? isDefined(valueLookup[value])
+          ? value
+          : undefined
+        : value
       : undefined;
 
   const [tryParse, lookup] = flags

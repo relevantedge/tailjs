@@ -44,12 +44,19 @@ export type PickPartial<T, K extends keyof T> = Omit<T, K> &
 export type Primitives =
   | null
   | undefined
+  | void
   | boolean
   | number
   | bigint
   | string
   | symbol
   | Date;
+
+export type RecordType = object &
+  Record<keyof any, any> & {
+    [Symbol.iterator]?: never;
+    [Symbol.hasInstance]?: never;
+  };
 
 /** Simplifies the return value for functions like `get<T,Required extends boolean>(value: T, required?:Required): MaybeRequired<T,Required> => ...` */
 export type MaybeRequired<T, Required> = IIf<Required, T, T | undefined>;
@@ -312,6 +319,15 @@ export type TypeConverter<T> = (value: any, parse?: boolean) => T | undefined;
 export const undefined = void 0;
 export const nil = null;
 
+/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */
+export const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
+
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */
+export const symbolIterator = Symbol.iterator;
+
+/** Fast way to check for precence of function argument. */
+export const NO_ARG = Symbol();
+
 const createConverter =
   <T>(typeTester: TypeTester<T>, parser?: (value: any) => T | undefined) =>
   (value: any, parse = true) =>
@@ -430,8 +446,7 @@ export const toString = createConverter(isString, (value) =>
   hasValue(value) ? "" + value : value
 );
 
-const capturedIsArray = Array.isArray;
-export const isArray = (value: any): value is any[] => capturedIsArray(value);
+export const isArray: (value: any) => value is readonly any[] = Array.isArray;
 
 /**
  * Returns the value as an array following these rules:
@@ -448,18 +463,19 @@ export const toArray = <T>(
     ? undefined
     : !clone && isArray(value)
     ? value
-    : isIterable(value, false)
+    : isIterable(value)
     ? [...value]
     : ([value] as any);
 
 export const isObject = <AcceptIterables extends boolean = false>(
   value: any,
   acceptIterables: AcceptIterables = false as any
-): value is object &
-  (AcceptIterables extends true ? object : { [Symbol.iterator]?: never }) =>
+): value is AcceptIterables extends true
+  ? object & (Record<keyof any, any> | Iterable<any>)
+  : object & Record<keyof any, any> & { [Symbol.iterator]?: never } =>
   value != null &&
   typeof value === "object" &&
-  (acceptIterables || !value[Symbol.iterator]);
+  (acceptIterables || !value[symbolIterator]);
 
 export const hasMethod = <T, Name extends keyof any>(
   value: T | unknown,
@@ -489,7 +505,7 @@ export const isIterable = (
   value: any,
   acceptStrings = false
 ): value is Iterable<any> =>
-  !!value?.[Symbol.iterator] && (acceptStrings || !isString(value));
+  value?.[symbolIterator] && (typeof value === "object" || acceptStrings);
 
 export const toIterable = <T>(value: T | Iterable<T>): Iterable<T> =>
   isIterable(value) ? value : [value];

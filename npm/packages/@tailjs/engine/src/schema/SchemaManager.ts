@@ -448,9 +448,9 @@ export class SchemaManager {
           );
           if (current.length) {
             conflicts.push(variable);
+          } else {
+            current.push(variable);
           }
-
-          current.push(variable);
         })
       );
     }
@@ -458,3 +458,8 @@ export class SchemaManager {
     return conflicts;
   }
 }
+
+// export class VariableSet {
+
+//   constructor(variables: Map<)
+// }
