@@ -39,6 +39,12 @@ export type PickPartial<T, K extends keyof T> = Omit<T, K> &
   Partial<Pick<T, K>>;
 
 /**
+ * Makes all other properties than the specified partial.
+ */
+export type OmitPartial<T, K extends keyof T> = Pick<T, K> &
+  Partial<Omit<T, K>>;
+
+/**
  * The ECMAScript primitive types.
  */
 export type Primitives =

@@ -22,6 +22,7 @@ describe("SchemaManager.", () => {
 
     const data = testItem<TestType1>({
       testNumber: 20,
+      testNumber2: 22,
       testReference: {
         nestedNumber: 11,
         nestedReference: {
