@@ -1,11 +1,11 @@
-import type {
-  DataClassification,
-  DataPurposes,
-  SignOutEvent,
-  UUID,
-  UserConsent,
-} from ".";
+import type { DataClassification, SignOutEvent, UUID, UserConsent } from ".";
 
+/**
+ * Identifiers related to a user's session, login and device.
+ * Based on the user's consent some of these fields may be unavailable.
+ *
+ * @indirect @necessary
+ */
 export interface Session {
   /**
    * The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards).
@@ -15,6 +15,8 @@ export interface Session {
    * It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.
    *
    * It is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.
+   *
+   * @anonymous
    */
   sessionId: UUID;
 
@@ -43,17 +45,22 @@ export interface Session {
 
   /**
    * The current user owning the session.
+   *
+   * @direct
    */
   userId?: string;
 
   /**
    * The user's consent choices. {@link DataClassification.Anonymous} means the session is cookie-less.
+   *
+   * @none
    */
   consent: UserConsent;
 
   /**
    * This value indicates that an old device session "woke up" with an old device session ID and took over a new one.
    * This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session).
+   *
    */
   expiredDeviceSessionId?: string;
 }

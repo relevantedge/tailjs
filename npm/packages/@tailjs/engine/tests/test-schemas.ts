@@ -4,6 +4,7 @@ export type TestEventBase = {
 
 export type TestType1 = {
   testNumber: number;
+  testNumber2?: number;
   testReference?: TestType2;
   testArray?: TestType3[];
 };
@@ -45,7 +46,7 @@ export const testSchema1 = {
       type: "object",
       properties: {
         type: {
-          "x-privacy-ignore": true,
+          "x-privacy-censor": false,
           type: "string",
         },
       },
@@ -76,6 +77,10 @@ export const testSchema1 = {
       properties: {
         testNumber: {
           "x-privacy-class": "anonymous",
+          type: "number",
+        },
+        testNumber2: {
+          description: "   @direct",
           type: "number",
         },
         testReference: {

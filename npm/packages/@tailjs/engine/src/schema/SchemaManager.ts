@@ -63,7 +63,7 @@ export class SchemaManager {
         .addKeyword("x-privacy-purposes")
         .addKeyword("x-tags")
         .addKeyword("$anchor")
-        .addKeyword("x-privacy-ignore");
+        .addKeyword("x-privacy-censor");
 
       addFormats(ajv);
       return ajv;

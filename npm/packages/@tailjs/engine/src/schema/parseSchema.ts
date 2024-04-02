@@ -10,6 +10,7 @@ import {
   validateConsent,
 } from "@tailjs/types";
 import {
+  OmitPartial,
   PickPartial,
   Wrapped,
   add,
@@ -36,6 +37,7 @@ export interface TraverseContext extends Partial<SchemaClassification<true>> {
   schema?: ParsedSchema;
   classification?: DataClassification;
   purposes?: DataPurposes;
+  uncensored?: boolean;
   node: any;
 }
 
@@ -94,9 +96,17 @@ export interface ParsedProperty
   typeContext?: TraverseContext;
 }
 
+const annotations = {
+  tags: "x-tags",
+  purpose: "x-privacy-purpose",
+  purposes: "x-privacy-purposes",
+  classification: "x-privacy-class",
+  censor: "x-privacy-censor",
+};
+
 const parseDescription = (node: any) => ({
   description: node.description,
-  tags: toArray(node["x-tags"]),
+  tags: toArray(node[annotations.tags]),
 });
 
 export const parseSchema = (schema: any, ajv: Ajv) => {
@@ -116,19 +126,74 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
   };
 
   const parseClassifications = (
-    node: any,
-    defaults?: Partial<SchemaClassification<true>>
-  ): Partial<SchemaClassification<true>> => ({
-    classification:
-      dataClassification(node?.["x-privacy-class"]) ??
-      (node?.["x-privacy-ignore"]
-        ? DataClassification.Anonymous
-        : defaults?.classification),
-    purposes:
-      dataPurposes(node?.["x-privacy-purposes"]) ??
-      dataPurpose(node?.["x-privacy-purpose"]) ??
-      (node?.["x-privacy-ignore"] ? DataPurposes.Any : defaults?.purposes),
-  });
+    context: OmitPartial<
+      TraverseContext,
+      "node" | "classification" | "purposes" | "path"
+    >
+  ): Partial<SchemaClassification<true>> => {
+    const node = context.node;
+
+    let uncensored: boolean | undefined = node[annotations.censor] === false;
+
+    let privacyClass = node[annotations.classification];
+    if (isDefined(node[annotations.purpose] ?? node[annotations.purposes])) {
+      parseError(
+        context,
+        "x-privacy-purpose and x-privacy-purposes cannot be specified at the same time."
+      );
+    }
+    let privacyPurposes =
+      node[annotations.purpose] ?? node[annotations.purposes];
+
+    let description = (node.description as string)
+      ?.replace(/@([a-z]+)/g, (match, keyword) => {
+        if (keyword === "censor_ignore" || keyword === "censor") {
+          uncensored ??= keyword === "censor_ignore";
+          return "";
+        }
+        let parsed = dataPurposes.tryParse(keyword);
+        if (isDefined(parsed)) {
+          privacyPurposes = (privacyPurposes ?? 0) | parsed;
+          return "";
+        }
+        parsed = dataClassification.tryParse(keyword);
+        if (isDefined(parsed)) {
+          privacyClass ??= parsed;
+          return "";
+        }
+
+        return match;
+      })
+      .trim();
+
+    if (!description?.length) {
+      delete node.description;
+    }
+
+    uncensored ??= context.uncensored;
+
+    if (uncensored) {
+      if (
+        (isDefined(privacyClass) &&
+          privacyClass !== DataClassification.Anonymous) ||
+        (isDefined(privacyPurposes) &&
+          !(DataPurposes.Necessary & privacyPurposes))
+      ) {
+        parseError(
+          context,
+          "When 'x-privacy-censor' is false, 'x-privacy-class' and 'x-privacy-purpose' must either be omitted or respectively set to 'anonymous' and 'necessary' (or 'any')."
+        );
+      }
+      privacyClass = DataClassification.Anonymous;
+      privacyPurposes = DataPurposes.Any;
+    }
+
+    return {
+      classification:
+        dataClassification(privacyClass) ?? context.classification,
+      purposes: dataPurposes(privacyPurposes) ?? context.purposes,
+    };
+  };
 
   const parseStructure = (
     context: TraverseContext
@@ -163,7 +228,7 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
     const childContext = {
       ...context,
       key,
-      ...parseClassifications(node, context),
+      ...parseClassifications(context),
       node,
     };
     if (node.$id) {
@@ -280,7 +345,7 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
         ? getRefType(context.schema!, typeContext.node.$ref)
         : undefined;
 
-      const ownClassification = parseClassifications(definition);
+      const ownClassification = parseClassifications(context);
 
       // TODO: Handle obsolete properties (renames).
       // Should be in the form "oldName": {$ref: "#new-property", deprecated: true}.
@@ -292,7 +357,7 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
         declaringType: type,
         required: required.has(key),
         structure,
-        ignore: definition["x-privacy-ignore"],
+        ignore: definition[annotations.censor] === false,
         // Allow classifications to be undefined for now. We will try to derive them from context later.
         classification: ownClassification.classification!,
         purposes: ownClassification.purposes!,
@@ -562,8 +627,10 @@ export const censor = (
   return any ? censored : undefined;
 };
 
-export const parseError = (context: TraverseContext, error: Wrapped<string>) =>
-  `${context.path.join("/")}: ${unwrap(error)}`;
+export const parseError = (
+  context: OmitPartial<TraverseContext, "path">,
+  error: Wrapped<string>
+) => `${context.path.join("/")}: ${unwrap(error)}`;
 
 const navigate = (value: any, path: string) =>
   path
