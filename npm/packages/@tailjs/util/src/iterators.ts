@@ -5,11 +5,14 @@ import {
   GeneralizeContstants,
   get,
   hasMethod,
+  If,
+  IfNot,
   IsAny,
   isArray,
   isDefined,
   isFalsish,
   isFunction,
+  isIterable,
   isTruish,
   IterableOrArrayLike,
   KeyValuePairsToObject,
@@ -517,10 +520,23 @@ const traverseInternal = <T>(
   return results;
 };
 
+type JoinResult<T> = T extends readonly []
+  ? never
+  : T extends readonly [infer Item, ...infer Rest]
+  ?
+      | Exclude<Item extends Iterable<infer T> ? T : Item, undefined>
+      | JoinResult<Rest>
+  : never;
+
+export const join = <T extends readonly any[]>(...items: T): JoinResult<T>[] =>
+  items.flatMap((item) => toArray(item) ?? []).filter(isDefined) as any;
+
 export const expand = <T>(
   root: T | T[],
-  selector: (current: T) => Iterable<T | undefined> | undefined,
-  includeSelf = false
+  selector: (
+    current: Exclude<T, undefined>
+  ) => Iterable<T | undefined> | undefined,
+  includeSelf = true
 ): T extends undefined ? undefined : Exclude<T, undefined>[] =>
   traverseInternal(root, selector, includeSelf, [], new Set()) as any;
 

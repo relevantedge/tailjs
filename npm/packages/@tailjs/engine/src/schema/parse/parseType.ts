@@ -1,0 +1,65 @@
+import { expand, forEach, isDefined, join, throwError } from "@tailjs/util";
+import {
+  ParsedProperty,
+  ParsedType,
+  TraverseContext,
+  parseCompositions,
+  parseDescription,
+  parseError,
+  tryParseObjectComposition,
+  updateContext,
+} from ".";
+
+export const parseType = (
+  node: any,
+  context: TraverseContext,
+  declaringProperty?: ParsedProperty
+): ParsedType | undefined => {
+  if (node.$id && node.$defs) {
+    forEach(node.$defs, ([key, def]) => {
+      const defContext = updateContext(context, "$defs");
+      const type = parseType(def, updateContext(defContext, key));
+      if (type) {
+        defContext.schema?.types.set(type.name, type);
+      }
+    });
+  }
+
+  const objectComposition = tryParseObjectComposition(node, context);
+  if (objectComposition) {
+    if (node.node === context.schema?.context.node) {
+      throw parseError(
+        context,
+        "A schema definition cannot declare a root type."
+      );
+    }
+
+    let name = context.key;
+    let property = declaringProperty;
+    while (property) {
+      name =
+        property.declaringType.name +
+        "_" +
+        property.name +
+        (name !== context.key ? "_" + name : "");
+      property = property.declaringType.declaringProperty!;
+    }
+
+    const type: ParsedType = {
+      id: context.schema?.id! + "#" + name,
+      name,
+      ...parseDescription(node),
+      context,
+      declaringProperty,
+      topLevel: !declaringProperty,
+      properties: new Map(),
+      composition: objectComposition,
+    };
+
+    context.node.$anchor ??= type.name;
+
+    context.parseContext.typeNodes.set(node, type);
+    context.parseContext.types.set(type.id, type);
+    return type;
+  }
+};

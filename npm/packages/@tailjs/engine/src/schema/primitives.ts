@@ -1,13 +1,14 @@
 import { DataClassification, DataPurposes } from "@tailjs/types";
 import {
   forEach,
+  isDefined,
   isInteger,
   isNumber,
   isString,
   single,
   unlock,
 } from "@tailjs/util";
-import { Schema, SchemaType } from "..";
+import { Schema, SchemaPrimitiveType } from "..";
 
 const primitiveSchema: Schema = {
   id: "urn:tailjs:primitive",
@@ -17,7 +18,7 @@ const primitiveSchema: Schema = {
 };
 
 const primitiveShared: Pick<
-  SchemaType,
+  SchemaPrimitiveType,
   "classification" | "purposes" | "primitive" | "censor" | "validate" | "schema"
 > = {
   classification: DataClassification.Anonymous,
@@ -33,56 +34,56 @@ export const primitives = {
     id: primitiveSchema + "#boolean",
     name: "boolean",
     ...primitiveShared,
-  } as SchemaType,
+  } as SchemaPrimitiveType,
 
   integer: {
     id: primitiveSchema + "#integer",
     name: "integer",
     ...primitiveShared,
-  } as SchemaType,
+  } as SchemaPrimitiveType,
 
   float: {
     id: primitiveSchema + "#float",
     name: "float",
     ...primitiveShared,
-  } as SchemaType,
+  } as SchemaPrimitiveType,
 
   string: {
     id: primitiveSchema + "#string",
     name: "string",
     ...primitiveShared,
-  } as SchemaType,
+  } as SchemaPrimitiveType,
 
   date: {
     id: primitiveSchema + "#date",
     name: "datetime",
 
     ...primitiveShared,
-  } as SchemaType,
+  } as SchemaPrimitiveType,
 
   time: {
     id: primitiveSchema + "#time",
     name: "time",
     ...primitiveShared,
-  } as SchemaType,
+  } as SchemaPrimitiveType,
 
   duration: {
     id: primitiveSchema + "#duration",
     name: "duration",
     ...primitiveShared,
-  } as SchemaType,
+  } as SchemaPrimitiveType,
 
   datetime: {
     id: primitiveSchema + "#datetime",
     name: "datetime",
     ...primitiveShared,
-  } as SchemaType,
+  } as SchemaPrimitiveType,
 
   uuid: {
     id: primitiveSchema + "#uuid",
     name: "uuid",
     ...primitiveShared,
-  } as SchemaType,
+  } as SchemaPrimitiveType,
 } as const;
 
 forEach(primitives, ([, type]) =>
@@ -120,8 +121,14 @@ export const tryParsePrimitiveType = (schemaProperty: any) => {
           return primitives.string;
       }
     default:
-      return schemaProperty.const
+      const allowedValues = isDefined(schemaProperty.const)
+        ? [schemaProperty.const]
+        : schemaProperty.enum;
+
+      const type = schemaProperty.const
         ? inferPrimitiveFromValue(schemaProperty.const)
         : single(schemaProperty.enum, inferPrimitiveFromValue);
+
+      return type && { ...type, allowedValues };
   }
 };

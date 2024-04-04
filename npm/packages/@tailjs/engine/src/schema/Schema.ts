@@ -5,6 +5,12 @@ import {
   VariableScope,
 } from "@tailjs/types";
 import { VariableMap } from "..";
+import {
+  AllKeys,
+  CommonTypeTemplate,
+  ExpandTypes,
+  PrettifyIntersection,
+} from "@tailjs/util";
 
 export interface SchemaClassification<NumericEnums extends boolean = boolean> {
   classification: DataClassificationValue<NumericEnums>;
@@ -43,13 +49,30 @@ export interface ValidatableSchemaEntity<T = any> extends SchemaEntity {
 export interface SchemaType<T = any> extends ValidatableSchemaEntity<T> {
   name: string;
   schema: Schema;
-  primitive?: boolean;
-  abstract?: boolean;
+  primitive: boolean;
+}
+
+export interface SchemaObjectType<T = any> extends SchemaType<T> {
+  primitive: false;
+  abstract: boolean;
   properties?: ReadonlyMap<string, SchemaProperty>;
   extends?: ReadonlyMap<string, SchemaType>;
-  extenders?: ReadonlyMap<string, SchemaType>;
+  subtypes?: ReadonlyMap<string, SchemaType>;
   referencedBy?: ReadonlySet<SchemaProperty>;
 }
+export const isObjectType = <T>(
+  type: SchemaType<T>
+): type is SchemaObjectType<T> => !type.primitive;
+
+export interface SchemaPrimitiveType<T = any> extends SchemaType<T> {
+  primitive: true;
+  allowedValues?: any[];
+}
+export const isPrimitiveType = <T>(
+  type: SchemaType<T>
+): type is SchemaPrimitiveType<T> => type.primitive;
+
+export type AnySchemaType = ExpandTypes<SchemaObjectType | SchemaPrimitiveType>;
 
 export interface SchemaProperty<T = any> extends SchemaEntity {
   name: string;

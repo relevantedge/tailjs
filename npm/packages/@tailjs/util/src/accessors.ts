@@ -1,6 +1,7 @@
 import {
+  Extends,
   GeneralizeContstants,
-  IIf,
+  If,
   IsAny,
   Minus,
   NO_ARG,
@@ -72,17 +73,18 @@ export type KeyType<T extends ReadonlyPropertyContainer | null | undefined> =
 
 export type ValueType<
   T extends ReadonlyPropertyContainer | null | undefined,
-  K = KeyType<T>
+  K = KeyType<T>,
+  Context extends undefined | "get" | "set" = undefined
 > = IsAny<T> extends true
   ? any
   : T extends null | undefined | void
   ? never
   : K extends KeyType<T>
   ? T extends ReadonlyMapLike<K, infer V>
-    ? V
+    ? V | If<Extends<Context, "get" | "set">, undefined>
     : T extends ReadonlySetLike<K>
     ? boolean
-    : T[K]
+    : T[K] | If<[Extends<T, RecordType>, Extends<Context, "set">], undefined>
   : never;
 
 type AcceptUnknownContainers<
@@ -142,7 +144,32 @@ export const setSingleIfNotDefined = (
   return setSingle(target, key, value);
 };
 
-export const get = <
+export const get: {
+  <
+    T extends ReadonlyPropertyContainer | null | undefined,
+    K extends KeyType<T>
+  >(
+    target: T,
+    key: K
+  ): ValueType<T, K, "get">;
+  <
+    T extends ReadonlyPropertyContainer | null | undefined,
+    K extends KeyType<T>,
+    R extends
+      | ValueType<T, K>
+      | (() => ValueType<T, K>)
+      | undefined
+      | (() => ValueType<T, K> | undefined)
+  >(
+    target: T,
+    key: K,
+    initializer: R
+  ): ValueType<
+    T,
+    K,
+    R extends ValueType<T, K> | (() => ValueType<T, K>) ? undefined : "get"
+  >;
+} = <
   T extends ReadonlyPropertyContainer | null | undefined,
   K extends KeyType<T>,
   R extends ValueType<T, K> | undefined = undefined
@@ -150,15 +177,7 @@ export const get = <
   target: T,
   key: K | undefined,
   initializer?: (() => R) | R
-): T extends null | undefined | void
-  ? undefined
-  :
-      | ValueType<T, K>
-      | (R extends undefined
-          ? T extends ReadonlyMapLike
-            ? undefined
-            : never
-          : never) => {
+) => {
   if (!target) return undefined as any;
 
   let value = (target as any).get
@@ -396,7 +415,7 @@ type SetOrUpdateFunction<
 > = {
   <
     T extends
-      | IIf<Readonly, ReadonlyPropertyContainer, PropertyContainer>
+      | If<Readonly, ReadonlyPropertyContainer, PropertyContainer>
       | null
       | undefined,
     U extends Updater<
@@ -414,7 +433,7 @@ type SetOrUpdateFunction<
   ): UpdaterType<U>;
   <
     T extends
-      | IIf<Readonly, ReadonlyPropertyContainer, PropertyContainer>
+      | If<Readonly, ReadonlyPropertyContainer, PropertyContainer>
       | null
       | undefined
   >(
@@ -448,6 +467,16 @@ export const update = createSetOrUpdateFunction<false, false>(updateSingle);
 export const assignIfUndefined = createSetOrUpdateFunction<false, true>(
   setSingleIfNotDefined
 );
+
+export const swap = <T extends PropertyContainer, K extends KeyType<T>>(
+  target: T,
+  key: K,
+  value: ValueType<T, K>
+): ValueType<T, K, "get"> => {
+  const current = get(target, key) as any;
+  if (value !== current) setSingle(target, key, value);
+  return current as any;
+};
 
 // #endregion
 

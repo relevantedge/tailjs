@@ -1,5 +1,6 @@
 import { UserConsent, variableScope } from "@tailjs/types";
 import {
+  IfNot,
   MaybeRequired,
   assignIfUndefined,
   forEach,
@@ -17,19 +18,14 @@ import Ajv from "ajv/dist/2020";
 import {
   Schema,
   SchemaClassification,
+  SchemaObjectType,
   SchemaProperty,
   SchemaType,
   SchemaVariable,
   SchemaVariableSet,
   VariableMap,
-  tryParsePrimitiveType,
 } from "..";
-import {
-  censor,
-  parseError,
-  parseSchema,
-  validationError,
-} from "./parseSchema";
+import { censor, parseError, parseSchema, validationError } from "./parse";
 
 const ids = {
   TrackedEvent: "urn:tailjs:core#TrackedEvent",
@@ -38,7 +34,7 @@ const ids = {
 export class SchemaManager {
   public readonly schema: Schema;
   public readonly subSchemas: ReadonlyMap<string, Schema> = new Map();
-  public readonly types: ReadonlyMap<string, SchemaType> = new Map();
+  public readonly types: ReadonlyMap<string, SchemaObjectType> = new Map();
 
   constructor(schemas: any[]) {
     const combinedSchema = {
@@ -103,17 +99,17 @@ export class SchemaManager {
       const validate = required(
         ajv.getSchema(parsed.context.$ref!),
         () =>
-          `INV <> The ref '${parsed.context.$ref}' does not address the type '${type.id}' in the schema.`
+          `INV <> The ref '${parsed.context.$ref}' does not address the type '${parsed.id}' in the schema.`
       );
 
-      const type: SchemaType = {
+      const type: SchemaObjectType = {
         id: parsed.id,
         name: parsed.name,
         description: parsed.description,
         classification: parsed.classification!,
         purposes: parsed.purposes!,
         primitive: false,
-        abstract: parsed.abstract,
+        abstract: !!parsed.abstract,
         schema: invariant(
           this.subSchemas.get(parsed.context.schema!.id),
           "Schemas are mapped."
@@ -142,16 +138,16 @@ export class SchemaManager {
 
       forEach(parsed.extends, (parsedBaseType) =>
         set(
-          (type.extends ??= new Map()),
+          (type.subtypes ??= new Map()),
           invariant(
             this.types.get(parsedBaseType.id),
             `Extended type is mapped.`
           )
         )
       );
-      forEach(parsed.extenders, (parsedBaseType) =>
+      forEach(parsed.subtypes, (parsedBaseType) =>
         set(
-          (type.extenders ??= new Map()),
+          (type.subtypes ??= new Map()),
           invariant(
             this.types.get(parsedBaseType.id),
             "Extending type is mapped."
@@ -172,7 +168,7 @@ export class SchemaManager {
           type: required(
             parsedProperty.objectType
               ? this.types.get(parsedProperty.objectType.id)
-              : tryParsePrimitiveType(parsedProperty.typeContext?.node),
+              : parsedProperty.primitiveType ?? ({} as any),
             () =>
               parseError(
                 parsed.context,
@@ -199,6 +195,8 @@ export class SchemaManager {
           );
         }
 
+        // If $defs defines object types named of a variable scope ("Global", "Session", "Device",  "User" or"Entity"),
+        // their properties will be added as variable definitions to the respective scopes.
         if (variableScope.tryParse(type.name)) {
           const scopeId = variableScope.parse(type.name);
           forEach(type.properties, ([, property]: [any, SchemaVariable]) => {
@@ -292,16 +290,16 @@ export class SchemaManager {
     typeId: MaybeRequired<string, Required>,
     require?: Required & boolean,
     concreteOnly = true
-  ): Required extends true ? SchemaType : undefined | SchemaType {
+  ): SchemaType | IfNot<Required> {
     return require
       ? required(
-          this.getType(typeId, false as any, concreteOnly),
+          this.getType<false>(typeId, false, concreteOnly),
           () => `The type '${typeId}' is not defined.`
         )
       : typeId &&
           validate(
             this.types.get(typeId!),
-            (type) => !concreteOnly || (type && !type.abstract),
+            (type) => !type || !concreteOnly || (type && !type.abstract),
             () =>
               `The type '${typeId}' is abstract and cannot be used directly.`
           );
