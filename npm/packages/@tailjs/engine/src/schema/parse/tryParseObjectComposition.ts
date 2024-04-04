@@ -6,6 +6,7 @@ export const tryParseObjectComposition = (
   context: TraverseContext
 ) => {
   const composition = parseCompositions(node, context);
+
   let isObjectType = false;
   forEach(
     expand(composition, (composition) =>

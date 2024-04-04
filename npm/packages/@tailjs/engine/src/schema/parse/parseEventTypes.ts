@@ -41,7 +41,10 @@ export const parseEventTypes = (context: TraverseContext) => {
 
         if (!eventSchema.properties?.type) {
           (eventSchema.properties ??= {}).type = {
-            const: changeIdentifierCaseStyle(name, "kebab"),
+            const: changeIdentifierCaseStyle(
+              name.replace(/Event$/, ""),
+              "kebab"
+            ),
           };
         } else if (
           isString(eventSchema.properties?.type?.const) ||

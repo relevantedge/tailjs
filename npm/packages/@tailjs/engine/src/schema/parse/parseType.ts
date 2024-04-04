@@ -15,7 +15,7 @@ export const parseType = (
   context: TraverseContext,
   declaringProperty?: ParsedProperty
 ): ParsedType | undefined => {
-  if (node.$id && node.$defs) {
+  if (node.$defs) {
     forEach(node.$defs, ([key, def]) => {
       const defContext = updateContext(context, "$defs");
       const type = parseType(def, updateContext(defContext, key));
@@ -47,6 +47,7 @@ export const parseType = (
 
     const type: ParsedType = {
       id: context.schema?.id! + "#" + name,
+      schemaId: node.$id,
       name,
       ...parseDescription(node),
       context,

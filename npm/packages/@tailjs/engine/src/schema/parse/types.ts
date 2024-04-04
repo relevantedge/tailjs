@@ -52,6 +52,7 @@ export interface ParsedSchema
 export interface ParsedType
   extends ParsedSchemaEntity,
     Partial<SchemaClassification<true>> {
+  schemaId?: string;
   name: string;
   declaringProperty?: ParsedProperty;
   extends?: Set<ParsedType>;

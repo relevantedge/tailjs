@@ -208,11 +208,36 @@ describe("SchemaManager.", () => {
                 type: "object",
                 properties: { test: { type: "string" } },
               },
+              AnotherTestEvent: {
+                type: "object",
+                properties: { test: { type: "string" } },
+              },
+            },
+          },
+          "urn:acme:other": {
+            $schema: "https://json-schema.org/draft/2020-12/schema",
+            $id: "urn:acme:other",
+            "x-privacy-purposes": "functionality",
+            $defs: {
+              Events: {
+                type: "object",
+                properties: {
+                  EventType2: {
+                    type: "object",
+                    properties: { test: { type: "string" } },
+                  },
+                },
+              },
             },
           },
         },
       },
     ]);
     expect(schema.getType("urn:tailjs:core#EventType1")).toBeDefined();
+    expect(schema.getType("urn:tailjs:core#AnotherTestEvent")).toBeDefined();
+    expect(schema.getType("urn:acme:other#EventType2")).toBeDefined();
+    expect(schema.getType("event_type_1")).toBeDefined();
+    expect(schema.getType("event_type_2")).toBeDefined();
+    expect(schema.getType("another_test")).toBeDefined();
   });
 });

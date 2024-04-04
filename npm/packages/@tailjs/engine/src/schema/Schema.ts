@@ -29,7 +29,7 @@ export interface SchemaEntity extends SchemaClassification<true> {
 
 export interface Schema extends SchemaEntity {
   parent?: Schema;
-  events?: ReadonlyMap<string, SchemaType>;
+  events?: ReadonlyMap<string, SchemaObjectType>;
   variables?: VariableMap<SchemaVariable>;
 
   types: ReadonlyMap<string, SchemaType>;
