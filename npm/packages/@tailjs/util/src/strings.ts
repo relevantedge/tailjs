@@ -19,5 +19,13 @@ export const changeIdentifierCaseStyle = (
           : "_"
         : "") +
         changeCase(initial, type === "pascal" || (type === "camel" && index)) +
-        changeCase(rest, false))
+        changeCase(
+          type === "kebab" || type === "snake"
+            ? rest.replace(
+                /(?<=\D)\d|(?<=\d)\D/g,
+                type === "kebab" ? "_$&" : "-$&"
+              )
+            : rest,
+          false
+        ))
   );

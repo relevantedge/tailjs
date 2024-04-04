@@ -13,12 +13,14 @@ import {
   isFalsish,
   isFunction,
   isIterable,
+  isObject,
   isTruish,
   IterableOrArrayLike,
   KeyValuePairsToObject,
   MAX_SAFE_INTEGER,
   Minus,
   NotFunction,
+  RecordType,
   symbolIterator,
   toArray,
   undefined,
@@ -57,10 +59,10 @@ type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
   ? any
   : S extends number
   ? number
-  : S extends Record<any, any> & { [Symbol.iterator]?: never }
-  ? S extends (...args: any) => infer T | undefined
-    ? T
-    : [keyof S, S[keyof S]]
+  : S extends RecordType
+  ? [keyof S, S[keyof S]]
+  : S extends (...args: any) => infer T | undefined
+  ? T
   : S extends Iterable<infer T>
   ? T
   : never;
@@ -779,7 +781,7 @@ let filterInternal = filter;
 
 export const count: <S>(
   source: S,
-  filter?: Filter<S>,
+  predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
 ) => UndefinedIfUndefined<S, number> = (
   source: IteratorSource,
@@ -829,23 +831,74 @@ export const sum: {
     end
   );
 
-export const first: <S extends IteratorSource>(
+export const values: <S extends IteratorSource>(
   source: S,
   ...rest: StartEndArgs<S>
-) => IteratorItem<S> | undefined = (source, start?: any, end?: any) =>
+) => UndefinedIfUndefined<
+  S,
+  IteratorItem<S> extends readonly [any, infer Item] ? Item : IteratorItem<S>
+> = (source, start?: any, end?: any) =>
+  (map as any)(
+    source,
+    isObject(source) ? (item: any) => item[1] : (item: any) => item,
+    start,
+    end
+  );
+
+export const keys: <S extends IteratorSource>(
+  source: S,
+  ...rest: StartEndArgs<S>
+) => UndefinedIfUndefined<
+  S,
+  IteratorItem<S> extends readonly [infer Key, any] ? Key : number
+> = (source, start?: any, end?: any) =>
+  (map as any)(
+    source,
+    isObject(source) ? (item: any) => item[0] : (_item: any, i: number) => i,
+    start,
+    end
+  );
+
+export const first: <S extends IteratorSource>(
+  source: S,
+  predicate?: Filter<S>,
+  ...rest: StartEndArgs<S>
+) => IteratorItem<S> | undefined = (
+  source,
+  predicate?: Filter<any>,
+  start?: any,
+  end?: any
+) =>
   !source || isArray(source)
     ? source?.[0]
-    : forEachInternal(source, (value) => end(value), start, end);
+    : forEachInternal(
+        source,
+        (value, i) =>
+          !predicate || predicate(value, i) ? stop(value) : undefined,
+        start,
+        end
+      );
 
 export const last: <S extends IteratorSource>(
   source: S,
+  predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
-) => IteratorItem<S> | undefined = (source, start?: any, end?: any) =>
+) => IteratorItem<S> | undefined = (
+  source,
+  predicate?: any,
+  start?: any,
+  end?: any
+) =>
   !source
     ? undefined
     : isArray(source)
     ? source[source.length - 1]
-    : forEachInternal(source, (item) => item, start, end);
+    : forEachInternal(
+        source,
+        (item, i) => (!predicate || predicate(item, i) ? item : undefined),
+        start,
+        end
+      );
 
 export const find = <S extends IteratorSource>(
   source: S,

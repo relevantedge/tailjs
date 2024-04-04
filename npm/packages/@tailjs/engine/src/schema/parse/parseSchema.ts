@@ -1,8 +1,6 @@
 import { OmitPartial, Wrapped, map, unwrap } from "@tailjs/util";
 import Ajv, { ErrorObject } from "ajv";
 import {
-  ParsedSchema,
-  ParsedType,
   TraverseContext,
   addProperties,
   parseType,
@@ -11,7 +9,6 @@ import {
 } from ".";
 
 export const parseSchema = (schema: any, ajv: Ajv) => {
-  const typeNodes = new Map<any, ParsedType>();
   const rootContext = updateContext(
     {
       ajv,
@@ -28,7 +25,9 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
 
   parseType(schema, rootContext);
 
-  typeNodes.forEach((type) => addProperties(type, type.composition));
+  rootContext.parseContext.typeNodes.forEach((type) =>
+    addProperties(type, type.composition)
+  );
 
   updateBaseTypes(rootContext);
 

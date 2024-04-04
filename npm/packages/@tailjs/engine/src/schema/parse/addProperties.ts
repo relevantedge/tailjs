@@ -49,7 +49,10 @@ export const addProperties = (
         typeContext,
       };
 
-      if (tryParseObjectComposition(typeContext.node, typeContext)) {
+      if (
+        typeContext.node.properties &&
+        tryParseObjectComposition(typeContext.node, typeContext)
+      ) {
         objectType = parseType(typeContext.node, typeContext, property)!;
       }
       if ((property.objectType = objectType)) {

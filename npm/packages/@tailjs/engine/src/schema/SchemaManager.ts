@@ -3,6 +3,7 @@ import {
   IfNot,
   MaybeRequired,
   assignIfUndefined,
+  first,
   forEach,
   invariant,
   isString,
@@ -24,12 +25,9 @@ import {
   SchemaVariable,
   SchemaVariableSet,
   VariableMap,
+  systemTypes,
 } from "..";
 import { censor, parseError, parseSchema, validationError } from "./parse";
-
-const ids = {
-  TrackedEvent: "urn:tailjs:core#TrackedEvent",
-};
 
 export class SchemaManager {
   public readonly schema: Schema;
@@ -125,9 +123,14 @@ export class SchemaManager {
             ? value
             : throwError(validationError(type.id, validate.errors, value)),
       };
+      unlock(type.schema.types).set(type.id, type);
       (this.types as Map<any, any>).set(type.id, type);
     });
 
+    var trackedEvent = first(
+      parsedTypes,
+      ([, type]) => type.schemaId === systemTypes.event
+    )?.[1];
     parsedTypes.forEach((parsed) => {
       const type = this.types.get(parsed.id)!;
 
@@ -180,7 +183,11 @@ export class SchemaManager {
         };
         unlock((type.properties ??= new Map())).set(property.name, property);
 
-        if (key === "type" && type.extends?.has(ids.TrackedEvent)) {
+        if (
+          trackedEvent &&
+          key === "type" &&
+          parsed.extends?.has(trackedEvent)
+        ) {
           toArray(
             parsedProperty.typeContext?.node.const ??
               parsedProperty.typeContext?.node.enum
@@ -298,7 +305,7 @@ export class SchemaManager {
         )
       : typeId &&
           validate(
-            this.types.get(typeId!),
+            this.schema.events?.get(typeId!) ?? this.types.get(typeId!),
             (type) => !type || !concreteOnly || (type && !type.abstract),
             () =>
               `The type '${typeId}' is abstract and cannot be used directly.`

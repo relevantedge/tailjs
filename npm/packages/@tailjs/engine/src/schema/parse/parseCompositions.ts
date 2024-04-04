@@ -2,6 +2,7 @@ import { forEach, required } from "@tailjs/util";
 import {
   ParsedComposition,
   TraverseContext,
+  getRefType,
   parseError,
   updateContext,
 } from ".";
@@ -19,7 +20,9 @@ export const parseCompositions = (
 
   const expandRef = (ref: string | undefined) => {
     if (!ref) return undefined;
-
+    if (ref[0] === "#") {
+      ref = context.schema?.id + ref;
+    }
     const node = required(context.ajv.getSchema(ref)?.schema, () =>
       parseError(context, `Ref '${ref}' not found`)
     );

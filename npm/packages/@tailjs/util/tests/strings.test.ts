@@ -9,7 +9,10 @@ describe("strings.ts", () => {
     expect(changeIdentifierCaseStyle("Foo$Bar", "kebab")).toBe("foo_$bar");
     expect(changeIdentifierCaseStyle("FooBarID", "kebab")).toBe("foo_bar_id");
     expect(changeIdentifierCaseStyle("camelCase123", "kebab")).toBe(
-      "camel_case123"
+      "camel_case_123"
+    );
+    expect(changeIdentifierCaseStyle("test123Test3", "kebab")).toBe(
+      "test_123_test_3"
     );
     expect(changeIdentifierCaseStyle("ID", "kebab")).toBe("id");
     expect(changeIdentifierCaseStyle("ID_id", "kebab")).toBe("id_id");
@@ -29,7 +32,10 @@ describe("strings.ts", () => {
     expect(changeIdentifierCaseStyle("Foo$Bar", "snake")).toBe("foo-$bar");
     expect(changeIdentifierCaseStyle("FooBarID", "snake")).toBe("foo-bar-id");
     expect(changeIdentifierCaseStyle("camelCase123", "snake")).toBe(
-      "camel-case123"
+      "camel-case-123"
+    );
+    expect(changeIdentifierCaseStyle("test123Test3", "snake")).toBe(
+      "test-123-test-3"
     );
     expect(changeIdentifierCaseStyle("ID", "snake")).toBe("id");
     expect(changeIdentifierCaseStyle("ID_id", "snake")).toBe("id-id");
@@ -51,6 +57,9 @@ describe("strings.ts", () => {
     expect(changeIdentifierCaseStyle("camelCase123", "pascal")).toBe(
       "CamelCase123"
     );
+    expect(changeIdentifierCaseStyle("test123Test3", "pascal")).toBe(
+      "Test123Test3"
+    );
     expect(changeIdentifierCaseStyle("ID", "pascal")).toBe("ID");
     expect(changeIdentifierCaseStyle("ID_id", "pascal")).toBe("IDId");
     expect(changeIdentifierCaseStyle("kebab", "pascal")).toBe("Kebab");
@@ -70,6 +79,9 @@ describe("strings.ts", () => {
     expect(changeIdentifierCaseStyle("FooBarID", "camel")).toBe("fooBarID");
     expect(changeIdentifierCaseStyle("camelCase123", "camel")).toBe(
       "camelCase123"
+    );
+    expect(changeIdentifierCaseStyle("test123Test3", "camel")).toBe(
+      "test123Test3"
     );
     expect(changeIdentifierCaseStyle("ID", "camel")).toBe("id");
     expect(changeIdentifierCaseStyle("ID_id", "camel")).toBe("idId");
