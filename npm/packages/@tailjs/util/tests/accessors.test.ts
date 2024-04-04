@@ -7,6 +7,7 @@ import {
   map,
   clone,
   ConstToNormal,
+  swap,
 } from "../src";
 
 const tuple = <R extends any[]>(...values: R): R => values;
@@ -97,6 +98,13 @@ describe("Accessors accesses what they access", () => {
     assign(o as any, "test37", 38);
     expect(get(o as any, "test37", 37)).toBe(38);
   });
+
+  it("swaps", () => {
+    const map = new Map<string, string>();
+    expect(swap(map, "test", "value")).toBeUndefined();
+    expect(swap(map, "test", "value")).toBe("value");
+  });
+
   it("clones", () => {
     let [o, a, m, s] = createTestTargets();
 

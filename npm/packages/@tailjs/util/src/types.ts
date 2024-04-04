@@ -65,20 +65,30 @@ export type RecordType = object &
   };
 
 /** Simplifies the return value for functions like `get<T,Required extends boolean>(value: T, required?:Required): MaybeRequired<T,Required> => ...` */
-export type MaybeRequired<T, Required> = IIf<Required, T, T | undefined>;
+export type MaybeRequired<T, Required> = If<Required, T, T | undefined>;
 
 /** Negates a Boolean value */
-export type Not<B> = IIf<B, false, true>;
+export type Not<B> = If<B, false, true>;
+
+type And<P1, P2> = P1 | P2 extends true ? true : false;
+
+export type All<P extends readonly any[]> = P extends []
+  ? true
+  : P extends [infer Item, ...infer Rest]
+  ? And<Item extends false ? false : true, All<Rest>>
+  : false;
 
 /** Simplifies Boolean checks (insted of having to write B extends bla, bla...).  */
-export type IfNot<B, T> = IIf<B, never, T>;
+export type IfNot<B, True = undefined, False = never> = If<B, False, True>;
 
 /** Simplifies Boolean checks (insted of having to write B extends bla, bla...).  */
-export type IIf<B, True, False = never> = B extends true
+export type If<B, True, False = never> = B extends true
   ? True
-  : B extends (unknown extends B ? any : false)
+  : B extends (unknown extends B ? any : false | undefined)
   ? False
   : never;
+
+export type Extends<T1, T2> = T1 extends T2 ? true : false;
 
 /**
  * Common function type used for projection of [key,value] entries.
@@ -255,6 +265,8 @@ type InferContra<T> = [T] extends [(arg: infer I) => void] ? I : never;
 
 type PickOne<T> = InferContra<InferContra<Contra<Contra<T>>>>;
 
+export type MaybeUndefined<T, R = T> = T extends undefined ? undefined : R;
+
 /**
  * Trick for having a function that returns a non-null value, if a formal paramter always has a non-null value,
  * simliar to .NET's [NotNullIfNotNull].
@@ -275,6 +287,29 @@ export type Nulls<T, NullLevels = null | undefined> = T extends
   ? T extends NullLevels | void
     ? T & NullLevels
     : NullLevels
+  : never;
+
+export type AllKeys<Ts> = Ts extends infer T ? keyof T : never;
+/**
+ * Creates a new type where with all the properties from any of the specified types.
+ * This can make life easier for code working with polymorphic types.
+ */
+
+export type CommonTypeTemplate<Ts> = {
+  [P in AllKeys<Ts>]?: Ts extends infer T
+    ? P extends keyof T
+      ? T[P]
+      : never
+    : never;
+};
+
+export type ExpandTypes<
+  Ts,
+  Common = CommonTypeTemplate<Ts>
+> = Ts extends infer T
+  ? {
+      [P in keyof Common]: P extends keyof T ? T[P] : Common[P];
+    }
   : never;
 
 /**

@@ -1,6 +1,7 @@
 import {
   count,
   every,
+  expand,
   filter,
   flatForEach,
   flatMap,
@@ -250,6 +251,34 @@ describe("iterators.ts", () => {
         (i) => i
       )
     ).toEqual(-1);
+  });
+
+  it("expands", () => {
+    type Nested = {
+      name: string;
+      children?: Nested[];
+    };
+
+    const test: Nested = {
+      name: "test1",
+      children: [
+        { name: "test1.1", children: [{ name: "test1.1.1" }] },
+        { name: "test1.2" },
+      ],
+    };
+    expect(
+      map(
+        expand(test, (item) => item.children, true),
+        (item) => item.name
+      )
+    ).toEqual(["test1", "test1.1", "test1.1.1", "test1.2"]);
+
+    expect(
+      map(
+        expand(test, (item) => item.children, false),
+        (item) => item.name
+      )
+    ).toEqual(["test1.1", "test1.1.1", "test1.2"]);
   });
 
   it.skip("Performance test", () => {

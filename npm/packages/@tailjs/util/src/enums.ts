@@ -118,7 +118,7 @@ export const createEnumAccessor = <
 
   const parseValue = (value: any, validateNumbers?: boolean) =>
     isString(value)
-      ? nameLookup[value]
+      ? nameLookup[value] ?? nameLookup[value.toLowerCase()]
       : isNumber(value)
       ? !flags && validateNumbers
         ? isDefined(valueLookup[value])

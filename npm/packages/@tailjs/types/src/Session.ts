@@ -4,7 +4,8 @@ import type { DataClassification, SignOutEvent, UUID, UserConsent } from ".";
  * Identifiers related to a user's session, login and device.
  * Based on the user's consent some of these fields may be unavailable.
  *
- * @indirect @necessary
+ * @privacy indirect, any
+ *
  */
 export interface Session {
   /**

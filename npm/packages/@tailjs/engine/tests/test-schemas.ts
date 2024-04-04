@@ -1,3 +1,136 @@
+import { clone } from "@tailjs/util";
+
+export const schemaHeader = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "urn:tailjs:core",
+  "x-privacy-class": "anonymous",
+  "x-privacy-purposes": "necessary",
+};
+
+export const systemEvents = {
+  TrackedEvent: {
+    $id: "urn:tailjs:core:event",
+    type: "object",
+    properties: {
+      type: {
+        "x-privacy-censor": "ignore",
+        type: "string",
+      },
+    },
+    required: ["type"],
+  },
+};
+
+export type CompositionTest1 = {
+  test?: string;
+  test2?: string;
+  test3?: number;
+};
+
+export const compositionSchema = {
+  ...schemaHeader,
+  $defs: {
+    Test1: {
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            test: { type: "string" },
+            test3: { type: "number" },
+          },
+          required: ["test"],
+        },
+        {
+          type: "object",
+          properties: {
+            test2: { type: "string" },
+          },
+        },
+      ],
+    },
+  },
+};
+
+export interface PolyBase {
+  $type: string;
+  baseProperty?: string;
+}
+export interface PolyType1 extends PolyBase {
+  $type: "type1";
+  sub1?: string;
+}
+
+export interface PolyType2 extends PolyBase {
+  $type: "type2";
+  sub2?: number;
+}
+
+export interface PolyType3 extends PolyBase {
+  sub2?: string;
+  sub3?: string;
+}
+
+export interface PolyType31 extends PolyBase {
+  $type: "type31";
+}
+
+export interface PolyTest1 {
+  reference?: PolyBase;
+}
+
+export const invalidPolymorphicSchema = {
+  ...schemaHeader,
+  $defs: {
+    BaseType: {
+      type: "object",
+      properties: {
+        $type: { type: "string" },
+        baseProperty: {
+          type: "string",
+        },
+      },
+      required: ["$type"],
+    },
+    SubType1: {
+      $ref: "urn:tailjs:core#/$defs/BaseType",
+      properties: {
+        sub1: { type: "string" },
+      },
+    },
+    SubType2: {
+      type: "object",
+      allOf: [{ $ref: "urn:tailjs:core#/$defs/BaseType" }],
+      properties: {
+        sub2: { type: "number" },
+      },
+    },
+    SubType3: {
+      type: "object",
+      $ref: "urn:tailjs:core#/$defs/BaseType",
+      properties: {
+        sub2: { type: "string" },
+      },
+    },
+    SubType31: {
+      type: "object",
+      $ref: "urn:tailjs:core#/$defs/SubType3",
+      properties: {
+        $type: { const: "type31" },
+      },
+    },
+    Test1: {
+      type: "object",
+      properties: {
+        reference: { $ref: "#/$defs/BaseType" },
+      },
+    },
+  },
+};
+
+export const polymorphicSchema = clone(invalidPolymorphicSchema) as any;
+polymorphicSchema.$defs.SubType1.properties.$type = { const: "type1" };
+polymorphicSchema.$defs.SubType2.properties.$type = { const: "type2" };
+
 export type TestEventBase = {
   type: string;
 };
@@ -34,29 +167,19 @@ export type TestEvent3 = TestEvent2 & {
   type: "current_name";
 };
 
-export const testSchema1 = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  $id: "urn:tailjs:core",
-  "x-privacy-class": "anonymous",
-  "x-privacy-purposes": "necessary",
+export type TestEvent4 = TestEventBase & {
+  type: "test_event4";
+  name: string;
+};
 
+export const bigSchema = {
+  ...schemaHeader,
   $defs: {
-    TrackedEvent: {
-      $anchor: "event",
-      type: "object",
-      properties: {
-        type: {
-          "x-privacy-censor": false,
-          type: "string",
-        },
-      },
-      required: ["type"],
-    },
-
+    ...systemEvents,
     TestEvent1: {
       allOf: [
         {
-          $ref: "urn:tailjs:core#event",
+          $ref: "urn:tailjs:core:event",
         },
         {
           type: "object",
@@ -80,7 +203,7 @@ export const testSchema1 = {
           type: "number",
         },
         testNumber2: {
-          description: "   @direct",
+          description: "   @privacy direct",
           type: "number",
         },
         testReference: {
@@ -145,7 +268,7 @@ export const testSchema1 = {
           allOf: [
             {
               type: "object",
-              $ref: "urn:tailjs:core#event",
+              $ref: "urn:tailjs:core:event",
             },
           ],
           type: "object",
@@ -176,6 +299,24 @@ export const testSchema1 = {
           type: "object",
           properties: {
             type: { type: "string", enum: ["current_name", "old_name"] },
+          },
+        },
+        TestEvent4: {
+          description:
+            "Used to validate that the base event's `type` property gets ignored during censored.",
+
+          allOf: [
+            {
+              $ref: "urn:tailjs:core:event",
+            },
+          ],
+
+          properties: {
+            type: { const: "test_event4" },
+            name: {
+              "x-privacy-class": "direct",
+              type: "string",
+            },
           },
         },
         Type2: {
