@@ -3,6 +3,7 @@ import Ajv, { ErrorObject } from "ajv";
 import {
   TraverseContext,
   addProperties,
+  createSchemaNavigator,
   parseType,
   updateBaseTypes,
   updateContext,
@@ -18,6 +19,7 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
         typeNodes: new Map(),
         schemas: new Map(),
         types: new Map(),
+        navigator: createSchemaNavigator(schema),
       },
     },
     "#"
@@ -40,7 +42,7 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
 export const parseError = (
   context: OmitPartial<TraverseContext, "path">,
   error: Wrapped<string>
-) => `${context.path.join("/")}: ${unwrap(error)}`;
+) => new Error(`${context.path.join("/")}: ${unwrap(error)}`);
 
 const navigate = (value: any, path: string) =>
   path

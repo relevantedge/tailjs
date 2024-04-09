@@ -1,9 +1,8 @@
-import { expand, forEach, isDefined, join, throwError } from "@tailjs/util";
+import { map, obj } from "@tailjs/util";
 import {
   ParsedProperty,
   ParsedType,
   TraverseContext,
-  parseCompositions,
   parseDescription,
   parseError,
   tryParseObjectComposition,
@@ -15,15 +14,25 @@ export const parseType = (
   context: TraverseContext,
   declaringProperty?: ParsedProperty
 ): ParsedType | undefined => {
-  if (node.$defs) {
-    forEach(node.$defs, ([key, def]) => {
-      const defContext = updateContext(context, "$defs");
-      const type = parseType(def, updateContext(defContext, key));
-      if (type) {
-        defContext.schema?.types.set(type.name, type);
-      }
-    });
-  }
+  ["$defs", "definitions"].forEach((defPath) => {
+    let defs = node[defPath];
+    if (defs) {
+      defs = node[defPath] = obj(
+        map(defs, ([key, def]) => {
+          if ((key as string).startsWith("NamedParameters")) {
+            // This is a TypeScript function that has sneaked into the schema. Remove.
+            return undefined;
+          }
+          const defContext = updateContext(context, defPath);
+          const type = parseType(def, updateContext(defContext, key));
+          if (type) {
+            defContext.schema?.types.set(type.name, type);
+          }
+          return [key, def] as const;
+        })
+      );
+    }
+  });
 
   const objectComposition = tryParseObjectComposition(node, context);
   if (objectComposition) {
@@ -57,8 +66,8 @@ export const parseType = (
       composition: objectComposition,
     };
 
-    context.node.$anchor ??= type.name;
-
+    context.node.$anchor ??= encodeURIComponent(type.name);
+    context.node.type ??= "object";
     context.parseContext.typeNodes.set(node, type);
     context.parseContext.types.set(type.id, type);
     return type;

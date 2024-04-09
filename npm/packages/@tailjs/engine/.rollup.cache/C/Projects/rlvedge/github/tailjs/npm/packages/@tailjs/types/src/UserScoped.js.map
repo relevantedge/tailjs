@@ -1,0 +1,1 @@
+{"version":3,"file":"UserScoped.js","sourceRoot":"","sources":["UserScoped.ts"],"names":[],"mappings":"","sourcesContent":["import { Scoped } from \".\";\n\n/**\n * Events implementing this interface indicate that they contain information that applies to the user across all session (e.g. a user profile settings).\n */\nexport interface UserScoped extends Scoped {}\n"]}

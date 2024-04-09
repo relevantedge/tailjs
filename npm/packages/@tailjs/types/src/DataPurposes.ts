@@ -1,10 +1,13 @@
 import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
 
-export const enum DataPurposes {
+export enum DataPurposes {
+  /** Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema. */
+  None = 0,
+
   /**
    * Data stored for this purpose is vital for the system, website or app to function.
    */
-  Necessary = 1 << 0,
+  Necessary = 1,
 
   /**
    * Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app
@@ -18,7 +21,7 @@ export const enum DataPurposes {
    * also be distributed across multiple domain names.
    *
    */
-  Functionality = 1 << 1,
+  Functionality = 2,
 
   /**
    * Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including
@@ -32,7 +35,7 @@ export const enum DataPurposes {
    * also be distributed across multiple domain names.
    *
    */
-  Performance = 1 << 2,
+  Performance = 4,
 
   /**
    * Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties
@@ -43,41 +46,54 @@ export const enum DataPurposes {
    * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
    * also be distributed across multiple domain names.
    */
-  Targeting = 1 << 3,
+  Targeting = 8,
 
   /**
    * Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,
    * or for a website to guard itself against various kinds of attacks.
    */
-  Security = 1 << 4,
+  Security = 16,
 
   /**
    * Data stored for this purpose may be similar to the performance category, however it is specifically
    * only used for things such as health monitoring, system performance and error logging and unrelated to user behavior.
    */
-  Infrastructure = 1 << 5,
+  Infrastructure = 32,
 
   /**
-   * Any purpose.
+   * Data can be used for any purpose.
    */
-  Any = ~0,
+  Any = 63,
 }
 
-const purposes = {
-  necessary: DataPurposes.Necessary,
-  functionality: DataPurposes.Functionality,
-  performance: DataPurposes.Performance,
-  targeting: DataPurposes.Targeting,
-  security: DataPurposes.Security,
-  infrastructure: DataPurposes.Infrastructure,
-} as const;
-
-export const dataPurposes = createEnumAccessor(purposes, true, "data purpose");
-export const dataPurpose = createEnumAccessor(purposes, false, "data purpose");
+export const dataPurposes = createEnumAccessor(
+  DataPurposes as typeof DataPurposes,
+  true,
+  "data purpose"
+);
+export const dataPurpose = createEnumAccessor(
+  DataPurposes as typeof DataPurposes,
+  false,
+  "data purpose"
+);
 
 export type DataPurposeValue<Numeric extends boolean | undefined = boolean> =
-  ParsableEnumValue<typeof purposes, Numeric, true>;
+  ParsableEnumValue<
+    typeof DataPurposes,
+    Numeric,
+    true,
+    DataPurposes
+  > extends infer T
+    ? T
+    : never;
 
 export type SingleDataPurposeValue<
   Numeric extends boolean | undefined = boolean
-> = ParsableEnumValue<typeof purposes, Numeric, false>;
+> = ParsableEnumValue<
+  typeof DataPurposes,
+  Numeric,
+  false,
+  DataPurposes
+> extends infer T
+  ? T
+  : never;

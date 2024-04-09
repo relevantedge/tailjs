@@ -1,0 +1,1 @@
+{"version":3,"file":"Perzonalizable.js","sourceRoot":"","sources":["Perzonalizable.ts"],"names":[],"mappings":"","sourcesContent":["import { Personalization } from \".\";\n\nexport interface Personalizable {\n  personalization?: Personalization[];\n}\n"]}

@@ -1,12 +1,12 @@
 import {
   HttpRequest,
+  TrackedEventBatch,
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
 } from "@tailjs/engine";
-import { TrackedEvent, transformLocalIds } from "@tailjs/types";
-import { toString } from "@tailjs/util";
-import { Lock } from "semaphore-async-await";
+import { transformLocalIds } from "@tailjs/types";
+import { Lock, createLock } from "@tailjs/util";
 
 export interface RavenDbSettings {
   url: string;
@@ -27,7 +27,7 @@ export class RavenDbTracker implements TrackerExtension {
   private _cert?: HttpRequest["x509"];
   constructor(settings: RavenDbSettings) {
     this._settings = settings;
-    this._lock = new Lock();
+    this._lock = createLock();
   }
 
   private _nextId = 0;
@@ -60,7 +60,7 @@ export class RavenDbTracker implements TrackerExtension {
         };
       }
     } catch (e) {
-      env.log({
+      env.log(this, {
         group: this.id,
         level: "error",
         source: `${this.id}:initialize`,
@@ -69,38 +69,30 @@ export class RavenDbTracker implements TrackerExtension {
     }
   }
 
-  async post(
-    events: TrackedEvent[],
-    tracker: Tracker,
-    env: TrackerEnvironment
-  ): Promise<void> {
+  async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
     try {
       const commands: any[] = [];
 
-      let sessionId = toString(tracker.vars["rd_s"]?.value);
-      let deviceId = toString(tracker.vars["rd_d"]?.value);
-      let deviceSessionId = toString(tracker.vars["rd_ds"]?.value);
-
-      tracker.vars["rd_s"] = {
-        scope: "session",
-        essential: true,
-        critical: true,
-        value: (sessionId ??= (await this._getNextId()).toString(36)),
-      };
-
-      tracker.vars["rd_d"] = {
-        scope: "device",
-        essential: true,
-        critical: true,
-        value: (deviceId ??= (await this._getNextId()).toString(36)),
-      };
-
-      tracker.vars["rd_ds"] = {
-        scope: "device-session",
-        essential: true,
-        critical: true,
-        value: (deviceSessionId ??= (await this._getNextId()).toString(36)),
-      };
+      const [sessionId, deviceId] = await tracker.get([
+        {
+          scope: "session",
+          key: "rdb_s",
+          initializer: async () => ({
+            classification: "anonymous",
+            purposes: "necessary",
+            value: (await this._getNextId()).toString(36),
+          }),
+        },
+        {
+          scope: "device",
+          key: "rdb_d",
+          initializer: async () => ({
+            classification: "anonymous",
+            purposes: "necessary",
+            value: (await this._getNextId()).toString(36),
+          }),
+        },
+      ]);
 
       for (let ev of events) {
         ev["rdb:timestamp"] = Date.now();
@@ -114,11 +106,8 @@ export class RavenDbTracker implements TrackerExtension {
         if (ev.session) {
           (ev.session as any)["rdb:deviceId"] = ev.session.deviceId;
           (ev.session as any)["rdb:sessionId"] = ev.session.sessionId;
-          (ev.session as any)["rdb:deviceSessionId"] =
-            ev.session.deviceSessionId;
-          ev.session.deviceId = deviceId;
-          ev.session.sessionId = sessionId;
-          ev.session.deviceSessionId = deviceSessionId;
+          ev.session.deviceId = deviceId.value;
+          ev.session.sessionId = sessionId.value;
         }
 
         commands.push({
@@ -143,12 +132,7 @@ export class RavenDbTracker implements TrackerExtension {
         body: JSON.stringify({ Commands: commands }),
       });
     } catch (e) {
-      env.log({
-        group: this.id,
-        level: "error",
-        source: `${this.id}:post`,
-        message: "" + e,
-      });
+      tracker.env.error(this, e);
     }
   }
 
@@ -156,7 +140,7 @@ export class RavenDbTracker implements TrackerExtension {
     let id = ++this._nextId;
 
     if (id >= this._idRangeMax) {
-      await this._lock.wait();
+      const lockHandle = await this._lock();
       try {
         id = ++this._nextId;
         if (id >= this._idRangeMax) {
@@ -197,24 +181,22 @@ export class RavenDbTracker implements TrackerExtension {
             }
             idMax = value + this._idBatchSize;
 
-            this._env.log({
-              group: this.id,
-              level: "debug",
-              source: "ids",
-              message: `The server reported the next global ID to be ${value}. Retrying with next ID ${idMax}.`,
-            });
+            this._env.debug(
+              this,
+              `The server reported the next global ID to be ${value}. Retrying with next ID ${idMax}.`
+            );
           }
           id = ++this._nextId;
         }
       } catch (e) {
-        this._env.log({
+        this._env.log(this, {
           group: this.id,
           level: "error",
           source: this.id,
           message: "" + e,
         });
       } finally {
-        this._lock.release();
+        lockHandle();
       }
     }
     return id;

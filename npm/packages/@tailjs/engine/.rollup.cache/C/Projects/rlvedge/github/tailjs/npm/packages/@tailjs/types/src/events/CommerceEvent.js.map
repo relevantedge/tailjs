@@ -1,0 +1,1 @@
+{"version":3,"file":"CommerceEvent.js","sourceRoot":"","sources":["CommerceEvent.ts"],"names":[],"mappings":"","sourcesContent":["import { TrackedEvent } from \"..\";\n\nexport interface CommerceEvent extends TrackedEvent {}\n"]}

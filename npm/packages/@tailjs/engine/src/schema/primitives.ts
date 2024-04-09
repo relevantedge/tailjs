@@ -100,7 +100,9 @@ export const inferPrimitiveFromValue = (value: any) =>
     : undefined;
 
 export const tryParsePrimitiveType = (schemaProperty: any) => {
-  switch (schemaProperty?.type) {
+  if (!schemaProperty) return undefined;
+
+  switch (schemaProperty.type) {
     case "integer":
       return primitives.integer;
     case "number":
@@ -121,6 +123,17 @@ export const tryParsePrimitiveType = (schemaProperty: any) => {
           return primitives.string;
       }
     default:
+      if (
+        (schemaProperty.anyOf as any[])?.some(
+          (item) => isNumber(item.const) || (item.enum as any[])?.some(isNumber)
+        )
+      ) {
+        // anyOf's with const numbers are interpreted as enums.
+        // We do the fancy pants transformation where the string names are also included as valid enum values
+        // so the criteria is that if any of the anyOf nodes have an `enum` property containing a number, it is also considered a number.
+        return primitives.integer;
+      }
+
       const allowedValues = isDefined(schemaProperty.const)
         ? [schemaProperty.const]
         : schemaProperty.enum;

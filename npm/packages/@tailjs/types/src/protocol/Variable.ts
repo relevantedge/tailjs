@@ -7,7 +7,7 @@ import {
   Timestamp,
 } from "..";
 
-export const enum VariableScope {
+export enum VariableScope {
   Global = 0,
   Session = 1,
   Device = 2,
@@ -15,21 +15,14 @@ export const enum VariableScope {
   Entity = 4,
 }
 
-const scopes = {
-  global: VariableScope.Global,
-  session: VariableScope.Session,
-  device: VariableScope.Device,
-  user: VariableScope.User,
-  entity: VariableScope.Entity,
-} as const;
 export const variableScope = createEnumAccessor(
-  scopes,
+  VariableScope as typeof VariableScope,
   false,
   "variable scope"
 );
 
 export type VariableScopeValue<Numeric extends boolean | undefined = boolean> =
-  ParsableEnumValue<typeof scopes, Numeric, false>;
+  ParsableEnumValue<typeof VariableScope, Numeric, false, VariableScope>;
 
 type UndefinedIfUndefined<Src, T> = Src extends undefined | null
   ? T | undefined

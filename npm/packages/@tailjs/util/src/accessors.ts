@@ -1,4 +1,5 @@
 import {
+  And,
   Extends,
   GeneralizeContstants,
   If,
@@ -18,8 +19,10 @@ import {
   isDefined,
   isFunction,
   isObject,
+  isString,
   isUndefined,
   map,
+  reduce,
   throwError,
 } from ".";
 
@@ -34,7 +37,7 @@ type MapLike<K = any, V = any> = ReadonlyMapLike<K, V> & {
   delete(key: K): any;
 };
 
-type ReadonlySetLike<K = any, V = any> = {
+type ReadonlySetLike<K = any> = {
   has(key: K): boolean;
 };
 type SetLike<K = any> = ReadonlySetLike<K> & {
@@ -84,7 +87,7 @@ export type ValueType<
     ? V | If<Extends<Context, "get" | "set">, undefined>
     : T extends ReadonlySetLike<K>
     ? boolean
-    : T[K] | If<[Extends<T, RecordType>, Extends<Context, "set">], undefined>
+    : T[K] | If<And<Extends<T, RecordType>, Extends<Context, "set">>, undefined>
   : never;
 
 type AcceptUnknownContainers<
@@ -648,7 +651,7 @@ type EntriesToObject<Entries> = UnionToIntersection<
 >;
 
 type InlinePropertyDescriptors<T> = {
-  [P in keyof T]: T[P] extends { value: infer V }
+  [P in keyof T]: T[P] extends () => infer V | { value: infer V }
     ? V
     : T[P] extends { get(): infer V }
     ? V
@@ -667,7 +670,8 @@ export const define: {
   <T, P extends PropertyList[]>(
     target: T,
     ...properties: P
-  ): PrettifyIntersection<T & EntriesToObject<P[number]>>;
+  ): (T extends Function ? T : {}) &
+    PrettifyIntersection<T & EntriesToObject<P[number]>>;
 } = (target: any, ...args: any[]) => {
   const add = (arg: any, defaults?: any) => {
     if (!arg) return;
@@ -694,6 +698,8 @@ export const define: {
         ...defaults,
         ...(isObject(value) && ("get" in value || "value" in value)
           ? value
+          : isFunction(value) && !value.length
+          ? { get: value }
           : { value }),
       })
     );
@@ -759,6 +765,7 @@ export type Wrapped<T> =
   | T
   | (() => Wrapped<T>)
   | ((arg: any, ...args: any) => never);
+
 export type Unwrap<T> = T extends Wrapped<infer T> ? T : never;
 
 export const unwrap = <T extends Wrapped<any>>(value: T): Unwrap<T> =>

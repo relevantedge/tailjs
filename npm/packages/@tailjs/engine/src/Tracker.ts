@@ -14,7 +14,7 @@ import {
   VariableQueryResult,
   VariableScope,
   VariableSetResult,
-  VariableSetStatus,
+  SetStatus,
   VariableSetter,
   dataClassification,
   dataPurposes,
@@ -166,6 +166,7 @@ export class Tracker {
   public readonly transient: Record<string, any>;
 
   private readonly _clientCipher: Transport;
+
   public readonly clientKey: string;
 
   public host: string;
@@ -248,7 +249,10 @@ export class Tracker {
   private _consent: {
     level: DataClassification;
     purposes: DataPurposes;
-  } = { level: DataClassification.Anonymous, purposes: DataPurposes.Necessary };
+  } = {
+    level: DataClassification.Anonymous,
+    purposes: DataPurposes.Necessary,
+  };
 
   public get consent() {
     return this._consent;
@@ -419,7 +423,7 @@ export class Tracker {
     key: VariableKey<boolean>,
     current: Variable | undefined
   ) {
-    const scope = variableScope(key.scope);
+    const scope = variableScope.parse(key.scope);
     if (key.key === SCOPE_DATA_KEY) {
       if (scope === VariableScope.Session) {
         // TODO: Reset session if purged.
@@ -498,7 +502,7 @@ export class Tracker {
     const timestamp = now();
     const consentData = (
       this.cookies["consent"]?.value ??
-      `${dataClassification.anonymous}:${dataPurposes.necessary}`
+      `${DataClassification.Anonymous}:${DataPurposes.Necessary}`
     ).split(":");
 
     this._consent = {
@@ -758,8 +762,8 @@ export class Tracker {
     }
   }
 
-  get<K extends (VariableGetter<any> | null | undefined)[]>(
-    keys: K & (VariableGetter<any> | null | undefined)[]
+  get<K extends readonly (VariableGetter<any> | null | undefined)[]>(
+    keys: K | readonly (VariableGetter<any> | null | undefined)[]
   ): MaybePromise<VariableGetResults<K>> {
     return this.env.storage.get(
       keys as VariableGetter<any>[],
@@ -779,8 +783,8 @@ export class Tracker {
     return this.env.storage.query(filters, options, this._getStorageContext());
   }
 
-  async set<V extends (VariableSetter<any> | null | undefined)[]>(
-    variables: V & (VariableSetter<any> | null | undefined)[]
+  async set<V extends readonly (VariableSetter<any> | null | undefined)[]>(
+    variables: V | readonly (VariableSetter<any> | null | undefined)[]
   ): Promise<VariableSetResults<V>> {
     const results = await this.env.storage.set(
       variables,

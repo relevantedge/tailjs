@@ -26,7 +26,7 @@ import { typeTest } from "../util/type-test";
 export interface ConsentEvent extends TrackedEvent {
   type: "CONSENT";
 
-  level?: DataClassification;
+  level?: DataClassificationValue;
 
   purposes?: DataPurposeValue;
 }

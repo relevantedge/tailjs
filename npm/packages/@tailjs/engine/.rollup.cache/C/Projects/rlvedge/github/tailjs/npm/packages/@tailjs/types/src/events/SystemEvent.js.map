@@ -1,0 +1,1 @@
+{"version":3,"file":"SystemEvent.js","sourceRoot":"","sources":["SystemEvent.ts"],"names":[],"mappings":"","sourcesContent":["import { TrackedEvent } from \"..\";\n\n/**\n * Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics.\n */\nexport interface SystemEvent extends TrackedEvent {}\n"]}

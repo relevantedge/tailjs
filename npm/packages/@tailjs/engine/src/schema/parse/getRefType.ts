@@ -1,18 +1,72 @@
-import { MaybeUndefined, isUndefined, required } from "@tailjs/util";
-import { ParsedType, TraverseContext } from ".";
+import {
+  IfDefined,
+  forEach,
+  isArray,
+  isDefined,
+  isObject,
+  isUndefined,
+  required,
+} from "@tailjs/util";
+import { ParsedType, TraverseContext, parseError } from ".";
 
-export const getRefType = <T extends string | undefined>(
+export const getRefSchema = <T extends string | undefined>(
   context: TraverseContext,
   ref: T
-): MaybeUndefined<T, ParsedType> => {
+): IfDefined<T, any> => {
   if (isUndefined(ref)) return undefined as any;
 
   if (ref.startsWith("#")) {
     ref = (context.schema?.id! + ref) as any;
   }
-  const def = context.ajv.getSchema(ref!)?.schema;
+  return context.parseContext.navigator(context, ref!); // context.ajv.getSchema(ref!)?.schema as any;
+};
+
+export const getRefType = <T extends string | undefined>(
+  context: TraverseContext,
+  ref: T
+): IfDefined<T, ParsedType> => {
+  if (isUndefined(ref)) return undefined as any;
+
+  const def = getRefSchema(context, ref);
   return required(
     def && context.parseContext.typeNodes.get(def),
-    `Referenced type '${ref}' is not defined`
+    () => `Referenced type '${ref}' is not defined`
   ) as any;
+};
+
+export const createSchemaNavigator = (node: any) => {
+  const ids = new Map<string, any>();
+
+  const parseIds = (node: any) => {
+    if (isArray(node)) {
+      forEach(node, (node) => parseIds(node));
+      return;
+    } else if (!isObject(node)) {
+      return;
+    }
+
+    if (node.$id) {
+      ids.set(node.$id, node);
+    }
+    forEach(node, ([, value]) => parseIds(value));
+  };
+  parseIds(node);
+
+  return (context: TraverseContext, ref: string) => {
+    const parts = ref.split("#");
+
+    let node = ids.get(parts[0] ?? context.schema?.id);
+    if (!node) {
+      throw parseError(
+        context,
+        `Unabled to resolve navigation root node for the ref '${ref}'`
+      );
+    }
+    const segments = (parts[1] ?? "").split("/").filter((item) => item);
+    for (const segment of segments) {
+      node = node[segment];
+      if (!node) return undefined;
+    }
+    return node;
+  };
 };

@@ -1,0 +1,1 @@
+{"version":3,"file":"Rectangle.js","sourceRoot":"","sources":["Rectangle.ts"],"names":[],"mappings":"","sourcesContent":["import { Position, Size } from \".\";\n\nexport interface Rectangle extends Position, Size {}\n"]}

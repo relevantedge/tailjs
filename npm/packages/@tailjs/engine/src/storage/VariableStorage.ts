@@ -58,11 +58,11 @@ type MapVariableGetResult<Getter> = Getter extends VariableGetter<infer T>
     : VariableGetResult<unknown extends T ? any | undefined : undefined>
   : undefined;
 
-export type VariableGetResults<K extends any[]> = K extends []
+export type VariableGetResults<K extends readonly any[]> = K extends readonly []
   ? []
-  : K extends [infer Item, ...infer Rest]
+  : K extends readonly [infer Item, ...infer Rest]
   ? [MapVariableGetResult<Item>, ...VariableGetResults<Rest>]
-  : K extends (infer T)[]
+  : K extends readonly (infer T)[]
   ? MapVariableGetResult<T>[]
   : never;
 
@@ -72,7 +72,7 @@ type MapVariableSetResult<Source> = Source extends VariableSetter<infer T>
     : VariableSetResult<T>
   : never;
 
-export type VariableSetResults<K extends any[] = any[]> = K extends []
+export type VariableSetResults<K extends readonly any[] = any[]> = K extends []
   ? []
   : K extends [infer Item, ...infer Rest]
   ? [MapVariableSetResult<Item>, ...VariableSetResults<Rest>]
@@ -83,8 +83,8 @@ export type VariableSetResults<K extends any[] = any[]> = K extends []
 export interface ReadOnlyVariableStorage {
   initialize?(environment: TrackerEnvironment): MaybePromise<void>;
 
-  get<K extends (VariableGetter<any> | null | undefined)[]>(
-    keys: K & (VariableGetter<any> | null | undefined)[], // K & and the base type to enable intellisense.
+  get<K extends readonly (VariableGetter<any> | null | undefined)[]>(
+    keys: K | readonly (VariableGetter<any> | null | undefined)[], // K & and the base type to enable intellisense.
     context?: VariableStorageContext
   ): MaybePromise<VariableGetResults<K>>;
 
@@ -117,8 +117,8 @@ export interface VariableStorage extends ReadOnlyVariableStorage {
     context?: VariableStorageContext
   ): MaybePromise<void>;
 
-  set<V extends (VariableSetter<any> | null | undefined)[]>(
-    variables: V & (VariableSetter<any> | null | undefined)[], // V & and the base type to enable intellisense.
+  set<V extends readonly (VariableSetter<any> | null | undefined)[]>(
+    variables: V | readonly (VariableSetter<any> | null | undefined)[], // V & and the base type to enable intellisense.
     context?: VariableStorageContext
   ): MaybePromise<VariableSetResults<V>>;
 

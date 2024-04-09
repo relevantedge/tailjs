@@ -1,0 +1,1 @@
+{"version":3,"file":"View.js","sourceRoot":"","sources":["View.ts"],"names":[],"mappings":"","sourcesContent":["import { Content, Personalizable } from \".\";\n\nexport interface View extends Content, Personalizable {\n  /**\n   * The page was shown in preview/staging mode.\n   */\n  preview?: boolean;\n}\n"]}

@@ -1,4 +1,5 @@
 import { DataClassification, DataPurposes } from "@tailjs/types";
+import * as fs from "fs";
 import { SchemaManager } from "../src";
 import {
   CompositionTest1,
@@ -160,9 +161,10 @@ describe("SchemaManager.", () => {
   });
 
   it("Supports polymorphism.", () => {
-    expect(() => new SchemaManager([invalidPolymorphicSchema])).toThrow(
-      "discriminate"
-    );
+    // Discriminator no longer required.
+    // expect(() => new SchemaManager([invalidPolymorphicSchema])).toThrow(
+    //   "discriminate"
+    // );
     const manager = new SchemaManager([polymorphicSchema]);
 
     expect(
@@ -214,6 +216,20 @@ describe("SchemaManager.", () => {
               },
             },
           },
+          EventType3: {
+            type: "object",
+            properties: { number3: { type: "number" } },
+          },
+          EventType4: {
+            type: "object",
+            properties: { type: { const: "ev4" }, number3: { type: "number" } },
+          },
+          Event: {
+            anyOf: [
+              { $ref: "#/$defs/EventType3" },
+              { $ref: "#/$defs/EventType4" },
+            ],
+          },
           "urn:acme:other": {
             $schema: "https://json-schema.org/draft/2020-12/schema",
             $id: "urn:acme:other",
@@ -236,8 +252,35 @@ describe("SchemaManager.", () => {
     expect(schema.getType("urn:tailjs:core#EventType1")).toBeDefined();
     expect(schema.getType("urn:tailjs:core#AnotherTestEvent")).toBeDefined();
     expect(schema.getType("urn:acme:other#EventType2")).toBeDefined();
+    expect(schema.getType("urn:tailjs:core#EventType3")).toBeDefined();
+    expect(schema.getType("urn:tailjs:core#EventType4")).toBeDefined();
     expect(schema.getType("event_type_1")).toBeDefined();
     expect(schema.getType("event_type_2")).toBeDefined();
+    expect(schema.getType("event_type_3")).toBeDefined();
+    expect(schema.getType("ev4")).toBeDefined();
     expect(schema.getType("another_test")).toBeDefined();
+  });
+
+  it("Parses the real schema", () => {
+    const fullSchemaPath = "packages/@tailjs/types/dist/schema/dist/index.json";
+    if (!fs.existsSync(fullSchemaPath)) {
+      console.error(
+        `${fullSchemaPath} does not exist. Please bulid @tailjs/schema before running this test.`
+      );
+      return;
+    }
+
+    const schema = fs.readFileSync(fullSchemaPath, "utf-8");
+    const manager = new SchemaManager([schema]);
+
+    const clickIntent = manager.getType("COMPONENT_CLICK_INTENT");
+    expect(clickIntent).toBeDefined();
+
+    console.log(
+      clickIntent.validate({
+        type: "COMPONENT_CLICK_INTENT",
+        pos: { x: 32, y: 80 },
+      })
+    );
   });
 });

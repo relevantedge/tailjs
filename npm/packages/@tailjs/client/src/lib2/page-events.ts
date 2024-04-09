@@ -5,7 +5,7 @@ import {
   clock,
   createEvent,
   createEventBinders,
-  timer,
+  createTimer,
   isArray,
   joinEventBinders,
   map,
@@ -75,20 +75,18 @@ dispatchPageLoaded(loaded);
 
 type PageActivatedListenerArgs = [activated: boolean, totalDuration: number];
 let activated = false;
-let activeTime = timer(false);
+let activeTime = createTimer(false);
 
 const [addPageActivatedListener, dispatchPageActivated] =
   createEvent<PageActivatedListenerArgs>();
 
-const activationTimeout = clock(
-  () =>
+const activationTimeout = clock({
+  callback: () =>
     activated && dispatchPageActivated((activated = false), activeTime(false)),
-  {
-    frequency: 20000,
-    once: true,
-    paused: true,
-  }
-);
+  frequency: 20000,
+  once: true,
+  paused: true,
+});
 const setActivated = () =>
   !activated &&
   (dispatchPageActivated((activated = true), activeTime(true)),

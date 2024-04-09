@@ -3,6 +3,7 @@
     "baseUrl": ".",
     "target": "ESNext",
     "module": "ESNext",
+
     "strictNullChecks": true,
     "noErrorTruncation": true,
     "moduleResolution": "node",
@@ -12,10 +13,14 @@
     "stripInternal": true,
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",
+
     "paths": {
-      "@constants": ["./constants"],
-      "@tailjs/types": ["./packages/@tailjs/types/src"],
-      "@tailjs/types/schema": ["./packages/@tailjs/types/src/schema"],
+      "@constants": ["constants"],
+      "@tailjs/types": ["packages/@tailjs/types/src"],
+      "@tailjs/types/schema": ["packages/@tailjs/types/src/schema"],
+      "@tailjs/types/ts-json-schema-generator": [
+        "packages/@tailjs/types/src/ts-json-schema-generator.pkg"
+      ],
       "@tailjs/engine": ["./packages/@tailjs/engine/src"],
       "@tailjs/engine/native": ["./packages/@tailjs/engine/src/native.pkg"],
       "@tailjs/maxmind": ["./packages/@tailjs/maxmind/src"],
@@ -31,9 +36,6 @@
     },
     "types": ["jest"]
   },
-  "ts-node": {
-    "esm": true,
-    "experimentalSpecifierResolution": "node"
-  },
+
   "exclude": ["**/dist", "**/build", "*config.js"]
 }

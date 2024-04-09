@@ -3,7 +3,7 @@ import {
   VariableGetter,
   VariablePatch,
   VariableSetResult,
-  VariableSetStatus,
+  SetStatus,
   VariableSetter,
   isConflictResult,
   isErrorResult,
@@ -90,7 +90,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
           ([index, source]) =>
             source &&
             (finalResults[index] = {
-              status: VariableSetStatus.Error as const,
+              status: SetStatus.Error as const,
               error: `Operation did not complete after ${retries} attempts. ${e}`,
               source: source,
             })
@@ -152,7 +152,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
     let setter: VariableSetter<any, true>;
     results.forEach(
       (result, i) =>
-        result?.status === VariableSetStatus.Unsupported &&
+        result?.status === SetStatus.Unsupported &&
         isVariablePatch((setter = setters[i])) &&
         patches.push([i, setter])
     );
@@ -167,7 +167,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
         const patched = applyPatchOffline(current, patch);
         if (!patched) {
           results[sourceIndex] = {
-            status: VariableSetStatus.Unchanged,
+            status: SetStatus.Unchanged,
             current,
             source: setters[sourceIndex],
           };

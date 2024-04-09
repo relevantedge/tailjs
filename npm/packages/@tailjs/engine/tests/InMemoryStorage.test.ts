@@ -2,7 +2,7 @@ import {
   VariableFilter,
   VariableHeader,
   VariableKey,
-  VariableSetStatus,
+  SetStatus,
   setStatus,
 } from "@tailjs/types";
 import { InMemoryStorage, VariableStorage } from "../src";
@@ -26,7 +26,7 @@ describe("Variable stores store.", () => {
           },
         ])
       )[0].status
-    ).toBe(VariableSetStatus.Success);
+    ).toBe(SetStatus.Success);
 
     expect((await store.get([{ ...key }]))[0]?.value).toBe("test");
 
@@ -55,9 +55,9 @@ describe("Variable stores store.", () => {
     expect(
       setSessions.map((result) => [result.status, result.current?.value])
     ).toEqual([
-      [setStatus.success, "test0"],
-      [setStatus.success, "test1"],
-      [setStatus.success, "test2"],
+      [SetStatus.Success, "test0"],
+      [SetStatus.Success, "test1"],
+      [SetStatus.Success, "test2"],
     ]);
   });
 
@@ -71,11 +71,11 @@ describe("Variable stores store.", () => {
 
     const store = new InMemoryStorage() as VariableStorage;
     let result = (await store.set([{ ...key, value: "version1" }]))[0];
-    expect(result?.status).toBe(VariableSetStatus.Success);
+    expect(result?.status).toBe(SetStatus.Success);
 
     expect(
       (result = (await store.set([{ ...key, value: "version1" }]))[0])?.status
-    ).toBe(VariableSetStatus.Conflict);
+    ).toBe(SetStatus.Conflict);
 
     let firstVersion = result.current?.version;
     expect([!!firstVersion, result.current?.value]).toEqual([true, "version1"]);
@@ -85,7 +85,7 @@ describe("Variable stores store.", () => {
           { ...key, value: "version2", version: result.current!.version },
         ])
       )[0])?.status
-    ).toBe(VariableSetStatus.Success);
+    ).toBe(SetStatus.Success);
     expect(result.current?.version).toBeDefined();
     expect(result.current?.version).not.toBe(firstVersion);
 
@@ -95,7 +95,7 @@ describe("Variable stores store.", () => {
           { ...key, patch: (current) => ({ value: current?.value + ".1" }) },
         ])
       )[0])?.status
-    ).toBe(VariableSetStatus.Success);
+    ).toBe(SetStatus.Success);
 
     expect(result.current?.value).toBe("version2.1");
 
@@ -108,7 +108,7 @@ describe("Variable stores store.", () => {
           },
         ])
       )[0])?.status
-    ).toBe(VariableSetStatus.Unchanged);
+    ).toBe(SetStatus.Unchanged);
     expect(result.current?.value).toBe("version2.1");
 
     expect(
@@ -120,7 +120,7 @@ describe("Variable stores store.", () => {
           },
         ])
       )[0])?.status
-    ).toBe(VariableSetStatus.Success);
+    ).toBe(SetStatus.Success);
     expect(result.current?.value).toBe("version3");
 
     const currentVersion = result.current?.version;

@@ -1,5 +1,5 @@
 {
-  "$id": "urn:tailjs-#0.17.24",
+  "$id": "urn:tailjs:core",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
     "UserInteractionEvent": {
@@ -44,11 +44,9 @@
                   "description": "The textual content of the element that was clicked (e.g. the label on a button, or the alt text of an image)"
                 }
               },
-              "unevaluatedProperties": false,
               "description": "Information about the activated element, if any."
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ]
     },
@@ -67,9 +65,6 @@
             "schema": {
               "type": "string",
               "description": "The ID of the schema the event comes from. It is suggested that the schema ID ends with a hash followed by a SemVer version number. (e.g. urn:tailjs#0.9.0)"
-            },
-            "affinity": {
-              "description": "A token that may be included by the client to ensure that session state does not get lost if cookies are missing. It should only be included in the first event if multiple events are posted to avoid transmitting unnecessary data.\n\nIt gets cleared by the request handler before sent to backends and should not be considered for analytics since it is an internal implementation detail."
             },
             "id": {
               "$ref": "#/definitions/LocalID",
@@ -104,8 +99,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happend, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense."
@@ -121,7 +115,6 @@
           "description": "Tags in tailjs are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxnonmy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `conversion:high-value`, `rendering:component:theme=dark`, `ad-campaign=43899` and `ext1:video:play`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the names can be organized in taxonomies with each rank separated by colon (`:`). If there are more than one tag they are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters to store a list of values in the same tag is strongly discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` LESS BAD: `event:eventbrite=8487912` GOOD: Use an  {@link  ExternalReference } .\n\nBAD: `campaign:promo=1, campaign:length:4` GOOD: `campaign:promo, campaign:length=4`\n\nTags can be either be added directly to content and component definitions, or added to HTML tags with the `track-tags` attribute or `--track-tags` CSS property. In the latter case all tags from the HTML elements that contain a component or surround content are added to tracking when the user clicks around.\n\nThis allows some tags to be managed via e.g. CMS and follow thec content around wherever it is used on the website, and other tags to be included by the logic that puts the bits and pieces together to the final webpage the user sees.\n\nThis unified approach gives a clear way to store all domain-specific data in a way that goes very well with analytics. If the shape of the data you want to store is too complex to easily fit into tags, you can instead extend the tracker's event schema."
         }
       },
-      "unevaluatedProperties": false,
       "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details."
     },
     "Tag": {
@@ -149,32 +142,218 @@
           "$ref": "#/definitions/UUID",
           "description": "The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again. This means that device sessions can both be significantly shorter and longer that \"normal\" sessions in that it restarts whenever the user navigates completely away from the site and comes back (e.g. while evaluating search results), but it will also survive the user putting their computer to sleep or leaving their browser app in the background for a long time on their phone.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
         },
-        "username": {
+        "userId": {
           "type": "string",
-          "description": "The current user."
+          "description": "The current user owning the session."
         },
-        "timestamp": {
-          "$ref": "#/definitions/Timestamp",
-          "description": "When the session started."
+        "consent": {
+          "$ref": "#/definitions/UserConsent",
+          "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less."
         },
-        "ip": {
+        "expiredDeviceSessionId": {
           "type": "string",
-          "description": "The client's IP if enabled in configuration."
-        },
-        "nonEssentialTrackingConsent": {
-          "type": "boolean",
-          "description": "If the user had consented to non-essential tracking during this session.",
-          "default": false
+          "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session)."
         }
       },
       "required": [
         "sessionId",
-        "timestamp"
+        "consent"
       ],
-      "unevaluatedProperties": false
+      "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable."
     },
     "UUID": {
       "type": "string"
+    },
+    "UserConsent": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "$ref": "#/definitions/DataClassificationValue",
+          "description": "The highest level of data classification the user has consented to be stored."
+        },
+        "purposes": {
+          "$ref": "#/definitions/DataPurposeValue",
+          "description": "The purposes the user has consented their data to be used for."
+        }
+      },
+      "required": [
+        "level",
+        "purposes"
+      ],
+      "description": "A user's consent choices."
+    },
+    "DataClassificationValue": {
+      "anyOf": [
+        {
+          "type": "number",
+          "const": 0,
+          "description": "The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.\n\nTail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.\n\nIdentifying returning visitors will not be possible at this level. In-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation."
+        },
+        {
+          "type": "number",
+          "const": 1,
+          "description": "The data may possibly identify the user if put into context with other data, yet not specifically on its own.\n\nExamples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.\n\nIdentifying returning visitors will be possible at this level of consent, but not across devices. Some level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.\n\nThis level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation."
+        },
+        {
+          "type": "number",
+          "const": 2,
+          "description": "The data directly identifies the user on its own.\n\nExamples are name, username, street address and email address.\n\nIdentifying returning visitors across devices will be possible at this level of consent. Personalization based on past actions such as purchases will also be possible.\n\nThis level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).\n\nPlease note it is possible to access user data even when nothing is tracked beyond the bla... level\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings."
+        },
+        {
+          "type": "number",
+          "const": 3,
+          "description": "Sensitive data about a user.\n\nExamples are data related to health, financial matters, race, political and religious views, and union membership. If the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.\n\nIdentifying returning visitors across devices will be possible at this level of consent. and so will advanced personalization.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings."
+        },
+        {
+          "type": "string",
+          "const": "anonymous"
+        },
+        {
+          "type": "string",
+          "const": "indirect"
+        },
+        {
+          "type": "string",
+          "const": "direct"
+        },
+        {
+          "type": "string",
+          "const": "sensitive"
+        }
+      ]
+    },
+    "DataPurposeValue": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number",
+          "const": 1,
+          "description": "Data stored for this purpose is vital for the system, website or app to function."
+        },
+        {
+          "type": "number",
+          "const": 2,
+          "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app according to a user's preferences.\n\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope of the website or app. Use  {@link  DataPurposes.Targeting }  instead.\n\nIt may be okay if the data is only used for different website and apps that relate to the same product or service. This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may also be distributed across multiple domain names."
+        },
+        {
+          "type": "number",
+          "const": 4,
+          "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including demographics and similar traits with the purpose of optimizing the website or app.\n\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope of the website or app. Use  {@link  DataPurposes.Targeting }  instead.\n\nIt may be okay if the data is only used for different website and apps that relate to the same product or service. This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may also be distributed across multiple domain names."
+        },
+        {
+          "type": "number",
+          "const": 8,
+          "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties or otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary to use this category. This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may also be distributed across multiple domain names."
+        },
+        {
+          "type": "number",
+          "const": 16,
+          "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session, or for a website to guard itself against various kinds of attacks."
+        },
+        {
+          "type": "number",
+          "const": 32,
+          "description": "Data stored for this purpose may be similar to the performance category, however it is specifically only used for things such as health monitoring, system performance and error logging and unrelated to user behavior."
+        },
+        {
+          "type": "string",
+          "const": "necessary"
+        },
+        {
+          "type": "string",
+          "const": "functionality"
+        },
+        {
+          "type": "string",
+          "const": "performance"
+        },
+        {
+          "type": "string",
+          "const": "targeting"
+        },
+        {
+          "type": "string",
+          "const": "security"
+        },
+        {
+          "type": "string",
+          "const": "infrastructure"
+        },
+        {
+          "type": "string",
+          "const": "any"
+        },
+        {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number",
+                "const": 1,
+                "description": "Data stored for this purpose is vital for the system, website or app to function."
+              },
+              {
+                "type": "number",
+                "const": 2,
+                "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app according to a user's preferences.\n\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope of the website or app. Use  {@link  DataPurposes.Targeting }  instead.\n\nIt may be okay if the data is only used for different website and apps that relate to the same product or service. This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may also be distributed across multiple domain names."
+              },
+              {
+                "type": "number",
+                "const": 4,
+                "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including demographics and similar traits with the purpose of optimizing the website or app.\n\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope of the website or app. Use  {@link  DataPurposes.Targeting }  instead.\n\nIt may be okay if the data is only used for different website and apps that relate to the same product or service. This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may also be distributed across multiple domain names."
+              },
+              {
+                "type": "number",
+                "const": 8,
+                "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties or otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary to use this category. This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may also be distributed across multiple domain names."
+              },
+              {
+                "type": "number",
+                "const": 16,
+                "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session, or for a website to guard itself against various kinds of attacks."
+              },
+              {
+                "type": "number",
+                "const": 32,
+                "description": "Data stored for this purpose may be similar to the performance category, however it is specifically only used for things such as health monitoring, system performance and error logging and unrelated to user behavior."
+              },
+              {
+                "type": "string",
+                "const": "necessary"
+              },
+              {
+                "type": "string",
+                "const": "functionality"
+              },
+              {
+                "type": "string",
+                "const": "performance"
+              },
+              {
+                "type": "string",
+                "const": "targeting"
+              },
+              {
+                "type": "string",
+                "const": "security"
+              },
+              {
+                "type": "string",
+                "const": "infrastructure"
+              },
+              {
+                "type": "string",
+                "const": "any"
+              }
+            ]
+          }
+        }
+      ]
     },
     "Timestamp": {
       "type": "number"
@@ -206,11 +385,9 @@
                   "$ref": "#/definitions/Integer",
                   "description": "The number of times the user toggled away from the view/tab and back."
                 }
-              },
-              "unevaluatedProperties": false
+              }
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ]
     },
@@ -240,8 +417,7 @@
               "type": "string",
               "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash."
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ],
       "description": "The component definition related to a user activation."
@@ -281,8 +457,7 @@
               "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
               "default": false
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ]
     },
@@ -329,7 +504,6 @@
       "required": [
         "id"
       ],
-      "unevaluatedProperties": false,
       "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.\n\nAgain, if you only have some hard-coded value, you can just make an external reference and use its  {@link  id }  property for the value. Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID."
     },
     "Personalizable": {
@@ -341,8 +515,7 @@
             "$ref": "#/definitions/Personalization"
           }
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "Personalization": {
       "allOf": [
@@ -370,8 +543,7 @@
               },
               "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources."
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ],
       "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more."
@@ -390,8 +562,7 @@
           },
           "required": [
             "value"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "A reference to a variable and its value in personalization."
@@ -424,8 +595,7 @@
               "type": "boolean",
               "description": "If the variant was chosen."
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ],
       "description": "A reference to the data/content item related to a variant in personalization."
@@ -446,8 +616,7 @@
               "type": "string",
               "description": "The kind of personalization that relates to this item."
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ],
       "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } ."
@@ -464,8 +633,7 @@
               "$ref": "#/definitions/Rectangle",
               "description": "The current size and position of the element representing the content relative to the document top (not viewport)."
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ],
       "description": "The content definition related to a user activation."
@@ -484,8 +652,7 @@
             "commerce": {
               "$ref": "#/definitions/CommerceData"
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ],
       "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria"
@@ -513,8 +680,7 @@
           "$ref": "#/definitions/Float",
           "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many)."
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "Decimal": {
       "type": "number"
@@ -531,8 +697,7 @@
           "$ref": "#/definitions/Size"
         },
         {
-          "type": "object",
-          "unevaluatedProperties": false
+          "type": "object"
         }
       ]
     },
@@ -550,7 +715,6 @@
         "x",
         "y"
       ],
-      "unevaluatedProperties": false,
       "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio]."
     },
     "Size": {
@@ -566,8 +730,7 @@
       "required": [
         "width",
         "height"
-      ],
-      "unevaluatedProperties": false
+      ]
     },
     "ScreenPosition": {
       "type": "object",
@@ -593,7 +756,6 @@
         "x",
         "y"
       ],
-      "unevaluatedProperties": false,
       "description": "Represents a position where the units are percentages relative to an element or page."
     },
     "Percentage": {
@@ -617,8 +779,7 @@
           "required": [
             "totalWidth",
             "totalHeight"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -632,17 +793,16 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "COMPONENT_CLICK",
+              "const": "COMPONENT_CLICK_INTENT",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
-      "description": "The event is triggered when a component is clicked.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS."
+      "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS."
     },
     "ComponentViewEvent": {
       "allOf": [
@@ -660,8 +820,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "This event is triggered when the user scrolls a component into view if it is configured for this kind of tracking."
@@ -713,8 +872,7 @@
             "id",
             "href",
             "self"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -732,7 +890,6 @@
         "protocol",
         "domainName"
       ],
-      "unevaluatedProperties": false,
       "description": "Represents a domain name, e.g. https://www.foo.co.uk"
     },
     "ScrollEvent": {
@@ -768,8 +925,7 @@
           "required": [
             "type",
             "offset"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -793,8 +949,7 @@
               "type": "object",
               "additionalProperties": {
                 "$ref": "#/definitions/SearchParameter"
-              },
-              "unevaluatedProperties": false
+              }
             },
             "resultCount": {
               "$ref": "#/definitions/Integer"
@@ -808,8 +963,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -835,8 +989,7 @@
           },
           "required": [
             "value"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -854,8 +1007,7 @@
           },
           "required": [
             "rank"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -886,10 +1038,63 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
+    },
+    "NamedParameters<typeof isTrackedEvent>": {
+      "type": "object",
+      "properties": {
+        "ev": {}
+      },
+      "required": [
+        "ev"
+      ],
+      "additionalProperties": false
+    },
+    "TrackedEventPatch": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/LocalID",
+          "description": "This may be assigned or transformed by backends if needed. It is client-assigned for  {@link  ViewEvent } s"
+        },
+        "type": {
+          "type": "string",
+          "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+        },
+        "schema": {
+          "type": "string",
+          "description": "The ID of the schema the event comes from. It is suggested that the schema ID ends with a hash followed by a SemVer version number. (e.g. urn:tailjs#0.9.0)"
+        },
+        "clientId": {
+          "$ref": "#/definitions/LocalID",
+          "description": "This is set by the client and can be used to dedupplicate events sent multiple times if the endpoint timed out."
+        },
+        "retry": {
+          "$ref": "#/definitions/Integer",
+          "description": "The number of times the client tried to sent the event if the endpoint timed out",
+          "default": 0
+        },
+        "related": {
+          "$ref": "#/definitions/LocalID",
+          "description": "The event that caused this event to be triggered or got triggered in the same context. For example a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , or a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } ."
+        },
+        "session": {
+          "$ref": "#/definitions/Session",
+          "description": "The session associated with the event."
+        },
+        "view": {
+          "$ref": "#/definitions/LocalID",
+          "description": "When applicable, the view where the event happened (related by  {@link  ViewEvent } )."
+        },
+        "timestamp": {
+          "$ref": "#/definitions/Timestamp",
+          "description": "This timestamp will always have a value before it reaches a backend. If specified, it must be a negative number when sent from the client (difference between when the event was generated and when is was posted in milliseconds).",
+          "default": "now"
+        },
+        "tags": {}
+      }
     },
     "UserAgentLanguage": {
       "type": "object",
@@ -920,8 +1125,7 @@
         "language",
         "primary",
         "preference"
-      ],
-      "unevaluatedProperties": false
+      ]
     },
     "UserAgentEvent": {
       "allOf": [
@@ -977,8 +1181,7 @@
               "required": [
                 "iana",
                 "offset"
-              ],
-              "unevaluatedProperties": false
+              ]
             },
             "screen": {
               "type": "object",
@@ -1006,7 +1209,6 @@
                 "width",
                 "height"
               ],
-              "unevaluatedProperties": false,
               "description": "Screen"
             }
           },
@@ -1014,8 +1216,7 @@
             "type",
             "userAgent",
             "timezone"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -1025,15 +1226,13 @@
           "$ref": "#/definitions/Scoped"
         },
         {
-          "type": "object",
-          "unevaluatedProperties": false
+          "type": "object"
         }
       ],
       "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened."
     },
     "Scoped": {
       "type": "object",
-      "unevaluatedProperties": false,
       "description": "Base interface for other marker interfaces that specifies that an event is scoped to something else than page views."
     },
     "ClickIds": {
@@ -1054,8 +1253,7 @@
         "googleAnalytics": {
           "type": "string"
         }
-      },
-      "unevaluatedProperties": false
+      }
     },
     "ViewEvent": {
       "allOf": [
@@ -1113,7 +1311,6 @@
                   "type": "string"
                 }
               },
-              "unevaluatedProperties": false,
               "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters]."
             },
             "queryString": {
@@ -1124,7 +1321,6 @@
                   "type": "string"
                 }
               },
-              "unevaluatedProperties": false,
               "description": "The query string parameters in the URL, e.g. utm_campaign. Each parameter can have multiple values, for example If the parameter is specified more than once. If the parameter is only specified once pipes, semicolons and commas are assumed to separate values (in that order). A parameter without a value will get recorded as an empty string."
             },
             "domain": {
@@ -1179,7 +1375,6 @@
                   "$ref": "#/definitions/Domain"
                 }
               },
-              "unevaluatedProperties": false,
               "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field."
             },
             "viewport": {
@@ -1196,8 +1391,7 @@
             "type",
             "id",
             "href"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -1216,8 +1410,7 @@
               "type": "boolean",
               "description": "The page was shown in preview/staging mode."
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ]
     },
@@ -1243,8 +1436,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -1290,14 +1482,12 @@
               "$ref": "#/definitions/Float"
             },
             "providerData": {
-              "type": "object",
-              "unevaluatedProperties": false
+              "type": "object"
             }
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -1319,35 +1509,7 @@
       },
       "required": [
         "name"
-      ],
-      "unevaluatedProperties": false
-    },
-    "AnchorNavigationEvent": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/UserInteractionEvent"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "ANCHOR_NAVIGATION",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
-            },
-            "anchor": {
-              "type": "string",
-              "description": "The name of the anchor."
-            }
-          },
-          "required": [
-            "type",
-            "anchor"
-          ],
-          "unevaluatedProperties": false
-        }
-      ],
-      "description": "The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)"
+      ]
     },
     "ConsentEvent": {
       "allOf": [
@@ -1362,19 +1524,19 @@
               "const": "CONSENT",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
-            "nonEssentialTracking": {
-              "type": "boolean",
-              "description": "Whether the user has consented to non-essential tracking."
+            "level": {
+              "$ref": "#/definitions/DataClassificationValue"
+            },
+            "purposes": {
+              "$ref": "#/definitions/DataPurposeValue"
             }
           },
           "required": [
-            "type",
-            "nonEssentialTracking"
-          ],
-          "unevaluatedProperties": false
+            "type"
+          ]
         }
       ],
-      "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are required to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
+      "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are required to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
     },
     "CommerceEvent": {
       "allOf": [
@@ -1382,8 +1544,7 @@
           "$ref": "#/definitions/TrackedEvent"
         },
         {
-          "type": "object",
-          "unevaluatedProperties": false
+          "type": "object"
         }
       ]
     },
@@ -1418,8 +1579,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "Indicates that a shopping cart was updated."
@@ -1440,8 +1600,7 @@
               "description": "The way the cart was modified.",
               "default": "add"
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ]
     },
@@ -1462,15 +1621,13 @@
               "$ref": "#/definitions/ExternalReference",
               "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context."
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ],
       "description": "Base information for the amount of an item added to an  {@link  Order }  or cart that is shared between  {@link  CartUpdatedEvent }  and  {@link  OrderLine } ."
     },
     "ExternalUse": {
       "type": "object",
-      "unevaluatedProperties": false,
       "description": "Types and interfaces extending this marker interface directly must have a concrete type that can be instantiated in code-generation scenarios because they are referenced directly outside of the types package."
     },
     "OrderEvent": {
@@ -1492,8 +1649,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "An order submitted by a user."
@@ -1548,8 +1704,7 @@
           },
           "required": [
             "orderId"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "Represents an order for tracking purposes."
@@ -1577,8 +1732,7 @@
               "$ref": "#/definitions/Decimal",
               "description": "The total for this order line including VAT"
             }
-          },
-          "unevaluatedProperties": false
+          }
         }
       ]
     },
@@ -1605,8 +1759,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "The shopping cart was abandoned. Currently there is no logic in the tracker to trigger this event automatically, hence a custom trigger must be implemented."
@@ -1626,8 +1779,7 @@
           },
           "required": [
             "order"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "Base event for events that related to an order changing status."
@@ -1648,8 +1800,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "An order was accepted.\n\nThis may be useful to track if some backend system needs to validate if the order submitted by the user is possible, or just for monitoring whether your site is healthy and actually processes the orders that come in.\n\nThis event should also imply that the user got a confirmation."
@@ -1675,8 +1826,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "An order was cancelled."
@@ -1697,8 +1847,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "An order was cancelled."
@@ -1731,8 +1880,7 @@
           "required": [
             "orderReference",
             "amount"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "Events related to order payments."
@@ -1758,8 +1906,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "The payment for an order was accepted."
@@ -1780,8 +1927,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "A payment for the order was rejected."
@@ -1792,8 +1938,7 @@
           "$ref": "#/definitions/TrackedEvent"
         },
         {
-          "type": "object",
-          "unevaluatedProperties": false
+          "type": "object"
         }
       ],
       "description": "Events related to users signing in, out etc.."
@@ -1811,16 +1956,20 @@
               "const": "SIGN_IN",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
-            "username": {
+            "userId": {
               "type": "string",
               "description": "The user that signed in."
+            },
+            "evidence": {
+              "type": "string",
+              "description": "Custom data that can be used to validate the login server-side to make sure that userdata cannot get hijacked by abusing the API."
             }
           },
           "required": [
             "type",
-            "username"
-          ],
-          "unevaluatedProperties": false
+            "userId",
+            "evidence"
+          ]
         }
       ],
       "description": "A user signed in."
@@ -1838,15 +1987,14 @@
               "const": "SIGN_OUT",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
-            "username": {
+            "userId": {
               "type": "string",
               "description": "The user that signed out."
             }
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "A user actively signed out. (Session expiry doesn't count)."
@@ -1857,8 +2005,7 @@
           "$ref": "#/definitions/TrackedEvent"
         },
         {
-          "type": "object",
-          "unevaluatedProperties": false
+          "type": "object"
         }
       ],
       "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics."
@@ -1885,8 +2032,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "An event that may be sent regularaly from the client to indicate how long it has been alive. In case  {@link  ViewEndedEvent } s are not sent or gets lost these heartbeats can be used to approximate page view durations."
@@ -1913,8 +2059,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the amount of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } ."
@@ -1939,12 +2084,15 @@
               "type": "boolean",
               "description": "Whether only the session or also the device should be reset.",
               "default": true
+            },
+            "includeConsent": {
+              "type": "boolean",
+              "description": "Whether to also reset the consent."
             }
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ],
       "description": "An event that can be used to reset the current session and optionally also device. Intended for debugging and not relayed to backends."
@@ -1984,7 +2132,6 @@
               "additionalProperties": {
                 "$ref": "#/definitions/FormField"
               },
-              "unevaluatedProperties": false,
               "description": "All fields in the form (as detected)."
             },
             "ref": {
@@ -1994,8 +2141,7 @@
           },
           "required": [
             "type"
-          ],
-          "unevaluatedProperties": false
+          ]
         }
       ]
     },
@@ -2049,56 +2195,44 @@
       "required": [
         "name"
       ],
-      "unevaluatedProperties": false,
       "description": "A form field value in a  {@link  FormEvent } ."
     },
-    "ConfiguredComponent": {
+    "AnchorNavigationEvent": {
       "allOf": [
         {
-          "$ref": "#/definitions/Component"
+          "$ref": "#/definitions/UserInteractionEvent"
         },
         {
           "type": "object",
           "properties": {
-            "track": {
-              "$ref": "#/definitions/TrackingSettings",
-              "description": "Settings for how the component will be tracked.\n\nThese settings are not tracked, that is, this property is stripped from the data sent to the server."
+            "type": {
+              "type": "string",
+              "const": "ANCHOR_NAVIGATION",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "anchor": {
+              "type": "string",
+              "description": "The name of the anchor."
             }
           },
-          "unevaluatedProperties": false
+          "required": [
+            "type",
+            "anchor"
+          ]
         }
-      ]
+      ],
+      "description": "The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)"
     },
-    "TrackingSettings": {
+    "Lego": {
       "type": "object",
       "properties": {
-        "promote": {
-          "type": "boolean",
-          "description": "Always include in  {@link  UserInteractionEvent.components } , also if it is a parent component. By default only the closest component will be included.\n\nThis does not apply to impression tracking.\n\nNot inherited by child components.\n\nHTML attribute: `track-promote`. CSS: `--track-promote: 1/yes/true`.",
-          "default": false
-        },
-        "secondary": {
-          "type": "boolean",
-          "description": "The component will only be tracked with the closest non-secondary component as if the latter had the  {@link  promote }  flag.\n\nThis does not apply to impression tracking.\n\nNot inherited by child components.\n\nHTML attribute: `track-secondary`. \\ CSS: `--track-secondary: 1/yes/true`.",
-          "default": false
-        },
-        "region": {
-          "type": "boolean",
-          "description": "Track the visible region occupied by the component or content.\n\nInherited by child components (also if specified on non-component DOM element).\n\nHTML attribute: `track-region`. \\ CSS: `--track-region: 1/yes/true`.",
-          "default": false
-        },
-        "clicks": {
-          "type": "boolean",
-          "description": "Track clicks. Note that clicks are always tracked if they cause navigation.\n\nInherited by child components (also if specified on non-component DOM element).\n\nHTML attribute: `track-clicks`. CSS: `--track-clicks: 1/yes/true`.",
-          "default": "true unless in a `<nav>` tag"
-        },
-        "impressions": {
-          "type": "boolean",
-          "description": "Track impressions, that is, when the component becomes visible in the user's browser for the first time. This goes well with  {@link  region } .\n\nNot inherited by child components.\n\nHTML attribute: `track-impressions`. CSS: `--track-impressions: 1/yes/true`.",
-          "default": false
+        "frakso": {
+          "type": "string"
         }
       },
-      "unevaluatedProperties": false
+      "required": [
+        "frakso"
+      ]
     }
   }
 }

@@ -18,7 +18,7 @@ export type TargetedVariableScope =
   | VariableScope.User
   | VariableScope.Entity;
 
-export const enum VariableSetStatus {
+export enum SetStatus {
   Success = 0,
   Unchanged = 1,
   Conflict = 2,
@@ -29,26 +29,14 @@ export const enum VariableSetStatus {
   Error = 7,
 }
 
-const setStatusNames = {
-  success: VariableSetStatus.Success,
-  unchanged: VariableSetStatus.Unchanged,
-  conflict: VariableSetStatus.Conflict,
-  unsupported: VariableSetStatus.Unsupported,
-  denied: VariableSetStatus.Denied,
-  readonly: VariableSetStatus.ReadOnly,
-  notFound: VariableSetStatus.NotFound,
-  error: VariableSetStatus.Error,
-} as const;
-
 export const setStatus = createEnumAccessor(
-  setStatusNames,
+  SetStatus as typeof SetStatus,
   false,
   "variable set status"
 );
 
-export type VariableSetStatusValue<
-  Numeric extends boolean | undefined = boolean
-> = ParsableEnumValue<typeof setStatusNames, Numeric, false>;
+export type SetStatusValue<Numeric extends boolean | undefined = boolean> =
+  ParsableEnumValue<typeof SetStatus, Numeric, false, SetStatus>;
 
 export type VariableSetResult<
   T = any,
@@ -57,10 +45,7 @@ export type VariableSetResult<
   source: Source;
 } & (
   | {
-      status:
-        | VariableSetStatus.Success
-        | VariableSetStatus.Unchanged
-        | VariableSetStatus.Conflict;
+      status: SetStatus.Success | SetStatus.Unchanged | SetStatus.Conflict;
       current: Source extends VariableSetter<undefined>
         ? Variable<T, true> | undefined
         : Variable<T, true>;
@@ -68,12 +53,12 @@ export type VariableSetResult<
   | ((
       | {
           status:
-            | VariableSetStatus.Denied
-            | VariableSetStatus.NotFound
-            | VariableSetStatus.Unsupported
-            | VariableSetStatus.ReadOnly;
+            | SetStatus.Denied
+            | SetStatus.NotFound
+            | SetStatus.Unsupported
+            | SetStatus.ReadOnly;
         }
-      | { status: VariableSetStatus.Error; transient?: boolean; error: any }
+      | { status: SetStatus.Error; transient?: boolean; error: any }
     ) & { current?: never })
 );
 
@@ -98,26 +83,24 @@ export type VariablePatchAction<T = any> = (
   current: VariablePatchSource<T, true> | undefined
 ) => VariablePatchResult<T> | undefined;
 
-export const enum VariablePatchType {
-  Add,
-  Min,
-  Max,
-  IfMatch,
+export enum VariablePatchType {
+  Add = 0,
+  Min = 1,
+  Max = 2,
+  IfMatch = 3,
 }
-
-const patchTypeNames = {
-  add: VariablePatchType.Add,
-  min: VariablePatchType.Min,
-  max: VariablePatchType.Max,
-  ifMatch: VariablePatchType.IfMatch,
-} as const;
 
 export type VariablePatchTypeValue<
   Numeric extends boolean | undefined = boolean
-> = ParsableEnumValue<typeof patchTypeNames, Numeric, false>;
+> = ParsableEnumValue<
+  typeof VariablePatchType,
+  Numeric,
+  false,
+  VariablePatchType
+>;
 
 export const patchType = createEnumAccessor(
-  patchTypeNames,
+  VariablePatchType as typeof VariablePatchType,
   false,
   "variable patch type"
 );
@@ -173,7 +156,7 @@ export const toStrict: <T>(value: T) => T extends null | undefined
   if (!value) return value;
 
   enumProperties.forEach(
-    ([prop, helper]) => (value[prop] = helper(value[prop]))
+    ([prop, helper]) => (value[prop] = helper.parse(value[prop]))
   );
 
   return value as any;
@@ -201,17 +184,17 @@ export type VariableSetter<T = any, NumericEnums extends boolean = boolean> =
 export const isSuccessResult = <T extends VariableSetResult>(
   result: T | undefined
 ): result is T & {
-  status: VariableSetStatus.Success | VariableSetStatus.Unchanged;
-} => result?.status! <= VariableSetStatus.Unchanged;
+  status: SetStatus.Success | SetStatus.Unchanged;
+} => result?.status! <= SetStatus.Unchanged;
 
 export const isConflictResult = <T>(
   result: VariableSetResult<T> | undefined
 ): result is VariableSetResult<T> & {
-  status: VariableSetStatus.Conflict;
-} => result?.status === VariableSetStatus.Conflict;
+  status: SetStatus.Conflict;
+} => result?.status === SetStatus.Conflict;
 
 export const isErrorResult = <T>(
   result: VariableSetResult<T> | undefined
 ): result is VariableSetResult<T> & {
-  status: VariableSetStatus.Error;
-} => result?.status === VariableSetStatus.Error;
+  status: SetStatus.Error;
+} => result?.status === SetStatus.Error;

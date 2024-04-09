@@ -9,7 +9,7 @@ import {
   VariableScope,
   VariableScopeValue,
   VariableSetResult,
-  VariableSetStatus,
+  SetStatus,
   VariableSetter,
   VariableValidationBasis,
   dataClassification,
@@ -132,8 +132,10 @@ export class TrackerVariableStorage implements VariableStorage {
     return variable;
   }
 
-  public async set<K extends (VariableSetter<any> | null | undefined)[]>(
-    variables: K,
+  public async set<
+    K extends readonly (VariableSetter<any> | null | undefined)[]
+  >(
+    variables: K | readonly (VariableSetter<any> | null | undefined)[],
     context?: VariableStorageContext
   ): Promise<VariableSetResults<K>> {
     const tracker = context?.tracker;
@@ -169,10 +171,7 @@ export class TrackerVariableStorage implements VariableStorage {
             inner &&
             !this._validate({ ...extractKey(source), ...current }, tracker)
           ) {
-            denied.push([
-              sourceIndex,
-              { status: VariableSetStatus.Denied, source },
-            ]);
+            denied.push([sourceIndex, { status: SetStatus.Denied, source }]);
             return undefined;
           }
           return inner;
@@ -201,7 +200,8 @@ export class TrackerVariableStorage implements VariableStorage {
       // For each scope that intersects the tracker scopes, add a separate filter restricted to the target ID
       // that matches the current tracker.
       const scopes =
-        filter.scopes?.map(variableScope.parse) ?? variableScope.values;
+        filter.scopes?.map((item) => variableScope.parse(item)) ??
+        variableScope.values;
 
       const safe = scopes.filter((scope) => nonTrackerScopes.has(scope));
       safe.length && validatedFilters.push({ ...filter, scopes: safe });
@@ -219,24 +219,28 @@ export class TrackerVariableStorage implements VariableStorage {
                         ...filter,
                         // Remove purposes without consent (if purposes are undefined in consent, it means "I am good with all").
                         purposes: filter.purposes
-                          ? dataPurposes(filter.purposes) & consent.purposes
+                          ? dataPurposes.parse(filter.purposes) &
+                            consent.purposes
                           : undefined,
 
                         classification: filter.classification && {
                           // Cap classification filter so no criteria exceeds the consent's level.
                           min:
-                            dataClassification(filter.classification.min)! >
-                            consentLevel
+                            dataClassification.parse(
+                              filter.classification.min
+                            )! > consentLevel
                               ? consentLevel
                               : filter.classification.min,
                           // If no explicit levels are set, limit the max value to the consent's level.
                           max:
-                            dataClassification(filter.classification.max)! >
-                              consentLevel || !filter.classification.levels
+                            dataClassification.parse(
+                              filter.classification.max
+                            )! > consentLevel || !filter.classification.levels
                               ? consentLevel
                               : filter.classification.max,
                           levels: filter.classification.levels?.filter(
-                            (level) => dataClassification(level) <= consentLevel
+                            (level) =>
+                              dataClassification.parse(level) <= consentLevel
                           ),
                         },
                       }
@@ -288,8 +292,8 @@ export class TrackerVariableStorage implements VariableStorage {
     return getter;
   }
 
-  async get<K extends (VariableGetter<any> | null | undefined)[]>(
-    keys: K,
+  async get<K extends readonly (VariableGetter<any> | null | undefined)[]>(
+    keys: K | readonly (VariableGetter<any> | null | undefined)[],
     context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
     if (!context?.tracker) {

@@ -2,10 +2,7 @@ import { TrackedEvent } from "..";
 
 export interface PostRequest {
   /** New events to add. */
-  add?: TrackedEvent[];
-
-  /** Updates to existing events. */
-  patch?: Partial<TrackedEvent>[];
+  events?: TrackedEvent[];
 
   /** Variables to set. */
   variables?: {

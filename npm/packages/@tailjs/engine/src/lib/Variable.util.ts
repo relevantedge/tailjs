@@ -135,7 +135,7 @@ export const applyPatchOffline = (
 
   const value = current?.value;
 
-  patch.type = patchType(patch.type);
+  patch.type = patchType.parse(patch.type);
 
   switch (patch.type) {
     case VariablePatchType.Add:

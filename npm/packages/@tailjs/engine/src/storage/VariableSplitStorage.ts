@@ -103,7 +103,7 @@ export class VariableSplitStorage implements VariableStorage {
     context?: VariableStorageContext
   ): Promise<void> {
     await waitAll(
-      map(
+      ...map(
         this._storageScopes,
         ([storage, mappedScopes]) =>
           isWritable(storage) &&
@@ -147,7 +147,9 @@ export class VariableSplitStorage implements VariableStorage {
           this._keepPrefix(storage) ? key.sourceKey : key.key
         );
 
-      const scopes = map(filter.scopes, variableScope) ?? variableScope.values;
+      const scopes =
+        map(filter.scopes, (scope) => variableScope.parse(scope)) ??
+        variableScope.values;
       for (const scope of scopes) {
         const scopePrefixes = this._mappings[scope];
         if (!scopePrefixes) continue;
@@ -171,7 +173,7 @@ export class VariableSplitStorage implements VariableStorage {
           keys: [...keys],
           scopes: filter.scopes
             ? filter.scopes.filter((scope) =>
-                storageScopes.has(variableScope(scope))
+                storageScopes.has(variableScope.parse(scope))
               )
             : [...storageScopes],
         });
@@ -188,13 +190,13 @@ export class VariableSplitStorage implements VariableStorage {
     return results;
   }
 
-  async get<K extends (VariableGetter<any> | null | undefined)[]>(
-    keys: K,
+  async get<K extends readonly (VariableGetter<any> | null | undefined)[]>(
+    keys: K | readonly (VariableGetter<any> | null | undefined)[],
     context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
     const results: VariableGetResults<K> = [] as any;
     await waitAll(
-      map(
+      ...map(
         this._splitKeys(keys.map(toStrict)),
         ([storage, split]) =>
           isWritable(storage) &&
@@ -323,13 +325,13 @@ export class VariableSplitStorage implements VariableStorage {
     return results;
   }
 
-  async set<K extends (VariableSetter<any> | null | undefined)[]>(
-    variables: K,
+  async set<K extends readonly (VariableSetter<any> | null | undefined)[]>(
+    variables: K | readonly (VariableSetter<any> | null | undefined)[],
     context?: VariableStorageContext
   ): Promise<VariableSetResults<K>> {
     const results: VariableSetResults<K> = [] as any;
     await waitAll(
-      map(
+      ...map(
         this._splitKeys(variables.map(toStrict)),
         ([storage, split]) =>
           isWritable(storage) &&
@@ -358,7 +360,7 @@ export class VariableSplitStorage implements VariableStorage {
       return;
     }
     await waitAll(
-      partitions.map(
+      ...partitions.map(
         ([storage, filters]) =>
           isWritable(storage) && storage.purge(filters, context)
       )

@@ -1,4 +1,10 @@
-import { SessionLocationEvent, TrackedEvent, cast } from "@tailjs/types";
+import {
+  SessionLocationEvent,
+  TrackedEvent,
+  Variable,
+  VariableSetter,
+  cast,
+} from "@tailjs/types";
 import { Reader } from "maxmind";
 import type { CityResponse } from "mmdb-lib";
 import {
@@ -40,7 +46,10 @@ export class ClientLocation implements TrackerExtension {
 
     if (ip) {
       const clientHash = env.hash(tracker.clientIp);
-      if ((await tracker.get("session", "mx")) !== clientHash) {
+      if (
+        (await tracker.get([{ scope: "session", key: "mx" }]))[0].value !==
+        clientHash
+      ) {
         const location = this.filterNames(this._reader?.get(ip));
         tracker.requestItems.set(
           ClientLocation.name,
@@ -93,8 +102,22 @@ export class ClientLocation implements TrackerExtension {
           ];
         }
         country = location?.country?.names[this._language] ?? "NA";
-        await tracker.set("session", "mx", clientHash);
-        await tracker.set("session", "country", country);
+        await tracker.set([
+          {
+            scope: "session",
+            key: "mx",
+            classification: "anonymous",
+            purposes: "necessary",
+            value: clientHash,
+          },
+          {
+            scope: "session",
+            key: "country",
+            classification: "anonymous",
+            purposes: "necessary",
+            value: country,
+          },
+        ]);
       }
     }
 
@@ -130,11 +153,10 @@ export class ClientLocation implements TrackerExtension {
 
       this._reader = data ? new Reader<CityResponse>(Buffer.from(data)) : null;
       if (this._reader == null) {
-        host.log({
-          level: "error",
-          group: "maxmind",
-          data: `'${this._mmdb}' could not be loaded from the environment host.`,
-        });
+        host.error(
+          this,
+          `'${this._mmdb}' could not be loaded from the environment host.`
+        );
       }
     };
 
