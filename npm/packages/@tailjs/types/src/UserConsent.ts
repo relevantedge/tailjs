@@ -1,8 +1,6 @@
 import {
-  DataClassification,
   DataClassificationValue,
   DataPurposeValue,
-  DataPurposes,
   dataClassification,
   dataPurposes,
 } from ".";

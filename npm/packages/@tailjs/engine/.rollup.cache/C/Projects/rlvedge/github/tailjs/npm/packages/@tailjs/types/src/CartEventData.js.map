@@ -1,0 +1,1 @@
+{"version":3,"file":"CartEventData.js","sourceRoot":"","sources":["CartEventData.ts"],"names":[],"mappings":"","sourcesContent":["import type { OrderQuantity, CartAction, ExternalUse } from \".\";\n\nexport interface CartEventData extends OrderQuantity, ExternalUse {\n  /**\n   * The way the cart was modified.\n   *\n   * @default add\n   */\n  action?: CartAction;\n}\n"]}

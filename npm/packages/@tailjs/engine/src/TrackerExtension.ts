@@ -11,10 +11,7 @@ export type NextPatchExtension = (
   events: ParseResult[]
 ) => Promise<TrackedEvent[]>;
 
-export type TrackedEventBatch = {
-  add: TrackedEvent[];
-  patch: Partial<TrackedEvent>[];
-};
+export type TrackedEventBatch = TrackedEvent[];
 
 /**
  * Tracker extensions enable the engine to interface with external systems, typically to store the collected events somewhere.

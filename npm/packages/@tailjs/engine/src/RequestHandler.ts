@@ -1,5 +1,6 @@
 import clientScripts from "@tailjs/client/script";
 import {
+  DataPurposes,
   dataPurposes,
   PostRequest,
   PostResponse,
@@ -194,7 +195,7 @@ export class RequestHandler {
           name,
           // Necessary device data is just ".d" (no suffix)
           `${cookies.namePrefix}.d${
-            flag !== dataPurposes.necessary ? `.${name[0]}` : ""
+            flag !== DataPurposes.Necessary ? `.${name[0]}` : ""
           }`,
         ])
       ),
@@ -292,7 +293,7 @@ export class RequestHandler {
     eventBatch: TrackedEventBatch,
     { deviceSessionId, deviceId, routeToClient }: TrackerPostOptions
   ): Promise<PostResponse> {
-    let events = eventBatch.add;
+    let events = eventBatch;
     await this.initialize();
     let parsed = this._parser.parseAndValidate(
       events,
@@ -353,7 +354,7 @@ export class RequestHandler {
       }
     };
 
-    eventBatch.add = await callPatch(0, parsed);
+    eventBatch = await callPatch(0, parsed);
     const extensionErrors: Record<string, Error> = {};
     if (routeToClient) {
       tracker._clientEvents.push(...events);
@@ -602,18 +603,12 @@ export class RequestHandler {
               extensionRequestType = "post";
               const response: PostResponse = {};
 
-              if (postRequest.add || postRequest.patch) {
+              if (postRequest.events) {
                 //requestTimer.print("post start");
-                await tracker.post(
-                  {
-                    add: postRequest.add ?? [],
-                    patch: postRequest.patch ?? [],
-                  },
-                  {
-                    deviceSessionId: postRequest.deviceSessionId,
-                    deviceId: postRequest.deviceId,
-                  }
-                );
+                await tracker.post(postRequest.events ?? [], {
+                  deviceSessionId: postRequest.deviceSessionId,
+                  deviceId: postRequest.deviceId,
+                });
               }
 
               return await result(

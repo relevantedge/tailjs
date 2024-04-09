@@ -2,6 +2,14 @@ import { Wrapped, map, obj, unwrap, type reduce } from ".";
 
 export type IsNever<T> = [T] extends [never] ? true : false;
 
+export type UnwrapTuple<T extends any[]> = T extends readonly []
+  ? []
+  : T extends readonly [infer Item, ...infer Rest]
+  ? [Item, ...UnwrapTuple<Rest>]
+  : T extends readonly (infer T)[]
+  ? T[]
+  : never;
+
 /**
  * Shorthand for a value that is optionally awaitable.
  */
@@ -70,7 +78,8 @@ export type MaybeRequired<T, Required> = If<Required, T, T | undefined>;
 /** Negates a Boolean value */
 export type Not<B> = If<B, false, true>;
 
-type And<P1, P2> = P1 | P2 extends true ? true : false;
+export type And<P1, P2> = P1 | P2 extends true ? true : false;
+export type Or<P1, P2> = true extends P1 | P2 ? true : false;
 
 export type All<P extends readonly any[]> = P extends []
   ? true
@@ -78,16 +87,24 @@ export type All<P extends readonly any[]> = P extends []
   ? And<Item extends false ? false : true, All<Rest>>
   : false;
 
+export type ToBoolean<Criteria> = Criteria extends
+  | null
+  | undefined
+  | never
+  | void
+  | false
+  ? false
+  : true;
+
 /** Simplifies Boolean checks (insted of having to write B extends bla, bla...).  */
 export type IfNot<B, True = undefined, False = never> = If<B, False, True>;
 
 /** Simplifies Boolean checks (insted of having to write B extends bla, bla...).  */
-export type If<B, True, False = never> = B extends true
+export type If<B, True, False = never> = ToBoolean<B> extends true
   ? True
-  : B extends (unknown extends B ? any : false | undefined)
-  ? False
-  : never;
+  : False;
 
+/** Type 1 extends type 2 */
 export type Extends<T1, T2> = T1 extends T2 ? true : false;
 
 /**
@@ -121,6 +138,12 @@ type FunctionComparisonEquals<A, B> = (<
  * Tests if a type is `any`.
  */
 export type IsAny<T> = FunctionComparisonEquals<T, any>;
+
+export type UndefinedNotAny<T, Defined = T> = If<
+  IsAny<T>,
+  Defined,
+  T extends undefined ? undefined : Defined
+>;
 
 /**
  * Only returns the type if it is not `any`.
@@ -173,8 +196,8 @@ export type UnionToIntersection<U> = (
 /**
  * Makes a union of objects like `{a:1}&{b:2}` appear as `{a:1,b:2}` in intellisense.
  */
-export type PrettifyIntersection<T> = T extends { [P in infer K]: any }
-  ? { [P in K]: T[P] }
+export type PrettifyIntersection<T> = T extends infer T
+  ? { [P in keyof T]: T[P] }
   : never;
 
 type KeyValuePairToProperty<K, V> = K extends keyof any
@@ -185,11 +208,11 @@ type KeyValuePairToProperty<K, V> = K extends keyof any
  * Makes an array of key/value pairs to an object with the corresponding properties.
  */
 export type KeyValuePairsToObject<T> = PrettifyIntersection<
-  T extends []
+  T extends readonly []
     ? {}
-    : T extends [[infer K, infer V], ...infer Rest]
+    : T extends readonly [[infer K, infer V], ...infer Rest]
     ? KeyValuePairToProperty<K, V> & KeyValuePairsToObject<Rest>
-    : T extends [infer K, infer V][]
+    : T extends readonly [infer K, infer V][]
     ? UnionToIntersection<KeyValuePairToProperty<K, V>>
     : never
 >;
@@ -265,7 +288,8 @@ type InferContra<T> = [T] extends [(arg: infer I) => void] ? I : never;
 
 type PickOne<T> = InferContra<InferContra<Contra<Contra<T>>>>;
 
-export type MaybeUndefined<T, R = T> = T extends undefined ? undefined : R;
+/** Returns a type if T is not undefined. */
+export type IfDefined<T, R = T> = T extends undefined ? undefined : R;
 
 /**
  * Trick for having a function that returns a non-null value, if a formal paramter always has a non-null value,
@@ -382,12 +406,14 @@ export const tryCatch = <T, C = undefined>(
   expression: () => T,
   errorHandler: boolean | ((error: any) => C) = true as any,
   clean?: () => void
-): T | C => {
+): T | (C extends Error ? T : C) => {
   try {
     return expression();
   } catch (e) {
     if (!isBoolean(errorHandler)) {
-      return errorHandler?.(e) as any;
+      const error = errorHandler?.(e) as any;
+      if (error instanceof Error) throw error;
+      return error;
     }
     if (errorHandler) {
       throw e;
@@ -412,7 +438,9 @@ export const tryCatchAsync = async <T, C = void>(
       return await expression();
     } catch (e) {
       if (!isBoolean(errorHandler)) {
-        (await errorHandler(e, !retries)) as any;
+        const error = (await errorHandler?.(e, !retries)) as any;
+        if (error instanceof Error) throw error;
+        return error;
       } else if (errorHandler && !retries) {
         throw e;
       } else {
@@ -546,7 +574,7 @@ export const isIterable = (
   value: any,
   acceptStrings = false
 ): value is Iterable<any> =>
-  value?.[symbolIterator] && (typeof value === "object" || acceptStrings);
+  !!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
 
 export const toIterable = <T>(value: T | Iterable<T>): Iterable<T> =>
   isIterable(value) ? value : [value];

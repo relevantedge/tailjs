@@ -6,8 +6,8 @@
   "author": "RelevantEdge (https://www.relevant-edge.com)",
   "homepage": "https://github.com/relevantedge/tailjs",
   "scripts": {
-    "build": "rollup --config ../../../build/rollup.mjs",
-    "build:watch": "concurrently \"pnpm run build -w --environment DEV\" \"nodemon --enable-source-maps --openssl-legacy-provider -q ./dist/dev/dist/index.mjs\"",
+    "build": "tsx ../../../build/rollup.ts",
+    "build:watch": "concurrently \"pnpm run build -w --environment DEV\" \"nodemon --enable-source-maps --openssl-legacy-provider -q ./dist/dev/dist/index.ts\"",
     "locust": "node locust/locust.js"
   },
   "dependencies": {
@@ -32,8 +32,6 @@
     "@types/request-ip": "^0.0.38",
     "@ygoe/msgpack": "^1.0.3",
     "concurrently": "^8.1.0",
-    "nodemon": "^2.0.20",
-    "ts-node": "^10.9.1",
-    "ts-node-dev": "^2.0.0"
+    "nodemon": "^2.0.20"
   }
 }

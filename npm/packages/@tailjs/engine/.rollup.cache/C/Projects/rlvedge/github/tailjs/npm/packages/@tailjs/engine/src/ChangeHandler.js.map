@@ -1,0 +1,1 @@
+{"version":3,"file":"ChangeHandler.js","sourceRoot":"","sources":["ChangeHandler.ts"],"names":[],"mappings":"","sourcesContent":["export interface ChangeHandler<T> {\n  (path: string, data: () => Promise<T | null>): Promise<void | boolean>;\n}\n"]}

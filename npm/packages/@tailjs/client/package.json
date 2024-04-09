@@ -4,7 +4,7 @@
   "license": "MIT",
   "version": "0.17.24",
   "scripts": {
-    "build": "rollup --config ../../../build/rollup.client.mjs",
+    "build": "tsx ../../../build/rollup-client.ts",
     "build:watch": "pnpm run build -w"
   },
   "main": "src/index.ts",

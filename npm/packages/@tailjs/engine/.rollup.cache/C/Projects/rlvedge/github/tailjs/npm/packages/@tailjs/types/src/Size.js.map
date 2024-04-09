@@ -1,0 +1,1 @@
+{"version":3,"file":"Size.js","sourceRoot":"","sources":["Size.ts"],"names":[],"mappings":"","sourcesContent":["import { Float } from \"./native-types\";\n\nexport interface Size {\n  width: Float;\n  height: Float;\n}\n"]}

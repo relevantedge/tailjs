@@ -35,3 +35,4 @@ export * from "./ActivationTracking";
 export * from "./protocol";
 export * from "./events";
 export * from "./util";
+export * from "./json-schema";

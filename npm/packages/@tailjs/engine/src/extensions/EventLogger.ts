@@ -12,7 +12,7 @@ export class EventLogger implements TrackerExtension {
   constructor(public readonly configuration: { group: string }) {}
 
   async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
-    for (const ev of events.add) {
+    for (const ev of events) {
       tracker.env.log(this, {
         group: this.configuration.group,
         level: "info",

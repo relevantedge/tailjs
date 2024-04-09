@@ -1,5 +1,6 @@
 import {
   MaybePromise,
+  define,
   isDefined,
   isFunction,
   isNumber,
@@ -18,12 +19,12 @@ export type Timer = {
   (toggle?: boolean): number;
 };
 
-export const timer = (started = true): Timer => {
-  let t0 = started ? now() : undefined;
+export const createTimer = (started = true): Timer => {
+  let t0: number | boolean = started && now();
   let elapsed = 0;
-  return (toggle) => {
-    isDefined(t0) && (elapsed += now() - t0);
-    isDefined(toggle) && (t0 = toggle ? Date.now() : undefined);
+  return (toggle?: boolean) => {
+    t0 && (elapsed += now() - (t0 as number));
+    isDefined(toggle) && (t0 = toggle && now());
     return elapsed;
   };
 };

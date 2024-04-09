@@ -1,4 +1,4 @@
-import { clock, timer as createTimer, delay } from "../src";
+import { clock, createTimer as createTimer, delay } from "../src";
 
 describe("Timer functions works as well as they can be tested.", () => {
   it("Times.", async () => {

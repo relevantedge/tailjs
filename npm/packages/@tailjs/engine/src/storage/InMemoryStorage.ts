@@ -3,14 +3,12 @@ import {
   Variable,
   VariableFilter,
   VariableGetter,
-  VariableHeader,
   VariableKey,
   VariableQueryOptions,
-  VariableQueryResult,
   VariableScope,
   VariableScopeValue,
   VariableSetResult,
-  VariableSetStatus,
+  SetStatus,
   VariableSetter,
   VersionedVariableKey,
   dataClassification,
@@ -148,14 +146,15 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           !variable ||
           (variable.purposes &&
             purposes &&
-            !(variable.purposes & dataPurposes(purposes))) ||
+            !(variable.purposes & dataPurposes.parse(purposes))) ||
           (classification &&
             (variable.classification <
-              dataClassification(classification.min)! ||
+              dataClassification.parse(classification.min)! ||
               variable.classification >
-                dataClassification(classification.max)! ||
+                dataClassification.parse(classification.max)! ||
               classification.levels?.some(
-                (level) => variable.classification === dataClassification(level)
+                (level) =>
+                  variable.classification === dataClassification.parse(level)
               ) === false)) ||
           (tags &&
             (!variable.tags ||
@@ -178,8 +177,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
 
         return true;
       };
-      for (const scope of map(queryFilter.scopes, variableScope) ??
-        variableScope.values) {
+      for (const scope of map(queryFilter.scopes, (scope) =>
+        variableScope.parse(scope)
+      ) ?? variableScope.values) {
         for (const [, scopeVars] of queryFilter.targetIds?.map(
           (targetId) =>
             [targetId, this._getScopeValues(scope, targetId, false)] as const
@@ -253,7 +253,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   ): MaybePromise<void> {
     this._ttl ??= {};
     for (const [scope, duration] of Object.entries(durations).map(
-      ([scope, duration]) => [variableScope(scope), duration]
+      ([scope, duration]) => [variableScope.parse(scope), duration]
     )) {
       duration! > 0 ? (this._ttl![scope] = duration) : delete this._ttl![scope];
     }
@@ -282,9 +282,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   public async get<
-    K extends (VariableGetter<any, boolean> | null | undefined)[]
+    K extends readonly (VariableGetter<any, boolean> | null | undefined)[]
   >(
-    getters: K,
+    getters: K | readonly (VariableGetter<any> | null | undefined)[],
     context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
     const results = getters.map(toStrict).map((getter) => ({
@@ -354,8 +354,10 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     };
   }
 
-  public set<Setters extends (VariableSetter<any> | null | undefined)[]>(
-    variables: Setters & VariableSetter<any>[],
+  public set<
+    Setters extends readonly (VariableSetter<any> | null | undefined)[]
+  >(
+    variables: Setters & readonly (VariableSetter<any> | null | undefined)[],
     context?: VariableStorageContext
   ): VariableSetResults<Setters> {
     const timestamp = now();
@@ -391,7 +393,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
 
       if (isVariablePatch(source)) {
         if (this._testDisablePatch) {
-          results.push({ status: VariableSetStatus.Unsupported, source });
+          results.push({ status: SetStatus.Unsupported, source });
           continue;
         }
 
@@ -399,7 +401,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
 
         if (!isDefined(patched)) {
           results.push({
-            status: VariableSetStatus.Unchanged,
+            status: SetStatus.Unchanged,
             source,
             current: copy(current),
           });
@@ -410,7 +412,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         value = patched.value;
       } else if (current?.version !== version) {
         results.push({
-          status: VariableSetStatus.Conflict,
+          status: SetStatus.Conflict,
           source,
           current: copy(current),
         });
@@ -421,8 +423,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         results.push({
           status:
             current && this._remove(current)
-              ? VariableSetStatus.Success
-              : VariableSetStatus.Unchanged,
+              ? SetStatus.Success
+              : SetStatus.Unchanged,
           source,
           current: undefined,
         });
@@ -448,11 +450,11 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       results.push(
         current
           ? {
-              status: VariableSetStatus.Success,
+              status: SetStatus.Success,
               source,
               current,
             }
-          : { status: VariableSetStatus.Denied, source }
+          : { status: SetStatus.Denied, source }
       );
     }
 

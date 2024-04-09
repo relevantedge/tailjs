@@ -6,8 +6,9 @@
   "main": "src/index.ts",
   "author": "RelevantEdge (https://www.relevant-edge.com)",
   "homepage": "https://github.com/relevantedge/tailjs",
+  "type": "module",
   "scripts": {
-    "build": "rollup --config ../../../build/rollup.mjs",
+    "build": "tsx ../../../build/rollup.ts",
     "build:watch": "pnpm run build -w"
   },
   "dependencies": {

@@ -245,7 +245,7 @@ export const bigSchema = {
         },
       },
     },
-    session: {
+    SessionVariables: {
       type: "object",
       properties: {
         test: {
@@ -333,7 +333,7 @@ export const bigSchema = {
             },
           },
         },
-        session: {
+        SessionVariables: {
           type: "object",
           properties: {
             test: {

@@ -1,0 +1,1 @@
+{"version":3,"file":"Scoped.js","sourceRoot":"","sources":["Scoped.ts"],"names":[],"mappings":"","sourcesContent":["/**\n * Base interface for other marker interfaces that specifies that an event is scoped to something else than page views.\n */\nexport interface Scoped {}\n"]}

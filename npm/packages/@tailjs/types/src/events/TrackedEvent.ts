@@ -1,12 +1,12 @@
 import type {
   CartUpdatedEvent,
   ComponentClickEvent,
+  Integer,
   LocalID,
   Session,
-  ViewEvent,
   Tagged,
   Timestamp,
-  Integer,
+  ViewEvent,
 } from "..";
 
 /**
@@ -16,7 +16,8 @@ import type {
  * - If the event represents something that can also be considered an entity like "a page view", "a user location" etc. the name should be a (deverbal) noun.
  * - If the event only indicates something that happend, like "session started", "view ended" etc. the name should be a verb in the past tense.
  *
- * @censor_ignore
+ * @id urn:tailjs:core:event
+ * @privacy censor-ignore anonymous necessary
  */
 export interface TrackedEvent extends Tagged {
   /**
@@ -77,6 +78,3 @@ export interface TrackedEvent extends Tagged {
 
 export const isTrackedEvent = (ev: any): ev is TrackedEvent =>
   ev && typeof ev.type === "string";
-
-export type TrackedEventPatch = Partial<TrackEvent> &
-  Required<Pick<TrackedEvent, "id" | "type">>;

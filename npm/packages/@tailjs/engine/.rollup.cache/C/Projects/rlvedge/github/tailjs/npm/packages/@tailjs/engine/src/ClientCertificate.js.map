@@ -1,0 +1,1 @@
+{"version":3,"file":"ClientCertificate.js","sourceRoot":"","sources":["ClientCertificate.ts"],"names":[],"mappings":"","sourcesContent":["export interface ClientCertificate {\n  id: string;\n  cert: Uint8Array | string;\n  key?: string;\n}\n"]}

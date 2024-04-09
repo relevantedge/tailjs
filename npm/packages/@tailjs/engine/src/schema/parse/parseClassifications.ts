@@ -3,10 +3,12 @@ import {
   DataPurposes,
   dataClassification,
   dataPurposes,
+  getPrivacyAnnotations,
+  parsePrivacyTokens,
+  PrivacyAnnotations,
 } from "@tailjs/types";
-import { OmitPartial, isDefined } from "@tailjs/util";
+import { OmitPartial, isDefined, tryCatch } from "@tailjs/util";
 import { ParsedSchemaClassification, TraverseContext, parseError } from ".";
-import { annotations } from "../..";
 
 export const parseClassifications = (
   context: OmitPartial<
@@ -16,64 +18,56 @@ export const parseClassifications = (
 ): Partial<ParsedSchemaClassification> => {
   const node = context.node;
 
-  let censorIgnore: boolean | undefined;
-  if (isDefined(node[annotations.censor])) {
-    censorIgnore = node[annotations.censor] === "ignore";
+  const classification: Partial<ParsedSchemaClassification> = {};
+
+  if (isDefined(node[PrivacyAnnotations.Censor])) {
+    classification.censorIgnore = node[PrivacyAnnotations.Censor] === "ignore";
   }
 
-  let privacyClass = node[annotations.classification];
-  if (isDefined(node[annotations.purpose] ?? node[annotations.purposes])) {
+  if (
+    isDefined(
+      node[PrivacyAnnotations.Purpose] ?? node[PrivacyAnnotations.Purposes]
+    )
+  ) {
     parseError(
       context,
       "x-privacy-purpose and x-privacy-purposes cannot be specified at the same time."
     );
   }
-  let privacyPurposes = node[annotations.purpose] ?? node[annotations.purposes];
 
-  let description = (node.description as string)
-    ?.replace(/@privacy[: ]?(.+)/gm, (_, keywords: string) => {
-      keywords
-        .split(",")
-        .map((keyword) => keyword.trim())
-        .filter((item) => item)
-        .forEach((keyword) => {
-          if (keyword === "censor_ignore" || keyword === "censor_include") {
-            censorIgnore ??= keyword === "censor_ignore";
-            return;
-          }
-          let parsed = dataPurposes.tryParse(keyword) as number | undefined;
-          if (isDefined(parsed)) {
-            privacyPurposes = (privacyPurposes ?? 0) | parsed;
-            return;
-          }
+  classification.classification = dataClassification.parse(
+    node[PrivacyAnnotations.Classification]
+  );
+  classification.purposes = dataPurposes.parse(
+    node[PrivacyAnnotations.Purpose] ?? node[PrivacyAnnotations.Purposes]
+  );
 
-          parsed = dataClassification.tryParse(keyword);
-          if (isDefined(parsed)) {
-            privacyClass ??= parsed;
-            return;
-          }
+  if (node.description) {
+    const parsed = (node.description as string)
+      .replace(/@privacy (.+)/g, (_, keywords: string) => {
+        tryCatch(
+          () => parsePrivacyTokens(keywords, classification),
+          (err) => parseError(context, err)
+        );
+        return "";
+      })
+      .trim();
 
-          parseError(context, `Unknown privacy keyword '${keyword}'.`);
-        });
+    if (!parsed.length) {
+      delete node.description;
+    }
 
-      return "";
-    })
-    .trim();
-
-  if (!description?.length) {
-    delete node.description;
+    Object.assign(node, getPrivacyAnnotations(classification));
   }
 
-  censorIgnore ??= context.censorIgnore;
-
-  if (censorIgnore) {
-    privacyClass ??= DataClassification.Anonymous;
-    privacyPurposes ??= DataPurposes.Any;
+  if ((classification.censorIgnore ??= context.censorIgnore)) {
+    classification.classification ??= DataClassification.Anonymous;
+    classification.purposes ??= DataPurposes.Any;
   }
 
   return {
-    classification: dataClassification(privacyClass) ?? context.classification,
-    purposes: dataPurposes(privacyPurposes) ?? context.purposes,
-    censorIgnore,
+    classification: classification.classification ?? context.classification,
+    purposes: classification.purposes ?? context.purposes,
+    censorIgnore: classification.censorIgnore ?? context.censorIgnore,
   };
 };

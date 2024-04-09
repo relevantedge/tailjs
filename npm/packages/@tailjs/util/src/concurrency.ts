@@ -1,17 +1,18 @@
-import { isDefined, isFunction } from ".";
-
-export type Lock<D = any> = {
-  <T = void>(action: () => Promise<T> | T): Promise<T>;
-  <T = void>(action: () => Promise<T> | T, waitTimeout: number): Promise<
-    [value: T | undefined, acquired: boolean]
-  >;
-  data: {
-    get(): D | undefined;
-    update<Undefined extends undefined | never = never>(
-      newValue: (current: D | undefined) => D | Undefined
-    ): D | Undefined;
-  };
-};
+import {
+  MaybePromise,
+  Unwrap,
+  Wrapped,
+  isDefined,
+  isFunction,
+  isInteger,
+  isUndefined,
+  now,
+  throwError,
+  createTimer,
+  tryCatchAsync,
+  undefined,
+  unwrap,
+} from ".";
 
 export class ResetablePromise<T = void, E = any> implements PromiseLike<T> {
   private _promise: OpenPromise<T>;
@@ -107,34 +108,75 @@ export class OpenPromise<T = void, E = any> implements PromiseLike<T> {
   }
 }
 
-export const delay = <T = void>(ms: number, action?: () => T): Promise<T> =>
-  new Promise<T>((resolve) => setTimeout(() => resolve(action?.() as T), ms));
+export type Lock = {
+  (timeout?: number): Promise<() => void>;
+  <T>(action: () => MaybePromise<T>, timeout?: number): Promise<T | undefined>;
+};
 
-export const promise = <T = void, Resetable extends boolean = false>(
-  resetable?: Resetable
-): Resetable extends true ? ResetablePromise<T> : OpenPromise<T> =>
-  resetable ? new ResetablePromise<T>() : (new OpenPromise<T>() as any);
+export const createLock = (): Lock => {
+  const semaphore = promise<boolean>(true);
+  let currentLock: (() => void) | undefined;
+  const t0 = createTimer();
+  const wait = async (actionOrMs?: (() => any) | number, ms?: number) => {
+    if (isFunction(actionOrMs)) {
+      const release = await wait(ms);
+      return release
+        ? await tryCatchAsync(actionOrMs, true, release)
+        : undefined;
+    }
+    while (currentLock) {
+      if (
+        isUndefined(
+          await (actionOrMs ? race(delay(actionOrMs), semaphore) : semaphore)
+        )
+      ) {
+        return undefined;
+      }
+      actionOrMs! -= t0(); // If the above did not return undefined we got the semaphore.
+    }
+    return (currentLock = () => semaphore.signal(!(currentLock = undefined)));
+  };
+  return wait;
+};
+
+export const delay = <T extends Wrapped<any> = void>(
+  ms: number | undefined,
+  value?: T
+): MaybePromise<Unwrap<T>> =>
+  isUndefined(ms) || isInteger(ms)
+    ? !ms || ms <= 0
+      ? unwrap(value)!
+      : new Promise<any>((resolve) =>
+          setTimeout(async () => resolve(await unwrap(value)), ms)
+        )
+    : throwError(`Invalid delay ${ms}.`);
+
+export const promise: {
+  <T = void>(resetable?: false): OpenPromise<T>;
+  <T = void>(resetable: true): ResetablePromise<T>;
+} = (resetable?: boolean) =>
+  resetable ? new ResetablePromise() : (new OpenPromise() as any);
 
 type UnwrapPromiseArg<T> = T extends () => infer T ? Awaited<T> : Awaited<T>;
-
-type UnwrapPromiseArgs<T extends any[]> = T extends [infer Arg]
+type UnwrapPromiseArgs<T extends any[]> = T extends readonly [infer Arg]
   ? [UnwrapPromiseArg<Arg>]
-  : T extends [infer Arg, ...infer Rest]
+  : T extends readonly [infer Arg, ...infer Rest]
   ? [UnwrapPromiseArg<Arg>, ...UnwrapPromiseArgs<Rest>]
   : [];
 
 export type AsyncValue<T> =
+  | undefined
   | T
   | PromiseLike<T>
   | (() => T)
   | (() => PromiseLike<T>);
 
 export const waitAll = <Args extends AsyncValue<any>[]>(
-  args: Args
+  ...args: Args
 ): Promise<UnwrapPromiseArgs<Args>> =>
   Promise.all(args.map((arg) => (isFunction(arg) ? arg() : arg))) as any;
 
 export const race = <Args extends AsyncValue<any>[]>(
-  args: Args
+  ...args: Args
 ): Promise<UnwrapPromiseArgs<Args>[number]> =>
   Promise.race(args.map((arg) => (isFunction(arg) ? arg() : arg))) as any;

@@ -240,6 +240,14 @@ export class TrackerEnvironment {
 
   // #region LogShortcuts
 
+  public trace(source: any, message: string) {
+    this.log(source, message, "trace");
+  }
+
+  public debug(source: any, message: string) {
+    this.log(source, message, "debug");
+  }
+
   public warn(source: any, message: string, error?: Error): void;
   public warn(
     source: any,
@@ -251,13 +259,14 @@ export class TrackerEnvironment {
   }
 
   public error(source: any, message: string, error?: Error): void;
-  public error(
-    source: any,
-    message: string | null | undefined,
-    error: Error
-  ): void;
-  public error(source: any, message: string, error?: Error) {
-    this.log(source, message, "warn", error);
+  public error(source: any, error: Error): void;
+  public error(source: any, message: string | Error, error?: Error) {
+    this.log(
+      source,
+      isString(message) ? message : (error = message)?.message,
+      "error",
+      error
+    );
   }
   // #endregion
 }

@@ -8,7 +8,6 @@ describe("Enum utilities works as they should.", () => {
       "non-flag test"
     );
 
-    expect(helper.value1).toBe(10);
     expect(helper.parse("value1")).toBe(10);
     expect(helper.parse(10)).toBe(10);
     expect(helper.parse(undefined)).toBeUndefined();
@@ -38,6 +37,17 @@ describe("Enum utilities works as they should.", () => {
     expect(helper.lookup([2, "value2"])).toEqual(["value1", "value2"]);
 
     expect(helper.lookup(0)).toEqual([]);
+    expect(helper.format(0)).toEqual("none");
+    expect(helper.format(2)).toEqual("value1");
+    expect(helper.lookup(2)).toEqual(["value1"]);
+    expect(helper.format(4)).toEqual("value2");
+    expect(helper.lookup(4)).toEqual(["value2"]);
+    expect(helper.format(["value1", "value2"])).toEqual("any");
+    expect(helper.lookup(["value1", "value2"])).toEqual(["value1", "value2"]);
+    expect(helper.format(6)).toEqual("any");
+    expect(helper.lookup(6)).toEqual(["value1", "value2"]);
+    expect(helper.format(7)).toEqual("any");
+    expect(helper.lookup(7)).toEqual(["value1", "value2"]);
 
     expect(helper.map(2)).toEqual([2]);
     expect(helper.map(6, ([name, flag], i) => `${i}:${name}=${flag}`)).toEqual([

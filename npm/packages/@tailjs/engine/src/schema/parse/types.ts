@@ -10,6 +10,7 @@ export interface ParseContext {
   typeNodes: Map<any, ParsedType>;
   schemas: Map<string, ParsedSchema>;
   types: Map<String, ParsedType>;
+  navigator: (context: TraverseContext, ref: string) => any;
 }
 
 export interface TraverseContext extends Partial<ParsedSchemaClassification> {
@@ -56,6 +57,7 @@ export interface ParsedType
   name: string;
   declaringProperty?: ParsedProperty;
   extends?: Set<ParsedType>;
+  extendsAll?: Set<ParsedType>;
   subtypes?: Set<ParsedType>;
   topLevel?: boolean;
   referencedBy?: Set<ParsedProperty>;

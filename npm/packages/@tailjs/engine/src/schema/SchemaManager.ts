@@ -1,4 +1,6 @@
-import { UserConsent, variableScope } from "@tailjs/types";
+import { UserConsent, VariableScope, variableScope } from "@tailjs/types";
+
+import { SystemTypes } from "@tailjs/types";
 import {
   IfNot,
   MaybeRequired,
@@ -6,6 +8,7 @@ import {
   first,
   forEach,
   invariant,
+  isDefined,
   isString,
   obj,
   required,
@@ -25,7 +28,6 @@ import {
   SchemaVariable,
   SchemaVariableSet,
   VariableMap,
-  systemTypes,
 } from "..";
 import { censor, parseError, parseSchema, validationError } from "./parse";
 
@@ -35,6 +37,9 @@ export class SchemaManager {
   public readonly types: ReadonlyMap<string, SchemaObjectType> = new Map();
 
   constructor(schemas: any[]) {
+    schemas = schemas.map((schema) =>
+      isString(schema) ? JSON.parse(schema) : schema
+    );
     const combinedSchema = {
       $schema: "https://json-schema.org/draft/2020-12/schema",
       $id: "urn:tailjs:runtime",
@@ -129,8 +134,9 @@ export class SchemaManager {
 
     var trackedEvent = first(
       parsedTypes,
-      ([, type]) => type.schemaId === systemTypes.event
+      ([, type]) => type.schemaId === SystemTypes.Event
     )?.[1];
+
     parsedTypes.forEach((parsed) => {
       const type = this.types.get(parsed.id)!;
 
@@ -186,7 +192,7 @@ export class SchemaManager {
         if (
           trackedEvent &&
           key === "type" &&
-          parsed.extends?.has(trackedEvent)
+          parsed.extendsAll?.has(trackedEvent)
         ) {
           toArray(
             parsedProperty.typeContext?.node.const ??
@@ -202,10 +208,17 @@ export class SchemaManager {
           );
         }
 
-        // If $defs defines object types named of a variable scope ("Global", "Session", "Device",  "User" or"Entity"),
+        // If $defs defines object types named of a variable scope + "Variables" ("GlobalVariables", "SessionVariables", "DeviceVariables",  "UserVariables" or"EntityVariables"),
         // their properties will be added as variable definitions to the respective scopes.
-        if (variableScope.tryParse(type.name)) {
-          const scopeId = variableScope.parse(type.name);
+        let variableScopeTarget: VariableScope | undefined;
+        if (
+          type.name.endsWith("Variables") &&
+          isDefined(
+            (variableScopeTarget = variableScope.tryParse(
+              type.name.replace(/Variables$/, "")
+            ))
+          )
+        ) {
           forEach(type.properties, ([, property]: [any, SchemaVariable]) => {
             if (property.required) {
               throw new Error(
@@ -224,10 +237,10 @@ export class SchemaManager {
             property.tryValidate = (value) =>
               type.tryValidate({ [property.name]: value })?.[property.name];
 
-            property.scope = scopeId;
+            property.scope = variableScopeTarget!;
 
             (type.schema!.variables ??= new VariableMap()).set(
-              scopeId,
+              variableScopeTarget,
               property.name,
               property
             );

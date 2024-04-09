@@ -1,5 +1,12 @@
 import { tail } from "@tailjs/client/external";
-import { ConsentEvent, cast } from "@tailjs/types";
+import {
+  ConsentEvent,
+  DataClassification,
+  DataPurposes,
+  cast,
+  dataClassification,
+  dataPurposes,
+} from "@tailjs/types";
 import { useRef, useState } from "react";
 
 export const useConsent = (): [boolean | null, (consent: boolean) => void] => {
@@ -27,7 +34,10 @@ export const useConsent = (): [boolean | null, (consent: boolean) => void] => {
       tail.push(
         cast<ConsentEvent>({
           type: "CONSENT",
-          nonEssentialTracking: consent,
+          purposes: consent ? DataPurposes.Any : DataPurposes.Necessary,
+          level: consent
+            ? DataClassification.Direct
+            : DataClassification.Anonymous,
         })
       );
     },

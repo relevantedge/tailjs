@@ -1,4 +1,4 @@
-import { ParsableEnumValue, createEnumAccessor, map } from "@tailjs/util";
+import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
 
 /**
  * Defines to which extend a piece of information relates to a natural person (user of your app or website).
@@ -7,7 +7,7 @@ import { ParsableEnumValue, createEnumAccessor, map } from "@tailjs/util";
  *
  * YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
  */
-export const enum DataClassification {
+export enum DataClassification {
   /**
    * The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.
    *
@@ -64,19 +64,19 @@ export const enum DataClassification {
   Sensitive = 3,
 }
 
-const classifications = {
-  anonymous: DataClassification.Anonymous,
-  indirect: DataClassification.Indirect,
-  direct: DataClassification.Direct,
-  sensitive: DataClassification.Sensitive,
-} as const;
-
 export const dataClassification = createEnumAccessor(
-  classifications,
+  DataClassification as typeof DataClassification,
   false,
   "data classification"
 );
 
 export type DataClassificationValue<
   Numeric extends boolean | undefined = boolean
-> = ParsableEnumValue<typeof classifications, Numeric, false>;
+> = ParsableEnumValue<
+  typeof DataClassification,
+  Numeric,
+  false,
+  DataClassification
+> extends infer T
+  ? T
+  : never;

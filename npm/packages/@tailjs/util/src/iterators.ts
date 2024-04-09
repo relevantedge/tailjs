@@ -1,19 +1,16 @@
-import { isSet } from "util/types";
 import {
   add,
   ConstToNormal,
   GeneralizeContstants,
   get,
   hasMethod,
-  If,
-  IfNot,
   IsAny,
   isArray,
   isDefined,
   isFalsish,
   isFunction,
-  isIterable,
   isObject,
+  isSet,
   isTruish,
   IterableOrArrayLike,
   KeyValuePairsToObject,
@@ -24,6 +21,7 @@ import {
   symbolIterator,
   toArray,
   undefined,
+  UndefinedNotAny,
 } from ".";
 
 export const UTF16MAX = 0xffff;
@@ -271,11 +269,11 @@ type MapFunction = {
     source: S,
     projection?: IteratorAction<S, R> | null,
     ...rest: StartEndArgs<S>
-  ): S extends undefined ? undefined : IteratorProjection<S, R>[];
+  ): UndefinedNotAny<S, IteratorProjection<S, R>[]>;
   <S extends IteratorSource>(
     source: S,
     ...rest: StartEndArgs<S>
-  ): S extends undefined ? undefined : IteratorItem<S>[];
+  ): UndefinedNotAny<S, IteratorItem<S>[]>;
 };
 
 type FlatProjectFunction = <
@@ -368,7 +366,7 @@ export const map: MapFunction = (
   }
   return source !== undefined
     ? toArray(project(source, projection, start, end))
-    : undefined;
+    : (undefined as any);
 };
 
 export const zip = <Lhs extends IteratorSource, Rhs extends IteratorSource>(
