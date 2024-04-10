@@ -8,7 +8,7 @@ import {
   CryptoProvider,
   EngineHost,
   EventParser,
-  ReadOnlyVariableStorage,
+  ReadonlyVariableStorage,
   TrackerExtension,
   VariableStorage,
   VariableStorageCoordinatorSettings,
@@ -23,7 +23,7 @@ export type CookieConfiguration = {
 };
 
 export interface StorageMappings<
-  T extends ReadOnlyVariableStorage = ReadOnlyVariableStorage
+  T extends ReadonlyVariableStorage = ReadonlyVariableStorage
 > {
   default?: T;
   global?: T;

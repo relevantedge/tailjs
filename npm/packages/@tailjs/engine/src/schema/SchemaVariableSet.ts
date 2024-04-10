@@ -1,5 +1,7 @@
 import {
+  DataClassification,
   UserConsent,
+  VariableClassification,
   VariableKey,
   validateConsent,
   variableScope,
@@ -40,6 +42,10 @@ export class SchemaVariableSet {
         );
       });
     });
+  }
+
+  public has(key: VariableKey | null | undefined): boolean {
+    return this._variables.has(key);
   }
 
   public get(key: VariableKey | null | undefined): SchemaVariable | undefined {

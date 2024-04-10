@@ -35,6 +35,7 @@ export const updateContext = (
       ...parseDescription(node),
       context: childContext,
       types: new Map(),
+      definition: node,
     });
 
     if (context.schema) {

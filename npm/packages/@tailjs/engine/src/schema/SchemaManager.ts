@@ -81,6 +81,7 @@ export class SchemaManager {
         purposes: parsed.purposes!,
         types: new Map(),
         subSchemas: new Map(),
+        definition: parsed.definition,
       };
 
       (this.subSchemas as Map<any, any>).set(schema.id, schema);
@@ -371,7 +372,7 @@ export class SchemaManager {
     );
   }
 
-  public createVariableSet(
+  public compileVariableSet(
     schemas?: string | Iterable<string | Schema | undefined>
   ) {
     return new SchemaVariableSet(

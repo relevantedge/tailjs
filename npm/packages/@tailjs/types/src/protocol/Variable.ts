@@ -8,10 +8,22 @@ import {
 } from "..";
 
 export enum VariableScope {
+  /** Global variables. */
   Global = 0,
+
+  /** Variables related to sessions. */
   Session = 1,
+
+  /** Variables related to a device (browser or app). */
   Device = 2,
+
+  /** Variables related to an identified user. */
   User = 3,
+
+  /**
+   * Variables related to an external identity.
+   * One use case could be used to augment data a CMS with real-time data related to personalization or testing.
+   */
   Entity = 4,
 }
 
@@ -88,7 +100,7 @@ export interface VariableClassification<
    * When a variable is requested by some logic, it may be stated what the data is used for.
    * If the user has not consented to data being used for this purpose the variable will not be avaiable.
    */
-  purposes?: DataPurposeValue<NumericEnums>;
+  purposes: DataPurposeValue<NumericEnums>;
 
   /**
    * Optionally categorizes variables.

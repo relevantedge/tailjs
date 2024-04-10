@@ -70,11 +70,9 @@ export const dataClassification = createEnumAccessor(
   "data classification"
 );
 
-export type DataClassificationValue<
-  Numeric extends boolean | undefined = boolean
-> = ParsableEnumValue<
+export type DataClassificationValue<Numeric = boolean> = ParsableEnumValue<
   typeof DataClassification,
-  Numeric,
+  Numeric & boolean,
   false,
   DataClassification
 > extends infer T

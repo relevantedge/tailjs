@@ -108,9 +108,9 @@ describe("SchemaManager.", () => {
       ],
     });
 
-    expect(() => manager.createVariableSet()).toThrow("already");
+    expect(() => manager.compileVariableSet()).toThrow("already");
 
-    const variables = manager.createVariableSet("urn:tailjs:core");
+    const variables = manager.compileVariableSet("urn:tailjs:core");
 
     expect(
       variables.get({ scope: "session", key: "test" })?.classification
@@ -281,6 +281,12 @@ describe("SchemaManager.", () => {
         type: "COMPONENT_CLICK_INTENT",
         pos: { x: 32, y: 80 },
       })
+    );
+
+    fs.writeFileSync(
+      "c:/temp/tailjs.json",
+      JSON.stringify(manager.schema.definition, null, 2),
+      "utf-8"
     );
   });
 });

@@ -14,17 +14,20 @@ import {
   variableScope,
 } from "@tailjs/types";
 import {
+  DoubleMap,
   MaybePromise,
+  Wrapped,
+  forEach,
   get,
   isDefined,
-  isFunction,
   map,
+  unwrap,
   waitAll,
 } from "@tailjs/util";
 import { ParsedKey, PartitionItems, mergeKeys, parseKey } from "../lib";
 
 import {
-  ReadOnlyVariableStorage,
+  ReadonlyVariableStorage,
   VariableGetResults,
   VariableSetResults,
   VariableStorage,
@@ -32,21 +35,31 @@ import {
   isWritable,
 } from "..";
 
-export type PrefixMapping = Map<string, ReadOnlyVariableStorage>;
-export type PrefixMappings = (PrefixMapping | undefined)[];
+export type PrefixMapping = { storage: ReadonlyVariableStorage };
+export type PrefixMappings = Record<
+  VariableScopeValue,
+  Map<string, PrefixMapping> | undefined
+>;
 
 export class VariableSplitStorage implements VariableStorage {
-  private readonly _mappings: PrefixMappings;
+  private readonly _mappings: DoubleMap<
+    [VariableScope, string],
+    ReadonlyVariableStorage
+  >;
   private _cachedStorages: Map<
-    ReadOnlyVariableStorage,
+    ReadonlyVariableStorage,
     Set<VariableScope>
   > | null = null;
 
-  constructor(mappings: (() => PrefixMappings) | PrefixMappings) {
-    this._mappings = isFunction(mappings) ? mappings() : mappings;
+  constructor(mappings: Wrapped<PrefixMappings>) {
+    forEach(unwrap(mappings), ([scope, mappings]) =>
+      mappings?.forEach(({ storage }, prefix) =>
+        this._mappings.set([variableScope(scope), prefix], storage)
+      )
+    );
   }
 
-  protected _keepPrefix(storage: ReadOnlyVariableStorage) {
+  protected _keepPrefix(storage: ReadonlyVariableStorage) {
     return storage instanceof VariableSplitStorage;
   }
 
@@ -55,13 +68,16 @@ export class VariableSplitStorage implements VariableStorage {
   ): K extends undefined
     ? undefined
     : ParsedKey & {
-        storage: ReadOnlyVariableStorage;
+        storage: ReadonlyVariableStorage;
         source: K;
       } {
     if (!source) return undefined as any;
 
     const parsed = parseKey(source.key);
-    let storage = this._mappings[source.scope]?.get(parsed.prefix);
+    let storage = this._mappings.get([
+      variableScope(source.scope),
+      parsed.prefix,
+    ]);
 
     if (!storage) {
       return undefined!;
@@ -77,10 +93,8 @@ export class VariableSplitStorage implements VariableStorage {
   private get _storageScopes() {
     if (!this._cachedStorages) {
       this._cachedStorages = new Map();
-      this._mappings.forEach((prefixes, scope: VariableScope) =>
-        prefixes?.forEach((storage) =>
-          get(this._cachedStorages!, storage, () => new Set()).add(scope)
-        )
+      this._mappings.forEach((storage, [scope]) =>
+        get(this._cachedStorages!, storage, () => new Set()).add(scope)
       );
     }
     return this._cachedStorages;
@@ -103,7 +117,7 @@ export class VariableSplitStorage implements VariableStorage {
     context?: VariableStorageContext
   ): Promise<void> {
     await waitAll(
-      ...map(
+      map(
         this._storageScopes,
         ([storage, mappedScopes]) =>
           isWritable(storage) &&
@@ -115,8 +129,8 @@ export class VariableSplitStorage implements VariableStorage {
 
   private _splitKeys<K extends (VariableKey | undefined | null)[]>(
     keys: K
-  ): Map<ReadOnlyVariableStorage, PartitionItems<K>> {
-    const partitions = new Map<ReadOnlyVariableStorage, PartitionItems<K>>();
+  ): Map<ReadonlyVariableStorage, PartitionItems<K>> {
+    const partitions = new Map<ReadonlyVariableStorage, PartitionItems<K>>();
 
     keys.forEach((sourceKey, sourceIndex) => {
       if (!sourceKey) return;
@@ -135,11 +149,11 @@ export class VariableSplitStorage implements VariableStorage {
   }
 
   private _splitFilters(filters: VariableFilter[]) {
-    const partitions = new Map<ReadOnlyVariableStorage, VariableFilter[]>();
+    const partitions = new Map<ReadonlyVariableStorage, VariableFilter[]>();
     for (const filter of filters) {
-      const keySplits = new Map<ReadOnlyVariableStorage, Set<string>>();
+      const keySplits = new Map<ReadonlyVariableStorage, Set<string>>();
       const addKey = (
-        storage: ReadOnlyVariableStorage | undefined,
+        storage: ReadonlyVariableStorage | undefined,
         key: ParsedKey
       ) =>
         storage &&
@@ -147,11 +161,9 @@ export class VariableSplitStorage implements VariableStorage {
           this._keepPrefix(storage) ? key.sourceKey : key.key
         );
 
-      const scopes =
-        map(filter.scopes, (scope) => variableScope.parse(scope)) ??
-        variableScope.values;
+      const scopes = map(filter.scopes, variableScope) ?? variableScope.values;
       for (const scope of scopes) {
-        const scopePrefixes = this._mappings[scope];
+        const scopePrefixes = this._mappings.getMap(scope);
         if (!scopePrefixes) continue;
 
         for (const key of filter.keys) {
@@ -173,7 +185,7 @@ export class VariableSplitStorage implements VariableStorage {
           keys: [...keys],
           scopes: filter.scopes
             ? filter.scopes.filter((scope) =>
-                storageScopes.has(variableScope.parse(scope))
+                storageScopes.has(variableScope(scope))
               )
             : [...storageScopes],
         });
@@ -183,7 +195,7 @@ export class VariableSplitStorage implements VariableStorage {
   }
 
   protected async _patchGetResults(
-    storage: ReadOnlyVariableStorage,
+    storage: ReadonlyVariableStorage,
     getters: VariableGetter<any>[],
     results: (Variable | undefined)[]
   ) {
@@ -196,7 +208,7 @@ export class VariableSplitStorage implements VariableStorage {
   ): Promise<VariableGetResults<K>> {
     const results: VariableGetResults<K> = [] as any;
     await waitAll(
-      ...map(
+      map(
         this._splitKeys(keys.map(toStrict)),
         ([storage, split]) =>
           isWritable(storage) &&
@@ -331,7 +343,7 @@ export class VariableSplitStorage implements VariableStorage {
   ): Promise<VariableSetResults<K>> {
     const results: VariableSetResults<K> = [] as any;
     await waitAll(
-      ...map(
+      map(
         this._splitKeys(variables.map(toStrict)),
         ([storage, split]) =>
           isWritable(storage) &&
@@ -360,7 +372,7 @@ export class VariableSplitStorage implements VariableStorage {
       return;
     }
     await waitAll(
-      ...partitions.map(
+      partitions.map(
         ([storage, filters]) =>
           isWritable(storage) && storage.purge(filters, context)
       )

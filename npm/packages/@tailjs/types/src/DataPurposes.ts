@@ -1,5 +1,7 @@
 import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
 
+// Grrr... We need to write out the calculated numbers for each enum value. Otherwise stupid JSON schema generator won't work.
+
 export enum DataPurposes {
   /** Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema. */
   None = 0,
@@ -61,6 +63,11 @@ export enum DataPurposes {
   Infrastructure = 32,
 
   /**
+   * All purposes that are permissable for anonymous users.
+   */
+  Anonymous = 49, //DataPurposes.Necessary | DataPurposes.Infrastructure | DataPurposes.Security,
+
+  /**
    * Data can be used for any purpose.
    */
   Any = 63,
@@ -71,21 +78,20 @@ export const dataPurposes = createEnumAccessor(
   true,
   "data purpose"
 );
-export const dataPurpose = createEnumAccessor(
+export const singleDataPurpose = createEnumAccessor(
   DataPurposes as typeof DataPurposes,
   false,
   "data purpose"
 );
 
-export type DataPurposeValue<Numeric extends boolean | undefined = boolean> =
-  ParsableEnumValue<
-    typeof DataPurposes,
-    Numeric,
-    true,
-    DataPurposes
-  > extends infer T
-    ? T
-    : never;
+export type DataPurposeValue<Numeric = boolean> = ParsableEnumValue<
+  typeof DataPurposes,
+  Numeric,
+  true,
+  DataPurposes
+> extends infer T
+  ? T
+  : never;
 
 export type SingleDataPurposeValue<
   Numeric extends boolean | undefined = boolean

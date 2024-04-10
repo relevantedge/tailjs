@@ -1,4 +1,12 @@
-import { Entries, define, isDefined, isNumber, isString, undefined } from ".";
+import {
+  Entries,
+  define,
+  isDefined,
+  isNumber,
+  isString,
+  throwError,
+  undefined,
+} from ".";
 
 type EnumSource = Record<string, string | number>;
 
@@ -30,7 +38,7 @@ type Lc<T> = T extends string ? Lowercase<T> : never;
 
 export type ParsableEnumValue<
   T extends EnumSource,
-  Numeric extends boolean | undefined,
+  Numeric,
   Flags extends boolean,
   Enum extends number = T[keyof T] & number
 > =
@@ -95,7 +103,8 @@ type ParseFunction<
 export type EnumHelper<
   T extends EnumSource,
   Flags extends boolean = boolean
-> = {
+> = ParseFunction<T, Flags, "numeric", never, true> & {
+  length: number;
   parse: ParseFunction<T, Flags, "numeric">;
   tryParse: ParseFunction<T, Flags, "numeric", undefined>;
   values: T[keyof T][];
@@ -103,14 +112,13 @@ export type EnumHelper<
   lookup: ParseFunction<T, Flags, "lookup">;
   format: ParseFunction<T, Flags, "format">;
 } & (Flags extends true
-  ? {
-      any: T[keyof T];
-      map<R = T[keyof T]>(
-        flags: ParsableEnumValue<T, boolean | undefined, Flags>,
-        map?: (entry: Entries<T>[number], index: number) => R
-      ): R[];
-    }
-  : {});
+    ? {
+        map<R = T[keyof T]>(
+          flags: ParsableEnumValue<T, boolean | undefined, Flags>,
+          map?: (entry: Entries<T>[number], index: number) => R
+        ): R[];
+      }
+    : {});
 
 export const createEnumAccessor = <T extends EnumSource, Flags extends boolean>(
   sourceEnum: T,
@@ -178,15 +186,12 @@ export const createEnumAccessor = <T extends EnumSource, Flags extends boolean>(
         (value: any) =>
           (value = parseValue(value)) != null ? valueLookup[value] : undefined,
       ];
-  const throwError = (err: any) => {
-    throw err;
-  };
 
   let originalValue: any;
-  const parse = (value: any) =>
+  const parse = (value: any, validateNumbers?: boolean) =>
     value == null
       ? undefined
-      : (value = tryParse((originalValue = value))) == null
+      : (value = tryParse((originalValue = value), validateNumbers)) == null
       ? throwError(
           new TypeError(
             `${JSON.stringify(originalValue)} is not a valid ${enumName} value.`
@@ -194,25 +199,29 @@ export const createEnumAccessor = <T extends EnumSource, Flags extends boolean>(
         )
       : value;
 
-  return define({}, [
-    { enumerable: false },
-    {
-      parse,
-      tryParse,
-      entries,
-      values,
-      lookup,
-      format: (value: any) => lookup(value, true),
-    } as const,
-    flags &&
-      ({
-        any,
-        map: (flags: any, map?: (flag: any, index: number) => any) => (
-          (flags = parse(flags)),
-          entries
-            .filter(([, flag]) => flag & flags)
-            .map(map ?? (([, flag]) => flag))
-        ),
-      } as const),
-  ]) as any;
+  return define(
+    (value: any) => parse(value),
+    [
+      { enumerable: false },
+      {
+        parse,
+        tryParse,
+        entries,
+        values,
+        lookup,
+        length: entries.length,
+        format: (value: any) => lookup(value, true),
+      } as const,
+      flags &&
+        ({
+          any,
+          map: (flags: any, map?: (flag: any, index: number) => any) => (
+            (flags = parse(flags)),
+            entries
+              .filter(([, flag]) => flag & flags)
+              .map(map ?? (([, flag]) => flag))
+          ),
+        } as const),
+    ]
+  ) as any;
 };

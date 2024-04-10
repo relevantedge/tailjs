@@ -635,11 +635,11 @@ export const obj: {
     source: S,
     selector: IteratorAction<S, P>,
     ...rest: StartEndArgs<S>
-  ): KeyValuePairsToObject<P[]>;
+  ): KeyValuePairsToObject<P>;
   <S extends IteratorSourceOf<readonly [keyof any, any]>>(
     source: S,
     ...rest: StartEndArgs<S>
-  ): KeyValuePairsToObject<S>;
+  ): KeyValuePairsToObject<IteratorItem<S>>;
 } = ((source: any, selector: any, ...rest: any[]) =>
   Object.fromEntries((map as any)(source, selector, ...rest))) as any;
 
