@@ -200,22 +200,17 @@ export type PrettifyIntersection<T> = T extends infer T
   ? { [P in keyof T]: T[P] }
   : never;
 
-type KeyValuePairToProperty<K, V> = K extends keyof any
-  ? { [P in K]: V }
-  : never;
-
 /**
  * Makes an array of key/value pairs to an object with the corresponding properties.
  */
-export type KeyValuePairsToObject<T> = PrettifyIntersection<
-  T extends readonly []
-    ? {}
-    : T extends readonly [[infer K, infer V], ...infer Rest]
-    ? KeyValuePairToProperty<K, V> & KeyValuePairsToObject<Rest>
-    : T extends readonly [infer K, infer V][]
-    ? UnionToIntersection<KeyValuePairToProperty<K, V>>
-    : never
->;
+export type KeyValuePairsToObject<T extends readonly [keyof any, any]> =
+  PrettifyIntersection<
+    UnionToIntersection<
+      T extends readonly [infer K, infer V]
+        ? { [P in K & keyof any]: V }
+        : never
+    >
+  >;
 
 /**
  * Anything but a function.
@@ -720,3 +715,67 @@ export const required = <T>(value: T, error?: ErrorGenerator): Defined<T> =>
         error ?? "A required value is missing",
         (text) => new TypeError(text.replace("...", " is required."))
       );
+
+export type MaybeReadonly<
+  T extends readonly any[],
+  Test extends readonly any[] | boolean
+> = Test extends any[] | false
+  ? [...T]
+  : Test extends readonly any[] | true
+  ? readonly [...T]
+  : never;
+
+export type DecomposeTuple<
+  T extends readonly any[],
+  Readonly extends readonly any[] | boolean = T
+> = T extends
+  | readonly [...infer Tail, infer Head]
+  | readonly [infer First, ...infer Rest]
+  ? {
+      Tail: MaybeReadonly<Tail, Readonly>;
+      Head: Head;
+      First: First;
+      Rest: MaybeReadonly<Rest, Readonly>;
+      Source: MaybeReadonly<T, Readonly>;
+    }
+  : T extends readonly (infer Item)[]
+  ? {
+      Tail: MaybeReadonly<[], Readonly>;
+      Head: Item;
+      First: Item;
+      Rest: MaybeReadonly<[], Readonly>;
+      Source: MaybeReadonly<T, Readonly>;
+    }
+  : never;
+
+export type Empty = readonly [];
+
+export type Head<
+  T extends readonly any[],
+  Readonly extends readonly any[] | boolean = T
+> = DecomposeTuple<T, Readonly>["Head"];
+export type Tail<
+  T extends readonly any[],
+  Readonly extends readonly any[] | boolean = T
+> = DecomposeTuple<T, Readonly>["Tail"];
+export type First<
+  T extends readonly any[],
+  Readonly extends readonly any[] | boolean = T
+> = DecomposeTuple<T, Readonly>["First"];
+export type Rest<
+  T extends readonly any[],
+  Readonly extends readonly any[] | boolean = T
+> = DecomposeTuple<T, Readonly>["Rest"];
+
+export type Subsets<T extends readonly any[]> = T extends Empty
+  ? never
+  : T | Subsets<Tail<T>>;
+
+export type TakeFirst<
+  T extends readonly any[],
+  N extends number = 1
+> = T["length"] extends N ? T : TakeFirst<Tail<T>, N>;
+export type TakeLast<
+  T extends readonly any[],
+  N extends number = 1
+> = T["length"] extends N ? T : TakeLast<Rest<T>, N>;

@@ -11,6 +11,7 @@ import {
   VariableQueryOptions,
   VariableScope,
   VariableSetResult,
+  dataPurposes,
   isConflictResult,
   isSuccessResult,
   patchType,
@@ -18,6 +19,7 @@ import {
 } from "@tailjs/types";
 import {
   MaybePromise,
+  UndefinedNotAny,
   delay,
   filter,
   isDefined,
@@ -27,7 +29,7 @@ import {
   isUndefined,
   now,
 } from "@tailjs/util";
-import { ReadOnlyVariableStorage, VariableStorage } from "..";
+import { ReadonlyVariableStorage, VariableStorage } from "..";
 
 /**
  * A key that can be used to look up {@link Variable}s in Maps and Sets.
@@ -128,9 +130,9 @@ export const applyPatchOffline = (
     return patched;
   }
 
-  const classification: VariableClassification<true> = {
+  const classification: Partial<VariableClassification<true>> = {
     classification: level!,
-    purposes: purposes,
+    purposes: dataPurposes(purposes) ?? current?.purposes,
   };
 
   const value = current?.value;
@@ -180,11 +182,14 @@ export type ParsedKey = {
 };
 
 export type PartitionItem<T> = [sourceIndex: number, item: T];
-export type PartitionItems<T extends any[] = any[]> = T extends []
+export type PartitionItems<
+  T extends any[] = any[],
+  Append = {}
+> = T extends readonly []
   ? []
-  : T extends [infer Item, ...infer Rest]
-  ? [PartitionItem<Item>, ...PartitionItems<Rest>]
-  : PartitionItem<T[number]>[];
+  : T extends readonly [infer Item, ...infer Rest]
+  ? [PartitionItem<Item & Append>, ...PartitionItems<Rest>]
+  : PartitionItem<T[number] & Append>[];
 
 export const withSourceIndex = <T extends any[]>(items: T): PartitionItems<T> =>
   items.map(
@@ -194,21 +199,21 @@ export const withSourceIndex = <T extends any[]>(items: T): PartitionItems<T> =>
 export const partitionItems = <T extends any[]>(items: PartitionItems<T>): T =>
   items.map((item) => item[1]) as T;
 
-export const mergeKeys = async <K extends any[], T extends any[]>(
+export const mergeKeys = async <K, T extends any[]>(
   results: T,
-  partitionMappings: PartitionItems<K>,
-  partitionResults: (items: K) => MaybePromise<T>
+  partitionMappings: PartitionItem<K>[],
+  partitionResults: (items: K[]) => MaybePromise<T>
 ) =>
   partitionMappings?.length &&
   (
-    await partitionResults(partitionMappings.map((item) => item?.[1]) as K)
+    await partitionResults(partitionMappings.map((item) => item?.[1] as K))
   ).forEach((result) => result && (results[result[0]] = result[1]));
 
 export const hasPrefix = (key: string | undefined) => key?.includes(":");
 
 export const parseKey = <T extends string | undefined>(
   sourceKey: T
-): Exclude<T, string> | ParsedKey => {
+): UndefinedNotAny<T, ParsedKey> => {
   if (isUndefined(sourceKey)) return undefined as any;
   const not = sourceKey[0] === "1";
   if (not) {
@@ -265,7 +270,7 @@ export const splitFilters = (
 };
 
 export const distributeQueries = async (
-  storages: ReadOnlyVariableStorage[],
+  storages: ReadonlyVariableStorage[],
   filters: VariableFilter[][],
   options: VariableQueryOptions
 ) => {};

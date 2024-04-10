@@ -7,3 +7,4 @@ export * from "./events";
 export * from "./priorityQueue";
 export * from "./strings";
 export * from "./enums";
+export * from "./TupleMap";

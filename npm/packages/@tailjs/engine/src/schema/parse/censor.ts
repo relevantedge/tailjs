@@ -1,4 +1,9 @@
-import { UserConsent, validateConsent } from "@tailjs/types";
+import {
+  DataClassification,
+  UserConsent,
+  VariableClassification,
+  validateConsent,
+} from "@tailjs/types";
 import { isArray, isObject, isUndefined } from "@tailjs/util";
 import { ParsedType } from ".";
 import { SchemaClassification, SchemaPropertyStructure } from "../..";
@@ -43,11 +48,18 @@ const traverseValue = (
 export const censor = (
   type: ParsedType,
   value: any,
-  consent: SchemaClassification | UserConsent
+  consent: SchemaClassification | UserConsent,
+  defaultClassification?: VariableClassification
 ) => {
   if (!isObject(value)) return value;
 
-  if (!validateConsent(type as Required<SchemaClassification>, consent))
+  if (
+    !validateConsent(
+      type as Required<SchemaClassification>,
+      consent,
+      defaultClassification
+    )
+  )
     return undefined;
 
   let any = false;
@@ -55,7 +67,10 @@ export const censor = (
 
   for (const key in value) {
     const property = type.properties.get(key);
-    if (!property || !validateConsent(property, consent)) {
+    if (
+      !property ||
+      !validateConsent(property, consent, defaultClassification)
+    ) {
       continue;
     }
 

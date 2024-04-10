@@ -48,6 +48,7 @@ export interface ParsedSchema
     Partial<SchemaClassification<true>> {
   types: Map<string, ParsedType>;
   subSchemas?: Map<string, ParsedSchema>;
+  definition?: any;
 }
 
 export interface ParsedType

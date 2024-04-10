@@ -761,14 +761,23 @@ export const pick = <T, Selectors extends PropertySelector<T>[], U>(
   ) as any;
 };
 
-export type Wrapped<T> =
-  | T
-  | (() => Wrapped<T>)
-  | ((arg: any, ...args: any) => never);
+export type Wrapped<T> = T | (() => Wrapped<T>);
 
-export type Unwrap<T> = T extends Wrapped<infer T> ? T : never;
+export type AsyncWrapped<T> = PromiseLike<
+  T | (() => Wrapped<T>) | ((arg: any, ...args: any) => never)
+>;
 
-export const unwrap = <T extends Wrapped<any>>(value: T): Unwrap<T> =>
+export type Unwrap<T> = T extends Wrapped<infer T>
+  ? T
+  : T extends AsyncWrapped<infer T>
+  ? PromiseLike<T>
+  : never;
+
+export const unwrap: {
+  <T extends Wrapped<any>>(value: T): Unwrap<T>;
+  <T>(value: AsyncWrapped<T>): PromiseLike<T>;
+  <T>(value: Wrapped<T>): T;
+} = (value: Wrapped<any>): any =>
   isFunction(value)
     ? unwrap(value())
     : isAwaitable(value)

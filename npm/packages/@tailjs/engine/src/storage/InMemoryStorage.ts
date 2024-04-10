@@ -272,9 +272,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     variable: Variable<any, true> | undefined
   ) {
     return !variable ||
-      (getter.purpose && // The variable has explicit purposes and not the one requested.
+      (getter.purposes && // The variable has explicit purposes and not the one requested.
         isDefined(variable.purposes) &&
-        !(variable.purposes & getter.purpose))
+        !(variable.purposes & getter.purposes))
       ? undefined
       : isDefined(getter.version) && variable?.version == getter.version
       ? variable
@@ -302,7 +302,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     for (const item of results) {
       if (item.getter?.initializer && !isDefined(item[0])) {
         const initialValue = await item.getter.initializer();
-        if (initialValue) {
+        if (initialValue?.value) {
           // Check if the variable has been created by someone else while the initializer was running.
           const current = this._getScopeValues(
             item.getter.scope,
@@ -357,7 +357,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   public set<
     Setters extends readonly (VariableSetter<any> | null | undefined)[]
   >(
-    variables: Setters & readonly (VariableSetter<any> | null | undefined)[],
+    variables: Setters | readonly (VariableSetter<any> | null | undefined)[],
     context?: VariableStorageContext
   ): VariableSetResults<Setters> {
     const timestamp = now();
@@ -407,8 +407,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           });
           continue;
         }
-        classification = patched.classification!;
-        purposes = patched.purposes;
+        classification = patched.classification ?? classification;
+        purposes = patched.purposes ?? purposes;
         value = patched.value;
       } else if (current?.version !== version) {
         results.push({

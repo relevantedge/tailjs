@@ -33,7 +33,7 @@ import {
   ParseResult,
   PostError,
   PrefixMappings,
-  ReadOnlyVariableStorage,
+  ReadonlyVariableStorage,
   RequestHandlerConfiguration,
   SessionEvents,
   StorageMappings,
@@ -143,12 +143,12 @@ export class RequestHandler {
     const mapPrefix = (
       scope: VariableScope,
       prefix: string,
-      storage: ReadOnlyVariableStorage | undefined
+      storage: ReadonlyVariableStorage | undefined
     ) => storage && (storageMappings[scope] ??= new Map()).set(prefix, storage);
 
     const mapStorages = (
       prefix: string,
-      mappings: StorageMappings<ReadOnlyVariableStorage>
+      mappings: StorageMappings<ReadonlyVariableStorage>
     ) => {
       (
         [

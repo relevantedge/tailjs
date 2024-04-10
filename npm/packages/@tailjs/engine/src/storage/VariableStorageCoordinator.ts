@@ -1,54 +1,123 @@
 import {
-  Variable,
-  VariableGetter,
-  VariablePatch,
-  VariableSetResult,
   SetStatus,
+  UserConsent,
+  Variable,
+  VariableClassification,
+  VariableGetter,
+  VariableKey,
+  VariablePatch,
+  VariableScope,
+  VariableScopeValue,
+  VariableSetResult,
   VariableSetter,
   isConflictResult,
   isErrorResult,
   isVariablePatch,
+  isVariablePatchAction,
+  validateConsent,
+  variableScope,
 } from "@tailjs/types";
-import { delay, isDefined } from "@tailjs/util";
+import {
+  TupleMap,
+  UndefinedNotAny,
+  delay,
+  forEach,
+  isDefined,
+  isUndefined,
+  required,
+} from "@tailjs/util";
 import {
   PartitionItem,
   applyPatchOffline,
+  parseKey,
   partitionItems,
   withSourceIndex,
 } from "../lib";
 
 import {
-  PrefixMappings,
-  ReadOnlyVariableStorage,
-  VariableStorageContext,
+  ReadonlyVariableStorage,
+  SchemaClassification,
+  SchemaManager,
+  SchemaVariableSet,
+  VariableGetResults,
+  VariableSetResults,
   VariableSplitStorage,
   VariableStorage,
+  VariableStorageContext,
   isWritable,
 } from "..";
 
+export type SchemaBoundPrefixMapping = {
+  storage: ReadonlyVariableStorage;
+
+  /**
+   * The IDs of the schemas.
+   */
+  schemas?: string[];
+  /**
+   * If a variable's classification is not explicitly defined in a schema, this will be the default.
+   * If omitted, set requests will fail unless classification and purpose is defined.
+   */
+  classification?: VariableClassification;
+};
+
 export interface VariableStorageCoordinatorSettings {
-  mappings: PrefixMappings;
+  mappings: Record<
+    VariableScopeValue,
+    Map<string, SchemaBoundPrefixMapping> | undefined
+  >;
+  schemaManager: SchemaManager;
+  consent?: UserConsent;
   retries?: number;
   transientRetryDelay?: number;
   errorRetryDelay?: number;
 }
 
+type PrefixVariables = {
+  variables: SchemaVariableSet | undefined;
+  classification: SchemaClassification | undefined;
+};
+
 export class VariableStorageCoordinator extends VariableSplitStorage {
-  private _settings: Required<VariableStorageCoordinatorSettings>;
+  private _settings: Required<
+    Omit<VariableStorageCoordinatorSettings, "schemaManager" | "consent">
+  >;
+
+  private readonly _schemaManager: SchemaManager;
+
+  private readonly _variables = new TupleMap<
+    [scope: VariableScope, prefix: string],
+    PrefixVariables
+  >();
 
   constructor({
     mappings,
+    schemaManager,
     retries = 3,
     transientRetryDelay = 50,
     errorRetryDelay = 250,
   }: VariableStorageCoordinatorSettings) {
     super(mappings);
+
     this._settings = {
       mappings,
       retries,
       transientRetryDelay,
       errorRetryDelay,
     };
+
+    this._schemaManager = schemaManager;
+
+    forEach(mappings, ([scope, mappings]) =>
+      mappings?.forEach((mapping, prefix) =>
+        this._variables.set([variableScope(scope), prefix], {
+          variables:
+            mapping.schemas &&
+            schemaManager.compileVariableSet(mapping.schemas),
+          classification: mapping.classification,
+        })
+      )
+    );
   }
 
   private async _setWithRetry(
@@ -111,7 +180,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
   }
 
   protected async _patchGetResults(
-    storage: ReadOnlyVariableStorage,
+    storage: ReadonlyVariableStorage,
     getters: VariableGetter<any>[],
     results: (Variable<any> | undefined)[]
   ): Promise<(Variable<any> | undefined)[]> {
@@ -203,6 +272,133 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
           results[sourceIndex] = result;
         });
       }
+    }
+    return results;
+  }
+
+  private _censor<
+    T extends (VariableKey & Partial<VariableClassification>) | undefined,
+    V
+  >(
+    mapping: PrefixVariables,
+    key: T,
+    value: V,
+    consent: UserConsent
+  ): UndefinedNotAny<T, V> {
+    if (isUndefined(key) || isUndefined(value)) return undefined as any;
+
+    return mapping.variables?.has(key)
+      ? mapping.variables?.censor(key, value, consent)
+      : validateConsent(key, consent, mapping.classification)
+      ? (value as any)
+      : undefined;
+  }
+
+  private _getMapping({
+    scope,
+    key,
+  }: {
+    scope: VariableScopeValue;
+    key: string;
+  }) {
+    const prefix = parseKey(key).prefix;
+    return required(
+      this._variables.get([variableScope(scope), prefix]),
+      () =>
+        `No storage provider is mapped to the prefix '${prefix}' in ${variableScope.format(
+          scope
+        )}`
+    );
+  }
+
+  async get<
+    K extends readonly (VariableGetter<any, boolean> | null | undefined)[]
+  >(
+    keys: K | readonly (VariableGetter<any, boolean> | null | undefined)[],
+    context?: VariableStorageContext | undefined
+  ): Promise<VariableGetResults<K>> {
+    // Censor the result of initializers (if any) based on consent when the context has a tracker.
+    const consent = context?.consent ?? context?.tracker?.consent;
+    if (consent) {
+      for (const getter of keys) {
+        if (!getter || isUndefined(getter?.initializer)) {
+          continue;
+        }
+
+        const mapping = this._getMapping(getter);
+        const original = getter!.initializer;
+        getter!.initializer = async () => {
+          const result = await original();
+          return isDefined(result?.value)
+            ? this._censor(
+                mapping,
+                {
+                  ...getter,
+                  purposes: result?.purposes ?? getter?.purposes,
+                  classification: result?.classification,
+                },
+                result?.value,
+                consent
+              )
+            : undefined;
+        };
+      }
+    }
+
+    return await super.get(keys, context);
+  }
+
+  async set<K extends readonly (VariableSetter<any> | null | undefined)[]>(
+    variables: K | readonly (VariableSetter<any> | null | undefined)[],
+    context?: VariableStorageContext | undefined
+  ): Promise<VariableSetResults<K>> {
+    const censoredResults: [index: number, result: VariableSetResult][] = [];
+
+    const consent = context?.consent ?? context?.tracker?.consent;
+    if (consent) {
+      // Censor the values (including patch actions) when the context has a tracker.
+
+      for (let i = 0; i < variables.length; i++) {
+        const setter = variables[i];
+        if (!setter) return undefined as any;
+
+        const mapping = this._getMapping(setter);
+
+        if (isVariablePatchAction(setter)) {
+          const originalPatch = setter.patch;
+          setter.patch = (current) => {
+            const patched = originalPatch(current);
+            return isDefined(patched?.value)
+              ? this._censor(
+                  mapping,
+                  {
+                    ...setter,
+                    classification:
+                      patched!.classification ?? setter.classification,
+                    purposes: patched!.purposes ?? setter.purposes,
+                  },
+                  patched!.value,
+                  consent
+                )
+              : undefined;
+          };
+        }
+
+        if (isDefined(setter.value)) {
+          setter.value = this._censor(mapping, setter, setter.value, consent);
+          if (isUndefined(setter.value)) {
+            (variables[i] as any) = undefined as any;
+            censoredResults.push([
+              i,
+              { source: setter, status: SetStatus.Denied },
+            ]);
+          }
+        }
+      }
+    }
+    const results = await super.set(variables, context);
+    for (const [i, result] of censoredResults) {
+      results[i] = result;
     }
     return results;
   }

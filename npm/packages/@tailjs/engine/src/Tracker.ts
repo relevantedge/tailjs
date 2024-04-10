@@ -634,7 +634,7 @@ export class Tracker {
           {
             scope: VariableScope.Device,
             key: SCOPE_DATA_KEY,
-            purpose: DataPurposes.Necessary,
+            purposes: DataPurposes.Necessary,
             initializer: async () => ({
               classification: this.consent.level,
               value: createInitialScopeData<DeviceData>(

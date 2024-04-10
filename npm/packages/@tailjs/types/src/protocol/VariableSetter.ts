@@ -1,4 +1,10 @@
-import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
+import {
+  ParsableEnumValue,
+  PickPartial,
+  createEnumAccessor,
+  isDefined,
+  isFunction,
+} from "@tailjs/util";
 import {
   Variable,
   VariableClassification,
@@ -7,7 +13,7 @@ import {
   VariableVersion,
   VersionedVariableKey,
   dataClassification,
-  dataPurpose,
+  singleDataPurpose,
   dataPurposes,
   variableScope,
 } from "..";
@@ -123,16 +129,6 @@ export type VariableValuePatch<T = any> = {
     }
 );
 
-export const isVariablePatch = (setter: any): setter is VariablePatch =>
-  !!setter["patch"];
-
-const enumProperties = [
-  ["scope", variableScope],
-  ["purpose", dataPurpose],
-  ["purposes", dataPurposes],
-  ["classification", dataClassification],
-] as const;
-
 type EnumPropertyType<
   P extends keyof any,
   Default,
@@ -162,22 +158,36 @@ export const toStrict: <T>(value: T) => T extends null | undefined
   return value as any;
 };
 
-export type VariablePatch<
+export type VariablePatchActionSetter<
+  T = any,
+  NumericEnums extends boolean = boolean
+> = VariableKey<NumericEnums> &
+  VariableKey &
+  Partial<Variable<T, NumericEnums>> & {
+    patch: VariablePatchAction<T>;
+  };
+
+export type VariableValuePatchSetter<
   T = any,
   NumericEnums extends boolean = boolean
 > = VariableKey<NumericEnums> &
   Partial<Variable<T, NumericEnums>> &
-  (
-    | {
-        patch: VariablePatchAction<T>;
-      }
-    | (VariableClassification<NumericEnums> & {
-        patch: VariableValuePatch<T>;
-      })
-  );
+  VariableKey &
+  (Partial<VariableClassification<NumericEnums>> & {
+    patch: VariableValuePatch<T>;
+  });
+
+export type VariablePatch<T = any, NumericEnums extends boolean = boolean> =
+  | VariablePatchActionSetter<T, NumericEnums>
+  | VariableValuePatchSetter<T, NumericEnums>;
+
+export type VariableValueSetter<
+  T = any,
+  NumericEnums extends boolean = boolean
+> = PickPartial<Variable<T, NumericEnums>, "classification" | "purposes">;
 
 export type VariableSetter<T = any, NumericEnums extends boolean = boolean> =
-  | Variable<T, NumericEnums>
+  | VariableValueSetter
   | (VersionedVariableKey<NumericEnums> & { value: undefined })
   | VariablePatch<T, NumericEnums>;
 
@@ -198,3 +208,20 @@ export const isErrorResult = <T>(
 ): result is VariableSetResult<T> & {
   status: SetStatus.Error;
 } => result?.status === SetStatus.Error;
+
+export const isVariablePatch = (setter: any): setter is VariablePatch =>
+  !!setter["patch"];
+
+export const isVariablePatchAction = (
+  setter: any
+): setter is VariablePatchActionSetter => isFunction(setter["patch"]);
+
+const enumProperties = [
+  ["scope", variableScope],
+  ["purpose", singleDataPurpose],
+  ["purposes", dataPurposes],
+  ["classification", dataClassification],
+] as const;
+
+export const isScoped = <T>(value: any): value is T & VariableKey =>
+  isDefined(value?.scope);

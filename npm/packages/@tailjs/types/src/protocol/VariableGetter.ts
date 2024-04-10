@@ -1,14 +1,15 @@
 import {
-  DataPurposeValue,
   SingleDataPurposeValue,
   VariableClassification,
   VersionedVariableKey,
 } from "..";
 
 export type VariableInitializer<T = any> = () =>
-  | (VariableClassification & { value: T })
+  | (Partial<VariableClassification> & { value: T })
   | undefined
-  | Promise<(VariableClassification<boolean> & { value: T }) | undefined>;
+  | Promise<
+      (Partial<VariableClassification<boolean>> & { value: T }) | undefined
+    >;
 
 /**
  * Uniquely addresses a variable by scope, target and key name, optionally with the purpose(s) it will be used for.
@@ -39,7 +40,7 @@ export interface VariableGetter<T = any, NumericEnums extends boolean = boolean>
    *
    * It is currently not mandatory to specify the purpose but this requirement may change in the future.
    */
-  purpose?: SingleDataPurposeValue<NumericEnums>;
+  purposes?: SingleDataPurposeValue<NumericEnums>;
 
   /**
    * Indicates that the value must be re-read from the source storage if a caching layer is used on top.
