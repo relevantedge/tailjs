@@ -1,13 +1,20 @@
 import {
-  DataClassification,
   UserConsent,
-  VariableClassification,
   VariableKey,
   validateConsent,
   variableScope,
 } from "@tailjs/types";
-import { forEach, isDefined, isString, map, throwError } from "@tailjs/util";
+import {
+  forEach,
+  ifDefined,
+  isDefined,
+  isString,
+  map,
+  throwError,
+  tryCatch,
+} from "@tailjs/util";
 import { Schema, SchemaClassification, SchemaVariable, VariableMap } from "..";
+import { formatKey } from "../lib";
 import { SchemaManager } from "./SchemaManager";
 
 export class SchemaVariableSet {
@@ -57,17 +64,26 @@ export class SchemaVariableSet {
   }
 
   public validate<T>(key: VariableKey, value: T): T | undefined {
-    return this._variables.get(key)?.validate(value);
+    return tryCatch(
+      this._variables.get(key)?.validate(value),
+      (err: Error) => new Error(`${formatKey(key)}: ${err}`)
+    );
   }
 
   public censor<T>(
     key: VariableKey,
     value: T,
-    consent: SchemaClassification | UserConsent
+    consent: SchemaClassification | UserConsent,
+    validate = true
   ): T | undefined {
-    const variable = this._variables.get(key);
-    return !variable || !validateConsent(variable, consent)
-      ? undefined
-      : variable.censor(value, consent);
+    return ifDefined(
+      this._variables.get(key),
+      (variable) => (
+        validate && variable.validate(value),
+        !validateConsent(variable, consent)
+          ? undefined
+          : variable.censor(value, consent)
+      )
+    );
   }
 }

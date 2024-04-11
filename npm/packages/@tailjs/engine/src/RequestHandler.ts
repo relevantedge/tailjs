@@ -1,11 +1,11 @@
 import clientScripts from "@tailjs/client/script";
 import {
-  DataPurposes,
+  DataPurposeFlags,
+  DataPurpose,
   dataPurposes,
   PostRequest,
   PostResponse,
   TrackedEvent,
-  VariableScope,
 } from "@tailjs/types";
 import queryString from "query-string";
 import { Lock } from "semaphore-async-await";
@@ -26,17 +26,13 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
-  DefaultStorageMappings,
-  EventParser,
   InMemoryStorage,
   isValidationError,
   ParseResult,
   PostError,
-  PrefixMappings,
-  ReadonlyVariableStorage,
   RequestHandlerConfiguration,
+  SchemaManager,
   SessionEvents,
-  StorageMappings,
   Timestamps,
   TrackedEventBatch,
   Tracker,
@@ -49,7 +45,7 @@ import {
 
 import { CONTEXT_MENU_COOKIE, MUTEX_REQUEST_COOKIE } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
-import { forEach, obj } from "@tailjs/util";
+import { obj } from "@tailjs/util";
 import { from64u } from "@tailjs/util/transport";
 import {
   DefaultSessionReferenceMapper,
@@ -75,7 +71,7 @@ export class RequestHandler {
   private readonly _endpoint: string;
   private readonly _extensionFactories: (() => Promise<TrackerExtension>)[];
   private readonly _lock = new Lock();
-  private readonly _parser: EventParser;
+  private readonly _schema: SchemaManager;
   private readonly _trackerName: string;
   private readonly _useSession: boolean;
 
@@ -87,9 +83,7 @@ export class RequestHandler {
   public readonly _cookieNames: {
     consent: string;
     session: string;
-    device: Record<keyof typeof dataPurposes, string> & {
-      all: string;
-    };
+    device: Record<DataPurpose, string>;
   };
   public readonly environment: TrackerEnvironment;
 
@@ -108,7 +102,7 @@ export class RequestHandler {
       endpoint,
       host,
       extensions,
-      parser,
+      schema,
       crypto,
       cookies,
       allowUnknownEventTypes,
@@ -129,52 +123,21 @@ export class RequestHandler {
     this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
     this._extensionFactories = map(extensions);
 
-    this._parser = parser;
+    this._schema = schema;
 
     if (!storage) {
       storage = {
-        mappings: {
-          default: new InMemoryStorage(),
-        },
+        default: { storage: new InMemoryStorage(), schemas: "*" },
       };
     }
-
-    const storageMappings: PrefixMappings = [];
-    const mapPrefix = (
-      scope: VariableScope,
-      prefix: string,
-      storage: ReadonlyVariableStorage | undefined
-    ) => storage && (storageMappings[scope] ??= new Map()).set(prefix, storage);
-
-    const mapStorages = (
-      prefix: string,
-      mappings: StorageMappings<ReadonlyVariableStorage>
-    ) => {
-      (
-        [
-          [VariableScope.Global, "global"],
-          [VariableScope.User, "user"],
-          [VariableScope.Device, "device"],
-          [VariableScope.Session, "session"],
-          [VariableScope.Entity, "entity"],
-        ] as [VariableScope, keyof StorageMappings][]
-      ).forEach(([scope, key]) =>
-        mapPrefix(scope, prefix, mappings[key] ?? mappings.default)
-      );
-
-      forEach(
-        (mappings as DefaultStorageMappings)?.prefixes,
-        ([prefix, mappings]) => mapStorages(prefix, mappings)
-      );
-    };
 
     this.environment = new TrackerEnvironment(
       host,
       crypto ?? new DefaultCryptoProvider(encryptionKeys),
-      parser,
+      schema,
       manageConsents,
       new TrackerVariableStorage(
-        new VariableStorageCoordinator({ mappings: storageMappings })
+        new VariableStorageCoordinator({ schema, mappings: storage })
       ),
       environmentTags
     );
@@ -191,13 +154,16 @@ export class RequestHandler {
       consent: `${cookies.namePrefix}.consent`,
       session: `${cookies.namePrefix}.s`,
       device: obj(
-        dataPurposes.entries.map(([name, flag]) => [
-          name,
-          // Necessary device data is just ".d" (no suffix)
-          `${cookies.namePrefix}.d${
-            flag !== DataPurposes.Necessary ? `.${name[0]}` : ""
-          }`,
-        ])
+        dataPurposes.pure.map(
+          ([name, flag]) =>
+            [
+              flag,
+              // Necessary device data is just ".d" (no suffix)
+              `${cookies.namePrefix}.d${
+                flag !== DataPurposeFlags.Necessary ? `.${name[0]}` : ""
+              }`,
+            ] as const
+        )
       ),
     };
 
@@ -295,10 +261,15 @@ export class RequestHandler {
   ): Promise<PostResponse> {
     let events = eventBatch;
     await this.initialize();
-    let parsed = this._parser.parseAndValidate(
-      events,
-      !this._allowUnknownEventTypes
-    );
+    const validateEvents = (events: ParseResult[]): ParseResult[] =>
+      map(events, (ev) =>
+        isValidationError(ev)
+          ? ev
+          : (this._allowUnknownEventTypes && !this._schema.getType(ev.type)) ||
+            this._schema.censor(ev.type, ev, tracker.consent)
+      );
+
+    let parsed = validateEvents(eventBatch);
 
     const sourceIndices = new Map<{}, number>();
 
@@ -334,11 +305,11 @@ export class RequestHandler {
       results: ParseResult[]
     ): Promise<TrackedEvent[]> => {
       const extension = patchExtensions[index];
-      const events = collectValidationErrors(this._parser.validate(results));
+      const events = collectValidationErrors(validateEvents(results));
       if (!extension) return events;
       try {
         return collectValidationErrors(
-          this._parser.validate(
+          validateEvents(
             await extension.patch!(
               events,
               async (events) => {
@@ -542,7 +513,7 @@ export class RequestHandler {
             if ("$types" in parsedQuery) {
               return await result({
                 status: 200,
-                body: JSON.stringify(this._parser.events, null, 2),
+                body: this._schema.schema.definition,
                 headers: {
                   "content-type": "application/json",
                 },

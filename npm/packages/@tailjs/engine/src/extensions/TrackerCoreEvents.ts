@@ -1,7 +1,7 @@
 import { QUERY_DEVICE } from "@constants";
 import {
   DataClassification,
-  DataPurposes,
+  DataPurposeFlags,
   SessionStartedEvent,
   SignInEvent,
   SignOutEvent,

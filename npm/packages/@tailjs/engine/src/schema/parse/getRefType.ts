@@ -1,8 +1,7 @@
 import {
-  IfDefined,
+  MaybeUndefined,
   forEach,
   isArray,
-  isDefined,
   isObject,
   isUndefined,
   required,
@@ -12,7 +11,7 @@ import { ParsedType, TraverseContext, parseError } from ".";
 export const getRefSchema = <T extends string | undefined>(
   context: TraverseContext,
   ref: T
-): IfDefined<T, any> => {
+): any => {
   if (isUndefined(ref)) return undefined as any;
 
   if (ref.startsWith("#")) {
@@ -24,7 +23,7 @@ export const getRefSchema = <T extends string | undefined>(
 export const getRefType = <T extends string | undefined>(
   context: TraverseContext,
   ref: T
-): IfDefined<T, ParsedType> => {
+): MaybeUndefined<T, ParsedType> => {
   if (isUndefined(ref)) return undefined as any;
 
   const def = getRefSchema(context, ref);

@@ -67,6 +67,7 @@ describe("Variable stores store.", () => {
       targetId: "u",
       key: "test",
       classification: "direct",
+      purposes: "any",
     };
 
     const store = new InMemoryStorage() as VariableStorage;
@@ -138,6 +139,7 @@ describe("Variable stores store.", () => {
       scope: "session",
       targetId: "s",
       classification: "anonymous",
+      purposes: "any",
       key: "",
     };
     const store = new InMemoryStorage() as VariableStorage;

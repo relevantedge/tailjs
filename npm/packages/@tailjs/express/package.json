@@ -6,6 +6,7 @@
   "author": "RelevantEdge (https://www.relevant-edge.com)",
   "homepage": "https://github.com/relevantedge/tailjs",
   "scripts": {
+    "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
     "build:watch": "concurrently \"pnpm run build -w --environment DEV\" \"nodemon --enable-source-maps --openssl-legacy-provider -q ./dist/dev/dist/index.ts\"",
     "locust": "node locust/locust.js"

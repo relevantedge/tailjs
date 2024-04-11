@@ -229,7 +229,7 @@ export class DoubleMap<
   *[Symbol.iterator](): IterableIterator<[K, V]> {
     for (const [key1, values] of this._map) {
       for (const [key2, value] of values) {
-        yield [[key1, key2] as any, value] as const;
+        yield [[key1, key2] as any, value];
       }
     }
   }

@@ -1,11 +1,12 @@
 import {
   DataClassification,
-  DataPurposes,
+  DataPurposeFlags,
+  DataPurpose,
   PostResponse,
+  Session,
   Timestamp,
   TrackedEvent,
   Variable,
-  VariableClassification,
   VariableFilter,
   VariableGetter,
   VariableHeader,
@@ -13,15 +14,22 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
-  VariableSetResult,
-  SetStatus,
   VariableSetter,
   dataClassification,
   dataPurposes,
   isSuccessResult,
-  Session,
   variableScope,
 } from "@tailjs/types";
+import {
+  MaybePromise,
+  PartialRecord,
+  filter,
+  forEach,
+  isDefined,
+  isNumber,
+  now,
+  update,
+} from "@tailjs/util";
 import { Transport, createTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, map, params, unparam } from "./lib";
 import {
@@ -32,22 +40,10 @@ import {
   RequestHandlerConfiguration,
   TrackedEventBatch,
   TrackerEnvironment,
-  VariableStorageContext,
   VariableGetResults,
-  VariableSetError,
   VariableSetResults,
-  VariableStorage,
+  VariableStorageContext,
 } from "./shared";
-import {
-  MaybePromise,
-  filter,
-  forEach,
-  isDefined,
-  isNumber,
-  now,
-  obj,
-  update,
-} from "@tailjs/util";
 
 export type TrackerSettings = Pick<
   RequestHandlerConfiguration,
@@ -248,10 +244,10 @@ export class Tracker {
 
   private _consent: {
     level: DataClassification;
-    purposes: DataPurposes;
+    purposes: DataPurposeFlags;
   } = {
     level: DataClassification.Anonymous,
-    purposes: DataPurposes.Necessary,
+    purposes: DataPurposeFlags.Necessary,
   };
 
   public get consent() {
@@ -288,7 +284,7 @@ export class Tracker {
 
   public async updateConsent(
     level?: DataClassification,
-    purposes?: DataPurposes
+    purposes?: DataPurposeFlags
   ): Promise<void> {
     level ??= this.consent.level;
     purposes ??= this.consent.purposes;
@@ -445,7 +441,7 @@ export class Tracker {
     if (!this._clientDeviceCache) {
       const deviceCache = (this._clientDeviceCache = {} as DeviceVariableCache);
 
-      dataPurposes.entries.map(([purpose, flag]) => {
+      dataPurposes.pure.map(([purpose, flag]) => {
         // Device variables are stored with a cookie for each purpose.
 
         forEach(
@@ -461,8 +457,9 @@ export class Tracker {
                 classification: value[1],
                 version: value[2],
                 value: value[3],
+                purposes: 0,
               };
-              current.purposes = (current.purposes ?? 0) | flag;
+              current.purposes |= flag;
               return current;
             });
           }
@@ -502,7 +499,7 @@ export class Tracker {
     const timestamp = now();
     const consentData = (
       this.cookies["consent"]?.value ??
-      `${DataClassification.Anonymous}:${DataPurposes.Necessary}`
+      `${DataClassification.Anonymous}:${DataPurposeFlags.Necessary}`
     ).split(":");
 
     this._consent = {
@@ -511,7 +508,7 @@ export class Tracker {
         DataClassification.Anonymous,
       purposes:
         dataPurposes.tryParse(consentData[1].split(",")) ??
-        DataPurposes.Necessary,
+        DataPurposeFlags.Necessary,
     };
     await this._ensureSession(timestamp, deviceId, deviceSessionId);
   }
@@ -527,7 +524,7 @@ export class Tracker {
     if (consent) {
       await this.updateConsent(
         DataClassification.Anonymous,
-        DataPurposes.Necessary
+        DataPurposeFlags.Necessary
       );
     }
     await this._ensureSession(
@@ -604,7 +601,7 @@ export class Tracker {
 
               return {
                 classification: DataClassification.Anonymous,
-                purpose: DataPurposes.Necessary,
+                purpose: DataPurposeFlags.Necessary,
                 value: createInitialScopeData<InternalSessionData>(
                   await this.env.nextId(),
                   timestamp,
@@ -634,7 +631,7 @@ export class Tracker {
           {
             scope: VariableScope.Device,
             key: SCOPE_DATA_KEY,
-            purposes: DataPurposes.Necessary,
+            purposes: DataPurposeFlags.Necessary,
             initializer: async () => ({
               classification: this.consent.level,
               value: createInitialScopeData<DeviceData>(
@@ -686,7 +683,7 @@ export class Tracker {
       value: this.consent.purposes + "@" + this.consent.level,
     };
 
-    const splits: Record<string, ClientDeviceDataBlob> = {};
+    const splits: PartialRecord<DataPurpose, ClientDeviceDataBlob> = {};
 
     if (this._clientDeviceCache?.touched) {
       // We have updated device data and need to refresh to get whatever other processes may have written (if any).s
@@ -710,7 +707,7 @@ export class Tracker {
       ).results;
 
       forEach(deviceValues, (variable) => {
-        dataPurposes.map(variable.purposes, ([purpose]) =>
+        dataPurposes.map(variable.purposes, ([, purpose]) =>
           (splits[purpose] ??= []).push([
             variable.key,
             variable.classification,
@@ -721,10 +718,10 @@ export class Tracker {
       });
     }
 
-    dataPurposes.entries.map(([purpose, flag]) => {
+    dataPurposes.pure.map(([purpose, flag]) => {
       const remove =
         this.consent.level === DataClassification.Anonymous || !splits[purpose];
-      const cookieName = this._requestHandler._cookieNames.device[purpose];
+      const cookieName = this._requestHandler._cookieNames.device[flag];
 
       if (remove) {
         if (this.cookies[cookieName]) {
@@ -739,7 +736,7 @@ export class Tracker {
             httpOnly: true,
             maxAge: Number.MAX_SAFE_INTEGER,
             sameSitePolicy: "None",
-            essential: flag === DataPurposes.Necessary,
+            essential: flag === DataPurposeFlags.Necessary,
             value: this.httpClientEncrypt(splits[purpose]),
           };
         }

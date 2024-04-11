@@ -1,5 +1,5 @@
 import {
-  DataPurposes,
+  DataPurposeFlags,
   Variable,
   VariableFilter,
   VariableGetter,
@@ -272,9 +272,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     variable: Variable<any, true> | undefined
   ) {
     return !variable ||
-      (getter.purposes && // The variable has explicit purposes and not the one requested.
+      (getter.purpose && // The variable has explicit purposes and not the one requested.
         isDefined(variable.purposes) &&
-        !(variable.purposes & getter.purposes))
+        !(variable.purposes & getter.purpose))
       ? undefined
       : isDefined(getter.version) && variable?.version == getter.version
       ? variable
@@ -354,12 +354,12 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     };
   }
 
-  public set<
+  public async set<
     Setters extends readonly (VariableSetter<any> | null | undefined)[]
   >(
     variables: Setters | readonly (VariableSetter<any> | null | undefined)[],
     context?: VariableStorageContext
-  ): VariableSetResults<Setters> {
+  ): Promise<VariableSetResults<Setters>> {
     const timestamp = now();
     const results: (VariableSetResult | undefined)[] = [];
     for (const source of variables.map(toStrict)) {
@@ -397,7 +397,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           continue;
         }
 
-        const patched = toStrict(applyPatchOffline(current, source));
+        const patched = toStrict(await applyPatchOffline(current, source));
 
         if (!isDefined(patched)) {
           results.push({
@@ -440,7 +440,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         purposes:
           isDefined(current?.purposes) || purposes
             ? (current?.purposes ?? 0) | (purposes ?? 0)
-            : DataPurposes.Necessary,
+            : DataPurposeFlags.Necessary,
         tags: tags && [...tags],
       };
 

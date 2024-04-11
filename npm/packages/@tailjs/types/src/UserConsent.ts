@@ -3,7 +3,7 @@ import {
   DataClassification,
   DataClassificationValue,
   DataPurposeValue,
-  DataPurposes,
+  DataPurposeFlags,
   VariableClassification,
   dataClassification,
   dataPurposes,
@@ -24,12 +24,12 @@ export interface UserConsent<NumericEnums = boolean> {
 
 export const NoConsent: Readonly<UserConsent> = Object.freeze({
   level: DataClassification.Anonymous,
-  purposes: DataPurposes.Anonymous,
+  purposes: DataPurposeFlags.Anonymous,
 });
 
 export const FullConsent: Readonly<UserConsent> = Object.freeze({
   level: DataClassification.Sensitive,
-  purposes: DataPurposes.Any,
+  purposes: DataPurposeFlags.Any,
 });
 
 export const isUserConsent = (value: any) => !!value?.["level"];
@@ -41,7 +41,7 @@ export const validateConsent = (
   consent:
     | UserConsent
     | { classification: DataClassificationValue; purposes: DataPurposeValue },
-  defaultClassification?: VariableClassification
+  defaultClassification?: Partial<VariableClassification>
 ) => {
   if (!source) return undefined;
   const classification =
@@ -50,12 +50,16 @@ export const validateConsent = (
       dataClassification(defaultClassification?.classification),
       "The source has not defined a data classification and no default was provided."
     );
-  const purposes =
+  let purposes =
     dataPurposes(source.purposes) ??
     required(
       dataPurposes(defaultClassification?.purposes),
       "The source has not defined data purposes and no default was provided."
     );
+
+  // Necessary implies that security and infrastructure purposes are also valid.
+  purposes & DataPurposeFlags.Necessary &&
+    (purposes |= DataPurposeFlags.Anonymous);
   return (
     source &&
     classification! <=

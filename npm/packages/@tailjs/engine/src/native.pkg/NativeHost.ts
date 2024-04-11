@@ -21,10 +21,7 @@ export class NativeHost implements EngineHost {
     this._rootPath = p.resolve(rootPath);
     this._console = console;
   }
-  async ls(
-    path: string,
-    rercursively?: boolean | undefined
-  ): Promise<ResourceEntry[] | null> {
+  async ls(path: string): Promise<ResourceEntry[] | null> {
     path = p.join(this._rootPath, path);
     if (!path.startsWith(this._rootPath)) {
       throw new Error(`Invalid path (it is outside the root scope).`);
@@ -56,12 +53,6 @@ export class NativeHost implements EngineHost {
         type,
         name: p.basename(path),
       });
-      if (rercursively && stat.isDirectory()) {
-        const children = await this.ls(path, true);
-        if (children) {
-          resources.push(...children);
-        }
-      }
     }
     return resources;
   }

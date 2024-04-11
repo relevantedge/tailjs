@@ -19,6 +19,7 @@ import {
   type LogMessage,
   type ModelMetadata,
   VariableStorage,
+  SchemaManager,
 } from "./shared";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
@@ -50,7 +51,7 @@ export class TrackerEnvironment {
     { group: string; name?: string }
   >();
 
-  public readonly metadata: ModelMetadata;
+  public readonly schema: SchemaManager;
   public readonly tags?: string[];
   public readonly hasManagedConsents: boolean;
   public readonly cookieVersion: string;
@@ -59,7 +60,7 @@ export class TrackerEnvironment {
   constructor(
     host: EngineHost,
     crypto: CryptoProvider,
-    metadata: ModelMetadata,
+    schema: SchemaManager,
     hasManagedConsents: boolean,
     storage: VariableStorage,
     tags?: string[],
@@ -67,7 +68,7 @@ export class TrackerEnvironment {
   ) {
     this._host = host;
     this._crypto = crypto;
-    this.metadata = metadata;
+    this.schema = schema;
     this.tags = tags;
     this.cookieVersion = cookieVersion;
     this.hasManagedConsents = hasManagedConsents;

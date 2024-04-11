@@ -4,7 +4,7 @@ import type {
   SchemaPrimitiveType,
   SchemaPropertyStructure,
 } from "../..";
-import type { DataClassification, DataPurposes } from "@tailjs/types";
+import type { DataClassification, DataPurposeFlags } from "@tailjs/types";
 
 export interface ParseContext {
   typeNodes: Map<any, ParsedType>;
@@ -22,7 +22,7 @@ export interface TraverseContext extends Partial<ParsedSchemaClassification> {
   $ref?: string;
   schema?: ParsedSchema;
   classification?: DataClassification;
-  purposes?: DataPurposes;
+  purposes?: DataPurposeFlags;
   node: any;
 }
 
@@ -36,11 +36,9 @@ export interface ParsedComposition {
 
 export interface ParsedSchemaEntity {
   id: string;
+  title?: string;
   description?: string;
   context: TraverseContext;
-  /**
-   * Can be used to categorize types in documentation. Are not used for anything else.
-   */
   tags?: string[];
 }
 export interface ParsedSchema

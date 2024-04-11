@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
+    "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
     "build:watch": "pnpm run build -w"
   },

@@ -1,7 +1,7 @@
 import type {
   DataClassification,
   DataClassificationValue,
-  DataPurposes,
+  DataPurposeFlags,
   DataPurposeValue,
   TrackedEvent,
 } from "..";

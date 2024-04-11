@@ -16,10 +16,11 @@ import {
   isSuccessResult,
   patchType,
   toStrict,
+  variableScope,
 } from "@tailjs/types";
 import {
   MaybePromise,
-  UndefinedNotAny,
+  MaybeUndefined,
   delay,
   filter,
   isDefined,
@@ -114,12 +115,12 @@ const requireNumberOrUndefined = (value: any): number | undefined => {
   throw new TypeError("The current value must be undefined or a number.");
 };
 
-export const applyPatchOffline = (
+export const applyPatchOffline = async (
   current: VariablePatchSource<any, true> | undefined,
   { classification: level, purposes, patch }: VariablePatch<any, true>
-): VariablePatchResult<any, true> | undefined => {
+): Promise<VariablePatchResult<any, true> | undefined> => {
   if (isFunction(patch)) {
-    const patched = toStrict(patch(current));
+    const patched = toStrict(await patch(current));
 
     if (patched) {
       patched.classification ??=
@@ -204,16 +205,20 @@ export const mergeKeys = async <K, T extends any[]>(
   partitionMappings: PartitionItem<K>[],
   partitionResults: (items: K[]) => MaybePromise<T>
 ) =>
-  partitionMappings?.length &&
-  (
-    await partitionResults(partitionMappings.map((item) => item?.[1] as K))
-  ).forEach((result) => result && (results[result[0]] = result[1]));
+  partitionMappings?.length
+    ? (
+        await partitionResults(partitionMappings.map((item) => item?.[1] as K))
+      ).forEach((result) => result && (results[result[0]] = result[1]))
+    : undefined;
 
 export const hasPrefix = (key: string | undefined) => key?.includes(":");
 
+export const formatKey = (key: VariableKey) =>
+  `'${key.key}' in ${variableScope.format(key.scope)} scope`;
+
 export const parseKey = <T extends string | undefined>(
   sourceKey: T
-): UndefinedNotAny<T, ParsedKey> => {
+): MaybeUndefined<T, ParsedKey> => {
   if (isUndefined(sourceKey)) return undefined as any;
   const not = sourceKey[0] === "1";
   if (not) {

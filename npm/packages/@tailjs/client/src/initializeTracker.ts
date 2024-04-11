@@ -246,9 +246,10 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
                     if (isTrackedEvent(command)) {
                       command.timestamp ??= now();
                       if (isConsentEvent(command)) {
-                        splice(mainArgs, currentArg + 1, 0, {
-                          set: { consent: command.nonEssentialTracking },
-                        });
+                        // TODO: Update consent logic
+                        // splice(mainArgs, currentArg + 1, 0, {
+                        //   set: { consent: command.nonEssentialTracking },
+                        // });
                       }
 
                       insertArgs = T;

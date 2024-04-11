@@ -9,6 +9,7 @@ import {
   EngineHost,
   EventParser,
   ReadonlyVariableStorage,
+  SchemaManager,
   TrackerExtension,
   VariableStorage,
   VariableStorageCoordinatorSettings,
@@ -22,28 +23,13 @@ export type CookieConfiguration = {
   secure?: boolean;
 };
 
-export interface StorageMappings<
-  T extends ReadonlyVariableStorage = ReadonlyVariableStorage
-> {
-  default?: T;
-  global?: T;
-  session?: T;
-  device?: T;
-  user?: T;
-  entity?: T;
-}
-
-export interface DefaultStorageMappings
-  extends StorageMappings<VariableStorage> {
-  prefixes?: Record<string, StorageMappings>;
-}
-
 export type RequestHandlerConfiguration = {
   trackerName?: string;
   scriptPath?: string;
   endpoint: string;
   host: EngineHost;
-  parser: EventParser;
+  //parser: EventParser;
+  schema: SchemaManager;
   extensions: Iterable<() => Promise<TrackerExtension> | TrackerExtension>;
   crypto?: CryptoProvider;
   encryptionKeys?: string[];
@@ -57,9 +43,7 @@ export type RequestHandlerConfiguration = {
   client?: TrackerConfiguration;
   sessionReferenceMapper?: SessionReferenceMapper;
 
-  storage?: Omit<VariableStorageCoordinatorSettings, "mappings"> & {
-    mappings: DefaultStorageMappings;
-  };
+  storage?: VariableStorageCoordinatorSettings["mappings"];
 
   /**
    * The session timeout in minutes.
@@ -90,7 +74,7 @@ export type RequestHandlerConfiguration = {
 
 export const DEFAULT: Omit<
   AllRequired<RequestHandlerConfiguration>,
-  | "parser"
+  | "schema"
   | "backends"
   | "host"
   | "extensions"

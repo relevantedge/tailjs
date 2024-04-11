@@ -1,11 +1,6 @@
 import type { TrackedEvent } from "@tailjs/types";
 import { MaybePromise } from "@tailjs/util";
-import type {
-  ParseResult,
-  Tracker,
-  TrackerEnvironment,
-  VariableStorage,
-} from "./shared";
+import type { ParseResult, Tracker, TrackerEnvironment } from "./shared";
 
 export type NextPatchExtension = (
   events: ParseResult[]
