@@ -174,11 +174,31 @@ export type TestEvent4 = TestEventBase & {
 
 export const variablesSchema = {
   ...schemaHeader,
+  $id: "urn:variables:default",
   $defs: {
     SessionVariables: {
       type: "object",
       properties: {
         test: { type: "string" },
+      },
+    },
+    DeviceVariables: {
+      type: "object",
+      properties: {
+        deviceTest: { type: "string" },
+      },
+    },
+  },
+};
+
+export const prefixedVariableSchema = {
+  ...schemaHeader,
+  $id: "urn:variables:prefixed",
+  $defs: {
+    SessionVariables: {
+      type: "object",
+      properties: {
+        prefixed: { type: "string" },
       },
     },
   },

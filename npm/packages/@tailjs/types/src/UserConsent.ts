@@ -57,9 +57,6 @@ export const validateConsent = (
       "The source has not defined data purposes and no default was provided."
     );
 
-  // Necessary implies that security and infrastructure purposes are also valid.
-  purposes & DataPurposeFlags.Necessary &&
-    (purposes |= DataPurposeFlags.Anonymous);
   return (
     source &&
     classification! <=
@@ -67,6 +64,10 @@ export const validateConsent = (
         consent["classification"] ?? consent["level"],
         false
       ) &&
-    (purposes & dataPurposes.parse(consent.purposes, false)) > 0
+    (purposes &
+      // No matter what is defined in the consent, it will always include the "anonymous" purposes.
+      (dataPurposes.parse(consent.purposes, false) |
+        DataPurposeFlags.Anonymous)) >
+      0
   );
 };

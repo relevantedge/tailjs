@@ -7,6 +7,7 @@ import {
 
 import { SchemaSystemTypes } from "@tailjs/types";
 import {
+  JsonObject,
   MaybeArray,
   MaybeUndefined,
   RecordType,
@@ -53,7 +54,7 @@ export class SchemaManager {
   public readonly subSchemas: ReadonlyMap<string, Schema> = new Map();
   public readonly types: ReadonlyMap<string, SchemaObjectType> = new Map();
 
-  constructor(schemas: MaybeArray<string | RecordType>) {
+  constructor(schemas: MaybeArray<string | JsonObject>) {
     schemas = toArray(schemas).map((schema) =>
       isString(schema) ? JSON.parse(schema) : schema
     );

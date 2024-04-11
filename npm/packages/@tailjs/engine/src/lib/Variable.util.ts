@@ -208,7 +208,9 @@ export const mergeKeys = async <K, T extends any[]>(
   partitionMappings?.length
     ? (
         await partitionResults(partitionMappings.map((item) => item?.[1] as K))
-      ).forEach((result) => result && (results[result[0]] = result[1]))
+      ).forEach(
+        (result, i) => result && (results[partitionMappings[i][0]] = result)
+      )
     : undefined;
 
 export const hasPrefix = (key: string | undefined) => key?.includes(":");

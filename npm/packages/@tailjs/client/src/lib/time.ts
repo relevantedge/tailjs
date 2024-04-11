@@ -44,7 +44,10 @@ export const timeout = (callback?: () => void, delay?: number): Timeout => {
     id =
       delay! < 0
         ? -setInterval(callback, -delay!)
-        : setTimeout(() => ((currentCallback = undefined), callback()), delay);
+        : (setTimeout(
+            () => ((currentCallback = undefined), callback()),
+            delay
+          ) as any);
   };
 
   timeout.clear = (delay?: number, cleanup?: () => void, currentId = id) =>

@@ -25,7 +25,13 @@ import {
   unwrap,
   waitAll,
 } from "@tailjs/util";
-import { ParsedKey, PartitionItems, mergeKeys, parseKey } from "../lib";
+import {
+  ParsedKey,
+  PartitionItems,
+  formatKey,
+  mergeKeys,
+  parseKey,
+} from "../lib";
 
 import {
   ReadonlyVariableStorage,
@@ -38,8 +44,8 @@ import {
 
 export type PrefixMapping = { storage: ReadonlyVariableStorage };
 export type PrefixMappings = PartialRecord<
-  VariableScopeValue,
-  PrefixMapping | Record<string, PrefixMapping> | undefined
+  VariableScopeValue<true>,
+  Record<string, PrefixMapping>
 >;
 
 export class VariableSplitStorage implements VariableStorage {
@@ -54,12 +60,8 @@ export class VariableSplitStorage implements VariableStorage {
 
   constructor(mappings: Wrapped<PrefixMappings>) {
     forEach(unwrap(mappings), ([scope, mappings]) =>
-      forEach(
-        (mappings as PrefixMapping)?.storage
-          ? { "": mappings as any }
-          : mappings,
-        ([prefix, { storage }]) =>
-          this._mappings.set([variableScope(scope), prefix], storage)
+      forEach(mappings, ([prefix, { storage }]) =>
+        this._mappings.set([1 * scope, prefix], storage)
       )
     );
   }
@@ -140,7 +142,13 @@ export class VariableSplitStorage implements VariableStorage {
     keys.forEach((sourceKey, sourceIndex) => {
       if (!sourceKey) return;
 
-      const { storage, key } = this._mapKey(sourceKey);
+      const mappedKey = this._mapKey(sourceKey);
+      if (!mappedKey) {
+        throw new Error(
+          `No storage is mapped for the key ${formatKey(sourceKey)}.`
+        );
+      }
+      const { storage, key } = mappedKey;
       const keepPrefix = this._keepPrefix(storage);
       (get(partitions, storage, () => [] as any) as any).push([
         sourceIndex,

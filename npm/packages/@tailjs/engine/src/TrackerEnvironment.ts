@@ -53,7 +53,6 @@ export class TrackerEnvironment {
 
   public readonly schema: SchemaManager;
   public readonly tags?: string[];
-  public readonly hasManagedConsents: boolean;
   public readonly cookieVersion: string;
   public readonly storage: VariableStorage;
 
@@ -61,7 +60,6 @@ export class TrackerEnvironment {
     host: EngineHost,
     crypto: CryptoProvider,
     schema: SchemaManager,
-    hasManagedConsents: boolean,
     storage: VariableStorage,
     tags?: string[],
     cookieVersion = "C"
@@ -71,7 +69,6 @@ export class TrackerEnvironment {
     this.schema = schema;
     this.tags = tags;
     this.cookieVersion = cookieVersion;
-    this.hasManagedConsents = hasManagedConsents;
     this.storage = storage;
   }
 
