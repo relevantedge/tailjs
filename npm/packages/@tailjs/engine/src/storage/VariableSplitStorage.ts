@@ -16,6 +16,7 @@ import {
 import {
   DoubleMap,
   MaybePromise,
+  PartialRecord,
   Wrapped,
   forEach,
   get,
@@ -36,16 +37,16 @@ import {
 } from "..";
 
 export type PrefixMapping = { storage: ReadonlyVariableStorage };
-export type PrefixMappings = Record<
+export type PrefixMappings = PartialRecord<
   VariableScopeValue,
-  Map<string, PrefixMapping> | undefined
+  PrefixMapping | Record<string, PrefixMapping> | undefined
 >;
 
 export class VariableSplitStorage implements VariableStorage {
-  private readonly _mappings: DoubleMap<
+  private readonly _mappings = new DoubleMap<
     [VariableScope, string],
     ReadonlyVariableStorage
-  >;
+  >();
   private _cachedStorages: Map<
     ReadonlyVariableStorage,
     Set<VariableScope>
@@ -53,8 +54,12 @@ export class VariableSplitStorage implements VariableStorage {
 
   constructor(mappings: Wrapped<PrefixMappings>) {
     forEach(unwrap(mappings), ([scope, mappings]) =>
-      mappings?.forEach(({ storage }, prefix) =>
-        this._mappings.set([variableScope(scope), prefix], storage)
+      forEach(
+        (mappings as PrefixMapping)?.storage
+          ? { "": mappings as any }
+          : mappings,
+        ([prefix, { storage }]) =>
+          this._mappings.set([variableScope(scope), prefix], storage)
       )
     );
   }

@@ -5,16 +5,18 @@ import {
   EventParser,
   RequestHandler,
   RequestHandlerConfiguration,
+  SchemaManager,
   TrackerExtension,
 } from "./shared";
 
 import type { TrackerConfiguration } from "@tailjs/client";
 import { map } from "./lib";
+import { RecordType, isString, rank, required } from "@tailjs/util";
 
 export type BootstrapSettings = {
   host: EngineHost;
   endpoint: string;
-  schema?: ConstructorParameters<typeof EventParser>[0];
+  schemas?: (string | RecordType)[];
   cookies?: RequestHandlerConfiguration["cookies"];
   manageConsents?: boolean;
   extensions?: Iterable<
@@ -29,10 +31,10 @@ export type BootstrapSettings = {
   client?: TrackerConfiguration;
 };
 
-export function bootstrap({
+export async function bootstrap({
   host,
   endpoint,
-  schema,
+  schemas,
   cookies,
   extensions,
   allowUnknownEventTypes,
@@ -42,11 +44,23 @@ export function bootstrap({
   debugScript,
   environmentTags,
   manageConsents,
-}: BootstrapSettings): RequestHandler {
-  const parser = new EventParser(schema ?? { default: defaultSchema });
+}: BootstrapSettings): Promise<RequestHandler> {
+  (schemas ??= []).unshift(defaultSchema);
+  if (schemas) {
+    for (const [schema, i] of rank(schemas)) {
+      if (isString(schema)) {
+        schemas[i] = required(
+          await host.readText(schema),
+          () => `The schema path '${schema}' does not exists`
+        );
+      }
+    }
+  }
+
+  const schema = new SchemaManager(schemas);
   return new RequestHandler({
     host,
-    parser,
+    schema,
     endpoint,
     cookies,
     allowUnknownEventTypes,

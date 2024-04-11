@@ -15,8 +15,8 @@ import {
 import { env, getProjects } from "./shared";
 import {
   DataClassification,
-  DataPurposes,
-  PrivacyAnnotations,
+  DataPurposeFlags,
+  SchemaAnnotations,
   dataClassification,
   dataPurposes,
 } from "@tailjs/types";
@@ -68,10 +68,10 @@ try {
 
   fixReferences(schema);
 
-  schema[PrivacyAnnotations.Classification] = dataClassification.format(
+  schema[SchemaAnnotations.Classification] = dataClassification.format(
     DataClassification.Anonymous
   );
-  schema[PrivacyAnnotations.Purpose] = dataPurposes.format(DataPurposes.Any);
+  schema[SchemaAnnotations.Purpose] = dataPurposes.format(DataPurposeFlags.Any);
 
   // Remove type guards.
   // Object.keys(schema.definitions).forEach(

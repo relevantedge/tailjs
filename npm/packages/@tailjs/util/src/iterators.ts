@@ -21,7 +21,7 @@ import {
   symbolIterator,
   toArray,
   undefined,
-  UndefinedNotAny,
+  MaybeUndefined,
 } from ".";
 
 export const UTF16MAX = 0xffff;
@@ -130,12 +130,12 @@ type ProjectedItem<P> = Exclude<P, undefined | void | typeof stop>;
 function* createFilteringIterator<
   S extends IteratorSource,
   P = IteratorItem<S>
->(source: S, action?: IteratorAction<S, P>): Iterable<ProjectedItem<P>> {
+>(source: S, projection?: IteratorAction<S, P>): Iterable<ProjectedItem<P>> {
   if (!source) return;
 
   let i = 0;
   for (let item of source as any) {
-    action && (item = action(item, i++));
+    projection && (item = projection(item, i++));
     if (item !== undefined) {
       yield item;
     }
@@ -222,9 +222,12 @@ export type Filter<S extends IteratorSource> = (
   index: number
 ) => any;
 
-const createIterator = <S extends IteratorSource, P = IteratorItem<S>>(
+const createIterator = <
+  S extends IteratorSource,
+  P = ConstToNormal<IteratorItem<S>>
+>(
   source: S,
-  action?: IteratorAction<S, P>,
+  projection?: IteratorAction<S, P>,
   start?: any,
   end?: any
 ): Iterable<P> =>
@@ -233,18 +236,20 @@ const createIterator = <S extends IteratorSource, P = IteratorItem<S>>(
     : source[symbolIterator]
     ? createFilteringIterator(
         source,
-        start === undefined ? action : sliceAction(action, start as any, end)
+        start === undefined
+          ? projection
+          : sliceAction(projection, start as any, end)
       )
     : typeof source === "object"
     ? createObjectIterator(
         source as any,
-        sliceAction(action, start as any, end)
+        sliceAction(projection, start as any, end)
       )
     : createIterator(
         isFunction(source)
           ? createNavigatingIterator(source, start, end)
           : (createRangeIterator(source as number, start as any) as any),
-        action
+        projection
       );
 
 const mapToArray = <T, M>(
@@ -269,11 +274,11 @@ type MapFunction = {
     source: S,
     projection?: IteratorAction<S, R> | null,
     ...rest: StartEndArgs<S>
-  ): UndefinedNotAny<S, IteratorProjection<S, R>[]>;
+  ): MaybeUndefined<S, IteratorProjection<S, R>[]>;
   <S extends IteratorSource>(
     source: S,
     ...rest: StartEndArgs<S>
-  ): UndefinedNotAny<S, IteratorItem<S>[]>;
+  ): MaybeUndefined<S, IteratorItem<S>[]>;
 };
 
 type FlatProjectFunction = <
@@ -908,6 +913,9 @@ export const find = <S extends IteratorSource>(
     : (source as any).find
     ? (source as any).find(predicate)
     : first(filterInternal(source as any, predicate, false, ...rest));
+
+export const rank = <S extends IteratorSource>(source: S) =>
+  createIterator(source, (item, i) => [item, i] as const);
 
 export const some: <S extends IteratorSource>(
   source: S,

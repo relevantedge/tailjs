@@ -55,7 +55,12 @@ export const promise = <T = void>(initialValue?: T): OpenPromise<T> => {
 export const createLock = <Data = any>(
   id: string,
   timeout = 1000
-): Lock<Data> => {
+): {
+  <T, Timeout extends number | undefined = undefined>(
+    action: () => Promise<T>,
+    waitTimeout?: Timeout
+  ): Promise<Timeout extends undefined ? [T, boolean] : T>;
+} => {
   const storage = bindStorage<[Data | undefined]>(id, timeout);
   let waitHandle = promise();
   storage.observe((value) => {
@@ -95,13 +100,6 @@ export const createLock = <Data = any>(
       });
 
       return isDefined(waitTimeout) ? [result, true] : result;
-    },
-    {
-      data: {
-        get: () => storage.get()?.[0],
-        update: (newValue: (current: any) => any) =>
-          storage.update((current) => [newValue(current?.[0])] as any),
-      },
     }
   );
 };

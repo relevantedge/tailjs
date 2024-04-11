@@ -1,15 +1,23 @@
-import { UserConsent, VariableScope, variableScope } from "@tailjs/types";
-
-import { SystemTypes } from "@tailjs/types";
 import {
-  IfNot,
-  MaybeRequired,
+  SchemaAnnotations,
+  UserConsent,
+  VariableScope,
+  variableScope,
+} from "@tailjs/types";
+
+import { SchemaSystemTypes } from "@tailjs/types";
+import {
+  MaybeArray,
+  MaybeUndefined,
+  RecordType,
   assignIfUndefined,
   first,
   forEach,
+  ifDefined,
   invariant,
   isDefined,
   isString,
+  isUndefined,
   obj,
   required,
   throwError,
@@ -22,6 +30,7 @@ import Ajv from "ajv/dist/2020";
 import {
   Schema,
   SchemaClassification,
+  SchemaEntity,
   SchemaObjectType,
   SchemaProperty,
   SchemaType,
@@ -31,21 +40,30 @@ import {
 } from "..";
 import { censor, parseError, parseSchema, validationError } from "./parse";
 
+const extractDescription = (
+  entity: Partial<Pick<SchemaEntity, "title" | "description" | "tags">>
+) => ({
+  title: entity.title,
+  description: entity.description,
+  tags: entity.tags,
+});
+
 export class SchemaManager {
   public readonly schema: Schema;
   public readonly subSchemas: ReadonlyMap<string, Schema> = new Map();
   public readonly types: ReadonlyMap<string, SchemaObjectType> = new Map();
 
-  constructor(schemas: any[]) {
-    schemas = schemas.map((schema) =>
+  constructor(schemas: MaybeArray<string | RecordType>) {
+    schemas = toArray(schemas).map((schema) =>
       isString(schema) ? JSON.parse(schema) : schema
     );
+
     const combinedSchema = {
       $schema: "https://json-schema.org/draft/2020-12/schema",
       $id: "urn:tailjs:runtime",
       description:
         "The effective schema for this particular configuration of tail.js that bundles all included schemas.",
-      $defs: obj(schemas, (schema) => [
+      $defs: obj(schemas, (schema: RecordType) => [
         validate(
           schema.$id,
           schema.$id && schema.$schema,
@@ -56,13 +74,9 @@ export class SchemaManager {
     };
 
     const reset = () => {
-      const ajv = new Ajv()
-        .addKeyword("x-privacy-class")
-        .addKeyword("x-privacy-purpose")
-        .addKeyword("x-privacy-purposes")
-        .addKeyword("x-tags")
-        .addKeyword("$anchor")
-        .addKeyword("x-privacy-censor");
+      const ajv = new Ajv().addKeyword("$anchor");
+
+      forEach(SchemaAnnotations, ([, keyword]) => ajv.addKeyword(keyword));
 
       addFormats(ajv);
       return ajv;
@@ -77,6 +91,8 @@ export class SchemaManager {
     parsedSchemas.forEach((parsed) => {
       const schema: Schema = {
         id: parsed.id,
+        ...extractDescription(parsed),
+
         classification: parsed.classification!,
         purposes: parsed.purposes!,
         types: new Map(),
@@ -109,7 +125,8 @@ export class SchemaManager {
       const type: SchemaObjectType = {
         id: parsed.id,
         name: parsed.name,
-        description: parsed.description,
+        ...extractDescription(parsed),
+
         classification: parsed.classification!,
         purposes: parsed.purposes!,
         primitive: false,
@@ -135,7 +152,7 @@ export class SchemaManager {
 
     var trackedEvent = first(
       parsedTypes,
-      ([, type]) => type.schemaId === SystemTypes.Event
+      ([, type]) => type.schemaId === SchemaSystemTypes.Event
     )?.[1];
 
     parsedTypes.forEach((parsed) => {
@@ -169,7 +186,8 @@ export class SchemaManager {
         const property: SchemaProperty = {
           id: type + "#" + key,
           name: parsedProperty.name,
-          description: parsedProperty.description,
+          ...extractDescription(parsed),
+
           classification: parsedProperty.classification,
           purposes: parsedProperty.purposes,
           declaringType: type,
@@ -296,9 +314,9 @@ export class SchemaManager {
   }
 
   public getSchema<Required = true>(
-    schemaId: MaybeRequired<string, Required>,
+    schemaId: string | undefined,
     require?: Required & boolean
-  ): MaybeRequired<Schema, Required> {
+  ): MaybeUndefined<Required, Schema> {
     return require
       ? required(
           this.getSchema(schemaId, false as any) as any,
@@ -308,22 +326,24 @@ export class SchemaManager {
   }
 
   public getType<Required = true>(
-    typeId: MaybeRequired<string, Required>,
+    eventTypeOrTypeId: string | undefined,
     require?: Required & boolean,
     concreteOnly = true
-  ): SchemaType | IfNot<Required> {
+  ): MaybeUndefined<Required, SchemaType> {
     return require
       ? required(
-          this.getType<false>(typeId, false, concreteOnly),
-          () => `The type '${typeId}' is not defined.`
+          this.getType(eventTypeOrTypeId, false, concreteOnly),
+          () => `The type or event type '${eventTypeOrTypeId}' is not defined.`
         )
-      : typeId &&
+      : ifDefined(eventTypeOrTypeId, () =>
           validate(
-            this.schema.events?.get(typeId!) ?? this.types.get(typeId!),
+            this.schema.events?.get(eventTypeOrTypeId!) ??
+              this.types.get(eventTypeOrTypeId!),
             (type) => !type || !concreteOnly || (type && !type.abstract),
             () =>
-              `The type '${typeId}' is abstract and cannot be used directly.`
-          );
+              `The type '${eventTypeOrTypeId}' is abstract and cannot be used directly.`
+          )
+        )!;
   }
 
   public tryValidate<T>(
@@ -335,49 +355,48 @@ export class SchemaManager {
     event: T
   ): T | undefined;
   public tryValidate(id: string | null | undefined, value: any) {
-    return (
-      id &&
-      (this.schema.events?.get(id) ?? this.getType(id, false))?.tryValidate(
-        value
-      )
-    );
+    return id && this.getType(id, false)?.tryValidate(value);
   }
 
   public validate<T>(typeId: string, value: T): T;
   public validate<T>(eventType: string, event: T): T;
   public validate(id: string, value: any) {
-    return (this.schema.events?.get(id) ?? this.getType(id, true)).validate(
-      value
-    );
+    return this.getType(id, true).validate(value);
   }
 
   public censor<T>(
     typeId: string,
     value: T,
-    consent: SchemaClassification | UserConsent
+    consent: SchemaClassification | UserConsent,
+    validate?: boolean
   ): T | undefined;
   public censor<T>(
     eventType: string,
     event: T,
-    consent: SchemaClassification | UserConsent
+    consent: SchemaClassification | UserConsent,
+    validate?: boolean
   ): T | undefined;
   public censor(
     id: string,
     value: any,
-    consent: SchemaClassification | UserConsent
+    consent: SchemaClassification | UserConsent,
+    validate = true
   ) {
-    return (this.schema.events?.get(id) ?? this.getType(id, true)).censor(
-      value,
-      consent
+    return ifDefined(
+      this.getType(id, true),
+      (target) => (
+        validate && target.validate(value), target.censor(value, consent)
+      )
     );
   }
 
-  public compileVariableSet(
-    schemas?: string | Iterable<string | Schema | undefined>
-  ) {
+  public compileVariableSet(schemas?: MaybeArray<string | Schema | undefined>) {
+    schemas = toArray(schemas);
     return new SchemaVariableSet(
       this,
-      isString(schemas) ? [schemas] : schemas ?? this.subSchemas.values()
+      isUndefined(schemas) || schemas.includes("*")
+        ? this.subSchemas.values()
+        : schemas
     );
   }
 }

@@ -7,7 +7,7 @@ import {
 import { getRefSchema, parseError } from ".";
 import { tryParseObjectComposition } from "./tryParseObjectComposition";
 import { TraverseContext } from "./types";
-import { SystemTypes } from "@tailjs/types";
+import { SchemaSystemTypes } from "@tailjs/types";
 
 export const parseEventTypes = (context: TraverseContext) => {
   const defs = context.node.$defs ?? context.node.definitions;
@@ -40,10 +40,10 @@ export const parseEventTypes = (context: TraverseContext) => {
       );
     }
 
-    if (eventSchema.$ref !== SystemTypes.Event) {
+    if (eventSchema.$ref !== SchemaSystemTypes.Event) {
       const allOf: any[] = (eventSchema.allOf ??= []);
-      if (!allOf.some((item) => item?.$ref === SystemTypes.Event)) {
-        allOf.unshift({ $ref: SystemTypes.Event });
+      if (!allOf.some((item) => item?.$ref === SchemaSystemTypes.Event)) {
+        allOf.unshift({ $ref: SchemaSystemTypes.Event });
       }
     }
 

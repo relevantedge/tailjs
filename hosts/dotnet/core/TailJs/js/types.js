@@ -21,9 +21,11 @@ const isObject = (value, acceptIterables = false)=>value != null && typeof value
 const isFunction = (value)=>typeof value === "function";
 const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
 const isAwaitable = (value)=>!!value?.then;
+
 const throwError = (error, transform = (message)=>new TypeError(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
+const required = (value, error)=>isDefined(value) ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
 
 let stopInvoked = false;
 function* createFilteringIterator(source, action) {
@@ -147,12 +149,9 @@ const createEnumAccessor = (sourceEnum, flags, enumName)=>{
         parseValue,
         (value)=>(value = parseValue(value)) != null ? valueLookup[value] : undefined$1
     ];
-    const throwError = (err)=>{
-        throw err;
-    };
     let originalValue;
-    const parse = (value)=>value == null ? undefined$1 : (value = tryParse(originalValue = value)) == null ? throwError(new TypeError(`${JSON.stringify(originalValue)} is not a valid ${enumName} value.`)) : value;
-    return define({}, [
+    const parse = (value, validateNumbers)=>value == null ? undefined$1 : (value = tryParse(originalValue = value, validateNumbers)) == null ? throwError(new TypeError(`${JSON.stringify(originalValue)} is not a valid ${enumName} value.`)) : value;
+    return define((value)=>parse(value), [
         {
             enumerable: false
         },
@@ -162,6 +161,7 @@ const createEnumAccessor = (sourceEnum, flags, enumName)=>{
             entries,
             values,
             lookup,
+            length: entries.length,
             format: (value)=>lookup(value, true)
         },
         flags && {
@@ -271,22 +271,41 @@ var DataPurposes;
    * only used for things such as health monitoring, system performance and error logging and unrelated to user behavior.
    */ DataPurposes[DataPurposes["Infrastructure"] = 32] = "Infrastructure";
     /**
+   * All purposes that are permissable for anonymous users.
+   */ DataPurposes[DataPurposes["Anonymous"] = 49] = "Anonymous";
+    /**
    * Data can be used for any purpose.
    */ DataPurposes[DataPurposes["Any"] = 63] = "Any";
 })(DataPurposes || (DataPurposes = {}));
 const dataPurposes = createEnumAccessor(DataPurposes, true, "data purpose");
-const dataPurpose = createEnumAccessor(DataPurposes, false, "data purpose");
+const singleDataPurpose = createEnumAccessor(DataPurposes, false, "data purpose");
 
+const NoConsent = Object.freeze({
+    level: DataClassification.Anonymous,
+    purposes: DataPurposes.Anonymous
+});
+const FullConsent = Object.freeze({
+    level: DataClassification.Sensitive,
+    purposes: DataPurposes.Any
+});
 const isUserConsent = (value)=>!!value?.["level"];
-const validateConsent = (source, consent)=>source && dataClassification.parse(source.classification) <= dataClassification.parse(consent["classification"] ?? consent["level"], false) && (source.classification === 0 || ((dataPurposes.parse(source.purposes, false) ?? 0) & dataPurposes.parse(consent.purposes, false)) > 0);
+const validateConsent = (source, consent, defaultClassification)=>{
+    if (!source) return undefined;
+    const classification = dataClassification.parse(source.classification, false) ?? required(dataClassification(defaultClassification?.classification), "The source has not defined a data classification and no default was provided.");
+    const purposes = dataPurposes(source.purposes) ?? required(dataPurposes(defaultClassification?.purposes), "The source has not defined data purposes and no default was provided.");
+    return source && classification <= dataClassification.parse(consent["classification"] ?? consent["level"], false) && (purposes & dataPurposes.parse(consent.purposes, false)) > 0;
+};
 
 var VariableScope;
 (function(VariableScope) {
-    VariableScope[VariableScope["Global"] = 0] = "Global";
-    VariableScope[VariableScope["Session"] = 1] = "Session";
-    VariableScope[VariableScope["Device"] = 2] = "Device";
-    VariableScope[VariableScope["User"] = 3] = "User";
-    VariableScope[VariableScope["Entity"] = 4] = "Entity";
+    /** Global variables. */ VariableScope[VariableScope["Global"] = 0] = "Global";
+    /** Variables related to sessions. */ VariableScope[VariableScope["Session"] = 1] = "Session";
+    /** Variables related to a device (browser or app). */ VariableScope[VariableScope["Device"] = 2] = "Device";
+    /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 3] = "User";
+    /**
+   * Variables related to an external identity.
+   * One use case could be used to augment data a CMS with real-time data related to personalization or testing.
+   */ VariableScope[VariableScope["Entity"] = 4] = "Entity";
 })(VariableScope || (VariableScope = {}));
 const variableScope = createEnumAccessor(VariableScope, false, "variable scope");
 
@@ -310,7 +329,16 @@ var VariablePatchType;
     VariablePatchType[VariablePatchType["IfMatch"] = 3] = "IfMatch";
 })(VariablePatchType || (VariablePatchType = {}));
 const patchType = createEnumAccessor(VariablePatchType, false, "variable patch type");
+const toStrict = (value)=>{
+    if (!value) return value;
+    enumProperties.forEach(([prop, helper])=>value[prop] = helper.parse(value[prop]));
+    return value;
+};
+const isSuccessResult = (result)=>result?.status <= 1;
+const isConflictResult = (result)=>result?.status === 2;
+const isErrorResult = (result)=>result?.status === 7;
 const isVariablePatch = (setter)=>!!setter["patch"];
+const isVariablePatchAction = (setter)=>isFunction(setter["patch"]);
 const enumProperties = [
     [
         "scope",
@@ -318,7 +346,7 @@ const enumProperties = [
     ],
     [
         "purpose",
-        dataPurpose
+        singleDataPurpose
     ],
     [
         "purposes",
@@ -329,14 +357,7 @@ const enumProperties = [
         dataClassification
     ]
 ];
-const toStrict = (value)=>{
-    if (!value) return value;
-    enumProperties.forEach(([prop, helper])=>value[prop] = helper.parse(value[prop]));
-    return value;
-};
-const isSuccessResult = (result)=>result?.status <= 1;
-const isConflictResult = (result)=>result?.status === 2;
-const isErrorResult = (result)=>result?.status === 7;
+const isScoped = (value)=>isDefined(value?.scope);
 
 const typeTest = (...types)=>(ev)=>ev?.type && types.some((type)=>type === ev?.type);
 
@@ -464,10 +485,10 @@ const encodeTag = (tag)=>tag == null ? tag : `${tag.ranks.join(":")}${tag.value 
  *
  */ const cast = (item)=>item;
 
-const SystemTypes = Object.freeze({
+const SchemaSystemTypes = Object.freeze({
     Event: "urn:tailjs:core:event"
 });
-const PrivacyAnnotations = Object.freeze({
+const SchemaAnnotations = Object.freeze({
     Tags: "x-tags",
     Purpose: "x-privacy-purpose",
     Purposes: "x-privacy-purposes",
@@ -500,11 +521,11 @@ const parsePrivacyTokens = (tokens, classification = {})=>{
 };
 const getPrivacyAnnotations = (classification)=>{
     const attrs = {};
-    isDefined(classification.classification) && (attrs[PrivacyAnnotations.Classification] = dataClassification.format(classification.classification));
+    isDefined(classification.classification) && (attrs[SchemaAnnotations.Classification] = dataClassification.format(classification.classification));
     let purposes = dataPurposes.format(classification.purposes);
-    isDefined(purposes) && (attrs[isString(purposes) ? PrivacyAnnotations.Purpose : PrivacyAnnotations.Purposes] = purposes);
-    isDefined(classification.censorIgnore) && (attrs[PrivacyAnnotations.Censor] = classification.censorIgnore ? "ignore" : "include");
+    isDefined(purposes) && (attrs[isString(purposes) ? SchemaAnnotations.Purpose : SchemaAnnotations.Purposes] = purposes);
+    isDefined(classification.censorIgnore) && (attrs[SchemaAnnotations.Censor] = classification.censorIgnore ? "ignore" : "include");
     return attrs;
 };
 
-export { DataClassification, DataPurposes, PrivacyAnnotations, SetStatus, SystemTypes, VariablePatchType, VariableScope, cast, dataClassification, dataPurpose, dataPurposes, encodeTag, getPrivacyAnnotations, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEent, isConflictResult, isConsentEvent, isErrorResult, isFormEvent, isHeartBeatEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isUserAgentEvent, isUserConsent, isVariablePatch, isViewEndedEvent, isViewEvent, parsePrivacyTokens, parseTagString, patchType, setStatus, toStrict, transformLocalIds, validateConsent, variableScope };
+export { DataClassification, DataPurposes, FullConsent, NoConsent, SchemaAnnotations, SchemaSystemTypes, SetStatus, VariablePatchType, VariableScope, cast, dataClassification, dataPurposes, encodeTag, getPrivacyAnnotations, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEent, isConflictResult, isConsentEvent, isErrorResult, isFormEvent, isHeartBeatEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isResetEvent, isScoped, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isUserAgentEvent, isUserConsent, isVariablePatch, isVariablePatchAction, isViewEndedEvent, isViewEvent, parsePrivacyTokens, parseTagString, patchType, setStatus, singleDataPurpose, toStrict, transformLocalIds, validateConsent, variableScope };

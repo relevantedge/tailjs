@@ -18,10 +18,13 @@ import {
   isAwaitable,
   isDefined,
   isFunction,
+  isMap,
   isObject,
+  isSet,
   isString,
   isUndefined,
   map,
+  obj,
   reduce,
   throwError,
 } from ".";
@@ -662,12 +665,12 @@ type PropertyList =
   | boolean
   | null
   | undefined
-  | [defaults: Partial<PropertyDescriptor>, ...items: PropertyList[]]
-  | [key: keyof any, value: any][]
-  | (Record<keyof any, any> & { [Symbol.iterator]?: never });
+  | readonly [defaults: Partial<PropertyDescriptor>, ...items: PropertyList[]]
+  | readonly (readonly [key: keyof any, value: any])[]
+  | RecordType;
 
 export const define: {
-  <T, P extends PropertyList[]>(
+  <T, P extends readonly PropertyList[]>(
     target: T,
     ...properties: P
   ): (T extends Function ? T : {}) &
@@ -791,3 +794,44 @@ export const unlock = <T extends ReadonlyPropertyContainer>(
   : T extends ReadonlySetLike<infer T>
   ? SetLike<T>
   : T => readonly as any;
+
+export const wrapFunction = <F extends ((...args: any) => any) | undefined>(
+  original: F,
+  wrap: (
+    original: F,
+    ...args: Parameters<Exclude<F, undefined>>
+  ) => ReturnType<Exclude<F, undefined>>
+): F => original && (((...args: any) => wrap(original, ...args)) as any);
+
+export const clone = <T>(value: T, depth: number | boolean = true): T =>
+  isObject(value, true)
+    ? isArray(value)
+      ? depth
+        ? value.map((value) => clone(value, depth === true || --(depth as any)))
+        : [...value]
+      : isSet(value)
+      ? new Set<any>(
+          depth
+            ? (map as any)(value, (value: any) =>
+                clone(value, depth === true || --(depth as any))
+              )
+            : value
+        )
+      : isMap(value)
+      ? new Map<any, any>(
+          depth
+            ? (map as any)(value, (value: any) =>
+                // Does not clone keys.
+                [value[0], clone(value[1], depth === true || --(depth as any))]
+              )
+            : value
+        )
+      : depth
+      ? obj(
+          map(value as any, ([k, v]) => [
+            k,
+            clone(v, depth === true || --(depth as any)),
+          ])!
+        )
+      : { ...value }
+    : (value as any);

@@ -1,4 +1,4 @@
-import { DataClassification, DataPurposes } from "@tailjs/types";
+import { DataClassification, DataPurposeFlags } from "@tailjs/types";
 import * as fs from "fs";
 import { SchemaManager } from "../src";
 import {
@@ -90,14 +90,14 @@ describe("SchemaManager.", () => {
     expect(
       manager.censor("urn:tailjs:core#Type1", data, {
         classification: DataClassification.Sensitive,
-        purposes: DataPurposes.Any,
+        purposes: DataPurposeFlags.Any,
       })
     ).toEqual(data);
 
     expect(
       manager.censor("urn:tailjs:core#Type1", data, {
         classification: DataClassification.Anonymous,
-        purposes: DataPurposes.Any,
+        purposes: DataPurposeFlags.Any,
       })
     ).toEqual<typeof data>({
       testNumber: data.testNumber,

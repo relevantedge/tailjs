@@ -1,8 +1,8 @@
 {
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["es2019", "dom"],
+    "target": "ES2022",
+    "lib": ["es2022", "dom"],
     "strictNullChecks": true,
     "jsx": "react",
     "noErrorTruncation": false,

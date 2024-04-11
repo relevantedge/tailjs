@@ -2,6 +2,7 @@ import {
   Entries,
   define,
   isDefined,
+  isInteger,
   isNumber,
   isString,
   throwError,
@@ -54,7 +55,7 @@ export type ParsableEnumValue<
         ? Enum | (number & {})
         : Enum
       : Flags extends true
-      ? Lc<keyof T>[]
+      ? Lc<keyof T> | Lc<keyof T>[]
       : Lc<keyof T>)
   | (undefined extends Numeric ? undefined : never);
 
@@ -100,31 +101,48 @@ type ParseFunction<
     : ParsedValue<T, V, Flags>;
 };
 
+type EntriesByValue<T extends Record<keyof any, any>, V extends keyof any> = {
+  [P in keyof T as T[P]]: readonly [P, T[P]];
+}[V] extends infer T // Use the infer trick to make vscode intellisense expand the values.
+  ? T
+  : never;
+
 export type EnumHelper<
   T extends EnumSource,
-  Flags extends boolean = boolean
-> = ParseFunction<T, Flags, "numeric", never, true> & {
-  length: number;
-  parse: ParseFunction<T, Flags, "numeric">;
-  tryParse: ParseFunction<T, Flags, "numeric", undefined>;
-  values: T[keyof T][];
-  entries: Entries<T>;
-  lookup: ParseFunction<T, Flags, "lookup">;
-  format: ParseFunction<T, Flags, "format">;
-} & (Flags extends true
-    ? {
-        map<R = T[keyof T]>(
-          flags: ParsableEnumValue<T, boolean | undefined, Flags>,
-          map?: (entry: Entries<T>[number], index: number) => R
-        ): R[];
-      }
-    : {});
+  Flags extends boolean,
+  PureFlags extends number
+> = ParseFunction<T, Flags, "numeric", never, true> &
+  Readonly<
+    {
+      length: number;
+      parse: ParseFunction<T, Flags, "numeric">;
+      tryParse: ParseFunction<T, Flags, "numeric", undefined>;
+      values: T[keyof T][];
+      entries: Entries<T>;
+      lookup: ParseFunction<T, Flags, "lookup">;
+      format: ParseFunction<T, Flags, "format">;
+    } & (Flags extends true
+      ? {
+          /** Flag values that are not a combination of other flags (that is, a single bit). */
+          pure: readonly EntriesByValue<T, PureFlags>[];
+          map<R = T[keyof T]>(
+            flags: ParsableEnumValue<T, boolean | undefined, Flags>,
+            map?: (entry: EntriesByValue<T, PureFlags>, index: number) => R
+          ): R[];
+        }
+      : {})
+  >;
 
-export const createEnumAccessor = <T extends EnumSource, Flags extends boolean>(
+export const createEnumAccessor = <
+  T extends EnumSource,
+  Flags extends boolean,
+  PureFlags extends number = 0
+>(
   sourceEnum: T,
   flags: Flags,
-  enumName: string
-): EnumHelper<Lowercased<T>, Flags> => {
+  enumName: string,
+  pureFlags?: PureFlags
+): EnumHelper<Lowercased<T>, Flags, PureFlags> => {
   const names: Record<string, number> = Object.fromEntries(
     Object.entries(sourceEnum as any)
       .filter(([key, value]) => isString(key) && isNumber(value))
@@ -199,10 +217,11 @@ export const createEnumAccessor = <T extends EnumSource, Flags extends boolean>(
         )
       : value;
 
+  const pure = entries.filter(([, value]) => pureFlags && pureFlags & value);
   return define(
     (value: any) => parse(value),
     [
-      { enumerable: false },
+      { configurable: false, enumerable: false },
       {
         parse,
         tryParse,
@@ -214,10 +233,10 @@ export const createEnumAccessor = <T extends EnumSource, Flags extends boolean>(
       } as const,
       flags &&
         ({
-          any,
+          pure,
           map: (flags: any, map?: (flag: any, index: number) => any) => (
             (flags = parse(flags)),
-            entries
+            pure
               .filter(([, flag]) => flag & flags)
               .map(map ?? (([, flag]) => flag))
           ),

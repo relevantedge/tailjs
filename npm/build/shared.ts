@@ -29,9 +29,7 @@ export const build = async (options: RollupOptions[]) => {
           ) {
             return;
           }
-
           warn(warning);
-          return;
         },
       });
       await Promise.all(outputs.map((output) => bundle.write(output)));

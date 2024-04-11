@@ -21,10 +21,14 @@ export interface VariableFilter<NumericEnums extends boolean = boolean> {
   /**
    * Limits the results to variables with one of these keys.
    *
-   * Use the wildcard `*` to return all keys. The wildcard may optionally have a prefix, as example,  `crm:*` will limit the query
-   * to the storage mapped to the `crm` prefix. To limit the query to the default storage (that does not have a prefix) use `:*`.
+   * Use the wildcard `*` to return all keys. The wildcard may optionally have a prefix to target specific storages.
    *
-   * Wildcards can also be used for prefixes. `*:name` will query all storages for a variable with the name `name`.
+   * For example,  `crm:*` will limit the query to the storage mapped to the `crm` prefix.
+   *
+   * To limit the query to the default storage (that does not have a prefix) use `:*`.
+   *
+   * Wildcards can also be used for prefixes. Where `name` will only query the default storage,
+   * `*:name` will query all storages for a variable with the name `name`.
    *
    * Using wildcards for partial matching is not supported, so the query `*name` will _not_ return all variables
    * where their name ends with  "name". Use tags to group and organize variables instead.

@@ -24,7 +24,13 @@ export type SchemaPropertyStructure = {
 
 export interface SchemaEntity extends SchemaClassification<true> {
   id: string;
+  title?: string;
   description?: string;
+
+  /**
+   * Can be used to categorize types in documentation and limit variable queries.
+   */
+  tags?: string[];
 }
 
 export interface Schema extends SchemaEntity {

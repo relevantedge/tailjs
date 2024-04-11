@@ -7,6 +7,7 @@
   "author": "RelevantEdge (https://www.relevant-edge.com)",
   "homepage": "https://github.com/relevantedge/tailjs",
   "scripts": {
+    "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
     "build:watch": "pnpm run build -w"
   },

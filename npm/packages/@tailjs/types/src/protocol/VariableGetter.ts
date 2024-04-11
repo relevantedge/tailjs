@@ -1,5 +1,5 @@
 import {
-  SingleDataPurposeValue,
+  DataPurposeValue,
   VariableClassification,
   VersionedVariableKey,
 } from "..";
@@ -40,7 +40,7 @@ export interface VariableGetter<T = any, NumericEnums extends boolean = boolean>
    *
    * It is currently not mandatory to specify the purpose but this requirement may change in the future.
    */
-  purposes?: SingleDataPurposeValue<NumericEnums>;
+  purpose?: DataPurposeValue<NumericEnums>;
 
   /**
    * Indicates that the value must be re-read from the source storage if a caching layer is used on top.

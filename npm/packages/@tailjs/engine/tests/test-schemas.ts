@@ -172,6 +172,18 @@ export type TestEvent4 = TestEventBase & {
   name: string;
 };
 
+export const variablesSchema = {
+  ...schemaHeader,
+  $defs: {
+    SessionVariables: {
+      type: "object",
+      properties: {
+        test: { type: "string" },
+      },
+    },
+  },
+};
+
 export const bigSchema = {
   ...schemaHeader,
   $defs: {

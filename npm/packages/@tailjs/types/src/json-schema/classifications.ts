@@ -6,7 +6,7 @@ import {
   dataClassification,
 } from "@tailjs/types";
 
-import { PrivacyAnnotations } from ".";
+import { SchemaAnnotations } from ".";
 
 type SchemaClassification = {
   classification?: DataClassificationValue<true>;
@@ -67,7 +67,7 @@ export const parsePrivacyTokens = (
 export const getPrivacyAnnotations = (classification: SchemaClassification) => {
   const attrs: Record<string, any> = {};
   isDefined(classification.classification) &&
-    (attrs[PrivacyAnnotations.Classification] = dataClassification.format(
+    (attrs[SchemaAnnotations.Classification] = dataClassification.format(
       classification.classification
     ));
 
@@ -75,12 +75,12 @@ export const getPrivacyAnnotations = (classification: SchemaClassification) => {
   isDefined(purposes) &&
     (attrs[
       isString(purposes)
-        ? PrivacyAnnotations.Purpose
-        : PrivacyAnnotations.Purposes
+        ? SchemaAnnotations.Purpose
+        : SchemaAnnotations.Purposes
     ] = purposes);
 
   isDefined(classification.censorIgnore) &&
-    (attrs[PrivacyAnnotations.Censor] = classification.censorIgnore
+    (attrs[SchemaAnnotations.Censor] = classification.censorIgnore
       ? "ignore"
       : "include");
 

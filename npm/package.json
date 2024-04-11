@@ -6,6 +6,7 @@
   "author": "RelevantEdge (https://www.relevant-edge.com)",
   "homepage": "https://github.com/relevantedge/tailjs",
   "scripts": {
+    "check": "pnpm -r run --stream check",
     "build": "pnpm -r run --stream build",
     "build:watch": "pnpm -r --parallel run --stream build:watch",
     "build:engine:watch": "pnpm -r --parallel --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client..\" run --stream build:watch",
@@ -85,7 +86,7 @@
     "ts-json-schema-generator": "^1.5.0",
     "tsx": "^4.7.2",
     "tty-browserify": "^0.0.1",
-    "typescript": "^5.4.2",
+    "typescript": "^5.4.5",
     "url": "^0.11.3",
     "util": "^0.12.5",
     "vm-browserify": "^1.1.2",

@@ -1,11 +1,11 @@
 import {
   DataClassification,
-  DataPurposes,
+  DataPurposeFlags,
   dataClassification,
   dataPurposes,
   getPrivacyAnnotations,
   parsePrivacyTokens,
-  PrivacyAnnotations,
+  SchemaAnnotations,
 } from "@tailjs/types";
 import { OmitPartial, isDefined, tryCatch } from "@tailjs/util";
 import { ParsedSchemaClassification, TraverseContext, parseError } from ".";
@@ -20,13 +20,13 @@ export const parseClassifications = (
 
   const classification: Partial<ParsedSchemaClassification> = {};
 
-  if (isDefined(node[PrivacyAnnotations.Censor])) {
-    classification.censorIgnore = node[PrivacyAnnotations.Censor] === "ignore";
+  if (isDefined(node[SchemaAnnotations.Censor])) {
+    classification.censorIgnore = node[SchemaAnnotations.Censor] === "ignore";
   }
 
   if (
     isDefined(
-      node[PrivacyAnnotations.Purpose] ?? node[PrivacyAnnotations.Purposes]
+      node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes]
     )
   ) {
     parseError(
@@ -36,10 +36,10 @@ export const parseClassifications = (
   }
 
   classification.classification = dataClassification.parse(
-    node[PrivacyAnnotations.Classification]
+    node[SchemaAnnotations.Classification]
   );
   classification.purposes = dataPurposes.parse(
-    node[PrivacyAnnotations.Purpose] ?? node[PrivacyAnnotations.Purposes]
+    node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes]
   );
 
   if (node.description) {
@@ -62,7 +62,7 @@ export const parseClassifications = (
 
   if ((classification.censorIgnore ??= context.censorIgnore)) {
     classification.classification ??= DataClassification.Anonymous;
-    classification.purposes ??= DataPurposes.Any;
+    classification.purposes ??= DataPurposeFlags.Any;
   }
 
   return {

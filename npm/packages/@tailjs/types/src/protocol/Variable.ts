@@ -1,7 +1,11 @@
-import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
+import {
+  MaybeUndefined,
+  ParsableEnumValue,
+  createEnumAccessor,
+} from "@tailjs/util";
 import {
   DataClassification,
-  DataPurposes,
+  DataPurposeFlags,
   DataClassificationValue,
   DataPurposeValue,
   Timestamp,
@@ -36,18 +40,14 @@ export const variableScope = createEnumAccessor(
 export type VariableScopeValue<Numeric extends boolean | undefined = boolean> =
   ParsableEnumValue<typeof VariableScope, Numeric, false, VariableScope>;
 
-type UndefinedIfUndefined<Src, T> = Src extends undefined | null
-  ? T | undefined
-  : T;
-
 /** Transforms properties with known enum types to their parsable counterparts. */
 export type Parsable<T, Numeric extends boolean | undefined = boolean> = {
   [P in keyof T]: T[P] extends DataClassification | undefined | null
-    ? DataClassificationValue<UndefinedIfUndefined<T[P], Numeric>>
-    : T[P] extends DataPurposes | undefined | null
-    ? DataPurposeValue<UndefinedIfUndefined<T[P], Numeric>>
+    ? DataClassificationValue<MaybeUndefined<T[P], Numeric>>
+    : T[P] extends DataPurposeFlags | undefined | null
+    ? DataPurposeValue<MaybeUndefined<T[P], Numeric>>
     : T[P] extends VariableScope | undefined | null
-    ? VariableScopeValue<UndefinedIfUndefined<T[P], Numeric>>
+    ? VariableScopeValue<MaybeUndefined<T[P], Numeric>>
     : Parsable<T[P], Numeric>;
 };
 
@@ -101,7 +101,9 @@ export interface VariableClassification<
    * If the user has not consented to data being used for this purpose the variable will not be avaiable.
    */
   purposes: DataPurposeValue<NumericEnums>;
+}
 
+export interface VariableMetadata {
   /**
    * Optionally categorizes variables.
    *
@@ -144,6 +146,7 @@ export interface VariableVersion {
 export interface VariableHeader<NumericEnums extends boolean = true>
   extends VariableKey<NumericEnums>,
     VariableClassification<NumericEnums>,
+    VariableMetadata,
     VariableVersion {}
 
 /**

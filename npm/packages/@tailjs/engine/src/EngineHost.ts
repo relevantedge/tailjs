@@ -12,7 +12,7 @@ export interface EngineHost {
   compress(data: string, algorithm: string): Promise<Uint8Array | null>;
   log<T extends string | Record<string, any>>(message: LogMessage<T>): void;
 
-  ls(path: string, rercursively?: boolean): Promise<ResourceEntry[] | null>;
+  ls(path: string): Promise<ResourceEntry[] | null>;
 
   readText(
     path: string,

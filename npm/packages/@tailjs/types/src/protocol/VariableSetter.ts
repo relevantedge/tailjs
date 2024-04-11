@@ -1,4 +1,5 @@
 import {
+  MaybePromise,
   ParsableEnumValue,
   PickPartial,
   createEnumAccessor,
@@ -16,6 +17,7 @@ import {
   singleDataPurpose,
   dataPurposes,
   variableScope,
+  VariableMetadata,
 } from "..";
 
 export type TargetedVariableScope =
@@ -72,7 +74,8 @@ export interface VariablePatchSource<
   T = any,
   NumericEnums extends boolean = boolean
 > extends VariableVersion,
-    VariableClassification<NumericEnums> {
+    VariableClassification<NumericEnums>,
+    VariableMetadata {
   value: T;
 }
 
@@ -80,14 +83,15 @@ export type VariablePatchResult<
   T = any,
   NumericEnums extends boolean = boolean
 > =
-  | (Partial<VariableClassification<NumericEnums>> & {
-      value: T | undefined;
-    })
+  | (VariableMetadata &
+      (Partial<VariableClassification<NumericEnums>> & {
+        value: T | undefined;
+      }))
   | undefined;
 
 export type VariablePatchAction<T = any> = (
   current: VariablePatchSource<T, true> | undefined
-) => VariablePatchResult<T> | undefined;
+) => MaybePromise<VariablePatchResult<T> | undefined>;
 
 export enum VariablePatchType {
   Add = 0,

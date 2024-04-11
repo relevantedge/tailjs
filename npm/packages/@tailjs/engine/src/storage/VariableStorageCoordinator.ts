@@ -5,6 +5,7 @@ import {
   VariableClassification,
   VariableGetter,
   VariableKey,
+  VariableMetadata,
   VariablePatch,
   VariableScope,
   VariableScopeValue,
@@ -18,17 +19,24 @@ import {
   variableScope,
 } from "@tailjs/types";
 import {
+  MaybeArray,
+  MaybePromise,
+  MaybeUndefined,
+  PartialRecord,
   TupleMap,
-  UndefinedNotAny,
   delay,
   forEach,
+  ifDefined,
   isDefined,
   isUndefined,
   required,
+  waitAll,
+  wrapFunction,
 } from "@tailjs/util";
 import {
   PartitionItem,
   applyPatchOffline,
+  formatKey,
   parseKey,
   partitionItems,
   withSourceIndex,
@@ -53,46 +61,48 @@ export type SchemaBoundPrefixMapping = {
   /**
    * The IDs of the schemas.
    */
-  schemas?: string[];
+  schemas?: MaybeArray<string>;
   /**
    * If a variable's classification is not explicitly defined in a schema, this will be the default.
    * If omitted, set requests will fail unless classification and purpose is defined.
    */
-  classification?: VariableClassification;
+  classification?: Partial<VariableClassification>;
 };
 
 export interface VariableStorageCoordinatorSettings {
-  mappings: Record<
-    VariableScopeValue,
-    Map<string, SchemaBoundPrefixMapping> | undefined
+  mappings: PartialRecord<
+    VariableScopeValue | "default",
+    | SchemaBoundPrefixMapping
+    | Record<string, SchemaBoundPrefixMapping>
+    | undefined
   >;
-  schemaManager: SchemaManager;
+  schema: SchemaManager;
   consent?: UserConsent;
   retries?: number;
   transientRetryDelay?: number;
   errorRetryDelay?: number;
 }
 
-type PrefixVariables = {
+type PrefixVariableMapping = {
   variables: SchemaVariableSet | undefined;
-  classification: SchemaClassification | undefined;
+  classification?: Partial<SchemaClassification>;
 };
 
 export class VariableStorageCoordinator extends VariableSplitStorage {
   private _settings: Required<
-    Omit<VariableStorageCoordinatorSettings, "schemaManager" | "consent">
+    Omit<VariableStorageCoordinatorSettings, "schema" | "consent">
   >;
 
   private readonly _schemaManager: SchemaManager;
 
   private readonly _variables = new TupleMap<
     [scope: VariableScope, prefix: string],
-    PrefixVariables
+    PrefixVariableMapping
   >();
 
   constructor({
     mappings,
-    schemaManager,
+    schema,
     retries = 3,
     transientRetryDelay = 50,
     errorRetryDelay = 250,
@@ -106,16 +116,41 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
       errorRetryDelay,
     };
 
-    this._schemaManager = schemaManager;
+    this._schemaManager = schema;
 
-    forEach(mappings, ([scope, mappings]) =>
-      mappings?.forEach((mapping, prefix) =>
-        this._variables.set([variableScope(scope), prefix], {
-          variables:
-            mapping.schemas &&
-            schemaManager.compileVariableSet(mapping.schemas),
-          classification: mapping.classification,
-        })
+    const normalizeMappings = (
+      mappings:
+        | SchemaBoundPrefixMapping
+        | Record<string, SchemaBoundPrefixMapping>
+    ): Record<string, SchemaBoundPrefixMapping> =>
+      (mappings as SchemaBoundPrefixMapping)?.storage
+        ? { "": mappings as SchemaBoundPrefixMapping }
+        : (mappings as Record<string, SchemaBoundPrefixMapping>);
+
+    const defaultMapping =
+      mappings.default && normalizeMappings(mappings.default);
+    const normalizedMappings: Record<
+      VariableScope,
+      Record<string, SchemaBoundPrefixMapping>
+    > = {} as any;
+    forEach(
+      mappings,
+      ([scope, mappings]) =>
+        scope !== "default" &&
+        mappings &&
+        (normalizedMappings[variableScope(scope)] = normalizeMappings(mappings))
+    );
+
+    forEach(variableScope.values, (scope) =>
+      forEach(
+        normalizedMappings[scope] ?? defaultMapping,
+        ([prefix, mapping]) =>
+          this._variables.set([variableScope(scope), prefix], {
+            variables: ifDefined(mapping.schemas, (schemas) =>
+              schema.compileVariableSet(schemas)
+            ),
+            classification: mapping.classification,
+          })
       )
     );
   }
@@ -127,7 +162,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
     patch?: (
       sourceIndex: number,
       result: VariableSetResult
-    ) => VariableSetter<any> | undefined
+    ) => MaybePromise<VariableSetter<any> | undefined>
   ): Promise<(VariableSetResult | undefined)[]> {
     const finalResults: (VariableSetResult | undefined)[] = [];
     let pending = withSourceIndex(setters);
@@ -143,16 +178,18 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
           context
         );
 
-        results.forEach((result, j) => {
-          finalResults[j] = result;
+        await waitAll(
+          results.map(async (result, j) => {
+            finalResults[j] = result;
 
-          if (isErrorResult(result) && result.transient) {
-            pending.push(current[j]);
-          } else if (isConflictResult(result) && patch) {
-            const patched = patch(j, result);
-            patched && pending.push([j, patched]);
-          }
-        });
+            if (isErrorResult(result) && result.transient) {
+              pending.push(current[j]);
+            } else if (isConflictResult(result) && patch) {
+              const patched = await patch(j, result);
+              patched && pending.push([j, patched]);
+            }
+          })
+        );
       } catch (e) {
         retryDelay = this._settings.errorRetryDelay;
         current.map(
@@ -227,13 +264,13 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
     );
 
     if (patches.length) {
-      const applyPatch = (
+      const applyPatch = async (
         patchIndex: number,
         current: Variable | undefined
       ) => {
         const [sourceIndex, patch] = patches[patchIndex];
         //const current = currentValues[i];
-        const patched = applyPatchOffline(current, patch);
+        const patched = await applyPatchOffline(current, patch);
         if (!patched) {
           results[sourceIndex] = {
             status: SetStatus.Unchanged,
@@ -248,7 +285,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
       const currentValues = storage.get(partitionItems(patches), context);
 
       for (let i = 0; i < patches.length; i++) {
-        const patched = applyPatch(i, currentValues[i]);
+        const patched = await applyPatch(i, currentValues[i]);
         if (patched) {
           patchSetters.push([i, patched]);
         }
@@ -280,16 +317,19 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
     T extends (VariableKey & Partial<VariableClassification>) | undefined,
     V
   >(
-    mapping: PrefixVariables,
+    mapping: PrefixVariableMapping,
     key: T,
     value: V,
     consent: UserConsent
-  ): UndefinedNotAny<T, V> {
+  ): MaybeUndefined<T, V> {
     if (isUndefined(key) || isUndefined(value)) return undefined as any;
 
-    return mapping.variables?.has(key)
-      ? mapping.variables?.censor(key, value, consent)
-      : validateConsent(key, consent, mapping.classification)
+    if (mapping.variables?.has(key)) {
+      mapping.variables.validate(key, value);
+      return mapping.variables.censor(key, value, consent) as any;
+    }
+
+    return validateConsent(key, consent, mapping.classification)
       ? (value as any)
       : undefined;
   }
@@ -311,6 +351,37 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
     );
   }
 
+  private _applySchemaClassification<
+    T extends Partial<VariableClassification & VariableMetadata> | undefined
+  >(mapping: PrefixVariableMapping, target: T, key: VariableKey): T {
+    if (!target) return target;
+
+    const definition = mapping.variables?.get(key);
+    if (definition) {
+      target.classification = definition.classification;
+      target.purposes = definition.purposes;
+    } else if (mapping.classification) {
+      target.classification ??= mapping.classification.classification;
+      target.purposes ??= mapping.classification.purposes;
+    }
+    required(
+      target.classification,
+      () =>
+        `The variable ${formatKey(
+          key
+        )} must have an explicit classification since it is not defined in a schema, and its storage does not have a default classification.`
+    );
+    required(
+      target.purposes,
+      () =>
+        `The variable ${formatKey(
+          key
+        )} must have explicit purposes since it is not defined in a schema, and its storage does not have a default classification.`
+    );
+
+    return target;
+  }
+
   async get<
     K extends readonly (VariableGetter<any, boolean> | null | undefined)[]
   >(
@@ -319,30 +390,33 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
   ): Promise<VariableGetResults<K>> {
     // Censor the result of initializers (if any) based on consent when the context has a tracker.
     const consent = context?.consent ?? context?.tracker?.consent;
-    if (consent) {
-      for (const getter of keys) {
-        if (!getter || isUndefined(getter?.initializer)) {
-          continue;
-        }
-
-        const mapping = this._getMapping(getter);
-        const original = getter!.initializer;
-        getter!.initializer = async () => {
-          const result = await original();
-          return isDefined(result?.value)
-            ? this._censor(
-                mapping,
-                {
-                  ...getter,
-                  purposes: result?.purposes ?? getter?.purposes,
-                  classification: result?.classification,
-                },
-                result?.value,
-                consent
-              )
-            : undefined;
-        };
+    for (const getter of keys) {
+      if (!getter || isUndefined(getter?.initializer)) {
+        continue;
       }
+
+      const mapping = this._getMapping(getter);
+      getter.initializer = wrapFunction(
+        getter.initializer,
+        async (original) => {
+          const result = await original();
+          this._applySchemaClassification(mapping, result, getter);
+          return consent
+            ? ifDefined(result?.value, () =>
+                this._censor(
+                  mapping,
+                  {
+                    ...getter,
+                    purposes: result?.purposes ?? getter?.purpose,
+                    classification: result?.classification,
+                  },
+                  result?.value,
+                  consent
+                )
+              )
+            : result;
+        }
+      );
     }
 
     return await super.get(keys, context);
@@ -365,11 +439,13 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
         const mapping = this._getMapping(setter);
 
         if (isVariablePatchAction(setter)) {
-          const originalPatch = setter.patch;
-          setter.patch = (current) => {
-            const patched = originalPatch(current);
-            return isDefined(patched?.value)
-              ? this._censor(
+          setter.patch = wrapFunction(
+            setter.patch,
+            async (original, current) => {
+              const patched = await original(current);
+              this._applySchemaClassification(mapping, patched, setter);
+              return ifDefined(patched?.value, () =>
+                this._censor(
                   mapping,
                   {
                     ...setter,
@@ -380,8 +456,9 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
                   patched!.value,
                   consent
                 )
-              : undefined;
-          };
+              );
+            }
+          );
         }
 
         if (isDefined(setter.value)) {

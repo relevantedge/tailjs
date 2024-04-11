@@ -1,8 +1,8 @@
-export const SystemTypes = Object.freeze({
+export const SchemaSystemTypes = Object.freeze({
   Event: "urn:tailjs:core:event",
 });
 
-export const PrivacyAnnotations = Object.freeze({
+export const SchemaAnnotations = Object.freeze({
   Tags: "x-tags",
   Purpose: "x-privacy-purpose",
   Purposes: "x-privacy-purposes",
