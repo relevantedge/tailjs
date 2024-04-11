@@ -65,6 +65,7 @@ export type VariableSetResult<
             | SetStatus.NotFound
             | SetStatus.Unsupported
             | SetStatus.ReadOnly;
+          error?: any;
         }
       | { status: SetStatus.Error; transient?: boolean; error: any }
     ) & { current?: never })

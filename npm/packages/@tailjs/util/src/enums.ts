@@ -217,7 +217,7 @@ export const createEnumAccessor = <
         )
       : value;
 
-  const pure = entries.filter(([, value]) => pureFlags && pureFlags & value);
+  const pure = entries.filter(([, value]) => !pureFlags || pureFlags & value);
   return define(
     (value: any) => parse(value),
     [

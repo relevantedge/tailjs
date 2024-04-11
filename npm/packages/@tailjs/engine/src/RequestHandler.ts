@@ -109,9 +109,7 @@ export class RequestHandler {
       debugScript,
       useSession,
       environmentTags,
-      manageConsents,
       sessionTimeout,
-      deviceSessionTimeout,
       clientKeySeed,
       encryptionKeys,
       client,
@@ -127,7 +125,7 @@ export class RequestHandler {
 
     if (!storage) {
       storage = {
-        default: { storage: new InMemoryStorage(), schemas: "*" },
+        default: { storage: new InMemoryStorage(), schema: "*" },
       };
     }
 
@@ -135,7 +133,6 @@ export class RequestHandler {
       host,
       crypto ?? new DefaultCryptoProvider(encryptionKeys),
       schema,
-      manageConsents,
       new TrackerVariableStorage(
         new VariableStorageCoordinator({ schema, mappings: storage })
       ),

@@ -50,3 +50,30 @@ export type RecordType<K extends keyof any = keyof any, V = any> = object &
  * Shorthand for a value that is optionally awaitable.
  */
 export type MaybePromise<T> = PromiseLike<T> | T;
+
+/* JSON */
+
+export type JsonArray = Json[];
+
+export type JsonTuple = {
+  [TupleIndex in number]?: Json;
+};
+
+export type JsonObject = RecordType & {
+  [P in string]?: Json;
+};
+
+/**
+ * All possible values that can be represented with JSON.
+ */
+export type Json =
+  | null
+  | undefined
+  | string
+  | number
+  | boolean
+  | JsonArray
+  | JsonTuple
+  | JsonObject;
+
+export type ToJsonAble<T> = { toJSON(): T };

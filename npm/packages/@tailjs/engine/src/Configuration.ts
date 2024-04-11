@@ -7,11 +7,8 @@ import { AllRequired } from "./lib";
 import {
   CryptoProvider,
   EngineHost,
-  EventParser,
-  ReadonlyVariableStorage,
   SchemaManager,
   TrackerExtension,
-  VariableStorage,
   VariableStorageCoordinatorSettings,
 } from "./shared";
 

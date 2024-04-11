@@ -13,7 +13,6 @@ import {
   TestType1,
   bigSchema,
   compositionSchema,
-  invalidPolymorphicSchema,
   polymorphicSchema,
   schemaHeader,
   systemEvents,

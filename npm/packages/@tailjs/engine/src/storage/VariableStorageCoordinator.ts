@@ -30,6 +30,7 @@ import {
   isDefined,
   isUndefined,
   required,
+  tryCatch,
   waitAll,
   wrapFunction,
 } from "@tailjs/util";
@@ -61,7 +62,7 @@ export type SchemaBoundPrefixMapping = {
   /**
    * The IDs of the schemas.
    */
-  schemas?: MaybeArray<string>;
+  schema?: MaybeArray<string>;
   /**
    * If a variable's classification is not explicitly defined in a schema, this will be the default.
    * If omitted, set requests will fail unless classification and purpose is defined.
@@ -93,8 +94,6 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
     Omit<VariableStorageCoordinatorSettings, "schema" | "consent">
   >;
 
-  private readonly _schemaManager: SchemaManager;
-
   private readonly _variables = new TupleMap<
     [scope: VariableScope, prefix: string],
     PrefixVariableMapping
@@ -107,17 +106,6 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
     transientRetryDelay = 50,
     errorRetryDelay = 250,
   }: VariableStorageCoordinatorSettings) {
-    super(mappings);
-
-    this._settings = {
-      mappings,
-      retries,
-      transientRetryDelay,
-      errorRetryDelay,
-    };
-
-    this._schemaManager = schema;
-
     const normalizeMappings = (
       mappings:
         | SchemaBoundPrefixMapping
@@ -130,7 +118,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
     const defaultMapping =
       mappings.default && normalizeMappings(mappings.default);
     const normalizedMappings: Record<
-      VariableScope,
+      VariableScopeValue<true>,
       Record<string, SchemaBoundPrefixMapping>
     > = {} as any;
     forEach(
@@ -141,16 +129,31 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
         (normalizedMappings[variableScope(scope)] = normalizeMappings(mappings))
     );
 
-    forEach(variableScope.values, (scope) =>
+    defaultMapping &&
       forEach(
-        normalizedMappings[scope] ?? defaultMapping,
-        ([prefix, mapping]) =>
-          this._variables.set([variableScope(scope), prefix], {
-            variables: ifDefined(mapping.schemas, (schemas) =>
-              schema.compileVariableSet(schemas)
-            ),
-            classification: mapping.classification,
-          })
+        variableScope.values,
+        (scope) =>
+          !normalizedMappings[scope] &&
+          (normalizedMappings[scope] = defaultMapping)
+      );
+
+    super(normalizedMappings);
+
+    this._settings = {
+      mappings,
+      retries,
+      transientRetryDelay,
+      errorRetryDelay,
+    };
+
+    forEach(variableScope.values, (scope) =>
+      forEach(normalizedMappings[scope], ([prefix, mapping]) =>
+        this._variables.set([variableScope(scope), prefix], {
+          variables: ifDefined(mapping.schema, (schemas) =>
+            schema.compileVariableSet(schemas)
+          ),
+          classification: mapping.classification,
+        })
       )
     );
   }
@@ -400,21 +403,27 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
         getter.initializer,
         async (original) => {
           const result = await original();
-          this._applySchemaClassification(mapping, result, getter);
-          return consent
-            ? ifDefined(result?.value, () =>
-                this._censor(
-                  mapping,
-                  {
-                    ...getter,
-                    purposes: result?.purposes ?? getter?.purpose,
-                    classification: result?.classification,
-                  },
-                  result?.value,
-                  consent
-                )
-              )
-            : result;
+          return tryCatch(
+            () => {
+              this._applySchemaClassification(mapping, result, getter);
+              return consent
+                ? ifDefined(result?.value, () =>
+                    this._censor(
+                      mapping,
+                      {
+                        ...getter,
+                        purposes: result?.purposes ?? getter?.purpose,
+                        classification: result?.classification,
+                      },
+                      result?.value,
+                      consent
+                    )
+                  )
+                : result;
+            },
+            () =>
+              /* Schema classification missing for unknown variables */ undefined
+          );
         }
       );
     }
@@ -429,23 +438,22 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
     const censoredResults: [index: number, result: VariableSetResult][] = [];
 
     const consent = context?.consent ?? context?.tracker?.consent;
-    if (consent) {
-      // Censor the values (including patch actions) when the context has a tracker.
 
-      for (let i = 0; i < variables.length; i++) {
-        const setter = variables[i];
-        if (!setter) return undefined as any;
+    // Censor the values (including patch actions) when the context has a tracker.
 
-        const mapping = this._getMapping(setter);
+    for (let i = 0; i < variables.length; i++) {
+      const setter = variables[i];
+      if (!setter) return undefined as any;
 
-        if (isVariablePatchAction(setter)) {
-          setter.patch = wrapFunction(
-            setter.patch,
-            async (original, current) => {
-              const patched = await original(current);
-              this._applySchemaClassification(mapping, patched, setter);
-              return ifDefined(patched?.value, () =>
-                this._censor(
+      const mapping = this._getMapping(setter);
+
+      if (isVariablePatchAction(setter)) {
+        setter.patch = wrapFunction(setter.patch, async (original, current) => {
+          const patched = await original(current);
+          this._applySchemaClassification(mapping, patched, setter);
+          return ifDefined(patched?.value, (value) =>
+            consent
+              ? this._censor(
                   mapping,
                   {
                     ...setter,
@@ -453,16 +461,30 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
                       patched!.classification ?? setter.classification,
                     purposes: patched!.purposes ?? setter.purposes,
                   },
-                  patched!.value,
+                  value,
                   consent
                 )
-              );
-            }
+              : value
           );
-        }
-
-        if (isDefined(setter.value)) {
-          setter.value = this._censor(mapping, setter, setter.value, consent);
+        });
+      } else if (isDefined(setter.value)) {
+        if (
+          tryCatch(
+            () => (
+              this._applySchemaClassification(mapping, setter as any, setter),
+              true
+            ),
+            (error) => {
+              censoredResults.push([
+                i,
+                { source: setter, status: SetStatus.Denied, error },
+              ]);
+            }
+          )
+        ) {
+          if (consent) {
+            setter.value = this._censor(mapping, setter, setter.value, consent);
+          }
           if (isUndefined(setter.value)) {
             (variables[i] as any) = undefined as any;
             censoredResults.push([
@@ -473,6 +495,7 @@ export class VariableStorageCoordinator extends VariableSplitStorage {
         }
       }
     }
+
     const results = await super.set(variables, context);
     for (const [i, result] of censoredResults) {
       results[i] = result;
