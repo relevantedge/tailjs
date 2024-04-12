@@ -8,6 +8,7 @@ import {
   throwError,
   undefined,
 } from ".";
+import { conjunct, quote } from "./types/strings";
 
 type EnumSource = Record<string, string | number>;
 
@@ -114,13 +115,46 @@ export type EnumHelper<
 > = ParseFunction<T, Flags, "numeric", never, true> &
   Readonly<
     {
+      /**
+       * The number of possible unqiue values in the enumeration.
+       */
       length: number;
+      /**
+       * Converts the provided value to its numeric value or throws an exception if it does not match a value in the enumeration.
+       */
       parse: ParseFunction<T, Flags, "numeric">;
+
+      /**
+       * Converts the provided value to its numeric value or returns `undefined` if it does not match a value in the enumeration.
+       */
       tryParse: ParseFunction<T, Flags, "numeric", undefined>;
+
+      /**
+       * All values of the enumeration.
+       */
       values: T[keyof T][];
+
+      /**
+       * All names and values of the enumeration.
+       */
       entries: Entries<T>;
+
+      /**
+       * Looks up a value and returns its name or array of names if the enumeration represents flags.
+       */
       lookup: ParseFunction<T, Flags, "lookup">;
+
+      /**
+       * Looks up a value and returns its name if it matches a single value in the enumeration ,
+       * or an array of names if the enumeration represents flags and the value matches more than one.
+       */
       format: ParseFunction<T, Flags, "format">;
+
+      /**
+       * Pretty prints an enumeration value with its name and values suitable for logging and error messages.
+       * For example "The values 'test 1' or 'test 2'".
+       */
+      logFormat(value: ParsableArg<T, Flags>, conjunction?: string): string;
     } & (Flags extends true
       ? {
           /** Flag values that are not a combination of other flags (that is, a single bit). */
@@ -230,6 +264,12 @@ export const createEnumAccessor = <
         lookup,
         length: entries.length,
         format: (value: any) => lookup(value, true),
+        logFormat: (value: any, c = "or") => (
+          (value = lookup(value, true)),
+          value === "any"
+            ? "any " + enumName
+            : `the ${enumName} ${conjunct(quote(value), c)}`
+        ),
       } as const,
       flags &&
         ({

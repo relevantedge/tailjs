@@ -798,9 +798,9 @@ export const unlock = <T extends ReadonlyPropertyContainer>(
 export const wrapFunction = <F extends ((...args: any) => any) | undefined>(
   original: F,
   wrap: (
-    original: F,
-    ...args: Parameters<Exclude<F, undefined>>
-  ) => ReturnType<Exclude<F, undefined>>
+    original: NonNullable<F>,
+    ...args: Parameters<NonNullable<F>>
+  ) => ReturnType<NonNullable<F>>
 ): F => original && (((...args: any) => wrap(original, ...args)) as any);
 
 export const clone = <T>(value: T, depth: number | boolean = true): T =>

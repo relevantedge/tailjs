@@ -1,6 +1,7 @@
 import {
   UserConsent,
   VariableKey,
+  formatKey,
   validateConsent,
   variableScope,
 } from "@tailjs/types";
@@ -13,9 +14,13 @@ import {
   throwError,
   tryCatch,
 } from "@tailjs/util";
-import { Schema, SchemaClassification, SchemaVariable, VariableMap } from "..";
-import { formatKey } from "../lib";
-import { SchemaManager } from "./SchemaManager";
+import {
+  Schema,
+  SchemaClassification,
+  SchemaManager,
+  SchemaVariable,
+  VariableMap,
+} from "..";
 
 export class SchemaVariableSet {
   private _variables: VariableMap<SchemaVariable>;

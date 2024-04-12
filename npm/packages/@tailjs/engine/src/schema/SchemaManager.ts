@@ -185,7 +185,7 @@ export class SchemaManager {
 
       forEach(parsed.properties, ([key, parsedProperty]) => {
         const property: SchemaProperty = {
-          id: type + "#" + key,
+          id: parsedProperty.id,
           name: parsedProperty.name,
           ...extractDescription(parsed),
 
@@ -330,7 +330,7 @@ export class SchemaManager {
     eventTypeOrTypeId: string | undefined,
     require?: Required & boolean,
     concreteOnly = true
-  ): MaybeUndefined<Required, SchemaType> {
+  ): MaybeUndefined<Required, SchemaObjectType<any>> {
     return require
       ? required(
           this.getType(eventTypeOrTypeId, false, concreteOnly),

@@ -82,10 +82,10 @@ export type Defined<T> = Exclude<T, undefined | void>;
  * Can also be used like `<T, Required extends boolean=false>(value: T, required?:Required): MaybeUndefined<Required,T>`.
  * Here the boolean flag `required` decides whether the return value is `T` or `T | undefined`.
  */
-export type MaybeUndefined<T, Defined = T> = If<
+export type MaybeUndefined<T, Defined = T, Nulls = Nullish> = If<
   IsAny<T>,
   Defined,
-  T extends undefined | false ? Defined | undefined : Defined
+  T extends Nulls | false ? Defined | undefined : Defined
 >;
 
 /**

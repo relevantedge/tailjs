@@ -108,14 +108,15 @@ export class OpenPromise<T = void, E = any> implements PromiseLike<T> {
   }
 }
 
-export type Lock = {
-  (timeout?: number): Promise<() => void>;
+export interface Lock {
+  (timeout?: number): Promise<((() => void) & Disposable) | undefined>;
   <T>(action: () => MaybePromise<T>, timeout?: number): Promise<T | undefined>;
-};
+}
 
 export const createLock = (): Lock => {
   const semaphore = promise<boolean>(true);
   let currentLock: (() => void) | undefined;
+
   const t0 = createTimer();
   const wait = async (actionOrMs?: (() => any) | number, ms?: number) => {
     if (isFunction(actionOrMs)) {
@@ -134,7 +135,10 @@ export const createLock = (): Lock => {
       }
       actionOrMs! -= t0(); // If the above did not return undefined we got the semaphore.
     }
-    return (currentLock = () => semaphore.signal(!(currentLock = undefined)));
+    const release = (currentLock = () =>
+      semaphore.signal(!(currentLock = undefined)));
+    release[Symbol.dispose] = release;
+    return release;
   };
   return wait;
 };

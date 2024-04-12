@@ -22,6 +22,8 @@ import {
   toArray,
   undefined,
   MaybeUndefined,
+  MaybePromise,
+  isUndefined,
 } from ".";
 
 export const UTF16MAX = 0xffff;
@@ -348,6 +350,26 @@ export const flatProject: FlatProjectFunction = function (
   }
 };
 
+export const mapAsync: <S extends IteratorSource, R>(
+  source: S,
+  projection?: IteratorAction<S, R | PromiseLike<R>> | null,
+  ...rest: StartEndArgs<S>
+) => MaybeUndefined<S, Promise<IteratorProjection<S, R>[]>> = (async (
+  source: any,
+  projection: any,
+  start: any = undefined,
+  end?: any
+) => {
+  if (isUndefined(source)) return undefined;
+  const mapped: any[] = [];
+  let i = 0;
+  let result: any;
+  for (const item of createIterator(source, start, end)) {
+    (result = await projection(item, i++)) && mapped.push(result);
+  }
+  return mapped;
+}) as any;
+
 export const map: MapFunction = (
   source: any,
   projection?: any,
@@ -528,9 +550,7 @@ const traverseInternal = <T>(
 type JoinResult<T> = T extends readonly []
   ? never
   : T extends readonly [infer Item, ...infer Rest]
-  ?
-      | Exclude<Item extends Iterable<infer T> ? T : Item, undefined>
-      | JoinResult<Rest>
+  ? NonNullable<Item extends Iterable<infer T> ? T : Item> | JoinResult<Rest>
   : never;
 
 export const join = <T extends readonly any[]>(...items: T): JoinResult<T>[] =>
@@ -538,11 +558,9 @@ export const join = <T extends readonly any[]>(...items: T): JoinResult<T>[] =>
 
 export const expand = <T>(
   root: T | T[],
-  selector: (
-    current: Exclude<T, undefined>
-  ) => Iterable<T | undefined> | undefined,
+  selector: (current: NonNullable<T>) => Iterable<T | undefined> | undefined,
   includeSelf = true
-): T extends undefined ? undefined : Exclude<T, undefined>[] =>
+): T extends undefined ? undefined : NonNullable<T>[] =>
   traverseInternal(root, selector, includeSelf, [], new Set()) as any;
 
 const forEachArray = (source: readonly any[], action: any) => {
@@ -617,6 +635,24 @@ export const forEach = forEachInternal as <S extends IteratorSource, R>(
   action: IteratorAction<S, R>,
   ...rest: StartEndArgs<S>
 ) => R | undefined;
+
+export const forEachAsync: <S extends IteratorSource, R>(
+  source: S,
+  action: IteratorAction<S, PromiseLike<R>>,
+  ...rest: StartEndArgs<S>
+) => Promise<R> | undefined = (async (
+  source: any,
+  action: any,
+  start?: any,
+  end?: any
+) => {
+  let returnValue: any;
+  let i = 0;
+  for (const value of createIterator(source, undefined, start, end)) {
+    returnValue = (await action(value, i++)) ?? returnValue;
+  }
+  return returnValue;
+}) as any;
 
 export const flatForEach = <
   S extends IteratorSource,
@@ -894,7 +930,7 @@ export const last: <S extends IteratorSource>(
 ) =>
   !source
     ? undefined
-    : isArray(source)
+    : !predicate && isArray(source)
     ? source[source.length - 1]
     : forEachInternal(
         source,
