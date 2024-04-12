@@ -1,12 +1,17 @@
-import type { Voidefined } from ".";
+import type { Extends, If, IsAny, Voidefined } from ".";
 
 export type Empty = readonly [];
 
 export type IsTuple<T> = T extends [] | [any, ...any] ? true : false;
 
-export type MaybeArray<T, Readonly extends boolean = false> =
-  | T
-  | (Readonly extends false ? T[] : readonly T[]);
+export type MaybeArray<
+  T,
+  Readonly extends boolean = false
+> = IsAny<T> extends true
+  ? any
+  : [T] extends readonly [readonly (infer Item)[]]
+  ? MaybeArray<Item, Extends<T, any[]>>
+  : T | (Readonly extends false ? T[] : readonly T[]);
 
 /**
  * An extension to T[] and Iterable<T> that also correctly captures weird things like NodeListOf<T>

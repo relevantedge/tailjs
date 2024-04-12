@@ -37,7 +37,7 @@ export type NotFunction =
     };
 
 /** Shorter than writing all this out, and slightly easier to read. */
-export type Nullish = null | undefined;
+export type Nullish = null | undefined | void;
 
 /** A record type that is neither iterable or a function. */
 export type RecordType<K extends keyof any = keyof any, V = any> = object &
@@ -49,7 +49,9 @@ export type RecordType<K extends keyof any = keyof any, V = any> = object &
 /**
  * Shorthand for a value that is optionally awaitable.
  */
-export type MaybePromise<T> = PromiseLike<T> | T;
+export type MaybePromise<T, Toggle = boolean> = Toggle extends true
+  ? PromiseLike<T>
+  : T;
 
 /* JSON */
 

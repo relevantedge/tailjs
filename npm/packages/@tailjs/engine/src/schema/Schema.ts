@@ -46,8 +46,8 @@ export interface Schema extends SchemaEntity {
 }
 
 export interface ValidatableSchemaEntity<T = any> extends SchemaEntity {
-  validate(source: T): T;
-  tryValidate(source: T | undefined): T | undefined;
+  validate(value: T): T;
+  tryValidate(value: T | undefined): T | undefined;
   censor: (
     value: T,
     consent: SchemaClassification | UserConsent

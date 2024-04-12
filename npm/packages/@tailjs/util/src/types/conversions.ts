@@ -1,11 +1,4 @@
-import type {
-  Defined,
-  FunctionComparisonEquals,
-  If,
-  IsAny,
-  MaybeUndefined,
-  Nullish,
-} from "..";
+import type { Defined, MaybePromise, MaybeUndefined } from "..";
 import { tryCatch } from "..";
 
 /**
@@ -100,6 +93,9 @@ export const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */
 export const symbolIterator = Symbol.iterator;
 
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */
+export const symbolAsyncIterator = Symbol.asyncIterator;
+
 /** Fast way to check for precence of function argument. */
 export const NO_ARG = Symbol();
 
@@ -122,13 +118,12 @@ export const isDefined = <T>(value: T): value is Defined<T> =>
 
 export const ifDefined = <T, R>(
   value: T,
-  result: (value: Exclude<T, undefined>) => R
+  result: (value: NonNullable<T>) => R
 ): MaybeUndefined<T, R> =>
   value !== undefined ? (result(value as any) as any) : undefined;
 
-export const isNullish = <T>(
-  value: T
-): value is Exclude<T, undefined | void | null> => value == nil;
+export const isNullish = (value: any): value is undefined | void | null =>
+  value == nil;
 
 export const hasValue = <T>(
   value: T
@@ -175,17 +170,32 @@ export const isArray: (value: any) => value is readonly any[] = Array.isArray;
  * - If the value is iterable, an array containing its values is returned
  * - Otherwise, an array with the value as its single item is returned.
  */
-export const toArray = <T>(
-  value: T | Iterable<T>,
-  clone = false
-): MaybeUndefined<[T][0], T[]> =>
+export const toArray: {
+  // <T>(value: AsyncIterable<T>, clone?: boolean): MaybeUndefined<
+  //   [T][0],
+  //   Promise<T[]>
+  // >;
+  <T>(value: T | Iterable<T>, clone?: boolean): MaybeUndefined<[T][0], T[]>;
+} = (value: any, clone = false): any =>
   isUndefined(value)
     ? undefined
     : !clone && isArray(value)
     ? value
     : isIterable(value)
     ? [...value]
-    : ([value] as any);
+    : // : isAsyncIterable(value)
+      // ? toArrayAsync(value)
+      ([value] as any);
+
+const toArrayAsync = async (
+  values: AsyncIterable<any>,
+  results: any[] = []
+) => {
+  for await (const value of values) {
+    results.push(value);
+  }
+  return results;
+};
 
 export const isObject = <AcceptIterables extends boolean = false>(
   value: any,
@@ -226,6 +236,9 @@ export const isIterable = (
   acceptStrings = false
 ): value is Iterable<any> =>
   !!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
+
+export const isAsyncIterable = (value: any): value is AsyncIterable<any> =>
+  !!value?.[symbolAsyncIterator];
 
 export const toIterable = <T>(value: T | Iterable<T>): Iterable<T> =>
   isIterable(value) ? value : [value];

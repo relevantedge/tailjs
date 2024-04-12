@@ -11,16 +11,19 @@ import {
   VariableQueryOptions,
   VariableScope,
   VariableSetResult,
+  dataClassification,
   dataPurposes,
   isConflictResult,
   isSuccessResult,
+  parseKey,
   patchType,
-  toStrict,
+  toNumericVariable,
   variableScope,
 } from "@tailjs/types";
 import {
   MaybePromise,
   MaybeUndefined,
+  Nullish,
   delay,
   filter,
   isDefined,
@@ -45,18 +48,17 @@ export const variableId = <T extends VariableKey | undefined | null>(
     : undefined;
 
 export const copy = <
-  T extends (Variable<any, any> & { value: any }) | undefined
+  T extends (Variable<any, any> & { value: any }) | Nullish,
+  O = {}
 >(
   variable: T,
-  overrides?: Partial<Variable>
-): T => {
-  return (
-    variable && {
-      ...variable,
-      ...(variable.tags ? [...variable.tags] : {}),
-      ...overrides,
-    }
-  );
+  overrides?: O
+): MaybeUndefined<T, T & O> => {
+  return (variable && {
+    ...variable,
+    ...(variable.tags ? [...variable.tags] : {}),
+    ...overrides,
+  }) as any;
 };
 
 export const formatSetResultError = (result?: VariableSetResult) => {
@@ -116,24 +118,26 @@ const requireNumberOrUndefined = (value: any): number | undefined => {
 };
 
 export const applyPatchOffline = async (
-  current: VariablePatchSource<any, true> | undefined,
+  current: VariablePatchSource<any, boolean> | undefined,
   { classification: level, purposes, patch }: VariablePatch<any, true>
 ): Promise<VariablePatchResult<any, true> | undefined> => {
   if (isFunction(patch)) {
-    const patched = toStrict(await patch(current));
+    const patched = toNumericVariable(await patch(toNumericVariable(current)));
 
     if (patched) {
-      patched.classification ??=
-        current?.classification ?? DataClassification.Anonymous;
-      !("purposes" in patched) && (patched.purposes = current?.purposes);
+      patched.classification ??= dataClassification.parse(
+        current?.classification
+      );
+      patched.purposes ??= dataPurposes.parse(current?.purposes);
       !("tags" in patched) && (patched.tags = current?.tags);
     }
+
     return patched;
   }
 
   const classification: Partial<VariableClassification<true>> = {
-    classification: level!,
-    purposes: dataPurposes(purposes) ?? current?.purposes,
+    classification: dataClassification.parse(level!, false),
+    purposes: dataPurposes(purposes ?? current?.purposes),
   };
 
   const value = current?.value;
@@ -174,17 +178,9 @@ export const applyPatchOffline = async (
   }
 };
 
-export type ParsedKey = {
-  prefix: string;
-  key: string;
-  sourceKey: string;
-  // For filters.
-  not?: boolean;
-};
-
 export type PartitionItem<T> = [sourceIndex: number, item: T];
 export type PartitionItems<
-  T extends any[] = any[],
+  T extends readonly any[] = any[],
   Append = {}
 > = T extends readonly []
   ? []
@@ -214,29 +210,6 @@ export const mergeKeys = async <K, T extends any[]>(
     : undefined;
 
 export const hasPrefix = (key: string | undefined) => key?.includes(":");
-
-export const formatKey = (key: VariableKey) =>
-  `'${key.key}' in ${variableScope.format(key.scope)} scope`;
-
-export const parseKey = <T extends string | undefined>(
-  sourceKey: T
-): MaybeUndefined<T, ParsedKey> => {
-  if (isUndefined(sourceKey)) return undefined as any;
-  const not = sourceKey[0] === "1";
-  if (not) {
-    sourceKey = (sourceKey.slice(1) as T)!;
-  }
-  const prefixIndex = sourceKey.indexOf(":");
-  const prefix = prefixIndex < 0 ? "" : sourceKey.substring(0, prefixIndex);
-  const key = prefixIndex > -1 ? sourceKey.slice(prefixIndex + 1) : sourceKey;
-
-  return {
-    prefix,
-    key,
-    sourceKey,
-    not,
-  } as any;
-};
 
 export type FilterTarget = {
   targetIndex: number;

@@ -51,9 +51,9 @@ export const validateConsent = (
       "The source has not defined a data classification and no default was provided."
     );
   let purposes =
-    dataPurposes(source.purposes) ??
+    dataPurposes.parse(source.purposes, false) ??
     required(
-      dataPurposes(defaultClassification?.purposes),
+      dataPurposes.parse(defaultClassification?.purposes, false),
       "The source has not defined data purposes and no default was provided."
     );
 

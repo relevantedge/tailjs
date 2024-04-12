@@ -1,7 +1,9 @@
 import {
   MaybeUndefined,
+  Nullish,
   ParsableEnumValue,
   createEnumAccessor,
+  isUndefined,
 } from "@tailjs/util";
 import {
   DataClassification,
@@ -9,6 +11,9 @@ import {
   DataClassificationValue,
   DataPurposeValue,
   Timestamp,
+  singleDataPurpose,
+  dataPurposes,
+  dataClassification,
 } from "..";
 
 export enum VariableScope {
@@ -172,3 +177,82 @@ export interface Variable<T = any, NumericEnums extends boolean = true>
  */
 export type VariableValidationBasis<NumericEnums extends boolean = boolean> =
   VariableKey<NumericEnums> & Partial<VariableClassification<NumericEnums>>;
+
+/** Returns a description of a key that can be used for logging and error messages.  */
+export const formatKey = (key: VariableKey<true> | VariableKey) =>
+  `'${key.key}' in ${variableScope.format(key.scope)} scope`;
+
+/** The individual parts of a key specifed as string. */
+export type ParsedKey = {
+  /** The prefix of the key, or the empty string if none. */
+  prefix: string;
+
+  /** The excluding its prefix. */
+  key: string;
+
+  /** The original key string. */
+  sourceKey: string;
+
+  /** For queries. */
+  not?: boolean;
+};
+
+export const stripPrefix = <T extends VariableKey | undefined>(key: T): T =>
+  key && { ...key, key: parseKey(key.key).key };
+
+/** Returns the individual parts of a key specified as a string.  */
+export const parseKey = <T extends string | undefined>(
+  sourceKey: T
+): MaybeUndefined<T, ParsedKey> => {
+  if (isUndefined(sourceKey)) return undefined as any;
+  const not = sourceKey[0] === "!";
+  if (not) {
+    sourceKey = (sourceKey.slice(1) as T)!;
+  }
+  const prefixIndex = sourceKey.indexOf(":");
+  const prefix = prefixIndex < 0 ? "" : sourceKey.substring(0, prefixIndex);
+  const key = prefixIndex > -1 ? sourceKey.slice(prefixIndex + 1) : sourceKey;
+
+  return {
+    prefix,
+    key,
+    sourceKey,
+    not,
+  } as any;
+};
+
+type EnumPropertyType<
+  P extends keyof any,
+  Default,
+  Props
+> = Props extends readonly []
+  ? Default
+  : Props extends readonly [
+      readonly [infer Key, { values: (infer T)[] }],
+      ...infer Rest
+    ]
+  ? P extends Key
+    ? T
+    : EnumPropertyType<P, Default, Rest>
+  : never;
+
+const enumProperties = [
+  ["scope", variableScope],
+  ["purpose", singleDataPurpose],
+  ["purposes", dataPurposes],
+  ["classification", dataClassification],
+] as const;
+
+export const toNumericVariable: <T>(value: T) => T extends Nullish
+  ? T
+  : {
+      [P in keyof T]: EnumPropertyType<P, T[P], typeof enumProperties>;
+    } = (value: any) => {
+  if (!value) return value;
+
+  enumProperties.forEach(
+    ([prop, helper]) => (value[prop] = helper.parse(value[prop]))
+  );
+
+  return value as any;
+};

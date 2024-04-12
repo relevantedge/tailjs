@@ -160,7 +160,7 @@ export const array = (() =>
 /**
  * Utility type for {@link iterable} to help TypeScript know strings are not iterables.
  */
-type IterableNotString<T> = T extends string
+export type IterableNotString<T> = T extends string
   ? never
   : T extends IterableOrArrayLike<any>
   ? T

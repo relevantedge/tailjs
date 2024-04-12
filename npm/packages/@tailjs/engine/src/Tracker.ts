@@ -1,20 +1,21 @@
 import {
   DataClassification,
-  DataPurposeFlags,
   DataPurpose,
+  DataPurposeFlags,
   PostResponse,
   Session,
   Timestamp,
   TrackedEvent,
   Variable,
   VariableFilter,
-  VariableGetter,
+  VariableGetResults,
   VariableHeader,
   VariableKey,
   VariableQueryOptions,
   VariableQueryResult,
   VariableScope,
-  VariableSetter,
+  VariableSetResult,
+  VariableSetResults,
   dataClassification,
   dataPurposes,
   isSuccessResult,
@@ -40,8 +41,8 @@ import {
   RequestHandlerConfiguration,
   TrackedEventBatch,
   TrackerEnvironment,
-  VariableGetResults,
-  VariableSetResults,
+  VariableGetParameter,
+  VariableSetParameter,
   VariableStorageContext,
 } from "./shared";
 
@@ -623,7 +624,7 @@ export class Tracker {
             },
           },
         ])
-      )[0]!;
+      )[0].validate();
 
     if (this._session.value!.deviceId) {
       const device = (
@@ -644,7 +645,7 @@ export class Tracker {
             }),
           },
         ])
-      )[0];
+      )[0].validate();
 
       if (!device.initialized && this.session.isNew) {
         await this.set([
@@ -666,6 +667,8 @@ export class Tracker {
       if (previousDeviceSessionId && isDefined(this.deviceId)) {
         this._expiredDeviceSessionId = previousDeviceSessionId;
       }
+
+      this._device = device;
     }
   }
 
@@ -759,14 +762,12 @@ export class Tracker {
     }
   }
 
-  get<K extends readonly (VariableGetter<any> | null | undefined)[]>(
-    keys: K | readonly (VariableGetter<any> | null | undefined)[]
-  ): MaybePromise<VariableGetResults<K>> {
-    return this.env.storage.get(
-      keys as VariableGetter<any>[],
-      this._getStorageContext()
-    ) as VariableGetResults<K>; // This conversion is okay because of the TrackerVariableStorage
+  get<K extends VariableGetParameter<true>>(
+    keys: K | VariableGetParameter<true>
+  ): MaybePromise<VariableGetResults<K, true>> {
+    return this.env.storage.get(keys, this._getStorageContext());
   }
+
   head(
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined
@@ -780,13 +781,13 @@ export class Tracker {
     return this.env.storage.query(filters, options, this._getStorageContext());
   }
 
-  async set<V extends readonly (VariableSetter<any> | null | undefined)[]>(
-    variables: V | readonly (VariableSetter<any> | null | undefined)[]
-  ): Promise<VariableSetResults<V>> {
-    const results = await this.env.storage.set(
+  async set<V extends VariableSetParameter<true>>(
+    variables: V | VariableSetParameter<true>
+  ): Promise<VariableSetResults<V, true>> {
+    const results = (await this.env.storage.set(
       variables,
       this._getStorageContext()
-    );
+    )) as VariableSetResult[];
 
     for (const result of results) {
       if (isSuccessResult(result)) {
@@ -810,8 +811,9 @@ export class Tracker {
       );
     }
 
-    return results;
+    return results as any;
   }
+
   purge(alsoUserData = false): MaybePromise<void> {
     return this.env.storage.purge(
       [

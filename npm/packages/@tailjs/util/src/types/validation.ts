@@ -15,10 +15,10 @@ import {
 
 export type ErrorGenerator = string | Error | (() => string | Error);
 
-export const throwError = <T = any>(
+export const throwError = (
   error: ErrorGenerator,
   transform: (string: string) => Error = (message) => new TypeError(message)
-): T => {
+): never => {
   throw isString((error = unwrap(error))) ? transform(error) : error;
 };
 
@@ -75,6 +75,19 @@ export class InvariantViolatedError extends Error {
     super(invariant ? "INV: " + invariant : "An invariant was violated.");
   }
 }
+
+/** Tests whether a value equals at least one of some other values.  */
+export const eq: <T extends readonly any[]>(
+  target: any,
+  ...values: T
+) => target is T[number] = ((
+  target: any,
+  singleValue: any,
+  ...otherValues: any
+) =>
+  target === singleValue ||
+  (otherValues.length > 0 &&
+    otherValues.some((value) => target === value))) as any;
 
 /**
  * States an invariant.

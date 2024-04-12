@@ -1,27 +1,28 @@
-import { SetStatus } from "@tailjs/types";
+import {
+  VariableKey,
+  VariableResultStatus,
+  VariableScope,
+  stripPrefix,
+  toNumericVariable,
+} from "@tailjs/types";
 import {
   InMemoryStorage,
   SchemaManager,
   VariableStorageCoordinator,
 } from "../src";
-import {
-  bigSchema,
-  prefixedVariableSchema,
-  variablesSchema,
-} from "./test-schemas";
-import { Head } from "@tailjs/util";
+import { prefixedVariableSchema, variablesSchema } from "./test-schemas";
 
 describe("VariableStorageCoordinator", () => {
-  it("Splits", async () => {
+  const setupStorage = () => {
     const schemaManager = new SchemaManager([
       variablesSchema,
       prefixedVariableSchema,
     ]);
 
     const defaultStorage = new InMemoryStorage();
-    const sessionStorage = new InMemoryStorage();
-    const prefixSessionStorage1 = new InMemoryStorage();
-    const prefixSessionStorage2 = new InMemoryStorage();
+    const sessionStorage = new InMemoryStorage().asValidating();
+    const prefixSessionStorage1 = new InMemoryStorage().asValidating();
+    const prefixSessionStorage2 = new InMemoryStorage().asValidating();
 
     const coordinator = new VariableStorageCoordinator({
       mappings: {
@@ -38,28 +39,102 @@ describe("VariableStorageCoordinator", () => {
       schema: schemaManager,
     });
 
+    return {
+      coordinator,
+      defaultStorage,
+      sessionStorage,
+      prefixSessionStorage1,
+      prefixSessionStorage2,
+    } as const;
+  };
+  it("Splits", async () => {
+    const {
+      coordinator,
+      sessionStorage,
+      defaultStorage,
+      prefixSessionStorage1,
+    } = setupStorage();
+    const key: VariableKey = { scope: "session", key: "test", targetId: "foo" };
+    const prefixedKey = { ...key, key: "test:prefixed" };
+    expect((await coordinator.get([key]))[0].value).toBeUndefined();
+
+    expect((await coordinator.set([{ ...key, value: "32" }]))[0].status).toBe(
+      VariableResultStatus.Success
+    );
+    expect((await coordinator.get([key]))[0].value).toBe("32");
+    expect((await sessionStorage.get([key]))[0].value).toBe("32");
     expect(
-      (
-        await coordinator.get([
-          { scope: "session", key: "test", targetId: "foo" },
-        ])
-      )[0]
+      (await defaultStorage.get([toNumericVariable(key)]))[0].value
     ).toBeUndefined();
 
+    expect(
+      (await coordinator.set([{ ...prefixedKey, value: "abc" }]))[0].validate()
+        .status
+    ).toBe(VariableResultStatus.Success);
+    expect((await coordinator.get([key]))[0].value).toBe("32");
+    expect((await coordinator.get([prefixedKey]))[0].value).toBe("abc");
+
+    expect((await sessionStorage.get([prefixedKey]))[0].value).toBeUndefined();
+    expect(
+      (await defaultStorage.get([toNumericVariable(key)]))[0].value
+    ).toBeUndefined();
+    expect(
+      (await prefixSessionStorage1.get([stripPrefix(prefixedKey)]))[0].value
+    ).toBe("abc");
+
+    await coordinator.set([
+      {
+        ...key,
+        scope: "device",
+        purposes: "necessary",
+        classification: "anonymous",
+        value: "dabc",
+      },
+    ]);
+
+    expect(
+      (await defaultStorage.get([{ ...key, scope: VariableScope.Device }]))[0]
+        ?.value
+    ).toBe("dabc");
+  });
+
+  it("Validates", async () => {
+    const { coordinator } = setupStorage();
+
+    // Validation of schema bound variables.
+    expect(
+      (
+        await coordinator.set([
+          { scope: "session", key: "test", targetId: "foo", value: "ok" },
+        ])
+      )[0].validate().status
+    ).toBe(VariableResultStatus.Success);
+
+    // Validation of schema bound variables.
     expect(
       (
         await coordinator.set([
           { scope: "session", key: "test", targetId: "foo", value: 32 },
         ])
-      )[0]?.status
-    ).toBe(SetStatus.Success);
+      )[0]["error"] + ""
+    ).toContain("must be string");
 
+    // The validate function throws if error.
+    expect(async () =>
+      (
+        await coordinator.set([
+          { scope: "session", key: "test", targetId: "foo", value: 32 },
+        ])
+      )[0].validate()
+    ).rejects.toThrow("must be string");
+
+    // Require classification and purposes for variables that are not schema bound.
     const notDefinedResult = (
       await coordinator.set([
         { scope: "session", key: "notDefined", targetId: "foo", value: 32 },
       ])
     )[0];
-    expect(notDefinedResult.status).toBe(SetStatus.Denied);
+    expect(notDefinedResult.status).toBe(VariableResultStatus.Denied);
     expect((notDefinedResult as any).error + "").toContain("explicit");
   });
 });

@@ -2,33 +2,34 @@ import {
   DataClassification,
   Variable,
   VariableFilter,
+  VariableGetResults,
   VariableGetter,
   VariableHeader,
   VariableQueryOptions,
   VariableQueryResult,
+  VariableResultStatus,
   VariableScope,
   VariableScopeValue,
   VariableSetResult,
-  SetStatus,
-  VariableSetter,
+  VariableSetResults,
   VariableValidationBasis,
   dataClassification,
   dataPurposes,
   isSuccessResult,
   isVariablePatch,
-  toStrict,
+  parseKey,
   variableScope,
 } from "@tailjs/types";
-import { MaybePromise, isDefined, isFunction } from "@tailjs/util";
+import { MaybePromise, Nullish, isDefined, isFunction } from "@tailjs/util";
 import {
   Tracker,
-  VariableGetResults,
-  VariableSetResults,
+  VariableGetParameter,
+  VariableSetParameter,
   VariableStorage,
   VariableStorageContext,
 } from "..";
 
-import { PartitionItem, extractKey, parseKey } from ".";
+import { PartitionItem, extractKey } from ".";
 
 const trackerScopes = new Set([
   VariableScope.User,
@@ -37,10 +38,10 @@ const trackerScopes = new Set([
 ]);
 const nonTrackerScopes = new Set([VariableScope.Global, VariableScope.Entity]);
 
-export class TrackerVariableStorage implements VariableStorage {
-  private _storage: VariableStorage;
+export class TrackerVariableStorage implements VariableStorage<true> {
+  private _storage: VariableStorage<true>;
 
-  constructor(storage: VariableStorage) {
+  constructor(storage: VariableStorage<true>) {
     this._storage = storage;
   }
 
@@ -95,15 +96,16 @@ export class TrackerVariableStorage implements VariableStorage {
       : tracker.consent.level;
   }
 
-  private _validate<T extends VariableValidationBasis<true>>(
-    variable: T | null | undefined,
+  private _validate<T extends VariableValidationBasis<boolean>>(
+    variable: T | Nullish,
     tracker: Tracker
   ) {
     if (!variable) return undefined;
 
-    if (this._isRestrictedScope(variable.scope)) {
+    const scope = variableScope.parse(variable.scope, false);
+    if (this._isRestrictedScope(scope)) {
       const originalTargetId = variable.targetId;
-      variable.targetId = this._getScopeTargetId(variable.scope, tracker);
+      variable.targetId = this._getScopeTargetId(scope, tracker);
 
       if (originalTargetId && variable.targetId !== originalTargetId) {
         throw new TypeError(
@@ -116,13 +118,19 @@ export class TrackerVariableStorage implements VariableStorage {
         return undefined;
       }
 
-      if (isDefined(variable.classification)) {
+      const classification = dataClassification.parse(
+        variable.classification,
+        false
+      );
+      if (isDefined(classification)) {
         if (
-          this._getMaxConsentLevel(variable.scope, tracker) <
-            variable.classification ||
+          this._getMaxConsentLevel(scope, tracker) < classification ||
           (variable.purposes &&
             tracker.consent.purposes && // This check ignores Necessary (which is 0)
-            !(tracker.consent.purposes & variable.purposes))
+            !(
+              tracker.consent.purposes &
+              dataPurposes.parse(variable.purposes, false)
+            ))
         ) {
           return undefined;
         }
@@ -132,12 +140,10 @@ export class TrackerVariableStorage implements VariableStorage {
     return variable;
   }
 
-  public async set<
-    K extends readonly (VariableSetter<any> | null | undefined)[]
-  >(
-    variables: K | readonly (VariableSetter<any> | null | undefined)[],
+  public async set<K extends VariableSetParameter<true>>(
+    variables: K | VariableSetParameter<true>,
     context?: VariableStorageContext
-  ): Promise<VariableSetResults<K>> {
+  ): Promise<VariableSetResults<K, true>> {
     const tracker = context?.tracker;
 
     if (!tracker) {
@@ -145,7 +151,7 @@ export class TrackerVariableStorage implements VariableStorage {
     }
 
     const validated = variables.map((variable) =>
-      this._validate(toStrict(variable), tracker)
+      this._validate(variable, tracker)
     );
 
     validated.forEach(
@@ -171,7 +177,10 @@ export class TrackerVariableStorage implements VariableStorage {
             inner &&
             !this._validate({ ...extractKey(source), ...current }, tracker)
           ) {
-            denied.push([sourceIndex, { status: SetStatus.Denied, source }]);
+            denied.push([
+              sourceIndex,
+              { status: VariableResultStatus.Denied, source },
+            ]);
             return undefined;
           }
           return inner;
@@ -189,7 +198,7 @@ export class TrackerVariableStorage implements VariableStorage {
         (await tracker._maybeUpdate(result.source, result.current));
     }
 
-    return results as VariableSetResults<K>;
+    return results as VariableSetResults<K, true>;
   }
 
   private _validateFilters(filters: VariableFilter[], tracker: Tracker) {
@@ -271,7 +280,7 @@ export class TrackerVariableStorage implements VariableStorage {
   }
 
   private _trackDeviceData(
-    getter: VariableGetter<any> | undefined,
+    getter: VariableGetter<any, false> | undefined,
     tracker: Tracker
   ) {
     if (
@@ -292,16 +301,16 @@ export class TrackerVariableStorage implements VariableStorage {
     return getter;
   }
 
-  async get<K extends readonly (VariableGetter<any> | null | undefined)[]>(
-    keys: K | readonly (VariableGetter<any> | null | undefined)[],
+  async get<K extends VariableGetParameter<true>>(
+    keys: K | VariableGetParameter<true>,
     context?: VariableStorageContext
-  ): Promise<VariableGetResults<K>> {
+  ): Promise<VariableGetResults<K, true>> {
     if (!context?.tracker) {
       return this._storage.get(keys, context);
     }
     const results = await this._storage.get(
       keys.map((key) => {
-        const ged = this._validate(toStrict(key), context.tracker!);
+        const ged = this._validate(key, context.tracker!);
         return this._trackDeviceData(ged, context.tracker!);
       }),
       context
@@ -309,7 +318,7 @@ export class TrackerVariableStorage implements VariableStorage {
 
     return results.map((result) =>
       this._validate(result, context.tracker!)
-    ) as VariableGetResults<K>;
+    ) as VariableGetResults<K, true>;
   }
 
   private _queryOrHead(
