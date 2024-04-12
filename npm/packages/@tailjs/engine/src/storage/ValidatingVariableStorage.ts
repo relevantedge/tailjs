@@ -13,7 +13,7 @@ import {
   isVariablePatchAction,
   toNumericVariable,
 } from "@tailjs/types";
-import { MaybePromise, wrapFunction } from "@tailjs/util";
+import { MaybePromise, invariant, isDefined, wrapFunction } from "@tailjs/util";
 import {
   TrackerEnvironment,
   VariableGetParameter,
@@ -22,12 +22,10 @@ import {
   VariableStorageContext,
 } from "..";
 
-export class ValidatingVariableStorage<S extends VariableStorage<false>>
-  implements VariableStorage<true>
+export class ValidatingVariableStorage<S extends VariableStorage<true>>
+  implements VariableStorage<false>
 {
   public readonly storage: S;
-
-  public readonly validates = true;
 
   constructor(storage: S) {
     this.storage = storage;
@@ -37,7 +35,7 @@ export class ValidatingVariableStorage<S extends VariableStorage<false>>
     durations: Partial<Record<VariableScopeValue<false>, number>>,
     context?: VariableStorageContext | undefined
   ): void {
-    this.storage.configureScopeDurations(durations);
+    this.storage.configureScopeDurations(durations, context);
   }
   renew(
     scope: VariableScope,
@@ -55,18 +53,24 @@ export class ValidatingVariableStorage<S extends VariableStorage<false>>
   initialize?(environment: TrackerEnvironment): MaybePromise<void> {
     return this.storage.initialize?.(environment);
   }
-  async get<K extends VariableGetParameter<true>>(
-    keys: K | VariableGetParameter<true>,
+  async get<K extends VariableGetParameter<false>>(
+    keys: K | VariableGetParameter<false>,
     context?: VariableStorageContext | undefined
-  ): Promise<VariableGetResults<K, true>> {
+  ): Promise<VariableGetResults<K, false>> {
     for (const key of keys) {
       if (!key) {
         continue;
       }
       toNumericVariable(key);
-      key.initializer = wrapFunction(key.initializer, async (original) =>
-        toNumericVariable(await original())
-      );
+      key.initializer = wrapFunction(key.initializer, async (original) => {
+        const result = toNumericVariable(await original());
+        result &&
+          invariant(
+            isDefined(result?.classification) && isDefined(result?.purposes),
+            "Classification is specified."
+          );
+        return result as any;
+      });
     }
 
     return addGetResultValidators(
@@ -74,10 +78,10 @@ export class ValidatingVariableStorage<S extends VariableStorage<false>>
     ) as any;
   }
 
-  async set<K extends VariableSetParameter<true>>(
-    setters: K | VariableSetParameter<true>,
+  async set<K extends VariableSetParameter<false>>(
+    setters: K | VariableSetParameter<false>,
     context?: VariableStorageContext | undefined
-  ): Promise<VariableSetResults<K, true>> {
+  ): Promise<VariableSetResults<K, false>> {
     for (const key of setters) {
       toNumericVariable(key);
       if (isVariablePatchAction(key)) {

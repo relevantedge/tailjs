@@ -2,6 +2,7 @@ import {
   VariableKey,
   VariableResultStatus,
   VariableScope,
+  VariableSetter,
   stripPrefix,
   toNumericVariable,
 } from "@tailjs/types";
@@ -61,6 +62,10 @@ describe("VariableStorageCoordinator", () => {
     expect((await coordinator.set([{ ...key, value: "32" }]))[0].status).toBe(
       VariableResultStatus.Success
     );
+    expect((await coordinator.set([{ ...key, value: "32" }]))[0].status).toBe(
+      VariableResultStatus.Conflict
+    );
+
     expect((await coordinator.get([key]))[0].value).toBe("32");
     expect((await sessionStorage.get([key]))[0].value).toBe("32");
     expect(
@@ -120,7 +125,7 @@ describe("VariableStorageCoordinator", () => {
     ).toContain("must be string");
 
     // The validate function throws if error.
-    expect(async () =>
+    await expect(async () =>
       (
         await coordinator.set([
           { scope: "session", key: "test", targetId: "foo", value: 32 },
@@ -136,5 +141,113 @@ describe("VariableStorageCoordinator", () => {
     )[0];
     expect(notDefinedResult.status).toBe(VariableResultStatus.Denied);
     expect((notDefinedResult as any).error + "").toContain("explicit");
+
+    const testSetter = async (
+      setter: VariableSetter,
+      expectSuccess: boolean
+    ) => {
+      const result = (await coordinator.set([setter]))[0];
+      expect(result.status).toBe(
+        expectSuccess
+          ? VariableResultStatus.Success
+          : VariableResultStatus.Denied
+      );
+    };
+
+    await testSetter(
+      {
+        scope: "session",
+        key: "test:prefixed",
+        targetId: "foo",
+        value: "ok",
+      },
+      true
+    );
+    await testSetter(
+      {
+        scope: "session",
+        key: "test:test",
+        targetId: "foo",
+        value: "foo",
+      },
+      false
+    );
+
+    await testSetter(
+      {
+        scope: "session",
+        key: "prefixed",
+        targetId: "foo",
+        value: "Should not be defined here.",
+      },
+      false
+    );
+    await testSetter(
+      {
+        scope: "session",
+        key: "prefixed",
+        targetId: "foo",
+        patch: () => ({ value: "nope" }),
+      },
+      false
+    );
+    await testSetter(
+      {
+        scope: "session",
+        key: "prefixed",
+        targetId: "foo",
+        purposes: "functionality",
+        patch: () => ({ value: "nope", classification: "anonymous" }),
+      },
+      true
+    );
+
+    await testSetter(
+      {
+        scope: "session",
+        key: "all:test",
+        targetId: "foo",
+        value: "ok",
+      },
+      true
+    );
+
+    await testSetter(
+      {
+        scope: "session",
+        key: "all:prefixed",
+        targetId: "foo",
+        value: "ok",
+      },
+      true
+    );
+
+    // Also initializers.
+    expect(
+      (
+        await coordinator.get([
+          {
+            scope: "global",
+            key: "test123",
+            targetId: "test",
+            initializer: () => ({ value: "ok" }),
+          },
+        ])
+      )[0].status
+    ).toBe(VariableResultStatus.Denied);
+
+    expect(
+      (
+        await coordinator.get([
+          {
+            scope: "global",
+            key: "test123",
+            targetId: "test",
+            purpose: "functionality",
+            initializer: () => ({ classification: "direct", value: "ok" }),
+          },
+        ])
+      )[0].status
+    ).toBe(VariableResultStatus.Success);
   });
 });

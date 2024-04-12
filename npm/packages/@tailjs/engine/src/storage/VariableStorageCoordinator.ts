@@ -2,12 +2,17 @@ import {
   UserConsent,
   Variable,
   VariableClassification,
+  VariableFilter,
+  VariableGetError,
   VariableGetResult,
   VariableGetResults,
   VariableGetter,
+  VariableHeader,
   VariableKey,
   VariableMetadata,
   VariablePatch,
+  VariableQueryOptions,
+  VariableQueryResult,
   VariableResultStatus,
   VariableScope,
   VariableScopeValue,
@@ -39,6 +44,7 @@ import {
   ifDefined,
   isDefined,
   isUndefined,
+  rank,
   required,
   tryCatch,
   waitAll,
@@ -56,6 +62,7 @@ import {
   SchemaClassification,
   SchemaManager,
   SchemaVariableSet,
+  TrackerEnvironment,
   VariableGetParameter,
   VariableSetParameter,
   VariableSplitStorage,
@@ -97,10 +104,7 @@ type PrefixVariableMapping = {
   classification?: Partial<SchemaClassification>;
 };
 
-export class VariableStorageCoordinator
-  extends VariableSplitStorage
-  implements VariableStorage<true>
-{
+export class VariableStorageCoordinator implements VariableStorage<false> {
   private _settings: Required<
     Omit<VariableStorageCoordinatorSettings, "schema" | "consent">
   >;
@@ -110,7 +114,7 @@ export class VariableStorageCoordinator
     PrefixVariableMapping
   >();
 
-  public readonly validates = true as any;
+  private readonly _storage: VariableSplitStorage;
 
   constructor({
     mappings,
@@ -150,7 +154,7 @@ export class VariableStorageCoordinator
           (normalizedMappings[scope] = defaultMapping)
       );
 
-    super(normalizedMappings);
+    this._storage = new VariableSplitStorage(normalizedMappings);
 
     (this as any).validates = true as any; // Tee-hee...
 
@@ -191,7 +195,7 @@ export class VariableStorageCoordinator
       let retryDelay = this._settings.transientRetryDelay;
       pending = [];
       try {
-        const results = await (targetStorage ? targetStorage.set : super.set)(
+        const results = await (targetStorage ?? this._storage).set(
           partitionItems(current),
           context
         );
@@ -267,13 +271,13 @@ export class VariableStorageCoordinator
 
   protected async _patchSetResults(
     storage: VariableStorage,
-    setters: VariableSetter<any, true>[],
+    setters: VariableSetter<any, false>[],
     results: (VariableSetResult | undefined)[],
     context?: VariableStorageContext
   ): Promise<(VariableSetResult | undefined)[]> {
-    const patches: PartitionItem<VariablePatch<any, true>>[] = [];
+    const patches: PartitionItem<VariablePatch<any, false>>[] = [];
 
-    let setter: VariableSetter<any, true>;
+    let setter: VariableSetter<any, false>;
     results.forEach(
       (result, i) =>
         result?.status === VariableResultStatus.Unsupported &&
@@ -374,7 +378,7 @@ export class VariableStorageCoordinator
   >(
     mapping: PrefixVariableMapping,
     target: T,
-    key: VariableKey,
+    key: VariableKey & Partial<VariableClassification>,
     value: any
   ): T {
     if (!target) return target;
@@ -383,9 +387,13 @@ export class VariableStorageCoordinator
     if (definition) {
       target.classification = definition.classification;
       target.purposes = definition.purposes;
-    } else if (mapping.classification) {
-      target.classification ??= mapping.classification.classification;
-      target.purposes ??= mapping.classification.purposes;
+    } else {
+      target.classification ??=
+        key?.classification ?? mapping.classification?.classification;
+      target.purposes ??=
+        key?.purposes ??
+        (key as any)?.purpose /* getters */ ??
+        mapping.classification?.purposes;
     }
     required(
       target.classification,
@@ -407,21 +415,65 @@ export class VariableStorageCoordinator
     return target;
   }
 
+  private _censorValidate(
+    mapping: PrefixVariableMapping,
+    target: Partial<VariableClassification> & { value: any },
+    key: VariableKey & Partial<VariableClassification>,
+    index: number,
+    variables: readonly any[],
+    censored: [index: number, result: VariableSetResult][],
+    consent: UserConsent | undefined
+  ) {
+    if (isUndefined(target.value)) {
+      return true;
+    }
+    if (
+      tryCatch(
+        () => (this._validate(mapping, target as any, key, target.value), true),
+        (error) => (
+          ((variables[index] as any) = undefined),
+          censored.push([
+            index,
+            {
+              source: key as any,
+              status: VariableResultStatus.Denied,
+              error,
+            },
+          ]),
+          false
+        )
+      )
+    ) {
+      const wasDefined = isDefined(target.value);
+      if (consent) {
+        target.value = this._censor(
+          mapping,
+          { ...key, ...target },
+          target.value,
+          consent
+        );
+      }
+      if (wasDefined && isUndefined(target.value)) {
+        (variables[index] as any) = undefined;
+        censored.push([
+          index,
+          { source: key as any, status: VariableResultStatus.Denied },
+        ]);
+      } else {
+        return true;
+      }
+    }
+    return false;
+  }
+
   async get<K extends VariableGetParameter<false>>(
     keys: K | VariableGetParameter<false>,
     context?: VariableStorageContext | undefined
-  ): Promise<VariableGetResult<K, false>>;
-  async get<K extends VariableGetParameter<true>>(
-    keys: K | VariableGetParameter<true>,
-    context?: VariableStorageContext | undefined
-  ): Promise<VariableGetResults<K, true>>;
-  async get(
-    keys: (VariableGetter<any, true> | Nullish)[],
-    context?: VariableStorageContext | undefined
-  ): Promise<any> {
-    // Censor the result of initializers (if any) based on consent when the context has a tracker.
+  ): Promise<VariableGetResults<K, false>> {
+    const censored: [index: number, result: VariableSetResult][] = [];
     const consent = context?.consent ?? context?.tracker?.consent;
-    for (const getter of keys) {
+
+    for (const [getter, i] of rank(keys)) {
       toNumericVariable(getter);
 
       if (!getter || isUndefined(getter?.initializer)) {
@@ -433,49 +485,39 @@ export class VariableStorageCoordinator
         getter.initializer,
         async (original) => {
           const result = await original();
-          return ifDefined(result?.value, () => {
-            toNumericVariable(result);
-            return tryCatch(
-              () => {
-                this._validate(mapping, result, getter, result?.value);
-                return consent
-                  ? this._censor(
-                      mapping,
-                      {
-                        ...getter,
-                        purposes: result?.purposes ?? getter?.purpose,
-                        classification: result?.classification,
-                      },
-                      result?.value,
-                      consent
-                    )
-                  : result;
-              },
-              () =>
-                /* Schema classification missing for unknown variables */ undefined
-            );
-          });
+          return isDefined(result?.value) &&
+            this._censorValidate(
+              mapping,
+              result!,
+              getter,
+              i,
+              keys,
+              censored,
+              consent
+            )
+            ? result
+            : undefined;
         }
       );
     }
 
-    return addGetResultValidators(await super.get(keys, context));
+    const results = await this._storage.get(keys as any, context);
+    for (const [i, result] of censored) {
+      (results as VariableGetResult[])[i] = {
+        ...result.source,
+        status: result.status as any,
+        error: (result as any).error,
+      };
+    }
+
+    return addGetResultValidators(results) as any;
   }
 
   async set<K extends VariableSetParameter<false>>(
     variables: K | VariableSetParameter<false>,
     context?: VariableStorageContext | undefined
-  ): Promise<VariableSetResults<K, false>>;
-  async set<K extends VariableSetParameter<true>>(
-    variables: K | VariableSetParameter<true>,
-    context?: VariableStorageContext | undefined
-  ): Promise<VariableSetResults<K, true>>;
-  async set<K extends VariableSetParameter<false>>(
-    variables: K | VariableSetParameter<false>,
-    context?: VariableStorageContext | undefined
-  ): Promise<VariableSetResults<K, true>> {
-    const censoredResults: [index: number, result: VariableSetResult][] = [];
-
+  ): Promise<VariableSetResults<K, false>> {
+    const censored: [index: number, result: VariableSetResult][] = [];
     const consent = context?.consent ?? context?.tracker?.consent;
 
     // Censor the values (including patch actions) when the context has a tracker.
@@ -483,65 +525,77 @@ export class VariableStorageCoordinator
       if (!setter) return;
 
       toNumericVariable(setter);
-
       const mapping = this._getMapping(setter);
 
       if (isVariablePatchAction(setter)) {
         setter.patch = wrapFunction(setter.patch, async (original, current) => {
           const patched = await original(current);
-          toNumericVariable(patched);
-          this._validate(mapping, patched, setter, patched?.value);
-          return ifDefined(patched?.value, (value) =>
-            consent
-              ? this._censor(
-                  mapping,
-                  {
-                    ...setter,
-                    classification:
-                      patched!.classification ?? setter.classification,
-                    purposes: patched!.purposes ?? setter.purposes,
-                  },
-                  value,
-                  consent
-                )
-              : value
-          );
-        });
-      } else if (isDefined(setter.value)) {
-        if (
-          tryCatch(
-            () => (
-              this._validate(mapping, setter as any, setter, setter.value), true
-            ),
-            (error) => (
-              ((variables[i] as any) = undefined),
-              censoredResults.push([
-                i,
-                { source: setter, status: VariableResultStatus.Denied, error },
-              ]),
-              false
-            )
-          )
-        ) {
-          if (consent) {
-            setter.value = this._censor(mapping, setter, setter.value, consent);
-          }
-          if (isUndefined(setter.value)) {
-            (variables[i] as any) = undefined;
-            censoredResults.push([
+          return isUndefined(patched) ||
+            this._censorValidate(
+              mapping,
+              toNumericVariable(patched),
+              setter,
               i,
-              { source: setter, status: VariableResultStatus.Denied },
-            ]);
-          }
-        }
+              variables,
+              censored,
+              consent
+            )
+            ? patched
+            : undefined;
+        });
+      } else {
+        this._censorValidate(
+          mapping,
+          setter as any,
+          setter,
+          i,
+          variables,
+          censored,
+          consent
+        );
       }
     });
 
-    const results = await super.set(variables, context);
-    for (const [i, result] of censoredResults) {
+    const results = await this._storage.set(variables as any, context);
+    for (const [i, result] of censored) {
       (results as VariableSetResult[])[i] = result;
     }
 
-    return addSetResultValidators(results);
+    return addSetResultValidators(results) as any;
+  }
+
+  configureScopeDurations(
+    durations: Partial<Record<VariableScopeValue<false>, number>>,
+    context?: VariableStorageContext | undefined
+  ): void {
+    this._storage.configureScopeDurations(durations, context);
+  }
+  renew(
+    scope: VariableScope,
+    scopeIds: string[],
+    context?: VariableStorageContext | undefined
+  ): MaybePromise<void> {
+    return this._storage.renew(scope, scopeIds, context);
+  }
+  purge(
+    filters: VariableFilter<boolean>[],
+    context?: VariableStorageContext | undefined
+  ): MaybePromise<void> {
+    return this._storage.purge(filters, context);
+  }
+
+  head(
+    filters: VariableFilter<boolean>[],
+    options?: VariableQueryOptions<boolean> | undefined,
+    context?: VariableStorageContext | undefined
+  ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
+    return this._storage.head(filters, options, context);
+  }
+  query(
+    filters: VariableFilter<boolean>[],
+    options?: VariableQueryOptions<boolean> | undefined,
+    context?: VariableStorageContext | undefined
+  ): MaybePromise<VariableQueryResult<Variable<any, true>>> {
+    return this._storage.query(filters, options, context);
   }
 }

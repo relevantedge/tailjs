@@ -39,20 +39,18 @@ export type VariableStorageContext = {
   tenant?: string;
 };
 
-export type VariableGetParameter<Validating> = readonly (
-  | VariableGetter<any, Not<Validating>>
+export type VariableGetParameter<Validated> = readonly (
+  | VariableGetter<any, Validated>
   | Nullish
 )[];
 
-export interface ReadonlyVariableStorage<Validating = false> {
-  validates: Validating;
-
+export interface ReadonlyVariableStorage<Validated = true> {
   initialize?(environment: TrackerEnvironment): MaybePromise<void>;
 
-  get<K extends VariableGetParameter<Validating>>(
-    keys: K | VariableGetParameter<Validating>, // K `|` the base type to enable intellisense.
+  get<K extends VariableGetParameter<Validated>>(
+    keys: K | VariableGetParameter<Validated>, // K `|` the base type to enable intellisense.
     context?: VariableStorageContext
-  ): MaybePromise<VariableGetResults<K, Validating>>;
+  ): MaybePromise<VariableGetResults<K, Validated>>;
 
   head(
     filters: VariableFilter[],
@@ -67,18 +65,18 @@ export interface ReadonlyVariableStorage<Validating = false> {
   ): MaybePromise<VariableQueryResult<Variable<any>>>;
 }
 
-export const isWritable = <Validatable>(
-  storage: ReadonlyVariableStorage<Validatable>
-): storage is ReadonlyVariableStorage<Validatable> &
-  VariableStorage<Validatable> => !!(storage as any)?.set;
+export const isWritable = <Validated>(
+  storage: ReadonlyVariableStorage<Validated>
+): storage is ReadonlyVariableStorage<Validated> & VariableStorage<Validated> =>
+  !!(storage as any)?.set;
 
-export type VariableSetParameter<Validating> = readonly (
-  | VariableSetter<any, Not<Validating>>
+export type VariableSetParameter<Validated> = readonly (
+  | VariableSetter<any, Validated>
   | Nullish
 )[];
 
-export interface VariableStorage<Validating = false>
-  extends ReadonlyVariableStorage<Validating> {
+export interface VariableStorage<Validated = true>
+  extends ReadonlyVariableStorage<Validated> {
   configureScopeDurations(
     durations: Partial<Record<VariableScopeValue<false>, number>>,
     context?: VariableStorageContext
@@ -90,10 +88,10 @@ export interface VariableStorage<Validating = false>
     context?: VariableStorageContext
   ): MaybePromise<void>;
 
-  set<V extends VariableSetParameter<Validating>>(
-    variables: V | VariableSetParameter<Validating>, // V & and the base type to enable intellisense.
+  set<V extends VariableSetParameter<Validated>>(
+    variables: V | VariableSetParameter<Validated>, // V & and the base type to enable intellisense.
     context?: VariableStorageContext
-  ): MaybePromise<VariableSetResults<V, Validating>>;
+  ): MaybePromise<VariableSetResults<V, Validated>>;
 
   purge(
     filters: VariableFilter[],

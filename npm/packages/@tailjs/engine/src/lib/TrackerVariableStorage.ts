@@ -38,10 +38,10 @@ const trackerScopes = new Set([
 ]);
 const nonTrackerScopes = new Set([VariableScope.Global, VariableScope.Entity]);
 
-export class TrackerVariableStorage implements VariableStorage<true> {
-  private _storage: VariableStorage<true>;
+export class TrackerVariableStorage implements VariableStorage<false> {
+  private _storage: VariableStorage<false>;
 
-  constructor(storage: VariableStorage<true>) {
+  constructor(storage: VariableStorage<false>) {
     this._storage = storage;
   }
 
@@ -140,10 +140,10 @@ export class TrackerVariableStorage implements VariableStorage<true> {
     return variable;
   }
 
-  public async set<K extends VariableSetParameter<true>>(
-    variables: K | VariableSetParameter<true>,
+  public async set<K extends VariableSetParameter<false>>(
+    variables: K | VariableSetParameter<false>,
     context?: VariableStorageContext
-  ): Promise<VariableSetResults<K, true>> {
+  ): Promise<VariableSetResults<K, false>> {
     const tracker = context?.tracker;
 
     if (!tracker) {
@@ -198,7 +198,7 @@ export class TrackerVariableStorage implements VariableStorage<true> {
         (await tracker._maybeUpdate(result.source, result.current));
     }
 
-    return results as VariableSetResults<K, true>;
+    return results as VariableSetResults<K, false>;
   }
 
   private _validateFilters(filters: VariableFilter[], tracker: Tracker) {
@@ -301,10 +301,10 @@ export class TrackerVariableStorage implements VariableStorage<true> {
     return getter;
   }
 
-  async get<K extends VariableGetParameter<true>>(
-    keys: K | VariableGetParameter<true>,
+  async get<K extends VariableGetParameter<false>>(
+    keys: K | VariableGetParameter<false>,
     context?: VariableStorageContext
-  ): Promise<VariableGetResults<K, true>> {
+  ): Promise<VariableGetResults<K, false>> {
     if (!context?.tracker) {
       return this._storage.get(keys, context);
     }
@@ -318,7 +318,7 @@ export class TrackerVariableStorage implements VariableStorage<true> {
 
     return results.map((result) =>
       this._validate(result, context.tracker!)
-    ) as VariableGetResults<K, true>;
+    ) as VariableGetResults<K, false>;
   }
 
   private _queryOrHead(

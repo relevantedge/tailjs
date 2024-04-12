@@ -63,8 +63,6 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   /** For testing purposes to have the router apply the patches. @internal */
   public _testDisablePatch: boolean;
 
-  public readonly validates = false;
-
   constructor() {}
 
   /** If this method return `undefined`, the variable in question will not be updated. */
@@ -288,10 +286,10 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       : copy(variable);
   }
 
-  public async get<K extends VariableGetParameter<false>>(
-    getters: K | VariableGetParameter<false>,
+  public async get<K extends VariableGetParameter<true>>(
+    getters: K | VariableGetParameter<true>,
     context?: VariableStorageContext
-  ): Promise<VariableGetResults<K, false>> {
+  ): Promise<VariableGetResults<K, true>> {
     const variables = getters.map((getter) => ({
       current:
         getter &&
@@ -301,7 +299,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       getter,
     }));
 
-    const results: VariableGetResult<any, false>[] = [];
+    const results: VariableGetResult<any, true>[] = [];
     for (const [item, i] of rank(variables)) {
       if (!item.getter) continue;
       if (!item.current) {
@@ -376,10 +374,10 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     };
   }
 
-  public async set<Setters extends VariableSetParameter<false>>(
-    variables: Setters | VariableSetParameter<false>,
+  public async set<Setters extends VariableSetParameter<true>>(
+    variables: Setters | VariableSetParameter<true>,
     context?: VariableStorageContext
-  ): Promise<VariableSetResults<Setters, false>> {
+  ): Promise<VariableSetResults<Setters, true>> {
     const timestamp = now();
     const results: (VariableSetResult | undefined)[] = [];
     for (const source of variables.map(toNumericVariable)) {
@@ -480,7 +478,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       );
     }
 
-    return results as VariableSetResults<Setters, false>;
+    return results as VariableSetResults<Setters, true>;
   }
 
   public purge(filters: VariableFilter[], context?: VariableStorageContext) {

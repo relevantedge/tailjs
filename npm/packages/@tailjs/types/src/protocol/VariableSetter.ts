@@ -1,6 +1,7 @@
 import {
   If,
   MaybePromise,
+  Not,
   ParsableEnumValue,
   PickPartial,
   createEnumAccessor,
@@ -54,7 +55,7 @@ export type ResultStatusValue<Numeric extends boolean | undefined = boolean> =
 export type VariableSetResult<
   T = any,
   Source extends VariableSetter<T, any> = VariableSetter<T, any>,
-  Validatable = false
+  Validated = true
 > = (
   | VariableSetSuccessResult<T, Source>
   | ({
@@ -84,7 +85,7 @@ export type VariableSetResult<
     ))
 ) &
   If<
-    Validatable,
+    Not<Validated>,
     {
       /** Throws an error if the set request failed. Otherwise the setter that succeeded is returned. */
       validate(): VariableSetSuccessResult<T, Source>;

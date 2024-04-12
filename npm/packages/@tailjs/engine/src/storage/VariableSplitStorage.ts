@@ -51,24 +51,22 @@ export type PrefixMappings = PartialRecord<
   Record<string, PrefixMapping>
 >;
 
-export class VariableSplitStorage implements VariableStorage<false> {
+export class VariableSplitStorage implements VariableStorage<true> {
   private readonly _mappings = new DoubleMap<
     [VariableScope, string],
     ReadonlyVariableStorage
   >();
   private _cachedStorages: Map<
-    ReadonlyVariableStorage<false>,
+    ReadonlyVariableStorage<true>,
     Set<VariableScope>
   > | null = null;
-
-  public readonly validates = false;
 
   constructor(mappings: Wrapped<PrefixMappings>) {
     forEach(unwrap(mappings), ([scope, mappings]) =>
       forEach(mappings, ([prefix, { storage }]) =>
         this._mappings.set(
           [1 * scope, prefix],
-          storage as ReadonlyVariableStorage<false>
+          storage as ReadonlyVariableStorage<true>
         )
       )
     );
@@ -144,7 +142,7 @@ export class VariableSplitStorage implements VariableStorage<false> {
 
   private _splitKeys<K extends readonly (VariableKey<true> | Nullish)[]>(
     keys: K
-  ): Map<ReadonlyVariableStorage<false>, PartitionItems<K>> {
+  ): Map<ReadonlyVariableStorage<true>, PartitionItems<K>> {
     const partitions = new Map<ReadonlyVariableStorage, PartitionItems<K>>();
 
     keys.forEach((sourceKey, sourceIndex) => {
@@ -215,10 +213,10 @@ export class VariableSplitStorage implements VariableStorage<false> {
     return [...partitions];
   }
 
-  async get<K extends VariableGetParameter<false>>(
-    keys: K | VariableGetParameter<false>,
+  async get<K extends VariableGetParameter<true>>(
+    keys: K | VariableGetParameter<true>,
     context?: VariableStorageContext
-  ): Promise<VariableGetResults<K, false>> {
+  ): Promise<VariableGetResults<K, true>> {
     const results: (VariableGetResult | undefined)[] = [] as any;
     await waitAll(
       ...map(
@@ -345,11 +343,11 @@ export class VariableSplitStorage implements VariableStorage<false> {
     return results;
   }
 
-  async set<K extends VariableSetParameter<false>>(
-    variables: K | VariableSetParameter<false>,
+  async set<K extends VariableSetParameter<true>>(
+    variables: K | VariableSetParameter<true>,
     context?: VariableStorageContext
-  ): Promise<VariableSetResults<K, false>> {
-    const results: VariableSetResults<K, false> = [] as any;
+  ): Promise<VariableSetResults<K, true>> {
+    const results: VariableSetResults<K, true> = [] as any;
     await waitAll(
       ...map(
         this._splitKeys(variables),
