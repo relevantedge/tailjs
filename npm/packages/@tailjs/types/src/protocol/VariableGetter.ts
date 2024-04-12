@@ -1,4 +1,4 @@
-import { If, MaybePromise, eq, throwError } from "@tailjs/util";
+import { If, MaybePromise, Not, Nullish, eq, throwError } from "@tailjs/util";
 import {
   DataPurposeValue,
   Variable,
@@ -11,16 +11,16 @@ import {
   toNumericVariable,
 } from "..";
 
-export type VariableInitializer<
+export type VariableInitializerResult<
   T = any,
-  Validated = boolean
-> = () => MaybePromise<
-  | (If<
-      Validated,
-      VariableClassification<true>,
-      Partial<VariableClassification>
-    > & { value: T })
-  | undefined
+  Validated = true
+> = (Validated extends true
+  ? VariableClassification<true>
+  : Partial<VariableClassification<If<Validated, true, boolean>>>) & {
+  value: T | undefined;
+};
+export type VariableInitializer<T = any, Validated = true> = () => MaybePromise<
+  VariableInitializerResult<T, Validated> | undefined
 >;
 
 /**
@@ -38,7 +38,7 @@ export interface VariableGetter<T = any, Validated = boolean>
    *
    * However, it is guaranteed that the returned value is the most current at the time the request was made.
    */
-  initializer?: VariableInitializer<T, Validated>;
+  initializer?: VariableInitializer<T, If<Validated, true, boolean>>;
 
   /**
    * Optionally, the purpose the variable will be used for in the context it is requested.
@@ -63,7 +63,7 @@ export interface VariableGetter<T = any, Validated = boolean>
 /**
  * The result of a get request made to a {@link ReadonlyVariableStorage}.
  */
-export type VariableGetResult<T = any, Validatable = false> = {
+export type VariableGetResult<T = any, Validated = true> = {
   /**
    * The initializer was used to create the variable.
    */
@@ -75,10 +75,10 @@ export type VariableGetResult<T = any, Validatable = false> = {
   unchanged?: boolean;
 } & (VariableGetError | VariableGetSuccessResult<T>) &
   If<
-    Validatable,
+    Not<Validated>,
     {
       /* If an error occurred this method will throw it, otherwise it will return the result with numeric enum values.  */
-      validate(): Exclude<VariableGetResult<T, false>, VariableGetError>;
+      validate(): Exclude<VariableGetResult<T, true>, VariableGetError>;
     },
     {}
   >;
@@ -105,27 +105,31 @@ export interface VariableGetSuccessResult<T = any> extends Variable<T, true> {
 
 type MapVariableGetResult<
   Getter,
-  Validatable = false
+  Validated = false
 > = Getter extends VariableGetter<infer T>
   ? Getter extends {
       initializer: () => infer R;
     }
-    ? Awaited<R> extends VariablePatchResult<infer T>
-      ? VariableGetResult<T, Validatable>
+    ? Awaited<R> extends VariablePatchResult<infer T, any>
+      ? VariableGetResult<T, Validated>
       : VariableGetResult<
           unknown extends T ? any | undefined : T | undefined,
-          Validatable
+          Validated
         >
     : VariableGetResult<
         unknown extends T ? any | undefined : undefined,
-        Validatable
+        Validated
       >
-  : undefined;
+  : Getter extends Nullish
+  ? undefined
+  : unknown extends Getter
+  ? VariableGetResult<unknown, Validated>
+  : never;
 
 export type VariableGetResults<
   K extends readonly any[],
-  Validatable = boolean
-> = Validatable extends infer Validatable
+  Validated = boolean
+> = Validated extends infer Validatable
   ? K extends readonly []
     ? []
     : K extends readonly [infer Item, ...infer Rest]

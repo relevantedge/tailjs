@@ -762,9 +762,9 @@ export class Tracker {
     }
   }
 
-  get<K extends VariableGetParameter<true>>(
-    keys: K | VariableGetParameter<true>
-  ): MaybePromise<VariableGetResults<K, true>> {
+  get<K extends VariableGetParameter<false>>(
+    keys: K | VariableGetParameter<false>
+  ): MaybePromise<VariableGetResults<K, false>> {
     return this.env.storage.get(keys, this._getStorageContext());
   }
 
@@ -781,9 +781,9 @@ export class Tracker {
     return this.env.storage.query(filters, options, this._getStorageContext());
   }
 
-  async set<V extends VariableSetParameter<true>>(
-    variables: V | VariableSetParameter<true>
-  ): Promise<VariableSetResults<V, true>> {
+  async set<V extends VariableSetParameter<false>>(
+    variables: V | VariableSetParameter<false>
+  ): Promise<VariableSetResults<V, false>> {
     const results = (await this.env.storage.set(
       variables,
       this._getStorageContext()

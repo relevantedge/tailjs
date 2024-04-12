@@ -119,7 +119,11 @@ const requireNumberOrUndefined = (value: any): number | undefined => {
 
 export const applyPatchOffline = async (
   current: VariablePatchSource<any, boolean> | undefined,
-  { classification: level, purposes, patch }: VariablePatch<any, true>
+  {
+    classification: level,
+    purposes,
+    patch,
+  }: VariablePatch<any, false> | VariablePatch<any, true>
 ): Promise<VariablePatchResult<any, true> | undefined> => {
   if (isFunction(patch)) {
     const patched = toNumericVariable(await patch(toNumericVariable(current)));
