@@ -18,7 +18,6 @@ import {
   VariableSetResults,
   dataClassification,
   dataPurposes,
-  isSuccessResult,
   variableScope,
 } from "@tailjs/types";
 import {
@@ -790,7 +789,7 @@ export class Tracker {
     )) as VariableSetResult[];
 
     for (const result of results) {
-      if (isSuccessResult(result)) {
+      if (result.status < 400) {
         if (result.source.key === SCOPE_DATA_KEY) {
           result.source.scope === VariableScope.Session &&
             (this._session = result.current!);

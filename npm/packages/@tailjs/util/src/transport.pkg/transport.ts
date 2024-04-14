@@ -262,7 +262,7 @@ export type Transport = [
  * MessagePack is used for serialization, {@link lsfr} encryption is optionally used if a key is specified, and the input and outputs are Base64URL encoded.
  */
 export const createTransport = (
-  key?: null | string,
+  key?: string | Nullish,
   json = false
 ): Transport => {
   const [encrypt, decrypt, hash] = lfsr(key ?? "");

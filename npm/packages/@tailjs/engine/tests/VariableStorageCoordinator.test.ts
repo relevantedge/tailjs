@@ -119,6 +119,24 @@ describe("VariableStorageCoordinator", () => {
     expect(
       (
         await coordinator.set([
+          { scope: "session", key: "test", targetId: "bar", value: "ok" },
+        ])
+      )[0].validate().status
+    ).toBe(VariableResultStatus.Success);
+
+    // Cannot set again (to check that targets gets considered.)
+    expect(
+      (
+        await coordinator.set([
+          { scope: "session", key: "test", targetId: "bar", value: "ok" },
+        ])
+      )[0].status
+    ).toBe(VariableResultStatus.Conflict);
+
+    // Validation of schema bound variables.
+    expect(
+      (
+        await coordinator.set([
           { scope: "session", key: "test", targetId: "foo", value: 32 },
         ])
       )[0]["error"] + ""
@@ -249,5 +267,90 @@ describe("VariableStorageCoordinator", () => {
         ])
       )[0].status
     ).toBe(VariableResultStatus.Success);
+  });
+
+  it("Censors", async () => {
+    const { coordinator } = setupStorage();
+
+    expect(
+      (
+        await coordinator.set([
+          { scope: "session", key: "censored", targetId: "foo", value: "ok" },
+        ])
+      )[0].status
+    ).toBe(VariableResultStatus.Success);
+
+    expect(
+      (
+        await coordinator.set(
+          [{ scope: "session", key: "censored", targetId: "bar", value: "ok" }],
+          { consent: { level: "anonymous", purposes: "anonymous" } }
+        )
+      )[0].status
+    ).toBe(VariableResultStatus.Denied);
+
+    expect(
+      (
+        await coordinator.get(
+          [
+            {
+              scope: "session",
+              key: "censored",
+              targetId: "bar",
+              initializer: () => ({ value: "ok" }),
+            },
+          ],
+          { consent: { level: "anonymous", purposes: "anonymous" } }
+        )
+      )[0].status
+    ).toBe(VariableResultStatus.Denied);
+
+    expect(
+      (
+        await coordinator.set(
+          [
+            {
+              scope: "device",
+              key: "censored",
+              targetId: "foo",
+              value: { value1: 10, value2: 20 },
+            },
+          ],
+          { consent: { level: "anonymous", purposes: "anonymous" } }
+        )
+      )[0].validate().current?.value
+    ).toEqual({ value1: 10 });
+
+    expect(
+      (
+        await coordinator.get(
+          [
+            {
+              scope: "device",
+              key: "censored",
+              targetId: "bar",
+              initializer: () => ({ value: { value1: 10, value2: 20 } }),
+            },
+          ],
+          { consent: { level: "anonymous", purposes: "anonymous" } }
+        )
+      )[0].validate().value
+    ).toEqual({ value1: 10 });
+
+    expect(
+      (
+        await coordinator.get(
+          [
+            {
+              scope: "device",
+              key: "censored",
+              targetId: "baz",
+              initializer: () => ({ value: { value1: 10, value2: 20 } }),
+            },
+          ],
+          { consent: { level: "anonymous", purposes: "any" } }
+        )
+      )[0].validate().value
+    ).toEqual({ value1: 10, value2: 20 });
   });
 });

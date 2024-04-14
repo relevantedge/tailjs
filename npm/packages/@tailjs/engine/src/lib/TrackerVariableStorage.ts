@@ -15,7 +15,6 @@ import {
   VariableValidationBasis,
   dataClassification,
   dataPurposes,
-  isSuccessResult,
   isVariablePatch,
   parseKey,
   variableScope,
@@ -194,7 +193,7 @@ export class TrackerVariableStorage implements VariableStorage<false> {
 
     denied.forEach(([sourceIndex, status]) => (results[sourceIndex] = status));
     for (const result of results) {
-      isSuccessResult(result) &&
+      result.status < 400 &&
         (await tracker._maybeUpdate(result.source, result.current));
     }
 
