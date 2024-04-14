@@ -1,5 +1,4 @@
 import {
-  DataClassification,
   Variable,
   VariableClassification,
   VariableFilter,
@@ -8,32 +7,25 @@ import {
   VariablePatchResult,
   VariablePatchSource,
   VariablePatchType,
-  VariableQueryOptions,
   VariableScope,
   VariableSetResult,
   dataClassification,
   dataPurposes,
-  isConflictResult,
-  isSuccessResult,
   parseKey,
   patchType,
   toNumericVariable,
-  variableScope,
 } from "@tailjs/types";
 import {
   MaybePromise,
   MaybeUndefined,
   Nullish,
-  delay,
   filter,
   isDefined,
   isFunction,
   isNumber,
   isObject,
   isUndefined,
-  now,
 } from "@tailjs/util";
-import { ReadonlyVariableStorage, VariableStorage } from "..";
 
 /**
  * A key that can be used to look up {@link Variable}s in Maps and Sets.
@@ -62,7 +54,7 @@ export const copy = <
 };
 
 export const formatSetResultError = (result?: VariableSetResult) => {
-  if (!result || isSuccessResult(result)) return undefined;
+  if (!result || result.status < 400) return undefined;
 
   return filter([
     `Status ${result.status} for key ${result.source.key} (${result.source.scope})`,
@@ -252,9 +244,3 @@ export const splitFilters = (
   }
   return splitFilters;
 };
-
-export const distributeQueries = async (
-  storages: ReadonlyVariableStorage[],
-  filters: VariableFilter[][],
-  options: VariableQueryOptions
-) => {};

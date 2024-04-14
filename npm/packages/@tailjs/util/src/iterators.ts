@@ -22,8 +22,8 @@ import {
   toArray,
   undefined,
   MaybeUndefined,
-  MaybePromise,
-  isUndefined,
+  Nullish,
+  isNumber,
 } from ".";
 
 export const UTF16MAX = 0xffff;
@@ -60,7 +60,7 @@ type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
   : S extends number
   ? number
   : S extends RecordType
-  ? [keyof S, S[keyof S]]
+  ? readonly [keyof S, S[keyof S]]
   : S extends (...args: any) => infer T | undefined
   ? T
   : S extends Iterable<infer T>
@@ -73,7 +73,7 @@ export type IteratorItems<S extends IteratorSource[]> = S extends readonly [
   ? IteratorItem<S>
   : S extends readonly [infer S, ...infer Rest]
   ? IteratorItem<S> | IteratorItems<Rest>
-  : S extends (infer S)[]
+  : S extends readonly (infer S)[]
   ? IteratorItem<S>
   : never;
 
@@ -102,10 +102,10 @@ type IteratorProjection<
 type StartEndArgs<S extends IteratorSource> =
   | []
   | (S extends number
-      ? [offset?: number]
+      ? [offset?: number | Nullish]
       : S extends NavigatingIteratorStep<infer T>
-      ? [offset?: T, maxIterations?: number]
-      : [start?: number, end?: number]);
+      ? [seed?: T, maxIterations?: number]
+      : [start: number | Nullish, end?: number | Nullish]);
 
 export type NavigatingIteratorStep<T = any> = (
   current: T | undefined
@@ -121,10 +121,6 @@ type FlatIteratorItem<T, D extends number = 1, O = false> = T extends
   ? D extends 1
     ? IteratorItem<T>
     : FlatIteratorItem<IteratorItem<T>, Minus<D, 1>, O>
-  : T;
-
-type UndefinedIfUndefined<S, T> = S extends null | void | undefined
-  ? undefined
   : T;
 
 type ProjectedItem<P> = Exclude<P, undefined | void | typeof stop>;
@@ -302,7 +298,7 @@ export const project: ProjectFunction = ((
   start: any,
   end: any
 ) =>
-  projection != null && !isFunction(projection)
+  isNumber(projection)
     ? // The second argument is the value of `start`.
       createIterator(source, undefined, projection, start)
     : createIterator(source, projection, start, end)) as any;
@@ -350,37 +346,21 @@ export const flatProject: FlatProjectFunction = function (
   }
 };
 
-export const mapAsync: <S extends IteratorSource, R>(
-  source: S,
-  projection?: IteratorAction<S, R | PromiseLike<R>> | null,
-  ...rest: StartEndArgs<S>
-) => MaybeUndefined<S, Promise<IteratorProjection<S, R>[]>> = (async (
-  source: any,
-  projection: any,
-  start: any = undefined,
-  end?: any
-) => {
-  if (isUndefined(source)) return undefined;
-  const mapped: any[] = [];
-  let i = 0;
-  let result: any;
-  for (const item of createIterator(source, start, end)) {
-    (result = await projection(item, i++)) && mapped.push(result);
-  }
-  return mapped;
-}) as any;
-
 export const map: MapFunction = (
   source: any,
   projection?: any,
-  start: any = undefined,
+  start?: any,
   end?: any
 ) => {
-  if (start === undefined && isArray(source)) {
+  if (isArray(source)) {
     let i = 0;
     const mapped: any[] = [];
-    for (let j = 0, n = source.length; j < n && !stopInvoked; j++) {
-      let value = source[j];
+    isNumber(projection) &&
+      ([projection, start, end] = [undefined, projection, start]);
+    start = start! < 0 ? source.length + start! : start ?? 0;
+    end = end! < 0 ? source.length + end! : end ?? source.length;
+    for (; start < end && !stopInvoked; start++) {
+      let value = source[start];
       if (projection && value !== undefined) {
         value = projection(value, i++);
       }
@@ -550,7 +530,9 @@ const traverseInternal = <T>(
 type JoinResult<T> = T extends readonly []
   ? never
   : T extends readonly [infer Item, ...infer Rest]
-  ? NonNullable<Item extends Iterable<infer T> ? T : Item> | JoinResult<Rest>
+  ?
+      | Exclude<Item extends Iterable<infer T> ? T : Item, undefined>
+      | JoinResult<Rest>
   : never;
 
 export const join = <T extends readonly any[]>(...items: T): JoinResult<T>[] =>
@@ -558,18 +540,27 @@ export const join = <T extends readonly any[]>(...items: T): JoinResult<T>[] =>
 
 export const expand = <T>(
   root: T | T[],
-  selector: (current: NonNullable<T>) => Iterable<T | undefined> | undefined,
+  selector: (
+    current: Exclude<T, undefined>
+  ) => Iterable<T | undefined> | undefined,
   includeSelf = true
-): T extends undefined ? undefined : NonNullable<T>[] =>
+): T extends undefined ? undefined : Exclude<T, undefined>[] =>
   traverseInternal(root, selector, includeSelf, [], new Set()) as any;
 
-const forEachArray = (source: readonly any[], action: any) => {
+const forEachArray = (
+  source: readonly any[],
+  action: any,
+  start: any,
+  end: any
+) => {
   let returnValue: any;
   let i = 0;
-  for (let j = 0, n = source.length; j < n; j++) {
+  start = start! < 0 ? source.length + start! : start ?? 0;
+  end = end! < 0 ? source.length + end! : end ?? source.length;
+  for (; start < end; start++) {
     if (
-      source[j] !== undefined &&
-      ((returnValue = action(source[j], i++) ?? returnValue), stopInvoked)
+      source[start] !== undefined &&
+      ((returnValue = action(source[start], i++) ?? returnValue), stopInvoked)
     ) {
       stopInvoked = false;
       break;
@@ -613,16 +604,15 @@ const forEachInternal: <S extends IteratorSource, R>(
   action: IteratorAction<S, R>,
   start?: any,
   end?: any
-) => R | undefined = (source, action, start = undefined, end?: any) => {
+) => R | undefined = (source, action, start?: any, end?: any) => {
   if (source == null) return;
 
-  let returnValue: any;
+  if (isArray(source)) return forEachArray(source, action, start, end);
   if (start === undefined) {
-    if (isArray(source)) return forEachArray(source, action);
     if (source[symbolIterator]) return forEachItereable(source as any, action);
     if (typeof source === "object") return forEachObject(source, action);
   }
-
+  let returnValue: any;
   for (const value of createIterator(source, action, start, end)) {
     returnValue = (value as any) ?? returnValue;
   }
@@ -635,24 +625,6 @@ export const forEach = forEachInternal as <S extends IteratorSource, R>(
   action: IteratorAction<S, R>,
   ...rest: StartEndArgs<S>
 ) => R | undefined;
-
-export const forEachAsync: <S extends IteratorSource, R>(
-  source: S,
-  action: IteratorAction<S, PromiseLike<R>>,
-  ...rest: StartEndArgs<S>
-) => Promise<R> | undefined = (async (
-  source: any,
-  action: any,
-  start?: any,
-  end?: any
-) => {
-  let returnValue: any;
-  let i = 0;
-  for (const value of createIterator(source, undefined, start, end)) {
-    returnValue = (await action(value, i++)) ?? returnValue;
-  }
-  return returnValue;
-}) as any;
 
 export const flatForEach = <
   S extends IteratorSource,
@@ -797,7 +769,7 @@ export const filter: {
     map?: MapToArray,
     ...rest: StartEndArgs<S>
   ): MapToArray extends true
-    ? UndefinedIfUndefined<S, FilterItem<S, P>[]>
+    ? MaybeUndefined<S, FilterItem<S, P>[]>
     : Iterable<FilterItem<S, P>>;
 } = (
   source: IteratorSource,
@@ -822,7 +794,7 @@ export const count: <S>(
   source: S,
   predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
-) => UndefinedIfUndefined<S, number> = (
+) => MaybeUndefined<S, number> = (
   source: IteratorSource,
   filter?: Filter<IteratorSource>,
   start?: any,
@@ -873,7 +845,7 @@ export const sum: {
 export const values: <S extends IteratorSource>(
   source: S,
   ...rest: StartEndArgs<S>
-) => UndefinedIfUndefined<
+) => MaybeUndefined<
   S,
   IteratorItem<S> extends readonly [any, infer Item] ? Item : IteratorItem<S>
 > = (source, start?: any, end?: any) =>
@@ -887,7 +859,7 @@ export const values: <S extends IteratorSource>(
 export const keys: <S extends IteratorSource>(
   source: S,
   ...rest: StartEndArgs<S>
-) => UndefinedIfUndefined<
+) => MaybeUndefined<
   S,
   IteratorItem<S> extends readonly [infer Key, any] ? Key : number
 > = (source, start?: any, end?: any) =>
@@ -930,7 +902,7 @@ export const last: <S extends IteratorSource>(
 ) =>
   !source
     ? undefined
-    : !predicate && isArray(source)
+    : isArray(source)
     ? source[source.length - 1]
     : forEachInternal(
         source,
@@ -939,16 +911,21 @@ export const last: <S extends IteratorSource>(
         end
       );
 
-export const find = <S extends IteratorSource>(
+export const find: <S extends IteratorSource>(
   source: S,
   predicate: Filter<S>,
   ...rest: StartEndArgs<S>
-): UndefinedIfUndefined<S, IteratorItem<S>> =>
+) => MaybeUndefined<S, IteratorItem<S>> = (
+  source,
+  predicate,
+  start?: any,
+  end?: any
+) =>
   !source
     ? undefined
     : (source as any).find
     ? (source as any).find(predicate)
-    : first(filterInternal(source as any, predicate, false, ...rest));
+    : first(filterInternal(source as any, predicate, false, start, end));
 
 export const rank = <S extends IteratorSource>(source: S) =>
   createIterator(source, (item, i) => [item, i] as const);
@@ -957,12 +934,7 @@ export const some: <S extends IteratorSource>(
   source: S,
   predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
-) => UndefinedIfUndefined<S, boolean> = (
-  source,
-  predicate,
-  start?: any,
-  rangeEnd?: any
-) =>
+) => MaybeUndefined<S, boolean> = (source, predicate, start?: any, end?: any) =>
   source === undefined
     ? undefined
     : hasMethod(source, "some")
@@ -973,20 +945,23 @@ export const some: <S extends IteratorSource>(
           ? (item, index) => (predicate(item, index) ? stop(true) : false)
           : () => stop(true),
         start,
-        rangeEnd
+        end
       ) ?? false;
 
-export const every = <S extends IteratorSource>(
+export const every: <S extends IteratorSource>(
   source: S,
   predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
-): UndefinedIfUndefined<S, boolean> =>
+) => MaybeUndefined<S, boolean> = (source, predicate, start?: any, end?: any) =>
   !source
     ? undefined
-    : (!some(
+    : (!(some as any)(
         source,
-        predicate ? (item, index) => !predicate(item, index) : isFalsish,
-        ...rest
+        predicate
+          ? (item: any, index: number) => !predicate(item, index)
+          : isFalsish,
+        start,
+        end
       ) as any);
 
 export const binarySearch: {

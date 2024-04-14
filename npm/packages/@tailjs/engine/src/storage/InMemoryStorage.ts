@@ -6,14 +6,12 @@ import {
   VariableGetResults,
   VariableGetter,
   VariableKey,
-  VariablePatch,
   VariableQueryOptions,
   VariableResultStatus,
   VariableScope,
   VariableScopeValue,
   VariableSetResult,
   VariableSetResults,
-  VariableSetter,
   VersionedVariableKey,
   dataClassification,
   dataPurposes,
@@ -311,9 +309,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
             results[i] = copy(
               this._update({ ...item.getter!, ...initialValue }),
               {
-                status: VariableResultStatus.Success,
-                initialized: true,
-              } as const
+                status: VariableResultStatus.Created,
+              } as VariableGetResult
             );
             continue;
           }
@@ -341,9 +338,10 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       }
 
       results[i] = copy(item.current, {
-        unchanged:
-          item.getter?.version &&
-          item.getter?.version === item.current?.version,
+        status:
+          item.getter?.version && item.getter?.version === item.current?.version
+            ? VariableResultStatus.Unchanged
+            : VariableResultStatus.Success,
       } as VariableGetResult);
     }
 

@@ -28,14 +28,16 @@ export type TargetedVariableScope =
   | VariableScope.Entity;
 
 export enum VariableResultStatus {
-  Success = 0,
-  Unchanged = 1,
-  Conflict = 2,
-  Unsupported = 3,
-  Denied = 4,
-  ReadOnly = 5,
-  NotFound = 6,
-  Error = 7,
+  Success = 200,
+  Created = 201,
+  Unchanged = 304,
+  Conflict = 409,
+  Unsupported = 501,
+  Denied = 403,
+  ReadOnly = 405,
+  NotFound = 404,
+  Invalid = 400,
+  Error = 500,
 }
 
 export const resultStatus = createEnumAccessor(
@@ -70,10 +72,12 @@ export type VariableSetResult<
       | ((
           | {
               status:
+                | VariableResultStatus.ReadOnly
+                | VariableResultStatus.Invalid
                 | VariableResultStatus.Denied
                 | VariableResultStatus.NotFound
-                | VariableResultStatus.Unsupported
-                | VariableResultStatus.ReadOnly;
+                | VariableResultStatus.Unsupported;
+
               error?: any;
             }
           | {
@@ -215,24 +219,6 @@ export type VariableSetResults<
     : never
   : never;
 
-export const isSuccessResult = <T extends VariableSetResult>(
-  result: T | undefined
-): result is T & {
-  status: VariableResultStatus.Success | VariableResultStatus.Unchanged;
-} => result?.status! <= VariableResultStatus.Unchanged;
-
-export const isConflictResult = <T>(
-  result: VariableSetResult<T> | undefined
-): result is VariableSetResult<T> & {
-  status: VariableResultStatus.Conflict;
-} => result?.status === VariableResultStatus.Conflict;
-
-export const isErrorResult = <T>(
-  result: VariableSetResult<T> | undefined
-): result is VariableSetResult<T> & {
-  status: VariableResultStatus.Error;
-} => result?.status === VariableResultStatus.Error;
-
 export const isVariablePatch = <Validated>(
   setter: VariableSetter<any, Validated>
 ): setter is VariablePatch<any, Validated> => !!setter["patch"];
@@ -250,24 +236,22 @@ export const validateSetResult = <
 >(
   result: VariableSetResult<T, Source>
 ): VariableSetSuccessResult<T, Source> =>
-  eq(
-    result.status,
-    VariableResultStatus.Success,
-    VariableResultStatus.Unchanged
-  )
+  result.status < 400
     ? (result as VariableSetSuccessResult<T, Source>)
     : throwError(
         `${formatKey(result.source)} could not be set because ${
           result.status === VariableResultStatus.Conflict
-            ? ` of a conflict. The expected version '${result.source.version}' did not match the current ${result.current?.version}.`
+            ? `of a conflict. The expected version '${result.source.version}' did not match the current version '${result.current?.version}'.`
             : result.status === VariableResultStatus.Denied
             ? result.error ?? "the operation was denied."
-            : result.status === "ReadOnly"
+            : result.status === VariableResultStatus.Invalid
+            ? result.error ?? "the value does not conform to the schema"
+            : result.status === VariableResultStatus.ReadOnly
             ? "it is read only."
-            : result.status === "Not found"
+            : result.status === VariableResultStatus.NotFound
             ? "it does not exist."
             : result.status === VariableResultStatus.Error
-            ? `of an error: ${result.error}`
+            ? `of an unexpected error: ${result.error}`
             : "of an unknown reason."
         }`
       );

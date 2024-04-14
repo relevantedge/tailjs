@@ -3,7 +3,6 @@ import {
   Variable,
   VariableClassification,
   VariableFilter,
-  VariableGetError,
   VariableGetResult,
   VariableGetResults,
   VariableGetter,
@@ -22,8 +21,6 @@ import {
   addGetResultValidators,
   addSetResultValidators,
   formatKey,
-  isConflictResult,
-  isErrorResult,
   isVariablePatch,
   isVariablePatchAction,
   parseKey,
@@ -36,7 +33,6 @@ import {
   MaybeArray,
   MaybePromise,
   MaybeUndefined,
-  Nullish,
   PartialRecord,
   TupleMap,
   delay,
@@ -62,7 +58,6 @@ import {
   SchemaClassification,
   SchemaManager,
   SchemaVariableSet,
-  TrackerEnvironment,
   VariableGetParameter,
   VariableSetParameter,
   VariableSplitStorage,
@@ -156,8 +151,6 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
 
     this._storage = new VariableSplitStorage(normalizedMappings);
 
-    (this as any).validates = true as any; // Tee-hee...
-
     this._settings = {
       mappings,
       retries,
@@ -204,9 +197,15 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
           ...results.map(async (result, j) => {
             finalResults[j] = result;
 
-            if (isErrorResult(result) && result.transient) {
+            if (
+              result.status === VariableResultStatus.Error &&
+              result.transient
+            ) {
               pending.push(current[j]);
-            } else if (isConflictResult(result) && patch) {
+            } else if (
+              result.status === VariableResultStatus.Conflict &&
+              patch
+            ) {
               const patched = await patch(j, result);
               patched && pending.push([j, patched]);
             }
@@ -320,7 +319,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
             storage,
             context,
             (sourceIndex, result) =>
-              isConflictResult(result)
+              result.status === VariableResultStatus.Conflict
                 ? applyPatch(patchSetters[sourceIndex][0], result.current)
                 : undefined
           )
@@ -436,7 +435,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
             index,
             {
               source: key as any,
-              status: VariableResultStatus.Denied,
+              status: VariableResultStatus.Invalid,
               error,
             },
           ]),

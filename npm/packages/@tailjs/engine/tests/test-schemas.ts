@@ -180,12 +180,24 @@ export const variablesSchema = {
       type: "object",
       properties: {
         test: { type: "string" },
+
+        censored: {
+          "x-privacy-class": "direct",
+          type: "string",
+        },
       },
     },
     DeviceVariables: {
       type: "object",
       properties: {
         deviceTest: { type: "string" },
+        censored: {
+          type: "object",
+          properties: {
+            value1: { type: "number" },
+            value2: { "x-privacy-purpose": "functionality", type: "number" },
+          },
+        },
       },
     },
   },

@@ -247,9 +247,7 @@ export class SchemaManager {
             }
 
             property.censor = (value, consent) =>
-              property.type.censor({ [property.name]: value }, consent)?.[
-                property.name
-              ];
+              type.censor({ [property.name]: value }, consent)?.[property.name];
 
             property.validate = (value) =>
               type.validate({ [property.name]: value })[property.name];

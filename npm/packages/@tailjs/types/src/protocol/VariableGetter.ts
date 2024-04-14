@@ -1,4 +1,4 @@
-import { If, MaybePromise, Not, Nullish, eq, throwError } from "@tailjs/util";
+import { If, MaybePromise, Not, Nullish, throwError } from "@tailjs/util";
 import {
   DataPurposeValue,
   Variable,
@@ -63,17 +63,10 @@ export interface VariableGetter<T = any, Validated = boolean>
 /**
  * The result of a get request made to a {@link ReadonlyVariableStorage}.
  */
-export type VariableGetResult<T = any, Validated = true> = {
-  /**
-   * The initializer was used to create the variable.
-   */
-  initialized?: boolean;
-
-  /**
-   * The variable has not changed since the version requested.
-   */
-  unchanged?: boolean;
-} & (VariableGetError | VariableGetSuccessResult<T>) &
+export type VariableGetResult<T = any, Validated = true> = {} & (
+  | VariableGetError
+  | VariableGetSuccessResult<T>
+) &
   If<
     Not<Validated>,
     {
@@ -89,8 +82,9 @@ export interface VariableGetError extends VariableKey {
    */
   status:
     | VariableResultStatus.NotFound
-    | VariableResultStatus.Denied
     | VariableResultStatus.ReadOnly
+    | VariableResultStatus.Denied
+    | VariableResultStatus.Invalid
     | VariableResultStatus.Error;
   error?: any;
   value?: undefined;
@@ -98,14 +92,17 @@ export interface VariableGetError extends VariableKey {
 
 export interface VariableGetSuccessResult<T = any> extends Variable<T, true> {
   /** Success status to test against to see if a get result was an error. */
-  status: VariableResultStatus.Success;
+  status:
+    | VariableResultStatus.Success
+    | VariableResultStatus.Unchanged
+    | VariableResultStatus.Created;
 
   value: T;
 }
 
 type MapVariableGetResult<
   Getter,
-  Validated = false
+  Validated = true
 > = Getter extends VariableGetter<infer T>
   ? Getter extends {
       initializer: () => infer R;
@@ -145,12 +142,14 @@ export type VariableGetResults<
 export const validateGetResult = <T = any>(
   result: VariableGetResult<T>
 ): VariableGetSuccessResult<T> =>
-  eq(result.status, VariableResultStatus.Success, VariableResultStatus.NotFound)
+  result.status < 400
     ? (toNumericVariable(result) as VariableGetSuccessResult<T>)
     : throwError(
         `${formatKey(result)} could not be retrieved because ${
           result.status === VariableResultStatus.Denied
             ? result.error ?? "the operation was denied."
+            : result.status === VariableResultStatus.Invalid
+            ? result.error ?? "the value does not conform to the schema"
             : result.status === VariableResultStatus.Error
             ? `of an error: ${result.error}`
             : "of an unknown reason."
