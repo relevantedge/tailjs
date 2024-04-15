@@ -18,15 +18,11 @@ import {
   isVariablePatch,
   parseKey,
   variableScope,
+  VariableSetParameter,
+  VariableGetParameter,
 } from "@tailjs/types";
 import { MaybePromise, Nullish, isDefined, isFunction } from "@tailjs/util";
-import {
-  Tracker,
-  VariableGetParameter,
-  VariableSetParameter,
-  VariableStorage,
-  VariableStorageContext,
-} from "..";
+import { Tracker, VariableStorage, VariableStorageContext } from "..";
 
 import { PartitionItem, extractKey } from ".";
 
@@ -46,7 +42,7 @@ export class TrackerVariableStorage implements VariableStorage<false> {
 
   public configureScopeDurations(
     durations: Partial<Record<VariableScopeValue<false>, number>>,
-    context?: VariableStorageContext
+    context?: VariableStorageContext<false>
   ): void {
     this._storage.configureScopeDurations(durations, context);
   }
@@ -54,7 +50,7 @@ export class TrackerVariableStorage implements VariableStorage<false> {
   public renew(
     scope: VariableScope,
     scopeIds: string[],
-    context?: VariableStorageContext
+    context?: VariableStorageContext<false>
   ): MaybePromise<void> {
     if (context?.tracker && this._isRestrictedScope(scope)) {
       const scopeId = this._getScopeTargetId(scope, context.tracker);
@@ -139,10 +135,13 @@ export class TrackerVariableStorage implements VariableStorage<false> {
     return variable;
   }
 
-  public async set<K extends VariableSetParameter<false>>(
+  public async set<
+    K extends VariableSetParameter<false>,
+    C extends VariableStorageContext<false>
+  >(
     variables: K | VariableSetParameter<false>,
-    context?: VariableStorageContext
-  ): Promise<VariableSetResults<K, false>> {
+    context?: C
+  ): Promise<VariableSetResults<K, C>> {
     const tracker = context?.tracker;
 
     if (!tracker) {
@@ -197,7 +196,7 @@ export class TrackerVariableStorage implements VariableStorage<false> {
         (await tracker._maybeUpdate(result.source, result.current));
     }
 
-    return results as VariableSetResults<K, false>;
+    return results as VariableSetResults<K, C>;
   }
 
   private _validateFilters(filters: VariableFilter[], tracker: Tracker) {
@@ -266,7 +265,7 @@ export class TrackerVariableStorage implements VariableStorage<false> {
 
   async purge(
     filters: VariableFilter[],
-    context?: VariableStorageContext
+    context?: VariableStorageContext<false>
   ): Promise<void> {
     if (!context?.tracker) {
       return this._storage.purge(filters, context);
@@ -300,31 +299,36 @@ export class TrackerVariableStorage implements VariableStorage<false> {
     return getter;
   }
 
-  async get<K extends VariableGetParameter<false>>(
+  async get<
+    K extends VariableGetParameter<false>,
+    C extends VariableStorageContext<false>
+  >(
     keys: K | VariableGetParameter<false>,
-    context?: VariableStorageContext
-  ): Promise<VariableGetResults<K, false>> {
+    context?: C
+  ): Promise<VariableGetResults<K, C>> {
     if (!context?.tracker) {
       return this._storage.get(keys, context);
     }
     const results = await this._storage.get(
-      keys.map((key) => {
-        const ged = this._validate(key, context.tracker!);
-        return this._trackDeviceData(ged, context.tracker!);
-      }),
+      keys.map((key) =>
+        this._trackDeviceData(
+          this._validate(key, context.tracker!),
+          context.tracker!
+        )
+      ),
       context
     );
 
     return results.map((result) =>
       this._validate(result, context.tracker!)
-    ) as VariableGetResults<K, false>;
+    ) as VariableGetResults<K, C>;
   }
 
   private _queryOrHead(
     method: "head" | "query",
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
-    context?: VariableStorageContext
+    context?: VariableStorageContext<false>
   ) {
     // Queries always go straight to the storage (not looking at cached device variables).
     if (!context?.tracker) {
@@ -341,14 +345,14 @@ export class TrackerVariableStorage implements VariableStorage<false> {
   head(
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
-    context?: VariableStorageContext
+    context?: VariableStorageContext<false>
   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
     return this._queryOrHead("head", filters, options, context);
   }
   query(
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
-    context?: VariableStorageContext
+    context?: VariableStorageContext<false>
   ): MaybePromise<VariableQueryResult<Variable<any>>> {
     return this._queryOrHead(
       "query",

@@ -18,7 +18,7 @@ describe("Enum utilities works as they should.", () => {
     expect(() => helper.parse("fanda")).toThrow('fanda" is not a valid');
     expect(helper.tryParse("fanda")).toBeUndefined();
 
-    expect(helper.logFormat("value1")).toBe("the non-flag test ");
+    expect(helper.logFormat("value1")).toBe("the non-flag test 'value1'");
   });
 
   it("applies to flag enums.", () => {

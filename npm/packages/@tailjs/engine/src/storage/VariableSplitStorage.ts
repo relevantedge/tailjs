@@ -2,6 +2,7 @@ import {
   ParsedKey,
   Variable,
   VariableFilter,
+  VariableGetParameter,
   VariableGetResult,
   VariableGetResults,
   VariableGetter,
@@ -9,14 +10,15 @@ import {
   VariableKey,
   VariableQueryOptions,
   VariableQueryResult,
+  VariableResultStatus,
   VariableScope,
   VariableScopeValue,
+  VariableSetParameter,
   VariableSetResult,
   VariableSetResults,
   VariableSetter,
   formatKey,
   parseKey,
-  toNumericVariable,
   variableScope,
 } from "@tailjs/types";
 import {
@@ -36,8 +38,6 @@ import { PartitionItems, mergeKeys } from "../lib";
 
 import {
   ReadonlyVariableStorage,
-  VariableGetParameter,
-  VariableSetParameter,
   VariableStorage,
   VariableStorageContext,
   isWritable,
@@ -54,19 +54,58 @@ export type PrefixMappings = PartialRecord<
 export class VariableSplitStorage implements VariableStorage<true> {
   private readonly _mappings = new DoubleMap<
     [VariableScope, string],
-    ReadonlyVariableStorage
+    ReadonlyVariableStorage<boolean>
   >();
   private _cachedStorages: Map<
-    ReadonlyVariableStorage<true>,
+    ReadonlyVariableStorage<boolean>,
     Set<VariableScope>
   > | null = null;
 
-  constructor(mappings: Wrapped<PrefixMappings>) {
+  private readonly _errorWrappers = new Map<
+    ReadonlyVariableStorage<boolean>,
+    SplitStorageErrorWrapper
+  >();
+
+  private readonly _patchGetResults: (
+    storage: SplitStorageErrorWrapper,
+    getters: (VariableGetter<any, true> | Nullish)[],
+    results: (VariableGetResult<any, true> | undefined)[],
+    context: VariableStorageContext<true> | undefined
+  ) => Promise<(VariableGetResult | undefined)[]>;
+
+  private readonly _patchSetResults: (
+    storage: SplitStorageErrorWrapper,
+    setters: (VariableSetter<any, true> | Nullish)[],
+    results: (VariableSetResult | undefined)[],
+    context: VariableStorageContext<true> | undefined
+  ) => Promise<(VariableSetResult | undefined)[]>;
+
+  constructor(
+    mappings: Wrapped<PrefixMappings>,
+    patchGetResults: (
+      storage: SplitStorageErrorWrapper,
+      getters: (VariableGetter<any, true> | Nullish)[],
+      results: (VariableGetResult<any, true> | undefined)[],
+      context: VariableStorageContext<true> | undefined
+    ) => Promise<(VariableGetResult | undefined)[]> = (results: any) => results,
+    patchSetResults: (
+      storage: SplitStorageErrorWrapper,
+      setters: (VariableSetter<any, true> | Nullish)[],
+      results: (VariableSetResult | undefined)[],
+      context: VariableStorageContext<true> | undefined
+    ) => Promise<(VariableSetResult | undefined)[]> = (results: any) => results
+  ) {
+    this._patchGetResults = patchGetResults;
+    this._patchSetResults = patchSetResults;
     forEach(unwrap(mappings), ([scope, mappings]) =>
-      forEach(mappings, ([prefix, { storage }]) =>
-        this._mappings.set(
-          [1 * scope, prefix],
-          storage as ReadonlyVariableStorage<true>
+      forEach(
+        mappings,
+        ([prefix, { storage }]) => (
+          this._errorWrappers.set(
+            storage,
+            new SplitStorageErrorWrapperImpl(storage)
+          ),
+          this._mappings.set([1 * scope, prefix], storage as any)
         )
       )
     );
@@ -115,7 +154,7 @@ export class VariableSplitStorage implements VariableStorage<true> {
 
   configureScopeDurations(
     durations: Partial<Record<VariableScopeValue<false>, number>>,
-    context?: VariableStorageContext
+    context?: VariableStorageContext<true>
   ): void {
     this._storageScopes.forEach(
       (_, storage) =>
@@ -127,7 +166,7 @@ export class VariableSplitStorage implements VariableStorage<true> {
   public async renew(
     scope: VariableScope,
     scopeIds: string[],
-    context?: VariableStorageContext
+    context?: VariableStorageContext<true>
   ): Promise<void> {
     await waitAll(
       ...map(
@@ -142,8 +181,11 @@ export class VariableSplitStorage implements VariableStorage<true> {
 
   private _splitKeys<K extends readonly (VariableKey<true> | Nullish)[]>(
     keys: K
-  ): Map<ReadonlyVariableStorage<true>, PartitionItems<K>> {
-    const partitions = new Map<ReadonlyVariableStorage, PartitionItems<K>>();
+  ): Map<ReadonlyVariableStorage<true>, PartitionItems<K, Nullish>> {
+    const partitions = new Map<
+      ReadonlyVariableStorage,
+      PartitionItems<K, Nullish>
+    >();
 
     keys.forEach((sourceKey, sourceIndex) => {
       if (!sourceKey) return;
@@ -213,32 +255,41 @@ export class VariableSplitStorage implements VariableStorage<true> {
     return [...partitions];
   }
 
-  async get<K extends VariableGetParameter<true>>(
+  async get<
+    K extends VariableGetParameter<true>,
+    C extends VariableStorageContext<true>
+  >(
     keys: K | VariableGetParameter<true>,
-    context?: VariableStorageContext
-  ): Promise<VariableGetResults<K, true>> {
+    context?: C
+  ): Promise<VariableGetResults<K, C>> {
+    // Make sure none of the underlying storages makes us throw exceptions. A validated variable storage does not do that.
+    context = { ...context, throw: false } as any;
+
     const results: (VariableGetResult | undefined)[] = [] as any;
     await waitAll(
-      ...map(
-        this._splitKeys(keys),
-        ([storage, split]) =>
-          isWritable(storage) &&
-          mergeKeys(
-            results,
-            split,
-            async (variables) => await storage.get(variables, context)
-          )
+      ...map(this._splitKeys(keys), ([storage, split]) =>
+        mergeKeys(
+          results,
+          split,
+          async (variables) =>
+            await this._patchGetResults(
+              this._errorWrappers.get(storage)!,
+              variables,
+              await storage.get(variables, context),
+              context
+            )
+        )
       )
     );
 
-    return results as VariableGetResults<K, false>;
+    return results as VariableGetResults<K, C>;
   }
 
   private async _queryOrHead(
     method: "query" | "head",
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined,
-    context?: VariableStorageContext
+    options?: VariableQueryOptions,
+    context?: VariableStorageContext<true>
   ): Promise<VariableQueryResult<any>> {
     const partitions = this._splitFilters(filters);
     const results: VariableQueryResult = {
@@ -322,7 +373,7 @@ export class VariableSplitStorage implements VariableStorage<true> {
   head(
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
-    context?: VariableStorageContext
+    context?: VariableStorageContext<true>
   ): MaybePromise<VariableQueryResult<VariableHeader>> {
     return this._queryOrHead("head", filters, options, context);
   }
@@ -330,24 +381,22 @@ export class VariableSplitStorage implements VariableStorage<true> {
   query(
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
-    context?: VariableStorageContext
+    context?: VariableStorageContext<true>
   ): Promise<VariableQueryResult> {
     return this._queryOrHead("query", filters, options, context);
   }
 
-  protected async _patchSetResults(
-    storage: VariableStorage,
-    setters: VariableSetter<any>[],
-    results: (VariableSetResult | undefined)[]
-  ) {
-    return results;
-  }
-
-  async set<K extends VariableSetParameter<true>>(
+  async set<
+    K extends VariableSetParameter<true>,
+    C extends VariableStorageContext<true>
+  >(
     variables: K | VariableSetParameter<true>,
-    context?: VariableStorageContext
-  ): Promise<VariableSetResults<K, true>> {
-    const results: VariableSetResults<K, true> = [] as any;
+    context?: C
+  ): Promise<VariableSetResults<K, C>> {
+    // Make sure none of the underlying storages makes us throw exceptions. A validated variable storage does not do that.
+    context = { ...context, throw: false } as any;
+
+    const results: VariableSetResults<K, C> = [] as any;
     await waitAll(
       ...map(
         this._splitKeys(variables),
@@ -358,9 +407,10 @@ export class VariableSplitStorage implements VariableStorage<true> {
             split,
             async (variables) =>
               await this._patchSetResults(
-                storage,
-                variables as VariableSetter<any, boolean>[],
-                await storage.set(variables, context)
+                this._errorWrappers.get(storage)!,
+                variables,
+                await storage.set(variables, context),
+                context
               )
           )
       )
@@ -371,7 +421,7 @@ export class VariableSplitStorage implements VariableStorage<true> {
 
   async purge(
     filters: VariableFilter[],
-    context?: VariableStorageContext
+    context?: VariableStorageContext<true>
   ): Promise<void> {
     const partitions = this._splitFilters(filters);
     if (!partitions.length) {
@@ -383,5 +433,65 @@ export class VariableSplitStorage implements VariableStorage<true> {
           isWritable(storage) && storage.purge(filters, context)
       )
     );
+  }
+}
+
+export interface SplitStorageErrorWrapper {
+  readonly writable: boolean;
+
+  get<
+    K extends VariableGetParameter<true>,
+    C extends VariableStorageContext<true>
+  >(
+    keys: K,
+    context: C
+  ): PromiseLike<VariableGetResults<K, C>>;
+
+  set<
+    V extends VariableSetParameter<true>,
+    C extends VariableStorageContext<true>
+  >(
+    variables: V,
+    context: C
+  ): PromiseLike<VariableSetResults<V, C>>;
+}
+
+class SplitStorageErrorWrapperImpl implements SplitStorageErrorWrapper {
+  private readonly _storage: ReadonlyVariableStorage<true>;
+  public readonly writable: boolean;
+
+  constructor(storage: ReadonlyVariableStorage<boolean>) {
+    this._storage = storage;
+    this.writable = isWritable(storage);
+  }
+
+  async get<K extends VariableGetParameter<true>>(
+    keys: K,
+    context: VariableStorageContext<true>
+  ) {
+    try {
+      return await this._storage.get(keys, context);
+    } catch (error) {
+      return keys.map(
+        (key) => key && { status: VariableResultStatus.Error, error }
+      ) as any;
+    }
+  }
+  async set<V extends VariableSetParameter<true>>(
+    variables: V,
+    context: VariableStorageContext<true>
+  ) {
+    if (!this.writable) throw new TypeError("Storage is not writable.");
+    try {
+      return await (this._storage as VariableStorage<true>).set(
+        variables,
+        context
+      );
+    } catch (error) {
+      return variables.map(
+        (source) =>
+          source && { status: VariableResultStatus.Error, error, source }
+      ) as any;
+    }
   }
 }

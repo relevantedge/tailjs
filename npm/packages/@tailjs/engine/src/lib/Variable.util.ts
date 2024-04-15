@@ -16,6 +16,7 @@ import {
   toNumericVariable,
 } from "@tailjs/types";
 import {
+  IfNot,
   MaybePromise,
   MaybeUndefined,
   Nullish,
@@ -171,18 +172,31 @@ export const applyPatchOffline = async (
         ...classification,
         value: patchSelector(value, patch.selector, () => patch.value),
       };
+
+    case VariablePatchType.IfNoneMatch:
+      if (current?.value === patch.match) {
+        return undefined;
+      }
+      return {
+        ...classification,
+        value: patchSelector(value, patch.selector, () => patch.value),
+      };
   }
 };
 
 export type PartitionItem<T> = [sourceIndex: number, item: T];
 export type PartitionItems<
   T extends readonly any[] = any[],
-  Append = {}
+  Remove = never,
+  Append = undefined
 > = T extends readonly []
   ? []
   : T extends readonly [infer Item, ...infer Rest]
-  ? [PartitionItem<Item & Append>, ...PartitionItems<Rest>]
-  : PartitionItem<T[number] & Append>[];
+  ? [
+      PartitionItem<Exclude<Item, Remove> & IfNot<Append, Item>>,
+      ...PartitionItems<Rest, Remove, Append>
+    ]
+  : PartitionItem<Exclude<T[number], Remove> & IfNot<Append, T[number]>>[];
 
 export const withSourceIndex = <T extends any[]>(items: T): PartitionItems<T> =>
   items.map(

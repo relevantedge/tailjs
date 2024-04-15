@@ -55,7 +55,7 @@ export interface TrackedEvent extends Tagged {
    * For example a {@link NavigationEvent} may trigger a {@link ViewEvent},
    * or a {@link CartUpdatedEvent} my be triggered with a {@link ComponentClickEvent}.
    */
-  related?: LocalID;
+  relatedClientId?: LocalID;
 
   /**
    * The session associated with the event.

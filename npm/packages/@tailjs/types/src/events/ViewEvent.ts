@@ -13,9 +13,9 @@ export interface ViewEvent extends TrackedEvent {
   type: "VIEW";
 
   /**
-   * The ID of the view event that is referenced by {@link ViewContext}.
+   * @inheritdoc
    */
-  id: LocalID;
+  clientId: LocalID;
 
   /**
    * The primary content used to generate the view including the personalization that led to the decision, if any.

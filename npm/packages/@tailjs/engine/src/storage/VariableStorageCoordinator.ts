@@ -3,6 +3,7 @@ import {
   Variable,
   VariableClassification,
   VariableFilter,
+  VariableGetParameter,
   VariableGetResult,
   VariableGetResults,
   VariableGetter,
@@ -15,12 +16,13 @@ import {
   VariableResultStatus,
   VariableScope,
   VariableScopeValue,
+  VariableSetParameter,
   VariableSetResult,
   VariableSetResults,
   VariableSetter,
-  addGetResultValidators,
-  addSetResultValidators,
   formatKey,
+  getResultVariable,
+  handleResultErrors,
   isVariablePatch,
   isVariablePatchAction,
   parseKey,
@@ -33,6 +35,7 @@ import {
   MaybeArray,
   MaybePromise,
   MaybeUndefined,
+  Nullish,
   PartialRecord,
   TupleMap,
   delay,
@@ -58,12 +61,10 @@ import {
   SchemaClassification,
   SchemaManager,
   SchemaVariableSet,
-  VariableGetParameter,
-  VariableSetParameter,
+  SplitStorageErrorWrapper,
   VariableSplitStorage,
   VariableStorage,
   VariableStorageContext,
-  isWritable,
 } from "..";
 
 export type SchemaBoundPrefixMapping = {
@@ -149,7 +150,13 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
           (normalizedMappings[scope] = defaultMapping)
       );
 
-    this._storage = new VariableSplitStorage(normalizedMappings);
+    this._storage = new VariableSplitStorage(
+      normalizedMappings,
+      (storage, getters, results, context) =>
+        this._patchGetResults(storage, getters, results, context),
+      (storage, setters, results, context) =>
+        this._patchSetResults(storage, setters, results, context)
+    );
 
     this._settings = {
       mappings,
@@ -171,13 +178,13 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
   }
 
   private async _setWithRetry(
-    setters: (VariableSetter<any> | null | undefined)[],
-    targetStorage?: VariableStorage,
-    context?: VariableStorageContext,
+    setters: (VariableSetter<any, true> | Nullish)[],
+    targetStorage: VariableStorage<true> | SplitStorageErrorWrapper,
+    context: VariableStorageContext<false> | undefined,
     patch?: (
       sourceIndex: number,
       result: VariableSetResult
-    ) => MaybePromise<VariableSetter<any> | undefined>
+    ) => MaybePromise<VariableSetter<any, true> | undefined>
   ): Promise<(VariableSetResult | undefined)[]> {
     const finalResults: (VariableSetResult | undefined)[] = [];
     let pending = withSourceIndex(setters);
@@ -188,9 +195,9 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
       let retryDelay = this._settings.transientRetryDelay;
       pending = [];
       try {
-        const results = await (targetStorage ?? this._storage).set(
+        const results = await targetStorage.set(
           partitionItems(current),
-          context
+          context as any
         );
 
         await waitAll(
@@ -234,22 +241,29 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
     finalResults.forEach(
       (result, i) => result && (result.source = setters[i]!)
     );
+
     return finalResults;
   }
 
   protected async _patchGetResults(
-    storage: ReadonlyVariableStorage,
-    getters: VariableGetter<any>[],
-    results: (Variable<any> | undefined)[]
-  ): Promise<(Variable<any> | undefined)[]> {
-    const initializerSetters: VariableSetter<any>[] = [];
+    storage: SplitStorageErrorWrapper,
+    getters: (VariableGetter<any, true> | Nullish)[],
+    results: (VariableGetResult<any, true> | undefined)[],
+    context: VariableStorageContext<true> | undefined
+  ): Promise<(VariableGetResult | undefined)[]> {
+    const initializerSetters: VariableSetter<any, true>[] = [];
 
     for (let i = 0; i < getters.length; i++) {
-      const getter = getters[i];
-      if (!getter.initializer || results[i]) {
+      if (!getters[i]) continue;
+
+      const getter = getters[i]!;
+      if (
+        !getter.initializer ||
+        results[i]?.status !== VariableResultStatus.NotFound
+      ) {
         continue;
       }
-      if (!isWritable(storage)) {
+      if (!storage.writable) {
         throw new Error(
           `A getter with an initializer was specified for a non-writable storage.`
         );
@@ -262,48 +276,70 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
       initializerSetters.push({ ...getter, ...initialValue });
     }
 
-    if (isWritable(storage) && initializerSetters.length > 0) {
-      await this._setWithRetry(initializerSetters, storage);
+    if (storage.writable && initializerSetters.length > 0) {
+      await this._setWithRetry(initializerSetters, storage, context);
     }
     return results;
   }
 
-  protected async _patchSetResults(
-    storage: VariableStorage,
-    setters: VariableSetter<any, false>[],
+  private async _patchSetResults(
+    storage: SplitStorageErrorWrapper,
+    setters: (VariableSetter<any, true> | Nullish)[],
     results: (VariableSetResult | undefined)[],
-    context?: VariableStorageContext
+    context: VariableStorageContext<true> | undefined
   ): Promise<(VariableSetResult | undefined)[]> {
-    const patches: PartitionItem<VariablePatch<any, false>>[] = [];
+    const patches: PartitionItem<VariablePatch<any, true>>[] = [];
 
-    let setter: VariableSetter<any, false>;
+    let setter: VariableSetter<any, true> | undefined;
     results.forEach(
       (result, i) =>
         result?.status === VariableResultStatus.Unsupported &&
-        isVariablePatch((setter = setters[i])) &&
+        isVariablePatch((setter = setters[i]!)) &&
         patches.push([i, setter])
     );
 
     if (patches.length) {
       const applyPatch = async (
         patchIndex: number,
-        current: Variable | undefined
-      ) => {
+        result: VariableGetResult | VariableSetResult | undefined
+      ): Promise<VariableSetter<any, true> | undefined> => {
         const [sourceIndex, patch] = patches[patchIndex];
-        //const current = currentValues[i];
+        if (!setters[sourceIndex]) return undefined;
+
+        if (result?.status === VariableResultStatus.Error) {
+          results[sourceIndex] = {
+            status: VariableResultStatus.Error,
+            error: result.error,
+            source: setters[sourceIndex]!,
+          };
+          return undefined;
+        }
+        const current = getResultVariable(result);
+
         const patched = await applyPatchOffline(current, patch);
         if (!patched) {
           results[sourceIndex] = {
             status: VariableResultStatus.Unchanged,
             current,
-            source: setters[sourceIndex],
+            source: setters[sourceIndex]!,
           };
         }
-        return patched ? { ...setters[sourceIndex], ...patched } : undefined;
+        return patched
+          ? {
+              ...setters[sourceIndex]!,
+              ...current,
+              patch: undefined,
+              ...patched,
+            }
+          : undefined;
       };
 
-      const patchSetters: PartitionItem<VariableSetter<any>>[] = [];
-      const currentValues = storage.get(partitionItems(patches), context);
+      const patchSetters: PartitionItem<VariableSetter<any, true> | Nullish>[] =
+        [];
+      const currentValues = await storage.get(
+        partitionItems(patches),
+        context as any
+      );
 
       for (let i = 0; i < patches.length; i++) {
         const patched = await applyPatch(i, currentValues[i]);
@@ -320,13 +356,13 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
             context,
             (sourceIndex, result) =>
               result.status === VariableResultStatus.Conflict
-                ? applyPatch(patchSetters[sourceIndex][0], result.current)
+                ? applyPatch(patchSetters[sourceIndex][0], result)
                 : undefined
           )
         ).forEach((result, i) => {
           // Map setter to patch to source.
           const sourceIndex = patches[patchSetters[i][0]][0];
-          result && (result.source = setters[sourceIndex]);
+          result && (result.source = setters[sourceIndex]!);
           results[sourceIndex] = result;
         });
       }
@@ -465,10 +501,13 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
     return false;
   }
 
-  async get<K extends VariableGetParameter<false>>(
+  async get<
+    K extends VariableGetParameter<false>,
+    C extends VariableStorageContext<false>
+  >(
     keys: K | VariableGetParameter<false>,
-    context?: VariableStorageContext | undefined
-  ): Promise<VariableGetResults<K, false>> {
+    context?: C
+  ): Promise<VariableGetResults<K, C>> {
     const censored: [index: number, result: VariableSetResult][] = [];
     const consent = context?.consent ?? context?.tracker?.consent;
 
@@ -480,7 +519,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
       }
 
       const mapping = this._getMapping(getter);
-      getter.initializer = wrapFunction(
+      (getter as VariableGetter).initializer = wrapFunction(
         getter.initializer,
         async (original) => {
           const result = await original();
@@ -500,7 +539,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
       );
     }
 
-    const results = await this._storage.get(keys as any, context);
+    const results = await this._storage.get(keys as any, context as any);
     for (const [i, result] of censored) {
       (results as VariableGetResult[])[i] = {
         ...result.source,
@@ -509,13 +548,16 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
       };
     }
 
-    return addGetResultValidators(results) as any;
+    return handleResultErrors(results, context?.throw) as any;
   }
 
-  async set<K extends VariableSetParameter<false>>(
+  async set<
+    K extends VariableSetParameter<false>,
+    C extends VariableStorageContext<false>
+  >(
     variables: K | VariableSetParameter<false>,
-    context?: VariableStorageContext | undefined
-  ): Promise<VariableSetResults<K, false>> {
+    context?: C | undefined
+  ): Promise<VariableSetResults<K, C>> {
     const censored: [index: number, result: VariableSetResult][] = [];
     const consent = context?.consent ?? context?.tracker?.consent;
 
@@ -555,46 +597,51 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
       }
     });
 
-    const results = await this._storage.set(variables as any, context);
+    const results = await this._setWithRetry(
+      variables as any,
+      this._storage,
+      context
+    );
+
     for (const [i, result] of censored) {
       (results as VariableSetResult[])[i] = result;
     }
 
-    return addSetResultValidators(results) as any;
+    return handleResultErrors(results, context?.throw) as any;
   }
 
   configureScopeDurations(
     durations: Partial<Record<VariableScopeValue<false>, number>>,
-    context?: VariableStorageContext | undefined
+    context?: VariableStorageContext<false>
   ): void {
-    this._storage.configureScopeDurations(durations, context);
+    this._storage.configureScopeDurations(durations, context as any);
   }
   renew(
     scope: VariableScope,
     scopeIds: string[],
-    context?: VariableStorageContext | undefined
+    context?: VariableStorageContext<false>
   ): MaybePromise<void> {
-    return this._storage.renew(scope, scopeIds, context);
+    return this._storage.renew(scope, scopeIds, context as any);
   }
   purge(
     filters: VariableFilter<boolean>[],
-    context?: VariableStorageContext | undefined
+    context?: VariableStorageContext<false>
   ): MaybePromise<void> {
-    return this._storage.purge(filters, context);
+    return this._storage.purge(filters, context as any);
   }
 
   head(
     filters: VariableFilter<boolean>[],
     options?: VariableQueryOptions<boolean> | undefined,
-    context?: VariableStorageContext | undefined
+    context?: VariableStorageContext<false>
   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
-    return this._storage.head(filters, options, context);
+    return this._storage.head(filters, options, context as any);
   }
   query(
     filters: VariableFilter<boolean>[],
     options?: VariableQueryOptions<boolean> | undefined,
-    context?: VariableStorageContext | undefined
+    context?: VariableStorageContext<false>
   ): MaybePromise<VariableQueryResult<Variable<any, true>>> {
-    return this._storage.query(filters, options, context);
+    return this._storage.query(filters, options, context as any);
   }
 }

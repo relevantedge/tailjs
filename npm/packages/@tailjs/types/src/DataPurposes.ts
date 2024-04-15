@@ -108,10 +108,8 @@ export const singleDataPurpose = createEnumAccessor(
 );
 
 export type DataPurposeValue<Numeric = boolean> = ParsableEnumValue<
-  typeof DataPurposeFlags,
-  Numeric,
-  true,
-  DataPurposeFlags
+  typeof dataPurposes,
+  Numeric
 > extends infer T
   ? T
   : never;

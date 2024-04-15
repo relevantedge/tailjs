@@ -2,6 +2,7 @@ import {
   Defined,
   Falsish,
   IsAny,
+  MaybePromise,
   NotFunction,
   OmitNullish,
   Wrapped,
@@ -134,7 +135,7 @@ export const tryCatch = <T, C = undefined>(
 };
 
 export const tryCatchAsync = async <T, C = void>(
-  expression: () => PromiseLike<T> | T,
+  expression: Wrapped<MaybePromise<T>>,
   errorHandler:
     | boolean
     | ((error: any, last: boolean) => Promise<C> | C) = true as any,
@@ -143,7 +144,7 @@ export const tryCatchAsync = async <T, C = void>(
 ): Promise<T | C> => {
   while (retries--) {
     try {
-      return await expression();
+      return (await unwrap(expression)) as any;
     } catch (e) {
       if (!isBoolean(errorHandler)) {
         const error = (await errorHandler?.(e, !retries)) as any;

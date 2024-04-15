@@ -1,13 +1,4 @@
-import type { Nullish } from ".";
-
-export type ToBoolean<Criteria> = Criteria extends
-  | null
-  | undefined
-  | never
-  | void
-  | false
-  ? false
-  : true;
+import type { Falsish, Nullish } from ".";
 
 export type IsNever<T> = [T] extends [never] ? true : false;
 
@@ -27,9 +18,7 @@ export type Every<P extends readonly any[]> = P extends []
 export type IfNot<B, True = undefined, False = never> = If<B, False, True>;
 
 /** Simplifies Boolean checks (insted of having to write B extends bla, bla...).  */
-export type If<B, True, False = never> = ToBoolean<B> extends true
-  ? True
-  : False;
+export type If<B, True, False = never> = B extends Falsish ? False : True;
 
 /** Type 1 extends type 2 */
 export type Extends<T1, T2> = T1 extends T2 ? true : false;
@@ -52,6 +41,16 @@ export type FunctionComparisonEquals<A, B> = (<
  * Tests if a type is `any`.
  */
 export type IsAny<T> = FunctionComparisonEquals<T, any>;
+
+/**
+ * Tests if a type is `any`.
+ */
+export type IsUnknown<T> = Extends<unknown, T>;
+
+/**
+ * Treats `unknown` as `any`.
+ */
+export type UnknownAny<T> = unknown extends T ? any : T;
 
 /** Converts `null`, `undefined` and `void` to another type (default `undeined`). */
 export type ValueOrDefault<T, R, D = undefined> = T extends

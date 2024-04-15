@@ -1,14 +1,25 @@
-import { If, MaybePromise, Not, Nullish, throwError } from "@tailjs/util";
+import {
+  If,
+  MaybePromise,
+  MaybeUndefined,
+  Nullish,
+  ParsedValue,
+  PrettifyIntersection,
+  UnknownAny,
+  VariableTupleOrArray,
+} from "@tailjs/util";
 import {
   DataPurposeValue,
+  ParseSuccessOnly,
   Variable,
   VariableClassification,
   VariableKey,
   VariablePatchResult,
   VariableResultStatus,
+  VariableSetResult,
+  VariableSetSuccessResult,
   VersionedVariableKey,
-  formatKey,
-  toNumericVariable,
+  variableScope,
 } from "..";
 
 export type VariableInitializerResult<
@@ -17,7 +28,7 @@ export type VariableInitializerResult<
 > = (Validated extends true
   ? VariableClassification<true>
   : Partial<VariableClassification<If<Validated, true, boolean>>>) & {
-  value: T | undefined;
+  value: T;
 };
 export type VariableInitializer<T = any, Validated = true> = () => MaybePromise<
   VariableInitializerResult<T, Validated> | undefined
@@ -60,107 +71,103 @@ export interface VariableGetter<T = any, Validated = boolean>
   refresh?: boolean;
 }
 
+export type VariableGetParameter<Validated> = VariableTupleOrArray<
+  VariableGetter<any, Validated> | Nullish
+>;
+
 /**
  * The result of a get request made to a {@link ReadonlyVariableStorage}.
  */
-export type VariableGetResult<T = any, Validated = true> = {} & (
-  | VariableGetError
+export type VariableGetResult<T = any, Patched = boolean, Success = boolean> =
   | VariableGetSuccessResult<T>
-) &
-  If<
-    Not<Validated>,
-    {
-      /* If an error occurred this method will throw it, otherwise it will return the result with numeric enum values.  */
-      validate(): Exclude<VariableGetResult<T, true>, VariableGetError>;
-    },
-    {}
-  >;
+  | (Success extends false ? VariableGetError<Patched> : never);
 
-export interface VariableGetError extends VariableKey {
+export interface VariableGetError<Patched = boolean> extends VariableKey {
   /**
-   * The denied and readonly statuses can only occur if an initializer was provided with the get request.
+   * Apart from the generic error status, these statuses are only possible if the getter has an initializer.
    */
   status:
-    | VariableResultStatus.NotFound
-    | VariableResultStatus.ReadOnly
-    | VariableResultStatus.Denied
-    | VariableResultStatus.Invalid
+    | If<
+        Patched,
+        | VariableResultStatus.ReadOnly
+        | VariableResultStatus.Denied
+        | VariableResultStatus.Invalid
+      >
     | VariableResultStatus.Error;
   error?: any;
   value?: undefined;
 }
 
-export interface VariableGetSuccessResult<T = any> extends Variable<T, true> {
-  /** Success status to test against to see if a get result was an error. */
-  status:
-    | VariableResultStatus.Success
-    | VariableResultStatus.Unchanged
-    | VariableResultStatus.Created;
+export type VariableGetSuccessResult<T = any> =
+  | (Variable<T, true> & {
+      status:
+        | VariableResultStatus.Success
+        | VariableResultStatus.Unchanged
+        | VariableResultStatus.Created;
 
-  value: T;
-}
+      value: Exclude<UnknownAny<T>, undefined>;
+    })
+  | (T extends undefined
+      ? VariableKey & {
+          status: VariableResultStatus.NotFound;
+          value?: undefined;
+        }
+      : never);
 
-type MapVariableGetResult<
-  Getter,
-  Validated = true
-> = Getter extends VariableGetter<infer T>
-  ? Getter extends {
-      initializer: () => infer R;
+type GetResultWithKey<T, SuccessOnly, Getter> = (Getter extends VariableKey
+  ? {
+      key: Getter["key"];
+      targetId: Getter["targetId"];
+      scope: ParsedValue<typeof variableScope, Getter["scope"]>;
     }
-    ? Awaited<R> extends VariablePatchResult<infer T, any>
-      ? VariableGetResult<T, Validated>
-      : VariableGetResult<
-          unknown extends T ? any | undefined : T | undefined,
-          Validated
-        >
-    : VariableGetResult<
-        unknown extends T ? any | undefined : undefined,
-        Validated
-      >
-  : Getter extends Nullish
-  ? undefined
-  : unknown extends Getter
-  ? VariableGetResult<unknown, Validated>
-  : never;
+  : {}) &
+  VariableGetResult<
+    T,
+    Getter extends {
+      initializer?(): MaybePromise<undefined>;
+    }
+      ? false
+      : true,
+    SuccessOnly
+  >;
+
+type MapVariableGetResult<Getter, SuccessOnly = boolean> = PrettifyIntersection<
+  [Exclude<Getter, VariableGetError>] extends [VariableGetResult<infer T>]
+    ? GetResultWithKey<T, SuccessOnly, Getter>
+    : Getter extends VariableGetter<infer T>
+    ? Getter extends {
+        initializer(): MaybePromise<infer R>;
+      }
+      ? R extends VariablePatchResult<infer T, any>
+        ? GetResultWithKey<T, SuccessOnly, Getter>
+        : GetResultWithKey<UnknownAny<T | undefined>, SuccessOnly, Getter>
+      : GetResultWithKey<T | undefined, SuccessOnly, Getter>
+    : Getter extends Nullish
+    ? undefined
+    : unknown extends Getter
+    ? GetResultWithKey<unknown, SuccessOnly, Getter>
+    : never
+>;
 
 export type VariableGetResults<
-  K extends readonly any[],
-  Validated = boolean
-> = Validated extends infer Validatable
-  ? K extends readonly []
-    ? []
-    : K extends readonly [infer Item, ...infer Rest]
-    ? [
-        MapVariableGetResult<Item, Validatable>,
-        ...VariableGetResults<Rest, Validatable>
-      ]
-    : K extends readonly (infer T)[]
-    ? MapVariableGetResult<T, Validatable>[]
-    : never
+  K extends readonly any[] = any[],
+  SuccessOnly extends boolean | { throw?: boolean } = false
+> = any[] extends K
+  ? MapVariableGetResult<any, ParseSuccessOnly<SuccessOnly>>[]
+  : K extends readonly []
+  ? []
+  : K extends readonly [infer Item, ...infer Rest]
+  ? [
+      MapVariableGetResult<Item, ParseSuccessOnly<SuccessOnly>>,
+      ...VariableGetResults<Rest, ParseSuccessOnly<SuccessOnly>>
+    ]
+  : K extends readonly (infer T)[]
+  ? MapVariableGetResult<T, ParseSuccessOnly<SuccessOnly>>[]
   : never;
 
-export const validateGetResult = <T = any>(
-  result: VariableGetResult<T>
-): VariableGetSuccessResult<T> =>
-  result.status < 400
-    ? (toNumericVariable(result) as VariableGetSuccessResult<T>)
-    : throwError(
-        `${formatKey(result)} could not be retrieved because ${
-          result.status === VariableResultStatus.Denied
-            ? result.error ?? "the operation was denied."
-            : result.status === VariableResultStatus.Invalid
-            ? result.error ?? "the value does not conform to the schema"
-            : result.status === VariableResultStatus.Error
-            ? `of an error: ${result.error}`
-            : "of an unknown reason."
-        }`
-      );
-
-export const addGetResultValidators = <K extends readonly any[] = any[]>(
-  getters: VariableGetResults<K, boolean>
-): VariableGetResults<K, true> =>
-  getters.map(
-    (getter: any) => (
-      (getter.validate = () => validateGetResult(getter)), getter
-    )
-  ) as any;
+export const getResultVariable = (
+  result: VariableGetResult | VariableSetResult | undefined
+): Variable<true> | undefined =>
+  result?.status! < 400
+    ? (result as VariableSetResult).current ?? (result as Variable)
+    : undefined;
