@@ -7,13 +7,13 @@ import {
 } from "@tailjs/util";
 import {
   DataClassification,
-  DataPurposeFlags,
   DataClassificationValue,
+  DataPurposeFlags,
   DataPurposeValue,
   Timestamp,
-  singleDataPurpose,
-  dataPurposes,
   dataClassification,
+  dataPurposes,
+  singleDataPurpose,
 } from "..";
 
 export enum VariableScope {
@@ -43,7 +43,7 @@ export const variableScope = createEnumAccessor(
 );
 
 export type VariableScopeValue<Numeric extends boolean | undefined = boolean> =
-  ParsableEnumValue<typeof VariableScope, Numeric, false, VariableScope>;
+  ParsableEnumValue<typeof variableScope, Numeric>;
 
 /** Transforms properties with known enum types to their parsable counterparts. */
 export type Parsable<T, Numeric extends boolean | undefined = boolean> = {

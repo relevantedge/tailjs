@@ -194,7 +194,7 @@ export const userInteraction: TrackerExtensionFactory = {
             }
 
             const navigationEvent: NavigationEvent = cast<NavigationEvent>({
-              id: nextId(),
+              clientId: nextId(),
               type: "NAVIGATION",
               href: external ? clickableElement.href : href,
               external,
@@ -205,7 +205,9 @@ export const userInteraction: TrackerExtensionFactory = {
             });
 
             if (ev.type === "contextmenu") {
-              const referrerConsumed = pushNavigationSource(navigationEvent.id);
+              const referrerConsumed = pushNavigationSource(
+                navigationEvent.clientId
+              );
 
               const currentUrl = clickableElement.href;
               const internalUrl = isInternalUrl(currentUrl);
@@ -256,7 +258,7 @@ export const userInteraction: TrackerExtensionFactory = {
                 ev.altKey || // Download
                 attr(clickableElement, "target") !== window.name
               ) {
-                pushNavigationSource(navigationEvent.id);
+                pushNavigationSource(navigationEvent.clientId);
                 navigationEvent.self = F;
                 // Fire immediately, we are staying on the page.
                 push(tracker, navigationEvent);
@@ -264,7 +266,7 @@ export const userInteraction: TrackerExtensionFactory = {
               } else if (!matchExHash(location.href, clickableElement.href)) {
                 navigationEvent.exit = navigationEvent.external;
                 // No "real" navigation will happen if it is only the hash changing.
-                pushNavigationSource(navigationEvent.id);
+                pushNavigationSource(navigationEvent.clientId);
               }
 
               // If it so happened that navigation happened we will send it on VIEW_END.

@@ -2,20 +2,24 @@ import {
   DataClassification,
   DataPurpose,
   DataPurposeFlags,
+  VariableGetResults,
   PostResponse,
   Session,
   Timestamp,
   TrackedEvent,
   Variable,
   VariableFilter,
-  VariableGetResults,
+  VariableGetParameter,
   VariableHeader,
   VariableKey,
   VariableQueryOptions,
   VariableQueryResult,
+  VariableResultStatus,
   VariableScope,
+  VariableSetParameter,
   VariableSetResult,
   VariableSetResults,
+  handleResultErrors,
   dataClassification,
   dataPurposes,
   variableScope,
@@ -40,8 +44,6 @@ import {
   RequestHandlerConfiguration,
   TrackedEventBatch,
   TrackerEnvironment,
-  VariableGetParameter,
-  VariableSetParameter,
   VariableStorageContext,
 } from "./shared";
 
@@ -581,6 +583,27 @@ export class Tracker {
         await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
     }
 
+    const kona = handleResultErrors(
+      await this.env.storage.get([
+        {
+          scope: VariableScope.Session,
+          key: SCOPE_DATA_KEY,
+          targetId: this._sessionReferenceId,
+          initializer: async () => {
+            let cachedDeviceData: DeviceData | undefined;
+            if (this.consent.level > DataClassification.Anonymous) {
+              cachedDeviceData = resetDevice
+                ? undefined
+                : (this._getClientDeviceVariables()?.[SCOPE_DATA_KEY]
+                    ?.value as DeviceData);
+            }
+
+            return { value: 10 };
+          },
+        },
+      ])
+    );
+
     this._session =
       // We bypass the TrackerVariableStorage here and uses the environment
       // becaues we use a different target ID than the unique session ID when doing cookie-less tracking.
@@ -623,7 +646,7 @@ export class Tracker {
             },
           },
         ])
-      )[0].validate();
+      )[0];
 
     if (this._session.value!.deviceId) {
       const device = (
@@ -644,9 +667,12 @@ export class Tracker {
             }),
           },
         ])
-      )[0].validate();
+      )[0];
 
-      if (!device.initialized && this.session.isNew) {
+      if (
+        device.status !== VariableResultStatus.Created &&
+        this.session.isNew
+      ) {
         await this.set([
           {
             ...device,
@@ -747,8 +773,10 @@ export class Tracker {
   }
 
   // #region Storage
-  private _getStorageContext(): VariableStorageContext {
-    return { tracker: this };
+  private _getStorageContext(
+    source?: VariableStorageContext<boolean>
+  ): VariableStorageContext<false> {
+    return { ...source, tracker: this };
   }
 
   async renew(): Promise<void> {
@@ -761,10 +789,14 @@ export class Tracker {
     }
   }
 
-  get<K extends VariableGetParameter<false>>(
-    keys: K | VariableGetParameter<false>
-  ): MaybePromise<VariableGetResults<K, false>> {
-    return this.env.storage.get(keys, this._getStorageContext());
+  get<
+    K extends VariableGetParameter<false>,
+    C extends Pick<VariableStorageContext<false>, "throw">
+  >(
+    keys: K | VariableGetParameter<false>,
+    context?: C
+  ): MaybePromise<VariableGetResults<K, C>> {
+    return this.env.storage.get(keys, this._getStorageContext(context));
   }
 
   head(
@@ -780,12 +812,16 @@ export class Tracker {
     return this.env.storage.query(filters, options, this._getStorageContext());
   }
 
-  async set<V extends VariableSetParameter<false>>(
-    variables: V | VariableSetParameter<false>
-  ): Promise<VariableSetResults<V, false>> {
+  async set<
+    V extends VariableSetParameter<false>,
+    C extends Pick<VariableStorageContext<false>, "throw">
+  >(
+    variables: V | VariableSetParameter<false>,
+    context?: C
+  ): Promise<VariableSetResults<V, C>> {
     const results = (await this.env.storage.set(
       variables,
-      this._getStorageContext()
+      this._getStorageContext(context)
     )) as VariableSetResult[];
 
     for (const result of results) {

@@ -4,9 +4,9 @@ import {
   VariableKey,
   VariableResultStatus,
   VariableSetResult,
-  resultStatus,
+  handleResultErrors,
 } from "@tailjs/types";
-import { InMemoryStorage, VariableStorage } from "../src";
+import { InMemoryStorage } from "../src";
 
 describe("Variable stores store.", () => {
   it("InMemoryStore handles get/set.", async () => {
@@ -27,7 +27,7 @@ describe("Variable stores store.", () => {
           },
         ])
       )[0].status
-    ).toBe(VariableResultStatus.Success);
+    ).toBe(VariableResultStatus.Created);
 
     expect((await store.get([{ ...key }]))[0]?.value).toBe("test");
 
@@ -40,10 +40,12 @@ describe("Variable stores store.", () => {
         } as VariableKey)
     );
 
-    expect(await store.get(sessionKeys)).toEqual([
-      undefined,
-      undefined,
-      undefined,
+    expect(
+      (await store.get(sessionKeys)).map((result) => result.status)
+    ).toEqual([
+      VariableResultStatus.NotFound,
+      VariableResultStatus.NotFound,
+      VariableResultStatus.NotFound,
     ]);
 
     const setSessions = await store.set(
@@ -56,10 +58,28 @@ describe("Variable stores store.", () => {
     expect(
       setSessions.map((result) => [result.status, result.current?.value])
     ).toEqual([
-      [VariableResultStatus.Success, "test0"],
-      [VariableResultStatus.Success, "test1"],
-      [VariableResultStatus.Success, "test2"],
+      [VariableResultStatus.Created, "test0"],
+      [VariableResultStatus.Created, "test1"],
+      [VariableResultStatus.Created, "test2"],
     ]);
+
+    expect(
+      (
+        await store.get([
+          {
+            scope: "session",
+            key: "foobar",
+            target: "foo",
+
+            initializer: () => ({
+              classification: "anonymous",
+              purposes: "necessary",
+              value: 10,
+            }),
+          },
+        ])
+      )[0]
+    ).toMatchObject({ status: VariableResultStatus.Created, value: 10 });
   });
 
   it("InMemoryStore handles version conflicts.", async () => {
@@ -73,13 +93,15 @@ describe("Variable stores store.", () => {
 
     const store = new InMemoryStorage().asValidating();
 
-    let result = (
+    let result = handleResultErrors(
       await store.set([{ ...key, value: "version1" }])
-    )[0] as VariableSetResult<any, any, true>;
-    expect(result?.status).toBe(VariableResultStatus.Success);
+    )[0] as VariableSetResult;
+    expect(result?.status).toBe(VariableResultStatus.Created);
 
     expect(
-      (result = (await store.set([{ ...key, value: "version1" }]))[0])?.status
+      (result = (
+        await store.set([{ ...key, value: "version1" }], { throw: false })
+      )[0])?.status
     ).toBe(VariableResultStatus.Conflict);
 
     let firstVersion = result.current?.version;
@@ -130,12 +152,11 @@ describe("Variable stores store.", () => {
 
     const currentVersion = result.current?.version;
     expect(
-      (await store.get([{ ...key, version: currentVersion }]))[0].unchanged
-    ).toBe(true);
+      (await store.get([{ ...key, version: currentVersion }]))[0].status
+    ).toBe(VariableResultStatus.Unchanged);
     expect(
-      (await store.get([{ ...key, version: currentVersion + "not" }]))[0]
-        .unchanged
-    ).not.toBe(true);
+      (await store.get([{ ...key, version: currentVersion + "not" }]))[0].status
+    ).toBe(VariableResultStatus.Success);
   });
 
   it("InMemoryStore handles queries.", async () => {

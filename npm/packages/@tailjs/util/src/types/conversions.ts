@@ -144,6 +144,9 @@ export const isInteger: (value: any) => value is number =
 
 export const isNumber = (value: any): value is number =>
   typeof value === "number";
+
+export const isFinite: (value: any) => value is number = Number.isFinite as any;
+
 export const parseNumber = createConverter(isNumber, (value) =>
   parseFloat(value)
 );

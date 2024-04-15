@@ -65,7 +65,7 @@ type TabInfo = [
 
 let currentViewEvent: ViewEvent | undefined;
 
-export const getCurrentViewId = () => currentViewEvent?.id;
+export const getCurrentViewId = () => currentViewEvent?.clientId;
 const [addViewChangedListener, viewChanged] = eventSet<[viewId: string]>();
 export { addViewChangedListener };
 
@@ -84,7 +84,7 @@ export type ReferringViewData = [
 
 const referrers = sharedQueue<ReferringViewData>("ref", 10000);
 export const pushNavigationSource = (navigationEventId: LocalID) =>
-  referrers([currentViewEvent!.id, navigationEventId]);
+  referrers([currentViewEvent!.clientId, navigationEventId]);
 
 const totalDuration = timer();
 const visibleDuration = timer();
@@ -164,7 +164,7 @@ export const context: TrackerExtensionFactory = {
       currentViewEvent = {
         type: "VIEW",
         timestamp: now(),
-        id: nextId(),
+        clientId: nextId(),
         tab: tab[0],
         href,
         path: location.pathname,
@@ -173,7 +173,7 @@ export const context: TrackerExtensionFactory = {
         tabIndex: tab[3],
         viewport: getViewportSize(),
       };
-      viewChanged(currentViewEvent.id);
+      viewChanged(currentViewEvent.clientId);
 
       currentViewEvent.firstTab = firstTab;
       firstTab && tab[3] === 1 && (currentViewEvent.landingPage = T);
@@ -223,7 +223,7 @@ export const context: TrackerExtensionFactory = {
           const referrer = referrers();
 
           currentViewEvent.view = referrer?.[0];
-          currentViewEvent.related = referrer?.[1];
+          currentViewEvent.relatedClientId = referrer?.[1];
         }
       }
 
@@ -278,7 +278,7 @@ export const context: TrackerExtensionFactory = {
                 type: "USER_AGENT",
                 hasTouch: navigator.maxTouchPoints > 0,
                 userAgent: navigator.userAgent,
-                view: currentViewEvent?.id,
+                view: currentViewEvent?.clientId,
                 languages: map(
                   navigator.languages,
                   (id, i, parts = split(id, "-")) =>
@@ -367,7 +367,7 @@ export const context: TrackerExtensionFactory = {
         resetHeartbeat();
 
         if (!currentViewEvent || isViewEvent(event)) return;
-        const view = currentViewEvent?.id,
+        const view = currentViewEvent?.clientId,
           ctx = {
             view,
             timing: (event as ViewTimingEvent)?.timing && {

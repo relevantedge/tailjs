@@ -8,16 +8,16 @@ import {
   VariableScope,
   VariableScopeValue,
   VariableSetResults,
-  addGetResultValidators,
-  addSetResultValidators,
   isVariablePatchAction,
   toNumericVariable,
+  VariableSetParameter,
+  VariableGetParameter,
+  VariableGetter,
+  handleResultErrors,
 } from "@tailjs/types";
 import { MaybePromise, invariant, isDefined, wrapFunction } from "@tailjs/util";
 import {
   TrackerEnvironment,
-  VariableGetParameter,
-  VariableSetParameter,
   VariableStorage,
   VariableStorageContext,
 } from "..";
@@ -33,55 +33,65 @@ export class ValidatingVariableStorage<S extends VariableStorage<true>>
 
   configureScopeDurations(
     durations: Partial<Record<VariableScopeValue<false>, number>>,
-    context?: VariableStorageContext | undefined
+    context?: VariableStorageContext<false>
   ): void {
-    this.storage.configureScopeDurations(durations, context);
+    this.storage.configureScopeDurations(durations, context as any);
   }
   renew(
     scope: VariableScope,
     scopeIds: string[],
-    context?: VariableStorageContext | undefined
+    context?: VariableStorageContext<false> | undefined
   ): MaybePromise<void> {
-    return this.storage.renew(scope, scopeIds, context);
+    return this.storage.renew(scope, scopeIds, context as any);
   }
   purge(
     filters: VariableFilter<boolean>[],
-    context?: VariableStorageContext | undefined
+    context?: VariableStorageContext<false> | undefined
   ): MaybePromise<void> {
-    return this.storage.purge(filters, context);
+    return this.storage.purge(filters, context as any);
   }
   initialize?(environment: TrackerEnvironment): MaybePromise<void> {
     return this.storage.initialize?.(environment);
   }
-  async get<K extends VariableGetParameter<false>>(
+  async get<
+    K extends VariableGetParameter<false>,
+    C extends VariableStorageContext<false>
+  >(
     keys: K | VariableGetParameter<false>,
-    context?: VariableStorageContext | undefined
-  ): Promise<VariableGetResults<K, false>> {
+    context?: VariableStorageContext<false> | undefined
+  ): Promise<VariableGetResults<K, C>> {
     for (const key of keys) {
       if (!key) {
         continue;
       }
       toNumericVariable(key);
-      key.initializer = wrapFunction(key.initializer, async (original) => {
-        const result = toNumericVariable(await original());
-        result &&
-          invariant(
-            isDefined(result?.classification) && isDefined(result?.purposes),
-            "Classification is specified."
-          );
-        return result as any;
-      });
+      (key as VariableGetter).initializer = wrapFunction(
+        key.initializer,
+        async (original) => {
+          const result = toNumericVariable(await original());
+          result &&
+            invariant(
+              isDefined(result?.classification) && isDefined(result?.purposes),
+              "Classification is specified."
+            );
+          return result as any;
+        }
+      );
     }
 
-    return addGetResultValidators(
-      await this.storage.get(keys as any, context)
+    return handleResultErrors(
+      await this.storage.get(keys as any, context as any),
+      context?.throw
     ) as any;
   }
 
-  async set<K extends VariableSetParameter<false>>(
+  async set<
+    K extends VariableSetParameter<false>,
+    C extends VariableStorageContext<false>
+  >(
     setters: K | VariableSetParameter<false>,
-    context?: VariableStorageContext | undefined
-  ): Promise<VariableSetResults<K, false>> {
+    context?: VariableStorageContext<false> | undefined
+  ): Promise<VariableSetResults<K, C>> {
     for (const key of setters) {
       toNumericVariable(key);
       if (isVariablePatchAction(key)) {
@@ -90,23 +100,25 @@ export class ValidatingVariableStorage<S extends VariableStorage<true>>
         );
       }
     }
-    return addSetResultValidators(
-      await this.storage.set(setters as any, context)
+
+    return handleResultErrors(
+      await this.storage.set(setters as any, context as any),
+      context?.throw
     ) as any;
   }
 
   head(
     filters: VariableFilter<boolean>[],
-    options?: VariableQueryOptions<boolean> | undefined,
-    context?: VariableStorageContext | undefined
+    options?: VariableQueryOptions<boolean>,
+    context?: VariableStorageContext<false>
   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
-    return this.storage.head(filters, options, context);
+    return this.storage.head(filters, options, context as any);
   }
   query(
     filters: VariableFilter<boolean>[],
-    options?: VariableQueryOptions<boolean> | undefined,
-    context?: VariableStorageContext | undefined
+    options?: VariableQueryOptions<boolean>,
+    context?: VariableStorageContext<false>
   ): MaybePromise<VariableQueryResult<Variable<any, true>>> {
-    return this.storage.query(filters, options, context);
+    return this.storage.query(filters, options, context as any);
   }
 }

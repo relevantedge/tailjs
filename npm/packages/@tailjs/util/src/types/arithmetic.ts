@@ -5,11 +5,12 @@ type CreateArray<Len, Ele, Arr extends Ele[] = []> = Arr["length"] extends Len
 export type Add<A extends number, B extends number> = [
   ...CreateArray<A, 1>,
   ...CreateArray<B, 1>
-]["length"];
+]["length"] &
+  number;
 
 export type Minus<A extends number, B extends number> = CreateArray<
   A,
   1
 > extends [...CreateArray<B, 1>, ...infer R]
-  ? R["length"]
+  ? R["length"] & number
   : never;

@@ -1,8 +1,10 @@
 import {
+  ResultStatusValue,
   VariableKey,
   VariableResultStatus,
   VariableScope,
   VariableSetter,
+  resultStatus,
   stripPrefix,
   toNumericVariable,
 } from "@tailjs/types";
@@ -14,6 +16,10 @@ import {
 import { prefixedVariableSchema, variablesSchema } from "./test-schemas";
 
 describe("VariableStorageCoordinator", () => {
+  const disablePatching = (storage: InMemoryStorage) => (
+    (storage._testDisablePatch = true), storage
+  );
+
   const setupStorage = () => {
     const schemaManager = new SchemaManager([
       variablesSchema,
@@ -21,7 +27,9 @@ describe("VariableStorageCoordinator", () => {
     ]);
 
     const defaultStorage = new InMemoryStorage();
-    const sessionStorage = new InMemoryStorage().asValidating();
+    const sessionStorage = disablePatching(
+      new InMemoryStorage()
+    ).asValidating();
     const prefixSessionStorage1 = new InMemoryStorage().asValidating();
     const prefixSessionStorage2 = new InMemoryStorage().asValidating();
 
@@ -60,11 +68,13 @@ describe("VariableStorageCoordinator", () => {
     expect((await coordinator.get([key]))[0].value).toBeUndefined();
 
     expect((await coordinator.set([{ ...key, value: "32" }]))[0].status).toBe(
-      VariableResultStatus.Success
+      VariableResultStatus.Created
     );
-    expect((await coordinator.set([{ ...key, value: "32" }]))[0].status).toBe(
-      VariableResultStatus.Conflict
-    );
+
+    expect(
+      (await coordinator.set([{ ...key, value: "33" }], { throw: false }))[0]
+        .status
+    ).toBe(VariableResultStatus.Conflict);
 
     expect((await coordinator.get([key]))[0].value).toBe("32");
     expect((await sessionStorage.get([key]))[0].value).toBe("32");
@@ -72,11 +82,28 @@ describe("VariableStorageCoordinator", () => {
       (await defaultStorage.get([toNumericVariable(key)]))[0].value
     ).toBeUndefined();
 
+    // Also handles conflicts in the background.
     expect(
-      (await coordinator.set([{ ...prefixedKey, value: "abc" }]))[0].validate()
-        .status
+      (
+        await coordinator.set(
+          [
+            {
+              ...key,
+              patch: { type: "ifNoneMatch", match: undefined, value: "34" },
+            },
+          ],
+          { throw: false }
+        )
+      )[0].status
     ).toBe(VariableResultStatus.Success);
-    expect((await coordinator.get([key]))[0].value).toBe("32");
+
+    expect((await coordinator.get([key]))[0].value).toBe("34");
+    expect((await sessionStorage.get([key]))[0].value).toBe("34");
+
+    expect(
+      (await coordinator.set([{ ...prefixedKey, value: "abc" }]))[0].status
+    ).toBe(VariableResultStatus.Created);
+    expect((await coordinator.get([key]))[0].value).toBe("34");
     expect((await coordinator.get([prefixedKey]))[0].value).toBe("abc");
 
     expect((await sessionStorage.get([prefixedKey]))[0].value).toBeUndefined();
@@ -112,64 +139,64 @@ describe("VariableStorageCoordinator", () => {
         await coordinator.set([
           { scope: "session", key: "test", targetId: "foo", value: "ok" },
         ])
-      )[0].validate().status
-    ).toBe(VariableResultStatus.Success);
+      )[0].status
+    ).toBe(VariableResultStatus.Created);
 
     // Validation of schema bound variables.
-    expect(
-      (
-        await coordinator.set([
-          { scope: "session", key: "test", targetId: "bar", value: "ok" },
-        ])
-      )[0].validate().status
-    ).toBe(VariableResultStatus.Success);
-
-    // Cannot set again (to check that targets gets considered.)
     expect(
       (
         await coordinator.set([
           { scope: "session", key: "test", targetId: "bar", value: "ok" },
         ])
       )[0].status
+    ).toBe(VariableResultStatus.Created);
+
+    // Cannot set again (to check that targets gets considered.)
+    expect(
+      (
+        await coordinator.set(
+          [{ scope: "session", key: "test", targetId: "bar", value: "ok" }],
+          { throw: false }
+        )
+      )[0].status
     ).toBe(VariableResultStatus.Conflict);
 
     // Validation of schema bound variables.
     expect(
       (
-        await coordinator.set([
-          { scope: "session", key: "test", targetId: "foo", value: 32 },
-        ])
+        await coordinator.set(
+          [{ scope: "session", key: "test", targetId: "foo", value: 32 }],
+          { throw: false }
+        )
       )[0]["error"] + ""
     ).toContain("must be string");
 
     // The validate function throws if error.
-    await expect(async () =>
-      (
-        await coordinator.set([
-          { scope: "session", key: "test", targetId: "foo", value: 32 },
-        ])
-      )[0].validate()
+    await expect(
+      async () =>
+        (
+          await coordinator.set([
+            { scope: "session", key: "test", targetId: "foo", value: 32 },
+          ])
+        )[0]
     ).rejects.toThrow("must be string");
 
     // Require classification and purposes for variables that are not schema bound.
     const notDefinedResult = (
-      await coordinator.set([
-        { scope: "session", key: "notDefined", targetId: "foo", value: 32 },
-      ])
+      await coordinator.set(
+        [{ scope: "session", key: "notDefined", targetId: "foo", value: 32 }],
+        { throw: false }
+      )
     )[0];
-    expect(notDefinedResult.status).toBe(VariableResultStatus.Denied);
+    expect(notDefinedResult.status).toBe(VariableResultStatus.Invalid);
     expect((notDefinedResult as any).error + "").toContain("explicit");
 
     const testSetter = async (
       setter: VariableSetter,
-      expectSuccess: boolean
+      expectStatus: ResultStatusValue
     ) => {
-      const result = (await coordinator.set([setter]))[0];
-      expect(result.status).toBe(
-        expectSuccess
-          ? VariableResultStatus.Success
-          : VariableResultStatus.Denied
-      );
+      const result = (await coordinator.set([setter], { throw: false }))[0];
+      expect(result.status).toBe(resultStatus(expectStatus));
     };
 
     await testSetter(
@@ -179,7 +206,7 @@ describe("VariableStorageCoordinator", () => {
         targetId: "foo",
         value: "ok",
       },
-      true
+      "created"
     );
     await testSetter(
       {
@@ -188,7 +215,7 @@ describe("VariableStorageCoordinator", () => {
         targetId: "foo",
         value: "foo",
       },
-      false
+      "invalid"
     );
 
     await testSetter(
@@ -198,7 +225,7 @@ describe("VariableStorageCoordinator", () => {
         targetId: "foo",
         value: "Should not be defined here.",
       },
-      false
+      "invalid"
     );
     await testSetter(
       {
@@ -207,7 +234,7 @@ describe("VariableStorageCoordinator", () => {
         targetId: "foo",
         patch: () => ({ value: "nope" }),
       },
-      false
+      "invalid"
     );
     await testSetter(
       {
@@ -217,7 +244,7 @@ describe("VariableStorageCoordinator", () => {
         purposes: "functionality",
         patch: () => ({ value: "nope", classification: "anonymous" }),
       },
-      true
+      "created"
     );
 
     await testSetter(
@@ -227,7 +254,7 @@ describe("VariableStorageCoordinator", () => {
         targetId: "foo",
         value: "ok",
       },
-      true
+      "created"
     );
 
     await testSetter(
@@ -237,36 +264,42 @@ describe("VariableStorageCoordinator", () => {
         targetId: "foo",
         value: "ok",
       },
-      true
+      "created"
     );
 
     // Also initializers.
     expect(
       (
-        await coordinator.get([
-          {
-            scope: "global",
-            key: "test123",
-            targetId: "test",
-            initializer: () => ({ value: "ok" }),
-          },
-        ])
+        await coordinator.get(
+          [
+            {
+              scope: "global",
+              key: "test123",
+              targetId: "test",
+              initializer: () => ({ value: "ok" }),
+            },
+          ],
+          { throw: false }
+        )
       )[0].status
-    ).toBe(VariableResultStatus.Denied);
+    ).toBe(VariableResultStatus.Invalid);
 
     expect(
       (
-        await coordinator.get([
-          {
-            scope: "global",
-            key: "test123",
-            targetId: "test",
-            purpose: "functionality",
-            initializer: () => ({ classification: "direct", value: "ok" }),
-          },
-        ])
+        await coordinator.get(
+          [
+            {
+              scope: "global",
+              key: "test123",
+              targetId: "test",
+              purpose: "functionality",
+              initializer: () => ({ classification: "direct", value: "ok" }),
+            },
+          ],
+          { throw: false }
+        )
       )[0].status
-    ).toBe(VariableResultStatus.Success);
+    ).toBe(VariableResultStatus.Created);
   });
 
   it("Censors", async () => {
@@ -278,13 +311,16 @@ describe("VariableStorageCoordinator", () => {
           { scope: "session", key: "censored", targetId: "foo", value: "ok" },
         ])
       )[0].status
-    ).toBe(VariableResultStatus.Success);
+    ).toBe(VariableResultStatus.Created);
 
     expect(
       (
         await coordinator.set(
           [{ scope: "session", key: "censored", targetId: "bar", value: "ok" }],
-          { consent: { level: "anonymous", purposes: "anonymous" } }
+          {
+            consent: { level: "anonymous", purposes: "anonymous" },
+            throw: false,
+          }
         )
       )[0].status
     ).toBe(VariableResultStatus.Denied);
@@ -300,7 +336,10 @@ describe("VariableStorageCoordinator", () => {
               initializer: () => ({ value: "ok" }),
             },
           ],
-          { consent: { level: "anonymous", purposes: "anonymous" } }
+          {
+            consent: { level: "anonymous", purposes: "anonymous" },
+            throw: false,
+          }
         )
       )[0].status
     ).toBe(VariableResultStatus.Denied);
@@ -318,7 +357,7 @@ describe("VariableStorageCoordinator", () => {
           ],
           { consent: { level: "anonymous", purposes: "anonymous" } }
         )
-      )[0].validate().current?.value
+      )[0].current?.value
     ).toEqual({ value1: 10 });
 
     expect(
@@ -334,7 +373,7 @@ describe("VariableStorageCoordinator", () => {
           ],
           { consent: { level: "anonymous", purposes: "anonymous" } }
         )
-      )[0].validate().value
+      )[0].value
     ).toEqual({ value1: 10 });
 
     expect(
@@ -350,7 +389,7 @@ describe("VariableStorageCoordinator", () => {
           ],
           { consent: { level: "anonymous", purposes: "any" } }
         )
-      )[0].validate().value
+      )[0].value
     ).toEqual({ value1: 10, value2: 20 });
   });
 });

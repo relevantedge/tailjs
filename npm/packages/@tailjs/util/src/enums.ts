@@ -1,8 +1,11 @@
 import {
   Entries,
+  IsAny,
+  IsUnknown,
+  Not,
+  Nullish,
   define,
   isDefined,
-  isInteger,
   isNumber,
   isString,
   throwError,
@@ -10,102 +13,35 @@ import {
 } from ".";
 import { conjunct, quote } from "./types/strings";
 
-type EnumSource = Record<string, string | number>;
-
-type MaybeArray<T, Flags, ArrayIfArray = false> = Flags extends true
-  ? (ArrayIfArray extends true ? never : T) | T[]
-  : T;
-
-type Lowercased<T extends EnumSource> = {
-  [P in keyof T & string as Lowercase<P>]: T[P];
-};
-
-type Lookup<T extends EnumSource, V, Name extends boolean> = V extends never
-  ? never
-  : {
-      [P in keyof T]: V extends T[P] ? (Name extends true ? P : T[P]) : never;
-    } extends infer T
-  ? T[keyof T]
+export type ParsedValue<
+  T extends EnumHelper<any, any, any>,
+  V
+> = V extends Nullish
+  ? V
+  : T extends EnumHelper<infer T, any, any>
+  ? V extends keyof T
+    ? T[V]
+    : V extends T[keyof T]
+    ? V
+    : number
   : never;
-
-type ParsedValue<T extends EnumSource, V, Flags> = V extends keyof T
-  ? T[V]
-  : V extends T[keyof T]
-  ? Lookup<T, V, false>
-  : [Flags, V] extends [true, number]
-  ? T[keyof T]
-  : never;
-
-type Lc<T> = T extends string ? Lowercase<T> : never;
 
 export type ParsableEnumValue<
-  T extends EnumSource,
-  Numeric,
-  Flags extends boolean,
-  Enum extends number = T[keyof T] & number
-> =
-  | (boolean extends Numeric
-      ? MaybeArray<
-          | (Flags extends true ? number | Enum : Enum)
-          | Lc<keyof T>
-          | (Flags extends true ? "any" | "none" : never),
-          Flags
-        >
-      : Numeric extends true
-      ? Flags extends true
-        ? Enum | (number & {})
-        : Enum
-      : Flags extends true
-      ? Lc<keyof T> | Lc<keyof T>[]
-      : Lc<keyof T>)
-  | (undefined extends Numeric ? undefined : never);
-
-type ParsableArg<
-  T extends EnumSource,
-  Flags extends boolean
-> = ParsableEnumValue<T, boolean | undefined, Flags>;
-
-type ParseFunction<
-  T extends EnumSource,
-  Flags extends boolean,
-  Type extends "numeric" | "lookup" | "format",
-  InvalidValue extends undefined | never = never,
-  MainFunction = false
-> = {
-  <V extends string | number | symbol | null | undefined>(
-    value:
-      | V
-      | ParsableArg<T, Flags>
-      | (Flags extends true ? V[] | ParsableArg<T, Flags>[] : never),
-    ...args: MainFunction extends true ? [] : [validateNumbers?: boolean]
-  ): V extends null | undefined
-    ? undefined
-    : Type extends "lookup" | "format"
-    ? MaybeArray<
-        | (ParsedValue<T, V, Flags> extends never
-            ? V extends string | number
-              ? keyof T | "any" | "none" | InvalidValue
-              : InvalidValue
-            : Lookup<T, ParsedValue<T, V, Flags>, true>)
-        | (Type extends "format"
-            ? V extends keyof T | T[keyof T]
-              ? never
-              : "any" | "none"
-            : never),
-        Flags,
-        Type extends "lookup" ? true : false
-      >
-    : ParsedValue<T, V, Flags> extends never
-    ? string extends V
-      ? T[keyof T] | InvalidValue
-      : InvalidValue
-    : ParsedValue<T, V, Flags>;
-};
-
-type EntriesByValue<T extends Record<keyof any, any>, V extends keyof any> = {
-  [P in keyof T as T[P]]: readonly [P, T[P]];
-}[V] extends infer T // Use the infer trick to make vscode intellisense expand the values.
-  ? T
+  T extends EnumHelper<any, any, any>,
+  Numeric
+> = T extends EnumHelper<infer T, any, any> & {
+  values: readonly (infer Enum)[];
+  pure?: infer PureFlags;
+}
+  ? Extract<
+      ParsableEnumTypeValue<
+        T,
+        Numeric,
+        Not<IsUnknown<PureFlags>>,
+        Enum & number
+      >,
+      string | number | string[] | number[] | (string | undefined | number)[]
+    >
   : never;
 
 export type EnumHelper<
@@ -137,7 +73,9 @@ export type EnumHelper<
       /**
        * All names and values of the enumeration.
        */
-      entries: Entries<T>;
+      entries: string extends keyof T
+        ? readonly [string, T[keyof T]][]
+        : Entries<T>;
 
       /**
        * Looks up a value and returns its name or array of names if the enumeration represents flags.
@@ -160,12 +98,108 @@ export type EnumHelper<
           /** Flag values that are not a combination of other flags (that is, a single bit). */
           pure: readonly EntriesByValue<T, PureFlags>[];
           map<R = T[keyof T]>(
-            flags: ParsableEnumValue<T, boolean | undefined, Flags>,
+            flags: ParsableEnumTypeValue<T, boolean | undefined, Flags>,
             map?: (entry: EntriesByValue<T, PureFlags>, index: number) => R
           ): R[];
         }
       : {})
   >;
+
+type EnumSource = Record<string, string | number>;
+
+type MaybeArray<T, Flags, ArrayIfArray = false> = Flags extends true
+  ? (ArrayIfArray extends true ? never : T) | T[]
+  : T;
+
+type Lowercased<T extends EnumSource> = {
+  [P in keyof T & string as Lowercase<P>]: T[P];
+};
+
+type Lookup<T extends EnumSource, V, Name extends boolean> = V extends never
+  ? never
+  : {
+      [P in keyof T]: V extends T[P] ? (Name extends true ? P : T[P]) : never;
+    } extends infer T
+  ? T[keyof T]
+  : never;
+
+type ParsedValueInternal<T extends EnumSource, V, Flags> = V extends keyof T
+  ? T[V]
+  : V extends T[keyof T]
+  ? Lookup<T, V, false>
+  : [Flags, V] extends [true, number]
+  ? T[keyof T]
+  : never;
+
+type ParsableEnumTypeValue<
+  T extends EnumSource,
+  Numeric,
+  Flags extends boolean,
+  Enum extends number = T[keyof T] & number
+> =
+  | (boolean extends Numeric
+      ? MaybeArray<
+          | (Flags extends true ? number | Enum : Enum)
+          | keyof T
+          | (Flags extends true ? "any" | "none" : never),
+          Flags
+        >
+      : Numeric extends true
+      ? Flags extends true
+        ? Enum | (number & {})
+        : Enum
+      : Flags extends true
+      ? keyof T | readonly (keyof T)[]
+      : keyof T)
+  | (undefined extends Numeric ? undefined : never);
+
+type ParsableArg<
+  T extends EnumSource,
+  Flags extends boolean
+> = ParsableEnumTypeValue<T, boolean | undefined, Flags>;
+
+type ParseFunction<
+  T extends EnumSource,
+  Flags extends boolean,
+  Type extends "numeric" | "lookup" | "format",
+  InvalidValue extends undefined | never = never,
+  MainFunction = false
+> = {
+  <V extends string | number | symbol | null | undefined>(
+    value:
+      | V
+      | ParsableArg<T, Flags>
+      | (Flags extends true ? V[] | ParsableArg<T, Flags>[] : never),
+    ...args: MainFunction extends true ? [] : [validateNumbers?: boolean]
+  ): V extends null | undefined
+    ? undefined
+    : Type extends "lookup" | "format"
+    ? MaybeArray<
+        | (ParsedValueInternal<T, V, Flags> extends never
+            ? V extends string | number
+              ? keyof T | "any" | "none" | InvalidValue
+              : InvalidValue
+            : Lookup<T, ParsedValueInternal<T, V, Flags>, true>)
+        | (Type extends "format"
+            ? V extends keyof T | T[keyof T]
+              ? never
+              : "any" | "none"
+            : never),
+        Flags,
+        Type extends "lookup" ? true : false
+      >
+    : ParsedValueInternal<T, V, Flags> extends never
+    ? string extends V
+      ? T[keyof T] | InvalidValue
+      : InvalidValue
+    : ParsedValueInternal<T, V, Flags>;
+};
+
+type EntriesByValue<T extends Record<keyof any, any>, V extends keyof any> = {
+  [P in keyof T as T[P]]: readonly [P, T[P]];
+}[V] extends infer T // Use the infer trick to make vscode intellisense expand the values.
+  ? T
+  : never;
 
 export const createEnumAccessor = <
   T extends EnumSource,

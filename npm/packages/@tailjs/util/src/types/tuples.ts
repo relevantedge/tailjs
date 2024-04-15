@@ -1,4 +1,4 @@
-import type { Extends, If, IsAny, Voidefined } from ".";
+import type { Extends, If, IsAny, Minus, Voidefined } from ".";
 
 export type Empty = readonly [];
 
@@ -109,3 +109,14 @@ type PickOne<T> = InferContra<InferContra<Contra<Contra<T>>>>;
 export type ConstToNormal<T> = T extends readonly [...any[]]
   ? { -readonly [P in keyof T]: ConstToNormal<T[P]> }
   : Voidefined<T>;
+
+export type VariableTupleOrArray<Item, MaxLength extends number = 20> =
+  | readonly Item[]
+  | VariableTuple<Item, MaxLength>;
+
+export type VariableTuple<
+  Item,
+  MaxLength extends number = 20
+> = MaxLength extends 0
+  ? readonly []
+  : readonly [Item, ...VariableTuple<Item, Minus<MaxLength, 1>>];

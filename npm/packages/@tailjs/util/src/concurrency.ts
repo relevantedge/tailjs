@@ -12,6 +12,8 @@ import {
   tryCatchAsync,
   undefined,
   unwrap,
+  If,
+  isNumber,
 } from ".";
 
 export class ResetablePromise<T = void, E = any> implements PromiseLike<T> {
@@ -109,7 +111,9 @@ export class OpenPromise<T = void, E = any> implements PromiseLike<T> {
 }
 
 export interface Lock {
-  (timeout?: number): Promise<((() => void) & Disposable) | undefined>;
+  <Ms = undefined>(timeout?: Ms): Promise<
+    ((() => void) & Disposable) | If<Ms, undefined>
+  >;
   <T>(action: () => MaybePromise<T>, timeout?: number): Promise<T | undefined>;
 }
 
@@ -147,7 +151,7 @@ export const delay = <T extends Wrapped<any> = void>(
   ms: number | undefined,
   value?: T
 ): MaybePromise<Unwrap<T>> =>
-  isUndefined(ms) || isInteger(ms)
+  isUndefined(ms) || isFinite(ms)
     ? !ms || ms <= 0
       ? unwrap(value)!
       : new Promise<any>((resolve) =>
