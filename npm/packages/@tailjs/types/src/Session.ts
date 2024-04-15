@@ -4,7 +4,7 @@ import type { DataClassification, SignOutEvent, UUID, UserConsent } from ".";
  * Identifiers related to a user's session, login and device.
  * Based on the user's consent some of these fields may be unavailable.
  *
- * @privacy indirect, any
+ * @privacy indirect, necessary
  *
  */
 export interface Session {
@@ -17,7 +17,7 @@ export interface Session {
    *
    * It is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.
    *
-   * @anonymous
+   * @privacy anonymous
    */
   sessionId: UUID;
 
@@ -47,16 +47,24 @@ export interface Session {
   /**
    * The current user owning the session.
    *
-   * @direct
+   * @privacy direct
    */
   userId?: string;
 
   /**
    * The user's consent choices. {@link DataClassification.Anonymous} means the session is cookie-less.
    *
-   * @none
+   * @privacy anonymous
    */
   consent: UserConsent;
+
+  /**
+   *
+   * The IP address of the device where the session is active.
+   *
+   * @privacy indirect, infrastructure
+   */
+  clientIp?: string;
 
   /**
    * This value indicates that an old device session "woke up" with an old device session ID and took over a new one.

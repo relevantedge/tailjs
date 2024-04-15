@@ -7,6 +7,8 @@ import type {
   Tagged,
   Timestamp,
   ViewEvent,
+  ImpressionEvent,
+  ImpressionSummaryEvent,
 } from "..";
 
 /**
@@ -51,11 +53,11 @@ export interface TrackedEvent extends Tagged {
   retry?: Integer;
 
   /**
-   * The event that caused this event to be triggered or got triggered in the same context.
-   * For example a {@link NavigationEvent} may trigger a {@link ViewEvent},
-   * or a {@link CartUpdatedEvent} my be triggered with a {@link ComponentClickEvent}.
+   * The client ID of the event that caused this event to be triggered or got triggered in the same context.
+   * For example, a {@link NavigationEvent} may trigger a {@link ViewEvent},
+   * a {@link CartUpdatedEvent} my be triggered with a {@link ComponentClickEvent}, and a {@link ImpressionSummaryEvent} applies to a {@link ImpressionEvent}.
    */
-  relatedClientId?: LocalID;
+  relatedEventId?: LocalID;
 
   /**
    * The session associated with the event.

@@ -1,7 +1,6 @@
-import type { Nullish } from "@tailjs/util";
+import type { Nullish, Json } from "@tailjs/util";
 import {
   Channel,
-  Json,
   T,
   TAB_ID,
   bool,

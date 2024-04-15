@@ -223,7 +223,7 @@ export const context: TrackerExtensionFactory = {
           const referrer = referrers();
 
           currentViewEvent.view = referrer?.[0];
-          currentViewEvent.relatedClientId = referrer?.[1];
+          currentViewEvent.relatedEventId = referrer?.[1];
         }
       }
 

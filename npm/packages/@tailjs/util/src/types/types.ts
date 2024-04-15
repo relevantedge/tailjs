@@ -69,8 +69,7 @@ export type JsonObject = RecordType & {
  * All possible values that can be represented with JSON.
  */
 export type Json =
-  | null
-  | undefined
+  | Nullish
   | string
   | number
   | boolean

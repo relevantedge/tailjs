@@ -42,7 +42,6 @@ try {
     tsconfig: "./tsconfig.json",
     topRef: true,
     additionalProperties: true,
-    //minify: true,
     extraTags: ["privacy", "anchor"],
   };
 
@@ -71,12 +70,10 @@ try {
   schema[SchemaAnnotations.Classification] = dataClassification.format(
     DataClassification.Anonymous
   );
-  schema[SchemaAnnotations.Purpose] = dataPurposes.format(DataPurposeFlags.Any);
 
-  // Remove type guards.
-  // Object.keys(schema.definitions).forEach(
-  //   (key) => key.startsWith("NamedParameters") && delete schema.definitions[key]
-  // );
+  schema[SchemaAnnotations.Purpose] = dataPurposes.format(
+    DataPurposeFlags.Necessary
+  );
 
   await Promise.all(
     targets.map(async ([target, pkg]) => {
@@ -92,11 +89,11 @@ try {
         );
         await fs.writeFile(
           join(target, "dist/index.mjs"),
-          `export default ${JSON.stringify(schema, null, 2)};`
+          `export default ${JSON.stringify(schema)};`
         );
         await fs.writeFile(
           join(target, "dist/index.js"),
-          `module.exports = ${JSON.stringify(schema, null, 2)};`
+          `module.exports = ${JSON.stringify(schema)};`
         );
         await fs.writeFile(
           join(target, "dist/index.json"),

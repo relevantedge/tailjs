@@ -209,6 +209,7 @@ export class TrackerCoreEvents implements TrackerExtension {
           purposes: dataPurposes.lookup(tracker.consent.purposes),
         },
         expiredDeviceSessionId: tracker._expiredDeviceSessionId,
+        clientIp: tracker.clientIp ?? undefined,
       };
 
       if (isUserAgentEvent(event)) {
@@ -236,6 +237,8 @@ export class TrackerCoreEvents implements TrackerExtension {
         }
       } else if (isSignOutEvent(event)) {
         updateData(false, (data) => (data.userId = undefined));
+      } else if (isConsentEvent(event)) {
+        await tracker.updateConsent(event.level, event.purposes);
       }
     }
 

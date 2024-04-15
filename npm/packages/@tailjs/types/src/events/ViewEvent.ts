@@ -9,6 +9,12 @@ export interface ClickIds {
   googleAnalytics?: string;
 }
 
+/**
+ * This event is sent whenever a user navigates to a new view (page, screen or similar).
+ *
+ * Use {@link HeartbeatEvent} and {@link ViewEndedEvent} to determine how long the user was active in the view in processing.
+ *
+ */
 export interface ViewEvent extends TrackedEvent {
   type: "VIEW";
 
