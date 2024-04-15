@@ -16,6 +16,7 @@ import {
   DefaultCryptoProvider,
   map,
   merge,
+  params,
   TrackerVariableStorage,
 } from "./lib";
 
@@ -376,6 +377,11 @@ export class RequestHandler {
             ]
         )
     );
+
+    clientIp ??=
+      headers["x-forwarded-for"]?.[0] ??
+      Object.fromEntries(params(headers["forwarded"]))["for"] ??
+      undefined;
 
     const tracker = new Tracker({
       headers,

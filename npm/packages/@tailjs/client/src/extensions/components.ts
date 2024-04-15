@@ -1,5 +1,6 @@
 import {
   ImpressionEvent,
+  ImpressionSummaryEvent,
   cast,
   type ActivatedComponent,
   type ActivatedContent,
@@ -213,7 +214,7 @@ export const components: TrackerExtensionFactory = {
               intersectionRatio
             )
         ),
-      // Low thresholds used to be able to handle components larger than viewports
+      // Low thresholds used to be able to handle components larger than viewports.
       { threshold: [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.75] }
     );
 
@@ -291,20 +292,25 @@ export const components: TrackerExtensionFactory = {
                         nil
                     )
                   );
+                  push(tracker, ...events);
+
                   event = registerViewEndAction(() =>
                     push(
                       tracker,
                       ...map(
                         events,
-                        (ev) => (
-                          ((ev.duration = t()), (ev.impressions = impressions)),
-                          ev
-                        )
+                        (ev) =>
+                          ({
+                            type: "IMPRESSION_SUMMARY",
+                            relatedEventId: ev.clientId,
+                            duration: t(),
+                            impressions: impressions - 1,
+                          } as ImpressionSummaryEvent)
                       )
                     )
                   );
                 }
-              }, -trackerConfig.impressionThreshold);
+              }, trackerConfig.impressionThreshold);
             } else {
               clear(captureState); // Not visible, clear timeout.
             }

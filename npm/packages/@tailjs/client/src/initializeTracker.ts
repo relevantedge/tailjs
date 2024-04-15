@@ -1,5 +1,5 @@
 import { QUERY_DEVICE } from "@constants";
-import { TrackedEvent, isConsentEvent, isTrackedEvent } from "@tailjs/types";
+import { TrackedEvent, isTrackedEvent } from "@tailjs/types";
 import type { Nullish } from "@tailjs/util";
 import {
   Listener,
@@ -245,12 +245,6 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
                     insertArgs = F;
                     if (isTrackedEvent(command)) {
                       command.timestamp ??= now();
-                      if (isConsentEvent(command)) {
-                        // TODO: Update consent logic
-                        // splice(mainArgs, currentArg + 1, 0, {
-                        //   set: { consent: command.nonEssentialTracking },
-                        // });
-                      }
 
                       insertArgs = T;
                       let skip = F;

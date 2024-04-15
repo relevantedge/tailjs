@@ -53,10 +53,9 @@ export type IsUnknown<T> = Extends<unknown, T>;
 export type UnknownAny<T> = unknown extends T ? any : T;
 
 /** Converts `null`, `undefined` and `void` to another type (default `undeined`). */
-export type ValueOrDefault<T, R, D = undefined> = T extends
-  | null
-  | undefined
-  | void
+export type ValueOrDefault<T, R, D = undefined> = T extends NonNullable<T>
+  ? R
+  : T extends null | undefined | void
   ? D
   : R;
 
@@ -84,7 +83,11 @@ export type Defined<T> = Exclude<T, undefined | void>;
 export type MaybeUndefined<T, Defined = T, Nulls = Nullish> = If<
   IsAny<T>,
   Defined,
-  T extends Nulls | false ? Defined | undefined : Defined
+  T extends NonNullable<T>
+    ? Defined
+    : T extends Nulls | false
+    ? Defined | undefined
+    : Defined
 >;
 
 /**

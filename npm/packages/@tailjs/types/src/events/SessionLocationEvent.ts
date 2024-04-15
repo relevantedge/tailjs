@@ -1,6 +1,11 @@
 import type { Float, GeoEntity, SessionScoped, TrackedEvent } from "..";
 import { typeTest } from "../util/type-test";
 
+/**
+ * This event is triggered whenever the user's location changes.
+ *
+ * @privacy indirect, performance
+ */
 export interface SessionLocationEvent extends TrackedEvent, SessionScoped {
   type: "SESSION_LOCATION";
 
@@ -13,6 +18,8 @@ export interface SessionLocationEvent extends TrackedEvent, SessionScoped {
   city?: GeoEntity;
   zip?: string;
   subdivision?: GeoEntity;
+
+  /** @privacy anonymous, infrastructure */
   country?: GeoEntity;
   continent?: GeoEntity;
 

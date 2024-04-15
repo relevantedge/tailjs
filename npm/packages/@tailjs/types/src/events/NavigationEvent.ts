@@ -4,7 +4,7 @@ import { typeTest } from "../util/type-test";
 export interface NavigationEvent extends UserInteractionEvent {
   type: "NAVIGATION";
   /**
-   * The ID of the navigation event. This will be added as {@link TrackedEvent.relatedClientId} to view event that followed after the navigation.
+   * The ID of the navigation event. This will be added as {@link TrackedEvent.relatedEventId} to view event that followed after the navigation.
    */
   clientId: LocalID;
 

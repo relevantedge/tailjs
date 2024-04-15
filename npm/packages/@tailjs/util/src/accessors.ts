@@ -5,7 +5,6 @@ import {
   If,
   IsAny,
   Minus,
-  NO_ARG,
   NotFunction,
   PrettifyIntersection,
   Primitives,
@@ -21,11 +20,9 @@ import {
   isMap,
   isObject,
   isSet,
-  isString,
   isUndefined,
   map,
   obj,
-  reduce,
   throwError,
 } from ".";
 
@@ -453,9 +450,9 @@ const createSetOrUpdateFunction =
   <SettersOnly, Error>(
     setter: (target: any, key: any, value: any, error?: any) => any
   ): SetOrUpdateFunction<SettersOnly, Error> =>
-  (target: PropertyContainer, key: any, value: any = NO_ARG, error?: any) => {
+  (target: PropertyContainer, key: any, value?: any, error?: any) => {
     if (!target) return undefined;
-    if (value !== NO_ARG) {
+    if (value) {
       return setter(target, key, value, error);
     }
 

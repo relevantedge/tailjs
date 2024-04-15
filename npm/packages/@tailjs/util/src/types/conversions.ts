@@ -96,9 +96,6 @@ export const symbolIterator = Symbol.iterator;
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */
 export const symbolAsyncIterator = Symbol.asyncIterator;
 
-/** Fast way to check for precence of function argument. */
-export const NO_ARG = Symbol();
-
 const createConverter =
   <T>(typeTester: TypeTester<T>, parser?: (value: any) => T | undefined) =>
   (value: any, parse = true) =>

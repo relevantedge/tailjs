@@ -110,6 +110,13 @@ export class OpenPromise<T = void, E = any> implements PromiseLike<T> {
   }
 }
 
+export type MutableValue<T> = { (): T; (value: T): T };
+export const memoryValue =
+  <T>(initialValue: T): MutableValue<T> =>
+  (...args: [] | [value: T]) => (
+    args.length && (initialValue = args[0]), initialValue
+  );
+
 export interface Lock {
   <Ms = undefined>(timeout?: Ms): Promise<
     ((() => void) & Disposable) | If<Ms, undefined>
@@ -117,9 +124,10 @@ export interface Lock {
   <T>(action: () => MaybePromise<T>, timeout?: number): Promise<T | undefined>;
 }
 
-export const createLock = (): Lock => {
+export const createLock = (
+  lockFlag: MutableValue<boolean> = memoryValue(false)
+): Lock => {
   const semaphore = promise<boolean>(true);
-  let currentLock: (() => void) | undefined;
 
   const t0 = createTimer();
   const wait = async (actionOrMs?: (() => any) | number, ms?: number) => {
@@ -129,7 +137,7 @@ export const createLock = (): Lock => {
         ? await tryCatchAsync(actionOrMs, true, release)
         : undefined;
     }
-    while (currentLock) {
+    while (lockFlag()) {
       if (
         isUndefined(
           await (actionOrMs ? race(delay(actionOrMs), semaphore) : semaphore)
@@ -139,8 +147,8 @@ export const createLock = (): Lock => {
       }
       actionOrMs! -= t0(); // If the above did not return undefined we got the semaphore.
     }
-    const release = (currentLock = () =>
-      semaphore.signal(!(currentLock = undefined)));
+    const release = () => semaphore.signal(!lockFlag(false));
+    lockFlag(true);
     release[Symbol.dispose] = release;
     return release;
   };

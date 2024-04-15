@@ -9,6 +9,7 @@ import {
 } from "@tailjs/types";
 import type {
   ConstToNormal,
+  MaybeUndefined,
   Nullish,
   Nulls,
   ValueOrDefault,
@@ -187,7 +188,7 @@ export const getPos = <T extends Element | Nullish>(
 let rect: DOMRect;
 export const getRect = <T extends Element | Nullish>(
   el: T
-): ValueOrDefault<T, Rectangle> =>
+): MaybeUndefined<T, Rectangle> =>
   el
     ? ((rect = el.getBoundingClientRect()),
       (pos = scrollPos(F)),

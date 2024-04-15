@@ -1,5 +1,8 @@
 import { Duration, Integer, TrackedEvent } from "..";
 
+/**
+ * Implemented by events where it makes sense to know when they happened relative to their tab.
+ */
 export interface ViewTimingEvent extends TrackedEvent {
   timing?: {
     /**

@@ -1,7 +1,6 @@
-import type { Nullish } from "@tailjs/util";
+import type { Nullish, Json } from "@tailjs/util";
 import {
   F,
-  Json,
   T,
   TAB_ID,
   defer,
