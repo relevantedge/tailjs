@@ -18,7 +18,7 @@ export interface ApiSettings {
   resourcePath?: string;
 
   /**
-   * The path where resources are initialied located after deployment.
+   * The path where resources are initialized located after deployment.
    *
    * If this is specified and different from {@link resourcePath} the files will be copied when the service starts.
    */
@@ -132,7 +132,7 @@ export const tailjs = ({
     extensions,
     debugScript,
     environmentTags,
-    manageConsents,
+    //manageConsents,
   });
 
   return async (req: any, res: any): Promise<void> =>

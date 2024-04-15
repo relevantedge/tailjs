@@ -2,7 +2,7 @@ import { tail } from "@tailjs/client/external";
 import {
   ConsentEvent,
   DataClassification,
-  DataPurposes,
+  DataPurposeFlags,
   cast,
   dataClassification,
   dataPurposes,
@@ -34,7 +34,7 @@ export const useConsent = (): [boolean | null, (consent: boolean) => void] => {
       tail.push(
         cast<ConsentEvent>({
           type: "CONSENT",
-          purposes: consent ? DataPurposes.Any : DataPurposes.Necessary,
+          purposes: consent ? DataPurposeFlags.Any : DataPurposeFlags.Necessary,
           level: consent
             ? DataClassification.Direct
             : DataClassification.Anonymous,

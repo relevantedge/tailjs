@@ -105,7 +105,7 @@ export class TargetedVariableCollection<T = any>
   public delete(targetId: string): boolean;
   public delete(key: VariableKey<boolean> | undefined): boolean;
   public delete(
-    keys: Iterable<readonly [VariableKey<boolean>, value: T] | undefined>
+    keys: Iterable<readonly [key: VariableKey<boolean>, value: T] | undefined>
   ): boolean;
   public delete(
     key: Iterable<any> | string | VariableKey<boolean> | undefined

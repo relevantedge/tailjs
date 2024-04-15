@@ -51,7 +51,6 @@ export class TrackerEnvironment {
     { group: string; name?: string }
   >();
 
-  public readonly schema: SchemaManager;
   public readonly tags?: string[];
   public readonly cookieVersion: string;
   public readonly storage: VariableStorage<false>;
@@ -59,14 +58,12 @@ export class TrackerEnvironment {
   constructor(
     host: EngineHost,
     crypto: CryptoProvider,
-    schema: SchemaManager,
     storage: VariableStorage<false>,
     tags?: string[],
     cookieVersion = "C"
   ) {
     this._host = host;
     this._crypto = crypto;
-    this.schema = schema;
     this.tags = tags;
     this.cookieVersion = cookieVersion;
     this.storage = storage;

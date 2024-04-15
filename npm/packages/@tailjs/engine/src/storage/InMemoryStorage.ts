@@ -43,7 +43,7 @@ import { ValidatingVariableStorage } from "./ValidatingVariableStorage";
 
 export type ScopeVariables = [
   expires: number | undefined,
-  Map<string, Variable<any, true>>
+  variables: Map<string, Variable<any, true>>
 ];
 
 export const hasChanged = (
