@@ -4,6 +4,7 @@
     "moduleResolution": "node",
     "stripInternal": false,
     "preserveConstEnums": false,
+
     "types": []
   }
 }

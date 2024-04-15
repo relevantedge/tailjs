@@ -11,6 +11,7 @@ import {
   TrackerExtension,
   VariableStorageCoordinatorSettings,
 } from "./shared";
+import { JsonObject } from "@tailjs/util";
 
 /** Gives a hint what a string might be for methods that serialize results to strings */
 export type JsonString<T> = string;
@@ -25,8 +26,7 @@ export type RequestHandlerConfiguration = {
   scriptPath?: string;
   endpoint: string;
   host: EngineHost;
-  //parser: EventParser;
-  schema: SchemaManager;
+  schemas?: (string | JsonObject)[];
   extensions: Iterable<() => Promise<TrackerExtension> | TrackerExtension>;
   crypto?: CryptoProvider;
   encryptionKeys?: string[];
@@ -71,7 +71,7 @@ export type RequestHandlerConfiguration = {
 
 export const DEFAULT: Omit<
   AllRequired<RequestHandlerConfiguration>,
-  | "schema"
+  | "schemas"
   | "backends"
   | "host"
   | "extensions"

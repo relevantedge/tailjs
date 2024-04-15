@@ -54,10 +54,8 @@ export class SchemaManager {
   public readonly subSchemas: ReadonlyMap<string, Schema> = new Map();
   public readonly types: ReadonlyMap<string, SchemaObjectType> = new Map();
 
-  constructor(schemas: MaybeArray<string | JsonObject>) {
-    schemas = toArray(schemas).map((schema) =>
-      isString(schema) ? JSON.parse(schema) : schema
-    );
+  constructor(schemas: MaybeArray<JsonObject>) {
+    schemas = toArray(schemas);
 
     const combinedSchema = {
       $schema: "https://json-schema.org/draft/2020-12/schema",

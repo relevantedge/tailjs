@@ -672,7 +672,7 @@ export const define: {
     ...properties: P
   ): (T extends Function ? T : {}) &
     PrettifyIntersection<T & EntriesToObject<P[number]>>;
-} = (target: any, ...args: any[]) => {
+} = (target: any, ...args: readonly any[]) => {
   const add = (arg: any, defaults?: any) => {
     if (!arg) return;
     let properties: readonly any[];

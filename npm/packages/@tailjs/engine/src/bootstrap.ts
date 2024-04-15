@@ -1,14 +1,12 @@
-import defaultSchema from "@tailjs/types/schema";
 import {
   EngineHost,
   RequestHandler,
   RequestHandlerConfiguration,
-  SchemaManager,
   TrackerExtension,
 } from "./shared";
 
 import type { TrackerConfiguration } from "@tailjs/client";
-import { JsonObject, isString, rank, required } from "@tailjs/util";
+import { JsonObject } from "@tailjs/util";
 import { map } from "./lib";
 
 export type BootstrapSettings = {
@@ -64,7 +62,7 @@ export type BootstrapSettings = {
   client?: TrackerConfiguration;
 };
 
-export async function bootstrap({
+export function bootstrap({
   host,
   endpoint,
   schemas,
@@ -74,23 +72,10 @@ export async function bootstrap({
   encryptionKeys,
   debugScript,
   environmentTags,
-}: BootstrapSettings): Promise<RequestHandler> {
-  (schemas ??= []).unshift(defaultSchema);
-  if (schemas) {
-    for (const [schema, i] of rank(schemas)) {
-      if (isString(schema)) {
-        schemas[i] = required(
-          await host.readText(schema),
-          () => `The schema path '${schema}' does not exists`
-        );
-      }
-    }
-  }
-
-  const schema = new SchemaManager(schemas);
+}: BootstrapSettings) {
   return new RequestHandler({
     host,
-    schema,
+    schemas,
     endpoint,
     cookies,
     allowUnknownEventTypes,

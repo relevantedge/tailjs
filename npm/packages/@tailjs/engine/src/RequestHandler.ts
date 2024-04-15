@@ -1,3 +1,5 @@
+import defaultSchema from "@tailjs/types/schema";
+
 import clientScripts from "@tailjs/client/script";
 import {
   DataPurposeFlags,
@@ -46,7 +48,14 @@ import {
 
 import { CONTEXT_MENU_COOKIE, MUTEX_REQUEST_COOKIE } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
-import { obj } from "@tailjs/util";
+import {
+  isObject,
+  isString,
+  JsonObject,
+  obj,
+  rank,
+  required,
+} from "@tailjs/util";
 import { from64u } from "@tailjs/util/transport";
 import {
   DefaultSessionReferenceMapper,
@@ -97,48 +106,29 @@ export class RequestHandler {
   /** @internal */
   public readonly _sessionReferenceMapper: SessionReferenceMapper;
 
+  private readonly _initConfig: RequestHandlerConfiguration;
+
   constructor(config: RequestHandlerConfiguration) {
     let {
       trackerName,
       endpoint,
-      host,
       extensions,
-      schema,
-      crypto,
       cookies,
       allowUnknownEventTypes,
       debugScript,
       useSession,
-      environmentTags,
       sessionTimeout,
       clientKeySeed,
-      encryptionKeys,
       client,
-      storage,
       sessionReferenceMapper,
     } = merge({}, DEFAULT, config);
 
+    this._initConfig = config;
+
     this._trackerName = trackerName;
     this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
+
     this._extensionFactories = map(extensions);
-
-    this._schema = schema;
-
-    if (!storage) {
-      storage = {
-        default: { storage: new InMemoryStorage(), schema: "*" },
-      };
-    }
-
-    this.environment = new TrackerEnvironment(
-      host,
-      crypto ?? new DefaultCryptoProvider(encryptionKeys),
-      schema,
-      new TrackerVariableStorage(
-        new VariableStorageCoordinator({ schema, mappings: storage })
-      ),
-      environmentTags
-    );
 
     this._cookies = new CookieMonster(cookies);
     this._allowUnknownEventTypes = allowUnknownEventTypes;
@@ -202,6 +192,48 @@ export class RequestHandler {
     await this._lock.acquire();
     try {
       if (this._initialized) return;
+
+      let { host, crypto, environmentTags, encryptionKeys, schemas, storage } =
+        this._initConfig;
+
+      schemas ??= [];
+      if (
+        !schemas.find(
+          (schema) => isObject(schema) && schema.$id === "urn:tailjs:core"
+        )
+      ) {
+        schemas.unshift(defaultSchema);
+      }
+
+      for (const [schema, i] of rank(schemas)) {
+        if (isString(schema)) {
+          schemas[i] = JSON.parse(
+            required(
+              await host.readText(schema),
+              () => `The schema path '${schema}' does not exists`
+            )
+          );
+        }
+      }
+
+      if (!storage) {
+        storage = {
+          default: { storage: new InMemoryStorage(), schema: "*" },
+        };
+      }
+
+      (this as any)._schema = new SchemaManager(schemas as JsonObject[]);
+      (this as any).environment = new TrackerEnvironment(
+        host,
+        crypto ?? new DefaultCryptoProvider(encryptionKeys),
+        new TrackerVariableStorage(
+          new VariableStorageCoordinator({
+            schema: this._schema,
+            mappings: storage,
+          })
+        ),
+        environmentTags
+      );
 
       if (typeof this._debugScript === "string") {
         this._script = await this.environment.readText(

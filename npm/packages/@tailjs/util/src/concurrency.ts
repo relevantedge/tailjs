@@ -1,19 +1,16 @@
 import {
+  If,
   MaybePromise,
   Unwrap,
   Wrapped,
+  createTimer,
   isDefined,
   isFunction,
-  isInteger,
   isUndefined,
-  now,
   throwError,
-  createTimer,
   tryCatchAsync,
   undefined,
   unwrap,
-  If,
-  isNumber,
 } from ".";
 
 export class ResetablePromise<T = void, E = any> implements PromiseLike<T> {
@@ -118,9 +115,7 @@ export const memoryValue =
   );
 
 export interface Lock {
-  <Ms = undefined>(timeout?: Ms): Promise<
-    ((() => void) & Disposable) | If<Ms, undefined>
-  >;
+  <Ms = undefined>(timeout?: Ms): Promise<(() => void) | If<Ms, undefined>>;
   <T>(action: () => MaybePromise<T>, timeout?: number): Promise<T | undefined>;
 }
 
@@ -149,7 +144,7 @@ export const createLock = (
     }
     const release = () => semaphore.signal(!lockFlag(false));
     lockFlag(true);
-    release[Symbol.dispose] = release;
+
     return release;
   };
   return wait;

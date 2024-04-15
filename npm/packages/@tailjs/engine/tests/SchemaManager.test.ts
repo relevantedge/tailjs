@@ -269,7 +269,7 @@ describe("SchemaManager.", () => {
       return;
     }
 
-    const schema = fs.readFileSync(fullSchemaPath, "utf-8");
+    const schema = JSON.parse(fs.readFileSync(fullSchemaPath, "utf-8"));
     const manager = new SchemaManager([schema]);
 
     const clickIntent = manager.getType("COMPONENT_CLICK_INTENT");
