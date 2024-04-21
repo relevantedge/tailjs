@@ -33,7 +33,6 @@ export type RequestHandlerConfiguration = {
   cookies?: CookieConfiguration;
   allowUnknownEventTypes?: boolean;
   debugScript?: boolean | string;
-  useSession?: boolean;
   manageConsents?: boolean;
   environmentTags?: string[];
   clientKeySeed?: string;
@@ -90,7 +89,6 @@ export const DEFAULT: Omit<
   },
   allowUnknownEventTypes: true,
   debugScript: false,
-  useSession: true,
   manageConsents: false,
   sessionTimeout: 30,
   deviceSessionTimeout: 10,

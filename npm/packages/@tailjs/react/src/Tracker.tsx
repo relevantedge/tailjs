@@ -8,13 +8,14 @@ import {
   tail,
 } from "@tailjs/client/external";
 
+import { Content } from "@tailjs/types";
 import {
   MapState,
   TraverseContext,
   filterCurrent,
   mergeStates,
 } from "./internal";
-import { Content, cast } from "@tailjs/types";
+import { restrict } from "@tailjs/util";
 
 export interface BoundaryDataWithView extends BoundaryData {
   view?: Content | null;
@@ -188,7 +189,7 @@ function getRef({ component, content, area, tags, cart }: BoundaryData) {
         //        current.style.backgroundColor = "blue";
         //       current.title = JSON.stringify(component);
         tail.push(
-          cast<BoundaryCommand>({
+          restrict<BoundaryCommand>({
             component,
             content,
             area: area,

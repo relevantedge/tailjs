@@ -1,14 +1,11 @@
 import { isNumber, isString } from "@tailjs/util";
 import {
-  AnyTypeFormatter,
   BaseType,
   Context,
   Definition,
   EnumNodeParser,
   EnumType,
   EnumTypeFormatter,
-  IntersectionType,
-  IntersectionTypeFormatter,
   UnionType,
   UnionTypeFormatter,
   ts,

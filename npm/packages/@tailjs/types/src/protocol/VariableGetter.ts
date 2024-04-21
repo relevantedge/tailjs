@@ -1,23 +1,20 @@
 import {
   If,
   MaybePromise,
-  MaybeUndefined,
   Nullish,
   ParsedValue,
   PrettifyIntersection,
+  TupleOrArray,
   UnknownAny,
-  VariableTupleOrArray,
+  Wrapped,
 } from "@tailjs/util";
 import {
   DataPurposeValue,
-  ParseSuccessOnly,
   Variable,
   VariableClassification,
   VariableKey,
   VariablePatchResult,
   VariableResultStatus,
-  VariableSetResult,
-  VariableSetSuccessResult,
   VersionedVariableKey,
   variableScope,
 } from "..";
@@ -27,11 +24,11 @@ export type VariableInitializerResult<
   Validated = true
 > = (Validated extends true
   ? VariableClassification<true>
-  : Partial<VariableClassification<If<Validated, true, boolean>>>) & {
+  : Partial<VariableClassification<boolean>>) & {
   value: T;
 };
-export type VariableInitializer<T = any, Validated = true> = () => MaybePromise<
-  VariableInitializerResult<T, Validated> | undefined
+export type VariableInitializer<T = any, Validated = true> = Wrapped<
+  MaybePromise<VariableInitializerResult<T, Validated> | undefined>
 >;
 
 /**
@@ -40,8 +37,8 @@ export type VariableInitializer<T = any, Validated = true> = () => MaybePromise<
  * - If a version is specified and the stored version matches this, a result will not be returned.
  * - If a purpose is specified and the variable is only stored for other purposes, a result will also not be returned. (best practice)
  */
-export interface VariableGetter<T = any, Validated = boolean>
-  extends VersionedVariableKey<If<Validated, true, boolean>> {
+export interface VariableGetter<T = any, Validated = false>
+  extends VersionedVariableKey<Validated extends true ? true : boolean> {
   /**
    * If the variable does not exist, it will be created with the value returned from this function.
    * Since another value from another process may have been used at the same time,
@@ -49,7 +46,7 @@ export interface VariableGetter<T = any, Validated = boolean>
    *
    * However, it is guaranteed that the returned value is the most current at the time the request was made.
    */
-  initializer?: VariableInitializer<T, If<Validated, true, boolean>>;
+  init?: VariableInitializer<T, Validated>;
 
   /**
    * Optionally, the purpose the variable will be used for in the context it is requested.
@@ -71,16 +68,33 @@ export interface VariableGetter<T = any, Validated = boolean>
   refresh?: boolean;
 }
 
-export type VariableGetParameter<Validated> = VariableTupleOrArray<
-  VariableGetter<any, Validated> | Nullish
->;
+export type VariableGetterArray<GetterType extends VariableGetter> = readonly (
+  | GetterType
+  | Nullish
+)[];
+
+export type VariableGetters<
+  GetterType extends VariableGetter<any> | boolean,
+  Inferred extends VariableGetters<GetterType> = never
+> =
+  | Inferred
+  | TupleOrArray<
+      | (GetterType extends boolean
+          ? VariableGetter<any, GetterType>
+          : GetterType)
+      | Nullish
+    >;
 
 /**
  * The result of a get request made to a {@link ReadonlyVariableStorage}.
  */
-export type VariableGetResult<T = any, Patched = boolean, Success = boolean> =
+export type VariableGetResult<
+  T = any,
+  Patched = boolean,
+  SuccessOnly = false
+> =
   | VariableGetSuccessResult<T>
-  | (Success extends false ? VariableGetError<Patched> : never);
+  | (SuccessOnly extends false ? VariableGetError<Patched> : never);
 
 export interface VariableGetError<Patched = boolean> extends VariableKey {
   /**
@@ -98,7 +112,9 @@ export interface VariableGetError<Patched = boolean> extends VariableKey {
   value?: undefined;
 }
 
-export type VariableGetSuccessResult<T = any> =
+export type VariableGetSuccessResult<T = any> = {
+  error?: undefined;
+} & (
   | (Variable<T, true> & {
       status:
         | VariableResultStatus.Success
@@ -112,62 +128,58 @@ export type VariableGetSuccessResult<T = any> =
           status: VariableResultStatus.NotFound;
           value?: undefined;
         }
-      : never);
+      : never)
+);
 
-type GetResultWithKey<T, SuccessOnly, Getter> = (Getter extends VariableKey
-  ? {
-      key: Getter["key"];
-      targetId: Getter["targetId"];
-      scope: ParsedValue<typeof variableScope, Getter["scope"]>;
-    }
-  : {}) &
-  VariableGetResult<
-    T,
-    Getter extends {
-      initializer?(): MaybePromise<undefined>;
-    }
-      ? false
-      : true,
-    SuccessOnly
-  >;
-
-type MapVariableGetResult<Getter, SuccessOnly = boolean> = PrettifyIntersection<
-  [Exclude<Getter, VariableGetError>] extends [VariableGetResult<infer T>]
-    ? GetResultWithKey<T, SuccessOnly, Getter>
-    : Getter extends VariableGetter<infer T>
-    ? Getter extends {
-        initializer(): MaybePromise<infer R>;
+type GetResultWithKey<T, Getter> = PrettifyIntersection<
+  (Getter extends VariableKey
+    ? {
+        key: Getter["key"];
+        targetId: Getter["targetId"];
+        scope: ParsedValue<typeof variableScope, Getter["scope"]>;
       }
-      ? R extends VariablePatchResult<infer T, any>
-        ? GetResultWithKey<T, SuccessOnly, Getter>
-        : GetResultWithKey<UnknownAny<T | undefined>, SuccessOnly, Getter>
-      : GetResultWithKey<T | undefined, SuccessOnly, Getter>
-    : Getter extends Nullish
-    ? undefined
-    : unknown extends Getter
-    ? GetResultWithKey<unknown, SuccessOnly, Getter>
-    : never
+    : {}) &
+    VariableGetResult<
+      T,
+      Getter extends {
+        init?: Wrapped<MaybePromise<undefined>>;
+      }
+        ? false
+        : true
+    >
 >;
 
-export type VariableGetResults<
-  K extends readonly any[] = any[],
-  SuccessOnly extends boolean | { throw?: boolean } = false
-> = any[] extends K
-  ? MapVariableGetResult<any, ParseSuccessOnly<SuccessOnly>>[]
-  : K extends readonly []
-  ? []
-  : K extends readonly [infer Item, ...infer Rest]
-  ? [
-      MapVariableGetResult<Item, ParseSuccessOnly<SuccessOnly>>,
-      ...VariableGetResults<Rest, ParseSuccessOnly<SuccessOnly>>
-    ]
-  : K extends readonly (infer T)[]
-  ? MapVariableGetResult<T, ParseSuccessOnly<SuccessOnly>>[]
+type MapVariableGetResult<Getter> = [
+  Exclude<Getter, VariableGetError>
+] extends [VariableGetResult<infer T>]
+  ? GetResultWithKey<T, Getter>
+  : Getter extends VariableGetter<infer T>
+  ? Getter extends {
+      init: Wrapped<MaybePromise<infer R>>;
+    }
+    ? [R] extends [VariablePatchResult<infer T, any> | undefined]
+      ? GetResultWithKey<T | Extract<R, undefined>, Getter>
+      : never
+    : GetResultWithKey<T | undefined, Getter>
+  : Getter extends Nullish
+  ? undefined
+  : unknown extends Getter
+  ? GetResultWithKey<unknown, Getter>
   : never;
 
-export const getResultVariable = (
-  result: VariableGetResult | VariableSetResult | undefined
-): Variable<true> | undefined =>
-  result?.status! < 400
-    ? (result as VariableSetResult).current ?? (result as Variable)
-    : undefined;
+export type ArrayOrSingle<T extends readonly any[]> = T extends readonly []
+  ? undefined
+  : T["length"] extends 1
+  ? T[0]
+  : T;
+
+export type VariableGetResults<K extends readonly any[] = any[]> =
+  any[] extends K
+    ? MapVariableGetResult<any>[]
+    : K extends readonly []
+    ? []
+    : K extends readonly [infer Item, ...infer Rest]
+    ? [MapVariableGetResult<Item>, ...VariableGetResults<Rest>]
+    : K extends readonly (infer T)[]
+    ? MapVariableGetResult<T>[]
+    : never;

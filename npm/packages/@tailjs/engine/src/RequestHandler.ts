@@ -2,8 +2,8 @@ import defaultSchema from "@tailjs/types/schema";
 
 import clientScripts from "@tailjs/client/script";
 import {
-  DataPurposeFlags,
   DataPurpose,
+  DataPurposeFlags,
   dataPurposes,
   PostRequest,
   PostResponse,
@@ -12,15 +12,8 @@ import {
 import queryString from "query-string";
 import { Lock } from "semaphore-async-await";
 import urlParse from "url-parse";
-import { CommerceExtension } from "./extensions";
-import {
-  any,
-  DefaultCryptoProvider,
-  map,
-  merge,
-  params,
-  TrackerVariableStorage,
-} from "./lib";
+import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
+import { any, DefaultCryptoProvider, map, merge, params } from "./lib";
 
 import {
   CallbackResponse,
@@ -32,15 +25,15 @@ import {
   InMemoryStorage,
   isValidationError,
   ParseResult,
+  ParsingVariableStorage,
   PostError,
   RequestHandlerConfiguration,
   SchemaManager,
-  SessionEvents,
-  Timestamps,
   TrackedEventBatch,
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
+  TrackerExtensionContext,
   TrackerPostOptions,
   ValidationError,
   VariableStorageCoordinator,
@@ -83,7 +76,6 @@ export class RequestHandler {
   private readonly _lock = new Lock();
   private readonly _schema: SchemaManager;
   private readonly _trackerName: string;
-  private readonly _useSession: boolean;
 
   private _extensions: TrackerExtension[];
   private _initialized = false;
@@ -116,7 +108,6 @@ export class RequestHandler {
       cookies,
       allowUnknownEventTypes,
       debugScript,
-      useSession,
       sessionTimeout,
       clientKeySeed,
       client,
@@ -132,7 +123,6 @@ export class RequestHandler {
 
     this._cookies = new CookieMonster(cookies);
     this._allowUnknownEventTypes = allowUnknownEventTypes;
-    this._useSession = useSession;
     this._debugScript = debugScript;
     this._sessionReferenceMapper =
       sessionReferenceMapper ?? new DefaultSessionReferenceMapper();
@@ -160,12 +150,16 @@ export class RequestHandler {
     this._clientConfig.src = this._endpoint;
   }
 
-  public async applyExtensions(tracker: Tracker) {
+  public async applyExtensions(
+    tracker: Tracker,
+    context: TrackerExtensionContext
+  ) {
     //console.log(`EXT.IN: ${++this._activeExtensionRequests}`);
+
     for (const extension of this._extensions) {
       // Call the apply method in post context to let extension do whatever they need before events are processed (e.g. initialize session).
       try {
-        await extension.apply?.(tracker);
+        await extension.apply?.(tracker, context);
       } catch (e) {
         this._logExtensionError(extension, "apply", e);
       }
@@ -226,7 +220,7 @@ export class RequestHandler {
       (this as any).environment = new TrackerEnvironment(
         host,
         crypto ?? new DefaultCryptoProvider(encryptionKeys),
-        new TrackerVariableStorage(
+        new ParsingVariableStorage(
           new VariableStorageCoordinator({
             schema: this._schema,
             mappings: storage,
@@ -252,7 +246,7 @@ export class RequestHandler {
 
       this._extensions = [
         Timestamps,
-        this._useSession ? new SessionEvents() : null,
+        new TrackerCoreEvents(),
         new CommerceExtension(),
         ...(await Promise.all(
           this._extensionFactories.map(async (factory) => {
@@ -287,8 +281,9 @@ export class RequestHandler {
   public async post(
     tracker: Tracker,
     eventBatch: TrackedEventBatch,
-    { deviceSessionId, deviceId, routeToClient }: TrackerPostOptions
+    options: TrackerPostOptions
   ): Promise<PostResponse> {
+    const context = { passive: !!options?.passive };
     let events = eventBatch;
     await this.initialize();
     const validateEvents = (events: ParseResult[]): ParseResult[] =>
@@ -307,7 +302,7 @@ export class RequestHandler {
       sourceIndices.set(item, i);
     });
 
-    await tracker._applyExtensions(deviceSessionId, deviceId);
+    await tracker._applyExtensions(options);
 
     const validationErrors: (ValidationError & { sourceIndex?: number })[] = [];
 
@@ -345,7 +340,8 @@ export class RequestHandler {
               async (events) => {
                 return await callPatch(index + 1, events);
               },
-              tracker
+              tracker,
+              context
             )
           )
         );
@@ -357,13 +353,14 @@ export class RequestHandler {
 
     eventBatch = await callPatch(0, parsed);
     const extensionErrors: Record<string, Error> = {};
-    if (routeToClient) {
+    if (options.routeToClient) {
       tracker._clientEvents.push(...events);
     } else {
       await Promise.all(
         this._extensions.map(async (extension) => {
           try {
-            (await extension.post?.(eventBatch, tracker)) ?? Promise.resolve();
+            (await extension.post?.(eventBatch, tracker, context)) ??
+              Promise.resolve();
           } catch (e) {
             extensionErrors[extension.id] =
               e instanceof Error ? e : new Error(e?.toString());
@@ -437,7 +434,7 @@ export class RequestHandler {
     });
 
     try {
-      let extensionRequestType: null | "post" | "usr" = null;
+      let extensionRequestType: null | "post" = null;
       const result = async (
         response: Partial<CallbackResponse> | null,
         discardTrackerCookies = false
@@ -602,6 +599,7 @@ export class RequestHandler {
               });
             }
 
+            // TODO: Be binary.
             const postRequest: PostRequest =
               this.environment.httpDecode(payloadString);
 
@@ -611,14 +609,28 @@ export class RequestHandler {
 
               if (postRequest.events) {
                 //requestTimer.print("post start");
-                await tracker.post(postRequest.events ?? [], {
+                await tracker.post(postRequest.events, {
+                  passive: postRequest.passive,
                   deviceSessionId: postRequest.deviceSessionId,
                   deviceId: postRequest.deviceId,
                 });
               }
 
+              if (postRequest.variables) {
+                if (postRequest.variables.get) {
+                  (response.variables ??= {}).get = await tracker.get(
+                    ...postRequest.variables.get
+                  );
+                }
+                if (postRequest.variables.set) {
+                  (response.variables ??= {}).set = await tracker.set(
+                    ...postRequest.variables.set
+                  );
+                }
+              }
+
               return await result(
-                response.eventIds || response.variables
+                response.variables
                   ? { status: 200, body: tracker.httpClientEncrypt(response) }
                   : { status: 202 }
               );

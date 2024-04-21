@@ -1,6 +1,16 @@
-import { Variable } from "..";
+import { Nullish } from "@tailjs/util";
+import {
+  RestrictVariableTargets,
+  VariableGetResult,
+  VariableSetResult,
+} from "..";
 
 export interface PostResponse {
-  eventIds?: string[];
-  variables?: Variable[];
+  variables?: {
+    get?: (RestrictVariableTargets<VariableGetResult, true> | undefined)[];
+    set?: (
+      | Omit<RestrictVariableTargets<VariableSetResult, true>, "source">
+      | undefined
+    )[];
+  };
 }

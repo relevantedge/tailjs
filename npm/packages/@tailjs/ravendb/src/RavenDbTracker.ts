@@ -5,7 +5,6 @@ import {
   TrackerEnvironment,
   TrackerExtension,
 } from "@tailjs/engine";
-import { transformLocalIds } from "@tailjs/types";
 import { Lock, createLock } from "@tailjs/util";
 
 export interface RavenDbSettings {
@@ -73,11 +72,11 @@ export class RavenDbTracker implements TrackerExtension {
     try {
       const commands: any[] = [];
 
-      const [sessionId, deviceId] = await tracker.get([
+      const [sessionId, deviceId] = await tracker.get(
         {
           scope: "session",
-          key: "rdb_s",
-          initializer: async () => ({
+          key: "rdb:s",
+          init: async () => ({
             classification: "anonymous",
             purposes: "necessary",
             value: (await this._getNextId()).toString(36),
@@ -85,29 +84,27 @@ export class RavenDbTracker implements TrackerExtension {
         },
         {
           scope: "device",
-          key: "rdb_d",
-          initializer: async () => ({
-            classification: "anonymous",
-            purposes: "necessary",
-            value: (await this._getNextId()).toString(36),
-          }),
-        },
-      ]);
+          key: "rdb:d",
+          init: async () =>
+            tracker.device && {
+              classification: "anonymous",
+              purposes: "necessary",
+              value: (await this._getNextId()).toString(36),
+            },
+        }
+      ).values;
 
       for (let ev of events) {
         ev["rdb:timestamp"] = Date.now();
 
-        ev = transformLocalIds(ev, (id) => `${sessionId}/${id}`);
         const internalEventId = (await this._getNextId()).toString(36);
         if (ev["id"] == null) {
           ev["id"] = `${internalEventId}`;
         }
 
         if (ev.session) {
-          (ev.session as any)["rdb:deviceId"] = ev.session.deviceId;
-          (ev.session as any)["rdb:sessionId"] = ev.session.sessionId;
-          ev.session.deviceId = deviceId.value;
-          ev.session.sessionId = sessionId.value;
+          (ev.session as any)["rdb:deviceId"] = deviceId;
+          (ev.session as any)["rdb:sessionId"] = sessionId;
         }
 
         commands.push({

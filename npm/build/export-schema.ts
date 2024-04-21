@@ -35,11 +35,12 @@ const targets: (readonly [target: string, pkg: boolean])[] = [
 
 try {
   const config: tsj.Config = {
-    //path: "{src/ConfiguredComponent.ts,src/events/**/*.ts}",
     path: "{src/ConfiguredComponent.ts,src/events/**/*.ts}",
+    //path: "src/UserConsent.ts",
     type: "*",
     schemaId: `urn:tailjs:core`,
     tsconfig: "./tsconfig.json",
+    skipTypeCheck: true,
     topRef: true,
     additionalProperties: true,
     extraTags: ["privacy", "anchor"],

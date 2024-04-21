@@ -3,7 +3,8 @@ import replace from "@rollup/plugin-replace";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
-import { RollupOptions, rollup } from "rollup";
+import { RollupOptions, rollup, watch } from "rollup";
+import swc from "rollup-plugin-swc3";
 
 export interface PackageEnviornment {
   path: string;
@@ -11,6 +12,48 @@ export interface PackageEnviornment {
   workspace: string;
   config: Record<string, any>;
 }
+() => {
+  compilePlugin({});
+};
+export const compilePlugin = ({
+  debug = false,
+  minify = false,
+  args,
+}: { debug?: boolean; minify?: boolean; args?: any } = {}) =>
+  swc({
+    jsc: {
+      target: "es2022",
+      transform: {
+        optimizer: {
+          globals: {
+            vars: {
+              __DEBUG__: "" + debug,
+            },
+          },
+        },
+      },
+      minify: minify
+        ? {
+            compress: minify && {
+              passes: 2,
+              ecma: 2022 as any,
+              unsafe_comps: true,
+              toplevel: true,
+              unsafe_arrows: true,
+              unsafe_methods: true,
+              unsafe_undefined: true,
+              pure_funcs: debug ? [] : ["debug", /* @tailjs/util */ "restrict"],
+            },
+            mangle: {
+              props: { keep_quoted: true },
+              toplevel: false,
+            },
+          }
+        : undefined,
+    },
+    minify,
+    ...args,
+  });
 
 export const build = async (options: RollupOptions[]) => {
   await Promise.all(
@@ -19,7 +62,7 @@ export const build = async (options: RollupOptions[]) => {
       const outputs = Array.isArray(config.output)
         ? config.output
         : [config.output];
-      const bundle = await rollup({
+      config = {
         ...config,
         onwarn: (warning, warn) => {
           if (
@@ -31,8 +74,22 @@ export const build = async (options: RollupOptions[]) => {
           }
           warn(warning);
         },
-      });
-      await Promise.all(outputs.map((output) => bundle.write(output)));
+      };
+
+      if (process.argv.includes("-w")) {
+        const watcher = watch(config);
+        watcher.on("event", (ev) => {
+          if (ev.code === "ERROR") {
+            console.log(ev.error);
+          }
+          if (ev.code === "BUNDLE_END") {
+            ev.result?.close();
+          }
+        });
+      } else {
+        const bundle = await rollup(config);
+        await Promise.all(outputs.map((output) => bundle.write(output)));
+      }
     })
   );
 };

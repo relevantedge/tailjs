@@ -1,6 +1,5 @@
 import {
   Binders,
-  Listener,
   Unbinder,
   clock,
   createEvent,
@@ -14,7 +13,10 @@ import {
 type AllMaps = WindowEventMap &
   GlobalEventHandlersEventMap &
   DocumentEventMap &
-  HTMLElementEventMap;
+  HTMLElementEventMap & {
+    freeze: PageTransitionEvent;
+    resume: PageTransitionEvent;
+  };
 
 export const listen = <K extends keyof AllMaps>(
   target: {
@@ -47,20 +49,21 @@ export const listen = <K extends keyof AllMaps>(
       );
 };
 
-type PageLoadListenerArgs = [loaded: boolean];
+type PageLoadListenerArgs = [loaded: boolean, stateDuration: number];
 const [addPageLoadedListener, dispatchPageLoaded] =
   createEvent<PageLoadListenerArgs>();
 
 let loaded = true;
+let sleepTimer = createTimer(false);
 listen(
   window,
-  "pagehide",
-  () => loaded && dispatchPageLoaded((loaded = false))
+  ["pagehide", "freeze"],
+  () => loaded && dispatchPageLoaded((loaded = false), sleepTimer(true, true))
 );
 listen(
   window,
-  "pageshow",
-  () => !loaded && dispatchPageLoaded((loaded = true))
+  ["pageshow", "resume"],
+  () => !loaded && dispatchPageLoaded((loaded = true), sleepTimer(true, true))
 );
 listen(
   document,
@@ -68,10 +71,10 @@ listen(
   () =>
     document.visibilityState === "visible" &&
     !loaded &&
-    dispatchPageLoaded((loaded = true))
+    dispatchPageLoaded((loaded = true), sleepTimer(true, true))
 );
 
-dispatchPageLoaded(loaded);
+dispatchPageLoaded(loaded, sleepTimer(true, true));
 
 type PageActivatedListenerArgs = [activated: boolean, totalDuration: number];
 let activated = false;
@@ -102,4 +105,4 @@ listen(window, "scroll", setActivated);
 setActivated();
 
 export const getActiveTime = () => activeTime();
-export { addPageLoadedListener, addPageActivatedListener };
+export { addPageActivatedListener, addPageLoadedListener };

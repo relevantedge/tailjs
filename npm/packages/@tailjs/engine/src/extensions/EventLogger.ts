@@ -1,10 +1,4 @@
-import { TrackedEvent } from "@tailjs/types";
-import type {
-  TrackedEventBatch,
-  Tracker,
-  TrackerEnvironment,
-  TrackerExtension,
-} from "../shared";
+import type { TrackedEventBatch, Tracker, TrackerExtension } from "../shared";
 
 export class EventLogger implements TrackerExtension {
   public readonly id = "event-logger";

@@ -7,6 +7,7 @@ import {
   isDefined,
   isFunction,
   isUndefined,
+  now,
   throwError,
   tryCatchAsync,
   undefined,
@@ -107,43 +108,87 @@ export class OpenPromise<T = void, E = any> implements PromiseLike<T> {
   }
 }
 
-export type MutableValue<T> = { (): T; (value: T): T };
-export const memoryValue =
-  <T>(initialValue: T): MutableValue<T> =>
-  (...args: [] | [value: T]) => (
-    args.length && (initialValue = args[0]), initialValue
-  );
+export type MutableValue<T> = (value?: T) => T;
+
+export const memoryValue: <T = any>(
+  ...args: (undefined extends T ? [] : never) | [value: T]
+) => MutableValue<T> =
+  (value?: any) =>
+  (...args: any) => (args.length && (value = args[0]), value as any);
 
 export interface Lock {
-  <Ms = undefined>(timeout?: Ms): Promise<(() => void) | If<Ms, undefined>>;
-  <T>(action: () => MaybePromise<T>, timeout?: number): Promise<T | undefined>;
+  /**
+   * Wait until the lock is available. If a timeout is not specified or negative, the calling thread will wait indefinitely.
+   * If a owner ID is specified the lock will be reentrant for that ID.
+   */
+  <Ms extends number | undefined = undefined>(
+    timeout?: Ms,
+    ownerId?: string
+  ): Promise<(() => void) | If<Ms, undefined>>;
+
+  /**
+   * Performs the specified action when the lock becomes available.
+   * If a timeout is not specified or negative, the calling thread will wait indefinitely.
+   * If a owner ID is specified the lock will be reentrant for that ID.
+   */
+  <T, Ms extends number | undefined = undefined>(
+    action: () => MaybePromise<T>,
+    timeout?: Ms,
+    ownerId?: string
+  ): Promise<T | If<Ms, undefined>>;
 }
 
+export type LockState = [owner: string | boolean, expires?: number];
+
 export const createLock = (
-  lockFlag: MutableValue<boolean> = memoryValue(false)
+  timeout?: number,
+  state: (
+    state?: LockState | undefined,
+    timeout?: number | undefined
+  ) => LockState | undefined = memoryValue<LockState | undefined>()
 ): Lock => {
-  const semaphore = promise<boolean>(true);
+  const semaphore = promise<LockState | undefined>(true);
 
   const t0 = createTimer();
-  const wait = async (actionOrMs?: (() => any) | number, ms?: number) => {
-    if (isFunction(actionOrMs)) {
-      const release = await wait(ms);
-      return release
-        ? await tryCatchAsync(actionOrMs, true, release)
-        : undefined;
+  const wait = async (
+    arg1?: (() => any) | number,
+    arg2?: number | string,
+    arg3?: string
+  ) => {
+    if (isFunction(arg1)) {
+      const release = await wait(arg2 as number, arg3);
+      return release ? await tryCatchAsync(arg1, true, release) : undefined;
     }
-    while (lockFlag()) {
+    const ownerId = arg2 as string;
+
+    let ms = arg1 as number;
+    let currentState: LockState | undefined;
+    let renewInterval = 0;
+    while (
+      (currentState = state()) &&
+      ownerId !== currentState[0] &&
+      currentState[1]! < now()
+    ) {
       if (
-        isUndefined(
-          await (actionOrMs ? race(delay(actionOrMs), semaphore) : semaphore)
-        )
+        isUndefined(await (ms >= 0 ? race(delay(ms), semaphore) : semaphore))
       ) {
         return undefined;
       }
-      actionOrMs! -= t0(); // If the above did not return undefined we got the semaphore.
+      ms -= t0(); // If the above did not return undefined we got the semaphore.
     }
-    const release = () => semaphore.signal(!lockFlag(false));
-    lockFlag(true);
+
+    const release = () => (
+      clearTimeout(renewInterval), semaphore.signal(state(undefined))
+    );
+    const renew = () => {
+      state([ownerId ?? true, timeout ? now() - timeout : undefined], timeout);
+      timeout &&
+        (renewInterval = setTimeout(
+          () => (currentState = state()) && renew(),
+          timeout / 2
+        ));
+    };
+    renew();
 
     return release;
   };

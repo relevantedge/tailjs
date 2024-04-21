@@ -4,12 +4,17 @@ import json from "@rollup/plugin-json";
 import resolve from "@rollup/plugin-node-resolve";
 import replace from "@rollup/plugin-replace";
 //import esbuild from "rollup-plugin-esbuild";
-import swc from "rollup-plugin-swc3";
-import terser from "@rollup/plugin-terser";
-import { uglify } from "rollup-plugin-uglify";
+//import terser from "@rollup/plugin-terser";
+//import { uglify } from "rollup-plugin-uglify";
 
 import { getDistBundles } from "./rollup-dist";
-import { applyDefaultConfiguration, build, env, getProjects } from "./shared";
+import {
+  applyDefaultConfiguration,
+  build,
+  compilePlugin,
+  env,
+  getProjects,
+} from "./shared";
 
 import strip from "@rollup/plugin-strip";
 import * as zlib from "zlib";
@@ -79,7 +84,14 @@ const createConfig = (debug?: boolean) =>
       //   treeShaking: true,
       //   // define: { __DEBUG__: "" + debug },
       // }),
-      swc({ tsconfig: `${pkg.path}/tsconfig.browser.json`, sourceMaps: true }),
+      compilePlugin({
+        debug,
+        minify: true,
+        args: {
+          tsconfig: `${pkg.path}/tsconfig.browser.json`,
+          sourceMaps: true,
+        },
+      }),
       !debug &&
         strip({
           include: ["src/**/*.(js|ts)"],
@@ -129,30 +141,30 @@ const createConfig = (debug?: boolean) =>
         },
       }),
 
-      terser({
-        compress: {
-          passes: 2,
-          ecma: 2022 as any,
-          unsafe_comps: true,
-          toplevel: true,
-          unsafe_arrows: true,
-          unsafe_methods: true,
-          unsafe_undefined: true,
-          pure_funcs: debug ? [] : ["debug"],
-        },
-        mangle: {
-          properties: false,
-          toplevel: false,
-        },
-      }),
+      // terser({
+      //   compress: {
+      //     passes: 2,
+      //     ecma: 2022 as any,
+      //     unsafe_comps: true,
+      //     toplevel: true,
+      //     unsafe_arrows: true,
+      //     unsafe_methods: true,
+      //     unsafe_undefined: true,
+      //     pure_funcs: debug ? [] : ["debug"],
+      //   },
+      //   mangle: {
+      //     properties: false,
+      //     toplevel: false,
+      //   },
+      // }),
 
-      uglify({
-        compress: {
-          passes: 2,
-          evaluate: "eager",
-        },
-        mangle: false,
-      }),
+      // uglify({
+      //   compress: {
+      //     passes: 2,
+      //     evaluate: "eager",
+      //   },
+      //   mangle: false,
+      // }),
 
       // ...(debug
       //   ? []
@@ -184,6 +196,7 @@ await build(
   await getDistBundles({
     '"{Client script}"': () => JSON.stringify(vars.BUNDLE_index_min_js),
     '"{Client script (gzip)}"': () =>
+      vars.BUNDLE_index_min_js &&
       JSON.stringify(
         zlib
           .gzipSync(vars.BUNDLE_index_min_js, {
@@ -193,6 +206,7 @@ await build(
       ),
 
     '"{Client script (br)}"': () =>
+      vars.BUNDLE_index_min_js &&
       JSON.stringify(
         zlib
           .brotliCompressSync(vars.BUNDLE_index_min_js, {
@@ -204,6 +218,7 @@ await build(
           .toString("base64url")
       ),
     '"{Client debug script}"': () =>
+      vars.BUNDLE_index_min_debug_js &&
       JSON.stringify(vars.BUNDLE_index_min_debug_js),
   })
 );

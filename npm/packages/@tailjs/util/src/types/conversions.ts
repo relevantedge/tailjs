@@ -187,16 +187,6 @@ export const toArray: {
       // ? toArrayAsync(value)
       ([value] as any);
 
-const toArrayAsync = async (
-  values: AsyncIterable<any>,
-  results: any[] = []
-) => {
-  for await (const value of values) {
-    results.push(value);
-  }
-  return results;
-};
-
 export const isObject = <AcceptIterables extends boolean = false>(
   value: any,
   acceptIterables: AcceptIterables = false as any
@@ -206,6 +196,11 @@ export const isObject = <AcceptIterables extends boolean = false>(
   value != null &&
   typeof value === "object" &&
   (acceptIterables || !value[symbolIterator]);
+
+export const hasProperty = <P extends keyof any>(
+  value: any,
+  property: P
+): value is { [Prop in P]: any } => isObject(value, true) && property in value;
 
 export const hasMethod = <T, Name extends keyof any>(
   value: T | unknown,

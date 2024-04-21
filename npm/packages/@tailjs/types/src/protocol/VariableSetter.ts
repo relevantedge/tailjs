@@ -1,29 +1,25 @@
 import {
+  EnumValue,
   If,
+  Json,
   MaybeArray,
   MaybePromise,
   Nullish,
-  ParsableEnumValue,
+  OmitPartial,
   PickPartial,
-  VariableTupleOrArray,
+  ToggleReadonly,
+  TupleOrArray,
   createEnumAccessor,
-  isArray,
-  isDefined,
   isFunction,
-  throwError,
 } from "@tailjs/util";
 import {
   Variable,
   VariableClassification,
-  VariableGetResult,
-  VariableGetResults,
-  VariableGetSuccessResult,
+  VariableGetter,
   VariableKey,
   VariableMetadata,
   VariableScope,
   VariableVersion,
-  VersionedVariableKey,
-  formatKey,
 } from "..";
 
 export type TargetedVariableScope =
@@ -36,11 +32,11 @@ export enum VariableResultStatus {
   Success = 200,
   Created = 201,
   Unchanged = 304,
+  Denied = 403,
+  NotFound = 404,
+  ReadOnly = 405,
   Conflict = 409,
   Unsupported = 501,
-  Denied = 403,
-  ReadOnly = 405,
-  NotFound = 404,
   Invalid = 400,
   Error = 500,
 }
@@ -52,11 +48,18 @@ export const resultStatus = createEnumAccessor(
 );
 
 export type ResultStatusValue<Numeric extends boolean | undefined = boolean> =
-  ParsableEnumValue<typeof resultStatus, Numeric>;
+  EnumValue<
+    typeof VariableResultStatus,
+    VariableResultStatus,
+    false,
+    Numeric
+  > extends infer T
+    ? T
+    : never;
 
 export type VariableSetResult<
   T = any,
-  Source extends VariableSetter<T, any> = VariableSetter<T, any>,
+  Source extends VariableSetter<T> = VariableSetter<T>,
   SuccessOnly = boolean
 > =
   | VariableSetSuccessResult<T, Source>
@@ -134,7 +137,14 @@ export enum VariablePatchType {
 
 export type VariablePatchTypeValue<
   Numeric extends boolean | undefined = boolean
-> = ParsableEnumValue<typeof patchType, Numeric>;
+> = EnumValue<
+  typeof VariablePatchType,
+  VariablePatchType,
+  false,
+  Numeric
+> extends infer T
+  ? T
+  : never;
 
 export const patchType = createEnumAccessor(
   VariablePatchType as typeof VariablePatchType,
@@ -147,7 +157,15 @@ export type VariableValuePatch<T = any> = {
 } & (
   | {
       type: VariablePatchType.Add | "add";
+      /**
+       * The amount to add (subtract if negative).
+       */
       by: number;
+      /**
+       * The initial value if none exists.
+       * @default 0
+       */
+      seed?: number;
     }
   | {
       type: VariablePatchType.Min | VariablePatchType.Max | "min" | "max";
@@ -186,54 +204,83 @@ export type VariablePatch<T = any, Validated = boolean> =
   | VariablePatchActionSetter<T, Validated>
   | VariableValuePatchSetter<T, Validated>;
 
-export type VariableValueSetter<
-  T = any,
-  NumericEnums extends boolean = boolean
-> = PickPartial<Variable<T, NumericEnums>, "classification" | "purposes">;
+export type VariableValueSetter<T = any, Validated = false> = (
+  | PickPartial<
+      Variable<T, If<Validated, true, boolean>>,
+      "classification" | "purposes" | "version"
+    >
+  | (OmitPartial<
+      Variable<T, If<Validated, true, boolean>>,
+      keyof VariableKey
+    > & { value: undefined })
+) & {
+  /**
+   * Ignore versioning (optimistic concurrency), and save the value regardless.
+   * Consider your scenario before doing this.
+   */
+  force?: boolean;
+
+  patch?: undefined;
+};
 
 export type VariableSetter<T = any, Validated = boolean> =
-  | ((
-      | VariableValueSetter<T, If<Validated, true, boolean>>
-      | (VersionedVariableKey<If<Validated, true, boolean>> & {
-          value: undefined;
-        })
-    ) & { patch?: undefined })
+  | VariableValueSetter<T, Validated>
   | (VariablePatch<T, Validated> & { value?: never });
 
-type MapVariableSetResult<Source, SuccessOnly = boolean> = [Source] extends [
-  VariableSetResult<infer T, infer Source, any>
-]
+type MapVariableSetResult<
+  Source,
+  SuccessOnly = boolean
+> = Source extends VariableSetResult<infer T, infer Source, false>
   ? VariableSetResult<T, Source, SuccessOnly>
   : Source extends VariableSetter<infer T>
   ? VariableSetResult<T, Source, SuccessOnly>
   : never;
 
-export type VariableSetParameter<Validated> = VariableTupleOrArray<
-  VariableSetter<any, Validated> | Nullish
->;
+export type VariableSetters<
+  SetterType extends VariableSetter<any> | boolean,
+  Inferred extends VariableSetters<SetterType> = never
+> =
+  | Inferred
+  | TupleOrArray<
+      | (SetterType extends boolean
+          ? VariableSetter<any, SetterType>
+          : SetterType)
+      | Nullish
+    >;
 
-/** @internal */
-export type ParseSuccessOnly<Throw> = Throw extends boolean
-  ? Throw
-  : Throw extends { throw: infer Throw }
-  ? Throw & boolean
-  : Throw extends { throw?: false }
-  ? false
-  : true;
+export type VariableSetResults<K extends readonly any[] = any[]> =
+  K extends readonly []
+    ? []
+    : K extends readonly [infer Item, ...infer Rest]
+    ? [MapVariableSetResult<Item>, ...VariableSetResults<Rest>]
+    : K extends readonly (infer T)[]
+    ? MapVariableSetResult<T>[]
+    : never;
 
-export type VariableSetResults<
-  K extends readonly any[] = any[],
-  SuccessOnly extends boolean | { throw?: boolean } = false
-> = K extends readonly []
+type StripPatchFunctionItems<
+  T extends readonly (VariableGetter | VariableSetter)[]
+> = T extends readonly []
   ? []
-  : K extends readonly [infer Item, ...infer Rest]
+  : T extends readonly [infer T, ...infer Rest]
   ? [
-      MapVariableSetResult<Item, ParseSuccessOnly<SuccessOnly>>,
-      ...VariableSetResults<Rest, ParseSuccessOnly<SuccessOnly>>
+      StripPatchFunctions<T & (VariableGetter | VariableSetter)>,
+      ...StripPatchFunctionItems<
+        Rest & readonly (VariableGetter | VariableSetter)[]
+      >
     ]
-  : K extends readonly (infer T)[]
-  ? MapVariableSetResult<T, ParseSuccessOnly<SuccessOnly>>[]
+  : T extends readonly any[]
+  ? ToggleReadonly<StripPatchFunctions<T[number]>[], T>
   : never;
+
+export type StripPatchFunctions<
+  T extends MaybeArray<VariableGetter | VariableSetter | Nullish, true>
+> = T extends Nullish
+  ? T
+  : T extends readonly any[]
+  ? StripPatchFunctionItems<T>
+  : T extends VariableGetter
+  ? T & { init?: Json }
+  : Exclude<VariableSetter, VariablePatchActionSetter>;
 
 export const isVariablePatch = <Validated>(
   setter: VariableSetter<any, Validated> | undefined
@@ -242,68 +289,3 @@ export const isVariablePatch = <Validated>(
 export const isVariablePatchAction = (
   setter: any
 ): setter is VariablePatchActionSetter => isFunction(setter["patch"]);
-
-export const isScoped = <T>(value: any): value is T & VariableKey =>
-  isDefined(value?.scope);
-
-export const handleResultErrors: {
-  <T, Throw = true>(
-    result: VariableGetResult<T, any, false>,
-    throwErrors?: Throw
-  ): VariableGetResult<T, Throw>;
-  <T, Source extends VariableSetter<T>, Throw = true>(
-    result: VariableSetResult<T, Source>
-  ): VariableSetResult<T, Source, Throw>;
-
-  <
-    T extends VariableGetResults | readonly (VariableGetResult | undefined)[],
-    Throw extends boolean | { throw?: boolean } = true
-  >(
-    results: T,
-    throwErrors?: Throw
-  ): VariableGetResults<T, Throw>;
-  <
-    T extends VariableSetResults | readonly (VariableSetResult | undefined)[],
-    Throw extends boolean | { throw?: boolean } = true
-  >(
-    results: T,
-    throwErrors?: Throw
-  ): VariableSetResults<T, Throw>;
-} = (
-  result: MaybeArray<VariableGetResult | VariableSetResult>,
-  throwErrors?: any
-) => {
-  if ((throwErrors?.throw ?? throwErrors) === false) {
-    return result;
-  }
-
-  if (isArray(result)) {
-    result.forEach(handleResultErrors);
-    return result as any;
-  }
-
-  return result.status < 400 || result.status === 404 // Not found can only occur for get requests, and those are all right.
-    ? result
-    : throwError(
-        `${formatKey(
-          (result as VariableSetResult).source ?? result
-        )} could not be ${
-          (result as VariableSetResult).source ||
-          result.status !== VariableResultStatus.Error
-            ? "set"
-            : "read"
-        } because ${
-          result.status === VariableResultStatus.Conflict
-            ? `of a conflict. The expected version '${result.source.version}' did not match the current version '${result.current?.version}'.`
-            : result.status === VariableResultStatus.Denied
-            ? result.error ?? "the operation was denied."
-            : result.status === VariableResultStatus.Invalid
-            ? result.error ?? "the value does not conform to the schema"
-            : result.status === VariableResultStatus.ReadOnly
-            ? "it is read only."
-            : result.status === VariableResultStatus.Error
-            ? `of an unexpected error: ${result.error}`
-            : "of an unknown reason."
-        }`
-      );
-};

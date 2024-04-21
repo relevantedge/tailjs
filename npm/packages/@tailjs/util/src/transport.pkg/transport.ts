@@ -15,6 +15,7 @@ import {
   isString,
   isSymbol,
   isUndefined,
+  undefined,
   map,
   tryCatch,
 } from "..";
@@ -136,9 +137,6 @@ export type Decoder = <T = any>(encoded: string | Nullish) => T | undefined;
 
 const REF_PROP = "$ref";
 
-const floatBuffer = new ArrayBuffer(8);
-const floatView = new DataView(floatBuffer);
-
 /**
  * Misc. fixes to the msgpack library. For example, it does not handle exponential numbers well.
  */
@@ -163,13 +161,13 @@ const patchSerialize = (value: any) => {
       return null;
     }
 
-    if (Number.isFinite(value) && !Number.isSafeInteger(value)) {
-      // A bug in @ygoe/msgpack means floats do not get encoded. We need to encode them in a different way.
-      // This is how it landed, since data structure is highly unlikely to be encountered,
-      // yet it is probably not the best way to do this (apart from fixing the bug ofc.)
-      floatView.setFloat64(0, value, true);
-      return { "": [...new Uint32Array(floatBuffer)] };
-    }
+    // if (Number.isFinite(value) && !Number.isSafeInteger(value)) {
+    //   // A bug in @ygoe/msgpack means floats do not get encoded. We need to encode them in a different way.
+    //   // This is how it landed, since data structure is highly unlikely to be encountered,
+    //   // yet it is probably not the best way to do this (apart from fixing the bug ofc.)
+    //   floatView.setFloat64(0, value, true);
+    //   return { "": [...new Uint32Array(floatBuffer)] };
+    // }
 
     if (!isObject(value, true)) {
       return value;
@@ -223,9 +221,9 @@ const patchDeserialize = (value: Uint8Array) => {
   const inner = (value: any) => {
     if (!isObject(value, true)) return value;
 
-    if (isArray(value[""]) && (value = value[""]).length === 2) {
-      return new DataView(new Uint32Array(value).buffer).getFloat64(0, true);
-    }
+    // if (isArray(value[""]) && (value = value[""]).length === 2) {
+    //   return new DataView(new Uint32Array(value).buffer).getFloat64(0, true);
+    // }
 
     if (value[REF_PROP] && (matchedRef = (refs ??= [])[value[REF_PROP]])) {
       return matchedRef;
@@ -243,12 +241,7 @@ const patchDeserialize = (value: Uint8Array) => {
     return value;
   };
 
-  return hasValue(value)
-    ? tryCatch(
-        () => inner(deserialize(value)),
-        () => undefined
-      )
-    : undefined;
+  return hasValue(value) ? inner(deserialize(value)) : undefined;
 };
 
 export type Transport = [

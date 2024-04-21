@@ -1,4 +1,4 @@
-import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
+import { EnumValue, createEnumAccessor } from "@tailjs/util";
 
 /**
  * Defines to which extend a piece of information relates to a natural person (user of your app or website).
@@ -6,6 +6,7 @@ import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
  * Tail.js requires all data points (data types and their properties) to be classified to prevent any data from being stored or otherwise used beyond a user's consent.
  *
  * YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
+ *
  */
 export enum DataClassification {
   /**
@@ -65,14 +66,17 @@ export enum DataClassification {
 }
 
 export const dataClassification = createEnumAccessor(
-  DataClassification as typeof DataClassification,
+  DataClassification,
   false,
   "data classification"
 );
 
-export type DataClassificationValue<Numeric = boolean> = ParsableEnumValue<
-  typeof dataClassification,
+export type DataClassificationValue<Numeric = boolean> = EnumValue<
+  typeof DataClassification,
+  DataClassification,
+  false,
   Numeric
 > extends infer T
   ? T
   : never;
+//const x: DataClassificationValue = "anonymous"

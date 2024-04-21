@@ -1,7 +1,6 @@
 import {
   ImpressionEvent,
   ImpressionSummaryEvent,
-  cast,
   type ActivatedComponent,
   type ActivatedContent,
   type ConfiguredComponent,
@@ -53,6 +52,7 @@ import {
   undefined,
   unshift,
 } from "../lib";
+import { restrict } from "@tailjs/util";
 export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 
 export const componentDomConfiguration = Symbol("DOM configuration");
@@ -222,7 +222,7 @@ export const components: TrackerExtensionFactory = {
       let update =
         "add" in command
           ? (current: BoundaryData) =>
-              cast<BoundaryData>({
+              restrict<BoundaryData>({
                 ...current,
                 component: concat(current?.component, command.component),
                 content: concat(current?.content, command.content),
@@ -283,7 +283,7 @@ export const components: TrackerExtensionFactory = {
                             T,
                             (data) => data.track?.impressions
                           )) &&
-                          cast<ImpressionEvent>({
+                          restrict<ImpressionEvent>({
                             type: "IMPRESSION",
                             pos: getScreenPos(el),
                             viewport: getViewport(),

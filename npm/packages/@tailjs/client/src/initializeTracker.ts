@@ -110,7 +110,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
 
   const localVariables = Object.fromEntries(
     map(
-      ["view", "tags", "rendered", "loaded", "scripts", QUERY_DEVICE],
+      ["view", "tags", "rendered", "loaded", "scripts", QUERY_DEVICE, "mufti"],
       (key) => [key, T]
     )
   );

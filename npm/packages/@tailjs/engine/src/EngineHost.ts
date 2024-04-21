@@ -9,19 +9,24 @@ export interface ResourceEntry {
 }
 
 export interface EngineHost {
-  compress(data: string, algorithm: string): Promise<Uint8Array | null>;
   log<T extends string | Record<string, any>>(message: LogMessage<T>): void;
 
   ls(path: string): Promise<ResourceEntry[] | null>;
 
-  readText(
-    path: string,
-    changeHandler?: ChangeHandler<string>
-  ): Promise<string | null>;
   read(
     path: string,
     changeHandler?: ChangeHandler<Uint8Array>
   ): Promise<Uint8Array | null>;
+  readText(
+    path: string,
+    changeHandler?: ChangeHandler<string>
+  ): Promise<string | null>;
+
+  write(path: string, data: Uint8Array): Promise<void>;
+
+  writeText(path: string, text: string): Promise<void>;
+
+  delete(path: string): Promise<boolean>;
 
   request<Binary extends boolean = false>(
     request: HttpRequest<Binary>

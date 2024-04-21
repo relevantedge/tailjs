@@ -1,10 +1,4 @@
-import {
-  filter,
-  isDefined,
-  isObject,
-  joinEventBinders,
-  map,
-} from "@tailjs/util";
+import { filter, isDefined, isObject, map } from "@tailjs/util";
 import { TAB_ID, bindStorage, sharedStorage } from ".";
 
 /**

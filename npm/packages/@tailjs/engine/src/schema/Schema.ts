@@ -4,13 +4,8 @@ import {
   UserConsent,
   VariableScope,
 } from "@tailjs/types";
+import { ExpandTypes } from "@tailjs/util";
 import { VariableMap } from "..";
-import {
-  AllKeys,
-  CommonTypeTemplate,
-  ExpandTypes,
-  PrettifyIntersection,
-} from "@tailjs/util";
 
 export interface SchemaClassification<NumericEnums extends boolean = boolean> {
   classification: DataClassificationValue<NumericEnums>;

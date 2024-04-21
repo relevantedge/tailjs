@@ -26,23 +26,28 @@ export type ParsedValue<
     : number
   : never;
 
-export type ParsableEnumValue<
-  T extends EnumHelper<any, any, any>,
+export type EnumValue_<
+  Names extends string,
+  Enum,
+  Flags extends boolean,
   Numeric
-> = T extends EnumHelper<infer T, any, any> & {
-  values: readonly (infer Enum)[];
-  pure?: infer PureFlags;
-}
-  ? Extract<
-      ParsableEnumTypeValue<
-        T,
-        Numeric,
-        Not<IsUnknown<PureFlags>>,
-        Enum & number
-      >,
-      string | number | string[] | number[] | (string | undefined | number)[]
-    >
-  : never;
+> = boolean extends Numeric
+  ? Names | Enum | (Flags extends true ? (Names | Enum)[] : never)
+  : Numeric extends true
+  ? Enum
+  : Names | (Flags extends true ? Names[] : never);
+
+export type EnumValue<
+  Names extends Record<string, any>,
+  Enum,
+  Flags extends boolean,
+  Numeric
+> = EnumValue_<
+  Lowercase<keyof Names extends string ? keyof Names : never>,
+  Flags extends true ? Enum | (number & {}) : Enum,
+  Flags,
+  Numeric
+>;
 
 export type EnumHelper<
   T extends EnumSource,
@@ -131,7 +136,7 @@ type ParsedValueInternal<T extends EnumSource, V, Flags> = V extends keyof T
   ? T[keyof T]
   : never;
 
-type ParsableEnumTypeValue<
+export type ParsableEnumTypeValue<
   T extends EnumSource,
   Numeric,
   Flags extends boolean,
@@ -254,10 +259,10 @@ export const createEnumAccessor = <
         (value: any, format: boolean) =>
           (value = tryParse(value, false)) == null
             ? undefined
-            : format && (value & any) === any
+            : format && value === any
             ? "any"
             : ((value = entries
-                .filter(([, flag]) => value & flag)
+                .filter(([, flag]) => flag && (value & flag) === flag)
                 .map(([name]) => name)),
               format
                 ? value.length

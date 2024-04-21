@@ -1,5 +1,5 @@
-import { FormEvent, FormField, Timestamp, cast } from "@tailjs/types";
-import type { Nullish } from "@tailjs/util";
+import { FormEvent, FormField, Timestamp } from "@tailjs/types";
+import { restrict, type Nullish } from "@tailjs/util";
 import {
   TrackerExtensionFactory,
   addViewChangedListener,
@@ -144,7 +144,7 @@ export const forms: TrackerExtensionFactory = {
               state[3] === FormFillState.Submitting || !isFormVisible());
           push(
             tracker,
-            cast<FormEvent>({
+            restrict<FormEvent>({
               ...capturedContext,
               ...ev,
               totalTime: now(T) - state[4],

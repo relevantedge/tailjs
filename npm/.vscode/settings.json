@@ -1,5 +1,5 @@
 {
-  "cSpell.words": ["Sitecore"],
+  "cSpell.words": ["Sitecore", "tailjs", "Validatable"],
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8"
   },

@@ -13,6 +13,7 @@ import package_json from "rollup-plugin-generate-package-json";
 import {
   applyDefaultConfiguration,
   chunkNameFunctions,
+  compilePlugin,
   env,
   getProjects,
 } from "./shared";
@@ -58,7 +59,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
           // esbuild({
           //   treeShaking: true,
           // }),
-          swc(),
+          compilePlugin(),
           resolve({ browser: true, preferBuiltins: false }),
           cjs(),
           json(),

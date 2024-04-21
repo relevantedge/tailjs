@@ -1,5 +1,4 @@
 import {
-  cast,
   type Domain,
   type Position,
   type Rectangle,
@@ -7,12 +6,13 @@ import {
   type Size,
   type Viewport,
 } from "@tailjs/types";
-import type {
-  ConstToNormal,
-  MaybeUndefined,
-  Nullish,
-  Nulls,
-  ValueOrDefault,
+import {
+  restrict,
+  type ConstToNormal,
+  type MaybeUndefined,
+  type Nullish,
+  type Nulls,
+  type ValueOrDefault,
 } from "@tailjs/util";
 import {
   body,
@@ -166,7 +166,7 @@ export const getScreenPos = <T extends Element | Nullish>(
   includeFold = T
 ): ScreenPosition | Nulls<T> =>
   (screenPos = getPos(el, mouseEvent)) &&
-  (cast<ScreenPosition>({
+  (restrict<ScreenPosition>({
     xpx: screenPos.x,
     ypx: screenPos.y,
     x: round(screenPos.x / body.offsetWidth, 4),

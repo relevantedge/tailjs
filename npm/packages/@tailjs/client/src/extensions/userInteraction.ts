@@ -5,7 +5,6 @@ import {
   ConfiguredComponent,
   NavigationEvent,
   UserInteractionEvent,
-  cast,
   isViewEndedEvent,
 } from "@tailjs/types";
 import {
@@ -17,7 +16,7 @@ import {
 } from "..";
 
 import { CONTEXT_MENU_COOKIE } from "@constants";
-import type { Nullish } from "@tailjs/util";
+import { restrict, type Nullish } from "@tailjs/util";
 import { parseActivationTags } from "..";
 import {
   F,
@@ -183,7 +182,7 @@ export const userInteraction: TrackerExtensionFactory = {
               if (clickableElement.hash !== location.hash) {
                 push(
                   tracker,
-                  cast<AnchorNavigationEvent>({
+                  restrict<AnchorNavigationEvent>({
                     type: "ANCHOR_NAVIGATION",
                     anchor: clickableElement.hash,
                     ...sharedEventProperties,
@@ -193,7 +192,7 @@ export const userInteraction: TrackerExtensionFactory = {
               return;
             }
 
-            const navigationEvent: NavigationEvent = cast<NavigationEvent>({
+            const navigationEvent: NavigationEvent = restrict<NavigationEvent>({
               clientId: nextId(),
               type: "NAVIGATION",
               href: external ? clickableElement.href : href,
@@ -282,12 +281,12 @@ export const userInteraction: TrackerExtensionFactory = {
             push(
               tracker,
               cart
-                ? cast<CartUpdatedEvent>({
+                ? restrict<CartUpdatedEvent>({
                     type: "CART_UPDATED",
                     ...sharedEventProperties,
                     ...cart,
                   })
-                : cast<ComponentClickEvent>({
+                : restrict<ComponentClickEvent>({
                     type: "COMPONENT_CLICK",
                     ...sharedEventProperties,
                   })

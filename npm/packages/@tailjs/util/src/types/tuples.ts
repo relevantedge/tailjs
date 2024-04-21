@@ -6,11 +6,13 @@ export type IsTuple<T> = T extends [] | [any, ...any] ? true : false;
 
 export type MaybeArray<
   T,
-  Readonly extends boolean = false
+  Readonly extends boolean | readonly any[] = T extends readonly any[]
+    ? T
+    : false
 > = IsAny<T> extends true
   ? any
-  : [T] extends readonly [readonly (infer Item)[]]
-  ? MaybeArray<Item, Extends<T, any[]>>
+  : [T] extends [readonly any[]]
+  ? T[0] | ToggleReadonly<T, Readonly>
   : T | (Readonly extends false ? T[] : readonly T[]);
 
 /**
@@ -39,8 +41,8 @@ export type Head<T extends readonly any[]> = T extends readonly [
   ...any
 ]
   ? Head
-  : T extends readonly (infer First)[]
-  ? First
+  : T extends readonly (infer Head)[]
+  ? Head
   : never;
 
 export type Tail<
@@ -110,13 +112,17 @@ export type ConstToNormal<T> = T extends readonly [...any[]]
   ? { -readonly [P in keyof T]: ConstToNormal<T[P]> }
   : Voidefined<T>;
 
-export type VariableTupleOrArray<Item, MaxLength extends number = 20> =
-  | readonly Item[]
-  | VariableTuple<Item, MaxLength>;
+/** By adding a single item readonly tuple TypeScript starts interpreting arrays as tuples in function calls. */
+export type TupleOrArray<Item> = readonly Item[] | readonly [Item];
+
+export type TupleIntellisense<Parameter, Item> = Parameter | TupleOrArray<Item>;
 
 export type VariableTuple<
   Item,
-  MaxLength extends number = 20
+  Template extends readonly any[] = any[],
+  MaxLength extends number = number extends Template["length"]
+    ? 1
+    : Template["length"]
 > = MaxLength extends 0
   ? readonly []
-  : readonly [Item, ...VariableTuple<Item, Minus<MaxLength, 1>>];
+  : readonly [Item, ...VariableTuple<Item, Template, Minus<MaxLength, 1>>];

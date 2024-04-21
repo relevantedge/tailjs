@@ -1,15 +1,8 @@
-import { QUERY_DEVICE } from "@constants";
 import {
-  DataClassification,
-  DataPurposeFlags,
   SessionStartedEvent,
   SignInEvent,
   SignOutEvent,
-  Timestamp,
   TrackedEvent,
-  Variable,
-  VariableScope,
-  cast,
   dataClassification,
   dataPurposes,
   isConsentEvent,
@@ -28,7 +21,6 @@ import {
   Tracker,
   TrackerExtension,
 } from "../shared";
-import { session } from "packages/@tailjs/client/src/lib";
 
 export type SessionConfiguration = {
   /**
@@ -66,13 +58,16 @@ const applyDefaults = (
 export class TrackerCoreEvents implements TrackerExtension {
   public readonly id = "session";
 
-  constructor(configuration: SessionConfiguration = {}) {}
-
   public async patch(
     events: TrackedEvent[],
     next: NextPatchExtension,
     tracker: Tracker
   ) {
+    if (!tracker.session) {
+      // Do nothing if there is no session. We do not want to start sessions on passive requests (only timing events).
+      return [];
+    }
+
     events = await next(events);
     if (!tracker.sessionId) {
       return events;
@@ -96,7 +91,7 @@ export class TrackerCoreEvents implements TrackerExtension {
       sessionDataUpdates = [];
       deviceDataUpdates = [];
       [sessionData, deviceData] = [
-        tracker._session.value,
+        tracker._session!.value,
         tracker._device?.value,
       ];
       updateData(false, (current) => (current.lastSeen = timestamp));
@@ -123,10 +118,10 @@ export class TrackerCoreEvents implements TrackerExtension {
     };
 
     const flushUpdates = async () => {
-      await tracker.set([
+      await tracker.set(
         sessionDataUpdates.length
           ? {
-              ...tracker._session,
+              ...tracker._session!,
               patch: (current) => ({
                 value:
                   current &&
@@ -149,8 +144,8 @@ export class TrackerCoreEvents implements TrackerExtension {
                   ),
               }),
             }
-          : undefined,
-      ]);
+          : undefined
+      );
       updateSnapshot();
     };
 

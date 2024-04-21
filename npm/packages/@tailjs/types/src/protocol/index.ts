@@ -4,3 +4,4 @@ export * from "./VariableGetter";
 export * from "./VariableSetter";
 export * from "./PostRequest";
 export * from "./PostResponse";
+export * from "./variable-results";

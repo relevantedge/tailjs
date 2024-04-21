@@ -1,4 +1,4 @@
-import { ParsableEnumValue, createEnumAccessor } from "@tailjs/util";
+import { EnumValue, createEnumAccessor } from "@tailjs/util";
 
 // Grrr... We need to write out the calculated numbers for each enum value. Otherwise stupid JSON schema generator won't work.
 
@@ -107,8 +107,10 @@ export const singleDataPurpose = createEnumAccessor(
   "data purpose"
 );
 
-export type DataPurposeValue<Numeric = boolean> = ParsableEnumValue<
-  typeof dataPurposes,
+export type DataPurposeValue<Numeric = boolean> = EnumValue<
+  typeof DataPurposeFlags,
+  DataPurposeFlags,
+  true,
   Numeric
 > extends infer T
   ? T

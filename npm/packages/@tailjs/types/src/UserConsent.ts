@@ -10,16 +10,18 @@ import {
 } from ".";
 
 /** A user's consent choices.  */
-export interface UserConsent<NumericEnums = boolean> {
+export interface UserConsent {
   /**
    * The highest level of data classification the user has consented to be stored.
    */
-  level: DataClassificationValue<NumericEnums>;
+  level: DataClassificationValue;
 
   /**
    * The purposes the user has consented their data to be used for.
+   *
+   * @privacy anonymous
    */
-  purposes: DataPurposeValue<NumericEnums>;
+  purposes: DataPurposeValue;
 }
 
 export const NoConsent: Readonly<UserConsent> = Object.freeze({

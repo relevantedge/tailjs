@@ -79,9 +79,9 @@
               "description": "The number of times the client tried to sent the event if the endpoint timed out",
               "default": 0
             },
-            "related": {
+            "relatedEventId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "The event that caused this event to be triggered or got triggered in the same context. For example a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , or a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } ."
+              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } , and a  {@link  ImpressionSummaryEvent }  applies to a  {@link  ImpressionEvent } ."
             },
             "session": {
               "$ref": "urn:tailjs:core#/definitions/Session",
@@ -104,10 +104,11 @@
       ],
       "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happend, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
       "$id": "urn:tailjs:core:event",
-      "x-privacy-class": "anonymous",
       "x-privacy-purposes": [
         "necessary",
-        "any"
+        "security",
+        "infrastructure",
+        "anonymous"
       ],
       "x-privacy-censor": "ignore"
     },
@@ -139,7 +140,13 @@
       "properties": {
         "sessionId": {
           "$ref": "urn:tailjs:core#/definitions/UUID",
-          "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+          "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.",
+          "x-privacy-purposes": [
+            "necessary",
+            "security",
+            "infrastructure",
+            "anonymous"
+          ]
         },
         "deviceId": {
           "$ref": "urn:tailjs:core#/definitions/UUID",
@@ -151,11 +158,24 @@
         },
         "userId": {
           "type": "string",
-          "description": "The current user owning the session."
+          "description": "The current user owning the session.",
+          "x-privacy-class": "direct"
         },
         "consent": {
           "$ref": "urn:tailjs:core#/definitions/UserConsent",
-          "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less."
+          "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less.",
+          "x-privacy-purposes": [
+            "necessary",
+            "security",
+            "infrastructure",
+            "anonymous"
+          ]
+        },
+        "clientIp": {
+          "type": "string",
+          "description": "The IP address of the device where the session is active.",
+          "x-privacy-class": "indirect",
+          "x-privacy-purpose": "infrastructure"
         },
         "expiredDeviceSessionId": {
           "type": "string",
@@ -168,7 +188,7 @@
       ],
       "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
       "x-privacy-class": "indirect",
-      "x-privacy-purpose": "any"
+      "x-privacy-purpose": "necessary"
     },
     "UUID": {
       "type": "string"
@@ -182,7 +202,13 @@
         },
         "purposes": {
           "$ref": "urn:tailjs:core#/definitions/DataPurposeValue",
-          "description": "The purposes the user has consented their data to be used for."
+          "description": "The purposes the user has consented their data to be used for.",
+          "x-privacy-purposes": [
+            "necessary",
+            "security",
+            "infrastructure",
+            "anonymous"
+          ]
         }
       },
       "required": [
@@ -226,9 +252,6 @@
     "DataPurposeValue": {
       "anyOf": [
         {
-          "type": "number"
-        },
-        {
           "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema.",
           "enum": [
             "none",
@@ -243,14 +266,14 @@
           ]
         },
         {
-          "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposes.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
+          "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
           "enum": [
             "functionality",
             2
           ]
         },
         {
-          "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposes.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
+          "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
           "enum": [
             "performance",
             4
@@ -264,17 +287,24 @@
           ]
         },
         {
-          "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.",
+          "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`.",
           "enum": [
             "security",
             16
           ]
         },
         {
-          "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.",
+          "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`.",
           "enum": [
             "infrastructure",
             32
+          ]
+        },
+        {
+          "description": "All purposes that are permissable for anonymous users.",
+          "enum": [
+            "anonymous",
+            49
           ]
         },
         {
@@ -285,20 +315,12 @@
           ]
         },
         {
-          "type": "string",
-          "const": "any"
-        },
-        {
-          "type": "string",
-          "const": "none"
+          "type": "number"
         },
         {
           "type": "array",
           "items": {
             "anyOf": [
-              {
-                "type": "number"
-              },
               {
                 "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema.",
                 "enum": [
@@ -314,14 +336,14 @@
                 ]
               },
               {
-                "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposes.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
+                "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
                 "enum": [
                   "functionality",
                   2
                 ]
               },
               {
-                "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposes.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
+                "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
                 "enum": [
                   "performance",
                   4
@@ -335,17 +357,24 @@
                 ]
               },
               {
-                "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.",
+                "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`.",
                 "enum": [
                   "security",
                   16
                 ]
               },
               {
-                "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.",
+                "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`.",
                 "enum": [
                   "infrastructure",
                   32
+                ]
+              },
+              {
+                "description": "All purposes that are permissable for anonymous users.",
+                "enum": [
+                  "anonymous",
+                  49
                 ]
               },
               {
@@ -356,12 +385,7 @@
                 ]
               },
               {
-                "type": "string",
-                "const": "any"
-              },
-              {
-                "type": "string",
-                "const": "none"
+                "type": "number"
               }
             ]
           }
@@ -402,7 +426,8 @@
             }
           }
         }
-      ]
+      ],
+      "description": "Implemented by events where it makes sense to know when they happened relative to their tab."
     },
     "Duration": {
       "type": "number"
@@ -851,9 +876,9 @@
               "const": "NAVIGATION",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
-            "id": {
+            "clientId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "The ID of the navigation event. This will be added as  {@link  TrackedEvent.related }  to view event that followed after the navigation."
+              "description": "The ID of the navigation event. This will be added as  {@link  TrackedEvent.relatedEventId }  to view event that followed after the navigation."
             },
             "href": {
               "type": "string",
@@ -882,7 +907,7 @@
           },
           "required": [
             "type",
-            "id",
+            "clientId",
             "href",
             "self"
           ]
@@ -1053,6 +1078,12 @@
             "type"
           ]
         }
+      ],
+      "x-privacy-purposes": [
+        "necessary",
+        "security",
+        "infrastructure",
+        "anonymous"
       ]
     },
     "NamedParameters<typeof isTrackedEvent>": {
@@ -1237,9 +1268,9 @@
               "const": "VIEW",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
-            "id": {
+            "clientId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "The ID of the view event that is referenced by  {@link  ViewContext  } ."
+              "description": "This is set by the client and can be used to dedupplicate events sent multiple times if the endpoint timed out."
             },
             "definition": {
               "$ref": "urn:tailjs:core#/definitions/View",
@@ -1358,11 +1389,12 @@
           },
           "required": [
             "type",
-            "id",
+            "clientId",
             "href"
           ]
         }
-      ]
+      ],
+      "description": "This event is sent whenever a user navigates to a new view (page, screen or similar).\n\nUse  {@link  HeartbeatEvent  }  and  {@link  ViewEndedEvent  }  to determine how long the user was active in the view in processing."
     },
     "View": {
       "allOf": [
@@ -1398,16 +1430,14 @@
               "type": "string",
               "const": "VIEW_ENDED",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
-            },
-            "bounce": {
-              "type": "boolean"
             }
           },
           "required": [
             "type"
           ]
         }
-      ]
+      ],
+      "description": "This event is sent when a user leaves a view (page, screen or similar).\n\nDue to the chaotic and state-less nature of the Internet, there is no guarantee that every  {@link  ViewEvent }  has a matching end event. In case a view has no end event, the most recent  {@link  HeartbeatEvent  }  can be used to approximate when the user left."
     },
     "SessionLocationEvent": {
       "allOf": [
@@ -1439,7 +1469,13 @@
               "$ref": "urn:tailjs:core#/definitions/GeoEntity"
             },
             "country": {
-              "$ref": "urn:tailjs:core#/definitions/GeoEntity"
+              "$ref": "urn:tailjs:core#/definitions/GeoEntity",
+              "x-privacy-purposes": [
+                "necessary",
+                "security",
+                "infrastructure",
+                "anonymous"
+              ]
             },
             "continent": {
               "$ref": "urn:tailjs:core#/definitions/GeoEntity"
@@ -1458,7 +1494,10 @@
             "type"
           ]
         }
-      ]
+      ],
+      "description": "This event is triggered whenever the user's location changes.",
+      "x-privacy-class": "indirect",
+      "x-privacy-purpose": "performance"
     },
     "GeoEntity": {
       "type": "object",
@@ -2030,7 +2069,7 @@
           ]
         }
       ],
-      "description": "An event that may be sent regularaly from the client to indicate how long it has been alive. In case  {@link  ViewEndedEvent } s are not sent or gets lost these heartbeats can be used to approximate page view durations."
+      "description": "An event that is sent whenever a tab loses focus. In addition it may be sent regularly if a user stays in a tab for a long time.\n\nIn case  {@link  ViewEndedEvent } s are not sent or gets lost these heartbeats can be used to approximate page view durations. They also enable live statistics, since duration is tracked before the view ends."
     },
     "ImpressionEvent": {
       "allOf": [
@@ -2044,12 +2083,6 @@
               "type": "string",
               "const": "IMPRESSION",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
-            },
-            "duration": {
-              "$ref": "urn:tailjs:core#/definitions/Duration"
-            },
-            "impressions": {
-              "$ref": "urn:tailjs:core#/definitions/Integer"
             }
           },
           "required": [
@@ -2057,7 +2090,41 @@
           ]
         }
       ],
-      "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the amount of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } ."
+      "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .\n\nUse  {@link  ImpressionSummaryEvent }  in processing to determine for how long the impression lasted, and how many individual impressions there were (the component may have left the viewport and then come back at a later point). Obviously, there was at least one impression if this event happened, so summary the events will not include this first impression."
+    },
+    "ImpressionSummaryEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "IMPRESSION_SUMMARY",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "relatedEventId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } , and a  {@link  ImpressionSummaryEvent }  applies to a  {@link  ImpressionEvent } ."
+            },
+            "duration": {
+              "$ref": "urn:tailjs:core#/definitions/Duration",
+              "description": "The additional duration since the previous summary event."
+            },
+            "impressions": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "The number of additional impressions since the previous summary event. There has already been one impression with the  {@link  ImpressionEvent } , so this only counts additional impressions (component left the viewport, and then come back at a later point.)"
+            }
+          },
+          "required": [
+            "type",
+            "relatedEventId"
+          ]
+        }
+      ],
+      "description": "Provides statistics for an  {@link  ImpressionEvent }  that is referenced via  {@link  TrackedEvent.relatedEventId } .\n\nBoth duration and impressions are deltas, so they can be added to get the total duration and number of impressions in processing."
     },
     "ResetEvent": {
       "allOf": [
@@ -2240,5 +2307,5 @@
     }
   },
   "x-privacy-class": "anonymous",
-  "x-privacy-purpose": "any"
+  "x-privacy-purpose": "necessary"
 }

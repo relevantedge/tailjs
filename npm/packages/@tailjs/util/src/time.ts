@@ -1,38 +1,38 @@
-import {
-  MaybePromise,
-  define,
-  isDefined,
-  isFunction,
-  isNumber,
-  promise,
-  tryCatchAsync,
-} from ".";
+import { MaybePromise, isBoolean, isFunction, promise, tryCatchAsync } from ".";
 
 export let now = () =>
   typeof performance !== "undefined"
     ? Math.trunc(performance.timeOrigin + performance.now())
     : Date.now();
 
-export type CancellableCallback = (cancel: () => void) => MaybePromise<any>;
+export type CancellableCallback<Args extends any[] = []> = (
+  ...args: [...args: Args, cancel: () => void]
+) => MaybePromise<any>;
 
 export type Timer = {
-  (toggle?: boolean): number;
+  (): number;
+  (toggle: boolean, reset?: boolean): number;
 };
 
 export const createTimer = (started = true): Timer => {
   let t0: number | boolean = started && now();
   let elapsed = 0;
-  return (toggle?: boolean) => {
+  let capturedElapsed: number;
+  return (toggle?: boolean, reset?: boolean) => {
     t0 && (elapsed += now() - (t0 as number));
-    isDefined(toggle) && (t0 = toggle && now());
-    return elapsed;
+    capturedElapsed = elapsed;
+    reset && (elapsed = 0);
+    isBoolean(toggle) && (t0 = toggle && now());
+    return capturedElapsed;
   };
 };
+
+export type ClockCallback = CancellableCallback<[delta: number]>;
 
 export interface Clock {
   readonly active: boolean;
   readonly busy: boolean;
-  restart(frequency?: number, callback?: CancellableCallback): Clock;
+  restart(frequency?: number, callback?: ClockCallback): Clock;
   toggle(start: boolean, trigger?: boolean): Clock;
   trigger(skipQueue?: boolean): Promise<boolean>;
 }
@@ -43,14 +43,14 @@ export interface ClockSettings {
   paused?: boolean;
   trigger?: boolean;
   once?: boolean;
-  callback?: CancellableCallback;
+  callback?: ClockCallback;
 }
 
 export const clock: {
-  (callback: CancellableCallback, frequency: number): Clock;
+  (callback: ClockCallback, frequency: number): Clock;
   (settings: ClockSettings): Clock;
 } = (
-  callbackOrSettings: CancellableCallback | ClockSettings,
+  callbackOrSettings: ClockCallback | ClockSettings,
   frequency = 0
 ): Clock => {
   const settings = isFunction(callbackOrSettings)
@@ -71,6 +71,7 @@ export const clock: {
 
   let timeoutId = 0;
   const mutex = promise(true).resolve();
+  const timer = createTimer(!paused);
 
   const outerCallback = async (skipQueue?: boolean) => {
     if (!timeoutId || (!queue && mutex.pending && skipQueue !== true)) {
@@ -83,11 +84,13 @@ export const clock: {
 
     mutex.reset();
     let cancelled = frequency < 0 || once;
-    await tryCatchAsync(
-      () => callback!(() => (cancelled = true)),
-      false,
-      () => mutex.resolve()
-    );
+    cancelled =
+      (await tryCatchAsync(
+        () => callback!(timer(), () => (cancelled = true)),
+        false,
+        () => mutex.resolve()
+      )) === false || cancelled;
+
     if (cancelled) {
       reset(false);
     }
@@ -97,6 +100,7 @@ export const clock: {
   };
 
   const reset = (start: boolean) => {
+    timer(start, !start);
     clearInterval(timeoutId);
     (instance as any).active = !!(timeoutId = start
       ? (setInterval(

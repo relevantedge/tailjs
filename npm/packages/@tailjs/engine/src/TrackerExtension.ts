@@ -1,12 +1,21 @@
 import type { TrackedEvent } from "@tailjs/types";
 import { MaybePromise } from "@tailjs/util";
-import type { ParseResult, Tracker, TrackerEnvironment } from "./shared";
+import type {
+  ParseResult,
+  Tracker,
+  TrackerEnvironment,
+  TrackerPostOptions,
+} from "./shared";
 
 export type NextPatchExtension = (
   events: ParseResult[]
 ) => Promise<TrackedEvent[]>;
 
 export type TrackedEventBatch = TrackedEvent[];
+
+export type TrackerExtensionContext = {
+  passive: boolean;
+};
 
 /**
  * Tracker extensions enable the engine to interface with external systems, typically to store the collected events somewhere.
@@ -32,15 +41,23 @@ export interface TrackerExtension {
 
   initialize?(environment: TrackerEnvironment): MaybePromise<void>;
 
-  apply?(tracker: Tracker): MaybePromise<void>;
+  apply?(
+    tracker: Tracker,
+    context: TrackerExtensionContext
+  ): MaybePromise<void>;
 
   patch?(
     events: TrackedEvent[],
     next: NextPatchExtension,
-    tracker: Tracker
+    tracker: Tracker,
+    context: TrackerExtensionContext
   ): MaybePromise<ParseResult[]>;
 
-  post?(events: TrackedEventBatch, tracker: Tracker): MaybePromise<void>;
+  post?(
+    events: TrackedEventBatch,
+    tracker: Tracker,
+    context: TrackerExtensionContext
+  ): MaybePromise<void>;
 
   getClientScripts?(tracker: Tracker): ClientScript[] | undefined | null;
 }

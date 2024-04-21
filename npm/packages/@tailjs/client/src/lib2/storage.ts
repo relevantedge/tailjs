@@ -1,6 +1,7 @@
 import {
   Binders,
   Listener,
+  MutableValue,
   clear,
   clock,
   createEvent,
@@ -12,7 +13,15 @@ import {
   now,
 } from "@tailjs/util";
 import { createTransport } from "@tailjs/util/transport";
-import { DEBUG, TAB_ID, addPageLoadedListener, error, listen, log } from ".";
+import {
+  DEBUG,
+  TAB_ID,
+  addPageLoadedListener,
+  createLock,
+  error,
+  listen,
+  log,
+} from ".";
 
 export type Metadata<T = any> = [value: T, source?: string, expires?: number];
 
@@ -65,10 +74,7 @@ export interface TypedStorage {
 
 export interface BoundStorage<T = any> {
   get(): T | undefined;
-  set<Undefined extends undefined | never = never>(
-    value: T | undefined,
-    timeout?: number
-  ): T | Undefined;
+  set<Value extends T | undefined>(value: Value, timeout?: number): Value;
   delete(): void;
   update<Undefined extends undefined | T = T>(
     newValue: (current: T | undefined) => T | Undefined,
@@ -78,7 +84,7 @@ export interface BoundStorage<T = any> {
 }
 
 // TODO: Initialize from tailjs.init.
-export const [serialize, deserialize] = createTransport("foo", DEBUG);
+export const [serialize, deserialize] = createTransport("TODO", DEBUG);
 
 export const mapStorage = <P extends StorageProvider>(
   provider: P
@@ -203,6 +209,18 @@ const purgeTask = clock({
 });
 addPageLoadedListener((loaded) => purgeTask.toggle(loaded));
 
+export type StoredValue<T> = {
+  (): T | undefined;
+  <V extends T>(value: V, timeout?: number): V;
+};
+
+export const storedValue =
+  <T>(key: string, storage: TypedStorage = sharedStorage): StoredValue<T> =>
+  (value?: T | undefined, timeout?: number) => (
+    isDefined(value) && (storage.set(key, value, timeout), value),
+    storage.get(key)
+  );
+
 export const bindStorage: {
   <T>(
     key: string,
@@ -221,7 +239,9 @@ export const bindStorage: {
 ): Required<BoundStorage<T>> => ({
   get: () => storage.get<T>(key),
   set: (value, timeout) =>
-    storage.set(key, value as any, timeout ?? defaultTimeout),
+    isUndefined(value)
+      ? storage.delete(key)
+      : storage.set(key, value as any, timeout ?? defaultTimeout),
   delete: () => storage.delete(key),
   update: (updater, timeout) =>
     storage.update(key, updater as any, timeout ?? defaultTimeout),
@@ -229,3 +249,5 @@ export const bindStorage: {
     ? (observer, includeSelf) => storage.observe!(key, observer, includeSelf)
     : undefined!,
 });
+
+//export const createSharedLock = ()=>createLock()

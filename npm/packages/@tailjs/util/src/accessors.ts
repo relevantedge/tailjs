@@ -1,7 +1,7 @@
 import {
   And,
   Extends,
-  GeneralizeContstants,
+  GeneralizeConstants,
   If,
   IsAny,
   Minus,
@@ -114,6 +114,11 @@ const updateSingle = (target: any, key: any, value: any) =>
   setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
 
 const setSingle = (target: any, key: any, value: any) => {
+  if (target.constructor === Object) {
+    value === undefined ? delete target[key] : (target[key] = value);
+    return value;
+  }
+
   value === undefined
     ? target.delete
       ? target.delete(key)
@@ -166,7 +171,7 @@ export const get: {
   >(
     target: T,
     key: K,
-    initializer: R
+    init: R
   ): ValueType<
     T,
     K,
@@ -179,7 +184,7 @@ export const get: {
 >(
   target: T,
   key: K | undefined,
-  initializer?: (() => R) | R
+  init?: Wrapped<R>
 ) => {
   if (!target) return undefined as any;
 
@@ -189,10 +194,9 @@ export const get: {
     ? (target as any).has(key)
     : target[key as any];
 
-  if (isUndefined(value) && isDefined(initializer)) {
-    isDefined(
-      (value = isFunction(initializer) ? (initializer as any)() : initializer)
-    ) && setSingle(target, key, value);
+  if (isUndefined(value) && isDefined(init)) {
+    isDefined((value = isFunction(init) ? (init as any)() : init)) &&
+      setSingle(target, key, value);
   }
   return value;
 };
@@ -211,8 +215,8 @@ type UpdateFunction<
       current: Current,
       key: Key,
       target: T
-    ) => GeneralizeContstants<ValueType<T, Key>> | undefined
-  : (key: Key, target: T) => GeneralizeContstants<ValueType<T, Key>>;
+    ) => GeneralizeConstants<ValueType<T, Key>> | undefined
+  : (key: Key, target: T) => GeneralizeConstants<ValueType<T, Key>>;
 
 type Updater<
   T extends ReadonlyPropertyContainer,
@@ -387,11 +391,11 @@ type AssignRecord<T, S> = {
       ? AnyValue<S | T, P>
       : P extends keyof T
       ? S[P] extends T[P]
-        ? GeneralizeContstants<S[P]> extends T[P]
-          ? GeneralizeContstants<S[P]>
+        ? GeneralizeConstants<S[P]> extends T[P]
+          ? GeneralizeConstants<S[P]>
           : S[P]
         : never
-      : GeneralizeContstants<S[P]>
+      : GeneralizeConstants<S[P]>
     : P extends keyof T
     ? T[P]
     : never;
@@ -761,7 +765,7 @@ export const pick = <T, Selectors extends PropertySelector<T>[], U>(
   ) as any;
 };
 
-export type Wrapped<T> = T | (() => Wrapped<T>);
+export type Wrapped<T> = T | (() => T);
 
 export type AsyncWrapped<T> = PromiseLike<
   T | (() => Wrapped<T>) | ((arg: any, ...args: any) => never)
@@ -792,13 +796,18 @@ export const unlock = <T extends ReadonlyPropertyContainer>(
   ? SetLike<T>
   : T => readonly as any;
 
-export const wrapFunction = <F extends ((...args: any) => any) | undefined>(
-  original: F,
+export const wrap = <T>(
+  original: T,
   wrap: (
-    original: NonNullable<F>,
-    ...args: Parameters<NonNullable<F>>
-  ) => ReturnType<NonNullable<F>>
-): F => original && (((...args: any) => wrap(original, ...args)) as any);
+    original: T extends (...args: any) => any ? T : () => T,
+    ...args: T extends (...args: infer Args) => any ? Args : []
+  ) => T extends (...args: any) => infer R ? R : T
+): T =>
+  isUndefined(original)
+    ? original
+    : isFunction(original)
+    ? (...args: any) => wrap(original as any, ...args)
+    : (wrap as any)(() => original as any);
 
 export const clone = <T>(value: T, depth: number | boolean = true): T =>
   isObject(value, true)

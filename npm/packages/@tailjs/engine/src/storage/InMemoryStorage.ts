@@ -5,23 +5,22 @@ import {
   VariableGetResult,
   VariableGetResults,
   VariableGetter,
+  VariableGetters,
   VariableKey,
   VariableQueryOptions,
   VariableResultStatus,
   VariableScope,
-  VariableScopeValue,
   VariableSetResult,
   VariableSetResults,
+  VariableSetters,
   VersionedVariableKey,
-  dataClassification,
   dataPurposes,
+  extractKey,
   formatKey,
   isVariablePatch,
   parseKey,
-  toNumericVariable,
+  toNumericVariableEnums,
   variableScope,
-  VariableSetParameter,
-  VariableGetParameter,
 } from "@tailjs/types";
 import {
   Clock,
@@ -31,15 +30,15 @@ import {
   forEach,
   isDefined,
   isUndefined,
-  map,
   now,
   rank,
   some,
+  unwrap,
 } from "@tailjs/util";
-import { applyPatchOffline, copy, extractKey, variableId } from "../lib";
+import { applyPatch, copy, variableId } from "../lib";
 
 import { VariableStorage, VariableStorageContext } from "..";
-import { ValidatingVariableStorage } from "./ValidatingVariableStorage";
+import { ParsingVariableStorage } from "./ParsingVariableStorage";
 
 export type ScopeVariables = [
   expires: number | undefined,
@@ -104,7 +103,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       true
     )!;
 
-    variable = toNumericVariable(variable);
+    variable = toNumericVariableEnums(variable);
 
     const ttl = this._ttl?.[variable.scope];
     scopeValues[0] = ttl ? (timestamp ?? now()) + ttl : undefined;
@@ -121,8 +120,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   private _query(
-    filters: VariableFilter[],
-    settings?: VariableQueryOptions
+    filters: VariableFilter<true>[],
+    settings?: VariableQueryOptions<true>
   ): Variable<any, true>[] {
     const results = new Set<Variable<any, true>>();
     const timestamp = now();
@@ -145,17 +144,12 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         const { purposes, classification, tags } = queryFilter;
         if (
           !variable ||
-          (variable.purposes &&
-            purposes &&
-            !(variable.purposes & dataPurposes.parse(purposes))) ||
+          (variable.purposes && purposes && !(variable.purposes & purposes)) ||
           (classification &&
-            (variable.classification <
-              dataClassification.parse(classification.min)! ||
-              variable.classification >
-                dataClassification.parse(classification.max)! ||
+            (variable.classification < classification.min! ||
+              variable.classification > classification.max! ||
               classification.levels?.some(
-                (level) =>
-                  variable.classification === dataClassification.parse(level)
+                (level) => variable.classification === level
               ) === false)) ||
           (tags &&
             (!variable.tags ||
@@ -178,9 +172,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
 
         return true;
       };
-      for (const scope of map(queryFilter.scopes, (scope) =>
-        variableScope.parse(scope)
-      ) ?? variableScope.values) {
+      for (const scope of queryFilter.scopes ?? variableScope.values) {
         for (const [, scopeVars] of queryFilter.targetIds?.map(
           (targetId) =>
             [targetId, this._getScopeVariables(scope, targetId, false)] as const
@@ -233,7 +225,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   public renew(
     scope: VariableScope,
     targetIds: string[],
-    context?: VariableStorageContext<true>
+    context?: VariableStorageContext
   ) {
     const timestamp = now();
 
@@ -249,12 +241,12 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   public configureScopeDurations(
-    durations: Partial<Record<VariableScopeValue<false>, number>>,
-    context?: VariableStorageContext<true>
+    durations: Partial<Record<VariableScope, number>>,
+    context?: VariableStorageContext
   ): MaybePromise<void> {
     this._ttl ??= {};
     for (const [scope, duration] of Object.entries(durations).map(
-      ([scope, duration]) => [variableScope.parse(scope), duration]
+      ([scope, duration]) => [+scope, duration]
     )) {
       duration! > 0 ? (this._ttl![scope] = duration) : delete this._ttl![scope];
     }
@@ -281,13 +273,10 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       : copy(variable);
   }
 
-  public async get<
-    K extends VariableGetParameter<true>,
-    C extends VariableStorageContext<true>
-  >(
-    getters: K | VariableGetParameter<true>,
-    context?: VariableStorageContext<true>
-  ): Promise<VariableGetResults<K, C>> {
+  public async get<K extends VariableGetters<true>>(
+    getters: VariableGetters<true, K>,
+    context?: VariableStorageContext
+  ): Promise<VariableGetResults<K>> {
     const variables = getters.map((getter) => ({
       current:
         getter &&
@@ -301,8 +290,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     for (const [item, i] of rank(variables)) {
       if (!item.getter) continue;
       if (!item.current) {
-        if (item.getter?.initializer) {
-          const initialValue = await item.getter.initializer();
+        if (item.getter?.init) {
+          const initialValue = await unwrap(item.getter.init);
           if (initialValue?.value) {
             // Check if the variable has been created by someone else while the initializer was running.
 
@@ -348,21 +337,21 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       } as VariableGetResult);
     }
 
-    return results as VariableGetResults<K, C>;
+    return results as VariableGetResults<K>;
   }
 
   public head(
-    filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined,
-    context?: VariableStorageContext<true>
+    filters: VariableFilter<true>[],
+    options?: VariableQueryOptions<true> | undefined,
+    context?: VariableStorageContext
   ) {
     return this.query(filters, options);
   }
 
   public query(
-    filters: VariableFilter[],
-    options?: VariableQueryOptions,
-    context?: VariableStorageContext<true>
+    filters: VariableFilter<true>[],
+    options?: VariableQueryOptions<true>,
+    context?: VariableStorageContext
   ) {
     const results = this._query(filters, options);
     return {
@@ -375,16 +364,13 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     };
   }
 
-  public async set<
-    Setters extends VariableSetParameter<true>,
-    C extends VariableStorageContext<true>
-  >(
-    variables: Setters | VariableSetParameter<true>,
-    context?: C
-  ): Promise<VariableSetResults<Setters, C>> {
+  public async set<Setters extends VariableSetters<true>>(
+    variables: Setters | VariableSetters<true>,
+    context?: VariableStorageContext
+  ): Promise<VariableSetResults<Setters>> {
     const timestamp = now();
     const results: (VariableSetResult | undefined)[] = [];
-    for (const source of variables.map(toNumericVariable)) {
+    for (const source of variables.map(toNumericVariableEnums)) {
       this._validateKey(source);
 
       if (!source) {
@@ -419,8 +405,8 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           continue;
         }
 
-        const patched = toNumericVariable(
-          await applyPatchOffline(current, source)
+        const patched = toNumericVariableEnums(
+          await applyPatch(current, source)
         );
 
         if (!isDefined(patched)) {
@@ -434,7 +420,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         classification = patched.classification ?? classification;
         purposes = patched.purposes ?? purposes;
         value = patched.value;
-      } else if (current?.version !== version) {
+      } else if (!source.force && current?.version !== version) {
         results.push({
           status: VariableResultStatus.Conflict,
           source,
@@ -486,12 +472,12 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       );
     }
 
-    return results as VariableSetResults<Setters, C>;
+    return results as VariableSetResults<Setters>;
   }
 
   public purge(
-    filters: VariableFilter[],
-    context?: VariableStorageContext<true>
+    filters: VariableFilter<true>[],
+    context?: VariableStorageContext
   ) {
     for (const variable of this._query(filters)) {
       this._remove(variable);
@@ -540,9 +526,5 @@ export class InMemoryStorage extends InMemoryStorageBase {
     scope: VariableScope
   ): Iterable<[string, ScopeVariables]> {
     return this._variables[scope] ?? [];
-  }
-
-  public asValidating() {
-    return new ValidatingVariableStorage(this);
   }
 }
