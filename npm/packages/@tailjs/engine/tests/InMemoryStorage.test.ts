@@ -4,13 +4,12 @@ import {
   VariableKey,
   VariableResultStatus,
   VariableSetResult,
-  handleResultErrors,
 } from "@tailjs/types";
-import { InMemoryStorage } from "../src";
+import { InMemoryStorage, ParsingVariableStorage } from "../src";
 
 describe("Variable stores store.", () => {
   it("InMemoryStore handles get/set.", async () => {
-    const store = new InMemoryStorage().asValidating();
+    const store = new ParsingVariableStorage(new InMemoryStorage());
 
     const key: VariableKey = {
       key: "test",
@@ -25,7 +24,7 @@ describe("Variable stores store.", () => {
             classification: "direct",
             value: "test",
           },
-        ])
+        ]).all
       )[0].status
     ).toBe(VariableResultStatus.Created);
 
@@ -41,7 +40,7 @@ describe("Variable stores store.", () => {
     );
 
     expect(
-      (await store.get(sessionKeys)).map((result) => result.status)
+      (await store.get(sessionKeys).all).map((result) => result.status)
     ).toEqual([
       VariableResultStatus.NotFound,
       VariableResultStatus.NotFound,
@@ -54,7 +53,7 @@ describe("Variable stores store.", () => {
         classification: "direct",
         value: `test${i}`,
       }))
-    );
+    ).all;
     expect(
       setSessions.map((result) => [result.status, result.current?.value])
     ).toEqual([
@@ -71,7 +70,7 @@ describe("Variable stores store.", () => {
             key: "foobar",
             target: "foo",
 
-            initializer: () => ({
+            init: () => ({
               classification: "anonymous",
               purposes: "necessary",
               value: 10,
@@ -91,71 +90,64 @@ describe("Variable stores store.", () => {
       purposes: "any",
     };
 
-    const store = new InMemoryStorage().asValidating();
+    const store = new ParsingVariableStorage(new InMemoryStorage());
 
-    let result = handleResultErrors(
+    let result = (
       await store.set([{ ...key, value: "version1" }])
-    )[0] as VariableSetResult;
+    )[0] as any as VariableSetResult | undefined;
+
     expect(result?.status).toBe(VariableResultStatus.Created);
 
     expect(
-      (result = (
-        await store.set([{ ...key, value: "version1" }], { throw: false })
-      )[0])?.status
+      (result = (await store.set([{ ...key, value: "version1" }]).all)[0])
+        ?.status
     ).toBe(VariableResultStatus.Conflict);
 
     let firstVersion = result.current?.version;
     expect([!!firstVersion, result.current?.value]).toEqual([true, "version1"]);
     expect(
-      (result = (
-        await store.set([
-          { ...key, value: "version2", version: result.current!.version },
-        ])
-      )[0])?.status
+      (result = await store.set([
+        { ...key, value: "version2", version: result.current!.version },
+      ])[0])?.status
     ).toBe(VariableResultStatus.Success);
-    expect(result.current?.version).toBeDefined();
-    expect(result.current?.version).not.toBe(firstVersion);
+    expect(result?.current?.version).toBeDefined();
+    expect(result?.current?.version).not.toBe(firstVersion);
 
     expect(
-      (result = (
-        await store.set([
-          { ...key, patch: (current) => ({ value: current?.value + ".1" }) },
-        ])
-      )[0])?.status
+      (result = await store.set([
+        { ...key, patch: (current) => ({ value: current?.value + ".1" }) },
+      ])[0])?.status
     ).toBe(VariableResultStatus.Success);
 
-    expect(result.current?.value).toBe("version2.1");
+    expect(result?.current?.value).toBe("version2.1");
 
     expect(
-      (result = (
-        await store.set([
-          {
-            ...key,
-            patch: { type: "ifMatch", match: undefined, value: "version3" },
-          },
-        ])
-      )[0])?.status
+      (result = await store.set([
+        {
+          ...key,
+          patch: { type: "ifMatch", match: undefined, value: "version3" },
+        },
+      ])[0])?.status
     ).toBe(VariableResultStatus.Unchanged);
-    expect(result.current?.value).toBe("version2.1");
+    expect(result?.current?.value).toBe("version2.1");
 
     expect(
-      (result = (
-        await store.set([
-          {
-            ...key,
-            patch: { type: "ifMatch", match: "version2.1", value: "version3" },
-          },
-        ])
-      )[0])?.status
+      (result = await store.set([
+        {
+          ...key,
+          patch: { type: "ifMatch", match: "version2.1", value: "version3" },
+        },
+      ])[0])?.status
     ).toBe(VariableResultStatus.Success);
-    expect(result.current?.value).toBe("version3");
+    expect(result?.current?.value).toBe("version3");
 
-    const currentVersion = result.current?.version;
+    const currentVersion = result?.current?.version;
     expect(
-      (await store.get([{ ...key, version: currentVersion }]))[0].status
+      (await store.get([{ ...key, version: currentVersion }])[0])?.status
     ).toBe(VariableResultStatus.Unchanged);
     expect(
-      (await store.get([{ ...key, version: currentVersion + "not" }]))[0].status
+      (await store.get([{ ...key, version: currentVersion + "not" }])[0])
+        ?.status
     ).toBe(VariableResultStatus.Success);
   });
 
@@ -167,7 +159,7 @@ describe("Variable stores store.", () => {
       purposes: "necessary",
       key: "",
     };
-    const store = new InMemoryStorage().asValidating();
+    const store = new ParsingVariableStorage(new InMemoryStorage());
 
     await store.set([
       { ...target, key: "key1", value: "value1" },

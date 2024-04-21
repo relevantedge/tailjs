@@ -69,6 +69,22 @@ describe("Sparse HTTP encoding.", () => {
   });
 
   it("decodes encoded (all types).", () => {
+    encodeDecode([
+      1,
+      2,
+      3,
+      1.1,
+      1e-16,
+      0.9999999999999999,    
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_VALUE,
+      Number.MIN_SAFE_INTEGER,
+      Number.MIN_VALUE,
+      Number.NEGATIVE_INFINITY,
+      Number.POSITIVE_INFINITY,
+      Number.NaN,
+    ]);
+
     encodeDecode({ test: 10 });
     encodeDecode("test");
     encodeDecode([

@@ -1,14 +1,39 @@
-import { TrackedEvent } from "..";
+import { Nullish } from "@tailjs/util";
+import {
+  RestrictVariableTargets,
+  StripPatchFunctions,
+  TrackedEvent,
+  VariableGetter,
+  VariableSetter,
+} from "..";
 
 export interface PostRequest {
   /** New events to add. */
   events?: TrackedEvent[];
 
-  /** Variables to set. */
+  /** Results from variable operations. */
   variables?: {
-    // get: TrackerVariableFilter;
-    // set: TrackerVariable;
+    get?: readonly (
+      | RestrictVariableTargets<
+          StripPatchFunctions<VariableGetter<any, false>>,
+          true
+        >
+      | Nullish
+    )[];
+    set?: readonly (
+      | RestrictVariableTargets<
+          StripPatchFunctions<VariableSetter<any, false>>,
+          true
+        >
+      | Nullish
+    )[];
   };
+
+  /**
+   * The client will not process the response. This is used by the web client to send timing events when a tab loses focus.
+   * Sessions are not created on these requests, and extensions such as client location should ignore the request.
+   */
+  passive?: boolean;
 
   /**
    * A client-generated session ID.

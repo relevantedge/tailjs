@@ -6,6 +6,7 @@ import {
   NotFunction,
   OmitNullish,
   Wrapped,
+  hasProperty,
   isArray,
   isBoolean,
   isDefined,
@@ -134,19 +135,53 @@ export const tryCatch = <T, C = undefined>(
   }
 };
 
-export const tryCatchAsync = async <T, C = void>(
-  expression: Wrapped<MaybePromise<T>>,
-  errorHandler:
+export const thenable = <T>(
+  expression: Wrapped<MaybePromise<T>>
+): PromiseLike<T> => ({
+  then: thenMethod(expression),
+});
+
+export const thenMethod =
+  <T>(
+    expression: Wrapped<MaybePromise<T>>
+  ): (<TResult1 = T, TResult2 = never>(
+    onfulfilled?:
+      | ((value: T) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ) => PromiseLike<TResult1 | TResult2>) =>
+  (onfullfilled?, onrejected?) =>
+    tryCatchAsync(expression, [onfullfilled, onrejected]);
+
+export const tryCatchAsync = async <
+  T,
+  C = void,
+  E extends
     | boolean
-    | ((error: any, last: boolean) => Promise<C> | C) = true as any,
+    | ((error: any, last: boolean) => MaybePromise<C>)
+    | readonly [
+        onfullfilled?: ((value: T) => MaybePromise<T1>) | undefined | null,
+        onrejected?: ((reason: any) => MaybePromise<C>) | null | undefined
+      ] = true,
+  T1 = T
+>(
+  expression: Wrapped<MaybePromise<T>>,
+  errorHandler: E = true as any,
   clean?: () => void,
   retries = 1
-): Promise<T | C> => {
+): Promise<T1 | C> => {
   while (retries--) {
     try {
-      return (await unwrap(expression)) as any;
+      const result = (await unwrap(expression)) as any;
+      return isArray(errorHandler) ? errorHandler[0]?.(result) : result;
     } catch (e) {
       if (!isBoolean(errorHandler)) {
+        if (isArray(errorHandler)) return errorHandler[1]?.(e) as any;
+
         const error = (await errorHandler?.(e, !retries)) as any;
         if (error instanceof Error) throw error;
         return error;
@@ -161,3 +196,12 @@ export const tryCatchAsync = async <T, C = void>(
   }
   return undefined as any;
 };
+
+/**
+ *  No-op function to validate types in TypeScript. Because function parameters are contravariant, passing an event that does not match on all properties will get red wiggly lines)
+ *
+ */
+export const restrict: {
+  <T extends any[] | undefined>(item: T extends (infer T)[] ? T : never);
+  <T>(item: T): T;
+} = (item: any) => item as any;

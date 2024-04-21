@@ -1,7 +1,8 @@
 import {
+  EnumValue,
   MaybeUndefined,
   Nullish,
-  ParsableEnumValue,
+  PrettifyIntersection,
   createEnumAccessor,
   isUndefined,
 } from "@tailjs/util";
@@ -20,20 +21,20 @@ export enum VariableScope {
   /** Global variables. */
   Global = 0,
 
-  /** Variables related to sessions. */
-  Session = 1,
-
-  /** Variables related to a device (browser or app). */
-  Device = 2,
-
-  /** Variables related to an identified user. */
-  User = 3,
-
   /**
    * Variables related to an external identity.
    * One use case could be used to augment data a CMS with real-time data related to personalization or testing.
    */
-  Entity = 4,
+  Entity = 1,
+
+  /** Variables related to sessions. */
+  Session = 2,
+
+  /** Variables related to a device (browser or app). */
+  Device = 3,
+
+  /** Variables related to an identified user. */
+  User = 4,
 }
 
 export const variableScope = createEnumAccessor(
@@ -43,7 +44,9 @@ export const variableScope = createEnumAccessor(
 );
 
 export type VariableScopeValue<Numeric extends boolean | undefined = boolean> =
-  ParsableEnumValue<typeof variableScope, Numeric>;
+  EnumValue<typeof VariableScope, VariableScope, false, Numeric> extends infer T
+    ? T
+    : never;
 
 /** Transforms properties with known enum types to their parsable counterparts. */
 export type Parsable<T, Numeric extends boolean | undefined = boolean> = {
@@ -78,6 +81,65 @@ export interface VariableKey<NumericEnums extends boolean = boolean> {
    */
   targetId?: string;
 }
+
+type RestrictVariableItemTargets<
+  T extends readonly any[],
+  LocalScopes extends boolean
+> = T extends readonly []
+  ? []
+  : T extends [infer Item, ...infer Rest]
+  ? [
+      RestrictVariableTargets<Item, LocalScopes>,
+      ...RestrictVariableItemTargets<Rest, LocalScopes>
+    ]
+  : T extends readonly (infer T)[]
+  ? RestrictVariableTargets<T, LocalScopes>[]
+  : never;
+
+export type RestrictVariableTargets<
+  T,
+  LocalScopes extends boolean = true
+> = boolean extends LocalScopes
+  ? T
+  : T extends readonly any[]
+  ? RestrictVariableItemTargets<T, LocalScopes>
+  : PrettifyIntersection<
+      T extends { scope: any; targetId?: any }
+        ? T &
+            (
+              | {
+                  scope:
+                    | VariableScope.Global
+                    | "global"
+                    | (LocalScopes extends true
+                        ?
+                            | VariableScope.User
+                            | "user"
+                            | VariableScope.Device
+                            | "device"
+                            | VariableScope.Session
+                            | "session"
+                        : never);
+                  targetId?: undefined;
+                }
+              | {
+                  scope:
+                    | (LocalScopes extends true
+                        ? never
+                        :
+                            | VariableScope.User
+                            | "user"
+                            | VariableScope.Device
+                            | "device"
+                            | VariableScope.Session
+                            | "session")
+                    | VariableScope.Entity
+                    | "entity";
+                  targetId: string;
+                }
+            )
+        : T
+    >;
 
 /**
  * A {@link VariableKey} that optionally includes the expected version of a variable value.
@@ -243,7 +305,7 @@ const enumProperties = [
   ["classification", dataClassification],
 ] as const;
 
-export const toNumericVariable: <T>(value: T) => T extends Nullish
+export const toNumericVariableEnums: <T>(value: T) => T extends Nullish
   ? T
   : {
       [P in keyof T]: EnumPropertyType<P, T[P], typeof enumProperties>;
@@ -251,8 +313,27 @@ export const toNumericVariable: <T>(value: T) => T extends Nullish
   if (!value) return value;
 
   enumProperties.forEach(
-    ([prop, helper]) => (value[prop] = helper.parse(value[prop]))
+    ([prop, helper]) =>
+      value[prop] !== undefined && (value[prop] = helper.parse(value[prop]))
   );
 
   return value as any;
 };
+
+export const extractKey = <T extends VariableKey>(
+  variable: T,
+  classificationSource?: T extends VariableKey<infer NumericEnums>
+    ? VariableClassification<NumericEnums>
+    : never
+): T extends undefined ? undefined : T & VariableKey<true> =>
+  variable
+    ? ({
+        scope: variableScope(variable.scope),
+        targetId: variable.targetId,
+        key: variable.key,
+        ...(classificationSource && {
+          classification: classificationSource.classification,
+          purposes: classificationSource.purposes,
+        }),
+      } as Required<VariableKey> as any)
+    : undefined;

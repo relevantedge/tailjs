@@ -5,43 +5,56 @@ import {
   DataPurposeFlags,
   DataPurposeValue,
   PostResponse,
+  RestrictVariableTargets,
   Session,
   Timestamp,
   TrackedEvent,
   Variable,
   VariableFilter,
-  VariableGetParameter,
   VariableGetResults,
+  VariableGetSuccessResult,
   VariableGetter,
+  VariableGetters,
   VariableHeader,
   VariableKey,
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultStatus,
   VariableScope,
-  VariableSetParameter,
+  VariableSetters,
   VariableSetResult,
   VariableSetResults,
   VariableSetter,
   dataClassification,
   dataPurposes,
+  isSuccessResult,
   variableScope,
+  ArrayOrSingle,
+  VariableGetResult,
+  getSuccessResults,
+  VariableResultPromise,
+  toVariableResultPromise,
+  VariableSuccessResults,
+  extractKey,
+  VariableClassification,
 } from "@tailjs/types";
 import {
   MaybeArray,
   MaybePromise,
   Nullish,
   PartialRecord,
+  PickPartial,
   filter,
   forEach,
   isArray,
   isDefined,
   isNumber,
+  map,
   now,
   update,
 } from "@tailjs/util";
 import { Transport, createTransport } from "@tailjs/util/transport";
-import { ReadOnlyRecord, map, params, unparam } from "./lib";
+import { ReadOnlyRecord, params, unparam } from "./lib";
 import {
   Cookie,
   HttpRequest,
@@ -79,6 +92,7 @@ export type TrackerPostOptions = {
   deviceSessionId?: string;
   deviceId?: string;
   userId?: string;
+  passive?: boolean;
 };
 
 const SCOPE_DATA_KEY = "_data";
@@ -91,10 +105,18 @@ export interface ScopeData {
   isNew?: boolean;
 }
 
+export type TrackerVariableGetter<T = any> = RestrictVariableTargets<
+  VariableGetter<T, false>
+>;
+
+export type TrackerVariableSetter<T = any> = RestrictVariableTargets<
+  VariableSetter<T, false>
+>;
+
 const createInitialScopeData = <T extends ScopeData>(
   id: string,
   timestamp: Timestamp,
-  additionalData: Omit<T, "id" | "consent" | "firstSeen" | "lastSeen" | "views">
+  additionalData: Omit<T, keyof ScopeData>
 ): T =>
   ({
     id,
@@ -112,9 +134,9 @@ export interface SessionData extends ScopeData {
   previousSession?: Timestamp;
 }
 
-export interface InternalSessionData extends SessionData {
+export type InternalSessionData = SessionData & {
   hasUserAgent?: boolean;
-}
+};
 
 export interface DeviceData extends ScopeData {
   sessions: number;
@@ -168,6 +190,12 @@ export class Tracker {
   public readonly requestItems: Map<any, any>;
   /** Transient variables that can be used by extensions whilst processing a request. */
   public readonly transient: Record<string, any>;
+
+  /** Variables that have been added or updated during the request (cf. {@link TrackerStorageContext.push}). */
+  private readonly _changedVariables: PickPartial<
+    VariableGetSuccessResult,
+    keyof VariableClassification
+  >[] = [];
 
   private readonly _clientCipher: Transport;
 
@@ -229,7 +257,7 @@ export class Tracker {
   public _sessionReferenceId: string;
 
   /** @internal */
-  public _session: Variable<InternalSessionData>;
+  public _session: Variable<InternalSessionData> | undefined;
 
   /** @internal */
   public _device?: Variable<DeviceData>;
@@ -262,16 +290,20 @@ export class Tracker {
     return `${this._requestId}`;
   }
 
-  public get session(): Readonly<SessionData> {
-    return this._session.value!;
+  public get initialized() {
+    return this._initialized;
   }
 
-  public get sessionId(): string {
-    return this.session.id;
+  public get session(): Readonly<SessionData> | undefined {
+    return this._session?.value;
+  }
+
+  public get sessionId(): string | undefined {
+    return this.session?.id;
   }
 
   public get deviceSessionId() {
-    return this._session.value?.deviceSessionId;
+    return this._session?.value?.deviceSessionId;
   }
 
   public get device(): Readonly<DeviceData> | undefined {
@@ -279,11 +311,11 @@ export class Tracker {
   }
 
   public get deviceId() {
-    return this._session.value?.deviceId;
+    return this._session?.value?.deviceId;
   }
 
   public get authenticatedUserId() {
-    return this._session.value?.userId;
+    return this._session?.value?.userId;
   }
 
   public httpClientEncrypt(value: any): string {
@@ -295,12 +327,14 @@ export class Tracker {
   }
 
   /** @internal */
-  public async _applyExtensions(deviceSessionId?: string, deviceId?: string) {
-    await this._initialize(deviceSessionId, deviceId);
+  public async _applyExtensions(options: TrackerPostOptions) {
+    await this._initialize(options.deviceSessionId, options.deviceId);
     if (this._extensionState === ExtensionState.Pending) {
       this._extensionState = ExtensionState.Applying;
       try {
-        await this._requestHandler.applyExtensions(this);
+        await this._requestHandler.applyExtensions(this, {
+          passive: !!options.passive,
+        });
       } finally {
         this._extensionState = ExtensionState.Done;
         if (this._eventQueue.length) {
@@ -352,7 +386,13 @@ export class Tracker {
       return {};
     }
 
-    return await this._requestHandler.post(this, events, options);
+    const result = await this._requestHandler.post(this, events, options);
+    if (this._changedVariables.length) {
+      ((result.variables ??= {}).get ??= []).push(
+        ...(this._changedVariables as any)
+      );
+    }
+    return result;
   }
 
   // #region DeviceData
@@ -441,7 +481,11 @@ export class Tracker {
    * (so yes, they can hypothetically be split across the same tab even though that goes against the definition).
    *
    * @internal */
-  public async _initialize(deviceId?: string, deviceSessionId?: string) {
+  public async _initialize(
+    deviceId?: string,
+    deviceSessionId?: string,
+    passive?: boolean
+  ) {
     if (this._initialized === (this._initialized = true)) {
       return false;
     }
@@ -461,7 +505,10 @@ export class Tracker {
         dataPurposes.tryParse(consentData[1].split(",")) ??
         DataPurposeFlags.Necessary,
     };
-    await this._ensureSession(timestamp, deviceId, deviceSessionId);
+
+    await this._ensureSession(timestamp, deviceId, deviceSessionId, {
+      passive,
+    });
   }
 
   public async reset(
@@ -478,19 +525,22 @@ export class Tracker {
         DataPurposeFlags.Necessary
       );
     }
-    await this._ensureSession(
-      referenceTimestamp ?? now(),
-      deviceId,
-      deviceSessionId,
-      session,
-      device
-    );
+    if (this._session) {
+      await this._ensureSession(
+        referenceTimestamp ?? now(),
+        deviceId,
+        deviceSessionId,
+        { resetSession: session, resetDevice: device }
+      );
+    }
   }
 
   public async updateConsent(
     level?: DataClassificationValue,
     purposes?: DataPurposeValue
   ): Promise<void> {
+    if (!this._session) return;
+
     level = dataClassification.parse(level) ?? this.consent.level;
     purposes = dataPurposes.parse(purposes) ?? this.consent.purposes;
 
@@ -543,8 +593,7 @@ export class Tracker {
     timestamp: number,
     deviceId?: string,
     deviceSessionId?: string,
-    resetSession?: boolean,
-    resetDevice?: boolean
+    { passive = false, resetSession = false, resetDevice = false } = {}
   ) {
     const previousDeviceSessionId = this.deviceSessionId;
 
@@ -586,85 +635,84 @@ export class Tracker {
         await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
     }
 
+    const x = this.get({
+      key: "test",
+      scope: "device",
+      init: { value: 32 },
+    }).value;
+
     this._session =
       // We bypass the TrackerVariableStorage here and uses the environment
       // becaues we use a different target ID than the unique session ID when doing cookie-less tracking.
-      (
-        await this.env.storage.get([
-          {
-            scope: VariableScope.Session,
-            key: SCOPE_DATA_KEY,
-            targetId: this._sessionReferenceId,
-            initializer: async () => {
-              let cachedDeviceData: DeviceData | undefined;
-              if (this.consent.level > DataClassification.Anonymous) {
-                cachedDeviceData = resetDevice
-                  ? undefined
-                  : (this._getClientDeviceVariables()?.[SCOPE_DATA_KEY]
-                      ?.value as DeviceData);
-              }
+      await this.env.storage.get([
+        {
+          scope: VariableScope.Session,
+          key: SCOPE_DATA_KEY,
+          targetId: this._sessionReferenceId,
+          init: async () => {
+            if (passive) return undefined;
 
-              return {
-                classification: DataClassification.Anonymous,
-                purpose: DataPurposeFlags.Necessary,
-                value: createInitialScopeData<InternalSessionData>(
-                  (sessionId ??= await this.env.nextId()),
-                  timestamp,
-                  {
-                    deviceId:
-                      this._consent.level > DataClassification.Anonymous
-                        ? deviceId ??
-                          (resetDevice ? undefined : cachedDeviceData?.id) ??
-                          (await this.env.nextId("device"))
-                        : undefined,
-                    deviceSessionId:
-                      deviceSessionId ??
-                      (await this.env.nextId("device-session")),
-                    previousSession: cachedDeviceData?.lastSeen,
-                    hasUserAgent: false,
-                  }
-                ),
-              };
-            },
+            let cachedDeviceData: DeviceData | undefined;
+            if (this.consent.level > DataClassification.Anonymous) {
+              cachedDeviceData = resetDevice
+                ? undefined
+                : (this._getClientDeviceVariables()?.[SCOPE_DATA_KEY]
+                    ?.value as DeviceData);
+            }
+
+            return {
+              classification: DataClassification.Anonymous,
+              purpose: DataPurposeFlags.Necessary,
+              value: createInitialScopeData<InternalSessionData>(
+                (sessionId ??= await this.env.nextId()),
+                timestamp,
+                {
+                  deviceId:
+                    this._consent.level > DataClassification.Anonymous
+                      ? deviceId ??
+                        (resetDevice ? undefined : cachedDeviceData?.id) ??
+                        (await this.env.nextId("device"))
+                      : undefined,
+                  deviceSessionId:
+                    deviceSessionId ??
+                    (await this.env.nextId("device-session")),
+                  previousSession: cachedDeviceData?.lastSeen,
+                  hasUserAgent: false,
+                }
+              ),
+            };
           },
-        ])
-      )[0];
+        },
+      ])[0];
 
-    if (this._session.value!.deviceId) {
+    if (this._session?.value!.deviceId) {
       const device = await this.get({
         scope: VariableScope.Device,
         key: SCOPE_DATA_KEY,
         purposes: DataPurposeFlags.Necessary,
-        initializer: async () => ({
-          classification: this.consent.level,
-          value: createInitialScopeData<DeviceData>(
-            this._session.value?.deviceId!,
-            timestamp,
-            {
-              sessions: 1,
-            }
-          ),
-        }),
-      });
+        init: async () =>
+          passive
+            ? undefined
+            : {
+                classification: this.consent.level,
+                value: createInitialScopeData<DeviceData>(
+                  this._session?.value?.deviceId!,
+                  timestamp,
+                  {
+                    sessions: 1,
+                  }
+                ),
+              },
+      })[0];
 
       if (
+        device &&
         device.status !== VariableResultStatus.Created &&
-        this.session.isNew
+        this.session?.isNew
       ) {
-        await this.set([
-          {
-            ...device,
-            patch: (current) =>
-              current?.value
-                ? {
-                    value: {
-                      ...current.value,
-                      sessions: current.value.sessions + 1,
-                    } as DeviceData,
-                  }
-                : undefined,
-          },
-        ]);
+        await this.set({
+          ...device,
+        });
       }
 
       if (previousDeviceSessionId && isDefined(this.deviceId)) {
@@ -760,8 +808,8 @@ export class Tracker {
 
   // #region Storage
   private _getStorageContext(
-    source?: VariableStorageContext<boolean>
-  ): VariableStorageContext<false> {
+    source?: VariableStorageContext
+  ): VariableStorageContext {
     return { ...source, tracker: this };
   }
 
@@ -775,26 +823,18 @@ export class Tracker {
     }
   }
 
-  get<
-    K extends VariableGetter<any, false> | Nullish,
-    C extends Pick<VariableStorageContext<false>, "throw">
-  >(key: K, context?: C): Promise<VariableGetResults<[K], C>[0]>;
-  get<
-    K extends VariableGetParameter<false>,
-    C extends Pick<VariableStorageContext<false>, "throw">
-  >(
-    keys: K | VariableGetParameter<false>,
-    context?: C
-  ): Promise<VariableGetResults<K, C>>;
-  async get(
-    keys: MaybeArray<VariableGetter<any, false> | Nullish>,
-    context?: VariableStorageContext<false>
-  ): Promise<MaybeArray<VariableGetResults<any, boolean>>> {
-    if (!isArray(keys)) {
-      return (await this.get([keys] as const, context))[0] as any;
-    }
-
-    return await this.env.storage.get(keys, this._getStorageContext(context));
+  public get<K extends VariableGetters<TrackerVariableGetter>>(
+    ...keys: VariableGetters<TrackerVariableGetter, K>
+  ): VariableResultPromise<VariableGetResults<K>, true> {
+    return toVariableResultPromise(
+      () => this.env.storage.get(keys, this._getStorageContext()).all,
+      (results) =>
+        results.forEach(
+          (result) =>
+            result?.status === VariableResultStatus.Created &&
+            this._changedVariables.push(result)
+        )
+    ) as any;
   }
 
   head(
@@ -810,56 +850,39 @@ export class Tracker {
     return this.env.storage.query(filters, options, this._getStorageContext());
   }
 
-  set<
-    V extends VariableSetter<any, false>,
-    C extends Pick<VariableStorageContext<false>, "throw">
-  >(
-    variables: V | VariableSetParameter<false>,
-    context?: C
-  ): Promise<VariableSetResults<[V], C>[0]>;
-  set<
-    V extends VariableSetParameter<false>,
-    C extends Pick<VariableStorageContext<false>, "throw">
-  >(
-    variables: V | VariableSetParameter<false>,
-    context?: Pick<VariableStorageContext<false>, "throw">
-  ): Promise<VariableSetResults<V, C>>;
-  async set(
-    variables: MaybeArray<VariableSetter<any, false>>,
-    context?: Pick<VariableStorageContext<false>, "throw">
-  ): Promise<MaybeArray<VariableSetResults<any, boolean>>> {
-    if (!isArray(variables)) {
-      return (await this.set([variables], context))[0];
-    }
+  async set<K extends VariableSetters<TrackerVariableSetter>>(
+    ...variables: VariableSetters<TrackerVariableSetter, K>
+  ): Promise<any> {
+    return toVariableResultPromise(
+      async () => {
+        const results = await this.env.storage.set(
+          variables as VariableSetter[],
+          this._getStorageContext()
+        ).all;
 
-    const results = (await this.env.storage.set(
-      variables,
-      this._getStorageContext(context)
-    )) as VariableSetResult[];
-
-    for (const result of results) {
-      if (result.status < 400) {
-        if (result.source.key === SCOPE_DATA_KEY) {
-          result.source.scope === VariableScope.Session &&
-            (this._session = result.current!);
-          result.source.scope === VariableScope.Device &&
-            (this._device = result.current);
+        for (const result of results) {
+          if (isSuccessResult(result)) {
+            if (result.source.key === SCOPE_DATA_KEY) {
+              result.source.scope === VariableScope.Session &&
+                (this._session = result.current!);
+              result.source.scope === VariableScope.Device &&
+                (this._device = result.current);
+            }
+          }
         }
-      }
-    }
-
-    if (!this._session) {
-      // Being without session data violates an invariant, so if someone deleted the data, we create a new session. Ha!
-      await this._ensureSession(
-        now(),
-        this.deviceId,
-        this.deviceSessionId,
-        true,
-        false
-      );
-    }
-
-    return results;
+        return results;
+      },
+      (results) =>
+        forEach(results, (result) => {
+          return (
+            result.status !== VariableResultStatus.Unchanged &&
+            this._changedVariables.push({
+              ...extractKey(result.source, result.current),
+              status: result.status,
+            })
+          );
+        })
+    );
   }
 
   purge(alsoUserData = false): MaybePromise<void> {

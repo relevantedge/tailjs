@@ -1,18 +1,13 @@
 import {
-  SessionLocationEvent,
-  TrackedEvent,
-  Variable,
-  VariableSetter,
-  cast,
-} from "@tailjs/types";
-import { Reader } from "maxmind";
-import type { CityResponse } from "mmdb-lib";
-import {
   NextPatchExtension,
   type Tracker,
   type TrackerEnvironment,
   type TrackerExtension,
 } from "@tailjs/engine";
+import { SessionLocationEvent, TrackedEvent } from "@tailjs/types";
+import { restrict } from "@tailjs/util";
+import { Reader } from "maxmind";
+import type { CityResponse } from "mmdb-lib";
 
 export class ClientLocation implements TrackerExtension {
   private readonly _language: string;
@@ -36,7 +31,8 @@ export class ClientLocation implements TrackerExtension {
     next: NextPatchExtension,
     tracker: Tracker
   ) {
-    if (!this._initialized) throw new Error("Not initialized");
+    if (!this._initialized || !tracker.session)
+      throw new Error("Not initialized");
     //if (!tracker.consent?.active) return events;
 
     const env = tracker.env;
@@ -47,7 +43,7 @@ export class ClientLocation implements TrackerExtension {
     if (ip) {
       const clientHash = env.hash(tracker.clientIp);
       if (
-        (await tracker.get([{ scope: "session", key: "mx" }]))[0].value !==
+        (await tracker.get({ scope: "session", key: "mx" }).value) !==
         clientHash
       ) {
         const location = this.filterNames(this._reader?.get(ip));
@@ -59,7 +55,7 @@ export class ClientLocation implements TrackerExtension {
         if (location) {
           events = [
             ...events,
-            cast<SessionLocationEvent>({
+            restrict<SessionLocationEvent>({
               type: "SESSION_LOCATION",
               accuracy: location.location?.accuracy_radius,
               city: location.city
@@ -102,7 +98,7 @@ export class ClientLocation implements TrackerExtension {
           ];
         }
         country = location?.country?.names[this._language] ?? "NA";
-        await tracker.set([
+        await tracker.set(
           {
             scope: "session",
             key: "mx",
@@ -116,8 +112,8 @@ export class ClientLocation implements TrackerExtension {
             classification: "anonymous",
             purposes: "necessary",
             value: country,
-          },
-        ]);
+          }
+        );
       }
     }
 

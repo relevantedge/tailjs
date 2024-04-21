@@ -1,7 +1,7 @@
 import {
   add,
   ConstToNormal,
-  GeneralizeContstants,
+  GeneralizeConstants,
   get,
   hasMethod,
   IsAny,
@@ -24,6 +24,9 @@ import {
   MaybeUndefined,
   Nullish,
   isNumber,
+  If,
+  MaybePromise,
+  Wrapped,
 } from ".";
 
 export const UTF16MAX = 0xffff;
@@ -37,12 +40,10 @@ export const codePoint = (string: string, index: number = 0) =>
   string.codePointAt(index)!;
 
 export type IteratorSource =
-  | any
-  | null
-  | undefined
+  | Nullish
   | number
   | Iterable<any>
-  | NotFunction
+  | RecordType
   | NavigatingIteratorStep;
 
 export type IteratorSourceOf<T> =
@@ -55,7 +56,7 @@ export type IteratorSourceOf<T> =
       : never)
   | NavigatingIteratorStep<T>;
 
-type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
+export type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
   ? any
   : S extends number
   ? number
@@ -67,15 +68,14 @@ type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
   ? T
   : never;
 
-export type IteratorItems<S extends IteratorSource[]> = S extends readonly [
-  infer S
-]
-  ? IteratorItem<S>
-  : S extends readonly [infer S, ...infer Rest]
-  ? IteratorItem<S> | IteratorItems<Rest>
-  : S extends readonly (infer S)[]
-  ? IteratorItem<S>
-  : never;
+export type IteratorItems<S extends readonly IteratorSource[]> =
+  S extends readonly [infer S]
+    ? IteratorItem<S & IteratorSource>
+    : S extends readonly [infer S, ...infer Rest]
+    ? IteratorItem<S & IteratorSource> | IteratorItems<Rest & IteratorSource[]>
+    : S extends readonly (infer S)[]
+    ? IteratorItem<S & IteratorSource>
+    : never;
 
 export interface IteratorControl<S extends IteratorSource> {
   source: S;
@@ -92,7 +92,7 @@ export type IteratorAction<
 > = (
   value: Value,
   index: number
-) => Projection | typeof stop | undefined | void;
+) => Projection | readonly [any, any] | typeof stop | undefined | void;
 
 type IteratorProjection<
   S extends IteratorSource,
@@ -111,16 +111,18 @@ export type NavigatingIteratorStep<T = any> = (
   current: T | undefined
 ) => T | undefined;
 
-type FlatIteratorItem<T, D extends number = 1, O = false> = T extends
+type FlatIteratorItem<T, D extends number = 1, Object = false> = T extends
   | undefined
   | void
   ? never
   : D extends 0
   ? T
-  : T extends Iterable<any> | (O extends true ? Record<keyof any, any> : never)
+  : T extends
+      | Iterable<any>
+      | (Object extends true ? Record<keyof any, any> : never)
   ? D extends 1
     ? IteratorItem<T>
-    : FlatIteratorItem<IteratorItem<T>, Minus<D, 1>, O>
+    : FlatIteratorItem<IteratorItem<T>, Minus<D, 1>, Object>
   : T;
 
 type ProjectedItem<P> = Exclude<P, undefined | void | typeof stop>;
@@ -270,13 +272,13 @@ type ProjectFunction = {
 type MapFunction = {
   <S extends IteratorSource, R>(
     source: S,
-    projection?: IteratorAction<S, R> | null,
+    projection: IteratorAction<S, R> | null,
     ...rest: StartEndArgs<S>
-  ): MaybeUndefined<S, IteratorProjection<S, R>[]>;
+  ): MaybeUndefined<S, Exclude<IteratorProjection<S, R>, undefined>[]>;
   <S extends IteratorSource>(
     source: S,
     ...rest: StartEndArgs<S>
-  ): MaybeUndefined<S, IteratorItem<S>[]>;
+  ): MaybeUndefined<S, Exclude<IteratorItem<S>, undefined>[]>;
 };
 
 type FlatProjectFunction = <
@@ -290,7 +292,7 @@ type FlatProjectFunction = <
   depth?: D,
   expandObjects?: O,
   ...rest: StartEndArgs<S>
-) => FlatIteratorItem<Iterable<R>, D>;
+) => MaybeUndefined<S, Iterable<FlatIteratorItem<Iterable<R>, D>>>;
 
 export const project: ProjectFunction = ((
   source: any,
@@ -346,6 +348,8 @@ export const flatProject: FlatProjectFunction = function (
   }
 };
 
+const neger = flatProject([1, 2, 3]);
+
 export const map: MapFunction = (
   source: any,
   projection?: any,
@@ -374,6 +378,22 @@ export const map: MapFunction = (
   return source !== undefined
     ? toArray(project(source, projection, start, end))
     : (undefined as any);
+};
+
+export const mapAsync: <S extends IteratorSource, R extends MaybePromise<any>>(
+  source: S,
+  projection: IteratorAction<S, R> | null,
+  ...rest: StartEndArgs<S>
+) => Promise<
+  MaybeUndefined<S, Exclude<IteratorProjection<S, Awaited<R>>, undefined>[]>
+> = async (source: any, projection?: any, start?: any, end?: any) => {
+  const mapped: any = [];
+  await forEachAsync(
+    source,
+    async (item) =>
+      (item = await projection(item)) !== undefined && mapped.push(item)
+  );
+  return mapped as any;
 };
 
 export const zip = <Lhs extends IteratorSource, Rhs extends IteratorSource>(
@@ -599,6 +619,34 @@ const forEachObject = (source: any, action: any) => {
   return returnValue;
 };
 
+export const apply: <
+  S extends IterableOrArrayLike<any> | undefined,
+  R,
+  Args extends readonly any[]
+>(
+  source: S,
+  action: (item: IteratorItem<S>, ...args: Args) => R,
+  ...args: Args
+) => S extends undefined ? undefined : Exclude<R, undefined>[] = (
+  source,
+  action,
+  ...args
+) => map(source, (item) => action(item, ...args)) as any;
+
+export const applyAsync: <
+  S extends IterableOrArrayLike<any> | undefined,
+  R extends PromiseLike<any>,
+  Args extends readonly any[]
+>(
+  source: S,
+  action: (item: IteratorItem<S>, ...args: Args) => R,
+  ...args: Args
+) => Promise<S extends undefined ? undefined : Exclude<R, undefined>[]> = (
+  source,
+  action,
+  ...args
+) => mapAsync(source, (item) => action(item, ...args)) as any;
+
 const forEachInternal: <S extends IteratorSource, R>(
   source: S,
   action: IteratorAction<S, R>,
@@ -614,7 +662,7 @@ const forEachInternal: <S extends IteratorSource, R>(
   }
   let returnValue: any;
   for (const value of createIterator(source, action, start, end)) {
-    returnValue = (value as any) ?? returnValue;
+    value !== undefined && (returnValue = value);
   }
 
   return returnValue;
@@ -625,6 +673,27 @@ export const forEach = forEachInternal as <S extends IteratorSource, R>(
   action: IteratorAction<S, R>,
   ...rest: StartEndArgs<S>
 ) => R | undefined;
+
+export const forEachAsync: <
+  S extends IteratorSource,
+  R extends PromiseLike<any>
+>(
+  source: S,
+  action: IteratorAction<S, R>,
+  ...rest: StartEndArgs<S>
+) => Promise<R | undefined> = async (
+  source: any,
+  action: any,
+  start?: any,
+  end?: any
+) => {
+  if (source == null) return undefined;
+  let returnValue: any;
+  for (let item of project(source, action, start, end)) {
+    (item = (await item) as any) !== undefined && (returnValue = item);
+  }
+  return returnValue;
+};
 
 export const flatForEach = <
   S extends IteratorSource,
@@ -664,7 +733,7 @@ export const groupReduce: <
   source: S,
   keySelector: (item: IteratorItem<S>, index: number) => Key,
   reducer: (
-    accumulator: GeneralizeContstants<Accumulator>,
+    accumulator: GeneralizeConstants<Accumulator>,
     ...rest: Parameters<IteratorAction<S, Accumulator>>
   ) => Accumulator,
   seed?: Accumulator | (() => Accumulator),
@@ -724,10 +793,10 @@ export const reduce: <
     ...args: [
       accumulator: unknown extends Accumulator
         ? any
-        : GeneralizeContstants<Accumulator>,
+        : GeneralizeConstants<Accumulator>,
       ...rest: Parameters<IteratorAction<S, Accumulator>>
     ]
-  ) => GeneralizeContstants<Accumulator>,
+  ) => GeneralizeConstants<Accumulator>,
   Accumulator
 >(
   source: S,
@@ -790,7 +859,7 @@ export const filter: {
 
 let filterInternal = filter;
 
-export const count: <S>(
+export const count: <S extends IteratorSource>(
   source: S,
   predicate?: Filter<S>,
   ...rest: StartEndArgs<S>

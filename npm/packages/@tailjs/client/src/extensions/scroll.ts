@@ -1,4 +1,5 @@
-import { ScrollEvent, cast } from "@tailjs/types";
+import { ScrollEvent } from "@tailjs/types";
+import { restrict } from "@tailjs/util";
 import { addViewChangedListener, type TrackerExtensionFactory } from "..";
 import {
   T,
@@ -42,7 +43,7 @@ export const scroll: TrackerExtensionFactory = {
           ((emitted["page-end"] = T), types.push("page-end"));
 
         const mapped = map(types, (scrollType) =>
-          cast<ScrollEvent>({
+          restrict<ScrollEvent>({
             type: "SCROLL",
             scrollType,
             offset,

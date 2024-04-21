@@ -56,7 +56,7 @@ export class VariableMap<T = any>
     R extends T | undefined = T | undefined
   >(
     key: K,
-    initializer?: (scope: VariableScope, key: string) => R
+    init?: (scope: VariableScope, key: string) => R
   ): K extends undefined | null ? undefined : R;
   public get<
     S extends VariableScopeValue | undefined | null,
@@ -64,7 +64,7 @@ export class VariableMap<T = any>
   >(
     scope: S,
     key: string,
-    initializer?: (scope: VariableScope, key: string) => R
+    init?: (scope: VariableScope, key: string) => R
   ): S extends undefined | null ? undefined : R;
   public get(
     scope: VariableScopeValue | null | undefined
@@ -73,14 +73,14 @@ export class VariableMap<T = any>
   public get(
     source: VariableScopeValue | VariableKey<boolean> | null | undefined,
     arg2?: string | ((scope: VariableScope, key: string) => any),
-    initializer?: (scope: VariableScope, key: string) => any
+    init?: (scope: VariableScope, key: string) => any
   ) {
     if (source == null) return undefined;
     let scope: VariableScope, key: string;
     if (isObject(source, true)) {
       scope = variableScope.parse(source.scope, false);
       key = source.key;
-      initializer = arg2 as any;
+      init = arg2 as any;
     } else {
       scope = variableScope.parse(source, false);
       key = arg2 as any;
@@ -89,13 +89,13 @@ export class VariableMap<T = any>
     let values = this._values.get(scope);
     if (isDefined(key)) {
       let value = values?.get(key);
-      if (initializer && isUndefined(value)) {
+      if (init && isUndefined(value)) {
         if (!values) {
           this._values.set(scope, (values = new Map()));
         }
 
         this._updateSize(1);
-        values.set(key, (value = initializer(scope, key)));
+        values.set(key, (value = init(scope, key)));
       }
       return value;
     }

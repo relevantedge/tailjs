@@ -20,6 +20,7 @@ import {
   type ModelMetadata,
   VariableStorage,
   SchemaManager,
+  ParsingVariableStorage,
 } from "./shared";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
@@ -53,12 +54,12 @@ export class TrackerEnvironment {
 
   public readonly tags?: string[];
   public readonly cookieVersion: string;
-  public readonly storage: VariableStorage<false>;
+  public readonly storage: ParsingVariableStorage;
 
   constructor(
     host: EngineHost,
     crypto: CryptoProvider,
-    storage: VariableStorage<false>,
+    storage: ParsingVariableStorage,
     tags?: string[],
     cookieVersion = "C"
   ) {

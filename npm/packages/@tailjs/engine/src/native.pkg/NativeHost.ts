@@ -57,44 +57,6 @@ export class NativeHost implements EngineHost {
     return resources;
   }
 
-  public async compress(
-    data: string | Uint8Array,
-    algorithm: string
-  ): Promise<Uint8Array | null> {
-    if (algorithm === "br") {
-      return await new Promise((resolve, reject) => {
-        zlib.brotliCompress(
-          typeof data === "string" ? data : Buffer.from(data).toString("utf-8"),
-          {
-            params: {
-              [zlib.constants.BROTLI_PARAM_QUALITY]:
-                zlib.constants.BROTLI_MAX_QUALITY,
-            },
-          },
-          (error, result) => {
-            if (error) reject(error);
-            resolve(new Uint8Array(result));
-          }
-        );
-      });
-    }
-    if (algorithm === "gzip") {
-      return await new Promise((resolve, reject) => {
-        zlib.gzip(
-          typeof data === "string" ? data : Buffer.from(data).toString("utf-8"),
-          {
-            level: 9,
-          },
-          (error, result) => {
-            if (error) reject(error);
-            resolve(new Uint8Array(result));
-          }
-        );
-      });
-    }
-    return null;
-  }
-
   async log<T extends string | Record<string, any>>({
     group = "console",
     message: data,
@@ -140,6 +102,12 @@ export class NativeHost implements EngineHost {
     );
   }
 
+  read(
+    path: string,
+    changeHandler?: ChangeHandler<Uint8Array>
+  ): Promise<Uint8Array | null> {
+    return this._read(path, false, changeHandler);
+  }
   readText(
     path: string,
     changeHandler?: ChangeHandler<string>
@@ -147,11 +115,36 @@ export class NativeHost implements EngineHost {
     return this._read(path, true, changeHandler);
   }
 
-  read(
-    path: string,
-    changeHandler?: ChangeHandler<Uint8Array>
-  ): Promise<Uint8Array | null> {
-    return this._read(path, false, changeHandler);
+  async write(path: string, data: Uint8Array): Promise<void> {
+    const fullPath = this._resolvePath(path);
+    await fs.promises.writeFile(fullPath, data);
+  }
+  async writeText(path: string, data: string): Promise<void> {
+    const fullPath = this._resolvePath(path);
+    await fs.promises.writeFile(fullPath, data, "utf-8");
+  }
+
+  async delete(path: string): Promise<boolean> {
+    const fullPath = this._resolvePath(path);
+    if (!fs.existsSync(fullPath)) return false;
+
+    const type = await fs.promises.stat(fullPath);
+
+    if (type.isDirectory()) {
+      await fs.promises.rm(fullPath, { recursive: true });
+    } else {
+      await fs.promises.rm(fullPath);
+    }
+    return true;
+  }
+
+  private _resolvePath(path: string) {
+    const fullPath = p.resolve(p.join(this._rootPath, path));
+
+    if (!fullPath.startsWith(this._rootPath)) {
+      throw new Error("The requested path is outside the root.");
+    }
+    return fullPath;
   }
 
   private async _read(
@@ -159,11 +152,7 @@ export class NativeHost implements EngineHost {
     text: boolean,
     changeHandler?: ChangeHandler<any>
   ) {
-    const fullPath = p.resolve(p.join(this._rootPath, path));
-
-    if (!fullPath.startsWith(this._rootPath)) {
-      throw new Error("The requested path is outside the root.");
-    }
+    const fullPath = this._resolvePath(path);
     if (!fs.existsSync(fullPath)) {
       return null;
     }

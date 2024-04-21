@@ -11,7 +11,7 @@ export interface ReadOnlyTargetedVariableMap<T = any>
     R extends T | undefined = T | undefined
   >(
     key: K,
-    initializer?: (key: VariableKey<true>) => R
+    init?: (key: VariableKey<true>) => R
   ): R;
   get(target: string): VariableMap<T>;
 
@@ -54,11 +54,11 @@ export class TargetedVariableCollection<T = any>
   public get<
     K extends VariableKey<boolean> | undefined,
     R extends T | undefined = T | undefined
-  >(key: K, initializer?: (key: VariableKey<true>) => R): R;
+  >(key: K, init?: (key: VariableKey<true>) => R): R;
   public get(target: string): VariableMap<T>;
   public get(
     key: string | VariableKey<boolean> | undefined,
-    initializer?: (key: VariableKey<true>) => any
+    init?: (key: VariableKey<true>) => any
   ) {
     if (isUndefined(key)) return undefined;
 
@@ -68,7 +68,7 @@ export class TargetedVariableCollection<T = any>
 
     let targetId = key.targetId ?? "";
     let collection = this._scopes.get(targetId);
-    if (initializer && !collection) {
+    if (init && !collection) {
       this._scopes.set(
         targetId,
         (collection = new VariableMap(this._updateSize))
@@ -76,7 +76,7 @@ export class TargetedVariableCollection<T = any>
     }
     return collection?.get(
       key,
-      initializer && ((scope, key) => initializer(mapKey(scope, key, targetId)))
+      init && ((scope, key) => init(mapKey(scope, key, targetId)))
     );
   }
 

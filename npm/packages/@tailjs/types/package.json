@@ -14,7 +14,7 @@
   "devDependencies": {
     "typedoc": "^0.24.8",
     "typedoc-plugin-expand-object-like-types": "^0.1.2",
-    "typedoc-plugin-markdown": "^3.15.3"
+    "typedoc-plugin-markdown": "^3.17.1"
   },
   "publishConfig": {
     "directory": "dist"
@@ -25,6 +25,6 @@
     "semver": "^7.6.0"
   },
   "optionalDependencies": {
-    "ts-json-schema-generator": "^1.5.0"
+    "ts-json-schema-generator": "^1.5.1"
   }
 }

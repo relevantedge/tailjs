@@ -1,6 +1,6 @@
 import { INITIALIZE_TRACKER_FUNCTION } from "@constants";
-//import { initializeTracker } from "./initializeTracker";
-//import { F, T, define, window } from "./lib";
+import { initializeTracker } from "./initializeTracker";
+import { F, T, define, window } from "./lib";
 import { attach } from "./pusher";
 
 // This assumes the script is loaded from the RequestHandler's ?cfg route.
@@ -11,7 +11,7 @@ import { attach } from "./pusher";
 // 3: The configuration script calls this function with a callback that initializes the tracker with the configuration including the storage key.
 
 window[INITIALIZE_TRACKER_FUNCTION] = (callback: any) => {
-  callback(attach);
+  callback(initializeTracker);
 };
 
 // let loaded = F;

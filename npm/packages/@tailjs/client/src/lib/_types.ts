@@ -1,4 +1,4 @@
-import { Voidefined } from "@tailjs/util";
+import { RecordType, Voidefined } from "@tailjs/util";
 
 export type JsonArray = Json[];
 
@@ -6,8 +6,8 @@ export type JsonTuple = {
   [TupleIndex in number]?: Json;
 };
 
-export type JsonObject = {
-  [P in string]?: Json;
+export type JsonObject = RecordType & {
+  [P in string | number]?: Json;
 };
 
 /**

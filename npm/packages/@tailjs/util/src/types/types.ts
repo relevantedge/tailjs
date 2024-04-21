@@ -1,3 +1,5 @@
+import { PartialRecord, PrettifyIntersection } from "./records";
+
 /**
  * The ECMAScript primitive types.
  */
@@ -21,6 +23,11 @@ export type KeyValueProjection<K, V, R> = (
 ) => R;
 
 /**
+ * Anything but a promise.
+ */
+export type NotPromise = { then?: never };
+
+/**
  * Anything but a function.
  */
 export type NotFunction =
@@ -40,11 +47,14 @@ export type NotFunction =
 export type Nullish = null | undefined | void;
 
 /** A record type that is neither iterable or a function. */
-export type RecordType<K extends keyof any = keyof any, V = any> = object &
-  Record<K, V> & {
-    [Symbol.iterator]?: never;
-    [Symbol.hasInstance]?: never;
-  };
+export type RecordType<K extends keyof any = keyof any, V = any> = object & {
+  [P in K]?: V;
+} & {
+  [Symbol.iterator]?: never;
+  [Symbol.asyncIterator]?: never;
+  [Symbol.hasInstance]?: never;
+  then?: NotFunction;
+};
 
 /**
  * Shorthand for a value that is optionally awaitable.
@@ -61,20 +71,22 @@ export type JsonTuple = {
   [TupleIndex in number]?: Json;
 };
 
-export type JsonObject = RecordType & {
-  [P in string]?: Json;
-};
+export type JsonObject = {
+  [props: string | number]: Json;
+} & { [symbols: symbol]: never };
+
+type JsonOnly<T> = T extends Json ? T : never;
 
 /**
  * All possible values that can be represented with JSON.
  */
-export type Json =
-  | Nullish
-  | string
-  | number
-  | boolean
-  | JsonArray
-  | JsonTuple
-  | JsonObject;
+export type Json<T = unknown> = unknown extends T
+  ? Nullish | string | number | boolean | JsonArray | JsonTuple | JsonObject
+  : Omit<
+      {
+        [P in keyof T]: JsonOnly<T[P]>;
+      },
+      symbol
+    >;
 
 export type ToJsonAble<T> = { toJSON(): T };

@@ -2,8 +2,6 @@ import alias from "@rollup/plugin-alias";
 import * as fs from "fs";
 import { join } from "path";
 import { dts } from "rollup-plugin-dts";
-import esbuild from "rollup-plugin-esbuild";
-import swc from "rollup-plugin-swc3";
 import package_json from "rollup-plugin-generate-package-json";
 
 import { RollupOptions } from "rollup";
@@ -13,6 +11,7 @@ import {
   addCommonPackageData,
   applyDefaultConfiguration,
   chunkNameFunctions,
+  compilePlugin,
   env,
   getProjects,
 } from "./shared";
@@ -67,12 +66,7 @@ export const getDistBundles = async (
         exclude: ["**/node_modules/**"],
       },
       plugins: [
-        // esbuild({
-        //   treeShaking: true,
-
-        //   define: { __DEBUG__: "false" },
-        // }),
-        swc(),
+        compilePlugin(),
         alias({
           entries: [
             {

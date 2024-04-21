@@ -3,10 +3,11 @@ import {
   Variable,
   VariableClassification,
   VariableFilter,
-  VariableGetParameter,
+  VariableGetError,
   VariableGetResult,
   VariableGetResults,
   VariableGetter,
+  VariableGetters,
   VariableHeader,
   VariableKey,
   VariableMetadata,
@@ -16,18 +17,17 @@ import {
   VariableResultStatus,
   VariableScope,
   VariableScopeValue,
-  VariableSetParameter,
   VariableSetResult,
   VariableSetResults,
   VariableSetter,
+  VariableSetters,
+  extractKey,
   formatKey,
   getResultVariable,
-  handleResultErrors,
   isVariablePatch,
   isVariablePatchAction,
   parseKey,
   stripPrefix,
-  toNumericVariable,
   validateConsent,
   variableScope,
 } from "@tailjs/types";
@@ -46,12 +46,13 @@ import {
   rank,
   required,
   tryCatch,
+  unwrap,
   waitAll,
-  wrapFunction,
+  wrap,
 } from "@tailjs/util";
 import {
   PartitionItem,
-  applyPatchOffline,
+  applyPatch,
   partitionItems,
   withSourceIndex,
 } from "../lib";
@@ -62,13 +63,14 @@ import {
   SchemaManager,
   SchemaVariableSet,
   SplitStorageErrorWrapper,
+  VariableContextScopeIds,
   VariableSplitStorage,
   VariableStorage,
   VariableStorageContext,
 } from "..";
 
 export type SchemaBoundPrefixMapping = {
-  storage: ReadonlyVariableStorage<false> | ReadonlyVariableStorage<true>;
+  storage: ReadonlyVariableStorage;
 
   /**
    * The IDs of the schemas.
@@ -100,7 +102,7 @@ type PrefixVariableMapping = {
   classification?: Partial<SchemaClassification>;
 };
 
-export class VariableStorageCoordinator implements VariableStorage<false> {
+export class VariableStorageCoordinator implements VariableStorage {
   private _settings: Required<
     Omit<VariableStorageCoordinatorSettings, "schema" | "consent">
   >;
@@ -167,7 +169,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
 
     forEach(variableScope.values, (scope) =>
       forEach(normalizedMappings[scope], ([prefix, mapping]) =>
-        this._variables.set([variableScope(scope), prefix], {
+        this._variables.set([scope, prefix], {
           variables: ifDefined(mapping.schema, (schemas) =>
             schema.compileVariableSet(schemas)
           ),
@@ -179,8 +181,8 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
 
   private async _setWithRetry(
     setters: (VariableSetter<any, true> | Nullish)[],
-    targetStorage: VariableStorage<true> | SplitStorageErrorWrapper,
-    context: VariableStorageContext<false> | undefined,
+    targetStorage: VariableStorage | SplitStorageErrorWrapper,
+    context: VariableStorageContext | undefined,
     patch?: (
       sourceIndex: number,
       result: VariableSetResult
@@ -249,7 +251,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
     storage: SplitStorageErrorWrapper,
     getters: (VariableGetter<any, true> | Nullish)[],
     results: (VariableGetResult<any, true> | undefined)[],
-    context: VariableStorageContext<true> | undefined
+    context: VariableStorageContext | undefined
   ): Promise<(VariableGetResult | undefined)[]> {
     const initializerSetters: VariableSetter<any, true>[] = [];
 
@@ -258,7 +260,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
 
       const getter = getters[i]!;
       if (
-        !getter.initializer ||
+        !getter.init ||
         results[i]?.status !== VariableResultStatus.NotFound
       ) {
         continue;
@@ -269,7 +271,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
         );
       }
 
-      const initialValue = await getter.initializer();
+      const initialValue = await unwrap(getter.init);
       if (!isDefined(initialValue)) {
         continue;
       }
@@ -286,7 +288,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
     storage: SplitStorageErrorWrapper,
     setters: (VariableSetter<any, true> | Nullish)[],
     results: (VariableSetResult | undefined)[],
-    context: VariableStorageContext<true> | undefined
+    context: VariableStorageContext | undefined
   ): Promise<(VariableSetResult | undefined)[]> {
     const patches: PartitionItem<VariablePatch<any, true>>[] = [];
 
@@ -299,7 +301,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
     );
 
     if (patches.length) {
-      const applyPatch = async (
+      const patch = async (
         patchIndex: number,
         result: VariableGetResult | VariableSetResult | undefined
       ): Promise<VariableSetter<any, true> | undefined> => {
@@ -316,7 +318,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
         }
         const current = getResultVariable(result);
 
-        const patched = await applyPatchOffline(current, patch);
+        const patched = await applyPatch(current, patch);
         if (!patched) {
           results[sourceIndex] = {
             status: VariableResultStatus.Unchanged,
@@ -342,7 +344,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
       );
 
       for (let i = 0; i < patches.length; i++) {
-        const patched = await applyPatch(i, currentValues[i]);
+        const patched = await patch(i, currentValues[i]);
         if (patched) {
           patchSetters.push([i, patched]);
         }
@@ -356,7 +358,7 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
             context,
             (sourceIndex, result) =>
               result.status === VariableResultStatus.Conflict
-                ? applyPatch(patchSetters[sourceIndex][0], result)
+                ? patch(patchSetters[sourceIndex][0], result)
                 : undefined
           )
         ).forEach((result, i) => {
@@ -391,16 +393,10 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
       : undefined;
   }
 
-  private _getMapping({
-    scope,
-    key,
-  }: {
-    scope: VariableScopeValue;
-    key: string;
-  }) {
+  private _getMapping({ scope, key }: { scope: VariableScope; key: string }) {
     const prefix = parseKey(key).prefix;
     return required(
-      this._variables.get([variableScope(scope), prefix]),
+      this._variables.get([scope, prefix]),
       () =>
         `No storage provider is mapped to the prefix '${prefix}' in ${variableScope.format(
           scope
@@ -457,8 +453,55 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
     index: number,
     variables: readonly any[],
     censored: [index: number, result: VariableSetResult][],
-    consent: UserConsent | undefined
+    consent: UserConsent | undefined,
+    scopeIds: VariableContextScopeIds | undefined
   ) {
+    if (scopeIds) {
+      const scope = key.scope;
+
+      const validateScope = (
+        expectedTarget: string | undefined,
+        actualTarget: string | undefined
+      ) => {
+        if (!actualTarget) {
+          return scope === VariableScope.Session
+            ? "The tracker does not have an associated session."
+            : scope === VariableScope.Device
+            ? "The tracker does not have associated device data, most likely due to the lack of consent."
+            : "The tracker does not have an authenticated user associated.";
+        }
+        if (expectedTarget !== actualTarget) {
+          return `If a target ID is explicitly specified for the ${variableScope.format(
+            scope
+          )} scope it must match the tracker. (Specifying the target ID for this scope is optional.)`;
+        }
+        return undefined;
+      };
+
+      const error =
+        scope === VariableScope.Session
+          ? validateScope(
+              scopeIds.sessionId,
+              (key.targetId ??= scopeIds.sessionId)
+            )
+          : scope === VariableScope.Device
+          ? validateScope(
+              scopeIds.deviceId,
+              (key.targetId ??= scopeIds.deviceId)
+            )
+          : scope === VariableScope.User
+          ? validateScope(scopeIds.userId, (key.targetId ??= scopeIds.userId))
+          : undefined;
+
+      if (error) {
+        censored.push([
+          index,
+          { source: key as any, status: VariableResultStatus.Denied, error },
+        ]);
+        return false;
+      }
+    }
+
     if (isUndefined(target.value)) {
       return true;
     }
@@ -501,26 +544,22 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
     return false;
   }
 
-  async get<
-    K extends VariableGetParameter<false>,
-    C extends VariableStorageContext<false>
-  >(
-    keys: K | VariableGetParameter<false>,
-    context?: C
-  ): Promise<VariableGetResults<K, C>> {
+  async get<K extends VariableGetters<true>>(
+    keys: VariableGetters<true, K>,
+    context?: VariableStorageContext
+  ): Promise<VariableGetResults<K>> {
     const censored: [index: number, result: VariableSetResult][] = [];
     const consent = context?.consent ?? context?.tracker?.consent;
+    const scopeIds = context?.tracker ?? context?.scopeIds;
 
     for (const [getter, i] of rank(keys)) {
-      toNumericVariable(getter);
-
-      if (!getter || isUndefined(getter?.initializer)) {
+      if (!getter || isUndefined(getter?.init)) {
         continue;
       }
 
       const mapping = this._getMapping(getter);
-      (getter as VariableGetter).initializer = wrapFunction(
-        getter.initializer,
+      (getter as VariableGetter<any, true>).init = wrap(
+        getter.init,
         async (original) => {
           const result = await original();
           return isDefined(result?.value) &&
@@ -531,7 +570,8 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
               i,
               keys,
               censored,
-              consent
+              consent,
+              scopeIds
             )
             ? result
             : undefined;
@@ -541,45 +581,44 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
 
     const results = await this._storage.get(keys as any, context as any);
     for (const [i, result] of censored) {
-      (results as VariableGetResult[])[i] = {
-        ...result.source,
+      (results as VariableGetError[])[i] = {
+        ...extractKey(result.source),
+        value: undefined,
         status: result.status as any,
         error: (result as any).error,
       };
     }
 
-    return handleResultErrors(results, context?.throw) as any;
+    return results as any;
   }
 
-  async set<
-    K extends VariableSetParameter<false>,
-    C extends VariableStorageContext<false>
-  >(
-    variables: K | VariableSetParameter<false>,
-    context?: C | undefined
-  ): Promise<VariableSetResults<K, C>> {
+  async set<K extends VariableSetters<true>>(
+    variables: VariableSetters<true, K>,
+    context?: VariableStorageContext
+  ): Promise<VariableSetResults<K>> {
     const censored: [index: number, result: VariableSetResult][] = [];
     const consent = context?.consent ?? context?.tracker?.consent;
+    const scopeIds = context?.tracker ?? context?.scopeIds;
 
     // Censor the values (including patch actions) when the context has a tracker.
     variables.forEach((setter, i) => {
       if (!setter) return;
 
-      toNumericVariable(setter);
       const mapping = this._getMapping(setter);
 
       if (isVariablePatchAction(setter)) {
-        setter.patch = wrapFunction(setter.patch, async (original, current) => {
+        setter.patch = wrap(setter.patch, async (original, current) => {
           const patched = await original(current);
           return isUndefined(patched) ||
             this._censorValidate(
               mapping,
-              toNumericVariable(patched),
+              patched,
               setter,
               i,
               variables,
               censored,
-              consent
+              consent,
+              scopeIds
             )
             ? patched
             : undefined;
@@ -592,7 +631,8 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
           i,
           variables,
           censored,
-          consent
+          consent,
+          scopeIds
         );
       }
     });
@@ -607,40 +647,40 @@ export class VariableStorageCoordinator implements VariableStorage<false> {
       (results as VariableSetResult[])[i] = result;
     }
 
-    return handleResultErrors(results, context?.throw) as any;
+    return results as any;
   }
 
   configureScopeDurations(
-    durations: Partial<Record<VariableScopeValue<false>, number>>,
-    context?: VariableStorageContext<false>
+    durations: Partial<Record<VariableScope, number>>,
+    context?: VariableStorageContext
   ): void {
-    this._storage.configureScopeDurations(durations, context as any);
+    this._storage.configureScopeDurations(durations, context);
   }
   renew(
     scope: VariableScope,
     scopeIds: string[],
-    context?: VariableStorageContext<false>
+    context?: VariableStorageContext
   ): MaybePromise<void> {
-    return this._storage.renew(scope, scopeIds, context as any);
+    return this._storage.renew(scope, scopeIds, context);
   }
   purge(
-    filters: VariableFilter<boolean>[],
-    context?: VariableStorageContext<false>
+    filters: VariableFilter<true>[],
+    context?: VariableStorageContext
   ): MaybePromise<void> {
-    return this._storage.purge(filters, context as any);
+    return this._storage.purge(filters, context);
   }
 
   head(
-    filters: VariableFilter<boolean>[],
-    options?: VariableQueryOptions<boolean> | undefined,
-    context?: VariableStorageContext<false>
+    filters: VariableFilter<true>[],
+    options?: VariableQueryOptions<true> | undefined,
+    context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
     return this._storage.head(filters, options, context as any);
   }
   query(
-    filters: VariableFilter<boolean>[],
-    options?: VariableQueryOptions<boolean> | undefined,
-    context?: VariableStorageContext<false>
+    filters: VariableFilter<true>[],
+    options?: VariableQueryOptions<true> | undefined,
+    context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<Variable<any, true>>> {
     return this._storage.query(filters, options, context as any);
   }

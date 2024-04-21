@@ -1,40 +1,31 @@
 import {
-  VariableGetResults,
   UserConsent,
-  VariableGetParameter,
-  VariableScopeValue,
-  VariableSetParameter,
+  VariableGetResults,
+  VariableGetters,
   VariableSetResults,
+  VariableSetters,
   type Variable,
   type VariableFilter,
-  type VariableGetter,
   type VariableHeader,
   type VariableQueryOptions,
   type VariableQueryResult,
   type VariableScope,
 } from "@tailjs/types";
-import { MaybePromise, Not, Nullish } from "@tailjs/util";
+import { MaybePromise } from "@tailjs/util";
 import type { Tracker, TrackerEnvironment } from "..";
 
-// export class VariableSetError extends Error {
-//   constructor(result: VariableSetResult) {
-//     super(
-//       `The variable '${result.source.key}' in ${variableScope.lookup(
-//         result.source.scope
-//       )} scope could not be set${
-//         isErrorResult(result) ? `: ${result.error}` : ""
-//       }.`
-//     );
-//   }
-// }
+export type VariableContextScopeIds = {
+  sessionId?: string;
+  deviceId?: string;
+  userId?: string;
+};
 
-export type VariableStorageContext<
-  Validated,
-  Throw extends Validated extends true
-    ? false
-    : boolean = Validated extends true ? false : boolean
-> = {
+export type VariableStorageContext = {
+  /** The tracker operations must be validated against. If {@link consent} or {@link scopeIds} are not specified explicitly, these will be read from the tracker.   */
   tracker?: Tracker;
+
+  /** The current target IDs for session, device and user scope. */
+  scopeIds?: VariableContextScopeIds;
 
   /** This defaults to the tracker's consent (if any), but can be set independently,
    *  for example if the tracker needs to update date if its consent changes (or for testing).  */
@@ -42,66 +33,52 @@ export type VariableStorageContext<
 
   // Reserved for future use so one endpoint can be shared between multiple projects (e.g. by an API key - TBD).
   tenant?: string;
-
-  /**
-   * Throw on unexpected status codes instead of returning them.
-   * This is only supported by non-validated storages.
-   */
-  throw?: Throw;
 };
 
-export interface ReadonlyVariableStorage<Validated = true> {
+export interface ReadonlyVariableStorage {
   initialize?(environment: TrackerEnvironment): MaybePromise<void>;
 
-  get<
-    K extends VariableGetParameter<Validated>,
-    C extends VariableStorageContext<Validated>
-  >(
-    keys: K | VariableGetParameter<Validated>, // K `|` the base type to enable intellisense.
-    context?: C
-  ): MaybePromise<VariableGetResults<K, C>>;
+  get<K extends VariableGetters<true>>(
+    keys: VariableGetters<true, K>,
+    context?: VariableStorageContext
+  ): MaybePromise<VariableGetResults<K>>;
 
   head(
-    filters: VariableFilter[],
-    options?: VariableQueryOptions,
-    context?: VariableStorageContext<Validated>
+    filters: VariableFilter<true>[],
+    options?: VariableQueryOptions<true>,
+    context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<VariableHeader<true>>>;
 
   query(
-    filters: VariableFilter[],
-    options?: VariableQueryOptions,
-    context?: VariableStorageContext<Validated>
+    filters: VariableFilter<true>[],
+    options?: VariableQueryOptions<true>,
+    context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<Variable<any, true>>>;
 }
 
-export const isWritable = <Validated>(
-  storage: ReadonlyVariableStorage<Validated>
-): storage is ReadonlyVariableStorage<Validated> & VariableStorage<Validated> =>
-  !!(storage as any)?.set;
+export const isWritable = <T extends ReadonlyVariableStorage>(
+  storage: T
+): storage is T & VariableStorage => !!(storage as any)?.set;
 
-export interface VariableStorage<Validated = true>
-  extends ReadonlyVariableStorage<Validated> {
+export interface VariableStorage extends ReadonlyVariableStorage {
   configureScopeDurations(
-    durations: Partial<Record<VariableScopeValue<false>, number>>,
-    context?: VariableStorageContext<Validated>
+    durations: Partial<Record<VariableScope, number>>,
+    context?: VariableStorageContext
   ): void;
 
   renew(
     scope: VariableScope,
     scopeIds: string[],
-    context?: VariableStorageContext<Validated>
+    context?: VariableStorageContext
   ): MaybePromise<void>;
 
-  set<
-    V extends VariableSetParameter<Validated>,
-    C extends VariableStorageContext<Validated>
-  >(
-    variables: V | VariableSetParameter<Validated>, // V & and the base type to enable intellisense.
-    context?: C
-  ): MaybePromise<VariableSetResults<V, C>>;
+  set<V extends VariableSetters<true>>(
+    variables: VariableSetters<true, V>,
+    context?: VariableStorageContext
+  ): MaybePromise<VariableSetResults<V>>;
 
   purge(
-    filters: VariableFilter[],
-    context?: VariableStorageContext<Validated>
+    filters: VariableFilter<true>[],
+    context?: VariableStorageContext
   ): MaybePromise<void>;
 }

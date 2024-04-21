@@ -8,7 +8,6 @@ import {
   ViewEndedEvent,
   ViewEvent,
   ViewTimingEvent,
-  cast,
   isViewEvent,
 } from "@tailjs/types";
 import {
@@ -55,6 +54,7 @@ import {
   undefined,
   window,
 } from "../lib";
+import { restrict } from "@tailjs/util";
 
 type TabInfo = [
   id: LocalID,
@@ -274,7 +274,7 @@ export const context: TrackerExtensionFactory = {
             if (!value || !isForegroundTab()) return;
             push(
               tracker,
-              cast<UserAgentEvent>({
+              restrict<UserAgentEvent>({
                 type: "USER_AGENT",
                 hasTouch: navigator.maxTouchPoints > 0,
                 userAgent: navigator.userAgent,
@@ -282,7 +282,7 @@ export const context: TrackerExtensionFactory = {
                 languages: map(
                   navigator.languages,
                   (id, i, parts = split(id, "-")) =>
-                    cast<UserAgentEvent["languages"]>({
+                    restrict<UserAgentEvent["languages"]>({
                       id,
                       language: parts[0],
                       region: parts[1],
@@ -345,7 +345,9 @@ export const context: TrackerExtensionFactory = {
       heartbeat(
         () =>
           isForegroundTab() &&
-          tracker.push(cast<HeartbeatEvent>({ type: "HEARTBEAT", timing: {} })),
+          tracker.push(
+            restrict<HeartbeatEvent>({ type: "HEARTBEAT", timing: {} })
+          ),
         -trackerConfig.heartbeatFrequency
       );
 

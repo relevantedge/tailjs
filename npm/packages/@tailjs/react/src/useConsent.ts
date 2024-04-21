@@ -3,10 +3,8 @@ import {
   ConsentEvent,
   DataClassification,
   DataPurposeFlags,
-  cast,
-  dataClassification,
-  dataPurposes,
 } from "@tailjs/types";
+import { restrict } from "@tailjs/util";
 import { useRef, useState } from "react";
 
 export const useConsent = (): [boolean | null, (consent: boolean) => void] => {
@@ -32,7 +30,7 @@ export const useConsent = (): [boolean | null, (consent: boolean) => void] => {
     hasConsent,
     (consent: boolean) => {
       tail.push(
-        cast<ConsentEvent>({
+        restrict<ConsentEvent>({
           type: "CONSENT",
           purposes: consent ? DataPurposeFlags.Any : DataPurposeFlags.Necessary,
           level: consent

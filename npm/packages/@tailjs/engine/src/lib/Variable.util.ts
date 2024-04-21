@@ -13,7 +13,8 @@ import {
   dataPurposes,
   parseKey,
   patchType,
-  toNumericVariable,
+  toNumericVariableEnums,
+  variableScope,
 } from "@tailjs/types";
 import {
   IfNot,
@@ -63,17 +64,6 @@ export const formatSetResultError = (result?: VariableSetResult) => {
   ]).join(" - ");
 };
 
-export const extractKey = <T extends VariableKey>(
-  variable: T
-): T extends undefined ? undefined : T =>
-  variable
-    ? ({
-        scope: variable.scope,
-        targetId: variable.targetId,
-        key: variable.key,
-      } as Required<VariableKey> as any)
-    : undefined;
-
 const patchSelector = (
   value: any,
   selector: string | undefined,
@@ -110,7 +100,7 @@ const requireNumberOrUndefined = (value: any): number | undefined => {
   throw new TypeError("The current value must be undefined or a number.");
 };
 
-export const applyPatchOffline = async (
+export const applyPatch = async (
   current: VariablePatchSource<any, boolean> | undefined,
   {
     classification: level,
@@ -119,7 +109,9 @@ export const applyPatchOffline = async (
   }: VariablePatch<any, false> | VariablePatch<any, true>
 ): Promise<VariablePatchResult<any, true> | undefined> => {
   if (isFunction(patch)) {
-    const patched = toNumericVariable(await patch(toNumericVariable(current)));
+    const patched = toNumericVariableEnums(
+      await patch(toNumericVariableEnums(current))
+    );
 
     if (patched) {
       patched.classification ??= dataClassification.parse(
@@ -148,7 +140,7 @@ export const applyPatchOffline = async (
         value: patchSelector(
           requireNumberOrUndefined(value),
           patch.selector,
-          (value) => (value ?? 0) + patch.by
+          (value) => (value ?? patch.seed ?? 0) + patch.by
         ),
       };
     case VariablePatchType.Min:
