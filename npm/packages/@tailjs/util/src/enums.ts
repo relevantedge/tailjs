@@ -206,6 +206,8 @@ type EntriesByValue<T extends Record<keyof any, any>, V extends keyof any> = {
   ? T
   : never;
 
+const isBit = (n: number) => ((n = Math.log2(n)), n === (n | 0));
+
 export const createEnumAccessor = <
   T extends EnumSource,
   Flags extends boolean,
@@ -225,8 +227,10 @@ export const createEnumAccessor = <
   const entries = Object.entries(names);
   const values = Object.values(names);
 
+  const any = names["any"] ?? values.reduce((any, flag) => any | flag, 0);
+
   const nameLookup: Record<string, number> = flags
-    ? { ...names, none: 0 }
+    ? { ...names, any, none: 0 }
     : names;
   const valueLookup = Object.fromEntries(
     entries.map(([key, value]) => [value, key])
@@ -261,8 +265,14 @@ export const createEnumAccessor = <
         (value: any, format: boolean) =>
           (value = tryParse(value, false)) == null
             ? undefined
+            : format && (value & any) === any
+            ? value > any && (value = lookup(value & ~any, false)).length
+              ? ["any", ...value]
+              : "any"
+            : format && valueLookup[value]
+            ? valueLookup[value]
             : ((value = entries
-                .filter(([, flag]) => flag && (value & flag) === flag)
+                .filter(([, flag]) => flag && value & flag && isBit(flag))
                 .map(([name]) => name)),
               format
                 ? value.length
@@ -290,7 +300,10 @@ export const createEnumAccessor = <
         )
       : value;
 
-  const pure = entries.filter(([, value]) => !pureFlags || pureFlags & value);
+  const pure = entries.filter(
+    ([, value]) => !pureFlags || ((pureFlags & value) === value && isBit(value))
+  );
+
   return define(
     (value: any) => parse(value),
     [
