@@ -16,7 +16,7 @@ export interface ClickIds {
  *
  */
 export interface ViewEvent extends TrackedEvent {
-  type: "VIEW";
+  type: "view";
 
   /**
    * @inheritdoc
@@ -143,4 +143,4 @@ export interface ViewEvent extends TrackedEvent {
   viewType?: string;
 }
 
-export const isViewEvent = typeTest<ViewEvent>("VIEW");
+export const isViewEvent = typeTest<ViewEvent>("view");

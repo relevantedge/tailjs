@@ -1,3 +1,7 @@
+export * from "./TrackedEvent";
+
+export * from "./PassiveEvent";
+
 export * from "./UserInteractionEvent";
 export * from "./FormEvent";
 export * from "./ComponentClickEvent";
@@ -7,7 +11,7 @@ export * from "./ViewTimingEvent";
 export * from "./ScrollEvent";
 export * from "./SearchEvent";
 export * from "./SessionStartedEvent";
-export * from "./TrackedEvent";
+
 export * from "./UserAgentEvent";
 export * from "./ViewEvent";
 export * from "./ViewEndedEvent";

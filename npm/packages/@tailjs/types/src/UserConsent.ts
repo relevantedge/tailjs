@@ -59,17 +59,26 @@ export const validateConsent = (
       "The source has not defined data purposes and no default was provided."
     );
 
+  const consentClassification = dataClassification.parse(
+    consent["classification"] ?? consent["level"],
+    false
+  );
+
+  const consentPurposes = dataPurposes.parse(consent.purposes, false);
+
+  if (
+    purposes & DataPurposeFlags.Server &&
+    !(consentPurposes & DataPurposeFlags.Server)
+  ) {
+    return false;
+  }
+
   return (
     source &&
-    classification! <=
-      dataClassification.parse(
-        consent["classification"] ?? consent["level"],
-        false
-      ) &&
+    classification! <= consentClassification &&
     (purposes &
       // No matter what is defined in the consent, it will always include the "anonymous" purposes.
-      (dataPurposes.parse(consent.purposes, false) |
-        DataPurposeFlags.Anonymous)) >
+      (consentPurposes | DataPurposeFlags.Anonymous)) >
       0
   );
 };

@@ -53,25 +53,33 @@ type PageLoadListenerArgs = [loaded: boolean, stateDuration: number];
 const [addPageLoadedListener, dispatchPageLoaded] =
   createEvent<PageLoadListenerArgs>();
 
+const [addPageVisibleListener, dispatchPageVisible] =
+  createEvent<[visible: boolean, unloading: boolean, delta: number]>();
+
+const maybeDispatchPageLoaded = (newLoaded: boolean) =>
+  loaded !== (loaded = newLoaded) &&
+  dispatchPageLoaded((loaded = false), sleepTimer(true, true));
+
+const maybeDispatchPageVisible = (loaded: boolean) =>
+  visible !==
+    (visible = loaded ? document.visibilityState === "visible" : false) &&
+  dispatchPageVisible(visible, !loaded, visibleTimer(true, true));
+
+// A visibilitychange event may not be triggered if the page BF cache loads/unloads.
+addPageLoadedListener(maybeDispatchPageVisible);
+
 let loaded = true;
+let visible = false;
+let visibleTimer = createTimer(false);
 let sleepTimer = createTimer(false);
-listen(
-  window,
-  ["pagehide", "freeze"],
-  () => loaded && dispatchPageLoaded((loaded = false), sleepTimer(true, true))
-);
-listen(
-  window,
-  ["pageshow", "resume"],
-  () => !loaded && dispatchPageLoaded((loaded = true), sleepTimer(true, true))
-);
+listen(window, ["pagehide", "freeze"], () => maybeDispatchPageLoaded(false));
+listen(window, ["pageshow", "resume"], () => maybeDispatchPageLoaded(true));
 listen(
   document,
   "visibilitychange",
-  () =>
-    document.visibilityState === "visible" &&
-    !loaded &&
-    dispatchPageLoaded((loaded = true), sleepTimer(true, true))
+  () => (
+    maybeDispatchPageVisible(true), visible && maybeDispatchPageLoaded(true)
+  )
 );
 
 dispatchPageLoaded(loaded, sleepTimer(true, true));
@@ -105,4 +113,8 @@ listen(window, "scroll", setActivated);
 setActivated();
 
 export const getActiveTime = () => activeTime();
-export { addPageActivatedListener, addPageLoadedListener };
+export {
+  addPageActivatedListener,
+  addPageLoadedListener,
+  addPageVisibleListener,
+};

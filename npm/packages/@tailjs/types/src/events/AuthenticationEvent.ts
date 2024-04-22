@@ -10,7 +10,7 @@ export interface AuthenticationEvent extends TrackedEvent {}
  * A user signed in.
  */
 export interface SignInEvent extends AuthenticationEvent {
-  type: "SIGN_IN";
+  type: "sign_in";
   /**
    * The user that signed in.
    */
@@ -27,13 +27,13 @@ export interface SignInEvent extends AuthenticationEvent {
  * A user actively signed out. (Session expiry doesn't count).
  */
 export interface SignOutEvent extends AuthenticationEvent {
-  type: "SIGN_OUT";
+  type: "sign_out";
   /**
    * The user that signed out.
    */
   userId?: string;
 }
 
-export const isSignOutEvent = typeTest<SignOutEvent>("SIGN_OUT");
+export const isSignOutEvent = typeTest<SignOutEvent>("sign_out");
 
-export const isSignInEvent = typeTest<SignInEvent>("SIGN_IN");
+export const isSignInEvent = typeTest<SignInEvent>("sign_in");

@@ -139,6 +139,22 @@ describe("SchemaManager.", () => {
       variables.tryValidate({ scope: "session", key: "test" }, "test")
     ).toBeUndefined();
 
+    expect(
+      variables.censor(
+        { scope: "session", key: "serverOnly" },
+        { alsoClient: "foo", onlyServer: "bar" },
+        { classification: "anonymous", purposes: "any" }
+      )
+    ).toEqual({ alsoClient: "foo" });
+
+    expect(
+      variables.censor(
+        { scope: "session", key: "serverOnly" },
+        { alsoClient: "foo", onlyServer: "bar" },
+        { classification: "anonymous", purposes: ["any", "server"] }
+      )
+    ).toEqual({ alsoClient: "foo", onlyServer: "bar" });
+
     //expect(manager.validateVariableUniqueness().length).toBe(2);
   });
 
@@ -264,7 +280,7 @@ describe("SchemaManager.", () => {
     const fullSchemaPath = "packages/@tailjs/types/dist/schema/dist/index.json";
     if (!fs.existsSync(fullSchemaPath)) {
       console.error(
-        `${fullSchemaPath} does not exist. Please bulid @tailjs/schema before running this test.`
+        `${fullSchemaPath} does not exist. Please build @tailjs/schema before running this test.`
       );
       return;
     }
@@ -272,12 +288,12 @@ describe("SchemaManager.", () => {
     const schema = JSON.parse(fs.readFileSync(fullSchemaPath, "utf-8"));
     const manager = new SchemaManager([schema]);
 
-    const clickIntent = manager.getType("COMPONENT_CLICK_INTENT");
+    const clickIntent = manager.getType("component_click_intent");
     expect(clickIntent).toBeDefined();
 
     console.log(
       clickIntent.validate({
-        type: "COMPONENT_CLICK_INTENT",
+        type: "component_click_intent",
         pos: { x: 32, y: 80 },
       })
     );

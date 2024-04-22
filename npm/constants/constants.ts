@@ -8,3 +8,6 @@ export const INITIALIZE_TRACKER_FUNCTION = ".tail.js.init";
 export const EVENT_HUB_QUERY = "var";
 export const VARIABLES_QUERY = "usr";
 export const CONTEXT_MENU_QUERY = "mnt";
+
+// Must match the key in @tailjs/types/ScopeVariables.ts.
+export const SCOPE_INFO_KEY = "info";

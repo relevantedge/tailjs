@@ -10,7 +10,7 @@ export interface CartUpdatedEvent
   extends UserInteractionEvent,
     CommerceEvent,
     CartEventData {
-  type: "CART_UPDATED";
+  type: "cart_updated";
 }
 
-export const isCartEvent = typeTest<CartUpdatedEvent>("CART_UPDATED");
+export const isCartEvent = typeTest<CartUpdatedEvent>("cart_updated");

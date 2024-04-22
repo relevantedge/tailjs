@@ -2,7 +2,7 @@ import type { ScreenPosition, TrackedEvent, UserInteractionEvent } from "..";
 import { typeTest } from "../util/type-test";
 
 export interface ScrollEvent extends UserInteractionEvent {
-  type: "SCROLL";
+  type: "scroll";
 
   /**
    * The offset relative to the page size (100 % is bottom, 0 % is top)
@@ -21,4 +21,4 @@ export interface ScrollEvent extends UserInteractionEvent {
     | "offset"; // Not yet implemend. A pre-configured percentage.
 }
 
-export const isScrollEvent = typeTest<ScrollEvent>("SCROLL");
+export const isScrollEvent = typeTest<ScrollEvent>("scroll");

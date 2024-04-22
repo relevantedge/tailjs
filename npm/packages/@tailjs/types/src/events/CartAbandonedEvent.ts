@@ -7,7 +7,7 @@ import { typeTest } from "../util/type-test";
  *
  */
 export interface CartAbandonedEvent extends CommerceEvent, Order {
-  type: "CART_ABANDONED";
+  type: "cart_abandoned";
 
   /**
    * The timestamp for the last time the shopping cart was modified by the user before abandonment.
@@ -16,4 +16,4 @@ export interface CartAbandonedEvent extends CommerceEvent, Order {
 }
 
 export const isCartAbandonedEvent =
-  typeTest<CartAbandonedEvent>("CART_ABANDONED");
+  typeTest<CartAbandonedEvent>("cart_abandoned");

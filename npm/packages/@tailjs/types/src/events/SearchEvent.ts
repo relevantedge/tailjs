@@ -7,7 +7,7 @@ import type {
 import { typeTest } from "../util/type-test";
 
 export interface SearchEvent extends UserInteractionEvent {
-  type: "SEARCH";
+  type: "search";
 
   query?: string;
   searchParameter?: Record<string, SearchParameter>;
@@ -24,4 +24,4 @@ export interface SearchParameter extends ExternalReference {
   comparison?: "lt" | "eq" | "gt";
 }
 
-export const isSearchEvent = typeTest<SearchEvent>("SEARCH");
+export const isSearchEvent = typeTest<SearchEvent>("search");

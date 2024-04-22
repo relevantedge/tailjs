@@ -38,6 +38,7 @@ export const parseClassifications = (
   classification.classification = dataClassification.parse(
     node[SchemaAnnotations.Classification]
   );
+
   classification.purposes = dataPurposes.parse(
     node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes]
   );

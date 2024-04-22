@@ -7,7 +7,7 @@ import { TrackedEvent } from "./TrackedEvent";
  * Intended for debugging and not relayed to backends.
  */
 export interface ResetEvent extends TrackedEvent, SystemEvent {
-  type: "RESET";
+  type: "reset";
   /**
    * Whether only the session or also the device should be reset.
    *
@@ -21,4 +21,4 @@ export interface ResetEvent extends TrackedEvent, SystemEvent {
   includeConsent?: boolean;
 }
 
-export const isResetEvent = typeTest<ResetEvent>("RESET");
+export const isResetEvent = typeTest<ResetEvent>("reset");

@@ -24,6 +24,9 @@ export type VariableStorageContext = {
   /** The tracker operations must be validated against. If {@link consent} or {@link scopeIds} are not specified explicitly, these will be read from the tracker.   */
   tracker?: Tracker;
 
+  /** The data is requested by the client. That removes the ServerOnly purpose so certain fields get censored, e.g. session ID and similar that should not be disclosed there. */
+  client?: boolean;
+
   /** The current target IDs for session, device and user scope. */
   scopeIds?: VariableContextScopeIds;
 

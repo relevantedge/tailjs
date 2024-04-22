@@ -6,12 +6,17 @@ import {
   NotFunction,
   OmitNullish,
   Wrapped,
+  entries,
+  every,
+  get,
   hasProperty,
   isArray,
   isBoolean,
   isDefined,
   isFunction,
+  isObject,
   isString,
+  keys,
   unwrap,
 } from "..";
 
@@ -36,9 +41,9 @@ export const validate = <
   T,
   Validator extends
     | ((candidate: T) => candidate is any)
-    | ((candiate: T) => R)
+    | ((candidate: T) => R)
     | [
-        validate: (candiate: T) => any,
+        validate: (candidate: T) => any,
         ...typeTests: ((candidate: T) => candidate is any)[]
       ]
     | (R & NotFunction),
@@ -78,6 +83,16 @@ export class InvariantViolatedError extends Error {
   }
 }
 
+export const entriesEqual = (value1: any, value2: any, deep = true): boolean =>
+  value1 === value2 ||
+  (isObject(value1, true) &&
+    isObject(value2, true) &&
+    every(entries(value1), ([key, value]) =>
+      deep
+        ? entriesEqual(value, get(value2, key) === value)
+        : get(value2, key) === value
+    ));
+
 /** Tests whether a value equals at least one of some other values.  */
 export const eq: <T extends readonly any[]>(
   target: any,
@@ -89,7 +104,7 @@ export const eq: <T extends readonly any[]>(
 ) =>
   target === singleValue ||
   (otherValues.length > 0 &&
-    otherValues.some((value) => target === value))) as any;
+    otherValues.some((value: any) => eq(target, value)))) as any;
 
 /**
  * States an invariant.
@@ -141,21 +156,25 @@ export const thenable = <T>(
   then: thenMethod(expression),
 });
 
-export const thenMethod =
-  <T>(
-    expression: Wrapped<MaybePromise<T>>
-  ): (<TResult1 = T, TResult2 = never>(
-    onfulfilled?:
-      | ((value: T) => TResult1 | PromiseLike<TResult1>)
-      | undefined
-      | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null
-  ) => PromiseLike<TResult1 | TResult2>) =>
-  (onfullfilled?, onrejected?) =>
-    tryCatchAsync(expression, [onfullfilled, onrejected]);
+export const thenMethod = <T>(
+  expression: Wrapped<MaybePromise<T>>
+): (<TResult1 = T, TResult2 = never>(
+  onfulfilled?:
+    | ((value: T) => TResult1 | PromiseLike<TResult1>)
+    | undefined
+    | null,
+  onrejected?:
+    | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+    | undefined
+    | null
+) => PromiseLike<TResult1 | TResult2>) => {
+  let result: MaybePromise<T>;
+  return (onfullfilled?, onrejected?) =>
+    tryCatchAsync(
+      () => (result ??= unwrap(expression)),
+      [onfullfilled, onrejected]
+    );
+};
 
 export const tryCatchAsync = async <
   T,
@@ -202,6 +221,8 @@ export const tryCatchAsync = async <
  *
  */
 export const restrict: {
-  <T extends any[] | undefined>(item: T extends (infer T)[] ? T : never);
+  <T extends any[] | undefined>(
+    item: T extends (infer T)[] ? T : undefined
+  ): T extends (infer T)[] ? T : undefined;
   <T>(item: T): T;
 } = (item: any) => item as any;

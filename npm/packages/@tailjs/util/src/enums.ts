@@ -224,34 +224,36 @@ export const createEnumAccessor = <
 
   const entries = Object.entries(names);
   const values = Object.values(names);
-  const any = values.reduce((any, flag) => any | flag, 0);
 
   const nameLookup: Record<string, number> = flags
-    ? { ...names, any, none: 0 }
+    ? { ...names, none: 0 }
     : names;
   const valueLookup = Object.fromEntries(
     entries.map(([key, value]) => [value, key])
   );
 
   const parseValue = (value: any, validateNumbers?: boolean) =>
-    isString(value)
-      ? nameLookup[value] ?? nameLookup[value.toLowerCase()]
-      : isNumber(value)
+    isNumber(value)
       ? !flags && validateNumbers
         ? isDefined(valueLookup[value])
           ? value
           : undefined
         : value
+      : isString(value)
+      ? nameLookup[value] ?? nameLookup[value.toLowerCase()]
       : undefined;
 
+  let invalid = false;
   const [tryParse, lookup] = flags
     ? [
         (value: any, validateNumbers?: boolean) =>
           Array.isArray(value)
             ? value.reduce(
                 (flags, flag) =>
-                  (flag = parseValue(flag, validateNumbers)) == null
+                  flag == null || invalid
                     ? flags
+                    : (flag = parseValue(flag, validateNumbers)) == null
+                    ? ((invalid = true), undefined)
                     : (flags ?? 0) | flag,
                 undefined as number | undefined
               )
@@ -259,8 +261,6 @@ export const createEnumAccessor = <
         (value: any, format: boolean) =>
           (value = tryParse(value, false)) == null
             ? undefined
-            : format && value === any
-            ? "any"
             : ((value = entries
                 .filter(([, flag]) => flag && (value & flag) === flag)
                 .map(([name]) => name)),

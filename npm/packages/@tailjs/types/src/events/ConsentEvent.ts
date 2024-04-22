@@ -24,11 +24,11 @@ import { typeTest } from "../util/type-test";
  * Also, "consent" and "event" rhymes.
  */
 export interface ConsentEvent extends TrackedEvent {
-  type: "CONSENT";
+  type: "consent";
 
   level?: DataClassificationValue;
 
   purposes?: DataPurposeValue;
 }
 
-export const isConsentEvent = typeTest<ConsentEvent>("CONSENT");
+export const isConsentEvent = typeTest<ConsentEvent>("consent");

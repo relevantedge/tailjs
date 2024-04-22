@@ -1,32 +1,32 @@
 import {
-  add,
   ConstToNormal,
+  Entries,
   GeneralizeConstants,
+  IsAny,
+  IterableOrArrayLike,
+  KeyValuePairsToObject,
+  MAX_SAFE_INTEGER,
+  MaybePromise,
+  MaybeUndefined,
+  Minus,
+  Nullish,
+  RecordType,
+  add,
   get,
   hasMethod,
-  IsAny,
   isArray,
   isDefined,
   isFalsish,
   isFunction,
+  isIterable,
+  isMap,
+  isNumber,
   isObject,
   isSet,
   isTruish,
-  IterableOrArrayLike,
-  KeyValuePairsToObject,
-  MAX_SAFE_INTEGER,
-  Minus,
-  NotFunction,
-  RecordType,
   symbolIterator,
   toArray,
   undefined,
-  MaybeUndefined,
-  Nullish,
-  isNumber,
-  If,
-  MaybePromise,
-  Wrapped,
 } from ".";
 
 export const UTF16MAX = 0xffff;
@@ -589,7 +589,7 @@ const forEachArray = (
   return returnValue;
 };
 
-const forEachItereable = (source: Iterable<any>, action: any) => {
+const forEachIterable = (source: Iterable<any>, action: any) => {
   let returnValue: any;
   let i = 0;
   for (let value of source as any) {
@@ -657,7 +657,7 @@ const forEachInternal: <S extends IteratorSource, R>(
 
   if (isArray(source)) return forEachArray(source, action, start, end);
   if (start === undefined) {
-    if (source[symbolIterator]) return forEachItereable(source as any, action);
+    if (source[symbolIterator]) return forEachIterable(source as any, action);
     if (typeof source === "object") return forEachObject(source, action);
   }
   let returnValue: any;
@@ -722,8 +722,9 @@ export const obj: {
     source: S,
     ...rest: StartEndArgs<S>
   ): KeyValuePairsToObject<IteratorItem<S>>;
-} = ((source: any, selector: any, ...rest: any[]) =>
-  Object.fromEntries((map as any)(source, selector, ...rest))) as any;
+} = ((source: any, selector: any, start?: any, end?: any) =>
+  (source = map(source, selector, start, end)) &&
+  Object.fromEntries(source)) as any;
 
 export const groupReduce: <
   S extends IteratorSource,
@@ -924,6 +925,22 @@ export const values: <S extends IteratorSource>(
     start,
     end
   );
+
+export const entries: <S extends Iterable<any> | RecordType>(
+  target: S
+) => Entries<S> = (target) =>
+  isIterable(target)
+    ? map(
+        target,
+        isMap(target)
+          ? (value) => value
+          : isSet(target)
+          ? (value) => [value, true]
+          : (value, index) => [index, value]
+      )
+    : isObject(target, true)
+    ? (Object.entries(target) as any)
+    : undefined;
 
 export const keys: <S extends IteratorSource>(
   source: S,

@@ -75,7 +75,7 @@ describe("Sparse HTTP encoding.", () => {
       3,
       1.1,
       1e-16,
-      0.9999999999999999,    
+      0.9999999999999999,
       Number.MAX_SAFE_INTEGER,
       Number.MAX_VALUE,
       Number.MIN_SAFE_INTEGER,
@@ -89,7 +89,7 @@ describe("Sparse HTTP encoding.", () => {
     encodeDecode("test");
     encodeDecode([
       {
-        type: "VIEW",
+        type: "view",
         timestamp: -4769,
         id: "lmhun456",
         tab: "lmhs3k6l",
@@ -111,7 +111,7 @@ describe("Sparse HTTP encoding.", () => {
         clientId: "lmhun7tn",
       },
       {
-        type: "SCROLL",
+        type: "scroll",
         scrollType: "fold",
         offset: { x: 0, y: 0.0491576717843691 },
         timestamp: -2402,
@@ -119,7 +119,7 @@ describe("Sparse HTTP encoding.", () => {
         clientId: "lmhun7to",
       },
       {
-        type: "SCROLL",
+        type: "scroll",
         scrollType: "page-middle",
         offset: { x: 0, y: 0.501431900291261 },
         timestamp: -2330,
@@ -127,7 +127,7 @@ describe("Sparse HTTP encoding.", () => {
         clientId: "lmhun7tp",
       },
       {
-        type: "SCROLL",
+        type: "scroll",
         scrollType: "page-end",
         offset: { x: 0, y: 0.9909823225109301 },
         timestamp: -2019,
@@ -152,7 +152,7 @@ describe("Sparse HTTP encoding.", () => {
 
     encodeDecode([
       {
-        type: "VIEW",
+        type: "view",
         timestamp: -4067,
         id: "lmhterne",
         tab: "lmhs3k6l",

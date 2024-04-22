@@ -4,8 +4,14 @@ export type Tracker = {
   /**
    * A unique identifier for the tracker instance.
    */
-  id: string;
-  push: {
+  readonly id: string;
+
+  /**
+   * A flag that indicates that the tracker has been initialized.
+   */
+  readonly initialized?: boolean;
+
+  readonly push: {
     /** Allows commands to be passed as a HTTP encoded string instead of objects. This is useful for server-side generated data. */
     (httpEncoded: string): void;
 
@@ -29,11 +35,11 @@ export type Tracker = {
   /**
    * The tracker was initialized during server-side rendering.
    */
-  ssr?: boolean;
+  readonly ssr?: boolean;
 
   /**
    * Convenience method to reset session and device data, and then prevent the tracker from posting further events.
    * This method is only available in debug mode to raise the entry barrier for pranksters who can inject scripts.
    */
-  reset?: (includeDevice?: boolean) => void;
+  readonly reset?: (includeDevice?: boolean) => void;
 };

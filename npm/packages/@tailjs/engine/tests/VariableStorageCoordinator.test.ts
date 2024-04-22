@@ -78,9 +78,9 @@ describe("VariableStorageCoordinator", () => {
     const prefixedKey = { ...key, key: "test:prefixed" };
     expect(await coordinator.get([key]).value).toBeUndefined();
 
-    expect((await coordinator.set([{ ...key, value: "32" }])[0]).status).toBe(
-      VariableResultStatus.Created
-    );
+    expect(
+      (await coordinator.set([{ ...key, value: "32" }]).result).status
+    ).toBe(VariableResultStatus.Created);
 
     expect(
       (await coordinator.set([{ ...key, value: "33" }]).all)[0].status

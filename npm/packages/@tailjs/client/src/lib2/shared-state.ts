@@ -1,5 +1,12 @@
-import { Variable } from "@tailjs/types";
 import {
+  DataClassification,
+  RestrictVariableTargets,
+  Variable,
+  VariableClassification,
+  VariableResultStatus,
+} from "@tailjs/types";
+import {
+  PickPartial,
   assign,
   clear,
   clock,
@@ -12,21 +19,32 @@ import {
 import {
   HEARTBEAT_FREQUENCY,
   TAB_ID,
-  addHeartBeatListener,
   addPageLoadedListener,
   subscribeChannel,
-  toggleHearbeat,
   variableKeyToString,
 } from ".";
 
 export type TabState = {
   id: string;
-  hearbeat: number;
+  heartbeat: number;
   viewId?: string;
   navigated?: number;
 };
 
-export type StateVariable = Variable<any, true> & { timestamp: number };
+export type StateVariableSource = PickPartial<
+  RestrictVariableTargets<
+    Omit<Variable<any, true>, "value"> & {
+      status: VariableResultStatus;
+      value?: any;
+    }
+  >,
+  keyof VariableClassification
+>;
+
+export type StateVariable = StateVariableSource & {
+  timestamp: number;
+  expires: number;
+};
 
 export type State = {
   knownTabs: Record<string, TabState>;
@@ -35,7 +53,7 @@ export type State = {
 
 const tabState: TabState = {
   id: TAB_ID,
-  hearbeat: now(),
+  heartbeat: now(),
 };
 
 const state: State = {
@@ -61,8 +79,8 @@ type StateMessage =
     };
 
 const [addStateListener, dispatchState] = createEvent<
-  | [event: "ready", state: State]
-  | [event: "tab", tab: TabState]
+  | [event: "ready", state: State, self: boolean]
+  | [event: "tab", tab: TabState, self: boolean]
   | [
       event: "variables",
       updates: Record<string, StateVariable | undefined>,
@@ -70,7 +88,7 @@ const [addStateListener, dispatchState] = createEvent<
     ]
 >();
 
-const initTimeout = clock(() => dispatchState("ready", state), -25);
+const initTimeout = clock(() => dispatchState("ready", state, true), -25);
 const stateChannel = subscribeChannel<StateMessage>(
   "state",
   (sender, { type, payload: data }) => {
@@ -85,26 +103,21 @@ const stateChannel = subscribeChannel<StateMessage>(
       dispatchState("variables", data, false);
     } else if (type === "tab") {
       assign(state.knownTabs, sender, data);
-      data && dispatchState("tab", data);
+      data && dispatchState("tab", data, false);
     }
   }
 );
 
 export const getStateVariables = (): Readonly<State["variables"]> =>
   state.variables;
+
 export const updateVariableState = (
-  updates: (Variable<any, true> | undefined)[] | undefined
+  updates: (StateVariable | undefined)[] | undefined
 ) => {
   if (!updates?.length) return;
   const changes = obj(
-    map(
-      updates,
-      (variable) =>
-        variable && [
-          variableKeyToString(variable),
-          { ...variable, timestamp: now() },
-        ]
-    )
+    updates,
+    (variable) => variable && [variableKeyToString(variable), variable]
   );
   assign(state.variables, changes);
 
@@ -112,6 +125,22 @@ export const updateVariableState = (
 
   stateChannel.post({ type: "patch", payload: changes });
 };
+
+const heartbeat = clock({
+  callback: () => {
+    const timeout = now() - HEARTBEAT_FREQUENCY * 2;
+    forEach(
+      state?.knownTabs,
+      // Remove tabs that no longer responds (presumably closed but may also have been frozen).
+      ([tabId, tabState]) =>
+        tabState[0] < timeout && clear(state!.knownTabs, tabId)
+    );
+    tabState.heartbeat = now();
+    stateChannel.post({ type: "tab", payload: tabState });
+  },
+  frequency: HEARTBEAT_FREQUENCY,
+  paused: true,
+});
 
 const toggleTab = (loading: boolean) => {
   stateChannel.post({ type: "tab", payload: loading ? tabState : undefined });
@@ -121,20 +150,8 @@ const toggleTab = (loading: boolean) => {
   } else {
     initTimeout.toggle(false);
   }
-  toggleHearbeat(loading);
+  heartbeat.toggle(loading);
 };
-
-addHeartBeatListener(() => {
-  const timeout = now() - HEARTBEAT_FREQUENCY * 2;
-  forEach(
-    state?.knownTabs,
-    // Remove tabs that no longer responds (presumably closed but may also have been frozen).
-    ([tabId, tabState]) =>
-      tabState[0] < timeout && clear(state!.knownTabs, tabId)
-  );
-  tabState.hearbeat = now();
-  stateChannel.post({ type: "tab", payload: tabState });
-});
 
 addPageLoadedListener((loaded) => toggleTab(loaded), true);
 

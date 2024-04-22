@@ -14,8 +14,9 @@ export const updateContext = (
     key === "#"
       ? context.node
       : required(context.node?.[key], () => `Cannot navigate to '${key}'.`);
-  const childContext = {
+  const childContext: TraverseContext = {
     ...context,
+    parent: context,
     key,
     ...parseClassifications(context),
     node,

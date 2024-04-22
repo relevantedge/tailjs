@@ -5,6 +5,7 @@ import type {
   SchemaPropertyStructure,
 } from "../..";
 import type { DataClassification, DataPurposeFlags } from "@tailjs/types";
+import { PickPartial } from "@tailjs/util";
 
 export interface ParseContext {
   typeNodes: Map<any, ParsedType>;
@@ -16,6 +17,7 @@ export interface ParseContext {
 export interface TraverseContext extends Partial<ParsedSchemaClassification> {
   ajv: Ajv;
   id?: string;
+  parent?: PickPartial<TraverseContext, "key">;
   parseContext: ParseContext;
   path: string[];
   key: string;

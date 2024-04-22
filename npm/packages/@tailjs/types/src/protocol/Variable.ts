@@ -1,5 +1,10 @@
 import {
   EnumValue,
+  If,
+  IfNot,
+  MaybeArray,
+  MaybeOmit,
+  MaybePick,
   MaybeUndefined,
   Nullish,
   PrettifyIntersection,
@@ -82,6 +87,12 @@ export interface VariableKey<NumericEnums extends boolean = boolean> {
   targetId?: string;
 }
 
+export type RestrictedVariable<
+  T = any,
+  NumericEnums extends boolean = true,
+  LocalScopes extends boolean = true
+> = RestrictVariableTargets<Variable<T, NumericEnums>, LocalScopes>;
+
 type RestrictVariableItemTargets<
   T extends readonly any[],
   LocalScopes extends boolean
@@ -103,9 +114,13 @@ export type RestrictVariableTargets<
   ? T
   : T extends readonly any[]
   ? RestrictVariableItemTargets<T, LocalScopes>
+  : T extends { current: infer C }
+  ? PrettifyIntersection<
+      Omit<T, "current"> & { current: RestrictVariableTargets<C, LocalScopes> }
+    >
   : PrettifyIntersection<
       T extends { scope: any; targetId?: any }
-        ? T &
+        ? Omit<T, "targetId"> &
             (
               | {
                   scope:
@@ -135,11 +150,15 @@ export type RestrictVariableTargets<
                             | "session")
                     | VariableScope.Entity
                     | "entity";
-                  targetId: string;
+                  targetId: T["targetId"] & string;
                 }
             )
         : T
     >;
+
+/** Dummy function to contain variables and variable results to locally scoped targets. */
+export const restrictTargets = <T>(value: T): RestrictVariableTargets<T> =>
+  value as any;
 
 /**
  * A {@link VariableKey} that optionally includes the expected version of a variable value.
@@ -169,6 +188,11 @@ export interface VariableClassification<
    */
   purposes: DataPurposeValue<NumericEnums>;
 }
+
+export const Necessary: VariableClassification<true> = {
+  classification: DataClassification.Anonymous,
+  purposes: DataPurposeFlags.Necessary,
+};
 
 export interface VariableMetadata {
   /**
@@ -320,20 +344,36 @@ export const toNumericVariableEnums: <T>(value: T) => T extends Nullish
   return value as any;
 };
 
-export const extractKey = <T extends VariableKey>(
-  variable: T,
-  classificationSource?: T extends VariableKey<infer NumericEnums>
-    ? VariableClassification<NumericEnums>
-    : never
-): T extends undefined ? undefined : T & VariableKey<true> =>
+export const extractKey = <
+  T,
+  C extends undefined | Partial<VariableClassification> = undefined
+>(
+  variable: T & VariableKey,
+  classificationSource?: C
+): T extends undefined
+  ? undefined
+  : T extends VariableKey
+  ? PrettifyIntersection<
+      MaybePick<T, keyof VariableKey> & {
+        scope: VariableScope;
+      } & (C extends undefined
+          ? {}
+          : MaybePick<
+              C & Partial<VariableClassification<true>>,
+              keyof VariableClassification
+            >)
+    >
+  : never =>
   variable
     ? ({
         scope: variableScope(variable.scope),
         targetId: variable.targetId,
         key: variable.key,
         ...(classificationSource && {
-          classification: classificationSource.classification,
-          purposes: classificationSource.purposes,
+          classification: dataClassification(
+            classificationSource.classification
+          ),
+          purposes: dataPurposes(classificationSource.purposes),
         }),
       } as Required<VariableKey> as any)
     : undefined;

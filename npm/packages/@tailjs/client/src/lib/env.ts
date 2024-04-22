@@ -13,7 +13,7 @@ export const ERR_INTERNAL_ERROR = "internal-error";
 export const ERR_ARGUMENT_ERROR = "invalid-argument";
 export const ERR_RESERVED = "reserved";
 export const ERR_CONFIG_LOCKED = "config-locked";
-export const ERR_DUPPLICATE_KEY = "key";
+export const ERR_DUPLICATE_KEY = "key";
 
 const src = split("" + document.currentScript!["src"], "#");
 const args = split("" + (src[1] || ""), ";");

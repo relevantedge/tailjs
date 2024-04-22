@@ -123,7 +123,7 @@ export const forms: TrackerExtensionFactory = {
       const state = getOrSet(formEvents, formElement, () => {
         const fieldMap = new Map<Element, FormFieldState>();
         const ev: FormEvent = {
-          type: "FORM",
+          type: "form",
           name:
             scopeAttr(formElement, trackerPropertyName("form-name")) ||
             attr(formElement, "name") ||

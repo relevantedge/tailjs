@@ -1,4 +1,7 @@
 import {
+  DeviceInfo,
+  ScopeInfo,
+  SessionInfo,
   SessionStartedEvent,
   SignInEvent,
   SignOutEvent,
@@ -13,14 +16,7 @@ import {
   isViewEvent,
 } from "@tailjs/types";
 import { now } from "@tailjs/util";
-import {
-  DeviceData,
-  InternalSessionData,
-  NextPatchExtension,
-  ScopeData,
-  Tracker,
-  TrackerExtension,
-} from "../shared";
+import { NextPatchExtension, Tracker, TrackerExtension } from "../shared";
 
 export type SessionConfiguration = {
   /**
@@ -43,16 +39,6 @@ export type SessionConfiguration = {
    * @default true
    */
   includeIp?: boolean;
-};
-
-const applyDefaults = (
-  configuration: SessionConfiguration
-): Required<SessionConfiguration> => {
-  configuration.timeout ??= 30;
-  configuration.deviceTimeout ??= 10;
-  configuration.includeIp ??= true;
-
-  return configuration as any;
 };
 
 export class TrackerCoreEvents implements TrackerExtension {
@@ -79,18 +65,18 @@ export class TrackerCoreEvents implements TrackerExtension {
     );
 
     // Apply data updates to a copy of the scope data so the logic gets the updated values.
-    let sessionData: InternalSessionData;
-    let deviceData: DeviceData | undefined;
+    let sessionInfo: SessionInfo;
+    let deviceInfo: DeviceInfo | undefined;
 
-    type ScopeDataPatch<T extends ScopeData> = (current: T) => void;
+    type ScopeDataPatch<T extends ScopeInfo> = (current: T) => void;
 
-    let sessionDataUpdates: ScopeDataPatch<InternalSessionData>[];
-    let deviceDataUpdates: ScopeDataPatch<DeviceData>[];
+    let sessionDataUpdates: ScopeDataPatch<SessionInfo>[];
+    let deviceDataUpdates: ScopeDataPatch<DeviceInfo>[];
 
     const updateSnapshot = () => {
       sessionDataUpdates = [];
       deviceDataUpdates = [];
-      [sessionData, deviceData] = [
+      [sessionInfo, deviceInfo] = [
         tracker._session!.value,
         tracker._device?.value,
       ];
@@ -101,17 +87,17 @@ export class TrackerCoreEvents implements TrackerExtension {
 
     const updateData = <
       D extends boolean,
-      T extends DeviceData | InternalSessionData = D extends true
-        ? DeviceData
-        : InternalSessionData
+      T extends DeviceInfo | SessionInfo = D extends true
+        ? DeviceInfo
+        : SessionInfo
     >(
       device: D,
       patch: ScopeDataPatch<T>
     ) => {
-      if (device && !deviceData) {
+      if (device && !deviceInfo) {
         return;
       }
-      patch((device ? deviceData : sessionData) as T);
+      patch((device ? deviceInfo : sessionInfo) as T);
       (
         (device ? deviceDataUpdates : sessionDataUpdates) as ScopeDataPatch<T>[]
       ).push(patch);
@@ -126,19 +112,6 @@ export class TrackerCoreEvents implements TrackerExtension {
                 value:
                   current &&
                   sessionDataUpdates.reduce(
-                    (data, update) => update(data),
-                    current.value
-                  ),
-              }),
-            }
-          : undefined,
-        tracker._device && deviceDataUpdates.length
-          ? {
-              ...tracker._device,
-              patch: (current) => ({
-                value:
-                  current &&
-                  deviceDataUpdates.reduce(
                     (data, update) => update(data),
                     current.value
                   ),
@@ -163,7 +136,7 @@ export class TrackerCoreEvents implements TrackerExtension {
           // Fake a sign out event if the user is currently authenticated.
           events.push(event);
           event = {
-            type: "SIGN_OUT",
+            type: "sign_out",
             userId: tracker.authenticatedUserId,
             timestamp: event.timestamp,
           } as SignOutEvent;
@@ -183,7 +156,7 @@ export class TrackerCoreEvents implements TrackerExtension {
 
       if (tracker.session.isNew) {
         updatedEvents.push({
-          type: "SESSION_STARTED",
+          type: "session_started",
           url: tracker.url,
           sessionNumber: tracker.device?.sessions ?? 1,
           timeSinceLastSession: tracker.session.previousSession

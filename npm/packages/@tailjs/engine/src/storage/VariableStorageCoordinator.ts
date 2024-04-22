@@ -1,4 +1,5 @@
 import {
+  DataPurposeFlags,
   UserConsent,
   Variable,
   VariableClassification,
@@ -21,6 +22,7 @@ import {
   VariableSetResults,
   VariableSetter,
   VariableSetters,
+  dataPurposes,
   extractKey,
   formatKey,
   getResultVariable,
@@ -43,6 +45,7 @@ import {
   ifDefined,
   isDefined,
   isUndefined,
+  map,
   rank,
   required,
   tryCatch,
@@ -152,13 +155,12 @@ export class VariableStorageCoordinator implements VariableStorage {
           (normalizedMappings[scope] = defaultMapping)
       );
 
-    this._storage = new VariableSplitStorage(
-      normalizedMappings,
-      (storage, getters, results, context) =>
+    this._storage = new VariableSplitStorage(normalizedMappings, {
+      get: (storage, getters, results, context) =>
         this._patchGetResults(storage, getters, results, context),
-      (storage, setters, results, context) =>
-        this._patchSetResults(storage, setters, results, context)
-    );
+      set: (storage, setters, results, context) =>
+        this._patchSetResults(storage, setters, results, context),
+    });
 
     this._settings = {
       mappings,
@@ -544,12 +546,24 @@ export class VariableStorageCoordinator implements VariableStorage {
     return false;
   }
 
+  private _getContextConsent = (
+    context: VariableStorageContext | undefined
+  ) => {
+    let consent = context?.consent ?? context?.tracker?.consent;
+    if (consent && !context?.client) {
+      consent = {
+        ...consent,
+        purposes: dataPurposes(consent.purposes) | DataPurposeFlags.Server,
+      };
+    }
+    return consent;
+  };
   async get<K extends VariableGetters<true>>(
     keys: VariableGetters<true, K>,
     context?: VariableStorageContext
   ): Promise<VariableGetResults<K>> {
     const censored: [index: number, result: VariableSetResult][] = [];
-    const consent = context?.consent ?? context?.tracker?.consent;
+    const consent = this._getContextConsent(context);
     const scopeIds = context?.tracker ?? context?.scopeIds;
 
     for (const [getter, i] of rank(keys)) {
@@ -597,7 +611,7 @@ export class VariableStorageCoordinator implements VariableStorage {
     context?: VariableStorageContext
   ): Promise<VariableSetResults<K>> {
     const censored: [index: number, result: VariableSetResult][] = [];
-    const consent = context?.consent ?? context?.tracker?.consent;
+    const consent = this._getContextConsent(context);
     const scopeIds = context?.tracker ?? context?.scopeIds;
 
     // Censor the values (including patch actions) when the context has a tracker.
@@ -677,11 +691,24 @@ export class VariableStorageCoordinator implements VariableStorage {
   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
     return this._storage.head(filters, options, context as any);
   }
-  query(
+  async query(
     filters: VariableFilter<true>[],
     options?: VariableQueryOptions<true> | undefined,
     context?: VariableStorageContext
-  ): MaybePromise<VariableQueryResult<Variable<any, true>>> {
-    return this._storage.query(filters, options, context as any);
+  ): Promise<VariableQueryResult<Variable<any, true>>> {
+    const results = await this._storage.query(filters, options, context as any);
+    const consent = this._getContextConsent(context);
+    if (consent) {
+      results.results = results.results.map((result) => ({
+        ...result,
+        value: this._censor(
+          this._getMapping(result),
+          result,
+          result.value,
+          consent
+        ),
+      }));
+    }
+    return results;
   }
 }

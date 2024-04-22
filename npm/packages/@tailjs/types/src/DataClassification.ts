@@ -79,4 +79,3 @@ export type DataClassificationValue<Numeric = boolean> = EnumValue<
 > extends infer T
   ? T
   : never;
-//const x: DataClassificationValue = "anonymous"

@@ -1,25 +1,28 @@
 import {
+  AllKeys,
   If,
   IfNot,
   IsAny,
   MaybeArray,
-  OmitPartial,
+  MaybePick,
   PrettifyIntersection,
-  apply,
-  applyAsync,
+  filter,
   isArray,
+  isDefined,
+  isUndefined,
+  map,
   thenMethod,
   thenable,
   throwError,
   toArray,
+  undefined,
 } from "@tailjs/util";
 import {
   Variable,
   VariableGetResult,
-  VariableGetSuccessResult,
+  VariableGetter,
   VariableResultStatus,
   VariableSetResult,
-  VariableSetSuccessResult,
   VariableSetter,
   formatKey,
 } from "..";
@@ -45,10 +48,12 @@ type VariableSuccessResult<
     ? V
     : V extends { value: infer V }
     ? V
-    : never
+    : "never"
   : R extends { value?: infer V; status: SuccessStatus<ChangedOnly> }
-  ? Return extends "result" | "variable"
+  ? Return extends "result"
     ? R
+    : Return extends "variable"
+    ? MaybePick<R, keyof Variable>
     : V
   : never;
 
@@ -77,66 +82,87 @@ export type FilterVariableResults<
 export type VariableResultPromise<
   T extends readonly any[] = readonly any[],
   Push = undefined
-> = PromiseLike<VariableSuccessResults<T>> &
-  PrettifyIntersection<
-    {
-      all: PromiseLike<T>;
-      changed: PromiseLike<VariableSuccessResults<T, true>>;
-      values: PromiseLike<VariableSuccessResults<T, false, "value">>;
-    } & (Push extends true | ((arg: any) => void)
-      ? { push(): VariableResultPromise<T, false> }
-      : {}) &
-      (T["length"] extends 1
-        ? {
-            value: PromiseLike<VariableSuccessResults<T, false, "value">[0]>;
-            0: PromiseLike<Exclude<VariableSuccessResults<T>[0], undefined>>;
-          }
-        : {})
-  >;
+> = T[number] extends never
+  ? never
+  : PromiseLike<VariableSuccessResults<T>> &
+      PrettifyIntersection<
+        {
+          all: PromiseLike<T>;
+          changed: PromiseLike<VariableSuccessResults<T, true>>;
+          values: PromiseLike<VariableSuccessResults<T, false, "value">>;
+          variables: PromiseLike<VariableSuccessResults<T, false, "variable">>;
+        } & (Push extends true | ((arg: any) => void)
+          ? { push(): VariableResultPromise<T, false> }
+          : {}) &
+          (T["length"] extends 1
+            ? {
+                value: PromiseLike<
+                  VariableSuccessResults<T, false, "value">[0]
+                >;
+                result: PromiseLike<
+                  Exclude<VariableSuccessResults<T>[0], undefined>
+                >;
+                variable: PromiseLike<
+                  VariableSuccessResults<T, false, "variable">[0]
+                >;
+              }
+            : {})
+      >;
 
 export const toVariableResultPromise = <T extends readonly any[], Push>(
   results: () => PromiseLike<T>,
+  errorHandlers?: ErrorHandlerParameter<T>,
   push?: Push &
     ((results: Exclude<VariableSuccessResult<T[number]>, undefined>[]) => void)
 ): VariableResultPromise<T, Push> => {
   let mapResults = (results: any): any[] => results;
-  const promise = {
-    then: thenMethod(async () =>
-      mapResults(handleResultErrors(await results()))
-    ) as any,
-    all: thenable(async () => mapResults(await results())) as any,
-    changed: thenable(async () =>
-      mapResults(handleResultErrors(await results(), true))
-    ) as any,
+  let unwrappedResults: any;
+  const property = (
+    map: (
+      results: VariableSuccessResult<VariableGetResult | VariableSetResult>[]
+    ) => any,
+    errorHandler = handleResultErrors
+  ) =>
+    thenable(
+      async () =>
+        (unwrappedResults = mapResults(
+          errorHandler(await results(), errorHandlers)
+        )) && map(unwrappedResults)
+    );
+
+  const promise: Record<AllKeys<VariableResultPromise<any, true>>, any> = {
+    then: property((items) => items).then,
+    all: property(
+      (items) => items,
+      (items) => items
+    ),
+    changed: property((items) => filter(items, (item) => item.status < 300)),
+    variables: property((items) => map(items, getResultVariable)),
+    values: property((items) =>
+      map(items, (item) => getResultVariable(item)?.value)
+    ),
     push: () => (
       (mapResults = (results) => (
-        push?.((getSuccessResults(results) as any[]).filter((item) => item)),
-        results
+        push?.(map(getSuccessResults(results) as any[])), results
       )),
       promise as any
     ),
-    values: thenable(async () =>
-      mapResults(handleResultErrors(await results()))?.map(
-        (result) => getResultVariable(result)?.value
-      )
-    ),
-    value: thenable(
-      async () =>
-        getResultVariable(mapResults(handleResultErrors(await results()))[0])
-          ?.value
-    ) as any,
-    0: thenable(async () => handleResultErrors(await results())[0]) as any,
+
+    value: property((items) => getResultVariable(items[0])?.value),
+    variable: property((items) => getResultVariable(items[0])),
+    result: property((items) => items[0]),
   };
+
   return promise as any;
 };
 
-type ValidatableResult =
-  | {
+type ValidatableResult<V = {}> =
+  | (V & {
       status: VariableResultStatus;
-      current?: Variable<any, true>;
+      current?: V & { version?: string };
       error?: any;
       source?: VariableSetter;
-    }
+    })
   | undefined;
 
 export const getSuccessResults = <
@@ -152,65 +178,81 @@ export const getResultVariable = <R extends ValidatableResult>(
   IsAny<R>,
   Variable<any, true>,
   R extends undefined
-    ? undefined
+    ? never
     : R extends { current: infer V }
     ? V
-    : R extends { value: infer T }
-    ? Variable<T, true>
+    : R extends { value: any }
+    ? R
     : never
 > =>
   result?.status! < 400
     ? (result as VariableSetResult)?.current ?? (result as any)
     : undefined;
 
-export const isSuccessResult = <
-  T extends VariableGetResult | VariableSetResult | undefined
->(
-  result: T
-): result is T &
-  (T extends VariableGetResult
-    ? VariableGetSuccessResult
-    : T extends VariableSetResult
-    ? VariableSetSuccessResult
-    : undefined) => result?.status! < 400;
+export const isSuccessResult = (
+  result: any
+): result is {
+  status:
+    | VariableResultStatus.Success
+    | VariableResultStatus.Created
+    | VariableResultStatus.Unchanged
+    | VariableResultStatus.NotFound;
+} => result?.status! < 400 || result?.status === 404;
+
+type ErrorHandler<Result = any> = Result extends undefined
+  ? undefined
+  : undefined | ((result: Result, errorMessage: string) => void | boolean);
+
+type ErrorHandlerParameter<Results> = Results extends readonly []
+  ? readonly []
+  : Results extends readonly [infer Item, ...infer Rest]
+  ? readonly [ErrorHandler<Item>, ...ErrorHandlerParameter<Rest>]
+  : Results extends readonly (infer Item)[]
+  ? readonly ErrorHandler<Item>[]
+  : ErrorHandler<Results>;
 
 export const handleResultErrors = <
   Results extends MaybeArray<ValidatableResult, true>,
-  Throw extends boolean = true
+  ErrorHandlers extends ErrorHandlerParameter<Results>
 >(
   results: Results,
-  throwErrors: Throw = true as any
-): FilterVariableResults<Results, Throw> => {
-  if (!throwErrors || !results) {
-    return results as any;
-  }
+  errorHandlers?: ErrorHandlers
+): FilterVariableResults<Results, true> => {
+  const errors: string[] = [];
+  let errorHandler: ErrorHandler;
+  let errorMessage: string;
+  const successResults = map(
+    toArray(results),
+    (result, i) =>
+      result &&
+      (result.status < 400 || result.status === 404 // Not found can only occur for get requests, and those are all right.
+        ? (result as any)
+        : ((errorMessage = `${formatKey(
+            (result as VariableSetResult).source ?? result
+          )} could not be ${
+            (result as VariableSetResult).source ||
+            result.status !== VariableResultStatus.Error
+              ? "set"
+              : "read"
+          } because ${
+            result.status === VariableResultStatus.Conflict
+              ? `of a conflict. The expected version '${result.source?.version}' did not match the current version '${result.current?.version}'.`
+              : result.status === VariableResultStatus.Denied
+              ? result.error ?? "the operation was denied."
+              : result.status === VariableResultStatus.Invalid
+              ? result.error ?? "the value does not conform to the schema"
+              : result.status === VariableResultStatus.ReadOnly
+              ? "it is read only."
+              : result.status === VariableResultStatus.Error
+              ? `of an unexpected error: ${result.error}`
+              : "of an unknown reason."
+          }`),
+          (isUndefined((errorHandler = errorHandlers?.[i])) ||
+            errorHandler(result, errorMessage) !== false) &&
+            errors.push(errorMessage),
+          undefined))
+  );
 
-  if (isArray(results)) {
-    return apply(results, handleResultErrors, throwErrors) as any;
-  }
-
-  return results.status < 400 || results.status === 404 // Not found can only occur for get requests, and those are all right.
-    ? (results as any)
-    : throwError(
-        `${formatKey(
-          (results as VariableSetResult).source ?? results
-        )} could not be ${
-          (results as VariableSetResult).source ||
-          results.status !== VariableResultStatus.Error
-            ? "set"
-            : "read"
-        } because ${
-          results.status === VariableResultStatus.Conflict
-            ? `of a conflict. The expected version '${results.source?.version}' did not match the current version '${results.current?.version}'.`
-            : results.status === VariableResultStatus.Denied
-            ? results.error ?? "the operation was denied."
-            : results.status === VariableResultStatus.Invalid
-            ? results.error ?? "the value does not conform to the schema"
-            : results.status === VariableResultStatus.ReadOnly
-            ? "it is read only."
-            : results.status === VariableResultStatus.Error
-            ? `of an unexpected error: ${results.error}`
-            : "of an unknown reason."
-        }`
-      );
+  if (errors.length) return throwError(errors.join("\n"));
+  return isArray(results) ? successResults : (successResults?.[0] as any);
 };
