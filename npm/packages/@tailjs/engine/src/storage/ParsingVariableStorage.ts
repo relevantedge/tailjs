@@ -141,6 +141,7 @@ export class ParsingVariableStorage<
     options?: VariableQueryOptions<boolean>,
     context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
+    const foo = this.set([{ key: "ok", scope: "device", value: 32 }]).result;
     return this.storage.head(
       map(filters, parseFilter),
       parseQueryOptions(options),
@@ -172,9 +173,7 @@ export class ParsingVariableStorage<
     }
 
     storage["get"] = (...args: any) => (this.get as any)(...args).all;
-    storage["set"] = (...args: any) => {
-      return (this.set as any)(...args).all;
-    };
+    storage["set"] = (...args: any) => (this.set as any)(...args).all;
     return storage;
   }
 }

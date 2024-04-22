@@ -1,11 +1,13 @@
-import { filter, isUndefined, reduce } from ".";
+import { Prefixes, filter, isUndefined, reduce } from ".";
 
 export type Rebinder = () => boolean;
 export type Unbinder = () => boolean;
 export type Binders = [unbind: Unbinder, rebind: Rebinder];
 
-export type SourceListener<Args extends any[]> = (...args: Args) => void;
-export type Listener<Args extends any[]> = (
+export type SourceListener<Args extends readonly any[]> = (
+  ...args: Args
+) => void;
+export type Listener<Args extends readonly any[]> = (
   ...args: [...args: Args, unbind: Unbinder]
 ) => void;
 
@@ -38,9 +40,11 @@ export const joinEventBinders = (
   ]
 );
 
-export type EventHandler<Args extends any[]> = (...payload: Args) => void;
+export type EventHandler<Args extends readonly any[]> = (
+  ...payload: Args
+) => void;
 
-export const createEvent = <Args extends any[]>(): [
+export const createEvent = <Args extends readonly any[]>(): [
   listen: (listener: Listener<Args>, triggerCurrent?: boolean) => Binders,
   dispatch: (...payload: Args) => void
 ] => {
@@ -49,11 +53,13 @@ export const createEvent = <Args extends any[]>(): [
   return [
     (handler, trigger) => {
       const binders = createEventBinders(
-        handler,
+        handler as any,
         (handler) => listeners.add(handler),
         (handler) => listeners.delete(handler)
       );
-      trigger && dispatchedArgs && handler(...dispatchedArgs, binders[0]);
+      trigger &&
+        dispatchedArgs &&
+        (handler as any)(...dispatchedArgs, binders[0]);
       return binders;
     },
     (...payload) => (

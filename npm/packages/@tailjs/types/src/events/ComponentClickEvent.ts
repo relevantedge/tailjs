@@ -8,8 +8,8 @@ import { typeTest } from "../util/type-test";
  *  either via {@link TrackingSettings.clicked}, "track-clicks" in the containing DOM or "--track-clicks" via CSS.
  */
 export interface ComponentClickEvent extends UserInteractionEvent {
-  type: "COMPONENT_CLICK";
+  type: "component_click";
 }
 
 export const isComponentClickEvent =
-  typeTest<ComponentClickEvent>("COMPONENT_CLICK");
+  typeTest<ComponentClickEvent>("component_click");

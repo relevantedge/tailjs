@@ -41,7 +41,7 @@ export interface PostRequest {
   deviceSessionId?: string;
 
   /**
-   * A client-genereated device ID. If specified, the server will not generate one.
+   * A client-generated device ID. If specified, the server will not generate one.
    *
    * Useful for apps amongst other things.
    */

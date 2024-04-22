@@ -183,7 +183,7 @@ export const userInteraction: TrackerExtensionFactory = {
                 push(
                   tracker,
                   restrict<AnchorNavigationEvent>({
-                    type: "ANCHOR_NAVIGATION",
+                    type: "anchor_navigation",
                     anchor: clickableElement.hash,
                     ...sharedEventProperties,
                   })
@@ -194,7 +194,7 @@ export const userInteraction: TrackerExtensionFactory = {
 
             const navigationEvent: NavigationEvent = restrict<NavigationEvent>({
               clientId: nextId(),
-              type: "NAVIGATION",
+              type: "navigation",
               href: external ? clickableElement.href : href,
               external,
               domain,
@@ -282,12 +282,12 @@ export const userInteraction: TrackerExtensionFactory = {
               tracker,
               cart
                 ? restrict<CartUpdatedEvent>({
-                    type: "CART_UPDATED",
+                    type: "cart_updated",
                     ...sharedEventProperties,
                     ...cart,
                   })
                 : restrict<ComponentClickEvent>({
-                    type: "COMPONENT_CLICK",
+                    type: "component_click",
                     ...sharedEventProperties,
                   })
             );

@@ -1,15 +1,22 @@
+import { SCOPE_INFO_KEY } from "@constants";
 import {
   DataClassification,
   DataClassificationValue,
   DataPurpose,
   DataPurposeFlags,
   DataPurposeValue,
+  DeviceInfo,
+  Necessary,
   PostResponse,
   RestrictVariableTargets,
+  RestrictedVariable,
+  ScopeInfo,
   Session,
+  SessionInfo,
   Timestamp,
   TrackedEvent,
   Variable,
+  VariableClassification,
   VariableFilter,
   VariableGetResults,
   VariableGetSuccessResult,
@@ -17,36 +24,30 @@ import {
   VariableGetters,
   VariableHeader,
   VariableKey,
+  VariablePatchSource,
   VariableQueryOptions,
   VariableQueryResult,
+  VariableResultPromise,
   VariableResultStatus,
   VariableScope,
-  VariableSetters,
-  VariableSetResult,
   VariableSetResults,
   VariableSetter,
+  VariableSetters,
   dataClassification,
   dataPurposes,
-  isSuccessResult,
-  variableScope,
-  ArrayOrSingle,
-  VariableGetResult,
-  getSuccessResults,
-  VariableResultPromise,
-  toVariableResultPromise,
-  VariableSuccessResults,
   extractKey,
-  VariableClassification,
+  isSuccessResult,
+  restrictTargets,
+  toVariableResultPromise,
+  variableScope,
 } from "@tailjs/types";
 import {
-  MaybeArray,
   MaybePromise,
   Nullish,
   PartialRecord,
   PickPartial,
   filter,
   forEach,
-  isArray,
   isDefined,
   isNumber,
   map,
@@ -95,16 +96,6 @@ export type TrackerPostOptions = {
   passive?: boolean;
 };
 
-const SCOPE_DATA_KEY = "_data";
-
-export interface ScopeData {
-  id: string;
-  firstSeen: Timestamp;
-  lastSeen: Timestamp;
-  views: number;
-  isNew?: boolean;
-}
-
 export type TrackerVariableGetter<T = any> = RestrictVariableTargets<
   VariableGetter<T, false>
 >;
@@ -113,10 +104,10 @@ export type TrackerVariableSetter<T = any> = RestrictVariableTargets<
   VariableSetter<T, false>
 >;
 
-const createInitialScopeData = <T extends ScopeData>(
+const createInitialScopeData = <T extends ScopeInfo>(
   id: string,
   timestamp: Timestamp,
-  additionalData: Omit<T, keyof ScopeData>
+  additionalData: Omit<T, keyof ScopeInfo>
 ): T =>
   ({
     id,
@@ -126,21 +117,6 @@ const createInitialScopeData = <T extends ScopeData>(
     isNew: true,
     ...additionalData,
   } as T);
-
-export interface SessionData extends ScopeData {
-  deviceSessionId?: string;
-  deviceId?: string;
-  userId?: string;
-  previousSession?: Timestamp;
-}
-
-export type InternalSessionData = SessionData & {
-  hasUserAgent?: boolean;
-};
-
-export interface DeviceData extends ScopeData {
-  sessions: number;
-}
 
 interface DeviceVariableCache {
   /** Parsed variables from cookie. */
@@ -257,10 +233,10 @@ export class Tracker {
   public _sessionReferenceId: string;
 
   /** @internal */
-  public _session: Variable<InternalSessionData> | undefined;
+  public _session: RestrictedVariable<SessionInfo> | undefined;
 
   /** @internal */
-  public _device?: Variable<DeviceData>;
+  public _device?: RestrictedVariable<DeviceInfo> | undefined;
 
   /**
    * See {@link Session.expiredDeviceSessionId}.
@@ -294,7 +270,7 @@ export class Tracker {
     return this._initialized;
   }
 
-  public get session(): Readonly<SessionData> | undefined {
+  public get session(): Readonly<SessionInfo> | undefined {
     return this._session?.value;
   }
 
@@ -306,7 +282,7 @@ export class Tracker {
     return this._session?.value?.deviceSessionId;
   }
 
-  public get device(): Readonly<DeviceData> | undefined {
+  public get device(): Readonly<DeviceInfo> | undefined {
     return this._device?.value;
   }
 
@@ -328,7 +304,7 @@ export class Tracker {
 
   /** @internal */
   public async _applyExtensions(options: TrackerPostOptions) {
-    await this._initialize(options.deviceSessionId, options.deviceId);
+    await this._initialize(options);
     if (this._extensionState === ExtensionState.Pending) {
       this._extensionState = ExtensionState.Applying;
       try {
@@ -409,23 +385,23 @@ export class Tracker {
     current: Variable | undefined
   ) {
     const scope = variableScope.parse(key.scope);
-    if (key.key === SCOPE_DATA_KEY) {
+    if (key.key === SCOPE_INFO_KEY) {
       if (
         scope === VariableScope.Session &&
         key.targetId === this._sessionReferenceId
       ) {
-        current && (this._session = current);
+        current && (this._session = current as any);
       } else if (
         scope === VariableScope.Device &&
         this._consent.level > DataClassification.Anonymous
       ) {
-        this._device = current;
+        this._device = current as any;
       }
     }
   }
 
   /**
-   * Used by the {@link TrackerVariableStorage} to maintain deviec data stored in the device and only briefly cached on the server.
+   * Used by the {@link TrackerVariableStorage} to maintain device data stored in the device and only briefly cached on the server.
    * @internal
    */
   public _getClientDeviceVariables() {
@@ -475,17 +451,17 @@ export class Tracker {
   /**
    *
    * Initializes the tracker with session and device data.
-   * The deviceId ans deviceSesssionId parameters are only used if no session already exists.
+   * The deviceId ans deviceSessionId parameters are only used if no session already exists.
    * After that they will stick. This means if a device starts a new server session, its device session will remain.
-   * Simlarily if an old frozen tab suddenly wakes up it will get the new device session.
+   * Similarly, if an old frozen tab suddenly wakes up it will get the new device session.
    * (so yes, they can hypothetically be split across the same tab even though that goes against the definition).
    *
    * @internal */
-  public async _initialize(
-    deviceId?: string,
-    deviceSessionId?: string,
-    passive?: boolean
-  ) {
+  public async _initialize({
+    deviceId,
+    deviceSessionId,
+    passive,
+  }: TrackerPostOptions) {
     if (this._initialized === (this._initialized = true)) {
       return false;
     }
@@ -555,7 +531,7 @@ export class Tracker {
             VariableScope.Device,
             // Actually, do we want to delete data from the user?
             // User data is per definition at least direct personal data.
-            // It seems a bit extreme to delete the user, "right to be forgotten" is not fully implemeneted.
+            // It seems a bit extreme to delete the user, "right to be forgotten" is not fully implemented.
             // VariableScope.User
           ],
           purposes: ~purposes,
@@ -635,87 +611,101 @@ export class Tracker {
         await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
     }
 
-    const x = this.get({
-      key: "test",
-      scope: "device",
-      init: { value: 32 },
-    }).value;
-
     this._session =
       // We bypass the TrackerVariableStorage here and uses the environment
-      // becaues we use a different target ID than the unique session ID when doing cookie-less tracking.
-      await this.env.storage.get([
-        {
-          scope: VariableScope.Session,
-          key: SCOPE_DATA_KEY,
-          targetId: this._sessionReferenceId,
-          init: async () => {
-            if (passive) return undefined;
+      // because we use a different target ID than the unique session ID when doing cookie-less tracking.
+      restrictTargets(
+        await this.env.storage.get([
+          {
+            scope: VariableScope.Session,
+            key: SCOPE_INFO_KEY,
+            targetId: this._sessionReferenceId,
+            init: async () => {
+              if (passive) return undefined;
 
-            let cachedDeviceData: DeviceData | undefined;
-            if (this.consent.level > DataClassification.Anonymous) {
-              cachedDeviceData = resetDevice
-                ? undefined
-                : (this._getClientDeviceVariables()?.[SCOPE_DATA_KEY]
-                    ?.value as DeviceData);
-            }
+              let cachedDeviceData: DeviceInfo | undefined;
+              if (this.consent.level > DataClassification.Anonymous) {
+                cachedDeviceData = resetDevice
+                  ? undefined
+                  : (this._getClientDeviceVariables()?.[SCOPE_INFO_KEY]
+                      ?.value as DeviceInfo);
+              }
 
-            return {
-              classification: DataClassification.Anonymous,
-              purpose: DataPurposeFlags.Necessary,
-              value: createInitialScopeData<InternalSessionData>(
-                (sessionId ??= await this.env.nextId()),
-                timestamp,
-                {
-                  deviceId:
-                    this._consent.level > DataClassification.Anonymous
-                      ? deviceId ??
-                        (resetDevice ? undefined : cachedDeviceData?.id) ??
-                        (await this.env.nextId("device"))
-                      : undefined,
-                  deviceSessionId:
-                    deviceSessionId ??
-                    (await this.env.nextId("device-session")),
-                  previousSession: cachedDeviceData?.lastSeen,
-                  hasUserAgent: false,
-                }
-              ),
-            };
-          },
-        },
-      ])[0];
-
-    if (this._session?.value!.deviceId) {
-      const device = await this.get({
-        scope: VariableScope.Device,
-        key: SCOPE_DATA_KEY,
-        purposes: DataPurposeFlags.Necessary,
-        init: async () =>
-          passive
-            ? undefined
-            : {
-                classification: this.consent.level,
-                value: createInitialScopeData<DeviceData>(
-                  this._session?.value?.deviceId!,
+              return {
+                ...Necessary,
+                value: createInitialScopeData<SessionInfo>(
+                  (sessionId ??= await this.env.nextId()),
                   timestamp,
                   {
-                    sessions: 1,
+                    deviceId:
+                      this._consent.level > DataClassification.Anonymous
+                        ? deviceId ??
+                          (resetDevice ? undefined : cachedDeviceData?.id) ??
+                          (await this.env.nextId("device"))
+                        : undefined,
+                    deviceSessionId:
+                      deviceSessionId ??
+                      (await this.env.nextId("device-session")),
+                    previousSession: cachedDeviceData?.lastSeen,
+                    hasUserAgent: false,
                   }
                 ),
-              },
-      })[0];
+              };
+            },
+          },
+        ]).variable
+      );
+
+    if (this._session) {
+      let device = await this.get(
+        this._consent.level > DataClassification.Anonymous
+          ? {
+              scope: VariableScope.Device,
+              key: SCOPE_INFO_KEY,
+              purposes: DataPurposeFlags.Necessary,
+              init: async () =>
+                this._session?.value
+                  ? {
+                      classification: this.consent.level,
+                      value: createInitialScopeData<DeviceInfo>(
+                        this._session.value.deviceId!,
+                        timestamp,
+                        {
+                          sessions: 1,
+                        }
+                      ),
+                    }
+                  : undefined,
+            }
+          : undefined
+      ).result;
+      this._device = device;
 
       if (
-        device &&
+        device?.value &&
         device.status !== VariableResultStatus.Created &&
         this.session?.isNew
       ) {
-        await this.set({
+        // A new session started on an existing device.
+        this._device = await this.set({
           ...device,
-        });
+          value: undefined,
+          patch: (device) =>
+            device && {
+              ...device,
+              value: {
+                ...device.value,
+                sessions: device.value.sessions + 1,
+                lastSeen: this.session!.lastSeen,
+              } as DeviceInfo,
+            },
+        }).variable;
       }
 
-      if (previousDeviceSessionId && isDefined(this.deviceId)) {
+      if (
+        isDefined(previousDeviceSessionId) &&
+        previousDeviceSessionId !== this.deviceSessionId
+      ) {
         this._expiredDeviceSessionId = previousDeviceSessionId;
       }
 
@@ -825,9 +815,13 @@ export class Tracker {
 
   public get<K extends VariableGetters<TrackerVariableGetter>>(
     ...keys: VariableGetters<TrackerVariableGetter, K>
-  ): VariableResultPromise<VariableGetResults<K>, true> {
+  ): VariableResultPromise<
+    RestrictVariableTargets<VariableGetResults<K>>,
+    true
+  > {
     return toVariableResultPromise(
       () => this.env.storage.get(keys, this._getStorageContext()).all,
+      undefined,
       (results) =>
         results.forEach(
           (result) =>
@@ -850,19 +844,21 @@ export class Tracker {
     return this.env.storage.query(filters, options, this._getStorageContext());
   }
 
-  async set<K extends VariableSetters<TrackerVariableSetter>>(
+  set<K extends VariableSetters<TrackerVariableSetter>>(
     ...variables: VariableSetters<TrackerVariableSetter, K>
-  ): Promise<any> {
+  ): VariableResultPromise<RestrictVariableTargets<VariableSetResults<K>>> {
     return toVariableResultPromise(
       async () => {
-        const results = await this.env.storage.set(
-          variables as VariableSetter[],
-          this._getStorageContext()
-        ).all;
+        const results = restrictTargets(
+          await this.env.storage.set(
+            variables as VariableSetter[],
+            this._getStorageContext()
+          ).all
+        );
 
         for (const result of results) {
           if (isSuccessResult(result)) {
-            if (result.source.key === SCOPE_DATA_KEY) {
+            if (result.source.key === SCOPE_INFO_KEY) {
               result.source.scope === VariableScope.Session &&
                 (this._session = result.current!);
               result.source.scope === VariableScope.Device &&
@@ -872,17 +868,19 @@ export class Tracker {
         }
         return results;
       },
+      undefined,
       (results) =>
         forEach(results, (result) => {
           return (
             result.status !== VariableResultStatus.Unchanged &&
             this._changedVariables.push({
               ...extractKey(result.source, result.current),
+              value: result.current?.value,
               status: result.status,
             })
           );
         })
-    );
+    ) as any;
   }
 
   purge(alsoUserData = false): MaybePromise<void> {

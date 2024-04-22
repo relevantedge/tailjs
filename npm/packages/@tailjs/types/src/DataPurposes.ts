@@ -76,6 +76,12 @@ export enum DataPurposeFlags {
    * Data can be used for any purpose.
    */
   Any = 63,
+
+  /**
+   * The data is not available client-side.
+   * Note that this is a special flag that is not included in "Any"
+   */
+  Server = 64,
 }
 
 export type DataPurpose =
@@ -84,7 +90,8 @@ export type DataPurpose =
   | DataPurposeFlags.Performance
   | DataPurposeFlags.Targeting
   | DataPurposeFlags.Security
-  | DataPurposeFlags.Infrastructure;
+  | DataPurposeFlags.Infrastructure
+  | DataPurposeFlags.Server;
 
 const purePurposes: DataPurpose =
   DataPurposeFlags.Necessary |
@@ -92,7 +99,8 @@ const purePurposes: DataPurpose =
   DataPurposeFlags.Performance |
   DataPurposeFlags.Targeting |
   DataPurposeFlags.Security |
-  DataPurposeFlags.Infrastructure;
+  DataPurposeFlags.Infrastructure |
+  DataPurposeFlags.Server;
 
 export const dataPurposes = createEnumAccessor(
   DataPurposeFlags as typeof DataPurposeFlags,
@@ -104,7 +112,8 @@ export const dataPurposes = createEnumAccessor(
 export const singleDataPurpose = createEnumAccessor(
   DataPurposeFlags as typeof DataPurposeFlags,
   false,
-  "data purpose"
+  "data purpose",
+  0
 );
 
 export type DataPurposeValue<Numeric = boolean> = EnumValue<

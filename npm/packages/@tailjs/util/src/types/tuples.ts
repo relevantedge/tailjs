@@ -92,10 +92,13 @@ export type TakeLast<
 
 // From https://www.hacklewayne.com/typescript-convert-union-to-tuple-array-yes-but-how.
 
-export type UnionToTuple<T> = PickOne<T> extends infer U // assign PickOne<T> to U
+export type UnionToTuple<
+  T,
+  Readonly extends boolean = false
+> = PickOne<T> extends infer U // assign PickOne<T> to U
   ? Exclude<T, U> extends never // T and U are the same
-    ? [T]
-    : [...UnionToTuple<Exclude<T, U>>, U] // recursion
+    ? ToggleReadonly<[T], Readonly>
+    : ToggleReadonly<[...UnionToTuple<Exclude<T, U>, Readonly>, U], Readonly> // recursion
   : never;
 
 type Contra<T> = T extends any ? (arg: T) => void : never;

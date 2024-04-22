@@ -96,7 +96,7 @@ export type VariableGetResult<
   | VariableGetSuccessResult<T>
   | (SuccessOnly extends false ? VariableGetError<Patched> : never);
 
-export interface VariableGetError<Patched = boolean> extends VariableKey {
+export interface VariableGetError<Patched = boolean> extends VariableKey<true> {
   /**
    * Apart from the generic error status, these statuses are only possible if the getter has an initializer.
    */
@@ -124,7 +124,7 @@ export type VariableGetSuccessResult<T = any> = {
       value: Exclude<UnknownAny<T>, undefined>;
     })
   | (T extends undefined
-      ? VariableKey & {
+      ? VariableKey<true> & {
           status: VariableResultStatus.NotFound;
           value?: undefined;
         }

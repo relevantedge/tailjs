@@ -3,9 +3,10 @@ import type {
   Integer,
   UserInteractionEvent,
   TrackingSettings,
-  ViewTimingEvent,
+  ViewTimingData,
   TrackedEvent,
   LocalID,
+  PassiveEvent,
 } from "..";
 import { typeTest } from "../util/type-test";
 
@@ -19,11 +20,11 @@ import { typeTest } from "../util/type-test";
  * Note that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance.
  * Impression tracking is still possible for these if explicitly set via {@link TrackingSettings.impressions}.
  *
- * Use {@link ImpressionSummaryEvent} in processing to determine for how long the impression lasted, and how many individual impressions there were (the component may have left the viewport and then come back at a later point).
+ * Use {@link ImpressionTimingEvent} in processing to determine for how long the impression lasted, and how many individual impressions there were (the component may have left the viewport and then come back at a later point).
  * Obviously, there was at least one impression if this event happened, so summary the events will not include this first impression.
  */
 export interface ImpressionEvent extends UserInteractionEvent {
-  type: "IMPRESSION";
+  type: "impression";
 }
 
 /**
@@ -31,11 +32,8 @@ export interface ImpressionEvent extends UserInteractionEvent {
  *
  * Both duration and impressions are deltas, so they can be added to get the total duration and number of impressions in processing.
  */
-export interface ImpressionSummaryEvent extends TrackedEvent {
-  type: "IMPRESSION_SUMMARY";
-
-  /** @inheritdoc */
-  relatedEventId: LocalID;
+export interface ImpressionTimingEvent extends PassiveEvent {
+  type: "impression_timing";
 
   /** The additional duration since the previous summary event. */
   duration?: Duration;
@@ -47,4 +45,4 @@ export interface ImpressionSummaryEvent extends TrackedEvent {
   impressions?: Integer;
 }
 
-export const isImpressionEvent = typeTest<ImpressionEvent>("IMPRESSION");
+export const isImpressionEvent = typeTest<ImpressionEvent>("impression");

@@ -7,7 +7,7 @@ import { typeTest } from "../util/type-test";
  * @privacy indirect, performance
  */
 export interface SessionLocationEvent extends TrackedEvent, SessionScoped {
-  type: "SESSION_LOCATION";
+  type: "session_location";
 
   /**
    * This number is like the precise definition of what the bars indicating signal strength on mobile phones represents.
@@ -30,4 +30,4 @@ export interface SessionLocationEvent extends TrackedEvent, SessionScoped {
 }
 
 export const isClientLocationEvent =
-  typeTest<SessionLocationEvent>("SESSION_LOCATION");
+  typeTest<SessionLocationEvent>("session_location");

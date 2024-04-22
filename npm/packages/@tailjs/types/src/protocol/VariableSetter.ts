@@ -3,12 +3,17 @@ import {
   If,
   Json,
   MaybeArray,
+  MaybePick,
   MaybePromise,
   Nullish,
   OmitPartial,
+  ParsedValue,
   PickPartial,
+  PrettifyIntersection,
   ToggleReadonly,
   TupleOrArray,
+  UnionPropertyValue,
+  UnionToIntersection,
   createEnumAccessor,
   isFunction,
 } from "@tailjs/util";
@@ -20,6 +25,7 @@ import {
   VariableMetadata,
   VariableScope,
   VariableVersion,
+  variableScope,
 } from "..";
 
 export type TargetedVariableScope =
@@ -57,6 +63,42 @@ export type ResultStatusValue<Numeric extends boolean | undefined = boolean> =
     ? T
     : never;
 
+type PickScopeAndTarget<T> = T extends { scope: infer Scope }
+  ? T extends { targetId: infer Target }
+    ? { scope: ParsedValue<typeof variableScope, Scope>; targetId: Target }
+    : { scope: ParsedValue<typeof variableScope, Scope> }
+  : {};
+
+type KeepVariableTarget<
+  Source extends VariableSetter,
+  T
+> = PickScopeAndTarget<Source> & Omit<Variable<T, true>, "scope" | "targetId">;
+
+type VariableSetResultValue<Source extends VariableSetter> =
+  PrettifyIntersection<
+    KeepVariableTarget<Source, VariableSetResultValue_<Source>>
+  >;
+
+type VariableSetResultValue_<Source extends VariableSetter> = Source extends {
+  patch: infer R & {};
+}
+  ? R extends (current: any) => infer R | { value: infer T }
+    ?
+        | (T extends undefined ? undefined : T)
+        | (R extends undefined ? undefined : never)
+    : R extends { match: any; value: infer T }
+    ? T extends undefined
+      ? undefined
+      : T
+    : R extends { type: VariablePatchTypeValue }
+    ? number
+    : never
+  : Source extends { value: infer T }
+  ? T extends undefined
+    ? undefined
+    : T
+  : never;
+
 export type VariableSetResult<
   T = any,
   Source extends VariableSetter<T> = VariableSetter<T>,
@@ -69,9 +111,7 @@ export type VariableSetResult<
         } & (
           | {
               status: VariableResultStatus.Conflict;
-              current: Source extends VariableSetter<undefined>
-                ? Variable<T, true> | undefined
-                : Variable<T, true>;
+              current: VariableSetResultValue<Source>;
             }
           | ((
               | {
@@ -96,16 +136,14 @@ export type VariableSetResult<
 export type VariableSetSuccessResult<
   T = any,
   Source extends VariableSetter<T> = VariableSetter<T>
-> = {
+> = PrettifyIntersection<{
   source: Source;
   status:
     | VariableResultStatus.Success
     | VariableResultStatus.Unchanged
     | VariableResultStatus.Created;
-  current: Source extends VariableSetter<undefined>
-    ? Variable<T, true> | undefined
-    : Variable<T, true>;
-};
+  current: VariableSetResultValue<Source>;
+}>;
 
 export interface VariablePatchSource<
   T = any,
@@ -219,13 +257,14 @@ export type VariableValueSetter<T = any, Validated = false> = (
    * Consider your scenario before doing this.
    */
   force?: boolean;
-
-  patch?: undefined;
 };
 
+/**
+ * Defines options for creating, updating or deleting a variable.
+ */
 export type VariableSetter<T = any, Validated = boolean> =
-  | VariableValueSetter<T, Validated>
-  | (VariablePatch<T, Validated> & { value?: never });
+  | (VariableValueSetter<T, Validated> & { patch?: undefined })
+  | (VariablePatch<T, Validated> & { value?: undefined });
 
 type MapVariableSetResult<
   Source,

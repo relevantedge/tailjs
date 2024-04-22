@@ -5,9 +5,9 @@ import {
   Timestamp,
   UserAgentEvent,
   UserInteractionEvent,
-  ViewEndedEvent,
-  ViewEvent,
   ViewTimingEvent,
+  ViewEvent,
+  ViewTimingData,
   isViewEvent,
 } from "@tailjs/types";
 import {
@@ -63,7 +63,7 @@ type TabInfo = [
   views: number
 ];
 
-let currentViewEvent: ViewEvent | undefined;
+export let currentViewEvent: ViewEvent | undefined;
 
 export const getCurrentViewId = () => currentViewEvent?.clientId;
 const [addViewChangedListener, viewChanged] = eventSet<[viewId: string]>();
@@ -162,7 +162,7 @@ export const context: TrackerExtensionFactory = {
 
       const { href, domain } = parseDomain(location.href) ?? {};
       currentViewEvent = {
-        type: "VIEW",
+        type: "view",
         timestamp: now(),
         clientId: nextId(),
         tab: tab[0],
@@ -247,9 +247,7 @@ export const context: TrackerExtensionFactory = {
       pendingViewEndEvent = registerViewEndAction(() => {
         push(
           tracker,
-
-          { type: "VIEW_ENDED", timing: {} } as ViewEndedEvent,
-
+          { type: "view_timing", passive: true, timing: {} } as ViewTimingEvent,
           {
             set: { view: undefined },
           }
@@ -264,39 +262,6 @@ export const context: TrackerExtensionFactory = {
             // Allow some extra time for gossiping to figure out if we are the only tab.
             // This will also ensure that the view is set on the event if both `view` and `rendered` are set in the same `set` command.
             timeout(pendingViewEvent, 100);
-          },
-        },
-      });
-
-      tracker.push({
-        get: {
-          [QUERY_DEVICE]: (value) => {
-            if (!value || !isForegroundTab()) return;
-            push(
-              tracker,
-              restrict<UserAgentEvent>({
-                type: "USER_AGENT",
-                hasTouch: navigator.maxTouchPoints > 0,
-                userAgent: navigator.userAgent,
-                view: currentViewEvent?.clientId,
-                languages: map(
-                  navigator.languages,
-                  (id, i, parts = split(id, "-")) =>
-                    restrict<UserAgentEvent["languages"]>({
-                      id,
-                      language: parts[0],
-                      region: parts[1],
-                      primary: i === 0,
-                      preference: i + 1,
-                    })
-                ),
-                timezone: {
-                  iana: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                  offset: new Date().getTimezoneOffset(),
-                },
-                ...detectDeviceType(),
-              })
-            );
           },
         },
       });
@@ -346,7 +311,7 @@ export const context: TrackerExtensionFactory = {
         () =>
           isForegroundTab() &&
           tracker.push(
-            restrict<HeartbeatEvent>({ type: "HEARTBEAT", timing: {} })
+            restrict<HeartbeatEvent>({ type: "heartbeat", timing: {} })
           ),
         -trackerConfig.heartbeatFrequency
       );
@@ -358,8 +323,8 @@ export const context: TrackerExtensionFactory = {
         if (isChangeUserCommand(command)) {
           tracker.push(
             command.username
-              ? { type: "LOGIN", username: command.username }
-              : { type: "LOGOUT" }
+              ? { type: "login", username: command.username }
+              : { type: "logout" }
           );
           return T;
         }
@@ -372,7 +337,7 @@ export const context: TrackerExtensionFactory = {
         const view = currentViewEvent?.clientId,
           ctx = {
             view,
-            timing: (event as ViewTimingEvent)?.timing && {
+            timing: (event as ViewTimingData)?.timing && {
               activations,
               totalTime: totalDuration(),
               visibleTime: visibleDuration(),

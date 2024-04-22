@@ -8,7 +8,7 @@ import type {
   Timestamp,
   ViewEvent,
   ImpressionEvent,
-  ImpressionSummaryEvent,
+  ImpressionTimingEvent,
 } from "..";
 
 /**
@@ -55,7 +55,7 @@ export interface TrackedEvent extends Tagged {
   /**
    * The client ID of the event that caused this event to be triggered or got triggered in the same context.
    * For example, a {@link NavigationEvent} may trigger a {@link ViewEvent},
-   * a {@link CartUpdatedEvent} my be triggered with a {@link ComponentClickEvent}, and a {@link ImpressionSummaryEvent} applies to a {@link ImpressionEvent}.
+   * a {@link CartUpdatedEvent} my be triggered with a {@link ComponentClickEvent}, and a {@link ImpressionTimingEvent} applies to a {@link ImpressionEvent}.
    */
   relatedEventId?: LocalID;
 

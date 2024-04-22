@@ -32,6 +32,7 @@ export * from "./Perzonalizable";
 export * from "./OrderQuantity";
 export * from "./OrderLine";
 export * from "./ActivationTracking";
+export * from "./ScopeVariables";
 export * from "./protocol";
 export * from "./events";
 export * from "./util";

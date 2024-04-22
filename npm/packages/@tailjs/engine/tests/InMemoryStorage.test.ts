@@ -28,7 +28,7 @@ describe("Variable stores store.", () => {
       )[0].status
     ).toBe(VariableResultStatus.Created);
 
-    expect((await store.get([{ ...key }]))[0]?.value).toBe("test");
+    expect(await store.get([{ ...key }]).value).toBe("test");
 
     const sessionKeys = ["1", "2", "123"].map(
       (targetId) =>
@@ -108,7 +108,7 @@ describe("Variable stores store.", () => {
     expect(
       (result = await store.set([
         { ...key, value: "version2", version: result.current!.version },
-      ])[0])?.status
+      ]).result)?.status
     ).toBe(VariableResultStatus.Success);
     expect(result?.current?.version).toBeDefined();
     expect(result?.current?.version).not.toBe(firstVersion);
@@ -116,7 +116,7 @@ describe("Variable stores store.", () => {
     expect(
       (result = await store.set([
         { ...key, patch: (current) => ({ value: current?.value + ".1" }) },
-      ])[0])?.status
+      ]).result)?.status
     ).toBe(VariableResultStatus.Success);
 
     expect(result?.current?.value).toBe("version2.1");
@@ -127,7 +127,7 @@ describe("Variable stores store.", () => {
           ...key,
           patch: { type: "ifMatch", match: undefined, value: "version3" },
         },
-      ])[0])?.status
+      ])["result"])?.status
     ).toBe(VariableResultStatus.Unchanged);
     expect(result?.current?.value).toBe("version2.1");
 
@@ -137,16 +137,16 @@ describe("Variable stores store.", () => {
           ...key,
           patch: { type: "ifMatch", match: "version2.1", value: "version3" },
         },
-      ])[0])?.status
+      ])["result"])?.status
     ).toBe(VariableResultStatus.Success);
     expect(result?.current?.value).toBe("version3");
 
     const currentVersion = result?.current?.version;
     expect(
-      (await store.get([{ ...key, version: currentVersion }])[0])?.status
+      (await store.get([{ ...key, version: currentVersion }])["result"])?.status
     ).toBe(VariableResultStatus.Unchanged);
     expect(
-      (await store.get([{ ...key, version: currentVersion + "not" }])[0])
+      (await store.get([{ ...key, version: currentVersion + "not" }])["result"])
         ?.status
     ).toBe(VariableResultStatus.Success);
   });

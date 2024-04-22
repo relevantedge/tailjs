@@ -11,9 +11,9 @@ import { typeTest } from "../util/type-test";
  *  either via {@link TrackingSettings.clicked}, "track-clicks" in the containing DOM or "--track-clicks" via CSS.
  */
 export interface ComponentClickEvent extends UserInteractionEvent {
-  type: "COMPONENT_CLICK_INTENT";
+  type: "component_click_intent";
 }
 
 export const isComponentClickIntentEvent = typeTest<ComponentClickEvent>(
-  "COMPONENT_CLICK_INTENT"
+  "component_click_intent"
 );

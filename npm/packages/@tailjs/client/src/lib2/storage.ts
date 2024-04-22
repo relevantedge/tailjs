@@ -1,7 +1,7 @@
 import {
   Binders,
   Listener,
-  MutableValue,
+  Nullish,
   clear,
   clock,
   createEvent,
@@ -13,15 +13,7 @@ import {
   now,
 } from "@tailjs/util";
 import { createTransport } from "@tailjs/util/transport";
-import {
-  DEBUG,
-  TAB_ID,
-  addPageLoadedListener,
-  createLock,
-  error,
-  listen,
-  log,
-} from ".";
+import { DEBUG, TAB_ID, addPageLoadedListener, error, listen } from ".";
 
 export type Metadata<T = any> = [value: T, source?: string, expires?: number];
 
@@ -84,7 +76,10 @@ export interface BoundStorage<T = any> {
 }
 
 // TODO: Initialize from tailjs.init.
-export const [serialize, deserialize] = createTransport("TODO", DEBUG);
+export let [serialize, deserialize] = [null, null] as any; // [httpEncode, httpDecode];
+
+export const setStorageKey = (key: string | Nullish) =>
+  ([serialize, deserialize] = createTransport(DEBUG ? null : key, DEBUG));
 
 export const mapStorage = <P extends StorageProvider>(
   provider: P

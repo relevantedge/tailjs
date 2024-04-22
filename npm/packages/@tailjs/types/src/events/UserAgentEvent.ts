@@ -29,7 +29,7 @@ export interface UserAgentLanguage {
 }
 
 export interface UserAgentEvent extends TrackedEvent, SessionScoped {
-  type: "USER_AGENT";
+  type: "user_agent";
 
   /**
    *  Has touch
@@ -91,4 +91,4 @@ export interface UserAgentEvent extends TrackedEvent, SessionScoped {
   };
 }
 
-export const isUserAgentEvent = typeTest<UserAgentEvent>("USER_AGENT");
+export const isUserAgentEvent = typeTest<UserAgentEvent>("user_agent");

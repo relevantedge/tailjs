@@ -1,4 +1,5 @@
 export * from "./deviceDetection";
+export * from "./user-agent";
 
 export * from "./userInteraction";
 export * from "./context";

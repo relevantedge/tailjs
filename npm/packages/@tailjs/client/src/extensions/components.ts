@@ -1,6 +1,6 @@
 import {
   ImpressionEvent,
-  ImpressionSummaryEvent,
+  ImpressionTimingEvent,
   type ActivatedComponent,
   type ActivatedContent,
   type ConfiguredComponent,
@@ -284,7 +284,7 @@ export const components: TrackerExtensionFactory = {
                             (data) => data.track?.impressions
                           )) &&
                           restrict<ImpressionEvent>({
-                            type: "IMPRESSION",
+                            type: "impression",
                             pos: getScreenPos(el),
                             viewport: getViewport(),
                             ...getComponentContext(el, T),
@@ -301,11 +301,12 @@ export const components: TrackerExtensionFactory = {
                         events,
                         (ev) =>
                           ({
-                            type: "IMPRESSION_SUMMARY",
-                            relatedEventId: ev.clientId,
+                            type: "impression_timing",
+                            passive: true,
+                            relatedEventId: ev.clientId!,
                             duration: t(),
                             impressions: impressions - 1,
-                          } as ImpressionSummaryEvent)
+                          } as ImpressionTimingEvent)
                       )
                     )
                   );

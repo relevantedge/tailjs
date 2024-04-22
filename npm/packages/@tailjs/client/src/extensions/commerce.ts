@@ -68,20 +68,20 @@ export const commerce: TrackerExtensionFactory = {
           let cart = command.cart;
           cart === "clear"
             ? push(tracker, {
-                type: "CART_UPDATED",
+                type: "cart_updated",
                 action: "clear",
               } as CartUpdatedEvent)
             : (cart = normalizeCartEventData(cart)!) &&
               push(tracker, {
                 ...cart,
-                type: "CART_UPDATED",
+                type: "cart_updated",
               } as CartUpdatedEvent);
 
           return T;
         }
         if (isOrderCommand(command)) {
           push(tracker, {
-            type: "ORDER",
+            type: "order",
             ...command.order,
           } as OrderEvent);
 

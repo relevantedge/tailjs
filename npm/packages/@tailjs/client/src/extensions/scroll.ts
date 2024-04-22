@@ -44,7 +44,7 @@ export const scroll: TrackerExtensionFactory = {
 
         const mapped = map(types, (scrollType) =>
           restrict<ScrollEvent>({
-            type: "SCROLL",
+            type: "scroll",
             scrollType,
             offset,
           })

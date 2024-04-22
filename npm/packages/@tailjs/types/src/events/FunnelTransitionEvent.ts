@@ -7,7 +7,7 @@ import { typeTest } from "../util/type-test";
  * @internal
  */
 export interface FunnelTransitionEvent extends TrackedEvent {
-  type: "FUNNEL_TRANSITION";
+  type: "funnel_transition";
 
   /**
    * The ID to the {@link Funnel} where the transition happended.
@@ -38,4 +38,4 @@ export interface FunnelTransitionEvent extends TrackedEvent {
 }
 
 export const isFunnelTransitionEvent =
-  typeTest<FunnelTransitionEvent>("FUNNEL_TRANSITION");
+  typeTest<FunnelTransitionEvent>("funnel_transition");

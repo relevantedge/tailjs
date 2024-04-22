@@ -42,7 +42,7 @@ export const compilePlugin = ({
               unsafe_arrows: true,
               unsafe_methods: true,
               unsafe_undefined: true,
-              pure_funcs: debug ? [] : ["debug", /* @tailjs/util */ "restrict"],
+              pure_funcs: debug ? [] : ["debug"],
             },
             mangle: {
               props: { keep_quoted: true },

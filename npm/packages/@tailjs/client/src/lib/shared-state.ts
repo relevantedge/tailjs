@@ -1,5 +1,5 @@
 import {
-  ERR_DUPPLICATE_KEY,
+  ERR_DUPLICATE_KEY,
   F,
   T,
   createChannel,
@@ -31,7 +31,7 @@ export const registerSharedState = <T>(
   apply: (value: T | undefined) => void
 ): ((updatedValue: T) => void) => (
   globalStateResolvers[key]
-    ? err(ERR_DUPPLICATE_KEY, key)
+    ? err(ERR_DUPLICATE_KEY, key)
     : (globalStateResolvers[key] = [resolve, apply]),
   (value) => globalStateChannel({ [key]: value })
 );

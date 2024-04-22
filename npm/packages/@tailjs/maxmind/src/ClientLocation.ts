@@ -56,7 +56,7 @@ export class ClientLocation implements TrackerExtension {
           events = [
             ...events,
             restrict<SessionLocationEvent>({
-              type: "SESSION_LOCATION",
+              type: "session_location",
               accuracy: location.location?.accuracy_radius,
               city: location.city
                 ? {

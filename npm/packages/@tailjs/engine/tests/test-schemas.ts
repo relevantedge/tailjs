@@ -299,6 +299,16 @@ export const bigSchema = {
         test2: {
           type: "string",
         },
+        serverOnly: {
+          type: "object",
+          properties: {
+            alsoClient: { type: "string" },
+            onlyServer: {
+              "x-privacy-purposes": ["any", "server"],
+              type: "string",
+            },
+          },
+        },
       },
     },
 

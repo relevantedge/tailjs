@@ -2,7 +2,7 @@ import { Domain, LocalID, TrackedEvent, UserInteractionEvent } from "..";
 import { typeTest } from "../util/type-test";
 
 export interface NavigationEvent extends UserInteractionEvent {
-  type: "NAVIGATION";
+  type: "navigation";
   /**
    * The ID of the navigation event. This will be added as {@link TrackedEvent.relatedEventId} to view event that followed after the navigation.
    */
@@ -29,4 +29,4 @@ export interface NavigationEvent extends UserInteractionEvent {
   self: boolean;
 }
 
-export const isNavigationEvent = typeTest<NavigationEvent>("NAVIGATION");
+export const isNavigationEvent = typeTest<NavigationEvent>("navigation");

@@ -5,6 +5,7 @@ import {
   DataPurpose,
   DataPurposeFlags,
   dataPurposes,
+  PassiveEvent,
   PostRequest,
   PostResponse,
   TrackedEvent,
@@ -39,7 +40,11 @@ import {
   VariableStorageCoordinator,
 } from "./shared";
 
-import { CONTEXT_MENU_COOKIE, MUTEX_REQUEST_COOKIE } from "@constants";
+import {
+  CONTEXT_MENU_COOKIE,
+  EVENT_HUB_QUERY,
+  MUTEX_REQUEST_COOKIE,
+} from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
 import {
   isObject,
@@ -48,6 +53,7 @@ import {
   obj,
   rank,
   required,
+  thenable,
 } from "@tailjs/util";
 import { from64u } from "@tailjs/util/transport";
 import {
@@ -383,7 +389,7 @@ export class RequestHandler {
     payload,
     clientIp,
   }: ClientRequest): Promise<{
-    tracker: Tracker;
+    tracker: PromiseLike<Tracker>;
     response: CallbackResponse | null;
   } | null> {
     //const requestTimer = timer("Request").start();
@@ -412,26 +418,29 @@ export class RequestHandler {
       Object.fromEntries(params(headers["forwarded"]))["for"] ??
       undefined;
 
-    const tracker = new Tracker({
-      headers,
-      host,
-      path,
-      url,
-      queryString: Object.fromEntries(
-        Object.entries(parsedQuery ?? {}).map(([key, value]) => [
-          key,
-          !value
-            ? []
-            : Array.isArray(value)
-            ? value.map((value) => value || "")
-            : [value],
-        ])
-      ),
-      clientIp,
-      requestHandler: this,
-      cookies: this._cookies.parseCookieHeader(headers["cookie"]),
-      clientKeySeed: this._clientKeySeed,
-    });
+    const tracker = thenable(
+      () =>
+        new Tracker({
+          headers,
+          host,
+          path,
+          url,
+          queryString: Object.fromEntries(
+            Object.entries(parsedQuery ?? {}).map(([key, value]) => [
+              key,
+              !value
+                ? []
+                : Array.isArray(value)
+                ? value.map((value) => value || "")
+                : [value],
+            ])
+          ),
+          clientIp,
+          requestHandler: this,
+          cookies: this._cookies.parseCookieHeader(headers["cookie"]),
+          clientKeySeed: this._clientKeySeed,
+        })
+    );
 
     try {
       let extensionRequestType: null | "post" = null;
@@ -439,18 +448,19 @@ export class RequestHandler {
         response: Partial<CallbackResponse> | null,
         discardTrackerCookies = false
       ) => {
+        const resolvedTracker = await tracker;
         if (extensionRequestType) {
-          !discardTrackerCookies && (await tracker._persist());
+          !discardTrackerCookies && (await resolvedTracker._persist());
 
           console.log(
-            tracker.httpClientDecrypt(
-              tracker.cookies[MUTEX_REQUEST_COOKIE]?.value
+            resolvedTracker.httpClientDecrypt(
+              resolvedTracker.cookies[MUTEX_REQUEST_COOKIE]?.value
             )
           );
         }
         if (response) {
           response.headers ??= {};
-          response.cookies = this.getClientCookies(tracker);
+          response.cookies = this.getClientCookies(resolvedTracker);
         }
 
         return {
@@ -479,11 +489,12 @@ export class RequestHandler {
               },
             });
           }
+          const resolvedTracker = await tracker;
           return await result({
             status: 200,
-            body: generateClientConfigScript(tracker, {
+            body: generateClientConfigScript(resolvedTracker, {
               ...this._clientConfig,
-              clientKey: tracker.clientKey,
+              clientKey: resolvedTracker.clientKey,
             }),
             headers: {
               "content-type": "application/javascript",
@@ -498,7 +509,7 @@ export class RequestHandler {
             if ("opt" in parsedQuery) {
               return await result({
                 status: 200,
-                body: this._getClientScripts(tracker, false),
+                body: this._getClientScripts(await tracker, false),
 
                 cacheKey: "external-script",
                 headers: {
@@ -508,22 +519,24 @@ export class RequestHandler {
               });
             }
             if ("mnt" in parsedQuery) {
+              const resolvedTracker = await tracker;
+
               const mnt = Array.isArray(parsedQuery["mnt"])
                 ? parsedQuery["mnt"].join("")
                 : parsedQuery["mnt"];
 
               const contextMenuCookie =
-                tracker.cookies[CONTEXT_MENU_COOKIE]?.value;
+                resolvedTracker.cookies[CONTEXT_MENU_COOKIE]?.value;
 
               // Don't write any other cookies (that is, clear those we have).
               // If for any reason this redirect is considered "link decoration" or similar
               // we don't want the browser to store the rest of our cookies in a restrictive way.
-              (tracker.cookies as any) = {};
+              (resolvedTracker.cookies as any) = {};
               // This cookie is used to signal that external navigation happened from the "open in new tab" context menu.
               // We do not want the server to echo this cookie.
 
               if (contextMenuCookie) {
-                tracker.cookies[CONTEXT_MENU_COOKIE] = {
+                resolvedTracker.cookies[CONTEXT_MENU_COOKIE] = {
                   essential: true,
                   httpOnly: false,
                   maxAge: 30,
@@ -564,7 +577,7 @@ export class RequestHandler {
                 script = scripts.debug;
               } else {
                 const accept =
-                  tracker.headers["accept-encoding"]
+                  headers["accept-encoding"]
                     ?.split(",")
                     .map((value) => value.toLowerCase().trim()) ?? [];
                 if (accept.includes("br")) {
@@ -587,72 +600,83 @@ export class RequestHandler {
           }
 
           case "POST": {
-            const payloadString = payload ? await payload() : null;
+            if (EVENT_HUB_QUERY in parsedQuery) {
+              const payloadString = payload ? await payload() : null;
 
-            if (payloadString == null || payloadString === "") {
-              return await result({
-                status: 400,
-                body: "No data.",
-                headers: {
-                  "content-type": "text/plain",
-                },
-              });
-            }
-
-            // TODO: Be binary.
-            const postRequest: PostRequest =
-              this.environment.httpDecode(payloadString);
-
-            try {
-              extensionRequestType = "post";
-              const response: PostResponse = {};
-
-              if (postRequest.events) {
-                //requestTimer.print("post start");
-                await tracker.post(postRequest.events, {
-                  passive: postRequest.passive,
-                  deviceSessionId: postRequest.deviceSessionId,
-                  deviceId: postRequest.deviceId,
-                });
-              }
-
-              if (postRequest.variables) {
-                if (postRequest.variables.get) {
-                  (response.variables ??= {}).get = await tracker.get(
-                    ...postRequest.variables.get
-                  );
-                }
-                if (postRequest.variables.set) {
-                  (response.variables ??= {}).set = await tracker.set(
-                    ...postRequest.variables.set
-                  );
-                }
-              }
-
-              return await result(
-                response.variables
-                  ? { status: 200, body: tracker.httpClientEncrypt(response) }
-                  : { status: 202 }
-              );
-            } catch (error) {
-              this.environment.log(
-                {
-                  group: "system/request-handler",
-                  source: "post",
-                },
-                error
-              );
-              if (error instanceof PostError) {
-                return result({
-                  status: Object.keys(error.extensions).length ? 500 : 400,
-                  body: error.message,
+              if (payloadString == null || payloadString === "") {
+                return await result({
+                  status: 400,
+                  body: "No data.",
                   headers: {
                     "content-type": "text/plain",
                   },
-                  error,
                 });
               }
-              throw error;
+
+              // TODO: Be binary.
+              const postRequest: PostRequest =
+                this.environment.httpDecode(payloadString);
+
+              const resolvedTracker = await tracker;
+              try {
+                extensionRequestType = "post";
+                const response: PostResponse = {};
+
+                if (postRequest.events) {
+                  if (!postRequest.passive) {
+                    postRequest.passive = postRequest.events.every(
+                      (event) => (event as PassiveEvent).passive
+                    );
+                  }
+                  //requestTimer.print("post start");
+                  await resolvedTracker.post(postRequest.events, {
+                    passive: postRequest.passive,
+                    deviceSessionId: postRequest.deviceSessionId,
+                    deviceId: postRequest.deviceId,
+                  });
+                }
+
+                if (postRequest.variables) {
+                  if (postRequest.variables.get) {
+                    (response.variables ??= {}).get = await resolvedTracker.get(
+                      ...postRequest.variables.get
+                    );
+                  }
+                  if (postRequest.variables.set) {
+                    (response.variables ??= {}).set = await resolvedTracker.set(
+                      ...postRequest.variables.set
+                    );
+                  }
+                }
+
+                return await result(
+                  response.variables
+                    ? {
+                        status: 200,
+                        body: resolvedTracker.httpClientEncrypt(response),
+                      }
+                    : { status: 202 }
+                );
+              } catch (error) {
+                this.environment.log(
+                  {
+                    group: "system/request-handler",
+                    source: "post",
+                  },
+                  error
+                );
+                if (error instanceof PostError) {
+                  return result({
+                    status: Object.keys(error.extensions).length ? 500 : 400,
+                    body: error.message,
+                    headers: {
+                      "content-type": "text/plain",
+                    },
+                    error,
+                  });
+                }
+                throw error;
+              }
             }
           }
         }

@@ -2,11 +2,11 @@ import type {
   ActivatedComponent,
   ScreenPosition,
   TrackedEvent,
-  ViewTimingEvent,
+  ViewTimingData,
   Viewport,
 } from "..";
 
-export interface UserInteractionEvent extends TrackedEvent, ViewTimingEvent {
+export interface UserInteractionEvent extends TrackedEvent, ViewTimingData {
   /**
    * Relevant components and content in the scope of the activated element.
    */

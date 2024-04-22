@@ -3,7 +3,7 @@ import { Duration, Integer, TrackedEvent } from "..";
 /**
  * Implemented by events where it makes sense to know when they happened relative to their tab.
  */
-export interface ViewTimingEvent extends TrackedEvent {
+export interface ViewTimingData {
   timing?: {
     /**
      * The time the user has been active in the view/tab. Interactive time is measured as the time where the user is actively scrolling, typing or similar.

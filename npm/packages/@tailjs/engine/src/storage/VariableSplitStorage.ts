@@ -51,6 +51,22 @@ export type PrefixMappings = PartialRecord<
   Record<string, PrefixMapping>
 >;
 
+export type VariableSplitStoragePatchers = {
+  get?(
+    storage: SplitStorageErrorWrapper,
+    getters: (VariableGetter<any, true> | Nullish)[],
+    results: (VariableGetResult<any, true> | undefined)[],
+    context: VariableStorageContext | undefined
+  ): Promise<(VariableGetResult | undefined)[]>;
+
+  set?(
+    storage: SplitStorageErrorWrapper,
+    setters: (VariableSetter<any, true> | Nullish)[],
+    results: (VariableSetResult | undefined)[],
+    context: VariableStorageContext | undefined
+  ): Promise<(VariableSetResult | undefined)[]>;
+};
+
 export class VariableSplitStorage implements VariableStorage {
   private readonly _mappings = new DoubleMap<
     [VariableScope, string],
@@ -66,37 +82,13 @@ export class VariableSplitStorage implements VariableStorage {
     SplitStorageErrorWrapper
   >();
 
-  private readonly _patchGetResults: (
-    storage: SplitStorageErrorWrapper,
-    getters: (VariableGetter<any, true> | Nullish)[],
-    results: (VariableGetResult<any, true> | undefined)[],
-    context: VariableStorageContext | undefined
-  ) => Promise<(VariableGetResult | undefined)[]>;
-
-  private readonly _patchSetResults: (
-    storage: SplitStorageErrorWrapper,
-    setters: (VariableSetter<any, true> | Nullish)[],
-    results: (VariableSetResult | undefined)[],
-    context: VariableStorageContext | undefined
-  ) => Promise<(VariableSetResult | undefined)[]>;
+  private readonly _patchers: VariableSplitStoragePatchers | undefined;
 
   constructor(
     mappings: Wrapped<PrefixMappings>,
-    patchGetResults: (
-      storage: SplitStorageErrorWrapper,
-      getters: (VariableGetter<any, true> | Nullish)[],
-      results: (VariableGetResult<any, true> | undefined)[],
-      context: VariableStorageContext | undefined
-    ) => Promise<(VariableGetResult | undefined)[]> = (results: any) => results,
-    patchSetResults: (
-      storage: SplitStorageErrorWrapper,
-      setters: (VariableSetter<any, true> | Nullish)[],
-      results: (VariableSetResult | undefined)[],
-      context: VariableStorageContext | undefined
-    ) => Promise<(VariableSetResult | undefined)[]> = (results: any) => results
+    patchers?: VariableSplitStoragePatchers
   ) {
-    this._patchGetResults = patchGetResults;
-    this._patchSetResults = patchSetResults;
+    this._patchers = patchers;
     forEach(unwrap(mappings), ([scope, mappings]) =>
       forEach(
         mappings,
@@ -267,12 +259,12 @@ export class VariableSplitStorage implements VariableStorage {
           results,
           split,
           async (variables) =>
-            await this._patchGetResults(
+            (await this._patchers?.get?.(
               this._errorWrappers.get(storage)!,
               variables,
               await storage.get(variables, context),
               context
-            )
+            )) ?? variables
         )
       )
     );
@@ -353,6 +345,7 @@ export class VariableSplitStorage implements VariableStorage {
           // No cursor needed. Cut off results to avoid returning excessive amounts of data to the client.
           storageResults.length = top;
         }
+
         results.results.push(...(storageResults as Variable[])); // This is actually only the header for head requests.
         top = Math.max(0, top - storageResults.length);
       }
@@ -402,12 +395,12 @@ export class VariableSplitStorage implements VariableStorage {
             results,
             split,
             async (variables) =>
-              await this._patchSetResults(
+              (await this._patchers?.set?.(
                 this._errorWrappers.get(storage)!,
                 variables,
                 await storage.set(variables, context),
                 context
-              )
+              )) ?? variables
           )
       )
     );

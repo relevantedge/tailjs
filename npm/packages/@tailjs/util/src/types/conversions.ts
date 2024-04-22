@@ -113,11 +113,12 @@ export const isUndefined = (value: any): value is undefined | void =>
 export const isDefined = <T>(value: T): value is Defined<T> =>
   value !== undefined;
 
-export const ifDefined = <T, R>(
+export const ifDefined = <T, R, R2 = R>(
   value: T,
-  result: (value: NonNullable<T>) => R
-): MaybeUndefined<T, R> =>
-  value !== undefined ? (result(value as any) as any) : undefined;
+  result: (value: NonNullable<T>) => R,
+  otherwise?: () => R2
+): MaybeUndefined<T, R | R2> =>
+  value !== undefined ? (result(value as any) as any) : otherwise?.();
 
 export const isNullish = (value: any): value is undefined | void | null =>
   value == nil;

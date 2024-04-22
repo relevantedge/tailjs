@@ -1,6 +1,14 @@
-import { QUERY_DEVICE } from "@constants";
-import { TrackedEvent, isTrackedEvent } from "@tailjs/types";
-import type { Nullish } from "@tailjs/util";
+import { SCOPE_INFO_KEY } from "@constants";
+import { SessionInfo, TrackedEvent, isTrackedEvent } from "@tailjs/types";
+import {
+  MAX_SAFE_INTEGER,
+  assign,
+  isArray,
+  isString,
+  toArray,
+  tryCatch,
+  type Nullish,
+} from "@tailjs/util";
 import {
   Listener,
   Tracker,
@@ -16,65 +24,51 @@ import {
   isTagAttributesCommand,
   isToggleCommand,
   isTrackerAvailableCommand,
+  postUserAgentEvent,
 } from ".";
 import {
   ERR_INTERNAL_ERROR,
   ERR_INVALID_COMMAND,
   F,
   T,
-  addGlobalStateResolvedListener,
-  addQueuePostListener,
-  addResponseListener,
+  VAR_URL,
   array,
-  assign,
-  commit,
   define,
   del,
-  enqueueEvent,
-  entries,
   err,
   filter,
-  fun,
-  globalStateResolved,
   httpDecode,
   isTracker,
   map,
-  mapUrl,
   nextId,
   nil,
   now,
   push,
-  registerSharedState,
   setStorageKey,
-  size,
   sort,
   splice,
-  startupComplete,
-  str,
   trackerConfig,
-  tryCatch,
-  variables,
   window,
 } from "./lib";
+import {
+  TrackerContext,
+  addStateListener,
+  createEventQueue,
+  createVariableProvider,
+} from "./lib2";
 
 export let tracker: Tracker;
 export const initializeTracker = (config: TrackerConfiguration | string) => {
   if (tracker) return tracker;
 
-  str(config) && (config = httpDecode(config)!);
-
-  // Make sure the configuration has all parameters set to valid values.
-  map(
-    ["vars", "hub"],
-    (p) => !fun(config[p]) && (config[p] = mapUrl(config[p]))
-  );
+  isString(config) && (config = httpDecode<TrackerConfiguration>(config)!);
 
   assign(trackerConfig, config);
   setStorageKey(del(trackerConfig, "clientKey"));
   const apiKey = del(trackerConfig, "apiKey");
 
   const queuedCommands = window[trackerConfig.name] ?? [];
-  if (!array(queuedCommands)) {
+  if (!isArray(queuedCommands)) {
     err(
       `The global variable for the tracker "${trackerConfig.name}" is used for something else than an array of queued commands.`
     );
@@ -100,45 +94,21 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
       )
     );
   };
-  addQueuePostListener((events) => callListeners("post", events));
+
   const pendingStateCommands: TrackerCommand[] = [];
-  addGlobalStateResolvedListener(
-    () => pendingStateCommands.length && push(tracker, ...pendingStateCommands)
-  );
+  const trackerContext: TrackerContext = {};
 
   // Variables
-
-  const localVariables = Object.fromEntries(
-    map(
-      ["view", "tags", "rendered", "loaded", "scripts", QUERY_DEVICE, "mufti"],
-      (key) => [key, T]
-    )
-  );
-
-  let publicVariables: [string, string][];
-  const [getVars, setVars] = variables(
-    tracker,
-    (kvs) =>
-      size((publicVariables = filter(kvs, ([key]) => !localVariables[key]))) &&
-      updateVariables(publicVariables)
-  );
-  addResponseListener((_, variables) => setVars(variables));
-
-  const updateVariables = registerSharedState(
-    "vars",
-    () =>
-      map(
-        filter(entries(getVars()), ([key]) => !localVariables[key]),
-        ([key, value]) => [key, value] as const
-      ),
-    (vars) => vars && setVars(vars, T)
-  );
+  const variables = createVariableProvider(VAR_URL, trackerContext);
 
   // Main
+  const events = createEventQueue(VAR_URL, trackerContext);
 
   let mainArgs: TrackerCommand[] | null = nil;
   let currentArg = 0;
   let insertArgs = F;
+
+  let globalStateResolved = F;
 
   define(window, {
     [trackerConfig.name]: [
@@ -176,7 +146,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
 
                 if (isTagAttributesCommand(command)) {
                   trackerConfig.tags = assign(
-                    {},
+                    {} as any,
                     trackerConfig.tags,
                     command.tagAttributes
                   );
@@ -222,7 +192,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
               // Extensions then listeners are first so they can evaluate the rest.
               const expanded: TrackerCommand[] = sort(commands, getCommandRank);
 
-              // Allow nested calls to tracker.push from listerners and interceptors. Insert commands in the currently processed main batch.
+              // Allow nested calls to tracker.push from listeners and interceptors. Insert commands in the currently processed main batch.
               if (
                 mainArgs &&
                 splice(
@@ -261,14 +231,12 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
                         return; // Skip event and process next command.
                       }
 
-                      enqueueEvent(command);
+                      events.post([command], false);
+                      //enqueueEvent(command);
                     } else if (isGetCommand(command)) {
-                      getVars(command.get, command.timeout);
+                      variables.get(...toArray(command.get));
                     } else if (isSetCommand(command)) {
-                      setVars(command.set);
-                      map(entries(command.set), ([key, value]) =>
-                        callListeners("set", key, value)
-                      );
+                      variables.set(...toArray(command.set));
                     } else if (isListenerCommand(command)) {
                       push(listeners, command.listener);
                     } else if (isExtensionCommand(command)) {
@@ -302,7 +270,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
 
               mainArgs = nil;
               if (flush) {
-                commit();
+                events.post([], true);
               }
             },
           ],
@@ -312,14 +280,33 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
     ],
   });
 
-  startupComplete();
+  addStateListener(async (event, _1, _2, unbind) => {
+    // Make sure we have a session on the server before posting anything.
+    // As part of this, we also get the device session ID.
+    if (event === "ready") {
+      const session = (await variables.get({
+        scope: "session",
+        key: SCOPE_INFO_KEY,
+        cache: MAX_SAFE_INTEGER,
+      }).value) as SessionInfo;
+      trackerContext.deviceSessionId = session.deviceSessionId;
 
-  push(
-    tracker,
-    { set: { loaded: T } },
-    ...map(defaultExtensions, (extension) => ({ extension })),
-    ...queuedCommands
-  );
+      if (!session.hasUserAgent) {
+        postUserAgentEvent(tracker);
+        session.hasUserAgent = true;
+      }
+      globalStateResolved = true;
+      pendingStateCommands.length && push(tracker, ...pendingStateCommands);
+
+      unbind();
+    }
+    push(
+      tracker,
+      { set: { loaded: T } },
+      ...map(defaultExtensions, (extension) => ({ extension })),
+      ...queuedCommands
+    );
+  }, true);
 
   return tracker;
 };

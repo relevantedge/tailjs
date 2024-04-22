@@ -1,4 +1,4 @@
-import type { AllKeys, UnionToTuple } from ".";
+import type { Add, AllKeys, Primitives, UnionToTuple } from ".";
 /**
  * A record that may have the specified keys and values.
  */
@@ -6,53 +6,66 @@ export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
 
 export type PartialDefined<T> = Partial<Exclude<T, undefined | void>>;
 
+export type UnionPropertyValue<T, Keys extends keyof any> = T extends infer T
+  ? Keys extends infer K
+    ? K extends keyof T
+      ? T[K]
+      : never
+    : never
+  : never;
+
 /**
  * Omits one or more keys from a type if they exist. This also works for unions.
  */
 export type MaybePick<
   T,
-  Keys extends T extends infer T ? keyof T : never
-> = T extends infer T
-  ? keyof T & Keys extends never
-    ? T
-    : {
-        [P in Extract<keyof T, Keys>]: T[P];
-      } extends infer T
-    ? {} extends T
+  Keys extends AllKeys<T> | (keyof any & {})
+> = PrettifyIntersection<
+  T extends infer T
+    ? keyof T & Keys extends never
       ? never
-      : T
+      : Pick<T, Extract<keyof T, Keys>>
     : never
-  : never;
+>;
 
 /**
  * Omits one or more keys from a type if they exist. This also works for unions.
  */
 export type MaybeOmit<
   T,
-  Keys extends T extends infer T ? keyof T : never
-> = T extends infer T
-  ? keyof T & Keys extends never
-    ? T
-    : {
-        [P in Exclude<keyof T, Keys>]: T[P];
-      } extends infer T
-    ? {} extends T
-      ? never
-      : T
+  Keys extends AllKeys<T> | (keyof any & {})
+> = PrettifyIntersection<
+  T extends infer T
+    ? keyof T & Keys extends never
+      ? T
+      : Pick<T, Exclude<keyof T, Keys>> extends infer T
+      ? {} extends T
+        ? never
+        : T
+      : never
     : never
+>;
+
+/**
+ * Makes the specified properties partial.
+ */
+export type PickRequired<T, K extends AllKeys<T>> = T extends infer T
+  ? PrettifyIntersection<MaybeOmit<T, K> & Required<MaybePick<T, K>>>
   : never;
 
 /**
  * Makes the specified properties partial.
  */
-export type PickPartial<T, K extends AllKeys<T>> = MaybeOmit<T, K> &
-  Partial<MaybePick<T, K>>;
+export type PickPartial<T, K extends AllKeys<T>> = T extends infer T
+  ? PrettifyIntersection<MaybeOmit<T, K> & Partial<MaybePick<T, K>>>
+  : never;
 
 /**
  * Makes all other properties than the specified partial.
  */
-export type OmitPartial<T, K extends AllKeys<T>> = MaybePick<T, K> &
-  Partial<MaybeOmit<T, K>>;
+export type OmitPartial<T, K extends AllKeys<T>> = T extends infer T
+  ? PrettifyIntersection<MaybePick<T, K> & Partial<MaybeOmit<T, K>>>
+  : never;
 
 /**
  *  TypeScript may be very literal when it infers types. The type fo a function parameter with the value `10` may be inferred as `10` and not `number`.
@@ -101,10 +114,33 @@ export type KeyValuePairsToObject<T extends readonly [keyof any, any]> =
     >
   >;
 
-export type Entries<T> = UnionToTuple<
-  {
-    [P in keyof T]: [P, T[P]];
-  } extends infer T
-    ? T[keyof T]
+type TupleEntries<T, Index extends number = 0> = T extends readonly []
+  ? readonly []
+  : T extends readonly [infer Item, ...infer Rest]
+  ? readonly [[Index, Item], ...TupleEntries<Rest, Add<Index, 1>>]
+  : T extends Iterable<infer T>
+  ? readonly (readonly [number, T])[]
+  : never;
+
+export type Entries<T> = T extends infer T
+  ? T extends Primitives
+    ? never
+    : T extends Iterable<any>
+    ? T extends ReadonlySet<infer T>
+      ? readonly (readonly [T, true])[]
+      : T extends ReadonlyMap<infer K, infer V>
+      ? readonly (readonly [K, V])[]
+      : TupleEntries<T>
+    : UnionToTuple<
+        {
+          [P in keyof T]: [P, T[P]];
+        } extends infer T
+          ? T[keyof T]
+          : never,
+        true
+      > extends infer T
+    ? T extends readonly [never]
+      ? []
+      : T
     : never
->;
+  : never;

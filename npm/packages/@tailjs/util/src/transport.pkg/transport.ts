@@ -18,7 +18,8 @@ import {
   undefined,
   map,
   tryCatch,
-} from "..";
+  eq,
+} from "@tailjs/util";
 
 type ConverterFunctionValue<T> = T extends { toJSON(): infer V }
   ? V
@@ -252,11 +253,12 @@ export type Transport = [
 
 /**
  * Creates a pair of {@link Encoder} and {@link Decoder}s as well as a {@link HashFunction<string>}.
- * MessagePack is used for serialization, {@link lsfr} encryption is optionally used if a key is specified, and the input and outputs are Base64URL encoded.
+ * MessagePack is used for serialization, {@link lfsr} encryption is optionally used if a key is specified, and the input and outputs are Base64URL encoded.
  */
 export const createTransport = (
   key?: string | Nullish,
-  json = false
+  json = false,
+  jsonDecodeFallback = true
 ): Transport => {
   const [encrypt, decrypt, hash] = lfsr(key ?? "");
   const fastStringHash = (value: any, bitsOrNumeric: any) => {
@@ -269,13 +271,14 @@ export const createTransport = (
       : patchSerialize(value);
     return hash(value, bitsOrNumeric);
   };
+  const jsonDecode = (encoded: any) =>
+    encoded == null
+      ? undefined
+      : tryCatch(() => JSON.parse(encoded, undefined));
   return json
     ? [
         (data: any) => JSON.stringify(data),
-        (encoded) =>
-          encoded == null
-            ? undefined
-            : tryCatch(() => JSON.parse(encoded, undefined)),
+        jsonDecode,
         (value: any, numericOrBits?: any) =>
           fastStringHash(value, numericOrBits) as any,
       ]
@@ -283,7 +286,11 @@ export const createTransport = (
         (data: any) => to64u(encrypt(patchSerialize(data))),
         (encoded: any) =>
           hasValue(encoded)
-            ? patchDeserialize(decrypt(from64u(encoded)))
+            ? // JSON fallback.
+              jsonDecodeFallback &&
+              (encoded?.[0] === "{" || encoded?.[0] === "[")
+              ? jsonDecode(encoded)
+              : patchDeserialize(decrypt(from64u(encoded)))
             : null,
         (value: any, numericOrBits?: any) =>
           fastStringHash(value, numericOrBits) as any,

@@ -1,5 +1,19 @@
 {
-  "cSpell.words": ["Sitecore", "tailjs", "Validatable"],
+  "cSpell.words": [
+    "consts",
+    "endregion",
+    "Falsish",
+    "lfsr",
+    "minifyable",
+    "onfullfilled",
+    "pseudonomized",
+    "Sitecore",
+    "tailjs",
+    "Truish",
+    "Unbinder",
+    "unparam",
+    "Validatable"
+  ],
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8"
   },

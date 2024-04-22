@@ -1,13 +1,11 @@
 import {
-  Lock,
   clock,
+  delay,
   isDefined,
   isUndefined,
   tryCatchAsync,
-  delay,
-  tryCatch,
 } from "@tailjs/util";
-import { TAB_ID, bindStorage } from ".";
+import { bindStorage } from ".";
 
 export type MaybePromise<T> = T extends PromiseLike<infer T>
   ? MaybePromise<T>
