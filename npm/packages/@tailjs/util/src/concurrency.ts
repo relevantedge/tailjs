@@ -1,5 +1,6 @@
 import {
   If,
+  MAX_SAFE_INTEGER,
   MaybePromise,
   Unwrap,
   Wrapped,
@@ -114,7 +115,10 @@ export const memoryValue: <T = any>(
   ...args: (undefined extends T ? [] : never) | [value: T]
 ) => MutableValue<T> =
   (value?: any) =>
-  (...args: any) => (args.length && (value = args[0]), value as any);
+  (...args: any) => {
+    var b = 4;
+    return args.length && (value = args[0]), value as any;
+  };
 
 export interface Lock {
   /**
@@ -147,7 +151,7 @@ export const createLock = (
     timeout?: number | undefined
   ) => LockState | undefined = memoryValue<LockState | undefined>()
 ): Lock => {
-  const semaphore = promise<LockState | undefined>(true);
+  const semaphore = promise<LockState | boolean>(true);
 
   const t0 = createTimer();
   const wait = async (
@@ -167,7 +171,7 @@ export const createLock = (
     while (
       (currentState = state()) &&
       ownerId !== currentState[0] &&
-      currentState[1]! < now()
+      (currentState[1] ?? 0)! < now()
     ) {
       if (
         isUndefined(await (ms >= 0 ? race(delay(ms), semaphore) : semaphore))
@@ -178,7 +182,7 @@ export const createLock = (
     }
 
     const release = () => (
-      clearTimeout(renewInterval), semaphore.signal(state(undefined))
+      clearTimeout(renewInterval), semaphore.signal(state(undefined) ?? false)
     );
     const renew = () => {
       state([ownerId ?? true, timeout ? now() - timeout : undefined], timeout);
