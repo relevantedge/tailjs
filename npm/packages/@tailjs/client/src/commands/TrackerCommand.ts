@@ -10,7 +10,6 @@ import type {
   GetCommand,
   ListenerCommand,
   OrderCommand,
-  RefreshCommand,
   SetCommand,
   ToggleCommand,
   TrackerAvailableCommand,
@@ -28,7 +27,6 @@ export type TrackerCommand =
   | SetCommand
   | ListenerCommand
   | ExtensionCommand
-  | RefreshCommand
   | TagAttributesCommand
   | ToggleCommand
   | TrackerAvailableCommand
@@ -37,6 +35,4 @@ export type TrackerCommand =
   | ChangeUserCommand
   | CartCommand
   | OrderCommand
-  | FormCommand
-  | null
-  | undefined;
+  | FormCommand;

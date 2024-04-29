@@ -12,7 +12,7 @@ export * from "./GetCommand";
 export * from "./ListenerCommand";
 export * from "./OrderCommand";
 export * from "./RefreshCommand";
-export * from "./ReservedVariables";
+export * from "./ReservedVariablesTypes";
 export * from "./ScanComponentsCommand";
 export * from "./SetCommand";
 export * from "./TrackerAvailableCommand";

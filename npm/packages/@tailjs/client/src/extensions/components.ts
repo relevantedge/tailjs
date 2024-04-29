@@ -8,6 +8,24 @@ import {
   type UserInteractionEvent,
 } from "@tailjs/types";
 import {
+  MaybeUndefined,
+  Nullish,
+  array,
+  concat,
+  count,
+  createTimer,
+  filter,
+  flatMap,
+  forEach,
+  get,
+  map,
+  restrict,
+  some,
+  stickyTimeout,
+  unarray,
+  update,
+} from "@tailjs/util";
+import {
   BoundaryCommand,
   BoundaryData,
   TrackerExtensionFactory,
@@ -23,61 +41,52 @@ import {
   any,
   boundaryData,
   clear,
-  concat,
   del,
-  filter,
-  flatMap,
   forAncestorsOrSelf,
-  forEach,
-  get,
   getRect,
   getScreenPos,
   getViewport,
   join,
-  map,
   max,
   nil,
   parseTags,
   push,
   registerViewEndAction,
   scanAttributes,
-  set,
-  size,
   str,
   timeout,
-  timer,
   trackerConfig,
   trackerFlag,
   trackerProperty,
   undefined,
   unshift,
 } from "../lib";
-import { restrict } from "@tailjs/util";
+import { createImpressionObserver } from "../lib2";
 export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 
 export const componentDomConfiguration = Symbol("DOM configuration");
 
 export const parseActivationTags = (el: Element) =>
-  parseTags(el, undefined, (el) => map(get(boundaryData, el)?.tags));
+  parseTags(el, undefined, (el) => map(array(get(boundaryData, el)?.tags)));
 
-const hasComponentOrContent = (boundary?: BoundaryData | null) =>
+const hasComponentOrContent = (boundary?: BoundaryData<true> | null) =>
   boundary?.component || boundary?.content;
 
-let entry: BoundaryData | undefined;
-export const parseBoundaryTags = (el: Element) =>
-  parseTags(
+let entry: BoundaryData<true> | undefined;
+export const parseBoundaryTags = (el: Element) => {
+  return parseTags(
     el,
     (ancestor) =>
       ancestor !== el && !!hasComponentOrContent(get(boundaryData, ancestor)),
-    (el) =>
-      (entry = get(boundaryData, el)) &&
-      concat(
-        flatMap([entry.component, entry.content], (item) =>
-          flatMap(item, (item) => map(item.tags, F))
-        ),
-        entry.tags
-      )
+    (el) => {
+      entry = get(boundaryData, el)!;
+      return (
+        (entry = get(boundaryData, el)) &&
+        flatMap(concat(entry.component, entry.content, entry), "tags")
+      );
+    }
   );
+};
 
 let content: ActivatedContent[] | undefined;
 const stripRects = (
@@ -123,7 +132,7 @@ export const getComponentContext = (
 
     if (hasComponentOrContent(entry)) {
       const components = filter(
-        entry.component,
+        array(entry.component),
         (entry) =>
           includeState === IncludeState.Secondary ||
           (!directOnly &&
@@ -133,7 +142,7 @@ export const getComponentContext = (
       );
 
       rect =
-        (any(components, (item) => item.track?.region) && getRect(el)) ||
+        (some(components, (item) => item.track?.region) && getRect(el)) ||
         undefined;
       const tags = parseBoundaryTags(el);
       entry.content &&
@@ -146,9 +155,8 @@ export const getComponentContext = (
           }))
         );
 
-      components.length &&
-        (unshift(
-          collected,
+      components?.length &&
+        (collected.unshift(
           ...map(
             components,
             (item) => (
@@ -181,7 +189,7 @@ export const getComponentContext = (
   let components: ActivatedComponent[] | undefined;
 
   if (collectedContent.length) {
-    // Content without a contaning component is gathered in an ID-less component.
+    // Content without a containing component is gathered in an ID-less component.
     push(collected, stripRects({ id: "", rect, content: collectedContent }));
   }
 
@@ -199,30 +207,30 @@ export const getComponentContext = (
     : undefined;
 };
 
-const intersectionHandler = Symbol();
 export const components: TrackerExtensionFactory = {
   id: "components",
   setup(tracker) {
-    const observer = new IntersectionObserver(
-      (els) =>
-        forEach(
-          els,
-          ({ target, isIntersecting, boundingClientRect, intersectionRatio }) =>
-            target[intersectionHandler]?.(
-              isIntersecting,
-              boundingClientRect,
-              intersectionRatio
-            )
-        ),
-      // Low thresholds used to be able to handle components larger than viewports.
-      { threshold: [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.75] }
-    );
+    const impressions = createImpressionObserver(tracker);
 
-    function registerComponent({ boundary: el, ...command }: BoundaryCommand) {
-      let update =
-        "add" in command
-          ? (current: BoundaryData) =>
-              restrict<BoundaryData>({
+    const normalizeBoundaryData = <T extends BoundaryData | Nullish>(
+      data: T
+    ): MaybeUndefined<T, BoundaryData<true>> =>
+      data &&
+      ({
+        ...data,
+        component: array(data.component),
+        content: array(data.content),
+        tags: array(data.tags),
+      } as BoundaryData<true>);
+
+    const registerComponent = ({
+      boundary: el,
+      ...command
+    }: BoundaryCommand) => {
+      update(boundaryData, el, (current) =>
+        normalizeBoundaryData(
+          "add" in command
+            ? {
                 ...current,
                 component: concat(current?.component, command.component),
                 content: concat(current?.content, command.content),
@@ -230,97 +238,15 @@ export const components: TrackerExtensionFactory = {
                 tags: concat(current?.tags, command.tags),
                 cart: command.cart ?? current?.cart,
                 track: command.track ?? current?.track,
-              })
-          : command["update"];
+              }
+            : "update" in command
+            ? command.update(current)
+            : command
+        )
+      );
 
-      set(boundaryData, el, update ?? command);
-
-      let components: ConfiguredComponent[] | undefined;
-      if (
-        (components = filter(
-          get(boundaryData, el)?.component,
-          (cmp) =>
-            // Impression settings from the DOM/CSS are ignorred for secondary and inferred components (performance thing)
-            cmp!.track?.impressions ||
-            (cmp.track?.secondary ?? cmp.inferred) !== T
-        ))
-      ) {
-        if (!size(components)) {
-          return;
-        }
-
-        let visible = F;
-        let impressions = 0;
-        let event: PendingActionHandle | null = nil;
-        let fold: number;
-        const captureState = timeout();
-        const t = timer(() => getVisibleDuration(), F);
-
-        el[intersectionHandler] = (
-          intersecting: boolean,
-          rect: DOMRectReadOnly,
-          ratio: number
-        ) => {
-          intersecting =
-            ratio >= 0.75 ||
-            (rect.top < (fold = window.innerHeight / 2) && rect.bottom > fold);
-
-          t(intersecting);
-          if (visible !== (visible = intersecting)) {
-            //el["style"].border = visible ? "2px solid blue" : "";
-            if (visible) {
-              captureState(() => {
-                ++impressions;
-                if (!event) {
-                  const events = filter(
-                    map(
-                      components,
-                      (cmp) =>
-                        ((cmp!.track?.impressions ||
-                          trackerFlag(
-                            el,
-                            "impressions",
-                            T,
-                            (data) => data.track?.impressions
-                          )) &&
-                          restrict<ImpressionEvent>({
-                            type: "impression",
-                            pos: getScreenPos(el),
-                            viewport: getViewport(),
-                            ...getComponentContext(el, T),
-                          })) ||
-                        nil
-                    )
-                  );
-                  push(tracker, ...events);
-
-                  event = registerViewEndAction(() =>
-                    push(
-                      tracker,
-                      ...map(
-                        events,
-                        (ev) =>
-                          ({
-                            type: "impression_timing",
-                            passive: true,
-                            relatedEventId: ev.clientId!,
-                            duration: t(),
-                            impressions: impressions - 1,
-                          } as ImpressionTimingEvent)
-                      )
-                    )
-                  );
-                }
-              }, trackerConfig.impressionThreshold);
-            } else {
-              clear(captureState); // Not visible, clear timeout.
-            }
-          }
-          !el.isConnected && (event?.(), (event = nil));
-        };
-        observer.observe(el);
-      }
-    }
+      impressions(el, get(boundaryData, el));
+    };
 
     return {
       decorate(eventData) {

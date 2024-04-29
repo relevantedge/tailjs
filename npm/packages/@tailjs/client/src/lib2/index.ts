@@ -2,6 +2,10 @@
 
 export * from "./consts";
 
+export * from "./dom-alias";
+
+export * from "./errors";
+
 export * from "./ids";
 
 export * from "./page-events";
@@ -12,10 +16,14 @@ export * from "./concurrency";
 
 export * from "./channel";
 
+export * from "./LocalVariables";
+
 export * from "./shared-state";
 
 export * from "./request";
 
-export * from "./variables";
+export * from "./TrackerVariableStorage";
 
-export * from "./event-queue";
+export * from "./EventQueue";
+
+export * from "./ImpressionObserver";

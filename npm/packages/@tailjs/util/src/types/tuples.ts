@@ -1,4 +1,4 @@
-import type { Extends, If, IsAny, Minus, Voidefined } from ".";
+import type { Extends, If, IfNot, IsAny, Minus, Voidefined } from ".";
 
 export type Empty = readonly [];
 
@@ -8,12 +8,13 @@ export type MaybeArray<
   T,
   Readonly extends boolean | readonly any[] = T extends readonly any[]
     ? T
-    : false
+    : false,
+  AlwaysArray = false
 > = IsAny<T> extends true
   ? any
   : [T] extends [readonly any[]]
-  ? T[0] | ToggleReadonly<T, Readonly>
-  : T | (Readonly extends false ? T[] : readonly T[]);
+  ? IfNot<AlwaysArray, T[0]> | ToggleReadonly<T, Readonly>
+  : IfNot<AlwaysArray, T> | (Readonly extends false ? T[] : readonly T[]);
 
 /**
  * An extension to T[] and Iterable<T> that also correctly captures weird things like NodeListOf<T>
@@ -27,10 +28,9 @@ export type IterableOrArrayLike<T> =
  */
 export type IterableOrSelf<T> = IterableOrArrayLike<T> | T;
 
-export type ToggleReadonly<
-  T extends readonly any[],
-  Test extends readonly any[] | boolean
-> = Test extends any[] | false
+export type ToggleReadonly<T extends readonly any[], Test> = Test extends
+  | any[]
+  | false
   ? [...T]
   : Test extends readonly any[] | true
   ? readonly [...T]
@@ -118,8 +118,6 @@ export type ConstToNormal<T> = T extends readonly [...any[]]
 /** By adding a single item readonly tuple TypeScript starts interpreting arrays as tuples in function calls. */
 export type TupleOrArray<Item> = readonly Item[] | readonly [Item];
 
-export type TupleIntellisense<Parameter, Item> = Parameter | TupleOrArray<Item>;
-
 export type VariableTuple<
   Item,
   Template extends readonly any[] = any[],
@@ -129,3 +127,22 @@ export type VariableTuple<
 > = MaxLength extends 0
   ? readonly []
   : readonly [Item, ...VariableTuple<Item, Template, Minus<MaxLength, 1>>];
+
+/** Returns whether any item in a tuple cannot be undefined. */
+export type HasRequired<T> = true extends (
+  undefined extends T
+    ? false
+    : T extends readonly []
+    ? never
+    : T extends readonly [infer Item, ...infer Rest]
+    ? undefined extends Item
+      ? false | HasRequired<Rest>
+      : true
+    : T extends Iterable<infer Item>
+    ? undefined extends Item
+      ? false
+      : true
+    : false
+)
+  ? true
+  : false;

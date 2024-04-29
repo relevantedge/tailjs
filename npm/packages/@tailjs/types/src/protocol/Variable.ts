@@ -7,6 +7,7 @@ import {
   MaybePick,
   MaybeUndefined,
   Nullish,
+  OmitPartial,
   PrettifyIntersection,
   createEnumAccessor,
   isUndefined,
@@ -348,15 +349,19 @@ export const extractKey = <
   T,
   C extends undefined | Partial<VariableClassification> = undefined
 >(
-  variable: T & VariableKey,
+  variable: T & OmitPartial<VariableKey, "key">,
   classificationSource?: C
 ): T extends undefined
   ? undefined
   : T extends VariableKey
   ? PrettifyIntersection<
-      MaybePick<T, keyof VariableKey> & {
-        scope: VariableScope;
-      } & (C extends undefined
+      MaybePick<T, keyof VariableKey> &
+        ("scope" extends keyof T
+          ? {
+              scope: VariableScope;
+            }
+          : never) &
+        (C extends undefined
           ? {}
           : MaybePick<
               C & Partial<VariableClassification<true>>,

@@ -84,14 +84,14 @@ export class InvariantViolatedError extends Error {
 }
 
 export const entriesEqual = (value1: any, value2: any, deep = true): boolean =>
-  value1 === value2 ||
   (isObject(value1, true) &&
     isObject(value2, true) &&
     every(entries(value1), ([key, value]) =>
       deep
         ? entriesEqual(value, get(value2, key) === value)
         : get(value2, key) === value
-    ));
+    )) ||
+  value1 === value2;
 
 /** Tests whether a value equals at least one of some other values.  */
 export const eq: <T extends readonly any[]>(
@@ -200,8 +200,7 @@ export const tryCatchAsync = async <
     } catch (e) {
       if (!isBoolean(errorHandler)) {
         if (isArray(errorHandler)) return errorHandler[1]?.(e) as any;
-
-        const error = (await errorHandler?.(e, !retries)) as any;
+        const error = (await (errorHandler as any)?.(e, !retries)) as any;
         if (error instanceof Error) throw error;
         return error;
       } else if (errorHandler && !retries) {

@@ -1,5 +1,5 @@
 import { SchemaAnnotations } from "@tailjs/types";
-import { toArray } from "@tailjs/util";
+import { array } from "@tailjs/util";
 import { ParsedSchemaEntity } from "packages/@tailjs/engine/src/schema/parse/types";
 
 export const parseDescription = (
@@ -7,5 +7,5 @@ export const parseDescription = (
 ): Partial<Pick<ParsedSchemaEntity, "title" | "description" | "tags">> => ({
   title: node.title,
   description: node.description,
-  tags: toArray(node[SchemaAnnotations.Tags]),
+  tags: array(node[SchemaAnnotations.Tags]),
 });

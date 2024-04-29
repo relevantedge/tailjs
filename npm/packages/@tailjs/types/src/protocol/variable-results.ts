@@ -6,21 +6,18 @@ import {
   MaybeArray,
   MaybePick,
   PrettifyIntersection,
+  array,
   filter,
   isArray,
-  isDefined,
   isUndefined,
   map,
-  thenMethod,
   thenable,
   throwError,
-  toArray,
   undefined,
 } from "@tailjs/util";
 import {
   Variable,
   VariableGetResult,
-  VariableGetter,
   VariableResultStatus,
   VariableSetResult,
   VariableSetter,
@@ -36,26 +33,31 @@ type VariableSuccessResult<
   R,
   ChangedOnly = false,
   Return extends "value" | "variable" | "result" = "result"
-> = R extends {
-  current: infer V;
-  status: SuccessStatus<ChangedOnly>;
-}
-  ? V extends undefined
-    ? undefined
-    : Return extends "result"
-    ? R
-    : Return extends "variable"
-    ? V
-    : V extends { value: infer V }
-    ? V
-    : "never"
-  : R extends { value?: infer V; status: SuccessStatus<ChangedOnly> }
-  ? Return extends "result"
-    ? R
-    : Return extends "variable"
-    ? MaybePick<R, keyof Variable>
-    : V
-  : never;
+> = PrettifyIntersection<
+  R extends {
+    current: infer V;
+    status: SuccessStatus<ChangedOnly>;
+  } // Set result
+    ? V extends undefined
+      ? undefined
+      : Return extends "result"
+      ? R
+      : Return extends "variable"
+      ? V
+      : V extends { value: infer V }
+      ? V
+      : "never"
+    : R extends {
+        value?: infer V;
+        status: SuccessStatus<ChangedOnly> | VariableResultStatus.NotFound;
+      } // Get result
+    ? Return extends "result"
+      ? R
+      : Return extends "variable"
+      ? MaybePick<R, keyof Variable>
+      : V
+    : never
+>;
 
 export type VariableSuccessResults<
   Results,
@@ -222,7 +224,7 @@ export const handleResultErrors = <
   let errorHandler: ErrorHandler;
   let errorMessage: string;
   const successResults = map(
-    toArray(results),
+    array(results),
     (result, i) =>
       result &&
       (result.status < 400 || result.status === 404 // Not found can only occur for get requests, and those are all right.

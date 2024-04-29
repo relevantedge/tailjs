@@ -232,8 +232,9 @@ export const createEnumAccessor = <
   const nameLookup: Record<string, number> = flags
     ? { ...names, any, none: 0 }
     : names;
+
   const valueLookup = Object.fromEntries(
-    entries.map(([key, value]) => [value, key])
+    Object.entries(nameLookup).map(([key, value]) => [value, key])
   );
 
   const parseValue = (value: any, validateNumbers?: boolean) =>
@@ -248,6 +249,9 @@ export const createEnumAccessor = <
       : undefined;
 
   let invalid = false;
+  let carry: any;
+  let carry2: any;
+
   const [tryParse, lookup] = flags
     ? [
         (value: any, validateNumbers?: boolean) =>
@@ -259,18 +263,16 @@ export const createEnumAccessor = <
                     : (flag = parseValue(flag, validateNumbers)) == null
                     ? ((invalid = true), undefined)
                     : (flags ?? 0) | flag,
-                undefined as number | undefined
+                ((invalid = false), undefined as number | undefined)
               )
             : parseValue(value),
         (value: any, format: boolean) =>
           (value = tryParse(value, false)) == null
             ? undefined
-            : format && (value & any) === any
-            ? value > any && (value = lookup(value & ~any, false)).length
-              ? ["any", ...value]
-              : "any"
-            : format && valueLookup[value]
-            ? valueLookup[value]
+            : format && (carry2 = valueLookup[value & any])
+            ? (carry = lookup(value & ~(value & any), false)).length
+              ? [carry2, ...carry]
+              : carry2
             : ((value = entries
                 .filter(([, flag]) => flag && value & flag && isBit(flag))
                 .map(([name]) => name)),

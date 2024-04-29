@@ -14,10 +14,10 @@ export type Every<P extends readonly any[]> = P extends []
   ? And<Item extends false ? false : true, Every<Rest>>
   : false;
 
-/** Simplifies Boolean checks (insted of having to write B extends bla, bla...).  */
+/** Simplifies Boolean checks (instead of having to write B extends bla, bla...).  */
 export type IfNot<B, True = undefined, False = never> = If<B, False, True>;
 
-/** Simplifies Boolean checks (insted of having to write B extends bla, bla...).  */
+/** Simplifies Boolean checks (instead of having to write B extends bla, bla...).  */
 export type If<B, True, False = never> = B extends Falsish ? False : True;
 
 /** Type 1 extends type 2 */
@@ -52,7 +52,7 @@ export type IsUnknown<T> = Extends<unknown, T>;
  */
 export type UnknownAny<T> = unknown extends T ? any : T;
 
-/** Converts `null`, `undefined` and `void` to another type (default `undeined`). */
+/** Converts `null`, `undefined` and `void` to another type (default `undefined`). */
 export type ValueOrDefault<T, R, D = undefined> = T extends NonNullable<T>
   ? R
   : T extends null | undefined | void
@@ -80,7 +80,7 @@ export type Defined<T> = Exclude<T, undefined | void>;
  * Can also be used like `<T, Required extends boolean=false>(value: T, required?:Required): MaybeUndefined<Required,T>`.
  * Here the boolean flag `required` decides whether the return value is `T` or `T | undefined`.
  */
-export type MaybeUndefined<T, Defined = T, Nulls = undefined> = If<
+export type MaybeUndefined<T, Defined = T, Nulls = Nullish> = If<
   IsAny<T>,
   Defined,
   T extends Nulls | false ? Defined | undefined : Defined

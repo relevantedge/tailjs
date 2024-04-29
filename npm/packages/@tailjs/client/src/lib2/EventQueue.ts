@@ -1,5 +1,5 @@
 import { PassiveEvent, PostRequest, TrackedEvent } from "@tailjs/types";
-import { clock, entriesEqual, get, ifDefined, join, map } from "@tailjs/util";
+import { clock, clone, concat, entriesEqual, map } from "@tailjs/util";
 import {
   EVENT_POST_FREQUENCY,
   TrackerContext,
@@ -20,26 +20,45 @@ export type EventQueue = {
    * The source will get invoked whenever the tab becomes deactivated. If the source returns undefined or false, the source is unregistered.
    * The return value is a function to manually unregister the source.
    */
-  registerPassiveEventSource(source: () => PassiveEvent | false): () => void;
+  registerPassiveEventSource<T extends PassiveEvent = PassiveEvent>(
+    sourceEvent: TrackedEvent,
+    source: PassiveEventSource<T>
+  ): () => void;
 };
+
+export type PassiveEventSource<T extends PassiveEvent = PassiveEvent> = (
+  previous: T | undefined,
+  unbind: () => void
+) => T | undefined;
 
 export const createEventQueue = (
   url: string,
   context?: TrackerContext,
   postFrequency = EVENT_POST_FREQUENCY
 ): EventQueue => {
+  type Factory = () => [event: PassiveEvent | undefined, unbinding: boolean];
   const queue: TrackedEvent[] = [];
 
-  const passiveEvents = new Map<
-    () => PassiveEvent | undefined,
-    [snapshot: PassiveEvent | undefined, leaving: boolean]
-  >();
+  const previous = new WeakMap<TrackedEvent, any>();
+  const sources = new Map<TrackedEvent, Factory>();
 
-  const registerPassiveEventSource = (source: () => PassiveEvent) => {
-    get(passiveEvents, source, () => [undefined, false])[1] = false;
-    return () => {
-      ifDefined(passiveEvents.get(source), (current) => (current[1] = true));
+  const registerPassiveEventSource = <T extends PassiveEvent>(
+    sourceEvent: TrackedEvent,
+    source: PassiveEventSource<T>
+  ) => {
+    let unbinding = false;
+    const unbind = () => (unbinding = true);
+    const factory: Factory = () => {
+      let updated = source(previous.get(sourceEvent), unbind);
+      if (!previous || !entriesEqual(updated, previous)) {
+        updated && previous.set(sourceEvent, clone(updated));
+        return [updated, unbinding];
+      } else {
+        return [undefined, unbinding];
+      }
     };
+    sources.set(sourceEvent, factory);
+    return unbind;
   };
 
   const post = async (events: TrackedEvent[], flush = false) => {
@@ -64,25 +83,14 @@ export const createEventQueue = (
   addPageVisibleListener((visible, unloading, delta) => {
     // Don't do anything if the tab has only been visible for less than two seconds.
     if (!visible && (queue.length || unloading || delta > 2000)) {
-      const updatedEvents = map(passiveEvents, ([source, stats]) => {
-        const event = source();
-        if (!event || passiveEvents[1]) {
-          // Events that are no longer active but haven't been posted yet, gets posted but are then removed.
-          // Also, if a source returns undefined or false, it will also be removed since it is no longer active.
-          // In that case, nothing will get posted, it's just a way to unregister.
-
-          passiveEvents.delete(source);
-          if (!event) return;
-        }
-        if (!entriesEqual(event, stats[0])) {
-          // Only post events if they have changed.
-          stats[0] = { ...event, passive: true };
-          return event;
-        }
+      const updatedEvents = map(sources, ([sourceEvent, source]) => {
+        const [event, unbinding] = source();
+        unbinding && sources.delete(sourceEvent);
+        return event;
       });
 
       if (queue.length || updatedEvents.length) {
-        post(join(queue.splice(0), updatedEvents), true);
+        post(concat(queue.splice(0), updatedEvents), true);
       }
     }
   });

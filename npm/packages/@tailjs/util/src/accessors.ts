@@ -4,9 +4,9 @@ import {
   GeneralizeConstants,
   If,
   IsAny,
-  MaybePromise,
   Minus,
   NotFunction,
+  Nullish,
   PrettifyIntersection,
   Primitives,
   RecordType,
@@ -66,7 +66,7 @@ export type TupleIndices<T extends readonly any[]> = T extends readonly []
   ? TupleIndices<Rest> | Rest["length"]
   : never;
 
-export type KeyType<T extends ReadonlyPropertyContainer | null | undefined> =
+export type KeyType<T extends ReadonlyPropertyContainer | Nullish> =
   T extends Primitives
     ? never
     : T extends ReadonlyMapLike<infer K, any> | ReadonlySetLike<infer K>
@@ -76,12 +76,12 @@ export type KeyType<T extends ReadonlyPropertyContainer | null | undefined> =
     : keyof T;
 
 export type ValueType<
-  T extends ReadonlyPropertyContainer | null | undefined,
+  T extends ReadonlyPropertyContainer | Nullish,
   K = KeyType<T>,
   Context extends undefined | "get" | "set" = undefined
 > = IsAny<T> extends true
   ? any
-  : T extends null | undefined | void
+  : T extends Nullish
   ? never
   : K extends KeyType<T>
   ? T extends ReadonlyMapLike<K, infer V>
@@ -90,22 +90,6 @@ export type ValueType<
     ? boolean
     : T[K] | If<And<Extends<T, RecordType>, Extends<Context, "set">>, undefined>
   : never;
-
-type AcceptUnknownContainers<
-  T extends ReadonlyPropertyContainer | null | undefined
-> = IsAny<T> extends true
-  ? T
-  : T extends null | undefined | void
-  ? never
-  : T extends MapLike
-  ? MapLike<unknown, unknown> | T
-  : T extends SetLike
-  ? SetLike<unknown> | T
-  : T extends readonly any[]
-  ? number extends T["length"]
-    ? readonly unknown[] | [] | T
-    : T
-  : T;
 
 // #endregion
 
@@ -154,15 +138,12 @@ export const setSingleIfNotDefined = (
 };
 
 export const get: {
-  <
-    T extends ReadonlyPropertyContainer | null | undefined,
-    K extends KeyType<T>
-  >(
+  <T extends ReadonlyPropertyContainer | Nullish, K extends KeyType<T>>(
     target: T,
     key: K
   ): ValueType<T, K, "get">;
   <
-    T extends ReadonlyPropertyContainer | null | undefined,
+    T extends ReadonlyPropertyContainer | Nullish,
     K extends KeyType<T>,
     R extends
       | ValueType<T, K>
@@ -179,7 +160,7 @@ export const get: {
     R extends ValueType<T, K> | (() => ValueType<T, K>) ? undefined : "get"
   >;
 } = <
-  T extends ReadonlyPropertyContainer | null | undefined,
+  T extends ReadonlyPropertyContainer | Nullish,
   K extends KeyType<T>,
   R extends ValueType<T, K> | undefined = undefined
 >(
@@ -278,7 +259,7 @@ type BulkUpdates<
       | BulkUpdateObject<T, SettersOnly, Factory>
     >;
 
-type SetErrorHandler<T extends ReadonlyPropertyContainer | null | undefined> = (
+type SetErrorHandler<T extends ReadonlyPropertyContainer | Nullish> = (
   key: KeyType<T>,
   currentValue: ValueType<T>,
   newValue: ValueType<T>,
@@ -308,7 +289,7 @@ type SettableValueFunctionType<T extends PropertyContainer, K, V> = (
 
 type IsGeneralKey<T, S = keyof any> = S extends T ? true : false;
 
-/** List of keys in T that has undefined values. If Template does not allow undefined values for a key it is excluded from the reuslts. */
+/** List of keys in T that has undefined values. If Template does not allow undefined values for a key it is excluded from the results. */
 type UndefinedKeys<
   T,
   Template = {},
@@ -427,7 +408,7 @@ type SetOrUpdateFunction<
       | null
       | undefined,
     U extends Updater<
-      T extends null | undefined ? never : T,
+      T extends Nullish ? never : T,
       K,
       ValueType<T, K>,
       SettersOnly
@@ -446,7 +427,7 @@ type SetOrUpdateFunction<
       | undefined
   >(
     target: T,
-    values: BulkUpdates<T extends null | undefined ? never : T, SettersOnly>,
+    values: BulkUpdates<T extends Nullish ? never : T, SettersOnly>,
     ...args: ErrorHandler extends true ? [error: SetErrorHandler<T>] : []
   ): T;
 };
@@ -538,6 +519,10 @@ type RemoveDeepValue<
     : never
   : never;
 
+type KeysArg<T extends PropertyContainer | Nullish> = T extends RecordType
+  ? readonly (keyof T | undefined)[]
+  : readonly (KeyType<T> | undefined)[];
+
 const clearSingle = (target: any, key: any) => {
   if (isUndefined(target ?? key)) return undefined;
 
@@ -552,6 +537,18 @@ const clearSingle = (target: any, key: any) => {
 };
 
 /**
+ * Deletes the specified keys from the target and returns the target.
+ */
+export const del: {
+  <T extends PropertyContainer | undefined, K extends KeysArg<T>>(
+    target: T,
+    ...keys: K
+  ): T extends RecordType ? { [P in Exclude<keyof T, K[number]>]: T[P] } : T;
+} = (target: any, ...keys: any) =>
+  target &&
+  (assign(target, map(keys, (key) => [key, undefined]) as any) as any);
+
+/**
  * Removes one or more values from a property container specified by the provided key or array of keys.
  *
  * If more than one level of key arguments are specified, values will be removed from the property container at the deepest level.
@@ -559,7 +556,7 @@ const clearSingle = (target: any, key: any) => {
  *
  */
 export const clear = <
-  T extends PropertyContainer | null | undefined,
+  T extends PropertyContainer | Nullish,
   Args extends RemoveDeepArgs<T>
 >(
   target: T,
@@ -607,29 +604,29 @@ export const clear = <
  * The difference between {@link clear} and this function is that it does not consider nested property containers and that arrays will be spliced (as opposed to `clear` where the index will be set to `undefined`).
  */
 export const remove: {
-  <T extends PropertyContainer | null | undefined>(
+  <T extends PropertyContainer | Nullish, K extends KeyType<T> | undefined>(
     target: T,
-    key: KeyType<T> | undefined
-  ): T extends null | undefined ? T : ValueType<T, KeyType<T>> | undefined;
-  <T extends PropertyContainer | null | undefined>(
+    key: K
+  ): T extends Nullish ? T : ValueType<T, K, "get">;
+  <T extends PropertyContainer | Nullish, K extends KeysArg<T>>(
     target: T,
-    ...keys: (KeyType<T> | undefined)[]
-  ): (T extends null | undefined ? T : ValueType<T, KeyType<T>> | undefined)[];
-} = (target: PropertyContainer, key: any, ...keys: any[]) => {
+    keys: K
+  ): (T extends Nullish ? T : ValueType<T, K[number], "get">)[];
+} = (target: PropertyContainer, keys: any) => {
   if (!target) return undefined;
 
-  if (keys.length) {
+  if (isArray(keys)) {
     // Sort array keys descending as they would otherwise not match their offset as the array is spliced along the way.
-    return (isArray(target) ? keys.sort((x, y) => y - x) : keys).map((key) =>
-      remove(target, key)
-    );
+    return (
+      isArray(target) && target.length > 1 ? keys.sort((x, y) => y - x) : keys
+    ).map((key) => remove(target, key));
   }
 
   return isArray(target)
-    ? key < target.length
-      ? (target as any[]).splice(key, 1)[0]
+    ? keys < target.length
+      ? (target as any[]).splice(keys, 1)[0]
       : undefined
-    : clearSingle(target, key);
+    : clearSingle(target, keys);
 };
 
 type EntryToObject<Item> = Item extends readonly [infer K & keyof any, infer V]
@@ -640,7 +637,7 @@ type EntryToObject<Item> = Item extends readonly [infer K & keyof any, infer V]
 
 type EntriesToObject<Entries> = UnionToIntersection<
   InlinePropertyDescriptors<
-    Entries extends null | undefined | boolean
+    Entries extends Nullish | boolean
       ? {}
       : Entries extends readonly [
           Partial<Readonly<PropertyDescriptor>>,

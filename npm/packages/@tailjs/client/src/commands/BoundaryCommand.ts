@@ -8,17 +8,18 @@ import type {
 } from "@tailjs/types";
 
 import { commandTest } from "./shared";
+import { MaybeArray, Nullish } from "@tailjs/util";
 
-export interface BoundaryData {
+export interface BoundaryData<RequireArrays = false> {
   /**
    * The component definition(s) associated with the boundary element.
    */
-  component?: ConfiguredComponent | ConfiguredComponent[] | null;
+  component?: MaybeArray<ConfiguredComponent, true, RequireArrays> | null;
 
   /**
    * The content definition(s) associated with the boundary element.
    */
-  content?: Content | Content[] | null;
+  content?: MaybeArray<Content, true, RequireArrays> | null;
 
   /**
    * The name of the content area associated with the boundary element.
@@ -30,7 +31,7 @@ export interface BoundaryData {
   /**
    *  These tags will be added to the components and content in user activations with the boundary element or any of its descendants.
    */
-  tags?: Tag | Tag[] | null;
+  tags?: MaybeArray<Tag, true, RequireArrays> | null;
 
   /**
    * The element will include cart data when activated.
@@ -56,7 +57,7 @@ export type BoundaryCommand = {
        */
       add?: boolean;
     })
-  | { update: (current?: BoundaryData) => BoundaryData | null }
+  | { update: (current?: BoundaryData<true>) => BoundaryData | Nullish }
 );
 
 // {

@@ -106,7 +106,6 @@ describe("enums.ts", () => {
       "special",
     ]);
     expect(helper3.format(14 + 16)).toEqual(["any", "special"]);
-
-    //expect(helper.lookup(14)).toEqual(["value1", "value2", "value3"]);
+    expect(helper3.format(12 + 16)).toEqual(["mix", "special"]);
   });
 });

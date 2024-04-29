@@ -1,6 +1,6 @@
 import type { View } from "@tailjs/types";
 
-export type ReservedVariables = {
+export type ReservedVariableTypes = {
   view: View;
   tags: string[];
   rendered: boolean;

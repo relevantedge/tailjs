@@ -14,15 +14,18 @@ export type Timer = {
   (toggle: boolean, reset?: boolean): number;
 };
 
-export const createTimer = (started = true): Timer => {
-  let t0: number | boolean = started && now();
+export const createTimer = (
+  started = true,
+  timeReference = () => now()
+): Timer => {
+  let t0: number | boolean = started && timeReference();
   let elapsed = 0;
   let capturedElapsed: number;
   return (toggle?: boolean, reset?: boolean) => {
-    t0 && (elapsed += now() - (t0 as number));
+    t0 && (elapsed += timeReference() - (t0 as number));
     capturedElapsed = elapsed;
     reset && (elapsed = 0);
-    isBoolean(toggle) && (t0 = toggle && now());
+    isBoolean(toggle) && (t0 = toggle && timeReference());
     return capturedElapsed;
   };
 };
@@ -45,6 +48,31 @@ export interface ClockSettings {
   once?: boolean;
   callback?: ClockCallback;
 }
+
+export const stickyTimeout = (
+  defaultTimeout = 0
+): {
+  (callback: () => void, timeout?: number): void;
+  (cancel: false): void;
+  (trigger: true): void;
+  (): boolean;
+} => {
+  let handle: number;
+  let currentCallback: (() => void) | undefined;
+  return function stickyTimeout(arg?: any, timeout?: any) {
+    if (arg === undefined) {
+      return !!currentCallback;
+    }
+    clearTimeout(handle);
+    if (isBoolean(arg)) {
+      arg && currentCallback?.();
+      currentCallback = undefined;
+    } else {
+      currentCallback = arg;
+      handle = setTimeout(() => stickyTimeout(true), timeout ?? defaultTimeout);
+    }
+  } as any;
+};
 
 export const clock: {
   (callback: ClockCallback, frequency: number): Clock;

@@ -3,11 +3,20 @@ import { SessionInfo, TrackedEvent, isTrackedEvent } from "@tailjs/types";
 import {
   MAX_SAFE_INTEGER,
   assign,
+  define,
   isArray,
   isString,
-  toArray,
+  array,
   tryCatch,
+  F,
+  T,
   type Nullish,
+  throwError,
+  remove,
+  flatMap,
+  filter,
+  sort,
+  map,
 } from "@tailjs/util";
 import {
   Listener,
@@ -29,24 +38,13 @@ import {
 import {
   ERR_INTERNAL_ERROR,
   ERR_INVALID_COMMAND,
-  F,
-  T,
   VAR_URL,
-  array,
-  define,
-  del,
-  err,
-  filter,
   httpDecode,
   isTracker,
-  map,
   nextId,
   nil,
   now,
-  push,
   setStorageKey,
-  sort,
-  splice,
   trackerConfig,
   window,
 } from "./lib";
@@ -54,8 +52,9 @@ import {
   TrackerContext,
   addStateListener,
   createEventQueue,
-  createVariableProvider,
+  createVariableStorage,
 } from "./lib2";
+import { errorLogger, logError } from "./lib2/errors";
 
 export let tracker: Tracker;
 export const initializeTracker = (config: TrackerConfiguration | string) => {
@@ -64,12 +63,12 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
   isString(config) && (config = httpDecode<TrackerConfiguration>(config)!);
 
   assign(trackerConfig, config);
-  setStorageKey(del(trackerConfig, "clientKey"));
-  const apiKey = del(trackerConfig, "apiKey");
+  setStorageKey(remove(trackerConfig, "clientKey"));
+  const apiKey = remove(trackerConfig, "apiKey");
 
   const queuedCommands = window[trackerConfig.name] ?? [];
   if (!isArray(queuedCommands)) {
-    err(
+    throwError(
       `The global variable for the tracker "${trackerConfig.name}" is used for something else than an array of queued commands.`
     );
     return;
@@ -90,7 +89,8 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
             unsubscribe: () => (keep = F),
           }),
           keep // Will be set synchronously in the unsubscribe handler before this value is returned.
-        )
+        ),
+        errorLogger(listener)
       )
     );
   };
@@ -99,7 +99,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
   const trackerContext: TrackerContext = {};
 
   // Variables
-  const variables = createVariableProvider(VAR_URL, trackerContext);
+  const variables = createVariableStorage(VAR_URL, trackerContext);
 
   // Main
   const events = createEventQueue(VAR_URL, trackerContext);
@@ -110,38 +110,34 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
 
   let globalStateResolved = F;
 
-  define(window, {
-    [trackerConfig.name]: [
-      (tracker = define(
-        {},
-        {
-          id: [nextId()],
-          push: [
-            (...commands: TrackerCommand[]) => {
-              if (!mainArgs && apiKey) {
-                if (commands[0] !== apiKey) {
-                  throw new Error("Invalid API key.");
-                }
-                commands.splice(0, 1);
+  define(window, [
+    {
+      [trackerConfig.name]: [
+        (tracker = Object.freeze({
+          id: "tracker_" + nextId(),
+          events,
+          variables,
+          push: ((...commands: (TrackerCommand | string)[]) => {
+            if (!mainArgs && apiKey) {
+              if (commands[0] !== apiKey) {
+                throw new Error("Invalid API key.");
               }
+              commands.splice(0, 1);
+            }
 
-              if (!commands.length) {
-                return;
-              }
+            if (!commands.length) {
+              return;
+            }
 
-              commands = commands.flatMap(
-                (command) => (
-                  !command
-                    ? command
-                    : typeof command === "string" &&
-                      (command = httpDecode<TrackerCommand>(command)),
-                  array(command) ? command : [command]
-                )
-              );
+            let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
 
-              let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
-
-              commands = filter(commands, (command) => {
+            commands = filter(
+              flatMap(commands, (command) =>
+                isString(command)
+                  ? httpDecode<TrackerCommand>(command)
+                  : command
+              ),
+              (command) => {
                 if (!command) return F;
 
                 if (isTagAttributesCommand(command)) {
@@ -170,115 +166,115 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
                 }
                 // #endregion
                 return T;
-              });
-
-              if (!commands.length && !flush) {
-                return;
               }
+            );
 
-              const getCommandRank = (cmd: TrackerCommand) =>
-                isExtensionCommand(cmd)
-                  ? -100
-                  : isListenerCommand(cmd)
-                  ? -50
-                  : isSetCommand(cmd)
-                  ? -10
-                  : isTrackedEvent(cmd)
-                  ? 90
-                  : 0;
+            if (!commands.length && !flush) {
+              return;
+            }
 
-              // Put events last to allow listeners and interceptors from the same batch to work on them.
-              // Sets come before gets to avoid unnecessary waiting
-              // Extensions then listeners are first so they can evaluate the rest.
-              const expanded: TrackerCommand[] = sort(commands, getCommandRank);
+            const getCommandRank = (cmd: TrackerCommand) =>
+              isExtensionCommand(cmd)
+                ? -100
+                : isListenerCommand(cmd)
+                ? -50
+                : isSetCommand(cmd)
+                ? -10
+                : isTrackedEvent(cmd)
+                ? 90
+                : 0;
 
-              // Allow nested calls to tracker.push from listeners and interceptors. Insert commands in the currently processed main batch.
-              if (
-                mainArgs &&
-                splice(
-                  mainArgs,
-                  insertArgs ? currentArg + 1 : mainArgs.length,
-                  0,
-                  ...expanded
-                )
+            // Put events last to allow listeners and interceptors from the same batch to work on them.
+            // Sets come before gets to avoid unnecessary waiting
+            // Extensions then listeners are first so they can evaluate the rest.
+            const expanded: TrackerCommand[] = sort(commands, getCommandRank);
+
+            // Allow nested calls to tracker.push from listeners and interceptors. Insert commands in the currently processed main batch.
+            if (
+              mainArgs &&
+              mainArgs.splice(
+                insertArgs ? currentArg + 1 : mainArgs.length,
+                0,
+                ...expanded
               )
-                return;
+            )
+              return;
 
-              mainArgs = expanded;
+            mainArgs = expanded;
 
-              for (currentArg = 0; currentArg < mainArgs.length; currentArg++) {
-                if (!mainArgs[currentArg]) continue;
-                tryCatch(
-                  () => {
-                    const command = mainArgs![currentArg];
-                    callListeners("command", command);
-                    insertArgs = F;
-                    if (isTrackedEvent(command)) {
-                      command.timestamp ??= now();
+            for (currentArg = 0; currentArg < mainArgs.length; currentArg++) {
+              if (!mainArgs[currentArg]) continue;
+              tryCatch(
+                () => {
+                  const command = mainArgs![currentArg];
+                  callListeners("command", command);
+                  insertArgs = F;
+                  if (isTrackedEvent(command)) {
+                    command.clientId ??= nextId();
+                    command.timestamp ??= now();
 
-                      insertArgs = T;
-                      let skip = F;
-                      map(extensions, ([, extension], i) => {
-                        if (
-                          skip ||
-                          extension.decorate?.(command as TrackedEvent) === F
-                        ) {
-                          skip = T;
-                        }
-                      });
-
-                      if (skip) {
-                        return; // Skip event and process next command.
-                      }
-
-                      events.post([command], false);
-                      //enqueueEvent(command);
-                    } else if (isGetCommand(command)) {
-                      variables.get(...toArray(command.get));
-                    } else if (isSetCommand(command)) {
-                      variables.set(...toArray(command.set));
-                    } else if (isListenerCommand(command)) {
-                      push(listeners, command.listener);
-                    } else if (isExtensionCommand(command)) {
-                      let extension: TrackerExtension | Nullish;
+                    insertArgs = T;
+                    let skip = F;
+                    map(extensions, ([, extension]) => {
                       if (
-                        (extension = tryCatch(
-                          () => command.extension.setup(tracker),
-                          (e) => err(nil, command.extension, e)
-                        ))
+                        skip ||
+                        extension.decorate?.(command as TrackedEvent) === F
                       ) {
-                        push(extensions, [command.priority ?? 100, extension]);
-                        sort(extensions, ([priority]) => priority);
+                        skip = T;
                       }
-                    } else if (isTrackerAvailableCommand(command)) {
-                      command(tracker); // Variables have already been loaded once.
-                    } else {
-                      let success = F;
-                      for (const [, extension] of extensions) {
-                        if (
-                          (success = extension.processCommand?.(command) ?? F)
-                        ) {
-                          break;
-                        }
-                      }
-                      !success && err(ERR_INVALID_COMMAND, command);
-                    }
-                  },
-                  (e) => err(ERR_INTERNAL_ERROR, nil, e)
-                );
-              }
+                    });
 
-              mainArgs = nil;
-              if (flush) {
-                events.post([], true);
-              }
-            },
-          ],
-          [isTracker]: [T],
-        }
-      ) as any),
-    ],
-  });
+                    if (skip) {
+                      return; // Skip event and process next command.
+                    }
+
+                    events.post([command], false);
+                    //enqueueEvent(command);
+                  } else if (isGetCommand(command)) {
+                    variables.get(...array(command.get));
+                  } else if (isSetCommand(command)) {
+                    variables.set(...array(command.set));
+                  } else if (isListenerCommand(command)) {
+                    listeners.push(command.listener);
+                  } else if (isExtensionCommand(command)) {
+                    let extension: TrackerExtension | Nullish;
+                    if (
+                      (extension = tryCatch(
+                        () => command.extension.setup(tracker),
+                        (e) => logError(command.extension.id, e)
+                      ))
+                    ) {
+                      extensions.push([command.priority ?? 100, extension]);
+                      sort(extensions, ([priority]) => priority);
+                    }
+                  } else if (isTrackerAvailableCommand(command)) {
+                    command(tracker); // Variables have already been loaded once.
+                  } else {
+                    let success = F;
+                    for (const [, extension] of extensions) {
+                      if (
+                        (success = extension.processCommand?.(command) ?? F)
+                      ) {
+                        break;
+                      }
+                    }
+                    !success && logError(ERR_INVALID_COMMAND, command);
+                  }
+                },
+                (e) => logError(tracker, ERR_INTERNAL_ERROR, e)
+              );
+            }
+
+            mainArgs = nil;
+            if (flush) {
+              events.post([], true);
+            }
+          }) as any,
+          [isTracker]: T,
+        })),
+      ],
+    },
+  ]);
 
   addStateListener(async (event, _1, _2, unbind) => {
     // Make sure we have a session on the server before posting anything.
@@ -296,15 +292,14 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
         session.hasUserAgent = true;
       }
       globalStateResolved = true;
-      pendingStateCommands.length && push(tracker, ...pendingStateCommands);
+      pendingStateCommands.length && tracker.push(pendingStateCommands);
 
       unbind();
     }
-    push(
-      tracker,
-      { set: { loaded: T } },
+    tracker.push(
       ...map(defaultExtensions, (extension) => ({ extension })),
-      ...queuedCommands
+      ...queuedCommands,
+      { set: { scope: "local", key: "loaded", value: true } }
     );
   }, true);
 

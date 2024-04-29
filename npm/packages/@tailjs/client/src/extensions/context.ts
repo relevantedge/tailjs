@@ -1,27 +1,20 @@
-import { QUERY_DEVICE } from "@constants";
 import {
   HeartbeatEvent,
   LocalID,
   Timestamp,
-  UserAgentEvent,
   UserInteractionEvent,
-  ViewTimingEvent,
   ViewEvent,
   ViewTimingData,
+  ViewTimingEvent,
   isViewEvent,
 } from "@tailjs/types";
-import {
-  TrackerExtensionFactory,
-  detectDeviceType,
-  isChangeUserCommand,
-} from "..";
+import { assign, createEvent, parseQueryString, restrict } from "@tailjs/util";
+import { TrackerExtensionFactory, isChangeUserCommand } from "..";
 import {
   F,
   noopAction as NO_OP,
   T,
   addDependency,
-  assign,
-  debug,
   del,
   document,
   eventSet,
@@ -34,7 +27,6 @@ import {
   map,
   mark,
   matchExHash,
-  navigator,
   nextId,
   nil,
   now,
@@ -54,7 +46,6 @@ import {
   undefined,
   window,
 } from "../lib";
-import { restrict } from "@tailjs/util";
 
 type TabInfo = [
   id: LocalID,
@@ -66,7 +57,7 @@ type TabInfo = [
 export let currentViewEvent: ViewEvent | undefined;
 
 export const getCurrentViewId = () => currentViewEvent?.clientId;
-const [addViewChangedListener, viewChanged] = eventSet<[viewId: string]>();
+const [addViewChangedListener, viewChanged] = createEvent<[view: ViewEvent]>();
 export { addViewChangedListener };
 
 export type ViewMessage = {
@@ -173,31 +164,17 @@ export const context: TrackerExtensionFactory = {
         tabIndex: tab[3],
         viewport: getViewportSize(),
       };
-      viewChanged(currentViewEvent.clientId);
 
       currentViewEvent.firstTab = firstTab;
       firstTab && tab[3] === 1 && (currentViewEvent.landingPage = T);
 
-      // Query string
-      const trySplit = (s: string, sep: string, parts = split(s, sep)) =>
-        parts.length > 1 ? parts : nil;
+      viewChanged(currentViewEvent);
 
-      const ps = parseParameters(replace(location.href, /^[^?]*\??/, ""));
-      if (ps) {
-        const qs = (currentViewEvent!.queryString = transpose(ps, ([k, v]) => [
-          k.toLowerCase(),
-          v.length > 1
-            ? v
-            : trySplit(v[0], "|") ||
-              trySplit(v[0], ";") ||
-              trySplit(v[0], ",") ||
-              v,
-        ]));
-        map(
-          ["source", "medium", "campaign", "term", "content"],
-          (p, _) => ((currentViewEvent!.utm ??= {})[p] = qs[`utm_${p}`]?.[0])
-        );
-      }
+      const qs = parseQueryString(location.href);
+      map(
+        ["source", "medium", "campaign", "term", "content"],
+        (p, _) => ((currentViewEvent!.utm ??= {})[p] = qs[`utm_${p}`]?.[0])
+      );
 
       !(currentViewEvent.navigationType = pushPopNavigation) &&
         performance &&
@@ -236,24 +213,25 @@ export const context: TrackerExtensionFactory = {
           domain: parseDomain(referrer)?.domain,
         });
 
-      viewPosted = F;
-      pendingViewEvent = registerViewEndAction(
-        () => (
-          (viewPosted = T),
-          push(tracker, currentViewEvent),
-          currentViewEvent?.firstTab && push(tracker, { flush: T })
-        )
-      );
-      pendingViewEndEvent = registerViewEndAction(() => {
-        push(
-          tracker,
-          { type: "view_timing", passive: true, timing: {} } as ViewTimingEvent,
-          {
-            set: { view: undefined },
-          }
-        );
-        isNewTab = F;
-      });
+      tracker.events.registerPassiveEventSource();
+
+      // pendingViewEvent = registerViewEndAction(
+      //   () => (
+      //     (viewPosted = T),
+      //     push(tracker, currentViewEvent),
+      //     currentViewEvent?.firstTab && push(tracker, { flush: T })
+      //   )
+      // );
+      // pendingViewEndEvent = registerViewEndAction(() => {
+      //   push(
+      //     tracker,
+      //     { type: "view_timing", passive: true, timing: {} } as ViewTimingEvent,
+      //     {
+      //       set: { view: undefined },
+      //     }
+      //   );
+      //   isNewTab = F;
+      // });
 
       push(tracker, {
         get: {
@@ -303,21 +281,6 @@ export const context: TrackerExtensionFactory = {
 
     postView();
 
-    const heartbeat = timeout();
-    const resetHeartbeat = () =>
-      viewPosted &&
-      trackerConfig.heartbeatFrequency > 0 &&
-      heartbeat(
-        () =>
-          isForegroundTab() &&
-          tracker.push(
-            restrict<HeartbeatEvent>({ type: "heartbeat", timing: {} })
-          ),
-        -trackerConfig.heartbeatFrequency
-      );
-
-    resetHeartbeat();
-
     return {
       processCommand(command) {
         if (isChangeUserCommand(command)) {
@@ -331,8 +294,6 @@ export const context: TrackerExtensionFactory = {
         return F;
       },
       decorate(event) {
-        resetHeartbeat();
-
         if (!currentViewEvent || isViewEvent(event)) return;
         const view = currentViewEvent?.clientId,
           ctx = {
@@ -345,7 +306,7 @@ export const context: TrackerExtensionFactory = {
             },
           };
 
-        ctx && (assign(event, ctx), addDependency(event, currentViewEvent));
+        ctx && assign(event, ctx);
       },
     };
   },

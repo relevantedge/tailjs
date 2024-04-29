@@ -1,5 +1,4 @@
 import {
-  DataClassification,
   RestrictVariableTargets,
   Variable,
   VariableClassification,
@@ -12,12 +11,12 @@ import {
   clock,
   createEvent,
   forEach,
-  map,
   now,
   obj,
 } from "@tailjs/util";
 import {
   HEARTBEAT_FREQUENCY,
+  LocalVariable,
   TAB_ID,
   addPageLoadedListener,
   subscribeChannel,
@@ -31,15 +30,19 @@ export type TabState = {
   navigated?: number;
 };
 
-export type StateVariableSource = PickPartial<
-  RestrictVariableTargets<
-    Omit<Variable<any, true>, "value"> & {
-      status: VariableResultStatus;
-      value?: any;
-    }
-  >,
-  keyof VariableClassification
->;
+export type StateVariableSource =
+  | (LocalVariable & {
+      status: VariableResultStatus.Success | VariableResultStatus.Created;
+    })
+  | PickPartial<
+      RestrictVariableTargets<
+        Omit<Variable<any, true>, "value"> & {
+          status: VariableResultStatus;
+          value?: any;
+        }
+      >,
+      keyof VariableClassification
+    >;
 
 export type StateVariable = StateVariableSource & {
   timestamp: number;

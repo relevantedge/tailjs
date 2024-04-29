@@ -14,7 +14,6 @@ import {
   parseKey,
   patchType,
   toNumericVariableEnums,
-  variableScope,
 } from "@tailjs/types";
 import {
   IfNot,

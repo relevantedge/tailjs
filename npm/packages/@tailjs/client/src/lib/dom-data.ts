@@ -34,7 +34,7 @@ import {
 } from ".";
 import type { BoundaryData, TagMappings } from "..";
 
-export const boundaryData = weakMap<Node, BoundaryData>();
+export const boundaryData = weakMap<Node, BoundaryData<true>>();
 export const getBoundaryData = (el: Node) => get(boundaryData, el);
 
 export const trackerPropertyName = (name: string, css = F) =>
@@ -164,14 +164,14 @@ const parseCssMappingRules = (
   parseTagString(cssPropertyWithBase(el, "tags"), undefined, tags);
 };
 
-let currentBoundaryData: BoundaryData | Nullish;
+let currentBoundaryData: BoundaryData<true> | Nullish;
 export const trackerProperty = (
   el: Element,
   name: string,
   inherit:
     | boolean
     | ((el: NodeWithParentElement, distance: number) => boolean) = F,
-  boundaryData?: (el: BoundaryData) => string | Nullish
+  boundaryData?: (el: BoundaryData<true>) => string | Nullish
 ): string | null =>
   (inherit
     ? forAncestorsOrSelf(
@@ -205,7 +205,7 @@ export type ParsedTags = { tags?: Tag[] };
 export const parseTags = (
   sourceEl: Element | Nullish,
   stoppingCriterion?: (el: Element, distance: number) => boolean,
-  elementTagData?: (el: Element) => Iterable<Tag> | Nullish,
+  elementTagData?: (el: Element) => Iterable<Tag | Nullish> | Nullish,
   tags?: Set<string>
 ): ParsedTags =>
   !sourceEl

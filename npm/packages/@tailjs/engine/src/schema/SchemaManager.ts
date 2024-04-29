@@ -22,7 +22,7 @@ import {
   obj,
   required,
   throwError,
-  toArray,
+  array,
   unlock,
   validate,
 } from "@tailjs/util";
@@ -55,7 +55,7 @@ export class SchemaManager {
   public readonly types: ReadonlyMap<string, SchemaObjectType> = new Map();
 
   constructor(schemas: MaybeArray<JsonObject>) {
-    schemas = toArray(schemas);
+    schemas = array(schemas);
 
     const combinedSchema = {
       $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -212,7 +212,7 @@ export class SchemaManager {
           key === "type" &&
           parsed.extendsAll?.has(trackedEvent)
         ) {
-          toArray(
+          array(
             parsedProperty.typeContext?.node.const ??
               parsedProperty.typeContext?.node.enum
           )?.forEach((alias) =>
@@ -388,7 +388,7 @@ export class SchemaManager {
   }
 
   public compileVariableSet(schemas?: MaybeArray<string | Schema | undefined>) {
-    schemas = toArray(schemas);
+    schemas = array(schemas);
     return new SchemaVariableSet(
       this,
       isUndefined(schemas) || schemas.includes("*")
