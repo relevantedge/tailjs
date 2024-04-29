@@ -1,10 +1,13 @@
 import {
   EnumValue,
   If,
+  IfNot,
+  Is,
+  IsAny,
   Json,
   MaybeArray,
-  MaybePick,
   MaybePromise,
+  MaybeUndefined,
   Nullish,
   OmitPartial,
   ParsedValue,
@@ -12,8 +15,6 @@ import {
   PrettifyIntersection,
   ToggleReadonly,
   TupleOrArray,
-  UnionPropertyValue,
-  UnionToIntersection,
   createEnumAccessor,
   isFunction,
 } from "@tailjs/util";
@@ -24,6 +25,7 @@ import {
   VariableKey,
   VariableMetadata,
   VariableScope,
+  VariableSuccessResults,
   VariableVersion,
   variableScope,
 } from "..";
@@ -69,10 +71,9 @@ type PickScopeAndTarget<T> = T extends { scope: infer Scope }
     : { scope: ParsedValue<typeof variableScope, Scope> }
   : {};
 
-type KeepVariableTarget<
-  Source extends VariableSetter,
-  T
-> = PickScopeAndTarget<Source> & Omit<Variable<T, true>, "scope" | "targetId">;
+type KeepVariableTarget<Source extends VariableSetter, T> = T extends undefined
+  ? undefined
+  : PickScopeAndTarget<Source> & Omit<Variable<T, true>, "scope" | "targetId">;
 
 type VariableSetResultValue<Source extends VariableSetter> =
   PrettifyIntersection<
@@ -133,14 +134,18 @@ export type VariableSetResult<
 export type VariableSetSuccessResult<
   T = any,
   Source extends VariableSetter<T> = VariableSetter<T>
-> = PrettifyIntersection<{
-  source: Source;
+> = {
   status:
     | VariableResultStatus.Success
     | VariableResultStatus.Unchanged
-    | VariableResultStatus.Created;
+    | (VariableSetResultValue<Source> extends undefined
+        ? never
+        : VariableResultStatus.Created);
+
   current: VariableSetResultValue<Source>;
-}>;
+
+  source: Source;
+};
 
 export interface VariablePatchSource<
   T = any,
@@ -259,18 +264,14 @@ export type VariableValueSetter<T = any, Validated = false> = (
 /**
  * Defines options for creating, updating or deleting a variable.
  */
-export type VariableSetter<T = any, Validated = boolean> =
+export type VariableSetter<
+  T = any,
+  K extends string = string,
+  Validated = boolean
+> = { key: K } & (
   | (VariableValueSetter<T, Validated> & { patch?: undefined })
-  | (VariablePatch<T, Validated> & { value?: undefined });
-
-export type MapVariableSetResult<Source> = Source extends VariableSetResult<
-  infer T,
-  infer Source
->
-  ? VariableSetResult<T, Source>
-  : Source extends VariableSetter<infer T>
-  ? VariableSetResult<T, Source>
-  : never;
+  | (VariablePatch<T, Validated> & { value?: undefined })
+);
 
 export type VariableSetters<
   SetterType extends Partial<VariableSetter<any>> | boolean,
@@ -279,10 +280,16 @@ export type VariableSetters<
   | Inferred
   | TupleOrArray<
       | (SetterType extends boolean
-          ? VariableSetter<any, SetterType>
+          ? VariableSetter<any, string, SetterType>
           : SetterType)
       | Nullish
     >;
+
+export type MapVariableSetResult<Source> = Source extends VariableSetter<
+  infer T
+>
+  ? VariableSetResult<T, Source>
+  : never;
 
 export type VariableSetResults<K extends readonly any[] = any[]> =
   K extends readonly []
@@ -319,7 +326,7 @@ export type StripPatchFunctions<
   : Exclude<VariableSetter, VariablePatchActionSetter>;
 
 export const isVariablePatch = <Validated>(
-  setter: VariableSetter<any, Validated> | undefined
+  setter: VariableSetter<any, string, Validated> | undefined
 ): setter is VariablePatch<any, Validated> => !!setter?.["patch"];
 
 export const isVariablePatchAction = (

@@ -18,7 +18,7 @@ export const parseTagString = (
   target?: Set<string>
 ) => {
   if (!input) return [];
-  if (Array.isArray(input)) input = join(input);
+  if (Array.isArray(input)) input = join(input, ",");
   // We have an unescaped percentage sign followed by an uppercase two-digit hexadecimal number. Smells like URI encoding!
   if (/(?<!(?<!\\)\\)%[A-Z0-9]{2}/.test(input)) {
     try {

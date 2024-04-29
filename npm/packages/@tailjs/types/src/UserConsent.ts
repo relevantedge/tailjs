@@ -2,8 +2,9 @@ import { required } from "@tailjs/util";
 import {
   DataClassification,
   DataClassificationValue,
-  DataPurposeValue,
+  DataPurpose,
   DataPurposeFlags,
+  DataPurposeValue,
   VariableClassification,
   dataClassification,
   dataPurposes,
@@ -14,14 +15,14 @@ export interface UserConsent {
   /**
    * The highest level of data classification the user has consented to be stored.
    */
-  level: DataClassificationValue;
+  level: DataClassification;
 
   /**
    * The purposes the user has consented their data to be used for.
    *
    * @privacy anonymous
    */
-  purposes: DataPurposeValue;
+  purposes: DataPurposeFlags;
 }
 
 export const NoConsent: Readonly<UserConsent> = Object.freeze({

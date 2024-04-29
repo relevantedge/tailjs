@@ -1,9 +1,12 @@
 import { MaybePromise, isBoolean, isFunction, promise, tryCatchAsync } from ".";
 
-export let now = () =>
+export let now: (round?: boolean) => number =
   typeof performance !== "undefined"
-    ? Math.trunc(performance.timeOrigin + performance.now())
-    : Date.now();
+    ? (round = true) =>
+        round
+          ? Math.trunc(now(false))
+          : performance.timeOrigin + performance.now()
+    : Date.now;
 
 export type CancellableCallback<Args extends any[] = []> = (
   ...args: [...args: Args, cancel: () => void]

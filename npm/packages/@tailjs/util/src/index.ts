@@ -9,3 +9,4 @@ export * from "./strings";
 export * from "./enums";
 export * from "./TupleMap";
 export * from "./parsers";
+export * from "./regex";

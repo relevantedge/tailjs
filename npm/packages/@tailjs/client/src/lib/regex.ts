@@ -21,9 +21,9 @@ import {
 } from ".";
 
 /**
- * Common definition of expresions that are used for string matching.
+ * Common definition of expressions that are used for string matching.
  *
- * If not already a regular expression, a string that starst with `/` and optionally ends with `/` is parsed as regular expressions with flags `gu` applied (global and Unicode).
+ * If not already a regular expression, a string that starts with `/` and optionally ends with `/` is parsed as regular expressions with flags `gu` applied (global and Unicode).
  * This enables defining regular expression in text based configuration files that do not have native regular expressions.
  *
  * For convenience an asterisk (`*`) can be used to match any number of characters in strings, and  `,` and white-space ` ` are intepreted as list separators.

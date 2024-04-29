@@ -21,5 +21,5 @@ export {
 
 export const createElement = (tagName: string) => doc.createElement(tagName);
 
-export const matches = (node: Element | Nullish, selector: string) =>
+export const matchSelector = (node: Element | Nullish, selector: string) =>
   !!node?.matches(selector);

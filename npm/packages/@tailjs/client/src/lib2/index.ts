@@ -2,7 +2,15 @@
 
 export * from "./consts";
 
-export * from "./dom-alias";
+export * from "./util";
+
+export * from "./dom";
+
+export * from "./config";
+
+export * from "./env";
+
+export * from "./cipher";
 
 export * from "./errors";
 

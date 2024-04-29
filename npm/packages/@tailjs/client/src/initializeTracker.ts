@@ -1,22 +1,25 @@
 import { SCOPE_INFO_KEY } from "@constants";
 import { SessionInfo, TrackedEvent, isTrackedEvent } from "@tailjs/types";
 import {
+  F,
   MAX_SAFE_INTEGER,
+  T,
+  array,
   assign,
   define,
+  filter,
+  flatMap,
   isArray,
   isString,
-  array,
-  tryCatch,
-  F,
-  T,
-  type Nullish,
-  throwError,
-  remove,
-  flatMap,
-  filter,
-  sort,
   map,
+  nil,
+  now,
+  remove,
+  required,
+  sort,
+  throwError,
+  tryCatch,
+  type Nullish,
 } from "@tailjs/util";
 import {
   Listener,
@@ -38,21 +41,17 @@ import {
 import {
   ERR_INTERNAL_ERROR,
   ERR_INVALID_COMMAND,
-  VAR_URL,
-  httpDecode,
-  isTracker,
-  nextId,
-  nil,
-  now,
-  setStorageKey,
-  trackerConfig,
-  window,
-} from "./lib";
-import {
   TrackerContext,
+  VAR_URL,
   addStateListener,
   createEventQueue,
   createVariableStorage,
+  httpDecode,
+  isTracker,
+  nextId,
+  setStorageKey,
+  trackerConfig,
+  window,
 } from "./lib2";
 import { errorLogger, logError } from "./lib2/errors";
 
@@ -280,11 +279,14 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
     // Make sure we have a session on the server before posting anything.
     // As part of this, we also get the device session ID.
     if (event === "ready") {
-      const session = (await variables.get({
-        scope: "session",
-        key: SCOPE_INFO_KEY,
-        cache: MAX_SAFE_INTEGER,
-      }).value) as SessionInfo;
+      const session = required(
+        await variables.get({
+          scope: "session",
+          key: SCOPE_INFO_KEY,
+          cache: MAX_SAFE_INTEGER,
+        }).value,
+        "No session data."
+      ) as SessionInfo;
       trackerContext.deviceSessionId = session.deviceSessionId;
 
       if (!session.hasUserAgent) {

@@ -10,6 +10,7 @@ import {
   VariableGetter,
   VariableKey,
   VariableResultStatus,
+  VariableSetResult,
   VariableSetter,
   variableScope,
 } from "@tailjs/types";
@@ -19,17 +20,30 @@ import {
   IfNot,
   IsAny,
   MaybeArray,
+  Nullish,
   PrettifyIntersection,
   UnknownAny,
 } from "@tailjs/util";
-import { ReservedVariableTypes } from "..";
+
+import type { View } from "@tailjs/types";
+
+type ReservedVariableDefinitions = {
+  view: View;
+  tags: string[];
+  rendered: boolean;
+  consent: boolean;
+  loaded: boolean;
+  scripts: Record<string, "pending" | "loaded" | "failed">;
+};
 
 export type ReservedVariableType<
   K,
   Default = any
-> = K extends ReservedVariableKey ? ReservedVariableTypes[K] : Default;
+> = K extends ReservedVariableKey
+  ? ReservedVariableDefinitions[K]
+  : UnknownAny<Default>;
 
-export type ReservedVariableKey = keyof ReservedVariableTypes;
+export type ReservedVariableKey = keyof ReservedVariableDefinitions;
 
 export type LocalVariableKey = ReservedVariableKey | (string & {});
 
@@ -48,7 +62,10 @@ export type LocalVariableHeader<NumericEnums extends boolean = boolean> = {
 export type ReservedVariables<
   K extends ReservedVariableKey = ReservedVariableKey
 > = K extends infer K
-  ? LocalVariable<ReservedVariableTypes[K & ReservedVariableKey], K & string>
+  ? LocalVariable<
+      ReservedVariableDefinitions[K & ReservedVariableKey],
+      K & string
+    >
   : never;
 
 export type LocalVariable<
@@ -62,33 +79,7 @@ export type LocalVariable<
   } & LocalVariableHeader<NumericEnums>
 >;
 
-export type RemoteVariableGetter<T = any> = StripPatchFunctions<
-  RestrictVariableTargets<VariableGetter<T, false>, true>
-> & { local?: false };
-
-export type LocalVariableGetter<
-  T = any,
-  K extends string = LocalVariableKey
-> = PrettifyIntersection<
-  { key: K } & LocalVariableHeader & {
-      init?: { value: GeneralizeConstants<T> | undefined };
-    }
->;
-
-export type LocalVariableSetter<
-  T = any,
-  K extends string = LocalVariableKey
-> = LocalVariable<GeneralizeConstants<T> | undefined, K, boolean> & {
-  patch?: undefined;
-};
-
-export type RemoteVariableSetter<T = any> = PrettifyIntersection<
-  StripPatchFunctions<
-    RestrictVariableTargets<VariableSetter<T, false>, true>
-  > & { local?: false }
->;
-
-export type LocalGetResult<
+type LocalGetResult<
   T = any,
   K = LocalVariableKey,
   Patched = false
@@ -108,23 +99,23 @@ export type LocalGetResult<
     >
 >;
 
-export type LocalSetResult<
-  T = any,
-  Source = LocalVariableSetter
-> = PrettifyIntersection<{
+type LocalSetResult<T, Source> = PrettifyIntersection<{
   source: Source;
   status:
     | VariableResultStatus.Success
     | VariableResultStatus.Unchanged
     | VariableResultStatus.Created;
-  current: LocalVariable<
-    T,
-    Source extends { key: infer K } ? K & string : string
-  >;
+  current: Source extends { value: undefined }
+    ? undefined
+    : LocalVariable<T, Source extends { key: infer K } ? K & string : string>;
 }>;
-export type ClientVariable<T = any> =
-  | (Variable<T> & { local?: false })
-  | LocalVariable<T>;
+export type ClientVariable<
+  T = any,
+  K extends string = string,
+  Local = boolean
+> = Local extends true
+  ? LocalVariable<T, K>
+  : { key: K } & Omit<Variable<T>, "key">;
 
 export type VariableCacheSettings = {
   /**
@@ -137,9 +128,16 @@ export type VariableCacheSettings = {
 
 export type ClientVariableGetter<
   T = any,
-  K extends string = string
+  K extends string = string & {},
+  Local = boolean
 > = PrettifyIntersection<
-  (RemoteVariableGetter | LocalVariableGetter<T, K>) & {
+  (Local extends true
+    ? { key: K } & LocalVariableHeader & {
+          init?: { value: GeneralizeConstants<T> | undefined };
+        }
+    : StripPatchFunctions<
+        RestrictVariableTargets<VariableGetter<T, K, false>, true>
+      >) & {
     /**
      * A callback to do something with the result.
      * If the second function is invoked the variable will be polled for changes, and the callback will be invoked
@@ -147,7 +145,7 @@ export type ClientVariableGetter<
      */
     result?: MaybeArray<
       (
-        value: ClientVariable<any> | undefined,
+        value: ClientVariable<T, K, Local> | undefined,
         poll: (toggle?: boolean) => void
       ) => void
     >;
@@ -156,7 +154,10 @@ export type ClientVariableGetter<
      * If the get requests fails this callback will be called instead of the entire operation throwing an error.
      * If it returns `false` an error will still be thrown.
      */
-    error?: (result: VariableGetResult, error: string) => void | boolean;
+    error?: (
+      result: ClientVariableGetResult<T, K, boolean, Local>,
+      error: string
+    ) => void | boolean;
 
     /**
      * Do not accept a cached version of the variable.
@@ -165,19 +166,39 @@ export type ClientVariableGetter<
   } & VariableCacheSettings
 >;
 
-export type ClientVariableSetter<T = any> = PrettifyIntersection<
-  (LocalVariableSetter<T> | RemoteVariableSetter<T>) & {
+export type ClientVariableSetter<
+  T = any,
+  K extends string = string,
+  Local extends boolean = boolean
+> = PrettifyIntersection<
+  (Local extends true
+    ? LocalVariable<GeneralizeConstants<T> | undefined, K, boolean> & {
+        patch?: undefined;
+      }
+    : StripPatchFunctions<
+        RestrictVariableTargets<VariableSetter<T, K, false>, true>
+      >) & {
     /** A callback that will get invoked when the set operation has completed. */
     result?: (
-      current: ClientVariable<any> | undefined,
-      source: ClientVariableSetter<T>
+      current: ClientVariable<T, K, Local> | undefined,
+      source: Local extends true
+        ? ClientVariableSetter<any, any, true>
+        : ClientVariableSetter<any, any, false>
     ) => void;
 
     /**
      * If the get requests fails this callback will be called instead of the entire operation throwing an error.
      * If it returns `false` an error will still be thrown.
      */
-    error?: (result: VariableGetResult, error: string) => void | boolean;
+    error?: (
+      result: ClientVariableSetResult<
+        any,
+        Local extends true
+          ? ClientVariableSetter<any, any, true>
+          : ClientVariableSetter<any, any, false>
+      >,
+      error: string
+    ) => void | boolean;
   } & VariableCacheSettings
 >;
 
@@ -185,24 +206,33 @@ export type ClientVariableKey =
   | VariableKey
   | { key: string; scope: LocalVariableScope };
 
-type MapLocalGetResult<Getter> = Getter extends LocalVariableGetter<
+type MapLocalGetResult<Getter> = Getter extends ClientVariableGetter<
   infer T,
-  infer K & string
+  infer K & string,
+  true
 >
   ? LocalGetResult<
-      ReservedVariableType<K, UnknownAny<T>>,
+      ReservedVariableType<K, T>,
       K,
       Getter extends { init: { value?: infer V } }
         ? If<IsAny<V>, false, undefined extends V ? false : true>
         : false
     >
+  : Getter extends Nullish
+  ? undefined
   : never;
 
-type MapLocalSetResult<Setter> = Setter extends LocalVariableSetter<
+type MapLocalSetResult<Setter> = Setter extends ClientVariableSetter<
   infer T,
-  infer K & string
+  infer K & string,
+  true
 >
-  ? LocalSetResult<ReservedVariableType<K, UnknownAny<T>>, Setter>
+  ? LocalSetResult<
+      T extends undefined ? undefined : ReservedVariableType<K, T>,
+      Setter
+    >
+  : Setter extends Nullish
+  ? undefined
   : never;
 
 type MapClientVariableResult<P, Getter> = P extends {
@@ -212,6 +242,28 @@ type MapClientVariableResult<P, Getter> = P extends {
   : RestrictVariableTargets<
       If<Getter, MapVariableGetResult<P>, MapVariableSetResult<P>>
     >;
+
+export type ClientVariableGetResult<
+  T = any,
+  K extends string = string,
+  Patched = boolean,
+  Local = boolean
+> = Local extends true
+  ? LocalGetResult<T, K, Patched>
+  : RestrictVariableTargets<VariableGetResult<T, K, Patched>>;
+
+export type ClientVariableSetResult<
+  T = any,
+  Source extends ClientVariableSetter = ClientVariableSetter<
+    any,
+    string,
+    boolean
+  >
+> = Source extends ClientVariableSetter<any, any, true>
+  ? LocalSetResult<T, Source>
+  : Source extends ClientVariableSetter<any, any, false>
+  ? RestrictVariableTargets<VariableSetResult<T, Source>>
+  : any;
 
 export type ClientVariableResults<
   P extends readonly any[],

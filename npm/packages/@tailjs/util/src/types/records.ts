@@ -1,4 +1,4 @@
-import type { Add, AllKeys, Primitives, UnionToTuple } from ".";
+import type { Add, AllKeys, Primitives, UnionToTuple, UnknownAny } from ".";
 /**
  * A record that may have the specified keys and values.
  */
@@ -80,7 +80,7 @@ export type GeneralizeConstants<T> = T extends number
   : T extends (...args: infer A) => infer R
   ? (...args: GeneralizeConstants<A>) => GeneralizeConstants<R>
   : unknown extends T
-  ? unknown
+  ? UnknownAny<T>
   : {
       [P in keyof T]: GeneralizeConstants<T[P]>;
     };
