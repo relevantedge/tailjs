@@ -1,5 +1,3 @@
-import { PartialRecord, PrettifyIntersection } from "./records";
-
 /**
  * The ECMAScript primitive types.
  */
@@ -13,6 +11,12 @@ export type Primitives =
   | string
   | symbol
   | Date;
+
+export type NonAsync =
+  | Primitives
+  | Iterable<any>
+  | ((...args: any[]) => any)
+  | RecordType;
 
 /**
  * Common function type used for projection of [key,value] entries.
@@ -90,3 +94,6 @@ export type Json<T = unknown> = unknown extends T
     >;
 
 export type ToJsonAble<T> = { toJSON(): T };
+
+export const F = false;
+export const T = true;

@@ -1,4 +1,4 @@
-import { expand, forEach, join, map } from "@tailjs/util";
+import { expand, forEach, concat, map } from "@tailjs/util";
 import {
   ParsedComposition,
   ParsedType,
@@ -19,7 +19,7 @@ export const updateBaseTypes = (context: TraverseContext) => {
         if (baseType) {
           (type.extends ??= new Set()).add(baseType);
         }
-        join(composition.compositions, composition.ref?.composition).forEach(
+        concat(composition.compositions, composition.ref?.composition).forEach(
           addBaseTypes
         );
 

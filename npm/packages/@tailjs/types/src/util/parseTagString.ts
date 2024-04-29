@@ -1,3 +1,5 @@
+import { join } from "@tailjs/util";
+
 export type ParsedTag = { ranks: string[]; value?: string };
 
 const splitRanks = (ranks?: string) =>
@@ -11,12 +13,12 @@ const splitRanks = (ranks?: string) =>
  * Parses the tags out of a string
  */
 export const parseTagString = (
-  input: string | string[] | null | undefined,
+  input: string | (string | null)[] | null | undefined,
   baseRank?: string,
   target?: Set<string>
 ) => {
   if (!input) return [];
-  if (Array.isArray(input)) input = input.join(",");
+  if (Array.isArray(input)) input = join(input);
   // We have an unescaped percentage sign followed by an uppercase two-digit hexadecimal number. Smells like URI encoding!
   if (/(?<!(?<!\\)\\)%[A-Z0-9]{2}/.test(input)) {
     try {

@@ -1,7 +1,11 @@
 import {
+  Add,
+  AllKeys,
   ConstToNormal,
   Entries,
   GeneralizeConstants,
+  HasRequired,
+  IfNot,
   IsAny,
   IterableOrArrayLike,
   KeyValuePairsToObject,
@@ -10,8 +14,10 @@ import {
   MaybeUndefined,
   Minus,
   Nullish,
+  Property,
   RecordType,
   add,
+  array,
   get,
   hasMethod,
   isArray,
@@ -20,12 +26,10 @@ import {
   isFunction,
   isIterable,
   isMap,
-  isNumber,
   isObject,
   isSet,
   isTruish,
   symbolIterator,
-  toArray,
   undefined,
 } from ".";
 
@@ -85,19 +89,42 @@ export interface IteratorControl<S extends IteratorSource> {
   end<P>(value: P): P;
 }
 
-export type IteratorAction<
+export type FunctionalIteratorAction<
   S extends IteratorSource = IteratorSource,
-  Projection = IteratorItem<S>,
+  Projection = any,
   Value = IteratorItem<S>
 > = (
   value: Value,
   index: number
-) => Projection | readonly [any, any] | typeof stop | undefined | void;
+) => Projection | readonly [any, any] | typeof stop | Nullish;
 
+export type IteratorAction<
+  S extends IteratorSource = IteratorSource,
+  Projection = unknown,
+  Value = IteratorItem<S>
+> =
+  | Nullish
+  | AllKeys<IteratorItem<S>>
+  | FunctionalIteratorAction<S, Projection, Value>;
+
+// We need both the inferred return value from the IteratorAction and the IteratorAction itself used as the parameter
+// in functions like `<S extends IteratorSource, Return, Action>(source: S, action: IteratorAction<S,Return> | P)=>IteratorProjection<S,Return,Action>.
+// It is important to set the generic type for Action's default value to undefined
+// This seems to be the only way we can both automatically infer non-readonly tuples from `()=>["test", 1]` as tuples, and at the same time
+// allow property names from the source's items. If we did not include the parameter itself it would not be possible to differentiate
+// between property names and return values.
 type IteratorProjection<
   S extends IteratorSource,
-  Projection
-> = unknown extends Projection ? IteratorItem<S> : ConstToNormal<Projection>;
+  Return,
+  Action,
+  Default = IteratorItem<S>
+> = Action extends Nullish
+  ? Default
+  : unknown extends Action
+  ? Default
+  : Action extends keyof any
+  ? Property<IteratorItem<S>, Action>
+  : Return;
 
 type StartEndArgs<S extends IteratorSource> =
   | []
@@ -125,18 +152,24 @@ type FlatIteratorItem<T, D extends number = 1, Object = false> = T extends
     : FlatIteratorItem<IteratorItem<T>, Minus<D, 1>, Object>
   : T;
 
-type ProjectedItem<P> = Exclude<P, undefined | void | typeof stop>;
+const wrapProjection = <P>(
+  projection: P | undefined
+): undefined | ((item: any, index: number) => any) =>
+  projection == null
+    ? undefined
+    : isFunction(projection)
+    ? (projection as any)
+    : (item) => item[projection as any];
 
-function* createFilteringIterator<
-  S extends IteratorSource,
-  P = IteratorItem<S>
->(source: S, projection?: IteratorAction<S, P>): Iterable<ProjectedItem<P>> {
+function* createFilteringIterator<S extends IteratorSource, R, P>(
+  source: S,
+  projection?: IteratorAction<S, R> | P
+): Iterable<IteratorProjection<S, R, P>> {
   if (!source) return;
-
+  projection = wrapProjection(projection);
   let i = 0;
   for (let item of source as any) {
-    projection && (item = projection(item, i++));
-    if (item !== undefined) {
+    if ((projection ? (item = projection(item, i++)) : item) != null) {
       yield item;
     }
     if (stopInvoked) {
@@ -146,16 +179,17 @@ function* createFilteringIterator<
   }
 }
 
-function* createObjectIterator<
-  S extends Record<keyof any, any>,
-  P = IteratorItem<S>
->(source: S, action?: IteratorAction<S, P>): Iterable<P> {
+function* createObjectIterator<S extends Record<keyof any, any>, R, P>(
+  source: S,
+  action?: IteratorAction<S, R> | P
+): Iterable<IteratorProjection<S, P, R>> {
+  action = wrapProjection(action);
   let i = 0;
   for (const key in source) {
     let value = [key, source[key]] as any;
     action && (value = action(value, i++));
 
-    if (value !== undefined) {
+    if (value != null) {
       yield value;
     }
     if (stopInvoked) {
@@ -196,16 +230,14 @@ export function* createNavigatingIterator<T>(
   }
 }
 
-const sliceAction = <
-  S extends IteratorSource,
-  A extends IteratorAction<S, any> | undefined
->(
-  action: A,
+const sliceAction = <S extends IteratorSource, R, P>(
+  action: IteratorAction<S, R> | P,
   start: any,
   end: any
-): A =>
+): P =>
   (start ?? end) !== undefined
-    ? ((start ??= 0),
+    ? ((action = wrapProjection(action)),
+      (start ??= 0),
       (end ??= MAX_SAFE_INTEGER),
       (value, index) =>
         start--
@@ -222,15 +254,12 @@ export type Filter<S extends IteratorSource> = (
   index: number
 ) => any;
 
-const createIterator = <
-  S extends IteratorSource,
-  P = ConstToNormal<IteratorItem<S>>
->(
+const createIterator = <S extends IteratorSource, R, P>(
   source: S,
-  projection?: IteratorAction<S, P>,
+  projection?: IteratorAction<S, R> | P,
   start?: any,
   end?: any
-): Iterable<P> =>
+): Iterable<IteratorProjection<S, R, P>> =>
   source == null
     ? ([] as any)
     : source[symbolIterator]
@@ -259,53 +288,46 @@ const mapToArray = <T, M>(
   map && !isArray(projected) ? [...projected] : (projected as any);
 
 type ProjectFunction = {
-  <S extends IteratorSource, R>(
+  <S extends IteratorSource, R, P>(
     source: S,
-    projection?: IteratorAction<S, R> | null,
+    projection?: IteratorAction<S, R> | P,
     ...rest: StartEndArgs<S>
-  ): Iterable<IteratorProjection<S, R>>;
-  <S extends IteratorSource>(source: S, ...rest: StartEndArgs<S>): Iterable<
-    IteratorItem<S>
-  >;
+  ): Iterable<IteratorProjection<S, R, P>>;
 };
 
 type MapFunction = {
-  <S extends IteratorSource, R>(
+  <S extends IteratorSource, R, P>(
     source: S,
-    projection: IteratorAction<S, R> | null,
+    projection?: IteratorAction<S, R> | P,
     ...rest: StartEndArgs<S>
-  ): MaybeUndefined<S, Exclude<IteratorProjection<S, R>, undefined>[]>;
-  <S extends IteratorSource>(
-    source: S,
-    ...rest: StartEndArgs<S>
-  ): MaybeUndefined<S, Exclude<IteratorItem<S>, undefined>[]>;
+  ): MaybeUndefined<S, Exclude<IteratorProjection<S, R, P>, Nullish>[]>;
 };
 
 type FlatProjectFunction = <
   S extends IteratorSource,
+  R,
+  P,
   D extends number = 1,
-  R = IteratorItem<S>,
   O extends boolean = false
 >(
   source: S,
-  projection?: FlatIteratorAction<S, R, D, O>,
+  projection?: IteratorAction<S, R> | P,
   depth?: D,
   expandObjects?: O,
   ...rest: StartEndArgs<S>
-) => MaybeUndefined<S, Iterable<FlatIteratorItem<Iterable<R>, D>>>;
+) => MaybeUndefined<
+  S,
+  Iterable<FlatIteratorItem<IteratorProjection<S, R, P>, D, O>>
+>;
 
 export const project: ProjectFunction = ((
   source: any,
   projection: any,
   start: any,
   end: any
-) =>
-  isNumber(projection)
-    ? // The second argument is the value of `start`.
-      createIterator(source, undefined, projection, start)
-    : createIterator(source, projection, start, end)) as any;
+) => createIterator(source, projection, start, end)) as any;
 
-export const flatProject: FlatProjectFunction = function (
+export const flatten: FlatProjectFunction = function (
   source,
   projection?,
   depth = 1 as any,
@@ -313,17 +335,14 @@ export const flatProject: FlatProjectFunction = function (
   start?: any,
   end?: any
 ) {
-  return createIterator(
-    flatten(
-      createIterator(source, undefined, start, end),
-      depth + 1,
-      expandObjects,
-      false
-    ),
-    projection
+  return inner(
+    createIterator(source, projection as any, start, end),
+    depth + 1,
+    expandObjects,
+    false
   ) as any;
 
-  function* flatten(
+  function* inner(
     value: any,
     depth: number,
     expandObjects: boolean,
@@ -336,7 +355,7 @@ export const flatProject: FlatProjectFunction = function (
       ) {
         for (const item of nested ? createIterator(value) : value) {
           if (depth > 1 || depth <= 0) {
-            yield* flatten(item, depth - 1, expandObjects, true);
+            yield* inner(item, depth - 1, expandObjects, true);
           } else {
             yield item;
           }
@@ -348,50 +367,44 @@ export const flatProject: FlatProjectFunction = function (
   }
 };
 
-const neger = flatProject([1, 2, 3]);
-
 export const map: MapFunction = (
   source: any,
   projection?: any,
   start?: any,
   end?: any
 ) => {
+  projection = wrapProjection(projection);
   if (isArray(source)) {
     let i = 0;
     const mapped: any[] = [];
-    isNumber(projection) &&
-      ([projection, start, end] = [undefined, projection, start]);
     start = start! < 0 ? source.length + start! : start ?? 0;
     end = end! < 0 ? source.length + end! : end ?? source.length;
     for (; start < end && !stopInvoked; start++) {
       let value = source[start];
-      if (projection && value !== undefined) {
-        value = projection(value, i++);
-      }
-      if (value !== undefined) {
+      if ((projection ? (value = projection(value, i++)) : value) != null) {
         mapped.push(value);
       }
     }
     stopInvoked = false;
     return mapped;
   }
-  return source !== undefined
-    ? toArray(project(source, projection, start, end))
+  return source != null
+    ? array(project(source, projection, start, end))
     : (undefined as any);
 };
 
-export const mapAsync: <S extends IteratorSource, R extends MaybePromise<any>>(
+export const mapAsync: <S extends IteratorSource, R, P>(
   source: S,
-  projection: IteratorAction<S, R> | null,
+  projection: IteratorAction<S, R> | P,
   ...rest: StartEndArgs<S>
 ) => Promise<
-  MaybeUndefined<S, Exclude<IteratorProjection<S, Awaited<R>>, undefined>[]>
+  MaybeUndefined<S, Exclude<Awaited<IteratorProjection<S, R, P>>, Nullish>[]>
 > = async (source: any, projection?: any, start?: any, end?: any) => {
+  projection = wrapProjection(projection);
   const mapped: any = [];
   await forEachAsync(
     source,
-    async (item) =>
-      (item = await projection(item)) !== undefined && mapped.push(item)
+    async (item) => (item = await projection(item)) != null && mapped.push(item)
   );
   return mapped as any;
 };
@@ -405,26 +418,26 @@ export const zip = <Lhs extends IteratorSource, Rhs extends IteratorSource>(
 };
 
 export const distinct: {
-  <S extends IteratorSource, R>(
+  <S extends IteratorSource, R, P>(
     source: S,
-    projection?: IteratorAction<S, R> | null,
+    projection?: IteratorAction<S, R>,
     ...rest: StartEndArgs<S>
-  ): S extends undefined ? undefined : Set<IteratorProjection<S, R>>;
+  ): S extends undefined ? undefined : Set<IteratorProjection<S, R, P>>;
   <S extends IteratorSource>(
     source: S,
     ...rest: StartEndArgs<S>
   ): S extends undefined ? undefined : Set<IteratorItem<S>>;
 } = (source: any, projection?: any, start?: any, end?: any) =>
-  isDefined(source)
+  source != null
     ? new Set<any>([...project(source, projection, start, end)])
     : undefined;
 
 export const single: {
-  <S extends IteratorSource, R>(
+  <S extends IteratorSource, R, P>(
     source: S,
-    projection?: IteratorAction<S, R> | null,
+    projection?: IteratorAction<S, R> | P,
     ...rest: StartEndArgs<S>
-  ): S extends undefined ? undefined : IteratorProjection<S, R> | undefined;
+  ): S extends undefined ? undefined : IteratorProjection<S, R, P> | undefined;
   <S extends IteratorSource>(
     source: S,
     ...rest: StartEndArgs<S>
@@ -442,7 +455,7 @@ export const mapDistinct: MapFunction = (
   start?: any,
   end?: any
 ) =>
-  isDefined(source)
+  source != null
     ? [...(distinct as any)(source, projection, start, end)]
     : source;
 
@@ -454,28 +467,6 @@ export function* concatIterators<S extends IteratorSource[]>(
     yield* createIterator(iterator);
   }
 }
-
-type AllCanBeUndefined<T extends any[]> = T extends readonly [infer S]
-  ? undefined extends S
-    ? true
-    : false
-  : T extends readonly [infer S, ...infer Rest]
-  ? AllCanBeUndefined<Rest> extends false
-    ? false
-    : undefined extends S
-    ? true
-    : false
-  : true;
-
-export const concat = <S extends (IterableOrArrayLike<any> | undefined)[]>(
-  ...iterators: S
-):
-  | (AllCanBeUndefined<S> extends true ? undefined : never)
-  | IteratorItems<S>[] =>
-  iterators.reduce(
-    (r: undefined | any[], it) => (it ? (r ?? []).concat(toArray(it)) : r),
-    undefined
-  ) as any;
 
 export const intersection = <
   T,
@@ -502,26 +493,23 @@ export const intersects = (
   b: Iterable<any> | undefined
 ) => !!count(intersection(a, b));
 
-type FlatIteratorAction<
-  S extends IteratorSource,
-  R = FlatIteratorItem<S>,
-  D extends number = 1,
-  O = false
-> = IteratorAction<S, R, FlatIteratorItem<S, D, O>>;
-
 export const flatMap = <
   S extends IteratorSource,
+  R,
+  P,
   D extends number = 1,
-  O extends boolean = false,
-  R = IteratorItem<S>
+  O extends boolean = false
 >(
   source: S,
-  action: FlatIteratorAction<S, R, D, O> = (item) => item as any,
+  action?: IteratorAction<S, R> | P,
   depth: D = 1 as any,
   expandObjects: O = false as any,
   ...rest: StartEndArgs<S>
-): FlatIteratorItem<R, D>[] =>
-  map(flatProject(source, action, depth, expandObjects, ...rest)) as any;
+): FlatIteratorItem<IteratorProjection<S, R, P>, D, O>[] => {
+  return array(
+    flatten(source, action, depth, expandObjects, ...rest) as any
+  ) as any;
+};
 
 const traverseInternal = <T>(
   root: T | T[] | undefined,
@@ -551,20 +539,85 @@ type JoinResult<T> = T extends readonly []
   ? never
   : T extends readonly [infer Item, ...infer Rest]
   ?
-      | Exclude<Item extends Iterable<infer T> ? T : Item, undefined>
+      | Exclude<Item extends Iterable<infer T> ? T : Item, Nullish>
       | JoinResult<Rest>
   : never;
 
-export const join = <T extends readonly any[]>(...items: T): JoinResult<T>[] =>
-  items.flatMap((item) => toArray(item) ?? []).filter(isDefined) as any;
+export const join = <S extends IteratorSource, P extends IteratorAction<S>>(
+  source: S,
+  projection?: P,
+  sep = ","
+): MaybeUndefined<S, string> => map(source, projection)?.join(sep)!;
+
+type FinalIteratorItem<
+  T,
+  ArraysOnly = false,
+  MaxDepth extends number = -1
+> = MaxDepth extends 0
+  ? T
+  : T extends string
+  ? string
+  : T extends (
+      [ArraysOnly] extends [true]
+        ? readonly (infer T)[]
+        : IterableOrArrayLike<infer T>
+    )
+  ? FinalIteratorItem<
+      T,
+      ArraysOnly,
+      -1 extends MaxDepth ? -1 : Minus<MaxDepth, 1>
+    >
+  : T;
+
+export const unnest = <
+  T extends readonly any[],
+  ArraysOnly extends boolean = false,
+  Depth extends number = -1
+>(
+  items: T,
+  arraysOnly: ArraysOnly,
+  depth: Depth = -1 as any
+): FinalIteratorItem<T, ArraysOnly>[] => {
+  if (!depth) return items as any;
+
+  const results: any[] = [];
+  const test = arraysOnly ? isArray : isIterable;
+  forEach(items, (item) =>
+    test(item)
+      ? results.push(...unnest(item, arraysOnly, depth - 1))
+      : item != null && results.push(item)
+  );
+  return results;
+};
+
+export const unarray: {
+  <T extends readonly any[], Depth extends number = -1>(
+    items: T
+  ): FinalIteratorItem<T, true>[];
+  <T extends readonly any[]>(...items: T): FinalIteratorItem<T, true>[];
+} = (...items: any[]) => unnest(items.length === 1 ? items[0] : items, true);
+
+export const concat: {
+  <T extends readonly any[]>(...items: T):
+    | JoinResult<T>[]
+    | IfNot<HasRequired<T>>;
+  <T extends readonly any[]>(items: T): JoinResult<T>[] | IfNot<HasRequired<T>>;
+} = (...items: any[]) => {
+  let merged: any[] | undefined;
+  forEach(
+    items.length === 1 ? items[0] : items,
+    (item) => item && (merged ??= []).push(...(array(item) as any))
+  );
+  return merged as any;
+};
 
 export const expand = <T>(
   root: T | T[],
   selector: (
-    current: Exclude<T, undefined>
+    current: Exclude<T, Nullish>
   ) => Iterable<T | undefined> | undefined,
   includeSelf = true
-): T extends undefined ? undefined : Exclude<T, undefined>[] =>
+): T extends undefined ? undefined : Exclude<T, Nullish>[] =>
   traverseInternal(root, selector, includeSelf, [], new Set()) as any;
 
 const forEachArray = (
@@ -579,7 +632,7 @@ const forEachArray = (
   end = end! < 0 ? source.length + end! : end ?? source.length;
   for (; start < end; start++) {
     if (
-      source[start] !== undefined &&
+      source[start] != null &&
       ((returnValue = action(source[start], i++) ?? returnValue), stopInvoked)
     ) {
       stopInvoked = false;
@@ -594,7 +647,7 @@ const forEachIterable = (source: Iterable<any>, action: any) => {
   let i = 0;
   for (let value of source as any) {
     if (
-      value !== undefined &&
+      value != null &&
       ((returnValue = action(value, i++) ?? returnValue), stopInvoked)
     ) {
       stopInvoked = false;
@@ -627,7 +680,7 @@ export const apply: <
   source: S,
   action: (item: IteratorItem<S>, ...args: Args) => R,
   ...args: Args
-) => S extends undefined ? undefined : Exclude<R, undefined>[] = (
+) => S extends undefined ? undefined : Exclude<R, Nullish>[] = (
   source,
   action,
   ...args
@@ -641,7 +694,7 @@ export const applyAsync: <
   source: S,
   action: (item: IteratorItem<S>, ...args: Args) => R,
   ...args: Args
-) => Promise<S extends undefined ? undefined : Exclude<R, undefined>[]> = (
+) => Promise<S extends undefined ? undefined : Exclude<R, Nullish>[]> = (
   source,
   action,
   ...args
@@ -649,7 +702,7 @@ export const applyAsync: <
 
 const forEachInternal: <S extends IteratorSource, R>(
   source: S,
-  action: IteratorAction<S, R>,
+  action?: IteratorAction<S, R>,
   start?: any,
   end?: any
 ) => R | undefined = (source, action, start?: any, end?: any) => {
@@ -662,17 +715,19 @@ const forEachInternal: <S extends IteratorSource, R>(
   }
   let returnValue: any;
   for (const value of createIterator(source, action, start, end)) {
-    value !== undefined && (returnValue = value);
+    value != null && (returnValue = value);
   }
 
   return returnValue;
 };
 
-export const forEach = forEachInternal as <S extends IteratorSource, R>(
-  source: S,
-  action: IteratorAction<S, R>,
-  ...rest: StartEndArgs<S>
-) => R | undefined;
+export const forEach = forEachInternal as {
+  <S extends IteratorSource, R>(
+    source: S,
+    action: FunctionalIteratorAction<S, R>,
+    ...rest: StartEndArgs<S>
+  ): R | undefined;
+};
 
 export const forEachAsync: <
   S extends IteratorSource,
@@ -690,7 +745,7 @@ export const forEachAsync: <
   if (source == null) return undefined;
   let returnValue: any;
   for (let item of project(source, action, start, end)) {
-    (item = (await item) as any) !== undefined && (returnValue = item);
+    (item = (await item) as any) != null && (returnValue = item);
   }
   return returnValue;
 };
@@ -698,33 +753,55 @@ export const forEachAsync: <
 export const flatForEach = <
   S extends IteratorSource,
   R,
+  P,
   Depth extends number,
   O extends boolean = false
 >(
   source: S,
-  action: FlatIteratorAction<S, R, Depth, O>,
+  action: IteratorAction<S, R> | P,
   depth: Depth = 1 as any,
   expandObjects: O = false as any,
   ...rest: StartEndArgs<S>
-): R | undefined =>
+): FlatIteratorItem<IteratorProjection<S, R, P>, Depth, O> | undefined =>
   forEachInternal(
-    flatProject(source, undefined, depth, expandObjects, ...(rest as any)),
+    flatten(source, undefined, depth, expandObjects, ...(rest as any)),
     action as any
   ) as any;
 
-export const obj: {
-  <S extends IteratorSource, P extends readonly [keyof any, any]>(
-    source: S,
-    selector: IteratorAction<S, P>,
-    ...rest: StartEndArgs<S>
-  ): KeyValuePairsToObject<P>;
-  <S extends IteratorSourceOf<readonly [keyof any, any]>>(
-    source: S,
-    ...rest: StartEndArgs<S>
-  ): KeyValuePairsToObject<IteratorItem<S>>;
-} = ((source: any, selector: any, start?: any, end?: any) =>
-  (source = map(source, selector, start, end)) &&
-  Object.fromEntries(source)) as any;
+type KeyValueParts<T> = T extends readonly [infer Key, infer Value]
+  ? [Key, Value]
+  : [undefined, undefined];
+
+export const obj = <S extends IteratorSource, R extends readonly [any, any], P>(
+  source: S,
+  selector?: IteratorAction<S, R> | P,
+  merge?: (
+    current: KeyValueParts<IteratorProjection<S, R, P>>[1] | undefined,
+    value: KeyValueParts<IteratorProjection<S, R, P>>[1]
+  ) => KeyValueParts<IteratorProjection<S, R, P>>[1] | undefined
+): MaybeUndefined<
+  S,
+  KeyValuePairsToObject<
+    ConstToNormal<Exclude<IteratorProjection<S, R, P>, Nullish>>
+  >
+> => {
+  let result: Record<any, any> = {};
+  selector = wrapProjection(selector);
+  return forEach(
+    source,
+    (
+      item,
+      i,
+      [key, value] = (selector ? (selector(item, i) as any) : item) ?? []
+    ) =>
+      key != null &&
+      value != null &&
+      (!merge || (value = merge(result[key], value)) != null) &&
+      ((result[key] = value), true)
+  )
+    ? result
+    : (undefined as any);
+};
 
 export const groupReduce: <
   S extends IteratorSource,
@@ -735,7 +812,8 @@ export const groupReduce: <
   keySelector: (item: IteratorItem<S>, index: number) => Key,
   reducer: (
     accumulator: GeneralizeConstants<Accumulator>,
-    ...rest: Parameters<IteratorAction<S, Accumulator>>
+    item: IteratorItem<S>,
+    index: number
   ) => Accumulator,
   seed?: Accumulator | (() => Accumulator),
   ...reset: StartEndArgs<S>
@@ -753,7 +831,7 @@ export const groupReduce: <
     const key = keySelector(item, index);
     let acc = groups.get(key) ?? seedFactory();
     const value = reducer(acc, item, index);
-    if (isDefined(value)) {
+    if (value != null) {
       groups.set(key, value);
     }
   };
@@ -795,7 +873,8 @@ export const reduce: <
       accumulator: unknown extends Accumulator
         ? any
         : GeneralizeConstants<Accumulator>,
-      ...rest: Parameters<IteratorAction<S, Accumulator>>
+      item: IteratorItem<S>,
+      index: number
     ]
   ) => GeneralizeConstants<Accumulator>,
   Accumulator
@@ -831,7 +910,9 @@ type FilterItem<S extends IteratorSource, F> = F extends (
 export const filter: {
   <
     S extends IteratorSource,
-    MapToArray extends boolean = S extends any[] ? true : false,
+    MapToArray extends boolean = S extends Nullish | readonly any[]
+      ? true
+      : false,
     P extends Filter<S> = Filter<S>
   >(
     source: S,
@@ -956,6 +1037,28 @@ export const keys: <S extends IteratorSource>(
     end
   );
 
+export const mapFirst: <S extends IteratorSource, R, P>(
+  source: S,
+  projection: IteratorAction<S, R> | P,
+  ...rest: StartEndArgs<S>
+) => IteratorProjection<S, R, P> | undefined = (
+  source,
+  projection,
+  start?: any,
+  end?: any
+) =>
+  !source ||
+  ((projection = wrapProjection(projection)),
+  forEachInternal(
+    source,
+    (value, i) =>
+      !projection || (value = projection(value, i) as any)
+        ? stop(value)
+        : undefined,
+    start,
+    end
+  ));
+
 export const first: <S extends IteratorSource>(
   source: S,
   predicate?: Filter<S>,
@@ -966,15 +1069,13 @@ export const first: <S extends IteratorSource>(
   start?: any,
   end?: any
 ) =>
-  !source || isArray(source)
-    ? source?.[0]
-    : forEachInternal(
-        source,
-        (value, i) =>
-          !predicate || predicate(value, i) ? stop(value) : undefined,
-        start,
-        end
-      );
+  !source ||
+  forEachInternal(
+    source,
+    (value, i) => (!predicate || predicate(value, i) ? stop(value) : undefined),
+    start,
+    end
+  );
 
 export const last: <S extends IteratorSource>(
   source: S,
@@ -1021,7 +1122,7 @@ export const some: <S extends IteratorSource>(
   predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
 ) => MaybeUndefined<S, boolean> = (source, predicate, start?: any, end?: any) =>
-  source === undefined
+  source == null
     ? undefined
     : hasMethod(source, "some")
     ? source.some(predicate ?? isTruish)
@@ -1049,6 +1150,16 @@ export const every: <S extends IteratorSource>(
         start,
         end
       ) as any);
+
+/**
+ * Array's `sort` function that offers a single function that is applied on each element instead of having to do it twice (`[...].sort(x,y)=>f(x)-f(y)`).
+ * Default is to use the value directly.
+ */
+export const sort = <T extends any[] | Nullish, Item extends IteratorItem<T>>(
+  items: T,
+  rank: (item: Item) => number = (item) => item as any
+): MaybeUndefined<T, Item[]> =>
+  (items?.sort((lhs, rhs) => rank(lhs) - rank(rhs)), items) as any;
 
 export const binarySearch: {
   (arr: Array<number>, find: number): number;

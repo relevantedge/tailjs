@@ -101,37 +101,34 @@ type VariableSetResultValue_<Source extends VariableSetter> = Source extends {
 
 export type VariableSetResult<
   T = any,
-  Source extends VariableSetter<T> = VariableSetter<T>,
-  SuccessOnly = boolean
+  Source extends VariableSetter<T> = VariableSetter<T>
 > =
   | VariableSetSuccessResult<T, Source>
-  | (SuccessOnly extends false
-      ? {
-          source: Source;
-        } & (
+  | ({
+      source: Source;
+    } & (
+      | {
+          status: VariableResultStatus.Conflict;
+          current: VariableSetResultValue<Source>;
+        }
+      | ((
           | {
-              status: VariableResultStatus.Conflict;
-              current: VariableSetResultValue<Source>;
-            }
-          | ((
-              | {
-                  status:
-                    | VariableResultStatus.ReadOnly
-                    | VariableResultStatus.Invalid
-                    | VariableResultStatus.Denied
-                    | VariableResultStatus.NotFound
-                    | VariableResultStatus.Unsupported;
+              status:
+                | VariableResultStatus.ReadOnly
+                | VariableResultStatus.Invalid
+                | VariableResultStatus.Denied
+                | VariableResultStatus.NotFound
+                | VariableResultStatus.Unsupported;
 
-                  error?: any;
-                }
-              | {
-                  status: VariableResultStatus.Error;
-                  transient?: boolean;
-                  error: any;
-                }
-            ) & { current?: never })
-        )
-      : never);
+              error?: any;
+            }
+          | {
+              status: VariableResultStatus.Error;
+              transient?: boolean;
+              error: any;
+            }
+        ) & { current?: never })
+    ));
 
 export type VariableSetSuccessResult<
   T = any,
@@ -266,17 +263,17 @@ export type VariableSetter<T = any, Validated = boolean> =
   | (VariableValueSetter<T, Validated> & { patch?: undefined })
   | (VariablePatch<T, Validated> & { value?: undefined });
 
-type MapVariableSetResult<
-  Source,
-  SuccessOnly = boolean
-> = Source extends VariableSetResult<infer T, infer Source, false>
-  ? VariableSetResult<T, Source, SuccessOnly>
+export type MapVariableSetResult<Source> = Source extends VariableSetResult<
+  infer T,
+  infer Source
+>
+  ? VariableSetResult<T, Source>
   : Source extends VariableSetter<infer T>
-  ? VariableSetResult<T, Source, SuccessOnly>
+  ? VariableSetResult<T, Source>
   : never;
 
 export type VariableSetters<
-  SetterType extends VariableSetter<any> | boolean,
+  SetterType extends Partial<VariableSetter<any>> | boolean,
   Inferred extends VariableSetters<SetterType> = never
 > =
   | Inferred

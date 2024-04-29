@@ -40,7 +40,6 @@ export interface ImpressionTimingEvent extends PassiveEvent {
 
   /**
    * The number of additional impressions since the previous summary event.
-   * There has already been one impression with the {@link ImpressionEvent}, so this only counts additional impressions (component left the viewport, and then come back at a later point.)
    */
   impressions?: Integer;
 }

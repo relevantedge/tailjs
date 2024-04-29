@@ -3,48 +3,45 @@ import {
   DataPurposeFlags,
   PostRequest,
   PostResponse,
-  RestrictVariableTargets,
-  StripPatchFunctions,
   Variable,
-  VariableGetResult,
-  VariableGetResults,
-  VariableGetter,
-  VariableGetters,
-  VariableKey,
   VariableResultPromise,
   VariableResultStatus,
   VariableSetResult,
-  VariableSetResults,
-  VariableSetter,
-  VariableSetters,
-  extractKey,
   getResultVariable,
   isSuccessResult,
   isVariablePatch,
   toVariableResultPromise,
-  variableScope,
 } from "@tailjs/types";
 import {
-  Json,
-  MaybeArray,
-  PrettifyIntersection,
+  If,
   apply,
+  array,
   assign,
   clock,
+  concat,
   forEach,
   get,
   isBoolean,
   isDefined,
   isObject,
   isUndefined,
-  join,
   map,
   now,
   required,
   throwError,
-  toArray,
 } from "@tailjs/util";
 import {
+  ClientVariableGetter,
+  ClientVariableResults,
+  ClientVariableSetter,
+  LocalSetResult,
+  LocalVariableGetter,
+  LocalVariableScope,
+  LocalVariableSetter,
+  RemoteVariableGetter,
+  RemoteVariableSetter,
+  ReservedVariableKey,
+  ReservedVariableType,
   StateVariable,
   StateVariableSource,
   TrackerContext,
@@ -53,92 +50,85 @@ import {
   addPageLoadedListener,
   addResponseHandler,
   getStateVariables,
+  isLocalScopeKey,
   request,
+  stringToVariableKey,
   updateVariableState,
+  variableKeyToString,
 } from ".";
+import { ReservedVariableTypes } from "../commands";
 
-type VariableCacheSettings = {
-  /**
-   * The maximum number of milliseconds the value of this variable can be cached.
-   * If omitted or `true` the default value of 3 seconds will be used.
-   * `false` or 0 means the variable will not be cached.
-   */
-  cache?: number | boolean;
+/** Suggests the reserved names and their corresponding values for local variables, and helps autocomplete string enums (purpose etc.). */
+type GettersIntellisense<K extends string = ReservedVariableKey> =
+  readonly (ClientVariableGetter &
+    (
+      | RemoteVariableGetter
+      | (K extends infer K
+          ? LocalVariableGetter<
+              ReservedVariableTypes[K & ReservedVariableKey],
+              K & string
+            >
+          : // Only suggest reserved local names when local is true. This does that trick.
 
-  /**
-   * The variable is used for client-side communication and will not be posted to the server.
-   */
-  local?: boolean;
-};
+            never)
+    ))[];
 
-export type ClientVariableGetter<T = any> = PrettifyIntersection<
-  StripPatchFunctions<
-    RestrictVariableTargets<VariableGetter<T, false>, true>
-  > & {
-    /**
-     * A callback to do something with the result.
-     * If the second function is invoked the variable will be polled for changes, and the callback will be invoked
-     * once when the value changes. To keep polling, keep calling the poll function every time the callback is invoked.
-     */
-    result?: MaybeArray<
-      (
-        value: Variable<any> | undefined,
-        poll: (toggle?: boolean) => void
-      ) => void
-    >;
+/** Suggests the reserved names and their corresponding values for local variables, and helps autocomplete string enums (purpose etc.). */
+type SettersIntellisense<K extends string = ReservedVariableKey> = readonly (
+  | RemoteVariableSetter
+  | (K extends infer K
+      ? LocalVariableSetter<
+          ReservedVariableTypes[K & ReservedVariableKey],
+          K & string
+        >
+      : // Only suggest reserved local names when local is true. This does that trick.
 
-    /**
-     * If the get requests fails this callback will be called instead of the entire operation throwing an error.
-     * If it returns `false` an error will still be thrown.
-     */
-    error?: (result: VariableGetResult, error: string) => void | boolean;
+        never)
+)[];
 
-    /**
-     * Do not accept a cached version of the variable.
-     */
-    refresh?: boolean;
-  } & VariableCacheSettings
->;
+type ValidateParameter<P, Getters> = P extends {
+  key: infer K;
+  scope: LocalVariableScope;
+}
+  ? If<
+      Getters,
+      LocalVariableGetter<ReservedVariableType<K>, K & string>,
+      LocalVariableSetter<ReservedVariableType<K>, K & string>
+    >
+  : If<Getters, RemoteVariableGetter, RemoteVariableSetter>;
 
-export type ClientVariableSetter<T = any> = PrettifyIntersection<
-  StripPatchFunctions<
-    RestrictVariableTargets<VariableSetter<T, false>, true>
-  > & {
-    /** A callback that will get invoked when the set operation has completed. */
-    result?: (
-      current: Variable<any> | undefined,
-      source: VariableSetter
-    ) => void;
+type ValidateParameters<P, Getters> = P extends readonly []
+  ? []
+  : P extends readonly [infer Item, ...infer Rest]
+  ? readonly [
+      ValidateParameter<Item, Getters>,
+      ...ValidateParameters<Rest, Getters>
+    ]
+  : P extends readonly (infer Item)[]
+  ? readonly ValidateParameter<Item, Getters>[]
+  : never;
 
-    /**
-     * If the get requests fails this callback will be called instead of the entire operation throwing an error.
-     * If it returns `false` an error will still be thrown.
-     */
-    error?: (result: VariableGetResult, error: string) => void | boolean;
-  } & VariableCacheSettings
->;
+const foo: TrackerVariableStorage = 0 as any;
 
-export const variableKeyToString = (key: VariableKey): string =>
-  `${variableScope(key.scope)}\0${key.key}\0${key.targetId}`;
-
-export const stringToVariableKey = (key: string): VariableKey => {
-  const parts = key.split("\0");
-  return {
-    scope: variableScope(parts[0]),
-    key: parts[1],
-    targetId: parts[2],
-  } as any;
-};
-
+export interface TrackerVariableStorage {
+  // Omit `init` to allow intellisense to suggest the actual type for reserved keys.
+  get<K extends readonly Omit<ClientVariableGetter, "init">[]>(
+    ...getters: (K & ValidateParameters<K, true>) | GettersIntellisense
+  ): VariableResultPromise<ClientVariableResults<K, true>>;
+  // Omit `value` to allow intellisense to suggest the actual type for reserved keys.
+  set<V extends readonly Omit<ClientVariableSetter, "value">[]>(
+    ...setters: (V & ValidateParameters<V, false>) | SettersIntellisense
+  ): ClientVariableResults<V, false>;
+}
 const pollingCallbacks = new Map<
   string,
   Set<(value: Variable<any>, poll: any) => void>
 >();
 
-export const createVariableProvider = (
+export const createVariableStorage = (
   endpoint: string,
   context?: TrackerContext
-) => {
+): TrackerVariableStorage => {
   const pollVariables = clock(async () => {
     const getters: ClientVariableGetter[] = map(
       pollingCallbacks,
@@ -151,7 +141,7 @@ export const createVariableProvider = (
             }
     ) as any;
 
-    await vars.get(...getters);
+    await vars.get(...(getters as any));
   }, VARIABLE_POLL_FREQUENCY);
 
   addPageLoadedListener(
@@ -175,17 +165,17 @@ export const createVariableProvider = (
     );
 
   const vars = {
-    get: <K extends VariableGetters<ClientVariableGetter>>(
-      ...getters: VariableGetters<ClientVariableGetter, K>
-    ): VariableResultPromise<RestrictVariableTargets<VariableGetResults<K>>> =>
+    get: (
+      ...getters: ClientVariableGetter[]
+    ): VariableResultPromise<ClientVariableResults<any, true>> =>
       toVariableResultPromise(async () => {
         const results: [StateVariableSource, number][] = [];
 
         const currentVariables = getStateVariables();
-        let requestGetters = map(
-          getters as ClientVariableGetter[],
-          (getter, sourceIndex) => [getter, sourceIndex]
-        );
+        let requestGetters = map(getters, (getter, sourceIndex) => [
+          getter,
+          sourceIndex,
+        ]);
 
         const newLocal: StateVariable[] = [];
         const response =
@@ -205,7 +195,7 @@ export const createVariableProvider = (
                     sourceIndex,
                   ]);
                   return undefined;
-                } else if (getter.local) {
+                } else if (isLocalScopeKey(getter)) {
                   if (isObject(getter.init)) {
                     const local = {
                       ...getter,
@@ -246,7 +236,7 @@ export const createVariableProvider = (
           ([result, i]) =>
             isSuccessResult(result) &&
             forEach(
-              toArray(getters[i]?.result),
+              array(getters[i]?.result),
               (callback) => (
                 (poll = false),
                 callback?.(
@@ -266,15 +256,15 @@ export const createVariableProvider = (
         return results.map(([result]) => result);
       }, map(getters, (getter) => getter?.error) as any) as any,
 
-    set: <V extends VariableSetters<ClientVariableSetter>>(
-      ...setters: VariableSetters<ClientVariableSetter, V>
-    ): VariableResultPromise<RestrictVariableTargets<VariableSetResults<V>>> =>
+    set: (
+      ...setters: ClientVariableSetter[]
+    ): ClientVariableResults<any, false> =>
       toVariableResultPromise(async () => {
         const currentVariables = getStateVariables();
 
         const newLocal: StateVariable[] = [];
 
-        const results: VariableSetResult[] = [];
+        const results: (VariableSetResult | LocalSetResult)[] = [];
 
         // Only request non-null setters, and use the most recent version we have already read, if any.
         const requestVariables = map(setters, (setter, sourceIndex) => {
@@ -282,7 +272,7 @@ export const createVariableProvider = (
           const key = variableKeyToString(setter);
           const current = currentVariables.get(key);
           updateCacheDuration(key, setter.cache);
-          if (setter.local) {
+          if (isLocalScopeKey(setter)) {
             if (isDefined(setter.patch))
               return throwError("Local patching is not supported.");
             const local = {
@@ -290,15 +280,15 @@ export const createVariableProvider = (
               value: setter.value,
               classification: DataClassification.Anonymous,
               purposes: DataPurposeFlags.Anonymous,
-              ...extractKey(
-                setter as ClientVariableSetter,
-                setter as ClientVariableSetter
-              ),
+              scope: -1,
+              key: setter.key,
             };
 
             results[sourceIndex] = {
-              status: VariableResultStatus.Success,
-              source: setter,
+              status: current
+                ? VariableResultStatus.Success
+                : VariableResultStatus.Created,
+              source: setter as any,
               current: local,
             };
             newLocal.push(setResultExpiration(local));
@@ -319,7 +309,9 @@ export const createVariableProvider = (
                 (
                   await request<PostRequest, PostResponse>(endpoint, {
                     variables: {
-                      set: requestVariables.map((variable) => variable[0]),
+                      set: requestVariables.map(
+                        (variable) => variable[0] as any
+                      ),
                     },
                     deviceSessionId: context?.deviceSessionId,
                   })
@@ -335,7 +327,7 @@ export const createVariableProvider = (
           const [setter, sourceIndex] = requestVariables[index];
 
           results[sourceIndex] = result;
-          result.source = setter;
+          result.source = setter as any;
         });
 
         return results as any;
@@ -355,14 +347,13 @@ export const createVariableProvider = (
   });
   addResponseHandler((response: PostResponse) => {
     const timestamp = now();
-    const changed = join(
+    const changed = concat(
       map(response.variables?.get, (result) => getResultVariable(result)),
       map(response.variables?.set, (result) => getResultVariable(result))
     );
 
-    setResultExpiration(changed[0]);
     updateVariableState(apply(changed, setResultExpiration, timestamp));
   });
 
-  return vars;
+  return vars as any;
 };

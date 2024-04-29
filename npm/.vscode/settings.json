@@ -5,14 +5,18 @@
     "Falsish",
     "lfsr",
     "minifyable",
+    "null'ish",
     "onfullfilled",
     "pseudonomized",
     "Sitecore",
     "tailjs",
     "Truish",
+    "unarray",
     "Unbinder",
+    "unnest",
     "unparam",
-    "Validatable"
+    "Validatable",
+    "Voidefined"
   ],
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8"

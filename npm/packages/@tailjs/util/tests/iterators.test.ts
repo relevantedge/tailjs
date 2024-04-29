@@ -1,4 +1,5 @@
 import {
+  concat,
   count,
   every,
   expand,
@@ -13,6 +14,7 @@ import {
   some,
   stop,
   sum,
+  unarray,
 } from "../src";
 
 import Benchmark from "benchmark";
@@ -48,6 +50,21 @@ describe("iterators.ts", () => {
       ["a", 1],
       ["b", 2],
     ]);
+
+    expect(map([{ a: 1, b: 2 }, { b: 3 }, { a: "hello" }], "a")).toEqual([
+      1,
+      "hello",
+    ]);
+
+    expect(
+      map(
+        [
+          [0, 1],
+          [3, 4],
+        ],
+        0
+      )
+    ).toEqual([0, 3]);
 
     expect(map({ a: 1, b: 2 }, ([, value]) => value)).toEqual([1, 2]);
     expect(map(testSet)).toEqual([1, 2, 3]);
@@ -187,7 +204,6 @@ describe("iterators.ts", () => {
     ).toEqual(true);
 
     expect(map([1, 2, 3], null, 1, 2)).toEqual([2]);
-    expect(map([1, 2, 3], 1, 2)).toEqual([2]);
   });
 
   it("Iterates navigator functions", () => {
@@ -224,6 +240,18 @@ describe("iterators.ts", () => {
         ["c", true],
       ]
     );
+
+    expect(flatMap([{ a: [1, 2, 3] }, { b: 32 }, { a: [4] }], "a")).toEqual([
+      1, 2, 3, 4,
+    ]);
+
+    expect(concat(map([{ a: [1, 2, 3] }, { b: 32 }, { a: [4] }], "a"))).toEqual(
+      [1, 2, 3, 4]
+    );
+
+    expect(
+      unarray(map([{ a: [1, 2, 3] }, { b: 32 }, { a: [4] }], "a"), 5)
+    ).toEqual([1, 2, 3, 4, 5]);
 
     expect(flatMap([[1, [2], 3], 4, [5, 6]], (item) => item, 0)).toEqual([
       [1, [2], 3],

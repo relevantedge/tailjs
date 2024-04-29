@@ -1,4 +1,6 @@
+import { MaybeArray, Nullish } from "@tailjs/util";
 import type { TrackerCommand, TrackerConfiguration } from "..";
+import { EventQueue, TrackerVariableStorage } from "../lib2";
 
 export type Tracker = {
   /**
@@ -10,6 +12,10 @@ export type Tracker = {
    * A flag that indicates that the tracker has been initialized.
    */
   readonly initialized?: boolean;
+
+  readonly events: EventQueue;
+
+  readonly variables: TrackerVariableStorage;
 
   readonly push: {
     /** Allows commands to be passed as a HTTP encoded string instead of objects. This is useful for server-side generated data. */
@@ -23,14 +29,17 @@ export type Tracker = {
     (apiKey: string, httpEncoded: string): void;
 
     /** Executes the specified commands. */
-    (...args: (TrackerCommand | TrackerCommand[])[]): void;
+    (...args: readonly MaybeArray<TrackerCommand | Nullish, true>[]): void;
 
     /**
      * Executes the specified commands.
      *
      * Use this overload if a {@link TrackerConfiguration.apiKey} has been configured.
      */
-    (apiKey: string, ...args: (TrackerCommand | TrackerCommand[])[]): void;
+    (
+      apiKey: string,
+      ...args: readonly MaybeArray<TrackerCommand, true>[]
+    ): void;
   };
   /**
    * The tracker was initialized during server-side rendering.

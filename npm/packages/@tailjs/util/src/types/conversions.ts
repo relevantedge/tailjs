@@ -1,4 +1,12 @@
-import type { Defined, MaybePromise, MaybeUndefined } from "..";
+import type {
+  Defined,
+  Extends,
+  If,
+  MaybePromise,
+  MaybeUndefined,
+  Nullish,
+  ToggleReadonly,
+} from "..";
 import { tryCatch } from "..";
 
 /**
@@ -23,7 +31,15 @@ export type Nulls<T, NullLevels = null | undefined> = T extends
     : NullLevels
   : never;
 
+/** All keys of any type in a union */
 export type AllKeys<Ts> = Ts extends infer T ? keyof T : never;
+
+export type Property<T, P> = T extends infer T
+  ? P extends keyof T
+    ? T[P]
+    : never
+  : never;
+
 /**
  * Creates a new type where with all the properties from any of the specified types.
  * This can make life easier for code working with polymorphic types.
@@ -162,7 +178,7 @@ export const toString = createConverter(isString, (value) =>
   hasValue(value) ? "" + value : value
 );
 
-export const isArray: (value: any) => value is readonly any[] = Array.isArray;
+export const isArray: (value: any) => value is any[] = Array.isArray;
 
 /**
  * Returns the value as an array following these rules:
@@ -171,14 +187,20 @@ export const isArray: (value: any) => value is readonly any[] = Array.isArray;
  * - If the value is iterable, an array containing its values is returned
  * - Otherwise, an array with the value as its single item is returned.
  */
-export const toArray: {
+export const array: {
   // <T>(value: AsyncIterable<T>, clone?: boolean): MaybeUndefined<
   //   [T][0],
   //   Promise<T[]>
   // >;
-  <T>(value: T | Iterable<T>, clone?: boolean): MaybeUndefined<[T][0], T[]>;
-} = (value: any, clone = false): any =>
-  isUndefined(value)
+  <T, Clone extends boolean = false>(value: T, clone?: Clone): T extends Nullish
+    ? undefined
+    : T extends readonly any[]
+    ? [Clone] extends [false]
+      ? T
+      : [...T]
+    : (T extends Iterable<infer T> ? T : T)[];
+} = (value: any, clone = false as any): any =>
+  value == null
     ? undefined
     : !clone && isArray(value)
     ? value

@@ -1,4 +1,4 @@
-import { expand, forEach, isDefined, join, throwError } from "@tailjs/util";
+import { expand, forEach, isDefined, concat, throwError } from "@tailjs/util";
 import { TraverseContext, parseCompositions, parseError } from ".";
 
 export const tryParseObjectComposition = (
@@ -10,7 +10,7 @@ export const tryParseObjectComposition = (
   let isObjectType = false;
   forEach(
     expand(composition, (composition) =>
-      join(composition.compositions, composition.ref?.composition)
+      concat(composition.compositions, composition.ref?.composition)
     ),
     (item) =>
       item.node.type === "object"
