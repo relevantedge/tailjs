@@ -95,5 +95,11 @@ export type Json<T = unknown> = unknown extends T
 
 export type ToJsonAble<T> = { toJSON(): T };
 
+/** Minify friendly version of `false`. */
 export const F = false;
+
+/** Minify friendly version of `true`. */
 export const T = true;
+
+/** Minify friendly version of `null`. */
+export const nil = null;

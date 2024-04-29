@@ -1,4 +1,4 @@
-import type { Extends, If, IfNot, IsAny, Minus, Voidefined } from ".";
+import type { Extends, If, IfNot, IsAny, Minus, Nullish, Voidefined } from ".";
 
 export type Empty = readonly [];
 
@@ -128,18 +128,20 @@ export type VariableTuple<
   ? readonly []
   : readonly [Item, ...VariableTuple<Item, Template, Minus<MaxLength, 1>>];
 
+type NullishIsUndefined<T> = T extends Nullish ? undefined : T;
+
 /** Returns whether any item in a tuple cannot be undefined. */
 export type HasRequired<T> = true extends (
-  undefined extends T
+  undefined extends NullishIsUndefined<T>
     ? false
     : T extends readonly []
     ? never
     : T extends readonly [infer Item, ...infer Rest]
-    ? undefined extends Item
+    ? undefined extends NullishIsUndefined<Item>
       ? false | HasRequired<Rest>
       : true
     : T extends Iterable<infer Item>
-    ? undefined extends Item
+    ? undefined extends NullishIsUndefined<Item>
       ? false
       : true
     : false

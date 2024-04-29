@@ -5,17 +5,17 @@ import {
   createEvent,
   createLock,
   delay,
-  forEach,
   forEachAsync,
-  isBoolean,
   isDefined,
   isFunction,
   isUndefined,
-  map,
   throwError,
 } from "@tailjs/util";
-import { deserialize, listen, log, serialize } from ".";
-import { PostResponse, Variable, isSuccessResult } from "@tailjs/types";
+import {
+  httpDecrypt as deserialize,
+  listen,
+  httpEncrypt as serialize,
+} from ".";
 
 const eventQueue: string[] = [];
 
@@ -31,7 +31,7 @@ const [addRequestHandler, dispatchRequest] =
     [url: string, data: any, retry: number, update: (data: any) => void]
   >();
 const [addResponseHandler, dispatchResponse] = createEvent<[response: any]>();
-export { addResponseHandler, addRequestHandler };
+export { addRequestHandler, addResponseHandler };
 
 // TODO: Make shared between tabs using storage.
 const requestLock = createLock(1000);

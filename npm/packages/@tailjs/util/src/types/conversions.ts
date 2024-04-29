@@ -98,7 +98,10 @@ const T2 = {
 };
 
 export type TypeTester<T> = (value: any) => value is T;
-export type TypeConverter<T> = (value: any, parse?: boolean) => T | undefined;
+export type TypeConverter<T> = <V, P extends boolean = true>(
+  value: V,
+  parse?: P
+) => V extends T ? V : (true extends P ? T : never) | undefined;
 
 export const undefined = void 0;
 export const nil = null;
@@ -112,14 +115,21 @@ export const symbolIterator = Symbol.iterator;
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */
 export const symbolAsyncIterator = Symbol.asyncIterator;
 
-const createConverter =
-  <T>(typeTester: TypeTester<T>, parser?: (value: any) => T | undefined) =>
-  (value: any, parse = true) =>
+export const createTypeConverter =
+  <T>(
+    typeTester: TypeTester<T>,
+    parser?: (value: any) => T | undefined
+  ): TypeConverter<T> =>
+  (value: any, parse = true as any) =>
     typeTester(value)
       ? value
       : parser && parse && isDefined((value = parser(value)))
       ? value
-      : undefined;
+      : (undefined as any);
+
+() => {
+  const b = parseNumber(12, false);
+};
 
 export const isNull = (value: any): value is null => value === nil;
 
@@ -146,7 +156,18 @@ export const hasValue = <T>(
 export const isBoolean = (value: any): value is boolean =>
   typeof value === "boolean";
 
-export const parseBoolean = createConverter(isBoolean, (value) => !!value);
+export const parseBoolean = createTypeConverter(isBoolean, (value) =>
+  value === 0
+    ? false
+    : value === 1
+    ? true
+    : value === "false"
+    ? false
+    : value === "true"
+    ? true
+    : undefined
+);
+
 export const isTruish = (value: any) => !!value;
 
 export type Falsish = void | null | undefined | 0 | "" | false;
@@ -161,20 +182,21 @@ export const isNumber = (value: any): value is number =>
 
 export const isFinite: (value: any) => value is number = Number.isFinite as any;
 
-export const parseNumber = createConverter(isNumber, (value) =>
+export const parseNumber = createTypeConverter(isNumber, (value) =>
   parseFloat(value)
 );
 
 export const isBigInt = (value: any): value is bigint =>
   typeof value === "bigint";
-export const parseBigInt = createConverter(isBigInt, (value) =>
+
+export const parseBigInt = createTypeConverter(isBigInt, (value) =>
   tryCatch(() => BigInt(value))
 );
 
 export const isString = (value: any): value is string =>
   typeof value === "string";
 
-export const toString = createConverter(isString, (value) =>
+export const toString = createTypeConverter(isString, (value) =>
   hasValue(value) ? "" + value : value
 );
 
@@ -239,7 +261,7 @@ export const hasMethod = <T, Name extends keyof any>(
 } => typeof (value as any)?.[name] === "function";
 
 export const isDate = (value: any): value is Date => value instanceof Date;
-export const parseDate = createConverter(isDate, (value) =>
+export const parseDate = createTypeConverter(isDate, (value) =>
   isNaN((value = Date.parse(value))) ? undefined : value
 );
 

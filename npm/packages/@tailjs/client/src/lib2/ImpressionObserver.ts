@@ -15,9 +15,13 @@ import {
   restrict,
   stickyTimeout,
 } from "@tailjs/util";
-import { Tracker, getComponentContext, getVisibleDuration } from "..";
-import { BoundaryData } from "../commands";
-import { getScreenPos, getViewport, trackerConfig, trackerFlag } from "../lib";
+import { getScreenPos, getViewport, trackerConfig, trackerFlag } from ".";
+import {
+  BoundaryData,
+  Tracker,
+  getComponentContext,
+  getVisibleDuration,
+} from "..";
 
 const intersectionHandler = Symbol();
 

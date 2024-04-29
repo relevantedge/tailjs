@@ -43,9 +43,18 @@ export type FunctionComparisonEquals<A, B> = (<
 export type IsAny<T> = FunctionComparisonEquals<T, any>;
 
 /**
- * Tests if a type is `any`.
+ * Tests if a type is `unknown`.
  */
 export type IsUnknown<T> = Extends<unknown, T>;
+
+/**
+ * Tests if a type extends the specified type unless it is `unknown` or `any`.
+ */
+export type Is<T, Test> = If<
+  IsUnknown<Test>,
+  IsUnknown<T>,
+  If<Extends<T, Test>, Not<IsUnknown<T>>, false>
+>;
 
 /**
  * Treats `unknown` as `any`.
@@ -71,6 +80,11 @@ export type OmitNullish<T, Default = never> = T extends Nullish ? Default : T;
 export type Defined<T> = Exclude<T, undefined | void>;
 
 /**
+ * Can be used to collect null values from a function parameter.
+ */
+export type Nullable<T, Collector = T> = T | (Nullish & Collector);
+
+/**
  * Returns a type if the another type is not undefined or false.
  *
  * Can be used in constructs like `<T extends string | undefined>(value: T): MaybeUndefined<T,number>`
@@ -81,9 +95,9 @@ export type Defined<T> = Exclude<T, undefined | void>;
  * Here the boolean flag `required` decides whether the return value is `T` or `T | undefined`.
  */
 export type MaybeUndefined<T, Defined = T, Nulls = Nullish> = If<
-  IsAny<T>,
+  IsUnknown<T>,
   Defined,
-  T extends Nulls | false ? Defined | undefined : Defined
+  T extends Nulls ? undefined : Defined
 >;
 
 /**

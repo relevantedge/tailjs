@@ -261,7 +261,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   private _applyGetFilters(
-    getter: VariableGetter<any, true>,
+    getter: VariableGetter<any, any, true>,
     variable: Variable<any, true> | undefined
   ) {
     return !variable ||
@@ -424,7 +424,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         results.push({
           status: VariableResultStatus.Conflict,
           source,
-          current: copy(current),
+          current: copy(current)!,
         });
         continue;
       }

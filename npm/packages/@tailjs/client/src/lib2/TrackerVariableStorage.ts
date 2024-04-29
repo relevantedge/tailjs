@@ -33,13 +33,9 @@ import {
 import {
   ClientVariableGetter,
   ClientVariableResults,
+  ClientVariableSetResult,
   ClientVariableSetter,
-  LocalSetResult,
-  LocalVariableGetter,
   LocalVariableScope,
-  LocalVariableSetter,
-  RemoteVariableGetter,
-  RemoteVariableSetter,
   ReservedVariableKey,
   ReservedVariableType,
   StateVariable,
@@ -56,69 +52,16 @@ import {
   updateVariableState,
   variableKeyToString,
 } from ".";
-import { ReservedVariableTypes } from "../commands";
-
-/** Suggests the reserved names and their corresponding values for local variables, and helps autocomplete string enums (purpose etc.). */
-type GettersIntellisense<K extends string = ReservedVariableKey> =
-  readonly (ClientVariableGetter &
-    (
-      | RemoteVariableGetter
-      | (K extends infer K
-          ? LocalVariableGetter<
-              ReservedVariableTypes[K & ReservedVariableKey],
-              K & string
-            >
-          : // Only suggest reserved local names when local is true. This does that trick.
-
-            never)
-    ))[];
-
-/** Suggests the reserved names and their corresponding values for local variables, and helps autocomplete string enums (purpose etc.). */
-type SettersIntellisense<K extends string = ReservedVariableKey> = readonly (
-  | RemoteVariableSetter
-  | (K extends infer K
-      ? LocalVariableSetter<
-          ReservedVariableTypes[K & ReservedVariableKey],
-          K & string
-        >
-      : // Only suggest reserved local names when local is true. This does that trick.
-
-        never)
-)[];
-
-type ValidateParameter<P, Getters> = P extends {
-  key: infer K;
-  scope: LocalVariableScope;
-}
-  ? If<
-      Getters,
-      LocalVariableGetter<ReservedVariableType<K>, K & string>,
-      LocalVariableSetter<ReservedVariableType<K>, K & string>
-    >
-  : If<Getters, RemoteVariableGetter, RemoteVariableSetter>;
-
-type ValidateParameters<P, Getters> = P extends readonly []
-  ? []
-  : P extends readonly [infer Item, ...infer Rest]
-  ? readonly [
-      ValidateParameter<Item, Getters>,
-      ...ValidateParameters<Rest, Getters>
-    ]
-  : P extends readonly (infer Item)[]
-  ? readonly ValidateParameter<Item, Getters>[]
-  : never;
-
-const foo: TrackerVariableStorage = 0 as any;
 
 export interface TrackerVariableStorage {
   // Omit `init` to allow intellisense to suggest the actual type for reserved keys.
   get<K extends readonly Omit<ClientVariableGetter, "init">[]>(
-    ...getters: (K & ValidateParameters<K, true>) | GettersIntellisense
+    ...getters: (K & ValidateParameters<K, true>) | GetterIntellisense
   ): VariableResultPromise<ClientVariableResults<K, true>>;
   // Omit `value` to allow intellisense to suggest the actual type for reserved keys.
   set<V extends readonly Omit<ClientVariableSetter, "value">[]>(
-    ...setters: (V & ValidateParameters<V, false>) | SettersIntellisense
-  ): ClientVariableResults<V, false>;
+    ...setters: (V & ValidateParameters<V, false>) | SetterIntellisense
+  ): VariableResultPromise<ClientVariableResults<V, false>>;
 }
 const pollingCallbacks = new Map<
   string,
@@ -264,7 +207,7 @@ export const createVariableStorage = (
 
         const newLocal: StateVariable[] = [];
 
-        const results: (VariableSetResult | LocalSetResult)[] = [];
+        const results: ClientVariableSetResult[] = [];
 
         // Only request non-null setters, and use the most recent version we have already read, if any.
         const requestVariables = map(setters, (setter, sourceIndex) => {
@@ -315,7 +258,7 @@ export const createVariableStorage = (
                     },
                     deviceSessionId: context?.deviceSessionId,
                   })
-                ).variables?.set as any as VariableSetResult<any>[],
+                ).variables?.set,
                 "No result."
               );
 
@@ -326,8 +269,8 @@ export const createVariableStorage = (
         forEach(response, (result, index) => {
           const [setter, sourceIndex] = requestVariables[index];
 
-          results[sourceIndex] = result;
-          result.source = setter as any;
+          (result as any).source = setter;
+          results[sourceIndex] = result as any;
         });
 
         return results as any;
@@ -357,3 +300,53 @@ export const createVariableStorage = (
 
   return vars as any;
 };
+
+/** Suggests the reserved names and their corresponding values for local variables, and helps autocomplete string enums (purpose etc.). */
+type GetterIntellisense<K extends string = ReservedVariableKey | "(any)"> =
+  readonly (
+    | ClientVariableGetter<any, "(any)" | (string & {}), false>
+    | (K extends infer K
+        ? ClientVariableGetter<ReservedVariableType<K>, K & string, true>
+        : // Only suggest reserved local names when local is true. This does that trick.
+
+          never)
+  )[];
+
+/** Suggests the reserved names and their corresponding values for local variables, and helps autocomplete string enums (purpose etc.). */
+type SetterIntellisense<K extends string = ReservedVariableKey | "(any)"> =
+  readonly (
+    | ClientVariableSetter<any, "(any)" | (string & {}), false>
+    | (K extends infer K
+        ? ClientVariableSetter<ReservedVariableType<K>, K & string, true>
+        : // Only suggest reserved local names when local is true. This does that trick.
+
+          never)
+  )[];
+
+type ValidateParameter<P, Getters> = P extends {
+  key: infer K & string;
+  scope: LocalVariableScope;
+}
+  ? If<
+      Getters,
+      ClientVariableGetter<ReservedVariableType<K>, K & string, true>,
+      ClientVariableSetter<ReservedVariableType<K>, K & string, true>
+    >
+  : P extends { key: infer K & string }
+  ? If<
+      Getters,
+      ClientVariableGetter<any, K & string, false>,
+      ClientVariableSetter<any, K & string, false>
+    >
+  : never;
+
+type ValidateParameters<P, Getters> = P extends readonly []
+  ? []
+  : P extends readonly [infer Item, ...infer Rest]
+  ? readonly [
+      ValidateParameter<Item, Getters>,
+      ...ValidateParameters<Rest, Getters>
+    ]
+  : P extends readonly (infer Item)[]
+  ? readonly ValidateParameter<Item, Getters>[]
+  : never;

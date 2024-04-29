@@ -223,7 +223,7 @@ export interface VariableVersion {
   modified?: Timestamp;
 
   /**
-   * A unique token that changes everytime a variable is changed.
+   * A unique token that changes every time a variable is changed.
    * It follows the semantics of a "weak" ETag in the HTTP protocol.
    * How the value is generated is an internal implementation detail specific to the storage that manages the variable.
    *

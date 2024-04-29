@@ -1,53 +1,5 @@
-import {
-  Binders,
-  Unbinder,
-  clock,
-  createEvent,
-  createEventBinders,
-  createTimer,
-  isArray,
-  joinEventBinders,
-  map,
-} from "@tailjs/util";
-
-type AllMaps = WindowEventMap &
-  GlobalEventHandlersEventMap &
-  DocumentEventMap &
-  HTMLElementEventMap & {
-    freeze: PageTransitionEvent;
-    resume: PageTransitionEvent;
-  };
-
-export const listen = <K extends keyof AllMaps>(
-  target: {
-    addEventListener(
-      type: string,
-      listener: EventListenerOrEventListenerObject,
-      options?: boolean | AddEventListenerOptions
-    ): void;
-    removeEventListener(
-      type: string,
-      listener: EventListenerOrEventListenerObject,
-      options?: boolean | EventListenerOptions
-    ): void;
-  },
-  name: K | K[],
-  listener: (
-    ev: AllMaps[K extends any[] ? K[number] : K],
-    unbind?: Unbinder
-  ) => any,
-  options: AddEventListenerOptions = { capture: true, passive: true }
-): Binders => {
-  return isArray(name)
-    ? joinEventBinders(
-        ...map(name, (name) => listen(target, name as any, listener, options))
-      )
-    : createEventBinders(
-        listener,
-        (listener) => target.addEventListener(name, listener, options),
-        (listener) => target.addEventListener(name, listener, options)
-      );
-};
+import { clock, createEvent, createTimer } from "@tailjs/util";
+import { listen } from ".";
 
 type PageLoadListenerArgs = [loaded: boolean, stateDuration: number];
 const [addPageLoadedListener, dispatchPageLoaded] =

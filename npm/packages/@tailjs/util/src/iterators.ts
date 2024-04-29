@@ -28,6 +28,7 @@ import {
   isMap,
   isObject,
   isSet,
+  isString,
   isTruish,
   symbolIterator,
   undefined,
@@ -535,19 +536,35 @@ const traverseInternal = <T>(
   return results;
 };
 
-type JoinResult<T> = T extends readonly []
-  ? never
-  : T extends readonly [infer Item, ...infer Rest]
-  ?
-      | Exclude<Item extends Iterable<infer T> ? T : Item, Nullish>
-      | JoinResult<Rest>
+type JoinResult<T> = (
+  T extends readonly []
+    ? never
+    : T extends readonly [infer Item, ...infer Rest]
+    ?
+        | Exclude<Item extends Iterable<infer T> ? T : Item, Nullish>
+        | JoinResult<Rest>
+    : never
+) extends infer Item
+  ? Item extends never
+    ? never
+    : Item[]
   : never;
 
-export const join = <S extends IteratorSource, P extends IteratorAction<S>>(
-  source: S,
-  projection?: P,
-  sep = ","
-): MaybeUndefined<S, string> => map(source, projection)?.join(sep)!;
+export const join: {
+  <S extends IteratorSource, P extends IteratorAction<S>>(
+    source: S,
+    separator?: string
+  ): MaybeUndefined<S, string>;
+  <S extends IteratorSource, P extends IteratorAction<S>>(
+    source: S,
+    projection: P,
+    separator?: string
+  ): MaybeUndefined<S, string>;
+} = (source: any, projection: any, sep?: any) =>
+  map(
+    source,
+    isFunction(projection) ? projection : ((sep ??= projection), undefined)
+  )?.join(sep ?? ",")!;
 
 type FinalIteratorItem<
   T,
@@ -599,9 +616,9 @@ export const unarray: {
 
 export const concat: {
   <T extends readonly any[]>(...items: T):
-    | JoinResult<T>[]
+    | JoinResult<T>
     | IfNot<HasRequired<T>>;
-  <T extends readonly any[]>(items: T): JoinResult<T>[] | IfNot<HasRequired<T>>;
+  <T extends readonly any[]>(items: T): JoinResult<T> | IfNot<HasRequired<T>>;
 } = (...items: any[]) => {
   let merged: any[] | undefined;
   forEach(

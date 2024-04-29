@@ -36,17 +36,15 @@ type VariableSuccessResult<
 > = PrettifyIntersection<
   R extends {
     current: infer V;
-    status: SuccessStatus<ChangedOnly>;
+    status: SuccessStatus<ChangedOnly> | VariableResultStatus.NotFound;
   } // Set result
-    ? V extends undefined
-      ? undefined
-      : Return extends "result"
+    ? Return extends "result"
       ? R
       : Return extends "variable"
       ? V
       : V extends { value: infer V }
       ? V
-      : "never"
+      : never
     : R extends {
         value?: infer V;
         status: SuccessStatus<ChangedOnly> | VariableResultStatus.NotFound;

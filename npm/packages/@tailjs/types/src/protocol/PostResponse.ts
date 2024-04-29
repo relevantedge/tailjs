@@ -5,9 +5,19 @@ import {
   VariableSetResult,
 } from "..";
 
+export type PostVariableGetResult = RestrictVariableTargets<
+  VariableGetResult,
+  true
+>;
+
+export type PostVariableSetResult = Omit<
+  RestrictVariableTargets<VariableSetResult, true>,
+  "source"
+>;
+
 export interface PostResponse {
   variables?: {
-    get?: (RestrictVariableTargets<VariableGetResult, true> | undefined)[];
+    get?: (PostVariableGetResult | undefined)[];
     set?: (
       | Omit<RestrictVariableTargets<VariableSetResult, true>, "source">
       | undefined
