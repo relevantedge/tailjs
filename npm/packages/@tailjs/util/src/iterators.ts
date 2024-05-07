@@ -1,32 +1,44 @@
 import {
-  Add,
   AllKeys,
-  ConstToNormal,
+  AnyAll,
+  ArraysAsEmpty,
   Entries,
+  Extends,
+  FILTER_NULLS,
   GeneralizeConstants,
-  HasRequired,
+  IDENTITY,
+  If,
   IfNot,
   IsAny,
   IterableOrArrayLike,
   KeyValuePairsToObject,
+  KeyValueSource,
+  KeyValueSourcesToObject,
   MAX_SAFE_INTEGER,
-  MaybePromise,
   MaybeUndefined,
   Minus,
   Nullish,
+  OmitNullish,
   Property,
   RecordType,
+  StrictUndefined,
+  ToggleReadonly,
+  UndefinedIfEmpty,
   add,
   array,
   get,
   hasMethod,
+  ifDefined,
+  isAnyObject,
   isArray,
+  isBoolean,
   isDefined,
   isFalsish,
   isFunction,
   isIterable,
   isMap,
-  isObject,
+  isNumber,
+  isPlainObject,
   isSet,
   isString,
   isTruish,
@@ -65,11 +77,11 @@ export type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
   ? any
   : S extends number
   ? number
-  : S extends RecordType
-  ? readonly [keyof S, S[keyof S]]
-  : S extends (...args: any) => infer T | undefined
+  : S extends RecordType<infer K, infer V>
+  ? readonly [K, V]
+  : S extends IterableOrArrayLike<infer T>
   ? T
-  : S extends Iterable<infer T>
+  : S extends (...args: any) => infer T | undefined
   ? T
   : never;
 
@@ -103,10 +115,7 @@ export type IteratorAction<
   S extends IteratorSource = IteratorSource,
   Projection = unknown,
   Value = IteratorItem<S>
-> =
-  | Nullish
-  | AllKeys<IteratorItem<S>>
-  | FunctionalIteratorAction<S, Projection, Value>;
+> = AllKeys<IteratorItem<S>> | FunctionalIteratorAction<S, Projection, Value>;
 
 // We need both the inferred return value from the IteratorAction and the IteratorAction itself used as the parameter
 // in functions like `<S extends IteratorSource, Return, Action>(source: S, action: IteratorAction<S,Return> | P)=>IteratorProjection<S,Return,Action>.
@@ -124,8 +133,25 @@ type IteratorProjection<
   : unknown extends Action
   ? Default
   : Action extends keyof any
-  ? Property<IteratorItem<S>, Action>
+  ? Exclude<Property<IteratorItem<S>, Action>, Nullish>
   : Return;
+
+type IteratorProjectionWithUndefined<
+  S extends IteratorSource,
+  Return,
+  Action,
+  Default = IteratorItem<S>
+> =
+  | IteratorProjection<S, Return, Action, Default>
+  | (Action extends (...args: any) => infer R
+      ? R extends typeof stop
+        ? undefined
+        : StrictUndefined<R>
+      : Action extends keyof any
+      ? StrictUndefined<Property<IteratorItem<S>, Action>>
+      : never) extends infer T
+  ? T
+  : never;
 
 type StartEndArgs<S extends IteratorSource> =
   | []
@@ -166,16 +192,22 @@ function* createFilteringIterator<S extends IteratorSource, R, P>(
   source: S,
   projection?: IteratorAction<S, R> | P
 ): Iterable<IteratorProjection<S, R, P>> {
-  if (!source) return;
-  projection = wrapProjection(projection);
-  let i = 0;
-  for (let item of source as any) {
-    if ((projection ? (item = projection(item, i++)) : item) != null) {
-      yield item;
+  if (source == null) return;
+  if (projection) {
+    projection = wrapProjection(projection)!;
+    let i = 0;
+    for (let item of source as any) {
+      if ((item = projection(item, i++)) != null) {
+        yield item;
+      }
+      if (stopInvoked) {
+        stopInvoked = false;
+        break;
+      }
     }
-    if (stopInvoked) {
-      stopInvoked = false;
-      break;
+  } else {
+    for (let item of source as any) {
+      if (item != null) yield item;
     }
   }
 }
@@ -200,8 +232,14 @@ function* createObjectIterator<S extends Record<keyof any, any>, R, P>(
   }
 }
 
-function* createRangeIterator(length = 0, offset = 0): Iterable<number> {
-  while (length--) yield offset++;
+function* createRangeIterator(length = 0, offset?: number): Iterable<number> {
+  if (length < 0) {
+    offset ??= -length - 1;
+    while (length++) yield offset--;
+  } else {
+    offset ??= 0;
+    while (length--) yield offset++;
+  }
 }
 
 export function* createStringIterator(
@@ -237,7 +275,7 @@ const sliceAction = <S extends IteratorSource, R, P>(
   end: any
 ): P =>
   (start ?? end) !== undefined
-    ? ((action = wrapProjection(action)),
+    ? ((action = wrapProjection(action)!),
       (start ??= 0),
       (end ??= MAX_SAFE_INTEGER),
       (value, index) =>
@@ -255,6 +293,12 @@ export type Filter<S extends IteratorSource> = (
   index: number
 ) => any;
 
+/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */
+export const filterArray = <T extends readonly any[] | undefined>(
+  array: T
+): T extends readonly (infer Item)[] ? OmitNullish<Item>[] : undefined =>
+  array?.filter(FILTER_NULLS) as any;
+
 const createIterator = <S extends IteratorSource, R, P>(
   source: S,
   projection?: IteratorAction<S, R> | P,
@@ -263,6 +307,8 @@ const createIterator = <S extends IteratorSource, R, P>(
 ): Iterable<IteratorProjection<S, R, P>> =>
   source == null
     ? ([] as any)
+    : !projection && isArray(source)
+    ? filterArray(source)
     : source[symbolIterator]
     ? createFilteringIterator(
         source,
@@ -270,7 +316,7 @@ const createIterator = <S extends IteratorSource, R, P>(
           ? projection
           : sliceAction(projection, start as any, end)
       )
-    : typeof source === "object"
+    : isAnyObject(source)
     ? createObjectIterator(
         source as any,
         sliceAction(projection, start as any, end)
@@ -328,45 +374,40 @@ export const project: ProjectFunction = ((
   end: any
 ) => createIterator(source, projection, start, end)) as any;
 
-export const flatten: FlatProjectFunction = function (
+function* flattenInternal(
+  value: any,
+  depth: number,
+  expandObjects: boolean,
+  nested: boolean
+) {
+  if (value != null) {
+    if (value[symbolIterator] || (expandObjects && isAnyObject(value))) {
+      for (const item of nested ? createIterator(value) : value) {
+        if (depth !== 1) {
+          yield* flattenInternal(item, depth - 1, expandObjects, true);
+        } else {
+          yield item;
+        }
+      }
+    } else {
+      yield value;
+    }
+  }
+}
+export const flatten: FlatProjectFunction = (
   source,
   projection?,
   depth = 1 as any,
   expandObjects: any = false,
   start?: any,
   end?: any
-) {
-  return inner(
+) =>
+  flattenInternal(
     createIterator(source, projection as any, start, end),
     depth + 1,
     expandObjects,
     false
   ) as any;
-
-  function* inner(
-    value: any,
-    depth: number,
-    expandObjects: boolean,
-    nested: boolean
-  ) {
-    if (value != null) {
-      if (
-        value?.[symbolIterator] ||
-        (expandObjects && value && typeof value === "object")
-      ) {
-        for (const item of nested ? createIterator(value) : value) {
-          if (depth > 1 || depth <= 0) {
-            yield* inner(item, depth - 1, expandObjects, true);
-          } else {
-            yield item;
-          }
-        }
-      } else {
-        yield value;
-      }
-    }
-  }
-};
 
 export const map: MapFunction = (
   source: any,
@@ -444,7 +485,7 @@ export const single: {
     ...rest: StartEndArgs<S>
   ): S extends undefined ? undefined : IteratorItem<S> | undefined;
 } = (source: any, projection?: any, start?: any, end?: any) =>
-  !source
+  source == null
     ? undefined
     : (source = mapDistinct(source, projection, start, end) as any).length > 1
     ? undefined
@@ -494,7 +535,14 @@ export const intersects = (
   b: Iterable<any> | undefined
 ) => !!count(intersection(a, b));
 
-export const flatMap = <
+export const flatMapKv = <S extends IteratorSource, R, P, D extends number = 1>(
+  source: S,
+  action?: IteratorAction<S, R> | P,
+  depth: D = 1 as any
+): FlatIteratorItem<IteratorProjection<S, R, P>, D, true>[] =>
+  flatMap(source, action, depth, true);
+
+export const flatMap: <
   S extends IteratorSource,
   R,
   P,
@@ -503,14 +551,20 @@ export const flatMap = <
 >(
   source: S,
   action?: IteratorAction<S, R> | P,
-  depth: D = 1 as any,
-  expandObjects: O = false as any,
+  depth?: D,
+  expandObjects?: O,
   ...rest: StartEndArgs<S>
-): FlatIteratorItem<IteratorProjection<S, R, P>, D, O>[] => {
-  return array(
-    flatten(source, action, depth, expandObjects, ...rest) as any
+) => FlatIteratorItem<IteratorProjection<S, R, P>, D, O>[] = (
+  source,
+  action,
+  depth = 1 as any,
+  expandObjects = false as any,
+  start?: any,
+  end?: any
+) =>
+  array(
+    (flatten as any)(source, action, depth, expandObjects, start, end) as any
   ) as any;
-};
 
 const traverseInternal = <T>(
   root: T | T[] | undefined,
@@ -536,35 +590,51 @@ const traverseInternal = <T>(
   return results;
 };
 
-type JoinResult<T> = (
-  T extends readonly []
-    ? never
-    : T extends readonly [infer Item, ...infer Rest]
-    ?
-        | Exclude<Item extends Iterable<infer T> ? T : Item, Nullish>
-        | JoinResult<Rest>
-    : never
-) extends infer Item
-  ? Item extends never
-    ? never
-    : Item[]
+type ConcatResult_<T> = T extends readonly []
+  ? never
+  : T extends readonly [infer Item, ...infer Rest]
+  ?
+      | Exclude<Item extends Iterable<infer T> ? T : Item, Nullish>
+      | ConcatResult_<Rest>
+  : T extends Iterable<infer Item>
+  ? Exclude<Item extends Iterable<infer T> ? T : Item, Nullish>
   : never;
 
+type ConcatResult<T> = ConcatResult_<T> extends never
+  ? undefined
+  : ConcatResult_<T>[];
+
 export const join: {
-  <S extends IteratorSource, P extends IteratorAction<S>>(
+  /**
+   *  Joins the specified items with a separator (default is "").
+   *  If the source is a string it will be returned as is.
+   *
+   *  The value `false` will be omitted to help syntax like `[condition && "yes"]`.   .
+   */
+  <S extends IteratorSource | string>(
     source: S,
     separator?: string
   ): MaybeUndefined<S, string>;
-  <S extends IteratorSource, P extends IteratorAction<S>>(
+
+  /**
+   * Joins the projection of the specified items with a separator (default is "").
+   * If the source is a string it will be considered an array with the string as its single element.
+   */
+  <S extends IteratorSource | string>(
     source: S,
-    projection: P,
+    projection: IteratorAction<S extends string ? [string] : S>,
     separator?: string
   ): MaybeUndefined<S, string>;
 } = (source: any, projection: any, sep?: any) =>
-  map(
-    source,
-    isFunction(projection) ? projection : ((sep ??= projection), undefined)
-  )?.join(sep ?? ",")!;
+  source == null
+    ? undefined
+    : isFunction(projection)
+    ? map(isString(source) ? [source] : source, projection)?.join(sep ?? "")
+    : isString(source)
+    ? source
+    : map(source, (item) => (item === false ? undefined : item))?.join(
+        projection ?? ""
+      );
 
 type FinalIteratorItem<
   T,
@@ -615,15 +685,17 @@ export const unarray: {
 } = (...items: any[]) => unnest(items.length === 1 ? items[0] : items, true);
 
 export const concat: {
+  <T extends readonly any[]>(items: T):
+    | ConcatResult<T>
+    | IfNot<AnyAll<ArraysAsEmpty<T[number]>, false>>;
   <T extends readonly any[]>(...items: T):
-    | JoinResult<T>
-    | IfNot<HasRequired<T>>;
-  <T extends readonly any[]>(items: T): JoinResult<T> | IfNot<HasRequired<T>>;
+    | ConcatResult<T>
+    | IfNot<AnyAll<ArraysAsEmpty<T[number]>, false>>;
 } = (...items: any[]) => {
   let merged: any[] | undefined;
   forEach(
     items.length === 1 ? items[0] : items,
-    (item) => item && (merged ??= []).push(...(array(item) as any))
+    (item) => item != null && (merged ??= []).push(...(array(item) as any))
   );
   return merged as any;
 };
@@ -689,11 +761,7 @@ const forEachObject = (source: any, action: any) => {
   return returnValue;
 };
 
-export const apply: <
-  S extends IterableOrArrayLike<any> | undefined,
-  R,
-  Args extends readonly any[]
->(
+export const apply: <S extends IteratorSource, R, Args extends readonly any[]>(
   source: S,
   action: (item: IteratorItem<S>, ...args: Args) => R,
   ...args: Args
@@ -704,7 +772,7 @@ export const apply: <
 ) => map(source, (item) => action(item, ...args)) as any;
 
 export const applyAsync: <
-  S extends IterableOrArrayLike<any> | undefined,
+  S extends IteratorSource,
   R extends PromiseLike<any>,
   Args extends readonly any[]
 >(
@@ -789,36 +857,67 @@ type KeyValueParts<T> = T extends readonly [infer Key, infer Value]
   ? [Key, Value]
   : [undefined, undefined];
 
-export const obj = <S extends IteratorSource, R extends readonly [any, any], P>(
-  source: S,
-  selector?: IteratorAction<S, R> | P,
-  merge?: (
-    current: KeyValueParts<IteratorProjection<S, R, P>>[1] | undefined,
-    value: KeyValueParts<IteratorProjection<S, R, P>>[1]
-  ) => KeyValueParts<IteratorProjection<S, R, P>>[1] | undefined
-): MaybeUndefined<
-  S,
-  KeyValuePairsToObject<
-    ConstToNormal<Exclude<IteratorProjection<S, R, P>, Nullish>>
-  >
-> => {
-  let result: Record<any, any> = {};
-  selector = wrapProjection(selector);
-  return forEach(
-    source,
-    (
-      item,
-      i,
-      [key, value] = (selector ? (selector(item, i) as any) : item) ?? []
-    ) =>
-      key != null &&
-      value != null &&
-      (!merge || (value = merge(result[key], value)) != null) &&
-      ((result[key] = value), true)
-  )
-    ? result
-    : (undefined as any);
-};
+const fromEntries = Object.fromEntries;
+
+/**
+ * Like Object.fromEntries, but accepts any iterable source and a projection instead of just key/value pairs.
+ * Properties with undefined values are not included in the resulting object.
+ */
+export const obj: {
+  <S extends KeyValueSource | Nullish>(source: S): MaybeUndefined<
+    S,
+    KeyValuePairsToObject<IteratorItem<S>>
+  >;
+  <S extends Iterable<KeyValueSource> | Nullish, G extends boolean>(
+    source: S,
+    group: G
+  ): S extends Nullish
+    ? undefined
+    : KeyValueSourcesToObject<IteratorItem<S>, G>;
+
+  <S extends IteratorSource | Nullish, R extends readonly [any, any], P>(
+    source: S,
+    selector: IteratorAction<S, R> | P,
+    merge?: (
+      current: KeyValueParts<IteratorProjection<S, R, P>>[1] | undefined,
+      value: KeyValueParts<IteratorProjection<S, R, P>>[1]
+    ) => KeyValueParts<IteratorProjection<S, R, P>>[1] | Nullish
+  ): KeyValuePairsToObject<IteratorProjection<S, R, P>>;
+} = ((source: any, selector?: any, merge?: any) => {
+  if (source == null) return undefined;
+
+  if (isBoolean(selector) || merge) {
+    let result = {} as any;
+    forEach(
+      source,
+      merge
+        ? (item, i) =>
+            (item = selector(item, i)) != null &&
+            isDefined((item[1] = merge(result[item[0]], item[1]))?.[1]) &&
+            (result[item[0]] = item[1])
+        : (source) =>
+            forEach(
+              source,
+              selector
+                ? (item) =>
+                    isDefined(item?.[1]) != null &&
+                    ((result[item[0]] ??= []).push(item[1]), result)
+                : (item) =>
+                    isDefined(item?.[1]) &&
+                    ((result[item[0]] = item[1]), result)
+            )
+    );
+    return result;
+  }
+  return fromEntries(
+    map(
+      source,
+      selector
+        ? (item, index) => ifDefined(selector(item, index), 1)
+        : (item) => ifDefined(item, 1)
+    )!
+  );
+}) as any;
 
 export const groupReduce: <
   S extends IteratorSource,
@@ -968,7 +1067,7 @@ export const count: <S extends IteratorSource>(
   start?: any,
   end?: any
 ) => {
-  if (!source) return undefined as any;
+  if (source == null) return undefined as any;
 
   let n: number;
   if (filter) {
@@ -1010,6 +1109,73 @@ export const sum: {
     end
   );
 
+type CanBeEmptySource<S extends IteratorSource> = any[] extends S
+  ? true
+  : S extends { length: 0 } | 0 // Zero length range.
+  ? true
+  : S extends readonly any[] | number
+  ? false
+  : true;
+
+type MinMaxFunction = {
+  <S extends readonly number[]>(...numbers: S | readonly [number]):
+    | (S extends readonly [] ? undefined : number)
+    | UndefinedIfEmpty<S>;
+  <S extends IteratorSource, R, P>(
+    source: S | readonly [number],
+    selector?: IteratorAction<S, R> | P,
+    ...rest: StartEndArgs<S>
+  ): true extends CanBeEmptySource<S>
+    ? number | undefined
+    : If<
+        Extends<IteratorProjectionWithUndefined<S, R, P>, number>,
+        number,
+        undefined
+      >;
+};
+
+export const min: MinMaxFunction = (source: any, ...args: any[]) =>
+  source == null
+    ? undefined
+    : isNumber(source)
+    ? Math.min(source, ...args)
+    : reduce(
+        source,
+        (
+          min,
+          value,
+          index,
+          projected = args[1] ? args[1](value, index) : value
+        ) =>
+          min == null || (isNumber(project) && projected < min)
+            ? projected
+            : max,
+        undefined,
+        args[2],
+        args[3]
+      );
+
+export const max: MinMaxFunction = (source: any, ...args: any[]) =>
+  source == null
+    ? undefined
+    : isNumber(source)
+    ? Math.max(source, ...args)
+    : reduce(
+        source,
+        (
+          max,
+          value,
+          index,
+          projected = args[1] ? args[1](value, index) : value
+        ) =>
+          max == null || (isNumber(projected) && projected > max)
+            ? projected
+            : max,
+        undefined,
+        args[2],
+        args[3]
+      );
+
 export const values: <S extends IteratorSource>(
   source: S,
   ...rest: StartEndArgs<S>
@@ -1019,7 +1185,7 @@ export const values: <S extends IteratorSource>(
 > = (source, start?: any, end?: any) =>
   (map as any)(
     source,
-    isObject(source) ? (item: any) => item[1] : (item: any) => item,
+    isPlainObject(source) ? (item: any) => item[1] : (item: any) => item,
     start,
     end
   );
@@ -1027,7 +1193,7 @@ export const values: <S extends IteratorSource>(
 export const entries: <S extends Iterable<any> | RecordType>(
   target: S
 ) => Entries<S> = (target) =>
-  isIterable(target)
+  !isArray(target) && isIterable(target)
     ? map(
         target,
         isMap(target)
@@ -1036,7 +1202,7 @@ export const entries: <S extends Iterable<any> | RecordType>(
           ? (value) => [value, true]
           : (value, index) => [index, value]
       )
-    : isObject(target, true)
+    : isAnyObject(target)
     ? (Object.entries(target) as any)
     : undefined;
 
@@ -1049,7 +1215,9 @@ export const keys: <S extends IteratorSource>(
 > = (source, start?: any, end?: any) =>
   (map as any)(
     source,
-    isObject(source) ? (item: any) => item[0] : (_item: any, i: number) => i,
+    isPlainObject(source)
+      ? (item: any) => item[0]
+      : (_item: any, i: number) => i,
     start,
     end
   );
@@ -1064,17 +1232,18 @@ export const mapFirst: <S extends IteratorSource, R, P>(
   start?: any,
   end?: any
 ) =>
-  !source ||
-  ((projection = wrapProjection(projection)),
-  forEachInternal(
-    source,
-    (value, i) =>
-      !projection || (value = projection(value, i) as any)
-        ? stop(value)
-        : undefined,
-    start,
-    end
-  ));
+  source == null
+    ? undefined
+    : ((projection = wrapProjection(projection)!),
+      forEachInternal(
+        source,
+        (value, i) =>
+          !projection || (value = projection(value, i) as any)
+            ? stop(value)
+            : undefined,
+        start,
+        end
+      ));
 
 export const first: <S extends IteratorSource>(
   source: S,
@@ -1086,13 +1255,15 @@ export const first: <S extends IteratorSource>(
   start?: any,
   end?: any
 ) =>
-  !source ||
-  forEachInternal(
-    source,
-    (value, i) => (!predicate || predicate(value, i) ? stop(value) : undefined),
-    start,
-    end
-  );
+  source == null
+    ? undefined
+    : forEachInternal(
+        source,
+        (value, i) =>
+          !predicate || predicate(value, i) ? stop(value) : undefined,
+        start,
+        end
+      );
 
 export const last: <S extends IteratorSource>(
   source: S,
@@ -1104,7 +1275,7 @@ export const last: <S extends IteratorSource>(
   start?: any,
   end?: any
 ) =>
-  !source
+  source == null
     ? undefined
     : isArray(source)
     ? source[source.length - 1]
@@ -1125,7 +1296,7 @@ export const find: <S extends IteratorSource>(
   start?: any,
   end?: any
 ) =>
-  !source
+  source == null
     ? undefined
     : (source as any).find
     ? (source as any).find(predicate)
@@ -1141,23 +1312,25 @@ export const some: <S extends IteratorSource>(
 ) => MaybeUndefined<S, boolean> = (source, predicate, start?: any, end?: any) =>
   source == null
     ? undefined
-    : hasMethod(source, "some")
-    ? source.some(predicate ?? isTruish)
-    : forEachInternal<any, boolean>(
+    : isPlainObject(source) && !predicate
+    ? Object.keys(source).length > 0
+    : (source as any).some?.(predicate ?? isTruish) ??
+      forEachInternal<any, boolean>(
         source,
         predicate
           ? (item, index) => (predicate(item, index) ? stop(true) : false)
           : () => stop(true),
         start,
         end
-      ) ?? false;
+      ) ??
+      false;
 
 export const every: <S extends IteratorSource>(
   source: S,
   predicate?: Filter<S>,
   ...rest: StartEndArgs<S>
 ) => MaybeUndefined<S, boolean> = (source, predicate, start?: any, end?: any) =>
-  !source
+  source == null
     ? undefined
     : (!(some as any)(
         source,

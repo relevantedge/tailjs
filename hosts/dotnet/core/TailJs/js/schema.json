@@ -2,13 +2,257 @@
   "$id": "urn:tailjs:core",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
+    "TrackedEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "schema": {
+              "type": "string",
+              "description": "The ID of the schema the event comes from. It is suggested that the schema ID ends with a hash followed by a SemVer version number. (e.g. urn:tailjs#0.9.0)"
+            },
+            "id": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "This may be assigned or transformed by backends if needed. It is client-assigned for  {@link  ViewEvent } s"
+            },
+            "clientId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "This is set by the client and can be used to dedupplicate events sent multiple times if the endpoint timed out."
+            },
+            "retry": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "The number of times the client tried to sent the event if the endpoint timed out",
+              "default": 0
+            },
+            "relatedEventId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } , and a  {@link  ImpressionTimingEvent }  applies to a  {@link  ImpressionEvent } ."
+            },
+            "session": {
+              "$ref": "urn:tailjs:core#/definitions/Session",
+              "description": "The session associated with the event."
+            },
+            "view": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "When applicable, the view where the event happened (related by  {@link  ViewEvent } )."
+            },
+            "timestamp": {
+              "$ref": "urn:tailjs:core#/definitions/Timestamp",
+              "description": "This timestamp will always have a value before it reaches a backend. If specified, it must be a negative number when sent from the client (difference between when the event was generated and when is was posted in milliseconds).",
+              "default": "now"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happend, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
+      "$id": "urn:tailjs:core:event",
+      "x-privacy-purpose": "anonymous",
+      "x-privacy-censor": "ignore"
+    },
+    "Tagged": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:tailjs:core#/definitions/Tag"
+          },
+          "description": "Tags in tailjs are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxnonmy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `conversion:high-value`, `rendering:component:theme=dark`, `ad-campaign=43899` and `ext1:video:play`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the names can be organized in taxonomies with each rank separated by colon (`:`). If there are more than one tag they are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters to store a list of values in the same tag is strongly discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` LESS BAD: `event:eventbrite=8487912` GOOD: Use an  {@link  ExternalReference } .\n\nBAD: `campaign:promo=1, campaign:length:4` GOOD: `campaign:promo, campaign:length=4`\n\nTags can be either be added directly to content and component definitions, or added to HTML tags with the `track-tags` attribute or `--track-tags` CSS property. In the latter case all tags from the HTML elements that contain a component or surround content are added to tracking when the user clicks around.\n\nThis allows some tags to be managed via e.g. CMS and follow thec content around wherever it is used on the website, and other tags to be included by the logic that puts the bits and pieces together to the final webpage the user sees.\n\nThis unified approach gives a clear way to store all domain-specific data in a way that goes very well with analytics. If the shape of the data you want to store is too complex to easily fit into tags, you can instead extend the tracker's event schema."
+        }
+      },
+      "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details."
+    },
+    "Tag": {
+      "type": "string"
+    },
+    "LocalID": {
+      "type": "string",
+      "description": "An ID that is unique to the current client."
+    },
+    "Integer": {
+      "type": "number"
+    },
+    "Session": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "$ref": "urn:tailjs:core#/definitions/UUID",
+          "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.",
+          "x-privacy-purpose": "anonymous"
+        },
+        "deviceId": {
+          "$ref": "urn:tailjs:core#/definitions/UUID",
+          "description": "The unique ID of the user's device. This ID does most likely not identify the device reliably over time, since it may be reset if the user purges tracking data, e.g. clears cookies or changes browser.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+        },
+        "deviceSessionId": {
+          "$ref": "urn:tailjs:core#/definitions/UUID",
+          "description": "The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again. This means that device sessions can both be significantly shorter and longer that \"normal\" sessions in that it restarts whenever the user navigates completely away from the site and comes back (e.g. while evaluating search results), but it will also survive the user putting their computer to sleep or leaving their browser app in the background for a long time on their phone.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The current user owning the session.",
+          "x-privacy-class": "direct"
+        },
+        "consent": {
+          "$ref": "urn:tailjs:core#/definitions/UserConsent",
+          "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less.",
+          "x-privacy-purpose": "anonymous"
+        },
+        "clientIp": {
+          "type": "string",
+          "description": "The IP address of the device where the session is active.",
+          "x-privacy-class": "indirect",
+          "x-privacy-purpose": "infrastructure"
+        },
+        "expiredDeviceSessionId": {
+          "type": "string",
+          "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session)."
+        }
+      },
+      "required": [
+        "sessionId",
+        "consent"
+      ],
+      "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
+      "x-privacy-class": "indirect",
+      "x-privacy-purpose": "necessary"
+    },
+    "UUID": {
+      "type": "string"
+    },
+    "UserConsent": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "anyOf": [
+            {
+              "const": 0,
+              "description": "The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.\n\nTail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.\n\nIdentifying returning visitors will not be possible at this level.\nIn-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation."
+            },
+            {
+              "const": 1,
+              "description": "The data may possibly identify the user if put into context with other data, yet not specifically on its own.\n\nExamples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.\n\nIdentifying returning visitors will be possible at this level of consent, but not across devices.\nSome level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.\n\nThis level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation."
+            },
+            {
+              "const": 2,
+              "description": "The data directly identifies the user on its own.\n\nExamples are name, username, street address and email address.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nPersonalization based on past actions such as purchases will also be possible.\n\nThis level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).\n\nPlease note it is possible to access user data even when nothing is tracked beyond the bla... level\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings."
+            },
+            {
+              "const": 3,
+              "description": "Sensitive data about a user.\n\nExamples are data related to health, financial matters, race, political and religious views, and union membership.\nIf the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nand so will advanced personalization.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings."
+            }
+          ],
+          "description": "The highest level of data classification the user has consented to be stored."
+        },
+        "purposes": {
+          "anyOf": [
+            {
+              "const": 0,
+              "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema."
+            },
+            {
+              "const": 1,
+              "description": "Data stored for this purpose is vital for the system, website or app to function."
+            },
+            {
+              "const": 2,
+              "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n"
+            },
+            {
+              "const": 4,
+              "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n"
+            },
+            {
+              "const": 8,
+              "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties\nor otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary\nto use this category.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names."
+            },
+            {
+              "const": 16,
+              "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`."
+            },
+            {
+              "const": 32,
+              "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`."
+            },
+            {
+              "const": 49,
+              "description": "All purposes that are permissable for anonymous users."
+            },
+            {
+              "const": 63,
+              "description": "Data can be used for any purpose."
+            },
+            {
+              "const": 64,
+              "description": "The data is not available client-side.\nNote that this is a special flag that is not included in \"Any\""
+            }
+          ],
+          "description": "The purposes the user has consented their data to be used for.",
+          "x-privacy-purpose": "anonymous"
+        }
+      },
+      "required": [
+        "level",
+        "purposes"
+      ],
+      "description": "A user's consent choices."
+    },
+    "Timestamp": {
+      "type": "number"
+    },
+    "NamedParameters<typeof isTrackedEvent>": {
+      "type": "object",
+      "properties": {
+        "ev": {}
+      },
+      "required": [
+        "ev"
+      ],
+      "additionalProperties": false
+    },
+    "PassiveEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "passive": {
+              "type": "boolean",
+              "const": true,
+              "description": "This property must be implemented in events implementing the interface. Since events are just data templates and not polymorphic classes"
+            },
+            "relatedEventId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } , and a  {@link  ImpressionTimingEvent }  applies to a  {@link  ImpressionEvent } ."
+            }
+          },
+          "required": [
+            "passive",
+            "relatedEventId"
+          ]
+        }
+      ],
+      "description": "Base type for events that adds timing or similar data to events that has already been posted. These events are special in the sense that they do not start a new session, so if the session has expired after the event they relate to they will not get tracked."
+    },
     "UserInteractionEvent": {
       "allOf": [
         {
           "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
         },
         {
-          "$ref": "urn:tailjs:core#/definitions/ViewTimingEvent"
+          "$ref": "urn:tailjs:core#/definitions/ViewTimingData"
         },
         {
           "type": "object",
@@ -50,383 +294,31 @@
         }
       ]
     },
-    "TrackedEvent": {
-      "allOf": [
-        {
-          "$ref": "urn:tailjs:core#/definitions/Tagged"
-        },
-        {
+    "ViewTimingData": {
+      "type": "object",
+      "properties": {
+        "timing": {
           "type": "object",
           "properties": {
-            "type": {
-              "type": "string",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            "interactiveTime": {
+              "$ref": "urn:tailjs:core#/definitions/Duration",
+              "description": "The time the user has been active in the view/tab. Interactive time is measured as the time where the user is actively scrolling, typing or similar. Specifically defined as [transient activation](https://developer.mozilla.org/en-US/docs/Glossary/Transient_activation) with a timeout of 10 seconds."
             },
-            "schema": {
-              "type": "string",
-              "description": "The ID of the schema the event comes from. It is suggested that the schema ID ends with a hash followed by a SemVer version number. (e.g. urn:tailjs#0.9.0)"
+            "visibleTime": {
+              "$ref": "urn:tailjs:core#/definitions/Duration",
+              "description": "The time the view/tab has been visible."
             },
-            "id": {
-              "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "This may be assigned or transformed by backends if needed. It is client-assigned for  {@link  ViewEvent } s"
+            "totalTime": {
+              "$ref": "urn:tailjs:core#/definitions/Duration",
+              "description": "The time elapsed since the view/tab was opened."
             },
-            "clientId": {
-              "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "This is set by the client and can be used to dedupplicate events sent multiple times if the endpoint timed out."
-            },
-            "retry": {
+            "activations": {
               "$ref": "urn:tailjs:core#/definitions/Integer",
-              "description": "The number of times the client tried to sent the event if the endpoint timed out",
-              "default": 0
-            },
-            "relatedEventId": {
-              "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } , and a  {@link  ImpressionSummaryEvent }  applies to a  {@link  ImpressionEvent } ."
-            },
-            "session": {
-              "$ref": "urn:tailjs:core#/definitions/Session",
-              "description": "The session associated with the event."
-            },
-            "view": {
-              "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "When applicable, the view where the event happened (related by  {@link  ViewEvent } )."
-            },
-            "timestamp": {
-              "$ref": "urn:tailjs:core#/definitions/Timestamp",
-              "description": "This timestamp will always have a value before it reaches a backend. If specified, it must be a negative number when sent from the client (difference between when the event was generated and when is was posted in milliseconds).",
-              "default": "now"
-            }
-          },
-          "required": [
-            "type"
-          ]
-        }
-      ],
-      "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happend, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
-      "$id": "urn:tailjs:core:event",
-      "x-privacy-purposes": [
-        "necessary",
-        "security",
-        "infrastructure",
-        "anonymous"
-      ],
-      "x-privacy-censor": "ignore"
-    },
-    "Tagged": {
-      "type": "object",
-      "properties": {
-        "tags": {
-          "type": "array",
-          "items": {
-            "$ref": "urn:tailjs:core#/definitions/Tag"
-          },
-          "description": "Tags in tailjs are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxnonmy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `conversion:high-value`, `rendering:component:theme=dark`, `ad-campaign=43899` and `ext1:video:play`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the names can be organized in taxonomies with each rank separated by colon (`:`). If there are more than one tag they are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters to store a list of values in the same tag is strongly discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` LESS BAD: `event:eventbrite=8487912` GOOD: Use an  {@link  ExternalReference } .\n\nBAD: `campaign:promo=1, campaign:length:4` GOOD: `campaign:promo, campaign:length=4`\n\nTags can be either be added directly to content and component definitions, or added to HTML tags with the `track-tags` attribute or `--track-tags` CSS property. In the latter case all tags from the HTML elements that contain a component or surround content are added to tracking when the user clicks around.\n\nThis allows some tags to be managed via e.g. CMS and follow thec content around wherever it is used on the website, and other tags to be included by the logic that puts the bits and pieces together to the final webpage the user sees.\n\nThis unified approach gives a clear way to store all domain-specific data in a way that goes very well with analytics. If the shape of the data you want to store is too complex to easily fit into tags, you can instead extend the tracker's event schema."
-        }
-      },
-      "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details."
-    },
-    "Tag": {
-      "type": "string"
-    },
-    "LocalID": {
-      "type": "string",
-      "description": "An ID that is unique to the current client."
-    },
-    "Integer": {
-      "type": "number"
-    },
-    "Session": {
-      "type": "object",
-      "properties": {
-        "sessionId": {
-          "$ref": "urn:tailjs:core#/definitions/UUID",
-          "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.",
-          "x-privacy-purposes": [
-            "necessary",
-            "security",
-            "infrastructure",
-            "anonymous"
-          ]
-        },
-        "deviceId": {
-          "$ref": "urn:tailjs:core#/definitions/UUID",
-          "description": "The unique ID of the user's device. This ID does most likely not identify the device reliably over time, since it may be reset if the user purges tracking data, e.g. clears cookies or changes browser.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
-        },
-        "deviceSessionId": {
-          "$ref": "urn:tailjs:core#/definitions/UUID",
-          "description": "The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again. This means that device sessions can both be significantly shorter and longer that \"normal\" sessions in that it restarts whenever the user navigates completely away from the site and comes back (e.g. while evaluating search results), but it will also survive the user putting their computer to sleep or leaving their browser app in the background for a long time on their phone.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
-        },
-        "userId": {
-          "type": "string",
-          "description": "The current user owning the session.",
-          "x-privacy-class": "direct"
-        },
-        "consent": {
-          "$ref": "urn:tailjs:core#/definitions/UserConsent",
-          "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less.",
-          "x-privacy-purposes": [
-            "necessary",
-            "security",
-            "infrastructure",
-            "anonymous"
-          ]
-        },
-        "clientIp": {
-          "type": "string",
-          "description": "The IP address of the device where the session is active.",
-          "x-privacy-class": "indirect",
-          "x-privacy-purpose": "infrastructure"
-        },
-        "expiredDeviceSessionId": {
-          "type": "string",
-          "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session)."
-        }
-      },
-      "required": [
-        "sessionId",
-        "consent"
-      ],
-      "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
-      "x-privacy-class": "indirect",
-      "x-privacy-purpose": "necessary"
-    },
-    "UUID": {
-      "type": "string"
-    },
-    "UserConsent": {
-      "type": "object",
-      "properties": {
-        "level": {
-          "$ref": "urn:tailjs:core#/definitions/DataClassificationValue",
-          "description": "The highest level of data classification the user has consented to be stored."
-        },
-        "purposes": {
-          "$ref": "urn:tailjs:core#/definitions/DataPurposeValue",
-          "description": "The purposes the user has consented their data to be used for.",
-          "x-privacy-purposes": [
-            "necessary",
-            "security",
-            "infrastructure",
-            "anonymous"
-          ]
-        }
-      },
-      "required": [
-        "level",
-        "purposes"
-      ],
-      "description": "A user's consent choices."
-    },
-    "DataClassificationValue": {
-      "anyOf": [
-        {
-          "description": "The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.\n\nTail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.\n\nIdentifying returning visitors will not be possible at this level.\nIn-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.",
-          "enum": [
-            "anonymous",
-            0
-          ]
-        },
-        {
-          "description": "The data may possibly identify the user if put into context with other data, yet not specifically on its own.\n\nExamples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.\n\nIdentifying returning visitors will be possible at this level of consent, but not across devices.\nSome level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.\n\nThis level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.",
-          "enum": [
-            "indirect",
-            1
-          ]
-        },
-        {
-          "description": "The data directly identifies the user on its own.\n\nExamples are name, username, street address and email address.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nPersonalization based on past actions such as purchases will also be possible.\n\nThis level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).\n\nPlease note it is possible to access user data even when nothing is tracked beyond the bla... level\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.",
-          "enum": [
-            "direct",
-            2
-          ]
-        },
-        {
-          "description": "Sensitive data about a user.\n\nExamples are data related to health, financial matters, race, political and religious views, and union membership.\nIf the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nand so will advanced personalization.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.",
-          "enum": [
-            "sensitive",
-            3
-          ]
-        }
-      ]
-    },
-    "DataPurposeValue": {
-      "anyOf": [
-        {
-          "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema.",
-          "enum": [
-            "none",
-            0
-          ]
-        },
-        {
-          "description": "Data stored for this purpose is vital for the system, website or app to function.",
-          "enum": [
-            "necessary",
-            1
-          ]
-        },
-        {
-          "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
-          "enum": [
-            "functionality",
-            2
-          ]
-        },
-        {
-          "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
-          "enum": [
-            "performance",
-            4
-          ]
-        },
-        {
-          "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties\nor otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary\nto use this category.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.",
-          "enum": [
-            "targeting",
-            8
-          ]
-        },
-        {
-          "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`.",
-          "enum": [
-            "security",
-            16
-          ]
-        },
-        {
-          "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`.",
-          "enum": [
-            "infrastructure",
-            32
-          ]
-        },
-        {
-          "description": "All purposes that are permissable for anonymous users.",
-          "enum": [
-            "anonymous",
-            49
-          ]
-        },
-        {
-          "description": "Data can be used for any purpose.",
-          "enum": [
-            "any",
-            63
-          ]
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "array",
-          "items": {
-            "anyOf": [
-              {
-                "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema.",
-                "enum": [
-                  "none",
-                  0
-                ]
-              },
-              {
-                "description": "Data stored for this purpose is vital for the system, website or app to function.",
-                "enum": [
-                  "necessary",
-                  1
-                ]
-              },
-              {
-                "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
-                "enum": [
-                  "functionality",
-                  2
-                ]
-              },
-              {
-                "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
-                "enum": [
-                  "performance",
-                  4
-                ]
-              },
-              {
-                "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties\nor otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary\nto use this category.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.",
-                "enum": [
-                  "targeting",
-                  8
-                ]
-              },
-              {
-                "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`.",
-                "enum": [
-                  "security",
-                  16
-                ]
-              },
-              {
-                "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`.",
-                "enum": [
-                  "infrastructure",
-                  32
-                ]
-              },
-              {
-                "description": "All purposes that are permissable for anonymous users.",
-                "enum": [
-                  "anonymous",
-                  49
-                ]
-              },
-              {
-                "description": "Data can be used for any purpose.",
-                "enum": [
-                  "any",
-                  63
-                ]
-              },
-              {
-                "type": "number"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "Timestamp": {
-      "type": "number"
-    },
-    "ViewTimingEvent": {
-      "allOf": [
-        {
-          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "timing": {
-              "type": "object",
-              "properties": {
-                "interactiveTime": {
-                  "$ref": "urn:tailjs:core#/definitions/Duration",
-                  "description": "The time the user has been active in the view/tab. Interactive time is measured as the time where the user is actively scrolling, typing or similar. Specifically defined as [transient activation](https://developer.mozilla.org/en-US/docs/Glossary/Transient_activation) with a timeout of 10 seconds."
-                },
-                "visibleTime": {
-                  "$ref": "urn:tailjs:core#/definitions/Duration",
-                  "description": "The time the view/tab has been visible."
-                },
-                "totalTime": {
-                  "$ref": "urn:tailjs:core#/definitions/Duration",
-                  "description": "The time elapsed since the view/tab was opened."
-                },
-                "activations": {
-                  "$ref": "urn:tailjs:core#/definitions/Integer",
-                  "description": "The number of times the user toggled away from the view/tab and back."
-                }
-              }
+              "description": "The number of times the user toggled away from the view/tab and back."
             }
           }
         }
-      ],
+      },
       "description": "Implemented by events where it makes sense to know when they happened relative to their tab."
     },
     "Duration": {
@@ -831,7 +723,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "COMPONENT_CLICK_INTENT",
+              "const": "component_click_intent",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -852,7 +744,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "COMPONENT_VIEW",
+              "const": "component_view",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -873,7 +765,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "NAVIGATION",
+              "const": "navigation",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "clientId": {
@@ -940,7 +832,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "SCROLL",
+              "const": "scroll",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "offset": {
@@ -977,7 +869,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "SEARCH",
+              "const": "search",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "query": {
@@ -1059,7 +951,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "SESSION_STARTED",
+              "const": "session_started",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "url": {
@@ -1079,22 +971,7 @@
           ]
         }
       ],
-      "x-privacy-purposes": [
-        "necessary",
-        "security",
-        "infrastructure",
-        "anonymous"
-      ]
-    },
-    "NamedParameters<typeof isTrackedEvent>": {
-      "type": "object",
-      "properties": {
-        "ev": {}
-      },
-      "required": [
-        "ev"
-      ],
-      "additionalProperties": false
+      "x-privacy-purpose": "anonymous"
     },
     "UserAgentLanguage": {
       "type": "object",
@@ -1140,7 +1017,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "USER_AGENT",
+              "const": "user_agent",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "hasTouch": {
@@ -1265,7 +1142,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "VIEW",
+              "const": "view",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "clientId": {
@@ -1415,20 +1292,20 @@
         }
       ]
     },
-    "ViewEndedEvent": {
+    "ViewTimingEvent": {
       "allOf": [
         {
-          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+          "$ref": "urn:tailjs:core#/definitions/ViewTimingData"
         },
         {
-          "$ref": "urn:tailjs:core#/definitions/ViewTimingEvent"
+          "$ref": "urn:tailjs:core#/definitions/PassiveEvent"
         },
         {
           "type": "object",
           "properties": {
             "type": {
               "type": "string",
-              "const": "VIEW_ENDED",
+              "const": "view_timing",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -1452,7 +1329,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "SESSION_LOCATION",
+              "const": "session_location",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "accuracy": {
@@ -1470,12 +1347,7 @@
             },
             "country": {
               "$ref": "urn:tailjs:core#/definitions/GeoEntity",
-              "x-privacy-purposes": [
-                "necessary",
-                "security",
-                "infrastructure",
-                "anonymous"
-              ]
+              "x-privacy-purpose": "anonymous"
             },
             "continent": {
               "$ref": "urn:tailjs:core#/definitions/GeoEntity"
@@ -1529,7 +1401,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "ANCHOR_NAVIGATION",
+              "const": "anchor_navigation",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "anchor": {
@@ -1555,7 +1427,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "CONSENT",
+              "const": "consent",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "level": {
@@ -1571,6 +1443,195 @@
         }
       ],
       "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are required to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
+    },
+    "DataClassificationValue": {
+      "anyOf": [
+        {
+          "description": "The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.\n\nTail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.\n\nIdentifying returning visitors will not be possible at this level.\nIn-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.",
+          "enum": [
+            "anonymous",
+            0
+          ]
+        },
+        {
+          "description": "The data may possibly identify the user if put into context with other data, yet not specifically on its own.\n\nExamples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.\n\nIdentifying returning visitors will be possible at this level of consent, but not across devices.\nSome level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.\n\nThis level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.",
+          "enum": [
+            "indirect",
+            1
+          ]
+        },
+        {
+          "description": "The data directly identifies the user on its own.\n\nExamples are name, username, street address and email address.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nPersonalization based on past actions such as purchases will also be possible.\n\nThis level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).\n\nPlease note it is possible to access user data even when nothing is tracked beyond the bla... level\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.",
+          "enum": [
+            "direct",
+            2
+          ]
+        },
+        {
+          "description": "Sensitive data about a user.\n\nExamples are data related to health, financial matters, race, political and religious views, and union membership.\nIf the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nand so will advanced personalization.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.",
+          "enum": [
+            "sensitive",
+            3
+          ]
+        }
+      ]
+    },
+    "DataPurposeValue": {
+      "anyOf": [
+        {
+          "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema.",
+          "enum": [
+            "none",
+            0
+          ]
+        },
+        {
+          "description": "Data stored for this purpose is vital for the system, website or app to function.",
+          "enum": [
+            "necessary",
+            1
+          ]
+        },
+        {
+          "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
+          "enum": [
+            "functionality",
+            2
+          ]
+        },
+        {
+          "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
+          "enum": [
+            "performance",
+            4
+          ]
+        },
+        {
+          "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties\nor otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary\nto use this category.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.",
+          "enum": [
+            "targeting",
+            8
+          ]
+        },
+        {
+          "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`.",
+          "enum": [
+            "security",
+            16
+          ]
+        },
+        {
+          "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`.",
+          "enum": [
+            "infrastructure",
+            32
+          ]
+        },
+        {
+          "description": "All purposes that are permissable for anonymous users.",
+          "enum": [
+            "anonymous",
+            49
+          ]
+        },
+        {
+          "description": "Data can be used for any purpose.",
+          "enum": [
+            "any",
+            63
+          ]
+        },
+        {
+          "description": "The data is not available client-side.\nNote that this is a special flag that is not included in \"Any\"",
+          "enum": [
+            "server",
+            64
+          ]
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema.",
+                "enum": [
+                  "none",
+                  0
+                ]
+              },
+              {
+                "description": "Data stored for this purpose is vital for the system, website or app to function.",
+                "enum": [
+                  "necessary",
+                  1
+                ]
+              },
+              {
+                "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
+                "enum": [
+                  "functionality",
+                  2
+                ]
+              },
+              {
+                "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
+                "enum": [
+                  "performance",
+                  4
+                ]
+              },
+              {
+                "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties\nor otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary\nto use this category.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.",
+                "enum": [
+                  "targeting",
+                  8
+                ]
+              },
+              {
+                "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`.",
+                "enum": [
+                  "security",
+                  16
+                ]
+              },
+              {
+                "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`.",
+                "enum": [
+                  "infrastructure",
+                  32
+                ]
+              },
+              {
+                "description": "All purposes that are permissable for anonymous users.",
+                "enum": [
+                  "anonymous",
+                  49
+                ]
+              },
+              {
+                "description": "Data can be used for any purpose.",
+                "enum": [
+                  "any",
+                  63
+                ]
+              },
+              {
+                "description": "The data is not available client-side.\nNote that this is a special flag that is not included in \"Any\"",
+                "enum": [
+                  "server",
+                  64
+                ]
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        }
+      ]
     },
     "CommerceEvent": {
       "allOf": [
@@ -1607,7 +1668,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "CART_UPDATED",
+              "const": "cart_updated",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -1677,7 +1738,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "ORDER",
+              "const": "order",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -1783,7 +1844,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "CART_ABANDONED",
+              "const": "cart_abandoned",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "lastCartEvent": {
@@ -1828,7 +1889,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "ORDER_CONFIRMED",
+              "const": "order_confirmed",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -1849,7 +1910,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "ORDER_CANCELLED",
+              "const": "order_cancelled",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "cancelledByUser": {
@@ -1875,7 +1936,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "ORDER_COMPLETED",
+              "const": "order_completed",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -1929,7 +1990,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "PAYMENT_ACCEPTED",
+              "const": "payment_accepted",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "finalPayment": {
@@ -1955,7 +2016,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "PAYMENT_REJECTED",
+              "const": "payment_rejected",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -1987,7 +2048,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "SIGN_IN",
+              "const": "sign_in",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "userId": {
@@ -2018,7 +2079,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "SIGN_OUT",
+              "const": "sign_out",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "userId": {
@@ -2050,7 +2111,7 @@
           "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
         },
         {
-          "$ref": "urn:tailjs:core#/definitions/ViewTimingEvent"
+          "$ref": "urn:tailjs:core#/definitions/ViewTimingData"
         },
         {
           "$ref": "urn:tailjs:core#/definitions/SystemEvent"
@@ -2060,7 +2121,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "HEARTBEAT",
+              "const": "heartbeat",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -2069,7 +2130,7 @@
           ]
         }
       ],
-      "description": "An event that is sent whenever a tab loses focus. In addition it may be sent regularly if a user stays in a tab for a long time.\n\nIn case  {@link  ViewEndedEvent } s are not sent or gets lost these heartbeats can be used to approximate page view durations. They also enable live statistics, since duration is tracked before the view ends."
+      "description": "An event that is sent whenever a tab loses focus. In addition it may be sent regularly if a user stays in a tab for a long time.\n\nIn case  {@link  ViewTimingEvent } s are not sent or gets lost these heartbeats can be used to approximate page view durations. They also enable live statistics, since duration is tracked before the view ends."
     },
     "ImpressionEvent": {
       "allOf": [
@@ -2081,7 +2142,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "IMPRESSION",
+              "const": "impression",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             }
           },
@@ -2090,24 +2151,20 @@
           ]
         }
       ],
-      "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .\n\nUse  {@link  ImpressionSummaryEvent }  in processing to determine for how long the impression lasted, and how many individual impressions there were (the component may have left the viewport and then come back at a later point). Obviously, there was at least one impression if this event happened, so summary the events will not include this first impression."
+      "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .\n\nUse  {@link  ImpressionTimingEvent }  in processing to determine for how long the impression lasted, and how many individual impressions there were (the component may have left the viewport and then come back at a later point). Obviously, there was at least one impression if this event happened, so summary the events will not include this first impression."
     },
-    "ImpressionSummaryEvent": {
+    "ImpressionTimingEvent": {
       "allOf": [
         {
-          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+          "$ref": "urn:tailjs:core#/definitions/PassiveEvent"
         },
         {
           "type": "object",
           "properties": {
             "type": {
               "type": "string",
-              "const": "IMPRESSION_SUMMARY",
+              "const": "impression_timing",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
-            },
-            "relatedEventId": {
-              "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } , and a  {@link  ImpressionSummaryEvent }  applies to a  {@link  ImpressionEvent } ."
             },
             "duration": {
               "$ref": "urn:tailjs:core#/definitions/Duration",
@@ -2115,12 +2172,11 @@
             },
             "impressions": {
               "$ref": "urn:tailjs:core#/definitions/Integer",
-              "description": "The number of additional impressions since the previous summary event. There has already been one impression with the  {@link  ImpressionEvent } , so this only counts additional impressions (component left the viewport, and then come back at a later point.)"
+              "description": "The number of additional impressions since the previous summary event."
             }
           },
           "required": [
-            "type",
-            "relatedEventId"
+            "type"
           ]
         }
       ],
@@ -2139,7 +2195,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "RESET",
+              "const": "reset",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "includeDevice": {
@@ -2169,7 +2225,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "const": "FORM",
+              "const": "form",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
             "name": {

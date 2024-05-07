@@ -1,10 +1,8 @@
-import type { TrackerConfiguration } from "@tailjs/client";
-import { Tracker } from "..";
-import { httpEncode } from "@tailjs/util/transport";
 import { INITIALIZE_TRACKER_FUNCTION } from "@constants";
+import type { TrackerConfiguration } from "@tailjs/client";
+import { httpEncode } from "@tailjs/util/transport";
 
 export const generateClientConfigScript = (
-  tracker: Tracker,
   config: Omit<TrackerConfiguration, "hub" | "dataTags" | "vars">
 ) => {
   delete config["dataTags"];

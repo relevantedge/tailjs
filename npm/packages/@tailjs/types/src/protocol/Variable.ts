@@ -1,15 +1,11 @@
 import {
   EnumValue,
-  If,
-  IfNot,
-  MaybeArray,
-  MaybeOmit,
   MaybePick,
   MaybeUndefined,
-  Nullish,
-  OmitPartial,
+  PartialExcept,
   PrettifyIntersection,
   createEnumAccessor,
+  createEnumPropertyParser,
   isUndefined,
 } from "@tailjs/util";
 import {
@@ -18,6 +14,8 @@ import {
   DataPurposeFlags,
   DataPurposeValue,
   Timestamp,
+  VariableSetter,
+  VariableSetters,
   dataClassification,
   dataPurposes,
   singleDataPurpose,
@@ -308,48 +306,22 @@ export const parseKey = <T extends string | undefined>(
   } as any;
 };
 
-type EnumPropertyType<
-  P extends keyof any,
-  Default,
-  Props
-> = Props extends readonly []
-  ? Default
-  : Props extends readonly [
-      readonly [infer Key, { values: (infer T)[] }],
-      ...infer Rest
-    ]
-  ? P extends Key
-    ? T
-    : EnumPropertyType<P, Default, Rest>
-  : never;
+export const VariableEnumProperties = {
+  scope: variableScope,
+  purpose: singleDataPurpose,
+  purposes: dataPurposes,
+  classification: dataClassification,
+} as const;
 
-const enumProperties = [
-  ["scope", variableScope],
-  ["purpose", singleDataPurpose],
-  ["purposes", dataPurposes],
-  ["classification", dataClassification],
-] as const;
-
-export const toNumericVariableEnums: <T>(value: T) => T extends Nullish
-  ? T
-  : {
-      [P in keyof T]: EnumPropertyType<P, T[P], typeof enumProperties>;
-    } = (value: any) => {
-  if (!value) return value;
-
-  enumProperties.forEach(
-    ([prop, helper]) =>
-      value[prop] !== undefined && (value[prop] = helper.parse(value[prop]))
-  );
-
-  return value as any;
-};
+export const toNumericVariableEnums = createEnumPropertyParser(
+  VariableEnumProperties
+);
 
 export const extractKey = <
   T,
   C extends undefined | Partial<VariableClassification> = undefined
 >(
-  variable: T & OmitPartial<VariableKey, "key">,
+  variable: T & PartialExcept<VariableKey, "key">,
   classificationSource?: C
 ): T extends undefined
   ? undefined

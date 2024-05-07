@@ -8,41 +8,41 @@ import {
   ViewTimingEvent,
   isViewEvent,
 } from "@tailjs/types";
-import { assign, createEvent, parseQueryString, restrict } from "@tailjs/util";
-import { TrackerExtensionFactory, isChangeUserCommand } from "..";
 import {
   F,
-  noopAction as NO_OP,
+  IterableOrArrayLike,
+  NO_OP,
+  NoOpFunction,
   T,
-  addDependency,
-  del,
-  document,
-  eventSet,
+  add,
+  assign,
+  createEvent,
   forEach,
+  map,
+  nil,
+  now,
+  parseQueryString,
+  push,
+  remove,
+  restrict,
+} from "@tailjs/util";
+import { TrackerExtensionFactory, isChangeUserCommand } from "..";
+import {
+  eventSet,
   getViewportSize,
-  isForegroundTab,
   isInternalUrl,
   listen,
   location,
-  map,
   mark,
   matchExHash,
   nextId,
-  nil,
-  now,
   parseDomain,
-  parseParameters,
-  push,
   registerSharedState,
-  registerViewEndAction,
   replace,
   session,
   sharedQueue,
-  split,
   timeout,
   timer,
-  trackerConfig,
-  transpose,
   undefined,
   window,
 } from "../lib";
@@ -55,6 +55,7 @@ type TabInfo = [
 ];
 
 export let currentViewEvent: ViewEvent | undefined;
+let unbindCurrentViewTiming: NoOpFunction;
 
 export const getCurrentViewId = () => currentViewEvent?.clientId;
 const [addViewChangedListener, viewChanged] = createEvent<[view: ViewEvent]>();
@@ -96,7 +97,7 @@ export const context: TrackerExtensionFactory = {
       () =>
         forEach(
           frames,
-          (frame) => mark(knownFrames, frame) && callOnFrame(frame)
+          (frame) => add(knownFrames, frame) && callOnFrame(frame)
         ),
       -1000
     ).pulse();
@@ -104,7 +105,6 @@ export const context: TrackerExtensionFactory = {
     let isNewTab = T;
 
     let activations = 1;
-    let viewPosted = F; // Don't post heartbeats on hide before the view has been posted.
 
     const tab = session<TabInfo>("t", (current) => {
       if ((isNewTab = !current)) {
@@ -121,13 +121,10 @@ export const context: TrackerExtensionFactory = {
         if (!first) {
           firstTab = F;
           currentViewEvent &&
-            del(currentViewEvent, ["firstTab", "landingPage"]);
+            remove(currentViewEvent, ["firstTab", "landingPage"]);
         }
       }
     );
-
-    let pendingViewEvent = NO_OP;
-    let pendingViewEndEvent = NO_OP;
 
     let currentLocation: string | null = nil;
     const postView = (force = F) => {
@@ -138,8 +135,8 @@ export const context: TrackerExtensionFactory = {
         return;
       }
 
-      pendingViewEvent();
-      pendingViewEndEvent();
+      // pendingViewEvent();
+      // pendingViewEndEvent();
 
       totalDuration.reset();
       visibleDuration.reset();
@@ -213,35 +210,17 @@ export const context: TrackerExtensionFactory = {
           domain: parseDomain(referrer)?.domain,
         });
 
-      tracker.events.registerPassiveEventSource();
-
-      // pendingViewEvent = registerViewEndAction(
-      //   () => (
-      //     (viewPosted = T),
-      //     push(tracker, currentViewEvent),
-      //     currentViewEvent?.firstTab && push(tracker, { flush: T })
-      //   )
-      // );
-      // pendingViewEndEvent = registerViewEndAction(() => {
-      //   push(
-      //     tracker,
-      //     { type: "view_timing", passive: true, timing: {} } as ViewTimingEvent,
-      //     {
-      //       set: { view: undefined },
-      //     }
-      //   );
-      //   isNewTab = F;
-      // });
+      // TODO:
+      tracker.events.registerPassiveEventSource(currentViewEvent);
 
       push(tracker, {
-        get: {
-          view: (view: any) => (currentViewEvent!.definition = view),
-          rendered: () => {
-            // Allow some extra time for gossiping to figure out if we are the only tab.
-            // This will also ensure that the view is set on the event if both `view` and `rendered` are set in the same `set` command.
-            timeout(pendingViewEvent, 100);
+        get: [
+          {
+            scope: "local",
+            key: "view",
+            result: (view: any) => (currentViewEvent!.definition = view),
           },
-        },
+        ],
       });
     };
 
@@ -284,7 +263,8 @@ export const context: TrackerExtensionFactory = {
     return {
       processCommand(command) {
         if (isChangeUserCommand(command)) {
-          tracker.push(
+          push(
+            tracker,
             command.username
               ? { type: "login", username: command.username }
               : { type: "logout" }

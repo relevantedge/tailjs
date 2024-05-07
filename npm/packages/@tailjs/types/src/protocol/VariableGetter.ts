@@ -1,11 +1,12 @@
 import {
   If,
-  IsAny,
+  IsUnknown,
   MaybePromise,
   Nullish,
   ParsedValue,
+  ReplaceProperties,
   TupleOrArray,
-  UnknownAny,
+  UnknownIsAny,
   Wrapped,
 } from "@tailjs/util";
 import {
@@ -30,6 +31,11 @@ export type VariableInitializerResult<
 export type VariableInitializer<T = any, Validated = true> = Wrapped<
   MaybePromise<VariableInitializerResult<T, Validated> | undefined>
 >;
+
+/**
+ * Any variable getter that only has numeric enum values.
+ */
+export type ValidatedVariableGetter = VariableGetter<any, string, true>;
 
 /**
  * Uniquely addresses a variable by scope, target and key name, optionally with the purpose(s) it will be used for.
@@ -96,10 +102,12 @@ export type VariableGetResult<
   T = any,
   K extends string = string,
   Patched = boolean
-> = { key: K } & Omit<
-  VariableGetSuccessResult<T> | VariableGetError<Patched>,
-  "key"
->;
+> =
+  // Need to expand patched manually. Otherwise TypeScript will choke from the alleged complexity.
+  ReplaceProperties<
+    VariableGetSuccessResult<T, Patched> | VariableGetError<Patched>,
+    { key: K }
+  >;
 
 export interface VariableGetError<Patched = boolean> extends VariableKey<true> {
   /**
@@ -117,21 +125,20 @@ export interface VariableGetError<Patched = boolean> extends VariableKey<true> {
   value?: undefined;
 }
 
-export type VariableGetSuccessResult<T = any> = (
+export type VariableGetSuccessResult<T = any, Patched = boolean> = (
   | ({
       status:
         | VariableResultStatus.Success
-        | VariableResultStatus.Unchanged
-        | VariableResultStatus.Created;
+        | (Patched extends true ? VariableResultStatus.Created : never);
 
-      value: Exclude<UnknownAny<T>, undefined>;
+      value: Exclude<UnknownIsAny<T>, undefined>;
     } & Variable<T, true>)
-  | (T extends undefined
-      ? {
+  | (Patched extends true
+      ? never
+      : {
           status: VariableResultStatus.NotFound;
           value?: undefined;
-        } & VariableKey<true>
-      : never)
+        } & VariableKey<true>)
 ) & {
   error?: undefined;
 };
@@ -140,21 +147,21 @@ export type MapVariableGetResult<Getter> = Getter extends VariableGetter<
   infer T,
   infer K
 >
-  ? Pick<Getter, "targetId"> & {
-      key: K;
-      scope: ParsedValue<typeof variableScope, Getter["scope"]>;
-    } & Omit<
-        VariableGetResult<
-          T,
-          K,
-          Getter extends {
-            init: Wrapped<MaybePromise<{ value: infer V }>>;
-          }
-            ? If<IsAny<V>, false, undefined extends V ? false : true>
-            : false
-        >,
-        "key"
-      >
+  ? ReplaceProperties<
+      VariableGetResult<
+        T,
+        K,
+        Getter extends {
+          init: Wrapped<MaybePromise<{ value: infer V } | Nullish>>;
+        }
+          ? If<IsUnknown<V>, true, undefined extends V ? false : true>
+          : false
+      >,
+      {
+        key: K;
+        scope: ParsedValue<typeof variableScope, Getter["scope"]>;
+      }
+    >
   : Getter extends Nullish
   ? undefined
   : unknown extends Getter
@@ -162,7 +169,7 @@ export type MapVariableGetResult<Getter> = Getter extends VariableGetter<
   : never;
 
 export type VariableGetResults<K extends readonly any[] = any[]> =
-  any[] extends K
+  readonly unknown[] extends K
     ? MapVariableGetResult<any>[]
     : K extends readonly []
     ? []

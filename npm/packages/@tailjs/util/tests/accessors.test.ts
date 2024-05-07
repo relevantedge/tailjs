@@ -36,7 +36,7 @@ describe("Accessors accesses what they access", () => {
     expect(get(a, 10)).toBe(undefined);
   });
 
-  it("Sets and updates.", () => {
+  it("Sets and updates", () => {
     let [o, a, m, s] = createTestTargets();
 
     expect(assign(o, "b", 30)).toEqual(30);
@@ -126,12 +126,12 @@ describe("Accessors accesses what they access", () => {
         c: new Map([[1, [2, 3, 4]]]),
       },
     };
-    let cloned = clone(deep, true);
+    let cloned = clone(deep);
     expect(cloned).toEqual(deep);
     expect(cloned.b.c).not.toBe(deep.b.c);
     expect(cloned.b.c.get(1)).not.toBe(deep.b.c.get(1));
 
-    cloned = clone(deep, false);
+    cloned = clone(deep, 1);
     expect(cloned).not.toBe(deep);
     expect(cloned.b.c.get(1)).toBe(deep.b.c.get(1));
   });

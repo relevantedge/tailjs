@@ -4,7 +4,7 @@ import type {
   ParseResult,
   Tracker,
   TrackerEnvironment,
-  TrackerPostOptions,
+  TrackerInitializationOptions,
 } from "./shared";
 
 export type NextPatchExtension = (

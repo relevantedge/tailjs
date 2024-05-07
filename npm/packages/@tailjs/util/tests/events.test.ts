@@ -1,7 +1,7 @@
 import { createChainedEvent } from "../src";
 
 describe("Events are fired in the right order", () => {
-  it("Handles chained events well.", () => {
+  it("Handles chained events well", () => {
     const [register, invoke] = createChainedEvent<number>();
 
     const [unbind0, rebind0] = register((next) => {
@@ -42,14 +42,14 @@ describe("Events are fired in the right order", () => {
     expect(invoke()).toBe(17);
   });
 
-  it("Can unbind on the fly.", async () => {
+  it("Can unbind on the fly", async () => {
     const [register, invoke] = createChainedEvent<Promise<number>>();
     register(async (next, unbind) => (unbind(), await next()) + 1);
     register(async (next) => 14);
     expect(await invoke()).toBe(15);
   });
 
-  it("Can also chain async events.", async () => {
+  it("Can also chain async events", async () => {
     const [register, invoke] = createChainedEvent<Promise<number>>();
     register(async (next) => (await next()) + 1);
     register(async (next) => 14);

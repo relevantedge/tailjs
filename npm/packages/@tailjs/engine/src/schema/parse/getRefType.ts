@@ -2,7 +2,7 @@ import {
   MaybeUndefined,
   forEach,
   isArray,
-  isObject,
+  isPlainObject,
   isUndefined,
   required,
 } from "@tailjs/util";
@@ -40,7 +40,7 @@ export const createSchemaNavigator = (node: any) => {
     if (isArray(node)) {
       forEach(node, (node) => parseIds(node));
       return;
-    } else if (!isObject(node)) {
+    } else if (!isPlainObject(node)) {
       return;
     }
 

@@ -1,16 +1,19 @@
-import { MaybePromise, isBoolean, isFunction, promise, tryCatchAsync } from ".";
+import {
+  F,
+  MaybePromise,
+  T,
+  isBoolean,
+  isFunction,
+  isNumber,
+  promise,
+  tryCatchAsync,
+} from ".";
 
 export let now: (round?: boolean) => number =
   typeof performance !== "undefined"
-    ? (round = true) =>
-        round
-          ? Math.trunc(now(false))
-          : performance.timeOrigin + performance.now()
+    ? (round = T) =>
+        round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now()
     : Date.now;
-
-export type CancellableCallback<Args extends any[] = []> = (
-  ...args: [...args: Args, cancel: () => void]
-) => MaybePromise<any>;
 
 export type Timer = {
   (): number;
@@ -21,19 +24,27 @@ export const createTimer = (
   started = true,
   timeReference = () => now()
 ): Timer => {
-  let t0: number | boolean = started && timeReference();
+  let t0: number = +started * timeReference();
   let elapsed = 0;
   let capturedElapsed: number;
   return (toggle?: boolean, reset?: boolean) => {
-    t0 && (elapsed += timeReference() - (t0 as number));
-    capturedElapsed = elapsed;
+    capturedElapsed = started
+      ? (elapsed += -t0 + (t0 = timeReference()))
+      : elapsed;
     reset && (elapsed = 0);
-    isBoolean(toggle) && (t0 = toggle && timeReference());
+    (started = toggle ?? started) && (t0 = timeReference());
     return capturedElapsed;
   };
 };
 
-export type ClockCallback = CancellableCallback<[delta: number]>;
+/**
+ * The callback invoked when a {@link Clock} ticks.
+ * If it returns `false` the clock will stop. Any other return value has no effect.
+ */
+export type ClockCallback = (
+  elapsed: number,
+  delta: number
+) => MaybePromise<any>;
 
 export interface Clock {
   readonly active: boolean;
@@ -103,6 +114,7 @@ export const clock: {
   let timeoutId = 0;
   const mutex = promise(true).resolve();
   const timer = createTimer(!paused);
+  let delta = timer();
 
   const outerCallback = async (skipQueue?: boolean) => {
     if (!timeoutId || (!queue && mutex.pending && skipQueue !== true)) {
@@ -114,24 +126,24 @@ export const clock: {
     }
 
     mutex.reset();
-    let cancelled = frequency < 0 || once;
-    cancelled =
+
+    if (
       (await tryCatchAsync(
-        () => callback!(timer(), () => (cancelled = true)),
+        () => callback!(timer(), -delta + (delta = timer())),
         false,
         () => mutex.resolve()
-      )) === false || cancelled;
-
-    if (cancelled) {
+      )) === false ||
+      frequency <= 0 ||
+      once
+    ) {
       reset(false);
     }
 
-    (instance as any).busy = false;
-    return true;
+    return !((instance as any).busy = false);
   };
 
-  const reset = (start: boolean) => {
-    timer(start, !start);
+  const reset = (start: boolean, resetTimer = !start) => {
+    timer(start, resetTimer);
     clearInterval(timeoutId);
     (instance as any).active = !!(timeoutId = start
       ? (setInterval(
@@ -148,7 +160,7 @@ export const clock: {
     restart: (newFrequency, newCallback) => {
       frequency = newFrequency ?? frequency;
       callback = newCallback ?? callback;
-      return reset(true);
+      return reset(true, true);
     },
     toggle: (start, trigger) =>
       start !== instance.active

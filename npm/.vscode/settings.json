@@ -6,6 +6,7 @@
     "Falsish",
     "lfsr",
     "minifyable",
+    "niels",
     "null'ish",
     "onfullfilled",
     "pseudonomized",
@@ -22,5 +23,9 @@
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8"
   },
-  "python.formatting.provider": "none"
+  "python.formatting.provider": "none",
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true
+  }
 }

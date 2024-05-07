@@ -7,7 +7,7 @@ import {
   forEach,
   isFunction,
   isIterable,
-  isObject,
+  isPlainObject,
   isRegEx,
   isString,
   join,
@@ -115,7 +115,7 @@ const parseTagAttributes = (el: Element, tags: Set<string>) => {
         : isIterable(rule)
         ? flatMap(rule, parse)
         : [
-            isObject(rule)
+            isPlainObject(rule)
               ? [parseRegex(rule.match)!, rule.selector, rule.prefix]
               : [parseRegex(rule)!],
           ],

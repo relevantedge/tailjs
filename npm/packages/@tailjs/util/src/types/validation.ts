@@ -1,22 +1,25 @@
 import {
   Defined,
+  Extends,
   Falsish,
+  IDENTITY,
+  If,
   IsAny,
   MaybePromise,
   NotFunction,
+  Nullish,
   OmitNullish,
+  TogglePromise,
+  Unwrap,
+  UnwrapPromiseLike,
   Wrapped,
-  entries,
-  every,
-  get,
-  hasProperty,
+  isAnyObject,
   isArray,
   isBoolean,
   isDefined,
+  isError,
   isFunction,
-  isObject,
   isString,
-  keys,
   unwrap,
 } from "..";
 
@@ -54,17 +57,19 @@ export const validate = <
   validationError?: ErrorGenerator,
   undefinedError?: ErrorGenerator
 ): Defined<
-  Validator extends [any, ...infer TypeTests]
-    ? CombineTypeTests<TypeTests>
-    : Validator extends ((value: any) => infer R) | infer R
-    ? R extends Falsish
-      ? never
-      : Validator extends (value: any) => value is infer R
-      ? IsAny<R> extends true
-        ? T
-        : Defined<R>
-      : T
-    : never
+  If<
+    IsAny<Validator>,
+    T,
+    Validator extends readonly [any, ...infer TypeTests]
+      ? CombineTypeTests<TypeTests>
+      : Validator extends ((value: any) => infer R) | infer R
+      ? R extends Falsish
+        ? never
+        : Validator extends (value: any) => value is infer R
+        ? Defined<R>
+        : T
+      : never
+  >
 > =>
   (
     isArray(validate)
@@ -83,15 +88,34 @@ export class InvariantViolatedError extends Error {
   }
 }
 
-export const entriesEqual = (value1: any, value2: any, deep = true): boolean =>
-  (isObject(value1, true) &&
-    isObject(value2, true) &&
-    every(entries(value1), ([key, value]) =>
-      deep
-        ? entriesEqual(value, get(value2, key) === value)
-        : get(value2, key) === value
-    )) ||
-  value1 === value2;
+export const structuresEqual = (
+  value1: any,
+  value2: any,
+  depth = -1
+): boolean => {
+  if (value1 === value2) return true;
+  // interpret `null` and `undefined` as the same.
+  if ((value1 ?? value2) == null) return true;
+
+  if (
+    isAnyObject(value1) &&
+    isAnyObject(value2) &&
+    value1.length === value2.length
+  ) {
+    let n = 0;
+    for (const key in value1) {
+      if (
+        value1[key] !== value2[key] &&
+        !structuresEqual(value1[key], value2[key], depth - 1)
+      ) {
+        return false;
+      }
+      ++n;
+    }
+    return n === Object.keys(value2).length;
+  }
+  return false;
+};
 
 /** Tests whether a value equals at least one of some other values.  */
 export const eq: <T extends readonly any[]>(
@@ -130,7 +154,7 @@ export const required = <T>(value: T, error?: ErrorGenerator): OmitNullish<T> =>
 export const tryCatch = <T, C = undefined>(
   expression: () => T,
   errorHandler: boolean | ((error: any) => C) = true as any,
-  clean?: () => void
+  always?: () => void
 ): T | (C extends Error ? T : C) => {
   try {
     return expression();
@@ -146,15 +170,63 @@ export const tryCatch = <T, C = undefined>(
     console.error(e);
     return undefined as any;
   } finally {
-    clean?.();
+    always?.();
   }
 };
 
-export const thenable = <T>(
+export type ErrorHandler = Nullish | boolean | ((error: any) => any);
+type ErrorHandlerResult<Handler> = Handler extends true
+  ? never
+  : Handler extends (...args: any) => infer R
+  ? TogglePromise<UnwrapPromiseLike<R> extends Error ? never : R, R>
+  : void;
+
+const maybeAwait = <T, R>(value: MaybePromise<T>, action: (value: T) => R): R =>
+  (value as any)?.then(action) ?? action(value as any);
+
+const handleError = <Handler extends ErrorHandler>(
+  errorHandler: Handler,
+  error: any,
+  log = true
+): ErrorHandlerResult<Handler> =>
+  errorHandler === false
+    ? undefined
+    : errorHandler === true ||
+      errorHandler == null ||
+      isError((error = errorHandler(error)))
+    ? maybeAwait(
+        error,
+        (error) => (log && console.error(error), throwError(error))
+      )
+    : error;
+
+/** A value that is initialized lazily on-demand. */
+export const deferred = <T>(expression: Wrapped<T>): (() => T) => {
+  let result: T | undefined = undefined;
+  return () => (result ??= unwrap(expression));
+};
+
+export interface DeferredPromise<T> extends PromiseLike<T> {
+  initialized: boolean;
+}
+
+export type MaybeDeferredPromise<T> =
+  | (T & { initialized?: boolean })
+  | DeferredPromise<T>;
+
+/**
+ * A promise that is initialized lazily on-demand.
+ * For promises this is more convenient than {@link deferred}, since it just returns a promise instead of a function.
+ */
+export const deferredPromise = <T>(
   expression: Wrapped<MaybePromise<T>>
-): PromiseLike<T> => ({
-  then: thenMethod(expression),
-});
+): DeferredPromise<T> => {
+  let promise: DeferredPromise<T> = {
+    initialized: true,
+    then: thenMethod(() => ((promise.initialized = true), unwrap(expression))),
+  };
+  return promise;
+};
 
 export const thenMethod = <T>(
   expression: Wrapped<MaybePromise<T>>
@@ -168,50 +240,44 @@ export const thenMethod = <T>(
     | undefined
     | null
 ) => PromiseLike<TResult1 | TResult2>) => {
-  let result: MaybePromise<T>;
+  let result = deferred(expression);
   return (onfullfilled?, onrejected?) =>
-    tryCatchAsync(
-      () => (result ??= unwrap(expression)),
-      [onfullfilled, onrejected]
-    );
+    tryCatchAsync(result, [onfullfilled, onrejected] as any);
 };
 
 export const tryCatchAsync = async <
   T,
   C = void,
-  E extends
-    | boolean
-    | ((error: any, last: boolean) => MaybePromise<C>)
-    | readonly [
-        onfullfilled?: ((value: T) => MaybePromise<T1>) | undefined | null,
-        onrejected?: ((reason: any) => MaybePromise<C>) | null | undefined
-      ] = true,
+  E extends boolean | ((error: any) => MaybePromise<C>) = true,
   T1 = T
 >(
   expression: Wrapped<MaybePromise<T>>,
   errorHandler: E = true as any,
-  clean?: () => void,
-  retries = 1
+  always?: () => void
 ): Promise<T1 | C> => {
-  while (retries--) {
-    try {
-      const result = (await unwrap(expression)) as any;
-      return isArray(errorHandler) ? errorHandler[0]?.(result) : result;
-    } catch (e) {
-      if (!isBoolean(errorHandler)) {
-        if (isArray(errorHandler)) return errorHandler[1]?.(e) as any;
-        const error = (await (errorHandler as any)?.(e, !retries)) as any;
-        if (error instanceof Error) throw error;
-        return error;
-      } else if (errorHandler && !retries) {
-        throw e;
-      } else {
-        console.error(e);
+  try {
+    const result = (await unwrap(expression)) as any;
+    return isArray(errorHandler) ? errorHandler[0]?.(result) : result;
+  } catch (e) {
+    if (!isBoolean(errorHandler)) {
+      if (isArray(errorHandler)) {
+        if (!errorHandler[1]) throw e;
+        return errorHandler[1](e) as any;
       }
-    } finally {
-      clean?.();
+
+      const error = (await (errorHandler as any)?.(e)) as any;
+      if (error instanceof Error) throw error;
+      return error;
+    } else if (errorHandler) {
+      throw e;
+    } else {
+      // Boolean  means "swallow".
+      console.error(e);
     }
+  } finally {
+    always?.();
   }
+
   return undefined as any;
 };
 

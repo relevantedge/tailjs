@@ -4,7 +4,7 @@ import {
   VariableClassification,
   validateConsent,
 } from "@tailjs/types";
-import { isArray, isObject, isUndefined } from "@tailjs/util";
+import { isArray, isPlainObject, isUndefined } from "@tailjs/util";
 import { ParsedType } from ".";
 import { SchemaClassification, SchemaPropertyStructure } from "../..";
 
@@ -15,7 +15,7 @@ const traverseValue = (
   action: (type: ParsedType, value: any) => any
 ) => {
   if (structure?.map) {
-    if (!isObject(value)) return undefined;
+    if (!isPlainObject(value)) return undefined;
     return Object.fromEntries(
       Object.entries(value).map(([key, value]) => [
         key,
@@ -32,7 +32,7 @@ const traverseValue = (
   }
   if (structure?.array) {
     if (!isArray(value)) return undefined;
-    structure = isObject(structure.array) ? structure.array : undefined;
+    structure = isPlainObject(structure.array) ? structure.array : undefined;
     value = value
       .map((value) => traverseValue(type, structure, value, action))
       .filter((item) => item);
@@ -51,7 +51,7 @@ export const censor = (
   consent: SchemaClassification | UserConsent,
   defaultClassification?: VariableClassification
 ) => {
-  if (!isObject(value)) return value;
+  if (!isPlainObject(value)) return value;
 
   if (
     !validateConsent(

@@ -1,8 +1,27 @@
-import type { Extends, If, IfNot, IsAny, Minus, Nullish, Voidefined } from ".";
+import type {
+  AllKeys,
+  And,
+  HasValue,
+  If,
+  IfNot,
+  IsAny,
+  IsNullish,
+  IsStrictlyUnknown,
+  Minus,
+  Not,
+  Nullish,
+  Or,
+  Undefined,
+} from ".";
 
 export type Empty = readonly [];
 
 export type IsTuple<T> = T extends [] | [any, ...any] ? true : false;
+
+/** A simpler version of {@link MaybeArray} that does not use type inference to simplify function signatures. */
+export type ArrayOrSelf<T> = T | T[];
+
+export type ToggleArray<T, Toggle = boolean> = Toggle extends true ? T[] : T;
 
 export type MaybeArray<
   T,
@@ -21,7 +40,10 @@ export type MaybeArray<
  */
 export type IterableOrArrayLike<T> =
   | Iterable<T>
-  | { [item: number]: T; length: number };
+
+  // Some collections are "weird" like HTMLCollectionOf. These two below matches those kind of collections.
+  | { [item: number]: T; length: number }
+  | { [index: number]: T; item(index: number): T | Nullish };
 
 /**
  * Shorthand for a type that is inferred from a parameter and can either be the item in an iterable, or just the type itself.
@@ -36,24 +58,16 @@ export type ToggleReadonly<T extends readonly any[], Test> = Test extends
   ? readonly [...T]
   : never;
 
-export type Head<T extends readonly any[]> = T extends readonly [
-  infer Head,
-  ...any
-]
+export type Head<T> = T extends readonly [infer Head, ...any]
   ? Head
   : T extends readonly (infer Head)[]
   ? Head
   : never;
 
-export type Tail<
-  T extends readonly any[],
-  Readonly extends readonly any[] | boolean = T
-> = T extends readonly []
-  ? never
-  : T extends readonly [any, ...infer Tail]
-  ? ToggleReadonly<Tail, Readonly>
-  : T extends readonly any[]
-  ? ToggleReadonly<T, Readonly>
+export type Tail<T> = T extends [any, ...infer Rest]
+  ? Rest
+  : T extends readonly [any, ...infer Rest]
+  ? readonly [...Rest]
   : never;
 
 export type Last<T extends readonly any[]> = T extends readonly [
@@ -113,7 +127,9 @@ type PickOne<T> = InferContra<InferContra<Contra<Contra<T>>>>;
  */
 export type ConstToNormal<T> = T extends readonly [...any[]]
   ? { -readonly [P in keyof T]: ConstToNormal<T[P]> }
-  : Voidefined<T>;
+  : T extends void
+  ? undefined
+  : T;
 
 /** By adding a single item readonly tuple TypeScript starts interpreting arrays as tuples in function calls. */
 export type TupleOrArray<Item> = readonly Item[] | readonly [Item];
@@ -128,23 +144,107 @@ export type VariableTuple<
   ? readonly []
   : readonly [Item, ...VariableTuple<Item, Template, Minus<MaxLength, 1>>];
 
-type NullishIsUndefined<T> = T extends Nullish ? undefined : T;
+type Navigate<T, K extends keyof any> = K extends ""
+  ? T
+  : K extends keyof T
+  ? T[K]
+  : never;
 
-/** Returns whether any item in a tuple cannot be undefined. */
-export type HasRequired<T> = true extends (
-  undefined extends NullishIsUndefined<T>
+type HasUnknown<T extends readonly any[]> = true extends (
+  T extends readonly []
     ? false
-    : T extends readonly []
-    ? never
-    : T extends readonly [infer Item, ...infer Rest]
-    ? undefined extends NullishIsUndefined<Item>
-      ? false | HasRequired<Rest>
-      : true
-    : T extends Iterable<infer Item>
-    ? undefined extends NullishIsUndefined<Item>
-      ? false
-      : true
-    : false
+    : T extends [infer Item, ...infer Rest]
+    ? IsStrictlyUnknown<Item, HasUnknown<Rest>>
+    : T extends readonly (infer Item)[]
+    ? IsStrictlyUnknown<Item>
+    : IsStrictlyUnknown<T>
 )
   ? true
   : false;
+
+type MatchOverload<A extends readonly [any, any], MatchArgs = any> = A extends [
+  infer Args,
+  infer R
+]
+  ? Args extends readonly any[]
+    ? IfNot<
+        HasUnknown<Args | [R]>,
+        Args extends MatchArgs
+          ? A
+          : Args extends (
+              MatchArgs extends readonly (infer Item)[]
+                ? readonly Item[]
+                : never
+            )
+          ? A
+          : never
+      >
+    : never
+  : never;
+
+/** Returns tuples with arguments and return values for all non-generic overloads of a function, optionally matching a signature. */
+export type Overloads<F, MatchArgs = any> = MatchOverload<
+  F extends {
+    (...args: infer P1): infer R1;
+    (...args: infer P2): infer R2;
+    (...args: infer P3): infer R3;
+    (...args: infer P4): infer R4;
+    (...args: infer P5): infer R5;
+    (...args: infer P6): infer R6;
+  }
+    ? [P1, R1] | [P2, R2] | [P3, R3] | [P4, R4] | [P5, R5] | [P6, R6]
+    : F extends {
+        (...args: infer P1): infer R1;
+        (...args: infer P2): infer R2;
+        (...args: infer P3): infer R3;
+        (...args: infer P4): infer R4;
+        (...args: infer P5): infer R5;
+      }
+    ? [P1, R1] | [P2, R2] | [P3, R3] | [P4, R4] | [P5, R5]
+    : F extends {
+        (...args: infer P1): infer R1;
+        (...args: infer P2): infer R2;
+        (...args: infer P3): infer R3;
+        (...args: infer P4): infer R4;
+      }
+    ? [P1, R1] | [P2, R2] | [P3, R3] | [P4, R4]
+    : F extends {
+        (...args: infer P1): infer R1;
+        (...args: infer P2): infer R2;
+        (...args: infer P3): infer R3;
+      }
+    ? [P1, R1] | [P2, R2] | [P3, R3]
+    : F extends {
+        (...args: infer P1): infer R1;
+        (...args: infer P2): infer R2;
+      }
+    ? [P1, R1] | [P2, R2]
+    : F extends (...args: infer P) => infer R
+    ? [P, R]
+    : never,
+  MatchArgs
+>;
+
+/** Returns the non-generic overloads of a function, optionally matching a signature. */
+export type PickOverloads<T, MatchArgs = any> = Overloads<
+  T,
+  MatchArgs
+> extends [infer Args, infer R]
+  ? Args extends readonly any[]
+    ? (...args: Args) => R
+    : never
+  : never;
+
+/** Returns the non-generic overloads of a type's method, optionally matching a signature. */
+export type MethodOverloads<
+  T,
+  Name extends AllKeys<T> | (string & {}) = AllKeys<T>,
+  MatchArgs = any
+> = Overloads<Navigate<T, Name>, MatchArgs>;
+
+/** Returns tuples with arguments and return values for all non-generic overloads of a type's method, optionally matching a signature. */
+export type PickMethodOverload<
+  T,
+  Name extends AllKeys<T> | (string & {}) = AllKeys<T>,
+  MatchArgs = any
+> = PickOverloads<Navigate<T, Name>, MatchArgs>;

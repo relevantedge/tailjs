@@ -2,7 +2,6 @@ import { required } from "@tailjs/util";
 import {
   DataClassification,
   DataClassificationValue,
-  DataPurpose,
   DataPurposeFlags,
   DataPurposeValue,
   VariableClassification,

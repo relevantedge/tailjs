@@ -1,4 +1,4 @@
-import { RecordType, Voidefined } from "@tailjs/util";
+import { RecordType } from "@tailjs/util";
 
 export type JsonArray = Json[];
 
@@ -33,7 +33,7 @@ type ToJsonAble<T> = { toJSON(): T };
 export type JsonOf<T> = Json extends T
   ? Json
   : T extends string | number | boolean | null | undefined | void
-  ? Voidefined<T>
+  ? undefined
   : T extends ToJsonAble<infer R>
   ? R extends ToJsonAble<any>
     ? R
@@ -71,7 +71,7 @@ export type JsonOf<T> = Json extends T
 export type JsonSerializable<T> = Json extends T
   ? Json
   : T extends string | number | boolean | null | undefined | void
-  ? Voidefined<T>
+  ? undefined
   : T extends ToJsonAble<infer R>
   ? R extends ToJsonAble<any>
     ? R

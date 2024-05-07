@@ -37,6 +37,7 @@ import {
   dataPurposes,
   extractKey,
   isSuccessResult,
+  requireFound,
   restrictTargets,
   toVariableResultPromise,
   variableScope,
@@ -52,9 +53,14 @@ import {
   isNumber,
   map,
   now,
+  required,
   update,
 } from "@tailjs/util";
-import { Transport, createTransport } from "@tailjs/util/transport";
+import {
+  Transport,
+  createTransport,
+  defaultTransport,
+} from "@tailjs/util/transport";
 import { ReadOnlyRecord, params, unparam } from "./lib";
 import {
   Cookie,
@@ -69,9 +75,11 @@ import {
 
 export type TrackerSettings = Pick<
   RequestHandlerConfiguration,
-  "sessionTimeout" | "includeIp" | "clientKeySeed"
+  "sessionTimeout" | "includeIp"
 > & {
   disabled?: boolean;
+  /** Transport used for client-side communication with a key unique('ish) to the client. */
+  cipher?: Transport;
   clientIp?: string | null;
   headers?: Record<string, string>;
   host: string;
@@ -88,20 +96,34 @@ const enum ExtensionState {
   Done = 2,
 }
 
-export type TrackerPostOptions = {
-  routeToClient?: boolean;
+export interface TrackerInitializationOptions {
   deviceSessionId?: string;
   deviceId?: string;
   userId?: string;
   passive?: boolean;
-};
+}
+
+export interface TrackerPostOptions extends TrackerInitializationOptions {
+  /**
+   * The events are for an external client-side tracker.
+   * This flag enables server-side generated events to be routed to an external destination via the client.
+   *
+   * This only works if an appropriate extension has been added to the client-side tracker to pick them ups.
+   */
+  routeToClient?: boolean;
+}
+
+interface SessionInitializationOptions extends TrackerInitializationOptions {
+  resetSession?: boolean;
+  resetDevice?: boolean;
+}
 
 export type TrackerVariableGetter<T = any> = RestrictVariableTargets<
-  VariableGetter<T, false>
+  VariableGetter<T, any, false>
 >;
 
 export type TrackerVariableSetter<T = any> = RestrictVariableTargets<
-  VariableSetter<T, false>
+  VariableSetter<T, any, false>
 >;
 
 const createInitialScopeData = <T extends ScopeInfo>(
@@ -144,7 +166,7 @@ export class Tracker {
    */
   private _eventQueue: [
     events: TrackedEventBatch,
-    options: TrackerPostOptions
+    options: TrackerInitializationOptions
   ][] = [];
   private _extensionState = ExtensionState.Pending;
   private _initialized: boolean;
@@ -175,8 +197,6 @@ export class Tracker {
 
   private readonly _clientCipher: Transport;
 
-  public readonly clientKey: string;
-
   public host: string;
   public path: string;
   public url: string;
@@ -191,7 +211,7 @@ export class Tracker {
     queryString,
     cookies,
     requestHandler,
-    clientKeySeed,
+    cipher,
   }: TrackerSettings) {
     this.disabled = disabled;
     this._requestHandler = requestHandler;
@@ -210,14 +230,9 @@ export class Tracker {
     this.clientIp = clientIp;
 
     this.referrer = this.headers["referer"] ?? null;
-    let clientKey = `${this.clientIp}_${headers?.["user-agent"] ?? ""}`;
-    clientKey = `${clientKey.substring(
-      0,
-      clientKey.length / 2
-    )}${clientKeySeed}${clientKey.substring(clientKey.length / 2 + 1)}`;
-    this._clientCipher = createTransport(
-      (this.clientKey = this.env.hash(clientKey, 64))
-    );
+
+    // Defaults to unencrypted transport if nothing is specified.
+    this._clientCipher = cipher ?? defaultTransport;
   }
 
   public get clientEvents() {
@@ -303,7 +318,7 @@ export class Tracker {
   }
 
   /** @internal */
-  public async _applyExtensions(options: TrackerPostOptions) {
+  public async _applyExtensions(options: TrackerInitializationOptions) {
     await this._initialize(options);
     if (this._extensionState === ExtensionState.Pending) {
       this._extensionState = ExtensionState.Applying;
@@ -461,7 +476,7 @@ export class Tracker {
     deviceId,
     deviceSessionId,
     passive,
-  }: TrackerPostOptions) {
+  }: TrackerInitializationOptions = {}) {
     if (this._initialized === (this._initialized = true)) {
       return false;
     }
@@ -482,7 +497,9 @@ export class Tracker {
         DataPurposeFlags.Necessary,
     };
 
-    await this._ensureSession(timestamp, deviceId, deviceSessionId, {
+    await this._ensureSession(timestamp, {
+      deviceId,
+      deviceSessionId,
       passive,
     });
   }
@@ -502,12 +519,12 @@ export class Tracker {
       );
     }
     if (this._session) {
-      await this._ensureSession(
-        referenceTimestamp ?? now(),
+      await this._ensureSession(referenceTimestamp ?? now(), {
         deviceId,
         deviceSessionId,
-        { resetSession: session, resetDevice: device }
-      );
+        resetSession: session,
+        resetDevice: device,
+      });
     }
   }
 
@@ -567,12 +584,14 @@ export class Tracker {
 
   private async _ensureSession(
     timestamp: number,
-    deviceId?: string,
-    deviceSessionId?: string,
-    { passive = false, resetSession = false, resetDevice = false } = {}
+    {
+      deviceId,
+      deviceSessionId,
+      passive = false,
+      resetSession = false,
+      resetDevice = false,
+    }: SessionInitializationOptions = {}
   ) {
-    const previousDeviceSessionId = this.deviceSessionId;
-
     if ((resetSession || resetDevice) && this._sessionReferenceId) {
       // Purge old data. No point in storing this since it will no longer be used.
       await this.env.storage.purge([
@@ -614,49 +633,51 @@ export class Tracker {
     this._session =
       // We bypass the TrackerVariableStorage here and uses the environment
       // because we use a different target ID than the unique session ID when doing cookie-less tracking.
-      restrictTargets(
-        await this.env.storage.get([
-          {
-            scope: VariableScope.Session,
-            key: SCOPE_INFO_KEY,
-            targetId: this._sessionReferenceId,
-            init: async () => {
-              if (passive) return undefined;
+      requireFound(
+        restrictTargets(
+          await this.env.storage.get([
+            {
+              scope: VariableScope.Session,
+              key: SCOPE_INFO_KEY,
+              targetId: this._sessionReferenceId,
+              init: async () => {
+                if (passive) return undefined;
 
-              let cachedDeviceData: DeviceInfo | undefined;
-              if (this.consent.level > DataClassification.Anonymous) {
-                cachedDeviceData = resetDevice
-                  ? undefined
-                  : (this._getClientDeviceVariables()?.[SCOPE_INFO_KEY]
-                      ?.value as DeviceInfo);
-              }
+                let cachedDeviceData: DeviceInfo | undefined;
+                if (this.consent.level > DataClassification.Anonymous) {
+                  cachedDeviceData = resetDevice
+                    ? undefined
+                    : (this._getClientDeviceVariables()?.[SCOPE_INFO_KEY]
+                        ?.value as DeviceInfo);
+                }
 
-              return {
-                ...Necessary,
-                value: createInitialScopeData<SessionInfo>(
-                  (sessionId ??= await this.env.nextId()),
-                  timestamp,
-                  {
-                    deviceId:
-                      this._consent.level > DataClassification.Anonymous
-                        ? deviceId ??
-                          (resetDevice ? undefined : cachedDeviceData?.id) ??
-                          (await this.env.nextId("device"))
-                        : undefined,
-                    deviceSessionId:
-                      deviceSessionId ??
-                      (await this.env.nextId("device-session")),
-                    previousSession: cachedDeviceData?.lastSeen,
-                    hasUserAgent: false,
-                  }
-                ),
-              };
+                return {
+                  ...Necessary,
+                  value: createInitialScopeData<SessionInfo>(
+                    (sessionId ??= await this.env.nextId()),
+                    timestamp,
+                    {
+                      deviceId:
+                        this._consent.level > DataClassification.Anonymous
+                          ? deviceId ??
+                            (resetDevice ? undefined : cachedDeviceData?.id) ??
+                            (await this.env.nextId("device"))
+                          : undefined,
+                      deviceSessionId:
+                        deviceSessionId ??
+                        (await this.env.nextId("device-session")),
+                      previousSession: cachedDeviceData?.lastSeen,
+                      hasUserAgent: false,
+                    }
+                  ),
+                };
+              },
             },
-          },
-        ]).variable
+          ]).result
+        )
       );
 
-    if (this._session) {
+    if (this._session.value) {
       let device = await this.get(
         this._consent.level > DataClassification.Anonymous
           ? {
@@ -703,10 +724,11 @@ export class Tracker {
       }
 
       if (
-        isDefined(previousDeviceSessionId) &&
-        previousDeviceSessionId !== this.deviceSessionId
+        isDefined(deviceSessionId) &&
+        isDefined(this.deviceSessionId) &&
+        deviceSessionId !== this.deviceSessionId
       ) {
-        this._expiredDeviceSessionId = previousDeviceSessionId;
+        this._expiredDeviceSessionId = deviceSessionId;
       }
 
       this._device = device;
@@ -718,82 +740,88 @@ export class Tracker {
    *  The tracker must not be used afterwards.
    *  @internal
    * */
-  public async _persist() {
-    this.cookies[this._requestHandler._cookieNames.consent] = {
-      httpOnly: true,
-      maxAge: Number.MAX_SAFE_INTEGER,
-      essential: true,
-      sameSitePolicy: "None",
-      value: this.consent.purposes + "@" + this.consent.level,
-    };
+  public async _persist(discardCookies = false) {
+    if (discardCookies) {
+      (this.cookies as any) = {};
+    } else {
+      this.cookies[this._requestHandler._cookieNames.consent] = {
+        httpOnly: true,
+        maxAge: Number.MAX_SAFE_INTEGER,
+        essential: true,
+        sameSitePolicy: "None",
+        value: this.consent.purposes + "@" + this.consent.level,
+      };
 
-    const splits: PartialRecord<DataPurpose, ClientDeviceDataBlob> = {};
+      const splits: PartialRecord<DataPurpose, ClientDeviceDataBlob> = {};
 
-    if (this._clientDeviceCache?.touched) {
-      // We have updated device data and need to refresh to get whatever other processes may have written (if any).
+      if (this._clientDeviceCache?.touched) {
+        // We have updated device data and need to refresh to get whatever other processes may have written (if any).
 
-      const deviceValues = (
-        await this.query(
-          [
+        const deviceValues = (
+          await this.query(
+            [
+              {
+                scopes: [VariableScope.Device],
+                keys: [":*"],
+              },
+            ],
             {
-              scopes: [VariableScope.Device],
-              keys: [":*"],
-            },
-          ],
-          {
-            top: 1000,
-            ifNoneMatch: map(
-              this._clientDeviceCache?.variables,
-              ([, variable]) => variable
-            ),
-          }
-        )
-      ).results;
+              top: 1000,
+              ifNoneMatch: map(
+                this._clientDeviceCache?.variables,
+                ([, variable]) => variable
+              ),
+            }
+          )
+        ).results;
 
-      forEach(deviceValues, (variable) => {
-        dataPurposes.map(variable.purposes, ([, purpose]) =>
-          (splits[purpose] ??= []).push([
-            variable.key,
-            variable.classification,
-            variable.version,
-            variable.value,
-          ])
-        );
+        forEach(deviceValues, (variable) => {
+          dataPurposes.map(variable.purposes, ([, purpose]) =>
+            (splits[purpose] ??= []).push([
+              variable.key,
+              variable.classification,
+              variable.version,
+              variable.value,
+            ])
+          );
+        });
+      }
+
+      if (
+        this.consent.level === DataClassification.Anonymous &&
+        this.cookies[this._requestHandler._cookieNames.session]
+      ) {
+        // Clear session cookie if we have one.
+        this.cookies[this._requestHandler._cookieNames.session].value =
+          undefined;
+      }
+
+      dataPurposes.pure.map(([purpose, flag]) => {
+        const remove =
+          this.consent.level === DataClassification.Anonymous ||
+          !splits[purpose];
+        const cookieName = this._requestHandler._cookieNames.device[flag];
+
+        if (remove) {
+          if (this.cookies[cookieName]) {
+            this.cookies[cookieName].value = undefined;
+          }
+        } else if (splits[purpose]) {
+          if (!this._clientDeviceCache?.touched) {
+            // Device data has not been touched. Don't send the cookies.
+            delete this.cookies[cookieName];
+          } else {
+            this.cookies[cookieName] = {
+              httpOnly: true,
+              maxAge: Number.MAX_SAFE_INTEGER,
+              sameSitePolicy: "None",
+              essential: flag === DataPurposeFlags.Necessary,
+              value: this.httpClientEncrypt(splits[purpose]),
+            };
+          }
+        }
       });
     }
-
-    if (
-      this.consent.level === DataClassification.Anonymous &&
-      this.cookies[this._requestHandler._cookieNames.session]
-    ) {
-      // Clear session cookie if we have one.
-      this.cookies[this._requestHandler._cookieNames.session].value = undefined;
-    }
-
-    dataPurposes.pure.map(([purpose, flag]) => {
-      const remove =
-        this.consent.level === DataClassification.Anonymous || !splits[purpose];
-      const cookieName = this._requestHandler._cookieNames.device[flag];
-
-      if (remove) {
-        if (this.cookies[cookieName]) {
-          this.cookies[cookieName].value = undefined;
-        }
-      } else if (splits[purpose]) {
-        if (!this._clientDeviceCache?.touched) {
-          // Device data has not been touched. Don't send the cookies.
-          delete this.cookies[cookieName];
-        } else {
-          this.cookies[cookieName] = {
-            httpOnly: true,
-            maxAge: Number.MAX_SAFE_INTEGER,
-            sameSitePolicy: "None",
-            essential: flag === DataPurposeFlags.Necessary,
-            value: this.httpClientEncrypt(splits[purpose]),
-          };
-        }
-      }
-    });
   }
 
   // #region Storage
@@ -825,7 +853,7 @@ export class Tracker {
       (results) =>
         results.forEach(
           (result) =>
-            result?.status === VariableResultStatus.Created &&
+            result?.status <= VariableResultStatus.Created &&
             this._changedVariables.push(result)
         )
     ) as any;

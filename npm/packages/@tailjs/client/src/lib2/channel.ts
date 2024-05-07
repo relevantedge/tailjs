@@ -1,4 +1,4 @@
-import { filter, isDefined, isObject, map } from "@tailjs/util";
+import { filter, isDefined, isPlainObject, map } from "@tailjs/util";
 import { TAB_ID, bindStorage, sharedStorage } from ".";
 
 /**
@@ -63,7 +63,7 @@ export const log = (message: any, error?: any) => {
   const source = message;
   if (error) {
     error = JSON.stringify(
-      (error = isObject(error)
+      (error = isPlainObject(error)
         ? {
             message: error.message ?? error,
             stack: error.stack,

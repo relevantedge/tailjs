@@ -1,7 +1,6 @@
 import {
   Binders,
   Listener,
-  Nullish,
   clear,
   clock,
   createEvent,
@@ -12,15 +11,13 @@ import {
   joinEventBinders,
   now,
 } from "@tailjs/util";
-import { createTransport } from "@tailjs/util/transport";
 import {
-  DEBUG,
   TAB_ID,
   addPageLoadedListener,
+  httpDecrypt as deserialize,
   error,
   listen,
   httpEncrypt as serialize,
-  httpDecrypt as deserialize,
 } from ".";
 
 export type Metadata<T = any> = [value: T, source?: string, expires?: number];
@@ -170,11 +167,12 @@ const purgeIfExpired = (key: string, value: any) => {
 };
 
 export const sharedStorage = mapStorage({
-  getItem: (key) => deserialize(purgeIfExpired(key, localStorage.getItem(key))),
+  getItem: (key) =>
+    deserialize?.(purgeIfExpired(key, localStorage.getItem(key))),
   setItem: (key, value, source, timeout) =>
     localStorage.setItem(
       key,
-      serialize([value, source]) +
+      serialize?.([value, source]) +
         (timeout! > 0 ? `@:${(now() + timeout!).toString(36)}` : "")
     ),
   removeItem: (key) => localStorage.removeItem(key),
@@ -185,8 +183,8 @@ export const sharedStorage = mapStorage({
       ({ key: changedKey, newValue, oldValue }) =>
         key == changedKey &&
         observer(
-          deserialize(parsePayload(newValue)[0]),
-          deserialize(parsePayload(oldValue)[0]),
+          deserialize?.(parsePayload(newValue)[0]),
+          deserialize?.(parsePayload(oldValue)[0]),
           key
         )
     );

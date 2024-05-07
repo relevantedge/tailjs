@@ -22,7 +22,7 @@ import {
  * If not already a regular expression, a string that starts with `/` and optionally ends with `/` is parsed as regular expressions with flags `gu` applied (global and Unicode).
  * This enables defining regular expression in text based configuration files that do not have native regular expressions.
  *
- * For convenience an asterisk (`*`) can be used to match any number of characters in strings, and  `,` and white-space ` ` are intepreted as list separators.
+ * For convenience an asterisk (`*`) can be used to match any number of characters in strings, and  `,` and white-space ` ` are interpreted as list separators.
  * `\` is used as the escape character so the string `\/escaped\*,and\ this` will only match the strings, literally, `\/escaped\*` and `and this`.
  * This also means that intentional backslashes, commas and spaces must be escaped as `\\`, `\,` and `\ ` respectively.
  *
@@ -65,15 +65,15 @@ export const match: {
   s: string,
   regex: RegExp,
   selector?: (...args: string[]) => R,
-  array = false
+  collect = false
 ) =>
-  s != nil &&
-  regex &&
-  (selector
+  (s ?? regex) == nil
+    ? undefined
+    : selector
     ? ((matchProjection = undefined),
-      array
+      collect
         ? ((collected = []),
-          regex(
+          match(
             s,
             regex,
             (...args) =>
@@ -86,13 +86,14 @@ export const match: {
             (...args) => (matchProjection = selector(...args)) as any
           ),
       matchProjection)
-    : s.match(regex));
+    : s.match(regex);
 
 /**
  * Replaces reserved characters to get a regular expression that matches the string.
  */
-export const escapeRegEx = (input: string) =>
-  input.replace(/[\^$\\.*+?()[\]{}|]/g, "\\$&");
+export const escapeRegEx = <T extends string | Nullish>(
+  input: T
+): MaybeUndefined<T, string> => input?.replace(/[\^$\\.*+?()[\]{}|]/g, "\\$&")!;
 
 const REGEX_NEVER = /\z./g;
 const unionOrNever = (parts: (string | Nullish)[], joined?: string) =>
@@ -121,7 +122,7 @@ export const parseRegex = <T>(
       ? /./g
       : REGEX_NEVER // Matches nothing. End of string followed by something is never the case.
     : isString(input)
-    ? (stringRuleCache[input] ??= regex(
+    ? (stringRuleCache[input] ??= match(
         input || "",
         /^(?:\/(.+?)\/?|(.*))$/gu,
         (_, regex, text) =>
@@ -132,21 +133,19 @@ export const parseRegex = <T>(
                   split(
                     text,
                     new RegExp(
-                      `?<!(?<!\\)\\)[${join(map(separators, escapeRegEx))}]/`
+                      `?<!(?<!\\)\\)[${join(separators, escapeRegEx, ",")}]/`
                     )
                   ),
                   (text) =>
                     text &&
                     `^${join(
-                      map(
-                        // Split on non-escaped asterisk (Characterized by a leading backslash that is not itself an escaped backslash).
-                        split(text, /(?<!(?<!\\)\\)\*/),
-                        (part) =>
-                          escapeRegEx(
-                            // Remove backslashes used for escaping.
-                            replace(part, /\\(.)/g, "$1")
-                          )
-                      ),
+                      // Split on non-escaped asterisk (Characterized by a leading backslash that is not itself an escaped backslash).
+                      split(text, /(?<!(?<!\\)\\)\*/),
+                      (part) =>
+                        escapeRegEx(
+                          // Remove backslashes used for escaping.
+                          replace(part, /\\(.)/g, "$1")
+                        ),
                       // Join the parts separated by non-escaped asterisks with the regex wildcard equivalent.
                       ".*"
                     )}$`

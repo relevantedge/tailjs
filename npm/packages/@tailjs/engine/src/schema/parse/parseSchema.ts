@@ -1,4 +1,4 @@
-import { OmitPartial, Wrapped, map, unwrap } from "@tailjs/util";
+import { PartialExcept, Wrapped, map, unwrap } from "@tailjs/util";
 import Ajv, { ErrorObject } from "ajv";
 import {
   TraverseContext,
@@ -40,7 +40,7 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
 };
 
 export const parseError = (
-  context: OmitPartial<TraverseContext, "path">,
+  context: PartialExcept<TraverseContext, "path">,
   error: Wrapped<string>
 ) => new Error(`${context.path.join("/")}: ${unwrap(error)}`);
 

@@ -34,10 +34,10 @@ export interface PostRequest {
   };
 
   /**
-   * The client will not process the response. This is used by the web client to send timing events when a tab loses focus.
-   * Sessions are not created on these requests, and extensions such as client location should ignore the request.
+   * The request was send passively from the client.
+   * Any response such as changed variables will be pushed to the client via a cookie.
    */
-  passive?: boolean;
+  beacon?: boolean;
 
   /**
    * A client-generated session ID.

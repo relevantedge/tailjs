@@ -10,6 +10,7 @@ import {
   hashMap,
   hashSet,
   map,
+  push,
   set,
 } from ".";
 
@@ -50,6 +51,6 @@ export const addDependency = (
   dependency: TrackedEvent
 ) => (
   event !== dependency &&
-    ((event[dependencies] ??= []).push(dependency) as any),
+    push(((event[dependencies] ??= []), dependency) as any),
   event
 );

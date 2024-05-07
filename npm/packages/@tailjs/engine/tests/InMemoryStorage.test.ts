@@ -8,13 +8,13 @@ import {
 import { InMemoryStorage, ParsingVariableStorage } from "../src";
 
 describe("Variable stores store.", () => {
-  it("InMemoryStore handles get/set.", async () => {
+  it("InMemoryStore handles get/set", async () => {
     const store = new ParsingVariableStorage(new InMemoryStorage());
 
-    const key: VariableKey = {
+    const key = {
       key: "test",
       scope: "global",
-    };
+    } as const;
 
     expect(
       (
@@ -30,13 +30,13 @@ describe("Variable stores store.", () => {
 
     expect(await store.get([{ ...key }]).value).toBe("test");
 
-    const sessionKeys = ["1", "2", "123"].map(
+    const sessionKeys = (["1", "2", "123"] as const).map(
       (targetId) =>
         ({
           ...key,
           scope: "session",
           targetId,
-        } as VariableKey)
+        } as const)
     );
 
     expect(
@@ -81,7 +81,7 @@ describe("Variable stores store.", () => {
     ).toMatchObject({ status: VariableResultStatus.Created, value: 10 });
   });
 
-  it("InMemoryStore handles version conflicts.", async () => {
+  it("InMemoryStore handles version conflicts", async () => {
     const key: VariableHeader<false> = {
       scope: "user",
       targetId: "u",
@@ -94,7 +94,7 @@ describe("Variable stores store.", () => {
 
     let result = (
       await store.set([{ ...key, value: "version1" }])
-    )[0] as any as VariableSetResult | undefined;
+    )[0] as any as VariableSetResult;
 
     expect(result?.status).toBe(VariableResultStatus.Created);
 
@@ -151,7 +151,7 @@ describe("Variable stores store.", () => {
     ).toBe(VariableResultStatus.Success);
   });
 
-  it("InMemoryStore handles queries.", async () => {
+  it("InMemoryStore handles queries", async () => {
     const target: VariableHeader<false> = {
       scope: "session",
       targetId: "s",

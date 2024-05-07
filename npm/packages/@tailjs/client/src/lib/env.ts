@@ -1,5 +1,5 @@
 import {
-  CONTEXT_MENU_QUERY,
+  CONTEXT_NAV_QUERY,
   EVENT_HUB_QUERY,
   VARIABLES_QUERY,
 } from "@constants";
@@ -32,5 +32,5 @@ export const mapUrl = (...urlParts: string[]) =>
   replace(join(urlParts), /(^(?=\?))|(^\.(?=\/))/, SCRIPT_SRC.split("?")[0]);
 
 export const VAR_URL = mapUrl("?", EVENT_HUB_QUERY);
-export const MNT_URL = mapUrl("?", CONTEXT_MENU_QUERY);
+export const MNT_URL = mapUrl("?", CONTEXT_NAV_QUERY);
 export const USR_URL = mapUrl("?", VARIABLES_QUERY);

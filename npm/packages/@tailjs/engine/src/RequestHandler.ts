@@ -3,18 +3,16 @@ import defaultSchema from "@tailjs/types/schema";
 import clientScripts from "@tailjs/client/script";
 import {
   DataPurpose,
-  DataPurposeFlags,
   dataPurposes,
   PassiveEvent,
   PostRequest,
   PostResponse,
   TrackedEvent,
+  VariableScope,
 } from "@tailjs/types";
-import queryString from "query-string";
 import { Lock } from "semaphore-async-await";
-import urlParse from "url-parse";
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
-import { any, DefaultCryptoProvider, map, merge, params } from "./lib";
+import { DefaultCryptoProvider } from "./lib";
 
 import {
   CallbackResponse,
@@ -35,27 +33,49 @@ import {
   TrackerEnvironment,
   TrackerExtension,
   TrackerExtensionContext,
+  TrackerInitializationOptions,
   TrackerPostOptions,
+  TrackerSettings,
   ValidationError,
   VariableStorageCoordinator,
 } from "./shared";
 
 import {
-  CONTEXT_MENU_COOKIE,
+  CLIENT_SCRIPT_QUERY,
+  CONTEXT_NAV_QUERY,
+  CONTEXT_NAV_REQUEST_ID,
   EVENT_HUB_QUERY,
-  MUTEX_REQUEST_COOKIE,
+  INIT_QUERY,
+  SCHEMA_QUERY,
 } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
 import {
-  isObject,
+  array,
+  deferred,
+  deferredPromise,
+  forEach,
+  forEachAsync,
+  isDefined,
+  isPlainObject,
   isString,
+  isUndefined,
+  join,
   JsonObject,
+  map,
+  match,
+  MaybeDeferredPromise,
+  merge,
   obj,
+  parseQueryString,
+  parseUri,
+  PickRequired,
   rank,
+  RecordType,
+  ReplaceProperties,
   required,
-  thenable,
+  some,
 } from "@tailjs/util";
-import { from64u } from "@tailjs/util/transport";
+import { createTransport, from64u } from "@tailjs/util/transport";
 import {
   DefaultSessionReferenceMapper,
   SessionReferenceMapper,
@@ -71,14 +91,22 @@ const scripts = {
   debug: clientScripts.debug,
 };
 
-export let SCRIPT_CACHE_CONTROL: string = "private, max-age=604800"; // A week
+export const MAX_CACHE_HEADERS = {
+  "cache-control": "private, max-age=2147483648",
+} as const; // As long as possible (https://datatracker.ietf.org/doc/html/rfc9111#section-1.2.2).
+
+export let SCRIPT_CACHE_HEADERS = {
+  "cache-control": "private, max-age=604800",
+} as const; // A week
 
 export class RequestHandler {
   private readonly _allowUnknownEventTypes: boolean;
   private readonly _cookies: CookieMonster;
   private readonly _debugScript: boolean | string;
   private readonly _endpoint: string;
-  private readonly _extensionFactories: (() => Promise<TrackerExtension>)[];
+  private readonly _extensionFactories: (() =>
+    | TrackerExtension
+    | Promise<TrackerExtension>)[];
   private readonly _lock = new Lock();
   private readonly _schema: SchemaManager;
   private readonly _trackerName: string;
@@ -91,6 +119,8 @@ export class RequestHandler {
   public readonly _cookieNames: {
     consent: string;
     session: string;
+    /** If this is not set, push cookies will not be used. */
+    push?: string;
     device: Record<DataPurpose, string>;
   };
   public readonly environment: TrackerEnvironment;
@@ -135,17 +165,16 @@ export class RequestHandler {
 
     this._sessionTimeout = sessionTimeout;
     this._cookieNames = {
-      consent: `${cookies.namePrefix}.consent`,
-      session: `${cookies.namePrefix}.s`,
+      consent: cookies.namePrefix + ":consent",
+      session: cookies.namePrefix + ":session",
+      push: cookies.namePrefix + ":push",
       device: obj(
         dataPurposes.pure.map(
           ([name, flag]) =>
             [
               flag,
               // Necessary device data is just ".d" (no suffix)
-              `${cookies.namePrefix}.d${
-                flag !== DataPurposeFlags.Necessary ? `.${name[0]}` : ""
-              }`,
+              cookies.namePrefix + ":" + dataPurposes.format(name),
             ] as const
         )
       ),
@@ -199,7 +228,7 @@ export class RequestHandler {
       schemas ??= [];
       if (
         !schemas.find(
-          (schema) => isObject(schema) && schema.$id === "urn:tailjs:core"
+          (schema) => isPlainObject(schema) && schema.$id === "urn:tailjs:core"
         )
       ) {
         schemas.unshift(defaultSchema);
@@ -360,6 +389,7 @@ export class RequestHandler {
     eventBatch = await callPatch(0, parsed);
     const extensionErrors: Record<string, Error> = {};
     if (options.routeToClient) {
+      // TODO: Find a way to push these. They are for external client-side trackers.
       tracker._clientEvents.push(...events);
     } else {
       await Promise.all(
@@ -375,7 +405,7 @@ export class RequestHandler {
       );
     }
 
-    if (validationErrors.length || any(extensionErrors)) {
+    if (validationErrors.length || some(extensionErrors)) {
       throw new PostError(validationErrors, extensionErrors);
     }
 
@@ -398,8 +428,10 @@ export class RequestHandler {
 
     await this.initialize();
 
-    const { host, pathname: path, query } = urlParse(url);
-    const parsedQuery = queryString.parse(query);
+    const { host, path, query } = parseUri(url);
+    if (isUndefined(host) || isUndefined(path)) {
+      return null;
+    }
 
     const headers = Object.fromEntries(
       Object.entries(sourceHeaders)
@@ -413,149 +445,224 @@ export class RequestHandler {
         )
     );
 
-    clientIp ??=
-      headers["x-forwarded-for"]?.[0] ??
-      Object.fromEntries(params(headers["forwarded"]))["for"] ??
-      undefined;
+    let trackerInitializationOptions: TrackerInitializationOptions | undefined;
 
-    const tracker = thenable(
-      () =>
-        new Tracker({
-          headers,
-          host,
-          path,
-          url,
-          queryString: Object.fromEntries(
-            Object.entries(parsedQuery ?? {}).map(([key, value]) => [
-              key,
-              !value
-                ? []
-                : Array.isArray(value)
-                ? value.map((value) => value || "")
-                : [value],
-            ])
-          ),
-          clientIp,
-          requestHandler: this,
-          cookies: this._cookies.parseCookieHeader(headers["cookie"]),
-          clientKeySeed: this._clientKeySeed,
-        })
-    );
+    let trackerSettings = deferred(() => {
+      clientIp ??=
+        headers["x-forwarded-for"]?.[0] ??
+        obj(parseQueryString(headers["forwarded"]))?.["for"] ??
+        undefined;
+
+      let clientKey: string | undefined;
+      if (this._clientKeySeed) {
+        clientKey = `${clientIp}_${headers?.["user-agent"] ?? ""}`;
+        clientKey = `${clientKey.substring(0, clientKey.length / 2)}${
+          this._clientKeySeed
+        }${clientKey.substring(clientKey.length / 2 + 1)}`;
+        clientKey = this.environment.hash(clientKey, 64);
+      }
+
+      return {
+        headers,
+        host,
+        path,
+        url,
+        queryString: Object.fromEntries(
+          Object.entries(query ?? {}).map(([key, value]) => [
+            key,
+            !value
+              ? []
+              : Array.isArray(value)
+              ? value.map((value) => value || "")
+              : [value],
+          ])
+        ),
+        clientIp,
+        requestHandler: this,
+        cookies: this._cookies.parseCookieHeader(headers["cookie"]),
+        clientKey,
+        cipher: createTransport(clientKey),
+      } as PickRequired<TrackerSettings, "cipher"> & { clientKey?: string };
+    });
+
+    /**
+     * Set trackerInit before calling this or this first time, if something is needed.
+     *
+     * The reason it is async is if a consuming API wants to use the tracker in its own code.
+     * The overhead of initializing the tracker should not be included if it doesn't, and no request was handled from the URL.
+     */
+    const tracker = deferredPromise(async () => {
+      const tracker = new Tracker(trackerSettings());
+      await tracker._initialize(trackerInitializationOptions);
+      return tracker;
+    });
+
+    const result = async (
+      response: Partial<
+        ReplaceProperties<
+          CallbackResponse,
+          { body: CallbackResponse["body"] | RecordType }
+        >
+      > | null,
+
+      {
+        /* Don't write any cookies, changed or not.
+         * In situations where we redirect and what we are doing might be interpreted as "link decoration",
+         * we don't want the browser to suddenly restrict the age of the user's cookies.
+         * The push cookie may be set, but that has a very short age anyway (and hopefully will be replaced with SSE).
+         */
+        sendCookies = true,
+        push = false,
+      } = {}
+    ) => {
+      if (response) {
+        response.headers ??= {};
+        if (tracker.initialized) {
+          const resolvedTracker = await tracker;
+          if (sendCookies) {
+            await resolvedTracker._persist(true);
+            response.cookies = this.getClientCookies(resolvedTracker);
+          } else {
+            await resolvedTracker._persist(false);
+          }
+        }
+
+        if (isPlainObject(response.body)) {
+          response.body = trackerSettings().cipher[0](response.body);
+        }
+
+        if (isString(response.body) && !response.headers?.["content-type"]) {
+          (response.headers ??= {})["content-type"] = "text/plain";
+        }
+
+        if (push && response.body) {
+          // TODO: Change to server-sent events (SSE).
+          if (this._cookieNames.push) {
+            (response.cookies ?? []).push(
+              this._cookies.mapResponseCookie(this._cookieNames.push, {
+                value: response.body as string,
+                essential: true,
+                httpOnly: false,
+                maxAge: 5,
+              })
+            );
+          }
+          // If we had a response before, we don't now. Change status to "OK no content"
+          response.status === 200 && (response.status = 204);
+          response.body = undefined;
+        }
+      }
+
+      return {
+        tracker,
+        response: response as CallbackResponse,
+      };
+    };
 
     try {
-      let extensionRequestType: null | "post" = null;
-      const result = async (
-        response: Partial<CallbackResponse> | null,
-        discardTrackerCookies = false
-      ) => {
-        const resolvedTracker = await tracker;
-        if (extensionRequestType) {
-          !discardTrackerCookies && (await resolvedTracker._persist());
-
-          console.log(
-            resolvedTracker.httpClientDecrypt(
-              resolvedTracker.cookies[MUTEX_REQUEST_COOKIE]?.value
-            )
-          );
-        }
-        if (response) {
-          response.headers ??= {};
-          response.cookies = this.getClientCookies(resolvedTracker);
-        }
-
-        return {
-          tracker,
-          response: response as CallbackResponse,
-        };
-      };
-
       let requestPath = path;
 
       if (requestPath.startsWith(this._endpoint)) {
         requestPath = requestPath.substring(this._endpoint.length);
 
-        if ("init" in parsedQuery) {
-          // This is set by most modern browsers.
-          // It prevents external scripts to try to get a hold of the storage key via XHR.
-          const secDest = headers["sec-fetch-dest"];
-          if (secDest && secDest !== "script") {
-            return await result({
-              status: 400,
-              body: "This script can only be loaded from a script tag.",
-              headers: {
-                "content-type": "text/plain",
-                "cache-control": SCRIPT_CACHE_CONTROL,
-                vary: "sec-fetch-dest",
-              },
-            });
-          }
-          const resolvedTracker = await tracker;
-          return await result({
-            status: 200,
-            body: generateClientConfigScript(resolvedTracker, {
-              ...this._clientConfig,
-              clientKey: resolvedTracker.clientKey,
-            }),
-            headers: {
-              "content-type": "application/javascript",
-              "cache-control": SCRIPT_CACHE_CONTROL,
-              vary: "sec-fetch-dest",
-            },
-          });
-        }
+        let queryValue: string | undefined;
 
         switch (method.toUpperCase()) {
           case "GET": {
-            if ("opt" in parsedQuery) {
+            if (isDefined((queryValue = join(query?.[INIT_QUERY])))) {
+              // This is set by most modern browsers.
+              // It prevents external scripts to try to get a hold of the storage key via XHR.
+              const secDest = headers["sec-fetch-dest"];
+              if (secDest && secDest !== "script") {
+                return await result({
+                  status: 400,
+                  body: "This script can only be loaded from a script tag.",
+                  headers: {
+                    ...SCRIPT_CACHE_HEADERS,
+                    vary: "sec-fetch-dest",
+                  },
+                });
+              }
+              const { clientKey } = trackerSettings();
               return await result({
                 status: 200,
-                body: this._getClientScripts(await tracker, false),
-
-                cacheKey: "external-script",
+                body: generateClientConfigScript({
+                  ...this._clientConfig,
+                  clientKey,
+                }),
                 headers: {
-                  "cache-control": SCRIPT_CACHE_CONTROL,
                   "content-type": "application/javascript",
+                  ...SCRIPT_CACHE_HEADERS,
+                  vary: "sec-fetch-dest",
                 },
               });
             }
-            if ("mnt" in parsedQuery) {
+
+            if (isDefined((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])))) {
+              return await result({
+                status: 200,
+                body: await this._getClientScripts(tracker, false),
+
+                cacheKey: "external-script",
+                headers: {
+                  "content-type": "application/javascript",
+                  ...SCRIPT_CACHE_HEADERS,
+                },
+              });
+            }
+
+            if (isDefined((queryValue = join(query?.[CONTEXT_NAV_QUERY])))) {
+              trackerInitializationOptions = { passive: true };
+              // We need to initialize the tracker to see if it has a session.
+              // If so, we will push a variable that tells the client navigation happened.
+              // Otherwise we will just redirect without sending any cookies.
               const resolvedTracker = await tracker;
 
-              const mnt = Array.isArray(parsedQuery["mnt"])
-                ? parsedQuery["mnt"].join("")
-                : parsedQuery["mnt"];
+              const parts = match(join(queryValue), /^([0-9a-z]*0)?(.+)$/);
+              const targetUri = parts?.[1];
+              if (!targetUri) return await result({ status: 400 });
 
-              const contextMenuCookie =
-                resolvedTracker.cookies[CONTEXT_MENU_COOKIE]?.value;
+              const requestId = parts?.[0];
 
-              // Don't write any other cookies (that is, clear those we have).
-              // If for any reason this redirect is considered "link decoration" or similar
-              // we don't want the browser to store the rest of our cookies in a restrictive way.
               (resolvedTracker.cookies as any) = {};
               // This cookie is used to signal that external navigation happened from the "open in new tab" context menu.
               // We do not want the server to echo this cookie.
 
-              if (contextMenuCookie) {
-                resolvedTracker.cookies[CONTEXT_MENU_COOKIE] = {
-                  essential: true,
-                  httpOnly: false,
-                  maxAge: 30,
-                  value: "" + (+contextMenuCookie + 1),
-                  sameSitePolicy: "Lax",
-                };
-              }
-              return await result({
-                status: 301,
-                headers: {
-                  location: mnt + "",
-                  "cache-control": "no-cache, no-store, must-revalidate",
-                  pragma: "no-cache",
-                  expires: "0",
+              SCRIPT_CACHE_HEADERS;
+              return await result(
+                {
+                  status: 301, // Permanent redirect. Never invoke this code again.
+                  headers: {
+                    location: queryValue,
+                    ...MAX_CACHE_HEADERS,
+                  },
+                  body:
+                    requestId != null && resolvedTracker.sessionId
+                      ? // Only push data if we have a session. Otherwise we might send cookies to innocent people who may have
+                        // received an encoded link, if the original user decided to copy the link via the context menu.
+                        ({
+                          variables: {
+                            // Set a fictitious variable so the client picks up navigation happened if polling for the request ID.
+                            // The idea is that these request IDs are random with millions of possible values, so collisions are
+                            // very unlikely. This would only happen if another user received a link the user copied via the context menu,
+                            // and then opened it while having an active session waiting for the exact same request ID. #640KShouldBeEnough.
+                            get: [
+                              {
+                                status: 200,
+                                scope: VariableScope.Session,
+                                key: CONTEXT_NAV_REQUEST_ID,
+                                value: requestId,
+                              },
+                            ],
+                          },
+                        } as PostResponse)
+                      : undefined,
                 },
-              });
+                { sendCookies: false, push: true }
+              );
             }
 
-            if ("$types" in parsedQuery) {
+            if (isDefined((queryValue = join(query?.[SCHEMA_QUERY])))) {
               return await result({
                 status: 200,
                 body: this._schema.schema.definition,
@@ -566,9 +673,11 @@ export class RequestHandler {
               });
             }
 
+            // Default for GET is to send script.
+
             const scriptHeaders = {
               "content-type": "application/javascript",
-              "cache-control": SCRIPT_CACHE_CONTROL,
+              ...SCRIPT_CACHE_HEADERS,
             };
 
             let script: string | Uint8Array | null = this._script;
@@ -600,37 +709,42 @@ export class RequestHandler {
           }
 
           case "POST": {
-            if (EVENT_HUB_QUERY in parsedQuery) {
+            if (isDefined((queryValue = join(query?.[EVENT_HUB_QUERY])))) {
               const payloadString = payload ? await payload() : null;
 
               if (payloadString == null || payloadString === "") {
                 return await result({
                   status: 400,
                   body: "No data.",
-                  headers: {
-                    "content-type": "text/plain",
-                  },
                 });
               }
 
-              // TODO: Be binary.
-              const postRequest: PostRequest =
-                this.environment.httpDecode(payloadString);
-
-              const resolvedTracker = await tracker;
               try {
-                extensionRequestType = "post";
+                // TODO: Be binary.
+                const postRequest: PostRequest =
+                  this.environment.httpDecode(payloadString);
+                if (!postRequest.events && postRequest.variables) {
+                  return result({
+                    status: 400,
+                  });
+                }
+
+                trackerInitializationOptions = {
+                  deviceId: postRequest.deviceId,
+                  deviceSessionId: postRequest.deviceId,
+                };
+                let push = postRequest.beacon;
+
+                const resolvedTracker = await tracker;
+
                 const response: PostResponse = {};
 
                 if (postRequest.events) {
-                  if (!postRequest.passive) {
-                    postRequest.passive = postRequest.events.every(
-                      (event) => (event as PassiveEvent).passive
-                    );
-                  }
                   //requestTimer.print("post start");
                   await resolvedTracker.post(postRequest.events, {
-                    passive: postRequest.passive,
+                    passive: postRequest.events.every(
+                      (event) => (event as PassiveEvent).passive
+                    ),
                     deviceSessionId: postRequest.deviceSessionId,
                     deviceId: postRequest.deviceId,
                   });
@@ -653,9 +767,10 @@ export class RequestHandler {
                   response.variables
                     ? {
                         status: 200,
-                        body: resolvedTracker.httpClientEncrypt(response),
+                        body: response,
                       }
-                    : { status: 202 }
+                    : { status: 204 },
+                  { push: true }
                 );
               } catch (error) {
                 this.environment.log(
@@ -669,9 +784,6 @@ export class RequestHandler {
                   return result({
                     status: Object.keys(error.extensions).length ? 500 : 400,
                     body: error.message,
-                    headers: {
-                      "content-type": "text/plain",
-                    },
                     error,
                   });
                 }
@@ -683,10 +795,7 @@ export class RequestHandler {
 
         return result({
           status: 400,
-          body: `Bad request.`,
-          headers: {
-            "content-type": "text/plain",
-          },
+          body: "Bad request.",
         });
       }
     } catch (ex) {
@@ -697,11 +806,11 @@ export class RequestHandler {
     return { tracker, response: null };
   }
 
-  private _getClientScripts(
-    tracker: Tracker,
+  private async _getClientScripts(
+    tracker: MaybeDeferredPromise<Tracker>,
     html: boolean,
     nonce?: string
-  ): string | undefined {
+  ): Promise<string | undefined> {
     if (!this._initialized) {
       return undefined;
     }
@@ -717,39 +826,37 @@ export class RequestHandler {
     const inlineScripts: string[] = [trackerScript.join("")];
     const otherScripts: ClientScript[] = [];
 
-    this._extensions
-      .map((extension) => extension.getClientScripts?.(tracker))
-      .flatMap((item) => item ?? [])
-      .forEach((script) => {
-        if ("inline" in script) {
-          // Prevent errors from preempting other scripts.
-          script.inline = wrapTryCatch(script.inline);
+    await forEachAsync(
+      this._extensions.map(
+        async (extension) =>
+          extension.getClientScripts &&
+          extension.getClientScripts(await tracker)
+      ),
+      async (scripts) =>
+        forEach(array(await scripts), (script) => {
+          if ("inline" in script) {
+            // Prevent errors from preempting other scripts.
+            script.inline = wrapTryCatch(script.inline);
 
-          if (script.allowReorder !== false) {
-            inlineScripts.push(script.inline);
-            return;
+            if (script.allowReorder !== false) {
+              inlineScripts.push(script.inline);
+              return;
+            }
           }
-        }
-        otherScripts.push(script);
-      });
+        })
+    );
 
     if (html) {
-      const variables = this._getClientVariables(tracker);
-
-      if (Object.keys(variables).length) {
-        inlineScripts.push(
-          `${trackerRef}.push(${JSON.stringify({ set: variables })});`
-        );
-      }
-      const pendingEvents = tracker.clientEvents;
-      if (pendingEvents.length) {
-        inlineScripts.push(
-          `${trackerRef}.push(${pendingEvents
-            .map((event) =>
-              typeof event === "string" ? event : JSON.stringify(event)
-            )
-            .join(", ")});`
-        );
+      if (tracker.initialized === true) {
+        const pendingEvents = (await tracker).clientEvents;
+        pendingEvents.length &&
+          inlineScripts.push(
+            `${trackerRef}.push(${pendingEvents
+              .map((event) =>
+                typeof event === "string" ? event : JSON.stringify(event)
+              )
+              .join(", ")});`
+          );
       }
 
       otherScripts.push({

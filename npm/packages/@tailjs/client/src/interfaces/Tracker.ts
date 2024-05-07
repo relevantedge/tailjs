@@ -1,4 +1,4 @@
-import { MaybeArray, Nullish } from "@tailjs/util";
+import { ArrayOrSelf, MaybeArray, Nullish } from "@tailjs/util";
 import type { TrackerCommand, TrackerConfiguration } from "..";
 import { EventQueue, TrackerVariableStorage } from "../lib2";
 
@@ -29,17 +29,14 @@ export type Tracker = {
     (apiKey: string, httpEncoded: string): void;
 
     /** Executes the specified commands. */
-    (...args: readonly MaybeArray<TrackerCommand | Nullish, true>[]): void;
+    (...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
 
     /**
      * Executes the specified commands.
      *
      * Use this overload if a {@link TrackerConfiguration.apiKey} has been configured.
      */
-    (
-      apiKey: string,
-      ...args: readonly MaybeArray<TrackerCommand, true>[]
-    ): void;
+    (apiKey: string, ...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
   };
   /**
    * The tracker was initialized during server-side rendering.

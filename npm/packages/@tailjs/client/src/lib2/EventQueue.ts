@@ -1,5 +1,13 @@
 import { PassiveEvent, PostRequest, TrackedEvent } from "@tailjs/types";
-import { clock, clone, concat, entriesEqual, map } from "@tailjs/util";
+import {
+  clock,
+  clone,
+  concat,
+  map,
+  push,
+  structuresEqual,
+  unshift,
+} from "@tailjs/util";
 import {
   EVENT_POST_FREQUENCY,
   TrackerContext,
@@ -39,7 +47,7 @@ export const createEventQueue = (
   type Factory = () => [event: PassiveEvent | undefined, unbinding: boolean];
   const queue: TrackedEvent[] = [];
 
-  const previous = new WeakMap<TrackedEvent, any>();
+  const snapshots = new WeakMap<TrackedEvent, any>();
   const sources = new Map<TrackedEvent, Factory>();
 
   const registerPassiveEventSource = <T extends PassiveEvent>(
@@ -49,9 +57,9 @@ export const createEventQueue = (
     let unbinding = false;
     const unbind = () => (unbinding = true);
     const factory: Factory = () => {
-      let updated = source(previous.get(sourceEvent), unbind);
-      if (!previous || !entriesEqual(updated, previous)) {
-        updated && previous.set(sourceEvent, clone(updated));
+      let updated = source(snapshots.get(sourceEvent), unbind);
+      if (updated && (!snapshots || !structuresEqual(updated, snapshots))) {
+        updated && snapshots.set(sourceEvent, clone(updated));
         return [updated, unbinding];
       } else {
         return [undefined, unbinding];
@@ -63,12 +71,12 @@ export const createEventQueue = (
 
   const post = async (events: TrackedEvent[], flush = false) => {
     if (!flush) {
-      queue.push(...events);
+      push(queue, ...events);
       return;
     }
 
     if (queue.length) {
-      events.unshift(...queue.splice(0));
+      unshift(events, ...queue.splice(0));
     }
     if (!queue.length) return;
 
@@ -81,8 +89,10 @@ export const createEventQueue = (
   postFrequency > 0 && clock(() => post([], true), postFrequency);
 
   addPageVisibleListener((visible, unloading, delta) => {
-    // Don't do anything if the tab has only been visible for less than two seconds.
-    if (!visible && (queue.length || unloading || delta > 2000)) {
+    // Don't do anything if the tab has only been visible for less than a second and a half.
+    // More than that the user is probably just switching between tabs moving past this one.
+    // NOTE: (This number should preferably be better qualified. We could also look into user activation events).
+    if (!visible && (queue.length || unloading || delta > 1500)) {
       const updatedEvents = map(sources, ([sourceEvent, source]) => {
         const [event, unbinding] = source();
         unbinding && sources.delete(sourceEvent);
@@ -90,7 +100,7 @@ export const createEventQueue = (
       });
 
       if (queue.length || updatedEvents.length) {
-        post(concat(queue.splice(0), updatedEvents), true);
+        post(concat(queue.splice(0), updatedEvents)!, true);
       }
     }
   });

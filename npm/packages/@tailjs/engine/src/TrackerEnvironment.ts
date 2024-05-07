@@ -6,10 +6,11 @@ import {
 } from "@tailjs/util/transport";
 import ShortUniqueId from "short-unique-id";
 
-import { Nulls, isString } from "@tailjs/util";
+import { MaybeUndefined, isString } from "@tailjs/util";
 import { formatError, params } from "./lib";
 import {
   LogLevel,
+  ParsingVariableStorage,
   type ChangeHandler,
   type Cookie,
   type CryptoProvider,
@@ -17,10 +18,6 @@ import {
   type HttpRequest,
   type HttpResponse,
   type LogMessage,
-  type ModelMetadata,
-  VariableStorage,
-  SchemaManager,
-  ParsingVariableStorage,
 } from "./shared";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
@@ -107,12 +104,12 @@ export class TrackerEnvironment {
     source: T,
     numeric: B,
     secure?: boolean
-  ): B extends true ? number : T & Nulls<T>;
+  ): B extends true ? number : MaybeUndefined<T>;
   public hash<T extends string | null | undefined>(
     source: T,
     bits?: 32 | 64 | 128,
     secure?: boolean
-  ): string & Nulls<T>;
+  ): MaybeUndefined<T, string>;
   public hash(value: any, numericOrBits: any, secure = false): any {
     return value == null
       ? (value as any)

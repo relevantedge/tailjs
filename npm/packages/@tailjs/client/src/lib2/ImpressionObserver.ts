@@ -5,6 +5,7 @@ import {
 } from "@tailjs/types";
 import {
   F,
+  NoOpFunction,
   T,
   count,
   createTimer,
@@ -12,6 +13,7 @@ import {
   forEach,
   map,
   nil,
+  push,
   restrict,
   stickyTimeout,
 } from "@tailjs/util";
@@ -64,7 +66,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
       const trackImpression = stickyTimeout(trackerConfig.impressionThreshold);
       const timer = createTimer(false, () => getVisibleDuration());
       let impressionEvents: ImpressionEvent[] | undefined;
-      let unbindPassiveEventSources: (() => void)[] | undefined;
+      let unbindPassiveEventSources: NoOpFunction[] | undefined;
       el[intersectionHandler] = (
         intersecting: boolean,
         rect: DOMRectReadOnly,
@@ -101,7 +103,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
                       nil
                   )
                 );
-                tracker.push(impressionEvents);
+                push(tracker, impressionEvents);
               }
 
               if (impressionEvents?.length) {

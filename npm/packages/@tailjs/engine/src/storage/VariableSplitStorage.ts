@@ -20,6 +20,8 @@ import {
   formatKey,
   parseKey,
   variableScope,
+  ValidatedVariableGetter,
+  ValidatedVariableSetter,
 } from "@tailjs/types";
 import {
   DoubleMap,
@@ -54,14 +56,14 @@ export type PrefixMappings = PartialRecord<
 export type VariableSplitStoragePatchers = {
   get?(
     storage: SplitStorageErrorWrapper,
-    getters: (VariableGetter<any, true> | Nullish)[],
-    results: (VariableGetResult<any, true> | undefined)[],
+    getters: (ValidatedVariableGetter | Nullish)[],
+    results: (VariableGetResult | undefined)[],
     context: VariableStorageContext | undefined
   ): Promise<(VariableGetResult | undefined)[]>;
 
   set?(
     storage: SplitStorageErrorWrapper,
-    setters: (VariableSetter<any, true> | Nullish)[],
+    setters: (ValidatedVariableSetter | Nullish)[],
     results: (VariableSetResult | undefined)[],
     context: VariableStorageContext | undefined
   ): Promise<(VariableSetResult | undefined)[]>;

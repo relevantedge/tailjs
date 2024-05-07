@@ -19,7 +19,7 @@ export const updateBaseTypes = (context: TraverseContext) => {
         if (baseType) {
           (type.extends ??= new Set()).add(baseType);
         }
-        concat(composition.compositions, composition.ref?.composition).forEach(
+        concat(composition.compositions, composition.ref?.composition)?.forEach(
           addBaseTypes
         );
 

@@ -1,6 +1,8 @@
 import {
   DataPurposeFlags,
   UserConsent,
+  ValidatedVariableGetter,
+  ValidatedVariableSetter,
   Variable,
   VariableClassification,
   VariableFilter,
@@ -22,6 +24,7 @@ import {
   VariableSetResults,
   VariableSetter,
   VariableSetters,
+  dataClassification,
   dataPurposes,
   extractKey,
   formatKey,
@@ -182,13 +185,13 @@ export class VariableStorageCoordinator implements VariableStorage {
   }
 
   private async _setWithRetry(
-    setters: (VariableSetter<any, true> | Nullish)[],
+    setters: (ValidatedVariableSetter | Nullish)[],
     targetStorage: VariableStorage | SplitStorageErrorWrapper,
     context: VariableStorageContext | undefined,
     patch?: (
       sourceIndex: number,
       result: VariableSetResult
-    ) => MaybePromise<VariableSetter<any, true> | undefined>
+    ) => MaybePromise<ValidatedVariableSetter | undefined>
   ): Promise<(VariableSetResult | undefined)[]> {
     const finalResults: (VariableSetResult | undefined)[] = [];
     let pending = withSourceIndex(setters);
@@ -242,20 +245,27 @@ export class VariableStorageCoordinator implements VariableStorage {
     }
 
     // Map original sources (lest something was patched).
-    finalResults.forEach(
-      (result, i) => result && (result.source = setters[i]!)
-    );
+    finalResults.forEach((result, i) => {
+      if (
+        context?.tracker &&
+        result?.status! <= 201 &&
+        result?.current?.scope === VariableScope.Device
+      ) {
+        context.tracker._touchClientDeviceData();
+      }
+      return result && (result.source = setters[i]!);
+    });
 
     return finalResults;
   }
 
   protected async _patchGetResults(
     storage: SplitStorageErrorWrapper,
-    getters: (VariableGetter<any, true> | Nullish)[],
-    results: (VariableGetResult<any, true> | undefined)[],
+    getters: (ValidatedVariableGetter | Nullish)[],
+    results: (VariableGetResult<any, string> | undefined)[],
     context: VariableStorageContext | undefined
   ): Promise<(VariableGetResult | undefined)[]> {
-    const initializerSetters: VariableSetter<any, true>[] = [];
+    const initializerSetters: ValidatedVariableSetter[] = [];
 
     for (let i = 0; i < getters.length; i++) {
       if (!getters[i]) continue;
@@ -288,13 +298,13 @@ export class VariableStorageCoordinator implements VariableStorage {
 
   private async _patchSetResults(
     storage: SplitStorageErrorWrapper,
-    setters: (VariableSetter<any, true> | Nullish)[],
+    setters: (ValidatedVariableSetter | Nullish)[],
     results: (VariableSetResult | undefined)[],
     context: VariableStorageContext | undefined
   ): Promise<(VariableSetResult | undefined)[]> {
     const patches: PartitionItem<VariablePatch<any, true>>[] = [];
 
-    let setter: VariableSetter<any, true> | undefined;
+    let setter: ValidatedVariableSetter | undefined;
     results.forEach(
       (result, i) =>
         result?.status === VariableResultStatus.Unsupported &&
@@ -306,7 +316,7 @@ export class VariableStorageCoordinator implements VariableStorage {
       const patch = async (
         patchIndex: number,
         result: VariableGetResult | VariableSetResult | undefined
-      ): Promise<VariableSetter<any, true> | undefined> => {
+      ): Promise<ValidatedVariableSetter | undefined> => {
         const [sourceIndex, patch] = patches[patchIndex];
         if (!setters[sourceIndex]) return undefined;
 
@@ -338,7 +348,7 @@ export class VariableStorageCoordinator implements VariableStorage {
           : undefined;
       };
 
-      const patchSetters: PartitionItem<VariableSetter<any, true> | Nullish>[] =
+      const patchSetters: PartitionItem<ValidatedVariableSetter | Nullish>[] =
         [];
       const currentValues = await storage.get(
         partitionItems(patches),
@@ -549,12 +559,18 @@ export class VariableStorageCoordinator implements VariableStorage {
   private _getContextConsent = (
     context: VariableStorageContext | undefined
   ) => {
-    let consent = context?.consent ?? context?.tracker?.consent;
-    if (consent && !context?.client) {
+    let consent = context?.tracker?.consent;
+    if (!consent && (consent = context?.consent as UserConsent)) {
       consent = {
-        ...consent,
-        purposes: dataPurposes(consent.purposes) | DataPurposeFlags.Server,
+        level: dataClassification(consent.level),
+        purposes: dataPurposes(consent.purposes),
       };
+    }
+
+    if (consent) {
+      if (consent && !context?.client) {
+        consent.purposes |= DataPurposeFlags.Server;
+      }
     }
     return consent;
   };
@@ -572,7 +588,7 @@ export class VariableStorageCoordinator implements VariableStorage {
       }
 
       const mapping = this._getMapping(getter);
-      (getter as VariableGetter<any, true>).init = wrap(
+      (getter as ValidatedVariableGetter).init = wrap(
         getter.init,
         async (original) => {
           const result = await original();

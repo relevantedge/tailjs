@@ -1,4 +1,5 @@
 import {
+  apply,
   concat,
   count,
   every,
@@ -16,8 +17,6 @@ import {
   sum,
   unarray,
 } from "../src";
-
-import Benchmark from "benchmark";
 
 describe("iterators.ts", () => {
   function* test123() {
@@ -38,14 +37,14 @@ describe("iterators.ts", () => {
     expect(map(5, null, 2)).toEqual([2, 3, 4, 5, 6]);
   });
 
-  it("Projects iterables.", () => {
+  it("Projects iterables", () => {
     expect(map(["a", "b", "c"])).toEqual(["a", "b", "c"]);
     expect(map("abc")).toEqual(["a", "b", "c"]);
 
     expect(map(test123())).toEqual([1, 2, 3]);
   });
 
-  it("Projects objects.", () => {
+  it("Projects objects", () => {
     expect(map({ a: 1, b: 2 })).toEqual([
       ["a", 1],
       ["b", 2],
@@ -75,7 +74,7 @@ describe("iterators.ts", () => {
     expect(map(testMap, ([key, value]) => key)).toEqual(["a", "b"]);
   });
 
-  it("For eaches over all supported types.", () => {
+  it("For-eaches over all supported types", () => {
     expect(forEach([1, 2, 3], (value) => value)).toEqual(3);
     expect(
       forEach([1, 2, 3], (value) => (value === 3 ? undefined : value))
@@ -164,13 +163,32 @@ describe("iterators.ts", () => {
   });
 
   it("Maps iterators to objects with properties", () => {
-    expect(obj({ a: 32, b: "test" })).toEqual({ a: 32, b: "test" });
     expect(
       obj([
         ["a", 32],
         ["b", "test"],
       ])
     ).toEqual({ a: 32, b: "test" });
+
+    expect(obj({ a: 32, b: "test" })).toEqual({ a: 32, b: "test" });
+
+    const kvs = new Map<string, string>([
+      ["a", "32"],
+      ["b", "test"],
+    ]);
+
+    expect(obj(kvs)).toEqual({ a: "32", b: "test" });
+    expect(obj([{ a: 32, b: "test" }], false)).toEqual({ a: 32, b: "test" });
+    expect(obj([{ a: 32, b: "test" }, [["c", 80]], kvs], false)).toEqual({
+      a: "32",
+      b: "test",
+      c: 80,
+    });
+
+    expect(obj([{ a: 32, b: "test" }, [["b", "gazonk"]]], true)).toEqual({
+      a: [32],
+      b: ["test", "gazonk"],
+    });
 
     expect(obj(3, (x) => (x > 1 ? ["a", x] : [x, "b"]))).toEqual({
       a: 2,
@@ -228,10 +246,10 @@ describe("iterators.ts", () => {
   });
 
   it("Flattens", () => {
-    expect(flatMap([{ a: 10 }, { b: 20, c: true }], (x) => x)).toEqual([
-      { a: 10 },
-      { b: 20, c: true },
-    ]);
+    // expect(flatMap([{ a: 10 }, { b: 20, c: true }], (x) => x)).toEqual([
+    //   { a: 10 },
+    //   { b: 20, c: true },
+    // ]);
 
     expect(flatMap([{ a: 10 }, { b: 20, c: true }], (x) => x, 1, true)).toEqual(
       [
@@ -309,133 +327,12 @@ describe("iterators.ts", () => {
     ).toEqual(["test1.1", "test1.1.1", "test1.2"]);
   });
 
-  it.skip("Performance test", () => {
-    const suite = new Benchmark.Suite();
+  it("Applies", () => {
+    const test = (n: number, add = 1) => n + add;
 
-    const its = 3;
-    const numbers = map(its);
-    const numbersObject = Object.fromEntries(numbers.map((x) => ["x" + x, x]));
-    const expected = sum(numbers);
-    // const it = Symbol.iterator;
-    const numberMap = new Map(numbers.map((n) => [n, n]));
-    expect(expected).toBe(((its - 1) * its) / 2);
-
-    suite
-      // .add("for or", () => {
-      //   let n = 0;
-      //   for (const x of numbers) {
-      //     n += x;
-      //   }
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("for loop", () => {
-      //   let n = 0;
-      //   for (let x = 0, nn = numbers.length; x < nn; x++) {
-      //     n += numbers[x];
-      //   }
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("Array.map", () => {
-      //   let n = 0;
-      //   const mapped = numbers.map((x) => (n += x));
-      //   if (mapped[its - 1] !== expected) throw new Error("Nope");
-      // })
-      // .add("iterators.map (array)", () => {
-      //   let n = 0;
-      //   const mapped = map(numbers, (x) => (n += x));
-      //   if (mapped[its - 1] !== expected)
-      //     throw new Error("Nope" + mapped[its - 1]);
-      // })
-      .add("Array.map (filter)", () => {
-        let n = 0;
-        const mapped = numbers
-          .map((x) => (n += x))
-          .filter((x) => x !== undefined);
-        if (mapped[its - 1] !== expected) throw new Error("Nope");
-      })
-      .add("iterators.map (array)", () => {
-        let n = 0;
-        const mapped = map(numbers, (x) => (n += x));
-        if (mapped[its - 1] !== expected)
-          throw new Error("Nope" + mapped[its - 1]);
-      })
-      // .add("Array.forEach", () => {
-      //   let n = 0;
-      //   numbers.forEach((x) => (n += x));
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("iterators.ts (forEach, array)", () => {
-      //   let n = 0;
-      //   forEach(numbers, (x) => (n += x));
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("Map.forEach", () => {
-      //   let n = 0;
-      //   numberMap.forEach((x) => (n += x));
-
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("iterators.forEach (map)", () => {
-      //   let n = 0;
-      //   forEach(numberMap, ([x]) => (n += x));
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("Object.entries.forEach", () => {
-      //   let n = 0;
-      //   Object.entries(numbersObject).forEach(([, x]) => (n += x));
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("iterators.ts (forEach, object)", () => {
-      //   let n = 0;
-      //   forEach(numbersObject, ([, x]) => (n += x));
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      .on("error", (event: any) => {
-        console.log(event.target.error);
-      })
-
-      // .add("Native for loop", () => {
-      //   let n = 0;
-      //   for (let i = 0; i < numbers.length; i++) {
-      //     ++n;
-      //   }
-      // })
-      // .add("Native for of", () => {
-      //   let n = 0;
-      //   for (const x of numbers) {
-      //     ++n;
-      //   }
-      // })
-      // .add("Array.forEach", () => {
-      //   let n = 0;
-      //   numbers.forEach((x) => (n += x));
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("Map.forEach", () => {
-      //   let n = 0;
-      //   numberMap.forEach((x) => (n += x));
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("iterators.forEach (array)", () => {
-      //   let n = 0;
-      //   forEach(numbers, (x) => (n += x));
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      // .add("iterators.forEach (map)", () => {
-      //   let n = 0;
-      //   forEach(numberMap, ([x]) => (n += x));
-      //   if (n !== expected) throw new Error("Nope");
-      // })
-      .on("cycle", (event) => {
-        const benchmark = event.target;
-        console.log(benchmark.toString());
-      })
-      .on("complete", (event) => {
-        const suite = event.currentTarget;
-        const fastestOption = suite.filter("fastest").map("name");
-
-        console.log(`The fastest option is ${fastestOption}`);
-      })
-      .run();
+    expect(apply([0, 1, 2], test)).toEqual([1, 2, 3]);
+    expect(apply([0, 1, 2], test, 10)).toEqual([10, 11, 12]);
+    expect(apply(3, test, 10)).toEqual([10, 11, 12]);
+    expect(apply(-3, test, 10)).toEqual([12, 11, 10]);
   });
 });

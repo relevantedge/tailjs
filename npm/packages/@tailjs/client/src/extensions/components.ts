@@ -6,16 +6,24 @@ import {
   type UserInteractionEvent,
 } from "@tailjs/types";
 import {
+  F,
   MaybeUndefined,
   Nullish,
+  T,
   array,
   concat,
   filter,
   flatMap,
   forEach,
   get,
+  isString,
+  join,
   map,
+  max,
+  push,
+  remove,
   some,
+  unshift,
   update,
 } from "@tailjs/util";
 import {
@@ -26,26 +34,15 @@ import {
   isScanComponentsCommand,
 } from "..";
 import {
-  F,
   NodeWithParentElement,
-  T,
   boundaryData,
-  clear,
-  del,
+  createImpressionObserver,
   forAncestorsOrSelf,
   getRect,
-  join,
-  max,
   parseTags,
-  push,
   scanAttributes,
-  str,
-  timeout,
   trackerProperty,
-  undefined,
-  unshift,
-} from "../lib";
-import { createImpressionObserver } from "../lib2";
+} from "../lib2";
 export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 
 export const componentDomConfiguration = Symbol("DOM configuration");
@@ -93,14 +90,10 @@ const enum IncludeState {
   Promoted = 2,
 }
 
-const setContext = timeout();
-
 export const getComponentContext = (
   el: NodeWithParentElement,
   directOnly = F
 ) => {
-  clear(setContext);
-
   let collectedContent: ActivatedContent[] = [];
 
   type Area = {} & string; // For clarity.
@@ -140,7 +133,8 @@ export const getComponentContext = (
         );
 
       components?.length &&
-        (collected.unshift(
+        (unshift(
+          collected,
           ...map(
             components,
             (item) => (
@@ -178,7 +172,7 @@ export const getComponentContext = (
   }
 
   forEach(collected, (item) => {
-    if (str(item)) {
+    if (isString(item)) {
       push((areaPath ??= []), item);
     } else {
       item.area ??= join(areaPath, "/");
@@ -199,13 +193,14 @@ export const components: TrackerExtensionFactory = {
     const normalizeBoundaryData = <T extends BoundaryData | Nullish>(
       data: T
     ): MaybeUndefined<T, BoundaryData<true>> =>
-      data &&
-      ({
-        ...data,
-        component: array(data.component),
-        content: array(data.content),
-        tags: array(data.tags),
-      } as BoundaryData<true>);
+      data == null
+        ? undefined!
+        : ({
+            ...data,
+            component: array(data.component),
+            content: array(data.content),
+            tags: array(data.tags),
+          } as BoundaryData<true>);
 
     const registerComponent = ({
       boundary: el,
@@ -236,7 +231,7 @@ export const components: TrackerExtensionFactory = {
       decorate(eventData) {
         // Strip tracking configuration.
         forEach((eventData as UserInteractionEvent).components, (component) =>
-          del(component as any, "track")
+          remove(component as any, "track")
         );
       },
       processCommand(cmd) {

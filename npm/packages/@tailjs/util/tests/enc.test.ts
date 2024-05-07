@@ -9,24 +9,24 @@ describe("LSFR implementation encodes and decodes as it should.", () => {
     expect([...decoded]).toEqual(data);
   }
 
-  it("Does it normally.", () => {
+  it("Does it normally", () => {
     encryptDecrypt("Hello", [1, 2, 3, 4]);
   });
 
-  it("Adds entropy.", () => {
+  it("Adds entropy", () => {
     const [encrypt] = lfsr("Hello");
     expect([...encrypt(new Uint8Array([1, 2, 3]))]).not.toEqual([
       ...encrypt(new Uint8Array([1, 2, 3])),
     ]);
   });
-  it("Works with all padding lengths.", () => {
+  it("Works with all padding lengths", () => {
     const [encrypt, decrypt] = lfsr("Hello");
     for (let i = 0; i < 48; i++) {
       const src = [...Array(i).keys()];
       expect([...decrypt(encrypt(new Uint8Array(src)))]).toEqual(src);
     }
   });
-  it("Pads.", () => {
+  it("Pads", () => {
     const [encrypt] = lfsr("Hello");
     expect(encrypt(new Uint8Array([])).length).toEqual(16);
     expect(encrypt(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8])).length).toEqual(
@@ -48,7 +48,7 @@ describe("Sparse HTTP encoding.", () => {
     expect(httpDecode(httpEncode(value))).toEqual(expected);
     expect(httpDecrypt(httpEncrypt(value))).toEqual(expected);
   }
-  it("respects custom toJSON method.", () => {
+  it("respects custom toJSON method", () => {
     function createCounter(): { inc(): number; toJSON(): number } {
       let t0 = 0;
 
@@ -68,7 +68,7 @@ describe("Sparse HTTP encoding.", () => {
     expect(httpDecode(httpEncode([{ c: counter }]))).toEqual([{ c: 1 }]);
   });
 
-  it("decodes encoded (all types).", () => {
+  it("decodes encoded (all types)", () => {
     encodeDecode([
       1,
       2,

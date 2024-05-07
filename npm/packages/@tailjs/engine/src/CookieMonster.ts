@@ -82,6 +82,22 @@ export class CookieMonster {
     return cookies;
   }
 
+  public mapResponseCookie(name: string, cookie: Cookie) {
+    return {
+      name: name,
+      value: cookie.value,
+      maxAge: cookie.maxAge,
+      httpOnly: cookie.httpOnly ?? true,
+      sameSitePolicy:
+        cookie.sameSitePolicy === "None" && !this._secure
+          ? "Lax"
+          : cookie.sameSitePolicy ?? "Lax",
+      essential: cookie.essential ?? false,
+      secure: this._secure,
+      headerString: this._getHeaderValue(name, cookie)[0],
+    };
+  }
+
   private _getHeaderValue(
     name: string,
     cookie: Cookie
@@ -164,19 +180,7 @@ export class CookieMonster {
 
       if (i < originalChunks || cookie.value) {
         const chunkCookieName = getCookieChunkName(name, i);
-        responseCookies.push({
-          name: chunkCookieName,
-          value: cookie.value,
-          maxAge: cookie.maxAge,
-          httpOnly: cookie.httpOnly ?? true,
-          sameSitePolicy:
-            cookie.sameSitePolicy === "None" && !this._secure
-              ? "Lax"
-              : cookie.sameSitePolicy ?? "Lax",
-          essential: cookie.essential ?? false,
-          secure: this._secure,
-          headerString: this._getHeaderValue(chunkCookieName, cookie)[0],
-        });
+        responseCookies.push(this.mapResponseCookie(chunkCookieName, cookie));
       }
       cookie = { ...cookie, value: overflow };
 

@@ -1,14 +1,7 @@
-import {
-  delay,
-  createLock,
-  race,
-  now,
-  promise,
-  createTimer,
-} from "@tailjs/util";
+import { createLock, createTimer, delay, race } from "@tailjs/util";
 
 describe("concurrency.ts", () => {
-  it("locks", async () => {
+  it("Locks", async () => {
     let hasLock = false;
 
     const lock = createLock();

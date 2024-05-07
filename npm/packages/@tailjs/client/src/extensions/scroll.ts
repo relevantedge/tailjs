@@ -32,15 +32,15 @@ export const scroll: TrackerExtensionFactory = {
 
         !emitted["fold"] &&
           scroll.y >= initialScroll.y + 200 &&
-          ((emitted["fold"] = T), types.push("fold"));
+          ((emitted["fold"] = T), push(types, "fold"));
 
         !emitted["page-middle"] &&
           offset.y >= 0.5 &&
-          ((emitted["page-middle"] = T), types.push("page-middle"));
+          ((emitted["page-middle"] = T), push(types, "page-middle"));
 
         !emitted["page-end"] &&
           offset.y >= 0.99 &&
-          ((emitted["page-end"] = T), types.push("page-end"));
+          ((emitted["page-end"] = T), push(types, "page-end"));
 
         const mapped = map(types, (scrollType) =>
           restrict<ScrollEvent>({
