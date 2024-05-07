@@ -1,18 +1,15 @@
 import {
   EnumValue,
   If,
-  IfNot,
-  Is,
-  IsAny,
   Json,
   MaybeArray,
   MaybePromise,
-  MaybeUndefined,
   Nullish,
-  OmitPartial,
+  PartialExcept,
   ParsedValue,
   PickPartial,
   PrettifyIntersection,
+  ReplaceProperties,
   ToggleReadonly,
   TupleOrArray,
   createEnumAccessor,
@@ -25,7 +22,6 @@ import {
   VariableKey,
   VariableMetadata,
   VariableScope,
-  VariableSuccessResults,
   VariableVersion,
   variableScope,
 } from "..";
@@ -73,7 +69,7 @@ type PickScopeAndTarget<T> = T extends { scope: infer Scope }
 
 type KeepVariableTarget<Source extends VariableSetter, T> = T extends undefined
   ? undefined
-  : PickScopeAndTarget<Source> & Omit<Variable<T, true>, "scope" | "targetId">;
+  : ReplaceProperties<Variable<T, true>, PickScopeAndTarget<Source>>;
 
 type VariableSetResultValue<Source extends VariableSetter> =
   PrettifyIntersection<
@@ -249,7 +245,7 @@ export type VariableValueSetter<T = any, Validated = false> = (
       Variable<T, If<Validated, true, boolean>>,
       "classification" | "purposes" | "version"
     >
-  | (OmitPartial<
+  | (PartialExcept<
       Variable<T, If<Validated, true, boolean>>,
       keyof VariableKey
     > & { value: undefined })
@@ -260,6 +256,11 @@ export type VariableValueSetter<T = any, Validated = false> = (
    */
   force?: boolean;
 };
+
+/**
+ * Any variable setter that only has numeric enum values.
+ */
+export type ValidatedVariableSetter = VariableSetter<any, string, true>;
 
 /**
  * Defines options for creating, updating or deleting a variable.

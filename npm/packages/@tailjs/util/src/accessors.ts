@@ -4,22 +4,29 @@ import {
   GeneralizeConstants,
   If,
   IsAny,
+  IteratorSourceOf,
+  KeyValuePairsToObject,
+  MaybeUndefined,
+  MethodOverloads,
   Minus,
   NotFunction,
   Nullish,
   PrettifyIntersection,
   Primitives,
   RecordType,
+  ToggleReadonly,
   UnionToIntersection,
   count,
+  filter,
   forEach,
   hasMethod,
+  isAnyObject,
   isArray,
   isAwaitable,
   isDefined,
   isFunction,
   isMap,
-  isObject,
+  isPlainObject,
   isSet,
   isUndefined,
   map,
@@ -169,6 +176,7 @@ export const get: {
   init?: Wrapped<R>
 ) => {
   if (!target) return undefined as any;
+  if (target.constructor === Object && init == null) return target[key as any];
 
   let value = (target as any).get
     ? (target as any).get(key)
@@ -176,7 +184,7 @@ export const get: {
     ? (target as any).has(key)
     : target[key as any];
 
-  if (isUndefined(value) && isDefined(init)) {
+  if (isUndefined(value) && init != null) {
     isDefined((value = isFunction(init) ? (init as any)() : init)) &&
       setSingle(target, key, value);
   }
@@ -238,14 +246,14 @@ type BulkUpdateKeyValue<
   Factory = false,
   K extends keyof T = keyof T
 > = IsAny<T> extends true
-  ? [any, Updater<T, any, any, SettersOnly, Factory>]
+  ? readonly [any, Updater<T, any, any, SettersOnly, Factory>]
   : T extends MapLike | SetLike | any[]
-  ? [
+  ? readonly [
       KeyType<T>,
       Updater<T, KeyType<T>, ValueType<T, KeyType<T>>, SettersOnly, Factory>
     ]
   : K extends any
-  ? [K, Updater<T, KeyType<T>, any, SettersOnly, Factory>]
+  ? readonly [K, Updater<T, KeyType<T>, any, SettersOnly, Factory>]
   : never;
 
 type BulkUpdates<
@@ -257,7 +265,30 @@ type BulkUpdates<
   | Iterable<
       | BulkUpdateKeyValue<T, SettersOnly, Factory>
       | BulkUpdateObject<T, SettersOnly, Factory>
-    >;
+    >
+  | readonly (readonly BulkUpdateKeyValue<T, SettersOnly, Factory>[])[];
+
+type MergeResult_<Updates> = Updates extends Iterable<
+  infer Item extends readonly [keyof any, any]
+>
+  ? KeyValuePairsToObject<Item>
+  : Updates;
+
+type MergeResult<T, Updates> = T extends RecordType
+  ? PrettifyIntersection<
+      T &
+        UnionToIntersection<
+          MergeResult_<
+            Updates extends Iterable<infer Updates> ? Updates : Updates
+          >
+        >
+    >
+  : T &
+      UnionToIntersection<
+        MergeResult_<
+          Updates extends Iterable<infer Updates> ? Updates : Updates
+        >
+      >;
 
 type SetErrorHandler<T extends ReadonlyPropertyContainer | Nullish> = (
   key: KeyType<T>,
@@ -283,10 +314,6 @@ type SettableValueType<T extends PropertyContainer, K> = K extends KeyType<T>
   ? any
   : never;
 
-type SettableValueFunctionType<T extends PropertyContainer, K, V> = (
-  current: SettableValueType<T, K>
-) => V;
-
 type IsGeneralKey<T, S = keyof any> = S extends T ? true : false;
 
 /** List of keys in T that has undefined values. If Template does not allow undefined values for a key it is excluded from the results. */
@@ -304,46 +331,8 @@ type UndefinedKeys<
     : never
   : never;
 
-type SetSingleResultType<
-  T extends PropertyContainer,
-  K,
-  V
-> = T extends RecordType
-  ? AssignRecord<T, { [P in K & keyof any]: V }>
-  : K extends KeyType<T>
-  ? V extends ValueType<T, K> | (T extends readonly any[] ? never : undefined)
-    ? T
-    : never
-  : never;
-
-type SettableKeyValueTuple<T extends PropertyContainer> =
-  KeyType<T> extends keyof any
-    ?
-        | {
-            [P in KeyType<T>]: readonly [P, SettableValueType<T, P>];
-          }[KeyType<T>]
-        | (T extends RecordType ? [keyof any, any] : never)
-    : readonly [KeyType<T>, SettableValueType<T, KeyType<T>>];
-
-type SettableKeyValueRecord<T extends PropertyContainer> =
-  SettableKeyType<T> extends keyof any
-    ? RecordType &
-        ({
-          [P in KeyType<T>]?: SettableValueType<T, P>;
-        } & {
-          [P in SettableKeyType<T>]?: P extends KeyType<T>
-            ? ValueType<T, P>
-            : SettableValueType<T, P>;
-        })
-    : never;
-
-type SettableValueList<T extends PropertyContainer> = T extends Primitives
-  ? never
-  :
-      | SettableKeyValueRecord<T>
-      | readonly (SettableKeyValueRecord<T> | SettableKeyValueTuple<T>)[];
-
 type AllKeys<T> = T extends infer T ? keyof T : never;
+
 type AnyValue<T, K> = T extends infer T
   ? K extends keyof T
     ? T[K]
@@ -383,20 +372,6 @@ type AssignRecord<T, S> = {
     : never;
 };
 
-type SetResult<
-  T extends PropertyContainer,
-  V extends any
-> = T extends RecordType
-  ? PrettifyIntersection<
-      AssignRecord<
-        T,
-        V extends RecordType
-          ? V
-          : MergeObjects<KeyValueTupleToRecord<V[keyof V]>>
-      >
-    >
-  : T;
-
 type SetOrUpdateFunction<
   SettersOnly,
   ErrorHandler = false,
@@ -424,12 +399,41 @@ type SetOrUpdateFunction<
     T extends
       | If<Readonly, ReadonlyPropertyContainer, PropertyContainer>
       | null
-      | undefined
+      | undefined,
+    U
   >(
     target: T,
-    values: BulkUpdates<T extends Nullish ? never : T, SettersOnly>,
+    values: BulkUpdates<T extends Nullish ? never : T, SettersOnly> & U,
     ...args: ErrorHandler extends true ? [error: SetErrorHandler<T>] : []
   ): T;
+};
+
+export const merge = <
+  Target,
+  Values extends readonly IteratorSourceOf<readonly [keyof any, any]>[]
+>(
+  target: Target,
+  ...values: Values
+): MergeResult<Target, Values> => (
+  forEach(values, (values) =>
+    forEach(values, ([key, value]) => {
+      if (value != null) {
+        if (isPlainObject(target[key]) && isPlainObject(value)) {
+          merge(target[key], value);
+        } else {
+          target[key] = value;
+        }
+      }
+    })
+  ),
+  target as any
+);
+
+() => {
+  const x = merge({ a: 32 }, { lasagne: "dennis" }, [
+    ["a", 80 as number],
+    ["tis", 89],
+  ] as const);
 };
 
 const createSetOrUpdateFunction =
@@ -438,7 +442,7 @@ const createSetOrUpdateFunction =
   ): SetOrUpdateFunction<SettersOnly, Error> =>
   (target: PropertyContainer, key: any, value?: any, error?: any) => {
     if (!target) return undefined;
-    if (value) {
+    if (value != undefined) {
       return setter(target, key, value, error);
     }
 
@@ -679,7 +683,7 @@ export const define: {
     if (!arg) return;
     let properties: readonly any[];
     if (isArray(arg)) {
-      if (isObject(arg[0])) {
+      if (isPlainObject(arg[0])) {
         // Tuple with the first item the defaults and the next the definitions with those defaults,
         // ([{enumerable: false, ...}, ...])
         (arg as any[]).splice(1).forEach((items) => add(items, arg[0]));
@@ -698,7 +702,7 @@ export const define: {
         enumerable: true,
         writable: false,
         ...defaults,
-        ...(isObject(value) && ("get" in value || "value" in value)
+        ...(isPlainObject(value) && ("get" in value || "value" in value)
           ? value
           : isFunction(value) && !value.length
           ? { get: value }
@@ -745,7 +749,7 @@ export const pick = <T, Selectors extends PropertySelector<T>[], U>(
 
   return Object.fromEntries(
     args.flatMap((arg) =>
-      isObject(arg, true)
+      isAnyObject(arg)
         ? isArray(arg)
           ? arg.map((args) =>
               isArray(args)
@@ -765,17 +769,11 @@ export const pick = <T, Selectors extends PropertySelector<T>[], U>(
 
 export type Wrapped<T> = T | (() => T);
 
-export type Unwrap<T> = T extends () => any ? ReturnType<T> : T;
+export type Unwrap<T> = T extends () => infer R ? R : T;
 
 export const unwrap: {
-  <T extends Wrapped<any>>(value: T): Unwrap<T>;
   <T>(value: Wrapped<T>): T;
-} = (value: Wrapped<any>): any =>
-  isFunction(value)
-    ? unwrap(value())
-    : isAwaitable(value)
-    ? value.then((result) => unwrap(result))
-    : value;
+} = (value: Wrapped<any>): any => (isFunction(value) ? value() : value);
 
 export const unlock = <T extends ReadonlyPropertyContainer>(
   readonly: T
@@ -798,18 +796,16 @@ export const wrap = <T>(
     ? (...args: any) => wrap(original as any, ...args)
     : (wrap as any)(() => original as any);
 
-export const clone = <T>(value: T, depth: number | boolean = true): T =>
-  isObject(value, true)
+export const clone = <T>(value: T, depth = -1): T =>
+  isAnyObject(value)
     ? isArray(value)
       ? depth
-        ? value.map((value) => clone(value, depth === true || --(depth as any)))
+        ? value.map((value) => clone(value, depth - 1))
         : [...value]
       : isSet(value)
       ? new Set<any>(
           depth
-            ? (map as any)(value, (value: any) =>
-                clone(value, depth === true || --(depth as any))
-              )
+            ? (map as any)(value, (value: any) => clone(value, depth - 1))
             : value
         )
       : isMap(value)
@@ -817,16 +813,44 @@ export const clone = <T>(value: T, depth: number | boolean = true): T =>
           depth
             ? (map as any)(value, (value: any) =>
                 // Does not clone keys.
-                [value[0], clone(value[1], depth === true || --(depth as any))]
+                [value[0], clone(value[1], depth - 1)]
               )
             : value
         )
       : depth
-      ? obj(
-          map(value as any, ([k, v]) => [
-            k,
-            clone(v, depth === true || --(depth as any)),
-          ])!
-        )
+      ? obj(value as any, ([k, v]) => [k, clone(v, depth - 1)])
       : { ...value }
     : (value as any);
+
+/**
+ * Very much like `Array.push` except it accepts anything with a `push ` method  (including non-generic overloads),
+ * and returns the target so chaining is easier. Suitable for tight minification.
+ */
+export const push = <T extends { push: (...args: any) => any } | Nullish>(
+  target: T,
+  ...items: MethodOverloads<T, "push">[0]
+): T => target?.push(...(items as any))!;
+
+/**
+ * Very much like `Array.pop` except it accepts anything with a `pop` method.
+ * (Included or the sake of generality since we have {@link push}). Suitable for tight minification.
+ */
+export const pop = <T extends { pop(): R } | undefined, R>(
+  target: T
+): MaybeUndefined<T, R> => target?.pop()!;
+
+/**
+ * Very much like `Array.unshift` except it accepts anything with a `push ` method  (including non-generic overloads),
+ * and returns the target so chaining is easier. Suitable for tight minification
+ */
+export const unshift = <T extends { unshift: (...args: any) => any } | Nullish>(
+  target: T,
+  ...items: MethodOverloads<T, "unshift">[0]
+): T => target?.unshift(...(items as any))!;
+
+/**
+ * Very much like `Array.shift` except it accepts anything with a `shift` method.
+ * (Included or the sake of generality since we have {@link unshift}). Suitable for tight minification. */
+export const shift = <T extends { shift(): R } | undefined, R>(
+  target: T
+): MaybeUndefined<T, R> => target?.shift()!;

@@ -1,11 +1,4 @@
 import {
-  RestrictVariableTargets,
-  Variable,
-  VariableClassification,
-  VariableResultStatus,
-} from "@tailjs/types";
-import {
-  PickPartial,
   assign,
   clear,
   clock,
@@ -15,8 +8,8 @@ import {
   obj,
 } from "@tailjs/util";
 import {
+  ClientVariable,
   HEARTBEAT_FREQUENCY,
-  LocalVariable,
   TAB_ID,
   addPageLoadedListener,
   subscribeChannel,
@@ -30,21 +23,7 @@ export type TabState = {
   navigated?: number;
 };
 
-export type StateVariableSource =
-  | (LocalVariable & {
-      status: VariableResultStatus.Success | VariableResultStatus.Created;
-    })
-  | PickPartial<
-      RestrictVariableTargets<
-        Omit<Variable<any, true>, "value"> & {
-          status: VariableResultStatus;
-          value?: any;
-        }
-      >,
-      keyof VariableClassification
-    >;
-
-export type StateVariable = StateVariableSource & {
+export type StateVariable = ClientVariable & {
   timestamp: number;
   expires: number;
 };

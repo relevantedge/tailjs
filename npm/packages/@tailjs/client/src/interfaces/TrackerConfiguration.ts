@@ -67,16 +67,6 @@ export interface TrackerConfiguration {
   requestTimeout?: number;
 
   /**
-   * The frequency (ms) for "heart beat" events to be sent to indicate that the client is active when no other events has been sent.
-   * Can be used to show live activity or estimate missing VIEW_ENDED event if the user's browser crashed.
-   *
-   * Since it adds a considerable amount of extra data this should only be enabled for specific use cases.
-   *
-   * @default 0
-   */
-  heartbeatFrequency?: number;
-
-  /**
    * The minimum duration (ms) a component needs to be visible before it counts as an impression.
    *
    * @default 1000
@@ -93,11 +83,18 @@ export interface TrackerConfiguration {
 
   /**
    * Whether tabs opened via the right-click context menu should be tracked.
-   * Be aware this will rewrite the links if the user picks "copy" from said menu (they will still work though).
+   * Be aware this will rewrite the links if the user decides to copy the link to the clipboard from said menu.
+   *
+   * If anyone but the the user follows the link, it will just be a redirect and not set any cookies whatsoever.
    *
    * @default true
    */
   captureContextMenu?: boolean;
+
+  /**
+   * The name of the cookie that the server.
+   */
+  pushCookie?: string;
 
   /**
    * Log events to the browser's developer console.

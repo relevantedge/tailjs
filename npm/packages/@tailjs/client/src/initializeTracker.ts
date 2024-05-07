@@ -14,6 +14,7 @@ import {
   map,
   nil,
   now,
+  push,
   remove,
   required,
   sort,
@@ -234,16 +235,16 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
                   } else if (isSetCommand(command)) {
                     variables.set(...array(command.set));
                   } else if (isListenerCommand(command)) {
-                    listeners.push(command.listener);
+                    push(listeners, command.listener);
                   } else if (isExtensionCommand(command)) {
                     let extension: TrackerExtension | Nullish;
                     if (
                       (extension = tryCatch(
                         () => command.extension.setup(tracker),
                         (e) => logError(command.extension.id, e)
-                      ))
+                      )!)
                     ) {
-                      extensions.push([command.priority ?? 100, extension]);
+                      push(extensions, [command.priority ?? 100, extension]);
                       sort(extensions, ([priority]) => priority);
                     }
                   } else if (isTrackerAvailableCommand(command)) {
@@ -294,11 +295,12 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
         session.hasUserAgent = true;
       }
       globalStateResolved = true;
-      pendingStateCommands.length && tracker.push(pendingStateCommands);
+      pendingStateCommands.length && push(tracker, pendingStateCommands);
 
       unbind();
     }
-    tracker.push(
+    push(
+      tracker,
       ...map(defaultExtensions, (extension) => ({ extension })),
       ...queuedCommands,
       { set: { scope: "local", key: "loaded", value: true } }

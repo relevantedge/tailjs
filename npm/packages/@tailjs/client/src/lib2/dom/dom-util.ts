@@ -26,7 +26,6 @@ import {
   restrict,
   type MaybeUndefined,
   type Nullish,
-  type Nulls,
 } from "@tailjs/util";
 import { body, round } from "..";
 
@@ -93,7 +92,7 @@ export const attrn = (node: NodeWithParentElement, name: string) =>
 
 export const attrs = <T extends NodeWithParentElement | Nullish>(
   node: T
-): string[] | Nulls<T, undefined> => (node as any)?.getAttributeNames();
+): MaybeUndefined<T, string[]> => (node as any)?.getAttributeNames();
 
 export const attr = (
   node: NodeWithParentElement,
@@ -158,7 +157,7 @@ export const getScreenPos = <T extends Element | Nullish>(
   el: T,
   mouseEvent?: MouseEvent,
   includeFold = T
-): ScreenPosition | Nulls<T> =>
+): MaybeUndefined<ScreenPosition> =>
   (screenPos = getPos(el, mouseEvent)) &&
   (restrict<ScreenPosition>({
     xpx: screenPos.x,

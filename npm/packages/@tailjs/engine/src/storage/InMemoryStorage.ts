@@ -1,5 +1,6 @@
 import {
   DataPurposeFlags,
+  ValidatedVariableGetter,
   Variable,
   VariableFilter,
   VariableGetResult,
@@ -261,7 +262,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   }
 
   private _applyGetFilters(
-    getter: VariableGetter<any, any, true>,
+    getter: ValidatedVariableGetter,
     variable: Variable<any, true> | undefined
   ) {
     return !variable ||
@@ -370,7 +371,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   ): Promise<VariableSetResults<Setters>> {
     const timestamp = now();
     const results: (VariableSetResult | undefined)[] = [];
-    for (const source of variables.map(toNumericVariableEnums)) {
+    for (const source of toNumericVariableEnums(variables)) {
       this._validateKey(source);
 
       if (!source) {

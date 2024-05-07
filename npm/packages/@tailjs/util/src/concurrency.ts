@@ -1,7 +1,10 @@
 import {
+  Extends,
   If,
-  MAX_SAFE_INTEGER,
   MaybePromise,
+  MaybeUndefined,
+  Nullish,
+  TogglePromise,
   Unwrap,
   Wrapped,
   createTimer,
@@ -15,7 +18,7 @@ import {
   unwrap,
 } from ".";
 
-export class ResetablePromise<T = void, E = any> implements PromiseLike<T> {
+export class ResettablePromise<T = void, E = any> implements PromiseLike<T> {
   private _promise: OpenPromise<T>;
 
   constructor() {
@@ -109,17 +112,6 @@ export class OpenPromise<T = void, E = any> implements PromiseLike<T> {
   }
 }
 
-export type MutableValue<T> = (value?: T) => T;
-
-export const memoryValue: <T = any>(
-  ...args: (undefined extends T ? [] : never) | [value: T]
-) => MutableValue<T> =
-  (value?: any) =>
-  (...args: any) => {
-    var b = 4;
-    return args.length && (value = args[0]), value as any;
-  };
-
 export interface Lock {
   /**
    * Wait until the lock is available. If a timeout is not specified or negative, the calling thread will wait indefinitely.
@@ -144,14 +136,9 @@ export interface Lock {
 
 export type LockState = [owner: string | boolean, expires?: number];
 
-export const createLock = (
-  timeout?: number,
-  state: (
-    state?: LockState | undefined,
-    timeout?: number | undefined
-  ) => LockState | undefined = memoryValue<LockState | undefined>()
-): Lock => {
+export const createLock = (timeout?: number): Lock => {
   const semaphore = promise<LockState | boolean>(true);
+  let state: LockState | undefined;
 
   const t0 = createTimer();
   const wait = async (
@@ -166,13 +153,8 @@ export const createLock = (
     const ownerId = arg2 as string;
 
     let ms = arg1 as number;
-    let currentState: LockState | undefined;
     let renewInterval = 0;
-    while (
-      (currentState = state()) &&
-      ownerId !== currentState[0] &&
-      (currentState[1] ?? 0)! < now()
-    ) {
+    while (state && ownerId !== state[0] && (state[1] ?? 0)! < now()) {
       if (
         isUndefined(await (ms >= 0 ? race(delay(ms), semaphore) : semaphore))
       ) {
@@ -181,16 +163,16 @@ export const createLock = (
       ms -= t0(); // If the above did not return undefined we got the semaphore.
     }
 
-    const release = () => (
-      clearTimeout(renewInterval), semaphore.signal(state(undefined) ?? false)
-    );
+    const release = () => {
+      clearTimeout(renewInterval);
+      state = undefined;
+      semaphore.signal(false);
+    };
+
     const renew = () => {
-      state([ownerId ?? true, timeout ? now() - timeout : undefined], timeout);
+      state = [ownerId ?? true, timeout ? now() - timeout : undefined];
       timeout &&
-        (renewInterval = setTimeout(
-          () => (currentState = state()) && renew(),
-          timeout / 2
-        ));
+        (renewInterval = setTimeout(() => state && renew(), timeout / 2));
     };
     renew();
 
@@ -199,23 +181,26 @@ export const createLock = (
   return wait;
 };
 
-export const delay = <T extends Wrapped<any> = void>(
-  ms: number | undefined,
+export const delay = <
+  Delay extends number | Nullish,
+  T extends Wrapped<any> = void
+>(
+  ms: Delay,
   value?: T
-): MaybePromise<Unwrap<T>> =>
-  isUndefined(ms) || isFinite(ms)
+): MaybeUndefined<Delay, TogglePromise<Unwrap<T>, true>> =>
+  ms == null || isFinite(ms)
     ? !ms || ms <= 0
       ? unwrap(value)!
       : new Promise<any>((resolve) =>
           setTimeout(async () => resolve(await unwrap(value)), ms)
         )
-    : throwError(`Invalid delay ${ms}.`);
+    : (throwError(`Invalid delay ${ms}.`) as any);
 
 export const promise: {
-  <T = void>(resetable?: false): OpenPromise<T>;
-  <T = void>(resetable: true): ResetablePromise<T>;
-} = (resetable?: boolean) =>
-  resetable ? new ResetablePromise() : (new OpenPromise() as any);
+  <T = void>(resettable?: false): OpenPromise<T>;
+  <T = void>(resettable: true): ResettablePromise<T>;
+} = (resettable?: boolean) =>
+  resettable ? new ResettablePromise() : (new OpenPromise() as any);
 
 type UnwrapPromiseArg<T> = T extends () => infer T ? Awaited<T> : Awaited<T>;
 type UnwrapPromiseArgs<T extends any[]> = T extends readonly [infer Arg]

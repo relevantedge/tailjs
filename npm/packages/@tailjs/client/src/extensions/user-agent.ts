@@ -1,9 +1,10 @@
-import { map, restrict } from "@tailjs/util";
+import { map, push, restrict } from "@tailjs/util";
 import { Tracker, currentViewEvent, detectDeviceType } from "..";
 import { UserAgentEvent } from "@tailjs/types";
 
 export const postUserAgentEvent = (tracker: Tracker) =>
-  tracker.push(
+  push(
+    tracker,
     restrict<UserAgentEvent>({
       type: "user_agent",
       hasTouch: navigator.maxTouchPoints > 0,

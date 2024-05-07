@@ -1,25 +1,24 @@
 import msgpack from "@ygoe/msgpack";
 const { deserialize, serialize } = msgpack;
 
-import { HashFunction, from64u, lfsr, to64u } from ".";
 import {
   IsNever,
   Nullish,
-  hasValue,
+  isAnyObject,
   isArray,
   isDefined,
   isFunction,
   isIterable,
   isNumber,
-  isObject,
+  isPlainObject,
   isString,
   isSymbol,
   isUndefined,
-  undefined,
   map,
   tryCatch,
-  eq,
+  undefined,
 } from "@tailjs/util";
+import { HashFunction, from64u, lfsr, to64u } from ".";
 
 type ConverterFunctionValue<T> = T extends { toJSON(): infer V }
   ? V
@@ -170,7 +169,7 @@ const patchSerialize = (value: any) => {
     //   return { "": [...new Uint32Array(floatBuffer)] };
     // }
 
-    if (!isObject(value, true)) {
+    if (!isAnyObject(value)) {
       return value;
     }
 
@@ -187,7 +186,7 @@ const patchSerialize = (value: any) => {
       return { [REF_PROP]: refIndex };
     }
 
-    if (isObject(value)) {
+    if (isPlainObject(value)) {
       refs.set(value, refs.size + 1);
 
       Object.keys(value).forEach(
@@ -220,7 +219,7 @@ const patchDeserialize = (value: Uint8Array) => {
   let matchedRef: any;
 
   const inner = (value: any) => {
-    if (!isObject(value, true)) return value;
+    if (!isAnyObject(value)) return value;
 
     // if (isArray(value[""]) && (value = value[""]).length === 2) {
     //   return new DataView(new Uint32Array(value).buffer).getFloat64(0, true);
@@ -242,7 +241,7 @@ const patchDeserialize = (value: Uint8Array) => {
     return value;
   };
 
-  return hasValue(value) ? inner(deserialize(value)) : undefined;
+  return value != null ? inner(deserialize(value)) : undefined;
 };
 
 export type Transport = [
@@ -251,6 +250,7 @@ export type Transport = [
   hash: HashFunction<any>
 ];
 
+let _defaultTransports: [cipher: Transport, json: Transport] | undefined;
 /**
  * Creates a pair of {@link Encoder} and {@link Decoder}s as well as a {@link HashFunction<string>}.
  * MessagePack is used for serialization, {@link lfsr} encryption is optionally used if a key is specified, and the input and outputs are Base64URL encoded.
@@ -260,42 +260,58 @@ export const createTransport = (
   json = false,
   jsonDecodeFallback = true
 ): Transport => {
-  const [encrypt, decrypt, hash] = lfsr(key ?? "");
-  const fastStringHash = (value: any, bitsOrNumeric: any) => {
-    if (isNumber(value) && bitsOrNumeric === true) return value;
+  const factory = (
+    key?: string | Nullish,
+    json = false,
+    jsonDecodeFallback = true
+  ): Transport => {
+    const fastStringHash = (value: any, bitsOrNumeric: any) => {
+      if (isNumber(value) && bitsOrNumeric === true) return value;
 
-    value = isString(value)
-      ? new Uint8Array(map(value.length, (i) => value.charCodeAt(i) & 255))
-      : json
-      ? JSON.stringify(value)
-      : patchSerialize(value);
-    return hash(value, bitsOrNumeric);
-  };
-  const jsonDecode = (encoded: any) =>
-    encoded == null
-      ? undefined
-      : tryCatch(() => JSON.parse(encoded, undefined));
-  return json
-    ? [
+      value = isString(value)
+        ? new Uint8Array(map(value.length, (i) => value.charCodeAt(i) & 255))
+        : json
+        ? JSON.stringify(value)
+        : patchSerialize(value);
+      return hash(value, bitsOrNumeric);
+    };
+    const jsonDecode = (encoded: any) =>
+      encoded == null
+        ? undefined
+        : tryCatch(() => JSON.parse(encoded, undefined));
+    if (json) {
+      return [
         (data: any) => JSON.stringify(data),
         jsonDecode,
         (value: any, numericOrBits?: any) =>
           fastStringHash(value, numericOrBits) as any,
-      ]
-    : [
-        (data: any) => to64u(encrypt(patchSerialize(data))),
-        (encoded: any) =>
-          hasValue(encoded)
-            ? // JSON fallback.
-              jsonDecodeFallback &&
-              (encoded?.[0] === "{" || encoded?.[0] === "[")
-              ? jsonDecode(encoded)
-              : patchDeserialize(decrypt(from64u(encoded)))
-            : null,
-        (value: any, numericOrBits?: any) =>
-          fastStringHash(value, numericOrBits) as any,
       ];
+    }
+    const [encrypt, decrypt, hash] = lfsr(key);
+
+    return [
+      (data: any) => to64u(encrypt(patchSerialize(data))),
+      (encoded: any) =>
+        encoded != null
+          ? // JSON fallback.
+            jsonDecodeFallback && (encoded?.[0] === "{" || encoded?.[0] === "[")
+            ? jsonDecode(encoded)
+            : patchDeserialize(decrypt(from64u(encoded)))
+          : null,
+      (value: any, numericOrBits?: any) =>
+        fastStringHash(value, numericOrBits) as any,
+    ];
+  };
+
+  if (!key) {
+    return (_defaultTransports ??= [factory(null, false), factory(null, true)])[
+      +json
+    ];
+  }
+  return factory(key, json, jsonDecodeFallback);
 };
 
 export const defaultTransport = createTransport();
+export const defaultJsonTransport = createTransport(null, true);
+
 export const [httpEncode, httpDecode, hash] = defaultTransport;

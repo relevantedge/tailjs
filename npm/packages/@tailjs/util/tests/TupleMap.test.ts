@@ -41,7 +41,7 @@ describe("TupleMap", () => {
     }
   });
 
-  it("Suports wildcards.", () => {
+  it("Suports wildcards", () => {
     for (const map of mapVariations<[string, string], number>()) {
       if (!(map instanceof DoubleMap)) continue;
 

@@ -3,7 +3,7 @@ import { VariableMap } from "../src/storage/VariableMap";
 import { VariableScope } from "@tailjs/types";
 
 describe("VariableMap", () => {
-  it("Can get items, and add items if an initializer is provided..", () => {
+  it("Can get items, and add items if an initializer is provided.", () => {
     const variables = new VariableMap<number>();
 
     expect(variables.get("device", "test")).toBeUndefined();

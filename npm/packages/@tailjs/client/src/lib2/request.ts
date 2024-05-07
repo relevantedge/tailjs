@@ -1,23 +1,27 @@
 import {
   If,
+  NO_OP,
+  PartialExcept,
   PrettifyIntersection,
   clock,
   createEvent,
   createLock,
   delay,
+  escapeRegEx,
   forEachAsync,
   isDefined,
   isFunction,
   isUndefined,
+  match,
+  stickyTimeout,
   throwError,
 } from "@tailjs/util";
 import {
   httpDecrypt as deserialize,
-  listen,
   httpEncrypt as serialize,
+  trackerConfig,
 } from ".";
-
-const eventQueue: string[] = [];
+import { PostResponse, isPostResponse } from "@tailjs/types";
 
 export type RequestOptions<Beacon extends boolean = false> =
   PrettifyIntersection<
@@ -33,8 +37,46 @@ const [addRequestHandler, dispatchRequest] =
 const [addResponseHandler, dispatchResponse] = createEvent<[response: any]>();
 export { addRequestHandler, addResponseHandler };
 
-// TODO: Make shared between tabs using storage.
+// TODO: Make shared lock between tabs using storage (or similar. LockManager is not an option since it disables bf_cache).
 const requestLock = createLock(1000);
+
+let pushCookieMatcher: RegExp | undefined;
+let pushCookie: string | undefined;
+const pollPushCookie = clock(() => {
+  if (pushCookie !== (pushCookie = trackerConfig.pushCookie)) {
+    if (!pushCookie) return;
+    pushCookieMatcher = new RegExp(escapeRegEx(pushCookie) + "=([^;]*)");
+  }
+  const value = deserialize?.(match(document.cookie, pushCookieMatcher)?.[1]);
+  if (isPostResponse(value)) {
+    dispatchResponse(value);
+  }
+}, 1000);
+
+/** The number of "threads" anticipating a push cookie. When this is zero, the poll frequency goes down. */
+let pushExpectations = 0;
+/**
+ *  Call this before making a request or otherwise doing something where you anticipate the server to set a push cookie.
+ *  (Preparing for a redirect that pushes a cookie via context menu navigation is an example that does not make a request per se.)
+ *
+ *  Call the function returned as soon as possible, and DEFINITELY call the function at some point if a non-positive timeout is used
+ *  lest eager polling will get stuck indefinitely.
+ * */
+export const anticipatePushCookie = (timeout = 1000) => {
+  let pushTimeout = 0;
+  let done = () => {
+    done = NO_OP; // Prevent further invocations.
+    if (!--pushExpectations) {
+      pollPushCookie.restart(1000);
+      clearTimeout(pushTimeout);
+    }
+  };
+  if (!pushExpectations++) {
+    pollPushCookie.restart(100);
+  }
+  timeout > 0 && setTimeout(done, timeout);
+  return done();
+};
 
 /**
  * If a function, this is run before a request is made (including retries). It is run within the lock, and allows the requested data to be modified.
@@ -92,6 +134,8 @@ export const request: {
 
   if (beacon) {
     if (!prepareRequestData(0)) return;
+    anticipatePushCookie(1000);
+
     !navigator.sendBeacon(
       url,
       new Blob(currentData != null ? [serialized] : [], {
@@ -125,86 +169,15 @@ export const request: {
               await delay((1 + retry) * 200));
         }
 
-        const parsed = (encrypt ? deserialize : JSON.parse)(
+        const parsed = (encrypt ? deserialize : JSON.parse)?.(
           await response[encrypt ? "text" : "json"]()
         );
 
-        dispatchResponse(parsed);
+        if (parsed != null) {
+          dispatchResponse(parsed);
+        }
         return parsed;
       })
     );
   }
 };
-
-const poster = clock(() => {
-  if (eventQueue.length) {
-    //log(["Posting", eventQueue.splice(0)]);
-  }
-}, 5000);
-
-export const enqueueEvent = (event: string) => {
-  eventQueue.push(event);
-};
-
-listen(
-  document,
-  "visibilitychange",
-  () => document.visibilityState === "hidden" && poster.trigger()
-);
-
-// const postLock = createLock<string[]>("test_queue_lck", 2000);
-// export const post = async (data: string[]) => {
-//   if (
-//     !(
-//       await postLock(async () => {
-//         let pending: string[] | undefined;
-//         await tryCatchAsync(
-//           async () => {
-//             for (;;) {
-//               postLock.data.update(
-//                 (current) => ((pending = current!), undefined)
-//               );
-//               if (data) {
-//                 pending = [...(pending ?? []), ...data];
-//                 data = undefined as any;
-//               }
-//               if (!pending) {
-//                 break;
-//               }
-
-//               log(["Posting", pending]);
-//               await delay(2000);
-//               if (Math.random() < 0.5) {
-//                 throw new Error("Eeek!");
-//               }
-//               log(`Posted ${pending.length} item(s).`);
-//             }
-//           },
-//           async (e, last) => {
-//             if (last) {
-//               error(
-//                 `Post failed 3 times in a row, events will not be sent.`,
-//                 e
-//               );
-//               throw e;
-//             } else {
-//               pending &&
-//                 postLock.data.update(
-//                   (current) => ((current ??= []).unshift(...pending!), current)
-//                 );
-//               error(`Post failed, retrying...`, e);
-//               await delay(250);
-//             }
-//           },
-//           undefined,
-//           3
-//         );
-//       }, 0)
-//     )[1]
-//   ) {
-//     postLock.data.update(
-//       (current) => ((current ??= []).push(...data), current)
-//     );
-//     log("Another post is active. Queued data.");
-//   }
-// };

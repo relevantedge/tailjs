@@ -1,7 +1,7 @@
 import { changeCase, changeIdentifierCaseStyle } from "../src";
 
 describe("strings.ts", () => {
-  it("Can convert between casing styles.", () => {
+  it("Can convert between casing styles", () => {
     // kebab_case
     expect(changeIdentifierCaseStyle("Foo", "kebab")).toBe("foo");
     expect(changeIdentifierCaseStyle("$Foo", "kebab")).toBe("$foo");

@@ -7,11 +7,11 @@ import {
   parsePrivacyTokens,
   SchemaAnnotations,
 } from "@tailjs/types";
-import { OmitPartial, isDefined, tryCatch } from "@tailjs/util";
+import { PartialExcept, isDefined, tryCatch } from "@tailjs/util";
 import { ParsedSchemaClassification, TraverseContext, parseError } from ".";
 
 export const parseClassifications = (
-  context: OmitPartial<
+  context: PartialExcept<
     TraverseContext,
     "node" | "classification" | "purposes" | "path"
   >

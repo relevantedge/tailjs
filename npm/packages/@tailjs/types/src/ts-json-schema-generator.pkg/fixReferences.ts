@@ -1,4 +1,4 @@
-import { forEach, isArray, isIterable, isObject } from "@tailjs/util";
+import { forEach, isArray, isIterable, isPlainObject } from "@tailjs/util";
 
 /**
  * If a type has an ID (via the @ id annotation), relatively referenced types under it are resolved against the type's node,
@@ -15,7 +15,7 @@ export const fixReferences = (
   if (isArray(schema)) {
     forEach(schema, (value) => fixReferences(value, schemaId));
     return;
-  } else if (!isObject(schema)) {
+  } else if (!isPlainObject(schema)) {
     return;
   }
 

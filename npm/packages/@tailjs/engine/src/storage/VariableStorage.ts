@@ -1,5 +1,6 @@
 import {
-  UserConsent,
+  DataClassificationValue,
+  DataPurposeValue,
   VariableGetResults,
   VariableGetters,
   VariableSetResults,
@@ -20,6 +21,20 @@ export type VariableContextScopeIds = {
   userId?: string;
 };
 
+export interface ParsableUserConsent {
+  /**
+   * The highest level of data classification the user has consented to be stored.
+   */
+  level: DataClassificationValue;
+
+  /**
+   * The purposes the user has consented their data to be used for.
+   *
+   * @privacy anonymous
+   */
+  purposes: DataPurposeValue;
+}
+
 export type VariableStorageContext = {
   /** The tracker operations must be validated against. If {@link consent} or {@link scopeIds} are not specified explicitly, these will be read from the tracker.   */
   tracker?: Tracker;
@@ -32,7 +47,7 @@ export type VariableStorageContext = {
 
   /** This defaults to the tracker's consent (if any), but can be set independently,
    *  for example if the tracker needs to update date if its consent changes (or for testing).  */
-  consent?: UserConsent;
+  consent?: ParsableUserConsent;
 
   // Reserved for future use so one endpoint can be shared between multiple projects (e.g. by an API key - TBD).
   tenant?: string;

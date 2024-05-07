@@ -158,7 +158,7 @@ describe("SchemaManager.", () => {
     //expect(manager.validateVariableUniqueness().length).toBe(2);
   });
 
-  it("Handles composition.", () => {
+  it("Handles composition", () => {
     const manager = new SchemaManager([compositionSchema]);
 
     expect(
@@ -175,7 +175,7 @@ describe("SchemaManager.", () => {
     ).toThrow("exactly one");
   });
 
-  it("Supports polymorphism.", () => {
+  it("Supports polymorphism", () => {
     // Discriminator no longer required.
     // expect(() => new SchemaManager([invalidPolymorphicSchema])).toThrow(
     //   "discriminate"
@@ -213,7 +213,7 @@ describe("SchemaManager.", () => {
     ).toThrow("sub2");
   });
 
-  it("Supports event definitions from properties and sub schemas.", () => {
+  it("Supports event definitions from properties and sub schemas", () => {
     let schema = new SchemaManager([
       {
         ...schemaHeader,
@@ -291,17 +291,10 @@ describe("SchemaManager.", () => {
     const clickIntent = manager.getType("component_click_intent");
     expect(clickIntent).toBeDefined();
 
-    console.log(
-      clickIntent.validate({
-        type: "component_click_intent",
-        pos: { x: 32, y: 80 },
-      })
-    );
-
-    fs.writeFileSync(
-      "c:/temp/tailjs.json",
-      JSON.stringify(manager.schema.definition, null, 2),
-      "utf-8"
-    );
+    // fs.writeFileSync(
+    //   "c:/temp/tailjs.json",
+    //   JSON.stringify(manager.schema.definition, null, 2),
+    //   "utf-8"
+    // );
   });
 });

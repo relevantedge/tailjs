@@ -1,15 +1,18 @@
+import { PartialExcept, PickPartial } from "@tailjs/util";
 import type { TrackerConfiguration } from "..";
 
 export const isTracker = "__isTracker";
 
-export const trackerConfig: Required<TrackerConfiguration> = {
+export const trackerConfig: PickPartial<
+  Required<TrackerConfiguration>,
+  "pushCookie"
+> = {
   name: "tail",
   src: "/_t.js",
   disabled: false,
   postEvents: true,
   postFrequency: 2000,
   requestTimeout: 5000,
-  heartbeatFrequency: 0,
   clientKey: null,
   apiKey: null,
 

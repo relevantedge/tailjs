@@ -8,6 +8,7 @@
   "scripts": {
     "check": "pnpm -r run --stream check",
     "build": "pnpm -r run --stream build",
+    "schema": "pnpm --filter @tailjs/types schema",
     "build:watch": "pnpm -r --parallel run --stream build:watch",
     "build:engine:watch": "pnpm -r --parallel --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client..\" run --stream build:watch",
     "build:jss:watch": "pnpm -r run --stream --filter=\"@tailjs/sitecore-jss...\" build:watch",

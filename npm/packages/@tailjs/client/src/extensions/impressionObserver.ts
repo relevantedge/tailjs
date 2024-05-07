@@ -12,6 +12,7 @@ import {
   forEach,
   map,
   nil,
+  push,
   restrict,
   stickyTimeout,
 } from "@tailjs/util";
@@ -95,7 +96,7 @@ const createImpressionObserver = (tracker: Tracker) => {
                       nil
                   )
                 );
-                tracker.push(impressionEvents);
+                push(tracker, impressionEvents);
               }
 
               if (impressionEvents?.length) {

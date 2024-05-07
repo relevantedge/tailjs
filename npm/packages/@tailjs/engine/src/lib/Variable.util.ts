@@ -24,7 +24,7 @@ import {
   isDefined,
   isFunction,
   isNumber,
-  isObject,
+  isPlainObject,
   isUndefined,
 } from "@tailjs/util";
 
@@ -73,7 +73,7 @@ const patchSelector = (
   let patchTarget: object;
   ("." + selector).split(".").forEach((segment, i, path) => {
     let current = i ? patchTarget[segment] : value;
-    if (isDefined(current) && !isObject(current))
+    if (isDefined(current) && !isPlainObject(current))
       throw new TypeError(
         `Invalid patch operation. The selector does not address a property on an object.`
       );

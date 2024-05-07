@@ -6,15 +6,18 @@ import {
   RestrictVariableTargets,
   StripPatchFunctions,
   Variable,
+  VariableEnumProperties,
   VariableGetResult,
   VariableGetter,
   VariableKey,
   VariableResultStatus,
   VariableSetResult,
   VariableSetter,
+  toNumericVariableEnums as toNumericRemoteVariableEnums,
   variableScope,
 } from "@tailjs/types";
 import {
+  EnumValue,
   GeneralizeConstants,
   If,
   IfNot,
@@ -22,10 +25,12 @@ import {
   MaybeArray,
   Nullish,
   PrettifyIntersection,
-  UnknownAny,
+  UnknownIsAny,
+  createEnumAccessor,
+  createEnumPropertyParser,
 } from "@tailjs/util";
 
-import type { View } from "@tailjs/types";
+import type { VariableScopeValue, View } from "@tailjs/types";
 
 type ReservedVariableDefinitions = {
   view: View;
@@ -41,22 +46,44 @@ export type ReservedVariableType<
   Default = any
 > = K extends ReservedVariableKey
   ? ReservedVariableDefinitions[K]
-  : UnknownAny<Default>;
+  : UnknownIsAny<Default>;
 
 export type ReservedVariableKey = keyof ReservedVariableDefinitions;
 
 export type LocalVariableKey = ReservedVariableKey | (string & {});
 
-export type LocalVariableScope<NumericEnums extends boolean = boolean> =
-  NumericEnums extends true ? -1 : "local";
+export enum LocalVariableScope {
+  /** Variables are only available in memory in the current tab. */
+  Local = -1,
+
+  /** Variables are only available in memory and shared between all tabs. */
+  Shared = -2,
+}
+
+export const localVariableScope = createEnumAccessor(
+  LocalVariableScope as typeof LocalVariableScope,
+  false,
+  "local variable scope"
+);
+
+export type LocalVariableScopeValue<
+  Numeric extends boolean | undefined = boolean
+> = EnumValue<
+  typeof LocalVariableScope,
+  LocalVariableScope,
+  false,
+  Numeric
+> extends infer T
+  ? T
+  : never;
 
 export type LocalVariableHeader<NumericEnums extends boolean = boolean> = {
   key: LocalVariableKey;
-  scope: LocalVariableScope<NumericEnums>;
+  scope: LocalVariableScopeValue<NumericEnums>;
   targetId?: undefined;
   classification?: DataClassification.Anonymous;
   purposes?: DataPurposeFlags.Necessary;
-  version?: undefined;
+  version?: string;
 };
 
 export type ReservedVariables<
@@ -68,7 +95,7 @@ export type ReservedVariables<
     >
   : never;
 
-export type LocalVariable<
+type LocalVariable<
   T = unknown,
   K extends string = LocalVariableKey,
   NumericEnums extends boolean = true
@@ -79,35 +106,40 @@ export type LocalVariable<
   } & LocalVariableHeader<NumericEnums>
 >;
 
-type LocalGetResult<
+type LocalVariableGetResult<
   T = any,
   K = LocalVariableKey,
   Patched = false
 > = PrettifyIntersection<
-  | ({
-      status:
-        | VariableResultStatus.Success
-        | VariableResultStatus.Unchanged
-        | VariableResultStatus.Created;
-    } & LocalVariable<T, K & string>)
-  | IfNot<
-      Patched,
-      LocalVariableHeader<true> & { key: K } & {
-        status: VariableResultStatus.NotFound;
-        value?: undefined;
-      }
-    >
+  (
+    | ({
+        status:
+          | VariableResultStatus.Success
+          | VariableResultStatus.Unchanged
+          | VariableResultStatus.Created;
+      } & LocalVariable<T, K & string>)
+    | IfNot<
+        Patched,
+        {
+          status: VariableResultStatus.NotFound;
+          value?: undefined;
+        }
+      >
+  ) &
+    LocalVariableHeader<true> & { key: K }
 >;
 
-type LocalSetResult<T, Source> = PrettifyIntersection<{
+type LocalVariableSetResult<T, Source> = PrettifyIntersection<{
   source: Source;
   status:
     | VariableResultStatus.Success
     | VariableResultStatus.Unchanged
     | VariableResultStatus.Created;
-  current: Source extends { value: undefined }
-    ? undefined
-    : LocalVariable<T, Source extends { key: infer K } ? K & string : string>;
+  current: Source extends { value: infer Value }
+    ? Value extends undefined
+      ? undefined
+      : LocalVariable<T, Source extends { key: infer K } ? K & string : string>
+    : never;
 }>;
 export type ClientVariable<
   T = any,
@@ -115,7 +147,7 @@ export type ClientVariable<
   Local = boolean
 > = Local extends true
   ? LocalVariable<T, K>
-  : { key: K } & Omit<Variable<T>, "key">;
+  : { key: K } & Omit<RestrictVariableTargets<Variable<T>>, "key">;
 
 export type VariableCacheSettings = {
   /**
@@ -202,16 +234,23 @@ export type ClientVariableSetter<
   } & VariableCacheSettings
 >;
 
-export type ClientVariableKey =
-  | VariableKey
-  | { key: string; scope: LocalVariableScope };
+export type ClientScopeValue<
+  NumericEnums extends boolean = boolean,
+  Local extends boolean = boolean
+> = Local extends true
+  ? LocalVariableScopeValue<NumericEnums>
+  : VariableScopeValue<NumericEnums>;
+
+export type ClientVariableKey<NumericEnums extends boolean = boolean> =
+  | VariableKey<NumericEnums>
+  | { key: string; scope: LocalVariableScopeValue<NumericEnums> };
 
 type MapLocalGetResult<Getter> = Getter extends ClientVariableGetter<
   infer T,
   infer K & string,
   true
 >
-  ? LocalGetResult<
+  ? LocalVariableGetResult<
       ReservedVariableType<K, T>,
       K,
       Getter extends { init: { value?: infer V } }
@@ -227,7 +266,7 @@ type MapLocalSetResult<Setter> = Setter extends ClientVariableSetter<
   infer K & string,
   true
 >
-  ? LocalSetResult<
+  ? LocalVariableSetResult<
       T extends undefined ? undefined : ReservedVariableType<K, T>,
       Setter
     >
@@ -236,7 +275,7 @@ type MapLocalSetResult<Setter> = Setter extends ClientVariableSetter<
   : never;
 
 type MapClientVariableResult<P, Getter> = P extends {
-  scope: LocalVariableScope;
+  scope: LocalVariableScopeValue;
 }
   ? If<Getter, MapLocalGetResult<P>, MapLocalSetResult<P>>
   : RestrictVariableTargets<
@@ -249,7 +288,7 @@ export type ClientVariableGetResult<
   Patched = boolean,
   Local = boolean
 > = Local extends true
-  ? LocalGetResult<T, K, Patched>
+  ? LocalVariableGetResult<T, K, Patched>
   : RestrictVariableTargets<VariableGetResult<T, K, Patched>>;
 
 export type ClientVariableSetResult<
@@ -260,7 +299,7 @@ export type ClientVariableSetResult<
     boolean
   >
 > = Source extends ClientVariableSetter<any, any, true>
-  ? LocalSetResult<T, Source>
+  ? LocalVariableSetResult<T, Source>
   : Source extends ClientVariableSetter<any, any, false>
   ? RestrictVariableTargets<VariableSetResult<T, Source>>
   : any;
@@ -279,10 +318,16 @@ export type ClientVariableResults<
   ? readonly MapClientVariableResult<Result, Getters>[]
   : never;
 
-export const isLocalScopeKey = (
-  key: any
-): key is { scope: LocalVariableScope } =>
-  key?.scope === -1 || key?.scope === "local";
+export const isLocalScopeKey = <T extends ClientVariableKey | Nullish>(
+  key: T
+): key is T & {
+  scope: LocalVariableScopeValue;
+} => !!localVariableScope.tryParse(key?.scope);
+
+export const toNumericVariableEnums = createEnumPropertyParser(
+  { scope: localVariableScope },
+  VariableEnumProperties
+);
 
 export const variableKeyToString = (key: ClientVariableKey): string =>
   `${isLocalScopeKey(key) ? "l" : variableScope(key.scope)}\0${key.key}\0${

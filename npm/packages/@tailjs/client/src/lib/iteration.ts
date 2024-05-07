@@ -1,7 +1,7 @@
 // Utility functions for arrays and iterables.
 
 import {
-  isObject,
+  isPlainObject,
   type ArgNulls,
   type ConstToNormal,
   type IterableOrArrayLike,
@@ -330,7 +330,7 @@ export const any = <T>(
 ): boolean => {
   return (
     value != nil &&
-    (iterable(value) || isObject(value)) &&
+    (iterable(value) || isPlainObject(value)) &&
     (!predicate
       ? !!size(value as any)
       : forEach(value, (item, i, stop) => predicate(item, i) && stop(T), F))

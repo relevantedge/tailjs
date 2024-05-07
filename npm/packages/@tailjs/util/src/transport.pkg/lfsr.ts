@@ -1,4 +1,4 @@
-import { hasValue, isBoolean } from "..";
+import { Nullish, isBoolean } from "..";
 
 /** The number of leading entropy bytes. */
 const ENTROPY = 4;
@@ -39,7 +39,7 @@ export type CipherFunctions = [
  *
  * (Adapted from http://quinnftw.com/xor-ciphers/).
  */
-export const lfsr = (key = ""): CipherFunctions => {
+export const lfsr = (key?: string | Nullish): CipherFunctions => {
   /** Number of source bytes for (en/de)cryption. */
   let n: number;
   /** Source byte index. */
@@ -81,7 +81,11 @@ export const lfsr = (key = ""): CipherFunctions => {
   /** Initial bytes for the mixer. */
   const window0: number[] = [];
 
-  for (iw = 0; iw < key.length; mixer0 += window0[iw] = key.charCodeAt(iw++));
+  for (
+    iw = 0;
+    iw < key?.length!;
+    mixer0 += window0[iw] = key!.charCodeAt(iw++)
+  );
 
   /** Resets the mixer when (en/de)cryption starts. */
   const resetMixer = key
@@ -148,7 +152,7 @@ export const lfsr = (key = ""): CipherFunctions => {
 
     // FNV1a hash code.
     (source: Uint8Array, numericOrBits: any = 64) => {
-      if (!hasValue(source)) return null;
+      if (source == null) return null;
       bits = isBoolean(numericOrBits) ? 64 : numericOrBits;
 
       resetMixer();

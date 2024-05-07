@@ -43,7 +43,7 @@ const parseQueryOptions = (
   options: VariableQueryOptions | undefined
 ): VariableQueryOptions<true> => {
   options?.ifNoneMatch &&
-    (options.ifNoneMatch = map(options.ifNoneMatch, toNumericVariableEnums));
+    (options.ifNoneMatch = toNumericVariableEnums(options.ifNoneMatch));
   return options as any;
 };
 

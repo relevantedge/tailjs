@@ -5,11 +5,12 @@ import {
   variableScope,
 } from "@tailjs/types";
 import {
+  isAnyObject,
   isArray,
   isDefined,
   isFunction,
   isIterable,
-  isObject,
+  isPlainObject,
   isUndefined,
 } from "@tailjs/util";
 
@@ -77,7 +78,7 @@ export class VariableMap<T = any>
   ) {
     if (source == null) return undefined;
     let scope: VariableScope, key: string;
-    if (isObject(source, true)) {
+    if (isAnyObject(source)) {
       scope = variableScope.parse(source.scope, false);
       key = source.key;
       init = arg2 as any;
@@ -114,7 +115,7 @@ export class VariableMap<T = any>
   ) {
     if (source == null) return undefined;
 
-    if (isObject(source, true)) {
+    if (isAnyObject(source)) {
       return (
         this._values
           .get(variableScope.parse(source.scope, false))
@@ -154,7 +155,7 @@ export class VariableMap<T = any>
 
     let scope: VariableScope, key: string | undefined;
 
-    if (isObject(arg1, true)) {
+    if (isAnyObject(arg1)) {
       if (isIterable(arg1)) {
         let deleted = false;
         for (const key of arg1) {
@@ -216,7 +217,7 @@ export class VariableMap<T = any>
 
     let scope: VariableScope, key: string | undefined, value: any;
 
-    if (isObject(arg1, true)) {
+    if (isAnyObject(arg1)) {
       if (isIterable(arg1)) {
         for (const item of arg1) {
           if (!item) continue;
@@ -274,7 +275,7 @@ export class VariableMap<T = any>
   ): T | undefined {
     if (arg1 == null) return undefined;
     let scope: VariableScope, key: string;
-    if (isObject(arg1, true)) {
+    if (isAnyObject(arg1)) {
       scope = variableScope.parse(arg1.scope);
       key = arg1.key;
       update = arg2 as any;

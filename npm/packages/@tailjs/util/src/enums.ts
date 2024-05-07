@@ -1,13 +1,16 @@
 import {
+  AllKeys,
   Entries,
-  IsAny,
-  IsUnknown,
-  Not,
+  Extends,
   Nullish,
+  Property,
   define,
+  entries,
+  isArray,
   isDefined,
   isNumber,
   isString,
+  obj,
   throwError,
   undefined,
 } from ".";
@@ -18,15 +21,17 @@ export type ParsedValue<
   V
 > = V extends Nullish
   ? V
-  : T extends EnumHelper<infer T, any, any>
+  : T extends EnumHelper<infer T, infer Flags & boolean, any>
   ? V extends keyof T
     ? T[V]
     : V extends T[keyof T]
     ? V
-    : number
+    : Flags extends true
+    ? number
+    : never
   : never;
 
-export type EnumValue_<
+type EnumValue_<
   Names extends string,
   Enum,
   Flags extends boolean,
@@ -36,6 +41,13 @@ export type EnumValue_<
   : Numeric extends true
   ? Enum
   : Names | (Flags extends true ? Names[] : never);
+
+export type EnumValueOf<
+  Helper extends EnumHelper<any, any, any>,
+  Numeric = boolean
+> = Helper extends EnumHelper<infer T, infer Flags & boolean, any>
+  ? EnumValue_<keyof T & string, T[keyof T], Flags & boolean, Numeric>
+  : never;
 
 export type EnumValue<
   Names extends Record<string, any>,
@@ -57,7 +69,7 @@ export type EnumHelper<
   Readonly<
     {
       /**
-       * The number of possible unqiue values in the enumeration.
+       * The number of possible unique values in the enumeration.
        */
       length: number;
       /**
@@ -194,8 +206,10 @@ type ParseFunction<
         Type extends "lookup" ? true : false
       >
     : ParsedValueInternal<T, V, Flags> extends never
-    ? string extends V
-      ? T[keyof T] | InvalidValue
+    ? keyof any extends infer K
+      ? K extends V
+        ? T[keyof T] | InvalidValue
+        : never
       : InvalidValue
     : ParsedValueInternal<T, V, Flags>;
 };
@@ -338,3 +352,78 @@ export const createEnumAccessor = <
     ]
   ) as any;
 };
+
+type NumericValues<T, Flags> = Flags extends true ? number : T[keyof T];
+
+type EnumPropertyType<Helper, Value> = Helper extends EnumHelper<
+  infer T,
+  infer Flags extends boolean,
+  any
+>
+  ? Extends<number | string, Value> extends true
+    ? NumericValues<T, Flags>
+    : Value extends infer Keys extends keyof T
+    ? T[Keys]
+    : Value extends NumericValues<T, Flags>
+    ? Value
+    : never
+  : never;
+
+type ParsedEnumResult<
+  T,
+  EnumProps extends readonly Record<string, EnumHelper<any, any, any>>[]
+> = T extends Nullish
+  ? T
+  : T extends readonly []
+  ? []
+  : T extends readonly [infer Item, ...infer Rest]
+  ? [
+      ParsedEnumResult<Item, EnumProps>,
+      ...(Rest extends readonly any[] ? ParsedEnumResult<Rest, EnumProps> : [])
+    ]
+  : T extends readonly (infer Item)[]
+  ? ParsedEnumResult<Item, EnumProps>[]
+  : T extends infer T
+  ? {
+      [P in keyof T]: P extends AllKeys<EnumProps[number]>
+        ? EnumPropertyType<Property<EnumProps[number], P>, T[P]>
+        : T[P];
+    }
+  : never;
+
+/**
+ * Creates a function that parses the specified enum properties to their numeric values on the object provided.
+ * Note that it does the parsing directly on the provided object and does not create a copy.
+ */
+export const createEnumPropertyParser: <
+  EnumProps extends readonly Record<string, EnumHelper<any, any, any>>[]
+>(
+  ...props: EnumProps
+) => <T>(value: T) => ParsedEnumResult<T, EnumProps> = ((
+  ...props: Record<string, EnumHelper<any, any, any>>[]
+) => {
+  const parsers = entries(obj(props, true));
+
+  const parse = (source: any, arrayItem?: boolean) =>
+    source != null &&
+    (!arrayItem && isArray(source)
+      ? source.forEach((source, i) => (source[i] = parse(source[i], true)))
+      : parsers.forEach(([prop, parsers]) => {
+          let parsed = undefined;
+          let value: any;
+          if ((value = source[prop]) == null) return;
+          parsers.length === 1
+            ? (source[prop] = parsers[0].parse(value))
+            : parsers.forEach(
+                (parser, i) =>
+                  !parsed &&
+                  (parsed =
+                    i === parsers.length - 1
+                      ? parser.parse(value)
+                      : parser.tryParse(value)) != null &&
+                  (source[prop] = parsed)
+              );
+        }));
+
+  return (source: any) => (parse(source), source);
+}) as any;

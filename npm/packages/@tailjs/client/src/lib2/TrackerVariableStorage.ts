@@ -6,7 +6,6 @@ import {
   Variable,
   VariableResultPromise,
   VariableResultStatus,
-  VariableSetResult,
   getResultVariable,
   isSuccessResult,
   isVariablePatch,
@@ -23,23 +22,25 @@ import {
   get,
   isBoolean,
   isDefined,
-  isObject,
+  isPlainObject,
   isUndefined,
   map,
   now,
+  push,
   required,
   throwError,
 } from "@tailjs/util";
 import {
+  ClientVariable,
+  ClientVariableGetResult,
   ClientVariableGetter,
   ClientVariableResults,
   ClientVariableSetResult,
   ClientVariableSetter,
-  LocalVariableScope,
+  LocalVariableScopeValue,
   ReservedVariableKey,
   ReservedVariableType,
   StateVariable,
-  StateVariableSource,
   TrackerContext,
   VARIABLE_CACHE_DURATION,
   VARIABLE_POLL_FREQUENCY,
@@ -47,8 +48,10 @@ import {
   addResponseHandler,
   getStateVariables,
   isLocalScopeKey,
+  localVariableScope,
   request,
   stringToVariableKey,
+  toNumericVariableEnums,
   updateVariableState,
   variableKeyToString,
 } from ".";
@@ -112,7 +115,7 @@ export const createVariableStorage = (
       ...getters: ClientVariableGetter[]
     ): VariableResultPromise<ClientVariableResults<any, true>> =>
       toVariableResultPromise(async () => {
-        const results: [StateVariableSource, number][] = [];
+        const results: [ClientVariableGetResult, number][] = [];
 
         const currentVariables = getStateVariables();
         let requestGetters = map(getters, (getter, sourceIndex) => [
@@ -130,7 +133,7 @@ export const createVariableStorage = (
                 const current = currentVariables.get(key);
                 getter.init && updateCacheDuration(key, getter.cache);
                 if (!getter.refresh && current?.expires! < now()) {
-                  results.push([
+                  push(results, [
                     {
                       ...current,
                       status: VariableResultStatus.Success,
@@ -139,14 +142,17 @@ export const createVariableStorage = (
                   ]);
                   return undefined;
                 } else if (isLocalScopeKey(getter)) {
-                  if (isObject(getter.init)) {
-                    const local = {
-                      ...getter,
-                      status: VariableResultStatus.Created,
-                      ...getter.init,
-                    } as StateVariableSource;
-                    newLocal.push(setResultExpiration(local));
-                    results.push([local, sourceIndex]);
+                  if (isPlainObject(getter.init)) {
+                    const local: ClientVariableGetResult<any, any, any, true> =
+                      {
+                        ...toNumericVariableEnums(getter),
+                        status: VariableResultStatus.Created,
+                        ...getter.init,
+                      };
+                    if (local.value != null) {
+                      push(newLocal, setResultExpiration(local));
+                      push(results, [local, sourceIndex]);
+                    }
                   }
                   return undefined;
                 }
@@ -163,7 +169,8 @@ export const createVariableStorage = (
             })
           ).variables?.get ?? [];
 
-        results.push(
+        push(
+          results,
           ...map(
             response,
             (response, i) => response && [response, requestGetters[i][1]]
@@ -218,12 +225,11 @@ export const createVariableStorage = (
           if (isLocalScopeKey(setter)) {
             if (isDefined(setter.patch))
               return throwError("Local patching is not supported.");
-            const local = {
-              status: VariableResultStatus.Success,
+            const local: ClientVariable<any, any, true> = {
               value: setter.value,
               classification: DataClassification.Anonymous,
-              purposes: DataPurposeFlags.Anonymous,
-              scope: -1,
+              purposes: DataPurposeFlags.Necessary,
+              scope: localVariableScope(setter.scope),
               key: setter.key,
             };
 
@@ -234,7 +240,7 @@ export const createVariableStorage = (
               source: setter as any,
               current: local,
             };
-            newLocal.push(setResultExpiration(local));
+            push(newLocal, setResultExpiration(local));
             return undefined;
           }
           if (!isVariablePatch(setter) && isUndefined(setter?.version)) {
@@ -278,7 +284,7 @@ export const createVariableStorage = (
   };
 
   const setResultExpiration = (
-    variable: StateVariableSource,
+    variable: ClientVariable,
     timestamp = now()
   ): StateVariable => ({
     ...variable,
@@ -288,11 +294,11 @@ export const createVariableStorage = (
       (get(cacheDurations, variableKeyToString(variable)) ??
         VARIABLE_CACHE_DURATION),
   });
-  addResponseHandler((response: PostResponse) => {
+  addResponseHandler(({ variables }) => {
     const timestamp = now();
     const changed = concat(
-      map(response.variables?.get, (result) => getResultVariable(result)),
-      map(response.variables?.set, (result) => getResultVariable(result))
+      map(variables.get, (result) => getResultVariable(result)),
+      map(variables.set, (result) => getResultVariable(result))
     );
 
     updateVariableState(apply(changed, setResultExpiration, timestamp));
@@ -325,7 +331,7 @@ type SetterIntellisense<K extends string = ReservedVariableKey | "(any)"> =
 
 type ValidateParameter<P, Getters> = P extends {
   key: infer K & string;
-  scope: LocalVariableScope;
+  scope: LocalVariableScopeValue;
 }
   ? If<
       Getters,
