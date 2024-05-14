@@ -12,6 +12,7 @@ import {
 } from "@tailjs/types";
 import {
   If,
+  IsAny,
   MaybeArray,
   apply,
   assign,
@@ -65,10 +66,7 @@ export interface TrackerVariableStorage {
     ...setters: (V & ValidateParameters<V, false>) | SetterIntellisense
   ): VariableResultPromise<ClientVariableResults<V, false>>;
 }
-const pollingCallbacks = new Map<
-  string,
-  Set<(value: ClientVariable | undefined, poll: any) => void>
->();
+const activeCallbacks = new Map<string, Set<ClientVariableCallback>>();
 
 export const createVariableStorage = (
   endpoint: string,
@@ -76,7 +74,7 @@ export const createVariableStorage = (
 ): TrackerVariableStorage => {
   const pollVariables = clock(async () => {
     const getters: ClientVariableGetter[] = map(
-      pollingCallbacks,
+      activeCallbacks,
       ([key, callbacks]) => ({
         ...stringToVariableKey(key),
         result: [...callbacks],
@@ -91,19 +89,23 @@ export const createVariableStorage = (
     callbacks?: MaybeArray<ClientVariableCallback>
   ) =>
     apply(callbacks, (callback) =>
-      get(pollingCallbacks, mappedKey, () => new Set()).add(callback)
+      get(activeCallbacks, mappedKey, () => new Set()).add(callback)
     );
 
-  const invokePollCallbacks = (
+  const invokeCallbacks = (
     result: ClientVariableGetResult | ClientVariableSetResult | undefined
   ) => {
     if (!isSuccessResult(result)) return;
     const key = variableKeyToString(result);
     const variable = getResultVariable(result);
     let poll: boolean;
-    forEach(remove(pollingCallbacks, key), (callback) => {
+    forEach(remove(activeCallbacks, key), (callback) => {
       poll = false;
-      callback?.(variable, (toggle = true) => (poll = toggle));
+      callback?.(
+        variable,
+        tryGetVariable(variable as any) as any,
+        (toggle = true) => (poll = toggle)
+      );
       poll && registerCallbacks(key, callback);
     });
   };
@@ -199,7 +201,7 @@ export const createVariableStorage = (
           updateVariableState(newLocal);
         }
 
-        return results.map(([result]) => (invokePollCallbacks(result), result));
+        return results.map(([result]) => (invokeCallbacks(result), result));
       }, map(getters, (getter) => getter?.error) as any) as any,
 
     set: (
@@ -269,7 +271,7 @@ export const createVariableStorage = (
         forEach(response, (result, index) => {
           const [setter, sourceIndex] = requestVariables[index];
           (result as any).source = setter;
-          invokePollCallbacks((results[sourceIndex] = result as any));
+          invokeCallbacks((results[sourceIndex] = result as any));
         });
 
         return results as any;

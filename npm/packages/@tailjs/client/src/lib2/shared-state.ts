@@ -114,9 +114,9 @@ const [addStateListener, dispatchState] = createEvent<
 let post: (message: StateMessage, target?: string) => void = NOT_INITIALIZED;
 
 export const tryGetVariable: {
-  <K extends ClientVariableGetter>(
-    key: K | GetterIntellisense[0]
-  ): ClientVariableResults<[K], true>[0] & StateVariableMetadata;
+  <K extends ClientVariableGetter>(key: K | GetterIntellisense[0]):
+    | (ClientVariableResults<[K], true>[0] & StateVariableMetadata)
+    | undefined;
   <K extends string | Nullish>(key: K): MaybeUndefined<K, StateVariable>;
 } = (key: any) => tabVariables.get(variableKeyToString(key)!) as any;
 

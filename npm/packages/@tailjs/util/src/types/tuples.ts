@@ -187,7 +187,7 @@ type MatchOverload<A extends readonly [any, any], MatchArgs = any> = A extends [
   : never;
 
 /** Returns tuples with arguments and return values for all non-generic overloads of a function, optionally matching a signature. */
-export type Overloads<F, MatchArgs = any> = IsAny<F> extends true
+export type Overloads<F, MatchArgs = any> = unknown extends F
   ? [any, any]
   : MatchOverload<
       F extends {

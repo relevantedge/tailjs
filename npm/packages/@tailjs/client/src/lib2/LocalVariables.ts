@@ -21,10 +21,10 @@ import {
   If,
   IfNot,
   IsAny,
-  MaybeArray,
   MaybeUndefined,
   Nullish,
   PrettifyIntersection,
+  ToggleArray,
   UnknownIsAny,
   createEnumAccessor,
   createEnumPropertyParser,
@@ -174,7 +174,8 @@ export type ClientVariableCallback<
   Local = boolean
 > = (
   value: ClientVariable<T, K, Local> | undefined,
-  poll: (toggle?: boolean) => void
+  previous: ClientVariable<T, K, Local> | undefined,
+  poll: () => void
 ) => void;
 
 export type ClientVariableGetter<
@@ -194,7 +195,7 @@ export type ClientVariableGetter<
      * If the second function is invoked the variable will be polled for changes, and the callback will be invoked
      * next time the value changes. To keep polling, keep calling the poll function every time the callback is invoked.
      */
-    result?: MaybeArray<ClientVariableCallback<T, K, Local>>;
+    result?: ToggleArray<ClientVariableCallback<T, K, Local>>;
 
     /**
      * If the get requests fails this callback will be called instead of the entire operation throwing an error.
