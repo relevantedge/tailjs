@@ -41,7 +41,7 @@ const requestLock = sharedLock(REQUEST_LOCK_KEY);
 let pushCookieMatcher: RegExp | undefined;
 let pushCookie: string | Nullish;
 const pollPushCookie = clock(() => {
-  if (pushCookie !== (pushCookie = trackerConfig.pushCookie ?? undefined)) {
+  if (pushCookie !== (pushCookie = trackerConfig.pushCookie)) {
     if (!pushCookie) return;
     pushCookieMatcher = new RegExp(escapeRegEx(pushCookie) + "=([^;]*)");
   }

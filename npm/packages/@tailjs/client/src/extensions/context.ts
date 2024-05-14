@@ -8,6 +8,7 @@ import {
   createTimer,
   forEach,
   map,
+  merge,
   nil,
   now,
   parseQueryString,
@@ -19,7 +20,6 @@ import {
 import { TrackerExtensionFactory, isChangeUserCommand } from "..";
 import { tracker } from "../initializeTracker";
 import {
-  ClientVariableGetter,
   LocalVariableScope,
   TAB_ID,
   addPageActivatedListener,
