@@ -1,7 +1,6 @@
 import { DataClassification, DataPurposeFlags } from "@tailjs/types";
 import {
   forEach,
-  isDefined,
   isInteger,
   isNumber,
   isString,
@@ -135,9 +134,10 @@ export const tryParsePrimitiveType = (schemaProperty: any) => {
         return primitives.integer;
       }
 
-      const allowedValues = isDefined(schemaProperty.const)
-        ? [schemaProperty.const]
-        : schemaProperty.enum;
+      const allowedValues =
+        schemaProperty.const != null
+          ? [schemaProperty.const]
+          : schemaProperty.enum;
 
       const type = schemaProperty.const
         ? inferPrimitiveFromValue(schemaProperty.const)

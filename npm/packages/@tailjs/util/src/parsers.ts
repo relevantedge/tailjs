@@ -1,11 +1,14 @@
 import {
+  IterableOrArrayLike,
+  IteratorItem,
   MaybeUndefined,
   Nullish,
+  PickRequired,
   PrettifyIntersection,
+  RecordType,
   concat,
   forEach,
   isArray,
-  isDefined,
   isString,
   join,
   map,
@@ -132,11 +135,18 @@ const parseKeyValue = (
  */
 export const parseUri = <
   Uri extends string | Nullish,
-  QueryString extends QueryStringDelimiterValue = true
+  QueryString extends QueryStringDelimiterValue = true,
+  RequireAuthority extends boolean = false
 >(
   uri: Uri,
-  query: QueryString = true as any
-): PrettifyIntersection<ParsedUri<QueryString>, true> =>
+  query: QueryString = true as any,
+  requireAuthority?: RequireAuthority
+): PrettifyIntersection<
+  RequireAuthority extends true
+    ? PickRequired<ParsedUri<QueryString>, "scheme" | "host" | "urn" | "path">
+    : ParsedUri<QueryString>,
+  true
+> =>
   uri == nil
     ? undefined
     : (match(
@@ -204,7 +214,7 @@ export const parseQueryString = <
             decode
           ) ?? []
         ) =>
-          isDefined((key = key?.replace(/\[\]$/, "")))
+          (key = key?.replace(/\[\]$/, "")) != null
             ? arrayDelimiters !== false
               ? [key, values!.length > 1 ? values! : value!]
               : [key, value!]
@@ -219,8 +229,8 @@ export const parseQueryString = <
 
 export const toQueryString = <
   P extends
-    | Record<string, any>
-    | Iterable<readonly [key: string, value: any]>
+    | Iterable<readonly [string, any]>
+    | RecordType<string, any>
     | undefined
 >(
   parameters: P,
@@ -247,7 +257,7 @@ export const appendQueryString = <Uri extends string | undefined>(
 ): MaybeUndefined<Uri, string> => {
   if (!baseUri) return undefined!;
   const qs = toQueryString(parameters);
-  return baseUri.match(/^[^?]*/)![0] + (qs ? "?" + qs : "");
+  return (baseUri.match(/^[^?]*/)![0] + (qs ? "?" + qs : "")) as any;
 };
 
 export const mergeQueryString = <Uri extends string | undefined>(
@@ -260,14 +270,14 @@ export const mergeQueryString = <Uri extends string | undefined>(
   if (!currentUri) return undefined!;
   const current = parseQueryString(currentUri);
   forEach(parameters, ([key, value]) => (current[key] = current[key] ?? value));
-  return appendQueryString(currentUri, current)!;
+  return appendQueryString(currentUri, current) as any;
 };
 
 export const formatUri = <Uri extends Omit<ParsedUri, "source">>(
   uri: Uri
 ): MaybeUndefined<Uri, string> =>
   uri == nil
-    ? undefined!
+    ? (undefined as any)
     : join([
         uri.scheme || uri.urn === false
           ? (uri.scheme ? uri.scheme + ":" : "") + (!uri.urn ? "//" : "")

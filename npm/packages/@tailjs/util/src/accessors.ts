@@ -4,6 +4,7 @@ import {
   GeneralizeConstants,
   If,
   IsAny,
+  IteratorItem,
   IteratorSourceOf,
   KeyValuePairsToObject,
   MaybeUndefined,
@@ -14,21 +15,16 @@ import {
   PrettifyIntersection,
   Primitives,
   RecordType,
-  ToggleReadonly,
   UnionToIntersection,
   count,
-  filter,
   forEach,
   hasMethod,
-  isAnyObject,
+  isObject,
   isArray,
-  isAwaitable,
-  isDefined,
   isFunction,
   isMap,
   isPlainObject,
   isSet,
-  isUndefined,
   map,
   obj,
   throwError,
@@ -43,6 +39,7 @@ type ReadonlyMapLike<K = any, V = any> = {
 type MapLike<K = any, V = any> = ReadonlyMapLike<K, V> & {
   set(key: K, value: V): any;
   delete(key: K): any;
+  clear(): any;
 };
 
 type ReadonlySetLike<K = any> = {
@@ -51,12 +48,12 @@ type ReadonlySetLike<K = any> = {
 type SetLike<K = any> = ReadonlySetLike<K> & {
   add(key: K): any;
   delete(key: K): any;
+  clear(): any;
 };
 
 type ReadonlyPropertyContainer<K extends any = any, V extends any = any> =
-  | {
-      [P in keyof K]: V;
-    }
+  | RecordType
+  | readonly any[]
   | ReadonlyMapLike<K, V>
   | ReadonlySetLike<K>;
 
@@ -138,7 +135,7 @@ export const setSingleIfNotDefined = (
   ) => string | Error
 ) => {
   const currentValue = get(target, key);
-  if (isDefined(currentValue)) {
+  if (currentValue != null) {
     throwError(error(key, currentValue, value, target));
   }
   return setSingle(target, key, value);
@@ -184,8 +181,8 @@ export const get: {
     ? (target as any).has(key)
     : target[key as any];
 
-  if (isUndefined(value) && init != null) {
-    isDefined((value = isFunction(init) ? (init as any)() : init)) &&
+  if (value === undefined && init != null) {
+    (value = isFunction(init) ? (init as any)() : init) != null &&
       setSingle(target, key, value);
   }
   return value;
@@ -414,7 +411,7 @@ export const merge = <
 >(
   target: Target,
   ...values: Values
-): MergeResult<Target, Values> => (
+): MaybeUndefined<Target, MergeResult<Target, Values>> => (
   forEach(values, (values) =>
     forEach(values, ([key, value]) => {
       if (value != null) {
@@ -428,13 +425,6 @@ export const merge = <
   ),
   target as any
 );
-
-() => {
-  const x = merge({ a: 32 }, { lasagne: "dennis" }, [
-    ["a", 80 as number],
-    ["tis", 89],
-  ] as const);
-};
 
 const createSetOrUpdateFunction =
   <SettersOnly, Error>(
@@ -489,7 +479,7 @@ export const has = <T extends ReadonlyPropertyContainer>(
 ) =>
   hasMethod(target, "has")
     ? target.has(key)
-    : isDefined((target as any).get?.(key) ?? (target as any)[key]);
+    : ((target as any).get?.(key) ?? (target as any)[key]) != null;
 
 type RemoveDeepArgs<
   T,
@@ -528,7 +518,7 @@ type KeysArg<T extends PropertyContainer | Nullish> = T extends RecordType
   : readonly (KeyType<T> | undefined)[];
 
 const clearSingle = (target: any, key: any) => {
-  if (isUndefined(target ?? key)) return undefined;
+  if ((target ?? key) == null) return undefined;
 
   let current = get(target, key);
 
@@ -602,8 +592,19 @@ export const clear = <
   return array ? removed : removed[0];
 };
 
+/** Removes all entries from a set or map, and returns them. */
+export const empty = <S extends SetLike | MapLike | undefined>(
+  target: S
+): MaybeUndefined<S, IteratorItem<S>[]> => {
+  if (!target) return undefined as any;
+
+  const entries = map(target);
+  target.clear();
+  return entries as any;
+};
+
 /**
- * Removes the specified keys from a  property container.
+ * Removes the specified key(s) from a property container and returns their value, or undefined if the container did not have the specified key.
  *
  * The difference between {@link clear} and this function is that it does not consider nested property containers and that arrays will be spliced (as opposed to `clear` where the index will be set to `undefined`).
  */
@@ -749,7 +750,7 @@ export const pick = <T, Selectors extends PropertySelector<T>[], U>(
 
   return Object.fromEntries(
     args.flatMap((arg) =>
-      isAnyObject(arg)
+      isObject(arg)
         ? isArray(arg)
           ? arg.map((args) =>
               isArray(args)
@@ -790,14 +791,14 @@ export const wrap = <T>(
     ...args: T extends (...args: infer Args) => any ? Args : []
   ) => T extends (...args: any) => infer R ? R : T
 ): T =>
-  isUndefined(original)
+  original == null
     ? original
     : isFunction(original)
     ? (...args: any) => wrap(original as any, ...args)
     : (wrap as any)(() => original as any);
 
 export const clone = <T>(value: T, depth = -1): T =>
-  isAnyObject(value)
+  isObject(value)
     ? isArray(value)
       ? depth
         ? value.map((value) => clone(value, depth - 1))
@@ -837,7 +838,7 @@ export const push = <T extends { push: (...args: any) => any } | Nullish>(
  */
 export const pop = <T extends { pop(): R } | undefined, R>(
   target: T
-): MaybeUndefined<T, R> => target?.pop()!;
+): MaybeUndefined<T, R> => target?.pop() as any;
 
 /**
  * Very much like `Array.unshift` except it accepts anything with a `push ` method  (including non-generic overloads),
@@ -853,4 +854,4 @@ export const unshift = <T extends { unshift: (...args: any) => any } | Nullish>(
  * (Included or the sake of generality since we have {@link unshift}). Suitable for tight minification. */
 export const shift = <T extends { shift(): R } | undefined, R>(
   target: T
-): MaybeUndefined<T, R> => target?.shift()!;
+): MaybeUndefined<T, R> => target?.shift() as any;

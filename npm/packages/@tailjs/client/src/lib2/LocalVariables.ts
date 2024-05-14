@@ -13,7 +13,6 @@ import {
   VariableResultStatus,
   VariableSetResult,
   VariableSetter,
-  toNumericVariableEnums as toNumericRemoteVariableEnums,
   variableScope,
 } from "@tailjs/types";
 import {
@@ -23,6 +22,7 @@ import {
   IfNot,
   IsAny,
   MaybeArray,
+  MaybeUndefined,
   Nullish,
   PrettifyIntersection,
   UnknownIsAny,
@@ -30,7 +30,12 @@ import {
   createEnumPropertyParser,
 } from "@tailjs/util";
 
-import type { VariableScopeValue, View } from "@tailjs/types";
+import type { LocalID, VariableScopeValue, View } from "@tailjs/types";
+
+export type ReferringViewData = [
+  viewId: LocalID,
+  relatedEventId: LocalID | undefined
+];
 
 type ReservedVariableDefinitions = {
   view: View;
@@ -38,7 +43,9 @@ type ReservedVariableDefinitions = {
   rendered: boolean;
   consent: boolean;
   loaded: boolean;
+  index: number;
   scripts: Record<string, "pending" | "loaded" | "failed">;
+  referrer: ReferringViewData;
 };
 
 export type ReservedVariableType<
@@ -53,11 +60,14 @@ export type ReservedVariableKey = keyof ReservedVariableDefinitions;
 export type LocalVariableKey = ReservedVariableKey | (string & {});
 
 export enum LocalVariableScope {
-  /** Variables are only available in memory in the current tab. */
-  Local = -1,
+  /** Variables are only available in memory in the current view. */
+  View = -3,
+
+  /** Variables are only available in memory in the current tab, including between views in the same tab as navigation occurs. */
+  Tab = -2,
 
   /** Variables are only available in memory and shared between all tabs. */
-  Shared = -2,
+  Shared = -1,
 }
 
 export const localVariableScope = createEnumAccessor(
@@ -158,6 +168,15 @@ export type VariableCacheSettings = {
   cache?: number | boolean;
 };
 
+export type ClientVariableCallback<
+  T = any,
+  K extends string = string & {},
+  Local = boolean
+> = (
+  value: ClientVariable<T, K, Local> | undefined,
+  poll: (toggle?: boolean) => void
+) => void;
+
 export type ClientVariableGetter<
   T = any,
   K extends string = string & {},
@@ -173,14 +192,9 @@ export type ClientVariableGetter<
     /**
      * A callback to do something with the result.
      * If the second function is invoked the variable will be polled for changes, and the callback will be invoked
-     * once when the value changes. To keep polling, keep calling the poll function every time the callback is invoked.
+     * next time the value changes. To keep polling, keep calling the poll function every time the callback is invoked.
      */
-    result?: MaybeArray<
-      (
-        value: ClientVariable<T, K, Local> | undefined,
-        poll: (toggle?: boolean) => void
-      ) => void
-    >;
+    result?: MaybeArray<ClientVariableCallback<T, K, Local>>;
 
     /**
      * If the get requests fails this callback will be called instead of the entire operation throwing an error.
@@ -241,9 +255,12 @@ export type ClientScopeValue<
   ? LocalVariableScopeValue<NumericEnums>
   : VariableScopeValue<NumericEnums>;
 
-export type ClientVariableKey<NumericEnums extends boolean = boolean> =
-  | VariableKey<NumericEnums>
-  | { key: string; scope: LocalVariableScopeValue<NumericEnums> };
+export type ClientVariableKey<
+  NumericEnums extends boolean = boolean,
+  Local extends boolean = boolean
+> = Local extends false
+  ? VariableKey<NumericEnums>
+  : { key: string; scope: LocalVariableScopeValue<NumericEnums> };
 
 type MapLocalGetResult<Getter> = Getter extends ClientVariableGetter<
   infer T,
@@ -318,9 +335,9 @@ export type ClientVariableResults<
   ? readonly MapClientVariableResult<Result, Getters>[]
   : never;
 
-export const isLocalScopeKey = <T extends ClientVariableKey | Nullish>(
-  key: T
-): key is T & {
+export const isLocalScopeKey = (
+  key: any
+): key is {
   scope: LocalVariableScopeValue;
 } => !!localVariableScope.tryParse(key?.scope);
 
@@ -329,10 +346,18 @@ export const toNumericVariableEnums = createEnumPropertyParser(
   VariableEnumProperties
 );
 
-export const variableKeyToString = (key: ClientVariableKey): string =>
-  `${isLocalScopeKey(key) ? "l" : variableScope(key.scope)}\0${key.key}\0${
-    isLocalScopeKey(key) ? "" : key.targetId ?? ""
-  }`;
+export const variableKeyToString: <
+  S extends ClientVariableKey | { source?: ClientVariableKey }
+>(
+  key: S
+) => MaybeUndefined<S, string> = (key: any): any =>
+  key == null
+    ? undefined
+    : key.source
+    ? variableKeyToString(key.source)!
+    : `${isLocalScopeKey(key) ? "l" : variableScope(key.scope)}\0${key.key}\0${
+        isLocalScopeKey(key) ? "" : key.targetId ?? ""
+      }`;
 
 export const stringToVariableKey = (key: string): ClientVariableKey => {
   const parts = key.split("\0");

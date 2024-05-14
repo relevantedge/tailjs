@@ -1,11 +1,9 @@
 import {
   DataPurposeFlags,
-  ValidatedVariableGetter,
   Variable,
   VariableFilter,
   VariableGetResult,
   VariableGetResults,
-  VariableGetter,
   VariableGetters,
   VariableKey,
   VariableQueryOptions,
@@ -29,8 +27,6 @@ import {
   Nullish,
   clock,
   forEach,
-  isDefined,
-  isUndefined,
   now,
   rank,
   some,
@@ -39,7 +35,6 @@ import {
 import { applyPatch, copy, variableId } from "../lib";
 
 import { VariableStorage, VariableStorageContext } from "..";
-import { ParsingVariableStorage } from "./ParsingVariableStorage";
 
 export type ScopeVariables = [
   expires: number | undefined,
@@ -49,7 +44,7 @@ export type ScopeVariables = [
 export const hasChanged = (
   getter: VersionedVariableKey,
   current: Variable | undefined
-) => isUndefined(getter.version) || current?.version !== getter.version;
+) => getter.version == null || current?.version !== getter.version;
 
 export abstract class InMemoryStorageBase implements VariableStorage {
   private _ttl: Partial<Record<VariableScope, number>> | undefined;
@@ -164,7 +159,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         let matchVersion: string | undefined;
         if (
           (ifModifiedSince && variable.modified! < ifModifiedSince!) ||
-          (isDefined((matchVersion = ifNoneMatch?.get(variableId(variable)))) &&
+          ((matchVersion = ifNoneMatch?.get(variableId(variable))) != null &&
             variable.version === matchVersion)
         ) {
           // Skip the variable because it is too old or unchanged based on the settings provided for the query.
@@ -211,7 +206,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   public clean() {
     const timestamp = now();
     forEach(this._ttl, ([scope, ttl]) => {
-      if (isUndefined(ttl)) return;
+      if (ttl == null) return;
 
       const variables = this._getTargetsInScope(scope);
       forEach(
@@ -259,19 +254,6 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         frequency: 10000,
       })).toggle(hasTtl);
     }
-  }
-
-  private _applyGetFilters(
-    getter: ValidatedVariableGetter,
-    variable: Variable<any, true> | undefined
-  ) {
-    return !variable ||
-      (getter.purpose && // The variable has explicit purposes and not the one requested.
-        !(variable.purposes & getter.purpose))
-      ? undefined
-      : isDefined(getter.version) && variable?.version == getter.version
-      ? variable
-      : copy(variable);
   }
 
   public async get<K extends VariableGetters<true>>(
@@ -410,7 +392,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           await applyPatch(current, source)
         );
 
-        if (!isDefined(patched)) {
+        if (patched == null) {
           results.push({
             status: VariableResultStatus.Unchanged,
             source,
@@ -430,7 +412,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         continue;
       }
 
-      if (isUndefined(value)) {
+      if (value === undefined) {
         results.push({
           status:
             current && this._remove(current)
@@ -451,7 +433,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         targetId,
         scope,
         purposes:
-          isDefined(current?.purposes) || purposes
+          current?.purposes != null || purposes
             ? (current?.purposes ?? 0) | (purposes ?? 0)
             : DataPurposeFlags.Necessary,
         tags: tags && [...tags],

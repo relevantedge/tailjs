@@ -4,6 +4,7 @@ import type {
   Nullish,
   Primitives,
   Property,
+  RecordType,
   UnionToTuple,
   UnknownIsAny,
 } from ".";
@@ -68,7 +69,10 @@ export type PickRequired<T, K extends AllKeys<T>> = T extends infer T
 /**
  * Makes the specified properties partial.
  */
-export type PickPartial<T, K extends AllKeys<T>> = T extends infer T
+export type PickPartial<
+  T,
+  K extends AllKeys<T> | (string & {})
+> = T extends infer T
   ? PrettifyIntersection<MaybeOmit<T, K> & Partial<MaybePick<T, K>>>
   : never;
 
@@ -120,7 +124,7 @@ export type PrettifyIntersection<
 export type KeyValueSource =
   | Nullish
   | readonly (readonly [keyof any, any])[]
-  | Record<keyof any, any>
+  | RecordType<keyof any, any>
   | Map<keyof any, any>;
 
 type Gather<T, Group extends boolean> = [T] extends [never]

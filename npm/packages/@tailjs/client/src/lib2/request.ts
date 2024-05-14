@@ -1,27 +1,24 @@
+import { isPostResponse } from "@tailjs/types";
 import {
   If,
-  NO_OP,
-  PartialExcept,
+  NOOP,
   PrettifyIntersection,
   clock,
   createEvent,
-  createLock,
   delay,
   escapeRegEx,
   forEachAsync,
-  isDefined,
   isFunction,
-  isUndefined,
   match,
-  stickyTimeout,
   throwError,
 } from "@tailjs/util";
 import {
+  REQUEST_LOCK_KEY,
   httpDecrypt as deserialize,
   httpEncrypt as serialize,
   trackerConfig,
 } from ".";
-import { PostResponse, isPostResponse } from "@tailjs/types";
+import { sharedLock } from "./concurrency";
 
 export type RequestOptions<Beacon extends boolean = false> =
   PrettifyIntersection<
@@ -37,8 +34,7 @@ const [addRequestHandler, dispatchRequest] =
 const [addResponseHandler, dispatchResponse] = createEvent<[response: any]>();
 export { addRequestHandler, addResponseHandler };
 
-// TODO: Make shared lock between tabs using storage (or similar. LockManager is not an option since it disables bf_cache).
-const requestLock = createLock(1000);
+const requestLock = sharedLock(REQUEST_LOCK_KEY);
 
 let pushCookieMatcher: RegExp | undefined;
 let pushCookie: string | undefined;
@@ -65,7 +61,7 @@ let pushExpectations = 0;
 export const anticipatePushCookie = (timeout = 1000) => {
   let pushTimeout = 0;
   let done = () => {
-    done = NO_OP; // Prevent further invocations.
+    done = NOOP; // Prevent further invocations.
     if (!--pushExpectations) {
       pollPushCookie.restart(1000);
       clearTimeout(pushTimeout);
@@ -112,7 +108,7 @@ export const request: {
       return false;
     }
 
-    isDefined(prepareResult) &&
+    prepareResult != null &&
       prepareResult !== true &&
       (currentData = prepareResult);
 
@@ -121,7 +117,7 @@ export const request: {
       currentData,
       retry,
       (newData) => (
-        (cancel = isUndefined(currentData)), (currentData = newData)
+        (cancel = currentData === undefined), (currentData = newData)
       )
     );
 

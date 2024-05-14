@@ -1,4 +1,4 @@
-import { add, isDefined } from "@tailjs/util";
+import { add } from "@tailjs/util";
 import { ParsedProperty, ParsedType } from ".";
 
 export const mergeBasePropertyClassifications = (
@@ -8,9 +8,9 @@ export const mergeBasePropertyClassifications = (
   seen?: Set<ParsedType>
 ) => {
   if (
-    (isDefined(target.classification) &&
-      isDefined(target.purposes) &&
-      isDefined(target.censorIgnore)) ||
+    (target.classification != null &&
+      target.purposes != null &&
+      target.censorIgnore != null) ||
     !add((seen ??= new Set()), declaringType)
   ) {
     return;

@@ -11,18 +11,15 @@ import {
   MaybeArray,
   MaybeUndefined,
   RecordType,
+  array,
   assignIfUndefined,
   first,
   forEach,
   ifDefined,
   invariant,
-  isDefined,
-  isString,
-  isUndefined,
   obj,
   required,
   throwError,
-  array,
   unlock,
   validate,
 } from "@tailjs/util";
@@ -231,11 +228,9 @@ export class SchemaManager {
         let variableScopeTarget: VariableScope | undefined;
         if (
           type.name.endsWith("Variables") &&
-          isDefined(
-            (variableScopeTarget = variableScope.tryParse(
-              type.name.replace(/Variables$/, "")
-            ))
-          )
+          (variableScopeTarget = variableScope.tryParse(
+            type.name.replace(/Variables$/, "")
+          )) != null
         ) {
           forEach(type.properties, ([, property]: [any, SchemaVariable]) => {
             if (property.required) {
@@ -391,7 +386,7 @@ export class SchemaManager {
     schemas = array(schemas);
     return new SchemaVariableSet(
       this,
-      isUndefined(schemas) || schemas.includes("*")
+      schemas == null || schemas.includes("*")
         ? this.subSchemas.values()
         : schemas
     );

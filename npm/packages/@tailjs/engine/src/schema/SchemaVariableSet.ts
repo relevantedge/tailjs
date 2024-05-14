@@ -8,7 +8,6 @@ import {
 import {
   forEach,
   ifDefined,
-  isDefined,
   isString,
   map,
   throwError,
@@ -40,7 +39,7 @@ export class SchemaVariableSet {
     this.schemas.forEach((schema) => {
       forEach(schema.variables, ([[scope, key], variable]) => {
         this._variables.update(scope, key, (current) =>
-          isDefined(current)
+          current != null
             ? throwError(
                 `The variable '${key}' in ${variableScope.lookup(
                   scope

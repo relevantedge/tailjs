@@ -1,5 +1,3 @@
-import { isDefined, isUndefined } from ".";
-
 type OptionalKey<K extends readonly [any, any]> = readonly [
   level1: K[0] | undefined,
   level2: K[1] | undefined
@@ -36,7 +34,7 @@ export class TupleMap<
   }
 
   set(key: K, value: V): this {
-    if (isUndefined(value)) {
+    if (value === undefined) {
       this.delete(key);
       return this;
     }
@@ -88,15 +86,15 @@ export class DoubleMap<
    * @returns true if an element in the TupleMap existed and has been removed, or false if the element does not exist.
    */
   public delete(key: OptionalKey<K>): boolean {
-    if (isDefined(key[0])) {
-      if (isDefined(key[1])) {
+    if (key[0] != null) {
+      if (key[1] != null) {
         return this._cleanDelete(key);
       }
       if (!this._reverse) {
         this._size -= this._map.get(key[0])?.size ?? 0;
         return this._map.delete(key[0]);
       }
-    } else if (isUndefined(key[1])) {
+    } else if (key[1] === undefined) {
       return this.clear();
     }
 
@@ -169,16 +167,16 @@ export class DoubleMap<
   }
 
   public *iterate(filter?: OptionalKey<K>): Iterable<readonly [Key<K>, V]> {
-    if (!filter || (isUndefined(filter[0]) && isUndefined(filter[1]))) {
+    if (!filter || (filter[0] ?? filter[1]) === undefined) {
       yield* this;
     } else {
       const [key1Filter, key2Filter] = filter;
-      if (isDefined(key1Filter)) {
+      if (key1Filter != null) {
         const map = this._map.get(filter[0]);
         if (!map) {
           return;
         }
-        if (isDefined(key2Filter)) {
+        if (key2Filter != null) {
           const value = map.get(key2Filter);
           if (value) {
             yield [filter, value];

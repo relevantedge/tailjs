@@ -1,8 +1,6 @@
 import {
   Defined,
-  Extends,
   Falsish,
-  IDENTITY,
   If,
   IsAny,
   MaybePromise,
@@ -10,13 +8,11 @@ import {
   Nullish,
   OmitNullish,
   TogglePromise,
-  Unwrap,
   UnwrapPromiseLike,
   Wrapped,
-  isAnyObject,
+  isObject,
   isArray,
   isBoolean,
-  isDefined,
   isError,
   isFunction,
   isString,
@@ -88,7 +84,7 @@ export class InvariantViolatedError extends Error {
   }
 }
 
-export const structuresEqual = (
+export const structuralEquals = (
   value1: any,
   value2: any,
   depth = -1
@@ -97,16 +93,12 @@ export const structuresEqual = (
   // interpret `null` and `undefined` as the same.
   if ((value1 ?? value2) == null) return true;
 
-  if (
-    isAnyObject(value1) &&
-    isAnyObject(value2) &&
-    value1.length === value2.length
-  ) {
+  if (isObject(value1) && isObject(value2) && value1.length === value2.length) {
     let n = 0;
     for (const key in value1) {
       if (
         value1[key] !== value2[key] &&
-        !structuresEqual(value1[key], value2[key], depth - 1)
+        !structuralEquals(value1[key], value2[key], depth - 1)
       ) {
         return false;
       }
@@ -118,7 +110,7 @@ export const structuresEqual = (
 };
 
 /** Tests whether a value equals at least one of some other values.  */
-export const eq: <T extends readonly any[]>(
+export const equalsAny: <T extends readonly any[]>(
   target: any,
   ...values: T
 ) => target is T[number] = ((
@@ -128,7 +120,7 @@ export const eq: <T extends readonly any[]>(
 ) =>
   target === singleValue ||
   (otherValues.length > 0 &&
-    otherValues.some((value: any) => eq(target, value)))) as any;
+    otherValues.some((value: any) => equalsAny(target, value)))) as any;
 
 /**
  * States an invariant.
@@ -138,7 +130,7 @@ export const invariant = <T>(
   description?: string
 ): Defined<T> => {
   const valid = unwrap(test);
-  return isDefined(valid) && valid !== false
+  return valid != null && valid !== false
     ? (valid as any)
     : throwError(new InvariantViolatedError(description));
 };
@@ -151,24 +143,36 @@ export const required = <T>(value: T, error?: ErrorGenerator): OmitNullish<T> =>
         (text) => new TypeError(text.replace("...", " is required."))
       );
 
-export const tryCatch = <T, C = undefined>(
+export const tryCatch = <
+  T,
+  E extends boolean | ((error: any) => any) | Nullish
+>(
   expression: () => T,
-  errorHandler: boolean | ((error: any) => C) = true as any,
+  errorHandler: E = true as any,
   always?: () => void
-): T | (C extends Error ? T : C) => {
+):
+  | T
+  | (E extends Nullish | true
+      ? never
+      : E extends false
+      ? undefined
+      : E extends (error: any) => infer R
+      ? R extends Error
+        ? never
+        : R extends void
+        ? undefined
+        : R
+      : E) => {
   try {
     return expression();
   } catch (e) {
-    if (!isBoolean(errorHandler)) {
-      const error = errorHandler?.(e) as any;
-      if (error instanceof Error) throw error;
-      return error;
-    }
-    if (errorHandler) {
-      throw e;
-    }
-    console.error(e);
-    return undefined as any;
+    return isFunction(errorHandler)
+      ? isError((e = errorHandler(e)))
+        ? throwError(e)
+        : e
+      : isBoolean(errorHandler)
+      ? console.error(errorHandler ? throwError(e) : e)
+      : (errorHandler as any);
   } finally {
     always?.();
   }

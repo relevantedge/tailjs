@@ -3,7 +3,6 @@ import {
   forEach,
   isArray,
   isPlainObject,
-  isUndefined,
   required,
 } from "@tailjs/util";
 import { ParsedType, TraverseContext, parseError } from ".";
@@ -12,7 +11,7 @@ export const getRefSchema = <T extends string | undefined>(
   context: TraverseContext,
   ref: T
 ): any => {
-  if (isUndefined(ref)) return undefined as any;
+  if (ref == null) return undefined as any;
 
   if (ref.startsWith("#")) {
     ref = (context.schema?.id! + ref) as any;
@@ -24,7 +23,7 @@ export const getRefType = <T extends string | undefined>(
   context: TraverseContext,
   ref: T
 ): MaybeUndefined<T, ParsedType> => {
-  if (isUndefined(ref)) return undefined as any;
+  if (ref == null) return undefined as any;
 
   const def = getRefSchema(context, ref);
   return required(

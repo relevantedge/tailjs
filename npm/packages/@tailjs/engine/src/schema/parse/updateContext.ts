@@ -1,9 +1,9 @@
-import { PickPartial, isDefined, required } from "@tailjs/util";
+import { PickPartial, required } from "@tailjs/util";
 import {
   TraverseContext,
-  parseEventTypes,
   parseClassifications,
   parseDescription,
+  parseEventTypes,
 } from ".";
 
 export const updateContext = (
@@ -30,7 +30,7 @@ export const updateContext = (
 
   childContext.path = [...context.path, key];
 
-  if (isDefined(node.$schema)) {
+  if (node.$schema != null) {
     const schema = (childContext.schema = {
       id: node.$id,
       ...parseDescription(node),

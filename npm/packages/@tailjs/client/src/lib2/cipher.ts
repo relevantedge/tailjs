@@ -1,13 +1,20 @@
-import { type Nullish } from "@tailjs/util";
+import { createEvent, throwError, type Nullish } from "@tailjs/util";
 import { Decoder, Encoder, createTransport } from "@tailjs/util/transport";
-import { DEBUG } from ".";
+import { DEBUG, NOT_INITIALIZED } from ".";
 
 export const [httpEncode, httpDecode] = createTransport();
 
-export let [httpEncrypt, httpDecrypt] = [null, null] as [
-  Encoder | null,
-  Decoder | null
-];
+export let [httpEncrypt, httpDecrypt] = [
+  NOT_INITIALIZED,
+  NOT_INITIALIZED,
+] as any as [Encoder, Decoder];
 
-export const setStorageKey = (key: string | Nullish) =>
-  ([httpEncrypt, httpDecrypt] = createTransport(DEBUG ? null : key, DEBUG));
+export const [addEncryptionNegotiatedListener, dispatchEncryptionNegotiated] =
+  createEvent<[httpEncrypt: Encoder, httpDecrypt: Decoder]>();
+
+export const setStorageKey = (key: string | Nullish) => {
+  if (httpDecrypt !== NOT_INITIALIZED) return;
+
+  [httpEncrypt, httpDecrypt] = createTransport(DEBUG ? null : key, DEBUG);
+  dispatchEncryptionNegotiated(httpEncrypt, httpDecrypt);
+};

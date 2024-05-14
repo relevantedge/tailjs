@@ -54,12 +54,16 @@ export type Nullish = null | undefined;
 
 /** A record type that is neither iterable or a function. */
 export type RecordType<K extends keyof any = keyof any, V = any> = object & {
-  [P in K]?: V;
+  readonly [P in K]?: V;
 } & {
   [Symbol.iterator]?: never;
   [Symbol.asyncIterator]?: never;
   [Symbol.hasInstance]?: never;
-  then?: NotFunction;
+
+  then?(
+    onfulfilled?: ((value: any) => any) | undefined | null,
+    onrejected?: ((reason: any) => any) | undefined | null
+  ): never;
 };
 
 export type UnwrapPromiseLike<T> = T extends PromiseLike<infer T>
@@ -124,6 +128,13 @@ export type HasRequiredProperty<T, P> = true extends (
 )
   ? true
   : false;
+
+export type IfNever<T, Default> = [T] extends [never] ? Default : T;
+
+export type Filter<T, FilterTypes, Default = never> = IfNever<
+  T extends infer T ? (T extends FilterTypes ? T : never) : never,
+  Default
+>;
 
 /** Returns the type of a property for each type in a union when the type has the given property. */
 export type Property<T, P> = T extends infer T
@@ -210,7 +221,7 @@ export const nil = null;
 export type NoOpFunction = (...args: any) => void;
 
 /** A function that does nothing. */
-export const NO_OP: NoOpFunction = () => {};
+export const NOOP: NoOpFunction = () => {};
 
 export type IdentityFunction = <T>(item: T, ...args: any) => T;
 
@@ -253,7 +264,11 @@ export type TypeTester<T> = (value: any) => value is T;
 export type TypeConverter<T> = <V, P extends boolean = true>(
   value: V,
   parse?: P
-) => V extends T ? V : (true extends P ? T : never) | undefined;
+) => T extends Nullish
+  ? undefined
+  : V extends T
+  ? V
+  : (true extends P ? T : never) | undefined;
 
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */
 export const symbolIterator = Symbol.iterator;
@@ -269,17 +284,9 @@ export const createTypeConverter =
   (value: any, parse = true as any) =>
     typeTester(value)
       ? value
-      : parser && parse && isDefined((value = parser(value)))
+      : parser && parse && value != null && (value = parser(value)) != null
       ? value
       : (undefined as any);
-
-export const isNull = (value: any): value is null => value === null;
-
-export const isUndefined = (value: any): value is undefined | void =>
-  value === undefined;
-
-export const isDefined = <T>(value: T): value is Defined<T> =>
-  value !== undefined;
 
 export const ifDefined = <T, P, R>(
   value: T,
@@ -304,9 +311,9 @@ export const isBoolean = (value: any): value is boolean =>
   typeof value === "boolean";
 
 export const parseBoolean = createTypeConverter(isBoolean, (value) =>
-  value === 0
+  value == 0 // Both numbers and string with the value 0 or 1
     ? false
-    : value === 1
+    : value == 1
     ? true
     : value === "false"
     ? false
@@ -330,7 +337,7 @@ export const isNumber = (value: any): value is number =>
 export const isFinite: (value: any) => value is number = Number.isFinite as any;
 
 export const parseNumber = createTypeConverter(isNumber, (value) =>
-  parseFloat(value)
+  isNaN((value = parseFloat(value))) ? undefined : value
 );
 
 export const isBigInt = (value: any): value is bigint =>
@@ -381,8 +388,8 @@ export const array: {
       // ? toArrayAsync(value)
       ([value] as any);
 
-export const isAnyObject = (value: any): value is Record<keyof any, any> =>
-  value !== null && typeof value === "object";
+export const isObject = (value: any): value is Record<keyof any, any> =>
+  typeof value === "object";
 
 const objectPrototype = Object.prototype;
 const getPrototypeOf = Object.getPrototypeOf;
@@ -395,19 +402,23 @@ export const isPlainObject = (
 export const hasProperty = <P extends keyof any>(
   value: any,
   property: P
-): value is { [Prop in P]: any } => isAnyObject(value) && property in value;
+): value is { [Prop in P]: any } => isObject(value) && property in value;
 
-export const hasMethod = <T, Name extends keyof any>(
-  value: T | unknown,
-  name: Name | keyof T
+export const hasMethods = <Names extends readonly (keyof any)[]>(
+  value: any,
+  ...names: Names
 ): value is {
-  [P in keyof T]: P extends Name
-    ? T extends { [P in Name]?: (...args: infer Args) => infer R }
-      ? Args extends unknown
-        ? (...args: any) => any
-        : (...args: Args) => R
-      : (...args: any) => any
-    : T[P];
+  [P in Names[number]]: (...args: any) => any;
+} =>
+  value == null
+    ? false
+    : names.every((name) => typeof value[name] === "function");
+
+export const hasMethod = <Name extends keyof any>(
+  value: any,
+  name: Name
+): value is {
+  [P in Name]: (...args: any) => any;
 } => typeof (value as any)?.[name] === "function";
 
 export const isDate = (value: any): value is Date => value instanceof Date;
@@ -457,3 +468,17 @@ export const typeCode = (value: any, typeName = typeof value) =>
     : T1[typeName[0]] ??
       T2[typeName[1]] ??
       (Array.isArray(value) ? ARRAY : value instanceof Date ? DATE : OBJECT);
+
+/**
+ * Round a number of to the specified number of decimals.
+ */
+export const round = <T extends number | Nullish>(
+  number: T,
+  decimals?: number | boolean
+): MaybeUndefined<T, number> =>
+  number == null
+    ? (undefined as any)
+    : decimals === false
+    ? number
+    : ((decimals = Math.pow(10, !decimals || decimals === true ? 0 : decimals)),
+      Math.round(number * decimals) / decimals);

@@ -1,14 +1,9 @@
-import {
-  ConfiguredComponent,
-  ImpressionEvent,
-  ImpressionTimingEvent,
-} from "@tailjs/types";
+import { ConfiguredComponent, ImpressionEvent } from "@tailjs/types";
 import {
   F,
   NoOpFunction,
   T,
   count,
-  createTimer,
   filter,
   forEach,
   map,
@@ -17,12 +12,19 @@ import {
   restrict,
   stickyTimeout,
 } from "@tailjs/util";
-import { getScreenPos, getViewport, trackerConfig, trackerFlag } from ".";
+import {
+  deltaDiff,
+  getScreenPos,
+  getViewport,
+  trackerConfig,
+  trackerFlag,
+} from ".";
 import {
   BoundaryData,
   Tracker,
+  createViewDurationTimer,
   getComponentContext,
-  getVisibleDuration,
+  getViewTimeOffset,
 } from "..";
 
 const intersectionHandler = Symbol();
@@ -64,7 +66,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
       let impressions = 0;
       let fold: number;
       const trackImpression = stickyTimeout(trackerConfig.impressionThreshold);
-      const timer = createTimer(false, () => getVisibleDuration());
+      const timer = createViewDurationTimer();
       let impressionEvents: ImpressionEvent[] | undefined;
       let unbindPassiveEventSources: NoOpFunction[] | undefined;
       el[intersectionHandler] = (
@@ -98,6 +100,8 @@ export const createImpressionObserver = (tracker: Tracker) => {
                           type: "impression",
                           pos: getScreenPos(el),
                           viewport: getViewport(),
+                          timeOffset: getViewTimeOffset(),
+                          impressions,
                           ...getComponentContext(el, T),
                         })) ||
                       nil
@@ -108,15 +112,15 @@ export const createImpressionObserver = (tracker: Tracker) => {
 
               if (impressionEvents?.length) {
                 unbindPassiveEventSources = map(impressionEvents, (event) =>
-                  tracker.events.registerPassiveEventSource<ImpressionTimingEvent>(
-                    event,
-                    (previous) => ({
-                      type: "impression_timing",
-                      passive: true,
-                      relatedEventId: event.clientId!,
-                      duration: timer() - (previous?.duration ?? 0),
-                      impressions: impressions - (previous?.impressions ?? 0),
-                    })
+                  tracker.events.registerEventPatchSource(event, (previous) =>
+                    deltaDiff(
+                      {
+                        relatedEventId: event.clientId!,
+                        duration: timer(),
+                        impressions: impressions,
+                      },
+                      previous
+                    )
                   )
                 );
               }

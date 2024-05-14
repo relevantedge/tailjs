@@ -194,7 +194,7 @@ export const components: TrackerExtensionFactory = {
       data: T
     ): MaybeUndefined<T, BoundaryData<true>> =>
       data == null
-        ? undefined!
+        ? (undefined as any)
         : ({
             ...data,
             component: array(data.component),

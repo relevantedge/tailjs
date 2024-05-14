@@ -1,4 +1,4 @@
-import { forEach, isDefined, isNumber, throwError, update } from "@tailjs/util";
+import { forEach, throwError, update } from "@tailjs/util";
 import {
   ParsedComposition,
   ParsedProperty,
@@ -74,7 +74,7 @@ export const addProperties = (
 
       if (
         update(type.properties, key, (current) =>
-          isDefined(current) &&
+          current != null &&
           (current.objectType ?? current.primitiveType)?.id !==
             (property.objectType ?? property.primitiveType)?.id
             ? throwError(

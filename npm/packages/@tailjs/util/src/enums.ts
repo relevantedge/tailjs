@@ -7,7 +7,6 @@ import {
   define,
   entries,
   isArray,
-  isDefined,
   isNumber,
   isString,
   obj,
@@ -254,7 +253,7 @@ export const createEnumAccessor = <
   const parseValue = (value: any, validateNumbers?: boolean) =>
     isNumber(value)
       ? !flags && validateNumbers
-        ? isDefined(valueLookup[value])
+        ? valueLookup[value] != null
           ? value
           : undefined
         : value

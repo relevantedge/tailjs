@@ -1,90 +1,88 @@
 import {
-  HeartbeatEvent,
+  EventPatch,
   LocalID,
-  Timestamp,
-  UserInteractionEvent,
+  View,
   ViewEvent,
-  ViewTimingData,
-  ViewTimingEvent,
   isViewEvent,
 } from "@tailjs/types";
 import {
   F,
-  IterableOrArrayLike,
-  NO_OP,
-  NoOpFunction,
   T,
   add,
-  assign,
+  clock,
   createEvent,
+  createTimer,
   forEach,
   map,
   nil,
   now,
   parseQueryString,
+  parseUri,
   push,
-  remove,
-  restrict,
+  replace,
+  structuralEquals,
 } from "@tailjs/util";
 import { TrackerExtensionFactory, isChangeUserCommand } from "..";
+import { tracker } from "../initializeTracker";
 import {
-  eventSet,
+  LocalVariableScope,
+  TAB_ID,
+  addPageActivatedListener,
+  addPageVisibleListener,
+  deltaDiff,
   getViewportSize,
   isInternalUrl,
   listen,
-  location,
-  mark,
   matchExHash,
   nextId,
   parseDomain,
-  registerSharedState,
-  replace,
-  session,
-  sharedQueue,
-  timeout,
-  timer,
-  undefined,
-  window,
-} from "../lib";
-
-type TabInfo = [
-  id: LocalID,
-  created: Timestamp,
-  navigated: Timestamp,
-  views: number
-];
+  setLocalVariables,
+  tryGetVariable,
+} from "../lib2";
 
 export let currentViewEvent: ViewEvent | undefined;
-let unbindCurrentViewTiming: NoOpFunction;
 
 export const getCurrentViewId = () => currentViewEvent?.clientId;
-const [addViewChangedListener, viewChanged] = createEvent<[view: ViewEvent]>();
-export { addViewChangedListener };
-
-export type ViewMessage = {
-  view?: { id: string; timing: UserInteractionEvent["timing"] };
-  who?: LocalID;
-  vars?: [key: string, value: any, source: string][];
-};
 
 let pushPopNavigation: ViewEvent["navigationType"] | undefined;
 
-export type ReferringViewData = [
-  viewId: LocalID,
-  relatedEventId: LocalID | undefined
-];
-
-const referrers = sharedQueue<ReferringViewData>("ref", 10000);
+// //const referrers = sharedQueue<ReferringViewData>("ref", 10000);
 export const pushNavigationSource = (navigationEventId: LocalID) =>
-  referrers([currentViewEvent!.clientId, navigationEventId]);
+  tracker.variables.set({
+    scope: "shared",
+    key: "referrer",
+    value: [getCurrentViewId()!, navigationEventId],
+  });
 
-const totalDuration = timer();
-const visibleDuration = timer();
-const interactiveDuration = timer();
+const totalDuration = createTimer();
+const visibleDuration = createTimer();
+const interactiveDuration = createTimer();
+let activations = 1;
 
 export const getVisibleDuration = () => visibleDuration();
 
-const [onFrame, callOnFrame] = eventSet<[frame: HTMLIFrameElement]>();
+const [addViewChangedListener, dispatchViewChanged] =
+  createEvent<[viewEvent: ViewEvent]>();
+
+export { addViewChangedListener };
+
+export const createViewDurationTimer = (started?: boolean) => {
+  const totalTime = createTimer(started, totalDuration);
+  const visibleTime = createTimer(started, visibleDuration);
+  const interactiveTime = createTimer(started, interactiveDuration);
+  const activationsCounter = createTimer(started, () => activations);
+  return (toggle?: boolean, reset?: boolean) => ({
+    totalTime: totalTime(toggle, reset),
+    visibleTime: visibleTime(toggle, reset),
+    interactiveTime: interactiveTime(toggle, reset),
+    activations: activationsCounter(toggle, reset),
+  });
+};
+
+const timer = createViewDurationTimer();
+export const getViewTimeOffset = () => timer();
+
+const [onFrame, callOnFrame] = createEvent<[frame: HTMLIFrameElement]>();
 export { onFrame };
 
 const knownFrames = new WeakSet<any>();
@@ -93,40 +91,63 @@ const frames = document.getElementsByTagName("iframe");
 export const context: TrackerExtensionFactory = {
   id: "context",
   setup(tracker) {
-    timeout(
+    clock(
       () =>
         forEach(
           frames,
           (frame) => add(knownFrames, frame) && callOnFrame(frame)
         ),
       -1000
-    ).pulse();
+    ).trigger();
 
-    let isNewTab = T;
+    // Keep track of when new views are set.
+    // A view is considered new if either 1) it is different (duh) or 2) set from a different href.
+    // This is to prevent stray updates from, say, React components that may set the variable every time they rerender.
 
-    let activations = 1;
+    // TODO: Move to separate function.
 
-    const tab = session<TabInfo>("t", (current) => {
-      if ((isNewTab = !current)) {
-        return [nextId(), now(), now(), 0];
-      }
-      current[2] = now();
-      return current;
-    });
-    let firstTab = T;
-    registerSharedState(
-      "first",
-      () => F,
-      (first) => {
-        if (!first) {
-          firstTab = F;
-          currentViewEvent &&
-            remove(currentViewEvent, ["firstTab", "landingPage"]);
+    /** This contains the next view for view events. It is cleared when the view event is posted.  */
+    let nextView: View | undefined;
+    let previousHref: string;
+    let currentView: View | undefined;
+    tracker.variables.get({
+      scope: "view",
+      key: "view",
+      result: (value, poll) => {
+        // Only update the view
+        (!structuralEquals(currentView, value?.value) ||
+          previousHref !== (previousHref = "" + location.href)) &&
+          (nextView = currentView = value?.value);
+
+        if (nextView && currentViewEvent && !currentViewEvent.definition) {
+          currentViewEvent.definition = nextView;
+          if (currentViewEvent.metadata?.posted) {
+            // Send the definition as a patch because the view event has already been posted.
+            tracker.events.postPatch(currentViewEvent, {
+              definition: nextView,
+            });
+          }
+          nextView = undefined;
         }
-      }
-    );
+
+        return poll(true);
+      },
+    });
+
+    let localIndex = tryGetVariable({ scope: "tab", key: "index" })?.value ?? 0;
+    let globalIndex = tryGetVariable({ scope: "tab", key: "index" })?.value;
+    if (globalIndex == null) {
+      globalIndex =
+        tryGetVariable({ scope: "shared", key: "index" })?.value ?? 0;
+      setLocalVariables({
+        scope: LocalVariableScope.Shared,
+        key: "index",
+        value: globalIndex + 1,
+      });
+    }
 
     let currentLocation: string | null = nil;
+
     const postView = (force = F) => {
       if (
         matchExHash("" + currentLocation, (currentLocation = location.href)) &&
@@ -135,37 +156,29 @@ export const context: TrackerExtensionFactory = {
         return;
       }
 
-      // pendingViewEvent();
-      // pendingViewEndEvent();
-
-      totalDuration.reset();
-      visibleDuration.reset();
-      interactiveDuration.reset();
-
-      session<TabInfo>("t", () => {
-        tab[2] = now();
-        ++tab[3];
-        return tab;
-      });
-
-      const { href, domain } = parseDomain(location.href) ?? {};
+      const {
+        source: href,
+        scheme,
+        host,
+      } = parseUri(location.href + "", true, true);
       currentViewEvent = {
         type: "view",
         timestamp: now(),
         clientId: nextId(),
-        tab: tab[0],
+        tab: TAB_ID,
         href,
         path: location.pathname,
         hash: location.hash || undefined,
-        domain,
-        tabIndex: tab[3],
+        domain: { scheme, host },
+        tabIndex: globalIndex,
         viewport: getViewportSize(),
+        duration: timer(undefined, true),
       };
 
-      currentViewEvent.firstTab = firstTab;
-      firstTab && tab[3] === 1 && (currentViewEvent.landingPage = T);
-
-      viewChanged(currentViewEvent);
+      globalIndex === 0 && (currentViewEvent.firstTab = T);
+      globalIndex === 0 &&
+        localIndex === 0 &&
+        (currentViewEvent.landingPage = T);
 
       const qs = parseQueryString(location.href);
       map(
@@ -193,9 +206,12 @@ export const context: TrackerExtensionFactory = {
         // Try find related event and parent tab context if any.
         // And only if navigating (not back/forward/refresh)
 
-        if (isNewTab && isInternalUrl(document.referrer)) {
-          const referrer = referrers();
+        const referrer = tryGetVariable({
+          scope: "shared",
+          key: "referrer",
+        }).value;
 
+        if (referrer && isInternalUrl(document.referrer)) {
           currentViewEvent.view = referrer?.[0];
           currentViewEvent.relatedEventId = referrer?.[1];
         }
@@ -207,40 +223,36 @@ export const context: TrackerExtensionFactory = {
         !isInternalUrl(referrer) &&
         (currentViewEvent!.externalReferrer = {
           href: referrer,
-          domain: parseDomain(referrer)?.domain,
+          domain: parseDomain(referrer),
         });
 
-      // TODO:
-      tracker.events.registerPassiveEventSource(currentViewEvent);
+      // If we already have a view ready, set this on the event.
+      currentViewEvent.definition = nextView;
+      nextView = undefined;
+      tracker.events.post(currentViewEvent);
 
-      push(tracker, {
-        get: [
+      //dispatchViewChanged(currentViewEvent!);
+
+      tracker.events.registerEventPatchSource(currentViewEvent!, (previous) =>
+        deltaDiff(
           {
-            scope: "local",
-            key: "view",
-            result: (view: any) => (currentViewEvent!.definition = view),
+            duration: getViewTimeOffset(),
           },
-        ],
-      });
+          previous
+        )
+      );
+
+      dispatchViewChanged(currentViewEvent);
     };
 
-    const interactiveTimeout = timeout();
-    listen(
-      document,
-      ["pointermove", "scroll", "pointerdown", "keydown"],
-      () => {
-        interactiveDuration(T);
-        interactiveTimeout(() => interactiveDuration(F), 10000);
-      }
-    );
-
-    listen(document, "visibilitychange", () => {
-      if (document.visibilityState === "hidden") {
-        visibleDuration(F);
-        interactiveDuration(F);
-      } else {
+    addPageActivatedListener((activated) => interactiveDuration(activated));
+    addPageVisibleListener((visible) => {
+      if (visible) {
         visibleDuration(T);
         ++activations;
+      } else {
+        visibleDuration(F);
+        interactiveDuration(F);
       }
     });
 
@@ -261,32 +273,20 @@ export const context: TrackerExtensionFactory = {
     postView();
 
     return {
-      processCommand(command) {
-        if (isChangeUserCommand(command)) {
-          push(
-            tracker,
-            command.username
-              ? { type: "login", username: command.username }
-              : { type: "logout" }
-          );
-          return T;
-        }
-        return F;
-      },
-      decorate(event) {
-        if (!currentViewEvent || isViewEvent(event)) return;
-        const view = currentViewEvent?.clientId,
-          ctx = {
-            view,
-            timing: (event as ViewTimingData)?.timing && {
-              activations,
-              totalTime: totalDuration(),
-              visibleTime: visibleDuration(),
-              interactiveTime: interactiveDuration(),
-            },
-          };
+      processCommand: (command) =>
+        isChangeUserCommand(command) &&
+        (push(
+          tracker,
+          command.username
+            ? { type: "login", username: command.username }
+            : { type: "logout" }
+        ),
+        T),
 
-        ctx && assign(event, ctx);
+      decorate: (event) => {
+        currentViewEvent &&
+          !isViewEvent(event) &&
+          (event.view = currentViewEvent.clientId);
       },
     };
   },

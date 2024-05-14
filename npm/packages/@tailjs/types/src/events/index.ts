@@ -7,14 +7,13 @@ export * from "./FormEvent";
 export * from "./ComponentClickEvent";
 export * from "./ComponentViewEvent";
 export * from "./NavigationEvent";
-export * from "./ViewTimingEvent";
+export * from "../ViewTimingData";
 export * from "./ScrollEvent";
 export * from "./SearchEvent";
 export * from "./SessionStartedEvent";
 
 export * from "./UserAgentEvent";
 export * from "./ViewEvent";
-export * from "./ViewEndedEvent";
 export * from "./SessionLocationEvent";
 export * from "./AnchorNavigationEvent";
 export * from "./ConsentEvent";
@@ -26,6 +25,6 @@ export * from "./OrderStatusEvent";
 export * from "./PaymentEvent";
 export * from "./AuthenticationEvent";
 export * from "./SystemEvent";
-export * from "./HeartbeatEvent";
+
 export * from "./ImpressionEvent";
 export * from "./ResetEvent";

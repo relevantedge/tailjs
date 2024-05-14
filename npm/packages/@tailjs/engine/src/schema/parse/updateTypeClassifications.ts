@@ -1,5 +1,5 @@
 import { validateConsent } from "@tailjs/types";
-import { add, forEach, isUndefined } from "@tailjs/util";
+import { add, forEach } from "@tailjs/util";
 import {
   ParsedProperty,
   ParsedType,
@@ -31,7 +31,7 @@ export const updateTypeClassifications = (
 
     if (
       property.objectType &&
-      (isUndefined(property.classification) || isUndefined(property.purposes))
+      (property.classification == null || property.purposes == null)
     ) {
       // We do not resolve this from context, rather we look at the referenced object type.
       // (If classification is not explicitly set, we might as well use the minimum classification from the type that will not censor it away).
@@ -53,16 +53,16 @@ export const updateTypeClassifications = (
   });
 
   forEach(type.properties, ([, property]) => {
-    if (isUndefined(property.classification))
+    if (property.classification == null)
       throw parseError(
         property.context,
-        "The property's classification is not explicitly specified and cannot be infered from scope."
+        "The property's classification is not explicitly specified and cannot be inferred from scope."
       );
 
-    if (isUndefined(property.purposes))
+    if (property.purposes == null)
       throw parseError(
         property.context,
-        "The property's purposes are not explicitly specified and cannot be infered from scope."
+        "The property's purposes are not explicitly specified and cannot be inferred from scope."
       );
 
     if (

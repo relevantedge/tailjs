@@ -21,7 +21,13 @@ export type IsTuple<T> = T extends [] | [any, ...any] ? true : false;
 /** A simpler version of {@link MaybeArray} that does not use type inference to simplify function signatures. */
 export type ArrayOrSelf<T> = T | T[];
 
-export type ToggleArray<T, Toggle = boolean> = Toggle extends true ? T[] : T;
+export type ToggleArray<T, Toggle = boolean> = T extends readonly (infer Item)[]
+  ? Toggle extends true
+    ? T
+    : Item
+  : Toggle extends true
+  ? T[]
+  : T;
 
 export type MaybeArray<
   T,
@@ -40,8 +46,6 @@ export type MaybeArray<
  */
 export type IterableOrArrayLike<T> =
   | Iterable<T>
-
-  // Some collections are "weird" like HTMLCollectionOf. These two below matches those kind of collections.
   | { [item: number]: T; length: number }
   | { [index: number]: T; item(index: number): T | Nullish };
 
@@ -183,47 +187,49 @@ type MatchOverload<A extends readonly [any, any], MatchArgs = any> = A extends [
   : never;
 
 /** Returns tuples with arguments and return values for all non-generic overloads of a function, optionally matching a signature. */
-export type Overloads<F, MatchArgs = any> = MatchOverload<
-  F extends {
-    (...args: infer P1): infer R1;
-    (...args: infer P2): infer R2;
-    (...args: infer P3): infer R3;
-    (...args: infer P4): infer R4;
-    (...args: infer P5): infer R5;
-    (...args: infer P6): infer R6;
-  }
-    ? [P1, R1] | [P2, R2] | [P3, R3] | [P4, R4] | [P5, R5] | [P6, R6]
-    : F extends {
+export type Overloads<F, MatchArgs = any> = IsAny<F> extends true
+  ? [any, any]
+  : MatchOverload<
+      F extends {
         (...args: infer P1): infer R1;
         (...args: infer P2): infer R2;
         (...args: infer P3): infer R3;
         (...args: infer P4): infer R4;
         (...args: infer P5): infer R5;
+        (...args: infer P6): infer R6;
       }
-    ? [P1, R1] | [P2, R2] | [P3, R3] | [P4, R4] | [P5, R5]
-    : F extends {
-        (...args: infer P1): infer R1;
-        (...args: infer P2): infer R2;
-        (...args: infer P3): infer R3;
-        (...args: infer P4): infer R4;
-      }
-    ? [P1, R1] | [P2, R2] | [P3, R3] | [P4, R4]
-    : F extends {
-        (...args: infer P1): infer R1;
-        (...args: infer P2): infer R2;
-        (...args: infer P3): infer R3;
-      }
-    ? [P1, R1] | [P2, R2] | [P3, R3]
-    : F extends {
-        (...args: infer P1): infer R1;
-        (...args: infer P2): infer R2;
-      }
-    ? [P1, R1] | [P2, R2]
-    : F extends (...args: infer P) => infer R
-    ? [P, R]
-    : never,
-  MatchArgs
->;
+        ? [P1, R1] | [P2, R2] | [P3, R3] | [P4, R4] | [P5, R5] | [P6, R6]
+        : F extends {
+            (...args: infer P1): infer R1;
+            (...args: infer P2): infer R2;
+            (...args: infer P3): infer R3;
+            (...args: infer P4): infer R4;
+            (...args: infer P5): infer R5;
+          }
+        ? [P1, R1] | [P2, R2] | [P3, R3] | [P4, R4] | [P5, R5]
+        : F extends {
+            (...args: infer P1): infer R1;
+            (...args: infer P2): infer R2;
+            (...args: infer P3): infer R3;
+            (...args: infer P4): infer R4;
+          }
+        ? [P1, R1] | [P2, R2] | [P3, R3] | [P4, R4]
+        : F extends {
+            (...args: infer P1): infer R1;
+            (...args: infer P2): infer R2;
+            (...args: infer P3): infer R3;
+          }
+        ? [P1, R1] | [P2, R2] | [P3, R3]
+        : F extends {
+            (...args: infer P1): infer R1;
+            (...args: infer P2): infer R2;
+          }
+        ? [P1, R1] | [P2, R2]
+        : F extends (...args: infer P) => infer R
+        ? [P, R]
+        : never,
+      MatchArgs
+    >;
 
 /** Returns the non-generic overloads of a function, optionally matching a signature. */
 export type PickOverloads<T, MatchArgs = any> = Overloads<

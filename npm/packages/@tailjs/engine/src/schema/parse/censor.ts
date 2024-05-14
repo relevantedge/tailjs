@@ -1,10 +1,9 @@
 import {
-  DataClassification,
   UserConsent,
   VariableClassification,
   validateConsent,
 } from "@tailjs/types";
-import { isArray, isPlainObject, isUndefined } from "@tailjs/util";
+import { isArray, isPlainObject } from "@tailjs/util";
 import { ParsedType } from ".";
 import { SchemaClassification, SchemaPropertyStructure } from "../..";
 
@@ -43,7 +42,7 @@ const traverseValue = (
 };
 
 /**
- *  Removes all values beloning to properties that does not match the given consent.
+ *  Removes all values belonging to properties that does not match the given consent.
  */
 export const censor = (
   type: ParsedType,
@@ -83,7 +82,7 @@ export const censor = (
         )
       : value[key];
 
-    if (isUndefined(propertyValue)) {
+    if (propertyValue == null) {
       continue;
     }
 

@@ -122,6 +122,9 @@ export type If<B, True, False = never> = B extends Nullish | false
 /** Type 1 extends type 2 */
 export type Extends<T1, T2> = T1 extends T2 ? true : false;
 
+/** Any of the union in a type extends a another type. */
+export type ExtendsAny<T1, T2> = true extends Extends<T1, T2> ? true : false;
+
 type FunctionComparisonEqualsWrapped<T> = T extends (
   T extends {} ? infer R & {} : infer R
 )
@@ -227,11 +230,11 @@ export type StrictUndefined<T> = T extends Nullish ? undefined : T;
 export type MaybeUndefined<
   T,
   Defined = OmitNullish<T>,
-  Nulls = Nullish
-> = IsUnknown<T> extends true
+  Nulls = Nullish | void
+> = unknown extends T
   ? Defined | undefined
   : T extends Nulls
-  ? undefined | Defined // Pure undefined would require all functions using MaybeUndefined to cast their results to any. Right now undefined! will do.
+  ? undefined
   : Defined;
 
 export type ToggleRequired<T, Toggle> =

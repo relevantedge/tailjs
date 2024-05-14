@@ -1,4 +1,4 @@
-import { Prefixes, filter, isUndefined, reduce } from ".";
+import { filter, reduce } from ".";
 
 export type Rebinder = () => boolean;
 export type Unbinder = () => boolean;

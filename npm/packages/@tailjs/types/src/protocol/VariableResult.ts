@@ -6,13 +6,14 @@ import {
   IsAny,
   MaybeArray,
   MaybePick,
+  MaybeUndefined,
+  Nullish,
   PrettifyIntersection,
   array,
+  deferredPromise,
   filter,
   isArray,
-  isUndefined,
   map,
-  deferredPromise,
   throwError,
   undefined,
 } from "@tailjs/util";
@@ -163,11 +164,15 @@ export const toVariableResultPromise = <T extends readonly any[], Push>(
 type ValidatableResult<V = {}> =
   | (V & {
       status: VariableResultStatus;
-      current?: V & { version?: string };
       error?: any;
-      source?: VariableSetter;
-    })
-  | undefined;
+    } & (
+        | {
+            current?: V & { version?: string };
+            source?: KeyLike;
+          }
+        | KeyLike
+      ))
+  | Nullish;
 
 export const getSuccessResults = <
   R extends readonly ValidatableResult[] | undefined
@@ -176,22 +181,40 @@ export const getSuccessResults = <
 ): VariableSuccessResults<R> =>
   results?.map((result) => (result?.status! < 400 ? result : undefined)) as any;
 
+type KeyLike = { scope: any; key: any; targetId?: any };
+
+export const getResultKey = <R extends ValidatableResult>(
+  result: R
+): MaybeUndefined<
+  R,
+  R extends { source: KeyLike }
+    ? R["source"]
+    : R extends KeyLike
+    ? R
+    : undefined
+> =>
+  (result as VariableSetResult)?.source?.key != null
+    ? (result as VariableSetResult).source
+    : (result as any)?.key != null
+    ? result
+    : (undefined as any);
+
 export const getResultVariable = <R extends ValidatableResult>(
   result: R
 ): If<
   IsAny<R>,
   Variable<any, true>,
   R extends undefined
-    ? never
+    ? undefined
     : R extends { current: infer V }
     ? V
     : R extends { value: any }
     ? R
-    : never
+    : undefined
 > =>
   result?.status! < 400
     ? (result as VariableSetResult)?.current ?? (result as any)
-    : undefined;
+    : undefined; // This included 404 for getters.
 
 export const isSuccessResult = (
   result: any
@@ -245,7 +268,11 @@ export const handleResultErrors = <
                     : "read"
                 } because ${
                   result.status === VariableResultStatus.Conflict
-                    ? `of a conflict. The expected version '${result.source?.version}' did not match the current version '${result.current?.version}'.`
+                    ? `of a conflict. The expected version '${
+                        (result as VariableSetResult).source?.version
+                      }' did not match the current version '${
+                        (result as VariableSetResult).current?.version
+                      }'.`
                     : result.status === VariableResultStatus.Denied
                     ? result.error ?? "the operation was denied."
                     : result.status === VariableResultStatus.Invalid
@@ -257,7 +284,7 @@ export const handleResultErrors = <
                     : "of an unknown reason."
                 }`
           }`),
-          (isUndefined((errorHandler = errorHandlers?.[i])) ||
+          ((errorHandler = errorHandlers?.[i]) == null ||
             errorHandler(result, errorMessage) !== false) &&
             errors.push(errorMessage),
           undefined))

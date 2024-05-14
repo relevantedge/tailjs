@@ -1,4 +1,3 @@
-import { isDefined } from "@tailjs/util";
 import { forEach } from "./lib";
 import { ClientResponseCookie, Cookie, CookieConfiguration } from "./shared";
 
@@ -102,7 +101,7 @@ export class CookieMonster {
     name: string,
     cookie: Cookie
   ): [header: string, overflow: string] {
-    const clear = !isDefined(cookie.value) || cookie.maxAge! <= 0;
+    const clear = cookie.value == null || cookie.maxAge! <= 0;
 
     const parts = ["Path=/"];
     if (this._secure) {
