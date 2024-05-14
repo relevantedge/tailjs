@@ -5,7 +5,6 @@ import {
   ConfiguredComponent,
   NavigationEvent,
   UserInteractionEvent,
-  isViewEndedEvent,
 } from "@tailjs/types";
 import {
   TrackerExtensionFactory,
@@ -16,17 +15,41 @@ import {
   tryGetCartEventData,
 } from "..";
 
-import { CONTEXT_NAV_REQUEST_ID, CONTEXT_NAV_QUERY } from "@constants";
-import { F, T, equalsAny, nil, restrict, type Nullish } from "@tailjs/util";
+import {
+  F,
+  NOOP,
+  T,
+  array,
+  encodeURIComponent,
+  equalsAny,
+  isObject,
+  map,
+  nil,
+  parseUri,
+  push,
+  remove,
+  restrict,
+  some,
+  stickyTimeout,
+  tryCatch,
+  type Nullish,
+} from "@tailjs/util";
 import { parseActivationTags } from "..";
 import {
+  MNT_URL,
   attr,
   forAncestorsOrSelf,
+  getBoundaryData,
   getScreenPos,
   getViewport,
+  isInternalUrl,
+  listen,
+  mapUrl,
+  matchExHash,
+  nextId,
   normalizedAttribute,
-  parseDomain,
   tagName,
+  trackerConfig,
   trackerFlag,
 } from "../lib2";
 
@@ -70,22 +93,21 @@ export const userInteraction: TrackerExtensionFactory = {
   id: "navigation",
 
   setup(tracker) {
-    const pollContextCookie = timeout();
+    const pollContextCookie = stickyTimeout();
 
     // There can be all kinds of fishy navigation logic happening, so it is not enough just to look at link (<A>) clicks.
     // Hence, when navigation occurs (in the current tab), we do not send the event before we have an VIEW_END.
     // We rely on that the logic for VIEW_END takes care all the different ways to navigate (history.push etc.) so this is where we know that navigation happened for sure.
-    let pendingNavigationEvent = noopAction;
 
     const stripPositions = <T = any>(el: any, hitTest: boolean): T =>
       hitTest
         ? el
-        : (map(keys(el), (key) =>
+        : (map(el, ([key]) =>
             key === "rect" ||
             //key === "pos"  Changed so pos is always included.
             key === "viewport"
-              ? del(el, key)
-              : obj(el[key]) &&
+              ? remove(el, key)
+              : isObject(el[key]) &&
                 map(el[key], (item) => stripPositions(item, hitTest))
           ),
           el);
@@ -94,9 +116,6 @@ export const userInteraction: TrackerExtensionFactory = {
         document,
         ["click", "contextmenu", "auxclick"],
         (ev: MouseEvent) => {
-          // Cancel whatever we might be waiting for.
-          pendingNavigationEvent?.(F);
-
           let trackClicks: boolean | Nullish;
           let trackRegion: boolean | Nullish;
           let clickableElement: HTMLElement | null = nil! as HTMLElement; // Typescript insists this is never?
@@ -107,16 +126,16 @@ export const userInteraction: TrackerExtensionFactory = {
             clickableElement ??= isClickable(el) ? el : nil;
             nav = nav || tagName(el) === "NAV";
 
-            let cmp: ConfiguredComponent | ConfiguredComponent[] | Nullish;
+            let cmp: readonly ConfiguredComponent[] | Nullish;
 
             trackClicks ??=
               trackerFlag(el, "clicks", T, (data) => data.track?.clicks) ??
-              ((cmp = getBoundaryData(el)?.component) &&
-                any(cmp, (cmp) => cmp.track?.clicks !== F));
+              ((cmp = array(getBoundaryData(el)?.component)) &&
+                some(cmp, (cmp) => cmp.track?.clicks !== F));
             trackRegion ??=
               trackerFlag(el, "region", T, (data) => data.track?.region) ??
               ((cmp = getBoundaryData(el)?.component) &&
-                any(cmp, (cmp) => cmp.track?.region));
+                some(cmp, (cmp) => cmp.track?.region));
           });
 
           if (!clickableElement) {
@@ -142,7 +161,12 @@ export const userInteraction: TrackerExtensionFactory = {
 
           if (isLinkElement(clickableElement!)) {
             const external = clickableElement.hostname !== location.hostname;
-            const { domain, href } = parseDomain(clickableElement.href);
+
+            const {
+              host,
+              scheme,
+              source: href,
+            } = parseUri(clickableElement.href, false, true);
             if (
               clickableElement.host === location.host &&
               clickableElement.pathname === location.pathname &&
@@ -170,59 +194,62 @@ export const userInteraction: TrackerExtensionFactory = {
               type: "navigation",
               href: external ? clickableElement.href : href,
               external,
-              domain,
+              domain: { host, scheme },
               self: T,
               anchor: clickableElement.hash,
               ...sharedEventProperties,
             });
 
-            if (ev.type === "contextmenu") {
-              const referrerConsumed = pushNavigationSource(
-                navigationEvent.clientId
-              );
+            // TODO: Reimplement with push variables
+            // Read the variable CONTEXT_NAV_REQUEST_ID that is set by the request handler when doing CONTEXT_NAV_QUERY redirects.
+            // if (ev.type === "contextmenu") {
+            //   const referrerConsumed = pushNavigationSource(
+            //     navigationEvent.clientId
+            //   );
 
-              const currentUrl = clickableElement.href;
-              const internalUrl = isInternalUrl(currentUrl);
+            //   const currentUrl = clickableElement.href;
+            //   const internalUrl = isInternalUrl(currentUrl);
 
-              if (!internalUrl) {
-                if (!trackerConfig.captureContextMenu) return;
-                clickableElement.href = mapUrl(
-                  MNT_URL,
-                  "=",
-                  encode(currentUrl)
-                );
-                tryCatch(
-                  () =>
-                    navigator.userActivation?.isActive &&
-                    navigator.clipboard.writeText(currentUrl)
-                );
-              }
+            //   if (!internalUrl) {
+            //     if (!trackerConfig.captureContextMenu) return;
+            //     clickableElement.href = mapUrl(
+            //       MNT_URL,
+            //       "=",
+            //       encodeURIComponent(currentUrl)
+            //     );
+            //     tryCatch(
+            //       () =>
+            //         navigator.userActivation?.isActive &&
+            //         navigator.clipboard.writeText(currentUrl)
+            //     );
+            //   }
 
-              const flag = Date.now();
-              cookies(CONTEXT_MENU_COOKIE, flag, 11000);
-              pollContextCookie(() => {
-                (clickableElement as HTMLAnchorElement).href = currentUrl;
-                if (
-                  !referrerConsumed() ||
-                  +cookies(CONTEXT_MENU_COOKIE)! === flag + 1
-                ) {
-                  cookies(CONTEXT_MENU_COOKIE, nil);
-                  navigationEvent.self = F;
-                  push(tracker, navigationEvent);
-                  clear(pollContextCookie);
-                }
-              }, -100);
+            //     const flag = Date.now();
+            //     //cookies(CONTEXT_MENU_COOKIE, flag, 11000);
+            //     pollContextCookie(() => {
+            //       (clickableElement as HTMLAnchorElement).href = currentUrl;
+            //       if (
+            //         !referrerConsumed() ||
+            //         +cookies(CONTEXT_MENU_COOKIE)! === flag + 1
+            //       ) {
+            //         cookies(CONTEXT_MENU_COOKIE, nil);
+            //         navigationEvent.self = F;
+            //         push(tracker, navigationEvent);
+            //         clear(pollContextCookie);
+            //       }
+            //     }, -100);
 
-              let unbindAll = listen(
-                document,
-                ["keydown", "keyup", "visibilitychange", "pointermove"],
-                () =>
-                  unbindAll() &&
-                  clear(pollContextCookie, 10000, () =>
-                    cookies(CONTEXT_MENU_COOKIE, "")
-                  )
-              );
-            } else if (ev.button <= 1) {
+            //     let unbindAll = listen(
+            //       document,
+            //       ["keydown", "keyup", "visibilitychange", "pointermove"],
+            //       () =>
+            //         unbindAll() &&
+            //         clear(pollContextCookie, 10000, () =>
+            //           cookies(CONTEXT_MENU_COOKIE, "")
+            //         )
+            //     );
+            //   }
+            if (ev.button <= 1) {
               if (
                 ev.button === 1 || //Middle-click: new tab.
                 ev.ctrlKey || // New tab
@@ -241,10 +268,10 @@ export const userInteraction: TrackerExtensionFactory = {
                 pushNavigationSource(navigationEvent.clientId);
               }
 
-              // If it so happened that navigation happened we will send it on VIEW_END.
-              pendingNavigationEvent = registerViewEndAction(() =>
-                push(tracker, navigationEvent)
-              );
+              // // If it so happened that navigation happened we will send it on VIEW_END.
+              // pendingNavigationEvent = registerViewEndAction(() =>
+              //   push(tracker, navigationEvent)
+              // );
             }
             return;
           }
@@ -273,13 +300,5 @@ export const userInteraction: TrackerExtensionFactory = {
     onFrame(
       (frame) => frame.contentDocument && trackDocument(frame.contentDocument)
     );
-
-    return {
-      decorate(eventData) {
-        if (isViewEndedEvent(eventData)) {
-          pendingNavigationEvent(T);
-        }
-      },
-    };
   },
 };

@@ -3,10 +3,7 @@ import type { TrackerConfiguration } from "..";
 
 export const isTracker = "__isTracker";
 
-export const trackerConfig: PickPartial<
-  Required<TrackerConfiguration>,
-  "pushCookie"
-> = {
+export const trackerConfig: Required<TrackerConfiguration> = {
   name: "tail",
   src: "/_t.js",
   disabled: false,
@@ -15,6 +12,8 @@ export const trackerConfig: PickPartial<
   requestTimeout: 5000,
   clientKey: null,
   apiKey: null,
+
+  pushCookie: null,
 
   /**
    * Log events to the browser's developer console.

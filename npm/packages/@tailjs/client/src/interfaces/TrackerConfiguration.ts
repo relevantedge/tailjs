@@ -93,7 +93,7 @@ export interface TrackerConfiguration {
   /**
    * The name of the cookie that the server.
    */
-  pushCookie?: string;
+  pushCookie?: string | Nullish;
 
   /**
    * Log events to the browser's developer console.

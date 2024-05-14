@@ -1,10 +1,4 @@
-import {
-  EventPatch,
-  LocalID,
-  View,
-  ViewEvent,
-  isViewEvent,
-} from "@tailjs/types";
+import { LocalID, View, ViewEvent, isViewEvent } from "@tailjs/types";
 import {
   F,
   T,
@@ -25,6 +19,7 @@ import {
 import { TrackerExtensionFactory, isChangeUserCommand } from "..";
 import { tracker } from "../initializeTracker";
 import {
+  ClientVariableGetter,
   LocalVariableScope,
   TAB_ID,
   addPageActivatedListener,
@@ -46,13 +41,32 @@ export const getCurrentViewId = () => currentViewEvent?.clientId;
 
 let pushPopNavigation: ViewEvent["navigationType"] | undefined;
 
-// //const referrers = sharedQueue<ReferringViewData>("ref", 10000);
-export const pushNavigationSource = (navigationEventId: LocalID) =>
+const referrerKey = {
+  scope: "shared",
+  key: "referrer",
+} as const;
+
+export const pushNavigationSource = (
+  navigationEventId: LocalID,
+  consumed?: () => void
+) => {
   tracker.variables.set({
-    scope: "shared",
-    key: "referrer",
+    ...referrerKey,
     value: [getCurrentViewId()!, navigationEventId],
   });
+
+  consumed &&
+    tracker.variables.get({
+      // Grr! Intellisense won't use the constant scope and key values if `...referrerKey`.
+      scope: referrerKey.scope,
+      key: referrerKey.key,
+      result: (current: any, previous: any, poll) => {
+        current
+          ? poll()
+          : previous?.value?.[1] === navigationEventId && consumed();
+      },
+    });
+};
 
 const totalDuration = createTimer();
 const visibleDuration = createTimer();
@@ -113,7 +127,7 @@ export const context: TrackerExtensionFactory = {
     tracker.variables.get({
       scope: "view",
       key: "view",
-      result: (value, poll) => {
+      result: (value, _, poll) => {
         // Only update the view
         (!structuralEquals(currentView, value?.value) ||
           previousHref !== (previousHref = "" + location.href)) &&
@@ -130,7 +144,7 @@ export const context: TrackerExtensionFactory = {
           nextView = undefined;
         }
 
-        return poll(true);
+        return poll();
       },
     });
 
@@ -206,14 +220,12 @@ export const context: TrackerExtensionFactory = {
         // Try find related event and parent tab context if any.
         // And only if navigating (not back/forward/refresh)
 
-        const referrer = tryGetVariable({
-          scope: "shared",
-          key: "referrer",
-        }).value;
+        const referrer = tryGetVariable(referrerKey)?.value;
 
         if (referrer && isInternalUrl(document.referrer)) {
           currentViewEvent.view = referrer?.[0];
           currentViewEvent.relatedEventId = referrer?.[1];
+          tracker.variables.set({ ...referrerKey, value: undefined });
         }
       }
 
