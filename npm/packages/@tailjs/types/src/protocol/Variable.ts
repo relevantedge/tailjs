@@ -2,6 +2,7 @@ import {
   EnumValue,
   MaybePick,
   MaybeUndefined,
+  ParsedEnumResult,
   PartialExcept,
   PrettifyIntersection,
   createEnumAccessor,
@@ -310,9 +311,10 @@ export const VariableEnumProperties = {
   classification: dataClassification,
 } as const;
 
-export const toNumericVariableEnums = createEnumPropertyParser(
-  VariableEnumProperties
-);
+export const toNumericVariableEnums: <T>(
+  value: T
+) => ParsedEnumResult<T, [typeof VariableEnumProperties]> =
+  createEnumPropertyParser(VariableEnumProperties);
 
 export const extractKey = <
   T,

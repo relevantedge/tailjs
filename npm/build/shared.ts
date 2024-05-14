@@ -34,6 +34,7 @@ export const compilePlugin = ({
       },
       minify: minify
         ? {
+            sourceMap: args?.sourceMaps,
             compress: minify && {
               passes: 2,
               ecma: 2022 as any,
@@ -52,6 +53,7 @@ export const compilePlugin = ({
         : undefined,
     },
     minify,
+
     ...args,
   });
 

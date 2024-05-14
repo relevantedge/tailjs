@@ -1,40 +1,7 @@
-const undefined$2 = void 0;
-const nil = null;
-/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
-const isUndefined = (value)=>value === undefined$2;
-const isDefined = (value)=>value !== undefined$2;
-const ifDefined = (value, result)=>value !== undefined$2 ? result(value) : undefined$2;
-const hasValue = (value)=>value != nil;
-const isBoolean$1 = (value)=>typeof value === "boolean";
-const isTruish = (value)=>!!value;
-const isInteger = Number.isSafeInteger;
-const isNumber$1 = (value)=>typeof value === "number";
-const isString$1 = (value)=>typeof value === "string";
-const isArray$4 = Array.isArray;
-/**
- * Returns the value as an array following these rules:
- * - If the value is undefined (this does not include `null`), so is the return value.
- * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
- * - If the value is iterable, an array containing its values is returned
- * - Otherwise, an array with the value as its single item is returned.
- */ const toArray = (value, clone = false)=>isUndefined(value) ? undefined$2 : !clone && isArray$4(value) ? value : isIterable(value) ? [
-        ...value
-    ] : // ? toArrayAsync(value)
-    [
-        value
-    ];
-const isObject = (value, acceptIterables = false)=>value != null && typeof value === "object" && (acceptIterables || !value[symbolIterator]);
-const hasMethod = (value, name)=>typeof value?.[name] === "function";
-const isSymbol$1 = (value)=>typeof value === "symbol";
-const isFunction = (value)=>typeof value === "function";
-const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
-const isAwaitable = (value)=>!!value?.then;
-
 const throwError = (error, transform = (message)=>new TypeError(message))=>{
     throw isString$1(error = unwrap(error)) ? transform(error) : error;
 };
-const validate$1 = (value, validate, validationError, undefinedError)=>(isArray$4(validate) ? validate.every((test)=>test(value)) : isFunction(validate) ? validate(value) : validate) ? value : required$3(value, undefinedError ?? validationError) && throwError(validationError ?? "Validation failed.");
+const validate$1 = (value, validate, validationError, undefinedError)=>(isArray$4(validate) ? validate.every((test)=>test(value)) : isFunction(validate) ? validate(value) : validate) ? value : required$2(value, undefinedError ?? validationError) && throwError(validationError ?? "Validation failed.");
 class InvariantViolatedError extends Error {
     constructor(invariant){
         super(invariant ? "INV: " + invariant : "An invariant was violated.");
@@ -44,65 +11,127 @@ class InvariantViolatedError extends Error {
  * States an invariant.
  */ const invariant = (test, description)=>{
     const valid = unwrap(test);
-    return isDefined(valid) && valid !== false ? valid : throwError(new InvariantViolatedError(description));
+    return valid != null && valid !== false ? valid : throwError(new InvariantViolatedError(description));
 };
-const required$3 = (value, error)=>value != null ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
-const tryCatch = (expression, errorHandler = true, clean)=>{
+const required$2 = (value, error)=>value != null ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
+const tryCatch = (expression, errorHandler = true, always)=>{
     try {
         return expression();
     } catch (e) {
-        if (!isBoolean$1(errorHandler)) {
-            const error = errorHandler?.(e);
-            if (error instanceof Error) throw error;
-            return error;
-        }
-        if (errorHandler) {
-            throw e;
-        }
-        console.error(e);
-        return undefined;
+        return isFunction(errorHandler) ? isError$1(e = errorHandler(e)) ? throwError(e) : e : isBoolean$1(errorHandler) ? console.error(errorHandler ? throwError(e) : e) : errorHandler;
     } finally{
-        clean?.();
+        always?.();
     }
 };
-const tryCatchAsync = async (expression, errorHandler = true, clean, retries = 1)=>{
-    while(retries--){
-        try {
-            return await unwrap(expression);
-        } catch (e) {
-            if (!isBoolean$1(errorHandler)) {
-                const error = await errorHandler?.(e, !retries);
-                if (error instanceof Error) throw error;
-                return error;
-            } else if (errorHandler && !retries) {
-                throw e;
-            } else {
-                console.error(e);
+/** A value that is initialized lazily on-demand. */ const deferred = (expression)=>{
+    let result = undefined;
+    return ()=>result ??= unwrap(expression);
+};
+/**
+ * A promise that is initialized lazily on-demand.
+ * For promises this is more convenient than {@link deferred}, since it just returns a promise instead of a function.
+ */ const deferredPromise = (expression)=>{
+    let promise = {
+        initialized: true,
+        then: thenMethod(()=>(promise.initialized = true, unwrap(expression)))
+    };
+    return promise;
+};
+const thenMethod = (expression)=>{
+    let result = deferred(expression);
+    return (onfullfilled, onrejected)=>tryCatchAsync(result, [
+            onfullfilled,
+            onrejected
+        ]);
+};
+const tryCatchAsync = async (expression, errorHandler = true, always)=>{
+    try {
+        const result = await unwrap(expression);
+        return isArray$4(errorHandler) ? errorHandler[0]?.(result) : result;
+    } catch (e) {
+        if (!isBoolean$1(errorHandler)) {
+            if (isArray$4(errorHandler)) {
+                if (!errorHandler[1]) throw e;
+                return errorHandler[1](e);
             }
-        } finally{
-            clean?.();
+            const error = await errorHandler?.(e);
+            if (error instanceof Error) throw error;
+            return error;
+        } else if (errorHandler) {
+            throw e;
+        } else {
+            // Boolean  means "swallow".
+            console.error(e);
         }
+    } finally{
+        always?.();
     }
     return undefined;
 };
 
+/** Minify friendly version of `false`. */ const undefined$2 = void 0;
+/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
+/** Minify friendly version of `false`. */ const F = false;
+/** Minify friendly version of `true`. */ const T = true;
+/** Minify friendly version of `null`. */ const nil = null;
+/** A function that filters out values != null. */ const FILTER_NULLS = (item)=>item != nil;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
+const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? value !== undefined$2 ? resultOrProperty(value) : undefined$2 : value?.[resultOrProperty] !== undefined$2 ? value : undefined$2;
+const isBoolean$1 = (value)=>typeof value === "boolean";
+const isTruish = (value)=>!!value;
+const isInteger = Number.isSafeInteger;
+const isNumber$1 = (value)=>typeof value === "number";
+const isString$1 = (value)=>typeof value === "string";
+const isArray$4 = Array.isArray;
+const isError$1 = (value)=>value instanceof Error;
+/**
+ * Returns the value as an array following these rules:
+ * - If the value is undefined (this does not include `null`), so is the return value.
+ * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
+ * - If the value is iterable, an array containing its values is returned
+ * - Otherwise, an array with the value as its single item is returned.
+ */ const array = (value, clone = false)=>value == null ? undefined$2 : !clone && isArray$4(value) ? value : isIterable(value) ? [
+        ...value
+    ] : // ? toArrayAsync(value)
+    [
+        value
+    ];
+const isObject = (value)=>typeof value === "object";
+const objectPrototype = Object.prototype;
+const getPrototypeOf = Object.getPrototypeOf;
+const isPlainObject = (value)=>value != null && getPrototypeOf(value) === objectPrototype;
+const hasMethod = (value, name)=>typeof value?.[name] === "function";
+const isSymbol$1 = (value)=>typeof value === "symbol";
+const isFunction = (value)=>typeof value === "function";
+const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
+const isMap$1 = (value)=>value instanceof Map;
+const isSet$1 = (value)=>value instanceof Set;
+
 let stopInvoked = false;
 const stop = (yieldValue)=>(stopInvoked = true, yieldValue);
+const wrapProjection = (projection)=>projection == null ? undefined$2 : isFunction(projection) ? projection : (item)=>item[projection];
 function* createFilteringIterator(source, projection) {
-    if (!source) return;
-    let i = 0;
-    for (let item of source){
-        projection && (item = projection(item, i++));
-        if (item !== undefined$2) {
-            yield item;
+    if (source == null) return;
+    if (projection) {
+        projection = wrapProjection(projection);
+        let i = 0;
+        for (let item of source){
+            if ((item = projection(item, i++)) != null) {
+                yield item;
+            }
+            if (stopInvoked) {
+                stopInvoked = false;
+                break;
+            }
         }
-        if (stopInvoked) {
-            stopInvoked = false;
-            break;
+    } else {
+        for (let item of source){
+            if (item != null) yield item;
         }
     }
 }
 function* createObjectIterator(source, action) {
+    action = wrapProjection(action);
     let i = 0;
     for(const key in source){
         let value = [
@@ -110,7 +139,7 @@ function* createObjectIterator(source, action) {
             source[key]
         ];
         action && (value = action(value, i++));
-        if (value !== undefined$2) {
+        if (value != null) {
             yield value;
         }
         if (stopInvoked) {
@@ -119,51 +148,51 @@ function* createObjectIterator(source, action) {
         }
     }
 }
-function* createRangeIterator(length = 0, offset = 0) {
-    while(length--)yield offset++;
+function* createRangeIterator(length = 0, offset) {
+    if (length < 0) {
+        offset ??= -length - 1;
+        while(length++)yield offset--;
+    } else {
+        offset ??= 0;
+        while(length--)yield offset++;
+    }
 }
 function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_INTEGER) {
-    if (isDefined(start)) yield start;
-    while(maxIterations-- && isDefined(start = step(start))){
+    if (start != null) yield start;
+    while(maxIterations-- && (start = step(start)) != null){
         yield start;
     }
 }
-const sliceAction = (action, start, end)=>(start ?? end) !== undefined$2 ? (start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$2 : end-- ? action ? action(value, index) : value : end) : action;
-const createIterator = (source, projection, start, end)=>source == null ? [] : source[symbolIterator] ? createFilteringIterator(source, start === undefined$2 ? projection : sliceAction(projection, start, end)) : typeof source === "object" ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
+const sliceAction = (action, start, end)=>(start ?? end) !== undefined$2 ? (action = wrapProjection(action), start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$2 : end-- ? action ? action(value, index) : value : end) : action;
+/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array?.filter(FILTER_NULLS);
+const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray$4(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$2 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
 const mapToArray = (projected, map)=>map && !isArray$4(projected) ? [
         ...projected
     ] : projected;
-const project = (source, projection, start, end)=>isNumber$1(projection) ? createIterator(source, undefined$2, projection, start) : createIterator(source, projection, start, end);
+const project = (source, projection, start, end)=>createIterator(source, projection, start, end);
 const map$1 = (source, projection, start, end)=>{
+    projection = wrapProjection(projection);
     if (isArray$4(source)) {
         let i = 0;
         const mapped = [];
-        isNumber$1(projection) && ([projection, start, end] = [
-            undefined$2,
-            projection,
-            start
-        ]);
         start = start < 0 ? source.length + start : start ?? 0;
         end = end < 0 ? source.length + end : end ?? source.length;
         for(; start < end && !stopInvoked; start++){
             let value = source[start];
-            if (projection && value !== undefined$2) {
-                value = projection(value, i++);
-            }
-            if (value !== undefined$2) {
+            if ((projection ? value = projection(value, i++) : value) != null) {
                 mapped.push(value);
             }
         }
         stopInvoked = false;
         return mapped;
     }
-    return source !== undefined$2 ? toArray(project(source, projection, start, end)) : undefined$2;
+    return source != null ? array(project(source, projection, start, end)) : undefined$2;
 };
-const distinct = (source, projection, start, end)=>isDefined(source) ? new Set([
+const distinct = (source, projection, start, end)=>source != null ? new Set([
         ...project(source, projection, start, end)
     ]) : undefined$2;
-const single = (source, projection, start, end)=>!source ? undefined$2 : (source = mapDistinct(source, projection, start, end)).length > 1 ? undefined$2 : source[0];
-const mapDistinct = (source, projection, start, end)=>isDefined(source) ? [
+const single = (source, projection, start, end)=>source == null ? undefined$2 : (source = mapDistinct(source, projection, start, end)).length > 1 ? undefined$2 : source[0];
+const mapDistinct = (source, projection, start, end)=>source != null ? [
         ...distinct(source, projection, start, end)
     ] : source;
 const traverseInternal = (root, selector, include, results, seen)=>{
@@ -178,7 +207,14 @@ const traverseInternal = (root, selector, include, results, seen)=>{
     forEachInternal(selector(root), (item)=>traverseInternal(item, selector, true, results, seen));
     return results;
 };
-const join = (...items)=>items.flatMap((item)=>toArray(item) ?? []).filter(isDefined);
+const join = (source, projection, sep)=>source == null ? undefined$2 : isFunction(projection) ? map$1(isString$1(source) ? [
+        source
+    ] : source, projection)?.join(sep ?? "") : isString$1(source) ? source : map$1(source, (item)=>item === false ? undefined$2 : item)?.join(projection ?? "");
+const concat = (...items)=>{
+    let merged;
+    forEach$1(items.length === 1 ? items[0] : items, (item)=>item != null && (merged ??= []).push(...array(item)));
+    return merged;
+};
 const expand = (root, selector, includeSelf = true)=>traverseInternal(root, selector, includeSelf, [], new Set());
 const forEachArray = (source, action, start, end)=>{
     let returnValue;
@@ -186,18 +222,18 @@ const forEachArray = (source, action, start, end)=>{
     start = start < 0 ? source.length + start : start ?? 0;
     end = end < 0 ? source.length + end : end ?? source.length;
     for(; start < end; start++){
-        if (source[start] !== undefined$2 && (returnValue = action(source[start], i++) ?? returnValue, stopInvoked)) {
+        if (source[start] != null && (returnValue = action(source[start], i++) ?? returnValue, stopInvoked)) {
             stopInvoked = false;
             break;
         }
     }
     return returnValue;
 };
-const forEachItereable = (source, action)=>{
+const forEachIterable = (source, action)=>{
     let returnValue;
     let i = 0;
     for (let value of source){
-        if (value !== undefined$2 && (returnValue = action(value, i++) ?? returnValue, stopInvoked)) {
+        if (value != null && (returnValue = action(value, i++) ?? returnValue, stopInvoked)) {
             stopInvoked = false;
             break;
         }
@@ -222,51 +258,114 @@ const forEachInternal = (source, action, start, end)=>{
     if (source == null) return;
     if (isArray$4(source)) return forEachArray(source, action, start, end);
     if (start === undefined$2) {
-        if (source[symbolIterator]) return forEachItereable(source, action);
+        if (source[symbolIterator]) return forEachIterable(source, action);
         if (typeof source === "object") return forEachObject(source, action);
     }
     let returnValue;
     for (const value of createIterator(source, action, start, end)){
-        returnValue = value ?? returnValue;
+        value != null && (returnValue = value);
     }
     return returnValue;
 };
 const forEach$1 = forEachInternal;
-const obj = (source, selector, ...rest)=>Object.fromEntries(map$1(source, selector, ...rest));
+const forEachAsync = async (source, action, start, end)=>{
+    if (source == null) return undefined$2;
+    let returnValue;
+    for (let item of project(source, action, start, end)){
+        (item = await item) != null && (returnValue = item);
+    }
+    return returnValue;
+};
+const fromEntries = Object.fromEntries;
+/**
+ * Like Object.fromEntries, but accepts any iterable source and a projection instead of just key/value pairs.
+ * Properties with undefined values are not included in the resulting object.
+ */ const obj = (source, selector, merge)=>{
+    if (source == null) return undefined$2;
+    if (isBoolean$1(selector) || merge) {
+        let result = {};
+        forEach$1(source, merge ? (item, i)=>(item = selector(item, i)) != null && (item[1] = merge(result[item[0]], item[1]))?.[1] != null && (result[item[0]] = item[1]) : (source)=>forEach$1(source, selector ? (item)=>item?.[1] != null && ((result[item[0]] ??= []).push(item[1]), result) : (item)=>item?.[1] != null && (result[item[0]] = item[1], result)));
+        return result;
+    }
+    return fromEntries(map$1(source, selector ? (item, index)=>ifDefined(selector(item, index), 1) : (item)=>ifDefined(item, 1)));
+};
+const reduce = (source, reducer, seed, start, end)=>{
+    const seedFactory = ()=>isFunction(seed) ? seed() : seed;
+    return forEachInternal(source, (value, index)=>seed = reducer(seed, value, index) ?? seedFactory(), start, end) ?? seedFactory();
+};
 const filter$1 = (source, predicate = (item)=>item != null, map = isArray$4(source), start, end)=>mapToArray(createIterator(source, (item, index)=>predicate(item, index) ? item : undefined$2, start, end), map);
-const first = (source, predicate, start, end)=>!source || isArray$4(source) ? source?.[0] : forEachInternal(source, (value, i)=>!predicate || predicate(value, i) ? stop(value) : undefined$2, start, end);
-const last = (source, predicate, start, end)=>!source ? undefined$2 : isArray$4(source) ? source[source.length - 1] : forEachInternal(source, (item, i)=>!predicate || predicate(item, i) ? item : undefined$2, start, end);
+let filterInternal = filter$1;
+const count = (source, filter, start, end)=>{
+    if (source == null) return undefined$2;
+    let n;
+    if (filter) {
+        source = filterInternal(source, filter, false, start, end);
+    } else {
+        if ((n = source["length"] ?? source["size"]) != null) {
+            return n;
+        }
+        if (!source[symbolIterator]) {
+            return Object.keys(source).length;
+        }
+    }
+    n = 0;
+    return forEachInternal(source, ()=>++n);
+};
+const entries = (target)=>!isArray$4(target) && isIterable(target) ? map$1(target, isMap$1(target) ? (value)=>value : isSet$1(target) ? (value)=>[
+            value,
+            true
+        ] : (value, index)=>[
+            index,
+            value
+        ]) : isObject(target) ? Object.entries(target) : undefined$2;
+const mapFirst = (source, projection, start, end)=>source == null ? undefined$2 : (projection = wrapProjection(projection), forEachInternal(source, (value, i)=>!projection || (value = projection(value, i)) ? stop(value) : undefined$2, start, end));
+const first = (source, predicate, start, end)=>source == null ? undefined$2 : forEachInternal(source, (value, i)=>!predicate || predicate(value, i) ? stop(value) : undefined$2, start, end);
+const last = (source, predicate, start, end)=>source == null ? undefined$2 : isArray$4(source) ? source[source.length - 1] : forEachInternal(source, (item, i)=>!predicate || predicate(item, i) ? item : undefined$2, start, end);
 const rank = (source)=>createIterator(source, (item, i)=>[
             item,
             i
         ]);
-const some = (source, predicate, start, end)=>source === undefined$2 ? undefined$2 : hasMethod(source, "some") ? source.some(predicate ?? isTruish) : forEachInternal(source, predicate ? (item, index)=>predicate(item, index) ? stop(true) : false : ()=>stop(true), start, end) ?? false;
+const some = (source, predicate, start, end)=>source == null ? undefined$2 : isPlainObject(source) && !predicate ? Object.keys(source).length > 0 : source.some?.(predicate ?? isTruish) ?? forEachInternal(source, predicate ? (item, index)=>predicate(item, index) ? stop(true) : false : ()=>stop(true), start, end) ?? false;
 
 // #endregion
 // #region get
 const updateSingle = (target, key, value)=>setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
 const setSingle = (target, key, value)=>{
+    if (target.constructor === Object) {
+        value === undefined ? delete target[key] : target[key] = value;
+        return value;
+    }
     value === undefined ? target.delete ? target.delete(key) : delete target[key] : target.set ? target.set(key, value) : target.add ? value ? target.add(key) : target.delete(key) : target[key] = value;
     return value;
 };
 const setSingleIfNotDefined = (target, key, value, error)=>{
     const currentValue = get(target, key);
-    if (isDefined(currentValue)) {
+    if (currentValue != null) {
         throwError(error(key, currentValue, value, target));
     }
     return setSingle(target, key, value);
 };
-const get = (target, key, initializer)=>{
+const get = (target, key, init)=>{
     if (!target) return undefined;
+    if (target.constructor === Object && init == null) return target[key];
     let value = target.get ? target.get(key) : target.has ? target.has(key) : target[key];
-    if (isUndefined(value) && isDefined(initializer)) {
-        isDefined(value = isFunction(initializer) ? initializer() : initializer) && setSingle(target, key, value);
+    if (value === undefined && init != null) {
+        (value = isFunction(init) ? init() : init) != null && setSingle(target, key, value);
     }
     return value;
 };
+const merge$2 = (target, ...values)=>(forEach$1(values, (values)=>forEach$1(values, ([key, value])=>{
+            if (value != null) {
+                if (isPlainObject(target[key]) && isPlainObject(value)) {
+                    merge$2(target[key], value);
+                } else {
+                    target[key] = value;
+                }
+            }
+        })), target);
 const createSetOrUpdateFunction = (setter)=>(target, key, value, error)=>{
         if (!target) return undefined;
-        if (value) {
+        if (value != undefined) {
             return setter(target, key, value, error);
         }
         forEach$1(key, (item)=>isArray$4(item) ? setter(target, item[0], item[1]) : forEach$1(item, ([key, value])=>setter(target, key, value)));
@@ -277,12 +376,68 @@ const update = createSetOrUpdateFunction(updateSingle);
 const assignIfUndefined = createSetOrUpdateFunction(setSingleIfNotDefined);
 // #endregion
 const add = (target, key)=>target instanceof Set ? target.has(key) ? false : (target.add(key), true) : get(target, key) !== assign$1(target, key, true);
+const clearSingle = (target, key)=>{
+    if ((target ?? key) == null) return undefined;
+    let current = get(target, key);
+    if (hasMethod(target, "delete")) {
+        target.delete(key);
+    } else {
+        delete target[key];
+    }
+    return current;
+};
+/**
+ * Removes one or more values from a property container specified by the provided key or array of keys.
+ *
+ * If more than one level of key arguments are specified, values will be removed from the property container at the deepest level.
+ * If a property container becomes empty along the path of keys, it will be removed from its parent.
+ *
+ */ const clear = (target, ...keys)=>{
+    const removed = [];
+    let array = false;
+    const clearStep = (target, index, parent, parentKey)=>{
+        if (!target) return;
+        const targetKeys = keys[index];
+        if (index === keys.length - 1) {
+            if (isArray$4(targetKeys)) {
+                array = true;
+                targetKeys.forEach((key)=>removed.push(clearSingle(target, key)));
+            } else {
+                removed.push(clearSingle(target, targetKeys));
+            }
+        } else {
+            if (isArray$4(targetKeys)) {
+                array = true;
+                targetKeys.forEach((key)=>clearStep(get(target, key), index + 1, target, key));
+            } else {
+                clearStep(get(target, targetKeys), index + 1, target, targetKeys);
+            }
+            if (!count(target) && parent) {
+                remove(parent, parentKey);
+            }
+        }
+    };
+    clearStep(target, 0);
+    return array ? removed : removed[0];
+};
+/**
+ * Removes the specified key(s) from a property container and returns their value, or undefined if the container did not have the specified key.
+ *
+ * The difference between {@link clear} and this function is that it does not consider nested property containers and that arrays will be spliced (as opposed to `clear` where the index will be set to `undefined`).
+ */ const remove = (target, keys)=>{
+    if (!target) return undefined;
+    if (isArray$4(keys)) {
+        // Sort array keys descending as they would otherwise not match their offset as the array is spliced along the way.
+        return (isArray$4(target) && target.length > 1 ? keys.sort((x, y)=>y - x) : keys).map((key)=>remove(target, key));
+    }
+    return isArray$4(target) ? keys < target.length ? target.splice(keys, 1)[0] : undefined : clearSingle(target, keys);
+};
 const define$1 = (target, ...args)=>{
     const add = (arg, defaults)=>{
         if (!arg) return;
         let properties;
         if (isArray$4(arg)) {
-            if (isObject(arg[0])) {
+            if (isPlainObject(arg[0])) {
                 // Tuple with the first item the defaults and the next the definitions with those defaults,
                 // ([{enumerable: false, ...}, ...])
                 arg.splice(1).forEach((items)=>add(items, arg[0]));
@@ -299,7 +454,7 @@ const define$1 = (target, ...args)=>{
                 enumerable: true,
                 writable: false,
                 ...defaults,
-                ...isObject(value) && ("get" in value || "value" in value) ? value : isFunction(value) && !value.length ? {
+                ...isPlainObject(value) && ("get" in value || "value" in value) ? value : isFunction(value) && !value.length ? {
                     get: value
                 } : {
                     value
@@ -309,11 +464,22 @@ const define$1 = (target, ...args)=>{
     args.forEach((arg)=>add(arg));
     return target;
 };
-const unwrap = (value)=>isFunction(value) ? unwrap(value()) : isAwaitable(value) ? value.then((result)=>unwrap(result)) : value;
+const unwrap = (value)=>isFunction(value) ? value() : value;
 const unlock = (readonly)=>readonly;
-const wrapFunction = (original, wrap)=>original && ((...args)=>wrap(original, ...args));
+const wrap = (original, wrap)=>original == null ? original : isFunction(original) ? (...args)=>wrap(original, ...args) : wrap(()=>original);
 
-let now = ()=>typeof performance !== "undefined" ? Math.trunc(performance.timeOrigin + performance.now()) : Date.now();
+let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
+const createTimer = (started = true, timeReference = ()=>now())=>{
+    let t0 = +started * timeReference();
+    let elapsed = 0;
+    let capturedElapsed;
+    return (toggle = started, reset)=>{
+        capturedElapsed = started ? elapsed += -t0 + (t0 = timeReference()) : elapsed;
+        reset && (elapsed = 0);
+        (started = toggle) && (t0 = timeReference());
+        return capturedElapsed;
+    };
+};
 const clock = (callbackOrSettings, frequency = 0)=>{
     const settings = isFunction(callbackOrSettings) ? {
         frequency,
@@ -323,6 +489,8 @@ const clock = (callbackOrSettings, frequency = 0)=>{
     frequency = settings.frequency ?? 0;
     let timeoutId = 0;
     const mutex = promise(true).resolve();
+    const timer = createTimer(!paused);
+    let delta = timer();
     const outerCallback = async (skipQueue)=>{
         if (!timeoutId || !queue && mutex.pending && skipQueue !== true) {
             return false;
@@ -332,15 +500,13 @@ const clock = (callbackOrSettings, frequency = 0)=>{
             await mutex;
         }
         mutex.reset();
-        let cancelled = frequency < 0 || once;
-        await tryCatchAsync(()=>callback(()=>cancelled = true), false, ()=>mutex.resolve());
-        if (cancelled) {
+        if (await tryCatchAsync(()=>callback(timer(), -delta + (delta = timer())), false, ()=>mutex.resolve()) === false || frequency <= 0 || once) {
             reset(false);
         }
-        instance.busy = false;
-        return true;
+        return !(instance.busy = false);
     };
-    const reset = (start)=>{
+    const reset = (start, resetTimer = !start)=>{
+        timer(start, resetTimer);
         clearInterval(timeoutId);
         instance.active = !!(timeoutId = start ? setInterval(outerCallback, frequency < 0 ? -frequency : frequency) : 0);
         return instance;
@@ -351,7 +517,7 @@ const clock = (callbackOrSettings, frequency = 0)=>{
         restart: (newFrequency, newCallback)=>{
             frequency = newFrequency ?? frequency;
             callback = newCallback ?? callback;
-            return reset(true);
+            return reset(true, true);
         },
         toggle: (start, trigger)=>start !== instance.active ? start ? trigger ? (reset(true), instance.trigger(), instance) : reset(true) : reset(false) : instance,
         trigger: async (skipQueue)=>await outerCallback(skipQueue) && (reset(instance.active), true)
@@ -359,7 +525,7 @@ const clock = (callbackOrSettings, frequency = 0)=>{
     return instance.toggle(!paused, trigger);
 };
 
-class ResetablePromise {
+class ResettablePromise {
     _promise;
     constructor(){
         this.reset();
@@ -410,7 +576,7 @@ class OpenPromise {
                         throw new TypeError("Promise already resolved/rejected.");
                     }
                     this.pending = false;
-                    this[i ? "error" : "value"] = !isDefined(value) || value;
+                    this[i ? "error" : "value"] = value === undefined$2 || value;
                     inner(value);
                     return this;
                 });
@@ -421,9 +587,37 @@ class OpenPromise {
         return this._promise.then(onfulfilled, onrejected);
     }
 }
-const delay = (ms, value)=>isUndefined(ms) || isFinite(ms) ? !ms || ms <= 0 ? unwrap(value) : new Promise((resolve)=>setTimeout(async ()=>resolve(await unwrap(value)), ms)) : throwError(`Invalid delay ${ms}.`);
-const promise = (resetable)=>resetable ? new ResetablePromise() : new OpenPromise();
+const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap(value) : new Promise((resolve)=>setTimeout(async ()=>resolve(await unwrap(value)), ms)) : throwError(`Invalid delay ${ms}.`);
+const promise = (resettable)=>resettable ? new ResettablePromise() : new OpenPromise();
 const waitAll = (...args)=>Promise.all(args.map((arg)=>isFunction(arg) ? arg() : arg));
+
+const createEventBinders = (listener, attach, detach)=>{
+    let bound = false;
+    const outerListener = (...args)=>listener(...args, unbind);
+    const unbind = ()=>bound !== (bound = false) && (detach(outerListener), true);
+    const rebind = ()=>bound !== (bound = true) && (attach(outerListener), true);
+    rebind();
+    return [
+        unbind,
+        rebind
+    ];
+};
+const joinEventBinders = (...binders)=>(binders = filter$1(binders), [
+        ()=>reduce(binders, (changed, binder)=>binder[0]() || changed, false),
+        ()=>reduce(binders, (changed, binder)=>binder[1]() || changed, false)
+    ]);
+const createEvent = ()=>{
+    const listeners = new Set();
+    let dispatchedArgs;
+    return [
+        (handler, trigger)=>{
+            const binders = createEventBinders(handler, (handler)=>listeners.add(handler), (handler)=>listeners.delete(handler));
+            trigger && dispatchedArgs && handler(...dispatchedArgs, binders[0]);
+            return binders;
+        },
+        (...payload)=>(dispatchedArgs = payload, listeners.forEach((handler)=>handler(...payload)))
+    ];
+};
 
 const changeCase = (s, upper)=>s == null ? s : upper ? s.toUpperCase() : s.toLowerCase();
 const changeIdentifierCaseStyle = (identifier, type)=>identifier.replace(/([_-]*)(\$*(?:[A-Z]+|[a-z]))([a-z0-9]*)/g, (_, underscores, initial, rest, index)=>(underscores && (!index || type === "kebab" || type === "snake") ? underscores.replace(/./g, type === "snake" ? "-" : "_") : "") + ((index && (type === "kebab" || type === "snake") && !underscores ? type === "snake" ? "-" : "_" : "") + changeCase(initial, type === "pascal" || type === "camel" && index) + changeCase(type === "kebab" || type === "snake" ? rest.replace(/(?<=\D)\d|(?<=\d)\D/g, type === "kebab" ? "_$&" : "-$&") : rest, false)));
@@ -433,6 +627,7 @@ const conjunct = (values, conjunction = "and")=>ifDefined(values, (values)=>(val
         ], values.length === 0 ? "" : values.length === 1 ? values[0] : `${values.slice(0, -1).join(", ")} ${conjunction} ${last(values)}`));
 const quote$1 = (item)=>ifDefined(item, (item)=>isIterable(item) ? map$1(item, (item)=>"'" + item + "'") : "'" + item + "'");
 
+const isBit = (n)=>(n = Math.log2(n), n === (n | 0));
 const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
     const names = Object.fromEntries(Object.entries(sourceEnum).filter(([key, value])=>isString$1(key) && isNumber$1(value)).map(([key, value])=>[
             key.toLowerCase(),
@@ -440,27 +635,33 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
         ]));
     const entries = Object.entries(names);
     const values = Object.values(names);
-    const any = values.reduce((any, flag)=>any | flag, 0);
+    const any = names["any"] ?? values.reduce((any, flag)=>any | flag, 0);
     const nameLookup = flags ? {
         ...names,
         any,
         none: 0
     } : names;
-    const valueLookup = Object.fromEntries(entries.map(([key, value])=>[
+    const valueLookup = Object.fromEntries(Object.entries(nameLookup).map(([key, value])=>[
             value,
             key
         ]));
-    const parseValue = (value, validateNumbers)=>isString$1(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] : isNumber$1(value) ? !flags && validateNumbers ? isDefined(valueLookup[value]) ? value : undefined$2 : value : undefined$2;
+    const parseValue = (value, validateNumbers)=>isNumber$1(value) ? !flags && validateNumbers ? valueLookup[value] != null ? value : undefined$2 : value : isString$1(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] : undefined$2;
+    let invalid = false;
+    let carry;
+    let carry2;
     const [tryParse, lookup] = flags ? [
-        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>(flag = parseValue(flag, validateNumbers)) == null ? flags : (flags ?? 0) | flag, undefined$2) : parseValue(value),
-        (value, format)=>(value = tryParse(value, false)) == null ? undefined$2 : format && (value & any) === any ? "any" : (value = entries.filter(([, flag])=>value & flag).map(([name])=>name), format ? value.length ? value.length === 1 ? value[0] : value : "none" : value)
+        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>flag == null || invalid ? flags : (flag = parseValue(flag, validateNumbers)) == null ? (invalid = true, undefined$2) : (flags ?? 0) | flag, (invalid = false, undefined$2)) : parseValue(value),
+        (value, format)=>(value = tryParse(value, false)) == null ? undefined$2 : format && (carry2 = valueLookup[value & any]) ? (carry = lookup(value & ~(value & any), false)).length ? [
+                carry2,
+                ...carry
+            ] : carry2 : (value = entries.filter(([, flag])=>flag && value & flag && isBit(flag)).map(([name])=>name), format ? value.length ? value.length === 1 ? value[0] : value : "none" : value)
     ] : [
         parseValue,
         (value)=>(value = parseValue(value)) != null ? valueLookup[value] : undefined$2
     ];
     let originalValue;
     const parse = (value, validateNumbers)=>value == null ? undefined$2 : (value = tryParse(originalValue = value, validateNumbers)) == null ? throwError(new TypeError(`${JSON.stringify(originalValue)} is not a valid ${enumName} value.`)) : value;
-    const pure = entries.filter(([, value])=>!pureFlags || pureFlags & value);
+    const pure = entries.filter(([, value])=>!pureFlags || (pureFlags & value) === value && isBit(value));
     return define$1((value)=>parse(value), [
         {
             configurable: false,
@@ -481,6 +682,19 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
             map: (flags, map)=>(flags = parse(flags), pure.filter(([, flag])=>flag & flags).map(map ?? (([, flag])=>flag)))
         }
     ]);
+};
+/**
+ * Creates a function that parses the specified enum properties to their numeric values on the object provided.
+ * Note that it does the parsing directly on the provided object and does not create a copy.
+ */ const createEnumPropertyParser = (...props)=>{
+    const parsers = entries(obj(props, true));
+    const parse = (source, arrayItem)=>source != null && (!arrayItem && isArray$4(source) ? source.forEach((source, i)=>source[i] = parse(source[i], true)) : parsers.forEach(([prop, parsers])=>{
+            let parsed = undefined$2;
+            let value;
+            if ((value = source[prop]) == null) return;
+            parsers.length === 1 ? source[prop] = parsers[0].parse(value) : parsers.forEach((parser, i)=>!parsed && (parsed = i === parsers.length - 1 ? parser.parse(value) : parser.tryParse(value)) != null && (source[prop] = parsed));
+        }));
+    return (source)=>(parse(source), source);
 };
 
 class TupleMap extends Map {
@@ -507,7 +721,7 @@ class TupleMap extends Map {
         return super.get(this._tupleInstance(key));
     }
     set(key, value) {
-        if (isUndefined(value)) {
+        if (value === undefined) {
             this.delete(key);
             return this;
         }
@@ -546,15 +760,15 @@ class DoubleMap {
     /**
    * @returns true if an element in the TupleMap existed and has been removed, or false if the element does not exist.
    */ delete(key) {
-        if (isDefined(key[0])) {
-            if (isDefined(key[1])) {
+        if (key[0] != null) {
+            if (key[1] != null) {
                 return this._cleanDelete(key);
             }
             if (!this._reverse) {
                 this._size -= this._map.get(key[0])?.size ?? 0;
                 return this._map.delete(key[0]);
             }
-        } else if (isUndefined(key[1])) {
+        } else if (key[1] === undefined) {
             return this.clear();
         }
         let deleted = false;
@@ -617,16 +831,16 @@ class DoubleMap {
         return this._size;
     }
     *iterate(filter) {
-        if (!filter || isUndefined(filter[0]) && isUndefined(filter[1])) {
+        if (!filter || (filter[0] ?? filter[1]) === undefined) {
             yield* this;
         } else {
             const [key1Filter, key2Filter] = filter;
-            if (isDefined(key1Filter)) {
+            if (key1Filter != null) {
                 const map = this._map.get(filter[0]);
                 if (!map) {
                     return;
                 }
-                if (isDefined(key2Filter)) {
+                if (key2Filter != null) {
                     const value = map.get(key2Filter);
                     if (value) {
                         yield [
@@ -704,6 +918,95 @@ class DoubleMap {
         }
     }
 }
+
+const parseKeyValue = (value, arrayDelimiters = [
+    "|",
+    ";",
+    ","
+], decode = true)=>{
+    if (!value) return undefined$2;
+    const parts = value.split("=").map((v)=>decode ? decodeURIComponent(v.trim()).replaceAll("+", " ") : v.trim());
+    parts[1] ??= "";
+    parts[2] = parts[1] && arrayDelimiters?.length && mapFirst(arrayDelimiters, (delim, _, split = parts[1].split(delim))=>split.length > 1 ? split : undefined$2) || (parts[1] ? [
+        parts[1]
+    ] : []);
+    return parts;
+};
+// // Browsers accepts `//` as "whatever the protocol is" is links.
+// // A scheme can only be letters, digits, `+`, `-` and `.`.
+// // The slashes are captured so we can put the parsed URI correctly back together.
+// // https://datatracker.ietf.org/doc/html/rfc3986#section-3.1
+// Scheme (group 1 and 2) = `//` or `name:` or `name://` = (?:(?:([\w+.-]+):)?(\/\/)?)
+// // https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.1
+// User Information (groups 4 and 5) = `user@` or `user:password@` = (?:([^:@]+)(?:\:([^@]*))?@)
+// // If an IPv6 address is used with a port it is wrapped in square brackets.
+// // Otherwise a host is anything until port, path or query string.
+// // Se also https://serverfault.com/questions/205793/how-can-one-distinguish-the-host-and-the-port-in-an-ipv6-url about the brackets.
+// // https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.2
+// Host (group 6 or 7) = `[ IPv6 or IPvFuture ]:port` or IPv6 or `IPv4:port` or `domain:port`  = (?:\[([^\]]+)\]|([0-9:]+|[^/+]+?))
+// //Port is included in the optional host group to separate `about:blank` like schemes from `localhost:1337` like hosts
+// // https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.3
+// Port (group 8) = (?::(\d*))?
+// Authority (group 3) = User Information + Host + Port
+// // Anything until an optional query or fragment
+// // https://datatracker.ietf.org/doc/html/rfc3986#section-3.3
+// Path and  (group 9) = (\/[^#?]*)
+// // Anything following a `?` until an optional fragment.
+// // https://datatracker.ietf.org/doc/html/rfc3986#section-3.4
+// Query (group 10) = (?:\?([^#]*))
+// // Anything following a pound sign until end.
+// // https://datatracker.ietf.org/doc/html/rfc3986#section-3.5
+// Fragment (group 11) = (?:#.*)
+// Everything put together
+// ^(?:(?:([\w+.-]+):)?(?:\/\/)?)?((?:([^:@]+)(?:\:([^@]*))?@)?(?:\[([^\]]+)\]|([0-9:]+|[^/+]+?))?(?::(\d*))?)?(\/[^#?]*)?(?:\?([^#]*))?(?:#(.*))?$
+/**
+ * Parses an URI according to https://www.rfc-editor.org/rfc/rfc3986#section-2.1.
+ * The parser is not pedantic about the allowed characters in each group
+ *
+ * @param uri The URI to parse
+ * @param query Whether to parse the query into a record with each parameter and its value(s) or just the string.
+ *  If an array is provided these are the characters that are used to split query string values. If this is empty, arrays are not parsed.
+ * @returns A record with the different parts of the URI.
+ */ const parseUri = (uri, query = true, requireAuthority)=>uri == nil ? undefined$2 : match(uri, /^(?:(?:([\w+.-]+):)?(\/\/)?)?((?:([^:@]+)(?:\:([^@]*))?@)?(?:\[([^\]]+)\]|([0-9:]+|[^/+]+?))?(?::(\d*))?)?(\/[^#?]*)?(?:\?([^#]*))?(?:#(.*))?$/g, (source, scheme, slashes, authority, user, password, bracketHost, host, port, path, queryString, fragment)=>{
+        const parsed = {
+            source,
+            scheme,
+            urn: scheme ? !slashes : slashes ? false : undefined$2,
+            authority,
+            user,
+            password,
+            host: bracketHost ?? host,
+            port: port != null ? parseInt(port) : undefined$2,
+            path,
+            query: query === false ? queryString : parseQueryString(queryString, query),
+            fragment
+        };
+        parsed.path = parsed.path || (parsed.authority ? parsed.urn ? "" : "/" : undefined$2);
+        return parsed;
+    });
+const parseQueryString = (query, arrayDelimiters, decode = true)=>query == nil ? undefined$2 : obj(query?.match(/(?:^.*?\?|^)(.*)$/)?.[1]?.split("&"), (part, _, [key, value, values] = parseKeyValue(part, arrayDelimiters === false ? [] : arrayDelimiters === true ? undefined$2 : arrayDelimiters, decode) ?? [])=>(key = key?.replace(/\[\]$/, "")) != null ? arrayDelimiters !== false ? [
+            key,
+            values.length > 1 ? values : value
+        ] : [
+            key,
+            value
+        ] : undefined$2, (current, value)=>current ? arrayDelimiters !== false ? concat(current, value) : (current ? current + "," : "") + value : value);
+
+let matchProjection;
+let collected;
+/**
+ * Matches a regular expression against a string and projects the matched parts, if any.
+ */ const match = (s, regex, selector, collect = false)=>(s ?? regex) == nil ? undefined$2 : selector ? (matchProjection = undefined$2, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(// Replace seems to be a compact way to get the details of each match
+    regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
+/**
+ * Replaces reserved characters to get a regular expression that matches the string.
+ */ const escapeRegEx = (input)=>input?.replace(/[\^$\\.*+?()[\]{}|]/g, "\\$&");
+/**
+ * Better minifyable version of `String`'s `split` method that allows a null'ish parameter.
+ */ const split = (s, separator)=>s?.split(separator) ?? s;
+/**
+ * Better minifyable version of `String`'s `replace` method that allows a null'ish parameter.
+ */ const replace$1 = (s, match, replaceValue)=>s?.replace(match, replaceValue) ?? s;
 
 var DataClassification;
 (function(DataClassification) {
@@ -814,10 +1117,14 @@ var DataPurposeFlags;
     /**
    * Data can be used for any purpose.
    */ DataPurposeFlags[DataPurposeFlags["Any"] = 63] = "Any";
+    /**
+   * The data is not available client-side.
+   * Note that this is a special flag that is not included in "Any"
+   */ DataPurposeFlags[DataPurposeFlags["Server"] = 64] = "Server";
 })(DataPurposeFlags || (DataPurposeFlags = {}));
-const purePurposes = 1 | 2 | 4 | 8 | 16 | 32;
+const purePurposes = 1 | 2 | 4 | 8 | 16 | 32 | 64;
 const dataPurposes = createEnumAccessor(DataPurposeFlags, true, "data purpose", purePurposes);
-const singleDataPurpose = createEnumAccessor(DataPurposeFlags, false, "data purpose");
+const singleDataPurpose = createEnumAccessor(DataPurposeFlags, false, "data purpose", 0);
 
 Object.freeze({
     level: DataClassification.Anonymous,
@@ -829,31 +1136,41 @@ Object.freeze({
 });
 const validateConsent = (source, consent, defaultClassification)=>{
     if (!source) return undefined;
-    const classification = dataClassification.parse(source.classification, false) ?? required$3(dataClassification(defaultClassification?.classification), "The source has not defined a data classification and no default was provided.");
-    let purposes = dataPurposes.parse(source.purposes, false) ?? required$3(dataPurposes.parse(defaultClassification?.purposes, false), "The source has not defined data purposes and no default was provided.");
-    return source && classification <= dataClassification.parse(consent["classification"] ?? consent["level"], false) && (purposes & // No matter what is defined in the consent, it will always include the "anonymous" purposes.
-    (dataPurposes.parse(consent.purposes, false) | DataPurposeFlags.Anonymous)) > 0;
+    const classification = dataClassification.parse(source.classification, false) ?? required$2(dataClassification(defaultClassification?.classification), "The source has not defined a data classification and no default was provided.");
+    let purposes = dataPurposes.parse(source.purposes, false) ?? required$2(dataPurposes.parse(defaultClassification?.purposes, false), "The source has not defined data purposes and no default was provided.");
+    const consentClassification = dataClassification.parse(consent["classification"] ?? consent["level"], false);
+    const consentPurposes = dataPurposes.parse(consent.purposes, false);
+    if (purposes & DataPurposeFlags.Server && !(consentPurposes & DataPurposeFlags.Server)) {
+        return false;
+    }
+    return source && classification <= consentClassification && (purposes & // No matter what is defined in the consent, it will always include the "anonymous" purposes.
+    (consentPurposes | DataPurposeFlags.Anonymous)) > 0;
 };
 
 var VariableScope;
 (function(VariableScope) {
     /** Global variables. */ VariableScope[VariableScope["Global"] = 0] = "Global";
-    /** Variables related to sessions. */ VariableScope[VariableScope["Session"] = 1] = "Session";
-    /** Variables related to a device (browser or app). */ VariableScope[VariableScope["Device"] = 2] = "Device";
-    /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 3] = "User";
     /**
    * Variables related to an external identity.
    * One use case could be used to augment data a CMS with real-time data related to personalization or testing.
-   */ VariableScope[VariableScope["Entity"] = 4] = "Entity";
+   */ VariableScope[VariableScope["Entity"] = 1] = "Entity";
+    /** Variables related to sessions. */ VariableScope[VariableScope["Session"] = 2] = "Session";
+    /** Variables related to a device (browser or app). */ VariableScope[VariableScope["Device"] = 3] = "Device";
+    /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 4] = "User";
 })(VariableScope || (VariableScope = {}));
 const variableScope = createEnumAccessor(VariableScope, false, "variable scope");
+/** Dummy function to contain variables and variable results to locally scoped targets. */ const restrictTargets = (value)=>value;
+const Necessary = {
+    classification: DataClassification.Anonymous,
+    purposes: DataPurposeFlags.Necessary
+};
 /** Returns a description of a key that can be used for logging and error messages.  */ const formatKey = (key)=>`'${key.key}' in ${variableScope.format(key.scope)} scope`;
 const stripPrefix = (key)=>key && {
         ...key,
         key: parseKey(key.key).key
     };
 /** Returns the individual parts of a key specified as a string.  */ const parseKey = (sourceKey)=>{
-    if (isUndefined(sourceKey)) return undefined;
+    if (sourceKey == null) return undefined;
     const not = sourceKey[0] === "!";
     if (not) {
         sourceKey = sourceKey.slice(1);
@@ -868,42 +1185,33 @@ const stripPrefix = (key)=>key && {
         not
     };
 };
-const enumProperties = [
-    [
-        "scope",
-        variableScope
-    ],
-    [
-        "purpose",
-        singleDataPurpose
-    ],
-    [
-        "purposes",
-        dataPurposes
-    ],
-    [
-        "classification",
-        dataClassification
-    ]
-];
-const toNumericVariable = (value)=>{
-    if (!value) return value;
-    enumProperties.forEach(([prop, helper])=>value[prop] = helper.parse(value[prop]));
-    return value;
+const VariableEnumProperties = {
+    scope: variableScope,
+    purpose: singleDataPurpose,
+    purposes: dataPurposes,
+    classification: dataClassification
 };
-
-const getResultVariable = (result)=>result?.status < 400 ? result.current ?? result : undefined;
+const toNumericVariableEnums = createEnumPropertyParser(VariableEnumProperties);
+const extractKey = (variable, classificationSource)=>variable ? {
+        scope: variableScope(variable.scope),
+        targetId: variable.targetId,
+        key: variable.key,
+        ...classificationSource && {
+            classification: dataClassification(classificationSource.classification),
+            purposes: dataPurposes(classificationSource.purposes)
+        }
+    } : undefined;
 
 var VariableResultStatus;
 (function(VariableResultStatus) {
     VariableResultStatus[VariableResultStatus["Success"] = 200] = "Success";
     VariableResultStatus[VariableResultStatus["Created"] = 201] = "Created";
     VariableResultStatus[VariableResultStatus["Unchanged"] = 304] = "Unchanged";
+    VariableResultStatus[VariableResultStatus["Denied"] = 403] = "Denied";
+    VariableResultStatus[VariableResultStatus["NotFound"] = 404] = "NotFound";
+    VariableResultStatus[VariableResultStatus["ReadOnly"] = 405] = "ReadOnly";
     VariableResultStatus[VariableResultStatus["Conflict"] = 409] = "Conflict";
     VariableResultStatus[VariableResultStatus["Unsupported"] = 501] = "Unsupported";
-    VariableResultStatus[VariableResultStatus["Denied"] = 403] = "Denied";
-    VariableResultStatus[VariableResultStatus["ReadOnly"] = 405] = "ReadOnly";
-    VariableResultStatus[VariableResultStatus["NotFound"] = 404] = "NotFound";
     VariableResultStatus[VariableResultStatus["Invalid"] = 400] = "Invalid";
     VariableResultStatus[VariableResultStatus["Error"] = 500] = "Error";
 })(VariableResultStatus || (VariableResultStatus = {}));
@@ -919,34 +1227,58 @@ var VariablePatchType;
 const patchType = createEnumAccessor(VariablePatchType, false, "variable patch type");
 const isVariablePatch = (setter)=>!!setter?.["patch"];
 const isVariablePatchAction = (setter)=>isFunction(setter["patch"]);
-const handleResultErrors = (result, throwErrors)=>{
-    if ((throwErrors?.throw ?? throwErrors) === false) {
-        return result;
-    }
-    if (isArray$4(result)) {
-        result.forEach(handleResultErrors);
-        return result;
-    }
-    return result.status < 400 || result.status === 404 // Not found can only occur for get requests, and those are all right.
-     ? result : throwError(`${formatKey(result.source ?? result)} could not be ${result.source || result.status !== 500 ? "set" : "read"} because ${result.status === 409 ? `of a conflict. The expected version '${result.source.version}' did not match the current version '${result.current?.version}'.` : result.status === 403 ? result.error ?? "the operation was denied." : result.status === 400 ? result.error ?? "the value does not conform to the schema" : result.status === 405 ? "it is read only." : result.status === 500 ? `of an unexpected error: ${result.error}` : "of an unknown reason."}`);
+
+const isPostResponse = (response)=>!!response?.variables;
+
+const toVariableResultPromise = (results, errorHandlers, push)=>{
+    let mapResults = (results)=>results;
+    let unwrappedResults;
+    const property = (map, errorHandler = handleResultErrors)=>deferredPromise(async ()=>(unwrappedResults = mapResults(errorHandler(await results(), errorHandlers))) && map(unwrappedResults));
+    const promise = {
+        then: property((items)=>items).then,
+        all: property((items)=>items, (items)=>items),
+        changed: property((items)=>filter$1(items, (item)=>item.status < 300)),
+        variables: property((items)=>map$1(items, getResultVariable)),
+        values: property((items)=>map$1(items, (item)=>getResultVariable(item)?.value)),
+        push: ()=>(mapResults = (results)=>(push?.(map$1(getSuccessResults(results))), results), promise),
+        value: property((items)=>getResultVariable(items[0])?.value),
+        variable: property((items)=>getResultVariable(items[0])),
+        result: property((items)=>items[0])
+    };
+    return promise;
 };
+const getSuccessResults = (results)=>results?.map((result)=>result?.status < 400 ? result : undefined$2);
+const getResultVariable = (result)=>result?.status < 400 ? result?.current ?? result : undefined$2; // This included 404 for getters.
+const isSuccessResult = (result)=>result?.status < 400 || result?.status === 404;
+const handleResultErrors = (results, errorHandlers, requireValue)=>{
+    const errors = [];
+    let errorHandler;
+    let errorMessage;
+    const successResults = map$1(array(results), (result, i)=>result && (result.status < 400 || !requireValue && result.status === 404 // Not found can only occur for get requests, and those are all right.
+         ? result : (errorMessage = `${formatKey(result.source ?? result)} could not be ${result.status === 404 ? "found." : `${result.source || result.status !== VariableResultStatus.Error ? "set" : "read"} because ${result.status === VariableResultStatus.Conflict ? `of a conflict. The expected version '${result.source?.version}' did not match the current version '${result.current?.version}'.` : result.status === VariableResultStatus.Denied ? result.error ?? "the operation was denied." : result.status === VariableResultStatus.Invalid ? result.error ?? "the value does not conform to the schema" : result.status === VariableResultStatus.ReadOnly ? "it is read only." : result.status === VariableResultStatus.Error ? `of an unexpected error: ${result.error}` : "of an unknown reason."}`}`, ((errorHandler = errorHandlers?.[i]) == null || errorHandler(result, errorMessage) !== false) && errors.push(errorMessage), undefined$2)));
+    if (errors.length) return throwError(errors.join("\n"));
+    return isArray$4(results) ? successResults : successResults?.[0];
+};
+const requireFound = (variable)=>handleResultErrors(variable, undefined$2, true);
+
+const isPassiveEvent = (value)=>!!(value?.metadata?.passive || value?.patchTargetId);
 
 const typeTest = (...types)=>(ev)=>ev?.type && types.some((type)=>type === ev?.type);
 
-const isUserAgentEvent = typeTest("USER_AGENT");
+const isUserAgentEvent = typeTest("user_agent");
 
-const isViewEvent = typeTest("VIEW");
+const isViewEvent = typeTest("view");
 
-const isConsentEvent = typeTest("CONSENT");
+const isConsentEvent = typeTest("consent");
 
-const isCartEvent = typeTest("CART_UPDATED");
+const isCartEvent = typeTest("cart_updated");
 
-const isOrderEvent = typeTest("ORDER");
+const isOrderEvent = typeTest("order");
 
-const isSignOutEvent = typeTest("SIGN_OUT");
-const isSignInEvent = typeTest("SIGN_IN");
+const isSignOutEvent = typeTest("sign_out");
+const isSignInEvent = typeTest("sign_in");
 
-const isResetEvent = typeTest("RESET");
+const isResetEvent = typeTest("reset");
 
 const SchemaSystemTypes = Object.freeze({
     Event: "urn:tailjs:core:event"
@@ -966,12 +1298,12 @@ const parsePrivacyTokens = (tokens, classification = {})=>{
             return;
         }
         let parsed = dataPurposes.tryParse(keyword) ?? dataPurposes.tryParse(keyword.replace(/\-purpose$/g, ""));
-        if (isDefined(parsed)) {
+        if (parsed != null) {
             classification.purposes = (classification.purposes ?? 0) | parsed;
             return;
         }
         parsed = dataClassification.tryParse(keyword) ?? dataClassification.tryParse(keyword.replace(/^personal-/g, ""));
-        if (isDefined(parsed)) {
+        if (parsed != null) {
             if (classification.classification && parsed !== classification.classification) {
                 throwError(`The data classification '${dataClassification.format(classification.classification)}' has already been specified and conflicts with the classification'${dataClassification.format(parsed)} inferred from the description.`);
             }
@@ -984,17 +1316,20 @@ const parsePrivacyTokens = (tokens, classification = {})=>{
 };
 const getPrivacyAnnotations = (classification)=>{
     const attrs = {};
-    isDefined(classification.classification) && (attrs[SchemaAnnotations.Classification] = dataClassification.format(classification.classification));
+    classification.classification != null && (attrs[SchemaAnnotations.Classification] = dataClassification.format(classification.classification));
     let purposes = dataPurposes.format(classification.purposes);
-    isDefined(purposes) && (attrs[isString$1(purposes) ? SchemaAnnotations.Purpose : SchemaAnnotations.Purposes] = purposes);
-    isDefined(classification.censorIgnore) && (attrs[SchemaAnnotations.Censor] = classification.censorIgnore ? "ignore" : "include");
+    purposes != null && (attrs[isString$1(purposes) ? SchemaAnnotations.Purpose : SchemaAnnotations.Purposes] = purposes);
+    classification.censorIgnore != null && (attrs[SchemaAnnotations.Censor] = classification.censorIgnore ? "ignore" : "include");
     return attrs;
 };
 
 class TrackerCoreEvents {
     id = "session";
-    constructor(configuration = {}){}
     async patch(events, next, tracker) {
+        if (!tracker.session) {
+            // Do nothing if there is no session. We do not want to start sessions on passive requests (only timing events).
+            return [];
+        }
         events = await next(events);
         if (!tracker.sessionId) {
             return events;
@@ -1002,14 +1337,14 @@ class TrackerCoreEvents {
         let timestamp = now();
         events.forEach((ev)=>ev.timestamp < timestamp && (timestamp = ev.timestamp));
         // Apply data updates to a copy of the scope data so the logic gets the updated values.
-        let sessionData;
-        let deviceData;
+        let sessionInfo;
+        let deviceInfo;
         let sessionDataUpdates;
         let deviceDataUpdates;
         const updateSnapshot = ()=>{
             sessionDataUpdates = [];
             deviceDataUpdates = [];
-            [sessionData, deviceData] = [
+            [sessionInfo, deviceInfo] = [
                 tracker._session.value,
                 tracker._device?.value
             ];
@@ -1018,27 +1353,19 @@ class TrackerCoreEvents {
         };
         updateSnapshot();
         const updateData = (device, patch)=>{
-            if (device && !deviceData) {
+            if (device && !deviceInfo) {
                 return;
             }
-            patch(device ? deviceData : sessionData);
+            patch(device ? deviceInfo : sessionInfo);
             (device ? deviceDataUpdates : sessionDataUpdates).push(patch);
         };
         const flushUpdates = async ()=>{
-            await tracker.set([
-                sessionDataUpdates.length ? {
-                    ...tracker._session,
-                    patch: (current)=>({
-                            value: current && sessionDataUpdates.reduce((data, update)=>update(data), current.value)
-                        })
-                } : undefined,
-                tracker._device && deviceDataUpdates.length ? {
-                    ...tracker._device,
-                    patch: (current)=>({
-                            value: current && deviceDataUpdates.reduce((data, update)=>update(data), current.value)
-                        })
-                } : undefined
-            ]);
+            await tracker.set(sessionDataUpdates.length ? {
+                ...tracker._session,
+                patch: (current)=>({
+                        value: current && sessionDataUpdates.reduce((data, update)=>update(data), current.value)
+                    })
+            } : undefined);
             updateSnapshot();
         };
         const updatedEvents = [];
@@ -1051,7 +1378,7 @@ class TrackerCoreEvents {
                     // Fake a sign out event if the user is currently authenticated.
                     events.push(event);
                     event = {
-                        type: "SIGN_OUT",
+                        type: "sign_out",
                         userId: tracker.authenticatedUserId,
                         timestamp: event.timestamp
                     };
@@ -1064,7 +1391,7 @@ class TrackerCoreEvents {
             updatedEvents.push(event);
             if (tracker.session.isNew) {
                 updatedEvents.push({
-                    type: "SESSION_STARTED",
+                    type: "session_started",
                     url: tracker.url,
                     sessionNumber: tracker.device?.sessions ?? 1,
                     timeSinceLastSession: tracker.session.previousSession ? tracker.session.firstSeen - tracker.session.previousSession : undefined,
@@ -1197,15 +1524,6 @@ class CommerceExtension {
     }
 }
 
-function any(value) {
-    if (typeof value !== "object") {
-        return Array.isArray(value) ? value.length > 0 : value != null;
-    }
-    for(const _ in value){
-        return true;
-    }
-    return false;
-}
 function* countYields(items) {
     let n = 0;
     for (const item of items){
@@ -1396,7 +1714,7 @@ const FNVs = {
  * "It is fast and small.", Bob said to Alice. "It is all right.", she replied.
  *
  * (Adapted from http://quinnftw.com/xor-ciphers/).
- */ const lfsr = (key = "")=>{
+ */ const lfsr = (key)=>{
     /** Number of source bytes for (en/de)cryption. */ let n;
     /** Source byte index. */ let i;
     /** Target byte index. */ let j;
@@ -1416,7 +1734,7 @@ const FNVs = {
     /** Current start of the mixer window. */ let iw = 0;
     /** Initial mixer. */ let mixer0 = 0;
     /** Initial bytes for the mixer. */ const window0 = [];
-    for(iw = 0; iw < key.length; mixer0 += window0[iw] = key.charCodeAt(iw++));
+    for(iw = 0; iw < key?.length; mixer0 += window0[iw] = key.charCodeAt(iw++));
     /** Resets the mixer when (en/de)cryption starts. */ const resetMixer = key ? ()=>{
         window = [
             ...window0
@@ -1454,7 +1772,7 @@ const FNVs = {
         } : (cipher)=>cipher,
         // FNV1a hash code.
         (source, numericOrBits = 64)=>{
-            if (!hasValue(source)) return null;
+            if (source == null) return null;
             bits = isBoolean$1(numericOrBits) ? 64 : numericOrBits;
             resetMixer();
             [hash, prime] = FNVs[bits];
@@ -2081,13 +2399,13 @@ const REF_PROP = "$ref";
         //   floatView.setFloat64(0, value, true);
         //   return { "": [...new Uint32Array(floatBuffer)] };
         // }
-        if (!isObject(value, true)) {
+        if (!isObject(value)) {
             return value;
         }
         if (value.toJSON && value !== (value = value.toJSON())) {
             return inner(value);
         }
-        if (isDefined(refIndex = (refs ??= new Map()).get(value))) {
+        if ((refIndex = (refs ??= new Map()).get(value)) != null) {
             if (!value[REF_PROP]) {
                 // Only assign ID parameter if used.
                 value[REF_PROP] = refIndex;
@@ -2097,9 +2415,9 @@ const REF_PROP = "$ref";
                 [REF_PROP]: refIndex
             };
         }
-        if (isObject(value)) {
+        if (isPlainObject(value)) {
             refs.set(value, refs.size + 1);
-            Object.keys(value).forEach((k)=>(isUndefined(patchProperty(value, k)) || isSymbol$1(k)) && delete value[k]);
+            Object.keys(value).forEach((k)=>(patchProperty(value, k) === undefined$2 || isSymbol$1(k)) && delete value[k]);
         } else if (isIterable(value)) {
             // Array with undefined values or iterable (which is made into array.). ([,1,2,3] does not reveal its first entry).
             (!isArray$4(value) || Object.keys(value).length < value.length ? [
@@ -2116,7 +2434,7 @@ const patchDeserialize = (value)=>{
     let refs;
     let matchedRef;
     const inner = (value)=>{
-        if (!isObject(value, true)) return value;
+        if (!isObject(value)) return value;
         // if (isArray(value[""]) && (value = value[""]).length === 2) {
         //   return new DataView(new Uint32Array(value).buffer).getFloat64(0, true);
         // }
@@ -2130,29 +2448,44 @@ const patchDeserialize = (value)=>{
         Object.entries(value).forEach(([k, v])=>v !== (v = inner(v)) && (value[k] = v));
         return value;
     };
-    return hasValue(value) ? inner(deserialize(value)) : undefined$2;
+    return value != null ? inner(deserialize(value)) : undefined$2;
 };
+let _defaultTransports;
 /**
  * Creates a pair of {@link Encoder} and {@link Decoder}s as well as a {@link HashFunction<string>}.
- * MessagePack is used for serialization, {@link lsfr} encryption is optionally used if a key is specified, and the input and outputs are Base64URL encoded.
- */ const createTransport = (key, json = false)=>{
-    const [encrypt, decrypt, hash] = lfsr(key ?? "");
-    const fastStringHash = (value, bitsOrNumeric)=>{
-        if (isNumber$1(value) && bitsOrNumeric === true) return value;
-        value = isString$1(value) ? new Uint8Array(map$1(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? JSON.stringify(value) : patchSerialize(value);
-        return hash(value, bitsOrNumeric);
+ * MessagePack is used for serialization, {@link lfsr} encryption is optionally used if a key is specified, and the input and outputs are Base64URL encoded.
+ */ const createTransport = (key, json = false, jsonDecodeFallback = true)=>{
+    const factory = (key, json = false, jsonDecodeFallback = true)=>{
+        const fastStringHash = (value, bitsOrNumeric)=>{
+            if (isNumber$1(value) && bitsOrNumeric === true) return value;
+            value = isString$1(value) ? new Uint8Array(map$1(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? JSON.stringify(value) : patchSerialize(value);
+            return hash(value, bitsOrNumeric);
+        };
+        const jsonDecode = (encoded)=>encoded == null ? undefined$2 : tryCatch(()=>JSON.parse(encoded, undefined$2));
+        if (json) {
+            return [
+                (data)=>JSON.stringify(data),
+                jsonDecode,
+                (value, numericOrBits)=>fastStringHash(value, numericOrBits)
+            ];
+        }
+        const [encrypt, decrypt, hash] = lfsr(key);
+        return [
+            (data)=>to64u(encrypt(patchSerialize(data))),
+            (encoded)=>encoded != null ? jsonDecodeFallback && (encoded?.[0] === "{" || encoded?.[0] === "[") ? jsonDecode(encoded) : patchDeserialize(decrypt(from64u(encoded))) : null,
+            (value, numericOrBits)=>fastStringHash(value, numericOrBits)
+        ];
     };
-    return json ? [
-        (data)=>JSON.stringify(data),
-        (encoded)=>encoded == null ? undefined$2 : tryCatch(()=>JSON.parse(encoded, undefined$2)),
-        (value, numericOrBits)=>fastStringHash(value, numericOrBits)
-    ] : [
-        (data)=>to64u(encrypt(patchSerialize(data))),
-        (encoded)=>hasValue(encoded) ? patchDeserialize(decrypt(from64u(encoded))) : null,
-        (value, numericOrBits)=>fastStringHash(value, numericOrBits)
-    ];
+    if (!key) {
+        return (_defaultTransports ??= [
+            factory(null, false),
+            factory(null, true)
+        ])[+json];
+    }
+    return factory(key, json, jsonDecodeFallback);
 };
 const defaultTransport = createTransport();
+createTransport(null, true);
 const [httpEncode, httpDecode, hash] = defaultTransport;
 
 /**
@@ -2199,21 +2532,16 @@ const copy = (variable, overrides)=>{
         ...overrides
     };
 };
-const extractKey = (variable)=>variable ? {
-        scope: variable.scope,
-        targetId: variable.targetId,
-        key: variable.key
-    } : undefined;
 const patchSelector = (value, selector, update)=>{
     if (!selector) return update(value);
     let patchTarget;
     ("." + selector).split(".").forEach((segment, i, path)=>{
         let current = i ? patchTarget[segment] : value;
-        if (isDefined(current) && !isObject(current)) throw new TypeError(`Invalid patch operation. The selector does not address a property on an object.`);
+        if (current != null && !isPlainObject(current)) throw new TypeError(`Invalid patch operation. The selector does not address a property on an object.`);
         if (i === path.length - 1) {
             const updated = patchTarget[segment] = update(patchTarget[segment]);
             patchTarget[segment] = updated;
-            if (!isDefined(update)) {
+            if (update === undefined) {
                 delete patchTarget[segment];
             }
         } else {
@@ -2224,13 +2552,10 @@ const patchSelector = (value, selector, update)=>{
     });
     return value;
 };
-const requireNumberOrUndefined = (value)=>{
-    if (isUndefined(value) || isNumber$1(value)) return value;
-    throw new TypeError("The current value must be undefined or a number.");
-};
-const applyPatchOffline = async (current, { classification: level, purposes, patch })=>{
+const requireNumberOrUndefined = (value)=>value === undefined || typeof value === "number" ? value : throwError("The current value must be undefined or a number.");
+const applyPatch = async (current, { classification: level, purposes, patch })=>{
     if (isFunction(patch)) {
-        const patched = toNumericVariable(await patch(toNumericVariable(current)));
+        const patched = toNumericVariableEnums(await patch(toNumericVariableEnums(current)));
         if (patched) {
             patched.classification ??= dataClassification.parse(current?.classification);
             patched.purposes ??= dataPurposes.parse(current?.purposes);
@@ -2248,13 +2573,13 @@ const applyPatchOffline = async (current, { classification: level, purposes, pat
         case VariablePatchType.Add:
             return {
                 ...classification,
-                value: patchSelector(requireNumberOrUndefined(value), patch.selector, (value)=>(value ?? 0) + patch.by)
+                value: patchSelector(requireNumberOrUndefined(value), patch.selector, (value)=>(value ?? patch.seed ?? 0) + patch.by)
             };
         case VariablePatchType.Min:
         case VariablePatchType.Max:
             return {
                 ...classification,
-                value: patchSelector(value, patch.selector, (value)=>isDefined(requireNumberOrUndefined(value)) ? Math[patch.type === VariablePatchType.Min ? "min" : "max"](value, patch.value) : patch.value)
+                value: patchSelector(value, patch.selector, (value)=>requireNumberOrUndefined(value) ? Math[patch.type === VariablePatchType.Min ? "min" : "max"](value, patch.value) : patch.value)
             };
         case VariablePatchType.IfMatch:
             if (current?.value !== patch.match) {
@@ -2280,191 +2605,6 @@ const withSourceIndex = (items)=>items.map((item, sourceIndex)=>[
         ]);
 const partitionItems = (items)=>items.map((item)=>item[1]);
 const mergeKeys = async (results, partitionMappings, partitionResults)=>partitionMappings?.length ? (await partitionResults(partitionMappings.map((item)=>item?.[1]))).forEach((result, i)=>result && (results[partitionMappings[i][0]] = result)) : undefined;
-
-const trackerScopes = new Set([
-    VariableScope.User,
-    VariableScope.Device,
-    VariableScope.Session
-]);
-const nonTrackerScopes = new Set([
-    VariableScope.Global,
-    VariableScope.Entity
-]);
-class TrackerVariableStorage {
-    _storage;
-    constructor(storage){
-        this._storage = storage;
-    }
-    configureScopeDurations(durations, context) {
-        this._storage.configureScopeDurations(durations, context);
-    }
-    renew(scope, scopeIds, context) {
-        if (context?.tracker && this._isRestrictedScope(scope)) {
-            const scopeId = this._getScopeTargetId(scope, context.tracker);
-            if (!scopeId) {
-                return;
-            }
-            scopeIds = [
-                scopeId
-            ];
-        }
-        return this._storage.renew(scope, scopeIds, context);
-    }
-    _isRestrictedScope(scope) {
-        return scope === VariableScope.Session || scope === VariableScope.Device || scope === VariableScope.User;
-    }
-    _getScopeTargetId(scope, tracker) {
-        return scope === VariableScope.Session ? tracker.session.id : scope === VariableScope.Device ? tracker.session.deviceId : scope === VariableScope.User ? tracker.session.userId : undefined;
-    }
-    _getMaxConsentLevel(scope, tracker) {
-        // If a user is authenticated, it is assumed that there is consent for storing direct personal data,
-        // (right? The user must have provided a user name somehow...).
-        // This also means that a user may have consented to having their profile data such as name stored,
-        // but still do not want to be tracked.
-        return scope === VariableScope.User ? DataClassification.Direct : tracker.consent.level;
-    }
-    _validate(variable, tracker) {
-        if (!variable) return undefined;
-        const scope = variableScope.parse(variable.scope, false);
-        if (this._isRestrictedScope(scope)) {
-            const originalTargetId = variable.targetId;
-            variable.targetId = this._getScopeTargetId(scope, tracker);
-            if (originalTargetId && variable.targetId !== originalTargetId) {
-                throw new TypeError(`Target ID must either match the tracker or be unspecified.`);
-            }
-            if (!variable.targetId) {
-                // There is not consented ID for the scope in the tracker, or an ID unrelated to the current tracker was used.
-                return undefined;
-            }
-            const classification = dataClassification.parse(variable.classification, false);
-            if (isDefined(classification)) {
-                if (this._getMaxConsentLevel(scope, tracker) < classification || variable.purposes && tracker.consent.purposes && // This check ignores Necessary (which is 0)
-                !(tracker.consent.purposes & dataPurposes.parse(variable.purposes, false))) {
-                    return undefined;
-                }
-            }
-        }
-        return variable;
-    }
-    async set(variables, context) {
-        const tracker = context?.tracker;
-        if (!tracker) {
-            return await this._storage.set(variables, context);
-        }
-        const validated = variables.map((variable)=>this._validate(variable, tracker));
-        validated.forEach((setter)=>// Any attempt to change a device variable (even if it fails) must trigger the tracker to refresh all device variables and send them to the the client,
-            // to avoid race conditions (requests may complete out of request order, hence send stale cookies otherwise).
-            setter && setter.scope === VariableScope.Device && tracker._touchClientDeviceData());
-        const denied = [];
-        validated.forEach((source, sourceIndex)=>{
-            if (!source) return;
-            if (isVariablePatch(source) && isFunction(source.patch)) {
-                const captured = source.patch;
-                source.patch = (current)=>{
-                    // If the patch returns something that does not match the current consent,
-                    // we need to 1) return undefined to avoid the storage to save anything, 2) patch the results with a "denied" status.
-                    const inner = captured(current);
-                    if (inner && !this._validate({
-                        ...extractKey(source),
-                        ...current
-                    }, tracker)) {
-                        denied.push([
-                            sourceIndex,
-                            {
-                                status: VariableResultStatus.Denied,
-                                source
-                            }
-                        ]);
-                        return undefined;
-                    }
-                    return inner;
-                };
-            }
-        });
-        const results = await this._storage.set(validated, context);
-        denied.forEach(([sourceIndex, status])=>results[sourceIndex] = status);
-        for (const result of results){
-            result.status < 400 && await tracker._maybeUpdate(result.source, result.current);
-        }
-        return results;
-    }
-    _validateFilters(filters, tracker) {
-        let validatedFilters = [];
-        const consent = tracker.consent;
-        for (let filter of filters){
-            // For each scope that intersects the tracker scopes, add a separate filter restricted to the target ID
-            // that matches the current tracker.
-            const scopes = filter.scopes?.map((item)=>variableScope.parse(item)) ?? variableScope.values;
-            const safe = scopes.filter((scope)=>nonTrackerScopes.has(scope));
-            safe.length && validatedFilters.push({
-                ...filter,
-                scopes: safe
-            });
-            validatedFilters.push(...scopes.filter((scope)=>trackerScopes.has(scope)).map((scope)=>{
-                const targetId = this._getScopeTargetId(scope, tracker);
-                const consentLevel = this._getMaxConsentLevel(scope, tracker);
-                return targetId ? {
-                    ...consent.purposes || consentLevel < DataClassification.Sensitive ? {
-                        ...filter,
-                        // Remove purposes without consent (if purposes are undefined in consent, it means "I am good with all").
-                        purposes: filter.purposes ? dataPurposes.parse(filter.purposes) & consent.purposes : undefined,
-                        classification: filter.classification && {
-                            // Cap classification filter so no criteria exceeds the consent's level.
-                            min: dataClassification.parse(filter.classification.min) > consentLevel ? consentLevel : filter.classification.min,
-                            // If no explicit levels are set, limit the max value to the consent's level.
-                            max: dataClassification.parse(filter.classification.max) > consentLevel || !filter.classification.levels ? consentLevel : filter.classification.max,
-                            levels: filter.classification.levels?.filter((level)=>dataClassification.parse(level) <= consentLevel)
-                        }
-                    } : filter,
-                    scopes: [
-                        scope
-                    ],
-                    targetIds: [
-                        targetId
-                    ]
-                } : undefined;
-            }).filter(isDefined));
-        }
-        return validatedFilters;
-    }
-    async purge(filters, context) {
-        if (!context?.tracker) {
-            return this._storage.purge(filters, context);
-        }
-        await this._storage.purge(this._validateFilters(filters, context.tracker), context);
-    }
-    _trackDeviceData(getter, tracker) {
-        if (getter && variableScope.tryParse(getter.scope) === VariableScope.Device && !parseKey(getter.key).prefix) {
-            if (!getter.initializer) {
-                // Try read the value from the device if it is not cached.
-                getter.initializer = ()=>tracker._getClientDeviceVariables()?.variables?.[getter.key];
-            }
-            // Only load new if changed since persisted version.
-            getter.version ??= tracker._getClientDeviceVariables()?.[getter.key]?.version;
-        }
-        return getter;
-    }
-    async get(keys, context) {
-        if (!context?.tracker) {
-            return this._storage.get(keys, context);
-        }
-        const results = await this._storage.get(keys.map((key)=>this._trackDeviceData(this._validate(key, context.tracker), context.tracker)), context);
-        return results.map((result)=>this._validate(result, context.tracker));
-    }
-    _queryOrHead(method, filters, options, context) {
-        // Queries always go straight to the storage (not looking at cached device variables).
-        if (!context?.tracker) {
-            return this._storage[method](filters, options, context);
-        }
-        return this._storage[method](this._validateFilters(filters, context.tracker), options, context);
-    }
-    head(filters, options, context) {
-        return this._queryOrHead("head", filters, options, context);
-    }
-    query(filters, options, context) {
-        return this._queryOrHead("query", filters, options, context);
-    }
-}
 
 function bootstrap({ host, endpoint, schemas, cookies, extensions, allowUnknownEventTypes, encryptionKeys, debugScript, environmentTags }) {
     return new RequestHandler({
@@ -3850,31 +3990,31 @@ var inspectSymbol = isSymbol(inspectCustom) ? inspectCustom : null;
 var objectInspect = function inspect_(obj, options, depth, seen) {
     var opts = options || {};
 
-    if (has$4(opts, 'quoteStyle') && (opts.quoteStyle !== 'single' && opts.quoteStyle !== 'double')) {
+    if (has$3(opts, 'quoteStyle') && (opts.quoteStyle !== 'single' && opts.quoteStyle !== 'double')) {
         throw new TypeError('option "quoteStyle" must be "single" or "double"');
     }
     if (
-        has$4(opts, 'maxStringLength') && (typeof opts.maxStringLength === 'number'
+        has$3(opts, 'maxStringLength') && (typeof opts.maxStringLength === 'number'
             ? opts.maxStringLength < 0 && opts.maxStringLength !== Infinity
             : opts.maxStringLength !== null
         )
     ) {
         throw new TypeError('option "maxStringLength", if provided, must be a positive integer, Infinity, or `null`');
     }
-    var customInspect = has$4(opts, 'customInspect') ? opts.customInspect : true;
+    var customInspect = has$3(opts, 'customInspect') ? opts.customInspect : true;
     if (typeof customInspect !== 'boolean' && customInspect !== 'symbol') {
         throw new TypeError('option "customInspect", if provided, must be `true`, `false`, or `\'symbol\'`');
     }
 
     if (
-        has$4(opts, 'indent')
+        has$3(opts, 'indent')
         && opts.indent !== null
         && opts.indent !== '\t'
         && !(parseInt(opts.indent, 10) === opts.indent && opts.indent > 0)
     ) {
         throw new TypeError('option "indent" must be "\\t", an integer > 0, or `null`');
     }
-    if (has$4(opts, 'numericSeparator') && typeof opts.numericSeparator !== 'boolean') {
+    if (has$3(opts, 'numericSeparator') && typeof opts.numericSeparator !== 'boolean') {
         throw new TypeError('option "numericSeparator", if provided, must be `true` or `false`');
     }
     var numericSeparator = opts.numericSeparator;
@@ -3927,7 +4067,7 @@ var objectInspect = function inspect_(obj, options, depth, seen) {
             var newOpts = {
                 depth: opts.depth
             };
-            if (has$4(opts, 'quoteStyle')) {
+            if (has$3(opts, 'quoteStyle')) {
                 newOpts.quoteStyle = opts.quoteStyle;
             }
             return inspect_(value, newOpts, depth + 1, seen);
@@ -4088,7 +4228,7 @@ function isBigInt(obj) {
 }
 
 var hasOwn = Object.prototype.hasOwnProperty || function (key) { return key in this; };
-function has$4(obj, key) {
+function has$3(obj, key) {
     return hasOwn.call(obj, key);
 }
 
@@ -4267,7 +4407,7 @@ function arrObjKeys(obj, inspect) {
     if (isArr) {
         xs.length = obj.length;
         for (var i = 0; i < obj.length; i++) {
-            xs[i] = has$4(obj, i) ? inspect(obj[i], obj) : '';
+            xs[i] = has$3(obj, i) ? inspect(obj[i], obj) : '';
         }
     }
     var syms = typeof gOPS === 'function' ? gOPS(obj) : [];
@@ -4280,7 +4420,7 @@ function arrObjKeys(obj, inspect) {
     }
 
     for (var key in obj) { // eslint-disable-line no-restricted-syntax
-        if (!has$4(obj, key)) { continue; } // eslint-disable-line no-restricted-syntax, no-continue
+        if (!has$3(obj, key)) { continue; } // eslint-disable-line no-restricted-syntax, no-continue
         if (isArr && String(Number(key)) === key && key < obj.length) { continue; } // eslint-disable-line no-restricted-syntax, no-continue
         if (hasShammedSymbols && symMap['$' + key] instanceof Symbol) {
             // this is to prevent shammed Symbols, which are stored as strings, from being included in the string key section
@@ -4453,7 +4593,7 @@ var formats$4 = {
 
 var formats$3 = formats$4;
 
-var has$3 = Object.prototype.hasOwnProperty;
+var has$2 = Object.prototype.hasOwnProperty;
 var isArray$2 = Array.isArray;
 
 var hexTable = (function () {
@@ -4505,7 +4645,7 @@ var merge = function merge(target, source, options) {
         if (isArray$2(target)) {
             target.push(source);
         } else if (target && typeof target === 'object') {
-            if ((options && (options.plainObjects || options.allowPrototypes)) || !has$3.call(Object.prototype, source)) {
+            if ((options && (options.plainObjects || options.allowPrototypes)) || !has$2.call(Object.prototype, source)) {
                 target[source] = true;
             }
         } else {
@@ -4526,7 +4666,7 @@ var merge = function merge(target, source, options) {
 
     if (isArray$2(target) && isArray$2(source)) {
         source.forEach(function (item, i) {
-            if (has$3.call(target, i)) {
+            if (has$2.call(target, i)) {
                 var targetItem = target[i];
                 if (targetItem && typeof targetItem === 'object' && item && typeof item === 'object') {
                     target[i] = merge(targetItem, item, options);
@@ -4543,7 +4683,7 @@ var merge = function merge(target, source, options) {
     return Object.keys(source).reduce(function (acc, key) {
         var value = source[key];
 
-        if (has$3.call(acc, key)) {
+        if (has$2.call(acc, key)) {
             acc[key] = merge(acc[key], value, options);
         } else {
             acc[key] = value;
@@ -4559,7 +4699,7 @@ var assign = function assignSingleSource(target, source) {
     }, target);
 };
 
-var decode$3 = function (str, decoder, charset) {
+var decode = function (str, decoder, charset) {
     var strWithoutPlus = str.replace(/\+/g, ' ');
     if (charset === 'iso-8859-1') {
         // unescape never throws, no try...catch needed:
@@ -4577,7 +4717,7 @@ var limit$1 = 1024;
 
 /* eslint operator-linebreak: [2, "before"] */
 
-var encode$2 = function encode(str, defaultEncoder, charset, kind, format) {
+var encode = function encode(str, defaultEncoder, charset, kind, format) {
     // This code was originally written by Brian White (mscdex) for the io.js core querystring library.
     // It has been adapted here for stricter adherence to RFC 3986
     if (str.length === 0) {
@@ -4707,8 +4847,8 @@ var utils$2 = {
     assign: assign,
     combine: combine,
     compact: compact,
-    decode: decode$3,
-    encode: encode$2,
+    decode: decode,
+    encode: encode,
     isBuffer: isBuffer,
     isRegExp: isRegExp,
     maybeMap: maybeMap,
@@ -4718,7 +4858,7 @@ var utils$2 = {
 var getSideChannel = sideChannel;
 var utils$1 = utils$2;
 var formats$2 = formats$4;
-var has$2 = Object.prototype.hasOwnProperty;
+var has$1 = Object.prototype.hasOwnProperty;
 
 var arrayPrefixGenerators = {
     brackets: function brackets(prefix) {
@@ -4775,7 +4915,7 @@ var isNonNullishPrimitive = function isNonNullishPrimitive(v) {
 
 var sentinel = {};
 
-var stringify$2 = function stringify(
+var stringify$1 = function stringify(
     object,
     prefix,
     generateArrayPrefix,
@@ -4938,7 +5078,7 @@ var normalizeStringifyOptions = function normalizeStringifyOptions(opts) {
 
     var format = formats$2['default'];
     if (typeof opts.format !== 'undefined') {
-        if (!has$2.call(formats$2.formatters, opts.format)) {
+        if (!has$1.call(formats$2.formatters, opts.format)) {
             throw new TypeError('Unknown format option provided.');
         }
         format = opts.format;
@@ -5027,7 +5167,7 @@ var stringify_1 = function (object, opts) {
         if (options.skipNulls && obj[key] === null) {
             continue;
         }
-        pushToArray(keys, stringify$2(
+        pushToArray(keys, stringify$1(
             obj[key],
             key,
             generateArrayPrefix,
@@ -5067,7 +5207,7 @@ var stringify_1 = function (object, opts) {
 
 var utils = utils$2;
 
-var has$1 = Object.prototype.hasOwnProperty;
+var has = Object.prototype.hasOwnProperty;
 var isArray = Array.isArray;
 
 var defaults$1 = {
@@ -5171,7 +5311,7 @@ var parseValues = function parseQueryStringValues(str, options) {
             val = isArray(val) ? [val] : val;
         }
 
-        var existing = has$1.call(obj, key);
+        var existing = has.call(obj, key);
         if (existing && options.duplicates === 'combine') {
             obj[key] = utils.combine(obj[key], val);
         } else if (!existing || options.duplicates === 'last') {
@@ -5241,7 +5381,7 @@ var parseKeys = function parseQueryStringKeys(givenKey, val, options, valuesPars
     var keys = [];
     if (parent) {
         // If we aren't using plain objects, optionally prefix keys that would overwrite object prototype properties
-        if (!options.plainObjects && has$1.call(Object.prototype, parent)) {
+        if (!options.plainObjects && has.call(Object.prototype, parent)) {
             if (!options.allowPrototypes) {
                 return;
             }
@@ -5255,7 +5395,7 @@ var parseKeys = function parseQueryStringKeys(givenKey, val, options, valuesPars
     var i = 0;
     while (options.depth > 0 && (segment = child.exec(key)) !== null && i < options.depth) {
         i += 1;
-        if (!options.plainObjects && has$1.call(Object.prototype, segment[1].slice(1, -1))) {
+        if (!options.plainObjects && has.call(Object.prototype, segment[1].slice(1, -1))) {
             if (!options.allowPrototypes) {
                 return;
             }
@@ -5326,7 +5466,7 @@ var normalizeParseOptions = function normalizeParseOptions(opts) {
     };
 };
 
-var parse$2 = function (str, opts) {
+var parse$1 = function (str, opts) {
     var options = normalizeParseOptions(opts);
 
     if (str === '' || str === null || typeof str === 'undefined') {
@@ -5352,14 +5492,14 @@ var parse$2 = function (str, opts) {
     return utils.compact(obj);
 };
 
-var stringify$1 = stringify_1;
-var parse$1 = parse$2;
+var stringify = stringify_1;
+var parse = parse$1;
 var formats$1 = formats$4;
 
 var lib = {
     formats: formats$1,
-    parse: parse$1,
-    stringify: stringify$1
+    parse: parse,
+    stringify: stringify
 };
 
 /*
@@ -5387,7 +5527,7 @@ var lib = {
 
 var punycode = punycodeExports;
 
-function Url$1() {
+function Url() {
   this.protocol = null;
   this.slashes = null;
   this.auth = null;
@@ -5467,17 +5607,17 @@ var protocolPattern = /^([a-z0-9.+-]+:)/i,
     'gopher:': true,
     'file:': true
   },
-  querystring$1 = lib;
+  querystring = lib;
 
-function urlParse$2(url, parseQueryString, slashesDenoteHost) {
-  if (url && typeof url === 'object' && url instanceof Url$1) { return url; }
+function urlParse(url, parseQueryString, slashesDenoteHost) {
+  if (url && typeof url === 'object' && url instanceof Url) { return url; }
 
-  var u = new Url$1();
+  var u = new Url();
   u.parse(url, parseQueryString, slashesDenoteHost);
   return u;
 }
 
-Url$1.prototype.parse = function (url, parseQueryString, slashesDenoteHost) {
+Url.prototype.parse = function (url, parseQueryString, slashesDenoteHost) {
   if (typeof url !== 'string') {
     throw new TypeError("Parameter 'url' must be a string, not " + typeof url);
   }
@@ -5512,7 +5652,7 @@ Url$1.prototype.parse = function (url, parseQueryString, slashesDenoteHost) {
       if (simplePath[2]) {
         this.search = simplePath[2];
         if (parseQueryString) {
-          this.query = querystring$1.parse(this.search.substr(1));
+          this.query = querystring.parse(this.search.substr(1));
         } else {
           this.query = this.search.substr(1);
         }
@@ -5734,7 +5874,7 @@ Url$1.prototype.parse = function (url, parseQueryString, slashesDenoteHost) {
     this.search = rest.substr(qm);
     this.query = rest.substr(qm + 1);
     if (parseQueryString) {
-      this.query = querystring$1.parse(this.query);
+      this.query = querystring.parse(this.query);
     }
     rest = rest.slice(0, qm);
   } else if (parseQueryString) {
@@ -5767,12 +5907,12 @@ function urlFormat(obj) {
    * this way, you can call url_format() on strings
    * to clean up potentially wonky urls.
    */
-  if (typeof obj === 'string') { obj = urlParse$2(obj); }
-  if (!(obj instanceof Url$1)) { return Url$1.prototype.format.call(obj); }
+  if (typeof obj === 'string') { obj = urlParse(obj); }
+  if (!(obj instanceof Url)) { return Url.prototype.format.call(obj); }
   return obj.format();
 }
 
-Url$1.prototype.format = function () {
+Url.prototype.format = function () {
   var auth = this.auth || '';
   if (auth) {
     auth = encodeURIComponent(auth);
@@ -5796,7 +5936,7 @@ Url$1.prototype.format = function () {
   }
 
   if (this.query && typeof this.query === 'object' && Object.keys(this.query).length) {
-    query = querystring$1.stringify(this.query, {
+    query = querystring.stringify(this.query, {
       arrayFormat: 'repeat',
       addQueryPrefix: false
     });
@@ -5829,26 +5969,26 @@ Url$1.prototype.format = function () {
 };
 
 function urlResolve(source, relative) {
-  return urlParse$2(source, false, true).resolve(relative);
+  return urlParse(source, false, true).resolve(relative);
 }
 
-Url$1.prototype.resolve = function (relative) {
-  return this.resolveObject(urlParse$2(relative, false, true)).format();
+Url.prototype.resolve = function (relative) {
+  return this.resolveObject(urlParse(relative, false, true)).format();
 };
 
 function urlResolveObject(source, relative) {
   if (!source) { return relative; }
-  return urlParse$2(source, false, true).resolveObject(relative);
+  return urlParse(source, false, true).resolveObject(relative);
 }
 
-Url$1.prototype.resolveObject = function (relative) {
+Url.prototype.resolveObject = function (relative) {
   if (typeof relative === 'string') {
-    var rel = new Url$1();
+    var rel = new Url();
     rel.parse(relative, false, true);
     relative = rel;
   }
 
-  var result = new Url$1();
+  var result = new Url();
   var tkeys = Object.keys(this);
   for (var tk = 0; tk < tkeys.length; tk++) {
     var tkey = tkeys[tk];
@@ -6117,7 +6257,7 @@ Url$1.prototype.resolveObject = function (relative) {
   return result;
 };
 
-Url$1.prototype.parseHost = function () {
+Url.prototype.parseHost = function () {
   var host = this.host;
   var port = portPattern.exec(host);
   if (port) {
@@ -6130,18 +6270,18 @@ Url$1.prototype.parseHost = function () {
   if (host) { this.hostname = host; }
 };
 
-url.parse = urlParse$2;
+url.parse = urlParse;
 url.resolve = urlResolve;
 url.resolveObject = urlResolveObject;
 url.format = urlFormat;
 
-url.Url = Url$1;
+url.Url = Url;
 
 var helpers$3 = {};
 
 var uri$2 = url;
 
-var ValidationError$1 = helpers$3.ValidationError = function ValidationError (message, instance, schema, path, name, argument) {
+var ValidationError = helpers$3.ValidationError = function ValidationError (message, instance, schema, path, name, argument) {
   if(Array.isArray(path)){
     this.path = path;
     this.property = path.reduce(function(sum, item){
@@ -6165,7 +6305,7 @@ var ValidationError$1 = helpers$3.ValidationError = function ValidationError (me
   this.stack = this.toString();
 };
 
-ValidationError$1.prototype.toString = function toString() {
+ValidationError.prototype.toString = function toString() {
   return this.property + ' ' + this.message;
 };
 
@@ -6185,12 +6325,12 @@ var ValidatorResult$2 = helpers$3.ValidatorResult = function ValidatorResult(ins
 ValidatorResult$2.prototype.addError = function addError(detail) {
   var err;
   if (typeof detail == 'string') {
-    err = new ValidationError$1(detail, this.instance, this.schema, this.path);
+    err = new ValidationError(detail, this.instance, this.schema, this.path);
   } else {
     if (!detail) throw new Error('Missing error detail');
     if (!detail.message) throw new Error('Missing error message');
     if (!detail.name) throw new Error('Missing validator type');
-    err = new ValidationError$1(detail.message, this.instance, this.schema, this.path, detail.name, detail.argument);
+    err = new ValidationError(detail.message, this.instance, this.schema, this.path, detail.name, detail.argument);
   }
 
   this.errors.push(err);
@@ -8227,673 +8367,6 @@ const scripts$1 = {
     debug: "{Client debug script}"
 };
 
-const token = '%[a-f0-9]{2}';
-const singleMatcher = new RegExp('(' + token + ')|([^%]+?)', 'gi');
-const multiMatcher = new RegExp('(' + token + ')+', 'gi');
-
-function decodeComponents(components, split) {
-	try {
-		// Try to decode the entire string first
-		return [decodeURIComponent(components.join(''))];
-	} catch {
-		// Do nothing
-	}
-
-	if (components.length === 1) {
-		return components;
-	}
-
-	split = split || 1;
-
-	// Split the array in 2 parts
-	const left = components.slice(0, split);
-	const right = components.slice(split);
-
-	return Array.prototype.concat.call([], decodeComponents(left), decodeComponents(right));
-}
-
-function decode$2(input) {
-	try {
-		return decodeURIComponent(input);
-	} catch {
-		let tokens = input.match(singleMatcher) || [];
-
-		for (let i = 1; i < tokens.length; i++) {
-			input = decodeComponents(tokens, i).join('');
-
-			tokens = input.match(singleMatcher) || [];
-		}
-
-		return input;
-	}
-}
-
-function customDecodeURIComponent(input) {
-	// Keep track of all the replacements and prefill the map with the `BOM`
-	const replaceMap = {
-		'%FE%FF': '\uFFFD\uFFFD',
-		'%FF%FE': '\uFFFD\uFFFD',
-	};
-
-	let match = multiMatcher.exec(input);
-	while (match) {
-		try {
-			// Decode as big chunks as possible
-			replaceMap[match[0]] = decodeURIComponent(match[0]);
-		} catch {
-			const result = decode$2(match[0]);
-
-			if (result !== match[0]) {
-				replaceMap[match[0]] = result;
-			}
-		}
-
-		match = multiMatcher.exec(input);
-	}
-
-	// Add `%C2` at the end of the map to make sure it does not replace the combinator before everything else
-	replaceMap['%C2'] = '\uFFFD';
-
-	const entries = Object.keys(replaceMap);
-
-	for (const key of entries) {
-		// Replace all decoded components
-		input = input.replace(new RegExp(key, 'g'), replaceMap[key]);
-	}
-
-	return input;
-}
-
-function decodeUriComponent(encodedURI) {
-	if (typeof encodedURI !== 'string') {
-		throw new TypeError('Expected `encodedURI` to be of type `string`, got `' + typeof encodedURI + '`');
-	}
-
-	try {
-		// Try the built in decoder first
-		return decodeURIComponent(encodedURI);
-	} catch {
-		// Fallback to a more advanced decoder
-		return customDecodeURIComponent(encodedURI);
-	}
-}
-
-function splitOnFirst(string, separator) {
-	if (!(typeof string === 'string' && typeof separator === 'string')) {
-		throw new TypeError('Expected the arguments to be of type `string`');
-	}
-
-	if (string === '' || separator === '') {
-		return [];
-	}
-
-	const separatorIndex = string.indexOf(separator);
-
-	if (separatorIndex === -1) {
-		return [];
-	}
-
-	return [
-		string.slice(0, separatorIndex),
-		string.slice(separatorIndex + separator.length)
-	];
-}
-
-function includeKeys(object, predicate) {
-	const result = {};
-
-	if (Array.isArray(predicate)) {
-		for (const key of predicate) {
-			const descriptor = Object.getOwnPropertyDescriptor(object, key);
-			if (descriptor?.enumerable) {
-				Object.defineProperty(result, key, descriptor);
-			}
-		}
-	} else {
-		// `Reflect.ownKeys()` is required to retrieve symbol properties
-		for (const key of Reflect.ownKeys(object)) {
-			const descriptor = Object.getOwnPropertyDescriptor(object, key);
-			if (descriptor.enumerable) {
-				const value = object[key];
-				if (predicate(key, value, object)) {
-					Object.defineProperty(result, key, descriptor);
-				}
-			}
-		}
-	}
-
-	return result;
-}
-
-const isNullOrUndefined = value => value === null || value === undefined;
-
-// eslint-disable-next-line unicorn/prefer-code-point
-const strictUriEncode = string => encodeURIComponent(string).replace(/[!'()*]/g, x => `%${x.charCodeAt(0).toString(16).toUpperCase()}`);
-
-const encodeFragmentIdentifier = Symbol('encodeFragmentIdentifier');
-
-function encoderForArrayFormat(options) {
-	switch (options.arrayFormat) {
-		case 'index': {
-			return key => (result, value) => {
-				const index = result.length;
-
-				if (
-					value === undefined
-					|| (options.skipNull && value === null)
-					|| (options.skipEmptyString && value === '')
-				) {
-					return result;
-				}
-
-				if (value === null) {
-					return [
-						...result, [encode$1(key, options), '[', index, ']'].join(''),
-					];
-				}
-
-				return [
-					...result,
-					[encode$1(key, options), '[', encode$1(index, options), ']=', encode$1(value, options)].join(''),
-				];
-			};
-		}
-
-		case 'bracket': {
-			return key => (result, value) => {
-				if (
-					value === undefined
-					|| (options.skipNull && value === null)
-					|| (options.skipEmptyString && value === '')
-				) {
-					return result;
-				}
-
-				if (value === null) {
-					return [
-						...result,
-						[encode$1(key, options), '[]'].join(''),
-					];
-				}
-
-				return [
-					...result,
-					[encode$1(key, options), '[]=', encode$1(value, options)].join(''),
-				];
-			};
-		}
-
-		case 'colon-list-separator': {
-			return key => (result, value) => {
-				if (
-					value === undefined
-					|| (options.skipNull && value === null)
-					|| (options.skipEmptyString && value === '')
-				) {
-					return result;
-				}
-
-				if (value === null) {
-					return [
-						...result,
-						[encode$1(key, options), ':list='].join(''),
-					];
-				}
-
-				return [
-					...result,
-					[encode$1(key, options), ':list=', encode$1(value, options)].join(''),
-				];
-			};
-		}
-
-		case 'comma':
-		case 'separator':
-		case 'bracket-separator': {
-			const keyValueSep = options.arrayFormat === 'bracket-separator'
-				? '[]='
-				: '=';
-
-			return key => (result, value) => {
-				if (
-					value === undefined
-					|| (options.skipNull && value === null)
-					|| (options.skipEmptyString && value === '')
-				) {
-					return result;
-				}
-
-				// Translate null to an empty string so that it doesn't serialize as 'null'
-				value = value === null ? '' : value;
-
-				if (result.length === 0) {
-					return [[encode$1(key, options), keyValueSep, encode$1(value, options)].join('')];
-				}
-
-				return [[result, encode$1(value, options)].join(options.arrayFormatSeparator)];
-			};
-		}
-
-		default: {
-			return key => (result, value) => {
-				if (
-					value === undefined
-					|| (options.skipNull && value === null)
-					|| (options.skipEmptyString && value === '')
-				) {
-					return result;
-				}
-
-				if (value === null) {
-					return [
-						...result,
-						encode$1(key, options),
-					];
-				}
-
-				return [
-					...result,
-					[encode$1(key, options), '=', encode$1(value, options)].join(''),
-				];
-			};
-		}
-	}
-}
-
-function parserForArrayFormat(options) {
-	let result;
-
-	switch (options.arrayFormat) {
-		case 'index': {
-			return (key, value, accumulator) => {
-				result = /\[(\d*)]$/.exec(key);
-
-				key = key.replace(/\[\d*]$/, '');
-
-				if (!result) {
-					accumulator[key] = value;
-					return;
-				}
-
-				if (accumulator[key] === undefined) {
-					accumulator[key] = {};
-				}
-
-				accumulator[key][result[1]] = value;
-			};
-		}
-
-		case 'bracket': {
-			return (key, value, accumulator) => {
-				result = /(\[])$/.exec(key);
-				key = key.replace(/\[]$/, '');
-
-				if (!result) {
-					accumulator[key] = value;
-					return;
-				}
-
-				if (accumulator[key] === undefined) {
-					accumulator[key] = [value];
-					return;
-				}
-
-				accumulator[key] = [...accumulator[key], value];
-			};
-		}
-
-		case 'colon-list-separator': {
-			return (key, value, accumulator) => {
-				result = /(:list)$/.exec(key);
-				key = key.replace(/:list$/, '');
-
-				if (!result) {
-					accumulator[key] = value;
-					return;
-				}
-
-				if (accumulator[key] === undefined) {
-					accumulator[key] = [value];
-					return;
-				}
-
-				accumulator[key] = [...accumulator[key], value];
-			};
-		}
-
-		case 'comma':
-		case 'separator': {
-			return (key, value, accumulator) => {
-				const isArray = typeof value === 'string' && value.includes(options.arrayFormatSeparator);
-				const isEncodedArray = (typeof value === 'string' && !isArray && decode$1(value, options).includes(options.arrayFormatSeparator));
-				value = isEncodedArray ? decode$1(value, options) : value;
-				const newValue = isArray || isEncodedArray ? value.split(options.arrayFormatSeparator).map(item => decode$1(item, options)) : (value === null ? value : decode$1(value, options));
-				accumulator[key] = newValue;
-			};
-		}
-
-		case 'bracket-separator': {
-			return (key, value, accumulator) => {
-				const isArray = /(\[])$/.test(key);
-				key = key.replace(/\[]$/, '');
-
-				if (!isArray) {
-					accumulator[key] = value ? decode$1(value, options) : value;
-					return;
-				}
-
-				const arrayValue = value === null
-					? []
-					: value.split(options.arrayFormatSeparator).map(item => decode$1(item, options));
-
-				if (accumulator[key] === undefined) {
-					accumulator[key] = arrayValue;
-					return;
-				}
-
-				accumulator[key] = [...accumulator[key], ...arrayValue];
-			};
-		}
-
-		default: {
-			return (key, value, accumulator) => {
-				if (accumulator[key] === undefined) {
-					accumulator[key] = value;
-					return;
-				}
-
-				accumulator[key] = [...[accumulator[key]].flat(), value];
-			};
-		}
-	}
-}
-
-function validateArrayFormatSeparator(value) {
-	if (typeof value !== 'string' || value.length !== 1) {
-		throw new TypeError('arrayFormatSeparator must be single character string');
-	}
-}
-
-function encode$1(value, options) {
-	if (options.encode) {
-		return options.strict ? strictUriEncode(value) : encodeURIComponent(value);
-	}
-
-	return value;
-}
-
-function decode$1(value, options) {
-	if (options.decode) {
-		return decodeUriComponent(value);
-	}
-
-	return value;
-}
-
-function keysSorter(input) {
-	if (Array.isArray(input)) {
-		return input.sort();
-	}
-
-	if (typeof input === 'object') {
-		return keysSorter(Object.keys(input))
-			.sort((a, b) => Number(a) - Number(b))
-			.map(key => input[key]);
-	}
-
-	return input;
-}
-
-function removeHash(input) {
-	const hashStart = input.indexOf('#');
-	if (hashStart !== -1) {
-		input = input.slice(0, hashStart);
-	}
-
-	return input;
-}
-
-function getHash(url) {
-	let hash = '';
-	const hashStart = url.indexOf('#');
-	if (hashStart !== -1) {
-		hash = url.slice(hashStart);
-	}
-
-	return hash;
-}
-
-function parseValue(value, options) {
-	if (options.parseNumbers && !Number.isNaN(Number(value)) && (typeof value === 'string' && value.trim() !== '')) {
-		value = Number(value);
-	} else if (options.parseBooleans && value !== null && (value.toLowerCase() === 'true' || value.toLowerCase() === 'false')) {
-		value = value.toLowerCase() === 'true';
-	}
-
-	return value;
-}
-
-function extract(input) {
-	input = removeHash(input);
-	const queryStart = input.indexOf('?');
-	if (queryStart === -1) {
-		return '';
-	}
-
-	return input.slice(queryStart + 1);
-}
-
-function parse(query, options) {
-	options = {
-		decode: true,
-		sort: true,
-		arrayFormat: 'none',
-		arrayFormatSeparator: ',',
-		parseNumbers: false,
-		parseBooleans: false,
-		...options,
-	};
-
-	validateArrayFormatSeparator(options.arrayFormatSeparator);
-
-	const formatter = parserForArrayFormat(options);
-
-	// Create an object with no prototype
-	const returnValue = Object.create(null);
-
-	if (typeof query !== 'string') {
-		return returnValue;
-	}
-
-	query = query.trim().replace(/^[?#&]/, '');
-
-	if (!query) {
-		return returnValue;
-	}
-
-	for (const parameter of query.split('&')) {
-		if (parameter === '') {
-			continue;
-		}
-
-		const parameter_ = options.decode ? parameter.replace(/\+/g, ' ') : parameter;
-
-		let [key, value] = splitOnFirst(parameter_, '=');
-
-		if (key === undefined) {
-			key = parameter_;
-		}
-
-		// Missing `=` should be `null`:
-		// http://w3.org/TR/2012/WD-url-20120524/#collect-url-parameters
-		value = value === undefined ? null : (['comma', 'separator', 'bracket-separator'].includes(options.arrayFormat) ? value : decode$1(value, options));
-		formatter(decode$1(key, options), value, returnValue);
-	}
-
-	for (const [key, value] of Object.entries(returnValue)) {
-		if (typeof value === 'object' && value !== null) {
-			for (const [key2, value2] of Object.entries(value)) {
-				value[key2] = parseValue(value2, options);
-			}
-		} else {
-			returnValue[key] = parseValue(value, options);
-		}
-	}
-
-	if (options.sort === false) {
-		return returnValue;
-	}
-
-	// TODO: Remove the use of `reduce`.
-	// eslint-disable-next-line unicorn/no-array-reduce
-	return (options.sort === true ? Object.keys(returnValue).sort() : Object.keys(returnValue).sort(options.sort)).reduce((result, key) => {
-		const value = returnValue[key];
-		result[key] = Boolean(value) && typeof value === 'object' && !Array.isArray(value) ? keysSorter(value) : value;
-		return result;
-	}, Object.create(null));
-}
-
-function stringify(object, options) {
-	if (!object) {
-		return '';
-	}
-
-	options = {encode: true,
-		strict: true,
-		arrayFormat: 'none',
-		arrayFormatSeparator: ',', ...options};
-
-	validateArrayFormatSeparator(options.arrayFormatSeparator);
-
-	const shouldFilter = key => (
-		(options.skipNull && isNullOrUndefined(object[key]))
-		|| (options.skipEmptyString && object[key] === '')
-	);
-
-	const formatter = encoderForArrayFormat(options);
-
-	const objectCopy = {};
-
-	for (const [key, value] of Object.entries(object)) {
-		if (!shouldFilter(key)) {
-			objectCopy[key] = value;
-		}
-	}
-
-	const keys = Object.keys(objectCopy);
-
-	if (options.sort !== false) {
-		keys.sort(options.sort);
-	}
-
-	return keys.map(key => {
-		const value = object[key];
-
-		if (value === undefined) {
-			return '';
-		}
-
-		if (value === null) {
-			return encode$1(key, options);
-		}
-
-		if (Array.isArray(value)) {
-			if (value.length === 0 && options.arrayFormat === 'bracket-separator') {
-				return encode$1(key, options) + '[]';
-			}
-
-			return value
-				.reduce(formatter(key), [])
-				.join('&');
-		}
-
-		return encode$1(key, options) + '=' + encode$1(value, options);
-	}).filter(x => x.length > 0).join('&');
-}
-
-function parseUrl(url, options) {
-	options = {
-		decode: true,
-		...options,
-	};
-
-	let [url_, hash] = splitOnFirst(url, '#');
-
-	if (url_ === undefined) {
-		url_ = url;
-	}
-
-	return {
-		url: url_?.split('?')?.[0] ?? '',
-		query: parse(extract(url), options),
-		...(options && options.parseFragmentIdentifier && hash ? {fragmentIdentifier: decode$1(hash, options)} : {}),
-	};
-}
-
-function stringifyUrl(object, options) {
-	options = {
-		encode: true,
-		strict: true,
-		[encodeFragmentIdentifier]: true,
-		...options,
-	};
-
-	const url = removeHash(object.url).split('?')[0] || '';
-	const queryFromUrl = extract(object.url);
-
-	const query = {
-		...parse(queryFromUrl, {sort: false}),
-		...object.query,
-	};
-
-	let queryString = stringify(query, options);
-	if (queryString) {
-		queryString = `?${queryString}`;
-	}
-
-	let hash = getHash(object.url);
-	if (object.fragmentIdentifier) {
-		const urlObjectForFragmentEncode = new URL(url);
-		urlObjectForFragmentEncode.hash = object.fragmentIdentifier;
-		hash = options[encodeFragmentIdentifier] ? urlObjectForFragmentEncode.hash : `#${object.fragmentIdentifier}`;
-	}
-
-	return `${url}${queryString}${hash}`;
-}
-
-function pick(input, filter, options) {
-	options = {
-		parseFragmentIdentifier: true,
-		[encodeFragmentIdentifier]: false,
-		...options,
-	};
-
-	const {url, query, fragmentIdentifier} = parseUrl(input, options);
-
-	return stringifyUrl({
-		url,
-		query: includeKeys(query, filter),
-		fragmentIdentifier,
-	}, options);
-}
-
-function exclude(input, filter, options) {
-	const exclusionFilter = Array.isArray(filter) ? key => !filter.includes(key) : (key, value) => !filter(key, value);
-
-	return pick(input, exclusionFilter, options);
-}
-
-var queryString = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  exclude: exclude,
-  extract: extract,
-  parse: parse,
-  parseUrl: parseUrl,
-  pick: pick,
-  stringify: stringify,
-  stringifyUrl: stringifyUrl
-});
-
 var dist$1 = {};
 
 var Semaphore = {};
@@ -9155,755 +8628,16 @@ Lock$1.Lock = Lock;
 	__export(Lock$1); 
 } (dist$1));
 
-/**
- * Check if we're required to add a port number.
- *
- * @see https://url.spec.whatwg.org/#default-port
- * @param {Number|String} port Port number we need to check
- * @param {String} protocol Protocol we need to check against.
- * @returns {Boolean} Is it a default port for the given protocol
- * @api private
- */
-var requiresPort = function required(port, protocol) {
-  protocol = protocol.split(':')[0];
-  port = +port;
-
-  if (!port) return false;
-
-  switch (protocol) {
-    case 'http':
-    case 'ws':
-    return port !== 80;
-
-    case 'https':
-    case 'wss':
-    return port !== 443;
-
-    case 'ftp':
-    return port !== 21;
-
-    case 'gopher':
-    return port !== 70;
-
-    case 'file':
-    return false;
-  }
-
-  return port !== 0;
-};
-
-var querystringify$1 = {};
-
-var has = Object.prototype.hasOwnProperty
-  , undef;
-
-/**
- * Decode a URI encoded string.
- *
- * @param {String} input The URI encoded string.
- * @returns {String|Null} The decoded string.
- * @api private
- */
-function decode(input) {
-  try {
-    return decodeURIComponent(input.replace(/\+/g, ' '));
-  } catch (e) {
-    return null;
-  }
-}
-
-/**
- * Attempts to encode a given input.
- *
- * @param {String} input The string that needs to be encoded.
- * @returns {String|Null} The encoded string.
- * @api private
- */
-function encode(input) {
-  try {
-    return encodeURIComponent(input);
-  } catch (e) {
-    return null;
-  }
-}
-
-/**
- * Simple query string parser.
- *
- * @param {String} query The query string that needs to be parsed.
- * @returns {Object}
- * @api public
- */
-function querystring(query) {
-  var parser = /([^=?#&]+)=?([^&]*)/g
-    , result = {}
-    , part;
-
-  while (part = parser.exec(query)) {
-    var key = decode(part[1])
-      , value = decode(part[2]);
-
-    //
-    // Prevent overriding of existing properties. This ensures that build-in
-    // methods like `toString` or __proto__ are not overriden by malicious
-    // querystrings.
-    //
-    // In the case if failed decoding, we want to omit the key/value pairs
-    // from the result.
-    //
-    if (key === null || value === null || key in result) continue;
-    result[key] = value;
-  }
-
-  return result;
-}
-
-/**
- * Transform a query string to an object.
- *
- * @param {Object} obj Object that should be transformed.
- * @param {String} prefix Optional prefix.
- * @returns {String}
- * @api public
- */
-function querystringify(obj, prefix) {
-  prefix = prefix || '';
-
-  var pairs = []
-    , value
-    , key;
-
-  //
-  // Optionally prefix with a '?' if needed
-  //
-  if ('string' !== typeof prefix) prefix = '?';
-
-  for (key in obj) {
-    if (has.call(obj, key)) {
-      value = obj[key];
-
-      //
-      // Edge cases where we actually want to encode the value to an empty
-      // string instead of the stringified value.
-      //
-      if (!value && (value === null || value === undef || isNaN(value))) {
-        value = '';
-      }
-
-      key = encode(key);
-      value = encode(value);
-
-      //
-      // If we failed to encode the strings, we should bail out as we don't
-      // want to add invalid strings to the query.
-      //
-      if (key === null || value === null) continue;
-      pairs.push(key +'='+ value);
-    }
-  }
-
-  return pairs.length ? prefix + pairs.join('&') : '';
-}
-
-//
-// Expose the module.
-//
-querystringify$1.stringify = querystringify;
-querystringify$1.parse = querystring;
-
-var required$2 = requiresPort
-  , qs = querystringify$1
-  , controlOrWhitespace = /^[\x00-\x20\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+/
-  , CRHTLF = /[\n\r\t]/g
-  , slashes = /^[A-Za-z][A-Za-z0-9+-.]*:\/\//
-  , port = /:\d+$/
-  , protocolre = /^([a-z][a-z0-9.+-]*:)?(\/\/)?([\\/]+)?([\S\s]*)/i
-  , windowsDriveLetter = /^[a-zA-Z]:/;
-
-/**
- * Remove control characters and whitespace from the beginning of a string.
- *
- * @param {Object|String} str String to trim.
- * @returns {String} A new string representing `str` stripped of control
- *     characters and whitespace from its beginning.
- * @public
- */
-function trimLeft(str) {
-  return (str ? str : '').toString().replace(controlOrWhitespace, '');
-}
-
-/**
- * These are the parse rules for the URL parser, it informs the parser
- * about:
- *
- * 0. The char it Needs to parse, if it's a string it should be done using
- *    indexOf, RegExp using exec and NaN means set as current value.
- * 1. The property we should set when parsing this value.
- * 2. Indication if it's backwards or forward parsing, when set as number it's
- *    the value of extra chars that should be split off.
- * 3. Inherit from location if non existing in the parser.
- * 4. `toLowerCase` the resulting value.
- */
-var rules$1 = [
-  ['#', 'hash'],                        // Extract from the back.
-  ['?', 'query'],                       // Extract from the back.
-  function sanitize(address, url) {     // Sanitize what is left of the address
-    return isSpecial(url.protocol) ? address.replace(/\\/g, '/') : address;
-  },
-  ['/', 'pathname'],                    // Extract from the back.
-  ['@', 'auth', 1],                     // Extract from the front.
-  [NaN, 'host', undefined, 1, 1],       // Set left over value.
-  [/:(\d*)$/, 'port', undefined, 1],    // RegExp the back.
-  [NaN, 'hostname', undefined, 1, 1]    // Set left over.
-];
-
-/**
- * These properties should not be copied or inherited from. This is only needed
- * for all non blob URL's as a blob URL does not include a hash, only the
- * origin.
- *
- * @type {Object}
- * @private
- */
-var ignore = { hash: 1, query: 1 };
-
-/**
- * The location object differs when your code is loaded through a normal page,
- * Worker or through a worker using a blob. And with the blobble begins the
- * trouble as the location object will contain the URL of the blob, not the
- * location of the page where our code is loaded in. The actual origin is
- * encoded in the `pathname` so we can thankfully generate a good "default"
- * location from it so we can generate proper relative URL's again.
- *
- * @param {Object|String} loc Optional default location object.
- * @returns {Object} lolcation object.
- * @public
- */
-function lolcation(loc) {
-  var globalVar;
-
-  if (typeof window !== 'undefined') globalVar = window;
-  else if (typeof commonjsGlobal !== 'undefined') globalVar = commonjsGlobal;
-  else if (typeof self !== 'undefined') globalVar = self;
-  else globalVar = {};
-
-  var location = globalVar.location || {};
-  loc = loc || location;
-
-  var finaldestination = {}
-    , type = typeof loc
-    , key;
-
-  if ('blob:' === loc.protocol) {
-    finaldestination = new Url(unescape(loc.pathname), {});
-  } else if ('string' === type) {
-    finaldestination = new Url(loc, {});
-    for (key in ignore) delete finaldestination[key];
-  } else if ('object' === type) {
-    for (key in loc) {
-      if (key in ignore) continue;
-      finaldestination[key] = loc[key];
-    }
-
-    if (finaldestination.slashes === undefined) {
-      finaldestination.slashes = slashes.test(loc.href);
-    }
-  }
-
-  return finaldestination;
-}
-
-/**
- * Check whether a protocol scheme is special.
- *
- * @param {String} The protocol scheme of the URL
- * @return {Boolean} `true` if the protocol scheme is special, else `false`
- * @private
- */
-function isSpecial(scheme) {
-  return (
-    scheme === 'file:' ||
-    scheme === 'ftp:' ||
-    scheme === 'http:' ||
-    scheme === 'https:' ||
-    scheme === 'ws:' ||
-    scheme === 'wss:'
-  );
-}
-
-/**
- * @typedef ProtocolExtract
- * @type Object
- * @property {String} protocol Protocol matched in the URL, in lowercase.
- * @property {Boolean} slashes `true` if protocol is followed by "//", else `false`.
- * @property {String} rest Rest of the URL that is not part of the protocol.
- */
-
-/**
- * Extract protocol information from a URL with/without double slash ("//").
- *
- * @param {String} address URL we want to extract from.
- * @param {Object} location
- * @return {ProtocolExtract} Extracted information.
- * @private
- */
-function extractProtocol(address, location) {
-  address = trimLeft(address);
-  address = address.replace(CRHTLF, '');
-  location = location || {};
-
-  var match = protocolre.exec(address);
-  var protocol = match[1] ? match[1].toLowerCase() : '';
-  var forwardSlashes = !!match[2];
-  var otherSlashes = !!match[3];
-  var slashesCount = 0;
-  var rest;
-
-  if (forwardSlashes) {
-    if (otherSlashes) {
-      rest = match[2] + match[3] + match[4];
-      slashesCount = match[2].length + match[3].length;
-    } else {
-      rest = match[2] + match[4];
-      slashesCount = match[2].length;
-    }
-  } else {
-    if (otherSlashes) {
-      rest = match[3] + match[4];
-      slashesCount = match[3].length;
-    } else {
-      rest = match[4];
-    }
-  }
-
-  if (protocol === 'file:') {
-    if (slashesCount >= 2) {
-      rest = rest.slice(2);
-    }
-  } else if (isSpecial(protocol)) {
-    rest = match[4];
-  } else if (protocol) {
-    if (forwardSlashes) {
-      rest = rest.slice(2);
-    }
-  } else if (slashesCount >= 2 && isSpecial(location.protocol)) {
-    rest = match[4];
-  }
-
-  return {
-    protocol: protocol,
-    slashes: forwardSlashes || isSpecial(protocol),
-    slashesCount: slashesCount,
-    rest: rest
-  };
-}
-
-/**
- * Resolve a relative URL pathname against a base URL pathname.
- *
- * @param {String} relative Pathname of the relative URL.
- * @param {String} base Pathname of the base URL.
- * @return {String} Resolved pathname.
- * @private
- */
-function resolve$2(relative, base) {
-  if (relative === '') return base;
-
-  var path = (base || '/').split('/').slice(0, -1).concat(relative.split('/'))
-    , i = path.length
-    , last = path[i - 1]
-    , unshift = false
-    , up = 0;
-
-  while (i--) {
-    if (path[i] === '.') {
-      path.splice(i, 1);
-    } else if (path[i] === '..') {
-      path.splice(i, 1);
-      up++;
-    } else if (up) {
-      if (i === 0) unshift = true;
-      path.splice(i, 1);
-      up--;
-    }
-  }
-
-  if (unshift) path.unshift('');
-  if (last === '.' || last === '..') path.push('');
-
-  return path.join('/');
-}
-
-/**
- * The actual URL instance. Instead of returning an object we've opted-in to
- * create an actual constructor as it's much more memory efficient and
- * faster and it pleases my OCD.
- *
- * It is worth noting that we should not use `URL` as class name to prevent
- * clashes with the global URL instance that got introduced in browsers.
- *
- * @constructor
- * @param {String} address URL we want to parse.
- * @param {Object|String} [location] Location defaults for relative paths.
- * @param {Boolean|Function} [parser] Parser for the query string.
- * @private
- */
-function Url(address, location, parser) {
-  address = trimLeft(address);
-  address = address.replace(CRHTLF, '');
-
-  if (!(this instanceof Url)) {
-    return new Url(address, location, parser);
-  }
-
-  var relative, extracted, parse, instruction, index, key
-    , instructions = rules$1.slice()
-    , type = typeof location
-    , url = this
-    , i = 0;
-
-  //
-  // The following if statements allows this module two have compatibility with
-  // 2 different API:
-  //
-  // 1. Node.js's `url.parse` api which accepts a URL, boolean as arguments
-  //    where the boolean indicates that the query string should also be parsed.
-  //
-  // 2. The `URL` interface of the browser which accepts a URL, object as
-  //    arguments. The supplied object will be used as default values / fall-back
-  //    for relative paths.
-  //
-  if ('object' !== type && 'string' !== type) {
-    parser = location;
-    location = null;
-  }
-
-  if (parser && 'function' !== typeof parser) parser = qs.parse;
-
-  location = lolcation(location);
-
-  //
-  // Extract protocol information before running the instructions.
-  //
-  extracted = extractProtocol(address || '', location);
-  relative = !extracted.protocol && !extracted.slashes;
-  url.slashes = extracted.slashes || relative && location.slashes;
-  url.protocol = extracted.protocol || location.protocol || '';
-  address = extracted.rest;
-
-  //
-  // When the authority component is absent the URL starts with a path
-  // component.
-  //
-  if (
-    extracted.protocol === 'file:' && (
-      extracted.slashesCount !== 2 || windowsDriveLetter.test(address)) ||
-    (!extracted.slashes &&
-      (extracted.protocol ||
-        extracted.slashesCount < 2 ||
-        !isSpecial(url.protocol)))
-  ) {
-    instructions[3] = [/(.*)/, 'pathname'];
-  }
-
-  for (; i < instructions.length; i++) {
-    instruction = instructions[i];
-
-    if (typeof instruction === 'function') {
-      address = instruction(address, url);
-      continue;
-    }
-
-    parse = instruction[0];
-    key = instruction[1];
-
-    if (parse !== parse) {
-      url[key] = address;
-    } else if ('string' === typeof parse) {
-      index = parse === '@'
-        ? address.lastIndexOf(parse)
-        : address.indexOf(parse);
-
-      if (~index) {
-        if ('number' === typeof instruction[2]) {
-          url[key] = address.slice(0, index);
-          address = address.slice(index + instruction[2]);
-        } else {
-          url[key] = address.slice(index);
-          address = address.slice(0, index);
-        }
-      }
-    } else if ((index = parse.exec(address))) {
-      url[key] = index[1];
-      address = address.slice(0, index.index);
-    }
-
-    url[key] = url[key] || (
-      relative && instruction[3] ? location[key] || '' : ''
-    );
-
-    //
-    // Hostname, host and protocol should be lowercased so they can be used to
-    // create a proper `origin`.
-    //
-    if (instruction[4]) url[key] = url[key].toLowerCase();
-  }
-
-  //
-  // Also parse the supplied query string in to an object. If we're supplied
-  // with a custom parser as function use that instead of the default build-in
-  // parser.
-  //
-  if (parser) url.query = parser(url.query);
-
-  //
-  // If the URL is relative, resolve the pathname against the base URL.
-  //
-  if (
-      relative
-    && location.slashes
-    && url.pathname.charAt(0) !== '/'
-    && (url.pathname !== '' || location.pathname !== '')
-  ) {
-    url.pathname = resolve$2(url.pathname, location.pathname);
-  }
-
-  //
-  // Default to a / for pathname if none exists. This normalizes the URL
-  // to always have a /
-  //
-  if (url.pathname.charAt(0) !== '/' && isSpecial(url.protocol)) {
-    url.pathname = '/' + url.pathname;
-  }
-
-  //
-  // We should not add port numbers if they are already the default port number
-  // for a given protocol. As the host also contains the port number we're going
-  // override it with the hostname which contains no port number.
-  //
-  if (!required$2(url.port, url.protocol)) {
-    url.host = url.hostname;
-    url.port = '';
-  }
-
-  //
-  // Parse down the `auth` for the username and password.
-  //
-  url.username = url.password = '';
-
-  if (url.auth) {
-    index = url.auth.indexOf(':');
-
-    if (~index) {
-      url.username = url.auth.slice(0, index);
-      url.username = encodeURIComponent(decodeURIComponent(url.username));
-
-      url.password = url.auth.slice(index + 1);
-      url.password = encodeURIComponent(decodeURIComponent(url.password));
-    } else {
-      url.username = encodeURIComponent(decodeURIComponent(url.auth));
-    }
-
-    url.auth = url.password ? url.username +':'+ url.password : url.username;
-  }
-
-  url.origin = url.protocol !== 'file:' && isSpecial(url.protocol) && url.host
-    ? url.protocol +'//'+ url.host
-    : 'null';
-
-  //
-  // The href is just the compiled result.
-  //
-  url.href = url.toString();
-}
-
-/**
- * This is convenience method for changing properties in the URL instance to
- * insure that they all propagate correctly.
- *
- * @param {String} part          Property we need to adjust.
- * @param {Mixed} value          The newly assigned value.
- * @param {Boolean|Function} fn  When setting the query, it will be the function
- *                               used to parse the query.
- *                               When setting the protocol, double slash will be
- *                               removed from the final url if it is true.
- * @returns {URL} URL instance for chaining.
- * @public
- */
-function set(part, value, fn) {
-  var url = this;
-
-  switch (part) {
-    case 'query':
-      if ('string' === typeof value && value.length) {
-        value = (fn || qs.parse)(value);
-      }
-
-      url[part] = value;
-      break;
-
-    case 'port':
-      url[part] = value;
-
-      if (!required$2(value, url.protocol)) {
-        url.host = url.hostname;
-        url[part] = '';
-      } else if (value) {
-        url.host = url.hostname +':'+ value;
-      }
-
-      break;
-
-    case 'hostname':
-      url[part] = value;
-
-      if (url.port) value += ':'+ url.port;
-      url.host = value;
-      break;
-
-    case 'host':
-      url[part] = value;
-
-      if (port.test(value)) {
-        value = value.split(':');
-        url.port = value.pop();
-        url.hostname = value.join(':');
-      } else {
-        url.hostname = value;
-        url.port = '';
-      }
-
-      break;
-
-    case 'protocol':
-      url.protocol = value.toLowerCase();
-      url.slashes = !fn;
-      break;
-
-    case 'pathname':
-    case 'hash':
-      if (value) {
-        var char = part === 'pathname' ? '/' : '#';
-        url[part] = value.charAt(0) !== char ? char + value : value;
-      } else {
-        url[part] = value;
-      }
-      break;
-
-    case 'username':
-    case 'password':
-      url[part] = encodeURIComponent(value);
-      break;
-
-    case 'auth':
-      var index = value.indexOf(':');
-
-      if (~index) {
-        url.username = value.slice(0, index);
-        url.username = encodeURIComponent(decodeURIComponent(url.username));
-
-        url.password = value.slice(index + 1);
-        url.password = encodeURIComponent(decodeURIComponent(url.password));
-      } else {
-        url.username = encodeURIComponent(decodeURIComponent(value));
-      }
-  }
-
-  for (var i = 0; i < rules$1.length; i++) {
-    var ins = rules$1[i];
-
-    if (ins[4]) url[ins[1]] = url[ins[1]].toLowerCase();
-  }
-
-  url.auth = url.password ? url.username +':'+ url.password : url.username;
-
-  url.origin = url.protocol !== 'file:' && isSpecial(url.protocol) && url.host
-    ? url.protocol +'//'+ url.host
-    : 'null';
-
-  url.href = url.toString();
-
-  return url;
-}
-
-/**
- * Transform the properties back in to a valid and full URL string.
- *
- * @param {Function} stringify Optional query stringify function.
- * @returns {String} Compiled version of the URL.
- * @public
- */
-function toString(stringify) {
-  if (!stringify || 'function' !== typeof stringify) stringify = qs.stringify;
-
-  var query
-    , url = this
-    , host = url.host
-    , protocol = url.protocol;
-
-  if (protocol && protocol.charAt(protocol.length - 1) !== ':') protocol += ':';
-
-  var result =
-    protocol +
-    ((url.protocol && url.slashes) || isSpecial(url.protocol) ? '//' : '');
-
-  if (url.username) {
-    result += url.username;
-    if (url.password) result += ':'+ url.password;
-    result += '@';
-  } else if (url.password) {
-    result += ':'+ url.password;
-    result += '@';
-  } else if (
-    url.protocol !== 'file:' &&
-    isSpecial(url.protocol) &&
-    !host &&
-    url.pathname !== '/'
-  ) {
-    //
-    // Add back the empty userinfo, otherwise the original invalid URL
-    // might be transformed into a valid one with `url.pathname` as host.
-    //
-    result += '@';
-  }
-
-  //
-  // Trailing colon is removed from `url.host` when it is parsed. If it still
-  // ends with a colon, then add back the trailing colon that was removed. This
-  // prevents an invalid URL from being transformed into a valid one.
-  //
-  if (host[host.length - 1] === ':' || (port.test(url.hostname) && !url.port)) {
-    host += ':';
-  }
-
-  result += host + url.pathname;
-
-  query = 'object' === typeof url.query ? stringify(url.query) : url.query;
-  if (query) result += '?' !== query.charAt(0) ? '?'+ query : query;
-
-  if (url.hash) result += url.hash;
-
-  return result;
-}
-
-Url.prototype = { set: set, toString: toString };
-
-//
-// Expose the URL parser and some additional properties that might be useful for
-// others or testing.
-//
-Url.extractProtocol = extractProtocol;
-Url.location = lolcation;
-Url.trimLeft = trimLeft;
-Url.qs = qs;
-
-var urlParse = Url;
-
-var urlParse$1 = /*@__PURE__*/getDefaultExportFromCjs(urlParse);
-
-const MUTEX_REQUEST_COOKIE = ".tail.rq";
-const CONTEXT_MENU_COOKIE = ".tail.cm";
 const INITIALIZE_TRACKER_FUNCTION = ".tail.js.init";
+const INIT_QUERY = "init";
+const CLIENT_SCRIPT_QUERY = "opt";
+const EVENT_HUB_QUERY = "var";
+const VARIABLES_QUERY = "usr";
+const CONTEXT_NAV_QUERY = "mnt";
+const SCHEMA_QUERY = "$types";
+const CONTEXT_NAV_REQUEST_ID = "ctx.rid";
+// Must match the key in @tailjs/types/ScopeVariables.ts.
+const SCOPE_INFO_KEY = "info";
 
 class DefaultSessionReferenceMapper {
     async mapSessionId(tracker) {
@@ -9919,7 +8653,7 @@ class DefaultSessionReferenceMapper {
     }
 }
 
-const generateClientConfigScript = (tracker, config)=>{
+const generateClientConfigScript = (config)=>{
     delete config["dataTags"];
     return `((s=document.createElement("script"))=>{s.addEventListener("load",()=>window[${JSON.stringify(INITIALIZE_TRACKER_FUNCTION)}](init=>init(${JSON.stringify(httpEncode(config))})),true);s.src=${JSON.stringify(config.src)};document.head.appendChild(s)})();`;
 };
@@ -9932,7 +8666,12 @@ const scripts = {
     },
     debug: scripts$1.debug
 };
-let SCRIPT_CACHE_CONTROL = "private, max-age=604800"; // A week
+const MAX_CACHE_HEADERS = {
+    "cache-control": "private, max-age=2147483648"
+}; // As long as possible (https://datatracker.ietf.org/doc/html/rfc9111#section-1.2.2).
+let SCRIPT_CACHE_HEADERS = {
+    "cache-control": "private, max-age=604800"
+}; // A week
 class RequestHandler {
     _allowUnknownEventTypes;
     _cookies;
@@ -9942,7 +8681,6 @@ class RequestHandler {
     _lock = new dist$1.Lock();
     _schema;
     _trackerName;
-    _useSession;
     _extensions;
     _initialized = false;
     _script;
@@ -9954,36 +8692,36 @@ class RequestHandler {
     /** @internal */ _sessionReferenceMapper;
     _initConfig;
     constructor(config){
-        let { trackerName, endpoint, extensions, cookies, allowUnknownEventTypes, debugScript, useSession, sessionTimeout, clientKeySeed, client, sessionReferenceMapper } = merge$1({}, DEFAULT, config);
+        let { trackerName, endpoint, extensions, cookies, allowUnknownEventTypes, debugScript, sessionTimeout, clientKeySeed, client, sessionReferenceMapper } = merge$2({}, DEFAULT, config);
         this._initConfig = config;
         this._trackerName = trackerName;
         this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
-        this._extensionFactories = map(extensions);
+        this._extensionFactories = map$1(extensions);
         this._cookies = new CookieMonster(cookies);
         this._allowUnknownEventTypes = allowUnknownEventTypes;
-        this._useSession = useSession;
         this._debugScript = debugScript;
         this._sessionReferenceMapper = sessionReferenceMapper ?? new DefaultSessionReferenceMapper();
         this._sessionTimeout = sessionTimeout;
         this._cookieNames = {
-            consent: `${cookies.namePrefix}.consent`,
-            session: `${cookies.namePrefix}.s`,
+            consent: cookies.namePrefix + ":consent",
+            session: cookies.namePrefix + ":session",
+            push: cookies.namePrefix + ":push",
             device: obj(dataPurposes.pure.map(([name, flag])=>[
                     flag,
                     // Necessary device data is just ".d" (no suffix)
-                    `${cookies.namePrefix}.d${flag !== DataPurposeFlags.Necessary ? `.${name[0]}` : ""}`
+                    cookies.namePrefix + ":" + dataPurposes.format(name)
                 ]))
         };
         this._clientKeySeed = clientKeySeed;
         this._clientConfig = client;
         this._clientConfig.src = this._endpoint;
     }
-    async applyExtensions(tracker) {
+    async applyExtensions(tracker, context) {
         //console.log(`EXT.IN: ${++this._activeExtensionRequests}`);
         for (const extension of this._extensions){
             // Call the apply method in post context to let extension do whatever they need before events are processed (e.g. initialize session).
             try {
-                await extension.apply?.(tracker);
+                await extension.apply?.(tracker, context);
             } catch (e) {
                 this._logExtensionError(extension, "apply", e);
             }
@@ -10006,12 +8744,12 @@ class RequestHandler {
             if (this._initialized) return;
             let { host, crypto, environmentTags, encryptionKeys, schemas, storage } = this._initConfig;
             schemas ??= [];
-            if (!schemas.find((schema)=>isObject(schema) && schema.$id === "urn:tailjs:core")) {
+            if (!schemas.find((schema)=>isPlainObject(schema) && schema.$id === "urn:tailjs:core")) {
                 schemas.unshift(defaultSchema);
             }
             for (const [schema, i] of rank(schemas)){
                 if (isString$1(schema)) {
-                    schemas[i] = JSON.parse(required$3(await host.readText(schema), ()=>`The schema path '${schema}' does not exists`));
+                    schemas[i] = JSON.parse(required$2(await host.readText(schema), ()=>`The schema path '${schema}' does not exists`));
                 }
             }
             if (!storage) {
@@ -10023,7 +8761,7 @@ class RequestHandler {
                 };
             }
             this._schema = new SchemaManager(schemas);
-            this.environment = new TrackerEnvironment(host, crypto ?? new DefaultCryptoProvider(encryptionKeys), new TrackerVariableStorage(new VariableStorageCoordinator({
+            this.environment = new TrackerEnvironment(host, crypto ?? new DefaultCryptoProvider(encryptionKeys), new ParsingVariableStorage(new VariableStorageCoordinator({
                 schema: this._schema,
                 mappings: storage
             })), environmentTags);
@@ -10039,7 +8777,7 @@ class RequestHandler {
             await this.environment.storage.initialize?.(this.environment);
             this._extensions = [
                 Timestamps,
-                this._useSession ? new TrackerCoreEvents() : null,
+                new TrackerCoreEvents(),
                 new CommerceExtension(),
                 ...await Promise.all(this._extensionFactories.map(async (factory)=>{
                     let extension = null;
@@ -10061,16 +8799,19 @@ class RequestHandler {
             this._lock.release();
         }
     }
-    async post(tracker, eventBatch, { deviceSessionId, deviceId, routeToClient }) {
+    async post(tracker, eventBatch, options) {
+        const context = {
+            passive: !!options?.passive
+        };
         let events = eventBatch;
         await this.initialize();
-        const validateEvents = (events)=>map(events, (ev)=>isValidationError(ev) ? ev : this._allowUnknownEventTypes && !this._schema.getType(ev.type) || this._schema.censor(ev.type, ev, tracker.consent));
+        const validateEvents = (events)=>map$1(events, (ev)=>isValidationError(ev) ? ev : this._allowUnknownEventTypes && !this._schema.getType(ev.type) || this._schema.censor(ev.type, ev, tracker.consent));
         let parsed = validateEvents(eventBatch);
         const sourceIndices = new Map();
         parsed.forEach((item, i)=>{
             sourceIndices.set(item, i);
         });
-        await tracker._applyExtensions(deviceSessionId, deviceId);
+        await tracker._applyExtensions(options);
         const validationErrors = [];
         function collectValidationErrors(parsed) {
             const events = [];
@@ -10096,7 +8837,7 @@ class RequestHandler {
             try {
                 return collectValidationErrors(validateEvents(await extension.patch(events, async (events)=>{
                     return await callPatch(index + 1, events);
-                }, tracker)));
+                }, tracker, context)));
             } catch (e) {
                 this._logExtensionError(extension, "update", e);
                 return events;
@@ -10104,18 +8845,19 @@ class RequestHandler {
         };
         eventBatch = await callPatch(0, parsed);
         const extensionErrors = {};
-        if (routeToClient) {
+        if (options.routeToClient) {
+            // TODO: Find a way to push these. They are for external client-side trackers.
             tracker._clientEvents.push(...events);
         } else {
             await Promise.all(this._extensions.map(async (extension)=>{
                 try {
-                    await extension.post?.(eventBatch, tracker) ?? Promise.resolve();
+                    await extension.post?.(eventBatch, tracker, context) ?? Promise.resolve();
                 } catch (e) {
                     extensionErrors[extension.id] = e instanceof Error ? e : new Error(e?.toString());
                 }
             }));
         }
-        if (validationErrors.length || any(extensionErrors)) {
+        if (validationErrors.length || some(extensionErrors)) {
             throw new PostError(validationErrors, extensionErrors);
         }
         return {};
@@ -10124,119 +8866,187 @@ class RequestHandler {
         //const requestTimer = timer("Request").start();
         if (!url) return null;
         await this.initialize();
-        const { host, pathname: path, query } = urlParse$1(url);
-        const parsedQuery = queryString.parse(query);
+        const { host, path, query } = parseUri(url);
+        if (host == null || path == null) {
+            return null;
+        }
         const headers = Object.fromEntries(Object.entries(sourceHeaders).filter(([k, v])=>!!v).map(([k, v])=>[
                 k.toLowerCase(),
                 Array.isArray(v) ? v.join(",") : v
             ]));
-        clientIp ??= headers["x-forwarded-for"]?.[0] ?? Object.fromEntries(params(headers["forwarded"]))["for"] ?? undefined;
-        const tracker = new Tracker({
-            headers,
-            host,
-            path,
-            url,
-            queryString: Object.fromEntries(Object.entries(parsedQuery ?? {}).map(([key, value])=>[
-                    key,
-                    !value ? [] : Array.isArray(value) ? value.map((value)=>value || "") : [
-                        value
-                    ]
-                ])),
-            clientIp,
-            requestHandler: this,
-            cookies: this._cookies.parseCookieHeader(headers["cookie"]),
-            clientKeySeed: this._clientKeySeed
-        });
-        try {
-            let extensionRequestType = null;
-            const result = async (response, discardTrackerCookies = false)=>{
-                if (extensionRequestType) {
-                    !discardTrackerCookies && await tracker._persist();
-                    console.log(tracker.httpClientDecrypt(tracker.cookies[MUTEX_REQUEST_COOKIE]?.value));
-                }
-                if (response) {
-                    response.headers ??= {};
-                    response.cookies = this.getClientCookies(tracker);
-                }
-                return {
-                    tracker,
-                    response: response
-                };
+        let trackerInitializationOptions;
+        let trackerSettings = deferred(()=>{
+            clientIp ??= headers["x-forwarded-for"]?.[0] ?? obj(parseQueryString(headers["forwarded"]))?.["for"] ?? undefined;
+            let clientKey;
+            if (this._clientKeySeed) {
+                clientKey = `${clientIp}_${headers?.["user-agent"] ?? ""}`;
+                clientKey = `${clientKey.substring(0, clientKey.length / 2)}${this._clientKeySeed}${clientKey.substring(clientKey.length / 2 + 1)}`;
+                clientKey = this.environment.hash(clientKey, 64);
+            }
+            return {
+                headers,
+                host,
+                path,
+                url,
+                queryString: Object.fromEntries(Object.entries(query ?? {}).map(([key, value])=>[
+                        key,
+                        !value ? [] : Array.isArray(value) ? value.map((value)=>value || "") : [
+                            value
+                        ]
+                    ])),
+                clientIp,
+                requestHandler: this,
+                cookies: this._cookies.parseCookieHeader(headers["cookie"]),
+                clientKey,
+                cipher: createTransport(clientKey)
             };
+        });
+        /**
+     * Set trackerInit before calling this or this first time, if something is needed.
+     *
+     * The reason it is async is if a consuming API wants to use the tracker in its own code.
+     * The overhead of initializing the tracker should not be included if it doesn't, and no request was handled from the URL.
+     */ const tracker = deferredPromise(async ()=>{
+            const tracker = new Tracker(trackerSettings());
+            await tracker._initialize(trackerInitializationOptions);
+            return tracker;
+        });
+        const result = async (response, { /* Don't write any cookies, changed or not.
+         * In situations where we redirect and what we are doing might be interpreted as "link decoration",
+         * we don't want the browser to suddenly restrict the age of the user's cookies.
+         * The push cookie may be set, but that has a very short age anyway (and hopefully will be replaced with SSE).
+         */ sendCookies = true, push = false } = {})=>{
+            if (response) {
+                response.headers ??= {};
+                if (tracker.initialized) {
+                    const resolvedTracker = await tracker;
+                    if (sendCookies) {
+                        await resolvedTracker._persist(true);
+                        response.cookies = this.getClientCookies(resolvedTracker);
+                    } else {
+                        await resolvedTracker._persist(false);
+                    }
+                }
+                if (isPlainObject(response.body)) {
+                    response.body = trackerSettings().cipher[0](response.body);
+                }
+                if (isString$1(response.body) && !response.headers?.["content-type"]) {
+                    (response.headers ??= {})["content-type"] = "text/plain";
+                }
+                if (push && response.body) {
+                    // TODO: Change to server-sent events (SSE).
+                    if (this._cookieNames.push) {
+                        (response.cookies ?? []).push(this._cookies.mapResponseCookie(this._cookieNames.push, {
+                            value: response.body,
+                            essential: true,
+                            httpOnly: false,
+                            maxAge: 5
+                        }));
+                    }
+                    // If we had a response before, we don't now. Change status to "OK no content"
+                    response.status === 200 && (response.status = 204);
+                    response.body = undefined;
+                }
+            }
+            return {
+                tracker,
+                response: response
+            };
+        };
+        try {
             let requestPath = path;
             if (requestPath.startsWith(this._endpoint)) {
                 requestPath = requestPath.substring(this._endpoint.length);
-                if ("init" in parsedQuery) {
-                    // This is set by most modern browsers.
-                    // It prevents external scripts to try to get a hold of the storage key via XHR.
-                    const secDest = headers["sec-fetch-dest"];
-                    if (secDest && secDest !== "script") {
-                        return await result({
-                            status: 400,
-                            body: "This script can only be loaded from a script tag.",
-                            headers: {
-                                "content-type": "text/plain",
-                                "cache-control": SCRIPT_CACHE_CONTROL,
-                                vary: "sec-fetch-dest"
-                            }
-                        });
-                    }
-                    return await result({
-                        status: 200,
-                        body: generateClientConfigScript(tracker, {
-                            ...this._clientConfig,
-                            clientKey: tracker.clientKey
-                        }),
-                        headers: {
-                            "content-type": "application/javascript",
-                            "cache-control": SCRIPT_CACHE_CONTROL,
-                            vary: "sec-fetch-dest"
-                        }
-                    });
-                }
+                let queryValue;
                 switch(method.toUpperCase()){
                     case "GET":
                         {
-                            if ("opt" in parsedQuery) {
+                            if ((queryValue = join(query?.[INIT_QUERY])) != null) {
+                                // This is set by most modern browsers.
+                                // It prevents external scripts to try to get a hold of the storage key via XHR.
+                                const secDest = headers["sec-fetch-dest"];
+                                if (secDest && secDest !== "script") {
+                                    return await result({
+                                        status: 400,
+                                        body: "This script can only be loaded from a script tag.",
+                                        headers: {
+                                            ...SCRIPT_CACHE_HEADERS,
+                                            vary: "sec-fetch-dest"
+                                        }
+                                    });
+                                }
+                                const { clientKey } = trackerSettings();
                                 return await result({
                                     status: 200,
-                                    body: this._getClientScripts(tracker, false),
-                                    cacheKey: "external-script",
+                                    body: generateClientConfigScript({
+                                        ...this._clientConfig,
+                                        clientKey
+                                    }),
                                     headers: {
-                                        "cache-control": SCRIPT_CACHE_CONTROL,
-                                        "content-type": "application/javascript"
+                                        "content-type": "application/javascript",
+                                        ...SCRIPT_CACHE_HEADERS,
+                                        vary: "sec-fetch-dest"
                                     }
                                 });
                             }
-                            if ("mnt" in parsedQuery) {
-                                const mnt = Array.isArray(parsedQuery["mnt"]) ? parsedQuery["mnt"].join("") : parsedQuery["mnt"];
-                                const contextMenuCookie = tracker.cookies[CONTEXT_MENU_COOKIE]?.value;
-                                // Don't write any other cookies (that is, clear those we have).
-                                // If for any reason this redirect is considered "link decoration" or similar
-                                // we don't want the browser to store the rest of our cookies in a restrictive way.
-                                tracker.cookies = {};
+                            if ((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])) != null) {
+                                return await result({
+                                    status: 200,
+                                    body: await this._getClientScripts(tracker, false),
+                                    cacheKey: "external-script",
+                                    headers: {
+                                        "content-type": "application/javascript",
+                                        ...SCRIPT_CACHE_HEADERS
+                                    }
+                                });
+                            }
+                            if ((queryValue = join(query?.[CONTEXT_NAV_QUERY])) != null) {
+                                trackerInitializationOptions = {
+                                    passive: true
+                                };
+                                // We need to initialize the tracker to see if it has a session.
+                                // If so, we will push a variable that tells the client navigation happened.
+                                // Otherwise we will just redirect without sending any cookies.
+                                const resolvedTracker = await tracker;
+                                const parts = match(join(queryValue), /^([0-9a-z]*0)?(.+)$/);
+                                const targetUri = parts?.[1];
+                                if (!targetUri) return await result({
+                                    status: 400
+                                });
+                                const requestId = parts?.[0];
+                                resolvedTracker.cookies = {};
                                 // This cookie is used to signal that external navigation happened from the "open in new tab" context menu.
                                 // We do not want the server to echo this cookie.
-                                if (contextMenuCookie) {
-                                    tracker.cookies[CONTEXT_MENU_COOKIE] = {
-                                        essential: true,
-                                        httpOnly: false,
-                                        maxAge: 30,
-                                        value: "" + (+contextMenuCookie + 1),
-                                        sameSitePolicy: "Lax"
-                                    };
-                                }
+                                SCRIPT_CACHE_HEADERS;
                                 return await result({
                                     status: 301,
                                     headers: {
-                                        location: mnt + "",
-                                        "cache-control": "no-cache, no-store, must-revalidate",
-                                        pragma: "no-cache",
-                                        expires: "0"
-                                    }
+                                        location: queryValue,
+                                        ...MAX_CACHE_HEADERS
+                                    },
+                                    body: requestId != null && resolvedTracker.sessionId ? // received an encoded link, if the original user decided to copy the link via the context menu.
+                                    {
+                                        variables: {
+                                            // Set a fictitious variable so the client picks up navigation happened if polling for the request ID.
+                                            // The idea is that these request IDs are random with millions of possible values, so collisions are
+                                            // very unlikely. This would only happen if another user received a link the user copied via the context menu,
+                                            // and then opened it while having an active session waiting for the exact same request ID. #640KShouldBeEnough.
+                                            get: [
+                                                {
+                                                    status: 200,
+                                                    scope: VariableScope.Session,
+                                                    key: CONTEXT_NAV_REQUEST_ID,
+                                                    value: requestId
+                                                }
+                                            ]
+                                        }
+                                    } : undefined
+                                }, {
+                                    sendCookies: false,
+                                    push: true
                                 });
                             }
-                            if ("$types" in parsedQuery) {
+                            if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
                                 return await result({
                                     status: 200,
                                     body: this._schema.schema.definition,
@@ -10246,17 +9056,17 @@ class RequestHandler {
                                     cacheKey: "types"
                                 });
                             }
+                            // Default for GET is to send script.
                             const scriptHeaders = {
                                 "content-type": "application/javascript",
-                                "cache-control": SCRIPT_CACHE_CONTROL
+                                ...SCRIPT_CACHE_HEADERS
                             };
-                            const tisso = 32;
                             let script = this._script;
                             if (!script) {
                                 if (this._debugScript) {
                                     script = scripts.debug;
                                 } else {
-                                    const accept = tracker.headers["accept-encoding"]?.split(",").map((value)=>value.toLowerCase().trim()) ?? [];
+                                    const accept = headers["accept-encoding"]?.split(",").map((value)=>value.toLowerCase().trim()) ?? [];
                                     if (accept.includes("br")) {
                                         script = scripts.main.br;
                                         scriptHeaders["content-encoding"] = "br";
@@ -10277,58 +9087,73 @@ class RequestHandler {
                         }
                     case "POST":
                         {
-                            const payloadString = payload ? await payload() : null;
-                            if (payloadString == null || payloadString === "") {
-                                return await result({
-                                    status: 400,
-                                    body: "No data.",
-                                    headers: {
-                                        "content-type": "text/plain"
+                            if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
+                                const payloadString = payload ? await payload() : null;
+                                if (payloadString == null || payloadString === "") {
+                                    return await result({
+                                        status: 400,
+                                        body: "No data."
+                                    });
+                                }
+                                try {
+                                    // TODO: Be binary.
+                                    const postRequest = this.environment.httpDecode(payloadString);
+                                    if (!postRequest.events && postRequest.variables) {
+                                        return result({
+                                            status: 400
+                                        });
                                     }
-                                });
-                            }
-                            const postRequest = this.environment.httpDecode(payloadString);
-                            try {
-                                extensionRequestType = "post";
-                                const response = {};
-                                if (postRequest.events) {
-                                    //requestTimer.print("post start");
-                                    await tracker.post(postRequest.events ?? [], {
-                                        deviceSessionId: postRequest.deviceSessionId,
-                                        deviceId: postRequest.deviceId
+                                    trackerInitializationOptions = {
+                                        deviceId: postRequest.deviceId,
+                                        deviceSessionId: postRequest.deviceId
+                                    };
+                                    let push = postRequest.beacon;
+                                    const resolvedTracker = await tracker;
+                                    const response = {};
+                                    if (postRequest.events) {
+                                        //requestTimer.print("post start");
+                                        await resolvedTracker.post(postRequest.events, {
+                                            passive: postRequest.events.every(isPassiveEvent),
+                                            deviceSessionId: postRequest.deviceSessionId,
+                                            deviceId: postRequest.deviceId
+                                        });
+                                    }
+                                    if (postRequest.variables) {
+                                        if (postRequest.variables.get) {
+                                            (response.variables ??= {}).get = await resolvedTracker.get(...postRequest.variables.get);
+                                        }
+                                        if (postRequest.variables.set) {
+                                            (response.variables ??= {}).set = await resolvedTracker.set(...postRequest.variables.set);
+                                        }
+                                    }
+                                    return await result(response.variables ? {
+                                        status: 200,
+                                        body: response
+                                    } : {
+                                        status: 204
+                                    }, {
+                                        push: true
                                     });
+                                } catch (error) {
+                                    this.environment.log({
+                                        group: "system/request-handler",
+                                        source: "post"
+                                    }, error);
+                                    if (error instanceof PostError) {
+                                        return result({
+                                            status: Object.keys(error.extensions).length ? 500 : 400,
+                                            body: error.message,
+                                            error
+                                        });
+                                    }
+                                    throw error;
                                 }
-                                return await result(response.eventIds || response.variables ? {
-                                    status: 200,
-                                    body: tracker.httpClientEncrypt(response)
-                                } : {
-                                    status: 202
-                                });
-                            } catch (error) {
-                                this.environment.log({
-                                    group: "system/request-handler",
-                                    source: "post"
-                                }, error);
-                                if (error instanceof PostError) {
-                                    return result({
-                                        status: Object.keys(error.extensions).length ? 500 : 400,
-                                        body: error.message,
-                                        headers: {
-                                            "content-type": "text/plain"
-                                        },
-                                        error
-                                    });
-                                }
-                                throw error;
                             }
                         }
                 }
                 return result({
                     status: 400,
-                    body: `Bad request.`,
-                    headers: {
-                        "content-type": "text/plain"
-                    }
+                    body: "Bad request."
                 });
             }
         } catch (ex) {
@@ -10340,7 +9165,7 @@ class RequestHandler {
             response: null
         };
     }
-    _getClientScripts(tracker, html, nonce) {
+    async _getClientScripts(tracker, html, nonce) {
         if (!this._initialized) {
             return undefined;
         }
@@ -10354,27 +9179,20 @@ class RequestHandler {
             trackerScript.join("")
         ];
         const otherScripts = [];
-        this._extensions.map((extension)=>extension.getClientScripts?.(tracker)).flatMap((item)=>item ?? []).forEach((script)=>{
-            if ("inline" in script) {
-                // Prevent errors from preempting other scripts.
-                script.inline = wrapTryCatch(script.inline);
-                if (script.allowReorder !== false) {
-                    inlineScripts.push(script.inline);
-                    return;
+        await forEachAsync(this._extensions.map(async (extension)=>extension.getClientScripts && extension.getClientScripts(await tracker)), async (scripts)=>forEach$1(array(await scripts), (script)=>{
+                if ("inline" in script) {
+                    // Prevent errors from preempting other scripts.
+                    script.inline = wrapTryCatch(script.inline);
+                    if (script.allowReorder !== false) {
+                        inlineScripts.push(script.inline);
+                        return;
+                    }
                 }
-            }
-            otherScripts.push(script);
-        });
+            }));
         if (html) {
-            const variables = this._getClientVariables(tracker);
-            if (Object.keys(variables).length) {
-                inlineScripts.push(`${trackerRef}.push(${JSON.stringify({
-                    set: variables
-                })});`);
-            }
-            const pendingEvents = tracker.clientEvents;
-            if (pendingEvents.length) {
-                inlineScripts.push(`${trackerRef}.push(${pendingEvents.map((event)=>typeof event === "string" ? event : JSON.stringify(event)).join(", ")});`);
+            if (tracker.initialized === true) {
+                const pendingEvents = (await tracker).clientEvents;
+                pendingEvents.length && inlineScripts.push(`${trackerRef}.push(${pendingEvents.map((event)=>typeof event === "string" ? event : JSON.stringify(event)).join(", ")});`);
             }
             otherScripts.push({
                 src: `${this._endpoint}${this._trackerName && this._trackerName !== DEFAULT.trackerName ? `#${this._trackerName}` : ""}`,
@@ -10412,7 +9230,6 @@ class RequestHandler {
     }
 }
 
-const SCOPE_DATA_KEY = "_data";
 const createInitialScopeData = (id, timestamp, additionalData)=>({
         id,
         firstSeen: timestamp,
@@ -10442,12 +9259,12 @@ class Tracker {
     referrer;
     requestItems;
     /** Transient variables that can be used by extensions whilst processing a request. */ transient;
+    /** Variables that have been added or updated during the request (cf. {@link TrackerStorageContext.push}). */ _changedVariables = [];
     _clientCipher;
-    clientKey;
     host;
     path;
     url;
-    constructor({ disabled = false, clientIp, headers, host, path, url, queryString, cookies, requestHandler, clientKeySeed }){
+    constructor({ disabled = false, clientIp, headers, host, path, url, queryString, cookies, requestHandler, cipher }){
         this.disabled = disabled;
         this._requestHandler = requestHandler;
         this.env = requestHandler.environment;
@@ -10461,9 +9278,8 @@ class Tracker {
         this.requestItems = new Map();
         this.clientIp = clientIp;
         this.referrer = this.headers["referer"] ?? null;
-        let clientKey = `${this.clientIp}_${headers?.["user-agent"] ?? ""}`;
-        clientKey = `${clientKey.substring(0, clientKey.length / 2)}${clientKeySeed}${clientKey.substring(clientKey.length / 2 + 1)}`;
-        this._clientCipher = createTransport(this.clientKey = this.env.hash(clientKey, 64));
+        // Defaults to unencrypted transport if nothing is specified.
+        this._clientCipher = cipher ?? defaultTransport;
     }
     get clientEvents() {
         return this._clientEvents;
@@ -10494,23 +9310,26 @@ class Tracker {
     get requestId() {
         return `${this._requestId}`;
     }
+    get initialized() {
+        return this._initialized;
+    }
     get session() {
-        return this._session.value;
+        return this._session?.value;
     }
     get sessionId() {
-        return this.session.id;
+        return this.session?.id;
     }
     get deviceSessionId() {
-        return this._session.value?.deviceSessionId;
+        return this._session?.value?.deviceSessionId;
     }
     get device() {
         return this._device?.value;
     }
     get deviceId() {
-        return this._session.value?.deviceId;
+        return this._session?.value?.deviceId;
     }
     get authenticatedUserId() {
-        return this._session.value?.userId;
+        return this._session?.value?.userId;
     }
     httpClientEncrypt(value) {
         return this._clientCipher[0](value);
@@ -10518,12 +9337,14 @@ class Tracker {
     httpClientDecrypt(encoded) {
         return this._clientCipher[1](encoded);
     }
-    /** @internal */ async _applyExtensions(deviceSessionId, deviceId) {
-        await this._initialize(deviceSessionId, deviceId);
+    /** @internal */ async _applyExtensions(options) {
+        await this._initialize(options);
         if (this._extensionState === 0) {
             this._extensionState = 1;
             try {
-                await this._requestHandler.applyExtensions(this);
+                await this._requestHandler.applyExtensions(this, {
+                    passive: !!options.passive
+                });
             } finally{
                 this._extensionState = 2;
                 if (this._eventQueue.length) {
@@ -10546,7 +9367,7 @@ class Tracker {
         if (request.headers) {
             Object.assign(finalRequest.headers, request.headers);
         }
-        finalRequest.headers["cookie"] = unparam(Object.fromEntries(map(this.cookies, ([key, value])=>[
+        finalRequest.headers["cookie"] = unparam(Object.fromEntries(map$1(this.cookies, ([key, value])=>[
                 key,
                 value?.value
             ]).filter((kv)=>kv[1] != null).concat(params(finalRequest.headers["cookie"]))));
@@ -10564,7 +9385,11 @@ class Tracker {
             ]);
             return {};
         }
-        return await this._requestHandler.post(this, events, options);
+        const result = await this._requestHandler.post(this, events, options);
+        if (this._changedVariables.length) {
+            ((result.variables ??= {}).get ??= []).push(...this._changedVariables);
+        }
+        return result;
     }
     // #region DeviceData
     /**
@@ -10575,7 +9400,7 @@ class Tracker {
    * @internal
    */ async _maybeUpdate(key, current) {
         const scope = variableScope.parse(key.scope);
-        if (key.key === SCOPE_DATA_KEY) {
+        if (key.key === SCOPE_INFO_KEY) {
             if (scope === VariableScope.Session && key.targetId === this._sessionReferenceId) {
                 current && (this._session = current);
             } else if (scope === VariableScope.Device && this._consent.level > DataClassification.Anonymous) {
@@ -10584,7 +9409,7 @@ class Tracker {
         }
     }
     /**
-   * Used by the {@link TrackerVariableStorage} to maintain deviec data stored in the device and only briefly cached on the server.
+   * Used by the {@link TrackerVariableStorage} to maintain device data stored in the device and only briefly cached on the server.
    * @internal
    */ _getClientDeviceVariables() {
         if (!this._clientDeviceCache) {
@@ -10621,12 +9446,12 @@ class Tracker {
     /**
    *
    * Initializes the tracker with session and device data.
-   * The deviceId ans deviceSesssionId parameters are only used if no session already exists.
+   * The deviceId ans deviceSessionId parameters are only used if no session already exists.
    * After that they will stick. This means if a device starts a new server session, its device session will remain.
-   * Simlarily if an old frozen tab suddenly wakes up it will get the new device session.
+   * Similarly, if an old frozen tab suddenly wakes up it will get the new device session.
    * (so yes, they can hypothetically be split across the same tab even though that goes against the definition).
    *
-   * @internal */ async _initialize(deviceId, deviceSessionId) {
+   * @internal */ async _initialize({ deviceId, deviceSessionId, passive } = {}) {
         if (this._initialized === (this._initialized = true)) {
             return false;
         }
@@ -10637,15 +9462,27 @@ class Tracker {
             level: dataClassification.tryParse(consentData[0]) ?? DataClassification.Anonymous,
             purposes: dataPurposes.tryParse(consentData[1].split(",")) ?? DataPurposeFlags.Necessary
         };
-        await this._ensureSession(timestamp, deviceId, deviceSessionId);
+        await this._ensureSession(timestamp, {
+            deviceId,
+            deviceSessionId,
+            passive
+        });
     }
     async reset(session, device = false, consent = false, referenceTimestamp, deviceId, deviceSessionId) {
         if (consent) {
             await this.updateConsent(DataClassification.Anonymous, DataPurposeFlags.Necessary);
         }
-        await this._ensureSession(referenceTimestamp ?? now(), deviceId, deviceSessionId, session, device);
+        if (this._session) {
+            await this._ensureSession(referenceTimestamp ?? now(), {
+                deviceId,
+                deviceSessionId,
+                resetSession: session,
+                resetDevice: device
+            });
+        }
     }
     async updateConsent(level, purposes) {
+        if (!this._session) return;
         level = dataClassification.parse(level) ?? this.consent.level;
         purposes = dataPurposes.parse(purposes) ?? this.consent.purposes;
         if (level < this.consent.level || ~purposes & this.consent.purposes) {
@@ -10690,8 +9527,7 @@ class Tracker {
             purposes
         };
     }
-    async _ensureSession(timestamp, deviceId, deviceSessionId, resetSession, resetDevice) {
-        const previousDeviceSessionId = this.deviceSessionId;
+    async _ensureSession(timestamp, { deviceId, deviceSessionId, passive = false, resetSession = false, resetDevice = false } = {}) {
         if ((resetSession || resetDevice) && this._sessionReferenceId) {
             // Purge old data. No point in storing this since it will no longer be used.
             await this.env.storage.purge([
@@ -10723,20 +9559,20 @@ class Tracker {
             this._sessionReferenceId = await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
         }
         this._session = // We bypass the TrackerVariableStorage here and uses the environment
-        // becaues we use a different target ID than the unique session ID when doing cookie-less tracking.
-        (await this.env.storage.get([
+        // because we use a different target ID than the unique session ID when doing cookie-less tracking.
+        requireFound(restrictTargets(await this.env.storage.get([
             {
                 scope: VariableScope.Session,
-                key: SCOPE_DATA_KEY,
+                key: SCOPE_INFO_KEY,
                 targetId: this._sessionReferenceId,
-                initializer: async ()=>{
+                init: async ()=>{
+                    if (passive) return undefined;
                     let cachedDeviceData;
                     if (this.consent.level > DataClassification.Anonymous) {
-                        cachedDeviceData = resetDevice ? undefined : this._getClientDeviceVariables()?.[SCOPE_DATA_KEY]?.value;
+                        cachedDeviceData = resetDevice ? undefined : this._getClientDeviceVariables()?.[SCOPE_INFO_KEY]?.value;
                     }
                     return {
-                        classification: DataClassification.Anonymous,
-                        purpose: DataPurposeFlags.Necessary,
+                        ...Necessary,
                         value: createInitialScopeData(sessionId ??= await this.env.nextId(), timestamp, {
                             deviceId: this._consent.level > DataClassification.Anonymous ? deviceId ?? (resetDevice ? undefined : cachedDeviceData?.id) ?? await this.env.nextId("device") : undefined,
                             deviceSessionId: deviceSessionId ?? await this.env.nextId("device-session"),
@@ -10746,34 +9582,37 @@ class Tracker {
                     };
                 }
             }
-        ]))[0];
-        if (this._session.value.deviceId) {
-            const device = await this.get({
+        ]).result));
+        if (this._session.value) {
+            let device = await this.get(this._consent.level > DataClassification.Anonymous ? {
                 scope: VariableScope.Device,
-                key: SCOPE_DATA_KEY,
+                key: SCOPE_INFO_KEY,
                 purposes: DataPurposeFlags.Necessary,
-                initializer: async ()=>({
+                init: async ()=>this._session?.value ? {
                         classification: this.consent.level,
-                        value: createInitialScopeData(this._session.value?.deviceId, timestamp, {
+                        value: createInitialScopeData(this._session.value.deviceId, timestamp, {
                             sessions: 1
                         })
-                    })
-            });
-            if (device.status !== VariableResultStatus.Created && this.session.isNew) {
-                await this.set([
-                    {
-                        ...device,
-                        patch: (current)=>current?.value ? {
-                                value: {
-                                    ...current.value,
-                                    sessions: current.value.sessions + 1
-                                }
-                            } : undefined
-                    }
-                ]);
+                    } : undefined
+            } : undefined).result;
+            this._device = device;
+            if (device?.value && device.status !== VariableResultStatus.Created && this.session?.isNew) {
+                // A new session started on an existing device.
+                this._device = await this.set({
+                    ...device,
+                    value: undefined,
+                    patch: (device)=>device && {
+                            ...device,
+                            value: {
+                                ...device.value,
+                                sessions: device.value.sessions + 1,
+                                lastSeen: this.session.lastSeen
+                            }
+                        }
+                }).variable;
             }
-            if (previousDeviceSessionId && isDefined(this.deviceId)) {
-                this._expiredDeviceSessionId = previousDeviceSessionId;
+            if (deviceSessionId != null && this.deviceSessionId != null && deviceSessionId !== this.deviceSessionId) {
+                this._expiredDeviceSessionId = deviceSessionId;
             }
             this._device = device;
         }
@@ -10782,65 +9621,69 @@ class Tracker {
    *  Must be called last by the request handler just before a response is sent.
    *  The tracker must not be used afterwards.
    *  @internal
-   * */ async _persist() {
-        this.cookies[this._requestHandler._cookieNames.consent] = {
-            httpOnly: true,
-            maxAge: Number.MAX_SAFE_INTEGER,
-            essential: true,
-            sameSitePolicy: "None",
-            value: this.consent.purposes + "@" + this.consent.level
-        };
-        const splits = {};
-        if (this._clientDeviceCache?.touched) {
-            // We have updated device data and need to refresh to get whatever other processes may have written (if any).
-            const deviceValues = (await this.query([
-                {
-                    scopes: [
-                        VariableScope.Device
-                    ],
-                    keys: [
-                        ":*"
-                    ]
+   * */ async _persist(discardCookies = false) {
+        if (discardCookies) {
+            this.cookies = {};
+        } else {
+            this.cookies[this._requestHandler._cookieNames.consent] = {
+                httpOnly: true,
+                maxAge: Number.MAX_SAFE_INTEGER,
+                essential: true,
+                sameSitePolicy: "None",
+                value: this.consent.purposes + "@" + this.consent.level
+            };
+            const splits = {};
+            if (this._clientDeviceCache?.touched) {
+                // We have updated device data and need to refresh to get whatever other processes may have written (if any).
+                const deviceValues = (await this.query([
+                    {
+                        scopes: [
+                            VariableScope.Device
+                        ],
+                        keys: [
+                            ":*"
+                        ]
+                    }
+                ], {
+                    top: 1000,
+                    ifNoneMatch: map$1(this._clientDeviceCache?.variables, ([, variable])=>variable)
+                })).results;
+                forEach$1(deviceValues, (variable)=>{
+                    dataPurposes.map(variable.purposes, ([, purpose])=>(splits[purpose] ??= []).push([
+                            variable.key,
+                            variable.classification,
+                            variable.version,
+                            variable.value
+                        ]));
+                });
+            }
+            if (this.consent.level === DataClassification.Anonymous && this.cookies[this._requestHandler._cookieNames.session]) {
+                // Clear session cookie if we have one.
+                this.cookies[this._requestHandler._cookieNames.session].value = undefined;
+            }
+            dataPurposes.pure.map(([purpose, flag])=>{
+                const remove = this.consent.level === DataClassification.Anonymous || !splits[purpose];
+                const cookieName = this._requestHandler._cookieNames.device[flag];
+                if (remove) {
+                    if (this.cookies[cookieName]) {
+                        this.cookies[cookieName].value = undefined;
+                    }
+                } else if (splits[purpose]) {
+                    if (!this._clientDeviceCache?.touched) {
+                        // Device data has not been touched. Don't send the cookies.
+                        delete this.cookies[cookieName];
+                    } else {
+                        this.cookies[cookieName] = {
+                            httpOnly: true,
+                            maxAge: Number.MAX_SAFE_INTEGER,
+                            sameSitePolicy: "None",
+                            essential: flag === DataPurposeFlags.Necessary,
+                            value: this.httpClientEncrypt(splits[purpose])
+                        };
+                    }
                 }
-            ], {
-                top: 1000,
-                ifNoneMatch: map(this._clientDeviceCache?.variables, ([, variable])=>variable)
-            })).results;
-            forEach$1(deviceValues, (variable)=>{
-                dataPurposes.map(variable.purposes, ([, purpose])=>(splits[purpose] ??= []).push([
-                        variable.key,
-                        variable.classification,
-                        variable.version,
-                        variable.value
-                    ]));
             });
         }
-        if (this.consent.level === DataClassification.Anonymous && this.cookies[this._requestHandler._cookieNames.session]) {
-            // Clear session cookie if we have one.
-            this.cookies[this._requestHandler._cookieNames.session].value = undefined;
-        }
-        dataPurposes.pure.map(([purpose, flag])=>{
-            const remove = this.consent.level === DataClassification.Anonymous || !splits[purpose];
-            const cookieName = this._requestHandler._cookieNames.device[flag];
-            if (remove) {
-                if (this.cookies[cookieName]) {
-                    this.cookies[cookieName].value = undefined;
-                }
-            } else if (splits[purpose]) {
-                if (!this._clientDeviceCache?.touched) {
-                    // Device data has not been touched. Don't send the cookies.
-                    delete this.cookies[cookieName];
-                } else {
-                    this.cookies[cookieName] = {
-                        httpOnly: true,
-                        maxAge: Number.MAX_SAFE_INTEGER,
-                        sameSitePolicy: "None",
-                        essential: flag === DataPurposeFlags.Necessary,
-                        value: this.httpClientEncrypt(splits[purpose])
-                    };
-                }
-            }
-        });
     }
     // #region Storage
     _getStorageContext(source) {
@@ -10859,13 +9702,8 @@ class Tracker {
             ], this._getStorageContext());
         }
     }
-    async get(keys, context) {
-        if (!isArray$4(keys)) {
-            return (await this.get([
-                keys
-            ], context))[0];
-        }
-        return await this.env.storage.get(keys, this._getStorageContext(context));
+    get(...keys) {
+        return toVariableResultPromise(()=>this.env.storage.get(keys, this._getStorageContext()).all, undefined, (results)=>results.forEach((result)=>result?.status <= VariableResultStatus.Created && this._changedVariables.push(result)));
     }
     head(filters, options) {
         return this.env.storage.head(filters, options, this._getStorageContext());
@@ -10873,26 +9711,25 @@ class Tracker {
     query(filters, options) {
         return this.env.storage.query(filters, options, this._getStorageContext());
     }
-    async set(variables, context) {
-        if (!isArray$4(variables)) {
-            return (await this.set([
-                variables
-            ], context))[0];
-        }
-        const results = await this.env.storage.set(variables, this._getStorageContext(context));
-        for (const result of results){
-            if (result.status < 400) {
-                if (result.source.key === SCOPE_DATA_KEY) {
-                    result.source.scope === VariableScope.Session && (this._session = result.current);
-                    result.source.scope === VariableScope.Device && (this._device = result.current);
+    set(...variables) {
+        return toVariableResultPromise(async ()=>{
+            const results = restrictTargets(await this.env.storage.set(variables, this._getStorageContext()).all);
+            for (const result of results){
+                if (isSuccessResult(result)) {
+                    if (result.source.key === SCOPE_INFO_KEY) {
+                        result.source.scope === VariableScope.Session && (this._session = result.current);
+                        result.source.scope === VariableScope.Device && (this._device = result.current);
+                    }
                 }
             }
-        }
-        if (!this._session) {
-            // Being without session data violates an invariant, so if someone deleted the data, we create a new session. Ha!
-            await this._ensureSession(now(), this.deviceId, this.deviceSessionId, true, false);
-        }
-        return results;
+            return results;
+        }, undefined, (results)=>forEach$1(results, (result)=>{
+                return result.status !== VariableResultStatus.Unchanged && this._changedVariables.push({
+                    ...extractKey(result.source, result.current),
+                    value: result.current?.value,
+                    status: result.status
+                });
+            }));
     }
     purge(alsoUserData = false) {
         return this.env.storage.purge([
@@ -10911,6 +9748,20 @@ class Tracker {
     }
 }
 
+const HEARTBEAT_FREQUENCY = 5_000;
+const STORAGE_PREFIX = "_t:";
+const STATE_KEY = STORAGE_PREFIX + "data";
+const NOT_INITIALIZED = ()=>()=>throwError("Not initialized.");
+
+const doc = document;
+
+const listen = (target, name, listener, options = {
+    capture: true,
+    passive: true
+})=>{
+    return isArray$4(name) ? joinEventBinders(...map$1(name, (name)=>listen(target, name, listener, options))) : createEventBinders(listener, (listener)=>target.addEventListener(name, listener, options), (listener)=>target.addEventListener(name, listener, options));
+};
+
 const isTracker = "__isTracker";
 const trackerConfig = {
     name: "tail",
@@ -10919,9 +9770,9 @@ const trackerConfig = {
     postEvents: true,
     postFrequency: 2000,
     requestTimeout: 5000,
-    heartbeatFrequency: 0,
     clientKey: null,
     apiKey: null,
+    pushCookie: null,
     /**
    * Log events to the browser's developer console.
    */ debug: false,
@@ -10935,6 +9786,210 @@ const trackerConfig = {
         ]
     }
 };
+
+const src = split("" + doc.currentScript["src"], "#");
+const args = split("" + (src[1] || ""), ";");
+const SCRIPT_SRC = src[0];
+args[1] || parseUri(SCRIPT_SRC, false)?.host;
+const mapUrl = (...urlParts)=>replace$1(join(urlParts), /(^(?=\?))|(^\.(?=\/))/, SCRIPT_SRC.split("?")[0]);
+mapUrl("?", EVENT_HUB_QUERY);
+mapUrl("?", CONTEXT_NAV_QUERY);
+mapUrl("?", VARIABLES_QUERY);
+
+createTransport();
+let [httpEncrypt, httpDecrypt] = [
+    NOT_INITIALIZED,
+    NOT_INITIALIZED
+];
+const [addEncryptionNegotiatedListener, dispatchEncryptionNegotiated] = createEvent();
+
+const [addPageLoadedListener, dispatchPageLoaded] = createEvent();
+const [addPageVisibleListener, dispatchPageVisible] = createEvent();
+const maybeDispatchPageLoaded = (newLoaded)=>loaded !== (loaded = newLoaded) && dispatchPageLoaded(loaded = false, sleepTimer(true, true));
+const maybeDispatchPageVisible = (loaded)=>visible !== (visible = loaded ? document.visibilityState === "visible" : false) && dispatchPageVisible(visible, !loaded, visibleTimer(true, true));
+// A visibilitychange event may not be triggered if the page BF cache loads/unloads.
+addPageLoadedListener(maybeDispatchPageVisible);
+let loaded = true;
+let visible = false;
+let visibleTimer = createTimer(false);
+let sleepTimer = createTimer(false);
+listen(window, [
+    "pagehide",
+    "freeze"
+], ()=>maybeDispatchPageLoaded(false));
+listen(window, [
+    "pageshow",
+    "resume"
+], ()=>maybeDispatchPageLoaded(true));
+listen(document, "visibilitychange", ()=>(maybeDispatchPageVisible(true), visible && maybeDispatchPageLoaded(true)));
+dispatchPageLoaded(loaded, sleepTimer(true, true));
+let activated = false;
+let activeTime = createTimer(false);
+const [addPageActivatedListener, dispatchPageActivated] = createEvent();
+const activationTimeout = clock({
+    callback: ()=>activated && dispatchPageActivated(activated = false, activeTime(false)),
+    frequency: 20000,
+    once: true,
+    paused: true
+});
+const setActivated = ()=>!activated && (dispatchPageActivated(activated = true, activeTime(true)), activationTimeout.restart());
+listen(window, "focus", setActivated);
+listen(window, "blur", ()=>activationTimeout.trigger());
+listen(document.body, [
+    "keydown",
+    "pointerdown",
+    "pointermove",
+    "scroll"
+], setActivated);
+setActivated();
+
+var LocalVariableScope;
+(function(LocalVariableScope) {
+    /** Variables are only available in memory in the current view. */ LocalVariableScope[LocalVariableScope["View"] = -3] = "View";
+    /** Variables are only available in memory in the current tab, including between views in the same tab as navigation occurs. */ LocalVariableScope[LocalVariableScope["Tab"] = -2] = "Tab";
+    /** Variables are only available in memory and shared between all tabs. */ LocalVariableScope[LocalVariableScope["Shared"] = -1] = "Shared";
+})(LocalVariableScope || (LocalVariableScope = {}));
+const localVariableScope = createEnumAccessor(LocalVariableScope, false, "local variable scope");
+const isLocalScopeKey = (key)=>!!localVariableScope.tryParse(key?.scope);
+createEnumPropertyParser({
+    scope: localVariableScope
+}, VariableEnumProperties);
+const variableKeyToString = (key)=>key == null ? undefined : key.source ? variableKeyToString(key.source) : `${isLocalScopeKey(key) ? "l" : variableScope(key.scope)}\0${key.key}\0${isLocalScopeKey(key) ? "" : key.targetId ?? ""}`;
+
+let TAB_ID = undefined;
+/** All variables, both local and others. */ let tabVariables = undefined;
+const tabState = {
+    id: TAB_ID,
+    heartbeat: now()
+};
+const state = {
+    knownTabs: {
+        [TAB_ID]: tabState
+    },
+    variables: new Map()
+};
+const [addStateListener, dispatchState] = createEvent();
+let post = NOT_INITIALIZED;
+addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt)=>{
+    // Keep tab ID and variables between pages in the same tab.
+    addPageLoadedListener((loaded)=>{
+        if (loaded) {
+            const localState = httpDecrypt(sessionStorage.getItem(STATE_KEY));
+            TAB_ID = localState?.[0] ?? now().toString(36) + Math.trunc(1296 * Math.random()).toString(36).padStart(2, "0");
+            tabVariables = new Map(concat(// Whatever view variables we already had in case of bf navigation.
+            filter$1(tabVariables, ([, variable])=>variable.scope === LocalVariableScope.View), map$1(localState?.[1], (variable)=>[
+                    variableKeyToString(variable),
+                    variable
+                ])));
+            sessionStorage.removeItem(STATE_KEY);
+        } else {
+            sessionStorage.setItem(STATE_KEY, httpEncrypt([
+                TAB_ID,
+                filter$1(tabVariables, ([, variable])=>variable.scope !== LocalVariableScope.View)
+            ]));
+        }
+    }, true);
+    post = (message, target)=>{
+        if (!httpEncrypt) return;
+        localStorage.setItem(STATE_KEY, httpEncrypt([
+            TAB_ID,
+            message,
+            target
+        ]));
+        localStorage.removeItem(STATE_KEY);
+    };
+    listen(window, "storage", (ev)=>{
+        if (ev.key === STATE_KEY) {
+            const message = httpDecrypt?.(ev.newValue);
+            if (!message || message[2] && message[2] !== TAB_ID) return;
+            const [sender, { type, payload }] = message;
+            if (type === "query") {
+                !initTimeout.active && post({
+                    type: "set",
+                    payload: state
+                }, sender);
+            } else if (type === "set" && initTimeout.active) {
+                assign$1(state, payload);
+                initTimeout.trigger();
+            } else if (type === "patch") {
+                assign$1(state.variables, payload);
+                assign$1(tabVariables, payload);
+                dispatchState("variables", payload, false);
+            } else if (type === "tab") {
+                assign$1(state.knownTabs, sender, payload);
+                payload && dispatchState("tab", payload, false);
+            }
+        }
+    });
+    // Temporarily store this for the next page, if loaded in the same tab.
+    listen(window, [
+        "pagehide"
+    ], ()=>sessionStorage.set(STATE_KEY, TAB_ID));
+    const initTimeout = clock(()=>dispatchState("ready", state, true), -25);
+    const heartbeat = clock({
+        callback: ()=>{
+            const timeout = now() - HEARTBEAT_FREQUENCY * 2;
+            forEach$1(state?.knownTabs, // Remove tabs that no longer responds (presumably closed but may also have been frozen).
+            ([tabId, tabState])=>tabState[0] < timeout && clear(state.knownTabs, tabId));
+            tabState.heartbeat = now();
+            post({
+                type: "tab",
+                payload: tabState
+            });
+        },
+        frequency: HEARTBEAT_FREQUENCY,
+        paused: true
+    });
+    const toggleTab = (loading)=>{
+        post({
+            type: "tab",
+            payload: loading ? tabState : undefined
+        });
+        if (loading) {
+            initTimeout.restart();
+            post({
+                type: "query"
+            });
+        } else {
+            initTimeout.toggle(false);
+        }
+        heartbeat.toggle(loading);
+    };
+    addPageLoadedListener((loaded)=>toggleTab(loaded), true);
+}, true);
+
+const [addResponseHandler, dispatchResponse] = createEvent();
+let pushCookieMatcher;
+let pushCookie;
+clock(()=>{
+    if (pushCookie !== (pushCookie = undefined$2)) {
+        if (!pushCookie) return;
+        pushCookieMatcher = new RegExp(escapeRegEx(pushCookie) + "=([^;]*)");
+    }
+    const value = httpDecrypt?.(match(document.cookie, pushCookieMatcher)?.[1]);
+    if (isPostResponse(value)) {
+        dispatchResponse(value);
+    }
+}, 1000);
+
+const totalDuration = createTimer();
+const visibleDuration = createTimer();
+const interactiveDuration = createTimer();
+let activations = 1;
+const createViewDurationTimer = (started)=>{
+    const totalTime = createTimer(started, totalDuration);
+    const visibleTime = createTimer(started, visibleDuration);
+    const interactiveTime = createTimer(started, interactiveDuration);
+    const activationsCounter = createTimer(started, ()=>activations);
+    return (toggle, reset)=>({
+            totalTime: totalTime(toggle, reset),
+            visibleTime: visibleTime(toggle, reset),
+            interactiveTime: interactiveTime(toggle, reset),
+            activations: activationsCounter(toggle, reset)
+        });
+};
+createViewDurationTimer();
+document.getElementsByTagName("iframe");
 
 const externalConfig = trackerConfig;
 const initialName = trackerConfig.name;
@@ -10954,7 +10009,7 @@ async function ensureTracker() {
         const src = [
             trackerConfig.src
         ];
-        src.push("?", "lv0x7ddk" );
+        src.push("?", "lw6eeh2s" );
         {
             src.push("#", trackerConfig.name);
         }
@@ -10979,7 +10034,6 @@ const DEFAULT = {
     },
     allowUnknownEventTypes: true,
     debugScript: false,
-    useSession: true,
     manageConsents: false,
     sessionTimeout: 30,
     deviceSessionTimeout: 10,
@@ -11042,8 +10096,20 @@ class CookieMonster {
         }
         return cookies;
     }
+    mapResponseCookie(name, cookie) {
+        return {
+            name: name,
+            value: cookie.value,
+            maxAge: cookie.maxAge,
+            httpOnly: cookie.httpOnly ?? true,
+            sameSitePolicy: cookie.sameSitePolicy === "None" && !this._secure ? "Lax" : cookie.sameSitePolicy ?? "Lax",
+            essential: cookie.essential ?? false,
+            secure: this._secure,
+            headerString: this._getHeaderValue(name, cookie)[0]
+        };
+    }
     _getHeaderValue(name, cookie) {
-        const clear = !isDefined(cookie.value) || cookie.maxAge <= 0;
+        const clear = cookie.value == null || cookie.maxAge <= 0;
         const parts = [
             "Path=/"
         ];
@@ -11108,16 +10174,7 @@ class CookieMonster {
             }
             if (i < originalChunks || cookie.value) {
                 const chunkCookieName = getCookieChunkName(name, i);
-                responseCookies.push({
-                    name: chunkCookieName,
-                    value: cookie.value,
-                    maxAge: cookie.maxAge,
-                    httpOnly: cookie.httpOnly ?? true,
-                    sameSitePolicy: cookie.sameSitePolicy === "None" && !this._secure ? "Lax" : cookie.sameSitePolicy ?? "Lax",
-                    essential: cookie.essential ?? false,
-                    secure: this._secure,
-                    headerString: this._getHeaderValue(chunkCookieName, cookie)[0]
-                });
+                responseCookies.push(this.mapResponseCookie(chunkCookieName, cookie));
             }
             cookie = {
                 ...cookie,
@@ -11757,318 +10814,7 @@ class TrackerEnvironment {
     }
 }
 
-const mapKey = (scope, key, targetId)=>scope === VariableScope.Global ? {
-        scope,
-        key
-    } : {
-        scope,
-        key,
-        targetId
-    };
-class VariableMap {
-    _values = new Map();
-    _onSizeChanged;
-    constructor(arg){
-        if (isFunction(arg)) {
-            this._onSizeChanged = arg;
-        } else if (arg) {
-            this.set(arg);
-        }
-    }
-    _size = 0;
-    get size() {
-        return this._size;
-    }
-    _updateSize(delta) {
-        this._size += delta;
-        this._onSizeChanged?.(delta);
-    }
-    get(source, arg2, initializer) {
-        if (source == null) return undefined;
-        let scope, key;
-        if (isObject(source, true)) {
-            scope = variableScope.parse(source.scope, false);
-            key = source.key;
-            initializer = arg2;
-        } else {
-            scope = variableScope.parse(source, false);
-            key = arg2;
-        }
-        let values = this._values.get(scope);
-        if (isDefined(key)) {
-            let value = values?.get(key);
-            if (initializer && isUndefined(value)) {
-                if (!values) {
-                    this._values.set(scope, values = new Map());
-                }
-                this._updateSize(1);
-                values.set(key, value = initializer(scope, key));
-            }
-            return value;
-        }
-        return values;
-    }
-    has(source, key) {
-        if (source == null) return undefined;
-        if (isObject(source, true)) {
-            return this._values.get(variableScope.parse(source.scope, false))?.has(source.key) ?? false;
-        }
-        const scope = variableScope.parse(source, false);
-        return isDefined(key) ? this._values.get(scope)?.has(key) ?? false : this._values.has(scope);
-    }
-    clear() {
-        this._updateSize(-this._size);
-        this._values?.clear();
-        return this;
-    }
-    delete(arg1, arg2) {
-        if (arg1 == null) return false;
-        let scope, key;
-        if (isObject(arg1, true)) {
-            if (isIterable(arg1)) {
-                let deleted = false;
-                for (const key of arg1){
-                    if (!key) continue;
-                    deleted = (isIterable(key) ? this.delete(key[0], key[1]) : this.delete(key)) || deleted;
-                }
-                return deleted;
-            }
-            scope = variableScope.parse(arg1.scope, false);
-            key = arg1.key;
-        } else {
-            scope = variableScope.parse(arg1, false);
-            key = arg2;
-        }
-        const values = this._values.get(scope);
-        if (!values) return false;
-        if (isDefined(key)) {
-            if (!values.has(key)) return false;
-            this._updateSize(-1);
-            values.delete(key);
-            if (values.size) return true;
-        // If no more keys, delete the scope.
-        }
-        this._updateSize(-values.size);
-        this._values.delete(scope);
-        return true;
-    }
-    set(arg1, arg2, arg3) {
-        if (arg1 == null) return this;
-        let scope, key, value;
-        if (isObject(arg1, true)) {
-            if (isIterable(arg1)) {
-                for (const item of arg1){
-                    if (!item) continue;
-                    const [key, value] = item;
-                    isIterable(key) ? this.set(key[0], key[1], value) : this.set(key, value);
-                }
-                return this;
-            }
-            scope = variableScope.parse(arg1.scope, true);
-            key = arg1.key;
-            value = arg2;
-        } else {
-            scope = variableScope.parse(arg1, true);
-            key = arg2;
-            value = arg3;
-        }
-        if (isUndefined(value)) {
-            this.delete(scope, key);
-            return this;
-        }
-        let values = this._values.get(scope);
-        if (!values) {
-            this._values.set(scope, values = new Map());
-        }
-        if (!values.has(key)) {
-            this._updateSize(1);
-        }
-        values.set(key, value);
-        return this;
-    }
-    update(arg1, arg2, update) {
-        if (arg1 == null) return undefined;
-        let scope, key;
-        if (isObject(arg1, true)) {
-            scope = variableScope.parse(arg1.scope);
-            key = arg1.key;
-            update = arg2;
-        } else {
-            scope = variableScope.parse(arg1);
-            key = arg2;
-        }
-        let newValue = update(this.get(scope, key));
-        this.set(scope, key, newValue);
-        return newValue;
-    }
-    scopes(keys) {
-        return keys ? this._values.keys() : this._values.entries();
-    }
-    *[Symbol.iterator]() {
-        for (const [scope, values] of this._values){
-            for (const [key, value] of values){
-                yield [
-                    [
-                        scope,
-                        key
-                    ],
-                    value
-                ];
-            }
-        }
-    }
-}
-
-class TargetedVariableCollection {
-    _scopes = new Map();
-    _size = 0;
-    get size() {
-        return this._size;
-    }
-    _updateSize = (delta)=>{
-        this._size += delta;
-    };
-    constructor(values){
-        if (values) {
-            this.set(values);
-        }
-    }
-    get(key, initializer) {
-        if (isUndefined(key)) return undefined;
-        if (isString$1(key)) {
-            return this._scopes.get(key);
-        }
-        let targetId = key.targetId ?? "";
-        let collection = this._scopes.get(targetId);
-        if (initializer && !collection) {
-            this._scopes.set(targetId, collection = new VariableMap(this._updateSize));
-        }
-        return collection?.get(key, initializer && ((scope, key)=>initializer(mapKey(scope, key, targetId))));
-    }
-    has(source, scope) {
-        if (isUndefined(source)) return undefined;
-        if (isString$1(source)) {
-            return isDefined(scope) ? this._scopes.get(source)?.has(scope) ?? false : this._scopes.has(source);
-        }
-        return this._scopes.get(source.targetId ?? "")?.has(source) ?? false;
-    }
-    clear() {
-        this._updateSize(-this._size);
-        this._scopes.clear();
-        return this;
-    }
-    delete(key) {
-        if (isUndefined(key)) return false;
-        if (isIterable(key)) {
-            let deleted = false;
-            for (const item of key){
-                isDefined(item) && (deleted = this.delete(item) || deleted);
-            }
-            return deleted;
-        }
-        if (isString$1(key)) {
-            const scopes = this._scopes.get(key);
-            if (!scopes) {
-                return false;
-            }
-            this._updateSize(-scopes.size);
-            this._scopes.delete(key);
-            return true;
-        }
-        return this._scopes.get(key.targetId ?? "")?.delete(key) ?? false;
-    }
-    set(key, value) {
-        if (isUndefined(key)) return this;
-        if (isIterable(key)) {
-            for (const item of key){
-                item && this.set(item[0], item[1]);
-            }
-            return this;
-        }
-        if (isUndefined(value)) {
-            this.delete(key);
-            return this;
-        }
-        const targetId = key.targetId ?? "";
-        let scopes = this._scopes.get(targetId);
-        if (!this._scopes.has(targetId)) {
-            this._scopes.set(targetId, scopes = new VariableMap(this._updateSize));
-        }
-        scopes?.set(key, value);
-        return this;
-    }
-    update(key, update) {
-        if (!key) return undefined;
-        let newValue = update(this.get(key));
-        this.set(key, newValue);
-        return newValue;
-    }
-    targets(keys) {
-        return keys ? this._scopes.keys() : this._scopes.entries();
-    }
-    *[Symbol.iterator]() {
-        for (const [targetId, scopes] of this._scopes){
-            for (const [[scope, key], value] of scopes){
-                yield [
-                    mapKey(scope, key, targetId),
-                    value
-                ];
-            }
-        }
-    }
-}
-
-const isWritable = (storage)=>!!storage?.set;
-
-class ValidatingVariableStorage {
-    storage;
-    constructor(storage){
-        this.storage = storage;
-    }
-    configureScopeDurations(durations, context) {
-        this.storage.configureScopeDurations(durations, context);
-    }
-    renew(scope, scopeIds, context) {
-        return this.storage.renew(scope, scopeIds, context);
-    }
-    purge(filters, context) {
-        return this.storage.purge(filters, context);
-    }
-    initialize(environment) {
-        return this.storage.initialize?.(environment);
-    }
-    async get(keys, context) {
-        for (const key of keys){
-            if (!key) {
-                continue;
-            }
-            toNumericVariable(key);
-            key.initializer = wrapFunction(key.initializer, async (original)=>{
-                const result = toNumericVariable(await original());
-                result && invariant(isDefined(result?.classification) && isDefined(result?.purposes), "Classification is specified.");
-                return result;
-            });
-        }
-        return handleResultErrors(await this.storage.get(keys, context), context?.throw);
-    }
-    async set(setters, context) {
-        for (const key of setters){
-            toNumericVariable(key);
-            if (isVariablePatchAction(key)) {
-                key.patch = wrapFunction(key.patch, async (original, current)=>toNumericVariable(await original(current)));
-            }
-        }
-        return handleResultErrors(await this.storage.set(setters, context), context?.throw);
-    }
-    head(filters, options, context) {
-        return this.storage.head(filters, options, context);
-    }
-    query(filters, options, context) {
-        return this.storage.query(filters, options, context);
-    }
-}
-
-const hasChanged = (getter, current)=>isUndefined(getter.version) || current?.version !== getter.version;
+const hasChanged = (getter, current)=>getter.version == null || current?.version !== getter.version;
 class InMemoryStorageBase {
     _ttl;
     _cleaner;
@@ -12086,7 +10832,7 @@ class InMemoryStorageBase {
     }
     _update(variable, timestamp) {
         let scopeValues = this._getScopeVariables(variable.scope, variable.targetId, true);
-        variable = toNumericVariable(variable);
+        variable = toNumericVariableEnums(variable);
         const ttl = this._ttl?.[variable.scope];
         scopeValues[0] = ttl ? (timestamp ?? now()) + ttl : undefined;
         scopeValues[1].set(variable.key, variable);
@@ -12109,17 +10855,17 @@ class InMemoryStorageBase {
         for (const queryFilter of filters){
             const match = (variable)=>{
                 const { purposes, classification, tags } = queryFilter;
-                if (!variable || variable.purposes && purposes && !(variable.purposes & dataPurposes.parse(purposes)) || classification && (variable.classification < dataClassification.parse(classification.min) || variable.classification > dataClassification.parse(classification.max) || classification.levels?.some((level)=>variable.classification === dataClassification.parse(level)) === false) || tags && (!variable.tags || !tags.some((tags)=>tags.every((tag)=>variable.tags.includes(tag))))) {
+                if (!variable || variable.purposes && purposes && !(variable.purposes & purposes) || classification && (variable.classification < classification.min || variable.classification > classification.max || classification.levels?.some((level)=>variable.classification === level) === false) || tags && (!variable.tags || !tags.some((tags)=>tags.every((tag)=>variable.tags.includes(tag))))) {
                     return false;
                 }
                 let matchVersion;
-                if (ifModifiedSince && variable.modified < ifModifiedSince || isDefined(matchVersion = ifNoneMatch?.get(variableId(variable))) && variable.version === matchVersion) {
+                if (ifModifiedSince && variable.modified < ifModifiedSince || (matchVersion = ifNoneMatch?.get(variableId(variable))) != null && variable.version === matchVersion) {
                     // Skip the variable because it is too old or unchanged based on the settings provided for the query.
                     return false;
                 }
                 return true;
             };
-            for (const scope of map$1(queryFilter.scopes, (scope)=>variableScope.parse(scope)) ?? variableScope.values){
+            for (const scope of queryFilter.scopes ?? variableScope.values){
                 for (const [, scopeVars] of queryFilter.targetIds?.map((targetId)=>[
                         targetId,
                         this._getScopeVariables(scope, targetId, false)
@@ -12152,7 +10898,7 @@ class InMemoryStorageBase {
     clean() {
         const timestamp = now();
         forEach$1(this._ttl, ([scope, ttl])=>{
-            if (isUndefined(ttl)) return;
+            if (ttl == null) return;
             const variables = this._getTargetsInScope(scope);
             forEach$1(variables, ([targetId, variables])=>variables[0] <= timestamp - ttl && this._deleteTarget(scope, targetId));
         });
@@ -12171,7 +10917,7 @@ class InMemoryStorageBase {
     configureScopeDurations(durations, context) {
         this._ttl ??= {};
         for (const [scope, duration] of Object.entries(durations).map(([scope, duration])=>[
-                variableScope.parse(scope),
+                +scope,
                 duration
             ])){
             duration > 0 ? this._ttl[scope] = duration : delete this._ttl[scope];
@@ -12184,10 +10930,6 @@ class InMemoryStorageBase {
             })).toggle(hasTtl);
         }
     }
-    _applyGetFilters(getter, variable) {
-        return !variable || getter.purpose && // The variable has explicit purposes and not the one requested.
-        !(variable.purposes & getter.purpose) ? undefined : isDefined(getter.version) && variable?.version == getter.version ? variable : copy(variable);
-    }
     async get(getters, context) {
         const variables = getters.map((getter)=>({
                 current: getter && this._getScopeVariables(getter.scope, getter.targetId, false)?.[1].get(getter.key),
@@ -12197,8 +10939,8 @@ class InMemoryStorageBase {
         for (const [item, i] of rank(variables)){
             if (!item.getter) continue;
             if (!item.current) {
-                if (item.getter?.initializer) {
-                    const initialValue = await item.getter.initializer();
+                if (item.getter?.init) {
+                    const initialValue = await unwrap(item.getter.init);
                     if (initialValue?.value) {
                         // Check if the variable has been created by someone else while the initializer was running.
                         results[i] = copy(this._update({
@@ -12244,7 +10986,7 @@ class InMemoryStorageBase {
     async set(variables, context) {
         const timestamp = now();
         const results = [];
-        for (const source of variables.map(toNumericVariable)){
+        for (const source of toNumericVariableEnums(variables)){
             this._validateKey(source);
             if (!source) {
                 results.push(undefined);
@@ -12264,8 +11006,8 @@ class InMemoryStorageBase {
                     });
                     continue;
                 }
-                const patched = toNumericVariable(await applyPatchOffline(current, source));
-                if (!isDefined(patched)) {
+                const patched = toNumericVariableEnums(await applyPatch(current, source));
+                if (patched == null) {
                     results.push({
                         status: VariableResultStatus.Unchanged,
                         source,
@@ -12276,7 +11018,7 @@ class InMemoryStorageBase {
                 classification = patched.classification ?? classification;
                 purposes = patched.purposes ?? purposes;
                 value = patched.value;
-            } else if (current?.version !== version) {
+            } else if (!source.force && current?.version !== version) {
                 results.push({
                     status: VariableResultStatus.Conflict,
                     source,
@@ -12284,7 +11026,7 @@ class InMemoryStorageBase {
                 });
                 continue;
             }
-            if (isUndefined(value)) {
+            if (value === undefined) {
                 results.push({
                     status: current && this._remove(current) ? VariableResultStatus.Success : VariableResultStatus.Unchanged,
                     source,
@@ -12299,7 +11041,7 @@ class InMemoryStorageBase {
                 classification,
                 targetId,
                 scope,
-                purposes: isDefined(current?.purposes) || purposes ? (current?.purposes ?? 0) | (purposes ?? 0) : DataPurposeFlags.Necessary,
+                purposes: current?.purposes != null || purposes ? (current?.purposes ?? 0) | (purposes ?? 0) : DataPurposeFlags.Necessary,
                 tags: tags && [
                     ...tags
                 ]
@@ -12351,8 +11093,362 @@ class InMemoryStorage extends InMemoryStorageBase {
     _getTargetsInScope(scope) {
         return this._variables[scope] ?? [];
     }
-    asValidating() {
-        return new ValidatingVariableStorage(this);
+}
+
+const parseFilter = (filter)=>{
+    filter.scopes = map$1(filter.scopes, variableScope);
+    filter.classification && (filter.classification = {
+        min: dataClassification(filter.classification.min),
+        max: dataClassification(filter.classification.max),
+        levels: map$1(filter.classification.levels, dataClassification)
+    });
+    filter.purposes = dataPurposes(filter.purposes);
+    return filter;
+};
+const parseQueryOptions = (options)=>{
+    options?.ifNoneMatch && (options.ifNoneMatch = toNumericVariableEnums(options.ifNoneMatch));
+    return options;
+};
+const parseContext = (context)=>{
+    context?.consent && (context.consent = {
+        level: dataClassification(context.consent.level),
+        purposes: dataPurposes(context.consent.purposes)
+    });
+    return context;
+};
+/**
+ * A wrapper around a {@link VariableStorage} that accepts string values for enums.
+ */ class ParsingVariableStorage {
+    storage;
+    constructor(storage){
+        this.storage = storage;
+    }
+    configureScopeDurations(durations, context) {
+        this.storage.configureScopeDurations(obj(durations, ([key, value])=>[
+                variableScope(key),
+                value
+            ]), parseContext(context));
+    }
+    renew(scope, scopeIds, context) {
+        return this.storage.renew(variableScope(scope), scopeIds, parseContext(context));
+    }
+    purge(filters, context) {
+        return this.storage.purge(map$1(filters, parseFilter), parseContext(context));
+    }
+    initialize(environment) {
+        return this.storage.initialize?.(environment);
+    }
+    get(keys, context) {
+        return toVariableResultPromise(async ()=>{
+            for (const key of keys){
+                if (!key) {
+                    continue;
+                }
+                toNumericVariableEnums(key);
+                key?.init != null && (key.init = wrap(key.init, async (original)=>toNumericVariableEnums(await original())));
+            }
+            return await this.storage.get(keys, parseContext(context));
+        });
+    }
+    set(setters, context) {
+        return toVariableResultPromise(async ()=>{
+            for (const key of setters){
+                toNumericVariableEnums(key);
+                if (isVariablePatchAction(key)) {
+                    key.patch = wrap(key.patch, async (original, current)=>toNumericVariableEnums(await original(current)));
+                }
+            }
+            return await this.storage.set(setters, parseContext(context));
+        });
+    }
+    head(filters, options, context) {
+        this.set([
+            {
+                key: "ok",
+                scope: "device",
+                value: 32
+            }
+        ]).result;
+        return this.storage.head(map$1(filters, parseFilter), parseQueryOptions(options), parseContext(context));
+    }
+    query(filters, options, context) {
+        return this.storage.query(map$1(filters, parseFilter), parseQueryOptions(options), parseContext(context));
+    }
+    toStorage() {
+        const storage = {};
+        for(const method in [
+            "head",
+            "query",
+            "configureScopeDurations",
+            "renew",
+            "purge"
+        ]){
+            storage[method] = (...args)=>this[method](...args);
+        }
+        storage["get"] = (...args)=>this.get(...args).all;
+        storage["set"] = (...args)=>this.set(...args).all;
+        return storage;
+    }
+}
+
+class TargetedVariableCollection {
+    _scopes = new Map();
+    _size = 0;
+    get size() {
+        return this._size;
+    }
+    _updateSize = (delta)=>{
+        this._size += delta;
+    };
+    constructor(values){
+        if (values) {
+            this.set(values);
+        }
+    }
+    get(key, init) {
+        if (key == null) return undefined;
+        if (isString$1(key)) {
+            return this._scopes.get(key);
+        }
+        let targetId = key.targetId ?? "";
+        let collection = this._scopes.get(targetId);
+        if (init && !collection) {
+            this._scopes.set(targetId, collection = new VariableMap(this._updateSize));
+        }
+        return collection?.get(key, init && ((scope, key)=>init(mapKey(scope, key, targetId))));
+    }
+    has(source, scope) {
+        if (source == null) return undefined;
+        if (isString$1(source)) {
+            return scope != null ? this._scopes.get(source)?.has(scope) ?? false : this._scopes.has(source);
+        }
+        return this._scopes.get(source.targetId ?? "")?.has(source) ?? false;
+    }
+    clear() {
+        this._updateSize(-this._size);
+        this._scopes.clear();
+        return this;
+    }
+    delete(key) {
+        if (key == null) return false;
+        if (isIterable(key)) {
+            let deleted = false;
+            for (const item of key){
+                item != null && (deleted = this.delete(item) || deleted);
+            }
+            return deleted;
+        }
+        if (isString$1(key)) {
+            const scopes = this._scopes.get(key);
+            if (!scopes) {
+                return false;
+            }
+            this._updateSize(-scopes.size);
+            this._scopes.delete(key);
+            return true;
+        }
+        return this._scopes.get(key.targetId ?? "")?.delete(key) ?? false;
+    }
+    set(key, value) {
+        if (key == null) return this;
+        if (isIterable(key)) {
+            for (const item of key){
+                item && this.set(item[0], item[1]);
+            }
+            return this;
+        }
+        if (value == null) {
+            this.delete(key);
+            return this;
+        }
+        const targetId = key.targetId ?? "";
+        let scopes = this._scopes.get(targetId);
+        if (!this._scopes.has(targetId)) {
+            this._scopes.set(targetId, scopes = new VariableMap(this._updateSize));
+        }
+        scopes?.set(key, value);
+        return this;
+    }
+    update(key, update) {
+        if (!key) return undefined;
+        let newValue = update(this.get(key));
+        this.set(key, newValue);
+        return newValue;
+    }
+    targets(keys) {
+        return keys ? this._scopes.keys() : this._scopes.entries();
+    }
+    *[Symbol.iterator]() {
+        for (const [targetId, scopes] of this._scopes){
+            for (const [[scope, key], value] of scopes){
+                yield [
+                    mapKey(scope, key, targetId),
+                    value
+                ];
+            }
+        }
+    }
+}
+
+const mapKey = (scope, key, targetId)=>scope === VariableScope.Global ? {
+        scope,
+        key
+    } : {
+        scope,
+        key,
+        targetId
+    };
+class VariableMap {
+    _values = new Map();
+    _onSizeChanged;
+    constructor(arg){
+        if (isFunction(arg)) {
+            this._onSizeChanged = arg;
+        } else if (arg) {
+            this.set(arg);
+        }
+    }
+    _size = 0;
+    get size() {
+        return this._size;
+    }
+    _updateSize(delta) {
+        this._size += delta;
+        this._onSizeChanged?.(delta);
+    }
+    get(source, arg2, init) {
+        if (source == null) return undefined;
+        let scope, key;
+        if (isObject(source)) {
+            scope = variableScope.parse(source.scope, false);
+            key = source.key;
+            init = arg2;
+        } else {
+            scope = variableScope.parse(source, false);
+            key = arg2;
+        }
+        let values = this._values.get(scope);
+        if (key != null) {
+            let value = values?.get(key);
+            if (init && value === undefined) {
+                if (!values) {
+                    this._values.set(scope, values = new Map());
+                }
+                this._updateSize(1);
+                values.set(key, value = init(scope, key));
+            }
+            return value;
+        }
+        return values;
+    }
+    has(source, key) {
+        if (source == null) return undefined;
+        if (isObject(source)) {
+            return this._values.get(variableScope.parse(source.scope, false))?.has(source.key) ?? false;
+        }
+        const scope = variableScope.parse(source, false);
+        return key != null ? this._values.get(scope)?.has(key) ?? false : this._values.has(scope);
+    }
+    clear() {
+        this._updateSize(-this._size);
+        this._values?.clear();
+        return this;
+    }
+    delete(arg1, arg2) {
+        if (arg1 == null) return false;
+        let scope, key;
+        if (isObject(arg1)) {
+            if (isIterable(arg1)) {
+                let deleted = false;
+                for (const key of arg1){
+                    if (!key) continue;
+                    deleted = (isIterable(key) ? this.delete(key[0], key[1]) : this.delete(key)) || deleted;
+                }
+                return deleted;
+            }
+            scope = variableScope.parse(arg1.scope, false);
+            key = arg1.key;
+        } else {
+            scope = variableScope.parse(arg1, false);
+            key = arg2;
+        }
+        const values = this._values.get(scope);
+        if (!values) return false;
+        if (key != null) {
+            if (!values.has(key)) return false;
+            this._updateSize(-1);
+            values.delete(key);
+            if (values.size) return true;
+        // If no more keys, delete the scope.
+        }
+        this._updateSize(-values.size);
+        this._values.delete(scope);
+        return true;
+    }
+    set(arg1, arg2, arg3) {
+        if (arg1 == null) return this;
+        let scope, key, value;
+        if (isObject(arg1)) {
+            if (isIterable(arg1)) {
+                for (const item of arg1){
+                    if (!item) continue;
+                    const [key, value] = item;
+                    isIterable(key) ? this.set(key[0], key[1], value) : this.set(key, value);
+                }
+                return this;
+            }
+            scope = variableScope.parse(arg1.scope, true);
+            key = arg1.key;
+            value = arg2;
+        } else {
+            scope = variableScope.parse(arg1, true);
+            key = arg2;
+            value = arg3;
+        }
+        if (value === undefined) {
+            this.delete(scope, key);
+            return this;
+        }
+        let values = this._values.get(scope);
+        if (!values) {
+            this._values.set(scope, values = new Map());
+        }
+        if (!values.has(key)) {
+            this._updateSize(1);
+        }
+        values.set(key, value);
+        return this;
+    }
+    update(arg1, arg2, update) {
+        if (arg1 == null) return undefined;
+        let scope, key;
+        if (isObject(arg1)) {
+            scope = variableScope.parse(arg1.scope);
+            key = arg1.key;
+            update = arg2;
+        } else {
+            scope = variableScope.parse(arg1);
+            key = arg2;
+        }
+        let newValue = update(this.get(scope, key));
+        this.set(scope, key, newValue);
+        return newValue;
+    }
+    scopes(keys) {
+        return keys ? this._values.keys() : this._values.entries();
+    }
+    *[Symbol.iterator]() {
+        for (const [scope, values] of this._values){
+            for (const [key, value] of values){
+                yield [
+                    [
+                        scope,
+                        key
+                    ],
+                    value
+                ];
+            }
+        }
     }
 }
 
@@ -12360,11 +11456,9 @@ class VariableSplitStorage {
     _mappings = new DoubleMap();
     _cachedStorages = null;
     _errorWrappers = new Map();
-    _patchGetResults;
-    _patchSetResults;
-    constructor(mappings, patchGetResults = (results)=>results, patchSetResults = (results)=>results){
-        this._patchGetResults = patchGetResults;
-        this._patchSetResults = patchSetResults;
+    _patchers;
+    constructor(mappings, patchers){
+        this._patchers = patchers;
         forEach$1(unwrap(mappings), ([scope, mappings])=>forEach$1(mappings, ([prefix, { storage }])=>(this._errorWrappers.set(storage, new SplitStorageErrorWrapperImpl(storage)), this._mappings.set([
                     1 * scope,
                     prefix
@@ -12377,7 +11471,7 @@ class VariableSplitStorage {
         if (!source) return undefined;
         const parsed = parseKey(source.key);
         let storage = this._mappings.get([
-            variableScope(source.scope),
+            +source.scope,
             parsed.prefix
         ]);
         if (!storage) {
@@ -12427,7 +11521,7 @@ class VariableSplitStorage {
         for (const filter of filters){
             const keySplits = new Map();
             const addKey = (storage, key)=>storage && get(keySplits, storage, ()=>new Set()).add(this._keepPrefix(storage) ? key.sourceKey : key.key);
-            const scopes = map$1(filter.scopes, variableScope) ?? variableScope.values;
+            const scopes = filter.scopes ?? variableScope.values;
             for (const scope of scopes){
                 const scopePrefixes = this._mappings.getMap(scope);
                 if (!scopePrefixes) continue;
@@ -12448,7 +11542,7 @@ class VariableSplitStorage {
                     keys: [
                         ...keys
                     ],
-                    scopes: filter.scopes ? filter.scopes.filter((scope)=>storageScopes.has(variableScope(scope))) : [
+                    scopes: filter.scopes ? filter.scopes.filter((scope)=>storageScopes.has(scope)) : [
                         ...storageScopes
                     ]
                 });
@@ -12465,7 +11559,7 @@ class VariableSplitStorage {
             throw: false
         };
         const results = [];
-        await waitAll(...map$1(this._splitKeys(keys), ([storage, split])=>mergeKeys(results, split, async (variables)=>await this._patchGetResults(this._errorWrappers.get(storage), variables, await storage.get(variables, context), context))));
+        await waitAll(...map$1(this._splitKeys(keys), ([storage, split])=>mergeKeys(results, split, async (variables)=>await this._patchers?.get?.(this._errorWrappers.get(storage), variables, await storage.get(variables, context), context) ?? variables)));
         return results;
     }
     async _queryOrHead(method, filters, options, context) {
@@ -12487,11 +11581,11 @@ class VariableSplitStorage {
         for(let i = 0; // Keep going as long as we need the total count, or have not sufficient results to meet top (or done).
         // If one of the storages returns an undefined count even though requested, we will also blank out the count in the combined results
         // and stop reading from additional storages since total count is no longer needed.
-        i < partitions.length && (top > 0 || isDefined(results.count)); i++){
+        i < partitions.length && (top > 0 || results.count != null); i++){
             const [storage, query] = partitions[0];
             const storageState = cursor?.[i];
             let count;
-            if (storageState && (!isDefined(storageState[1]) || !top)) {
+            if (storageState && (storageState[1] == null || !top)) {
                 // We have persisted the total count from the storage in the combined cursor.
                 // If the cursor is empty it means that we have exhausted the storage.
                 // If there is a cursor but `top` is zero (we don't need more results), we use the count cached from the initial query.
@@ -12504,7 +11598,7 @@ class VariableSplitStorage {
                         include: includeCursor,
                         previous: storageState?.[1]
                     }
-                });
+                }, context);
                 count = storageCount;
                 if (includeCursor) {
                     anyCursor ||= !!storageCursor;
@@ -12519,7 +11613,7 @@ class VariableSplitStorage {
                 results.results.push(...storageResults); // This is actually only the header for head requests.
                 top = Math.max(0, top - storageResults.length);
             }
-            isDefined(results.count) && (results.count = isDefined(count) ? results.count + 1 : undefined);
+            results.count != null && (results.count = count != null ? results.count + 1 : undefined);
         }
         if (anyCursor) {
             // Only if any of the storages returned a cursor for further results, we do this.
@@ -12541,7 +11635,7 @@ class VariableSplitStorage {
             throw: false
         };
         const results = [];
-        await waitAll(...map$1(this._splitKeys(variables), ([storage, split])=>isWritable(storage) && mergeKeys(results, split, async (variables)=>await this._patchSetResults(this._errorWrappers.get(storage), variables, await storage.set(variables, context), context))));
+        await waitAll(...map$1(this._splitKeys(variables), ([storage, split])=>isWritable(storage) && mergeKeys(results, split, async (variables)=>await this._patchers?.set?.(this._errorWrappers.get(storage), variables, await storage.set(variables, context), context) ?? variables)));
         return results;
     }
     async purge(filters, context) {
@@ -12583,6 +11677,8 @@ class SplitStorageErrorWrapperImpl {
     }
 }
 
+const isWritable = (storage)=>!!storage?.set;
+
 class VariableStorageCoordinator {
     _settings;
     _variables = new TupleMap();
@@ -12595,7 +11691,10 @@ class VariableStorageCoordinator {
         const normalizedMappings = {};
         forEach$1(mappings, ([scope, mappings])=>scope !== "default" && mappings && (normalizedMappings[variableScope(scope)] = normalizeMappings(mappings)));
         defaultMapping && forEach$1(variableScope.values, (scope)=>!normalizedMappings[scope] && (normalizedMappings[scope] = defaultMapping));
-        this._storage = new VariableSplitStorage(normalizedMappings, (storage, getters, results, context)=>this._patchGetResults(storage, getters, results, context), (storage, setters, results, context)=>this._patchSetResults(storage, setters, results, context));
+        this._storage = new VariableSplitStorage(normalizedMappings, {
+            get: (storage, getters, results, context)=>this._patchGetResults(storage, getters, results, context),
+            set: (storage, setters, results, context)=>this._patchSetResults(storage, setters, results, context)
+        });
         this._settings = {
             mappings,
             retries,
@@ -12603,7 +11702,7 @@ class VariableStorageCoordinator {
             errorRetryDelay
         };
         forEach$1(variableScope.values, (scope)=>forEach$1(normalizedMappings[scope], ([prefix, mapping])=>this._variables.set([
-                    variableScope(scope),
+                    scope,
                     prefix
                 ], {
                     variables: ifDefined(mapping.schema, (schemas)=>schema.compileVariableSet(schemas)),
@@ -12646,7 +11745,12 @@ class VariableStorageCoordinator {
             }
         }
         // Map original sources (lest something was patched).
-        finalResults.forEach((result, i)=>result && (result.source = setters[i]));
+        finalResults.forEach((result, i)=>{
+            if (context?.tracker && result?.status <= 201 && result?.current?.scope === VariableScope.Device) {
+                context.tracker._touchClientDeviceData();
+            }
+            return result && (result.source = setters[i]);
+        });
         return finalResults;
     }
     async _patchGetResults(storage, getters, results, context) {
@@ -12654,14 +11758,14 @@ class VariableStorageCoordinator {
         for(let i = 0; i < getters.length; i++){
             if (!getters[i]) continue;
             const getter = getters[i];
-            if (!getter.initializer || results[i]?.status !== VariableResultStatus.NotFound) {
+            if (!getter.init || results[i]?.status !== VariableResultStatus.NotFound) {
                 continue;
             }
             if (!storage.writable) {
                 throw new Error(`A getter with an initializer was specified for a non-writable storage.`);
             }
-            const initialValue = await getter.initializer();
-            if (!isDefined(initialValue)) {
+            const initialValue = await unwrap(getter.init);
+            if (initialValue == null) {
                 continue;
             }
             initializerSetters.push({
@@ -12682,7 +11786,7 @@ class VariableStorageCoordinator {
                 setter
             ]));
         if (patches.length) {
-            const applyPatch = async (patchIndex, result)=>{
+            const patch = async (patchIndex, result)=>{
                 const [sourceIndex, patch] = patches[patchIndex];
                 if (!setters[sourceIndex]) return undefined;
                 if (result?.status === VariableResultStatus.Error) {
@@ -12694,7 +11798,7 @@ class VariableStorageCoordinator {
                     return undefined;
                 }
                 const current = getResultVariable(result);
-                const patched = await applyPatchOffline(current, patch);
+                const patched = await applyPatch(current, patch);
                 if (!patched) {
                     results[sourceIndex] = {
                         status: VariableResultStatus.Unchanged,
@@ -12712,7 +11816,7 @@ class VariableStorageCoordinator {
             const patchSetters = [];
             const currentValues = await storage.get(partitionItems(patches), context);
             for(let i = 0; i < patches.length; i++){
-                const patched = await applyPatch(i, currentValues[i]);
+                const patched = await patch(i, currentValues[i]);
                 if (patched) {
                     patchSetters.push([
                         i,
@@ -12721,7 +11825,7 @@ class VariableStorageCoordinator {
                 }
             }
             if (patchSetters.length > 0) {
-                (await this._setWithRetry(partitionItems(patchSetters), storage, context, (sourceIndex, result)=>result.status === VariableResultStatus.Conflict ? applyPatch(patchSetters[sourceIndex][0], result) : undefined)).forEach((result, i)=>{
+                (await this._setWithRetry(partitionItems(patchSetters), storage, context, (sourceIndex, result)=>result.status === VariableResultStatus.Conflict ? patch(patchSetters[sourceIndex][0], result) : undefined)).forEach((result, i)=>{
                     // Map setter to patch to source.
                     const sourceIndex = patches[patchSetters[i][0]][0];
                     result && (result.source = setters[sourceIndex]);
@@ -12732,7 +11836,7 @@ class VariableStorageCoordinator {
         return results;
     }
     _censor(mapping, key, value, consent) {
-        if (isUndefined(key) || isUndefined(value)) return undefined;
+        if (key == null || value == null) return undefined;
         const localKey = stripPrefix(key);
         if (mapping.variables?.has(localKey)) {
             return mapping.variables.censor(localKey, value, consent, false);
@@ -12741,8 +11845,8 @@ class VariableStorageCoordinator {
     }
     _getMapping({ scope, key }) {
         const prefix = parseKey(key).prefix;
-        return required$3(this._variables.get([
-            variableScope(scope),
+        return required$2(this._variables.get([
+            scope,
             prefix
         ]), ()=>`No storage provider is mapped to the prefix '${prefix}' in ${variableScope.format(scope)}`);
     }
@@ -12756,13 +11860,37 @@ class VariableStorageCoordinator {
             target.classification ??= key?.classification ?? mapping.classification?.classification;
             target.purposes ??= key?.purposes ?? key?.purpose /* getters */  ?? mapping.classification?.purposes;
         }
-        required$3(target.classification, ()=>`The variable ${formatKey(key)} must have an explicit classification since it is not defined in a schema, and its storage does not have a default classification.`);
-        required$3(target.purposes, ()=>`The variable ${formatKey(key)} must have explicit purposes since it is not defined in a schema, and its storage does not have a default classification.`);
-        isDefined(value) && definition?.validate(value);
+        required$2(target.classification, ()=>`The variable ${formatKey(key)} must have an explicit classification since it is not defined in a schema, and its storage does not have a default classification.`);
+        required$2(target.purposes, ()=>`The variable ${formatKey(key)} must have explicit purposes since it is not defined in a schema, and its storage does not have a default classification.`);
+        value != null && definition?.validate(value);
         return target;
     }
-    _censorValidate(mapping, target, key, index, variables, censored, consent) {
-        if (isUndefined(target.value)) {
+    _censorValidate(mapping, target, key, index, variables, censored, consent, scopeIds) {
+        if (scopeIds) {
+            const scope = key.scope;
+            const validateScope = (expectedTarget, actualTarget)=>{
+                if (!actualTarget) {
+                    return scope === VariableScope.Session ? "The tracker does not have an associated session." : scope === VariableScope.Device ? "The tracker does not have associated device data, most likely due to the lack of consent." : "The tracker does not have an authenticated user associated.";
+                }
+                if (expectedTarget !== actualTarget) {
+                    return `If a target ID is explicitly specified for the ${variableScope.format(scope)} scope it must match the tracker. (Specifying the target ID for this scope is optional.)`;
+                }
+                return undefined;
+            };
+            const error = scope === VariableScope.Session ? validateScope(scopeIds.sessionId, key.targetId ??= scopeIds.sessionId) : scope === VariableScope.Device ? validateScope(scopeIds.deviceId, key.targetId ??= scopeIds.deviceId) : scope === VariableScope.User ? validateScope(scopeIds.userId, key.targetId ??= scopeIds.userId) : undefined;
+            if (error) {
+                censored.push([
+                    index,
+                    {
+                        source: key,
+                        status: VariableResultStatus.Denied,
+                        error
+                    }
+                ]);
+                return false;
+            }
+        }
+        if (target.value == null) {
             return true;
         }
         if (tryCatch(()=>(this._validate(mapping, target, key, target.value), true), (error)=>(variables[index] = undefined, censored.push([
@@ -12773,14 +11901,14 @@ class VariableStorageCoordinator {
                     error
                 }
             ]), false))) {
-            const wasDefined = isDefined(target.value);
+            const wasDefined = target.value != null;
             if (consent) {
                 target.value = this._censor(mapping, {
                     ...key,
                     ...target
                 }, target.value, consent);
             }
-            if (wasDefined && isUndefined(target.value)) {
+            if (wasDefined && target.value == null) {
                 variables[index] = undefined;
                 censored.push([
                     index,
@@ -12795,52 +11923,68 @@ class VariableStorageCoordinator {
         }
         return false;
     }
+    _getContextConsent = (context)=>{
+        let consent = context?.tracker?.consent;
+        if (!consent && (consent = context?.consent)) {
+            consent = {
+                level: dataClassification(consent.level),
+                purposes: dataPurposes(consent.purposes)
+            };
+        }
+        if (consent) {
+            if (consent && !context?.client) {
+                consent.purposes |= DataPurposeFlags.Server;
+            }
+        }
+        return consent;
+    };
     async get(keys, context) {
         const censored = [];
-        const consent = context?.consent ?? context?.tracker?.consent;
+        const consent = this._getContextConsent(context);
+        const scopeIds = context?.tracker ?? context?.scopeIds;
         for (const [getter, i] of rank(keys)){
-            toNumericVariable(getter);
-            if (!getter || isUndefined(getter?.initializer)) {
+            if (!getter || !getter?.init) {
                 continue;
             }
             const mapping = this._getMapping(getter);
-            getter.initializer = wrapFunction(getter.initializer, async (original)=>{
+            getter.init = wrap(getter.init, async (original)=>{
                 const result = await original();
-                return isDefined(result?.value) && this._censorValidate(mapping, result, getter, i, keys, censored, consent) ? result : undefined;
+                return result?.value != null && this._censorValidate(mapping, result, getter, i, keys, censored, consent, scopeIds) ? result : undefined;
             });
         }
         const results = await this._storage.get(keys, context);
         for (const [i, result] of censored){
             results[i] = {
-                ...result.source,
+                ...extractKey(result.source),
+                value: undefined,
                 status: result.status,
                 error: result.error
             };
         }
-        return handleResultErrors(results, context?.throw);
+        return results;
     }
     async set(variables, context) {
         const censored = [];
-        const consent = context?.consent ?? context?.tracker?.consent;
+        const consent = this._getContextConsent(context);
+        const scopeIds = context?.tracker ?? context?.scopeIds;
         // Censor the values (including patch actions) when the context has a tracker.
         variables.forEach((setter, i)=>{
             if (!setter) return;
-            toNumericVariable(setter);
             const mapping = this._getMapping(setter);
             if (isVariablePatchAction(setter)) {
-                setter.patch = wrapFunction(setter.patch, async (original, current)=>{
+                setter.patch = wrap(setter.patch, async (original, current)=>{
                     const patched = await original(current);
-                    return isUndefined(patched) || this._censorValidate(mapping, toNumericVariable(patched), setter, i, variables, censored, consent) ? patched : undefined;
+                    return patched === undefined || this._censorValidate(mapping, patched, setter, i, variables, censored, consent, scopeIds) ? patched : undefined;
                 });
             } else {
-                this._censorValidate(mapping, setter, setter, i, variables, censored, consent);
+                this._censorValidate(mapping, setter, setter, i, variables, censored, consent, scopeIds);
             }
         });
         const results = await this._setWithRetry(variables, this._storage, context);
         for (const [i, result] of censored){
             results[i] = result;
         }
-        return handleResultErrors(results, context?.throw);
+        return results;
     }
     configureScopeDurations(durations, context) {
         this._storage.configureScopeDurations(durations, context);
@@ -12854,8 +11998,16 @@ class VariableStorageCoordinator {
     head(filters, options, context) {
         return this._storage.head(filters, options, context);
     }
-    query(filters, options, context) {
-        return this._storage.query(filters, options, context);
+    async query(filters, options, context) {
+        const results = await this._storage.query(filters, options, context);
+        const consent = this._getContextConsent(context);
+        if (consent) {
+            results.results = results.results.map((result)=>({
+                    ...result,
+                    value: this._censor(this._getMapping(result), result, result.value, consent)
+                }));
+        }
+        return results;
     }
 }
 
@@ -12955,7 +12107,7 @@ const tryParsePrimitiveType = (schemaProperty)=>{
                 // so the criteria is that if any of the anyOf nodes have an `enum` property containing a number, it is also considered a number.
                 return primitives.integer;
             }
-            const allowedValues = isDefined(schemaProperty.const) ? [
+            const allowedValues = schemaProperty.const != null ? [
                 schemaProperty.const
             ] : schemaProperty.enum;
             const type = schemaProperty.const ? inferPrimitiveFromValue(schemaProperty.const) : single(schemaProperty.enum, inferPrimitiveFromValue);
@@ -12974,7 +12126,7 @@ class SchemaVariableSet {
         this._variables = new VariableMap();
         this.schemas.forEach((schema)=>{
             forEach$1(schema.variables, ([[scope, key], variable])=>{
-                this._variables.update(scope, key, (current)=>isDefined(current) ? throwError(`The variable '${key}' in ${variableScope.lookup(scope)} scope from the schema '${variable.declaringType.schema.id}' is already defined in the other schema '${current.declaringType.schema.id}'.`) : variable);
+                this._variables.update(scope, key, (current)=>current != null ? throwError(`The variable '${key}' in ${variableScope.lookup(scope)} scope from the schema '${variable.declaringType.schema.id}' is already defined in the other schema '${current.declaringType.schema.id}'.`) : variable);
             });
         });
     }
@@ -13349,856 +12501,870 @@ var code$1 = {};
 
 var scope = {};
 
-(function (exports) {
-	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
-	const code_1 = code$1;
-	class ValueError extends Error {
-	    constructor(name) {
-	        super(`CodeGen: "code" for ${name} not defined`);
-	        this.value = name.value;
-	    }
-	}
-	var UsedValueState;
-	(function (UsedValueState) {
-	    UsedValueState[UsedValueState["Started"] = 0] = "Started";
-	    UsedValueState[UsedValueState["Completed"] = 1] = "Completed";
-	})(UsedValueState = exports.UsedValueState || (exports.UsedValueState = {}));
-	exports.varKinds = {
-	    const: new code_1.Name("const"),
-	    let: new code_1.Name("let"),
-	    var: new code_1.Name("var"),
-	};
-	class Scope {
-	    constructor({ prefixes, parent } = {}) {
-	        this._names = {};
-	        this._prefixes = prefixes;
-	        this._parent = parent;
-	    }
-	    toName(nameOrPrefix) {
-	        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
-	    }
-	    name(prefix) {
-	        return new code_1.Name(this._newName(prefix));
-	    }
-	    _newName(prefix) {
-	        const ng = this._names[prefix] || this._nameGroup(prefix);
-	        return `${prefix}${ng.index++}`;
-	    }
-	    _nameGroup(prefix) {
-	        var _a, _b;
-	        if (((_b = (_a = this._parent) === null || _a === void 0 ? void 0 : _a._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || (this._prefixes && !this._prefixes.has(prefix))) {
-	            throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
-	        }
-	        return (this._names[prefix] = { prefix, index: 0 });
-	    }
-	}
-	exports.Scope = Scope;
-	class ValueScopeName extends code_1.Name {
-	    constructor(prefix, nameStr) {
-	        super(nameStr);
-	        this.prefix = prefix;
-	    }
-	    setValue(value, { property, itemIndex }) {
-	        this.value = value;
-	        this.scopePath = (0, code_1._) `.${new code_1.Name(property)}[${itemIndex}]`;
-	    }
-	}
-	exports.ValueScopeName = ValueScopeName;
-	const line = (0, code_1._) `\n`;
-	class ValueScope extends Scope {
-	    constructor(opts) {
-	        super(opts);
-	        this._values = {};
-	        this._scope = opts.scope;
-	        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
-	    }
-	    get() {
-	        return this._scope;
-	    }
-	    name(prefix) {
-	        return new ValueScopeName(prefix, this._newName(prefix));
-	    }
-	    value(nameOrPrefix, value) {
-	        var _a;
-	        if (value.ref === undefined)
-	            throw new Error("CodeGen: ref must be passed in value");
-	        const name = this.toName(nameOrPrefix);
-	        const { prefix } = name;
-	        const valueKey = (_a = value.key) !== null && _a !== void 0 ? _a : value.ref;
-	        let vs = this._values[prefix];
-	        if (vs) {
-	            const _name = vs.get(valueKey);
-	            if (_name)
-	                return _name;
-	        }
-	        else {
-	            vs = this._values[prefix] = new Map();
-	        }
-	        vs.set(valueKey, name);
-	        const s = this._scope[prefix] || (this._scope[prefix] = []);
-	        const itemIndex = s.length;
-	        s[itemIndex] = value.ref;
-	        name.setValue(value, { property: prefix, itemIndex });
-	        return name;
-	    }
-	    getValue(prefix, keyOrRef) {
-	        const vs = this._values[prefix];
-	        if (!vs)
-	            return;
-	        return vs.get(keyOrRef);
-	    }
-	    scopeRefs(scopeName, values = this._values) {
-	        return this._reduceValues(values, (name) => {
-	            if (name.scopePath === undefined)
-	                throw new Error(`CodeGen: name "${name}" has no value`);
-	            return (0, code_1._) `${scopeName}${name.scopePath}`;
-	        });
-	    }
-	    scopeCode(values = this._values, usedValues, getCode) {
-	        return this._reduceValues(values, (name) => {
-	            if (name.value === undefined)
-	                throw new Error(`CodeGen: name "${name}" has no value`);
-	            return name.value.code;
-	        }, usedValues, getCode);
-	    }
-	    _reduceValues(values, valueCode, usedValues = {}, getCode) {
-	        let code = code_1.nil;
-	        for (const prefix in values) {
-	            const vs = values[prefix];
-	            if (!vs)
-	                continue;
-	            const nameSet = (usedValues[prefix] = usedValues[prefix] || new Map());
-	            vs.forEach((name) => {
-	                if (nameSet.has(name))
-	                    return;
-	                nameSet.set(name, UsedValueState.Started);
-	                let c = valueCode(name);
-	                if (c) {
-	                    const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
-	                    code = (0, code_1._) `${code}${def} ${name} = ${c};${this.opts._n}`;
-	                }
-	                else if ((c = getCode === null || getCode === void 0 ? void 0 : getCode(name))) {
-	                    code = (0, code_1._) `${code}${c}${this.opts._n}`;
-	                }
-	                else {
-	                    throw new ValueError(name);
-	                }
-	                nameSet.set(name, UsedValueState.Completed);
-	            });
-	        }
-	        return code;
-	    }
-	}
-	exports.ValueScope = ValueScope;
-	
-} (scope));
+var hasRequiredScope;
 
-(function (exports) {
-	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
-	const code_1 = code$1;
-	const scope_1 = scope;
-	var code_2 = code$1;
-	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return code_2._; } });
-	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return code_2.str; } });
-	Object.defineProperty(exports, "strConcat", { enumerable: true, get: function () { return code_2.strConcat; } });
-	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return code_2.nil; } });
-	Object.defineProperty(exports, "getProperty", { enumerable: true, get: function () { return code_2.getProperty; } });
-	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return code_2.stringify; } });
-	Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function () { return code_2.regexpCode; } });
-	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return code_2.Name; } });
-	var scope_2 = scope;
-	Object.defineProperty(exports, "Scope", { enumerable: true, get: function () { return scope_2.Scope; } });
-	Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function () { return scope_2.ValueScope; } });
-	Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function () { return scope_2.ValueScopeName; } });
-	Object.defineProperty(exports, "varKinds", { enumerable: true, get: function () { return scope_2.varKinds; } });
-	exports.operators = {
-	    GT: new code_1._Code(">"),
-	    GTE: new code_1._Code(">="),
-	    LT: new code_1._Code("<"),
-	    LTE: new code_1._Code("<="),
-	    EQ: new code_1._Code("==="),
-	    NEQ: new code_1._Code("!=="),
-	    NOT: new code_1._Code("!"),
-	    OR: new code_1._Code("||"),
-	    AND: new code_1._Code("&&"),
-	    ADD: new code_1._Code("+"),
-	};
-	class Node {
-	    optimizeNodes() {
-	        return this;
-	    }
-	    optimizeNames(_names, _constants) {
-	        return this;
-	    }
-	}
-	class Def extends Node {
-	    constructor(varKind, name, rhs) {
-	        super();
-	        this.varKind = varKind;
-	        this.name = name;
-	        this.rhs = rhs;
-	    }
-	    render({ es5, _n }) {
-	        const varKind = es5 ? scope_1.varKinds.var : this.varKind;
-	        const rhs = this.rhs === undefined ? "" : ` = ${this.rhs}`;
-	        return `${varKind} ${this.name}${rhs};` + _n;
-	    }
-	    optimizeNames(names, constants) {
-	        if (!names[this.name.str])
-	            return;
-	        if (this.rhs)
-	            this.rhs = optimizeExpr(this.rhs, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
-	    }
-	}
-	class Assign extends Node {
-	    constructor(lhs, rhs, sideEffects) {
-	        super();
-	        this.lhs = lhs;
-	        this.rhs = rhs;
-	        this.sideEffects = sideEffects;
-	    }
-	    render({ _n }) {
-	        return `${this.lhs} = ${this.rhs};` + _n;
-	    }
-	    optimizeNames(names, constants) {
-	        if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
-	            return;
-	        this.rhs = optimizeExpr(this.rhs, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        const names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
-	        return addExprNames(names, this.rhs);
-	    }
-	}
-	class AssignOp extends Assign {
-	    constructor(lhs, op, rhs, sideEffects) {
-	        super(lhs, rhs, sideEffects);
-	        this.op = op;
-	    }
-	    render({ _n }) {
-	        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
-	    }
-	}
-	class Label extends Node {
-	    constructor(label) {
-	        super();
-	        this.label = label;
-	        this.names = {};
-	    }
-	    render({ _n }) {
-	        return `${this.label}:` + _n;
-	    }
-	}
-	class Break extends Node {
-	    constructor(label) {
-	        super();
-	        this.label = label;
-	        this.names = {};
-	    }
-	    render({ _n }) {
-	        const label = this.label ? ` ${this.label}` : "";
-	        return `break${label};` + _n;
-	    }
-	}
-	class Throw extends Node {
-	    constructor(error) {
-	        super();
-	        this.error = error;
-	    }
-	    render({ _n }) {
-	        return `throw ${this.error};` + _n;
-	    }
-	    get names() {
-	        return this.error.names;
-	    }
-	}
-	class AnyCode extends Node {
-	    constructor(code) {
-	        super();
-	        this.code = code;
-	    }
-	    render({ _n }) {
-	        return `${this.code};` + _n;
-	    }
-	    optimizeNodes() {
-	        return `${this.code}` ? this : undefined;
-	    }
-	    optimizeNames(names, constants) {
-	        this.code = optimizeExpr(this.code, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
-	    }
-	}
-	class ParentNode extends Node {
-	    constructor(nodes = []) {
-	        super();
-	        this.nodes = nodes;
-	    }
-	    render(opts) {
-	        return this.nodes.reduce((code, n) => code + n.render(opts), "");
-	    }
-	    optimizeNodes() {
-	        const { nodes } = this;
-	        let i = nodes.length;
-	        while (i--) {
-	            const n = nodes[i].optimizeNodes();
-	            if (Array.isArray(n))
-	                nodes.splice(i, 1, ...n);
-	            else if (n)
-	                nodes[i] = n;
-	            else
-	                nodes.splice(i, 1);
-	        }
-	        return nodes.length > 0 ? this : undefined;
-	    }
-	    optimizeNames(names, constants) {
-	        const { nodes } = this;
-	        let i = nodes.length;
-	        while (i--) {
-	            // iterating backwards improves 1-pass optimization
-	            const n = nodes[i];
-	            if (n.optimizeNames(names, constants))
-	                continue;
-	            subtractNames(names, n.names);
-	            nodes.splice(i, 1);
-	        }
-	        return nodes.length > 0 ? this : undefined;
-	    }
-	    get names() {
-	        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
-	    }
-	}
-	class BlockNode extends ParentNode {
-	    render(opts) {
-	        return "{" + opts._n + super.render(opts) + "}" + opts._n;
-	    }
-	}
-	class Root extends ParentNode {
-	}
-	class Else extends BlockNode {
-	}
-	Else.kind = "else";
-	class If extends BlockNode {
-	    constructor(condition, nodes) {
-	        super(nodes);
-	        this.condition = condition;
-	    }
-	    render(opts) {
-	        let code = `if(${this.condition})` + super.render(opts);
-	        if (this.else)
-	            code += "else " + this.else.render(opts);
-	        return code;
-	    }
-	    optimizeNodes() {
-	        super.optimizeNodes();
-	        const cond = this.condition;
-	        if (cond === true)
-	            return this.nodes; // else is ignored here
-	        let e = this.else;
-	        if (e) {
-	            const ns = e.optimizeNodes();
-	            e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
-	        }
-	        if (e) {
-	            if (cond === false)
-	                return e instanceof If ? e : e.nodes;
-	            if (this.nodes.length)
-	                return this;
-	            return new If(not(cond), e instanceof If ? [e] : e.nodes);
-	        }
-	        if (cond === false || !this.nodes.length)
-	            return undefined;
-	        return this;
-	    }
-	    optimizeNames(names, constants) {
-	        var _a;
-	        this.else = (_a = this.else) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
-	        if (!(super.optimizeNames(names, constants) || this.else))
-	            return;
-	        this.condition = optimizeExpr(this.condition, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        const names = super.names;
-	        addExprNames(names, this.condition);
-	        if (this.else)
-	            addNames(names, this.else.names);
-	        return names;
-	    }
-	}
-	If.kind = "if";
-	class For extends BlockNode {
-	}
-	For.kind = "for";
-	class ForLoop extends For {
-	    constructor(iteration) {
-	        super();
-	        this.iteration = iteration;
-	    }
-	    render(opts) {
-	        return `for(${this.iteration})` + super.render(opts);
-	    }
-	    optimizeNames(names, constants) {
-	        if (!super.optimizeNames(names, constants))
-	            return;
-	        this.iteration = optimizeExpr(this.iteration, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        return addNames(super.names, this.iteration.names);
-	    }
-	}
-	class ForRange extends For {
-	    constructor(varKind, name, from, to) {
-	        super();
-	        this.varKind = varKind;
-	        this.name = name;
-	        this.from = from;
-	        this.to = to;
-	    }
-	    render(opts) {
-	        const varKind = opts.es5 ? scope_1.varKinds.var : this.varKind;
-	        const { name, from, to } = this;
-	        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
-	    }
-	    get names() {
-	        const names = addExprNames(super.names, this.from);
-	        return addExprNames(names, this.to);
-	    }
-	}
-	class ForIter extends For {
-	    constructor(loop, varKind, name, iterable) {
-	        super();
-	        this.loop = loop;
-	        this.varKind = varKind;
-	        this.name = name;
-	        this.iterable = iterable;
-	    }
-	    render(opts) {
-	        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
-	    }
-	    optimizeNames(names, constants) {
-	        if (!super.optimizeNames(names, constants))
-	            return;
-	        this.iterable = optimizeExpr(this.iterable, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        return addNames(super.names, this.iterable.names);
-	    }
-	}
-	class Func extends BlockNode {
-	    constructor(name, args, async) {
-	        super();
-	        this.name = name;
-	        this.args = args;
-	        this.async = async;
-	    }
-	    render(opts) {
-	        const _async = this.async ? "async " : "";
-	        return `${_async}function ${this.name}(${this.args})` + super.render(opts);
-	    }
-	}
-	Func.kind = "func";
-	class Return extends ParentNode {
-	    render(opts) {
-	        return "return " + super.render(opts);
-	    }
-	}
-	Return.kind = "return";
-	class Try extends BlockNode {
-	    render(opts) {
-	        let code = "try" + super.render(opts);
-	        if (this.catch)
-	            code += this.catch.render(opts);
-	        if (this.finally)
-	            code += this.finally.render(opts);
-	        return code;
-	    }
-	    optimizeNodes() {
-	        var _a, _b;
-	        super.optimizeNodes();
-	        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNodes();
-	        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
-	        return this;
-	    }
-	    optimizeNames(names, constants) {
-	        var _a, _b;
-	        super.optimizeNames(names, constants);
-	        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
-	        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
-	        return this;
-	    }
-	    get names() {
-	        const names = super.names;
-	        if (this.catch)
-	            addNames(names, this.catch.names);
-	        if (this.finally)
-	            addNames(names, this.finally.names);
-	        return names;
-	    }
-	}
-	class Catch extends BlockNode {
-	    constructor(error) {
-	        super();
-	        this.error = error;
-	    }
-	    render(opts) {
-	        return `catch(${this.error})` + super.render(opts);
-	    }
-	}
-	Catch.kind = "catch";
-	class Finally extends BlockNode {
-	    render(opts) {
-	        return "finally" + super.render(opts);
-	    }
-	}
-	Finally.kind = "finally";
-	class CodeGen {
-	    constructor(extScope, opts = {}) {
-	        this._values = {};
-	        this._blockStarts = [];
-	        this._constants = {};
-	        this.opts = { ...opts, _n: opts.lines ? "\n" : "" };
-	        this._extScope = extScope;
-	        this._scope = new scope_1.Scope({ parent: extScope });
-	        this._nodes = [new Root()];
-	    }
-	    toString() {
-	        return this._root.render(this.opts);
-	    }
-	    // returns unique name in the internal scope
-	    name(prefix) {
-	        return this._scope.name(prefix);
-	    }
-	    // reserves unique name in the external scope
-	    scopeName(prefix) {
-	        return this._extScope.name(prefix);
-	    }
-	    // reserves unique name in the external scope and assigns value to it
-	    scopeValue(prefixOrName, value) {
-	        const name = this._extScope.value(prefixOrName, value);
-	        const vs = this._values[name.prefix] || (this._values[name.prefix] = new Set());
-	        vs.add(name);
-	        return name;
-	    }
-	    getScopeValue(prefix, keyOrRef) {
-	        return this._extScope.getValue(prefix, keyOrRef);
-	    }
-	    // return code that assigns values in the external scope to the names that are used internally
-	    // (same names that were returned by gen.scopeName or gen.scopeValue)
-	    scopeRefs(scopeName) {
-	        return this._extScope.scopeRefs(scopeName, this._values);
-	    }
-	    scopeCode() {
-	        return this._extScope.scopeCode(this._values);
-	    }
-	    _def(varKind, nameOrPrefix, rhs, constant) {
-	        const name = this._scope.toName(nameOrPrefix);
-	        if (rhs !== undefined && constant)
-	            this._constants[name.str] = rhs;
-	        this._leafNode(new Def(varKind, name, rhs));
-	        return name;
-	    }
-	    // `const` declaration (`var` in es5 mode)
-	    const(nameOrPrefix, rhs, _constant) {
-	        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
-	    }
-	    // `let` declaration with optional assignment (`var` in es5 mode)
-	    let(nameOrPrefix, rhs, _constant) {
-	        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
-	    }
-	    // `var` declaration with optional assignment
-	    var(nameOrPrefix, rhs, _constant) {
-	        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
-	    }
-	    // assignment code
-	    assign(lhs, rhs, sideEffects) {
-	        return this._leafNode(new Assign(lhs, rhs, sideEffects));
-	    }
-	    // `+=` code
-	    add(lhs, rhs) {
-	        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
-	    }
-	    // appends passed SafeExpr to code or executes Block
-	    code(c) {
-	        if (typeof c == "function")
-	            c();
-	        else if (c !== code_1.nil)
-	            this._leafNode(new AnyCode(c));
-	        return this;
-	    }
-	    // returns code for object literal for the passed argument list of key-value pairs
-	    object(...keyValues) {
-	        const code = ["{"];
-	        for (const [key, value] of keyValues) {
-	            if (code.length > 1)
-	                code.push(",");
-	            code.push(key);
-	            if (key !== value || this.opts.es5) {
-	                code.push(":");
-	                (0, code_1.addCodeArg)(code, value);
-	            }
-	        }
-	        code.push("}");
-	        return new code_1._Code(code);
-	    }
-	    // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
-	    if(condition, thenBody, elseBody) {
-	        this._blockNode(new If(condition));
-	        if (thenBody && elseBody) {
-	            this.code(thenBody).else().code(elseBody).endIf();
-	        }
-	        else if (thenBody) {
-	            this.code(thenBody).endIf();
-	        }
-	        else if (elseBody) {
-	            throw new Error('CodeGen: "else" body without "then" body');
-	        }
-	        return this;
-	    }
-	    // `else if` clause - invalid without `if` or after `else` clauses
-	    elseIf(condition) {
-	        return this._elseNode(new If(condition));
-	    }
-	    // `else` clause - only valid after `if` or `else if` clauses
-	    else() {
-	        return this._elseNode(new Else());
-	    }
-	    // end `if` statement (needed if gen.if was used only with condition)
-	    endIf() {
-	        return this._endBlockNode(If, Else);
-	    }
-	    _for(node, forBody) {
-	        this._blockNode(node);
-	        if (forBody)
-	            this.code(forBody).endFor();
-	        return this;
-	    }
-	    // a generic `for` clause (or statement if `forBody` is passed)
-	    for(iteration, forBody) {
-	        return this._for(new ForLoop(iteration), forBody);
-	    }
-	    // `for` statement for a range of values
-	    forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
-	        const name = this._scope.toName(nameOrPrefix);
-	        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
-	    }
-	    // `for-of` statement (in es5 mode replace with a normal for loop)
-	    forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
-	        const name = this._scope.toName(nameOrPrefix);
-	        if (this.opts.es5) {
-	            const arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
-	            return this.forRange("_i", 0, (0, code_1._) `${arr}.length`, (i) => {
-	                this.var(name, (0, code_1._) `${arr}[${i}]`);
-	                forBody(name);
-	            });
-	        }
-	        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
-	    }
-	    // `for-in` statement.
-	    // With option `ownProperties` replaced with a `for-of` loop for object keys
-	    forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
-	        if (this.opts.ownProperties) {
-	            return this.forOf(nameOrPrefix, (0, code_1._) `Object.keys(${obj})`, forBody);
-	        }
-	        const name = this._scope.toName(nameOrPrefix);
-	        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
-	    }
-	    // end `for` loop
-	    endFor() {
-	        return this._endBlockNode(For);
-	    }
-	    // `label` statement
-	    label(label) {
-	        return this._leafNode(new Label(label));
-	    }
-	    // `break` statement
-	    break(label) {
-	        return this._leafNode(new Break(label));
-	    }
-	    // `return` statement
-	    return(value) {
-	        const node = new Return();
-	        this._blockNode(node);
-	        this.code(value);
-	        if (node.nodes.length !== 1)
-	            throw new Error('CodeGen: "return" should have one node');
-	        return this._endBlockNode(Return);
-	    }
-	    // `try` statement
-	    try(tryBody, catchCode, finallyCode) {
-	        if (!catchCode && !finallyCode)
-	            throw new Error('CodeGen: "try" without "catch" and "finally"');
-	        const node = new Try();
-	        this._blockNode(node);
-	        this.code(tryBody);
-	        if (catchCode) {
-	            const error = this.name("e");
-	            this._currNode = node.catch = new Catch(error);
-	            catchCode(error);
-	        }
-	        if (finallyCode) {
-	            this._currNode = node.finally = new Finally();
-	            this.code(finallyCode);
-	        }
-	        return this._endBlockNode(Catch, Finally);
-	    }
-	    // `throw` statement
-	    throw(error) {
-	        return this._leafNode(new Throw(error));
-	    }
-	    // start self-balancing block
-	    block(body, nodeCount) {
-	        this._blockStarts.push(this._nodes.length);
-	        if (body)
-	            this.code(body).endBlock(nodeCount);
-	        return this;
-	    }
-	    // end the current self-balancing block
-	    endBlock(nodeCount) {
-	        const len = this._blockStarts.pop();
-	        if (len === undefined)
-	            throw new Error("CodeGen: not in self-balancing block");
-	        const toClose = this._nodes.length - len;
-	        if (toClose < 0 || (nodeCount !== undefined && toClose !== nodeCount)) {
-	            throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
-	        }
-	        this._nodes.length = len;
-	        return this;
-	    }
-	    // `function` heading (or definition if funcBody is passed)
-	    func(name, args = code_1.nil, async, funcBody) {
-	        this._blockNode(new Func(name, args, async));
-	        if (funcBody)
-	            this.code(funcBody).endFunc();
-	        return this;
-	    }
-	    // end function definition
-	    endFunc() {
-	        return this._endBlockNode(Func);
-	    }
-	    optimize(n = 1) {
-	        while (n-- > 0) {
-	            this._root.optimizeNodes();
-	            this._root.optimizeNames(this._root.names, this._constants);
-	        }
-	    }
-	    _leafNode(node) {
-	        this._currNode.nodes.push(node);
-	        return this;
-	    }
-	    _blockNode(node) {
-	        this._currNode.nodes.push(node);
-	        this._nodes.push(node);
-	    }
-	    _endBlockNode(N1, N2) {
-	        const n = this._currNode;
-	        if (n instanceof N1 || (N2 && n instanceof N2)) {
-	            this._nodes.pop();
-	            return this;
-	        }
-	        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
-	    }
-	    _elseNode(node) {
-	        const n = this._currNode;
-	        if (!(n instanceof If)) {
-	            throw new Error('CodeGen: "else" without "if"');
-	        }
-	        this._currNode = n.else = node;
-	        return this;
-	    }
-	    get _root() {
-	        return this._nodes[0];
-	    }
-	    get _currNode() {
-	        const ns = this._nodes;
-	        return ns[ns.length - 1];
-	    }
-	    set _currNode(node) {
-	        const ns = this._nodes;
-	        ns[ns.length - 1] = node;
-	    }
-	}
-	exports.CodeGen = CodeGen;
-	function addNames(names, from) {
-	    for (const n in from)
-	        names[n] = (names[n] || 0) + (from[n] || 0);
-	    return names;
-	}
-	function addExprNames(names, from) {
-	    return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
-	}
-	function optimizeExpr(expr, names, constants) {
-	    if (expr instanceof code_1.Name)
-	        return replaceName(expr);
-	    if (!canOptimize(expr))
-	        return expr;
-	    return new code_1._Code(expr._items.reduce((items, c) => {
-	        if (c instanceof code_1.Name)
-	            c = replaceName(c);
-	        if (c instanceof code_1._Code)
-	            items.push(...c._items);
-	        else
-	            items.push(c);
-	        return items;
-	    }, []));
-	    function replaceName(n) {
-	        const c = constants[n.str];
-	        if (c === undefined || names[n.str] !== 1)
-	            return n;
-	        delete names[n.str];
-	        return c;
-	    }
-	    function canOptimize(e) {
-	        return (e instanceof code_1._Code &&
-	            e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== undefined));
-	    }
-	}
-	function subtractNames(names, from) {
-	    for (const n in from)
-	        names[n] = (names[n] || 0) - (from[n] || 0);
-	}
-	function not(x) {
-	    return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._) `!${par(x)}`;
-	}
-	exports.not = not;
-	const andCode = mappend(exports.operators.AND);
-	// boolean AND (&&) expression with the passed arguments
-	function and(...args) {
-	    return args.reduce(andCode);
-	}
-	exports.and = and;
-	const orCode = mappend(exports.operators.OR);
-	// boolean OR (||) expression with the passed arguments
-	function or(...args) {
-	    return args.reduce(orCode);
-	}
-	exports.or = or;
-	function mappend(op) {
-	    return (x, y) => (x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._) `${par(x)} ${op} ${par(y)}`);
-	}
-	function par(x) {
-	    return x instanceof code_1.Name ? x : (0, code_1._) `(${x})`;
-	}
-	
-} (codegen));
+function requireScope () {
+	if (hasRequiredScope) return scope;
+	hasRequiredScope = 1;
+	(function (exports) {
+		Object.defineProperty(exports, "__esModule", { value: true });
+		exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
+		const code_1 = code$1;
+		class ValueError extends Error {
+		    constructor(name) {
+		        super(`CodeGen: "code" for ${name} not defined`);
+		        this.value = name.value;
+		    }
+		}
+		var UsedValueState;
+		(function (UsedValueState) {
+		    UsedValueState[UsedValueState["Started"] = 0] = "Started";
+		    UsedValueState[UsedValueState["Completed"] = 1] = "Completed";
+		})(UsedValueState = exports.UsedValueState || (exports.UsedValueState = {}));
+		exports.varKinds = {
+		    const: new code_1.Name("const"),
+		    let: new code_1.Name("let"),
+		    var: new code_1.Name("var"),
+		};
+		class Scope {
+		    constructor({ prefixes, parent } = {}) {
+		        this._names = {};
+		        this._prefixes = prefixes;
+		        this._parent = parent;
+		    }
+		    toName(nameOrPrefix) {
+		        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
+		    }
+		    name(prefix) {
+		        return new code_1.Name(this._newName(prefix));
+		    }
+		    _newName(prefix) {
+		        const ng = this._names[prefix] || this._nameGroup(prefix);
+		        return `${prefix}${ng.index++}`;
+		    }
+		    _nameGroup(prefix) {
+		        var _a, _b;
+		        if (((_b = (_a = this._parent) === null || _a === void 0 ? void 0 : _a._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || (this._prefixes && !this._prefixes.has(prefix))) {
+		            throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
+		        }
+		        return (this._names[prefix] = { prefix, index: 0 });
+		    }
+		}
+		exports.Scope = Scope;
+		class ValueScopeName extends code_1.Name {
+		    constructor(prefix, nameStr) {
+		        super(nameStr);
+		        this.prefix = prefix;
+		    }
+		    setValue(value, { property, itemIndex }) {
+		        this.value = value;
+		        this.scopePath = (0, code_1._) `.${new code_1.Name(property)}[${itemIndex}]`;
+		    }
+		}
+		exports.ValueScopeName = ValueScopeName;
+		const line = (0, code_1._) `\n`;
+		class ValueScope extends Scope {
+		    constructor(opts) {
+		        super(opts);
+		        this._values = {};
+		        this._scope = opts.scope;
+		        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
+		    }
+		    get() {
+		        return this._scope;
+		    }
+		    name(prefix) {
+		        return new ValueScopeName(prefix, this._newName(prefix));
+		    }
+		    value(nameOrPrefix, value) {
+		        var _a;
+		        if (value.ref === undefined)
+		            throw new Error("CodeGen: ref must be passed in value");
+		        const name = this.toName(nameOrPrefix);
+		        const { prefix } = name;
+		        const valueKey = (_a = value.key) !== null && _a !== void 0 ? _a : value.ref;
+		        let vs = this._values[prefix];
+		        if (vs) {
+		            const _name = vs.get(valueKey);
+		            if (_name)
+		                return _name;
+		        }
+		        else {
+		            vs = this._values[prefix] = new Map();
+		        }
+		        vs.set(valueKey, name);
+		        const s = this._scope[prefix] || (this._scope[prefix] = []);
+		        const itemIndex = s.length;
+		        s[itemIndex] = value.ref;
+		        name.setValue(value, { property: prefix, itemIndex });
+		        return name;
+		    }
+		    getValue(prefix, keyOrRef) {
+		        const vs = this._values[prefix];
+		        if (!vs)
+		            return;
+		        return vs.get(keyOrRef);
+		    }
+		    scopeRefs(scopeName, values = this._values) {
+		        return this._reduceValues(values, (name) => {
+		            if (name.scopePath === undefined)
+		                throw new Error(`CodeGen: name "${name}" has no value`);
+		            return (0, code_1._) `${scopeName}${name.scopePath}`;
+		        });
+		    }
+		    scopeCode(values = this._values, usedValues, getCode) {
+		        return this._reduceValues(values, (name) => {
+		            if (name.value === undefined)
+		                throw new Error(`CodeGen: name "${name}" has no value`);
+		            return name.value.code;
+		        }, usedValues, getCode);
+		    }
+		    _reduceValues(values, valueCode, usedValues = {}, getCode) {
+		        let code = code_1.nil;
+		        for (const prefix in values) {
+		            const vs = values[prefix];
+		            if (!vs)
+		                continue;
+		            const nameSet = (usedValues[prefix] = usedValues[prefix] || new Map());
+		            vs.forEach((name) => {
+		                if (nameSet.has(name))
+		                    return;
+		                nameSet.set(name, UsedValueState.Started);
+		                let c = valueCode(name);
+		                if (c) {
+		                    const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
+		                    code = (0, code_1._) `${code}${def} ${name} = ${c};${this.opts._n}`;
+		                }
+		                else if ((c = getCode === null || getCode === void 0 ? void 0 : getCode(name))) {
+		                    code = (0, code_1._) `${code}${c}${this.opts._n}`;
+		                }
+		                else {
+		                    throw new ValueError(name);
+		                }
+		                nameSet.set(name, UsedValueState.Completed);
+		            });
+		        }
+		        return code;
+		    }
+		}
+		exports.ValueScope = ValueScope;
+		
+	} (scope));
+	return scope;
+}
+
+var hasRequiredCodegen;
+
+function requireCodegen () {
+	if (hasRequiredCodegen) return codegen;
+	hasRequiredCodegen = 1;
+	(function (exports) {
+		Object.defineProperty(exports, "__esModule", { value: true });
+		exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
+		const code_1 = code$1;
+		const scope_1 = requireScope();
+		var code_2 = code$1;
+		Object.defineProperty(exports, "_", { enumerable: true, get: function () { return code_2._; } });
+		Object.defineProperty(exports, "str", { enumerable: true, get: function () { return code_2.str; } });
+		Object.defineProperty(exports, "strConcat", { enumerable: true, get: function () { return code_2.strConcat; } });
+		Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return code_2.nil; } });
+		Object.defineProperty(exports, "getProperty", { enumerable: true, get: function () { return code_2.getProperty; } });
+		Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return code_2.stringify; } });
+		Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function () { return code_2.regexpCode; } });
+		Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return code_2.Name; } });
+		var scope_2 = requireScope();
+		Object.defineProperty(exports, "Scope", { enumerable: true, get: function () { return scope_2.Scope; } });
+		Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function () { return scope_2.ValueScope; } });
+		Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function () { return scope_2.ValueScopeName; } });
+		Object.defineProperty(exports, "varKinds", { enumerable: true, get: function () { return scope_2.varKinds; } });
+		exports.operators = {
+		    GT: new code_1._Code(">"),
+		    GTE: new code_1._Code(">="),
+		    LT: new code_1._Code("<"),
+		    LTE: new code_1._Code("<="),
+		    EQ: new code_1._Code("==="),
+		    NEQ: new code_1._Code("!=="),
+		    NOT: new code_1._Code("!"),
+		    OR: new code_1._Code("||"),
+		    AND: new code_1._Code("&&"),
+		    ADD: new code_1._Code("+"),
+		};
+		class Node {
+		    optimizeNodes() {
+		        return this;
+		    }
+		    optimizeNames(_names, _constants) {
+		        return this;
+		    }
+		}
+		class Def extends Node {
+		    constructor(varKind, name, rhs) {
+		        super();
+		        this.varKind = varKind;
+		        this.name = name;
+		        this.rhs = rhs;
+		    }
+		    render({ es5, _n }) {
+		        const varKind = es5 ? scope_1.varKinds.var : this.varKind;
+		        const rhs = this.rhs === undefined ? "" : ` = ${this.rhs}`;
+		        return `${varKind} ${this.name}${rhs};` + _n;
+		    }
+		    optimizeNames(names, constants) {
+		        if (!names[this.name.str])
+		            return;
+		        if (this.rhs)
+		            this.rhs = optimizeExpr(this.rhs, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
+		    }
+		}
+		class Assign extends Node {
+		    constructor(lhs, rhs, sideEffects) {
+		        super();
+		        this.lhs = lhs;
+		        this.rhs = rhs;
+		        this.sideEffects = sideEffects;
+		    }
+		    render({ _n }) {
+		        return `${this.lhs} = ${this.rhs};` + _n;
+		    }
+		    optimizeNames(names, constants) {
+		        if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
+		            return;
+		        this.rhs = optimizeExpr(this.rhs, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        const names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
+		        return addExprNames(names, this.rhs);
+		    }
+		}
+		class AssignOp extends Assign {
+		    constructor(lhs, op, rhs, sideEffects) {
+		        super(lhs, rhs, sideEffects);
+		        this.op = op;
+		    }
+		    render({ _n }) {
+		        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
+		    }
+		}
+		class Label extends Node {
+		    constructor(label) {
+		        super();
+		        this.label = label;
+		        this.names = {};
+		    }
+		    render({ _n }) {
+		        return `${this.label}:` + _n;
+		    }
+		}
+		class Break extends Node {
+		    constructor(label) {
+		        super();
+		        this.label = label;
+		        this.names = {};
+		    }
+		    render({ _n }) {
+		        const label = this.label ? ` ${this.label}` : "";
+		        return `break${label};` + _n;
+		    }
+		}
+		class Throw extends Node {
+		    constructor(error) {
+		        super();
+		        this.error = error;
+		    }
+		    render({ _n }) {
+		        return `throw ${this.error};` + _n;
+		    }
+		    get names() {
+		        return this.error.names;
+		    }
+		}
+		class AnyCode extends Node {
+		    constructor(code) {
+		        super();
+		        this.code = code;
+		    }
+		    render({ _n }) {
+		        return `${this.code};` + _n;
+		    }
+		    optimizeNodes() {
+		        return `${this.code}` ? this : undefined;
+		    }
+		    optimizeNames(names, constants) {
+		        this.code = optimizeExpr(this.code, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
+		    }
+		}
+		class ParentNode extends Node {
+		    constructor(nodes = []) {
+		        super();
+		        this.nodes = nodes;
+		    }
+		    render(opts) {
+		        return this.nodes.reduce((code, n) => code + n.render(opts), "");
+		    }
+		    optimizeNodes() {
+		        const { nodes } = this;
+		        let i = nodes.length;
+		        while (i--) {
+		            const n = nodes[i].optimizeNodes();
+		            if (Array.isArray(n))
+		                nodes.splice(i, 1, ...n);
+		            else if (n)
+		                nodes[i] = n;
+		            else
+		                nodes.splice(i, 1);
+		        }
+		        return nodes.length > 0 ? this : undefined;
+		    }
+		    optimizeNames(names, constants) {
+		        const { nodes } = this;
+		        let i = nodes.length;
+		        while (i--) {
+		            // iterating backwards improves 1-pass optimization
+		            const n = nodes[i];
+		            if (n.optimizeNames(names, constants))
+		                continue;
+		            subtractNames(names, n.names);
+		            nodes.splice(i, 1);
+		        }
+		        return nodes.length > 0 ? this : undefined;
+		    }
+		    get names() {
+		        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
+		    }
+		}
+		class BlockNode extends ParentNode {
+		    render(opts) {
+		        return "{" + opts._n + super.render(opts) + "}" + opts._n;
+		    }
+		}
+		class Root extends ParentNode {
+		}
+		class Else extends BlockNode {
+		}
+		Else.kind = "else";
+		class If extends BlockNode {
+		    constructor(condition, nodes) {
+		        super(nodes);
+		        this.condition = condition;
+		    }
+		    render(opts) {
+		        let code = `if(${this.condition})` + super.render(opts);
+		        if (this.else)
+		            code += "else " + this.else.render(opts);
+		        return code;
+		    }
+		    optimizeNodes() {
+		        super.optimizeNodes();
+		        const cond = this.condition;
+		        if (cond === true)
+		            return this.nodes; // else is ignored here
+		        let e = this.else;
+		        if (e) {
+		            const ns = e.optimizeNodes();
+		            e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
+		        }
+		        if (e) {
+		            if (cond === false)
+		                return e instanceof If ? e : e.nodes;
+		            if (this.nodes.length)
+		                return this;
+		            return new If(not(cond), e instanceof If ? [e] : e.nodes);
+		        }
+		        if (cond === false || !this.nodes.length)
+		            return undefined;
+		        return this;
+		    }
+		    optimizeNames(names, constants) {
+		        var _a;
+		        this.else = (_a = this.else) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+		        if (!(super.optimizeNames(names, constants) || this.else))
+		            return;
+		        this.condition = optimizeExpr(this.condition, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        const names = super.names;
+		        addExprNames(names, this.condition);
+		        if (this.else)
+		            addNames(names, this.else.names);
+		        return names;
+		    }
+		}
+		If.kind = "if";
+		class For extends BlockNode {
+		}
+		For.kind = "for";
+		class ForLoop extends For {
+		    constructor(iteration) {
+		        super();
+		        this.iteration = iteration;
+		    }
+		    render(opts) {
+		        return `for(${this.iteration})` + super.render(opts);
+		    }
+		    optimizeNames(names, constants) {
+		        if (!super.optimizeNames(names, constants))
+		            return;
+		        this.iteration = optimizeExpr(this.iteration, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        return addNames(super.names, this.iteration.names);
+		    }
+		}
+		class ForRange extends For {
+		    constructor(varKind, name, from, to) {
+		        super();
+		        this.varKind = varKind;
+		        this.name = name;
+		        this.from = from;
+		        this.to = to;
+		    }
+		    render(opts) {
+		        const varKind = opts.es5 ? scope_1.varKinds.var : this.varKind;
+		        const { name, from, to } = this;
+		        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
+		    }
+		    get names() {
+		        const names = addExprNames(super.names, this.from);
+		        return addExprNames(names, this.to);
+		    }
+		}
+		class ForIter extends For {
+		    constructor(loop, varKind, name, iterable) {
+		        super();
+		        this.loop = loop;
+		        this.varKind = varKind;
+		        this.name = name;
+		        this.iterable = iterable;
+		    }
+		    render(opts) {
+		        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
+		    }
+		    optimizeNames(names, constants) {
+		        if (!super.optimizeNames(names, constants))
+		            return;
+		        this.iterable = optimizeExpr(this.iterable, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        return addNames(super.names, this.iterable.names);
+		    }
+		}
+		class Func extends BlockNode {
+		    constructor(name, args, async) {
+		        super();
+		        this.name = name;
+		        this.args = args;
+		        this.async = async;
+		    }
+		    render(opts) {
+		        const _async = this.async ? "async " : "";
+		        return `${_async}function ${this.name}(${this.args})` + super.render(opts);
+		    }
+		}
+		Func.kind = "func";
+		class Return extends ParentNode {
+		    render(opts) {
+		        return "return " + super.render(opts);
+		    }
+		}
+		Return.kind = "return";
+		class Try extends BlockNode {
+		    render(opts) {
+		        let code = "try" + super.render(opts);
+		        if (this.catch)
+		            code += this.catch.render(opts);
+		        if (this.finally)
+		            code += this.finally.render(opts);
+		        return code;
+		    }
+		    optimizeNodes() {
+		        var _a, _b;
+		        super.optimizeNodes();
+		        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNodes();
+		        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
+		        return this;
+		    }
+		    optimizeNames(names, constants) {
+		        var _a, _b;
+		        super.optimizeNames(names, constants);
+		        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+		        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
+		        return this;
+		    }
+		    get names() {
+		        const names = super.names;
+		        if (this.catch)
+		            addNames(names, this.catch.names);
+		        if (this.finally)
+		            addNames(names, this.finally.names);
+		        return names;
+		    }
+		}
+		class Catch extends BlockNode {
+		    constructor(error) {
+		        super();
+		        this.error = error;
+		    }
+		    render(opts) {
+		        return `catch(${this.error})` + super.render(opts);
+		    }
+		}
+		Catch.kind = "catch";
+		class Finally extends BlockNode {
+		    render(opts) {
+		        return "finally" + super.render(opts);
+		    }
+		}
+		Finally.kind = "finally";
+		class CodeGen {
+		    constructor(extScope, opts = {}) {
+		        this._values = {};
+		        this._blockStarts = [];
+		        this._constants = {};
+		        this.opts = { ...opts, _n: opts.lines ? "\n" : "" };
+		        this._extScope = extScope;
+		        this._scope = new scope_1.Scope({ parent: extScope });
+		        this._nodes = [new Root()];
+		    }
+		    toString() {
+		        return this._root.render(this.opts);
+		    }
+		    // returns unique name in the internal scope
+		    name(prefix) {
+		        return this._scope.name(prefix);
+		    }
+		    // reserves unique name in the external scope
+		    scopeName(prefix) {
+		        return this._extScope.name(prefix);
+		    }
+		    // reserves unique name in the external scope and assigns value to it
+		    scopeValue(prefixOrName, value) {
+		        const name = this._extScope.value(prefixOrName, value);
+		        const vs = this._values[name.prefix] || (this._values[name.prefix] = new Set());
+		        vs.add(name);
+		        return name;
+		    }
+		    getScopeValue(prefix, keyOrRef) {
+		        return this._extScope.getValue(prefix, keyOrRef);
+		    }
+		    // return code that assigns values in the external scope to the names that are used internally
+		    // (same names that were returned by gen.scopeName or gen.scopeValue)
+		    scopeRefs(scopeName) {
+		        return this._extScope.scopeRefs(scopeName, this._values);
+		    }
+		    scopeCode() {
+		        return this._extScope.scopeCode(this._values);
+		    }
+		    _def(varKind, nameOrPrefix, rhs, constant) {
+		        const name = this._scope.toName(nameOrPrefix);
+		        if (rhs !== undefined && constant)
+		            this._constants[name.str] = rhs;
+		        this._leafNode(new Def(varKind, name, rhs));
+		        return name;
+		    }
+		    // `const` declaration (`var` in es5 mode)
+		    const(nameOrPrefix, rhs, _constant) {
+		        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
+		    }
+		    // `let` declaration with optional assignment (`var` in es5 mode)
+		    let(nameOrPrefix, rhs, _constant) {
+		        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
+		    }
+		    // `var` declaration with optional assignment
+		    var(nameOrPrefix, rhs, _constant) {
+		        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
+		    }
+		    // assignment code
+		    assign(lhs, rhs, sideEffects) {
+		        return this._leafNode(new Assign(lhs, rhs, sideEffects));
+		    }
+		    // `+=` code
+		    add(lhs, rhs) {
+		        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
+		    }
+		    // appends passed SafeExpr to code or executes Block
+		    code(c) {
+		        if (typeof c == "function")
+		            c();
+		        else if (c !== code_1.nil)
+		            this._leafNode(new AnyCode(c));
+		        return this;
+		    }
+		    // returns code for object literal for the passed argument list of key-value pairs
+		    object(...keyValues) {
+		        const code = ["{"];
+		        for (const [key, value] of keyValues) {
+		            if (code.length > 1)
+		                code.push(",");
+		            code.push(key);
+		            if (key !== value || this.opts.es5) {
+		                code.push(":");
+		                (0, code_1.addCodeArg)(code, value);
+		            }
+		        }
+		        code.push("}");
+		        return new code_1._Code(code);
+		    }
+		    // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
+		    if(condition, thenBody, elseBody) {
+		        this._blockNode(new If(condition));
+		        if (thenBody && elseBody) {
+		            this.code(thenBody).else().code(elseBody).endIf();
+		        }
+		        else if (thenBody) {
+		            this.code(thenBody).endIf();
+		        }
+		        else if (elseBody) {
+		            throw new Error('CodeGen: "else" body without "then" body');
+		        }
+		        return this;
+		    }
+		    // `else if` clause - invalid without `if` or after `else` clauses
+		    elseIf(condition) {
+		        return this._elseNode(new If(condition));
+		    }
+		    // `else` clause - only valid after `if` or `else if` clauses
+		    else() {
+		        return this._elseNode(new Else());
+		    }
+		    // end `if` statement (needed if gen.if was used only with condition)
+		    endIf() {
+		        return this._endBlockNode(If, Else);
+		    }
+		    _for(node, forBody) {
+		        this._blockNode(node);
+		        if (forBody)
+		            this.code(forBody).endFor();
+		        return this;
+		    }
+		    // a generic `for` clause (or statement if `forBody` is passed)
+		    for(iteration, forBody) {
+		        return this._for(new ForLoop(iteration), forBody);
+		    }
+		    // `for` statement for a range of values
+		    forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
+		        const name = this._scope.toName(nameOrPrefix);
+		        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
+		    }
+		    // `for-of` statement (in es5 mode replace with a normal for loop)
+		    forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
+		        const name = this._scope.toName(nameOrPrefix);
+		        if (this.opts.es5) {
+		            const arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
+		            return this.forRange("_i", 0, (0, code_1._) `${arr}.length`, (i) => {
+		                this.var(name, (0, code_1._) `${arr}[${i}]`);
+		                forBody(name);
+		            });
+		        }
+		        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
+		    }
+		    // `for-in` statement.
+		    // With option `ownProperties` replaced with a `for-of` loop for object keys
+		    forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
+		        if (this.opts.ownProperties) {
+		            return this.forOf(nameOrPrefix, (0, code_1._) `Object.keys(${obj})`, forBody);
+		        }
+		        const name = this._scope.toName(nameOrPrefix);
+		        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
+		    }
+		    // end `for` loop
+		    endFor() {
+		        return this._endBlockNode(For);
+		    }
+		    // `label` statement
+		    label(label) {
+		        return this._leafNode(new Label(label));
+		    }
+		    // `break` statement
+		    break(label) {
+		        return this._leafNode(new Break(label));
+		    }
+		    // `return` statement
+		    return(value) {
+		        const node = new Return();
+		        this._blockNode(node);
+		        this.code(value);
+		        if (node.nodes.length !== 1)
+		            throw new Error('CodeGen: "return" should have one node');
+		        return this._endBlockNode(Return);
+		    }
+		    // `try` statement
+		    try(tryBody, catchCode, finallyCode) {
+		        if (!catchCode && !finallyCode)
+		            throw new Error('CodeGen: "try" without "catch" and "finally"');
+		        const node = new Try();
+		        this._blockNode(node);
+		        this.code(tryBody);
+		        if (catchCode) {
+		            const error = this.name("e");
+		            this._currNode = node.catch = new Catch(error);
+		            catchCode(error);
+		        }
+		        if (finallyCode) {
+		            this._currNode = node.finally = new Finally();
+		            this.code(finallyCode);
+		        }
+		        return this._endBlockNode(Catch, Finally);
+		    }
+		    // `throw` statement
+		    throw(error) {
+		        return this._leafNode(new Throw(error));
+		    }
+		    // start self-balancing block
+		    block(body, nodeCount) {
+		        this._blockStarts.push(this._nodes.length);
+		        if (body)
+		            this.code(body).endBlock(nodeCount);
+		        return this;
+		    }
+		    // end the current self-balancing block
+		    endBlock(nodeCount) {
+		        const len = this._blockStarts.pop();
+		        if (len === undefined)
+		            throw new Error("CodeGen: not in self-balancing block");
+		        const toClose = this._nodes.length - len;
+		        if (toClose < 0 || (nodeCount !== undefined && toClose !== nodeCount)) {
+		            throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
+		        }
+		        this._nodes.length = len;
+		        return this;
+		    }
+		    // `function` heading (or definition if funcBody is passed)
+		    func(name, args = code_1.nil, async, funcBody) {
+		        this._blockNode(new Func(name, args, async));
+		        if (funcBody)
+		            this.code(funcBody).endFunc();
+		        return this;
+		    }
+		    // end function definition
+		    endFunc() {
+		        return this._endBlockNode(Func);
+		    }
+		    optimize(n = 1) {
+		        while (n-- > 0) {
+		            this._root.optimizeNodes();
+		            this._root.optimizeNames(this._root.names, this._constants);
+		        }
+		    }
+		    _leafNode(node) {
+		        this._currNode.nodes.push(node);
+		        return this;
+		    }
+		    _blockNode(node) {
+		        this._currNode.nodes.push(node);
+		        this._nodes.push(node);
+		    }
+		    _endBlockNode(N1, N2) {
+		        const n = this._currNode;
+		        if (n instanceof N1 || (N2 && n instanceof N2)) {
+		            this._nodes.pop();
+		            return this;
+		        }
+		        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
+		    }
+		    _elseNode(node) {
+		        const n = this._currNode;
+		        if (!(n instanceof If)) {
+		            throw new Error('CodeGen: "else" without "if"');
+		        }
+		        this._currNode = n.else = node;
+		        return this;
+		    }
+		    get _root() {
+		        return this._nodes[0];
+		    }
+		    get _currNode() {
+		        const ns = this._nodes;
+		        return ns[ns.length - 1];
+		    }
+		    set _currNode(node) {
+		        const ns = this._nodes;
+		        ns[ns.length - 1] = node;
+		    }
+		}
+		exports.CodeGen = CodeGen;
+		function addNames(names, from) {
+		    for (const n in from)
+		        names[n] = (names[n] || 0) + (from[n] || 0);
+		    return names;
+		}
+		function addExprNames(names, from) {
+		    return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
+		}
+		function optimizeExpr(expr, names, constants) {
+		    if (expr instanceof code_1.Name)
+		        return replaceName(expr);
+		    if (!canOptimize(expr))
+		        return expr;
+		    return new code_1._Code(expr._items.reduce((items, c) => {
+		        if (c instanceof code_1.Name)
+		            c = replaceName(c);
+		        if (c instanceof code_1._Code)
+		            items.push(...c._items);
+		        else
+		            items.push(c);
+		        return items;
+		    }, []));
+		    function replaceName(n) {
+		        const c = constants[n.str];
+		        if (c === undefined || names[n.str] !== 1)
+		            return n;
+		        delete names[n.str];
+		        return c;
+		    }
+		    function canOptimize(e) {
+		        return (e instanceof code_1._Code &&
+		            e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== undefined));
+		    }
+		}
+		function subtractNames(names, from) {
+		    for (const n in from)
+		        names[n] = (names[n] || 0) - (from[n] || 0);
+		}
+		function not(x) {
+		    return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._) `!${par(x)}`;
+		}
+		exports.not = not;
+		const andCode = mappend(exports.operators.AND);
+		// boolean AND (&&) expression with the passed arguments
+		function and(...args) {
+		    return args.reduce(andCode);
+		}
+		exports.and = and;
+		const orCode = mappend(exports.operators.OR);
+		// boolean OR (||) expression with the passed arguments
+		function or(...args) {
+		    return args.reduce(orCode);
+		}
+		exports.or = or;
+		function mappend(op) {
+		    return (x, y) => (x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._) `${par(x)} ${op} ${par(y)}`);
+		}
+		function par(x) {
+		    return x instanceof code_1.Name ? x : (0, code_1._) `(${x})`;
+		}
+		
+	} (codegen));
+	return codegen;
+}
 
 var util = {};
 
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const code_1 = code$1;
 	// TODO refactor to use Set
 	function toHash(arr) {
@@ -14375,41 +13541,49 @@ var util = {};
 	
 } (util));
 
-var names$1 = {};
+var names = {};
 
-Object.defineProperty(names$1, "__esModule", { value: true });
-const codegen_1$x = codegen;
-const names = {
-    // validation function arguments
-    data: new codegen_1$x.Name("data"),
-    // args passed from referencing schema
-    valCxt: new codegen_1$x.Name("valCxt"),
-    instancePath: new codegen_1$x.Name("instancePath"),
-    parentData: new codegen_1$x.Name("parentData"),
-    parentDataProperty: new codegen_1$x.Name("parentDataProperty"),
-    rootData: new codegen_1$x.Name("rootData"),
-    dynamicAnchors: new codegen_1$x.Name("dynamicAnchors"),
-    // function scoped variables
-    vErrors: new codegen_1$x.Name("vErrors"),
-    errors: new codegen_1$x.Name("errors"),
-    this: new codegen_1$x.Name("this"),
-    // "globals"
-    self: new codegen_1$x.Name("self"),
-    scope: new codegen_1$x.Name("scope"),
-    // JTD serialize/parse name for JSON string and position
-    json: new codegen_1$x.Name("json"),
-    jsonPos: new codegen_1$x.Name("jsonPos"),
-    jsonLen: new codegen_1$x.Name("jsonLen"),
-    jsonPart: new codegen_1$x.Name("jsonPart"),
-};
-names$1.default = names;
+var hasRequiredNames;
+
+function requireNames () {
+	if (hasRequiredNames) return names;
+	hasRequiredNames = 1;
+	Object.defineProperty(names, "__esModule", { value: true });
+	const codegen_1 = requireCodegen();
+	const names$1 = {
+	    // validation function arguments
+	    data: new codegen_1.Name("data"),
+	    // args passed from referencing schema
+	    valCxt: new codegen_1.Name("valCxt"),
+	    instancePath: new codegen_1.Name("instancePath"),
+	    parentData: new codegen_1.Name("parentData"),
+	    parentDataProperty: new codegen_1.Name("parentDataProperty"),
+	    rootData: new codegen_1.Name("rootData"),
+	    dynamicAnchors: new codegen_1.Name("dynamicAnchors"),
+	    // function scoped variables
+	    vErrors: new codegen_1.Name("vErrors"),
+	    errors: new codegen_1.Name("errors"),
+	    this: new codegen_1.Name("this"),
+	    // "globals"
+	    self: new codegen_1.Name("self"),
+	    scope: new codegen_1.Name("scope"),
+	    // JTD serialize/parse name for JSON string and position
+	    json: new codegen_1.Name("json"),
+	    jsonPos: new codegen_1.Name("jsonPos"),
+	    jsonLen: new codegen_1.Name("jsonLen"),
+	    jsonPart: new codegen_1.Name("jsonPart"),
+	};
+	names.default = names$1;
+	
+	return names;
+}
 
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const util_1 = util;
-	const names_1 = names$1;
+	const names_1 = requireNames();
 	exports.keywordError = {
 	    message: ({ keyword }) => (0, codegen_1.str) `must pass "${keyword}" keyword validation`,
 	};
@@ -14529,53 +13703,61 @@ names$1.default = names;
 	
 } (errors));
 
-Object.defineProperty(boolSchema, "__esModule", { value: true });
-boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0;
-const errors_1$2 = errors;
-const codegen_1$w = codegen;
-const names_1$9 = names$1;
-const boolError = {
-    message: "boolean schema is false",
-};
-function topBoolOrEmptySchema(it) {
-    const { gen, schema, validateName } = it;
-    if (schema === false) {
-        falseSchemaError(it, false);
-    }
-    else if (typeof schema == "object" && schema.$async === true) {
-        gen.return(names_1$9.default.data);
-    }
-    else {
-        gen.assign((0, codegen_1$w._) `${validateName}.errors`, null);
-        gen.return(true);
-    }
-}
-boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema;
-function boolOrEmptySchema(it, valid) {
-    const { gen, schema } = it;
-    if (schema === false) {
-        gen.var(valid, false); // TODO var
-        falseSchemaError(it);
-    }
-    else {
-        gen.var(valid, true); // TODO var
-    }
-}
-boolSchema.boolOrEmptySchema = boolOrEmptySchema;
-function falseSchemaError(it, overrideAllErrors) {
-    const { gen, data } = it;
-    // TODO maybe some other interface should be used for non-keyword validation errors...
-    const cxt = {
-        gen,
-        keyword: "false schema",
-        data,
-        schema: false,
-        schemaCode: false,
-        schemaValue: false,
-        params: {},
-        it,
-    };
-    (0, errors_1$2.reportError)(cxt, boolError, undefined, overrideAllErrors);
+var hasRequiredBoolSchema;
+
+function requireBoolSchema () {
+	if (hasRequiredBoolSchema) return boolSchema;
+	hasRequiredBoolSchema = 1;
+	Object.defineProperty(boolSchema, "__esModule", { value: true });
+	boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0;
+	const errors_1 = errors;
+	const codegen_1 = requireCodegen();
+	const names_1 = requireNames();
+	const boolError = {
+	    message: "boolean schema is false",
+	};
+	function topBoolOrEmptySchema(it) {
+	    const { gen, schema, validateName } = it;
+	    if (schema === false) {
+	        falseSchemaError(it, false);
+	    }
+	    else if (typeof schema == "object" && schema.$async === true) {
+	        gen.return(names_1.default.data);
+	    }
+	    else {
+	        gen.assign((0, codegen_1._) `${validateName}.errors`, null);
+	        gen.return(true);
+	    }
+	}
+	boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema;
+	function boolOrEmptySchema(it, valid) {
+	    const { gen, schema } = it;
+	    if (schema === false) {
+	        gen.var(valid, false); // TODO var
+	        falseSchemaError(it);
+	    }
+	    else {
+	        gen.var(valid, true); // TODO var
+	    }
+	}
+	boolSchema.boolOrEmptySchema = boolOrEmptySchema;
+	function falseSchemaError(it, overrideAllErrors) {
+	    const { gen, data } = it;
+	    // TODO maybe some other interface should be used for non-keyword validation errors...
+	    const cxt = {
+	        gen,
+	        keyword: "false schema",
+	        data,
+	        schema: false,
+	        schemaCode: false,
+	        schemaValue: false,
+	        params: {},
+	        it,
+	    };
+	    (0, errors_1.reportError)(cxt, boolError, undefined, overrideAllErrors);
+	}
+	
+	return boolSchema;
 }
 
 var dataType = {};
@@ -14633,7 +13815,7 @@ applicability.shouldUseRule = shouldUseRule;
 	const rules_1 = rules;
 	const applicability_1 = applicability;
 	const errors_1 = errors;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const util_1 = util;
 	var DataType;
 	(function (DataType) {
@@ -14833,378 +14015,410 @@ applicability.shouldUseRule = shouldUseRule;
 
 var defaults = {};
 
-Object.defineProperty(defaults, "__esModule", { value: true });
-defaults.assignDefaults = void 0;
-const codegen_1$v = codegen;
-const util_1$t = util;
-function assignDefaults(it, ty) {
-    const { properties, items } = it.schema;
-    if (ty === "object" && properties) {
-        for (const key in properties) {
-            assignDefault(it, key, properties[key].default);
-        }
-    }
-    else if (ty === "array" && Array.isArray(items)) {
-        items.forEach((sch, i) => assignDefault(it, i, sch.default));
-    }
-}
-defaults.assignDefaults = assignDefaults;
-function assignDefault(it, prop, defaultValue) {
-    const { gen, compositeRule, data, opts } = it;
-    if (defaultValue === undefined)
-        return;
-    const childData = (0, codegen_1$v._) `${data}${(0, codegen_1$v.getProperty)(prop)}`;
-    if (compositeRule) {
-        (0, util_1$t.checkStrictMode)(it, `default is ignored for: ${childData}`);
-        return;
-    }
-    let condition = (0, codegen_1$v._) `${childData} === undefined`;
-    if (opts.useDefaults === "empty") {
-        condition = (0, codegen_1$v._) `${condition} || ${childData} === null || ${childData} === ""`;
-    }
-    // `${childData} === undefined` +
-    // (opts.useDefaults === "empty" ? ` || ${childData} === null || ${childData} === ""` : "")
-    gen.if(condition, (0, codegen_1$v._) `${childData} = ${(0, codegen_1$v.stringify)(defaultValue)}`);
+var hasRequiredDefaults;
+
+function requireDefaults () {
+	if (hasRequiredDefaults) return defaults;
+	hasRequiredDefaults = 1;
+	Object.defineProperty(defaults, "__esModule", { value: true });
+	defaults.assignDefaults = void 0;
+	const codegen_1 = requireCodegen();
+	const util_1 = util;
+	function assignDefaults(it, ty) {
+	    const { properties, items } = it.schema;
+	    if (ty === "object" && properties) {
+	        for (const key in properties) {
+	            assignDefault(it, key, properties[key].default);
+	        }
+	    }
+	    else if (ty === "array" && Array.isArray(items)) {
+	        items.forEach((sch, i) => assignDefault(it, i, sch.default));
+	    }
+	}
+	defaults.assignDefaults = assignDefaults;
+	function assignDefault(it, prop, defaultValue) {
+	    const { gen, compositeRule, data, opts } = it;
+	    if (defaultValue === undefined)
+	        return;
+	    const childData = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(prop)}`;
+	    if (compositeRule) {
+	        (0, util_1.checkStrictMode)(it, `default is ignored for: ${childData}`);
+	        return;
+	    }
+	    let condition = (0, codegen_1._) `${childData} === undefined`;
+	    if (opts.useDefaults === "empty") {
+	        condition = (0, codegen_1._) `${condition} || ${childData} === null || ${childData} === ""`;
+	    }
+	    // `${childData} === undefined` +
+	    // (opts.useDefaults === "empty" ? ` || ${childData} === null || ${childData} === ""` : "")
+	    gen.if(condition, (0, codegen_1._) `${childData} = ${(0, codegen_1.stringify)(defaultValue)}`);
+	}
+	
+	return defaults;
 }
 
 var keyword = {};
 
 var code = {};
 
-Object.defineProperty(code, "__esModule", { value: true });
-code.validateUnion = code.validateArray = code.usePattern = code.callValidateCode = code.schemaProperties = code.allSchemaProperties = code.noPropertyInData = code.propertyInData = code.isOwnProperty = code.hasPropFunc = code.reportMissingProp = code.checkMissingProp = code.checkReportMissingProp = void 0;
-const codegen_1$u = codegen;
-const util_1$s = util;
-const names_1$8 = names$1;
-const util_2$1 = util;
-function checkReportMissingProp(cxt, prop) {
-    const { gen, data, it } = cxt;
-    gen.if(noPropertyInData(gen, data, prop, it.opts.ownProperties), () => {
-        cxt.setParams({ missingProperty: (0, codegen_1$u._) `${prop}` }, true);
-        cxt.error();
-    });
-}
-code.checkReportMissingProp = checkReportMissingProp;
-function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
-    return (0, codegen_1$u.or)(...properties.map((prop) => (0, codegen_1$u.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1$u._) `${missing} = ${prop}`)));
-}
-code.checkMissingProp = checkMissingProp;
-function reportMissingProp(cxt, missing) {
-    cxt.setParams({ missingProperty: missing }, true);
-    cxt.error();
-}
-code.reportMissingProp = reportMissingProp;
-function hasPropFunc(gen) {
-    return gen.scopeValue("func", {
-        // eslint-disable-next-line @typescript-eslint/unbound-method
-        ref: Object.prototype.hasOwnProperty,
-        code: (0, codegen_1$u._) `Object.prototype.hasOwnProperty`,
-    });
-}
-code.hasPropFunc = hasPropFunc;
-function isOwnProperty(gen, data, property) {
-    return (0, codegen_1$u._) `${hasPropFunc(gen)}.call(${data}, ${property})`;
-}
-code.isOwnProperty = isOwnProperty;
-function propertyInData(gen, data, property, ownProperties) {
-    const cond = (0, codegen_1$u._) `${data}${(0, codegen_1$u.getProperty)(property)} !== undefined`;
-    return ownProperties ? (0, codegen_1$u._) `${cond} && ${isOwnProperty(gen, data, property)}` : cond;
-}
-code.propertyInData = propertyInData;
-function noPropertyInData(gen, data, property, ownProperties) {
-    const cond = (0, codegen_1$u._) `${data}${(0, codegen_1$u.getProperty)(property)} === undefined`;
-    return ownProperties ? (0, codegen_1$u.or)(cond, (0, codegen_1$u.not)(isOwnProperty(gen, data, property))) : cond;
-}
-code.noPropertyInData = noPropertyInData;
-function allSchemaProperties(schemaMap) {
-    return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
-}
-code.allSchemaProperties = allSchemaProperties;
-function schemaProperties(it, schemaMap) {
-    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1$s.alwaysValidSchema)(it, schemaMap[p]));
-}
-code.schemaProperties = schemaProperties;
-function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
-    const dataAndSchema = passSchema ? (0, codegen_1$u._) `${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
-    const valCxt = [
-        [names_1$8.default.instancePath, (0, codegen_1$u.strConcat)(names_1$8.default.instancePath, errorPath)],
-        [names_1$8.default.parentData, it.parentData],
-        [names_1$8.default.parentDataProperty, it.parentDataProperty],
-        [names_1$8.default.rootData, names_1$8.default.rootData],
-    ];
-    if (it.opts.dynamicRef)
-        valCxt.push([names_1$8.default.dynamicAnchors, names_1$8.default.dynamicAnchors]);
-    const args = (0, codegen_1$u._) `${dataAndSchema}, ${gen.object(...valCxt)}`;
-    return context !== codegen_1$u.nil ? (0, codegen_1$u._) `${func}.call(${context}, ${args})` : (0, codegen_1$u._) `${func}(${args})`;
-}
-code.callValidateCode = callValidateCode;
-const newRegExp = (0, codegen_1$u._) `new RegExp`;
-function usePattern({ gen, it: { opts } }, pattern) {
-    const u = opts.unicodeRegExp ? "u" : "";
-    const { regExp } = opts.code;
-    const rx = regExp(pattern, u);
-    return gen.scopeValue("pattern", {
-        key: rx.toString(),
-        ref: rx,
-        code: (0, codegen_1$u._) `${regExp.code === "new RegExp" ? newRegExp : (0, util_2$1.useFunc)(gen, regExp)}(${pattern}, ${u})`,
-    });
-}
-code.usePattern = usePattern;
-function validateArray(cxt) {
-    const { gen, data, keyword, it } = cxt;
-    const valid = gen.name("valid");
-    if (it.allErrors) {
-        const validArr = gen.let("valid", true);
-        validateItems(() => gen.assign(validArr, false));
-        return validArr;
-    }
-    gen.var(valid, true);
-    validateItems(() => gen.break());
-    return valid;
-    function validateItems(notValid) {
-        const len = gen.const("len", (0, codegen_1$u._) `${data}.length`);
-        gen.forRange("i", 0, len, (i) => {
-            cxt.subschema({
-                keyword,
-                dataProp: i,
-                dataPropType: util_1$s.Type.Num,
-            }, valid);
-            gen.if((0, codegen_1$u.not)(valid), notValid);
-        });
-    }
-}
-code.validateArray = validateArray;
-function validateUnion(cxt) {
-    const { gen, schema, keyword, it } = cxt;
-    /* istanbul ignore if */
-    if (!Array.isArray(schema))
-        throw new Error("ajv implementation error");
-    const alwaysValid = schema.some((sch) => (0, util_1$s.alwaysValidSchema)(it, sch));
-    if (alwaysValid && !it.opts.unevaluated)
-        return;
-    const valid = gen.let("valid", false);
-    const schValid = gen.name("_valid");
-    gen.block(() => schema.forEach((_sch, i) => {
-        const schCxt = cxt.subschema({
-            keyword,
-            schemaProp: i,
-            compositeRule: true,
-        }, schValid);
-        gen.assign(valid, (0, codegen_1$u._) `${valid} || ${schValid}`);
-        const merged = cxt.mergeValidEvaluated(schCxt, schValid);
-        // can short-circuit if `unevaluatedProperties/Items` not supported (opts.unevaluated !== true)
-        // or if all properties and items were evaluated (it.props === true && it.items === true)
-        if (!merged)
-            gen.if((0, codegen_1$u.not)(valid));
-    }));
-    cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
-}
-code.validateUnion = validateUnion;
+var hasRequiredCode;
 
-Object.defineProperty(keyword, "__esModule", { value: true });
-keyword.validateKeywordUsage = keyword.validSchemaType = keyword.funcKeywordCode = keyword.macroKeywordCode = void 0;
-const codegen_1$t = codegen;
-const names_1$7 = names$1;
-const code_1$9 = code;
-const errors_1$1 = errors;
-function macroKeywordCode(cxt, def) {
-    const { gen, keyword, schema, parentSchema, it } = cxt;
-    const macroSchema = def.macro.call(it.self, schema, parentSchema, it);
-    const schemaRef = useKeyword(gen, keyword, macroSchema);
-    if (it.opts.validateSchema !== false)
-        it.self.validateSchema(macroSchema, true);
-    const valid = gen.name("valid");
-    cxt.subschema({
-        schema: macroSchema,
-        schemaPath: codegen_1$t.nil,
-        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
-        topSchemaRef: schemaRef,
-        compositeRule: true,
-    }, valid);
-    cxt.pass(valid, () => cxt.error(true));
+function requireCode () {
+	if (hasRequiredCode) return code;
+	hasRequiredCode = 1;
+	Object.defineProperty(code, "__esModule", { value: true });
+	code.validateUnion = code.validateArray = code.usePattern = code.callValidateCode = code.schemaProperties = code.allSchemaProperties = code.noPropertyInData = code.propertyInData = code.isOwnProperty = code.hasPropFunc = code.reportMissingProp = code.checkMissingProp = code.checkReportMissingProp = void 0;
+	const codegen_1 = requireCodegen();
+	const util_1 = util;
+	const names_1 = requireNames();
+	const util_2 = util;
+	function checkReportMissingProp(cxt, prop) {
+	    const { gen, data, it } = cxt;
+	    gen.if(noPropertyInData(gen, data, prop, it.opts.ownProperties), () => {
+	        cxt.setParams({ missingProperty: (0, codegen_1._) `${prop}` }, true);
+	        cxt.error();
+	    });
+	}
+	code.checkReportMissingProp = checkReportMissingProp;
+	function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
+	    return (0, codegen_1.or)(...properties.map((prop) => (0, codegen_1.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1._) `${missing} = ${prop}`)));
+	}
+	code.checkMissingProp = checkMissingProp;
+	function reportMissingProp(cxt, missing) {
+	    cxt.setParams({ missingProperty: missing }, true);
+	    cxt.error();
+	}
+	code.reportMissingProp = reportMissingProp;
+	function hasPropFunc(gen) {
+	    return gen.scopeValue("func", {
+	        // eslint-disable-next-line @typescript-eslint/unbound-method
+	        ref: Object.prototype.hasOwnProperty,
+	        code: (0, codegen_1._) `Object.prototype.hasOwnProperty`,
+	    });
+	}
+	code.hasPropFunc = hasPropFunc;
+	function isOwnProperty(gen, data, property) {
+	    return (0, codegen_1._) `${hasPropFunc(gen)}.call(${data}, ${property})`;
+	}
+	code.isOwnProperty = isOwnProperty;
+	function propertyInData(gen, data, property, ownProperties) {
+	    const cond = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(property)} !== undefined`;
+	    return ownProperties ? (0, codegen_1._) `${cond} && ${isOwnProperty(gen, data, property)}` : cond;
+	}
+	code.propertyInData = propertyInData;
+	function noPropertyInData(gen, data, property, ownProperties) {
+	    const cond = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(property)} === undefined`;
+	    return ownProperties ? (0, codegen_1.or)(cond, (0, codegen_1.not)(isOwnProperty(gen, data, property))) : cond;
+	}
+	code.noPropertyInData = noPropertyInData;
+	function allSchemaProperties(schemaMap) {
+	    return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
+	}
+	code.allSchemaProperties = allSchemaProperties;
+	function schemaProperties(it, schemaMap) {
+	    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1.alwaysValidSchema)(it, schemaMap[p]));
+	}
+	code.schemaProperties = schemaProperties;
+	function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
+	    const dataAndSchema = passSchema ? (0, codegen_1._) `${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
+	    const valCxt = [
+	        [names_1.default.instancePath, (0, codegen_1.strConcat)(names_1.default.instancePath, errorPath)],
+	        [names_1.default.parentData, it.parentData],
+	        [names_1.default.parentDataProperty, it.parentDataProperty],
+	        [names_1.default.rootData, names_1.default.rootData],
+	    ];
+	    if (it.opts.dynamicRef)
+	        valCxt.push([names_1.default.dynamicAnchors, names_1.default.dynamicAnchors]);
+	    const args = (0, codegen_1._) `${dataAndSchema}, ${gen.object(...valCxt)}`;
+	    return context !== codegen_1.nil ? (0, codegen_1._) `${func}.call(${context}, ${args})` : (0, codegen_1._) `${func}(${args})`;
+	}
+	code.callValidateCode = callValidateCode;
+	const newRegExp = (0, codegen_1._) `new RegExp`;
+	function usePattern({ gen, it: { opts } }, pattern) {
+	    const u = opts.unicodeRegExp ? "u" : "";
+	    const { regExp } = opts.code;
+	    const rx = regExp(pattern, u);
+	    return gen.scopeValue("pattern", {
+	        key: rx.toString(),
+	        ref: rx,
+	        code: (0, codegen_1._) `${regExp.code === "new RegExp" ? newRegExp : (0, util_2.useFunc)(gen, regExp)}(${pattern}, ${u})`,
+	    });
+	}
+	code.usePattern = usePattern;
+	function validateArray(cxt) {
+	    const { gen, data, keyword, it } = cxt;
+	    const valid = gen.name("valid");
+	    if (it.allErrors) {
+	        const validArr = gen.let("valid", true);
+	        validateItems(() => gen.assign(validArr, false));
+	        return validArr;
+	    }
+	    gen.var(valid, true);
+	    validateItems(() => gen.break());
+	    return valid;
+	    function validateItems(notValid) {
+	        const len = gen.const("len", (0, codegen_1._) `${data}.length`);
+	        gen.forRange("i", 0, len, (i) => {
+	            cxt.subschema({
+	                keyword,
+	                dataProp: i,
+	                dataPropType: util_1.Type.Num,
+	            }, valid);
+	            gen.if((0, codegen_1.not)(valid), notValid);
+	        });
+	    }
+	}
+	code.validateArray = validateArray;
+	function validateUnion(cxt) {
+	    const { gen, schema, keyword, it } = cxt;
+	    /* istanbul ignore if */
+	    if (!Array.isArray(schema))
+	        throw new Error("ajv implementation error");
+	    const alwaysValid = schema.some((sch) => (0, util_1.alwaysValidSchema)(it, sch));
+	    if (alwaysValid && !it.opts.unevaluated)
+	        return;
+	    const valid = gen.let("valid", false);
+	    const schValid = gen.name("_valid");
+	    gen.block(() => schema.forEach((_sch, i) => {
+	        const schCxt = cxt.subschema({
+	            keyword,
+	            schemaProp: i,
+	            compositeRule: true,
+	        }, schValid);
+	        gen.assign(valid, (0, codegen_1._) `${valid} || ${schValid}`);
+	        const merged = cxt.mergeValidEvaluated(schCxt, schValid);
+	        // can short-circuit if `unevaluatedProperties/Items` not supported (opts.unevaluated !== true)
+	        // or if all properties and items were evaluated (it.props === true && it.items === true)
+	        if (!merged)
+	            gen.if((0, codegen_1.not)(valid));
+	    }));
+	    cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
+	}
+	code.validateUnion = validateUnion;
+	
+	return code;
 }
-keyword.macroKeywordCode = macroKeywordCode;
-function funcKeywordCode(cxt, def) {
-    var _a;
-    const { gen, keyword, schema, parentSchema, $data, it } = cxt;
-    checkAsyncKeyword(it, def);
-    const validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate;
-    const validateRef = useKeyword(gen, keyword, validate);
-    const valid = gen.let("valid");
-    cxt.block$data(valid, validateKeyword);
-    cxt.ok((_a = def.valid) !== null && _a !== void 0 ? _a : valid);
-    function validateKeyword() {
-        if (def.errors === false) {
-            assignValid();
-            if (def.modifying)
-                modifyData(cxt);
-            reportErrs(() => cxt.error());
-        }
-        else {
-            const ruleErrs = def.async ? validateAsync() : validateSync();
-            if (def.modifying)
-                modifyData(cxt);
-            reportErrs(() => addErrs(cxt, ruleErrs));
-        }
-    }
-    function validateAsync() {
-        const ruleErrs = gen.let("ruleErrs", null);
-        gen.try(() => assignValid((0, codegen_1$t._) `await `), (e) => gen.assign(valid, false).if((0, codegen_1$t._) `${e} instanceof ${it.ValidationError}`, () => gen.assign(ruleErrs, (0, codegen_1$t._) `${e}.errors`), () => gen.throw(e)));
-        return ruleErrs;
-    }
-    function validateSync() {
-        const validateErrs = (0, codegen_1$t._) `${validateRef}.errors`;
-        gen.assign(validateErrs, null);
-        assignValid(codegen_1$t.nil);
-        return validateErrs;
-    }
-    function assignValid(_await = def.async ? (0, codegen_1$t._) `await ` : codegen_1$t.nil) {
-        const passCxt = it.opts.passContext ? names_1$7.default.this : names_1$7.default.self;
-        const passSchema = !(("compile" in def && !$data) || def.schema === false);
-        gen.assign(valid, (0, codegen_1$t._) `${_await}${(0, code_1$9.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
-    }
-    function reportErrs(errors) {
-        var _a;
-        gen.if((0, codegen_1$t.not)((_a = def.valid) !== null && _a !== void 0 ? _a : valid), errors);
-    }
+
+var hasRequiredKeyword;
+
+function requireKeyword () {
+	if (hasRequiredKeyword) return keyword;
+	hasRequiredKeyword = 1;
+	Object.defineProperty(keyword, "__esModule", { value: true });
+	keyword.validateKeywordUsage = keyword.validSchemaType = keyword.funcKeywordCode = keyword.macroKeywordCode = void 0;
+	const codegen_1 = requireCodegen();
+	const names_1 = requireNames();
+	const code_1 = requireCode();
+	const errors_1 = errors;
+	function macroKeywordCode(cxt, def) {
+	    const { gen, keyword, schema, parentSchema, it } = cxt;
+	    const macroSchema = def.macro.call(it.self, schema, parentSchema, it);
+	    const schemaRef = useKeyword(gen, keyword, macroSchema);
+	    if (it.opts.validateSchema !== false)
+	        it.self.validateSchema(macroSchema, true);
+	    const valid = gen.name("valid");
+	    cxt.subschema({
+	        schema: macroSchema,
+	        schemaPath: codegen_1.nil,
+	        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+	        topSchemaRef: schemaRef,
+	        compositeRule: true,
+	    }, valid);
+	    cxt.pass(valid, () => cxt.error(true));
+	}
+	keyword.macroKeywordCode = macroKeywordCode;
+	function funcKeywordCode(cxt, def) {
+	    var _a;
+	    const { gen, keyword, schema, parentSchema, $data, it } = cxt;
+	    checkAsyncKeyword(it, def);
+	    const validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate;
+	    const validateRef = useKeyword(gen, keyword, validate);
+	    const valid = gen.let("valid");
+	    cxt.block$data(valid, validateKeyword);
+	    cxt.ok((_a = def.valid) !== null && _a !== void 0 ? _a : valid);
+	    function validateKeyword() {
+	        if (def.errors === false) {
+	            assignValid();
+	            if (def.modifying)
+	                modifyData(cxt);
+	            reportErrs(() => cxt.error());
+	        }
+	        else {
+	            const ruleErrs = def.async ? validateAsync() : validateSync();
+	            if (def.modifying)
+	                modifyData(cxt);
+	            reportErrs(() => addErrs(cxt, ruleErrs));
+	        }
+	    }
+	    function validateAsync() {
+	        const ruleErrs = gen.let("ruleErrs", null);
+	        gen.try(() => assignValid((0, codegen_1._) `await `), (e) => gen.assign(valid, false).if((0, codegen_1._) `${e} instanceof ${it.ValidationError}`, () => gen.assign(ruleErrs, (0, codegen_1._) `${e}.errors`), () => gen.throw(e)));
+	        return ruleErrs;
+	    }
+	    function validateSync() {
+	        const validateErrs = (0, codegen_1._) `${validateRef}.errors`;
+	        gen.assign(validateErrs, null);
+	        assignValid(codegen_1.nil);
+	        return validateErrs;
+	    }
+	    function assignValid(_await = def.async ? (0, codegen_1._) `await ` : codegen_1.nil) {
+	        const passCxt = it.opts.passContext ? names_1.default.this : names_1.default.self;
+	        const passSchema = !(("compile" in def && !$data) || def.schema === false);
+	        gen.assign(valid, (0, codegen_1._) `${_await}${(0, code_1.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
+	    }
+	    function reportErrs(errors) {
+	        var _a;
+	        gen.if((0, codegen_1.not)((_a = def.valid) !== null && _a !== void 0 ? _a : valid), errors);
+	    }
+	}
+	keyword.funcKeywordCode = funcKeywordCode;
+	function modifyData(cxt) {
+	    const { gen, data, it } = cxt;
+	    gen.if(it.parentData, () => gen.assign(data, (0, codegen_1._) `${it.parentData}[${it.parentDataProperty}]`));
+	}
+	function addErrs(cxt, errs) {
+	    const { gen } = cxt;
+	    gen.if((0, codegen_1._) `Array.isArray(${errs})`, () => {
+	        gen
+	            .assign(names_1.default.vErrors, (0, codegen_1._) `${names_1.default.vErrors} === null ? ${errs} : ${names_1.default.vErrors}.concat(${errs})`)
+	            .assign(names_1.default.errors, (0, codegen_1._) `${names_1.default.vErrors}.length`);
+	        (0, errors_1.extendErrors)(cxt);
+	    }, () => cxt.error());
+	}
+	function checkAsyncKeyword({ schemaEnv }, def) {
+	    if (def.async && !schemaEnv.$async)
+	        throw new Error("async keyword in sync schema");
+	}
+	function useKeyword(gen, keyword, result) {
+	    if (result === undefined)
+	        throw new Error(`keyword "${keyword}" failed to compile`);
+	    return gen.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1.stringify)(result) });
+	}
+	function validSchemaType(schema, schemaType, allowUndefined = false) {
+	    // TODO add tests
+	    return (!schemaType.length ||
+	        schemaType.some((st) => st === "array"
+	            ? Array.isArray(schema)
+	            : st === "object"
+	                ? schema && typeof schema == "object" && !Array.isArray(schema)
+	                : typeof schema == st || (allowUndefined && typeof schema == "undefined")));
+	}
+	keyword.validSchemaType = validSchemaType;
+	function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
+	    /* istanbul ignore if */
+	    if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
+	        throw new Error("ajv implementation error");
+	    }
+	    const deps = def.dependencies;
+	    if (deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))) {
+	        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
+	    }
+	    if (def.validateSchema) {
+	        const valid = def.validateSchema(schema[keyword]);
+	        if (!valid) {
+	            const msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` +
+	                self.errorsText(def.validateSchema.errors);
+	            if (opts.validateSchema === "log")
+	                self.logger.error(msg);
+	            else
+	                throw new Error(msg);
+	        }
+	    }
+	}
+	keyword.validateKeywordUsage = validateKeywordUsage;
+	
+	return keyword;
 }
-keyword.funcKeywordCode = funcKeywordCode;
-function modifyData(cxt) {
-    const { gen, data, it } = cxt;
-    gen.if(it.parentData, () => gen.assign(data, (0, codegen_1$t._) `${it.parentData}[${it.parentDataProperty}]`));
-}
-function addErrs(cxt, errs) {
-    const { gen } = cxt;
-    gen.if((0, codegen_1$t._) `Array.isArray(${errs})`, () => {
-        gen
-            .assign(names_1$7.default.vErrors, (0, codegen_1$t._) `${names_1$7.default.vErrors} === null ? ${errs} : ${names_1$7.default.vErrors}.concat(${errs})`)
-            .assign(names_1$7.default.errors, (0, codegen_1$t._) `${names_1$7.default.vErrors}.length`);
-        (0, errors_1$1.extendErrors)(cxt);
-    }, () => cxt.error());
-}
-function checkAsyncKeyword({ schemaEnv }, def) {
-    if (def.async && !schemaEnv.$async)
-        throw new Error("async keyword in sync schema");
-}
-function useKeyword(gen, keyword, result) {
-    if (result === undefined)
-        throw new Error(`keyword "${keyword}" failed to compile`);
-    return gen.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1$t.stringify)(result) });
-}
-function validSchemaType(schema, schemaType, allowUndefined = false) {
-    // TODO add tests
-    return (!schemaType.length ||
-        schemaType.some((st) => st === "array"
-            ? Array.isArray(schema)
-            : st === "object"
-                ? schema && typeof schema == "object" && !Array.isArray(schema)
-                : typeof schema == st || (allowUndefined && typeof schema == "undefined")));
-}
-keyword.validSchemaType = validSchemaType;
-function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
-    /* istanbul ignore if */
-    if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
-        throw new Error("ajv implementation error");
-    }
-    const deps = def.dependencies;
-    if (deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))) {
-        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
-    }
-    if (def.validateSchema) {
-        const valid = def.validateSchema(schema[keyword]);
-        if (!valid) {
-            const msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` +
-                self.errorsText(def.validateSchema.errors);
-            if (opts.validateSchema === "log")
-                self.logger.error(msg);
-            else
-                throw new Error(msg);
-        }
-    }
-}
-keyword.validateKeywordUsage = validateKeywordUsage;
 
 var subschema = {};
 
-Object.defineProperty(subschema, "__esModule", { value: true });
-subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0;
-const codegen_1$s = codegen;
-const util_1$r = util;
-function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
-    if (keyword !== undefined && schema !== undefined) {
-        throw new Error('both "keyword" and "schema" passed, only one allowed');
-    }
-    if (keyword !== undefined) {
-        const sch = it.schema[keyword];
-        return schemaProp === undefined
-            ? {
-                schema: sch,
-                schemaPath: (0, codegen_1$s._) `${it.schemaPath}${(0, codegen_1$s.getProperty)(keyword)}`,
-                errSchemaPath: `${it.errSchemaPath}/${keyword}`,
-            }
-            : {
-                schema: sch[schemaProp],
-                schemaPath: (0, codegen_1$s._) `${it.schemaPath}${(0, codegen_1$s.getProperty)(keyword)}${(0, codegen_1$s.getProperty)(schemaProp)}`,
-                errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1$r.escapeFragment)(schemaProp)}`,
-            };
-    }
-    if (schema !== undefined) {
-        if (schemaPath === undefined || errSchemaPath === undefined || topSchemaRef === undefined) {
-            throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
-        }
-        return {
-            schema,
-            schemaPath,
-            topSchemaRef,
-            errSchemaPath,
-        };
-    }
-    throw new Error('either "keyword" or "schema" must be passed');
+var hasRequiredSubschema;
+
+function requireSubschema () {
+	if (hasRequiredSubschema) return subschema;
+	hasRequiredSubschema = 1;
+	Object.defineProperty(subschema, "__esModule", { value: true });
+	subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0;
+	const codegen_1 = requireCodegen();
+	const util_1 = util;
+	function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
+	    if (keyword !== undefined && schema !== undefined) {
+	        throw new Error('both "keyword" and "schema" passed, only one allowed');
+	    }
+	    if (keyword !== undefined) {
+	        const sch = it.schema[keyword];
+	        return schemaProp === undefined
+	            ? {
+	                schema: sch,
+	                schemaPath: (0, codegen_1._) `${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}`,
+	                errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+	            }
+	            : {
+	                schema: sch[schemaProp],
+	                schemaPath: (0, codegen_1._) `${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}${(0, codegen_1.getProperty)(schemaProp)}`,
+	                errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1.escapeFragment)(schemaProp)}`,
+	            };
+	    }
+	    if (schema !== undefined) {
+	        if (schemaPath === undefined || errSchemaPath === undefined || topSchemaRef === undefined) {
+	            throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
+	        }
+	        return {
+	            schema,
+	            schemaPath,
+	            topSchemaRef,
+	            errSchemaPath,
+	        };
+	    }
+	    throw new Error('either "keyword" or "schema" must be passed');
+	}
+	subschema.getSubschema = getSubschema;
+	function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
+	    if (data !== undefined && dataProp !== undefined) {
+	        throw new Error('both "data" and "dataProp" passed, only one allowed');
+	    }
+	    const { gen } = it;
+	    if (dataProp !== undefined) {
+	        const { errorPath, dataPathArr, opts } = it;
+	        const nextData = gen.let("data", (0, codegen_1._) `${it.data}${(0, codegen_1.getProperty)(dataProp)}`, true);
+	        dataContextProps(nextData);
+	        subschema.errorPath = (0, codegen_1.str) `${errorPath}${(0, util_1.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`;
+	        subschema.parentDataProperty = (0, codegen_1._) `${dataProp}`;
+	        subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
+	    }
+	    if (data !== undefined) {
+	        const nextData = data instanceof codegen_1.Name ? data : gen.let("data", data, true); // replaceable if used once?
+	        dataContextProps(nextData);
+	        if (propertyName !== undefined)
+	            subschema.propertyName = propertyName;
+	        // TODO something is possibly wrong here with not changing parentDataProperty and not appending dataPathArr
+	    }
+	    if (dataTypes)
+	        subschema.dataTypes = dataTypes;
+	    function dataContextProps(_nextData) {
+	        subschema.data = _nextData;
+	        subschema.dataLevel = it.dataLevel + 1;
+	        subschema.dataTypes = [];
+	        it.definedProperties = new Set();
+	        subschema.parentData = it.data;
+	        subschema.dataNames = [...it.dataNames, _nextData];
+	    }
+	}
+	subschema.extendSubschemaData = extendSubschemaData;
+	function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
+	    if (compositeRule !== undefined)
+	        subschema.compositeRule = compositeRule;
+	    if (createErrors !== undefined)
+	        subschema.createErrors = createErrors;
+	    if (allErrors !== undefined)
+	        subschema.allErrors = allErrors;
+	    subschema.jtdDiscriminator = jtdDiscriminator; // not inherited
+	    subschema.jtdMetadata = jtdMetadata; // not inherited
+	}
+	subschema.extendSubschemaMode = extendSubschemaMode;
+	
+	return subschema;
 }
-subschema.getSubschema = getSubschema;
-function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
-    if (data !== undefined && dataProp !== undefined) {
-        throw new Error('both "data" and "dataProp" passed, only one allowed');
-    }
-    const { gen } = it;
-    if (dataProp !== undefined) {
-        const { errorPath, dataPathArr, opts } = it;
-        const nextData = gen.let("data", (0, codegen_1$s._) `${it.data}${(0, codegen_1$s.getProperty)(dataProp)}`, true);
-        dataContextProps(nextData);
-        subschema.errorPath = (0, codegen_1$s.str) `${errorPath}${(0, util_1$r.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`;
-        subschema.parentDataProperty = (0, codegen_1$s._) `${dataProp}`;
-        subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
-    }
-    if (data !== undefined) {
-        const nextData = data instanceof codegen_1$s.Name ? data : gen.let("data", data, true); // replaceable if used once?
-        dataContextProps(nextData);
-        if (propertyName !== undefined)
-            subschema.propertyName = propertyName;
-        // TODO something is possibly wrong here with not changing parentDataProperty and not appending dataPathArr
-    }
-    if (dataTypes)
-        subschema.dataTypes = dataTypes;
-    function dataContextProps(_nextData) {
-        subschema.data = _nextData;
-        subschema.dataLevel = it.dataLevel + 1;
-        subschema.dataTypes = [];
-        it.definedProperties = new Set();
-        subschema.parentData = it.data;
-        subschema.dataNames = [...it.dataNames, _nextData];
-    }
-}
-subschema.extendSubschemaData = extendSubschemaData;
-function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
-    if (compositeRule !== undefined)
-        subschema.compositeRule = compositeRule;
-    if (createErrors !== undefined)
-        subschema.createErrors = createErrors;
-    if (allErrors !== undefined)
-        subschema.allErrors = allErrors;
-    subschema.jtdDiscriminator = jtdDiscriminator; // not inherited
-    subschema.jtdMetadata = jtdMetadata; // not inherited
-}
-subschema.extendSubschemaMode = extendSubschemaMode;
 
 var resolve$1 = {};
 
@@ -15351,7 +14565,7 @@ var jsonSchemaTraverseExports = jsonSchemaTraverse.exports;
 
 Object.defineProperty(resolve$1, "__esModule", { value: true });
 resolve$1.getSchemaRefs = resolve$1.resolveUrl = resolve$1.normalizeId = resolve$1._getFullPath = resolve$1.getFullPath = resolve$1.inlineRef = void 0;
-const util_1$q = util;
+const util_1$p = util;
 const equal$2 = fastDeepEqual;
 const traverse = jsonSchemaTraverseExports;
 // TODO refactor to use keyword definitions
@@ -15411,7 +14625,7 @@ function countKeys(schema) {
         if (SIMPLE_INLINED.has(key))
             continue;
         if (typeof schema[key] == "object") {
-            (0, util_1$q.eachItem)(schema[key], (sch) => (count += countKeys(sch)));
+            (0, util_1$p.eachItem)(schema[key], (sch) => (count += countKeys(sch)));
         }
         if (count === Infinity)
             return Infinity;
@@ -15503,559 +14717,583 @@ function getSchemaRefs(schema, baseId) {
 }
 resolve$1.getSchemaRefs = getSchemaRefs;
 
-Object.defineProperty(validate, "__esModule", { value: true });
-validate.getData = validate.KeywordCxt = validate.validateFunctionCode = void 0;
-const boolSchema_1 = boolSchema;
-const dataType_1$1 = dataType;
-const applicability_1 = applicability;
-const dataType_2 = dataType;
-const defaults_1 = defaults;
-const keyword_1 = keyword;
-const subschema_1 = subschema;
-const codegen_1$r = codegen;
-const names_1$6 = names$1;
-const resolve_1$2 = resolve$1;
-const util_1$p = util;
-const errors_1 = errors;
-// schema compilation - generates validation function, subschemaCode (below) is used for subschemas
-function validateFunctionCode(it) {
-    if (isSchemaObj(it)) {
-        checkKeywords(it);
-        if (schemaCxtHasRules(it)) {
-            topSchemaObjCode(it);
-            return;
-        }
-    }
-    validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
+var hasRequiredValidate;
+
+function requireValidate () {
+	if (hasRequiredValidate) return validate;
+	hasRequiredValidate = 1;
+	Object.defineProperty(validate, "__esModule", { value: true });
+	validate.getData = validate.KeywordCxt = validate.validateFunctionCode = void 0;
+	const boolSchema_1 = requireBoolSchema();
+	const dataType_1 = dataType;
+	const applicability_1 = applicability;
+	const dataType_2 = dataType;
+	const defaults_1 = requireDefaults();
+	const keyword_1 = requireKeyword();
+	const subschema_1 = requireSubschema();
+	const codegen_1 = requireCodegen();
+	const names_1 = requireNames();
+	const resolve_1 = resolve$1;
+	const util_1 = util;
+	const errors_1 = errors;
+	// schema compilation - generates validation function, subschemaCode (below) is used for subschemas
+	function validateFunctionCode(it) {
+	    if (isSchemaObj(it)) {
+	        checkKeywords(it);
+	        if (schemaCxtHasRules(it)) {
+	            topSchemaObjCode(it);
+	            return;
+	        }
+	    }
+	    validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
+	}
+	validate.validateFunctionCode = validateFunctionCode;
+	function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
+	    if (opts.code.es5) {
+	        gen.func(validateName, (0, codegen_1._) `${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
+	            gen.code((0, codegen_1._) `"use strict"; ${funcSourceUrl(schema, opts)}`);
+	            destructureValCxtES5(gen, opts);
+	            gen.code(body);
+	        });
+	    }
+	    else {
+	        gen.func(validateName, (0, codegen_1._) `${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
+	    }
+	}
+	function destructureValCxt(opts) {
+	    return (0, codegen_1._) `{${names_1.default.instancePath}="", ${names_1.default.parentData}, ${names_1.default.parentDataProperty}, ${names_1.default.rootData}=${names_1.default.data}${opts.dynamicRef ? (0, codegen_1._) `, ${names_1.default.dynamicAnchors}={}` : codegen_1.nil}}={}`;
+	}
+	function destructureValCxtES5(gen, opts) {
+	    gen.if(names_1.default.valCxt, () => {
+	        gen.var(names_1.default.instancePath, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.instancePath}`);
+	        gen.var(names_1.default.parentData, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.parentData}`);
+	        gen.var(names_1.default.parentDataProperty, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.parentDataProperty}`);
+	        gen.var(names_1.default.rootData, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.rootData}`);
+	        if (opts.dynamicRef)
+	            gen.var(names_1.default.dynamicAnchors, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.dynamicAnchors}`);
+	    }, () => {
+	        gen.var(names_1.default.instancePath, (0, codegen_1._) `""`);
+	        gen.var(names_1.default.parentData, (0, codegen_1._) `undefined`);
+	        gen.var(names_1.default.parentDataProperty, (0, codegen_1._) `undefined`);
+	        gen.var(names_1.default.rootData, names_1.default.data);
+	        if (opts.dynamicRef)
+	            gen.var(names_1.default.dynamicAnchors, (0, codegen_1._) `{}`);
+	    });
+	}
+	function topSchemaObjCode(it) {
+	    const { schema, opts, gen } = it;
+	    validateFunction(it, () => {
+	        if (opts.$comment && schema.$comment)
+	            commentKeyword(it);
+	        checkNoDefault(it);
+	        gen.let(names_1.default.vErrors, null);
+	        gen.let(names_1.default.errors, 0);
+	        if (opts.unevaluated)
+	            resetEvaluated(it);
+	        typeAndKeywords(it);
+	        returnResults(it);
+	    });
+	    return;
+	}
+	function resetEvaluated(it) {
+	    // TODO maybe some hook to execute it in the end to check whether props/items are Name, as in assignEvaluated
+	    const { gen, validateName } = it;
+	    it.evaluated = gen.const("evaluated", (0, codegen_1._) `${validateName}.evaluated`);
+	    gen.if((0, codegen_1._) `${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1._) `${it.evaluated}.props`, (0, codegen_1._) `undefined`));
+	    gen.if((0, codegen_1._) `${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1._) `${it.evaluated}.items`, (0, codegen_1._) `undefined`));
+	}
+	function funcSourceUrl(schema, opts) {
+	    const schId = typeof schema == "object" && schema[opts.schemaId];
+	    return schId && (opts.code.source || opts.code.process) ? (0, codegen_1._) `/*# sourceURL=${schId} */` : codegen_1.nil;
+	}
+	// schema compilation - this function is used recursively to generate code for sub-schemas
+	function subschemaCode(it, valid) {
+	    if (isSchemaObj(it)) {
+	        checkKeywords(it);
+	        if (schemaCxtHasRules(it)) {
+	            subSchemaObjCode(it, valid);
+	            return;
+	        }
+	    }
+	    (0, boolSchema_1.boolOrEmptySchema)(it, valid);
+	}
+	function schemaCxtHasRules({ schema, self }) {
+	    if (typeof schema == "boolean")
+	        return !schema;
+	    for (const key in schema)
+	        if (self.RULES.all[key])
+	            return true;
+	    return false;
+	}
+	function isSchemaObj(it) {
+	    return typeof it.schema != "boolean";
+	}
+	function subSchemaObjCode(it, valid) {
+	    const { schema, gen, opts } = it;
+	    if (opts.$comment && schema.$comment)
+	        commentKeyword(it);
+	    updateContext(it);
+	    checkAsyncSchema(it);
+	    const errsCount = gen.const("_errs", names_1.default.errors);
+	    typeAndKeywords(it, errsCount);
+	    // TODO var
+	    gen.var(valid, (0, codegen_1._) `${errsCount} === ${names_1.default.errors}`);
+	}
+	function checkKeywords(it) {
+	    (0, util_1.checkUnknownRules)(it);
+	    checkRefsAndKeywords(it);
+	}
+	function typeAndKeywords(it, errsCount) {
+	    if (it.opts.jtd)
+	        return schemaKeywords(it, [], false, errsCount);
+	    const types = (0, dataType_1.getSchemaTypes)(it.schema);
+	    const checkedTypes = (0, dataType_1.coerceAndCheckDataType)(it, types);
+	    schemaKeywords(it, types, !checkedTypes, errsCount);
+	}
+	function checkRefsAndKeywords(it) {
+	    const { schema, errSchemaPath, opts, self } = it;
+	    if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1.schemaHasRulesButRef)(schema, self.RULES)) {
+	        self.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
+	    }
+	}
+	function checkNoDefault(it) {
+	    const { schema, opts } = it;
+	    if (schema.default !== undefined && opts.useDefaults && opts.strictSchema) {
+	        (0, util_1.checkStrictMode)(it, "default is ignored in the schema root");
+	    }
+	}
+	function updateContext(it) {
+	    const schId = it.schema[it.opts.schemaId];
+	    if (schId)
+	        it.baseId = (0, resolve_1.resolveUrl)(it.opts.uriResolver, it.baseId, schId);
+	}
+	function checkAsyncSchema(it) {
+	    if (it.schema.$async && !it.schemaEnv.$async)
+	        throw new Error("async schema in sync schema");
+	}
+	function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
+	    const msg = schema.$comment;
+	    if (opts.$comment === true) {
+	        gen.code((0, codegen_1._) `${names_1.default.self}.logger.log(${msg})`);
+	    }
+	    else if (typeof opts.$comment == "function") {
+	        const schemaPath = (0, codegen_1.str) `${errSchemaPath}/$comment`;
+	        const rootName = gen.scopeValue("root", { ref: schemaEnv.root });
+	        gen.code((0, codegen_1._) `${names_1.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
+	    }
+	}
+	function returnResults(it) {
+	    const { gen, schemaEnv, validateName, ValidationError, opts } = it;
+	    if (schemaEnv.$async) {
+	        // TODO assign unevaluated
+	        gen.if((0, codegen_1._) `${names_1.default.errors} === 0`, () => gen.return(names_1.default.data), () => gen.throw((0, codegen_1._) `new ${ValidationError}(${names_1.default.vErrors})`));
+	    }
+	    else {
+	        gen.assign((0, codegen_1._) `${validateName}.errors`, names_1.default.vErrors);
+	        if (opts.unevaluated)
+	            assignEvaluated(it);
+	        gen.return((0, codegen_1._) `${names_1.default.errors} === 0`);
+	    }
+	}
+	function assignEvaluated({ gen, evaluated, props, items }) {
+	    if (props instanceof codegen_1.Name)
+	        gen.assign((0, codegen_1._) `${evaluated}.props`, props);
+	    if (items instanceof codegen_1.Name)
+	        gen.assign((0, codegen_1._) `${evaluated}.items`, items);
+	}
+	function schemaKeywords(it, types, typeErrors, errsCount) {
+	    const { gen, schema, data, allErrors, opts, self } = it;
+	    const { RULES } = self;
+	    if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES))) {
+	        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition)); // TODO typecast
+	        return;
+	    }
+	    if (!opts.jtd)
+	        checkStrictTypes(it, types);
+	    gen.block(() => {
+	        for (const group of RULES.rules)
+	            groupKeywords(group);
+	        groupKeywords(RULES.post);
+	    });
+	    function groupKeywords(group) {
+	        if (!(0, applicability_1.shouldUseGroup)(schema, group))
+	            return;
+	        if (group.type) {
+	            gen.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers));
+	            iterateKeywords(it, group);
+	            if (types.length === 1 && types[0] === group.type && typeErrors) {
+	                gen.else();
+	                (0, dataType_2.reportTypeError)(it);
+	            }
+	            gen.endIf();
+	        }
+	        else {
+	            iterateKeywords(it, group);
+	        }
+	        // TODO make it "ok" call?
+	        if (!allErrors)
+	            gen.if((0, codegen_1._) `${names_1.default.errors} === ${errsCount || 0}`);
+	    }
+	}
+	function iterateKeywords(it, group) {
+	    const { gen, schema, opts: { useDefaults }, } = it;
+	    if (useDefaults)
+	        (0, defaults_1.assignDefaults)(it, group.type);
+	    gen.block(() => {
+	        for (const rule of group.rules) {
+	            if ((0, applicability_1.shouldUseRule)(schema, rule)) {
+	                keywordCode(it, rule.keyword, rule.definition, group.type);
+	            }
+	        }
+	    });
+	}
+	function checkStrictTypes(it, types) {
+	    if (it.schemaEnv.meta || !it.opts.strictTypes)
+	        return;
+	    checkContextTypes(it, types);
+	    if (!it.opts.allowUnionTypes)
+	        checkMultipleTypes(it, types);
+	    checkKeywordTypes(it, it.dataTypes);
+	}
+	function checkContextTypes(it, types) {
+	    if (!types.length)
+	        return;
+	    if (!it.dataTypes.length) {
+	        it.dataTypes = types;
+	        return;
+	    }
+	    types.forEach((t) => {
+	        if (!includesType(it.dataTypes, t)) {
+	            strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
+	        }
+	    });
+	    narrowSchemaTypes(it, types);
+	}
+	function checkMultipleTypes(it, ts) {
+	    if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
+	        strictTypesError(it, "use allowUnionTypes to allow union type keyword");
+	    }
+	}
+	function checkKeywordTypes(it, ts) {
+	    const rules = it.self.RULES.all;
+	    for (const keyword in rules) {
+	        const rule = rules[keyword];
+	        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
+	            const { type } = rule.definition;
+	            if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
+	                strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
+	            }
+	        }
+	    }
+	}
+	function hasApplicableType(schTs, kwdT) {
+	    return schTs.includes(kwdT) || (kwdT === "number" && schTs.includes("integer"));
+	}
+	function includesType(ts, t) {
+	    return ts.includes(t) || (t === "integer" && ts.includes("number"));
+	}
+	function narrowSchemaTypes(it, withTypes) {
+	    const ts = [];
+	    for (const t of it.dataTypes) {
+	        if (includesType(withTypes, t))
+	            ts.push(t);
+	        else if (withTypes.includes("integer") && t === "number")
+	            ts.push("integer");
+	    }
+	    it.dataTypes = ts;
+	}
+	function strictTypesError(it, msg) {
+	    const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
+	    msg += ` at "${schemaPath}" (strictTypes)`;
+	    (0, util_1.checkStrictMode)(it, msg, it.opts.strictTypes);
+	}
+	class KeywordCxt {
+	    constructor(it, def, keyword) {
+	        (0, keyword_1.validateKeywordUsage)(it, def, keyword);
+	        this.gen = it.gen;
+	        this.allErrors = it.allErrors;
+	        this.keyword = keyword;
+	        this.data = it.data;
+	        this.schema = it.schema[keyword];
+	        this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data;
+	        this.schemaValue = (0, util_1.schemaRefOrVal)(it, this.schema, keyword, this.$data);
+	        this.schemaType = def.schemaType;
+	        this.parentSchema = it.schema;
+	        this.params = {};
+	        this.it = it;
+	        this.def = def;
+	        if (this.$data) {
+	            this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
+	        }
+	        else {
+	            this.schemaCode = this.schemaValue;
+	            if (!(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined)) {
+	                throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
+	            }
+	        }
+	        if ("code" in def ? def.trackErrors : def.errors !== false) {
+	            this.errsCount = it.gen.const("_errs", names_1.default.errors);
+	        }
+	    }
+	    result(condition, successAction, failAction) {
+	        this.failResult((0, codegen_1.not)(condition), successAction, failAction);
+	    }
+	    failResult(condition, successAction, failAction) {
+	        this.gen.if(condition);
+	        if (failAction)
+	            failAction();
+	        else
+	            this.error();
+	        if (successAction) {
+	            this.gen.else();
+	            successAction();
+	            if (this.allErrors)
+	                this.gen.endIf();
+	        }
+	        else {
+	            if (this.allErrors)
+	                this.gen.endIf();
+	            else
+	                this.gen.else();
+	        }
+	    }
+	    pass(condition, failAction) {
+	        this.failResult((0, codegen_1.not)(condition), undefined, failAction);
+	    }
+	    fail(condition) {
+	        if (condition === undefined) {
+	            this.error();
+	            if (!this.allErrors)
+	                this.gen.if(false); // this branch will be removed by gen.optimize
+	            return;
+	        }
+	        this.gen.if(condition);
+	        this.error();
+	        if (this.allErrors)
+	            this.gen.endIf();
+	        else
+	            this.gen.else();
+	    }
+	    fail$data(condition) {
+	        if (!this.$data)
+	            return this.fail(condition);
+	        const { schemaCode } = this;
+	        this.fail((0, codegen_1._) `${schemaCode} !== undefined && (${(0, codegen_1.or)(this.invalid$data(), condition)})`);
+	    }
+	    error(append, errorParams, errorPaths) {
+	        if (errorParams) {
+	            this.setParams(errorParams);
+	            this._error(append, errorPaths);
+	            this.setParams({});
+	            return;
+	        }
+	        this._error(append, errorPaths);
+	    }
+	    _error(append, errorPaths) {
+	        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
+	    }
+	    $dataError() {
+	        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
+	    }
+	    reset() {
+	        if (this.errsCount === undefined)
+	            throw new Error('add "trackErrors" to keyword definition');
+	        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
+	    }
+	    ok(cond) {
+	        if (!this.allErrors)
+	            this.gen.if(cond);
+	    }
+	    setParams(obj, assign) {
+	        if (assign)
+	            Object.assign(this.params, obj);
+	        else
+	            this.params = obj;
+	    }
+	    block$data(valid, codeBlock, $dataValid = codegen_1.nil) {
+	        this.gen.block(() => {
+	            this.check$data(valid, $dataValid);
+	            codeBlock();
+	        });
+	    }
+	    check$data(valid = codegen_1.nil, $dataValid = codegen_1.nil) {
+	        if (!this.$data)
+	            return;
+	        const { gen, schemaCode, schemaType, def } = this;
+	        gen.if((0, codegen_1.or)((0, codegen_1._) `${schemaCode} === undefined`, $dataValid));
+	        if (valid !== codegen_1.nil)
+	            gen.assign(valid, true);
+	        if (schemaType.length || def.validateSchema) {
+	            gen.elseIf(this.invalid$data());
+	            this.$dataError();
+	            if (valid !== codegen_1.nil)
+	                gen.assign(valid, false);
+	        }
+	        gen.else();
+	    }
+	    invalid$data() {
+	        const { gen, schemaCode, schemaType, def, it } = this;
+	        return (0, codegen_1.or)(wrong$DataType(), invalid$DataSchema());
+	        function wrong$DataType() {
+	            if (schemaType.length) {
+	                /* istanbul ignore if */
+	                if (!(schemaCode instanceof codegen_1.Name))
+	                    throw new Error("ajv implementation error");
+	                const st = Array.isArray(schemaType) ? schemaType : [schemaType];
+	                return (0, codegen_1._) `${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
+	            }
+	            return codegen_1.nil;
+	        }
+	        function invalid$DataSchema() {
+	            if (def.validateSchema) {
+	                const validateSchemaRef = gen.scopeValue("validate$data", { ref: def.validateSchema }); // TODO value.code for standalone
+	                return (0, codegen_1._) `!${validateSchemaRef}(${schemaCode})`;
+	            }
+	            return codegen_1.nil;
+	        }
+	    }
+	    subschema(appl, valid) {
+	        const subschema = (0, subschema_1.getSubschema)(this.it, appl);
+	        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl);
+	        (0, subschema_1.extendSubschemaMode)(subschema, appl);
+	        const nextContext = { ...this.it, ...subschema, items: undefined, props: undefined };
+	        subschemaCode(nextContext, valid);
+	        return nextContext;
+	    }
+	    mergeEvaluated(schemaCxt, toName) {
+	        const { it, gen } = this;
+	        if (!it.opts.unevaluated)
+	            return;
+	        if (it.props !== true && schemaCxt.props !== undefined) {
+	            it.props = util_1.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName);
+	        }
+	        if (it.items !== true && schemaCxt.items !== undefined) {
+	            it.items = util_1.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName);
+	        }
+	    }
+	    mergeValidEvaluated(schemaCxt, valid) {
+	        const { it, gen } = this;
+	        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
+	            gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1.Name));
+	            return true;
+	        }
+	    }
+	}
+	validate.KeywordCxt = KeywordCxt;
+	function keywordCode(it, keyword, def, ruleType) {
+	    const cxt = new KeywordCxt(it, def, keyword);
+	    if ("code" in def) {
+	        def.code(cxt, ruleType);
+	    }
+	    else if (cxt.$data && def.validate) {
+	        (0, keyword_1.funcKeywordCode)(cxt, def);
+	    }
+	    else if ("macro" in def) {
+	        (0, keyword_1.macroKeywordCode)(cxt, def);
+	    }
+	    else if (def.compile || def.validate) {
+	        (0, keyword_1.funcKeywordCode)(cxt, def);
+	    }
+	}
+	const JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
+	const RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
+	function getData($data, { dataLevel, dataNames, dataPathArr }) {
+	    let jsonPointer;
+	    let data;
+	    if ($data === "")
+	        return names_1.default.rootData;
+	    if ($data[0] === "/") {
+	        if (!JSON_POINTER.test($data))
+	            throw new Error(`Invalid JSON-pointer: ${$data}`);
+	        jsonPointer = $data;
+	        data = names_1.default.rootData;
+	    }
+	    else {
+	        const matches = RELATIVE_JSON_POINTER.exec($data);
+	        if (!matches)
+	            throw new Error(`Invalid JSON-pointer: ${$data}`);
+	        const up = +matches[1];
+	        jsonPointer = matches[2];
+	        if (jsonPointer === "#") {
+	            if (up >= dataLevel)
+	                throw new Error(errorMsg("property/index", up));
+	            return dataPathArr[dataLevel - up];
+	        }
+	        if (up > dataLevel)
+	            throw new Error(errorMsg("data", up));
+	        data = dataNames[dataLevel - up];
+	        if (!jsonPointer)
+	            return data;
+	    }
+	    let expr = data;
+	    const segments = jsonPointer.split("/");
+	    for (const segment of segments) {
+	        if (segment) {
+	            data = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)((0, util_1.unescapeJsonPointer)(segment))}`;
+	            expr = (0, codegen_1._) `${expr} && ${data}`;
+	        }
+	    }
+	    return expr;
+	    function errorMsg(pointerType, up) {
+	        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
+	    }
+	}
+	validate.getData = getData;
+	
+	return validate;
 }
-validate.validateFunctionCode = validateFunctionCode;
-function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
-    if (opts.code.es5) {
-        gen.func(validateName, (0, codegen_1$r._) `${names_1$6.default.data}, ${names_1$6.default.valCxt}`, schemaEnv.$async, () => {
-            gen.code((0, codegen_1$r._) `"use strict"; ${funcSourceUrl(schema, opts)}`);
-            destructureValCxtES5(gen, opts);
-            gen.code(body);
-        });
-    }
-    else {
-        gen.func(validateName, (0, codegen_1$r._) `${names_1$6.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
-    }
-}
-function destructureValCxt(opts) {
-    return (0, codegen_1$r._) `{${names_1$6.default.instancePath}="", ${names_1$6.default.parentData}, ${names_1$6.default.parentDataProperty}, ${names_1$6.default.rootData}=${names_1$6.default.data}${opts.dynamicRef ? (0, codegen_1$r._) `, ${names_1$6.default.dynamicAnchors}={}` : codegen_1$r.nil}}={}`;
-}
-function destructureValCxtES5(gen, opts) {
-    gen.if(names_1$6.default.valCxt, () => {
-        gen.var(names_1$6.default.instancePath, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.instancePath}`);
-        gen.var(names_1$6.default.parentData, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.parentData}`);
-        gen.var(names_1$6.default.parentDataProperty, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.parentDataProperty}`);
-        gen.var(names_1$6.default.rootData, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.rootData}`);
-        if (opts.dynamicRef)
-            gen.var(names_1$6.default.dynamicAnchors, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.dynamicAnchors}`);
-    }, () => {
-        gen.var(names_1$6.default.instancePath, (0, codegen_1$r._) `""`);
-        gen.var(names_1$6.default.parentData, (0, codegen_1$r._) `undefined`);
-        gen.var(names_1$6.default.parentDataProperty, (0, codegen_1$r._) `undefined`);
-        gen.var(names_1$6.default.rootData, names_1$6.default.data);
-        if (opts.dynamicRef)
-            gen.var(names_1$6.default.dynamicAnchors, (0, codegen_1$r._) `{}`);
-    });
-}
-function topSchemaObjCode(it) {
-    const { schema, opts, gen } = it;
-    validateFunction(it, () => {
-        if (opts.$comment && schema.$comment)
-            commentKeyword(it);
-        checkNoDefault(it);
-        gen.let(names_1$6.default.vErrors, null);
-        gen.let(names_1$6.default.errors, 0);
-        if (opts.unevaluated)
-            resetEvaluated(it);
-        typeAndKeywords(it);
-        returnResults(it);
-    });
-    return;
-}
-function resetEvaluated(it) {
-    // TODO maybe some hook to execute it in the end to check whether props/items are Name, as in assignEvaluated
-    const { gen, validateName } = it;
-    it.evaluated = gen.const("evaluated", (0, codegen_1$r._) `${validateName}.evaluated`);
-    gen.if((0, codegen_1$r._) `${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1$r._) `${it.evaluated}.props`, (0, codegen_1$r._) `undefined`));
-    gen.if((0, codegen_1$r._) `${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1$r._) `${it.evaluated}.items`, (0, codegen_1$r._) `undefined`));
-}
-function funcSourceUrl(schema, opts) {
-    const schId = typeof schema == "object" && schema[opts.schemaId];
-    return schId && (opts.code.source || opts.code.process) ? (0, codegen_1$r._) `/*# sourceURL=${schId} */` : codegen_1$r.nil;
-}
-// schema compilation - this function is used recursively to generate code for sub-schemas
-function subschemaCode(it, valid) {
-    if (isSchemaObj(it)) {
-        checkKeywords(it);
-        if (schemaCxtHasRules(it)) {
-            subSchemaObjCode(it, valid);
-            return;
-        }
-    }
-    (0, boolSchema_1.boolOrEmptySchema)(it, valid);
-}
-function schemaCxtHasRules({ schema, self }) {
-    if (typeof schema == "boolean")
-        return !schema;
-    for (const key in schema)
-        if (self.RULES.all[key])
-            return true;
-    return false;
-}
-function isSchemaObj(it) {
-    return typeof it.schema != "boolean";
-}
-function subSchemaObjCode(it, valid) {
-    const { schema, gen, opts } = it;
-    if (opts.$comment && schema.$comment)
-        commentKeyword(it);
-    updateContext$1(it);
-    checkAsyncSchema(it);
-    const errsCount = gen.const("_errs", names_1$6.default.errors);
-    typeAndKeywords(it, errsCount);
-    // TODO var
-    gen.var(valid, (0, codegen_1$r._) `${errsCount} === ${names_1$6.default.errors}`);
-}
-function checkKeywords(it) {
-    (0, util_1$p.checkUnknownRules)(it);
-    checkRefsAndKeywords(it);
-}
-function typeAndKeywords(it, errsCount) {
-    if (it.opts.jtd)
-        return schemaKeywords(it, [], false, errsCount);
-    const types = (0, dataType_1$1.getSchemaTypes)(it.schema);
-    const checkedTypes = (0, dataType_1$1.coerceAndCheckDataType)(it, types);
-    schemaKeywords(it, types, !checkedTypes, errsCount);
-}
-function checkRefsAndKeywords(it) {
-    const { schema, errSchemaPath, opts, self } = it;
-    if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1$p.schemaHasRulesButRef)(schema, self.RULES)) {
-        self.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
-    }
-}
-function checkNoDefault(it) {
-    const { schema, opts } = it;
-    if (schema.default !== undefined && opts.useDefaults && opts.strictSchema) {
-        (0, util_1$p.checkStrictMode)(it, "default is ignored in the schema root");
-    }
-}
-function updateContext$1(it) {
-    const schId = it.schema[it.opts.schemaId];
-    if (schId)
-        it.baseId = (0, resolve_1$2.resolveUrl)(it.opts.uriResolver, it.baseId, schId);
-}
-function checkAsyncSchema(it) {
-    if (it.schema.$async && !it.schemaEnv.$async)
-        throw new Error("async schema in sync schema");
-}
-function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
-    const msg = schema.$comment;
-    if (opts.$comment === true) {
-        gen.code((0, codegen_1$r._) `${names_1$6.default.self}.logger.log(${msg})`);
-    }
-    else if (typeof opts.$comment == "function") {
-        const schemaPath = (0, codegen_1$r.str) `${errSchemaPath}/$comment`;
-        const rootName = gen.scopeValue("root", { ref: schemaEnv.root });
-        gen.code((0, codegen_1$r._) `${names_1$6.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
-    }
-}
-function returnResults(it) {
-    const { gen, schemaEnv, validateName, ValidationError, opts } = it;
-    if (schemaEnv.$async) {
-        // TODO assign unevaluated
-        gen.if((0, codegen_1$r._) `${names_1$6.default.errors} === 0`, () => gen.return(names_1$6.default.data), () => gen.throw((0, codegen_1$r._) `new ${ValidationError}(${names_1$6.default.vErrors})`));
-    }
-    else {
-        gen.assign((0, codegen_1$r._) `${validateName}.errors`, names_1$6.default.vErrors);
-        if (opts.unevaluated)
-            assignEvaluated(it);
-        gen.return((0, codegen_1$r._) `${names_1$6.default.errors} === 0`);
-    }
-}
-function assignEvaluated({ gen, evaluated, props, items }) {
-    if (props instanceof codegen_1$r.Name)
-        gen.assign((0, codegen_1$r._) `${evaluated}.props`, props);
-    if (items instanceof codegen_1$r.Name)
-        gen.assign((0, codegen_1$r._) `${evaluated}.items`, items);
-}
-function schemaKeywords(it, types, typeErrors, errsCount) {
-    const { gen, schema, data, allErrors, opts, self } = it;
-    const { RULES } = self;
-    if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1$p.schemaHasRulesButRef)(schema, RULES))) {
-        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition)); // TODO typecast
-        return;
-    }
-    if (!opts.jtd)
-        checkStrictTypes(it, types);
-    gen.block(() => {
-        for (const group of RULES.rules)
-            groupKeywords(group);
-        groupKeywords(RULES.post);
-    });
-    function groupKeywords(group) {
-        if (!(0, applicability_1.shouldUseGroup)(schema, group))
-            return;
-        if (group.type) {
-            gen.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers));
-            iterateKeywords(it, group);
-            if (types.length === 1 && types[0] === group.type && typeErrors) {
-                gen.else();
-                (0, dataType_2.reportTypeError)(it);
-            }
-            gen.endIf();
-        }
-        else {
-            iterateKeywords(it, group);
-        }
-        // TODO make it "ok" call?
-        if (!allErrors)
-            gen.if((0, codegen_1$r._) `${names_1$6.default.errors} === ${errsCount || 0}`);
-    }
-}
-function iterateKeywords(it, group) {
-    const { gen, schema, opts: { useDefaults }, } = it;
-    if (useDefaults)
-        (0, defaults_1.assignDefaults)(it, group.type);
-    gen.block(() => {
-        for (const rule of group.rules) {
-            if ((0, applicability_1.shouldUseRule)(schema, rule)) {
-                keywordCode(it, rule.keyword, rule.definition, group.type);
-            }
-        }
-    });
-}
-function checkStrictTypes(it, types) {
-    if (it.schemaEnv.meta || !it.opts.strictTypes)
-        return;
-    checkContextTypes(it, types);
-    if (!it.opts.allowUnionTypes)
-        checkMultipleTypes(it, types);
-    checkKeywordTypes(it, it.dataTypes);
-}
-function checkContextTypes(it, types) {
-    if (!types.length)
-        return;
-    if (!it.dataTypes.length) {
-        it.dataTypes = types;
-        return;
-    }
-    types.forEach((t) => {
-        if (!includesType(it.dataTypes, t)) {
-            strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
-        }
-    });
-    narrowSchemaTypes(it, types);
-}
-function checkMultipleTypes(it, ts) {
-    if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
-        strictTypesError(it, "use allowUnionTypes to allow union type keyword");
-    }
-}
-function checkKeywordTypes(it, ts) {
-    const rules = it.self.RULES.all;
-    for (const keyword in rules) {
-        const rule = rules[keyword];
-        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
-            const { type } = rule.definition;
-            if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
-                strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
-            }
-        }
-    }
-}
-function hasApplicableType(schTs, kwdT) {
-    return schTs.includes(kwdT) || (kwdT === "number" && schTs.includes("integer"));
-}
-function includesType(ts, t) {
-    return ts.includes(t) || (t === "integer" && ts.includes("number"));
-}
-function narrowSchemaTypes(it, withTypes) {
-    const ts = [];
-    for (const t of it.dataTypes) {
-        if (includesType(withTypes, t))
-            ts.push(t);
-        else if (withTypes.includes("integer") && t === "number")
-            ts.push("integer");
-    }
-    it.dataTypes = ts;
-}
-function strictTypesError(it, msg) {
-    const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
-    msg += ` at "${schemaPath}" (strictTypes)`;
-    (0, util_1$p.checkStrictMode)(it, msg, it.opts.strictTypes);
-}
-class KeywordCxt {
-    constructor(it, def, keyword) {
-        (0, keyword_1.validateKeywordUsage)(it, def, keyword);
-        this.gen = it.gen;
-        this.allErrors = it.allErrors;
-        this.keyword = keyword;
-        this.data = it.data;
-        this.schema = it.schema[keyword];
-        this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data;
-        this.schemaValue = (0, util_1$p.schemaRefOrVal)(it, this.schema, keyword, this.$data);
-        this.schemaType = def.schemaType;
-        this.parentSchema = it.schema;
-        this.params = {};
-        this.it = it;
-        this.def = def;
-        if (this.$data) {
-            this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
-        }
-        else {
-            this.schemaCode = this.schemaValue;
-            if (!(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined)) {
-                throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
-            }
-        }
-        if ("code" in def ? def.trackErrors : def.errors !== false) {
-            this.errsCount = it.gen.const("_errs", names_1$6.default.errors);
-        }
-    }
-    result(condition, successAction, failAction) {
-        this.failResult((0, codegen_1$r.not)(condition), successAction, failAction);
-    }
-    failResult(condition, successAction, failAction) {
-        this.gen.if(condition);
-        if (failAction)
-            failAction();
-        else
-            this.error();
-        if (successAction) {
-            this.gen.else();
-            successAction();
-            if (this.allErrors)
-                this.gen.endIf();
-        }
-        else {
-            if (this.allErrors)
-                this.gen.endIf();
-            else
-                this.gen.else();
-        }
-    }
-    pass(condition, failAction) {
-        this.failResult((0, codegen_1$r.not)(condition), undefined, failAction);
-    }
-    fail(condition) {
-        if (condition === undefined) {
-            this.error();
-            if (!this.allErrors)
-                this.gen.if(false); // this branch will be removed by gen.optimize
-            return;
-        }
-        this.gen.if(condition);
-        this.error();
-        if (this.allErrors)
-            this.gen.endIf();
-        else
-            this.gen.else();
-    }
-    fail$data(condition) {
-        if (!this.$data)
-            return this.fail(condition);
-        const { schemaCode } = this;
-        this.fail((0, codegen_1$r._) `${schemaCode} !== undefined && (${(0, codegen_1$r.or)(this.invalid$data(), condition)})`);
-    }
-    error(append, errorParams, errorPaths) {
-        if (errorParams) {
-            this.setParams(errorParams);
-            this._error(append, errorPaths);
-            this.setParams({});
-            return;
-        }
-        this._error(append, errorPaths);
-    }
-    _error(append, errorPaths) {
-        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
-    }
-    $dataError() {
-        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
-    }
-    reset() {
-        if (this.errsCount === undefined)
-            throw new Error('add "trackErrors" to keyword definition');
-        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
-    }
-    ok(cond) {
-        if (!this.allErrors)
-            this.gen.if(cond);
-    }
-    setParams(obj, assign) {
-        if (assign)
-            Object.assign(this.params, obj);
-        else
-            this.params = obj;
-    }
-    block$data(valid, codeBlock, $dataValid = codegen_1$r.nil) {
-        this.gen.block(() => {
-            this.check$data(valid, $dataValid);
-            codeBlock();
-        });
-    }
-    check$data(valid = codegen_1$r.nil, $dataValid = codegen_1$r.nil) {
-        if (!this.$data)
-            return;
-        const { gen, schemaCode, schemaType, def } = this;
-        gen.if((0, codegen_1$r.or)((0, codegen_1$r._) `${schemaCode} === undefined`, $dataValid));
-        if (valid !== codegen_1$r.nil)
-            gen.assign(valid, true);
-        if (schemaType.length || def.validateSchema) {
-            gen.elseIf(this.invalid$data());
-            this.$dataError();
-            if (valid !== codegen_1$r.nil)
-                gen.assign(valid, false);
-        }
-        gen.else();
-    }
-    invalid$data() {
-        const { gen, schemaCode, schemaType, def, it } = this;
-        return (0, codegen_1$r.or)(wrong$DataType(), invalid$DataSchema());
-        function wrong$DataType() {
-            if (schemaType.length) {
-                /* istanbul ignore if */
-                if (!(schemaCode instanceof codegen_1$r.Name))
-                    throw new Error("ajv implementation error");
-                const st = Array.isArray(schemaType) ? schemaType : [schemaType];
-                return (0, codegen_1$r._) `${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
-            }
-            return codegen_1$r.nil;
-        }
-        function invalid$DataSchema() {
-            if (def.validateSchema) {
-                const validateSchemaRef = gen.scopeValue("validate$data", { ref: def.validateSchema }); // TODO value.code for standalone
-                return (0, codegen_1$r._) `!${validateSchemaRef}(${schemaCode})`;
-            }
-            return codegen_1$r.nil;
-        }
-    }
-    subschema(appl, valid) {
-        const subschema = (0, subschema_1.getSubschema)(this.it, appl);
-        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl);
-        (0, subschema_1.extendSubschemaMode)(subschema, appl);
-        const nextContext = { ...this.it, ...subschema, items: undefined, props: undefined };
-        subschemaCode(nextContext, valid);
-        return nextContext;
-    }
-    mergeEvaluated(schemaCxt, toName) {
-        const { it, gen } = this;
-        if (!it.opts.unevaluated)
-            return;
-        if (it.props !== true && schemaCxt.props !== undefined) {
-            it.props = util_1$p.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName);
-        }
-        if (it.items !== true && schemaCxt.items !== undefined) {
-            it.items = util_1$p.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName);
-        }
-    }
-    mergeValidEvaluated(schemaCxt, valid) {
-        const { it, gen } = this;
-        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
-            gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1$r.Name));
-            return true;
-        }
-    }
-}
-validate.KeywordCxt = KeywordCxt;
-function keywordCode(it, keyword, def, ruleType) {
-    const cxt = new KeywordCxt(it, def, keyword);
-    if ("code" in def) {
-        def.code(cxt, ruleType);
-    }
-    else if (cxt.$data && def.validate) {
-        (0, keyword_1.funcKeywordCode)(cxt, def);
-    }
-    else if ("macro" in def) {
-        (0, keyword_1.macroKeywordCode)(cxt, def);
-    }
-    else if (def.compile || def.validate) {
-        (0, keyword_1.funcKeywordCode)(cxt, def);
-    }
-}
-const JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
-const RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
-function getData($data, { dataLevel, dataNames, dataPathArr }) {
-    let jsonPointer;
-    let data;
-    if ($data === "")
-        return names_1$6.default.rootData;
-    if ($data[0] === "/") {
-        if (!JSON_POINTER.test($data))
-            throw new Error(`Invalid JSON-pointer: ${$data}`);
-        jsonPointer = $data;
-        data = names_1$6.default.rootData;
-    }
-    else {
-        const matches = RELATIVE_JSON_POINTER.exec($data);
-        if (!matches)
-            throw new Error(`Invalid JSON-pointer: ${$data}`);
-        const up = +matches[1];
-        jsonPointer = matches[2];
-        if (jsonPointer === "#") {
-            if (up >= dataLevel)
-                throw new Error(errorMsg("property/index", up));
-            return dataPathArr[dataLevel - up];
-        }
-        if (up > dataLevel)
-            throw new Error(errorMsg("data", up));
-        data = dataNames[dataLevel - up];
-        if (!jsonPointer)
-            return data;
-    }
-    let expr = data;
-    const segments = jsonPointer.split("/");
-    for (const segment of segments) {
-        if (segment) {
-            data = (0, codegen_1$r._) `${data}${(0, codegen_1$r.getProperty)((0, util_1$p.unescapeJsonPointer)(segment))}`;
-            expr = (0, codegen_1$r._) `${expr} && ${data}`;
-        }
-    }
-    return expr;
-    function errorMsg(pointerType, up) {
-        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
-    }
-}
-validate.getData = getData;
 
 var validation_error = {};
 
-Object.defineProperty(validation_error, "__esModule", { value: true });
-class ValidationError extends Error {
-    constructor(errors) {
-        super("validation failed");
-        this.errors = errors;
-        this.ajv = this.validation = true;
-    }
+var hasRequiredValidation_error;
+
+function requireValidation_error () {
+	if (hasRequiredValidation_error) return validation_error;
+	hasRequiredValidation_error = 1;
+	Object.defineProperty(validation_error, "__esModule", { value: true });
+	class ValidationError extends Error {
+	    constructor(errors) {
+	        super("validation failed");
+	        this.errors = errors;
+	        this.ajv = this.validation = true;
+	    }
+	}
+	validation_error.default = ValidationError;
+	
+	return validation_error;
 }
-validation_error.default = ValidationError;
 
 var ref_error = {};
 
-Object.defineProperty(ref_error, "__esModule", { value: true });
-const resolve_1$1 = resolve$1;
-class MissingRefError extends Error {
-    constructor(resolver, baseId, ref, msg) {
-        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
-        this.missingRef = (0, resolve_1$1.resolveUrl)(resolver, baseId, ref);
-        this.missingSchema = (0, resolve_1$1.normalizeId)((0, resolve_1$1.getFullPath)(resolver, this.missingRef));
-    }
+var hasRequiredRef_error;
+
+function requireRef_error () {
+	if (hasRequiredRef_error) return ref_error;
+	hasRequiredRef_error = 1;
+	Object.defineProperty(ref_error, "__esModule", { value: true });
+	const resolve_1 = resolve$1;
+	class MissingRefError extends Error {
+	    constructor(resolver, baseId, ref, msg) {
+	        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
+	        this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref);
+	        this.missingSchema = (0, resolve_1.normalizeId)((0, resolve_1.getFullPath)(resolver, this.missingRef));
+	    }
+	}
+	ref_error.default = MissingRefError;
+	
+	return ref_error;
 }
-ref_error.default = MissingRefError;
 
 var compile = {};
 
 Object.defineProperty(compile, "__esModule", { value: true });
 compile.resolveSchema = compile.getCompilingSchema = compile.resolveRef = compile.compileSchema = compile.SchemaEnv = void 0;
-const codegen_1$q = codegen;
-const validation_error_1 = validation_error;
-const names_1$5 = names$1;
+const codegen_1$q = requireCodegen();
+const validation_error_1 = requireValidation_error();
+const names_1$5 = requireNames();
 const resolve_1 = resolve$1;
 const util_1$o = util;
-const validate_1$1 = validate;
+const validate_1$1 = requireValidate();
 class SchemaEnv {
     constructor(env) {
         var _a;
@@ -17738,20 +16976,20 @@ uri$1.default = uri;
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
-	var validate_1 = validate;
+	var validate_1 = requireValidate();
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = codegen;
+	var codegen_1 = requireCodegen();
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	const validation_error_1 = validation_error;
-	const ref_error_1 = ref_error;
+	const validation_error_1 = requireValidation_error();
+	const ref_error_1 = requireRef_error();
 	const rules_1 = rules;
 	const compile_1 = compile;
-	const codegen_2 = codegen;
+	const codegen_2 = requireCodegen();
 	const resolve_1 = resolve$1;
 	const dataType_1 = dataType;
 	const util_1 = util;
@@ -18373,10 +17611,10 @@ var ref = {};
 
 Object.defineProperty(ref, "__esModule", { value: true });
 ref.callRef = ref.getValidate = void 0;
-const ref_error_1 = ref_error;
-const code_1$8 = code;
-const codegen_1$p = codegen;
-const names_1$4 = names$1;
+const ref_error_1 = requireRef_error();
+const code_1$8 = requireCode();
+const codegen_1$p = requireCodegen();
+const names_1$4 = requireNames();
 const compile_1$2 = compile;
 const util_1$n = util;
 const def$A = {
@@ -18512,7 +17750,7 @@ var validation$2 = {};
 var limitNumber = {};
 
 Object.defineProperty(limitNumber, "__esModule", { value: true });
-const codegen_1$o = codegen;
+const codegen_1$o = requireCodegen();
 const ops = codegen_1$o.operators;
 const KWDs = {
     maximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
@@ -18540,7 +17778,7 @@ limitNumber.default = def$z;
 var multipleOf = {};
 
 Object.defineProperty(multipleOf, "__esModule", { value: true });
-const codegen_1$n = codegen;
+const codegen_1$n = requireCodegen();
 const error$j = {
     message: ({ schemaCode }) => (0, codegen_1$n.str) `must be multiple of ${schemaCode}`,
     params: ({ schemaCode }) => (0, codegen_1$n._) `{multipleOf: ${schemaCode}}`,
@@ -18592,7 +17830,7 @@ ucs2length$1.default = ucs2length;
 ucs2length.code = 'require("ajv/dist/runtime/ucs2length").default';
 
 Object.defineProperty(limitLength, "__esModule", { value: true });
-const codegen_1$m = codegen;
+const codegen_1$m = requireCodegen();
 const util_1$m = util;
 const ucs2length_1 = ucs2length$1;
 const error$i = {
@@ -18620,8 +17858,8 @@ limitLength.default = def$x;
 var pattern = {};
 
 Object.defineProperty(pattern, "__esModule", { value: true });
-const code_1$7 = code;
-const codegen_1$l = codegen;
+const code_1$7 = requireCode();
+const codegen_1$l = requireCodegen();
 const error$h = {
     message: ({ schemaCode }) => (0, codegen_1$l.str) `must match pattern "${schemaCode}"`,
     params: ({ schemaCode }) => (0, codegen_1$l._) `{pattern: ${schemaCode}}`,
@@ -18645,7 +17883,7 @@ pattern.default = def$w;
 var limitProperties = {};
 
 Object.defineProperty(limitProperties, "__esModule", { value: true });
-const codegen_1$k = codegen;
+const codegen_1$k = requireCodegen();
 const error$g = {
     message({ keyword, schemaCode }) {
         const comp = keyword === "maxProperties" ? "more" : "fewer";
@@ -18670,8 +17908,8 @@ limitProperties.default = def$v;
 var required = {};
 
 Object.defineProperty(required, "__esModule", { value: true });
-const code_1$6 = code;
-const codegen_1$j = codegen;
+const code_1$6 = requireCode();
+const codegen_1$j = requireCodegen();
 const util_1$l = util;
 const error$f = {
     message: ({ params: { missingProperty } }) => (0, codegen_1$j.str) `must have required property '${missingProperty}'`,
@@ -18750,7 +17988,7 @@ required.default = def$u;
 var limitItems = {};
 
 Object.defineProperty(limitItems, "__esModule", { value: true });
-const codegen_1$i = codegen;
+const codegen_1$i = requireCodegen();
 const error$e = {
     message({ keyword, schemaCode }) {
         const comp = keyword === "maxItems" ? "more" : "fewer";
@@ -18784,7 +18022,7 @@ equal$1.default = equal;
 
 Object.defineProperty(uniqueItems, "__esModule", { value: true });
 const dataType_1 = dataType;
-const codegen_1$h = codegen;
+const codegen_1$h = requireCodegen();
 const util_1$k = util;
 const equal_1$2 = equal$1;
 const error$d = {
@@ -18848,7 +18086,7 @@ uniqueItems.default = def$s;
 var _const = {};
 
 Object.defineProperty(_const, "__esModule", { value: true });
-const codegen_1$g = codegen;
+const codegen_1$g = requireCodegen();
 const util_1$j = util;
 const equal_1$1 = equal$1;
 const error$c = {
@@ -18874,7 +18112,7 @@ _const.default = def$r;
 var _enum = {};
 
 Object.defineProperty(_enum, "__esModule", { value: true });
-const codegen_1$f = codegen;
+const codegen_1$f = requireCodegen();
 const util_1$i = util;
 const equal_1 = equal$1;
 const error$b = {
@@ -18958,7 +18196,7 @@ var additionalItems = {};
 
 Object.defineProperty(additionalItems, "__esModule", { value: true });
 additionalItems.validateAdditionalItems = void 0;
-const codegen_1$e = codegen;
+const codegen_1$e = requireCodegen();
 const util_1$h = util;
 const error$a = {
     message: ({ params: { len } }) => (0, codegen_1$e.str) `must NOT have more than ${len} items`,
@@ -19010,9 +18248,9 @@ var items = {};
 
 Object.defineProperty(items, "__esModule", { value: true });
 items.validateTuple = void 0;
-const codegen_1$d = codegen;
+const codegen_1$d = requireCodegen();
 const util_1$g = util;
-const code_1$5 = code;
+const code_1$5 = requireCode();
 const def$o = {
     keyword: "items",
     type: "array",
@@ -19073,9 +18311,9 @@ prefixItems.default = def$n;
 var items2020 = {};
 
 Object.defineProperty(items2020, "__esModule", { value: true });
-const codegen_1$c = codegen;
+const codegen_1$c = requireCodegen();
 const util_1$f = util;
-const code_1$4 = code;
+const code_1$4 = requireCode();
 const additionalItems_1$1 = additionalItems;
 const error$9 = {
     message: ({ params: { len } }) => (0, codegen_1$c.str) `must NOT have more than ${len} items`,
@@ -19104,7 +18342,7 @@ items2020.default = def$m;
 var contains = {};
 
 Object.defineProperty(contains, "__esModule", { value: true });
-const codegen_1$b = codegen;
+const codegen_1$b = requireCodegen();
 const util_1$e = util;
 const error$8 = {
     message: ({ params: { min, max } }) => max === undefined
@@ -19202,9 +18440,9 @@ var dependencies = {};
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const util_1 = util;
-	const code_1 = code;
+	const code_1 = requireCode();
 	exports.error = {
 	    message: ({ params: { property, depsCount, deps } }) => {
 	        const property_ies = depsCount === 1 ? "property" : "properties";
@@ -19289,7 +18527,7 @@ var dependencies = {};
 var propertyNames = {};
 
 Object.defineProperty(propertyNames, "__esModule", { value: true });
-const codegen_1$a = codegen;
+const codegen_1$a = requireCodegen();
 const util_1$d = util;
 const error$7 = {
     message: "property name must be valid",
@@ -19328,9 +18566,9 @@ propertyNames.default = def$k;
 var additionalProperties = {};
 
 Object.defineProperty(additionalProperties, "__esModule", { value: true });
-const code_1$3 = code;
-const codegen_1$9 = codegen;
-const names_1$3 = names$1;
+const code_1$3 = requireCode();
+const codegen_1$9 = requireCodegen();
+const names_1$3 = requireNames();
 const util_1$c = util;
 const error$6 = {
     message: "must NOT have additional properties",
@@ -19435,8 +18673,8 @@ additionalProperties.default = def$j;
 var properties$9 = {};
 
 Object.defineProperty(properties$9, "__esModule", { value: true });
-const validate_1 = validate;
-const code_1$2 = code;
+const validate_1 = requireValidate();
+const code_1$2 = requireCode();
 const util_1$b = util;
 const additionalProperties_1$1 = additionalProperties;
 const def$i = {
@@ -19490,8 +18728,8 @@ properties$9.default = def$i;
 var patternProperties = {};
 
 Object.defineProperty(patternProperties, "__esModule", { value: true });
-const code_1$1 = code;
-const codegen_1$8 = codegen;
+const code_1$1 = requireCode();
+const codegen_1$8 = requireCodegen();
 const util_1$a = util;
 const util_2 = util;
 const def$h = {
@@ -19593,7 +18831,7 @@ not.default = def$g;
 var anyOf = {};
 
 Object.defineProperty(anyOf, "__esModule", { value: true });
-const code_1 = code;
+const code_1 = requireCode();
 const def$f = {
     keyword: "anyOf",
     schemaType: "array",
@@ -19606,7 +18844,7 @@ anyOf.default = def$f;
 var oneOf = {};
 
 Object.defineProperty(oneOf, "__esModule", { value: true });
-const codegen_1$7 = codegen;
+const codegen_1$7 = requireCodegen();
 const util_1$8 = util;
 const error$5 = {
     message: "must match exactly one schema in oneOf",
@@ -19691,7 +18929,7 @@ allOf$1.default = def$d;
 var _if = {};
 
 Object.defineProperty(_if, "__esModule", { value: true });
-const codegen_1$6 = codegen;
+const codegen_1$6 = requireCodegen();
 const util_1$6 = util;
 const error$4 = {
     message: ({ params }) => (0, codegen_1$6.str) `must match "${params.ifClause}" schema`,
@@ -19817,7 +19055,7 @@ var format$3 = {};
 var format$2 = {};
 
 Object.defineProperty(format$2, "__esModule", { value: true });
-const codegen_1$5 = codegen;
+const codegen_1$5 = requireCodegen();
 const error$3 = {
     message: ({ schemaCode }) => (0, codegen_1$5.str) `must match format "${schemaCode}"`,
     params: ({ schemaCode }) => (0, codegen_1$5._) `{format: ${schemaCode}}`,
@@ -19962,7 +19200,7 @@ var types = {};
 } (types));
 
 Object.defineProperty(discriminator, "__esModule", { value: true });
-const codegen_1$4 = codegen;
+const codegen_1$4 = requireCodegen();
 const types_1 = types;
 const compile_1$1 = compile;
 const util_1$4 = util;
@@ -20346,18 +19584,18 @@ var require$$3$1 = {
 	module.exports = exports = Ajv;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.default = Ajv;
-	var validate_1 = validate;
+	var validate_1 = requireValidate();
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = codegen;
+	var codegen_1 = requireCodegen();
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = validation_error;
+	var validation_error_1 = requireValidation_error();
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
-	var ref_error_1 = ref_error;
+	var ref_error_1 = requireRef_error();
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
 	
 } (ajv, ajv.exports));
@@ -20368,7 +19606,7 @@ var ajvExports = ajv.exports;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.formatLimitDefinition = void 0;
 	const ajv_1 = ajvExports;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const ops = codegen_1.operators;
 	const KWDs = {
 	    formatMaximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
@@ -20439,7 +19677,7 @@ var ajvExports = ajv.exports;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	const formats_1 = formats;
 	const limit_1 = limit;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const fullName = new codegen_1.Name("fullFormats");
 	const fastName = new codegen_1.Name("fastFormats");
 	const formatsPlugin = (ajv, opts = { keywords: true }) => {
@@ -20487,8 +19725,8 @@ var dynamicAnchor$1 = {};
 
 Object.defineProperty(dynamicAnchor$1, "__esModule", { value: true });
 dynamicAnchor$1.dynamicAnchor = void 0;
-const codegen_1$3 = codegen;
-const names_1$2 = names$1;
+const codegen_1$3 = requireCodegen();
+const names_1$2 = requireNames();
 const compile_1 = compile;
 const ref_1$1 = ref;
 const def$8 = {
@@ -20518,8 +19756,8 @@ var dynamicRef$1 = {};
 
 Object.defineProperty(dynamicRef$1, "__esModule", { value: true });
 dynamicRef$1.dynamicRef = void 0;
-const codegen_1$2 = codegen;
-const names_1$1 = names$1;
+const codegen_1$2 = requireCodegen();
+const names_1$1 = requireNames();
 const ref_1 = ref;
 const def$7 = {
     keyword: "$dynamicRef",
@@ -20657,9 +19895,9 @@ var unevaluated$2 = {};
 var unevaluatedProperties = {};
 
 Object.defineProperty(unevaluatedProperties, "__esModule", { value: true });
-const codegen_1$1 = codegen;
+const codegen_1$1 = requireCodegen();
 const util_1$1 = util;
-const names_1 = names$1;
+const names_1 = requireNames();
 const error$1 = {
     message: "must NOT have unevaluated properties",
     params: ({ params }) => (0, codegen_1$1._) `{unevaluatedProperty: ${params.unevaluatedProperty}}`,
@@ -20723,7 +19961,7 @@ unevaluatedProperties.default = def$1;
 var unevaluatedItems = {};
 
 Object.defineProperty(unevaluatedItems, "__esModule", { value: true });
-const codegen_1 = codegen;
+const codegen_1 = requireCodegen();
 const util_1 = util;
 const error = {
     message: ({ params: { len } }) => (0, codegen_1.str) `must NOT have more than ${len} items`,
@@ -21387,18 +20625,18 @@ jsonSchema202012.default = addMetaSchema2020;
 	module.exports = exports = Ajv2020;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.default = Ajv2020;
-	var validate_1 = validate;
+	var validate_1 = requireValidate();
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = codegen;
+	var codegen_1 = requireCodegen();
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = validation_error;
+	var validation_error_1 = requireValidation_error();
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
-	var ref_error_1 = ref_error;
+	var ref_error_1 = requireRef_error();
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
 	
 } (_2020, _2020.exports));
@@ -21449,7 +20687,7 @@ const addProperties = (type, composition)=>{
             } else {
                 property.primitiveType = tryParsePrimitiveType(context.node);
             }
-            if (update(type.properties, key, (current)=>isDefined(current) && (current.objectType ?? current.primitiveType)?.id !== (property.objectType ?? property.primitiveType)?.id ? throwError("Properties in composed types must all have the same time.") : property)) ;
+            if (update(type.properties, key, (current)=>current != null && (current.objectType ?? current.primitiveType)?.id !== (property.objectType ?? property.primitiveType)?.id ? throwError("Properties in composed types must all have the same time.") : property)) ;
         });
     }
     forEach$1(composition.compositions, (composition)=>addProperties(type, composition));
@@ -21466,7 +20704,7 @@ const updateBaseTypes = (context)=>{
                 if (baseType) {
                     (type.extends ??= new Set()).add(baseType);
                 }
-                join(composition.compositions, composition.ref?.composition).forEach(addBaseTypes);
+                concat(composition.compositions, composition.ref?.composition)?.forEach(addBaseTypes);
                 if (type.extends) {
                     type.extendsAll = new Set(expand(type, (type)=>type.extends));
                 }
@@ -21555,7 +20793,7 @@ const updateBaseTypes = (context)=>{
 
 const traverseValue = (type, structure, value, action)=>{
     if (structure?.map) {
-        if (!isObject(value)) return undefined;
+        if (!isPlainObject(value)) return undefined;
         return Object.fromEntries(Object.entries(value).map(([key, value])=>[
                 key,
                 traverseValue(type, {
@@ -21565,16 +20803,16 @@ const traverseValue = (type, structure, value, action)=>{
     }
     if (structure?.array) {
         if (!isArray$4(value)) return undefined;
-        structure = isObject(structure.array) ? structure.array : undefined;
+        structure = isPlainObject(structure.array) ? structure.array : undefined;
         value = value.map((value)=>traverseValue(type, structure, value, action)).filter((item)=>item);
         return value.length ? value : undefined;
     }
     return action(type, value);
 };
 /**
- *  Removes all values beloning to properties that does not match the given consent.
+ *  Removes all values belonging to properties that does not match the given consent.
  */ const censor = (type, value, consent, defaultClassification)=>{
-    if (!isObject(value)) return value;
+    if (!isPlainObject(value)) return value;
     if (!validateConsent(type, consent, defaultClassification)) return undefined;
     let any = false;
     const censored = {};
@@ -21584,7 +20822,7 @@ const traverseValue = (type, structure, value, action)=>{
             continue;
         }
         const propertyValue = property.objectType ? traverseValue(property.objectType, property.structure, value[key], (type, value)=>censor(type, value, consent)) : value[key];
-        if (isUndefined(propertyValue)) {
+        if (propertyValue == null) {
             continue;
         }
         censored[key] = propertyValue;
@@ -21596,16 +20834,16 @@ const traverseValue = (type, structure, value, action)=>{
 };
 
 const getRefSchema = (context, ref)=>{
-    if (isUndefined(ref)) return undefined;
+    if (ref == null) return undefined;
     if (ref.startsWith("#")) {
         ref = context.schema?.id + ref;
     }
     return context.parseContext.navigator(context, ref); // context.ajv.getSchema(ref!)?.schema as any;
 };
 const getRefType = (context, ref)=>{
-    if (isUndefined(ref)) return undefined;
+    if (ref == null) return undefined;
     const def = getRefSchema(context, ref);
-    return required$3(def && context.parseContext.typeNodes.get(def), ()=>`Referenced type '${ref}' is not defined`);
+    return required$2(def && context.parseContext.typeNodes.get(def), ()=>`Referenced type '${ref}' is not defined`);
 };
 const createSchemaNavigator = (node)=>{
     const ids = new Map();
@@ -21613,7 +20851,7 @@ const createSchemaNavigator = (node)=>{
         if (isArray$4(node)) {
             forEach$1(node, (node)=>parseIds(node));
             return;
-        } else if (!isObject(node)) {
+        } else if (!isPlainObject(node)) {
             return;
         }
         if (node.$id) {
@@ -21651,7 +20889,7 @@ const mergeBaseProperties = (type, seen)=>{
 };
 
 const mergeBasePropertyClassifications = (declaringType, name, target, seen)=>{
-    if (isDefined(target.classification) && isDefined(target.purposes) && isDefined(target.censorIgnore) || !add(seen ??= new Set(), declaringType)) {
+    if (target.classification != null && target.purposes != null && target.censorIgnore != null || !add(seen ??= new Set(), declaringType)) {
         return;
     }
     declaringType.extends?.forEach((baseType)=>{
@@ -21668,10 +20906,10 @@ const mergeBasePropertyClassifications = (declaringType, name, target, seen)=>{
 const parseClassifications = (context)=>{
     const node = context.node;
     const classification = {};
-    if (isDefined(node[SchemaAnnotations.Censor])) {
+    if (node[SchemaAnnotations.Censor] != null) {
         classification.censorIgnore = node[SchemaAnnotations.Censor] === "ignore";
     }
-    if (isDefined(node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes])) {
+    if ((node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes]) != null) {
         parseError(context, "x-privacy-purpose and x-privacy-purposes cannot be specified at the same time.");
     }
     classification.classification = dataClassification.parse(node[SchemaAnnotations.Classification]);
@@ -21707,7 +20945,7 @@ const parseCompositions = (node, context, seen = new Map(), childContext = conte
         if (ref[0] === "#") {
             ref = context.schema?.id + ref;
         }
-        const node = required$3(context.ajv.getSchema(ref)?.schema, ()=>parseError(context, `Ref '${ref}' not found`));
+        const node = required$2(context.ajv.getSchema(ref)?.schema, ()=>parseError(context, `Ref '${ref}' not found`));
         return {
             id: ref,
             composition: parseCompositions(node, context, seen, null)
@@ -21730,13 +20968,13 @@ const parseCompositions = (node, context, seen = new Map(), childContext = conte
 const parseDescription = (node)=>({
         title: node.title,
         description: node.description,
-        tags: toArray(node[SchemaAnnotations.Tags])
+        tags: array(node[SchemaAnnotations.Tags])
     });
 
 const tryParseObjectComposition = (node, context)=>{
     const composition = parseCompositions(node, context);
     let isObjectType = false;
-    forEach$1(expand(composition, (composition)=>join(composition.compositions, composition.ref?.composition)), (item)=>item.node.type === "object" ? isObjectType = true : isDefined(item.node.type) && isObjectType && throwError(parseError(context, "If an object type is a composition, all included types must be objects.")));
+    forEach$1(expand(composition, (composition)=>concat(composition.compositions, composition.ref?.composition)), (item)=>item.node.type === "object" ? isObjectType = true : item.node.type != null && isObjectType && throwError(parseError(context, "If an object type is a composition, all included types must be objects.")));
     if (isObjectType) {
         return composition;
     }
@@ -21787,7 +21025,7 @@ const parseEventTypes = (context)=>{
         if (ref.properties || !ref.$ref) {
             throw parseError(context, "If event types are included as a union type named 'Event', it can only be composed of $refs to the the event types.");
         }
-        patchEvent(ref.$ref.match(/[^#\/]+$/g)[0], required$3(getRefSchema(context, ref.$ref), `${ref.$ref} is not defined in the schema.`));
+        patchEvent(ref.$ref.match(/[^#\/]+$/g)[0], required$2(getRefSchema(context, ref.$ref), `${ref.$ref} is not defined in the schema.`));
     });
     delete defs.Event;
     (defs.Events?.anyOf || defs.Events?.oneOf) && delete defs.Events;
@@ -21824,7 +21062,7 @@ const parseSchema = (schema, ajv)=>{
         rootContext.parseContext.types
     ];
 };
-const parseError = (context, error)=>new Error(`${context.path.join("/")}: ${unwrap(error)}`);
+const parseError = (context, error)=>new Error(`${context.path?.join("/")}: ${unwrap(error)}`);
 const navigate = (value, path)=>path?.split("/").filter((item)=>item).reduce((current, key)=>current?.[key], value);
 const validationError = (sourceId, errors, sourceValue)=>new Error(`Validation for '${sourceId}' failed${errors?.length ? ":\n" + errors.map((error)=>` - ${error.instancePath} ${error.message} (${map$1({
             value: JSON.stringify(navigate(sourceValue, error.instancePath)).slice(0, 100),
@@ -21906,9 +21144,10 @@ const parseType = (node, context, declaringProperty)=>{
 };
 
 const updateContext = (context, key)=>{
-    const node = key === "#" ? context.node : required$3(context.node?.[key], ()=>`Cannot navigate to '${key}'.`);
+    const node = key === "#" ? context.node : required$2(context.node?.[key], ()=>`Cannot navigate to '${key}'.`);
     const childContext = {
         ...context,
+        parent: context,
         key,
         ...parseClassifications(context),
         node
@@ -21922,7 +21161,7 @@ const updateContext = (context, key)=>{
         ...context.path,
         key
     ];
-    if (isDefined(node.$schema)) {
+    if (node.$schema != null) {
         const schema = childContext.schema = {
             id: node.$id,
             ...parseDescription(node),
@@ -21940,11 +21179,12 @@ const updateContext = (context, key)=>{
 };
 
 const updateMinClassifications = (type, classifications)=>{
-    if (isDefined(classifications.classification)) {
+    if (classifications.classification != null) {
         type.classification = Math.min(type.classification ?? classifications.classification, classifications.classification);
     }
-    if (isDefined(classifications.purposes)) {
-        type.purposes = (type.purposes ?? 0) | classifications.purposes;
+    if (classifications.purposes != null) {
+        type.purposes = (type.purposes ?? 0) | // Flags higher than "Any" are reserved for special purposes, and does not participate here.
+        classifications.purposes & DataPurposeFlags.Any;
     }
     type.censorIgnore ??= classifications.censorIgnore;
 };
@@ -21959,7 +21199,7 @@ const updateTypeClassifications = (type, seen)=>{
         // Before looking classifications from the surrounding context, start by seing if a base type has property with the same name.
         // If so inherit those settings.
         mergeBasePropertyClassifications(property.declaringType, property.name, property);
-        if (property.objectType && (isUndefined(property.classification) || isUndefined(property.purposes))) {
+        if (property.objectType && (property.classification == null || property.purposes == null)) {
             // We do not resolve this from context, rather we look at the referenced object type.
             // (If classification is not explicitly set, we might as well use the minimum classification from the type that will not censor it away).
             objectTypeProperties.push(property);
@@ -21977,8 +21217,8 @@ const updateTypeClassifications = (type, seen)=>{
         updateMinClassifications(type, property);
     });
     forEach$1(type.properties, ([, property])=>{
-        if (isUndefined(property.classification)) throw parseError(property.context, "The property's classification is not explicitly specified and cannot be infered from scope.");
-        if (isUndefined(property.purposes)) throw parseError(property.context, "The property's purposes are not explicitly specified and cannot be infered from scope.");
+        if (property.classification == null) throw parseError(property.context, "The property's classification is not explicitly specified and cannot be inferred from scope.");
+        if (property.purposes == null) throw parseError(property.context, "The property's purposes are not explicitly specified and cannot be inferred from scope.");
         if (property.required && !validateConsent(type, property)) {
             throw parseError(property.context, "A required property cannot have a more restrictive classification than any other property in its type since a censored value without it would be invalid.");
         }
@@ -21997,7 +21237,7 @@ class SchemaManager {
     subSchemas = new Map();
     types = new Map();
     constructor(schemas){
-        schemas = toArray(schemas);
+        schemas = array(schemas);
         const combinedSchema = {
             $schema: "https://json-schema.org/draft/2020-12/schema",
             $id: "urn:tailjs:runtime",
@@ -22033,13 +21273,13 @@ class SchemaManager {
         parsedSchemas.forEach((parsed)=>{
             const schema = this.subSchemas.get(parsed.id);
             forEach$1(parsed.subSchemas, ([, parsedSubSchema])=>{
-                const subSchema = required$3(this.subSchemas.get(parsedSubSchema.id));
+                const subSchema = required$2(this.subSchemas.get(parsedSubSchema.id));
                 subSchema.parent = schema;
                 (schema.subSchemas ??= new Map()).set(subSchema.id, subSchema);
             });
         });
         parsedTypes.forEach((parsed)=>{
-            const validate = required$3(ajv.getSchema(parsed.context.$ref), ()=>`INV <> The ref '${parsed.context.$ref}' does not address the type '${parsed.id}' in the schema.`);
+            const validate = required$2(ajv.getSchema(parsed.context.$ref), ()=>`INV <> The ref '${parsed.context.$ref}' does not address the type '${parsed.id}' in the schema.`);
             const type = {
                 id: parsed.id,
                 name: parsed.name,
@@ -22072,16 +21312,16 @@ class SchemaManager {
                     declaringType: type,
                     structure: parsedProperty.structure,
                     required: parsedProperty.required,
-                    type: required$3(parsedProperty.objectType ? this.types.get(parsedProperty.objectType.id) : parsedProperty.primitiveType ?? {}, ()=>parseError(parsed.context, `Unknown property type. (${JSON.stringify(parsedProperty.typeContext.node)})`))
+                    type: required$2(parsedProperty.objectType ? this.types.get(parsedProperty.objectType.id) : parsedProperty.primitiveType ?? {}, ()=>parseError(parsed.context, `Unknown property type. (${JSON.stringify(parsedProperty.typeContext.node)})`))
                 };
                 unlock(type.properties ??= new Map()).set(property.name, property);
                 if (trackedEvent && key === "type" && parsed.extendsAll?.has(trackedEvent)) {
-                    toArray(parsedProperty.typeContext?.node.const ?? parsedProperty.typeContext?.node.enum)?.forEach((alias)=>assignIfUndefined(unlock(type.schema.events ??= new Map()), alias, type, (key, current)=>`The event '${type.id}' cannot be defined for the type '${key}' since '${current.id}' is already registered.`));
+                    array(parsedProperty.typeContext?.node.const ?? parsedProperty.typeContext?.node.enum)?.forEach((alias)=>assignIfUndefined(unlock(type.schema.events ??= new Map()), alias, type, (key, current)=>`The event '${type.id}' cannot be defined for the type '${key}' since '${current.id}' is already registered.`));
                 }
                 // If $defs defines object types named of a variable scope + "Variables" ("GlobalVariables", "SessionVariables", "DeviceVariables",  "UserVariables" or"EntityVariables"),
                 // their properties will be added as variable definitions to the respective scopes.
                 let variableScopeTarget;
-                if (type.name.endsWith("Variables") && isDefined(variableScopeTarget = variableScope.tryParse(type.name.replace(/Variables$/, "")))) {
+                if (type.name.endsWith("Variables") && (variableScopeTarget = variableScope.tryParse(type.name.replace(/Variables$/, ""))) != null) {
                     forEach$1(type.properties, ([, property])=>{
                         if (property.required) {
                             throw new Error(`The type '${type.id}' cannot have required properties since it defines scope variables.`);
@@ -22128,10 +21368,10 @@ class SchemaManager {
         this.schema = invariant(this.subSchemas.get("urn:tailjs:runtime"), "Runtime schema is registered.");
     }
     getSchema(schemaId, require) {
-        return require ? required$3(this.getSchema(schemaId, false), ()=>`The schema '${schemaId}' has not been registered.`) : schemaId && this.subSchemas.get(schemaId);
+        return require ? required$2(this.getSchema(schemaId, false), ()=>`The schema '${schemaId}' has not been registered.`) : schemaId && this.subSchemas.get(schemaId);
     }
     getType(eventTypeOrTypeId, require, concreteOnly = true) {
-        return require ? required$3(this.getType(eventTypeOrTypeId, false, concreteOnly), ()=>`The type or event type '${eventTypeOrTypeId}' is not defined.`) : ifDefined(eventTypeOrTypeId, ()=>validate$1(this.schema.events?.get(eventTypeOrTypeId) ?? this.types.get(eventTypeOrTypeId), (type)=>!type || !concreteOnly || type && !type.abstract, ()=>`The type '${eventTypeOrTypeId}' is abstract and cannot be used directly.`));
+        return require ? required$2(this.getType(eventTypeOrTypeId, false, concreteOnly), ()=>`The type or event type '${eventTypeOrTypeId}' is not defined.`) : ifDefined(eventTypeOrTypeId, ()=>validate$1(this.schema.events?.get(eventTypeOrTypeId) ?? this.types.get(eventTypeOrTypeId), (type)=>!type || !concreteOnly || type && !type.abstract, ()=>`The type '${eventTypeOrTypeId}' is abstract and cannot be used directly.`));
     }
     tryValidate(id, value) {
         return id && this.getType(id, false)?.tryValidate(value);
@@ -22143,9 +21383,9 @@ class SchemaManager {
         return ifDefined(this.getType(id, true), (target)=>(validate && target.validate(value), target.censor(value, consent)));
     }
     compileVariableSet(schemas) {
-        schemas = toArray(schemas);
-        return new SchemaVariableSet(this, isUndefined(schemas) || schemas.includes("*") ? this.subSchemas.values() : schemas);
+        schemas = array(schemas);
+        return new SchemaVariableSet(this, schemas == null || schemas.includes("*") ? this.subSchemas.values() : schemas);
     }
 }
 
-export { CookieMonster, DEFAULT, EventLogger, EventParser, InMemoryStorage, InMemoryStorageBase, PostError, RequestHandler, SCRIPT_CACHE_CONTROL, SchemaManager, SchemaVariableSet, TrackerCoreEvents as SessionEvents, TargetedVariableCollection, Timestamps, Tracker, TrackerEnvironment, VariableMap, VariableSplitStorage, VariableStorageCoordinator, bootstrap, getErrorMessage, hasChanged, inferPrimitiveFromValue, isObjectType, isPrimitiveType, isValidationError, isWritable, mapKey, primitives, sourceCookieChunks, tryParsePrimitiveType };
+export { CookieMonster, DEFAULT, EventLogger, EventParser, InMemoryStorage, InMemoryStorageBase, MAX_CACHE_HEADERS, ParsingVariableStorage, PostError, RequestHandler, SCRIPT_CACHE_HEADERS, SchemaManager, SchemaVariableSet, TargetedVariableCollection, Tracker, TrackerEnvironment, VariableMap, VariableSplitStorage, VariableStorageCoordinator, bootstrap, getErrorMessage, hasChanged, inferPrimitiveFromValue, isObjectType, isPrimitiveType, isValidationError, isWritable, mapKey, primitives, sourceCookieChunks, tryParsePrimitiveType };

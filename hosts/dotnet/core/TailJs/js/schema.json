@@ -20,20 +20,23 @@
             },
             "id": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "This may be assigned or transformed by backends if needed. It is client-assigned for  {@link  ViewEvent } s"
+              "description": "This is assigned by the server. Only use  {@link  clientId }  client-side."
             },
             "clientId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "This is set by the client and can be used to dedupplicate events sent multiple times if the endpoint timed out."
+              "description": "This is set by the client and used to when events reference each other."
             },
-            "retry": {
-              "$ref": "urn:tailjs:core#/definitions/Integer",
-              "description": "The number of times the client tried to sent the event if the endpoint timed out",
-              "default": 0
+            "metadata": {
+              "$ref": "urn:tailjs:core#/definitions/EventMetadata",
+              "description": "These properties are used to track the state of the event as it gets collected, and is not persisted."
+            },
+            "patchTargetId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "If set, it means this event contains updates to an existing event with this  {@link  clientId } , and should not be considered a separate event. It must have the target event's  {@link  TrackedEvent.type }  postfixed with \"_patch\" (for example \"view_patch\").\n\nThe specific logic for how to combine patches is specific to the event type, but numbers should generally be additive, that is, patches contains the changes i numeric values, and not new values. In this way aggregations work in queries for analytics.\n\nPlease pay attention to this property when doing analytics so you don't over count.\n\nPatches are always considered passive, cf.  {@link  EventMetadata.passive } ."
             },
             "relatedEventId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } , and a  {@link  ImpressionTimingEvent }  applies to a  {@link  ImpressionEvent } ."
+              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , or a  {@link  CartUpdatedEvent }  may be triggered with a  {@link  ComponentClickEvent } ."
             },
             "session": {
               "$ref": "urn:tailjs:core#/definitions/Session",
@@ -54,7 +57,7 @@
           ]
         }
       ],
-      "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happend, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
+      "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happened, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
       "$id": "urn:tailjs:core:event",
       "x-privacy-purpose": "anonymous",
       "x-privacy-censor": "ignore"
@@ -79,8 +82,23 @@
       "type": "string",
       "description": "An ID that is unique to the current client."
     },
-    "Integer": {
-      "type": "number"
+    "EventMetadata": {
+      "type": "object",
+      "properties": {
+        "passive": {
+          "type": "boolean",
+          "description": "Hint to the request handler, that new sessions should not be started if all posted events are passive."
+        },
+        "queued": {
+          "type": "boolean",
+          "description": "Hint that the event has been queued."
+        },
+        "posted": {
+          "type": "boolean",
+          "description": "Hint to client code, that the event has been posted to the server."
+        }
+      },
+      "description": "These properties are used to track the state of events as they get collected, and not stored."
     },
     "Session": {
       "type": "object",
@@ -104,7 +122,15 @@
           "x-privacy-class": "direct"
         },
         "consent": {
-          "$ref": "urn:tailjs:core#/definitions/UserConsent",
+          "type": "object",
+          "properties": {
+            "level": {
+              "$ref": "urn:tailjs:core#/definitions/DataClassificationValue%3Cfalse%3E"
+            },
+            "purposes": {
+              "$ref": "urn:tailjs:core#/definitions/DataPurposeValue%3Cfalse%3E"
+            }
+          },
           "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less.",
           "x-privacy-purpose": "anonymous"
         },
@@ -120,8 +146,7 @@
         }
       },
       "required": [
-        "sessionId",
-        "consent"
+        "sessionId"
       ],
       "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
       "x-privacy-class": "indirect",
@@ -130,82 +155,51 @@
     "UUID": {
       "type": "string"
     },
-    "UserConsent": {
-      "type": "object",
-      "properties": {
-        "level": {
-          "anyOf": [
-            {
-              "const": 0,
-              "description": "The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.\n\nTail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.\n\nIdentifying returning visitors will not be possible at this level.\nIn-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation."
-            },
-            {
-              "const": 1,
-              "description": "The data may possibly identify the user if put into context with other data, yet not specifically on its own.\n\nExamples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.\n\nIdentifying returning visitors will be possible at this level of consent, but not across devices.\nSome level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.\n\nThis level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation."
-            },
-            {
-              "const": 2,
-              "description": "The data directly identifies the user on its own.\n\nExamples are name, username, street address and email address.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nPersonalization based on past actions such as purchases will also be possible.\n\nThis level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).\n\nPlease note it is possible to access user data even when nothing is tracked beyond the bla... level\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings."
-            },
-            {
-              "const": 3,
-              "description": "Sensitive data about a user.\n\nExamples are data related to health, financial matters, race, political and religious views, and union membership.\nIf the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nand so will advanced personalization.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings."
-            }
-          ],
-          "description": "The highest level of data classification the user has consented to be stored."
+    "DataClassificationValue<false>": {
+      "type": "string",
+      "enum": [
+        "anonymous",
+        "indirect",
+        "direct",
+        "sensitive"
+      ]
+    },
+    "DataPurposeValue<false>": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "none",
+            "necessary",
+            "functionality",
+            "performance",
+            "targeting",
+            "security",
+            "infrastructure",
+            "anonymous",
+            "any",
+            "server"
+          ]
         },
-        "purposes": {
-          "anyOf": [
-            {
-              "const": 0,
-              "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema."
-            },
-            {
-              "const": 1,
-              "description": "Data stored for this purpose is vital for the system, website or app to function."
-            },
-            {
-              "const": 2,
-              "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n"
-            },
-            {
-              "const": 4,
-              "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n"
-            },
-            {
-              "const": 8,
-              "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties\nor otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary\nto use this category.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names."
-            },
-            {
-              "const": 16,
-              "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`."
-            },
-            {
-              "const": 32,
-              "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`."
-            },
-            {
-              "const": 49,
-              "description": "All purposes that are permissable for anonymous users."
-            },
-            {
-              "const": 63,
-              "description": "Data can be used for any purpose."
-            },
-            {
-              "const": 64,
-              "description": "The data is not available client-side.\nNote that this is a special flag that is not included in \"Any\""
-            }
-          ],
-          "description": "The purposes the user has consented their data to be used for.",
-          "x-privacy-purpose": "anonymous"
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "none",
+              "necessary",
+              "functionality",
+              "performance",
+              "targeting",
+              "security",
+              "infrastructure",
+              "anonymous",
+              "any",
+              "server"
+            ]
+          }
         }
-      },
-      "required": [
-        "level",
-        "purposes"
-      ],
-      "description": "A user's consent choices."
+      ]
     },
     "Timestamp": {
       "type": "number"
@@ -228,31 +222,50 @@
         {
           "type": "object",
           "properties": {
-            "passive": {
-              "type": "boolean",
-              "const": true,
-              "description": "This property must be implemented in events implementing the interface. Since events are just data templates and not polymorphic classes"
-            },
-            "relatedEventId": {
-              "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , a  {@link  CartUpdatedEvent }  my be triggered with a  {@link  ComponentClickEvent } , and a  {@link  ImpressionTimingEvent }  applies to a  {@link  ImpressionEvent } ."
+            "metadata": {
+              "type": "object",
+              "properties": {
+                "passive": {
+                  "type": "boolean",
+                  "description": "Hint to the request handler, that new sessions should not be started if all posted events are passive.",
+                  "const": true
+                },
+                "queued": {
+                  "type": "boolean",
+                  "description": "Hint that the event has been queued."
+                },
+                "posted": {
+                  "type": "boolean",
+                  "description": "Hint to client code, that the event has been posted to the server."
+                }
+              },
+              "required": [
+                "passive"
+              ],
+              "description": "This property must be set on events implementing the interface since events are just data templates and not polymorphic classes."
             }
           },
           "required": [
-            "passive",
-            "relatedEventId"
+            "metadata"
           ]
         }
       ],
-      "description": "Base type for events that adds timing or similar data to events that has already been posted. These events are special in the sense that they do not start a new session, so if the session has expired after the event they relate to they will not get tracked."
+      "description": "Base type for events that adds timing or similar \"after-the-fact\" data to events that has already been posted. These events are special in the sense that they do not start a new session, so if the session has expired before the event is sent to the server, it will not start a new session, but also not be tracked."
+    },
+    "NamedParameters<typeof isPassiveEvent>": {
+      "type": "object",
+      "properties": {
+        "value": {}
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false
     },
     "UserInteractionEvent": {
       "allOf": [
         {
           "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
-        },
-        {
-          "$ref": "urn:tailjs:core#/definitions/ViewTimingData"
         },
         {
           "type": "object",
@@ -263,6 +276,10 @@
                 "$ref": "urn:tailjs:core#/definitions/ActivatedComponent"
               },
               "description": "Relevant components and content in the scope of the activated element."
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
+              "description": "The time the event happened relative to the view were it was generated."
             },
             "pos": {
               "$ref": "urn:tailjs:core#/definitions/ScreenPosition",
@@ -293,36 +310,6 @@
           }
         }
       ]
-    },
-    "ViewTimingData": {
-      "type": "object",
-      "properties": {
-        "timing": {
-          "type": "object",
-          "properties": {
-            "interactiveTime": {
-              "$ref": "urn:tailjs:core#/definitions/Duration",
-              "description": "The time the user has been active in the view/tab. Interactive time is measured as the time where the user is actively scrolling, typing or similar. Specifically defined as [transient activation](https://developer.mozilla.org/en-US/docs/Glossary/Transient_activation) with a timeout of 10 seconds."
-            },
-            "visibleTime": {
-              "$ref": "urn:tailjs:core#/definitions/Duration",
-              "description": "The time the view/tab has been visible."
-            },
-            "totalTime": {
-              "$ref": "urn:tailjs:core#/definitions/Duration",
-              "description": "The time elapsed since the view/tab was opened."
-            },
-            "activations": {
-              "$ref": "urn:tailjs:core#/definitions/Integer",
-              "description": "The number of times the user toggled away from the view/tab and back."
-            }
-          }
-        }
-      },
-      "description": "Implemented by events where it makes sense to know when they happened relative to their tab."
-    },
-    "Duration": {
-      "type": "number"
     },
     "ActivatedComponent": {
       "allOf": [
@@ -551,6 +538,9 @@
       ],
       "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } ."
     },
+    "Integer": {
+      "type": "number"
+    },
     "ActivatedContent": {
       "allOf": [
         {
@@ -661,6 +651,30 @@
         "width",
         "height"
       ]
+    },
+    "ViewTimingData": {
+      "type": "object",
+      "properties": {
+        "interactiveTime": {
+          "$ref": "urn:tailjs:core#/definitions/Duration",
+          "description": "The time the user has been active in the view/tab. Interactive time is measured as the time where the user is actively scrolling, typing or similar. Specifically defined as [transient activation](https://developer.mozilla.org/en-US/docs/Glossary/Transient_activation) with a timeout of 10 seconds."
+        },
+        "visibleTime": {
+          "$ref": "urn:tailjs:core#/definitions/Duration",
+          "description": "The time the view/tab has been visible."
+        },
+        "totalTime": {
+          "$ref": "urn:tailjs:core#/definitions/Duration",
+          "description": "The time elapsed since the view/tab was opened."
+        },
+        "activations": {
+          "$ref": "urn:tailjs:core#/definitions/Integer",
+          "description": "The number of times the user toggled away from the view/tab and back."
+        }
+      }
+    },
+    "Duration": {
+      "type": "number"
     },
     "ScreenPosition": {
       "type": "object",
@@ -809,16 +823,16 @@
     "Domain": {
       "type": "object",
       "properties": {
-        "protocol": {
+        "scheme": {
           "type": "string"
         },
-        "domainName": {
+        "host": {
           "type": "string"
         }
       },
       "required": [
-        "protocol",
-        "domainName"
+        "scheme",
+        "host"
       ],
       "description": "Represents a domain name, e.g. https://www.foo.co.uk"
     },
@@ -846,7 +860,7 @@
                 "article-end",
                 "page-middle",
                 "page-end",
-                "reading",
+                "read",
                 "offset"
               ],
               "description": "The type of scrolling."
@@ -1147,11 +1161,11 @@
             },
             "clientId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "This is set by the client and can be used to dedupplicate events sent multiple times if the endpoint timed out."
+              "description": "This is set by the client and used to when events reference each other."
             },
             "definition": {
               "$ref": "urn:tailjs:core#/definitions/View",
-              "description": "The primary content used to generate the view including the personalization that led to the decision, if any."
+              "description": "The primary content used to generate the view including the personalization that led to the decision, if any. If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL on the website, the view definition may follow from a separate patch event."
             },
             "tab": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
@@ -1168,6 +1182,10 @@
             "path": {
               "type": "string",
               "description": "The path portion of the URL."
+            },
+            "duration": {
+              "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
+              "description": "For how long the view was active. This is set via patches"
             },
             "utm": {
               "type": "object",
@@ -1271,7 +1289,7 @@
           ]
         }
       ],
-      "description": "This event is sent whenever a user navigates to a new view (page, screen or similar).\n\nUse  {@link  HeartbeatEvent  }  and  {@link  ViewEndedEvent  }  to determine how long the user was active in the view in processing."
+      "description": "This event is sent a user navigates between views. (page, screen or similar).\n\nThis event does not"
     },
     "View": {
       "allOf": [
@@ -1291,30 +1309,6 @@
           }
         }
       ]
-    },
-    "ViewTimingEvent": {
-      "allOf": [
-        {
-          "$ref": "urn:tailjs:core#/definitions/ViewTimingData"
-        },
-        {
-          "$ref": "urn:tailjs:core#/definitions/PassiveEvent"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "view_timing",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
-            }
-          },
-          "required": [
-            "type"
-          ]
-        }
-      ],
-      "description": "This event is sent when a user leaves a view (page, screen or similar).\n\nDue to the chaotic and state-less nature of the Internet, there is no guarantee that every  {@link  ViewEvent }  has a matching end event. In case a view has no end event, the most recent  {@link  HeartbeatEvent  }  can be used to approximate when the user left."
     },
     "SessionLocationEvent": {
       "allOf": [
@@ -2105,33 +2099,6 @@
       ],
       "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics."
     },
-    "HeartbeatEvent": {
-      "allOf": [
-        {
-          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
-        },
-        {
-          "$ref": "urn:tailjs:core#/definitions/ViewTimingData"
-        },
-        {
-          "$ref": "urn:tailjs:core#/definitions/SystemEvent"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "heartbeat",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
-            }
-          },
-          "required": [
-            "type"
-          ]
-        }
-      ],
-      "description": "An event that is sent whenever a tab loses focus. In addition it may be sent regularly if a user stays in a tab for a long time.\n\nIn case  {@link  ViewTimingEvent } s are not sent or gets lost these heartbeats can be used to approximate page view durations. They also enable live statistics, since duration is tracked before the view ends."
-    },
     "ImpressionEvent": {
       "allOf": [
         {
@@ -2144,35 +2111,12 @@
               "type": "string",
               "const": "impression",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
-            }
-          },
-          "required": [
-            "type"
-          ]
-        }
-      ],
-      "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .\n\nUse  {@link  ImpressionTimingEvent }  in processing to determine for how long the impression lasted, and how many individual impressions there were (the component may have left the viewport and then come back at a later point). Obviously, there was at least one impression if this event happened, so summary the events will not include this first impression."
-    },
-    "ImpressionTimingEvent": {
-      "allOf": [
-        {
-          "$ref": "urn:tailjs:core#/definitions/PassiveEvent"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "impression_timing",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
-            },
-            "duration": {
-              "$ref": "urn:tailjs:core#/definitions/Duration",
-              "description": "The additional duration since the previous summary event."
             },
             "impressions": {
-              "$ref": "urn:tailjs:core#/definitions/Integer",
-              "description": "The number of additional impressions since the previous summary event."
+              "$ref": "urn:tailjs:core#/definitions/Integer"
+            },
+            "duration": {
+              "$ref": "urn:tailjs:core#/definitions/ViewTimingData"
             }
           },
           "required": [
@@ -2180,7 +2124,7 @@
           ]
         }
       ],
-      "description": "Provides statistics for an  {@link  ImpressionEvent }  that is referenced via  {@link  TrackedEvent.relatedEventId } .\n\nBoth duration and impressions are deltas, so they can be added to get the total duration and number of impressions in processing."
+      "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } ."
     },
     "ResetEvent": {
       "allOf": [

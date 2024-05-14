@@ -368,7 +368,7 @@ type EnumPropertyType<Helper, Value> = Helper extends EnumHelper<
     : never
   : never;
 
-type ParsedEnumResult<
+export type ParsedEnumResult<
   T,
   EnumProps extends readonly Record<string, EnumHelper<any, any, any>>[]
 > = T extends Nullish
