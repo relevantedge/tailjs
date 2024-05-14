@@ -2,6 +2,7 @@ import { isPostResponse } from "@tailjs/types";
 import {
   If,
   NOOP,
+  Nullish,
   PrettifyIntersection,
   clock,
   createEvent,
@@ -11,14 +12,15 @@ import {
   isFunction,
   match,
   throwError,
+  undefined,
 } from "@tailjs/util";
 import {
   REQUEST_LOCK_KEY,
   httpDecrypt as deserialize,
   httpEncrypt as serialize,
+  sharedLock,
   trackerConfig,
 } from ".";
-import { sharedLock } from "./concurrency";
 
 export type RequestOptions<Beacon extends boolean = false> =
   PrettifyIntersection<
@@ -37,9 +39,9 @@ export { addRequestHandler, addResponseHandler };
 const requestLock = sharedLock(REQUEST_LOCK_KEY);
 
 let pushCookieMatcher: RegExp | undefined;
-let pushCookie: string | undefined;
+let pushCookie: string | Nullish;
 const pollPushCookie = clock(() => {
-  if (pushCookie !== (pushCookie = trackerConfig.pushCookie)) {
+  if (pushCookie !== (pushCookie = trackerConfig.pushCookie ?? undefined)) {
     if (!pushCookie) return;
     pushCookieMatcher = new RegExp(escapeRegEx(pushCookie) + "=([^;]*)");
   }

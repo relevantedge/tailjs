@@ -190,7 +190,7 @@ const patchSerialize = (value: any) => {
       Object.keys(value).forEach(
         (k) =>
           (patchProperty(value, k) === undefined || isSymbol(k)) &&
-          delete value[k]
+          delete (value as any)[k]
       );
     } else if (isIterable(value)) {
       // Array with undefined values or iterable (which is made into array.). ([,1,2,3] does not reveal its first entry).

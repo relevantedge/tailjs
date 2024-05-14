@@ -18,6 +18,8 @@ export * from "./LocalVariables";
 
 export * from "./shared-state";
 
+export * from "./concurrency";
+
 export * from "./request";
 
 export * from "./scanComponents";

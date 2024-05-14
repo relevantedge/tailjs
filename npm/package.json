@@ -10,6 +10,7 @@
     "build": "pnpm -r run --stream build",
     "schema": "pnpm --filter @tailjs/types schema",
     "build:watch": "pnpm -r --parallel run --stream build:watch",
+    "build:engine": "pnpm -r --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client..\" run --stream build",
     "build:engine:watch": "pnpm -r --parallel --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client..\" run --stream build:watch",
     "build:jss:watch": "pnpm -r run --stream --filter=\"@tailjs/sitecore-jss...\" build:watch",
     "test": "jest",
