@@ -4,30 +4,27 @@ import {
   type CartUpdatedEvent,
   type OrderEvent,
 } from "@tailjs/types";
-import type { Nullish } from "@tailjs/util";
-import { TrackerExtensionFactory, isCartCommand, isOrderCommand } from "..";
 import {
   F,
   T,
-  equals,
-  forAncestorsOrSelf,
-  getBoundaryData,
-  item,
+  equalsAny,
+  isObject,
+  isString,
+  last,
   nil,
-  obj,
   push,
-  str,
-  trackerProperty,
-  undefined,
-} from "../lib";
+  type Nullish,
+} from "@tailjs/util";
+import { TrackerExtensionFactory, isCartCommand, isOrderCommand } from "..";
+import { forAncestorsOrSelf, getBoundaryData, trackerProperty } from "../lib2";
 
 export const parseCartEventData = (
   data: boolean | string | CartEventData | Nullish
 ): CartEventData | undefined => (
   data == nil ? undefined : (data === T || data === "") && (data = "add"),
-  str(data) && equals(data, "add", "remove", "update", "clear")
+  isString(data) && equalsAny(data, "add", "remove", "update", "clear")
     ? { action: data as CartAction }
-    : obj(data)
+    : isObject(data)
     ? data
     : undefined
 );
@@ -35,7 +32,7 @@ export const parseCartEventData = (
 function normalizeCartEventData(data: CartEventData | Nullish) {
   if (!data) return undefined;
 
-  if (data.units != nil && equals(data.action, nil, "add", "remove")) {
+  if (data.units != nil && equalsAny(data.action, nil, "add", "remove")) {
     if (data.units === 0) return undefined;
     data.action = data.units > 0 ? "add" : "remove";
   }
@@ -52,7 +49,7 @@ export function tryGetCartEventData(sourceElement: Element) {
         getBoundaryData(el)?.cart ?? trackerProperty(el, "cart")
       )) &&
       !contextCart.item &&
-      (contextCart.item = item(getBoundaryData(el)?.content, -1)) &&
+      (contextCart.item = last(getBoundaryData(el)?.content)) &&
       r(contextCart)
   );
 

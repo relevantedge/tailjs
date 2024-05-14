@@ -40,9 +40,9 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
 };
 
 export const parseError = (
-  context: PartialExcept<TraverseContext, "path">,
+  context: Partial<TraverseContext>,
   error: Wrapped<string>
-) => new Error(`${context.path.join("/")}: ${unwrap(error)}`);
+) => new Error(`${context.path?.join("/")}: ${unwrap(error)}`);
 
 const navigate = (value: any, path: string) =>
   path

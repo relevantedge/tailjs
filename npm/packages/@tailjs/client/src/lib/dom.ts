@@ -255,8 +255,8 @@ export const parseDomain = <T extends string | Nullish>(
             ? {
                 href: href.substring(all.length),
                 domain: {
-                  protocol,
-                  domainName,
+                  scheme: protocol,
+                  host: domainName,
                 } as Domain,
               }
             : { href }

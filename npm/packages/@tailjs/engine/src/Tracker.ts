@@ -24,7 +24,6 @@ import {
   VariableGetters,
   VariableHeader,
   VariableKey,
-  VariablePatchSource,
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultPromise,
@@ -49,18 +48,12 @@ import {
   PickPartial,
   filter,
   forEach,
-  isDefined,
   isNumber,
   map,
   now,
-  required,
   update,
 } from "@tailjs/util";
-import {
-  Transport,
-  createTransport,
-  defaultTransport,
-} from "@tailjs/util/transport";
+import { Transport, defaultTransport } from "@tailjs/util/transport";
 import { ReadOnlyRecord, params, unparam } from "./lib";
 import {
   Cookie,
@@ -724,8 +717,8 @@ export class Tracker {
       }
 
       if (
-        isDefined(deviceSessionId) &&
-        isDefined(this.deviceSessionId) &&
+        deviceSessionId != null &&
+        this.deviceSessionId != null &&
         deviceSessionId !== this.deviceSessionId
       ) {
         this._expiredDeviceSessionId = deviceSessionId;

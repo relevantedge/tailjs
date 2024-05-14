@@ -1,4 +1,4 @@
-import type { Duration, FormField, Timestamp, UserInteractionEvent } from "..";
+import type { Duration, FormField, UserInteractionEvent } from "..";
 import { typeTest } from "../util/type-test";
 
 export interface FormEvent extends UserInteractionEvent {

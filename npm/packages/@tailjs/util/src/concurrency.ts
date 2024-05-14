@@ -1,5 +1,4 @@
 import {
-  Extends,
   If,
   MaybePromise,
   MaybeUndefined,
@@ -8,9 +7,7 @@ import {
   Unwrap,
   Wrapped,
   createTimer,
-  isDefined,
   isFunction,
-  isUndefined,
   now,
   throwError,
   tryCatchAsync,
@@ -89,7 +86,7 @@ export class OpenPromise<T = void, E = any> implements PromiseLike<T> {
         }
 
         (this as any).pending = false;
-        (this as any)[i ? "error" : "value"] = !isDefined(value) || value;
+        (this as any)[i ? "error" : "value"] = value === undefined || value;
         inner(value);
         return this;
       });
@@ -156,7 +153,7 @@ export const createLock = (timeout?: number): Lock => {
     let renewInterval = 0;
     while (state && ownerId !== state[0] && (state[1] ?? 0)! < now()) {
       if (
-        isUndefined(await (ms >= 0 ? race(delay(ms), semaphore) : semaphore))
+        (await (ms >= 0 ? race(delay(ms), semaphore) : semaphore)) === undefined
       ) {
         return undefined;
       }
@@ -180,6 +177,9 @@ export const createLock = (timeout?: number): Lock => {
   };
   return wait;
 };
+
+export const defer = (f: VoidFunction, ms = 0) =>
+  ms > 0 ? setTimeout(f, ms) : window.queueMicrotask(f);
 
 export const delay = <
   Delay extends number | Nullish,

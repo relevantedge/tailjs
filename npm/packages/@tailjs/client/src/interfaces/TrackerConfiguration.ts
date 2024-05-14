@@ -1,6 +1,5 @@
 import type { ActivationTracking } from "@tailjs/types";
-import type { IterableOrSelf, Nullish } from "@tailjs/util";
-import type { ParsableRegExp } from "../lib";
+import type { IterableOrSelf, Nullish, ParsableRegExp } from "@tailjs/util";
 import type { Tracker } from ".";
 
 /**

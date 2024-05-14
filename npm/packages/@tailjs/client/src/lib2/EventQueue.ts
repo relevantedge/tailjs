@@ -1,11 +1,25 @@
-import { PassiveEvent, PostRequest, TrackedEvent } from "@tailjs/types";
 import {
+  EventPatch,
+  PassiveEvent,
+  PostRequest,
+  TrackedEvent,
+  clearMetadata,
+} from "@tailjs/types";
+import {
+  ToggleArray,
+  array,
   clock,
   clone,
   concat,
+  forEach,
+  isNumber,
+  isObject,
+  isPlainObject,
   map,
+  merge,
   push,
-  structuresEqual,
+  structuralEquals,
+  throwError,
   unshift,
 } from "@tailjs/util";
 import {
@@ -17,10 +31,22 @@ import {
 
 export type EventQueue = {
   /**
-   * Posts events to the server.
+   * Posts events to the server. Do not post event patches using this method. Use {@link postPatch} instead.
    * If flush is not explicitly requested, the event will eventually get posted, either by the configured post frequency, or when the user leaves the tab.
    */
-  post(events: TrackedEvent[], flush: boolean): Promise<void>;
+  post<T extends ToggleArray<readonly TrackedEvent[]>>(
+    events: T,
+    flush?: boolean
+  ): Promise<void>;
+
+  /**
+   *  Posts a patch to an existing event.
+   */
+  postPatch<T extends TrackedEvent>(
+    target: T,
+    patch: EventPatchData<T>,
+    flush?: boolean
+  ): Promise<void>;
 
   /**
    * Registers a passive event.
@@ -28,39 +54,81 @@ export type EventQueue = {
    * The source will get invoked whenever the tab becomes deactivated. If the source returns undefined or false, the source is unregistered.
    * The return value is a function to manually unregister the source.
    */
-  registerPassiveEventSource<T extends PassiveEvent = PassiveEvent>(
-    sourceEvent: TrackedEvent,
-    source: PassiveEventSource<T>
+  registerEventPatchSource<T extends TrackedEvent>(
+    sourceEvent: T,
+    source: EventPatchSource<T>
   ): () => void;
 };
 
-export type PassiveEventSource<T extends PassiveEvent = PassiveEvent> = (
-  previous: T | undefined,
+type EventPatchData<T extends TrackedEvent> = Omit<
+  EventPatch<T>,
+  "patchTargetId" | "metadata" | "type"
+> & { type?: undefined };
+
+export const deltaDiff = <T>(current: T, previous: T | undefined): T => {
+  if (!isPlainObject(previous)) return current;
+
+  const diffed: any = {};
+  let previousValue: number | undefined;
+  if (isPlainObject(current)) {
+    forEach(
+      current,
+      ([key, value]) =>
+        // No change here.
+        diffed[key] !== previous[key] &&
+        (diffed[key] = isPlainObject(value)
+          ? deltaDiff(value, previous[key])
+          : isNumber(value) && isNumber((previousValue = previous[key]))
+          ? value - previousValue
+          : value)
+    );
+  }
+  return diffed;
+};
+
+export type EventPatchSource<T extends TrackedEvent = TrackedEvent> = (
+  previous: EventPatchData<T>,
   unbind: () => void
-) => T | undefined;
+) => EventPatchData<T> | undefined;
 
 export const createEventQueue = (
   url: string,
-  context?: TrackerContext,
+  context: TrackerContext,
   postFrequency = EVENT_POST_FREQUENCY
 ): EventQueue => {
-  type Factory = () => [event: PassiveEvent | undefined, unbinding: boolean];
+  type Factory = () => [event: EventPatch | undefined, unbinding: boolean];
   const queue: TrackedEvent[] = [];
 
   const snapshots = new WeakMap<TrackedEvent, any>();
   const sources = new Map<TrackedEvent, Factory>();
 
-  const registerPassiveEventSource = <T extends PassiveEvent>(
+  const mapPatchTarget = <T extends TrackedEvent>(
+    sourceEvent: T,
+    patch: EventPatchData<T> | undefined
+  ): EventPatch<T> =>
+    !sourceEvent.metadata?.queued
+      ? throwError("Source event not queued.")
+      : (merge(patch, {
+          type: sourceEvent.type + "_patch",
+          patchTargetId: sourceEvent.clientId,
+        }) as any);
+
+  const registerEventPatchSource = <T extends TrackedEvent>(
     sourceEvent: TrackedEvent,
-    source: PassiveEventSource<T>
+    source: EventPatchSource<T>
   ) => {
     let unbinding = false;
     const unbind = () => (unbinding = true);
+    snapshots.set(sourceEvent, clone(sourceEvent));
     const factory: Factory = () => {
-      let updated = source(snapshots.get(sourceEvent), unbind);
-      if (updated && (!snapshots || !structuresEqual(updated, snapshots))) {
+      let updated = mapPatchTarget(
+        sourceEvent,
+        source(snapshots.get(sourceEvent), unbind)
+      );
+
+      if (updated && (!snapshots || !structuralEquals(updated, snapshots))) {
         updated && snapshots.set(sourceEvent, clone(updated));
-        return [updated, unbinding];
+        return [updated as any, unbinding];
       } else {
         return [undefined, unbinding];
       }
@@ -69,19 +137,33 @@ export const createEventQueue = (
     return unbind;
   };
 
-  const post = async (events: TrackedEvent[], flush = false) => {
+  const post = async (
+    events: ToggleArray<readonly TrackedEvent[]>,
+    flush = false
+  ) => {
+    events = map(array(events), (event) =>
+      merge(context.applyEventExtensions(event), { metadata: { queued: true } })
+    );
+
+    if (!events.length) return;
+
     if (!flush) {
       push(queue, ...events);
       return;
     }
 
     if (queue.length) {
-      unshift(events, ...queue.splice(0));
+      unshift(events as any, ...queue.splice(0));
+    } else {
+      return;
     }
-    if (!queue.length) return;
 
     await request<PostRequest>(url, {
-      events: events,
+      events: events.map(
+        (ev) => (
+          merge(ev, { metadata: { posted: true } }), clearMetadata(ev, true)
+        )
+      ),
       deviceSessionId: context?.deviceSessionId,
     });
   };
@@ -107,6 +189,8 @@ export const createEventQueue = (
 
   return {
     post,
-    registerPassiveEventSource,
+    postPatch: (target, patch, flush) =>
+      post(mapPatchTarget(target, patch), flush),
+    registerEventPatchSource: registerEventPatchSource,
   };
 };

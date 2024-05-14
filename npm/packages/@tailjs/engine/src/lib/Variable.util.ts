@@ -21,11 +21,9 @@ import {
   MaybeUndefined,
   Nullish,
   filter,
-  isDefined,
   isFunction,
-  isNumber,
   isPlainObject,
-  isUndefined,
+  throwError,
 } from "@tailjs/util";
 
 /**
@@ -73,14 +71,14 @@ const patchSelector = (
   let patchTarget: object;
   ("." + selector).split(".").forEach((segment, i, path) => {
     let current = i ? patchTarget[segment] : value;
-    if (isDefined(current) && !isPlainObject(current))
+    if (current != null && !isPlainObject(current))
       throw new TypeError(
         `Invalid patch operation. The selector does not address a property on an object.`
       );
     if (i === path.length - 1) {
       const updated = (patchTarget[segment] = update(patchTarget[segment]));
       patchTarget[segment] = updated;
-      if (!isDefined(update)) {
+      if (update === undefined) {
         delete patchTarget[segment];
       }
     } else {
@@ -94,10 +92,10 @@ const patchSelector = (
   return value;
 };
 
-const requireNumberOrUndefined = (value: any): number | undefined => {
-  if (isUndefined(value) || isNumber(value)) return value!;
-  throw new TypeError("The current value must be undefined or a number.");
-};
+const requireNumberOrUndefined = (value: any): number | undefined =>
+  value === undefined || typeof value === "number"
+    ? value
+    : throwError("The current value must be undefined or a number.");
 
 export const applyPatch = async (
   current: VariablePatchSource<any, boolean> | undefined,
@@ -147,7 +145,7 @@ export const applyPatch = async (
       return {
         ...classification,
         value: patchSelector(value, patch.selector, (value) =>
-          isDefined(requireNumberOrUndefined(value))
+          requireNumberOrUndefined(value)
             ? Math[patch.type === VariablePatchType.Min ? "min" : "max"](
                 value,
                 patch.value

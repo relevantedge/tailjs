@@ -3,7 +3,6 @@ import {
   DataPurposeFlags,
   PostRequest,
   PostResponse,
-  Variable,
   VariableResultPromise,
   VariableResultStatus,
   getResultVariable,
@@ -13,25 +12,25 @@ import {
 } from "@tailjs/types";
 import {
   If,
+  MaybeArray,
   apply,
-  array,
   assign,
   clock,
   concat,
   forEach,
   get,
   isBoolean,
-  isDefined,
   isPlainObject,
-  isUndefined,
   map,
   now,
   push,
+  remove,
   required,
   throwError,
 } from "@tailjs/util";
 import {
   ClientVariable,
+  ClientVariableCallback,
   ClientVariableGetResult,
   ClientVariableGetter,
   ClientVariableResults,
@@ -46,12 +45,12 @@ import {
   VARIABLE_POLL_FREQUENCY,
   addPageLoadedListener,
   addResponseHandler,
-  getStateVariables,
   isLocalScopeKey,
   localVariableScope,
   request,
   stringToVariableKey,
   toNumericVariableEnums,
+  tryGetVariable,
   updateVariableState,
   variableKeyToString,
 } from ".";
@@ -68,7 +67,7 @@ export interface TrackerVariableStorage {
 }
 const pollingCallbacks = new Map<
   string,
-  Set<(value: Variable<any>, poll: any) => void>
+  Set<(value: ClientVariable | undefined, poll: any) => void>
 >();
 
 export const createVariableStorage = (
@@ -78,17 +77,36 @@ export const createVariableStorage = (
   const pollVariables = clock(async () => {
     const getters: ClientVariableGetter[] = map(
       pollingCallbacks,
-      ([key, callbacks]) =>
-        !callbacks.size
-          ? (pollingCallbacks.delete(key), undefined)
-          : {
-              ...stringToVariableKey(key),
-              result: [...callbacks],
-            }
+      ([key, callbacks]) => ({
+        ...stringToVariableKey(key),
+        result: [...callbacks],
+      })
     ) as any;
 
-    await vars.get(...(getters as any));
+    getters.length && (await vars.get(...(getters as any)));
   }, VARIABLE_POLL_FREQUENCY);
+
+  const registerCallbacks = (
+    mappedKey: string,
+    callbacks?: MaybeArray<ClientVariableCallback>
+  ) =>
+    apply(callbacks, (callback) =>
+      get(pollingCallbacks, mappedKey, () => new Set()).add(callback)
+    );
+
+  const invokePollCallbacks = (
+    result: ClientVariableGetResult | ClientVariableSetResult | undefined
+  ) => {
+    if (!isSuccessResult(result)) return;
+    const key = variableKeyToString(result);
+    const variable = getResultVariable(result);
+    let poll: boolean;
+    forEach(remove(pollingCallbacks, key), (callback) => {
+      poll = false;
+      callback?.(variable, (toggle = true) => (poll = toggle));
+      poll && registerCallbacks(key, callback);
+    });
+  };
 
   addPageLoadedListener(
     (loaded, stateDuration) =>
@@ -117,7 +135,6 @@ export const createVariableStorage = (
       toVariableResultPromise(async () => {
         const results: [ClientVariableGetResult, number][] = [];
 
-        const currentVariables = getStateVariables();
         let requestGetters = map(getters, (getter, sourceIndex) => [
           getter,
           sourceIndex,
@@ -129,8 +146,11 @@ export const createVariableStorage = (
             await request<PostRequest, PostResponse>(endpoint, () => {
               requestGetters = map(requestGetters, ([getter, sourceIndex]) => {
                 if (!getter) return undefined;
+
                 const key = variableKeyToString(getter);
-                const current = currentVariables.get(key);
+                registerCallbacks(key, getter.result);
+
+                const current = tryGetVariable(key);
                 getter.init && updateCacheDuration(key, getter.cache);
                 if (!getter.refresh && current?.expires! < now()) {
                   push(results, [
@@ -140,7 +160,6 @@ export const createVariableStorage = (
                     } as any,
                     sourceIndex,
                   ]);
-                  return undefined;
                 } else if (isLocalScopeKey(getter)) {
                   if (isPlainObject(getter.init)) {
                     const local: ClientVariableGetResult<any, any, any, true> =
@@ -154,10 +173,9 @@ export const createVariableStorage = (
                       push(results, [local, sourceIndex]);
                     }
                   }
-                  return undefined;
+                } else {
+                  return [getter, sourceIndex];
                 }
-
-                return [getter, sourceIndex];
               });
 
               return requestGetters.length
@@ -181,37 +199,13 @@ export const createVariableStorage = (
           updateVariableState(newLocal);
         }
 
-        let poll: boolean;
-        results.forEach(
-          ([result, i]) =>
-            isSuccessResult(result) &&
-            forEach(
-              array(getters[i]?.result),
-              (callback) => (
-                (poll = false),
-                callback?.(
-                  getResultVariable(result),
-                  (toggle = true) => (poll = toggle)
-                ),
-                poll &&
-                  get(
-                    pollingCallbacks,
-                    variableKeyToString(result),
-                    () => new Set()
-                  ).add(callback!)
-              )
-            )
-        );
-
-        return results.map(([result]) => result);
+        return results.map(([result]) => (invokePollCallbacks(result), result));
       }, map(getters, (getter) => getter?.error) as any) as any,
 
     set: (
       ...setters: ClientVariableSetter[]
     ): ClientVariableResults<any, false> =>
       toVariableResultPromise(async () => {
-        const currentVariables = getStateVariables();
-
         const newLocal: StateVariable[] = [];
 
         const results: ClientVariableSetResult[] = [];
@@ -220,10 +214,10 @@ export const createVariableStorage = (
         const requestVariables = map(setters, (setter, sourceIndex) => {
           if (!setter) return undefined;
           const key = variableKeyToString(setter);
-          const current = currentVariables.get(key);
+          const current = tryGetVariable(key);
           updateCacheDuration(key, setter.cache);
           if (isLocalScopeKey(setter)) {
-            if (isDefined(setter.patch))
+            if (setter.patch != null)
               return throwError("Local patching is not supported.");
             const local: ClientVariable<any, any, true> = {
               value: setter.value,
@@ -243,7 +237,7 @@ export const createVariableStorage = (
             push(newLocal, setResultExpiration(local));
             return undefined;
           }
-          if (!isVariablePatch(setter) && isUndefined(setter?.version)) {
+          if (!isVariablePatch(setter) && setter?.version === undefined) {
             setter.version = current?.version;
             // Force the first set, we do not have any cached version to validate against.
             setter.force ??= !!setter.version;
@@ -274,9 +268,8 @@ export const createVariableStorage = (
 
         forEach(response, (result, index) => {
           const [setter, sourceIndex] = requestVariables[index];
-
           (result as any).source = setter;
-          results[sourceIndex] = result as any;
+          invokePollCallbacks((results[sourceIndex] = result as any));
         });
 
         return results as any;
@@ -308,15 +301,16 @@ export const createVariableStorage = (
 };
 
 /** Suggests the reserved names and their corresponding values for local variables, and helps autocomplete string enums (purpose etc.). */
-type GetterIntellisense<K extends string = ReservedVariableKey | "(any)"> =
-  readonly (
-    | ClientVariableGetter<any, "(any)" | (string & {}), false>
-    | (K extends infer K
-        ? ClientVariableGetter<ReservedVariableType<K>, K & string, true>
-        : // Only suggest reserved local names when local is true. This does that trick.
+export type GetterIntellisense<
+  K extends string = ReservedVariableKey | "(any)"
+> = readonly (
+  | ClientVariableGetter<any, "(any)" | (string & {}), false>
+  | (K extends infer K
+      ? ClientVariableGetter<ReservedVariableType<K>, K & string, true>
+      : // Only suggest reserved local names when local is true. This does that trick.
 
-          never)
-  )[];
+        never)
+)[];
 
 /** Suggests the reserved names and their corresponding values for local variables, and helps autocomplete string enums (purpose etc.). */
 type SetterIntellisense<K extends string = ReservedVariableKey | "(any)"> =

@@ -1,10 +1,10 @@
-import { isDefined, isString, throwError } from "@tailjs/util";
 import {
   DataClassificationValue,
   DataPurposeValue,
-  dataPurposes,
   dataClassification,
+  dataPurposes,
 } from "@tailjs/types";
+import { isString, throwError } from "@tailjs/util";
 
 import { SchemaAnnotations } from ".";
 
@@ -32,7 +32,7 @@ export const parsePrivacyTokens = (
         dataPurposes.tryParse(keyword.replace(/\-purpose$/g, ""))) as
         | number
         | undefined;
-      if (isDefined(parsed)) {
+      if (parsed != null) {
         classification.purposes = (classification.purposes ?? 0) | parsed;
         return;
       }
@@ -40,7 +40,7 @@ export const parsePrivacyTokens = (
       parsed =
         dataClassification.tryParse(keyword) ??
         dataClassification.tryParse(keyword.replace(/^personal-/g, ""));
-      if (isDefined(parsed)) {
+      if (parsed != null) {
         if (
           classification.classification &&
           parsed !== classification.classification
@@ -66,20 +66,20 @@ export const parsePrivacyTokens = (
 
 export const getPrivacyAnnotations = (classification: SchemaClassification) => {
   const attrs: Record<string, any> = {};
-  isDefined(classification.classification) &&
+  classification.classification != null &&
     (attrs[SchemaAnnotations.Classification] = dataClassification.format(
       classification.classification
     ));
 
   let purposes = dataPurposes.format(classification.purposes);
-  isDefined(purposes) &&
+  purposes != null &&
     (attrs[
       isString(purposes)
         ? SchemaAnnotations.Purpose
         : SchemaAnnotations.Purposes
     ] = purposes);
 
-  isDefined(classification.censorIgnore) &&
+  classification.censorIgnore != null &&
     (attrs[SchemaAnnotations.Censor] = classification.censorIgnore
       ? "ignore"
       : "include");

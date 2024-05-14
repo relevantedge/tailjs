@@ -1,11 +1,12 @@
 import {
   ParsedKey,
+  ValidatedVariableGetter,
+  ValidatedVariableSetter,
   Variable,
   VariableFilter,
-  VariableGetters,
   VariableGetResult,
   VariableGetResults,
-  VariableGetter,
+  VariableGetters,
   VariableHeader,
   VariableKey,
   VariableQueryOptions,
@@ -13,15 +14,12 @@ import {
   VariableResultStatus,
   VariableScope,
   VariableScopeValue,
-  VariableSetters,
   VariableSetResult,
   VariableSetResults,
-  VariableSetter,
+  VariableSetters,
   formatKey,
   parseKey,
   variableScope,
-  ValidatedVariableGetter,
-  ValidatedVariableSetter,
 } from "@tailjs/types";
 import {
   DoubleMap,
@@ -31,7 +29,6 @@ import {
   Wrapped,
   forEach,
   get,
-  isDefined,
   map,
   unwrap,
   waitAll,
@@ -309,14 +306,14 @@ export class VariableSplitStorage implements VariableStorage {
       // Keep going as long as we need the total count, or have not sufficient results to meet top (or done).
       // If one of the storages returns an undefined count even though requested, we will also blank out the count in the combined results
       // and stop reading from additional storages since total count is no longer needed.
-      i < partitions.length && (top > 0 || isDefined(results.count));
+      i < partitions.length && (top > 0 || results.count != null);
       i++
     ) {
       const [storage, query] = partitions[0];
       const storageState = cursor?.[i];
 
       let count: number | undefined;
-      if (storageState && (!isDefined(storageState[1]) || !top)) {
+      if (storageState && (storageState[1] == null || !top)) {
         // We have persisted the total count from the storage in the combined cursor.
         // If the cursor is empty it means that we have exhausted the storage.
         // If there is a cursor but `top` is zero (we don't need more results), we use the count cached from the initial query.
@@ -352,8 +349,8 @@ export class VariableSplitStorage implements VariableStorage {
         top = Math.max(0, top - storageResults.length);
       }
 
-      isDefined(results.count) &&
-        (results.count = isDefined(count) ? results.count + 1 : undefined);
+      results.count != null &&
+        (results.count = count != null ? results.count + 1 : undefined);
     }
 
     if (anyCursor) {

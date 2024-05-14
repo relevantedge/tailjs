@@ -1,4 +1,12 @@
-import type { Domain, Integer, LocalID, Size, TrackedEvent, View } from "..";
+import type {
+  Domain,
+  Integer,
+  LocalID,
+  Size,
+  TrackedEvent,
+  View,
+  ViewTimingData,
+} from "..";
 import { typeTest } from "../util/type-test";
 
 export interface ClickIds {
@@ -10,9 +18,9 @@ export interface ClickIds {
 }
 
 /**
- * This event is sent whenever a user navigates to a new view (page, screen or similar).
+ * This event is sent a user navigates between views. (page, screen or similar).
  *
- * Use {@link HeartbeatEvent} and {@link ViewEndedEvent} to determine how long the user was active in the view in processing.
+ * This event does not
  *
  */
 export interface ViewEvent extends TrackedEvent {
@@ -25,6 +33,8 @@ export interface ViewEvent extends TrackedEvent {
 
   /**
    * The primary content used to generate the view including the personalization that led to the decision, if any.
+   * If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL
+   * on the website, the view definition may follow from a separate patch event.
    */
   definition?: View;
 
@@ -47,6 +57,9 @@ export interface ViewEvent extends TrackedEvent {
    * The path portion of the URL.
    */
   path?: string;
+
+  /** For how long the view was active. This is set via patches */
+  duration?: ViewTimingData;
 
   /**
    * Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].

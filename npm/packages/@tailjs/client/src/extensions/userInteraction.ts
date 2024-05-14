@@ -10,53 +10,25 @@ import {
 import {
   TrackerExtensionFactory,
   getComponentContext,
+  getViewTimeOffset,
   onFrame,
   pushNavigationSource,
   tryGetCartEventData,
 } from "..";
 
-import { CONTEXT_MENU_COOKIE } from "@constants";
-import { restrict, type Nullish } from "@tailjs/util";
+import { CONTEXT_NAV_REQUEST_ID, CONTEXT_NAV_QUERY } from "@constants";
+import { F, T, equalsAny, nil, restrict, type Nullish } from "@tailjs/util";
 import { parseActivationTags } from "..";
 import {
-  F,
-  MNT_URL,
-  T,
-  any,
   attr,
-  attrl,
-  clear,
-  cookies,
-  del,
-  document,
-  encode,
-  equals,
   forAncestorsOrSelf,
-  getBoundaryData,
   getScreenPos,
   getViewport,
-  isInternalUrl,
-  keys,
-  listen,
-  location,
-  map,
-  mapUrl,
-  matchExHash,
-  navigator,
-  nextId,
-  nil,
-  noopAction,
-  obj,
+  normalizedAttribute,
   parseDomain,
-  push,
-  registerViewEndAction,
   tagName,
-  timeout,
-  trackerConfig,
   trackerFlag,
-  tryCatch,
-  window,
-} from "../lib";
+} from "../lib2";
 
 const isLinkElement = (
   el: Element,
@@ -70,14 +42,15 @@ const isClickable = (
   attr = trackerFlag(el, "button")
 ): el is HTMLElement =>
   attr !== F &&
-  (equals(t, "A", "BUTTON") ||
-    (t === "INPUT" && equals(attrl(el, "type"), "button", "submit")) ||
+  (equalsAny(t, "A", "BUTTON") ||
+    (t === "INPUT" &&
+      equalsAny(normalizedAttribute(el, "type"), "button", "submit")) ||
     attr === T);
 
 function getElementLabel(el: Element | EventTarget | null, container: Element) {
   let info: Pick<UserInteractionEvent, "element"> | undefined;
   forAncestorsOrSelf(el ?? container, (el) =>
-    equals(tagName(el), "IMG") || el === container
+    tagName(el) === "IMG" || el === container
       ? ((info = {
           element: {
             tagName: el.tagName,
@@ -164,7 +137,7 @@ export const userInteraction: TrackerExtensionFactory = {
             ...getElementLabel(ev.target, clickableElement),
             ...componentContext,
             ...tags,
-            timing: {},
+            timing: getViewTimeOffset(),
           };
 
           if (isLinkElement(clickableElement!)) {

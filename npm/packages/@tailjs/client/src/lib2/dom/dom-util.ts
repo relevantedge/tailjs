@@ -10,6 +10,7 @@ import {
   Binders,
   F,
   MAX_SAFE_INTEGER,
+  NOOP,
   Nullable,
   T,
   Unbinder,
@@ -22,19 +23,22 @@ import {
   match,
   nil,
   parseBoolean,
+  parseUri,
   replace,
   restrict,
+  round,
+  tryCatch,
   type MaybeUndefined,
   type Nullish,
 } from "@tailjs/util";
-import { body, round } from "..";
+import { body, httpDecode, httpDecrypt } from "..";
 
-export type NodeWithParentElement = Node | EventTarget | Nullish;
+export type NodeWithParentElement = Node | EventTarget;
 
 export let MAX_ANCESTOR_DISTANCE = MAX_SAFE_INTEGER;
 
 export const forAncestorsOrSelf = <T = any>(
-  el: NodeWithParentElement,
+  el: NodeWithParentElement | Nullish,
   action: (
     el: Element,
     returnValue: (value: T, replace?: boolean) => void,
@@ -72,41 +76,168 @@ export const forAncestorsOrSelf = <T = any>(
   return returnValue;
 };
 
-export const inElementScope = (node: NodeWithParentElement, name: string) =>
+export type AttributeValueType =
+  /**
+   * The normalized attribute value, int the sense it gets trimmed and lowercased.
+   * The empty spring is considered undefined.
+   *
+   * This is the default.
+   */
+  | true
+  | "z"
+
+  /**
+   * The attribute value as a boolean or undefined if it does match `0`, `1`, `true`, `false` or "".
+   * The empty string matches existence of an attribute `<tag attribute/>`.
+   * If parsing arrays of booleans, the empty string will be considered undefined since that is an empty element in this context.
+   */
+  | "b"
+
+  /** The attribute value as a number or undefined if it does not look like a number. */
+  | "n"
+
+  /** The raw attribute value. */
+  | false
+  | "r"
+
+  /**  The attribute value parsed as JSON. */
+  | "j"
+
+  /**  The attribute value parsed as a HTTP encoded string (from @tailjs/util/transport). */
+  | "h"
+
+  /**  The attribute value parsed as a client encrypted value (from @tailjs/util/transport). This also supports JSON. */
+  | "e"
+
+  /**
+   * This means the attribute value will be parsed as an array with elements separated by `,`.
+   * Whitespace is trimmed, and empty values are considered undefined.
+   *
+   * A type may be included in the tuple to parse the items as this type. In this case unparsable values will be included in the array
+   * as undefined.
+   */
+  | readonly [type?: AttributeValueType & string];
+
+type ParsedAttributeValue<
+  T extends AttributeValueType | Nullish,
+  EncodedType = any
+> = T extends readonly [infer T extends AttributeValueType]
+  ? ParsedAttributeValue<T>[]
+  : T extends (boolean | "z" | Nullish) | "r"
+  ? string
+  : T extends "b"
+  ? boolean | undefined
+  : T extends "n"
+  ? number | undefined
+  : T extends "j" | "h" | "e"
+  ? EncodedType | undefined
+  : never;
+
+export const parseAttributeValue: <
+  V,
+  Type extends AttributeValueType | Nullish = "z"
+>(
+  value: V,
+  type?: Type
+) => MaybeUndefined<
+  V,
+  Type extends "b"
+    ? boolean
+    : V extends ""
+    ? undefined
+    : ParsedAttributeValue<Type>
+> = (value: any, type) => {
+  if (value == null || value === "null" || (value === "" && type !== "b"))
+    return undefined;
+
+  switch (type) {
+    case true:
+    case "z":
+      return ("" + value).trim()?.toLowerCase();
+    case false:
+    case "r":
+      value;
+    case "b":
+      return value === "" || parseBoolean(value);
+    case "n":
+      return parseFloat(value);
+    case "j":
+      return tryCatch(() => JSON.parse(value), NOOP);
+    case "h":
+      return tryCatch(() => httpDecode(value), NOOP);
+    case "e":
+      return tryCatch(() => httpDecrypt?.(value), NOOP);
+    default:
+      return isArray(type)
+        ? value === ""
+          ? undefined
+          : ("" + value)
+              .split(",")
+              .map(
+                (value) =>
+                  (value =
+                    value.trim() === ""
+                      ? undefined
+                      : parseAttributeValue(value, type![0]))
+              )
+        : undefined;
+  }
+};
+
+export const attr = <
+  Node extends NodeWithParentElement | Nullish,
+  Type extends AttributeValueType | Nullish = "z"
+>(
+  node: Node,
+  name: string,
+  type?: Type
+) => parseAttributeValue((node as any)?.getAttribute(name), type);
+
+export const setAttribute = (
+  node: NodeWithParentElement | Nullish,
+  name: string,
+  value: any
+) =>
+  value === nil
+    ? (node as any)?.removeAttribute(name)
+    : (node as any)?.setAttribute(name, "" + value);
+
+export const scopeAttribute = (
+  node: NodeWithParentElement | Nullish,
+  name: string,
+  type?: AttributeValueType
+) => forAncestorsOrSelf(node, (el, value) => value(attr(el, name, type)));
+
+export const inElementScope = (
+  node: NodeWithParentElement | Nullish,
+  name: string
+) =>
   forAncestorsOrSelf(node, (el, value) =>
     value(tagName(el) === name || undefined)
   );
 
-export const scopeAttr = (node: NodeWithParentElement, name: string) =>
-  forAncestorsOrSelf(node, (el, value) => value(attr(el, name)));
+export const normalizedAttribute = (
+  node: NodeWithParentElement | Nullish,
+  name: string
+) => attr(node, name)?.trim()?.toLowerCase();
 
-export const attrl = (node: NodeWithParentElement, name: string) =>
-  attr(node, name)?.toLowerCase();
+let value: string | undefined;
 
-let value: string | null;
-export const attrb = (node: NodeWithParentElement, name: string) =>
-  (value = attr(node, name)) === "" || parseBoolean(value);
+export const booleanAttribute = (
+  node: NodeWithParentElement | Nullish,
+  name: string
+) => (value = attr(node, name)) === "" || parseBoolean(value);
 
-export const attrn = (node: NodeWithParentElement, name: string) =>
-  parseFloat("" + (value = attr(node, name))) ?? undefined;
+export const numericAttribute = (
+  node: NodeWithParentElement | Nullish,
+  name: string
+) => parseFloat("" + (value = attr(node, name))) ?? undefined;
 
-export const attrs = <T extends NodeWithParentElement | Nullish>(
+export const attributeNames = <
+  T extends NodeWithParentElement | Nullish | Nullish
+>(
   node: T
 ): MaybeUndefined<T, string[]> => (node as any)?.getAttributeNames();
-
-export const attr = (
-  node: NodeWithParentElement,
-  name: string,
-  value?: string | null
-): string | null =>
-  !(node as any)?.getAttribute
-    ? nil
-    : value === undefined
-    ? (node as Element).getAttribute(name)
-    : (value === nil
-        ? (node as any).removeAttribute(name)
-        : (node as any).setAttribute(name, value),
-      value);
 
 export const cssProperty = (el: Element, name: string) =>
   getComputedStyle(el).getPropertyValue(name) || nil;
@@ -234,25 +365,10 @@ export const listen = <K extends keyof AllMaps>(
       );
 };
 
-export const parseDomain = <T extends string | Nullish>(
-  href: T
-): T extends string ? { domain?: Domain; href: string } : undefined =>
-  href == null
-    ? (undefined as any)
-    : match(
-        href,
-        /^(?:([a-zA-Z0-9]+):)?(?:\/\/)?([^\s\/]*)/,
-        (all, protocol, domainName) =>
-          domainName
-            ? {
-                href: href.substring(all.length),
-                domain: {
-                  protocol,
-                  domainName,
-                } as Domain,
-              }
-            : { href }
-      );
+export const parseDomain = (href: string): Domain => {
+  const { host, scheme } = parseUri(href, false, true);
+  return { host, scheme };
+};
 
 export const getViewportSize = (): Size => ({
   width: window.innerWidth,

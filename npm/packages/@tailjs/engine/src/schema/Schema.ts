@@ -12,10 +12,10 @@ export interface SchemaClassification<NumericEnums extends boolean = boolean> {
   purposes: DataPurposeValue<NumericEnums>;
 }
 
-export type SchemaPropertyStructure = {
+export interface SchemaPropertyStructure {
   map?: boolean;
   array?: boolean | SchemaPropertyStructure;
-};
+}
 
 export interface SchemaEntity extends SchemaClassification<true> {
   id: string;

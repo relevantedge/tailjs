@@ -4,15 +4,7 @@ import {
   VariableScopeValue,
   variableScope,
 } from "@tailjs/types";
-import {
-  isAnyObject,
-  isArray,
-  isDefined,
-  isFunction,
-  isIterable,
-  isPlainObject,
-  isUndefined,
-} from "@tailjs/util";
+import { isObject, isFunction, isIterable } from "@tailjs/util";
 
 type ScopeKey =
   | VariableKey<boolean>
@@ -78,7 +70,7 @@ export class VariableMap<T = any>
   ) {
     if (source == null) return undefined;
     let scope: VariableScope, key: string;
-    if (isAnyObject(source)) {
+    if (isObject(source)) {
       scope = variableScope.parse(source.scope, false);
       key = source.key;
       init = arg2 as any;
@@ -88,9 +80,9 @@ export class VariableMap<T = any>
     }
 
     let values = this._values.get(scope);
-    if (isDefined(key)) {
+    if (key != null) {
       let value = values?.get(key);
-      if (init && isUndefined(value)) {
+      if (init && value === undefined) {
         if (!values) {
           this._values.set(scope, (values = new Map()));
         }
@@ -115,7 +107,7 @@ export class VariableMap<T = any>
   ) {
     if (source == null) return undefined;
 
-    if (isAnyObject(source)) {
+    if (isObject(source)) {
       return (
         this._values
           .get(variableScope.parse(source.scope, false))
@@ -124,7 +116,7 @@ export class VariableMap<T = any>
     }
 
     const scope = variableScope.parse(source, false);
-    return isDefined(key)
+    return key != null
       ? this._values.get(scope)?.has(key) ?? false
       : this._values.has(scope);
   }
@@ -155,7 +147,7 @@ export class VariableMap<T = any>
 
     let scope: VariableScope, key: string | undefined;
 
-    if (isAnyObject(arg1)) {
+    if (isObject(arg1)) {
       if (isIterable(arg1)) {
         let deleted = false;
         for (const key of arg1) {
@@ -177,7 +169,7 @@ export class VariableMap<T = any>
     const values = this._values.get(scope);
     if (!values) return false;
 
-    if (isDefined(key)) {
+    if (key != null) {
       if (!values.has(key)) return false;
       this._updateSize(-1);
 
@@ -217,7 +209,7 @@ export class VariableMap<T = any>
 
     let scope: VariableScope, key: string | undefined, value: any;
 
-    if (isAnyObject(arg1)) {
+    if (isObject(arg1)) {
       if (isIterable(arg1)) {
         for (const item of arg1) {
           if (!item) continue;
@@ -237,7 +229,7 @@ export class VariableMap<T = any>
       value = arg3;
     }
 
-    if (isUndefined(value)) {
+    if (value === undefined) {
       this.delete(scope, key);
       return this;
     }
@@ -275,7 +267,7 @@ export class VariableMap<T = any>
   ): T | undefined {
     if (arg1 == null) return undefined;
     let scope: VariableScope, key: string;
-    if (isAnyObject(arg1)) {
+    if (isObject(arg1)) {
       scope = variableScope.parse(arg1.scope);
       key = arg1.key;
       update = arg2 as any;

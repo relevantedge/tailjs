@@ -6,7 +6,6 @@ import {
   Extends,
   FILTER_NULLS,
   GeneralizeConstants,
-  IDENTITY,
   If,
   IfNot,
   IsAny,
@@ -15,6 +14,7 @@ import {
   KeyValueSource,
   KeyValueSourcesToObject,
   MAX_SAFE_INTEGER,
+  MaybeArray,
   MaybeUndefined,
   Minus,
   Nullish,
@@ -22,17 +22,14 @@ import {
   Property,
   RecordType,
   StrictUndefined,
-  ToggleReadonly,
   UndefinedIfEmpty,
   add,
   array,
   get,
-  hasMethod,
   ifDefined,
-  isAnyObject,
+  isObject,
   isArray,
   isBoolean,
-  isDefined,
   isFalsish,
   isFunction,
   isIterable,
@@ -68,18 +65,20 @@ export type IteratorSourceOf<T> =
   | Iterable<T>
   | (T extends readonly [infer K, infer V]
       ? K extends keyof any
-        ? { [P in K]: V }
+        ? RecordType<K, V>
         : never
       : never)
   | NavigatingIteratorStep<T>;
 
-export type IteratorItem<S extends IteratorSource> = IsAny<S> extends true
+export type IteratorItem<S extends IteratorSource> = unknown extends S
   ? any
   : S extends number
   ? number
+  : S extends Iterable<infer T>
+  ? T
   : S extends RecordType<infer K, infer V>
   ? readonly [K, V]
-  : S extends IterableOrArrayLike<infer T>
+  : S extends ArrayLike<infer T>
   ? T
   : S extends (...args: any) => infer T | undefined
   ? T
@@ -263,8 +262,8 @@ export function* createNavigatingIterator<T>(
   start?: T | undefined,
   maxIterations = Number.MAX_SAFE_INTEGER
 ): Iterator<T> {
-  if (isDefined(start)) yield start;
-  while (maxIterations-- && isDefined((start = step(start)))) {
+  if (start != null) yield start;
+  while (maxIterations-- && (start = step(start)) != null) {
     yield start;
   }
 }
@@ -288,7 +287,7 @@ const sliceAction = <S extends IteratorSource, R, P>(
           : end)
     : (action as any);
 
-export type Filter<S extends IteratorSource> = (
+export type IteratorFilter<S extends IteratorSource> = (
   value: IteratorItem<S>,
   index: number
 ) => any;
@@ -316,7 +315,7 @@ const createIterator = <S extends IteratorSource, R, P>(
           ? projection
           : sliceAction(projection, start as any, end)
       )
-    : isAnyObject(source)
+    : isObject(source)
     ? createObjectIterator(
         source as any,
         sliceAction(projection, start as any, end)
@@ -381,7 +380,7 @@ function* flattenInternal(
   nested: boolean
 ) {
   if (value != null) {
-    if (value[symbolIterator] || (expandObjects && isAnyObject(value))) {
+    if (value[symbolIterator] || (expandObjects && isObject(value))) {
       for (const item of nested ? createIterator(value) : value) {
         if (depth !== 1) {
           yield* flattenInternal(item, depth - 1, expandObjects, true);
@@ -761,15 +760,23 @@ const forEachObject = (source: any, action: any) => {
   return returnValue;
 };
 
-export const apply: <S extends IteratorSource, R, Args extends readonly any[]>(
+export const apply: <S, R, Args extends readonly any[]>(
   source: S,
-  action: (item: IteratorItem<S>, ...args: Args) => R,
+  action: (
+    item: S extends IteratorSource ? IteratorItem<S> : OmitNullish<S>,
+    ...args: Args
+  ) => R,
   ...args: Args
 ) => S extends undefined ? undefined : Exclude<R, Nullish>[] = (
   source,
   action,
   ...args
-) => map(source, (item) => action(item, ...args)) as any;
+) =>
+  source == null
+    ? undefined
+    : isIterable(source)
+    ? map(source, (item) => action(item as any, ...args))
+    : (action(source as any, ...args) as any);
 
 export const applyAsync: <
   S extends IteratorSource,
@@ -893,18 +900,17 @@ export const obj: {
       merge
         ? (item, i) =>
             (item = selector(item, i)) != null &&
-            isDefined((item[1] = merge(result[item[0]], item[1]))?.[1]) &&
+            (item[1] = merge(result[item[0]], item[1]))?.[1] != null &&
             (result[item[0]] = item[1])
         : (source) =>
             forEach(
               source,
               selector
                 ? (item) =>
-                    isDefined(item?.[1]) != null &&
+                    item?.[1] != null &&
                     ((result[item[0]] ??= []).push(item[1]), result)
                 : (item) =>
-                    isDefined(item?.[1]) &&
-                    ((result[item[0]] = item[1]), result)
+                    item?.[1] != null && ((result[item[0]] = item[1]), result)
             )
     );
     return result;
@@ -1029,7 +1035,7 @@ export const filter: {
     MapToArray extends boolean = S extends Nullish | readonly any[]
       ? true
       : false,
-    P extends Filter<S> = Filter<S>
+    P extends IteratorFilter<S> = IteratorFilter<S>
   >(
     source: S,
     predicate?: P,
@@ -1040,7 +1046,7 @@ export const filter: {
     : Iterable<FilterItem<S, P>>;
 } = (
   source: IteratorSource,
-  predicate: Filter<any> = (item: any) => item != null,
+  predicate: IteratorFilter<any> = (item: any) => item != null,
   map = isArray(source) as any,
   start?: any,
   end?: any
@@ -1059,11 +1065,11 @@ let filterInternal = filter;
 
 export const count: <S extends IteratorSource>(
   source: S,
-  predicate?: Filter<S>,
+  predicate?: IteratorFilter<S>,
   ...rest: StartEndArgs<S>
 ) => MaybeUndefined<S, number> = (
   source: IteratorSource,
-  filter?: Filter<IteratorSource>,
+  filter?: IteratorFilter<IteratorSource>,
   start?: any,
   end?: any
 ) => {
@@ -1073,7 +1079,7 @@ export const count: <S extends IteratorSource>(
   if (filter) {
     source = filterInternal(source, filter, false, start, end) as any;
   } else {
-    if (isDefined((n = source!["length"] ?? source!["size"]))) {
+    if ((n = source!["length"] ?? source!["size"]) != null) {
       return n;
     }
     if (!source[symbolIterator]) {
@@ -1202,7 +1208,7 @@ export const entries: <S extends Iterable<any> | RecordType>(
           ? (value) => [value, true]
           : (value, index) => [index, value]
       )
-    : isAnyObject(target)
+    : isObject(target)
     ? (Object.entries(target) as any)
     : undefined;
 
@@ -1247,11 +1253,11 @@ export const mapFirst: <S extends IteratorSource, R, P>(
 
 export const first: <S extends IteratorSource>(
   source: S,
-  predicate?: Filter<S>,
+  predicate?: IteratorFilter<S>,
   ...rest: StartEndArgs<S>
 ) => IteratorItem<S> | undefined = (
   source,
-  predicate?: Filter<any>,
+  predicate?: IteratorFilter<any>,
   start?: any,
   end?: any
 ) =>
@@ -1267,7 +1273,7 @@ export const first: <S extends IteratorSource>(
 
 export const last: <S extends IteratorSource>(
   source: S,
-  predicate?: Filter<S>,
+  predicate?: IteratorFilter<S>,
   ...rest: StartEndArgs<S>
 ) => IteratorItem<S> | undefined = (
   source,
@@ -1288,7 +1294,7 @@ export const last: <S extends IteratorSource>(
 
 export const find: <S extends IteratorSource>(
   source: S,
-  predicate: Filter<S>,
+  predicate: IteratorFilter<S>,
   ...rest: StartEndArgs<S>
 ) => MaybeUndefined<S, IteratorItem<S>> = (
   source,
@@ -1307,7 +1313,7 @@ export const rank = <S extends IteratorSource>(source: S) =>
 
 export const some: <S extends IteratorSource>(
   source: S,
-  predicate?: Filter<S>,
+  predicate?: IteratorFilter<S>,
   ...rest: StartEndArgs<S>
 ) => MaybeUndefined<S, boolean> = (source, predicate, start?: any, end?: any) =>
   source == null
@@ -1327,7 +1333,7 @@ export const some: <S extends IteratorSource>(
 
 export const every: <S extends IteratorSource>(
   source: S,
-  predicate?: Filter<S>,
+  predicate?: IteratorFilter<S>,
   ...rest: StartEndArgs<S>
 ) => MaybeUndefined<S, boolean> = (source, predicate, start?: any, end?: any) =>
   source == null

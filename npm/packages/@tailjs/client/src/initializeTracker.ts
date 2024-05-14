@@ -64,6 +64,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
 
   assign(trackerConfig, config);
   setStorageKey(remove(trackerConfig, "clientKey"));
+
   const apiKey = remove(trackerConfig, "apiKey");
 
   const queuedCommands = window[trackerConfig.name] ?? [];
@@ -96,8 +97,23 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
   };
 
   const pendingStateCommands: TrackerCommand[] = [];
-  const trackerContext: TrackerContext = {};
 
+  const trackerContext: TrackerContext = {
+    applyEventExtensions(event) {
+      event.clientId ??= nextId();
+      event.timestamp ??= now();
+
+      insertArgs = T;
+      let skip = F;
+      map(extensions, ([, extension]) => {
+        if (skip || extension.decorate?.(event) === F) {
+          skip = T;
+        }
+      });
+
+      return skip ? undefined : event;
+    },
+  };
   // Variables
   const variables = createVariableStorage(VAR_URL, trackerContext);
 
@@ -210,26 +226,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
                   callListeners("command", command);
                   insertArgs = F;
                   if (isTrackedEvent(command)) {
-                    command.clientId ??= nextId();
-                    command.timestamp ??= now();
-
-                    insertArgs = T;
-                    let skip = F;
-                    map(extensions, ([, extension]) => {
-                      if (
-                        skip ||
-                        extension.decorate?.(command as TrackedEvent) === F
-                      ) {
-                        skip = T;
-                      }
-                    });
-
-                    if (skip) {
-                      return; // Skip event and process next command.
-                    }
-
-                    events.post([command], false);
-                    //enqueueEvent(command);
+                    events.post(command, false);
                   } else if (isGetCommand(command)) {
                     variables.get(...array(command.get));
                   } else if (isSetCommand(command)) {
@@ -298,13 +295,14 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
       pendingStateCommands.length && push(tracker, pendingStateCommands);
 
       unbind();
+
+      push(
+        tracker,
+        ...map(defaultExtensions, (extension) => ({ extension })),
+        ...queuedCommands,
+        { set: { scope: "local", key: "loaded", value: true } }
+      );
     }
-    push(
-      tracker,
-      ...map(defaultExtensions, (extension) => ({ extension })),
-      ...queuedCommands,
-      { set: { scope: "local", key: "loaded", value: true } }
-    );
   }, true);
 
   return tracker;

@@ -6,11 +6,14 @@ import type {
   Viewport,
 } from "..";
 
-export interface UserInteractionEvent extends TrackedEvent, ViewTimingData {
+export interface UserInteractionEvent extends TrackedEvent {
   /**
    * Relevant components and content in the scope of the activated element.
    */
   components?: ActivatedComponent[];
+
+  /** The time the event happened relative to the view were it was generated. */
+  timeOffset?: ViewTimingData;
 
   /**
    * The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).

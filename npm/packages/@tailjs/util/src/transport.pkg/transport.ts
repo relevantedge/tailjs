@@ -4,16 +4,14 @@ const { deserialize, serialize } = msgpack;
 import {
   IsNever,
   Nullish,
-  isAnyObject,
+  isObject,
   isArray,
-  isDefined,
   isFunction,
   isIterable,
   isNumber,
   isPlainObject,
   isString,
   isSymbol,
-  isUndefined,
   map,
   tryCatch,
   undefined,
@@ -169,7 +167,7 @@ const patchSerialize = (value: any) => {
     //   return { "": [...new Uint32Array(floatBuffer)] };
     // }
 
-    if (!isAnyObject(value)) {
+    if (!isObject(value)) {
       return value;
     }
 
@@ -177,7 +175,7 @@ const patchSerialize = (value: any) => {
       return inner(value);
     }
 
-    if (isDefined((refIndex = (refs ??= new Map()).get(value)))) {
+    if ((refIndex = (refs ??= new Map()).get(value)) != null) {
       if (!value[REF_PROP]) {
         // Only assign ID parameter if used.
         value[REF_PROP] = refIndex;
@@ -191,7 +189,7 @@ const patchSerialize = (value: any) => {
 
       Object.keys(value).forEach(
         (k) =>
-          (isUndefined(patchProperty(value, k)) || isSymbol(k)) &&
+          (patchProperty(value, k) === undefined || isSymbol(k)) &&
           delete value[k]
       );
     } else if (isIterable(value)) {
@@ -219,7 +217,7 @@ const patchDeserialize = (value: Uint8Array) => {
   let matchedRef: any;
 
   const inner = (value: any) => {
-    if (!isAnyObject(value)) return value;
+    if (!isObject(value)) return value;
 
     // if (isArray(value[""]) && (value = value[""]).length === 2) {
     //   return new DataView(new Uint32Array(value).buffer).getFloat64(0, true);

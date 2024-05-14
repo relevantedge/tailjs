@@ -3,8 +3,8 @@ import {
   EVENT_HUB_QUERY,
   VARIABLES_QUERY,
 } from "@constants";
-import { T, join, replace, split, type Nullish } from "@tailjs/util";
-import { document, parseDomain } from ".";
+import { T, join, parseUri, replace, split, type Nullish } from "@tailjs/util";
+import { document } from ".";
 
 export const ERR_BUFFER_OVERFLOW = "buffer-overflow";
 export const ERR_POST_FAILED = "post-failed";
@@ -19,13 +19,11 @@ const src = split("" + document.currentScript!["src"], "#");
 const args = split("" + (src[1] || ""), ";");
 
 export const SCRIPT_SRC = src[0];
-export const TRACKER_DOMAIN =
-  args[1] || parseDomain(SCRIPT_SRC)?.domain?.domainName;
+export const TRACKER_DOMAIN = args[1] || parseUri(SCRIPT_SRC, false)?.host!;
 
 export const isInternalUrl = (url: string | Nullish) =>
   !!(
-    TRACKER_DOMAIN &&
-    parseDomain(url)?.domain?.domainName.endsWith(TRACKER_DOMAIN) === T
+    TRACKER_DOMAIN && parseUri(url, false)?.host?.endsWith(TRACKER_DOMAIN) === T
   );
 
 export const mapUrl = (...urlParts: string[]) =>

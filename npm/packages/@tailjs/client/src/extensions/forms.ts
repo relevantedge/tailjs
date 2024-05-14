@@ -1,36 +1,34 @@
 import { FormEvent, FormField, Timestamp } from "@tailjs/types";
-import { restrict, type Nullish } from "@tailjs/util";
+import {
+  T,
+  forEach,
+  get,
+  map,
+  nil,
+  now,
+  push,
+  replace,
+  restrict,
+  stickyTimeout,
+  type Nullish,
+} from "@tailjs/util";
 import {
   TrackerExtensionFactory,
-  addViewChangedListener,
   getComponentContext,
   getVisibleDuration,
   onFrame,
 } from "..";
 import {
   NodeWithParentElement,
-  T,
-  addTerminationListener,
   attr,
-  document,
-  entries,
-  get,
-  getOrSet,
+  deltaDiff,
   getRect,
-  item,
   listen,
-  map,
-  nil,
-  now,
-  push,
-  replace,
-  scopeAttr,
-  timeout,
+  scopeAttribute,
   trackerFlag,
   trackerPropertyName,
-  undefined,
   uuidv4,
-} from "../lib";
+} from "../lib2";
 
 type FormElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
@@ -76,7 +74,7 @@ export const forms: TrackerExtensionFactory = {
       if (!formElement) return; // Don't care if we started with an element that didn't map to a field.
 
       const refName =
-        scopeAttr(formElement, trackerPropertyName("ref")) || "track_ref";
+        scopeAttribute(formElement, trackerPropertyName("ref")) || "track_ref";
 
       const parseElements = () => {
         map(
@@ -100,7 +98,7 @@ export const forms: TrackerExtensionFactory = {
               id: el.id || name,
               name,
               label: replace(
-                item(el.labels, 0)?.innerText ?? el.name,
+                el.labels?.[0]?.innerText ?? el.name,
                 /^\s*(.*?)\s*\*?\s*$/g,
                 "$1"
               ),
@@ -120,12 +118,12 @@ export const forms: TrackerExtensionFactory = {
       const isFormVisible = () =>
         formElement.isConnected && getRect(formElement).width;
 
-      const state = getOrSet(formEvents, formElement, () => {
+      const state = get(formEvents, formElement, () => {
         const fieldMap = new Map<Element, FormFieldState>();
         const ev: FormEvent = {
           type: "form",
           name:
-            scopeAttr(formElement, trackerPropertyName("form-name")) ||
+            scopeAttribute(formElement, trackerPropertyName("form-name")) ||
             attr(formElement, "name") ||
             formElement.id ||
             undefined,
@@ -133,6 +131,12 @@ export const forms: TrackerExtensionFactory = {
           totalTime: 0,
           fields: {},
         };
+
+        tracker.events.post(ev);
+
+        tracker.events.registerEventPatchSource(ev, (previous) =>
+          deltaDiff(ev as any, previous)
+        );
 
         let state: FormState;
         const commitEvent = () => {
@@ -142,21 +146,15 @@ export const forms: TrackerExtensionFactory = {
           state[3] >= FormFillState.Pending &&
             (ev.completed =
               state[3] === FormFillState.Submitting || !isFormVisible());
-          push(
-            tracker,
-            restrict<FormEvent>({
-              ...capturedContext,
-              ...ev,
-              totalTime: now(T) - state[4],
-            })
-          );
+          tracker.events.postPatch(ev, {
+            ...capturedContext,
+            totalTime: now(T) - state[4],
+          });
+
           state[3] = FormFillState.Submitted;
         };
 
-        addViewChangedListener(commitEvent);
-        addTerminationListener(commitEvent);
-
-        const commitTimeout = timeout();
+        const commitTimeout = stickyTimeout();
 
         listen(formElement, "submit", () => {
           capturedContext = getComponentContext(formElement);
@@ -164,11 +162,11 @@ export const forms: TrackerExtensionFactory = {
 
           commitTimeout(() => {
             // If the form disappears within 750 ms but no navigation happens it is assumed that it was "submitted" somehow, e.g. via AJAX.
-            // This heurtistic may result in false positives if the user clicks submit, gets vaildation errors and then leaves the site instantly.
+            // This heuristic may result in false positives if the user clicks submit, gets validation errors and then leaves the site instantly.
             //
             // If the server is aggressively slow to respond to a post and the for goes back into pending state,
             // it is undefined whether the submit happened or not, if the user leaves the site before the server responds.
-            // In this case it will count as abandondment.
+            // In this case it will count as abandonment.
 
             if (formElement.isConnected && getRect(formElement).width > 0) {
               state[3] = FormFillState.Pending;
@@ -220,7 +218,7 @@ export const forms: TrackerExtensionFactory = {
         field.filled = T;
 
         state[3] = FormFillState.Pending;
-        entries(
+        forEach(
           form.fields!,
           ([name, value]) =>
             (value.lastField = name === field.name || undefined)
@@ -240,7 +238,7 @@ export const forms: TrackerExtensionFactory = {
         listen(
           document,
           ["focusin", "focusout", "change"],
-          (ev, _, current = getFieldInfo(ev.target)) => {
+          (ev, _, current = ev.target && getFieldInfo(ev.target)) => {
             current &&
               ((currentField = current),
               ev.type === "focusin"

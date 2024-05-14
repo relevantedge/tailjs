@@ -18,7 +18,7 @@ import {
   toVariableResultPromise,
   variableScope,
 } from "@tailjs/types";
-import { MaybePromise, isDefined, map, obj, wrap } from "@tailjs/util";
+import { MaybePromise, map, obj, wrap } from "@tailjs/util";
 import {
   TrackerEnvironment,
   VariableStorage,
@@ -108,7 +108,7 @@ export class ParsingVariableStorage<
           continue;
         }
         toNumericVariableEnums(key);
-        isDefined((key as VariableGetter)?.init) &&
+        (key as VariableGetter)?.init != null &&
           ((key as VariableGetter).init = wrap(key.init, async (original) =>
             toNumericVariableEnums(await original())
           ));

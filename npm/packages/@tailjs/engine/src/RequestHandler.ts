@@ -4,6 +4,7 @@ import clientScripts from "@tailjs/client/script";
 import {
   DataPurpose,
   dataPurposes,
+  isPassiveEvent,
   PassiveEvent,
   PostRequest,
   PostResponse,
@@ -55,10 +56,8 @@ import {
   deferredPromise,
   forEach,
   forEachAsync,
-  isDefined,
   isPlainObject,
   isString,
-  isUndefined,
   join,
   JsonObject,
   map,
@@ -429,7 +428,7 @@ export class RequestHandler {
     await this.initialize();
 
     const { host, path, query } = parseUri(url);
-    if (isUndefined(host) || isUndefined(path)) {
+    if (host == null || path == null) {
       return null;
     }
 
@@ -569,7 +568,7 @@ export class RequestHandler {
 
         switch (method.toUpperCase()) {
           case "GET": {
-            if (isDefined((queryValue = join(query?.[INIT_QUERY])))) {
+            if ((queryValue = join(query?.[INIT_QUERY])) != null) {
               // This is set by most modern browsers.
               // It prevents external scripts to try to get a hold of the storage key via XHR.
               const secDest = headers["sec-fetch-dest"];
@@ -598,7 +597,7 @@ export class RequestHandler {
               });
             }
 
-            if (isDefined((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])))) {
+            if ((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])) != null) {
               return await result({
                 status: 200,
                 body: await this._getClientScripts(tracker, false),
@@ -611,7 +610,7 @@ export class RequestHandler {
               });
             }
 
-            if (isDefined((queryValue = join(query?.[CONTEXT_NAV_QUERY])))) {
+            if ((queryValue = join(query?.[CONTEXT_NAV_QUERY])) != null) {
               trackerInitializationOptions = { passive: true };
               // We need to initialize the tracker to see if it has a session.
               // If so, we will push a variable that tells the client navigation happened.
@@ -662,7 +661,7 @@ export class RequestHandler {
               );
             }
 
-            if (isDefined((queryValue = join(query?.[SCHEMA_QUERY])))) {
+            if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
               return await result({
                 status: 200,
                 body: this._schema.schema.definition,
@@ -709,7 +708,7 @@ export class RequestHandler {
           }
 
           case "POST": {
-            if (isDefined((queryValue = join(query?.[EVENT_HUB_QUERY])))) {
+            if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
               const payloadString = payload ? await payload() : null;
 
               if (payloadString == null || payloadString === "") {
@@ -742,9 +741,7 @@ export class RequestHandler {
                 if (postRequest.events) {
                   //requestTimer.print("post start");
                   await resolvedTracker.post(postRequest.events, {
-                    passive: postRequest.events.every(
-                      (event) => (event as PassiveEvent).passive
-                    ),
+                    passive: postRequest.events.every(isPassiveEvent),
                     deviceSessionId: postRequest.deviceSessionId,
                     deviceId: postRequest.deviceId,
                   });

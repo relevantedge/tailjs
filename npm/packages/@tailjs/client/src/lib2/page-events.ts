@@ -58,9 +58,11 @@ const setActivated = () =>
 listen(window, "focus", setActivated);
 listen(window, "blur", () => activationTimeout.trigger());
 
-listen(document.body, "keydown", setActivated);
-listen(document.body, "pointermove", setActivated);
-listen(window, "scroll", setActivated);
+listen(
+  document.body,
+  ["keydown", "pointerdown", "pointermove", "scroll"],
+  setActivated
+);
 
 setActivated();
 

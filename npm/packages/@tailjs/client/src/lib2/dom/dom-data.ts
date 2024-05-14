@@ -26,7 +26,7 @@ import {
 import {
   NodeWithParentElement,
   attr,
-  attrs,
+  attributeNames,
   createElement,
   cssProperty,
   forAncestorsOrSelf,
@@ -75,7 +75,7 @@ const matchAttributeNames = (
 ) =>
   cached?.[1] &&
   forEach(
-    attrs(el),
+    attributeNames(el),
     (name) =>
       (cached[0][name] ??=
         ((eligible = F),

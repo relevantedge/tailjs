@@ -8,7 +8,7 @@ import type {
   Timestamp,
   ViewEvent,
   ImpressionEvent,
-  ImpressionTimingEvent,
+  EventMetadata,
 } from "..";
 
 /**
@@ -16,7 +16,7 @@ import type {
  *
  * The naming convention is:
  * - If the event represents something that can also be considered an entity like "a page view", "a user location" etc. the name should be a (deverbal) noun.
- * - If the event only indicates something that happend, like "session started", "view ended" etc. the name should be a verb in the past tense.
+ * - If the event only indicates something that happened, like "session started", "view ended" etc. the name should be a verb in the past tense.
  *
  * @id urn:tailjs:core:event
  * @privacy censor-ignore anonymous necessary
@@ -35,27 +35,37 @@ export interface TrackedEvent extends Tagged {
   schema?: string;
 
   /**
-   * This may be assigned or transformed by backends if needed.
-   * It is client-assigned for {@link ViewEvent}s
+   * This is assigned by the server. Only use {@link clientId} client-side.
+   *
    */
   id?: LocalID;
 
   /**
-   * This is set by the client and can be used to dedupplicate events sent multiple times if the endpoint timed out.
+   * This is set by the client and used to when events reference each other.
    */
   clientId?: LocalID;
 
+  /** These properties are used to track the state of the event as it gets collected, and is not persisted. */
+  metadata?: EventMetadata;
+
   /**
-   * The number of times the client tried to sent the event if the endpoint timed out
+   * If set, it means this event contains updates to an existing event with this {@link clientId}, and should not be considered a separate event.
+   * It must have the target event's {@link TrackedEvent.type} postfixed with "_patch" (for example "view_patch").
    *
-   * @default 0
+   * The specific logic for how to combine patches is specific to the event type, but numbers should generally be additive,
+   * that is, patches contains the changes i numeric values, and not new values. In this way aggregations work in queries for
+   * analytics.
+   *
+   * Please pay attention to this property when doing analytics so you don't over count.
+   *
+   * Patches are always considered passive, cf. {@link EventMetadata.passive}.
    */
-  retry?: Integer;
+  patchTargetId?: LocalID;
 
   /**
    * The client ID of the event that caused this event to be triggered or got triggered in the same context.
    * For example, a {@link NavigationEvent} may trigger a {@link ViewEvent},
-   * a {@link CartUpdatedEvent} my be triggered with a {@link ComponentClickEvent}, and a {@link ImpressionTimingEvent} applies to a {@link ImpressionEvent}.
+   * or a {@link CartUpdatedEvent} may be triggered with a {@link ComponentClickEvent}.
    */
   relatedEventId?: LocalID;
 

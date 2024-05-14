@@ -19,13 +19,12 @@ const src = split("" + document.currentScript!["src"], "#");
 const args = split("" + (src[1] || ""), ";");
 
 export const SCRIPT_SRC = src[0];
-export const TRACKER_DOMAIN =
-  args[1] || parseDomain(SCRIPT_SRC)?.domain?.domainName;
+export const TRACKER_DOMAIN = args[1] || parseDomain(SCRIPT_SRC)?.domain?.host;
 
 export const isInternalUrl = (url: string | Nullish) =>
   !!(
     TRACKER_DOMAIN &&
-    parseDomain(url)?.domain?.domainName.endsWith(TRACKER_DOMAIN) === T
+    parseDomain(url)?.domain?.host.endsWith(TRACKER_DOMAIN) === T
   );
 
 export const mapUrl = (...urlParts: string[]) =>

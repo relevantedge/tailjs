@@ -1,5 +1,5 @@
 import { VariableKey, VariableScopeValue } from "@tailjs/types";
-import { isDefined, isIterable, isString, isUndefined } from "@tailjs/util";
+import { isIterable, isString } from "@tailjs/util";
 import { VariableMap, mapKey } from "..";
 
 export interface ReadOnlyTargetedVariableMap<T = any>
@@ -60,7 +60,7 @@ export class TargetedVariableCollection<T = any>
     key: string | VariableKey<boolean> | undefined,
     init?: (key: VariableKey<true>) => any
   ) {
-    if (isUndefined(key)) return undefined;
+    if (key == null) return undefined;
 
     if (isString(key)) {
       return this._scopes.get(key);
@@ -86,9 +86,9 @@ export class TargetedVariableCollection<T = any>
     source: string | VariableKey<boolean> | undefined,
     scope?: VariableScopeValue
   ) {
-    if (isUndefined(source)) return undefined;
+    if (source == null) return undefined;
     if (isString(source)) {
-      return isDefined(scope)
+      return scope != null
         ? this._scopes.get(source)?.has(scope) ?? false
         : this._scopes.has(source);
     }
@@ -110,11 +110,11 @@ export class TargetedVariableCollection<T = any>
   public delete(
     key: Iterable<any> | string | VariableKey<boolean> | undefined
   ) {
-    if (isUndefined(key)) return false;
+    if (key == null) return false;
     if (isIterable(key)) {
       let deleted = false;
       for (const item of key) {
-        isDefined(item) && (deleted = this.delete(item) || deleted);
+        item != null && (deleted = this.delete(item) || deleted);
       }
       return deleted;
     }
@@ -141,7 +141,7 @@ export class TargetedVariableCollection<T = any>
     key: Iterable<any> | VariableKey<boolean> | undefined,
     value?: T | undefined
   ): this {
-    if (isUndefined(key)) return this;
+    if (key == null) return this;
     if (isIterable(key)) {
       for (const item of key) {
         item && this.set(item[0], item[1]);
@@ -149,7 +149,7 @@ export class TargetedVariableCollection<T = any>
       return this;
     }
 
-    if (isUndefined(value)) {
+    if (value == null) {
       this.delete(key);
       return this;
     }

@@ -9,7 +9,6 @@ import {
   VariableGetError,
   VariableGetResult,
   VariableGetResults,
-  VariableGetter,
   VariableGetters,
   VariableHeader,
   VariableKey,
@@ -22,7 +21,6 @@ import {
   VariableScopeValue,
   VariableSetResult,
   VariableSetResults,
-  VariableSetter,
   VariableSetters,
   dataClassification,
   dataPurposes,
@@ -46,9 +44,6 @@ import {
   delay,
   forEach,
   ifDefined,
-  isDefined,
-  isUndefined,
-  map,
   rank,
   required,
   tryCatch,
@@ -284,7 +279,7 @@ export class VariableStorageCoordinator implements VariableStorage {
       }
 
       const initialValue = await unwrap(getter.init);
-      if (!isDefined(initialValue)) {
+      if (initialValue == null) {
         continue;
       }
       initializerSetters.push({ ...getter, ...initialValue });
@@ -393,7 +388,7 @@ export class VariableStorageCoordinator implements VariableStorage {
     value: V,
     consent: UserConsent
   ): MaybeUndefined<T, V> {
-    if (isUndefined(key) || isUndefined(value)) return undefined as any;
+    if (key == null || value == null) return undefined as any;
 
     const localKey = stripPrefix(key)!;
     if (mapping.variables?.has(localKey)) {
@@ -453,7 +448,7 @@ export class VariableStorageCoordinator implements VariableStorage {
         )} must have explicit purposes since it is not defined in a schema, and its storage does not have a default classification.`
     );
 
-    isDefined(value) && definition?.validate(value);
+    value != null && definition?.validate(value);
 
     return target;
   }
@@ -514,7 +509,7 @@ export class VariableStorageCoordinator implements VariableStorage {
       }
     }
 
-    if (isUndefined(target.value)) {
+    if (target.value == null) {
       return true;
     }
     if (
@@ -534,7 +529,7 @@ export class VariableStorageCoordinator implements VariableStorage {
         )
       )
     ) {
-      const wasDefined = isDefined(target.value);
+      const wasDefined = target.value != null;
       if (consent) {
         target.value = this._censor(
           mapping,
@@ -543,7 +538,7 @@ export class VariableStorageCoordinator implements VariableStorage {
           consent
         );
       }
-      if (wasDefined && isUndefined(target.value)) {
+      if (wasDefined && target.value == null) {
         (variables[index] as any) = undefined;
         censored.push([
           index,
@@ -583,7 +578,7 @@ export class VariableStorageCoordinator implements VariableStorage {
     const scopeIds = context?.tracker ?? context?.scopeIds;
 
     for (const [getter, i] of rank(keys)) {
-      if (!getter || isUndefined(getter?.init)) {
+      if (!getter || !getter?.init) {
         continue;
       }
 
@@ -592,7 +587,7 @@ export class VariableStorageCoordinator implements VariableStorage {
         getter.init,
         async (original) => {
           const result = await original();
-          return isDefined(result?.value) &&
+          return result?.value != null &&
             this._censorValidate(
               mapping,
               result!,
@@ -639,7 +634,7 @@ export class VariableStorageCoordinator implements VariableStorage {
       if (isVariablePatchAction(setter)) {
         setter.patch = wrap(setter.patch, async (original, current) => {
           const patched = await original(current);
-          return isUndefined(patched) ||
+          return patched === undefined ||
             this._censorValidate(
               mapping,
               patched,

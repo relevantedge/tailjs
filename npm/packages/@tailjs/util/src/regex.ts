@@ -93,7 +93,8 @@ export const match: {
  */
 export const escapeRegEx = <T extends string | Nullish>(
   input: T
-): MaybeUndefined<T, string> => input?.replace(/[\^$\\.*+?()[\]{}|]/g, "\\$&")!;
+): MaybeUndefined<T, string> =>
+  input?.replace(/[\^$\\.*+?()[\]{}|]/g, "\\$&") as any;
 
 const REGEX_NEVER = /\z./g;
 const unionOrNever = (parts: (string | Nullish)[], joined?: string) =>

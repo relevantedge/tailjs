@@ -6,7 +6,6 @@ import {
   PrettifyIntersection,
   createEnumAccessor,
   createEnumPropertyParser,
-  isUndefined,
 } from "@tailjs/util";
 import {
   DataClassification,
@@ -14,8 +13,6 @@ import {
   DataPurposeFlags,
   DataPurposeValue,
   Timestamp,
-  VariableSetter,
-  VariableSetters,
   dataClassification,
   dataPurposes,
   singleDataPurpose,
@@ -289,7 +286,7 @@ export const stripPrefix = <T extends VariableKey | undefined>(key: T): T =>
 export const parseKey = <T extends string | undefined>(
   sourceKey: T
 ): MaybeUndefined<T, ParsedKey> => {
-  if (isUndefined(sourceKey)) return undefined as any;
+  if (sourceKey == null) return undefined as any;
   const not = sourceKey[0] === "!";
   if (not) {
     sourceKey = (sourceKey.slice(1) as T)!;

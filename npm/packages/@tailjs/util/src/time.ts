@@ -4,7 +4,6 @@ import {
   T,
   isBoolean,
   isFunction,
-  isNumber,
   promise,
   tryCatchAsync,
 } from ".";
@@ -16,9 +15,10 @@ export let now: (round?: boolean) => number =
     : Date.now;
 
 export type Timer = {
-  (): number;
-  (toggle: boolean, reset?: boolean): number;
+  (toggle?: boolean, reset?: boolean): number;
 };
+
+export const reset = Symbol();
 
 export const createTimer = (
   started = true,
@@ -27,12 +27,12 @@ export const createTimer = (
   let t0: number = +started * timeReference();
   let elapsed = 0;
   let capturedElapsed: number;
-  return (toggle?: boolean, reset?: boolean) => {
+  return (toggle = started, reset?: boolean) => {
     capturedElapsed = started
       ? (elapsed += -t0 + (t0 = timeReference()))
       : elapsed;
     reset && (elapsed = 0);
-    (started = toggle ?? started) && (t0 = timeReference());
+    (started = toggle) && (t0 = timeReference());
     return capturedElapsed;
   };
 };

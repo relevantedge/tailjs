@@ -1,33 +1,29 @@
 import {
   DataClassification,
   DataPurposeFlags,
+  SchemaAnnotations,
   dataClassification,
   dataPurposes,
   getPrivacyAnnotations,
   parsePrivacyTokens,
-  SchemaAnnotations,
 } from "@tailjs/types";
-import { PartialExcept, isDefined, tryCatch } from "@tailjs/util";
+import { tryCatch } from "@tailjs/util";
 import { ParsedSchemaClassification, TraverseContext, parseError } from ".";
 
 export const parseClassifications = (
-  context: PartialExcept<
-    TraverseContext,
-    "node" | "classification" | "purposes" | "path"
-  >
+  context: Partial<TraverseContext>
 ): Partial<ParsedSchemaClassification> => {
   const node = context.node;
 
   const classification: Partial<ParsedSchemaClassification> = {};
 
-  if (isDefined(node[SchemaAnnotations.Censor])) {
+  if (node[SchemaAnnotations.Censor] != null) {
     classification.censorIgnore = node[SchemaAnnotations.Censor] === "ignore";
   }
 
   if (
-    isDefined(
-      node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes]
-    )
+    (node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes]) !=
+    null
   ) {
     parseError(
       context,
