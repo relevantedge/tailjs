@@ -10232,7 +10232,7 @@ class RequestHandler {
                     }
                 };
             }
-            this._schema = new SchemaManager(schemas);
+            this._schema = SchemaManager.create(schemas);
             this.environment = new TrackerEnvironment(host, crypto ?? new DefaultCryptoProvider(encryptionKeys), new ParsingVariableStorage(new VariableStorageCoordinator({
                 schema: this._schema,
                 mappings: storage
@@ -11271,7 +11271,7 @@ async function ensureTracker() {
         const src = [
             trackerConfig.src
         ];
-        src.push("?", "lw810mij");
+        src.push("?", "lw7tezkh");
         {
             src.push("#", trackerConfig.name);
         }

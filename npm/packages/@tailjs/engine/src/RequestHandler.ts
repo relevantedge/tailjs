@@ -249,7 +249,7 @@ export class RequestHandler {
         };
       }
 
-      (this as any)._schema = new SchemaManager(schemas as JsonObject[]);
+      (this as any)._schema = SchemaManager.create(schemas as JsonObject[]);
 
       (this as any).environment = new TrackerEnvironment(
         host,

@@ -26,7 +26,7 @@ type AtLeastPartial<T> = Partial<AtLeast<T>>;
 
 describe("SchemaManager.", () => {
   it("Validates and censors", () => {
-    const manager = new SchemaManager([bigSchema]);
+    const manager = SchemaManager.create([bigSchema]);
 
     const data: TestType1 = {
       testNumber: 20,
@@ -173,7 +173,7 @@ describe("SchemaManager.", () => {
   });
 
   it("Handles composition", () => {
-    const manager = new SchemaManager([compositionSchema]);
+    const manager = SchemaManager.create([compositionSchema]);
 
     expect(
       manager.validate<AtLeast<CompositionTest1>>("urn:tailjs:core#Test1", {
@@ -190,7 +190,7 @@ describe("SchemaManager.", () => {
   });
 
   it("Supports polymorphism", () => {
-    const manager = new SchemaManager([polymorphicSchema]);
+    const manager = SchemaManager.create([polymorphicSchema]);
 
     var def = manager.schema.definition;
     var testType = def.$defs["urn:tailjs:core"].$defs.Test1;
@@ -263,7 +263,7 @@ describe("SchemaManager.", () => {
   });
 
   it("Supports event definitions from properties and sub schemas", () => {
-    let schema = new SchemaManager([
+    let schema = SchemaManager.create([
       {
         ...schemaHeader,
         $defs: {
@@ -335,7 +335,7 @@ describe("SchemaManager.", () => {
     }
 
     const schema = JSON.parse(fs.readFileSync(fullSchemaPath, "utf-8"));
-    const manager = new SchemaManager([schema]);
+    const manager = SchemaManager.create([schema]);
 
     const clickIntent = manager.getType("component_click_intent");
     expect(clickIntent).toBeDefined();

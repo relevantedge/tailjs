@@ -42,7 +42,7 @@ export interface Schema extends SchemaEntity {
 
   subSchemas?: ReadonlyMap<string, Schema>;
 
-  definition: any;
+  definition?: any;
 }
 
 export interface ValidatableSchemaEntity<T = any> extends SchemaEntity {
