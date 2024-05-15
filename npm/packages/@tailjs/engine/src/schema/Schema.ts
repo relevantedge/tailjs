@@ -3,6 +3,7 @@ import {
   DataPurposeValue,
   ParsableConsent,
   VariableScope,
+  TrackedEvent,
 } from "@tailjs/types";
 import { ExpandTypes } from "@tailjs/util";
 import { VariableMap } from "..";
@@ -41,7 +42,7 @@ export interface Schema extends SchemaEntity {
 
   subSchemas?: ReadonlyMap<string, Schema>;
 
-  definition?: any;
+  definition: any;
 }
 
 export interface ValidatableSchemaEntity<T = any> extends SchemaEntity {
@@ -59,10 +60,15 @@ export interface SchemaType<T = any> extends ValidatableSchemaEntity<T> {
 export interface SchemaObjectType<T = any> extends SchemaType<T> {
   primitive: false;
   abstract: boolean;
+
+  /** If the type represent a concrete {@link TrackedEvent}, this is the identifier in its {@link TrackedEvent.type} property. */
+  eventTypeName?: string;
+
   properties?: ReadonlyMap<string, SchemaProperty>;
   extends?: ReadonlyMap<string, SchemaType>;
   subtypes?: ReadonlyMap<string, SchemaType>;
   referencedBy?: ReadonlySet<SchemaProperty>;
+  definition?: any;
 }
 export const isObjectType = <T>(
   type: SchemaType<T>
@@ -84,6 +90,7 @@ export interface SchemaProperty<T = any> extends SchemaEntity {
   type: SchemaType;
   structure?: SchemaPropertyStructure;
   required: boolean;
+  definition?: any;
 }
 
 export interface SchemaVariable<T = any>

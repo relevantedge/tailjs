@@ -1278,8 +1278,8 @@
               "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field."
             },
             "viewport": {
-              "$ref": "urn:tailjs:core#/definitions/Size",
-              "description": "The size of the user's view port (e.g. browser window) when the page was opened."
+              "$ref": "urn:tailjs:core#/definitions/Viewport",
+              "description": "The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened."
             },
             "viewType": {
               "type": "string",

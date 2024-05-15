@@ -3,10 +3,10 @@ import * as fs from "fs";
 import { SchemaManager } from "../src";
 import {
   CompositionTest1,
-  PolyBase,
   PolyTest1,
   PolyType1,
   PolyType2,
+  PolyType3,
   PolyType31,
   TestEvent3,
   TestEvent4,
@@ -58,6 +58,20 @@ describe("SchemaManager.", () => {
         sharedItems: [{ n: 32 }],
       })
     ).toThrow("sharedNumber");
+
+    // Test partial patch types.
+    expect(() =>
+      manager.validate<Partial<TestEvent3>>("current_name", {
+        type: "current_name",
+      })
+    ).toThrow("sharedNumber");
+
+    expect(
+      manager.validate<Partial<TestEvent3>>("current_name_patch", {
+        type: "current_name_patch" as any,
+        patchTargetId: "ok",
+      })
+    ).toBeDefined();
 
     expect(() =>
       manager.validate<AtLeast<TestEvent3>>("urn:acme:other#TestEvent3", {
@@ -223,6 +237,13 @@ describe("SchemaManager.", () => {
         },
       })
     ).toThrow("anonymous");
+
+    expect(() =>
+      manager.validate<PolyType3>("urn:tailjs:core#Subtype3", {
+        $type: "thud",
+        //sub2: "fred",
+      } as any)
+    ).toThrow("sub2");
 
     expect(() =>
       manager.validate<PolyTest1>("urn:tailjs:core#Test1", {

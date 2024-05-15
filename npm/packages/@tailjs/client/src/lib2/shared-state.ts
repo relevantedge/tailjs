@@ -160,6 +160,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
         tabId: string,
         variables: StateVariable[]
       ];
+      console.log(localState);
 
       TAB_ID =
         localState?.[0] ??
