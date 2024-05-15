@@ -176,12 +176,14 @@ describe("SchemaManager.", () => {
   });
 
   it("Supports polymorphism", () => {
-    // Discriminator no longer required.
-    // expect(() => new SchemaManager([invalidPolymorphicSchema])).toThrow(
-    //   "discriminate"
-    // );
     const manager = new SchemaManager([polymorphicSchema]);
 
+    var def = manager.schema.definition;
+    var testType = def.$defs["urn:tailjs:core"].$defs.Test1;
+    expect(testType.properties.reference.unevaluatedProperties).toBe(false);
+    expect(testType.properties.reference2.unevaluatedProperties).toBe(false);
+    expect(testType.properties.reference3.unevaluatedProperties).toBe(false);
+    expect(testType.properties.reference4.unevaluatedProperties).toBe(false);
     expect(
       manager.validate<PolyTest1>("urn:tailjs:core#Test1", {
         reference: { $type: "type1", sub1: "Hello" } as PolyType1,
@@ -202,15 +204,41 @@ describe("SchemaManager.", () => {
 
     expect(() =>
       manager.validate<PolyTest1>("urn:tailjs:core#Test1", {
-        reference: { $type: "type31", sub2: 32 } as PolyBase,
+        reference: { $type: "type31", sub2: 32 as any },
       })
     ).toThrow("string");
 
     expect(() =>
       manager.validate<PolyTest1>("urn:tailjs:core#Test1", {
-        reference: { $type: "type1", sub2: 32 } as PolyBase,
+        reference3: { $type: "whatever", sub2: "hello" },
       })
-    ).toThrow("sub2");
+    ).toBeDefined();
+
+    expect(() =>
+      manager.validate<PolyTest1>("urn:tailjs:core#Test1", {
+        reference4: {
+          $type: "gazonk",
+          sub2: "fred",
+          anonymous: "not a number" as any,
+        },
+      })
+    ).toThrow("anonymous");
+
+    expect(() =>
+      manager.validate<PolyTest1>("urn:tailjs:core#Test1", {
+        reference4: { $type: "waldo", sub2: "fred", anonymous: 53 },
+      })
+    ).toBeDefined();
+
+    expect(() =>
+      manager.validate<PolyTest1>("urn:tailjs:core#Test1", {
+        reference4: {
+          $type: "type31",
+          sub2: "fred",
+          anonymous: 53,
+        } as PolyType31,
+      })
+    ).toBeDefined();
   });
 
   it("Supports event definitions from properties and sub schemas", () => {

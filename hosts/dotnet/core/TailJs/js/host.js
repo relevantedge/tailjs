@@ -37,10 +37,22 @@
             }));
         },
     };
+    const serializeFunctions = (src)=>{
+        if( typeof src === "function") return src.toString();
+        if( src != null && (Array.isArray(src) || Object.getPrototypeOf(src)===Object.prototype)) {
+            
+            const mapped = Array.isArray(src) ? [] : {};
+            for (const [key, value] of Object.entries(src)) {
+                mapped[key] = serializeFunctions(value);
+            }
+            return mapped;
+        }
+        return src;
+    }
     const log = (level) =>
         (...args) => host.Log(JSON.stringify({
             level,
-            data: args.length > 1 ? JSON.stringify(args) : JSON.stringify(args[0])
+            data: args.length > 1 ? JSON.stringify(serializeFunctions(args), null, 2) : JSON.stringify(serializeFunctions(args[0]), null, 2)
         }));
 
     globalThis.console = {

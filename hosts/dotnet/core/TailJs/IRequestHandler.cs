@@ -10,7 +10,11 @@ public interface IRequestHandler : IDisposable
 
   IReadOnlyList<ClientResponseCookie> GetClientCookies(ITracker tracker);
 
-  string? GetClientScripts(ITracker tracker, string? nonce = null);
+  ValueTask<string?> GetClientScriptsAsync(
+    ITracker tracker,
+    string? nonce = null,
+    CancellationToken cancellationToken = default
+  );
 
   ValueTask<TrackerContext?> ProcessRequestAsync(
     ClientRequest clientRequest,

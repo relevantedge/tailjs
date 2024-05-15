@@ -59,7 +59,13 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
           // esbuild({
           //   treeShaking: true,
           // }),
-          compilePlugin(),
+          compilePlugin({
+            args: {
+              tsconfig: fs.existsSync(`${pkg.path}/tsconfig.external.json`)
+                ? `${pkg.path}/tsconfig.external.json`
+                : undefined,
+            },
+          }),
           resolve({ browser: true, preferBuiltins: false }),
           cjs(),
           json(),
@@ -107,6 +113,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
                 find: /^@tailjs\/(engine|maxmind|ravendb|sitecore-backends)(\/(.+))?$/,
                 replacement: `${pkg.workspace}/packages/@tailjs/$1/dist/$2/v8/dist/index.mjs`,
               },
+
               {
                 find: /^@tailjs\/([^\/]+)(?:\/(.+))?$/,
                 replacement: `${pkg.workspace}/packages/@tailjs/$1/dist/$2/dist/index.mjs`,

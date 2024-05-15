@@ -11,28 +11,53 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1756235-4424-458f-b8f3-c8bf8d7b92a2" name="Changes" comment="" />
+    <list default="true" id="b1756235-4424-458f-b8f3-c8bf8d7b92a2" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/DataMarkupWriterFactory.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/DataMarkupWriterFactory.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/ITrackerRenderingContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/ITrackerRenderingContext.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/TrackerRenderingContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/TrackerRenderingContext.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/IRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/IRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/NullRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/NullRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/RequestHandlerPool.PooledRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/RequestHandlerPool.PooledRequestHandler.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/ScriptEngineExtensions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/ScriptEngineExtensions.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/TrackerConfiguration.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/TrackerConfiguration.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/engine.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/engine.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/host.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/host.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/schema.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/types.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/types.js" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="DpaMonitoringSettings">
+    <option name="autoShow" value="false" />
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/core/TailJs.AspNet/DataMarkupWriterFactory.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs.AspNet/ITrackerRenderingContext.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs.AspNet/TrackerRenderingContext.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/IO/DataMarkupWriter.Parse.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/IO/DataMarkupWriter.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/IO/DataMarkupWriterSettings.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/NullRequestHandler.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandlerPool.PooledRequestHandler.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandlerPool.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/core/TailJs/TrackerConfiguration.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/544c7e6eb3d5525c6f85341f51217d81d7c8ed80/src/libraries/System.Private.CoreLib/src/System/Threading/Tasks/Task.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/544c7e6eb3d5525c6f85341f51217d81d7c8ed80/src/libraries/System.Private.CoreLib/src/System/Threading/Tasks/ValueTask.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/d099f075e45d2aa6007a22b71b45a08758559f80/src/libraries/Microsoft.Extensions.Logging/src/Logger.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/3418ebfaf0184f13884ad24607e606c7a8b0/8a/fa810e6e/IStartupFilter.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/5755466c10f44d58afccfa51830f971310278/6b/80053cfc/ILoggerFactory.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/da9310554e4a4d9582b91b1d9fd5c73723908/d1/47c5a5da/ILoggerProvider.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/10cea641a1a5358b03367d4c377442f1651a32fe68cd548562b44cfc79e893/IComposer.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/1566186ffe4dacb375daaba02f08390ff632a4be54422704f9f4ceef731/ConsoleLogger.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/9d5aa63b38f1c8bf2c7dffafaf1a6fa0fce0feaed0a2fd70d98a35f9979275/ConsoleLoggerProvider.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/c2d5fa29e54f7ed444294e3d02efee4713b16cbe44c8690efbc22cf7eb7b/ILogger.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/eacce541aea4343da72fa852aadb945151e86e945e6ae0b260527f81a84e2e/ILoggerFactory.cs" root0="SKIP_HIGHLIGHTING" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
@@ -64,7 +89,7 @@
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.intellij.csharpier.CSharpierSettingsComponent",
+    "settings.editor.selected.configurable": "reference.settingsdialog.IDE.editor.colors.Console Font",
     "vue.rearranger.settings.migration": "true"
   },
   "keyToStringList": {
@@ -178,19 +203,6 @@
             </endOffsets>
           </properties>
           <option name="timeStamp" value="3" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="DotNet Breakpoints">
-          <url>file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs</url>
-          <line>287</line>
-          <properties documentPath="C:\Projects\rlvedge\github\tailjs\hosts\dotnet\core\TailJs\Scripting\RequestHandler.cs" containingFunctionPresentation="Method 'LoadDocumentAsync'">
-            <startOffsets>
-              <option value="9770" />
-            </startOffsets>
-            <endOffsets>
-              <option value="9856" />
-            </endOffsets>
-          </properties>
-          <option name="timeStamp" value="8" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

@@ -2,7 +2,6 @@ import { forEach, required } from "@tailjs/util";
 import {
   ParsedComposition,
   TraverseContext,
-  getRefType,
   parseError,
   updateContext,
 } from ".";

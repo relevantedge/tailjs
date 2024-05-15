@@ -122,15 +122,7 @@
           "x-privacy-class": "direct"
         },
         "consent": {
-          "type": "object",
-          "properties": {
-            "level": {
-              "$ref": "urn:tailjs:core#/definitions/DataClassificationValue%3Cfalse%3E"
-            },
-            "purposes": {
-              "$ref": "urn:tailjs:core#/definitions/DataPurposeValue%3Cfalse%3E"
-            }
-          },
+          "$ref": "urn:tailjs:core#/definitions/UserConsent",
           "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less.",
           "x-privacy-purpose": "anonymous"
         },
@@ -155,51 +147,64 @@
     "UUID": {
       "type": "string"
     },
-    "DataClassificationValue<false>": {
-      "type": "string",
-      "enum": [
-        "anonymous",
-        "indirect",
-        "direct",
-        "sensitive"
-      ]
-    },
-    "DataPurposeValue<false>": {
-      "anyOf": [
-        {
+    "UserConsent": {
+      "type": "object",
+      "properties": {
+        "level": {
           "type": "string",
           "enum": [
-            "none",
-            "necessary",
-            "functionality",
-            "performance",
-            "targeting",
-            "security",
-            "infrastructure",
             "anonymous",
-            "any",
-            "server"
-          ]
+            "indirect",
+            "direct",
+            "sensitive"
+          ],
+          "description": "The highest level of data classification the user has consented to be stored."
         },
-        {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "none",
-              "necessary",
-              "functionality",
-              "performance",
-              "targeting",
-              "security",
-              "infrastructure",
-              "anonymous",
-              "any",
-              "server"
-            ]
-          }
+        "purposes": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "none",
+                "necessary",
+                "functionality",
+                "performance",
+                "targeting",
+                "security",
+                "infrastructure",
+                "anonymous",
+                "any",
+                "server"
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "necessary",
+                  "functionality",
+                  "performance",
+                  "targeting",
+                  "security",
+                  "infrastructure",
+                  "anonymous",
+                  "any",
+                  "server"
+                ]
+              }
+            }
+          ],
+          "description": "The purposes the user has consented their data to be used for.",
+          "x-privacy-purpose": "anonymous"
         }
-      ]
+      },
+      "required": [
+        "level",
+        "purposes"
+      ],
+      "description": "A user's consent choices."
     },
     "Timestamp": {
       "type": "number"
@@ -1424,208 +1429,17 @@
               "const": "consent",
               "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
             },
-            "level": {
-              "$ref": "urn:tailjs:core#/definitions/DataClassificationValue"
-            },
-            "purposes": {
-              "$ref": "urn:tailjs:core#/definitions/DataPurposeValue"
+            "consent": {
+              "$ref": "urn:tailjs:core#/definitions/UserConsent"
             }
           },
           "required": [
-            "type"
+            "type",
+            "consent"
           ]
         }
       ],
       "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are required to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
-    },
-    "DataClassificationValue": {
-      "anyOf": [
-        {
-          "description": "The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.\n\nTail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.\n\nIdentifying returning visitors will not be possible at this level.\nIn-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.",
-          "enum": [
-            "anonymous",
-            0
-          ]
-        },
-        {
-          "description": "The data may possibly identify the user if put into context with other data, yet not specifically on its own.\n\nExamples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.\n\nIdentifying returning visitors will be possible at this level of consent, but not across devices.\nSome level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.\n\nThis level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.",
-          "enum": [
-            "indirect",
-            1
-          ]
-        },
-        {
-          "description": "The data directly identifies the user on its own.\n\nExamples are name, username, street address and email address.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nPersonalization based on past actions such as purchases will also be possible.\n\nThis level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).\n\nPlease note it is possible to access user data even when nothing is tracked beyond the bla... level\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.",
-          "enum": [
-            "direct",
-            2
-          ]
-        },
-        {
-          "description": "Sensitive data about a user.\n\nExamples are data related to health, financial matters, race, political and religious views, and union membership.\nIf the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.\n\nIdentifying returning visitors across devices will be possible at this level of consent.\nand so will advanced personalization.\n\nAs always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.",
-          "enum": [
-            "sensitive",
-            3
-          ]
-        }
-      ]
-    },
-    "DataPurposeValue": {
-      "anyOf": [
-        {
-          "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema.",
-          "enum": [
-            "none",
-            0
-          ]
-        },
-        {
-          "description": "Data stored for this purpose is vital for the system, website or app to function.",
-          "enum": [
-            "necessary",
-            1
-          ]
-        },
-        {
-          "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
-          "enum": [
-            "functionality",
-            2
-          ]
-        },
-        {
-          "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
-          "enum": [
-            "performance",
-            4
-          ]
-        },
-        {
-          "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties\nor otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary\nto use this category.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.",
-          "enum": [
-            "targeting",
-            8
-          ]
-        },
-        {
-          "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`.",
-          "enum": [
-            "security",
-            16
-          ]
-        },
-        {
-          "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`.",
-          "enum": [
-            "infrastructure",
-            32
-          ]
-        },
-        {
-          "description": "All purposes that are permissable for anonymous users.",
-          "enum": [
-            "anonymous",
-            49
-          ]
-        },
-        {
-          "description": "Data can be used for any purpose.",
-          "enum": [
-            "any",
-            63
-          ]
-        },
-        {
-          "description": "The data is not available client-side.\nNote that this is a special flag that is not included in \"Any\"",
-          "enum": [
-            "server",
-            64
-          ]
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "array",
-          "items": {
-            "anyOf": [
-              {
-                "description": "Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema.",
-                "enum": [
-                  "none",
-                  0
-                ]
-              },
-              {
-                "description": "Data stored for this purpose is vital for the system, website or app to function.",
-                "enum": [
-                  "necessary",
-                  1
-                ]
-              },
-              {
-                "description": "Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app\naccording to a user's preferences.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
-                "enum": [
-                  "functionality",
-                  2
-                ]
-              },
-              {
-                "description": "Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including\ndemographics and similar traits with the purpose of optimizing the website or app.\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope\nof the website or app. Use \n{@link DataPurposeFlags.Targeting}\ninstead.\nIt may be okay if the data is only used for different website and apps that relate to the same product or service.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.\n",
-                "enum": [
-                  "performance",
-                  4
-                ]
-              },
-              {
-                "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties\nor otherwise used to perform marketing outside the scope of the specific website or app.\n\nIf the data is only used for different website and apps that relate to the same product or service, it might not be necessary\nto use this category.\nThis would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may\nalso be distributed across multiple domain names.",
-                "enum": [
-                  "targeting",
-                  8
-                ]
-              },
-              {
-                "description": "Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,\nor for a website to guard itself against various kinds of attacks.\n\nThis is implicitly also `Necessary`.",
-                "enum": [
-                  "security",
-                  16
-                ]
-              },
-              {
-                "description": "Data stored for this purpose may be similar to the performance category, however it is specifically\nonly used for things such as health monitoring, system performance and error logging and unrelated to user behavior.\n\nThis is implicitly also `Necessary`.",
-                "enum": [
-                  "infrastructure",
-                  32
-                ]
-              },
-              {
-                "description": "All purposes that are permissable for anonymous users.",
-                "enum": [
-                  "anonymous",
-                  49
-                ]
-              },
-              {
-                "description": "Data can be used for any purpose.",
-                "enum": [
-                  "any",
-                  63
-                ]
-              },
-              {
-                "description": "The data is not available client-side.\nNote that this is a special flag that is not included in \"Any\"",
-                "enum": [
-                  "server",
-                  64
-                ]
-              },
-              {
-                "type": "number"
-              }
-            ]
-          }
-        }
-      ]
     },
     "CommerceEvent": {
       "allOf": [

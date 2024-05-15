@@ -71,7 +71,7 @@ export class EventParser implements ModelMetadata {
 
   public readonly events: ReadOnlyRecord<string, SchemaWithBaseTypes>;
 
-  constructor(schema: Record<string, JsonString<Schema> | Schema>) {
+  constructor(schema: Record<string, JsonString | Schema>) {
     const events = {};
 
     const mergeAllOf = (

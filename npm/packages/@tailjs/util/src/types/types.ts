@@ -389,7 +389,7 @@ export const array: {
       ([value] as any);
 
 export const isObject = (value: any): value is Record<keyof any, any> =>
-  typeof value === "object";
+  value !== null && typeof value === "object";
 
 const objectPrototype = Object.prototype;
 const getPrototypeOf = Object.getPrototypeOf;

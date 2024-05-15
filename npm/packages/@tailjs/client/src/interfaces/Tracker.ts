@@ -1,4 +1,4 @@
-import { ArrayOrSelf, MaybeArray, Nullish } from "@tailjs/util";
+import { ArrayOrSelf, Nullish } from "@tailjs/util";
 import type { TrackerCommand, TrackerConfiguration } from "..";
 import { EventQueue, TrackerVariableStorage } from "../lib2";
 

@@ -1,5 +1,8 @@
 import { EnumValue, createEnumAccessor } from "@tailjs/util";
 
+/** Data purposes are flags that can be combined, so if multiple are needed you can combine them with bitwise OR (the `|` operator).  */
+export type DataPurposesFlagHint = number & {};
+
 // Grrr... We need to write out the calculated numbers for each enum value. Otherwise stupid JSON schema generator won't work.
 
 /** Purposes data can be used for, including combinations of {@link DataPurpose} */
@@ -20,7 +23,7 @@ export enum DataPurposeFlags {
    * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
    *
    * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
+   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
    * also be distributed across multiple domain names.
    *
    */
@@ -34,7 +37,7 @@ export enum DataPurposeFlags {
    * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
    *
    * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
+   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
    * also be distributed across multiple domain names.
    *
    */
@@ -46,7 +49,7 @@ export enum DataPurposeFlags {
    *
    * If the data is only used for different website and apps that relate to the same product or service, it might not be necessary
    * to use this category.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
+   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
    * also be distributed across multiple domain names.
    */
   Targeting = 8,
@@ -121,6 +124,4 @@ export type DataPurposeValue<Numeric = boolean> = EnumValue<
   DataPurposeFlags,
   true,
   Numeric
-> extends infer T
-  ? T
-  : never;
+>;

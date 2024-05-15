@@ -126,8 +126,8 @@ export class TrackerCoreEvents implements TrackerExtension {
     for (let event of events) {
       if (isConsentEvent(event)) {
         await tracker.updateConsent(
-          dataClassification.tryParse(event.level),
-          dataPurposes.tryParse(event.purposes)
+          dataClassification.tryParse(event.consent.level),
+          dataPurposes.tryParse(event.consent.purposes)
         );
       }
 
@@ -206,7 +206,10 @@ export class TrackerCoreEvents implements TrackerExtension {
       } else if (isSignOutEvent(event)) {
         updateData(false, (data) => (data.userId = undefined));
       } else if (isConsentEvent(event)) {
-        await tracker.updateConsent(event.level, event.purposes);
+        await tracker.updateConsent(
+          event.consent.level,
+          event.consent.purposes
+        );
       }
     }
 

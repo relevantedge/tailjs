@@ -3,6 +3,8 @@ import cjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
 import resolve from "@rollup/plugin-node-resolve";
 import replace from "@rollup/plugin-replace";
+import { visualizer } from "rollup-plugin-visualizer";
+
 //import esbuild from "rollup-plugin-esbuild";
 //import terser from "@rollup/plugin-terser";
 //import { uglify } from "rollup-plugin-uglify";
@@ -122,7 +124,7 @@ const createConfig = (debug?: boolean) =>
           for (const file in bundle) {
             const key = `BUNDLE_${file.replace(/[^a-z0-9]/gi, "_")}`;
             const text = bundle[file].code ?? bundle[file].source;
-            vars[key] = text; //process.env[key] = text;
+            vars[key] = text ?? vars[key]; //process.env[key] = text;
             if (key === "BUNDLE_index_min_js") {
               //findDuplicates(text);
             }
@@ -169,6 +171,11 @@ const createConfig = (debug?: boolean) =>
       // ...(debug
       //   ? []
       //   : [visualizer({ sourceMap: true, emitFile: "tailjs.html" })]),
+      debug &&
+        visualizer({
+          filename: "c:/temp/stats.html",
+          brotliSize: true,
+        }),
     ],
 
     output: destinations

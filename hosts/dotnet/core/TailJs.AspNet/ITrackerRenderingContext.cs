@@ -12,7 +12,7 @@ public interface ITrackerRenderingContext
 
   IDataMarkupHeader? GetDataScopeHeader(ElementBoundaryMapping? mapping);
 
-  string? GetClientScript(IEnumerable<string>? references);
+  ValueTask<string> GetClientScriptAsync(IEnumerable<string>? references);
 }
 
 public class NullTrackerRenderingContext : ITrackerRenderingContext
@@ -25,7 +25,7 @@ public class NullTrackerRenderingContext : ITrackerRenderingContext
 
   public ITracker? Tracker => null;
 
-  public string? GetClientScript(IEnumerable<string>? references) => null;
+  public ValueTask<string> GetClientScriptAsync(IEnumerable<string>? references) => default;
 
   public IDataMarkupHeader? GetDataScopeHeader(ElementBoundaryMapping? mapping) => null;
 

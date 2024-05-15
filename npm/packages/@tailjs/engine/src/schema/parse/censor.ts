@@ -1,5 +1,5 @@
 import {
-  UserConsent,
+  ParsableConsent,
   VariableClassification,
   validateConsent,
 } from "@tailjs/types";
@@ -47,7 +47,7 @@ const traverseValue = (
 export const censor = (
   type: ParsedType,
   value: any,
-  consent: SchemaClassification | UserConsent,
+  consent: ParsableConsent,
   defaultClassification?: VariableClassification
 ) => {
   if (!isPlainObject(value)) return value;
@@ -66,6 +66,10 @@ export const censor = (
 
   for (const key in value) {
     const property = type.properties.get(key);
+    if (property?.name === "viewport") {
+      var b = 4;
+    }
+
     if (
       !property ||
       !validateConsent(property, consent, defaultClassification)

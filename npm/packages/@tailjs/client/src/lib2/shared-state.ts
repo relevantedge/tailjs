@@ -1,3 +1,4 @@
+import { UUID } from "@tailjs/types";
 import {
   MaybeUndefined,
   Nullish,
@@ -16,7 +17,6 @@ import {
 import {
   ClientVariable,
   ClientVariableGetter,
-  ClientVariableKey,
   ClientVariableResults,
   GetterIntellisense,
   HEARTBEAT_FREQUENCY,
@@ -26,14 +26,9 @@ import {
   VARIABLE_CACHE_DURATION,
   addEncryptionNegotiatedListener,
   addPageLoadedListener,
-  httpDecode,
-  httpDecrypt,
-  httpEncode,
-  httpEncrypt,
   listen,
   variableKeyToString,
 } from ".";
-import { UUID } from "@tailjs/types";
 
 export interface TabState {
   id: string;
@@ -232,10 +227,6 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
       }
     }
   });
-
-  // Temporarily store this for the next page, if loaded in the same tab.
-
-  listen(window, ["pagehide"], () => sessionStorage.set(STATE_KEY, TAB_ID));
 
   const initTimeout = clock(() => dispatchState("ready", state, true), -25);
 

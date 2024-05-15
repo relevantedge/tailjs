@@ -838,6 +838,10 @@ export const forEachAsync: <
   let returnValue: any;
   for (let item of project(source, action, start, end)) {
     (item = (await item) as any) != null && (returnValue = item);
+    if (stopInvoked) {
+      stopInvoked = false;
+      break;
+    }
   }
   return returnValue;
 };
@@ -900,7 +904,7 @@ export const obj: {
       merge
         ? (item, i) =>
             (item = selector(item, i)) != null &&
-            (item[1] = merge(result[item[0]], item[1]))?.[1] != null &&
+            (item[1] = merge(result[item[0]], item[1])) != null &&
             (result[item[0]] = item[1])
         : (source) =>
             forEach(

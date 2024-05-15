@@ -175,6 +175,11 @@ export const getDistBundles = async (
     },
   ]);
 
+  if (process.argv.includes("--ext")) {
+    // External targets only.
+    bundles.splice(0);
+  }
+
   if (fs.existsSync(join(pkg.path, "/src/index.external.ts"))) {
     bundles.push(...(await getExternalBundles()));
   }

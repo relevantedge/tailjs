@@ -20,7 +20,7 @@ export const fixReferences = (
   }
 
   if (schema.$ref?.startsWith("#")) {
-    schema.$ref = schemaId + schema.$ref;
+    (schema as any).$ref = schemaId + schema.$ref;
   }
   forEach(schema, ([, value]) => fixReferences(value, schemaId));
 };

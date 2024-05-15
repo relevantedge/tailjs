@@ -85,7 +85,7 @@ export interface ParsedProperty
 
 export interface ParsedSchemaClassification extends SchemaClassification<true> {
   /**
-   * Ignore when censoring and calculating type classifictions.
+   * Ignore when censoring and calculating type classifications.
    * If only ignored properties are left after censoring an object, it is not returned.
    *
    * The use case is common event properties such as type or session that will be in all events,

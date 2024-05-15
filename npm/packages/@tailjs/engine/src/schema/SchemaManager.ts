@@ -1,6 +1,6 @@
 import {
+  ParsableConsent,
   SchemaAnnotations,
-  UserConsent,
   VariableScope,
   variableScope,
 } from "@tailjs/types";
@@ -27,7 +27,6 @@ import addFormats from "ajv-formats";
 import Ajv from "ajv/dist/2020";
 import {
   Schema,
-  SchemaClassification,
   SchemaEntity,
   SchemaObjectType,
   SchemaProperty,
@@ -142,6 +141,7 @@ export class SchemaManager {
             ? value
             : throwError(validationError(type.id, validate.errors, value)),
       };
+      (type as any)["parsed"] = parsed;
       unlock(type.schema.types).set(type.id, type);
       (this.types as Map<any, any>).set(type.id, type);
     });
@@ -202,6 +202,7 @@ export class SchemaManager {
               )
           ),
         };
+        (property as any)["parsed"] = parsedProperty;
         unlock((type.properties ??= new Map())).set(property.name, property);
 
         if (
@@ -359,19 +360,19 @@ export class SchemaManager {
   public censor<T>(
     typeId: string,
     value: T,
-    consent: SchemaClassification | UserConsent,
+    consent: ParsableConsent,
     validate?: boolean
   ): T | undefined;
   public censor<T>(
     eventType: string,
     event: T,
-    consent: SchemaClassification | UserConsent,
+    consent: ParsableConsent,
     validate?: boolean
   ): T | undefined;
   public censor(
     id: string,
     value: any,
-    consent: SchemaClassification | UserConsent,
+    consent: ParsableConsent,
     validate = true
   ) {
     return ifDefined(

@@ -13,11 +13,12 @@ import {
   match,
   throwError,
   undefined,
+  stop,
 } from "@tailjs/util";
 import {
   REQUEST_LOCK_KEY,
-  httpDecrypt as deserialize,
-  httpEncrypt as serialize,
+  httpDecrypt,
+  httpEncrypt,
   sharedLock,
   trackerConfig,
 } from ".";
@@ -45,7 +46,7 @@ const pollPushCookie = clock(() => {
     if (!pushCookie) return;
     pushCookieMatcher = new RegExp(escapeRegEx(pushCookie) + "=([^;]*)");
   }
-  const value = deserialize?.(match(document.cookie, pushCookieMatcher)?.[1]);
+  const value = httpDecrypt?.(match(document.cookie, pushCookieMatcher)?.[1]);
   if (isPostResponse(value)) {
     dispatchResponse(value);
   }
@@ -125,7 +126,7 @@ export const request: {
 
     return cancel
       ? false
-      : (serialized = (encrypt ? serialize : (JSON.stringify as any))(
+      : (serialized = (encrypt ? httpEncrypt : (JSON.stringify as any))(
           currentData
         ));
   };
@@ -144,8 +145,8 @@ export const request: {
     ) && throwError("Beacon send failed.");
   } else {
     return await requestLock(() =>
-      forEachAsync(4, async (retry) => {
-        if (!prepareRequestData(retry)) return;
+      forEachAsync(1, async (retry) => {
+        if (!prepareRequestData(retry)) return stop();
 
         const response = await fetch(url, {
           method: currentData != null ? "POST" : "GET",
@@ -160,21 +161,23 @@ export const request: {
 
         if (response.status >= 400) {
           return retry === 3
-            ? throwError(`Invalid response: ${await response.text()}`)
+            ? stop(throwError(`Invalid response: ${await response.text()}`))
             : (console.warn(
                 `Request to ${url} failed on attempt ${retry + 1}/${3}.`
               ),
               await delay((1 + retry) * 200));
         }
 
-        const parsed = (encrypt ? deserialize : JSON.parse)?.(
-          await response[encrypt ? "text" : "json"]()
-        );
+        const responseText = await response.text();
+
+        const parsed = responseText?.length
+          ? (encrypt ? httpDecrypt : JSON.parse)?.(responseText)
+          : undefined;
 
         if (parsed != null) {
           dispatchResponse(parsed);
         }
-        return parsed;
+        return stop(parsed);
       })
     );
   }

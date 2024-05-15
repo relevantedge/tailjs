@@ -107,11 +107,11 @@ export class ParsingVariableStorage<
         if (!key) {
           continue;
         }
+
         toNumericVariableEnums(key);
-        (key as VariableGetter)?.init != null &&
-          ((key as VariableGetter).init = wrap(key.init, async (original) =>
-            toNumericVariableEnums(await original())
-          ));
+        (key as VariableGetter).init = wrap(key.init, async (original) =>
+          toNumericVariableEnums(await original())
+        );
       }
 
       return await this.storage.get(keys as any[], parseContext(context));

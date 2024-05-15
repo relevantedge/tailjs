@@ -26,7 +26,9 @@ export const clearMetadata = <
     : { metadata?: undefined }) => (
   (metadata = event?.metadata) &&
     (client
-      ? (delete metadata.posted, delete metadata.queued)
+      ? (delete metadata.posted,
+        delete metadata.queued,
+        !Object.entries(metadata).length && delete event.metadata)
       : delete event.metadata),
   event as any
 );

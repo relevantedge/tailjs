@@ -66,19 +66,22 @@ export interface PolyType2 extends PolyBase {
 }
 
 export interface PolyType3 extends PolyBase {
-  sub2?: string;
+  sub2: string;
   sub3?: string;
 }
 
-export interface PolyType31 extends PolyBase {
+export interface PolyType31 extends PolyType3 {
   $type: "type31";
 }
 
 export interface PolyTest1 {
-  reference?: PolyBase;
+  reference?: PolyType1 | PolyType2 | PolyType31;
+  reference2?: PolyBase | PolyType1 | PolyType2 | PolyType31;
+  reference3?: PolyType3;
+  reference4?: PolyType3 & { anonymous?: number };
 }
 
-export const invalidPolymorphicSchema = {
+export const polymorphicSchema = {
   ...schemaHeader,
   $defs: {
     BaseType: {
@@ -91,29 +94,32 @@ export const invalidPolymorphicSchema = {
       },
       required: ["$type"],
     },
-    SubType1: {
+    Subtype1: {
       $ref: "urn:tailjs:core#/$defs/BaseType",
       properties: {
+        $type: { type: "string", const: "type1" },
         sub1: { type: "string" },
       },
     },
-    SubType2: {
+    Subtype2: {
       type: "object",
       allOf: [{ $ref: "urn:tailjs:core#/$defs/BaseType" }],
       properties: {
+        $type: { type: "string", const: "type2" },
         sub2: { type: "number" },
       },
     },
-    SubType3: {
+    Subtype3: {
       type: "object",
       $ref: "urn:tailjs:core#/$defs/BaseType",
       properties: {
         sub2: { type: "string" },
       },
+      required: ["sub2"],
     },
-    SubType31: {
+    Subtype31: {
       type: "object",
-      $ref: "urn:tailjs:core#/$defs/SubType3",
+      $ref: "urn:tailjs:core#/$defs/Subtype3",
       properties: {
         $type: { const: "type31" },
       },
@@ -121,15 +127,36 @@ export const invalidPolymorphicSchema = {
     Test1: {
       type: "object",
       properties: {
-        reference: { $ref: "#/$defs/BaseType" },
+        reference: {
+          oneOf: [
+            { $ref: "#/$defs/Subtype1" },
+            { $ref: "#/$defs/Subtype2" },
+            { $ref: "#/$defs/Subtype31" },
+          ],
+        },
+        // Test that unevaluatedProperties are set correctly.
+        reference2: {
+          oneOf: [
+            { $ref: "#/$defs/BaseType" },
+            { $ref: "#/$defs/Subtype1" },
+            { $ref: "#/$defs/Subtype2" },
+            { $ref: "#/$defs/Subtype31" },
+          ],
+        },
+        reference3: {
+          $ref: "urn:tailjs:core#/$defs/Subtype3",
+        },
+        reference4: {
+          $ref: "urn:tailjs:core#/$defs/Subtype3",
+          type: "object",
+          properties: {
+            anonymous: { type: "number" },
+          },
+        },
       },
     },
   },
 };
-
-export const polymorphicSchema = clone(invalidPolymorphicSchema) as any;
-polymorphicSchema.$defs.SubType1.properties.$type = { const: "type1" };
-polymorphicSchema.$defs.SubType2.properties.$type = { const: "type2" };
 
 export type TestEventBase = {
   type: string;

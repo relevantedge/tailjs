@@ -1,10 +1,8 @@
 ﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
-
 using TailJs.IO;
 
 namespace TailJs.AspNet;
@@ -51,9 +49,11 @@ public class TrackerRenderingContext : ITrackerRenderingContext
   }
 
   private string ToScript<T>(T value) =>
-    JsonSerializer.Serialize(
-      _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
-    );
+    _configuration.UseJson
+      ? JsonSerializer.Serialize(value, _writer.JsonSerializerOptions)
+      : JsonSerializer.Serialize(
+        _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
+      );
 
   // JsonSerializer.Serialize(
   //   _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
@@ -68,7 +68,7 @@ public class TrackerRenderingContext : ITrackerRenderingContext
   public ITracker? Tracker =>
     ItemData.EnvironmentType == EnvironmentType.Public ? (_mappedTracker ??= _trackerAccessor.Tracker) : null;
 
-  public string GetClientScript(IEnumerable<string>? references)
+  public async ValueTask<string> GetClientScriptAsync(IEnumerable<string>? references)
   {
     using var script = _writers.Rent();
     var writer = script.Item;
@@ -101,10 +101,32 @@ public class TrackerRenderingContext : ITrackerRenderingContext
         )
       )
       .Append(",")
-      .Append(ToScript(new { set = new { view = ItemData.CurrentContextItem, rendered = true } }))
+      .Append(
+        ToScript(
+          new
+          {
+            set = new[]
+            {
+              new
+              {
+                scope = "view",
+                key = "view",
+                value = ItemData.CurrentContextItem
+              },
+              // TODO: Create variable getter and setter interfaces.
+              // new
+              // {
+              //   scope = "view",
+              //   key = "rendered",
+              //   value = true
+              // }
+            }
+          }
+        )
+      )
       .Append(");")
       .Append("</script>");
-    if (Tracker != null && _requestHandler.GetClientScripts(Tracker, nonce) is { } trackerScript)
+    if (Tracker != null && (await _requestHandler.GetClientScriptsAsync(Tracker, nonce)) is { } trackerScript)
     {
       writer.Append(trackerScript);
     }

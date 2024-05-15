@@ -719,13 +719,16 @@ export const define: {
 type PropertySelector<T> =
   | keyof T
   | {
-      [P in keyof T]?: PropertySelector<T[P]> | [...keys: (keyof T[P])[]];
-    };
+      [P in keyof T]?: PropertySelector<T[P]>;
+    }
+  | readonly (keyof T)[];
 
 type SinglePickResult<T, Selected> = Selected extends
   | (string & infer K)
   | (infer K)[]
-  ? { [P in keyof T & K]: T[P] }
+  ? unknown extends K
+    ? T
+    : { [P in keyof T & K]: T[P] }
   : keyof Selected extends infer Keys
   ? {
       [P in Keys & keyof any & keyof Selected]: P extends keyof T
@@ -738,7 +741,9 @@ type SinglePickResult<T, Selected> = Selected extends
 
 type PickResults<T, Selectors> = PrettifyIntersection<
   Selectors extends [infer Item, ...infer Rest]
-    ? SinglePickResult<T, Item> & SinglePickResult<T, Rest>
+    ? unknown extends Item
+      ? T
+      : SinglePickResult<T, Item> & SinglePickResult<T, Rest>
     : never
 >;
 
@@ -749,22 +754,24 @@ export const pick = <T, Selectors extends PropertySelector<T>[], U>(
   if (source === undefined) return undefined as any;
 
   return Object.fromEntries(
-    args.flatMap((arg) =>
-      isObject(arg)
-        ? isArray(arg)
-          ? arg.map((args) =>
-              isArray(args)
-                ? args.length === 1
-                  ? [args[0], source![args[0]]]
-                  : pick(source![args[0]], ...(args[1] as any[]))
-                : [args[0], source![args[1]]]
-            )
-          : Object.entries(args).map(([key, value]) => [
-              key,
-              value === true ? source![key] : pick(source![key], value),
-            ])
-        : ([[arg, source![arg]]] as any)
-    )
+    args
+      .flatMap((arg) =>
+        isObject(arg)
+          ? isArray(arg)
+            ? arg.map((args) =>
+                isArray(args)
+                  ? args.length === 1
+                    ? [args[0], source![args[0]]]
+                    : pick(source![args[0]], ...(args[1] as any[]))
+                  : [args, source![args]]
+              )
+            : Object.entries(args).map(([key, value]) => [
+                key,
+                value === true ? source![key] : pick(source![key], value),
+              ])
+          : ([[arg, source![arg]]] as any)
+      )
+      .filter((arg) => arg[1] != null)
   ) as any;
 };
 

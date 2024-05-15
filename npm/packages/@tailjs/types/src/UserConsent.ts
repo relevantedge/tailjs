@@ -1,6 +1,5 @@
 import { required } from "@tailjs/util";
 import {
-  DataClassification,
   DataClassificationValue,
   DataPurposeFlags,
   DataPurposeValue,
@@ -9,45 +8,53 @@ import {
   dataPurposes,
 } from ".";
 
+// The `extender infer T` stuff below is to inline the enums in the JSON schema.
+// Otherwise it looks weird.
+
 /** A user's consent choices.  */
 export interface UserConsent {
   /**
    * The highest level of data classification the user has consented to be stored.
    */
-  level: DataClassification;
+  level: DataClassificationValue<false> extends infer T ? T : never;
 
   /**
    * The purposes the user has consented their data to be used for.
    *
    * @privacy anonymous
    */
-  purposes: DataPurposeFlags;
+  purposes: DataPurposeValue<false> extends infer T ? T : never;
 }
 
 export const NoConsent: Readonly<UserConsent> = Object.freeze({
-  level: DataClassification.Anonymous,
-  purposes: DataPurposeFlags.Anonymous,
+  level: "anonymous",
+  purposes: "anonymous",
 });
 
 export const FullConsent: Readonly<UserConsent> = Object.freeze({
-  level: DataClassification.Sensitive,
-  purposes: DataPurposeFlags.Any,
+  level: "sensitive",
+  purposes: "any",
 });
 
 export const isUserConsent = (value: any) => !!value?.["level"];
 
+export type ParsableConsent =
+  | {
+      classification: DataClassificationValue;
+      purposes: DataPurposeValue;
+    }
+  | { level: DataClassificationValue; purposes: DataPurposeValue };
 export const validateConsent = (
-  source:
-    | { classification?: DataClassificationValue; purposes?: DataPurposeValue }
-    | undefined,
-  consent:
-    | UserConsent
-    | { classification: DataClassificationValue; purposes: DataPurposeValue },
+  source: Partial<ParsableConsent> | undefined,
+  consent: ParsableConsent,
   defaultClassification?: Partial<VariableClassification>
 ) => {
   if (!source) return undefined;
   const classification =
-    dataClassification.parse(source.classification, false) ??
+    dataClassification.parse(
+      (source as any)?.classification ?? (source as any)?.level,
+      false
+    ) ??
     required(
       dataClassification(defaultClassification?.classification),
       "The source has not defined a data classification and no default was provided."

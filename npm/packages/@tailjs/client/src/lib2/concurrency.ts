@@ -30,7 +30,7 @@ export const sharedLock = (
   type LockState = [owner: string, expires: number];
   const get = () =>
     (encrypt ? httpDecrypt<LockState> : httpDecode<LockState>)(
-      localStorage.get(lockId)
+      localStorage.getItem(lockId)
     );
   const renew = () =>
     localStorage.setItem(

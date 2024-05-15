@@ -1,10 +1,4 @@
-import type {
-  DataClassification,
-  DataClassificationValue,
-  DataPurposeFlags,
-  DataPurposeValue,
-  TrackedEvent,
-} from "..";
+import type { TrackedEvent, UserConsent } from "..";
 import { typeTest } from "../util/type-test";
 
 /**
@@ -26,9 +20,7 @@ import { typeTest } from "../util/type-test";
 export interface ConsentEvent extends TrackedEvent {
   type: "consent";
 
-  level?: DataClassificationValue;
-
-  purposes?: DataPurposeValue;
+  consent: UserConsent;
 }
 
 export const isConsentEvent = typeTest<ConsentEvent>("consent");

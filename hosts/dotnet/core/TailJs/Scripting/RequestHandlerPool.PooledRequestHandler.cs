@@ -47,8 +47,11 @@ public partial class RequestHandlerPool
     public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITracker tracker) =>
       _inner.GetClientCookies(tracker);
 
-    public string? GetClientScripts(ITracker tracker, string? nonce) =>
-      _inner.GetClientScripts(tracker, nonce);
+    public ValueTask<string?> GetClientScriptsAsync(
+      ITracker tracker,
+      string? nonce,
+      CancellationToken cancellationToken = default
+    ) => _inner.GetClientScriptsAsync(tracker, nonce, cancellationToken);
 
     public ValueTask InitializeAsync(CancellationToken cancellationToken = default) =>
       _inner.InitializeAsync(cancellationToken);

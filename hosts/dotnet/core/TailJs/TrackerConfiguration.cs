@@ -41,6 +41,12 @@ public class TrackerConfiguration : IOptionsMonitor<TrackerConfiguration>
 
   public bool Secure { get; set; } = true;
 
+  /// <summary>
+  /// Whether configuration and component data should be passed to the client as JSON instead of using MessagePack.
+  /// Good for testing and debugging.
+  /// </summary>
+  public bool UseJson { get; set; } = true;
+
   public List<ScriptExtensionConfiguration> ScriptExtensions { get; set; } = new();
 
   public TrackerConfiguration Get(string? name) => this;

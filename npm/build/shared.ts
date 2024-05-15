@@ -46,7 +46,7 @@ export const compilePlugin = ({
               pure_funcs: debug ? [] : ["debug"],
             },
             mangle: {
-              props: { keep_quoted: true },
+              //props: false, //{ keep_quoted: true, regex: "^[^A-Z].*$" },
               toplevel: false,
             },
           }
@@ -79,15 +79,27 @@ export const build = async (options: RollupOptions[]) => {
       };
 
       if (process.argv.includes("-w")) {
+        let resolve: any;
+        const waitForFirstBuild = new Promise((r) => (resolve = r));
         const watcher = watch(config);
         watcher.on("event", (ev) => {
-          if (ev.code === "ERROR") {
+          if (ev.code === "START") {
+            console.log("Build started.");
+          } else if (ev.code === "ERROR") {
             console.log(ev.error);
-          }
-          if (ev.code === "BUNDLE_END") {
+          } else if (ev.code === "BUNDLE_END") {
             ev.result?.close();
+          } else if (ev.code === "END") {
+            console.log(
+              `Build  completed for '${[outputs[0].dir, outputs[0].name]
+                .join("/")
+                .replace(/\\/g, "/")}'.`
+            );
+            resolve();
           }
         });
+
+        await waitForFirstBuild;
       } else {
         const bundle = await rollup(config);
         await Promise.all(outputs.map((output) => bundle.write(output)));

@@ -21,7 +21,7 @@ export const updateTypeClassifications = (
   const objectTypeProperties: ParsedProperty[] = [];
 
   forEach(type.properties, ([, property]) => {
-    // Before looking classifications from the surrounding context, start by seing if a base type has property with the same name.
+    // Before looking for classifications in the surrounding context, start by seeing if a base type has aproperty with the same name.
     // If so inherit those settings.
     mergeBasePropertyClassifications(
       property.declaringType,

@@ -1,4 +1,4 @@
-import { EnumValue, EnumValueOf, createEnumAccessor } from "@tailjs/util";
+import { EnumValue, createEnumAccessor } from "@tailjs/util";
 
 /**
  * Defines to which extend a piece of information relates to a natural person (user of your app or website).
