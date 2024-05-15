@@ -2,19 +2,18 @@ import type { TrackerConfiguration } from "@tailjs/client/external";
 import { DEFAULT_CLIENT_CONFIG } from "@tailjs/client/external";
 
 import { type ViewEvent } from "@tailjs/types";
+import { JsonObject } from "@tailjs/util";
 import { SessionReferenceMapper } from "./ClientIdGenerator";
 import { AllRequired } from "./lib";
 import {
   CryptoProvider,
   EngineHost,
-  SchemaManager,
   TrackerExtension,
   VariableStorageCoordinatorSettings,
 } from "./shared";
-import { JsonObject } from "@tailjs/util";
 
 /** Gives a hint what a string might be for methods that serialize results to strings */
-export type JsonString<T> = string;
+export type JsonString = string;
 
 export type CookieConfiguration = {
   namePrefix?: string;

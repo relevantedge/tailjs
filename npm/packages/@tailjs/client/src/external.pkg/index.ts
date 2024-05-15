@@ -1,5 +1,5 @@
 import type { Tracker, TrackerAttributes, TrackerConfiguration } from "..";
-import { trackerConfig } from "../lib2";
+import { trackerConfig } from "../lib2/config";
 
 export const DEFAULT_CLIENT_CONFIG: Required<TrackerConfiguration> = {
   ...trackerConfig,

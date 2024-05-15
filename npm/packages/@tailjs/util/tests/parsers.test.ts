@@ -19,6 +19,13 @@ describe("parsers.ts", () => {
       test: ["1", "2", "3"],
     });
 
+    expect(parseQueryString("test1&test2=1&test3=2&test4")).toEqual({
+      test1: "",
+      test2: "1",
+      test3: "2",
+      test4: "",
+    });
+
     expect(parseQueryString("test=foo&items[]=bar&items[]=baz+space")).toEqual({
       test: "foo",
       items: ["bar", "baz space"],

@@ -8,6 +8,7 @@ import {
   entries,
   isArray,
   isNumber,
+  isObject,
   isString,
   obj,
   throwError,
@@ -403,26 +404,28 @@ export const createEnumPropertyParser: <
 ) => {
   const parsers = entries(obj(props, true));
 
-  const parse = (source: any, arrayItem?: boolean) =>
-    source != null &&
-    (!arrayItem && isArray(source)
-      ? source.forEach((source, i) => (source[i] = parse(source[i], true)))
-      : parsers.forEach(([prop, parsers]) => {
-          let parsed = undefined;
-          let value: any;
-          if ((value = source[prop]) == null) return;
-          parsers.length === 1
-            ? (source[prop] = parsers[0].parse(value))
-            : parsers.forEach(
-                (parser, i) =>
-                  !parsed &&
-                  (parsed =
-                    i === parsers.length - 1
-                      ? parser.parse(value)
-                      : parser.tryParse(value)) != null &&
-                  (source[prop] = parsed)
-              );
-        }));
+  const parse = (source: any) => (
+    isObject(source) &&
+      (isArray(source)
+        ? source.forEach((sourceItem, i) => (source[i] = parse(sourceItem)))
+        : parsers.forEach(([prop, parsers]) => {
+            let parsed = undefined;
+            let value: any;
+            if ((value = source[prop]) == null) return;
+            parsers.length === 1
+              ? (source[prop] = parsers[0].parse(value))
+              : parsers.forEach(
+                  (parser, i) =>
+                    !parsed &&
+                    (parsed =
+                      i === parsers.length - 1
+                        ? parser.parse(value)
+                        : parser.tryParse(value)) != null &&
+                    (source[prop] = parsed)
+                );
+          })),
+    source
+  );
 
-  return (source: any) => (parse(source), source);
+  return parse;
 }) as any;

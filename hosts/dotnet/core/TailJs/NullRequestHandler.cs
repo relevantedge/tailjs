@@ -9,7 +9,11 @@ public class NullRequestHandler : IRequestHandler
   public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITracker tracker) =>
     Array.Empty<ClientResponseCookie>();
 
-  public string? GetClientScripts(ITracker tracker, string? nonce = null) => null;
+  public ValueTask<string?> GetClientScriptsAsync(
+    ITracker tracker,
+    string? nonce = null,
+    CancellationToken cancellationToken = default
+  ) => default;
 
   public ITrackerEnvironment? Environment => null;
 

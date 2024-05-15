@@ -1,6 +1,6 @@
 import type { EmbeddedTrackerConfiguration } from ".";
 import type { Tracker } from "..";
-import { isTracker, trackerConfig } from "../lib2";
+import { isTracker, trackerConfig } from "../lib2/config";
 
 const externalConfig = trackerConfig as EmbeddedTrackerConfiguration;
 

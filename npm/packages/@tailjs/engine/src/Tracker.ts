@@ -24,6 +24,7 @@ import {
   VariableGetters,
   VariableHeader,
   VariableKey,
+  VariablePatchType,
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultPromise,
@@ -559,17 +560,13 @@ export class Tracker {
       if (level === DataClassification.Anonymous) {
         this._sessionReferenceId =
           await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
+        // Copy session state to the anonymous key.
+        await this.env.storage.set([
+          { ...this._session, targetId: this._sessionReferenceId },
+        ]);
       } else {
         this._sessionReferenceId = this._session.targetId!;
       }
-
-      // Change reference ID from cookie to cookie-less or vice versa.
-      await this.env.storage.set([
-        { ...this._session, value: undefined },
-        { ...this._session, targetId: this._sessionReferenceId },
-      ]);
-
-      //if( )
     }
 
     this._consent = { level, purposes };
@@ -599,6 +596,8 @@ export class Tracker {
           ),
         },
       ]);
+    } else {
+      if (this._session?.value) return;
     }
 
     let sessionId: string | undefined;
@@ -671,6 +670,18 @@ export class Tracker {
       );
 
     if (this._session.value) {
+      // Copy the session info the the actual session storage.
+      await this.set({
+        scope: VariableScope.Session,
+        key: SCOPE_INFO_KEY,
+        ...Necessary,
+        patch: {
+          type: VariablePatchType.IfMatch,
+          match: undefined,
+          value: this._session.value,
+        },
+      });
+
       let device = await this.get(
         this._consent.level > DataClassification.Anonymous
           ? {

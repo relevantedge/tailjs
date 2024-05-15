@@ -1,9 +1,60 @@
-const undefined$1 = void 0;
+const throwError = (error, transform = (message)=>new TypeError(message))=>{
+    throw isString(error = unwrap(error)) ? transform(error) : error;
+};
+const required = (value, error)=>value != null ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
+/** A value that is initialized lazily on-demand. */ const deferred = (expression)=>{
+    let result = undefined;
+    return ()=>result ??= unwrap(expression);
+};
+/**
+ * A promise that is initialized lazily on-demand.
+ * For promises this is more convenient than {@link deferred}, since it just returns a promise instead of a function.
+ */ const deferredPromise = (expression)=>{
+    let promise = {
+        initialized: true,
+        then: thenMethod(()=>(promise.initialized = true, unwrap(expression)))
+    };
+    return promise;
+};
+const thenMethod = (expression)=>{
+    let result = deferred(expression);
+    return (onfullfilled, onrejected)=>tryCatchAsync(result, [
+            onfullfilled,
+            onrejected
+        ]);
+};
+const tryCatchAsync = async (expression, errorHandler = true, always)=>{
+    try {
+        const result = await unwrap(expression);
+        return isArray(errorHandler) ? errorHandler[0]?.(result) : result;
+    } catch (e) {
+        if (!isBoolean(errorHandler)) {
+            if (isArray(errorHandler)) {
+                if (!errorHandler[1]) throw e;
+                return errorHandler[1](e);
+            }
+            const error = await errorHandler?.(e);
+            if (error instanceof Error) throw error;
+            return error;
+        } else if (errorHandler) {
+            throw e;
+        } else {
+            // Boolean  means "swallow".
+            console.error(e);
+        }
+    } finally{
+        always?.();
+    }
+    return undefined;
+};
+
+/** Minify friendly version of `false`. */ const undefined$1 = void 0;
 /** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
+/** Minify friendly version of `null`. */ const nil = null;
+/** A function that filters out values != null. */ const FILTER_NULLS = (item)=>item != nil;
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
-const isUndefined = (value)=>value === undefined$1;
-const isDefined = (value)=>value !== undefined$1;
-const ifDefined = (value, result)=>value !== undefined$1 ? result(value) : undefined$1;
+const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? value !== undefined$1 ? resultOrProperty(value) : undefined$1 : value?.[resultOrProperty] !== undefined$1 ? value : undefined$1;
+const isBoolean = (value)=>typeof value === "boolean";
 const isNumber = (value)=>typeof value === "number";
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
@@ -13,38 +64,45 @@ const isArray = Array.isArray;
  * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
  * - If the value is iterable, an array containing its values is returned
  * - Otherwise, an array with the value as its single item is returned.
- */ const toArray = (value, clone = false)=>isUndefined(value) ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
+ */ const array = (value, clone = false)=>value == null ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
         ...value
     ] : // ? toArrayAsync(value)
     [
         value
     ];
-const isObject = (value, acceptIterables = false)=>value != null && typeof value === "object" && (acceptIterables || !value[symbolIterator]);
+const isObject = (value)=>value !== null && typeof value === "object";
+const objectPrototype = Object.prototype;
+const getPrototypeOf = Object.getPrototypeOf;
+const isPlainObject = (value)=>value != null && getPrototypeOf(value) === objectPrototype;
 const isFunction = (value)=>typeof value === "function";
 const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
-const isAwaitable = (value)=>!!value?.then;
-
-const throwError = (error, transform = (message)=>new TypeError(message))=>{
-    throw isString(error = unwrap(error)) ? transform(error) : error;
-};
-const required = (value, error)=>value != null ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
+const isMap = (value)=>value instanceof Map;
+const isSet = (value)=>value instanceof Set;
 
 let stopInvoked = false;
+const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
 function* createFilteringIterator(source, projection) {
-    if (!source) return;
-    let i = 0;
-    for (let item of source){
-        projection && (item = projection(item, i++));
-        if (item !== undefined$1) {
-            yield item;
+    if (source == null) return;
+    if (projection) {
+        projection = wrapProjection(projection);
+        let i = 0;
+        for (let item of source){
+            if ((item = projection(item, i++)) != null) {
+                yield item;
+            }
+            if (stopInvoked) {
+                stopInvoked = false;
+                break;
+            }
         }
-        if (stopInvoked) {
-            stopInvoked = false;
-            break;
+    } else {
+        for (let item of source){
+            if (item != null) yield item;
         }
     }
 }
 function* createObjectIterator(source, action) {
+    action = wrapProjection(action);
     let i = 0;
     for(const key in source){
         let value = [
@@ -52,7 +110,7 @@ function* createObjectIterator(source, action) {
             source[key]
         ];
         action && (value = action(value, i++));
-        if (value !== undefined$1) {
+        if (value != null) {
             yield value;
         }
         if (stopInvoked) {
@@ -61,61 +119,67 @@ function* createObjectIterator(source, action) {
         }
     }
 }
-function* createRangeIterator(length = 0, offset = 0) {
-    while(length--)yield offset++;
+function* createRangeIterator(length = 0, offset) {
+    if (length < 0) {
+        offset ??= -length - 1;
+        while(length++)yield offset--;
+    } else {
+        offset ??= 0;
+        while(length--)yield offset++;
+    }
 }
 function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_INTEGER) {
-    if (isDefined(start)) yield start;
-    while(maxIterations-- && isDefined(start = step(start))){
+    if (start != null) yield start;
+    while(maxIterations-- && (start = step(start)) != null){
         yield start;
     }
 }
-const sliceAction = (action, start, end)=>(start ?? end) !== undefined$1 ? (start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
-const createIterator = (source, projection, start, end)=>source == null ? [] : source[symbolIterator] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : typeof source === "object" ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
-const project = (source, projection, start, end)=>isNumber(projection) ? createIterator(source, undefined$1, projection, start) : createIterator(source, projection, start, end);
+const sliceAction = (action, start, end)=>(start ?? end) !== undefined$1 ? (action = wrapProjection(action), start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
+/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array?.filter(FILTER_NULLS);
+const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
+const mapToArray = (projected, map)=>map && !isArray(projected) ? [
+        ...projected
+    ] : projected;
+const project = (source, projection, start, end)=>createIterator(source, projection, start, end);
 const map = (source, projection, start, end)=>{
+    projection = wrapProjection(projection);
     if (isArray(source)) {
         let i = 0;
         const mapped = [];
-        isNumber(projection) && ([projection, start, end] = [
-            undefined$1,
-            projection,
-            start
-        ]);
         start = start < 0 ? source.length + start : start ?? 0;
         end = end < 0 ? source.length + end : end ?? source.length;
         for(; start < end && !stopInvoked; start++){
             let value = source[start];
-            if (projection && value !== undefined$1) {
-                value = projection(value, i++);
-            }
-            if (value !== undefined$1) {
+            if ((projection ? value = projection(value, i++) : value) != null) {
                 mapped.push(value);
             }
         }
         stopInvoked = false;
         return mapped;
     }
-    return source !== undefined$1 ? toArray(project(source, projection, start, end)) : undefined$1;
+    return source != null ? array(project(source, projection, start, end)) : undefined$1;
 };
+const join = (source, projection, sep)=>source == null ? undefined$1 : isFunction(projection) ? map(isString(source) ? [
+        source
+    ] : source, projection)?.join(sep ?? "") : isString(source) ? source : map(source, (item)=>item === false ? undefined$1 : item)?.join(projection ?? "");
 const forEachArray = (source, action, start, end)=>{
     let returnValue;
     let i = 0;
     start = start < 0 ? source.length + start : start ?? 0;
     end = end < 0 ? source.length + end : end ?? source.length;
     for(; start < end; start++){
-        if (source[start] !== undefined$1 && (returnValue = action(source[start], i++) ?? returnValue, stopInvoked)) {
+        if (source[start] != null && (returnValue = action(source[start], i++) ?? returnValue, stopInvoked)) {
             stopInvoked = false;
             break;
         }
     }
     return returnValue;
 };
-const forEachItereable = (source, action)=>{
+const forEachIterable = (source, action)=>{
     let returnValue;
     let i = 0;
     for (let value of source){
-        if (value !== undefined$1 && (returnValue = action(value, i++) ?? returnValue, stopInvoked)) {
+        if (value != null && (returnValue = action(value, i++) ?? returnValue, stopInvoked)) {
             stopInvoked = false;
             break;
         }
@@ -140,23 +204,45 @@ const forEachInternal = (source, action, start, end)=>{
     if (source == null) return;
     if (isArray(source)) return forEachArray(source, action, start, end);
     if (start === undefined$1) {
-        if (source[symbolIterator]) return forEachItereable(source, action);
+        if (source[symbolIterator]) return forEachIterable(source, action);
         if (typeof source === "object") return forEachObject(source, action);
     }
     let returnValue;
     for (const value of createIterator(source, action, start, end)){
-        returnValue = value ?? returnValue;
+        value != null && (returnValue = value);
     }
     return returnValue;
 };
-const last = (source, predicate, start, end)=>!source ? undefined$1 : isArray(source) ? source[source.length - 1] : forEachInternal(source, (item, i)=>!predicate || predicate(item, i) ? item : undefined$1, start, end);
+const forEach = forEachInternal;
+const fromEntries = Object.fromEntries;
+/**
+ * Like Object.fromEntries, but accepts any iterable source and a projection instead of just key/value pairs.
+ * Properties with undefined values are not included in the resulting object.
+ */ const obj = (source, selector, merge)=>{
+    if (source == null) return undefined$1;
+    if (isBoolean(selector) || merge) {
+        let result = {};
+        forEach(source, merge ? (item, i)=>(item = selector(item, i)) != null && (item[1] = merge(result[item[0]], item[1])) != null && (result[item[0]] = item[1]) : (source)=>forEach(source, selector ? (item)=>item?.[1] != null && ((result[item[0]] ??= []).push(item[1]), result) : (item)=>item?.[1] != null && (result[item[0]] = item[1], result)));
+        return result;
+    }
+    return fromEntries(map(source, selector ? (item, index)=>ifDefined(selector(item, index), 1) : (item)=>ifDefined(item, 1)));
+};
+const filter = (source, predicate = (item)=>item != null, map = isArray(source), start, end)=>mapToArray(createIterator(source, (item, index)=>predicate(item, index) ? item : undefined$1, start, end), map);
+const entries = (target)=>!isArray(target) && isIterable(target) ? map(target, isMap(target) ? (value)=>value : isSet(target) ? (value)=>[
+            value,
+            true
+        ] : (value, index)=>[
+            index,
+            value
+        ]) : isObject(target) ? Object.entries(target) : undefined$1;
+const last = (source, predicate, start, end)=>source == null ? undefined$1 : isArray(source) ? source[source.length - 1] : forEachInternal(source, (item, i)=>!predicate || predicate(item, i) ? item : undefined$1, start, end);
 
 const define = (target, ...args)=>{
     const add = (arg, defaults)=>{
         if (!arg) return;
         let properties;
         if (isArray(arg)) {
-            if (isObject(arg[0])) {
+            if (isPlainObject(arg[0])) {
                 // Tuple with the first item the defaults and the next the definitions with those defaults,
                 // ([{enumerable: false, ...}, ...])
                 arg.splice(1).forEach((items)=>add(items, arg[0]));
@@ -173,7 +259,7 @@ const define = (target, ...args)=>{
                 enumerable: true,
                 writable: false,
                 ...defaults,
-                ...isObject(value) && ("get" in value || "value" in value) ? value : isFunction(value) && !value.length ? {
+                ...isPlainObject(value) && ("get" in value || "value" in value) ? value : isFunction(value) && !value.length ? {
                     get: value
                 } : {
                     value
@@ -183,13 +269,14 @@ const define = (target, ...args)=>{
     args.forEach((arg)=>add(arg));
     return target;
 };
-const unwrap = (value)=>isFunction(value) ? unwrap(value()) : isAwaitable(value) ? value.then((result)=>unwrap(result)) : value;
+const unwrap = (value)=>isFunction(value) ? value() : value;
 
 const conjunct = (values, conjunction = "and")=>ifDefined(values, (values)=>(values = isIterable(values) ? map(values, (value)=>value + "") : [
             values + ""
         ], values.length === 0 ? "" : values.length === 1 ? values[0] : `${values.slice(0, -1).join(", ")} ${conjunction} ${last(values)}`));
 const quote = (item)=>ifDefined(item, (item)=>isIterable(item) ? map(item, (item)=>"'" + item + "'") : "'" + item + "'");
 
+const isBit = (n)=>(n = Math.log2(n), n === (n | 0));
 const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
     const names = Object.fromEntries(Object.entries(sourceEnum).filter(([key, value])=>isString(key) && isNumber(value)).map(([key, value])=>[
             key.toLowerCase(),
@@ -197,27 +284,33 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
         ]));
     const entries = Object.entries(names);
     const values = Object.values(names);
-    const any = values.reduce((any, flag)=>any | flag, 0);
+    const any = names["any"] ?? values.reduce((any, flag)=>any | flag, 0);
     const nameLookup = flags ? {
         ...names,
         any,
         none: 0
     } : names;
-    const valueLookup = Object.fromEntries(entries.map(([key, value])=>[
+    const valueLookup = Object.fromEntries(Object.entries(nameLookup).map(([key, value])=>[
             value,
             key
         ]));
-    const parseValue = (value, validateNumbers)=>isString(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] : isNumber(value) ? !flags && validateNumbers ? isDefined(valueLookup[value]) ? value : undefined$1 : value : undefined$1;
+    const parseValue = (value, validateNumbers)=>isNumber(value) ? !flags && validateNumbers ? valueLookup[value] != null ? value : undefined$1 : value : isString(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] : undefined$1;
+    let invalid = false;
+    let carry;
+    let carry2;
     const [tryParse, lookup] = flags ? [
-        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>(flag = parseValue(flag, validateNumbers)) == null ? flags : (flags ?? 0) | flag, undefined$1) : parseValue(value),
-        (value, format)=>(value = tryParse(value, false)) == null ? undefined$1 : format && (value & any) === any ? "any" : (value = entries.filter(([, flag])=>value & flag).map(([name])=>name), format ? value.length ? value.length === 1 ? value[0] : value : "none" : value)
+        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>flag == null || invalid ? flags : (flag = parseValue(flag, validateNumbers)) == null ? (invalid = true, undefined$1) : (flags ?? 0) | flag, (invalid = false, undefined$1)) : parseValue(value),
+        (value, format)=>(value = tryParse(value, false)) == null ? undefined$1 : format && (carry2 = valueLookup[value & any]) ? (carry = lookup(value & ~(value & any), false)).length ? [
+                carry2,
+                ...carry
+            ] : carry2 : (value = entries.filter(([, flag])=>flag && value & flag && isBit(flag)).map(([name])=>name), format ? value.length ? value.length === 1 ? value[0] : value : "none" : value)
     ] : [
         parseValue,
         (value)=>(value = parseValue(value)) != null ? valueLookup[value] : undefined$1
     ];
     let originalValue;
     const parse = (value, validateNumbers)=>value == null ? undefined$1 : (value = tryParse(originalValue = value, validateNumbers)) == null ? throwError(new TypeError(`${JSON.stringify(originalValue)} is not a valid ${enumName} value.`)) : value;
-    const pure = entries.filter(([, value])=>!pureFlags || pureFlags & value);
+    const pure = entries.filter(([, value])=>!pureFlags || (pureFlags & value) === value && isBit(value));
     return define((value)=>parse(value), [
         {
             configurable: false,
@@ -238,6 +331,19 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
             map: (flags, map)=>(flags = parse(flags), pure.filter(([, flag])=>flag & flags).map(map ?? (([, flag])=>flag)))
         }
     ]);
+};
+/**
+ * Creates a function that parses the specified enum properties to their numeric values on the object provided.
+ * Note that it does the parsing directly on the provided object and does not create a copy.
+ */ const createEnumPropertyParser = (...props)=>{
+    const parsers = entries(obj(props, true));
+    const parse = (source)=>(isObject(source) && (isArray(source) ? source.forEach((sourceItem, i)=>source[i] = parse(sourceItem)) : parsers.forEach(([prop, parsers])=>{
+            let parsed = undefined$1;
+            let value;
+            if ((value = source[prop]) == null) return;
+            parsers.length === 1 ? source[prop] = parsers[0].parse(value) : parsers.forEach((parser, i)=>!parsed && (parsed = i === parsers.length - 1 ? parser.parse(value) : parser.tryParse(value)) != null && (source[prop] = parsed));
+        })), source);
+    return parse;
 };
 
 var DataClassification;
@@ -291,7 +397,6 @@ var DataClassification;
    */ DataClassification[DataClassification["Sensitive"] = 3] = "Sensitive";
 })(DataClassification || (DataClassification = {}));
 const dataClassification = createEnumAccessor(DataClassification, false, "data classification");
- //const x: DataClassificationValue = "anonymous"
 
 var DataPurposeFlags;
 (function(DataPurposeFlags) {
@@ -307,7 +412,7 @@ var DataPurposeFlags;
    * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
    *
    * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
+   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
    * also be distributed across multiple domain names.
    *
    */ DataPurposeFlags[DataPurposeFlags["Functionality"] = 2] = "Functionality";
@@ -319,7 +424,7 @@ var DataPurposeFlags;
    * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
    *
    * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
+   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
    * also be distributed across multiple domain names.
    *
    */ DataPurposeFlags[DataPurposeFlags["Performance"] = 4] = "Performance";
@@ -329,7 +434,7 @@ var DataPurposeFlags;
    *
    * If the data is only used for different website and apps that relate to the same product or service, it might not be necessary
    * to use this category.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
+   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
    * also be distributed across multiple domain names.
    */ DataPurposeFlags[DataPurposeFlags["Targeting"] = 8] = "Targeting";
     /**
@@ -350,47 +455,64 @@ var DataPurposeFlags;
     /**
    * Data can be used for any purpose.
    */ DataPurposeFlags[DataPurposeFlags["Any"] = 63] = "Any";
+    /**
+   * The data is not available client-side.
+   * Note that this is a special flag that is not included in "Any"
+   */ DataPurposeFlags[DataPurposeFlags["Server"] = 64] = "Server";
 })(DataPurposeFlags || (DataPurposeFlags = {}));
-const purePurposes = 1 | 2 | 4 | 8 | 16 | 32;
+const purePurposes = 1 | 2 | 4 | 8 | 16 | 32 | 64;
 const dataPurposes = createEnumAccessor(DataPurposeFlags, true, "data purpose", purePurposes);
-const singleDataPurpose = createEnumAccessor(DataPurposeFlags, false, "data purpose");
+const singleDataPurpose = createEnumAccessor(DataPurposeFlags, false, "data purpose", 0);
 
 const NoConsent = Object.freeze({
-    level: DataClassification.Anonymous,
-    purposes: DataPurposeFlags.Anonymous
+    level: "anonymous",
+    purposes: "anonymous"
 });
 const FullConsent = Object.freeze({
-    level: DataClassification.Sensitive,
-    purposes: DataPurposeFlags.Any
+    level: "sensitive",
+    purposes: "any"
 });
 const isUserConsent = (value)=>!!value?.["level"];
 const validateConsent = (source, consent, defaultClassification)=>{
     if (!source) return undefined;
-    const classification = dataClassification.parse(source.classification, false) ?? required(dataClassification(defaultClassification?.classification), "The source has not defined a data classification and no default was provided.");
+    const classification = dataClassification.parse(source?.classification ?? source?.level, false) ?? required(dataClassification(defaultClassification?.classification), "The source has not defined a data classification and no default was provided.");
     let purposes = dataPurposes.parse(source.purposes, false) ?? required(dataPurposes.parse(defaultClassification?.purposes, false), "The source has not defined data purposes and no default was provided.");
-    return source && classification <= dataClassification.parse(consent["classification"] ?? consent["level"], false) && (purposes & // No matter what is defined in the consent, it will always include the "anonymous" purposes.
-    (dataPurposes.parse(consent.purposes, false) | DataPurposeFlags.Anonymous)) > 0;
+    const consentClassification = dataClassification.parse(consent["classification"] ?? consent["level"], false);
+    const consentPurposes = dataPurposes.parse(consent.purposes, false);
+    if (purposes & DataPurposeFlags.Server && !(consentPurposes & DataPurposeFlags.Server)) {
+        return false;
+    }
+    return source && classification <= consentClassification && (purposes & // No matter what is defined in the consent, it will always include the "anonymous" purposes.
+    (consentPurposes | DataPurposeFlags.Anonymous)) > 0;
 };
+
+let metadata;
+const clearMetadata = (event, client)=>((metadata = event?.metadata) && (client ? (delete metadata.posted, delete metadata.queued, !Object.entries(metadata).length && delete event.metadata) : delete event.metadata), event);
 
 var VariableScope;
 (function(VariableScope) {
     /** Global variables. */ VariableScope[VariableScope["Global"] = 0] = "Global";
-    /** Variables related to sessions. */ VariableScope[VariableScope["Session"] = 1] = "Session";
-    /** Variables related to a device (browser or app). */ VariableScope[VariableScope["Device"] = 2] = "Device";
-    /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 3] = "User";
     /**
    * Variables related to an external identity.
    * One use case could be used to augment data a CMS with real-time data related to personalization or testing.
-   */ VariableScope[VariableScope["Entity"] = 4] = "Entity";
+   */ VariableScope[VariableScope["Entity"] = 1] = "Entity";
+    /** Variables related to sessions. */ VariableScope[VariableScope["Session"] = 2] = "Session";
+    /** Variables related to a device (browser or app). */ VariableScope[VariableScope["Device"] = 3] = "Device";
+    /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 4] = "User";
 })(VariableScope || (VariableScope = {}));
 const variableScope = createEnumAccessor(VariableScope, false, "variable scope");
+/** Dummy function to contain variables and variable results to locally scoped targets. */ const restrictTargets = (value)=>value;
+const Necessary = {
+    classification: DataClassification.Anonymous,
+    purposes: DataPurposeFlags.Necessary
+};
 /** Returns a description of a key that can be used for logging and error messages.  */ const formatKey = (key)=>`'${key.key}' in ${variableScope.format(key.scope)} scope`;
 const stripPrefix = (key)=>key && {
         ...key,
         key: parseKey(key.key).key
     };
 /** Returns the individual parts of a key specified as a string.  */ const parseKey = (sourceKey)=>{
-    if (isUndefined(sourceKey)) return undefined;
+    if (sourceKey == null) return undefined;
     const not = sourceKey[0] === "!";
     if (not) {
         sourceKey = sourceKey.slice(1);
@@ -405,42 +527,33 @@ const stripPrefix = (key)=>key && {
         not
     };
 };
-const enumProperties = [
-    [
-        "scope",
-        variableScope
-    ],
-    [
-        "purpose",
-        singleDataPurpose
-    ],
-    [
-        "purposes",
-        dataPurposes
-    ],
-    [
-        "classification",
-        dataClassification
-    ]
-];
-const toNumericVariable = (value)=>{
-    if (!value) return value;
-    enumProperties.forEach(([prop, helper])=>value[prop] = helper.parse(value[prop]));
-    return value;
+const VariableEnumProperties = {
+    scope: variableScope,
+    purpose: singleDataPurpose,
+    purposes: dataPurposes,
+    classification: dataClassification
 };
-
-const getResultVariable = (result)=>result?.status < 400 ? result.current ?? result : undefined;
+const toNumericVariableEnums = createEnumPropertyParser(VariableEnumProperties);
+const extractKey = (variable, classificationSource)=>variable ? {
+        scope: variableScope(variable.scope),
+        targetId: variable.targetId,
+        key: variable.key,
+        ...classificationSource && {
+            classification: dataClassification(classificationSource.classification),
+            purposes: dataPurposes(classificationSource.purposes)
+        }
+    } : undefined;
 
 var VariableResultStatus;
 (function(VariableResultStatus) {
     VariableResultStatus[VariableResultStatus["Success"] = 200] = "Success";
     VariableResultStatus[VariableResultStatus["Created"] = 201] = "Created";
     VariableResultStatus[VariableResultStatus["Unchanged"] = 304] = "Unchanged";
+    VariableResultStatus[VariableResultStatus["Denied"] = 403] = "Denied";
+    VariableResultStatus[VariableResultStatus["NotFound"] = 404] = "NotFound";
+    VariableResultStatus[VariableResultStatus["ReadOnly"] = 405] = "ReadOnly";
     VariableResultStatus[VariableResultStatus["Conflict"] = 409] = "Conflict";
     VariableResultStatus[VariableResultStatus["Unsupported"] = 501] = "Unsupported";
-    VariableResultStatus[VariableResultStatus["Denied"] = 403] = "Denied";
-    VariableResultStatus[VariableResultStatus["ReadOnly"] = 405] = "ReadOnly";
-    VariableResultStatus[VariableResultStatus["NotFound"] = 404] = "NotFound";
     VariableResultStatus[VariableResultStatus["Invalid"] = 400] = "Invalid";
     VariableResultStatus[VariableResultStatus["Error"] = 500] = "Error";
 })(VariableResultStatus || (VariableResultStatus = {}));
@@ -456,91 +569,96 @@ var VariablePatchType;
 const patchType = createEnumAccessor(VariablePatchType, false, "variable patch type");
 const isVariablePatch = (setter)=>!!setter?.["patch"];
 const isVariablePatchAction = (setter)=>isFunction(setter["patch"]);
-const isScoped = (value)=>isDefined(value?.scope);
-const handleResultErrors = (result, throwErrors)=>{
-    if ((throwErrors?.throw ?? throwErrors) === false) {
-        return result;
-    }
-    if (isArray(result)) {
-        result.forEach(handleResultErrors);
-        return result;
-    }
-    return result.status < 400 || result.status === 404 // Not found can only occur for get requests, and those are all right.
-     ? result : throwError(`${formatKey(result.source ?? result)} could not be ${result.source || result.status !== 500 ? "set" : "read"} because ${result.status === 409 ? `of a conflict. The expected version '${result.source.version}' did not match the current version '${result.current?.version}'.` : result.status === 403 ? result.error ?? "the operation was denied." : result.status === 400 ? result.error ?? "the value does not conform to the schema" : result.status === 405 ? "it is read only." : result.status === 500 ? `of an unexpected error: ${result.error}` : "of an unknown reason."}`);
+
+const isPostResponse = (response)=>!!response?.variables;
+
+const toVariableResultPromise = (results, errorHandlers, push)=>{
+    let mapResults = (results)=>results;
+    let unwrappedResults;
+    const property = (map, errorHandler = handleResultErrors)=>deferredPromise(async ()=>(unwrappedResults = mapResults(errorHandler(await results(), errorHandlers))) && map(unwrappedResults));
+    const promise = {
+        then: property((items)=>items).then,
+        all: property((items)=>items, (items)=>items),
+        changed: property((items)=>filter(items, (item)=>item.status < 300)),
+        variables: property((items)=>map(items, getResultVariable)),
+        values: property((items)=>map(items, (item)=>getResultVariable(item)?.value)),
+        push: ()=>(mapResults = (results)=>(push?.(map(getSuccessResults(results))), results), promise),
+        value: property((items)=>getResultVariable(items[0])?.value),
+        variable: property((items)=>getResultVariable(items[0])),
+        result: property((items)=>items[0])
+    };
+    return promise;
 };
-
-const typeTest = (...types)=>(ev)=>ev?.type && types.some((type)=>type === ev?.type);
-
-const isFormEvent = typeTest("FORM");
-
-const isComponentClickEvent = typeTest("COMPONENT_CLICK");
-
-const isComponentViewEent = typeTest("COMPONENT_VIEW");
-
-const isNavigationEvent = typeTest("NAVIGATION");
-
-const isScrollEvent = typeTest("SCROLL");
-
-const isSearchEvent = typeTest("SEARCH");
-
-const isSessionStartedEvent = typeTest("SESSION_STARTED");
+const getSuccessResults = (results)=>results?.map((result)=>result?.status < 400 ? result : undefined$1);
+const getResultKey = (result)=>result?.source?.key != null ? result.source : result?.key != null ? result : undefined$1;
+const getResultVariable = (result)=>result?.status < 400 ? result?.current ?? result : undefined$1; // This included 404 for getters.
+const isSuccessResult = (result)=>result?.status < 400 || result?.status === 404;
+const handleResultErrors = (results, errorHandlers, requireValue)=>{
+    const errors = [];
+    let errorHandler;
+    let errorMessage;
+    const successResults = map(array(results), (result, i)=>result && (result.status < 400 || !requireValue && result.status === 404 // Not found can only occur for get requests, and those are all right.
+         ? result : (errorMessage = `${formatKey(result.source ?? result)} could not be ${result.status === 404 ? "found." : `${result.source || result.status !== VariableResultStatus.Error ? "set" : "read"} because ${result.status === VariableResultStatus.Conflict ? `of a conflict. The expected version '${result.source?.version}' did not match the current version '${result.current?.version}'.` : result.status === VariableResultStatus.Denied ? result.error ?? "the operation was denied." : result.status === VariableResultStatus.Invalid ? result.error ?? "the value does not conform to the schema" : result.status === VariableResultStatus.ReadOnly ? "it is read only." : result.status === VariableResultStatus.Error ? `of an unexpected error: ${result.error}` : "of an unknown reason."}`}`, ((errorHandler = errorHandlers?.[i]) == null || errorHandler(result, errorMessage) !== false) && errors.push(errorMessage), undefined$1)));
+    if (errors.length) return throwError(errors.join("\n"));
+    return isArray(results) ? successResults : successResults?.[0];
+};
+const requireFound = (variable)=>handleResultErrors(variable, undefined$1, true);
 
 const isTrackedEvent = (ev)=>ev && typeof ev.type === "string";
 
-const isUserAgentEvent = typeTest("USER_AGENT");
+const isPassiveEvent = (value)=>!!(value?.metadata?.passive || value?.patchTargetId);
 
-const isViewEvent = typeTest("VIEW");
+const typeTest = (...types)=>(ev)=>ev?.type && types.some((type)=>type === ev?.type);
 
-const isViewEndedEvent = typeTest("VIEW_ENDED");
+const isFormEvent = typeTest("form");
 
-const isClientLocationEvent = typeTest("SESSION_LOCATION");
+const isComponentClickEvent = typeTest("component_click");
 
-const isAnchorEvent = typeTest("ANCHOR_NAVIGATION");
+const isComponentViewEvent = typeTest("component_view");
 
-const isConsentEvent = typeTest("CONSENT");
+const isNavigationEvent = typeTest("navigation");
 
-const isCartEvent = typeTest("CART_UPDATED");
+const isScrollEvent = typeTest("scroll");
 
-const isOrderEvent = typeTest("ORDER");
+const isSearchEvent = typeTest("search");
 
-const isCartAbandonedEvent = typeTest("CART_ABANDONED");
+const isSessionStartedEvent = typeTest("session_started");
 
-const isOrderCancelledEvent = typeTest("ORDER_CANCELLED");
-const isOrderCompletedEvent = typeTest("ORDER_COMPLETED");
+const isUserAgentEvent = typeTest("user_agent");
 
-const isPaymentAcceptedEvent = typeTest("PAYMENT_ACCEPTED");
-const isPaymentRejectedEvent = typeTest("PAYMENT_REJECTED");
+const isViewEvent = typeTest("view");
 
-const isSignOutEvent = typeTest("SIGN_OUT");
-const isSignInEvent = typeTest("SIGN_IN");
+const isClientLocationEvent = typeTest("session_location");
 
-const isHeartBeatEvent = typeTest("HEARTBEAT");
+const isAnchorEvent = typeTest("anchor_navigation");
 
-const isImpressionEvent = typeTest("IMPRESSION");
+const isConsentEvent = typeTest("consent");
 
-const isResetEvent = typeTest("RESET");
+const isCartEvent = typeTest("cart_updated");
 
-function transformLocalIds(ev, transform) {
-    ev = {
-        ...ev
-    };
-    assign(ev, "id");
-    assign(ev, "view");
-    assign(ev, "related");
-    return ev;
-    function assign(target, property) {
-        if (target?.[property]) {
-            target[property] = transform(target[property]) || target[property];
-        }
-    }
-}
+const isOrderEvent = typeTest("order");
+
+const isCartAbandonedEvent = typeTest("cart_abandoned");
+
+const isOrderCancelledEvent = typeTest("order_cancelled");
+const isOrderCompletedEvent = typeTest("order_completed");
+
+const isPaymentAcceptedEvent = typeTest("payment_accepted");
+const isPaymentRejectedEvent = typeTest("payment_rejected");
+
+const isSignOutEvent = typeTest("sign_out");
+const isSignInEvent = typeTest("sign_in");
+
+const isImpressionEvent = typeTest("impression");
+
+const isResetEvent = typeTest("reset");
 
 const splitRanks = (ranks)=>ranks?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g, "_").split(":").filter((rank)=>rank) ?? [];
 /**
  * Parses the tags out of a string
  */ const parseTagString = (input, baseRank, target)=>{
     if (!input) return [];
-    if (Array.isArray(input)) input = input.join(",");
+    if (Array.isArray(input)) input = join(input, ",");
     // We have an unescaped percentage sign followed by an uppercase two-digit hexadecimal number. Smells like URI encoding!
     if (/(?<!(?<!\\)\\)%[A-Z0-9]{2}/.test(input)) {
         try {
@@ -590,11 +708,6 @@ const splitRanks = (ranks)=>ranks?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g, "_"
 };
 const encodeTag = (tag)=>tag == null ? tag : `${tag.ranks.join(":")}${tag.value ? `=${tag.value.replace(/,/g, "\\,")}` : ""}`;
 
-/**
- *  No-op function to validate event types in TypeScript. Because function parameters are contravariant, passing an event that does not match on all properties will get red wiggly lines)
- *
- */ const cast = (item)=>item;
-
 const SchemaSystemTypes = Object.freeze({
     Event: "urn:tailjs:core:event"
 });
@@ -613,12 +726,12 @@ const parsePrivacyTokens = (tokens, classification = {})=>{
             return;
         }
         let parsed = dataPurposes.tryParse(keyword) ?? dataPurposes.tryParse(keyword.replace(/\-purpose$/g, ""));
-        if (isDefined(parsed)) {
+        if (parsed != null) {
             classification.purposes = (classification.purposes ?? 0) | parsed;
             return;
         }
         parsed = dataClassification.tryParse(keyword) ?? dataClassification.tryParse(keyword.replace(/^personal-/g, ""));
-        if (isDefined(parsed)) {
+        if (parsed != null) {
             if (classification.classification && parsed !== classification.classification) {
                 throwError(`The data classification '${dataClassification.format(classification.classification)}' has already been specified and conflicts with the classification'${dataClassification.format(parsed)} inferred from the description.`);
             }
@@ -631,11 +744,11 @@ const parsePrivacyTokens = (tokens, classification = {})=>{
 };
 const getPrivacyAnnotations = (classification)=>{
     const attrs = {};
-    isDefined(classification.classification) && (attrs[SchemaAnnotations.Classification] = dataClassification.format(classification.classification));
+    classification.classification != null && (attrs[SchemaAnnotations.Classification] = dataClassification.format(classification.classification));
     let purposes = dataPurposes.format(classification.purposes);
-    isDefined(purposes) && (attrs[isString(purposes) ? SchemaAnnotations.Purpose : SchemaAnnotations.Purposes] = purposes);
-    isDefined(classification.censorIgnore) && (attrs[SchemaAnnotations.Censor] = classification.censorIgnore ? "ignore" : "include");
+    purposes != null && (attrs[isString(purposes) ? SchemaAnnotations.Purpose : SchemaAnnotations.Purposes] = purposes);
+    classification.censorIgnore != null && (attrs[SchemaAnnotations.Censor] = classification.censorIgnore ? "ignore" : "include");
     return attrs;
 };
 
-export { DataClassification, DataPurposeFlags, FullConsent, NoConsent, SchemaAnnotations, SchemaSystemTypes, VariablePatchType, VariableResultStatus, VariableScope, cast, dataClassification, dataPurposes, encodeTag, formatKey, getPrivacyAnnotations, getResultVariable, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEent, isConsentEvent, isFormEvent, isHeartBeatEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isResetEvent, isScoped, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isTrackedEvent, isUserAgentEvent, isUserConsent, isVariablePatch, isVariablePatchAction, isViewEndedEvent, isViewEvent, parseKey, parsePrivacyTokens, parseTagString, patchType, resultStatus, singleDataPurpose, stripPrefix, toNumericVariable, transformLocalIds, validateConsent, variableScope };
+export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, SchemaAnnotations, SchemaSystemTypes, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, encodeTag, extractKey, formatKey, getPrivacyAnnotations, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isUserAgentEvent, isUserConsent, isVariablePatch, isVariablePatchAction, isViewEvent, parseKey, parsePrivacyTokens, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };

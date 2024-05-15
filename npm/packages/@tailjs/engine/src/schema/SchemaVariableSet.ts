@@ -1,5 +1,5 @@
 import {
-  UserConsent,
+  ParsableConsent,
   VariableKey,
   formatKey,
   validateConsent,
@@ -13,13 +13,7 @@ import {
   throwError,
   tryCatch,
 } from "@tailjs/util";
-import {
-  Schema,
-  SchemaClassification,
-  SchemaManager,
-  SchemaVariable,
-  VariableMap,
-} from "..";
+import { Schema, SchemaManager, SchemaVariable, VariableMap } from "..";
 
 export class SchemaVariableSet {
   private _variables: VariableMap<SchemaVariable>;
@@ -77,7 +71,7 @@ export class SchemaVariableSet {
   public censor<T>(
     key: VariableKey,
     value: T,
-    consent: SchemaClassification | UserConsent,
+    consent: ParsableConsent,
     validate = true
   ): T | undefined {
     return ifDefined(

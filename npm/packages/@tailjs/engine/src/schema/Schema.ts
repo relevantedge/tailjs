@@ -1,11 +1,15 @@
 import {
   DataClassificationValue,
   DataPurposeValue,
-  UserConsent,
+  ParsableConsent,
   VariableScope,
 } from "@tailjs/types";
 import { ExpandTypes } from "@tailjs/util";
 import { VariableMap } from "..";
+
+export type ClassificationOrConsent =
+  | SchemaClassification
+  | { level: DataClassificationValue; purposes: DataPurposeValue };
 
 export interface SchemaClassification<NumericEnums extends boolean = boolean> {
   classification: DataClassificationValue<NumericEnums>;
@@ -43,10 +47,7 @@ export interface Schema extends SchemaEntity {
 export interface ValidatableSchemaEntity<T = any> extends SchemaEntity {
   validate(value: T): T;
   tryValidate(value: T | undefined): T | undefined;
-  censor: (
-    value: T,
-    consent: SchemaClassification | UserConsent
-  ) => T | undefined;
+  censor: (value: T, consent: ParsableConsent) => T | undefined;
 }
 
 export interface SchemaType<T = any> extends ValidatableSchemaEntity<T> {

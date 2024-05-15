@@ -1,7 +1,9 @@
-const throwError = (error, transform = (message)=>new TypeError(message))=>{
-    throw isString$1(error = unwrap(error)) ? transform(error) : error;
+import { isConsentEvent, dataClassification, dataPurposes, isResetEvent, isUserAgentEvent, isViewEvent, isSignInEvent, isSignOutEvent, isOrderEvent, isCartEvent, toNumericVariableEnums, patchType, VariablePatchType, isPassiveEvent, VariableScope, DataClassification, DataPurposeFlags, variableScope, requireFound, restrictTargets, Necessary, VariableResultStatus, toVariableResultPromise, isSuccessResult, extractKey, parseKey, formatKey, isVariablePatch, isVariablePatchAction, stripPrefix, validateConsent, getResultVariable, SchemaAnnotations, parsePrivacyTokens, getPrivacyAnnotations, SchemaSystemTypes } from '@tailjs/types';
+
+const throwError$1 = (error, transform = (message)=>new TypeError(message))=>{
+    throw isString$2(error = unwrap$1(error)) ? transform(error) : error;
 };
-const validate$1 = (value, validate, validationError, undefinedError)=>(isArray$4(validate) ? validate.every((test)=>test(value)) : isFunction(validate) ? validate(value) : validate) ? value : required$2(value, undefinedError ?? validationError) && throwError(validationError ?? "Validation failed.");
+const validate$1 = (value, validate, validationError, undefinedError)=>(isArray$5(validate) ? validate.every((test)=>test(value)) : isFunction$1(validate) ? validate(value) : validate) ? value : required$2(value, undefinedError ?? validationError) && throwError$1(validationError ?? "Validation failed.");
 class InvariantViolatedError extends Error {
     constructor(invariant){
         super(invariant ? "INV: " + invariant : "An invariant was violated.");
@@ -10,22 +12,22 @@ class InvariantViolatedError extends Error {
 /**
  * States an invariant.
  */ const invariant = (test, description)=>{
-    const valid = unwrap(test);
-    return valid != null && valid !== false ? valid : throwError(new InvariantViolatedError(description));
+    const valid = unwrap$1(test);
+    return valid != null && valid !== false ? valid : throwError$1(new InvariantViolatedError(description));
 };
-const required$2 = (value, error)=>value != null ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
-const tryCatch = (expression, errorHandler = true, always)=>{
+const required$2 = (value, error)=>value != null ? value : throwError$1(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
+const tryCatch$1 = (expression, errorHandler = true, always)=>{
     try {
         return expression();
     } catch (e) {
-        return isFunction(errorHandler) ? isError$1(e = errorHandler(e)) ? throwError(e) : e : isBoolean$1(errorHandler) ? console.error(errorHandler ? throwError(e) : e) : errorHandler;
+        return isFunction$1(errorHandler) ? isError$2(e = errorHandler(e)) ? throwError$1(e) : e : isBoolean$2(errorHandler) ? console.error(errorHandler ? throwError$1(e) : e) : errorHandler;
     } finally{
         always?.();
     }
 };
 /** A value that is initialized lazily on-demand. */ const deferred = (expression)=>{
     let result = undefined;
-    return ()=>result ??= unwrap(expression);
+    return ()=>result ??= unwrap$1(expression);
 };
 /**
  * A promise that is initialized lazily on-demand.
@@ -33,7 +35,7 @@ const tryCatch = (expression, errorHandler = true, always)=>{
  */ const deferredPromise = (expression)=>{
     let promise = {
         initialized: true,
-        then: thenMethod(()=>(promise.initialized = true, unwrap(expression)))
+        then: thenMethod(()=>(promise.initialized = true, unwrap$1(expression)))
     };
     return promise;
 };
@@ -46,11 +48,11 @@ const thenMethod = (expression)=>{
 };
 const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     try {
-        const result = await unwrap(expression);
-        return isArray$4(errorHandler) ? errorHandler[0]?.(result) : result;
+        const result = await unwrap$1(expression);
+        return isArray$5(errorHandler) ? errorHandler[0]?.(result) : result;
     } catch (e) {
-        if (!isBoolean$1(errorHandler)) {
-            if (isArray$4(errorHandler)) {
+        if (!isBoolean$2(errorHandler)) {
+            if (isArray$5(errorHandler)) {
                 if (!errorHandler[1]) throw e;
                 return errorHandler[1](e);
             }
@@ -68,59 +70,52 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     }
     return undefined;
 };
-
-/** Minify friendly version of `false`. */ const undefined$2 = void 0;
-/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
+/** Minify friendly version of `false`. */ const undefined$1$2 = void 0;
+/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER$1 = Number.MAX_SAFE_INTEGER;
 /** Minify friendly version of `false`. */ const F = false;
 /** Minify friendly version of `true`. */ const T = true;
-/** Minify friendly version of `null`. */ const nil = null;
-/** A function that filters out values != null. */ const FILTER_NULLS = (item)=>item != nil;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
-const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? value !== undefined$2 ? resultOrProperty(value) : undefined$2 : value?.[resultOrProperty] !== undefined$2 ? value : undefined$2;
-const isBoolean$1 = (value)=>typeof value === "boolean";
+/** Minify friendly version of `null`. */ const nil$1 = null;
+/** A function that filters out values != null. */ const FILTER_NULLS$1 = (item)=>item != nil$1;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator$1 = Symbol.iterator;
+const ifDefined = (value, resultOrProperty)=>isFunction$1(resultOrProperty) ? value !== undefined$1$2 ? resultOrProperty(value) : undefined$1$2 : value?.[resultOrProperty] !== undefined$1$2 ? value : undefined$1$2;
+const isBoolean$2 = (value)=>typeof value === "boolean";
 const isTruish = (value)=>!!value;
 const isInteger = Number.isSafeInteger;
-const isNumber$1 = (value)=>typeof value === "number";
-const isString$1 = (value)=>typeof value === "string";
-const isArray$4 = Array.isArray;
-const isError$1 = (value)=>value instanceof Error;
+const isNumber$2 = (value)=>typeof value === "number";
+const isString$2 = (value)=>typeof value === "string";
+const isArray$5 = Array.isArray;
+const isError$2 = (value)=>value instanceof Error;
 /**
  * Returns the value as an array following these rules:
  * - If the value is undefined (this does not include `null`), so is the return value.
  * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
  * - If the value is iterable, an array containing its values is returned
  * - Otherwise, an array with the value as its single item is returned.
- */ const array = (value, clone = false)=>value == null ? undefined$2 : !clone && isArray$4(value) ? value : isIterable(value) ? [
+ */ const array$1 = (value, clone = false)=>value == null ? undefined$1$2 : !clone && isArray$5(value) ? value : isIterable$1(value) ? [
         ...value
-    ] : // ? toArrayAsync(value)
-    [
+    ] : [
         value
     ];
-const isObject = (value)=>typeof value === "object";
-const objectPrototype = Object.prototype;
-const getPrototypeOf = Object.getPrototypeOf;
-const isPlainObject = (value)=>value != null && getPrototypeOf(value) === objectPrototype;
-const hasMethod = (value, name)=>typeof value?.[name] === "function";
-const isSymbol$1 = (value)=>typeof value === "symbol";
-const isFunction = (value)=>typeof value === "function";
-const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
-const isMap$1 = (value)=>value instanceof Map;
-const isSet$1 = (value)=>value instanceof Set;
-
-let stopInvoked = false;
-const stop = (yieldValue)=>(stopInvoked = true, yieldValue);
-const wrapProjection = (projection)=>projection == null ? undefined$2 : isFunction(projection) ? projection : (item)=>item[projection];
-function* createFilteringIterator(source, projection) {
+const isObject$1 = (value)=>value !== null && typeof value === "object";
+const objectPrototype$1 = Object.prototype;
+const getPrototypeOf$1 = Object.getPrototypeOf;
+const isPlainObject$1 = (value)=>value != null && getPrototypeOf$1(value) === objectPrototype$1;
+const isFunction$1 = (value)=>typeof value === "function";
+const isIterable$1 = (value, acceptStrings = false)=>!!(value?.[symbolIterator$1] && (typeof value === "object" || acceptStrings));
+let stopInvoked$1 = false;
+const stop = (yieldValue)=>(stopInvoked$1 = true, yieldValue);
+const wrapProjection$1 = (projection)=>projection == null ? undefined$1$2 : isFunction$1(projection) ? projection : (item)=>item[projection];
+function* createFilteringIterator$1(source, projection) {
     if (source == null) return;
     if (projection) {
-        projection = wrapProjection(projection);
+        projection = wrapProjection$1(projection);
         let i = 0;
         for (let item of source){
             if ((item = projection(item, i++)) != null) {
                 yield item;
             }
-            if (stopInvoked) {
-                stopInvoked = false;
+            if (stopInvoked$1) {
+                stopInvoked$1 = false;
                 break;
             }
         }
@@ -130,8 +125,8 @@ function* createFilteringIterator(source, projection) {
         }
     }
 }
-function* createObjectIterator(source, action) {
-    action = wrapProjection(action);
+function* createObjectIterator$1(source, action) {
+    action = wrapProjection$1(action);
     let i = 0;
     for(const key in source){
         let value = [
@@ -142,13 +137,13 @@ function* createObjectIterator(source, action) {
         if (value != null) {
             yield value;
         }
-        if (stopInvoked) {
-            stopInvoked = false;
+        if (stopInvoked$1) {
+            stopInvoked$1 = false;
             break;
         }
     }
 }
-function* createRangeIterator(length = 0, offset) {
+function* createRangeIterator$1(length = 0, offset) {
     if (length < 0) {
         offset ??= -length - 1;
         while(length++)yield offset--;
@@ -157,62 +152,62 @@ function* createRangeIterator(length = 0, offset) {
         while(length--)yield offset++;
     }
 }
-function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_INTEGER) {
+function* createNavigatingIterator$1(step, start, maxIterations = Number.MAX_SAFE_INTEGER) {
     if (start != null) yield start;
     while(maxIterations-- && (start = step(start)) != null){
         yield start;
     }
 }
-const sliceAction = (action, start, end)=>(start ?? end) !== undefined$2 ? (action = wrapProjection(action), start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$2 : end-- ? action ? action(value, index) : value : end) : action;
-/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array?.filter(FILTER_NULLS);
-const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray$4(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$2 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
-const mapToArray = (projected, map)=>map && !isArray$4(projected) ? [
+const sliceAction$1 = (action, start, end)=>(start ?? end) !== undefined$1$2 ? (action = wrapProjection$1(action), start ??= 0, end ??= MAX_SAFE_INTEGER$1, (value, index)=>start-- ? undefined$1$2 : end-- ? action ? action(value, index) : value : end) : action;
+/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray$1 = (array)=>array?.filter(FILTER_NULLS$1);
+const createIterator$1 = (source, projection, start, end)=>source == null ? [] : !projection && isArray$5(source) ? filterArray$1(source) : source[symbolIterator$1] ? createFilteringIterator$1(source, start === undefined$1$2 ? projection : sliceAction$1(projection, start, end)) : isObject$1(source) ? createObjectIterator$1(source, sliceAction$1(projection, start, end)) : createIterator$1(isFunction$1(source) ? createNavigatingIterator$1(source, start, end) : createRangeIterator$1(source, start), projection);
+const mapToArray = (projected, map)=>map && !isArray$5(projected) ? [
         ...projected
     ] : projected;
-const project = (source, projection, start, end)=>createIterator(source, projection, start, end);
-const map$1 = (source, projection, start, end)=>{
-    projection = wrapProjection(projection);
-    if (isArray$4(source)) {
+const project$1 = (source, projection, start, end)=>createIterator$1(source, projection, start, end);
+const map$2 = (source, projection, start, end)=>{
+    projection = wrapProjection$1(projection);
+    if (isArray$5(source)) {
         let i = 0;
         const mapped = [];
         start = start < 0 ? source.length + start : start ?? 0;
         end = end < 0 ? source.length + end : end ?? source.length;
-        for(; start < end && !stopInvoked; start++){
+        for(; start < end && !stopInvoked$1; start++){
             let value = source[start];
             if ((projection ? value = projection(value, i++) : value) != null) {
                 mapped.push(value);
             }
         }
-        stopInvoked = false;
+        stopInvoked$1 = false;
         return mapped;
     }
-    return source != null ? array(project(source, projection, start, end)) : undefined$2;
+    return source != null ? array$1(project$1(source, projection, start, end)) : undefined$1$2;
 };
 const distinct = (source, projection, start, end)=>source != null ? new Set([
-        ...project(source, projection, start, end)
-    ]) : undefined$2;
-const single = (source, projection, start, end)=>source == null ? undefined$2 : (source = mapDistinct(source, projection, start, end)).length > 1 ? undefined$2 : source[0];
+        ...project$1(source, projection, start, end)
+    ]) : undefined$1$2;
+const single = (source, projection, start, end)=>source == null ? undefined$1$2 : (source = mapDistinct(source, projection, start, end)).length > 1 ? undefined$1$2 : source[0];
 const mapDistinct = (source, projection, start, end)=>source != null ? [
         ...distinct(source, projection, start, end)
     ] : source;
 const traverseInternal = (root, selector, include, results, seen)=>{
-    if (isArray$4(root)) {
+    if (isArray$5(root)) {
         forEachInternal(root, (item)=>traverseInternal(item, selector, include, results, seen));
         return results;
     }
     if (!root || !add(seen, root)) {
-        return undefined$2;
+        return undefined$1$2;
     }
     include && results.push(root);
     forEachInternal(selector(root), (item)=>traverseInternal(item, selector, true, results, seen));
     return results;
 };
-const join = (source, projection, sep)=>source == null ? undefined$2 : isFunction(projection) ? map$1(isString$1(source) ? [
+const join = (source, projection, sep)=>source == null ? undefined$1$2 : isFunction$1(projection) ? map$2(isString$2(source) ? [
         source
-    ] : source, projection)?.join(sep ?? "") : isString$1(source) ? source : map$1(source, (item)=>item === false ? undefined$2 : item)?.join(projection ?? "");
+    ] : source, projection)?.join(sep ?? "") : isString$2(source) ? source : map$2(source, (item)=>item === false ? undefined$1$2 : item)?.join(projection ?? "");
 const concat = (...items)=>{
     let merged;
-    forEach$1(items.length === 1 ? items[0] : items, (item)=>item != null && (merged ??= []).push(...array(item)));
+    forEach$1(items.length === 1 ? items[0] : items, (item)=>item != null && (merged ??= []).push(...array$1(item)));
     return merged;
 };
 const expand = (root, selector, includeSelf = true)=>traverseInternal(root, selector, includeSelf, [], new Set());
@@ -222,8 +217,8 @@ const forEachArray = (source, action, start, end)=>{
     start = start < 0 ? source.length + start : start ?? 0;
     end = end < 0 ? source.length + end : end ?? source.length;
     for(; start < end; start++){
-        if (source[start] != null && (returnValue = action(source[start], i++) ?? returnValue, stopInvoked)) {
-            stopInvoked = false;
+        if (source[start] != null && (returnValue = action(source[start], i++) ?? returnValue, stopInvoked$1)) {
+            stopInvoked$1 = false;
             break;
         }
     }
@@ -233,8 +228,8 @@ const forEachIterable = (source, action)=>{
     let returnValue;
     let i = 0;
     for (let value of source){
-        if (value != null && (returnValue = action(value, i++) ?? returnValue, stopInvoked)) {
-            stopInvoked = false;
+        if (value != null && (returnValue = action(value, i++) ?? returnValue, stopInvoked$1)) {
+            stopInvoked$1 = false;
             break;
         }
     }
@@ -247,8 +242,8 @@ const forEachObject = (source, action)=>{
         if (returnValue = action([
             key,
             source[key]
-        ], i++) ?? returnValue, stopInvoked) {
-            stopInvoked = false;
+        ], i++) ?? returnValue, stopInvoked$1) {
+            stopInvoked$1 = false;
             break;
         }
     }
@@ -256,23 +251,27 @@ const forEachObject = (source, action)=>{
 };
 const forEachInternal = (source, action, start, end)=>{
     if (source == null) return;
-    if (isArray$4(source)) return forEachArray(source, action, start, end);
-    if (start === undefined$2) {
-        if (source[symbolIterator]) return forEachIterable(source, action);
+    if (isArray$5(source)) return forEachArray(source, action, start, end);
+    if (start === undefined$1$2) {
+        if (source[symbolIterator$1]) return forEachIterable(source, action);
         if (typeof source === "object") return forEachObject(source, action);
     }
     let returnValue;
-    for (const value of createIterator(source, action, start, end)){
+    for (const value of createIterator$1(source, action, start, end)){
         value != null && (returnValue = value);
     }
     return returnValue;
 };
 const forEach$1 = forEachInternal;
 const forEachAsync = async (source, action, start, end)=>{
-    if (source == null) return undefined$2;
+    if (source == null) return undefined$1$2;
     let returnValue;
-    for (let item of project(source, action, start, end)){
+    for (let item of project$1(source, action, start, end)){
         (item = await item) != null && (returnValue = item);
+        if (stopInvoked$1) {
+            stopInvoked$1 = false;
+            break;
+        }
     }
     return returnValue;
 };
@@ -281,55 +280,25 @@ const fromEntries = Object.fromEntries;
  * Like Object.fromEntries, but accepts any iterable source and a projection instead of just key/value pairs.
  * Properties with undefined values are not included in the resulting object.
  */ const obj = (source, selector, merge)=>{
-    if (source == null) return undefined$2;
-    if (isBoolean$1(selector) || merge) {
+    if (source == null) return undefined$1$2;
+    if (isBoolean$2(selector) || merge) {
         let result = {};
-        forEach$1(source, merge ? (item, i)=>(item = selector(item, i)) != null && (item[1] = merge(result[item[0]], item[1]))?.[1] != null && (result[item[0]] = item[1]) : (source)=>forEach$1(source, selector ? (item)=>item?.[1] != null && ((result[item[0]] ??= []).push(item[1]), result) : (item)=>item?.[1] != null && (result[item[0]] = item[1], result)));
+        forEach$1(source, merge ? (item, i)=>(item = selector(item, i)) != null && (item[1] = merge(result[item[0]], item[1])) != null && (result[item[0]] = item[1]) : (source)=>forEach$1(source, selector ? (item)=>item?.[1] != null && ((result[item[0]] ??= []).push(item[1]), result) : (item)=>item?.[1] != null && (result[item[0]] = item[1], result)));
         return result;
     }
-    return fromEntries(map$1(source, selector ? (item, index)=>ifDefined(selector(item, index), 1) : (item)=>ifDefined(item, 1)));
+    return fromEntries(map$2(source, selector ? (item, index)=>ifDefined(selector(item, index), 1) : (item)=>ifDefined(item, 1)));
 };
-const reduce = (source, reducer, seed, start, end)=>{
-    const seedFactory = ()=>isFunction(seed) ? seed() : seed;
-    return forEachInternal(source, (value, index)=>seed = reducer(seed, value, index) ?? seedFactory(), start, end) ?? seedFactory();
-};
-const filter$1 = (source, predicate = (item)=>item != null, map = isArray$4(source), start, end)=>mapToArray(createIterator(source, (item, index)=>predicate(item, index) ? item : undefined$2, start, end), map);
-let filterInternal = filter$1;
-const count = (source, filter, start, end)=>{
-    if (source == null) return undefined$2;
-    let n;
-    if (filter) {
-        source = filterInternal(source, filter, false, start, end);
-    } else {
-        if ((n = source["length"] ?? source["size"]) != null) {
-            return n;
-        }
-        if (!source[symbolIterator]) {
-            return Object.keys(source).length;
-        }
-    }
-    n = 0;
-    return forEachInternal(source, ()=>++n);
-};
-const entries = (target)=>!isArray$4(target) && isIterable(target) ? map$1(target, isMap$1(target) ? (value)=>value : isSet$1(target) ? (value)=>[
-            value,
-            true
-        ] : (value, index)=>[
-            index,
-            value
-        ]) : isObject(target) ? Object.entries(target) : undefined$2;
-const mapFirst = (source, projection, start, end)=>source == null ? undefined$2 : (projection = wrapProjection(projection), forEachInternal(source, (value, i)=>!projection || (value = projection(value, i)) ? stop(value) : undefined$2, start, end));
-const first = (source, predicate, start, end)=>source == null ? undefined$2 : forEachInternal(source, (value, i)=>!predicate || predicate(value, i) ? stop(value) : undefined$2, start, end);
-const last = (source, predicate, start, end)=>source == null ? undefined$2 : isArray$4(source) ? source[source.length - 1] : forEachInternal(source, (item, i)=>!predicate || predicate(item, i) ? item : undefined$2, start, end);
-const rank = (source)=>createIterator(source, (item, i)=>[
+const filter$1 = (source, predicate = (item)=>item != null, map = isArray$5(source), start, end)=>mapToArray(createIterator$1(source, (item, index)=>predicate(item, index) ? item : undefined$1$2, start, end), map);
+const mapFirst = (source, projection, start, end)=>source == null ? undefined$1$2 : (projection = wrapProjection$1(projection), forEachInternal(source, (value, i)=>!projection || (value = projection(value, i)) ? stop(value) : undefined$1$2, start, end));
+const first = (source, predicate, start, end)=>source == null ? undefined$1$2 : forEachInternal(source, (value, i)=>!predicate || predicate(value, i) ? stop(value) : undefined$1$2, start, end);
+const rank = (source)=>createIterator$1(source, (item, i)=>[
             item,
             i
         ]);
-const some = (source, predicate, start, end)=>source == null ? undefined$2 : isPlainObject(source) && !predicate ? Object.keys(source).length > 0 : source.some?.(predicate ?? isTruish) ?? forEachInternal(source, predicate ? (item, index)=>predicate(item, index) ? stop(true) : false : ()=>stop(true), start, end) ?? false;
-
+const some = (source, predicate, start, end)=>source == null ? undefined$1$2 : isPlainObject$1(source) && !predicate ? Object.keys(source).length > 0 : source.some?.(predicate ?? isTruish) ?? forEachInternal(source, predicate ? (item, index)=>predicate(item, index) ? stop(true) : false : ()=>stop(true), start, end) ?? false;
 // #endregion
 // #region get
-const updateSingle = (target, key, value)=>setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
+const updateSingle = (target, key, value)=>setSingle(target, key, isFunction$1(value) ? value(get(target, key)) : value);
 const setSingle = (target, key, value)=>{
     if (target.constructor === Object) {
         value === undefined ? delete target[key] : target[key] = value;
@@ -341,7 +310,7 @@ const setSingle = (target, key, value)=>{
 const setSingleIfNotDefined = (target, key, value, error)=>{
     const currentValue = get(target, key);
     if (currentValue != null) {
-        throwError(error(key, currentValue, value, target));
+        throwError$1(error(key, currentValue, value, target));
     }
     return setSingle(target, key, value);
 };
@@ -350,13 +319,13 @@ const get = (target, key, init)=>{
     if (target.constructor === Object && init == null) return target[key];
     let value = target.get ? target.get(key) : target.has ? target.has(key) : target[key];
     if (value === undefined && init != null) {
-        (value = isFunction(init) ? init() : init) != null && setSingle(target, key, value);
+        (value = isFunction$1(init) ? init() : init) != null && setSingle(target, key, value);
     }
     return value;
 };
 const merge$2 = (target, ...values)=>(forEach$1(values, (values)=>forEach$1(values, ([key, value])=>{
             if (value != null) {
-                if (isPlainObject(target[key]) && isPlainObject(value)) {
+                if (isPlainObject$1(target[key]) && isPlainObject$1(value)) {
                     merge$2(target[key], value);
                 } else {
                     target[key] = value;
@@ -368,7 +337,7 @@ const createSetOrUpdateFunction = (setter)=>(target, key, value, error)=>{
         if (value != undefined) {
             return setter(target, key, value, error);
         }
-        forEach$1(key, (item)=>isArray$4(item) ? setter(target, item[0], item[1]) : forEach$1(item, ([key, value])=>setter(target, key, value)));
+        forEach$1(key, (item)=>isArray$5(item) ? setter(target, item[0], item[1]) : forEach$1(item, ([key, value])=>setter(target, key, value)));
         return target;
     };
 const assign$1 = createSetOrUpdateFunction(setSingle);
@@ -376,98 +345,9 @@ const update = createSetOrUpdateFunction(updateSingle);
 const assignIfUndefined = createSetOrUpdateFunction(setSingleIfNotDefined);
 // #endregion
 const add = (target, key)=>target instanceof Set ? target.has(key) ? false : (target.add(key), true) : get(target, key) !== assign$1(target, key, true);
-const clearSingle = (target, key)=>{
-    if ((target ?? key) == null) return undefined;
-    let current = get(target, key);
-    if (hasMethod(target, "delete")) {
-        target.delete(key);
-    } else {
-        delete target[key];
-    }
-    return current;
-};
-/**
- * Removes one or more values from a property container specified by the provided key or array of keys.
- *
- * If more than one level of key arguments are specified, values will be removed from the property container at the deepest level.
- * If a property container becomes empty along the path of keys, it will be removed from its parent.
- *
- */ const clear = (target, ...keys)=>{
-    const removed = [];
-    let array = false;
-    const clearStep = (target, index, parent, parentKey)=>{
-        if (!target) return;
-        const targetKeys = keys[index];
-        if (index === keys.length - 1) {
-            if (isArray$4(targetKeys)) {
-                array = true;
-                targetKeys.forEach((key)=>removed.push(clearSingle(target, key)));
-            } else {
-                removed.push(clearSingle(target, targetKeys));
-            }
-        } else {
-            if (isArray$4(targetKeys)) {
-                array = true;
-                targetKeys.forEach((key)=>clearStep(get(target, key), index + 1, target, key));
-            } else {
-                clearStep(get(target, targetKeys), index + 1, target, targetKeys);
-            }
-            if (!count(target) && parent) {
-                remove(parent, parentKey);
-            }
-        }
-    };
-    clearStep(target, 0);
-    return array ? removed : removed[0];
-};
-/**
- * Removes the specified key(s) from a property container and returns their value, or undefined if the container did not have the specified key.
- *
- * The difference between {@link clear} and this function is that it does not consider nested property containers and that arrays will be spliced (as opposed to `clear` where the index will be set to `undefined`).
- */ const remove = (target, keys)=>{
-    if (!target) return undefined;
-    if (isArray$4(keys)) {
-        // Sort array keys descending as they would otherwise not match their offset as the array is spliced along the way.
-        return (isArray$4(target) && target.length > 1 ? keys.sort((x, y)=>y - x) : keys).map((key)=>remove(target, key));
-    }
-    return isArray$4(target) ? keys < target.length ? target.splice(keys, 1)[0] : undefined : clearSingle(target, keys);
-};
-const define$1 = (target, ...args)=>{
-    const add = (arg, defaults)=>{
-        if (!arg) return;
-        let properties;
-        if (isArray$4(arg)) {
-            if (isPlainObject(arg[0])) {
-                // Tuple with the first item the defaults and the next the definitions with those defaults,
-                // ([{enumerable: false, ...}, ...])
-                arg.splice(1).forEach((items)=>add(items, arg[0]));
-                return;
-            }
-            // ([[key1, value1], [key2, value2], ...])
-            properties = arg;
-        } else {
-            // An object.
-            properties = map$1(arg);
-        }
-        properties.forEach(([key, value])=>Object.defineProperty(target, key, {
-                configurable: false,
-                enumerable: true,
-                writable: false,
-                ...defaults,
-                ...isPlainObject(value) && ("get" in value || "value" in value) ? value : isFunction(value) && !value.length ? {
-                    get: value
-                } : {
-                    value
-                }
-            }));
-    };
-    args.forEach((arg)=>add(arg));
-    return target;
-};
-const unwrap = (value)=>isFunction(value) ? value() : value;
+const unwrap$1 = (value)=>isFunction$1(value) ? value() : value;
 const unlock = (readonly)=>readonly;
-const wrap = (original, wrap)=>original == null ? original : isFunction(original) ? (...args)=>wrap(original, ...args) : wrap(()=>original);
-
+const wrap = (original, wrap)=>original == null ? original : isFunction$1(original) ? (...args)=>wrap(original, ...args) : wrap(()=>original);
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
 const createTimer = (started = true, timeReference = ()=>now())=>{
     let t0 = +started * timeReference();
@@ -481,7 +361,7 @@ const createTimer = (started = true, timeReference = ()=>now())=>{
     };
 };
 const clock = (callbackOrSettings, frequency = 0)=>{
-    const settings = isFunction(callbackOrSettings) ? {
+    const settings = isFunction$1(callbackOrSettings) ? {
         frequency,
         callback: callbackOrSettings
     } : callbackOrSettings;
@@ -524,7 +404,6 @@ const clock = (callbackOrSettings, frequency = 0)=>{
     };
     return instance.toggle(!paused, trigger);
 };
-
 class ResettablePromise {
     _promise;
     constructor(){
@@ -576,7 +455,7 @@ class OpenPromise {
                         throw new TypeError("Promise already resolved/rejected.");
                     }
                     this.pending = false;
-                    this[i ? "error" : "value"] = value === undefined$2 || value;
+                    this[i ? "error" : "value"] = value === undefined$1$2 || value;
                     inner(value);
                     return this;
                 });
@@ -587,116 +466,46 @@ class OpenPromise {
         return this._promise.then(onfulfilled, onrejected);
     }
 }
-const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap(value) : new Promise((resolve)=>setTimeout(async ()=>resolve(await unwrap(value)), ms)) : throwError(`Invalid delay ${ms}.`);
+const createLock = (timeout)=>{
+    const semaphore = promise(true);
+    let state;
+    const wait = async (arg1, arg2, arg3)=>{
+        if (isFunction$1(arg1)) {
+            const release = await wait(arg2, arg3);
+            return release ? await tryCatchAsync(arg1, true, release) : undefined$1$2;
+        }
+        const ownerId = arg2;
+        let ms = arg1;
+        let renewInterval = 0;
+        while(state && ownerId !== state[0] && (state[1] ?? 0) < now()){
+            if (await (ms >= 0 ? race(delay(ms), semaphore) : semaphore) === undefined$1$2) {
+                return undefined$1$2;
+            }
+        // If the above did not return undefined we got the semaphore.
+        }
+        const release = ()=>{
+            clearTimeout(renewInterval);
+            state = undefined$1$2;
+            semaphore.signal(false);
+        };
+        const renew = ()=>{
+            state = [
+                ownerId ?? true,
+                timeout ? now() - timeout : undefined$1$2
+            ];
+            timeout && (renewInterval = setTimeout(()=>state && renew(), timeout / 2));
+        };
+        renew();
+        return release;
+    };
+    return wait;
+};
+const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap$1(value) : new Promise((resolve)=>setTimeout(async ()=>resolve(await unwrap$1(value)), ms)) : throwError$1(`Invalid delay ${ms}.`);
 const promise = (resettable)=>resettable ? new ResettablePromise() : new OpenPromise();
-const waitAll = (...args)=>Promise.all(args.map((arg)=>isFunction(arg) ? arg() : arg));
-
-const createEventBinders = (listener, attach, detach)=>{
-    let bound = false;
-    const outerListener = (...args)=>listener(...args, unbind);
-    const unbind = ()=>bound !== (bound = false) && (detach(outerListener), true);
-    const rebind = ()=>bound !== (bound = true) && (attach(outerListener), true);
-    rebind();
-    return [
-        unbind,
-        rebind
-    ];
-};
-const joinEventBinders = (...binders)=>(binders = filter$1(binders), [
-        ()=>reduce(binders, (changed, binder)=>binder[0]() || changed, false),
-        ()=>reduce(binders, (changed, binder)=>binder[1]() || changed, false)
-    ]);
-const createEvent = ()=>{
-    const listeners = new Set();
-    let dispatchedArgs;
-    return [
-        (handler, trigger)=>{
-            const binders = createEventBinders(handler, (handler)=>listeners.add(handler), (handler)=>listeners.delete(handler));
-            trigger && dispatchedArgs && handler(...dispatchedArgs, binders[0]);
-            return binders;
-        },
-        (...payload)=>(dispatchedArgs = payload, listeners.forEach((handler)=>handler(...payload)))
-    ];
-};
-
+const waitAll = (...args)=>Promise.all(args.map((arg)=>isFunction$1(arg) ? arg() : arg));
+const race = (...args)=>Promise.race(args.map((arg)=>isFunction$1(arg) ? arg() : arg));
 const changeCase = (s, upper)=>s == null ? s : upper ? s.toUpperCase() : s.toLowerCase();
 const changeIdentifierCaseStyle = (identifier, type)=>identifier.replace(/([_-]*)(\$*(?:[A-Z]+|[a-z]))([a-z0-9]*)/g, (_, underscores, initial, rest, index)=>(underscores && (!index || type === "kebab" || type === "snake") ? underscores.replace(/./g, type === "snake" ? "-" : "_") : "") + ((index && (type === "kebab" || type === "snake") && !underscores ? type === "snake" ? "-" : "_" : "") + changeCase(initial, type === "pascal" || type === "camel" && index) + changeCase(type === "kebab" || type === "snake" ? rest.replace(/(?<=\D)\d|(?<=\d)\D/g, type === "kebab" ? "_$&" : "-$&") : rest, false)));
-
-const conjunct = (values, conjunction = "and")=>ifDefined(values, (values)=>(values = isIterable(values) ? map$1(values, (value)=>value + "") : [
-            values + ""
-        ], values.length === 0 ? "" : values.length === 1 ? values[0] : `${values.slice(0, -1).join(", ")} ${conjunction} ${last(values)}`));
-const quote$1 = (item)=>ifDefined(item, (item)=>isIterable(item) ? map$1(item, (item)=>"'" + item + "'") : "'" + item + "'");
-
-const isBit = (n)=>(n = Math.log2(n), n === (n | 0));
-const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
-    const names = Object.fromEntries(Object.entries(sourceEnum).filter(([key, value])=>isString$1(key) && isNumber$1(value)).map(([key, value])=>[
-            key.toLowerCase(),
-            value
-        ]));
-    const entries = Object.entries(names);
-    const values = Object.values(names);
-    const any = names["any"] ?? values.reduce((any, flag)=>any | flag, 0);
-    const nameLookup = flags ? {
-        ...names,
-        any,
-        none: 0
-    } : names;
-    const valueLookup = Object.fromEntries(Object.entries(nameLookup).map(([key, value])=>[
-            value,
-            key
-        ]));
-    const parseValue = (value, validateNumbers)=>isNumber$1(value) ? !flags && validateNumbers ? valueLookup[value] != null ? value : undefined$2 : value : isString$1(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] : undefined$2;
-    let invalid = false;
-    let carry;
-    let carry2;
-    const [tryParse, lookup] = flags ? [
-        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>flag == null || invalid ? flags : (flag = parseValue(flag, validateNumbers)) == null ? (invalid = true, undefined$2) : (flags ?? 0) | flag, (invalid = false, undefined$2)) : parseValue(value),
-        (value, format)=>(value = tryParse(value, false)) == null ? undefined$2 : format && (carry2 = valueLookup[value & any]) ? (carry = lookup(value & ~(value & any), false)).length ? [
-                carry2,
-                ...carry
-            ] : carry2 : (value = entries.filter(([, flag])=>flag && value & flag && isBit(flag)).map(([name])=>name), format ? value.length ? value.length === 1 ? value[0] : value : "none" : value)
-    ] : [
-        parseValue,
-        (value)=>(value = parseValue(value)) != null ? valueLookup[value] : undefined$2
-    ];
-    let originalValue;
-    const parse = (value, validateNumbers)=>value == null ? undefined$2 : (value = tryParse(originalValue = value, validateNumbers)) == null ? throwError(new TypeError(`${JSON.stringify(originalValue)} is not a valid ${enumName} value.`)) : value;
-    const pure = entries.filter(([, value])=>!pureFlags || (pureFlags & value) === value && isBit(value));
-    return define$1((value)=>parse(value), [
-        {
-            configurable: false,
-            enumerable: false
-        },
-        {
-            parse,
-            tryParse,
-            entries,
-            values,
-            lookup,
-            length: entries.length,
-            format: (value)=>lookup(value, true),
-            logFormat: (value, c = "or")=>(value = lookup(value, true), value === "any" ? "any " + enumName : `the ${enumName} ${conjunct(quote$1(value), c)}`)
-        },
-        flags && {
-            pure,
-            map: (flags, map)=>(flags = parse(flags), pure.filter(([, flag])=>flag & flags).map(map ?? (([, flag])=>flag)))
-        }
-    ]);
-};
-/**
- * Creates a function that parses the specified enum properties to their numeric values on the object provided.
- * Note that it does the parsing directly on the provided object and does not create a copy.
- */ const createEnumPropertyParser = (...props)=>{
-    const parsers = entries(obj(props, true));
-    const parse = (source, arrayItem)=>source != null && (!arrayItem && isArray$4(source) ? source.forEach((source, i)=>source[i] = parse(source[i], true)) : parsers.forEach(([prop, parsers])=>{
-            let parsed = undefined$2;
-            let value;
-            if ((value = source[prop]) == null) return;
-            parsers.length === 1 ? source[prop] = parsers[0].parse(value) : parsers.forEach((parser, i)=>!parsed && (parsed = i === parsers.length - 1 ? parser.parse(value) : parser.tryParse(value)) != null && (source[prop] = parsed));
-        }));
-    return (source)=>(parse(source), source);
-};
-
 class TupleMap extends Map {
     _instances = new Map();
     _tupleInstance(key) {
@@ -918,16 +727,15 @@ class DoubleMap {
         }
     }
 }
-
 const parseKeyValue = (value, arrayDelimiters = [
     "|",
     ";",
     ","
 ], decode = true)=>{
-    if (!value) return undefined$2;
+    if (!value) return undefined$1$2;
     const parts = value.split("=").map((v)=>decode ? decodeURIComponent(v.trim()).replaceAll("+", " ") : v.trim());
     parts[1] ??= "";
-    parts[2] = parts[1] && arrayDelimiters?.length && mapFirst(arrayDelimiters, (delim, _, split = parts[1].split(delim))=>split.length > 1 ? split : undefined$2) || (parts[1] ? [
+    parts[2] = parts[1] && arrayDelimiters?.length && mapFirst(arrayDelimiters, (delim, _, split = parts[1].split(delim))=>split.length > 1 ? split : undefined$1$2) || (parts[1] ? [
         parts[1]
     ] : []);
     return parts;
@@ -967,361 +775,35 @@ const parseKeyValue = (value, arrayDelimiters = [
  * @param query Whether to parse the query into a record with each parameter and its value(s) or just the string.
  *  If an array is provided these are the characters that are used to split query string values. If this is empty, arrays are not parsed.
  * @returns A record with the different parts of the URI.
- */ const parseUri = (uri, query = true, requireAuthority)=>uri == nil ? undefined$2 : match(uri, /^(?:(?:([\w+.-]+):)?(\/\/)?)?((?:([^:@]+)(?:\:([^@]*))?@)?(?:\[([^\]]+)\]|([0-9:]+|[^/+]+?))?(?::(\d*))?)?(\/[^#?]*)?(?:\?([^#]*))?(?:#(.*))?$/g, (source, scheme, slashes, authority, user, password, bracketHost, host, port, path, queryString, fragment)=>{
+ */ const parseUri = (uri, query = true, requireAuthority)=>uri == nil$1 ? undefined$1$2 : match(uri, /^(?:(?:([\w+.-]+):)?(\/\/)?)?((?:([^:@]+)(?:\:([^@]*))?@)?(?:\[([^\]]+)\]|([0-9:]+|[^/+]+?))?(?::(\d*))?)?(\/[^#?]*)?(?:\?([^#]*))?(?:#(.*))?$/g, (source, scheme, slashes, authority, user, password, bracketHost, host, port, path, queryString, fragment)=>{
         const parsed = {
             source,
             scheme,
-            urn: scheme ? !slashes : slashes ? false : undefined$2,
+            urn: scheme ? !slashes : slashes ? false : undefined$1$2,
             authority,
             user,
             password,
             host: bracketHost ?? host,
-            port: port != null ? parseInt(port) : undefined$2,
+            port: port != null ? parseInt(port) : undefined$1$2,
             path,
             query: query === false ? queryString : parseQueryString(queryString, query),
             fragment
         };
-        parsed.path = parsed.path || (parsed.authority ? parsed.urn ? "" : "/" : undefined$2);
+        parsed.path = parsed.path || (parsed.authority ? parsed.urn ? "" : "/" : undefined$1$2);
         return parsed;
     });
-const parseQueryString = (query, arrayDelimiters, decode = true)=>query == nil ? undefined$2 : obj(query?.match(/(?:^.*?\?|^)(.*)$/)?.[1]?.split("&"), (part, _, [key, value, values] = parseKeyValue(part, arrayDelimiters === false ? [] : arrayDelimiters === true ? undefined$2 : arrayDelimiters, decode) ?? [])=>(key = key?.replace(/\[\]$/, "")) != null ? arrayDelimiters !== false ? [
+const parseQueryString = (query, arrayDelimiters, decode = true)=>query == nil$1 ? undefined$1$2 : obj(query?.match(/(?:^.*?\?|^)(.*)$/)?.[1]?.split("&"), (part, _, [key, value, values] = parseKeyValue(part, arrayDelimiters === false ? [] : arrayDelimiters === true ? undefined$1$2 : arrayDelimiters, decode) ?? [])=>(key = key?.replace(/\[\]$/, "")) != null ? arrayDelimiters !== false ? [
             key,
             values.length > 1 ? values : value
         ] : [
             key,
             value
-        ] : undefined$2, (current, value)=>current ? arrayDelimiters !== false ? concat(current, value) : (current ? current + "," : "") + value : value);
-
+        ] : undefined$1$2, (current, value)=>current ? arrayDelimiters !== false ? concat(current, value) : (current ? current + "," : "") + value : value);
 let matchProjection;
 let collected;
 /**
  * Matches a regular expression against a string and projects the matched parts, if any.
- */ const match = (s, regex, selector, collect = false)=>(s ?? regex) == nil ? undefined$2 : selector ? (matchProjection = undefined$2, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(// Replace seems to be a compact way to get the details of each match
-    regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
-/**
- * Replaces reserved characters to get a regular expression that matches the string.
- */ const escapeRegEx = (input)=>input?.replace(/[\^$\\.*+?()[\]{}|]/g, "\\$&");
-/**
- * Better minifyable version of `String`'s `split` method that allows a null'ish parameter.
- */ const split = (s, separator)=>s?.split(separator) ?? s;
-/**
- * Better minifyable version of `String`'s `replace` method that allows a null'ish parameter.
- */ const replace$1 = (s, match, replaceValue)=>s?.replace(match, replaceValue) ?? s;
-
-var DataClassification;
-(function(DataClassification) {
-    /**
-   * The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.
-   *
-   * Tail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.
-   *
-   * Identifying returning visitors will not be possible at this level.
-   * In-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
-   */ DataClassification[DataClassification["Anonymous"] = 0] = "Anonymous";
-    /**
-   * The data may possibly identify the user if put into context with other data, yet not specifically on its own.
-   *
-   * Examples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.
-   *
-   * Identifying returning visitors will be possible at this level of consent, but not across devices.
-   * Some level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.
-   *
-   * This level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
-   */ DataClassification[DataClassification["Indirect"] = 1] = "Indirect";
-    /**
-   * The data directly identifies the user on its own.
-   *
-   * Examples are name, username, street address and email address.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * Personalization based on past actions such as purchases will also be possible.
-   *
-   * This level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).
-   *
-   * Please note it is possible to access user data even when nothing is tracked beyond the bla... level
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
-   */ DataClassification[DataClassification["Direct"] = 2] = "Direct";
-    /**
-   * Sensitive data about a user.
-   *
-   * Examples are data related to health, financial matters, race, political and religious views, and union membership.
-   * If the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * and so will advanced personalization.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
-   */ DataClassification[DataClassification["Sensitive"] = 3] = "Sensitive";
-})(DataClassification || (DataClassification = {}));
-const dataClassification = createEnumAccessor(DataClassification, false, "data classification");
-
-var DataPurposeFlags;
-(function(DataPurposeFlags) {
-    /** Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema. */ DataPurposeFlags[DataPurposeFlags["None"] = 0] = "None";
-    /**
-   * Data stored for this purpose is vital for the system, website or app to function.
-   */ DataPurposeFlags[DataPurposeFlags["Necessary"] = 1] = "Necessary";
-    /**
-   * Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app
-   * according to a user's preferences.
-   *
-   * DO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope
-   * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
-   *
-   * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
-   * also be distributed across multiple domain names.
-   *
-   */ DataPurposeFlags[DataPurposeFlags["Functionality"] = 2] = "Functionality";
-    /**
-   * Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including
-   * demographics and similar traits with the purpose of optimizing the website or app.
-   *
-   * DO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope
-   * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
-   *
-   * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
-   * also be distributed across multiple domain names.
-   *
-   */ DataPurposeFlags[DataPurposeFlags["Performance"] = 4] = "Performance";
-    /**
-   * Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties
-   * or otherwise used to perform marketing outside the scope of the specific website or app.
-   *
-   * If the data is only used for different website and apps that relate to the same product or service, it might not be necessary
-   * to use this category.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
-   * also be distributed across multiple domain names.
-   */ DataPurposeFlags[DataPurposeFlags["Targeting"] = 8] = "Targeting";
-    /**
-   * Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,
-   * or for a website to guard itself against various kinds of attacks.
-   *
-   * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Security"] = 16] = "Security";
-    /**
-   * Data stored for this purpose may be similar to the performance category, however it is specifically
-   * only used for things such as health monitoring, system performance and error logging and unrelated to user behavior.
-   *
-   * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Infrastructure"] = 32] = "Infrastructure";
-    /**
-   * All purposes that are permissable for anonymous users.
-   */ DataPurposeFlags[DataPurposeFlags["Anonymous"] = 49] = "Anonymous";
-    /**
-   * Data can be used for any purpose.
-   */ DataPurposeFlags[DataPurposeFlags["Any"] = 63] = "Any";
-    /**
-   * The data is not available client-side.
-   * Note that this is a special flag that is not included in "Any"
-   */ DataPurposeFlags[DataPurposeFlags["Server"] = 64] = "Server";
-})(DataPurposeFlags || (DataPurposeFlags = {}));
-const purePurposes = 1 | 2 | 4 | 8 | 16 | 32 | 64;
-const dataPurposes = createEnumAccessor(DataPurposeFlags, true, "data purpose", purePurposes);
-const singleDataPurpose = createEnumAccessor(DataPurposeFlags, false, "data purpose", 0);
-
-Object.freeze({
-    level: DataClassification.Anonymous,
-    purposes: DataPurposeFlags.Anonymous
-});
-Object.freeze({
-    level: DataClassification.Sensitive,
-    purposes: DataPurposeFlags.Any
-});
-const validateConsent = (source, consent, defaultClassification)=>{
-    if (!source) return undefined;
-    const classification = dataClassification.parse(source.classification, false) ?? required$2(dataClassification(defaultClassification?.classification), "The source has not defined a data classification and no default was provided.");
-    let purposes = dataPurposes.parse(source.purposes, false) ?? required$2(dataPurposes.parse(defaultClassification?.purposes, false), "The source has not defined data purposes and no default was provided.");
-    const consentClassification = dataClassification.parse(consent["classification"] ?? consent["level"], false);
-    const consentPurposes = dataPurposes.parse(consent.purposes, false);
-    if (purposes & DataPurposeFlags.Server && !(consentPurposes & DataPurposeFlags.Server)) {
-        return false;
-    }
-    return source && classification <= consentClassification && (purposes & // No matter what is defined in the consent, it will always include the "anonymous" purposes.
-    (consentPurposes | DataPurposeFlags.Anonymous)) > 0;
-};
-
-var VariableScope;
-(function(VariableScope) {
-    /** Global variables. */ VariableScope[VariableScope["Global"] = 0] = "Global";
-    /**
-   * Variables related to an external identity.
-   * One use case could be used to augment data a CMS with real-time data related to personalization or testing.
-   */ VariableScope[VariableScope["Entity"] = 1] = "Entity";
-    /** Variables related to sessions. */ VariableScope[VariableScope["Session"] = 2] = "Session";
-    /** Variables related to a device (browser or app). */ VariableScope[VariableScope["Device"] = 3] = "Device";
-    /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 4] = "User";
-})(VariableScope || (VariableScope = {}));
-const variableScope = createEnumAccessor(VariableScope, false, "variable scope");
-/** Dummy function to contain variables and variable results to locally scoped targets. */ const restrictTargets = (value)=>value;
-const Necessary = {
-    classification: DataClassification.Anonymous,
-    purposes: DataPurposeFlags.Necessary
-};
-/** Returns a description of a key that can be used for logging and error messages.  */ const formatKey = (key)=>`'${key.key}' in ${variableScope.format(key.scope)} scope`;
-const stripPrefix = (key)=>key && {
-        ...key,
-        key: parseKey(key.key).key
-    };
-/** Returns the individual parts of a key specified as a string.  */ const parseKey = (sourceKey)=>{
-    if (sourceKey == null) return undefined;
-    const not = sourceKey[0] === "!";
-    if (not) {
-        sourceKey = sourceKey.slice(1);
-    }
-    const prefixIndex = sourceKey.indexOf(":");
-    const prefix = prefixIndex < 0 ? "" : sourceKey.substring(0, prefixIndex);
-    const key = prefixIndex > -1 ? sourceKey.slice(prefixIndex + 1) : sourceKey;
-    return {
-        prefix,
-        key,
-        sourceKey,
-        not
-    };
-};
-const VariableEnumProperties = {
-    scope: variableScope,
-    purpose: singleDataPurpose,
-    purposes: dataPurposes,
-    classification: dataClassification
-};
-const toNumericVariableEnums = createEnumPropertyParser(VariableEnumProperties);
-const extractKey = (variable, classificationSource)=>variable ? {
-        scope: variableScope(variable.scope),
-        targetId: variable.targetId,
-        key: variable.key,
-        ...classificationSource && {
-            classification: dataClassification(classificationSource.classification),
-            purposes: dataPurposes(classificationSource.purposes)
-        }
-    } : undefined;
-
-var VariableResultStatus;
-(function(VariableResultStatus) {
-    VariableResultStatus[VariableResultStatus["Success"] = 200] = "Success";
-    VariableResultStatus[VariableResultStatus["Created"] = 201] = "Created";
-    VariableResultStatus[VariableResultStatus["Unchanged"] = 304] = "Unchanged";
-    VariableResultStatus[VariableResultStatus["Denied"] = 403] = "Denied";
-    VariableResultStatus[VariableResultStatus["NotFound"] = 404] = "NotFound";
-    VariableResultStatus[VariableResultStatus["ReadOnly"] = 405] = "ReadOnly";
-    VariableResultStatus[VariableResultStatus["Conflict"] = 409] = "Conflict";
-    VariableResultStatus[VariableResultStatus["Unsupported"] = 501] = "Unsupported";
-    VariableResultStatus[VariableResultStatus["Invalid"] = 400] = "Invalid";
-    VariableResultStatus[VariableResultStatus["Error"] = 500] = "Error";
-})(VariableResultStatus || (VariableResultStatus = {}));
-createEnumAccessor(VariableResultStatus, false, "variable set status");
-var VariablePatchType;
-(function(VariablePatchType) {
-    VariablePatchType[VariablePatchType["Add"] = 0] = "Add";
-    VariablePatchType[VariablePatchType["Min"] = 1] = "Min";
-    VariablePatchType[VariablePatchType["Max"] = 2] = "Max";
-    VariablePatchType[VariablePatchType["IfMatch"] = 3] = "IfMatch";
-    VariablePatchType[VariablePatchType["IfNoneMatch"] = 4] = "IfNoneMatch";
-})(VariablePatchType || (VariablePatchType = {}));
-const patchType = createEnumAccessor(VariablePatchType, false, "variable patch type");
-const isVariablePatch = (setter)=>!!setter?.["patch"];
-const isVariablePatchAction = (setter)=>isFunction(setter["patch"]);
-
-const isPostResponse = (response)=>!!response?.variables;
-
-const toVariableResultPromise = (results, errorHandlers, push)=>{
-    let mapResults = (results)=>results;
-    let unwrappedResults;
-    const property = (map, errorHandler = handleResultErrors)=>deferredPromise(async ()=>(unwrappedResults = mapResults(errorHandler(await results(), errorHandlers))) && map(unwrappedResults));
-    const promise = {
-        then: property((items)=>items).then,
-        all: property((items)=>items, (items)=>items),
-        changed: property((items)=>filter$1(items, (item)=>item.status < 300)),
-        variables: property((items)=>map$1(items, getResultVariable)),
-        values: property((items)=>map$1(items, (item)=>getResultVariable(item)?.value)),
-        push: ()=>(mapResults = (results)=>(push?.(map$1(getSuccessResults(results))), results), promise),
-        value: property((items)=>getResultVariable(items[0])?.value),
-        variable: property((items)=>getResultVariable(items[0])),
-        result: property((items)=>items[0])
-    };
-    return promise;
-};
-const getSuccessResults = (results)=>results?.map((result)=>result?.status < 400 ? result : undefined$2);
-const getResultVariable = (result)=>result?.status < 400 ? result?.current ?? result : undefined$2; // This included 404 for getters.
-const isSuccessResult = (result)=>result?.status < 400 || result?.status === 404;
-const handleResultErrors = (results, errorHandlers, requireValue)=>{
-    const errors = [];
-    let errorHandler;
-    let errorMessage;
-    const successResults = map$1(array(results), (result, i)=>result && (result.status < 400 || !requireValue && result.status === 404 // Not found can only occur for get requests, and those are all right.
-         ? result : (errorMessage = `${formatKey(result.source ?? result)} could not be ${result.status === 404 ? "found." : `${result.source || result.status !== VariableResultStatus.Error ? "set" : "read"} because ${result.status === VariableResultStatus.Conflict ? `of a conflict. The expected version '${result.source?.version}' did not match the current version '${result.current?.version}'.` : result.status === VariableResultStatus.Denied ? result.error ?? "the operation was denied." : result.status === VariableResultStatus.Invalid ? result.error ?? "the value does not conform to the schema" : result.status === VariableResultStatus.ReadOnly ? "it is read only." : result.status === VariableResultStatus.Error ? `of an unexpected error: ${result.error}` : "of an unknown reason."}`}`, ((errorHandler = errorHandlers?.[i]) == null || errorHandler(result, errorMessage) !== false) && errors.push(errorMessage), undefined$2)));
-    if (errors.length) return throwError(errors.join("\n"));
-    return isArray$4(results) ? successResults : successResults?.[0];
-};
-const requireFound = (variable)=>handleResultErrors(variable, undefined$2, true);
-
-const isPassiveEvent = (value)=>!!(value?.metadata?.passive || value?.patchTargetId);
-
-const typeTest = (...types)=>(ev)=>ev?.type && types.some((type)=>type === ev?.type);
-
-const isUserAgentEvent = typeTest("user_agent");
-
-const isViewEvent = typeTest("view");
-
-const isConsentEvent = typeTest("consent");
-
-const isCartEvent = typeTest("cart_updated");
-
-const isOrderEvent = typeTest("order");
-
-const isSignOutEvent = typeTest("sign_out");
-const isSignInEvent = typeTest("sign_in");
-
-const isResetEvent = typeTest("reset");
-
-const SchemaSystemTypes = Object.freeze({
-    Event: "urn:tailjs:core:event"
-});
-const SchemaAnnotations = Object.freeze({
-    Tags: "x-tags",
-    Purpose: "x-privacy-purpose",
-    Purposes: "x-privacy-purposes",
-    Classification: "x-privacy-class",
-    Censor: "x-privacy-censor"
-});
-
-const parsePrivacyTokens = (tokens, classification = {})=>{
-    tokens.split(/[,\s]/).map((keyword)=>keyword.trim()).filter((item)=>item).forEach((keyword)=>{
-        if (keyword === "censor-ignore" || keyword === "censor-include") {
-            classification.censorIgnore ??= keyword === "censor-ignore";
-            return;
-        }
-        let parsed = dataPurposes.tryParse(keyword) ?? dataPurposes.tryParse(keyword.replace(/\-purpose$/g, ""));
-        if (parsed != null) {
-            classification.purposes = (classification.purposes ?? 0) | parsed;
-            return;
-        }
-        parsed = dataClassification.tryParse(keyword) ?? dataClassification.tryParse(keyword.replace(/^personal-/g, ""));
-        if (parsed != null) {
-            if (classification.classification && parsed !== classification.classification) {
-                throwError(`The data classification '${dataClassification.format(classification.classification)}' has already been specified and conflicts with the classification'${dataClassification.format(parsed)} inferred from the description.`);
-            }
-            classification.classification ??= parsed;
-            return;
-        }
-        throwError(`Unknown privacy keyword '${keyword}'.`);
-    });
-    return classification;
-};
-const getPrivacyAnnotations = (classification)=>{
-    const attrs = {};
-    classification.classification != null && (attrs[SchemaAnnotations.Classification] = dataClassification.format(classification.classification));
-    let purposes = dataPurposes.format(classification.purposes);
-    purposes != null && (attrs[isString$1(purposes) ? SchemaAnnotations.Purpose : SchemaAnnotations.Purposes] = purposes);
-    classification.censorIgnore != null && (attrs[SchemaAnnotations.Censor] = classification.censorIgnore ? "ignore" : "include");
-    return attrs;
-};
+ */ const match = (s, regex, selector, collect = false)=>(s ?? regex) == nil$1 ? undefined$1$2 : selector ? (matchProjection = undefined$1$2, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
 
 class TrackerCoreEvents {
     id = "session";
@@ -1371,7 +853,7 @@ class TrackerCoreEvents {
         const updatedEvents = [];
         for (let event of events){
             if (isConsentEvent(event)) {
-                await tracker.updateConsent(dataClassification.tryParse(event.level), dataPurposes.tryParse(event.purposes));
+                await tracker.updateConsent(dataClassification.tryParse(event.consent.level), dataPurposes.tryParse(event.consent.purposes));
             }
             if (isResetEvent(event)) {
                 if (tracker.session.userId) {
@@ -1425,7 +907,7 @@ class TrackerCoreEvents {
             } else if (isSignOutEvent(event)) {
                 updateData(false, (data)=>data.userId = undefined);
             } else if (isConsentEvent(event)) {
-                await tracker.updateConsent(event.level, event.purposes);
+                await tracker.updateConsent(event.consent.level, event.consent.purposes);
             }
         }
         await flushUpdates();
@@ -1536,7 +1018,7 @@ const flat = Object.assign((...args)=>[
         ...flat.it(...args)
     ], {
     *it (...args) {
-        for(const item in map.it(...args)){
+        for(const item in map$1.it(...args)){
             if (Array.isArray(item)) {
                 yield* item;
             } else {
@@ -1545,8 +1027,8 @@ const flat = Object.assign((...args)=>[
         }
     }
 });
-const map = Object.assign((...args)=>[
-        ...map.it(...args)
+const map$1 = Object.assign((...args)=>[
+        ...map$1.it(...args)
     ], {
     *it (values, projection) {
         if (!values) return 0;
@@ -1603,7 +1085,7 @@ const filter = merge$1((values, evaluate)=>[
 });
 const forEach = (values, action)=>{
     let i = 0;
-    for (const v of map.it(values)){
+    for (const v of map$1.it(values)){
         action(v, i++);
     }
 };
@@ -1637,150 +1119,12 @@ const params = (value, decode = true)=>{
 };
 const unparam = (value, encode = true)=>{
     if (!value) return "";
-    return map(value, ([key, value])=>value ? `${encode ? encodeURIComponent(key) : key}=${encode ? encodeURIComponent(value) : value}` : key).join("; ");
+    return map$1(value, ([key, value])=>value ? `${encode ? encodeURIComponent(key) : key}=${encode ? encodeURIComponent(value) : value}` : key).join("; ");
 };
 const formatError = (error)=>error == null ? "(Unspecified error)" : [
         error?.message ?? error,
         error?.stack
     ].filter((s)=>s).join("\n\n");
-
-const codes = [];
-const chars = [];
-const charCode = (s, index = 0)=>s.charCodeAt(index);
-const fromCharCodes = (chars)=>String.fromCharCode(...chars);
-[
-    ..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-].forEach((p, i)=>codes[chars[i] = p.charCodeAt(0)] = i);
-/**
- * Encodes an array of bytes to Base64URL without padding (URL safe Base64 using `-` and `_` instead of `+` and `/`).
- *
- * (thanks to Jon Leighton at https://gist.github.com/jonleighton/958841).
- */ const to64u = (bytes)=>{
-    let i = 0;
-    let chunk;
-    const n = bytes.length;
-    const base64 = [];
-    while(i < n){
-        chunk = bytes[i++] << 16 | bytes[i++] << 8 | bytes[i++];
-        base64.push(chars[(chunk & 16515072) >> 18], chars[(chunk & 258048) >> 12], chars[(chunk & 4032) >> 6], chars[chunk & 63]);
-    }
-    base64.length += n - i;
-    return fromCharCodes(base64);
-};
-/**
- * Decodes a BaseURL encoded string (without padding).
- */ const from64u = (encoded)=>{
-    let i = 0;
-    let j = 0;
-    let p;
-    const n = encoded.length;
-    const bytes = new Uint8Array(3 * (n / 4 | 0) + (n + 3 & 3) % 3);
-    while(i < n){
-        bytes[j++] = codes[charCode(encoded, i++)] << 2 | (p = codes[charCode(encoded, i++)]) >> 4;
-        if (i < n) {
-            bytes[j++] = (p & 15) << 4 | (p = codes[charCode(encoded, i++)]) >> 2;
-            if (i < n) {
-                bytes[j++] = (p & 3) << 6 | codes[charCode(encoded, i++)];
-            }
-        }
-    }
-    return bytes;
-};
-
-/** The number of leading entropy bytes. */ const ENTROPY = 4;
-/** The padding length. Cipher texts will always be a multiple of this. */ const MAX_PADDING = 16;
-const FNVs = {
-    32: [
-        0x811c9dc5n,
-        0x01000193n
-    ],
-    64: [
-        0xcbf29ce484222325n,
-        0x100000001b3n
-    ],
-    128: [
-        0x6c62272e07bb014262b821756295c58dn,
-        0x1000000000000000000013bn
-    ]
-};
-/** A random byte. */ const entropy = (max = 256)=>max * Math.random() | 0;
-/**
- * Linear-feedback shift register encryption with leading entropy and fixed padding.
- *
- * Used for on-the-fly encryption. It is not the strongest encryption, yet it is annoyingly challenging to break.
- * Due to entropy the same text with the same key will result in a different cipher text every time.
- *
- *
- * "It is fast and small.", Bob said to Alice. "It is all right.", she replied.
- *
- * (Adapted from http://quinnftw.com/xor-ciphers/).
- */ const lfsr = (key)=>{
-    /** Number of source bytes for (en/de)cryption. */ let n;
-    /** Source byte index. */ let i;
-    /** Target byte index. */ let j;
-    /** Padding length. */ let pad;
-    /** Holds the (en/de)crypted bytes. */ let target;
-    /** Hash code. */ let hash = 0n;
-    /** Bits for FNV-1a hash code. */ let bits = 0;
-    /** Prime for FNV-1a hash code. */ let prime = 0n;
-    /**
-   * The sliding window with the past ciphers used to update for the mixer.
-   * It works as a linear feedback shfit register to bolster against frequency analysis.
-   *
-   * http://quinnftw.com/xor-ciphers/.
-   */ let window = [];
-    /** The mixer used to iteratively update the key while (en/de)crypting. */ let mixer = 0;
-    /** The mixer modulo 256. */ let mixer255 = 0;
-    /** Current start of the mixer window. */ let iw = 0;
-    /** Initial mixer. */ let mixer0 = 0;
-    /** Initial bytes for the mixer. */ const window0 = [];
-    for(iw = 0; iw < key?.length; mixer0 += window0[iw] = key.charCodeAt(iw++));
-    /** Resets the mixer when (en/de)cryption starts. */ const resetMixer = key ? ()=>{
-        window = [
-            ...window0
-        ];
-        mixer255 = (mixer = mixer0) & 255;
-        iw = -1;
-    } : ()=>{};
-    /** Updates the mixer with the (en/de)crypted byte. */ const updateMixer = (c)=>(mixer255 = (mixer += // Subtract the byte leaving the window.
-        -window[iw = (iw + 1) % window.length] + // Add the byte entering the window.
-        (window[iw] = c)) & 255, c);
-    return [
-        // Encrypt
-        key ? (source)=>{
-            resetMixer();
-            n = source.length;
-            pad = MAX_PADDING - (n + ENTROPY) % MAX_PADDING;
-            target = new Uint8Array(ENTROPY + n + pad);
-            for(j = 0; j < ENTROPY - 1; target[j++] = updateMixer(entropy()));
-            // Align last entropy byte to max padding and add padding.
-            target[j++] = updateMixer(mixer255 ^ MAX_PADDING * entropy(256 / MAX_PADDING) + pad);
-            for(i = 0; i < n; target[j++] = updateMixer(mixer255 ^ source[i++]));
-            while(pad--)target[j++] = entropy();
-            return target;
-        } : (source)=>source,
-        // Decrypt
-        key ? (source)=>{
-            resetMixer();
-            for(i = 0; i < ENTROPY - 1; updateMixer(source[i++]));
-            n = source.length - ENTROPY - // Padding. If padding is zero it all last PADDING characters are padding.
-            ((mixer255 ^ updateMixer(source[i++])) % MAX_PADDING || MAX_PADDING);
-            if (n <= 0) return new Uint8Array(0);
-            target = new Uint8Array(n);
-            for(j = 0; j < n; target[j++] = mixer255 ^ updateMixer(source[i++]));
-            return target;
-        } : (cipher)=>cipher,
-        // FNV1a hash code.
-        (source, numericOrBits = 64)=>{
-            if (source == null) return null;
-            bits = isBoolean$1(numericOrBits) ? 64 : numericOrBits;
-            resetMixer();
-            [hash, prime] = FNVs[bits];
-            for(i = 0; i < source.length; hash = BigInt.asUintN(bits, (hash ^ BigInt(mixer255 ^ updateMixer(source[i++]))) * prime));
-            return numericOrBits === true ? Number(BigInt(Number.MIN_SAFE_INTEGER) + hash % BigInt(Number.MAX_SAFE_INTEGER - Number.MIN_SAFE_INTEGER)) : hash.toString(36);
-        }
-    ];
-};
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -2378,6 +1722,259 @@ var msgpack$1 = {exports: {}};
 var msgpackExports = msgpack$1.exports;
 var msgpack = /*@__PURE__*/getDefaultExportFromCjs(msgpackExports);
 
+const codes = [];
+const chars = [];
+const charCode = (s, index = 0)=>s.charCodeAt(index);
+const fromCharCodes = (chars)=>String.fromCharCode(...chars);
+[
+    ..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+].forEach((p, i)=>codes[chars[i] = p.charCodeAt(0)] = i);
+/**
+ * Encodes an array of bytes to Base64URL without padding (URL safe Base64 using `-` and `_` instead of `+` and `/`).
+ *
+ * (thanks to Jon Leighton at https://gist.github.com/jonleighton/958841).
+ */ const to64u = (bytes)=>{
+    let i = 0;
+    let chunk;
+    const n = bytes.length;
+    const base64 = [];
+    while(i < n){
+        chunk = bytes[i++] << 16 | bytes[i++] << 8 | bytes[i++];
+        base64.push(chars[(chunk & 16515072) >> 18], chars[(chunk & 258048) >> 12], chars[(chunk & 4032) >> 6], chars[chunk & 63]);
+    }
+    base64.length += n - i;
+    return fromCharCodes(base64);
+};
+/**
+ * Decodes a BaseURL encoded string (without padding).
+ */ const from64u = (encoded)=>{
+    let i = 0;
+    let j = 0;
+    let p;
+    const n = encoded.length;
+    const bytes = new Uint8Array(3 * (n / 4 | 0) + (n + 3 & 3) % 3);
+    while(i < n){
+        bytes[j++] = codes[charCode(encoded, i++)] << 2 | (p = codes[charCode(encoded, i++)]) >> 4;
+        if (i < n) {
+            bytes[j++] = (p & 15) << 4 | (p = codes[charCode(encoded, i++)]) >> 2;
+            if (i < n) {
+                bytes[j++] = (p & 3) << 6 | codes[charCode(encoded, i++)];
+            }
+        }
+    }
+    return bytes;
+};
+const throwError = (error, transform = (message)=>new TypeError(message))=>{
+    throw isString$1(error = unwrap(error)) ? transform(error) : error;
+};
+const tryCatch = (expression, errorHandler = true, always)=>{
+    try {
+        return expression();
+    } catch (e) {
+        return isFunction(errorHandler) ? isError$1(e = errorHandler(e)) ? throwError(e) : e : isBoolean$1(errorHandler) ? console.error(errorHandler ? throwError(e) : e) : errorHandler;
+    } finally{
+        always?.();
+    }
+};
+/** Minify friendly version of `false`. */ const undefined$1$1 = void 0;
+/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
+/** Minify friendly version of `null`. */ const nil = null;
+/** A function that filters out values != null. */ const FILTER_NULLS = (item)=>item != nil;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
+const isBoolean$1 = (value)=>typeof value === "boolean";
+const isNumber$1 = (value)=>typeof value === "number";
+const isString$1 = (value)=>typeof value === "string";
+const isArray$4 = Array.isArray;
+const isError$1 = (value)=>value instanceof Error;
+/**
+ * Returns the value as an array following these rules:
+ * - If the value is undefined (this does not include `null`), so is the return value.
+ * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
+ * - If the value is iterable, an array containing its values is returned
+ * - Otherwise, an array with the value as its single item is returned.
+ */ const array = (value, clone = false)=>value == null ? undefined$1$1 : !clone && isArray$4(value) ? value : isIterable(value) ? [
+        ...value
+    ] : [
+        value
+    ];
+const isObject = (value)=>value !== null && typeof value === "object";
+const objectPrototype = Object.prototype;
+const getPrototypeOf = Object.getPrototypeOf;
+const isPlainObject = (value)=>value != null && getPrototypeOf(value) === objectPrototype;
+const isSymbol$1 = (value)=>typeof value === "symbol";
+const isFunction = (value)=>typeof value === "function";
+const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
+let stopInvoked = false;
+const wrapProjection = (projection)=>projection == null ? undefined$1$1 : isFunction(projection) ? projection : (item)=>item[projection];
+function* createFilteringIterator(source, projection) {
+    if (source == null) return;
+    if (projection) {
+        projection = wrapProjection(projection);
+        let i = 0;
+        for (let item of source){
+            if ((item = projection(item, i++)) != null) {
+                yield item;
+            }
+            if (stopInvoked) {
+                stopInvoked = false;
+                break;
+            }
+        }
+    } else {
+        for (let item of source){
+            if (item != null) yield item;
+        }
+    }
+}
+function* createObjectIterator(source, action) {
+    action = wrapProjection(action);
+    let i = 0;
+    for(const key in source){
+        let value = [
+            key,
+            source[key]
+        ];
+        action && (value = action(value, i++));
+        if (value != null) {
+            yield value;
+        }
+        if (stopInvoked) {
+            stopInvoked = false;
+            break;
+        }
+    }
+}
+function* createRangeIterator(length = 0, offset) {
+    if (length < 0) {
+        offset ??= -length - 1;
+        while(length++)yield offset--;
+    } else {
+        offset ??= 0;
+        while(length--)yield offset++;
+    }
+}
+function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_INTEGER) {
+    if (start != null) yield start;
+    while(maxIterations-- && (start = step(start)) != null){
+        yield start;
+    }
+}
+const sliceAction = (action, start, end)=>(start ?? end) !== undefined$1$1 ? (action = wrapProjection(action), start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1$1 : end-- ? action ? action(value, index) : value : end) : action;
+/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array?.filter(FILTER_NULLS);
+const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray$4(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$1$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
+const project = (source, projection, start, end)=>createIterator(source, projection, start, end);
+const map = (source, projection, start, end)=>{
+    projection = wrapProjection(projection);
+    if (isArray$4(source)) {
+        let i = 0;
+        const mapped = [];
+        start = start < 0 ? source.length + start : start ?? 0;
+        end = end < 0 ? source.length + end : end ?? source.length;
+        for(; start < end && !stopInvoked; start++){
+            let value = source[start];
+            if ((projection ? value = projection(value, i++) : value) != null) {
+                mapped.push(value);
+            }
+        }
+        stopInvoked = false;
+        return mapped;
+    }
+    return source != null ? array(project(source, projection, start, end)) : undefined$1$1;
+};
+const unwrap = (value)=>isFunction(value) ? value() : value;
+/** The number of leading entropy bytes. */ const ENTROPY = 4;
+/** The padding length. Cipher texts will always be a multiple of this. */ const MAX_PADDING = 16;
+const FNVs = {
+    32: [
+        0x811c9dc5n,
+        0x01000193n
+    ],
+    64: [
+        0xcbf29ce484222325n,
+        0x100000001b3n
+    ],
+    128: [
+        0x6c62272e07bb014262b821756295c58dn,
+        0x1000000000000000000013bn
+    ]
+};
+/** A random byte. */ const entropy = (max = 256)=>max * Math.random() | 0;
+/**
+ * Linear-feedback shift register encryption with leading entropy and fixed padding.
+ *
+ * Used for on-the-fly encryption. It is not the strongest encryption, yet it is annoyingly challenging to break.
+ * Due to entropy the same text with the same key will result in a different cipher text every time.
+ *
+ *
+ * "It is fast and small.", Bob said to Alice. "It is all right.", she replied.
+ *
+ * (Adapted from http://quinnftw.com/xor-ciphers/).
+ */ const lfsr = (key)=>{
+    /** Number of source bytes for (en/de)cryption. */ let n;
+    /** Source byte index. */ let i;
+    /** Target byte index. */ let j;
+    /** Padding length. */ let pad;
+    /** Holds the (en/de)crypted bytes. */ let target;
+    /** Hash code. */ let hash = 0n;
+    /** Bits for FNV-1a hash code. */ let bits = 0;
+    /** Prime for FNV-1a hash code. */ let prime = 0n;
+    /**
+   * The sliding window with the past ciphers used to update for the mixer.
+   * It works as a linear feedback shfit register to bolster against frequency analysis.
+   *
+   * http://quinnftw.com/xor-ciphers/.
+   */ let window = [];
+    /** The mixer used to iteratively update the key while (en/de)crypting. */ let mixer = 0;
+    /** The mixer modulo 256. */ let mixer255 = 0;
+    /** Current start of the mixer window. */ let iw = 0;
+    /** Initial mixer. */ let mixer0 = 0;
+    /** Initial bytes for the mixer. */ const window0 = [];
+    for(iw = 0; iw < key?.length; mixer0 += window0[iw] = key.charCodeAt(iw++));
+    /** Resets the mixer when (en/de)cryption starts. */ const resetMixer = key ? ()=>{
+        window = [
+            ...window0
+        ];
+        mixer255 = (mixer = mixer0) & 255;
+        iw = -1;
+    } : ()=>{};
+    /** Updates the mixer with the (en/de)crypted byte. */ const updateMixer = (c)=>(mixer255 = (mixer += -window[iw = (iw + 1) % window.length] + // Add the byte entering the window.
+        (window[iw] = c)) & 255, c);
+    return [
+        // Encrypt
+        key ? (source)=>{
+            resetMixer();
+            n = source.length;
+            pad = MAX_PADDING - (n + ENTROPY) % MAX_PADDING;
+            target = new Uint8Array(ENTROPY + n + pad);
+            for(j = 0; j < ENTROPY - 1; target[j++] = updateMixer(entropy()));
+            // Align last entropy byte to max padding and add padding.
+            target[j++] = updateMixer(mixer255 ^ MAX_PADDING * entropy(256 / MAX_PADDING) + pad);
+            for(i = 0; i < n; target[j++] = updateMixer(mixer255 ^ source[i++]));
+            while(pad--)target[j++] = entropy();
+            return target;
+        } : (source)=>source,
+        // Decrypt
+        key ? (source)=>{
+            resetMixer();
+            for(i = 0; i < ENTROPY - 1; updateMixer(source[i++]));
+            n = source.length - ENTROPY - // Padding. If padding is zero it all last PADDING characters are padding.
+            ((mixer255 ^ updateMixer(source[i++])) % MAX_PADDING || MAX_PADDING);
+            if (n <= 0) return new Uint8Array(0);
+            target = new Uint8Array(n);
+            for(j = 0; j < n; target[j++] = mixer255 ^ updateMixer(source[i++]));
+            return target;
+        } : (cipher)=>cipher,
+        // FNV1a hash code.
+        (source, numericOrBits = 64)=>{
+            if (source == null) return null;
+            bits = isBoolean$1(numericOrBits) ? 64 : numericOrBits;
+            resetMixer();
+            [hash, prime] = FNVs[bits];
+            for(i = 0; i < source.length; hash = BigInt.asUintN(bits, (hash ^ BigInt(mixer255 ^ updateMixer(source[i++]))) * prime));
+            return numericOrBits === true ? Number(BigInt(Number.MIN_SAFE_INTEGER) + hash % BigInt(Number.MAX_SAFE_INTEGER - Number.MIN_SAFE_INTEGER)) : hash.toString(36);
+        }
+    ];
+};
 const { deserialize, serialize } = msgpack;
 const REF_PROP = "$ref";
 /**
@@ -2417,7 +2014,7 @@ const REF_PROP = "$ref";
         }
         if (isPlainObject(value)) {
             refs.set(value, refs.size + 1);
-            Object.keys(value).forEach((k)=>(patchProperty(value, k) === undefined$2 || isSymbol$1(k)) && delete value[k]);
+            Object.keys(value).forEach((k)=>(patchProperty(value, k) === undefined$1$1 || isSymbol$1(k)) && delete value[k]);
         } else if (isIterable(value)) {
             // Array with undefined values or iterable (which is made into array.). ([,1,2,3] does not reveal its first entry).
             (!isArray$4(value) || Object.keys(value).length < value.length ? [
@@ -2448,7 +2045,7 @@ const patchDeserialize = (value)=>{
         Object.entries(value).forEach(([k, v])=>v !== (v = inner(v)) && (value[k] = v));
         return value;
     };
-    return value != null ? inner(deserialize(value)) : undefined$2;
+    return value != null ? inner(deserialize(value)) : undefined$1$1;
 };
 let _defaultTransports;
 /**
@@ -2458,10 +2055,10 @@ let _defaultTransports;
     const factory = (key, json = false, jsonDecodeFallback = true)=>{
         const fastStringHash = (value, bitsOrNumeric)=>{
             if (isNumber$1(value) && bitsOrNumeric === true) return value;
-            value = isString$1(value) ? new Uint8Array(map$1(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? JSON.stringify(value) : patchSerialize(value);
+            value = isString$1(value) ? new Uint8Array(map(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? JSON.stringify(value) : patchSerialize(value);
             return hash(value, bitsOrNumeric);
         };
-        const jsonDecode = (encoded)=>encoded == null ? undefined$2 : tryCatch(()=>JSON.parse(encoded, undefined$2));
+        const jsonDecode = (encoded)=>encoded == null ? undefined$1$1 : tryCatch(()=>JSON.parse(encoded, undefined$1$1));
         if (json) {
             return [
                 (data)=>JSON.stringify(data),
@@ -2537,7 +2134,7 @@ const patchSelector = (value, selector, update)=>{
     let patchTarget;
     ("." + selector).split(".").forEach((segment, i, path)=>{
         let current = i ? patchTarget[segment] : value;
-        if (current != null && !isPlainObject(current)) throw new TypeError(`Invalid patch operation. The selector does not address a property on an object.`);
+        if (current != null && !isPlainObject$1(current)) throw new TypeError(`Invalid patch operation. The selector does not address a property on an object.`);
         if (i === path.length - 1) {
             const updated = patchTarget[segment] = update(patchTarget[segment]);
             patchTarget[segment] = updated;
@@ -2552,9 +2149,9 @@ const patchSelector = (value, selector, update)=>{
     });
     return value;
 };
-const requireNumberOrUndefined = (value)=>value === undefined || typeof value === "number" ? value : throwError("The current value must be undefined or a number.");
+const requireNumberOrUndefined = (value)=>value === undefined || typeof value === "number" ? value : throwError$1("The current value must be undefined or a number.");
 const applyPatch = async (current, { classification: level, purposes, patch })=>{
-    if (isFunction(patch)) {
+    if (isFunction$1(patch)) {
         const patched = toNumericVariableEnums(await patch(toNumericVariableEnums(current)));
         if (patched) {
             patched.classification ??= dataClassification.parse(current?.classification);
@@ -2613,7 +2210,7 @@ function bootstrap({ host, endpoint, schemas, cookies, extensions, allowUnknownE
         endpoint,
         cookies,
         allowUnknownEventTypes,
-        extensions: map(extensions, (extension)=>typeof extension === "function" ? extension : async ()=>extension),
+        extensions: map$1(extensions, (extension)=>typeof extension === "function" ? extension : async ()=>extension),
         encryptionKeys,
         debugScript,
         environmentTags
@@ -3910,8 +3507,8 @@ var callBound$1 = function callBoundIntrinsic(name, allowMissing) {
 var _nodeResolve_empty = {};
 
 var _nodeResolve_empty$1 = /*#__PURE__*/Object.freeze({
-  __proto__: null,
-  default: _nodeResolve_empty
+   __proto__: null,
+   default: _nodeResolve_empty
 });
 
 var require$$0$1 = /*@__PURE__*/getAugmentedNamespace(_nodeResolve_empty$1);
@@ -8356,283 +7953,2145 @@ class EventParser {
     }
 }
 
-var defaultSchema = globalThis.schema;
+var defaultSchema = {
+    "$id": "urn:tailjs:core",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "TrackedEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Tagged"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "schema": {
+                            "type": "string",
+                            "description": "The ID of the schema the event comes from. It is suggested that the schema ID ends with a hash followed by a SemVer version number. (e.g. urn:tailjs#0.9.0)"
+                        },
+                        "id": {
+                            "$ref": "urn:tailjs:core#/definitions/LocalID",
+                            "description": "This is assigned by the server. Only use  {@link  clientId }  client-side."
+                        },
+                        "clientId": {
+                            "$ref": "urn:tailjs:core#/definitions/LocalID",
+                            "description": "This is set by the client and used to when events reference each other."
+                        },
+                        "metadata": {
+                            "$ref": "urn:tailjs:core#/definitions/EventMetadata",
+                            "description": "These properties are used to track the state of the event as it gets collected, and is not persisted."
+                        },
+                        "patchTargetId": {
+                            "$ref": "urn:tailjs:core#/definitions/LocalID",
+                            "description": "If set, it means this event contains updates to an existing event with this  {@link  clientId } , and should not be considered a separate event. It must have the target event's  {@link  TrackedEvent.type }  postfixed with \"_patch\" (for example \"view_patch\").\n\nThe specific logic for how to combine patches is specific to the event type, but numbers should generally be additive, that is, patches contains the changes i numeric values, and not new values. In this way aggregations work in queries for analytics.\n\nPlease pay attention to this property when doing analytics so you don't over count.\n\nPatches are always considered passive, cf.  {@link  EventMetadata.passive } ."
+                        },
+                        "relatedEventId": {
+                            "$ref": "urn:tailjs:core#/definitions/LocalID",
+                            "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , or a  {@link  CartUpdatedEvent }  may be triggered with a  {@link  ComponentClickEvent } ."
+                        },
+                        "session": {
+                            "$ref": "urn:tailjs:core#/definitions/Session",
+                            "description": "The session associated with the event."
+                        },
+                        "view": {
+                            "$ref": "urn:tailjs:core#/definitions/LocalID",
+                            "description": "When applicable, the view where the event happened (related by  {@link  ViewEvent } )."
+                        },
+                        "timestamp": {
+                            "$ref": "urn:tailjs:core#/definitions/Timestamp",
+                            "description": "This timestamp will always have a value before it reaches a backend. If specified, it must be a negative number when sent from the client (difference between when the event was generated and when is was posted in milliseconds).",
+                            "default": "now"
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happened, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
+            "$id": "urn:tailjs:core:event",
+            "x-privacy-purpose": "anonymous",
+            "x-privacy-censor": "ignore"
+        },
+        "Tagged": {
+            "type": "object",
+            "properties": {
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "urn:tailjs:core#/definitions/Tag"
+                    },
+                    "description": "Tags in tailjs are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxnonmy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `conversion:high-value`, `rendering:component:theme=dark`, `ad-campaign=43899` and `ext1:video:play`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the names can be organized in taxonomies with each rank separated by colon (`:`). If there are more than one tag they are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters to store a list of values in the same tag is strongly discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` LESS BAD: `event:eventbrite=8487912` GOOD: Use an  {@link  ExternalReference } .\n\nBAD: `campaign:promo=1, campaign:length:4` GOOD: `campaign:promo, campaign:length=4`\n\nTags can be either be added directly to content and component definitions, or added to HTML tags with the `track-tags` attribute or `--track-tags` CSS property. In the latter case all tags from the HTML elements that contain a component or surround content are added to tracking when the user clicks around.\n\nThis allows some tags to be managed via e.g. CMS and follow thec content around wherever it is used on the website, and other tags to be included by the logic that puts the bits and pieces together to the final webpage the user sees.\n\nThis unified approach gives a clear way to store all domain-specific data in a way that goes very well with analytics. If the shape of the data you want to store is too complex to easily fit into tags, you can instead extend the tracker's event schema."
+                }
+            },
+            "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details."
+        },
+        "Tag": {
+            "type": "string"
+        },
+        "LocalID": {
+            "type": "string",
+            "description": "An ID that is unique to the current client."
+        },
+        "EventMetadata": {
+            "type": "object",
+            "properties": {
+                "passive": {
+                    "type": "boolean",
+                    "description": "Hint to the request handler, that new sessions should not be started if all posted events are passive."
+                },
+                "queued": {
+                    "type": "boolean",
+                    "description": "Hint that the event has been queued."
+                },
+                "posted": {
+                    "type": "boolean",
+                    "description": "Hint to client code, that the event has been posted to the server."
+                }
+            },
+            "description": "These properties are used to track the state of events as they get collected, and not stored."
+        },
+        "Session": {
+            "type": "object",
+            "properties": {
+                "sessionId": {
+                    "$ref": "urn:tailjs:core#/definitions/UUID",
+                    "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.",
+                    "x-privacy-purpose": "anonymous"
+                },
+                "deviceId": {
+                    "$ref": "urn:tailjs:core#/definitions/UUID",
+                    "description": "The unique ID of the user's device. This ID does most likely not identify the device reliably over time, since it may be reset if the user purges tracking data, e.g. clears cookies or changes browser.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+                },
+                "deviceSessionId": {
+                    "$ref": "urn:tailjs:core#/definitions/UUID",
+                    "description": "The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again. This means that device sessions can both be significantly shorter and longer that \"normal\" sessions in that it restarts whenever the user navigates completely away from the site and comes back (e.g. while evaluating search results), but it will also survive the user putting their computer to sleep or leaving their browser app in the background for a long time on their phone.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+                },
+                "userId": {
+                    "type": "string",
+                    "description": "The current user owning the session.",
+                    "x-privacy-class": "direct"
+                },
+                "consent": {
+                    "$ref": "urn:tailjs:core#/definitions/UserConsent",
+                    "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less.",
+                    "x-privacy-purpose": "anonymous"
+                },
+                "clientIp": {
+                    "type": "string",
+                    "description": "The IP address of the device where the session is active.",
+                    "x-privacy-class": "indirect",
+                    "x-privacy-purpose": "infrastructure"
+                },
+                "expiredDeviceSessionId": {
+                    "type": "string",
+                    "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session)."
+                }
+            },
+            "required": [
+                "sessionId"
+            ],
+            "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
+            "x-privacy-class": "indirect",
+            "x-privacy-purpose": "necessary"
+        },
+        "UUID": {
+            "type": "string"
+        },
+        "UserConsent": {
+            "type": "object",
+            "properties": {
+                "level": {
+                    "type": "string",
+                    "enum": [
+                        "anonymous",
+                        "indirect",
+                        "direct",
+                        "sensitive"
+                    ],
+                    "description": "The highest level of data classification the user has consented to be stored."
+                },
+                "purposes": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "enum": [
+                                "none",
+                                "necessary",
+                                "functionality",
+                                "performance",
+                                "targeting",
+                                "security",
+                                "infrastructure",
+                                "anonymous",
+                                "any",
+                                "server"
+                            ]
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "none",
+                                    "necessary",
+                                    "functionality",
+                                    "performance",
+                                    "targeting",
+                                    "security",
+                                    "infrastructure",
+                                    "anonymous",
+                                    "any",
+                                    "server"
+                                ]
+                            }
+                        }
+                    ],
+                    "description": "The purposes the user has consented their data to be used for.",
+                    "x-privacy-purpose": "anonymous"
+                }
+            },
+            "required": [
+                "level",
+                "purposes"
+            ],
+            "description": "A user's consent choices."
+        },
+        "Timestamp": {
+            "type": "number"
+        },
+        "NamedParameters<typeof isTrackedEvent>": {
+            "type": "object",
+            "properties": {
+                "ev": {}
+            },
+            "required": [
+                "ev"
+            ],
+            "additionalProperties": false
+        },
+        "PassiveEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "metadata": {
+                            "type": "object",
+                            "properties": {
+                                "passive": {
+                                    "type": "boolean",
+                                    "description": "Hint to the request handler, that new sessions should not be started if all posted events are passive.",
+                                    "const": true
+                                },
+                                "queued": {
+                                    "type": "boolean",
+                                    "description": "Hint that the event has been queued."
+                                },
+                                "posted": {
+                                    "type": "boolean",
+                                    "description": "Hint to client code, that the event has been posted to the server."
+                                }
+                            },
+                            "required": [
+                                "passive"
+                            ],
+                            "description": "This property must be set on events implementing the interface since events are just data templates and not polymorphic classes."
+                        }
+                    },
+                    "required": [
+                        "metadata"
+                    ]
+                }
+            ],
+            "description": "Base type for events that adds timing or similar \"after-the-fact\" data to events that has already been posted. These events are special in the sense that they do not start a new session, so if the session has expired before the event is sent to the server, it will not start a new session, but also not be tracked."
+        },
+        "NamedParameters<typeof isPassiveEvent>": {
+            "type": "object",
+            "properties": {
+                "value": {}
+            },
+            "required": [
+                "value"
+            ],
+            "additionalProperties": false
+        },
+        "UserInteractionEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "components": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/ActivatedComponent"
+                            },
+                            "description": "Relevant components and content in the scope of the activated element."
+                        },
+                        "timeOffset": {
+                            "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
+                            "description": "The time the event happened relative to the view were it was generated."
+                        },
+                        "pos": {
+                            "$ref": "urn:tailjs:core#/definitions/ScreenPosition",
+                            "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled)."
+                        },
+                        "viewport": {
+                            "$ref": "urn:tailjs:core#/definitions/Viewport",
+                            "description": "The viewport of the user's browser when the event happened."
+                        },
+                        "area": {
+                            "type": "string",
+                            "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash."
+                        },
+                        "element": {
+                            "type": "object",
+                            "properties": {
+                                "tagName": {
+                                    "type": "string",
+                                    "description": "The tag name of the activated element."
+                                },
+                                "text": {
+                                    "type": "string",
+                                    "description": "The textual content of the element that was clicked (e.g. the label on a button, or the alt text of an image)"
+                                }
+                            },
+                            "description": "Information about the activated element, if any."
+                        }
+                    }
+                }
+            ]
+        },
+        "ActivatedComponent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Component"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/ActivatedContent"
+                            },
+                            "description": "The activated content in the component."
+                        },
+                        "rect": {
+                            "$ref": "urn:tailjs:core#/definitions/Rectangle",
+                            "description": "The size and position of the component when it was activated relative to the document top (not viewport)."
+                        },
+                        "area": {
+                            "type": "string",
+                            "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash."
+                        }
+                    }
+                }
+            ],
+            "description": "The component definition related to a user activation."
+        },
+        "Component": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Personalizable"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Tagged"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "typeName": {
+                            "type": "string",
+                            "description": "An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial."
+                        },
+                        "dataSource": {
+                            "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                            "description": "Optional references to the content that was used to render the component."
+                        },
+                        "instanceId": {
+                            "type": "string",
+                            "description": "An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree."
+                        },
+                        "instanceNumber": {
+                            "$ref": "urn:tailjs:core#/definitions/Integer",
+                            "description": "If the same component type is used multiple times on the same page this number indicates which one it is. (As defined in the page's markup, typically this amounts to left-to-right/top-to-bottom)."
+                        },
+                        "inferred": {
+                            "type": "boolean",
+                            "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
+                            "default": false
+                        }
+                    }
+                }
+            ]
+        },
+        "ExternalReference": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Optionally, the version of the item in case the external source supports versioning."
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Optionally, the language of the item in case the external source supports localization."
+                },
+                "source": {
+                    "type": "string",
+                    "description": "Optionally, the ID of the external system referenced."
+                },
+                "referenceType": {
+                    "type": "string",
+                    "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
+                },
+                "isExternal": {
+                    "type": "boolean",
+                    "description": "Flag to indicate that this data comes from an external system that you do not control."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
+                },
+                "itemType": {
+                    "type": "string",
+                    "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
+                }
+            },
+            "required": [
+                "id"
+            ],
+            "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.\n\nAgain, if you only have some hard-coded value, you can just make an external reference and use its  {@link  id }  property for the value. Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID."
+        },
+        "Personalizable": {
+            "type": "object",
+            "properties": {
+                "personalization": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "urn:tailjs:core#/definitions/Personalization"
+                    }
+                }
+            }
+        },
+        "Personalization": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Tagged"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "source": {
+                            "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                            "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s."
+                        },
+                        "variables": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/PersonalizationVariable"
+                            },
+                            "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms."
+                        },
+                        "variants": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/PersonalizationVariant"
+                            },
+                            "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources."
+                        }
+                    }
+                }
+            ],
+            "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more."
+        },
+        "PersonalizationVariable": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "value"
+                    ]
+                }
+            ],
+            "description": "A reference to a variable and its value in personalization."
+        },
+        "PersonalizationVariant": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "sources": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/PersonalizationSource"
+                            },
+                            "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time."
+                        },
+                        "default": {
+                            "type": "boolean",
+                            "description": "If the reference is the default variant.",
+                            "default": false
+                        },
+                        "eligible": {
+                            "type": "boolean",
+                            "description": "If the variant could have been picked."
+                        },
+                        "selected": {
+                            "type": "boolean",
+                            "description": "If the variant was chosen."
+                        }
+                    }
+                }
+            ],
+            "description": "A reference to the data/content item related to a variant in personalization."
+        },
+        "PersonalizationSource": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "relatedVariable": {
+                            "type": "string",
+                            "description": "In case of a multi-variate test (or similar) that runs over multiple components and/or pages, this can be the ID of the specific variable that decided personalization for a specific component."
+                        },
+                        "personalizationType": {
+                            "type": "string",
+                            "description": "The kind of personalization that relates to this item."
+                        }
+                    }
+                }
+            ],
+            "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } ."
+        },
+        "Integer": {
+            "type": "number"
+        },
+        "ActivatedContent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Content"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "rect": {
+                            "$ref": "urn:tailjs:core#/definitions/Rectangle",
+                            "description": "The current size and position of the element representing the content relative to the document top (not viewport)."
+                        }
+                    }
+                }
+            ],
+            "description": "The content definition related to a user activation."
+        },
+        "Content": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Tagged"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "commerce": {
+                            "$ref": "urn:tailjs:core#/definitions/CommerceData"
+                        }
+                    }
+                }
+            ],
+            "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria"
+        },
+        "CommerceData": {
+            "type": "object",
+            "properties": {
+                "price": {
+                    "$ref": "urn:tailjs:core#/definitions/Decimal",
+                    "description": "The unit price."
+                },
+                "unit": {
+                    "type": "string",
+                    "description": "The unit the item is sold by."
+                },
+                "currency": {
+                    "type": "string",
+                    "description": "The currency of the price. This field does not have a default value; if unspecified it must be assumed from context."
+                },
+                "variation": {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                    "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple)."
+                },
+                "stock": {
+                    "$ref": "urn:tailjs:core#/definitions/Float",
+                    "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many)."
+                }
+            }
+        },
+        "Decimal": {
+            "type": "number"
+        },
+        "Float": {
+            "type": "number"
+        },
+        "Rectangle": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Position"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Size"
+                },
+                {
+                    "type": "object"
+                }
+            ]
+        },
+        "Position": {
+            "type": "object",
+            "properties": {
+                "x": {
+                    "$ref": "urn:tailjs:core#/definitions/Float"
+                },
+                "y": {
+                    "$ref": "urn:tailjs:core#/definitions/Float"
+                }
+            },
+            "required": [
+                "x",
+                "y"
+            ],
+            "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio]."
+        },
+        "Size": {
+            "type": "object",
+            "properties": {
+                "width": {
+                    "$ref": "urn:tailjs:core#/definitions/Float"
+                },
+                "height": {
+                    "$ref": "urn:tailjs:core#/definitions/Float"
+                }
+            },
+            "required": [
+                "width",
+                "height"
+            ]
+        },
+        "ViewTimingData": {
+            "type": "object",
+            "properties": {
+                "interactiveTime": {
+                    "$ref": "urn:tailjs:core#/definitions/Duration",
+                    "description": "The time the user has been active in the view/tab. Interactive time is measured as the time where the user is actively scrolling, typing or similar. Specifically defined as [transient activation](https://developer.mozilla.org/en-US/docs/Glossary/Transient_activation) with a timeout of 10 seconds."
+                },
+                "visibleTime": {
+                    "$ref": "urn:tailjs:core#/definitions/Duration",
+                    "description": "The time the view/tab has been visible."
+                },
+                "totalTime": {
+                    "$ref": "urn:tailjs:core#/definitions/Duration",
+                    "description": "The time elapsed since the view/tab was opened."
+                },
+                "activations": {
+                    "$ref": "urn:tailjs:core#/definitions/Integer",
+                    "description": "The number of times the user toggled away from the view/tab and back."
+                }
+            }
+        },
+        "Duration": {
+            "type": "number"
+        },
+        "ScreenPosition": {
+            "type": "object",
+            "properties": {
+                "xpx": {
+                    "$ref": "urn:tailjs:core#/definitions/Integer"
+                },
+                "ypx": {
+                    "$ref": "urn:tailjs:core#/definitions/Integer"
+                },
+                "x": {
+                    "$ref": "urn:tailjs:core#/definitions/Percentage"
+                },
+                "y": {
+                    "$ref": "urn:tailjs:core#/definitions/Percentage"
+                },
+                "pageFolds": {
+                    "$ref": "urn:tailjs:core#/definitions/Float",
+                    "description": "The vertical position as a multiple of the page fold position (less than 1 means that the element was visible without scrolling)."
+                }
+            },
+            "required": [
+                "x",
+                "y"
+            ],
+            "description": "Represents a position where the units are percentages relative to an element or page."
+        },
+        "Percentage": {
+            "type": "number"
+        },
+        "Viewport": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Rectangle"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "totalWidth": {
+                            "$ref": "urn:tailjs:core#/definitions/Float"
+                        },
+                        "totalHeight": {
+                            "$ref": "urn:tailjs:core#/definitions/Float"
+                        }
+                    },
+                    "required": [
+                        "totalWidth",
+                        "totalHeight"
+                    ]
+                }
+            ]
+        },
+        "ComponentClickEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "component_click_intent",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS."
+        },
+        "ComponentViewEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "component_view",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "This event is triggered when the user scrolls a component into view if it is configured for this kind of tracking."
+        },
+        "NavigationEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "navigation",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "clientId": {
+                            "$ref": "urn:tailjs:core#/definitions/LocalID",
+                            "description": "The ID of the navigation event. This will be added as  {@link  TrackedEvent.relatedEventId }  to view event that followed after the navigation."
+                        },
+                        "href": {
+                            "type": "string",
+                            "description": "The destination URL of the navigation"
+                        },
+                        "exit": {
+                            "type": "boolean",
+                            "description": "Indicates that the user went away from the site to an external URL."
+                        },
+                        "anchor": {
+                            "type": "string",
+                            "description": "The anchor specified in the href if any."
+                        },
+                        "external": {
+                            "type": "boolean",
+                            "description": "Indicates that the navigation is to an external domain"
+                        },
+                        "domain": {
+                            "$ref": "urn:tailjs:core#/definitions/Domain",
+                            "description": "The domain of the destination"
+                        },
+                        "self": {
+                            "type": "boolean",
+                            "description": "Whether the navigation happened in the current view or a new tab/window was opened."
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "clientId",
+                        "href",
+                        "self"
+                    ]
+                }
+            ]
+        },
+        "Domain": {
+            "type": "object",
+            "properties": {
+                "scheme": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "scheme",
+                "host"
+            ],
+            "description": "Represents a domain name, e.g. https://www.foo.co.uk"
+        },
+        "ScrollEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "scroll",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "offset": {
+                            "$ref": "urn:tailjs:core#/definitions/ScreenPosition",
+                            "description": "The offset relative to the page size (100 % is bottom, 0 % is top)"
+                        },
+                        "scrollType": {
+                            "type": "string",
+                            "enum": [
+                                "fold",
+                                "article-end",
+                                "page-middle",
+                                "page-end",
+                                "read",
+                                "offset"
+                            ],
+                            "description": "The type of scrolling."
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "offset"
+                    ]
+                }
+            ]
+        },
+        "SearchEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "search",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "query": {
+                            "type": "string"
+                        },
+                        "searchParameter": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "urn:tailjs:core#/definitions/SearchParameter"
+                            }
+                        },
+                        "resultCount": {
+                            "$ref": "urn:tailjs:core#/definitions/Integer"
+                        },
+                        "significantResults": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/SearchResult"
+                            }
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ]
+        },
+        "SearchParameter": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "type": "string"
+                        },
+                        "comparison": {
+                            "type": "string",
+                            "enum": [
+                                "lt",
+                                "eq",
+                                "gt"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "value"
+                    ]
+                }
+            ]
+        },
+        "SearchResult": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "rank": {
+                            "$ref": "urn:tailjs:core#/definitions/Integer"
+                        }
+                    },
+                    "required": [
+                        "rank"
+                    ]
+                }
+            ]
+        },
+        "SessionStartedEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "session_started",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "url": {
+                            "type": "string"
+                        },
+                        "sessionNumber": {
+                            "$ref": "urn:tailjs:core#/definitions/Integer",
+                            "description": "The total number of sessions from the given device (regardless of username)."
+                        },
+                        "timeSinceLastSession": {
+                            "$ref": "urn:tailjs:core#/definitions/Duration",
+                            "description": "The time since the last session from this device."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "x-privacy-purpose": "anonymous"
+        },
+        "UserAgentLanguage": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "The full language tag as specified by (RFC 5646/BCP 47)[https://datatracker.ietf.org/doc/html/rfc5646]"
+                },
+                "language": {
+                    "type": "string",
+                    "description": "The language name (ISO 639)."
+                },
+                "region": {
+                    "type": "string",
+                    "description": "Dialect (ISO 3166 region)."
+                },
+                "primary": {
+                    "type": "boolean",
+                    "description": "If it is the users primary preference."
+                },
+                "preference": {
+                    "$ref": "urn:tailjs:core#/definitions/Integer",
+                    "description": "The user's preference of the language (1 is highest)."
+                }
+            },
+            "required": [
+                "id",
+                "language",
+                "primary",
+                "preference"
+            ]
+        },
+        "UserAgentEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/SessionScoped"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "user_agent",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "hasTouch": {
+                            "type": "boolean",
+                            "description": "Has touch"
+                        },
+                        "deviceType": {
+                            "type": "string",
+                            "enum": [
+                                "mobile",
+                                "tablet",
+                                "desktop"
+                            ],
+                            "description": "The device type (inferred from screen size). The assumption is:   - anything width a logical device pixel width less than 480 is a phone,   - anything with a logical device pixel width less than or equal to 1024 (iPad Pro12.9\") is a tablet,   - the rest are desktops.\n\nDevice width is the physical width of the device regardless of its orientation."
+                        },
+                        "userAgent": {
+                            "type": "string",
+                            "description": "User agent string"
+                        },
+                        "languages": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/UserAgentLanguage"
+                            },
+                            "description": "The user's language preferences as configured in the user's device."
+                        },
+                        "timezone": {
+                            "type": "object",
+                            "properties": {
+                                "iana": {
+                                    "type": "string"
+                                },
+                                "offset": {
+                                    "$ref": "urn:tailjs:core#/definitions/Float",
+                                    "description": "The offset from GMT in hours."
+                                }
+                            },
+                            "required": [
+                                "iana",
+                                "offset"
+                            ]
+                        },
+                        "screen": {
+                            "type": "object",
+                            "properties": {
+                                "dpr": {
+                                    "$ref": "urn:tailjs:core#/definitions/Float",
+                                    "description": "Device pixel ratio (i.e. how many physical pixels per logical CSS pixel)"
+                                },
+                                "width": {
+                                    "$ref": "urn:tailjs:core#/definitions/Float",
+                                    "description": "Device width."
+                                },
+                                "height": {
+                                    "$ref": "urn:tailjs:core#/definitions/Float",
+                                    "description": "Device height."
+                                },
+                                "landscape": {
+                                    "type": "boolean",
+                                    "description": "Whether the device is held in landscape mode.",
+                                    "default": false
+                                }
+                            },
+                            "required": [
+                                "dpr",
+                                "width",
+                                "height"
+                            ],
+                            "description": "Screen"
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "userAgent",
+                        "timezone"
+                    ]
+                }
+            ]
+        },
+        "SessionScoped": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Scoped"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened."
+        },
+        "Scoped": {
+            "type": "object",
+            "description": "Base interface for other marker interfaces that specifies that an event is scoped to something else than page views."
+        },
+        "ClickIds": {
+            "type": "object",
+            "properties": {
+                "google": {
+                    "type": "string"
+                },
+                "googleDoubleClick": {
+                    "type": "string"
+                },
+                "facebook": {
+                    "type": "string"
+                },
+                "microsoft": {
+                    "type": "string"
+                },
+                "googleAnalytics": {
+                    "type": "string"
+                }
+            }
+        },
+        "ViewEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "view",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "clientId": {
+                            "$ref": "urn:tailjs:core#/definitions/LocalID",
+                            "description": "This is set by the client and used to when events reference each other."
+                        },
+                        "definition": {
+                            "$ref": "urn:tailjs:core#/definitions/View",
+                            "description": "The primary content used to generate the view including the personalization that led to the decision, if any. If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL on the website, the view definition may follow from a separate patch event."
+                        },
+                        "tab": {
+                            "$ref": "urn:tailjs:core#/definitions/LocalID",
+                            "description": "The tab where the view was shown."
+                        },
+                        "href": {
+                            "type": "string",
+                            "description": "The fully qualified URL as shown in the address line of the browser excluding the domain."
+                        },
+                        "hash": {
+                            "type": "string",
+                            "description": "The hash part of the URL (/about-us#address)."
+                        },
+                        "path": {
+                            "type": "string",
+                            "description": "The path portion of the URL."
+                        },
+                        "duration": {
+                            "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
+                            "description": "For how long the view was active. This is set via patches"
+                        },
+                        "utm": {
+                            "type": "object",
+                            "properties": {
+                                "source": {
+                                    "type": "string"
+                                },
+                                "medium": {
+                                    "type": "string"
+                                },
+                                "campaign": {
+                                    "type": "string"
+                                },
+                                "term": {
+                                    "type": "string"
+                                },
+                                "content": {
+                                    "type": "string"
+                                }
+                            },
+                            "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters]."
+                        },
+                        "queryString": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "description": "The query string parameters in the URL, e.g. utm_campaign. Each parameter can have multiple values, for example If the parameter is specified more than once. If the parameter is only specified once pipes, semicolons and commas are assumed to separate values (in that order). A parameter without a value will get recorded as an empty string."
+                        },
+                        "domain": {
+                            "$ref": "urn:tailjs:core#/definitions/Domain",
+                            "description": "The domain part of the href, if any."
+                        },
+                        "landingPage": {
+                            "type": "boolean",
+                            "description": "Indicates that this was the first view in the first tab the user opened. Note that this is NOT tied to the session. If a user closes all tabs and windows for the site and then later navigates back to the site in the same session this flag will be set again.",
+                            "default": false
+                        },
+                        "firstTab": {
+                            "type": "boolean",
+                            "description": "Indicates that no other tabs were open when the view happened. This flag allows a backend to extend the definition of a session that can last indefinitely but still restart after inactivity. By measuring the time between a view with this flag and the previous event from the same device, it is possible to see for how long the device has been away from the site.",
+                            "default": false
+                        },
+                        "tabIndex": {
+                            "$ref": "urn:tailjs:core#/definitions/Integer",
+                            "description": "The 1-indexed view number in the current tab. This is kept as a convenience, yet technically redundant since it follows from timestamps and context.",
+                            "default": 1
+                        },
+                        "redirects": {
+                            "$ref": "urn:tailjs:core#/definitions/Integer",
+                            "description": "Number of redirects that happened during navigation to this view."
+                        },
+                        "navigationType": {
+                            "type": "string",
+                            "enum": [
+                                "navigate",
+                                "back-forward",
+                                "prerender",
+                                "reload"
+                            ],
+                            "description": "Navigation type."
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": [
+                                "manual",
+                                "automatic"
+                            ],
+                            "description": "Indicates whether the event was manually triggered through a tracker command, or happened automatically by the tracker's ability to infer navigation.",
+                            "default": "automatic"
+                        },
+                        "externalReferrer": {
+                            "type": "object",
+                            "properties": {
+                                "href": {
+                                    "type": "string"
+                                },
+                                "domain": {
+                                    "$ref": "urn:tailjs:core#/definitions/Domain"
+                                }
+                            },
+                            "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field."
+                        },
+                        "viewport": {
+                            "$ref": "urn:tailjs:core#/definitions/Size",
+                            "description": "The size of the user's view port (e.g. browser window) when the page was opened."
+                        },
+                        "viewType": {
+                            "type": "string",
+                            "description": "The type of view, e.g. \"page\" or \"screen\".",
+                            "default": "page"
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "clientId",
+                        "href"
+                    ]
+                }
+            ],
+            "description": "This event is sent a user navigates between views. (page, screen or similar).\n\nThis event does not"
+        },
+        "View": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Content"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Personalizable"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "preview": {
+                            "type": "boolean",
+                            "description": "The page was shown in preview/staging mode."
+                        }
+                    }
+                }
+            ]
+        },
+        "SessionLocationEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/SessionScoped"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "session_location",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "accuracy": {
+                            "$ref": "urn:tailjs:core#/definitions/Float",
+                            "description": "This number is like the precise definition of what the bars indicating signal strength on mobile phones represents. Nobody knows. Yet, for this number lower is better."
+                        },
+                        "city": {
+                            "$ref": "urn:tailjs:core#/definitions/GeoEntity"
+                        },
+                        "zip": {
+                            "type": "string"
+                        },
+                        "subdivision": {
+                            "$ref": "urn:tailjs:core#/definitions/GeoEntity"
+                        },
+                        "country": {
+                            "$ref": "urn:tailjs:core#/definitions/GeoEntity",
+                            "x-privacy-purpose": "anonymous"
+                        },
+                        "continent": {
+                            "$ref": "urn:tailjs:core#/definitions/GeoEntity"
+                        },
+                        "lat": {
+                            "$ref": "urn:tailjs:core#/definitions/Float"
+                        },
+                        "lng": {
+                            "$ref": "urn:tailjs:core#/definitions/Float"
+                        },
+                        "providerData": {
+                            "type": "object"
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "This event is triggered whenever the user's location changes.",
+            "x-privacy-class": "indirect",
+            "x-privacy-purpose": "performance"
+        },
+        "GeoEntity": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "geonames": {
+                    "$ref": "urn:tailjs:core#/definitions/Integer"
+                },
+                "iso": {
+                    "type": "string"
+                },
+                "confidence": {
+                    "$ref": "urn:tailjs:core#/definitions/Float"
+                }
+            },
+            "required": [
+                "name"
+            ]
+        },
+        "AnchorNavigationEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "anchor_navigation",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "anchor": {
+                            "type": "string",
+                            "description": "The name of the anchor."
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "anchor"
+                    ]
+                }
+            ],
+            "description": "The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)"
+        },
+        "ConsentEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "consent",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "consent": {
+                            "$ref": "urn:tailjs:core#/definitions/UserConsent"
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "consent"
+                    ]
+                }
+            ],
+            "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are required to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
+        },
+        "CommerceEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object"
+                }
+            ]
+        },
+        "CartAction": {
+            "type": "string",
+            "enum": [
+                "add",
+                "remove",
+                "update",
+                "clear"
+            ]
+        },
+        "CartUpdatedEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/CommerceEvent"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/CartEventData"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "cart_updated",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "Indicates that a shopping cart was updated."
+        },
+        "CartEventData": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/OrderQuantity"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalUse"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "$ref": "urn:tailjs:core#/definitions/CartAction",
+                            "description": "The way the cart was modified.",
+                            "default": "add"
+                        }
+                    }
+                }
+            ]
+        },
+        "OrderQuantity": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/CommerceData"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "units": {
+                            "$ref": "urn:tailjs:core#/definitions/Integer",
+                            "description": "The number of units.",
+                            "default": 1
+                        },
+                        "item": {
+                            "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                            "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context."
+                        }
+                    }
+                }
+            ],
+            "description": "Base information for the amount of an item added to an  {@link  Order }  or cart that is shared between  {@link  CartUpdatedEvent }  and  {@link  OrderLine } ."
+        },
+        "ExternalUse": {
+            "type": "object",
+            "description": "Types and interfaces extending this marker interface directly must have a concrete type that can be instantiated in code-generation scenarios because they are referenced directly outside of the types package."
+        },
+        "OrderEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/CommerceEvent"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Order"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "order",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "An order submitted by a user."
+        },
+        "Order": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Tagged"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "internalId": {
+                            "type": "string",
+                            "description": "A reference that can be used both before the order is completed, and if the order ID shown to the user is different from how the order is stored in underlying systems."
+                        },
+                        "orderId": {
+                            "type": "string",
+                            "description": "The order ID as shown to the user."
+                        },
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/OrderLine"
+                            },
+                            "description": "Optionally, all the items in the order at the time the order was made."
+                        },
+                        "discount": {
+                            "$ref": "urn:tailjs:core#/definitions/Decimal",
+                            "description": "The total discount given for this order including the sum of individual order line discounts"
+                        },
+                        "delivery": {
+                            "$ref": "urn:tailjs:core#/definitions/Decimal",
+                            "description": "The delivery cost, if any, and it is not included as an order line."
+                        },
+                        "vat": {
+                            "$ref": "urn:tailjs:core#/definitions/Decimal",
+                            "description": "The VAT included in the total."
+                        },
+                        "total": {
+                            "$ref": "urn:tailjs:core#/definitions/Decimal",
+                            "description": "The total of the order including VAT, delivery, discounts and any other costs added."
+                        },
+                        "paymentMethod": {
+                            "type": "string",
+                            "description": "The payment method selected for the order."
+                        },
+                        "currency": {
+                            "type": "string",
+                            "description": "The currency used for the order.\n\nThe order lines are assumed to be in this currency if not explicitly specified for each. (It is not an error to have order lines with different currencies it is just a bit... unusual)."
+                        }
+                    },
+                    "required": [
+                        "orderId"
+                    ]
+                }
+            ],
+            "description": "Represents an order for tracking purposes."
+        },
+        "OrderLine": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/OrderQuantity"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Tagged"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "lineId": {
+                            "type": "string",
+                            "description": "An optional identifier that makes it possible to reference this order line directly."
+                        },
+                        "vat": {
+                            "$ref": "urn:tailjs:core#/definitions/Decimal",
+                            "description": "The VAT included in the total."
+                        },
+                        "total": {
+                            "$ref": "urn:tailjs:core#/definitions/Decimal",
+                            "description": "The total for this order line including VAT"
+                        }
+                    }
+                }
+            ]
+        },
+        "CartAbandonedEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/CommerceEvent"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Order"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "cart_abandoned",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "lastCartEvent": {
+                            "$ref": "urn:tailjs:core#/definitions/Timestamp",
+                            "description": "The timestamp for the last time the shopping cart was modified by the user before abandonment."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "The shopping cart was abandoned. Currently there is no logic in the tracker to trigger this event automatically, hence a custom trigger must be implemented."
+        },
+        "OrderStatusEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "order": {
+                            "type": "string",
+                            "description": "A reference to the order that changed status."
+                        }
+                    },
+                    "required": [
+                        "order"
+                    ]
+                }
+            ],
+            "description": "Base event for events that related to an order changing status."
+        },
+        "OrderConfirmedEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "order_confirmed",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "An order was accepted.\n\nThis may be useful to track if some backend system needs to validate if the order submitted by the user is possible, or just for monitoring whether your site is healthy and actually processes the orders that come in.\n\nThis event should also imply that the user got a confirmation."
+        },
+        "OrderCancelledEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "order_cancelled",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "cancelledByUser": {
+                            "type": "boolean",
+                            "description": "Indicates if the user cancelled the order or it happended during a background process.",
+                            "default": "false;"
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "An order was cancelled."
+        },
+        "OrderCompletedEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "order_completed",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "An order was cancelled."
+        },
+        "PaymentEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/CommerceEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "orderReference": {
+                            "type": "string",
+                            "description": "The reference to order for which payment was made, either  {@link  Order.orderId }  or  {@link  Order.internalId } ."
+                        },
+                        "amount": {
+                            "$ref": "urn:tailjs:core#/definitions/Decimal",
+                            "description": "The amount paid."
+                        },
+                        "paymentMethod": {
+                            "type": "string",
+                            "description": "A domain specific value for the payment method."
+                        },
+                        "currency": {
+                            "type": "string",
+                            "description": "The currency of the payment."
+                        }
+                    },
+                    "required": [
+                        "orderReference",
+                        "amount"
+                    ]
+                }
+            ],
+            "description": "Events related to order payments."
+        },
+        "PaymentAcceptedEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/PaymentEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "payment_accepted",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "finalPayment": {
+                            "type": "boolean",
+                            "description": "The payment was the final payment, hence completed the order.",
+                            "default": "true;"
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "The payment for an order was accepted."
+        },
+        "PaymentRejectedEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/PaymentEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "payment_rejected",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "A payment for the order was rejected."
+        },
+        "AuthenticationEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "description": "Events related to users signing in, out etc.."
+        },
+        "SignInEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/AuthenticationEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "sign_in",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "userId": {
+                            "type": "string",
+                            "description": "The user that signed in."
+                        },
+                        "evidence": {
+                            "type": "string",
+                            "description": "Custom data that can be used to validate the login server-side to make sure that userdata cannot get hijacked by abusing the API."
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "userId",
+                        "evidence"
+                    ]
+                }
+            ],
+            "description": "A user signed in."
+        },
+        "SignOutEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/AuthenticationEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "sign_out",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "userId": {
+                            "type": "string",
+                            "description": "The user that signed out."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "A user actively signed out. (Session expiry doesn't count)."
+        },
+        "SystemEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics."
+        },
+        "ImpressionEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "impression",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "impressions": {
+                            "$ref": "urn:tailjs:core#/definitions/Integer"
+                        },
+                        "duration": {
+                            "$ref": "urn:tailjs:core#/definitions/ViewTimingData"
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } ."
+        },
+        "ResetEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/SystemEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "reset",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "includeDevice": {
+                            "type": "boolean",
+                            "description": "Whether only the session or also the device should be reset.",
+                            "default": true
+                        },
+                        "includeConsent": {
+                            "type": "boolean",
+                            "description": "Whether to also reset the consent."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ],
+            "description": "An event that can be used to reset the current session and optionally also device. Intended for debugging and not relayed to backends."
+        },
+        "FormEvent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "const": "form",
+                            "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "The name of the form that was submitted."
+                        },
+                        "completed": {
+                            "type": "boolean",
+                            "description": "Indicates whether the form was completed (that is, submitted). If this is false it means that the form was abandoned.",
+                            "default": false
+                        },
+                        "activeTime": {
+                            "$ref": "urn:tailjs:core#/definitions/Duration",
+                            "description": "The duration the user was actively filling the form."
+                        },
+                        "totalTime": {
+                            "$ref": "urn:tailjs:core#/definitions/Duration",
+                            "description": "The total duration from the user started filling out the form until completion or abandoment.."
+                        },
+                        "fields": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "urn:tailjs:core#/definitions/FormField"
+                            },
+                            "description": "All fields in the form (as detected)."
+                        },
+                        "ref": {
+                            "type": "string",
+                            "description": "A correlation ID. If a hidden input element has the name \"_tailref\", the HTML attribute \"track-ref\" or css variable \"--track-ref: 1\" its value will be used. If all of the above is difficult to inject in the way the form is embedded, the form element or any of its ancestors may alternatively have the HTML attribute \"track-ref\" with the name of the hidden input field that contains the reference.\n\nIf no initial value a unique one will be assigned. Make sure to store the value in receiving end."
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ]
+                }
+            ]
+        },
+        "FormField": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the form field."
+                },
+                "label": {
+                    "type": "string",
+                    "description": "The label of the form field."
+                },
+                "type": {
+                    "type": "string",
+                    "description": "The type of the input field."
+                },
+                "filled": {
+                    "type": "boolean",
+                    "description": "If a user provided a value for the form field.\n\nFor checkboxes and prefilled drop-downs this is only set if the user changed the value (for checkboxes that is clicked them)."
+                },
+                "corrections": {
+                    "$ref": "urn:tailjs:core#/definitions/Integer",
+                    "description": "The number of times the field was changed after initially being filled."
+                },
+                "activeTime": {
+                    "$ref": "urn:tailjs:core#/definitions/Duration",
+                    "description": "How long the user was active in the field (field had focus on active tab)."
+                },
+                "totalTime": {
+                    "$ref": "urn:tailjs:core#/definitions/Duration",
+                    "description": "How long the user was in the field (including if the user left the tab and came back)."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "The value of the form field. Be careful with this one, if you have connected a backend where you don't control the data. This value will not be populated unless the user has consented."
+                },
+                "fillOrder": {
+                    "$ref": "urn:tailjs:core#/definitions/Integer",
+                    "description": "This field's number in the order the form was filled. A field is \"filled\" the first time the user types something in it.\n\nIf a checkbox or pre-filled drop down is left unchanged it will not get assigned a number."
+                },
+                "lastField": {
+                    "type": "boolean",
+                    "description": "The field was the last one to be filled before the form was either submitted or abandoned."
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "description": "A form field value in a  {@link  FormEvent } ."
+        },
+        "ConfiguredComponent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Component"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "track": {
+                            "$ref": "urn:tailjs:core#/definitions/TrackingSettings",
+                            "description": "Settings for how the component will be tracked.\n\nThese settings are not tracked, that is, this property is stripped from the data sent to the server."
+                        }
+                    }
+                }
+            ]
+        },
+        "TrackingSettings": {
+            "type": "object",
+            "properties": {
+                "promote": {
+                    "type": "boolean",
+                    "description": "Always include in  {@link  UserInteractionEvent.components } , also if it is a parent component. By default only the closest component will be included.\n\nThis does not apply to impression tracking.\n\nNot inherited by child components.\n\nHTML attribute: `track-promote`. CSS: `--track-promote: 1/yes/true`.",
+                    "default": false
+                },
+                "secondary": {
+                    "type": "boolean",
+                    "description": "The component will only be tracked with the closest non-secondary component as if the latter had the  {@link  promote }  flag.\n\nThis does not apply to impression tracking.\n\nNot inherited by child components.\n\nHTML attribute: `track-secondary`. \\ CSS: `--track-secondary: 1/yes/true`.",
+                    "default": false
+                },
+                "region": {
+                    "type": "boolean",
+                    "description": "Track the visible region occupied by the component or content.\n\nInherited by child components (also if specified on non-component DOM element).\n\nHTML attribute: `track-region`. \\ CSS: `--track-region: 1/yes/true`.",
+                    "default": false
+                },
+                "clicks": {
+                    "type": "boolean",
+                    "description": "Track clicks. Note that clicks are always tracked if they cause navigation.\n\nInherited by child components (also if specified on non-component DOM element).\n\nHTML attribute: `track-clicks`. CSS: `--track-clicks: 1/yes/true`.",
+                    "default": "true unless in a `<nav>` tag"
+                },
+                "impressions": {
+                    "type": "boolean",
+                    "description": "Track impressions, that is, when the component becomes visible in the user's browser for the first time. This goes well with  {@link  region } .\n\nNot inherited by child components.\n\nHTML attribute: `track-impressions`. CSS: `--track-impressions: 1/yes/true`.",
+                    "default": false
+                }
+            }
+        }
+    },
+    "x-privacy-class": "anonymous",
+    "x-privacy-purpose": "necessary"
+};
 
 const scripts$1 = {
     main: {
-        text: "{Client script}",
-        gzip: "{Client script (gzip)}",
-        br: "{Client script (br)}"
+        text: "(()=>{\"use strict\";var e,r,t,n,a,i,o,l,s,u,c,d,f,v,p,h,g,m,y,b,w,k,E,S,A,T,I,x,N,O,$,j,C=(e,r=e=>TypeError(e))=>{throw er(e=e9(e))?r(e):e},M=(e,r,t=-1)=>{if(e===r||(e??r)==null)return!0;if(eo(e)&&eo(r)&&e.length===r.length){var n=0;for(var a in e){if(e[a]!==r[a]&&!M(e[a],r[a],t-1))return!1;++n}return n===Object.keys(r).length}return!1},U=(e,r,...t)=>e===r||t.length>0&&t.some(r=>U(e,r)),_=(e,r)=>null!=e?e:C(r??\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),F=(e,r=!0,t)=>{try{return e()}catch(e){return ef(r)?ea(e=r(e))?C(e):e:Y(r)?console.error(r?C(e):e):r}finally{t?.()}},P=e=>{var r=void 0;return()=>r??=e9(e)},q=e=>{var r={initialized:!0,then:R(()=>(r.initialized=!0,e9(e)))};return r},R=e=>{var r=P(e);return(e,t)=>D(r,[e,t])},D=async(e,r=!0,t)=>{try{var n=await e9(e);return en(r)?r[0]?.(n):n}catch(e){if(Y(r)){if(r)throw e;console.error(e)}else{if(en(r)){if(!r[1])throw e;return r[1](e)}var a=await r?.(e);if(a instanceof Error)throw a;return a}}finally{t?.()}},z=e=>e,B=void 0,V=Number.MAX_SAFE_INTEGER,W=!1,J=!0,G=()=>{},L=e=>null!=e,H=Symbol.iterator,K=(e,r)=>(t,n=!0)=>e(t)?t:r&&n&&null!=t&&null!=(t=r(t))?t:B,X=(e,r)=>ef(r)?e!==B?r(e):B:e?.[r]!==B?e:B,Y=e=>\"boolean\"==typeof e,Z=K(Y,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||B))),Q=e=>!!e,ee=e=>\"number\"==typeof e,er=e=>\"string\"==typeof e,et=K(er,e=>e?.toString()),en=Array.isArray,ea=e=>e instanceof Error,ei=(e,r=!1)=>null==e?B:!r&&en(e)?e:ev(e)?[...e]:[e],eo=e=>null!==e&&\"object\"==typeof e,el=Object.prototype,es=Object.getPrototypeOf,eu=e=>null!=e&&es(e)===el,ec=(e,r)=>\"function\"==typeof e?.[r],ed=e=>\"symbol\"==typeof e,ef=e=>\"function\"==typeof e,ev=(e,r=!1)=>!!(e?.[H]&&(\"object\"==typeof e||r)),ep=e=>e instanceof Map,eh=e=>e instanceof Set,eg=(e,r)=>null==e?B:!1===r?e:Math.round(e*(r=Math.pow(10,r&&!0!==r?r:0)))/r,em=!1,ey=e=>(em=!0,e),eb=e=>null==e?B:ef(e)?e:r=>r[e],ew=(e,r,t)=>(r??t)!==B?(e=eb(e),r??=0,t??=V,(n,a)=>r--?B:t--?e?e(n,a):n:t):e,ek=e=>e?.filter(L),eE=(e,r,t,n)=>null==e?[]:!r&&en(e)?ek(e):e[H]?function*(e,r){if(null!=e){if(r){r=eb(r);var t=0;for(var n of e)if(null!=(n=r(n,t++))&&(yield n),em){em=!1;break}}else for(var n of e)null!=n&&(yield n)}}(e,t===B?r:ew(r,t,n)):eo(e)?function*(e,r){r=eb(r);var t=0;for(var n in e){var a=[n,e[n]];if(r&&(a=r(a,t++)),null!=a&&(yield a),em){em=!1;break}}}(e,ew(r,t,n)):eE(ef(e)?function*(e,r,t=Number.MAX_SAFE_INTEGER){for(null!=r&&(yield r);t--&&null!=(r=e(r));)yield r}(e,t,n):function*(e=0,r){if(e<0)for(r??=-e-1;e++;)yield r--;else for(r??=0;e--;)yield r++}(e,t),r),eS=(e,r)=>r&&!en(e)?[...e]:e,eA=(e,r,t,n)=>eE(e,r,t,n),eT=(e,r,t=1,n=!1,a,i)=>(function* e(r,t,n,a){if(null!=r){if(r[H]||n&&eo(r))for(var i of a?eE(r):r)1!==t?yield*e(i,t-1,n,!0):yield i;else yield r}})(eE(e,r,a,i),t+1,n,!1),eI=(e,r,t,n)=>{if(r=eb(r),en(e)){var a=0,i=[];for(t=t<0?e.length+t:t??0,n=n<0?e.length+n:n??e.length;t<n&&!em;t++){var o=e[t];(r?o=r(o,a++):o)!=null&&i.push(o)}return em=!1,i}return null!=e?ei(eA(e,r,t,n)):B},ex=(e,r,t,n)=>null!=e?new Set([...eA(e,r,t,n)]):B,eN=(e,r,t=1,n=!1,a,i)=>ei(eT(e,r,t,n,a,i)),eO=(e,r,t)=>null==e?B:ef(r)?eI(er(e)?[e]:e,r)?.join(t??\"\"):er(e)?e:eI(e,e=>!1===e?B:e)?.join(r??\"\"),e$=(...e)=>{var r;return eF(1===e.length?e[0]:e,e=>null!=e&&(r??=[]).push(...ei(e))),r},ej=(e,r,t,n)=>{var a,i=0;for(t=t<0?e.length+t:t??0,n=n<0?e.length+n:n??e.length;t<n;t++)if(null!=e[t]&&(a=r(e[t],i++)??a,em)){em=!1;break}return a},eC=(e,r)=>{var t,n=0;for(var a of e)if(null!=a&&(t=r(a,n++)??t,em)){em=!1;break}return t},eM=(e,r)=>{var t,n=0;for(var a in e)if(t=r([a,e[a]],n++)??t,em){em=!1;break}return t},eU=(e,r,...t)=>null==e?B:ev(e)?eI(e,e=>r(e,...t)):r(e,...t),e_=(e,r,t,n)=>{var a;if(null!=e){if(en(e))return ej(e,r,t,n);if(t===B){if(e[H])return eC(e,r);if(\"object\"==typeof e)return eM(e,r)}for(var i of eE(e,r,t,n))null!=i&&(a=i);return a}},eF=e_,eP=async(e,r,t,n)=>{var a;if(null==e)return B;for(var i of eA(e,r,t,n))if(null!=(i=await i)&&(a=i),em){em=!1;break}return a},eq=Object.fromEntries,eR=(e,r,t)=>{if(null==e)return B;if(Y(r)||t){var n={};return eF(e,t?(e,a)=>null!=(e=r(e,a))&&null!=(e[1]=t(n[e[0]],e[1]))&&(n[e[0]]=e[1]):e=>eF(e,r?e=>e?.[1]!=null&&((n[e[0]]??=[]).push(e[1]),n):e=>e?.[1]!=null&&(n[e[0]]=e[1],n))),n}return eq(eI(e,r?(e,t)=>X(r(e,t),1):e=>X(e,1)))},eD=(e,r,t,n,a)=>{var i=()=>ef(t)?t():t;return e_(e,(e,n)=>t=r(t,e,n)??i(),n,a)??i()},ez=(e,r=e=>null!=e,t=en(e),n,a)=>eS(eE(e,(e,t)=>r(e,t)?e:B,n,a),t),eB=(e,r,t,n)=>{var a;if(null==e)return B;if(r)e=ez(e,r,!1,t,n);else{if(null!=(a=e.length??e.size))return a;if(!e[H])return Object.keys(e).length}return a=0,e_(e,()=>++a)},eV=(e,...r)=>null==e?B:ee(e)?Math.max(e,...r):eD(e,(e,t,n,a=r[1]?r[1](t,n):t)=>null==e||ee(a)&&a>e?a:e,B,r[2],r[3]),eW=(e,r,t)=>eI(e,eu(e)?e=>e[1]:e=>e,r,t),eJ=e=>!en(e)&&ev(e)?eI(e,ep(e)?e=>e:eh(e)?e=>[e,!0]:(e,r)=>[r,e]):eo(e)?Object.entries(e):B,eG=(e,r,t,n)=>null==e?B:(r=eb(r),e_(e,(e,t)=>!r||(e=r(e,t))?ey(e):B,t,n)),eL=(e,r,t,n)=>null==e?B:en(e)?e[e.length-1]:e_(e,(e,t)=>!r||r(e,t)?e:B,t,n),eH=(e,r,t,n)=>null==e?B:eu(e)&&!r?Object.keys(e).length>0:e.some?.(r??Q)??e_(e,r?(e,t)=>!!r(e,t)&&ey(!0):()=>ey(!0),t,n)??!1,eK=(e,r=e=>e)=>(e?.sort((e,t)=>r(e)-r(t)),e),eX=(e,r,t)=>(e.constructor===Object?void 0===t?delete e[r]:e[r]=t:void 0===t?e.delete?e.delete(r):delete e[r]:e.set?e.set(r,t):e.add?t?e.add(r):e.delete(r):e[r]=t,t),eY=(e,r,t)=>{if(e){if(e.constructor===Object&&null==t)return e[r];var n=e.get?e.get(r):e.has?e.has(r):e[r];return void 0===n&&null!=t&&null!=(n=ef(t)?t():t)&&eX(e,r,n),n}},eZ=(e,...r)=>(eF(r,r=>eF(r,([r,t])=>{null!=t&&(eu(e[r])&&eu(t)?eZ(e[r],t):e[r]=t)})),e),eQ=e=>(r,t,n,a)=>{if(r)return void 0!=n?e(r,t,n,a):(eF(t,t=>en(t)?e(r,t[0],t[1]):eF(t,([t,n])=>e(r,t,n))),r)},e0=eQ(eX),e1=eQ((e,r,t)=>eX(e,r,ef(t)?t(eY(e,r)):t)),e2=(e,r)=>e instanceof Set?!e.has(r)&&(e.add(r),!0):eY(e,r)!==e0(e,r,!0),e4=(e,r)=>{if((e??r)!=null){var t=eY(e,r);return ec(e,\"delete\")?e.delete(r):delete e[r],t}},e6=(e,...r)=>{var t=[],n=!1,a=(e,i,o,l)=>{if(e){var s=r[i];i===r.length-1?en(s)?(n=!0,s.forEach(r=>t.push(e4(e,r)))):t.push(e4(e,s)):(en(s)?(n=!0,s.forEach(r=>a(eY(e,r),i+1,e,r))):a(eY(e,s),i+1,e,s),!eB(e)&&o&&e5(o,l))}};return a(e,0),n?t:t[0]},e5=(e,r)=>{if(e)return en(r)?(en(e)&&e.length>1?r.sort((e,r)=>r-e):r).map(r=>e5(e,r)):en(e)?r<e.length?e.splice(r,1)[0]:void 0:e4(e,r)},e3=(e,...r)=>{var t=(r,n)=>{var a;if(r){if(en(r)){if(eu(r[0])){r.splice(1).forEach(e=>t(e,r[0]));return}a=r}else a=eI(r);a.forEach(([r,t])=>Object.defineProperty(e,r,{configurable:!1,enumerable:!0,writable:!1,...n,...eu(t)&&(\"get\"in t||\"value\"in t)?t:ef(t)&&!t.length?{get:t}:{value:t}}))}};return r.forEach(e=>t(e)),e},e8=(e,...r)=>{if(void 0!==e)return Object.fromEntries(r.flatMap(t=>eo(t)?en(t)?t.map(r=>en(r)?1===r.length?[r[0],e[r[0]]]:e8(e[r[0]],...r[1]):[r,e[r]]):Object.entries(r).map(([r,t])=>[r,!0===t?e[r]:e8(e[r],t)]):[[t,e[t]]]).filter(e=>null!=e[1]))},e9=e=>ef(e)?e():e,e7=(e,r=-1)=>eo(e)?en(e)?r?e.map(e=>e7(e,r-1)):[...e]:eh(e)?new Set(r?eI(e,e=>e7(e,r-1)):e):ep(e)?new Map(r?eI(e,e=>[e[0],e7(e[1],r-1)]):e):r?eR(e,([e,t])=>[e,e7(t,r-1)]):{...e}:e,re=(e,...r)=>e?.push(...r),rr=(e,...r)=>e?.unshift(...r),rt=\"undefined\"!=typeof performance?(e=J)=>e?Math.trunc(rt(W)):performance.timeOrigin+performance.now():Date.now,rn=(e=!0,r=()=>rt())=>{var t,n=+e*r(),a=0;return(i=e,o)=>(t=e?a+=-n+(n=r()):a,o&&(a=0),(e=i)&&(n=r()),t)},ra=(e=0)=>{var r,t;return function n(a,i){if(void 0===a)return!!t;clearTimeout(r),Y(a)?(a&&t?.(),t=void 0):(t=a,r=setTimeout(()=>n(!0),i??e))}},ri=(e,r=0)=>{var t=ef(e)?{frequency:r,callback:e}:e,{queue:n=!0,paused:a=!1,trigger:i=!1,once:o=!1,callback:l=()=>{}}=t;r=t.frequency??0;var s=0,u=rc(!0).resolve(),c=rn(!a),d=c(),f=async e=>!!s&&(!!n||!u.pending||!0===e)&&(p.busy=!0,!0!==e&&await u,u.reset(),(await D(()=>l(c(),-d+(d=c())),!1,()=>u.resolve())===!1||r<=0||o)&&v(!1),p.busy=!1,!0),v=(e,t=!e)=>(c(e,t),clearInterval(s),p.active=!!(s=e?setInterval(f,r<0?-r:r):0),p),p={active:!1,busy:!1,restart:(e,t)=>(r=e??r,l=t??l,v(!0,!0)),toggle:(e,r)=>e!==p.active?e?r?(v(!0),p.trigger(),p):v(!0):v(!1):p,trigger:async e=>await f(e)&&(v(p.active),!0)};return p.toggle(!a,i)};class ro{_promise;constructor(){this.reset()}get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,r=!1){return this._promise.resolve(e,r),this}reject(e,r=!1){return this._promise.reject(e,r),this}reset(){return this._promise=new rl,this}signal(e){return this.resolve(e),this.reset(),this}then(e,r){return this._promise.then(e,r)}}class rl{_promise;resolve;reject;value;error;pending=!0;constructor(){var e;this._promise=new Promise((...r)=>{e=r.map((e,r)=>(t,n)=>{if(!this.pending){if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")}return this.pending=!1,this[r?\"error\":\"value\"]=t===B||t,e(t),this})}),[this.resolve,this.reject]=e}then(e,r){return this._promise.then(e,r)}}var rs=(e,r=0)=>r>0?setTimeout(e,r):window.queueMicrotask(e),ru=(e,r)=>null==e||isFinite(e)?!e||e<=0?e9(r):new Promise(t=>setTimeout(async()=>t(await e9(r)),e)):C(`Invalid delay ${e}.`),rc=e=>e?new ro:new rl,rd=(...e)=>Promise.race(e.map(e=>ef(e)?e():e)),rf=(e,r,t)=>{var n=!1,a=(...r)=>e(...r,i),i=()=>n!==(n=!1)&&(t(a),!0),o=()=>n!==(n=!0)&&(r(a),!0);return o(),[i,o]},rv=(...e)=>(e=ez(e),[()=>eD(e,(e,r)=>r[0]()||e,!1),()=>eD(e,(e,r)=>r[1]()||e,!1)]),rp=()=>{var e,r=new Set;return[(t,n)=>{var a=rf(t,e=>r.add(e),e=>r.delete(e));return n&&e&&t(...e,a[0]),a},(...t)=>(e=t,r.forEach(e=>e(...t)))]},rh=(e,r=\"and\")=>X(e,e=>0===(e=ev(e)?eI(e,e=>e+\"\"):[e+\"\"]).length?\"\":1===e.length?e[0]:`${e.slice(0,-1).join(\", \")} ${r} ${eL(e)}`),rg=e=>X(e,e=>ev(e)?eI(e,e=>\"'\"+e+\"'\"):\"'\"+e+\"'\"),rm=e=>(e=Math.log2(e))===(0|e),ry=(e,r,t,n)=>{var a,i,o,l=Object.fromEntries(Object.entries(e).filter(([e,r])=>er(e)&&ee(r)).map(([e,r])=>[e.toLowerCase(),r])),s=Object.entries(l),u=Object.values(l),c=l.any??u.reduce((e,r)=>e|r,0),d=r?{...l,any:c,none:0}:l,f=Object.fromEntries(Object.entries(d).map(([e,r])=>[r,e])),v=(e,t)=>ee(e)?!r&&t?null!=f[e]?e:B:e:er(e)?d[e]??d[e.toLowerCase()]:B,p=!1,[h,g]=r?[(e,r)=>Array.isArray(e)?e.reduce((e,t)=>null==t||p?e:null==(t=v(t,r))?(p=!0,B):(e??0)|t,(p=!1,B)):v(e),(e,r)=>null==(e=h(e,!1))?B:r&&(i=f[e&c])?(a=g(e&~(e&c),!1)).length?[i,...a]:i:(e=s.filter(([,r])=>r&&e&r&&rm(r)).map(([e])=>e),r?e.length?1===e.length?e[0]:e:\"none\":e)]:[v,e=>null!=(e=v(e))?f[e]:B],m=(e,r)=>null==e?B:null==(e=h(o=e,r))?C(TypeError(`${JSON.stringify(o)} is not a valid ${t} value.`)):e,y=s.filter(([,e])=>!n||(n&e)===e&&rm(e));return e3(e=>m(e),[{configurable:!1,enumerable:!1},{parse:m,tryParse:h,entries:s,values:u,lookup:g,length:s.length,format:e=>g(e,!0),logFormat:(e,r=\"or\")=>\"any\"===(e=g(e,!0))?\"any \"+t:`the ${t} ${rh(rg(e),r)}`},r&&{pure:y,map:(e,r)=>(e=m(e),y.filter(([,r])=>r&e).map(r??(([,e])=>e)))}])},rb=(...e)=>{var r=eJ(eR(e,!0)),t=e=>(eo(e)&&(en(e)?e.forEach((r,n)=>e[n]=t(r)):r.forEach(([r,t])=>{var n,a=B;null!=(n=e[r])&&(1===t.length?e[r]=t[0].parse(n):t.forEach((i,o)=>!a&&null!=(a=o===t.length-1?i.parse(n):i.tryParse(n))&&(e[r]=a)))})),e);return t},rw=(e,r=[\"|\",\";\",\",\"],t=!0)=>{if(!e)return B;var n=e.split(\"=\").map(e=>t?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim());return n[1]??=\"\",n[2]=n[1]&&r?.length&&eG(r,(e,r,t=n[1].split(e))=>t.length>1?t:B)||(n[1]?[n[1]]:[]),n},rk=(e,r=!0,t)=>null==e?B:rT(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,t,n,a,i,o,l,s,u,c,d,f)=>{var v={source:e,scheme:t,urn:t?!n:!n&&B,authority:a,user:i,password:o,host:l??s,port:null!=u?parseInt(u):B,path:c,query:!1===r?d:rE(d,r),fragment:f};return v.path=v.path||(v.authority?v.urn?\"\":\"/\":B),v}),rE=(e,r,t=!0)=>null==e?B:eR(e?.match(/(?:^.*?\\?|^)(.*)$/)?.[1]?.split(\"&\"),(e,n,[a,i,o]=rw(e,!1===r?[]:!0===r?B:r,t)??[])=>null!=(a=a?.replace(/\\[\\]$/,\"\"))?!1!==r?[a,o.length>1?o:i]:[a,i]:B,(e,t)=>e?!1!==r?e$(e,t):(e?e+\",\":\"\")+t:t),rS=(e,r)=>r&&null!=e?r.test(e):B,rA=(e,r,t)=>rT(e,r,t,!0),rT=(t,n,a,i=!1)=>(t??n)==null?B:a?(e=B,i?(r=[],rT(t,n,(...t)=>null!=(e=a(...t))&&r.push(e))):t.replace(n,(...r)=>e=a(...r)),e):t.match(n),rI=e=>e?.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),rx=/\\z./g,rN=(e,r)=>(r=eO(ex(ez(e,e=>e?.length)),\"|\"))?RegExp(r,\"gu\"):rx,rO={},r$=e=>e instanceof RegExp,rj=(e,r=[\",\",\" \"])=>r$(e)?e:en(e)?rN(eI(e,e=>rj(e,r)?.source)):Y(e)?e?/./g:rx:er(e)?rO[e]??=rT(e||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,n)=>t?RegExp(t,\"gu\"):rN(eI(rC(n,RegExp(`?<!(?<!\\\\)\\\\)[${eO(r,rI,\",\")}]/`)),e=>e&&`^${eO(rC(e,/(?<!(?<!\\\\)\\\\)\\*/),e=>rI(rM(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):B,rC=(e,r)=>e?.split(r)??e,rM=(e,r,t)=>e?.replace(r,t)??e;(T=t||(t={}))[T.Anonymous=0]=\"Anonymous\",T[T.Indirect=1]=\"Indirect\",T[T.Direct=2]=\"Direct\",T[T.Sensitive=3]=\"Sensitive\";var rU=ry(t,!1,\"data classification\");(I=n||(n={}))[I.None=0]=\"None\",I[I.Necessary=1]=\"Necessary\",I[I.Functionality=2]=\"Functionality\",I[I.Performance=4]=\"Performance\",I[I.Targeting=8]=\"Targeting\",I[I.Security=16]=\"Security\",I[I.Infrastructure=32]=\"Infrastructure\",I[I.Anonymous=49]=\"Anonymous\",I[I.Any=63]=\"Any\",I[I.Server=64]=\"Server\";var r_=ry(n,!0,\"data purpose\",127),rF=ry(n,!1,\"data purpose\",0),rP=(e,r)=>((a=e?.metadata)&&(r?(delete a.posted,delete a.queued,Object.entries(a).length||delete e.metadata):delete e.metadata),e);(x=i||(i={}))[x.Global=0]=\"Global\",x[x.Entity=1]=\"Entity\",x[x.Session=2]=\"Session\",x[x.Device=3]=\"Device\",x[x.User=4]=\"User\";var rq=ry(i,!1,\"variable scope\");t.Anonymous,n.Necessary;var rR=e=>`'${e.key}' in ${rq.format(e.scope)} scope`,rD={scope:rq,purpose:rF,purposes:r_,classification:rU};rb(rD),(N=o||(o={}))[N.Success=200]=\"Success\",N[N.Created=201]=\"Created\",N[N.Unchanged=304]=\"Unchanged\",N[N.Denied=403]=\"Denied\",N[N.NotFound=404]=\"NotFound\",N[N.ReadOnly=405]=\"ReadOnly\",N[N.Conflict=409]=\"Conflict\",N[N.Unsupported=501]=\"Unsupported\",N[N.Invalid=400]=\"Invalid\",N[N.Error=500]=\"Error\",ry(o,!1,\"variable set status\"),(O=l||(l={}))[O.Add=0]=\"Add\",O[O.Min=1]=\"Min\",O[O.Max=2]=\"Max\",O[O.IfMatch=3]=\"IfMatch\",O[O.IfNoneMatch=4]=\"IfNoneMatch\",ry(l,!1,\"variable patch type\");var rz=e=>!!e?.patch,rB=e=>!!e?.variables,rV=(e,r,t)=>{var n,a=e=>e,i=(t,i=rL)=>q(async()=>(n=a(i(await e(),r)))&&t(n)),o={then:i(e=>e).then,all:i(e=>e,e=>e),changed:i(e=>ez(e,e=>e.status<300)),variables:i(e=>eI(e,rJ)),values:i(e=>eI(e,e=>rJ(e)?.value)),push:()=>(a=e=>(t?.(eI(rW(e))),e),o),value:i(e=>rJ(e[0])?.value),variable:i(e=>rJ(e[0])),result:i(e=>e[0])};return o},rW=e=>e?.map(e=>e?.status<400?e:B),rJ=e=>e?.status<400?e?.current??e:B,rG=e=>e?.status<400||e?.status===404,rL=(e,r,t)=>{var n,a,i=[],l=eI(ei(e),(e,l)=>e&&(e.status<400||!t&&404===e.status?e:(a=`${rR(e.source??e)} could not be ${404===e.status?\"found.\":`${e.source||e.status!==o.Error?\"set\":\"read\"} because ${e.status===o.Conflict?`of a conflict. The expected version '${e.source?.version}' did not match the current version '${e.current?.version}'.`:e.status===o.Denied?e.error??\"the operation was denied.\":e.status===o.Invalid?e.error??\"the value does not conform to the schema\":e.status===o.ReadOnly?\"it is read only.\":e.status===o.Error?`of an unexpected error: ${e.error}`:\"of an unknown reason.\"}`}`,(null==(n=r?.[l])||!1!==n(e,a))&&i.push(a),B)));return i.length?C(i.join(\"\\n\")):en(e)?l:l?.[0]},rH=e=>e&&\"string\"==typeof e.type,rK=((...e)=>r=>r?.type&&e.some(e=>e===r?.type))(\"view\"),rX=e=>e?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g,\"_\").split(\":\").filter(e=>e)??[],rY=(e,r,t)=>{if(!e)return[];if(Array.isArray(e)&&(e=eO(e,\",\")),/(?<!(?<!\\\\)\\\\)%[A-Z0-9]{2}/.test(e))try{e=decodeURIComponent(e.replace(/([^=&]+)(?:\\=([^&]+))?(&|$)/g,(e,r,t,n)=>[r,t&&`=\"${t.replace(/(?<!(?<!\\\\)\\\\)(\"|%22)/g,'\\\\\"')}\"`,n&&\",\"].join(\"\")))}catch{}var n,a=[],i=rX(r);return e.replace(/\\s*(\\s*(?=\\=)|(?:\\\\.|[^,=\\r\\n])+)\\s*(?:\\=\\s*(?:\"((?:\\\\.|[^\"])*)\"|'((?:\\\\.|[^'])*)'|((?:\\\\.|[^,])*)))?\\s*(?:[,\\s]+|$)/g,(e,r,o,l,s)=>{var u=o||l||s,c=rX(r);return i.length&&(1!==c.length||u||(u=c.pop()),c=i.concat(c)),c.length&&(a.push(n={ranks:c,value:u||void 0}),t?.add(rZ(n))),\"\"}),a},rZ=e=>null==e?e:`${e.ranks.join(\":\")}${e.value?`=${e.value.replace(/,/g,\"\\\\,\")}`:\"\"}`,rQ=2e3,r0=\"_t:data\",r1=()=>()=>C(\"Not initialized.\"),r2=window,r4=document,r6=r4.body,r5=(e,r)=>!!e?.matches(r),r3=V,r8=(e,r,t=(e,r)=>r>=r3)=>{for(var n,a=0,i=W;e?.nodeType===1&&!t(e,a++)&&r(e,(e,r)=>(null!=e&&(n=e,i=r!==J&&null!=n),J),a-1)!==W&&!i;){var o=e;null===(e=e.parentElement)&&o?.ownerDocument!==document&&(e=o?.ownerDocument.defaultView?.frameElement)}return n},r9=(e,r)=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===r))switch(r){case!0:case\"z\":return(\"\"+e).trim()?.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||Z(e);case\"n\":return parseFloat(e);case\"j\":return F(()=>JSON.parse(e),G);case\"h\":return F(()=>tY(e),G);case\"e\":return F(()=>tQ?.(e),G);default:return en(r)?\"\"===e?void 0:(\"\"+e).split(\",\").map(e=>e=\"\"===e.trim()?void 0:r9(e,r[0])):void 0}},r7=(e,r,t)=>r9(e?.getAttribute(r),t),te=(e,r,t)=>r8(e,(e,n)=>n(r7(e,r,t))),tr=(e,r)=>r7(e,r)?.trim()?.toLowerCase(),tt=e=>e?.getAttributeNames(),tn=(e,r)=>getComputedStyle(e).getPropertyValue(r)||null,ta=e=>null!=e?e.tagName:null,ti=()=>({x:(s=to(W)).x/(r6.offsetWidth-window.innerWidth)||0,y:s.y/(r6.offsetHeight-window.innerHeight)||0}),to=e=>({x:eg(scrollX,e),y:eg(scrollY,e)}),tl=(e,r)=>rM(e,/#.*$/,\"\")===rM(r,/#.*$/,\"\"),ts=(e,r,t=J)=>(u=tu(e,r))&&z({xpx:u.x,ypx:u.y,x:eg(u.x/r6.offsetWidth,4),y:eg(u.y/r6.offsetHeight,4),pageFolds:t?u.y/window.innerHeight:void 0}),tu=(e,r)=>r?.pointerType&&r?.pageY!=null?{x:r.pageX,y:r.pageY}:e?({x:c,y:d}=tc(e),{x:c,y:d}):void 0,tc=e=>e?(f=e.getBoundingClientRect(),s=to(W),{x:eg(f.left+s.x),y:eg(f.top+s.y),width:eg(f.width),height:eg(f.height)}):void 0,td=(e,r,t,n={capture:!0,passive:!0})=>en(r)?rv(...eI(r,r=>td(e,r,t,n))):rf(t,t=>e.addEventListener(r,t,n),t=>e.addEventListener(r,t,n)),tf=e=>{var{host:r,scheme:t}=rk(e,!1);return{host:r,scheme:t}},tv=()=>({...s=to(J),width:window.innerWidth,height:window.innerHeight,totalWidth:r6.offsetWidth,totalHeight:r6.offsetHeight}),tp=new WeakMap,th=e=>tp.get(e),tg=(e,r=W)=>(r?\"--track-\":\"track-\")+e,tm=(e,r,t,n,a,i)=>r?.[1]&&eF(tt(e),o=>r[0][o]??=(i=W,er(n=eF(r[1],([r,t,n],a)=>rS(o,r)&&(i=void 0,!t||r5(e,t))&&ey(n??o)))&&(!(a=e.getAttribute(o))||Z(a))&&rY(a,rM(n,/\\-/g,\":\"),t),i)),ty=()=>{},tb=(e,r)=>{if(v===(v=tI.tags))return ty(e,r);var t=e=>e?r$(e)?[[e]]:ev(e)?eN(e,t):[eu(e)?[rj(e.match),e.selector,e.prefix]:[rj(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...t(eW(v))]];(ty=(e,r)=>tm(e,n,r))(e,r)},tw=(e,r)=>eO(e$(tn(e,tg(r,J)),tn(e,tg(\"base-\"+r,J))),\" \"),tk={},tE=(e,r,t=tw(e,\"attributes\"))=>{t&&tm(e,tk[t]??=[{},rA(t,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,r,t,n)=>[rj(t||n),,r])],r),rY(tw(e,\"tags\"),void 0,r)},tS=(e,r,t=W,n)=>(t?r8(e,(e,t)=>t(tS(e,r,W)),ef(t)?t:void 0):eO(e$(r7(e,tg(r)),tn(e,tg(r,J))),\" \"))??(n&&(p=th(e))&&n(p))??null,tA=(e,r,t=W,n)=>\"\"===(h=tS(e,r,t,n))||(null==h?h:Z(h)),tT=(e,r,t,n)=>e?(tE(e,n??=new Set),r8(e,e=>{tb(e,n),rY(eI(t?.(e)),void 0,n)},r),n.size?{tags:[...n]}:{}):{},tI={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,clientKey:null,apiKey:null,pushCookie:null,debug:!1,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},tx=rC(\"\"+r4.currentScript.src,\"#\"),tN=rC(\"\"+(tx[1]||\"\"),\";\"),tO=tx[0],t$=tN[1]||rk(tO,!1)?.host,tj=e=>!!(t$&&rk(e,!1)?.host?.endsWith(t$)===J),tC=(...e)=>rM(eO(e),/(^(?=\\?))|(^\\.(?=\\/))/,tO.split(\"?\")[0]),tM=tC(\"?\",\"var\");tC(\"?\",\"mnt\"),tC(\"?\",\"usr\");var tU=[],t_=[],tF=(e,r=0)=>e.charCodeAt(r),tP=e=>String.fromCharCode(...e);[...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,r)=>tU[t_[r]=e.charCodeAt(0)]=r);var tq=e=>{for(var r,t=0,n=e.length,a=[];n>t;)r=e[t++]<<16|e[t++]<<8|e[t++],a.push(t_[(16515072&r)>>18],t_[(258048&r)>>12],t_[(4032&r)>>6],t_[63&r]);return a.length+=n-t,tP(a)},tR=e=>{for(var r,t=0,n=0,a=e.length,i=new Uint8Array(3*(a/4|0)+(a+3&3)%3);a>t;)i[n++]=tU[tF(e,t++)]<<2|(r=tU[tF(e,t++)])>>4,a>t&&(i[n++]=(15&r)<<4|(r=tU[tF(e,t++)])>>2,a>t&&(i[n++]=(3&r)<<6|tU[tF(e,t++)]));return i},tD={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},tz=(e=256)=>e*Math.random()|0,tB=e=>{var r,t,n,a,i,o=0n,l=0,s=0n,u=[],c=0,d=0,f=0,v=0,p=[];for(f=0;f<e?.length;v+=p[f]=e.charCodeAt(f++));var h=e?()=>{u=[...p],d=255&(c=v),f=-1}:()=>{},g=e=>(d=255&(c+=-u[f=(f+1)%u.length]+(u[f]=e)),e);return[e?e=>{for(h(),a=16-((r=e.length)+4)%16,i=new Uint8Array(4+r+a),n=0;n<3;i[n++]=g(tz()));for(t=0,i[n++]=g(d^16*tz(16)+a);r>t;i[n++]=g(d^e[t++]));for(;a--;)i[n++]=tz();return i}:e=>e,e?e=>{for(h(),t=0;t<3;g(e[t++]));if((r=e.length-4-((d^g(e[t++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(r);r>n;i[n++]=d^g(e[t++]));return i}:e=>e,(e,r=64)=>{if(null==e)return null;for(l=Y(r)?64:r,h(),[o,s]=tD[l],t=0;t<e.length;o=BigInt.asUintN(l,(o^BigInt(d^g(e[t++])))*s));return!0===r?Number(BigInt(Number.MIN_SAFE_INTEGER)+o%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):o.toString(36)}]},tV={exports:{}};(e=>{(()=>{function r(e,r){if(r&&r.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var t,n,a=new Uint8Array(128),i=0;if(r&&r.multiple)for(var o=0;o<e.length;o++)l(e[o]);else l(e);return a.subarray(0,i);function l(e,a){var i,o,f,v,p,h;switch(typeof e){case\"undefined\":u(192);break;case\"boolean\":u(e?195:194);break;case\"number\":(e=>{if(isFinite(e)&&Number.isSafeInteger(e)){if(e>=0&&e<=127)u(e);else if(e<0&&e>=-32)u(e);else if(e>0&&e<=255)c([204,e]);else if(e>=-128&&e<=127)c([208,e]);else if(e>0&&e<=65535)c([205,e>>>8,e]);else if(e>=-32768&&e<=32767)c([209,e>>>8,e]);else if(e>0&&e<=4294967295)c([206,e>>>24,e>>>16,e>>>8,e]);else if(e>=-2147483648&&e<=2147483647)c([210,e>>>24,e>>>16,e>>>8,e]);else if(e>0&&e<=18446744073709552e3){var r=e/4294967296,a=e%4294967296;c([211,r>>>24,r>>>16,r>>>8,r,a>>>24,a>>>16,a>>>8,a])}else e>=-0x8000000000000000&&e<=0x7fffffffffffffff?(u(211),d(e)):e<0?c([211,128,0,0,0,0,0,0,0]):c([207,255,255,255,255,255,255,255,255])}else n||(n=new DataView(t=new ArrayBuffer(8))),n.setFloat64(0,e),u(203),c(new Uint8Array(t))})(e);break;case\"string\":(f=(o=(e=>{for(var r=!0,t=e.length,n=0;n<t;n++)if(e.charCodeAt(n)>127){r=!1;break}for(var a=0,i=new Uint8Array(e.length*(r?1:4)),o=0;o!==t;o++){var l=e.charCodeAt(o);if(l<128){i[a++]=l;continue}if(l<2048)i[a++]=l>>6|192;else{if(l>55295&&l<56320){if(++o>=t)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var s=e.charCodeAt(o);if(s<56320||s>57343)throw Error(\"UTF-8 encode: second surrogate character 0x\"+s.toString(16)+\" at index \"+o+\" out of range\");l=65536+((1023&l)<<10)+(1023&s),i[a++]=l>>18|240,i[a++]=l>>12&63|128}else i[a++]=l>>12|224;i[a++]=l>>6&63|128}i[a++]=63&l|128}return r?i:i.subarray(0,a)})(e)).length)<=31?u(160+f):f<=255?c([217,f]):f<=65535?c([218,f>>>8,f]):c([219,f>>>24,f>>>16,f>>>8,f]),c(o);break;case\"object\":null===e?u(192):e instanceof Date?(e=>{var r=e.getTime()/1e3;if(0===e.getMilliseconds()&&r>=0&&r<4294967296)c([214,255,r>>>24,r>>>16,r>>>8,r]);else if(r>=0&&r<17179869184){var t=1e6*e.getMilliseconds();c([215,255,t>>>22,t>>>14,t>>>6,t<<2>>>0|r/4294967296,r>>>24,r>>>16,r>>>8,r])}else{var t=1e6*e.getMilliseconds();c([199,12,255,t>>>24,t>>>16,t>>>8,t]),d(r)}})(e):Array.isArray(e)?s(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((h=(p=e).length)<=255?c([196,h]):h<=65535?c([197,h>>>8,h]):c([198,h>>>24,h>>>16,h>>>8,h]),c(p)):e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?s(e):(e=>{var r=0;for(var t in e)void 0!==e[t]&&r++;for(var t in r<=15?u(128+r):r<=65535?c([222,r>>>8,r]):c([223,r>>>24,r>>>16,r>>>8,r]),e){var n=e[t];void 0!==n&&(l(t),l(n))}})(e);break;default:if(!a&&r&&r.invalidTypeReplacement)\"function\"==typeof r.invalidTypeReplacement?l(r.invalidTypeReplacement(e),!0):l(r.invalidTypeReplacement,!0);else throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\")}}function s(e){var r=e.length;r<=15?u(144+r):r<=65535?c([220,r>>>8,r]):c([221,r>>>24,r>>>16,r>>>8,r]);for(var t=0;r>t;t++)l(e[t])}function u(e){if(a.length<i+1){for(var r=2*a.length;r<i+1;)r*=2;var t=new Uint8Array(r);t.set(a),a=t}a[i]=e,i++}function c(e){if(a.length<i+e.length){for(var r=2*a.length;r<i+e.length;)r*=2;var t=new Uint8Array(r);t.set(a),a=t}a.set(e,i),i+=e.length}function d(e){var r,t;e>=0?(r=e/4294967296,t=e%4294967296):(r=~(r=Math.abs(++e)/4294967296),t=~(t=Math.abs(e)%4294967296)),c([r>>>24,r>>>16,r>>>8,r,t>>>24,t>>>16,t>>>8,t])}}function t(e,r){var t,n=0;if(e instanceof ArrayBuffer&&(e=new Uint8Array(e)),\"object\"!=typeof e||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),r&&r.multiple)for(t=[];n<e.length;)t.push(a());else t=a();return t;function a(){var r=e[n++];if(r>=0&&r<=127)return r;if(r>=128&&r<=143)return u(r-128);if(r>=144&&r<=159)return c(r-144);if(r>=160&&r<=191)return d(r-160);if(192===r)return null;if(193===r)throw Error(\"Invalid byte code 0xc1 found.\");if(194===r)return!1;if(195===r)return!0;if(196===r)return s(-1,1);if(197===r)return s(-1,2);if(198===r)return s(-1,4);if(199===r)return f(-1,1);if(200===r)return f(-1,2);if(201===r)return f(-1,4);if(202===r)return l(4);if(203===r)return l(8);if(204===r)return o(1);if(205===r)return o(2);if(206===r)return o(4);if(207===r)return o(8);if(208===r)return i(1);if(209===r)return i(2);if(210===r)return i(4);if(211===r)return i(8);if(212===r)return f(1);if(213===r)return f(2);if(214===r)return f(4);if(215===r)return f(8);if(216===r)return f(16);if(217===r)return d(-1,1);if(218===r)return d(-1,2);if(219===r)return d(-1,4);if(220===r)return c(-1,2);if(221===r)return c(-1,4);if(222===r)return u(-1,2);if(223===r)return u(-1,4);if(r>=224&&r<=255)return r-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+r+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(r){for(var t=0,a=!0;r-- >0;)if(a){var i=e[n++];t+=127&i,128&i&&(t-=128),a=!1}else t*=256,t+=e[n++];return t}function o(r){for(var t=0;r-- >0;)t*=256,t+=e[n++];return t}function l(r){var t=new DataView(e.buffer,n+e.byteOffset,r);return(n+=r,4===r)?t.getFloat32(0,!1):8===r?t.getFloat64(0,!1):void 0}function s(r,t){r<0&&(r=o(t));var a=e.subarray(n,n+r);return n+=r,a}function u(e,r){e<0&&(e=o(r));for(var t={};e-- >0;)t[a()]=a();return t}function c(e,r){e<0&&(e=o(r));for(var t=[];e-- >0;)t.push(a());return t}function d(r,t){r<0&&(r=o(t));var a=n;return n+=r,((e,r,t)=>{var n=r,a=\"\";for(t+=r;t>n;){var i=e[n++];if(i>127){if(i>191&&i<224){if(n>=t)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(i>223&&i<240){if(n+1>=t)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else if(i>239&&i<248){if(n+2>=t)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}else throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1))}if(i<=65535)a+=String.fromCharCode(i);else if(i<=1114111)i-=65536,a+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320);else throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\")}return a})(e,a,r)}function f(e,r){e<0&&(e=o(r));var t=o(1),a=s(e);return 255===t?(e=>{if(4===e.length){var r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];return new Date(1e3*r)}if(8===e.length){var t=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),r=(3&e[3])*4294967296+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7];return new Date(1e3*r+t/1e6)}if(12===e.length){var t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];n-=8;var r=i(8);return new Date(1e3*r+t/1e6)}throw Error(\"Invalid data length for a date value.\")})(a):{type:t,data:a}}}var n={serialize:r,deserialize:t,encode:r,decode:t};e?e.exports=n:window[window.msgpackJsName||\"msgpack\"]=n})()})(tV);var{deserialize:tW,serialize:tJ}=($=tV.exports)&&$.__esModule&&Object.prototype.hasOwnProperty.call($,\"default\")?$.default:$,tG=\"$ref\",tL=e=>{var r,t,n,a=(e,r,t=e[r],n=o(t))=>((t!==n||ed(r))&&(e[r]=n,i(()=>e[r]=t)),t),i=e=>(r??=[]).push(e),o=e=>null==e||ef(e)||ed(e)?null:eo(e)?e.toJSON&&e!==(e=e.toJSON())?o(e):null!=(n=(t??=new Map).get(e))?(e[tG]||(e[tG]=n,i(()=>delete e[tG])),{[tG]:n}):(eu(e)?(t.set(e,t.size+1),Object.keys(e).forEach(r=>(a(e,r)===B||ed(r))&&delete e[r])):ev(e)&&(!en(e)||Object.keys(e).length<e.length?[...e]:e).forEach((r,t)=>t in e?a(e,t):(e[t]=null,i(()=>delete e[t]))),e):e,l=tJ(o(e));return r?.forEach(e=>e()),l},tH=e=>{var r,t,n=e=>eo(e)?e[tG]&&(t=(r??=[])[e[tG]])?t:(e[tG]&&(r[e[tG]]=e,delete e[tG]),Object.entries(e).forEach(([r,t])=>t!==(t=n(t))&&(e[r]=t)),e):e;return null!=e?n(tW(e)):B},tK=(e,r=!1,t=!0)=>{var n=(e,r=!1,t=!0)=>{var n=(e,t)=>ee(e)&&!0===t?e:l(e=er(e)?new Uint8Array(eI(e.length,r=>255&e.charCodeAt(r))):r?JSON.stringify(e):tL(e),t),a=e=>null==e?B:F(()=>JSON.parse(e,B));if(r)return[e=>JSON.stringify(e),a,(e,r)=>n(e,r)];var[i,o,l]=tB(e);return[e=>tq(i(tL(e))),e=>null!=e?t&&(e?.[0]===\"{\"||e?.[0]===\"[\")?a(e):tH(o(tR(e))):null,(e,r)=>n(e,r)]};return e?n(e,r,t):(g??=[n(null,!1),n(null,!0)])[+r]};tK(),tK(null,!0);var[tX,tY]=tK(),[tZ,tQ]=[r1,r1],[t0,t1]=rp(),t2=e=>{tQ===r1&&([tZ,tQ]=tK(e),t1(tZ=tK(null,!0)[0],tQ))},t4=e=>r=>t6(e,r),t6=(...e)=>{var r=e.shift();console.error(er(e[1])?e.shift():e[1]?.message??\"An error occurred\",r.id??r,...e)},[t5,t3]=rp(),[t8,t9]=rp(),t7=e=>nr!==(nr=e)&&t3(nr=!1,na(!0,!0)),ne=e=>nt!==(nt=!!e&&\"visible\"===document.visibilityState)&&t9(nt,!e,nn(!0,!0));t5(ne);var nr=!0,nt=!1,nn=rn(!1),na=rn(!1);td(window,[\"pagehide\",\"freeze\"],()=>t7(!1)),td(window,[\"pageshow\",\"resume\"],()=>t7(!0)),td(document,\"visibilitychange\",()=>(ne(!0),nt&&t7(!0))),t3(nr,na(!0,!0));var ni=!1,no=rn(!1),[nl,ns]=rp(),nu=ri({callback:()=>ni&&ns(ni=!1,no(!1)),frequency:2e4,once:!0,paused:!0}),nc=()=>!ni&&(ns(ni=!0,no(!0)),nu.restart());td(window,\"focus\",nc),td(window,\"blur\",()=>nu.trigger()),td(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],nc),nc(),(j=m||(m={}))[j.View=-3]=\"View\",j[j.Tab=-2]=\"Tab\",j[j.Shared=-1]=\"Shared\";var nd=ry(m,!1,\"local variable scope\"),nf=e=>nd.tryParse(e)??rq(e),nv=e=>!!nd.tryParse(e?.scope),np=rb({scope:nd},rD),nh=e=>null==e?void 0:e.source?nh(e.source):`${nf(e.scope)}\\0${e.key}\\0${e.targetId??\"\"}`,ng=e=>{var r=e.split(\"\\0\");return{scope:+r[0],key:r[1],targetId:r[2]}},nm=0,ny=void 0,nb=()=>(ny??r1())+\"_\"+nw(),nw=()=>++nm,nk=e=>crypto.getRandomValues(e),nE=()=>rM(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^nk(new Uint8Array(1))[0]&15>>e/4).toString(16)),nS=void 0,nA={id:ny,heartbeat:rt()},nT={knownTabs:{[ny]:nA},variables:new Map},[nI,nx]=rp(),nN=r1,nO=e=>nS.get(nh(e)),n$=(...e)=>nj(e.map(e=>(e.timestamp=rt(),e.expires=3e3,e))),nj=e=>{var r=eI(e,e=>e&&[nh(e),e]);if(r?.length){e0(nS,r);var t=ez(r,e=>e[1].scope>m.Tab);t.length&&(e0(nT.variables,r),nN({type:\"patch\",payload:eR(t)})),nx(\"variables\",eR(r),!0)}};t0((e,r)=>{t5(t=>{if(t){var n=r(sessionStorage.getItem(r0));ny=n?.[0]??rt().toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),nS=new Map(e$(ez(nS,([,e])=>e.scope===m.View),eI(n?.[1],e=>[nh(e),e]))),sessionStorage.removeItem(r0)}else sessionStorage.setItem(r0,e([ny,ez(nS,([,e])=>e.scope!==m.View)]))},!0),nN=(r,t)=>{e&&(localStorage.setItem(r0,e([ny,r,t])),localStorage.removeItem(r0))},td(window,\"storage\",e=>{if(e.key===r0){var n=r?.(e.newValue);if(n&&(!n[2]||n[2]===ny)){var[a,{type:i,payload:o}]=n;\"query\"===i?t.active||nN({type:\"set\",payload:nT},a):\"set\"===i&&t.active?(e0(nT,o),t.trigger()):\"patch\"===i?(e0(nT.variables,o),e0(nS,o),nx(\"variables\",o,!1)):\"tab\"===i&&(e0(nT.knownTabs,a,o),o&&nx(\"tab\",o,!1))}}});var t=ri(()=>nx(\"ready\",nT,!0),-25),n=ri({callback(){var e=rt()-1e4;eF(nT?.knownTabs,([r,t])=>t[0]<e&&e6(nT.knownTabs,r)),nA.heartbeat=rt(),nN({type:\"tab\",payload:nA})},frequency:5e3,paused:!0}),a=e=>{nN({type:\"tab\",payload:e?nA:void 0}),e?(t.restart(),nN({type:\"query\"})):t.toggle(!1),n.toggle(e)};t5(e=>a(e),!0)},!0);var[nC,nM]=rp(),[nU,n_]=rp(),nF=((e,{timeout:r=1e3,encrypt:t=!0,retries:n=10}={})=>{var a=()=>(t?tQ:tY)(localStorage.getItem(\"rq\")),i=()=>localStorage.setItem(\"rq\",(t?tZ:tX)([ny,rt()+r]));return async(t,o,l=null!=o?1:n)=>{for(;l--;){var s=a();if((!s||s[1]<rt())&&(i(),a()?.[0]===ny)){var u=t(),c=setInterval(i,r/2);return await D(u,!0,()=>clearInterval(c))}var d=rc(),[f]=td(window,\"storage\",r=>{r.key!==e||r.newValue||d.resolve()});await rd(ru(o??r),d),f()}null==o&&C(e+\" could not be acquired.\")}})(\"rq\"),nP=ri(()=>{if(b!==(b=tI.pushCookie)){if(!b)return;y=RegExp(rI(b)+\"=([^;]*)\")}var e=tQ?.(rT(document.cookie,y)?.[1]);rB(e)&&n_(e)},1e3),nq=0,nR=(e=1e3)=>{var r=()=>{r=G,--nq||(nP.restart(1e3),clearTimeout(0))};return nq++||nP.restart(100),e>0&&setTimeout(r,e),r()},nD=async(e,r,{beacon:t=!1,encrypt:n=!0}={})=>{var a,i,o=!1,l=t=>{var l=ef(r)?r?.(a,t):r;return!1!==l&&(null!=l&&!0!==l&&(a=l),nM(e,a,t,e=>(o=a===B,a=e)),!o&&(i=(n?tZ:JSON.stringify)(a)))};if(!t)return await nF(()=>eP(1,async r=>{if(!l(r))return ey();var t=await fetch(e,{method:null!=a?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i});if(t.status>=400)return 3===r?ey(C(`Invalid response: ${await t.text()}`)):(console.warn(`Request to ${e} failed on attempt ${r+1}/3.`),await ru((1+r)*200));var o=await t.text(),s=o?.length?(n?tQ:JSON.parse)?.(o):B;return null!=s&&n_(s),ey(s)}));l(0)&&(nR(1e3),navigator.sendBeacon(e,new Blob(null!=a?[i]:[],{type:\"text/plain\"}))||C(\"Beacon send failed.\"))},nz=[\"scope\",\"key\",\"targetId\",\"version\"],nB=[...nz,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],nV=[...nz,\"init\",\"purpose\",\"refresh\"];[...nB];var nW=new Map,nJ=(e,r)=>{var a=ri(async()=>{var e=eI(nW,([e,r])=>({...ng(e),result:[...r]}));e.length&&await c.get(...e)},3e3),i=(e,r)=>eU(r,r=>eY(nW,e,()=>new Set).add(r)),l=e=>{if(rG(e)){var r,t=nh(e),n=rJ(e);eF(e5(nW,t),e=>{r=!1,e?.(n,nO(n),(e=!0)=>r=e),r&&i(t,e)})}};t5((e,r)=>a.toggle(e,e&&r>=3e3),!0);var s=new Map,u=(e,r)=>e0(s,e,Y(r)?r?void 0:0:r),c={get:(...t)=>rV(async()=>{var n=[],a=eI(t,(e,r)=>[e,r]),s=[],c=(await nD(e,()=>!!(a=eI(a,([e,r])=>{if(e){var t=nh(e);i(t,e.result);var a=nO(t);if(e.init&&u(t,e.cache),!e.refresh&&a?.expires<rt())re(n,[{...a,status:o.Success},r]);else if(!nv(e))return[e8(e,nV),r];else if(eu(e.init)){var l={...np(e),status:o.Created,...e.init};null!=l.value&&(re(s,d(l)),re(n,[l,r]))}}})).length&&{variables:{get:eI(a,0)},deviceSessionId:r?.deviceSessionId})).variables?.get??[];return re(n,...eI(c,(e,r)=>e&&[e,a[r][1]])),s.length&&nj(s),n.map(([e])=>(l(e),e))},eI(t,e=>e?.error)),set:(...a)=>rV(async()=>{var i=[],s=[],c=eI(a,(e,r)=>{if(e){var a=nh(e),l=nO(a);if(u(a,e.cache),nv(e)){if(null!=e.patch)return C(\"Local patching is not supported.\");var c={value:e.value,classification:t.Anonymous,purposes:n.Necessary,scope:nd(e.scope),key:e.key};return s[r]={status:l?o.Success:o.Created,source:e,current:c},void re(i,d(c))}return rz(e)||e?.version!==void 0||(e.version=l?.version,e.force??=!!e.version),[e,r]}}),f=c.length>0?[]:_((await nD(e,{variables:{set:c.map(e=>e[0])},deviceSessionId:r?.deviceSessionId})).variables?.set,\"No result.\");return i.length&&nj(i),eF(f,(e,r)=>{var[t,n]=c[r];e.source=t,l(s[n]=e)}),s},eI(a,e=>e?.error))},d=(e,r=rt())=>({...e8(e,nB),timestamp:r,expires:r+(eY(s,nh(e))??3e3)});return nU(({variables:e})=>{if(e){var r=rt(),t=e$(eI(e.get,e=>rJ(e)),eI(e.set,e=>rJ(e)));t?.length&&nj(eU(t,d,r))}}),c},nG=(e,r)=>{if(!eu(r))return e;var t,n={};return eu(e)&&eF(e,([e,a])=>n[e]!==r[e]&&(n[e]=eu(a)?nG(a,r[e]):ee(a)&&ee(t=r[e])?a-t:a)),n},nL=(e,r,t=rQ)=>{var n=[],a=new WeakMap,i=new Map,o=(e,r)=>e.metadata?.queued?eZ(r,{type:e.type+\"_patch\",patchTargetId:e.clientId}):C(\"Source event not queued.\"),l=async(t,a=!1)=>{if(t=eI(ei(t),e=>eZ(r.applyEventExtensions(e),{metadata:{queued:!0}})),!a){t.length&&re(n,...t);return}n.length&&rr(t,...n.splice(0)),t.length&&await nD(e,{events:t.map(e=>(eZ(e,{metadata:{posted:!0}}),rP(e,!0))),deviceSessionId:r?.deviceSessionId})};return t>0&&ri(()=>l([],!0),t),t8((e,r,t)=>{if(!e&&(n.length||r||t>1500)){var a=eI(i,([e,r])=>{var[t,n]=r();return n&&i.delete(e),t});(n.length||a.length)&&l(e$(n.splice(0),a),!0)}}),{post:l,postPatch:(e,r,t)=>l(o(e,r),t),registerEventPatchSource(e,r){var t=!1,n=()=>t=!0;return a.set(e,e7(e)),i.set(e,()=>{var i=o(e,r(a.get(e),n));return!i||a&&M(i,a)?[void 0,t]:(i&&a.set(e,e7(i)),[i,t])}),n}}},nH=Symbol(),nK=e=>{var r=new IntersectionObserver(e=>eF(e,({target:e,isIntersecting:r,boundingClientRect:t,intersectionRatio:n})=>e[nH]?.(r,t,n)),{threshold:[.05,.1,.15,.2,.3,.4,.5,.6,.75]});return(t,n)=>{if(n&&(a=ez(n?.component,e=>e.track?.impressions||(e.track?.secondary??e.inferred)!==J))&&eB(a)){var a,i,o,l,s=W,u=0,c=ra(tI.impressionThreshold),d=ae();t[nH]=(r,n,f)=>{d(r=f>=.75||n.top<(i=window.innerHeight/2)&&n.bottom>i),s!==(s=r)&&(s?c(()=>{++u,o||re(e,o=ez(eI(a,e=>(e.track?.impressions||tA(t,\"impressions\",J,e=>e.track?.impressions))&&z({type:\"impression\",pos:ts(t),viewport:tv(),timeOffset:at(),impressions:u,...av(t,J)})||null))),o?.length&&(l=eI(o,r=>e.events.registerEventPatchSource(r,e=>nG({relatedEventId:r.clientId,duration:d(),impressions:u},e))))}):(eF(l,e=>e()),c(!1)))},r.observe(t)}}},nX=()=>{var e=r2?.screen;if(!e)return{};var{width:r,height:t,orientation:n}=e,a=r<t,i=n?.angle??r2.orientation??0;return(-90===i||90===i)&&([r,t]=[t,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:r2.devicePixelRatio,width:r,height:t,landscape:a}}},nY=e=>re(e,z({type:\"user_agent\",hasTouch:navigator.maxTouchPoints>0,userAgent:navigator.userAgent,view:w?.clientId,languages:eI(navigator.languages,(e,r,t=e.split(\"-\"))=>z({id:e,language:t[0],region:t[1],primary:0===r,preference:r+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:new Date().getTimezoneOffset()},...nX()})),nZ=(e,r=\"A\"===ta(e)&&r7(e,\"href\"))=>r&&\"#\"!=r&&!r.startsWith(\"javascript:\"),nQ=(e,r=ta(e),t=tA(e,\"button\"))=>t!==W&&(U(r,\"A\",\"BUTTON\")||\"INPUT\"===r&&U(tr(e,\"type\"),\"button\",\"submit\")||t===J),n0=()=>w?.clientId,n1={scope:\"shared\",key:\"referrer\"},n2=(e,r)=>{A.variables.set({...n1,value:[n0(),e]}),r&&A.variables.get({scope:n1.scope,key:n1.key,result(t,n,a){t?a():n?.value?.[1]===e&&r()}})},n4=rn(),n6=rn(),n5=rn(),n3=1,n8=()=>n6(),[n9,n7]=rp(),ae=e=>{var r=rn(e,n4),t=rn(e,n6),n=rn(e,n5),a=rn(e,()=>n3);return(e,i)=>({totalTime:r(e,i),visibleTime:t(e,i),interactiveTime:n(e,i),activations:a(e,i)})},ar=ae(),at=()=>ar(),[an,aa]=rp(),ai=new WeakSet,ao=document.getElementsByTagName(\"iframe\"),al=e=>(null==e||(e===J||\"\"===e)&&(e=\"add\"),er(e)&&U(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:eo(e)?e:void 0);function as(e){if(e){if(null!=e.units&&U(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=e.units>0?\"add\":\"remove\"}return e}}var au=e=>tT(e,void 0,e=>eI(ei(eY(tp,e)?.tags))),ac=e=>e?.component||e?.content,ad=e=>tT(e,r=>r!==e&&!!ac(eY(tp,r)),e=>(E=eY(tp,e),(E=eY(tp,e))&&eN(e$(E.component,E.content,E),\"tags\"))),af=(e,r)=>r?e:{...e,rect:void 0,content:(S=e.content)&&eI(S,e=>({...e,rect:void 0}))},av=(e,r=W)=>{var t,n,a,i=[],o=[],l=0;return r8(e,e=>{var n=eY(tp,e);if(n){if(ac(n)){var a=ez(ei(n.component),e=>0===l||!r&&(1===l&&e.track?.secondary!==J||e.track?.promote));t=eH(a,e=>e.track?.region)&&tc(e)||void 0;var s=ad(e);n.content&&rr(i,...eI(n.content,e=>({...e,rect:t,...s}))),a?.length&&(rr(o,...eI(a,e=>(l=eV(l,e.track?.secondary?1:2),af({...e,content:i,rect:t,...s},!!t)))),i=[])}var u=n.area||tS(e,\"area\");u&&rr(o,...eI(u))}}),i.length&&re(o,af({id:\"\",rect:t,content:i})),eF(o,e=>{er(e)?re(n??=[],e):(e.area??=eO(n,\"/\"),rr(a??=[],e))}),a||n?{components:a,area:eO(n,\"/\")}:void 0},ap=Symbol(),ah=[{id:\"context\",setup(e){ri(()=>eF(ao,e=>e2(ai,e)&&aa(e)),-1e3).trigger(),e.push({get:[{scope:\"view\",key:\"view\",result(e){}}]}),e.variables.get({scope:\"view\",key:\"view\",result:(a,i,o)=>(M(n,a?.value)&&t===(t=\"\"+location.href)||(r=n=a?.value),r&&w&&!w.definition&&(w.definition=r,w.metadata?.posted&&e.events.postPatch(w,{definition:r}),r=void 0),o())});var r,t,n,a=nO({scope:\"tab\",key:\"index\"})?.value??0,i=nO({scope:\"tab\",key:\"index\"})?.value;null==i&&(i=nO({scope:\"shared\",key:\"index\"})?.value??0,n$({scope:m.Shared,key:\"index\",value:i+1}));var o=null,l=(t=W)=>{if(!tl(\"\"+o,o=location.href)||t){var{source:n,scheme:l,host:s}=rk(location.href+\"\",!0);w={type:\"view\",timestamp:rt(),clientId:nb(),tab:ny,href:n,path:location.pathname,hash:location.hash||void 0,domain:{scheme:l,host:s},tabIndex:i,viewport:tv(),duration:ar(void 0,!0)},0===i&&(w.firstTab=J),0===i&&0===a&&(w.landingPage=J);var u=rE(location.href);if(eI([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,r)=>(w.utm??={})[e]=u[`utm_${e}`]?.[0]),!(w.navigationType=k)&&performance&&eI(performance.getEntriesByType(\"navigation\"),e=>{w.redirects=e.redirectCount,w.navigationType=rM(e.type,/\\_/g,\"-\")}),k=void 0,\"navigate\"===(w.navigationType??=\"navigate\")){var c=nO(n1)?.value;c&&tj(document.referrer)&&(w.view=c?.[0],w.relatedEventId=c?.[1],e.variables.set({...n1,value:void 0}))}var c=document.referrer||null;c&&!tj(c)&&(w.externalReferrer={href:c,domain:tf(c)}),w.definition=r,r=void 0,e.events.post(w),e.events.registerEventPatchSource(w,e=>nG({duration:at()},e)),n7(w)}};return nl(e=>n5(e)),t8(e=>{e?(n6(J),++n3):(n6(W),n5(W))}),td(window,\"popstate\",()=>(k=\"back-forward\",l())),eI([\"push\",\"replace\"],e=>{var r=history[e+=\"State\"];history[e]=(...e)=>{r.apply(history,e),k=\"navigate\",l()}}),l(),{processCommand:r=>ay(r)&&(re(e,r.username?{type:\"login\",username:r.username}:{type:\"logout\"}),J),decorate(e){w&&!rK(e)&&(e.view=w.clientId)}}}},{id:\"components\",setup(e){var r=nK(e),t=e=>null==e?void 0:{...e,component:ei(e.component),content:ei(e.content),tags:ei(e.tags)},n=({boundary:e,...n})=>{e1(tp,e,e=>t(\"add\"in n?{...e,component:e$(e?.component,n.component),content:e$(e?.content,n.content),area:n?.area??e?.area,tags:e$(e?.tags,n.tags),cart:n.cart??e?.cart,track:n.track??e?.track}:\"update\"in n?n.update(e):n)),r(e,eY(tp,e))};return{decorate(e){eF(e.components,e=>e5(e,\"track\"))},processCommand:e=>ak(e)?(n(e),J):ax(e)?(eI(((e,r)=>{if(!r)return[];var t=[],n=new Set;return document.querySelectorAll(`[${e}]`).forEach(a=>{if(!eY(n,a))for(var i=[];null!=r7(a,e);){e2(n,a);var o=rC(r7(a,e),\"|\");r7(a,e,null);for(var l=0;l<o.length;l++){var s=o[l];if(\"\"!==s){var u=\"-\"===s?-1:parseInt(et(s)??\"\",36);if(u<0){i.length+=u;continue}if(0===l&&(i.length=0),isNaN(u)&&/^[\"\\[{]/.test(s))for(var c=\"\";l<o.length;l++)try{s=JSON.parse(c+=o[l]);break}catch(e){}u>=0&&r[u]&&(s=r[u]),re(i,s)}}re(t,...eI(i,e=>({add:J,...e,boundary:a})));var d=a.nextElementSibling;\"WBR\"===a.tagName&&a.parentNode?.removeChild(a),a=d}}),t})(e.scan.attribute,e.scan.components),n),J):W}}},{id:\"navigation\",setup(e){var r=r=>{td(r,[\"click\",\"contextmenu\",\"auxclick\"],r=>{var t,n,a,i,o,l=null,s=W;if(r8(r.target,e=>{var r;l??=nQ(e)?e:null,s=s||\"NAV\"===ta(e),i??=tA(e,\"clicks\",J,e=>e.track?.clicks)??((r=ei(th(e)?.component))&&eH(r,e=>e.track?.clicks!==W)),o??=tA(e,\"region\",J,e=>e.track?.region)??((r=th(e)?.component)&&eH(r,e=>e.track?.region))}),l){var u,c=av(l),d=au(l);i??=!s;var f={...(o??=J)?{pos:ts(l,r),viewport:tv()}:null,...(t=r.target,n=l,r8(t??n,e=>\"IMG\"===ta(e)||e===n?(a={element:{tagName:e.tagName,text:r7(e,\"title\")||r7(e,\"alt\")||e.innerText?.trim().substring(0,100)||void 0}},W):J),a),...c,...d,timing:at()};if(nZ(l)){var v=l.hostname!==location.hostname,{host:p,scheme:h,source:g}=rk(l.href,!1);if(l.host===location.host&&l.pathname===location.pathname&&l.search===location.search){if(\"#\"===l.hash)return;l.hash!==location.hash&&re(e,z({type:\"anchor_navigation\",anchor:l.hash,...f}));return}var m=z({clientId:nb(),type:\"navigation\",href:v?l.href:g,external:v,domain:{host:p,scheme:h},self:J,anchor:l.hash,...f});r.button<=1&&(1===r.button||r.ctrlKey||r.shiftKey||r.altKey||r7(l,\"target\")!==window.name?(n2(m.clientId),m.self=W,re(e,m)):tl(location.href,l.href)||(m.exit=m.external,n2(m.clientId)));return}var y=(r8(r.target,(e,r)=>!!(u??=al(th(e)?.cart??tS(e,\"cart\")))&&!u.item&&(u.item=eL(th(e)?.content))&&r(u)),as(u));(y||i)&&re(e,y?z({type:\"cart_updated\",...f,...y}):z({type:\"component_click\",...f}))}})};r(document),an(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var r={},t=to(J);n9(()=>rs(()=>(r={},t=to(J)),250)),td(window,\"scroll\",()=>{var n=to(),a=ti();if(n.y>=t.y){var i=[];!r.fold&&n.y>=t.y+200&&(r.fold=J,re(i,\"fold\")),!r[\"page-middle\"]&&a.y>=.5&&(r[\"page-middle\"]=J,re(i,\"page-middle\")),!r[\"page-end\"]&&a.y>=.99&&(r[\"page-end\"]=J,re(i,\"page-end\"));var o=eI(i,e=>z({type:\"scroll\",scrollType:e,offset:a}));o.length&&re(e,o)}})}},{id:\"cart\",setup:e=>({processCommand(r){if(am(r)){var t=r.cart;return\"clear\"===t?re(e,{type:\"cart_updated\",action:\"clear\"}):(t=as(t))&&re(e,{...t,type:\"cart_updated\"}),J}return aI(r)?(re(e,{type:\"order\",...r.order}),J):W}})},{id:\"forms\",setup(e){var r=new Map,t=e=>e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"yes\":\"no\":e.value,n=n=>{var a,i=n.form;if(i){var l=te(i,tg(\"ref\"))||\"track_ref\",s=()=>i.isConnected&&tc(i).width,u=eY(r,i,()=>{var r,t=new Map,n={type:\"form\",name:te(i,tg(\"form-name\"))||r7(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}};e.events.post(n),e.events.registerEventPatchSource(n,e=>nG(n,e));var l=()=>{o(),r[3]>=2&&(n.completed=3===r[3]||!s()),e.events.postPatch(n,{...a,totalTime:rt(J)-r[4]}),r[3]=1},u=ra();return td(i,\"submit\",()=>{a=av(i),r[3]=3,u(()=>{i.isConnected&&tc(i).width>0?(r[3]=2,u()):l()},750)}),r=[n,t,i,0,rt(J),1]});return eY(u[1],n)||eI(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,r)=>{if(!e.name||\"hidden\"===e.type){\"hidden\"===e.type&&(e.name===l||tA(e,\"ref\"))&&(e.value||(e.value=nE()),u[0].ref=e.value);return}var n=e.name,a=u[0].fields[n]??={id:e.id||n,name:n,label:rM(e.labels?.[0]?.innerText??e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,type:e.type??\"unknown\",[ap]:t(e)};u[0].fields[a.name]=a,u[1].set(e,a)}),[n,u]}},a=(e,[r,t]=n(e)??[],a=t?.[1].get(r))=>a&&[t[0],a,r,t],i=null,o=()=>{if(i){var[e,r,n,a]=i,o=-(l-(l=n8())),u=-(s-(s=rt(J))),c=r[ap];(r[ap]=t(n))!==c&&(r.fillOrder??=a[5]++,r.filled&&(r.corrections=(r.corrections??0)+1),r.filled=J,a[3]=2,eF(e.fields,([e,t])=>t.lastField=e===r.name||void 0)),r.activeTime+=o,r.totalTime+=u,e.activeTime+=o,i=null}},l=0,s=0,u=e=>{e&&td(e,[\"focusin\",\"focusout\",\"change\"],(e,r,t=e.target&&a(e.target))=>{t&&(i=t,\"focusin\"===e.type?(s=rt(J),l=n8()):o())})};u(document),an(e=>e.contentDocument&&u)}}],ag=(...e)=>r=>r===e[0]||e.some(e=>\"string\"==typeof e&&r?.[e]!==void 0),am=ag(\"cart\"),ay=ag(\"username\"),ab=ag(\"tagAttributes\"),aw=ag(\"disable\"),ak=ag(\"boundary\"),aE=ag(\"extension\"),aS=ag(J,\"flush\"),aA=ag(\"get\"),aT=ag(\"listener\"),aI=ag(\"order\"),ax=ag(\"scan\"),aN=ag(\"set\"),aO=e=>\"function\"==typeof e,a$=e=>{if(A)return A;er(e)&&(e=tY(e)),e0(tI,e),t2(e5(tI,\"clientKey\"));var r=e5(tI,\"apiKey\"),t=r2[tI.name]??[];if(!en(t)){C(`The global variable for the tracker \"${tI.name}\" is used for something else than an array of queued commands.`);return}var n=[],a=[],i=(e,...r)=>{var t=J;a=ez(a,n=>F(()=>(n[e]?.(...r,{tracker:A,unsubscribe:()=>t=W}),t),t4(n)))},o=[],l={applyEventExtensions(e){e.clientId??=nb(),e.timestamp??=rt(),f=J;var r=W;return eI(n,([,t])=>{(r||t.decorate?.(e)===W)&&(r=J)}),r?void 0:e}},s=nJ(tM,l),u=nL(tM,l),c=null,d=0,f=W,v=W;return e3(r2,[{[tI.name]:[A=Object.freeze({id:\"tracker_\"+nb(),events:u,variables:s,push(...e){if(!c&&r){if(e[0]!==r)throw Error(\"Invalid API key.\");e.splice(0,1)}if(e.length){var t=W;if((e=ez(eN(e,e=>er(e)?tY(e):e),e=>{if(!e)return W;if(ab(e))tI.tags=e0({},tI.tags,e.tagAttributes);else if(aw(e))return tI.disabled=e.disable,W;else if(aS(e))return t=J,W;else if(aO(e))return e(A),W;return v||aT(e)||aE(e)?J:(o.push(e),W)})).length||t){var l=eK(e,e=>aE(e)?-100:aT(e)?-50:aN(e)?-10:rH(e)?90:0);if(!(c&&c.splice(f?d+1:c.length,0,...l))){for(d=0,c=l;d<c.length;d++)c[d]&&F(()=>{var e,r=c[d];if(i(\"command\",r),f=W,rH(r))u.post(r,!1);else if(aA(r))s.get(...ei(r.get));else if(aN(r))s.set(...ei(r.set));else if(aT(r))re(a,r.listener);else if(aE(r))(e=F(()=>r.extension.setup(A),e=>t6(r.extension.id,e)))&&(re(n,[r.priority??100,e]),eK(n,([e])=>e));else if(aO(r))r(A);else{var t=W;for(var[,e]of n)if(t=e.processCommand?.(r)??W)break;t||t6(\"invalid-command\",r)}},e=>t6(A,\"internal-error\",e));c=null,t&&u.post([],!0)}}}},__isTracker:J})]}]),nI(async(e,r,n,a)=>{if(\"ready\"===e){var i=_(await s.get({scope:\"session\",key:\"info\",cache:V}).value,\"No session data.\");l.deviceSessionId=i.deviceSessionId,i.hasUserAgent||(nY(A),i.hasUserAgent=!0),v=!0,o.length&&re(A,o),a(),re(A,...eI(ah,e=>({extension:e})),...t,{set:{scope:\"local\",key:\"loaded\",value:!0}})}},!0),A};r2[\".tail.js.init\"]=e=>{e(a$)}})();\n//# sourceMappingURL=index.min.js.map\n",
+        gzip: "H4sIAAAAAAACCqW9e3_bNrI__P_vVdjcrEtGsCzJl9hUGB4nTVqnzaVx0rSV1YSWYJsNTaok5Uskndf-zHcGICnZ2e35PLuNRQIgLoPB3DAYuK4XPJk500KvFWUej0qnfxXla1rlqlSpilSsMpWoQk3VSI3VmbpSE3WhztWlulWn6lp9Uc_VsTpU79WRulGv1Rv1QP2lngUuVRHo4Mn724l-nudZ7moPTZUXeXa9puk10AdIC5Hj64V6xd-oMtjsomB8RkWCIJ_PXR2GuRcE6TRJvFyX0zxd7_SRn9GnGxv0k-Onnej0vLzAR-bRm2EwadDpn1EH8Bytxema9rj2QTRcp7L0s7Gx_orfFd5UST2wDXX7rVa6kBeqKQjenP6lR2X7i74tqFnT0MKWXqgPMox2u13SMMwQSlPuSWdjo2wX2aV28-DJB5T0PPWJP6HSGOF6oEPtP3PzMHQO13L99zTO9XjtKkqmei0u1i7joojTc0ctA7ed60kSjbTrUMuOclDUftx2PGrlhczJekeVPBH57cwMS7veYhSVowsCZ5V2RqMLdUSTwFMXPuNp8n9H8ihLiyzRbc1t5ybP8_PFWZxGSXI7K8M2VbpQb4EDPAt5cJXF47VOXxoA3tEQBQkW6u9GuVmcxmUcJfFXPfbR3Qud-u9cfOHm7UYmxiJI5C1MtWv5Qr1r1PWWcm2Lmgf-vZurAT0OqdXvg6i4TUd34CJYE11HcbnGDdjadYrh54POkMaXen5aw40wCrDhh9wzaN5fhhSNVCeFZuxLbeH1fNAdVh_YYVAaijPOmp7k1CZ1hT4BFhdllI50drbGCGC-j-z30eLOVHwFWLR6auZB_Rq8nl6e6rz96vC3T8eHL55_Onr9_vkPz9-pj8F6V70ERH4ImD4s1M_42KCn-jE4vr08zZJ2XOo8KrNc_WQx2CWqQR8C893SC0s_39hI6T_-srQPbklIVXrIf6p-s98alKM1-VSIwlNfh-1BPuQUTUV_Ry-c04wgGqVOEJSE_wQBrf4IfnJ_x4roUP82NtxuEOj53DmLCNoOfY40p8ynmj5CzlMsiF9Q2_q6VlpzvSmDo1mtZhLmgDLSimtmlNSgztEidbHMjrmES5XqNDjM8-i2HRf8q3TEcL8zY0rHZkF2zcqnnoVP_XWCGCGHJkj4-gq_A1rReugP9FDprJ4HDMrJmBotdS2xJGqSZ2WGdKULm3auy7c2-c2Z0tPGvFK7BbUHCCVKj-y0OGfTdFTGWRPgPC2KViCDh5FhqQ9nnHHPh0pfNUa9vu6iqh-HmJ47Q5nPQRz15A78XkUTpS_uJB_rUunzJi01EO2CCBM4X0XlRTvPpunY1Q-JAPP7JLt2ux1FUF_vgB2Eud8h7NiiCbrEOtC3aMjFC1Eb6s-pBZnUTljLc0X0POcpujZ8jMlVGJYeoy_43SmVVCB6RGro76_KJQ4LOri5SRWV9JdIP6f5qV8SRVX6SyAodhYntNbcn6n956Z-lTZGORg2EecL02OCa2in4CFDBeTGTLahU7Mc3co95vplg1Gma5gCr_rATWnJpqpstTzite5trJPxWkrdufRmDKj-aa6jLwsmcGsrtUgVaeO7xQLkOOCl7utrV8ZDnQZLX-31t_sozFyI5CBVepAOhyCQBAo3og5H0mElHYiqDkT3dBw9avbkuStTu9QZ6vM3qKY3Q7ekobxqiHpN81rRPRoJyH7fM7kMBWrObzRC2CEzpR93vDPmr2GwqTe7fd1qVV9ubvYrSDNK9TUl2dxWi2smbKOBHtslARwXDDEkhQZ82MQmjNm8KP3eymNdkPQuZEGgdNVTEhuMkNjAK-l5Tqg3n6dGNPPsfMXAhiikVnKSFbwuLYwy5B4_1G4MsYtqI-bhyyhiGaEF1cJzTf_QE5pYLt2lnh41x8DtC8IoHqzFj46Kg8GQkacMysed0AqMrdKn5dihUabN1NRPw-qtXz5OAb3LPhCKayRSPCiHfYJ-RpiWqYgy_IxWOyCxsRG3J9Piws08KzwKOYkrWdLKerGrD6v-E9NbKH2zusRRMNXXIHEuz139xZA-Ufr1vZOFut-7DWEe9PRNTZ-WqBh475ELyZzwg5GDUtp_ZXHqEngch5ZEbtjSEZYKkW8QVv7aFsy5oNIPAhe99KwcVslPL1z-xkA11CRJ-VxXxYMYmwdDT8CHWmKW8BRJdvqvpZnmeaVZ7fz_mFSez5os0owa0oFHFVNmGEYgFsvUohKzlH5mlxf3B_JPU91YpqKgQCXTpZRrLr9Zc0k1v_qPNTPto5pR34C6SJrLsFntt2pdVlAaKMDChp1bAoAUoZVqH5X-dBf-_RWeImvOzvdfVfk-d5UIvlG-fhxWhZ7xMFHgrhBQFXrFhRZLtKRBrwyPiXn2Yq8hByv9ItCflH5bC_v3DoCgYBt72l9uprE-a4YYG7E89kyb3wI6kORvK4Cd5dnl85TERV0o_a5eirP7emF0CtIfrSY7WzSWElF4kitYhDB9YmWNEryK42hSJILSTQdYaiSdQNdAh01CwAk-hAzUR1ISixuUaOmYa4s2lyV_Bb51t3izYgCMilUU8G-X0SsPjS72m5sLm-pyTb_RSxfKnNLfBzXZsjMVszJClAqKhev5ZQWKT1SY_sOcsmah8ByGsevx9_xElX6trBJWkykDRlfTij4WDmN6J31jxQP56Kd-Gvwz_GHhikS-r1ycCDIvAav8mbmJakJINKkglbZaOFzrenOVNO0OesXuwNxNoEDdarUijPbXQNbtsjCsNVY5S76X0Y0t4evvzbgx1ADaZ8gqKAsnDToxn1MFESFQRPMeEel-qvJBD3aTbUII_bFGaCEkU6Yp9EaVMbJwrtIvWfdi4JOU0KA8E_uBry_MI2nr68QmDC0ckGA-tIKiAYqWBcU6o9I_3CcgP_VrqeBTPcfrbF8KZKqptVupg5e60j_fX5ORsgd29jYxtpVKG8gj4tSP36hryiBYz8N7J_hJx9dsLyIlnhjjL4TL3FK1hNbXpSWC4q0L2YnXCD9yW2EIHeanCvPBk6F0FVleujWie5uskLOC81tDgdFtWDBIcx6Rml9Zv0IxIQSQ38Y60aVe06QQ-vgTlH4jV7clv3qA6Lf0SbvQKEZ_IU7SxLaj8ThEEv2idPNLaYAx6Pdl2mmYz73dFWJI3amYCVXTF4KqoRKH_Fcau4iKkP_a9iyVqUZ1jz2D6qnJEubiN-5cCuJHS_GPxlJ0idDmNBdP-NcldC6HGENVpQuUoHZRzRSV6j_4nYHD4_cWZqbYguE2yCSTnaX-El0Oa0HdR-sEP2o95aqRQ-Sa_jAbQKY7oLJDtuAYngc1gkbRCfQvrv6N2u3iqV7pMlgLAf27mDV9xqdeZd1ZUdXDdQtlDNlMNkv_pgJYODpCPgmX9U4lDNEgxSQsPEdYI1Fy-axiCuD0jqCO430L_1SJ-dlrzI-pbTA0gjSy2AheIxpKFEQkY9I1G9bmzW5IUC280IUJTBVtEiKeR6MLmHpLwzd3BDaATiOl8DAz3_o2siAlcZTWMn_vm8TCJtLDun7KtCQjxNl10WNSsytBiAoTGNOQ5GKacBr0bhOgtZzFFk7XUmZLhrphXpEMViU3Ye71iIdM0EVqT-ZcSGP-uJbw28UkiUfApa4HaV_Q0jeQoH5s3wW-m6_w19xbtpnSwoARll5yW3_Xq2BGi6JE7VzCAGBBXE1sE8R1j2BNiKry1SI0JHisz-JUv82zic7LW0bBGdGVs_h8mkenifZBUtPppTZvHXWdx6XNoaGk-MOLF4YtIi0OCevlfO6wFZ9fYPvkFUO03-4OhDMq6pcLf8bl6GnRnMJ8ZYBYXgS__Sb8CDZ23dfiyF3R06W6kqh8RbMHWpAxLWCKUFZTyojQbeB3OABESYTEz5BI975rnrl5piDgzrSs6GmFNRtcqUA9wLIWFsFsYN_SOFRCFAjqF1VjDV-1zMYCLA37gLmZGN9ctpU9EibH20ciHhhsJCRE2yj_CEWwveNbEwhLGVa3ziv9p1EStrSJLQWQ1aVY1lUoC2kXxYeyERLqd5AHZKOBRRgqVNoSM7S9gIatG5NHXNnqvLTW83w5a5oWF_FZaXPLwJmmgqhjZ92qS4SwhCOXoLKwOL7kT1nYI55Iug8t4I80okaxdhlf6jd5fB6nrWZyml0TVL-PSn5UeQrlgjA9ZyGc6vGaemlLP8xJ2CYx1G62xCRdZ7whQGJO1Ao20xabEEG6VMYaE5EjqpPVJ8mh2V-oHBQ36FSmA1WJ-dbytJa6MGXUuE5oFNn9uvWyP0p0lL-nYWVT8HT1OwmsoUuqN--EEPOTr4jklkFEAyLRw5bG2FKWnWIStLD4VG7M9J2aPAnWzc6wv6bT0a2fq1GUJKfR6IvP0zqjdFq_TMon0bTQYz8CM6GlcH6ucz_GS0Zg9jM8VR8nZrtlEdCgA6xY00IYdvrCdTpqGuQjdLGd6yJLrgj51SggiK-TijIORvR6JpruGm9vFATe9fV0Pl-ftic6HcfpOT0DZiDw7qR9Oi1u0VE2f2uS7FmrnaopGqA1QbMkSd8zeBIXTWyOWy43RrNGI0DGtO4Q9hDWuyQEPw4683lG7Vy5sNTZxrrM0nknoAzWWSQdiSLIc3eU0pInEkj8kD6JaNKvCPfW3YJQiXpUZZ-p_HEn3MyJEflU34T-C2ZSHIQYbeGXulVGeekbaRd6AEkPKiHaEyaKeoaxA_uy83Mi4VZeIWjYxkNNRMS9YsSYtM0sumjR50Sfh-dPqgmu4C-QO2NmShXYClnQqQg7VclN0xQSXi8IgaOiWMuz2acJkey4kG1EI9W63qy8iAs7OQtiGbI57FZ7t5xvv21zJheTTchvFONMLmaw5FsFTfbCzrbZzbm_cKMQAZiy6DPwhf_2lS1TfcSDvbd0ALKcJ1KwiM9Twgy9XLTqhVRXITZ_gu1ls89wX1-q7MXCzEtSz4upuC8d7jOo-wzJvgETrayV2WP_iv7dIbyVZ9e1vJzUUuGZ9daqYfHr_LVpQazvXqPzfdkMrr0DHFP3WpTkOhrfrpl-j7ek4-wisGgOv-p9l4E0yEOHh-X4RoYhNQTGvPmcWDXJDQJKUkzUoAlxC240Mgz0_wHWTPuLmvTmTzphg1CjkH8dp-Psus3E9lU8yrMyKr7wHtt0ZRdwPo-LF_AcYOvHOswYRJpCfQB1oAl8koYarYjBEFYlt3IG4D1J4mLP3M9HKcGCWAnpE9Ht2oOZXrQ_U-Mj2bNjtMx8g535uDKJv7VYDneNWjSpRRkoXGcN9VY0VVFGrEDAD9gHEatYStQKqkMXdIZ6ywRGZUt5HeTlJs_SnoyWwYD0G9II8quqi66YriiLzQnGOMSCPwk8rkfw462Xu7ndOndIw5gIRzM-RYGRs0zjA7dpRwvyM1juqBJWBqHf4tmobbqS5Newr0TMnPuqIgj5Kloo1xi0qeskZzVFZS1ZnocxXghKOVE6djwxOcJtgHAZY14ygesWNj0G-Blae0zoOP7dHYzPNPftgtWQjiIRTzZDHLVGq4rwIscf_TP8OYAf54GuGl5u0fnOaVFz31Gz9aPKL2UHWvark-y8x75U1OPOHMh-e9-mCDTWe2zO7h2LmZWwIavmrPbnovrxTqUR2k3WgJZo9nN2rfNnUQHBg1I9VTkX2EoTj4QUk8bUgpNGQdKOUhJlICiMpwQry2nnOVTTcZCHEIwTRaX8kUqzVPudhZ-QPPPfBzJe7SqbCa2QgVZk6ecQA0WVOBvoIQx0vjY7W2Mk4O_yKIf-UxIsaPkNLtT5kHo5MB1fcvTgeWyMrDaakuI3oXbkhSjMFRQBj0TSCcSup1D9Sb7ziJK63MxTDwKF9tQSDaP5J2zGuvLCp3CrIRGbRrAxGkK4Dc5dvfG_9G_kcZFKZYuhQkRDP6ZWgqKebIESXAY26E9-2ZxsxgJ4KlRYfs-mne9gghyiVkN_cFVv4VEzV-wwBvD6T4fq8q5HRmNEWcCGg_CZW7MrWk4vj9-8bovfTXx2i11UOLSlWbkWrQnRfTArFyL4ENGF_ne7NDweBMReN90QnxYeZYOM6G0Qh0umcv9Rve8u1GwS5YX2L0nAu33LjxfKYJ5fKMFxf6qSLPsynfjnSiDlFwZkitWqEgbwc8whYTst4xeSKPSIWCt8bQj1HaFFpqAXIm3NaZX-Z2KPMmwiKRdufs6sjmjKAt4rs8k01_6tojm0IizVwsO7vTvt2phuwrACFrvRwSsuP13ZvQ30S5f1WRGThRqJ76VrbOG1LUVMN_DECKB9kS58184iHI3Y2dN-bUAVkyfvD5c1qsHeSfjW5gmAy11ZVxezhrkeVWbYKMgaX292w7j-Lm7buaM37jnqjjBo5uj9eos0FxeeYODMHeX06Z9yhtBUOlb-auz0WDMyzFCl6wSOZzk6bOOjbKw_vDt6ll1OaLWkJLhAfbgkFck6bB4mieu04LGJHXabW_E67MSEgeOodNAbBnglPA7NCGn1_gAjsmz9I9N0g31ty9p4V_pPPSwF1DbAX1qz2MCjsX5Zcgut12gOx4GtP93Qx3-Dk-tWe3PY8nyiNidbJ1teSA-c86f_P5ROjyd4-Z_hQ8LZ_6FMShhQwsmQck-Gc3fQ2Tzwh6354M-t1rAVelzEd0_G-IBrHfz5r5A-509D-vRfXBe9_ctt4-nB1nm1R7XqmGyx6iqYFdk0J9Vaq2J0oS-1XyqCpF-G66m_TrLDUxVNy4ssj8tbP1KknJM-Tlp6UVxn-djP1EVWlH4ShoWaZKQ1CmpNQ0YkUj3dKTaIJsSKiUeR6JnfWgezsZ8_d8fQWc7y6PySZts_q3S8qzY-CeSHpuKqXfUivGpTCUgWzpZDE6WuSIzOrZuXYF1jw-gdtm8u2e10i2DzZ_theBLO__QAowc0L9iNDS06bjjMRlI1YIgR97pmJsIdhtNYh59ourFbRSn1XnIURGHlVbx1MjgZPthSJBERE-2yoxxVmdUolvkxIRW1AnZpea4tqh9wCjidBq77VA88NGicTe8k6-qSt0vS2WUrLj-sJeHcOrOAgubvA9eggngTwk0lNX7iNKIIFrCnKg5J4R8MqTiXdht-D8ysIiMd0rIyFnmxztuRyycsp0hZUQD80sxBSj05Ml56FbQGJ38-ODlpP2yFrkeAmy3mQ8Jd5-TkASYkvwm2Tr62KSV_XTnOEpV94-obl7eMpTrjxO4pokME9nf6_PkN0WzlnE-JVuQ3Kn8TzGgJP7jjCilFVf6XJWSKCQzT_gfGiUdso6_dyuODfTU8bA1i_RAQfueS4Rb1lFozQlL-hqWkAHMxnxNhYhpxsuW2aU2fbIVzXqu0VKdmrYIS2b6Xtu_cbP6MoGtyPoeP1136d3Li0X8DkpffYJvsCB0ntrT12WN9gLj45z8lE14jW-7SZycPt0RroLrhL7J1cuK2PUD-QdcBHNsPqbIHnzHDhFmV54626yXH_qrKXzW2setZlSWi--57iHQkyM2Icwzetw9JELq9zKZF0BkGTvXmqPeUeUR6dE6CatClPPsiWd9LBpF15_tG8rFOi5hNXtuUU73JwYz8Q5DfEhhJRHHGURmtsU0iPotHEXvaen33KGCpR3p31H5NfIc7hgdHHSFJj3RRRKQ4oFPVm2S-MFZWErLKW-7cUooUeltbioMdKtJ4lwLvo_xcl7Ag7FN29SaZx3o0BeELuns8QnmTvKOUiKdYS0ieCbZ7DLZmmpSrgb5zsAx1yb0N9rY5_da2mV_pPNjb4RbxbAD6CQCF26EBKIlRk6ygVrq9R7RUX5js7mo2KNDbavXCl4Oosi4jlGJFO3TNPmPUpi9KPVbVO1ssxmpFhYms1D6f2x3Kukb_bhKEFvcmiGm2Y5ntm_YPSXYaJTzf8uioG0ompYnhTcnyKMnHNPE0sTzL5lkyvtdXpMwyAsqjJH8gZsnzjQcDv78BoJgBRO8xROa1YpRNNOFiWU-TSmu0kw_5mMbn76A6f9G3i-_g0EaC7d9tEZZJUuJqSPLn388q_554Ox79_G9l5sHPX9jHws8_qeXl4OcfiAGfuvn3xAVfBxlBKhNIvW4fT0foTtDrAFjmzVGvKetZriOaL8oCwMybZH1IRxdRek6Z2x0GhH2X7O91GlPeTkcghxfJeJ2VL-B4Tlk7vBblVTLf6Wj8Jk1uKXOXMu2r6QxpJklMdGKnA0S3r7Y7xXQCMYUa3eXeNlKkiDFS0ecdXkr8JlmsbdF3yOBnR9FcZitzqcs14islLS0C4psgISAmAsQ37cPxWIjemKp8Qwmv4pSxjH5NQnTD6EW_knB09gp8k3HLPNsMUCjJ3OHM6p37lSz3a4KMNex7OeIZnn815znCNuep_GmVYL8qVP7rqmFNyQENGNJK-pP_TDl_16Y_oqSRG1v7H2weHoSFElqEImzi00kx25k8NmCqKElMAnMsTxkUMYmWv7cFqo-3O9Cqqh6aUuwn95IzWLmsU8HfXoITi22FikBsYb8fl4fiYp8L7PWjOM5SDzJTj1SDz2E2szVUjS9ne9g5mSalaRtJlTibkdjx0Ug91oAZ2hERqsGuQt-_DO5mhG2i9zkRvZC9o_If7pSZz6tXkk5pxaj857uzxu7cKsFuPrsIQ9yAk4Zmf5JmbevlxgbVwjYMSaeWCVafidy8Q1kWeLDht1gbZVMcUMjKtVMo2yufOWdYtW3HWPz4O-qtySZRN5NFFTq0bEjKhbXdWVBVI-wCrvFHdlxZtbTDz_CLXxuZ1_bae1L09c2ELfNrxKpAmNe-q5ukiZNEoprjWLp7KeuBvjTgXf7Qwrz-sv3ZX-qNkKvQ7ASFoYO64ALBpHTtOirWxlyEhr_0oaEpK1_KgcVxpsVsg8ERXV8rM-4jq2bRSkWW8IUO3GpxfjEar2WUsNqiwJihlq5N0wpU3L7PYJbtrM--Ywt9SbPrFFUWWdp2Fp8Xn5Vx28TuM2lNyZBUZNZXUutDa3z4idXiwJjF_dhaJ565sbH0npDkZZ1fElIe2-xik_8YiMh69wRZm89l5T8FrjW14PxQyMlwu-EjotqcH5Vkz3Odq1hfQ4H4LbAnzxp2yob68We0-fVw8w9o3KS1QwD-5HhWJ_SdpluFZrVP5Sv-dJWJY8AHalZNnVhjrLCwfO6tCuL_Hkjrw1lvsWWVOQ9HK3Vwr1Gk6jqp_cGGsScE9IJnL3Q35g880f6toRu2JFIGAufBrGx8vtQN15n_u9fDh9-dnDjfeQvns0ppOpQzNBOHk7FyhnO2sNyAoEFs4De34UvW0IOLhy7-hcFJ4M3Ry5P2fPCnCk7yk3TotTzOpL7Lr-NWRUj7eug58-_qlO-Q8t28TlBIoOHKtwN1UgxbjYGzwcNSwCnEGWLGBXb_m52NK-OQC2QeVULllDj3lN4n2QTOFqMghrckDd4d4bX-LBK0JxUij9IvhT8yzIMqENeJhaeIkrDL3h8uOwg6zoJ3YfI_mqfjtNBJrsUA3IcCNjO70uHnoHquQaxEVYbeR-uXlqrKfwl6elvlncD5VPoQfkki6PLWEv49cyFQrTVOBrexSHqBbBCqfCcYZ6MpLDIq3wvynfZpNr5VeeUBxzICE1D2VFL5dvCryvetBcYaKJ4E-TbAX50_U3Kq6GOfPk8JqWHCpgXbhU8XaEirBbNCvT3m1qdc0gASR04T9NLaPVJPvSQgbnbh-viR6oj71UmjvoCUN6lg06ShPE80RgSHv7BNtE3n35tB0ud2vLxOV_Ph4BYRY_-VqEnYJt3qUtvKqtNJNJUHTQfBqucOnqoztfwwnzunsFqTZFRcxzCK5N5sRDRpvePjx_nq-MYtyHFaEJPYyLlCvvr8RVe-yB35PbVfOubk7h84As1Zqc1aY9PciySD0mAy_6oyX7DXCu8niC2YJIUfTKmLlVLl781cvZr7Cx_ARr4BoL_kNCldNL7RvhmqobmqNgvrQApaKJjy-UHlsmh8JOF89Khh_DqA4Y_06MOSvjydsi8rfGZK3Si0Xx-FoE49Mhkw2-cVHj8yhp57p0GVpWEuzaZeE44UyExtLZQLAk554-PyNgFczeli9pr8lV1ScHYF-KLKqHHsgiSFMjpHlb5kyh62O7vx3SIoM_iotW-23HyvnZ2dkST1MR6XF5tmuz9OCZU5hSrvqFu_aN82yv6o4_OLcqmwJKE0CBcfoUZb-twtRnmWJL9BRL6t33-nd5RMKoixMelf7YdiAQWqv3LzRooqC0ss4HNHZLacikfsxsZXamty40_bN-qWf28Vt00JW8sjVDumG1Rma2VAyJtE5_pFlowLvwxR5O4Y_Zo-Vy4QJD5MiPQSu3_PwgXeqaLfxXs6JEDknPAbtS1Pvy98HQJCI0oaL4JyBLSv3i1-qtJ4Orhn4kb_FMIxyTnPkphoyTu48GB3mCdUCcDPiMucla2ifWOGekbYN6H3W09dAwaSxo-eupBBcZI8e43Wx9W-d0DUZgLbkM8Od0XBHmAEBuvGml-xmHUknvfluD7P5fnsdgAvWDC051fU85_jotQEU-P__h8zKffMxpuY8dZBXu07LIL8i2zZGt58p8BClVcG96l_DKqXFhB30N2C4-60E1KXUcKF_BWU4hyDHCsoBSyZsEvGRx19waH6kg_VlxM-DQFnKTlNH3yUs-zO5maZR6Mvm8TFzYPX0qq8DJbOmDLK8UYVzhNwRZk4jgwyWI5d4piKAEgs8IULjxE5BaHSoZyGP3YzxacCYhuqYr2cz_NdOaPDB13SMMxYDXfX-RTVElWkHPAJluDz391I0WJN1dbJJuQK32GaiZOw5a2NblGeNlndFfjsVVAegUoV1ZEs8QS3p9AZ8cWWPhhoeEOLJ8dr2egYyMmnAYzqIlmQHt4udKLhBUaPk1yfxTdDn0t4vB9HeDygzgwGbFFnAJ9seiE6gU2wB3N6g3F9i_2tCa4f3SuPPu275a3tf3nJuz1EeIx7fXldGblJWn_glhwH5ZywF8YF--acEu3fdFqc6vFepCq_YHOhrPahSuwcOZEFc-FIPJ-NDW6z_DIo-YggNiQOaUVhb8o9OSaB2CdxVjb1XEkguXnw50mhfMj2LOuunxw_PPHvSPh_uTTxtACxaz3ExhpNp3QDQKE-GvzggR7bjn7kr90ytMywZA-u8pjzP8IiIkdVfOsILKBhvgjQNADTAAjpSS5CGEyCkjeJSGxzJ0gVHna43DzzePciMK0yqYBZnsW4i_DC_8PFzk75fun8feiWOIBI6G1dpWjM-2L0mZWnzNgBBKJkbOTxKhCk2Lj3VMrHCMMZ4MMu7ulw4c-IaGIqj4JZCqZL0IsTRxX5yHe2PpXtvwpHjeMCFqAxnB9grmZaVzA9pbcXlaszy-F4KayXnL9LSSMm-T_pW-Ho0SSunqFLPMuyL7Hh9mN9Oj1HM_ElLQI2Or-_oIcL4mx-F3UJLX-WEc-6KV_pdIpuGJHrEP6zbJF4jwVC3MZ3ommZOYqHPLOS2YDN9ZswdcoTRu4MQXFvgvwZpDPSA4xV5HiUx5OyTQBRzr-A-q9NEbe8IfqEbS4PjgCU8yagJByYehCUrzmPaHz5BkQ-bIO8q_IvMTu65QOiP4YBSF7Y1um4-BgTApUPIEYQsS-fVd4WEDPegFxuuX9CwQwJZdw_T9p43vK8LWrdypOh47HjW_kqKJ_hlS2jMLmbt8u0RHfN27TIjZW0_AD9tvzEf1_U_pW6PbqI8mekxByy03zJkZskrg37XT0z2dLZPnDLOXz67PvnL3748ejlTz-_ev3m7S_vjt9_-PXjb7__EZ2OaCbOL-K_viSXaTb5Oy_K6dX1ze3XTre3vbO792j_YPMTqeGVM4ehXx8G5Sc4Ziz1p-MNA0t5JVKUVcGw4HDI3zonsfreT5-UfS_Haf5Wa_j4cXdvbh_3zZMyOi415nb3dru7nUe9jdx78qS7D-gM3N7ufmdnX5J6krTT2ZYye_y-t71BZKk6X2UjDATpJuHAWxdncMt393a2o-qTv6QEYqV_IAFtX4wr2w_daGtn3vFabtTa3tj2_r3t9SOMKB6k1PUAMOLD36Re0pB6czdfTqMu7ij6AixUPnG7u9Tzx4937ivbWym7zUX35svlavsCjev7YLbd8we97t5ed3uvt9dNVXfv0aNHe90D4uJ7O_6gczM6PesdjPTO_k6v19vu7VKRzsHBbre719vvdbtUrtvbR8G90V6v96inO49OTzvdnd5e75QKPNrd6x3sjnb3x6nq3HQ7d__X3T4l6qZKHOsOert7wOKHEuMnIgmJVBtSD8qndTSw2nMk6KQqoXko8DDFWhjR25j-ndG_K_o3sbFCzhB04XG1G9-_agWTwdkKgp4hygzjJ0lQIUsVVCstkcmQau3t7m64o-AKJzM2uwvfSB3sB-ra7FawOR2cBVRV1_v31LQ2bLlTbqzpojTQocWqCz50093bdOE_YB0GWjvev7t7dzFrp5W3Io_DSKSPt_tmvs_d8ivOcZggGh1VpY__7O49pMzunkff9XPCwUaeLCTzXT9C9BmLoFRfjS1y7Hu5z4jiU1IXzt2qFpzqrMewuUNDGv9Z59OA5nPqiPeYyJU1UiwPryNdSdkms5IH89iT1Ha_WfFqR5ki7u3cH5IBr9xIEnAgPML0XGFAg0wVNPDvB8nQDK4KMpIFT-Pzo7RsRwU69NpNlJv9KWlLQ_QeFlV3jF-OxBpyTWEbeejo9XLkoVb275USK7GJNr_1pedndfSy7T1vgfX0azDTN9hCJHa6WPRhs5ixAWRWncDKq3BScB5tXxLHjScJKZfrq4ZiE5jOnEOwHvNRfs6WKN6_89eeWwN-lK7xh9gmKHQu1rw1W73sKRRty8o4VsHKRBNN8TgkzGrfqihEtPj7WWN6aOkmNAfZUOIzrCWNeH9Ru5ieRoJdpDP0KwAkvEUgYSlUZuNi9o35qwpewlawxkE9f-p2D3qexAcRK5ONZkdZOuwe7Prdg52lAiYsnc_zQKNqnGTY2DATGxfH0Rm80_Q5e-nIIdknQYe0pccBPBmgjsj4JLIUZTwJNrd7KxlP5AsiSd7IHfQ6O_ANbWQT_ertV5Vykf2VIlLD3u7utqljV-knT57s36lpu_doT-rCk6nt4N7CUudO72DnYO8RsQUpu8dlezv80937RjO97s6jnf3tvR1pq3qVBrudf1CJAeP-zs7eo52dzqPtR52D3V0ShT3rILtV9W0PzP3f9WufW-mqXFrJpZWcW8mJ83JqJKkRp0ZDCRO5ht53bvZX2B73pXPz6Gz5f6E7dakdT-HoBKk0jzuhaZlmTHWa_x96PsPvkaJ5_k__bEfEoQgr7XsSpWE2JkaBV15zT6dnZ4R1-xzrBYEc2BS7t-NyvDzqVWfbUyN3ZaGWcLwF7jVQ3WyT-cR03Sxwl2Qn9lCtxSZhYmU_lfBNS9w49Z4AO2d5HYqnCpt0H3OwlT5087Dr7_C-PtEIhCdj8sCTnCxz_Iw5VvIY9GYWDyKwlQQnvco4neoF59Hy2fdsHomNc1r7VQyY5Alh0MHuxkbyeHdvu9fhJdtqZU-Ccplmfnj_YnN_jZQvathfi-n3csKuQAUpL9l5VMIXIrbyfXFfNwtpYj4vnuw-2t7Z_k8NFJoGMW5Ujtoios75WufGaRU1v4BY4KxF2HgZ65s1p5XRKymECJmUw-OBupQwIdhruW6309veSEiw7EKy5TcEL6ig092f93Y6zYText72nOArONjMmPd6O_0GYG1Bk0SSecLv9uB8GPtxk5JHgnrW34pkiu1uSKR5r9M68_wzpn-yeh6psyGnMD2TtH11xuv0zKyj7gEn0DI-k2VcZRPWZ0sIbsJbmQMQJCoKP_CXnDdx6Dp06xi2bN6Csu16W6QfY0L5-C6SX8VJEsuUFS7sXUzz88c1_REqt8NL-l4a1KB09uvuo-6jg_29A6J4NrpGV-89vKdFoW5CMErU3uMfag8_e6ok_YQeOvO8SSG_0Q8Jjvtf2-seHBBNq5uUtqiikisqh6CBOEOIOfbvHNLhMEFLAK9JwXx-N-NZEl1O9JjzQ9e9CNxJoBuoY3ClS-O6IIy4aOBK9-CRuuBOXQiudA_2OYH6fCF9rrIJVybeSseOvtEvSu_ufavD9-fQJ9u9b31yfw6T8f-QtbcjMGGANvC1DlJXSpC6OiIFh9fLW63lEjnx1l0shd5-C5Ehm6uNEKrCD15tve1voY_SNkoaB2asWoXRLsEZ1QR71Ysm17HWIjg8RBt8Eqodi4yKzZJ3siXNO6P3RLP9Vtkwcb-V5crRb__bJfhwJi_IfyI5w1MIT2vfOS0rdbac79ZGUWp8mCoxms_4LioJtrCRbGqlq19NxM7O3YnorE5E95v0pJpdxIMgrbE0MjaCblcdmJqYTdZy8jgmzbfB73sPo7pflNf38odBz5jf76p3JYeQiqAPl4toEA-xwd5q1e2N7rZXaczfbraCzf-ldX7RfDq3VUG37sm4Ar0q-5DScURhSYQsl0RID7HL_tcGLI5OC5ITtNcoD4X6f0kkq_K11_wctGVwv_z5DQLawBM5a92IQAlpq0kLGjIgexusClcwnxu-t96I7VyF7qgm4f-mKa6d3sKXmrVFcU9ay_JGwx50yLGu0B9aI_s1_aPmZGU1mliuDN5p-nJS3ppav8lO7ofHXcW0ZLNlrZV6JjxUhLNgQg2CqLaqlLUmGrnVMmbjRr_Bx1lJs0KQyWD9DVkkBpqsqZtDrfNsiZ0dKbF7YEuMUGJnpyqxZ6o_6NoSY5TY63AJEmnYG6RpNOHkbU6-F_AMakigJGWOumvGz9JUt9OojkR6TtttpnUkba_ZbOFuku5janh0J6dncvbv5OyYnINmzlldW6_TuZPTMzndOzk7JmcJJIlrk7eXk_dNcnPEa5lrG95dTrat7i0n27ofLSfbupdGHFd1Hywnm7q7neVkU3e3u5xs6u72lsdv6u5uLyfbuneWk23du8vJtu69lbr3TPrSMMeNeeru38mxLR_cyTGN95bGO2p80-veybHfLI162vxm-05OtYhIh-FFBFuLXaObvd09E73D3hzB22Wuc1mcT6LRF6FGvgPN-r4VJF63JAzkkAIaupmbbnahriH2GFG2VziJca7fosrTOI3y2zU-3uIK_aEPqpDJjmfJLil9RHdZtYOO1wFRpN7DX5noYXU-u6aakDgqQhXDK6whGRCrpHWbb26uPen0ocNbe5olZGUL9GsjhgFjA4F9y82AzXuIpSRKYfkQhn9FJc031SHeqtlspdmqxX_wbeJazrds_NDtU-Z3KiUwYbhv2K2ijj7opq0gV4LeId-6YIRpUj4RKYgRs5HBxhJkGP-dhpQG961ZDoMdCQAI1CZ6PnaQKo02pY7UDqDcdrQkaIGDs9EP3oAcgb6GyGyB0PECkgFxk-ESo1mSn_5TNcS_qmoavOtuPeNvDyldGoK7GgGFRhU4juxTUIF--STtr-AM7KNi_JGng-7GRvyYlppEyfmGcUVckpeMK71NRuNC9r1hyogDd7u7EfPW2N72hjS4sKpzTKrvNre1I6actNX9561t39dad5db6_bmbtXet1vfPpDW903rvX_e-s59rT-SxveXG_-vnfkPLVoffBZ8pEXE5WKzUvwfzEpMujyY1GJrV45awX1b03FtyqCi3W53h_558aYYodS3viLZtzOHNY5avq8AG6viuZjp-v9tmCzEsMfd_SPTNyOtx8Uavuru4UTC6KKOvhRBPVURhzq3K-bsvpUnqw6iAa2KorFnQRSZ4yra_YKdpoxtREU-4POYsAW2Ga_F4QuxT1699rBXLm96sF3RRkMFCSR6-2HOc7J_p_qyqr63XP3OUvV1Y9tDaCEeYgsCmbaH3sNae0GBneW-7i73da_Z10ff6Gur3OrqPe4xCynf6vI_hki6GezLubOAxZ__2Oq9Ii8zXMNviaYR5xxHloWDc3rEEf0Z6z2lQmE_WkhgrDSYVaqIn6uGYkIljSEXyfxQEn3H2RzZ0gtS4z84MG6ERrB4WcAfdz63goYzDFLqAXpR_srYNltq5qNqvLxcBO6DoPzVNuJtbDxof_qki1fZeIptwdUbiRD59811ap2F24iA6D5AuF62xzhe-MA6qfsPVPlD4DzI9Zmjyp9Xd_Ot1xVHD02Fm-A8Lpzg0_lcwxJYRftIVcwbmSaMsngCSgzlpej22ADQzZjniM3FlSEKKKWa8OMIFATP8o0NRAtk33xJIM4XooRfhTdBcILABBD1jH8l4uwOyh-GUBPxW_WvClBMidTLGX59mg7fFbdCtzQWhpLdvVpEA1aihzfCB7uR-NZwtDYLj0YIZBgdr-RIjwRkn8_vDUVex_S1oVO9ZtQXdrJje18Y2WAPg3LITsZ3hjWUc4m-RhTGl27WjMuTh8vBu6hkslDlj8szzw6YMgmADt-rYWdxwElDePi5Njc3iYFWS9BV9wTEWg1XA1zChpdb1qhUmgH0V65zoUJ87BL3uJQ_2buuquAxsnq_mVoFqsJtVBId10-AV7mNP9u0JBxVO1fwaoYbyYoXF7ybw5VQSghd8TM793oqWr7K6u5RCZx76zeCig-0yW_WR9zKRnjiXw6tPuD4LASnp27DcYVg-bcbu9wBCehg4cYnVfjcHA3bmTl8BtS8DYgeRNzxHwlVyncSooMRa7nh-nKMMDXCo--eAylS9uTgmHX2seMRprRy-qj8CS4pP1Xp3P_yN1X-Tv1H3qD8Q5W_DINB3lV5d0jvHVV2h0E-wYc9xszyF8j0JG66tjR9CjB33fKPoFE7ew_-ghjG5Q6-hEP6nol1uXcn8lJbov56qzcJ5nIHR1gV8DXHfbkUxQ6XR6ZyHnItG7Gb49hReTseI_Qpt7GgYeyqctsMY1Duq_LAjukRY0bOkQNzjhRbbuOJkDaNqoipKV-cxweO3JSQeR3ng67iIj5N-KY9ewqpzWkx4kccl8TjUN2BC1u3Vmlqq-uXu26qRbJJeb8XdVKDKYe3xdRF5qlfjl1zuGvg4MjCRTzWjnLOcq2_amfIgQnLRyhKg1kpW1xk11QWh5svm2U7UrY6KubUvZYT3I6SA-GaA8HicJX5jL4DdBqgkUFwnN80s90fpIlKCwPidBrksTurYv9ypEbSctPCtd9J988avrc7EjW4DiuMQw4qHbEj-zo-d833Hf6eJ4kD80LShj5WA8M5o4EWDn3dBJFzmkxzGSh9WIW6XYKMHJ8bOMQf6JOUYGkOmCy_XWZXmBM5U0NwRkM4U6_cv4JL4nmXEkXgrzZ06mATAQHw5Ki_KO19dBps9jh2yKmkHBNl0-NgE-EF5FkiUKRjRKC45OgASUbwXFuNQ6FSPqKRjusQYDj1mv_NV79cibvuUm5oYk-odBLkp64JO5GOFwqhJNKLJt20Ae3t2ez0ojpS7uH8Y3pWh7I46dhwF_JUcmCUozGuzVp8Vul50Nz2Nb6-Jx2nOkAiHWlxIHaqxufjE7YWH1exLBYqvYSb6a09PZGeyhETxF7MuzSXLeeT00qvgYTXgdwYk16qlO8aHOW3kzKDgPKOnSh_lfiNAMVzCf39ynWsN-YmHjZ38Gffvtr_OWpr0Onu4_AxBCxXPwy63p_pl1U_EEJxGsxGd_fJE7214y1pS9TocTWKw2AWj_30Vl1owuVTHZU-UJqG-z6YsWZJqFL4s0F6S8LS4aIRUsHIXUTx0iOV3tgV-JrotUrf8GQes0yWsme_Suv7y9K_6hCtrkRLp7V0SWiBw00sVse0vIJtva2Yp6V_NefQhhLd2Bhw3exYBIZaRXea6Y6bHjcOlnx15V5RjuaG6X5yidWAPabqhC6-ed-MaoHRuKIrOBMJmTGJbpMsGiNgmNwYkt64VfgMWveULhduLIgDdqwD9oyIcCmKY3XpVO4W4qd_XGY5EVCA6qjUl24OSkeIljKrJuwimCz5E7Yasee7pMwtu-culyWZY3zMZKqnnI7Dc28j7iN-2FeAqQpWKKAhHnPJ5AO3ALopHzviuPwVsBGfdLnzuQZhsv0Xq8VKkaIan9Iu4ZO6t_H1qnG-kYB5wuvAiMIzHI9lcvTNSlm6RCTIRqHlzkFGqClzIWX45me57IYoAISOTjVROBPSJqDxqmVEw-b3OmIHzuccQZC0olu5EnEQKUGYuEKVbEHyet_hqHbg33FYmoDl9HWFXwhtUX2Svl_gXhlOxBe439oETRcsReyRssFILH5y9XcQmQrLesju4GvGgU1xeOXUtGS-rtY-CaL0WUY8lL5EMfMNac12deWiiaAAR8Im9veeZ26ztwvP6CZLtrG6ealvdvVOX7-g9sJGg7WKAOsBIjfsLfcIZ4nSw3ZFsoRs1LDkXlawPFzQjNf8HgdrmnyexfXZNz4mxnNYH__ESaKa7TcalLldcIg7G3UekpV9ISYFOUzztTNCHiqROH2m0ldWXEw_qPSTpaQvAtCPWWlOBOUBzvHQGMBM_JLvjdASLTUNup0FGH8V9tmVw1rlL375u7e8ZCydcfK_EWRCjgnfu6hQQqGWP_zyN0-WFw28lTc8vCWkT8mRkUXtyMKun9oT_f0ELuzmch-YwOGRvl7M5wVMQSw94ZAEPO5xaFp0E7uY1qZByRcxNO8niFW-1aubN5coTBFrDANZvutg5Mlt32Nc70DwPSMF4p61T9rCLMfCl4P3ebXa5_NxfQED4bu5M5z0_amb4bYkNSZZkrJEbqFV8szVLWc54E00qm6Mh58Mw12lb-2yAdU5hbB_itOR9cEuc5H5qdES-7eBjVV45J6SuIFAHv3hQ8-RIeqAj9Ln72uJcsT1qFsJX0kwk6uM0k98OzxhE3Xjb0g1uDIR2FWrSNyxPPhBbW6mf8NR9W2F-Pzd0nUgncZV8enfrRbRtUbxDi6agrdvIwZ8jq22nOWMxnXxakarmVQynzUUi-kIsr6E3HzWhAokQWmSkkCuWgWpjqCf2rtROfIMX6DIqJmY-6gTvioloeG_YrswR0h3syCCPQcUARdwZHxYlvgfof-yeg4bIobMlwZ4S5iYirqv37pdJfdV5Cb0C7a9qvugbl1LO81dFpovvFezS11eZGNj4YpC5-2b4_eO7_zw_L2jRtHogiNEb_ITJRBS0TzHUVL4TpyOkin0tUvYJ51RlhN5JxI51jnJbw4f_EvLTThG4aSxvim3JkkUp85CQfPw44XcJmpCAj1BbDPb32256_vWbcTnp_mdkPasERlIBkG0j2p1EY_d812rWl9HpKh9fienG7G5iZD-a2dRnGjEIVqLyhJOH4hS1-outrYR7d8ss6nrdlu597DXscpfFiw3pQrE4TAWNEzVL35taSG0dzPPf7psTSp4ARSEk7f0l2h2P3E5iH_6TlA7ja7i84hIA9HBdPyUMRJnRElqeppkp_bS2XAQ8_liyzYaAMWh1GeuI5-uoRYzXqIAQPmvwcARLUpB3XNw8laUDZw4lFBSUO2e8mmn9KtyRjZcnkOzG59xBDxnJUolqYgmZp9jjvIqZscZR72zN0yo9NeqVpx4qD_j4mc4M-oM-SRi-tTc5_fRiowqfbl0e24EGlYFdTOMHTLjR1XFjOdD-KmE1ZbIZ6g7HwLyuhK-ZVpHrC8YQ8o2JiOuDlp_MBf8_Y7a5U5Oe5rX3HPnIW6Zua_vh-qOag7izIIrCSIv-VzGC1fvopaSjWXs0a5wF2RKegtCz_KlTBw9SrNbUYwrFAhVFszFTYeiirkrzS7C3F_D1YnZWZBVISNIriqo478LoTIKbsfPweD4jjIbRTf_dQWmKc7S8Q1rpbXNCXQJ_fmUnQmkl35vLitd5wP8R0QLq2lo3LJn4NHnYbVlUqrN4jekobDzVRvYsbEx5UJMcHAZXtugCM1YaNU0YeM5ovoOMNmREhLiZzYe5GLJIXo9vapvMx7gkjJCSlx7UB8OmZr2PXtMgJEI94XVdZsQkmx348ILE_c8kdhHsE9rAvnYTTjqHrqX8OUKEF29CvVmtUrL08Bwg4Q25iCdJoQnDAFheyUJ1VRfc2wXhP2qbO5oUiJkjOy8QWfF_Rr5EPHCoUdV_SCluIDM2LgvwE1Y4eKr2Y7kHg_CUzZAsgomOBPdhzMcx8-gh2BC815Cs3plXSSY9YhnfUoFq9mWaWrEKZIQkJYpEIX7mS1DnAo3FuOsUsXKtGfKCL8l1pWJSrUaULQZ0bSKO9oIbaqspaiy-bCZRmw-FtoFNhBmBjuSsMK9BqZUMczNCXV_tJCT_jRTMeEJpEU7d19lc6oK7UdSgyxZ7CvZxCCp8hVH60fAQ1hsbSqJnFh_hG_qrAoa9qSDIOGf3OaqbSIh5nVUBTbiCJH_d1yE54zzOluT5d127olkRgiH-7VfuGeqQdT5otJghDtarcUtKFXiFrh8gEP4FIyN0TI2UhdlB8bcYsdkX9b2U9JVrYXHJ8lPqIaft3DbZqHEPBSGoJ-Lesv3g-s2gKIXy7gr7WCL8oFs2dDaq4J4st2C1Zg6yeuXYXPkxE9KhbjykMkVIUL6QzNcyTouw6zlNXs0snlVuNwxzDd8g8pGHOWd1i1is9OP3NpNIJviprz0B4RMGfAly3LXs8a9SJwSRpulH_Gd3iq1MTmD_JcV8t-MKRNX7CWr2EsVwzg0oZBxx21u5BOJjdhyPlV2LPp5b02ctOQ51ASwyKd1fczTvqYRroKXtFSIAHBJYDW-SALEs1HLxAsVhopm29FkktxyvIvnNyXCbZM4yAGPbC99uc-PtXAY0tYjb1Yb4yztLKurRtM6D5eRgx_YW0p5j2FFlJBVpSXgRlkbG_8wUrbpgwSRlj6o_K25jsP7R-utQoUS2o3R5hKXJovviab_9t2V8I9Aiip0YD6fl0-6uxBuDT0mKMYNll2txtxt3tMU19c3qZJWTKNK62VP-JXAvtcAkYqMXZLmYMK3MXAQkrdABL_qZoJtYyUh0HJ9jrBMOc8ilxO8aPiu85YKK4sl-x1WB3x5Ix1XeMLCYF4bvIkbcSMbEimtj2jHNIiNjVcEB1o1AxuVaui7Mc1sXS9CDQ1i9qrn66Bp5fwYHN9enmYJTCc_NczFWClsECg0e_68OS04VDlTV169MxG_iTHERV0yPSdidXon-pZfqrhR2zuwMLgR8PUsPw6hgpsYVrOyisAyaHd2VbtL_9FPT7W3VXtHtel5T7Uf7Q4rste4ji5lHRU20rA9skE9JcYxRzEK23Wol4KZkkmWY13ENsMQctGZxjYloh--5DhPT6G8Ni-0IinhI0mpHYS8jNzyqH1PCBlcJBUhnGCJMfJVwnI7CMndwdmTgAZBSj-ijj0mnfluLK2tHuwO7dOsLLPLJ8R1ENbXLQKOSFWEIzGEtFpTldG6AIZlfFeaYTPu_WMuERLJaSQ56uW3IGSCxomyVqc7WAR-WYB0IQ4s305SXrnCssQD1Y_Aahp1-VO-_wlXTr0k_JNofKAaWc1iXI6hnLHK0hYy1P7mguK9CWIRs1wnkFS4AKhORZfVeCohg_3xal8WvEXiLeQe8kRZ_44R73QiglE7E5THlgVWym-N--OCvId9uVzrtN-MUEuMDu5JEjUtt1HSSpXl6JB0JV0ExPeC_DFCfBOaRinpQ2GY99qNUrhl1SD35gHcL2iFyy_mnk29AVE5aDMzIbEwUfj54539Tkjq7ikpzg5OTXU7vZ3Q4RuhEQV6rIsvhG-Oks77s_Ek96lpqeNtfKMTXpvqzhCSKB0Xo4gaiRgcv7PDAJCuQhBcYPMpOqcxOOoiKt5nUyKStWHgMrrhpLfYky2edPjCm0MUbxSq0hix_OuwnkzqwfkUm-ZQNuovqmR7-VC1W7nJccGoe_EY7j2mHF86zmQaQjR2aSZ5fEkr32d_e4VwaDqH96kP24onSP0VV8DN4iiNfCJ2SRuOdbDLyc1ZbnUF7vjNpGSu7fEG3R_0mZJId37lj-fZU7SoVFYLjHpgzr-5sj_2h7kb8BD7C2XEQhMHBXMu4H3mySU1zr-c9YB-1_M2mw0lnpPzV3QVFRxHCiHm0l-kLq4FwdMOUc3plIhKyhWVEuPVha2AGlTO0w_v37957dASdY5ev_3wngOqbmyQ7JdzwDMOdF9VoZxienoZlyhfSiCptMNrpTl5adfemOAUsmPO2ojDwM517hBK9SpZ8rAWypl7sSLbNbF_B2kH-53DBZsZmkXBGO0GeVeUHm6FXujHWFLkph4Sm8LI9fzURJ5nY6-5m80Fv6f-7MBbgkazZ353ze92QPx7Xy603OMNiAOVPjIbEJFucNGcbWA7ALs87rFBhR93sYvCj1zRdsXNNAcupEWFeIlAEz-XE3zGnYWT7KE-MFXZ5OJk-VpFVWiywo84CQOKcmZHKiq57xHuDR5EBIzI9j2u5OVjUgOirHabIdCawLzF09v3EjLVdWKO2EvIELERya3cFF3sh75EtDJ7u7MOnGg8pqLmUscPHMIPlzU4stOI2GATuJ2ykU4jhFjIVyjTMsVV1uJhZwPlNU6dFeY0pV7SuqdpXBbcTFsqUez1tNykKOpy9I8_sNsG9iObTtonf-nbL63Kq8UNNppyuEpcCmWkL3NHQgx1rZwo2FUlhiNmx4S1rSQU1plHYmxW0biqC5HYJb7x-no0MlXl4q7mPg9s1arxDGnlNaTY5w0B6HlV-XPPRixER87qyKxaroJXuP3HxjU1H_nuMUI5yAvqP3KPuQd3vliAc0ZXdajOWRUdR-5IyOSihErorSIKmtPSZhC8XSxHZEc4KW0l_a8AaFoPzLM3pibzOe7T5Cv7EkStXxXr1hkdq3Rc85uVcPUkfvGjUcttpvAGeIaN2J4hYzMWygiet_3UgoMVq9gYrKrUVeiw5lUsGOYNaYc-zcynIrHRKvoVwshdqbTr9zBfplI7MfFS9Wp9HfGVPQa17G9Ng7RN1DYi0nzMC46eHa8_5W7btqeizsdNPTLjxohxOo5to2qUbyl8QUUwceYqLo1AqJhcPoDPbdK7fkMKqbOFEOikuNgC0D6oR2k4qyaSyJTCN371xcKilIomtY4SXQQD7tVIQjI6sOdNJ3zLtnGofuFG3DPdc6NYgdREEWtUm9ioaFyZrsXFms2XA8uc-FoDYU3yaJgGNbBYgOXo-_nNtz70XVYYQNAR-jWyF50QcgXsyus4LWwjg9i0wdsRmpPUr6AqCSZ3TQTgus2hm2KUJNxpvpLUct0wZIh6jlVgROhKZXWvIS7az_wcLNRY6EgOdzEz_aZHe_qmGh_v8PPw-DCMs7B3tpCoCkH2H5Q0keNj3iJsfLAkENxTe_rAFr00rnfNovY6GZbVzH4Xk_oE4P1Y3VOeIIpmRhRoFdziXGTvakxtSORErl8sOHTy0jctWhPYsrgOjOArE94w1_EGvBF9_PQUilF0yg5j9Dk1wXc2VnXiDTFBITQ3kvFmiY8aZ5dRTPL6audQ8RHgQLRgWRWrdB_i8zZ4MQz0HeOxct0-i_OihHcjiWwmFT8RZ0LeJxX-LUnMlN8XYpI_X4aEbHocuQNHoIetNj2Op5fg4QSJKD6HgAgPTKQIAYGfq7mE4Lo9LS-JLMwWHqx-08Fnev-Evc7PQ_Zr8NQ6FTLCPnRrXGvwhVbPpL7mjRlS451lFfGhJ1GFPnCdugJHdq-ucT0y33SHKEX2-Vk2Jdp9pz0EQ5VbUrZOPiFy8yaOxKgv1h_QVs-Oxne6iztTqwKGlY2A_mm3WhgjIgd_1S4IVij2eCYwrcGIwaHQ76ayy-lwNPtPAnPNm6XtO-2ILo5erFM3RtIsUVedp1HyzhQKZoy8I4uK5RmVJDCsECJLT9QS9XGvPfXfNfprq9HXuMuaETtCPqI6FrXHBM4iPEl3mbKX-3zCTIcuyeOEzK0WidM-Xj5CbEcQ_8WSZ_Ekm2DPw7pRfwkceFltEgZdRzlRosT1xB4-cMAjWGDksCjOUNXS_UUMX5jbgW4FDjuTO8N-lTas_eeNXdc1eRDYvjRwAq2B_4K_zUgwwf7Ls-yScHnskwDIUT1kW45WDSvIIBahoT1Jdo4LzmyyX5dY-HWRbFriWpSXHh_FyiO2g87AVvKfzB06gmfXlcoGq8dCGWZr2XSD3xo7oZwsuMcL2Uoq5lMfonBTcrPihEkX4VJCJ3MSS8sLGEpnbE-Ehq5ZSeZdDd1lURHTQao-ZPOYsCK80-oDtyloq_TeLphCIruldW9YJIGNhsUZLQ-mj_wNHuGxhr6qUYRLetv44cJ4UCzJUapIdEjmp4VvtR3udtqWNz6ohY1XiMVWordIP2vOHYyw9VgKlnh2WT1H9ewysYJLcKT7wme2cLSKcMGPbviV8Nxt7uLk9X1L9kC1Sm0UcLsAKyLCbnzHJpw8rpD-jCtTF8PP9fGlyFryf4cI5FXxL2MONcIKW_4IIrDXp4H1uJDh5Pkz12Tx1bN9eWFdrj7yDYUieWxvAO4nNlBeEWSDhE9i8-0whfWPIwJOlLoIN7t-dZcyEc3Cg_O72pZoDtPHOD1dxVKeLkXU64ie4dr8gOSnuHgdvSZhemNj68-BczKYDc19U0U94hFOja90FXdRFUHjrNOoxf02kaHkTigWQKcSTGUwxT5ZEeCB9-hjRSuFNFLZ4eH9EFZAaFX4LzlJVUsoghbSF_e-qJ0SlTd6_XF8mhDD7zsfn74DeCJ7Mwq2EOSen9fZmC-hhQb87CJOxhJmaAzqVeK0cLsYRaRw2MD8yiTUaIpdC2Dex4q2NFjzKm2BE1iJM_oDh4gSIbWyYj_1d0pv0fRGMobsjNjQNSvPStjp2ct9383NGYeagvcTnIT8RQwLpnQxnzuvD3-t7G4qpjJiM-O27pjLJRUh-RE6KXY5JH-D5LBG_qPxpF_-CIY3NoDbFkTzXG3B6KPSwp3q76ndfACmlxicV6MgunIT3pKY0m8fw1ovGBHO2FEErpkk6YUzY9tPsKG1JFIuBEYoWwYVNNMgwcUAuPEanXCOXv1QAY80bnimhkQBZlrQzJ_ZC3eqq3cUptQX82YZl4mGKVFeo4Ttilq2Rd5TOXtXEEJOiG-h21Fwl6xuBFuoj57_krfuqKsj_BlDOMfeFMsTbF34Aw4u5p72hEPig2fCzbEScE2akrtSJlYxuLAuEeeiGrAkzFerIJYmfxasVLOxkVRSfjPPpiG_0FE-umjmSgqbQZx_AaYJ6wTWRiVvSz2OCtHeG0Z5kogvsvxTc5lJki_fAzxni2orkUXEy4A-X9FfuLJmLSwNXoUyfP9cWXnRv6qUlRW4LWiBJ2dEke7rQD9vi0H5MS4tY0OOTYFv8ajMk5_0LR75lKF5JvyQp0eEr8Yh0MG2ndlNY0nJTXvuZS3XqEvcfnIWfFQMqUs4oCfLeo1KKl38kgThuAwuK3lYLde2DLnbYInSVJe6uVNaXFFSEQcWEcQkg2eHb5BZn7bjUl_S6OUh0D_X1EQkEr7EbQozUoGfvktjx5YQj-Q2rGYdlX4SkYLEWUAYf24Xnl8XsRTkkyGuBhEWvEdfKSPUVMqbvrYP31f3ueXunUR8LnTdnLVbpem4_EPuFuqnB2ywyQv-cZt5nurtdpbOS1b1Nfz7qChHuYvFQz5t3z4JyvatV7ly9ddzkkGSMXZRJa_V63CsF04OXgrzdPACr_71XI5lbl7G4zGRoSFYH33Y3uVj28t51dfN1GYlOh3XNRwcNKrgnOXvkVSZLywHr-aqAib_8lZfta0Eht7PmrY7yuJZtNI7EEzmwWexYFkudCV6enQJ1x3joJAzhhrENtZ4PgPOtd-LY8ZSbwpjX7UMokLOqctXcExR93wKvaSKOXIER0-32UyWj3XO2Jm3-XlhJQjPDBCK_z2aifH1kQuSzIVH1f6cRA5YTR1WDmTG-GauilSOR52-0KMvp9mNuTIPqj0OuVOiHofOrS4cuJk7lb8eicy1832Q8mXiHBXIumeWmH5ceSRbeiR4MP_-xPElCt6jidsxzRPxvhFb9MoRfS1XkqkprOU5iTrVimCnXetzbG1TaNVRrBpW7SFNbqHxhNPGsGFcMt-lFseV1amxs9RR9X5UR53FGpe_ISj_sp6f_hM9PzV6fgrtpi_A4FFgQecIwhL02OnHxgUaB-xMTznz-XqBffp7bJupEj_axr5ZSbRkMx_s8F4hfR10FwS3vBlVaozBmx1MAWUESSk2H2yrqTlv8s2ZeIKgmSjbo7IeAqoSYj4i-sXW1UGqSpqkjuLOqG7ttrJG8zeF8SaFhENL_q4qJfuv6vj5z8-fvVfvn__2_vDd80PHU0tOd8zlCHsuiAbptEZPb3YniRV9K4WwLwhLnUA_sQHI-R37FKTPAezpoDOEsSiwy6LJ8rBHxmJSFHA5QY1Biiu4eOedESoVFExVEp3qxGeTGj8WcmCzIeCFpr6tP3EhV_thiIu5Th7iKtoHsL496DreCmbWznqkwZngTo4aRJMhNkqJnzV7FnH1wyBSUz7Yyt5RiMOtaK6mOLXMoVzEyYLvUQ7ZlbBkUxsb_XPsm0cbGwP2JYj4_CTWOMTjLLDnk2ShwzENSskwwAmcTTeh_4J0ny1MU3ovNqHKATn4Jtwcve67_BPw1e64OVd4Vpwkb0ABIUsMdoetlpJEICTlj7I8F_8qIh5Lr2HY8RCaxRYn3hMJxrIZQQDDPnRyhJCmpihfIDXga58NhpmdAtRTw5-UVXqvFh1pykqvZAtkCLDmohvFu6U4l8r3Hw7k_D_MWPIEaxUJRhLpYFj7dYhURSzVtc_24jc3DkpVVVMTaAtaZUDuyyYHIcQ_EXCmxENpes-D5s3YqJxmne9aN1dj371Um--2FLdWu70SXQYR0V4R91R0y2_WVoeUU04hneiwcbGdiq452VyKhoQvnGAVeqQ85xRtXUaRdIyklwSSBPZLSjjkMiweq-g9vyTm_kikHHGK8Fp6veFXKO94ey1v8i0fUr8nBDWtoQf2JMmh9QE-7JvtfgITX2nLh2rLI9hzyh5OlNCzU13ZZkUgUqQlR25vc9iBojcoj2Tp8nkBJn0cCGf2zP2MGLnnSXbajLmASFaIMMlcVedruJ9balg4cLvHcVYuhHks2RnfRFSLUtz_IuF2aWjic7s2EoGpaH9eIYBMHviubpctlNVRnzJ42edt64gY8hM55cYOzmEbKAU_Y-mbf6imKTTaEc289sU39ONCHGJ3-GLrhd08n33DS3hWOyTDrHHKW5zVphQl8bbUGXVJQPyx4kNHxDvdgaz9mQsP27Y1NfLVfgHsFBwi8SUztSrQBC3pIkhfuuUrlYCapT-bx5HQQrnG6qO6ajS27eY9NZhVk-kPDgMT-Uhipsi2swEMwkPwSMQnedoIpVDwfX6yNJkREpUUWRbrc_2b8X0P3x6tfdEcL1lXnr6qywHZVmOxse0IUY--unyfJugEb3gzMvvasyfgKxfANf4kOuULh-TezoBQni89FHMx2z3qNV4f8Ymu6xM-a1TaXoRIxMw8qo914eNmYSLojaw3jSxNi1FV0L-az6P3bJiJnmMYL303qyKNffTqEz52WxSnRH-SgcsXiKzhcx3h5i49vTaJfv4jng46vkReXndpOkYWvmfhuNX17VkOkoZo1uD8ycedx-xGm_THj22B_rjV8kaDMalPsmjE7ZLEKSSyEO06Zjk6sFOxNv8j-PJU5NCcDTIVRA6RVVQH5WJij8w96hKvpUTRKFEsl3gvZxtwJKFtSWcj-7nLV50G0uG8XZHjtigmh4wr5Z7bzIrH7Icq2zspyRztSR5neVzehiEBGkEeFMEfy1PiPTQ79IY7RBX3G7dVfLRWcUSIINqVenLUoL2s9cHjmgSbj57cPlDSfO-5jrkHYLMBWlri0u1DHH0UE8gmH19xWHo3Kx3cUiAvnvy8efTpU1y8NwTu5cIbLmg06ZFbH11O-ZpdNnBJDAT2FjP6-ydz1GfZz6KwLsjGBeAss2d8f114RvPCER5TjkMbYqknq0cRgng1RcUwSH2wHqg4wP07pm05GacciaCtd9SS0n2IgA-Ry_b4Q-vUcyF2-Gq-cSKHrZKl4gNLdlAcSMAMCSEUoFDL3i2fsVhISI_DRZ-YoNPGnantvwo-vucMRZRyowd8Tt7r_7-trX-tiYWSFMEJcbUP734O2FeifRmn-JCU3P_3_wHhViipb78AAA",
+        br: "G26_IxFmlXbVRFEl-zMjUrMKBtRTAT3E2FuG_aTolOvS9FDBHTMq5hiHXG7TMpboNPpo1IOZkyrIQQ5isS57WhqxzBp_kfqQ5pLHfimSxyD89Mek9Kv8pivTnIFtI3-Skz5PPybq3Hh_O4pPOEpnbImICLRQiJhdcq_nxfpe1fr6PfSmGUdQ8qUgOmtT0HnhoBZYlMYe9vAKBUk8PPnf_5z_X783dxzm7OvKMaUSV3ZKw5rSeUweRrSDQUk0A1u_tO_rd7pflhFjm2k1xDmF33F6r8NVSy7FFgm1TJMS4l0wa_r-dFobqzo55OalgNYVli0pkEvwC3Sq75c_3303K1A49CqWzWuXIor6-fxthzh4oLSOoeOhCQ8bnk-1tGrFnTkKT3yX2o-B4VS0-QRlSnk9pldO5Ld0MqU7QXLhRo6xDvZNeaVO1rjWzJq-3mVttBeCs6VQ50_gApJ9a6-J6KGdky1npKfun3SCS3PCjK9s_q9Uy7e3bpCUNuRw88m-aTSzzpeTLyf2_7-qBlXdjWVXN7DsboBPaJB8AihyBZDSBM2quoGZ14C0zyBX9sNIGyQ5UeM0kpNmnRVGG-Ikp7N9d77O3BzzyfD93EJ6WzYshrtmzB83EMRmaBbB0sfioqVqc4mxA9DVtBGOY_nvIU633byCBQiQ3LuJqp3iGWe0b3ENEARBaPTNxDSvbeLk_pmIEh9R4A8uINp9KuRW73aeh9m0iIdtoqqBP0MAIQQcBQ0VE2aM2GCLa-xxhUvscMAFbvAJz-XnnMgveS23-C7fy-frj3haAEhhrQk8FHEBhN1fZg3i8WWGFKAcgtDVQAKF3xYAQtwgWr2XHkAizQVQqjRKWdfxFqVz7OeTVnpAAsicSQLKnEkwB0S2SvZdC4am20H_U-IZhMMR34NpOWE2Z-7P26S3m2q9gdmO1u6vUuFFnSCRNeCYdryC4k8Y6fLXprzlUVEYa4ZnsN37uwfsIHC0yfqnu57gB1oJWt3KJ5-naLlPUek_rN_wr7dnfxzbBBUsfsrd4xZF4cUO7s-AMfji4b10gWoqvcyrrMHk7DVi-816oHQJAaqp5r4J3DdvrDvjIebwuH9VgoWL3uAqDciZ_uAHaImAzOJhX5mA76Wb0hEWuYf-rzQHgaBVkXuD0OtP3jpbaAFsI0eqk2HtYhb-RG_tbyBcFRp_9EfEkA4EpM8aGYp1Q54juUxAJn7VTCW-nfq9ewEhEbojrwL94EpEcfUJR9oKIcEUPNCPEbY69VdGYsxgO6CANAseU-PGafP906D6uPs934zGAd_bC3NU_t9csb5P_a1_ymT728frxx9K7X0czOp-nNUhT7USvyzcbd35TcVFU7zqDzd7sqIsQmzSMcrXXnykCNEM3n9LI-nm0kFy8OTbyhEQlQI3rXX-i8_crrOW9HVgeNB6gUbDYGu16PKNJLc7PSXHLjQ9NSpknz7we__oTcD6rqQ4gFUnyeV_KqOeaLuyRKLa3r6vB_yR4sDkBIhoU3zMXWukOyl9fM--hf0RUq71VY-eyUBGxHYMCXWZLyeCUPfFVmsKhp3Sw95v21fdXzp1IDEgXVx8L9-5eVQUEsSAQCS2wIa5PtnkxfMnYUokhpZgvn3tMko_PGx9vxNkNOG6K3NAtLQ2EXyaxj_lHpMTnlPRVRE6RP78OfRMkGeB75bHkwNywavNRMXNiXOpUifPdHjN3-57wWDXq38-5PdFN7V6FDuRTvhiZjw8KD38c3LbjffJC1YiHbhQYJ9i5_aAWwWm5pBYmbAur1a4ioiOCYcQPXtlZL2ZyfvJZRiyMqWJC0POsztV4e-UAqWk_yQFXFq9rY93Xy-KEtF6ulWEKwkAY3MzSt078M2ISx7TiJbumr9zHjWOyWv-q62bQd7iYchhBmexKtgpmsvyrqxk-Zb403oC6Y8EQTUBlYc5cwaHYejaWYiY8q4s1YqZYMoRUxElui8n3MHMAojdvePiB23SRFrPSz66nJTQKVA-sAnAj2DUxp3iAJxqXGhXIQ7yGVx4lConjXU5ufdwTlDkDGQXjZgd1JMoVevj2PduUgyjmiFQExcjJBhFDNZqo9qDLnjNaRtZbw3lIfbiXbvRNrrVUgPMIXR5SP1EkSIeugX4-bTEYeUSAKce1VgvNzTF4942kdEZ3uIoIqRtLsAUiqZvzesO_9V2LKk887GZLB7xNV3rEpSg3JckU6nbt2VK6bWdgS4gWuKWVnJ1pUmREaVJVBnjCoTw2oEykNMoG8x9ZCCwsHnnQCeIVu2zaHwh2bsrZWAw7Vl_ckO3tNeqhgaD6dqpkOpXbhRfQU3UZ6pp8GIWTaZaNV2iG2DUmxSQFFL8sknUe-tD4LQNVyPWl1g2igPHT9FLmFOwn4FVHXrhoGUwoH_gEbevItpPkySS2cw8IPURvHdQOPow26X0xLE_EBdUIn9G2Clw4Dl2RSlBUl9qMVFD6St4TLNtL79nlstD6NFJ8w4VIiU1rPKuIgsxUg7Z1rEfrXCNNuUujC8sfMDqkuWN-44DRsGNKLVCMd7hMu0hDDlEJBVRSCk2qaB-z8zWPW--rMRIMx4cQ5jyID3adcEgRbgBKzi4fdPNAKxBrF5AfNhg0lFeoX7HbV4b4QAsBn18hgQlHivnCDSkEBCXueZ4xhMzZrE8Y3cXOzuphU8VV5WPEW4L_tEaYRvD3GO9sjp4aiZFr5TmURG-Iynedv-rCIPxOfsZ0TOC--54xl0SNq5oHYuNZqfnu-50GiB1wANFBqBubDFnNw_wV25mwu9uwfAVIPjLXMsCrGmG1JLDKfBY5gN4rmsiJuSuYpQ8cVBaA4fQPXwBHic2HrN-xbWuKwQ2VTFOghQXzlaH36WFMFKwtGUmh9Rhf-gEu-LoQmK923edyTTwGQjP_eZGM1p0WcYpXB-yDJOQbmHwgTDSTnDPzoqtN0BZKb-PYYcPNAAUXlTyYBhQ_pwj0XmQ8ljXU3JzD4cDZjjShDPjZcUttp6x707Qnl6JsPpt7cJXqDRw0XZUuuQIVPYFVQoUM1b8j-WSCC5zxsernrnAOvSPLP1jI16cmoJJlgHiV46hwyBEImrjLzTArjmLPv4MqelisLrzAeiCIx5uPhAIikWmGDbpqoF8uHC9G9F6URlwl7Glpjkml-Z21F3Rwe7-OYgGNVZp-74FZd6-IsLCgYjg5yJurlWmhgs4VSPjpJEOXAceyTH7-_QdN9GNXj657pzJCvUT9hNcRX5B341janXvh7wcF-ghIDKcXcv1oBwHOXTGvY2CPzyrcYwzYK5PI2w0ItNPjHbhM4iF2WYuRFj2TqxA-ZdH69kpSr4kwdcBB7zb-rsuA4aJzZigF014i58sAQ0XmQJix8jkCrm7NahKGRYrXyKG2VU4-Jm_8UgjWjZsTmMqGJrQHupVwOuHGEWK9-54tOAKL1Uv96WBUNAOQbYNyMAbSMmMsJb3bXWlg0jSWjiLUS6hEkNPXuatKZMWmAwJXiNIxhfc2_N7q1SAb900CCEWQ8X6qyp6o43KHbyO2FwTJmAN5loI8Ta1qcKn1Nb9GWS4XveepqHZzOA4AmBEuhORbKzBjlTsEKOG0rTw_EQVkkdUkRjsT9fc55wIHwyUjQ7dYxSj5l0xDbtxIlw4G0Jdd6L6Jahlxvkp5S0rxiQdgi5wstskHozPVbK-5E53Rz9wZ261pnOLhO-_VOuGpdxIw4sdCxOsJJ2cxZO-wYHskrpBlgw3cgP0MPTdNfolKXaVuhsyy-lDdGbNs-5rXdio0FrvD8rNp_Akpl53bz3C4yu1Wvf6raz92wBihYqfXNMLbfwEKbYNsBcwx-5BmTeNkWEi1gF88misoDcL1sUFFFNCZ3pJnZ843SkeKNVxREdkYZg-tcO_rxrdcHz5jWntpy5oWGW_qx-36MAfC8X2QnNkWsAODJNbN9tHiT7EM-XyM_mwAedHNXpQdWcKq_7Re6oilnsnG0szTmIjTxNEIQ50SOZkfd8sSYaUnwH457u1v933iAeVhKKCb2YlZyijjwc-16oWizvGCBxYRxEwigQDYapBVpSemb8IdTux16UJ7ZMei3NAaGmQWqoPJr9E3UZF7ECKw0pBaMGWLoD9PtGnkKhEYB6ptfgDjtwHcyQkpkGo0hDja4-VSB56ExKYQYLajDPWu1J4eIE3NW4cln3fTANaLPHm6yIX_lYxC0YGbKw67n0MFZneVVtP8dgm_5xZmB-V9acukzm-13MH99YR4Xv-Ss_9FlzgbAijsBdwtPGSsUzrwZG8IMezXat9wtgA0EkREb9kWyD3TU9fyb_OZJ1DPL1CQRsU-OOg6Fk5N6nsQTWZcDQH4AwwgZ3MmW6_kpShb7VAPqhDDzGYGYQhZxjl3WoLfMm8Z0eD1s8MFN9w6eAOTAOyos3rE0lkkCOlED91xp_aRSkVMJXDRYQqFEtebT7c0zpxxKaYtWo5FFcE58E-PEBT6Q0KG7sNtCjA4Z_K9hQOeHXI5bRsdkSa9aXjDK3l6QucqZ_BZP8r4Tyd7EiN0bG44dFkt2R4wSGOW48OoHMpl5vsfkjZySHdpKR-395eZMMlsGEXxhWoZ5vMmE8hVppNyupZEgWfjTfZw1PZPQyghwOapa-Bes40IodTWv1nmBpkzn42HcKLjRqOBliyJSxjZzC_W0lyskZD2dc152Ci6HlA-N23YLXPsbqU6OnO0pxvCIzBP1s1o6NghQc8vyYpSkWlKXtcm_inwEF43tdYW9eSAtDnpZ26aQgUy0kJX2Vo4DsLa_tMFnlAqae3Jr3r18ZRRHYEcA_31vuj6BilhGxCq0yuH5gpymvMNkHeWTtYBmX5Lkr_sgdi_BbNcPuq-EWjOBA50oIXXFhJGemHGfGnHKcRnVEsmAYDUdub9ivjYdkkc-LFIjzchjTQHHJimLhM9gAeIiR4F-lH1mCIGb0bITzCSJSZN4dMmOPuOtBqndxqnZreOqnOZy7kIPJYnOEoGmzDWXWk9jwFtd00hldZM686F5gvRIEvSwTc9YCwwSHgmftsIgoLe9iubsgmMJZJIGKgMKGykmpRiyjwGD0aQW_nvwwwSs4rSBxSnZ7k0ReqbvKL8L80B78Xbcd3CazRoBfcLghwUTYSnAuIHkRmlnOki_-Nbv7ZOw4pANKd5JLqP0PWIUpkwKxY-4RV-cXI4cU80NLNEEI8df5TzzSE7NK3-ByKm6dcfo7bYdGMEi2hDXbJ4sw_OCVgAj0x0Zn9gux1cSE9eIeEIwW40kERKWPd81oSmANYk8m4QNnxpl8JC-Tw587NZIeCFqT8DqZbyFdOGRzhBCLwHHC-XsnHIsMvQ0wcsjpxIGcGsYDcZLgWC8CuMtHSXkxVIj9jh1BD1nnXrQEJNowtJQ4svAEc0W_rhUquBX-3AV12V-0A4ukOilXPN3FLVEjE5aBJPA-AZPD-tWzEMbyt1-DBFzDSUYzs_GzGST_b6PkQMSByI5M_GOejz7EoIN0GSH5afeF5ga_Hnd6lTMpRg2PVaapMw4Ix64Ga7N-HZvbXAf0skSu6JPVaz0Tkv5BqJrBswFcrDNe0-4ejlVhChfbuB3CYyaxzOZzo8FoV52-EGPi63cjeenxxTnb3ODhwu9Gad-jhhqrI8VIP5j9SHRFJH7RfUbGNzNgmuIJUyBEN8Imqv1RUkLoT7dZHQKSLFoxuyZMivCuIaXfEOvsq-NDhCpdBU50HPs_sgXlpxs4gnFrWedNyFf5wIP5sBAod9nSB64kEZcBhULUxIIoGr1jMcga-mj8x_WvWmgBKLJ6GcxHQwfli4PwDnAsxJrptsnQjrsdBFDeBY4bTVW7VyQl26fQCd-RWECV92MBd4Np2WK8fkBHDNTAOAREI6Em8aBfY3HFlmLHqNQrIYmY0WfH52bwJaOK96T_sLmiSTG3s7CjgRI3scypOaeLVz3MCOESxAkB9UwiHrwVjaoKSANsAApTP3aGLn-FyOV7ugR2UXn5Yja5Q-lKdUM5jncHSuXE-6SVSq6bSn13h0BxUsH5nAJ47Ndl_pkEwKTim141TE1_oyQwHdPUHziwz99wGIeoIVrIB2G_unNv6HDuYjx-8d8AuPDlL4BCjeIZD1ntFvmkoEwxZ6a5pkLIzgptRavq0hCoTRCL-Sw_o4QLmMvINcGN8yc0MhSCthbVqzmx8vRJRGdkTx4gPGP0C6zJmwj6EhJxUpZfZmJgU23IOLhBNrnRrVxebf6QCnqH7TRYoqqU6TPoy_jwXNjZ6sbWJidWKLuBg5mgPIyXzk4_oc6sO9HHgtF359SfvNCNLnHi6eoZps-_DroNltxXjMCHaOxiNucGOPEn4R25Kq3OmGsvtS8i1ohNNABqgoBC_bSkR8AbNXXOMcFGW717I0LJm6QvjmDXUrKeSzAPdxw9w_c_TLKuXcuR1xsqOalWt2Nmhu_ygH5iTyuqxKP23zP4Bu6JdfvmqrjOu6hHlm_0q3mWjv3iVaWdjbUXVWkKXF6udG69vrdtevQHwFt-g-I0Xq318hzMn85KVXufM8Jwq8O_G-K2FOe1V2uvdrnfwkYdD_mrHvBa14IjKg4aDM-9W5YDjQafi1ZiVY1vOg0RwPOZ6BJM5ZzK7w6XLSxtQFCu_ottiBEGGNdfefnIUXIRk2T8tC7CL29KK9CP8v0AiqxeVPDNvoDJ6Ormg-vh94ENx65WPD5xOi6Z4RNbvRdJaQrIlgeF6JGj8gSjQyDgm36xBlh-BpKPkH1WoKVZO9d-xKqt6sRIiZv-JuTLToBWz7uCWIHyCJpO3u9y4rpLqiwOyyvsLUSLOkisxcihxdhe3m4aAw3E-uZTAmPf4fbR7A6Oy4kAchceQlD2v-Ff2_XD1wK8t6pFN3YJXwgdFRK1Aqqssl5EqjxR6EXuyZkdmnjoBUaR86IUYPazfTLFF-RN7WFRVcZs5uKzq6zTWqz2sqhZLYolL-1i9te3BVgo8GJHShiWGjclJSt8uIzQmPW0S-t80CNtnhMalsF2TxBI7JBlvCUfATAmQQfivSkCbU-sbLVwf4QhsP1SHMkb_NP0QXSpWe5dLREnH9k1afnRyEcGJT61WKDLnUPtYXx3xsgWgEQ__gsjrYzwX0D167ndznMtVxXKDcnENbQS9wA_yVK8emVOm4-DxwYA8h1HjsJpUtyuT3ehh08giHqPg1I8X721p-eDilnhaPDKXLsG944c6cyKlewCnI4xLzlI1aYej9AtadwckzhNz-cuNjNUtC26mskz-QgiZyetnpywZClegl3txt2P5k7sQQ7tk5RIqNDmjn0-mK4juJm0aV4EI4B41vTbMh0IYvC6k5WLgYGWZfA0LabQYMKFCBvISUDCAeVUyaM7eWbLKTDX6pq1OAxWhermFCn1z4bOvMbz4Qq8CCSWBlYEoUMcvM-F3V_eNmcgutv3oMbdp89iLj33SOkvUyocVC4Ed78tDXB1fyCsjh0WAQrXbGhwnJ2SOo9SYxM52pD7WKH0HnVuhFTWiWuzVSjfGd8w9GmW6BFcnhzIiLqekW3a5oOS4e3um0vBBq8vkbWnjeZ8OKctplT7YFscxp9k6adIWybEQ0ippgdxhzHNYYWlY-bKKhXy6JO4_wQxVWTUlUfTIMk7V6L54v5jB99CdHs9KjNy6X_83M2lYp0JOJwceR7zovNpRfkleOOPA1WMMyo9RlXhGyqepsgNejOm7DrmgpVb03W076LFFfTKVZfK7MttOumX2my20RE_9vK3ESiUGqXEjRy6OOMzXVPqQAv0mrVNinB23T65EPyDUGaQyW2ZXvtDCxUFbZt984UESc9G0nYfYVCVjRKgCz22RCnthj0vbuSauXxPJFVp-hlHaWMytCNP31ueCmpC974vTti1vTrxMfg8mzXeUNOdiinq_LWLORYra20nGxvLF1rkmQCkyMFcJNQzbYSrOpoY9d3ApVN7vnA6tob8iPFPkNi87CJ-JawH852-yohCEQm1Mq_8k_51QgmwKDXDZZPWpM2dmQrBx1iD0WgxYr3KjsCo-6RQVdDyLCb1EG-_alI3vjtWzEqFkJm1Ps6ZZ785P0VxbNcdQO2Y8BwsYXoxOVqTRxLovzLOrEJtbeEUnWn7vTxGAIiMhzhmkFyoLlHajFfIF8xFETF9jZT0JspDZC7BWTU_PWJx0g4ty-OvGlFJgVGsuQDZyDlm6YysTxhuSTOwq1_5d3sXjnTmodBrXu72Xm5xPZzPvAem5wimScjgWOUVWle2LiWtUP_qqjzLSmScNFesBbkOUKGx3LbyUFoUW0bhtonoHfsob7_858Es-N5XJcyp95W3koVGfHsvDRHlzLIkLLLMP8-vRxdN1iAhkeT4aFDu9e2LyeH6vhtHY7sIsMyhT-IXFSwi2ZIcmAiZosnGBYwIWNtx2vwtSEKRV5n0V6YwpV4rlkuA5b8A_uJpNL67NIJOBRYftdq9VFz1aJ1rUzYKq0dSAY-mzuImPVvDx73NxPf1yv1AomgcKtXelSn8ZYHq9WzXYbFLeFG0dMotM2pVNYb1Abqluh1KtdAmZJuphDil9tJliO_WxinytN3lapdkF6X_P67-n-azXrR9tuh-tjed-oaUma4Vau357SZ46QeZQ5aSaQnIn1DPstCCOPhFkPLxqQrDp_Wjddugk0ys_O0gYEcG_FzSijKZgE6w7T_zlcobLm8TuOz4QcvBEfjHLiaKg9BUb_xAPy_d-hXwD_y7n6XEdDrxYnXmOsfmv0fUOtsB9f6G-4icz-8Lx-M__2_dvuqP8COkn74pFb7L-553-9xSw5Aasa3rfMBi7jq95kp_G96qV91OPx6WyTqHbf9zhwdsxWCKPRA8OBeWM0ly1zzViDLAookBPs8rC8fhRUy6YsRvskxMyjuw4JrvbJmF8GVZdL_pxcJ4e3xx0bEDSORf7xEailG1Pv2MSfAFGE3oh32fIuQUr0SWW6G01TnV0teWntG4ms7vuLsdr4zr8_4emF2veNY7jcKN-Y-4mTA3JzUJudcmt_oF9d0p0MAxpNuWWqJU14U5PwneXe9WdveGvC7ngCE9gYiVuB4rc7n_Cg1rBTXa346bbWSDmoLmYWdQ-rNCjJsDtxsREyNelDWYFzcyZDpGVykyXOCglbW0taU_7-F2SeDr6ekPFOqy47mi2EdJK2UCVeWyhTDIFMP0pPaYCLpChMc84Y10tNMPO_R_INVB-VAPcQTFD6ZJCHjIJitBLvybm1eLrw3L5p78tVUHiQBuUXSZBPJ_EvUP__w23naZmJkLoLAJhqtqab9aG7_1Xtj2avdv7L0jVPnBGWdZbn32OTXoc_KhecK7gmAKaPQaIL--He7_r8mbisGvz7h4PlojjyjhJwfSUyRGjK-CuJQJXcmmYpQS30-Ah26IXNe2ilPuQGQyN6VnfvC5FiYoMlg6mQ6yeDfc1N0GlWUq_5yA9K7Qi8hd5h5uZAQN-7JJz8w1yqvbkOQUQW5xzEqV_4PwVKDMtUQgbKvO2Vbh31lUD7rA6P4Pl1k0TLcHZcPNrxbl3rgtx-zhu_mmeL0BUfZ58LIEHd7IH8yRzJH8jZfgC4JUmJv6l6EMaRvBHBkoMNftPMO1P4ksEpfSL4gMVdLkRoYeyqeb5gHx3vTLTMvtfizn73Sy3s1ed7S0O7_UB_jvghEosA3kSFNReOIhIwRcI9XjAZ2dtB5UaGxLPksLoWhYBT89jJYAoHEEAx9w_Oah7_nfrUrH5Rw5r3T-vgKZSdYRP3xTNPgHxyctopLgdQt-y0uO2ktJDv98bmp0_HWNCNlNdE11uDzyinb3Z2xsqLis5iXVAKSikjqshK9GFXvRV5hDUumPfEed_ft1mFyhfzEnrC1ZWrd-olutx39cvXcs7BII9rvjiTTmQudENOOr3ZE6o6_BBjWMPWdF0THHn7XOxodVU3-X_dY-Kwj9NjOIiz5NkSNYrEQyDBidpsUJdVkCKPqCkqBlbBmw6CybWzym4zDJ0AxA1oz7kYT57YvlGrM1qbmorV-dFoKnNM8Vih4NVMKcAHXMb88gf4aEFfUdQeAhSBOUK_ZVNgwtxoF8HHjRQBrlZdm_rLJfuztPByS7dUA6yfg3QgVMgo1OFtgKx-BvrGwebAo_vNriFVoObJxRBrSRc7FKnuTtyTaIgMO_4Q8S0LOIGJ3oDA5NET99sBgRjCqXdGpDEgEwbCOuEXaQsThNk5xgFpx5S12FKyZjcgw02y53DQFXHRG5X47wHpOrg0ufLBAK7uuW5Pt4MXlxL-1pNWsVBX6YjPk0KLPZ1_WgDxv5NS64YgPogTgdVpEkTSnLLdBTjkW01tuQRY1HSRo9KtktVJNNHO_C3rXGpDIZYdHkKYXzqoentP3_6T6_fjgN7LigG-TE2uDzib044872udv7vw2ss_xmNoFxJfMCAIUW-CQokTEpYRiiy_kNg00NiRIg3iLbedjF6sM74dBXfZQam5HkF9827mShd-g6Ca1bTBoq6c5bMXofasQmnQcB2PoUr-kzgIjqWXmf_q964v7vya_xxDn6srs9WKNmlNBsTieSWHW1MiBAeoacm33ZkFGMqYeB_aYRs7senIGO54-xTns3R8D4nS-GhI6d0q7Z6NPtxTp40lrhDkqxpD5EWkbkgtmwnFRfHlz9wyi3pH2ESgJV-fRxa9ZbPDutIoSJxY6SGcsvAK0NS1dIvrwROa4tcuUfwnO3iEmz87kUe0S75IQ8tUiX4NvACtV3wUkbbW4wmOpiMNiB30hrEPqABdZ9kaXrOKNMdyggd8-vtpnQrduNZtYz1gZblykNdbdbWulnbbDlpKiultX66OobagD7oBYhPRSPSYw9UQtYICH3px-4CW_Bz9A79RrQfdV4yQNBUGrviY3jfyVza5Rq_vyvWrY9rt2u1cUrLkfmtq2btXAmpoy2ivl79HKcDrp7nkaCXfOrjan28K13xWOrVbt8dNgyoP0y4JUpvItk2yHvlfWyEAixr-frr4D_86Pzi8ur6xqvVG81W-_bu_uHx6fnl9e09vNi2Ybf_-_DPv91zfzz9F4d0_v_l9fJ2RQWFeWT1XB59zdDBYVh7c7Aj5ox8mNYCDYO-s_-RdMNeo6JaYlDCLvxzCcnfQ341Saar-3iLuVe9y6vHfu5Ts6MGMENDCkvh3uivamyL0eJ9n0daiZlT3evW1pYe9LwX-O97RakwagUj09YCPBOYA61Kbd_4d7nbJYHlKZYn4Fq1Ay3AWq6SrkqqHKvlm5RMWjrBhG3nU831MnGDqh-Fe5u7mosZ3D4FMJaCf7fV4ZqqvO7e7qdJAvtTMtGWq8S1iZqplki9r1dZValzv-fWr014Oj63cX5L1Q7AEPf1SmZCNdFQHTGib9_J9vcWKNykfj0HdSR-kf5eKhITv8_7T1r3Tyh_fVW1X-k-034JxGJkSR6vCLfb-g9sE4lgpli7B1q4r6sFHlfkXB-qR8Q6LXF72j_7b_JCHPDY0UYZfl3bzbXSW2oLaafVVX7NXk2GmEUwWTV5drMDnixGLDjaz2BrG_wfmAfygvpi5BsobabUGrSKdDX5mN0rTNccm1KrkWHJuuOr5GTDvADo85eSa0VXmKVroDqrMkRJrKZYHnn-oBexX8iBGFtWY72jp0PME2EZk3r3B_X38KLKxD7Wb7jYFFJw0ygxNPW7INwgyecki-XxIi7t6i7jcfKmugCcDs1ApG6zF0wiUiD3i6LohuA4Y0j0pUbhwKPpeHFgESqew9bFMoASeqR7E4bX3fpVGanbNQOnA7PlZ38QQSFo5EbNvi7_fgor_C1Q2_-iZxoO1fPRXEFlDBLjzSF5Qx5Y4NKHfpDXrZVlWDA1XD7RWW1sz1AOEszaZVLWqeZW_Ytdd5fPOUDmkaxIMQurpiKlgIGUHwPTebPMEYuZcDpi7uRDkFy0NZx5H74bPpr7HfBhpykkDErR4yK26UCYWXOGNbowszNEk1iYwvAJSUTVgVAesugWusrvRdJwAJlDDmBC9s708cwlbJ07hESwe8vho9VJk43pBRKYEGCi_hbj9AltmwQHJCOEKE1Moh1of0KGfmVccdwQE02XBkixNGczRItZ5gblbUvH7H9GZU8myj7ALaxMInEzNL-KxBF0Zbz-SG6bEsptAVh6AfRamijOcmBkyzaIdhiNHa7JFWvr2cOK87m7UQxAWOkerLEfdywMd_ehFcYnC-P4XOqmvz2XRnp1alQvb0v3TyiRpz9WFYdYUj6Xds9yl7KSicDNiEm2Vgvf4ySzyYKSOnx6vbLO65ymSteZ5znO-ADZf4jB-cLTZdOH4blMeLr4-9cz2cEkUZU8iQClxPDBd2hqd3H4O_lKmYY_5-IY8cMDQ0xFfMc9JJOONZgS1jt2OlUGROGS6IPoCyPH_t1t_TGwgJNEMfIolfXqBmSIFHc2VPaEAa3BYIA_IZeqaCNYQ5ZaCBFO-RY5TvASOrWrOB7u1Bm5geAO3-QD6BCvFUE4kc0QGYjAjLb6nD9qaLWCPsKc9t4lblrqfRARrD7rfzCKN53s3t04kAPz1XvvBCZW1sfzNAhpXMNqNbgZ3KTdKPcedpC-dL2phvwR5IAE99Zb0-H4ZxyD6o7e_EbvZfROmdudic0XHoitBmyFJ7-MbQaiBpmfhWmjBMt-OEBMYjTuuGRC6IHB188zAAps9Yi3KLS8ZkYwha7S6B1dFE_B2tpGdDnMae7fEX4kLjfMlBcRvfoHnzx_iXdlgeYuFz8fSNPXilTqh0kw5dyibGEg1aB2cXugilFhP1ZDXUVdVLSGqvJ8K4xYHB8KORNxxSZBpCTDNmE8GDhh4nVjB5grkriww90HeQ1vlqlpeLeW_-fzasDEb_cgX8wU7k9phEFzpLxaD4dDJrTjLjwZltZ0jrZL2PiJ8JYnXwnCEdCQ5oPC25c1_LguW7yNPlvfCiVHCkslP0w_d-AMIz7RsXmbM8sGeBJFzufJ5USd84wiiW6Cg8-yLJqDX3r-9CYnM6fvAF4N3kyKjygv78FJfl14JXWrYEFdVLSaPuZfhRGLe70hcJN_ugq9c8EMtPgptvbDKDHSgqB81K-XbZ0S1SizpqC6eRNSKUjE3nlUV6b69Y4wPkz42xVnRak1rgGUEVrOCVaEEgrubhLOKHwGwt0L6cXAXhKQWx5OMQKmh4QXM6TRLXgqDJiYO09wplyi7UjmP6ddL9ohiJybEU3Bkyrlw8aeg8fXvms231sWMpg5KDZEI1BpnOdby1isNXIMRuDDIjN-CPfDyj1SI4e1hZ6jJzzbMiMQlQkEWrPf_bedIrX5K_HEYQP9bUf-WqGI_Q_r4ikTI_U3Y5DN8knqDkxYdOXn3Rx55Ef0Whh75EKACs5dxRIpbITGPgkBF4Cp7_UB0Mi72gkUoPZ_ocXX9dMRViuBnWXSOIfYLoETAF_O3OTXSEDULCs031pI-8DOVR4emHggchwUIlgtgG1feZLvzMV3iDR6JHuL2ez5Yntr6kLHcXqInsu8H9k4hUdaGMvVe_heUu0yvck7iML4cRMRzOXRmpQR0mRI51QZ6dL4jfI7-1kk-de6GcutZL3RBqMqI4GjHNpy7Kgxa55qYh_O1rrbTzxBu3Y-mXq5-ytj7KNTEsvLU145Wjm9NAXQmkvfTUo4wUvFhic-JjdslupYeDriA68lc_JQDx0-x0J9PhySAOSCe4OMroxLl-ibSqZrXfyOIgvRK5Xg6vE0xqV4GYAmiCapTHEpfXbuy6RuorJQGeVSUFqgsbqI51Yity6PvEn1p7yaa-sS_WzLCrIfF6LVZk8g09iWVpGWCA8csi6v5jFSgkfdekQMmT3gn99eNkcVEOnXtYmAtciIIJUMEQKpmIDZPzseUoG0eIz9y3jBFm77ng-J9beNwrkAg5wmITa57hn0LnfpRXGfNGQAjBfHiDf7KpkDzoB1iOurO6iJHQTM8lEeoMXm3bGOvHGmxe-AWWAKw-LVEWz1dYsZWPEtybKLHcPAbon_TTa1J2DkwWnS4LXw9eHar_RkN08ASaR60eZ116FSjTLtk68hgXAbJCVlEVfDLS8whDp-DCwtCAunqfmKrVPLmMPU-pTCnxLtdoDaIDbWYLHRq11PDPV_7l3ZkS1qxZW4Y4utRqqszZ-D3K5MLPlBY5PDoUZ36pXNvdl-Df06y1O0xlM0JiYpKFUV7cnfqpEeK8gfQ7kBGikRgGjtwaMr62KEK55NIrD84G3Q8VKU-SaroDUaMCh1dcNj6daWp1QU0b_XNWEvd_lxUnzcbfkyjHXEhseIIXi5zUJ_L8W7rdyL62H64QVoRF8FHz4iP_SRJVYjLd3TDsFXQI4qpy1f8KXS8LTX4Utk_Aiq-pnQh8LmDyu5696QTZG7YNJiCAlWYfdPqvuMalThCze1OTx2dAIQ23Ia39nUmLskMeURGP74EKGT0POMbe2jmgfowUWyjeMWAJVRtiIfMyhXeDZHF9sgKQwfS6fPLNEC2fgqTDu6l9cVSSV85OdutIc3O2m-TL704qAdBnd17iF8QU-kn1SDcilNUenBgKEJVXgPc36X7T25GFCr4S1DfQ6I2yOYKhupoMsjRREFGt3n4WgvNrp0utakp-6qrBmH1nOA4hJL3ycQLBxTLzLrjgUvmiMzSjROwDR25tIu3NihokJrDb4jSzyEbvnLKyoXwVd_PLnNUd6sn0ZLBSUkWs8UN371avolBp9Wuxp8Tvb861Ses7Pi8VHm6mfvtYRUIkT_bX3_0jMMw8mtb32-NrF-q_SzYvvvUj9f67p-odGOVGNEn3NeIYKoGyXK36TVJWktKeWSLoj4kSSUwUwGpUzcgPQnj3C_X2wUADHE50IHY0jXYRDkICwIuMszB7LGn88N2ybTTdUC4uQYSEkgoh7zWAZ0ukjnejuWr0UY2Xxf3NEGl8u2iIJIrIURqJdBieXrclmDCOImhLAu_kDENhEnwpcqBfkXkaFSS3yyw-HIRQNVSJAZE-QXW9TnF-kZ4AO8kNG4-NReEvBCIAFUWk3D5tmDCuD1JWSshbq5-qBCFwJjCmVr8CupHoxPGHRz0xEefz-6CWJ4sqBYQyBroDw9DojJ6M2zk-AhF5JaNoxeQJZLXXV5VwJABlPwiHsEWFV9zhByN9xqQPiFwt6EuofL0hayZiUp4uR6LAgqnNIgJNQA-p_g4qyGTJd4NdZjAotXy55iNxs6WhV-jfDqqsRoyYJmZ8WTcKF3-UIxgZgFpwXgbBWcO3edRuSvNi4mvdK4c-AHbjSjewcweRV5bgjIUGqKlCgvC0YQ5gdx6_jm8QGDh_vaeFR12YDvw3N4t16jN9y_CFjv1t3xDTfDzW1ZG9ZmoDPLaos6FzmvLlH6BbAB1jGq92_Se31ADsLgbljEKjvAlF7Zu7yoPfQlfEIDJmZpgm4qh6PWD5Kh5vXFPYcNSKpeBDi_S4EHS1u6ToU_p6SDdqPtU3EA68A_PK_Kvj6n6IGvSU0y2xaE24gQNVVHdOjcor0w5-YIscXGKLWZSMZNV6M2YuCkdfjmhXRyIN5WtSui2g14ZwW18LQXm8a4fF64tVrVxQSvYLBpC3A0BV9d26UhvA00TLnVl33je-I7bP_0RexGx777fOABnxJ7p7XTwP_iEtFFOsGKWdUYQ-YnnYgansKBZMcQE4l5NJ8cmekQC_4v3E88D5dIc9ilUyhv-W_dJ8jBBrTwYBcWxudvOTnhwXsl0IWKsgIFdxdy5Cm7X4T9xie7BzYKTCfbOGdwtwWxQ1PouoP9G12OIiHSJpkUmMBGbV9EK86hhme3jk9k00d-ygU7JAH58fC6l21TOqwtkx_xT_6yX4gdnYR-kDb8i8tG2iYUipdGd26Hsq8LsSgSo0erpS4M2C0hfadfgBjfLLv5IzzFn9hpzEw7gJ5oR3dSnMRUDPJOMedLzM9uPQ2wLXkO5FT04CzqTwPkBW2RcN7sy9Y513Eq-gWdASvWqsKWi7LAqPtg7Nmn6KJTKLhL30zpHznTmFpgrH6k0THafWYrp27KLH7js_SDbPyY1JgsTSXkDfa9Ti-ndERS6K4G6N4DMLLSSwNGZd84MoO9vamseBtG4k__lsdN__5NQP47BOuS8C8Rz9IYTFsSUPGJZ6z_b9bKClpM6xgPZ_LgU5tLV2MlopnhBDvehAvkNB47ty5hJ_Kepy5DrOqI0wlWgdW9Pm1yCE9imQqtVraZaF9Q9VAvg_wDnw0ZZlPnEUxro-DG2qX5H4nVme-3chwHYr88uo4CTjRx0LifiqBQrWkbZD82xMPkktVfEFJziHSC-y81YoarZumCvbFHZAuIkau9oOw-Q9ruw8uJZUxxT2rIeixh1pbImkss6s2s2jAJpqNdajwKwVORGtHU7LUsDyWum8IzCO2yWFkqroO-S5c8T2F5wZ-_zOq4LxbdguOzm7ewXbnf3hHtzXb92cXrA0qO36QSgIUUPZkRfcpCBlh4iKlHkIBGhJ8PPAESgM2_U89F0WG16Rx_6YEZYiUBODhHqQS6C2TlQbdVBgeQJY3mMNYwQzxweAB3kbmzO_yMyMY9ZiZbRqQbF2tJo5JE9JJykdhkoPYgPzA4lndOS5JW_J6WDqKpFXIZbMVo6chunWRHI-r0HbR8ahSNzQxRegzE46XLDrRVd_DuOqXuTxNVmDAaJS-KidlqlCYmN5oF2TTgRJLCp4dICiL9B-JW4-bgE4wye63MTGGutkbAEN6zSWI8Xr2rPowVRrHM8boxuT_faxxPVlyJx7unRjMBKAiPAQeyF6qTKRinRbZVMZFe8YTELwBcU2SZj5NrcmW98txlFAc-AXVjCuga1FX05z2l63ssIYQ8T7UrbhBDEhdTED1DWYSoFh-L80QzA10ErKeFj4fGVSEBi2YFLZPoGnGBolWyI9wIMbUbRK3GX0A_uzBh6xre7xa9TbJZuNy0-EXAXRcmLHGU1CXr3XrFJLZ_gbwolzfB-iihI1PToztoiwgNsrHblQv4CdlwpXe7MddIDgIXcV7isskSMNMTCQohGa5iJjtSRoFVGpVpELgghWxGF-pYBfIOwlEkfscbKp4EnP9D079NySdNvvc1xTt56SSEIU2ql0-FXTBDU6q4EbcmZ_Qtu7qDb6BsoDdMz2JiF3GJ-9S4TTqU88gLhH_fBc0rJncxYebec0uxtT4Qr7DPw4UsXpjHxs27J_npNDU4nf58fHSTMu4BwjKlUpzRU00fDklX43iMLwuM-wKoJspZDNydyR_ycJO-RkHcEj_azYsEKffi4hc7PpENPff2Ygk5fk0c-AECIusapsj4EMvrWANbKZzarcgTOM03eYlDz4zDSnGrAK53OCTBICH6DGxEEckT1iIXTAedvRjNvmGlGtX_hUYm0ddximA3OIBCCH1_X5romgvKLXI_7DahRjea_BvrrRVlVljEa7nWG8rxLayQf5JVvY2E3odYXo8aFOSE1ZYFVNo__Bkul2dmfZJvOeBt09CGPh2ablBbZxvpKfTcbtskDqQGEauDLqb1gsqXXlTaREC1uqmgIO19pFoKiaIMFmjzvlXSDxx0vUhrBYx-rj0bSAeiEwlkXZaQyd4iUvN6x00Ye5wvfQaI9XcfPVvZTHEQp3Qbltu6LV__5ya1J8mQVs9OnkQ1APdo9G7NiUPFL3YPmGf0tnwJ3AtoEuseJTUmgqOTiFU0kFCrAfIP4568hQ4XcH4S6JVVHwCY0-b6c3zC9dHzMseYioF8pMLE1PQbZh32cobOOS6Mi33n1xprSUm7fE7EGxxOypYapzeMs044XfsV20Lm-XabQntpSJV17UaI2HReZZGsjsh3JGUCXD74DLMeDKtoBe_bSI96mHcm089_qTY-WqImQVc6HKMkzI0DEG-svwQ3nibir6c-gH4G7gcapH4NFXC6tGpsM7DOFHmcIX7xM1qfhPzJNx9ILief0ctk3a1iZU1ui9cgLGEuK686CPMGSEeAXZdiiXYUc5xba0Ag2ggxoRsx2SisRYOdESBZrz-wW3tZwGuATRjDzEr2xmyKNn9-G1w3TACmOfnayI37YCOHcso4ku5e23O89oLNO6WsRYKDFMOh00w7DzIgFBxBagCgFd8vRV7SHosTVU_NtRdGDBinbYgBy7K9Q1piOhAznQ22E0smkGu-NtWoKO_bIgSGDA8Z2UhdGybk-MQUPdOlb4nGrylxsBzPQxNvEbIw-DxVAAnJngn3OahkVapkIZpqTk_4R86-FSNM2JgqGERZA4PV1xrkV5qbtXgpMO4ASyMNQhiMJxAD9tIwBqeECy_xWHE242XoLaFkuOO1o3ZrH-A-A5nh6-AUliCNINNYyAzQpTa6MiElAMRIoA5LsM7o5m7ZLpxEiBocKXib98Ca83M-Mxu_4nSpTKwigoHkBUPylGlFhntah37PsCLwMvm8smik_D0XV6cQVDSHaiqwR014U196i0S_D3bV0D88xuU0iODNFNKoSn8mtQgcczZLPdOxMC0OMELBpsbIr5_7O0Al4P2iefabLBZeCWhYf4wWrB7FlpOce9dsGjw5E7c8iqAFQeG7PkDKzRGiPamRFBhK5CNOj9bYEfvufIEKjxuamSA6q-zHlS0ydhRWGrTjdlp5r9vxZqhm8ksDIokTRR7GwxQ9BttjPOun9G2dibWTjYic41Rl2fFmQhdR0HcwtJZBvTiekCJmDxT0S371FKU0bAP1TwB5ajS-y3QJVXr2_XiCsEHotyeOhSHlWKD1jWV1Nvoch7hwkjMMDQrmtBVPzz5UYLEhQaXauA9w6emaQysi5D33JIJo-g06r7-7LhiF0fh5HupdEZDHlamVIuZgEzjGnsMhw3ZuPdZRCB-xmdmmLwu_9H_p5nTxVGtASerEU6bfFT7nmeSoM5pWtvqQaYzFmCfMUCpUwWtcnw3EvDB0TEbQIx7Sl-mCLfHTE-xYdl0lnn_WTNxo6bz_tSnkJ0mlOM4gDsmlLBegGyV1OD7qHcJBQNL0T1PeiuT4zElzghykejisRdf-bIZ37iCO2MsPCMKCgiHgAy3dYcf3VSrpsNheKPkUuUuNrKZSJ8Jpvyqoznq81eY562l8ZjRFet-kxjOPteIt6k9d06DGn01bx1PgCu_glcRjiTZM_nUcVsEGI9AkeDg5u77GfoL0ipFZPqFHdeOwSKWYpv1NbnOxgz8rcOkNMtXjBpGKA7ftoofCWQ91p5rOlWjZh2zUu4zxP-wUYLoAsRsxq0fI6A_TUgXfp0CZH33N_V6JCwSui1UoLqKi2KlGIaJl_WbrBY5VYxEKy_HDo1D5CA8ntOK95bAq69zarlxUZ32mSDoV7VSgk9Z0PUUwieEqiJR8TULWh1GwS-gp9OydYku8CzGGliei_TBncsZpToj8-PviITMDR2oIeQWMzA3YDTlCroonihMmCSH_PjaGbI9bcVGnklVyukuFeFrBakp7oOeF5MX3HwantSSYiErVnfTCpD9H768mtNeOZIs-L2rOopy3NLFIZTP-nMjTWCLgOMoQTWuSKsKJqjkkrshvqm8UW8SF-rjqC2Td0zrLgNr5DeF0EpFvH4OtmFGAoxw3MEi0MmSjJSocn1g9X1tUZQJDAJsPsiObLFaYJm7Co4phkpCURV6v4PFoj6ZDvUi-9Fi1JLVMv7bJlurW_XkswT6NBdHXOxYlQk7ziZQ2LazQ7_9gFE3g1KpQmDQ43nfBqVu3IxtOEbanPrxSJ-pyfQ35j929SWvUonGXbBbO8-92Vp_8lLbWVg4k_7k3W0HaVqERCZotApbrCTxEl80sKreyatTHHNPnZDkN2KknOZyeYeVRgkrwIOEJIumd5yFu7o0w8yoc1BUvaedAsgtfjeku4Vbu76iGlnmg-InENaM3ekHFYgLPwIMtsYsLIPLkM7bcP4L_zYBdDU6g4HFXlaSc3FqxVzgL8tyXsObBQF9xIWw4YcJfbSlh3-jrPnXFs12BNkfSs2oQg-u1L_evIN9Ytf8KpSWKocoGosOUYhLkLKDDV2Nk3rt8wMEPqUQWVpwQGEzaASy6CKpJ_I3X8kU7XVwVwnQq2808ZmzcuUcugQC1yimpdYV_3QvOqwR6wYZ9SLH_5ZuyORb_3I0HJZ_a_4ZS6wR2L5wJNU2wwI5rYFI6NtJL7gLWY1NqgmtryYUtEt9uLnE9ja36ZOmkYg5X6hHxNvF_jx9iQxb7Eung8Mola_q4mw98C2JzYb0pHpSF2Sk9MzkCfR47fJl8tm9sciZp7FRjZGPv64Xdge0i4-A09XlvEMI6XNif8qgkBTsWVndGbVp7C2Htzjs6Vt5WEMouuiyYiVBUtNLck6UFf8zLVMcLd80H_lANMWp1Y4jUezw1jrQvwv_Sl-kHPRYPa8M680k_HxJPWGdG0DGOlh8sQe9IqhVWRVSay9oTxizhdO_0TbclFOyY_RuA6aoWIx4NWhIwrd1AZEqfXyAwdRSsjhwsz5x55s-1bsi3vFEnMvTKtQ5J0S3yVmGt1Xd68KEDbpHvS-7v0vaBEMqEECts4FkarF0eAQmPyUmQwy5brJl8EY4j5BBYKK-1FGw3s5dCfsO77oE0dsI4XnWOP51zybLWKs_N-ZLbWGORLUy29NyLhjx_RM-5qxMDU-qhs6oSBw_PaJsi2tPipqafK66AH4mHn0NRbCtIipr_DdcpRLMLOQluE5YgKr6EKsiO9eNEaMiYpsnOfCJq-_I3UUtxcj5LTT3W53Iqtu8CvYOqnZqTpNjHNHuDTm5KuakziTcqHxKeM8RZPkeU9VKeyF1AakQJNq680mkl9hTGkJSh6jgszBqP077QqNb2S6uUZxU107jFUZ6Rw-LijBcvHmTnTIDopjGurzozWU9DM8oeALaeEXUO-kJz5yb9WGlLqubhZumqkT_CY13QCaLaxWPiuJIIwfWqnISP_gZO0fxWWKtNmcIPeh4keq6kf4sGHTjs1fThJ1nN6LN2SuYDa0LGVh1NqVYe1H_WnMzWKx66vnWLDwXcPG8OAcGHOI5HbLoLNmvswvSHAgowD_pFm6zgAE-Cu2x2JuNzdMsdTQ4BkbKIf_W8yIEC5nyvCqKnTH86EM-5RiYejQXdvl8cuF8WVmcRugu82hS8if5yj8YS1WjRbL0IN1is7lQWSOaqT2AzmaRytTdS-xybKXx6wzs_rSel50-dgeVo7G0mlglhyagUjOhDPUoPb8d-l_vLRcpgfY2NeWF2f1IliAdZ5XIiSfOyAxqjnBiMuLzGA-FWEYxqgk_O20syo2ELfcPKL7_oZpfd2gLZ6s-NNTrIKnzSWIkToYbcRuEuqIBcUECczV2gwjMg19fIzcQlgOA43orDXlqaY6L9k3oKh4iNAlsSSESodh9wONb3swfeKj6A6SoIuwLoLLdmKHvoZWzQwEfHw2Ax2CRNzc26dmuvXS1FUZUvLIEQRPAd3Nh58eyk-Y4HBG3yz7fcjHfqF_e8Dfuwg5t1A0LRBhf_T-ZMSQgslEwzrK8gH73zBUtTMEdcGsFq3liqKbgymGzjk0da7GeiTb2BsCU_-fh8c-45o0-MWu4FMhsXB3nGSQex4kyOVaARm4lj3-jARmwIvGKs-GpA1mo7Rsm9zoIGL-6zVmeLSrNZPpP_xX5RexxCUnXqjl5z7Qy9nw7UNhOwP5JjWz2MSVGUGfmMmXwO9FPEjdiqP3Bj0C-2jpAZcnbfjRYiQUy-e-ddkG5DLI6-inrsOR3vr9L2hIJ15vCss_HkLo5PyWncg7NSx5_oOa28fOnqYqv5g8QN7YSz2VL1TQ1r-Ey3xYES5fQ_O9kY1bwU8NCzvl0P-wNB-RF0gT7GmbyNXJRjZC8woISskT1oaC4EGskAMDzPf_COfX13lfSoqSnee8dzohTsYSxvgAytGjQtkdbl6BCt1X5ptgWcfX0qcEVRbf5lfYU0u2AYJzLVVoT1KxRDoPaGOYLYRwYuwyejMawNchqEpU8ReukKDWUc2dDYrC5CluiLqZ8_9od4FuqzVcp1B06OYIgD2c-GRIioWhKFVmlc2cBwkj38qSW-_K7sGMakYcEC_lZSm3Mq-DX-xN_RFC0eCnr4ZE1wstbJgjRArZ4T_tj1-u3CVZQ2B4H6M8q8QLaJInqyocbztuIwKA9J-NLoEnhIIzkllblkaKFTpDSBUF8fWfm8nyHlYTPSwXkDxKfGiylMnjsOrAjTcE3cmmzeDUHfVPc5IDXv2DqQleapnttN4mfdaiBh0Zj2DZ2KVq021JJWLQ8Z6NqDX4MbSojxRx65d_vcG63rGEOechcLTMIAn8rxNbK7Ve2xFzzl8QlVz-3bGj4c8ywtwDL_bv_OLHP28aGxqlneyZwqTWd9uZGegovyqKYnznfSYznsDB3K0O0xvPsKqBL7c0AEllzROBS7PElaBNXq3dII6Xm31VPjGpJR0wuqSiduyDai17b9N__5fdEd-v3afv-9_1silo4yuwTrEFr2ha4iqCF5gmCJCgabV5q-AOd3xdAk1YQN6vPP8hezeC7-BxjBBtUFMdi9TvtW_eEwpDe0JnvdeZ4h25ucuxL76pHTvXmA8xyMXHz7UVVSuutcYDZOHnP57x7PfW-rFmW_GfpX3GVOe0As_8ckUoYwsx1slV_oBi0C8Q07wbkv1Pos_If2sH-KP8VbsSVJw8LofhAj-Rt1WKKboUqNmnYjMagts4iEoKzup8_9--er4Ieb8QTmG2KMLgW3OpB6DQFZP3357XUE3vpYhERJ3TmD1Oq6CN3xQWRSstXVLk68X2ynmYziZpLurgyNVH_hcnlBpp6qQU-WSSEV7Abp2cTp6BJceXwjTwi6Q6c6BfYwHHtXBVntqofFh3azMc8mgjB3RV7Kgb1_xRbhXjYPsDacSIffyblJ5tTKEn1N39wvzMEMKdJqPpgpdoXEduN1sV3A-6nIxAw1_t5jiY550jV2bJPUyNhVNyCJGm0xnIjVxKUdf6KoDYMOmi5Rcya81iho6SVW892_riUWxl1QeILhz3waiLTSdio37_6JnTncFPiL-8dF7L4-Dqs405D9jHzyaO2rTIFrxEQjalhb2uexZVe3id3ZsCR2SGxdw04ITdo2Dantcbk7eV4N-1QnniAuFsTe7gNzGyHYbQnmUedJBkHVBOqWgXVFUmQCN53YrcVnHmZMGjlK1KeHVJpNrM_f7qzpkKuT614_6Ac67G1WhBFjGd6s_1YQh4lcxN3ko5wYVI7TiwZJxno88MvDwcW3QWiKd9SZvJ3m2xXm6yjLheQLJTUOO230Nv9yrOy_Eo-q5kwKNw0ePzCOSHfhEJ2Gg_Zw3MwePql-Ibu9fljr2iX2B-Wp5GIXdoW2L0ClKWwjsNOpmX5-b4DtMWdsOSjO7RXtFy6Ye_IOzVTcfkZX97vYK_4IY9GFwUtxcb1EhOLXONwnhpakV2BeqWDUoNqVpKtBREa_AA-cVNoZTKutl_mUzU9BKmXEzXrkcR44-jCczlhvPbPgplpLa3NIKBTamc9i-IltE4E7chUPlA5eoarASKFa7bY_1SI83qHzX9w6Efw--JsLPRJjdIgeULynVjORsQ44Ji7SknqYbsyQGtQnEHk9pWh3crtEA4X1CfHszQaTdpBBskFFZCDOoplZhCL2iIb1wmOpv8uNknYap1n_YMv8frWwUzosIpYskJlivp8oSEpKiTP3o38KfNZk85D7ieYkicaltLUKGjmy3tnS7XkyR5fcXoYX20b1jQmYv6Ct_3HHfMB7RvdM5Sio1JKCWHSLjD9C_-WulZ1I99d1LG40Gfs3VZBZmcN6Ky5wOtfqP3G6fbWGy5mKLLXSRRnFpOiUji15xVJWcjZ7Rrwa2f1d-vF2jDPRpe_65yp4fBM2AaGgZ4CWXBn3v4M3s3qKwbFU-yHNKRqDdfGinvDxYn7YPTLehTYwU_g9TQoS3Zt3Y2zs85oI8oNYIBKkfgCaw8O3vqGlS2Sc_d43Gu1sV77YC4OuJuI8lsgjKGMzXDj6jkTlJjLUgacOALvVcNMdJm2alTyPbgaPHzbKdeTRh10e33sojviLSjQUUKfJsNd0-lXGHHTwWR2aS5YLnXIv2nVj5ADjkJKeY4515iATzoUYLaJkJBMnTutuYyr6wRhq4qDhJwgcxkNLo8Nt5CwSe7sE2DFZCpoe4Qbq0WU6kBP3CDcwDUUCQWm4UkOua_pStjq1wUR0LLeSYdfdOBngE9v8P3pZrXfo0B7D1K4GYDbBjE52BiwIKx3bx6kWuxIocgw90eTltK_Jz3S0SWWMqIyNFoBbxjVYznLAMOHRj_NNwCEUO_Uphd044srcVJSB6A4YAEDKoq3l4zkpQzuoDd4OVrNaW4LNNhf-tgWFBqeMTJpHr2e0d6OZDJLzcc9PNEnm0PsmHRs82Of3PpafxYK1Sb4lsbayiNuuT437KJEdZG7F--tAda4zk8L9vcKB1twPCUbDY-fGvFEPqnOXQktxuFUejp7GdpP_MOG7cprYPgrA3CPpOP7SECselrdoNLeEDjy85ltk_-zaShXXvTSbxD_hA147WSOV041ibXFi7Y3kCURtwe56zcS28WqQRdqbNLPD5ymKuvWUl3yhUhLvFYLhbNufOv_Xa0Eh-VLpVFXDF0BA0xazK9PT6Q4dhCbyDFUtaPptwOAdmBHfLX8mXCedZ4L15p287mIdAvV-HbrecATrmW7I5Bz3AsxGWMK3pScyx8-JAiydCw8XU-yJO0IgB9DPZuYULu1MyYmTWm4mUkDo_GhuuY_m2qEs2uEhkAaleFRSFJx3N6J4v3YjOlwScl-wCbCJZ1GkE1ONmqnizNTYdMf8kERZWQfTw5O3cSvDckFbMZwo1kS4KTT0zCIHRETYHcaXXJ7hFBoTdLOliZ_Z0YFuQR09uwnjd-DkB-_POMJMFmoh2r1M20V4bNh_xNTQilvwokFvJOilgBfq4oPWAu-Udya7c6fJhuVOk0cLbDo3pvlM-c9bddbBhSHWTTan5MzCXR52cb_70PYWzAl7Be53nYsfQUL7cqvvl9TQxqbOZpaPUPa1Uyn1kydbIF0jCX_crJ7LXMvCl_Kmd6XokT43YXRwjOOdW70stxgfgfQ1Je0FSFQoKSeO7I821bFv1N484Wt_E8zZ91T3Ag2sSEfGkmRGUghtO29Q-FoXvZjoMHblqXbtr8ly8RBcL_NR861Dp8NMlccTtwgO2uzT_FO5TAsY6MZms2Rc-D7ICgWMpdzuTukKJMjSdCufK9p3UydKRICoJ1GuHVPuUtsMzYmxoFrW33xq-QDBH71ZyHSDCbblt-Thnb47jASCncple0wWQDmP3igz6K0TMS3z3VwJN6zBs9SeykHsEzc_DSAd-_DYzX_J5O50ejFyYHiYvmzqC0o4CFh68za89zjdp4DXgmFkCI6B-u44zzf97aKKitN42LEIbwjVfWKdjrCndaaWrFyFw81RwiRu-ZZ1BbtcUxrw0S6w4W2f9HST3aau-NAH7-KadxUFGNCGSUvsxAgwiP2i5YFl47dhF1rz4PEzPJkqt55WWHjoio_zosSHRKM69VjGS_28Nf-0vrjRXrbcE9mvPzXIL8Fvuxg6uvId"
     },
-    debug: "{Client debug script}"
+    debug: "(()=>{\"use strict\";var e,r,t,n,a,i,o,l,s,u,c,d,f,v,p,h,g,m,y,b,w,k,E,S,A,T,I,x,N,O,$,j,C=(e,r=e=>TypeError(e))=>{throw er(e=e9(e))?r(e):e},M=(e,r,t=-1)=>{if(e===r||(e??r)==null)return!0;if(eo(e)&&eo(r)&&e.length===r.length){var n=0;for(var a in e){if(e[a]!==r[a]&&!M(e[a],r[a],t-1))return!1;++n}return n===Object.keys(r).length}return!1},U=(e,r,...t)=>e===r||t.length>0&&t.some(r=>U(e,r)),_=(e,r)=>null!=e?e:C(r??\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),F=(e,r=!0,t)=>{try{return e()}catch(e){return ef(r)?ea(e=r(e))?C(e):e:Y(r)?console.error(r?C(e):e):r}finally{t?.()}},P=e=>{var r=void 0;return()=>r??=e9(e)},q=e=>{var r={initialized:!0,then:R(()=>(r.initialized=!0,e9(e)))};return r},R=e=>{var r=P(e);return(e,t)=>D(r,[e,t])},D=async(e,r=!0,t)=>{try{var n=await e9(e);return en(r)?r[0]?.(n):n}catch(e){if(Y(r)){if(r)throw e;console.error(e)}else{if(en(r)){if(!r[1])throw e;return r[1](e)}var a=await r?.(e);if(a instanceof Error)throw a;return a}}finally{t?.()}},z=e=>e,B=void 0,V=Number.MAX_SAFE_INTEGER,W=!1,J=!0,G=()=>{},L=e=>null!=e,H=Symbol.iterator,K=(e,r)=>(t,n=!0)=>e(t)?t:r&&n&&null!=t&&null!=(t=r(t))?t:B,X=(e,r)=>ef(r)?e!==B?r(e):B:e?.[r]!==B?e:B,Y=e=>\"boolean\"==typeof e,Z=K(Y,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||B))),Q=e=>!!e,ee=e=>\"number\"==typeof e,er=e=>\"string\"==typeof e,et=K(er,e=>e?.toString()),en=Array.isArray,ea=e=>e instanceof Error,ei=(e,r=!1)=>null==e?B:!r&&en(e)?e:ev(e)?[...e]:[e],eo=e=>null!==e&&\"object\"==typeof e,el=Object.prototype,es=Object.getPrototypeOf,eu=e=>null!=e&&es(e)===el,ec=(e,r)=>\"function\"==typeof e?.[r],ed=e=>\"symbol\"==typeof e,ef=e=>\"function\"==typeof e,ev=(e,r=!1)=>!!(e?.[H]&&(\"object\"==typeof e||r)),ep=e=>e instanceof Map,eh=e=>e instanceof Set,eg=(e,r)=>null==e?B:!1===r?e:Math.round(e*(r=Math.pow(10,r&&!0!==r?r:0)))/r,em=!1,ey=e=>(em=!0,e),eb=e=>null==e?B:ef(e)?e:r=>r[e],ew=(e,r,t)=>(r??t)!==B?(e=eb(e),r??=0,t??=V,(n,a)=>r--?B:t--?e?e(n,a):n:t):e,ek=e=>e?.filter(L),eE=(e,r,t,n)=>null==e?[]:!r&&en(e)?ek(e):e[H]?function*(e,r){if(null!=e){if(r){r=eb(r);var t=0;for(var n of e)if(null!=(n=r(n,t++))&&(yield n),em){em=!1;break}}else for(var n of e)null!=n&&(yield n)}}(e,t===B?r:ew(r,t,n)):eo(e)?function*(e,r){r=eb(r);var t=0;for(var n in e){var a=[n,e[n]];if(r&&(a=r(a,t++)),null!=a&&(yield a),em){em=!1;break}}}(e,ew(r,t,n)):eE(ef(e)?function*(e,r,t=Number.MAX_SAFE_INTEGER){for(null!=r&&(yield r);t--&&null!=(r=e(r));)yield r}(e,t,n):function*(e=0,r){if(e<0)for(r??=-e-1;e++;)yield r--;else for(r??=0;e--;)yield r++}(e,t),r),eS=(e,r)=>r&&!en(e)?[...e]:e,eA=(e,r,t,n)=>eE(e,r,t,n),eT=(e,r,t=1,n=!1,a,i)=>(function* e(r,t,n,a){if(null!=r){if(r[H]||n&&eo(r))for(var i of a?eE(r):r)1!==t?yield*e(i,t-1,n,!0):yield i;else yield r}})(eE(e,r,a,i),t+1,n,!1),eI=(e,r,t,n)=>{if(r=eb(r),en(e)){var a=0,i=[];for(t=t<0?e.length+t:t??0,n=n<0?e.length+n:n??e.length;t<n&&!em;t++){var o=e[t];(r?o=r(o,a++):o)!=null&&i.push(o)}return em=!1,i}return null!=e?ei(eA(e,r,t,n)):B},ex=(e,r,t,n)=>null!=e?new Set([...eA(e,r,t,n)]):B,eN=(e,r,t=1,n=!1,a,i)=>ei(eT(e,r,t,n,a,i)),eO=(e,r,t)=>null==e?B:ef(r)?eI(er(e)?[e]:e,r)?.join(t??\"\"):er(e)?e:eI(e,e=>!1===e?B:e)?.join(r??\"\"),e$=(...e)=>{var r;return eF(1===e.length?e[0]:e,e=>null!=e&&(r??=[]).push(...ei(e))),r},ej=(e,r,t,n)=>{var a,i=0;for(t=t<0?e.length+t:t??0,n=n<0?e.length+n:n??e.length;t<n;t++)if(null!=e[t]&&(a=r(e[t],i++)??a,em)){em=!1;break}return a},eC=(e,r)=>{var t,n=0;for(var a of e)if(null!=a&&(t=r(a,n++)??t,em)){em=!1;break}return t},eM=(e,r)=>{var t,n=0;for(var a in e)if(t=r([a,e[a]],n++)??t,em){em=!1;break}return t},eU=(e,r,...t)=>null==e?B:ev(e)?eI(e,e=>r(e,...t)):r(e,...t),e_=(e,r,t,n)=>{var a;if(null!=e){if(en(e))return ej(e,r,t,n);if(t===B){if(e[H])return eC(e,r);if(\"object\"==typeof e)return eM(e,r)}for(var i of eE(e,r,t,n))null!=i&&(a=i);return a}},eF=e_,eP=async(e,r,t,n)=>{var a;if(null==e)return B;for(var i of eA(e,r,t,n))if(null!=(i=await i)&&(a=i),em){em=!1;break}return a},eq=Object.fromEntries,eR=(e,r,t)=>{if(null==e)return B;if(Y(r)||t){var n={};return eF(e,t?(e,a)=>null!=(e=r(e,a))&&null!=(e[1]=t(n[e[0]],e[1]))&&(n[e[0]]=e[1]):e=>eF(e,r?e=>e?.[1]!=null&&((n[e[0]]??=[]).push(e[1]),n):e=>e?.[1]!=null&&(n[e[0]]=e[1],n))),n}return eq(eI(e,r?(e,t)=>X(r(e,t),1):e=>X(e,1)))},eD=(e,r,t,n,a)=>{var i=()=>ef(t)?t():t;return e_(e,(e,n)=>t=r(t,e,n)??i(),n,a)??i()},ez=(e,r=e=>null!=e,t=en(e),n,a)=>eS(eE(e,(e,t)=>r(e,t)?e:B,n,a),t),eB=(e,r,t,n)=>{var a;if(null==e)return B;if(r)e=ez(e,r,!1,t,n);else{if(null!=(a=e.length??e.size))return a;if(!e[H])return Object.keys(e).length}return a=0,e_(e,()=>++a)},eV=(e,...r)=>null==e?B:ee(e)?Math.max(e,...r):eD(e,(e,t,n,a=r[1]?r[1](t,n):t)=>null==e||ee(a)&&a>e?a:e,B,r[2],r[3]),eW=(e,r,t)=>eI(e,eu(e)?e=>e[1]:e=>e,r,t),eJ=e=>!en(e)&&ev(e)?eI(e,ep(e)?e=>e:eh(e)?e=>[e,!0]:(e,r)=>[r,e]):eo(e)?Object.entries(e):B,eG=(e,r,t,n)=>null==e?B:(r=eb(r),e_(e,(e,t)=>!r||(e=r(e,t))?ey(e):B,t,n)),eL=(e,r,t,n)=>null==e?B:en(e)?e[e.length-1]:e_(e,(e,t)=>!r||r(e,t)?e:B,t,n),eH=(e,r,t,n)=>null==e?B:eu(e)&&!r?Object.keys(e).length>0:e.some?.(r??Q)??e_(e,r?(e,t)=>!!r(e,t)&&ey(!0):()=>ey(!0),t,n)??!1,eK=(e,r=e=>e)=>(e?.sort((e,t)=>r(e)-r(t)),e),eX=(e,r,t)=>(e.constructor===Object?void 0===t?delete e[r]:e[r]=t:void 0===t?e.delete?e.delete(r):delete e[r]:e.set?e.set(r,t):e.add?t?e.add(r):e.delete(r):e[r]=t,t),eY=(e,r,t)=>{if(e){if(e.constructor===Object&&null==t)return e[r];var n=e.get?e.get(r):e.has?e.has(r):e[r];return void 0===n&&null!=t&&null!=(n=ef(t)?t():t)&&eX(e,r,n),n}},eZ=(e,...r)=>(eF(r,r=>eF(r,([r,t])=>{null!=t&&(eu(e[r])&&eu(t)?eZ(e[r],t):e[r]=t)})),e),eQ=e=>(r,t,n,a)=>{if(r)return void 0!=n?e(r,t,n,a):(eF(t,t=>en(t)?e(r,t[0],t[1]):eF(t,([t,n])=>e(r,t,n))),r)},e0=eQ(eX),e1=eQ((e,r,t)=>eX(e,r,ef(t)?t(eY(e,r)):t)),e2=(e,r)=>e instanceof Set?!e.has(r)&&(e.add(r),!0):eY(e,r)!==e0(e,r,!0),e4=(e,r)=>{if((e??r)!=null){var t=eY(e,r);return ec(e,\"delete\")?e.delete(r):delete e[r],t}},e6=(e,...r)=>{var t=[],n=!1,a=(e,i,o,l)=>{if(e){var s=r[i];i===r.length-1?en(s)?(n=!0,s.forEach(r=>t.push(e4(e,r)))):t.push(e4(e,s)):(en(s)?(n=!0,s.forEach(r=>a(eY(e,r),i+1,e,r))):a(eY(e,s),i+1,e,s),!eB(e)&&o&&e5(o,l))}};return a(e,0),n?t:t[0]},e5=(e,r)=>{if(e)return en(r)?(en(e)&&e.length>1?r.sort((e,r)=>r-e):r).map(r=>e5(e,r)):en(e)?r<e.length?e.splice(r,1)[0]:void 0:e4(e,r)},e3=(e,...r)=>{var t=(r,n)=>{var a;if(r){if(en(r)){if(eu(r[0])){r.splice(1).forEach(e=>t(e,r[0]));return}a=r}else a=eI(r);a.forEach(([r,t])=>Object.defineProperty(e,r,{configurable:!1,enumerable:!0,writable:!1,...n,...eu(t)&&(\"get\"in t||\"value\"in t)?t:ef(t)&&!t.length?{get:t}:{value:t}}))}};return r.forEach(e=>t(e)),e},e8=(e,...r)=>{if(void 0!==e)return Object.fromEntries(r.flatMap(t=>eo(t)?en(t)?t.map(r=>en(r)?1===r.length?[r[0],e[r[0]]]:e8(e[r[0]],...r[1]):[r,e[r]]):Object.entries(r).map(([r,t])=>[r,!0===t?e[r]:e8(e[r],t)]):[[t,e[t]]]).filter(e=>null!=e[1]))},e9=e=>ef(e)?e():e,e7=(e,r=-1)=>eo(e)?en(e)?r?e.map(e=>e7(e,r-1)):[...e]:eh(e)?new Set(r?eI(e,e=>e7(e,r-1)):e):ep(e)?new Map(r?eI(e,e=>[e[0],e7(e[1],r-1)]):e):r?eR(e,([e,t])=>[e,e7(t,r-1)]):{...e}:e,re=(e,...r)=>e?.push(...r),rr=(e,...r)=>e?.unshift(...r),rt=\"undefined\"!=typeof performance?(e=J)=>e?Math.trunc(rt(W)):performance.timeOrigin+performance.now():Date.now,rn=(e=!0,r=()=>rt())=>{var t,n=+e*r(),a=0;return(i=e,o)=>(t=e?a+=-n+(n=r()):a,o&&(a=0),(e=i)&&(n=r()),t)},ra=(e=0)=>{var r,t;return function n(a,i){if(void 0===a)return!!t;clearTimeout(r),Y(a)?(a&&t?.(),t=void 0):(t=a,r=setTimeout(()=>n(!0),i??e))}},ri=(e,r=0)=>{var t=ef(e)?{frequency:r,callback:e}:e,{queue:n=!0,paused:a=!1,trigger:i=!1,once:o=!1,callback:l=()=>{}}=t;r=t.frequency??0;var s=0,u=rc(!0).resolve(),c=rn(!a),d=c(),f=async e=>!!s&&(!!n||!u.pending||!0===e)&&(p.busy=!0,!0!==e&&await u,u.reset(),(await D(()=>l(c(),-d+(d=c())),!1,()=>u.resolve())===!1||r<=0||o)&&v(!1),p.busy=!1,!0),v=(e,t=!e)=>(c(e,t),clearInterval(s),p.active=!!(s=e?setInterval(f,r<0?-r:r):0),p),p={active:!1,busy:!1,restart:(e,t)=>(r=e??r,l=t??l,v(!0,!0)),toggle:(e,r)=>e!==p.active?e?r?(v(!0),p.trigger(),p):v(!0):v(!1):p,trigger:async e=>await f(e)&&(v(p.active),!0)};return p.toggle(!a,i)};class ro{_promise;constructor(){this.reset()}get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,r=!1){return this._promise.resolve(e,r),this}reject(e,r=!1){return this._promise.reject(e,r),this}reset(){return this._promise=new rl,this}signal(e){return this.resolve(e),this.reset(),this}then(e,r){return this._promise.then(e,r)}}class rl{_promise;resolve;reject;value;error;pending=!0;constructor(){var e;this._promise=new Promise((...r)=>{e=r.map((e,r)=>(t,n)=>{if(!this.pending){if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")}return this.pending=!1,this[r?\"error\":\"value\"]=t===B||t,e(t),this})}),[this.resolve,this.reject]=e}then(e,r){return this._promise.then(e,r)}}var rs=(e,r=0)=>r>0?setTimeout(e,r):window.queueMicrotask(e),ru=(e,r)=>null==e||isFinite(e)?!e||e<=0?e9(r):new Promise(t=>setTimeout(async()=>t(await e9(r)),e)):C(`Invalid delay ${e}.`),rc=e=>e?new ro:new rl,rd=(...e)=>Promise.race(e.map(e=>ef(e)?e():e)),rf=(e,r,t)=>{var n=!1,a=(...r)=>e(...r,i),i=()=>n!==(n=!1)&&(t(a),!0),o=()=>n!==(n=!0)&&(r(a),!0);return o(),[i,o]},rv=(...e)=>(e=ez(e),[()=>eD(e,(e,r)=>r[0]()||e,!1),()=>eD(e,(e,r)=>r[1]()||e,!1)]),rp=()=>{var e,r=new Set;return[(t,n)=>{var a=rf(t,e=>r.add(e),e=>r.delete(e));return n&&e&&t(...e,a[0]),a},(...t)=>(e=t,r.forEach(e=>e(...t)))]},rh=(e,r=\"and\")=>X(e,e=>0===(e=ev(e)?eI(e,e=>e+\"\"):[e+\"\"]).length?\"\":1===e.length?e[0]:`${e.slice(0,-1).join(\", \")} ${r} ${eL(e)}`),rg=e=>X(e,e=>ev(e)?eI(e,e=>\"'\"+e+\"'\"):\"'\"+e+\"'\"),rm=e=>(e=Math.log2(e))===(0|e),ry=(e,r,t,n)=>{var a,i,o,l=Object.fromEntries(Object.entries(e).filter(([e,r])=>er(e)&&ee(r)).map(([e,r])=>[e.toLowerCase(),r])),s=Object.entries(l),u=Object.values(l),c=l.any??u.reduce((e,r)=>e|r,0),d=r?{...l,any:c,none:0}:l,f=Object.fromEntries(Object.entries(d).map(([e,r])=>[r,e])),v=(e,t)=>ee(e)?!r&&t?null!=f[e]?e:B:e:er(e)?d[e]??d[e.toLowerCase()]:B,p=!1,[h,g]=r?[(e,r)=>Array.isArray(e)?e.reduce((e,t)=>null==t||p?e:null==(t=v(t,r))?(p=!0,B):(e??0)|t,(p=!1,B)):v(e),(e,r)=>null==(e=h(e,!1))?B:r&&(i=f[e&c])?(a=g(e&~(e&c),!1)).length?[i,...a]:i:(e=s.filter(([,r])=>r&&e&r&&rm(r)).map(([e])=>e),r?e.length?1===e.length?e[0]:e:\"none\":e)]:[v,e=>null!=(e=v(e))?f[e]:B],m=(e,r)=>null==e?B:null==(e=h(o=e,r))?C(TypeError(`${JSON.stringify(o)} is not a valid ${t} value.`)):e,y=s.filter(([,e])=>!n||(n&e)===e&&rm(e));return e3(e=>m(e),[{configurable:!1,enumerable:!1},{parse:m,tryParse:h,entries:s,values:u,lookup:g,length:s.length,format:e=>g(e,!0),logFormat:(e,r=\"or\")=>\"any\"===(e=g(e,!0))?\"any \"+t:`the ${t} ${rh(rg(e),r)}`},r&&{pure:y,map:(e,r)=>(e=m(e),y.filter(([,r])=>r&e).map(r??(([,e])=>e)))}])},rb=(...e)=>{var r=eJ(eR(e,!0)),t=e=>(eo(e)&&(en(e)?e.forEach((r,n)=>e[n]=t(r)):r.forEach(([r,t])=>{var n,a=B;null!=(n=e[r])&&(1===t.length?e[r]=t[0].parse(n):t.forEach((i,o)=>!a&&null!=(a=o===t.length-1?i.parse(n):i.tryParse(n))&&(e[r]=a)))})),e);return t},rw=(e,r=[\"|\",\";\",\",\"],t=!0)=>{if(!e)return B;var n=e.split(\"=\").map(e=>t?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim());return n[1]??=\"\",n[2]=n[1]&&r?.length&&eG(r,(e,r,t=n[1].split(e))=>t.length>1?t:B)||(n[1]?[n[1]]:[]),n},rk=(e,r=!0,t)=>null==e?B:rT(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,t,n,a,i,o,l,s,u,c,d,f)=>{var v={source:e,scheme:t,urn:t?!n:!n&&B,authority:a,user:i,password:o,host:l??s,port:null!=u?parseInt(u):B,path:c,query:!1===r?d:rE(d,r),fragment:f};return v.path=v.path||(v.authority?v.urn?\"\":\"/\":B),v}),rE=(e,r,t=!0)=>null==e?B:eR(e?.match(/(?:^.*?\\?|^)(.*)$/)?.[1]?.split(\"&\"),(e,n,[a,i,o]=rw(e,!1===r?[]:!0===r?B:r,t)??[])=>null!=(a=a?.replace(/\\[\\]$/,\"\"))?!1!==r?[a,o.length>1?o:i]:[a,i]:B,(e,t)=>e?!1!==r?e$(e,t):(e?e+\",\":\"\")+t:t),rS=(e,r)=>r&&null!=e?r.test(e):B,rA=(e,r,t)=>rT(e,r,t,!0),rT=(t,n,a,i=!1)=>(t??n)==null?B:a?(e=B,i?(r=[],rT(t,n,(...t)=>null!=(e=a(...t))&&r.push(e))):t.replace(n,(...r)=>e=a(...r)),e):t.match(n),rI=e=>e?.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),rx=/\\z./g,rN=(e,r)=>(r=eO(ex(ez(e,e=>e?.length)),\"|\"))?RegExp(r,\"gu\"):rx,rO={},r$=e=>e instanceof RegExp,rj=(e,r=[\",\",\" \"])=>r$(e)?e:en(e)?rN(eI(e,e=>rj(e,r)?.source)):Y(e)?e?/./g:rx:er(e)?rO[e]??=rT(e||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,n)=>t?RegExp(t,\"gu\"):rN(eI(rC(n,RegExp(`?<!(?<!\\\\)\\\\)[${eO(r,rI,\",\")}]/`)),e=>e&&`^${eO(rC(e,/(?<!(?<!\\\\)\\\\)\\*/),e=>rI(rM(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):B,rC=(e,r)=>e?.split(r)??e,rM=(e,r,t)=>e?.replace(r,t)??e;(T=t||(t={}))[T.Anonymous=0]=\"Anonymous\",T[T.Indirect=1]=\"Indirect\",T[T.Direct=2]=\"Direct\",T[T.Sensitive=3]=\"Sensitive\";var rU=ry(t,!1,\"data classification\");(I=n||(n={}))[I.None=0]=\"None\",I[I.Necessary=1]=\"Necessary\",I[I.Functionality=2]=\"Functionality\",I[I.Performance=4]=\"Performance\",I[I.Targeting=8]=\"Targeting\",I[I.Security=16]=\"Security\",I[I.Infrastructure=32]=\"Infrastructure\",I[I.Anonymous=49]=\"Anonymous\",I[I.Any=63]=\"Any\",I[I.Server=64]=\"Server\";var r_=ry(n,!0,\"data purpose\",127),rF=ry(n,!1,\"data purpose\",0),rP=(e,r)=>((a=e?.metadata)&&(r?(delete a.posted,delete a.queued,Object.entries(a).length||delete e.metadata):delete e.metadata),e);(x=i||(i={}))[x.Global=0]=\"Global\",x[x.Entity=1]=\"Entity\",x[x.Session=2]=\"Session\",x[x.Device=3]=\"Device\",x[x.User=4]=\"User\";var rq=ry(i,!1,\"variable scope\");t.Anonymous,n.Necessary;var rR=e=>`'${e.key}' in ${rq.format(e.scope)} scope`,rD={scope:rq,purpose:rF,purposes:r_,classification:rU};rb(rD),(N=o||(o={}))[N.Success=200]=\"Success\",N[N.Created=201]=\"Created\",N[N.Unchanged=304]=\"Unchanged\",N[N.Denied=403]=\"Denied\",N[N.NotFound=404]=\"NotFound\",N[N.ReadOnly=405]=\"ReadOnly\",N[N.Conflict=409]=\"Conflict\",N[N.Unsupported=501]=\"Unsupported\",N[N.Invalid=400]=\"Invalid\",N[N.Error=500]=\"Error\",ry(o,!1,\"variable set status\"),(O=l||(l={}))[O.Add=0]=\"Add\",O[O.Min=1]=\"Min\",O[O.Max=2]=\"Max\",O[O.IfMatch=3]=\"IfMatch\",O[O.IfNoneMatch=4]=\"IfNoneMatch\",ry(l,!1,\"variable patch type\");var rz=e=>!!e?.patch,rB=e=>!!e?.variables,rV=(e,r,t)=>{var n,a=e=>e,i=(t,i=rL)=>q(async()=>(n=a(i(await e(),r)))&&t(n)),o={then:i(e=>e).then,all:i(e=>e,e=>e),changed:i(e=>ez(e,e=>e.status<300)),variables:i(e=>eI(e,rJ)),values:i(e=>eI(e,e=>rJ(e)?.value)),push:()=>(a=e=>(t?.(eI(rW(e))),e),o),value:i(e=>rJ(e[0])?.value),variable:i(e=>rJ(e[0])),result:i(e=>e[0])};return o},rW=e=>e?.map(e=>e?.status<400?e:B),rJ=e=>e?.status<400?e?.current??e:B,rG=e=>e?.status<400||e?.status===404,rL=(e,r,t)=>{var n,a,i=[],l=eI(ei(e),(e,l)=>e&&(e.status<400||!t&&404===e.status?e:(a=`${rR(e.source??e)} could not be ${404===e.status?\"found.\":`${e.source||e.status!==o.Error?\"set\":\"read\"} because ${e.status===o.Conflict?`of a conflict. The expected version '${e.source?.version}' did not match the current version '${e.current?.version}'.`:e.status===o.Denied?e.error??\"the operation was denied.\":e.status===o.Invalid?e.error??\"the value does not conform to the schema\":e.status===o.ReadOnly?\"it is read only.\":e.status===o.Error?`of an unexpected error: ${e.error}`:\"of an unknown reason.\"}`}`,(null==(n=r?.[l])||!1!==n(e,a))&&i.push(a),B)));return i.length?C(i.join(\"\\n\")):en(e)?l:l?.[0]},rH=e=>e&&\"string\"==typeof e.type,rK=((...e)=>r=>r?.type&&e.some(e=>e===r?.type))(\"view\"),rX=e=>e?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g,\"_\").split(\":\").filter(e=>e)??[],rY=(e,r,t)=>{if(!e)return[];if(Array.isArray(e)&&(e=eO(e,\",\")),/(?<!(?<!\\\\)\\\\)%[A-Z0-9]{2}/.test(e))try{e=decodeURIComponent(e.replace(/([^=&]+)(?:\\=([^&]+))?(&|$)/g,(e,r,t,n)=>[r,t&&`=\"${t.replace(/(?<!(?<!\\\\)\\\\)(\"|%22)/g,'\\\\\"')}\"`,n&&\",\"].join(\"\")))}catch{}var n,a=[],i=rX(r);return e.replace(/\\s*(\\s*(?=\\=)|(?:\\\\.|[^,=\\r\\n])+)\\s*(?:\\=\\s*(?:\"((?:\\\\.|[^\"])*)\"|'((?:\\\\.|[^'])*)'|((?:\\\\.|[^,])*)))?\\s*(?:[,\\s]+|$)/g,(e,r,o,l,s)=>{var u=o||l||s,c=rX(r);return i.length&&(1!==c.length||u||(u=c.pop()),c=i.concat(c)),c.length&&(a.push(n={ranks:c,value:u||void 0}),t?.add(rZ(n))),\"\"}),a},rZ=e=>null==e?e:`${e.ranks.join(\":\")}${e.value?`=${e.value.replace(/,/g,\"\\\\,\")}`:\"\"}`,rQ=2e3,r0=\"_t:data\",r1=()=>()=>C(\"Not initialized.\"),r2=window,r4=document,r6=r4.body,r5=(e,r)=>!!e?.matches(r),r3=V,r8=(e,r,t=(e,r)=>r>=r3)=>{for(var n,a=0,i=W;e?.nodeType===1&&!t(e,a++)&&r(e,(e,r)=>(null!=e&&(n=e,i=r!==J&&null!=n),J),a-1)!==W&&!i;){var o=e;null===(e=e.parentElement)&&o?.ownerDocument!==document&&(e=o?.ownerDocument.defaultView?.frameElement)}return n},r9=(e,r)=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===r))switch(r){case!0:case\"z\":return(\"\"+e).trim()?.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||Z(e);case\"n\":return parseFloat(e);case\"j\":return F(()=>JSON.parse(e),G);case\"h\":return F(()=>tY(e),G);case\"e\":return F(()=>tQ?.(e),G);default:return en(r)?\"\"===e?void 0:(\"\"+e).split(\",\").map(e=>e=\"\"===e.trim()?void 0:r9(e,r[0])):void 0}},r7=(e,r,t)=>r9(e?.getAttribute(r),t),te=(e,r,t)=>r8(e,(e,n)=>n(r7(e,r,t))),tr=(e,r)=>r7(e,r)?.trim()?.toLowerCase(),tt=e=>e?.getAttributeNames(),tn=(e,r)=>getComputedStyle(e).getPropertyValue(r)||null,ta=e=>null!=e?e.tagName:null,ti=()=>({x:(s=to(W)).x/(r6.offsetWidth-window.innerWidth)||0,y:s.y/(r6.offsetHeight-window.innerHeight)||0}),to=e=>({x:eg(scrollX,e),y:eg(scrollY,e)}),tl=(e,r)=>rM(e,/#.*$/,\"\")===rM(r,/#.*$/,\"\"),ts=(e,r,t=J)=>(u=tu(e,r))&&z({xpx:u.x,ypx:u.y,x:eg(u.x/r6.offsetWidth,4),y:eg(u.y/r6.offsetHeight,4),pageFolds:t?u.y/window.innerHeight:void 0}),tu=(e,r)=>r?.pointerType&&r?.pageY!=null?{x:r.pageX,y:r.pageY}:e?({x:c,y:d}=tc(e),{x:c,y:d}):void 0,tc=e=>e?(f=e.getBoundingClientRect(),s=to(W),{x:eg(f.left+s.x),y:eg(f.top+s.y),width:eg(f.width),height:eg(f.height)}):void 0,td=(e,r,t,n={capture:!0,passive:!0})=>en(r)?rv(...eI(r,r=>td(e,r,t,n))):rf(t,t=>e.addEventListener(r,t,n),t=>e.addEventListener(r,t,n)),tf=e=>{var{host:r,scheme:t}=rk(e,!1);return{host:r,scheme:t}},tv=()=>({...s=to(J),width:window.innerWidth,height:window.innerHeight,totalWidth:r6.offsetWidth,totalHeight:r6.offsetHeight}),tp=new WeakMap,th=e=>tp.get(e),tg=(e,r=W)=>(r?\"--track-\":\"track-\")+e,tm=(e,r,t,n,a,i)=>r?.[1]&&eF(tt(e),o=>r[0][o]??=(i=W,er(n=eF(r[1],([r,t,n],a)=>rS(o,r)&&(i=void 0,!t||r5(e,t))&&ey(n??o)))&&(!(a=e.getAttribute(o))||Z(a))&&rY(a,rM(n,/\\-/g,\":\"),t),i)),ty=()=>{},tb=(e,r)=>{if(v===(v=tI.tags))return ty(e,r);var t=e=>e?r$(e)?[[e]]:ev(e)?eN(e,t):[eu(e)?[rj(e.match),e.selector,e.prefix]:[rj(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...t(eW(v))]];(ty=(e,r)=>tm(e,n,r))(e,r)},tw=(e,r)=>eO(e$(tn(e,tg(r,J)),tn(e,tg(\"base-\"+r,J))),\" \"),tk={},tE=(e,r,t=tw(e,\"attributes\"))=>{t&&tm(e,tk[t]??=[{},rA(t,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,r,t,n)=>[rj(t||n),,r])],r),rY(tw(e,\"tags\"),void 0,r)},tS=(e,r,t=W,n)=>(t?r8(e,(e,t)=>t(tS(e,r,W)),ef(t)?t:void 0):eO(e$(r7(e,tg(r)),tn(e,tg(r,J))),\" \"))??(n&&(p=th(e))&&n(p))??null,tA=(e,r,t=W,n)=>\"\"===(h=tS(e,r,t,n))||(null==h?h:Z(h)),tT=(e,r,t,n)=>e?(tE(e,n??=new Set),r8(e,e=>{tb(e,n),rY(eI(t?.(e)),void 0,n)},r),n.size?{tags:[...n]}:{}):{},tI={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,clientKey:null,apiKey:null,pushCookie:null,debug:!1,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},tx=rC(\"\"+r4.currentScript.src,\"#\"),tN=rC(\"\"+(tx[1]||\"\"),\";\"),tO=tx[0],t$=tN[1]||rk(tO,!1)?.host,tj=e=>!!(t$&&rk(e,!1)?.host?.endsWith(t$)===J),tC=(...e)=>rM(eO(e),/(^(?=\\?))|(^\\.(?=\\/))/,tO.split(\"?\")[0]),tM=tC(\"?\",\"var\");tC(\"?\",\"mnt\"),tC(\"?\",\"usr\");var tU=[],t_=[],tF=(e,r=0)=>e.charCodeAt(r),tP=e=>String.fromCharCode(...e);[...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,r)=>tU[t_[r]=e.charCodeAt(0)]=r);var tq=e=>{for(var r,t=0,n=e.length,a=[];n>t;)r=e[t++]<<16|e[t++]<<8|e[t++],a.push(t_[(16515072&r)>>18],t_[(258048&r)>>12],t_[(4032&r)>>6],t_[63&r]);return a.length+=n-t,tP(a)},tR=e=>{for(var r,t=0,n=0,a=e.length,i=new Uint8Array(3*(a/4|0)+(a+3&3)%3);a>t;)i[n++]=tU[tF(e,t++)]<<2|(r=tU[tF(e,t++)])>>4,a>t&&(i[n++]=(15&r)<<4|(r=tU[tF(e,t++)])>>2,a>t&&(i[n++]=(3&r)<<6|tU[tF(e,t++)]));return i},tD={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},tz=(e=256)=>e*Math.random()|0,tB=e=>{var r,t,n,a,i,o=0n,l=0,s=0n,u=[],c=0,d=0,f=0,v=0,p=[];for(f=0;f<e?.length;v+=p[f]=e.charCodeAt(f++));var h=e?()=>{u=[...p],d=255&(c=v),f=-1}:()=>{},g=e=>(d=255&(c+=-u[f=(f+1)%u.length]+(u[f]=e)),e);return[e?e=>{for(h(),a=16-((r=e.length)+4)%16,i=new Uint8Array(4+r+a),n=0;n<3;i[n++]=g(tz()));for(t=0,i[n++]=g(d^16*tz(16)+a);r>t;i[n++]=g(d^e[t++]));for(;a--;)i[n++]=tz();return i}:e=>e,e?e=>{for(h(),t=0;t<3;g(e[t++]));if((r=e.length-4-((d^g(e[t++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(r);r>n;i[n++]=d^g(e[t++]));return i}:e=>e,(e,r=64)=>{if(null==e)return null;for(l=Y(r)?64:r,h(),[o,s]=tD[l],t=0;t<e.length;o=BigInt.asUintN(l,(o^BigInt(d^g(e[t++])))*s));return!0===r?Number(BigInt(Number.MIN_SAFE_INTEGER)+o%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):o.toString(36)}]},tV={exports:{}};(e=>{(()=>{function r(e,r){if(r&&r.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var t,n,a=new Uint8Array(128),i=0;if(r&&r.multiple)for(var o=0;o<e.length;o++)l(e[o]);else l(e);return a.subarray(0,i);function l(e,a){var i,o,f,v,p,h;switch(typeof e){case\"undefined\":u(192);break;case\"boolean\":u(e?195:194);break;case\"number\":(e=>{if(isFinite(e)&&Number.isSafeInteger(e)){if(e>=0&&e<=127)u(e);else if(e<0&&e>=-32)u(e);else if(e>0&&e<=255)c([204,e]);else if(e>=-128&&e<=127)c([208,e]);else if(e>0&&e<=65535)c([205,e>>>8,e]);else if(e>=-32768&&e<=32767)c([209,e>>>8,e]);else if(e>0&&e<=4294967295)c([206,e>>>24,e>>>16,e>>>8,e]);else if(e>=-2147483648&&e<=2147483647)c([210,e>>>24,e>>>16,e>>>8,e]);else if(e>0&&e<=18446744073709552e3){var r=e/4294967296,a=e%4294967296;c([211,r>>>24,r>>>16,r>>>8,r,a>>>24,a>>>16,a>>>8,a])}else e>=-0x8000000000000000&&e<=0x7fffffffffffffff?(u(211),d(e)):e<0?c([211,128,0,0,0,0,0,0,0]):c([207,255,255,255,255,255,255,255,255])}else n||(n=new DataView(t=new ArrayBuffer(8))),n.setFloat64(0,e),u(203),c(new Uint8Array(t))})(e);break;case\"string\":(f=(o=(e=>{for(var r=!0,t=e.length,n=0;n<t;n++)if(e.charCodeAt(n)>127){r=!1;break}for(var a=0,i=new Uint8Array(e.length*(r?1:4)),o=0;o!==t;o++){var l=e.charCodeAt(o);if(l<128){i[a++]=l;continue}if(l<2048)i[a++]=l>>6|192;else{if(l>55295&&l<56320){if(++o>=t)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var s=e.charCodeAt(o);if(s<56320||s>57343)throw Error(\"UTF-8 encode: second surrogate character 0x\"+s.toString(16)+\" at index \"+o+\" out of range\");l=65536+((1023&l)<<10)+(1023&s),i[a++]=l>>18|240,i[a++]=l>>12&63|128}else i[a++]=l>>12|224;i[a++]=l>>6&63|128}i[a++]=63&l|128}return r?i:i.subarray(0,a)})(e)).length)<=31?u(160+f):f<=255?c([217,f]):f<=65535?c([218,f>>>8,f]):c([219,f>>>24,f>>>16,f>>>8,f]),c(o);break;case\"object\":null===e?u(192):e instanceof Date?(e=>{var r=e.getTime()/1e3;if(0===e.getMilliseconds()&&r>=0&&r<4294967296)c([214,255,r>>>24,r>>>16,r>>>8,r]);else if(r>=0&&r<17179869184){var t=1e6*e.getMilliseconds();c([215,255,t>>>22,t>>>14,t>>>6,t<<2>>>0|r/4294967296,r>>>24,r>>>16,r>>>8,r])}else{var t=1e6*e.getMilliseconds();c([199,12,255,t>>>24,t>>>16,t>>>8,t]),d(r)}})(e):Array.isArray(e)?s(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((h=(p=e).length)<=255?c([196,h]):h<=65535?c([197,h>>>8,h]):c([198,h>>>24,h>>>16,h>>>8,h]),c(p)):e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?s(e):(e=>{var r=0;for(var t in e)void 0!==e[t]&&r++;for(var t in r<=15?u(128+r):r<=65535?c([222,r>>>8,r]):c([223,r>>>24,r>>>16,r>>>8,r]),e){var n=e[t];void 0!==n&&(l(t),l(n))}})(e);break;default:if(!a&&r&&r.invalidTypeReplacement)\"function\"==typeof r.invalidTypeReplacement?l(r.invalidTypeReplacement(e),!0):l(r.invalidTypeReplacement,!0);else throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\")}}function s(e){var r=e.length;r<=15?u(144+r):r<=65535?c([220,r>>>8,r]):c([221,r>>>24,r>>>16,r>>>8,r]);for(var t=0;r>t;t++)l(e[t])}function u(e){if(a.length<i+1){for(var r=2*a.length;r<i+1;)r*=2;var t=new Uint8Array(r);t.set(a),a=t}a[i]=e,i++}function c(e){if(a.length<i+e.length){for(var r=2*a.length;r<i+e.length;)r*=2;var t=new Uint8Array(r);t.set(a),a=t}a.set(e,i),i+=e.length}function d(e){var r,t;e>=0?(r=e/4294967296,t=e%4294967296):(r=~(r=Math.abs(++e)/4294967296),t=~(t=Math.abs(e)%4294967296)),c([r>>>24,r>>>16,r>>>8,r,t>>>24,t>>>16,t>>>8,t])}}function t(e,r){var t,n=0;if(e instanceof ArrayBuffer&&(e=new Uint8Array(e)),\"object\"!=typeof e||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),r&&r.multiple)for(t=[];n<e.length;)t.push(a());else t=a();return t;function a(){var r=e[n++];if(r>=0&&r<=127)return r;if(r>=128&&r<=143)return u(r-128);if(r>=144&&r<=159)return c(r-144);if(r>=160&&r<=191)return d(r-160);if(192===r)return null;if(193===r)throw Error(\"Invalid byte code 0xc1 found.\");if(194===r)return!1;if(195===r)return!0;if(196===r)return s(-1,1);if(197===r)return s(-1,2);if(198===r)return s(-1,4);if(199===r)return f(-1,1);if(200===r)return f(-1,2);if(201===r)return f(-1,4);if(202===r)return l(4);if(203===r)return l(8);if(204===r)return o(1);if(205===r)return o(2);if(206===r)return o(4);if(207===r)return o(8);if(208===r)return i(1);if(209===r)return i(2);if(210===r)return i(4);if(211===r)return i(8);if(212===r)return f(1);if(213===r)return f(2);if(214===r)return f(4);if(215===r)return f(8);if(216===r)return f(16);if(217===r)return d(-1,1);if(218===r)return d(-1,2);if(219===r)return d(-1,4);if(220===r)return c(-1,2);if(221===r)return c(-1,4);if(222===r)return u(-1,2);if(223===r)return u(-1,4);if(r>=224&&r<=255)return r-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+r+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(r){for(var t=0,a=!0;r-- >0;)if(a){var i=e[n++];t+=127&i,128&i&&(t-=128),a=!1}else t*=256,t+=e[n++];return t}function o(r){for(var t=0;r-- >0;)t*=256,t+=e[n++];return t}function l(r){var t=new DataView(e.buffer,n+e.byteOffset,r);return(n+=r,4===r)?t.getFloat32(0,!1):8===r?t.getFloat64(0,!1):void 0}function s(r,t){r<0&&(r=o(t));var a=e.subarray(n,n+r);return n+=r,a}function u(e,r){e<0&&(e=o(r));for(var t={};e-- >0;)t[a()]=a();return t}function c(e,r){e<0&&(e=o(r));for(var t=[];e-- >0;)t.push(a());return t}function d(r,t){r<0&&(r=o(t));var a=n;return n+=r,((e,r,t)=>{var n=r,a=\"\";for(t+=r;t>n;){var i=e[n++];if(i>127){if(i>191&&i<224){if(n>=t)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(i>223&&i<240){if(n+1>=t)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else if(i>239&&i<248){if(n+2>=t)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}else throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1))}if(i<=65535)a+=String.fromCharCode(i);else if(i<=1114111)i-=65536,a+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320);else throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\")}return a})(e,a,r)}function f(e,r){e<0&&(e=o(r));var t=o(1),a=s(e);return 255===t?(e=>{if(4===e.length){var r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];return new Date(1e3*r)}if(8===e.length){var t=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),r=(3&e[3])*4294967296+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7];return new Date(1e3*r+t/1e6)}if(12===e.length){var t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];n-=8;var r=i(8);return new Date(1e3*r+t/1e6)}throw Error(\"Invalid data length for a date value.\")})(a):{type:t,data:a}}}var n={serialize:r,deserialize:t,encode:r,decode:t};e?e.exports=n:window[window.msgpackJsName||\"msgpack\"]=n})()})(tV);var{deserialize:tW,serialize:tJ}=($=tV.exports)&&$.__esModule&&Object.prototype.hasOwnProperty.call($,\"default\")?$.default:$,tG=\"$ref\",tL=e=>{var r,t,n,a=(e,r,t=e[r],n=o(t))=>((t!==n||ed(r))&&(e[r]=n,i(()=>e[r]=t)),t),i=e=>(r??=[]).push(e),o=e=>null==e||ef(e)||ed(e)?null:eo(e)?e.toJSON&&e!==(e=e.toJSON())?o(e):null!=(n=(t??=new Map).get(e))?(e[tG]||(e[tG]=n,i(()=>delete e[tG])),{[tG]:n}):(eu(e)?(t.set(e,t.size+1),Object.keys(e).forEach(r=>(a(e,r)===B||ed(r))&&delete e[r])):ev(e)&&(!en(e)||Object.keys(e).length<e.length?[...e]:e).forEach((r,t)=>t in e?a(e,t):(e[t]=null,i(()=>delete e[t]))),e):e,l=tJ(o(e));return r?.forEach(e=>e()),l},tH=e=>{var r,t,n=e=>eo(e)?e[tG]&&(t=(r??=[])[e[tG]])?t:(e[tG]&&(r[e[tG]]=e,delete e[tG]),Object.entries(e).forEach(([r,t])=>t!==(t=n(t))&&(e[r]=t)),e):e;return null!=e?n(tW(e)):B},tK=(e,r=!1,t=!0)=>{var n=(e,r=!1,t=!0)=>{var n=(e,t)=>ee(e)&&!0===t?e:l(e=er(e)?new Uint8Array(eI(e.length,r=>255&e.charCodeAt(r))):r?JSON.stringify(e):tL(e),t),a=e=>null==e?B:F(()=>JSON.parse(e,B));if(r)return[e=>JSON.stringify(e),a,(e,r)=>n(e,r)];var[i,o,l]=tB(e);return[e=>tq(i(tL(e))),e=>null!=e?t&&(e?.[0]===\"{\"||e?.[0]===\"[\")?a(e):tH(o(tR(e))):null,(e,r)=>n(e,r)]};return e?n(e,r,t):(g??=[n(null,!1),n(null,!0)])[+r]};tK(),tK(null,!0);var[tX,tY]=tK(),[tZ,tQ]=[r1,r1],[t0,t1]=rp(),t2=e=>{tQ===r1&&([tZ,tQ]=tK(e),t1(tZ=tK(null,!0)[0],tQ))},t4=e=>r=>t6(e,r),t6=(...e)=>{var r=e.shift();console.error(er(e[1])?e.shift():e[1]?.message??\"An error occurred\",r.id??r,...e)},[t5,t3]=rp(),[t8,t9]=rp(),t7=e=>nr!==(nr=e)&&t3(nr=!1,na(!0,!0)),ne=e=>nt!==(nt=!!e&&\"visible\"===document.visibilityState)&&t9(nt,!e,nn(!0,!0));t5(ne);var nr=!0,nt=!1,nn=rn(!1),na=rn(!1);td(window,[\"pagehide\",\"freeze\"],()=>t7(!1)),td(window,[\"pageshow\",\"resume\"],()=>t7(!0)),td(document,\"visibilitychange\",()=>(ne(!0),nt&&t7(!0))),t3(nr,na(!0,!0));var ni=!1,no=rn(!1),[nl,ns]=rp(),nu=ri({callback:()=>ni&&ns(ni=!1,no(!1)),frequency:2e4,once:!0,paused:!0}),nc=()=>!ni&&(ns(ni=!0,no(!0)),nu.restart());td(window,\"focus\",nc),td(window,\"blur\",()=>nu.trigger()),td(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],nc),nc(),(j=m||(m={}))[j.View=-3]=\"View\",j[j.Tab=-2]=\"Tab\",j[j.Shared=-1]=\"Shared\";var nd=ry(m,!1,\"local variable scope\"),nf=e=>nd.tryParse(e)??rq(e),nv=e=>!!nd.tryParse(e?.scope),np=rb({scope:nd},rD),nh=e=>null==e?void 0:e.source?nh(e.source):`${nf(e.scope)}\\0${e.key}\\0${e.targetId??\"\"}`,ng=e=>{var r=e.split(\"\\0\");return{scope:+r[0],key:r[1],targetId:r[2]}},nm=0,ny=void 0,nb=()=>(ny??r1())+\"_\"+nw(),nw=()=>++nm,nk=e=>crypto.getRandomValues(e),nE=()=>rM(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^nk(new Uint8Array(1))[0]&15>>e/4).toString(16)),nS=void 0,nA={id:ny,heartbeat:rt()},nT={knownTabs:{[ny]:nA},variables:new Map},[nI,nx]=rp(),nN=r1,nO=e=>nS.get(nh(e)),n$=(...e)=>nj(e.map(e=>(e.timestamp=rt(),e.expires=3e3,e))),nj=e=>{var r=eI(e,e=>e&&[nh(e),e]);if(r?.length){e0(nS,r);var t=ez(r,e=>e[1].scope>m.Tab);t.length&&(e0(nT.variables,r),nN({type:\"patch\",payload:eR(t)})),nx(\"variables\",eR(r),!0)}};t0((e,r)=>{t5(t=>{if(t){var n=r(sessionStorage.getItem(r0));ny=n?.[0]??rt().toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),nS=new Map(e$(ez(nS,([,e])=>e.scope===m.View),eI(n?.[1],e=>[nh(e),e]))),sessionStorage.removeItem(r0)}else sessionStorage.setItem(r0,e([ny,ez(nS,([,e])=>e.scope!==m.View)]))},!0),nN=(r,t)=>{e&&(localStorage.setItem(r0,e([ny,r,t])),localStorage.removeItem(r0))},td(window,\"storage\",e=>{if(e.key===r0){var n=r?.(e.newValue);if(n&&(!n[2]||n[2]===ny)){var[a,{type:i,payload:o}]=n;\"query\"===i?t.active||nN({type:\"set\",payload:nT},a):\"set\"===i&&t.active?(e0(nT,o),t.trigger()):\"patch\"===i?(e0(nT.variables,o),e0(nS,o),nx(\"variables\",o,!1)):\"tab\"===i&&(e0(nT.knownTabs,a,o),o&&nx(\"tab\",o,!1))}}});var t=ri(()=>nx(\"ready\",nT,!0),-25),n=ri({callback(){var e=rt()-1e4;eF(nT?.knownTabs,([r,t])=>t[0]<e&&e6(nT.knownTabs,r)),nA.heartbeat=rt(),nN({type:\"tab\",payload:nA})},frequency:5e3,paused:!0}),a=e=>{nN({type:\"tab\",payload:e?nA:void 0}),e?(t.restart(),nN({type:\"query\"})):t.toggle(!1),n.toggle(e)};t5(e=>a(e),!0)},!0);var[nC,nM]=rp(),[nU,n_]=rp(),nF=((e,{timeout:r=1e3,encrypt:t=!0,retries:n=10}={})=>{var a=()=>(t?tQ:tY)(localStorage.getItem(\"rq\")),i=()=>localStorage.setItem(\"rq\",(t?tZ:tX)([ny,rt()+r]));return async(t,o,l=null!=o?1:n)=>{for(;l--;){var s=a();if((!s||s[1]<rt())&&(i(),a()?.[0]===ny)){var u=t(),c=setInterval(i,r/2);return await D(u,!0,()=>clearInterval(c))}var d=rc(),[f]=td(window,\"storage\",r=>{r.key!==e||r.newValue||d.resolve()});await rd(ru(o??r),d),f()}null==o&&C(e+\" could not be acquired.\")}})(\"rq\"),nP=ri(()=>{if(b!==(b=tI.pushCookie)){if(!b)return;y=RegExp(rI(b)+\"=([^;]*)\")}var e=tQ?.(rT(document.cookie,y)?.[1]);rB(e)&&n_(e)},1e3),nq=0,nR=(e=1e3)=>{var r=()=>{r=G,--nq||(nP.restart(1e3),clearTimeout(0))};return nq++||nP.restart(100),e>0&&setTimeout(r,e),r()},nD=async(e,r,{beacon:t=!1,encrypt:n=!0}={})=>{var a,i,o=!1,l=t=>{var l=ef(r)?r?.(a,t):r;return!1!==l&&(null!=l&&!0!==l&&(a=l),nM(e,a,t,e=>(o=a===B,a=e)),!o&&(i=(n?tZ:JSON.stringify)(a)))};if(!t)return await nF(()=>eP(1,async r=>{if(!l(r))return ey();var t=await fetch(e,{method:null!=a?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i});if(t.status>=400)return 3===r?ey(C(`Invalid response: ${await t.text()}`)):(console.warn(`Request to ${e} failed on attempt ${r+1}/3.`),await ru((1+r)*200));var o=await t.text(),s=o?.length?(n?tQ:JSON.parse)?.(o):B;return null!=s&&n_(s),ey(s)}));l(0)&&(nR(1e3),navigator.sendBeacon(e,new Blob(null!=a?[i]:[],{type:\"text/plain\"}))||C(\"Beacon send failed.\"))},nz=[\"scope\",\"key\",\"targetId\",\"version\"],nB=[...nz,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],nV=[...nz,\"init\",\"purpose\",\"refresh\"];[...nB];var nW=new Map,nJ=(e,r)=>{var a=ri(async()=>{var e=eI(nW,([e,r])=>({...ng(e),result:[...r]}));e.length&&await c.get(...e)},3e3),i=(e,r)=>eU(r,r=>eY(nW,e,()=>new Set).add(r)),l=e=>{if(rG(e)){var r,t=nh(e),n=rJ(e);eF(e5(nW,t),e=>{r=!1,e?.(n,nO(n),(e=!0)=>r=e),r&&i(t,e)})}};t5((e,r)=>a.toggle(e,e&&r>=3e3),!0);var s=new Map,u=(e,r)=>e0(s,e,Y(r)?r?void 0:0:r),c={get:(...t)=>rV(async()=>{var n=[],a=eI(t,(e,r)=>[e,r]),s=[],c=(await nD(e,()=>!!(a=eI(a,([e,r])=>{if(e){var t=nh(e);i(t,e.result);var a=nO(t);if(e.init&&u(t,e.cache),!e.refresh&&a?.expires<rt())re(n,[{...a,status:o.Success},r]);else if(!nv(e))return[e8(e,nV),r];else if(eu(e.init)){var l={...np(e),status:o.Created,...e.init};null!=l.value&&(re(s,d(l)),re(n,[l,r]))}}})).length&&{variables:{get:eI(a,0)},deviceSessionId:r?.deviceSessionId})).variables?.get??[];return re(n,...eI(c,(e,r)=>e&&[e,a[r][1]])),s.length&&nj(s),n.map(([e])=>(l(e),e))},eI(t,e=>e?.error)),set:(...a)=>rV(async()=>{var i=[],s=[],c=eI(a,(e,r)=>{if(e){var a=nh(e),l=nO(a);if(u(a,e.cache),nv(e)){if(null!=e.patch)return C(\"Local patching is not supported.\");var c={value:e.value,classification:t.Anonymous,purposes:n.Necessary,scope:nd(e.scope),key:e.key};return s[r]={status:l?o.Success:o.Created,source:e,current:c},void re(i,d(c))}return rz(e)||e?.version!==void 0||(e.version=l?.version,e.force??=!!e.version),[e,r]}}),f=c.length>0?[]:_((await nD(e,{variables:{set:c.map(e=>e[0])},deviceSessionId:r?.deviceSessionId})).variables?.set,\"No result.\");return i.length&&nj(i),eF(f,(e,r)=>{var[t,n]=c[r];e.source=t,l(s[n]=e)}),s},eI(a,e=>e?.error))},d=(e,r=rt())=>({...e8(e,nB),timestamp:r,expires:r+(eY(s,nh(e))??3e3)});return nU(({variables:e})=>{if(e){var r=rt(),t=e$(eI(e.get,e=>rJ(e)),eI(e.set,e=>rJ(e)));t?.length&&nj(eU(t,d,r))}}),c},nG=(e,r)=>{if(!eu(r))return e;var t,n={};return eu(e)&&eF(e,([e,a])=>n[e]!==r[e]&&(n[e]=eu(a)?nG(a,r[e]):ee(a)&&ee(t=r[e])?a-t:a)),n},nL=(e,r,t=rQ)=>{var n=[],a=new WeakMap,i=new Map,o=(e,r)=>e.metadata?.queued?eZ(r,{type:e.type+\"_patch\",patchTargetId:e.clientId}):C(\"Source event not queued.\"),l=async(t,a=!1)=>{if(t=eI(ei(t),e=>eZ(r.applyEventExtensions(e),{metadata:{queued:!0}})),!a){t.length&&re(n,...t);return}n.length&&rr(t,...n.splice(0)),t.length&&await nD(e,{events:t.map(e=>(eZ(e,{metadata:{posted:!0}}),rP(e,!0))),deviceSessionId:r?.deviceSessionId})};return t>0&&ri(()=>l([],!0),t),t8((e,r,t)=>{if(!e&&(n.length||r||t>1500)){var a=eI(i,([e,r])=>{var[t,n]=r();return n&&i.delete(e),t});(n.length||a.length)&&l(e$(n.splice(0),a),!0)}}),{post:l,postPatch:(e,r,t)=>l(o(e,r),t),registerEventPatchSource(e,r){var t=!1,n=()=>t=!0;return a.set(e,e7(e)),i.set(e,()=>{var i=o(e,r(a.get(e),n));return!i||a&&M(i,a)?[void 0,t]:(i&&a.set(e,e7(i)),[i,t])}),n}}},nH=Symbol(),nK=e=>{var r=new IntersectionObserver(e=>eF(e,({target:e,isIntersecting:r,boundingClientRect:t,intersectionRatio:n})=>e[nH]?.(r,t,n)),{threshold:[.05,.1,.15,.2,.3,.4,.5,.6,.75]});return(t,n)=>{if(n&&(a=ez(n?.component,e=>e.track?.impressions||(e.track?.secondary??e.inferred)!==J))&&eB(a)){var a,i,o,l,s=W,u=0,c=ra(tI.impressionThreshold),d=ae();t[nH]=(r,n,f)=>{d(r=f>=.75||n.top<(i=window.innerHeight/2)&&n.bottom>i),s!==(s=r)&&(s?c(()=>{++u,o||re(e,o=ez(eI(a,e=>(e.track?.impressions||tA(t,\"impressions\",J,e=>e.track?.impressions))&&z({type:\"impression\",pos:ts(t),viewport:tv(),timeOffset:at(),impressions:u,...av(t,J)})||null))),o?.length&&(l=eI(o,r=>e.events.registerEventPatchSource(r,e=>nG({relatedEventId:r.clientId,duration:d(),impressions:u},e))))}):(eF(l,e=>e()),c(!1)))},r.observe(t)}}},nX=()=>{var e=r2?.screen;if(!e)return{};var{width:r,height:t,orientation:n}=e,a=r<t,i=n?.angle??r2.orientation??0;return(-90===i||90===i)&&([r,t]=[t,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:r2.devicePixelRatio,width:r,height:t,landscape:a}}},nY=e=>re(e,z({type:\"user_agent\",hasTouch:navigator.maxTouchPoints>0,userAgent:navigator.userAgent,view:w?.clientId,languages:eI(navigator.languages,(e,r,t=e.split(\"-\"))=>z({id:e,language:t[0],region:t[1],primary:0===r,preference:r+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:new Date().getTimezoneOffset()},...nX()})),nZ=(e,r=\"A\"===ta(e)&&r7(e,\"href\"))=>r&&\"#\"!=r&&!r.startsWith(\"javascript:\"),nQ=(e,r=ta(e),t=tA(e,\"button\"))=>t!==W&&(U(r,\"A\",\"BUTTON\")||\"INPUT\"===r&&U(tr(e,\"type\"),\"button\",\"submit\")||t===J),n0=()=>w?.clientId,n1={scope:\"shared\",key:\"referrer\"},n2=(e,r)=>{A.variables.set({...n1,value:[n0(),e]}),r&&A.variables.get({scope:n1.scope,key:n1.key,result(t,n,a){t?a():n?.value?.[1]===e&&r()}})},n4=rn(),n6=rn(),n5=rn(),n3=1,n8=()=>n6(),[n9,n7]=rp(),ae=e=>{var r=rn(e,n4),t=rn(e,n6),n=rn(e,n5),a=rn(e,()=>n3);return(e,i)=>({totalTime:r(e,i),visibleTime:t(e,i),interactiveTime:n(e,i),activations:a(e,i)})},ar=ae(),at=()=>ar(),[an,aa]=rp(),ai=new WeakSet,ao=document.getElementsByTagName(\"iframe\"),al=e=>(null==e||(e===J||\"\"===e)&&(e=\"add\"),er(e)&&U(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:eo(e)?e:void 0);function as(e){if(e){if(null!=e.units&&U(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=e.units>0?\"add\":\"remove\"}return e}}var au=e=>tT(e,void 0,e=>eI(ei(eY(tp,e)?.tags))),ac=e=>e?.component||e?.content,ad=e=>tT(e,r=>r!==e&&!!ac(eY(tp,r)),e=>(E=eY(tp,e),(E=eY(tp,e))&&eN(e$(E.component,E.content,E),\"tags\"))),af=(e,r)=>r?e:{...e,rect:void 0,content:(S=e.content)&&eI(S,e=>({...e,rect:void 0}))},av=(e,r=W)=>{var t,n,a,i=[],o=[],l=0;return r8(e,e=>{var n=eY(tp,e);if(n){if(ac(n)){var a=ez(ei(n.component),e=>0===l||!r&&(1===l&&e.track?.secondary!==J||e.track?.promote));t=eH(a,e=>e.track?.region)&&tc(e)||void 0;var s=ad(e);n.content&&rr(i,...eI(n.content,e=>({...e,rect:t,...s}))),a?.length&&(rr(o,...eI(a,e=>(l=eV(l,e.track?.secondary?1:2),af({...e,content:i,rect:t,...s},!!t)))),i=[])}var u=n.area||tS(e,\"area\");u&&rr(o,...eI(u))}}),i.length&&re(o,af({id:\"\",rect:t,content:i})),eF(o,e=>{er(e)?re(n??=[],e):(e.area??=eO(n,\"/\"),rr(a??=[],e))}),a||n?{components:a,area:eO(n,\"/\")}:void 0},ap=Symbol(),ah=[{id:\"context\",setup(e){ri(()=>eF(ao,e=>e2(ai,e)&&aa(e)),-1e3).trigger(),e.push({get:[{scope:\"view\",key:\"view\",result(e){}}]}),e.variables.get({scope:\"view\",key:\"view\",result:(a,i,o)=>(M(n,a?.value)&&t===(t=\"\"+location.href)||(r=n=a?.value),r&&w&&!w.definition&&(w.definition=r,w.metadata?.posted&&e.events.postPatch(w,{definition:r}),r=void 0),o())});var r,t,n,a=nO({scope:\"tab\",key:\"index\"})?.value??0,i=nO({scope:\"tab\",key:\"index\"})?.value;null==i&&(i=nO({scope:\"shared\",key:\"index\"})?.value??0,n$({scope:m.Shared,key:\"index\",value:i+1}));var o=null,l=(t=W)=>{if(!tl(\"\"+o,o=location.href)||t){var{source:n,scheme:l,host:s}=rk(location.href+\"\",!0);w={type:\"view\",timestamp:rt(),clientId:nb(),tab:ny,href:n,path:location.pathname,hash:location.hash||void 0,domain:{scheme:l,host:s},tabIndex:i,viewport:tv(),duration:ar(void 0,!0)},0===i&&(w.firstTab=J),0===i&&0===a&&(w.landingPage=J);var u=rE(location.href);if(eI([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,r)=>(w.utm??={})[e]=u[`utm_${e}`]?.[0]),!(w.navigationType=k)&&performance&&eI(performance.getEntriesByType(\"navigation\"),e=>{w.redirects=e.redirectCount,w.navigationType=rM(e.type,/\\_/g,\"-\")}),k=void 0,\"navigate\"===(w.navigationType??=\"navigate\")){var c=nO(n1)?.value;c&&tj(document.referrer)&&(w.view=c?.[0],w.relatedEventId=c?.[1],e.variables.set({...n1,value:void 0}))}var c=document.referrer||null;c&&!tj(c)&&(w.externalReferrer={href:c,domain:tf(c)}),w.definition=r,r=void 0,e.events.post(w),e.events.registerEventPatchSource(w,e=>nG({duration:at()},e)),n7(w)}};return nl(e=>n5(e)),t8(e=>{e?(n6(J),++n3):(n6(W),n5(W))}),td(window,\"popstate\",()=>(k=\"back-forward\",l())),eI([\"push\",\"replace\"],e=>{var r=history[e+=\"State\"];history[e]=(...e)=>{r.apply(history,e),k=\"navigate\",l()}}),l(),{processCommand:r=>ay(r)&&(re(e,r.username?{type:\"login\",username:r.username}:{type:\"logout\"}),J),decorate(e){w&&!rK(e)&&(e.view=w.clientId)}}}},{id:\"components\",setup(e){var r=nK(e),t=e=>null==e?void 0:{...e,component:ei(e.component),content:ei(e.content),tags:ei(e.tags)},n=({boundary:e,...n})=>{e1(tp,e,e=>t(\"add\"in n?{...e,component:e$(e?.component,n.component),content:e$(e?.content,n.content),area:n?.area??e?.area,tags:e$(e?.tags,n.tags),cart:n.cart??e?.cart,track:n.track??e?.track}:\"update\"in n?n.update(e):n)),r(e,eY(tp,e))};return{decorate(e){eF(e.components,e=>e5(e,\"track\"))},processCommand:e=>ak(e)?(n(e),J):ax(e)?(eI(((e,r)=>{if(!r)return[];var t=[],n=new Set;return document.querySelectorAll(`[${e}]`).forEach(a=>{if(!eY(n,a))for(var i=[];null!=r7(a,e);){e2(n,a);var o=rC(r7(a,e),\"|\");r7(a,e,null);for(var l=0;l<o.length;l++){var s=o[l];if(\"\"!==s){var u=\"-\"===s?-1:parseInt(et(s)??\"\",36);if(u<0){i.length+=u;continue}if(0===l&&(i.length=0),isNaN(u)&&/^[\"\\[{]/.test(s))for(var c=\"\";l<o.length;l++)try{s=JSON.parse(c+=o[l]);break}catch(e){}u>=0&&r[u]&&(s=r[u]),re(i,s)}}re(t,...eI(i,e=>({add:J,...e,boundary:a})));var d=a.nextElementSibling;\"WBR\"===a.tagName&&a.parentNode?.removeChild(a),a=d}}),t})(e.scan.attribute,e.scan.components),n),J):W}}},{id:\"navigation\",setup(e){var r=r=>{td(r,[\"click\",\"contextmenu\",\"auxclick\"],r=>{var t,n,a,i,o,l=null,s=W;if(r8(r.target,e=>{var r;l??=nQ(e)?e:null,s=s||\"NAV\"===ta(e),i??=tA(e,\"clicks\",J,e=>e.track?.clicks)??((r=ei(th(e)?.component))&&eH(r,e=>e.track?.clicks!==W)),o??=tA(e,\"region\",J,e=>e.track?.region)??((r=th(e)?.component)&&eH(r,e=>e.track?.region))}),l){var u,c=av(l),d=au(l);i??=!s;var f={...(o??=J)?{pos:ts(l,r),viewport:tv()}:null,...(t=r.target,n=l,r8(t??n,e=>\"IMG\"===ta(e)||e===n?(a={element:{tagName:e.tagName,text:r7(e,\"title\")||r7(e,\"alt\")||e.innerText?.trim().substring(0,100)||void 0}},W):J),a),...c,...d,timing:at()};if(nZ(l)){var v=l.hostname!==location.hostname,{host:p,scheme:h,source:g}=rk(l.href,!1);if(l.host===location.host&&l.pathname===location.pathname&&l.search===location.search){if(\"#\"===l.hash)return;l.hash!==location.hash&&re(e,z({type:\"anchor_navigation\",anchor:l.hash,...f}));return}var m=z({clientId:nb(),type:\"navigation\",href:v?l.href:g,external:v,domain:{host:p,scheme:h},self:J,anchor:l.hash,...f});r.button<=1&&(1===r.button||r.ctrlKey||r.shiftKey||r.altKey||r7(l,\"target\")!==window.name?(n2(m.clientId),m.self=W,re(e,m)):tl(location.href,l.href)||(m.exit=m.external,n2(m.clientId)));return}var y=(r8(r.target,(e,r)=>!!(u??=al(th(e)?.cart??tS(e,\"cart\")))&&!u.item&&(u.item=eL(th(e)?.content))&&r(u)),as(u));(y||i)&&re(e,y?z({type:\"cart_updated\",...f,...y}):z({type:\"component_click\",...f}))}})};r(document),an(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var r={},t=to(J);n9(()=>rs(()=>(r={},t=to(J)),250)),td(window,\"scroll\",()=>{var n=to(),a=ti();if(n.y>=t.y){var i=[];!r.fold&&n.y>=t.y+200&&(r.fold=J,re(i,\"fold\")),!r[\"page-middle\"]&&a.y>=.5&&(r[\"page-middle\"]=J,re(i,\"page-middle\")),!r[\"page-end\"]&&a.y>=.99&&(r[\"page-end\"]=J,re(i,\"page-end\"));var o=eI(i,e=>z({type:\"scroll\",scrollType:e,offset:a}));o.length&&re(e,o)}})}},{id:\"cart\",setup:e=>({processCommand(r){if(am(r)){var t=r.cart;return\"clear\"===t?re(e,{type:\"cart_updated\",action:\"clear\"}):(t=as(t))&&re(e,{...t,type:\"cart_updated\"}),J}return aI(r)?(re(e,{type:\"order\",...r.order}),J):W}})},{id:\"forms\",setup(e){var r=new Map,t=e=>e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"yes\":\"no\":e.value,n=n=>{var a,i=n.form;if(i){var l=te(i,tg(\"ref\"))||\"track_ref\",s=()=>i.isConnected&&tc(i).width,u=eY(r,i,()=>{var r,t=new Map,n={type:\"form\",name:te(i,tg(\"form-name\"))||r7(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}};e.events.post(n),e.events.registerEventPatchSource(n,e=>nG(n,e));var l=()=>{o(),r[3]>=2&&(n.completed=3===r[3]||!s()),e.events.postPatch(n,{...a,totalTime:rt(J)-r[4]}),r[3]=1},u=ra();return td(i,\"submit\",()=>{a=av(i),r[3]=3,u(()=>{i.isConnected&&tc(i).width>0?(r[3]=2,u()):l()},750)}),r=[n,t,i,0,rt(J),1]});return eY(u[1],n)||eI(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,r)=>{if(!e.name||\"hidden\"===e.type){\"hidden\"===e.type&&(e.name===l||tA(e,\"ref\"))&&(e.value||(e.value=nE()),u[0].ref=e.value);return}var n=e.name,a=u[0].fields[n]??={id:e.id||n,name:n,label:rM(e.labels?.[0]?.innerText??e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,type:e.type??\"unknown\",[ap]:t(e)};u[0].fields[a.name]=a,u[1].set(e,a)}),[n,u]}},a=(e,[r,t]=n(e)??[],a=t?.[1].get(r))=>a&&[t[0],a,r,t],i=null,o=()=>{if(i){var[e,r,n,a]=i,o=-(l-(l=n8())),u=-(s-(s=rt(J))),c=r[ap];(r[ap]=t(n))!==c&&(r.fillOrder??=a[5]++,r.filled&&(r.corrections=(r.corrections??0)+1),r.filled=J,a[3]=2,eF(e.fields,([e,t])=>t.lastField=e===r.name||void 0)),r.activeTime+=o,r.totalTime+=u,e.activeTime+=o,i=null}},l=0,s=0,u=e=>{e&&td(e,[\"focusin\",\"focusout\",\"change\"],(e,r,t=e.target&&a(e.target))=>{t&&(i=t,\"focusin\"===e.type?(s=rt(J),l=n8()):o())})};u(document),an(e=>e.contentDocument&&u)}}],ag=(...e)=>r=>r===e[0]||e.some(e=>\"string\"==typeof e&&r?.[e]!==void 0),am=ag(\"cart\"),ay=ag(\"username\"),ab=ag(\"tagAttributes\"),aw=ag(\"disable\"),ak=ag(\"boundary\"),aE=ag(\"extension\"),aS=ag(J,\"flush\"),aA=ag(\"get\"),aT=ag(\"listener\"),aI=ag(\"order\"),ax=ag(\"scan\"),aN=ag(\"set\"),aO=e=>\"function\"==typeof e,a$=e=>{if(A)return A;er(e)&&(e=tY(e)),e0(tI,e),t2(e5(tI,\"clientKey\"));var r=e5(tI,\"apiKey\"),t=r2[tI.name]??[];if(!en(t)){C(`The global variable for the tracker \"${tI.name}\" is used for something else than an array of queued commands.`);return}var n=[],a=[],i=(e,...r)=>{var t=J;a=ez(a,n=>F(()=>(n[e]?.(...r,{tracker:A,unsubscribe:()=>t=W}),t),t4(n)))},o=[],l={applyEventExtensions(e){e.clientId??=nb(),e.timestamp??=rt(),f=J;var r=W;return eI(n,([,t])=>{(r||t.decorate?.(e)===W)&&(r=J)}),r?void 0:e}},s=nJ(tM,l),u=nL(tM,l),c=null,d=0,f=W,v=W;return e3(r2,[{[tI.name]:[A=Object.freeze({id:\"tracker_\"+nb(),events:u,variables:s,push(...e){if(!c&&r){if(e[0]!==r)throw Error(\"Invalid API key.\");e.splice(0,1)}if(e.length){var t=W;if((e=ez(eN(e,e=>er(e)?tY(e):e),e=>{if(!e)return W;if(ab(e))tI.tags=e0({},tI.tags,e.tagAttributes);else if(aw(e))return tI.disabled=e.disable,W;else if(aS(e))return t=J,W;else if(aO(e))return e(A),W;return v||aT(e)||aE(e)?J:(o.push(e),W)})).length||t){var l=eK(e,e=>aE(e)?-100:aT(e)?-50:aN(e)?-10:rH(e)?90:0);if(!(c&&c.splice(f?d+1:c.length,0,...l))){for(d=0,c=l;d<c.length;d++)c[d]&&F(()=>{var e,r=c[d];if(i(\"command\",r),f=W,rH(r))u.post(r,!1);else if(aA(r))s.get(...ei(r.get));else if(aN(r))s.set(...ei(r.set));else if(aT(r))re(a,r.listener);else if(aE(r))(e=F(()=>r.extension.setup(A),e=>t6(r.extension.id,e)))&&(re(n,[r.priority??100,e]),eK(n,([e])=>e));else if(aO(r))r(A);else{var t=W;for(var[,e]of n)if(t=e.processCommand?.(r)??W)break;t||t6(\"invalid-command\",r)}},e=>t6(A,\"internal-error\",e));c=null,t&&u.post([],!0)}}}},__isTracker:J})]}]),nI(async(e,r,n,a)=>{if(\"ready\"===e){var i=_(await s.get({scope:\"session\",key:\"info\",cache:V}).value,\"No session data.\");l.deviceSessionId=i.deviceSessionId,i.hasUserAgent||(nY(A),i.hasUserAgent=!0),v=!0,o.length&&re(A,o),a(),re(A,...eI(ah,e=>({extension:e})),...t,{set:{scope:\"local\",key:\"loaded\",value:!0}})}},!0),A};r2[\".tail.js.init\"]=e=>{e(a$)}})();\n//# sourceMappingURL=index.min.debug.js.map\n"
 };
 
-var dist$1 = {};
-
-var Semaphore = {};
-
-(function (exports) {
-	var __awaiter = (commonjsGlobal && commonjsGlobal.__awaiter) || function (thisArg, _arguments, P, generator) {
-	    return new (P || (P = Promise))(function (resolve, reject) {
-	        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-	        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-	        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-	        step((generator = generator.apply(thisArg, _arguments || [])).next());
-	    });
-	};
-	var __generator = (commonjsGlobal && commonjsGlobal.__generator) || function (thisArg, body) {
-	    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t;
-	    return { next: verb(0), "throw": verb(1), "return": verb(2) };
-	    function verb(n) { return function (v) { return step([n, v]); }; }
-	    function step(op) {
-	        if (f) throw new TypeError("Generator is already executing.");
-	        while (_) try {
-	            if (f = 1, y && (t = y[op[0] & 2 ? "return" : op[0] ? "throw" : "next"]) && !(t = t.call(y, op[1])).done) return t;
-	            if (y = 0, t) op = [0, t.value];
-	            switch (op[0]) {
-	                case 0: case 1: t = op; break;
-	                case 4: _.label++; return { value: op[1], done: false };
-	                case 5: _.label++; y = op[1]; op = [0]; continue;
-	                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-	                default:
-	                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-	                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-	                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-	                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-	                    if (t[2]) _.ops.pop();
-	                    _.trys.pop(); continue;
-	            }
-	            op = body.call(thisArg, _);
-	        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-	        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-	    }
-	};
-	exports.__esModule = true;
-	/** Class representing a semaphore
-	 * Semaphores are initialized with a number of permits that get aquired and released
-	 * over the lifecycle of the Semaphore. These permits limit the number of simultaneous
-	 * executions of the code that the Semaphore synchronizes. Functions can wait and stop
-	 * executing until a permit becomes available.
-	 *
-	 * Locks that only allow one execution of a critical section are a special case of
-	 * Semaphores. To construct a lock, initialize a Semaphore with a permit count of 1.
-	 *
-	 * This Semaphore class is implemented with the help of promises that get returned
-	 * by functions that wait for permits to become available. This makes it possible
-	 * to use async/await to synchronize your code.
-	 */
-	var Semaphore = (function () {
-	    /**
-	     * Creates a semaphore.
-	     * @param permits  The number of permits, i.e. things being allowed to run in parallel.
-	     * To create a lock that only lets one thing run at a time, set this to 1.
-	     * This number can also be negative.
-	     */
-	    function Semaphore(permits) {
-	        this.promiseResolverQueue = [];
-	        this.permits = permits;
-	    }
-	    /**
-	     * Returns the number of available permits.
-	     * @returns  The number of available permits.
-	     */
-	    Semaphore.prototype.getPermits = function () {
-	        return this.permits;
-	    };
-	    /**
-	     * Returns a promise used to wait for a permit to become available. This method should be awaited on.
-	     * @returns  A promise that gets resolved when execution is allowed to proceed.
-	     */
-	    Semaphore.prototype.wait = function () {
-	        return __awaiter(this, void 0, void 0, function () {
-	            var _this = this;
-	            return __generator(this, function (_a) {
-	                if (this.permits > 0) {
-	                    this.permits -= 1;
-	                    return [2 /*return*/, Promise.resolve(true)];
-	                }
-	                // If there is no permit available, we return a promise that resolves once the semaphore gets
-	                // signaled enough times that permits is equal to one.
-	                return [2 /*return*/, new Promise(function (resolver) { return _this.promiseResolverQueue.push(resolver); })];
-	            });
-	        });
-	    };
-	    /**
-	     * Alias for {@linkcode Semaphore.wait}.
-	     * @returns  A promise that gets resolved when execution is allowed to proceed.
-	     */
-	    Semaphore.prototype.acquire = function () {
-	        return __awaiter(this, void 0, void 0, function () {
-	            return __generator(this, function (_a) {
-	                return [2 /*return*/, this.wait()];
-	            });
-	        });
-	    };
-	    /**
-	     * Same as {@linkcode Semaphore.wait} except the promise returned gets resolved with false if no
-	     * permit becomes available in time.
-	     * @param milliseconds  The time spent waiting before the wait is aborted. This is a lower bound,
-	     * don't rely on it being precise.
-	     * @returns  A promise that gets resolved with true when execution is allowed to proceed or
-	     * false if the time given elapses before a permit becomes available.
-	     */
-	    Semaphore.prototype.waitFor = function (milliseconds) {
-	        return __awaiter(this, void 0, void 0, function () {
-	            var _this = this;
-	            var resolver, promise;
-	            return __generator(this, function (_a) {
-	                if (this.permits > 0) {
-	                    this.permits -= 1;
-	                    return [2 /*return*/, Promise.resolve(true)];
-	                }
-	                resolver = function (b) { return void (0); };
-	                promise = new Promise(function (r) {
-	                    resolver = r;
-	                });
-	                // The saved resolver gets added to our list of promise resolvers so that it gets a chance
-	                // to be resolved as a result of a call to signal().
-	                this.promiseResolverQueue.push(resolver);
-	                setTimeout(function () {
-	                    // We have to remove the promise resolver from our list. Resolving it twice would not be
-	                    // an issue but signal() always takes the next resolver from the queue and resolves it which
-	                    // would swallow a permit if we didn't remove it.
-	                    var index = _this.promiseResolverQueue.indexOf(resolver);
-	                    if (index !== -1) {
-	                        _this.promiseResolverQueue.splice(index, 1);
-	                    }
-	                    // false because the wait was unsuccessful.
-	                    resolver(false);
-	                }, milliseconds);
-	                return [2 /*return*/, promise];
-	            });
-	        });
-	    };
-	    /**
-	     * Synchronous function that tries to acquire a permit and returns true if successful, false otherwise.
-	     * @returns  Whether a permit could be acquired.
-	     */
-	    Semaphore.prototype.tryAcquire = function () {
-	        if (this.permits > 0) {
-	            this.permits -= 1;
-	            return true;
-	        }
-	        return false;
-	    };
-	    /**
-	     * Acquires all permits that are currently available and returns the number of acquired permits.
-	     * @returns  Number of acquired permits.
-	     */
-	    Semaphore.prototype.drainPermits = function () {
-	        if (this.permits > 0) {
-	            var permitCount = this.permits;
-	            this.permits = 0;
-	            return permitCount;
-	        }
-	        return 0;
-	    };
-	    /**
-	     * Increases the number of permits by one. If there are other functions waiting, one of them will
-	     * continue to execute in a future iteration of the event loop.
-	     */
-	    Semaphore.prototype.signal = function () {
-	        this.permits += 1;
-	        if (this.permits > 1 && this.promiseResolverQueue.length > 0) {
-	            throw new Error('this.permits should never be > 0 when there is someone waiting.');
-	        }
-	        else if (this.permits === 1 && this.promiseResolverQueue.length > 0) {
-	            // If there is someone else waiting, immediately consume the permit that was released
-	            // at the beginning of this function and let the waiting function resume.
-	            this.permits -= 1;
-	            var nextResolver = this.promiseResolverQueue.shift();
-	            if (nextResolver) {
-	                nextResolver(true);
-	            }
-	        }
-	    };
-	    /**
-	     * Alias for {@linkcode Semaphore.signal}.
-	     */
-	    Semaphore.prototype.release = function () {
-	        this.signal();
-	    };
-	    /**
-	     * Schedules func to be called once a permit becomes available.
-	     * Returns a promise that resolves to the return value of func.
-	     * @typeparam T  The return type of func.
-	     * @param func  The function to be executed.
-	     * @return  A promise that gets resolved with the return value of the function.
-	     */
-	    Semaphore.prototype.execute = function (func) {
-	        return __awaiter(this, void 0, void 0, function () {
-	            return __generator(this, function (_a) {
-	                switch (_a.label) {
-	                    case 0: return [4 /*yield*/, this.wait()];
-	                    case 1:
-	                        _a.sent();
-	                        _a.label = 2;
-	                    case 2:
-	                        _a.trys.push([2, , 4, 5]);
-	                        return [4 /*yield*/, func()];
-	                    case 3: return [2 /*return*/, _a.sent()];
-	                    case 4:
-	                        this.signal();
-	                        return [7 /*endfinally*/];
-	                    case 5: return [2 /*return*/];
-	                }
-	            });
-	        });
-	    };
-	    return Semaphore;
-	}());
-	exports["default"] = Semaphore; 
-} (Semaphore));
-
-var Lock$1 = {};
-
-var __extends = (commonjsGlobal && commonjsGlobal.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
-Lock$1.__esModule = true;
-var Semaphore_1 = Semaphore;
-/**
- * A lock that can be used to synchronize critical sections in your code.
- * For more details on how to use this class, please view the documentation
- * of the Semaphore class from which Lock inherits.
- */
-var Lock = (function (_super) {
-    __extends(Lock, _super);
-    /**
-     * Creates a lock.
-     */
-    function Lock() {
-        return _super.call(this, 1) || this;
-    }
-    return Lock;
-}(Semaphore_1["default"]));
-Lock$1.Lock = Lock;
-
-(function (exports) {
-	function __export(m) {
-	    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
-	}
-	exports.__esModule = true;
-	var Semaphore_1 = Semaphore;
-	exports["default"] = Semaphore_1["default"];
-	__export(Lock$1); 
-} (dist$1));
-
 const INITIALIZE_TRACKER_FUNCTION = ".tail.js.init";
-const INIT_QUERY = "init";
+const INIT_SCRIPT_QUERY = "init";
 const CLIENT_SCRIPT_QUERY = "opt";
 const EVENT_HUB_QUERY = "var";
-const VARIABLES_QUERY = "usr";
 const CONTEXT_NAV_QUERY = "mnt";
 const SCHEMA_QUERY = "$types";
 const CONTEXT_NAV_REQUEST_ID = "ctx.rid";
@@ -8678,7 +10137,7 @@ class RequestHandler {
     _debugScript;
     _endpoint;
     _extensionFactories;
-    _lock = new dist$1.Lock();
+    _lock = createLock();
     _schema;
     _trackerName;
     _extensions;
@@ -8696,7 +10155,7 @@ class RequestHandler {
         this._initConfig = config;
         this._trackerName = trackerName;
         this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
-        this._extensionFactories = map$1(extensions);
+        this._extensionFactories = map$2(extensions);
         this._cookies = new CookieMonster(cookies);
         this._allowUnknownEventTypes = allowUnknownEventTypes;
         this._debugScript = debugScript;
@@ -8739,16 +10198,15 @@ class RequestHandler {
     }
     async initialize() {
         if (this._initialized) return;
-        await this._lock.acquire();
-        try {
+        await this._lock(async ()=>{
             if (this._initialized) return;
             let { host, crypto, environmentTags, encryptionKeys, schemas, storage } = this._initConfig;
             schemas ??= [];
-            if (!schemas.find((schema)=>isPlainObject(schema) && schema.$id === "urn:tailjs:core")) {
+            if (!schemas.find((schema)=>isPlainObject$1(schema) && schema.$id === "urn:tailjs:core")) {
                 schemas.unshift(defaultSchema);
             }
             for (const [schema, i] of rank(schemas)){
-                if (isString$1(schema)) {
+                if (isString$2(schema)) {
                     schemas[i] = JSON.parse(required$2(await host.readText(schema), ()=>`The schema path '${schema}' does not exists`));
                 }
             }
@@ -8795,9 +10253,7 @@ class RequestHandler {
                 }))
             ].filter((item)=>item != null);
             this._initialized = true;
-        } finally{
-            this._lock.release();
-        }
+        });
     }
     async post(tracker, eventBatch, options) {
         const context = {
@@ -8805,7 +10261,7 @@ class RequestHandler {
         };
         let events = eventBatch;
         await this.initialize();
-        const validateEvents = (events)=>map$1(events, (ev)=>isValidationError(ev) ? ev : this._allowUnknownEventTypes && !this._schema.getType(ev.type) || this._schema.censor(ev.type, ev, tracker.consent));
+        const validateEvents = (events)=>map$2(events, (ev)=>isValidationError(ev) ? ev : this._allowUnknownEventTypes && !this._schema.getType(ev.type) && ev || this._schema.censor(ev.type, ev, tracker.consent));
         let parsed = validateEvents(eventBatch);
         const sourceIndices = new Map();
         parsed.forEach((item, i)=>{
@@ -8927,10 +10383,10 @@ class RequestHandler {
                         await resolvedTracker._persist(false);
                     }
                 }
-                if (isPlainObject(response.body)) {
-                    response.body = trackerSettings().cipher[0](response.body);
+                if (isPlainObject$1(response.body)) {
+                    response.body = response.headers?.["content-type"] === "application/json" ? JSON.stringify(response.body) : trackerSettings().cipher[0](response.body);
                 }
-                if (isString$1(response.body) && !response.headers?.["content-type"]) {
+                if (isString$2(response.body) && !response.headers?.["content-type"]) {
                     (response.headers ??= {})["content-type"] = "text/plain";
                 }
                 if (push && response.body) {
@@ -8961,7 +10417,7 @@ class RequestHandler {
                 switch(method.toUpperCase()){
                     case "GET":
                         {
-                            if ((queryValue = join(query?.[INIT_QUERY])) != null) {
+                            if ((queryValue = join(query?.[INIT_SCRIPT_QUERY])) != null) {
                                 // This is set by most modern browsers.
                                 // It prevents external scripts to try to get a hold of the storage key via XHR.
                                 const secDest = headers["sec-fetch-dest"];
@@ -9098,7 +10554,7 @@ class RequestHandler {
                                 try {
                                     // TODO: Be binary.
                                     const postRequest = this.environment.httpDecode(payloadString);
-                                    if (!postRequest.events && postRequest.variables) {
+                                    if (!postRequest.events && !postRequest.variables) {
                                         return result({
                                             status: 400
                                         });
@@ -9120,10 +10576,10 @@ class RequestHandler {
                                     }
                                     if (postRequest.variables) {
                                         if (postRequest.variables.get) {
-                                            (response.variables ??= {}).get = await resolvedTracker.get(...postRequest.variables.get);
+                                            (response.variables ??= {}).get = await resolvedTracker.get(...postRequest.variables.get).all;
                                         }
                                         if (postRequest.variables.set) {
-                                            (response.variables ??= {}).set = await resolvedTracker.set(...postRequest.variables.set);
+                                            (response.variables ??= {}).set = await resolvedTracker.set(...postRequest.variables.set).all;
                                         }
                                     }
                                     return await result(response.variables ? {
@@ -9132,7 +10588,7 @@ class RequestHandler {
                                     } : {
                                         status: 204
                                     }, {
-                                        push: true
+                                        push
                                     });
                                 } catch (error) {
                                     this.environment.log({
@@ -9158,7 +10614,10 @@ class RequestHandler {
             }
         } catch (ex) {
             console.error(ex.stack);
-            throw ex;
+            return result({
+                status: 500,
+                body: ex.toString()
+            });
         }
         return {
             tracker,
@@ -9179,7 +10638,7 @@ class RequestHandler {
             trackerScript.join("")
         ];
         const otherScripts = [];
-        await forEachAsync(this._extensions.map(async (extension)=>extension.getClientScripts && extension.getClientScripts(await tracker)), async (scripts)=>forEach$1(array(await scripts), (script)=>{
+        await forEachAsync(this._extensions.map(async (extension)=>extension.getClientScripts && extension.getClientScripts(await tracker)), async (scripts)=>forEach$1(array$1(await scripts), (script)=>{
                 if ("inline" in script) {
                     // Prevent errors from preempting other scripts.
                     script.inline = wrapTryCatch(script.inline);
@@ -9367,7 +10826,7 @@ class Tracker {
         if (request.headers) {
             Object.assign(finalRequest.headers, request.headers);
         }
-        finalRequest.headers["cookie"] = unparam(Object.fromEntries(map$1(this.cookies, ([key, value])=>[
+        finalRequest.headers["cookie"] = unparam(Object.fromEntries(map$2(this.cookies, ([key, value])=>[
                 key,
                 value?.value
             ]).filter((kv)=>kv[1] != null).concat(params(finalRequest.headers["cookie"]))));
@@ -9506,21 +10965,16 @@ class Tracker {
         if (level === DataClassification.Anonymous !== (this.consent.level === DataClassification.Anonymous)) {
             if (level === DataClassification.Anonymous) {
                 this._sessionReferenceId = await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
+                // Copy session state to the anonymous key.
+                await this.env.storage.set([
+                    {
+                        ...this._session,
+                        targetId: this._sessionReferenceId
+                    }
+                ]);
             } else {
                 this._sessionReferenceId = this._session.targetId;
             }
-            // Change reference ID from cookie to cookie-less or vice versa.
-            await this.env.storage.set([
-                {
-                    ...this._session,
-                    value: undefined
-                },
-                {
-                    ...this._session,
-                    targetId: this._sessionReferenceId
-                }
-            ]);
-        //if( )
         }
         this._consent = {
             level,
@@ -9538,9 +10992,11 @@ class Tracker {
                     scopes: filter$1([
                         resetSession && VariableScope.Session,
                         resetDevice && VariableScope.Device
-                    ], isNumber$1)
+                    ], isNumber$2)
                 }
             ]);
+        } else {
+            if (this._session?.value) return;
         }
         let sessionId;
         if (this._consent.level > DataClassification.Anonymous) {
@@ -9584,6 +11040,17 @@ class Tracker {
             }
         ]).result));
         if (this._session.value) {
+            // Copy the session info the the actual session storage.
+            await this.set({
+                scope: VariableScope.Session,
+                key: SCOPE_INFO_KEY,
+                ...Necessary,
+                patch: {
+                    type: VariablePatchType.IfMatch,
+                    match: undefined,
+                    value: this._session.value
+                }
+            });
             let device = await this.get(this._consent.level > DataClassification.Anonymous ? {
                 scope: VariableScope.Device,
                 key: SCOPE_INFO_KEY,
@@ -9646,7 +11113,7 @@ class Tracker {
                     }
                 ], {
                     top: 1000,
-                    ifNoneMatch: map$1(this._clientDeviceCache?.variables, ([, variable])=>variable)
+                    ifNoneMatch: map$2(this._clientDeviceCache?.variables, ([, variable])=>variable)
                 })).results;
                 forEach$1(deviceValues, (variable)=>{
                     dataPurposes.map(variable.purposes, ([, purpose])=>(splits[purpose] ??= []).push([
@@ -9748,20 +11215,6 @@ class Tracker {
     }
 }
 
-const HEARTBEAT_FREQUENCY = 5_000;
-const STORAGE_PREFIX = "_t:";
-const STATE_KEY = STORAGE_PREFIX + "data";
-const NOT_INITIALIZED = ()=>()=>throwError("Not initialized.");
-
-const doc = document;
-
-const listen = (target, name, listener, options = {
-    capture: true,
-    passive: true
-})=>{
-    return isArray$4(name) ? joinEventBinders(...map$1(name, (name)=>listen(target, name, listener, options))) : createEventBinders(listener, (listener)=>target.addEventListener(name, listener, options), (listener)=>target.addEventListener(name, listener, options));
-};
-
 const isTracker = "__isTracker";
 const trackerConfig = {
     name: "tail",
@@ -9786,211 +11239,6 @@ const trackerConfig = {
         ]
     }
 };
-
-const src = split("" + doc.currentScript["src"], "#");
-const args = split("" + (src[1] || ""), ";");
-const SCRIPT_SRC = src[0];
-args[1] || parseUri(SCRIPT_SRC, false)?.host;
-const mapUrl = (...urlParts)=>replace$1(join(urlParts), /(^(?=\?))|(^\.(?=\/))/, SCRIPT_SRC.split("?")[0]);
-mapUrl("?", EVENT_HUB_QUERY);
-mapUrl("?", CONTEXT_NAV_QUERY);
-mapUrl("?", VARIABLES_QUERY);
-
-createTransport();
-let [httpEncrypt, httpDecrypt] = [
-    NOT_INITIALIZED,
-    NOT_INITIALIZED
-];
-const [addEncryptionNegotiatedListener, dispatchEncryptionNegotiated] = createEvent();
-
-const [addPageLoadedListener, dispatchPageLoaded] = createEvent();
-const [addPageVisibleListener, dispatchPageVisible] = createEvent();
-const maybeDispatchPageLoaded = (newLoaded)=>loaded !== (loaded = newLoaded) && dispatchPageLoaded(loaded = false, sleepTimer(true, true));
-const maybeDispatchPageVisible = (loaded)=>visible !== (visible = loaded ? document.visibilityState === "visible" : false) && dispatchPageVisible(visible, !loaded, visibleTimer(true, true));
-// A visibilitychange event may not be triggered if the page BF cache loads/unloads.
-addPageLoadedListener(maybeDispatchPageVisible);
-let loaded = true;
-let visible = false;
-let visibleTimer = createTimer(false);
-let sleepTimer = createTimer(false);
-listen(window, [
-    "pagehide",
-    "freeze"
-], ()=>maybeDispatchPageLoaded(false));
-listen(window, [
-    "pageshow",
-    "resume"
-], ()=>maybeDispatchPageLoaded(true));
-listen(document, "visibilitychange", ()=>(maybeDispatchPageVisible(true), visible && maybeDispatchPageLoaded(true)));
-dispatchPageLoaded(loaded, sleepTimer(true, true));
-let activated = false;
-let activeTime = createTimer(false);
-const [addPageActivatedListener, dispatchPageActivated] = createEvent();
-const activationTimeout = clock({
-    callback: ()=>activated && dispatchPageActivated(activated = false, activeTime(false)),
-    frequency: 20000,
-    once: true,
-    paused: true
-});
-const setActivated = ()=>!activated && (dispatchPageActivated(activated = true, activeTime(true)), activationTimeout.restart());
-listen(window, "focus", setActivated);
-listen(window, "blur", ()=>activationTimeout.trigger());
-listen(document.body, [
-    "keydown",
-    "pointerdown",
-    "pointermove",
-    "scroll"
-], setActivated);
-setActivated();
-
-var LocalVariableScope;
-(function(LocalVariableScope) {
-    /** Variables are only available in memory in the current view. */ LocalVariableScope[LocalVariableScope["View"] = -3] = "View";
-    /** Variables are only available in memory in the current tab, including between views in the same tab as navigation occurs. */ LocalVariableScope[LocalVariableScope["Tab"] = -2] = "Tab";
-    /** Variables are only available in memory and shared between all tabs. */ LocalVariableScope[LocalVariableScope["Shared"] = -1] = "Shared";
-})(LocalVariableScope || (LocalVariableScope = {}));
-const localVariableScope = createEnumAccessor(LocalVariableScope, false, "local variable scope");
-const isLocalScopeKey = (key)=>!!localVariableScope.tryParse(key?.scope);
-createEnumPropertyParser({
-    scope: localVariableScope
-}, VariableEnumProperties);
-const variableKeyToString = (key)=>key == null ? undefined : key.source ? variableKeyToString(key.source) : `${isLocalScopeKey(key) ? "l" : variableScope(key.scope)}\0${key.key}\0${isLocalScopeKey(key) ? "" : key.targetId ?? ""}`;
-
-let TAB_ID = undefined;
-/** All variables, both local and others. */ let tabVariables = undefined;
-const tabState = {
-    id: TAB_ID,
-    heartbeat: now()
-};
-const state = {
-    knownTabs: {
-        [TAB_ID]: tabState
-    },
-    variables: new Map()
-};
-const [addStateListener, dispatchState] = createEvent();
-let post = NOT_INITIALIZED;
-addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt)=>{
-    // Keep tab ID and variables between pages in the same tab.
-    addPageLoadedListener((loaded)=>{
-        if (loaded) {
-            const localState = httpDecrypt(sessionStorage.getItem(STATE_KEY));
-            TAB_ID = localState?.[0] ?? now().toString(36) + Math.trunc(1296 * Math.random()).toString(36).padStart(2, "0");
-            tabVariables = new Map(concat(// Whatever view variables we already had in case of bf navigation.
-            filter$1(tabVariables, ([, variable])=>variable.scope === LocalVariableScope.View), map$1(localState?.[1], (variable)=>[
-                    variableKeyToString(variable),
-                    variable
-                ])));
-            sessionStorage.removeItem(STATE_KEY);
-        } else {
-            sessionStorage.setItem(STATE_KEY, httpEncrypt([
-                TAB_ID,
-                filter$1(tabVariables, ([, variable])=>variable.scope !== LocalVariableScope.View)
-            ]));
-        }
-    }, true);
-    post = (message, target)=>{
-        if (!httpEncrypt) return;
-        localStorage.setItem(STATE_KEY, httpEncrypt([
-            TAB_ID,
-            message,
-            target
-        ]));
-        localStorage.removeItem(STATE_KEY);
-    };
-    listen(window, "storage", (ev)=>{
-        if (ev.key === STATE_KEY) {
-            const message = httpDecrypt?.(ev.newValue);
-            if (!message || message[2] && message[2] !== TAB_ID) return;
-            const [sender, { type, payload }] = message;
-            if (type === "query") {
-                !initTimeout.active && post({
-                    type: "set",
-                    payload: state
-                }, sender);
-            } else if (type === "set" && initTimeout.active) {
-                assign$1(state, payload);
-                initTimeout.trigger();
-            } else if (type === "patch") {
-                assign$1(state.variables, payload);
-                assign$1(tabVariables, payload);
-                dispatchState("variables", payload, false);
-            } else if (type === "tab") {
-                assign$1(state.knownTabs, sender, payload);
-                payload && dispatchState("tab", payload, false);
-            }
-        }
-    });
-    // Temporarily store this for the next page, if loaded in the same tab.
-    listen(window, [
-        "pagehide"
-    ], ()=>sessionStorage.set(STATE_KEY, TAB_ID));
-    const initTimeout = clock(()=>dispatchState("ready", state, true), -25);
-    const heartbeat = clock({
-        callback: ()=>{
-            const timeout = now() - HEARTBEAT_FREQUENCY * 2;
-            forEach$1(state?.knownTabs, // Remove tabs that no longer responds (presumably closed but may also have been frozen).
-            ([tabId, tabState])=>tabState[0] < timeout && clear(state.knownTabs, tabId));
-            tabState.heartbeat = now();
-            post({
-                type: "tab",
-                payload: tabState
-            });
-        },
-        frequency: HEARTBEAT_FREQUENCY,
-        paused: true
-    });
-    const toggleTab = (loading)=>{
-        post({
-            type: "tab",
-            payload: loading ? tabState : undefined
-        });
-        if (loading) {
-            initTimeout.restart();
-            post({
-                type: "query"
-            });
-        } else {
-            initTimeout.toggle(false);
-        }
-        heartbeat.toggle(loading);
-    };
-    addPageLoadedListener((loaded)=>toggleTab(loaded), true);
-}, true);
-
-const [addResponseHandler, dispatchResponse] = createEvent();
-let pushCookieMatcher;
-let pushCookie;
-clock(()=>{
-    if (pushCookie !== (pushCookie = undefined$2)) {
-        if (!pushCookie) return;
-        pushCookieMatcher = new RegExp(escapeRegEx(pushCookie) + "=([^;]*)");
-    }
-    const value = httpDecrypt?.(match(document.cookie, pushCookieMatcher)?.[1]);
-    if (isPostResponse(value)) {
-        dispatchResponse(value);
-    }
-}, 1000);
-
-const totalDuration = createTimer();
-const visibleDuration = createTimer();
-const interactiveDuration = createTimer();
-let activations = 1;
-const createViewDurationTimer = (started)=>{
-    const totalTime = createTimer(started, totalDuration);
-    const visibleTime = createTimer(started, visibleDuration);
-    const interactiveTime = createTimer(started, interactiveDuration);
-    const activationsCounter = createTimer(started, ()=>activations);
-    return (toggle, reset)=>({
-            totalTime: totalTime(toggle, reset),
-            visibleTime: visibleTime(toggle, reset),
-            interactiveTime: interactiveTime(toggle, reset),
-            activations: activationsCounter(toggle, reset)
-        });
-};
-createViewDurationTimer();
-document.getElementsByTagName("iframe");
-
 const externalConfig = trackerConfig;
 const initialName = trackerConfig.name;
 let tail = globalThis[initialName] ??= [];
@@ -10009,7 +11257,7 @@ async function ensureTracker() {
         const src = [
             trackerConfig.src
         ];
-        src.push("?", "lw6eeh2s" );
+        src.push("?", "lw810mij");
         {
             src.push("#", trackerConfig.name);
         }
@@ -10021,7 +11269,6 @@ async function ensureTracker() {
     };
     document.readyState !== "loading" ? injectScript() : document.addEventListener("readystatechange", ()=>document.readyState !== "loading" && injectScript());
 }
-
 const DEFAULT_CLIENT_CONFIG = {
     ...trackerConfig
 };
@@ -10194,7 +11441,7 @@ class PostError extends Error {
     constructor(validation, extensions){
         super([
             ...validation.map((item)=>`The event ${JSON.stringify(item.source)} (${item.sourceIndex ? `source index #${item.sourceIndex}` : "no source index"}) is invalid: ${item.error}`),
-            ...map(extensions, (item)=>`'${item[0]}' failed: ${item[1]}`)
+            ...map$1(extensions, (item)=>`'${item[0]}' failed: ${item[1]}`)
         ].join("\n"));
         this.validation = validation;
         this.extensions = extensions;
@@ -10682,7 +11929,7 @@ const SAME_SITE = {
 const uuid = new ShortUniqueId();
 const getDefaultLogSourceName = (source)=>{
     if (!source) return "";
-    if (isString$1(source)) return source;
+    if (isString$2(source)) return source;
     let logName = source.logName?.();
     if (!logName) {
         logName = source?.constructor?.name;
@@ -10733,7 +11980,7 @@ class TrackerEnvironment {
         const message = error instanceof Error ? {
             message: arg ? `${arg}: ${formatError(error)}` : formatError(error),
             level: level ?? "error"
-        } : isString$1(arg) ? {
+        } : isString$2(arg) ? {
             message: arg,
             level: level ?? "info"
         } : arg ? arg : null;
@@ -10810,7 +12057,7 @@ class TrackerEnvironment {
         this.log(source, message, "warn", error);
     }
     error(source, message, error) {
-        this.log(source, isString$1(message) ? message : (error = message)?.message, "error", error);
+        this.log(source, isString$2(message) ? message : (error = message)?.message, "error", error);
     }
 }
 
@@ -10940,7 +12187,7 @@ class InMemoryStorageBase {
             if (!item.getter) continue;
             if (!item.current) {
                 if (item.getter?.init) {
-                    const initialValue = await unwrap(item.getter.init);
+                    const initialValue = await unwrap$1(item.getter.init);
                     if (initialValue?.value) {
                         // Check if the variable has been created by someone else while the initializer was running.
                         results[i] = copy(this._update({
@@ -11096,11 +12343,11 @@ class InMemoryStorage extends InMemoryStorageBase {
 }
 
 const parseFilter = (filter)=>{
-    filter.scopes = map$1(filter.scopes, variableScope);
+    filter.scopes = map$2(filter.scopes, variableScope);
     filter.classification && (filter.classification = {
         min: dataClassification(filter.classification.min),
         max: dataClassification(filter.classification.max),
-        levels: map$1(filter.classification.levels, dataClassification)
+        levels: map$2(filter.classification.levels, dataClassification)
     });
     filter.purposes = dataPurposes(filter.purposes);
     return filter;
@@ -11133,7 +12380,7 @@ const parseContext = (context)=>{
         return this.storage.renew(variableScope(scope), scopeIds, parseContext(context));
     }
     purge(filters, context) {
-        return this.storage.purge(map$1(filters, parseFilter), parseContext(context));
+        return this.storage.purge(map$2(filters, parseFilter), parseContext(context));
     }
     initialize(environment) {
         return this.storage.initialize?.(environment);
@@ -11145,7 +12392,7 @@ const parseContext = (context)=>{
                     continue;
                 }
                 toNumericVariableEnums(key);
-                key?.init != null && (key.init = wrap(key.init, async (original)=>toNumericVariableEnums(await original())));
+                key.init = wrap(key.init, async (original)=>toNumericVariableEnums(await original()));
             }
             return await this.storage.get(keys, parseContext(context));
         });
@@ -11169,10 +12416,10 @@ const parseContext = (context)=>{
                 value: 32
             }
         ]).result;
-        return this.storage.head(map$1(filters, parseFilter), parseQueryOptions(options), parseContext(context));
+        return this.storage.head(map$2(filters, parseFilter), parseQueryOptions(options), parseContext(context));
     }
     query(filters, options, context) {
-        return this.storage.query(map$1(filters, parseFilter), parseQueryOptions(options), parseContext(context));
+        return this.storage.query(map$2(filters, parseFilter), parseQueryOptions(options), parseContext(context));
     }
     toStorage() {
         const storage = {};
@@ -11207,7 +12454,7 @@ class TargetedVariableCollection {
     }
     get(key, init) {
         if (key == null) return undefined;
-        if (isString$1(key)) {
+        if (isString$2(key)) {
             return this._scopes.get(key);
         }
         let targetId = key.targetId ?? "";
@@ -11219,7 +12466,7 @@ class TargetedVariableCollection {
     }
     has(source, scope) {
         if (source == null) return undefined;
-        if (isString$1(source)) {
+        if (isString$2(source)) {
             return scope != null ? this._scopes.get(source)?.has(scope) ?? false : this._scopes.has(source);
         }
         return this._scopes.get(source.targetId ?? "")?.has(source) ?? false;
@@ -11231,14 +12478,14 @@ class TargetedVariableCollection {
     }
     delete(key) {
         if (key == null) return false;
-        if (isIterable(key)) {
+        if (isIterable$1(key)) {
             let deleted = false;
             for (const item of key){
                 item != null && (deleted = this.delete(item) || deleted);
             }
             return deleted;
         }
-        if (isString$1(key)) {
+        if (isString$2(key)) {
             const scopes = this._scopes.get(key);
             if (!scopes) {
                 return false;
@@ -11251,7 +12498,7 @@ class TargetedVariableCollection {
     }
     set(key, value) {
         if (key == null) return this;
-        if (isIterable(key)) {
+        if (isIterable$1(key)) {
             for (const item of key){
                 item && this.set(item[0], item[1]);
             }
@@ -11302,7 +12549,7 @@ class VariableMap {
     _values = new Map();
     _onSizeChanged;
     constructor(arg){
-        if (isFunction(arg)) {
+        if (isFunction$1(arg)) {
             this._onSizeChanged = arg;
         } else if (arg) {
             this.set(arg);
@@ -11319,7 +12566,7 @@ class VariableMap {
     get(source, arg2, init) {
         if (source == null) return undefined;
         let scope, key;
-        if (isObject(source)) {
+        if (isObject$1(source)) {
             scope = variableScope.parse(source.scope, false);
             key = source.key;
             init = arg2;
@@ -11343,7 +12590,7 @@ class VariableMap {
     }
     has(source, key) {
         if (source == null) return undefined;
-        if (isObject(source)) {
+        if (isObject$1(source)) {
             return this._values.get(variableScope.parse(source.scope, false))?.has(source.key) ?? false;
         }
         const scope = variableScope.parse(source, false);
@@ -11357,12 +12604,12 @@ class VariableMap {
     delete(arg1, arg2) {
         if (arg1 == null) return false;
         let scope, key;
-        if (isObject(arg1)) {
-            if (isIterable(arg1)) {
+        if (isObject$1(arg1)) {
+            if (isIterable$1(arg1)) {
                 let deleted = false;
                 for (const key of arg1){
                     if (!key) continue;
-                    deleted = (isIterable(key) ? this.delete(key[0], key[1]) : this.delete(key)) || deleted;
+                    deleted = (isIterable$1(key) ? this.delete(key[0], key[1]) : this.delete(key)) || deleted;
                 }
                 return deleted;
             }
@@ -11388,12 +12635,12 @@ class VariableMap {
     set(arg1, arg2, arg3) {
         if (arg1 == null) return this;
         let scope, key, value;
-        if (isObject(arg1)) {
-            if (isIterable(arg1)) {
+        if (isObject$1(arg1)) {
+            if (isIterable$1(arg1)) {
                 for (const item of arg1){
                     if (!item) continue;
                     const [key, value] = item;
-                    isIterable(key) ? this.set(key[0], key[1], value) : this.set(key, value);
+                    isIterable$1(key) ? this.set(key[0], key[1], value) : this.set(key, value);
                 }
                 return this;
             }
@@ -11422,7 +12669,7 @@ class VariableMap {
     update(arg1, arg2, update) {
         if (arg1 == null) return undefined;
         let scope, key;
-        if (isObject(arg1)) {
+        if (isObject$1(arg1)) {
             scope = variableScope.parse(arg1.scope);
             key = arg1.key;
             update = arg2;
@@ -11459,7 +12706,7 @@ class VariableSplitStorage {
     _patchers;
     constructor(mappings, patchers){
         this._patchers = patchers;
-        forEach$1(unwrap(mappings), ([scope, mappings])=>forEach$1(mappings, ([prefix, { storage }])=>(this._errorWrappers.set(storage, new SplitStorageErrorWrapperImpl(storage)), this._mappings.set([
+        forEach$1(unwrap$1(mappings), ([scope, mappings])=>forEach$1(mappings, ([prefix, { storage }])=>(this._errorWrappers.set(storage, new SplitStorageErrorWrapperImpl(storage)), this._mappings.set([
                     1 * scope,
                     prefix
                 ], storage))));
@@ -11494,7 +12741,7 @@ class VariableSplitStorage {
         this._storageScopes.forEach((_, storage)=>isWritable(storage) && storage.configureScopeDurations(durations, context));
     }
     async renew(scope, scopeIds, context) {
-        await waitAll(...map$1(this._storageScopes, ([storage, mappedScopes])=>isWritable(storage) && mappedScopes.has(scope) && storage.renew(scope, scopeIds, context)));
+        await waitAll(...map$2(this._storageScopes, ([storage, mappedScopes])=>isWritable(storage) && mappedScopes.has(scope) && storage.renew(scope, scopeIds, context)));
     }
     _splitKeys(keys) {
         const partitions = new Map();
@@ -11559,7 +12806,7 @@ class VariableSplitStorage {
             throw: false
         };
         const results = [];
-        await waitAll(...map$1(this._splitKeys(keys), ([storage, split])=>mergeKeys(results, split, async (variables)=>await this._patchers?.get?.(this._errorWrappers.get(storage), variables, await storage.get(variables, context), context) ?? variables)));
+        await waitAll(...map$2(this._splitKeys(keys), ([storage, split])=>mergeKeys(results, split, async (variables)=>await this._patchers?.get?.(this._errorWrappers.get(storage), variables, await storage.get(variables, context), context) ?? variables)));
         return results;
     }
     async _queryOrHead(method, filters, options, context) {
@@ -11635,7 +12882,7 @@ class VariableSplitStorage {
             throw: false
         };
         const results = [];
-        await waitAll(...map$1(this._splitKeys(variables), ([storage, split])=>isWritable(storage) && mergeKeys(results, split, async (variables)=>await this._patchers?.set?.(this._errorWrappers.get(storage), variables, await storage.set(variables, context), context) ?? variables)));
+        await waitAll(...map$2(this._splitKeys(variables), ([storage, split])=>isWritable(storage) && mergeKeys(results, split, async (variables)=>await this._patchers?.set?.(this._errorWrappers.get(storage), variables, await storage.set(variables, context), context) ?? variables)));
         return results;
     }
     async purge(filters, context) {
@@ -11764,7 +13011,7 @@ class VariableStorageCoordinator {
             if (!storage.writable) {
                 throw new Error(`A getter with an initializer was specified for a non-writable storage.`);
             }
-            const initialValue = await unwrap(getter.init);
+            const initialValue = await unwrap$1(getter.init);
             if (initialValue == null) {
                 continue;
             }
@@ -11865,8 +13112,8 @@ class VariableStorageCoordinator {
         value != null && definition?.validate(value);
         return target;
     }
-    _censorValidate(mapping, target, key, index, variables, censored, consent, scopeIds) {
-        if (scopeIds) {
+    _applyScopeId(key, scopeIds) {
+        if (key && scopeIds) {
             const scope = key.scope;
             const validateScope = (expectedTarget, actualTarget)=>{
                 if (!actualTarget) {
@@ -11878,22 +13125,27 @@ class VariableStorageCoordinator {
                 return undefined;
             };
             const error = scope === VariableScope.Session ? validateScope(scopeIds.sessionId, key.targetId ??= scopeIds.sessionId) : scope === VariableScope.Device ? validateScope(scopeIds.deviceId, key.targetId ??= scopeIds.deviceId) : scope === VariableScope.User ? validateScope(scopeIds.userId, key.targetId ??= scopeIds.userId) : undefined;
-            if (error) {
-                censored.push([
-                    index,
-                    {
-                        source: key,
-                        status: VariableResultStatus.Denied,
-                        error
-                    }
-                ]);
-                return false;
-            }
+            return error;
+        }
+        return undefined;
+    }
+    _censorValidate(mapping, target, key, index, variables, censored, consent, scopeIds) {
+        let error = this._applyScopeId(key, scopeIds);
+        if (error) {
+            censored.push([
+                index,
+                {
+                    source: key,
+                    status: VariableResultStatus.Denied,
+                    error
+                }
+            ]);
+            return false;
         }
         if (target.value == null) {
             return true;
         }
-        if (tryCatch(()=>(this._validate(mapping, target, key, target.value), true), (error)=>(variables[index] = undefined, censored.push([
+        if (tryCatch$1(()=>(this._validate(mapping, target, key, target.value), true), (error)=>(variables[index] = undefined, censored.push([
                 index,
                 {
                     source: key,
@@ -11942,16 +13194,28 @@ class VariableStorageCoordinator {
         const censored = [];
         const consent = this._getContextConsent(context);
         const scopeIds = context?.tracker ?? context?.scopeIds;
-        for (const [getter, i] of rank(keys)){
-            if (!getter || !getter?.init) {
-                continue;
+        keys = keys.map((getter, index)=>{
+            const error = this._applyScopeId(getter, scopeIds);
+            if (error) {
+                censored.push([
+                    index,
+                    {
+                        ...getter,
+                        status: VariableResultStatus.Denied,
+                        error
+                    }
+                ]);
+                return undefined;
             }
-            const mapping = this._getMapping(getter);
-            getter.init = wrap(getter.init, async (original)=>{
-                const result = await original();
-                return result?.value != null && this._censorValidate(mapping, result, getter, i, keys, censored, consent, scopeIds) ? result : undefined;
-            });
-        }
+            if (getter?.init) {
+                const mapping = this._getMapping(getter);
+                getter.init = wrap(getter.init, async (original)=>{
+                    const result = await original();
+                    return result?.value != null && this._censorValidate(mapping, result, getter, index, keys, censored, consent, scopeIds) ? result : undefined;
+                });
+            }
+            return getter;
+        });
         const results = await this._storage.get(keys, context);
         for (const [i, result] of censored){
             results[i] = {
@@ -12077,7 +13341,7 @@ const primitives = {
     }
 };
 forEach$1(primitives, ([, type])=>unlock(primitiveSchema.types).set(type.id, type));
-const inferPrimitiveFromValue = (value)=>isString$1(value) ? primitives.string : isInteger(value) ? primitives.integer : isNumber$1(value) ? primitives.float : undefined;
+const inferPrimitiveFromValue = (value)=>isString$2(value) ? primitives.string : isInteger(value) ? primitives.integer : isNumber$2(value) ? primitives.float : undefined;
 const tryParsePrimitiveType = (schemaProperty)=>{
     if (!schemaProperty) return undefined;
     switch(schemaProperty.type){
@@ -12101,7 +13365,7 @@ const tryParsePrimitiveType = (schemaProperty)=>{
                     return primitives.string;
             }
         default:
-            if (schemaProperty.anyOf?.some((item)=>isNumber$1(item.const) || item.enum?.some(isNumber$1))) {
+            if (schemaProperty.anyOf?.some((item)=>isNumber$2(item.const) || item.enum?.some(isNumber$2))) {
                 // anyOf's with const numbers are interpreted as enums.
                 // We do the fancy pants transformation where the string names are also included as valid enum values
                 // so the criteria is that if any of the anyOf nodes have an `enum` property containing a number, it is also considered a number.
@@ -12122,11 +13386,11 @@ class SchemaVariableSet {
     _variables;
     schemas;
     /** @internal */ constructor(manager, schemas){
-        this.schemas = map$1(schemas, (schema)=>isString$1(schema) ? manager.getSchema(schema, true) : schema);
+        this.schemas = map$2(schemas, (schema)=>isString$2(schema) ? manager.getSchema(schema, true) : schema);
         this._variables = new VariableMap();
         this.schemas.forEach((schema)=>{
             forEach$1(schema.variables, ([[scope, key], variable])=>{
-                this._variables.update(scope, key, (current)=>current != null ? throwError(`The variable '${key}' in ${variableScope.lookup(scope)} scope from the schema '${variable.declaringType.schema.id}' is already defined in the other schema '${current.declaringType.schema.id}'.`) : variable);
+                this._variables.update(scope, key, (current)=>current != null ? throwError$1(`The variable '${key}' in ${variableScope.lookup(scope)} scope from the schema '${variable.declaringType.schema.id}' is already defined in the other schema '${current.declaringType.schema.id}'.`) : variable);
             });
         });
     }
@@ -12140,7 +13404,7 @@ class SchemaVariableSet {
         return this._variables.get(key)?.tryValidate(value);
     }
     validate(key, value) {
-        return tryCatch(this._variables.get(key)?.validate(value), (err)=>new Error(`${formatKey(key)}: ${err}`));
+        return tryCatch$1(this._variables.get(key)?.validate(value), (err)=>new Error(`${formatKey(key)}: ${err}`));
     }
     censor(key, value, consent, validate = true) {
         return ifDefined(this._variables.get(key), (variable)=>(validate && variable.validate(value), !validateConsent(variable, consent) ? undefined : variable.censor(value, consent)));
@@ -12501,870 +13765,856 @@ var code$1 = {};
 
 var scope = {};
 
-var hasRequiredScope;
+(function (exports) {
+	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
+	const code_1 = code$1;
+	class ValueError extends Error {
+	    constructor(name) {
+	        super(`CodeGen: "code" for ${name} not defined`);
+	        this.value = name.value;
+	    }
+	}
+	var UsedValueState;
+	(function (UsedValueState) {
+	    UsedValueState[UsedValueState["Started"] = 0] = "Started";
+	    UsedValueState[UsedValueState["Completed"] = 1] = "Completed";
+	})(UsedValueState = exports.UsedValueState || (exports.UsedValueState = {}));
+	exports.varKinds = {
+	    const: new code_1.Name("const"),
+	    let: new code_1.Name("let"),
+	    var: new code_1.Name("var"),
+	};
+	class Scope {
+	    constructor({ prefixes, parent } = {}) {
+	        this._names = {};
+	        this._prefixes = prefixes;
+	        this._parent = parent;
+	    }
+	    toName(nameOrPrefix) {
+	        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
+	    }
+	    name(prefix) {
+	        return new code_1.Name(this._newName(prefix));
+	    }
+	    _newName(prefix) {
+	        const ng = this._names[prefix] || this._nameGroup(prefix);
+	        return `${prefix}${ng.index++}`;
+	    }
+	    _nameGroup(prefix) {
+	        var _a, _b;
+	        if (((_b = (_a = this._parent) === null || _a === void 0 ? void 0 : _a._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || (this._prefixes && !this._prefixes.has(prefix))) {
+	            throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
+	        }
+	        return (this._names[prefix] = { prefix, index: 0 });
+	    }
+	}
+	exports.Scope = Scope;
+	class ValueScopeName extends code_1.Name {
+	    constructor(prefix, nameStr) {
+	        super(nameStr);
+	        this.prefix = prefix;
+	    }
+	    setValue(value, { property, itemIndex }) {
+	        this.value = value;
+	        this.scopePath = (0, code_1._) `.${new code_1.Name(property)}[${itemIndex}]`;
+	    }
+	}
+	exports.ValueScopeName = ValueScopeName;
+	const line = (0, code_1._) `\n`;
+	class ValueScope extends Scope {
+	    constructor(opts) {
+	        super(opts);
+	        this._values = {};
+	        this._scope = opts.scope;
+	        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
+	    }
+	    get() {
+	        return this._scope;
+	    }
+	    name(prefix) {
+	        return new ValueScopeName(prefix, this._newName(prefix));
+	    }
+	    value(nameOrPrefix, value) {
+	        var _a;
+	        if (value.ref === undefined)
+	            throw new Error("CodeGen: ref must be passed in value");
+	        const name = this.toName(nameOrPrefix);
+	        const { prefix } = name;
+	        const valueKey = (_a = value.key) !== null && _a !== void 0 ? _a : value.ref;
+	        let vs = this._values[prefix];
+	        if (vs) {
+	            const _name = vs.get(valueKey);
+	            if (_name)
+	                return _name;
+	        }
+	        else {
+	            vs = this._values[prefix] = new Map();
+	        }
+	        vs.set(valueKey, name);
+	        const s = this._scope[prefix] || (this._scope[prefix] = []);
+	        const itemIndex = s.length;
+	        s[itemIndex] = value.ref;
+	        name.setValue(value, { property: prefix, itemIndex });
+	        return name;
+	    }
+	    getValue(prefix, keyOrRef) {
+	        const vs = this._values[prefix];
+	        if (!vs)
+	            return;
+	        return vs.get(keyOrRef);
+	    }
+	    scopeRefs(scopeName, values = this._values) {
+	        return this._reduceValues(values, (name) => {
+	            if (name.scopePath === undefined)
+	                throw new Error(`CodeGen: name "${name}" has no value`);
+	            return (0, code_1._) `${scopeName}${name.scopePath}`;
+	        });
+	    }
+	    scopeCode(values = this._values, usedValues, getCode) {
+	        return this._reduceValues(values, (name) => {
+	            if (name.value === undefined)
+	                throw new Error(`CodeGen: name "${name}" has no value`);
+	            return name.value.code;
+	        }, usedValues, getCode);
+	    }
+	    _reduceValues(values, valueCode, usedValues = {}, getCode) {
+	        let code = code_1.nil;
+	        for (const prefix in values) {
+	            const vs = values[prefix];
+	            if (!vs)
+	                continue;
+	            const nameSet = (usedValues[prefix] = usedValues[prefix] || new Map());
+	            vs.forEach((name) => {
+	                if (nameSet.has(name))
+	                    return;
+	                nameSet.set(name, UsedValueState.Started);
+	                let c = valueCode(name);
+	                if (c) {
+	                    const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
+	                    code = (0, code_1._) `${code}${def} ${name} = ${c};${this.opts._n}`;
+	                }
+	                else if ((c = getCode === null || getCode === void 0 ? void 0 : getCode(name))) {
+	                    code = (0, code_1._) `${code}${c}${this.opts._n}`;
+	                }
+	                else {
+	                    throw new ValueError(name);
+	                }
+	                nameSet.set(name, UsedValueState.Completed);
+	            });
+	        }
+	        return code;
+	    }
+	}
+	exports.ValueScope = ValueScope;
+	
+} (scope));
 
-function requireScope () {
-	if (hasRequiredScope) return scope;
-	hasRequiredScope = 1;
-	(function (exports) {
-		Object.defineProperty(exports, "__esModule", { value: true });
-		exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
-		const code_1 = code$1;
-		class ValueError extends Error {
-		    constructor(name) {
-		        super(`CodeGen: "code" for ${name} not defined`);
-		        this.value = name.value;
-		    }
-		}
-		var UsedValueState;
-		(function (UsedValueState) {
-		    UsedValueState[UsedValueState["Started"] = 0] = "Started";
-		    UsedValueState[UsedValueState["Completed"] = 1] = "Completed";
-		})(UsedValueState = exports.UsedValueState || (exports.UsedValueState = {}));
-		exports.varKinds = {
-		    const: new code_1.Name("const"),
-		    let: new code_1.Name("let"),
-		    var: new code_1.Name("var"),
-		};
-		class Scope {
-		    constructor({ prefixes, parent } = {}) {
-		        this._names = {};
-		        this._prefixes = prefixes;
-		        this._parent = parent;
-		    }
-		    toName(nameOrPrefix) {
-		        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
-		    }
-		    name(prefix) {
-		        return new code_1.Name(this._newName(prefix));
-		    }
-		    _newName(prefix) {
-		        const ng = this._names[prefix] || this._nameGroup(prefix);
-		        return `${prefix}${ng.index++}`;
-		    }
-		    _nameGroup(prefix) {
-		        var _a, _b;
-		        if (((_b = (_a = this._parent) === null || _a === void 0 ? void 0 : _a._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || (this._prefixes && !this._prefixes.has(prefix))) {
-		            throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
-		        }
-		        return (this._names[prefix] = { prefix, index: 0 });
-		    }
-		}
-		exports.Scope = Scope;
-		class ValueScopeName extends code_1.Name {
-		    constructor(prefix, nameStr) {
-		        super(nameStr);
-		        this.prefix = prefix;
-		    }
-		    setValue(value, { property, itemIndex }) {
-		        this.value = value;
-		        this.scopePath = (0, code_1._) `.${new code_1.Name(property)}[${itemIndex}]`;
-		    }
-		}
-		exports.ValueScopeName = ValueScopeName;
-		const line = (0, code_1._) `\n`;
-		class ValueScope extends Scope {
-		    constructor(opts) {
-		        super(opts);
-		        this._values = {};
-		        this._scope = opts.scope;
-		        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
-		    }
-		    get() {
-		        return this._scope;
-		    }
-		    name(prefix) {
-		        return new ValueScopeName(prefix, this._newName(prefix));
-		    }
-		    value(nameOrPrefix, value) {
-		        var _a;
-		        if (value.ref === undefined)
-		            throw new Error("CodeGen: ref must be passed in value");
-		        const name = this.toName(nameOrPrefix);
-		        const { prefix } = name;
-		        const valueKey = (_a = value.key) !== null && _a !== void 0 ? _a : value.ref;
-		        let vs = this._values[prefix];
-		        if (vs) {
-		            const _name = vs.get(valueKey);
-		            if (_name)
-		                return _name;
-		        }
-		        else {
-		            vs = this._values[prefix] = new Map();
-		        }
-		        vs.set(valueKey, name);
-		        const s = this._scope[prefix] || (this._scope[prefix] = []);
-		        const itemIndex = s.length;
-		        s[itemIndex] = value.ref;
-		        name.setValue(value, { property: prefix, itemIndex });
-		        return name;
-		    }
-		    getValue(prefix, keyOrRef) {
-		        const vs = this._values[prefix];
-		        if (!vs)
-		            return;
-		        return vs.get(keyOrRef);
-		    }
-		    scopeRefs(scopeName, values = this._values) {
-		        return this._reduceValues(values, (name) => {
-		            if (name.scopePath === undefined)
-		                throw new Error(`CodeGen: name "${name}" has no value`);
-		            return (0, code_1._) `${scopeName}${name.scopePath}`;
-		        });
-		    }
-		    scopeCode(values = this._values, usedValues, getCode) {
-		        return this._reduceValues(values, (name) => {
-		            if (name.value === undefined)
-		                throw new Error(`CodeGen: name "${name}" has no value`);
-		            return name.value.code;
-		        }, usedValues, getCode);
-		    }
-		    _reduceValues(values, valueCode, usedValues = {}, getCode) {
-		        let code = code_1.nil;
-		        for (const prefix in values) {
-		            const vs = values[prefix];
-		            if (!vs)
-		                continue;
-		            const nameSet = (usedValues[prefix] = usedValues[prefix] || new Map());
-		            vs.forEach((name) => {
-		                if (nameSet.has(name))
-		                    return;
-		                nameSet.set(name, UsedValueState.Started);
-		                let c = valueCode(name);
-		                if (c) {
-		                    const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
-		                    code = (0, code_1._) `${code}${def} ${name} = ${c};${this.opts._n}`;
-		                }
-		                else if ((c = getCode === null || getCode === void 0 ? void 0 : getCode(name))) {
-		                    code = (0, code_1._) `${code}${c}${this.opts._n}`;
-		                }
-		                else {
-		                    throw new ValueError(name);
-		                }
-		                nameSet.set(name, UsedValueState.Completed);
-		            });
-		        }
-		        return code;
-		    }
-		}
-		exports.ValueScope = ValueScope;
-		
-	} (scope));
-	return scope;
-}
-
-var hasRequiredCodegen;
-
-function requireCodegen () {
-	if (hasRequiredCodegen) return codegen;
-	hasRequiredCodegen = 1;
-	(function (exports) {
-		Object.defineProperty(exports, "__esModule", { value: true });
-		exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
-		const code_1 = code$1;
-		const scope_1 = requireScope();
-		var code_2 = code$1;
-		Object.defineProperty(exports, "_", { enumerable: true, get: function () { return code_2._; } });
-		Object.defineProperty(exports, "str", { enumerable: true, get: function () { return code_2.str; } });
-		Object.defineProperty(exports, "strConcat", { enumerable: true, get: function () { return code_2.strConcat; } });
-		Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return code_2.nil; } });
-		Object.defineProperty(exports, "getProperty", { enumerable: true, get: function () { return code_2.getProperty; } });
-		Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return code_2.stringify; } });
-		Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function () { return code_2.regexpCode; } });
-		Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return code_2.Name; } });
-		var scope_2 = requireScope();
-		Object.defineProperty(exports, "Scope", { enumerable: true, get: function () { return scope_2.Scope; } });
-		Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function () { return scope_2.ValueScope; } });
-		Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function () { return scope_2.ValueScopeName; } });
-		Object.defineProperty(exports, "varKinds", { enumerable: true, get: function () { return scope_2.varKinds; } });
-		exports.operators = {
-		    GT: new code_1._Code(">"),
-		    GTE: new code_1._Code(">="),
-		    LT: new code_1._Code("<"),
-		    LTE: new code_1._Code("<="),
-		    EQ: new code_1._Code("==="),
-		    NEQ: new code_1._Code("!=="),
-		    NOT: new code_1._Code("!"),
-		    OR: new code_1._Code("||"),
-		    AND: new code_1._Code("&&"),
-		    ADD: new code_1._Code("+"),
-		};
-		class Node {
-		    optimizeNodes() {
-		        return this;
-		    }
-		    optimizeNames(_names, _constants) {
-		        return this;
-		    }
-		}
-		class Def extends Node {
-		    constructor(varKind, name, rhs) {
-		        super();
-		        this.varKind = varKind;
-		        this.name = name;
-		        this.rhs = rhs;
-		    }
-		    render({ es5, _n }) {
-		        const varKind = es5 ? scope_1.varKinds.var : this.varKind;
-		        const rhs = this.rhs === undefined ? "" : ` = ${this.rhs}`;
-		        return `${varKind} ${this.name}${rhs};` + _n;
-		    }
-		    optimizeNames(names, constants) {
-		        if (!names[this.name.str])
-		            return;
-		        if (this.rhs)
-		            this.rhs = optimizeExpr(this.rhs, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
-		    }
-		}
-		class Assign extends Node {
-		    constructor(lhs, rhs, sideEffects) {
-		        super();
-		        this.lhs = lhs;
-		        this.rhs = rhs;
-		        this.sideEffects = sideEffects;
-		    }
-		    render({ _n }) {
-		        return `${this.lhs} = ${this.rhs};` + _n;
-		    }
-		    optimizeNames(names, constants) {
-		        if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
-		            return;
-		        this.rhs = optimizeExpr(this.rhs, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        const names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
-		        return addExprNames(names, this.rhs);
-		    }
-		}
-		class AssignOp extends Assign {
-		    constructor(lhs, op, rhs, sideEffects) {
-		        super(lhs, rhs, sideEffects);
-		        this.op = op;
-		    }
-		    render({ _n }) {
-		        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
-		    }
-		}
-		class Label extends Node {
-		    constructor(label) {
-		        super();
-		        this.label = label;
-		        this.names = {};
-		    }
-		    render({ _n }) {
-		        return `${this.label}:` + _n;
-		    }
-		}
-		class Break extends Node {
-		    constructor(label) {
-		        super();
-		        this.label = label;
-		        this.names = {};
-		    }
-		    render({ _n }) {
-		        const label = this.label ? ` ${this.label}` : "";
-		        return `break${label};` + _n;
-		    }
-		}
-		class Throw extends Node {
-		    constructor(error) {
-		        super();
-		        this.error = error;
-		    }
-		    render({ _n }) {
-		        return `throw ${this.error};` + _n;
-		    }
-		    get names() {
-		        return this.error.names;
-		    }
-		}
-		class AnyCode extends Node {
-		    constructor(code) {
-		        super();
-		        this.code = code;
-		    }
-		    render({ _n }) {
-		        return `${this.code};` + _n;
-		    }
-		    optimizeNodes() {
-		        return `${this.code}` ? this : undefined;
-		    }
-		    optimizeNames(names, constants) {
-		        this.code = optimizeExpr(this.code, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
-		    }
-		}
-		class ParentNode extends Node {
-		    constructor(nodes = []) {
-		        super();
-		        this.nodes = nodes;
-		    }
-		    render(opts) {
-		        return this.nodes.reduce((code, n) => code + n.render(opts), "");
-		    }
-		    optimizeNodes() {
-		        const { nodes } = this;
-		        let i = nodes.length;
-		        while (i--) {
-		            const n = nodes[i].optimizeNodes();
-		            if (Array.isArray(n))
-		                nodes.splice(i, 1, ...n);
-		            else if (n)
-		                nodes[i] = n;
-		            else
-		                nodes.splice(i, 1);
-		        }
-		        return nodes.length > 0 ? this : undefined;
-		    }
-		    optimizeNames(names, constants) {
-		        const { nodes } = this;
-		        let i = nodes.length;
-		        while (i--) {
-		            // iterating backwards improves 1-pass optimization
-		            const n = nodes[i];
-		            if (n.optimizeNames(names, constants))
-		                continue;
-		            subtractNames(names, n.names);
-		            nodes.splice(i, 1);
-		        }
-		        return nodes.length > 0 ? this : undefined;
-		    }
-		    get names() {
-		        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
-		    }
-		}
-		class BlockNode extends ParentNode {
-		    render(opts) {
-		        return "{" + opts._n + super.render(opts) + "}" + opts._n;
-		    }
-		}
-		class Root extends ParentNode {
-		}
-		class Else extends BlockNode {
-		}
-		Else.kind = "else";
-		class If extends BlockNode {
-		    constructor(condition, nodes) {
-		        super(nodes);
-		        this.condition = condition;
-		    }
-		    render(opts) {
-		        let code = `if(${this.condition})` + super.render(opts);
-		        if (this.else)
-		            code += "else " + this.else.render(opts);
-		        return code;
-		    }
-		    optimizeNodes() {
-		        super.optimizeNodes();
-		        const cond = this.condition;
-		        if (cond === true)
-		            return this.nodes; // else is ignored here
-		        let e = this.else;
-		        if (e) {
-		            const ns = e.optimizeNodes();
-		            e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
-		        }
-		        if (e) {
-		            if (cond === false)
-		                return e instanceof If ? e : e.nodes;
-		            if (this.nodes.length)
-		                return this;
-		            return new If(not(cond), e instanceof If ? [e] : e.nodes);
-		        }
-		        if (cond === false || !this.nodes.length)
-		            return undefined;
-		        return this;
-		    }
-		    optimizeNames(names, constants) {
-		        var _a;
-		        this.else = (_a = this.else) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
-		        if (!(super.optimizeNames(names, constants) || this.else))
-		            return;
-		        this.condition = optimizeExpr(this.condition, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        const names = super.names;
-		        addExprNames(names, this.condition);
-		        if (this.else)
-		            addNames(names, this.else.names);
-		        return names;
-		    }
-		}
-		If.kind = "if";
-		class For extends BlockNode {
-		}
-		For.kind = "for";
-		class ForLoop extends For {
-		    constructor(iteration) {
-		        super();
-		        this.iteration = iteration;
-		    }
-		    render(opts) {
-		        return `for(${this.iteration})` + super.render(opts);
-		    }
-		    optimizeNames(names, constants) {
-		        if (!super.optimizeNames(names, constants))
-		            return;
-		        this.iteration = optimizeExpr(this.iteration, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        return addNames(super.names, this.iteration.names);
-		    }
-		}
-		class ForRange extends For {
-		    constructor(varKind, name, from, to) {
-		        super();
-		        this.varKind = varKind;
-		        this.name = name;
-		        this.from = from;
-		        this.to = to;
-		    }
-		    render(opts) {
-		        const varKind = opts.es5 ? scope_1.varKinds.var : this.varKind;
-		        const { name, from, to } = this;
-		        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
-		    }
-		    get names() {
-		        const names = addExprNames(super.names, this.from);
-		        return addExprNames(names, this.to);
-		    }
-		}
-		class ForIter extends For {
-		    constructor(loop, varKind, name, iterable) {
-		        super();
-		        this.loop = loop;
-		        this.varKind = varKind;
-		        this.name = name;
-		        this.iterable = iterable;
-		    }
-		    render(opts) {
-		        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
-		    }
-		    optimizeNames(names, constants) {
-		        if (!super.optimizeNames(names, constants))
-		            return;
-		        this.iterable = optimizeExpr(this.iterable, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        return addNames(super.names, this.iterable.names);
-		    }
-		}
-		class Func extends BlockNode {
-		    constructor(name, args, async) {
-		        super();
-		        this.name = name;
-		        this.args = args;
-		        this.async = async;
-		    }
-		    render(opts) {
-		        const _async = this.async ? "async " : "";
-		        return `${_async}function ${this.name}(${this.args})` + super.render(opts);
-		    }
-		}
-		Func.kind = "func";
-		class Return extends ParentNode {
-		    render(opts) {
-		        return "return " + super.render(opts);
-		    }
-		}
-		Return.kind = "return";
-		class Try extends BlockNode {
-		    render(opts) {
-		        let code = "try" + super.render(opts);
-		        if (this.catch)
-		            code += this.catch.render(opts);
-		        if (this.finally)
-		            code += this.finally.render(opts);
-		        return code;
-		    }
-		    optimizeNodes() {
-		        var _a, _b;
-		        super.optimizeNodes();
-		        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNodes();
-		        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
-		        return this;
-		    }
-		    optimizeNames(names, constants) {
-		        var _a, _b;
-		        super.optimizeNames(names, constants);
-		        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
-		        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
-		        return this;
-		    }
-		    get names() {
-		        const names = super.names;
-		        if (this.catch)
-		            addNames(names, this.catch.names);
-		        if (this.finally)
-		            addNames(names, this.finally.names);
-		        return names;
-		    }
-		}
-		class Catch extends BlockNode {
-		    constructor(error) {
-		        super();
-		        this.error = error;
-		    }
-		    render(opts) {
-		        return `catch(${this.error})` + super.render(opts);
-		    }
-		}
-		Catch.kind = "catch";
-		class Finally extends BlockNode {
-		    render(opts) {
-		        return "finally" + super.render(opts);
-		    }
-		}
-		Finally.kind = "finally";
-		class CodeGen {
-		    constructor(extScope, opts = {}) {
-		        this._values = {};
-		        this._blockStarts = [];
-		        this._constants = {};
-		        this.opts = { ...opts, _n: opts.lines ? "\n" : "" };
-		        this._extScope = extScope;
-		        this._scope = new scope_1.Scope({ parent: extScope });
-		        this._nodes = [new Root()];
-		    }
-		    toString() {
-		        return this._root.render(this.opts);
-		    }
-		    // returns unique name in the internal scope
-		    name(prefix) {
-		        return this._scope.name(prefix);
-		    }
-		    // reserves unique name in the external scope
-		    scopeName(prefix) {
-		        return this._extScope.name(prefix);
-		    }
-		    // reserves unique name in the external scope and assigns value to it
-		    scopeValue(prefixOrName, value) {
-		        const name = this._extScope.value(prefixOrName, value);
-		        const vs = this._values[name.prefix] || (this._values[name.prefix] = new Set());
-		        vs.add(name);
-		        return name;
-		    }
-		    getScopeValue(prefix, keyOrRef) {
-		        return this._extScope.getValue(prefix, keyOrRef);
-		    }
-		    // return code that assigns values in the external scope to the names that are used internally
-		    // (same names that were returned by gen.scopeName or gen.scopeValue)
-		    scopeRefs(scopeName) {
-		        return this._extScope.scopeRefs(scopeName, this._values);
-		    }
-		    scopeCode() {
-		        return this._extScope.scopeCode(this._values);
-		    }
-		    _def(varKind, nameOrPrefix, rhs, constant) {
-		        const name = this._scope.toName(nameOrPrefix);
-		        if (rhs !== undefined && constant)
-		            this._constants[name.str] = rhs;
-		        this._leafNode(new Def(varKind, name, rhs));
-		        return name;
-		    }
-		    // `const` declaration (`var` in es5 mode)
-		    const(nameOrPrefix, rhs, _constant) {
-		        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
-		    }
-		    // `let` declaration with optional assignment (`var` in es5 mode)
-		    let(nameOrPrefix, rhs, _constant) {
-		        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
-		    }
-		    // `var` declaration with optional assignment
-		    var(nameOrPrefix, rhs, _constant) {
-		        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
-		    }
-		    // assignment code
-		    assign(lhs, rhs, sideEffects) {
-		        return this._leafNode(new Assign(lhs, rhs, sideEffects));
-		    }
-		    // `+=` code
-		    add(lhs, rhs) {
-		        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
-		    }
-		    // appends passed SafeExpr to code or executes Block
-		    code(c) {
-		        if (typeof c == "function")
-		            c();
-		        else if (c !== code_1.nil)
-		            this._leafNode(new AnyCode(c));
-		        return this;
-		    }
-		    // returns code for object literal for the passed argument list of key-value pairs
-		    object(...keyValues) {
-		        const code = ["{"];
-		        for (const [key, value] of keyValues) {
-		            if (code.length > 1)
-		                code.push(",");
-		            code.push(key);
-		            if (key !== value || this.opts.es5) {
-		                code.push(":");
-		                (0, code_1.addCodeArg)(code, value);
-		            }
-		        }
-		        code.push("}");
-		        return new code_1._Code(code);
-		    }
-		    // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
-		    if(condition, thenBody, elseBody) {
-		        this._blockNode(new If(condition));
-		        if (thenBody && elseBody) {
-		            this.code(thenBody).else().code(elseBody).endIf();
-		        }
-		        else if (thenBody) {
-		            this.code(thenBody).endIf();
-		        }
-		        else if (elseBody) {
-		            throw new Error('CodeGen: "else" body without "then" body');
-		        }
-		        return this;
-		    }
-		    // `else if` clause - invalid without `if` or after `else` clauses
-		    elseIf(condition) {
-		        return this._elseNode(new If(condition));
-		    }
-		    // `else` clause - only valid after `if` or `else if` clauses
-		    else() {
-		        return this._elseNode(new Else());
-		    }
-		    // end `if` statement (needed if gen.if was used only with condition)
-		    endIf() {
-		        return this._endBlockNode(If, Else);
-		    }
-		    _for(node, forBody) {
-		        this._blockNode(node);
-		        if (forBody)
-		            this.code(forBody).endFor();
-		        return this;
-		    }
-		    // a generic `for` clause (or statement if `forBody` is passed)
-		    for(iteration, forBody) {
-		        return this._for(new ForLoop(iteration), forBody);
-		    }
-		    // `for` statement for a range of values
-		    forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
-		        const name = this._scope.toName(nameOrPrefix);
-		        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
-		    }
-		    // `for-of` statement (in es5 mode replace with a normal for loop)
-		    forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
-		        const name = this._scope.toName(nameOrPrefix);
-		        if (this.opts.es5) {
-		            const arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
-		            return this.forRange("_i", 0, (0, code_1._) `${arr}.length`, (i) => {
-		                this.var(name, (0, code_1._) `${arr}[${i}]`);
-		                forBody(name);
-		            });
-		        }
-		        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
-		    }
-		    // `for-in` statement.
-		    // With option `ownProperties` replaced with a `for-of` loop for object keys
-		    forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
-		        if (this.opts.ownProperties) {
-		            return this.forOf(nameOrPrefix, (0, code_1._) `Object.keys(${obj})`, forBody);
-		        }
-		        const name = this._scope.toName(nameOrPrefix);
-		        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
-		    }
-		    // end `for` loop
-		    endFor() {
-		        return this._endBlockNode(For);
-		    }
-		    // `label` statement
-		    label(label) {
-		        return this._leafNode(new Label(label));
-		    }
-		    // `break` statement
-		    break(label) {
-		        return this._leafNode(new Break(label));
-		    }
-		    // `return` statement
-		    return(value) {
-		        const node = new Return();
-		        this._blockNode(node);
-		        this.code(value);
-		        if (node.nodes.length !== 1)
-		            throw new Error('CodeGen: "return" should have one node');
-		        return this._endBlockNode(Return);
-		    }
-		    // `try` statement
-		    try(tryBody, catchCode, finallyCode) {
-		        if (!catchCode && !finallyCode)
-		            throw new Error('CodeGen: "try" without "catch" and "finally"');
-		        const node = new Try();
-		        this._blockNode(node);
-		        this.code(tryBody);
-		        if (catchCode) {
-		            const error = this.name("e");
-		            this._currNode = node.catch = new Catch(error);
-		            catchCode(error);
-		        }
-		        if (finallyCode) {
-		            this._currNode = node.finally = new Finally();
-		            this.code(finallyCode);
-		        }
-		        return this._endBlockNode(Catch, Finally);
-		    }
-		    // `throw` statement
-		    throw(error) {
-		        return this._leafNode(new Throw(error));
-		    }
-		    // start self-balancing block
-		    block(body, nodeCount) {
-		        this._blockStarts.push(this._nodes.length);
-		        if (body)
-		            this.code(body).endBlock(nodeCount);
-		        return this;
-		    }
-		    // end the current self-balancing block
-		    endBlock(nodeCount) {
-		        const len = this._blockStarts.pop();
-		        if (len === undefined)
-		            throw new Error("CodeGen: not in self-balancing block");
-		        const toClose = this._nodes.length - len;
-		        if (toClose < 0 || (nodeCount !== undefined && toClose !== nodeCount)) {
-		            throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
-		        }
-		        this._nodes.length = len;
-		        return this;
-		    }
-		    // `function` heading (or definition if funcBody is passed)
-		    func(name, args = code_1.nil, async, funcBody) {
-		        this._blockNode(new Func(name, args, async));
-		        if (funcBody)
-		            this.code(funcBody).endFunc();
-		        return this;
-		    }
-		    // end function definition
-		    endFunc() {
-		        return this._endBlockNode(Func);
-		    }
-		    optimize(n = 1) {
-		        while (n-- > 0) {
-		            this._root.optimizeNodes();
-		            this._root.optimizeNames(this._root.names, this._constants);
-		        }
-		    }
-		    _leafNode(node) {
-		        this._currNode.nodes.push(node);
-		        return this;
-		    }
-		    _blockNode(node) {
-		        this._currNode.nodes.push(node);
-		        this._nodes.push(node);
-		    }
-		    _endBlockNode(N1, N2) {
-		        const n = this._currNode;
-		        if (n instanceof N1 || (N2 && n instanceof N2)) {
-		            this._nodes.pop();
-		            return this;
-		        }
-		        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
-		    }
-		    _elseNode(node) {
-		        const n = this._currNode;
-		        if (!(n instanceof If)) {
-		            throw new Error('CodeGen: "else" without "if"');
-		        }
-		        this._currNode = n.else = node;
-		        return this;
-		    }
-		    get _root() {
-		        return this._nodes[0];
-		    }
-		    get _currNode() {
-		        const ns = this._nodes;
-		        return ns[ns.length - 1];
-		    }
-		    set _currNode(node) {
-		        const ns = this._nodes;
-		        ns[ns.length - 1] = node;
-		    }
-		}
-		exports.CodeGen = CodeGen;
-		function addNames(names, from) {
-		    for (const n in from)
-		        names[n] = (names[n] || 0) + (from[n] || 0);
-		    return names;
-		}
-		function addExprNames(names, from) {
-		    return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
-		}
-		function optimizeExpr(expr, names, constants) {
-		    if (expr instanceof code_1.Name)
-		        return replaceName(expr);
-		    if (!canOptimize(expr))
-		        return expr;
-		    return new code_1._Code(expr._items.reduce((items, c) => {
-		        if (c instanceof code_1.Name)
-		            c = replaceName(c);
-		        if (c instanceof code_1._Code)
-		            items.push(...c._items);
-		        else
-		            items.push(c);
-		        return items;
-		    }, []));
-		    function replaceName(n) {
-		        const c = constants[n.str];
-		        if (c === undefined || names[n.str] !== 1)
-		            return n;
-		        delete names[n.str];
-		        return c;
-		    }
-		    function canOptimize(e) {
-		        return (e instanceof code_1._Code &&
-		            e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== undefined));
-		    }
-		}
-		function subtractNames(names, from) {
-		    for (const n in from)
-		        names[n] = (names[n] || 0) - (from[n] || 0);
-		}
-		function not(x) {
-		    return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._) `!${par(x)}`;
-		}
-		exports.not = not;
-		const andCode = mappend(exports.operators.AND);
-		// boolean AND (&&) expression with the passed arguments
-		function and(...args) {
-		    return args.reduce(andCode);
-		}
-		exports.and = and;
-		const orCode = mappend(exports.operators.OR);
-		// boolean OR (||) expression with the passed arguments
-		function or(...args) {
-		    return args.reduce(orCode);
-		}
-		exports.or = or;
-		function mappend(op) {
-		    return (x, y) => (x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._) `${par(x)} ${op} ${par(y)}`);
-		}
-		function par(x) {
-		    return x instanceof code_1.Name ? x : (0, code_1._) `(${x})`;
-		}
-		
-	} (codegen));
-	return codegen;
-}
+(function (exports) {
+	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
+	const code_1 = code$1;
+	const scope_1 = scope;
+	var code_2 = code$1;
+	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return code_2._; } });
+	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return code_2.str; } });
+	Object.defineProperty(exports, "strConcat", { enumerable: true, get: function () { return code_2.strConcat; } });
+	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return code_2.nil; } });
+	Object.defineProperty(exports, "getProperty", { enumerable: true, get: function () { return code_2.getProperty; } });
+	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return code_2.stringify; } });
+	Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function () { return code_2.regexpCode; } });
+	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return code_2.Name; } });
+	var scope_2 = scope;
+	Object.defineProperty(exports, "Scope", { enumerable: true, get: function () { return scope_2.Scope; } });
+	Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function () { return scope_2.ValueScope; } });
+	Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function () { return scope_2.ValueScopeName; } });
+	Object.defineProperty(exports, "varKinds", { enumerable: true, get: function () { return scope_2.varKinds; } });
+	exports.operators = {
+	    GT: new code_1._Code(">"),
+	    GTE: new code_1._Code(">="),
+	    LT: new code_1._Code("<"),
+	    LTE: new code_1._Code("<="),
+	    EQ: new code_1._Code("==="),
+	    NEQ: new code_1._Code("!=="),
+	    NOT: new code_1._Code("!"),
+	    OR: new code_1._Code("||"),
+	    AND: new code_1._Code("&&"),
+	    ADD: new code_1._Code("+"),
+	};
+	class Node {
+	    optimizeNodes() {
+	        return this;
+	    }
+	    optimizeNames(_names, _constants) {
+	        return this;
+	    }
+	}
+	class Def extends Node {
+	    constructor(varKind, name, rhs) {
+	        super();
+	        this.varKind = varKind;
+	        this.name = name;
+	        this.rhs = rhs;
+	    }
+	    render({ es5, _n }) {
+	        const varKind = es5 ? scope_1.varKinds.var : this.varKind;
+	        const rhs = this.rhs === undefined ? "" : ` = ${this.rhs}`;
+	        return `${varKind} ${this.name}${rhs};` + _n;
+	    }
+	    optimizeNames(names, constants) {
+	        if (!names[this.name.str])
+	            return;
+	        if (this.rhs)
+	            this.rhs = optimizeExpr(this.rhs, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
+	    }
+	}
+	class Assign extends Node {
+	    constructor(lhs, rhs, sideEffects) {
+	        super();
+	        this.lhs = lhs;
+	        this.rhs = rhs;
+	        this.sideEffects = sideEffects;
+	    }
+	    render({ _n }) {
+	        return `${this.lhs} = ${this.rhs};` + _n;
+	    }
+	    optimizeNames(names, constants) {
+	        if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
+	            return;
+	        this.rhs = optimizeExpr(this.rhs, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        const names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
+	        return addExprNames(names, this.rhs);
+	    }
+	}
+	class AssignOp extends Assign {
+	    constructor(lhs, op, rhs, sideEffects) {
+	        super(lhs, rhs, sideEffects);
+	        this.op = op;
+	    }
+	    render({ _n }) {
+	        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
+	    }
+	}
+	class Label extends Node {
+	    constructor(label) {
+	        super();
+	        this.label = label;
+	        this.names = {};
+	    }
+	    render({ _n }) {
+	        return `${this.label}:` + _n;
+	    }
+	}
+	class Break extends Node {
+	    constructor(label) {
+	        super();
+	        this.label = label;
+	        this.names = {};
+	    }
+	    render({ _n }) {
+	        const label = this.label ? ` ${this.label}` : "";
+	        return `break${label};` + _n;
+	    }
+	}
+	class Throw extends Node {
+	    constructor(error) {
+	        super();
+	        this.error = error;
+	    }
+	    render({ _n }) {
+	        return `throw ${this.error};` + _n;
+	    }
+	    get names() {
+	        return this.error.names;
+	    }
+	}
+	class AnyCode extends Node {
+	    constructor(code) {
+	        super();
+	        this.code = code;
+	    }
+	    render({ _n }) {
+	        return `${this.code};` + _n;
+	    }
+	    optimizeNodes() {
+	        return `${this.code}` ? this : undefined;
+	    }
+	    optimizeNames(names, constants) {
+	        this.code = optimizeExpr(this.code, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
+	    }
+	}
+	class ParentNode extends Node {
+	    constructor(nodes = []) {
+	        super();
+	        this.nodes = nodes;
+	    }
+	    render(opts) {
+	        return this.nodes.reduce((code, n) => code + n.render(opts), "");
+	    }
+	    optimizeNodes() {
+	        const { nodes } = this;
+	        let i = nodes.length;
+	        while (i--) {
+	            const n = nodes[i].optimizeNodes();
+	            if (Array.isArray(n))
+	                nodes.splice(i, 1, ...n);
+	            else if (n)
+	                nodes[i] = n;
+	            else
+	                nodes.splice(i, 1);
+	        }
+	        return nodes.length > 0 ? this : undefined;
+	    }
+	    optimizeNames(names, constants) {
+	        const { nodes } = this;
+	        let i = nodes.length;
+	        while (i--) {
+	            // iterating backwards improves 1-pass optimization
+	            const n = nodes[i];
+	            if (n.optimizeNames(names, constants))
+	                continue;
+	            subtractNames(names, n.names);
+	            nodes.splice(i, 1);
+	        }
+	        return nodes.length > 0 ? this : undefined;
+	    }
+	    get names() {
+	        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
+	    }
+	}
+	class BlockNode extends ParentNode {
+	    render(opts) {
+	        return "{" + opts._n + super.render(opts) + "}" + opts._n;
+	    }
+	}
+	class Root extends ParentNode {
+	}
+	class Else extends BlockNode {
+	}
+	Else.kind = "else";
+	class If extends BlockNode {
+	    constructor(condition, nodes) {
+	        super(nodes);
+	        this.condition = condition;
+	    }
+	    render(opts) {
+	        let code = `if(${this.condition})` + super.render(opts);
+	        if (this.else)
+	            code += "else " + this.else.render(opts);
+	        return code;
+	    }
+	    optimizeNodes() {
+	        super.optimizeNodes();
+	        const cond = this.condition;
+	        if (cond === true)
+	            return this.nodes; // else is ignored here
+	        let e = this.else;
+	        if (e) {
+	            const ns = e.optimizeNodes();
+	            e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
+	        }
+	        if (e) {
+	            if (cond === false)
+	                return e instanceof If ? e : e.nodes;
+	            if (this.nodes.length)
+	                return this;
+	            return new If(not(cond), e instanceof If ? [e] : e.nodes);
+	        }
+	        if (cond === false || !this.nodes.length)
+	            return undefined;
+	        return this;
+	    }
+	    optimizeNames(names, constants) {
+	        var _a;
+	        this.else = (_a = this.else) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+	        if (!(super.optimizeNames(names, constants) || this.else))
+	            return;
+	        this.condition = optimizeExpr(this.condition, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        const names = super.names;
+	        addExprNames(names, this.condition);
+	        if (this.else)
+	            addNames(names, this.else.names);
+	        return names;
+	    }
+	}
+	If.kind = "if";
+	class For extends BlockNode {
+	}
+	For.kind = "for";
+	class ForLoop extends For {
+	    constructor(iteration) {
+	        super();
+	        this.iteration = iteration;
+	    }
+	    render(opts) {
+	        return `for(${this.iteration})` + super.render(opts);
+	    }
+	    optimizeNames(names, constants) {
+	        if (!super.optimizeNames(names, constants))
+	            return;
+	        this.iteration = optimizeExpr(this.iteration, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        return addNames(super.names, this.iteration.names);
+	    }
+	}
+	class ForRange extends For {
+	    constructor(varKind, name, from, to) {
+	        super();
+	        this.varKind = varKind;
+	        this.name = name;
+	        this.from = from;
+	        this.to = to;
+	    }
+	    render(opts) {
+	        const varKind = opts.es5 ? scope_1.varKinds.var : this.varKind;
+	        const { name, from, to } = this;
+	        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
+	    }
+	    get names() {
+	        const names = addExprNames(super.names, this.from);
+	        return addExprNames(names, this.to);
+	    }
+	}
+	class ForIter extends For {
+	    constructor(loop, varKind, name, iterable) {
+	        super();
+	        this.loop = loop;
+	        this.varKind = varKind;
+	        this.name = name;
+	        this.iterable = iterable;
+	    }
+	    render(opts) {
+	        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
+	    }
+	    optimizeNames(names, constants) {
+	        if (!super.optimizeNames(names, constants))
+	            return;
+	        this.iterable = optimizeExpr(this.iterable, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        return addNames(super.names, this.iterable.names);
+	    }
+	}
+	class Func extends BlockNode {
+	    constructor(name, args, async) {
+	        super();
+	        this.name = name;
+	        this.args = args;
+	        this.async = async;
+	    }
+	    render(opts) {
+	        const _async = this.async ? "async " : "";
+	        return `${_async}function ${this.name}(${this.args})` + super.render(opts);
+	    }
+	}
+	Func.kind = "func";
+	class Return extends ParentNode {
+	    render(opts) {
+	        return "return " + super.render(opts);
+	    }
+	}
+	Return.kind = "return";
+	class Try extends BlockNode {
+	    render(opts) {
+	        let code = "try" + super.render(opts);
+	        if (this.catch)
+	            code += this.catch.render(opts);
+	        if (this.finally)
+	            code += this.finally.render(opts);
+	        return code;
+	    }
+	    optimizeNodes() {
+	        var _a, _b;
+	        super.optimizeNodes();
+	        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNodes();
+	        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
+	        return this;
+	    }
+	    optimizeNames(names, constants) {
+	        var _a, _b;
+	        super.optimizeNames(names, constants);
+	        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+	        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
+	        return this;
+	    }
+	    get names() {
+	        const names = super.names;
+	        if (this.catch)
+	            addNames(names, this.catch.names);
+	        if (this.finally)
+	            addNames(names, this.finally.names);
+	        return names;
+	    }
+	}
+	class Catch extends BlockNode {
+	    constructor(error) {
+	        super();
+	        this.error = error;
+	    }
+	    render(opts) {
+	        return `catch(${this.error})` + super.render(opts);
+	    }
+	}
+	Catch.kind = "catch";
+	class Finally extends BlockNode {
+	    render(opts) {
+	        return "finally" + super.render(opts);
+	    }
+	}
+	Finally.kind = "finally";
+	class CodeGen {
+	    constructor(extScope, opts = {}) {
+	        this._values = {};
+	        this._blockStarts = [];
+	        this._constants = {};
+	        this.opts = { ...opts, _n: opts.lines ? "\n" : "" };
+	        this._extScope = extScope;
+	        this._scope = new scope_1.Scope({ parent: extScope });
+	        this._nodes = [new Root()];
+	    }
+	    toString() {
+	        return this._root.render(this.opts);
+	    }
+	    // returns unique name in the internal scope
+	    name(prefix) {
+	        return this._scope.name(prefix);
+	    }
+	    // reserves unique name in the external scope
+	    scopeName(prefix) {
+	        return this._extScope.name(prefix);
+	    }
+	    // reserves unique name in the external scope and assigns value to it
+	    scopeValue(prefixOrName, value) {
+	        const name = this._extScope.value(prefixOrName, value);
+	        const vs = this._values[name.prefix] || (this._values[name.prefix] = new Set());
+	        vs.add(name);
+	        return name;
+	    }
+	    getScopeValue(prefix, keyOrRef) {
+	        return this._extScope.getValue(prefix, keyOrRef);
+	    }
+	    // return code that assigns values in the external scope to the names that are used internally
+	    // (same names that were returned by gen.scopeName or gen.scopeValue)
+	    scopeRefs(scopeName) {
+	        return this._extScope.scopeRefs(scopeName, this._values);
+	    }
+	    scopeCode() {
+	        return this._extScope.scopeCode(this._values);
+	    }
+	    _def(varKind, nameOrPrefix, rhs, constant) {
+	        const name = this._scope.toName(nameOrPrefix);
+	        if (rhs !== undefined && constant)
+	            this._constants[name.str] = rhs;
+	        this._leafNode(new Def(varKind, name, rhs));
+	        return name;
+	    }
+	    // `const` declaration (`var` in es5 mode)
+	    const(nameOrPrefix, rhs, _constant) {
+	        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
+	    }
+	    // `let` declaration with optional assignment (`var` in es5 mode)
+	    let(nameOrPrefix, rhs, _constant) {
+	        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
+	    }
+	    // `var` declaration with optional assignment
+	    var(nameOrPrefix, rhs, _constant) {
+	        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
+	    }
+	    // assignment code
+	    assign(lhs, rhs, sideEffects) {
+	        return this._leafNode(new Assign(lhs, rhs, sideEffects));
+	    }
+	    // `+=` code
+	    add(lhs, rhs) {
+	        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
+	    }
+	    // appends passed SafeExpr to code or executes Block
+	    code(c) {
+	        if (typeof c == "function")
+	            c();
+	        else if (c !== code_1.nil)
+	            this._leafNode(new AnyCode(c));
+	        return this;
+	    }
+	    // returns code for object literal for the passed argument list of key-value pairs
+	    object(...keyValues) {
+	        const code = ["{"];
+	        for (const [key, value] of keyValues) {
+	            if (code.length > 1)
+	                code.push(",");
+	            code.push(key);
+	            if (key !== value || this.opts.es5) {
+	                code.push(":");
+	                (0, code_1.addCodeArg)(code, value);
+	            }
+	        }
+	        code.push("}");
+	        return new code_1._Code(code);
+	    }
+	    // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
+	    if(condition, thenBody, elseBody) {
+	        this._blockNode(new If(condition));
+	        if (thenBody && elseBody) {
+	            this.code(thenBody).else().code(elseBody).endIf();
+	        }
+	        else if (thenBody) {
+	            this.code(thenBody).endIf();
+	        }
+	        else if (elseBody) {
+	            throw new Error('CodeGen: "else" body without "then" body');
+	        }
+	        return this;
+	    }
+	    // `else if` clause - invalid without `if` or after `else` clauses
+	    elseIf(condition) {
+	        return this._elseNode(new If(condition));
+	    }
+	    // `else` clause - only valid after `if` or `else if` clauses
+	    else() {
+	        return this._elseNode(new Else());
+	    }
+	    // end `if` statement (needed if gen.if was used only with condition)
+	    endIf() {
+	        return this._endBlockNode(If, Else);
+	    }
+	    _for(node, forBody) {
+	        this._blockNode(node);
+	        if (forBody)
+	            this.code(forBody).endFor();
+	        return this;
+	    }
+	    // a generic `for` clause (or statement if `forBody` is passed)
+	    for(iteration, forBody) {
+	        return this._for(new ForLoop(iteration), forBody);
+	    }
+	    // `for` statement for a range of values
+	    forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
+	        const name = this._scope.toName(nameOrPrefix);
+	        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
+	    }
+	    // `for-of` statement (in es5 mode replace with a normal for loop)
+	    forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
+	        const name = this._scope.toName(nameOrPrefix);
+	        if (this.opts.es5) {
+	            const arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
+	            return this.forRange("_i", 0, (0, code_1._) `${arr}.length`, (i) => {
+	                this.var(name, (0, code_1._) `${arr}[${i}]`);
+	                forBody(name);
+	            });
+	        }
+	        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
+	    }
+	    // `for-in` statement.
+	    // With option `ownProperties` replaced with a `for-of` loop for object keys
+	    forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
+	        if (this.opts.ownProperties) {
+	            return this.forOf(nameOrPrefix, (0, code_1._) `Object.keys(${obj})`, forBody);
+	        }
+	        const name = this._scope.toName(nameOrPrefix);
+	        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
+	    }
+	    // end `for` loop
+	    endFor() {
+	        return this._endBlockNode(For);
+	    }
+	    // `label` statement
+	    label(label) {
+	        return this._leafNode(new Label(label));
+	    }
+	    // `break` statement
+	    break(label) {
+	        return this._leafNode(new Break(label));
+	    }
+	    // `return` statement
+	    return(value) {
+	        const node = new Return();
+	        this._blockNode(node);
+	        this.code(value);
+	        if (node.nodes.length !== 1)
+	            throw new Error('CodeGen: "return" should have one node');
+	        return this._endBlockNode(Return);
+	    }
+	    // `try` statement
+	    try(tryBody, catchCode, finallyCode) {
+	        if (!catchCode && !finallyCode)
+	            throw new Error('CodeGen: "try" without "catch" and "finally"');
+	        const node = new Try();
+	        this._blockNode(node);
+	        this.code(tryBody);
+	        if (catchCode) {
+	            const error = this.name("e");
+	            this._currNode = node.catch = new Catch(error);
+	            catchCode(error);
+	        }
+	        if (finallyCode) {
+	            this._currNode = node.finally = new Finally();
+	            this.code(finallyCode);
+	        }
+	        return this._endBlockNode(Catch, Finally);
+	    }
+	    // `throw` statement
+	    throw(error) {
+	        return this._leafNode(new Throw(error));
+	    }
+	    // start self-balancing block
+	    block(body, nodeCount) {
+	        this._blockStarts.push(this._nodes.length);
+	        if (body)
+	            this.code(body).endBlock(nodeCount);
+	        return this;
+	    }
+	    // end the current self-balancing block
+	    endBlock(nodeCount) {
+	        const len = this._blockStarts.pop();
+	        if (len === undefined)
+	            throw new Error("CodeGen: not in self-balancing block");
+	        const toClose = this._nodes.length - len;
+	        if (toClose < 0 || (nodeCount !== undefined && toClose !== nodeCount)) {
+	            throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
+	        }
+	        this._nodes.length = len;
+	        return this;
+	    }
+	    // `function` heading (or definition if funcBody is passed)
+	    func(name, args = code_1.nil, async, funcBody) {
+	        this._blockNode(new Func(name, args, async));
+	        if (funcBody)
+	            this.code(funcBody).endFunc();
+	        return this;
+	    }
+	    // end function definition
+	    endFunc() {
+	        return this._endBlockNode(Func);
+	    }
+	    optimize(n = 1) {
+	        while (n-- > 0) {
+	            this._root.optimizeNodes();
+	            this._root.optimizeNames(this._root.names, this._constants);
+	        }
+	    }
+	    _leafNode(node) {
+	        this._currNode.nodes.push(node);
+	        return this;
+	    }
+	    _blockNode(node) {
+	        this._currNode.nodes.push(node);
+	        this._nodes.push(node);
+	    }
+	    _endBlockNode(N1, N2) {
+	        const n = this._currNode;
+	        if (n instanceof N1 || (N2 && n instanceof N2)) {
+	            this._nodes.pop();
+	            return this;
+	        }
+	        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
+	    }
+	    _elseNode(node) {
+	        const n = this._currNode;
+	        if (!(n instanceof If)) {
+	            throw new Error('CodeGen: "else" without "if"');
+	        }
+	        this._currNode = n.else = node;
+	        return this;
+	    }
+	    get _root() {
+	        return this._nodes[0];
+	    }
+	    get _currNode() {
+	        const ns = this._nodes;
+	        return ns[ns.length - 1];
+	    }
+	    set _currNode(node) {
+	        const ns = this._nodes;
+	        ns[ns.length - 1] = node;
+	    }
+	}
+	exports.CodeGen = CodeGen;
+	function addNames(names, from) {
+	    for (const n in from)
+	        names[n] = (names[n] || 0) + (from[n] || 0);
+	    return names;
+	}
+	function addExprNames(names, from) {
+	    return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
+	}
+	function optimizeExpr(expr, names, constants) {
+	    if (expr instanceof code_1.Name)
+	        return replaceName(expr);
+	    if (!canOptimize(expr))
+	        return expr;
+	    return new code_1._Code(expr._items.reduce((items, c) => {
+	        if (c instanceof code_1.Name)
+	            c = replaceName(c);
+	        if (c instanceof code_1._Code)
+	            items.push(...c._items);
+	        else
+	            items.push(c);
+	        return items;
+	    }, []));
+	    function replaceName(n) {
+	        const c = constants[n.str];
+	        if (c === undefined || names[n.str] !== 1)
+	            return n;
+	        delete names[n.str];
+	        return c;
+	    }
+	    function canOptimize(e) {
+	        return (e instanceof code_1._Code &&
+	            e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== undefined));
+	    }
+	}
+	function subtractNames(names, from) {
+	    for (const n in from)
+	        names[n] = (names[n] || 0) - (from[n] || 0);
+	}
+	function not(x) {
+	    return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._) `!${par(x)}`;
+	}
+	exports.not = not;
+	const andCode = mappend(exports.operators.AND);
+	// boolean AND (&&) expression with the passed arguments
+	function and(...args) {
+	    return args.reduce(andCode);
+	}
+	exports.and = and;
+	const orCode = mappend(exports.operators.OR);
+	// boolean OR (||) expression with the passed arguments
+	function or(...args) {
+	    return args.reduce(orCode);
+	}
+	exports.or = or;
+	function mappend(op) {
+	    return (x, y) => (x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._) `${par(x)} ${op} ${par(y)}`);
+	}
+	function par(x) {
+	    return x instanceof code_1.Name ? x : (0, code_1._) `(${x})`;
+	}
+	
+} (codegen));
 
 var util = {};
 
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const code_1 = code$1;
 	// TODO refactor to use Set
 	function toHash(arr) {
@@ -13541,49 +14791,41 @@ var util = {};
 	
 } (util));
 
-var names = {};
+var names$1 = {};
 
-var hasRequiredNames;
-
-function requireNames () {
-	if (hasRequiredNames) return names;
-	hasRequiredNames = 1;
-	Object.defineProperty(names, "__esModule", { value: true });
-	const codegen_1 = requireCodegen();
-	const names$1 = {
-	    // validation function arguments
-	    data: new codegen_1.Name("data"),
-	    // args passed from referencing schema
-	    valCxt: new codegen_1.Name("valCxt"),
-	    instancePath: new codegen_1.Name("instancePath"),
-	    parentData: new codegen_1.Name("parentData"),
-	    parentDataProperty: new codegen_1.Name("parentDataProperty"),
-	    rootData: new codegen_1.Name("rootData"),
-	    dynamicAnchors: new codegen_1.Name("dynamicAnchors"),
-	    // function scoped variables
-	    vErrors: new codegen_1.Name("vErrors"),
-	    errors: new codegen_1.Name("errors"),
-	    this: new codegen_1.Name("this"),
-	    // "globals"
-	    self: new codegen_1.Name("self"),
-	    scope: new codegen_1.Name("scope"),
-	    // JTD serialize/parse name for JSON string and position
-	    json: new codegen_1.Name("json"),
-	    jsonPos: new codegen_1.Name("jsonPos"),
-	    jsonLen: new codegen_1.Name("jsonLen"),
-	    jsonPart: new codegen_1.Name("jsonPart"),
-	};
-	names.default = names$1;
-	
-	return names;
-}
+Object.defineProperty(names$1, "__esModule", { value: true });
+const codegen_1$x = codegen;
+const names = {
+    // validation function arguments
+    data: new codegen_1$x.Name("data"),
+    // args passed from referencing schema
+    valCxt: new codegen_1$x.Name("valCxt"),
+    instancePath: new codegen_1$x.Name("instancePath"),
+    parentData: new codegen_1$x.Name("parentData"),
+    parentDataProperty: new codegen_1$x.Name("parentDataProperty"),
+    rootData: new codegen_1$x.Name("rootData"),
+    dynamicAnchors: new codegen_1$x.Name("dynamicAnchors"),
+    // function scoped variables
+    vErrors: new codegen_1$x.Name("vErrors"),
+    errors: new codegen_1$x.Name("errors"),
+    this: new codegen_1$x.Name("this"),
+    // "globals"
+    self: new codegen_1$x.Name("self"),
+    scope: new codegen_1$x.Name("scope"),
+    // JTD serialize/parse name for JSON string and position
+    json: new codegen_1$x.Name("json"),
+    jsonPos: new codegen_1$x.Name("jsonPos"),
+    jsonLen: new codegen_1$x.Name("jsonLen"),
+    jsonPart: new codegen_1$x.Name("jsonPart"),
+};
+names$1.default = names;
 
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const util_1 = util;
-	const names_1 = requireNames();
+	const names_1 = names$1;
 	exports.keywordError = {
 	    message: ({ keyword }) => (0, codegen_1.str) `must pass "${keyword}" keyword validation`,
 	};
@@ -13703,61 +14945,53 @@ function requireNames () {
 	
 } (errors));
 
-var hasRequiredBoolSchema;
-
-function requireBoolSchema () {
-	if (hasRequiredBoolSchema) return boolSchema;
-	hasRequiredBoolSchema = 1;
-	Object.defineProperty(boolSchema, "__esModule", { value: true });
-	boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0;
-	const errors_1 = errors;
-	const codegen_1 = requireCodegen();
-	const names_1 = requireNames();
-	const boolError = {
-	    message: "boolean schema is false",
-	};
-	function topBoolOrEmptySchema(it) {
-	    const { gen, schema, validateName } = it;
-	    if (schema === false) {
-	        falseSchemaError(it, false);
-	    }
-	    else if (typeof schema == "object" && schema.$async === true) {
-	        gen.return(names_1.default.data);
-	    }
-	    else {
-	        gen.assign((0, codegen_1._) `${validateName}.errors`, null);
-	        gen.return(true);
-	    }
-	}
-	boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema;
-	function boolOrEmptySchema(it, valid) {
-	    const { gen, schema } = it;
-	    if (schema === false) {
-	        gen.var(valid, false); // TODO var
-	        falseSchemaError(it);
-	    }
-	    else {
-	        gen.var(valid, true); // TODO var
-	    }
-	}
-	boolSchema.boolOrEmptySchema = boolOrEmptySchema;
-	function falseSchemaError(it, overrideAllErrors) {
-	    const { gen, data } = it;
-	    // TODO maybe some other interface should be used for non-keyword validation errors...
-	    const cxt = {
-	        gen,
-	        keyword: "false schema",
-	        data,
-	        schema: false,
-	        schemaCode: false,
-	        schemaValue: false,
-	        params: {},
-	        it,
-	    };
-	    (0, errors_1.reportError)(cxt, boolError, undefined, overrideAllErrors);
-	}
-	
-	return boolSchema;
+Object.defineProperty(boolSchema, "__esModule", { value: true });
+boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0;
+const errors_1$2 = errors;
+const codegen_1$w = codegen;
+const names_1$9 = names$1;
+const boolError = {
+    message: "boolean schema is false",
+};
+function topBoolOrEmptySchema(it) {
+    const { gen, schema, validateName } = it;
+    if (schema === false) {
+        falseSchemaError(it, false);
+    }
+    else if (typeof schema == "object" && schema.$async === true) {
+        gen.return(names_1$9.default.data);
+    }
+    else {
+        gen.assign((0, codegen_1$w._) `${validateName}.errors`, null);
+        gen.return(true);
+    }
+}
+boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema;
+function boolOrEmptySchema(it, valid) {
+    const { gen, schema } = it;
+    if (schema === false) {
+        gen.var(valid, false); // TODO var
+        falseSchemaError(it);
+    }
+    else {
+        gen.var(valid, true); // TODO var
+    }
+}
+boolSchema.boolOrEmptySchema = boolOrEmptySchema;
+function falseSchemaError(it, overrideAllErrors) {
+    const { gen, data } = it;
+    // TODO maybe some other interface should be used for non-keyword validation errors...
+    const cxt = {
+        gen,
+        keyword: "false schema",
+        data,
+        schema: false,
+        schemaCode: false,
+        schemaValue: false,
+        params: {},
+        it,
+    };
+    (0, errors_1$2.reportError)(cxt, boolError, undefined, overrideAllErrors);
 }
 
 var dataType = {};
@@ -13815,7 +15049,7 @@ applicability.shouldUseRule = shouldUseRule;
 	const rules_1 = rules;
 	const applicability_1 = applicability;
 	const errors_1 = errors;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const util_1 = util;
 	var DataType;
 	(function (DataType) {
@@ -14015,410 +15249,378 @@ applicability.shouldUseRule = shouldUseRule;
 
 var defaults = {};
 
-var hasRequiredDefaults;
-
-function requireDefaults () {
-	if (hasRequiredDefaults) return defaults;
-	hasRequiredDefaults = 1;
-	Object.defineProperty(defaults, "__esModule", { value: true });
-	defaults.assignDefaults = void 0;
-	const codegen_1 = requireCodegen();
-	const util_1 = util;
-	function assignDefaults(it, ty) {
-	    const { properties, items } = it.schema;
-	    if (ty === "object" && properties) {
-	        for (const key in properties) {
-	            assignDefault(it, key, properties[key].default);
-	        }
-	    }
-	    else if (ty === "array" && Array.isArray(items)) {
-	        items.forEach((sch, i) => assignDefault(it, i, sch.default));
-	    }
-	}
-	defaults.assignDefaults = assignDefaults;
-	function assignDefault(it, prop, defaultValue) {
-	    const { gen, compositeRule, data, opts } = it;
-	    if (defaultValue === undefined)
-	        return;
-	    const childData = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(prop)}`;
-	    if (compositeRule) {
-	        (0, util_1.checkStrictMode)(it, `default is ignored for: ${childData}`);
-	        return;
-	    }
-	    let condition = (0, codegen_1._) `${childData} === undefined`;
-	    if (opts.useDefaults === "empty") {
-	        condition = (0, codegen_1._) `${condition} || ${childData} === null || ${childData} === ""`;
-	    }
-	    // `${childData} === undefined` +
-	    // (opts.useDefaults === "empty" ? ` || ${childData} === null || ${childData} === ""` : "")
-	    gen.if(condition, (0, codegen_1._) `${childData} = ${(0, codegen_1.stringify)(defaultValue)}`);
-	}
-	
-	return defaults;
+Object.defineProperty(defaults, "__esModule", { value: true });
+defaults.assignDefaults = void 0;
+const codegen_1$v = codegen;
+const util_1$t = util;
+function assignDefaults(it, ty) {
+    const { properties, items } = it.schema;
+    if (ty === "object" && properties) {
+        for (const key in properties) {
+            assignDefault(it, key, properties[key].default);
+        }
+    }
+    else if (ty === "array" && Array.isArray(items)) {
+        items.forEach((sch, i) => assignDefault(it, i, sch.default));
+    }
+}
+defaults.assignDefaults = assignDefaults;
+function assignDefault(it, prop, defaultValue) {
+    const { gen, compositeRule, data, opts } = it;
+    if (defaultValue === undefined)
+        return;
+    const childData = (0, codegen_1$v._) `${data}${(0, codegen_1$v.getProperty)(prop)}`;
+    if (compositeRule) {
+        (0, util_1$t.checkStrictMode)(it, `default is ignored for: ${childData}`);
+        return;
+    }
+    let condition = (0, codegen_1$v._) `${childData} === undefined`;
+    if (opts.useDefaults === "empty") {
+        condition = (0, codegen_1$v._) `${condition} || ${childData} === null || ${childData} === ""`;
+    }
+    // `${childData} === undefined` +
+    // (opts.useDefaults === "empty" ? ` || ${childData} === null || ${childData} === ""` : "")
+    gen.if(condition, (0, codegen_1$v._) `${childData} = ${(0, codegen_1$v.stringify)(defaultValue)}`);
 }
 
 var keyword = {};
 
 var code = {};
 
-var hasRequiredCode;
-
-function requireCode () {
-	if (hasRequiredCode) return code;
-	hasRequiredCode = 1;
-	Object.defineProperty(code, "__esModule", { value: true });
-	code.validateUnion = code.validateArray = code.usePattern = code.callValidateCode = code.schemaProperties = code.allSchemaProperties = code.noPropertyInData = code.propertyInData = code.isOwnProperty = code.hasPropFunc = code.reportMissingProp = code.checkMissingProp = code.checkReportMissingProp = void 0;
-	const codegen_1 = requireCodegen();
-	const util_1 = util;
-	const names_1 = requireNames();
-	const util_2 = util;
-	function checkReportMissingProp(cxt, prop) {
-	    const { gen, data, it } = cxt;
-	    gen.if(noPropertyInData(gen, data, prop, it.opts.ownProperties), () => {
-	        cxt.setParams({ missingProperty: (0, codegen_1._) `${prop}` }, true);
-	        cxt.error();
-	    });
-	}
-	code.checkReportMissingProp = checkReportMissingProp;
-	function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
-	    return (0, codegen_1.or)(...properties.map((prop) => (0, codegen_1.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1._) `${missing} = ${prop}`)));
-	}
-	code.checkMissingProp = checkMissingProp;
-	function reportMissingProp(cxt, missing) {
-	    cxt.setParams({ missingProperty: missing }, true);
-	    cxt.error();
-	}
-	code.reportMissingProp = reportMissingProp;
-	function hasPropFunc(gen) {
-	    return gen.scopeValue("func", {
-	        // eslint-disable-next-line @typescript-eslint/unbound-method
-	        ref: Object.prototype.hasOwnProperty,
-	        code: (0, codegen_1._) `Object.prototype.hasOwnProperty`,
-	    });
-	}
-	code.hasPropFunc = hasPropFunc;
-	function isOwnProperty(gen, data, property) {
-	    return (0, codegen_1._) `${hasPropFunc(gen)}.call(${data}, ${property})`;
-	}
-	code.isOwnProperty = isOwnProperty;
-	function propertyInData(gen, data, property, ownProperties) {
-	    const cond = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(property)} !== undefined`;
-	    return ownProperties ? (0, codegen_1._) `${cond} && ${isOwnProperty(gen, data, property)}` : cond;
-	}
-	code.propertyInData = propertyInData;
-	function noPropertyInData(gen, data, property, ownProperties) {
-	    const cond = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(property)} === undefined`;
-	    return ownProperties ? (0, codegen_1.or)(cond, (0, codegen_1.not)(isOwnProperty(gen, data, property))) : cond;
-	}
-	code.noPropertyInData = noPropertyInData;
-	function allSchemaProperties(schemaMap) {
-	    return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
-	}
-	code.allSchemaProperties = allSchemaProperties;
-	function schemaProperties(it, schemaMap) {
-	    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1.alwaysValidSchema)(it, schemaMap[p]));
-	}
-	code.schemaProperties = schemaProperties;
-	function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
-	    const dataAndSchema = passSchema ? (0, codegen_1._) `${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
-	    const valCxt = [
-	        [names_1.default.instancePath, (0, codegen_1.strConcat)(names_1.default.instancePath, errorPath)],
-	        [names_1.default.parentData, it.parentData],
-	        [names_1.default.parentDataProperty, it.parentDataProperty],
-	        [names_1.default.rootData, names_1.default.rootData],
-	    ];
-	    if (it.opts.dynamicRef)
-	        valCxt.push([names_1.default.dynamicAnchors, names_1.default.dynamicAnchors]);
-	    const args = (0, codegen_1._) `${dataAndSchema}, ${gen.object(...valCxt)}`;
-	    return context !== codegen_1.nil ? (0, codegen_1._) `${func}.call(${context}, ${args})` : (0, codegen_1._) `${func}(${args})`;
-	}
-	code.callValidateCode = callValidateCode;
-	const newRegExp = (0, codegen_1._) `new RegExp`;
-	function usePattern({ gen, it: { opts } }, pattern) {
-	    const u = opts.unicodeRegExp ? "u" : "";
-	    const { regExp } = opts.code;
-	    const rx = regExp(pattern, u);
-	    return gen.scopeValue("pattern", {
-	        key: rx.toString(),
-	        ref: rx,
-	        code: (0, codegen_1._) `${regExp.code === "new RegExp" ? newRegExp : (0, util_2.useFunc)(gen, regExp)}(${pattern}, ${u})`,
-	    });
-	}
-	code.usePattern = usePattern;
-	function validateArray(cxt) {
-	    const { gen, data, keyword, it } = cxt;
-	    const valid = gen.name("valid");
-	    if (it.allErrors) {
-	        const validArr = gen.let("valid", true);
-	        validateItems(() => gen.assign(validArr, false));
-	        return validArr;
-	    }
-	    gen.var(valid, true);
-	    validateItems(() => gen.break());
-	    return valid;
-	    function validateItems(notValid) {
-	        const len = gen.const("len", (0, codegen_1._) `${data}.length`);
-	        gen.forRange("i", 0, len, (i) => {
-	            cxt.subschema({
-	                keyword,
-	                dataProp: i,
-	                dataPropType: util_1.Type.Num,
-	            }, valid);
-	            gen.if((0, codegen_1.not)(valid), notValid);
-	        });
-	    }
-	}
-	code.validateArray = validateArray;
-	function validateUnion(cxt) {
-	    const { gen, schema, keyword, it } = cxt;
-	    /* istanbul ignore if */
-	    if (!Array.isArray(schema))
-	        throw new Error("ajv implementation error");
-	    const alwaysValid = schema.some((sch) => (0, util_1.alwaysValidSchema)(it, sch));
-	    if (alwaysValid && !it.opts.unevaluated)
-	        return;
-	    const valid = gen.let("valid", false);
-	    const schValid = gen.name("_valid");
-	    gen.block(() => schema.forEach((_sch, i) => {
-	        const schCxt = cxt.subschema({
-	            keyword,
-	            schemaProp: i,
-	            compositeRule: true,
-	        }, schValid);
-	        gen.assign(valid, (0, codegen_1._) `${valid} || ${schValid}`);
-	        const merged = cxt.mergeValidEvaluated(schCxt, schValid);
-	        // can short-circuit if `unevaluatedProperties/Items` not supported (opts.unevaluated !== true)
-	        // or if all properties and items were evaluated (it.props === true && it.items === true)
-	        if (!merged)
-	            gen.if((0, codegen_1.not)(valid));
-	    }));
-	    cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
-	}
-	code.validateUnion = validateUnion;
-	
-	return code;
+Object.defineProperty(code, "__esModule", { value: true });
+code.validateUnion = code.validateArray = code.usePattern = code.callValidateCode = code.schemaProperties = code.allSchemaProperties = code.noPropertyInData = code.propertyInData = code.isOwnProperty = code.hasPropFunc = code.reportMissingProp = code.checkMissingProp = code.checkReportMissingProp = void 0;
+const codegen_1$u = codegen;
+const util_1$s = util;
+const names_1$8 = names$1;
+const util_2$1 = util;
+function checkReportMissingProp(cxt, prop) {
+    const { gen, data, it } = cxt;
+    gen.if(noPropertyInData(gen, data, prop, it.opts.ownProperties), () => {
+        cxt.setParams({ missingProperty: (0, codegen_1$u._) `${prop}` }, true);
+        cxt.error();
+    });
 }
-
-var hasRequiredKeyword;
-
-function requireKeyword () {
-	if (hasRequiredKeyword) return keyword;
-	hasRequiredKeyword = 1;
-	Object.defineProperty(keyword, "__esModule", { value: true });
-	keyword.validateKeywordUsage = keyword.validSchemaType = keyword.funcKeywordCode = keyword.macroKeywordCode = void 0;
-	const codegen_1 = requireCodegen();
-	const names_1 = requireNames();
-	const code_1 = requireCode();
-	const errors_1 = errors;
-	function macroKeywordCode(cxt, def) {
-	    const { gen, keyword, schema, parentSchema, it } = cxt;
-	    const macroSchema = def.macro.call(it.self, schema, parentSchema, it);
-	    const schemaRef = useKeyword(gen, keyword, macroSchema);
-	    if (it.opts.validateSchema !== false)
-	        it.self.validateSchema(macroSchema, true);
-	    const valid = gen.name("valid");
-	    cxt.subschema({
-	        schema: macroSchema,
-	        schemaPath: codegen_1.nil,
-	        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
-	        topSchemaRef: schemaRef,
-	        compositeRule: true,
-	    }, valid);
-	    cxt.pass(valid, () => cxt.error(true));
-	}
-	keyword.macroKeywordCode = macroKeywordCode;
-	function funcKeywordCode(cxt, def) {
-	    var _a;
-	    const { gen, keyword, schema, parentSchema, $data, it } = cxt;
-	    checkAsyncKeyword(it, def);
-	    const validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate;
-	    const validateRef = useKeyword(gen, keyword, validate);
-	    const valid = gen.let("valid");
-	    cxt.block$data(valid, validateKeyword);
-	    cxt.ok((_a = def.valid) !== null && _a !== void 0 ? _a : valid);
-	    function validateKeyword() {
-	        if (def.errors === false) {
-	            assignValid();
-	            if (def.modifying)
-	                modifyData(cxt);
-	            reportErrs(() => cxt.error());
-	        }
-	        else {
-	            const ruleErrs = def.async ? validateAsync() : validateSync();
-	            if (def.modifying)
-	                modifyData(cxt);
-	            reportErrs(() => addErrs(cxt, ruleErrs));
-	        }
-	    }
-	    function validateAsync() {
-	        const ruleErrs = gen.let("ruleErrs", null);
-	        gen.try(() => assignValid((0, codegen_1._) `await `), (e) => gen.assign(valid, false).if((0, codegen_1._) `${e} instanceof ${it.ValidationError}`, () => gen.assign(ruleErrs, (0, codegen_1._) `${e}.errors`), () => gen.throw(e)));
-	        return ruleErrs;
-	    }
-	    function validateSync() {
-	        const validateErrs = (0, codegen_1._) `${validateRef}.errors`;
-	        gen.assign(validateErrs, null);
-	        assignValid(codegen_1.nil);
-	        return validateErrs;
-	    }
-	    function assignValid(_await = def.async ? (0, codegen_1._) `await ` : codegen_1.nil) {
-	        const passCxt = it.opts.passContext ? names_1.default.this : names_1.default.self;
-	        const passSchema = !(("compile" in def && !$data) || def.schema === false);
-	        gen.assign(valid, (0, codegen_1._) `${_await}${(0, code_1.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
-	    }
-	    function reportErrs(errors) {
-	        var _a;
-	        gen.if((0, codegen_1.not)((_a = def.valid) !== null && _a !== void 0 ? _a : valid), errors);
-	    }
-	}
-	keyword.funcKeywordCode = funcKeywordCode;
-	function modifyData(cxt) {
-	    const { gen, data, it } = cxt;
-	    gen.if(it.parentData, () => gen.assign(data, (0, codegen_1._) `${it.parentData}[${it.parentDataProperty}]`));
-	}
-	function addErrs(cxt, errs) {
-	    const { gen } = cxt;
-	    gen.if((0, codegen_1._) `Array.isArray(${errs})`, () => {
-	        gen
-	            .assign(names_1.default.vErrors, (0, codegen_1._) `${names_1.default.vErrors} === null ? ${errs} : ${names_1.default.vErrors}.concat(${errs})`)
-	            .assign(names_1.default.errors, (0, codegen_1._) `${names_1.default.vErrors}.length`);
-	        (0, errors_1.extendErrors)(cxt);
-	    }, () => cxt.error());
-	}
-	function checkAsyncKeyword({ schemaEnv }, def) {
-	    if (def.async && !schemaEnv.$async)
-	        throw new Error("async keyword in sync schema");
-	}
-	function useKeyword(gen, keyword, result) {
-	    if (result === undefined)
-	        throw new Error(`keyword "${keyword}" failed to compile`);
-	    return gen.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1.stringify)(result) });
-	}
-	function validSchemaType(schema, schemaType, allowUndefined = false) {
-	    // TODO add tests
-	    return (!schemaType.length ||
-	        schemaType.some((st) => st === "array"
-	            ? Array.isArray(schema)
-	            : st === "object"
-	                ? schema && typeof schema == "object" && !Array.isArray(schema)
-	                : typeof schema == st || (allowUndefined && typeof schema == "undefined")));
-	}
-	keyword.validSchemaType = validSchemaType;
-	function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
-	    /* istanbul ignore if */
-	    if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
-	        throw new Error("ajv implementation error");
-	    }
-	    const deps = def.dependencies;
-	    if (deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))) {
-	        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
-	    }
-	    if (def.validateSchema) {
-	        const valid = def.validateSchema(schema[keyword]);
-	        if (!valid) {
-	            const msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` +
-	                self.errorsText(def.validateSchema.errors);
-	            if (opts.validateSchema === "log")
-	                self.logger.error(msg);
-	            else
-	                throw new Error(msg);
-	        }
-	    }
-	}
-	keyword.validateKeywordUsage = validateKeywordUsage;
-	
-	return keyword;
+code.checkReportMissingProp = checkReportMissingProp;
+function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
+    return (0, codegen_1$u.or)(...properties.map((prop) => (0, codegen_1$u.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1$u._) `${missing} = ${prop}`)));
 }
+code.checkMissingProp = checkMissingProp;
+function reportMissingProp(cxt, missing) {
+    cxt.setParams({ missingProperty: missing }, true);
+    cxt.error();
+}
+code.reportMissingProp = reportMissingProp;
+function hasPropFunc(gen) {
+    return gen.scopeValue("func", {
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        ref: Object.prototype.hasOwnProperty,
+        code: (0, codegen_1$u._) `Object.prototype.hasOwnProperty`,
+    });
+}
+code.hasPropFunc = hasPropFunc;
+function isOwnProperty(gen, data, property) {
+    return (0, codegen_1$u._) `${hasPropFunc(gen)}.call(${data}, ${property})`;
+}
+code.isOwnProperty = isOwnProperty;
+function propertyInData(gen, data, property, ownProperties) {
+    const cond = (0, codegen_1$u._) `${data}${(0, codegen_1$u.getProperty)(property)} !== undefined`;
+    return ownProperties ? (0, codegen_1$u._) `${cond} && ${isOwnProperty(gen, data, property)}` : cond;
+}
+code.propertyInData = propertyInData;
+function noPropertyInData(gen, data, property, ownProperties) {
+    const cond = (0, codegen_1$u._) `${data}${(0, codegen_1$u.getProperty)(property)} === undefined`;
+    return ownProperties ? (0, codegen_1$u.or)(cond, (0, codegen_1$u.not)(isOwnProperty(gen, data, property))) : cond;
+}
+code.noPropertyInData = noPropertyInData;
+function allSchemaProperties(schemaMap) {
+    return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
+}
+code.allSchemaProperties = allSchemaProperties;
+function schemaProperties(it, schemaMap) {
+    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1$s.alwaysValidSchema)(it, schemaMap[p]));
+}
+code.schemaProperties = schemaProperties;
+function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
+    const dataAndSchema = passSchema ? (0, codegen_1$u._) `${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
+    const valCxt = [
+        [names_1$8.default.instancePath, (0, codegen_1$u.strConcat)(names_1$8.default.instancePath, errorPath)],
+        [names_1$8.default.parentData, it.parentData],
+        [names_1$8.default.parentDataProperty, it.parentDataProperty],
+        [names_1$8.default.rootData, names_1$8.default.rootData],
+    ];
+    if (it.opts.dynamicRef)
+        valCxt.push([names_1$8.default.dynamicAnchors, names_1$8.default.dynamicAnchors]);
+    const args = (0, codegen_1$u._) `${dataAndSchema}, ${gen.object(...valCxt)}`;
+    return context !== codegen_1$u.nil ? (0, codegen_1$u._) `${func}.call(${context}, ${args})` : (0, codegen_1$u._) `${func}(${args})`;
+}
+code.callValidateCode = callValidateCode;
+const newRegExp = (0, codegen_1$u._) `new RegExp`;
+function usePattern({ gen, it: { opts } }, pattern) {
+    const u = opts.unicodeRegExp ? "u" : "";
+    const { regExp } = opts.code;
+    const rx = regExp(pattern, u);
+    return gen.scopeValue("pattern", {
+        key: rx.toString(),
+        ref: rx,
+        code: (0, codegen_1$u._) `${regExp.code === "new RegExp" ? newRegExp : (0, util_2$1.useFunc)(gen, regExp)}(${pattern}, ${u})`,
+    });
+}
+code.usePattern = usePattern;
+function validateArray(cxt) {
+    const { gen, data, keyword, it } = cxt;
+    const valid = gen.name("valid");
+    if (it.allErrors) {
+        const validArr = gen.let("valid", true);
+        validateItems(() => gen.assign(validArr, false));
+        return validArr;
+    }
+    gen.var(valid, true);
+    validateItems(() => gen.break());
+    return valid;
+    function validateItems(notValid) {
+        const len = gen.const("len", (0, codegen_1$u._) `${data}.length`);
+        gen.forRange("i", 0, len, (i) => {
+            cxt.subschema({
+                keyword,
+                dataProp: i,
+                dataPropType: util_1$s.Type.Num,
+            }, valid);
+            gen.if((0, codegen_1$u.not)(valid), notValid);
+        });
+    }
+}
+code.validateArray = validateArray;
+function validateUnion(cxt) {
+    const { gen, schema, keyword, it } = cxt;
+    /* istanbul ignore if */
+    if (!Array.isArray(schema))
+        throw new Error("ajv implementation error");
+    const alwaysValid = schema.some((sch) => (0, util_1$s.alwaysValidSchema)(it, sch));
+    if (alwaysValid && !it.opts.unevaluated)
+        return;
+    const valid = gen.let("valid", false);
+    const schValid = gen.name("_valid");
+    gen.block(() => schema.forEach((_sch, i) => {
+        const schCxt = cxt.subschema({
+            keyword,
+            schemaProp: i,
+            compositeRule: true,
+        }, schValid);
+        gen.assign(valid, (0, codegen_1$u._) `${valid} || ${schValid}`);
+        const merged = cxt.mergeValidEvaluated(schCxt, schValid);
+        // can short-circuit if `unevaluatedProperties/Items` not supported (opts.unevaluated !== true)
+        // or if all properties and items were evaluated (it.props === true && it.items === true)
+        if (!merged)
+            gen.if((0, codegen_1$u.not)(valid));
+    }));
+    cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
+}
+code.validateUnion = validateUnion;
+
+Object.defineProperty(keyword, "__esModule", { value: true });
+keyword.validateKeywordUsage = keyword.validSchemaType = keyword.funcKeywordCode = keyword.macroKeywordCode = void 0;
+const codegen_1$t = codegen;
+const names_1$7 = names$1;
+const code_1$9 = code;
+const errors_1$1 = errors;
+function macroKeywordCode(cxt, def) {
+    const { gen, keyword, schema, parentSchema, it } = cxt;
+    const macroSchema = def.macro.call(it.self, schema, parentSchema, it);
+    const schemaRef = useKeyword(gen, keyword, macroSchema);
+    if (it.opts.validateSchema !== false)
+        it.self.validateSchema(macroSchema, true);
+    const valid = gen.name("valid");
+    cxt.subschema({
+        schema: macroSchema,
+        schemaPath: codegen_1$t.nil,
+        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+        topSchemaRef: schemaRef,
+        compositeRule: true,
+    }, valid);
+    cxt.pass(valid, () => cxt.error(true));
+}
+keyword.macroKeywordCode = macroKeywordCode;
+function funcKeywordCode(cxt, def) {
+    var _a;
+    const { gen, keyword, schema, parentSchema, $data, it } = cxt;
+    checkAsyncKeyword(it, def);
+    const validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate;
+    const validateRef = useKeyword(gen, keyword, validate);
+    const valid = gen.let("valid");
+    cxt.block$data(valid, validateKeyword);
+    cxt.ok((_a = def.valid) !== null && _a !== void 0 ? _a : valid);
+    function validateKeyword() {
+        if (def.errors === false) {
+            assignValid();
+            if (def.modifying)
+                modifyData(cxt);
+            reportErrs(() => cxt.error());
+        }
+        else {
+            const ruleErrs = def.async ? validateAsync() : validateSync();
+            if (def.modifying)
+                modifyData(cxt);
+            reportErrs(() => addErrs(cxt, ruleErrs));
+        }
+    }
+    function validateAsync() {
+        const ruleErrs = gen.let("ruleErrs", null);
+        gen.try(() => assignValid((0, codegen_1$t._) `await `), (e) => gen.assign(valid, false).if((0, codegen_1$t._) `${e} instanceof ${it.ValidationError}`, () => gen.assign(ruleErrs, (0, codegen_1$t._) `${e}.errors`), () => gen.throw(e)));
+        return ruleErrs;
+    }
+    function validateSync() {
+        const validateErrs = (0, codegen_1$t._) `${validateRef}.errors`;
+        gen.assign(validateErrs, null);
+        assignValid(codegen_1$t.nil);
+        return validateErrs;
+    }
+    function assignValid(_await = def.async ? (0, codegen_1$t._) `await ` : codegen_1$t.nil) {
+        const passCxt = it.opts.passContext ? names_1$7.default.this : names_1$7.default.self;
+        const passSchema = !(("compile" in def && !$data) || def.schema === false);
+        gen.assign(valid, (0, codegen_1$t._) `${_await}${(0, code_1$9.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
+    }
+    function reportErrs(errors) {
+        var _a;
+        gen.if((0, codegen_1$t.not)((_a = def.valid) !== null && _a !== void 0 ? _a : valid), errors);
+    }
+}
+keyword.funcKeywordCode = funcKeywordCode;
+function modifyData(cxt) {
+    const { gen, data, it } = cxt;
+    gen.if(it.parentData, () => gen.assign(data, (0, codegen_1$t._) `${it.parentData}[${it.parentDataProperty}]`));
+}
+function addErrs(cxt, errs) {
+    const { gen } = cxt;
+    gen.if((0, codegen_1$t._) `Array.isArray(${errs})`, () => {
+        gen
+            .assign(names_1$7.default.vErrors, (0, codegen_1$t._) `${names_1$7.default.vErrors} === null ? ${errs} : ${names_1$7.default.vErrors}.concat(${errs})`)
+            .assign(names_1$7.default.errors, (0, codegen_1$t._) `${names_1$7.default.vErrors}.length`);
+        (0, errors_1$1.extendErrors)(cxt);
+    }, () => cxt.error());
+}
+function checkAsyncKeyword({ schemaEnv }, def) {
+    if (def.async && !schemaEnv.$async)
+        throw new Error("async keyword in sync schema");
+}
+function useKeyword(gen, keyword, result) {
+    if (result === undefined)
+        throw new Error(`keyword "${keyword}" failed to compile`);
+    return gen.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1$t.stringify)(result) });
+}
+function validSchemaType(schema, schemaType, allowUndefined = false) {
+    // TODO add tests
+    return (!schemaType.length ||
+        schemaType.some((st) => st === "array"
+            ? Array.isArray(schema)
+            : st === "object"
+                ? schema && typeof schema == "object" && !Array.isArray(schema)
+                : typeof schema == st || (allowUndefined && typeof schema == "undefined")));
+}
+keyword.validSchemaType = validSchemaType;
+function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
+    /* istanbul ignore if */
+    if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
+        throw new Error("ajv implementation error");
+    }
+    const deps = def.dependencies;
+    if (deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))) {
+        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
+    }
+    if (def.validateSchema) {
+        const valid = def.validateSchema(schema[keyword]);
+        if (!valid) {
+            const msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` +
+                self.errorsText(def.validateSchema.errors);
+            if (opts.validateSchema === "log")
+                self.logger.error(msg);
+            else
+                throw new Error(msg);
+        }
+    }
+}
+keyword.validateKeywordUsage = validateKeywordUsage;
 
 var subschema = {};
 
-var hasRequiredSubschema;
-
-function requireSubschema () {
-	if (hasRequiredSubschema) return subschema;
-	hasRequiredSubschema = 1;
-	Object.defineProperty(subschema, "__esModule", { value: true });
-	subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0;
-	const codegen_1 = requireCodegen();
-	const util_1 = util;
-	function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
-	    if (keyword !== undefined && schema !== undefined) {
-	        throw new Error('both "keyword" and "schema" passed, only one allowed');
-	    }
-	    if (keyword !== undefined) {
-	        const sch = it.schema[keyword];
-	        return schemaProp === undefined
-	            ? {
-	                schema: sch,
-	                schemaPath: (0, codegen_1._) `${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}`,
-	                errSchemaPath: `${it.errSchemaPath}/${keyword}`,
-	            }
-	            : {
-	                schema: sch[schemaProp],
-	                schemaPath: (0, codegen_1._) `${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}${(0, codegen_1.getProperty)(schemaProp)}`,
-	                errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1.escapeFragment)(schemaProp)}`,
-	            };
-	    }
-	    if (schema !== undefined) {
-	        if (schemaPath === undefined || errSchemaPath === undefined || topSchemaRef === undefined) {
-	            throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
-	        }
-	        return {
-	            schema,
-	            schemaPath,
-	            topSchemaRef,
-	            errSchemaPath,
-	        };
-	    }
-	    throw new Error('either "keyword" or "schema" must be passed');
-	}
-	subschema.getSubschema = getSubschema;
-	function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
-	    if (data !== undefined && dataProp !== undefined) {
-	        throw new Error('both "data" and "dataProp" passed, only one allowed');
-	    }
-	    const { gen } = it;
-	    if (dataProp !== undefined) {
-	        const { errorPath, dataPathArr, opts } = it;
-	        const nextData = gen.let("data", (0, codegen_1._) `${it.data}${(0, codegen_1.getProperty)(dataProp)}`, true);
-	        dataContextProps(nextData);
-	        subschema.errorPath = (0, codegen_1.str) `${errorPath}${(0, util_1.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`;
-	        subschema.parentDataProperty = (0, codegen_1._) `${dataProp}`;
-	        subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
-	    }
-	    if (data !== undefined) {
-	        const nextData = data instanceof codegen_1.Name ? data : gen.let("data", data, true); // replaceable if used once?
-	        dataContextProps(nextData);
-	        if (propertyName !== undefined)
-	            subschema.propertyName = propertyName;
-	        // TODO something is possibly wrong here with not changing parentDataProperty and not appending dataPathArr
-	    }
-	    if (dataTypes)
-	        subschema.dataTypes = dataTypes;
-	    function dataContextProps(_nextData) {
-	        subschema.data = _nextData;
-	        subschema.dataLevel = it.dataLevel + 1;
-	        subschema.dataTypes = [];
-	        it.definedProperties = new Set();
-	        subschema.parentData = it.data;
-	        subschema.dataNames = [...it.dataNames, _nextData];
-	    }
-	}
-	subschema.extendSubschemaData = extendSubschemaData;
-	function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
-	    if (compositeRule !== undefined)
-	        subschema.compositeRule = compositeRule;
-	    if (createErrors !== undefined)
-	        subschema.createErrors = createErrors;
-	    if (allErrors !== undefined)
-	        subschema.allErrors = allErrors;
-	    subschema.jtdDiscriminator = jtdDiscriminator; // not inherited
-	    subschema.jtdMetadata = jtdMetadata; // not inherited
-	}
-	subschema.extendSubschemaMode = extendSubschemaMode;
-	
-	return subschema;
+Object.defineProperty(subschema, "__esModule", { value: true });
+subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0;
+const codegen_1$s = codegen;
+const util_1$r = util;
+function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
+    if (keyword !== undefined && schema !== undefined) {
+        throw new Error('both "keyword" and "schema" passed, only one allowed');
+    }
+    if (keyword !== undefined) {
+        const sch = it.schema[keyword];
+        return schemaProp === undefined
+            ? {
+                schema: sch,
+                schemaPath: (0, codegen_1$s._) `${it.schemaPath}${(0, codegen_1$s.getProperty)(keyword)}`,
+                errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+            }
+            : {
+                schema: sch[schemaProp],
+                schemaPath: (0, codegen_1$s._) `${it.schemaPath}${(0, codegen_1$s.getProperty)(keyword)}${(0, codegen_1$s.getProperty)(schemaProp)}`,
+                errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1$r.escapeFragment)(schemaProp)}`,
+            };
+    }
+    if (schema !== undefined) {
+        if (schemaPath === undefined || errSchemaPath === undefined || topSchemaRef === undefined) {
+            throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
+        }
+        return {
+            schema,
+            schemaPath,
+            topSchemaRef,
+            errSchemaPath,
+        };
+    }
+    throw new Error('either "keyword" or "schema" must be passed');
 }
+subschema.getSubschema = getSubschema;
+function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
+    if (data !== undefined && dataProp !== undefined) {
+        throw new Error('both "data" and "dataProp" passed, only one allowed');
+    }
+    const { gen } = it;
+    if (dataProp !== undefined) {
+        const { errorPath, dataPathArr, opts } = it;
+        const nextData = gen.let("data", (0, codegen_1$s._) `${it.data}${(0, codegen_1$s.getProperty)(dataProp)}`, true);
+        dataContextProps(nextData);
+        subschema.errorPath = (0, codegen_1$s.str) `${errorPath}${(0, util_1$r.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`;
+        subschema.parentDataProperty = (0, codegen_1$s._) `${dataProp}`;
+        subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
+    }
+    if (data !== undefined) {
+        const nextData = data instanceof codegen_1$s.Name ? data : gen.let("data", data, true); // replaceable if used once?
+        dataContextProps(nextData);
+        if (propertyName !== undefined)
+            subschema.propertyName = propertyName;
+        // TODO something is possibly wrong here with not changing parentDataProperty and not appending dataPathArr
+    }
+    if (dataTypes)
+        subschema.dataTypes = dataTypes;
+    function dataContextProps(_nextData) {
+        subschema.data = _nextData;
+        subschema.dataLevel = it.dataLevel + 1;
+        subschema.dataTypes = [];
+        it.definedProperties = new Set();
+        subschema.parentData = it.data;
+        subschema.dataNames = [...it.dataNames, _nextData];
+    }
+}
+subschema.extendSubschemaData = extendSubschemaData;
+function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
+    if (compositeRule !== undefined)
+        subschema.compositeRule = compositeRule;
+    if (createErrors !== undefined)
+        subschema.createErrors = createErrors;
+    if (allErrors !== undefined)
+        subschema.allErrors = allErrors;
+    subschema.jtdDiscriminator = jtdDiscriminator; // not inherited
+    subschema.jtdMetadata = jtdMetadata; // not inherited
+}
+subschema.extendSubschemaMode = extendSubschemaMode;
 
 var resolve$1 = {};
 
@@ -14565,7 +15767,7 @@ var jsonSchemaTraverseExports = jsonSchemaTraverse.exports;
 
 Object.defineProperty(resolve$1, "__esModule", { value: true });
 resolve$1.getSchemaRefs = resolve$1.resolveUrl = resolve$1.normalizeId = resolve$1._getFullPath = resolve$1.getFullPath = resolve$1.inlineRef = void 0;
-const util_1$p = util;
+const util_1$q = util;
 const equal$2 = fastDeepEqual;
 const traverse = jsonSchemaTraverseExports;
 // TODO refactor to use keyword definitions
@@ -14625,7 +15827,7 @@ function countKeys(schema) {
         if (SIMPLE_INLINED.has(key))
             continue;
         if (typeof schema[key] == "object") {
-            (0, util_1$p.eachItem)(schema[key], (sch) => (count += countKeys(sch)));
+            (0, util_1$q.eachItem)(schema[key], (sch) => (count += countKeys(sch)));
         }
         if (count === Infinity)
             return Infinity;
@@ -14717,531 +15919,523 @@ function getSchemaRefs(schema, baseId) {
 }
 resolve$1.getSchemaRefs = getSchemaRefs;
 
-var hasRequiredValidate;
-
-function requireValidate () {
-	if (hasRequiredValidate) return validate;
-	hasRequiredValidate = 1;
-	Object.defineProperty(validate, "__esModule", { value: true });
-	validate.getData = validate.KeywordCxt = validate.validateFunctionCode = void 0;
-	const boolSchema_1 = requireBoolSchema();
-	const dataType_1 = dataType;
-	const applicability_1 = applicability;
-	const dataType_2 = dataType;
-	const defaults_1 = requireDefaults();
-	const keyword_1 = requireKeyword();
-	const subschema_1 = requireSubschema();
-	const codegen_1 = requireCodegen();
-	const names_1 = requireNames();
-	const resolve_1 = resolve$1;
-	const util_1 = util;
-	const errors_1 = errors;
-	// schema compilation - generates validation function, subschemaCode (below) is used for subschemas
-	function validateFunctionCode(it) {
-	    if (isSchemaObj(it)) {
-	        checkKeywords(it);
-	        if (schemaCxtHasRules(it)) {
-	            topSchemaObjCode(it);
-	            return;
-	        }
-	    }
-	    validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
-	}
-	validate.validateFunctionCode = validateFunctionCode;
-	function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
-	    if (opts.code.es5) {
-	        gen.func(validateName, (0, codegen_1._) `${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
-	            gen.code((0, codegen_1._) `"use strict"; ${funcSourceUrl(schema, opts)}`);
-	            destructureValCxtES5(gen, opts);
-	            gen.code(body);
-	        });
-	    }
-	    else {
-	        gen.func(validateName, (0, codegen_1._) `${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
-	    }
-	}
-	function destructureValCxt(opts) {
-	    return (0, codegen_1._) `{${names_1.default.instancePath}="", ${names_1.default.parentData}, ${names_1.default.parentDataProperty}, ${names_1.default.rootData}=${names_1.default.data}${opts.dynamicRef ? (0, codegen_1._) `, ${names_1.default.dynamicAnchors}={}` : codegen_1.nil}}={}`;
-	}
-	function destructureValCxtES5(gen, opts) {
-	    gen.if(names_1.default.valCxt, () => {
-	        gen.var(names_1.default.instancePath, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.instancePath}`);
-	        gen.var(names_1.default.parentData, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.parentData}`);
-	        gen.var(names_1.default.parentDataProperty, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.parentDataProperty}`);
-	        gen.var(names_1.default.rootData, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.rootData}`);
-	        if (opts.dynamicRef)
-	            gen.var(names_1.default.dynamicAnchors, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.dynamicAnchors}`);
-	    }, () => {
-	        gen.var(names_1.default.instancePath, (0, codegen_1._) `""`);
-	        gen.var(names_1.default.parentData, (0, codegen_1._) `undefined`);
-	        gen.var(names_1.default.parentDataProperty, (0, codegen_1._) `undefined`);
-	        gen.var(names_1.default.rootData, names_1.default.data);
-	        if (opts.dynamicRef)
-	            gen.var(names_1.default.dynamicAnchors, (0, codegen_1._) `{}`);
-	    });
-	}
-	function topSchemaObjCode(it) {
-	    const { schema, opts, gen } = it;
-	    validateFunction(it, () => {
-	        if (opts.$comment && schema.$comment)
-	            commentKeyword(it);
-	        checkNoDefault(it);
-	        gen.let(names_1.default.vErrors, null);
-	        gen.let(names_1.default.errors, 0);
-	        if (opts.unevaluated)
-	            resetEvaluated(it);
-	        typeAndKeywords(it);
-	        returnResults(it);
-	    });
-	    return;
-	}
-	function resetEvaluated(it) {
-	    // TODO maybe some hook to execute it in the end to check whether props/items are Name, as in assignEvaluated
-	    const { gen, validateName } = it;
-	    it.evaluated = gen.const("evaluated", (0, codegen_1._) `${validateName}.evaluated`);
-	    gen.if((0, codegen_1._) `${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1._) `${it.evaluated}.props`, (0, codegen_1._) `undefined`));
-	    gen.if((0, codegen_1._) `${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1._) `${it.evaluated}.items`, (0, codegen_1._) `undefined`));
-	}
-	function funcSourceUrl(schema, opts) {
-	    const schId = typeof schema == "object" && schema[opts.schemaId];
-	    return schId && (opts.code.source || opts.code.process) ? (0, codegen_1._) `/*# sourceURL=${schId} */` : codegen_1.nil;
-	}
-	// schema compilation - this function is used recursively to generate code for sub-schemas
-	function subschemaCode(it, valid) {
-	    if (isSchemaObj(it)) {
-	        checkKeywords(it);
-	        if (schemaCxtHasRules(it)) {
-	            subSchemaObjCode(it, valid);
-	            return;
-	        }
-	    }
-	    (0, boolSchema_1.boolOrEmptySchema)(it, valid);
-	}
-	function schemaCxtHasRules({ schema, self }) {
-	    if (typeof schema == "boolean")
-	        return !schema;
-	    for (const key in schema)
-	        if (self.RULES.all[key])
-	            return true;
-	    return false;
-	}
-	function isSchemaObj(it) {
-	    return typeof it.schema != "boolean";
-	}
-	function subSchemaObjCode(it, valid) {
-	    const { schema, gen, opts } = it;
-	    if (opts.$comment && schema.$comment)
-	        commentKeyword(it);
-	    updateContext(it);
-	    checkAsyncSchema(it);
-	    const errsCount = gen.const("_errs", names_1.default.errors);
-	    typeAndKeywords(it, errsCount);
-	    // TODO var
-	    gen.var(valid, (0, codegen_1._) `${errsCount} === ${names_1.default.errors}`);
-	}
-	function checkKeywords(it) {
-	    (0, util_1.checkUnknownRules)(it);
-	    checkRefsAndKeywords(it);
-	}
-	function typeAndKeywords(it, errsCount) {
-	    if (it.opts.jtd)
-	        return schemaKeywords(it, [], false, errsCount);
-	    const types = (0, dataType_1.getSchemaTypes)(it.schema);
-	    const checkedTypes = (0, dataType_1.coerceAndCheckDataType)(it, types);
-	    schemaKeywords(it, types, !checkedTypes, errsCount);
-	}
-	function checkRefsAndKeywords(it) {
-	    const { schema, errSchemaPath, opts, self } = it;
-	    if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1.schemaHasRulesButRef)(schema, self.RULES)) {
-	        self.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
-	    }
-	}
-	function checkNoDefault(it) {
-	    const { schema, opts } = it;
-	    if (schema.default !== undefined && opts.useDefaults && opts.strictSchema) {
-	        (0, util_1.checkStrictMode)(it, "default is ignored in the schema root");
-	    }
-	}
-	function updateContext(it) {
-	    const schId = it.schema[it.opts.schemaId];
-	    if (schId)
-	        it.baseId = (0, resolve_1.resolveUrl)(it.opts.uriResolver, it.baseId, schId);
-	}
-	function checkAsyncSchema(it) {
-	    if (it.schema.$async && !it.schemaEnv.$async)
-	        throw new Error("async schema in sync schema");
-	}
-	function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
-	    const msg = schema.$comment;
-	    if (opts.$comment === true) {
-	        gen.code((0, codegen_1._) `${names_1.default.self}.logger.log(${msg})`);
-	    }
-	    else if (typeof opts.$comment == "function") {
-	        const schemaPath = (0, codegen_1.str) `${errSchemaPath}/$comment`;
-	        const rootName = gen.scopeValue("root", { ref: schemaEnv.root });
-	        gen.code((0, codegen_1._) `${names_1.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
-	    }
-	}
-	function returnResults(it) {
-	    const { gen, schemaEnv, validateName, ValidationError, opts } = it;
-	    if (schemaEnv.$async) {
-	        // TODO assign unevaluated
-	        gen.if((0, codegen_1._) `${names_1.default.errors} === 0`, () => gen.return(names_1.default.data), () => gen.throw((0, codegen_1._) `new ${ValidationError}(${names_1.default.vErrors})`));
-	    }
-	    else {
-	        gen.assign((0, codegen_1._) `${validateName}.errors`, names_1.default.vErrors);
-	        if (opts.unevaluated)
-	            assignEvaluated(it);
-	        gen.return((0, codegen_1._) `${names_1.default.errors} === 0`);
-	    }
-	}
-	function assignEvaluated({ gen, evaluated, props, items }) {
-	    if (props instanceof codegen_1.Name)
-	        gen.assign((0, codegen_1._) `${evaluated}.props`, props);
-	    if (items instanceof codegen_1.Name)
-	        gen.assign((0, codegen_1._) `${evaluated}.items`, items);
-	}
-	function schemaKeywords(it, types, typeErrors, errsCount) {
-	    const { gen, schema, data, allErrors, opts, self } = it;
-	    const { RULES } = self;
-	    if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES))) {
-	        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition)); // TODO typecast
-	        return;
-	    }
-	    if (!opts.jtd)
-	        checkStrictTypes(it, types);
-	    gen.block(() => {
-	        for (const group of RULES.rules)
-	            groupKeywords(group);
-	        groupKeywords(RULES.post);
-	    });
-	    function groupKeywords(group) {
-	        if (!(0, applicability_1.shouldUseGroup)(schema, group))
-	            return;
-	        if (group.type) {
-	            gen.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers));
-	            iterateKeywords(it, group);
-	            if (types.length === 1 && types[0] === group.type && typeErrors) {
-	                gen.else();
-	                (0, dataType_2.reportTypeError)(it);
-	            }
-	            gen.endIf();
-	        }
-	        else {
-	            iterateKeywords(it, group);
-	        }
-	        // TODO make it "ok" call?
-	        if (!allErrors)
-	            gen.if((0, codegen_1._) `${names_1.default.errors} === ${errsCount || 0}`);
-	    }
-	}
-	function iterateKeywords(it, group) {
-	    const { gen, schema, opts: { useDefaults }, } = it;
-	    if (useDefaults)
-	        (0, defaults_1.assignDefaults)(it, group.type);
-	    gen.block(() => {
-	        for (const rule of group.rules) {
-	            if ((0, applicability_1.shouldUseRule)(schema, rule)) {
-	                keywordCode(it, rule.keyword, rule.definition, group.type);
-	            }
-	        }
-	    });
-	}
-	function checkStrictTypes(it, types) {
-	    if (it.schemaEnv.meta || !it.opts.strictTypes)
-	        return;
-	    checkContextTypes(it, types);
-	    if (!it.opts.allowUnionTypes)
-	        checkMultipleTypes(it, types);
-	    checkKeywordTypes(it, it.dataTypes);
-	}
-	function checkContextTypes(it, types) {
-	    if (!types.length)
-	        return;
-	    if (!it.dataTypes.length) {
-	        it.dataTypes = types;
-	        return;
-	    }
-	    types.forEach((t) => {
-	        if (!includesType(it.dataTypes, t)) {
-	            strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
-	        }
-	    });
-	    narrowSchemaTypes(it, types);
-	}
-	function checkMultipleTypes(it, ts) {
-	    if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
-	        strictTypesError(it, "use allowUnionTypes to allow union type keyword");
-	    }
-	}
-	function checkKeywordTypes(it, ts) {
-	    const rules = it.self.RULES.all;
-	    for (const keyword in rules) {
-	        const rule = rules[keyword];
-	        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
-	            const { type } = rule.definition;
-	            if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
-	                strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
-	            }
-	        }
-	    }
-	}
-	function hasApplicableType(schTs, kwdT) {
-	    return schTs.includes(kwdT) || (kwdT === "number" && schTs.includes("integer"));
-	}
-	function includesType(ts, t) {
-	    return ts.includes(t) || (t === "integer" && ts.includes("number"));
-	}
-	function narrowSchemaTypes(it, withTypes) {
-	    const ts = [];
-	    for (const t of it.dataTypes) {
-	        if (includesType(withTypes, t))
-	            ts.push(t);
-	        else if (withTypes.includes("integer") && t === "number")
-	            ts.push("integer");
-	    }
-	    it.dataTypes = ts;
-	}
-	function strictTypesError(it, msg) {
-	    const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
-	    msg += ` at "${schemaPath}" (strictTypes)`;
-	    (0, util_1.checkStrictMode)(it, msg, it.opts.strictTypes);
-	}
-	class KeywordCxt {
-	    constructor(it, def, keyword) {
-	        (0, keyword_1.validateKeywordUsage)(it, def, keyword);
-	        this.gen = it.gen;
-	        this.allErrors = it.allErrors;
-	        this.keyword = keyword;
-	        this.data = it.data;
-	        this.schema = it.schema[keyword];
-	        this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data;
-	        this.schemaValue = (0, util_1.schemaRefOrVal)(it, this.schema, keyword, this.$data);
-	        this.schemaType = def.schemaType;
-	        this.parentSchema = it.schema;
-	        this.params = {};
-	        this.it = it;
-	        this.def = def;
-	        if (this.$data) {
-	            this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
-	        }
-	        else {
-	            this.schemaCode = this.schemaValue;
-	            if (!(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined)) {
-	                throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
-	            }
-	        }
-	        if ("code" in def ? def.trackErrors : def.errors !== false) {
-	            this.errsCount = it.gen.const("_errs", names_1.default.errors);
-	        }
-	    }
-	    result(condition, successAction, failAction) {
-	        this.failResult((0, codegen_1.not)(condition), successAction, failAction);
-	    }
-	    failResult(condition, successAction, failAction) {
-	        this.gen.if(condition);
-	        if (failAction)
-	            failAction();
-	        else
-	            this.error();
-	        if (successAction) {
-	            this.gen.else();
-	            successAction();
-	            if (this.allErrors)
-	                this.gen.endIf();
-	        }
-	        else {
-	            if (this.allErrors)
-	                this.gen.endIf();
-	            else
-	                this.gen.else();
-	        }
-	    }
-	    pass(condition, failAction) {
-	        this.failResult((0, codegen_1.not)(condition), undefined, failAction);
-	    }
-	    fail(condition) {
-	        if (condition === undefined) {
-	            this.error();
-	            if (!this.allErrors)
-	                this.gen.if(false); // this branch will be removed by gen.optimize
-	            return;
-	        }
-	        this.gen.if(condition);
-	        this.error();
-	        if (this.allErrors)
-	            this.gen.endIf();
-	        else
-	            this.gen.else();
-	    }
-	    fail$data(condition) {
-	        if (!this.$data)
-	            return this.fail(condition);
-	        const { schemaCode } = this;
-	        this.fail((0, codegen_1._) `${schemaCode} !== undefined && (${(0, codegen_1.or)(this.invalid$data(), condition)})`);
-	    }
-	    error(append, errorParams, errorPaths) {
-	        if (errorParams) {
-	            this.setParams(errorParams);
-	            this._error(append, errorPaths);
-	            this.setParams({});
-	            return;
-	        }
-	        this._error(append, errorPaths);
-	    }
-	    _error(append, errorPaths) {
-	        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
-	    }
-	    $dataError() {
-	        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
-	    }
-	    reset() {
-	        if (this.errsCount === undefined)
-	            throw new Error('add "trackErrors" to keyword definition');
-	        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
-	    }
-	    ok(cond) {
-	        if (!this.allErrors)
-	            this.gen.if(cond);
-	    }
-	    setParams(obj, assign) {
-	        if (assign)
-	            Object.assign(this.params, obj);
-	        else
-	            this.params = obj;
-	    }
-	    block$data(valid, codeBlock, $dataValid = codegen_1.nil) {
-	        this.gen.block(() => {
-	            this.check$data(valid, $dataValid);
-	            codeBlock();
-	        });
-	    }
-	    check$data(valid = codegen_1.nil, $dataValid = codegen_1.nil) {
-	        if (!this.$data)
-	            return;
-	        const { gen, schemaCode, schemaType, def } = this;
-	        gen.if((0, codegen_1.or)((0, codegen_1._) `${schemaCode} === undefined`, $dataValid));
-	        if (valid !== codegen_1.nil)
-	            gen.assign(valid, true);
-	        if (schemaType.length || def.validateSchema) {
-	            gen.elseIf(this.invalid$data());
-	            this.$dataError();
-	            if (valid !== codegen_1.nil)
-	                gen.assign(valid, false);
-	        }
-	        gen.else();
-	    }
-	    invalid$data() {
-	        const { gen, schemaCode, schemaType, def, it } = this;
-	        return (0, codegen_1.or)(wrong$DataType(), invalid$DataSchema());
-	        function wrong$DataType() {
-	            if (schemaType.length) {
-	                /* istanbul ignore if */
-	                if (!(schemaCode instanceof codegen_1.Name))
-	                    throw new Error("ajv implementation error");
-	                const st = Array.isArray(schemaType) ? schemaType : [schemaType];
-	                return (0, codegen_1._) `${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
-	            }
-	            return codegen_1.nil;
-	        }
-	        function invalid$DataSchema() {
-	            if (def.validateSchema) {
-	                const validateSchemaRef = gen.scopeValue("validate$data", { ref: def.validateSchema }); // TODO value.code for standalone
-	                return (0, codegen_1._) `!${validateSchemaRef}(${schemaCode})`;
-	            }
-	            return codegen_1.nil;
-	        }
-	    }
-	    subschema(appl, valid) {
-	        const subschema = (0, subschema_1.getSubschema)(this.it, appl);
-	        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl);
-	        (0, subschema_1.extendSubschemaMode)(subschema, appl);
-	        const nextContext = { ...this.it, ...subschema, items: undefined, props: undefined };
-	        subschemaCode(nextContext, valid);
-	        return nextContext;
-	    }
-	    mergeEvaluated(schemaCxt, toName) {
-	        const { it, gen } = this;
-	        if (!it.opts.unevaluated)
-	            return;
-	        if (it.props !== true && schemaCxt.props !== undefined) {
-	            it.props = util_1.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName);
-	        }
-	        if (it.items !== true && schemaCxt.items !== undefined) {
-	            it.items = util_1.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName);
-	        }
-	    }
-	    mergeValidEvaluated(schemaCxt, valid) {
-	        const { it, gen } = this;
-	        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
-	            gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1.Name));
-	            return true;
-	        }
-	    }
-	}
-	validate.KeywordCxt = KeywordCxt;
-	function keywordCode(it, keyword, def, ruleType) {
-	    const cxt = new KeywordCxt(it, def, keyword);
-	    if ("code" in def) {
-	        def.code(cxt, ruleType);
-	    }
-	    else if (cxt.$data && def.validate) {
-	        (0, keyword_1.funcKeywordCode)(cxt, def);
-	    }
-	    else if ("macro" in def) {
-	        (0, keyword_1.macroKeywordCode)(cxt, def);
-	    }
-	    else if (def.compile || def.validate) {
-	        (0, keyword_1.funcKeywordCode)(cxt, def);
-	    }
-	}
-	const JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
-	const RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
-	function getData($data, { dataLevel, dataNames, dataPathArr }) {
-	    let jsonPointer;
-	    let data;
-	    if ($data === "")
-	        return names_1.default.rootData;
-	    if ($data[0] === "/") {
-	        if (!JSON_POINTER.test($data))
-	            throw new Error(`Invalid JSON-pointer: ${$data}`);
-	        jsonPointer = $data;
-	        data = names_1.default.rootData;
-	    }
-	    else {
-	        const matches = RELATIVE_JSON_POINTER.exec($data);
-	        if (!matches)
-	            throw new Error(`Invalid JSON-pointer: ${$data}`);
-	        const up = +matches[1];
-	        jsonPointer = matches[2];
-	        if (jsonPointer === "#") {
-	            if (up >= dataLevel)
-	                throw new Error(errorMsg("property/index", up));
-	            return dataPathArr[dataLevel - up];
-	        }
-	        if (up > dataLevel)
-	            throw new Error(errorMsg("data", up));
-	        data = dataNames[dataLevel - up];
-	        if (!jsonPointer)
-	            return data;
-	    }
-	    let expr = data;
-	    const segments = jsonPointer.split("/");
-	    for (const segment of segments) {
-	        if (segment) {
-	            data = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)((0, util_1.unescapeJsonPointer)(segment))}`;
-	            expr = (0, codegen_1._) `${expr} && ${data}`;
-	        }
-	    }
-	    return expr;
-	    function errorMsg(pointerType, up) {
-	        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
-	    }
-	}
-	validate.getData = getData;
-	
-	return validate;
+Object.defineProperty(validate, "__esModule", { value: true });
+validate.getData = validate.KeywordCxt = validate.validateFunctionCode = void 0;
+const boolSchema_1 = boolSchema;
+const dataType_1$1 = dataType;
+const applicability_1 = applicability;
+const dataType_2 = dataType;
+const defaults_1 = defaults;
+const keyword_1 = keyword;
+const subschema_1 = subschema;
+const codegen_1$r = codegen;
+const names_1$6 = names$1;
+const resolve_1$2 = resolve$1;
+const util_1$p = util;
+const errors_1 = errors;
+// schema compilation - generates validation function, subschemaCode (below) is used for subschemas
+function validateFunctionCode(it) {
+    if (isSchemaObj(it)) {
+        checkKeywords(it);
+        if (schemaCxtHasRules(it)) {
+            topSchemaObjCode(it);
+            return;
+        }
+    }
+    validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
 }
+validate.validateFunctionCode = validateFunctionCode;
+function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
+    if (opts.code.es5) {
+        gen.func(validateName, (0, codegen_1$r._) `${names_1$6.default.data}, ${names_1$6.default.valCxt}`, schemaEnv.$async, () => {
+            gen.code((0, codegen_1$r._) `"use strict"; ${funcSourceUrl(schema, opts)}`);
+            destructureValCxtES5(gen, opts);
+            gen.code(body);
+        });
+    }
+    else {
+        gen.func(validateName, (0, codegen_1$r._) `${names_1$6.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
+    }
+}
+function destructureValCxt(opts) {
+    return (0, codegen_1$r._) `{${names_1$6.default.instancePath}="", ${names_1$6.default.parentData}, ${names_1$6.default.parentDataProperty}, ${names_1$6.default.rootData}=${names_1$6.default.data}${opts.dynamicRef ? (0, codegen_1$r._) `, ${names_1$6.default.dynamicAnchors}={}` : codegen_1$r.nil}}={}`;
+}
+function destructureValCxtES5(gen, opts) {
+    gen.if(names_1$6.default.valCxt, () => {
+        gen.var(names_1$6.default.instancePath, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.instancePath}`);
+        gen.var(names_1$6.default.parentData, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.parentData}`);
+        gen.var(names_1$6.default.parentDataProperty, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.parentDataProperty}`);
+        gen.var(names_1$6.default.rootData, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.rootData}`);
+        if (opts.dynamicRef)
+            gen.var(names_1$6.default.dynamicAnchors, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.dynamicAnchors}`);
+    }, () => {
+        gen.var(names_1$6.default.instancePath, (0, codegen_1$r._) `""`);
+        gen.var(names_1$6.default.parentData, (0, codegen_1$r._) `undefined`);
+        gen.var(names_1$6.default.parentDataProperty, (0, codegen_1$r._) `undefined`);
+        gen.var(names_1$6.default.rootData, names_1$6.default.data);
+        if (opts.dynamicRef)
+            gen.var(names_1$6.default.dynamicAnchors, (0, codegen_1$r._) `{}`);
+    });
+}
+function topSchemaObjCode(it) {
+    const { schema, opts, gen } = it;
+    validateFunction(it, () => {
+        if (opts.$comment && schema.$comment)
+            commentKeyword(it);
+        checkNoDefault(it);
+        gen.let(names_1$6.default.vErrors, null);
+        gen.let(names_1$6.default.errors, 0);
+        if (opts.unevaluated)
+            resetEvaluated(it);
+        typeAndKeywords(it);
+        returnResults(it);
+    });
+    return;
+}
+function resetEvaluated(it) {
+    // TODO maybe some hook to execute it in the end to check whether props/items are Name, as in assignEvaluated
+    const { gen, validateName } = it;
+    it.evaluated = gen.const("evaluated", (0, codegen_1$r._) `${validateName}.evaluated`);
+    gen.if((0, codegen_1$r._) `${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1$r._) `${it.evaluated}.props`, (0, codegen_1$r._) `undefined`));
+    gen.if((0, codegen_1$r._) `${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1$r._) `${it.evaluated}.items`, (0, codegen_1$r._) `undefined`));
+}
+function funcSourceUrl(schema, opts) {
+    const schId = typeof schema == "object" && schema[opts.schemaId];
+    return schId && (opts.code.source || opts.code.process) ? (0, codegen_1$r._) `/*# sourceURL=${schId} */` : codegen_1$r.nil;
+}
+// schema compilation - this function is used recursively to generate code for sub-schemas
+function subschemaCode(it, valid) {
+    if (isSchemaObj(it)) {
+        checkKeywords(it);
+        if (schemaCxtHasRules(it)) {
+            subSchemaObjCode(it, valid);
+            return;
+        }
+    }
+    (0, boolSchema_1.boolOrEmptySchema)(it, valid);
+}
+function schemaCxtHasRules({ schema, self }) {
+    if (typeof schema == "boolean")
+        return !schema;
+    for (const key in schema)
+        if (self.RULES.all[key])
+            return true;
+    return false;
+}
+function isSchemaObj(it) {
+    return typeof it.schema != "boolean";
+}
+function subSchemaObjCode(it, valid) {
+    const { schema, gen, opts } = it;
+    if (opts.$comment && schema.$comment)
+        commentKeyword(it);
+    updateContext$1(it);
+    checkAsyncSchema(it);
+    const errsCount = gen.const("_errs", names_1$6.default.errors);
+    typeAndKeywords(it, errsCount);
+    // TODO var
+    gen.var(valid, (0, codegen_1$r._) `${errsCount} === ${names_1$6.default.errors}`);
+}
+function checkKeywords(it) {
+    (0, util_1$p.checkUnknownRules)(it);
+    checkRefsAndKeywords(it);
+}
+function typeAndKeywords(it, errsCount) {
+    if (it.opts.jtd)
+        return schemaKeywords(it, [], false, errsCount);
+    const types = (0, dataType_1$1.getSchemaTypes)(it.schema);
+    const checkedTypes = (0, dataType_1$1.coerceAndCheckDataType)(it, types);
+    schemaKeywords(it, types, !checkedTypes, errsCount);
+}
+function checkRefsAndKeywords(it) {
+    const { schema, errSchemaPath, opts, self } = it;
+    if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1$p.schemaHasRulesButRef)(schema, self.RULES)) {
+        self.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
+    }
+}
+function checkNoDefault(it) {
+    const { schema, opts } = it;
+    if (schema.default !== undefined && opts.useDefaults && opts.strictSchema) {
+        (0, util_1$p.checkStrictMode)(it, "default is ignored in the schema root");
+    }
+}
+function updateContext$1(it) {
+    const schId = it.schema[it.opts.schemaId];
+    if (schId)
+        it.baseId = (0, resolve_1$2.resolveUrl)(it.opts.uriResolver, it.baseId, schId);
+}
+function checkAsyncSchema(it) {
+    if (it.schema.$async && !it.schemaEnv.$async)
+        throw new Error("async schema in sync schema");
+}
+function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
+    const msg = schema.$comment;
+    if (opts.$comment === true) {
+        gen.code((0, codegen_1$r._) `${names_1$6.default.self}.logger.log(${msg})`);
+    }
+    else if (typeof opts.$comment == "function") {
+        const schemaPath = (0, codegen_1$r.str) `${errSchemaPath}/$comment`;
+        const rootName = gen.scopeValue("root", { ref: schemaEnv.root });
+        gen.code((0, codegen_1$r._) `${names_1$6.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
+    }
+}
+function returnResults(it) {
+    const { gen, schemaEnv, validateName, ValidationError, opts } = it;
+    if (schemaEnv.$async) {
+        // TODO assign unevaluated
+        gen.if((0, codegen_1$r._) `${names_1$6.default.errors} === 0`, () => gen.return(names_1$6.default.data), () => gen.throw((0, codegen_1$r._) `new ${ValidationError}(${names_1$6.default.vErrors})`));
+    }
+    else {
+        gen.assign((0, codegen_1$r._) `${validateName}.errors`, names_1$6.default.vErrors);
+        if (opts.unevaluated)
+            assignEvaluated(it);
+        gen.return((0, codegen_1$r._) `${names_1$6.default.errors} === 0`);
+    }
+}
+function assignEvaluated({ gen, evaluated, props, items }) {
+    if (props instanceof codegen_1$r.Name)
+        gen.assign((0, codegen_1$r._) `${evaluated}.props`, props);
+    if (items instanceof codegen_1$r.Name)
+        gen.assign((0, codegen_1$r._) `${evaluated}.items`, items);
+}
+function schemaKeywords(it, types, typeErrors, errsCount) {
+    const { gen, schema, data, allErrors, opts, self } = it;
+    const { RULES } = self;
+    if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1$p.schemaHasRulesButRef)(schema, RULES))) {
+        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition)); // TODO typecast
+        return;
+    }
+    if (!opts.jtd)
+        checkStrictTypes(it, types);
+    gen.block(() => {
+        for (const group of RULES.rules)
+            groupKeywords(group);
+        groupKeywords(RULES.post);
+    });
+    function groupKeywords(group) {
+        if (!(0, applicability_1.shouldUseGroup)(schema, group))
+            return;
+        if (group.type) {
+            gen.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers));
+            iterateKeywords(it, group);
+            if (types.length === 1 && types[0] === group.type && typeErrors) {
+                gen.else();
+                (0, dataType_2.reportTypeError)(it);
+            }
+            gen.endIf();
+        }
+        else {
+            iterateKeywords(it, group);
+        }
+        // TODO make it "ok" call?
+        if (!allErrors)
+            gen.if((0, codegen_1$r._) `${names_1$6.default.errors} === ${errsCount || 0}`);
+    }
+}
+function iterateKeywords(it, group) {
+    const { gen, schema, opts: { useDefaults }, } = it;
+    if (useDefaults)
+        (0, defaults_1.assignDefaults)(it, group.type);
+    gen.block(() => {
+        for (const rule of group.rules) {
+            if ((0, applicability_1.shouldUseRule)(schema, rule)) {
+                keywordCode(it, rule.keyword, rule.definition, group.type);
+            }
+        }
+    });
+}
+function checkStrictTypes(it, types) {
+    if (it.schemaEnv.meta || !it.opts.strictTypes)
+        return;
+    checkContextTypes(it, types);
+    if (!it.opts.allowUnionTypes)
+        checkMultipleTypes(it, types);
+    checkKeywordTypes(it, it.dataTypes);
+}
+function checkContextTypes(it, types) {
+    if (!types.length)
+        return;
+    if (!it.dataTypes.length) {
+        it.dataTypes = types;
+        return;
+    }
+    types.forEach((t) => {
+        if (!includesType(it.dataTypes, t)) {
+            strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
+        }
+    });
+    narrowSchemaTypes(it, types);
+}
+function checkMultipleTypes(it, ts) {
+    if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
+        strictTypesError(it, "use allowUnionTypes to allow union type keyword");
+    }
+}
+function checkKeywordTypes(it, ts) {
+    const rules = it.self.RULES.all;
+    for (const keyword in rules) {
+        const rule = rules[keyword];
+        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
+            const { type } = rule.definition;
+            if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
+                strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
+            }
+        }
+    }
+}
+function hasApplicableType(schTs, kwdT) {
+    return schTs.includes(kwdT) || (kwdT === "number" && schTs.includes("integer"));
+}
+function includesType(ts, t) {
+    return ts.includes(t) || (t === "integer" && ts.includes("number"));
+}
+function narrowSchemaTypes(it, withTypes) {
+    const ts = [];
+    for (const t of it.dataTypes) {
+        if (includesType(withTypes, t))
+            ts.push(t);
+        else if (withTypes.includes("integer") && t === "number")
+            ts.push("integer");
+    }
+    it.dataTypes = ts;
+}
+function strictTypesError(it, msg) {
+    const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
+    msg += ` at "${schemaPath}" (strictTypes)`;
+    (0, util_1$p.checkStrictMode)(it, msg, it.opts.strictTypes);
+}
+class KeywordCxt {
+    constructor(it, def, keyword) {
+        (0, keyword_1.validateKeywordUsage)(it, def, keyword);
+        this.gen = it.gen;
+        this.allErrors = it.allErrors;
+        this.keyword = keyword;
+        this.data = it.data;
+        this.schema = it.schema[keyword];
+        this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data;
+        this.schemaValue = (0, util_1$p.schemaRefOrVal)(it, this.schema, keyword, this.$data);
+        this.schemaType = def.schemaType;
+        this.parentSchema = it.schema;
+        this.params = {};
+        this.it = it;
+        this.def = def;
+        if (this.$data) {
+            this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
+        }
+        else {
+            this.schemaCode = this.schemaValue;
+            if (!(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined)) {
+                throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
+            }
+        }
+        if ("code" in def ? def.trackErrors : def.errors !== false) {
+            this.errsCount = it.gen.const("_errs", names_1$6.default.errors);
+        }
+    }
+    result(condition, successAction, failAction) {
+        this.failResult((0, codegen_1$r.not)(condition), successAction, failAction);
+    }
+    failResult(condition, successAction, failAction) {
+        this.gen.if(condition);
+        if (failAction)
+            failAction();
+        else
+            this.error();
+        if (successAction) {
+            this.gen.else();
+            successAction();
+            if (this.allErrors)
+                this.gen.endIf();
+        }
+        else {
+            if (this.allErrors)
+                this.gen.endIf();
+            else
+                this.gen.else();
+        }
+    }
+    pass(condition, failAction) {
+        this.failResult((0, codegen_1$r.not)(condition), undefined, failAction);
+    }
+    fail(condition) {
+        if (condition === undefined) {
+            this.error();
+            if (!this.allErrors)
+                this.gen.if(false); // this branch will be removed by gen.optimize
+            return;
+        }
+        this.gen.if(condition);
+        this.error();
+        if (this.allErrors)
+            this.gen.endIf();
+        else
+            this.gen.else();
+    }
+    fail$data(condition) {
+        if (!this.$data)
+            return this.fail(condition);
+        const { schemaCode } = this;
+        this.fail((0, codegen_1$r._) `${schemaCode} !== undefined && (${(0, codegen_1$r.or)(this.invalid$data(), condition)})`);
+    }
+    error(append, errorParams, errorPaths) {
+        if (errorParams) {
+            this.setParams(errorParams);
+            this._error(append, errorPaths);
+            this.setParams({});
+            return;
+        }
+        this._error(append, errorPaths);
+    }
+    _error(append, errorPaths) {
+        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
+    }
+    $dataError() {
+        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
+    }
+    reset() {
+        if (this.errsCount === undefined)
+            throw new Error('add "trackErrors" to keyword definition');
+        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
+    }
+    ok(cond) {
+        if (!this.allErrors)
+            this.gen.if(cond);
+    }
+    setParams(obj, assign) {
+        if (assign)
+            Object.assign(this.params, obj);
+        else
+            this.params = obj;
+    }
+    block$data(valid, codeBlock, $dataValid = codegen_1$r.nil) {
+        this.gen.block(() => {
+            this.check$data(valid, $dataValid);
+            codeBlock();
+        });
+    }
+    check$data(valid = codegen_1$r.nil, $dataValid = codegen_1$r.nil) {
+        if (!this.$data)
+            return;
+        const { gen, schemaCode, schemaType, def } = this;
+        gen.if((0, codegen_1$r.or)((0, codegen_1$r._) `${schemaCode} === undefined`, $dataValid));
+        if (valid !== codegen_1$r.nil)
+            gen.assign(valid, true);
+        if (schemaType.length || def.validateSchema) {
+            gen.elseIf(this.invalid$data());
+            this.$dataError();
+            if (valid !== codegen_1$r.nil)
+                gen.assign(valid, false);
+        }
+        gen.else();
+    }
+    invalid$data() {
+        const { gen, schemaCode, schemaType, def, it } = this;
+        return (0, codegen_1$r.or)(wrong$DataType(), invalid$DataSchema());
+        function wrong$DataType() {
+            if (schemaType.length) {
+                /* istanbul ignore if */
+                if (!(schemaCode instanceof codegen_1$r.Name))
+                    throw new Error("ajv implementation error");
+                const st = Array.isArray(schemaType) ? schemaType : [schemaType];
+                return (0, codegen_1$r._) `${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
+            }
+            return codegen_1$r.nil;
+        }
+        function invalid$DataSchema() {
+            if (def.validateSchema) {
+                const validateSchemaRef = gen.scopeValue("validate$data", { ref: def.validateSchema }); // TODO value.code for standalone
+                return (0, codegen_1$r._) `!${validateSchemaRef}(${schemaCode})`;
+            }
+            return codegen_1$r.nil;
+        }
+    }
+    subschema(appl, valid) {
+        const subschema = (0, subschema_1.getSubschema)(this.it, appl);
+        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl);
+        (0, subschema_1.extendSubschemaMode)(subschema, appl);
+        const nextContext = { ...this.it, ...subschema, items: undefined, props: undefined };
+        subschemaCode(nextContext, valid);
+        return nextContext;
+    }
+    mergeEvaluated(schemaCxt, toName) {
+        const { it, gen } = this;
+        if (!it.opts.unevaluated)
+            return;
+        if (it.props !== true && schemaCxt.props !== undefined) {
+            it.props = util_1$p.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName);
+        }
+        if (it.items !== true && schemaCxt.items !== undefined) {
+            it.items = util_1$p.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName);
+        }
+    }
+    mergeValidEvaluated(schemaCxt, valid) {
+        const { it, gen } = this;
+        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
+            gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1$r.Name));
+            return true;
+        }
+    }
+}
+validate.KeywordCxt = KeywordCxt;
+function keywordCode(it, keyword, def, ruleType) {
+    const cxt = new KeywordCxt(it, def, keyword);
+    if ("code" in def) {
+        def.code(cxt, ruleType);
+    }
+    else if (cxt.$data && def.validate) {
+        (0, keyword_1.funcKeywordCode)(cxt, def);
+    }
+    else if ("macro" in def) {
+        (0, keyword_1.macroKeywordCode)(cxt, def);
+    }
+    else if (def.compile || def.validate) {
+        (0, keyword_1.funcKeywordCode)(cxt, def);
+    }
+}
+const JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
+const RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
+function getData($data, { dataLevel, dataNames, dataPathArr }) {
+    let jsonPointer;
+    let data;
+    if ($data === "")
+        return names_1$6.default.rootData;
+    if ($data[0] === "/") {
+        if (!JSON_POINTER.test($data))
+            throw new Error(`Invalid JSON-pointer: ${$data}`);
+        jsonPointer = $data;
+        data = names_1$6.default.rootData;
+    }
+    else {
+        const matches = RELATIVE_JSON_POINTER.exec($data);
+        if (!matches)
+            throw new Error(`Invalid JSON-pointer: ${$data}`);
+        const up = +matches[1];
+        jsonPointer = matches[2];
+        if (jsonPointer === "#") {
+            if (up >= dataLevel)
+                throw new Error(errorMsg("property/index", up));
+            return dataPathArr[dataLevel - up];
+        }
+        if (up > dataLevel)
+            throw new Error(errorMsg("data", up));
+        data = dataNames[dataLevel - up];
+        if (!jsonPointer)
+            return data;
+    }
+    let expr = data;
+    const segments = jsonPointer.split("/");
+    for (const segment of segments) {
+        if (segment) {
+            data = (0, codegen_1$r._) `${data}${(0, codegen_1$r.getProperty)((0, util_1$p.unescapeJsonPointer)(segment))}`;
+            expr = (0, codegen_1$r._) `${expr} && ${data}`;
+        }
+    }
+    return expr;
+    function errorMsg(pointerType, up) {
+        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
+    }
+}
+validate.getData = getData;
 
 var validation_error = {};
 
@@ -15265,35 +16459,27 @@ function requireValidation_error () {
 
 var ref_error = {};
 
-var hasRequiredRef_error;
-
-function requireRef_error () {
-	if (hasRequiredRef_error) return ref_error;
-	hasRequiredRef_error = 1;
-	Object.defineProperty(ref_error, "__esModule", { value: true });
-	const resolve_1 = resolve$1;
-	class MissingRefError extends Error {
-	    constructor(resolver, baseId, ref, msg) {
-	        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
-	        this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref);
-	        this.missingSchema = (0, resolve_1.normalizeId)((0, resolve_1.getFullPath)(resolver, this.missingRef));
-	    }
-	}
-	ref_error.default = MissingRefError;
-	
-	return ref_error;
+Object.defineProperty(ref_error, "__esModule", { value: true });
+const resolve_1$1 = resolve$1;
+class MissingRefError extends Error {
+    constructor(resolver, baseId, ref, msg) {
+        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
+        this.missingRef = (0, resolve_1$1.resolveUrl)(resolver, baseId, ref);
+        this.missingSchema = (0, resolve_1$1.normalizeId)((0, resolve_1$1.getFullPath)(resolver, this.missingRef));
+    }
 }
+ref_error.default = MissingRefError;
 
 var compile = {};
 
 Object.defineProperty(compile, "__esModule", { value: true });
 compile.resolveSchema = compile.getCompilingSchema = compile.resolveRef = compile.compileSchema = compile.SchemaEnv = void 0;
-const codegen_1$q = requireCodegen();
+const codegen_1$q = codegen;
 const validation_error_1 = requireValidation_error();
-const names_1$5 = requireNames();
+const names_1$5 = names$1;
 const resolve_1 = resolve$1;
 const util_1$o = util;
-const validate_1$1 = requireValidate();
+const validate_1$1 = validate;
 class SchemaEnv {
     constructor(env) {
         var _a;
@@ -16976,9 +18162,9 @@ uri$1.default = uri;
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
-	var validate_1 = requireValidate();
+	var validate_1 = validate;
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = requireCodegen();
+	var codegen_1 = codegen;
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
@@ -16986,10 +18172,10 @@ uri$1.default = uri;
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
 	const validation_error_1 = requireValidation_error();
-	const ref_error_1 = requireRef_error();
+	const ref_error_1 = ref_error;
 	const rules_1 = rules;
 	const compile_1 = compile;
-	const codegen_2 = requireCodegen();
+	const codegen_2 = codegen;
 	const resolve_1 = resolve$1;
 	const dataType_1 = dataType;
 	const util_1 = util;
@@ -17611,10 +18797,10 @@ var ref = {};
 
 Object.defineProperty(ref, "__esModule", { value: true });
 ref.callRef = ref.getValidate = void 0;
-const ref_error_1 = requireRef_error();
-const code_1$8 = requireCode();
-const codegen_1$p = requireCodegen();
-const names_1$4 = requireNames();
+const ref_error_1 = ref_error;
+const code_1$8 = code;
+const codegen_1$p = codegen;
+const names_1$4 = names$1;
 const compile_1$2 = compile;
 const util_1$n = util;
 const def$A = {
@@ -17750,7 +18936,7 @@ var validation$2 = {};
 var limitNumber = {};
 
 Object.defineProperty(limitNumber, "__esModule", { value: true });
-const codegen_1$o = requireCodegen();
+const codegen_1$o = codegen;
 const ops = codegen_1$o.operators;
 const KWDs = {
     maximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
@@ -17778,7 +18964,7 @@ limitNumber.default = def$z;
 var multipleOf = {};
 
 Object.defineProperty(multipleOf, "__esModule", { value: true });
-const codegen_1$n = requireCodegen();
+const codegen_1$n = codegen;
 const error$j = {
     message: ({ schemaCode }) => (0, codegen_1$n.str) `must be multiple of ${schemaCode}`,
     params: ({ schemaCode }) => (0, codegen_1$n._) `{multipleOf: ${schemaCode}}`,
@@ -17830,7 +19016,7 @@ ucs2length$1.default = ucs2length;
 ucs2length.code = 'require("ajv/dist/runtime/ucs2length").default';
 
 Object.defineProperty(limitLength, "__esModule", { value: true });
-const codegen_1$m = requireCodegen();
+const codegen_1$m = codegen;
 const util_1$m = util;
 const ucs2length_1 = ucs2length$1;
 const error$i = {
@@ -17858,8 +19044,8 @@ limitLength.default = def$x;
 var pattern = {};
 
 Object.defineProperty(pattern, "__esModule", { value: true });
-const code_1$7 = requireCode();
-const codegen_1$l = requireCodegen();
+const code_1$7 = code;
+const codegen_1$l = codegen;
 const error$h = {
     message: ({ schemaCode }) => (0, codegen_1$l.str) `must match pattern "${schemaCode}"`,
     params: ({ schemaCode }) => (0, codegen_1$l._) `{pattern: ${schemaCode}}`,
@@ -17883,7 +19069,7 @@ pattern.default = def$w;
 var limitProperties = {};
 
 Object.defineProperty(limitProperties, "__esModule", { value: true });
-const codegen_1$k = requireCodegen();
+const codegen_1$k = codegen;
 const error$g = {
     message({ keyword, schemaCode }) {
         const comp = keyword === "maxProperties" ? "more" : "fewer";
@@ -17908,8 +19094,8 @@ limitProperties.default = def$v;
 var required = {};
 
 Object.defineProperty(required, "__esModule", { value: true });
-const code_1$6 = requireCode();
-const codegen_1$j = requireCodegen();
+const code_1$6 = code;
+const codegen_1$j = codegen;
 const util_1$l = util;
 const error$f = {
     message: ({ params: { missingProperty } }) => (0, codegen_1$j.str) `must have required property '${missingProperty}'`,
@@ -17988,7 +19174,7 @@ required.default = def$u;
 var limitItems = {};
 
 Object.defineProperty(limitItems, "__esModule", { value: true });
-const codegen_1$i = requireCodegen();
+const codegen_1$i = codegen;
 const error$e = {
     message({ keyword, schemaCode }) {
         const comp = keyword === "maxItems" ? "more" : "fewer";
@@ -18022,7 +19208,7 @@ equal$1.default = equal;
 
 Object.defineProperty(uniqueItems, "__esModule", { value: true });
 const dataType_1 = dataType;
-const codegen_1$h = requireCodegen();
+const codegen_1$h = codegen;
 const util_1$k = util;
 const equal_1$2 = equal$1;
 const error$d = {
@@ -18086,7 +19272,7 @@ uniqueItems.default = def$s;
 var _const = {};
 
 Object.defineProperty(_const, "__esModule", { value: true });
-const codegen_1$g = requireCodegen();
+const codegen_1$g = codegen;
 const util_1$j = util;
 const equal_1$1 = equal$1;
 const error$c = {
@@ -18112,7 +19298,7 @@ _const.default = def$r;
 var _enum = {};
 
 Object.defineProperty(_enum, "__esModule", { value: true });
-const codegen_1$f = requireCodegen();
+const codegen_1$f = codegen;
 const util_1$i = util;
 const equal_1 = equal$1;
 const error$b = {
@@ -18196,7 +19382,7 @@ var additionalItems = {};
 
 Object.defineProperty(additionalItems, "__esModule", { value: true });
 additionalItems.validateAdditionalItems = void 0;
-const codegen_1$e = requireCodegen();
+const codegen_1$e = codegen;
 const util_1$h = util;
 const error$a = {
     message: ({ params: { len } }) => (0, codegen_1$e.str) `must NOT have more than ${len} items`,
@@ -18248,9 +19434,9 @@ var items = {};
 
 Object.defineProperty(items, "__esModule", { value: true });
 items.validateTuple = void 0;
-const codegen_1$d = requireCodegen();
+const codegen_1$d = codegen;
 const util_1$g = util;
-const code_1$5 = requireCode();
+const code_1$5 = code;
 const def$o = {
     keyword: "items",
     type: "array",
@@ -18311,9 +19497,9 @@ prefixItems.default = def$n;
 var items2020 = {};
 
 Object.defineProperty(items2020, "__esModule", { value: true });
-const codegen_1$c = requireCodegen();
+const codegen_1$c = codegen;
 const util_1$f = util;
-const code_1$4 = requireCode();
+const code_1$4 = code;
 const additionalItems_1$1 = additionalItems;
 const error$9 = {
     message: ({ params: { len } }) => (0, codegen_1$c.str) `must NOT have more than ${len} items`,
@@ -18342,7 +19528,7 @@ items2020.default = def$m;
 var contains = {};
 
 Object.defineProperty(contains, "__esModule", { value: true });
-const codegen_1$b = requireCodegen();
+const codegen_1$b = codegen;
 const util_1$e = util;
 const error$8 = {
     message: ({ params: { min, max } }) => max === undefined
@@ -18440,9 +19626,9 @@ var dependencies = {};
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const util_1 = util;
-	const code_1 = requireCode();
+	const code_1 = code;
 	exports.error = {
 	    message: ({ params: { property, depsCount, deps } }) => {
 	        const property_ies = depsCount === 1 ? "property" : "properties";
@@ -18527,7 +19713,7 @@ var dependencies = {};
 var propertyNames = {};
 
 Object.defineProperty(propertyNames, "__esModule", { value: true });
-const codegen_1$a = requireCodegen();
+const codegen_1$a = codegen;
 const util_1$d = util;
 const error$7 = {
     message: "property name must be valid",
@@ -18566,9 +19752,9 @@ propertyNames.default = def$k;
 var additionalProperties = {};
 
 Object.defineProperty(additionalProperties, "__esModule", { value: true });
-const code_1$3 = requireCode();
-const codegen_1$9 = requireCodegen();
-const names_1$3 = requireNames();
+const code_1$3 = code;
+const codegen_1$9 = codegen;
+const names_1$3 = names$1;
 const util_1$c = util;
 const error$6 = {
     message: "must NOT have additional properties",
@@ -18673,8 +19859,8 @@ additionalProperties.default = def$j;
 var properties$9 = {};
 
 Object.defineProperty(properties$9, "__esModule", { value: true });
-const validate_1 = requireValidate();
-const code_1$2 = requireCode();
+const validate_1 = validate;
+const code_1$2 = code;
 const util_1$b = util;
 const additionalProperties_1$1 = additionalProperties;
 const def$i = {
@@ -18728,8 +19914,8 @@ properties$9.default = def$i;
 var patternProperties = {};
 
 Object.defineProperty(patternProperties, "__esModule", { value: true });
-const code_1$1 = requireCode();
-const codegen_1$8 = requireCodegen();
+const code_1$1 = code;
+const codegen_1$8 = codegen;
 const util_1$a = util;
 const util_2 = util;
 const def$h = {
@@ -18831,7 +20017,7 @@ not.default = def$g;
 var anyOf = {};
 
 Object.defineProperty(anyOf, "__esModule", { value: true });
-const code_1 = requireCode();
+const code_1 = code;
 const def$f = {
     keyword: "anyOf",
     schemaType: "array",
@@ -18844,7 +20030,7 @@ anyOf.default = def$f;
 var oneOf = {};
 
 Object.defineProperty(oneOf, "__esModule", { value: true });
-const codegen_1$7 = requireCodegen();
+const codegen_1$7 = codegen;
 const util_1$8 = util;
 const error$5 = {
     message: "must match exactly one schema in oneOf",
@@ -18929,7 +20115,7 @@ allOf$1.default = def$d;
 var _if = {};
 
 Object.defineProperty(_if, "__esModule", { value: true });
-const codegen_1$6 = requireCodegen();
+const codegen_1$6 = codegen;
 const util_1$6 = util;
 const error$4 = {
     message: ({ params }) => (0, codegen_1$6.str) `must match "${params.ifClause}" schema`,
@@ -19055,7 +20241,7 @@ var format$3 = {};
 var format$2 = {};
 
 Object.defineProperty(format$2, "__esModule", { value: true });
-const codegen_1$5 = requireCodegen();
+const codegen_1$5 = codegen;
 const error$3 = {
     message: ({ schemaCode }) => (0, codegen_1$5.str) `must match format "${schemaCode}"`,
     params: ({ schemaCode }) => (0, codegen_1$5._) `{format: ${schemaCode}}`,
@@ -19200,7 +20386,7 @@ var types = {};
 } (types));
 
 Object.defineProperty(discriminator, "__esModule", { value: true });
-const codegen_1$4 = requireCodegen();
+const codegen_1$4 = codegen;
 const types_1 = types;
 const compile_1$1 = compile;
 const util_1$4 = util;
@@ -19584,9 +20770,9 @@ var require$$3$1 = {
 	module.exports = exports = Ajv;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.default = Ajv;
-	var validate_1 = requireValidate();
+	var validate_1 = validate;
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = requireCodegen();
+	var codegen_1 = codegen;
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
@@ -19595,7 +20781,7 @@ var require$$3$1 = {
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
 	var validation_error_1 = requireValidation_error();
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
-	var ref_error_1 = requireRef_error();
+	var ref_error_1 = ref_error;
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
 	
 } (ajv, ajv.exports));
@@ -19606,7 +20792,7 @@ var ajvExports = ajv.exports;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.formatLimitDefinition = void 0;
 	const ajv_1 = ajvExports;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const ops = codegen_1.operators;
 	const KWDs = {
 	    formatMaximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
@@ -19677,7 +20863,7 @@ var ajvExports = ajv.exports;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	const formats_1 = formats;
 	const limit_1 = limit;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const fullName = new codegen_1.Name("fullFormats");
 	const fastName = new codegen_1.Name("fastFormats");
 	const formatsPlugin = (ajv, opts = { keywords: true }) => {
@@ -19725,8 +20911,8 @@ var dynamicAnchor$1 = {};
 
 Object.defineProperty(dynamicAnchor$1, "__esModule", { value: true });
 dynamicAnchor$1.dynamicAnchor = void 0;
-const codegen_1$3 = requireCodegen();
-const names_1$2 = requireNames();
+const codegen_1$3 = codegen;
+const names_1$2 = names$1;
 const compile_1 = compile;
 const ref_1$1 = ref;
 const def$8 = {
@@ -19756,8 +20942,8 @@ var dynamicRef$1 = {};
 
 Object.defineProperty(dynamicRef$1, "__esModule", { value: true });
 dynamicRef$1.dynamicRef = void 0;
-const codegen_1$2 = requireCodegen();
-const names_1$1 = requireNames();
+const codegen_1$2 = codegen;
+const names_1$1 = names$1;
 const ref_1 = ref;
 const def$7 = {
     keyword: "$dynamicRef",
@@ -19895,9 +21081,9 @@ var unevaluated$2 = {};
 var unevaluatedProperties = {};
 
 Object.defineProperty(unevaluatedProperties, "__esModule", { value: true });
-const codegen_1$1 = requireCodegen();
+const codegen_1$1 = codegen;
 const util_1$1 = util;
-const names_1 = requireNames();
+const names_1 = names$1;
 const error$1 = {
     message: "must NOT have unevaluated properties",
     params: ({ params }) => (0, codegen_1$1._) `{unevaluatedProperty: ${params.unevaluatedProperty}}`,
@@ -19961,7 +21147,7 @@ unevaluatedProperties.default = def$1;
 var unevaluatedItems = {};
 
 Object.defineProperty(unevaluatedItems, "__esModule", { value: true });
-const codegen_1 = requireCodegen();
+const codegen_1 = codegen;
 const util_1 = util;
 const error = {
     message: ({ params: { len } }) => (0, codegen_1.str) `must NOT have more than ${len} items`,
@@ -20625,9 +21811,9 @@ jsonSchema202012.default = addMetaSchema2020;
 	module.exports = exports = Ajv2020;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.default = Ajv2020;
-	var validate_1 = requireValidate();
+	var validate_1 = validate;
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = requireCodegen();
+	var codegen_1 = codegen;
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
@@ -20636,7 +21822,7 @@ jsonSchema202012.default = addMetaSchema2020;
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
 	var validation_error_1 = requireValidation_error();
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
-	var ref_error_1 = requireRef_error();
+	var ref_error_1 = ref_error;
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
 	
 } (_2020, _2020.exports));
@@ -20676,10 +21862,9 @@ const addProperties = (type, composition)=>{
                 if (primitive) {
                     property.primitiveType = primitive;
                 } else {
-                    objectType = typeContext.node.$ref ? getRefType(context, typeContext.node.$ref) : undefined;
+                    objectType = getRefType(context, typeContext.node.$ref);
                 }
-            }
-            if (typeContext.node.properties && tryParseObjectComposition(typeContext.node, typeContext)) {
+            } else if (tryParseObjectComposition(typeContext.node, typeContext)) {
                 objectType = parseType(typeContext.node, typeContext, property);
             }
             if (property.objectType = objectType) {
@@ -20687,7 +21872,7 @@ const addProperties = (type, composition)=>{
             } else {
                 property.primitiveType = tryParsePrimitiveType(context.node);
             }
-            if (update(type.properties, key, (current)=>current != null && (current.objectType ?? current.primitiveType)?.id !== (property.objectType ?? property.primitiveType)?.id ? throwError("Properties in composed types must all have the same time.") : property)) ;
+            if (update(type.properties, key, (current)=>current != null && (current.objectType ?? current.primitiveType)?.id !== (property.objectType ?? property.primitiveType)?.id ? throwError$1("Properties in composed types must all have the same time.") : property)) ;
         });
     }
     forEach$1(composition.compositions, (composition)=>addProperties(type, composition));
@@ -20711,89 +21896,45 @@ const updateBaseTypes = (context)=>{
             }
         };
         addBaseTypes(type.composition);
+    });
+    typeNodes.forEach((type)=>{
         mergeBaseProperties(type, baseTypes);
         updateTypeClassifications(type, properties);
     });
-    // Seal concrete types.
+    // Restrict all type not to have unknown properties by adding `unevaluatedProperties: false`.
+    // Adding this property to types that are used in compositions by other types (e.g. allOf) will break validation,
+    // so the property can only be added directly to leaf types.
+    //
+    // If non-leaf types are used directly as property types their references must be turned into anonymous object types
+    // where the `unevaluatedProperties` is added.
     typeNodes.forEach((type)=>{
-        // These may be defined in the source schemas (because of whatever tool was used to generate them)
-        // but this constraint is always enforced via `unevaluatedProperties` anyway in the generated schema, so remove to avoid
-        // unexpected errors.
+        // Remove property restrictions from the source schemas added by whatever tool that was used to generate them.
+        // The same restriction will still be enforced, yet it need to be rewritten to support dependencies between schemas.
         delete type.context.node.additionalProperties;
+        delete type.context.node.unevaluatedProperties;
         type.context.node.type = "object";
         if (type.subtypes?.size) {
-            delete type.context.node.unevaluatedProperties;
-            type.abstract = true;
+            if (!type.referencedBy?.size) {
+                // The type is abstract. It is used in compositions and not used directly.
+                type.abstract = true;
+            } else {
+                type.referencedBy?.forEach((property)=>{
+                    merge$2(property.context.node, {
+                        type: "object",
+                        unevaluatedProperties: false
+                    });
+                });
+            }
         } else {
             // unevaluatedProperties does not have an effect if there are no allOfs
             type.context.node.unevaluatedProperties = false;
-        }
-    });
-    // Update all references to abstract types with a oneOf construct referencing each of its concrete types.
-    // Fail if they don't all have required const property with the same name to discriminate against.
-    typeNodes.forEach((type)=>{
-        if (type.abstract && type.referencedBy?.size) {
-            const concreateSubTypes = expand(type, (type)=>type.subtypes).filter((type)=>!type.abstract);
-            forEach$1(type.referencedBy, (property)=>{
-                delete property.context.node.$ref;
-                property.context.node.oneOf = map$1(concreateSubTypes, (type)=>({
-                        $ref: type.context.$ref
-                    }));
-            });
-        // We let it be up to the implementors to decided how to discriminate.
-        // // Collect all required const properties and their values here.
-        // // There must be at least one where all the types have different values;
-        // const discriminators = new Map<string, Set<string>>();
-        // forEach(concreateSubTypes, (subtype) =>
-        //   forEach(subtype.properties, ([, property]) => {
-        //     const allowedValues = tryParsePrimitiveType(
-        //       property.context.node
-        //     )?.allowedValues;
-        //     if (
-        //       (!property.required &&
-        //         !type.properties.get(property.name)?.required) ||
-        //       allowedValues?.length !== 1
-        //     )
-        //       return;
-        //     get(discriminators, property.name, () => new Set()).add(
-        //       allowedValues[0]
-        //     );
-        //   })
-        // );
-        // if (
-        //   some(
-        //     discriminators,
-        //     ([, value]) => value.size === concreateSubTypes.length
-        //   )
-        // ) {
-        //   forEach(type.referencedBy, (property) => {
-        //     delete property.context.node.$ref;
-        //     property.context.node.oneOf = map(concreateSubTypes, (type) => ({
-        //       $ref: type.context.$ref,
-        //     }));
-        //   });
-        // } else {
-        //   throw parseError(
-        //     type.context,
-        //     () =>
-        //       "If an abstract type (that is, type extended by other types) is used as a property type, " +
-        //       "all its subtypes must have a common property with a const value to discriminate between them.\n" +
-        //       `${type.id} is extended by ${map(
-        //         type.subtypes,
-        //         (type) => type.id
-        //       )?.join(", ")}, and referenced by ${map(
-        //         type.referencedBy,
-        //         (type) => type.id
-        //       )?.join(", ")}`
-        //   );
-        // }
         }
     });
 };
 
 const traverseValue = (type, structure, value, action)=>{
     if (structure?.map) {
-        if (!isPlainObject(value)) return undefined;
+        if (!isPlainObject$1(value)) return undefined;
         return Object.fromEntries(Object.entries(value).map(([key, value])=>[
                 key,
                 traverseValue(type, {
@@ -20802,8 +21943,8 @@ const traverseValue = (type, structure, value, action)=>{
             ]));
     }
     if (structure?.array) {
-        if (!isArray$4(value)) return undefined;
-        structure = isPlainObject(structure.array) ? structure.array : undefined;
+        if (!isArray$5(value)) return undefined;
+        structure = isPlainObject$1(structure.array) ? structure.array : undefined;
         value = value.map((value)=>traverseValue(type, structure, value, action)).filter((item)=>item);
         return value.length ? value : undefined;
     }
@@ -20812,12 +21953,13 @@ const traverseValue = (type, structure, value, action)=>{
 /**
  *  Removes all values belonging to properties that does not match the given consent.
  */ const censor = (type, value, consent, defaultClassification)=>{
-    if (!isPlainObject(value)) return value;
+    if (!isPlainObject$1(value)) return value;
     if (!validateConsent(type, consent, defaultClassification)) return undefined;
     let any = false;
     const censored = {};
     for(const key in value){
         const property = type.properties.get(key);
+        if (property?.name === "viewport") ;
         if (!property || !validateConsent(property, consent, defaultClassification)) {
             continue;
         }
@@ -20848,10 +21990,10 @@ const getRefType = (context, ref)=>{
 const createSchemaNavigator = (node)=>{
     const ids = new Map();
     const parseIds = (node)=>{
-        if (isArray$4(node)) {
+        if (isArray$5(node)) {
             forEach$1(node, (node)=>parseIds(node));
             return;
-        } else if (!isPlainObject(node)) {
+        } else if (!isPlainObject$1(node)) {
             return;
         }
         if (node.$id) {
@@ -20916,7 +22058,7 @@ const parseClassifications = (context)=>{
     classification.purposes = dataPurposes.parse(node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes]);
     if (node.description) {
         const parsed = node.description.replace(/@privacy (.+)/g, (_, keywords)=>{
-            tryCatch(()=>parsePrivacyTokens(keywords, classification), (err)=>parseError(context, err));
+            tryCatch$1(()=>parsePrivacyTokens(keywords, classification), (err)=>parseError(context, err));
             return "";
         }).trim();
         if (!parsed.length) {
@@ -20968,13 +22110,13 @@ const parseCompositions = (node, context, seen = new Map(), childContext = conte
 const parseDescription = (node)=>({
         title: node.title,
         description: node.description,
-        tags: array(node[SchemaAnnotations.Tags])
+        tags: array$1(node[SchemaAnnotations.Tags])
     });
 
 const tryParseObjectComposition = (node, context)=>{
     const composition = parseCompositions(node, context);
     let isObjectType = false;
-    forEach$1(expand(composition, (composition)=>concat(composition.compositions, composition.ref?.composition)), (item)=>item.node.type === "object" ? isObjectType = true : item.node.type != null && isObjectType && throwError(parseError(context, "If an object type is a composition, all included types must be objects.")));
+    forEach$1(expand(composition, (composition)=>concat(composition.compositions, composition.ref?.composition)), (item)=>item.node.type === "object" ? isObjectType = true : item.node.type != null && isObjectType && throwError$1(parseError(context, "If an object type is a composition, all included types must be objects.")));
     if (isObjectType) {
         return composition;
     }
@@ -21016,7 +22158,7 @@ const parseEventTypes = (context)=>{
             (eventSchema.properties ??= {}).type = {
                 const: changeIdentifierCaseStyle(name.replace(/Event$/, ""), "kebab")
             };
-        } else if (!isString$1(eventSchema.properties?.type?.const) || eventSchema.properties?.type?.enum?.every(isString$1) === false) {
+        } else if (!isString$2(eventSchema.properties?.type?.const) || eventSchema.properties?.type?.enum?.every(isString$2) === false) {
             throw parseError(context, "When a type property is explicitly specified on an implicit event type, it must be either a string const or an enum with string values.");
         }
         return eventSchema;
@@ -21062,9 +22204,9 @@ const parseSchema = (schema, ajv)=>{
         rootContext.parseContext.types
     ];
 };
-const parseError = (context, error)=>new Error(`${context.path?.join("/")}: ${unwrap(error)}`);
+const parseError = (context, error)=>new Error(`${context.path?.join("/")}: ${unwrap$1(error)}`);
 const navigate = (value, path)=>path?.split("/").filter((item)=>item).reduce((current, key)=>current?.[key], value);
-const validationError = (sourceId, errors, sourceValue)=>new Error(`Validation for '${sourceId}' failed${errors?.length ? ":\n" + errors.map((error)=>` - ${error.instancePath} ${error.message} (${map$1({
+const validationError = (sourceId, errors, sourceValue)=>new Error(`Validation for '${sourceId}' failed${errors?.length ? ":\n" + errors.map((error)=>` - ${error.instancePath} ${error.message} (${map$2({
             value: JSON.stringify(navigate(sourceValue, error.instancePath)).slice(0, 100),
             ...error.params
         }, ([key, value])=>key !== "type" ? `${key}: ${value}` : undefined).join(", ")}).`).join("\n") : "."}`);
@@ -21096,7 +22238,7 @@ const parseType = (node, context, declaringProperty)=>{
     ].forEach((defPath)=>{
         let defs = node[defPath];
         if (defs) {
-            defs = node[defPath] = obj(map$1(defs, ([key, def])=>{
+            defs = node[defPath] = obj(map$2(defs, ([key, def])=>{
                 if (key.startsWith("NamedParameters")) {
                     // This is a TypeScript function that has sneaked into the schema. Remove.
                     return undefined;
@@ -21186,7 +22328,9 @@ const updateMinClassifications = (type, classifications)=>{
         type.purposes = (type.purposes ?? 0) | // Flags higher than "Any" are reserved for special purposes, and does not participate here.
         classifications.purposes & DataPurposeFlags.Any;
     }
-    type.censorIgnore ??= classifications.censorIgnore;
+// Censor ignore can only go from type to property and not the other way around.
+// Hence is specifically not updated here.
+// type.censorIgnore ??= classifications.censorIgnore;
 };
 
 const updateTypeClassifications = (type, seen)=>{
@@ -21196,7 +22340,7 @@ const updateTypeClassifications = (type, seen)=>{
     type.extends?.forEach((type)=>updateTypeClassifications(type, seen));
     const objectTypeProperties = [];
     forEach$1(type.properties, ([, property])=>{
-        // Before looking classifications from the surrounding context, start by seing if a base type has property with the same name.
+        // Before looking for classifications in the surrounding context, start by seeing if a base type has aproperty with the same name.
         // If so inherit those settings.
         mergeBasePropertyClassifications(property.declaringType, property.name, property);
         if (property.objectType && (property.classification == null || property.purposes == null)) {
@@ -21237,7 +22381,7 @@ class SchemaManager {
     subSchemas = new Map();
     types = new Map();
     constructor(schemas){
-        schemas = array(schemas);
+        schemas = array$1(schemas);
         const combinedSchema = {
             $schema: "https://json-schema.org/draft/2020-12/schema",
             $id: "urn:tailjs:runtime",
@@ -21291,8 +22435,9 @@ class SchemaManager {
                 schema: invariant(this.subSchemas.get(parsed.context.schema.id), "Schemas are mapped."),
                 censor: (value, classification)=>censor(parsed, value, classification),
                 tryValidate: (value)=>validate(value) ? value : undefined,
-                validate: (value)=>validate(value) ? value : throwError(validationError(type.id, validate.errors, value))
+                validate: (value)=>validate(value) ? value : throwError$1(validationError(type.id, validate.errors, value))
             };
+            type["parsed"] = parsed;
             unlock(type.schema.types).set(type.id, type);
             this.types.set(type.id, type);
         });
@@ -21314,9 +22459,10 @@ class SchemaManager {
                     required: parsedProperty.required,
                     type: required$2(parsedProperty.objectType ? this.types.get(parsedProperty.objectType.id) : parsedProperty.primitiveType ?? {}, ()=>parseError(parsed.context, `Unknown property type. (${JSON.stringify(parsedProperty.typeContext.node)})`))
                 };
+                property["parsed"] = parsedProperty;
                 unlock(type.properties ??= new Map()).set(property.name, property);
                 if (trackedEvent && key === "type" && parsed.extendsAll?.has(trackedEvent)) {
-                    array(parsedProperty.typeContext?.node.const ?? parsedProperty.typeContext?.node.enum)?.forEach((alias)=>assignIfUndefined(unlock(type.schema.events ??= new Map()), alias, type, (key, current)=>`The event '${type.id}' cannot be defined for the type '${key}' since '${current.id}' is already registered.`));
+                    array$1(parsedProperty.typeContext?.node.const ?? parsedProperty.typeContext?.node.enum)?.forEach((alias)=>assignIfUndefined(unlock(type.schema.events ??= new Map()), alias, type, (key, current)=>`The event '${type.id}' cannot be defined for the type '${key}' since '${current.id}' is already registered.`));
                 }
                 // If $defs defines object types named of a variable scope + "Variables" ("GlobalVariables", "SessionVariables", "DeviceVariables",  "UserVariables" or"EntityVariables"),
                 // their properties will be added as variable definitions to the respective scopes.
@@ -21383,7 +22529,7 @@ class SchemaManager {
         return ifDefined(this.getType(id, true), (target)=>(validate && target.validate(value), target.censor(value, consent)));
     }
     compileVariableSet(schemas) {
-        schemas = array(schemas);
+        schemas = array$1(schemas);
         return new SchemaVariableSet(this, schemas == null || schemas.includes("*") ? this.subSchemas.values() : schemas);
     }
 }

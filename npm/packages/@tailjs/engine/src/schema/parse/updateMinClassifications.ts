@@ -17,5 +17,8 @@ export const updateMinClassifications = (
       // Flags higher than "Any" are reserved for special purposes, and does not participate here.
       (classifications.purposes & DataPurposeFlags.Any);
   }
-  type.censorIgnore ??= classifications.censorIgnore;
+
+  // Censor ignore can only go from type to property and not the other way around.
+  // Hence is specifically not updated here.
+  // type.censorIgnore ??= classifications.censorIgnore;
 };

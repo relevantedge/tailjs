@@ -104,7 +104,6 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     const ttl = this._ttl?.[variable.scope];
     scopeValues[0] = ttl ? (timestamp ?? now()) + ttl : undefined;
     scopeValues[1].set(variable.key, variable);
-
     return variable;
   }
 

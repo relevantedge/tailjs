@@ -18,12 +18,14 @@ import {
   assign,
   clock,
   concat,
+  filter,
   forEach,
   get,
   isBoolean,
   isPlainObject,
   map,
   now,
+  pick,
   push,
   remove,
   required,
@@ -55,6 +57,20 @@ import {
   updateVariableState,
   variableKeyToString,
 } from ".";
+
+const KEY_PROPS: any[] = ["scope", "key", "targetId", "version"];
+const VARIABLE_PROPS: any[] = [
+  ...KEY_PROPS,
+  "created",
+  "modified",
+  "classification",
+  "purposes",
+  "tags",
+  "readonly",
+  "value",
+];
+const GETTER_PROPS: any[] = [...KEY_PROPS, "init", "purpose", "refresh"];
+const SETTER_PROPS: any[] = [...VARIABLE_PROPS, "value", "force", "patch"];
 
 export interface TrackerVariableStorage {
   // Omit `init` to allow intellisense to suggest the actual type for reserved keys.
@@ -176,13 +192,13 @@ export const createVariableStorage = (
                     }
                   }
                 } else {
-                  return [getter, sourceIndex];
+                  return [pick(getter, GETTER_PROPS), sourceIndex];
                 }
               });
 
               return requestGetters.length
                 ? {
-                    variables: { get: requestGetters as any },
+                    variables: { get: map(requestGetters, 0) as any },
                     deviceSessionId: context?.deviceSessionId,
                   }
                 : false;
@@ -282,7 +298,7 @@ export const createVariableStorage = (
     variable: ClientVariable,
     timestamp = now()
   ): StateVariable => ({
-    ...variable,
+    ...pick(variable, VARIABLE_PROPS),
     timestamp,
     expires:
       timestamp +
@@ -290,13 +306,15 @@ export const createVariableStorage = (
         VARIABLE_CACHE_DURATION),
   });
   addResponseHandler(({ variables }) => {
+    if (!variables) return;
     const timestamp = now();
     const changed = concat(
       map(variables.get, (result) => getResultVariable(result)),
       map(variables.set, (result) => getResultVariable(result))
     );
 
-    updateVariableState(apply(changed, setResultExpiration, timestamp));
+    changed?.length &&
+      updateVariableState(apply(changed, setResultExpiration, timestamp));
   });
 
   return vars as any;

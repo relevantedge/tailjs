@@ -25,6 +25,7 @@ import {
   addPageActivatedListener,
   addPageVisibleListener,
   deltaDiff,
+  getViewport,
   getViewportSize,
   isInternalUrl,
   listen,
@@ -108,12 +109,23 @@ export const context: TrackerExtensionFactory = {
     clock(
       () =>
         forEach(
-          frames,
+          frames as any as Iterable<HTMLIFrameElement>,
           (frame) => add(knownFrames, frame) && callOnFrame(frame)
         ),
       -1000
     ).trigger();
 
+    tracker.push({
+      get: [
+        {
+          scope: "view",
+          key: "view",
+          result: (value) => {
+            value;
+          },
+        },
+      ],
+    });
     // Keep track of when new views are set.
     // A view is considered new if either 1) it is different (duh) or 2) set from a different href.
     // This is to prevent stray updates from, say, React components that may set the variable every time they rerender.
@@ -185,7 +197,7 @@ export const context: TrackerExtensionFactory = {
         hash: location.hash || undefined,
         domain: { scheme, host },
         tabIndex: globalIndex,
-        viewport: getViewportSize(),
+        viewport: getViewport(),
         duration: timer(undefined, true),
       };
 

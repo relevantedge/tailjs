@@ -61,8 +61,8 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
   if (tracker) return tracker;
 
   isString(config) && (config = httpDecode<TrackerConfiguration>(config)!);
-
   assign(trackerConfig, config);
+
   setStorageKey(remove(trackerConfig, "clientKey"));
 
   const apiKey = remove(trackerConfig, "apiKey");

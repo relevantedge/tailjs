@@ -28,6 +28,7 @@ export const addProperties = (
       const [typeContext, structure] = parseStructure(context);
 
       const ownClassification = parseClassifications(context);
+
       // TODO: Handle obsolete properties (renames).
       // Should be in the form "oldName": {$ref: "#new-property", deprecated: true}.
       const property: ParsedProperty = {
@@ -53,16 +54,9 @@ export const addProperties = (
         if (primitive) {
           property.primitiveType = primitive;
         } else {
-          objectType = typeContext.node.$ref
-            ? getRefType(context, typeContext.node.$ref)
-            : undefined;
+          objectType = getRefType(context, typeContext.node.$ref);
         }
-      }
-
-      if (
-        typeContext.node.properties &&
-        tryParseObjectComposition(typeContext.node, typeContext)
-      ) {
+      } else if (tryParseObjectComposition(typeContext.node, typeContext)) {
         objectType = parseType(typeContext.node, typeContext, property)!;
       }
 

@@ -145,22 +145,21 @@ export const createEventQueue = (
       merge(context.applyEventExtensions(event), { metadata: { queued: true } })
     );
 
-    if (!events.length) return;
-
     if (!flush) {
-      push(queue, ...events);
+      events.length && push(queue, ...events);
       return;
     }
 
     if (queue.length) {
       unshift(events as any, ...queue.splice(0));
-    } else {
-      return;
     }
+
+    if (!events.length) return;
 
     await request<PostRequest>(url, {
       events: events.map(
         (ev) => (
+          // Update metadata in the source event, and send a clone of the event.
           merge(ev, { metadata: { posted: true } }), clearMetadata(ev, true)
         )
       ),

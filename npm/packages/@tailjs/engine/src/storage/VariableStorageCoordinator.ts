@@ -1,5 +1,6 @@
 import {
   DataPurposeFlags,
+  ParsableConsent,
   UserConsent,
   ValidatedVariableGetter,
   ValidatedVariableSetter,
@@ -386,7 +387,7 @@ export class VariableStorageCoordinator implements VariableStorage {
     mapping: PrefixVariableMapping,
     key: T,
     value: V,
-    consent: UserConsent
+    consent: ParsableConsent
   ): MaybeUndefined<T, V> {
     if (key == null || value == null) return undefined as any;
 
@@ -453,19 +454,12 @@ export class VariableStorageCoordinator implements VariableStorage {
     return target;
   }
 
-  private _censorValidate(
-    mapping: PrefixVariableMapping,
-    target: Partial<VariableClassification> & { value: any },
-    key: VariableKey & Partial<VariableClassification>,
-    index: number,
-    variables: readonly any[],
-    censored: [index: number, result: VariableSetResult][],
-    consent: UserConsent | undefined,
+  private _applyScopeId(
+    key: VariableKey | undefined,
     scopeIds: VariableContextScopeIds | undefined
   ) {
-    if (scopeIds) {
+    if (key && scopeIds) {
       const scope = key.scope;
-
       const validateScope = (
         expectedTarget: string | undefined,
         actualTarget: string | undefined
@@ -500,13 +494,29 @@ export class VariableStorageCoordinator implements VariableStorage {
           ? validateScope(scopeIds.userId, (key.targetId ??= scopeIds.userId))
           : undefined;
 
-      if (error) {
-        censored.push([
-          index,
-          { source: key as any, status: VariableResultStatus.Denied, error },
-        ]);
-        return false;
-      }
+      return error;
+    }
+
+    return undefined;
+  }
+
+  private _censorValidate(
+    mapping: PrefixVariableMapping,
+    target: Partial<VariableClassification> & { value: any },
+    key: VariableKey & Partial<VariableClassification>,
+    index: number,
+    variables: readonly any[],
+    censored: [index: number, result: VariableSetResult][],
+    consent: ParsableConsent | undefined,
+    scopeIds: VariableContextScopeIds | undefined
+  ) {
+    let error = this._applyScopeId(key, scopeIds);
+    if (error) {
+      censored.push([
+        index,
+        { source: key as any, status: VariableResultStatus.Denied, error },
+      ]);
+      return false;
     }
 
     if (target.value == null) {
@@ -555,7 +565,7 @@ export class VariableStorageCoordinator implements VariableStorage {
     context: VariableStorageContext | undefined
   ) => {
     let consent = context?.tracker?.consent;
-    if (!consent && (consent = context?.consent as UserConsent)) {
+    if (!consent && (consent = context?.consent as any)) {
       consent = {
         level: dataClassification(consent.level),
         purposes: dataPurposes(consent.purposes),
@@ -577,34 +587,43 @@ export class VariableStorageCoordinator implements VariableStorage {
     const consent = this._getContextConsent(context);
     const scopeIds = context?.tracker ?? context?.scopeIds;
 
-    for (const [getter, i] of rank(keys)) {
-      if (!getter || !getter?.init) {
-        continue;
+    keys = keys.map((getter, index) => {
+      const error = this._applyScopeId(getter as any, scopeIds);
+      if (error) {
+        censored.push([
+          index,
+          { ...getter, status: VariableResultStatus.Denied, error } as any,
+        ]);
+        return undefined;
       }
 
-      const mapping = this._getMapping(getter);
-      (getter as ValidatedVariableGetter).init = wrap(
-        getter.init,
-        async (original) => {
-          const result = await original();
-          return result?.value != null &&
-            this._censorValidate(
-              mapping,
-              result!,
-              getter,
-              i,
-              keys,
-              censored,
-              consent,
-              scopeIds
-            )
-            ? result
-            : undefined;
-        }
-      );
-    }
+      if (getter?.init) {
+        const mapping = this._getMapping(getter);
+        (getter as ValidatedVariableGetter).init = wrap(
+          getter.init,
+          async (original) => {
+            const result = await original();
+            return result?.value != null &&
+              this._censorValidate(
+                mapping,
+                result!,
+                getter,
+                index,
+                keys,
+                censored,
+                consent,
+                scopeIds
+              )
+              ? result
+              : undefined;
+          }
+        );
+      }
+      return getter;
+    });
 
     const results = await this._storage.get(keys as any, context as any);
+
     for (const [i, result] of censored) {
       (results as VariableGetError[])[i] = {
         ...extractKey(result.source),

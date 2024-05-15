@@ -80,7 +80,7 @@ export const forms: TrackerExtensionFactory = {
         map(
           formElement.querySelectorAll(
             "INPUT,SELECT,TEXTAREA"
-          ) as NodeListOf<FormElement>,
+          ) as any as Iterable<FormElement>,
           (el, i) => {
             if (!el.name || el.type === "hidden") {
               if (

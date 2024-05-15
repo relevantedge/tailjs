@@ -67,7 +67,8 @@ internal static class ScriptEngineExtensions
     return value.Get();
   }
 
-  public static T Require<T>(this object? value, params string[] path) where T : notnull =>
+  public static T Require<T>(this object? value, params string[] path)
+    where T : notnull =>
     value.Get(path) is { } nonNull
       ? (T)nonNull
       : throw new NullReferenceException(
@@ -78,15 +79,25 @@ internal static class ScriptEngineExtensions
 
   public static PromiseLike<Undefined> AsPromiseLike(this Task task) =>
     new(
-      task.ContinueWith(
-        task =>
-          task.Status == TaskStatus.RanToCompletion
-            ? Undefined.Value
-            : throw task.Exception ?? new Exception("The task failed for unspecified reasons 🤷‍♀️.")
+      task.ContinueWith(task =>
+        task.Status == TaskStatus.RanToCompletion
+          ? Undefined.Value
+          : throw task.Exception ?? new Exception("The task failed for unspecified reasons 🤷‍♀️.")
       )
     );
-  
-  
+
+  private static string FormatError(object? error)
+  {
+    if (error == null)
+      return "(unspecified error)";
+    if (error is IScriptObject errorObject)
+    {
+      var stack = errorObject.GetProperty("stack")?.ToString();
+      return $"{errorObject.InvokeMethod("toString")}{(string.IsNullOrEmpty(stack) ? "" : $"\n{stack}")}";
+    }
+
+    return "" + error;
+  }
 
   public static async ValueTask<object?> AwaitScript(
     this object? scriptObject,
@@ -114,7 +125,7 @@ internal static class ScriptEngineExtensions
               => new ScriptEngineException("An unspecified script error occurred whilst awaiting a promise."),
             _
               => new ScriptEngineException(
-                $"An error occurred whilst awaiting a promise: {(string?)(err as IScriptObject)?.InvokeMethod("toString") ?? err.ToString()}"
+                $"An error occurred while awaiting a promise: {FormatError(err)} "
               ),
           }
         )

@@ -137,7 +137,6 @@ export const createLock = (timeout?: number): Lock => {
   const semaphore = promise<LockState | boolean>(true);
   let state: LockState | undefined;
 
-  const t0 = createTimer();
   const wait = async (
     arg1?: (() => any) | number,
     arg2?: number | string,
@@ -157,7 +156,7 @@ export const createLock = (timeout?: number): Lock => {
       ) {
         return undefined;
       }
-      ms -= t0(); // If the above did not return undefined we got the semaphore.
+      // If the above did not return undefined we got the semaphore.
     }
 
     const release = () => {

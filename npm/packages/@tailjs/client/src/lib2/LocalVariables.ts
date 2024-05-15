@@ -76,6 +76,9 @@ export const localVariableScope = createEnumAccessor(
   "local variable scope"
 );
 
+export const anyVariableScope = (scope: string | number) =>
+  localVariableScope.tryParse(scope) ?? variableScope(scope);
+
 export type LocalVariableScopeValue<
   Numeric extends boolean | undefined = boolean
 > = EnumValue<
@@ -356,17 +359,13 @@ export const variableKeyToString: <
     ? undefined
     : key.source
     ? variableKeyToString(key.source)!
-    : `${isLocalScopeKey(key) ? "l" : variableScope(key.scope)}\0${key.key}\0${
-        isLocalScopeKey(key) ? "" : key.targetId ?? ""
-      }`;
+    : `${anyVariableScope(key.scope)}\0${key.key}\0${key.targetId ?? ""}`;
 
 export const stringToVariableKey = (key: string): ClientVariableKey => {
   const parts = key.split("\0");
-  return parts[0] === "l"
-    ? { key: parts[1], scope: -1 }
-    : ({
-        scope: variableScope(parts[0]),
-        key: parts[1],
-        targetId: parts[2],
-      } as any);
+  return {
+    scope: +parts[0],
+    key: parts[1],
+    targetId: parts[2],
+  } as any;
 };

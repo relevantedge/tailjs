@@ -5,13 +5,11 @@ import {
   DataPurpose,
   dataPurposes,
   isPassiveEvent,
-  PassiveEvent,
   PostRequest,
   PostResponse,
   TrackedEvent,
   VariableScope,
 } from "@tailjs/types";
-import { Lock } from "semaphore-async-await";
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
 import { DefaultCryptoProvider } from "./lib";
 
@@ -46,12 +44,13 @@ import {
   CONTEXT_NAV_QUERY,
   CONTEXT_NAV_REQUEST_ID,
   EVENT_HUB_QUERY,
-  INIT_QUERY,
+  INIT_SCRIPT_QUERY,
   SCHEMA_QUERY,
 } from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
 import {
   array,
+  createLock,
   deferred,
   deferredPromise,
   forEach,
@@ -106,7 +105,7 @@ export class RequestHandler {
   private readonly _extensionFactories: (() =>
     | TrackerExtension
     | Promise<TrackerExtension>)[];
-  private readonly _lock = new Lock();
+  private readonly _lock = createLock();
   private readonly _schema: SchemaManager;
   private readonly _trackerName: string;
 
@@ -217,14 +216,14 @@ export class RequestHandler {
   public async initialize() {
     if (this._initialized) return;
 
-    await this._lock.acquire();
-    try {
+    await this._lock(async () => {
       if (this._initialized) return;
 
       let { host, crypto, environmentTags, encryptionKeys, schemas, storage } =
         this._initConfig;
 
       schemas ??= [];
+
       if (
         !schemas.find(
           (schema) => isPlainObject(schema) && schema.$id === "urn:tailjs:core"
@@ -251,6 +250,7 @@ export class RequestHandler {
       }
 
       (this as any)._schema = new SchemaManager(schemas as JsonObject[]);
+
       (this as any).environment = new TrackerEnvironment(
         host,
         crypto ?? new DefaultCryptoProvider(encryptionKeys),
@@ -307,9 +307,7 @@ export class RequestHandler {
         )),
       ].filter((item) => item != null) as TrackerExtension[];
       this._initialized = true;
-    } finally {
-      this._lock.release();
-    }
+    });
   }
 
   public async post(
@@ -320,11 +318,14 @@ export class RequestHandler {
     const context = { passive: !!options?.passive };
     let events = eventBatch;
     await this.initialize();
+
     const validateEvents = (events: ParseResult[]): ParseResult[] =>
       map(events, (ev) =>
         isValidationError(ev)
           ? ev
-          : (this._allowUnknownEventTypes && !this._schema.getType(ev.type)) ||
+          : (this._allowUnknownEventTypes &&
+              !this._schema.getType(ev.type) &&
+              ev) ||
             this._schema.censor(ev.type, ev, tracker.consent)
       );
 
@@ -527,7 +528,10 @@ export class RequestHandler {
         }
 
         if (isPlainObject(response.body)) {
-          response.body = trackerSettings().cipher[0](response.body);
+          response.body =
+            response.headers?.["content-type"] === "application/json"
+              ? JSON.stringify(response.body)
+              : trackerSettings().cipher[0](response.body);
         }
 
         if (isString(response.body) && !response.headers?.["content-type"]) {
@@ -568,7 +572,7 @@ export class RequestHandler {
 
         switch (method.toUpperCase()) {
           case "GET": {
-            if ((queryValue = join(query?.[INIT_QUERY])) != null) {
+            if ((queryValue = join(query?.[INIT_SCRIPT_QUERY])) != null) {
               // This is set by most modern browsers.
               // It prevents external scripts to try to get a hold of the storage key via XHR.
               const secDest = headers["sec-fetch-dest"];
@@ -722,7 +726,7 @@ export class RequestHandler {
                 // TODO: Be binary.
                 const postRequest: PostRequest =
                   this.environment.httpDecode(payloadString);
-                if (!postRequest.events && postRequest.variables) {
+                if (!postRequest.events && !postRequest.variables) {
                   return result({
                     status: 400,
                   });
@@ -751,12 +755,12 @@ export class RequestHandler {
                   if (postRequest.variables.get) {
                     (response.variables ??= {}).get = await resolvedTracker.get(
                       ...postRequest.variables.get
-                    );
+                    ).all;
                   }
                   if (postRequest.variables.set) {
                     (response.variables ??= {}).set = await resolvedTracker.set(
                       ...postRequest.variables.set
-                    );
+                    ).all;
                   }
                 }
 
@@ -767,7 +771,7 @@ export class RequestHandler {
                         body: response,
                       }
                     : { status: 204 },
-                  { push: true }
+                  { push }
                 );
               } catch (error) {
                 this.environment.log(
@@ -797,7 +801,10 @@ export class RequestHandler {
       }
     } catch (ex) {
       console.error(ex.stack);
-      throw ex;
+      return result({
+        status: 500,
+        body: ex.toString(),
+      });
     }
 
     return { tracker, response: null };

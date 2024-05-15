@@ -1,11 +1,4 @@
-import type {
-  DataClassification,
-  DataClassificationValue,
-  DataPurposeValue,
-  SignOutEvent,
-  UUID,
-  UserConsent,
-} from ".";
+import type { DataClassification, SignOutEvent, UUID, UserConsent } from ".";
 
 /**
  * Identifiers related to a user's session, login and device.
@@ -63,10 +56,7 @@ export interface Session {
    *
    * @privacy anonymous
    */
-  consent?: {
-    level?: DataClassificationValue<false>;
-    purposes?: DataPurposeValue<false>;
-  };
+  consent?: UserConsent;
 
   /**
    *

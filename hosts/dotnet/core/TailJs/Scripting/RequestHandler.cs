@@ -3,7 +3,6 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
@@ -103,11 +102,18 @@ public class RequestHandler : IRequestHandler
   public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITracker tracker) =>
     GetClientCookies(ConvertTracker(tracker));
 
-  public string? GetClientScripts(ITracker tracker, string? nonce = null) =>
+  public async ValueTask<string?> GetClientScriptsAsync(
+    ITracker tracker,
+    string? nonce = null,
+    CancellationToken cancellationToken = default
+  ) =>
     ConvertTracker(tracker) is { } scriptTracker
-      ? scriptTracker.RequestHandler.Proxy
-        .InvokeMethod("getClientScripts", scriptTracker.ScriptHandle, nonce)
-        .Get<string?>()
+      ? (
+        await scriptTracker
+          .RequestHandler.Proxy.InvokeMethod("getClientScripts", scriptTracker.ScriptHandle, nonce)
+          .AwaitScript(cancellationToken)
+          .ConfigureAwait(false)
+      ).Get<string?>()
       : null;
 
   public async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
@@ -137,24 +143,22 @@ public class RequestHandler : IRequestHandler
           .AppendLine(
             string.Join(
               "",
-              _configuration.ScriptExtensions.Select(
-                config =>
-                  $"import {{{config.Import}}} from {JsonSerializer.Serialize(config.Module ?? "js/engine.js")};"
+              _configuration.ScriptExtensions.Select(config =>
+                $"import {{{config.Import}}} from {JsonSerializer.Serialize(config.Module ?? "js/engine.js")};"
               )
             )
           )
           .AppendLine(
-            "async (host, endpoint, encryptionKeys, secure, debugScript, useSession, clientKeySeed, extensions) => {"
+            "async (host, endpoint, encryptionKeys, secure, debugScript, clientKeySeed, extensions) => {"
           )
           .Append(
-            "const handler = bootstrap({host,endpoint,cookies: {secure}, debugScript, useSession, clientKeySeed, encryptionKeys: JSON.parse(encryptionKeys), extensions: ["
+            "const handler = bootstrap({host,endpoint,cookies: {secure}, debugScript, clientKeySeed, encryptionKeys: JSON.parse(encryptionKeys), extensions: ["
           )
           .AppendLine(
             string.Join(
               ",",
-              _configuration.ScriptExtensions.Select(
-                config =>
-                  $"new {config.Import}({(config.Settings == null ? "" : JsonSerializer.Serialize<IConfiguration>(config.Settings, new JsonSerializerOptions
+              _configuration.ScriptExtensions.Select(config =>
+                $"new {config.Import}({(config.Settings == null ? "" : JsonSerializer.Serialize<IConfiguration>(config.Settings, new JsonSerializerOptions
                   {
                     Converters = { ConfigurationJsonConverter.Instance },
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))})"
@@ -176,7 +180,6 @@ public class RequestHandler : IRequestHandler
               JsonSerializer.Serialize(_configuration.CookieKeys),
               _configuration.Secure,
               _configuration.ClientScript ?? (object)_configuration.Debug,
-              _configuration.UseSession,
               _configuration.ClientKeySeed,
               _trackerExtensions
             )
@@ -235,14 +238,15 @@ public class RequestHandler : IRequestHandler
         .AwaitScript(cancellationToken)
         .ConfigureAwait(false)
         is not IScriptObject proxyResponse
-      || proxyResponse["tracker"] is not IScriptObject tracker
+      || (await proxyResponse["tracker"].AwaitScript(cancellationToken).ConfigureAwait(false))
+        is not IScriptObject tracker
     )
     {
       return null;
     }
 
     return new TrackerContext(
-      new Tracker(this, tracker, Environment),
+      new Tracker(this, tracker, Environment!),
       proxyResponse["response"] is IScriptObject response
         ? new ClientResponse(
           (int)response["status"],
@@ -286,7 +290,7 @@ public class RequestHandler : IRequestHandler
     )
     {
       specifier = Regex.Replace(specifier, @"^@tailjs\/(?<Package>.*)", "js/${Package}.js");
-      
+
       if (specifier.StartsWith("js/"))
       {
         sourceInfo ??= new DocumentInfo(specifier);
