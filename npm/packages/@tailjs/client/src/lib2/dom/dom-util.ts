@@ -366,8 +366,8 @@ export const listen = <K extends keyof AllMaps>(
 };
 
 export const parseDomain = (href: string): Domain => {
-  const { host, scheme } = parseUri(href, false, true);
-  return { host, scheme };
+  const { host, scheme, port } = parseUri(href, false, true);
+  return { host: host + (port ? ":" + port : ""), scheme };
 };
 
 export const getViewportSize = (): Size => ({

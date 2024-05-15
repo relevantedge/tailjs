@@ -3,6 +3,7 @@ import {
   SchemaAnnotations,
   VariableScope,
   variableScope,
+  TrackedEvent,
 } from "@tailjs/types";
 
 import { SchemaSystemTypes } from "@tailjs/types";
@@ -13,6 +14,7 @@ import {
   RecordType,
   array,
   assignIfUndefined,
+  clone,
   first,
   forEach,
   ifDefined,
@@ -34,8 +36,10 @@ import {
   SchemaVariable,
   SchemaVariableSet,
   VariableMap,
+  isObjectType,
 } from "..";
 import { censor, parseError, parseSchema, validationError } from "./parse";
+import { PATCH_EVENT_POSTFIX } from "@constants";
 
 const extractDescription = (
   entity: Partial<Pick<SchemaEntity, "title" | "description" | "tags">>
@@ -45,26 +49,64 @@ const extractDescription = (
   tags: entity.tags,
 });
 
+/** The name of the {@link TrackedEvent.patchTargetId} property. */
+const PATCH_TARGET_ID = "patchTargetId";
+
 export class SchemaManager {
   public readonly schema: Schema;
   public readonly subSchemas: ReadonlyMap<string, Schema> = new Map();
   public readonly types: ReadonlyMap<string, SchemaObjectType> = new Map();
 
-  constructor(schemas: MaybeArray<JsonObject>) {
+  /**
+   * A manager that contains all the same types as this one, but without required properties.
+   * These types are used for validating event patches.
+   */
+  private readonly _patchSchema: SchemaManager;
+
+  /**
+   *
+   * Creates a {@link SchemaManager} for validating, parsing and censoring event and variable types.
+   *
+   * @param schemas The individual source JSON Schemas that composes the runtime schema.
+   */
+  public static create(schemas: MaybeArray<JsonObject>): SchemaManager {
+    return new SchemaManager(schemas, false);
+  }
+
+  /**
+   *
+   * @param schemas The individual source JSON Schemas that composes the runtime schema.
+   * @param patches Flag that indicates whether the schema is for patch events.
+   * @param reparse This is the second parse for the patch schema.
+   *
+   * Per convention, patch events type names are postfixed with `_patch` and only the {@link TrackedEvent.type} and
+   *  {@link TrackedEvent.patchTargetId} properties are required.
+   */
+  private constructor(
+    schemas: MaybeArray<JsonObject>,
+    patches = false,
+    reparse = false
+  ) {
     schemas = array(schemas);
 
-    const combinedSchema = {
+    let combinedSchema = {
       $schema: "https://json-schema.org/draft/2020-12/schema",
       $id: "urn:tailjs:runtime",
       description:
-        "The effective schema for this particular configuration of tail.js that bundles all included schemas.",
+        "The effective schema for this particular configuration of tail.js that bundles all included schemas." +
+        "\n" +
+        "Please note that the shadow types for patching events are not represented in this schema. Per convention any event type " +
+        "postfixed with `_patch` will be validated against its source event, but without required properties apart from " +
+        "`" +
+        PATCH_TARGET_ID +
+        "` and `type`.",
       $defs: obj(schemas, (schema: RecordType) => [
         validate(
           schema.$id,
           schema.$id && schema.$schema,
           "A schema must have an $id and $schema property."
         ),
-        schema,
+        clone(schema),
       ]),
     };
 
@@ -79,7 +121,7 @@ export class SchemaManager {
     let ajv = reset();
 
     ajv.addSchema(combinedSchema);
-    const [parsedSchemas, parsedTypes] = parseSchema(combinedSchema, ajv);
+    let [parsedSchemas, parsedTypes] = parseSchema(combinedSchema, ajv);
 
     // A brand new instance is required since we have tampered with the schema while parsing (e.g. setting unevaluatedProperties true/false and added anchors).
     (ajv = reset()).compile(combinedSchema);
@@ -110,29 +152,31 @@ export class SchemaManager {
       });
     });
 
-    parsedTypes.forEach((parsed) => {
+    parsedTypes.forEach((parsedType) => {
       const validate = required(
-        ajv.getSchema(parsed.context.$ref!),
+        ajv.getSchema(parsedType.context.$ref!),
         () =>
-          `INV <> The ref '${parsed.context.$ref}' does not address the type '${parsed.id}' in the schema.`
+          `INV <> The ref '${parsedType.context.$ref}' does not address the type '${parsedType.id}' in the schema.`
       );
 
       const type: SchemaObjectType = {
-        id: parsed.id,
-        name: parsed.name,
-        ...extractDescription(parsed),
+        id: parsedType.id,
+        name: parsedType.name,
+        ...extractDescription(parsedType),
 
-        classification: parsed.classification!,
-        purposes: parsed.purposes!,
+        classification: parsedType.classification!,
+        purposes: parsedType.purposes!,
         primitive: false,
-        abstract: !!parsed.abstract,
+        abstract: !!parsedType.abstract,
         schema: invariant(
-          this.subSchemas.get(parsed.context.schema!.id),
+          this.subSchemas.get(parsedType.context.schema!.id),
           "Schemas are mapped."
         ),
 
+        definition: parsedType.context.node,
+
         censor: (value, classification) =>
-          censor(parsed, value, classification),
+          censor(parsedType, value, classification),
 
         tryValidate: (value) => (validate(value) ? value : undefined),
 
@@ -141,7 +185,7 @@ export class SchemaManager {
             ? value
             : throwError(validationError(type.id, validate.errors, value)),
       };
-      (type as any)["parsed"] = parsed;
+      (type as any)["parsed"] = parsedType;
       unlock(type.schema.types).set(type.id, type);
       (this.types as Map<any, any>).set(type.id, type);
     });
@@ -189,6 +233,9 @@ export class SchemaManager {
           declaringType: type,
           structure: parsedProperty.structure,
           required: parsedProperty.required,
+
+          definition: parsedProperty.typeContext?.node,
+
           type: required(
             parsedProperty.objectType
               ? this.types.get(parsedProperty.objectType.id)
@@ -213,15 +260,16 @@ export class SchemaManager {
           array(
             parsedProperty.typeContext?.node.const ??
               parsedProperty.typeContext?.node.enum
-          )?.forEach((alias) =>
+          )?.forEach((alias: any, i: number) => {
+            i === 0 && (type.eventTypeName = alias);
             assignIfUndefined(
               unlock((type.schema!.events ??= new Map())),
               alias,
               type,
               (key, current) =>
                 `The event '${type.id}' cannot be defined for the type '${key}' since '${current.id}' is already registered.`
-            )
-          );
+            );
+          });
         }
 
         // If $defs defines object types named of a variable scope + "Variables" ("GlobalVariables", "SessionVariables", "DeviceVariables",  "UserVariables" or"EntityVariables"),
@@ -304,6 +352,46 @@ export class SchemaManager {
       this.subSchemas.get("urn:tailjs:runtime"),
       "Runtime schema is registered."
     );
+
+    if (patches) {
+      if (reparse) {
+        this._patchSchema = this;
+      } else {
+        // Postfix "_patch" to all event types, and make all properties optional except events' `type` and `patchTargetId`.
+        this.subSchemas.forEach((schema) => {
+          schema.types.forEach((type) => {
+            if (type.schema !== schema) return;
+            if (isObjectType(type) && type.definition) {
+              delete type.definition.required;
+
+              if (type.eventTypeName) {
+                type.eventTypeName += PATCH_EVENT_POSTFIX;
+                type.definition.required = ["type", PATCH_TARGET_ID];
+                const typeProperty = type.properties?.get("type")?.definition;
+                if (typeProperty) {
+                  typeProperty.const &&
+                    (typeProperty.const =
+                      typeProperty.const + PATCH_EVENT_POSTFIX);
+                  typeProperty.enum &&
+                    (typeProperty.enum = typeProperty.enum.map(
+                      (name: string) => name + PATCH_EVENT_POSTFIX
+                    ));
+                }
+              }
+            }
+          });
+        });
+
+        // Re-parse modified patch schema.
+        this._patchSchema = new SchemaManager(
+          Object.values(combinedSchema.$defs)!,
+          true,
+          true
+        );
+      }
+    } else {
+      this._patchSchema = new SchemaManager(schemas, true)._patchSchema;
+    }
   }
 
   public getSchema<Required = true>(
@@ -318,12 +406,18 @@ export class SchemaManager {
       : schemaId && this.subSchemas.get(schemaId);
   }
 
+  public isPatchType(eventTypeOrTypeId: string | undefined): boolean {
+    return eventTypeOrTypeId?.endsWith(PATCH_EVENT_POSTFIX) === true;
+  }
+
   public getType<Required = true>(
     eventTypeOrTypeId: string | undefined,
     require?: Required & boolean,
     concreteOnly = true
   ): MaybeUndefined<Required, SchemaObjectType<any>> {
-    return require
+    return this.isPatchType(eventTypeOrTypeId) && this._patchSchema !== this
+      ? this._patchSchema.getType(eventTypeOrTypeId, require, concreteOnly)
+      : require
       ? required(
           this.getType(eventTypeOrTypeId, false, concreteOnly),
           () => `The type or event type '${eventTypeOrTypeId}' is not defined.`

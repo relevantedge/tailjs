@@ -17,6 +17,7 @@ import {
   isPlainObject,
   map,
   merge,
+  now,
   push,
   structuralEquals,
   throwError,
@@ -28,6 +29,7 @@ import {
   addPageVisibleListener,
   request,
 } from ".";
+import { PATCH_EVENT_POSTFIX } from "@constants";
 
 export type EventQueue = {
   /**
@@ -109,7 +111,7 @@ export const createEventQueue = (
     !sourceEvent.metadata?.queued
       ? throwError("Source event not queued.")
       : (merge(patch, {
-          type: sourceEvent.type + "_patch",
+          type: sourceEvent.type + PATCH_EVENT_POSTFIX,
           patchTargetId: sourceEvent.clientId,
         }) as any);
 
@@ -159,8 +161,13 @@ export const createEventQueue = (
     await request<PostRequest>(url, {
       events: events.map(
         (ev) => (
-          // Update metadata in the source event, and send a clone of the event.
-          merge(ev, { metadata: { posted: true } }), clearMetadata(ev, true)
+          // Update metadata in the source event,
+          // and send a clone of the event without client metadata, and its timestamp in relative time
+          // (the server expects this, and will adjust accordingly to its own time).
+          merge(ev, { metadata: { posted: true } }),
+          merge(clearMetadata(clone(ev), true), {
+            timestamp: ev.timestamp! - now(),
+          })
         )
       ),
       deviceSessionId: context?.deviceSessionId,

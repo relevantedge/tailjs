@@ -16,6 +16,9 @@ export const systemEvents = {
         "x-privacy-censor": "ignore",
         type: "string",
       },
+      patchTargetId: {
+        type: "string",
+      },
     },
     required: ["type"],
   },

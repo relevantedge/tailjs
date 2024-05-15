@@ -255,8 +255,6 @@ export const context: TrackerExtensionFactory = {
       nextView = undefined;
       tracker.events.post(currentViewEvent);
 
-      //dispatchViewChanged(currentViewEvent!);
-
       tracker.events.registerEventPatchSource(currentViewEvent!, (previous) =>
         deltaDiff(
           {

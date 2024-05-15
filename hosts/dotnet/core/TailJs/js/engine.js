@@ -102,6 +102,8 @@ const getPrototypeOf$1 = Object.getPrototypeOf;
 const isPlainObject$1 = (value)=>value != null && getPrototypeOf$1(value) === objectPrototype$1;
 const isFunction$1 = (value)=>typeof value === "function";
 const isIterable$1 = (value, acceptStrings = false)=>!!(value?.[symbolIterator$1] && (typeof value === "object" || acceptStrings));
+const isMap$1 = (value)=>value instanceof Map;
+const isSet$1 = (value)=>value instanceof Set;
 let stopInvoked$1 = false;
 const stop = (yieldValue)=>(stopInvoked$1 = true, yieldValue);
 const wrapProjection$1 = (projection)=>projection == null ? undefined$1$2 : isFunction$1(projection) ? projection : (item)=>item[projection];
@@ -348,6 +350,17 @@ const add = (target, key)=>target instanceof Set ? target.has(key) ? false : (ta
 const unwrap$1 = (value)=>isFunction$1(value) ? value() : value;
 const unlock = (readonly)=>readonly;
 const wrap = (original, wrap)=>original == null ? original : isFunction$1(original) ? (...args)=>wrap(original, ...args) : wrap(()=>original);
+const clone = (value, depth = -1)=>isObject$1(value) ? isArray$5(value) ? depth ? value.map((value)=>clone(value, depth - 1)) : [
+        ...value
+    ] : isSet$1(value) ? new Set(depth ? map$2(value, (value)=>clone(value, depth - 1)) : value) : isMap$1(value) ? new Map(depth ? map$2(value, (value)=>[
+            value[0],
+            clone(value[1], depth - 1)
+        ]) : value) : depth ? obj(value, ([k, v])=>[
+            k,
+            clone(v, depth - 1)
+        ]) : {
+        ...value
+    } : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
 const createTimer = (started = true, timeReference = ()=>now())=>{
     let t0 = +started * timeReference();
@@ -5878,7 +5891,7 @@ var helpers$3 = {};
 
 var uri$2 = url;
 
-var ValidationError = helpers$3.ValidationError = function ValidationError (message, instance, schema, path, name, argument) {
+var ValidationError$1 = helpers$3.ValidationError = function ValidationError (message, instance, schema, path, name, argument) {
   if(Array.isArray(path)){
     this.path = path;
     this.property = path.reduce(function(sum, item){
@@ -5902,7 +5915,7 @@ var ValidationError = helpers$3.ValidationError = function ValidationError (mess
   this.stack = this.toString();
 };
 
-ValidationError.prototype.toString = function toString() {
+ValidationError$1.prototype.toString = function toString() {
   return this.property + ' ' + this.message;
 };
 
@@ -5922,12 +5935,12 @@ var ValidatorResult$2 = helpers$3.ValidatorResult = function ValidatorResult(ins
 ValidatorResult$2.prototype.addError = function addError(detail) {
   var err;
   if (typeof detail == 'string') {
-    err = new ValidationError(detail, this.instance, this.schema, this.path);
+    err = new ValidationError$1(detail, this.instance, this.schema, this.path);
   } else {
     if (!detail) throw new Error('Missing error detail');
     if (!detail.message) throw new Error('Missing error message');
     if (!detail.name) throw new Error('Missing validator type');
-    err = new ValidationError(detail.message, this.instance, this.schema, this.path, detail.name, detail.argument);
+    err = new ValidationError$1(detail.message, this.instance, this.schema, this.path, detail.name, detail.argument);
   }
 
   this.errors.push(err);
@@ -9233,8 +9246,8 @@ var defaultSchema = {
                             "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field."
                         },
                         "viewport": {
-                            "$ref": "urn:tailjs:core#/definitions/Size",
-                            "description": "The size of the user's view port (e.g. browser window) when the page was opened."
+                            "$ref": "urn:tailjs:core#/definitions/Viewport",
+                            "description": "The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened."
                         },
                         "viewType": {
                             "type": "string",
@@ -10097,6 +10110,7 @@ const SCHEMA_QUERY = "$types";
 const CONTEXT_NAV_REQUEST_ID = "ctx.rid";
 // Must match the key in @tailjs/types/ScopeVariables.ts.
 const SCOPE_INFO_KEY = "info";
+const PATCH_EVENT_POSTFIX = "_patch";
 
 class DefaultSessionReferenceMapper {
     async mapSessionId(tracker) {
@@ -16439,23 +16453,15 @@ validate.getData = getData;
 
 var validation_error = {};
 
-var hasRequiredValidation_error;
-
-function requireValidation_error () {
-	if (hasRequiredValidation_error) return validation_error;
-	hasRequiredValidation_error = 1;
-	Object.defineProperty(validation_error, "__esModule", { value: true });
-	class ValidationError extends Error {
-	    constructor(errors) {
-	        super("validation failed");
-	        this.errors = errors;
-	        this.ajv = this.validation = true;
-	    }
-	}
-	validation_error.default = ValidationError;
-	
-	return validation_error;
+Object.defineProperty(validation_error, "__esModule", { value: true });
+class ValidationError extends Error {
+    constructor(errors) {
+        super("validation failed");
+        this.errors = errors;
+        this.ajv = this.validation = true;
+    }
 }
+validation_error.default = ValidationError;
 
 var ref_error = {};
 
@@ -16475,7 +16481,7 @@ var compile = {};
 Object.defineProperty(compile, "__esModule", { value: true });
 compile.resolveSchema = compile.getCompilingSchema = compile.resolveRef = compile.compileSchema = compile.SchemaEnv = void 0;
 const codegen_1$q = codegen;
-const validation_error_1 = requireValidation_error();
+const validation_error_1 = validation_error;
 const names_1$5 = names$1;
 const resolve_1 = resolve$1;
 const util_1$o = util;
@@ -18171,7 +18177,7 @@ uri$1.default = uri;
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	const validation_error_1 = requireValidation_error();
+	const validation_error_1 = validation_error;
 	const ref_error_1 = ref_error;
 	const rules_1 = rules;
 	const compile_1 = compile;
@@ -20779,7 +20785,7 @@ var require$$3$1 = {
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = requireValidation_error();
+	var validation_error_1 = validation_error;
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
 	var ref_error_1 = ref_error;
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
@@ -21820,7 +21826,7 @@ jsonSchema202012.default = addMetaSchema2020;
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = requireValidation_error();
+	var validation_error_1 = validation_error;
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
 	var ref_error_1 = ref_error;
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
@@ -22376,19 +22382,40 @@ const extractDescription = (entity)=>({
         description: entity.description,
         tags: entity.tags
     });
+/** The name of the {@link TrackedEvent.patchTargetId} property. */ const PATCH_TARGET_ID = "patchTargetId";
 class SchemaManager {
     schema;
     subSchemas = new Map();
     types = new Map();
-    constructor(schemas){
+    /**
+   * A manager that contains all the same types as this one, but without required properties.
+   * These types are used for validating event patches.
+   */ _patchSchema;
+    /**
+   *
+   * Creates a {@link SchemaManager} for validating, parsing and censoring event and variable types.
+   *
+   * @param schemas The individual source JSON Schemas that composes the runtime schema.
+   */ static create(schemas) {
+        return new SchemaManager(schemas, false);
+    }
+    /**
+   *
+   * @param schemas The individual source JSON Schemas that composes the runtime schema.
+   * @param patches Flag that indicates whether the schema is for patch events.
+   * @param reparse This is the second parse for the patch schema.
+   *
+   * Per convention, patch events type names are postfixed with `_patch` and only the {@link TrackedEvent.type} and
+   *  {@link TrackedEvent.patchTargetId} properties are required.
+   */ constructor(schemas, patches = false, reparse = false){
         schemas = array$1(schemas);
-        const combinedSchema = {
+        let combinedSchema = {
             $schema: "https://json-schema.org/draft/2020-12/schema",
             $id: "urn:tailjs:runtime",
-            description: "The effective schema for this particular configuration of tail.js that bundles all included schemas.",
+            description: "The effective schema for this particular configuration of tail.js that bundles all included schemas." + "\n" + "Please note that the shadow types for patching events are not represented in this schema. Per convention any event type " + "postfixed with `_patch` will be validated against its source event, but without required properties apart from " + "`" + PATCH_TARGET_ID + "` and `type`.",
             $defs: obj(schemas, (schema)=>[
                     validate$1(schema.$id, schema.$id && schema.$schema, "A schema must have an $id and $schema property."),
-                    schema
+                    clone(schema)
                 ])
         };
         const reset = ()=>{
@@ -22399,7 +22426,7 @@ class SchemaManager {
         };
         let ajv = reset();
         ajv.addSchema(combinedSchema);
-        const [parsedSchemas, parsedTypes] = parseSchema(combinedSchema, ajv);
+        let [parsedSchemas, parsedTypes] = parseSchema(combinedSchema, ajv);
         // A brand new instance is required since we have tampered with the schema while parsing (e.g. setting unevaluatedProperties true/false and added anchors).
         (ajv = reset()).compile(combinedSchema);
         parsedSchemas.forEach((parsed)=>{
@@ -22422,22 +22449,23 @@ class SchemaManager {
                 (schema.subSchemas ??= new Map()).set(subSchema.id, subSchema);
             });
         });
-        parsedTypes.forEach((parsed)=>{
-            const validate = required$2(ajv.getSchema(parsed.context.$ref), ()=>`INV <> The ref '${parsed.context.$ref}' does not address the type '${parsed.id}' in the schema.`);
+        parsedTypes.forEach((parsedType)=>{
+            const validate = required$2(ajv.getSchema(parsedType.context.$ref), ()=>`INV <> The ref '${parsedType.context.$ref}' does not address the type '${parsedType.id}' in the schema.`);
             const type = {
-                id: parsed.id,
-                name: parsed.name,
-                ...extractDescription(parsed),
-                classification: parsed.classification,
-                purposes: parsed.purposes,
+                id: parsedType.id,
+                name: parsedType.name,
+                ...extractDescription(parsedType),
+                classification: parsedType.classification,
+                purposes: parsedType.purposes,
                 primitive: false,
-                abstract: !!parsed.abstract,
-                schema: invariant(this.subSchemas.get(parsed.context.schema.id), "Schemas are mapped."),
-                censor: (value, classification)=>censor(parsed, value, classification),
+                abstract: !!parsedType.abstract,
+                schema: invariant(this.subSchemas.get(parsedType.context.schema.id), "Schemas are mapped."),
+                definition: parsedType.context.node,
+                censor: (value, classification)=>censor(parsedType, value, classification),
                 tryValidate: (value)=>validate(value) ? value : undefined,
                 validate: (value)=>validate(value) ? value : throwError$1(validationError(type.id, validate.errors, value))
             };
-            type["parsed"] = parsed;
+            type["parsed"] = parsedType;
             unlock(type.schema.types).set(type.id, type);
             this.types.set(type.id, type);
         });
@@ -22457,12 +22485,16 @@ class SchemaManager {
                     declaringType: type,
                     structure: parsedProperty.structure,
                     required: parsedProperty.required,
+                    definition: parsedProperty.typeContext?.node,
                     type: required$2(parsedProperty.objectType ? this.types.get(parsedProperty.objectType.id) : parsedProperty.primitiveType ?? {}, ()=>parseError(parsed.context, `Unknown property type. (${JSON.stringify(parsedProperty.typeContext.node)})`))
                 };
                 property["parsed"] = parsedProperty;
                 unlock(type.properties ??= new Map()).set(property.name, property);
                 if (trackedEvent && key === "type" && parsed.extendsAll?.has(trackedEvent)) {
-                    array$1(parsedProperty.typeContext?.node.const ?? parsedProperty.typeContext?.node.enum)?.forEach((alias)=>assignIfUndefined(unlock(type.schema.events ??= new Map()), alias, type, (key, current)=>`The event '${type.id}' cannot be defined for the type '${key}' since '${current.id}' is already registered.`));
+                    array$1(parsedProperty.typeContext?.node.const ?? parsedProperty.typeContext?.node.enum)?.forEach((alias, i)=>{
+                        i === 0 && (type.eventTypeName = alias);
+                        assignIfUndefined(unlock(type.schema.events ??= new Map()), alias, type, (key, current)=>`The event '${type.id}' cannot be defined for the type '${key}' since '${current.id}' is already registered.`);
+                    });
                 }
                 // If $defs defines object types named of a variable scope + "Variables" ("GlobalVariables", "SessionVariables", "DeviceVariables",  "UserVariables" or"EntityVariables"),
                 // their properties will be added as variable definitions to the respective scopes.
@@ -22512,12 +22544,46 @@ class SchemaManager {
             forEach$1(type?.referencedBy, (parsedProperty)=>(type.referencedBy ??= new Set()).add(invariant(this.types.get(parsedProperty.declaringType.id)?.properties?.get(parsedProperty.name), "Referencing property is mapped.")));
         });
         this.schema = invariant(this.subSchemas.get("urn:tailjs:runtime"), "Runtime schema is registered.");
+        if (patches) {
+            if (reparse) {
+                this._patchSchema = this;
+            } else {
+                // Postfix "_patch" to all event types, and make all properties optional except events' `type` and `patchTargetId`.
+                this.subSchemas.forEach((schema)=>{
+                    schema.types.forEach((type)=>{
+                        if (type.schema !== schema) return;
+                        if (isObjectType(type) && type.definition) {
+                            delete type.definition.required;
+                            if (type.eventTypeName) {
+                                type.eventTypeName += PATCH_EVENT_POSTFIX;
+                                type.definition.required = [
+                                    "type",
+                                    PATCH_TARGET_ID
+                                ];
+                                const typeProperty = type.properties?.get("type")?.definition;
+                                if (typeProperty) {
+                                    typeProperty.const && (typeProperty.const = typeProperty.const + PATCH_EVENT_POSTFIX);
+                                    typeProperty.enum && (typeProperty.enum = typeProperty.enum.map((name)=>name + PATCH_EVENT_POSTFIX));
+                                }
+                            }
+                        }
+                    });
+                });
+                // Re-parse modified patch schema.
+                this._patchSchema = new SchemaManager(Object.values(combinedSchema.$defs), true, true);
+            }
+        } else {
+            this._patchSchema = new SchemaManager(schemas, true)._patchSchema;
+        }
     }
     getSchema(schemaId, require) {
         return require ? required$2(this.getSchema(schemaId, false), ()=>`The schema '${schemaId}' has not been registered.`) : schemaId && this.subSchemas.get(schemaId);
     }
+    isPatchType(eventTypeOrTypeId) {
+        return eventTypeOrTypeId?.endsWith(PATCH_EVENT_POSTFIX) === true;
+    }
     getType(eventTypeOrTypeId, require, concreteOnly = true) {
-        return require ? required$2(this.getType(eventTypeOrTypeId, false, concreteOnly), ()=>`The type or event type '${eventTypeOrTypeId}' is not defined.`) : ifDefined(eventTypeOrTypeId, ()=>validate$1(this.schema.events?.get(eventTypeOrTypeId) ?? this.types.get(eventTypeOrTypeId), (type)=>!type || !concreteOnly || type && !type.abstract, ()=>`The type '${eventTypeOrTypeId}' is abstract and cannot be used directly.`));
+        return this.isPatchType(eventTypeOrTypeId) && this._patchSchema !== this ? this._patchSchema.getType(eventTypeOrTypeId, require, concreteOnly) : require ? required$2(this.getType(eventTypeOrTypeId, false, concreteOnly), ()=>`The type or event type '${eventTypeOrTypeId}' is not defined.`) : ifDefined(eventTypeOrTypeId, ()=>validate$1(this.schema.events?.get(eventTypeOrTypeId) ?? this.types.get(eventTypeOrTypeId), (type)=>!type || !concreteOnly || type && !type.abstract, ()=>`The type '${eventTypeOrTypeId}' is abstract and cannot be used directly.`));
     }
     tryValidate(id, value) {
         return id && this.getType(id, false)?.tryValidate(value);

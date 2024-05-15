@@ -12,3 +12,5 @@ export const CONTEXT_NAV_REQUEST_ID = "ctx.rid";
 
 // Must match the key in @tailjs/types/ScopeVariables.ts.
 export const SCOPE_INFO_KEY = "info";
+
+export const PATCH_EVENT_POSTFIX = "_patch";

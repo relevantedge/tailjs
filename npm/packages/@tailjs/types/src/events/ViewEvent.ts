@@ -6,6 +6,7 @@ import type {
   TrackedEvent,
   View,
   ViewTimingData,
+  Viewport,
 } from "..";
 import { typeTest } from "../util/type-test";
 
@@ -144,9 +145,9 @@ export interface ViewEvent extends TrackedEvent {
   };
 
   /**
-   * The size of the user's view port (e.g. browser window) when the page was opened.
+   * The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened.
    */
-  viewport?: Size;
+  viewport?: Viewport;
 
   /**
    * The type of view, e.g. "page" or "screen".
