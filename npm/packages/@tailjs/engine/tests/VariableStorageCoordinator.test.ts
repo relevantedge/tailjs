@@ -22,7 +22,7 @@ describe("VariableStorageCoordinator", () => {
   );
 
   const setupStorage = () => {
-    const schemaManager = new SchemaManager([
+    const schemaManager = SchemaManager.create([
       variablesSchema,
       prefixedVariableSchema,
     ]);

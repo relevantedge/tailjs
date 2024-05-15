@@ -163,6 +163,7 @@ export const polymorphicSchema = {
 
 export type TestEventBase = {
   type: string;
+  patchTargetId?: string;
 };
 
 export type TestType1 = {

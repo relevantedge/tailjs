@@ -20,7 +20,7 @@ import {
   NOOP,
   T,
   array,
-  encodeURIComponent,
+  uriEncode,
   equalsAny,
   isObject,
   map,

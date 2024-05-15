@@ -760,7 +760,7 @@ const forEachObject = (source: any, action: any) => {
   return returnValue;
 };
 
-export const apply: <S, R, Args extends readonly any[]>(
+export const apply: <S extends Iterable<any>, R, Args extends readonly any[]>(
   source: S,
   action: (
     item: S extends IteratorSource ? IteratorItem<S> : OmitNullish<S>,

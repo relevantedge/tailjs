@@ -61,7 +61,7 @@ export type ParsedQueryString<Delimiters extends QueryStringDelimiterValue> =
     Delimiters extends null | readonly [] | false ? string : string | string[]
   >;
 
-export const encodeURIComponent = (value: any) =>
+export const uriEncode = (value: any) =>
   value != nil ? encodeURIComponent(value) : undefined;
 
 const parseKeyValue = (
@@ -243,8 +243,8 @@ export const toQueryString = <
           ? key +
               "=" +
               (isArray(value)
-                ? map(value, encodeURIComponent).join(delimiter)
-                : encodeURIComponent(value)) ?? ""
+                ? map(value, uriEncode).join(delimiter)
+                : uriEncode(value)) ?? ""
           : undefined
       )?.join("&") as any);
 
