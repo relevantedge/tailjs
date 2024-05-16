@@ -15,6 +15,7 @@ import {
   isNumber,
   isObject,
   isPlainObject,
+  join,
   map,
   merge,
   now,
@@ -67,31 +68,37 @@ type EventPatchData<T extends TrackedEvent> = Omit<
   "patchTargetId" | "metadata" | "type"
 > & { type?: undefined };
 
-export const deltaDiff = <T>(current: T, previous: T | undefined): T => {
-  if (!isPlainObject(previous)) return current;
+export const deltaDiff = <T>(
+  current: T,
+  previous: T | undefined
+): [delta: T, current: T] | undefined => {
+  if (!isPlainObject(previous)) return [current, current];
 
-  const diffed: any = {};
+  const delta: any = {};
+  let any = false;
+  let deltaValue: any;
   let previousValue: number | undefined;
   if (isPlainObject(current)) {
     forEach(
       current,
       ([key, value]) =>
         // No change here.
-        diffed[key] !== previous[key] &&
-        (diffed[key] = isPlainObject(value)
-          ? deltaDiff(value, previous[key])
+        delta[key] !== previous[key] &&
+        (deltaValue = isPlainObject(value)
+          ? deltaDiff(value, previous[key])?.[0]
           : isNumber(value) && isNumber((previousValue = previous[key]))
           ? value - previousValue
-          : value)
+          : value) !== previous[key] &&
+        ((delta[key] = deltaValue), (any = true))
     );
   }
-  return diffed;
+  return any ? [delta, current] : undefined;
 };
 
 export type EventPatchSource<T extends TrackedEvent = TrackedEvent> = (
   previous: EventPatchData<T>,
   unbind: () => void
-) => EventPatchData<T> | undefined;
+) => [delta: EventPatchData<T>, current: EventPatchData<T>] | undefined;
 
 export const createEventQueue = (
   url: string,
@@ -123,14 +130,14 @@ export const createEventQueue = (
     const unbind = () => (unbinding = true);
     snapshots.set(sourceEvent, clone(sourceEvent));
     const factory: Factory = () => {
-      let updated = mapPatchTarget(
-        sourceEvent,
-        source(snapshots.get(sourceEvent), unbind)
-      );
+      const snapshot = snapshots.get(sourceEvent);
+      let [delta, current] = source(snapshot, unbind) ?? [];
 
-      if (updated && (!snapshots || !structuralEquals(updated, snapshots))) {
-        updated && snapshots.set(sourceEvent, clone(updated));
-        return [updated as any, unbinding];
+      if (delta && (!snapshot || !structuralEquals(current, snapshot))) {
+        // The new "current" differs from the previous.
+        snapshots.set(sourceEvent, clone(current));
+        // Add patch target ID and the correct event type to the delta data before we return it.
+        return [mapPatchTarget(sourceEvent, delta) as any, unbinding];
       } else {
         return [undefined, unbinding];
       }
@@ -147,6 +154,13 @@ export const createEventQueue = (
       merge(context.applyEventExtensions(event), { metadata: { queued: true } })
     );
 
+    if (events.length) {
+      forEach(events, (event) => {
+        console.groupCollapsed(`tail.js: ${event.type}`);
+        console.log(JSON.stringify(event, null, 2));
+        console.groupEnd();
+      });
+    }
     if (!flush) {
       events.length && push(queue, ...events);
       return;
@@ -157,6 +171,12 @@ export const createEventQueue = (
     }
 
     if (!events.length) return;
+
+    console.groupCollapsed(
+      `tail.js: Posting ${events.length} event${events.length > 1 ? "s" : ""}`
+    );
+    console.log(join(events, (ev) => ev.type, [", ", " and "]));
+    console.groupEnd();
 
     await request<PostRequest>(url, {
       events: events.map(

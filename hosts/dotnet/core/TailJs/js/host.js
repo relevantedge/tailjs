@@ -46,6 +46,8 @@
                 mapped[key] = serializeFunctions(value);
             }
             return mapped;
+        } else if( src instanceof  Error){
+            return {message: src+"", stack: src.stack};
         }
         return src;
     }

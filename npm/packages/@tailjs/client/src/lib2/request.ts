@@ -144,6 +144,7 @@ export const request: {
       })
     ) && throwError("Beacon send failed.");
   } else {
+    let retries = 1;
     return await requestLock(() =>
       forEachAsync(1, async (retry) => {
         if (!prepareRequestData(retry)) return stop();
@@ -160,7 +161,7 @@ export const request: {
         });
 
         if (response.status >= 400) {
-          return retry === 3
+          return retry === retries - 1
             ? stop(throwError(`Invalid response: ${await response.text()}`))
             : (console.warn(
                 `Request to ${url} failed on attempt ${retry + 1}/${3}.`
@@ -173,6 +174,8 @@ export const request: {
         const parsed = responseText?.length
           ? (encrypt ? httpDecrypt : JSON.parse)?.(responseText)
           : undefined;
+
+        console.log(JSON.stringify(parsed, null, 2));
 
         if (parsed != null) {
           dispatchResponse(parsed);

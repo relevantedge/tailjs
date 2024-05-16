@@ -204,9 +204,10 @@ const traverseInternal = (root, selector, include, results, seen)=>{
     forEachInternal(selector(root), (item)=>traverseInternal(item, selector, true, results, seen));
     return results;
 };
-const join = (source, projection, sep)=>source == null ? undefined$1$2 : isFunction$1(projection) ? map$2(isString$2(source) ? [
+const separate = (values, sep)=>!values ? undefined$1$2 : values.length === 1 ? values[0] : isArray$5(sep) ? (values.length > 2 ? values.slice(0, -2).join(sep[0]) : values[0]) + sep[1] + values[values.length - 1] : values.join(sep);
+const join = (source, projection, sep)=>source == null ? undefined$1$2 : isFunction$1(projection) ? separate(map$2(isString$2(source) ? [
         source
-    ] : source, projection)?.join(sep ?? "") : isString$2(source) ? source : map$2(source, (item)=>item === false ? undefined$1$2 : item)?.join(projection ?? "");
+    ] : source, projection), sep ?? "") : isString$2(source) ? source : separate(map$2(source, (item)=>item === false ? undefined$1$2 : item), projection ?? "");
 const concat = (...items)=>{
     let merged;
     forEach$1(items.length === 1 ? items[0] : items, (item)=>item != null && (merged ??= []).push(...array$1(item)));
@@ -846,7 +847,6 @@ class TrackerCoreEvents {
             updateData(false, (current)=>current.lastSeen = timestamp);
             updateData(true, (current)=>current.lastSeen = timestamp);
         };
-        updateSnapshot();
         const updateData = (device, patch)=>{
             if (device && !deviceInfo) {
                 return;
@@ -863,6 +863,7 @@ class TrackerCoreEvents {
             } : undefined);
             updateSnapshot();
         };
+        updateSnapshot();
         const updatedEvents = [];
         for (let event of events){
             if (isConsentEvent(event)) {
@@ -5891,7 +5892,7 @@ var helpers$3 = {};
 
 var uri$2 = url;
 
-var ValidationError$1 = helpers$3.ValidationError = function ValidationError (message, instance, schema, path, name, argument) {
+var ValidationError = helpers$3.ValidationError = function ValidationError (message, instance, schema, path, name, argument) {
   if(Array.isArray(path)){
     this.path = path;
     this.property = path.reduce(function(sum, item){
@@ -5915,7 +5916,7 @@ var ValidationError$1 = helpers$3.ValidationError = function ValidationError (me
   this.stack = this.toString();
 };
 
-ValidationError$1.prototype.toString = function toString() {
+ValidationError.prototype.toString = function toString() {
   return this.property + ' ' + this.message;
 };
 
@@ -5935,12 +5936,12 @@ var ValidatorResult$2 = helpers$3.ValidatorResult = function ValidatorResult(ins
 ValidatorResult$2.prototype.addError = function addError(detail) {
   var err;
   if (typeof detail == 'string') {
-    err = new ValidationError$1(detail, this.instance, this.schema, this.path);
+    err = new ValidationError(detail, this.instance, this.schema, this.path);
   } else {
     if (!detail) throw new Error('Missing error detail');
     if (!detail.message) throw new Error('Missing error message');
     if (!detail.name) throw new Error('Missing validator type');
-    err = new ValidationError$1(detail.message, this.instance, this.schema, this.path, detail.name, detail.argument);
+    err = new ValidationError(detail.message, this.instance, this.schema, this.path, detail.name, detail.argument);
   }
 
   this.errors.push(err);
@@ -10627,7 +10628,7 @@ class RequestHandler {
                 });
             }
         } catch (ex) {
-            console.error(ex.stack);
+            console.error("Unexpected error while processing request.", ex);
             return result({
                 status: 500,
                 body: ex.toString()
@@ -16453,15 +16454,23 @@ validate.getData = getData;
 
 var validation_error = {};
 
-Object.defineProperty(validation_error, "__esModule", { value: true });
-class ValidationError extends Error {
-    constructor(errors) {
-        super("validation failed");
-        this.errors = errors;
-        this.ajv = this.validation = true;
-    }
+var hasRequiredValidation_error;
+
+function requireValidation_error () {
+	if (hasRequiredValidation_error) return validation_error;
+	hasRequiredValidation_error = 1;
+	Object.defineProperty(validation_error, "__esModule", { value: true });
+	class ValidationError extends Error {
+	    constructor(errors) {
+	        super("validation failed");
+	        this.errors = errors;
+	        this.ajv = this.validation = true;
+	    }
+	}
+	validation_error.default = ValidationError;
+	
+	return validation_error;
 }
-validation_error.default = ValidationError;
 
 var ref_error = {};
 
@@ -16481,7 +16490,7 @@ var compile = {};
 Object.defineProperty(compile, "__esModule", { value: true });
 compile.resolveSchema = compile.getCompilingSchema = compile.resolveRef = compile.compileSchema = compile.SchemaEnv = void 0;
 const codegen_1$q = codegen;
-const validation_error_1 = validation_error;
+const validation_error_1 = requireValidation_error();
 const names_1$5 = names$1;
 const resolve_1 = resolve$1;
 const util_1$o = util;
@@ -18177,7 +18186,7 @@ uri$1.default = uri;
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	const validation_error_1 = validation_error;
+	const validation_error_1 = requireValidation_error();
 	const ref_error_1 = ref_error;
 	const rules_1 = rules;
 	const compile_1 = compile;
@@ -20785,7 +20794,7 @@ var require$$3$1 = {
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = validation_error;
+	var validation_error_1 = requireValidation_error();
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
 	var ref_error_1 = ref_error;
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
@@ -21826,7 +21835,7 @@ jsonSchema202012.default = addMetaSchema2020;
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = validation_error;
+	var validation_error_1 = requireValidation_error();
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
 	var ref_error_1 = ref_error;
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
@@ -22383,6 +22392,7 @@ const extractDescription = (entity)=>({
         tags: entity.tags
     });
 /** The name of the {@link TrackedEvent.patchTargetId} property. */ const PATCH_TARGET_ID = "patchTargetId";
+const parsedSource = Symbol();
 class SchemaManager {
     schema;
     subSchemas = new Map();
@@ -22460,12 +22470,12 @@ class SchemaManager {
                 primitive: false,
                 abstract: !!parsedType.abstract,
                 schema: invariant(this.subSchemas.get(parsedType.context.schema.id), "Schemas are mapped."),
-                definition: parsedType.context.node,
+                definition: parsedType.composition.node,
                 censor: (value, classification)=>censor(parsedType, value, classification),
                 tryValidate: (value)=>validate(value) ? value : undefined,
                 validate: (value)=>validate(value) ? value : throwError$1(validationError(type.id, validate.errors, value))
             };
-            type["parsed"] = parsedType;
+            type[parsedSource] = parsedType;
             unlock(type.schema.types).set(type.id, type);
             this.types.set(type.id, type);
         });
@@ -22552,18 +22562,26 @@ class SchemaManager {
                 this.subSchemas.forEach((schema)=>{
                     schema.types.forEach((type)=>{
                         if (type.schema !== schema) return;
-                        if (isObjectType(type) && type.definition) {
-                            delete type.definition.required;
+                        const parsed = type[parsedSource];
+                        if (isObjectType(type) && parsed) {
+                            const removeRequired = (cmp)=>{
+                                if (type.eventTypeName && cmp.node.required?.includes("type")) {
+                                    cmp.node.required = [
+                                        "type",
+                                        PATCH_TARGET_ID
+                                    ];
+                                } else {
+                                    delete cmp.node.required;
+                                }
+                                cmp.compositions?.forEach(removeRequired);
+                            };
+                            removeRequired(parsed.composition);
                             if (type.eventTypeName) {
                                 type.eventTypeName += PATCH_EVENT_POSTFIX;
-                                type.definition.required = [
-                                    "type",
-                                    PATCH_TARGET_ID
-                                ];
-                                const typeProperty = type.properties?.get("type")?.definition;
-                                if (typeProperty) {
-                                    typeProperty.const && (typeProperty.const = typeProperty.const + PATCH_EVENT_POSTFIX);
-                                    typeProperty.enum && (typeProperty.enum = typeProperty.enum.map((name)=>name + PATCH_EVENT_POSTFIX));
+                                const context = parsed.properties.get("type")?.typeContext;
+                                if (context) {
+                                    context.node.const && (context.node.const = context.node.const + PATCH_EVENT_POSTFIX);
+                                    context.node.enum && (context.node.enum = context.node.enum.map((name)=>name + PATCH_EVENT_POSTFIX));
                                 }
                             }
                         }

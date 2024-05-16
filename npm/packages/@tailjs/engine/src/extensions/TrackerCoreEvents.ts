@@ -55,6 +55,7 @@ export class TrackerCoreEvents implements TrackerExtension {
     }
 
     events = await next(events);
+
     if (!tracker.sessionId) {
       return events;
     }
@@ -76,14 +77,15 @@ export class TrackerCoreEvents implements TrackerExtension {
     const updateSnapshot = () => {
       sessionDataUpdates = [];
       deviceDataUpdates = [];
+
       [sessionInfo, deviceInfo] = [
         tracker._session!.value,
         tracker._device?.value,
       ];
+
       updateData(false, (current) => (current.lastSeen = timestamp));
       updateData(true, (current) => (current.lastSeen = timestamp));
     };
-    updateSnapshot();
 
     const updateData = <
       D extends boolean,
@@ -97,6 +99,7 @@ export class TrackerCoreEvents implements TrackerExtension {
       if (device && !deviceInfo) {
         return;
       }
+
       patch((device ? deviceInfo : sessionInfo) as T);
       (
         (device ? deviceDataUpdates : sessionDataUpdates) as ScopeDataPatch<T>[]
@@ -122,7 +125,10 @@ export class TrackerCoreEvents implements TrackerExtension {
       updateSnapshot();
     };
 
+    updateSnapshot();
+
     const updatedEvents: TrackedEvent[] = [];
+
     for (let event of events) {
       if (isConsentEvent(event)) {
         await tracker.updateConsent(
