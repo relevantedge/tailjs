@@ -337,8 +337,22 @@ describe("SchemaManager.", () => {
     const schema = JSON.parse(fs.readFileSync(fullSchemaPath, "utf-8"));
     const manager = SchemaManager.create([schema]);
 
-    const clickIntent = manager.getType("component_click_intent");
-    expect(clickIntent).toBeDefined();
+    // const clickIntent = manager.getType("component_click_intent");
+    // expect(clickIntent).toBeDefined();
+
+    manager.validate("view_patch", {
+      duration: {
+        totalTime: 19048,
+        visibleTime: 19048,
+        interactiveTime: 13085,
+        activations: 0,
+      },
+      type: "view_patch",
+      patchTargetId: "lw8ajrz7tc_3",
+      clientId: "lw8ajrz7tc_7",
+      timestamp: 0,
+      view: "lw8ajrz7tc_3",
+    });
 
     // fs.writeFileSync(
     //   "c:/temp/tailjs.json",

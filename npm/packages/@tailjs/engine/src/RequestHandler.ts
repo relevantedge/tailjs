@@ -800,7 +800,7 @@ export class RequestHandler {
         });
       }
     } catch (ex) {
-      console.error(ex.stack);
+      console.error("Unexpected error while processing request.", ex);
       return result({
         status: 500,
         body: ex.toString(),

@@ -332,7 +332,6 @@ describe("iterators.ts", () => {
 
     expect(apply([0, 1, 2], test)).toEqual([1, 2, 3]);
     expect(apply([0, 1, 2], test, 10)).toEqual([10, 11, 12]);
-    // expect(apply(3, test, 10)).toEqual([10, 11, 12]);
-    // expect(apply(-3, test, 10)).toEqual([12, 11, 10]);
+    expect(apply(3, test, 10)).toEqual(13);
   });
 });

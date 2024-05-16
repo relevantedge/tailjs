@@ -38,7 +38,14 @@ import {
   VariableMap,
   isObjectType,
 } from "..";
-import { censor, parseError, parseSchema, validationError } from "./parse";
+import {
+  ParsedComposition,
+  ParsedType,
+  censor,
+  parseError,
+  parseSchema,
+  validationError,
+} from "./parse";
 import { PATCH_EVENT_POSTFIX } from "@constants";
 
 const extractDescription = (
@@ -52,6 +59,7 @@ const extractDescription = (
 /** The name of the {@link TrackedEvent.patchTargetId} property. */
 const PATCH_TARGET_ID = "patchTargetId";
 
+const parsedSource = Symbol();
 export class SchemaManager {
   public readonly schema: Schema;
   public readonly subSchemas: ReadonlyMap<string, Schema> = new Map();
@@ -173,7 +181,7 @@ export class SchemaManager {
           "Schemas are mapped."
         ),
 
-        definition: parsedType.context.node,
+        definition: parsedType.composition.node,
 
         censor: (value, classification) =>
           censor(parsedType, value, classification),
@@ -185,7 +193,7 @@ export class SchemaManager {
             ? value
             : throwError(validationError(type.id, validate.errors, value)),
       };
-      (type as any)["parsed"] = parsedType;
+      (type as any)[parsedSource] = parsedType;
       unlock(type.schema.types).set(type.id, type);
       (this.types as Map<any, any>).set(type.id, type);
     });
@@ -361,19 +369,28 @@ export class SchemaManager {
         this.subSchemas.forEach((schema) => {
           schema.types.forEach((type) => {
             if (type.schema !== schema) return;
-            if (isObjectType(type) && type.definition) {
-              delete type.definition.required;
+            const parsed = type[parsedSource] as ParsedType;
+
+            if (isObjectType(type) && parsed) {
+              const removeRequired = (cmp: ParsedComposition) => {
+                if (type.eventTypeName && cmp.node.required?.includes("type")) {
+                  cmp.node.required = ["type", PATCH_TARGET_ID];
+                } else {
+                  delete cmp.node.required;
+                }
+                cmp.compositions?.forEach(removeRequired);
+              };
+              removeRequired(parsed.composition);
 
               if (type.eventTypeName) {
                 type.eventTypeName += PATCH_EVENT_POSTFIX;
-                type.definition.required = ["type", PATCH_TARGET_ID];
-                const typeProperty = type.properties?.get("type")?.definition;
-                if (typeProperty) {
-                  typeProperty.const &&
-                    (typeProperty.const =
-                      typeProperty.const + PATCH_EVENT_POSTFIX);
-                  typeProperty.enum &&
-                    (typeProperty.enum = typeProperty.enum.map(
+                const context = parsed.properties.get("type")?.typeContext;
+                if (context) {
+                  context.node.const &&
+                    (context.node.const =
+                      context.node.const + PATCH_EVENT_POSTFIX);
+                  context.node.enum &&
+                    (context.node.enum = context.node.enum.map(
                       (name: string) => name + PATCH_EVENT_POSTFIX
                     ));
                 }

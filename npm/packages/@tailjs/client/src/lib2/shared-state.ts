@@ -160,7 +160,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
         tabId: string,
         variables: StateVariable[]
       ];
-      console.log(localState);
+      sessionStorage.removeItem(STATE_KEY);
 
       TAB_ID =
         localState?.[0] ??
@@ -182,8 +182,8 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
           ])
         )
       );
-      sessionStorage.removeItem(STATE_KEY);
     } else {
+      console.log(JSON.stringify(state, null, 2));
       sessionStorage.setItem(
         STATE_KEY,
         httpEncrypt([

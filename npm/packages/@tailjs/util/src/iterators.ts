@@ -603,6 +603,17 @@ type ConcatResult<T> = ConcatResult_<T> extends never
   ? undefined
   : ConcatResult_<T>[];
 
+const separate = (values: any[] | undefined, sep: string | [string, string]) =>
+  !values
+    ? undefined
+    : values.length === 1
+    ? values[0]
+    : isArray(sep)
+    ? (values.length > 2 ? values.slice(0, -2).join(sep[0]) : values[0]) +
+      sep[1] +
+      values[values.length - 1]
+    : values.join(sep);
+
 export const join: {
   /**
    *  Joins the specified items with a separator (default is "").
@@ -612,7 +623,7 @@ export const join: {
    */
   <S extends IteratorSource | string>(
     source: S,
-    separator?: string
+    separator?: string | readonly [string, string]
   ): MaybeUndefined<S, string>;
 
   /**
@@ -622,16 +633,18 @@ export const join: {
   <S extends IteratorSource | string>(
     source: S,
     projection: IteratorAction<S extends string ? [string] : S>,
-    separator?: string
+    separator?: string | readonly [string, string],
+    lastSeparator?: string
   ): MaybeUndefined<S, string>;
 } = (source: any, projection: any, sep?: any) =>
   source == null
     ? undefined
     : isFunction(projection)
-    ? map(isString(source) ? [source] : source, projection)?.join(sep ?? "")
+    ? separate(map(isString(source) ? [source] : source, projection), sep ?? "")
     : isString(source)
     ? source
-    : map(source, (item) => (item === false ? undefined : item))?.join(
+    : separate(
+        map(source, (item) => (item === false ? undefined : item)),
         projection ?? ""
       );
 
@@ -760,7 +773,7 @@ const forEachObject = (source: any, action: any) => {
   return returnValue;
 };
 
-export const apply: <S extends Iterable<any>, R, Args extends readonly any[]>(
+export const apply: <S, R, Args extends readonly any[]>(
   source: S,
   action: (
     item: S extends IteratorSource ? IteratorItem<S> : OmitNullish<S>,
