@@ -43,7 +43,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
             console.error(e);
         }
     } finally{
-        always?.();
+        await always?.();
     }
     return undefined;
 };
@@ -159,9 +159,9 @@ const map = (source, projection, start, end)=>{
     }
     return source != null ? array(project(source, projection, start, end)) : undefined$1;
 };
-const join = (source, projection, sep)=>source == null ? undefined$1 : isFunction(projection) ? map(isString(source) ? [
+const join = (source, projection, sep)=>source == null ? undefined$1 : isFunction(projection) ? separate(map(isString(source) ? [
         source
-    ] : source, projection)?.join(sep ?? "") : isString(source) ? source : map(source, (item)=>item === false ? undefined$1 : item)?.join(projection ?? "");
+    ] : source, projection), sep ?? "") : isString(source) ? source : separate(map(source, (item)=>item === false ? undefined$1 : item), projection ?? "");
 const forEachArray = (source, action, start, end)=>{
     let returnValue;
     let i = 0;
@@ -270,6 +270,26 @@ const define = (target, ...args)=>{
     return target;
 };
 const unwrap = (value)=>isFunction(value) ? value() : value;
+
+/**
+ * Creates a string enumerating a list of value given a separator, optionally using a different separator between the last two items.
+ *
+ * @param values - The list of items to enumerator.
+ * @param separator - The separator to use (defaults to ", "). If given a tuple, the first item is the last separator without spaces.
+ * The second item may optionally specify another separator than the default (", ").
+ *
+ *
+ * Useful for enumerations like "item1, item2 and item 3" (`separate(["item1", "item2", "item3"], ["and"])`).
+ */ const separate = (values, separator = [
+    "and",
+    ", "
+])=>!values ? undefined : values.length === 1 ? values[0] : isArray(separator) ? [
+        values.slice(-1).join(separator[1] ?? ", "),
+        " ",
+        separator[0],
+        " ",
+        values[values.length - 1]
+    ].join("") : values.join(separator ?? ", ");
 
 const conjunct = (values, conjunction = "and")=>ifDefined(values, (values)=>(values = isIterable(values) ? map(values, (value)=>value + "") : [
             values + ""
@@ -568,7 +588,7 @@ var VariablePatchType;
 })(VariablePatchType || (VariablePatchType = {}));
 const patchType = createEnumAccessor(VariablePatchType, false, "variable patch type");
 const isVariablePatch = (setter)=>!!setter?.["patch"];
-const isVariablePatchAction = (setter)=>isFunction(setter["patch"]);
+const isVariablePatchAction = (setter)=>isFunction(setter?.["patch"]);
 
 const isPostResponse = (response)=>!!response?.variables;
 

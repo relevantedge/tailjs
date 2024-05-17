@@ -72,7 +72,7 @@ export class RavenDbTracker implements TrackerExtension {
     try {
       const commands: any[] = [];
 
-      const [sessionId, deviceId] = await tracker.get(
+      const [sessionId, deviceId] = await tracker.get([
         {
           scope: "session",
           key: "rdb:s",
@@ -91,8 +91,8 @@ export class RavenDbTracker implements TrackerExtension {
               purposes: "necessary",
               value: (await this._getNextId()).toString(36),
             },
-        }
-      ).values;
+        },
+      ]).values;
 
       for (let ev of events) {
         ev["rdb:timestamp"] = Date.now();

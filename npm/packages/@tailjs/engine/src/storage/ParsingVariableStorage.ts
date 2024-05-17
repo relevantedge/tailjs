@@ -103,10 +103,8 @@ export class ParsingVariableStorage<
     context?: VariableStorageContext | undefined
   ): VariableResultPromise<VariableGetResults<K>> {
     return toVariableResultPromise(async () => {
-      for (const key of keys) {
-        if (!key) {
-          continue;
-        }
+      for (const key of keys as any) {
+        if (!key) continue;
 
         toNumericVariableEnums(key);
         (key as VariableGetter).init = wrap(key.init, async (original) =>
@@ -124,7 +122,10 @@ export class ParsingVariableStorage<
   ): VariableResultPromise<VariableSetResults<K>> {
     return toVariableResultPromise(async () => {
       for (const key of setters) {
+        if (!key) continue;
         toNumericVariableEnums(key);
+
+        // TODO: Why exceptions swallowed here?
         if (isVariablePatchAction(key)) {
           key.patch = wrap(key.patch, async (original, current) =>
             toNumericVariableEnums(await original(current))

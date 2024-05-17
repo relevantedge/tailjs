@@ -6,7 +6,7 @@ import {
 } from "@tailjs/util/transport";
 import ShortUniqueId from "short-unique-id";
 
-import { MaybeUndefined, isString } from "@tailjs/util";
+import { MaybeUndefined, Nullish, isObject, isString } from "@tailjs/util";
 import { formatError, params } from "./lib";
 import {
   LogLevel,
@@ -24,21 +24,20 @@ const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
 const uuid = new ShortUniqueId();
 
-const getDefaultLogSourceName = (source: any): string => {
-  if (!source) return "";
-  if (isString(source)) return source;
+const getDefaultLogSourceName = (source: any): string | undefined => {
+  if (!source) return undefined;
+  if (!isObject(source)) return "" + source;
 
-  let logName = source.logName?.();
-  if (!logName) {
-    logName = source?.constructor?.name;
-    if (logName === "Object" || logName === "Function") {
-      logName = "" + source;
-    }
-
-    return logName;
+  let constructorName = source.constructor?.name;
+  let name = source.logId ?? source.id;
+  if (name) {
+    return (
+      (constructorName && constructorName !== "Object"
+        ? constructorName + ":"
+        : "") + name
+    );
   }
-
-  return source?.logId?.() || source?.constructor.name || "" + source;
+  return constructorName ?? "" + source;
 };
 
 export class TrackerEnvironment {
@@ -121,38 +120,30 @@ export class TrackerEnvironment {
   public log(source: any, message: LogMessage): void;
   public log(
     source: any,
-    message: string | null | undefined,
+    message: string | Error | Nullish,
     logLevel?: LogLevel,
     error?: Error
   ): void;
   public log(
     source: any,
-    arg: LogMessage | string | null | undefined,
+    arg: LogMessage | string | Error | Nullish,
     level?: LogLevel,
     error?: Error
   ): void {
-    const message: Partial<LogMessage> | null =
-      error instanceof Error
-        ? {
-            message: arg ? `${arg}: ${formatError(error)}` : formatError(error),
-            level: level ?? "error",
-          }
-        : isString(arg)
-        ? {
-            message: arg,
-            level: level ?? "info",
-          }
-        : arg
-        ? arg
-        : null;
-    if (!message) {
-      return;
-    }
+    // This is what you get if you try to log nothing (null or undefined); Nothing.
+    if (!arg) return;
 
-    const { group, name } = this._logGroups.get(source) ?? {
-      group: "",
-      source: getDefaultLogSourceName(source),
-    };
+    const message: Partial<LogMessage> =
+      !isObject(arg) || arg instanceof Error
+        ? {
+            message: arg instanceof Error ? "An error ocurred" : arg,
+            level: level ?? (error ? "error" : "info"),
+            error,
+          }
+        : arg;
+
+    const { group, name = getDefaultLogSourceName(source) } =
+      this._logGroups.get(source) ?? {};
 
     message.group ??= group;
     message.source ??= name;

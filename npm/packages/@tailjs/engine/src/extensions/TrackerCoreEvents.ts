@@ -1,3 +1,4 @@
+import { SCOPE_INFO_KEY } from "@constants";
 import {
   DeviceInfo,
   ScopeInfo,
@@ -42,7 +43,7 @@ export type SessionConfiguration = {
 };
 
 export class TrackerCoreEvents implements TrackerExtension {
-  public readonly id = "session";
+  public readonly id = "core_events";
 
   public async patch(
     events: TrackedEvent[],
@@ -65,67 +66,45 @@ export class TrackerCoreEvents implements TrackerExtension {
       (ev) => ev.timestamp! < timestamp && (timestamp = ev.timestamp!)
     );
 
-    // Apply data updates to a copy of the scope data so the logic gets the updated values.
-    let sessionInfo: SessionInfo;
-    let deviceInfo: DeviceInfo | undefined;
+    // Apply updates via patches. This enables multiple requests for the same session to execute concurrently.
 
-    type ScopeDataPatch<T extends ScopeInfo> = (current: T) => void;
-
-    let sessionDataUpdates: ScopeDataPatch<SessionInfo>[];
-    let deviceDataUpdates: ScopeDataPatch<DeviceInfo>[];
-
-    const updateSnapshot = () => {
-      sessionDataUpdates = [];
-      deviceDataUpdates = [];
-
-      [sessionInfo, deviceInfo] = [
-        tracker._session!.value,
-        tracker._device?.value,
-      ];
-
-      updateData(false, (current) => (current.lastSeen = timestamp));
-      updateData(true, (current) => (current.lastSeen = timestamp));
-    };
-
-    const updateData = <
-      D extends boolean,
-      T extends DeviceInfo | SessionInfo = D extends true
-        ? DeviceInfo
-        : SessionInfo
-    >(
-      device: D,
-      patch: ScopeDataPatch<T>
-    ) => {
-      if (device && !deviceInfo) {
-        return;
-      }
-
-      patch((device ? deviceInfo : sessionInfo) as T);
-      (
-        (device ? deviceDataUpdates : sessionDataUpdates) as ScopeDataPatch<T>[]
-      ).push(patch);
-    };
+    let sessionPatches: ((current: SessionInfo) => void)[] = [];
+    let devicePatches: ((current: DeviceInfo) => void)[] = [];
 
     const flushUpdates = async () => {
-      await tracker.set(
-        sessionDataUpdates.length
-          ? {
-              ...tracker._session!,
-              patch: (current) => ({
-                value:
-                  current &&
-                  sessionDataUpdates.reduce(
-                    (data, update) => update(data),
-                    current.value
-                  ),
-              }),
-            }
-          : undefined
+      [sessionPatches, devicePatches].forEach((patches) =>
+        patches.unshift(
+          (info: ScopeInfo) =>
+            info.lastSeen < timestamp &&
+            ((info.isNew = false), (info.lastSeen = timestamp))
+        )
       );
-      updateSnapshot();
-    };
 
-    updateSnapshot();
+      await tracker.set([
+        {
+          ...tracker._session!,
+          patch: (current) => {
+            if (!current) return;
+
+            sessionPatches.forEach((patch) => patch(current.value));
+            return current;
+          },
+        },
+        tracker.device
+          ? {
+              ...tracker._device!,
+              patch: (current) => {
+                if (!current) return;
+
+                devicePatches.forEach((patch) => patch(current.value));
+                return current;
+              },
+            }
+          : undefined,
+      ]);
+      sessionPatches = [];
+      devicePatches = [];
+    };
 
     const updatedEvents: TrackedEvent[] = [];
 
@@ -135,9 +114,7 @@ export class TrackerCoreEvents implements TrackerExtension {
           dataClassification.tryParse(event.consent.level),
           dataPurposes.tryParse(event.consent.purposes)
         );
-      }
-
-      if (isResetEvent(event)) {
+      } else if (isResetEvent(event)) {
         if (tracker.session.userId) {
           // Fake a sign out event if the user is currently authenticated.
           events.push(event);
@@ -147,6 +124,7 @@ export class TrackerCoreEvents implements TrackerExtension {
             timestamp: event.timestamp,
           } as SignOutEvent;
         } else {
+          // Start new session
           await flushUpdates();
           await tracker.reset(
             true,
@@ -154,7 +132,6 @@ export class TrackerCoreEvents implements TrackerExtension {
             event.includeConsent,
             event.timestamp
           );
-          updateSnapshot();
         }
       }
 
@@ -187,10 +164,10 @@ export class TrackerCoreEvents implements TrackerExtension {
       };
 
       if (isUserAgentEvent(event)) {
-        updateData(false, (data) => (data.hasUserAgent = true));
+        sessionPatches.push((data) => (data.hasUserAgent = true));
       } else if (isViewEvent(event)) {
-        updateData(false, (data) => ++data.views);
-        updateData(true, (data) => ++data.views);
+        sessionPatches.push((data) => ++data.views);
+        devicePatches.push((data) => ++data.views);
       } else if (isSignInEvent(event)) {
         const changed =
           tracker.authenticatedUserId &&
@@ -204,13 +181,12 @@ export class TrackerCoreEvents implements TrackerExtension {
           ))
         ) {
           event.session.userId = event.userId;
-          updateData(
-            false,
+          sessionPatches.push(
             (data) => (data.userId = (event as SignInEvent).userId)
           );
         }
       } else if (isSignOutEvent(event)) {
-        updateData(false, (data) => (data.userId = undefined));
+        sessionPatches.push((data) => (data.userId = undefined));
       } else if (isConsentEvent(event)) {
         await tracker.updateConsent(
           event.consent.level,

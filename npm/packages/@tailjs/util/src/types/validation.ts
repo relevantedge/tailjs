@@ -17,6 +17,8 @@ import {
   isFunction,
   isString,
   unwrap,
+  MaybeUndefined,
+  ToggleReadonly,
 } from "..";
 
 export type ErrorGenerator = string | Error | (() => string | Error);
@@ -257,7 +259,7 @@ export const tryCatchAsync = async <
 >(
   expression: Wrapped<MaybePromise<T>>,
   errorHandler: E = true as any,
-  always?: () => void
+  always?: () => MaybePromise<void>
 ): Promise<T1 | C> => {
   try {
     const result = (await unwrap(expression)) as any;
@@ -279,7 +281,7 @@ export const tryCatchAsync = async <
       console.error(e);
     }
   } finally {
-    always?.();
+    await always?.();
   }
 
   return undefined as any;

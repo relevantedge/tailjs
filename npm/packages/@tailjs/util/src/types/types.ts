@@ -1,4 +1,4 @@
-import { Defined, Extends, MaybeUndefined, tryCatch } from "..";
+import { Defined, Extends, MaybeUndefined, ToggleReadonly, tryCatch } from "..";
 
 /**
  * The ECMAScript primitive types.
@@ -322,11 +322,41 @@ export const parseBoolean = createTypeConverter(isBoolean, (value) =>
     : undefined
 );
 
-export const isTruish = (value: any) => !!value;
+export const isTruish = <T>(value: T): value is Exclude<T, Falsish> => !!value;
+
+export const isTrue = (value: any): value is true => value === T;
+export const isNotTrue = <T>(value: T): value is Exclude<T, true> =>
+  value !== T;
 
 export type Falsish = void | null | undefined | 0 | "" | false;
 
 export const isFalsish = (value: any): value is Falsish => !value;
+
+export const isFalse = (value: any): value is false => value === F;
+export const isNotFalse = <T>(value: T): value is Exclude<T, false> =>
+  value !== F;
+
+/** An array where it is easy to conditionally leave elements out like `["item1", condition&&"item2", undefined]`. */
+export type MaybeFalsish<T> = T extends readonly (infer Item)[]
+  ? ToggleReadonly<MaybeFalsish<Item>[], T>
+  : T | Falsish;
+
+export const truish: {
+  <T>(items: Iterable<T | Falsish>, keepUndefined?: false): T[];
+  <T>(items: Iterable<T>, keepUndefined: true): (T extends Falsish
+    ? undefined
+    : T)[];
+  <T extends { [Symbol.iterator]?: never } | string>(
+    value: T | Falsish
+  ): T extends Falsish ? undefined : Exclude<T, Falsish>;
+} = (value: any, keepUndefined?: boolean) =>
+  isArray(value)
+    ? keepUndefined
+      ? value.map((item) => (!!item ? item : undefined))
+      : value.filter((item: any) => !!item)
+    : !!value
+    ? (value as any)
+    : undefined;
 
 export const isInteger: (value: any) => value is number =
   Number.isSafeInteger as any;

@@ -57,20 +57,14 @@ export class NativeHost implements EngineHost {
     return resources;
   }
 
-  async log<T extends string | Record<string, any>>({
-    group = "console",
-    message: data,
-    level = "info",
-    source,
-  }: LogMessage<T>) {
+  async log(message: LogMessage) {
     const msg = JSON.stringify({
       timestamp: new Date().toISOString(),
-      source,
-      level,
-      data,
+      ...message,
     });
+    const group = message.group ?? "console";
     if (group === "console" || this._console) {
-      switch (level) {
+      switch (message.level) {
         case "debug":
           console.debug(msg);
           break;
@@ -83,23 +77,24 @@ export class NativeHost implements EngineHost {
         default:
           console.log(msg);
       }
-      return;
     }
 
-    let dir = p.join(this._rootPath, "logs");
-    const parts = group.split("/");
-    if (parts.length > 1) {
-      const newDir = p.join(dir, ...parts.slice(0, parts.length - 1));
-      if (!newDir.startsWith(dir)) {
-        throw new Error(`Invalid group name '${group}'.`);
+    if (group !== "console") {
+      let dir = p.join(this._rootPath, "logs");
+      const parts = group.split("/");
+      if (parts.length > 1) {
+        const newDir = p.join(dir, ...parts.slice(0, parts.length - 1));
+        if (!newDir.startsWith(dir)) {
+          throw new Error(`Invalid group name '${group}'.`);
+        }
       }
+      await fs.promises.mkdir(dir, { recursive: true });
+      await fs.promises.appendFile(
+        p.join(dir, `${parts[parts.length - 1]}.json`),
+        `${msg}\n`,
+        "utf-8"
+      );
     }
-    await fs.promises.mkdir(dir, { recursive: true });
-    await fs.promises.appendFile(
-      p.join(dir, `${parts[parts.length - 1]}.json`),
-      `${msg}\n`,
-      "utf-8"
-    );
   }
 
   read(

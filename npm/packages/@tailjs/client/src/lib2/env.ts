@@ -3,7 +3,16 @@ import {
   EVENT_HUB_QUERY,
   VARIABLES_QUERY,
 } from "@constants";
-import { T, join, parseUri, replace, split, type Nullish } from "@tailjs/util";
+import {
+  T,
+  ansi,
+  isObject,
+  join,
+  parseUri,
+  replace,
+  split,
+  type Nullish,
+} from "@tailjs/util";
 import { document } from ".";
 
 export const ERR_BUFFER_OVERFLOW = "buffer-overflow";
@@ -32,3 +41,18 @@ export const mapUrl = (...urlParts: string[]) =>
 export const VAR_URL = mapUrl("?", EVENT_HUB_QUERY);
 export const MNT_URL = mapUrl("?", CONTEXT_NAV_QUERY);
 export const USR_URL = mapUrl("?", VARIABLES_QUERY);
+
+export const debug = (value: any, group?: string, collapsed = T) => {
+  group &&
+    (collapsed ? console.groupCollapsed : console.group)("tail.js: " + group);
+  value != null &&
+    console.log(
+      isObject(value)
+        ? ansi(JSON.stringify(value, null, 2), "94")
+        : // ? window["chrome"]
+          //   ? prettyPrint(value).join("")
+          //   : JSON.stringify(value, null, 2)
+          value
+    );
+  group && console.groupEnd();
+};

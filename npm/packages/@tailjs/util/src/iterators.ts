@@ -41,6 +41,8 @@ import {
   isTruish,
   symbolIterator,
   undefined,
+  separate,
+  EnumerationSeparators,
 } from ".";
 
 export const UTF16MAX = 0xffff;
@@ -603,17 +605,6 @@ type ConcatResult<T> = ConcatResult_<T> extends never
   ? undefined
   : ConcatResult_<T>[];
 
-const separate = (values: any[] | undefined, sep: string | [string, string]) =>
-  !values
-    ? undefined
-    : values.length === 1
-    ? values[0]
-    : isArray(sep)
-    ? (values.length > 2 ? values.slice(0, -2).join(sep[0]) : values[0]) +
-      sep[1] +
-      values[values.length - 1]
-    : values.join(sep);
-
 export const join: {
   /**
    *  Joins the specified items with a separator (default is "").
@@ -633,8 +624,7 @@ export const join: {
   <S extends IteratorSource | string>(
     source: S,
     projection: IteratorAction<S extends string ? [string] : S>,
-    separator?: string | readonly [string, string],
-    lastSeparator?: string
+    separator?: EnumerationSeparators
   ): MaybeUndefined<S, string>;
 } = (source: any, projection: any, sep?: any) =>
   source == null

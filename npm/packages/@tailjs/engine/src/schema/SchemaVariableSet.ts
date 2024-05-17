@@ -6,10 +6,12 @@ import {
   variableScope,
 } from "@tailjs/types";
 import {
+  array,
   forEach,
   ifDefined,
   isString,
   map,
+  required,
   throwError,
   tryCatch,
 } from "@tailjs/util";
@@ -25,7 +27,7 @@ export class SchemaVariableSet {
     manager: SchemaManager,
     schemas: Iterable<string | Schema | undefined>
   ) {
-    this.schemas = map(schemas, (schema) =>
+    this.schemas = map(array(schemas), (schema) =>
       isString(schema) ? manager.getSchema(schema, true) : schema
     );
 
@@ -63,7 +65,10 @@ export class SchemaVariableSet {
 
   public validate<T>(key: VariableKey, value: T): T | undefined {
     return tryCatch(
-      this._variables.get(key)?.validate(value),
+      () =>
+        required(this._variables.get(key), "Variable not found.").validate(
+          value
+        ),
       (err: Error) => new Error(`${formatKey(key)}: ${err}`)
     );
   }

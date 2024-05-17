@@ -1,15 +1,17 @@
 ﻿// ReSharper disable UnusedMember.Global
 
+using System.Collections.Concurrent;
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
+using System.Text.RegularExpressions;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 
 namespace TailJs.Scripting;
 
@@ -117,13 +119,11 @@ internal class ScriptHost : IScriptEngineExtension
 
         response["status"] = (int)httpResponse.StatusCode;
         response["body"] = binary
-          ? _uint8Converter.FromBytes(
-            await httpResponse.Content.ReadAsByteArrayAsync(
+          ? _uint8Converter.FromBytes(await httpResponse.Content.ReadAsByteArrayAsync(
 #if NET7_0_OR_GREATER
               _hostDisposed
 #endif
-            )
-          )
+            ))
           : await httpResponse.Content.ReadAsStringAsync(
 #if NET7_0_OR_GREATER
             _hostDisposed
@@ -181,6 +181,8 @@ internal class ScriptHost : IScriptEngineExtension
       await read.ConfigureAwait(false) is not { } data ? null : _uint8Converter.FromBytes(data);
   }
 
+  private readonly ConcurrentDictionary<string, int> _logThrottleCounts = new();
+
   internal void Log(string messageJson)
   {
     try
@@ -190,21 +192,99 @@ internal class ScriptHost : IScriptEngineExtension
         new JsonSerializerOptions() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
       )!;
 
-      var logMessage =
-        $"{(string.IsNullOrEmpty(message.Source) ? "" : $"{message.Source}: ")}{
-          (
-            (message.Data as JsonValue)?.TryGetValue<string>(out var stringMessage) == true
-              ? stringMessage
-              : message.Data?.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) ?? "(null)"
-          )
-        }";
-      if ((_loggerFactory?.GetLogger(message.Group!)) is { } logger)
+      var logMessage = new StringBuilder();
+      if (!string.IsNullOrEmpty(message.Source))
       {
-        logger.Log(message.Level, logMessage);
+        logMessage.Append(message.Source).Append(": ");
+      }
+      logMessage.Append(message.Message);
+      if (!string.IsNullOrEmpty(message.Group))
+      {
+        logMessage.Append($" #{message.Group}");
+      }
+
+      string Indent(string text, bool indentFirst = true, string match = "^")
+      {
+        var indented = Regex.Replace(text, match, "  ", RegexOptions.Multiline);
+        return indentFirst || indented.Length < 2 ? indented : indented.Substring(2);
+      }
+
+      if (message.Details != null)
+      {
+        logMessage
+          .AppendLine()
+          .Append("  Details: ")
+          .Append(Indent(message.Details.ToJsonString(new() { WriteIndented = true }), false));
+      }
+
+      if (message.Error is { } error)
+      {
+        var errorMessage = new StringBuilder();
+        errorMessage.Append("Error");
+        if (error.Name is { Length: > 0 } name && name != "Error")
+        {
+          errorMessage.Append(" (").Append(name).Append(")");
+        }
+        errorMessage.Append(": ").Append(error.Message);
+
+        logMessage.AppendLine().Append(Indent(errorMessage.ToString()));
+
+        if (error.Stack is { Length: > 0 } stack)
+        {
+          errorMessage.Clear().Append("Stack: ");
+          errorMessage.Append(
+            Indent(
+              Regex.Replace(
+                stack,
+                @"^.*?(^\s*at.*)$",
+                "$1",
+                RegexOptions.Singleline | RegexOptions.Multiline
+              ),
+              false,
+              @"^\s*"
+            )
+          );
+          logMessage.AppendLine().Append(Indent(errorMessage.ToString()));
+        }
+      }
+
+      if (message.ThrottleKey is { } throttleKey)
+      {
+        if (throttleKey == "")
+        {
+          throttleKey = messageJson.GetHashCode().ToString();
+        }
+
+        var repeats = _logThrottleCounts.AddOrUpdate(throttleKey, (_) => 0, (_, current) => current + 1);
+
+        if (repeats == 3)
+        {
+          logMessage.AppendLine().AppendLine("Further events will not get logged.");
+        }
+      }
+
+      if (
+        (
+          string.IsNullOrEmpty(message.Group)
+            ? _loggerFactory?.DefaultLogger
+            : _loggerFactory?.GetLogger(message.Group)
+        ) is
+        { } logger
+      )
+      {
+        logger.Log(message.Level, logMessage.ToString());
       }
       else
       {
-        Console.Out.WriteLine($"{message.Level}: {message.Data ?? "(undefined)"}");
+        var formatted = $"{DateTime.UtcNow:o}{message.Level}: {logMessage}";
+        if (message.Level < LogLevel.Warning)
+        {
+          Console.Out.WriteLine(formatted);
+        }
+        else
+        {
+          Console.Error.WriteLine(formatted);
+        }
       }
     }
     catch (Exception ex)

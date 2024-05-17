@@ -11,7 +11,7 @@ export class EventLogger implements TrackerExtension {
         group: this.configuration.group,
         level: "info",
         source: this.id,
-        message: ev,
+        message: JSON.stringify(ev),
       });
     }
   }

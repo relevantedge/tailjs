@@ -43,7 +43,7 @@ export class ClientLocation implements TrackerExtension {
     if (ip) {
       const clientHash = env.hash(tracker.clientIp);
       if (
-        (await tracker.get({ scope: "session", key: "mx" }).value) !==
+        (await tracker.get([{ scope: "session", key: "mx" }]).value) !==
         clientHash
       ) {
         const location = this.filterNames(this._reader?.get(ip));
@@ -98,7 +98,7 @@ export class ClientLocation implements TrackerExtension {
           ];
         }
         country = location?.country?.names[this._language] ?? "NA";
-        await tracker.set(
+        await tracker.set([
           {
             scope: "session",
             key: "mx",
@@ -112,8 +112,8 @@ export class ClientLocation implements TrackerExtension {
             classification: "anonymous",
             purposes: "necessary",
             value: country,
-          }
-        );
+          },
+        ]);
       }
     }
 

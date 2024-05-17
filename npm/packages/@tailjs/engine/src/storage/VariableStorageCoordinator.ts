@@ -571,12 +571,13 @@ export class VariableStorageCoordinator implements VariableStorage {
         purposes: dataPurposes(consent.purposes),
       };
     }
+    if (!consent) return consent;
 
-    if (consent) {
-      if (consent && !context?.client) {
-        consent.purposes |= DataPurposeFlags.Server;
-      }
+    consent = { ...consent };
+    if (!context?.client) {
+      consent.purposes |= DataPurposeFlags.Server;
     }
+
     return consent;
   };
   async get<K extends VariableGetters<true>>(
@@ -633,6 +634,25 @@ export class VariableStorageCoordinator implements VariableStorage {
       };
     }
 
+    if (context?.client && consent) {
+      for (const result of results) {
+        if (!result?.value) continue;
+        const mapping = this._getMapping(result);
+        if (mapping) {
+          if (
+            (result.value = this._censor(
+              mapping,
+              result,
+              result.value,
+              consent
+            )) == null
+          ) {
+            result.status = VariableResultStatus.Denied;
+          }
+        }
+      }
+    }
+
     return results as any;
   }
 
@@ -649,7 +669,6 @@ export class VariableStorageCoordinator implements VariableStorage {
       if (!setter) return;
 
       const mapping = this._getMapping(setter);
-
       if (isVariablePatchAction(setter)) {
         setter.patch = wrap(setter.patch, async (original, current) => {
           const patched = await original(current);

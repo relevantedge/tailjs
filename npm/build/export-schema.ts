@@ -19,7 +19,7 @@ const targets: (readonly [target: string, pkg: boolean])[] = [
 
 try {
   const schema = generateSchema({
-    path: "{src/ConfiguredComponent.ts,src/events/**/*.ts}",
+    path: "{src/ConfiguredComponent.ts,src/ScopeVariables.ts,src/events/**/*.ts}",
     type: "*",
     schemaId: `urn:tailjs:core`,
     tsconfig: "./tsconfig.json",

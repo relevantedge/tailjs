@@ -19,6 +19,7 @@ import {
   map,
   merge,
   now,
+  pluralize,
   push,
   structuralEquals,
   throwError,
@@ -28,6 +29,7 @@ import {
   EVENT_POST_FREQUENCY,
   TrackerContext,
   addPageVisibleListener,
+  debug,
   request,
 } from ".";
 import { PATCH_EVENT_POSTFIX } from "@constants";
@@ -155,11 +157,7 @@ export const createEventQueue = (
     );
 
     if (events.length) {
-      forEach(events, (event) => {
-        console.groupCollapsed(`tail.js: ${event.type}`);
-        console.log(JSON.stringify(event, null, 2));
-        console.groupEnd();
-      });
+      forEach(events, (event) => debug(event, event.type));
     }
     if (!flush) {
       events.length && push(queue, ...events);
@@ -172,11 +170,10 @@ export const createEventQueue = (
 
     if (!events.length) return;
 
-    console.groupCollapsed(
-      `tail.js: Posting ${events.length} event${events.length > 1 ? "s" : ""}`
+    debug(
+      join(events, (ev) => ev.type, ["and"]),
+      "Posting " + pluralize("events", [events.length])
     );
-    console.log(join(events, (ev) => ev.type, [", ", " and "]));
-    console.groupEnd();
 
     await request<PostRequest>(url, {
       events: events.map(

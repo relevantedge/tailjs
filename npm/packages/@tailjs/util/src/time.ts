@@ -4,6 +4,8 @@ import {
   T,
   isBoolean,
   isFunction,
+  isNotFalse,
+  isTrue,
   promise,
   tryCatchAsync,
 } from ".";
@@ -63,29 +65,36 @@ export interface ClockSettings {
   callback?: ClockCallback;
 }
 
+/** Light-weight version of {@link clock}. The trigger and cancel overloads returns true to enable chaining like `timeout(false)&&...` */
 export const stickyTimeout = (
   defaultTimeout = 0
 ): {
   (callback: () => void, timeout?: number): void;
-  (cancel: false): void;
-  (trigger: true): void;
+  (cancel: false): true;
+  (trigger: true): true;
   (): boolean;
 } => {
   let handle: number;
   let currentCallback: (() => void) | undefined;
-  return function stickyTimeout(arg?: any, timeout?: any) {
+
+  const stickyTimeout = (arg?: any, timeout = defaultTimeout) => {
     if (arg === undefined) {
       return !!currentCallback;
     }
     clearTimeout(handle);
     if (isBoolean(arg)) {
-      arg && currentCallback?.();
-      currentCallback = undefined;
+      arg && (timeout < 0 ? isNotFalse : isTrue)(currentCallback?.())
+        ? stickyTimeout(currentCallback)
+        : (currentCallback = undefined);
     } else {
       currentCallback = arg;
-      handle = setTimeout(() => stickyTimeout(true), timeout ?? defaultTimeout);
+      handle = setTimeout(
+        () => stickyTimeout(true, timeout),
+        timeout < 0 ? -timeout : timeout
+      );
     }
-  } as any;
+  };
+  return stickyTimeout as any;
 };
 
 export const clock: {

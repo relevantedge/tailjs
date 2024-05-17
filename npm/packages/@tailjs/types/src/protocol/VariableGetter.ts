@@ -14,6 +14,7 @@ import {
   Variable,
   VariableClassification,
   VariableKey,
+  VariableMetadata,
   VariableResultStatus,
   VersionedVariableKey,
   variableScope,
@@ -24,9 +25,10 @@ export type VariableInitializerResult<
   Validated = true
 > = (Validated extends true
   ? VariableClassification<true>
-  : Partial<VariableClassification<boolean>>) & {
-  value: T;
-};
+  : Partial<VariableClassification<boolean>>) &
+  VariableMetadata & {
+    value: T;
+  };
 
 export type VariableInitializer<T = any, Validated = true> = Wrapped<
   MaybePromise<VariableInitializerResult<T, Validated> | undefined>

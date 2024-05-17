@@ -1,3 +1,16 @@
+import {
+  MaybeUndefined,
+  array,
+  forEach,
+  isArray,
+  isBoolean,
+  isIterable,
+  isNumber,
+  isObject,
+  isString,
+  push,
+} from ".";
+
 export const changeCase = <S extends string | null | undefined>(
   s: S,
   upper: boolean
@@ -29,3 +42,134 @@ export const changeIdentifierCaseStyle = (
           false
         ))
   );
+
+export type EnumerationSeparators = string | [last: string, other?: string];
+
+/**
+ * Creates a string enumerating a list of value given a separator, optionally using a different separator between the last two items.
+ *
+ * @param values - The list of items to enumerator.
+ * @param separator - The separator to use (defaults to ", "). If given a tuple, the first item is the last separator without spaces.
+ * The second item may optionally specify another separator than the default (", ").
+ *
+ *
+ * Useful for enumerations like "item1, item2 and item 3" (`separate(["item1", "item2", "item3"], ["and"])`).
+ */
+export const separate = (
+  values: any[] | undefined,
+  separator: EnumerationSeparators = ["and", ", "]
+) =>
+  !values
+    ? undefined
+    : values.length === 1
+    ? values[0]
+    : isArray(separator)
+    ? [
+        values.slice(-1).join(separator[1] ?? ", "),
+        " ",
+        separator[0],
+        " ",
+        values[values.length - 1],
+      ].join("")
+    : values.join(separator ?? ", ");
+
+/**
+ * Pluralizes a noun using standard English rules.
+ * It is not very smart, so if the plural form is not just adding an "s" in the end, it must be specified manually.
+ *
+ * @param singular - The singular form of the noun
+ * @param n - The number of items that decides if the noun should be pluralized. If given an array the number will be postfixed.
+ * @param plural - The plural form if it is different from adding an "s" to the singular form.
+ * @returns The noun, pluralized if needed.
+ */
+export const pluralize = <
+  T extends string | undefined,
+  Plural extends string = string
+>(
+  singular: T,
+  n: number | [number],
+  plural?: Plural
+): MaybeUndefined<T, string> =>
+  singular == null
+    ? (undefined as any)
+    : (isArray(n) ? (n = n[0]) + " " : "") +
+      (n === 1 ? singular : plural ?? singular + "s");
+
+/**
+ * Can colorize text using ANSI escape sequences.
+ * See e.g. https://developer.chrome.com/docs/devtools/console/format-style for options.
+ */
+export const ansi = <Buffer extends string[] | undefined = undefined>(
+  value: string | string[],
+  ps: string | number,
+  buffer?: Buffer
+): Buffer extends undefined ? string : string[] =>
+  buffer
+    ? (push(buffer, "\x1B[", ps, "m"),
+      isArray(value) ? push(buffer, ...value) : push(buffer, value),
+      push(buffer, "\x1B[m"),
+      buffer)
+    : (ansi(value, ps, []).join("") as any);
+
+const indent = (buffer: string[], n: number, ...values: string[]) => (
+  push(buffer, "  ".repeat(n), ...values), buffer
+);
+const br = (buffer: string[], indents = 0) => (
+  indents > 0 && indent(buffer, indents), push(buffer, "\n"), buffer
+);
+
+const prettyPrint = (
+  value: any,
+  buffer: string[] = [],
+  indents = 0,
+  terminator = ""
+) => {
+  const wrap = (
+    start: string,
+    end: string,
+    content: (buffer: string[]) => void
+  ) => {
+    ansi(start, 90, buffer);
+    const subBuffer: string[] = [];
+    content(subBuffer);
+    subBuffer.length &&
+      (br(buffer, indents), push(buffer, ...subBuffer)) &&
+      indent(buffer, indents);
+
+    ansi(end, 90, buffer);
+  };
+
+  if (value == null) {
+    ansi(value === undefined ? "(undefined)" : "(null)", "37;2", buffer);
+  } else if (isIterable(value)) {
+    wrap("[", "]", (buffer) =>
+      forEach(
+        value,
+        (value) => (
+          indent(buffer, indents),
+          prettyPrint(value, buffer, indents + 1, ",\n")
+        )
+      )
+    );
+  } else if (isObject(value)) {
+    wrap("{", "}", (buffer) =>
+      forEach(
+        value,
+        ([key, value]) => (
+          indent(buffer, indents + 1),
+          ansi(["" + (key as any), ":"], "90;3", buffer),
+          push(buffer, " "),
+          prettyPrint(value, buffer, indents + 1, ",\n")
+        )
+      )
+    );
+  } else if (isString(value)) {
+    ansi(value, 36, buffer);
+  } else if (isNumber(value) || isBoolean(value)) {
+    ansi("" + value, 33, buffer);
+  } else {
+    push(buffer, value);
+  }
+  terminator && push(buffer, terminator);
+  return buffer;
+};
