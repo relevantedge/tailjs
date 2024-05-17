@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-
 using Microsoft.ClearScript;
 
 namespace TailJs.Scripting;
@@ -43,7 +42,10 @@ internal class TrackerEnvironment : ITrackerEnvironment
 
   public string HttpEncrypt(string json) => _proxy.InvokeMethod("httpEncrypt", json).Get<string>();
 
-  public void Log(LogMessage message) { }
+  public void Log(LogMessage message)
+  {
+    _proxy.InvokeMethod("log", message);
+  }
 
   public async ValueTask<string> NextIdAsync(string scope, CancellationToken cancellationToken = default) =>
     (await _proxy.InvokeMethod("nextId").AwaitScript(cancellationToken)).Get<string>();

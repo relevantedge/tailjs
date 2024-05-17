@@ -9,7 +9,7 @@ export interface ResourceEntry {
 }
 
 export interface EngineHost {
-  log<T extends string | Record<string, any>>(message: LogMessage<T>): void;
+  log(message: LogMessage): void;
 
   ls(path: string): Promise<ResourceEntry[] | null>;
 

@@ -105,8 +105,7 @@
       "properties": {
         "sessionId": {
           "$ref": "urn:tailjs:core#/definitions/UUID",
-          "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.",
-          "x-privacy-purpose": "anonymous"
+          "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
         },
         "deviceId": {
           "$ref": "urn:tailjs:core#/definitions/UUID",
@@ -123,8 +122,7 @@
         },
         "consent": {
           "$ref": "urn:tailjs:core#/definitions/UserConsent",
-          "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less.",
-          "x-privacy-purpose": "anonymous"
+          "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less."
         },
         "clientIp": {
           "type": "string",
@@ -141,8 +139,7 @@
         "sessionId"
       ],
       "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
-      "x-privacy-class": "indirect",
-      "x-privacy-purpose": "necessary"
+      "x-privacy-purpose": "anonymous"
     },
     "UUID": {
       "type": "string"
@@ -2072,6 +2069,105 @@
         "name"
       ],
       "description": "A form field value in a  {@link  FormEvent } ."
+    },
+    "ScopeInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "firstSeen": {
+          "$ref": "urn:tailjs:core#/definitions/Timestamp"
+        },
+        "lastSeen": {
+          "$ref": "urn:tailjs:core#/definitions/Timestamp"
+        },
+        "views": {
+          "type": "number"
+        },
+        "isNew": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "firstSeen",
+        "lastSeen",
+        "views"
+      ],
+      "x-privacy-purpose": "anonymous"
+    },
+    "SessionInfo": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ScopeInfo"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "x-privacy-purposes": [
+                "none",
+                "server"
+              ]
+            },
+            "deviceSessionId": {
+              "type": "string"
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "previousSession": {
+              "$ref": "urn:tailjs:core#/definitions/Timestamp"
+            },
+            "hasUserAgent": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "DeviceInfo": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ScopeInfo"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sessions": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "sessions"
+          ]
+        }
+      ]
+    },
+    "SessionVariables": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "$ref": "urn:tailjs:core#/definitions/SessionInfo"
+        }
+      }
+    },
+    "DeviceVariables": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "$ref": "urn:tailjs:core#/definitions/DeviceInfo",
+          "x-privacy-purpose": "anonymous"
+        }
+      }
     },
     "ConfiguredComponent": {
       "allOf": [

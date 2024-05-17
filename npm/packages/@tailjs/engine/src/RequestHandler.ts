@@ -187,8 +187,6 @@ export class RequestHandler {
     tracker: Tracker,
     context: TrackerExtensionContext
   ) {
-    //console.log(`EXT.IN: ${++this._activeExtensionRequests}`);
-
     for (const extension of this._extensions) {
       // Call the apply method in post context to let extension do whatever they need before events are processed (e.g. initialize session).
       try {
@@ -306,6 +304,7 @@ export class RequestHandler {
           })
         )),
       ].filter((item) => item != null) as TrackerExtension[];
+
       this._initialized = true;
     });
   }
@@ -392,6 +391,7 @@ export class RequestHandler {
       // TODO: Find a way to push these. They are for external client-side trackers.
       tracker._clientEvents.push(...events);
     } else {
+      //console.log("Posted", eventBatch);
       await Promise.all(
         this._extensions.map(async (extension) => {
           try {
@@ -494,6 +494,7 @@ export class RequestHandler {
     const tracker = deferredPromise(async () => {
       const tracker = new Tracker(trackerSettings());
       await tracker._initialize(trackerInitializationOptions);
+
       return tracker;
     });
 
@@ -754,12 +755,14 @@ export class RequestHandler {
                 if (postRequest.variables) {
                   if (postRequest.variables.get) {
                     (response.variables ??= {}).get = await resolvedTracker.get(
-                      ...postRequest.variables.get
+                      postRequest.variables.get,
+                      { client: true }
                     ).all;
                   }
                   if (postRequest.variables.set) {
                     (response.variables ??= {}).set = await resolvedTracker.set(
-                      ...postRequest.variables.set
+                      postRequest.variables.set,
+                      { client: true }
                     ).all;
                   }
                 }
@@ -908,12 +911,12 @@ export class RequestHandler {
     method: string,
     error: any
   ) {
-    this.environment.log(
-      {
-        group: "extensions",
-        source: extension ? `${extension.id}.${method}` : method,
-      },
-      error
-    );
+    this.environment.log(extension, {
+      level: "error",
+      message: `An error occurred when invoking the method '${method}' on an extension.`,
+      group: "extensions",
+
+      error,
+    });
   }
 }

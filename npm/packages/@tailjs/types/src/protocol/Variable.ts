@@ -202,7 +202,7 @@ export interface VariableMetadata {
 }
 
 /**
- * Information about when a variable's value was modified and a unqiue version (ETag) used for conflict resolution
+ * Information about when a variable's value was modified and a unique version (ETag) used for conflict resolution
  * in case multiple processes try to update it at the same time (optimistic concurrency).
  *
  * Only the version, and not the modified timestamp must be relied on during conflict resolution.

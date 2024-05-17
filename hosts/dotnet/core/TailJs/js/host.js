@@ -28,33 +28,40 @@
         read(path, changeHandler) {
             return host.Read(path, changeHandler, false);
         },
-        log({group, level, source, data} = {}) {
+        log({level, error, ...rest} = {}) {
             host.Log(JSON.stringify({
-                data,
                 level: logLevels[level] ?? 6,
-                group: group ?? null,
-                source: source ?? null
+                error: error != null ? {message: error.message, name: error.name, stack: error.stack} : null,
+                ...rest
             }));
         },
     };
-    const serializeFunctions = (src)=>{
+    const toLogString = (src, depth=0)=>{
+        if( !depth && Array.isArray(src) ){
+            if( src.length <= 1) {
+                src = src[0];
+            } else {
+                return "\n" + src.map((value, i)=>`#${i}: ${toLogString(value,0)}`).join("\n");
+            }
+        }
         if( typeof src === "function") return src.toString();
+        
         if( src != null && (Array.isArray(src) || Object.getPrototypeOf(src)===Object.prototype)) {
             
             const mapped = Array.isArray(src) ? [] : {};
             for (const [key, value] of Object.entries(src)) {
-                mapped[key] = serializeFunctions(value);
+                mapped[key] = toLogString(value, depth+1);
             }
-            return mapped;
+            return depth ? mapped : JSON.stringify(mapped, null, 2);
         } else if( src instanceof  Error){
             return {message: src+"", stack: src.stack};
         }
-        return src;
+        return depth ? src : ""+src;
     }
     const log = (level) =>
         (...args) => host.Log(JSON.stringify({
             level,
-            data: args.length > 1 ? JSON.stringify(serializeFunctions(args), null, 2) : JSON.stringify(serializeFunctions(args[0]), null, 2)
+            message: toLogString(args)
         }));
 
     globalThis.console = {

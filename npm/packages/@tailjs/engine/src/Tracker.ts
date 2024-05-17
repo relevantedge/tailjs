@@ -24,7 +24,6 @@ import {
   VariableGetters,
   VariableHeader,
   VariableKey,
-  VariablePatchType,
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultPromise,
@@ -47,11 +46,10 @@ import {
   Nullish,
   PartialRecord,
   PickPartial,
-  filter,
   forEach,
-  isNumber,
   map,
   now,
+  truish,
   update,
 } from "@tailjs/util";
 import { Transport, defaultTransport } from "@tailjs/util/transport";
@@ -114,10 +112,21 @@ interface SessionInitializationOptions extends TrackerInitializationOptions {
 
 export type TrackerVariableGetter<T = any> = RestrictVariableTargets<
   VariableGetter<T, any, false>
->;
+> & {
+  /** Censor values that are server-side only. */
+  client?: boolean;
+};
 
 export type TrackerVariableSetter<T = any> = RestrictVariableTargets<
   VariableSetter<T, any, false>
+> & {
+  /** Censor values that are server-side only. */
+  client?: boolean;
+};
+
+export type TrackerVariableStorageContext = Pick<
+  VariableStorageContext,
+  "client"
 >;
 
 const createInitialScopeData = <T extends ScopeInfo>(
@@ -150,6 +159,8 @@ type ClientDeviceVariable = [
   version: string | undefined,
   value: any
 ];
+
+const ANONYMOUS_SESSION_ID = "sessionId";
 
 export class Tracker {
   /**
@@ -534,23 +545,16 @@ export class Tracker {
     if (level < this.consent.level || ~purposes & this.consent.purposes) {
       // If the user downgraded the level of consent or removed purposes we need to delete existing data that does not match.
 
-      await this.env.storage.purge([
-        {
-          keys: ["*"],
-          scopes: [
-            VariableScope.Session,
-            VariableScope.Device,
-            // Actually, do we want to delete data from the user?
-            // User data is per definition at least direct personal data.
-            // It seems a bit extreme to delete the user, "right to be forgotten" is not fully implemented.
-            // VariableScope.User
-          ],
-          purposes: ~purposes,
+      await this.purge({
+        session: true,
+        device: true,
+        filter: {
+          purposes: ~(purposes | DataPurposeFlags.Anonymous),
           classification: {
             min: level + 1,
           },
         },
-      ]);
+      });
     }
 
     if (
@@ -560,13 +564,21 @@ export class Tracker {
       if (level === DataClassification.Anonymous) {
         this._sessionReferenceId =
           await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
-        // Copy session state to the anonymous key.
-        await this.env.storage.set([
-          { ...this._session, targetId: this._sessionReferenceId },
-        ]);
       } else {
         this._sessionReferenceId = this._session.targetId!;
       }
+      await this.env.storage.set([
+        {
+          scope: VariableScope.Session,
+          key: ANONYMOUS_SESSION_ID,
+          targetId: this._sessionReferenceId,
+          value:
+            // Delete the key if we moved to cookies, create it otherwise.
+            this.sessionId === this._sessionReferenceId
+              ? undefined
+              : this._sessionReferenceId,
+        },
+      ]);
     }
 
     this._consent = { level, purposes };
@@ -584,23 +596,12 @@ export class Tracker {
   ) {
     if ((resetSession || resetDevice) && this._sessionReferenceId) {
       // Purge old data. No point in storing this since it will no longer be used.
-      await this.env.storage.purge([
-        {
-          keys: ["*"],
-          scopes: filter(
-            [
-              resetSession && VariableScope.Session,
-              resetDevice && VariableScope.Device,
-            ],
-            isNumber
-          ),
-        },
-      ]);
-    } else {
-      if (this._session?.value) return;
+      await this.purge({ session: resetSession, device: resetDevice });
+    } else if (this._session?.value) {
+      return;
     }
 
-    let sessionId: string | undefined;
+    let sessionId: string;
     if (this._consent.level > DataClassification.Anonymous) {
       // CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
       // This means clients must make sure the initial request to endpoint completes before more are sent (or at least do a fair effort).
@@ -620,6 +621,22 @@ export class Tracker {
     } else {
       this._sessionReferenceId =
         await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
+
+      sessionId = requireFound(
+        await this.env.storage.get([
+          {
+            scope: VariableScope.Session,
+            key: ANONYMOUS_SESSION_ID,
+            targetId: this._sessionReferenceId,
+            init: async () => ({
+              ...Necessary,
+              tags: ["anonymous"],
+              value: await this.env.nextId(),
+            }),
+          },
+        ]).result
+      ).value;
+      //console.log("SessionID", sessionId);
     }
 
     this._session =
@@ -631,7 +648,7 @@ export class Tracker {
             {
               scope: VariableScope.Session,
               key: SCOPE_INFO_KEY,
-              targetId: this._sessionReferenceId,
+              targetId: sessionId,
               init: async () => {
                 if (passive) return undefined;
 
@@ -646,7 +663,7 @@ export class Tracker {
                 return {
                   ...Necessary,
                   value: createInitialScopeData<SessionInfo>(
-                    (sessionId ??= await this.env.nextId()),
+                    sessionId,
                     timestamp,
                     {
                       deviceId:
@@ -670,40 +687,27 @@ export class Tracker {
       );
 
     if (this._session.value) {
-      // Copy the session info the the actual session storage.
-      await this.set({
-        scope: VariableScope.Session,
-        key: SCOPE_INFO_KEY,
-        ...Necessary,
-        patch: {
-          type: VariablePatchType.IfMatch,
-          match: undefined,
-          value: this._session.value,
-        },
-      });
-
-      let device = await this.get(
+      let device =
         this._consent.level > DataClassification.Anonymous
-          ? {
-              scope: VariableScope.Device,
-              key: SCOPE_INFO_KEY,
-              purposes: DataPurposeFlags.Necessary,
-              init: async () =>
-                this._session?.value
-                  ? {
-                      classification: this.consent.level,
-                      value: createInitialScopeData<DeviceInfo>(
-                        this._session.value.deviceId!,
-                        timestamp,
-                        {
-                          sessions: 1,
-                        }
-                      ),
+          ? await this.get([
+              {
+                scope: VariableScope.Device,
+                key: SCOPE_INFO_KEY,
+                purposes: DataPurposeFlags.Necessary,
+                init: async () => ({
+                  classification: this.consent.level,
+                  value: createInitialScopeData<DeviceInfo>(
+                    this._session!.value.deviceId!,
+                    timestamp,
+                    {
+                      sessions: 1,
                     }
-                  : undefined,
-            }
-          : undefined
-      ).result;
+                  ),
+                }),
+              },
+            ]).result
+          : undefined;
+
       this._device = device;
 
       if (
@@ -712,19 +716,21 @@ export class Tracker {
         this.session?.isNew
       ) {
         // A new session started on an existing device.
-        this._device = await this.set({
-          ...device,
-          value: undefined,
-          patch: (device) =>
-            device && {
-              ...device,
-              value: {
-                ...device.value,
-                sessions: device.value.sessions + 1,
-                lastSeen: this.session!.lastSeen,
-              } as DeviceInfo,
-            },
-        }).variable;
+        this._device = await this.set([
+          {
+            ...device,
+            value: undefined,
+            patch: (device) =>
+              device && {
+                ...device,
+                value: {
+                  ...device.value,
+                  sessions: device.value.sessions + 1,
+                  lastSeen: this.session!.lastSeen,
+                } as DeviceInfo,
+              },
+          },
+        ]).variable;
       }
 
       if (
@@ -830,7 +836,7 @@ export class Tracker {
 
   // #region Storage
   private _getStorageContext(
-    source?: VariableStorageContext
+    source?: TrackerVariableStorageContext
   ): VariableStorageContext {
     return { ...source, tracker: this };
   }
@@ -846,13 +852,14 @@ export class Tracker {
   }
 
   public get<K extends VariableGetters<TrackerVariableGetter>>(
-    ...keys: VariableGetters<TrackerVariableGetter, K>
+    keys: VariableGetters<TrackerVariableGetter, K>,
+    context?: TrackerVariableStorageContext
   ): VariableResultPromise<
     RestrictVariableTargets<VariableGetResults<K>>,
     true
   > {
     return toVariableResultPromise(
-      () => this.env.storage.get(keys, this._getStorageContext()).all,
+      () => this.env.storage.get(keys, this._getStorageContext(context)).all,
       undefined,
       (results) =>
         results.forEach(
@@ -865,26 +872,37 @@ export class Tracker {
 
   head(
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined
+    options?: VariableQueryOptions | undefined,
+    context?: TrackerVariableStorageContext
   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
-    return this.env.storage.head(filters, options, this._getStorageContext());
+    return this.env.storage.head(
+      filters,
+      options,
+      this._getStorageContext(context)
+    );
   }
   query(
     filters: VariableFilter[],
-    options?: VariableQueryOptions | undefined
+    options?: VariableQueryOptions | undefined,
+    context?: TrackerVariableStorageContext
   ): MaybePromise<VariableQueryResult<Variable<any>>> {
-    return this.env.storage.query(filters, options, this._getStorageContext());
+    return this.env.storage.query(
+      filters,
+      options,
+      this._getStorageContext(context)
+    );
   }
 
   set<K extends VariableSetters<TrackerVariableSetter>>(
-    ...variables: VariableSetters<TrackerVariableSetter, K>
+    variables: VariableSetters<TrackerVariableSetter, K>,
+    context?: TrackerVariableStorageContext
   ): VariableResultPromise<RestrictVariableTargets<VariableSetResults<K>>> {
     return toVariableResultPromise(
       async () => {
         const results = restrictTargets(
           await this.env.storage.set(
             variables as VariableSetter[],
-            this._getStorageContext()
+            this._getStorageContext(context)
           ).all
         );
 
@@ -915,18 +933,40 @@ export class Tracker {
     ) as any;
   }
 
-  purge(alsoUserData = false): MaybePromise<void> {
-    return this.env.storage.purge(
-      [
-        {
-          scopes: [VariableScope.Device, VariableScope.Session].concat(
-            alsoUserData ? [VariableScope.User] : []
-          ),
-          keys: ["*"],
+  async purge({
+    session = false,
+    device = false,
+    user = false,
+    keys = ["*"],
+    filter: classification = undefined as
+      | Pick<VariableFilter, "classification" | "purposes">
+      | undefined,
+  }): Promise<void> {
+    if (!this.sessionId) return;
+
+    const filters: VariableFilter[] = truish([
+      session && {
+        keys,
+        scopes: [VariableScope.Session],
+        targetIds: map([this._sessionReferenceId]),
+        ...classification,
+      },
+      device &&
+        this.deviceId && {
+          keys,
+          scopes: [VariableScope.Device],
+          targetIds: map([this.deviceId]),
+          ...classification,
         },
-      ],
-      this._getStorageContext()
-    );
+      user &&
+        this.authenticatedUserId && {
+          keys,
+          scopes: [VariableScope.User],
+          targetIds: map([this.authenticatedUserId]),
+          ...classification,
+        },
+    ]);
+    filters.length && (await this.env.storage.purge(filters));
   }
 
   // #endregion

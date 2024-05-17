@@ -29,10 +29,10 @@ export interface DeviceInfo extends ScopeInfo {
 }
 
 export interface SessionVariables {
-  info: SessionInfo;
+  info?: SessionInfo;
 }
 
 export interface DeviceVariables {
   /** @privacy anonymous, necessary */
-  info: DeviceInfo;
+  info?: DeviceInfo;
 }

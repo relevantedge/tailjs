@@ -332,4 +332,4 @@ export const isVariablePatch = <Validated>(
 
 export const isVariablePatchAction = (
   setter: any
-): setter is VariablePatchActionSetter => isFunction(setter["patch"]);
+): setter is VariablePatchActionSetter => isFunction(setter?.["patch"]);

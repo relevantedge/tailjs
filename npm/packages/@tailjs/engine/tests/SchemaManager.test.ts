@@ -354,6 +354,34 @@ describe("SchemaManager.", () => {
       view: "lw8ajrz7tc_3",
     });
 
+    const variables = manager.compileVariableSet("urn:tailjs:core");
+
+    expect(
+      variables.censor(
+        { scope: "session", key: "info" },
+        {
+          id: "test",
+          firstSeen: 1337,
+          lastSeen: 1338,
+          views: 0,
+        },
+        { level: "anonymous", purposes: "necessary" }
+      )!.id
+    ).toBeUndefined();
+
+    expect(
+      variables.censor(
+        { scope: "session", key: "info" },
+        {
+          id: "test",
+          firstSeen: 1337,
+          lastSeen: 1338,
+          views: 0,
+        },
+        { level: "anonymous", purposes: ["any", "server"] }
+      )!.id
+    ).toBe("test");
+
     // fs.writeFileSync(
     //   "c:/temp/tailjs.json",
     //   JSON.stringify(manager.schema.definition, null, 2),

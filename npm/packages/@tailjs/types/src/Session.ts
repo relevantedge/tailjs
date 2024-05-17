@@ -4,7 +4,7 @@ import type { DataClassification, SignOutEvent, UUID, UserConsent } from ".";
  * Identifiers related to a user's session, login and device.
  * Based on the user's consent some of these fields may be unavailable.
  *
- * @privacy indirect, necessary
+ * @privacy anonymous, necessary
  *
  */
 export interface Session {
@@ -17,7 +17,6 @@ export interface Session {
    *
    * It is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.
    *
-   * @privacy anonymous
    */
   sessionId: UUID;
 
@@ -54,7 +53,6 @@ export interface Session {
   /**
    * The user's consent choices. {@link DataClassification.Anonymous} means the session is cookie-less.
    *
-   * @privacy anonymous
    */
   consent?: UserConsent;
 
