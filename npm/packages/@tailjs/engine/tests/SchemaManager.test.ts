@@ -169,6 +169,38 @@ describe("SchemaManager.", () => {
       )
     ).toEqual({ alsoClient: "foo", onlyServer: "bar" });
 
+    for (const key of ["clientReadOnly2", "clientReadOnly"]) {
+      expect(
+        variables.censor(
+          { scope: "session", key },
+          { test: "123" },
+          { classification: "anonymous", purposes: "any" },
+          true,
+          false
+        )
+      ).toBeDefined();
+
+      expect(
+        variables.censor(
+          { scope: "session", key },
+          { test: "123" },
+          { classification: "anonymous", purposes: "any" },
+          true,
+          true
+        )
+      ).toBeUndefined();
+
+      expect(
+        variables.censor(
+          { scope: "session", key },
+          { test: "123" },
+          { classification: "anonymous", purposes: ["any", "server"] },
+          true,
+          true
+        )
+      ).toBeDefined();
+    }
+
     //expect(manager.validateVariableUniqueness().length).toBe(2);
   });
 

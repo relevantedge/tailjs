@@ -41,10 +41,11 @@ export interface LogMessage {
 
   /**
    * A key that can be used to prevent the logs from getting flooded with the same message over and over again.
-   * If this is specified, messages with the same key not be logged more than three times.
-   * If the empty string is used, a hash of the entire log message will be used.
+   * If this is specified, messages with the same key not be logged more than three times within the same minute.
+   * If the empty string is used, a hash of the entire log message will be used which may be convenient
+   * instead of making sure keys are unique at the expense of a small performance overhead.
    *
    * The last log entry will indicate that further events will not get logged.
    */
-  throttleKey?: boolean;
+  throttleKey?: string;
 }

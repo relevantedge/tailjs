@@ -181,7 +181,12 @@ internal class ScriptHost : IScriptEngineExtension
       await read.ConfigureAwait(false) is not { } data ? null : _uint8Converter.FromBytes(data);
   }
 
-  private readonly ConcurrentDictionary<string, int> _logThrottleCounts = new();
+  private readonly ConcurrentDictionary<
+    string,
+    (long LastEvent, int EpochCount, int TotalCount)
+  > _logThrottleCounts = new();
+
+  private static readonly JsonSerializerOptions LogJsonSerializerOptions = new() { WriteIndented = true };
 
   internal void Log(string messageJson)
   {
@@ -203,48 +208,56 @@ internal class ScriptHost : IScriptEngineExtension
         logMessage.Append($" #{message.Group}");
       }
 
-      string Indent(string text, bool indentFirst = true, string match = "^")
-      {
-        var indented = Regex.Replace(text, match, "  ", RegexOptions.Multiline);
-        return indentFirst || indented.Length < 2 ? indented : indented.Substring(2);
-      }
-
       if (message.Details != null)
       {
         logMessage
           .AppendLine()
-          .Append("  Details: ")
-          .Append(Indent(message.Details.ToJsonString(new() { WriteIndented = true }), false));
+          .Append(
+            Indent(
+              sb => sb.Append("Details: ").Append(message.Details.ToJsonString(LogJsonSerializerOptions)),
+              false
+            )
+          );
       }
 
       if (message.Error is { } error)
       {
-        var errorMessage = new StringBuilder();
-        errorMessage.Append("Error");
-        if (error.Name is { Length: > 0 } name && name != "Error")
-        {
-          errorMessage.Append(" (").Append(name).Append(")");
-        }
-        errorMessage.Append(": ").Append(error.Message);
+        logMessage
+          .AppendLine()
+          .Append(
+            Indent(sb =>
+            {
+              sb.Append("Error");
+              if (error.Name is { Length: > 0 } name && name != "Error")
+              {
+                sb.Append(" (").Append(name).Append(")");
+              }
 
-        logMessage.AppendLine().Append(Indent(errorMessage.ToString()));
+              sb.Append(": ").Append(error.Message);
+            })
+          );
 
         if (error.Stack is { Length: > 0 } stack)
         {
-          errorMessage.Clear().Append("Stack: ");
-          errorMessage.Append(
-            Indent(
-              Regex.Replace(
-                stack,
-                @"^.*?(^\s*at.*)$",
-                "$1",
-                RegexOptions.Singleline | RegexOptions.Multiline
-              ),
-              false,
-              @"^\s*"
-            )
-          );
-          logMessage.AppendLine().Append(Indent(errorMessage.ToString()));
+          logMessage
+            .AppendLine()
+            .Append(
+              Indent(sb =>
+                sb.Append("Stack: ")
+                  .Append(
+                    Indent(
+                      Regex.Replace(
+                        stack,
+                        @"^.*?(^\s*at.*)$",
+                        "$1",
+                        RegexOptions.Singleline | RegexOptions.Multiline
+                      ),
+                      false,
+                      @"^\s*"
+                    )
+                  )
+              )
+            );
         }
       }
 
@@ -252,14 +265,39 @@ internal class ScriptHost : IScriptEngineExtension
       {
         if (throttleKey == "")
         {
-          throttleKey = messageJson.GetHashCode().ToString();
+          throttleKey = Fnv1a(message.ToString());
         }
 
-        var repeats = _logThrottleCounts.AddOrUpdate(throttleKey, (_) => 0, (_, current) => current + 1);
+        var throttleStats = _logThrottleCounts.AddOrUpdate(
+          throttleKey,
+          (_) => (DateTime.UtcNow.Ticks, 0, 0),
+          (_, current) =>
+            current.LastEvent < DateTime.UtcNow.Add(TimeSpan.FromMinutes(1)).Ticks
+              ? (current.LastEvent, current.EpochCount + 1, current.TotalCount + 1)
+              : (DateTime.UtcNow.Ticks, 0, current.TotalCount + 1)
+        );
 
-        if (repeats == 3)
+        if (throttleStats.TotalCount >= 3)
         {
-          logMessage.AppendLine().AppendLine("Further events will not get logged.");
+          logMessage
+            .AppendLine()
+            .Append("(This kind of event has occurred ")
+            .Append(throttleStats.TotalCount.ToString("N0"))
+            .Append(" times since start");
+          if (throttleStats.EpochCount < 3)
+          {
+            logMessage.Append(".)");
+          }
+          if (throttleStats.EpochCount == 3)
+          {
+            logMessage
+              .AppendLine()
+              .AppendLine(" - further events of this kind will not be logged for the next minute.)");
+          }
+          else
+          {
+            return;
+          }
         }
       }
 
@@ -291,6 +329,47 @@ internal class ScriptHost : IScriptEngineExtension
     {
       _loggerFactory?.DefaultLogger.LogError(ex, "Malformed log message.");
     }
+  }
+
+  private static string Fnv1a(string text)
+  {
+    var hash = 14695981039346656037ul;
+    var bytes = Encoding.UTF8.GetBytes(text).AsSpan();
+    unchecked
+    {
+      foreach (var p in bytes)
+      {
+        hash = (ulong)(1099511628211L * ((long)hash ^ p));
+      }
+    }
+
+    return Convert.ToBase64String(BitConverter.GetBytes(hash));
+  }
+
+  private static string Indent(Action<StringBuilder> text, bool indentFirst = true, string match = "^")
+  {
+    return Indent(
+      sb =>
+      {
+        text(sb);
+        return sb;
+      },
+      indentFirst,
+      match
+    );
+  }
+
+  private static string Indent(string text, bool indentFirst = true, string match = "^") =>
+    Indent(sb => sb.Append(text), indentFirst, match);
+
+  private static string Indent(
+    Func<StringBuilder, StringBuilder> text,
+    bool indentFirst = true,
+    string match = "^"
+  )
+  {
+    var indented = Regex.Replace(text(new StringBuilder()).ToString(), match, "  ", RegexOptions.Multiline);
+    return indentFirst || indented.Length < 2 ? indented : indented.Substring(2);
   }
 
   #region IScriptEngineExtension Members

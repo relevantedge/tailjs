@@ -12,6 +12,8 @@ import type {
   LogMessage,
   ResourceEntry,
 } from "../shared";
+import { hash } from "@tailjs/util/transport";
+import { MINUTE, now } from "@tailjs/util";
 
 export class NativeHost implements EngineHost {
   private readonly _rootPath: string;
@@ -21,6 +23,7 @@ export class NativeHost implements EngineHost {
     this._rootPath = p.resolve(rootPath);
     this._console = console;
   }
+
   async ls(path: string): Promise<ResourceEntry[] | null> {
     path = p.join(this._rootPath, path);
     if (!path.startsWith(this._rootPath)) {
@@ -57,7 +60,42 @@ export class NativeHost implements EngineHost {
     return resources;
   }
 
+  private _throttleStats = new Map<
+    string,
+    [lastEvent: number, epochCount: number, totalCount: number]
+  >();
+
   async log(message: LogMessage) {
+    const throttleKey =
+      message.throttleKey == null
+        ? null
+        : message.throttleKey === ""
+        ? hash(JSON.stringify(message), 64)
+        : message.throttleKey;
+    if (throttleKey != null) {
+      let throttleStats = this._throttleStats.get(throttleKey);
+      if (!throttleStats) {
+        throttleStats = [now(), 0, 0];
+      } else {
+        throttleStats =
+          throttleStats[0] < now() + MINUTE
+            ? [throttleStats[0], throttleStats[1] + 1, throttleStats[2] + 1]
+            : [now(), 0, throttleStats[2] + 1];
+      }
+
+      if (throttleStats[2] >= 3) {
+        message.message += `\n(This kind of event has occurred ${throttleStats[2]} times since start`;
+        if (throttleStats[1] < 3) {
+          message.message += ".)";
+        } else if (throttleStats[1] === 3) {
+          message.message +=
+            " - further events of this kind will not be logged for the next minute.)";
+        } else {
+          return;
+        }
+      }
+    }
+
     const msg = JSON.stringify({
       timestamp: new Date().toISOString(),
       ...message,

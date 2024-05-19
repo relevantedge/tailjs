@@ -48,7 +48,8 @@ export const censor = (
   type: ParsedType,
   value: any,
   consent: ParsableConsent,
-  defaultClassification?: VariableClassification
+  defaultClassification?: VariableClassification,
+  write = false
 ) => {
   if (!isPlainObject(value)) return value;
 
@@ -56,7 +57,8 @@ export const censor = (
     !validateConsent(
       type as Required<SchemaClassification>,
       consent,
-      defaultClassification
+      defaultClassification,
+      write
     )
   )
     return undefined;
@@ -66,9 +68,6 @@ export const censor = (
 
   for (const key in value) {
     const property = type.properties.get(key);
-    if (property?.name === "viewport") {
-      var b = 4;
-    }
 
     if (
       !property ||
@@ -82,7 +81,7 @@ export const censor = (
           property.objectType,
           property.structure,
           value[key],
-          (type, value) => censor(type, value, consent)
+          (type, value) => censor(type, value, consent, undefined, write)
         )
       : value[key];
 

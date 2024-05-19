@@ -48,7 +48,7 @@ export interface Schema extends SchemaEntity {
 export interface ValidatableSchemaEntity<T = any> extends SchemaEntity {
   validate(value: T): T;
   tryValidate(value: T | undefined): T | undefined;
-  censor: (value: T, consent: ParsableConsent) => T | undefined;
+  censor: (value: T, consent: ParsableConsent, write: boolean) => T | undefined;
 }
 
 export interface SchemaType<T = any> extends ValidatableSchemaEntity<T> {

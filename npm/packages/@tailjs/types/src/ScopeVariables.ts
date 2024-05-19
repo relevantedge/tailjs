@@ -1,6 +1,6 @@
 import { Timestamp } from ".";
 
-/** @privacy anonymous, necessary */
+/** @privacy anonymous, necessary, clientread */
 export interface ScopeInfo {
   id: string;
   firstSeen: Timestamp;

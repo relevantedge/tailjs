@@ -183,8 +183,8 @@ export class SchemaManager {
 
         definition: parsedType.composition.node,
 
-        censor: (value, classification) =>
-          censor(parsedType, value, classification),
+        censor: (value, classification, write) =>
+          censor(parsedType, value, classification, undefined, write),
 
         tryValidate: (value) => (validate(value) ? value : undefined),
 
@@ -296,8 +296,10 @@ export class SchemaManager {
               );
             }
 
-            property.censor = (value, consent) =>
-              type.censor({ [property.name]: value }, consent)?.[property.name];
+            property.censor = (value, consent, write) =>
+              type.censor({ [property.name]: value }, consent, write)?.[
+                property.name
+              ];
 
             property.validate = (value) =>
               type.validate({ [property.name]: value })[property.name];
@@ -484,12 +486,13 @@ export class SchemaManager {
     id: string,
     value: any,
     consent: ParsableConsent,
-    validate = true
+    validate = true,
+    write = false
   ) {
     return ifDefined(
       this.getType(id, true),
       (target) => (
-        validate && target.validate(value), target.censor(value, consent)
+        validate && target.validate(value), target.censor(value, consent, write)
       )
     );
   }

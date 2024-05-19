@@ -81,10 +81,15 @@ export enum DataPurposeFlags {
   Any = 63,
 
   /**
+   * The data is read-only client-side.
+   */
+  ClientRead = 64,
+
+  /**
    * The data is not available client-side.
    * Note that this is a special flag that is not included in "Any"
    */
-  Server = 64,
+  Server = 128,
 }
 
 export type DataPurpose =
@@ -94,7 +99,8 @@ export type DataPurpose =
   | DataPurposeFlags.Targeting
   | DataPurposeFlags.Security
   | DataPurposeFlags.Infrastructure
-  | DataPurposeFlags.Server;
+  | DataPurposeFlags.Server
+  | DataPurposeFlags.ClientRead;
 
 const purePurposes: DataPurpose =
   DataPurposeFlags.Necessary |
