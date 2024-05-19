@@ -1,12 +1,4 @@
-import {
-  expand,
-  forEach,
-  concat,
-  map,
-  remove,
-  keys,
-  merge,
-} from "@tailjs/util";
+import { concat, expand, merge } from "@tailjs/util";
 import {
   ParsedComposition,
   ParsedType,

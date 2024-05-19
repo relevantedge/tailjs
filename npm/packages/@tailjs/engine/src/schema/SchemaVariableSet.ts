@@ -77,15 +77,16 @@ export class SchemaVariableSet {
     key: VariableKey,
     value: T,
     consent: ParsableConsent,
-    validate = true
+    validate = true,
+    write = false
   ): T | undefined {
     return ifDefined(
       this._variables.get(key),
       (variable) => (
         validate && variable.validate(value),
-        !validateConsent(variable, consent)
+        !validateConsent(variable, consent, undefined, write)
           ? undefined
-          : variable.censor(value, consent)
+          : variable.censor(value, consent, write)
       )
     );
   }

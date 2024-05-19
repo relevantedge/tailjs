@@ -320,6 +320,12 @@ export const bigSchema = {
         },
       },
     },
+    ClientReadOnly: {
+      type: "object",
+      "x-privacy-purposes": ["any", "clientread"],
+
+      properties: {},
+    },
     SessionVariables: {
       type: "object",
       properties: {
@@ -338,6 +344,21 @@ export const bigSchema = {
               "x-privacy-purposes": ["any", "server"],
               type: "string",
             },
+          },
+        },
+        clientReadOnly: {
+          type: "object",
+          "x-privacy-purposes": ["any", "clientread"],
+          properties: {
+            test: { type: "string" },
+          },
+        },
+        // Test object-level flag inheritance
+        clientReadOnly2: {
+          type: "object",
+          allOf: [{ $ref: "#/$defs/ClientReadOnly" }],
+          properties: {
+            test: { type: "string" },
           },
         },
       },

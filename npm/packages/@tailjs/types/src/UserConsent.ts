@@ -47,7 +47,8 @@ export type ParsableConsent =
 export const validateConsent = (
   source: Partial<ParsableConsent> | undefined,
   consent: ParsableConsent,
-  defaultClassification?: Partial<VariableClassification>
+  defaultClassification?: Partial<VariableClassification>,
+  write = false
 ) => {
   if (!source) return undefined;
   const classification =
@@ -73,11 +74,15 @@ export const validateConsent = (
 
   const consentPurposes = dataPurposes.parse(consent.purposes, false);
 
-  if (
-    purposes & DataPurposeFlags.Server &&
-    !(consentPurposes & DataPurposeFlags.Server)
-  ) {
-    return false;
+  // If we are writing, also check that the type is not client-side read-only.
+  // The context will only be given the `Server` flag. `ClientRead` is only for annotations.
+  for (const serverFlag of [
+    DataPurposeFlags.Server,
+    write ? DataPurposeFlags.ClientRead : 0,
+  ]) {
+    if (purposes & serverFlag && !(consentPurposes & DataPurposeFlags.Server)) {
+      return false;
+    }
   }
 
   return (

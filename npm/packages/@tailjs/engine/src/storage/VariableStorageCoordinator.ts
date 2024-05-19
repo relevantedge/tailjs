@@ -387,14 +387,22 @@ export class VariableStorageCoordinator implements VariableStorage {
     mapping: PrefixVariableMapping,
     key: T,
     value: V,
-    consent: ParsableConsent
+    consent: ParsableConsent,
+    write: boolean
   ): MaybeUndefined<T, V> {
     if (key == null || value == null) return undefined as any;
 
     const localKey = stripPrefix(key)!;
-    if (mapping.variables?.has(localKey)) {
-      return mapping.variables.censor(localKey, value, consent, false) as any;
-    }
+    if ((dataPurposes.parse(key.purposes) ?? ~0) & DataPurposeFlags.ClientRead)
+      if (mapping.variables?.has(localKey)) {
+        return mapping.variables.censor(
+          localKey,
+          value,
+          consent,
+          false,
+          write
+        ) as any;
+      }
 
     return validateConsent(localKey, consent, mapping.classification)
       ? (value as any)
@@ -508,7 +516,8 @@ export class VariableStorageCoordinator implements VariableStorage {
     variables: readonly any[],
     censored: [index: number, result: VariableSetResult][],
     consent: ParsableConsent | undefined,
-    scopeIds: VariableContextScopeIds | undefined
+    scopeIds: VariableContextScopeIds | undefined,
+    write: boolean
   ) {
     let error = this._applyScopeId(key, scopeIds);
     if (error) {
@@ -545,7 +554,8 @@ export class VariableStorageCoordinator implements VariableStorage {
           mapping,
           { ...key, ...target },
           target.value,
-          consent
+          consent,
+          write
         );
       }
       if (wasDefined && target.value == null) {
@@ -613,7 +623,8 @@ export class VariableStorageCoordinator implements VariableStorage {
                 keys,
                 censored,
                 consent,
-                scopeIds
+                scopeIds,
+                true
               )
               ? result
               : undefined;
@@ -634,7 +645,7 @@ export class VariableStorageCoordinator implements VariableStorage {
       };
     }
 
-    if (context?.client && consent) {
+    if (consent) {
       for (const result of results) {
         if (!result?.value) continue;
         const mapping = this._getMapping(result);
@@ -644,7 +655,8 @@ export class VariableStorageCoordinator implements VariableStorage {
               mapping,
               result,
               result.value,
-              consent
+              consent,
+              false
             )) == null
           ) {
             result.status = VariableResultStatus.Denied;
@@ -681,7 +693,8 @@ export class VariableStorageCoordinator implements VariableStorage {
               variables,
               censored,
               consent,
-              scopeIds
+              scopeIds,
+              true
             )
             ? patched
             : undefined;
@@ -695,7 +708,8 @@ export class VariableStorageCoordinator implements VariableStorage {
           variables,
           censored,
           consent,
-          scopeIds
+          scopeIds,
+          true
         );
       }
     });
@@ -754,7 +768,8 @@ export class VariableStorageCoordinator implements VariableStorage {
           this._getMapping(result),
           result,
           result.value,
-          consent
+          consent,
+          false
         ),
       }));
     }

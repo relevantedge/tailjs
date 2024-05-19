@@ -1,9 +1,10 @@
-import { validateConsent } from "@tailjs/types";
-import { add, forEach } from "@tailjs/util";
+import { DataPurposeFlags, validateConsent } from "@tailjs/types";
+import { add, forEach, some } from "@tailjs/util";
 import {
   ParsedProperty,
   ParsedType,
   mergeBasePropertyClassifications,
+  parseClassifications,
   parseError,
   updateMinClassifications,
 } from ".";
@@ -15,10 +16,25 @@ export const updateTypeClassifications = (
 ) => {
   if (!add(seen, type)) return type;
   // Make sure base types have classifications before their implementors.
-  // This is needed to infer property classifications from base types, if properties have been overriden.
+  // This is needed to infer property classifications from base types, if properties have been overridden.
   type.extends?.forEach((type) => updateTypeClassifications(type, seen));
 
   const objectTypeProperties: ParsedProperty[] = [];
+  const typeClassifications = parseClassifications(type.context);
+  [DataPurposeFlags.Server, DataPurposeFlags.ClientRead].forEach(
+    (serverPurpose) => {
+      if (typeClassifications.purposes! & serverPurpose) {
+        type.purposes = (type.purposes ?? 0) | serverPurpose;
+      }
+      // Inherit server and client read flags from base types.
+      // (These are special since they also apply type-wide and not just for properties.)
+      if (
+        some(type.extends, (baseType) => baseType.purposes! & serverPurpose)
+      ) {
+        type.purposes = (type.purposes ?? 0) | serverPurpose;
+      }
+    }
+  );
 
   forEach(type.properties, ([, property]) => {
     // Before looking for classifications in the surrounding context, start by seeing if a base type has aproperty with the same name.

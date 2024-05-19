@@ -479,6 +479,9 @@ var DataPurposeFlags;
    * The data is not available client-side.
    * Note that this is a special flag that is not included in "Any"
    */ DataPurposeFlags[DataPurposeFlags["Server"] = 64] = "Server";
+    /**
+   * The data is read-only client-side.
+   */ DataPurposeFlags[DataPurposeFlags["ClientRead"] = 128] = "ClientRead";
 })(DataPurposeFlags || (DataPurposeFlags = {}));
 const purePurposes = 1 | 2 | 4 | 8 | 16 | 32 | 64;
 const dataPurposes = createEnumAccessor(DataPurposeFlags, true, "data purpose", purePurposes);
@@ -493,13 +496,13 @@ const FullConsent = Object.freeze({
     purposes: "any"
 });
 const isUserConsent = (value)=>!!value?.["level"];
-const validateConsent = (source, consent, defaultClassification)=>{
+const validateConsent = (source, consent, defaultClassification, write = false)=>{
     if (!source) return undefined;
     const classification = dataClassification.parse(source?.classification ?? source?.level, false) ?? required(dataClassification(defaultClassification?.classification), "The source has not defined a data classification and no default was provided.");
     let purposes = dataPurposes.parse(source.purposes, false) ?? required(dataPurposes.parse(defaultClassification?.purposes, false), "The source has not defined data purposes and no default was provided.");
     const consentClassification = dataClassification.parse(consent["classification"] ?? consent["level"], false);
     const consentPurposes = dataPurposes.parse(consent.purposes, false);
-    if (purposes & DataPurposeFlags.Server && !(consentPurposes & DataPurposeFlags.Server)) {
+    if (purposes & (DataPurposeFlags.Server | (write ? DataPurposeFlags.ClientRead : 0)) && !(consentPurposes & DataPurposeFlags.Server)) {
         return false;
     }
     return source && classification <= consentClassification && (purposes & // No matter what is defined in the consent, it will always include the "anonymous" purposes.
