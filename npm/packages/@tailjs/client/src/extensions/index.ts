@@ -2,7 +2,7 @@ export * from "./deviceDetection";
 export * from "./user-agent";
 
 export * from "./userInteraction";
-export * from "./context";
+export * from "./view";
 export * from "./commerce";
 export * from "./components";
 export * from "./scroll";

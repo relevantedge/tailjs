@@ -53,6 +53,8 @@ export class NativeHost implements EngineHost {
         created: stat.birthtimeMs,
         modified: stat.mtimeMs,
         path: path.substring(this._rootPath.length),
+        // TODO: Check if its actually the case? Probably a good service for consumers.
+        readonly: false,
         type,
         name: p.basename(path),
       });
@@ -300,7 +302,7 @@ export class NativeHost implements EngineHost {
   }
 
   nextId(scope: string): Promise<string> | string {
-    // UUID v4, remove hyphens, reencode as if radix 16 with radix 36 to reduce number of characters further.
+    // UUID v4, remove hyphens, re-encode as if radix 16 with radix 36 to reduce number of characters further.
     return uuid()
       .replaceAll("-", "")
       .match(/[0-9a-fA-F]{1,13}/g)!

@@ -4,7 +4,7 @@ import {
   ArraysAsEmpty,
   Entries,
   Extends,
-  FILTER_NULLS,
+  FILTER_NULLISH,
   GeneralizeConstants,
   If,
   IfNot,
@@ -284,7 +284,7 @@ const sliceAction = <S extends IteratorSource, R, P>(
           ? undefined
           : end!--
           ? action
-            ? action(value, index)
+            ? (action as any)(value, index)
             : value
           : end)
     : (action as any);
@@ -298,7 +298,7 @@ export type IteratorFilter<S extends IteratorSource> = (
 export const filterArray = <T extends readonly any[] | undefined>(
   array: T
 ): T extends readonly (infer Item)[] ? OmitNullish<Item>[] : undefined =>
-  array?.filter(FILTER_NULLS) as any;
+  array?.filter(FILTER_NULLISH) as any;
 
 const createIterator = <S extends IteratorSource, R, P>(
   source: S,
@@ -1094,7 +1094,7 @@ export const count: <S extends IteratorSource>(
     }
   }
   n = 0;
-  return forEachInternal(source, () => ++n) as any;
+  return forEachInternal(source, () => ++n) ?? (0 as any);
 };
 
 export const sum: {
@@ -1251,7 +1251,7 @@ export const mapFirst: <S extends IteratorSource, R, P>(
       forEachInternal(
         source,
         (value, i) =>
-          !projection || (value = projection(value, i) as any)
+          !projection || (value = (projection as any)(value, i))
             ? stop(value)
             : undefined,
         start,
@@ -1278,7 +1278,7 @@ export const first: <S extends IteratorSource>(
         end
       );
 
-export const last: <S extends IteratorSource>(
+export const last: <S extends IteratorSource | undefined>(
   source: S,
   predicate?: IteratorFilter<S>,
   ...rest: StartEndArgs<S>
@@ -1290,7 +1290,7 @@ export const last: <S extends IteratorSource>(
 ) =>
   source == null
     ? undefined
-    : isArray(source)
+    : isArray(source) || isString(source)
     ? source[source.length - 1]
     : forEachInternal(
         source,

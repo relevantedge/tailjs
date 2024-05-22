@@ -4,15 +4,19 @@ import {
   VARIABLES_QUERY,
 } from "@constants";
 import {
+  F,
   T,
   ansi,
+  isFunction,
   isObject,
   join,
   parseUri,
   replace,
+  some,
   split,
   type Nullish,
 } from "@tailjs/util";
+import { jsonEncode } from "@tailjs/util/transport";
 import { document } from ".";
 
 export const ERR_BUFFER_OVERFLOW = "buffer-overflow";
@@ -42,17 +46,36 @@ export const VAR_URL = mapUrl("?", EVENT_HUB_QUERY);
 export const MNT_URL = mapUrl("?", CONTEXT_NAV_QUERY);
 export const USR_URL = mapUrl("?", VARIABLES_QUERY);
 
-export const debug = (value: any, group?: string, collapsed = T) => {
+export const groupValue = Symbol();
+export const childGroups = Symbol();
+
+export const debug = (
+  value: any,
+  group?: string,
+  collapsed = T,
+  nested = F
+) => {
   group &&
-    (collapsed ? console.groupCollapsed : console.group)("tail.js: " + group);
+    (collapsed ? console.groupCollapsed : console.group)(
+      (nested ? "" : "tail.js: ") + group
+    );
+  const children = value?.[childGroups];
+  children && (value = value[groupValue]);
   value != null &&
     console.log(
       isObject(value)
-        ? ansi(JSON.stringify(value, null, 2), "94")
+        ? ansi(jsonEncode(value), "94")
         : // ? window["chrome"]
-          //   ? prettyPrint(value).join("")
-          //   : JSON.stringify(value, null, 2)
-          value
+        //   ? prettyPrint(value).join("")
+        //   : JSON.stringify(value, null, 2)
+        isFunction(value)
+        ? "" + value
+        : value
     );
+  children &&
+    children.forEach(([value, group, collapsed]) =>
+      debug(value, group, collapsed, true)
+    );
+
   group && console.groupEnd();
 };

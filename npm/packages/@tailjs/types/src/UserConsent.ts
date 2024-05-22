@@ -78,7 +78,7 @@ export const validateConsent = (
   // The context will only be given the `Server` flag. `ClientRead` is only for annotations.
   for (const serverFlag of [
     DataPurposeFlags.Server,
-    write ? DataPurposeFlags.ClientRead : 0,
+    write ? DataPurposeFlags.Server_Write : 0,
   ]) {
     if (purposes & serverFlag && !(consentPurposes & DataPurposeFlags.Server)) {
       return false;

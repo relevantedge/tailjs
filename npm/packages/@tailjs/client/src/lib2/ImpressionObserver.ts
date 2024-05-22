@@ -4,6 +4,7 @@ import {
   NoOpFunction,
   T,
   count,
+  diff,
   filter,
   forEach,
   map,
@@ -12,13 +13,7 @@ import {
   restrict,
   stickyTimeout,
 } from "@tailjs/util";
-import {
-  deltaDiff,
-  getScreenPos,
-  getViewport,
-  trackerConfig,
-  trackerFlag,
-} from ".";
+import { getScreenPos, getViewport, trackerConfig, trackerFlag } from ".";
 import {
   BoundaryData,
   Tracker,
@@ -112,16 +107,11 @@ export const createImpressionObserver = (tracker: Tracker) => {
 
               if (impressionEvents?.length) {
                 unbindPassiveEventSources = map(impressionEvents, (event) =>
-                  tracker.events.registerEventPatchSource(event, (previous) =>
-                    deltaDiff(
-                      {
-                        relatedEventId: event.clientId!,
-                        duration: timer(),
-                        impressions: impressions,
-                      },
-                      previous
-                    )
-                  )
+                  tracker.events.registerEventPatchSource(event, () => ({
+                    relatedEventId: event.clientId!,
+                    duration: timer(),
+                    impressions: impressions,
+                  }))
                 );
               }
             });

@@ -1,12 +1,15 @@
 import {
   EnumValue,
+  FILTER_NULLISH,
   MaybePick,
   MaybeUndefined,
+  Nullish,
   ParsedEnumResult,
   PartialExcept,
   PrettifyIntersection,
   createEnumAccessor,
   createEnumPropertyParser,
+  isArray,
 } from "@tailjs/util";
 import {
   DataClassification,
@@ -87,33 +90,43 @@ export interface VariableKey<NumericEnums extends boolean = boolean> {
 export type RestrictedVariable<
   T = any,
   NumericEnums extends boolean = true,
-  LocalScopes extends boolean = true
-> = RestrictVariableTargets<Variable<T, NumericEnums>, LocalScopes>;
+  TrackerScoped extends boolean = true
+> = RestrictVariableTargets<Variable<T, NumericEnums>, TrackerScoped>;
 
 type RestrictVariableItemTargets<
   T extends readonly any[],
-  LocalScopes extends boolean
+  TrackerScoped extends boolean
 > = T extends readonly []
   ? []
   : T extends [infer Item, ...infer Rest]
   ? [
-      RestrictVariableTargets<Item, LocalScopes>,
-      ...RestrictVariableItemTargets<Rest, LocalScopes>
+      RestrictVariableTargets<Item, TrackerScoped>,
+      ...RestrictVariableItemTargets<Rest, TrackerScoped>
     ]
   : T extends readonly (infer T)[]
-  ? RestrictVariableTargets<T, LocalScopes>[]
+  ? RestrictVariableTargets<T, TrackerScoped>[]
   : never;
+
+type TrackerScopeValue =
+  | VariableScope.User
+  | "user"
+  | VariableScope.Device
+  | "device"
+  | VariableScope.Session
+  | "session";
 
 export type RestrictVariableTargets<
   T,
-  LocalScopes extends boolean = true
-> = boolean extends LocalScopes
+  TrackerScoped extends boolean = true
+> = boolean extends TrackerScoped
   ? T
   : T extends readonly any[]
-  ? RestrictVariableItemTargets<T, LocalScopes>
+  ? RestrictVariableItemTargets<T, TrackerScoped>
   : T extends { current: infer C }
   ? PrettifyIntersection<
-      Omit<T, "current"> & { current: RestrictVariableTargets<C, LocalScopes> }
+      Omit<T, "current"> & {
+        current: RestrictVariableTargets<C, TrackerScoped>;
+      }
     >
   : PrettifyIntersection<
       T extends { scope: any; targetId?: any }
@@ -123,28 +136,12 @@ export type RestrictVariableTargets<
                   scope:
                     | VariableScope.Global
                     | "global"
-                    | (LocalScopes extends true
-                        ?
-                            | VariableScope.User
-                            | "user"
-                            | VariableScope.Device
-                            | "device"
-                            | VariableScope.Session
-                            | "session"
-                        : never);
+                    | (TrackerScoped extends true ? TrackerScopeValue : never);
                   targetId?: undefined;
                 }
               | {
                   scope:
-                    | (LocalScopes extends true
-                        ? never
-                        :
-                            | VariableScope.User
-                            | "user"
-                            | VariableScope.Device
-                            | "device"
-                            | VariableScope.Session
-                            | "session")
+                    | (TrackerScoped extends true ? never : TrackerScopeValue)
                     | VariableScope.Entity
                     | "entity";
                   targetId: T["targetId"] & string;
@@ -153,9 +150,19 @@ export type RestrictVariableTargets<
         : T
     >;
 
-/** Dummy function to contain variables and variable results to locally scoped targets. */
-export const restrictTargets = <T>(value: T): RestrictVariableTargets<T> =>
-  value as any;
+export const isTrackerScoped = (
+  value: any
+): value is { scope: TrackerScopeValue } =>
+  variableScope(value?.scope) >= VariableScope.Session;
+
+/** Removes target ID from tracker scoped variables and variable results. */
+export const restrictTargets = <T>(value: T): RestrictVariableTargets<T> => (
+  isArray(value)
+    ? value.map(restrictTargets)
+    : isTrackerScoped(value) && delete (value as any).targetId,
+  (value as any)?.current && restrictTargets((value as any).current),
+  value as any
+);
 
 /**
  * A {@link VariableKey} that optionally includes the expected version of a variable value.
@@ -353,3 +360,16 @@ export const extractKey = <
         }),
       } as Required<VariableKey> as any)
     : undefined;
+
+export const sortVariables = <
+  T extends ({ scope: number; key: string } | Nullish)[] | Nullish
+>(
+  variables: T
+): T extends readonly any[] ? (T[number] & {})[] : undefined =>
+  variables
+    ?.filter(FILTER_NULLISH)
+    .sort((x, y) =>
+      x!.scope === y!.scope
+        ? x!.key.localeCompare(y!.key, "en")
+        : x!.scope - y!.scope
+    ) as any;

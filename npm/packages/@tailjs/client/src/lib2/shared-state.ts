@@ -1,18 +1,23 @@
-import { UUID } from "@tailjs/types";
+import { UUID, dataPurposes, sortVariables } from "@tailjs/types";
 import {
+  F,
   MaybeUndefined,
   Nullish,
+  T,
   assign,
   clear,
   clock,
   concat,
+  count,
   createEvent,
   filter,
   forEach,
   map,
   now,
   obj,
+  pluralize,
   replace,
+  stickyTimeout,
 } from "@tailjs/util";
 import {
   ClientVariable,
@@ -26,7 +31,11 @@ import {
   VARIABLE_CACHE_DURATION,
   addEncryptionNegotiatedListener,
   addPageLoadedListener,
+  debug,
+  formatAnyVariableScope,
   listen,
+  childGroups,
+  toNumericVariableEnums,
   variableKeyToString,
 } from ".";
 
@@ -46,7 +55,7 @@ export type StateVariable = ClientVariable & StateVariableMetadata;
 export interface State {
   knownTabs: Record<string, TabState>;
   /** All variables except local. */
-  variables: Map<string, StateVariable>;
+  variables: Record<string, StateVariable>;
 }
 
 let localId = 0;
@@ -67,7 +76,7 @@ export const uuidv4 = (): UUID =>
   );
 
 /** All variables, both local and others. */
-let tabVariables: Map<string, StateVariable> = undefined as any;
+let tabVariables: Record<string, StateVariable> = {};
 
 const tabState: TabState = {
   id: TAB_ID,
@@ -78,7 +87,7 @@ const state: State = {
   knownTabs: {
     [TAB_ID]: tabState,
   },
-  variables: new Map(),
+  variables: {},
 };
 
 type StateMessage =
@@ -113,23 +122,69 @@ export const tryGetVariable: {
     | (ClientVariableResults<[K], true>[0] & StateVariableMetadata)
     | undefined;
   <K extends string | Nullish>(key: K): MaybeUndefined<K, StateVariable>;
-} = (key: any) => tabVariables.get(variableKeyToString(key)!) as any;
+} = (key: any) => tabVariables[variableKeyToString(key)!] as any;
 
 export const setLocalVariables = (
-  ...variables: ClientVariable<any, string, true>[]
+  ...variables: ClientVariable<any, string, true, boolean>[]
 ) =>
   updateVariableState(
     (variables as StateVariable[]).map(
       (variable: StateVariable) => (
         (variable.timestamp = now()),
         (variable.expires = VARIABLE_CACHE_DURATION),
-        variable
+        toNumericVariableEnums(variable)
       )
     )
   );
 
-// export const getStateVariables = (): Readonly<State["variables"]> =>
-//   tabVariables;
+const debugVariableTimeout = stickyTimeout();
+
+const debugVariables = (changes?: typeof tabVariables, flush = F) => {
+  debugVariableTimeout(
+    () => {
+      const variables = concat(
+        sortVariables(map(changes, 1))?.map((variable) => [
+          variable,
+          `${variable.key} (${formatAnyVariableScope(variable.scope)}, ${
+            variable.scope < 0
+              ? "client-side memory only"
+              : dataPurposes.format(variable.purposes)
+          })`,
+          F,
+        ]),
+        [
+          [
+            {
+              [childGroups]: sortVariables(map(tabVariables, 1))?.map(
+                (variable) => [
+                  variable,
+                  `${variable.key} (${formatAnyVariableScope(
+                    variable.scope
+                  )}, ${
+                    variable.scope < 0
+                      ? "client-side memory only"
+                      : dataPurposes.format(variable.purposes)
+                  })`,
+                  F,
+                ]
+              ),
+            },
+            "All variables",
+            T,
+          ],
+        ]
+      )!;
+
+      debug(
+        { [childGroups]: variables },
+        `Variables changed (${count(changes) ?? 0} changed, ${count(
+          tabVariables
+        )} in total).`
+      );
+    },
+    flush ? 0 : 250
+  );
+};
 
 export const updateVariableState = (
   updates: (StateVariable | undefined)[] | undefined
@@ -145,11 +200,13 @@ export const updateVariableState = (
     changes,
     (variable) => variable[1].scope > LocalVariableScope.Tab
   );
+
   if (sharedChanges.length) {
-    assign(state.variables, changes);
+    assign(state.variables, sharedChanges);
     post({ type: "patch", payload: obj(sharedChanges) });
   }
   dispatchState("variables", obj(changes), true);
+  debugVariables(obj(changes));
 };
 
 addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
@@ -169,7 +226,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
             .toString(36)
             .padStart(2, "0");
 
-      tabVariables = new Map(
+      tabVariables = obj(
         concat(
           // Whatever view variables we already had in case of bf navigation.
           filter(
@@ -181,16 +238,15 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
             variable,
           ])
         )
-      );
+      )!;
+      debugVariables(tabVariables, true);
     } else {
-      console.log(JSON.stringify(state, null, 2));
       sessionStorage.setItem(
         STATE_KEY,
         httpEncrypt([
           TAB_ID,
-          filter(
-            tabVariables,
-            ([, variable]) => variable.scope !== LocalVariableScope.View
+          map(tabVariables, ([, variable]) =>
+            variable.scope !== LocalVariableScope.View ? variable : undefined
           ),
         ])
       );
@@ -217,6 +273,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
         !initTimeout.active && post({ type: "set", payload: state }, sender);
       } else if (type === "set" && initTimeout.active) {
         assign(state, payload);
+        assign(tabVariables, payload.variables);
         initTimeout.trigger();
       } else if (type === "patch") {
         assign(state.variables, payload);

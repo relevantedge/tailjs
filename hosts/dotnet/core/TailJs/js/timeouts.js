@@ -3,7 +3,7 @@
         if (typeof callback !== "function") {
             throw new TypeError("Callback is not a function.");
         }
-        return host.SetTimeout(engine, () => callback(), delay, 0);
+        return host.SetTimeout(engine, () => callback(), Math.round(delay), 0);
     },
     clearTimeout(id) {
         host.ClearTimeout(id);
@@ -15,9 +15,9 @@
         callback();
         (function invoke() {
             callback();
-            host.SetTimeout(engine, invoke, delay, id);
+            host.SetTimeout(engine, invoke, Math.round(delay), id);
         })();
-        const id = host.SetTimeout(engine, invoke, delay);
+        const id = host.SetTimeout(engine, invoke, Math.round(delay));
         return id;
     },
     clearInterval(id) {

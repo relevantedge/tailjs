@@ -45,7 +45,6 @@ import {
   delay,
   forEach,
   ifDefined,
-  rank,
   required,
   tryCatch,
   unwrap,
@@ -190,7 +189,20 @@ export class VariableStorageCoordinator implements VariableStorage {
     ) => MaybePromise<ValidatedVariableSetter | undefined>
   ): Promise<(VariableSetResult | undefined)[]> {
     const finalResults: (VariableSetResult | undefined)[] = [];
-    let pending = withSourceIndex(setters);
+    let pending = withSourceIndex(
+      setters.map((source, i) => {
+        const scopeError = this._applyScopeId(source, context);
+        if (scopeError) {
+          finalResults[i] = {
+            status: VariableResultStatus.Denied,
+            error: scopeError,
+            source: source!,
+          };
+          return undefined;
+        }
+        return source;
+      })
+    );
 
     const retries = this._settings.retries;
     for (let i = 0; pending.length && i <= retries; i++) {
@@ -393,7 +405,9 @@ export class VariableStorageCoordinator implements VariableStorage {
     if (key == null || value == null) return undefined as any;
 
     const localKey = stripPrefix(key)!;
-    if ((dataPurposes.parse(key.purposes) ?? ~0) & DataPurposeFlags.ClientRead)
+    if (
+      (dataPurposes.parse(key.purposes) ?? ~0) & DataPurposeFlags.Server_Write
+    )
       if (mapping.variables?.has(localKey)) {
         return mapping.variables.censor(
           localKey,
@@ -463,46 +477,53 @@ export class VariableStorageCoordinator implements VariableStorage {
   }
 
   private _applyScopeId(
-    key: VariableKey | undefined,
-    scopeIds: VariableContextScopeIds | undefined
+    key: VariableKey | Nullish,
+    context: VariableStorageContext | Nullish
   ) {
-    if (key && scopeIds) {
-      const scope = key.scope;
-      const validateScope = (
-        expectedTarget: string | undefined,
-        actualTarget: string | undefined
-      ) => {
-        if (!actualTarget) {
-          return scope === VariableScope.Session
-            ? "The tracker does not have an associated session."
+    if (key) {
+      const scope = variableScope(key.scope);
+      const scopeIds: VariableContextScopeIds | undefined =
+        context?.tracker ?? context?.scopeIds;
+
+      if (scopeIds) {
+        const validateScope = (
+          expectedTarget: string | undefined,
+          actualTarget: string | undefined
+        ) => {
+          if (!actualTarget) {
+            return scope === VariableScope.Session
+              ? "The tracker does not have an associated session."
+              : scope === VariableScope.Device
+              ? "The tracker does not have associated device data, most likely due to the lack of consent."
+              : "The tracker does not have an authenticated user associated.";
+          }
+          if (expectedTarget !== actualTarget) {
+            return `If a target ID is explicitly specified for the ${variableScope.format(
+              scope
+            )} scope it must match the tracker. (Specifying the target ID for this scope is optional.)`;
+          }
+          return undefined;
+        };
+
+        const error =
+          scope === VariableScope.Session
+            ? validateScope(
+                scopeIds.sessionId,
+                (key.targetId ??= scopeIds.sessionId)
+              )
             : scope === VariableScope.Device
-            ? "The tracker does not have associated device data, most likely due to the lack of consent."
-            : "The tracker does not have an authenticated user associated.";
-        }
-        if (expectedTarget !== actualTarget) {
-          return `If a target ID is explicitly specified for the ${variableScope.format(
-            scope
-          )} scope it must match the tracker. (Specifying the target ID for this scope is optional.)`;
-        }
-        return undefined;
-      };
+            ? validateScope(
+                scopeIds.deviceId,
+                (key.targetId ??= scopeIds.deviceId)
+              )
+            : scope === VariableScope.User
+            ? validateScope(scopeIds.userId, (key.targetId ??= scopeIds.userId))
+            : undefined;
 
-      const error =
-        scope === VariableScope.Session
-          ? validateScope(
-              scopeIds.sessionId,
-              (key.targetId ??= scopeIds.sessionId)
-            )
-          : scope === VariableScope.Device
-          ? validateScope(
-              scopeIds.deviceId,
-              (key.targetId ??= scopeIds.deviceId)
-            )
-          : scope === VariableScope.User
-          ? validateScope(scopeIds.userId, (key.targetId ??= scopeIds.userId))
-          : undefined;
-
-      return error;
+        return error;
+      } else if (scope !== VariableScope.Global && !key.targetId) {
+        return `Target ID is required for non-global scopes when variables are not managed through the tracker.`;
+      }
     }
 
     return undefined;
@@ -516,10 +537,10 @@ export class VariableStorageCoordinator implements VariableStorage {
     variables: readonly any[],
     censored: [index: number, result: VariableSetResult][],
     consent: ParsableConsent | undefined,
-    scopeIds: VariableContextScopeIds | undefined,
+    context: VariableStorageContext | undefined,
     write: boolean
   ) {
-    let error = this._applyScopeId(key, scopeIds);
+    let error = this._applyScopeId(key, context);
     if (error) {
       censored.push([
         index,
@@ -596,10 +617,9 @@ export class VariableStorageCoordinator implements VariableStorage {
   ): Promise<VariableGetResults<K>> {
     const censored: [index: number, result: VariableSetResult][] = [];
     const consent = this._getContextConsent(context);
-    const scopeIds = context?.tracker ?? context?.scopeIds;
 
     keys = keys.map((getter, index) => {
-      const error = this._applyScopeId(getter as any, scopeIds);
+      const error = this._applyScopeId(getter as any, context);
       if (error) {
         censored.push([
           index,
@@ -623,7 +643,7 @@ export class VariableStorageCoordinator implements VariableStorage {
                 keys,
                 censored,
                 consent,
-                scopeIds,
+                context,
                 true
               )
               ? result
@@ -674,7 +694,6 @@ export class VariableStorageCoordinator implements VariableStorage {
   ): Promise<VariableSetResults<K>> {
     const censored: [index: number, result: VariableSetResult][] = [];
     const consent = this._getContextConsent(context);
-    const scopeIds = context?.tracker ?? context?.scopeIds;
 
     // Censor the values (including patch actions) when the context has a tracker.
     variables.forEach((setter, i) => {
@@ -693,7 +712,7 @@ export class VariableStorageCoordinator implements VariableStorage {
               variables,
               censored,
               consent,
-              scopeIds,
+              context,
               true
             )
             ? patched
@@ -708,7 +727,7 @@ export class VariableStorageCoordinator implements VariableStorage {
           variables,
           censored,
           consent,
-          scopeIds,
+          context,
           true
         );
       }

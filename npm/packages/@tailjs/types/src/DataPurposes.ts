@@ -3,7 +3,10 @@ import { EnumValue, createEnumAccessor } from "@tailjs/util";
 /** Data purposes are flags that can be combined, so if multiple are needed you can combine them with bitwise OR (the `|` operator).  */
 export type DataPurposesFlagHint = number & {};
 
-// Grrr... We need to write out the calculated numbers for each enum value. Otherwise stupid JSON schema generator won't work.
+// Grr... We need to write out the calculated numbers for each enum value. Otherwise stupid JSON schema generator won't work.
+// Also ts-json-schema-generator does not support template literals, hence automatic PascalCase to snake-case doesn't work.
+// This is why non-standard the syntax convention with underscores in enum names are used, since "serverwrite" looks horrible,
+// but "server_write" is acceptable.
 
 /** Purposes data can be used for, including combinations of {@link DataPurpose} */
 export enum DataPurposeFlags {
@@ -60,7 +63,7 @@ export enum DataPurposeFlags {
    *
    * This is implicitly also `Necessary`.
    */
-  Security = 16,
+  Security = 17,
 
   /**
    * Data stored for this purpose may be similar to the performance category, however it is specifically
@@ -68,28 +71,32 @@ export enum DataPurposeFlags {
    *
    * This is implicitly also `Necessary`.
    */
-  Infrastructure = 32,
+  Infrastructure = 33,
 
   /**
    * All purposes that are permissable for anonymous users.
    */
-  Anonymous = 49, //DataPurposes.Necessary | DataPurposes.Infrastructure | DataPurposes.Security,
+  Anonymous = 49, // DataPurposes.Necessary | DataPurposes.Infrastructure | DataPurposes.Security,
 
   /**
    * Data can be used for any purpose.
+   *
+   * Flags with a higher value than this are used for restrictions on who can access the data rather what it is used for.
    */
   Any = 63,
-
-  /**
-   * The data is read-only client-side.
-   */
-  ClientRead = 64,
 
   /**
    * The data is not available client-side.
    * Note that this is a special flag that is not included in "Any"
    */
-  Server = 128,
+  Server = 2048,
+
+  /**
+   * The data can only be updated server-side and is read-only client-side.
+   *
+   * Note that this is a special flag that is not included in "Any".
+   */
+  Server_Write = 4096,
 }
 
 export type DataPurpose =
@@ -100,7 +107,7 @@ export type DataPurpose =
   | DataPurposeFlags.Security
   | DataPurposeFlags.Infrastructure
   | DataPurposeFlags.Server
-  | DataPurposeFlags.ClientRead;
+  | DataPurposeFlags.Server_Write;
 
 const purePurposes: DataPurpose =
   DataPurposeFlags.Necessary |

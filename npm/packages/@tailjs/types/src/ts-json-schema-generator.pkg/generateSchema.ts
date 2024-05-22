@@ -1,9 +1,6 @@
 import * as tsj from "ts-json-schema-generator";
 import {
   AllOfBaseTypeFormatter,
-  EnumDescriptionFormatter,
-  EnumDescriptionNodeParser,
-  EnumNameDescriptionFormatter,
   PrivacyAnnotatedTypeFormatter,
   fixReferences,
 } from ".";
@@ -27,7 +24,8 @@ export interface GenerateSchemaConfig {
 }
 
 export const generateSchema = (config: GenerateSchemaConfig) => {
-  const tsjConfig: tsj.Config = {
+  const tsjConfig: tsj.CompletedConfig = {
+    ...tsj.DEFAULT_CONFIG,
     ...config,
     skipTypeCheck: true,
     topRef: true,
@@ -36,8 +34,6 @@ export const generateSchema = (config: GenerateSchemaConfig) => {
   };
 
   const formatter = tsj.createFormatter(tsjConfig, (fmt) => {
-    fmt.addTypeFormatter(new EnumDescriptionFormatter());
-    fmt.addTypeFormatter(new EnumNameDescriptionFormatter(fmt as any));
     fmt.addTypeFormatter(new PrivacyAnnotatedTypeFormatter(fmt as any));
     fmt.addTypeFormatter(
       new AllOfBaseTypeFormatter(tsjConfig.schemaId, fmt as any)
@@ -46,11 +42,17 @@ export const generateSchema = (config: GenerateSchemaConfig) => {
 
   const program = tsj.createProgram(tsjConfig);
 
-  const parser = tsj.createParser(program, tsjConfig, (parser) => {
-    parser.addNodeParser(
-      new EnumDescriptionNodeParser(program.getTypeChecker())
-    );
-  });
+  const wrapped = program.getRootFileNames();
+  // Windows paths are not supported.
+  // SchemaGenerator.ts compares the program's getRootFileNames()  to its .getSourceFiles()
+  // by matching rootFileNames.includes(sourceFile.fileName). This does not work on Windows
+  // since getRootFileNames() are using backslashes, and sourceFile.fileName is not.
+  //
+  // Monkey patching to the rescue... 🤞
+  program.getRootFileNames = () =>
+    wrapped.map((name) => name.replaceAll("\\", "/"));
+
+  const parser = tsj.createParser(program, tsjConfig);
 
   const generator = new tsj.SchemaGenerator(
     program,
@@ -58,8 +60,8 @@ export const generateSchema = (config: GenerateSchemaConfig) => {
     formatter,
     tsjConfig
   );
-  const schema = generator.createSchema(tsjConfig.type);
 
+  const schema = generator.createSchema(tsjConfig.type);
   fixReferences(schema);
 
   schema[SchemaAnnotations.Classification] = dataClassification.format(

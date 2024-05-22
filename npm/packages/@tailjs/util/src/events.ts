@@ -54,8 +54,8 @@ export const createEvent = <Args extends readonly any[]>(): [
     (handler, trigger) => {
       const binders = createEventBinders(
         handler as any,
-        (handler) => listeners.add(handler),
-        (handler) => listeners.delete(handler)
+        (handler) => listeners.add(handler as any),
+        (handler) => listeners.delete(handler as any)
       );
       trigger &&
         dispatchedArgs &&

@@ -17,14 +17,14 @@ namespace TailJs.Scripting;
 
 internal class ScriptHost : IScriptEngineExtension
 {
-  private readonly IResourceLoader _resources;
+  private readonly IResourceManager _resources;
 
   private readonly IScriptLoggerFactory? _loggerFactory;
   private readonly Uint8ArrayConverter _uint8Converter;
   private readonly CancellationToken _hostDisposed;
 
   public ScriptHost(
-    IResourceLoader resources,
+    IResourceManager resources,
     IScriptLoggerFactory? loggerFactory,
     Uint8ArrayConverter uint8Converter,
     CancellationToken hostDisposed
@@ -179,6 +179,63 @@ internal class ScriptHost : IScriptEngineExtension
 
     async Task<object?> ConvertResultAsync(ValueTask<byte[]?> read) =>
       await read.ConfigureAwait(false) is not { } data ? null : _uint8Converter.FromBytes(data);
+  }
+
+  internal PromiseLike<bool> Write(string path, object data, bool text)
+  {
+    return Inner().AsPromiseLike();
+    async Task<bool> Inner()
+    {
+      if (text)
+      {
+        await _resources.WriteTextAsync(path, (string)data, _hostDisposed).ConfigureAwait(false);
+      }
+      else
+      {
+        await _resources
+          .WriteAsync(path, _uint8Converter.ToBytes((ITypedArray<byte>)data), _hostDisposed)
+          .ConfigureAwait(false);
+      }
+
+      return true;
+    }
+  }
+
+  internal PromiseLike<object[]> List(string path)
+  {
+    return Inner().AsPromiseLike();
+
+    async Task<object[]> Inner()
+    {
+      return (await _resources.ListAsync(path, _hostDisposed).ConfigureAwait(false))
+        .Select(entry =>
+          (object)
+            new
+            {
+              path = entry.Path,
+              name = entry.Name,
+              type = entry.IsDirectory ? "dir" : "file",
+              @readonly = entry.IsReadOnly,
+              created = entry.Created is { } created
+                ? new DateTimeOffset(created).ToUnixTimeMilliseconds()
+                : 0,
+              modified = entry.Modified is { } modified
+                ? new DateTimeOffset(modified).ToUnixTimeMilliseconds()
+                : 0,
+            }
+        )
+        .ToArray();
+    }
+  }
+
+  internal PromiseLike<bool> Delete(string path)
+  {
+    return Inner().AsPromiseLike();
+
+    async Task<bool> Inner()
+    {
+      return await _resources.DeleteAsync(path, _hostDisposed).ConfigureAwait(false);
+    }
   }
 
   private readonly ConcurrentDictionary<
@@ -378,7 +435,7 @@ internal class ScriptHost : IScriptEngineExtension
 
   public async ValueTask<ScriptObject?> SetupAsync(
     V8ScriptEngine engine,
-    IResourceLoader resources,
+    IResourceManager resources,
     CancellationToken cancellationToken = default
   )
   {

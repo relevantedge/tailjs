@@ -11,8 +11,6 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "stripInternal": true,
-    "incremental": true,
-    "tsBuildInfoFile": ".tsbuildinfo",
 
     "paths": {
       "@constants": ["constants"],

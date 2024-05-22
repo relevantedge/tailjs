@@ -172,7 +172,7 @@
                 "anonymous",
                 "any",
                 "server",
-                "clientread"
+                "server_write"
               ]
             },
             {
@@ -190,7 +190,7 @@
                   "anonymous",
                   "any",
                   "server",
-                  "clientread"
+                  "server_write"
                 ]
               }
             }
@@ -208,15 +208,21 @@
     "Timestamp": {
       "type": "number"
     },
-    "NamedParameters<typeof isTrackedEvent>": {
+    "isTrackedEvent": {
+      "$comment": "(ev: any) => ev is TrackedEvent",
       "type": "object",
       "properties": {
-        "ev": {}
-      },
-      "required": [
-        "ev"
-      ],
-      "additionalProperties": false
+        "namedArgs": {
+          "type": "object",
+          "properties": {
+            "ev": {}
+          },
+          "required": [
+            "ev"
+          ],
+          "additionalProperties": false
+        }
+      }
     },
     "PassiveEvent": {
       "allOf": [
@@ -256,15 +262,21 @@
       ],
       "description": "Base type for events that adds timing or similar \"after-the-fact\" data to events that has already been posted. These events are special in the sense that they do not start a new session, so if the session has expired before the event is sent to the server, it will not start a new session, but also not be tracked."
     },
-    "NamedParameters<typeof isPassiveEvent>": {
+    "isPassiveEvent": {
+      "$comment": "(value: any) => value is PassiveEvent",
       "type": "object",
       "properties": {
-        "value": {}
-      },
-      "required": [
-        "value"
-      ],
-      "additionalProperties": false
+        "namedArgs": {
+          "type": "object",
+          "properties": {
+            "value": {}
+          },
+          "required": [
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      }
     },
     "UserInteractionEvent": {
       "allOf": [
@@ -1236,9 +1248,13 @@
               "description": "Indicates that no other tabs were open when the view happened. This flag allows a backend to extend the definition of a session that can last indefinitely but still restart after inactivity. By measuring the time between a view with this flag and the previous event from the same device, it is possible to see for how long the device has been away from the site.",
               "default": false
             },
-            "tabIndex": {
+            "tabNumber": {
               "$ref": "urn:tailjs:core#/definitions/Integer",
-              "description": "The 1-indexed view number in the current tab. This is kept as a convenience, yet technically redundant since it follows from timestamps and context.",
+              "description": "The tab number in the current session."
+            },
+            "tabViewNumber": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "The view number in the current tab. This is kept as a convenience, yet technically redundant since it follows from timestamps and context.",
               "default": 1
             },
             "redirects": {
@@ -2099,7 +2115,7 @@
       ],
       "x-privacy-purposes": [
         "anonymous",
-        "clientread"
+        "server_write"
       ]
     },
     "SessionInfo": {
@@ -2131,6 +2147,10 @@
             },
             "hasUserAgent": {
               "type": "boolean"
+            },
+            "tabs": {
+              "type": "number",
+              "description": "The total number of tabs opened during the session."
             }
           },
           "required": [

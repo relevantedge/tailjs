@@ -17,7 +17,7 @@ import {
 } from "./shared";
 
 // When in dev mode and copying @tailjs/* to /src/@tailjs/* in a project you will need these packages:
-// (p)npm add jsonschema query-string semaphore-async-await url-parse uuid maxmind request-ip
+// (p)npm add jsonschema query-string url-parse uuid maxmind request-ip
 const dev = process.env.DEV === "true";
 const minify = false;
 

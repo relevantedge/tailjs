@@ -5,6 +5,7 @@ import {
   PostResponse,
   VariableResultPromise,
   VariableResultStatus,
+  dataPurposes,
   getResultVariable,
   isSuccessResult,
   isVariablePatch,
@@ -169,8 +170,20 @@ export const createVariableStorage = (
                 registerCallbacks(key, getter.result);
 
                 const current = tryGetVariable(key);
+
                 getter.init && updateCacheDuration(key, getter.cache);
-                if (!getter.refresh && current?.expires! < now()) {
+                const purposes = (getter as any).purposes;
+                if (!((purposes ?? ~0) & (current?.purposes ?? ~0))) {
+                  push(results, [
+                    {
+                      ...getter,
+                      status: VariableResultStatus.Denied,
+                      error:
+                        "No consent for " + dataPurposes.logFormat(purposes),
+                    } as any,
+                    sourceIndex,
+                  ]);
+                } else if (!getter.refresh && current?.expires! < now()) {
                   push(results, [
                     {
                       ...current,

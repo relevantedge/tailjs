@@ -4,6 +4,7 @@ export interface ResourceEntry {
   path: string;
   name: string;
   type: "file" | "dir";
+  readonly: boolean;
   created?: number;
   modified?: number;
 }
@@ -11,6 +12,7 @@ export interface ResourceEntry {
 export interface EngineHost {
   log(message: LogMessage): void;
 
+  /** Returns */
   ls(path: string): Promise<ResourceEntry[] | null>;
 
   read(

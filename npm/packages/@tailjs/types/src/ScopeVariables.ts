@@ -1,6 +1,6 @@
 import { Timestamp } from ".";
 
-/** @privacy anonymous, necessary, clientread */
+/** @privacy anonymous, necessary, server_write */
 export interface ScopeInfo {
   id: string;
   firstSeen: Timestamp;
@@ -22,6 +22,9 @@ export interface SessionInfo extends ScopeInfo {
   previousSession?: Timestamp;
 
   hasUserAgent?: boolean;
+
+  /** The total number of tabs opened during the session. */
+  tabs?: number;
 }
 
 export interface DeviceInfo extends ScopeInfo {

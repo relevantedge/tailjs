@@ -166,7 +166,12 @@ export class TrackerCoreEvents implements TrackerExtension {
       if (isUserAgentEvent(event)) {
         sessionPatches.push((data) => (data.hasUserAgent = true));
       } else if (isViewEvent(event)) {
-        sessionPatches.push((data) => ++data.views);
+        sessionPatches.push(
+          (data) => ++data.views,
+          (data) =>
+            event.tabNumber! > (data.tabs ??= 0) &&
+            (data.tabs = event.tabNumber)
+        );
         devicePatches.push((data) => ++data.views);
       } else if (isSignInEvent(event)) {
         const changed =

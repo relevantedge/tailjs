@@ -320,12 +320,13 @@ export const bigSchema = {
         },
       },
     },
+
     ClientReadOnly: {
       type: "object",
-      "x-privacy-purposes": ["any", "clientread"],
-
+      "x-privacy-purposes": ["any", "server_write"],
       properties: {},
     },
+
     SessionVariables: {
       type: "object",
       properties: {
@@ -348,7 +349,7 @@ export const bigSchema = {
         },
         clientReadOnly: {
           type: "object",
-          "x-privacy-purposes": ["any", "clientread"],
+          "x-privacy-purposes": ["any", "server_write"],
           properties: {
             test: { type: "string" },
           },

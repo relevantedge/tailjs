@@ -7,11 +7,11 @@ internal class TrackerEnvironment : ITrackerEnvironment
 {
   private readonly ScriptObject _proxy;
   private readonly Uint8ArrayConverter _uint8ArrayConverter;
-  private readonly IResourceLoader _resources;
+  private readonly IResourceManager _resources;
 
   public TrackerEnvironment(
     ScriptObject proxy,
-    IResourceLoader resources,
+    IResourceManager resources,
     Uint8ArrayConverter uint8ArrayConverter
   )
   {

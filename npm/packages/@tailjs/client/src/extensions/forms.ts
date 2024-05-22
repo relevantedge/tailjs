@@ -1,14 +1,13 @@
 import { FormEvent, FormField, Timestamp } from "@tailjs/types";
 import {
   T,
+  diff,
   forEach,
   get,
   map,
   nil,
   now,
-  push,
   replace,
-  restrict,
   stickyTimeout,
   type Nullish,
 } from "@tailjs/util";
@@ -21,7 +20,6 @@ import {
 import {
   NodeWithParentElement,
   attr,
-  deltaDiff,
   getRect,
   listen,
   scopeAttribute,
@@ -134,9 +132,7 @@ export const forms: TrackerExtensionFactory = {
 
         tracker.events.post(ev);
 
-        tracker.events.registerEventPatchSource(ev, (previous) =>
-          deltaDiff(ev as any, previous)
-        );
+        tracker.events.registerEventPatchSource(ev, () => ev as any);
 
         let state: FormState;
         const commitEvent = () => {

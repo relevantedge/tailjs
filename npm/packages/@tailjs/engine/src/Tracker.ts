@@ -640,8 +640,9 @@ export class Tracker {
     }
 
     this._session =
-      // We bypass the TrackerVariableStorage here and uses the environment
-      // because we use a different target ID than the unique session ID when doing cookie-less tracking.
+      // We bypass the TrackerVariableStorage here and use the environment directly.
+      // The session ID we currently have is provisional,
+      // and will not become the tracker's actual session ID before the info variable has been set.
       requireFound(
         restrictTargets(
           await this.env.storage.get([
@@ -859,7 +860,10 @@ export class Tracker {
     true
   > {
     return toVariableResultPromise(
-      () => this.env.storage.get(keys, this._getStorageContext(context)).all,
+      async () =>
+        restrictTargets(
+          await this.env.storage.get(keys, this._getStorageContext(context)).all
+        ),
       undefined,
       (results) =>
         results.forEach(

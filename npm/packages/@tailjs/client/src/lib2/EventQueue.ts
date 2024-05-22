@@ -1,9 +1,10 @@
+import { PATCH_EVENT_POSTFIX } from "@constants";
 import {
   EventPatch,
-  PassiveEvent,
   PostRequest,
   TrackedEvent,
   clearMetadata,
+  isEventPatch,
 } from "@tailjs/types";
 import {
   ToggleArray,
@@ -11,16 +12,17 @@ import {
   clock,
   clone,
   concat,
+  count,
+  diff,
   forEach,
-  isNumber,
-  isObject,
-  isPlainObject,
   join,
   map,
   merge,
   now,
   pluralize,
   push,
+  quote,
+  separate,
   structuralEquals,
   throwError,
   unshift,
@@ -32,7 +34,6 @@ import {
   debug,
   request,
 } from ".";
-import { PATCH_EVENT_POSTFIX } from "@constants";
 
 export type EventQueue = {
   /**
@@ -70,37 +71,15 @@ type EventPatchData<T extends TrackedEvent> = Omit<
   "patchTargetId" | "metadata" | "type"
 > & { type?: undefined };
 
-export const deltaDiff = <T>(
-  current: T,
-  previous: T | undefined
-): [delta: T, current: T] | undefined => {
-  if (!isPlainObject(previous)) return [current, current];
-
-  const delta: any = {};
-  let any = false;
-  let deltaValue: any;
-  let previousValue: number | undefined;
-  if (isPlainObject(current)) {
-    forEach(
-      current,
-      ([key, value]) =>
-        // No change here.
-        delta[key] !== previous[key] &&
-        (deltaValue = isPlainObject(value)
-          ? deltaDiff(value, previous[key])?.[0]
-          : isNumber(value) && isNumber((previousValue = previous[key]))
-          ? value - previousValue
-          : value) !== previous[key] &&
-        ((delta[key] = deltaValue), (any = true))
-    );
-  }
-  return any ? [delta, current] : undefined;
-};
-
-export type EventPatchSource<T extends TrackedEvent = TrackedEvent> = (
-  previous: EventPatchData<T>,
+export type EventPatchSource<
+  T extends TrackedEvent = TrackedEvent,
+  AutoDiff extends boolean = true
+> = (
+  current: EventPatchData<T>,
   unbind: () => void
-) => [delta: EventPatchData<T>, current: EventPatchData<T>] | undefined;
+) => AutoDiff extends true
+  ? EventPatchData<T>
+  : [delta: EventPatchData<T>, current: EventPatchData<T>] | undefined;
 
 export const createEventQueue = (
   url: string,
@@ -124,18 +103,25 @@ export const createEventQueue = (
           patchTargetId: sourceEvent.clientId,
         }) as any);
 
-  const registerEventPatchSource = <T extends TrackedEvent>(
+  const registerEventPatchSource = <
+    T extends TrackedEvent,
+    AutoDiff extends boolean = true
+  >(
     sourceEvent: TrackedEvent,
-    source: EventPatchSource<T>
+    source: EventPatchSource<T, AutoDiff>,
+    autoDiff = true
   ) => {
     let unbinding = false;
     const unbind = () => (unbinding = true);
     snapshots.set(sourceEvent, clone(sourceEvent));
     const factory: Factory = () => {
       const snapshot = snapshots.get(sourceEvent);
-      let [delta, current] = source(snapshot, unbind) ?? [];
+      let [delta, current] =
+        (autoDiff
+          ? diff(source(snapshot, unbind), snapshot)
+          : source(snapshot, unbind)) ?? ([] as any);
 
-      if (delta && (!snapshot || !structuralEquals(current, snapshot))) {
+      if (delta && !structuralEquals(current, snapshot)) {
         // The new "current" differs from the previous.
         snapshots.set(sourceEvent, clone(current));
         // Add patch target ID and the correct event type to the delta data before we return it.
@@ -171,24 +157,37 @@ export const createEventQueue = (
     if (!events.length) return;
 
     debug(
-      join(events, (ev) => ev.type, ["and"]),
-      "Posting " + pluralize("events", [events.length])
+      join(events, (ev) => quote(ev.type), ["and"]),
+      "Posting " +
+        separate([
+          pluralize("new event", [
+            count(events, (ev) => !isEventPatch(ev)) || undefined,
+          ]),
+          pluralize("event update", [
+            count(events, (ev) => isEventPatch(ev)) || undefined,
+          ]),
+        ]) +
+        "."
     );
 
-    await request<PostRequest>(url, {
-      events: events.map(
-        (ev) => (
-          // Update metadata in the source event,
-          // and send a clone of the event without client metadata, and its timestamp in relative time
-          // (the server expects this, and will adjust accordingly to its own time).
-          merge(ev, { metadata: { posted: true } }),
-          merge(clearMetadata(clone(ev), true), {
-            timestamp: ev.timestamp! - now(),
-          })
-        )
-      ),
-      deviceSessionId: context?.deviceSessionId,
-    });
+    request<PostRequest>(
+      url,
+      {
+        events: events.map(
+          (ev) => (
+            // Update metadata in the source event,
+            // and send a clone of the event without client metadata, and its timestamp in relative time
+            // (the server expects this, and will adjust accordingly to its own time).
+            merge(ev, { metadata: { posted: true } }),
+            merge(clearMetadata(clone(ev), true), {
+              timestamp: ev.timestamp! - now(),
+            })
+          )
+        ),
+        deviceSessionId: context?.deviceSessionId,
+      },
+      { beacon: true }
+    );
   };
 
   postFrequency > 0 && clock(() => post([], true), postFrequency);
@@ -214,6 +213,6 @@ export const createEventQueue = (
     post,
     postPatch: (target, patch, flush) =>
       post(mapPatchTarget(target, patch), flush),
-    registerEventPatchSource: registerEventPatchSource,
+    registerEventPatchSource,
   };
 };

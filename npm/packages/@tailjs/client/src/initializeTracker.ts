@@ -1,8 +1,7 @@
 import { SCOPE_INFO_KEY } from "@constants";
-import { SessionInfo, TrackedEvent, isTrackedEvent } from "@tailjs/types";
+import { SessionInfo, isTrackedEvent } from "@tailjs/types";
 import {
   F,
-  MAX_SAFE_INTEGER,
   T,
   array,
   assign,
@@ -281,7 +280,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
         await variables.get({
           scope: "session",
           key: SCOPE_INFO_KEY,
-          cache: MAX_SAFE_INTEGER,
+          refresh: true,
         }).value,
         "No session data."
       ) as SessionInfo;
