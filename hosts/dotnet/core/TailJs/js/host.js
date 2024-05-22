@@ -56,12 +56,12 @@
             }));
         },
     };
-    const toLogString = (src, depth = 0) => {
-        if (!depth && Array.isArray(src)) {
+    const toLogString = (src, depth = 0, topLevel=true) => {
+        if (!depth && Array.isArray(src) && topLevel) {
             if (src.length <= 1) {
                 src = src[0];
             } else {
-                return "\n" + src.map((value, i) => `#${i}: ${toLogString(value, 0)}`).join("\n");
+                return "\n" + src.map((value, i) => `#${i}: ${toLogString(value, 0, false)}`).join("\n");
             }
         }
         if (typeof src === "function") return src.toString();

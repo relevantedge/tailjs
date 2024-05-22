@@ -41,7 +41,6 @@ type ReservedVariableDefinitions = {
   view: View;
   tags: string[];
   rendered: boolean;
-  consent: boolean;
   loaded: boolean;
   tabIndex: number;
   viewIndex: number;

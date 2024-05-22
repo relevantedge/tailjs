@@ -27,7 +27,7 @@ export type RequestOptions<Beacon extends boolean = false> =
   PrettifyIntersection<
     {
       encrypt?: boolean;
-    } & If<Beacon, { beacon: true }, { beacon?: false }>
+    } & (Beacon extends true ? { beacon: true } : { beacon?: false })
   >;
 
 const [addRequestHandler, dispatchRequest] =

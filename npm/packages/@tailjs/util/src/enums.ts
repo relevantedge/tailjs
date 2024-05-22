@@ -17,6 +17,7 @@ import {
   separate,
   array,
   map,
+  isInteger,
 } from ".";
 
 export type ParsedValue<
@@ -255,14 +256,20 @@ export const createEnumAccessor = <
   );
 
   const parseValue = (value: any, validateNumbers?: boolean) =>
-    isNumber(value)
+    isInteger(value)
       ? !flags && validateNumbers
         ? valueLookup[value] != null
           ? value
           : undefined
-        : value
+        : Number.isSafeInteger(value)
+        ? value
+        : undefined
       : isString(value)
-      ? nameLookup[value] ?? nameLookup[value.toLowerCase()]
+      ? nameLookup[value] ??
+        nameLookup[value.toLowerCase()] ??
+        // Sometimes a number may have been stored as a string.
+        // Let's see if that is the case.
+        parseValue(parseInt(value), validateNumbers)
       : undefined;
 
   let invalid = false;

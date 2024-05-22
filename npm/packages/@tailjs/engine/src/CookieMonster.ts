@@ -3,10 +3,12 @@ import { ClientResponseCookie, Cookie, CookieConfiguration } from "./shared";
 
 const getCookieChunkName = (key: string, chunk?: number) =>
   chunk === 0 ? key : `${key}-${chunk}`;
-export const sourceCookieChunks = Symbol("Chunks");
+
+export const requestCookies = Symbol("request cookies");
+
 export type ParsedCookieHeaders = Record<string, Cookie> & {
   // We keep the original number of chunks in the request so we can clear them if we return a shorter value (with fewer chunks) in the response
-  [sourceCookieChunks]: Record<string, number>;
+  [requestCookies]: Record<string, Cookie & { chunks: number }>;
 };
 
 export class CookieMonster {
@@ -25,15 +27,13 @@ export class CookieMonster {
       // These are the chunks
       if (typeof key !== "string") return;
 
+      const requestCookie = cookies[requestCookies]?.[key];
+
       // These cookies should not be sent back, since nothing have updated them and we don't want to mess with Max-Age etc..
-      if (cookie.fromRequest && cookie._originalValue === cookie.value) return;
+      if (requestCookie && requestCookie?.value === cookie.value) return;
 
       responseCookies.push(
-        ...this._mapClientResponseCookies(
-          key,
-          cookie,
-          cookies[sourceCookieChunks]?.[key] ?? -1
-        )
+        ...this._mapClientResponseCookies(key, cookie, requestCookie?.chunks)
       );
     });
 
@@ -43,7 +43,7 @@ export class CookieMonster {
   public parseCookieHeader(
     value: string | null | undefined
   ): ParsedCookieHeaders {
-    const cookies: ParsedCookieHeaders = { [sourceCookieChunks]: {} };
+    const cookies: ParsedCookieHeaders = { [requestCookies]: {} };
     if (!value) return cookies;
     const sourceCookies = Object.fromEntries(
       value
@@ -68,7 +68,6 @@ export class CookieMonster {
           break;
         }
         chunks.push(chunkValue);
-        cookies[sourceCookieChunks][key] = i;
       }
       const value = chunks.join("");
       cookies[key] = {
@@ -76,6 +75,8 @@ export class CookieMonster {
         value: value,
         _originalValue: value,
       } as Cookie;
+
+      cookies[requestCookies][key] = { ...cookies[key], chunks: chunks.length };
     }
 
     return cookies;
@@ -163,7 +164,7 @@ export class CookieMonster {
   private _mapClientResponseCookies(
     name: string,
     cookie: Cookie,
-    originalChunks: number
+    requestChunks = -1
   ): ClientResponseCookie[] {
     const responseCookies: ClientResponseCookie[] = [];
 
@@ -177,13 +178,13 @@ export class CookieMonster {
         cookie = { ...cookie, maxAge: 0, value: "" };
       }
 
-      if (i < originalChunks || cookie.value) {
+      if (i <= requestChunks || cookie.value) {
         const chunkCookieName = getCookieChunkName(name, i);
         responseCookies.push(this.mapResponseCookie(chunkCookieName, cookie));
       }
       cookie = { ...cookie, value: overflow };
 
-      if (!overflow && i >= originalChunks) {
+      if (!overflow && i >= requestChunks) {
         break;
       }
     }

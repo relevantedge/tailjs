@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-
 using Microsoft.ClearScript;
 
 namespace TailJs.Scripting;
@@ -30,23 +29,21 @@ public class CookieCollection : ICookieCollection
     }
   }
 
-  public bool TryGetCookie<T>(
-    string name,
+  public bool TryGetCookie<T>(string name,
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
     [MaybeNullWhen(false)]
 #endif
-    out T cookie
-  ) where T : TrackerCookie => (cookie = (T?)TryMapCookie(_collection.Get(name))!) != null;
+    out T cookie)
+    where T : TrackerCookie => (cookie = (T?)TryMapCookie(_collection.Get(name))!) != null;
 
   internal static IReadOnlyList<ClientResponseCookie> MapCookies(object? cookies) =>
     cookies == null
       ? Array.Empty<ClientResponseCookie>()
       : cookies
         .Enumerate()
-        .Select(
-          cookie =>
-            TryMapCookie(cookie.Value) as ClientResponseCookie
-            ?? throw new InvalidOperationException("Client cookie expected.")
+        .Select(cookie =>
+          TryMapCookie(cookie.Value) as ClientResponseCookie
+          ?? throw new InvalidOperationException("Client cookie expected.")
         )
         .ToList();
 
@@ -65,7 +62,7 @@ public class CookieCollection : ICookieCollection
       ? new ClientResponseCookie(
         name,
         value,
-        (int?)cookie.Get("maxAge"),
+        cookie.GetInt64("maxAge"),
         cookie.Require<bool>("httpOnly"),
         cookie.Require<string>("sameSitePolicy") switch
         {
@@ -79,7 +76,7 @@ public class CookieCollection : ICookieCollection
       )
       : new TrackerCookie(
         value,
-        (int?)cookie.Get("maxAge"),
+        cookie.GetInt64("maxAge"),
         (bool?)cookie.Get("httpOnly") ?? false,
         ((string?)cookie.Get("sameSitePolicy")) switch
         {
@@ -98,14 +95,11 @@ public class CookieCollection : ICookieCollection
   #region IEnumerable<KeyValuePair<string,TrackerCookie>> Members
 
   public IEnumerator<KeyValuePair<string, TrackerCookie>> GetEnumerator() =>
-    _collection.PropertyNames
-      .Select(
-        name =>
-          new KeyValuePair<string, TrackerCookie?>(
-            name,
-            TryMapCookie(_collection[name]) ?? throw new InvalidOperationException("Unsupported cookie type.")
-          )
-      )
+    _collection
+      .PropertyNames.Select(name => new KeyValuePair<string, TrackerCookie?>(
+        name,
+        TryMapCookie(_collection[name]) ?? throw new InvalidOperationException("Unsupported cookie type.")
+      ))
       .Where(kv => kv.Value != null)
       .GetEnumerator()!;
 

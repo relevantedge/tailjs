@@ -1454,7 +1454,7 @@
           ]
         }
       ],
-      "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are required to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
+      "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are expected to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
     },
     "CommerceEvent": {
       "allOf": [
@@ -2180,17 +2180,27 @@
     "SessionVariables": {
       "type": "object",
       "properties": {
-        "info": {
-          "$ref": "urn:tailjs:core#/definitions/SessionInfo"
+        "@info": {
+          "$ref": "urn:tailjs:core#/definitions/SessionInfo",
+          "x-privacy-purpose": "anonymous"
+        },
+        "@consent": {
+          "$ref": "urn:tailjs:core#/definitions/UserConsent",
+          "x-privacy-purpose": "anonymous"
+        },
+        "@session_reference": {
+          "type": "string",
+          "x-privacy-purpose": "anonymous"
         }
       }
     },
     "DeviceVariables": {
       "type": "object",
       "properties": {
-        "info": {
+        "@info": {
           "$ref": "urn:tailjs:core#/definitions/DeviceInfo",
-          "x-privacy-purpose": "anonymous"
+          "x-privacy-class": "indirect",
+          "x-privacy-purpose": "necessary"
         }
       }
     },

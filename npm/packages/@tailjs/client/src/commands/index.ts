@@ -15,3 +15,4 @@ export * from "./ScanComponentsCommand";
 export * from "./SetCommand";
 export * from "./TrackerAvailableCommand";
 export * from "./ViewCommand";
+export * from "./ConsentCommand";

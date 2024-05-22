@@ -286,11 +286,7 @@ export const tryCatchAsync = async <
 
 /**
  *  No-op function to validate types in TypeScript. Because function parameters are contravariant, passing an event that does not match on all properties will get red wiggly lines)
- *
  */
 export const restrict: {
-  <T extends any[] | undefined>(
-    item: T extends (infer T)[] ? T : undefined
-  ): T extends (infer T)[] ? T : undefined;
   <T>(item: T): T;
 } = (item: any) => item as any;

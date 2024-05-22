@@ -2,11 +2,8 @@ import type {
   ActivationTracking,
   CartAction,
   CartEventData,
-  Component,
   ConsentEvent,
-  Content,
   FormEvent,
-  View,
 } from "@tailjs/types";
 import { BoundaryData } from "../commands";
 
@@ -56,7 +53,7 @@ export interface TrackerAttributes {
    * Used to indicate that the form field should be included in the {@link FormEvent} if the form is submitted.
    * It can be put on either each field individually or the entire form.
    *
-   * Be careful NOT TO INADVERDENTLY TRACK PERSONAL DATA.
+   * Be careful NOT TO INADVERTENTLY TRACK PERSONAL DATA.
    * If you do it on purpose it may be perfectly fine depending on which backends you have connected.
    *
    * This attribute has no effect unless the user has consented via an {@link ConsentEvent}.

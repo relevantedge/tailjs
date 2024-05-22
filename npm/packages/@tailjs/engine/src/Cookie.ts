@@ -9,7 +9,7 @@ export interface Cookie {
 
   essential?: boolean;
 
-  value: string | null | undefined;
+  value?: string | null | undefined;
 
   /** @default false */
   fromRequest?: boolean;

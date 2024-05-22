@@ -14,6 +14,7 @@ import type {
   ToggleCommand,
   TrackerAvailableCommand,
   ViewCommand,
+  ConsentCommand,
 } from "..";
 
 export type TrackEventCommand = Omit<TrackedEvent, "id"> &
@@ -35,4 +36,5 @@ export type TrackerCommand =
   | ChangeUserCommand
   | CartCommand
   | OrderCommand
-  | FormCommand;
+  | FormCommand
+  | ConsentCommand;

@@ -3,6 +3,7 @@
     "cacheable",
     "clientread",
     "consts",
+    "Cookiebot",
     "datetime",
     "endregion",
     "Falsish",

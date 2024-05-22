@@ -6,6 +6,7 @@ import {
   forms,
   scroll,
   userInteraction,
+  consent,
 } from "..";
 
 export const defaultExtensions: TrackerExtensionFactory[] = [
@@ -15,4 +16,5 @@ export const defaultExtensions: TrackerExtensionFactory[] = [
   scroll,
   commerce,
   forms,
+  consent,
 ];
