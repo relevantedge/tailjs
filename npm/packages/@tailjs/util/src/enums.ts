@@ -13,8 +13,11 @@ import {
   obj,
   throwError,
   undefined,
+  quote,
+  separate,
+  array,
+  map,
 } from ".";
-import { conjunct, quote } from "./types/strings";
 
 export type ParsedValue<
   T extends EnumHelper<any, any, any>,
@@ -336,7 +339,10 @@ export const createEnumAccessor = <
           (value = lookup(value, true)),
           value === "any"
             ? "any " + enumName
-            : `the ${enumName} ${conjunct(quote(value), c)}`
+            : `the ${enumName} ${separate(
+                map(array(value), (value) => quote(value)),
+                [c]
+              )}`
         ),
       } as const,
       flags &&

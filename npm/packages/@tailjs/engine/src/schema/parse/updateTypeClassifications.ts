@@ -21,7 +21,7 @@ export const updateTypeClassifications = (
 
   const objectTypeProperties: ParsedProperty[] = [];
   const typeClassifications = parseClassifications(type.context);
-  [DataPurposeFlags.Server, DataPurposeFlags.ClientRead].forEach(
+  [DataPurposeFlags.Server, DataPurposeFlags.Server_Write].forEach(
     (serverPurpose) => {
       if (typeClassifications.purposes! & serverPurpose) {
         type.purposes = (type.purposes ?? 0) | serverPurpose;

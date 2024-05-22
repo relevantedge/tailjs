@@ -175,8 +175,6 @@ export const request: {
           ? (encrypt ? httpDecrypt : JSON.parse)?.(responseText)
           : undefined;
 
-        console.log(JSON.stringify(parsed, null, 2));
-
         if (parsed != null) {
           dispatchResponse(parsed);
         }

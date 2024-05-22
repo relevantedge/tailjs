@@ -1,4 +1,11 @@
-import { Defined, Extends, MaybeUndefined, ToggleReadonly, tryCatch } from "..";
+import {
+  Defined,
+  Extends,
+  IsAny,
+  MaybeUndefined,
+  ToggleReadonly,
+  tryCatch,
+} from "..";
 
 /**
  * The ECMAScript primitive types.
@@ -231,7 +238,7 @@ export const IDENTITY: IdentityFunction = (item: any) => item;
 export type NullFilterFunction = <T>(item: T | Nullish) => boolean;
 
 /** A function that filters out values != null. */
-export const FILTER_NULLS: NullFilterFunction = (item: any) => item != nil;
+export const FILTER_NULLISH: NullFilterFunction = (item: any) => item != nil;
 
 export const NULL = 0;
 export const UNDEFINED = 1;

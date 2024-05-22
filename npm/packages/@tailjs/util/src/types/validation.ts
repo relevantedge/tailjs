@@ -145,12 +145,9 @@ export const required = <T>(value: T, error?: ErrorGenerator): OmitNullish<T> =>
         (text) => new TypeError(text.replace("...", " is required."))
       );
 
-export const tryCatch = <
-  T,
-  E extends boolean | ((error: any) => any) | Nullish
->(
+export const tryCatch = <T, E = true>(
   expression: () => T,
-  errorHandler: E = true as any,
+  errorHandler: E | (boolean | ((error?: any) => any) | Nullish) = true as any,
   always?: () => void
 ):
   | T
@@ -158,7 +155,7 @@ export const tryCatch = <
       ? never
       : E extends false
       ? undefined
-      : E extends (error: any) => infer R
+      : E extends (...args: any) => infer R
       ? R extends Error
         ? never
         : R extends void

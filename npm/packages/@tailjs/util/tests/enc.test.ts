@@ -185,7 +185,7 @@ describe("Sparse HTTP encoding.", () => {
   it("Preserves references", () => {
     const a: any = { a: 10 };
     const b: any = { b: 10, a };
-    a[b] = [1, 2, b];
+    a.b = [1, 2, b];
     encodeDecode(a);
   });
 });

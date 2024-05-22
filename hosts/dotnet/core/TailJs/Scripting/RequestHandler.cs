@@ -19,7 +19,7 @@ public class RequestHandler : IRequestHandler
 
   private readonly SemaphoreSlim _mutex = new(1);
 
-  private readonly ResourceLoader _resources;
+  private readonly ResourceManager _resources;
   private readonly ITrackerExtension[] _trackerExtensions;
   private readonly IScriptLoggerFactory? _loggerFactory;
 
@@ -30,7 +30,7 @@ public class RequestHandler : IRequestHandler
 
   public RequestHandler(
     IOptions<TrackerConfiguration> configuration,
-    ResourceLoader resources,
+    ResourceManager resources,
     ITrackerExtension[] trackerExtensions,
     IScriptLoggerFactory? loggerFactory
   )
@@ -126,6 +126,7 @@ public class RequestHandler : IRequestHandler
         _loggerFactory?.DefaultLogger.LogInformation("Initializing script host...");
         _engine = new V8ScriptEngine();
         _engine.AccessContext = typeof(RequestHandler);
+
         _engine.DocumentSettings.AccessFlags = DocumentAccessFlags.EnableFileLoading;
         _engine.DocumentSettings.Loader = new ResourceDocumentLoader(_resources);
         Uint8ArrayConverter = new Uint8ArrayConverter(_engine);
@@ -274,9 +275,9 @@ public class RequestHandler : IRequestHandler
 
   private class ResourceDocumentLoader : DefaultDocumentLoader
   {
-    private readonly ResourceLoader _resources;
+    private readonly ResourceManager _resources;
 
-    public ResourceDocumentLoader(ResourceLoader resources)
+    public ResourceDocumentLoader(ResourceManager resources)
     {
       _resources = resources;
     }

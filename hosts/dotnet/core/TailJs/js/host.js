@@ -22,11 +22,31 @@
             }
             return response;
         },
+        async ls(path) {
+            return [...await host.List(path)].map(entry => ({
+                path: entry.path,
+                name: entry.name,
+                type: entry.type,
+                readonly: entry.readonly,
+                created: entry.created ? new Date(entry.created) : undefined,
+                modified: entry.modified ? new Date(entry.modified) : undefined
+            }));
+        },
+        
+        read(path, changeHandler) {
+            return host.Read(path, changeHandler, false);
+        },
         readText(path, changeHandler) {
             return host.Read(path, changeHandler, true);
         },
-        read(path, changeHandler) {
-            return host.Read(path, changeHandler, false);
+        write(path, data) {
+            return host.Write(path, data, false);
+        },
+        writeText(path, data) {
+            return host.Write(path, data, true);
+        },
+        delete(path) {
+            return host.Delete(path);
         },
         log({level, error, ...rest} = {}) {
             host.Log(JSON.stringify({
@@ -36,27 +56,27 @@
             }));
         },
     };
-    const toLogString = (src, depth=0)=>{
-        if( !depth && Array.isArray(src) ){
-            if( src.length <= 1) {
+    const toLogString = (src, depth = 0) => {
+        if (!depth && Array.isArray(src)) {
+            if (src.length <= 1) {
                 src = src[0];
             } else {
-                return "\n" + src.map((value, i)=>`#${i}: ${toLogString(value,0)}`).join("\n");
+                return "\n" + src.map((value, i) => `#${i}: ${toLogString(value, 0)}`).join("\n");
             }
         }
-        if( typeof src === "function") return src.toString();
-        
-        if( src != null && (Array.isArray(src) || Object.getPrototypeOf(src)===Object.prototype)) {
-            
+        if (typeof src === "function") return src.toString();
+
+        if (src != null && (Array.isArray(src) || Object.getPrototypeOf(src) === Object.prototype)) {
+
             const mapped = Array.isArray(src) ? [] : {};
             for (const [key, value] of Object.entries(src)) {
-                mapped[key] = toLogString(value, depth+1);
+                mapped[key] = toLogString(value, depth + 1);
             }
             return depth ? mapped : JSON.stringify(mapped, null, 2);
-        } else if( src instanceof  Error){
-            return {message: src+"", stack: src.stack};
+        } else if (src instanceof Error) {
+            return {message: src + "", stack: src.stack};
         }
-        return depth ? src : ""+src;
+        return depth ? src : "" + src;
     }
     const log = (level) =>
         (...args) => host.Log(JSON.stringify({

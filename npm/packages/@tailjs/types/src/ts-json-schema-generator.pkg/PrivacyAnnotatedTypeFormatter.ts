@@ -1,9 +1,9 @@
+import { getPrivacyAnnotations, parsePrivacyTokens } from "@tailjs/types";
 import {
   AnnotatedType,
   AnnotatedTypeFormatter,
   Definition,
 } from "ts-json-schema-generator";
-import { getPrivacyAnnotations, parsePrivacyTokens } from "@tailjs/types";
 
 export class PrivacyAnnotatedTypeFormatter extends AnnotatedTypeFormatter {
   getDefinition(type: AnnotatedType): Definition {

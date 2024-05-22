@@ -2,7 +2,6 @@ import type {
   Domain,
   Integer,
   LocalID,
-  Size,
   TrackedEvent,
   View,
   ViewTimingData,
@@ -114,11 +113,16 @@ export interface ViewEvent extends TrackedEvent {
   firstTab?: boolean;
 
   /**
-   * The 1-indexed view number in the current tab.
+   * The tab number in the current session.
+   */
+  tabNumber?: Integer;
+
+  /**
+   * The view number in the current tab.
    * This is kept as a convenience, yet technically redundant since it follows from timestamps and context.
    * @default 1
    */
-  tabIndex?: Integer;
+  tabViewNumber?: Integer;
 
   /**
    * Number of redirects that happened during navigation to this view.*/

@@ -169,7 +169,7 @@ describe("SchemaManager.", () => {
       )
     ).toEqual({ alsoClient: "foo", onlyServer: "bar" });
 
-    for (const key of ["clientReadOnly2", "clientReadOnly"]) {
+    for (const key of ["clientReadOnly", "clientReadOnly2"]) {
       expect(
         variables.censor(
           { scope: "session", key },

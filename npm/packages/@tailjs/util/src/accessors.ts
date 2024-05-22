@@ -28,6 +28,7 @@ import {
   map,
   obj,
   throwError,
+  isNumber,
 } from ".";
 
 type ReadonlyMapLike<K = any, V = any> = {
@@ -804,30 +805,31 @@ export const wrap = <T>(
     ? (...args: any) => wrap(original as any, ...args)
     : (wrap as any)(() => original as any);
 
+/** Creates a clone of an object (including arrays, sets and maps) at the specified depth. -1 means "any depth". */
 export const clone = <T>(value: T, depth = -1): T =>
-  isObject(value)
-    ? isArray(value)
-      ? depth
-        ? value.map((value) => clone(value, depth - 1))
-        : [...value]
-      : isSet(value)
-      ? new Set<any>(
-          depth
-            ? (map as any)(value, (value: any) => clone(value, depth - 1))
-            : value
-        )
-      : isMap(value)
-      ? new Map<any, any>(
-          depth
-            ? (map as any)(value, (value: any) =>
-                // Does not clone keys.
-                [value[0], clone(value[1], depth - 1)]
-              )
-            : value
-        )
-      : depth
+  isArray(value)
+    ? depth
+      ? value.map((value) => clone(value, depth - 1))
+      : [...value]
+    : isPlainObject(value)
+    ? depth
       ? obj(value as any, ([k, v]) => [k, clone(v, depth - 1)])
       : { ...value }
+    : isSet(value)
+    ? new Set<any>(
+        depth
+          ? (map as any)(value, (value: any) => clone(value, depth - 1))
+          : value
+      )
+    : isMap(value)
+    ? new Map<any, any>(
+        depth
+          ? (map as any)(value, (value: any) =>
+              // Does not clone keys.
+              [value[0], clone(value[1], depth - 1)]
+            )
+          : value
+      )
     : (value as any);
 
 /**
@@ -862,3 +864,51 @@ export const unshift = <T extends { unshift: (...args: any) => any } | Nullish>(
 export const shift = <T extends { shift(): R } | undefined, R>(
   target: T
 ): MaybeUndefined<T, R> => target?.shift() as any;
+
+/**
+ * Calculates the difference between the current version of an object, and the changed values specified.
+ * If an updated property is numeric, the delta will be the difference between the updated and current number.
+ * If an updated property is the same as the current value, it will not be included in the diff result,
+ * otherwise this algorithm is no more sophisticated than just returning the new value in the diff (e.g. nothing special about strings).
+ *
+ * @returns A tuple with the first element being the differences between the updates and the current version,
+ *  and the second element a clone of the current value with the changes applied.
+ *  The latter should be passed as the second argument, next time the diff is calculated.
+ */
+export const diff = <T>(
+  updated: T,
+  previous: T | undefined
+): [delta: T, current: T] | undefined => {
+  if (!isPlainObject(previous)) return [updated, updated];
+
+  const delta: any = {};
+  let patchedValue: any;
+  let previousValue: number | undefined;
+
+  // If there are changes, this will be a clone of the previous value with the delta changes applied.
+  let patched: any;
+
+  if (isPlainObject(updated)) {
+    forEach(updated, ([key, value]) => {
+      if (delta[key] === previous[key]) {
+        // No changes.
+        return;
+      }
+
+      if (isPlainObject((patchedValue = value))) {
+        // deltaValue will be undefined if there are no changed in the child object.
+        if (!(value = diff(value, previous[key]))) {
+          return;
+        }
+        [value, patchedValue] = value;
+      } else if (isNumber(value) && isNumber(previousValue)) {
+        value = (patchedValue = value) - previousValue;
+      }
+      delta[key] = value;
+      (patched ??= clone(previous))[key] = patchedValue;
+    });
+    return patched ? [delta, patched] : undefined;
+  }
+
+  return undefined;
+};

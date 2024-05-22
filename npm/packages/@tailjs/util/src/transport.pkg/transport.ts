@@ -1,14 +1,14 @@
 import msgpack from "@ygoe/msgpack";
-const { deserialize, serialize } = msgpack;
+const { deserialize: msgDeserialize, serialize: msgSerialize } = msgpack;
 
 import {
   IsNever,
   Nullish,
-  isObject,
   isArray,
   isFunction,
   isIterable,
   isNumber,
+  isObject,
   isPlainObject,
   isString,
   isSymbol,
@@ -83,12 +83,12 @@ export type Decoded<T = Encodable> = Encodable extends T
  * The broadest possible subtype of a given type that can be serialized and then deserialized without violating the type's contract,
  * with the exception of well-known symbol properties. Those are ignored.
  *
- * Not violating the constract does not mean that the type can loslessly be serialized and then deserialized back.
+ * Not violating the contract does not mean that the type can loslessly be serialized and then deserialized back.
  * It just means that its contract will not be violated if values of a certain type are omitted or deserialized back to another valid subtype.
  * For example, an iterable that is not an array will be deserialized as an array.
  *
  * In particular functions or promises are serialized as empty objects `{}`, and cannot be deserialized back.
- * This means that required constraints on properies that only allow these types can never be met.
+ * This means that required constraints on properties that only allow these types can never be met.
  * Similarly, arrays the can only hold functions or promises must be empty (`never[]`) to satisfy the type constraint.
  *
  */
@@ -135,37 +135,45 @@ export type Decoder = <T = any>(encoded: string | Nullish) => T | undefined;
 
 const REF_PROP = "$ref";
 
+const includeValue = (key: any, value: any, includeDefaultValues: boolean) =>
+  isSymbol(key)
+    ? undefined
+    : includeDefaultValues
+    ? value === null || value
+    : value !== undefined;
+
 /**
- * Misc. fixes to the msgpack library. For example, it does not handle exponential numbers well.
+ * Converts an in-memory object to a format that can be serialized over a wire including cyclic references.
  */
-const patchSerialize = (value: any) => {
+const serialize = <Msgpack extends boolean>(
+  value: any,
+  msgpack: Msgpack,
+  { defaultValues = true, prettify = false }
+): Msgpack extends true ? Uint8Array : string => {
+  // TODO: Clone when required instead of adding "cleaners". Probably adds more overhead.
   let cleaners: (() => void)[] | undefined;
   let refs: Map<any, number> | undefined;
-  let refIndex: number;
+  let refIndex: number | undefined;
   const patchProperty = (
-    value: any,
+    target: any,
     key: any,
-    val = value[key],
-    patched = inner(val)
+    value = target[key],
+    patched = includeValue(key, value, defaultValues) ? inner(value) : undefined
   ) => (
-    (val !== patched || isSymbol(key)) &&
-      ((value[key] = patched), addCleaner(() => (value[key] = val))),
-    val
+    value !== patched &&
+      (patched === undefined && !isArray(target)
+        ? delete target[key]
+        : (target[key] = patched),
+      addCleaner(() => (target[key] = value))),
+    patched
   );
+
   const addCleaner = (cleaner: () => void) => (cleaners ??= []).push(cleaner);
 
   const inner = (value: any) => {
     if (value == null || isFunction(value) || isSymbol(value)) {
       return null;
     }
-
-    // if (Number.isFinite(value) && !Number.isSafeInteger(value)) {
-    //   // A bug in @ygoe/msgpack means floats do not get encoded. We need to encode them in a different way.
-    //   // This is how it landed, since data structure is highly unlikely to be encountered,
-    //   // yet it is probably not the best way to do this (apart from fixing the bug ofc.)
-    //   floatView.setFloat64(0, value, true);
-    //   return { "": [...new Uint32Array(floatBuffer)] };
-    // }
 
     if (!isObject(value)) {
       return value;
@@ -175,7 +183,7 @@ const patchSerialize = (value: any) => {
       return inner(value);
     }
 
-    if ((refIndex = (refs ??= new Map()).get(value)) != null) {
+    if ((refIndex = refs?.get(value)) != null) {
       if (!value[REF_PROP]) {
         // Only assign ID parameter if used.
         value[REF_PROP] = refIndex;
@@ -185,13 +193,8 @@ const patchSerialize = (value: any) => {
     }
 
     if (isPlainObject(value)) {
-      refs.set(value, refs.size + 1);
-
-      Object.keys(value).forEach(
-        (k) =>
-          (patchProperty(value, k) === undefined || isSymbol(k)) &&
-          delete (value as any)[k]
-      );
+      (refs ??= new Map()).set(value, refs.size + 1);
+      for (const key in value) patchProperty(value, key);
     } else if (isIterable(value)) {
       // Array with undefined values or iterable (which is made into array.). ([,1,2,3] does not reveal its first entry).
       (!isArray(value) || Object.keys(value).length < value.length
@@ -200,28 +203,36 @@ const patchSerialize = (value: any) => {
       ).forEach((_, i) =>
         i in value
           ? patchProperty(value, i)
-          : ((value[i] = null), addCleaner(() => delete value[i]))
+          : // Handle arrays like [value1,,value3,value4,,,value6]. The missing elements does not serialize well with msgpack.
+            ((value[i] = null), addCleaner(() => delete value[i]))
       );
     }
 
     return value;
   };
 
-  const serialized = serialize(inner(value));
-  cleaners?.forEach((cleaner) => cleaner());
-  return serialized;
+  return tryCatch(
+    () =>
+      msgpack
+        ? (msgSerialize(inner(value) ?? null) as any)
+        : tryCatch(
+            () => JSON.stringify(value, undefined, prettify ? 2 : 0),
+            () => JSON.stringify(inner(value), undefined, prettify ? 2 : 0)
+          ),
+    true,
+    () => cleaners?.forEach((cleaner) => cleaner())
+  );
 };
 
-const patchDeserialize = (value: Uint8Array) => {
+/**
+ * Hydrates the format returned by {@link serialize} back to its original in-memory format.
+ */
+const deserialize = (value: string | Uint8Array) => {
   let refs: any[] | undefined;
   let matchedRef: any;
 
   const inner = (value: any) => {
     if (!isObject(value)) return value;
-
-    // if (isArray(value[""]) && (value = value[""]).length === 2) {
-    //   return new DataView(new Uint32Array(value).buffer).getFloat64(0, true);
-    // }
 
     if (value[REF_PROP] && (matchedRef = (refs ??= [])[value[REF_PROP]])) {
       return matchedRef;
@@ -239,7 +250,16 @@ const patchDeserialize = (value: Uint8Array) => {
     return value;
   };
 
-  return value != null ? inner(deserialize(value)) : undefined;
+  return inner(
+    isString(value)
+      ? JSON.parse(value)
+      : value != null
+      ? tryCatch(
+          () => msgDeserialize(value),
+          () => (console.error(`Invalid message received.`, value), undefined)
+        )
+      : value
+  );
 };
 
 export type Transport = [
@@ -248,6 +268,32 @@ export type Transport = [
   hash: HashFunction<any>
 ];
 
+export interface TransportOptions {
+  /**
+   * Serialize/deserialize as JSON.
+   *
+   * @default false
+   */
+  json?: boolean;
+  /**
+   * Fallback to unencrypted JSON decoding if a payload starts with `[` or `{`.
+   * Can be used for tolerance if parts of the other end does not support encryption.
+   *
+   * @default true
+   */
+  jsonDecodeFallback?: boolean;
+
+  /**
+   * Omit falsish values (`""`, `0` and `false`) unless explicitly set to `null`.
+   *
+   * @default true
+   */
+  defaultValues?: boolean;
+
+  /** Whether to indent JSON encoded strings. @default true. */
+  prettify?: boolean;
+}
+
 let _defaultTransports: [cipher: Transport, json: Transport] | undefined;
 /**
  * Creates a pair of {@link Encoder} and {@link Decoder}s as well as a {@link HashFunction<string>}.
@@ -255,13 +301,15 @@ let _defaultTransports: [cipher: Transport, json: Transport] | undefined;
  */
 export const createTransport = (
   key?: string | Nullish,
-  json = false,
-  jsonDecodeFallback = true
+  options: TransportOptions = {}
 ): Transport => {
   const factory = (
-    key?: string | Nullish,
-    json = false,
-    jsonDecodeFallback = true
+    key: string | Nullish,
+    {
+      json = false,
+      jsonDecodeFallback = true,
+      ...serializeOptions
+    }: TransportOptions
   ): Transport => {
     const fastStringHash = (value: any, bitsOrNumeric: any) => {
       if (isNumber(value) && bitsOrNumeric === true) return value;
@@ -269,17 +317,20 @@ export const createTransport = (
       value = isString(value)
         ? new Uint8Array(map(value.length, (i) => value.charCodeAt(i) & 255))
         : json
-        ? JSON.stringify(value)
-        : patchSerialize(value);
+        ? tryCatch(
+            () => JSON.stringify(value),
+            () => JSON.stringify(serialize(value, false, serializeOptions))
+          )
+        : serialize(value, true, serializeOptions);
       return hash(value, bitsOrNumeric);
     };
     const jsonDecode = (encoded: any) =>
       encoded == null
         ? undefined
-        : tryCatch(() => JSON.parse(encoded, undefined));
+        : tryCatch(() => deserialize(encoded), undefined);
     if (json) {
       return [
-        (data: any) => JSON.stringify(data),
+        (data: any) => serialize(data, false, serializeOptions),
         jsonDecode,
         (value: any, numericOrBits?: any) =>
           fastStringHash(value, numericOrBits) as any,
@@ -288,13 +339,13 @@ export const createTransport = (
     const [encrypt, decrypt, hash] = lfsr(key);
 
     return [
-      (data: any) => to64u(encrypt(patchSerialize(data))),
+      (data: any) => to64u(encrypt(serialize(data, true, serializeOptions))),
       (encoded: any) =>
         encoded != null
           ? // JSON fallback.
             jsonDecodeFallback && (encoded?.[0] === "{" || encoded?.[0] === "[")
             ? jsonDecode(encoded)
-            : patchDeserialize(decrypt(from64u(encoded)))
+            : deserialize(decrypt(from64u(encoded)))
           : null,
       (value: any, numericOrBits?: any) =>
         fastStringHash(value, numericOrBits) as any,
@@ -302,14 +353,22 @@ export const createTransport = (
   };
 
   if (!key) {
-    return (_defaultTransports ??= [factory(null, false), factory(null, true)])[
-      +json
-    ];
+    let json = +(options.json ?? 0);
+    if (json && options.prettify !== false) {
+      return (_defaultTransports ??= [
+        factory(null, { json: false }),
+        factory(null, { json: true, prettify: true }),
+      ])[+json];
+    }
   }
-  return factory(key, json, jsonDecodeFallback);
+  return factory(key, options);
 };
 
 export const defaultTransport = createTransport();
-export const defaultJsonTransport = createTransport(null, true);
+export const defaultJsonTransport = createTransport(null, {
+  json: true,
+  prettify: true,
+});
 
 export const [httpEncode, httpDecode, hash] = defaultTransport;
+export const [jsonEncode, jsonDecode] = defaultJsonTransport;

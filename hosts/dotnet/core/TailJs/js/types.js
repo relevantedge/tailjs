@@ -51,7 +51,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
 /** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 /** Minify friendly version of `null`. */ const nil = null;
-/** A function that filters out values != null. */ const FILTER_NULLS = (item)=>item != nil;
+/** A function that filters out values != null. */ const FILTER_NULLISH = (item)=>item != nil;
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
 const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? value !== undefined$1 ? resultOrProperty(value) : undefined$1 : value?.[resultOrProperty] !== undefined$1 ? value : undefined$1;
 const isBoolean = (value)=>typeof value === "boolean";
@@ -135,7 +135,7 @@ function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_
     }
 }
 const sliceAction = (action, start, end)=>(start ?? end) !== undefined$1 ? (action = wrapProjection(action), start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
-/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array?.filter(FILTER_NULLS);
+/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array?.filter(FILTER_NULLISH);
 const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
 const mapToArray = (projected, map)=>map && !isArray(projected) ? [
         ...projected
@@ -235,7 +235,6 @@ const entries = (target)=>!isArray(target) && isIterable(target) ? map(target, i
             index,
             value
         ]) : isObject(target) ? Object.entries(target) : undefined$1;
-const last = (source, predicate, start, end)=>source == null ? undefined$1 : isArray(source) ? source[source.length - 1] : forEachInternal(source, (item, i)=>!predicate || predicate(item, i) ? item : undefined$1, start, end);
 
 const define = (target, ...args)=>{
     const add = (arg, defaults)=>{
@@ -283,18 +282,14 @@ const unwrap = (value)=>isFunction(value) ? value() : value;
  */ const separate = (values, separator = [
     "and",
     ", "
-])=>!values ? undefined : values.length === 1 ? values[0] : isArray(separator) ? [
+])=>!values ? undefined$1 : (values = map(values)).length === 1 ? values[0] : isArray(separator) ? [
         values.slice(-1).join(separator[1] ?? ", "),
         " ",
         separator[0],
         " ",
         values[values.length - 1]
     ].join("") : values.join(separator ?? ", ");
-
-const conjunct = (values, conjunction = "and")=>ifDefined(values, (values)=>(values = isIterable(values) ? map(values, (value)=>value + "") : [
-            values + ""
-        ], values.length === 0 ? "" : values.length === 1 ? values[0] : `${values.slice(0, -1).join(", ")} ${conjunction} ${last(values)}`));
-const quote = (item)=>ifDefined(item, (item)=>isIterable(item) ? map(item, (item)=>"'" + item + "'") : "'" + item + "'");
+const quote = (item, quoteChar = "'")=>item == null ? undefined$1 : quoteChar + item + quoteChar;
 
 const isBit = (n)=>(n = Math.log2(n), n === (n | 0));
 const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
@@ -344,7 +339,9 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
             lookup,
             length: entries.length,
             format: (value)=>lookup(value, true),
-            logFormat: (value, c = "or")=>(value = lookup(value, true), value === "any" ? "any " + enumName : `the ${enumName} ${conjunct(quote(value), c)}`)
+            logFormat: (value, c = "or")=>(value = lookup(value, true), value === "any" ? "any " + enumName : `the ${enumName} ${separate(map(array(value), (value)=>quote(value)), [
+                    c
+                ])}`)
         },
         flags && {
             pure,
@@ -462,28 +459,32 @@ var DataPurposeFlags;
    * or for a website to guard itself against various kinds of attacks.
    *
    * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Security"] = 16] = "Security";
+   */ DataPurposeFlags[DataPurposeFlags["Security"] = 17] = "Security";
     /**
    * Data stored for this purpose may be similar to the performance category, however it is specifically
    * only used for things such as health monitoring, system performance and error logging and unrelated to user behavior.
    *
    * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Infrastructure"] = 32] = "Infrastructure";
+   */ DataPurposeFlags[DataPurposeFlags["Infrastructure"] = 33] = "Infrastructure";
     /**
    * All purposes that are permissable for anonymous users.
    */ DataPurposeFlags[DataPurposeFlags["Anonymous"] = 49] = "Anonymous";
     /**
    * Data can be used for any purpose.
+   *
+   * Flags with a higher value than this are used for restrictions on who can access the data rather what it is used for.
    */ DataPurposeFlags[DataPurposeFlags["Any"] = 63] = "Any";
     /**
    * The data is not available client-side.
    * Note that this is a special flag that is not included in "Any"
-   */ DataPurposeFlags[DataPurposeFlags["Server"] = 64] = "Server";
+   */ DataPurposeFlags[DataPurposeFlags["Server"] = 2048] = "Server";
     /**
-   * The data is read-only client-side.
-   */ DataPurposeFlags[DataPurposeFlags["ClientRead"] = 128] = "ClientRead";
+   * The data can only be updated server-side and is read-only client-side.
+   *
+   * Note that this is a special flag that is not included in "Any".
+   */ DataPurposeFlags[DataPurposeFlags["Server_Write"] = 4096] = "Server_Write";
 })(DataPurposeFlags || (DataPurposeFlags = {}));
-const purePurposes = 1 | 2 | 4 | 8 | 16 | 32 | 64;
+const purePurposes = 1 | 2 | 4 | 8 | 17 | 33 | 2048;
 const dataPurposes = createEnumAccessor(DataPurposeFlags, true, "data purpose", purePurposes);
 const singleDataPurpose = createEnumAccessor(DataPurposeFlags, false, "data purpose", 0);
 
@@ -502,8 +503,15 @@ const validateConsent = (source, consent, defaultClassification, write = false)=
     let purposes = dataPurposes.parse(source.purposes, false) ?? required(dataPurposes.parse(defaultClassification?.purposes, false), "The source has not defined data purposes and no default was provided.");
     const consentClassification = dataClassification.parse(consent["classification"] ?? consent["level"], false);
     const consentPurposes = dataPurposes.parse(consent.purposes, false);
-    if (purposes & (DataPurposeFlags.Server | (write ? DataPurposeFlags.ClientRead : 0)) && !(consentPurposes & DataPurposeFlags.Server)) {
-        return false;
+    // If we are writing, also check that the type is not client-side read-only.
+    // The context will only be given the `Server` flag. `ClientRead` is only for annotations.
+    for (const serverFlag of [
+        DataPurposeFlags.Server,
+        write ? DataPurposeFlags.Server_Write : 0
+    ]){
+        if (purposes & serverFlag && !(consentPurposes & DataPurposeFlags.Server)) {
+            return false;
+        }
     }
     return source && classification <= consentClassification && (purposes & // No matter what is defined in the consent, it will always include the "anonymous" purposes.
     (consentPurposes | DataPurposeFlags.Anonymous)) > 0;
@@ -511,6 +519,8 @@ const validateConsent = (source, consent, defaultClassification, write = false)=
 
 let metadata;
 const clearMetadata = (event, client)=>((metadata = event?.metadata) && (client ? (delete metadata.posted, delete metadata.queued, !Object.entries(metadata).length && delete event.metadata) : delete event.metadata), event);
+
+const isEventPatch = (value)=>!!value?.patchTargetId;
 
 var VariableScope;
 (function(VariableScope) {
@@ -524,7 +534,8 @@ var VariableScope;
     /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 4] = "User";
 })(VariableScope || (VariableScope = {}));
 const variableScope = createEnumAccessor(VariableScope, false, "variable scope");
-/** Dummy function to contain variables and variable results to locally scoped targets. */ const restrictTargets = (value)=>value;
+const isTrackerScoped = (value)=>variableScope(value?.scope) >= 2;
+/** Removes target ID from tracker scoped variables and variable results. */ const restrictTargets = (value)=>(isArray(value) ? value.map(restrictTargets) : isTrackerScoped(value) && delete value.targetId, value?.current && restrictTargets(value.current), value);
 const Necessary = {
     classification: DataClassification.Anonymous,
     purposes: DataPurposeFlags.Necessary
@@ -566,6 +577,7 @@ const extractKey = (variable, classificationSource)=>variable ? {
             purposes: dataPurposes(classificationSource.purposes)
         }
     } : undefined;
+const sortVariables = (variables)=>variables?.filter(FILTER_NULLISH).sort((x, y)=>x.scope === y.scope ? x.key.localeCompare(y.key, "en") : x.scope - y.scope);
 
 var VariableResultStatus;
 (function(VariableResultStatus) {
@@ -774,4 +786,4 @@ const getPrivacyAnnotations = (classification)=>{
     return attrs;
 };
 
-export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, SchemaAnnotations, SchemaSystemTypes, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, encodeTag, extractKey, formatKey, getPrivacyAnnotations, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isUserAgentEvent, isUserConsent, isVariablePatch, isVariablePatchAction, isViewEvent, parseKey, parsePrivacyTokens, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };
+export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, SchemaAnnotations, SchemaSystemTypes, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, encodeTag, extractKey, formatKey, getPrivacyAnnotations, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatch, isVariablePatchAction, isViewEvent, parseKey, parsePrivacyTokens, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };

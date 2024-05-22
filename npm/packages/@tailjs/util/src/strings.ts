@@ -1,6 +1,7 @@
 import {
   MaybeUndefined,
-  array,
+  Nullish,
+  filter,
   forEach,
   isArray,
   isBoolean,
@@ -8,7 +9,10 @@ import {
   isNumber,
   isObject,
   isString,
+  map,
   push,
+  replace,
+  undefined,
 } from ".";
 
 export const changeCase = <S extends string | null | undefined>(
@@ -61,7 +65,7 @@ export const separate = (
 ) =>
   !values
     ? undefined
-    : values.length === 1
+    : (values = map(values)).length === 1
     ? values[0]
     : isArray(separator)
     ? [
@@ -75,7 +79,8 @@ export const separate = (
 
 /**
  * Pluralizes a noun using standard English rules.
- * It is not very smart, so if the plural form is not just adding an "s" in the end, it must be specified manually.
+ * It is not very smart, so if the plural form is not just adding an "s" in the end unless the singular form already ends with "s",
+ * it must be specified manually.
  *
  * @param singular - The singular form of the noun
  * @param n - The number of items that decides if the noun should be pluralized. If given an array the number will be postfixed.
@@ -83,17 +88,25 @@ export const separate = (
  * @returns The noun, pluralized if needed.
  */
 export const pluralize = <
-  T extends string | undefined,
+  T extends string | Nullish,
+  N extends number | Nullish,
   Plural extends string = string
 >(
   singular: T,
-  n: number | [number],
+  n: N | [count: N],
   plural?: Plural
-): MaybeUndefined<T, string> =>
+): T extends Nullish ? undefined : N extends Nullish ? undefined : string =>
   singular == null
     ? (undefined as any)
-    : (isArray(n) ? (n = n[0]) + " " : "") +
-      (n === 1 ? singular : plural ?? singular + "s");
+    : isArray(n)
+    ? (n = n[0]) == null
+      ? undefined
+      : n + " " + pluralize(singular, n, plural)
+    : n == null
+    ? undefined!
+    : n === 1
+    ? singular
+    : plural ?? singular + "s";
 
 /**
  * Can colorize text using ANSI escape sequences.
@@ -173,3 +186,58 @@ const prettyPrint = (
   terminator && push(buffer, terminator);
   return buffer;
 };
+
+type UppercaseLetter =
+  | "A"
+  | "B"
+  | "C"
+  | "D"
+  | "E"
+  | "F"
+  | "G"
+  | "H"
+  | "I"
+  | "J"
+  | "K"
+  | "L"
+  | "M"
+  | "N"
+  | "O"
+  | "P"
+  | "Q"
+  | "R"
+  | "S"
+  | "T"
+  | "U"
+  | "V"
+  | "W"
+  | "X"
+  | "Y"
+  | "Z";
+
+/**
+ * This is intended for prettifying enum names (like ServerWrite becomes 'server-write'), alas it does currently not work with
+ * ts-json-schema-generator. Kept in the hope this will be supported one day.
+ */
+export type SnakeCase<
+  S extends string | Nullish,
+  First = true
+> = S extends Nullish
+  ? undefined
+  : S extends `${infer P}${infer Rest}`
+  ? [P, First] extends [UppercaseLetter, false]
+    ? `-${Lowercase<P>}${SnakeCase<Rest, false>}`
+    : `${Lowercase<P>}${SnakeCase<Rest, false>}`
+  : S extends string
+  ? Lowercase<S>
+  : undefined;
+
+export const snakeCase = <S extends string | Nullish>(
+  s: S
+): MaybeUndefined<S, SnakeCase<S>> =>
+  replace(s, /(.)?([A-Z])/g, (_, prev, p) =>
+    ((prev ? prev + "-" : "") + p).toLowerCase()
+  ) as any;
+
+export const quote = <T>(item: T, quoteChar = "'"): MaybeUndefined<T, string> =>
+  item == null ? (undefined as any) : quoteChar + item + quoteChar;

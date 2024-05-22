@@ -43,7 +43,8 @@ type ReservedVariableDefinitions = {
   rendered: boolean;
   consent: boolean;
   loaded: boolean;
-  index: number;
+  tabIndex: number;
+  viewIndex: number;
   scripts: Record<string, "pending" | "loaded" | "failed">;
   referrer: ReferringViewData;
 };
@@ -78,6 +79,9 @@ export const localVariableScope = createEnumAccessor(
 
 export const anyVariableScope = (scope: string | number) =>
   localVariableScope.tryParse(scope) ?? variableScope(scope);
+
+export const formatAnyVariableScope = (scope: string | number) =>
+  localVariableScope.format(scope) ?? variableScope.format(scope);
 
 export type LocalVariableScopeValue<
   Numeric extends boolean | undefined = boolean
@@ -157,10 +161,14 @@ type LocalVariableSetResult<T, Source> = PrettifyIntersection<{
 export type ClientVariable<
   T = any,
   K extends string = string,
-  Local = boolean
+  Local = boolean,
+  NumericEnums extends boolean = true
 > = Local extends true
-  ? LocalVariable<T, K>
-  : { key: K } & Omit<RestrictVariableTargets<Variable<T>>, "key">;
+  ? LocalVariable<T, K, NumericEnums>
+  : { key: K } & Omit<
+      RestrictVariableTargets<Variable<T, NumericEnums>>,
+      "key"
+    >;
 
 export type VariableCacheSettings = {
   /**

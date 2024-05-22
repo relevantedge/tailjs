@@ -1,4 +1,10 @@
-import { LocalID, View, ViewEvent, isViewEvent } from "@tailjs/types";
+import {
+  LocalID,
+  View,
+  ViewEvent,
+  isEventPatch,
+  isViewEvent,
+} from "@tailjs/types";
 import {
   F,
   T,
@@ -6,6 +12,7 @@ import {
   clock,
   createEvent,
   createTimer,
+  diff,
   forEach,
   map,
   nil,
@@ -23,7 +30,6 @@ import {
   TAB_ID,
   addPageActivatedListener,
   addPageVisibleListener,
-  deltaDiff,
   getViewport,
   isInternalUrl,
   listen,
@@ -33,6 +39,7 @@ import {
   setLocalVariables,
   tryGetVariable,
 } from "../lib2";
+import { SCOPE_INFO_KEY } from "@constants";
 
 export let currentViewEvent: ViewEvent | undefined;
 
@@ -158,16 +165,30 @@ export const context: TrackerExtensionFactory = {
       },
     });
 
-    let localIndex = tryGetVariable({ scope: "tab", key: "index" })?.value ?? 0;
-    let globalIndex = tryGetVariable({ scope: "tab", key: "index" })?.value;
-    if (globalIndex == null) {
-      globalIndex =
-        tryGetVariable({ scope: "shared", key: "index" })?.value ?? 0;
-      setLocalVariables({
-        scope: LocalVariableScope.Shared,
-        key: "index",
-        value: globalIndex + 1,
-      });
+    let viewIndex =
+      tryGetVariable({ scope: "tab", key: "viewIndex" })?.value ?? 0;
+    let tabIndex = tryGetVariable({ scope: "tab", key: "tabIndex" })?.value;
+
+    if (tabIndex == null) {
+      tabIndex =
+        tryGetVariable({ scope: "shared", key: "tabIndex" })?.value ??
+        // If we are the only tab, we'll see if we can get the number of previous tabs in the session
+        // from the session info variable.
+        (tryGetVariable({ scope: "session", key: SCOPE_INFO_KEY })?.value
+          ?.tabs as number) ??
+        0;
+      setLocalVariables(
+        {
+          scope: "tab",
+          key: "tabIndex",
+          value: tabIndex,
+        },
+        {
+          scope: "shared",
+          key: "tabIndex",
+          value: tabIndex + 1,
+        }
+      );
     }
 
     let currentLocation: string | null = nil;
@@ -194,15 +215,16 @@ export const context: TrackerExtensionFactory = {
         path: location.pathname,
         hash: location.hash || undefined,
         domain: { scheme, host },
-        tabIndex: globalIndex,
+        tabNumber: tabIndex + 1,
+        tabViewNumber: viewIndex + 1,
         viewport: getViewport(),
         duration: timer(undefined, true),
       };
 
-      globalIndex === 0 && (currentViewEvent.firstTab = T);
-      globalIndex === 0 &&
-        localIndex === 0 &&
-        (currentViewEvent.landingPage = T);
+      tabIndex === 0 && (currentViewEvent.firstTab = T);
+      tabIndex === 0 && viewIndex === 0 && (currentViewEvent.landingPage = T);
+
+      setLocalVariables({ scope: "tab", key: "viewIndex", value: ++viewIndex });
 
       const qs = parseQueryString(location.href);
       map(
@@ -253,14 +275,9 @@ export const context: TrackerExtensionFactory = {
       nextView = undefined;
       tracker.events.post(currentViewEvent);
 
-      tracker.events.registerEventPatchSource(currentViewEvent!, (previous) =>
-        deltaDiff(
-          {
-            duration: getViewTimeOffset(),
-          },
-          previous
-        )
-      );
+      tracker.events.registerEventPatchSource(currentViewEvent!, () => ({
+        duration: getViewTimeOffset(),
+      }));
 
       dispatchViewChanged(currentViewEvent);
     };
@@ -306,6 +323,7 @@ export const context: TrackerExtensionFactory = {
       decorate: (event) => {
         currentViewEvent &&
           !isViewEvent(event) &&
+          !isEventPatch(event) &&
           (event.view = currentViewEvent.clientId);
       },
     };

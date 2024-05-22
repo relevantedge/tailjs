@@ -134,7 +134,7 @@ export const parseRegex = <T>(
                   split(
                     text,
                     new RegExp(
-                      `?<!(?<!\\)\\)[${join(separators, escapeRegEx, ",")}]/`
+                      `(?<!(?<!\\\\)\\\\)[${join(separators, escapeRegEx)}]`
                     )
                   ),
                   (text) =>
