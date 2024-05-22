@@ -1,4 +1,4 @@
-import { isConsentEvent, dataClassification, dataPurposes, isResetEvent, isUserAgentEvent, isViewEvent, isSignInEvent, isSignOutEvent, isOrderEvent, isCartEvent, toNumericVariableEnums, patchType, VariablePatchType, isPassiveEvent, VariableScope, DataClassification, DataPurposeFlags, variableScope, requireFound, Necessary, restrictTargets, VariableResultStatus, toVariableResultPromise, isSuccessResult, extractKey, parseKey, formatKey, isVariablePatch, isVariablePatchAction, stripPrefix, validateConsent, getResultVariable, SchemaAnnotations, parsePrivacyTokens, getPrivacyAnnotations, SchemaSystemTypes } from '@tailjs/types';
+import { isConsentEvent, dataClassification, dataPurposes, isResetEvent, isUserAgentEvent, isViewEvent, isSignInEvent, isSignOutEvent, isOrderEvent, isCartEvent, toNumericVariableEnums, patchType, VariablePatchType, isPassiveEvent, VariableScope, DataClassification, DataPurposeFlags, requireFound, restrictTargets, Necessary, VariableResultStatus, toVariableResultPromise, isSuccessResult, extractKey, variableScope, parseKey, formatKey, isVariablePatch, isVariablePatchAction, stripPrefix, validateConsent, getResultVariable, SchemaAnnotations, parsePrivacyTokens, getPrivacyAnnotations, SchemaSystemTypes } from '@tailjs/types';
 
 const throwError$1 = (error, transform = (message)=>new TypeError(message))=>{
     throw isString$2(error = unwrap$1(error)) ? transform(error) : error;
@@ -5902,7 +5902,7 @@ var helpers$3 = {};
 
 var uri$2 = url;
 
-var ValidationError = helpers$3.ValidationError = function ValidationError (message, instance, schema, path, name, argument) {
+var ValidationError$1 = helpers$3.ValidationError = function ValidationError (message, instance, schema, path, name, argument) {
   if(Array.isArray(path)){
     this.path = path;
     this.property = path.reduce(function(sum, item){
@@ -5926,7 +5926,7 @@ var ValidationError = helpers$3.ValidationError = function ValidationError (mess
   this.stack = this.toString();
 };
 
-ValidationError.prototype.toString = function toString() {
+ValidationError$1.prototype.toString = function toString() {
   return this.property + ' ' + this.message;
 };
 
@@ -5946,12 +5946,12 @@ var ValidatorResult$2 = helpers$3.ValidatorResult = function ValidatorResult(ins
 ValidatorResult$2.prototype.addError = function addError(detail) {
   var err;
   if (typeof detail == 'string') {
-    err = new ValidationError(detail, this.instance, this.schema, this.path);
+    err = new ValidationError$1(detail, this.instance, this.schema, this.path);
   } else {
     if (!detail) throw new Error('Missing error detail');
     if (!detail.message) throw new Error('Missing error message');
     if (!detail.name) throw new Error('Missing validator type');
-    err = new ValidationError(detail.message, this.instance, this.schema, this.path, detail.name, detail.argument);
+    err = new ValidationError$1(detail.message, this.instance, this.schema, this.path, detail.name, detail.argument);
   }
 
   this.errors.push(err);
@@ -9433,7 +9433,7 @@ var defaultSchema = {
                     ]
                 }
             ],
-            "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are required to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
+            "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are expected to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
         },
         "CommerceEvent": {
             "allOf": [
@@ -10159,17 +10159,27 @@ var defaultSchema = {
         "SessionVariables": {
             "type": "object",
             "properties": {
-                "info": {
-                    "$ref": "urn:tailjs:core#/definitions/SessionInfo"
+                "@info": {
+                    "$ref": "urn:tailjs:core#/definitions/SessionInfo",
+                    "x-privacy-purpose": "anonymous"
+                },
+                "@consent": {
+                    "$ref": "urn:tailjs:core#/definitions/UserConsent",
+                    "x-privacy-purpose": "anonymous"
+                },
+                "@session_reference": {
+                    "type": "string",
+                    "x-privacy-purpose": "anonymous"
                 }
             }
         },
         "DeviceVariables": {
             "type": "object",
             "properties": {
-                "info": {
+                "@info": {
                     "$ref": "urn:tailjs:core#/definitions/DeviceInfo",
-                    "x-privacy-purpose": "anonymous"
+                    "x-privacy-class": "indirect",
+                    "x-privacy-purpose": "necessary"
                 }
             }
         },
@@ -10226,11 +10236,11 @@ var defaultSchema = {
 
 const scripts$1 = {
     main: {
-        text: "(()=>{\"use strict\";var e,t,r,n,a,i,o,l,s,u,c,f,d,v,p,h,g,m,y,b,w,k,S,E,A,T,I,x,N,O,j,C,M=(e,t=e=>TypeError(e))=>{throw en(e=te(e))?t(e):e},$=(e,t,r=-1)=>{if(e===t||(e??t)==null)return!0;if(es(e)&&es(t)&&e.length===t.length){var n=0;for(var a in e){if(e[a]!==t[a]&&!$(e[a],t[a],r-1))return!1;++n}return n===Object.keys(t).length}return!1},_=(e,t,...r)=>e===t||r.length>0&&r.some(t=>_(e,t)),U=(e,t)=>null!=e?e:M(t??\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),F=(e,t=!0,r)=>{try{return e()}catch(e){return ep(t)?eo(e=t(e))?M(e):e:Y(t)?console.error(t?M(e):e):t}finally{r?.()}},P=e=>{var t=void 0;return()=>t??=te(e)},R=e=>{var t={initialized:!0,then:q(()=>(t.initialized=!0,te(e)))};return t},q=e=>{var t=P(e);return(e,r)=>D(t,[e,r])},D=async(e,t=!0,r)=>{try{var n=await te(e);return ei(t)?t[0]?.(n):n}catch(e){if(Y(t)){if(t)throw e;console.error(e)}else{if(ei(t)){if(!t[1])throw e;return t[1](e)}var a=await t?.(e);if(a instanceof Error)throw a;return a}}finally{await r?.()}},z=e=>e,B=void 0,W=Number.MAX_SAFE_INTEGER,J=!1,V=!0,G=()=>{},L=e=>null!=e,H=Symbol.iterator,K=(e,t)=>(r,n=!0)=>e(r)?r:t&&n&&null!=r&&null!=(r=t(r))?r:B,X=(e,t)=>ep(t)?e!==B?t(e):B:e?.[t]!==B?e:B,Y=e=>\"boolean\"==typeof e,Z=K(Y,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||B))),Q=e=>!!e,ee=e=>e===V,et=e=>e!==J,er=e=>\"number\"==typeof e,en=e=>\"string\"==typeof e,ea=K(en,e=>e?.toString()),ei=Array.isArray,eo=e=>e instanceof Error,el=(e,t=!1)=>null==e?B:!t&&ei(e)?e:eh(e)?[...e]:[e],es=e=>null!==e&&\"object\"==typeof e,eu=Object.prototype,ec=Object.getPrototypeOf,ef=e=>null!=e&&ec(e)===eu,ed=(e,t)=>\"function\"==typeof e?.[t],ev=e=>\"symbol\"==typeof e,ep=e=>\"function\"==typeof e,eh=(e,t=!1)=>!!(e?.[H]&&(\"object\"==typeof e||t)),eg=e=>e instanceof Map,em=e=>e instanceof Set,ey=(e,t)=>null==e?B:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,eb=!1,ew=e=>(eb=!0,e),ek=e=>null==e?B:ep(e)?e:t=>t[e],eS=(e,t,r)=>(t??r)!==B?(e=ek(e),t??=0,r??=W,(n,a)=>t--?B:r--?e?e(n,a):n:r):e,eE=e=>e?.filter(L),eA=(e,t,r,n)=>null==e?[]:!t&&ei(e)?eE(e):e[H]?function*(e,t){if(null!=e){if(t){t=ek(t);var r=0;for(var n of e)if(null!=(n=t(n,r++))&&(yield n),eb){eb=!1;break}}else for(var n of e)null!=n&&(yield n)}}(e,r===B?t:eS(t,r,n)):es(e)?function*(e,t){t=ek(t);var r=0;for(var n in e){var a=[n,e[n]];if(t&&(a=t(a,r++)),null!=a&&(yield a),eb){eb=!1;break}}}(e,eS(t,r,n)):eA(ep(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(t??=-e-1;e++;)yield t--;else for(t??=0;e--;)yield t++}(e,r),t),eT=(e,t)=>t&&!ei(e)?[...e]:e,eI=(e,t,r,n)=>eA(e,t,r,n),ex=(e,t,r=1,n=!1,a,i)=>(function* e(t,r,n,a){if(null!=t){if(t[H]||n&&es(t))for(var i of a?eA(t):t)1!==r?yield*e(i,r-1,n,!0):yield i;else yield t}})(eA(e,t,a,i),r+1,n,!1),eN=(e,t,r,n)=>{if(t=ek(t),ei(e)){var a=0,i=[];for(r=r<0?e.length+r:r??0,n=n<0?e.length+n:n??e.length;r<n&&!eb;r++){var o=e[r];(t?o=t(o,a++):o)!=null&&i.push(o)}return eb=!1,i}return null!=e?el(eI(e,t,r,n)):B},eO=(e,t,r,n)=>null!=e?new Set([...eI(e,t,r,n)]):B,ej=(e,t,r=1,n=!1,a,i)=>el(ex(e,t,r,n,a,i)),eC=(e,t,r)=>null==e?B:ep(t)?ty(eN(en(e)?[e]:e,t),r??\"\"):en(e)?e:ty(eN(e,e=>!1===e?B:e),t??\"\"),eM=(...e)=>{var t;return eR(1===e.length?e[0]:e,e=>null!=e&&(t??=[]).push(...el(e))),t},e$=(e,t,r,n)=>{var a,i=0;for(r=r<0?e.length+r:r??0,n=n<0?e.length+n:n??e.length;r<n;r++)if(null!=e[r]&&(a=t(e[r],i++)??a,eb)){eb=!1;break}return a},e_=(e,t)=>{var r,n=0;for(var a of e)if(null!=a&&(r=t(a,n++)??r,eb)){eb=!1;break}return r},eU=(e,t)=>{var r,n=0;for(var a in e)if(r=t([a,e[a]],n++)??r,eb){eb=!1;break}return r},eF=(e,t,...r)=>null==e?B:eh(e)?eN(e,e=>t(e,...r)):t(e,...r),eP=(e,t,r,n)=>{var a;if(null!=e){if(ei(e))return e$(e,t,r,n);if(r===B){if(e[H])return e_(e,t);if(\"object\"==typeof e)return eU(e,t)}for(var i of eA(e,t,r,n))null!=i&&(a=i);return a}},eR=eP,eq=async(e,t,r,n)=>{var a;if(null==e)return B;for(var i of eI(e,t,r,n))if(null!=(i=await i)&&(a=i),eb){eb=!1;break}return a},eD=Object.fromEntries,ez=(e,t,r)=>{if(null==e)return B;if(Y(t)||r){var n={};return eR(e,r?(e,a)=>null!=(e=t(e,a))&&null!=(e[1]=r(n[e[0]],e[1]))&&(n[e[0]]=e[1]):e=>eR(e,t?e=>e?.[1]!=null&&((n[e[0]]??=[]).push(e[1]),n):e=>e?.[1]!=null&&(n[e[0]]=e[1],n))),n}return eD(eN(e,t?(e,r)=>X(t(e,r),1):e=>X(e,1)))},eB=(e,t,r,n,a)=>{var i=()=>ep(r)?r():r;return eP(e,(e,n)=>r=t(r,e,n)??i(),n,a)??i()},eW=(e,t=e=>null!=e,r=ei(e),n,a)=>eT(eA(e,(e,r)=>t(e,r)?e:B,n,a),r),eJ=(e,t,r,n)=>{var a;if(null==e)return B;if(t)e=eW(e,t,!1,r,n);else{if(null!=(a=e.length??e.size))return a;if(!e[H])return Object.keys(e).length}return a=0,eP(e,()=>++a)},eV=(e,...t)=>null==e?B:er(e)?Math.max(e,...t):eB(e,(e,r,n,a=t[1]?t[1](r,n):r)=>null==e||er(a)&&a>e?a:e,B,t[2],t[3]),eG=(e,t,r)=>eN(e,ef(e)?e=>e[1]:e=>e,t,r),eL=e=>!ei(e)&&eh(e)?eN(e,eg(e)?e=>e:em(e)?e=>[e,!0]:(e,t)=>[t,e]):es(e)?Object.entries(e):B,eH=(e,t,r,n)=>null==e?B:(t=ek(t),eP(e,(e,r)=>!t||(e=t(e,r))?ew(e):B,r,n)),eK=(e,t,r,n)=>null==e?B:ei(e)?e[e.length-1]:eP(e,(e,r)=>!t||t(e,r)?e:B,r,n),eX=(e,t,r,n)=>null==e?B:ef(e)&&!t?Object.keys(e).length>0:e.some?.(t??Q)??eP(e,t?(e,r)=>!!t(e,r)&&ew(!0):()=>ew(!0),r,n)??!1,eY=(e,t=e=>e)=>(e?.sort((e,r)=>t(e)-t(r)),e),eZ=(e,t,r)=>(e.constructor===Object?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eQ=(e,t,r)=>{if(e){if(e.constructor===Object&&null==r)return e[t];var n=e.get?e.get(t):e.has?e.has(t):e[t];return void 0===n&&null!=r&&null!=(n=ep(r)?r():r)&&eZ(e,t,n),n}},e0=(e,...t)=>(eR(t,t=>eR(t,([t,r])=>{null!=r&&(ef(e[t])&&ef(r)?e0(e[t],r):e[t]=r)})),e),e1=e=>(t,r,n,a)=>{if(t)return void 0!=n?e(t,r,n,a):(eR(r,r=>ei(r)?e(t,r[0],r[1]):eR(r,([r,n])=>e(t,r,n))),t)},e2=e1(eZ),e4=e1((e,t,r)=>eZ(e,t,ep(r)?r(eQ(e,t)):r)),e6=(e,t)=>e instanceof Set?!e.has(t)&&(e.add(t),!0):eQ(e,t)!==e2(e,t,!0),e5=(e,t)=>{if((e??t)!=null){var r=eQ(e,t);return ed(e,\"delete\")?e.delete(t):delete e[t],r}},e3=(e,...t)=>{var r=[],n=!1,a=(e,i,o,l)=>{if(e){var s=t[i];i===t.length-1?ei(s)?(n=!0,s.forEach(t=>r.push(e5(e,t)))):r.push(e5(e,s)):(ei(s)?(n=!0,s.forEach(t=>a(eQ(e,t),i+1,e,t))):a(eQ(e,s),i+1,e,s),!eJ(e)&&o&&e8(o,l))}};return a(e,0),n?r:r[0]},e8=(e,t)=>{if(e)return ei(t)?(ei(e)&&e.length>1?t.sort((e,t)=>t-e):t).map(t=>e8(e,t)):ei(e)?t<e.length?e.splice(t,1)[0]:void 0:e5(e,t)},e9=(e,...t)=>{var r=(t,n)=>{var a;if(t){if(ei(t)){if(ef(t[0])){t.splice(1).forEach(e=>r(e,t[0]));return}a=t}else a=eN(t);a.forEach(([t,r])=>Object.defineProperty(e,t,{configurable:!1,enumerable:!0,writable:!1,...n,...ef(r)&&(\"get\"in r||\"value\"in r)?r:ep(r)&&!r.length?{get:r}:{value:r}}))}};return t.forEach(e=>r(e)),e},e7=(e,...t)=>{if(void 0!==e)return Object.fromEntries(t.flatMap(r=>es(r)?ei(r)?r.map(t=>ei(t)?1===t.length?[t[0],e[t[0]]]:e7(e[t[0]],...t[1]):[t,e[t]]):Object.entries(t).map(([t,r])=>[t,!0===r?e[t]:e7(e[t],r)]):[[r,e[r]]]).filter(e=>null!=e[1]))},te=e=>ep(e)?e():e,tt=(e,t=-1)=>ei(e)?t?e.map(e=>tt(e,t-1)):[...e]:ef(e)?t?ez(e,([e,r])=>[e,tt(r,t-1)]):{...e}:em(e)?new Set(t?eN(e,e=>tt(e,t-1)):e):eg(e)?new Map(t?eN(e,e=>[e[0],tt(e[1],t-1)]):e):e,tr=(e,...t)=>e?.push(...t),tn=(e,...t)=>e?.unshift(...t),ta=(e,t)=>{if(!ef(t))return[e,e];var r,n,a,i={};ef(e)&&eR(e,([o,l])=>{if(i[o]!==t[o]){if(ef(l)){if(!(l=ta(l,t[o])))return;[l,r]=l}else er(l)&&er(n)&&(l=(r=l)-n);i[o]=l,(a??=tt(e))[o]=r}})},ti=\"undefined\"!=typeof performance?(e=V)=>e?Math.trunc(ti(J)):performance.timeOrigin+performance.now():Date.now,to=(e=!0,t=()=>ti())=>{var r,n=+e*t(),a=0;return(i=e,o)=>(r=e?a+=-n+(n=t()):a,o&&(a=0),(e=i)&&(n=t()),r)},tl=(e=0)=>{var t,r,n=(a,i=e)=>{if(void 0===a)return!!r;clearTimeout(t),Y(a)?a&&(i<0?et:ee)(r?.())?n(r):r=void 0:(r=a,t=setTimeout(()=>n(!0,i),i<0?-i:i))};return n},ts=(e,t=0)=>{var r=ep(e)?{frequency:t,callback:e}:e,{queue:n=!0,paused:a=!1,trigger:i=!1,once:o=!1,callback:l=()=>{}}=r;t=r.frequency??0;var s=0,u=tv(!0).resolve(),c=to(!a),f=c(),d=async e=>!!s&&(!!n||!u.pending||!0===e)&&(p.busy=!0,!0!==e&&await u,u.reset(),(await D(()=>l(c(),-f+(f=c())),!1,()=>u.resolve())===!1||t<=0||o)&&v(!1),p.busy=!1,!0),v=(e,r=!e)=>(c(e,r),clearInterval(s),p.active=!!(s=e?setInterval(d,t<0?-t:t):0),p),p={active:!1,busy:!1,restart:(e,r)=>(t=e??t,l=r??l,v(!0,!0)),toggle:(e,t)=>e!==p.active?e?t?(v(!0),p.trigger(),p):v(!0):v(!1):p,trigger:async e=>await d(e)&&(v(p.active),!0)};return p.toggle(!a,i)};class tu{_promise;constructor(){this.reset()}get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new tc,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}}class tc{_promise;resolve;reject;value;error;pending=!0;constructor(){var e;this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(!this.pending){if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")}return this.pending=!1,this[t?\"error\":\"value\"]=r===B||r,e(r),this})}),[this.resolve,this.reject]=e}then(e,t){return this._promise.then(e,t)}}var tf=(e,t=0)=>t>0?setTimeout(e,t):window.queueMicrotask(e),td=(e,t)=>null==e||isFinite(e)?!e||e<=0?te(t):new Promise(r=>setTimeout(async()=>r(await te(t)),e)):M(`Invalid delay ${e}.`),tv=e=>e?new tu:new tc,tp=(...e)=>Promise.race(e.map(e=>ep(e)?e():e)),th=(e,t,r)=>{var n=!1,a=(...t)=>e(...t,i),i=()=>n!==(n=!1)&&(r(a),!0),o=()=>n!==(n=!0)&&(t(a),!0);return o(),[i,o]},tg=(...e)=>(e=eW(e),[()=>eB(e,(e,t)=>t[0]()||e,!1),()=>eB(e,(e,t)=>t[1]()||e,!1)]),tm=()=>{var e,t=new Set;return[(r,n)=>{var a=th(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,a[0]),a},(...r)=>(e=r,t.forEach(e=>e(...r)))]},ty=(e,t=[\"and\",\", \"])=>e?1===e.length?e[0]:ei(t)?[e.slice(-1).join(t[1]??\", \"),\" \",t[0],\" \",e[e.length-1]].join(\"\"):e.join(t??\", \"):void 0,tb=(e,t=\"'\")=>null==e?void 0:t+e+t,tw=e=>(e=Math.log2(e))===(0|e),tk=(e,t,r,n)=>{var a,i,o,l=Object.fromEntries(Object.entries(e).filter(([e,t])=>en(e)&&er(t)).map(([e,t])=>[e.toLowerCase(),t])),s=Object.entries(l),u=Object.values(l),c=l.any??u.reduce((e,t)=>e|t,0),f=t?{...l,any:c,none:0}:l,d=Object.fromEntries(Object.entries(f).map(([e,t])=>[t,e])),v=(e,r)=>er(e)?!t&&r?null!=d[e]?e:B:e:en(e)?f[e]??f[e.toLowerCase()]:B,p=!1,[h,g]=t?[(e,t)=>Array.isArray(e)?e.reduce((e,r)=>null==r||p?e:null==(r=v(r,t))?(p=!0,B):(e??0)|r,(p=!1,B)):v(e),(e,t)=>null==(e=h(e,!1))?B:t&&(i=d[e&c])?(a=g(e&~(e&c),!1)).length?[i,...a]:i:(e=s.filter(([,t])=>t&&e&t&&tw(t)).map(([e])=>e),t?e.length?1===e.length?e[0]:e:\"none\":e)]:[v,e=>null!=(e=v(e))?d[e]:B],m=(e,t)=>null==e?B:null==(e=h(o=e,t))?M(TypeError(`${JSON.stringify(o)} is not a valid ${r} value.`)):e,y=s.filter(([,e])=>!n||(n&e)===e&&tw(e));return e9(e=>m(e),[{configurable:!1,enumerable:!1},{parse:m,tryParse:h,entries:s,values:u,lookup:g,length:s.length,format:e=>g(e,!0),logFormat:(e,t=\"or\")=>\"any\"===(e=g(e,!0))?\"any \"+r:`the ${r} ${ty(eN(el(e),e=>tb(e)),[t])}`},t&&{pure:y,map:(e,t)=>(e=m(e),y.filter(([,t])=>t&e).map(t??(([,e])=>e)))}])},tS=(...e)=>{var t=eL(ez(e,!0)),r=e=>(es(e)&&(ei(e)?e.forEach((t,n)=>e[n]=r(t)):t.forEach(([t,r])=>{var n,a=B;null!=(n=e[t])&&(1===r.length?e[t]=r[0].parse(n):r.forEach((i,o)=>!a&&null!=(a=o===r.length-1?i.parse(n):i.tryParse(n))&&(e[t]=a)))})),e);return r},tE=(e,t=[\"|\",\";\",\",\"],r=!0)=>{if(!e)return B;var n=e.split(\"=\").map(e=>r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim());return n[1]??=\"\",n[2]=n[1]&&t?.length&&eH(t,(e,t,r=n[1].split(e))=>r.length>1?r:B)||(n[1]?[n[1]]:[]),n},tA=(e,t=!0,r)=>null==e?B:tN(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,n,a,i,o,l,s,u,c,f,d)=>{var v={source:e,scheme:r,urn:r?!n:!n&&B,authority:a,user:i,password:o,host:l??s,port:null!=u?parseInt(u):B,path:c,query:!1===t?f:tT(f,t),fragment:d};return v.path=v.path||(v.authority?v.urn?\"\":\"/\":B),v}),tT=(e,t,r=!0)=>null==e?B:ez(e?.match(/(?:^.*?\\?|^)(.*)$/)?.[1]?.split(\"&\"),(e,n,[a,i,o]=tE(e,!1===t?[]:!0===t?B:t,r)??[])=>null!=(a=a?.replace(/\\[\\]$/,\"\"))?!1!==t?[a,o.length>1?o:i]:[a,i]:B,(e,r)=>e?!1!==t?eM(e,r):(e?e+\",\":\"\")+r:r),tI=(e,t)=>t&&null!=e?t.test(e):B,tx=(e,t,r)=>tN(e,t,r,!0),tN=(r,n,a,i=!1)=>(r??n)==null?B:a?(e=B,i?(t=[],tN(r,n,(...r)=>null!=(e=a(...r))&&t.push(e))):r.replace(n,(...t)=>e=a(...t)),e):r.match(n),tO=e=>e?.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tj=/\\z./g,tC=(e,t)=>(t=eC(eO(eW(e,e=>e?.length)),\"|\"))?RegExp(t,\"gu\"):tj,tM={},t$=e=>e instanceof RegExp,t_=(e,t=[\",\",\" \"])=>t$(e)?e:ei(e)?tC(eN(e,e=>t_(e,t)?.source)):Y(e)?e?/./g:tj:en(e)?tM[e]??=tN(e||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,r,n)=>r?RegExp(r,\"gu\"):tC(eN(tU(n,RegExp(`?<!(?<!\\\\)\\\\)[${eC(t,tO,\",\")}]/`)),e=>e&&`^${eC(tU(e,/(?<!(?<!\\\\)\\\\)\\*/),e=>tO(tF(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):B,tU=(e,t)=>e?.split(t)??e,tF=(e,t,r)=>e?.replace(t,r)??e;(T=r||(r={}))[T.Anonymous=0]=\"Anonymous\",T[T.Indirect=1]=\"Indirect\",T[T.Direct=2]=\"Direct\",T[T.Sensitive=3]=\"Sensitive\";var tP=tk(r,!1,\"data classification\");(I=n||(n={}))[I.None=0]=\"None\",I[I.Necessary=1]=\"Necessary\",I[I.Functionality=2]=\"Functionality\",I[I.Performance=4]=\"Performance\",I[I.Targeting=8]=\"Targeting\",I[I.Security=16]=\"Security\",I[I.Infrastructure=32]=\"Infrastructure\",I[I.Anonymous=49]=\"Anonymous\",I[I.Any=63]=\"Any\",I[I.Server=2048]=\"Server\",I[I.Server_Write=4096]=\"Server_Write\";var tR=tk(n,!0,\"data purpose\",2111),tq=tk(n,!1,\"data purpose\",0),tD=(e,t)=>((a=e?.metadata)&&(t?(delete a.posted,delete a.queued,Object.entries(a).length||delete e.metadata):delete e.metadata),e);(x=i||(i={}))[x.Global=0]=\"Global\",x[x.Entity=1]=\"Entity\",x[x.Session=2]=\"Session\",x[x.Device=3]=\"Device\",x[x.User=4]=\"User\";var tz=tk(i,!1,\"variable scope\");r.Anonymous,n.Necessary;var tB=e=>`'${e.key}' in ${tz.format(e.scope)} scope`,tW={scope:tz,purpose:tq,purposes:tR,classification:tP};tS(tW),(N=o||(o={}))[N.Success=200]=\"Success\",N[N.Created=201]=\"Created\",N[N.Unchanged=304]=\"Unchanged\",N[N.Denied=403]=\"Denied\",N[N.NotFound=404]=\"NotFound\",N[N.ReadOnly=405]=\"ReadOnly\",N[N.Conflict=409]=\"Conflict\",N[N.Unsupported=501]=\"Unsupported\",N[N.Invalid=400]=\"Invalid\",N[N.Error=500]=\"Error\",tk(o,!1,\"variable set status\"),(O=l||(l={}))[O.Add=0]=\"Add\",O[O.Min=1]=\"Min\",O[O.Max=2]=\"Max\",O[O.IfMatch=3]=\"IfMatch\",O[O.IfNoneMatch=4]=\"IfNoneMatch\",tk(l,!1,\"variable patch type\");var tJ=e=>!!e?.patch,tV=e=>!!e?.variables,tG=(e,t,r)=>{var n,a=e=>e,i=(r,i=tX)=>R(async()=>(n=a(i(await e(),t)))&&r(n)),o={then:i(e=>e).then,all:i(e=>e,e=>e),changed:i(e=>eW(e,e=>e.status<300)),variables:i(e=>eN(e,tH)),values:i(e=>eN(e,e=>tH(e)?.value)),push:()=>(a=e=>(r?.(eN(tL(e))),e),o),value:i(e=>tH(e[0])?.value),variable:i(e=>tH(e[0])),result:i(e=>e[0])};return o},tL=e=>e?.map(e=>e?.status<400?e:B),tH=e=>e?.status<400?e?.current??e:B,tK=e=>e?.status<400||e?.status===404,tX=(e,t,r)=>{var n,a,i=[],l=eN(el(e),(e,l)=>e&&(e.status<400||!r&&404===e.status?e:(a=`${tB(e.source??e)} could not be ${404===e.status?\"found.\":`${e.source||e.status!==o.Error?\"set\":\"read\"} because ${e.status===o.Conflict?`of a conflict. The expected version '${e.source?.version}' did not match the current version '${e.current?.version}'.`:e.status===o.Denied?e.error??\"the operation was denied.\":e.status===o.Invalid?e.error??\"the value does not conform to the schema\":e.status===o.ReadOnly?\"it is read only.\":e.status===o.Error?`of an unexpected error: ${e.error}`:\"of an unknown reason.\"}`}`,(null==(n=t?.[l])||!1!==n(e,a))&&i.push(a),B)));return i.length?M(i.join(\"\\n\")):ei(e)?l:l?.[0]},tY=e=>e&&\"string\"==typeof e.type,tZ=((...e)=>t=>t?.type&&e.some(e=>e===t?.type))(\"view\"),tQ=e=>e?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g,\"_\").split(\":\").filter(e=>e)??[],t0=(e,t,r)=>{if(!e)return[];if(Array.isArray(e)&&(e=eC(e,\",\")),/(?<!(?<!\\\\)\\\\)%[A-Z0-9]{2}/.test(e))try{e=decodeURIComponent(e.replace(/([^=&]+)(?:\\=([^&]+))?(&|$)/g,(e,t,r,n)=>[t,r&&`=\"${r.replace(/(?<!(?<!\\\\)\\\\)(\"|%22)/g,'\\\\\"')}\"`,n&&\",\"].join(\"\")))}catch{}var n,a=[],i=tQ(t);return e.replace(/\\s*(\\s*(?=\\=)|(?:\\\\.|[^,=\\r\\n])+)\\s*(?:\\=\\s*(?:\"((?:\\\\.|[^\"])*)\"|'((?:\\\\.|[^'])*)'|((?:\\\\.|[^,])*)))?\\s*(?:[,\\s]+|$)/g,(e,t,o,l,s)=>{var u=o||l||s,c=tQ(t);return i.length&&(1!==c.length||u||(u=c.pop()),c=i.concat(c)),c.length&&(a.push(n={ranks:c,value:u||void 0}),r?.add(t1(n))),\"\"}),a},t1=e=>null==e?e:`${e.ranks.join(\":\")}${e.value?`=${e.value.replace(/,/g,\"\\\\,\")}`:\"\"}`,t2=2e3,t4=\"_t:data\",t6=()=>()=>M(\"Not initialized.\"),t5=window,t3=document,t8=t3.body,t9=(e,t)=>!!e?.matches(t),t7=W,re=(e,t,r=(e,t)=>t>=t7)=>{for(var n,a=0,i=J;e?.nodeType===1&&!r(e,a++)&&t(e,(e,t)=>(null!=e&&(n=e,i=t!==V&&null!=n),V),a-1)!==J&&!i;){var o=e;null===(e=e.parentElement)&&o?.ownerDocument!==document&&(e=o?.ownerDocument.defaultView?.frameElement)}return n},rt=(e,t)=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":return(\"\"+e).trim()?.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||Z(e);case\"n\":return parseFloat(e);case\"j\":return F(()=>JSON.parse(e),G);case\"h\":return F(()=>r0(e),G);case\"e\":return F(()=>r2?.(e),G);default:return ei(t)?\"\"===e?void 0:(\"\"+e).split(\",\").map(e=>e=\"\"===e.trim()?void 0:rt(e,t[0])):void 0}},rr=(e,t,r)=>rt(e?.getAttribute(t),r),rn=(e,t,r)=>re(e,(e,n)=>n(rr(e,t,r))),ra=(e,t)=>rr(e,t)?.trim()?.toLowerCase(),ri=e=>e?.getAttributeNames(),ro=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,rl=e=>null!=e?e.tagName:null,rs=()=>({x:(s=ru(J)).x/(t8.offsetWidth-window.innerWidth)||0,y:s.y/(t8.offsetHeight-window.innerHeight)||0}),ru=e=>({x:ey(scrollX,e),y:ey(scrollY,e)}),rc=(e,t)=>tF(e,/#.*$/,\"\")===tF(t,/#.*$/,\"\"),rf=(e,t,r=V)=>(u=rd(e,t))&&z({xpx:u.x,ypx:u.y,x:ey(u.x/t8.offsetWidth,4),y:ey(u.y/t8.offsetHeight,4),pageFolds:r?u.y/window.innerHeight:void 0}),rd=(e,t)=>t?.pointerType&&t?.pageY!=null?{x:t.pageX,y:t.pageY}:e?({x:c,y:f}=rv(e),{x:c,y:f}):void 0,rv=e=>e?(d=e.getBoundingClientRect(),s=ru(J),{x:ey(d.left+s.x),y:ey(d.top+s.y),width:ey(d.width),height:ey(d.height)}):void 0,rp=(e,t,r,n={capture:!0,passive:!0})=>ei(t)?tg(...eN(t,t=>rp(e,t,r,n))):th(r,r=>e.addEventListener(t,r,n),r=>e.addEventListener(t,r,n)),rh=e=>{var{host:t,scheme:r,port:n}=tA(e,!1);return{host:t+(n?\":\"+n:\"\"),scheme:r}},rg=()=>({...s=ru(V),width:window.innerWidth,height:window.innerHeight,totalWidth:t8.offsetWidth,totalHeight:t8.offsetHeight}),rm=new WeakMap,ry=e=>rm.get(e),rb=(e,t=J)=>(t?\"--track-\":\"track-\")+e,rw=(e,t,r,n,a,i)=>t?.[1]&&eR(ri(e),o=>t[0][o]??=(i=J,en(n=eR(t[1],([t,r,n],a)=>tI(o,t)&&(i=void 0,!r||t9(e,r))&&ew(n??o)))&&(!(a=e.getAttribute(o))||Z(a))&&t0(a,tF(n,/\\-/g,\":\"),r),i)),rk=()=>{},rS=(e,t)=>{if(v===(v=rO.tags))return rk(e,t);var r=e=>e?t$(e)?[[e]]:eh(e)?ej(e,r):[ef(e)?[t_(e.match),e.selector,e.prefix]:[t_(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(eG(v))]];(rk=(e,t)=>rw(e,n,t))(e,t)},rE=(e,t)=>eC(eM(ro(e,rb(t,V)),ro(e,rb(\"base-\"+t,V))),\" \"),rA={},rT=(e,t,r=rE(e,\"attributes\"))=>{r&&rw(e,rA[r]??=[{},tx(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[t_(r||n),,t])],t),t0(rE(e,\"tags\"),void 0,t)},rI=(e,t,r=J,n)=>(r?re(e,(e,r)=>r(rI(e,t,J)),ep(r)?r:void 0):eC(eM(rr(e,rb(t)),ro(e,rb(t,V))),\" \"))??(n&&(p=ry(e))&&n(p))??null,rx=(e,t,r=J,n)=>\"\"===(h=rI(e,t,r,n))||(null==h?h:Z(h)),rN=(e,t,r,n)=>e?(rT(e,n??=new Set),re(e,e=>{rS(e,n),t0(eN(r?.(e)),void 0,n)},t),n.size?{tags:[...n]}:{}):{},rO={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,clientKey:null,apiKey:null,pushCookie:null,debug:!1,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},rj=tU(\"\"+t3.currentScript.src,\"#\"),rC=tU(\"\"+(rj[1]||\"\"),\";\"),rM=rj[0],r$=rC[1]||tA(rM,!1)?.host,r_=e=>!!(r$&&tA(e,!1)?.host?.endsWith(r$)===V),rU=(...e)=>tF(eC(e),/(^(?=\\?))|(^\\.(?=\\/))/,rM.split(\"?\")[0]),rF=rU(\"?\",\"var\");rU(\"?\",\"mnt\"),rU(\"?\",\"usr\");var rP=[],rR=[],rq=(e,t=0)=>e.charCodeAt(t),rD=e=>String.fromCharCode(...e);[...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>rP[rR[t]=e.charCodeAt(0)]=t);var rz=e=>{for(var t,r=0,n=e.length,a=[];n>r;)t=e[r++]<<16|e[r++]<<8|e[r++],a.push(rR[(16515072&t)>>18],rR[(258048&t)>>12],rR[(4032&t)>>6],rR[63&t]);return a.length+=n-r,rD(a)},rB=e=>{for(var t,r=0,n=0,a=e.length,i=new Uint8Array(3*(a/4|0)+(a+3&3)%3);a>r;)i[n++]=rP[rq(e,r++)]<<2|(t=rP[rq(e,r++)])>>4,a>r&&(i[n++]=(15&t)<<4|(t=rP[rq(e,r++)])>>2,a>r&&(i[n++]=(3&t)<<6|rP[rq(e,r++)]));return i},rW={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},rJ=(e=256)=>e*Math.random()|0,rV=e=>{var t,r,n,a,i,o=0n,l=0,s=0n,u=[],c=0,f=0,d=0,v=0,p=[];for(d=0;d<e?.length;v+=p[d]=e.charCodeAt(d++));var h=e?()=>{u=[...p],f=255&(c=v),d=-1}:()=>{},g=e=>(f=255&(c+=-u[d=(d+1)%u.length]+(u[d]=e)),e);return[e?e=>{for(h(),a=16-((t=e.length)+4)%16,i=new Uint8Array(4+t+a),n=0;n<3;i[n++]=g(rJ()));for(r=0,i[n++]=g(f^16*rJ(16)+a);t>r;i[n++]=g(f^e[r++]));for(;a--;)i[n++]=rJ();return i}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((f^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(t);t>n;i[n++]=f^g(e[r++]));return i}:e=>e,(e,t=64)=>{if(null==e)return null;for(l=Y(t)?64:t,h(),[o,s]=rW[l],r=0;r<e.length;o=BigInt.asUintN(l,(o^BigInt(f^g(e[r++])))*s));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+o%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):o.toString(36)}]},rG={exports:{}};(e=>{(()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,a=new Uint8Array(128),i=0;if(t&&t.multiple)for(var o=0;o<e.length;o++)l(e[o]);else l(e);return a.subarray(0,i);function l(e,a){var i,o,d,v,p,h;switch(typeof e){case\"undefined\":u(192);break;case\"boolean\":u(e?195:194);break;case\"number\":(e=>{if(isFinite(e)&&Number.isSafeInteger(e)){if(e>=0&&e<=127)u(e);else if(e<0&&e>=-32)u(e);else if(e>0&&e<=255)c([204,e]);else if(e>=-128&&e<=127)c([208,e]);else if(e>0&&e<=65535)c([205,e>>>8,e]);else if(e>=-32768&&e<=32767)c([209,e>>>8,e]);else if(e>0&&e<=4294967295)c([206,e>>>24,e>>>16,e>>>8,e]);else if(e>=-2147483648&&e<=2147483647)c([210,e>>>24,e>>>16,e>>>8,e]);else if(e>0&&e<=18446744073709552e3){var t=e/4294967296,a=e%4294967296;c([211,t>>>24,t>>>16,t>>>8,t,a>>>24,a>>>16,a>>>8,a])}else e>=-0x8000000000000000&&e<=0x7fffffffffffffff?(u(211),f(e)):e<0?c([211,128,0,0,0,0,0,0,0]):c([207,255,255,255,255,255,255,255,255])}else n||(n=new DataView(r=new ArrayBuffer(8))),n.setFloat64(0,e),u(203),c(new Uint8Array(r))})(e);break;case\"string\":(d=(o=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(e.charCodeAt(n)>127){t=!1;break}for(var a=0,i=new Uint8Array(e.length*(t?1:4)),o=0;o!==r;o++){var l=e.charCodeAt(o);if(l<128){i[a++]=l;continue}if(l<2048)i[a++]=l>>6|192;else{if(l>55295&&l<56320){if(++o>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var s=e.charCodeAt(o);if(s<56320||s>57343)throw Error(\"UTF-8 encode: second surrogate character 0x\"+s.toString(16)+\" at index \"+o+\" out of range\");l=65536+((1023&l)<<10)+(1023&s),i[a++]=l>>18|240,i[a++]=l>>12&63|128}else i[a++]=l>>12|224;i[a++]=l>>6&63|128}i[a++]=63&l|128}return t?i:i.subarray(0,a)})(e)).length)<=31?u(160+d):d<=255?c([217,d]):d<=65535?c([218,d>>>8,d]):c([219,d>>>24,d>>>16,d>>>8,d]),c(o);break;case\"object\":null===e?u(192):e instanceof Date?(e=>{var t=e.getTime()/1e3;if(0===e.getMilliseconds()&&t>=0&&t<4294967296)c([214,255,t>>>24,t>>>16,t>>>8,t]);else if(t>=0&&t<17179869184){var r=1e6*e.getMilliseconds();c([215,255,r>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t])}else{var r=1e6*e.getMilliseconds();c([199,12,255,r>>>24,r>>>16,r>>>8,r]),f(t)}})(e):Array.isArray(e)?s(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((h=(p=e).length)<=255?c([196,h]):h<=65535?c([197,h>>>8,h]):c([198,h>>>24,h>>>16,h>>>8,h]),c(p)):e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?s(e):(e=>{var t=0;for(var r in e)void 0!==e[r]&&t++;for(var r in t<=15?u(128+t):t<=65535?c([222,t>>>8,t]):c([223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(l(r),l(n))}})(e);break;default:if(!a&&t&&t.invalidTypeReplacement)\"function\"==typeof t.invalidTypeReplacement?l(t.invalidTypeReplacement(e),!0):l(t.invalidTypeReplacement,!0);else throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\")}}function s(e){var t=e.length;t<=15?u(144+t):t<=65535?c([220,t>>>8,t]):c([221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;t>r;r++)l(e[r])}function u(e){if(a.length<i+1){for(var t=2*a.length;t<i+1;)t*=2;var r=new Uint8Array(t);r.set(a),a=r}a[i]=e,i++}function c(e){if(a.length<i+e.length){for(var t=2*a.length;t<i+e.length;)t*=2;var r=new Uint8Array(t);r.set(a),a=r}a.set(e,i),i+=e.length}function f(e){var t,r;e>=0?(t=e/4294967296,r=e%4294967296):(t=~(t=Math.abs(++e)/4294967296),r=~(r=Math.abs(e)%4294967296)),c([t>>>24,t>>>16,t>>>8,t,r>>>24,r>>>16,r>>>8,r])}}function r(e,t){var r,n=0;if(e instanceof ArrayBuffer&&(e=new Uint8Array(e)),\"object\"!=typeof e||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(a());else r=a();return r;function a(){var t=e[n++];if(t>=0&&t<=127)return t;if(t>=128&&t<=143)return u(t-128);if(t>=144&&t<=159)return c(t-144);if(t>=160&&t<=191)return f(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return s(-1,1);if(197===t)return s(-1,2);if(198===t)return s(-1,4);if(199===t)return d(-1,1);if(200===t)return d(-1,2);if(201===t)return d(-1,4);if(202===t)return l(4);if(203===t)return l(8);if(204===t)return o(1);if(205===t)return o(2);if(206===t)return o(4);if(207===t)return o(8);if(208===t)return i(1);if(209===t)return i(2);if(210===t)return i(4);if(211===t)return i(8);if(212===t)return d(1);if(213===t)return d(2);if(214===t)return d(4);if(215===t)return d(8);if(216===t)return d(16);if(217===t)return f(-1,1);if(218===t)return f(-1,2);if(219===t)return f(-1,4);if(220===t)return c(-1,2);if(221===t)return c(-1,4);if(222===t)return u(-1,2);if(223===t)return u(-1,4);if(t>=224&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(t){for(var r=0,a=!0;t-- >0;)if(a){var i=e[n++];r+=127&i,128&i&&(r-=128),a=!1}else r*=256,r+=e[n++];return r}function o(t){for(var r=0;t-- >0;)r*=256,r+=e[n++];return r}function l(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return(n+=t,4===t)?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function s(t,r){t<0&&(t=o(r));var a=e.subarray(n,n+t);return n+=t,a}function u(e,t){e<0&&(e=o(t));for(var r={};e-- >0;)r[a()]=a();return r}function c(e,t){e<0&&(e=o(t));for(var r=[];e-- >0;)r.push(a());return r}function f(t,r){t<0&&(t=o(r));var a=n;return n+=t,((e,t,r)=>{var n=t,a=\"\";for(r+=t;r>n;){var i=e[n++];if(i>127){if(i>191&&i<224){if(n>=r)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(i>223&&i<240){if(n+1>=r)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else if(i>239&&i<248){if(n+2>=r)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}else throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1))}if(i<=65535)a+=String.fromCharCode(i);else if(i<=1114111)i-=65536,a+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320);else throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\")}return a})(e,a,t)}function d(e,t){e<0&&(e=o(t));var r=o(1),a=s(e);return 255===r?(e=>{if(4===e.length){var t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];return new Date(1e3*t)}if(8===e.length){var r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=(3&e[3])*4294967296+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7];return new Date(1e3*t+r/1e6)}if(12===e.length){var r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];n-=8;var t=i(8);return new Date(1e3*t+r/1e6)}throw Error(\"Invalid data length for a date value.\")})(a):{type:r,data:a}}}var n={serialize:t,deserialize:r,encode:t,decode:r};e?e.exports=n:window[window.msgpackJsName||\"msgpack\"]=n})()})(rG);var{deserialize:rL,serialize:rH}=(j=rG.exports)&&j.__esModule&&Object.prototype.hasOwnProperty.call(j,\"default\")?j.default:j,rK=\"$ref\",rX=e=>{var t,r,n,a=(e,t,r=e[t],n=o(r))=>((r!==n||ev(t))&&(e[t]=n,i(()=>e[t]=r)),r),i=e=>(t??=[]).push(e),o=e=>null==e||ep(e)||ev(e)?null:es(e)?e.toJSON&&e!==(e=e.toJSON())?o(e):null!=(n=(r??=new Map).get(e))?(e[rK]||(e[rK]=n,i(()=>delete e[rK])),{[rK]:n}):(ef(e)?(r.set(e,r.size+1),Object.keys(e).forEach(t=>(a(e,t)===B||ev(t))&&delete e[t])):eh(e)&&(!ei(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?a(e,r):(e[r]=null,i(()=>delete e[r]))),e):e,l=rH(o(e));return t?.forEach(e=>e()),l},rY=e=>{var t,r,n=e=>es(e)?e[rK]&&(r=(t??=[])[e[rK]])?r:(e[rK]&&(t[e[rK]]=e,delete e[rK]),Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return null!=e?n(rL(e)):B},rZ=(e,t=!1,r=!0)=>{var n=(e,t=!1,r=!0)=>{var n=(e,r)=>er(e)&&!0===r?e:l(e=en(e)?new Uint8Array(eN(e.length,t=>255&e.charCodeAt(t))):t?JSON.stringify(e):rX(e),r),a=e=>null==e?B:F(()=>JSON.parse(e,B));if(t)return[e=>JSON.stringify(e),a,(e,t)=>n(e,t)];var[i,o,l]=rV(e);return[e=>rz(i(rX(e))),e=>null!=e?r&&(e?.[0]===\"{\"||e?.[0]===\"[\")?a(e):rY(o(rB(e))):null,(e,t)=>n(e,t)]};return e?n(e,t,r):(g??=[n(null,!1),n(null,!0)])[+t]};rZ(),rZ(null,!0);var[rQ,r0]=rZ(),[r1,r2]=[t6,t6],[r4,r6]=tm(),r5=e=>{r2===t6&&([r1,r2]=rZ(e),r6(r1=rZ(null,!0)[0],r2))},r3=e=>t=>r8(e,t),r8=(...e)=>{var t=e.shift();console.error(en(e[1])?e.shift():e[1]?.message??\"An error occurred\",t.id??t,...e)},[r9,r7]=tm(),[ne,nt]=tm(),nr=e=>na!==(na=e)&&r7(na=!1,nl(!0,!0)),nn=e=>ni!==(ni=!!e&&\"visible\"===document.visibilityState)&&nt(ni,!e,no(!0,!0));r9(nn);var na=!0,ni=!1,no=to(!1),nl=to(!1);rp(window,[\"pagehide\",\"freeze\"],()=>nr(!1)),rp(window,[\"pageshow\",\"resume\"],()=>nr(!0)),rp(document,\"visibilitychange\",()=>(nn(!0),ni&&nr(!0))),r7(na,nl(!0,!0));var ns=!1,nu=to(!1),[nc,nf]=tm(),nd=ts({callback:()=>ns&&nf(ns=!1,nu(!1)),frequency:2e4,once:!0,paused:!0}),nv=()=>!ns&&(nf(ns=!0,nu(!0)),nd.restart());rp(window,\"focus\",nv),rp(window,\"blur\",()=>nd.trigger()),rp(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],nv),nv(),(C=m||(m={}))[C.View=-3]=\"View\",C[C.Tab=-2]=\"Tab\",C[C.Shared=-1]=\"Shared\";var np=tk(m,!1,\"local variable scope\"),nh=e=>np.tryParse(e)??tz(e),ng=e=>!!np.tryParse(e?.scope),nm=tS({scope:np},tW),ny=e=>null==e?void 0:e.source?ny(e.source):`${nh(e.scope)}\\0${e.key}\\0${e.targetId??\"\"}`,nb=e=>{var t=e.split(\"\\0\");return{scope:+t[0],key:t[1],targetId:t[2]}},nw=0,nk=void 0,nS=()=>(nk??t6())+\"_\"+nE(),nE=()=>++nw,nA=e=>crypto.getRandomValues(e),nT=()=>tF(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^nA(new Uint8Array(1))[0]&15>>e/4).toString(16)),nI=void 0,nx={id:nk,heartbeat:ti()},nN={knownTabs:{[nk]:nx},variables:new Map},[nO,nj]=tm(),nC=t6,nM=e=>nI.get(ny(e)),n$=(...e)=>n_(e.map(e=>(e.timestamp=ti(),e.expires=3e3,e))),n_=e=>{var t=eN(e,e=>e&&[ny(e),e]);if(t?.length){e2(nI,t);var r=eW(t,e=>e[1].scope>m.Tab);r.length&&(e2(nN.variables,t),nC({type:\"patch\",payload:ez(r)})),nj(\"variables\",ez(t),!0)}};r4((e,t)=>{r9(r=>{if(r){var n=t(sessionStorage.getItem(t4));sessionStorage.removeItem(t4),nk=n?.[0]??ti().toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),nI=new Map(eM(eW(nI,([,e])=>e.scope===m.View),eN(n?.[1],e=>[ny(e),e])))}else console.log(JSON.stringify(nN,null,2)),sessionStorage.setItem(t4,e([nk,eW(nI,([,e])=>e.scope!==m.View)]))},!0),nC=(t,r)=>{e&&(localStorage.setItem(t4,e([nk,t,r])),localStorage.removeItem(t4))},rp(window,\"storage\",e=>{if(e.key===t4){var n=t?.(e.newValue);if(n&&(!n[2]||n[2]===nk)){var[a,{type:i,payload:o}]=n;\"query\"===i?r.active||nC({type:\"set\",payload:nN},a):\"set\"===i&&r.active?(e2(nN,o),r.trigger()):\"patch\"===i?(e2(nN.variables,o),e2(nI,o),nj(\"variables\",o,!1)):\"tab\"===i&&(e2(nN.knownTabs,a,o),o&&nj(\"tab\",o,!1))}}});var r=ts(()=>nj(\"ready\",nN,!0),-25),n=ts({callback(){var e=ti()-1e4;eR(nN?.knownTabs,([t,r])=>r[0]<e&&e3(nN.knownTabs,t)),nx.heartbeat=ti(),nC({type:\"tab\",payload:nx})},frequency:5e3,paused:!0}),a=e=>{nC({type:\"tab\",payload:e?nx:void 0}),e?(r.restart(),nC({type:\"query\"})):r.toggle(!1),n.toggle(e)};r9(e=>a(e),!0)},!0);var[nU,nF]=tm(),[nP,nR]=tm(),nq=((e,{timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var a=()=>(r?r2:r0)(localStorage.getItem(e)),i=()=>localStorage.setItem(e,(r?r1:rQ)([nk,ti()+t])),o=tl(t/2);return async(r,l,s=null!=l?1:n)=>{for(;s--;){var u=a();if((!u||u[1]<ti())&&(i(),a()?.[0]===nk))return o(i),await D(r,!0,()=>o(!1)&&localStorage.removeItem(e));var c=tv(),[f]=rp(window,\"storage\",t=>{t.key!==e||t.newValue||c.resolve()});await tp(td(l??t),c),f()}null==l&&M(e+\" could not be acquired.\")}})(\"_t:rq\"),nD=ts(()=>{if(b!==(b=rO.pushCookie)){if(!b)return;y=RegExp(tO(b)+\"=([^;]*)\")}var e=r2?.(tN(document.cookie,y)?.[1]);tV(e)&&nR(e)},1e3),nz=0,nB=(e=1e3)=>{var t=()=>{t=G,--nz||(nD.restart(1e3),clearTimeout(0))};return nz++||nD.restart(100),e>0&&setTimeout(t,e),t()},nW=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{var a,i,o=!1,l=r=>{var l=ep(t)?t?.(a,r):t;return!1!==l&&(null!=l&&!0!==l&&(a=l),nF(e,a,r,e=>(o=a===B,a=e)),!o&&(i=(n?r1:JSON.stringify)(a)))};if(!r)return await nq(()=>eq(1,async t=>{if(!l(t))return ew();var r=await fetch(e,{method:null!=a?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i});if(r.status>=400)return 0===t?ew(M(`Invalid response: ${await r.text()}`)):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await td((1+t)*200));var o=await r.text(),s=o?.length?(n?r2:JSON.parse)?.(o):B;return console.log(JSON.stringify(s,null,2)),null!=s&&nR(s),ew(s)}));l(0)&&(nB(1e3),navigator.sendBeacon(e,new Blob(null!=a?[i]:[],{type:\"text/plain\"}))||M(\"Beacon send failed.\"))},nJ=[\"scope\",\"key\",\"targetId\",\"version\"],nV=[...nJ,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],nG=[...nJ,\"init\",\"purpose\",\"refresh\"];[...nV];var nL=new Map,nH=(e,t)=>{var a=ts(async()=>{var e=eN(nL,([e,t])=>({...nb(e),result:[...t]}));e.length&&await c.get(...e)},3e3),i=(e,t)=>eF(t,t=>eQ(nL,e,()=>new Set).add(t)),l=e=>{if(tK(e)){var t,r=ny(e),n=tH(e);eR(e8(nL,r),e=>{t=!1,e?.(n,nM(n),(e=!0)=>t=e),t&&i(r,e)})}};r9((e,t)=>a.toggle(e,e&&t>=3e3),!0);var s=new Map,u=(e,t)=>e2(s,e,Y(t)?t?void 0:0:t),c={get:(...r)=>tG(async()=>{var n=[],a=eN(r,(e,t)=>[e,t]),s=[],c=(await nW(e,()=>!!(a=eN(a,([e,t])=>{if(e){var r=ny(e);i(r,e.result);var a=nM(r);if(e.init&&u(r,e.cache),!e.refresh&&a?.expires<ti())tr(n,[{...a,status:o.Success},t]);else if(!ng(e))return[e7(e,nG),t];else if(ef(e.init)){var l={...nm(e),status:o.Created,...e.init};null!=l.value&&(tr(s,f(l)),tr(n,[l,t]))}}})).length&&{variables:{get:eN(a,0)},deviceSessionId:t?.deviceSessionId})).variables?.get??[];return tr(n,...eN(c,(e,t)=>e&&[e,a[t][1]])),s.length&&n_(s),n.map(([e])=>(l(e),e))},eN(r,e=>e?.error)),set:(...a)=>tG(async()=>{var i=[],s=[],c=eN(a,(e,t)=>{if(e){var a=ny(e),l=nM(a);if(u(a,e.cache),ng(e)){if(null!=e.patch)return M(\"Local patching is not supported.\");var c={value:e.value,classification:r.Anonymous,purposes:n.Necessary,scope:np(e.scope),key:e.key};return s[t]={status:l?o.Success:o.Created,source:e,current:c},void tr(i,f(c))}return tJ(e)||e?.version!==void 0||(e.version=l?.version,e.force??=!!e.version),[e,t]}}),d=c.length>0?[]:U((await nW(e,{variables:{set:c.map(e=>e[0])},deviceSessionId:t?.deviceSessionId})).variables?.set,\"No result.\");return i.length&&n_(i),eR(d,(e,t)=>{var[r,n]=c[t];e.source=r,l(s[n]=e)}),s},eN(a,e=>e?.error))},f=(e,t=ti())=>({...e7(e,nV),timestamp:t,expires:t+(eQ(s,ny(e))??3e3)});return nP(({variables:e})=>{if(e){var t=ti(),r=eM(eN(e.get,e=>tH(e)),eN(e.set,e=>tH(e)));r?.length&&n_(eF(r,f,t))}}),c},nK=(e,t,r=t2)=>{var n=[],a=new WeakMap,i=new Map,o=(e,t)=>e.metadata?.queued?e0(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):M(\"Source event not queued.\"),l=async(r,a=!1)=>{if((r=eN(el(r),e=>e0(t.applyEventExtensions(e),{metadata:{queued:!0}}))).length&&eR(r,e=>void 0),!a){r.length&&tr(n,...r);return}n.length&&tn(r,...n.splice(0)),r.length&&await nW(e,{events:r.map(e=>(e0(e,{metadata:{posted:!0}}),e0(tD(tt(e),!0),{timestamp:e.timestamp-ti()}))),deviceSessionId:t?.deviceSessionId})};return r>0&&ts(()=>l([],!0),r),ne((e,t,r)=>{if(!e&&(n.length||t||r>1500)){var a=eN(i,([e,t])=>{var[r,n]=t();return n&&i.delete(e),r});(n.length||a.length)&&l(eM(n.splice(0),a),!0)}}),{post:l,postPatch:(e,t,r)=>l(o(e,t),r),registerEventPatchSource(e,t,r=!0){var n=!1,l=()=>n=!0;return a.set(e,tt(e)),i.set(e,()=>{var i=a.get(e),[s,u]=r?ta(t(i,l),i):t(i,l)??[];return!s||i&&$(u,i)?[void 0,n]:(a.set(e,tt(u)),[o(e,s),n])}),l}}},nX=Symbol(),nY=e=>{var t=new IntersectionObserver(e=>eR(e,({target:e,isIntersecting:t,boundingClientRect:r,intersectionRatio:n})=>e[nX]?.(t,r,n)),{threshold:[.05,.1,.15,.2,.3,.4,.5,.6,.75]});return(r,n)=>{if(n&&(a=eW(n?.component,e=>e.track?.impressions||(e.track?.secondary??e.inferred)!==V))&&eJ(a)){var a,i,o,l,s=J,u=0,c=tl(rO.impressionThreshold),f=ar();r[nX]=(t,n,d)=>{f(t=d>=.75||n.top<(i=window.innerHeight/2)&&n.bottom>i),s!==(s=t)&&(s?c(()=>{++u,o||tr(e,o=eW(eN(a,e=>(e.track?.impressions||rx(r,\"impressions\",V,e=>e.track?.impressions))&&z({type:\"impression\",pos:rf(r),viewport:rg(),timeOffset:aa(),impressions:u,...ah(r,V)})||null))),o?.length&&(l=eN(o,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:f(),impressions:u}))))}):(eR(l,e=>e()),c(!1)))},t.observe(r)}}},nZ=()=>{var e=t5?.screen;if(!e)return{};var{width:t,height:r,orientation:n}=e,a=t<r,i=n?.angle??t5.orientation??0;return(-90===i||90===i)&&([t,r]=[r,t]),{deviceType:t<480?\"mobile\":t<=1024?\"tablet\":\"desktop\",screen:{dpr:t5.devicePixelRatio,width:t,height:r,landscape:a}}},nQ=e=>tr(e,z({type:\"user_agent\",hasTouch:navigator.maxTouchPoints>0,userAgent:navigator.userAgent,view:w?.clientId,languages:eN(navigator.languages,(e,t,r=e.split(\"-\"))=>z({id:e,language:r[0],region:r[1],primary:0===t,preference:t+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:new Date().getTimezoneOffset()},...nZ()})),n0=(e,t=\"A\"===rl(e)&&rr(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),n1=(e,t=rl(e),r=rx(e,\"button\"))=>r!==J&&(_(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&_(ra(e,\"type\"),\"button\",\"submit\")||r===V),n2=()=>w?.clientId,n4={scope:\"shared\",key:\"referrer\"},n6=(e,t)=>{A.variables.set({...n4,value:[n2(),e]}),t&&A.variables.get({scope:n4.scope,key:n4.key,result(r,n,a){r?a():n?.value?.[1]===e&&t()}})},n5=to(),n3=to(),n8=to(),n9=1,n7=()=>n3(),[ae,at]=tm(),ar=e=>{var t=to(e,n5),r=to(e,n3),n=to(e,n8),a=to(e,()=>n9);return(e,i)=>({totalTime:t(e,i),visibleTime:r(e,i),interactiveTime:n(e,i),activations:a(e,i)})},an=ar(),aa=()=>an(),[ai,ao]=tm(),al=new WeakSet,as=document.getElementsByTagName(\"iframe\"),au=e=>(null==e||(e===V||\"\"===e)&&(e=\"add\"),en(e)&&_(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:es(e)?e:void 0);function ac(e){if(e){if(null!=e.units&&_(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=e.units>0?\"add\":\"remove\"}return e}}var af=e=>rN(e,void 0,e=>eN(el(eQ(rm,e)?.tags))),ad=e=>e?.component||e?.content,av=e=>rN(e,t=>t!==e&&!!ad(eQ(rm,t)),e=>(S=eQ(rm,e),(S=eQ(rm,e))&&ej(eM(S.component,S.content,S),\"tags\"))),ap=(e,t)=>t?e:{...e,rect:void 0,content:(E=e.content)&&eN(E,e=>({...e,rect:void 0}))},ah=(e,t=J)=>{var r,n,a,i=[],o=[],l=0;return re(e,e=>{var n=eQ(rm,e);if(n){if(ad(n)){var a=eW(el(n.component),e=>0===l||!t&&(1===l&&e.track?.secondary!==V||e.track?.promote));r=eX(a,e=>e.track?.region)&&rv(e)||void 0;var s=av(e);n.content&&tn(i,...eN(n.content,e=>({...e,rect:r,...s}))),a?.length&&(tn(o,...eN(a,e=>(l=eV(l,e.track?.secondary?1:2),ap({...e,content:i,rect:r,...s},!!r)))),i=[])}var u=n.area||rI(e,\"area\");u&&tn(o,...eN(u))}}),i.length&&tr(o,ap({id:\"\",rect:r,content:i})),eR(o,e=>{en(e)?tr(n??=[],e):(e.area??=eC(n,\"/\"),tn(a??=[],e))}),a||n?{components:a,area:eC(n,\"/\")}:void 0},ag=Symbol(),am=[{id:\"context\",setup(e){ts(()=>eR(as,e=>e6(al,e)&&ao(e)),-1e3).trigger(),e.push({get:[{scope:\"view\",key:\"view\",result(e){}}]}),e.variables.get({scope:\"view\",key:\"view\",result:(a,i,o)=>($(n,a?.value)&&r===(r=\"\"+location.href)||(t=n=a?.value),t&&w&&!w.definition&&(w.definition=t,w.metadata?.posted&&e.events.postPatch(w,{definition:t}),t=void 0),o())});var t,r,n,a=nM({scope:\"tab\",key:\"index\"})?.value??0,i=nM({scope:\"tab\",key:\"index\"})?.value;null==i&&(i=nM({scope:\"shared\",key:\"index\"})?.value??0,n$({scope:m.Shared,key:\"index\",value:i+1}));var o=null,l=(r=J)=>{if(!rc(\"\"+o,o=location.href)||r){var{source:n,scheme:l,host:s}=tA(location.href+\"\",!0);w={type:\"view\",timestamp:ti(),clientId:nS(),tab:nk,href:n,path:location.pathname,hash:location.hash||void 0,domain:{scheme:l,host:s},tabIndex:i,viewport:rg(),duration:an(void 0,!0)},0===i&&(w.firstTab=V),0===i&&0===a&&(w.landingPage=V);var u=tT(location.href);if(eN([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>(w.utm??={})[e]=u[`utm_${e}`]?.[0]),!(w.navigationType=k)&&performance&&eN(performance.getEntriesByType(\"navigation\"),e=>{w.redirects=e.redirectCount,w.navigationType=tF(e.type,/\\_/g,\"-\")}),k=void 0,\"navigate\"===(w.navigationType??=\"navigate\")){var c=nM(n4)?.value;c&&r_(document.referrer)&&(w.view=c?.[0],w.relatedEventId=c?.[1],e.variables.set({...n4,value:void 0}))}var c=document.referrer||null;c&&!r_(c)&&(w.externalReferrer={href:c,domain:rh(c)}),w.definition=t,t=void 0,e.events.post(w),e.events.registerEventPatchSource(w,()=>({duration:aa()})),at(w)}};return nc(e=>n8(e)),ne(e=>{e?(n3(V),++n9):(n3(J),n8(J))}),rp(window,\"popstate\",()=>(k=\"back-forward\",l())),eN([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),k=\"navigate\",l()}}),l(),{processCommand:t=>aw(t)&&(tr(e,t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),V),decorate(e){w&&!tZ(e)&&(e.view=w.clientId)}}}},{id:\"components\",setup(e){var t=nY(e),r=e=>null==e?void 0:{...e,component:el(e.component),content:el(e.content),tags:el(e.tags)},n=({boundary:e,...n})=>{e4(rm,e,e=>r(\"add\"in n?{...e,component:eM(e?.component,n.component),content:eM(e?.content,n.content),area:n?.area??e?.area,tags:eM(e?.tags,n.tags),cart:n.cart??e?.cart,track:n.track??e?.track}:\"update\"in n?n.update(e):n)),t(e,eQ(rm,e))};return{decorate(e){eR(e.components,e=>e8(e,\"track\"))},processCommand:e=>aE(e)?(n(e),V):aO(e)?(eN(((e,t)=>{if(!t)return[];var r=[],n=new Set;return document.querySelectorAll(`[${e}]`).forEach(a=>{if(!eQ(n,a))for(var i=[];null!=rr(a,e);){e6(n,a);var o=tU(rr(a,e),\"|\");rr(a,e,null);for(var l=0;l<o.length;l++){var s=o[l];if(\"\"!==s){var u=\"-\"===s?-1:parseInt(ea(s)??\"\",36);if(u<0){i.length+=u;continue}if(0===l&&(i.length=0),isNaN(u)&&/^[\"\\[{]/.test(s))for(var c=\"\";l<o.length;l++)try{s=JSON.parse(c+=o[l]);break}catch(e){}u>=0&&t[u]&&(s=t[u]),tr(i,s)}}tr(r,...eN(i,e=>({add:V,...e,boundary:a})));var f=a.nextElementSibling;\"WBR\"===a.tagName&&a.parentNode?.removeChild(a),a=f}}),r})(e.scan.attribute,e.scan.components),n),V):J}}},{id:\"navigation\",setup(e){var t=t=>{rp(t,[\"click\",\"contextmenu\",\"auxclick\"],t=>{var r,n,a,i,o,l=null,s=J;if(re(t.target,e=>{var t;l??=n1(e)?e:null,s=s||\"NAV\"===rl(e),i??=rx(e,\"clicks\",V,e=>e.track?.clicks)??((t=el(ry(e)?.component))&&eX(t,e=>e.track?.clicks!==J)),o??=rx(e,\"region\",V,e=>e.track?.region)??((t=ry(e)?.component)&&eX(t,e=>e.track?.region))}),l){var u,c=ah(l),f=af(l);i??=!s;var d={...(o??=V)?{pos:rf(l,t),viewport:rg()}:null,...(r=t.target,n=l,re(r??n,e=>\"IMG\"===rl(e)||e===n?(a={element:{tagName:e.tagName,text:rr(e,\"title\")||rr(e,\"alt\")||e.innerText?.trim().substring(0,100)||void 0}},J):V),a),...c,...f,timing:aa()};if(n0(l)){var v=l.hostname!==location.hostname,{host:p,scheme:h,source:g}=tA(l.href,!1);if(l.host===location.host&&l.pathname===location.pathname&&l.search===location.search){if(\"#\"===l.hash)return;l.hash!==location.hash&&tr(e,z({type:\"anchor_navigation\",anchor:l.hash,...d}));return}var m=z({clientId:nS(),type:\"navigation\",href:v?l.href:g,external:v,domain:{host:p,scheme:h},self:V,anchor:l.hash,...d});t.button<=1&&(1===t.button||t.ctrlKey||t.shiftKey||t.altKey||rr(l,\"target\")!==window.name?(n6(m.clientId),m.self=J,tr(e,m)):rc(location.href,l.href)||(m.exit=m.external,n6(m.clientId)));return}var y=(re(t.target,(e,t)=>!!(u??=au(ry(e)?.cart??rI(e,\"cart\")))&&!u.item&&(u.item=eK(ry(e)?.content))&&t(u)),ac(u));(y||i)&&tr(e,y?z({type:\"cart_updated\",...d,...y}):z({type:\"component_click\",...d}))}})};t(document),ai(e=>e.contentDocument&&t(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=ru(V);ae(()=>tf(()=>(t={},r=ru(V)),250)),rp(window,\"scroll\",()=>{var n=ru(),a=rs();if(n.y>=r.y){var i=[];!t.fold&&n.y>=r.y+200&&(t.fold=V,tr(i,\"fold\")),!t[\"page-middle\"]&&a.y>=.5&&(t[\"page-middle\"]=V,tr(i,\"page-middle\")),!t[\"page-end\"]&&a.y>=.99&&(t[\"page-end\"]=V,tr(i,\"page-end\"));var o=eN(i,e=>z({type:\"scroll\",scrollType:e,offset:a}));o.length&&tr(e,o)}})}},{id:\"cart\",setup:e=>({processCommand(t){if(ab(t)){var r=t.cart;return\"clear\"===r?tr(e,{type:\"cart_updated\",action:\"clear\"}):(r=ac(r))&&tr(e,{...r,type:\"cart_updated\"}),V}return aN(t)?(tr(e,{type:\"order\",...t.order}),V):J}})},{id:\"forms\",setup(e){var t=new Map,r=e=>e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"yes\":\"no\":e.value,n=n=>{var a,i=n.form;if(i){var l=rn(i,rb(\"ref\"))||\"track_ref\",s=()=>i.isConnected&&rv(i).width,u=eQ(t,i,()=>{var t,r=new Map,n={type:\"form\",name:rn(i,rb(\"form-name\"))||rr(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}};e.events.post(n),e.events.registerEventPatchSource(n,()=>n);var l=()=>{o(),t[3]>=2&&(n.completed=3===t[3]||!s()),e.events.postPatch(n,{...a,totalTime:ti(V)-t[4]}),t[3]=1},u=tl();return rp(i,\"submit\",()=>{a=ah(i),t[3]=3,u(()=>{i.isConnected&&rv(i).width>0?(t[3]=2,u()):l()},750)}),t=[n,r,i,0,ti(V),1]});return eQ(u[1],n)||eN(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,t)=>{if(!e.name||\"hidden\"===e.type){\"hidden\"===e.type&&(e.name===l||rx(e,\"ref\"))&&(e.value||(e.value=nT()),u[0].ref=e.value);return}var n=e.name,a=u[0].fields[n]??={id:e.id||n,name:n,label:tF(e.labels?.[0]?.innerText??e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,type:e.type??\"unknown\",[ag]:r(e)};u[0].fields[a.name]=a,u[1].set(e,a)}),[n,u]}},a=(e,[t,r]=n(e)??[],a=r?.[1].get(t))=>a&&[r[0],a,t,r],i=null,o=()=>{if(i){var[e,t,n,a]=i,o=-(l-(l=n7())),u=-(s-(s=ti(V))),c=t[ag];(t[ag]=r(n))!==c&&(t.fillOrder??=a[5]++,t.filled&&(t.corrections=(t.corrections??0)+1),t.filled=V,a[3]=2,eR(e.fields,([e,r])=>r.lastField=e===t.name||void 0)),t.activeTime+=o,t.totalTime+=u,e.activeTime+=o,i=null}},l=0,s=0,u=e=>{e&&rp(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>{r&&(i=r,\"focusin\"===e.type?(s=ti(V),l=n7()):o())})};u(document),ai(e=>e.contentDocument&&u)}}],ay=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&t?.[e]!==void 0),ab=ay(\"cart\"),aw=ay(\"username\"),ak=ay(\"tagAttributes\"),aS=ay(\"disable\"),aE=ay(\"boundary\"),aA=ay(\"extension\"),aT=ay(V,\"flush\"),aI=ay(\"get\"),ax=ay(\"listener\"),aN=ay(\"order\"),aO=ay(\"scan\"),aj=ay(\"set\"),aC=e=>\"function\"==typeof e,aM=e=>{if(A)return A;en(e)&&(e=r0(e)),e2(rO,e),r5(e8(rO,\"clientKey\"));var t=e8(rO,\"apiKey\"),r=t5[rO.name]??[];if(!ei(r)){M(`The global variable for the tracker \"${rO.name}\" is used for something else than an array of queued commands.`);return}var n=[],a=[],i=(e,...t)=>{var r=V;a=eW(a,n=>F(()=>(n[e]?.(...t,{tracker:A,unsubscribe:()=>r=J}),r),r3(n)))},o=[],l={applyEventExtensions(e){e.clientId??=nS(),e.timestamp??=ti(),d=V;var t=J;return eN(n,([,r])=>{(t||r.decorate?.(e)===J)&&(t=V)}),t?void 0:e}},s=nH(rF,l),u=nK(rF,l),c=null,f=0,d=J,v=J;return e9(t5,[{[rO.name]:[A=Object.freeze({id:\"tracker_\"+nS(),events:u,variables:s,push(...e){if(!c&&t){if(e[0]!==t)throw Error(\"Invalid API key.\");e.splice(0,1)}if(e.length){var r=J;if((e=eW(ej(e,e=>en(e)?r0(e):e),e=>{if(!e)return J;if(ak(e))rO.tags=e2({},rO.tags,e.tagAttributes);else if(aS(e))return rO.disabled=e.disable,J;else if(aT(e))return r=V,J;else if(aC(e))return e(A),J;return v||ax(e)||aA(e)?V:(o.push(e),J)})).length||r){var l=eY(e,e=>aA(e)?-100:ax(e)?-50:aj(e)?-10:tY(e)?90:0);if(!(c&&c.splice(d?f+1:c.length,0,...l))){for(f=0,c=l;f<c.length;f++)c[f]&&F(()=>{var e,t=c[f];if(i(\"command\",t),d=J,tY(t))u.post(t,!1);else if(aI(t))s.get(...el(t.get));else if(aj(t))s.set(...el(t.set));else if(ax(t))tr(a,t.listener);else if(aA(t))(e=F(()=>t.extension.setup(A),e=>r8(t.extension.id,e)))&&(tr(n,[t.priority??100,e]),eY(n,([e])=>e));else if(aC(t))t(A);else{var r=J;for(var[,e]of n)if(r=e.processCommand?.(t)??J)break;r||r8(\"invalid-command\",t)}},e=>r8(A,\"internal-error\",e));c=null,r&&u.post([],!0)}}}},__isTracker:V})]}]),nO(async(e,t,n,a)=>{if(\"ready\"===e){var i=U(await s.get({scope:\"session\",key:\"info\",cache:W}).value,\"No session data.\");l.deviceSessionId=i.deviceSessionId,i.hasUserAgent||(nQ(A),i.hasUserAgent=!0),v=!0,o.length&&tr(A,o),a(),tr(A,...eN(am,e=>({extension:e})),...r,{set:{scope:\"local\",key:\"loaded\",value:!0}})}},!0),A};t5[\".tail.js.init\"]=e=>{e(aM)}})();\n//# sourceMappingURL=index.min.js.map\n",
-        gzip: "H4sIAAAAAAACCqW9e3_bNrI__P_vVdjcrJeMYFmSL7GpMDxOmrRJm0vjXNrKSkJLsM2EJlWS8qWSzmt_5jsDkJTsdHs-z25jkQCIy2AwNwwGrusFj2bOtNBrRZnHo9LpX0b5mlalylWqIhWrTCWqUFM1UqdqrC7VRJ2rM3WhbtSJulLf1JF6qg7VO_VcXatX6rX6qp6ol4FLVQQ6ePTuZqKf5nmWu9pDU-V5nl2t6dTVQamRFpb019cLdY-_UXmw2UXB-JSKBEE5n7s6DEsvCNJpkni5Lqd5ut7pI7-gTzc26KfETzvR6Vl5jo_MozfDYNKg0z-lDuA5WovTNe1x7YNouE5l6WdjY_0evyu8qZx6YBvq9lutdCEvVFMQvD75qkdl-5u-QbOmoYUtvVCfZRjtdjunYZgh5Kbco87GRt4usgvtlsGjzyjpeeo9f0KlMcL1QIfaf-mWYegcruX6z2mc6_HaZZRM9VpcrF3ERRGnZ45aBm4715MkGmnXoZYd5aCo_bjteNTKM5mT9Y7KeSLym5kZlna9xSgqR-cEziptQqMLdYZ54ml6ydPk_47kUZYWWaLbmtsuTZ7nl4vTOI2ShGoO21TpQr0BDvAslMFlFo_XOn1pAHhHQxQkWKi3jXKzOI3LOEriv_TYp-6W5zr1_3TxhVu2G5kYiyCRtzDVrpUL9WejrjeUa1vUPPAf3FIN6HFIrf4QRMVNOroFF8Ga6CqKyzVuwNauYwy_HHSGNL7U89MaboRRgA0_lJ5B8_4ypGikOik0Y19sC6-Xg-6w-sAOg9JQnHHW9oTapK7QJ8DioozSkc5O1xgBzPeR_T5aVFMhH9sJ-QvA0eqxmQ31MXg1vTjRefvl4W-fjw6fPf38_NW7pz8-fateBOtd9QFw-TFgKrFQv-Bjg6Tqp-Do5uIkS9pxqfOozHL1s8Vjl2gHfQj8d3MvzP1yYyOl__jL3D64OaFW7iH_sfrNfmsQj1bmYyENj30dtgflkFM0Ff0dvXBOMoJrlDq0vmgVEBy0-iP42f0d66JD_dvYcLtBoOdz5zQimDv0OdKcMp9q-gg5j7EsfkVt6-taac2goawPSjPtQideKJ1zeymDqdmcTjkDdJPWYzMjoo7oFD2hrpfZEZdwqTEdB4d5Ht2044J_lc64oVvzqXRilmvX0AXqcfjYXydIEupogpCvgXfhgNa7HvoDPVS6qOcHg3UyplVLXZtaAjbJszJDutIjm3amyzc2-fWp0qeN-aZ2aaF4gNxU0doz0-WcTtNRGWfNieDpUvpSwMNIstSHCWfc8aHS541Rr6-7qOqnIabt1lDmc5BOfXYLfi-jidIXt5KPdKn0TZPSGoh2QaJBcqPyvJ1n03Ts6vtEnvl9kl25XaIyxCE6YBZh6XcIa7aorhOsD32Fhly8dJSm_nyzIJPaCZt5rojalzxFR4bLMTELw9xjtCYqq79RSQWSSISI_n5ULvFfUMnNTaoop7_EGDjNT_2c6K3STwNBsdM4oTXo_kLtH5r6VdoY5WDYRJynTK0JrqGdgvsMFRAjM9mGis1KdKv0WCbIG2w0XcMUeNUHbkpLOVV5q-URJ3ZvYp2M11Lqzok3Y0D1T3IdfVsw-VtbqUWqSBvfLRYg1gGTAF8fuTIe6jQY_mqvv99HYfVCQge0HAfpcAjySaBwI-pwJB1W0oGo6kB0R8fRo2ZPDl2Z2qXOUJ-_Q029GbolDZVVQ9RrmteKHtJIwBT6nsllKFBzfqMRwg6ZKf2w450y9w2DTb3Z7etWq_pyc7NfQZpRqq8pyea2WlwzYRsN9J1dEsBxwRBDUmjAz5vYhDGbF6WvrbTWBanvQlIESlc9JaHCiJANvJKel4R683lqBDfPzlcMbIhCaqUkScLr0sLIQ-7xfe3GEMqoNmIqvowilhFaUC081_QPPaGJ5dJd6umr5hi4fUEYxYO1-NFRcTAYMvLkQf6wE1pxspX7tBw7NMq0mZr6aVi99fOHKaB30gdCcY1E1wf5sE_QzwjTMhVRhp_RagckNjbi9mRanLuZZ0VLISdxJWlaSTBx9fOq_8QMF0q_Xl3iKJjqK5A4l-eu_mJInyj99c7JQt3XbkPUBz19UtOnJSoGsefG1a9ciO6EIowfBESCjePQekgNnZMyYH1MWPlrJmtUSmnSC9A_z8pnlVz11uXSBp6hJgnL51oq7sN4PBh6AjjUkrDkp0ji0_eW5phnlOaz8_9jOnkma4JIc2mIBh5VTJlhGIFMLNOJSvxS-rNdWNwfSERNNWSZfoL25EyRUq45_27NOdX8_m9rZqpHNaO-AXWRNJphs9rv1fpsSXFpTD6LGXZWCQBShNaofVT6zW3491e4iaw2O9_3qvJ97iqReqOU_TSsCol-hAK32X9V6D0XWixRkQalMtwl5tmLvYZ8rDQpHW-U_rNWAu4cAEHBNva4v9xMY2XWrDA24nrsmTa_B3QgyQ9W9DrNs4unKQmKulD6r3oRzu7qhdE1SK-0Gu5s0VhKRNtJomDhwfSJlThK8Cpeo0nBCIgjDbDUSC6BDoIOm4SAE3yIF6iP5CMWNCjRUjDXFm0uS_4KHOt28WbFABgVq2jfD0I0ytDoaL-5pTCoLtf0G710oeQp_TioCZadqZjVE6JRUDVcz88rUJD2p-g_zCnrGgrPYRi7Hn_PT1Tpx8paYXUbEvmBrqYV_U54i-md9I1VEeSjn_pF8M_wh8UqEvY-cnEixbwErFJo5iaqCSHRpIJU3WrhcK3rzVXStEfoFXsE8zWBAnWr1Yow2g-BrNtlMVhDOw1Z5r2Irm0JXz8248ZQA2ilIaumLJY06MR8ThVEhEARzXtEpPuxKgc92FO2CSH0jzVCCyE5ZZpCb1QZIwvnKs0apoghJB80KM-Z_cDXF-aRtPh1YhOGFg5IJB9aEdEARcuCYi1S6Z_uEo0f-7U88Kae43W2OwUy1dTaldTBS13pn--uycjXAzt7mxjbSqUN5BFB6rfv1HXKIFgvwzsn-FHH12xHIrWeGOOvhMvcUrWE1telJYLilQupidcIP3JbYQjt5fcK88GToW4VWV66NaJ7m6yis2rzR0N10W1YNkiXHpHiX1nFQjEqBJDcxjrRpV7TpAr6-BPkfiNXtyW_eoDQt_RJu9BlyH8hSNLEtqPxOMSX9IvSzS-lAcagX5dpp2E-d3ZXiCF1p2ImVE1fCKqGMhzyX2nsPCpC_mvbs1SmGtUdFg6qpyZLmIs_uHMpiB8txU5jKbpEaEuai0f86xI650OMoarSBUpQu6jmFJXqDr8zcHj83sLMVJeV0gaZZLKz1F-iy2EtovtoneBHrcdcNXKIXNMfZgPIdAdUdsg2HcPzoEDQKHqB7rr6D2p3B0_1SpfBWgjoX8Xc6TM-7VX2nhUlPVy3UMaQzWSz3G8qgG2jJ-STcFnvVsIQDVJMxcJzhDUSJZfPKqZA6r1yBHUc73v4p3LMz3Zjfkxtg6ERoZHFxvEa0VCiICIZk5bZsEJvdkOCauGFLoxiqmiTEPE0Gp3DBJwbvrkrsAF0GimFh5n53reRBSmJo7SW-XvfJBY2kR7W9QumJRkhzr6LHpOCXQlCVJjAmIYkF9OE06D3mwCt5Sy2fLqWMlsy1A3LimSwErkJM7BHPGSCLlJ7MudCGsuHtYTfLiZJPAIudT1I-4KWvoEE9ePgNvDdcoW_lt6yLVVDu-yQJDMrbf1dr4IZLYoctXMJA4AFcTWxShDXfQU7QlSVrxahIcFjfRqn-k2eTXQORYdQcEZ05TQ-m-bRSaJ9kNR0eqHNW0dd5XFpc2goKf7w4oVJi0iLQ8J6Pp87bN3nF1hDecUQ7be7BuGMivr5wp9xOXpaNKewXBkglhfB70ETfgQbu-5rceS26OnSWxKVL2n2QAsKpgVMEfJqShkRug38DgeAKImQ-BkS6X7gmmdunikIuDMtK3paYc0GVypQD7CshUUwG3hgaRwqIQoE9YuqsSavWmZjAXahSrHiitnNhZWsLIXJ8baSwUNCP7QKfQZsssSGj2_NHqemyF_g3LJVwMJGCQkSRakrM5RdGFnE6t5lrSXVtcLWdmZLAbB1KZaIUS3LxKZmzX3OG5NHXNnqvLTWy3Q5a5oW5_FpaXOj5updx3qwsiONQAt3M-o-lAYjZrCQ7w6INgzNp_Egk92xbGhXVmL2K9wkKCM3UZxna-8PEgJUkMhaoplJUC0pGED1BLb-xNuEtkcfBYlyI-z98M4SEoDRNHdx4ExTWWVjZ93qerTaCMEvwCJgKP3A42ZJlRg6KW5l7L4gQDeKtcv4Qr_O47M4bTWT0-yKUOKHqORHVWbQjLCJxBoE1eM1leqWvl-SpkAytN1Bikk1yHh_g2S0qBVspi22fILuqozVPaKlVCfrfpJDqEsjgzU_6FR2D_BPkvNpDvTS6iTEj-zO43reHyU6yt_RWLIppBD1O4nYIWwFMWwXpa-15_LGDmEXLVI_N7s6PnUwolGR8GS_xgBTkv5gHMPXm7EfN7bNUupjIeukU9NbWUazU2wk6nR045dqFCXJSTT65gP71YzSiSAxb5pE00KP_Qjckdb22ZnO_RgvGYHez_BUfZyYHaVFkPfLIG9XLYRhpy9stKOmQXkJebWd6yJLLmk1q1FQZu466VynwYhex6K6r_EOTkFwWV9P5_P1aXui03GcntEzQAoMdyftk2lxg46yJV-TqsJq-lRN0YDGVLuS9ANDK3HRxOZpy-XGaCZpBMiY1h3Cdsh6l6T6h0FnPs-oHepx11O2sS7LKJcBm7PXWcYeiWbLU_s8JRpGNJ0YPH0Sjcr4kvBx3S0IvahHVfZYlZiykjirT_VN6L9gJsXBWdAWfqlbZZSXvhHfodiQOKQSIqZhogBLdIeIRHZ2RjzJCmAEDdt4qInwuQx16pCZRRct-pzo8_D8STXBFfwFcmOmJlSBrZAltwrLqEpumqaQ8HBB-B0VxVo5nX2eEA-KC9kvNWK6S0z8PC7s5CyIB8ouuFttUnO-_bbNmVxMdlu_U4wzuZjBku8VNNkLO9tmY-ruwo1CBGDKos_A6P7bV7ZM9REP9s7SAThIOZKCRXyWRkljw97CSnoh1VWIzZ9gH122TO7sS5W9WJh5GdXzYiruS4f7DOo-Q7JvwEQra2X22JGkf3sIb-TZda1wQnq2CAH17rFlYPy1aUE2ErxG5_uy6127QTim7rUoyXU0vlkz_R5vScfZF2LRHH7V-y4DaVCGDg_L8Y1QRswJ1sn5nGQPNzegJE1LDZoQt-BGI8NA_x9gzfzgtCa95aNO2KDbKORfxek4u2ozsX0Zj_KsjArZLhyvbGjO53HxDC4SwAFSpeZzTaQpFP2mCXwS7xqtiAUUZjK38nrg7VXibC_dL89TggUxFlKQopu1ezO9aH-hxi9l-5HRcupb7JxUNv43Fsvhl1JJXA3ZDLTovKGvi-ot2pWVcPiBuRbzjJSoFXShLugMTE5MYbOlvA7ySpNnaU9Gy2BAChupOOVZ1UVXbHGUxfYRY-1iTYZkM9cj-PEu0u3cbp07pGFcCEczzlOBEQlN4wO3aRgMynOYIqkS1m6hsOPZ6KG6Uk3WsEW2sZFzX1UErUVFC-UaCz11ncTRpuyvJcvzMEbZ6g4GTpSOHeWoNYd19_COfRaW6AekkbHCRGJo-2sWpy5b-0J86SlnzWG9iR-WLFxDKcybQOY785FR6VR5Il1x_uM0TFxGUilbulWq0myjy6Z7kp312F2MprMzB5p_u2t_B8r3HeZz95bxzyoLEOZLhkIqUm8OJDf6h8mioZXZL9mVzp9EBUQOSvVUEaxUmniq8qRgOsFJoyBpRykJMRARxlMCpuWx8xJa9mlQhtAcEkWl_JFKs1T7nYWfkCTz3wdyutpVtnha8QKtsA0XO_15KFrReKCHsDX62uzQnSIBf5dHOfQfk0hBC29wrs6G1MuB6fiStwqv28bIavsv6bATakdeiLZcQlMiqdSdQOB6DCsGSXYe0VCXm3nsQZTQnlqiXjT_hMdYUV74GD5DJHDTCDZGQ6opCkiL2vhf-jfyuEilfcbQhqKhH1MrQVFPtkAJfg8b9Ke8ak42YwH2JaulcMe68B1MkEN0augPLuvdSGrmkn3iAF7_8VBd3HYraYwoC9gGEr50a0b15d7sxdHrV21xHopPb7AVDJ-9NCvXojUht_dm-UJEHiK3UAtvlobHg4DA66Yb4pjDo2wQEH0AsnDB9O1vLRXdhZpNorzQ_gWJdjdv-PFcGczzCyU47k9VkmXfphP_TAmk_MKATLGSVcKWf4Y5JGynZfxMEmX5E1OFwxChPvyvqGemoBcibc1p5f4XYowy7Hszs5WcWAJ5wpYNGEAXXxbwyJlNprn2bxRNqZVlqVIe7c1tLNDGKBWGFezYcRB-gOXRyr50oH9xWf9neTkX4iTepq6x8tdWIjFKwbskYILil7ctSMLaiK897temYTHm8s53XmMeLLmEfm2eDzgZ5nV1Mauf61FlYI6CrPH1ZjeM6-_itp1KeuOeo-4Ig2bW3q83f8unllvMiVf0wS-cIVSWTmVJqPewrIEcBrbSdQLHs6wdVv9RNtbv3z5_kl1MaPGkJMFAj7ggXcm6qB4mieu04KPKPMPkVkyPuU7gOCod9IYBXgmtQzNCWsw_wTwu7gzINN1g7-K8Nkvm_mMPKwO1DfCXljC2Jmmsh0uOsPWSLWGW2frkhj7-Gxxftdqbw5bnE_E53jre8kJ64JxP_v9QOj0e4-V_hvcJhf-HMilhQAnHQ8o9Hs7dQWfzwB-25oNPW61hK_S4iO8ej_EB1zr49K-QPudPQ_r0X1wXvf3LbePp3tZZtfu26optseoymBXZNCcdW6tidK4vtJ8rgqSfh-upv05CxGMVTcvzLI_LGz9SpKWTYk7qelFcZfnYz9R5VpR-EoaFmmSkPgpqTUNGJNJB3Sm2vibEmYllkQya31inuVO_fOeeQnk5zaOzC5ptf1wpe5dtfBLID03FZbvqRXjZphKhQ0L2lkMTpS5Jni7fWS8VxrrGVthf2Ji6YEfbLYLNp_b98Dicf_IAo3s0L9hnDi06bjjMVVI1YIgRM3vKPIU7DEe4Dj_RdGMfjlLqXfIoiMLKj3rreHA8vLelSLAhntpl5z-qMqtRLPNjQipqBdzTsmBbVL_kFDA-DVz3qR74ntA4nzc8rqz7TtkuSXmXTcbyuhaJGSch-ICglq8C19ru2EPSJcU-NZ7xNKII5rHHKg5J8x8MqTiXdhseHcy7IiMm0rIyew2y72BHLp-w2CJlRRPwczMHKfXktfE8rKA1OP507_i4fb8Vuh4BbraYDwl3nePje5iQ8muwdfxXm1LKJ5WTMFHZJ65-7fJmuFRn3PZJ3pwD7G_12dNrotnKOZsSrSi_qvJlMKMlfO-We6cUVeVnS8gUExim_feMv6zYfp9UHkqlOJhg0xPrh4DwO5cMt6in1JqRmcqXLDQFmIv5nAgT04jjLbdNa_p4K5zzWqWlOjVrFZTI9j23fedmy_cEXZPzJXy47tK_42OP_huQVvUEG4Cv0XFiS1tfPOZ7xNS_fJJMuLpsuUufHd_fEu742i2fIfv42G17gPy9rgM4tu9TZfe-YIYJsyrPIW3XS4mdY1U-a2zQ17MqS0T33XeQ8EiumxHnGLxrH5JcdHORTYugMwyc6s1R7yjzOSnUOcmtQZfy7Itk_SAZRNadHxrJRzotYrZ9bVNO9SZHUco3QfmNwEgSizOOymiNjRPxaTyK2HvY67vPAxaCpHfP26-I73DH8OCo50jSI10UUX7DnareJPOZ8VkkmYu0JnRuKUUKvanNyMEOFWm8S4F3UX6mS5gS9im7epPMIz2agvAF3T0eobxJ3vOUiKeYTUieCbZ7DLZmmpSrgb5zsAx1yb0J9rY5_ca2mV_qPOh1dva5Tbw1cz5_pD7QYDoHe1W-pBnAvwXg4XJpAE_i1iQrqDe9bpdU4vJPk99dzQep-qFa5nBnIfKtywilWDUPXbPVGrXpi1KPVfXONo6xWlF9Iivtz-d2k7au0b-dBOnGvQ5iQotY0OK6_WOSnUQJI4Y8OuqakknZ4omhZHmU5CPCEMIARgfzLBk_6EvSkhlT5VGS3xNXZcTAgwHgXwBQzACi9xii9loxyiaakDav51OlNX7Kh49B3r78h1Y93D4W_4FPHwnEf7VFyCaRiqshjYF_v6jyIwkBePTLv5SZB7_80z4WfvlWLa8bv3yz6JdHbvmR2OWrICNIZQKpV-2j6QjdIdQBsMybo15R1pNcRzRflAWAmTfJep-OzqP0jDK3OwwI-y7ZP-g0prydjkAOL5LxKiufweuesnZ40cqrZL7V0fh1mtxQ5i5l2lfTGdJokpgICuEwemNebXeK6QTyDDW6y71tpEgRY9aizzu85vhNslhLo--Qwc-OornMVuZSl2vEgEpagwTE10FCQEwEiK_bh-OxUMcxVfmaEl7GKWMZ_ZqE6JrRi34l4fnpSzBYxi3zbDNAyiRzhzOrd-5XstyvCTLWsHvmiFt8-cIccgnbnKfKD1WC_apQ5Y-rpjjSV9g3K4bcEQflb5TztjYWEsmN3NhYDNlW4kGqwKYfTHIzPrgVs2XKY5OnipLEJDBr85RBEZNoBYG2QPXhdgfqV9VDU4pFop84g5XSOhWM8CewbLHJUBHIN-z65PJQeLcMfPgX8R2mHmSmHqkGn8PQZmuoGl_O9rDXMk1K0zaSKrk3I_nkFyMeWZNnaEdEqAZ7DIHqp-B2RtgmxpAT0QvZQaz8-VaZ-bx6JTGWVowqf7s9a-zLrpKg0p-pBPxUNLvUNGtbzzc2qBa2fUg6tUyw-kLk5jHKsmRE3SFaM8qmOJ2RlWsnUNJXPnNOsWrbjv8FZEu-o96abJKJM1lUoUPLhsRh2OedBVU1wr7hGn9kx5VVSzv8gkMBayPz2l57d06E_nrCtvw14lggzGv_qZukiZNEoprjWLp7IeuBvjTgXf7Qwrz-sv3FX-qNkKvQ7B2FoYO64AXCpHTtKirWxlyEhr_0oaEpK1_KWc5xpsXcg8ERXV8rM-4j63DRSkWW8IUOPItxtDMar2WUsNqiwJihlq5N0wpU3L7PYJYNsC--Ywt9S7OrFFUWWdp2Fl8WX5TxXMUeNqlXyZB0aVZsUutGbA4wEKvFKTqL-7E1Y7x0Y2MXPiYRzfr_JKRlttnLqORDfDijduv4XJsPpZV_BK61yeDwVMjJ8Dzi07PmpJ5J9jzXuYz1FTSNXwN77K5h32zoKZ-izb8ON_-Aak7qPSTlz45nlUffaXqWaNYPVdlZdimsbCEDPk20aiLFGmPNhgV5b1Vi__dAWh_Oeostq_V5OHWqgzutJ1XX3cGnYMMYHgJ6wbMXuhvze56YCayBHEYn0hoC594sb3y-1A3Xmf-718OH_zk-dv7jLZwvKqXpUE5t0PfMseDZwnIDggaxgV_dhjtdQ2Eu7rv4FwbHgTdHL4_b88EnFRznx-nQa3mcSX2XX8etipCadt9z5v-pU_6DlP_M6wSFBBqufDtQx8Ww1Rg4W0YsBZxCnCFmXMBfoNnZuLIiuUDmUSVUTolzT-l9kk3gsjEKYjiM0uDdEV7rzyJBe9I18ij9VvgjwzyoAtnQWOBIjHgtdl32kXScBe_blN3m0UAtdJJrMQD3oanNzD52-CWonmsQK9GpoSDS-qWlqspe0NPbqtwJnM-lD-GXJII93ozCv5cuBKq1xqHpNhbJbiBbiqrcDsbZaArTjSr3g3K7fZKNb1R5YMV3lhGYgLKzliofBB-J-VlTjbVkPArKBwB_dfhOyZGqF336PCWkhumbFmwXbm2gIa0W7A_1hppbH_RJA0gcJU3QB2sgST31gYC42YX35wuqI-5Xx6z6AlJYNjSMnzSUp4nGiODzGLaJtun8BzNI-tyOl9fpaj58_CJi7B-ImoRtUsIutK1sUbvK5GXTy6rquYOn6qAxP8znzgms3SQZFVcxrCelNxsRTVrv-Phx_nJ841zkOC2ISWwNXSFfff6iK1_kjvye2C8dc5z5D5wO56zUZq2xDe9ZkkFpMJlfq8xn7OfC-xBiNCZJ4UdT6nylVN5p5urV3B6fTUe-AaC_5DcqXbR7fmaohuaq2n6sAylooWDK52XltWn2FBc0B3lNlVEghKv2YUlfnkx59xpeNnnaKKTr0yCpm-cmA7Jc5TQnqQD_XdOg8tgwl2ZTrwhHCmRmthbKBQGnvPFReZMAruZoNTuOfmAnFhzfAb6oPGmcPCFJoYzOUKUvmYUs5dm17xZBPoWnW_t6yy3329npKUlSH-Nxeb5pHATilFCZU6jyjrrxi_ZNo-xPOj47L5cKSxJKg3BNWUamtvSNW4zyLEl-g4h8U7__Tu8oOapWPlud_tW-L6ZSoPozt2ykqPzUEgt47hGZzcfiFLyx8Re1Nbn2p-1rdcO_N4rbpoSt5RGqHdMNKrO1MiDkTaIz_SxLxoWfhyhye4x-TZ8rpwkSHyZEeondv2PhAu9U0e_iQB4SIEpO-I3alqffF74OAaERJZ0ugpx3Mav3as87N74R7lhOEjyGcExyzpMkJlryFk4_2FXmCVUC8DFxmdOyVbSvzVDHhH0Ter_x1BVgIGn86KlzGRQnybPXaH1S7ZcHRG0mMCL57KJXFOwzRmCwnrzlGYtZr-TwQT6pj7R5PjsqwBEYDO3pJfX8l7godYqNczm-8neZlHtuQ3HMeI-hrDcoZKdhEZSHsuNrWLQp13LTkPhhK4XZvPoIq_7MrAfqM4PvgwXOrSVgQXQbFVSZlVHChfwVNOMcgzAraAbMuWDHjo86-oYoA_kNhpdf8CERQoPcODq8kMP9zuZmmUejb5s0EvPgtbTKr4KlQ7eMhrzLhWMWfOwsE_eTQQazsxsjCEUKtviWfTLkcIhKhxIe4LmbKT4sEduYHuv5fF4eyNElPv-ThmHGqrm7zofLligl5YB3sFRfdtxI0QJO1dbxJmQN32E6iqPB-TcbBiQ_arK_S_DeyyB_DcpVVCfV8m9y7MJ4kmIxiCF-MNBwEpezXV9ll2QgTtcDWORF2iDdvF3oRMOXjB4nuT6Nr4c-l_B4M49we0CdGQzYHM8APt4kfKZOYAft3pzeYJnfYjd0Iuw_upcefdp3828Vvb_irSIiRubUQf60spCTBP_SzTN08IQw-gNAYN6cE-IHm06LU9k5hvIOsTORV5tYObadnMiCuXDYt5jkcm4zPxzkfHISuxnXtMqwseUeH5GQ7JOIKzuCriSQLD34dFwoH_I-y7_rx0f3j_1bUv9nlyaeFiW2vIfsUthxpRsACvXROuRgoPZoPyFXKltJlkEys3RzOdz6AlYSOcFjqAspcwKa3ICmAZgGQEh3chHTYRLk0Ipw8tSdIFX42vVy88z33fMgbxyphU2fRbvz8Nz_w8W2UL50mJ_Ia_4OE0iANA5XMMyIIWiWHzGzBxCIurHhx6tAkGLX31Mpn64MZ4AP-_-nw4U_I0KKqXwdzFIwYoJenDiqyEe-s_W5bH8tHDWOC1iFxnCkgAmb6V_BNJbenlUO05DN-aWwvnb-LiWNmA38rG-Ey0eTuHqGfvEky77FRgIY65PpGZqJL2gRsCH63Tk9nBO387uoS-j7k4z42HX5UqdTdMOIYYfwwmUrxTssEOJAvhNNy4yUBAx5ZqW1AZvwN2H-lCeM3BmC4n4NyveQ2Eg3MJaSo1EeT8o2AUQ5_wLqPzFF3Pwr0SfskXnwIqCclwEl4RzZvSB_wnlE8POXoPhhG7Re5Z_FFOnm94j-GG4geWFbp-PiYww2dA-iBRH7_H3lqgHR4wnI5Zb7CUpnSCjjfjpu43nL87aodStjho7H7nP5syB_j1e2lsIMb94u0hLdNW_TIjeW0_wNdN78Lf_9s_bS1O3ReZQ_IcXmkD3z8x8wCgn0wz5cT0y2dLYP3HIOHz_54emzH396_uLnX16-ev3m17dH795_-Pjb739EJyOaibPz-Ou35CLNJn_mRTm9vLq--avT7W3v7O492D_Y_EyqeeUJYujXm0H-Fl4dS_3peMPAUl6O91SpZVhwiH1gHZ1Ype-nj_K-VyLIQas1fPiwuze3j_vmSRm9lxpzu3u73d3Og95G6T161N0HdAZub3e_s7MvST1J2ulsS5k9ft_b3iCyVB07s4EXgnSTRIwfXBxNzh_f2dmOqg9Ek2KIlf6ehLZ9Mbhs33ejrZ15x2u5UWt7Y9v797bXjzCieJBS1wPA6E-QJ1I5aUi9uVsup1EXdxR9ARYqn7jdXer5w4c7d5XtrZTd5qJ78-Vytc2BxvUxmG33_EGvu7fX3d7r7XVT1d178ODBXveAuPjejj_oXI9OTnsHI72zv9Pr9bZ7u1Skc3Cw2-3u9fZ73S6V6_b2UXBvtNfrPejpzoOTk053p7fXO6ECD3b3ege7o939cao6193O7f91t0-IuqkcR9WD3u4esPi-BD2KSEIidYdUhvxDHTytdjsJOqlKaB4KPEyxFkb0dkr_xvTvkv5NbPAUSuiPH1Zb-f3LVjAZjFcQdIywO4yfJCCGLFVQrbREJkOqtbe7u-GOgkuc79jsLnwjdXCkJ9dmt4LN6YAE-XGr6_17alobttwpN9b0bxro0GLVOR_n6e5tunA-sN4GrR3v392925i10ypbkcfRNdKH230z32du_gKnQUxskY6q0k8_dffuU2Z3z6Pv-iXhYCNPFpL5rh8hHI9FUKqvxhY5Db_cZ4Q1yqkLZ25VCw671mPY3KEhnX6q82lA8zl1xHtI5MoaLpaH15GupGynWckr0f3Udr9Z8WpHmSLu7dwdqQKv3EgScNxAwvRSYUCDTBU08I-DZGgGV8VeyYLH8dnztGxHBTr0yk2Um32StKUheveLqjvGqUeCL7mmsA3F9PzVciimVvbvlRIrwZo2v_el52d1OLftPW-B9fRjMNPXUGeInS4WfdgxZmwUmdlgSGtlFV8LjqjtC-K48SQhhXN91Xhs4viZ0wzW7z7Kz9g6xXt6_tpTa9SP0jX-EFsHhc7Fwrdmq5d9hqJtWRmHcFiZaKIpHkfKWe1bFZaJFn8_a0wPLd2E5iAbStiKtaQRHjFqF9OTSLCLdIZ-BYCEtw0kWofKbBjRvjWJ2ZgubBlrHAH0p273oOdJ2BSxPNmwf5Slw-7Brt892FkqYOL0-TwPOMhYn4fY2DATGxdH0Slc2_QZ-0zLCcdHQYe0pYdBt_fAm2JUPD4JtUUZj4LN7d5KxiP5gkiSN3IHvc4OHEsb2US_evtVpVxkf6WI1LC3u7tt6thV-tGjR_u3atruPdiTuvBkaju4s7DUudM72DnYe0BsQcrucdneDv90977TTK-782Bnf3tvR9qqXqXBbucfVGLAuL-zs_dgZ6fzYPtB52B3l0Rhz3rXblV92wNz_3f92udWuqqUVkpppeRWSuK8nBpJasSp0dAzh06p953r_RW2x33pXD84Xf5f6E7dHtxYoHiSSvOwE5qWacZUp_n_oecz_B4omue_-2c7It5IWGk_kCgNUzIxCrzymns8PT0lrNvnEDiIb8Hm2b0dlwMIUq86254auSsLNYfXLnCvgepm68wnpuvyUdaG7MTurbXYJEws76cS1WqJG6feI2DnrKwjFFXRpO5iDrbS-24Zdv0d3usnGoF4bUweeJKTZY6fMcdKHoLezOJBBLaS4LxYGadTveA8eCp5No_Exjmt_So0TvKIMOhgd2Mjebi7t93r8JJttbJHQb5MM9-_e7a5v0bKFzXsr8X0ezFh96CClJfsLCrhHxFb-b64q5uFNDGfF492H2zvbP9dA4WmQYwblaO2iKhzvta5dlpFzS8gFjhrETZjxvp6zWll9EoKISJJ5fCCoC4lTAj2Wq7b7fS2NxISLLuQbPkNMR0q6HT3572dTjOht7G3PSf4Cg42M-a93k6_AVhb0CSRZJ7wuz2qFsZ-3KTkkaCe9cEimWK7GxJp3uu0xp4_Zvonq-eBGg85hemZpO2rMa_TsVlH3QNOoGU8lmVcZRPWZ0sIbqJ-mcMUJCoKP_CXPD9xnDt065C_bN6Csu16W6QfY0L5EDCSX8ZJEsuUFS7sXUzzy4c1_REqt8NL-k4a1KB09uvug-6Dg_29A6J4NuhIV-_dv6NFoW5CMHLU3uMfag8_eyon_YQeOvOySSG_0w-JJfxf2-seHBBNq5uUtqiinCvKh6CBOImIOfZvHfjh6ElLAK9JwXx-O-NJEl1M9JjzQ9c9D9xJoBuoY3ClS-M6J4w4b-BK9-CBOudOnQuudA_2OYH6fC59rrIJVybeSseef6dflN7d-16H786hT7Z73_vk7hwm43-TtbcjMGGANvC1jt2XS-y-OlAHRx0sW63lEiXx1l0shd5-C6Eym6uNEKrCD15tve3voY_SNngcR6qsWoXRLsFJ1wT714sm17HWIjhBRBt8qqodi4yKDZS3sk3Nu6V3hPf9Xtkwcb-X5coBcv_7JfiIJy_IfyI5w3sIT2v_cVpW6mw5_1kbRanxa6rEaD4pvKgk2MIG-KmVrn41ETs7tyeiszoR3e_Sk2p2CRegNeZGxkaM8qoDUxPKylpOHsak-Tb4fe9-VPeL8vpeeT_oGfP7bfUu58haEfThfBEN4iE23Vutur3R7fYqjfn7zVaw-b-0zi-az_i2KujWPaliK5Uq70NKx_mGJREyXxIhPYR0-18bwTk6KUhO0F6jPBTq_yWRrMrXXvNz0JbB3fLndwhoA09kA7kRmBPSVpMWNGRA9kBYFa5gPjd8b70R7LqKD1JNwv9NU1w7uYF_NWuL4rK0luWNhj3okGNdoT-0RvZ1-kfNycpqNLFcGTzW9MWkvDG1fped3A2P24ppzmbLWiv1TNSsCAfJmBrkQVRbVfJaE43cahmzcaPf4OOspFkhyGSw_oYsEgNN1tQtodZ5tsTOjpTYPbAlRiixs1OV2DPVH3RtiVOU2OtwCRJp2EOkaTTh5G1OvhPwDGpIoCRljrprxvfSVLfTqI5Eek7bbaZ1JG2v2WzhbpLuY2p4cCunZ3L2b-XsmJyDZs64rq3X6dzK6Zmc7q2cHZOzBJLEtcnby8n7Jrk54rXMtQ3vLifbVveWk23dD5aTbd1LI46rug-Wk03d3c5ysqm7211ONnV3e8vjN3V3t5eTbd07y8m27t3lZFv33krdeyZ9aZinjXnq7t_KsS0f3MoxjfeWxjtqfNPr3sqx3yyNetr8ZvtWTrWISIfhRQRbi12jm73dPRMDxF60wdtlrnNRnE2i0TehRr4DzfquFSSeuBAGIAU0dDM33exCXYO4RZTtJU5nnOk3qPIkTqP8Zo2PvLhCf-iDKpK041myS0of0V1W7aDjdUAUqffwYSZ6WJ31rqkmJI6KUME5Y9aQDIhV0rotNzfXHnX60OGtPc0SsrwF-rURw4CxgXjH-WbA5j1EZBKlML8Pw7-ikvYbewK4ajZbabZq8R98m7iW8y0bP3T7hPmdSglMGO5rdquogzK6aSsolaB3mEONMcI0KZ-IN8SI2chgYwkyjE9PQ0qDS9eshMGOBIAMZpO-GDJ0rdGm1JHaKZTbjpYELXBwNvrBQ5BD8tcQQdA0C5IBcZPhEqNZkp_-rhriX1U1Dd51u57T7w8pXRqCuxpHhUYVOI7sU1CBfv4o7a_gDOyjYvyRp4Puxkb8kJaaxNr5jnFF3JSXjCu9TUbjQva9YcqIA3e7uxHz1tje9oY0uLCqc0yq7za3tSOmnLTV_eetbd_VWneXW-v25m7V3vdb3z6Q1vdN671_3vrOXa0_kMb3lxv_r535mxatXz4LPtIionuxWSn-G7MSky4PJrXY2pWjVnDX1nRcmzKoaLfb3cHBvnhTjFDqe1-R7NuZwxpHLd9VgI1V8VzMdP3_NkwWYtgL7-6R6euR1uNiDV9193BKYXRex3CKoJ6qiCPA2xUzvmvlyaqDaECromjsWRBF5nCTdr9gpyljG1GRD_08JGyBbcZrcbxG7JNXrz3slcubHmxXtNFQQQKJ3r5f8pzs36o-r6rvLVe_s1R93dj2EFqIh6iFQKbtoXe_1l5QYGe5r7vLfd1r9vXBd_rayre6eo97zELK97r8jyGSbgb7chYtYPHnb1u9U-Rlhmv4LdE04pzjyLJwcE6POKI_Y70nVyjsRwsJr5UGs0oV8UvVUEyopDHkIpkfcqLvOK8jW3pBavwHB8aN0AgWLwr46M7nVtBwhkFKPUAv8h8Z22ZLzfyiGi8_LQL3a5D_aBvxNja-tj9_1sXLbDzFtuDqFU0IiPz6KrUOxG3EUXS_Ioox22McL_xqHdf9ryr_OXDu5frUUflvq7v51uuKg6qmwk1wRjeH4Wc-15duWYcKSVXMG5kmurR4Akpo6aWg_9gA0M1Q8IjwxZUh7CmlmqjsCDoEb_ONDcQcZH99SUAAywxmsSo2CiIbBCZiqmf8KxF-eJD_PISaiN-qf1XcZkqkXs7w69N0-K64Fbq5sTDk7O7VIhqwElS9EVXZjcS3hmO-WXg0IkPD6Hgux3wkTv18fmeE9jrUsY0r6zVDxrCTHdv7wshGihjkQ3Y8vjWsoZxV9DViOf7kZs0YP2W4HAKMSiYLlf--PPPsgCmTAOjwdSN2FgecNISHn2tzS5MYaLUEXXVHcK3VWDfAJWx4uXmNSrkZQH_lfhsqxEcxcbFN_oe9_KuKPCOr97upVdArXM8lQYP9BHiV2oC7TUvCq2rnCp7OcCNZ8eKCx3O4EpYJcS9-Y-deT07D1nFJbh-fwFm4fiPW-kCb_GZ9xK1stCj-5Zi8Aw7uQnD64DYcVwiWf7mxyx2QaBAWbmw74rN0NGxn5vC5UPM2IHoQccd_J1TJH0t8D0as5YbrO0PC1AiPvnsGpEjZk4Mj39nHjkeY0irx0R9wSfmjSuf-57-qnJrnvEFOc9UbBoNyT5V7Q3rfUfneMCgv8OEuY2bOSuAeDcOWzv9gMO-5eTdo1M7egz2Eds638SWc1CWquMr3b4VtakswZG_14sVUriYJqwK-5qAxF6LY4a7NVM5IrmUjdnMcO6psx2MEUOU2FjSMA5U_MMMYpFqlpXlJ2cE5jTj-YMTxZvMHeCKkTZMq7mrKyzCNuVgcrK_jzNBlXMQnCV9JaE8mtTktRvCJo5J4HHxnS_pCrVObma2unx-4aSqSDZrqqJTD7aYZB8nF1CXmqZ9PXHPga-DgGMN5PNaOck5zrf_SzpDDG6Y5ihJUV8oW59kVlcWB54tm2Y6UrY6POXWv5VS3o-SQeMrhZFNSSc1n9B2g0wCNDKLg7k9t9wfpSKWnFsTjoCzcWRVBmHtRUJUkvJvvpPunDd_bHYk9XAcnxsEHlV6yI_s6PnfN9x3-nidp3DZxdFkfq4DhnNJAC4e-boLIOUmmuQyUPqwC5i5BRo7UDRziD_RJSrA0h06W3y6yS8yJnLMhOKOh9BJRiZ8EF8TzLiSywJM2dOpgE0EC8OSoJ5T2LjoJNnsceOREUo6Ismk40CGEAz9LVIp0gqgUFxwxIMkInmursSlUysc20kkdPwwnYcu_-EacM3HXXcoNTTwKlV4E5ZFrQlGkk4VCeIn0pkk3bZx_e147vamOmXs4E5me1-Etjjs2BIY8lRxV5fkYt4ktvqj0JGhu-xpf3-OOU50mkY60OHIlVePz8Qlbi48bahYLlV7BzfSbPT2RHskRk_QbjXmP5rLlfHZa6VMg4dNALtJJr1R6iMZH-c2kzCCgvGUnyg8SCxKgeCdBxZ-5jvXG3MTD5g7-7NtX-z9HbQ063X0cSIaA5er7Qdf7lB6u-oEQitNgNrq7jx7prR1vSVuiRp9Xo7gOZvHYT7-pc024fKKj0i_5uqP0VTBjzZJQpfBng_QbCUvXi0aYBSN3EcVLX6v0q12BT4heq_QlT-ZzlslSsc-n9yo6nH6uA726Eoed1tIF4RwuXWKxOqblFWzrbcU8Lf3cnEMTxIHo4oDrZsciMNQqNNRM99z0eeNgyUcSpsxFQoI2jy6wGrDHVJ3axTevmpEuMBpXdAVnImE0JtFNkkVjRBuTi1TSr24VUoPWPaXLPSS4eGHHOmDPiAjnojhWd3GVbiF--kdllhMBBaiel_rCLXeIoqzk5Rrr3mYDDVNm5IR7BLElb8NWI-Z9l1S9Zefd5bIkkYyPmIj1lNNxGDPsBQQITfYRQKziIArgiANdMHHBpYluyoeS-JqCaio84-BkmWuSnbkr8k36iq_TVD1ETV0ealGBQWmX0E7d2Yv1qhd8nwOzjieBkZhnOFnLVOu7lbIQiuCTjULLQIYoURPwQsrwfdpyVRARCsgmO9V84uhIm6DHi5vxEXvk64hPOJ9zlEJSnr7JVZKDSAlexRVGZQsS6_sOR84Dm4_D3ERHp68rNERUjOqT9NUCt_JwIr7AreEmQrsgM8KW5A1-Y9GYq7-F71RYlk12C60zjqWKMy4npiXzdUUiSF6lzzJitfQliplvSLm2i5A4M3NAKsBht4lLvuKZ2-ztwoG6ybltYHCmCJtdvdPXb6m9sNFgrUnAyICgD9vLPcKRo_S6XVE2oS41LLmXFSyvcbdELRbg_E1THGCpfvadj4k_XdcnR3HgqJYOGg3K3C44jJ4NcQ8BzL5ohIfhYKyRcWlYVJJz-l6lzyqp8o1K31qC-2cAMjMrzcGhMsBxHxoDeI6fs4eflgCtadDtLCAfVDGmXXOmq-fnHW95yVhyBNItQbXvXFFa4fuun__qycIiGLc4GjIJmIlbbvVqv1-OCJQjBkMgGkoSdv3UBgToF_B2N6EZYC2H8_r6dD6fwmrE127gPAWc83HmWtQYLKhqLy6mLHM1A0IhsrzFQuLGxvcWujZS5Qi3SBBkSZC8a9WXuPIdS15O65fVOp_PR_U9D4TpJi76xC3HboJbptQIjlPeQgSbZGODyGrLWY6SE43-nBK_E18Sz0WIhvxPUOMf7JoByTmBQnCCE5T14S9z18qJvV7lJrDBEF-7JySSIABIf3jfc-SOeB3wEfzyVS11jrgedSPxMb1--YEV5fQtsFERKlE3_oLkgzsVgVq1GsUdK4Mf1eZm-hecWX-osJ6_W7qXpNO8RuSvVouIWqN4B3d0wSO4EW2-xHZcybLIx8blmzNaysRZgNndCs0Rzn0Js_k8ChVIgtwkJYG5n5YAEEGHtWHXOWIN3z0pOGku8U74opaEhv-Mbccci93Nggg2H5ADXPWR8YFa4oK0ApZZHOyMGDKmp7o5TrAj_VPsZX-6XSU3Y5QmZExS38Ozpq9cSzjls1MNL3ha6Re6PM_GxgoWhc6b10fvHN_58ek7R42i0TlHpN7kJ0ogvKJ5jqOk8J04HSVT6HQXsGE6oywn2k70caxzkvEcPhyYlptwnsJpZH1dbk2SKE6dhYJ24scLuYjVhBJ6hJhotr9ytoJ63bgJgOZ3QkKARkQhGQQRPqqVJhWhql0rIVxFeep-eSsnILEBissD1k6jONGIX7QWlSUcQxDdrtVdbG3jXgGz0sau222V3v1exyqIWbDcFFGbzAqGIaaq59fWGEJ7N_P8xxY1_0ZmKWqRRUBf8DIpCHOv6C-R9X7i8qUC6WNZAGl0GZ9FREOIWqbjx4y3OG1KEtbjJDuxt_qGg5hPKlvO0gA7jre-dB35dA21GKgQqcDCeBEMHNHHFBRHB2d4RW3B2UUJVAUl8QOfm0pfKGdkg_E5hAPxKcfXc1aCZZKyaSICOuZQsGKOnXFMPXvjhUp_rGrF2Yn6My5-itOnzpDPNKYfzIWJv1jxUqU_LV1PHIHSVSHjDO-HfPmLqiLZ83H-9ITtPxJXDXWXQ0BeV2K8TP6INQ9jktnGZMTVke1n5gbFX1G7XHpqzwWbiwQ9xdE2-CjOz9X13xxLmoVcklV-4hMeRCX3UUvOZjf2jVe4bDMlDQgRcPniKI5NpdlBKcaVDoQqC2b0pkNRxf-VZmdj7q9h_GtFBbJpNYIeIaNWvws5M6pyxwezCfgSOBvMt_xxBaYpTuXxFXa5tfIJdGmR8Hk9E6Yv_Whug13nUACviGJW09C4xtDAo8_DasukVNvOL0nXYTeuNrBjY2PKhZgs4bbBtkERmrHQKnzC5cuc4DfAZEdKCI2f2WiTiyXX6vX0rL4ueoBb4AgpcRlDfczEtu_ZAweMRBz-varbBKhkCx4XXpjw64lEVoKlOyeQ8-VmSrqX8JUPkG69CvVmtXLM08BwgxA35hCgJkAoTApheyUJ1VRfc-QYBBWrrPdoUuJvjOy8QfvFfR_lEGHLoUdV_SD1uoBY2bjFwJUA-Xw78iu5V4TwlE2ZrIIJzkR34QxHCTToIZjQvPjRrF5ZFwlmPeJZn1LBarZlmhpRkCTApGUdROF-YRsTp8Ihxri9VJE47ek0wm-JpGViXq2GK23GS62imjYCpyprc6qsR2zwEeuRhXaBrYiZwY4krHCvgSlVKHVz1t0fLSRmAM1UTHgy8ur7g17INlcVOJBkC1my2KGyiSQK20fFlwYgnCJsvzaVZFOsP8I3Na5Ckj3qIFb5e7e5aptIiHkdVWGTOP7k_x0X4YPjvMrWZHm3nTvipBHC4QLzt-5YNYg63wQbjHAJrrXdBST9uwXuQOAAQQVjY7SMjaSFyV6OuWmPyb6s7Q-0-qytyCf5UKgGAsEQMSf-zIamMAT9XNSbx29ctwEUvVjGXaMW5gEMHtj8obVXhQhlGwcrO3USVRw2R078JFcIbw_hXREipPbi56DsrRDeZlyYuCLsVUioOjZxaEIc4_re0kgGEvOw5XyubFH0886aKWmxcbgIzJ9PK-qIAb6mEXKCF5NUiMBuSWBVsUgixPOluLkJBCq8DO22o8kkueGgFU-vSwTcJumIIxnZbvpytR_ryIQ2NSnku4CpGhMMRK1H3qw2tVl6llf3q6Z1Xkpfgkbbq1l5B2GFvQumawmnkdemxI6Rj03nJGy0dE5hRD-4pT0tIBqzoFLDBLnJ5k_YHP_JQqloRg7lxShriUtzzTdoE-XT7kpUSMiHVUTBcj7PH3V3IbsaQkpzEDd4bbWMSrd54VNc3wOlckL1RpXW0R5KL4x4DTiqyJgmafATvs2B45C8AR75VTcT7BwrExlNnyFaU844wOUEreorGOrbuOS2RmhijYO-vKEuN3iq2Lw2OEtkgyINCjUl1TssI7ckACQIJuTLU4MRrhfzebyxcc-dUnY4sEbsoe82mpri_pdMbjdOhyAzyQL2-9-Co5uLkyyBzaSx782rkO9QLDR7Br0-KTjKOdNMvvF0JkI1kfu4qEumZ0SCTm5F7PJzFTdqewvGBDcDvvvltyHUbxP3alZWEVoG7c6uanfpP_rpqfa2au-oNj3vqfaD3WFFzBqX3qWsn8I4GrZHNhCoxEXmKEdhuw4FUzCrMcly7IuYYRhC2jnV2MZExMQPHAfqBRTX5uVZxPtfkOzZQZhMog6v23eEmMGlVVEOFMUY-QZmuXqEBOhg_CigQZDCj0hlD0lfvh1ra6sHm0P7JCvL7OIR8RKEAnaLgCNWFeFIjCCt1lRltGhweiLjG9kM83DvHnOOkElOI8lRH74HIRNoTlSwOt3BCvFz2O0VYsdyQLL8zBVGJB6qfhTRe6Muf8p3TSEs2gfCP4ngB5KS1YzD5bjLGSsibSFk7e-utlL2SGe5TiB-cD4oUkXy1XgqUYb909WugJZ5C7m7PVHW-WPE26AIb9TOBN-xn4Fl8kfjirqg3MWmXa512m-GtJ0t2HdJQqqVNoRarrIc3ZGOpIuAxNOgfIiY4ISjUUoqThiWu-1GKVzkajB78wAWhHg-l19MPBt4A6J_UFBmQnxhm_DLhzv7nZA02BPShR0cqep2ejuhw7doI2z0WBffCNkcJZ33Z-NJ7lPTUseb-FonvDDVrSEkUTouRhE1EjE4OFAwY1yFHbga53N0RmNw1HlUvMumRD5rXf8iuuakN9iwLR51-CqdQxRvFKrSGKv8q7CeSurB2RQ76tAf6i-qZHutUbWVuclBw6h78Ri-P6YcX9TOBBxyMTZpJnl8QcveZ0uNQqw0ncM11YdRxROM_gt3zc3iKI18onRJG153MMjJFV1udcvu-PWkZGnAY9b5B32mJAyeXznrefaILSqVpQJrHnj7H65snnXMnX-H2FXIEzY9csQw5xyuaZ5cf-P8C4ecNjbWyzbbCyXYk_M1uowKDjKF-HNpV-riWhBZ7RrVnEyJoqRcUS5BYd3PuCnm0FHO4_fv3r1-5dD6dJ6_evP-HUdg3dj47OYRR0PjyPhVFcoppicXcYnyuUSZSnu8VpqTl-7YKxacQrbTWcFwGNi5zh1Cqb3K8nFYy9nMv1g33THBggdpD5uhwwVbDppFwTPt7vmO6DHcCr3QjzGOyB1AJHWFRJ381ISqZyuvuQTO9fg-7XQXrhQ0mm3zu29-D4KuSh8IV9-GcTyiBW2dWaK8wUJLsNt0F2CXx222kfAjHy3gR67ooGJlmqMa0qJCMEWgiW-O9xlfF07KzYk_cFTZ2uJk-VpFVdyywo84CQOKUuZFKpL9jSjlvscqymzfk0oQPyLJPipqnxoCrYnkWzy-eScxVl0n5hC_hAyRxD6tfBhdbId-QCgze4G0DpxoPKai5vbIzxzfD7c7OLLtgMBhE_ikst1NI75YyLc00zLFbdnifmej6DWOpNmjlnpJkZ6mcVlwM22pRKyUy02K7i3nAvkDu19gP7LppFDyl7790mqxWnxko1OOZYkNeCN8mUsVEmhg-YWCQVUCPBKwxiYObiWesBo8Eiuzii6ruhC6XQIir69HY1NVKb5s7lFgq1aNZ4gqXyHfHjWkn6Oq8iPPhjNERyZ1KFeibnxRKu4VsoFQzUe--xRxHuQF9b9yn3IPbn2xAOeMzus4nrMqdI5cqpDJzQqVJFyFGzRHqc0geJNYzs-OcYza6gAfAdC0HhgDAtOXzOe4uJMvA0wQ5n5VpltndKzScZNwVrIfaKB_M5q2zRTeAIp7ySYKGZsxOkZI66cWHKyXxcYGVaWuQocVt4K1p6gh6tCnmflUxDWSfT5AGLktknb9HubLVGonJl6qXq2vIyCzx6CWja1pkLaJ2kZEmp_zgqNnx-tPudu27alo6HFTDc24MWKcjmPbqBrl-w_fUhFMnLnkK0eUVEwun87nNuldPyF91tlCzPTUjWwBqB7UozScVRNJZErhG7_6YmFRSkVntYISXQQD7tVI4jU6MNFN4TA9M0qmxg0rPJ17bkSgpGmM2ONXbWLvoXEruxb_a7ZIDixz4nsQhDXJo2Ea1MBiAZaj7-Y33_uQNDAl106692hkkb0ZhZArYD9fx2lhDxbEpg3ejridpHsFVUkwuSsiAFdtjusUoyThTvOVpJarhoVEtHusAiM_V8qsewVx0X7mIyhvGVhTBPE2z_gkWHf39GU1Pt7X5-HxSRlnYS95IVEVguw_KGlCzce8N9j4YEkguKP29J4temH88ppF7f0zLKuZjS4m9QnA-8LaF_IRQmxmRIFWwS2eR_YWyNTGS07kYseCgywvfdOiNYFdiKvACL4y4Q0LHAxnVvTx0yNoRdEJe5PR59QE3wZZ1Yk3BAyF0NxIxpslPmqcXUQxyeurnUPFzwEHogXLelil-RCft5GNYXPvGD-Vq_ZpnBclXB9JZDOp-Ik4E_I-6e9vSGKm_L4Qk_LdMiRkH-OVO3AEetg90-N4egEeTpCI4jMIiHDPRIoQEDjBmlsLrtrT8oLIwmzhDfQwmA6-0PtnbHJ-GbIng6fWqZAR9qFY4x6Eb7R6JvUFcsyQGu8sq4iDPYkq9IHr1BU4siF1hXuY-Q49hDCyz0-yaYqltNIeIqXKtSpbx58R1nkT52VU5fJoq2cv5FvdxW2sVQHDykZA_3SnWhgjIgefa98DKxR7PBOY1mDE4FDod1PV5XT4mf2dwFzzZmn7VjuiiKMX69SNkTRL1FXnaZS8NYWCGSPvyKJifk4lCQwrhMjSE7VEfdwrT_13df7KqPM16kaiD0WoYFH7SYxgg0r3xX2Sr7OZ6dAlYZwwudUiWdrHywvI7Aj5v1jyOZ5kE-xhWAfrb4EDx6pNQp-rKCcylLie2LcHDhgES4scMMUZqlq0P4_hBHMz0K3AYTdzZ9iv0oa1Z70xFrsmD9LatwZCoDUwXzC3GUkl2E95kl0QIo99kv4iXLst22y0ZFg7BqUIDeFJsjNch2aT_brEwq-LZNMSl6h88PiQVh6xeXQGnlL-YW7cESS7qvQ1mDwWynBay6MbzNZYCH8XlfK2f7IVU8ynPuTgpthmZQmTLpKlBFXmJBaVSQUL3BlbEqGea9aQeZdC77CciOnIXRbMY8KK8FarL92mlK3SO7tgConglta9YXkEBhqWZbQ8mD7yN3iEkxr6qkYRIvK38cOF8aBYjKNUEeeQzE8L36o63O20LW98hAv2BsjEVpy3SD9rzh3Mr_VYRNzZZ90c1bMLxAouwXfuKZ_mgrxGuOBHr_mV8NxtbFyul_XtTPaotUptfHC7ACsKwp57RybQPG6m_oKbWBfDL_XBpsga-H-F_ONVkTFjDkLC2lqeQ_71-jSwPS5k2Hj53jVZfKNtX15YkasPg0ObSB7ai4X7iQ2hVwTZIOEz2nyXTGE96Ih6E5kuws2uX13RrCO38OAWr7YlzsP0Ic5VV1GWp0ux9jqiZLg2PyDhKS5eRZCkNza2Pg2c48FsaG6nKuoRj3CefKWruLmqCBqnoEYt7reJGSU3SLH0OZUwK4MpDpgVAR54zz1WtFIW9JAbcT4W7YNWhf-Bk1S1hCKoIAzc0yBqp0TijVJ_FJ8kxO37zsfHbwGeyN6jQtKzuRXoVTbmu22h_j45j5OxBCA6BfXKcY64XYwi0jZsyH5lEmo09RRfROS_qGhLgy-v0ha4fuW4vHjgEFEipFZW5qf-Tuktml5LxpC9EBuKJozzIgISZNkvS7ulOf1QU_B-gjOSXbEqmNLFfO68OvxQGd1UTGXEYMZt3TKUSyqC9SOoUuJysP4GyWF1_De3vOMjWN3Y9G1bELVztQWjjEoLt6q_o3bzAe_vGJxXoyA6dxPejICvRh_DWi8YEcbs-OGiGx-8cGas-gn2uZbkyYXACGXzoIJmGiS4MgAXaaMTzvOXP1bAI3UbjqghUYCZFjTzZ_Z6nuqiHoUp9cW2WcZlotmOyK9RwkZFLRsi76icvVkIwSjEAc3tKDhJVveHLdQLz__AO3rU1RH-nEIyx64USxNsWujAYcVc_55wsHzwTDg3VtKtSVNypcrEagXn1sXhTPQCFoP5BhZE2eTPgpVqNjaSSsRv5tk05Bc6ykfnzVxJYRuI8y_ANGGFwBqo5G2px1EhqnvDIk_i8HmWf24uM0ny5XuAB24NdrcZELkI6PMV5YUra9bCouBlKMP3z5QVFv3LSlNZgduCFnhyShTprg70y7ZYkx_iijO24tgUOBWPyjz5Wd_gkc8fmmfCD34ibEmsg5-DDTuzj8aSkpvuuRe1XKMucC_KafBCMaQu4HM-WlZqVFIp4hckBcdlcFEJw2q5tmXI3QRLlKa6As6d0uKKphVxYBFB7DF4dvhumfVpOy71BY1eHgL9c01NRCLhK9-wixuN8NN3aezYD-KR3ITVrKPSzyJSkDgLCOPPzcLz6yKWgnw2xNUgAgzf_bLSRKgpuaLV9uGH6va30r2ViM-FrptTeKs0HdeCyK1D_UiztaY85R-3meep3m5n6SRlVV_DX4-Kcvy7Qhzi0_bNoyBv33iVa1Z_vSQZJBlj_1TyWr0OR4Hh5OCDME8HL7hocr2UA5ubF_F4TGRoCNZHH7Z3-UD3cl71dTO1WYlOx3UNBweNKjhn-XskVbYLy8GruaqAyb-8z1ftKYGh97Om4Y6yeBat9A4Ek3nwWSxYlgtdiase8T00xnWxZAw1iG1M8Xw6nGu_E8eMmd4UxqZqHhCS8gl2-QpOLeqOT6GXVNFIXsFx0202k-VjXLsOd9Y2Py-sBOGZAULrv0MzMR5EcnWSuQqp2pyTmAKrqcPKIcxY3szFksrxqNPnevTtJLs2F-xBr8fxd0rU49C50YUD53Kn8r8jkbl2uQ9Svnqc4wVZd8scZmNchiT7eSR4MP_-zJEn5Nq6uB3TPBHvG7E5L7-kr-UCMzWFqbwkUadaEeyEa32IrWEKrTqKVcOqPaTJ_TSecNoYBowL5rvU4rgyOTW2lTqq3ozqqNNY46o4hOtfVvLTf6Lkp7LfJeguvjEzbKuViMwS9NgNyAYLGgcc0oxy5vP1Avvzd9g0UyUusY39spjIyGY52OE9Qvo66C4IZGXSCDU1wbjNzqVAMYKQFJsPttXUHDD57iQ8QiRNlO1RWQ9RVgknHxDpYqvqIFU5zU9HcWdUt_ZVWaOpw9EdkoZJuKHVfluLkn1XdfT0l6dP3ql3T397d_j26aHjNV1M1zUzOEKccyI_Oq0x05vdSmId3wog7ADCAicwT9R_ObNjn4L0HYA9HXSGMBIFdkU0uR32xlhCigIuJ1gxSHEvF--4My6lgn2pSqITnfhsSuPHQs5pNmS70NS39Qm3dLXvh7it6_g-7qy9B6vbva7jrSBl7f1HypuJ-OSoQXQ2xAYpsbJmzyKufhhEasqnXdkvCsG5Fc3VFEeZOb6LOFfwrkbIvok5m9jY2F9ivzza2BiwD0HEpyWxvCEZZ4E9kCRrHK5q0EeGAY7cbLoJ_RekD9i4NKX3YhNaHJCDr8wt0eu-yz8B3wGPK3aFXcVJ8hrED2LEYHfYailJBEK6OKqU5-JURXRj6TUMOx7itdjixHYiwVi2IAhg2KtODgzS1BTlM6QGfD-0wTCzQ4B6aviTnkrv1aIjJVnplWyBDAHW3H6jeJcYp1D5osSBBAWABUueYKgimUjCHwxrfw4RqIibuvbZ3gbnxkGuqmpq2mxBqwzIfdncIIT4J7LNlNgnTe9N0LxCG5XTrPOl7OYO7du3b_MlmAM9rHyZqZWTILpxjaSnoit-s2Y6pHzjFFKHDhu33anoiJPNTWlIeMoJVpdHyiGnaOuCiqR3SPpAIElguqSE51yGJWMVXfNLYi6aRMorThE2S6-v-RV6O96-ypt8-wRzd0dcalpDL-2hkEPruX7YN9v8BCa--5aP0OavYcrJd3E4hJ6d6h43K_2QDi05cqWbw44Tu4P8tSxd9nhk0hdDtpi9dL8gcO5Zkp00AzEgvBXCTjJD1fkaLvKWGhYOPOhxeJULYR5L9qs3YdaiFJfCSAxeGpr48K6NRFYq2l9WCCCTB77U22XjZHVqJw8-9Hm7OiJe_Egi3bgp4UXYBkrBcVn65h-qaQpldkQzrzksRx68WIiP6TbfgL2wm-az73gdz2oPZ1g0jnhrs9qMoiTejqK1b0D8ouJDr8CMB7L2Zy58btvWysj3_QUwUXDcxA_M1KroE7SkiyD9yc2fwSN1GqQ_m8eR0EK52-qFumw0duCWu2owqybTHxwGJhySBFKR7WYDGMSM4JGIK_O0EV-h4Ev-ZGkyIyQqKWIs1uf6d4P-Hr55vvZNcxBlXfn-qi5HaVsN0MZmI4RC-ujyJZugE8wSGJl97dnz7pXr3xp_En3jczdymWdAKM83IYqlmE0e9RqvT-tER_VhnTUqbW9HJGJmHtWLuvC7ZmEi6I2sJ40sTYtRVdC_nM-ja7bJRIcYxgffzarwYy-8-rCO3Q7FsdDfZeDyBcJt-FxHuLlLT19Nol9iEyA86PgSjnndpekYWfiOw9NW17fHMkgaolmDxycfbD5l39mkf_rQFuiftlreaHBKmpMsGnG3JHEKiSw_u45Zjg5MVECyEue9vKmIoCXbYiqIPEdWUZ15QyB85h51ia9SomiUKJZLXKNECdNz2baks5F96PL9p4F0uGxX5LgtOskh40q-7zaz4jHH75CdnZRkjvYkj7M8Lm_CkACNkA6K4I_lKdEdmh16wh2iivuNKyxeWIM44kEQ7UoR5BbMc1nhg5s1CTYvPLmSIKf53ncdcznAZgO0tMSl24c4xSjWj00-iYJwwF7frHTiwQby4tvP-0afP8fFO0PgPiy84YJGk75267PKKd-9y7YtiXjAXmJGdX9vTu0s-1cU1u_YbP2fZvZQ78eFZ5QunMYx5TjeIZZ6sno4IYhXU1QMW9R763mKE9u_YtqWk-HUTwRtvaOW9O1DhHeAnzM_G2eeCzHBV_ONwzVskMwVnz2yg-LT92ZICJgAXVr2bPloxkICeBwu-sQEnTYuUm1_LfgknjMUUcqNXvLZeK___7a2_rUmxknSASfE1d6__SVgH4n2RZziQ9Jv_9__B2RDzyKzwAAA",
-        br: "G7LAoyLYOBAA_CdpoqiQ3ZyIalpogHop4MZw_KClfVlTbg7n-DKSq6XW2jDSvMs8h9hsBf8ahvht4a9qiSamnom0LOmIzdwbkj9nv3Y1n2_LFIMxjluLNZVenw7mCI19kgsfmuvrdB5qvWpX9x_AOOUMLp0IonwpK2WH0X7972f978-XdlLM6dDgzH62aXsejzcYQwQpdxm04FqJI_h9mZqn66BmknR7BWXn5TQL6XXnxEEYqwR-SmU3qznVH5IYPPnv_5r_X7-3Nw05-7l6OszUdXfsMIsdZt5JQytWFMGCVmvAL19Nv76Bk-lVB66kL5lROlM6U6AriLyO6dDLzOrxUsAzTXTTSix0cprJU7p1UnaGpRXT6tNPQJRpZa-v2KHlIoc5M5RxhYAg9z37uoherKec6eNZsvZt-p6uvxyoyHqW7RA63HXbt57oUrBI3PobKsRvt9pJ8-zEE7S-1sxf-ZpV67hzSMgDj7Dwv52b-kLuVF9Y_1-plm9v3SApbcyncHLIt71pOLPOl5MvJ_b_v6rE6urGsqrRGHY3QQsAySdAElcAKT2L0qi6iZnXgORnkCv7YaQNlJwoOUly0thZYbQ53-xTSleNTymc9vlkKNwW0kE2EMN9swZlc3M2QzN1RiRqc4lxA9DWrBHuoPnvMZptn2UQAgL6fdso7b_yGzvJ5Jq_bu7mFEJINMl-JpBbfcihrCZt0m3XgaoE_gYBRMChMFQUNEwYscMWlzjgAufY44gzXOEHPvmJLOWzX8g13vqdfMcjvwkBpLCWBB6KOA0h92fOfre7nSADiBgQOgwkUPsLE0AEt5FWH9YDyIxKBCWksU6bhjWZTGe1z0klIHMVVsicOQCyIul31RmqbPv1j2UTCIWTQ3UTM76tuXKLOunNCWOlQWxTq7fXWltR28msDTimHa-ghCNEln4bylvuHQ7ChhFY385inWEHgaNJ1i9uu4JfrKBbPcrnn6Zo-W-g0j_K3_Cvt2eTYxdSwOKn3N00PRwqkYP70ycMPr1_B10wllgc91VWYXLOGlHfOwalS64rvJr6Wvtfm9h0xkPMEbB9RYK1id7lFBqQM31vB6gJTUbxqK9EwPayXWkIc7WHfiwVJ9AptQvOPaN_Wetkoe3gGhlSTLq1vaz9C9_qd0Co-hj80W8ghrTPkT6OZyiWDVmOzGkCEgmrZCrJgxD2o-_AJVx2ZFUgHyzUKKY-4kBaEcSZggWGCcB6h3AxgBgxqAcQ4OaAao1rry3UT4Oa3eb3fDMcB7SutTrohSul8v-lDau7zD_zB00239x5ef9zqYP3Q1rdi5dx0bVskmeh2_UbX0cMNcPz_Iiz50ttUnVF2HXyypaPlIA3e9n9NxPSzacH9fAY2sMRCqIErhsr_xueGV97KfngHrasBmj0dLXzVS6_cvKgy02-a6qipcbp7GcP_Cdf8tVgvU4pHmjRWCr5n81oJq73JZz4rbXnIPADxrMmJ0BsMmlbnTEpO0tOWynUxXvmSBpkjRRc3rk3si9BJmhCPbYmfRmR2BEmNFZ-nApyYsU6XRKkUzaIvsG1jzQfOniQBJAuPh4_QU_3Dgd2McCJUkc0YOVDUZ69cOrERNhoCD7rV8_j8PF-_cNG0MMJVx35BER6q1NBV2XhJTLZlPCciR8RoaHkz-_D2AR4EuiPPJkcodPPF9UVDyepBKGO_pLhbb9ZZ8Go6dWfNg1_WbelejQ2Zkz4Umc8eChd_Odk3d0P-S0WK9ODC1Pfz7D7PfAI4MNcFDMT1uXFCbcQMTShEGGsrxZZ72oK7iMdOrSW0sS0f6KDMgRE-KvjYCj5FyeHSqv3lWlzGGJl2ojW9f3C_ZAAcGJmRoF9Aa8taNEYh490x8HGePwTj70aPl-6GuQFHDokpnDmyfRB1hSTv3KE0rf4n9oTQF8VOWEc0RgvmSs6JlVTTlzEBx_C8muqo8dcTxVhoruywvZnFiDoBto-7hmTIYJ-nvPB-aRwT270jORA6G640LPpgZQwyrSSiYP5Aso8cpXjxmmNHt9fEsKjajlYI2IHcRqlxsrUJ76NFMNazT1QEnvhEoRqDNpqotmDF6zmKVtZaRWNMbR3V9-XNprVQgXMe5jGGPupIkU8TAuw83FJ3MpVAC4sqr61KpbEvLXJqE-GtyhMBLdLCzBppG1b09gUPl_OWZO3EJ1Js4iPqlotUILy3pRsynXzoowlZht1dIEYibJRcnFlSeERuUmNBsR1ERGMA3kgo_EdMLeRvqAxbQzolKA1-55SvpD4zQ9l0Kkta0--a01zHk2XoP6YGxVi_fCVEoarifpMmAolW1FlymSzCP3yI66SXpJLCa1KZINrKXAxhlsRqy46g-Kdk6f41s350J8FNT_0ysZAYYD_wBzrVxBHj6PEkzncgl8gAJmZ4J2muKu2J46Wmvj9JOJqLTYMqcieHdEO8RhKjiZyK3MHBJNp0yvsaeQiENpymjYIDzH5afZ3C1mLZbGQVj37qQpXqE1uvPjMHAcUF7Qn6U12FQXXIgWLxGKA87RLYCkifKjwP354Jd-xPzFz44k_vswyxJkMiqVNeaAe7Gr4dPEiDIClGlyz2W7QrU4UryBudDDqIKLQjOM6ry7DQF909_gEoUk8VN6x0zYpgLiYehxOT2J7KxZh3H6vspcc-WxxF7kxvhcCgw3CNQa5y6qSOnhhh8PAUvaaCd2BBO9qeJx-wbqd_ezoCcFiIl7w4IStNxrnbKvc8XIznc4DQh1QF9EiEJUN5ur6jHAxmhkPp5sevkAP_jzVWgHWOCNqsuER3IuF1D03NRESolYxSB45CG0Z3f-pY8dRo67TnH9gqeOCQNU8xmmQ4tDYYuhtZqS1gxPrZnKEONwbk6BXXG9IlDu96U3GgU-AeOo5t74xQZNllKLtIb4wDukGliPYRzoJnthlsfb6KBvl-SHq4j0tDIUVldQZasqfeSQmD2Ie6mZKbk9iNmBsI0l4M1nWecTOE87dETrTKwXmvY19dNcrCxyOHYUuuTKV_QO_pCa2r_imVZICKnOV_2165gMrMzwZMnwwEGdGTc6k1QPErjxDg8EeRqwyKRXZMVfeJ_wCWvIxKm6-Al0Y4Q9PXAm4NJEJhm3GGiASzpzvhI9e5ATcZNzwp70nRXV7qmZ4cLq_D-IKG8uxw1CDMhlfEWJhQITwfREvV35PDFdwUCXjZpIJXGmP4Nj6Xr2hJqbRyyfXmSuZIXPCeYJFpKd7s4Kpvlo_xOWkQA8NkWXsRu6X6bi8Kb8tX6r4g7Tqu25nTPnGwrHGbPoJ0w5CuvhgspnfIyp7KwqQ-OXBurbFwT-SoOuBfdot_U0_BggbmhFBKxpx6z9ZANqeZXKI3mbzCc-qOlUpC2LfPyKCrYuo9zN_5Z5GjGy7XY4xp2tCffhvDEp3gHtTrE3HrQV3EGT9cU8aiHDjEGibhB5oAyrZQ2xkrS42ZFCT1Ja_vjC1XSW6njzP61OqVjcZHLwmEDK5wNZu2A8jFOBrJw0BZ4uBYv41L3q3jcg6eJPYKgkVsAFzKUS43fL0w6b8nbsLyEI99oGkYdhM4Zj7MySdiVk2StCQiW1kNFDaLp6eKEMKCCoCg9tVYj6XRNigNnR06CbDWEubNBqacYNcGBv2umMjQnPVdqI_o6T1StCkk9MFm93l3UH6XCHrW-xU2_KBW7vWaZcWCT58JdZjWqOJI4iG6YaFtJNLf9IzepA9uK6TKcPd1AA9ur75Sr8qxZ5Qd0J2P0Pyzmx4zqLa3UaFzkpvUB5uoz2bZtu7CXCPr0Qz9vptrb3rCsSCjJ9MMwhp_Cwp9hWwGzHG7kI5fnzqPC4YxWtw0I_6gnhz4NwUTLFIaI-vCMzE-UoJoFS1Iwoiq4ZpyIfPt8ZsODxLUmveNJVWq0yGP6qYILsopgunI8sTLMCA1rpXHQf6IZtEJY_hBwXEmBqMTcXOImz-r7yrUcf85mVDmYyjeJLnCaIWu3FIycnKvg2SbAN-anBZb81364z6oFJSrRBaslJmKMc8rv0gVo14ummMwC7HGASsRfRAM_MuK2qeWX4R0e3FQddMmJDusXoOHFoYQp2IB2gvAbcREJulxOQS6q3f5AA4ydQ0tMTyotHyGfo08JgnHxOoj6BnbPMCQBoQtgWgfCqag5gfTu2ORP87ILySd_kEJPBlEiLXuiFUDE7jF_vnI9zlIgHrm_Z7361Cz5KZNRvz5H-HohIsuzLB4cd2BqCFY11-6DgwUANvm9JQUZz1zMI6QhZXV7qCMmaxhQoRoUCf-3DWfCgI14by1ESB4vRc6PpdqZCCg9yr1I9OG5B0_MedSBQhV98kZWJ-qDmc-nv2oGXXHezOHaHVR2dxaNdggpcijMLS5kgiy1CstdXzW-R4vOphnzA3wkAS9iKu2hPkjvX5a_mvm6xy3KprFNQxjs-KomeN3GrDnTCZUNQunxPSBPb_SFcbZydT38LggyZeJaXDsJRQp83kq6YDOxh-_xMCxa-o9OyBrNn3mihiLqEBma4mJII16ZtTMJc5BuymM341XdBEF_ZOe9-GzhyPWJYVEdIoWJSq5bpWY-LSVKEEGMzXHIvtkz5EV6IqtYVkg9RaTQGuc1XWN-FAUEaVzstmB6RZX9rOUJvSBwQn4gdd4Hcm57PJjkSOLos7nkx2S8oeHMW5_9kDdU4ruckexs69HKIVcnkvHezZtD8GNurCEAl11dMJ015pZdmk7D-OMf2z8aZ192XDPdTQZQPN0r8C9QXTmF08heav4dQoc_Vouoh_3NjCS6K0fQdnq7F3m18_k2zWaMz-juYcNYpueEKyBZPtJPiU6Mu9ZVge2LqAf66aiC_3FV7h7SOQogQKTTkgPiFIEVIb8M7T6raUHIAeL-3qpiFQLCUlfJWhgc-cWD0kskgDij2zNfEdXxpHEXoTOS06WO-PosswCumhVjg9faMaKc9B9RT5oGFhCdTK7-LwI0wQA9Vohtv30280iiOuA93wD95YThnoixkJxxSnwalBLNgGtagdjAvoeFo2yZx4Zye8vQ1prUjET8NETrML8CpCgi8i_sgajKWjdwOERxipZabNIZ_McTUPtD-Pbn8em8E8qi5nLqQgEpNc4OA01PvjGAlASUE0yfYIMm_E0AXmCw0mlOUE1Hzk2yKFCMR9NuOGhT0qZw-khxjKKBBn4MeIamVUO7UaBWBmRsNQbv4mA0xE53UkDrFOb-TRB2rZ5BvbhFKv-t2z_1t73Y0GgyDrwQoXmUBloeiHDMVYrMDFfG59-fxx2YYKkO6kkjR_Db2Pk0uAyWDtExblFyNHN_OKlu6FEOINp1-01FFIF771l4L64ctSDvLS8EODU82h1TGen_kHex8moC4bPpMSpXafHeKD97A4lIMH2HJhu9H5dSmZzEFdk4bRSmanVb8SZsjrn4dXkx0M1aX8CqYq-DiPBkc4xgs8ByC2W_I5y0jSNiYOWZw6kCOjs4DUZGAhC8COLCEHu0QfASliD9cBHrO-aB0SbBgmSz1YeDW059JUa5WUBH-nAf5Xm7aG86Th7rszSZGVpMhPsnxeSMdaEKo3CduWltyN7DkZYvxkY7srZSJ9JzzIY7nUsIADQcwue2Pdukx-BGfS3yM0F4NWNrNRjQ4OpdPAe1_J639BA_u7oP4skUMUK3XAL8R-TCECUHQYAKCvEAoggagRpQ8itHdeQUQns861sNHh1SJOn1hX4PuDRg5Ws6NzsisA4dXa3baqo8cdob2HhYzK_6A6wvO20j6jYHsyQ7vgCqwnBzG8SXhcGO2PTHtGzRchHL6xNmCUTr5UhGcFZ9oZsfKh8J07XODcNehB4PMUK1h27bOzcMCOtf_W8hW-Mgo-mgCFTge64EqRoAycBlU3AjgRQ4oUs9wCX5l_HfphIKwLZ_FhvAtHJ-WfBt4_Qb4YEz1QaT2iO5EL8xN4TnC6y70gecEOzP7AC45N8ty8bdnQvoiavXNARgyXwJAKnICmR_GcXWFxT1pin1W3UkAqOquxSk4XRco1ERAl281xOBjo9tgGMOBclNYvJepdW7z16ZIAjqdYAQC9GblHnINnalciGvtVg_9LHTc4tqIV0_mSwPv2YHH8eFi7QO7LtCGfJzqBavXYYa_niK2qMrhW8kMo7APr7wwq5nbJ6-caVAXoXfHouxTZkVr0MMOarr51IsX8U_SrU_cCNpwcppXkN_QBCA505Msn6aEcpl2lR-yjPTybFvCML3DMCUEhpurK-EPiwdsapLwfm95EuQaLIPoSgXGK04Aw_aLyZYgpoDDxW6WyexCLxJo3b9YPFT3MELo4-n3A6BuItTFN9sElwknfuqD1KSOZM-XoAsc2lm7tGrPJSSrgGbq_lAVccakOAMc8aTHmB5Pzr1NladAFYMwex2JIcr7diqHacPMOmH-gLV7-9is3Vlliq-3iDJlqz6NnBRI_loUwIRo-bHnONE-i4cloSitzFPQsN0aoziFaBDRAQSEK49INNdlv_kHnABdl9uyFjEi3qLVoEcPaxVYSNdPZX6HR__NZpuNtI5LlwrHsOM7yGXfu0F280w_NS-XxdU5675j-kLuim33ofDkWfrY8kcL9u7FZBn_xLDbOxprv0bG0hC7Pse0zX95ZX3AgnuAtucDuKDmf1ee7PTk2z1nZIwuJd6aCn5TjJzdMRaumg9Z3rYfHvgB0nXHx6HGPa0jXIy5HvTMoe1wBO2Wv-qQ06nIa_oIrUDcnkNVzwrmHXPl4YAeIjPSX9UU9NiKtNWVPnxwEFyH5HP3THorWjdTPSA_ysUZQI7GcZ6cNFMZAp1PM33_OvEsvPPfhiuNpznweaw57lnQiiLZUke5HXMMJRIFGYjh5_wiS_AhMOkr-UYEay0qb_0fm2XH57kw8Mf0VU9NExpjNOqPfu_AJWlDeDHPjptqqLw6Sld-b6onpT_aKuKC64iQ8qk-8wIHGMc7B4mgPDrFSXUEQyg5EJXm8mLKljv_wPh9UXXiwqYPptgXvBBiKE3WEVFeYozDegGMP4uzJmhuYeeoN1MLSoesiOuC_HWNz8qd2dZ7n6UXsWF6Py-PpXD7W8Hl-HhGLge3zv3ZWA0cxsLWAcgQ6DIiTkxS_HUY_RD0Jwf5fDcLXUyIwELRTnsQyiScZbwjeKzNXCO41-3Klzcch6kdgaivvmfS0DLWY-M30ObqUzmofA7jJhPZDWnq0KxHVE-95nGEXO4fGh_LqSTC9QW3Ewz8T5PVxPuLQPXrqlw7nYp6z3OW6OMkRBDqB7-ccj9dMzLQ9XF8ZkI911DCsps8uZiY7eweeGpnDE-w49pPzB5e43JpeEOe710zuEtRD4VZmzqN0r4DTbJdLWSomzeqAfoLyHgJjeYLrT0eususWRvMqi-RPBRF1Ps6CReEK9K7w4l6Wn74IxrsLdrWECk1H6cVNMEQg4KRMXCtgetyl0hcMCFEI9Rc7_sAYODhYJL-ABf9dDJhQIQN5ni8YwLwqGbTnKy3AwZutRp8kZxvQCfPdFir0ydntviZg8hu9F_Bk0cEFokAdP-yI3-n7wUy0foXW9JjbJBC8Gax4oEglp-t_5mXcDl46XEKdR37lV6fMGHYlNOdqVfUqkvw2M2uE6qp6XNSTpKzCkzgUJrF7XlMfbpW6dulGVYoa4Tl2K6X7EyrEXxtkugRXR4cyQjhnpWv2lciyhrrexDV8pcNF8po69qQN25A36JC0mDB2zBLsmDRJWDvmVjokLWDJjJkDDlgkVhaOOZHPJMWlJUxQI03HxPMoWZaHVVzn5fPzAtKPzvh0YhlQrBa_6E0G1qmI08m-6wmfUw7byoWkhTcOfN-gV9657HxOypteeQ-fZXqbsRLV2Kq9PYqIT-xy_ctUFsm3NBMh75ir7Ea3mrdT2lK7WiOD1LiRI9jKdr7mejVSoO9UXyqHa89d50r0BfyugWG1Y27wG904p2zH3OY3HiQxTc_YTYhtVTJGqC3w3BVSYe_YUzN2o4nHt0VyiJqeURzk6NyPML2zoRKViOy-S0NZ5jcvXiTfgak8LjnN-zDFt64_7fLl60_DDdNwzF_smGtCdUYGpq6FGoZtloITzWFRE4pMFVxOdDEa-svCJ0Vuc7IXUmqJPgt8_jNgpIARL2r13xGGm4ozG8MaIr7EEUBa9btgZZm8pc04o-VBYUU0bRR96ARmE3oXwICyMZtcPli7YCKUzKQbGJ5rxs3hTbTrzrlnqJ0wbk8DhhdPB0bMsC1W1_TDKxCrW3hHJxphP_6KABQZiXA6Jb2jsoB9j9VaXoNIAu0Z6lk5DwEn80tInkcz0M2ck25wTma_qi8paeNScwXmS8ohPfuyhX3obgKKwBM7CS6e7MzD9erG9R7s5Sflw6LwEEBH1zlFkkXJXE2RVd-WqbIg2s7f4kFG2tPksWCd4dbHgUJWshEkIy20iMZdE8Vb--nEgPDPNXHyabuM1VXpH97WPDTi8SmrUGTFx6K4wDLTsD-enX55L0RUZQU-fpQ4vXtiXn1-wcdobGcqllktU_iB2Uvw_GRXbQImaB52gWOiLqy7rUwMYhAYeeZ9FfGMMVfKWLbgdkDgPzxsjS_fE4OMPRhd0dxhYee8tkk4rHs5odEXxzl3bpSSEotJDPtUXKkDHxoqY2kPww0v5_qXBqg7-EWD0ijja-DbbabQSXtwQvgWwst0d9a7amURZAYtm63HtJpMkfWOrCBvy00ex2n3VXr_l1d-W8l-99zc2_dTGivPHUhHbeoSf-sjNuRaKSvCh_jZjKJCNCmUM-zdIDA_Eqg9etKH4MQ4TvKx5yeZefreQQyKCP5h0hpXyAeX4dj7JX-fF0C_jSR_6JUIDw_sz0s4URSUniLDM_u-5cP_QB7N3-O8XG_cgxdB6gdMDa6dbuoWeNlvxC0kdXanOTn_5_-353c-8vIM6ZPH3V-9x-bXo_3_5FiWBpz36HldYOwOfsnd8jI8V608H3s63CqbDLr9mw53_nt2y8kjdoTXgnICaW45VDpjDLDIooB4c6aZ08mDpko0YXc55HtkHNkTjXbWRcD4bllVmvUTZ-EcsNTr2IBkU6VBjWOJoZSLZh06yRcgNKLWcn16oKq6El1ikd5U4VRHVxt-ysd2NKtNvzrZCJfh_z80vtxwI5ebM7fiV_C3UShI7oRyq0tu9Z-Q9y-VqzIMgi7JbS40q8LN7E94h3vB5oUCZMJ9EJ7BCYzjxoNAkbv5xRGXCm6ys_9r2E0CMQFPYVpVs63QC0pAkToJcyRtMwZToibmCoNqpTLZJ3FKTltdSu6QJH-MimupKw3GaZddfzDVCpGqhFQuy2WXMqYdQPfo6-UmcF4V9WmeM5bVQjNsWwSB5YPvF3zAHSwlucyOmFBaidBLfyQmG-P7t6jkb_62DAIzhiYoB7uGZDqLlzb9_2-47TUtxSIY0aIqzK-2pptzw-fha9sBTWnu_g6kah_4Fdl8rz9_tivC68Ef9VOyCY5FoNnjgPjsZbbvd9zWTMy6LW1M8coicVhpRzGYYtwPT1fUu44IWEnRMIsJbqceE8rNIEqak6WiZgZDQ7ohnnekGGJkBkvxjJCVX00UmmtgEM7R9yVIT4rMSBqYvHcogQcMhLlL3s1llfrlvkJpiC1OPIqMUXAKD3JRiSOtGyrTpmVUO6vUgCqL8-cwX_up0aZ4KR5-rjr3tgERRQep5K-9lYKo-oh8zsGj3-zRPLFjyT9IGT6g8sqmJv5l-AWjEP3TIyqWmvsLTIef50uYp-xit0GXLjZm9FAuGb10QOq9bploXfsfjbn638zX4zud7DWOz80R_nvgiNWz1PIwKKg9cxQnBR_A7-SM5y9z2WuosW3Os6R1dLV7AoFu8SVUUTjUAI6pX0TkXf-79qm49NPHo86vHtBYmh_h1q5uNpIpvsW4dxD0EZFvZxOgGKls29YLxdn8eRsCsomqjHS5vSaLZvxurx-ouMh8L84RGcTQPzyMWGY39E4fZQ5BdTxmXmP5yfQudUHWa14aJ9S8Bl-glgomIMx18_smgWB_YkCxlAsyN7gBT8M-Ow7_NM5Q5SAFG21o1Q0tDD1vppnZhzfc1VRi9YXYIpT84KtMvO7e4RCuI6i4GPBo2iY7-MJHBw2O0qyGuizTFP0HuccfEXeApDHgNPDS-NW3USIfB8QgdlDtBP_Uki0XoJXEVA5uzYsgZjbxFrMijnTBVIsNCSBWEhR9rajnz4qMrZHBKQK9g-FiSMmFxJnvfRdUQAbMWRbY0HWVwv70JZwD1HHlTo5vAw6ZUlt6LLQfCNnfPayhwCmOfZ7AG0Z9XXpKL2hDViA77L4JPHJJ5kBb53JNxGw1Y0NzRHRMBYKQ8SeyJG7MLHUHfSaRpKcNWHmCODJWdlWyvetEdmrSLMOULwN6W1Wm8mRKKHmM5GY-5R6QeQcXFsME7Lz_SIr-STqDMy6FMSrZsM53Z_PqATMPYjvRBij-E7aJHIB9gOiEKlKYL6WJxTpIINNBayV6xECWtKGnkl-BFtIXp-bB36a15khgOIsO5ggMbp1Lxy9l-UyP_aiggqLmc2Bxscd7TnD04Sl3-f1RIf_P6d2tUitu4BhCxBpBgYjJCPMInSyf3m_YvjaKaSPpmnObunBaPouH1TA1InpmCvvFjpQO3aG0t5rWM_I0ac1Bh9q2EfMgYNu_l17RptW-7BxeuPErvfF_50LQJvR3NnV7SMRYSXRl2DOREt3yXhsjIkKA_KnKp-stiDrDUvtfHOEcgJNbl1GeODtaJ2WDXb4gH6JtQ56LtfrZKtj_SnKPXRL3QDQ2LahpDpm6LwQBSoXP8T3s6e0W9AYmfmHZm-3Y0jfyeHuMWCvizkZqyOYNvLIYey18fZTALsDI6B7V8WxFUCAr8EWBoJh8RImLmAouMlCrX7GY72kHxWiqybO0AxQoHcHZaxq1bnNgeITa4rCJLaFLpH1QX6zFnxFrR8Z6YINsMcbJmqyf67bascFcstZy2tFXJ7SIdq2ve1rfZ2Lv6MgubBlRiyD0pV_qDAg89FQOmfOsS3sMakCfkhuhly3vOp4Lzprc5emxM1t9FGvDmY4jCV3HTmOPSogxbRD1_dV_snDAlUPZUe0lb_q9xu6elb4pNc1mxeGDHEXz6B28KY_PhJj9IB1X8MQIBVjW_PWPgR4dIlIula0P0bn2uebPz3p-eX2L7obI4-Wavn7Lt2Wav8ui692Pn79-G4V55Kw-fa4GNQivw5o_z_IrZUc-TKuGRmrfyS-Bu2avUUe1EDtht_4LqaW9qfldeJay_Tg-xlyHQXcP3Pf9zOTXGTBDQyaGqrVLdanGBhslXi_TyLyYOf_6fb21oUtvfIb-rbehHMRxH1K33A3whGEKtG-l_dh7O2uHdPkM3QHoxC9DC1Bxw9ETR5XOavHxXEwmno68BvZnvtFr2AWqflStXeWupV0Nj_cAjKGqf1w_22Xf3Xe2681Gi_01GS1_5avD1lvNVEuknneLnHOm9vmjW9968zKcR9v37MsBGOK8W0h3qCYKqiNB1OPTae9bYOJR5t3ZqCNxV_RvMiPRcX-sh7LrX1D-5yOq3ZWP3fJT4NjInDy85wW4_s2w_MlAzeYCeGbMeVdieDmQU3mYHxBnXOB4unfhzEDFA5f3OA7n396jyxLmOWbSdizb5t66hifIQq8pJp_fvHiMjRgw5E6O2eP_gDyQ21OIkY9Twn6dYyAWpCerj62PBdZ7jsap0fOUsx56pTEF8wSgb7-epnh6gpm7-vxRC4nDxkoZ3Z7mWy7ITzTSGTtSZb2j4ynmoWARk3r3V21v6jsVJvbfnkd02GfS8Z_IMTQjviDcwNroNBndfsGlHen_8zh9708A46kZOKkHrL-YxBgMuV90isoExxvbnL7UUzjwwna8OLBYK15C69wqQAk9Mjm8Azutb-qTelA_uS2Rv-a8nKDgv3K3mhfp-aXrQd8GauM7stN0qp4_zWXtlyAxwh5iwBSABc6O6Yd5GSwv0wVT2zNsuqgV2xMME0u3pkvKMrX0fb7-gLM7879eIfGItabgvllVHltAjMovGeqydX0Pgcx4-RGhKB-W5JzAYaOC-KqFDLXrFWK7OhJtguXjHMnpuqHHhJl_hYndQhRxyykMn2DNND8VlKck6inb5hk8_Y-YMHmAXbO32_sz5bA1TqqR4GZH4b9GkspKNKhoMcHXxf96s3abaMMKNoh1CmGfGOs_0H43T359bNhuiPHqywI4W9pzImq7OnG1vRUMzX53lwOeP_zxWsyoeQyISf-CzxF05Xj_sVr2Dn6zBdXSC6A39FaceTGynj2iHEZjsxW54rSBvTpxudaaUQxANNM9OGJfqi1s7-65Hu2dE-34VJrL_vRSLqVXZ1v16WXp_gkl8vSnq-IQi8ofL_fsf36XaVM6Ao9GFLbVk_DdJJnCF5T83afXK-u0TmmmVp1pmqIWLer-wxlczrx0TR-G5xrm5fT0P5_LU1ixquQISwOP5pfv0NTuYPO_6SVDHP6yJ9uILx4Yokji6xyRhE42IEpY7tjus_SxQEf0QcymKNp_vdYvDLO8YsXIgcJ6a5G64OzOhs-eMyAGpgD8hCSuoo1gDVkm1Tlb5VvkpKjl0LFDuRRxpy5IDQR3-B4b0Ak3T7ieaJ0JQaoITOidOf74U6ul81jnNI80U9MS58pR2f-nD9RKId1Ob-36wgZ7nI-c27VAx6jzeEyDkMZtbLdTi9SbtOr04MN68ksPJVvkL7gHGN435jXB-BdcgqoWb35v19-lXZvm9kKinIQHQsjCunmplqXNQNCgVb2TgwyHxWo8QYzBNq7zMqXmyuBj5xEABTayxscotLxPLHIM3eJSLevy7yyM1hai8mFOc_-y8D1yuWGmPIeYkV_5dLWrpjRYba4o-4UCmj7aGJz-WsGUY9QQ60AqQc3JcVHFU2FfTkFZRV1UdJqK8nQURhwPT5mccf5iEyqywFObMBzUnzClu_4UIFdEcWGHuweaE3y0RM3Mj2iFb7chgXEr70Kzq7XeH9OxDpoi34v19vWQXdtxF54Pp86ubC1nPPKz4WMefKUajioNKT74ePqyS37SdZbxsfXJi0tryYHCUulP089N2M2Iv-jYtEyJI30eUfV0Hj1M-rnMAke6XR28l79_Nfv_pXQ7czRz_lOAa2AOZx-RX96OnXyduZK6M-GGuqjoFP03fRVGHO82K3CjX96F3qVgBlp8FVv7UTgMdMOqfNCPl7VOkWrlWZt_37QIZh3EefAyWramenUMGL9W-O26o2rQElcH8gjdLgmWhVKzXlThVil8BsTdC8mInClSb3k4xggIIVLa1UCjMjgVBlHstSZcqGHxO5D59-lpRjsCZv8zoCl4o0L5dKFnoCDCo9Wb-7ZAnstx9VRujwClcbZwtUOxzsIhGAEPi8T4EdxnlSekVgqbmJ5jEHC2I1YgKivw_2bf-x-ngtTmL9sDhQ30N-zNu32w0P92XTxfuGv980imSF_ntIRtZevn4wz85Af0Whh75kKACt49ryVi2AqNO3KshKyQ-m6_AIx8rJxCAZr_XJzvqP8tsN2y7CySUnOI7GA5AfXLhfv0GqgStfMKDSILPiLYucrXBzYciFQIhQBWQ3LbV54YXnMeISKOnsneYmty_qyLW1XQcRyfOs9l04-sx-01OwjsBp--l1S6bG_yDqLsApSowVwerEkZIE626Zz6grq0vmv5DUlajeZjTUI8StIbrROKMiI4yrUtx44asxaoJvbhXI3dvpIV2rULydTL3V8Z7Q4eJW4vT3lla2V8aQqANVf_SFDECf6p2PaRj9ENUryOm5cBP9BfMicP9egevg2F-rQ5JKGSC789Mroyn7rYXHj1EF38tyI3bFa88GbegtHJ2wQMgQ2JD5NO9ST31SUtVG74oHRCi2Cw8yavUVFjyjsfmuOYVmstXWzu47aDXMMNG7XbE7TO7dYL0mbhQgRhSH47rgcbyQeEC9vAIbMOVL-8vUjvwhrp1_lQZLkUIZYMAQKABOz-2clQDkhLhbEfJBgIBO45Py4kv2ToKaiDvCbBTTquqHoXU7koLuFDmopxr434trTLXOUMUIe4vzpBbehAM3FZOUMP-5ta9qZxpluYKjMtpQ5LRnK11ZN2NcjhU5JlhR1DLXvk_xJLsSfqyIN91OS18PXp2q9ksptHgKR8PGvzOjsvfDxlWsKwxZhxA5QS1FlcT9KVYQB1cmGY5xBmTlvzFa1Ty5iD1HrUoa-KtNsEmgkZa3DI6tWuFXvxf-qmrMAWteI-u-OyqyJWkHEa_7h-JpqlscnBUIM79cr-o91-bftxkeNpDZfTGJl4qcyrmOri77wU3ahGe1HzDeBICQFER1tbR51GC1e8mIJg-eHjZuwpK_MVfm-lpoDTkYbHstaGp5QV0b_XXYa93OVnqODr47qXYawhFrwOGIKXW8_U95N9XK9O91nq6QVoQF8FbT4CP_Rf6x2JopaeaMLqS9NPleOWr_iqhOHpIMFLZPwIqvqZ0g8Hmz-q5E5rl2Rh5K6YtBhChFWUvqHqflL1VOEDJZNuf3a0X4pNjsuNTYO5gouxCj7qNxdsNWvPC8bSRyUPwIM9UpZxC6iVkeUkHzMoezibg4tN4NkMH0vHzyzQArn4KkzXqu6-zLOrH_lWl3bx0Q6aLqM7Lw7KLHiscw_hA3oivaQG3FAaY9-DAUMjfHhnOT6mfSKnviIn-JihvgTE4xmMlWPlELo9RhEEGtzn7cFebHRpd9skqbJmHFrPvladohJz30cHLBxXrTNZ5IvuyIQSnRMwjchc0sKDTVFXaG1ZeM2UhlBln0EKXOjXb-l0lwZ5tV4aTWtKSEyc5bjhk1fj11Z4ynlv9J129nk2z9Vr--1eytV67xZBTBMyRW58uG2JiGEv8BvfIVIQV-iv7fG_pn5HXMWfW7wh42VEn1NeIWNV5S3KP6fVJcVSslaSH5BdSKqwwUzGYZqoAek7z_h_v1gpbMiQyxc6mEC6DuPM3hTLnOJ8xYMs0eyTIjCxfPVoIPijHKdQMtfUgGksNR0v0r5azvm5CCObA4waTXD-syG8JhJpYY0Cy-AHyde14oaM1W3OyqboC_J9E3EifJmnIP0iElQaSU52ey7tooMqROoMCdsYNwjnV9MzbhHwjsTHxaf2EscLgQRQaOdUPj-7UNmA_Q4yltp4TX1QoYTAmEKRIzwl_avyKYNufjIR8OvZTRDDo2WwtQ2_G8hPN6GgmrgHdhI85EJ0zTET10C4TRxvAsAE9xkswQPqCMZX8VwxDj7mFwPybijEJsQBydIUsiYlKaLkuhEElTVTPyTiBeT_ESrfa5spFK_GSja_9WtnYO1mXeV8hc-RL6-fMXhpuWZPzZNwoXtbwEwgJsGpAog_wvl0d2jM_iTDrNLNhHsOfN8r1cShA1i8ijy35Ib4qoo5UZ5nDO3mC7nf8cPewOB6GxaPvJENuB6ew9vi1rGG-nOAs-5snJy4Y-4sy9lydjRGlv3t3OlHR7C9swPZAOsY1ft3iPX4gBSEekMkYpVNIFSv7F1bjD3WTfjzHxiZhS-qTDxJtRuSoRb0vVAHeZt-KzGdX9TBVmmt6wT8OScdYt-xeyqbBo_FJwrGi9zhRzwIXxOZaNs9WndRT3mvGs-MTiXNxJybN8T2ZqPUZidZ16jd_PKuCE6-WCffNZFO4PmGGvt4Bt2Ad07wE0-7uSFH8gXp0UqNMSZ96UGmMsDFJ9xV2RRV9beiYcoYsjC-Kz5AXOyL2L6QvtN04AEfE3nQVnPgn6R49ue4nkSwajCG7Dc6EVmewst9CtHsfB7ondY1lJi5CGNITikjaA926RTKO_pb5fkPWwyK-7uQ6D9fcnIioEclUELVuikv3R3IkefL5TV4bxhndeAaKiheSl2mufnYoWl1nUH-j48X3VBTJp4UqIAM4BfRBn34w7P7-w-y6VHeVKI9dwH56GrEF2175XC0SD7Cn7T1LO6ll9A7XTzA3HIjHRNnipf6eGqPosIL-VOkej-vlsY8xO4L6Q0WgOhfJLt5E1rDOtyOjwz3sKNo-niUxcS1_deE96OYs914-sWx5HmRY95ncRE_C2ww6IhkGbdelc75j2P-0dBZPMkaebjUoiww_m3ula0f8VGnUHCXPpEyPBmZ-syCPnzP_D5593MbOrFDZvErH-sJsn5iwnQ6OhNvBaDnTXHchx2QQheBQJdqgJGVPYQIlUOhyNSn9qSyGmwqie_eT76f-vdqUvK_IliXhP8y8lxbINqS1IrPPcePfn6-ra7SY1pDvziTrXMr1lUfiiRr2I_IezBBTj1I6V3CmvseUefBh8vw-chqgcFeTxkdvCM-KIXOUWvH3k5Q_wIuU46jr_tyXTz26zuz13rBdchL878mNrO-1642Z4j98ns6ckYOrc1Dcj8TrlGtah9kPzbwi8klK88QwoQo6-jFLyVigmvM3AV7QwG3CzgjRX_Bl8syaXqIjvvwmGEBYSprPoBYWyA5RY7WnsZbTIJpxz7ReRTyuGowkrzZpT9AdMEPD-1G3BJVn8Rx87-QFX1tzHVvYi1PcVhe-N5fY_F-JwFvgfnWwxyV2yDcPVHuX3IHS1qYv6HxHJGCFyJFXsuY31QwfSwCfGISRK-VHAFETryBvVbJa8A4qQduva91Ap5utUXFr98wgw8lJAenKNPBdCH3BYTdasED1VyDOYyAaIQGt4_oHWQlzvZnJRAHgHXOujFjK00XNJjU49sCjnlSeg8AeBTqc37mtaQ65EeWKfJW1XJVf61H0wO5IJVNjbnXNw7pY4Oy4kQfh5c-D7oqGmgr9vBQnqH3u4rR5rCsTF4U53mnUtEZXbM2sLUBJ9IQ3byIEiOqCS1qNake_oJRZq-RmQXRoASHwRBeCUuqB6l3y7uXH5HeenPm4FgrPOp93HzFHR5Mnlq9CUA03AAeZDNUp1PQ52ntVjFRrPGExCfUb2MkaIBzcHIgga-V0CAOvBvq1uzRVagHhJD3lNL3eEIEm3sCwriCBIsYZMjqvKKaREDP6_4ofgpZOjcH7s75NkrAzMlDi2R0g6zdMRpUfipm0tpxxvU_jCD4TAc0r-sGG0OsqdjMnMcQxtrblyoNuOGsO7dYuDoJ8oK_51UiBVeX-6HEFUgGHwbFXkpn0BYeIqR4rzTGniHKhoC9002VJswRuI1TGPtMVk2uAVmhEuNxDRPFMwA7RIS5EFC8pLkq7AEgy-ZI_MTuFXeulXyXkm80Yz9EWffy0knWw1JSeaM744_URVFCHMWdyXnSjt3aw9egYZxy2LqViZ5EU9g0bI5vQj8uN1jtyLNOgTybRWlNAGPyVsI_RKzERzJE7OngTBbPBGTj-5u75YWzSOE0_Msx4Lpv1JFHZpfKJ3oTn-EdkHSxOekLC_phCFQTbTEG7uHkZ7671cUg8uOcj3bzskmGelEiTy7icU_u_uJVkCrY5jjfR0AkPFJ-FsCp5qVBQO6uxqzueP5Gc1Je4mJgyrVCGbXnaoAiJBikdNqmxAkoXwKmgKn2KwfRT_HHfkBd_xcqM5kPVopgN3ogI7m-rQ_NnOHCRhcpJGomH5RDlK9U4Nj2jYXSMRxiWi4Phlm6gRkqT7JqdvE6AiLMv-IbFOQ0q-20qJSfpRruQGhL2jw58sAHFlVZtWFbNL3K1uVIdyV0o6zzricXZbHS6ywLifCT3SztkxDfhdl1Gum0h5Kp1cJYGTuhE4t2vco7za-YqBmkAfAFyQFXIToRHdblBDnZVYcJSth0FXUtTneTAwQIqHd-ANxsLSYe9RQ2Wj5ePfzS_nzsIi2WLneXaydxl0rvVm0cgUPpyeVsCIzM2dx3UCVW9W1guKXU7hT9_rmoHG0iZlFfQi1GsEDkh4VALJ4DNoaBfqXtNQBlnVg9290gFc2BzVamliIf9TDFNfsasQ7Ly6GYSVLhwtG-TJI-mbTz6EW86-KlbI93ukN_ytTV1UvLmiFfKNeHtJvCMDNWrkCJTQz2bbX9HV89knoBLh88g_kTllW0ghfMZEY1FjwJTQyvQcxIXNamLfKgVLKNY-0_wJjxtbnZ05T-tfIB8FYD97W62K8ClKcM4I-9D4aWkQ8SJDQ_a9upFEV56wMJPuVzg5kwwRUsBPbWeQWEuEwR0DVOJnIAl2jsuZSEaMdnvXR_DXB4GxcTEJLpTiFS6u9NAJI9hAP71VcwgAEIjjHMrPGvT1q0hdO9f9ugAZgwFaK7rPtocHwKguMMfXfbz-K160wbxdjVAg5SDEe2OXsBVVPRM5GTTo6shJoUeVGGLE78emrKJowYes7aBCmXY7vbEGEyiFXTMbYTm00g1ULt9FFL37MXcAwJHhEqm1grx8nhkbx6otMvkdGvybC76GcqE_cQYQh50gFmJHck3OcsK-eFJQu1sbYHxF3J210WaBBwpgxiu4AOwq2S_Uqlg4xJgXEHgBwt3YQxCQW0wm4ayuCUcOElHsvONPKG3hIPDjWmHfWAewAN6ViXr4EtLFrfa6Yhl2SgCpN8qDgwAyC3BUJ9gnWWbx6XXONZhHKDJwX3adWWlJ_SicloilNS2ZyQiMkkbz7SN8hy1FCnsW1r0hdxCW2hgGpMwKFC6hSyLM3xTBWcTW3mqaHgnQQGCZE-dOMxLttwRFBySL1o_rNzi2Cnzua7ZzrWfAPuxAKGnRlFhpC6HOoSzANr08TAzBGvJNRtMGME23ax7mTnHoYtg6dn4pYnGb_Ar3zHF5TcXEZ0mz9mBcaD8hnPj87SFnn_8jeDeFh4pYlM59h-3LFFxY7SYHU7CcLl-LuTzVBMC6k-kcSWI2dRk7IDoi4br_qpfDtPYtNqa0TNcbay4bilAdmke1OHVjOoe_2GFDG7oM6_5FfXoLQHgKD8CTahBpUf066ihp79FpwS2IGU8Ccca13482WIjco3zxumapX7wSr4EwfO5vi41xqEDojv4VJsK3wUPg2_oioVfrockIbteIMsaQt_zJvkqDcaFnbHYPyBRUktBTNQas_Ab9yTDmRcYa2rGbkZ8aC-XOdEu1AbWo9I7ioayu2nY5flCBO8TgslocbGX_VfmyHCIp4VRxGEkVxuV2CpUQp04rPWQACJdTTdpGfVOIYzBsacs5ONhqwkcDpPv7CIekNGB4Z12Fo_m2Hjy22F6DE4QwKMKLgKOthk_977SKSJwvZ2xvJFaQeM0KdSLwtqv1FTnQ3yEXR8AZFnx2VNRU8ajJ5EC57iirOrGtTkZ1OP8RT4EoEwH6BZylqWGAZLIhdJbITeGA8sJ9uPOMEkMCW7dQkzY6TPbWiYXDPtEWgMRTSJI7sx_ETT90q9hwVNMOkJkT3pInnnTnI4Dac92B2Jpc7UX1YjsxdZH_vGkohyFNnSith1rcUdljYQpRmw3qeAlaZvu62VOOPatVcD5iKuuztTr-W_rL0sfcf7qj6TS8vJwz3zEd_Dwwsde9gNxztHp10-fXRZodmC73zvowKCtKrbU4KlFzeVpORbPLLWDyItseyjz98p1rJN1XVVyRNzJ-ZKLtEMKeSJ_Fux9cTgSKSITspmpofdMRfZFM4TpTCT-JH_3TtDvvjXdqePltQy318mI78twBRlc6U_ZpPm4geRHXBKjVyrsqYXiJCjt9cT6uMWsp4-b0Auopz3TW2OgCi_T-Q6lojZHFW2tjVJpeRUjR5C3ODgLL7QGBGV6k1VI2TdMzrJm9rcR2Ct5OK3j8HaePjEezmpYJBoo80GK3ERwdKMLTwKzEC1f5Bt2U47KGjkLjhQn0Wk_Pa4gACkOZou6tXkr3GrCSkq42_phWXYnn4mKIjMmBFzuqFfIrZqIdmojQd2O_ib6HUTKNEMGFWDsrqpnNg-mqw7Jeeefffd9QdzX-k5JD4iedOWopOi5goY9kx4I5sPP5Vftm9ZHiR_XRmY_IWY9RvW0WxDtZQncI7O23Gn3K7EcW3rWDhHy2l0StSW_VYX-xolyCwYc53IId1DWXWr60xseRH1Sz8vaX8_3Ud3ynTFdcuL1SV92QbFB-asCb3S5BQbMzyBAFtCi4s2CuQtkcS_6v-b0bwqnEBh7crlXXm5s2C_LS6IrSlh_4gBsaLI1bD5xB9ptqgt9EUbmvTxqhVSjsR0VSFpNyiXTmaQm0_4nRVRtURsu3BDdJiKS4qc7Xv0xgBasCb3r_8RhdlS9OOLrdCQi4FUiMBJ_ZlfE41x2KgWYvhUlgujbLG-7h65BNzVKnNaIhf-UzfGsPehb0TII7L8v89TS-fsfw7mOuxT854isk7c8YUzkbKqLrCjjNOU8Y3ykkvA2LfELCjZly_sZIRyoY5rqe9gP0pLWBvuhOQIthgGnzz4Blnsq6QH45Vz1ptRWy941751YwiSAEur2Rx6ZnI4u3rE9DJBcMZkmdoP8O0gR9Y3n8_sbdhP1Hdb9qdukh00FiVocVQ0o2DHwcq2jENnc8advWlFx8r7i61yzZSZoSJkFaNUD6R3wffpsJc2hlrTju-mCJWdr8pwUm_XzHKhdIzDvMrC7yQH8moKjJ_2ZVPRkq5mgPXa0VaOZaj8TwUdIy5AzOmIKS0x9t7si25JKEGydU-A6orSxQQctL1iRrkYy4xeftliYtR0kJyTnj0tjU-3HEZnGteXhl4p65AU3SJvfaw1-sYvfMyAW-R66WLttg-EWIAJ0clq7cXB6i0AbPKYYAWZ9sKSGMkHMXnsoHbNhA2iYFeY_Vrp1_XHvTZZ70yRV5zL3XdFerZG-RTnSx4juCIHMG7pkxd1-fRS-yTsJQamNGbnqkowv0aAa-w8mMUTmp6YuAJ-pAFPQlFsSydZLezz8hQS4YVgBVWlKwhoWLAcJIiZToQNFNMc2okuvB8gnyO15CeHkQFJeHyo5CAQ8AqDB7jOn2ZJocdWSQf91ozyAjCJO7UPUOs6P6FMIGWIR5nV4-pRgn2zwPBQQqcwhrDzZpY63m1wx2ufqQSy_foK5YkCsDRpcZJm5LBInGHzYoudMwGimwa3PuJEtVpUxSC7ACDHLaJOQZ-pauqlD1lXVFYPofGMhfwRHpsavIZfE48J-koLOEms7wx99Fc7efk77sxOyAxq6BFI1EqqfxswrRX2qvoSZraaUL86KS0dWQoZ28E13yX6QflnHU25SVnBJO3soKlUN4-cc0DwbtycJLMr0GAjVjIcGiiAPOiTDlnDAZ7om2x2RuNtcMttTQrRk5vKL-TQJgcymHfdkoKe4rXoAe_OVVJpGhu6ff94cP9sUs8c9Bh6tQG8h_9yj3oEGFp0aPfgCrNVrWxGQ6IjdDWpM1RJ3uvaPselEN3c8Spa46T1_PkzaKYRgUyEEsKSBRQM6EPsyy_BnjYv94_LoEF4jQ12YXWPS2cIWxzDP6F9QigeURnlvv3jkiAPuCrCHf3GaDlvL42NRiLMFYFfnugCXVLRUPDnTPV7soxuKMrAiUhdIqRwF1SAaSgAzrYWqPAKSPn7hjNyDiA4jpc1sZtaX0z0fjLN4BART2BPAjMRLmEQyB_jTjrw1M8G2LoPYVmF3lK1QtkFD7FBYxntgEFicImUJYPGymXSdpQQd6p8kw6E5IJP48pOkz9OLjdc4doUnm65Gug0L2-pGfZhR1d7MISyEPb-JXO1NglslGw1hFeQyN67wNIYxBFFg1JLVzaWfLjcmxzjD-K02M8Up6AZQUagvH97c-I5Bdkj9wIpkYuDPOFkQ6w5k2MRqPtW4dg3erB3-gMOGPucGpC0xk5RcthZ0N1FPWdxsQCa7faZ_C_2izrjEJJ5p2r0mq90Mfhs0FjJwOGYHZvRxxgVRZVRyJjJ10A_T1yJXfqZKyv7qqhPJNWRUtJKfIRPgPWve0DQY4WPeEDdN1nL22vdVyg4L7065-Vw0h2n-3x_Ub_kY_KDnrgqSPYA78WWFMzZ0Eh4m-3539gQvGeLhOzL0Ej_xcn6qOolR13PEMYB9LUg84hMgT4mmTytOa8ykv2mBkmuDSIDZagtBdhDhtoi8MoHL304VKukpsbGeHR3h0ApBsTaJwJZNWnQrtTwJnWHMlr1nz6b5uzoU2sr2mn7H8MSqtduZTGNMoMnhfXrFCkAumF1IPRIQTFjZVSGI-iGpaQZmwhddB-9ZBypMNiCFSFJzM0A5zf-IZu4-uy0c4jAC3swmEHThhcRIoJJaq7wjJIDDCfZww8j_vT7smPUBXULFvDLF1DOY_A5fuBXPEZ3B4MePVkVnMZ1uiANANLzjD90Sr8duItSAnm6ewDiBZJBFOUnF_7JjK7EDfJDGtpRugoBad0rJUhospbtU7QoA3EdAEi9F3xhNg_SqfVpqsHHxsvJTYE6DqQF49BFyy0xbYaU72kFFJCaD-wYZE15hkdok1RbVRUkLFoTwqFH0SjNys8kLGz0uo1jWOZpozyZ8ExFd8Qn3qA1ncYQ09xBhCak8Zk8-Hikdr3Zcxin5eGJ357qOxohmTnDAlr5foWmHzBX-7skeZo3EqpK7ayvNdJTcFF61XjjTCgzNsLO-EZZi6SMbv7FaiUJJ4f-lTwwOLR6TpPMvUCA9Mp6IF3tlrpWrqIYLWkNnHTqjtl6fNex_8RfHp-bbVvP5cfdu79hzrJUJiPkxZiWfcewiAmRfFmDpVEzeLxctCnbfiWKdlZNWc994cv6xW6bi29A_tUfYxCDXDR2KNwP13N9TCmmd5qTQ3Y2GYKewMDDbSJt1lIMzoCwavGNB0XJuo5ZYDZOP1fy7-88Id5WNCXSDP0rRpaTDjDs_3aJlBR2tYNd8iu9QIuAeUP0N_eFup6FN9Jht-I3cS-2hGM8LN_3Y2TuowxIdHooUk_NuHNm8LfEHxKCstKpF8z-5Qr4qjKewHw9GKN9zgERC9OGgKxdXr07i8D7n7OQWdWVBVkt1llET4hMJiVZleI38cK7vWZSSoo0vCgZFIEL8OHShewFv-peQkkhQ-wu6UvFWqoEVw5P5Aide-UEUSB64fgaRRAB7w8M86HdrE-zfyDUlYhVCQ89g_CCzEGdfyEonEoX_5Jzo8yp5QgDmG_rC3UwQyuStV-YKuJBEjnzutgp4EgqUrFDjV-7RMDK06Jth1ZFjZSVugFRVI_1jFiEERf2fEVRBwYdtF2ivkx0qVHQ0HNsi3x4CSIWxp2u3an5C68DkVVajPLS5a8Rk8NVgbC4d5x0zZvt1yHOQWQfkaYvq1agEPmtEhOPpSG0tM99hz1sk7i3YUmtdWzdxl6I-OzY1KV0xuV-F8Lq9gYgHiEuFsTeziNrGyEGboGmEedpBUFgAuFk4FgTNYV20w55zSXTNGFyVaPU2vBCI7laP59urulYqZd0j4_6ig4Hq611xFiGJ2u_asKYqEWCVQVLaYHI73plbyRjVUwrDwcX9gahKdaImbqdZuIV1uso5YUkD6VVY4yN2XtPh4r-9XjykcymFG5aNHtgHHngRSUwhv32-K-ZPb4RfCG7xUSsNmUEfd1Y5mmsSCuyrgGVorCBwA6TNsPkIgubY66yZb072ivSFy7YOnmHJior32oPPnsIXfEtlAX-grfiIr1EhOJzHOsT40pSCzAHKlhu8GtKUmpQJqNPgANHlX4GWwbYy_SDTUnBXMoyN0PH4wxx9GH7fMZQ9cyCSVbRtPqJkBwK7cx7EXxg30RwJLlFAKWTV7jmYsyhRu1xOEIRAQ_o-Rf3TgQVEX5xcUhigA75ChTrVJdEYQz7xoRLOhKHLDKaCdmDvn1QP5u1h7kd455C2pxo8CadupxKrTaoyDOIk1y2LIMJRKIxveic4Xe5UlKKrlv7wVp54V-IkY5MhJhpmdDl-wlDWhiVOPPQkVPgsyG7h9xPVJfJHX32LSeikidrvbUu2skeWlK9dC92jOtgJpb9BR39d9mnnM2-ZquZ6lSTJXcW0y5JgcQaojt21Zh1f1fn7M4mI17T9xxWpmDejwnWukf4cKTbd2wxnYiU3dTyGDZ6STEpFVAKzFLrysnoDJgQrcXa3bx7mWSiN9_xXx8JeXwPJkfA0BugBRfG_W_jlmkpj_qcS_w2PSkae1X4xagI8QsRsUP21jKxzkiFXxemyJ2786GM_XwOhCARiAPKfYQCoHk7_Ojjmj6QcQr78SDxxrTyLV7kdDUVpVnKGTpz2Vw46o75SWkONI4fvwCi0_BQ9XM1bfguoJv6_p2kriP3Ns0yPnwonoSLy3IoyJg2BeCS0-_UZr-Dfi0jZo7lQuerF81ly0gBRhslNcU8a08uk8cLEVjU1IgwTpWGZmPLGYSx09RDoiPQCuOR1t9QNTuLct7MAPZJFlzTI9xSOTrUXXLkHuGW2vCZQVBsrkTITU1P_SYHvj0xn5qsNGmai08DUGJD-M-xrDcapirNsKVrQz02wpROdwaWiJW2ddZci1gEihxrpW7ytnVu8rmOMYHDKJexUQJwy0qDxThHTBS8G8U5AUYoduIxJeB4omQmKgpLVANjAMBi0dHi7hCUsUCoDpoOBlStRsjmmEuEWyejwSmrfubRGxjtnagmA9-8y9NzTZI51F8Tow0e7Av7cc4fxRK4SRDmcg9Hz3wW6oflXzTGHjI146g6UJ0aToSovt460Jq6J2lpaHbqhPfnQXWqJVZ6Do_Kw9G1ZZP-fQmflYtU6jgAU_OgETYJt0qATS0qTXWg7w7v0wOyf3FHS0-OtT0xJFxSr68uKzKB3ij_FqfR3i06AjG2wd5xVWS5cQjIIemmxXj7dpZBbM_RKb5I9YjV3_0ShHC84fSnR5syybebZ54c_hIJgDBvcmV8vFzlhFjNPWO1potWMAxexRrR8fKfJuyo00owThvB3sXrLTRdHbI-pnDW3G6axUNQOoLZGubwretSpuznygC39o1tpzM9dRMXyIHziymUx6WDyjl1cqfNpt31YPhaccsumqttW7QpwJGGZfb4abHlHNOIMv-ajbn9k5JdwyY4UHweddqo58SpizhRrw7VWB-SfCuntT08fR9ue5gTtBHDcuVOxEyFhpxZ5ADfCPeekTOXJx4L9YZ17NJMz9bJA46gjF7cxPi3b_nzxZ9hzEhZLKHR7QGtV8ikDVFHbIVbwYCzAjYLmKEXAl64uh-0pnWY35lAz80mG8w3qjxbYMu5NWNnTO_v85MOLiExNjkck5cWHvOwg532oUfrMEs2BY5eVsrzxwvd1nrvhlRZkI291IQdsTDadqG8njzZApYb6abzw_kbmRo48aV87b67bj3l8wSNHk5xvHmrV40W44uWvqRkWeCTCjnl1JHDwa45okXd3XO-CXdurj5lVWCggTB0zUiRbJGUjOZz8ejqX2DoXqKLsSsvtKv_nPeWpOBxmU1NDw5ts7TK_NS9gIK2-rS_K62sgIGu77ZKxs0DhKTwwXgpp922rkCsLM2cCrkrgJ_MGVdhOMQrjgVX2b5WjrLdLJVFrmWo5rOyO3C_9Sa-kOFdxHb6Fjy83ZtWYgk2RyXbQwQElJPorWUGvbEUWal_lNR6PiBErLRn4SH2ib6fxo6Of7vvy6-V3KOsOyMHegfzlcXaShnXA2y9efc9-HnmTgGNBeOIISgF4s1uYm_2ZwdExRk5zCzyPITiPrJMUNjVelVHli-i_gIzYdb2tW5Zspay9Qg-2wX73O6yq5rsMWHhIx09RJp3FDUYMIL5R-zEiIsQ-6QtlmXjtlEXOvLg8UdbjpXbs6QabZv0ezkbL6IBTt3IaFu5vQHZbH9xscJsyyxa3z5fk06CX7oy9HHlPw"
+        text: "(()=>{\"use strict\";var e,r,t,n,a,i,o,s,l,u,c,f,d,v,p,h,g,m,y,b,w,k,S,E,I,A,T,x,N,O,$,j,C=\"info\",_=(e,r=e=>TypeError(e))=>{throw ea(e=rr(e))?r(e):e},M=(e,r,t=-1)=>{if(e===r||(e??r)==null)return!0;if(eu(e)&&eu(r)&&e.length===r.length){var n=0;for(var a in e){if(e[a]!==r[a]&&!M(e[a],r[a],t-1))return!1;++n}return n===Object.keys(r).length}return!1},U=(e,r,...t)=>e===r||t.length>0&&t.some(r=>U(e,r)),F=(e,r)=>null!=e?e:_(r??\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),P=(e,r=!0,t)=>{try{return e()}catch(e){return eh(r)?es(e=r(e))?_(e):e:Z(r)?console.error(r?_(e):e):r}finally{t?.()}},R=e=>{var r=void 0;return()=>r??=rr(e)},q=e=>{var r={initialized:!0,then:D(()=>(r.initialized=!0,rr(e)))};return r},D=e=>{var r=R(e);return(e,t)=>z(r,[e,t])},z=async(e,r=!0,t)=>{try{var n=await rr(e);return eo(r)?r[0]?.(n):n}catch(e){if(Z(r)){if(r)throw e;console.error(e)}else{if(eo(r)){if(!r[1])throw e;return r[1](e)}var a=await r?.(e);if(a instanceof Error)throw a;return a}}finally{await t?.()}},B=e=>e,W=void 0,J=Number.MAX_SAFE_INTEGER,V=!1,G=!0,L=()=>{},H=e=>null!=e,K=Symbol.iterator,X=(e,r)=>(t,n=!0)=>e(t)?t:r&&n&&null!=t&&null!=(t=r(t))?t:W,Y=(e,r)=>eh(r)?e!==W?r(e):W:e?.[r]!==W?e:W,Z=e=>\"boolean\"==typeof e,Q=X(Z,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||W))),ee=e=>!!e,er=e=>e===G,et=e=>e!==V,en=e=>\"number\"==typeof e,ea=e=>\"string\"==typeof e,ei=X(ea,e=>e?.toString()),eo=Array.isArray,es=e=>e instanceof Error,el=(e,r=!1)=>null==e?W:!r&&eo(e)?e:eg(e)?[...e]:[e],eu=e=>null!==e&&\"object\"==typeof e,ec=Object.prototype,ef=Object.getPrototypeOf,ed=e=>null!=e&&ef(e)===ec,ev=(e,r)=>\"function\"==typeof e?.[r],ep=e=>\"symbol\"==typeof e,eh=e=>\"function\"==typeof e,eg=(e,r=!1)=>!!(e?.[K]&&(\"object\"==typeof e||r)),em=e=>e instanceof Map,ey=e=>e instanceof Set,eb=(e,r)=>null==e?W:!1===r?e:Math.round(e*(r=Math.pow(10,r&&!0!==r?r:0)))/r,ew=!1,ek=e=>(ew=!0,e),eS=e=>null==e?W:eh(e)?e:r=>r[e],eE=(e,r,t)=>(r??t)!==W?(e=eS(e),r??=0,t??=J,(n,a)=>r--?W:t--?e?e(n,a):n:t):e,eI=e=>e?.filter(H),eA=(e,r,t,n)=>null==e?[]:!r&&eo(e)?eI(e):e[K]?function*(e,r){if(null!=e){if(r){r=eS(r);var t=0;for(var n of e)if(null!=(n=r(n,t++))&&(yield n),ew){ew=!1;break}}else for(var n of e)null!=n&&(yield n)}}(e,t===W?r:eE(r,t,n)):eu(e)?function*(e,r){r=eS(r);var t=0;for(var n in e){var a=[n,e[n]];if(r&&(a=r(a,t++)),null!=a&&(yield a),ew){ew=!1;break}}}(e,eE(r,t,n)):eA(eh(e)?function*(e,r,t=Number.MAX_SAFE_INTEGER){for(null!=r&&(yield r);t--&&null!=(r=e(r));)yield r}(e,t,n):function*(e=0,r){if(e<0)for(r??=-e-1;e++;)yield r--;else for(r??=0;e--;)yield r++}(e,t),r),eT=(e,r)=>r&&!eo(e)?[...e]:e,ex=(e,r,t,n)=>eA(e,r,t,n),eN=(e,r,t=1,n=!1,a,i)=>(function* e(r,t,n,a){if(null!=r){if(r[K]||n&&eu(r))for(var i of a?eA(r):r)1!==t?yield*e(i,t-1,n,!0):yield i;else yield r}})(eA(e,r,a,i),t+1,n,!1),eO=(e,r,t,n)=>{if(r=eS(r),eo(e)){var a=0,i=[];for(t=t<0?e.length+t:t??0,n=n<0?e.length+n:n??e.length;t<n&&!ew;t++){var o=e[t];(r?o=r(o,a++):o)!=null&&i.push(o)}return ew=!1,i}return null!=e?el(ex(e,r,t,n)):W},e$=(e,r,t,n)=>null!=e?new Set([...ex(e,r,t,n)]):W,ej=(e,r,t=1,n=!1,a,i)=>el(eN(e,r,t,n,a,i)),eC=(e,r,t)=>null==e?W:eh(r)?rb(eO(ea(e)?[e]:e,r),t??\"\"):ea(e)?e:rb(eO(e,e=>!1===e?W:e),r??\"\"),e_=(...e)=>{var r;return eq(1===e.length?e[0]:e,e=>null!=e&&(r??=[]).push(...el(e))),r},eM=(e,r,t,n)=>{var a,i=0;for(t=t<0?e.length+t:t??0,n=n<0?e.length+n:n??e.length;t<n;t++)if(null!=e[t]&&(a=r(e[t],i++)??a,ew)){ew=!1;break}return a},eU=(e,r)=>{var t,n=0;for(var a of e)if(null!=a&&(t=r(a,n++)??t,ew)){ew=!1;break}return t},eF=(e,r)=>{var t,n=0;for(var a in e)if(t=r([a,e[a]],n++)??t,ew){ew=!1;break}return t},eP=(e,r,...t)=>null==e?W:eg(e)?eO(e,e=>r(e,...t)):r(e,...t),eR=(e,r,t,n)=>{var a;if(null!=e){if(eo(e))return eM(e,r,t,n);if(t===W){if(e[K])return eU(e,r);if(\"object\"==typeof e)return eF(e,r)}for(var i of eA(e,r,t,n))null!=i&&(a=i);return a}},eq=eR,eD=async(e,r,t,n)=>{var a;if(null==e)return W;for(var i of ex(e,r,t,n))if(null!=(i=await i)&&(a=i),ew){ew=!1;break}return a},ez=Object.fromEntries,eB=(e,r,t)=>{if(null==e)return W;if(Z(r)||t){var n={};return eq(e,t?(e,a)=>null!=(e=r(e,a))&&null!=(e[1]=t(n[e[0]],e[1]))&&(n[e[0]]=e[1]):e=>eq(e,r?e=>e?.[1]!=null&&((n[e[0]]??=[]).push(e[1]),n):e=>e?.[1]!=null&&(n[e[0]]=e[1],n))),n}return ez(eO(e,r?(e,t)=>Y(r(e,t),1):e=>Y(e,1)))},eW=(e,r,t,n,a)=>{var i=()=>eh(t)?t():t;return eR(e,(e,n)=>t=r(t,e,n)??i(),n,a)??i()},eJ=(e,r=e=>null!=e,t=eo(e),n,a)=>eT(eA(e,(e,t)=>r(e,t)?e:W,n,a),t),eV=(e,r,t,n)=>{var a;if(null==e)return W;if(r)e=eJ(e,r,!1,t,n);else{if(null!=(a=e.length??e.size))return a;if(!e[K])return Object.keys(e).length}return a=0,eR(e,()=>++a)??0},eG=(e,...r)=>null==e?W:en(e)?Math.max(e,...r):eW(e,(e,t,n,a=r[1]?r[1](t,n):t)=>null==e||en(a)&&a>e?a:e,W,r[2],r[3]),eL=(e,r,t)=>eO(e,ed(e)?e=>e[1]:e=>e,r,t),eH=e=>!eo(e)&&eg(e)?eO(e,em(e)?e=>e:ey(e)?e=>[e,!0]:(e,r)=>[r,e]):eu(e)?Object.entries(e):W,eK=(e,r,t,n)=>null==e?W:(r=eS(r),eR(e,(e,t)=>!r||(e=r(e,t))?ek(e):W,t,n)),eX=(e,r,t,n)=>null==e?W:eo(e)||ea(e)?e[e.length-1]:eR(e,(e,t)=>!r||r(e,t)?e:W,t,n),eY=(e,r,t,n)=>null==e?W:ed(e)&&!r?Object.keys(e).length>0:e.some?.(r??ee)??eR(e,r?(e,t)=>!!r(e,t)&&ek(!0):()=>ek(!0),t,n)??!1,eZ=(e,r=e=>e)=>(e?.sort((e,t)=>r(e)-r(t)),e),eQ=(e,r,t)=>(e.constructor===Object?void 0===t?delete e[r]:e[r]=t:void 0===t?e.delete?e.delete(r):delete e[r]:e.set?e.set(r,t):e.add?t?e.add(r):e.delete(r):e[r]=t,t),e0=(e,r,t)=>{if(e){if(e.constructor===Object&&null==t)return e[r];var n=e.get?e.get(r):e.has?e.has(r):e[r];return void 0===n&&null!=t&&null!=(n=eh(t)?t():t)&&eQ(e,r,n),n}},e1=(e,...r)=>(eq(r,r=>eq(r,([r,t])=>{null!=t&&(ed(e[r])&&ed(t)?e1(e[r],t):e[r]=t)})),e),e2=e=>(r,t,n,a)=>{if(r)return void 0!=n?e(r,t,n,a):(eq(t,t=>eo(t)?e(r,t[0],t[1]):eq(t,([t,n])=>e(r,t,n))),r)},e4=e2(eQ),e6=e2((e,r,t)=>eQ(e,r,eh(t)?t(e0(e,r)):t)),e5=(e,r)=>e instanceof Set?!e.has(r)&&(e.add(r),!0):e0(e,r)!==e4(e,r,!0),e3=(e,r)=>{if((e??r)!=null){var t=e0(e,r);return ev(e,\"delete\")?e.delete(r):delete e[r],t}},e8=(e,...r)=>{var t=[],n=!1,a=(e,i,o,s)=>{if(e){var l=r[i];i===r.length-1?eo(l)?(n=!0,l.forEach(r=>t.push(e3(e,r)))):t.push(e3(e,l)):(eo(l)?(n=!0,l.forEach(r=>a(e0(e,r),i+1,e,r))):a(e0(e,l),i+1,e,l),!eV(e)&&o&&e9(o,s))}};return a(e,0),n?t:t[0]},e9=(e,r)=>{if(e)return eo(r)?(eo(e)&&e.length>1?r.sort((e,r)=>r-e):r).map(r=>e9(e,r)):eo(e)?r<e.length?e.splice(r,1)[0]:void 0:e3(e,r)},e7=(e,...r)=>{var t=(r,n)=>{var a;if(r){if(eo(r)){if(ed(r[0])){r.splice(1).forEach(e=>t(e,r[0]));return}a=r}else a=eO(r);a.forEach(([r,t])=>Object.defineProperty(e,r,{configurable:!1,enumerable:!0,writable:!1,...n,...ed(t)&&(\"get\"in t||\"value\"in t)?t:eh(t)&&!t.length?{get:t}:{value:t}}))}};return r.forEach(e=>t(e)),e},re=(e,...r)=>{if(void 0!==e)return Object.fromEntries(r.flatMap(t=>eu(t)?eo(t)?t.map(r=>eo(r)?1===r.length?[r[0],e[r[0]]]:re(e[r[0]],...r[1]):[r,e[r]]):Object.entries(r).map(([r,t])=>[r,!0===t?e[r]:re(e[r],t)]):[[t,e[t]]]).filter(e=>null!=e[1]))},rr=e=>eh(e)?e():e,rt=(e,r=-1)=>eo(e)?r?e.map(e=>rt(e,r-1)):[...e]:ed(e)?r?eB(e,([e,t])=>[e,rt(t,r-1)]):{...e}:ey(e)?new Set(r?eO(e,e=>rt(e,r-1)):e):em(e)?new Map(r?eO(e,e=>[e[0],rt(e[1],r-1)]):e):e,rn=(e,...r)=>e?.push(...r),ra=(e,...r)=>e?.unshift(...r),ri=(e,r)=>{if(!ed(r))return[e,e];var t,n,a,i={};if(ed(e))return eq(e,([e,o])=>{if(i[e]!==r[e]){if(ed(t=o)){if(!(o=ri(o,r[e])))return;[o,t]=o}else en(o)&&en(n)&&(o=(t=o)-n);i[e]=o,(a??=rt(r))[e]=t}}),a?[i,a]:void 0},ro=\"undefined\"!=typeof performance?(e=G)=>e?Math.trunc(ro(V)):performance.timeOrigin+performance.now():Date.now,rs=(e=!0,r=()=>ro())=>{var t,n=+e*r(),a=0;return(i=e,o)=>(t=e?a+=-n+(n=r()):a,o&&(a=0),(e=i)&&(n=r()),t)},rl=(e=0)=>{var r,t,n=(a,i=e)=>{if(void 0===a)return!!t;clearTimeout(r),Z(a)?a&&(i<0?et:er)(t?.())?n(t):t=void 0:(t=a,r=setTimeout(()=>n(!0,i),i<0?-i:i))};return n},ru=(e,r=0)=>{var t=eh(e)?{frequency:r,callback:e}:e,{queue:n=!0,paused:a=!1,trigger:i=!1,once:o=!1,callback:s=()=>{}}=t;r=t.frequency??0;var l=0,u=rp(!0).resolve(),c=rs(!a),f=c(),d=async e=>!!l&&(!!n||!u.pending||!0===e)&&(p.busy=!0,!0!==e&&await u,u.reset(),(await z(()=>s(c(),-f+(f=c())),!1,()=>u.resolve())===!1||r<=0||o)&&v(!1),p.busy=!1,!0),v=(e,t=!e)=>(c(e,t),clearInterval(l),p.active=!!(l=e?setInterval(d,r<0?-r:r):0),p),p={active:!1,busy:!1,restart:(e,t)=>(r=e??r,s=t??s,v(!0,!0)),toggle:(e,r)=>e!==p.active?e?r?(v(!0),p.trigger(),p):v(!0):v(!1):p,trigger:async e=>await d(e)&&(v(p.active),!0)};return p.toggle(!a,i)};class rc{_promise;constructor(){this.reset()}get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,r=!1){return this._promise.resolve(e,r),this}reject(e,r=!1){return this._promise.reject(e,r),this}reset(){return this._promise=new rf,this}signal(e){return this.resolve(e),this.reset(),this}then(e,r){return this._promise.then(e,r)}}class rf{_promise;resolve;reject;value;error;pending=!0;constructor(){var e;this._promise=new Promise((...r)=>{e=r.map((e,r)=>(t,n)=>{if(!this.pending){if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")}return this.pending=!1,this[r?\"error\":\"value\"]=t===W||t,e(t),this})}),[this.resolve,this.reject]=e}then(e,r){return this._promise.then(e,r)}}var rd=(e,r=0)=>r>0?setTimeout(e,r):window.queueMicrotask(e),rv=(e,r)=>null==e||isFinite(e)?!e||e<=0?rr(r):new Promise(t=>setTimeout(async()=>t(await rr(r)),e)):_(`Invalid delay ${e}.`),rp=e=>e?new rc:new rf,rh=(...e)=>Promise.race(e.map(e=>eh(e)?e():e)),rg=(e,r,t)=>{var n=!1,a=(...r)=>e(...r,i),i=()=>n!==(n=!1)&&(t(a),!0),o=()=>n!==(n=!0)&&(r(a),!0);return o(),[i,o]},rm=(...e)=>(e=eJ(e),[()=>eW(e,(e,r)=>r[0]()||e,!1),()=>eW(e,(e,r)=>r[1]()||e,!1)]),ry=()=>{var e,r=new Set;return[(t,n)=>{var a=rg(t,e=>r.add(e),e=>r.delete(e));return n&&e&&t(...e,a[0]),a},(...t)=>(e=t,r.forEach(e=>e(...t)))]},rb=(e,r=[\"and\",\", \"])=>e?1===(e=eO(e)).length?e[0]:eo(r)?[e.slice(-1).join(r[1]??\", \"),\" \",r[0],\" \",e[e.length-1]].join(\"\"):e.join(r??\", \"):W,rw=(e,r=\"'\")=>null==e?W:r+e+r,rk=e=>(e=Math.log2(e))===(0|e),rS=(e,r,t,n)=>{var a,i,o,s=Object.fromEntries(Object.entries(e).filter(([e,r])=>ea(e)&&en(r)).map(([e,r])=>[e.toLowerCase(),r])),l=Object.entries(s),u=Object.values(s),c=s.any??u.reduce((e,r)=>e|r,0),f=r?{...s,any:c,none:0}:s,d=Object.fromEntries(Object.entries(f).map(([e,r])=>[r,e])),v=(e,t)=>en(e)?!r&&t?null!=d[e]?e:W:e:ea(e)?f[e]??f[e.toLowerCase()]:W,p=!1,[h,g]=r?[(e,r)=>Array.isArray(e)?e.reduce((e,t)=>null==t||p?e:null==(t=v(t,r))?(p=!0,W):(e??0)|t,(p=!1,W)):v(e),(e,r)=>null==(e=h(e,!1))?W:r&&(i=d[e&c])?(a=g(e&~(e&c),!1)).length?[i,...a]:i:(e=l.filter(([,r])=>r&&e&r&&rk(r)).map(([e])=>e),r?e.length?1===e.length?e[0]:e:\"none\":e)]:[v,e=>null!=(e=v(e))?d[e]:W],m=(e,r)=>null==e?W:null==(e=h(o=e,r))?_(TypeError(`${JSON.stringify(o)} is not a valid ${t} value.`)):e,y=l.filter(([,e])=>!n||(n&e)===e&&rk(e));return e7(e=>m(e),[{configurable:!1,enumerable:!1},{parse:m,tryParse:h,entries:l,values:u,lookup:g,length:l.length,format:e=>g(e,!0),logFormat:(e,r=\"or\")=>\"any\"===(e=g(e,!0))?\"any \"+t:`the ${t} ${rb(eO(el(e),e=>rw(e)),[r])}`},r&&{pure:y,map:(e,r)=>(e=m(e),y.filter(([,r])=>r&e).map(r??(([,e])=>e)))}])},rE=(...e)=>{var r=eH(eB(e,!0)),t=e=>(eu(e)&&(eo(e)?e.forEach((r,n)=>e[n]=t(r)):r.forEach(([r,t])=>{var n,a=W;null!=(n=e[r])&&(1===t.length?e[r]=t[0].parse(n):t.forEach((i,o)=>!a&&null!=(a=o===t.length-1?i.parse(n):i.tryParse(n))&&(e[r]=a)))})),e);return t},rI=(e,r=[\"|\",\";\",\",\"],t=!0)=>{if(!e)return W;var n=e.split(\"=\").map(e=>t?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim());return n[1]??=\"\",n[2]=n[1]&&r?.length&&eK(r,(e,r,t=n[1].split(e))=>t.length>1?t:W)||(n[1]?[n[1]]:[]),n},rA=(e,r=!0,t)=>null==e?W:rO(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,t,n,a,i,o,s,l,u,c,f,d)=>{var v={source:e,scheme:t,urn:t?!n:!n&&W,authority:a,user:i,password:o,host:s??l,port:null!=u?parseInt(u):W,path:c,query:!1===r?f:rT(f,r),fragment:d};return v.path=v.path||(v.authority?v.urn?\"\":\"/\":W),v}),rT=(e,r,t=!0)=>null==e?W:eB(e?.match(/(?:^.*?\\?|^)(.*)$/)?.[1]?.split(\"&\"),(e,n,[a,i,o]=rI(e,!1===r?[]:!0===r?W:r,t)??[])=>null!=(a=a?.replace(/\\[\\]$/,\"\"))?!1!==r?[a,o.length>1?o:i]:[a,i]:W,(e,t)=>e?!1!==r?e_(e,t):(e?e+\",\":\"\")+t:t),rx=(e,r)=>r&&null!=e?r.test(e):W,rN=(e,r,t)=>rO(e,r,t,!0),rO=(t,n,a,i=!1)=>(t??n)==null?W:a?(e=W,i?(r=[],rO(t,n,(...t)=>null!=(e=a(...t))&&r.push(e))):t.replace(n,(...r)=>e=a(...r)),e):t.match(n),r$=e=>e?.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),rj=/\\z./g,rC=(e,r)=>(r=eC(e$(eJ(e,e=>e?.length)),\"|\"))?RegExp(r,\"gu\"):rj,r_={},rM=e=>e instanceof RegExp,rU=(e,r=[\",\",\" \"])=>rM(e)?e:eo(e)?rC(eO(e,e=>rU(e,r)?.source)):Z(e)?e?/./g:rj:ea(e)?r_[e]??=rO(e||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,n)=>t?RegExp(t,\"gu\"):rC(eO(rF(n,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${eC(r,r$)}]`)),e=>e&&`^${eC(rF(e,/(?<!(?<!\\\\)\\\\)\\*/),e=>r$(rP(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):W,rF=(e,r)=>e?.split(r)??e,rP=(e,r,t)=>e?.replace(r,t)??e;(A=t||(t={}))[A.Anonymous=0]=\"Anonymous\",A[A.Indirect=1]=\"Indirect\",A[A.Direct=2]=\"Direct\",A[A.Sensitive=3]=\"Sensitive\";var rR=rS(t,!1,\"data classification\");(T=n||(n={}))[T.None=0]=\"None\",T[T.Necessary=1]=\"Necessary\",T[T.Functionality=2]=\"Functionality\",T[T.Performance=4]=\"Performance\",T[T.Targeting=8]=\"Targeting\",T[T.Security=17]=\"Security\",T[T.Infrastructure=33]=\"Infrastructure\",T[T.Anonymous=49]=\"Anonymous\",T[T.Any=63]=\"Any\",T[T.Server=2048]=\"Server\",T[T.Server_Write=4096]=\"Server_Write\";var rq=rS(n,!0,\"data purpose\",2111),rD=rS(n,!1,\"data purpose\",0),rz=(e,r)=>((a=e?.metadata)&&(r?(delete a.posted,delete a.queued,Object.entries(a).length||delete e.metadata):delete e.metadata),e),rB=e=>!!e?.patchTargetId;(x=i||(i={}))[x.Global=0]=\"Global\",x[x.Entity=1]=\"Entity\",x[x.Session=2]=\"Session\",x[x.Device=3]=\"Device\",x[x.User=4]=\"User\";var rW=rS(i,!1,\"variable scope\");t.Anonymous,n.Necessary;var rJ=e=>`'${e.key}' in ${rW.format(e.scope)} scope`,rV={scope:rW,purpose:rD,purposes:rq,classification:rR};rE(rV);var rG=e=>e?.filter(H).sort((e,r)=>e.scope===r.scope?e.key.localeCompare(r.key,\"en\"):e.scope-r.scope);(N=o||(o={}))[N.Success=200]=\"Success\",N[N.Created=201]=\"Created\",N[N.Unchanged=304]=\"Unchanged\",N[N.Denied=403]=\"Denied\",N[N.NotFound=404]=\"NotFound\",N[N.ReadOnly=405]=\"ReadOnly\",N[N.Conflict=409]=\"Conflict\",N[N.Unsupported=501]=\"Unsupported\",N[N.Invalid=400]=\"Invalid\",N[N.Error=500]=\"Error\",rS(o,!1,\"variable set status\"),(O=s||(s={}))[O.Add=0]=\"Add\",O[O.Min=1]=\"Min\",O[O.Max=2]=\"Max\",O[O.IfMatch=3]=\"IfMatch\",O[O.IfNoneMatch=4]=\"IfNoneMatch\",rS(s,!1,\"variable patch type\");var rL=e=>!!e?.patch,rH=e=>!!e?.variables,rK=(e,r,t)=>{var n,a=e=>e,i=(t,i=rQ)=>q(async()=>(n=a(i(await e(),r)))&&t(n)),o={then:i(e=>e).then,all:i(e=>e,e=>e),changed:i(e=>eJ(e,e=>e.status<300)),variables:i(e=>eO(e,rY)),values:i(e=>eO(e,e=>rY(e)?.value)),push:()=>(a=e=>(t?.(eO(rX(e))),e),o),value:i(e=>rY(e[0])?.value),variable:i(e=>rY(e[0])),result:i(e=>e[0])};return o},rX=e=>e?.map(e=>e?.status<400?e:W),rY=e=>e?.status<400?e?.current??e:W,rZ=e=>e?.status<400||e?.status===404,rQ=(e,r,t)=>{var n,a,i=[],s=eO(el(e),(e,s)=>e&&(e.status<400||!t&&404===e.status?e:(a=`${rJ(e.source??e)} could not be ${404===e.status?\"found.\":`${e.source||e.status!==o.Error?\"set\":\"read\"} because ${e.status===o.Conflict?`of a conflict. The expected version '${e.source?.version}' did not match the current version '${e.current?.version}'.`:e.status===o.Denied?e.error??\"the operation was denied.\":e.status===o.Invalid?e.error??\"the value does not conform to the schema\":e.status===o.ReadOnly?\"it is read only.\":e.status===o.Error?`of an unexpected error: ${e.error}`:\"of an unknown reason.\"}`}`,(null==(n=r?.[s])||!1!==n(e,a))&&i.push(a),W)));return i.length?_(i.join(\"\\n\")):eo(e)?s:s?.[0]},r0=e=>e&&\"string\"==typeof e.type,r1=((...e)=>r=>r?.type&&e.some(e=>e===r?.type))(\"view\"),r2=e=>e?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g,\"_\").split(\":\").filter(e=>e)??[],r4=(e,r,t)=>{if(!e)return[];if(Array.isArray(e)&&(e=eC(e,\",\")),/(?<!(?<!\\\\)\\\\)%[A-Z0-9]{2}/.test(e))try{e=decodeURIComponent(e.replace(/([^=&]+)(?:\\=([^&]+))?(&|$)/g,(e,r,t,n)=>[r,t&&`=\"${t.replace(/(?<!(?<!\\\\)\\\\)(\"|%22)/g,'\\\\\"')}\"`,n&&\",\"].join(\"\")))}catch{}var n,a=[],i=r2(r);return e.replace(/\\s*(\\s*(?=\\=)|(?:\\\\.|[^,=\\r\\n])+)\\s*(?:\\=\\s*(?:\"((?:\\\\.|[^\"])*)\"|'((?:\\\\.|[^'])*)'|((?:\\\\.|[^,])*)))?\\s*(?:[,\\s]+|$)/g,(e,r,o,s,l)=>{var u=o||s||l,c=r2(r);return i.length&&(1!==c.length||u||(u=c.pop()),c=i.concat(c)),c.length&&(a.push(n={ranks:c,value:u||void 0}),t?.add(r6(n))),\"\"}),a},r6=e=>null==e?e:`${e.ranks.join(\":\")}${e.value?`=${e.value.replace(/,/g,\"\\\\,\")}`:\"\"}`,r5=2e3,r3=\"_t:data\",r8=()=>()=>_(\"Not initialized.\"),r9=window,r7=document,te=r7.body,tr=(e,r)=>!!e?.matches(r),tt=J,tn=(e,r,t=(e,r)=>r>=tt)=>{for(var n,a=0,i=V;e?.nodeType===1&&!t(e,a++)&&r(e,(e,r)=>(null!=e&&(n=e,i=r!==G&&null!=n),G),a-1)!==V&&!i;){var o=e;null===(e=e.parentElement)&&o?.ownerDocument!==document&&(e=o?.ownerDocument.defaultView?.frameElement)}return n},ta=(e,r)=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===r))switch(r){case!0:case\"z\":return(\"\"+e).trim()?.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||Q(e);case\"n\":return parseFloat(e);case\"j\":return P(()=>JSON.parse(e),L);case\"h\":return P(()=>t5(e),L);case\"e\":return P(()=>t8?.(e),L);default:return eo(r)?\"\"===e?void 0:(\"\"+e).split(\",\").map(e=>e=\"\"===e.trim()?void 0:ta(e,r[0])):void 0}},ti=(e,r,t)=>ta(e?.getAttribute(r),t),to=(e,r,t)=>tn(e,(e,n)=>n(ti(e,r,t))),ts=(e,r)=>ti(e,r)?.trim()?.toLowerCase(),tl=e=>e?.getAttributeNames(),tu=(e,r)=>getComputedStyle(e).getPropertyValue(r)||null,tc=e=>null!=e?e.tagName:null,tf=()=>({x:(l=td(V)).x/(te.offsetWidth-window.innerWidth)||0,y:l.y/(te.offsetHeight-window.innerHeight)||0}),td=e=>({x:eb(scrollX,e),y:eb(scrollY,e)}),tv=(e,r)=>rP(e,/#.*$/,\"\")===rP(r,/#.*$/,\"\"),tp=(e,r,t=G)=>(u=th(e,r))&&B({xpx:u.x,ypx:u.y,x:eb(u.x/te.offsetWidth,4),y:eb(u.y/te.offsetHeight,4),pageFolds:t?u.y/window.innerHeight:void 0}),th=(e,r)=>r?.pointerType&&r?.pageY!=null?{x:r.pageX,y:r.pageY}:e?({x:c,y:f}=tg(e),{x:c,y:f}):void 0,tg=e=>e?(d=e.getBoundingClientRect(),l=td(V),{x:eb(d.left+l.x),y:eb(d.top+l.y),width:eb(d.width),height:eb(d.height)}):void 0,tm=(e,r,t,n={capture:!0,passive:!0})=>eo(r)?rm(...eO(r,r=>tm(e,r,t,n))):rg(t,t=>e.addEventListener(r,t,n),t=>e.addEventListener(r,t,n)),ty=e=>{var{host:r,scheme:t,port:n}=rA(e,!1);return{host:r+(n?\":\"+n:\"\"),scheme:t}},tb=()=>({...l=td(G),width:window.innerWidth,height:window.innerHeight,totalWidth:te.offsetWidth,totalHeight:te.offsetHeight}),tw=new WeakMap,tk=e=>tw.get(e),tS=(e,r=V)=>(r?\"--track-\":\"track-\")+e,tE=(e,r,t,n,a,i)=>r?.[1]&&eq(tl(e),o=>r[0][o]??=(i=V,ea(n=eq(r[1],([r,t,n],a)=>rx(o,r)&&(i=void 0,!t||tr(e,t))&&ek(n??o)))&&(!(a=e.getAttribute(o))||Q(a))&&r4(a,rP(n,/\\-/g,\":\"),t),i)),tI=()=>{},tA=(e,r)=>{if(v===(v=tC.tags))return tI(e,r);var t=e=>e?rM(e)?[[e]]:eg(e)?ej(e,t):[ed(e)?[rU(e.match),e.selector,e.prefix]:[rU(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...t(eL(v))]];(tI=(e,r)=>tE(e,n,r))(e,r)},tT=(e,r)=>eC(e_(tu(e,tS(r,G)),tu(e,tS(\"base-\"+r,G))),\" \"),tx={},tN=(e,r,t=tT(e,\"attributes\"))=>{t&&tE(e,tx[t]??=[{},rN(t,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,r,t,n)=>[rU(t||n),,r])],r),r4(tT(e,\"tags\"),void 0,r)},tO=(e,r,t=V,n)=>(t?tn(e,(e,t)=>t(tO(e,r,V)),eh(t)?t:void 0):eC(e_(ti(e,tS(r)),tu(e,tS(r,G))),\" \"))??(n&&(p=tk(e))&&n(p))??null,t$=(e,r,t=V,n)=>\"\"===(h=tO(e,r,t,n))||(null==h?h:Q(h)),tj=(e,r,t,n)=>e?(tN(e,n??=new Set),tn(e,e=>{tA(e,n),r4(eO(t?.(e)),void 0,n)},r),n.size?{tags:[...n]}:{}):{},tC={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,clientKey:null,apiKey:null,pushCookie:null,debug:!1,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},t_=[],tM=[],tU=(e,r=0)=>e.charCodeAt(r),tF=e=>String.fromCharCode(...e);[...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,r)=>t_[tM[r]=e.charCodeAt(0)]=r);var tP=e=>{for(var r,t=0,n=e.length,a=[];n>t;)r=e[t++]<<16|e[t++]<<8|e[t++],a.push(tM[(16515072&r)>>18],tM[(258048&r)>>12],tM[(4032&r)>>6],tM[63&r]);return a.length+=n-t,tF(a)},tR=e=>{for(var r,t=0,n=0,a=e.length,i=new Uint8Array(3*(a/4|0)+(a+3&3)%3);a>t;)i[n++]=t_[tU(e,t++)]<<2|(r=t_[tU(e,t++)])>>4,a>t&&(i[n++]=(15&r)<<4|(r=t_[tU(e,t++)])>>2,a>t&&(i[n++]=(3&r)<<6|t_[tU(e,t++)]));return i},tq={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},tD=(e=256)=>e*Math.random()|0,tz=e=>{var r,t,n,a,i,o=0n,s=0,l=0n,u=[],c=0,f=0,d=0,v=0,p=[];for(d=0;d<e?.length;v+=p[d]=e.charCodeAt(d++));var h=e?()=>{u=[...p],f=255&(c=v),d=-1}:()=>{},g=e=>(f=255&(c+=-u[d=(d+1)%u.length]+(u[d]=e)),e);return[e?e=>{for(h(),a=16-((r=e.length)+4)%16,i=new Uint8Array(4+r+a),n=0;n<3;i[n++]=g(tD()));for(t=0,i[n++]=g(f^16*tD(16)+a);r>t;i[n++]=g(f^e[t++]));for(;a--;)i[n++]=tD();return i}:e=>e,e?e=>{for(h(),t=0;t<3;g(e[t++]));if((r=e.length-4-((f^g(e[t++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(r);r>n;i[n++]=f^g(e[t++]));return i}:e=>e,(e,r=64)=>{if(null==e)return null;for(s=Z(r)?64:r,h(),[o,l]=tq[s],t=0;t<e.length;o=BigInt.asUintN(s,(o^BigInt(f^g(e[t++])))*l));return!0===r?Number(BigInt(Number.MIN_SAFE_INTEGER)+o%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):o.toString(36)}]},tB={exports:{}};(e=>{(()=>{function r(e,r){if(r&&r.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var t,n,a=new Uint8Array(128),i=0;if(r&&r.multiple)for(var o=0;o<e.length;o++)s(e[o]);else s(e);return a.subarray(0,i);function s(e,a){var i,o,d,v,p,h;switch(typeof e){case\"undefined\":u(192);break;case\"boolean\":u(e?195:194);break;case\"number\":(e=>{if(isFinite(e)&&Number.isSafeInteger(e)){if(e>=0&&e<=127)u(e);else if(e<0&&e>=-32)u(e);else if(e>0&&e<=255)c([204,e]);else if(e>=-128&&e<=127)c([208,e]);else if(e>0&&e<=65535)c([205,e>>>8,e]);else if(e>=-32768&&e<=32767)c([209,e>>>8,e]);else if(e>0&&e<=4294967295)c([206,e>>>24,e>>>16,e>>>8,e]);else if(e>=-2147483648&&e<=2147483647)c([210,e>>>24,e>>>16,e>>>8,e]);else if(e>0&&e<=18446744073709552e3){var r=e/4294967296,a=e%4294967296;c([211,r>>>24,r>>>16,r>>>8,r,a>>>24,a>>>16,a>>>8,a])}else e>=-0x8000000000000000&&e<=0x7fffffffffffffff?(u(211),f(e)):e<0?c([211,128,0,0,0,0,0,0,0]):c([207,255,255,255,255,255,255,255,255])}else n||(n=new DataView(t=new ArrayBuffer(8))),n.setFloat64(0,e),u(203),c(new Uint8Array(t))})(e);break;case\"string\":(d=(o=(e=>{for(var r=!0,t=e.length,n=0;n<t;n++)if(e.charCodeAt(n)>127){r=!1;break}for(var a=0,i=new Uint8Array(e.length*(r?1:4)),o=0;o!==t;o++){var s=e.charCodeAt(o);if(s<128){i[a++]=s;continue}if(s<2048)i[a++]=s>>6|192;else{if(s>55295&&s<56320){if(++o>=t)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var l=e.charCodeAt(o);if(l<56320||l>57343)throw Error(\"UTF-8 encode: second surrogate character 0x\"+l.toString(16)+\" at index \"+o+\" out of range\");s=65536+((1023&s)<<10)+(1023&l),i[a++]=s>>18|240,i[a++]=s>>12&63|128}else i[a++]=s>>12|224;i[a++]=s>>6&63|128}i[a++]=63&s|128}return r?i:i.subarray(0,a)})(e)).length)<=31?u(160+d):d<=255?c([217,d]):d<=65535?c([218,d>>>8,d]):c([219,d>>>24,d>>>16,d>>>8,d]),c(o);break;case\"object\":null===e?u(192):e instanceof Date?(e=>{var r=e.getTime()/1e3;if(0===e.getMilliseconds()&&r>=0&&r<4294967296)c([214,255,r>>>24,r>>>16,r>>>8,r]);else if(r>=0&&r<17179869184){var t=1e6*e.getMilliseconds();c([215,255,t>>>22,t>>>14,t>>>6,t<<2>>>0|r/4294967296,r>>>24,r>>>16,r>>>8,r])}else{var t=1e6*e.getMilliseconds();c([199,12,255,t>>>24,t>>>16,t>>>8,t]),f(r)}})(e):Array.isArray(e)?l(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((h=(p=e).length)<=255?c([196,h]):h<=65535?c([197,h>>>8,h]):c([198,h>>>24,h>>>16,h>>>8,h]),c(p)):e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?l(e):(e=>{var r=0;for(var t in e)void 0!==e[t]&&r++;for(var t in r<=15?u(128+r):r<=65535?c([222,r>>>8,r]):c([223,r>>>24,r>>>16,r>>>8,r]),e){var n=e[t];void 0!==n&&(s(t),s(n))}})(e);break;default:if(!a&&r&&r.invalidTypeReplacement)\"function\"==typeof r.invalidTypeReplacement?s(r.invalidTypeReplacement(e),!0):s(r.invalidTypeReplacement,!0);else throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\")}}function l(e){var r=e.length;r<=15?u(144+r):r<=65535?c([220,r>>>8,r]):c([221,r>>>24,r>>>16,r>>>8,r]);for(var t=0;r>t;t++)s(e[t])}function u(e){if(a.length<i+1){for(var r=2*a.length;r<i+1;)r*=2;var t=new Uint8Array(r);t.set(a),a=t}a[i]=e,i++}function c(e){if(a.length<i+e.length){for(var r=2*a.length;r<i+e.length;)r*=2;var t=new Uint8Array(r);t.set(a),a=t}a.set(e,i),i+=e.length}function f(e){var r,t;e>=0?(r=e/4294967296,t=e%4294967296):(r=~(r=Math.abs(++e)/4294967296),t=~(t=Math.abs(e)%4294967296)),c([r>>>24,r>>>16,r>>>8,r,t>>>24,t>>>16,t>>>8,t])}}function t(e,r){var t,n=0;if(e instanceof ArrayBuffer&&(e=new Uint8Array(e)),\"object\"!=typeof e||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),r&&r.multiple)for(t=[];n<e.length;)t.push(a());else t=a();return t;function a(){var r=e[n++];if(r>=0&&r<=127)return r;if(r>=128&&r<=143)return u(r-128);if(r>=144&&r<=159)return c(r-144);if(r>=160&&r<=191)return f(r-160);if(192===r)return null;if(193===r)throw Error(\"Invalid byte code 0xc1 found.\");if(194===r)return!1;if(195===r)return!0;if(196===r)return l(-1,1);if(197===r)return l(-1,2);if(198===r)return l(-1,4);if(199===r)return d(-1,1);if(200===r)return d(-1,2);if(201===r)return d(-1,4);if(202===r)return s(4);if(203===r)return s(8);if(204===r)return o(1);if(205===r)return o(2);if(206===r)return o(4);if(207===r)return o(8);if(208===r)return i(1);if(209===r)return i(2);if(210===r)return i(4);if(211===r)return i(8);if(212===r)return d(1);if(213===r)return d(2);if(214===r)return d(4);if(215===r)return d(8);if(216===r)return d(16);if(217===r)return f(-1,1);if(218===r)return f(-1,2);if(219===r)return f(-1,4);if(220===r)return c(-1,2);if(221===r)return c(-1,4);if(222===r)return u(-1,2);if(223===r)return u(-1,4);if(r>=224&&r<=255)return r-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+r+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(r){for(var t=0,a=!0;r-- >0;)if(a){var i=e[n++];t+=127&i,128&i&&(t-=128),a=!1}else t*=256,t+=e[n++];return t}function o(r){for(var t=0;r-- >0;)t*=256,t+=e[n++];return t}function s(r){var t=new DataView(e.buffer,n+e.byteOffset,r);return(n+=r,4===r)?t.getFloat32(0,!1):8===r?t.getFloat64(0,!1):void 0}function l(r,t){r<0&&(r=o(t));var a=e.subarray(n,n+r);return n+=r,a}function u(e,r){e<0&&(e=o(r));for(var t={};e-- >0;)t[a()]=a();return t}function c(e,r){e<0&&(e=o(r));for(var t=[];e-- >0;)t.push(a());return t}function f(r,t){r<0&&(r=o(t));var a=n;return n+=r,((e,r,t)=>{var n=r,a=\"\";for(t+=r;t>n;){var i=e[n++];if(i>127){if(i>191&&i<224){if(n>=t)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(i>223&&i<240){if(n+1>=t)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else if(i>239&&i<248){if(n+2>=t)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}else throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1))}if(i<=65535)a+=String.fromCharCode(i);else if(i<=1114111)i-=65536,a+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320);else throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\")}return a})(e,a,r)}function d(e,r){e<0&&(e=o(r));var t=o(1),a=l(e);return 255===t?(e=>{if(4===e.length){var r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];return new Date(1e3*r)}if(8===e.length){var t=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),r=(3&e[3])*4294967296+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7];return new Date(1e3*r+t/1e6)}if(12===e.length){var t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];n-=8;var r=i(8);return new Date(1e3*r+t/1e6)}throw Error(\"Invalid data length for a date value.\")})(a):{type:t,data:a}}}var n={serialize:r,deserialize:t,encode:r,decode:t};e?e.exports=n:window[window.msgpackJsName||\"msgpack\"]=n})()})(tB);var{deserialize:tW,serialize:tJ}=($=tB.exports)&&$.__esModule&&Object.prototype.hasOwnProperty.call($,\"default\")?$.default:$,tV=\"$ref\",tG=(e,r,t)=>ep(e)?W:t?null===r||r:r!==W,tL=(e,r,{defaultValues:t=!0,prettify:n=!1})=>{var a,i,o,s=(e,r,n=e[r],a=tG(r,n,t)?u(n):W)=>(n!==a&&(a!==W||eo(e)?e[r]=a:delete e[r],l(()=>e[r]=n)),a),l=e=>(a??=[]).push(e),u=e=>{if(null==e||eh(e)||ep(e))return null;if(!eu(e))return e;if(e.toJSON&&e!==(e=e.toJSON()))return u(e);if(null!=(o=i?.get(e)))return e[tV]||(e[tV]=o,l(()=>delete e[tV])),{[tV]:o};if(ed(e))for(var r in(i??=new Map).set(e,i.size+1),e)s(e,r);else eg(e)&&(!eo(e)||Object.keys(e).length<e.length?[...e]:e).forEach((r,t)=>t in e?s(e,t):(e[t]=null,l(()=>delete e[t])));return e};return P(()=>r?tJ(u(e)??null):P(()=>JSON.stringify(e,W,n?2:0),()=>JSON.stringify(u(e),W,n?2:0)),!0,()=>a?.forEach(e=>e()))},tH=e=>{var r,t,n=e=>eu(e)?e[tV]&&(t=(r??=[])[e[tV]])?t:(e[tV]&&(r[e[tV]]=e,delete e[tV]),Object.entries(e).forEach(([r,t])=>t!==(t=n(t))&&(e[r]=t)),e):e;return n(ea(e)?JSON.parse(e):null!=e?P(()=>tW(e),()=>(console.error(\"Invalid message received.\",e),W)):e)},tK=(e,r={})=>{var t=(e,{json:r=!1,jsonDecodeFallback:t=!0,...n})=>{var a=(e,t)=>en(e)&&!0===t?e:l(e=ea(e)?new Uint8Array(eO(e.length,r=>255&e.charCodeAt(r))):r?P(()=>JSON.stringify(e),()=>JSON.stringify(tL(e,!1,n))):tL(e,!0,n),t),i=e=>null==e?W:P(()=>tH(e),W);if(r)return[e=>tL(e,!1,n),i,(e,r)=>a(e,r)];var[o,s,l]=tz(e);return[e=>tP(o(tL(e,!0,n))),e=>null!=e?t&&(e?.[0]===\"{\"||e?.[0]===\"[\")?i(e):tH(s(tR(e))):null,(e,r)=>a(e,r)]};if(!e){var n=+(r.json??0);if(n&&!1!==r.prettify)return(g??=[t(null,{json:!1}),t(null,{json:!0,prettify:!0})])[+n]}return t(e,r)};tK(),tK(null,{json:!0,prettify:!0});var tX=rF(\"\"+r7.currentScript.src,\"#\"),tY=rF(\"\"+(tX[1]||\"\"),\";\"),tZ=tX[0],tQ=tY[1]||rA(tZ,!1)?.host,t0=e=>!!(tQ&&rA(e,!1)?.host?.endsWith(tQ)===G),t1=(...e)=>rP(eC(e),/(^(?=\\?))|(^\\.(?=\\/))/,tZ.split(\"?\")[0]),t2=t1(\"?\",\"var\");t1(\"?\",\"mnt\"),t1(\"?\",\"usr\");var t4=Symbol(),[t6,t5]=tK(),[t3,t8]=[r8,r8],[t9,t7]=ry(),ne=e=>{t8===r8&&([t3,t8]=tK(e),t7(t3=tK(null,{json:!0})[0],t8))},nr=e=>r=>nt(e,r),nt=(...e)=>{var r=e.shift();console.error(ea(e[1])?e.shift():e[1]?.message??\"An error occurred\",r.id??r,...e)},[nn,na]=ry(),[ni,no]=ry(),ns=e=>nu!==(nu=e)&&na(nu=!1,nd(!0,!0)),nl=e=>nc!==(nc=!!e&&\"visible\"===document.visibilityState)&&no(nc,!e,nf(!0,!0));nn(nl);var nu=!0,nc=!1,nf=rs(!1),nd=rs(!1);tm(window,[\"pagehide\",\"freeze\"],()=>ns(!1)),tm(window,[\"pageshow\",\"resume\"],()=>ns(!0)),tm(document,\"visibilitychange\",()=>(nl(!0),nc&&ns(!0))),na(nu,nd(!0,!0));var nv=!1,np=rs(!1),[nh,ng]=ry(),nm=ru({callback:()=>nv&&ng(nv=!1,np(!1)),frequency:2e4,once:!0,paused:!0}),ny=()=>!nv&&(ng(nv=!0,np(!0)),nm.restart());tm(window,\"focus\",ny),tm(window,\"blur\",()=>nm.trigger()),tm(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],ny),ny(),(j=m||(m={}))[j.View=-3]=\"View\",j[j.Tab=-2]=\"Tab\",j[j.Shared=-1]=\"Shared\";var nb=rS(m,!1,\"local variable scope\"),nw=e=>nb.tryParse(e)??rW(e),nk=e=>nb.format(e)??rW.format(e),nS=e=>!!nb.tryParse(e?.scope),nE=rE({scope:nb},rV),nI=e=>null==e?void 0:e.source?nI(e.source):`${nw(e.scope)}\\0${e.key}\\0${e.targetId??\"\"}`,nA=e=>{var r=e.split(\"\\0\");return{scope:+r[0],key:r[1],targetId:r[2]}},nT=0,nx=void 0,nN=()=>(nx??r8())+\"_\"+nO(),nO=()=>++nT,n$=e=>crypto.getRandomValues(e),nj=()=>rP(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^n$(new Uint8Array(1))[0]&15>>e/4).toString(16)),nC={},n_={id:nx,heartbeat:ro()},nM={knownTabs:{[nx]:n_},variables:{}},[nU,nF]=ry(),nP=r8,nR=e=>nC[nI(e)],nq=(...e)=>nB(e.map(e=>(e.timestamp=ro(),e.expires=3e3,nE(e)))),nD=rl(),nz=(e,r=V)=>{nD(()=>{e_(rG(eO(e,1))?.map(e=>[e,`${e.key} (${nk(e.scope)}, ${e.scope<0?\"client-side memory only\":rq.format(e.purposes)})`,V]),[[{[t4]:rG(eO(nC,1))?.map(e=>[e,`${e.key} (${nk(e.scope)}, ${e.scope<0?\"client-side memory only\":rq.format(e.purposes)})`,V])},\"All variables\",G]])},r?0:250)},nB=e=>{var r=eO(e,e=>e&&[nI(e),e]);if(r?.length){e4(nC,r);var t=eJ(r,e=>e[1].scope>m.Tab);t.length&&(e4(nM.variables,t),nP({type:\"patch\",payload:eB(t)})),nF(\"variables\",eB(r),!0),nz(eB(r))}};t9((e,r)=>{nn(t=>{if(t){var n=r(sessionStorage.getItem(r3));sessionStorage.removeItem(r3),nx=n?.[0]??ro().toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),nz(nC=eB(e_(eJ(nC,([,e])=>e.scope===m.View),eO(n?.[1],e=>[nI(e),e]))),!0)}else sessionStorage.setItem(r3,e([nx,eO(nC,([,e])=>e.scope!==m.View?e:void 0)]))},!0),nP=(r,t)=>{e&&(localStorage.setItem(r3,e([nx,r,t])),localStorage.removeItem(r3))},tm(window,\"storage\",e=>{if(e.key===r3){var n=r?.(e.newValue);if(n&&(!n[2]||n[2]===nx)){var[a,{type:i,payload:o}]=n;\"query\"===i?t.active||nP({type:\"set\",payload:nM},a):\"set\"===i&&t.active?(e4(nM,o),e4(nC,o.variables),t.trigger()):\"patch\"===i?(e4(nM.variables,o),e4(nC,o),nF(\"variables\",o,!1)):\"tab\"===i&&(e4(nM.knownTabs,a,o),o&&nF(\"tab\",o,!1))}}});var t=ru(()=>nF(\"ready\",nM,!0),-25),n=ru({callback(){var e=ro()-1e4;eq(nM?.knownTabs,([r,t])=>t[0]<e&&e8(nM.knownTabs,r)),n_.heartbeat=ro(),nP({type:\"tab\",payload:n_})},frequency:5e3,paused:!0}),a=e=>{nP({type:\"tab\",payload:e?n_:void 0}),e?(t.restart(),nP({type:\"query\"})):t.toggle(!1),n.toggle(e)};nn(e=>a(e),!0)},!0);var[nW,nJ]=ry(),[nV,nG]=ry(),nL=((e,{timeout:r=1e3,encrypt:t=!0,retries:n=10}={})=>{var a=()=>(t?t8:t5)(localStorage.getItem(e)),i=()=>localStorage.setItem(e,(t?t3:t6)([nx,ro()+r])),o=rl(r/2);return async(t,s,l=null!=s?1:n)=>{for(;l--;){var u=a();if((!u||u[1]<ro())&&(i(),a()?.[0]===nx))return o(i),await z(t,!0,()=>o(!1)&&localStorage.removeItem(e));var c=rp(),[f]=tm(window,\"storage\",r=>{r.key!==e||r.newValue||c.resolve()});await rh(rv(s??r),c),f()}null==s&&_(e+\" could not be acquired.\")}})(\"_t:rq\"),nH=ru(()=>{if(b!==(b=tC.pushCookie)){if(!b)return;y=RegExp(r$(b)+\"=([^;]*)\")}var e=t8?.(rO(document.cookie,y)?.[1]);rH(e)&&nG(e)},1e3),nK=0,nX=(e=1e3)=>{var r=()=>{r=L,--nK||(nH.restart(1e3),clearTimeout(0))};return nK++||nH.restart(100),e>0&&setTimeout(r,e),r()},nY=async(e,r,{beacon:t=!1,encrypt:n=!0}={})=>{var a,i,o=!1,s=t=>{var s=eh(r)?r?.(a,t):r;return!1!==s&&(null!=s&&!0!==s&&(a=s),nJ(e,a,t,e=>(o=a===W,a=e)),!o&&(i=(n?t3:JSON.stringify)(a)))};if(!t)return await nL(()=>eD(1,async r=>{if(!s(r))return ek();var t=await fetch(e,{method:null!=a?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i});if(t.status>=400)return 0===r?ek(_(`Invalid response: ${await t.text()}`)):(console.warn(`Request to ${e} failed on attempt ${r+1}/3.`),await rv((1+r)*200));var o=await t.text(),l=o?.length?(n?t8:JSON.parse)?.(o):W;return null!=l&&nG(l),ek(l)}));s(0)&&(nX(1e3),navigator.sendBeacon(e,new Blob(null!=a?[i]:[],{type:\"text/plain\"}))||_(\"Beacon send failed.\"))},nZ=[\"scope\",\"key\",\"targetId\",\"version\"],nQ=[...nZ,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],n0=[...nZ,\"init\",\"purpose\",\"refresh\"];[...nQ];var n1=new Map,n2=(e,r)=>{var a=ru(async()=>{var e=eO(n1,([e,r])=>({...nA(e),result:[...r]}));e.length&&await c.get(...e)},3e3),i=(e,r)=>eP(r,r=>e0(n1,e,()=>new Set).add(r)),s=e=>{if(rZ(e)){var r,t=nI(e),n=rY(e);eq(e9(n1,t),e=>{r=!1,e?.(n,nR(n),(e=!0)=>r=e),r&&i(t,e)})}};nn((e,r)=>a.toggle(e,e&&r>=3e3),!0);var l=new Map,u=(e,r)=>e4(l,e,Z(r)?r?void 0:0:r),c={get:(...t)=>rK(async()=>{var n=[],a=eO(t,(e,r)=>[e,r]),l=[],c=(await nY(e,()=>!!(a=eO(a,([e,r])=>{if(e){var t=nI(e);i(t,e.result);var a=nR(t);e.init&&u(t,e.cache);var s=e.purposes;if((s??~0)&(a?.purposes??~0)){if(!e.refresh&&a?.expires<ro())rn(n,[{...a,status:o.Success},r]);else if(!nS(e))return[re(e,n0),r];else if(ed(e.init)){var c={...nE(e),status:o.Created,...e.init};null!=c.value&&(rn(l,f(c)),rn(n,[c,r]))}}else rn(n,[{...e,status:o.Denied,error:\"No consent for \"+rq.logFormat(s)},r])}})).length&&{variables:{get:eO(a,0)},deviceSessionId:r?.deviceSessionId})).variables?.get??[];return rn(n,...eO(c,(e,r)=>e&&[e,a[r][1]])),l.length&&nB(l),n.map(([e])=>(s(e),e))},eO(t,e=>e?.error)),set:(...a)=>rK(async()=>{var i=[],l=[],c=eO(a,(e,r)=>{if(e){var a=nI(e),s=nR(a);if(u(a,e.cache),nS(e)){if(null!=e.patch)return _(\"Local patching is not supported.\");var c={value:e.value,classification:t.Anonymous,purposes:n.Necessary,scope:nb(e.scope),key:e.key};return l[r]={status:s?o.Success:o.Created,source:e,current:c},void rn(i,f(c))}return rL(e)||e?.version!==void 0||(e.version=s?.version,e.force??=!!e.version),[e,r]}}),d=c.length>0?[]:F((await nY(e,{variables:{set:c.map(e=>e[0])},deviceSessionId:r?.deviceSessionId})).variables?.set,\"No result.\");return i.length&&nB(i),eq(d,(e,r)=>{var[t,n]=c[r];e.source=t,s(l[n]=e)}),l},eO(a,e=>e?.error))},f=(e,r=ro())=>({...re(e,nQ),timestamp:r,expires:r+(e0(l,nI(e))??3e3)});return nV(({variables:e})=>{if(e){var r=ro(),t=e_(eO(e.get,e=>rY(e)),eO(e.set,e=>rY(e)));t?.length&&nB(eP(t,f,r))}}),c},n4=(e,r,t=r5)=>{var n=[],a=new WeakMap,i=new Map,o=(e,r)=>e.metadata?.queued?e1(r,{type:e.type+\"_patch\",patchTargetId:e.clientId}):_(\"Source event not queued.\"),s=async(t,a=!1)=>{if((t=eO(el(t),e=>e1(r.applyEventExtensions(e),{metadata:{queued:!0}}))).length&&eq(t,e=>void 0),!a){t.length&&rn(n,...t);return}n.length&&ra(t,...n.splice(0)),t.length&&nY(e,{events:t.map(e=>(e1(e,{metadata:{posted:!0}}),e1(rz(rt(e),!0),{timestamp:e.timestamp-ro()}))),deviceSessionId:r?.deviceSessionId},{beacon:!0})};return t>0&&ru(()=>s([],!0),t),ni((e,r,t)=>{if(!e&&(n.length||r||t>1500)){var a=eO(i,([e,r])=>{var[t,n]=r();return n&&i.delete(e),t});(n.length||a.length)&&s(e_(n.splice(0),a),!0)}}),{post:s,postPatch:(e,r,t)=>s(o(e,r),t),registerEventPatchSource(e,r,t=!0){var n=!1,s=()=>n=!0;return a.set(e,rt(e)),i.set(e,()=>{var i=a.get(e),[l,u]=(t?ri(r(i,s),i):r(i,s))??[];return l&&!M(u,i)?(a.set(e,rt(u)),[o(e,l),n]):[void 0,n]}),s}}},n6=Symbol(),n5=e=>{var r=new IntersectionObserver(e=>eq(e,({target:e,isIntersecting:r,boundingClientRect:t,intersectionRatio:n})=>e[n6]?.(r,t,n)),{threshold:[.05,.1,.15,.2,.3,.4,.5,.6,.75]});return(t,n)=>{if(n&&(a=eJ(n?.component,e=>e.track?.impressions||(e.track?.secondary??e.inferred)!==G))&&eV(a)){var a,i,o,s,l=V,u=0,c=rl(tC.impressionThreshold),f=ac();t[n6]=(r,n,d)=>{f(r=d>=.75||n.top<(i=window.innerHeight/2)&&n.bottom>i),l!==(l=r)&&(l?c(()=>{++u,o||rn(e,o=eJ(eO(a,e=>(e.track?.impressions||t$(t,\"impressions\",G,e=>e.track?.impressions))&&B({type:\"impression\",pos:tp(t),viewport:tb(),timeOffset:ad(),impressions:u,...aE(t,G)})||null))),o?.length&&(s=eO(o,r=>e.events.registerEventPatchSource(r,()=>({relatedEventId:r.clientId,duration:f(),impressions:u}))))}):(eq(s,e=>e()),c(!1)))},r.observe(t)}}},n3=()=>{var e=r9?.screen;if(!e)return{};var{width:r,height:t,orientation:n}=e,a=r<t,i=n?.angle??r9.orientation??0;return(-90===i||90===i)&&([r,t]=[t,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:r9.devicePixelRatio,width:r,height:t,landscape:a}}},n8=e=>rn(e,B({type:\"user_agent\",hasTouch:navigator.maxTouchPoints>0,userAgent:navigator.userAgent,view:w?.clientId,languages:eO(navigator.languages,(e,r,t=e.split(\"-\"))=>B({id:e,language:t[0],region:t[1],primary:0===r,preference:r+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:new Date().getTimezoneOffset()},...n3()})),n9=(e,r=\"A\"===tc(e)&&ti(e,\"href\"))=>r&&\"#\"!=r&&!r.startsWith(\"javascript:\"),n7=(e,r=tc(e),t=t$(e,\"button\"))=>t!==V&&(U(r,\"A\",\"BUTTON\")||\"INPUT\"===r&&U(ts(e,\"type\"),\"button\",\"submit\")||t===G),ae=()=>w?.clientId,ar={scope:\"shared\",key:\"referrer\"},at=(e,r)=>{I.variables.set({...ar,value:[ae(),e]}),r&&I.variables.get({scope:ar.scope,key:ar.key,result(t,n,a){t?a():n?.value?.[1]===e&&r()}})},an=rs(),aa=rs(),ai=rs(),ao=1,as=()=>aa(),[al,au]=ry(),ac=e=>{var r=rs(e,an),t=rs(e,aa),n=rs(e,ai),a=rs(e,()=>ao);return(e,i)=>({totalTime:r(e,i),visibleTime:t(e,i),interactiveTime:n(e,i),activations:a(e,i)})},af=ac(),ad=()=>af(),[av,ap]=ry(),ah=new WeakSet,ag=document.getElementsByTagName(\"iframe\"),am=e=>(null==e||(e===G||\"\"===e)&&(e=\"add\"),ea(e)&&U(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:eu(e)?e:void 0);function ay(e){if(e){if(null!=e.units&&U(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=e.units>0?\"add\":\"remove\"}return e}}var ab=e=>tj(e,void 0,e=>eO(el(e0(tw,e)?.tags))),aw=e=>e?.component||e?.content,ak=e=>tj(e,r=>r!==e&&!!aw(e0(tw,r)),e=>(S=e0(tw,e),(S=e0(tw,e))&&ej(e_(S.component,S.content,S),\"tags\"))),aS=(e,r)=>r?e:{...e,rect:void 0,content:(E=e.content)&&eO(E,e=>({...e,rect:void 0}))},aE=(e,r=V)=>{var t,n,a,i=[],o=[],s=0;return tn(e,e=>{var n=e0(tw,e);if(n){if(aw(n)){var a=eJ(el(n.component),e=>0===s||!r&&(1===s&&e.track?.secondary!==G||e.track?.promote));t=eY(a,e=>e.track?.region)&&tg(e)||void 0;var l=ak(e);n.content&&ra(i,...eO(n.content,e=>({...e,rect:t,...l}))),a?.length&&(ra(o,...eO(a,e=>(s=eG(s,e.track?.secondary?1:2),aS({...e,content:i,rect:t,...l},!!t)))),i=[])}var u=n.area||tO(e,\"area\");u&&ra(o,...eO(u))}}),i.length&&rn(o,aS({id:\"\",rect:t,content:i})),eq(o,e=>{ea(e)?rn(n??=[],e):(e.area??=eC(n,\"/\"),ra(a??=[],e))}),a||n?{components:a,area:eC(n,\"/\")}:void 0},aI=Symbol(),aA=[{id:\"context\",setup(e){ru(()=>eq(ag,e=>e5(ah,e)&&ap(e)),-1e3).trigger(),e.push({get:[{scope:\"view\",key:\"view\",result(e){}}]}),e.variables.get({scope:\"view\",key:\"view\",result:(a,i,o)=>(M(n,a?.value)&&t===(t=\"\"+location.href)||(r=n=a?.value),r&&w&&!w.definition&&(w.definition=r,w.metadata?.posted&&e.events.postPatch(w,{definition:r}),r=void 0),o())});var r,t,n,a=nR({scope:\"tab\",key:\"viewIndex\"})?.value??0,i=nR({scope:\"tab\",key:\"tabIndex\"})?.value;null==i&&nq({scope:\"tab\",key:\"tabIndex\",value:i=nR({scope:\"shared\",key:\"tabIndex\"})?.value??nR({scope:\"session\",key:C})?.value?.tabs??0},{scope:\"shared\",key:\"tabIndex\",value:i+1});var o=null,s=(t=V)=>{if(!tv(\"\"+o,o=location.href)||t){var{source:n,scheme:s,host:l}=rA(location.href+\"\",!0);w={type:\"view\",timestamp:ro(),clientId:nN(),tab:nx,href:n,path:location.pathname,hash:location.hash||void 0,domain:{scheme:s,host:l},tabNumber:i+1,tabViewNumber:a+1,viewport:tb(),duration:af(void 0,!0)},0===i&&(w.firstTab=G),0===i&&0===a&&(w.landingPage=G),nq({scope:\"tab\",key:\"viewIndex\",value:++a});var u=rT(location.href);if(eO([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,r)=>(w.utm??={})[e]=u[`utm_${e}`]?.[0]),!(w.navigationType=k)&&performance&&eO(performance.getEntriesByType(\"navigation\"),e=>{w.redirects=e.redirectCount,w.navigationType=rP(e.type,/\\_/g,\"-\")}),k=void 0,\"navigate\"===(w.navigationType??=\"navigate\")){var c=nR(ar)?.value;c&&t0(document.referrer)&&(w.view=c?.[0],w.relatedEventId=c?.[1],e.variables.set({...ar,value:void 0}))}var c=document.referrer||null;c&&!t0(c)&&(w.externalReferrer={href:c,domain:ty(c)}),w.definition=r,r=void 0,e.events.post(w),e.events.registerEventPatchSource(w,()=>({duration:ad()})),au(w)}};return nh(e=>ai(e)),ni(e=>{e?(aa(G),++ao):(aa(V),ai(V))}),tm(window,\"popstate\",()=>(k=\"back-forward\",s())),eO([\"push\",\"replace\"],e=>{var r=history[e+=\"State\"];history[e]=(...e)=>{r.apply(history,e),k=\"navigate\",s()}}),s(),{processCommand:r=>aN(r)&&(rn(e,r.username?{type:\"login\",username:r.username}:{type:\"logout\"}),G),decorate(e){!w||r1(e)||rB(e)||(e.view=w.clientId)}}}},{id:\"components\",setup(e){var r=n5(e),t=e=>null==e?void 0:{...e,component:el(e.component),content:el(e.content),tags:el(e.tags)},n=({boundary:e,...n})=>{e6(tw,e,e=>t(\"add\"in n?{...e,component:e_(e?.component,n.component),content:e_(e?.content,n.content),area:n?.area??e?.area,tags:e_(e?.tags,n.tags),cart:n.cart??e?.cart,track:n.track??e?.track}:\"update\"in n?n.update(e):n)),r(e,e0(tw,e))};return{decorate(e){eq(e.components,e=>e9(e,\"track\"))},processCommand:e=>aj(e)?(n(e),G):aP(e)?(eO(((e,r)=>{if(!r)return[];var t=[],n=new Set;return document.querySelectorAll(`[${e}]`).forEach(a=>{if(!e0(n,a))for(var i=[];null!=ti(a,e);){e5(n,a);var o=rF(ti(a,e),\"|\");ti(a,e,null);for(var s=0;s<o.length;s++){var l=o[s];if(\"\"!==l){var u=\"-\"===l?-1:parseInt(ei(l)??\"\",36);if(u<0){i.length+=u;continue}if(0===s&&(i.length=0),isNaN(u)&&/^[\"\\[{]/.test(l))for(var c=\"\";s<o.length;s++)try{l=JSON.parse(c+=o[s]);break}catch(e){}u>=0&&r[u]&&(l=r[u]),rn(i,l)}}rn(t,...eO(i,e=>({add:G,...e,boundary:a})));var f=a.nextElementSibling;\"WBR\"===a.tagName&&a.parentNode?.removeChild(a),a=f}}),t})(e.scan.attribute,e.scan.components),n),G):V}}},{id:\"navigation\",setup(e){var r=r=>{tm(r,[\"click\",\"contextmenu\",\"auxclick\"],r=>{var t,n,a,i,o,s=null,l=V;if(tn(r.target,e=>{var r;s??=n7(e)?e:null,l=l||\"NAV\"===tc(e),i??=t$(e,\"clicks\",G,e=>e.track?.clicks)??((r=el(tk(e)?.component))&&eY(r,e=>e.track?.clicks!==V)),o??=t$(e,\"region\",G,e=>e.track?.region)??((r=tk(e)?.component)&&eY(r,e=>e.track?.region))}),s){var u,c=aE(s),f=ab(s);i??=!l;var d={...(o??=G)?{pos:tp(s,r),viewport:tb()}:null,...(t=r.target,n=s,tn(t??n,e=>\"IMG\"===tc(e)||e===n?(a={element:{tagName:e.tagName,text:ti(e,\"title\")||ti(e,\"alt\")||e.innerText?.trim().substring(0,100)||void 0}},V):G),a),...c,...f,timing:ad()};if(n9(s)){var v=s.hostname!==location.hostname,{host:p,scheme:h,source:g}=rA(s.href,!1);if(s.host===location.host&&s.pathname===location.pathname&&s.search===location.search){if(\"#\"===s.hash)return;s.hash!==location.hash&&rn(e,B({type:\"anchor_navigation\",anchor:s.hash,...d}));return}var m=B({clientId:nN(),type:\"navigation\",href:v?s.href:g,external:v,domain:{host:p,scheme:h},self:G,anchor:s.hash,...d});r.button<=1&&(1===r.button||r.ctrlKey||r.shiftKey||r.altKey||ti(s,\"target\")!==window.name?(at(m.clientId),m.self=V,rn(e,m)):tv(location.href,s.href)||(m.exit=m.external,at(m.clientId)));return}var y=(tn(r.target,(e,r)=>!!(u??=am(tk(e)?.cart??tO(e,\"cart\")))&&!u.item&&(u.item=eX(tk(e)?.content))&&r(u)),ay(u));(y||i)&&rn(e,y?B({type:\"cart_updated\",...d,...y}):B({type:\"component_click\",...d}))}})};r(document),av(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var r={},t=td(G);al(()=>rd(()=>(r={},t=td(G)),250)),tm(window,\"scroll\",()=>{var n=td(),a=tf();if(n.y>=t.y){var i=[];!r.fold&&n.y>=t.y+200&&(r.fold=G,rn(i,\"fold\")),!r[\"page-middle\"]&&a.y>=.5&&(r[\"page-middle\"]=G,rn(i,\"page-middle\")),!r[\"page-end\"]&&a.y>=.99&&(r[\"page-end\"]=G,rn(i,\"page-end\"));var o=eO(i,e=>B({type:\"scroll\",scrollType:e,offset:a}));o.length&&rn(e,o)}})}},{id:\"cart\",setup:e=>({processCommand(r){if(ax(r)){var t=r.cart;return\"clear\"===t?rn(e,{type:\"cart_updated\",action:\"clear\"}):(t=ay(t))&&rn(e,{...t,type:\"cart_updated\"}),G}return aF(r)?(rn(e,{type:\"order\",...r.order}),G):V}})},{id:\"forms\",setup(e){var r=new Map,t=e=>e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"yes\":\"no\":e.value,n=n=>{var a,i=n.form;if(i){var s=to(i,tS(\"ref\"))||\"track_ref\",l=()=>i.isConnected&&tg(i).width,u=e0(r,i,()=>{var r,t=new Map,n={type:\"form\",name:to(i,tS(\"form-name\"))||ti(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}};e.events.post(n),e.events.registerEventPatchSource(n,()=>n);var s=()=>{o(),r[3]>=2&&(n.completed=3===r[3]||!l()),e.events.postPatch(n,{...a,totalTime:ro(G)-r[4]}),r[3]=1},u=rl();return tm(i,\"submit\",()=>{a=aE(i),r[3]=3,u(()=>{i.isConnected&&tg(i).width>0?(r[3]=2,u()):s()},750)}),r=[n,t,i,0,ro(G),1]});return e0(u[1],n)||eO(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,r)=>{if(!e.name||\"hidden\"===e.type){\"hidden\"===e.type&&(e.name===s||t$(e,\"ref\"))&&(e.value||(e.value=nj()),u[0].ref=e.value);return}var n=e.name,a=u[0].fields[n]??={id:e.id||n,name:n,label:rP(e.labels?.[0]?.innerText??e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,type:e.type??\"unknown\",[aI]:t(e)};u[0].fields[a.name]=a,u[1].set(e,a)}),[n,u]}},a=(e,[r,t]=n(e)??[],a=t?.[1].get(r))=>a&&[t[0],a,r,t],i=null,o=()=>{if(i){var[e,r,n,a]=i,o=-(s-(s=as())),u=-(l-(l=ro(G))),c=r[aI];(r[aI]=t(n))!==c&&(r.fillOrder??=a[5]++,r.filled&&(r.corrections=(r.corrections??0)+1),r.filled=G,a[3]=2,eq(e.fields,([e,t])=>t.lastField=e===r.name||void 0)),r.activeTime+=o,r.totalTime+=u,e.activeTime+=o,i=null}},s=0,l=0,u=e=>{e&&tm(e,[\"focusin\",\"focusout\",\"change\"],(e,r,t=e.target&&a(e.target))=>{t&&(i=t,\"focusin\"===e.type?(l=ro(G),s=as()):o())})};u(document),av(e=>e.contentDocument&&u)}}],aT=(...e)=>r=>r===e[0]||e.some(e=>\"string\"==typeof e&&r?.[e]!==void 0),ax=aT(\"cart\"),aN=aT(\"username\"),aO=aT(\"tagAttributes\"),a$=aT(\"disable\"),aj=aT(\"boundary\"),aC=aT(\"extension\"),a_=aT(G,\"flush\"),aM=aT(\"get\"),aU=aT(\"listener\"),aF=aT(\"order\"),aP=aT(\"scan\"),aR=aT(\"set\"),aq=e=>\"function\"==typeof e,aD=e=>{if(I)return I;ea(e)&&(e=t5(e)),e4(tC,e),ne(e9(tC,\"clientKey\"));var r=e9(tC,\"apiKey\"),t=r9[tC.name]??[];if(!eo(t)){_(`The global variable for the tracker \"${tC.name}\" is used for something else than an array of queued commands.`);return}var n=[],a=[],i=(e,...r)=>{var t=G;a=eJ(a,n=>P(()=>(n[e]?.(...r,{tracker:I,unsubscribe:()=>t=V}),t),nr(n)))},o=[],s={applyEventExtensions(e){e.clientId??=nN(),e.timestamp??=ro(),d=G;var r=V;return eO(n,([,t])=>{(r||t.decorate?.(e)===V)&&(r=G)}),r?void 0:e}},l=n2(t2,s),u=n4(t2,s),c=null,f=0,d=V,v=V;return e7(r9,[{[tC.name]:[I=Object.freeze({id:\"tracker_\"+nN(),events:u,variables:l,push(...e){if(!c&&r){if(e[0]!==r)throw Error(\"Invalid API key.\");e.splice(0,1)}if(e.length){var t=V;if((e=eJ(ej(e,e=>ea(e)?t5(e):e),e=>{if(!e)return V;if(aO(e))tC.tags=e4({},tC.tags,e.tagAttributes);else if(a$(e))return tC.disabled=e.disable,V;else if(a_(e))return t=G,V;else if(aq(e))return e(I),V;return v||aU(e)||aC(e)?G:(o.push(e),V)})).length||t){var s=eZ(e,e=>aC(e)?-100:aU(e)?-50:aR(e)?-10:r0(e)?90:0);if(!(c&&c.splice(d?f+1:c.length,0,...s))){for(f=0,c=s;f<c.length;f++)c[f]&&P(()=>{var e,r=c[f];if(i(\"command\",r),d=V,r0(r))u.post(r,!1);else if(aM(r))l.get(...el(r.get));else if(aR(r))l.set(...el(r.set));else if(aU(r))rn(a,r.listener);else if(aC(r))(e=P(()=>r.extension.setup(I),e=>nt(r.extension.id,e)))&&(rn(n,[r.priority??100,e]),eZ(n,([e])=>e));else if(aq(r))r(I);else{var t=V;for(var[,e]of n)if(t=e.processCommand?.(r)??V)break;t||nt(\"invalid-command\",r)}},e=>nt(I,\"internal-error\",e));c=null,t&&u.post([],!0)}}}},__isTracker:G})]}]),nU(async(e,r,n,a)=>{if(\"ready\"===e){var i=F(await l.get({scope:\"session\",key:C,refresh:!0}).value,\"No session data.\");s.deviceSessionId=i.deviceSessionId,i.hasUserAgent||(n8(I),i.hasUserAgent=!0),v=!0,o.length&&rn(I,o),a(),rn(I,...eO(aA,e=>({extension:e})),...t,{set:{scope:\"local\",key:\"loaded\",value:!0}})}},!0),I};r9[\".tail.js.init\"]=e=>{e(aD)}})();\n//# sourceMappingURL=index.min.js.map\n",
+        gzip: "H4sIAAAAAAACCr29eXfbRtIv_P_9FBLGowBmiyKpxRJoGNd2bMdJvMRrEpqRIbIlwaYAGQC1hOTz2W_9qrobICVn5jnvOe9MLALdjV6ra-uqat8Pogczb1rqtbIq0lHl9S-SYk2rQlUqU4lKVa5KNVFTNVLHaqwu1Lk6VSfqTF2rI3Wpvqq36ol6rh6qd-pKvVSv1B31RT2OvDQ7zj11GPlUV6SjB--uz_WTosgLXwdoszot8ss1nfg6Kjgtxt9QL9QL_kZV0WYXBdNjKhJFxXzu6zgugijKppNJUOhqWmTrnT7yp_Tpxgb9FPhpT3R2Up3iI_MYzDCqLOr0j6kDeE7W0mxNB1z7IBmuU1n62dhYf8HvCm-qoh7Yhrr9VitbyAvVFEWvjr7oUdX-qq9LatY0tLClF-q9DKPdblc0DDOEypR70NnYqNplfqb9InrwHiWDQD3lT6g0Rrge6ViHh34Rx97DtUJ_m6aFHq9dJJOpXkvLtbO0LNPsxFPLk9su9PkkGWnfo5Y95aGo_bjtBdTKa1mT9Y6qeCGK65kZlvaDxSipRqc0nS7tlEYX6xLrxMt0yMsU_onkUZ6V-US3NbddmLwgLBbHaZZMJtezKm5TpQv1BjDAq1BEF3k6Xuv0pQEAIA1RgGChvjXKzdIsrdJkkv6txyG6e6qz8EcfX_hFu5GJsQgQBQtT7VqxUD826npDubZFzQP_2y_UgB6H1OrfUVJeZ6Mb8yJQk1wmabXGDdjadY7hF4POkMaXBWFWzxtBFOaGH4rAgHl_eaZopHpSaoa-3BZeLwbdofvADoPSUJxh1vaE2qSu0CeA4rJKspHOj9cYAMz3if0-WbilkI_tgjzC5Gj10ayG-jl6OT070kX7xcPfD98-fPrk8PnLd0-ePXmjPkTrXfUM8_JrxOhioX7CxwZI1S_R2-uzo3zSTitdJFVeqN8tHPuEROhDwL9fBXEVFhsbGf3HX1b2wa8ItKoA-R_VH_ZbA3i0Mz8KavgY6rg9KIacoqnon-iFd5TTvCaZF0UV7QKaB61-i373_8S-6FD_Njb8bhTp-dw7TmjOPfocaV5VTDV9hJyP2BZao7r1da00Iyzs2GdKV_xMH31QOuMGM56nZns64QxgUNqQzYyUeqITdIX6XuVvuYSP1vLoYVEk1-205F-lS27oxoIqPTH7tWsQA3U5_hiu01QS7GiaolCf4HdAG14Pw4EeKj2tFwij9XJGVktdG1kMdl7kVY50pY9t2omuXtvkV8eKtli94NQugW2AqRspfWHXyzueZqMqzZsrweul9LlMD0PJUh9OOeOWD5U-aYx6fd1HVb8MsW43hjKfA3fqsxvz9yI5V_r6RvJbXSl91ES1Zka7wNE0nS-S6rRd5NNs7Ou7hJ_5_Ty_9LuEZohEdEAt4iLsENhs0QJdYoPor2jIx0tHaerPWztlUrs-lbUidF_wEj0xZI6xWRxXAcM1oVn9lkoq4ETCRPT3Z-UTJQaa3Nykiir6S5SB08IsrAjhKv08EhA7Tie0Cf2fqP2Hpn6VNUY5GDYB5zmja5rX2C7BXZ4VYCOz2AaNzQp0qwiYO6gadDRbwxIE7gM_o72cqarVCogU-9epnozXMurOZTDjieofFTr5umD8t7ZSi1SRNb5bLICtI8YBoX7iy3io06D4q73-fh-F1gsOHWRKD7LhEPiTpsJPqMOJdFhJBxLXgeSWjqNHzZ489GVplzpDff4OOg1m6JY0VLiGqNe0rg4h0khAFfqByeVZoObCRiMEHbJS-n4nOGbyG0eberPb162W-3Jzs-9mmkGqrynJ5rZaXDNBGw30nd0SgHGBEINSaMBXTWjCmM2L0i8tu9YFru-CZwRIu54SV2GYyQZcSc8LAr35PDOcW2DXKwU0JDG1UhArEXRpY1Qx9_iu9lNwZVQbUZVQRpHKCO1ULQLf9A89oYXl0l3q6avmGLh9ARjFg7Xw0VFpNBgy8FRRdb8TW36yVYW0HTs0yqyZmoVZ7N761f0Ms3fZB0BxjXmkB9WwT7OfE6TlKqGMMKfdjpnY2Ejb59Py1M8Dy1sKOkkdq2lZwYmvr1z_iRoulL6zusVRMNOXQHE-r139xZA-UfrLrYuFul_6DaYf-PRxjZ-WsBj4niNfv_LBuxOIMHzQJNLceB7th8TgOSkD0seIlb9mtEallCbBAP0LLIPmGKtvPpc28xlrYrFCrsVRH4bjwTCQiUMtE2b9FLF8-sXSGvOK0np2_j8sJ69kjRBpLQ3SwKNKKTOOE6CJZTzh-C-l39uNxf0BS9SUQ5bxJ3BPxRgp45qr79ZcUc1P_7FmxnpUM-obUBdJpBk2q_1era-XJJfG4jObYVeVJkCK0B61j0q_uTn__RVqIrvNrvcLV77PXSVUb6SyX4aukAhIKHCT_LtCT7nQYgmLNDCVoS4pr14aNBhkpUnqeKP0j7UUcOsAaBZsYx_7y800dmZNClPDr6eBafN7kw4g-duyXsdFfvYkI0ZRl0o_qjfh7LZeGGGDBEsr4s4Wja1EuJ04CmYeTJ9YiqOEwNEaTRJGVPnZAFuN-BIIIeiwSYg4IQR7gfqIP2JGgxItBvNt0ea25K9AsW4Wb1aMCaNiDvf9LUijiI2Q9odfCIHqck1_0EsXUp7SH6MaYdmVSlk-IRwFWcMPwspNBYl_iv7DmrKwofAcx6kf8Pf8RJX-7NQVVrgh9h_galrR74S2mN5J31gWQT76qT9E_x38MFtFzN7PXJxQMW8BKxWatUlqREg4qSRZ120crnW9uUuaCgm9opBguiazQN1qtTDkDg34WSRbd5kT1hk2OrO9Z8mVLRHqj2boGG0EyTRm8ZQ5kwaqmM-pgoRgKKGlTwh7f1TFoAedyjbBhP61hmnBJWNGK_RGlTG8cK7SLGUKJ0IsQgP5nNkPQn1tHkmSXydKYdDhgLjyoeUSzbxo2VMsSSr9y23c8cewZgne1Mu8zrqnSFabWvsqdfBuV_r322vibtNMCDkc2HXcxBBX6m6AkbBUf3ynyjHPxHoR37rUDzqhZpUSSfhEIjW1G3NTbjetr0tTNJtffTBQvF34kRuLYwgyf7pNAPIMyavMi8qvYT7YZHGdpZzfGlKMbkPLQXL1qMoLpyGLRcEQgYkb64mu9JomqTDEn6gKG7m6LfnuAfzf0iftUqMY_QVPSQvcTsbjGEn0i9LNL6UBhqTOMho1dOjW7gpepO44ukLV9AW3asjFMf-Vxk6TMua_tj2LcNyobtF2UD01hsJa_Mady4AHaUt2G1vSJ5xb0Fo84F-fwLoaYgyuSh8wQe2imjEq1V1-58nh8QcLs1I9lk8bGJMx0FJ_CUXHNbceonWaP2o956qRQ5ib_jBFQKY_oLJD1u8Y8gdZgkaxE-mer3-jdvfwVO94GaydAd0R1WfI8LTrdD8r8nq8bmcZQzaLzSKAqQBqjh3BpATLetvxRTRIURsL-REqSUhdPnP04YJePQEdL_ge_KkK67PfWB9T22BouGlksca8BjSUmBCyTEngbGikN7sxzeokiH0oyNSkTfzEk2R0CnVwZUjotswNZqeRMgmwMt_7NrFTSpwp7WX-PjSJE5tID-v6AyOTnADnwEePSdZ2PBEVpmnMYmKRacFp0AfNCa1ZLtaC-hZDWzzUjQuHMlie3IRKOCBaco4uUnuy5iJjFvdrZr9dnk_SEWCpG4DxF7AMzUxQP-7dnHy_WCG1RbCsV6WNAUUtvRS2_m7g5ow2RYXauYSZgAVRN1FQEAF-BZVC4sq7TWhw8Fgfp5l-XeTnuqiuGQRnhFeO05NpkRxNdAiUmk3PtHnrqMsirWwODSXDH9680G4RavGIb6_mc481_fwCzSjvGEL-9gQhnlHRsFqEMy5HT4vmEhYrA8T2WqhCN-eP5sbu-5ozucmF-lTXJKle0OoBF0wZFzBGqNySMiB0G_AdDzCjxE3iZzgMC-2bZ26eMQioNG0reloh0QZW3FQPsK2FRIAMSF3AcaiEMBAkMarGar9q9o15WRq2UDPRwPlQmBWVEDk-YjJwSOCHViHaMETg8Ce0GpCxKfIIpFuODZjpoKIVF6WuzFB2YXgSK4YXtcBU1wq125kthYmtSzFzjGqZPTY1a-5z1lg8ospW_KW9XiTLWdOsPE2PK5ubNnfvOvaDZSNpBFqom5H8IT_InmnIaN_MoPOhqSMlqZ-PzIjLMlusinJzjOHnUZESSuFcW0l_kNOcRblsK-IPc2CMzM8A9XnEn29CBqSPolz5CY6EQGUDJAC4VRIPUpVYpECrmkfeNJP9N_bWrUBI-5BA_wzEA9rUZzwjzMsSqSfprsj9D7QEjWLtKj3Tr4r0JM1azeQsvyRg-TGp-FEVJcQnHDWxmEH1BE3Ju6XvFiROEKNtz5lSkh9yPgUh9i1pRZtZi9WjwMgqZ5mQsCzVyQKi5BBQ08ig8o86TjkCykrCAK2OXtq3tCUSez65XvVHE50U72gs-RQzp_4kJjyGQiGFgoNQSBH4fPxDcEfbN6zM2U9IHUxoVMRW2a8xwIz4QmjQ8PVmGqaNw7WM-jiVHdSpMbFssNkxjht1NroOCzVKJpOjZPQ1xL5QM0onVMVU6zyZlnocJqCbtOtPTnQRpnjJaerDHE_u49KcOy0ikugiICfTAgkxfSGwHTWNinNwsu1Cl_nkgva5GkVF6a-TYHYcjeh1LPL9Gh_zQBJdX8_m8_Vp-1xn4zQ7oWdMKWiZf94-mpbX6Cir-zUJMyzLT9UUDdDGppWTpL95tkofTWwet3xujFaSRoCMad0hnJmsd4nhvx915nPsgAsfmknbWJe5Fz5RqaJ15r5HIv7y0j7PCLsRtifST58koyq9IHhc9ycEXtQjlz1WBZasIJobUn3n9F80k-KgOWgLv9StKimq0DD2EH2IUVIlodm4VBc-jx0QmZ-cELWyrBnNhm081oQS_QuWH87bZhV9tBhyYsjDC8_dArv5l5kTeYYqsBUyT-egjKrkpmkJCQ4XBN9JWa4Vo9nhOVGntJRTVcPA-8GsOk1LuzgLoo5yVu67o2zOt9-2OZOLyZnsd4pxJhczUPK9giZ7YVfbnF7dXrhRiCaYsugzkMD_9JUt4z7iwd5aOgJtKY6lYJmeZMmkcaxv50p6IdU5wOZPcNpuzlVu64vLXizMuhzX62Iq7kuH-zzVfZ7Jvpkm2lkrq8d2J_2bQ3gtz75v2RaSxIU9qM-YLWnjr00LctoQNDrfl7Px2ljCM3WvJZNCJ-PrNdPv8ZZ0nC0mFs3hu953eZIGRezxsLzQsGtEq6DCnM-JKyEcK1NJMpgaNGfcTjcaGUb6fzHXTA_GNeotHnTiBt5GofAyzcb5ZZuR7Yt0VORVUn7lM8WLlVPP-Twtn8KQAjBAQtZ8rgk1xUUByac5-cT4NVoRNSl0ab6zjeAzWKJsh_7n5xnNBREWEp2S67U7M71of6bGz-WMksFyFBroLE7dQcBrC-WwXnG8WINrg2x50pDkRSgXucvyPvzAVItpRkbYClJSF3iGessIRuVLeR3kFSbP4h4i7orYjZyEn-LMddEXhR1lsebE6MNYxiGuzYe-h4-abuZ269whDeNaKJqxtYoMs2gaH_hN7WFUnEBfSZWw3AtRHs9GQtVOaFnDOdrGBjN9WiWQZ1SyUL5R41PXiVFtSgVasoIAY5Tz8GjgJdnYU55a81iqZ54eo36FlpYPZZjnH5DMxiIVMartL3ma-awXjFFDoLw1jyUrflhSgg2lMJ8Yme_MR-FHVVxKb7wfvCUFWNHSrUIV5qRdzuUn-UmPTcqon505gPztbUdAEMpv0bD7N5SDVogAv1vwHCQi3WYAcSOXmCwaUJX_ml_q4nFSguGg1EBNopVKy4CYE5PGWIKTRlHZTjJiYcAgjKc0hZbCzgtI38dREUOiKBWVCkcqyzMddhZhSXzMfx7I8WpXWSNqmQu0wjpeGANUsUhLY-K0oYQMtTnEO0YC_i6PckgrdI5tNzhVJ0Pq5cB0fMmghXdtY2S1fphk23NqR14Is1xAgiKe1D8Hu_UR2g3i6wLCoD438zEAI6EDtYS7aP0JirGfAkAGuFyMYGM0pJqS6MTXG_9D_0YBF3FSaQopiYSIlFqJJvViyyzBNGKD_hRfm4vNUICjS6eouOWIMvSwQB5hqWE4uKgPLKmZC7abw_SGH4fq7KblSWNEecS6kfjQr8nU5zuzn9--etkW-6L0-BqnxbDry_JqLVkTZHtnVi2E4SFkC3Hxeml4PAiwu362IbY7PMoG-tD3gBTOGLv9owaju1Cz86QodXhGjN31a348VQbywokSGA-napLnX6fn4YmSmQonZsoUi1gVdP0nWEOCdtrGTyVRdj6RVNgUEeh7goFMwSBG2prXqsLPRBZl2Hdm5rR5YtHjJWs8oBhdfF7AaGd2Pi10eK1oSS0nS5XyaK9vQoE2yqo4dnPHxoWwFSyerBxdR_onn_UCwi0LchKLVN8Y2tTaI1FWwQAlYuk2LG5qloSwEVX72K9VxqLk5cPxqoY8aHgJ_Nq8HjBErOrqUhY-1xOneE6ivPH1ZjdO6-_Stl1KeuOeo-4Eg2bC3q_Ph4vnllbMiVL0QS28IQSWjtMw1MdcVnEOxVvle5EXWMKO04BRPtbv3zx_nJ-d0-bJiH-BFHFGkpI1Y304mfheC3asTClMriN5TGsiz1PZoDeM8EpgHZsR0mb-BWpzsXhApukGWyBXtbqyCj8G2BmobYC_tIVxekljfbhkLNsgRVDXbP3lxyH-G3y6bLU3h60gJOTzaevTVhDTA-f8Ff5fSqfHT3j5v8O7BML_lzIpYUAJn4aU-2k49wedzYNw2JoP_tpqDVtxwEVC_9MYH3Ctg7_-FdPn_GlMn_6L66K3f_ltPN3ZOnGnc6t22xaqLqJZmU8LkrC1Kken-kyHlaKZDKt4PQvXiYX4qJJpdZoXaXUdJopkdBLLSVgvy8u8GIe5Os3LKizjeKLOcxIeBbSmMQMSSaD-FAT8nCgzkSziQItra1d3HBbv_GOILsdFcnJGqx2Onah30cYnkfzQUly0XS_iizaViD1isbc8Wih1Qdx08c4asjDUNc7IHuHA6oyNcbdobv5q340_xfO_AszRHVoXHEXHFhw3PKYqmRrwjBExe840hTsMW7kOP9Fy44COUuqD9CRKYmdrvfVp8Gl4Z0sRO0M0tcv2gVRlXoNYHqYEVNQKqKclwbaoPuQUED4NWA-pHpin0DivGkZZ1sKnaFckusshZPGyZogZJsH4AKEWryLf6vTYiNInsT4z1vM0ogTKsY8qjUnuHwypOJf2G0YfTLsSwyTStjJnEHIeYUcunzDbImVFDggrswYZ9eSOMU50szX49NedT5_ad1uxH9DEzRbzIcGu9-nTHSxI8SXa-vR3m1KKx86QmLDsY1_f8fm8XKozpv3EZc4x7W_0yZMrwtnKO5kSrii-qOIwmtEWfnHDAlSKquK9RWSKEQzj_hfGpFZ0wo-dEVMhNig4DMX-oUn4k0vGW9RTas3wTMUhM00R1mI-J8TEOOLTlt-mPf1pK57zXqWtOjV7FZjI9r2yfedmi6c0uybnsx_fX8e_T_S_gP8MSLB6jNPBO0SXPgdM94iof_5L0mENs1V_FeC_u1tCHe_4xWtkf_rktwPM_J2uh3ls3yVx985nrDBBljMu0na_FDhRVsXrxgF-vaqyRXTffwgOj_i6GVGOwcP2Q-KLrs_yaRl1hpHn3jz1kDKfkzhdEN8adSnPvkjWj5JBaN37sZH8Vmdlypqvbcpxb-K3UryJirc0jcSxeOOkStZYNZEep6OEDYyDvv8uYiZIeveu_ZLoDncMD556hyQ90mWZkIyGTrk3yXxqzBqJ56quuXNLKVLoda1EjnaoSONdCrxLihNdQZGwT9nuTTLf6tEUiC_q3uMRypvkPc8IeYrShPiZaHubp62ZJuXqSd85WJ51yb2O9rY5_dq2WVzoIup1dva5Tbw1cw4_Uh9oMJ2DPZcvaWbiv2HiYZVpJp7YrfO8pN70ul0SiIsfTX53NR-o6m-3zWHxQuhbVwlKsWAe--YINmnTF5UeK_fOGo6xWhF9Esvtz-f28LauMbyZhNPx4pEx_o9BgUansiTPx33_KkoJXlKBl6v2s0l-lEwYYuTRU1eUTFIYrxgly6MkvyXQIdBgODHPkvGjviChmUFYHiX5PZFbhhg8mJn9iJlLeeboPQUPvlaO8nNN0FzVC62yGnDlw58xpM8_EDqAocjiB9gDEqf8sS3cN_FaXA2JEvz7WRUfiDvAY1gQCZcFCosf7WMZFt_U8oYKizdEwp_4xQexui6erdqhLx0Emxb5mJCfYu4ayfCjZKLBBSYFIRKkKU9nzPFxuU1Tnvbvyyin9chlPV62305HGDRBLpbEvHnqJWU9LnRC4EJZWBbzJlnvs9Fpkp1Q5naHp9u-S_aPOkspb6cj64MXyXiZV0_hF0BZO4wz5FUy3-hk_CqbXFPmLmXaV9MZEqgmKeEz2kLojXm13Smn52CnqNFd7m0jRYoYnRp93uEtz2-SxUIifYcMfvYUQUy-AjG6WiP6VxEKIJbnVVTSJJYyia_aD8djQc5jqvIVJbxIM4Zl-jUJyRUDMf1KwvPjF9gnDMHm2WYAk0rmDme6d-5Xudwv3m1rOLrzDAj9urwTVfGTS7Bflar4ZVUPqBJxaErB9qRR8RvlfKs1lYTxEz816kpW1QRgaipIO4qgiX3LUlaLBaxvVclkYhKYsgbKgIhJtHxIW2b1_nYH0p_roSnFHNkfnMEycZ0KOvwHOAZRCVERsFdskeXzUPioDmzA72LdTD3ITT1SDT6Hls_W4Bpfzg5w0DOdVKZtJDm2Oyf26HezZa2-NbYjIlCDOoi-_yO6mRG3iS4VhHNjNlwr_rxRZj53r7Tjaceo4rebq8bW9qqMnPhOJWA-o9nSp1nberWxQbWw6kXSqWWaq8-E1H5GWWbMqDuE0Ub5FP4jebV2BB3BymfeMXZt2ws_AznKd9Rbk00seS6bKvZo2xA3jsMBb0FVjXBoucYf2XHlbmvHn-G2sDYyr-21d6dEZ67O-SBhjQgm0P_aD3WTtHCSSLh5nEp3z2Q_0Jdmepc_tHNef9n-HC71RtBVbA6u4thDXTBOYYS9dpmUa2MuQsNf-tDglJUvxd10nGvRNmFwRD3Wqpz7yCJkslKRRXyxB9tneJ8m47WcElZblDnmWcvWppmbKm4_5GmW07fPoWcLfc3yywxVlnnW9hafF5-Vsa3FATpJd-WQRHmWqzJr6GxcLIjSw9HPwn5qtSiHfmqU0Z-I5FizpJKE3DYbPxWdSFjrmw5-bXabK7qRb1VCcO-KORkGUezga3wJTXIQ-N5Fqi8h6PQi6xjYUK82xKS_ks2_H27-Cc1Ae5NFpEMvsLJr6DUNXjSLp6rYWbZ0dKqYAfs7rWposcdYsIIARJhiRWD490BaH856iy0rdAZwjNXRrcob13V_8Fe0YfQeEb3gOYj9jfmdQLQUVj8PnRcJLZF3Z1Y1Pl_qhu_N_93r4cMfPn3yfggW3meV0XIorz5FCIzn8mxhqQHNBpGBnt-w8mvI6-VdH__i6FMUzNHLT-354C8VfSo-ZcOgFXAm9V1-Pd8VISnxbuDNf6hTfkDKD_M6QSGBhivfDtSncthqDJwVMxYDTsHOEDGewFih2dnUKbF8APPI8bRTotxTej_Pz2EvMopS2LHS4P0RXuvPEgF7EnWKJPtahiNDPKgCY0IDpx0xptzz2XTT8xZ8aFTsNZ0XteBJrsVMeAhBcWYO0ePPkXuup1iJSE9whf1LW1UVu1FPb6tiO_IOqxC8N3EE-3wShn-HPhiqtYZfdxub5CCS80xV3IvG-WgKzZEiWaS41z7Kx9eqKqz0wDwCI1C2IVNVFf2sqsxqiqwi5UFU8fZw7oFKnL4-9OnzjIAamnfasF1Y2wGHtFpQf9SneX7tipRF4DgKWqBnVj-TBeoZTeJmF0apH6iOtO8cwfoypXyiBt0rDeXJRGNEMMWM24TbdPGjGSR9bsfL-3Q1H6aHCRH2D4RNiOMukjNtK1vUdjpV0jT-cj338OR8oflhPveOoGwnzqi8TKG8KYLZiHDSeifEj_e3FxrLJs9rgU1iZewK-urzF135ovDk98h-6RmP69_gwM5Zmc1aYxXi00kO0cRkfnGZr9nIho9BRGdNnMKvptTpSqlqt5mrV3P32X0e-WYCwyVzVulibE2jZKgG56pafa0jKWhnwZSvEmdMag3VaA3SGiujQAwL8ocVfXk0ZStjmPhUeaNQVvurZH6VmgwcL5R2OSUV03_bMqhqYohLs6mXBCMlMqe2FsoFAqe88dvqeoJ5Nc7fbM_6gS1o4GAEeFHVqOEbQ5xClZygylAyj2Urz65CfxJVY5jZta-2_Eq38-Nj4qQ-puPqdNNYJ6QZgTKnUOUddR1O2teNsj_p9OS0WiosSSgNxMUe6WhLH_nlqMgnk9_BIl_X73_QO0o6owdRev2rfVc0tQD1137RSFHVuUUWMBskNFudiq3yxsYjauv8Kpy2r9Q1_14rbpsStpZHqHZMN6jM1sqAkHeenOin-WRchlWMIjfHGNb4-dR1nuQhQr1E7t8xc4F3qugPsWuPaSIKTvid2panPxahjjFDI0o6XkQVPGiUe7fwqaoTgRR_LA4Oj8AcE5_zeJISLnkDiyMcavOCKpnwMVGZ46o1aV-ZoY4J-s7p_TpQl5gDSePHQJ3KoDhJnoNG62fuuD4ibHMOHVbI9oFlyQZrNA3WwLg4YzbrlfhEVGe1010QspUE7JNB0J5cUM9_TctK05waz4R_zKTcaxstZMZHHEV9PiIHHYuoeCgHzoZEm3ItP4uJHrYyaO3dR9j1R2Y_UJ95-p7ZybmxBewU3QQFQgtVMuFC4QqYcY4BmBUwA-RcslXJR518RRyEio0mqkv2XYG9l1hJRB8k_IC3uVkVyejrJo3EPAQtraon0ZJbMIMhH7LB-4PFtVxsXwY5tN5-ijAZCcjiNzYEEZ8VlQ0lgMEVzIIDPqs3y79ezeeV8axit6QsjnMWzf11dn9bwpSUA9rBXH2x4yeKNnCmtj5tgtcIPcajcF6unttIJdXDJvm7AO29iKrHwFylM3Cunos3iDFjxWaQc4DBQA-H1u_1ixzSDMQWfIADAeE2SDZvl3qiYchGj-eFPk6vhiGXCPgskWB7QJ0ZDPg0gCf402YQoxM4wLszpzccDGyxdTwt0K_-RUCf9v3qucP3T_ikipCRcYaonMM-OPhDv5qig28Jop9hCsybd0T0YNNrcSpb5FDeFQ5GKue5X72DBJDYaS49idC0scFtVleDin07cZjyknYZztX8T2-JSQ6JxZUDSV8SiJce_PWpVCH4feZ_1z-9vfspvMH1v_dp4WlT4sR9iENBWk7pBiaF-mjggwdqHfcJuDI5ybIEkomlX8nB1wdoScSxyGAXEuZkalIzNY2JaUwIyU4-ok6cRxWbRBAr558jVejaneXmme77p1H1qsY_OFJg1u40Pg1_83EqVX1ZCpkQ-xVc7Am8rbUXFclEETSrHjKxxyQQdmPFT-CmIIPRQaAy9v-MZ5gfdkvIhotwRogUS_k4mmUgxDR76cRTZTEKva3Dqv2l9NQ4LaEVGsOOAxp0xn8l41h6e-qstZk3x0tpDf3CXUoaMRn4RV8LlU_OU_cM-eJxnn9NDQcw1kfTEzSTntEmYHX3u1N6OCVqF3ZRl-D3xznRsavqhc6m6IZhwx7CBJi1FO-wQYgChV4yrXJP8ZBnllsb8AnCJtSf8oSRe0Ng3ENIfdUL_vu-NpLU7dFpUjwm1v4hG8ZXT7HJJRgPG1E9Ntkixfcxu97DR49_fPL02U_Pf_7l1xcvX73-7c3bd-8_fPz9jz-ToxH15eQ0_fJ1cpbl59-KsppeXF5d_93p9rZ3dvfu7R9sHpJw6kwxzA4-HFQvYFax1J9OMIws7nnNNMgKJgA5xCewlkYs1PazB1U_KBCIoNUa3r_f3Zvbx33zpIzkR4353b3d7m7nXm-jCB486O5jdgZ-b3e_s7MvST1J2ulsS5k9ft_b3qCN6fzBbHCEKNskivSUEDBN9ptbO9tRtdMyiUaA9ffEtuyLymH7rp9s7cw7QctPWtsb28G_t4N-ghGlg4y6HmGOcNKKoAs0pN7cL5bTqIs7ir4AEZFP_O4u9fz-_Z3byvZWym5z0b35crla6qZxfYtm271w0Ovu7XW393p73Ux19-7du7fXPSA6trcTDjpXo6Pj3sFI7-zv9Hq97d4uFekcHOx2u3u9_V63S-W6vX0U3Bvt9Xr3erpz7-io093p7fWOqMC93b3ewe5od3-cqc5Vt3Pzf93tI9rfqvoRsmJvdw9QfFcCEyXEIxDDT0xz9Xcd4ay2-4g6mSppHSZ4mGIvjOjtmP6N6d8F_Tu3AU4ooT--787S-xet6HwwXgHQMULjMHyeEtPPdJVqpS1yPqRae7u7G_4ouoB7xWZ3ERq6yzylb7Nb0eZ0MI6oqm7w76lpbdjyp9xY08BooGMLVafsTdPd2_Rx-m-P-1s7wb-7ezcha6dVtJKAI2Bk97f7Zr2JKfwRzhgm_geJ-Tb9-K_u3l3K7O4F9F2_IBhs5MlGMt_1E4TMsQBK9dXQIu7qy31G6KGKunDiu1rghVqPYXOHhnT8V51PA5rPqSPBfUJXVnRfHl5HupKxpmIlD0qjB5ntfrPi1Y4yRtzbuT2aBF65kTLi4H4E6YXCgAa5mtDAvw3KoRmci4-SR4_Sk-dZ1U5KdOilXyo__0vSloYY3J247hirGgmQ5JvCNlzS85fL4ZJa-b9XSqwEVNr83pdBmNch17b3ggX206Nopq_A0BNBWSz6kORnrBaY2YBFa4WLgQVL0PYZ0Zz0fEIi1_qq-tQE2zPOBNbsPSlOWD_Dp1rh2hOr1k6yNf4QyvNSF6LjWrPVi6a9bJtjMImxsLLQhFMCjmaz2jcXOok2fz9vLA9t3ZLWIB9KaIm1shHDMGmX06NEoIu45r6bgJIV5xJRQ-U26GffKIVc3BXWDTU88MKp3z3oBRLaRHQvNjYfZem4e7Abdg92lgqYWHohrwMcC2t3hI0Ns7Bp-TY5hm2ZhneRNk69D6IOyQv3o27vXgBjSxmfhMOijAfR5nZvJeOBfEEoKRj5g15nB5adjWzCX719VykX2V8pIjXs7e5umzp2lX7w4MH-jZq2e_f2pC48mdoObi0sde70DnYO9u4RWZCye1y2t8M_3b3vNNPr7tzb2d_e25G23Ks02O38F5WYadzf2dm7t7PTubd9r3Owu0vMYGDNW7dc3_ZA3P9dv_a5la4qpJVCWim4lYIoL6cmkppwajIMjAso9b5ztb9C9rgvnat7x8v_i_2p34MdCZzPiam_34lNy7RiqtP8_zAIef7uKVrnf_pnOyLmQNhpPxIzCWUqEQq88p57ND0-Jqjb5zA1CDzBCsq9HZ-D_FGvOtuBGvkrG7WC2SxgrwHq5vAoJKILh9cl3ontS2u2SYhY1c8k8tQSNc6CB4DOWVFHEXIRn24jDrbSuyTld8MdPu0mHIGYaoweeJHLZYqfM8Uq7wPfzNJBArJSwl2rSrOpXnAeTIUCm0ds45z2vgtfUz4gCDrY3dgo7-_ubfc6vGVbrfxBVC3jzPfvnm7ur5H4QQ2Hayn9np2zfU45pQInSQULgbQwSHFyWzcn0sR8Pnmwe297Z_ufGig1DWLcqBy1JYSdi7XOldea1PQCbIG3luA4Yqyv1rxWTq8kEiHaUwE7AOpSyYhgr-X73U5ve6MkxrILzpbfEGzBzU53f97b6TQTeht723OaX4HBZsa819vpNybWFjRJxJmX_G4d_eM0TJuYPBHQs0ZQxFNsd2NCzXud1jgIx4z_ZPfcU-MhpzA-k7R9NeZ9Ojb7qHvACbSNx7KNXTZBfb4E4CYyl_FmIFZR6EG4ZHoJb-rYr-PysoIH4qYfbJGEiAVlH1wkv0gnk1SWrPSh8WGcX9yv8Y9guR3e0rfioAams19373XvHezvHRDGs9FAunrv7i0tCnYThFGh9h7_UHv42VMVySf00JkXTQz5nX5IwN__2F734IBwWt2ktEUVVVxRNQQOhCMg1ji84XEz4YiezQmvUcF8fjPj8SQ5O9djzo99_zTyzyPdAB0DK10a1ylBxGkDVroH99Qpd-pUYKV7sM8J1OdT6bPLJlg5D1Y69vw7_aL07t73Onx7Dn2y3fveJ7fnMBr_h6y9HZkTntAGvNbx9SqJr1dH0ODIgEWrtVyiINq6i63Q228hnGVztxFAOfjg3dbb_h74KG0DvHE0Sdcq1FYlHE1LnOAumlTH6ktgBpBssFtTOxUeFUcIb-Sgls8LbwnB-72ycel_L8sX_-3w-yXYw5I35H_DOcN-Bk9rP3gty3W2vB_WRklmLHscG82OugvHwU5s5J1a6Oq7hdjZubkQndWF6H4Xn7jVRaAHkhorw2MjkLjrwNTEmLKak_spSb4Net-7m9T9orx-UNyNekYBfVO8qzjkVQJ5uFokg3SIY-dWq25vdLM9JzF_v1k3N_-b1vlFs4tty81u3RMX9KhQVR9cOhwMlljIaomFDBBz7X9slOXkqCQ-QQeN8hCo_4dYMpevg-bnwC2D2_nP7yDQBpyIw3QjeCa4rSYuaPCAfAa_ylxBgWzo3nojILULz-EW4X8nKa4dXcPAmaVFMdpZy4tGwwFkyLF24A-pka19_qvmZGc1mliuDDZb-uy8uja1fpec3D4fNwXTitWWtVQamHBWCTy5BBtESa1VqWpJNPHdNmblRr9Bx1lIs0yQyWD5DVnEBpqsqV9ArAtsiZ0dKbF7YEuMUGJnx5XYM9UfdG2JY5TY63AJYmnYRqKpNOHkbU6-deJ5qsGBEpc56q4Z60NT3U6jOmLpOW23mdaRtL1msxN_k2QfU8O9Gzk9k7N_I2fH5Bw0c8Z1bb1O50ZOz-R0b-TsmJylKSl9m7y9nLxvkpsjXst92_DucrJtdW852dZ9bznZ1r004tTVfbCcbOrudpaTTd3d7nKyqbvbWx6_qbu7vZxs695ZTrZ17y4n27r3VureM-lLwzxurFN3_0aObfngRo5pvLc03lHjm173Ro79ZmnU0-Y32zdy3CYiGYY3EXQtdo9u9nb3TAgOexsGHxj53ll5cp6Mvgo2Cj1I1rftILFFJWagABfQkM38bLMLcQ2x0gizvYAXxIl-jSqP0iwprtfY58QX_EMfuGjPXmDRLgl9hHdZtIOM1wFSpN7DipfwoXO2rrEmOA6HqFLYSjU4AyKVtG-Lzc21B50-ZHirT7OIrGoBf22kUGBsICZxtRmxeg8BkUQorO5C8a-opPnGueC6ZvOVZl2L_8W3MJGb1STfKT90-4jpncpomjDcV2xYUEdL9LNWVCgB75ivijDMNAmfCPfDgNnIYGUJMoxVS4NLg1HTrIDCjhgAhJQTOR8nSE6izagjtVkkt50sMVqg4Kz0g40ch82vZ2S2QLx7mZIBUZPhEqFZ4p_-qRqiX66aBu26Wc_x94eULQ3BXw1jQqOKPE_OKahAv3qQ9VdgBvpRUf7I00F3YyO9T1tNQt18R7kihrpLypXeJoNxKSe_UGWkkb_d3Uj5aGxve0MaXFjROSXRd5vb2hFVTtbq_vetbd_WWneXW-v25r5r7_utbx9I6_um9d5_3_rOba3fk8b3lxv_j535hxatZTozPtIigmuxWin9B7USo64AKrXU6pWTVnTb0XRaqzKoaLfb3YFnXbopSij1va-I9-3MoY2jlm8rwMqqdC5quv5_GiYzMWyHdvvI9NVI63G5hq-6e7DTH53WIZQSiKcq4SjtdseMb9t5suvAGtCumDTOLAgjcxxIe16w0-SxDavIbi_3CVqgmwlaHEgR5-TutYezcnnTg22HGw0WpCnR23cLXpP9G9VXrvrecvU7S9XXjW0PIYUECBoIYNoeBndr6QUFdpb7urvc171mX-99p6-taqur97jHzKR8r8v_9Yxkm9G-eGNFzP78Y6u3srxMcA29JZxGlHOcWBIOyhkQRQxnLPdUCoXDZCHRrbJo5kSRsFANwYRKGkUukvmhIvwOjxU50osyY0E3MIZ0hrH4uYSV6nxuGQ1vGGXUA_SiesTQNltq5qNqvPy8iPw7UfXINhJsbNxpHx7q8kU-nuJYcPUaJUQqfnWZWRPaNsIY-ncQXpj1MV4Q37Gm2-EdVX2IvDuFPvZU9azhV30Obd7HUGLzyN1xRQg784-qMgHUrUHMB3EtqziqIq1UlR5fI8Zid7Ea_0jiTHMsEcjyzxCNBF7bU0QA-ciW7dQCIkYm6xzEzIQv4VAgS5GQJ3xmyhkwnkxgIIoD_2TpDgDEPdJLZ81U5anERT9vBBi1QtQ6h01xYUdZ-CQMA6vvjQ0EHmS7eUnwXWhRVrbUl0z4eZTGxsyxrmtQfRhCYsVvlJv-uxFRIo1iht8wbwRAdZoTwtd-aky3XiTngVWCsE1WC5fLQAcEHkkOt07EuWbdRIG_NV57HffYBpkNmnFi2LSNdYxxacNDDKohm_ve6P-w4diknXufGLwTL_azz5HwGZiCsGFLX4cUQpT-LO4hYOQtufjcFYCWjwsl8XI8Mb6Zofpp2SiF7SmnAkc0v3y_ib3CZcBJQxjs-Ta3MImRVkvro24J1bUaOQc-Ezi986s6ho1Eqg_djXqZubhmyZcgtDbtxkfgI3sicgDOpYv7HH47ExmDKNxIpxfQP0Jq-cixfWkOxD0V_rV1nGqtZl9K-EwjqBWefmQc9tRGOeUNDLu-et8uBevCzWMSBDmcYCMkNoBwUwHzyh34wUQa1jcrxm8wlY5vh4BbV776lY2exchaXjpsTQ1LhKUbzszU_cSgIoKgizJM6a4eQkbGII59JQKOPzxgryharb_9hi0Qffbaz_26WQlzYReL_WLYS4_mxZt57HFq3gaEZ1OsLHWo9Ks3EriEN89y6wvBPFa93vKLNhYHIcgYqdC0c5SWtsWtZlD-CWC4YqxjVhYoVy2nNFAyLNkJ5FvZ0IWUFEvefvULzIZ--acPhSX6PSqewiOluGc9Qd-OivS8apfFSHn_gmnvH6aIX_1OVB4hSAIEaaKcPyNKQvj-36LqD84rHvrVnxDN4jZs2VXVEVdrv_qNpHdj7S55Me27cfkxrU4pE64Tz6jGrouEBdeKx1j4Lf8vONXFQTD3__rUxvNWEGxR69aHJvYCjk1Y9aKqi1f2BkcwA_N2llXornmblvb0t9oxF03CJKki4XaXwOUXftlW1f4wGhT7qtgf0vuBqu4No-Ia17vwtY6ziqXSfQIYW5o-hR38Pb_ajlbnfhHwRO0Dn2UcPJw2U2Yir2bVjQBgbQm3Haxe85nIPTixKxBqDj9ksAduds3E3XUtH_GKjj1VtNMxAvFyGws1yEgCTsxoBlmqstwOrZQNyHEspxy3OEvwhG02dvF7MybN2YiLjaL1dbh_XaRlejThCzCtk1mb01KEMXlbEbOG6nL6Qq1rlR3b6vpZ5mcTWRE0RbtyxA0ec7BlIoXZ2Dz1qzPf-O4NPHiknKZjTUt6XGj9t_aGjG4yLkoLsVK2PM0vqSx818-aZTtS1nkCenWvxUHfE7ydTTgscTaiUchn9ILZaUyNDOKCu39uuz_ITlV2Yqf4LCqm_sxFouZeXFCVJ779Trp_3DCj3pEY1nWQawCUyiTm5zo-9833Hf6eF-msbeIxQ7FQT4Z3TAMtPfq6OUXe0WRayEDpQxd4eWlmxDty4BHTQZ9kNJfGf2j57Sy_wJqIyxTNMxrKMHT_S3RGHNOZBIn40oZyKNpEvAc8eeoLpb1LjqLNHoewOZKUt0RrNCxBEY2DnyWMSXaEMCZnHPyBw32srQYzUdklw-lRHYkOLEvBpDj7avJs7BLOqd9U9lZQ19LnsYkaorInUfHEN8FNsqOFKj5Q4vMm_bJXTVjf_Oy5CykQwP81u6wDpnzq2KAq8lSZaDG4227xWWUPo6aBg8F7nzqe8xySjrQ4NCpVE7KrjK0lxGVJC0I872BQfWU9ZbKX4k6UXdHQ92mxW96h18peAUpfRXKtU_ZOZRxta1Rcn1c5uOA3bC4sMgJP1BeJXv_a96zd8SYeNnfwZ9--2v95amvQ6e7D-Rz8va_vRt3gr-zOqsUT7QEazEZ398EDvbUTLOkFqNHHcDjJDqNZOg6zK3WqCdCPdFKFiKJPOS-iGetPCI7KcDbIroZhdrhohNOYLYAJ36vsqd2Zrwmdq4yN0LPHAyxXQND7zeHm7FEdRNiXGP-0v85onyO2L8uMKW25aFtvE3wwe0C1_hgVoC_Z37V71CyTO6dn-tAvnklAMEQdtZUPtPps4WHNJ0j5WkOKkmAReLnfiT3xpdgsCQ8SB3mWF9ccGMELi291VB4bbofE088KjO9gQJLJzjCUxrPH_7-2vlDew0m9WwkVPRtyGMy4E_Z2O1i8R01wN7FNiMbImrC1IXhBF7BtpncwiNrf6meSdsz1X9LZB2fALDh4ds7s-OZFIwBMBQjwRYHgnUt0mfPkepInY8QAlGuPMuKEGh2ndLk1iJbX5xdcmFIdWP-MGZG2SsRVd51e4ZfiyPK2ygsiS9hSzyt95hfbhKdX8goNbGqzsXcz5kdpwxLMLRkjtxo3UnR7B3vLtv3LZUlKGb9l0tBTXsfj7tOOQqjDQwTEo8l0UUpdhKUzRti49dTP2GePLxdxSxJIqH0xCl4eRelGqLRPW1EJ0K00sW6bIHHEOFvxXSs8va8jI8DO4F7O-P67tbPohgCwjULLEwmBqiZ9pZThe-_lGi8CfTB3227N4D_VJgTFWM9y8f46YoTO5xwpNIqyK7nxdZAogaLUwU--ICm773H0SjBIaVyZ-wnoawd0CA3jPsleLHBjFifii40N-0ksoIvYPQL3eQ3FRK8bxNvCMbd4A-Dr72_Adc4hjuH7dWQaN187lKoSfJYT30Jfopj5ZrGwkgXYHGYnqADHwieW4wUv5mZvF24VTTbIRutnVLrZ1Tt9_Y3aixsN1iI5VI8IhrK_3CO44mWHbUcJBC3X08u9dNN7uCAgqHks-KU1eSsOmDT7zsdEyw9rj2o44tWsVqNBWe4FR7e0906Am7UvhE_B-2oWHGX3sDkTYCj7qLKfHYv-QWXPLJX6NQJ2mVXGoa6I4AZHYwB9FomfWAKOm5xF3c6ioTFIhNxXcbUfVrvB8i6yWAgGFxLp_tZNphW-3w6rvUD2Gs1xi4OU56BzxVav9gbgSFkVpPBI5Osy7oaZDZTRn8AHxoQswRkaXFrWp_P5FLpkvgsHXlZw2UEsAhHCscfcCX1KWea-lMoqkHKfI_N_b-9rw6KPcLULzewxSW23IAKSzWYcNE6iWBRu68_no_ryFYJ0c1nBqV9c-CUuhVMjmFMGC2ECy40Nwqctbzl6VDL6NiVGQSzMAh-hS4pvQMI_2T0DLHQE6eoInsW1U6S5D-nIXoF0HdkYpXf8I2LfEBinP7wbUMWynTg0RfGqZuFHXI-6lrC1tFY_sR4oewZoVARK1I1fwCXiEkqAVi2TcseK6Fe1uZn9AhP3nxzU83dLlwV1mnf7_NJqEZ5rFO_gSj34CTSugCg4aiLzbn80rs2d0VYmGRiQ3XVgjjsWliCbvdSoQBlVJqmMzM3SNAEJdJ32QmjWvZSQmAQmoQQzKUlECDT7mU-U-IIEP48SXL4BdAD6lrOjOZE_2gHLWi2cPmDIfGeIu1GVoSP7VVTbP_pdJdfVFCaUUllfm7WmCQcaxCmfHWv4xtBOP9PVaT42-sQk9l6_evvOC71nT955apSMTjlQ_CY_UQLBFa1zmkzK0Euz0WQKAfkMJxveKC8ItxN-HOuC-F-PnWaJfYNJJbz09VW1dT5J0sxbKIh6YbqQK5RNiK0HiBVo-yseV9TrxvUctL7neVZqRNqSQRDio1ppURFB3mk-L5Mi8z-_Ec9gmEXgRo-14ySdaMT1WkuqCuZiiC3Z6i62tnHZh9lpF77fbRXB3V7HStt5tNwUYZvccoYxlmo_rBWzBPZ-HoQf-0t3oU94A0wIJr_S3wXYMJ_v8Mh-F9DOkov0JCHsQHgwGz9iiIR_NUksjyb5kb1pOx6k7JtvaUZjQuHQfeh78ukaajHjJSQAkP8zGngitirI1x681kV4gzZLQrNBlv6N_SSzP5U3suEnPVrd9JgjSnor0WlJJjfMt2fc4BXTYmbSlb1gRmUdVyt8perPuPgx_K29IfswZ7-Zm0u79uBCZb2lK8MT4DAXJNFQdfB7XeWujuAAFtlDvkBGIgmi7mKImdeOQ5dlHfHBi9FcbWMx3N1z-rW5yrSD2uUiYusJb270DFRpz4uKP9nTy3oWC99KXMgf7NH1zdcHqKVidTD7wihce5uRQIiQ03xPG0dj02yQmOIGFQKVBZNwq_91lF1pdi7g_hqSvjZxU-Zi5RBTNaGO_ymIyigMOiHISMS3Mdro2cUvK3OawQuX75KsrPZZZpfAn_1zTWDK7A9zQ_M6B794RbjQLUPjPlEzH30eVlsWxZmZvCHhhdYFoLGxMeUSjG2kADx9LJQxDSc6-D-0e_wkdumcIrQLtTNE0QLHVmQWcg9DIDUAbCRKME6Y23CsiyXPi_XsbX2sN8DtjQTDuCyl9kIb-9Jjs-Q0n4A5SOV13SaCK-tFufDCXI8wktBjODvKaIWOORCadG_EV7IsRM6pe6zrWiVeopKYg97LnG3TYJOLU2uvRaKxu5rCLwMeGG7adHA_a-goAAO8aOANxxzX10T9hVYnbq8koRr3NR9ZIoafu8ETvZVwNyMLNJCqcbdPMcQlBZCaXD-yR0CJWfPOEp8VPpqvS38ldwjRJuGRYqsZgE1uA1gOymlgU8Cwef2rQR2yKUuAXMKkh1CJgzYli94IOibxXC1FIvT6K-sBORXWd8bGzgW-ta6wBAwSuM6EmFuNQdwMguxCFTeiISur9nOKEda5icrEzvYER4UzAxVl7CC5AXfu4gRz9BKOFhKiA1c9CtQ5p6xf5ZDbxekklkXwBc6gbSJx2PZR8RUhiF4K_bxNJZYXmx-XX45dBMAHHdxM8NRvoowmEGJdRy5KGYd7_d_DIgz-sBkEt7S9W8ISEsARS0-oeKwaFIXvg45GuArbqk8jEir8CW484XhcE4bGZBkaSbgThZu5VZNpjmCK30hKtrq7kNhOwUGIu0SUZKIYCIM4BvJe1JYqH3y_MSl6sQy70g48EQ7lyJT2novIyzoTlqHqpKBfxc2REzGrFC6zADJQBAiZDbwZFbsrWL8Zhil1VCV3VMVFIo9NQHNc4l0YtkRCjLa8Q6fjakQnp1zR6WH9QtpRb3nC1zQivPBmkgoRR7GMrISXyH0QfDV2ZeLuCiFFu-3k_HxyzTFinlxVCK9P-JADh9luhnKNJ4veBDY1KuQbwakaow5S60kwq1V4Fp9V7pblrM5L6EtgfHtBM5_y1BPOMK4lbk1VK3W7huE23ZLw8NIthbH87RfWKUlEcAGihjJ4k_XP0Ib9F1vESTfQOTjMUUEyMpJg6dOKozWoJ1N_JRQrWFQXxrOYz6sH3V0wxgad0kqkDXLvNlPhN694S-ub31RFAN-o0vr2EC9cQjXYmE0lt9thYniawpKD_7wGNIWum6Wfm8slweqdIERawZDA5QS46mtX6vv35H7WjE2eXWwBNpAp5Orp1Lw26EtiI5ENJmo6jPwqLlK_oBkoEcIrlKegSRCJ719_4U8pN_Yb9U9x0VMu15tnuBDanpcQg6rKBQ5S9uqD42y3oazGXuRbU0vNxoivjkq-2YAxJ196PBO-npB-WtYlsxNCREc3wuSFlUobtb0BeQrZmkMPsr0hZHsTbG5WubBIg3ZnV7W79B_99FR7W7V3VJue91T73u7QobTGNZcZC79Q_MbtkY2-K8HIObRY3K7jL5VMcEyyeJoSSYxjcFDHGgfOCFP6jIOvfYBU3DQYIw7gA7G_HcSmJRzxuH1LXCdcVJcQ49CvMEa-jV2uGyIePho_iGgQ8zmUaOf3SRi_GeBuqweFRvsor6r87AFRlAk0KZOIw8RN4pFoWFqtqcpp00COy_kORkNC_NvHXN3BZSqNJE89-94MmeiOIgXW6R52SFidAzciYDNHAayOfCFHYhQfJmN6b9QVTvl-uSfU-jPCKxI2E-glr8mHz8HOc5aF2oLU2t_dbYWcZs8KPQETwvnATg7xq_FUQnuHx6tdAV5DpEWfYLlUxkJLjfjAGpxsOxd4x2kJtsl241LKqDjA6WmhddZvxpGeLdhcUuIYFjZuYaXyAt2RjmSLiJjUqLiPQPwEo0lGUlYcFwftRilc3Wwge_MA6ol0PpdfLDxrjyPCf5CRZoKIofgIi_s7-52YhOgjEsc9eHF2O72dGBrfCcdqH-vyKwGbp6Tz4Wx8XoTUtNTxOr3SE96Y6sYQJkk2LkcJNZLwdOyz3QcgzkEHrsM6TE5oDJ46Tcp3-ZTQZ61uOEuuOOk1jtbLBx2-PushijcKuTSGqvAyrpeSenAyhe0DpIj6C5dsrzJzZ8qbHKmPupcSL-A-Dyu-Qp5ACtwxjn7Oi_SMtn3IaiAYFtHWhzV8CI1NIBD9N-6XnKVJloSE6SZtGPpC22dkH3ev9vjVecU8QcBk9E_6TEnsydDZBwfWqx-VylaBqhAUftuXo7kDc8XnQxxZVCPWa3KYPu8U1rCBXHnl_ctbj-h3vWizMlIskLwvyUVSsuUTgj5m96QurgXhDO-gmqMpYZSMK6okErP_HrdDPfSU9-j9u3evXnq0P73nL1-_f8dhjzc23vtVySEI-ToKV4XyyunRWVqhfCWmT4nmvdJcvKSwt6d4pRg-sJjh8WQXuvAWKnFBqGfPa26bSRnL0YWJ0D1IEMFXg4BRr5pFQTNNK4m5E4VbSeTSFGHX5d4v4r3ixA_CzNwPwSpkc_GjD06A-pPB6IVGk5jf1PzmEZSfPMQkgeY9mahkas40klGDhBYcLIijq8ojx-CSR2j85ZEryh0p0xxKlDYVIpgCTMJCPIqNVRInWSdjUFQ5SuNk-VolLlhgGSacxAMSWqSSsfT9mPt-oZJz2_dTx46_Jf4-Oamtn2hqTfjs8tH1Owls7Hspx9UmYEjO2MDZ2TH7OGR9Bvs6e2W8jrxkPKai5sbY9xxUE1eqeHKmAWu2c5jBs-pPw-gt5nvZaZvqRWiMZO1pasML9tp4d-slcXqapVXJzbSlEsU2bMtNigQursj8gT2MsB_ZdBIr-cvQfrlw5sR8OpEccQBZBEE1DJa5yWQCOay6VNDWSlRVqH9N8GnHnrAwPBIVtkq-urpwX4JEIV9fTy5NVYWYefpvI1u1ajyDVfkC_vZtg_t56yp_G9gYoujI2zp-MmE3Vv3gLjEbfdh8FPpPEFpGXlD_K_8J9-DGFwtQzuRJwzrEReuSm0xyuc7EccIuxqeJ3mAGwYfS4rJ_icgNVgb4GROa1QPjicDyEVODy3r5AtASd0us8nTrDI4uHXeH5xVO0Ihe_GHkbZsptAEY94QVFTI2o_dMEAO1n9npYOksNZool7o6Oyy-TViSShqsDn2am0-FXSPe5xmYkZssaTfsYb1MpXZh0qXq1fp6xXY6mGo5NZtGGSFOnRBqfsUbjp69oD_lbtu2pyKnp01hNOfGiHB6nm3DNcp3nn6jIlg4c7FfhtDEWFwOCMJt0rt-TFKtt4WLChLj_cAaNxoKMX_xzC0koSmFb0L3xcKClEqe1wJK8jAacK9GEiTVg6JuCm-JmREyqWMJW2PpXT85VUA1CXtTqE0cf9QWBYhFDD8M1ksOLHHiy0eENMmjIRrUwGIBkqNvpzff-zD0WVoAQn9BI0vsdUQEXBFb43teCwe8QDZt0HYEyyXZK3IlQeQuCQFctjmUXIqSBDvNV-JaLht6EpH0sQsM_-yEWf-S_WLMZ2EBEhpZhQR0S8bgwcTLhO7Sjo-NBtzwnsNBz1vY25WIXQUze1tpelopbK55SEmw-fZPH9jbnJr1LvEON6uO42ZZK6mg8OO6DOHho5J6vFD_XKttH0ygOZ1jElJi2T5YvUV1AXvynDDb6jKKlZS9UTazwc9LuSR2whHTl75p0V7DActlZBhqAaSGfg9qOctShdlLSFvJEZsM0ufUBN8s6-rEG6L_ghlvJOPNIjU1zs-SlOSA1c6hYokwiAnAG6yZTEpCKctCnxOziKmwscuh5u8Yi5vL9nFalBUsYok_NKn4STgTwkWanbwm9hz5t8JFDXZmYVqtxCzMNCreLU-lhOZ45Q88mX6cLOpxOj0Dc0FTmaQn4Fxh4YsUwWywozZ3mFy2p9UZ4avZIhjoYTQdfKb3Qxztfh6y_Uag1qmQkUIg8eNWlK-0rc_r2yyZUjbemYkS_xzioegD36sr8OSw7hKXwvOFnjiLss-P8ykRlRvtwa9ALlna-nSIIO-b8B1UX61RrK2eDdlvdBdXQ7sC7mgJxxWF26ojwlOd2uLCcusBrxpWJBrxdCj0uymDczrM6v6Jk6-ZBmn7RjuiIUAv1qkbI2mW0L4usmTyxhSKZgz9IwvL1TWVpGlYwZAW0akltOhfBuo_6xkujZ6hBvOxCGrJlCpY1NYh7OqVpExvMr5SbqZjn6QEgmqC15yII718gDCBC0AWS2br5_k5jlisjf7XyIM52SaBz2VSEHoq_UDU7wMPlIvZWA4e5Q1VLXOcpjD9uR7oVuSxp4I37Lu0Ye2cYXTZvskDG_m1ARBoDVwBJJ4ZsUs47nmcnxEgj0NiS5OXPkMByysitgPVxAZzTfITXI5ok8O6xCKsi-TTClcqPQvYYbVIWG87W7-cz4suc17FI_7BoRBg7dLJk1DJEP4WTsDyEA1mwGgwd0XkvWnIbtko82kIPr3JVlpex6QL5yuR1jmJWfkFyXL-jDWdUB_o2j1N7zEfi1WpfBYcUgKO-Earh35TClDZrV0whYSxzOreML8EBRLzWloeTB_5GzzCQg99VaME13S08cOF8aCYzaRUYTeRzE-L0Ipi3O2sLW_sCYjDY_DsVtywsD9rLiHUw_VYRLt2wLoDVM9WIisghW3zBZykD2c-Aokwec2vBO5-43h1vaivbLPRJ1RmLw2w-9AhEjZbfGtun3g4mfifcTE0boR27pGJPYDogD-rvVpTjsvE0mSVgj8P-jSwXS5k2IHiqW-y-JbtvrywoFnHx4C0U963l533SxtVdBLlg5LDVvAFUxNrPkhInLD1JN7shu7aeJ36kwD-E2pbQt9M7yPUhAs8P10KP9oRIci3-RExd2n5krbslLbs1l8D79NgNjRX1k3qEY8QYmOlq7jObhI1vEFHLe63CaMn18oxdzyVyFODKdxUJxEe2M4gVRParayiF3EjFemIdkX4jJOU20IJRCSe3OMoaWeE6Y3S4W16NCEGoe99fPQG05PYy5WIuzdXhb3Mx3zfNsTzx6fpZCwx2Y6BxCqEVmiXo4SkIXuPhzIJNZgGim8nCz843NIgz6u4BXZvhLsLNYDnAAG1sjIJ9XdKb8n0SjKGbILZEITZ21wclaMPbJSW-YVxk6kReb-ER_U90XqY0pP53Hv58INTCip4XYtCj9u6ociXVNzggThzE59v8GigHFYX_GE8DJY_glaQVfO2BRGLV1swwrK0cKP6W2o3H4D2lQbm1ShKnvglH5Yc0W8fw1qfMCCM2djFRzeeBfHMnDrAQnqZBV3IHKFsFbnZzKIS94gQysvQCe_5i2du8uZzKKkyIs_RTAuYhTN7Z5e7vUthSUPRvVZpNdGs5-TXZMJKTy0HNu-onL1uDPF5xJzS7yhYiLpLBRfqQxA-4xNH6uoIf47B4ePUjJkKVn0c0CTI3FxEJXuYgnQCSzgm16QpuWfp3EoXp9YQ44Tli5K5Yb6WCYGH-bNopZqNjdKJCs08m4b8UifF6LSZKymso_H-hTktWbCwCjR5W-pxUopqoXFiQFzxaV4cNreZJIXyPaYHxhf2TBwzchbR5ytCEFfWrIU5wotYhh-eKMszhhdO4lmZtwVt8MkxYaTbOtAv2qLtvo97D1nLZFNgUT2qiskv-hqP7Mlqngk--ImgpbQ2kB4OFM05HzNMflL5ZzVfo85wWdJx9EHxTJ3B4P5iWbZRpVMUnBEznFbRmeOJ1XJtyzN3HS1hGncvpD-lzZWcOeTALILoi_Ds8YVT69N2WukzGr08RPr3GpsIR8L3QOLAObnGT9-nseO8ikdyHbtVR6WHwlIQV4sZxp_rRRDWRSwGOTTI1QDCgk0LnEBCTV3wcbTtw4_uSsjCv5GIzwWvG3_OVZyOu4LkKrJ-IjEkijH_-M28QMGza4lzt_U1TBqrMV_QUR2LN0DWvn4QVe3rwBmQ9dcL4kEmY5zvSl6r1-HAWJwcPRPi6eEFt8-uF-L6u3mWjseEhoYgffRhe5fDQiznua-bqc1KdDauazg4aFTBOcvfI8lZKFsK7tbKTSb_8jmkO_MCQe_nTcUiZfEqWu4dACbrEDJbsMwX-nLVRHIF-1dj3VkwhBrANkcFHPmBa78VxswxgimMQ98qkkD0pk-gMZW65VOIJy5A01PYtvrNZvJirAuGzqLNzwvLQQRmgBD-b5FMjJ2T3Kdm7kdzh4cS8mQ1dejM1oxm0Nw2q7yAOn2qR1-P8itz6ybEe4S2oEQ9jr1rXXqwrPeclSCxzLW_QZSxhyOHULMh76uclhk3pMl5IzEeTL8PORjPhA-Q0nZK60S0b8TqxuqEvpZbDRHZpkN0P613BNspWzNrq-BCq55iCdG1hzS5tCoQSptCj3HGdJdaHDvVVePYq6Pqw7KOOk417o_EDSbLsn7238j6mdheW4NgHgD0bgWCVUU9NlOy8dPGEUd5pJz5fH0C-4FbdK6ZEjPgxnleTmhksxjs8BkmfR11FzRl8K11ByNnGLc5WZVZTMAkpeaDbWW9a767CA8QXBhle1Q2QOBpgsl7cEqF1neQqYrWp6O4M6pb29Ks0dLBb4m4YWJuaLfflKLkXFi9ffLrk8fv1Lsnv797-ObJQy9oGsKuayZwBDinhH50VkNmMLuRxNfZGwZEDFSY4QTkcdaFOCzZpyj7gsmeDjpD6IoiuyOa1A5nd8whJRGXE6gYZLisjy0CGJYygb5MTZIjPQlZo8aPcr953ODtYlPf1l-4uq99N8YVfp_u4iLrO1C-3el6wQpQ1jaKJLyZIHieGiTPhzjAJVLW7FnC1Q-jRE3Z15dNuHBfgaK1msLnnSPeiPFH5ps7zYnEsKaNDyMKnOcnGxsDtnFI2HsU2xuccR5ZbyzZ4wMOd6WSYQR_o02_pP-iRHRMU3qfbEKKA3DwPdoFet33-SfCVgIjMxJylU4mr4D8wEYMdoetlpJEACTlj_KiEKMv2k5Lrwgjg_hQtjiRnUQgljUIMjFs9SfekrQ0ZfUUqRFfGm8gzJxgoJ56_klOpXe36UhIVnolW2aGJtZcCGYCchE08u2pAwkvAUWWPEFfRTyRBNIY1vYmwlARNfXts70i0k-jSrlqatxsp1aZKQ_l8IUA4r_hbaZEPml539UBZvAfgux3hpBHyvxM41N7q4oLWy834w700FlcUytXUfLON5yeSl7ym9XWIeUVp5A49LBxBaZK7nCyuT4RCV84wcrySHnMKdoayiLpEEnPaEom0GBSwgsuw5yxSt7zy8TcPouUp5wiZJZeX_Mr5Ha8vZE3-fYb1u6WUP20h360fjPPrX39874xQ6Bp4gux2X-4egxVTqbhP0PPnrvc0XI_JENLjtzz6LFhx8Ggeixbl-0xGfVxaNPZof8ZscRPJvlRM6QHfCcQiZcJqi7WvDszU8PCg50_PHe5ENaxYut_E3kyyXBPloQlp6GJpfHaSHilsv15BQEyehgMxcsIPEodb-tZn4_TE6LFDyQ0lZ8RXMRtgBTMq6Vv4XM1zSDMjmjlNQd4qaIPCzHhLYAFiKaYQ_3Zd2yjZ7UdNjQaL_no1R1qURIfa9HeN1P8wdGhVyDGA9n7Mx82wW2rZeRLQCOoKDiU7DMmai5MCW3pSZT1_KoHg9lplO2Yx5HgQrnu74O6aDR2zy8OFGJJmMUMB88jE1RNQvLIcbiZGAQX4ZGI2fW0EYxDbv6UrcmEkLCksLHYn-vfjYP-8PXzta-a48prZ5usuhy4cjVmJauNEObsZ59v3gWe4IN4BuZQB9b_35kmrvEnySu-mE1u-I0I5Pl6VNEUs8qj3uO1h1JypxF3kErbK1MJmZlH9aEufNgsTAi9kfWtGb-QNqNys38xnyfvWSeTIFBW_Cz0cxcm8UNQuxTZY1W4av0pA5cvEJcl5DrizV16emMSw6KDp4NOKBHL1n1ajpGd33F83OqG1nlEcYQ52OiwV_cx2_aW_eP7tkD_uNUKRoNjkpxk04g5KLFTSGT-2ffMdvSgogKQUQeILk-FBS1YF-Nm5AWyJs4tcELkkalHXeKNlCgbJcrlEu_Z8zbDfc9tizob2Y99vhQ5MuEO2w4dt0UmeS5B46hrjax0DN2-OeDJiOdonxdpXqTVdRzTRCPWhaL5x_aUsBfNDn3jDlHF_catPh-sQhyBMgh3ZYj7DeK5LPDBDJwYmw-B3NKCa5Ar3zP3pWw2ppa2uHT7ORw9Rfuxyf4yiDUY9M1OB7WUmRffAz43OjxMy3cGwT1bBMMFjSZ779eO2hlfyM26LQn3wFZsRnR_anyLJkv2H8vWBso4BrIzhBG54DFkSnEAWGz0ctWNIkpXU1QKTdR7axcLZ_V9LNpyMlwOFMfMWpK2nyOyBWwU-dmYGj0UBbxbbTgAsTqyUuwfZYfEgQfM6TtiRUCSloNbdiJZSDiT54s-kUCvjbuV219K9j30hsJI-cmPHBYg6P-fra1_rYlqkiTAc6Jp79_8GnGc5_ZZmuFDkm7_z_8Dj9z7YXLFAAA",
+        br: "G3HFIxHCxgEAtP8XHBFVtTwA1FNxYwwcyMwrsaPTpNYtfNgsHtGjLO6jmUSCY-jTVjuG0OwlhQRDRS8Wy4uZzCniL36VDy5Symw0HgQ__RxY0mkpsI0jNPZJrt-XLb3nchJlP_LLKuHlWExRXpYd84hADVGskUirCaMw2rf5err2iyWBYjqmG1e53DqwKf-1TrZ5FdCFsf9eVf_rN7hpWFcwvTF06RHzDBddgUNpbfAu3-xAEoND__vX7f_r9-owmbMfy2OpRJZ7EEsHS807w0QSakiogk6i_5a205UapHwl2VLtkYd-69d5Xt7A9grYVz_Tvn4jxWDebJHFlE4w7Xodt7kFjZsr2gNXGwM3dCAqrW9vuegZopPJd7nVUXQEhs099N4C_jVEaGf_JdWm6vvT6mhQILcjSJrWK0rb6t_-pDRIhGzeKZQPhFKapan5epOvTfGFkp302WeY9mr0AUwjfJucrlDAaFOpOcWmmQyVrLqVaUO-HOJvmjxm2cC39mqIBu1EtpyRnrr_XSe4NB80Ttn7e0sta7NugKD2OO7IR-ZsM5Ez6zuJnETs997_f_h_d2PZvxsYohugBYCkBUjiCuBRK1Kr303MVgOSywBXdmGkPSj54owvSb409q1jtPed-Y4cOZ3JfN6RQ2ep08A2bZhuFFo1M8LdYf57DDPvtva-p0kUERBB7JdtX8r5vbQEaID2b8b32PIlW5LHsJ8LkFIPO85CVuex3ibqFPh_HiCEgCOjoGLEhAFbbHCJPS5wjh0OOMMV3uO5_sQKv-KFrvFIj_HR5h1-d6zTXUe-FQFIo37_dAhPYuwiIKQe6sXulCEEyCkgDDeQQOFDC0CIO0bqkTsAAeYBqLok-qJpeI_TMbaTOnIHWACyki1AWcm0OmRki8TotWAaRO73fznNICWcHbhbBExbK6Wv1kmfzqgNRmFbeNxct0Kc2kGALbBzO15E8cccyfafqrzuzvGorBpeT9tZvDyo7w2OJqk_PHcF__JCkFrLp5-IqflvQdX8wJDDm3HPbiXbCAksLu7uhrPjsRLbyz99xuCT17czVKqu6TDAsgaTqvmI9b09UIbNeIWH4mXgv9zE2jXuaw6P21clWMjqHc7SAqnKZ3KAnAjI7jzseiEghMmuKggL2uP_nxvaIKgU5W4vtPqH2E432gS2kSBVKP12mIV_wFt7D0ipCpU_-X9D9GWfo_yPKiKbNiQ5stkLWIjfKVPI7udB51EgJIJ2JFVAH1yIKKI-4phaIUSrggT6WYaNxoOFM7HCYD1kAWxmPdBydNp8j4fqbneF3wzGrFe9YAd9caYUfqtvWL8k3vMtm2w-fPfRut3UXmvfVvfixIG5pE3tgeV54-jfNkFNcN-XdfZ0szwPsUxdlH9l-UQTotmp7r0Zyeg-PWoevfv-dkJESuDYWOt_-ZnwtdcER_Wwa52gpadbu2hy-RKT-z1ssq4JZUsJu_bzB576HC8F6ksR8wiLCcsjX0ijXmS9sn5F5dbeXwgiBrlnSQZMzVptKwvzZWvNKoXUfdCjqTI1wo3Uzbxjb9_OgVDA-LqXTaBEndm-JtR5djoWzArLZmpdkLRZj5WDbR_zl9S4R5YBMsxH9_SDxzvHI7vo4cSCSVhjN3dKafT8thYTHUhD0Fm_dh6n968b73aCCCYcOtYBhHxrbcEPz_yHPsooiR4TMSYRSkr68QPomWWeBro1ry0J4IL7lXfZ1anl4UQdPaLhLT-km-B300ufs_rfqJtUPckT4IJJz7gbUbr4D-S6O--zExYiPUq1pP0c3e8Azw4sLTAxNKO2L6veRMSzrYQQPX61SN3Z5J73EfACel53ke33BGjPgAh_tpIoVXmjNuCSum9s9ZekLDa193tF-JIAcG1iRl38FvxNUStjHFHTifG18Khrlb0W3K-DDfJWPtRIjOFMlQUHUXNpBubVl74u_pWOyPR1SZAmoPJ6YCUc-qGpshCx5INYahg9wVieVRYkesn3vP1VDRD1QNvHOeqkiV4_jfngeFJ_T3r03BpAEG72yu3xCE4aR9oViWPtIo48YpXCxqqN7r1eFqRSAzlQo8KOcQela2OrFN9KmmHUUwqkxGGEREERE7eaqHaAC1Jzwc42eKC8zr1wll9QG8VqaQDmKXR5DX27SBEvzQLkfNwytXINgJVEVbfairp42NrkxGgMr3NkEdjW78AYlKZszXBLcL-e0aw3H57JLBEf19VqoATltQhcsW7eMpMts80MNBVREzfXkpMrKRqOiE2syjmewBCNeiAOJDTKCnMZ6UvMrK8FaJvo1S5tymeTd1-qlcG-Zb35oWuac1WDgsFyLlQI9aMXWiDXW-qeNAVOtqLIYsomU5odkUoR-5JUip9XCXNwPQFWdbgZsW6iVCmeuNbik5pT4J-Ra3HOqwsDhgH82Qdcv4qov48STWZxl38DDSAUE3wJKOqqnYljS2R-Ool-NeIJIRaZsiNaIjj6YqQJ40pPkIPRtOkWdGWkeiCU5bi-hngISSXm301kIe7JQlx1_McqHZCbXHjxkykOWFwy37Whk6rIOAobLBTeAMdpUvBF0jqU9I-SVlIB_eF1Ww__4oU5BZi13uHb5CfowQ7DTe9FCAAzNThnk90gWZVYvIp44sGo4x6FWhznefk-D6RFdY8f0DWJt8IrJtrHBBB_ihfDpUlMbcV6GHs57FzESN4rJmZPwpknMFglbGM5D1g_FHVsZXaHXrbZoyzlDkR42_0_8ws8eHYp0lOC04Z40QMT5nA0zuhu7vg4NqcLACkAVxEtAbmywUrHc4KF000EzS2YfkEK_lnMVoAKM6QaGw7BtZiP5KmmiTmh18rOkgYORFvB0H_un-KIqI6a9QsudVwgsGoRYweUeBe2Cvw5yRTnwdJGNylEDvtJt-ArOhwSy52hs0kw8AMAF29SDo4WRZaVFG4v_QvDkJ7AH8E00kbw8N6yuddH2Wg3b2HDr-QZCinKuTIM1G7wEW88BHmoaSmpQYn5gH0bUcJZwWVd7cXq1iU23xHS2Aspmr6NXXiVKgm8Vx_pLumdynFCNevEVBf_aXlYCpeVppNNJx9Yi8FnlsHnRtzJNemTVgSIaDkOnKYUWniaZI1MrKSA_FGmuo_fxa1XoKkOlXjmSsBZiow2bGRWA51h6XYSUXthFnCpsaWW8SeXHHemGsKhFv8BiA9oiPobzrDQD3gpi2pmwReiRHA_EPF5UBE1rpxc2U3jSjpwCLx0k12LeWhxokW9cEmdlWwIIwoEghaxwGCoM1P-agjQRdcadH8RGXKv5dFlR08n_-jJlHErtapdHCVzfZDhVAKuUdQOAro4MZ3upwjNPosFsAHT2bq2xslPSZTrgH0eVd71NOQwc7NCUJpGbKlS1hftjzLpxrbB5S-W7nb9Ks03Vn6KCmxdhL0_8m-udETN9hvxGAtqKeSHekRQhi48XGK7We5umIAg9XRP2xNy9RBgm0CEsgGUjABr215XUTSIpLildnxUU2uiFkrjvLFIV0smA4OXCZLZH9zaDTqrXgG_O20vBFosK5piizLvtGfbAR4pDpYEC1iFORVCbA1_qpAptf9yEfHZK54oDdVmDEc3gAHpLALbW4INidgFRhWloeOZhYwlj1lFH2H_uCY-l0XIYKB4dPwRgxjV1xY1bMZRcyFsmOq2Ixlk1_Oo9OdUcFqGUQaCoXK02yzuuc9VUu_dqLtLH3g211rj5UWb339P1lPmMhOGFxtKIyzEjb0plJ69R1YB1lXKeriTG6CDod1n-jUlKkSdhIyE-tDSrHrWouxqo0BrozcoT1_DA5rRVuE75p0aXjX4-VW4yq08BQsY_ySaXlDjJylxyICDhN3tJGVsFZoJDNY6gM8yqgvQzYJ1d5GKEaE9vicHKS50WgOU7nlEQ2R6mOJA_EzYKIbD89WrNTdNULXKrtgf1-jKy5BiW6E6Mp_ABgwjXHfbx4n-lmbKI4_2wwocPdXopaqkTrDFRd5VFTG_ONVQsXEUK3mBIAoZ05DYydq-aZ3sY4kG4G19a74Zb9AHhQVpBb-zlYQhzzIe-EhVLU5umTMYYxlRQC0S9Eyz6KqsbprJiyC3k3tNNxEGhEd6DgAt9ZqWKpMRMGHCkT2blOzRaBSu36QAOBdqCjMxWdRqJTtqtUuFw1eIURAvSrb1FEDbA7clQF5UcxLz0SrsX-GKe7Rb0pDPQAKjlEBc4xENZACNn-xbAe98ysDqpi7wu0ToeUK9poFQ_jrUb8GyaRPclGwvAfRwzPsHH4LajemneZOKW4XgJDlA2KwC18zq4hrK2IVC9lGQggPaM-8L5HJtWmcjRZGVUjucJgTRfGzSoX-MXNG6qnAOCitBwLfrOma4YrhBycxiZNpfnEIzxtl1gJkqaM8-c02P7RbMcEIiKdwSOroCl6F80-7ITkjxx6iLfcKZCcJN6Gpcs2dI3veF9-w_N0lndKubaSiRkM-LplNZdq2MIE0iHMUvtFLcgk4ibQ2UzMqkND-VEBDPUjg0bG3XylK7ZpL6cbT-DwgUX8JlTB4hV7u0uWLKTVogMZqRhKhjX9uKLc-Qsd2eczNNZRYhHN7Ofg6wWRFy0YoEpqHYyMrL3WCtEPdkFdqGxnwXZbHnCvbhHVeV3neymHageQXcLVZZXgQAr8aeLqj0Y9JtKW3XOjrZ-yRO5BhNxX-xnM8nOZAzNJO45ckkN5wIhKEe8Eb3NqnlkY52H2p3aiCrNI707O3Zoh-QDZsaRyF_Pp4w7VqtJNmuVv9RLPhsimndvi6jwAD8OtiY-4LUxyCBwCu8-mNa0Qq2vTcNwwJt1jCqEovBAncHFzh9c5vkmI1C_Le1kDDSdP8o1DYg285ynxKd3Nma44j9DpRnq2Z872DhGV4-LmmqjkpXPeDS1D8BTk4g94rCYRyBHjd1RWpAinFSolQZG_CUxeU9kwUPiHrk0zRwaYCiXSckLdzb4k-imZApnD61yvb57SST_NyIj5GOKS-MQe36I07x8jLC2ZiG51ezL0xKcdlBHvEvPjJJGeiTJfFHjlMEa5AMZsJA3OyNt7fjMeWkdOKNVXj_HNL6l5CdxDT7ZhJ4NjChJ04_ygYRdyxuAHxEkqiKN8d1GHB3jrSak1vNqenNSXUlC5WDOPfkIsfVcJ8sV9CaLjHIztqMM_PuDSGwUijikJcKuPP4uDFhwjP47Aw6DPewun3EWRNDRQJRA8WEai2puWoRhcmmZw5jbv0fHTAi5xMo7KlOL1TQh2qV9oV9Qi5Sv4f2k5fU3ZjQi1lAqHDxMqNgH0msQ2TAVozW_FfMs6dHuU4BkJEsD6v-mNKnoAQDpkUtCZvyc5HCu3nGTHdDCPEWp5-lk6lwGvnuj_6hePoyyEgwxSjqbKuEVtkLBrDyYFeJCXvMtNyOCrLrzQM9uO_F7R9cwJ4L-43ObU0g6UDXxDKuZCYt2wu1RK5_HlxMss8oruQITbcN2jk0AOFjYlA4mLeyjflguGmfFMcttk_kr0ktgJvMYGQITCzbEcQu2YVsSPR9NWSZe6lVCNoQS4s96vgGcJ-mqReuchX9SYdn4G6bA6gnxcTvzGplWpEmH1j9QLseam43hgnMkN2vR-zttNptxq4qw7FBqVC61DLzrnAhPRDmzgwYNWJ52cupWItLjB4f_6RBsK0sW9nBaDvF5ptjtr-HH-D6y-mWiXwehSXH_GL0b7IHCLkjATZvge0tBOzVkOKbiM2TV8y4k2nL9XAk4LUqTh-oKfDtfgM36-ngerQ3F4QrtTttuaODW1K9iqUC5d9RHRBZG7TbUbGpzPAWXT4qyg0MZ9E4L0wICLt6TM2LAG4gMkoI5MnrlXAqo6adGWvtm975_QXOXVJH5NOTWrDlmrUzxogtb_-n5q_42kT8bQQKA3uGyjWjhWrF2bHWZjAmKpAGxTK3wEvzLZEOsHShFh_F2zkGnD8NvA-AlCQTnqnMntLtyEX2W_CG4XSQezNykgkf_oUnDF_6Bmq_MGXg2_XS3j4gM_pLIOoCFQgYJF7wq1R3s0_MWsWFRpCxS3RVtdOT5SqxaY5Rrd4NEWOY28f2FgOecaX10T8Vu3jx5qcDARyqWACYvAnCm7-DNTVVSIBDxaD-peEGH8Vo8Xa-_-B9O2g6vF-MLiB9iY6Q85pOmOJ66njQc1Ar0pFsrvyLFfaB-oeBWm6P2f7pBmr9QTc9nnoo04G0EEscMNbvziy6f9p7oepOwiLOfqIiv6UlINjTUe9upUfLfhGDHrALD9Zs3MAaX-QgCZ4NWFVV6YcTDG9pUvI8fN2iXWFsgCxmUlA0K9XDZBuhetmAFUxCUenhHhwcXWKdm7OqxzxszAZ6MUA-6_QFM7uRJ0cQEgKpsgNaXabB54ZzhUCjkLk5r86WnbQGCkP49SaMIed6jLjCjHDdXyxmlx8_t0PgleG5KWaGutjgOd83iz517hARgInIK69Pq72wLLFf7iqJprL21JIRrTuuADaF6PawvznXAXAKPnOuWl1r1VpurinegugRMAGhQrOQc-uQZf_qrzkzQpTDqWc77RCIU6HWJsya3REM2XTujij210ca_J9yuQgdWRL0vT2XROHW5dFeuVNK_7xgvS2RXJGstIeP7EPoyIeMw_PXhwhdjuf2nRZK1rTof2ZCyAtsu5DQZrdlsQDwWCvQLNXK_qa--8_d5pKV_Ob492AMgX9Wx08vTNNkpSn5TfLos_cW_aWOaW1qM-5welBw39U7VfURd5edxKu66YR2OXXicHfV9YA5-Hxu3QOufb5gC4qXur9iN0XMRNpsrjv5aA4MgckXKO_tNk2SwUIP9jP-LmCdsMQkz-QNNEZPz3uxePc-dzSteMkj0WnBFYWj_SGSVg1kiwP94YRLvYYIaZwvJ58vActPQDJQKo8a1FjTify_px98KHsGIJJXFMvUGUXMOrOfXZQEPSjvhnlyba21zw2UJu9NC0BTVA6LupqYxWf5uH4uDQVzqfiAMENtLKJSXdUGIQ40kfI0rqppBv1Hl1_irIg8eqdQ1tCCBzILRUWtSGtXqWuNQ1BMgteestnK0pMvEMXKh26IWjL-TYot2B_aWHpv2k6QBh_2I4f-BuZ9WQOxDtwD_9_2N2CdArtRaXWghJg5gST6dgiGTHq6xux_1kjYzWIdqwNmS_aD9X4WKCVvMF-Vmc1k9Wq9V9o8PlGtYwS38JrIMG2oJdhvqc_TU9Pf-BzYTVpbR-n40c4DQE-8u-_RdEKpltxeHfMWj6CNOP4lUdGneYHA1s4pyuXp96Jfit4_7lDusQ6CpeEIExFl2h5N4zZ5oaOMnJKOuu1TdrQEbSZZwGtoiPq18sVBy92mBTrKiUi6xAQjP7aZCyhDIoi-KXYpzlIzadpx-6uV9wCI4wjXX-3OsqDdsOSMKsvkr4JwlRLvLNlkXIEe7h-v9px__Cq49C7ZfgsVol3p5ZP5DKHfpFG5ZXBI7tLbF24IUQiDF3Nmwhg4OFgmX8CCWS8GTKiQgTSDGAxgWpUMmsRNS3ZwU40-SSg3IBMWn1xChT45b96X2fTHb_TIYOAS2D4eMtTJrBHxk4d-ZyZagz366jG3SXp402adgSKVlK5aMz7esIP6ZYbUWeQXJlaUKrtsmvP9rNYKefZrXobiqvyX1Wutswivxak0iZ3zSDEMK32h041QiRphOQ6qpPvje4s_ug7TObh6kVDeIkSeEgAoXaU3Jcu9XlTz9ppLHsgw415vBRu-0eEyeU2d-jNNdQIaOqRfTKQ7wgo7Jk0S-Y5gTIekBYydEWrggMVu4d3KFnN6VFygwhRdiT0mAbxkWd6cVufdvZsLJot0xq-znLaW3fcfFycN61TI5WTfXxu-eRy2le9KJGfMnj1Jr5xIprqX8ql1noNv9Hfk5Vz09GAw8xXqVTpSHjxcsbYXfhxQJdW3ioWUCFte8XoP7u0jr3mgpEn0aC7Ovmaz_jCVZfIRzcTdW2ZXdqNb9E9KfhfbXlFOatzIiT_2cr1edtCXFOhv_OhCuXE7YZ9cib6ANzcw17bMbvxGN87V2zK78xsPkiAp1PYwxKYqGSO8Gnhui1TYAzuK2h5q4vEtkXxGgZowTjJ_7kXYPuaWB2pEdh_bX6MKqp18mXwMxg-PMjw7H6b4-vGHzS8cf-hVh8E5QjE75ppQmpKB4kGoYdjmqUgUDwuwYGA04i43rgivFLnN6_bCW1xgAP_6y2zIFCGT6X1kfvqFrdyCic1klCWiaywBjFl_CDxz0JcF2TgTyJPCKnvyqKig4wkm9BBtEdfG7M7LzyXAoWQm7Ybmp2Yl2d5Fs8L6dBy1awJvpQOGF08HhuuwKeB-zHBejeLsFr6gE42g8x8RgCwjITHpJz1QWTS9T82H-pFtBc7V17OyvgCU0M-B-mlNTzeeTorBBZv_q7qyUuCQa65CfUw5nHG_wgu78F2MqNKcmcTo4tmn1aPXOp3r3V_Mb8_8Xu56AzTOnqAapdipLGiyrKq8pJYlsO38vZKHkfZJ3JyxzpG8xHMIWHWHV0y_0CIat53I3oFckS74z67fk5MYM7ZcucbbSItG5fiarSmyDWRRnGGZ_TI_Hm8mGyIqsjwZvKqJgnuCB0B6ccpobNKAZVbKZH4geAn-pOwKU8AE0YxnOcYLv6rkVZRBDALT0bSvPJ4p5nKJvQxuXQT-w8PW8c6CQcbKjK6-7hFgFyJiRKHdLZFahsWRc9_KTZOdBZnFERc_gz_w7zAp9Uu8Q0iv-LQ-Nam7-FXLBKhEt9y83ofIT5qDM-C2gRbqKlVVK_EoEvkyekL2qykgrM1kFdadfJNGsZpdpd7xvPF_beMbdkCbi25S4ztQ_9Wy5qQXFbuoDda9XJaFjlEDzVMmlhbyGXaubhHGQNRpCKs-BGd8vNzPHU8Jcez7BxE4IviP4IxcjfuwHRw7v1qdyz6HiaMHvNdtPZoclPvqRDooPQi5sh_Lj3yKPDNo6ICJk0fAMJLgEfVytB_LFng9ekfuYKaf2WevLf_hf3vEeUc5pI96k-dd2Hn9vzk6MmBZel4FNHYbCNQS5Ea10Iw1-VbghEjs32Bgv7jLyRNyhpeCcmvS3HTJ4xFDgAWIAt7PKqUfZ-fY8sANu4P82WcHJBy4zGXtbMuE4WFYdR30a8HB5aDe61CB1Kc8ptG0UTqhUh9g-uazMBrRC3lAwOhaWYkusUhvqnGpo6sNv5JjM5rdTbe-tjHOw_9zaHy34b7n24m7juvub8JUkjyypNSWUt_C3l4oB2gYga3LCsecNeGh91K8o9h4eFEDiWjag2DtBMYd5H6gqLm9kdJcwU229pP0LCJIBF0QfjVLhl78Aor_qQHTjDttQLQ1tZKP6OUaOVItaJC2tibIOJrfp4tL6hsMxioraT4mBkOcLhtVMy8RlTEYgemYSi-NgfPVqE7knDGvZpphWzgI7CmUX5wCdzBXc3UmFE4AE6GX-UjQQ-Pj2-SRN-uZUGAc0QTlYC1Rm9R4bdP_18Ntp6memyBks4ow1W3NsLXjc_-DbY-orrvfAdK1Z2_Iknzj6WlXprdjf1dPJtrgUAiaPQ2ID17n-3Pivm9i3q1-1Jc3FonDOqWVgunr9Cg6XVbuWiLaSi4Ns5jgdqoKJ5TyyWqHSvVLZjA0pBfvgOB6WFRmMJfSrKzejPqaZ0DNkpT-XoaMpEhUUsGkvUNpQWDAX7jknFyuqqr2QCqA2OJzWpGJCxIZAcy8VNQ2OVQ0rcK9s64acDvZ-QuYr_12pEc4IU8_NqF4yxJRzJFb_DG3fRBVnyGfUXnwR3swT6xj0ndShg8ovJLIzL8E32BqEnzXgI6hZv8A02LiAyG-krtli61dTgA9nnU1TgecOthtE71n_-Ox0hvM1-Mrnew1Ds_1Af474IjNs9TyRVBAu3QQJwUfwJvlnKcXc9Wr1Ng-55nTMrrcOwFPtyMTiigc6QDH3B9z27u-XPtUrH_X4ajzowU0lhYH-MJtkd4FxHcOo4nqQkuIDZEDirxK6na_qJ2tH_fGhGSiuka63Fw_RjP_x17fUXFZ2cGsAzKzoX94GLKMeehBH3kOQXk0ZB9xfBd9600lmzinrGwmGWsfNbXcBl3EQjd_2SIQ7NIrZEvkIHODG3Cm_8sxRJ2HOcocI2GDHe0iWRt0ZtU0M_vgMkKzWt58I7YIOd_7zhOvuHM8-ssIys4GPJr2AQclPH_Q4AgFNdJlQJP1C6BHLWeWgFQ04IXwfA31fUm_0oaomRIhCwuCOBdbjkWrRVY7uBlfDDo30mACRRxoAwoQ7LK5Zf5LcC2Y789LMosQImgTMFjYtneh5vSXvhUKKOP1DARONT2PTplE906o7uX4FtDAaaWlw0L9gS37O_seHGwicPds297QamXptiyoa24lE6pVgScuCSSB1y8tRUxyfp6uOfMAyhA0FrA4fv1J-2oP-iTRI9KGQQFqcSQsdoCy3UXBrlLqVZhSMp6422Cdj_b9iABGcvPXdhgBWXRw6aNYMDignmfIfxo1uMOlMGdvdV3m2-eLER4EERW9aEMr_lO2oAUAPYNYElWkMYqKi5zr4KycDtXKokdQ79_AXwDYarmIS5P2yN-mVkslMJxFhw8QxtbOb1_9EMNvz18dBiVdKAbDOa65fMB3Qe3oRxJ35enZ85b_F_QK5dHEW3RMKXIPQYGISQhhhE6WE-9rlrdGk1aStqx7sWGdMOIiXopGRPSU-uarGSkdhiIm_mr6tIjOSs3sdahuG1EKAtb9iVzQZypCojN6or2X-qf_FBd-DQ_YJjyNQg8AQnXGl2bPRCK6ZU0bIyJEA_lTlk87WhSDBjTwJY6QNOHs7CrmI89vUdU9IrwMaimsG7JOt2q3L7t9NyP3A6bWMLHotPinBaRYhdBCqe1zfPj9ZL8l_RIm3mbJq72fNX3Dx_UxYq2IkxypIUs68MpgQrb0-bCAHYuRC_eojGerlwK5hs_x2BSTD6YBI6aCizcM1FZXpjxtf26x6d7Y7wEKlI7g7AOapW5_S-prdf8s9zpRUm9WeD1IPdQPUotLXmR0YsiDE6m8R0aoJy97DP9FqB6c1s_OLy6vrm9u7-4fGs3Hp-eX17f3j8-vcNhWYbf_u_7nd3PZdod_Y5-O_52uhkvUL6Mwj6yey-eqTsfgubj5q9cvUyvSYVozVF3-TL-3dU4A7CwjZhthx_ZLybnc5nRtHjR2H7tHzH3otS-een-fm34ZADM0pLCEpSz3N2lsstHi_TqDxIuZUxsvG8GW1P5oif6md12eqfQZxCb9GeApwxRoleH91P85a4t2-BzdCWjht6EACrccvXaU6ayWj4bs0vEEo63Od7GZ17EbRP0kS1njrvqkhvu7AcYS6h_Sz7ei3Mtk2O8mYujPySi96n47XHurmWqJ1Pt-kVWVOvePCn7tzfM4THb-sG8HYIj7fiEzoZpoqI4aou-fTfgTgMLN1O_BqCPxW_Q3UpGY-HPqv3nfPaP852Oq_c4fm_SjhW0jIXl4yrlv479h_cvlzOTZd67NfV9teD6QU35YHBFrWuL4tL_5NyYnDrhyxG48_dYeLqO7DRFI2zF2zUvratzXrcHqbPLFHaom24gFo79R0Qf8n-pebFf6MPJJojusQzTEQHq9-tj6GLC-pCYZNXruIeuBVzQiY14A5P2X04Sn15jQ1efPEkQuGKu5c0ea77pAP6Ihz9jSMuudnHYwT4JlTOo9mqXc5gdlJvZr_YFmByAFNw2IIZL1jHAD-6Ed2rnjApcm0v557Dz4C8C0YwZO6j77Dyax6wy5n3WKrgmOM_Y5fSmnMHtuOp4dWCwVLyM4RwlQQo90MYO_TvCr6KTu1y8aq_WqL_UEBY-UOxW_ypfXoUe_CdTm_1DULjvq6dNc4XQOEptZQ0ySPLDAWSZ9P6v_VmJ5bWp_pkqXVNieYlrYrjVdUstT9fce347szvy3ZUg8YoQpeGWWhQ8WzAblF_h0xbp-gkJlDPcYQQFDonO-3bCtQHyNQTG1G8uAQE9KEDwX5x9OV_k8ZiTJy0zsFqKJo01m-AT7pMVFkF-S6B6xa27Aw1LJKMkBzJK9Xe8GgrB1TsyRYBfL4VcjSWH86WXEkOC9ov7djL0h2rQCB8TehPAvjD8faL-L-3hiXHHcEOOnlwQwWJokCdGkTtwg34hxZj9pyx4T9n6yYrNq7jpE0R34HEFXdi8_VPHBQRVbUCw9C_qD3oozVyMbPiDaYTQ2X5MrVvDszYorlFKMUgDCSvfgiH1dfCyQu-d7jE8WxvFi6hV_ejnL6dVeq17elu6fUCJPf7wqDrGo_OF2z_6ndykrmQjcHE1xLS_Cd4NkMr9WUodPr1SWGSlKInKdGSpSiyqb_3AGVzDPbc1H4bmOeT7_-88X8hxWWFXSBCYTd-aj71DVTrD5b_yNKQ5_3sU24osHhqYE8VWJSEKoalAlzHdsr1j6WKAltsL1niIp4-CPjP5-YyusGGlEZr25ko1gcGcDSE8REA2Lof1Ec0xFHcEqskRzcJ9K18i1zAKhY_-EkxB36qJUQXCH77IF6fHqiSonms-7TosISujJYv6opdYKSlfmNP-lgaqWSsn8j9VffZgu5NNtZykbGwcsbD52KeuBiVWX7pQGIY1b2O2WYi03aY3o3sPq73P3cijSl8cD7OmBVTQrGC86B9Wdvfmt3X_msl7m9kqCl4QHQiTChnmunnOdgU2DVvUsTBIXlqtugRg7bFyVZYxcCoNPnGcAFNgq7B5RKB5TMxVDN1nubV3-7cEKthENhynNo9vCj8jlhpnyAqJXeePE_td4Srk0dwn8fDaaPl7XOf24AlPOkSmWgZSDmsWxquKpsC-rIa-iLipaQ1l5JgojloYXIGfcuRhFQ9JxXycMp-mXQFFdfQ4tV0TyYJezB5oF3lyiJuY9tPz3m4bAeIt3oZnUUu6PSVcGFUl5tt6_HDJLO-7C02FpTedoO0eQnwxv4eQrlXBUaEj1QeHpC5b9rA3W7tHG9NKWUnKgsBTaY_RzC84w4g86NqNFtbRPE4QtnUcnqpsrzOBIN4uD9_Pnj2b_14a-3jiaufA5wNVwM4OPgJe34SRfS1dStwpuqIuKVtOvmaswYumgGwM3-vWL0LsszEDzr2xrPwiHgW5YlA_68YLgFKkGzJo89mZUcNEg7oBXkNiZ6pWLDuPj2n57wlmYJMdVARih22XBQCgW89XNHCWFz4C6ejYFShVkstU8HGcCUwFimtSNRje3U2EYwVwZwsUaNrwDmf-Anhdoh8B8eQY0Be-UKR9z6zl4uS7Ms_EUouW5kldvpOzwpjQR65ZbK9aaeQtGtIdFYvwA7vPKw1IjhbWZnqOndralRiAKKzDpZn-PPqZAqvNX7InCBvqbjuZ62tnW_35dPKVsr_5yRJG1jUOqZuXY-fkQIz_5Qb3mxt53IUAF51zkFjFshMaeOFZC5pb6QR-hGTlXt1EC8T9Oy7f13wV2O6adZZJqjtMJphNQvly8T6-BClETVohomrPxoM5Vujww24E4Dp_ZwGqQqvvyhSk1Z9Eh4uh92VtsZcOgS1F1oeM4vkTPZdOPrMbwlhyNLAEfu5eUu0xv0g6igAGUf8FcHqxKGSBO9umcKkVdGn-jdDspK0Lzsa5GuOe0N1olZGVEcORyXU4dNWbNE03sw9lScfuqrZCunU-mXuj-4hh7dChxe2HKi0cL0_NToFlzzXt0gjih3wXbP_IpukHozmnzPOLDDETm5PEePsH3oVCfMcclFHKrB2R0ZXTpluz8XfJzJhddvLIVuZXs_Fryc1ApeJ_HSu0cf9UCnCdKdp4s-Xmq1M7pcnJ_zsymA1RuJT-Plto5eFUEzmP8NsePxTlxLM6XXt7nVH5Kq4O1dUt2_mG37wOR461k51dubw7mrKPtJjLSyywc25D8dloKG8mGg0nEwC1Mb1ZnNxdZO1Qi_TLuTUzlIsKSYYNASkvA7J-dDXmGFBXGvu1fIL63Z6gzyU-Jdy7IxitXlV9jV7HoXU75MnHBHdIUjIdtxNNCLFOFM7Q6xMtLE8RsHQRMTE7Okdlhc6KjqZzp5qfCLNAow2orqdjqSZMadPYpybKLHcNAbyH_G6xhj5eRx8ZRi9fC18dqv1DIbhoBEvP8rM7r7CN4fsq04GCDY-ImyNGJQFz14iJYg7r2aJjlDwKnqfmi4FQzplpqPSLxnyDttoB4gY41WGT0atezIvwvbvLe2KJaXLE7NttixMra77-Z708cCE2tbFJtqMGdenH_0ay_9v24xOm0hvNpjGxZmSyK6eqFv4sqerKscp7hBnCkhACio92jq06dhSteSkawfP8xaHsBZb4e793IyeB0peGxJNjylEAR_XvFCuyFLj9BgW8P6V6AsY7Y8DZgCF5oU-rvJvuQ3j2_zNOPLUCD-spnp2Pjh361Eomilh5mouIrYDtVjlu-6hjd8LSX2ktk_ASq-jOmo5nNH1Ryp5Rl2Ri5qyWFIUJYhek_qu5HlU8VPlCO6P5nR7ub2ORYNjY15norxirwOr8xwXKx9LxozH2U86B5cEjkedwCSmXkBcnHDPK-nc2bi03gwQwfS8fPLFFANr4E07Zu-7LCgysf-caUdvHmTpIuo1svjuk8mOvcQ_iAnkgvSQxuKY1x2oMBQyN8eOc5zQkP59wXusBbCPVlIO7vw1g5lWdde8QoNoEG93nfZi9VurQXbdKtwFVZNQ61Zx_NJea-TyBYOK1eVLGxF92RKSU6J2AakbmkhQdbVHSobTB4ZH0Wnbv89GaNi-DlzUzV-nVktV6a2QtaSLROIW747NX4uxTe66alfCR--rmXVzopny9ttrbug6YkSgm5FTfendpptLBz942PNiazcJVxUo7_svrRRm-ONz3ekbqkra6NAd42xJ-H5MfV3KeYoEhiou7Pc8CJvEyJs-J7TkNK9W7QiFGbBxJZJX4iX7NOvwQRkIyjCYk1U1usCZpHcN_C_0EOQ-xA0tyQ1Thuipr9XdDFKceTzeUArIoTM6vBHh70nNQeZ3akphtb6Ei8N2GVzfxe9cjW5s6TYtUkw2DREDRxWgoXnepofPUHeqtn4HmU6znQWZGB14PzeBQmqAJ7ct6_nCKrCs9WnxEhOC9L5gJmni-fWSkaoktg4zWc4Pfn2S46xULUzpDwirFFeMZIDywi4CHzTLPPYdzBzGey6JPeO7v2G8QTzWkLObSy2AoBp_5fTuj96KAJdEL8A0wfGjzgvfIUQ-kMB-hqYgqoqC0IGNco44SLcVFX5W2T0f3WhMevx6chjUbLrmsf7jn6vsZVyuoGHxvXmVL4-PRCeE2ansCPee2MTkC-v8LRiCa8T5RxTIo2v-qHwCSW9pCAlCJRbXAc71KKct7IQRi9kzxSj8sx7ymnU8rEMLfPyLtphl0LizNCPuWPBjyTTCRMuTHo1xRSZ-BkTYD7eUBQoWD_1Ne6m_hME61Jwao02zZDyhmLvsKVu-4MCk7DY1S3KmZiGvX-OfIgVkvKqLZL_6vxhdV6EyUcxZqXCAFpY5BS7zYJxLNdh0pnaTzm1L2XrlCNngAhqbNC4Fbpw1HszXugTaDEtRYsoUecWnxbvrITC3AOx1rGWUpdKHaHVTWLZZzNvmNyvdkcW0kMxdnVdYtkMqhlahY1P8wLqpSKH1KD0na13K9Ot2I3MqtPYz3Qx7AwG5Ima3PdpS_DuzqrR_vn16Neww3dMzmuSDsRbZFbn4QeJyTI4UX6ZWfD4tOcsZcJZKptbliMvOJzqgPiXbzBz_JZB068OSvH1una80ZfdDSWI3_Cjnbs20pIEd4g-uOll2matXKcjQBH2hM2CdOSTupA2g91q2DtWkdnVx6JR3VbFeuwn79IRlwkKfVM20cTgg20vgTRXhfadfzrTWTJozLt-TFt79Rbkl3ZmDMBw287wsgk6tMNZeGUhyEZatEoJQhId1WpoH5-LRG7pc2Rq8OfPWUfqUR4Rg5g9UtZGLNMiLwsX7YwC1p4BFmtHPHw1ZEYLbabbQuJBIxtCUguCc2MSyPHNcOBk1b22rY0NtvZ1CNFJKkC3llVtT1VHYbLFkcRHa12jUC_F_RGlQLXPHEXbTcN4f9As8hRN-MH4h2kFD-HbUfqO8xUHvAxsTvtcAj-rrVIfp822lOyqjGGzHc6EfVzCjNjiGarN9vdMTIuMHOjxpBs-5lS68IunUJ-O5Xa9XysBaNrBKrQ4PspFyc83AuVEioazXgyTyBFnrKrunDeMM7qwKV7ULzkRsyX07FDFJKd3n7Hw7VeRBoNUYYKiJ5-Du0LiZqeyTj9Pe073uaBHaMI-e4i2Jdt9yDgaJl8hz_6YhzMvu8U9KBrVljYNtMxsTJ5fnwXdyihPpOhSWwsYbX8zY0Omy3Kq-Mwhvqcfwl9GiqJ8Vx8pZ3wlHPIVuPceA4GJ88ivkf5RuO6DmM0fII-v9GucSyZBnYslkxTKr9Vxip05IljjHaldR2LWivIYH_X-FWPyo0FRt1kj9p6Hw9KLsNd-lTK4DNXGS9OjNUjiQcD9xe2cvUjJC55nfPWQDIaJtqp1V4UHLd6Pk6HQ-pawnRxEtRPwMhKBiaFtm9zj4MXPyk89J8q8c_eQ3fHrv4I0P8aQW0t_pMJb1oJ0xMlis2nXrn9f7ttPgRu4H8vRt3jaLRk5EhjJRdxGdMmlEmZIZVx7_E-7U7t53Hode5jtYpo3bLUCOZjaWi9li52RdM8UjylY1AfkmxDpjEpn8dup4yEqw2XxC_N20jsq36_7W-nOG8iPCOMMzNBMv5IpMIj5E5vOtACL5mCrS3A8GDtCpzCxHO_asdiCC3P9QOm0L7oMtNTtItDv9pCDrgck5XgBJ75NeJ3uHi3afzu6fu5116NAPzfifr9SGkPkhzb6cll1eml1visKQHzpyCPMUQsEyhdEuHag2VFTATYOxGD5mr1BoQIMApwsPhX6TLFXQTtYC9_zwRGCgpcIBGUXVlN0304bKVlglOIPjocF7DAOxxKDoIkllBAoSkNVUAl1o4U6rIKkXoRjVh-9nN8D9n0N5bCJbhLuj7J1ud_IP-q3iYNhsJdekJy_iKV4jqLT7_m92eYbz3dwmpPk7uf0e4cp7Acde8OWsBNhApOpYLLkrottAMWapBuD6LZSBbsyLFZkFlnUq5n2SeYPlbOZHszO6m4EVy1J1QU15sWBHcLHqHMH8wH7L6FaHD_yJygqj-2oTKe2AUE_w0DuJtuS1qYOOJTycdb8gEaPqHBGc-clriv-J4sHZBUzjDUX4qZ_diuIGdLAot2GQVj1wF4U32cXvvivumigbYqHt1dB9-2igj7uQLJ06wqcPZFvmYCvelGNmw3Cxp-1FO4CQB7iGI1EP-qFY9sg1Fmr1FVOVFzUdCBIbyandi4T9Cb3r7fYDSFOMd-LE6f6SPfPmOCuO89NbrlgH58EnhkR6HaScFoldrANjNfU0hFFB9q3VLtLKRNS7WvlJdCgzjwLmgYVNVrUKi5lfaUkvx0QUj2BLVouUINUu1fhc4j5SB4gh3YjXhX3DTTrbfZy-U7yxHNIqpbJqfQSOto6vWHjHknHw1O2lgDyxm945McJe0zJ5XOKxBu9_tntABww9q1DjC_dTKki_-Rpa5b4eZ9zBFxy5LqibvsY3c25YgQIR1MYWRsS8JmyFo6zTGPIz4Z3EbS3mWTFGDBx_KZGKVvZFFmii8kkv7LcOcfKP97aKY3B3Icu1fduiwMbEq-EycL37O_U-d2AljqRRdYYPU-1g-qqouDuDWpTtqym3t0CZQzBym29myaZRbQ2Jds5YQwrvINlkTyrIclz6iLDcJIJhPJ_0MMUuVAPqU9JZzJJTPH2fzi9TfDA1eWQvYUV2ID127kHljXdum8QtdMXkLkx3ZxOxq3TowPC6gmKmMM3IPJd7q9bbf_A3EF-Wg3LTBoqJPv8-htrHtSL8-VkFbAFAOhyDkR22_5T9G57ry8D4DuMoO6FekbUao9L7DnylGldOnztYBDEgxSPOGSOB7gEhBhTLXfuYlxM6qk1EL971DYCBzlNMFm7xEyJbTvJszWJm4ugP0Rwh4JQsK4Q2-3z7CgyBqLmJZTB0OccmWIwpOs6m28BIgQ84_pBwU5bpp3S1Xa90MOdxG1ZW1WHDngfaehCm2qy6ZX234g6c6ibrZtFntyYSWrvc62GBBV7EirNCJadftaq4Kyu5doLsQoMzZbZxZ5kB5EdTVlQ4jo4IsKBG5bdCKBrMs7kerdQGA_t1yFscXpjpCAVA_3q2_iOFtPjUO9F8u8nx-8T3P70_EH7eLp8s199bgPKPRuzZFr67DmiALPQM4-NY8CRWKd5aGrm0xwchQxzPoKejVyPML4AG-xtBXYtgn6gdMPgF7Lmd_mboP00WOmz6c6IB2pQNSdXMKsy8wlds56Zmih9perdV2lfWwn4x04p2Q7MNSdxqOJtde-ZFsWlL5dvdVBGofainZ9WIwUXlkfY0PdVcgMuHxsC-ilDKtoBS9nS89uzHuUXupvD148XmJHbLj0coyyMFdGgR-N2Jb4CGJisZ5rADdBcD8QF_tltNIpadUw-MKwV_LzBPGzn9HWFGcqt3wgYcScGp5J9WxgHTOS5LAsJpO6bLvqINtEaHEEqLhUk2hHscS5txYIxBNCbMEbPN5pkxJ7ZyNAqsn_4kjL72t3DRAYYJhZtV7Nxmjzp5f-bQ8jAAJJ35EGQRdViaJERs5B-6D9Nl67wfpaeZKR4CDFcOhIo-tJARR-InLiJcGK70mRlinK4kT1U3NtwoipJrUn6B-ARzyloykscegxVtnNw3r8AVX1Q8UKVz1UpforNAtVkMi-dpupyu_ZUwR6-AgJpU5FC0vW4ZH6Yqppz0N7wZKRvhxblImXBBFCzZJdD4Q7-1y4z3m6LgpLFrxRRIJ7Yj_mHPdiihFbMwgGUQ6Bial6M0I9y5xnopLX02pvLza7Vbth4ZOZeIoYVU5uvQpgP7fgKRAOMOGgfUirumGcfwGzc5AWZXBKuPA8Lw3XcZifQkwsb9wBcKhnvRvwgO66cM9JhCVop8XiUMgtUQ3p04VQQh_xhIKzxezGgPYhyc4cPgkUHct4mfHACnbKq5-VyTjEuSa8yXiMeLryWil-C1upHuo06nY_z05cXZ9vLUAm5tRFWmfyIU4xQhbsik2OyL6g_gRyBPFuhDbhMS7H4UJvQEa1KjSbsCeEJ7Dhl0SHgk1Hmyky5AnCLPduoFvw6owmgspbIF4MVG0zowU7-rHhKiHdNVsA7KzCDU-ivkE6wcRfKDZSgGhXNYACY_n6PodHq0jJEFS-TM6MNaEAOisfxQQb1CooEzrIkzhsjkI92xzVjAHVZ1I4QuQ8HpfbkhZ7grzeodLCehT72RsR5RDwXupiCyMAscbQArxcQT0cb2gj5gAU8Et-dRWthdOD_Ce48mpUnlOvoUvPvh9NCFtgkbbhUBjMN69A7pf8aVZM5VyzHCuCG7nnTM1Pu22DTRNiM9rI8xrPleJQ7igIrwdp2I63sNWu4XeAlBx1Rt3KXh7OMmVRErXivUuVKfiN21WCfGKMJXcj8zAe1BfqXNOmlobGPbRJQcNQQjtsJjlkgpdpvibU2HjTf3kI-VlIM470CCME5y541-SE2H3cNhA0YhFPN-n5NP5AwqQxZ0AyEcKFAk7kMWcT3sMBX4w-k1TviPUGW59N_9rHW5IYfbBjhWaqYOVp-ZZ-8tqkag-r_FJOZ6gJGjFvuVn621FV0J31pqMmr3RAD5oxqvWYgMjBqKppxVNcknpZg1r7bMoxngJfQxRCA5olADNErxgy-EhGK3T1eGA5pVDIOZqCKZl1jN-4kX2B_YjJpUi9D5qMKmaJoyEqRTWu0OmGE7IM-GFPsg-7NcoQCs3HTJ6JK6xFlXEweDwW-whrzI8oOZWtvYpd-F4lYsUTYTu37Y8okGemb7ndK3HGKu-wCtlFXJh7olHIfFo_qKMwnKvOYo10dn_HNN7Bh5Na9hE3LG-drLBybi7WTFGXKjrAgPwt6_61YB7GXWfJ-R6wAK93oSXWhfXFu5rN6S7EGCpeBJmsZG9wgBQyhP6mWDQxcSATqD7n7XQHdsvWRuo6T5TITiKH_mVsDXlxkmfntqJZZYeLNpPJXXD7PlKDvg8vz138rX9cE8hIVnGdUXem_fcjN9dHlPt5nspy-rwauYR23jfsJQim_AGRy1giDo9U5JrWJOWS7aoxJO6AcqJvVEk0Mf6G6hGS7mmdZMxtPYewZLHOPMJgqUIUGJ7XChgk2om3wXJcSPARZCsTAzNQ-B9jWzaL2BYauQ0OlG0htZaDqGKWVsfBNKwXyZ_zWC3JKuO77ggmrPTfNBjElJRMn49TJomXoU_ehePCdij_J0aRBierQmbXQum-Ca5emZususrK3nv7mSaw5PEcEh8xyHFW9ZPcuTCGTVXezOoXP2Xe2DAHkj8uHU4m1lc1_NrZjou5nsB5Om_GUVkp0HHx-5g5R8tpwArKZL8XzsqjRB6VFgh1AkK6x1mI6wvRbHkR9mvDzynKId6FV8p0SYYrixeu-c00KD4Qsqb0SpNT7NzyFBqwJbS4ODMxrhwU-RF8h6HVMpzAhRu4rv_Mqa0F-3GSQVRQDhvMDFgbF6iG3Wn-WHMO21JXaWpmf4waMH6s_yNka3vVz1aZSlUp_FCbuCVH7LuyXnKYskuMVLV8uIvhOa8i5rP_wboBb-M2kVWftKsFdRF7FecbealEOvlO1tAspLxdOWmLjUP3yCVgaVgo0Rra8J9758Z8D_xjCHuwLvv_11SLZ-RvlHtg-NT8yWhmnURSCGdCbdltYMft05-0x_kllYAVn0pQcW3jzrCr4duVfK6XPkfA5FYtbnhR6Et7Uy7du3uPkYQrBEbKuH3OfPJcLgrelOPAGY7Gw4qLtkonkyJkRCAamQl__OQmVVF6apwh6eHzUv9UZhO9Zr_f-xDJ3hPxxbjGmLerUbBjYTVldWiFpbD6M46O5bNFmNlZt5mLKYCKVqp7zkzCx4zMtc-h1kzgQ5XAqNV_40lRfZToUfiLHetndlzuNcl3fNpT8e4MqAEWdEh7vRajrzHLmMuMC5OzMnGCJm76W2MZVYRSY4HFHKquajGeakP7r6a1qzVNGMtPY02EYsUqYkTVpIT1f1ctku5S4wL00CvXOiRFN8tbhbVGN_HKByS4Ra4XL17S9myIddnQ1Hzt30xkGwOANyWTZnJOAmxBS7kTZ1VAAUszYTZRsEPMfu78qz50r03qzol8NaVp-XA51bPRntv5nMfYXHHap1p47kVVnr9Gz4lAxcDknnkoh-ajfySba-w8mMUz2v5JcwX8iBv4MxTZtoIC1PLnM0RSC2ho19cWkSaiNUx8PplZP06EBqaJbH9qiegHyJtIzcXJYWRAEp7e8kguBPQqm0ftOjUBSaHHllEIvdeE9tlgEi9UP0Cpa3V9oVlnuM_tbQhIjyjBHpqXsVFCJzOGpAzpuYh3s7njtJcKNdl-eZV2iYpmaY3jszQjh0XiDGcvdtmkLkB008jZx5zYrU9DeR29AcCOW0Sfgl4q7tRXH8odUlU8PJMjNfJHeKwLsBuqJB4T7heniInrSqYg6G_gKkDDCuv2GRnCDT0DCj2PpssObQcOe2V99QuspvTrTkrLa1ZDxrZ4TrmGR8j_rKPZ3SbwbpJ29uE9KW7kZKaGt4dAzLUYuKDFQNyk31dQ0PKgTzpkFQd4Ehyr2hmN98Ett7V1iJvd0h4i4FUOANhTExAxUr5YRWCYu0Z2msaK7siNR-lmF4sWoDl4qRG8t_9CL9UptaFFh_YQrjBb3a4skERKBMWkTq7zzESUOT_H6RRuXvBbbVUpatCfVCuzDTzKeiBuGidjXHabWGJVPrmd3X7Y_9-Eq3lq7tNH7ndzsJtKuMijwV0WYYCGIBuhw2pkR6WIZWEFv9EfGOV7FCYlzZTiUmVnw62CYtXINT1tL84zDbLoKzaqOTAJlExBfZtVuzUekFS4mTbovCLUkC4r3AUV4AAMDXJTC37zgs31B51n5BxAcJy4DEIkgArMaGKqlmd1_ERXy_cVeNA0EOy2IMTigiphVmwlUweeqmaArUITFnkJf_aHDfA0_VG_uZ4S5zoT-RKdxJ6j3UBvSVAnbbGzFe0CjztaiqMq314IIcfks7iy0_zSVcaRK1z-Ck4vuR7e1e_O53AcwQZXu8eEklEOX8tKyyTB2tJUw4YU0ug4B1gagzni0oBd_cpysZorvdkxfgths_2M2QQWFASWysv31xaZK3rPZOBe4GT27CBPuYohPryEQxblaXY9MnjUt2Zd8Ba74pSDVNF2ipJHXBn9cNSzFpeK1rzZcCD_s_0iLAGEZDFNd_Car9HT-2hQ28gB_gDPTf1iiIqsUtJnzKSLxp8mrkRcQ-nKAHU36qwd9gWu1pajgtyr-74PCJoTbh8LCg-xpDfXU8ahYJ04OutkuKaux4fscDnS5GPtPeOUMq_YvcDnWmMQsqH2ci62W4lj034HW95o3xJliZ-crM6unnMEGgyf7UFfyuCPCRTa2hWCp5Hz-kjZz5hRH6nvHwAJ2GehrjsUN56XXnjR1r5aOTU1Nsa92x0TlVAgY4cbZKhrz2pu8vDtylnF0xCAt_KfPiWgZcKyNSDaEeY_hsV097u92ZPZWXtXWJfaVk81LalU4HqkoJjbOinDUT-XQZmxnYBCyIFETeOgLQspo--m8_Dkf0uzUJ-tVgpROTqCIQzSB31SiKjNFIW2t1w7wHCSPfzQEk-_KzuEMWlYsIBfSpqaDoPP8QO_ojG6YxR03awKUQPuFKQBuhwc_ofOyTiBSZTWe8HalpR5gTNFssDKhhy0Ji1IgEUc3lS6Bg20a_TJudg2Y4lRWcvEEBcygVMXvU8SKEBifnA6FuRj8x2JpOeO39C2EPC1FjonG0Zveh_eM2mlA_sGWZMg4QW0SdK22xUkLBo8MqDH06jVwuKpUcvrpU-9bA2q2xEy5d9MITwRi2zQum45RMd30McoNBSJfH6NJ29UOxyZ-fzwLxakbtcR8mHmi7QE8-zt-B8mWen0YrRf4_xabF1uPOvrDYwUXBRpNz6SIlQP5bAzVnrG4k7D4xfuU7VgcuhpyQONA8CtUarQ9NTlcHMPqetRpUvlMrJR2wuI4O1bNhvxFeLhjp-OhqZu93P79v4pivwmYGl6StNqcvO-5WHEl03-KMhiFQxxr5TtTJaHK4omqMZsQJ9_Ur6YVXT2Dea-9WsEorerXvftl8AFqZ_SysWV5vSUnWE2gMCIlTXLxLR6CpLKGIX55uOqKv0Q88Fs7LzJI79994YYXDWrIvXQv2xkPumAFI_v1JKWwCx2EGVwtU_QImAG14nFF-oaZ95Ih92y38VLtiVJ_cLgvh8D2znqgEnnG1X6qenwDzCozYQXCUFZzRzLyMOVKvjmVjyB-aoYo33BDUoF_ENA1h9e3F9G4L3PMAJd4RwAtYrOcrt8AJmUZHUV_4pXDu80k1KtTNKra4M2cAVRXOSYuWLhoOMsUSFY8A7lCWNJXYIrxydyauU7cmpYIPrjdAVVWJaC2qhMofqsTqSfIdRdkbXk73sY_sVkDHX-pWqLOJaG_5Bzo8yplSkdugumvlAHM7SkYvOVqSKeJrAb8aq2zgVHopGKGWr8OmBKowa06uShdVYjZVfdgCiqxoKAH5uKSzu-IqMjRA6aLlGfKLzUKGjoOfZ1379sKWbGXVC41fwXXwYi6bQY7_rFjxOmiavCrOreYR6bV3s_D5GalX2Enryu9T7qPMg1YpGxPmw0HYHPsWvb1NzZsMRWFFu3sBNCP_2bqlRkgdxto5q0p3SOI8TFjNibPLC0EbIhlzCNShsVENRMIJwRHCsSOhWk4xafLRQzmDL7KFGiNr0qH3QO_Pfp1t4e8pgl3SsHfUOHvfXeYGIsw5P1nwVhTJQi7roc5cCganqB6JS0WP8Zkubh4BIgITTZGhWmbCeazsxyHUU_kTiysDsfCb1HT4eafoDUXenWO3fTmNYIxpEtaNgBRrPfHk7S7eGd2heyWeDIWlNNST8o32fz7kIrtFyBSlPYRGDj5L9-cZWYzbnSZDk4O9nL0hcumDpph6Ysrd6ju34XuuKvUBazlHktztNLRAA9x7FIMe4lPQPzRgWDBlVSklKDgIw-oR04qnU32JLlXuArRo-DUMqAmw0XIPcH9GF_OGNDCcwCDPyGIjN6Fi6oZ96Pwjp2UQSTJnWxqLuUV7hobIRQLfbYH1sRHndAAGT3TvhcJ_riMtLEACKxPcnUKa-mrjHsIJM4a8lY2LVsJgngBSK3by7dgzwPcU9hbUYzBaeDfRWoqlM5Ihs1zva-5RmylDQacwzPaL_LtZJ2HERa_5vNsyuXQ4x5mEWy4e1kom2ByLlihdCZ-4HkAp812UvkfqI6Ca5yqW2tDErwYc3lCH1lDn25ncg_dowL-SYpJhn9_Xc6iuHfJgXjSXSKSZJhlc55qpJYBHnH9hPQ_U2dkf4xCfGuKiAsT8G8FzMs-ejBFy63b5vTdiITDnwrI-TRVYpJ6Q0lL1uK9qSwGTAhWouXhHl7riWiU9_x6yZ4fBfWgJDRMUBLLpz738YWphWIBmfk-H16UjQ27OInO8PHT3TFBO2tJWaDtxSt5NyAzoP5UE6mBCs0nkONToI-1HYviZb40Se1PkDCKej8JPHOtNI1Xhh0NRanWYKMYBkC-3BWAMKT2yBQB75_DIhVw0OScZ4f7TtP3QzuXojvO3Fnq0P-yJk55p8sFSQDMM15inXXvNWk_fZ-vQqRzaVCp9yL5iobUoBN45KeYo63J1e1ikaaABJ1I9c8djq2jS29EsZ2Y4_GeQ6Bw3ho7m-4BZxFPv8zWgJEwF0uKNyhbqCyzZDAiTuMGxjJDEuCAxn49aq3T2Vmp1MsglOVFfeb5ur5oCmxKfjSl_VGQ4fKDFt7O5RjI0xpp2vFhWGlbVkOtYhFoMgxVhUo73t_J5_qSIMWj1DGRjHALSMNlnNZMcx49LjSL8AIxU5lLKFgjrlGmYsSVN2exQQgs-houTumyZhplOecE9aoWpvSZI65mMgNZDqcMspnHr2e0d6JYhLtm3d6eqqjVE39xbL1wYMjQeczPrLF8pN0XFqiIIu4zfrK2gsqYwcpPnCMHagWG1Mp3F8wImgVSyRCEc0WB7w_D6rFuliqPtwLrZNL2S75FxM-C_ex7eMAFF9pofvPD7F4kXTT6rPYhL47PGaeyP6lTVbMXfEz2hl_Ncd-bXWMUMo_CsVGGmJLNpoxUDkum4BH3gKySLpxOa7f9yiyMqiefSFT0pwwZG-66XiL0x8Pd5WT75fRojj8KTgACf_kyvj4cJlm4mo0GPfJoGxlZeFl-NFsY_7t0B11WghW6mtp_9lrw9Q5D6mfcgSVPVWzRYCZmGA2why-DV1hSr8xFnBr31naNN7tU4RADexfypgfnTvmYseu0mkz5xk7MHytumGO5nKpi7Y0EGj7pT-pdpH4HNOIgkCbCZTfMZkrNsGq5IsoypF9B9pRFSf2vUM15Hom8s8qpoc7D8GK-jlBG9GvVhNGbHloSJxFTrLO-dnQ1Ov8xJCjOmL5zUQq1Np55EeQRy9t4YXe92vz-t8w5i0vlvtpd7JsZ_CtJNQRW3NbbQA8aDAeAXopEJkrjkJrylerxqT8bjXbw3xU5fECm88NKqUxL70sZh1cbGrF7HBMTizMaU0wax8_2YBZiSnwHpd5TK-ApHZ9Y3yS2sIqceyEZEViPcftSvs6ebIFvFni8NfDxUdWfLL4-dzqPlN0yJ9nMHi0i-OtG70ucwyvSrjMJUVgHQ2Qsn3gdrytDmhRe_uUH4OtW-lbrFMONLANHRnLki2SAmibuQUKX5qhh4mGY1fea5f_SRpYS8DjPJuaeTq-zlMLr9v3FA7a4tP8W6gnDQx0dbc7h0L9EnfFOG5iDu12jgSypok0zOe2Jt7VlSXCIb6yKF8DWCqpbYZmpSyglqGa9yxvwf3VyWL91QeY7fQteYn20J8pqQVEIdfnMJkp-SJ6o6qgN1awS40IC1vkC4SI5fZEHsU-0R_Q2NHpt5fz7HMh96BlY9bEeAWxtrkOXGL5gLU37757L-mLKOkGmHHgiTgQCSKogYpUQ8wkMoGFzD6yklIcaIuqJSsXYX99rECwLo8SLq2FZAdKvlnpHre96uomeUw4-NBrd5HiHUUBBrSCRoqdFnGjok_XrhCDD7-HTe3Gg8cfb1V0VgabaVg3s3cz-sOQZmPqyYyfsXZnIekXd6-1mu34R-vLxzvyeuZX3g09XPkH"
     },
-    debug: "(()=>{\"use strict\";var e,t,r,n,a,i,o,l,s,u,c,d,f,v,p,h,g,m,y,b,w,k,S,E,A,T,I,x,N,O,j,C,M=(e,t=e=>TypeError(e))=>{throw en(e=te(e))?t(e):e},$=(e,t,r=-1)=>{if(e===t||(e??t)==null)return!0;if(es(e)&&es(t)&&e.length===t.length){var n=0;for(var a in e){if(e[a]!==t[a]&&!$(e[a],t[a],r-1))return!1;++n}return n===Object.keys(t).length}return!1},_=(e,t,...r)=>e===t||r.length>0&&r.some(t=>_(e,t)),U=(e,t)=>null!=e?e:M(t??\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),F=(e,t=!0,r)=>{try{return e()}catch(e){return ep(t)?eo(e=t(e))?M(e):e:Y(t)?console.error(t?M(e):e):t}finally{r?.()}},P=e=>{var t=void 0;return()=>t??=te(e)},R=e=>{var t={initialized:!0,then:q(()=>(t.initialized=!0,te(e)))};return t},q=e=>{var t=P(e);return(e,r)=>D(t,[e,r])},D=async(e,t=!0,r)=>{try{var n=await te(e);return ei(t)?t[0]?.(n):n}catch(e){if(Y(t)){if(t)throw e;console.error(e)}else{if(ei(t)){if(!t[1])throw e;return t[1](e)}var a=await t?.(e);if(a instanceof Error)throw a;return a}}finally{await r?.()}},z=e=>e,B=void 0,J=Number.MAX_SAFE_INTEGER,W=!1,V=!0,G=()=>{},L=e=>null!=e,H=Symbol.iterator,K=(e,t)=>(r,n=!0)=>e(r)?r:t&&n&&null!=r&&null!=(r=t(r))?r:B,X=(e,t)=>ep(t)?e!==B?t(e):B:e?.[t]!==B?e:B,Y=e=>\"boolean\"==typeof e,Z=K(Y,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||B))),Q=e=>!!e,ee=e=>e===V,et=e=>e!==W,er=e=>\"number\"==typeof e,en=e=>\"string\"==typeof e,ea=K(en,e=>e?.toString()),ei=Array.isArray,eo=e=>e instanceof Error,el=(e,t=!1)=>null==e?B:!t&&ei(e)?e:eh(e)?[...e]:[e],es=e=>null!==e&&\"object\"==typeof e,eu=Object.prototype,ec=Object.getPrototypeOf,ed=e=>null!=e&&ec(e)===eu,ef=(e,t)=>\"function\"==typeof e?.[t],ev=e=>\"symbol\"==typeof e,ep=e=>\"function\"==typeof e,eh=(e,t=!1)=>!!(e?.[H]&&(\"object\"==typeof e||t)),eg=e=>e instanceof Map,em=e=>e instanceof Set,ey=(e,t)=>null==e?B:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,eb=!1,ew=e=>(eb=!0,e),ek=e=>null==e?B:ep(e)?e:t=>t[e],eS=(e,t,r)=>(t??r)!==B?(e=ek(e),t??=0,r??=J,(n,a)=>t--?B:r--?e?e(n,a):n:r):e,eE=e=>e?.filter(L),eA=(e,t,r,n)=>null==e?[]:!t&&ei(e)?eE(e):e[H]?function*(e,t){if(null!=e){if(t){t=ek(t);var r=0;for(var n of e)if(null!=(n=t(n,r++))&&(yield n),eb){eb=!1;break}}else for(var n of e)null!=n&&(yield n)}}(e,r===B?t:eS(t,r,n)):es(e)?function*(e,t){t=ek(t);var r=0;for(var n in e){var a=[n,e[n]];if(t&&(a=t(a,r++)),null!=a&&(yield a),eb){eb=!1;break}}}(e,eS(t,r,n)):eA(ep(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(t??=-e-1;e++;)yield t--;else for(t??=0;e--;)yield t++}(e,r),t),eT=(e,t)=>t&&!ei(e)?[...e]:e,eI=(e,t,r,n)=>eA(e,t,r,n),ex=(e,t,r=1,n=!1,a,i)=>(function* e(t,r,n,a){if(null!=t){if(t[H]||n&&es(t))for(var i of a?eA(t):t)1!==r?yield*e(i,r-1,n,!0):yield i;else yield t}})(eA(e,t,a,i),r+1,n,!1),eN=(e,t,r,n)=>{if(t=ek(t),ei(e)){var a=0,i=[];for(r=r<0?e.length+r:r??0,n=n<0?e.length+n:n??e.length;r<n&&!eb;r++){var o=e[r];(t?o=t(o,a++):o)!=null&&i.push(o)}return eb=!1,i}return null!=e?el(eI(e,t,r,n)):B},eO=(e,t,r,n)=>null!=e?new Set([...eI(e,t,r,n)]):B,ej=(e,t,r=1,n=!1,a,i)=>el(ex(e,t,r,n,a,i)),eC=(e,t,r)=>null==e?B:ep(t)?ty(eN(en(e)?[e]:e,t),r??\"\"):en(e)?e:ty(eN(e,e=>!1===e?B:e),t??\"\"),eM=(...e)=>{var t;return eR(1===e.length?e[0]:e,e=>null!=e&&(t??=[]).push(...el(e))),t},e$=(e,t,r,n)=>{var a,i=0;for(r=r<0?e.length+r:r??0,n=n<0?e.length+n:n??e.length;r<n;r++)if(null!=e[r]&&(a=t(e[r],i++)??a,eb)){eb=!1;break}return a},e_=(e,t)=>{var r,n=0;for(var a of e)if(null!=a&&(r=t(a,n++)??r,eb)){eb=!1;break}return r},eU=(e,t)=>{var r,n=0;for(var a in e)if(r=t([a,e[a]],n++)??r,eb){eb=!1;break}return r},eF=(e,t,...r)=>null==e?B:eh(e)?eN(e,e=>t(e,...r)):t(e,...r),eP=(e,t,r,n)=>{var a;if(null!=e){if(ei(e))return e$(e,t,r,n);if(r===B){if(e[H])return e_(e,t);if(\"object\"==typeof e)return eU(e,t)}for(var i of eA(e,t,r,n))null!=i&&(a=i);return a}},eR=eP,eq=async(e,t,r,n)=>{var a;if(null==e)return B;for(var i of eI(e,t,r,n))if(null!=(i=await i)&&(a=i),eb){eb=!1;break}return a},eD=Object.fromEntries,ez=(e,t,r)=>{if(null==e)return B;if(Y(t)||r){var n={};return eR(e,r?(e,a)=>null!=(e=t(e,a))&&null!=(e[1]=r(n[e[0]],e[1]))&&(n[e[0]]=e[1]):e=>eR(e,t?e=>e?.[1]!=null&&((n[e[0]]??=[]).push(e[1]),n):e=>e?.[1]!=null&&(n[e[0]]=e[1],n))),n}return eD(eN(e,t?(e,r)=>X(t(e,r),1):e=>X(e,1)))},eB=(e,t,r,n,a)=>{var i=()=>ep(r)?r():r;return eP(e,(e,n)=>r=t(r,e,n)??i(),n,a)??i()},eJ=(e,t=e=>null!=e,r=ei(e),n,a)=>eT(eA(e,(e,r)=>t(e,r)?e:B,n,a),r),eW=(e,t,r,n)=>{var a;if(null==e)return B;if(t)e=eJ(e,t,!1,r,n);else{if(null!=(a=e.length??e.size))return a;if(!e[H])return Object.keys(e).length}return a=0,eP(e,()=>++a)},eV=(e,...t)=>null==e?B:er(e)?Math.max(e,...t):eB(e,(e,r,n,a=t[1]?t[1](r,n):r)=>null==e||er(a)&&a>e?a:e,B,t[2],t[3]),eG=(e,t,r)=>eN(e,ed(e)?e=>e[1]:e=>e,t,r),eL=e=>!ei(e)&&eh(e)?eN(e,eg(e)?e=>e:em(e)?e=>[e,!0]:(e,t)=>[t,e]):es(e)?Object.entries(e):B,eH=(e,t,r,n)=>null==e?B:(t=ek(t),eP(e,(e,r)=>!t||(e=t(e,r))?ew(e):B,r,n)),eK=(e,t,r,n)=>null==e?B:ei(e)?e[e.length-1]:eP(e,(e,r)=>!t||t(e,r)?e:B,r,n),eX=(e,t,r,n)=>null==e?B:ed(e)&&!t?Object.keys(e).length>0:e.some?.(t??Q)??eP(e,t?(e,r)=>!!t(e,r)&&ew(!0):()=>ew(!0),r,n)??!1,eY=(e,t=e=>e)=>(e?.sort((e,r)=>t(e)-t(r)),e),eZ=(e,t,r)=>(e.constructor===Object?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eQ=(e,t,r)=>{if(e){if(e.constructor===Object&&null==r)return e[t];var n=e.get?e.get(t):e.has?e.has(t):e[t];return void 0===n&&null!=r&&null!=(n=ep(r)?r():r)&&eZ(e,t,n),n}},e0=(e,...t)=>(eR(t,t=>eR(t,([t,r])=>{null!=r&&(ed(e[t])&&ed(r)?e0(e[t],r):e[t]=r)})),e),e1=e=>(t,r,n,a)=>{if(t)return void 0!=n?e(t,r,n,a):(eR(r,r=>ei(r)?e(t,r[0],r[1]):eR(r,([r,n])=>e(t,r,n))),t)},e2=e1(eZ),e4=e1((e,t,r)=>eZ(e,t,ep(r)?r(eQ(e,t)):r)),e6=(e,t)=>e instanceof Set?!e.has(t)&&(e.add(t),!0):eQ(e,t)!==e2(e,t,!0),e5=(e,t)=>{if((e??t)!=null){var r=eQ(e,t);return ef(e,\"delete\")?e.delete(t):delete e[t],r}},e3=(e,...t)=>{var r=[],n=!1,a=(e,i,o,l)=>{if(e){var s=t[i];i===t.length-1?ei(s)?(n=!0,s.forEach(t=>r.push(e5(e,t)))):r.push(e5(e,s)):(ei(s)?(n=!0,s.forEach(t=>a(eQ(e,t),i+1,e,t))):a(eQ(e,s),i+1,e,s),!eW(e)&&o&&e8(o,l))}};return a(e,0),n?r:r[0]},e8=(e,t)=>{if(e)return ei(t)?(ei(e)&&e.length>1?t.sort((e,t)=>t-e):t).map(t=>e8(e,t)):ei(e)?t<e.length?e.splice(t,1)[0]:void 0:e5(e,t)},e9=(e,...t)=>{var r=(t,n)=>{var a;if(t){if(ei(t)){if(ed(t[0])){t.splice(1).forEach(e=>r(e,t[0]));return}a=t}else a=eN(t);a.forEach(([t,r])=>Object.defineProperty(e,t,{configurable:!1,enumerable:!0,writable:!1,...n,...ed(r)&&(\"get\"in r||\"value\"in r)?r:ep(r)&&!r.length?{get:r}:{value:r}}))}};return t.forEach(e=>r(e)),e},e7=(e,...t)=>{if(void 0!==e)return Object.fromEntries(t.flatMap(r=>es(r)?ei(r)?r.map(t=>ei(t)?1===t.length?[t[0],e[t[0]]]:e7(e[t[0]],...t[1]):[t,e[t]]):Object.entries(t).map(([t,r])=>[t,!0===r?e[t]:e7(e[t],r)]):[[r,e[r]]]).filter(e=>null!=e[1]))},te=e=>ep(e)?e():e,tt=(e,t=-1)=>ei(e)?t?e.map(e=>tt(e,t-1)):[...e]:ed(e)?t?ez(e,([e,r])=>[e,tt(r,t-1)]):{...e}:em(e)?new Set(t?eN(e,e=>tt(e,t-1)):e):eg(e)?new Map(t?eN(e,e=>[e[0],tt(e[1],t-1)]):e):e,tr=(e,...t)=>e?.push(...t),tn=(e,...t)=>e?.unshift(...t),ta=(e,t)=>{if(!ed(t))return[e,e];var r,n,a,i={};ed(e)&&eR(e,([o,l])=>{if(i[o]!==t[o]){if(ed(l)){if(!(l=ta(l,t[o])))return;[l,r]=l}else er(l)&&er(n)&&(l=(r=l)-n);i[o]=l,(a??=tt(e))[o]=r}})},ti=\"undefined\"!=typeof performance?(e=V)=>e?Math.trunc(ti(W)):performance.timeOrigin+performance.now():Date.now,to=(e=!0,t=()=>ti())=>{var r,n=+e*t(),a=0;return(i=e,o)=>(r=e?a+=-n+(n=t()):a,o&&(a=0),(e=i)&&(n=t()),r)},tl=(e=0)=>{var t,r,n=(a,i=e)=>{if(void 0===a)return!!r;clearTimeout(t),Y(a)?a&&(i<0?et:ee)(r?.())?n(r):r=void 0:(r=a,t=setTimeout(()=>n(!0,i),i<0?-i:i))};return n},ts=(e,t=0)=>{var r=ep(e)?{frequency:t,callback:e}:e,{queue:n=!0,paused:a=!1,trigger:i=!1,once:o=!1,callback:l=()=>{}}=r;t=r.frequency??0;var s=0,u=tv(!0).resolve(),c=to(!a),d=c(),f=async e=>!!s&&(!!n||!u.pending||!0===e)&&(p.busy=!0,!0!==e&&await u,u.reset(),(await D(()=>l(c(),-d+(d=c())),!1,()=>u.resolve())===!1||t<=0||o)&&v(!1),p.busy=!1,!0),v=(e,r=!e)=>(c(e,r),clearInterval(s),p.active=!!(s=e?setInterval(f,t<0?-t:t):0),p),p={active:!1,busy:!1,restart:(e,r)=>(t=e??t,l=r??l,v(!0,!0)),toggle:(e,t)=>e!==p.active?e?t?(v(!0),p.trigger(),p):v(!0):v(!1):p,trigger:async e=>await f(e)&&(v(p.active),!0)};return p.toggle(!a,i)};class tu{_promise;constructor(){this.reset()}get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new tc,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}}class tc{_promise;resolve;reject;value;error;pending=!0;constructor(){var e;this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(!this.pending){if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")}return this.pending=!1,this[t?\"error\":\"value\"]=r===B||r,e(r),this})}),[this.resolve,this.reject]=e}then(e,t){return this._promise.then(e,t)}}var td=(e,t=0)=>t>0?setTimeout(e,t):window.queueMicrotask(e),tf=(e,t)=>null==e||isFinite(e)?!e||e<=0?te(t):new Promise(r=>setTimeout(async()=>r(await te(t)),e)):M(`Invalid delay ${e}.`),tv=e=>e?new tu:new tc,tp=(...e)=>Promise.race(e.map(e=>ep(e)?e():e)),th=(e,t,r)=>{var n=!1,a=(...t)=>e(...t,i),i=()=>n!==(n=!1)&&(r(a),!0),o=()=>n!==(n=!0)&&(t(a),!0);return o(),[i,o]},tg=(...e)=>(e=eJ(e),[()=>eB(e,(e,t)=>t[0]()||e,!1),()=>eB(e,(e,t)=>t[1]()||e,!1)]),tm=()=>{var e,t=new Set;return[(r,n)=>{var a=th(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,a[0]),a},(...r)=>(e=r,t.forEach(e=>e(...r)))]},ty=(e,t=[\"and\",\", \"])=>e?1===e.length?e[0]:ei(t)?[e.slice(-1).join(t[1]??\", \"),\" \",t[0],\" \",e[e.length-1]].join(\"\"):e.join(t??\", \"):void 0,tb=(e,t,r)=>null==e?void 0:(ei(t)?(t=t[0])+\" \":\"\")+(1===t?e:r??e+\"s\"),tw=(e,t,r)=>r?(tr(r,\"\\x1b[\",t,\"m\"),ei(e)?tr(r,...e):tr(r,e),tr(r,\"\\x1b[m\"),r):tw(e,t,[]).join(\"\"),tk=(e,t=\"'\")=>null==e?void 0:t+e+t,tS=e=>(e=Math.log2(e))===(0|e),tE=(e,t,r,n)=>{var a,i,o,l=Object.fromEntries(Object.entries(e).filter(([e,t])=>en(e)&&er(t)).map(([e,t])=>[e.toLowerCase(),t])),s=Object.entries(l),u=Object.values(l),c=l.any??u.reduce((e,t)=>e|t,0),d=t?{...l,any:c,none:0}:l,f=Object.fromEntries(Object.entries(d).map(([e,t])=>[t,e])),v=(e,r)=>er(e)?!t&&r?null!=f[e]?e:B:e:en(e)?d[e]??d[e.toLowerCase()]:B,p=!1,[h,g]=t?[(e,t)=>Array.isArray(e)?e.reduce((e,r)=>null==r||p?e:null==(r=v(r,t))?(p=!0,B):(e??0)|r,(p=!1,B)):v(e),(e,t)=>null==(e=h(e,!1))?B:t&&(i=f[e&c])?(a=g(e&~(e&c),!1)).length?[i,...a]:i:(e=s.filter(([,t])=>t&&e&t&&tS(t)).map(([e])=>e),t?e.length?1===e.length?e[0]:e:\"none\":e)]:[v,e=>null!=(e=v(e))?f[e]:B],m=(e,t)=>null==e?B:null==(e=h(o=e,t))?M(TypeError(`${JSON.stringify(o)} is not a valid ${r} value.`)):e,y=s.filter(([,e])=>!n||(n&e)===e&&tS(e));return e9(e=>m(e),[{configurable:!1,enumerable:!1},{parse:m,tryParse:h,entries:s,values:u,lookup:g,length:s.length,format:e=>g(e,!0),logFormat:(e,t=\"or\")=>\"any\"===(e=g(e,!0))?\"any \"+r:`the ${r} ${ty(eN(el(e),e=>tk(e)),[t])}`},t&&{pure:y,map:(e,t)=>(e=m(e),y.filter(([,t])=>t&e).map(t??(([,e])=>e)))}])},tA=(...e)=>{var t=eL(ez(e,!0)),r=e=>(es(e)&&(ei(e)?e.forEach((t,n)=>e[n]=r(t)):t.forEach(([t,r])=>{var n,a=B;null!=(n=e[t])&&(1===r.length?e[t]=r[0].parse(n):r.forEach((i,o)=>!a&&null!=(a=o===r.length-1?i.parse(n):i.tryParse(n))&&(e[t]=a)))})),e);return r},tT=(e,t=[\"|\",\";\",\",\"],r=!0)=>{if(!e)return B;var n=e.split(\"=\").map(e=>r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim());return n[1]??=\"\",n[2]=n[1]&&t?.length&&eH(t,(e,t,r=n[1].split(e))=>r.length>1?r:B)||(n[1]?[n[1]]:[]),n},tI=(e,t=!0,r)=>null==e?B:tj(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,n,a,i,o,l,s,u,c,d,f)=>{var v={source:e,scheme:r,urn:r?!n:!n&&B,authority:a,user:i,password:o,host:l??s,port:null!=u?parseInt(u):B,path:c,query:!1===t?d:tx(d,t),fragment:f};return v.path=v.path||(v.authority?v.urn?\"\":\"/\":B),v}),tx=(e,t,r=!0)=>null==e?B:ez(e?.match(/(?:^.*?\\?|^)(.*)$/)?.[1]?.split(\"&\"),(e,n,[a,i,o]=tT(e,!1===t?[]:!0===t?B:t,r)??[])=>null!=(a=a?.replace(/\\[\\]$/,\"\"))?!1!==t?[a,o.length>1?o:i]:[a,i]:B,(e,r)=>e?!1!==t?eM(e,r):(e?e+\",\":\"\")+r:r),tN=(e,t)=>t&&null!=e?t.test(e):B,tO=(e,t,r)=>tj(e,t,r,!0),tj=(r,n,a,i=!1)=>(r??n)==null?B:a?(e=B,i?(t=[],tj(r,n,(...r)=>null!=(e=a(...r))&&t.push(e))):r.replace(n,(...t)=>e=a(...t)),e):r.match(n),tC=e=>e?.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tM=/\\z./g,t$=(e,t)=>(t=eC(eO(eJ(e,e=>e?.length)),\"|\"))?RegExp(t,\"gu\"):tM,t_={},tU=e=>e instanceof RegExp,tF=(e,t=[\",\",\" \"])=>tU(e)?e:ei(e)?t$(eN(e,e=>tF(e,t)?.source)):Y(e)?e?/./g:tM:en(e)?t_[e]??=tj(e||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,r,n)=>r?RegExp(r,\"gu\"):t$(eN(tP(n,RegExp(`?<!(?<!\\\\)\\\\)[${eC(t,tC,\",\")}]/`)),e=>e&&`^${eC(tP(e,/(?<!(?<!\\\\)\\\\)\\*/),e=>tC(tR(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):B,tP=(e,t)=>e?.split(t)??e,tR=(e,t,r)=>e?.replace(t,r)??e;(T=r||(r={}))[T.Anonymous=0]=\"Anonymous\",T[T.Indirect=1]=\"Indirect\",T[T.Direct=2]=\"Direct\",T[T.Sensitive=3]=\"Sensitive\";var tq=tE(r,!1,\"data classification\");(I=n||(n={}))[I.None=0]=\"None\",I[I.Necessary=1]=\"Necessary\",I[I.Functionality=2]=\"Functionality\",I[I.Performance=4]=\"Performance\",I[I.Targeting=8]=\"Targeting\",I[I.Security=16]=\"Security\",I[I.Infrastructure=32]=\"Infrastructure\",I[I.Anonymous=49]=\"Anonymous\",I[I.Any=63]=\"Any\",I[I.Server=2048]=\"Server\",I[I.Server_Write=4096]=\"Server_Write\";var tD=tE(n,!0,\"data purpose\",2111),tz=tE(n,!1,\"data purpose\",0),tB=(e,t)=>((a=e?.metadata)&&(t?(delete a.posted,delete a.queued,Object.entries(a).length||delete e.metadata):delete e.metadata),e);(x=i||(i={}))[x.Global=0]=\"Global\",x[x.Entity=1]=\"Entity\",x[x.Session=2]=\"Session\",x[x.Device=3]=\"Device\",x[x.User=4]=\"User\";var tJ=tE(i,!1,\"variable scope\");r.Anonymous,n.Necessary;var tW=e=>`'${e.key}' in ${tJ.format(e.scope)} scope`,tV={scope:tJ,purpose:tz,purposes:tD,classification:tq};tA(tV),(N=o||(o={}))[N.Success=200]=\"Success\",N[N.Created=201]=\"Created\",N[N.Unchanged=304]=\"Unchanged\",N[N.Denied=403]=\"Denied\",N[N.NotFound=404]=\"NotFound\",N[N.ReadOnly=405]=\"ReadOnly\",N[N.Conflict=409]=\"Conflict\",N[N.Unsupported=501]=\"Unsupported\",N[N.Invalid=400]=\"Invalid\",N[N.Error=500]=\"Error\",tE(o,!1,\"variable set status\"),(O=l||(l={}))[O.Add=0]=\"Add\",O[O.Min=1]=\"Min\",O[O.Max=2]=\"Max\",O[O.IfMatch=3]=\"IfMatch\",O[O.IfNoneMatch=4]=\"IfNoneMatch\",tE(l,!1,\"variable patch type\");var tG=e=>!!e?.patch,tL=e=>!!e?.variables,tH=(e,t,r)=>{var n,a=e=>e,i=(r,i=tZ)=>R(async()=>(n=a(i(await e(),t)))&&r(n)),o={then:i(e=>e).then,all:i(e=>e,e=>e),changed:i(e=>eJ(e,e=>e.status<300)),variables:i(e=>eN(e,tX)),values:i(e=>eN(e,e=>tX(e)?.value)),push:()=>(a=e=>(r?.(eN(tK(e))),e),o),value:i(e=>tX(e[0])?.value),variable:i(e=>tX(e[0])),result:i(e=>e[0])};return o},tK=e=>e?.map(e=>e?.status<400?e:B),tX=e=>e?.status<400?e?.current??e:B,tY=e=>e?.status<400||e?.status===404,tZ=(e,t,r)=>{var n,a,i=[],l=eN(el(e),(e,l)=>e&&(e.status<400||!r&&404===e.status?e:(a=`${tW(e.source??e)} could not be ${404===e.status?\"found.\":`${e.source||e.status!==o.Error?\"set\":\"read\"} because ${e.status===o.Conflict?`of a conflict. The expected version '${e.source?.version}' did not match the current version '${e.current?.version}'.`:e.status===o.Denied?e.error??\"the operation was denied.\":e.status===o.Invalid?e.error??\"the value does not conform to the schema\":e.status===o.ReadOnly?\"it is read only.\":e.status===o.Error?`of an unexpected error: ${e.error}`:\"of an unknown reason.\"}`}`,(null==(n=t?.[l])||!1!==n(e,a))&&i.push(a),B)));return i.length?M(i.join(\"\\n\")):ei(e)?l:l?.[0]},tQ=e=>e&&\"string\"==typeof e.type,t0=((...e)=>t=>t?.type&&e.some(e=>e===t?.type))(\"view\"),t1=e=>e?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g,\"_\").split(\":\").filter(e=>e)??[],t2=(e,t,r)=>{if(!e)return[];if(Array.isArray(e)&&(e=eC(e,\",\")),/(?<!(?<!\\\\)\\\\)%[A-Z0-9]{2}/.test(e))try{e=decodeURIComponent(e.replace(/([^=&]+)(?:\\=([^&]+))?(&|$)/g,(e,t,r,n)=>[t,r&&`=\"${r.replace(/(?<!(?<!\\\\)\\\\)(\"|%22)/g,'\\\\\"')}\"`,n&&\",\"].join(\"\")))}catch{}var n,a=[],i=t1(t);return e.replace(/\\s*(\\s*(?=\\=)|(?:\\\\.|[^,=\\r\\n])+)\\s*(?:\\=\\s*(?:\"((?:\\\\.|[^\"])*)\"|'((?:\\\\.|[^'])*)'|((?:\\\\.|[^,])*)))?\\s*(?:[,\\s]+|$)/g,(e,t,o,l,s)=>{var u=o||l||s,c=t1(t);return i.length&&(1!==c.length||u||(u=c.pop()),c=i.concat(c)),c.length&&(a.push(n={ranks:c,value:u||void 0}),r?.add(t4(n))),\"\"}),a},t4=e=>null==e?e:`${e.ranks.join(\":\")}${e.value?`=${e.value.replace(/,/g,\"\\\\,\")}`:\"\"}`,t6=2e3,t5=\"_t:data\",t3=()=>()=>M(\"Not initialized.\"),t8=window,t9=document,t7=t9.body,re=(e,t)=>!!e?.matches(t),rt=J,rr=(e,t,r=(e,t)=>t>=rt)=>{for(var n,a=0,i=W;e?.nodeType===1&&!r(e,a++)&&t(e,(e,t)=>(null!=e&&(n=e,i=t!==V&&null!=n),V),a-1)!==W&&!i;){var o=e;null===(e=e.parentElement)&&o?.ownerDocument!==document&&(e=o?.ownerDocument.defaultView?.frameElement)}return n},rn=(e,t)=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":return(\"\"+e).trim()?.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||Z(e);case\"n\":return parseFloat(e);case\"j\":return F(()=>JSON.parse(e),G);case\"h\":return F(()=>r4(e),G);case\"e\":return F(()=>r5?.(e),G);default:return ei(t)?\"\"===e?void 0:(\"\"+e).split(\",\").map(e=>e=\"\"===e.trim()?void 0:rn(e,t[0])):void 0}},ra=(e,t,r)=>rn(e?.getAttribute(t),r),ri=(e,t,r)=>rr(e,(e,n)=>n(ra(e,t,r))),ro=(e,t)=>ra(e,t)?.trim()?.toLowerCase(),rl=e=>e?.getAttributeNames(),rs=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,ru=e=>null!=e?e.tagName:null,rc=()=>({x:(s=rd(W)).x/(t7.offsetWidth-window.innerWidth)||0,y:s.y/(t7.offsetHeight-window.innerHeight)||0}),rd=e=>({x:ey(scrollX,e),y:ey(scrollY,e)}),rf=(e,t)=>tR(e,/#.*$/,\"\")===tR(t,/#.*$/,\"\"),rv=(e,t,r=V)=>(u=rp(e,t))&&z({xpx:u.x,ypx:u.y,x:ey(u.x/t7.offsetWidth,4),y:ey(u.y/t7.offsetHeight,4),pageFolds:r?u.y/window.innerHeight:void 0}),rp=(e,t)=>t?.pointerType&&t?.pageY!=null?{x:t.pageX,y:t.pageY}:e?({x:c,y:d}=rh(e),{x:c,y:d}):void 0,rh=e=>e?(f=e.getBoundingClientRect(),s=rd(W),{x:ey(f.left+s.x),y:ey(f.top+s.y),width:ey(f.width),height:ey(f.height)}):void 0,rg=(e,t,r,n={capture:!0,passive:!0})=>ei(t)?tg(...eN(t,t=>rg(e,t,r,n))):th(r,r=>e.addEventListener(t,r,n),r=>e.addEventListener(t,r,n)),rm=e=>{var{host:t,scheme:r,port:n}=tI(e,!1);return{host:t+(n?\":\"+n:\"\"),scheme:r}},ry=()=>({...s=rd(V),width:window.innerWidth,height:window.innerHeight,totalWidth:t7.offsetWidth,totalHeight:t7.offsetHeight}),rb=new WeakMap,rw=e=>rb.get(e),rk=(e,t=W)=>(t?\"--track-\":\"track-\")+e,rS=(e,t,r,n,a,i)=>t?.[1]&&eR(rl(e),o=>t[0][o]??=(i=W,en(n=eR(t[1],([t,r,n],a)=>tN(o,t)&&(i=void 0,!r||re(e,r))&&ew(n??o)))&&(!(a=e.getAttribute(o))||Z(a))&&t2(a,tR(n,/\\-/g,\":\"),r),i)),rE=()=>{},rA=(e,t)=>{if(v===(v=rC.tags))return rE(e,t);var r=e=>e?tU(e)?[[e]]:eh(e)?ej(e,r):[ed(e)?[tF(e.match),e.selector,e.prefix]:[tF(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(eG(v))]];(rE=(e,t)=>rS(e,n,t))(e,t)},rT=(e,t)=>eC(eM(rs(e,rk(t,V)),rs(e,rk(\"base-\"+t,V))),\" \"),rI={},rx=(e,t,r=rT(e,\"attributes\"))=>{r&&rS(e,rI[r]??=[{},tO(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[tF(r||n),,t])],t),t2(rT(e,\"tags\"),void 0,t)},rN=(e,t,r=W,n)=>(r?rr(e,(e,r)=>r(rN(e,t,W)),ep(r)?r:void 0):eC(eM(ra(e,rk(t)),rs(e,rk(t,V))),\" \"))??(n&&(p=rw(e))&&n(p))??null,rO=(e,t,r=W,n)=>\"\"===(h=rN(e,t,r,n))||(null==h?h:Z(h)),rj=(e,t,r,n)=>e?(rx(e,n??=new Set),rr(e,e=>{rA(e,n),t2(eN(r?.(e)),void 0,n)},t),n.size?{tags:[...n]}:{}):{},rC={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,clientKey:null,apiKey:null,pushCookie:null,debug:!1,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},rM=tP(\"\"+t9.currentScript.src,\"#\"),r$=tP(\"\"+(rM[1]||\"\"),\";\"),r_=rM[0],rU=r$[1]||tI(r_,!1)?.host,rF=e=>!!(rU&&tI(e,!1)?.host?.endsWith(rU)===V),rP=(...e)=>tR(eC(e),/(^(?=\\?))|(^\\.(?=\\/))/,r_.split(\"?\")[0]),rR=rP(\"?\",\"var\");rP(\"?\",\"mnt\"),rP(\"?\",\"usr\");var rq=(e,t,r=V)=>{t&&(r?console.groupCollapsed:console.group)(\"tail.js: \"+t),null!=e&&console.log(es(e)?tw(JSON.stringify(e,null,2),\"94\"):e),t&&console.groupEnd()},rD=[],rz=[],rB=(e,t=0)=>e.charCodeAt(t),rJ=e=>String.fromCharCode(...e);[...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>rD[rz[t]=e.charCodeAt(0)]=t);var rW=e=>{for(var t,r=0,n=e.length,a=[];n>r;)t=e[r++]<<16|e[r++]<<8|e[r++],a.push(rz[(16515072&t)>>18],rz[(258048&t)>>12],rz[(4032&t)>>6],rz[63&t]);return a.length+=n-r,rJ(a)},rV=e=>{for(var t,r=0,n=0,a=e.length,i=new Uint8Array(3*(a/4|0)+(a+3&3)%3);a>r;)i[n++]=rD[rB(e,r++)]<<2|(t=rD[rB(e,r++)])>>4,a>r&&(i[n++]=(15&t)<<4|(t=rD[rB(e,r++)])>>2,a>r&&(i[n++]=(3&t)<<6|rD[rB(e,r++)]));return i},rG={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},rL=(e=256)=>e*Math.random()|0,rH=e=>{var t,r,n,a,i,o=0n,l=0,s=0n,u=[],c=0,d=0,f=0,v=0,p=[];for(f=0;f<e?.length;v+=p[f]=e.charCodeAt(f++));var h=e?()=>{u=[...p],d=255&(c=v),f=-1}:()=>{},g=e=>(d=255&(c+=-u[f=(f+1)%u.length]+(u[f]=e)),e);return[e?e=>{for(h(),a=16-((t=e.length)+4)%16,i=new Uint8Array(4+t+a),n=0;n<3;i[n++]=g(rL()));for(r=0,i[n++]=g(d^16*rL(16)+a);t>r;i[n++]=g(d^e[r++]));for(;a--;)i[n++]=rL();return i}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((d^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(t);t>n;i[n++]=d^g(e[r++]));return i}:e=>e,(e,t=64)=>{if(null==e)return null;for(l=Y(t)?64:t,h(),[o,s]=rG[l],r=0;r<e.length;o=BigInt.asUintN(l,(o^BigInt(d^g(e[r++])))*s));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+o%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):o.toString(36)}]},rK={exports:{}};(e=>{(()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,a=new Uint8Array(128),i=0;if(t&&t.multiple)for(var o=0;o<e.length;o++)l(e[o]);else l(e);return a.subarray(0,i);function l(e,a){var i,o,f,v,p,h;switch(typeof e){case\"undefined\":u(192);break;case\"boolean\":u(e?195:194);break;case\"number\":(e=>{if(isFinite(e)&&Number.isSafeInteger(e)){if(e>=0&&e<=127)u(e);else if(e<0&&e>=-32)u(e);else if(e>0&&e<=255)c([204,e]);else if(e>=-128&&e<=127)c([208,e]);else if(e>0&&e<=65535)c([205,e>>>8,e]);else if(e>=-32768&&e<=32767)c([209,e>>>8,e]);else if(e>0&&e<=4294967295)c([206,e>>>24,e>>>16,e>>>8,e]);else if(e>=-2147483648&&e<=2147483647)c([210,e>>>24,e>>>16,e>>>8,e]);else if(e>0&&e<=18446744073709552e3){var t=e/4294967296,a=e%4294967296;c([211,t>>>24,t>>>16,t>>>8,t,a>>>24,a>>>16,a>>>8,a])}else e>=-0x8000000000000000&&e<=0x7fffffffffffffff?(u(211),d(e)):e<0?c([211,128,0,0,0,0,0,0,0]):c([207,255,255,255,255,255,255,255,255])}else n||(n=new DataView(r=new ArrayBuffer(8))),n.setFloat64(0,e),u(203),c(new Uint8Array(r))})(e);break;case\"string\":(f=(o=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(e.charCodeAt(n)>127){t=!1;break}for(var a=0,i=new Uint8Array(e.length*(t?1:4)),o=0;o!==r;o++){var l=e.charCodeAt(o);if(l<128){i[a++]=l;continue}if(l<2048)i[a++]=l>>6|192;else{if(l>55295&&l<56320){if(++o>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var s=e.charCodeAt(o);if(s<56320||s>57343)throw Error(\"UTF-8 encode: second surrogate character 0x\"+s.toString(16)+\" at index \"+o+\" out of range\");l=65536+((1023&l)<<10)+(1023&s),i[a++]=l>>18|240,i[a++]=l>>12&63|128}else i[a++]=l>>12|224;i[a++]=l>>6&63|128}i[a++]=63&l|128}return t?i:i.subarray(0,a)})(e)).length)<=31?u(160+f):f<=255?c([217,f]):f<=65535?c([218,f>>>8,f]):c([219,f>>>24,f>>>16,f>>>8,f]),c(o);break;case\"object\":null===e?u(192):e instanceof Date?(e=>{var t=e.getTime()/1e3;if(0===e.getMilliseconds()&&t>=0&&t<4294967296)c([214,255,t>>>24,t>>>16,t>>>8,t]);else if(t>=0&&t<17179869184){var r=1e6*e.getMilliseconds();c([215,255,r>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t])}else{var r=1e6*e.getMilliseconds();c([199,12,255,r>>>24,r>>>16,r>>>8,r]),d(t)}})(e):Array.isArray(e)?s(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((h=(p=e).length)<=255?c([196,h]):h<=65535?c([197,h>>>8,h]):c([198,h>>>24,h>>>16,h>>>8,h]),c(p)):e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?s(e):(e=>{var t=0;for(var r in e)void 0!==e[r]&&t++;for(var r in t<=15?u(128+t):t<=65535?c([222,t>>>8,t]):c([223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(l(r),l(n))}})(e);break;default:if(!a&&t&&t.invalidTypeReplacement)\"function\"==typeof t.invalidTypeReplacement?l(t.invalidTypeReplacement(e),!0):l(t.invalidTypeReplacement,!0);else throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\")}}function s(e){var t=e.length;t<=15?u(144+t):t<=65535?c([220,t>>>8,t]):c([221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;t>r;r++)l(e[r])}function u(e){if(a.length<i+1){for(var t=2*a.length;t<i+1;)t*=2;var r=new Uint8Array(t);r.set(a),a=r}a[i]=e,i++}function c(e){if(a.length<i+e.length){for(var t=2*a.length;t<i+e.length;)t*=2;var r=new Uint8Array(t);r.set(a),a=r}a.set(e,i),i+=e.length}function d(e){var t,r;e>=0?(t=e/4294967296,r=e%4294967296):(t=~(t=Math.abs(++e)/4294967296),r=~(r=Math.abs(e)%4294967296)),c([t>>>24,t>>>16,t>>>8,t,r>>>24,r>>>16,r>>>8,r])}}function r(e,t){var r,n=0;if(e instanceof ArrayBuffer&&(e=new Uint8Array(e)),\"object\"!=typeof e||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(a());else r=a();return r;function a(){var t=e[n++];if(t>=0&&t<=127)return t;if(t>=128&&t<=143)return u(t-128);if(t>=144&&t<=159)return c(t-144);if(t>=160&&t<=191)return d(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return s(-1,1);if(197===t)return s(-1,2);if(198===t)return s(-1,4);if(199===t)return f(-1,1);if(200===t)return f(-1,2);if(201===t)return f(-1,4);if(202===t)return l(4);if(203===t)return l(8);if(204===t)return o(1);if(205===t)return o(2);if(206===t)return o(4);if(207===t)return o(8);if(208===t)return i(1);if(209===t)return i(2);if(210===t)return i(4);if(211===t)return i(8);if(212===t)return f(1);if(213===t)return f(2);if(214===t)return f(4);if(215===t)return f(8);if(216===t)return f(16);if(217===t)return d(-1,1);if(218===t)return d(-1,2);if(219===t)return d(-1,4);if(220===t)return c(-1,2);if(221===t)return c(-1,4);if(222===t)return u(-1,2);if(223===t)return u(-1,4);if(t>=224&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(t){for(var r=0,a=!0;t-- >0;)if(a){var i=e[n++];r+=127&i,128&i&&(r-=128),a=!1}else r*=256,r+=e[n++];return r}function o(t){for(var r=0;t-- >0;)r*=256,r+=e[n++];return r}function l(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return(n+=t,4===t)?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function s(t,r){t<0&&(t=o(r));var a=e.subarray(n,n+t);return n+=t,a}function u(e,t){e<0&&(e=o(t));for(var r={};e-- >0;)r[a()]=a();return r}function c(e,t){e<0&&(e=o(t));for(var r=[];e-- >0;)r.push(a());return r}function d(t,r){t<0&&(t=o(r));var a=n;return n+=t,((e,t,r)=>{var n=t,a=\"\";for(r+=t;r>n;){var i=e[n++];if(i>127){if(i>191&&i<224){if(n>=r)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(i>223&&i<240){if(n+1>=r)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else if(i>239&&i<248){if(n+2>=r)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}else throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1))}if(i<=65535)a+=String.fromCharCode(i);else if(i<=1114111)i-=65536,a+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320);else throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\")}return a})(e,a,t)}function f(e,t){e<0&&(e=o(t));var r=o(1),a=s(e);return 255===r?(e=>{if(4===e.length){var t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];return new Date(1e3*t)}if(8===e.length){var r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=(3&e[3])*4294967296+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7];return new Date(1e3*t+r/1e6)}if(12===e.length){var r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];n-=8;var t=i(8);return new Date(1e3*t+r/1e6)}throw Error(\"Invalid data length for a date value.\")})(a):{type:r,data:a}}}var n={serialize:t,deserialize:r,encode:t,decode:r};e?e.exports=n:window[window.msgpackJsName||\"msgpack\"]=n})()})(rK);var{deserialize:rX,serialize:rY}=(j=rK.exports)&&j.__esModule&&Object.prototype.hasOwnProperty.call(j,\"default\")?j.default:j,rZ=\"$ref\",rQ=e=>{var t,r,n,a=(e,t,r=e[t],n=o(r))=>((r!==n||ev(t))&&(e[t]=n,i(()=>e[t]=r)),r),i=e=>(t??=[]).push(e),o=e=>null==e||ep(e)||ev(e)?null:es(e)?e.toJSON&&e!==(e=e.toJSON())?o(e):null!=(n=(r??=new Map).get(e))?(e[rZ]||(e[rZ]=n,i(()=>delete e[rZ])),{[rZ]:n}):(ed(e)?(r.set(e,r.size+1),Object.keys(e).forEach(t=>(a(e,t)===B||ev(t))&&delete e[t])):eh(e)&&(!ei(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?a(e,r):(e[r]=null,i(()=>delete e[r]))),e):e,l=rY(o(e));return t?.forEach(e=>e()),l},r0=e=>{var t,r,n=e=>es(e)?e[rZ]&&(r=(t??=[])[e[rZ]])?r:(e[rZ]&&(t[e[rZ]]=e,delete e[rZ]),Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return null!=e?n(rX(e)):B},r1=(e,t=!1,r=!0)=>{var n=(e,t=!1,r=!0)=>{var n=(e,r)=>er(e)&&!0===r?e:l(e=en(e)?new Uint8Array(eN(e.length,t=>255&e.charCodeAt(t))):t?JSON.stringify(e):rQ(e),r),a=e=>null==e?B:F(()=>JSON.parse(e,B));if(t)return[e=>JSON.stringify(e),a,(e,t)=>n(e,t)];var[i,o,l]=rH(e);return[e=>rW(i(rQ(e))),e=>null!=e?r&&(e?.[0]===\"{\"||e?.[0]===\"[\")?a(e):r0(o(rV(e))):null,(e,t)=>n(e,t)]};return e?n(e,t,r):(g??=[n(null,!1),n(null,!0)])[+t]};r1(),r1(null,!0);var[r2,r4]=r1(),[r6,r5]=[t3,t3],[r3,r8]=tm(),r9=e=>{r5===t3&&([r6,r5]=r1(e),r8(r6=r1(null,!0)[0],r5))},r7=e=>t=>ne(e,t),ne=(...e)=>{var t=e.shift();console.error(en(e[1])?e.shift():e[1]?.message??\"An error occurred\",t.id??t,...e)},[nt,nr]=tm(),[nn,na]=tm(),ni=e=>nl!==(nl=e)&&nr(nl=!1,nc(!0,!0)),no=e=>ns!==(ns=!!e&&\"visible\"===document.visibilityState)&&na(ns,!e,nu(!0,!0));nt(no);var nl=!0,ns=!1,nu=to(!1),nc=to(!1);rg(window,[\"pagehide\",\"freeze\"],()=>ni(!1)),rg(window,[\"pageshow\",\"resume\"],()=>ni(!0)),rg(document,\"visibilitychange\",()=>(no(!0),ns&&ni(!0))),nr(nl,nc(!0,!0));var nd=!1,nf=to(!1),[nv,np]=tm(),nh=ts({callback:()=>nd&&np(nd=!1,nf(!1)),frequency:2e4,once:!0,paused:!0}),ng=()=>!nd&&(np(nd=!0,nf(!0)),nh.restart());rg(window,\"focus\",ng),rg(window,\"blur\",()=>nh.trigger()),rg(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],ng),ng(),(C=m||(m={}))[C.View=-3]=\"View\",C[C.Tab=-2]=\"Tab\",C[C.Shared=-1]=\"Shared\";var nm=tE(m,!1,\"local variable scope\"),ny=e=>nm.tryParse(e)??tJ(e),nb=e=>!!nm.tryParse(e?.scope),nw=tA({scope:nm},tV),nk=e=>null==e?void 0:e.source?nk(e.source):`${ny(e.scope)}\\0${e.key}\\0${e.targetId??\"\"}`,nS=e=>{var t=e.split(\"\\0\");return{scope:+t[0],key:t[1],targetId:t[2]}},nE=0,nA=void 0,nT=()=>(nA??t3())+\"_\"+nI(),nI=()=>++nE,nx=e=>crypto.getRandomValues(e),nN=()=>tR(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^nx(new Uint8Array(1))[0]&15>>e/4).toString(16)),nO=void 0,nj={id:nA,heartbeat:ti()},nC={knownTabs:{[nA]:nj},variables:new Map},[nM,n$]=tm(),n_=t3,nU=e=>nO.get(nk(e)),nF=(...e)=>nP(e.map(e=>(e.timestamp=ti(),e.expires=3e3,e))),nP=e=>{var t=eN(e,e=>e&&[nk(e),e]);if(t?.length){e2(nO,t);var r=eJ(t,e=>e[1].scope>m.Tab);r.length&&(e2(nC.variables,t),n_({type:\"patch\",payload:ez(r)})),n$(\"variables\",ez(t),!0)}};r3((e,t)=>{nt(r=>{if(r){var n=t(sessionStorage.getItem(t5));sessionStorage.removeItem(t5),nA=n?.[0]??ti().toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),nO=new Map(eM(eJ(nO,([,e])=>e.scope===m.View),eN(n?.[1],e=>[nk(e),e])))}else console.log(JSON.stringify(nC,null,2)),sessionStorage.setItem(t5,e([nA,eJ(nO,([,e])=>e.scope!==m.View)]))},!0),n_=(t,r)=>{e&&(localStorage.setItem(t5,e([nA,t,r])),localStorage.removeItem(t5))},rg(window,\"storage\",e=>{if(e.key===t5){var n=t?.(e.newValue);if(n&&(!n[2]||n[2]===nA)){var[a,{type:i,payload:o}]=n;\"query\"===i?r.active||n_({type:\"set\",payload:nC},a):\"set\"===i&&r.active?(e2(nC,o),r.trigger()):\"patch\"===i?(e2(nC.variables,o),e2(nO,o),n$(\"variables\",o,!1)):\"tab\"===i&&(e2(nC.knownTabs,a,o),o&&n$(\"tab\",o,!1))}}});var r=ts(()=>n$(\"ready\",nC,!0),-25),n=ts({callback(){var e=ti()-1e4;eR(nC?.knownTabs,([t,r])=>r[0]<e&&e3(nC.knownTabs,t)),nj.heartbeat=ti(),n_({type:\"tab\",payload:nj})},frequency:5e3,paused:!0}),a=e=>{n_({type:\"tab\",payload:e?nj:void 0}),e?(r.restart(),n_({type:\"query\"})):r.toggle(!1),n.toggle(e)};nt(e=>a(e),!0)},!0);var[nR,nq]=tm(),[nD,nz]=tm(),nB=((e,{timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var a=()=>(r?r5:r4)(localStorage.getItem(e)),i=()=>localStorage.setItem(e,(r?r6:r2)([nA,ti()+t])),o=tl(t/2);return async(r,l,s=null!=l?1:n)=>{for(;s--;){var u=a();if((!u||u[1]<ti())&&(i(),a()?.[0]===nA))return o(i),await D(r,!0,()=>o(!1)&&localStorage.removeItem(e));var c=tv(),[d]=rg(window,\"storage\",t=>{t.key!==e||t.newValue||c.resolve()});await tp(tf(l??t),c),d()}null==l&&M(e+\" could not be acquired.\")}})(\"_t:rq\"),nJ=ts(()=>{if(b!==(b=rC.pushCookie)){if(!b)return;y=RegExp(tC(b)+\"=([^;]*)\")}var e=r5?.(tj(document.cookie,y)?.[1]);tL(e)&&nz(e)},1e3),nW=0,nV=(e=1e3)=>{var t=()=>{t=G,--nW||(nJ.restart(1e3),clearTimeout(0))};return nW++||nJ.restart(100),e>0&&setTimeout(t,e),t()},nG=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{var a,i,o=!1,l=r=>{var l=ep(t)?t?.(a,r):t;return!1!==l&&(null!=l&&!0!==l&&(a=l),nq(e,a,r,e=>(o=a===B,a=e)),!o&&(i=(n?r6:JSON.stringify)(a)))};if(!r)return await nB(()=>eq(1,async t=>{if(!l(t))return ew();var r=await fetch(e,{method:null!=a?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i});if(r.status>=400)return 0===t?ew(M(`Invalid response: ${await r.text()}`)):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tf((1+t)*200));var o=await r.text(),s=o?.length?(n?r5:JSON.parse)?.(o):B;return console.log(JSON.stringify(s,null,2)),null!=s&&nz(s),ew(s)}));l(0)&&(nV(1e3),navigator.sendBeacon(e,new Blob(null!=a?[i]:[],{type:\"text/plain\"}))||M(\"Beacon send failed.\"))},nL=[\"scope\",\"key\",\"targetId\",\"version\"],nH=[...nL,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],nK=[...nL,\"init\",\"purpose\",\"refresh\"];[...nH];var nX=new Map,nY=(e,t)=>{var a=ts(async()=>{var e=eN(nX,([e,t])=>({...nS(e),result:[...t]}));e.length&&await c.get(...e)},3e3),i=(e,t)=>eF(t,t=>eQ(nX,e,()=>new Set).add(t)),l=e=>{if(tY(e)){var t,r=nk(e),n=tX(e);eR(e8(nX,r),e=>{t=!1,e?.(n,nU(n),(e=!0)=>t=e),t&&i(r,e)})}};nt((e,t)=>a.toggle(e,e&&t>=3e3),!0);var s=new Map,u=(e,t)=>e2(s,e,Y(t)?t?void 0:0:t),c={get:(...r)=>tH(async()=>{var n=[],a=eN(r,(e,t)=>[e,t]),s=[],c=(await nG(e,()=>!!(a=eN(a,([e,t])=>{if(e){var r=nk(e);i(r,e.result);var a=nU(r);if(e.init&&u(r,e.cache),!e.refresh&&a?.expires<ti())tr(n,[{...a,status:o.Success},t]);else if(!nb(e))return[e7(e,nK),t];else if(ed(e.init)){var l={...nw(e),status:o.Created,...e.init};null!=l.value&&(tr(s,d(l)),tr(n,[l,t]))}}})).length&&{variables:{get:eN(a,0)},deviceSessionId:t?.deviceSessionId})).variables?.get??[];return tr(n,...eN(c,(e,t)=>e&&[e,a[t][1]])),s.length&&nP(s),n.map(([e])=>(l(e),e))},eN(r,e=>e?.error)),set:(...a)=>tH(async()=>{var i=[],s=[],c=eN(a,(e,t)=>{if(e){var a=nk(e),l=nU(a);if(u(a,e.cache),nb(e)){if(null!=e.patch)return M(\"Local patching is not supported.\");var c={value:e.value,classification:r.Anonymous,purposes:n.Necessary,scope:nm(e.scope),key:e.key};return s[t]={status:l?o.Success:o.Created,source:e,current:c},void tr(i,d(c))}return tG(e)||e?.version!==void 0||(e.version=l?.version,e.force??=!!e.version),[e,t]}}),f=c.length>0?[]:U((await nG(e,{variables:{set:c.map(e=>e[0])},deviceSessionId:t?.deviceSessionId})).variables?.set,\"No result.\");return i.length&&nP(i),eR(f,(e,t)=>{var[r,n]=c[t];e.source=r,l(s[n]=e)}),s},eN(a,e=>e?.error))},d=(e,t=ti())=>({...e7(e,nH),timestamp:t,expires:t+(eQ(s,nk(e))??3e3)});return nD(({variables:e})=>{if(e){var t=ti(),r=eM(eN(e.get,e=>tX(e)),eN(e.set,e=>tX(e)));r?.length&&nP(eF(r,d,t))}}),c},nZ=(e,t,r=t6)=>{var n=[],a=new WeakMap,i=new Map,o=(e,t)=>e.metadata?.queued?e0(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):M(\"Source event not queued.\"),l=async(r,a=!1)=>{if((r=eN(el(r),e=>e0(t.applyEventExtensions(e),{metadata:{queued:!0}}))).length&&eR(r,e=>rq(e,e.type)),!a){r.length&&tr(n,...r);return}n.length&&tn(r,...n.splice(0)),r.length&&(rq(eC(r,e=>e.type,[\"and\"]),\"Posting \"+tb(\"events\",[r.length])),await nG(e,{events:r.map(e=>(e0(e,{metadata:{posted:!0}}),e0(tB(tt(e),!0),{timestamp:e.timestamp-ti()}))),deviceSessionId:t?.deviceSessionId}))};return r>0&&ts(()=>l([],!0),r),nn((e,t,r)=>{if(!e&&(n.length||t||r>1500)){var a=eN(i,([e,t])=>{var[r,n]=t();return n&&i.delete(e),r});(n.length||a.length)&&l(eM(n.splice(0),a),!0)}}),{post:l,postPatch:(e,t,r)=>l(o(e,t),r),registerEventPatchSource(e,t,r=!0){var n=!1,l=()=>n=!0;return a.set(e,tt(e)),i.set(e,()=>{var i=a.get(e),[s,u]=r?ta(t(i,l),i):t(i,l)??[];return!s||i&&$(u,i)?[void 0,n]:(a.set(e,tt(u)),[o(e,s),n])}),l}}},nQ=Symbol(),n0=e=>{var t=new IntersectionObserver(e=>eR(e,({target:e,isIntersecting:t,boundingClientRect:r,intersectionRatio:n})=>e[nQ]?.(t,r,n)),{threshold:[.05,.1,.15,.2,.3,.4,.5,.6,.75]});return(r,n)=>{if(n&&(a=eJ(n?.component,e=>e.track?.impressions||(e.track?.secondary??e.inferred)!==V))&&eW(a)){var a,i,o,l,s=W,u=0,c=tl(rC.impressionThreshold),d=ai();r[nQ]=(t,n,f)=>{d(t=f>=.75||n.top<(i=window.innerHeight/2)&&n.bottom>i),s!==(s=t)&&(s?c(()=>{++u,o||tr(e,o=eJ(eN(a,e=>(e.track?.impressions||rO(r,\"impressions\",V,e=>e.track?.impressions))&&z({type:\"impression\",pos:rv(r),viewport:ry(),timeOffset:al(),impressions:u,...ay(r,V)})||null))),o?.length&&(l=eN(o,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:d(),impressions:u}))))}):(eR(l,e=>e()),c(!1)))},t.observe(r)}}},n1=()=>{var e=t8?.screen;if(!e)return{};var{width:t,height:r,orientation:n}=e,a=t<r,i=n?.angle??t8.orientation??0;return(-90===i||90===i)&&([t,r]=[r,t]),{deviceType:t<480?\"mobile\":t<=1024?\"tablet\":\"desktop\",screen:{dpr:t8.devicePixelRatio,width:t,height:r,landscape:a}}},n2=e=>tr(e,z({type:\"user_agent\",hasTouch:navigator.maxTouchPoints>0,userAgent:navigator.userAgent,view:w?.clientId,languages:eN(navigator.languages,(e,t,r=e.split(\"-\"))=>z({id:e,language:r[0],region:r[1],primary:0===t,preference:t+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:new Date().getTimezoneOffset()},...n1()})),n4=(e,t=\"A\"===ru(e)&&ra(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),n6=(e,t=ru(e),r=rO(e,\"button\"))=>r!==W&&(_(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&_(ro(e,\"type\"),\"button\",\"submit\")||r===V),n5=()=>w?.clientId,n3={scope:\"shared\",key:\"referrer\"},n8=(e,t)=>{A.variables.set({...n3,value:[n5(),e]}),t&&A.variables.get({scope:n3.scope,key:n3.key,result(r,n,a){r?a():n?.value?.[1]===e&&t()}})},n9=to(),n7=to(),ae=to(),at=1,ar=()=>n7(),[an,aa]=tm(),ai=e=>{var t=to(e,n9),r=to(e,n7),n=to(e,ae),a=to(e,()=>at);return(e,i)=>({totalTime:t(e,i),visibleTime:r(e,i),interactiveTime:n(e,i),activations:a(e,i)})},ao=ai(),al=()=>ao(),[as,au]=tm(),ac=new WeakSet,ad=document.getElementsByTagName(\"iframe\"),af=e=>(null==e||(e===V||\"\"===e)&&(e=\"add\"),en(e)&&_(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:es(e)?e:void 0);function av(e){if(e){if(null!=e.units&&_(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=e.units>0?\"add\":\"remove\"}return e}}var ap=e=>rj(e,void 0,e=>eN(el(eQ(rb,e)?.tags))),ah=e=>e?.component||e?.content,ag=e=>rj(e,t=>t!==e&&!!ah(eQ(rb,t)),e=>(S=eQ(rb,e),(S=eQ(rb,e))&&ej(eM(S.component,S.content,S),\"tags\"))),am=(e,t)=>t?e:{...e,rect:void 0,content:(E=e.content)&&eN(E,e=>({...e,rect:void 0}))},ay=(e,t=W)=>{var r,n,a,i=[],o=[],l=0;return rr(e,e=>{var n=eQ(rb,e);if(n){if(ah(n)){var a=eJ(el(n.component),e=>0===l||!t&&(1===l&&e.track?.secondary!==V||e.track?.promote));r=eX(a,e=>e.track?.region)&&rh(e)||void 0;var s=ag(e);n.content&&tn(i,...eN(n.content,e=>({...e,rect:r,...s}))),a?.length&&(tn(o,...eN(a,e=>(l=eV(l,e.track?.secondary?1:2),am({...e,content:i,rect:r,...s},!!r)))),i=[])}var u=n.area||rN(e,\"area\");u&&tn(o,...eN(u))}}),i.length&&tr(o,am({id:\"\",rect:r,content:i})),eR(o,e=>{en(e)?tr(n??=[],e):(e.area??=eC(n,\"/\"),tn(a??=[],e))}),a||n?{components:a,area:eC(n,\"/\")}:void 0},ab=Symbol(),aw=[{id:\"context\",setup(e){ts(()=>eR(ad,e=>e6(ac,e)&&au(e)),-1e3).trigger(),e.push({get:[{scope:\"view\",key:\"view\",result(e){}}]}),e.variables.get({scope:\"view\",key:\"view\",result:(a,i,o)=>($(n,a?.value)&&r===(r=\"\"+location.href)||(t=n=a?.value),t&&w&&!w.definition&&(w.definition=t,w.metadata?.posted&&e.events.postPatch(w,{definition:t}),t=void 0),o())});var t,r,n,a=nU({scope:\"tab\",key:\"index\"})?.value??0,i=nU({scope:\"tab\",key:\"index\"})?.value;null==i&&(i=nU({scope:\"shared\",key:\"index\"})?.value??0,nF({scope:m.Shared,key:\"index\",value:i+1}));var o=null,l=(r=W)=>{if(!rf(\"\"+o,o=location.href)||r){var{source:n,scheme:l,host:s}=tI(location.href+\"\",!0);w={type:\"view\",timestamp:ti(),clientId:nT(),tab:nA,href:n,path:location.pathname,hash:location.hash||void 0,domain:{scheme:l,host:s},tabIndex:i,viewport:ry(),duration:ao(void 0,!0)},0===i&&(w.firstTab=V),0===i&&0===a&&(w.landingPage=V);var u=tx(location.href);if(eN([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>(w.utm??={})[e]=u[`utm_${e}`]?.[0]),!(w.navigationType=k)&&performance&&eN(performance.getEntriesByType(\"navigation\"),e=>{w.redirects=e.redirectCount,w.navigationType=tR(e.type,/\\_/g,\"-\")}),k=void 0,\"navigate\"===(w.navigationType??=\"navigate\")){var c=nU(n3)?.value;c&&rF(document.referrer)&&(w.view=c?.[0],w.relatedEventId=c?.[1],e.variables.set({...n3,value:void 0}))}var c=document.referrer||null;c&&!rF(c)&&(w.externalReferrer={href:c,domain:rm(c)}),w.definition=t,t=void 0,e.events.post(w),e.events.registerEventPatchSource(w,()=>({duration:al()})),aa(w)}};return nv(e=>ae(e)),nn(e=>{e?(n7(V),++at):(n7(W),ae(W))}),rg(window,\"popstate\",()=>(k=\"back-forward\",l())),eN([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),k=\"navigate\",l()}}),l(),{processCommand:t=>aE(t)&&(tr(e,t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),V),decorate(e){w&&!t0(e)&&(e.view=w.clientId)}}}},{id:\"components\",setup(e){var t=n0(e),r=e=>null==e?void 0:{...e,component:el(e.component),content:el(e.content),tags:el(e.tags)},n=({boundary:e,...n})=>{e4(rb,e,e=>r(\"add\"in n?{...e,component:eM(e?.component,n.component),content:eM(e?.content,n.content),area:n?.area??e?.area,tags:eM(e?.tags,n.tags),cart:n.cart??e?.cart,track:n.track??e?.track}:\"update\"in n?n.update(e):n)),t(e,eQ(rb,e))};return{decorate(e){eR(e.components,e=>e8(e,\"track\"))},processCommand:e=>aI(e)?(n(e),V):aM(e)?(eN(((e,t)=>{if(!t)return[];var r=[],n=new Set;return document.querySelectorAll(`[${e}]`).forEach(a=>{if(!eQ(n,a))for(var i=[];null!=ra(a,e);){e6(n,a);var o=tP(ra(a,e),\"|\");ra(a,e,null);for(var l=0;l<o.length;l++){var s=o[l];if(\"\"!==s){var u=\"-\"===s?-1:parseInt(ea(s)??\"\",36);if(u<0){i.length+=u;continue}if(0===l&&(i.length=0),isNaN(u)&&/^[\"\\[{]/.test(s))for(var c=\"\";l<o.length;l++)try{s=JSON.parse(c+=o[l]);break}catch(e){}u>=0&&t[u]&&(s=t[u]),tr(i,s)}}tr(r,...eN(i,e=>({add:V,...e,boundary:a})));var d=a.nextElementSibling;\"WBR\"===a.tagName&&a.parentNode?.removeChild(a),a=d}}),r})(e.scan.attribute,e.scan.components),n),V):W}}},{id:\"navigation\",setup(e){var t=t=>{rg(t,[\"click\",\"contextmenu\",\"auxclick\"],t=>{var r,n,a,i,o,l=null,s=W;if(rr(t.target,e=>{var t;l??=n6(e)?e:null,s=s||\"NAV\"===ru(e),i??=rO(e,\"clicks\",V,e=>e.track?.clicks)??((t=el(rw(e)?.component))&&eX(t,e=>e.track?.clicks!==W)),o??=rO(e,\"region\",V,e=>e.track?.region)??((t=rw(e)?.component)&&eX(t,e=>e.track?.region))}),l){var u,c=ay(l),d=ap(l);i??=!s;var f={...(o??=V)?{pos:rv(l,t),viewport:ry()}:null,...(r=t.target,n=l,rr(r??n,e=>\"IMG\"===ru(e)||e===n?(a={element:{tagName:e.tagName,text:ra(e,\"title\")||ra(e,\"alt\")||e.innerText?.trim().substring(0,100)||void 0}},W):V),a),...c,...d,timing:al()};if(n4(l)){var v=l.hostname!==location.hostname,{host:p,scheme:h,source:g}=tI(l.href,!1);if(l.host===location.host&&l.pathname===location.pathname&&l.search===location.search){if(\"#\"===l.hash)return;l.hash!==location.hash&&tr(e,z({type:\"anchor_navigation\",anchor:l.hash,...f}));return}var m=z({clientId:nT(),type:\"navigation\",href:v?l.href:g,external:v,domain:{host:p,scheme:h},self:V,anchor:l.hash,...f});t.button<=1&&(1===t.button||t.ctrlKey||t.shiftKey||t.altKey||ra(l,\"target\")!==window.name?(n8(m.clientId),m.self=W,tr(e,m)):rf(location.href,l.href)||(m.exit=m.external,n8(m.clientId)));return}var y=(rr(t.target,(e,t)=>!!(u??=af(rw(e)?.cart??rN(e,\"cart\")))&&!u.item&&(u.item=eK(rw(e)?.content))&&t(u)),av(u));(y||i)&&tr(e,y?z({type:\"cart_updated\",...f,...y}):z({type:\"component_click\",...f}))}})};t(document),as(e=>e.contentDocument&&t(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=rd(V);an(()=>td(()=>(t={},r=rd(V)),250)),rg(window,\"scroll\",()=>{var n=rd(),a=rc();if(n.y>=r.y){var i=[];!t.fold&&n.y>=r.y+200&&(t.fold=V,tr(i,\"fold\")),!t[\"page-middle\"]&&a.y>=.5&&(t[\"page-middle\"]=V,tr(i,\"page-middle\")),!t[\"page-end\"]&&a.y>=.99&&(t[\"page-end\"]=V,tr(i,\"page-end\"));var o=eN(i,e=>z({type:\"scroll\",scrollType:e,offset:a}));o.length&&tr(e,o)}})}},{id:\"cart\",setup:e=>({processCommand(t){if(aS(t)){var r=t.cart;return\"clear\"===r?tr(e,{type:\"cart_updated\",action:\"clear\"}):(r=av(r))&&tr(e,{...r,type:\"cart_updated\"}),V}return aC(t)?(tr(e,{type:\"order\",...t.order}),V):W}})},{id:\"forms\",setup(e){var t=new Map,r=e=>e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"yes\":\"no\":e.value,n=n=>{var a,i=n.form;if(i){var l=ri(i,rk(\"ref\"))||\"track_ref\",s=()=>i.isConnected&&rh(i).width,u=eQ(t,i,()=>{var t,r=new Map,n={type:\"form\",name:ri(i,rk(\"form-name\"))||ra(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}};e.events.post(n),e.events.registerEventPatchSource(n,()=>n);var l=()=>{o(),t[3]>=2&&(n.completed=3===t[3]||!s()),e.events.postPatch(n,{...a,totalTime:ti(V)-t[4]}),t[3]=1},u=tl();return rg(i,\"submit\",()=>{a=ay(i),t[3]=3,u(()=>{i.isConnected&&rh(i).width>0?(t[3]=2,u()):l()},750)}),t=[n,r,i,0,ti(V),1]});return eQ(u[1],n)||eN(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,t)=>{if(!e.name||\"hidden\"===e.type){\"hidden\"===e.type&&(e.name===l||rO(e,\"ref\"))&&(e.value||(e.value=nN()),u[0].ref=e.value);return}var n=e.name,a=u[0].fields[n]??={id:e.id||n,name:n,label:tR(e.labels?.[0]?.innerText??e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,type:e.type??\"unknown\",[ab]:r(e)};u[0].fields[a.name]=a,u[1].set(e,a)}),[n,u]}},a=(e,[t,r]=n(e)??[],a=r?.[1].get(t))=>a&&[r[0],a,t,r],i=null,o=()=>{if(i){var[e,t,n,a]=i,o=-(l-(l=ar())),u=-(s-(s=ti(V))),c=t[ab];(t[ab]=r(n))!==c&&(t.fillOrder??=a[5]++,t.filled&&(t.corrections=(t.corrections??0)+1),t.filled=V,a[3]=2,eR(e.fields,([e,r])=>r.lastField=e===t.name||void 0)),t.activeTime+=o,t.totalTime+=u,e.activeTime+=o,i=null}},l=0,s=0,u=e=>{e&&rg(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>{r&&(i=r,\"focusin\"===e.type?(s=ti(V),l=ar()):o())})};u(document),as(e=>e.contentDocument&&u)}}],ak=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&t?.[e]!==void 0),aS=ak(\"cart\"),aE=ak(\"username\"),aA=ak(\"tagAttributes\"),aT=ak(\"disable\"),aI=ak(\"boundary\"),ax=ak(\"extension\"),aN=ak(V,\"flush\"),aO=ak(\"get\"),aj=ak(\"listener\"),aC=ak(\"order\"),aM=ak(\"scan\"),a$=ak(\"set\"),a_=e=>\"function\"==typeof e,aU=e=>{if(A)return A;en(e)&&(e=r4(e)),e2(rC,e),r9(e8(rC,\"clientKey\"));var t=e8(rC,\"apiKey\"),r=t8[rC.name]??[];if(!ei(r)){M(`The global variable for the tracker \"${rC.name}\" is used for something else than an array of queued commands.`);return}var n=[],a=[],i=(e,...t)=>{var r=V;a=eJ(a,n=>F(()=>(n[e]?.(...t,{tracker:A,unsubscribe:()=>r=W}),r),r7(n)))},o=[],l={applyEventExtensions(e){e.clientId??=nT(),e.timestamp??=ti(),f=V;var t=W;return eN(n,([,r])=>{(t||r.decorate?.(e)===W)&&(t=V)}),t?void 0:e}},s=nY(rR,l),u=nZ(rR,l),c=null,d=0,f=W,v=W;return e9(t8,[{[rC.name]:[A=Object.freeze({id:\"tracker_\"+nT(),events:u,variables:s,push(...e){if(!c&&t){if(e[0]!==t)throw Error(\"Invalid API key.\");e.splice(0,1)}if(e.length){var r=W;if((e=eJ(ej(e,e=>en(e)?r4(e):e),e=>{if(!e)return W;if(aA(e))rC.tags=e2({},rC.tags,e.tagAttributes);else if(aT(e))return rC.disabled=e.disable,W;else if(aN(e))return r=V,W;else if(a_(e))return e(A),W;return v||aj(e)||ax(e)?V:(o.push(e),W)})).length||r){var l=eY(e,e=>ax(e)?-100:aj(e)?-50:a$(e)?-10:tQ(e)?90:0);if(!(c&&c.splice(f?d+1:c.length,0,...l))){for(d=0,c=l;d<c.length;d++)c[d]&&F(()=>{var e,t=c[d];if(i(\"command\",t),f=W,tQ(t))u.post(t,!1);else if(aO(t))s.get(...el(t.get));else if(a$(t))s.set(...el(t.set));else if(aj(t))tr(a,t.listener);else if(ax(t))(e=F(()=>t.extension.setup(A),e=>ne(t.extension.id,e)))&&(tr(n,[t.priority??100,e]),eY(n,([e])=>e));else if(a_(t))t(A);else{var r=W;for(var[,e]of n)if(r=e.processCommand?.(t)??W)break;r||ne(\"invalid-command\",t)}},e=>ne(A,\"internal-error\",e));c=null,r&&u.post([],!0)}}}},__isTracker:V})]}]),nM(async(e,t,n,a)=>{if(\"ready\"===e){var i=U(await s.get({scope:\"session\",key:\"info\",cache:J}).value,\"No session data.\");l.deviceSessionId=i.deviceSessionId,i.hasUserAgent||(n2(A),i.hasUserAgent=!0),v=!0,o.length&&tr(A,o),a(),tr(A,...eN(aw,e=>({extension:e})),...r,{set:{scope:\"local\",key:\"loaded\",value:!0}})}},!0),A};t8[\".tail.js.init\"]=e=>{e(aU)}})();\n//# sourceMappingURL=index.min.debug.js.map\n"
+    debug: "(()=>{\"use strict\";var e,r,t,n,a,i,o,s,l,u,c,f,d,v,p,h,g,m,y,b,w,k,S,E,I,A,T,x,N,$,j,O,C=\"info\",_=(e,r=e=>TypeError(e))=>{throw ea(e=rr(e))?r(e):e},M=(e,r,t=-1)=>{if(e===r||(e??r)==null)return!0;if(eu(e)&&eu(r)&&e.length===r.length){var n=0;for(var a in e){if(e[a]!==r[a]&&!M(e[a],r[a],t-1))return!1;++n}return n===Object.keys(r).length}return!1},U=(e,r,...t)=>e===r||t.length>0&&t.some(r=>U(e,r)),F=(e,r)=>null!=e?e:_(r??\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),P=(e,r=!0,t)=>{try{return e()}catch(e){return eh(r)?es(e=r(e))?_(e):e:Z(r)?console.error(r?_(e):e):r}finally{t?.()}},R=e=>{var r=void 0;return()=>r??=rr(e)},q=e=>{var r={initialized:!0,then:D(()=>(r.initialized=!0,rr(e)))};return r},D=e=>{var r=R(e);return(e,t)=>z(r,[e,t])},z=async(e,r=!0,t)=>{try{var n=await rr(e);return eo(r)?r[0]?.(n):n}catch(e){if(Z(r)){if(r)throw e;console.error(e)}else{if(eo(r)){if(!r[1])throw e;return r[1](e)}var a=await r?.(e);if(a instanceof Error)throw a;return a}}finally{await t?.()}},B=e=>e,V=void 0,W=Number.MAX_SAFE_INTEGER,J=!1,G=!0,L=()=>{},H=e=>null!=e,K=Symbol.iterator,X=(e,r)=>(t,n=!0)=>e(t)?t:r&&n&&null!=t&&null!=(t=r(t))?t:V,Y=(e,r)=>eh(r)?e!==V?r(e):V:e?.[r]!==V?e:V,Z=e=>\"boolean\"==typeof e,Q=X(Z,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||V))),ee=e=>!!e,er=e=>e===G,et=e=>e!==J,en=e=>\"number\"==typeof e,ea=e=>\"string\"==typeof e,ei=X(ea,e=>e?.toString()),eo=Array.isArray,es=e=>e instanceof Error,el=(e,r=!1)=>null==e?V:!r&&eo(e)?e:eg(e)?[...e]:[e],eu=e=>null!==e&&\"object\"==typeof e,ec=Object.prototype,ef=Object.getPrototypeOf,ed=e=>null!=e&&ef(e)===ec,ev=(e,r)=>\"function\"==typeof e?.[r],ep=e=>\"symbol\"==typeof e,eh=e=>\"function\"==typeof e,eg=(e,r=!1)=>!!(e?.[K]&&(\"object\"==typeof e||r)),em=e=>e instanceof Map,ey=e=>e instanceof Set,eb=(e,r)=>null==e?V:!1===r?e:Math.round(e*(r=Math.pow(10,r&&!0!==r?r:0)))/r,ew=!1,ek=e=>(ew=!0,e),eS=e=>null==e?V:eh(e)?e:r=>r[e],eE=(e,r,t)=>(r??t)!==V?(e=eS(e),r??=0,t??=W,(n,a)=>r--?V:t--?e?e(n,a):n:t):e,eI=e=>e?.filter(H),eA=(e,r,t,n)=>null==e?[]:!r&&eo(e)?eI(e):e[K]?function*(e,r){if(null!=e){if(r){r=eS(r);var t=0;for(var n of e)if(null!=(n=r(n,t++))&&(yield n),ew){ew=!1;break}}else for(var n of e)null!=n&&(yield n)}}(e,t===V?r:eE(r,t,n)):eu(e)?function*(e,r){r=eS(r);var t=0;for(var n in e){var a=[n,e[n]];if(r&&(a=r(a,t++)),null!=a&&(yield a),ew){ew=!1;break}}}(e,eE(r,t,n)):eA(eh(e)?function*(e,r,t=Number.MAX_SAFE_INTEGER){for(null!=r&&(yield r);t--&&null!=(r=e(r));)yield r}(e,t,n):function*(e=0,r){if(e<0)for(r??=-e-1;e++;)yield r--;else for(r??=0;e--;)yield r++}(e,t),r),eT=(e,r)=>r&&!eo(e)?[...e]:e,ex=(e,r,t,n)=>eA(e,r,t,n),eN=(e,r,t=1,n=!1,a,i)=>(function* e(r,t,n,a){if(null!=r){if(r[K]||n&&eu(r))for(var i of a?eA(r):r)1!==t?yield*e(i,t-1,n,!0):yield i;else yield r}})(eA(e,r,a,i),t+1,n,!1),e$=(e,r,t,n)=>{if(r=eS(r),eo(e)){var a=0,i=[];for(t=t<0?e.length+t:t??0,n=n<0?e.length+n:n??e.length;t<n&&!ew;t++){var o=e[t];(r?o=r(o,a++):o)!=null&&i.push(o)}return ew=!1,i}return null!=e?el(ex(e,r,t,n)):V},ej=(e,r,t,n)=>null!=e?new Set([...ex(e,r,t,n)]):V,eO=(e,r,t=1,n=!1,a,i)=>el(eN(e,r,t,n,a,i)),eC=(e,r,t)=>null==e?V:eh(r)?rb(e$(ea(e)?[e]:e,r),t??\"\"):ea(e)?e:rb(e$(e,e=>!1===e?V:e),r??\"\"),e_=(...e)=>{var r;return eq(1===e.length?e[0]:e,e=>null!=e&&(r??=[]).push(...el(e))),r},eM=(e,r,t,n)=>{var a,i=0;for(t=t<0?e.length+t:t??0,n=n<0?e.length+n:n??e.length;t<n;t++)if(null!=e[t]&&(a=r(e[t],i++)??a,ew)){ew=!1;break}return a},eU=(e,r)=>{var t,n=0;for(var a of e)if(null!=a&&(t=r(a,n++)??t,ew)){ew=!1;break}return t},eF=(e,r)=>{var t,n=0;for(var a in e)if(t=r([a,e[a]],n++)??t,ew){ew=!1;break}return t},eP=(e,r,...t)=>null==e?V:eg(e)?e$(e,e=>r(e,...t)):r(e,...t),eR=(e,r,t,n)=>{var a;if(null!=e){if(eo(e))return eM(e,r,t,n);if(t===V){if(e[K])return eU(e,r);if(\"object\"==typeof e)return eF(e,r)}for(var i of eA(e,r,t,n))null!=i&&(a=i);return a}},eq=eR,eD=async(e,r,t,n)=>{var a;if(null==e)return V;for(var i of ex(e,r,t,n))if(null!=(i=await i)&&(a=i),ew){ew=!1;break}return a},ez=Object.fromEntries,eB=(e,r,t)=>{if(null==e)return V;if(Z(r)||t){var n={};return eq(e,t?(e,a)=>null!=(e=r(e,a))&&null!=(e[1]=t(n[e[0]],e[1]))&&(n[e[0]]=e[1]):e=>eq(e,r?e=>e?.[1]!=null&&((n[e[0]]??=[]).push(e[1]),n):e=>e?.[1]!=null&&(n[e[0]]=e[1],n))),n}return ez(e$(e,r?(e,t)=>Y(r(e,t),1):e=>Y(e,1)))},eV=(e,r,t,n,a)=>{var i=()=>eh(t)?t():t;return eR(e,(e,n)=>t=r(t,e,n)??i(),n,a)??i()},eW=(e,r=e=>null!=e,t=eo(e),n,a)=>eT(eA(e,(e,t)=>r(e,t)?e:V,n,a),t),eJ=(e,r,t,n)=>{var a;if(null==e)return V;if(r)e=eW(e,r,!1,t,n);else{if(null!=(a=e.length??e.size))return a;if(!e[K])return Object.keys(e).length}return a=0,eR(e,()=>++a)??0},eG=(e,...r)=>null==e?V:en(e)?Math.max(e,...r):eV(e,(e,t,n,a=r[1]?r[1](t,n):t)=>null==e||en(a)&&a>e?a:e,V,r[2],r[3]),eL=(e,r,t)=>e$(e,ed(e)?e=>e[1]:e=>e,r,t),eH=e=>!eo(e)&&eg(e)?e$(e,em(e)?e=>e:ey(e)?e=>[e,!0]:(e,r)=>[r,e]):eu(e)?Object.entries(e):V,eK=(e,r,t,n)=>null==e?V:(r=eS(r),eR(e,(e,t)=>!r||(e=r(e,t))?ek(e):V,t,n)),eX=(e,r,t,n)=>null==e?V:eo(e)||ea(e)?e[e.length-1]:eR(e,(e,t)=>!r||r(e,t)?e:V,t,n),eY=(e,r,t,n)=>null==e?V:ed(e)&&!r?Object.keys(e).length>0:e.some?.(r??ee)??eR(e,r?(e,t)=>!!r(e,t)&&ek(!0):()=>ek(!0),t,n)??!1,eZ=(e,r=e=>e)=>(e?.sort((e,t)=>r(e)-r(t)),e),eQ=(e,r,t)=>(e.constructor===Object?void 0===t?delete e[r]:e[r]=t:void 0===t?e.delete?e.delete(r):delete e[r]:e.set?e.set(r,t):e.add?t?e.add(r):e.delete(r):e[r]=t,t),e0=(e,r,t)=>{if(e){if(e.constructor===Object&&null==t)return e[r];var n=e.get?e.get(r):e.has?e.has(r):e[r];return void 0===n&&null!=t&&null!=(n=eh(t)?t():t)&&eQ(e,r,n),n}},e1=(e,...r)=>(eq(r,r=>eq(r,([r,t])=>{null!=t&&(ed(e[r])&&ed(t)?e1(e[r],t):e[r]=t)})),e),e2=e=>(r,t,n,a)=>{if(r)return void 0!=n?e(r,t,n,a):(eq(t,t=>eo(t)?e(r,t[0],t[1]):eq(t,([t,n])=>e(r,t,n))),r)},e4=e2(eQ),e6=e2((e,r,t)=>eQ(e,r,eh(t)?t(e0(e,r)):t)),e5=(e,r)=>e instanceof Set?!e.has(r)&&(e.add(r),!0):e0(e,r)!==e4(e,r,!0),e3=(e,r)=>{if((e??r)!=null){var t=e0(e,r);return ev(e,\"delete\")?e.delete(r):delete e[r],t}},e8=(e,...r)=>{var t=[],n=!1,a=(e,i,o,s)=>{if(e){var l=r[i];i===r.length-1?eo(l)?(n=!0,l.forEach(r=>t.push(e3(e,r)))):t.push(e3(e,l)):(eo(l)?(n=!0,l.forEach(r=>a(e0(e,r),i+1,e,r))):a(e0(e,l),i+1,e,l),!eJ(e)&&o&&e9(o,s))}};return a(e,0),n?t:t[0]},e9=(e,r)=>{if(e)return eo(r)?(eo(e)&&e.length>1?r.sort((e,r)=>r-e):r).map(r=>e9(e,r)):eo(e)?r<e.length?e.splice(r,1)[0]:void 0:e3(e,r)},e7=(e,...r)=>{var t=(r,n)=>{var a;if(r){if(eo(r)){if(ed(r[0])){r.splice(1).forEach(e=>t(e,r[0]));return}a=r}else a=e$(r);a.forEach(([r,t])=>Object.defineProperty(e,r,{configurable:!1,enumerable:!0,writable:!1,...n,...ed(t)&&(\"get\"in t||\"value\"in t)?t:eh(t)&&!t.length?{get:t}:{value:t}}))}};return r.forEach(e=>t(e)),e},re=(e,...r)=>{if(void 0!==e)return Object.fromEntries(r.flatMap(t=>eu(t)?eo(t)?t.map(r=>eo(r)?1===r.length?[r[0],e[r[0]]]:re(e[r[0]],...r[1]):[r,e[r]]):Object.entries(r).map(([r,t])=>[r,!0===t?e[r]:re(e[r],t)]):[[t,e[t]]]).filter(e=>null!=e[1]))},rr=e=>eh(e)?e():e,rt=(e,r=-1)=>eo(e)?r?e.map(e=>rt(e,r-1)):[...e]:ed(e)?r?eB(e,([e,t])=>[e,rt(t,r-1)]):{...e}:ey(e)?new Set(r?e$(e,e=>rt(e,r-1)):e):em(e)?new Map(r?e$(e,e=>[e[0],rt(e[1],r-1)]):e):e,rn=(e,...r)=>e?.push(...r),ra=(e,...r)=>e?.unshift(...r),ri=(e,r)=>{if(!ed(r))return[e,e];var t,n,a,i={};if(ed(e))return eq(e,([e,o])=>{if(i[e]!==r[e]){if(ed(t=o)){if(!(o=ri(o,r[e])))return;[o,t]=o}else en(o)&&en(n)&&(o=(t=o)-n);i[e]=o,(a??=rt(r))[e]=t}}),a?[i,a]:void 0},ro=\"undefined\"!=typeof performance?(e=G)=>e?Math.trunc(ro(J)):performance.timeOrigin+performance.now():Date.now,rs=(e=!0,r=()=>ro())=>{var t,n=+e*r(),a=0;return(i=e,o)=>(t=e?a+=-n+(n=r()):a,o&&(a=0),(e=i)&&(n=r()),t)},rl=(e=0)=>{var r,t,n=(a,i=e)=>{if(void 0===a)return!!t;clearTimeout(r),Z(a)?a&&(i<0?et:er)(t?.())?n(t):t=void 0:(t=a,r=setTimeout(()=>n(!0,i),i<0?-i:i))};return n},ru=(e,r=0)=>{var t=eh(e)?{frequency:r,callback:e}:e,{queue:n=!0,paused:a=!1,trigger:i=!1,once:o=!1,callback:s=()=>{}}=t;r=t.frequency??0;var l=0,u=rp(!0).resolve(),c=rs(!a),f=c(),d=async e=>!!l&&(!!n||!u.pending||!0===e)&&(p.busy=!0,!0!==e&&await u,u.reset(),(await z(()=>s(c(),-f+(f=c())),!1,()=>u.resolve())===!1||r<=0||o)&&v(!1),p.busy=!1,!0),v=(e,t=!e)=>(c(e,t),clearInterval(l),p.active=!!(l=e?setInterval(d,r<0?-r:r):0),p),p={active:!1,busy:!1,restart:(e,t)=>(r=e??r,s=t??s,v(!0,!0)),toggle:(e,r)=>e!==p.active?e?r?(v(!0),p.trigger(),p):v(!0):v(!1):p,trigger:async e=>await d(e)&&(v(p.active),!0)};return p.toggle(!a,i)};class rc{_promise;constructor(){this.reset()}get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,r=!1){return this._promise.resolve(e,r),this}reject(e,r=!1){return this._promise.reject(e,r),this}reset(){return this._promise=new rf,this}signal(e){return this.resolve(e),this.reset(),this}then(e,r){return this._promise.then(e,r)}}class rf{_promise;resolve;reject;value;error;pending=!0;constructor(){var e;this._promise=new Promise((...r)=>{e=r.map((e,r)=>(t,n)=>{if(!this.pending){if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")}return this.pending=!1,this[r?\"error\":\"value\"]=t===V||t,e(t),this})}),[this.resolve,this.reject]=e}then(e,r){return this._promise.then(e,r)}}var rd=(e,r=0)=>r>0?setTimeout(e,r):window.queueMicrotask(e),rv=(e,r)=>null==e||isFinite(e)?!e||e<=0?rr(r):new Promise(t=>setTimeout(async()=>t(await rr(r)),e)):_(`Invalid delay ${e}.`),rp=e=>e?new rc:new rf,rh=(...e)=>Promise.race(e.map(e=>eh(e)?e():e)),rg=(e,r,t)=>{var n=!1,a=(...r)=>e(...r,i),i=()=>n!==(n=!1)&&(t(a),!0),o=()=>n!==(n=!0)&&(r(a),!0);return o(),[i,o]},rm=(...e)=>(e=eW(e),[()=>eV(e,(e,r)=>r[0]()||e,!1),()=>eV(e,(e,r)=>r[1]()||e,!1)]),ry=()=>{var e,r=new Set;return[(t,n)=>{var a=rg(t,e=>r.add(e),e=>r.delete(e));return n&&e&&t(...e,a[0]),a},(...t)=>(e=t,r.forEach(e=>e(...t)))]},rb=(e,r=[\"and\",\", \"])=>e?1===(e=e$(e)).length?e[0]:eo(r)?[e.slice(-1).join(r[1]??\", \"),\" \",r[0],\" \",e[e.length-1]].join(\"\"):e.join(r??\", \"):V,rw=(e,r,t)=>null==e?V:eo(r)?null==(r=r[0])?V:r+\" \"+rw(e,r,t):null==r?V:1===r?e:t??e+\"s\",rk=(e,r,t)=>t?(rn(t,\"\\x1b[\",r,\"m\"),eo(e)?rn(t,...e):rn(t,e),rn(t,\"\\x1b[m\"),t):rk(e,r,[]).join(\"\"),rS=(e,r=\"'\")=>null==e?V:r+e+r,rE=e=>(e=Math.log2(e))===(0|e),rI=(e,r,t,n)=>{var a,i,o,s=Object.fromEntries(Object.entries(e).filter(([e,r])=>ea(e)&&en(r)).map(([e,r])=>[e.toLowerCase(),r])),l=Object.entries(s),u=Object.values(s),c=s.any??u.reduce((e,r)=>e|r,0),f=r?{...s,any:c,none:0}:s,d=Object.fromEntries(Object.entries(f).map(([e,r])=>[r,e])),v=(e,t)=>en(e)?!r&&t?null!=d[e]?e:V:e:ea(e)?f[e]??f[e.toLowerCase()]:V,p=!1,[h,g]=r?[(e,r)=>Array.isArray(e)?e.reduce((e,t)=>null==t||p?e:null==(t=v(t,r))?(p=!0,V):(e??0)|t,(p=!1,V)):v(e),(e,r)=>null==(e=h(e,!1))?V:r&&(i=d[e&c])?(a=g(e&~(e&c),!1)).length?[i,...a]:i:(e=l.filter(([,r])=>r&&e&r&&rE(r)).map(([e])=>e),r?e.length?1===e.length?e[0]:e:\"none\":e)]:[v,e=>null!=(e=v(e))?d[e]:V],m=(e,r)=>null==e?V:null==(e=h(o=e,r))?_(TypeError(`${JSON.stringify(o)} is not a valid ${t} value.`)):e,y=l.filter(([,e])=>!n||(n&e)===e&&rE(e));return e7(e=>m(e),[{configurable:!1,enumerable:!1},{parse:m,tryParse:h,entries:l,values:u,lookup:g,length:l.length,format:e=>g(e,!0),logFormat:(e,r=\"or\")=>\"any\"===(e=g(e,!0))?\"any \"+t:`the ${t} ${rb(e$(el(e),e=>rS(e)),[r])}`},r&&{pure:y,map:(e,r)=>(e=m(e),y.filter(([,r])=>r&e).map(r??(([,e])=>e)))}])},rA=(...e)=>{var r=eH(eB(e,!0)),t=e=>(eu(e)&&(eo(e)?e.forEach((r,n)=>e[n]=t(r)):r.forEach(([r,t])=>{var n,a=V;null!=(n=e[r])&&(1===t.length?e[r]=t[0].parse(n):t.forEach((i,o)=>!a&&null!=(a=o===t.length-1?i.parse(n):i.tryParse(n))&&(e[r]=a)))})),e);return t},rT=(e,r=[\"|\",\";\",\",\"],t=!0)=>{if(!e)return V;var n=e.split(\"=\").map(e=>t?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim());return n[1]??=\"\",n[2]=n[1]&&r?.length&&eK(r,(e,r,t=n[1].split(e))=>t.length>1?t:V)||(n[1]?[n[1]]:[]),n},rx=(e,r=!0,t)=>null==e?V:rO(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,t,n,a,i,o,s,l,u,c,f,d)=>{var v={source:e,scheme:t,urn:t?!n:!n&&V,authority:a,user:i,password:o,host:s??l,port:null!=u?parseInt(u):V,path:c,query:!1===r?f:rN(f,r),fragment:d};return v.path=v.path||(v.authority?v.urn?\"\":\"/\":V),v}),rN=(e,r,t=!0)=>null==e?V:eB(e?.match(/(?:^.*?\\?|^)(.*)$/)?.[1]?.split(\"&\"),(e,n,[a,i,o]=rT(e,!1===r?[]:!0===r?V:r,t)??[])=>null!=(a=a?.replace(/\\[\\]$/,\"\"))?!1!==r?[a,o.length>1?o:i]:[a,i]:V,(e,t)=>e?!1!==r?e_(e,t):(e?e+\",\":\"\")+t:t),r$=(e,r)=>r&&null!=e?r.test(e):V,rj=(e,r,t)=>rO(e,r,t,!0),rO=(t,n,a,i=!1)=>(t??n)==null?V:a?(e=V,i?(r=[],rO(t,n,(...t)=>null!=(e=a(...t))&&r.push(e))):t.replace(n,(...r)=>e=a(...r)),e):t.match(n),rC=e=>e?.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),r_=/\\z./g,rM=(e,r)=>(r=eC(ej(eW(e,e=>e?.length)),\"|\"))?RegExp(r,\"gu\"):r_,rU={},rF=e=>e instanceof RegExp,rP=(e,r=[\",\",\" \"])=>rF(e)?e:eo(e)?rM(e$(e,e=>rP(e,r)?.source)):Z(e)?e?/./g:r_:ea(e)?rU[e]??=rO(e||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,n)=>t?RegExp(t,\"gu\"):rM(e$(rR(n,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${eC(r,rC)}]`)),e=>e&&`^${eC(rR(e,/(?<!(?<!\\\\)\\\\)\\*/),e=>rC(rq(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):V,rR=(e,r)=>e?.split(r)??e,rq=(e,r,t)=>e?.replace(r,t)??e;(A=t||(t={}))[A.Anonymous=0]=\"Anonymous\",A[A.Indirect=1]=\"Indirect\",A[A.Direct=2]=\"Direct\",A[A.Sensitive=3]=\"Sensitive\";var rD=rI(t,!1,\"data classification\");(T=n||(n={}))[T.None=0]=\"None\",T[T.Necessary=1]=\"Necessary\",T[T.Functionality=2]=\"Functionality\",T[T.Performance=4]=\"Performance\",T[T.Targeting=8]=\"Targeting\",T[T.Security=17]=\"Security\",T[T.Infrastructure=33]=\"Infrastructure\",T[T.Anonymous=49]=\"Anonymous\",T[T.Any=63]=\"Any\",T[T.Server=2048]=\"Server\",T[T.Server_Write=4096]=\"Server_Write\";var rz=rI(n,!0,\"data purpose\",2111),rB=rI(n,!1,\"data purpose\",0),rV=(e,r)=>((a=e?.metadata)&&(r?(delete a.posted,delete a.queued,Object.entries(a).length||delete e.metadata):delete e.metadata),e),rW=e=>!!e?.patchTargetId;(x=i||(i={}))[x.Global=0]=\"Global\",x[x.Entity=1]=\"Entity\",x[x.Session=2]=\"Session\",x[x.Device=3]=\"Device\",x[x.User=4]=\"User\";var rJ=rI(i,!1,\"variable scope\");t.Anonymous,n.Necessary;var rG=e=>`'${e.key}' in ${rJ.format(e.scope)} scope`,rL={scope:rJ,purpose:rB,purposes:rz,classification:rD};rA(rL);var rH=e=>e?.filter(H).sort((e,r)=>e.scope===r.scope?e.key.localeCompare(r.key,\"en\"):e.scope-r.scope);(N=o||(o={}))[N.Success=200]=\"Success\",N[N.Created=201]=\"Created\",N[N.Unchanged=304]=\"Unchanged\",N[N.Denied=403]=\"Denied\",N[N.NotFound=404]=\"NotFound\",N[N.ReadOnly=405]=\"ReadOnly\",N[N.Conflict=409]=\"Conflict\",N[N.Unsupported=501]=\"Unsupported\",N[N.Invalid=400]=\"Invalid\",N[N.Error=500]=\"Error\",rI(o,!1,\"variable set status\"),($=s||(s={}))[$.Add=0]=\"Add\",$[$.Min=1]=\"Min\",$[$.Max=2]=\"Max\",$[$.IfMatch=3]=\"IfMatch\",$[$.IfNoneMatch=4]=\"IfNoneMatch\",rI(s,!1,\"variable patch type\");var rK=e=>!!e?.patch,rX=e=>!!e?.variables,rY=(e,r,t)=>{var n,a=e=>e,i=(t,i=r1)=>q(async()=>(n=a(i(await e(),r)))&&t(n)),o={then:i(e=>e).then,all:i(e=>e,e=>e),changed:i(e=>eW(e,e=>e.status<300)),variables:i(e=>e$(e,rQ)),values:i(e=>e$(e,e=>rQ(e)?.value)),push:()=>(a=e=>(t?.(e$(rZ(e))),e),o),value:i(e=>rQ(e[0])?.value),variable:i(e=>rQ(e[0])),result:i(e=>e[0])};return o},rZ=e=>e?.map(e=>e?.status<400?e:V),rQ=e=>e?.status<400?e?.current??e:V,r0=e=>e?.status<400||e?.status===404,r1=(e,r,t)=>{var n,a,i=[],s=e$(el(e),(e,s)=>e&&(e.status<400||!t&&404===e.status?e:(a=`${rG(e.source??e)} could not be ${404===e.status?\"found.\":`${e.source||e.status!==o.Error?\"set\":\"read\"} because ${e.status===o.Conflict?`of a conflict. The expected version '${e.source?.version}' did not match the current version '${e.current?.version}'.`:e.status===o.Denied?e.error??\"the operation was denied.\":e.status===o.Invalid?e.error??\"the value does not conform to the schema\":e.status===o.ReadOnly?\"it is read only.\":e.status===o.Error?`of an unexpected error: ${e.error}`:\"of an unknown reason.\"}`}`,(null==(n=r?.[s])||!1!==n(e,a))&&i.push(a),V)));return i.length?_(i.join(\"\\n\")):eo(e)?s:s?.[0]},r2=e=>e&&\"string\"==typeof e.type,r4=((...e)=>r=>r?.type&&e.some(e=>e===r?.type))(\"view\"),r6=e=>e?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g,\"_\").split(\":\").filter(e=>e)??[],r5=(e,r,t)=>{if(!e)return[];if(Array.isArray(e)&&(e=eC(e,\",\")),/(?<!(?<!\\\\)\\\\)%[A-Z0-9]{2}/.test(e))try{e=decodeURIComponent(e.replace(/([^=&]+)(?:\\=([^&]+))?(&|$)/g,(e,r,t,n)=>[r,t&&`=\"${t.replace(/(?<!(?<!\\\\)\\\\)(\"|%22)/g,'\\\\\"')}\"`,n&&\",\"].join(\"\")))}catch{}var n,a=[],i=r6(r);return e.replace(/\\s*(\\s*(?=\\=)|(?:\\\\.|[^,=\\r\\n])+)\\s*(?:\\=\\s*(?:\"((?:\\\\.|[^\"])*)\"|'((?:\\\\.|[^'])*)'|((?:\\\\.|[^,])*)))?\\s*(?:[,\\s]+|$)/g,(e,r,o,s,l)=>{var u=o||s||l,c=r6(r);return i.length&&(1!==c.length||u||(u=c.pop()),c=i.concat(c)),c.length&&(a.push(n={ranks:c,value:u||void 0}),t?.add(r3(n))),\"\"}),a},r3=e=>null==e?e:`${e.ranks.join(\":\")}${e.value?`=${e.value.replace(/,/g,\"\\\\,\")}`:\"\"}`,r8=2e3,r9=\"_t:data\",r7=()=>()=>_(\"Not initialized.\"),te=window,tr=document,tt=tr.body,tn=(e,r)=>!!e?.matches(r),ta=W,ti=(e,r,t=(e,r)=>r>=ta)=>{for(var n,a=0,i=J;e?.nodeType===1&&!t(e,a++)&&r(e,(e,r)=>(null!=e&&(n=e,i=r!==G&&null!=n),G),a-1)!==J&&!i;){var o=e;null===(e=e.parentElement)&&o?.ownerDocument!==document&&(e=o?.ownerDocument.defaultView?.frameElement)}return n},to=(e,r)=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===r))switch(r){case!0:case\"z\":return(\"\"+e).trim()?.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||Q(e);case\"n\":return parseFloat(e);case\"j\":return P(()=>JSON.parse(e),L);case\"h\":return P(()=>nr(e),L);case\"e\":return P(()=>nn?.(e),L);default:return eo(r)?\"\"===e?void 0:(\"\"+e).split(\",\").map(e=>e=\"\"===e.trim()?void 0:to(e,r[0])):void 0}},ts=(e,r,t)=>to(e?.getAttribute(r),t),tl=(e,r,t)=>ti(e,(e,n)=>n(ts(e,r,t))),tu=(e,r)=>ts(e,r)?.trim()?.toLowerCase(),tc=e=>e?.getAttributeNames(),tf=(e,r)=>getComputedStyle(e).getPropertyValue(r)||null,td=e=>null!=e?e.tagName:null,tv=()=>({x:(l=tp(J)).x/(tt.offsetWidth-window.innerWidth)||0,y:l.y/(tt.offsetHeight-window.innerHeight)||0}),tp=e=>({x:eb(scrollX,e),y:eb(scrollY,e)}),th=(e,r)=>rq(e,/#.*$/,\"\")===rq(r,/#.*$/,\"\"),tg=(e,r,t=G)=>(u=tm(e,r))&&B({xpx:u.x,ypx:u.y,x:eb(u.x/tt.offsetWidth,4),y:eb(u.y/tt.offsetHeight,4),pageFolds:t?u.y/window.innerHeight:void 0}),tm=(e,r)=>r?.pointerType&&r?.pageY!=null?{x:r.pageX,y:r.pageY}:e?({x:c,y:f}=ty(e),{x:c,y:f}):void 0,ty=e=>e?(d=e.getBoundingClientRect(),l=tp(J),{x:eb(d.left+l.x),y:eb(d.top+l.y),width:eb(d.width),height:eb(d.height)}):void 0,tb=(e,r,t,n={capture:!0,passive:!0})=>eo(r)?rm(...e$(r,r=>tb(e,r,t,n))):rg(t,t=>e.addEventListener(r,t,n),t=>e.addEventListener(r,t,n)),tw=e=>{var{host:r,scheme:t,port:n}=rx(e,!1);return{host:r+(n?\":\"+n:\"\"),scheme:t}},tk=()=>({...l=tp(G),width:window.innerWidth,height:window.innerHeight,totalWidth:tt.offsetWidth,totalHeight:tt.offsetHeight}),tS=new WeakMap,tE=e=>tS.get(e),tI=(e,r=J)=>(r?\"--track-\":\"track-\")+e,tA=(e,r,t,n,a,i)=>r?.[1]&&eq(tc(e),o=>r[0][o]??=(i=J,ea(n=eq(r[1],([r,t,n],a)=>r$(o,r)&&(i=void 0,!t||tn(e,t))&&ek(n??o)))&&(!(a=e.getAttribute(o))||Q(a))&&r5(a,rq(n,/\\-/g,\":\"),t),i)),tT=()=>{},tx=(e,r)=>{if(v===(v=tM.tags))return tT(e,r);var t=e=>e?rF(e)?[[e]]:eg(e)?eO(e,t):[ed(e)?[rP(e.match),e.selector,e.prefix]:[rP(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...t(eL(v))]];(tT=(e,r)=>tA(e,n,r))(e,r)},tN=(e,r)=>eC(e_(tf(e,tI(r,G)),tf(e,tI(\"base-\"+r,G))),\" \"),t$={},tj=(e,r,t=tN(e,\"attributes\"))=>{t&&tA(e,t$[t]??=[{},rj(t,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,r,t,n)=>[rP(t||n),,r])],r),r5(tN(e,\"tags\"),void 0,r)},tO=(e,r,t=J,n)=>(t?ti(e,(e,t)=>t(tO(e,r,J)),eh(t)?t:void 0):eC(e_(ts(e,tI(r)),tf(e,tI(r,G))),\" \"))??(n&&(p=tE(e))&&n(p))??null,tC=(e,r,t=J,n)=>\"\"===(h=tO(e,r,t,n))||(null==h?h:Q(h)),t_=(e,r,t,n)=>e?(tj(e,n??=new Set),ti(e,e=>{tx(e,n),r5(e$(t?.(e)),void 0,n)},r),n.size?{tags:[...n]}:{}):{},tM={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,clientKey:null,apiKey:null,pushCookie:null,debug:!1,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},tU=[],tF=[],tP=(e,r=0)=>e.charCodeAt(r),tR=e=>String.fromCharCode(...e);[...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,r)=>tU[tF[r]=e.charCodeAt(0)]=r);var tq=e=>{for(var r,t=0,n=e.length,a=[];n>t;)r=e[t++]<<16|e[t++]<<8|e[t++],a.push(tF[(16515072&r)>>18],tF[(258048&r)>>12],tF[(4032&r)>>6],tF[63&r]);return a.length+=n-t,tR(a)},tD=e=>{for(var r,t=0,n=0,a=e.length,i=new Uint8Array(3*(a/4|0)+(a+3&3)%3);a>t;)i[n++]=tU[tP(e,t++)]<<2|(r=tU[tP(e,t++)])>>4,a>t&&(i[n++]=(15&r)<<4|(r=tU[tP(e,t++)])>>2,a>t&&(i[n++]=(3&r)<<6|tU[tP(e,t++)]));return i},tz={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},tB=(e=256)=>e*Math.random()|0,tV=e=>{var r,t,n,a,i,o=0n,s=0,l=0n,u=[],c=0,f=0,d=0,v=0,p=[];for(d=0;d<e?.length;v+=p[d]=e.charCodeAt(d++));var h=e?()=>{u=[...p],f=255&(c=v),d=-1}:()=>{},g=e=>(f=255&(c+=-u[d=(d+1)%u.length]+(u[d]=e)),e);return[e?e=>{for(h(),a=16-((r=e.length)+4)%16,i=new Uint8Array(4+r+a),n=0;n<3;i[n++]=g(tB()));for(t=0,i[n++]=g(f^16*tB(16)+a);r>t;i[n++]=g(f^e[t++]));for(;a--;)i[n++]=tB();return i}:e=>e,e?e=>{for(h(),t=0;t<3;g(e[t++]));if((r=e.length-4-((f^g(e[t++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(r);r>n;i[n++]=f^g(e[t++]));return i}:e=>e,(e,r=64)=>{if(null==e)return null;for(s=Z(r)?64:r,h(),[o,l]=tz[s],t=0;t<e.length;o=BigInt.asUintN(s,(o^BigInt(f^g(e[t++])))*l));return!0===r?Number(BigInt(Number.MIN_SAFE_INTEGER)+o%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):o.toString(36)}]},tW={exports:{}};(e=>{(()=>{function r(e,r){if(r&&r.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var t,n,a=new Uint8Array(128),i=0;if(r&&r.multiple)for(var o=0;o<e.length;o++)s(e[o]);else s(e);return a.subarray(0,i);function s(e,a){var i,o,d,v,p,h;switch(typeof e){case\"undefined\":u(192);break;case\"boolean\":u(e?195:194);break;case\"number\":(e=>{if(isFinite(e)&&Number.isSafeInteger(e)){if(e>=0&&e<=127)u(e);else if(e<0&&e>=-32)u(e);else if(e>0&&e<=255)c([204,e]);else if(e>=-128&&e<=127)c([208,e]);else if(e>0&&e<=65535)c([205,e>>>8,e]);else if(e>=-32768&&e<=32767)c([209,e>>>8,e]);else if(e>0&&e<=4294967295)c([206,e>>>24,e>>>16,e>>>8,e]);else if(e>=-2147483648&&e<=2147483647)c([210,e>>>24,e>>>16,e>>>8,e]);else if(e>0&&e<=18446744073709552e3){var r=e/4294967296,a=e%4294967296;c([211,r>>>24,r>>>16,r>>>8,r,a>>>24,a>>>16,a>>>8,a])}else e>=-0x8000000000000000&&e<=0x7fffffffffffffff?(u(211),f(e)):e<0?c([211,128,0,0,0,0,0,0,0]):c([207,255,255,255,255,255,255,255,255])}else n||(n=new DataView(t=new ArrayBuffer(8))),n.setFloat64(0,e),u(203),c(new Uint8Array(t))})(e);break;case\"string\":(d=(o=(e=>{for(var r=!0,t=e.length,n=0;n<t;n++)if(e.charCodeAt(n)>127){r=!1;break}for(var a=0,i=new Uint8Array(e.length*(r?1:4)),o=0;o!==t;o++){var s=e.charCodeAt(o);if(s<128){i[a++]=s;continue}if(s<2048)i[a++]=s>>6|192;else{if(s>55295&&s<56320){if(++o>=t)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var l=e.charCodeAt(o);if(l<56320||l>57343)throw Error(\"UTF-8 encode: second surrogate character 0x\"+l.toString(16)+\" at index \"+o+\" out of range\");s=65536+((1023&s)<<10)+(1023&l),i[a++]=s>>18|240,i[a++]=s>>12&63|128}else i[a++]=s>>12|224;i[a++]=s>>6&63|128}i[a++]=63&s|128}return r?i:i.subarray(0,a)})(e)).length)<=31?u(160+d):d<=255?c([217,d]):d<=65535?c([218,d>>>8,d]):c([219,d>>>24,d>>>16,d>>>8,d]),c(o);break;case\"object\":null===e?u(192):e instanceof Date?(e=>{var r=e.getTime()/1e3;if(0===e.getMilliseconds()&&r>=0&&r<4294967296)c([214,255,r>>>24,r>>>16,r>>>8,r]);else if(r>=0&&r<17179869184){var t=1e6*e.getMilliseconds();c([215,255,t>>>22,t>>>14,t>>>6,t<<2>>>0|r/4294967296,r>>>24,r>>>16,r>>>8,r])}else{var t=1e6*e.getMilliseconds();c([199,12,255,t>>>24,t>>>16,t>>>8,t]),f(r)}})(e):Array.isArray(e)?l(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((h=(p=e).length)<=255?c([196,h]):h<=65535?c([197,h>>>8,h]):c([198,h>>>24,h>>>16,h>>>8,h]),c(p)):e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?l(e):(e=>{var r=0;for(var t in e)void 0!==e[t]&&r++;for(var t in r<=15?u(128+r):r<=65535?c([222,r>>>8,r]):c([223,r>>>24,r>>>16,r>>>8,r]),e){var n=e[t];void 0!==n&&(s(t),s(n))}})(e);break;default:if(!a&&r&&r.invalidTypeReplacement)\"function\"==typeof r.invalidTypeReplacement?s(r.invalidTypeReplacement(e),!0):s(r.invalidTypeReplacement,!0);else throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\")}}function l(e){var r=e.length;r<=15?u(144+r):r<=65535?c([220,r>>>8,r]):c([221,r>>>24,r>>>16,r>>>8,r]);for(var t=0;r>t;t++)s(e[t])}function u(e){if(a.length<i+1){for(var r=2*a.length;r<i+1;)r*=2;var t=new Uint8Array(r);t.set(a),a=t}a[i]=e,i++}function c(e){if(a.length<i+e.length){for(var r=2*a.length;r<i+e.length;)r*=2;var t=new Uint8Array(r);t.set(a),a=t}a.set(e,i),i+=e.length}function f(e){var r,t;e>=0?(r=e/4294967296,t=e%4294967296):(r=~(r=Math.abs(++e)/4294967296),t=~(t=Math.abs(e)%4294967296)),c([r>>>24,r>>>16,r>>>8,r,t>>>24,t>>>16,t>>>8,t])}}function t(e,r){var t,n=0;if(e instanceof ArrayBuffer&&(e=new Uint8Array(e)),\"object\"!=typeof e||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),r&&r.multiple)for(t=[];n<e.length;)t.push(a());else t=a();return t;function a(){var r=e[n++];if(r>=0&&r<=127)return r;if(r>=128&&r<=143)return u(r-128);if(r>=144&&r<=159)return c(r-144);if(r>=160&&r<=191)return f(r-160);if(192===r)return null;if(193===r)throw Error(\"Invalid byte code 0xc1 found.\");if(194===r)return!1;if(195===r)return!0;if(196===r)return l(-1,1);if(197===r)return l(-1,2);if(198===r)return l(-1,4);if(199===r)return d(-1,1);if(200===r)return d(-1,2);if(201===r)return d(-1,4);if(202===r)return s(4);if(203===r)return s(8);if(204===r)return o(1);if(205===r)return o(2);if(206===r)return o(4);if(207===r)return o(8);if(208===r)return i(1);if(209===r)return i(2);if(210===r)return i(4);if(211===r)return i(8);if(212===r)return d(1);if(213===r)return d(2);if(214===r)return d(4);if(215===r)return d(8);if(216===r)return d(16);if(217===r)return f(-1,1);if(218===r)return f(-1,2);if(219===r)return f(-1,4);if(220===r)return c(-1,2);if(221===r)return c(-1,4);if(222===r)return u(-1,2);if(223===r)return u(-1,4);if(r>=224&&r<=255)return r-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+r+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(r){for(var t=0,a=!0;r-- >0;)if(a){var i=e[n++];t+=127&i,128&i&&(t-=128),a=!1}else t*=256,t+=e[n++];return t}function o(r){for(var t=0;r-- >0;)t*=256,t+=e[n++];return t}function s(r){var t=new DataView(e.buffer,n+e.byteOffset,r);return(n+=r,4===r)?t.getFloat32(0,!1):8===r?t.getFloat64(0,!1):void 0}function l(r,t){r<0&&(r=o(t));var a=e.subarray(n,n+r);return n+=r,a}function u(e,r){e<0&&(e=o(r));for(var t={};e-- >0;)t[a()]=a();return t}function c(e,r){e<0&&(e=o(r));for(var t=[];e-- >0;)t.push(a());return t}function f(r,t){r<0&&(r=o(t));var a=n;return n+=r,((e,r,t)=>{var n=r,a=\"\";for(t+=r;t>n;){var i=e[n++];if(i>127){if(i>191&&i<224){if(n>=t)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(i>223&&i<240){if(n+1>=t)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else if(i>239&&i<248){if(n+2>=t)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}else throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1))}if(i<=65535)a+=String.fromCharCode(i);else if(i<=1114111)i-=65536,a+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320);else throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\")}return a})(e,a,r)}function d(e,r){e<0&&(e=o(r));var t=o(1),a=l(e);return 255===t?(e=>{if(4===e.length){var r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];return new Date(1e3*r)}if(8===e.length){var t=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),r=(3&e[3])*4294967296+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7];return new Date(1e3*r+t/1e6)}if(12===e.length){var t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];n-=8;var r=i(8);return new Date(1e3*r+t/1e6)}throw Error(\"Invalid data length for a date value.\")})(a):{type:t,data:a}}}var n={serialize:r,deserialize:t,encode:r,decode:t};e?e.exports=n:window[window.msgpackJsName||\"msgpack\"]=n})()})(tW);var{deserialize:tJ,serialize:tG}=(j=tW.exports)&&j.__esModule&&Object.prototype.hasOwnProperty.call(j,\"default\")?j.default:j,tL=\"$ref\",tH=(e,r,t)=>ep(e)?V:t?null===r||r:r!==V,tK=(e,r,{defaultValues:t=!0,prettify:n=!1})=>{var a,i,o,s=(e,r,n=e[r],a=tH(r,n,t)?u(n):V)=>(n!==a&&(a!==V||eo(e)?e[r]=a:delete e[r],l(()=>e[r]=n)),a),l=e=>(a??=[]).push(e),u=e=>{if(null==e||eh(e)||ep(e))return null;if(!eu(e))return e;if(e.toJSON&&e!==(e=e.toJSON()))return u(e);if(null!=(o=i?.get(e)))return e[tL]||(e[tL]=o,l(()=>delete e[tL])),{[tL]:o};if(ed(e))for(var r in(i??=new Map).set(e,i.size+1),e)s(e,r);else eg(e)&&(!eo(e)||Object.keys(e).length<e.length?[...e]:e).forEach((r,t)=>t in e?s(e,t):(e[t]=null,l(()=>delete e[t])));return e};return P(()=>r?tG(u(e)??null):P(()=>JSON.stringify(e,V,n?2:0),()=>JSON.stringify(u(e),V,n?2:0)),!0,()=>a?.forEach(e=>e()))},tX=e=>{var r,t,n=e=>eu(e)?e[tL]&&(t=(r??=[])[e[tL]])?t:(e[tL]&&(r[e[tL]]=e,delete e[tL]),Object.entries(e).forEach(([r,t])=>t!==(t=n(t))&&(e[r]=t)),e):e;return n(ea(e)?JSON.parse(e):null!=e?P(()=>tJ(e),()=>(console.error(\"Invalid message received.\",e),V)):e)},tY=(e,r={})=>{var t=(e,{json:r=!1,jsonDecodeFallback:t=!0,...n})=>{var a=(e,t)=>en(e)&&!0===t?e:l(e=ea(e)?new Uint8Array(e$(e.length,r=>255&e.charCodeAt(r))):r?P(()=>JSON.stringify(e),()=>JSON.stringify(tK(e,!1,n))):tK(e,!0,n),t),i=e=>null==e?V:P(()=>tX(e),V);if(r)return[e=>tK(e,!1,n),i,(e,r)=>a(e,r)];var[o,s,l]=tV(e);return[e=>tq(o(tK(e,!0,n))),e=>null!=e?t&&(e?.[0]===\"{\"||e?.[0]===\"[\")?i(e):tX(s(tD(e))):null,(e,r)=>a(e,r)]};if(!e){var n=+(r.json??0);if(n&&!1!==r.prettify)return(g??=[t(null,{json:!1}),t(null,{json:!0,prettify:!0})])[+n]}return t(e,r)};tY();var[tZ,tQ]=tY(null,{json:!0,prettify:!0}),t0=rR(\"\"+tr.currentScript.src,\"#\"),t1=rR(\"\"+(t0[1]||\"\"),\";\"),t2=t0[0],t4=t1[1]||rx(t2,!1)?.host,t6=e=>!!(t4&&rx(e,!1)?.host?.endsWith(t4)===G),t5=(...e)=>rq(eC(e),/(^(?=\\?))|(^\\.(?=\\/))/,t2.split(\"?\")[0]),t3=t5(\"?\",\"var\");t5(\"?\",\"mnt\"),t5(\"?\",\"usr\");var t8=Symbol(),t9=Symbol(),t7=(e,r,t=G,n=J)=>{r&&(t?console.groupCollapsed:console.group)((n?\"\":\"tail.js: \")+r);var a=e?.[t9];a&&(e=e[t8]),null!=e&&console.log(eu(e)?rk(tZ(e),\"94\"):eh(e)?\"\"+e:e),a&&a.forEach(([e,r,t])=>t7(e,r,t,!0)),r&&console.groupEnd()},[ne,nr]=tY(),[nt,nn]=[r7,r7],[na,ni]=ry(),no=e=>{nn===r7&&([nt,nn]=tY(e),ni(nt=tY(null,{json:!0})[0],nn))},ns=e=>r=>nl(e,r),nl=(...e)=>{var r=e.shift();console.error(ea(e[1])?e.shift():e[1]?.message??\"An error occurred\",r.id??r,...e)},[nu,nc]=ry(),[nf,nd]=ry(),nv=e=>nh!==(nh=e)&&nc(nh=!1,ny(!0,!0)),np=e=>ng!==(ng=!!e&&\"visible\"===document.visibilityState)&&nd(ng,!e,nm(!0,!0));nu(np);var nh=!0,ng=!1,nm=rs(!1),ny=rs(!1);tb(window,[\"pagehide\",\"freeze\"],()=>nv(!1)),tb(window,[\"pageshow\",\"resume\"],()=>nv(!0)),tb(document,\"visibilitychange\",()=>(np(!0),ng&&nv(!0))),nc(nh,ny(!0,!0));var nb=!1,nw=rs(!1),[nk,nS]=ry(),nE=ru({callback:()=>nb&&nS(nb=!1,nw(!1)),frequency:2e4,once:!0,paused:!0}),nI=()=>!nb&&(nS(nb=!0,nw(!0)),nE.restart());tb(window,\"focus\",nI),tb(window,\"blur\",()=>nE.trigger()),tb(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],nI),nI(),(O=m||(m={}))[O.View=-3]=\"View\",O[O.Tab=-2]=\"Tab\",O[O.Shared=-1]=\"Shared\";var nA=rI(m,!1,\"local variable scope\"),nT=e=>nA.tryParse(e)??rJ(e),nx=e=>nA.format(e)??rJ.format(e),nN=e=>!!nA.tryParse(e?.scope),n$=rA({scope:nA},rL),nj=e=>null==e?void 0:e.source?nj(e.source):`${nT(e.scope)}\\0${e.key}\\0${e.targetId??\"\"}`,nO=e=>{var r=e.split(\"\\0\");return{scope:+r[0],key:r[1],targetId:r[2]}},nC=0,n_=void 0,nM=()=>(n_??r7())+\"_\"+nU(),nU=()=>++nC,nF=e=>crypto.getRandomValues(e),nP=()=>rq(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^nF(new Uint8Array(1))[0]&15>>e/4).toString(16)),nR={},nq={id:n_,heartbeat:ro()},nD={knownTabs:{[n_]:nq},variables:{}},[nz,nB]=ry(),nV=r7,nW=e=>nR[nj(e)],nJ=(...e)=>nH(e.map(e=>(e.timestamp=ro(),e.expires=3e3,n$(e)))),nG=rl(),nL=(e,r=J)=>{nG(()=>{var r=e_(rH(e$(e,1))?.map(e=>[e,`${e.key} (${nx(e.scope)}, ${e.scope<0?\"client-side memory only\":rz.format(e.purposes)})`,J]),[[{[t9]:rH(e$(nR,1))?.map(e=>[e,`${e.key} (${nx(e.scope)}, ${e.scope<0?\"client-side memory only\":rz.format(e.purposes)})`,J])},\"All variables\",G]]);t7({[t9]:r},`Variables changed (${eJ(e)??0} changed, ${eJ(nR)} in total).`)},r?0:250)},nH=e=>{var r=e$(e,e=>e&&[nj(e),e]);if(r?.length){e4(nR,r);var t=eW(r,e=>e[1].scope>m.Tab);t.length&&(e4(nD.variables,t),nV({type:\"patch\",payload:eB(t)})),nB(\"variables\",eB(r),!0),nL(eB(r))}};na((e,r)=>{nu(t=>{if(t){var n=r(sessionStorage.getItem(r9));sessionStorage.removeItem(r9),n_=n?.[0]??ro().toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),nL(nR=eB(e_(eW(nR,([,e])=>e.scope===m.View),e$(n?.[1],e=>[nj(e),e]))),!0)}else sessionStorage.setItem(r9,e([n_,e$(nR,([,e])=>e.scope!==m.View?e:void 0)]))},!0),nV=(r,t)=>{e&&(localStorage.setItem(r9,e([n_,r,t])),localStorage.removeItem(r9))},tb(window,\"storage\",e=>{if(e.key===r9){var n=r?.(e.newValue);if(n&&(!n[2]||n[2]===n_)){var[a,{type:i,payload:o}]=n;\"query\"===i?t.active||nV({type:\"set\",payload:nD},a):\"set\"===i&&t.active?(e4(nD,o),e4(nR,o.variables),t.trigger()):\"patch\"===i?(e4(nD.variables,o),e4(nR,o),nB(\"variables\",o,!1)):\"tab\"===i&&(e4(nD.knownTabs,a,o),o&&nB(\"tab\",o,!1))}}});var t=ru(()=>nB(\"ready\",nD,!0),-25),n=ru({callback(){var e=ro()-1e4;eq(nD?.knownTabs,([r,t])=>t[0]<e&&e8(nD.knownTabs,r)),nq.heartbeat=ro(),nV({type:\"tab\",payload:nq})},frequency:5e3,paused:!0}),a=e=>{nV({type:\"tab\",payload:e?nq:void 0}),e?(t.restart(),nV({type:\"query\"})):t.toggle(!1),n.toggle(e)};nu(e=>a(e),!0)},!0);var[nK,nX]=ry(),[nY,nZ]=ry(),nQ=((e,{timeout:r=1e3,encrypt:t=!0,retries:n=10}={})=>{var a=()=>(t?nn:nr)(localStorage.getItem(e)),i=()=>localStorage.setItem(e,(t?nt:ne)([n_,ro()+r])),o=rl(r/2);return async(t,s,l=null!=s?1:n)=>{for(;l--;){var u=a();if((!u||u[1]<ro())&&(i(),a()?.[0]===n_))return o(i),await z(t,!0,()=>o(!1)&&localStorage.removeItem(e));var c=rp(),[f]=tb(window,\"storage\",r=>{r.key!==e||r.newValue||c.resolve()});await rh(rv(s??r),c),f()}null==s&&_(e+\" could not be acquired.\")}})(\"_t:rq\"),n0=ru(()=>{if(b!==(b=tM.pushCookie)){if(!b)return;y=RegExp(rC(b)+\"=([^;]*)\")}var e=nn?.(rO(document.cookie,y)?.[1]);rX(e)&&nZ(e)},1e3),n1=0,n2=(e=1e3)=>{var r=()=>{r=L,--n1||(n0.restart(1e3),clearTimeout(0))};return n1++||n0.restart(100),e>0&&setTimeout(r,e),r()},n4=async(e,r,{beacon:t=!1,encrypt:n=!0}={})=>{var a,i,o=!1,s=t=>{var s=eh(r)?r?.(a,t):r;return!1!==s&&(null!=s&&!0!==s&&(a=s),nX(e,a,t,e=>(o=a===V,a=e)),!o&&(i=(n?nt:JSON.stringify)(a)))};if(!t)return await nQ(()=>eD(1,async r=>{if(!s(r))return ek();var t=await fetch(e,{method:null!=a?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i});if(t.status>=400)return 0===r?ek(_(`Invalid response: ${await t.text()}`)):(console.warn(`Request to ${e} failed on attempt ${r+1}/3.`),await rv((1+r)*200));var o=await t.text(),l=o?.length?(n?nn:JSON.parse)?.(o):V;return null!=l&&nZ(l),ek(l)}));s(0)&&(n2(1e3),navigator.sendBeacon(e,new Blob(null!=a?[i]:[],{type:\"text/plain\"}))||_(\"Beacon send failed.\"))},n6=[\"scope\",\"key\",\"targetId\",\"version\"],n5=[...n6,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],n3=[...n6,\"init\",\"purpose\",\"refresh\"];[...n5];var n8=new Map,n9=(e,r)=>{var a=ru(async()=>{var e=e$(n8,([e,r])=>({...nO(e),result:[...r]}));e.length&&await c.get(...e)},3e3),i=(e,r)=>eP(r,r=>e0(n8,e,()=>new Set).add(r)),s=e=>{if(r0(e)){var r,t=nj(e),n=rQ(e);eq(e9(n8,t),e=>{r=!1,e?.(n,nW(n),(e=!0)=>r=e),r&&i(t,e)})}};nu((e,r)=>a.toggle(e,e&&r>=3e3),!0);var l=new Map,u=(e,r)=>e4(l,e,Z(r)?r?void 0:0:r),c={get:(...t)=>rY(async()=>{var n=[],a=e$(t,(e,r)=>[e,r]),l=[],c=(await n4(e,()=>!!(a=e$(a,([e,r])=>{if(e){var t=nj(e);i(t,e.result);var a=nW(t);e.init&&u(t,e.cache);var s=e.purposes;if((s??~0)&(a?.purposes??~0)){if(!e.refresh&&a?.expires<ro())rn(n,[{...a,status:o.Success},r]);else if(!nN(e))return[re(e,n3),r];else if(ed(e.init)){var c={...n$(e),status:o.Created,...e.init};null!=c.value&&(rn(l,f(c)),rn(n,[c,r]))}}else rn(n,[{...e,status:o.Denied,error:\"No consent for \"+rz.logFormat(s)},r])}})).length&&{variables:{get:e$(a,0)},deviceSessionId:r?.deviceSessionId})).variables?.get??[];return rn(n,...e$(c,(e,r)=>e&&[e,a[r][1]])),l.length&&nH(l),n.map(([e])=>(s(e),e))},e$(t,e=>e?.error)),set:(...a)=>rY(async()=>{var i=[],l=[],c=e$(a,(e,r)=>{if(e){var a=nj(e),s=nW(a);if(u(a,e.cache),nN(e)){if(null!=e.patch)return _(\"Local patching is not supported.\");var c={value:e.value,classification:t.Anonymous,purposes:n.Necessary,scope:nA(e.scope),key:e.key};return l[r]={status:s?o.Success:o.Created,source:e,current:c},void rn(i,f(c))}return rK(e)||e?.version!==void 0||(e.version=s?.version,e.force??=!!e.version),[e,r]}}),d=c.length>0?[]:F((await n4(e,{variables:{set:c.map(e=>e[0])},deviceSessionId:r?.deviceSessionId})).variables?.set,\"No result.\");return i.length&&nH(i),eq(d,(e,r)=>{var[t,n]=c[r];e.source=t,s(l[n]=e)}),l},e$(a,e=>e?.error))},f=(e,r=ro())=>({...re(e,n5),timestamp:r,expires:r+(e0(l,nj(e))??3e3)});return nY(({variables:e})=>{if(e){var r=ro(),t=e_(e$(e.get,e=>rQ(e)),e$(e.set,e=>rQ(e)));t?.length&&nH(eP(t,f,r))}}),c},n7=(e,r,t=r8)=>{var n=[],a=new WeakMap,i=new Map,o=(e,r)=>e.metadata?.queued?e1(r,{type:e.type+\"_patch\",patchTargetId:e.clientId}):_(\"Source event not queued.\"),s=async(t,a=!1)=>{if((t=e$(el(t),e=>e1(r.applyEventExtensions(e),{metadata:{queued:!0}}))).length&&eq(t,e=>t7(e,e.type)),!a){t.length&&rn(n,...t);return}n.length&&ra(t,...n.splice(0)),t.length&&(t7(eC(t,e=>rS(e.type),[\"and\"]),\"Posting \"+rb([rw(\"new event\",[eJ(t,e=>!rW(e))||void 0]),rw(\"event update\",[eJ(t,e=>rW(e))||void 0])])+\".\"),n4(e,{events:t.map(e=>(e1(e,{metadata:{posted:!0}}),e1(rV(rt(e),!0),{timestamp:e.timestamp-ro()}))),deviceSessionId:r?.deviceSessionId},{beacon:!0}))};return t>0&&ru(()=>s([],!0),t),nf((e,r,t)=>{if(!e&&(n.length||r||t>1500)){var a=e$(i,([e,r])=>{var[t,n]=r();return n&&i.delete(e),t});(n.length||a.length)&&s(e_(n.splice(0),a),!0)}}),{post:s,postPatch:(e,r,t)=>s(o(e,r),t),registerEventPatchSource(e,r,t=!0){var n=!1,s=()=>n=!0;return a.set(e,rt(e)),i.set(e,()=>{var i=a.get(e),[l,u]=(t?ri(r(i,s),i):r(i,s))??[];return l&&!M(u,i)?(a.set(e,rt(u)),[o(e,l),n]):[void 0,n]}),s}}},ae=Symbol(),ar=e=>{var r=new IntersectionObserver(e=>eq(e,({target:e,isIntersecting:r,boundingClientRect:t,intersectionRatio:n})=>e[ae]?.(r,t,n)),{threshold:[.05,.1,.15,.2,.3,.4,.5,.6,.75]});return(t,n)=>{if(n&&(a=eW(n?.component,e=>e.track?.impressions||(e.track?.secondary??e.inferred)!==G))&&eJ(a)){var a,i,o,s,l=J,u=0,c=rl(tM.impressionThreshold),f=ag();t[ae]=(r,n,d)=>{f(r=d>=.75||n.top<(i=window.innerHeight/2)&&n.bottom>i),l!==(l=r)&&(l?c(()=>{++u,o||rn(e,o=eW(e$(a,e=>(e.track?.impressions||tC(t,\"impressions\",G,e=>e.track?.impressions))&&B({type:\"impression\",pos:tg(t),viewport:tk(),timeOffset:ay(),impressions:u,...a$(t,G)})||null))),o?.length&&(s=e$(o,r=>e.events.registerEventPatchSource(r,()=>({relatedEventId:r.clientId,duration:f(),impressions:u}))))}):(eq(s,e=>e()),c(!1)))},r.observe(t)}}},at=()=>{var e=te?.screen;if(!e)return{};var{width:r,height:t,orientation:n}=e,a=r<t,i=n?.angle??te.orientation??0;return(-90===i||90===i)&&([r,t]=[t,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:te.devicePixelRatio,width:r,height:t,landscape:a}}},an=e=>rn(e,B({type:\"user_agent\",hasTouch:navigator.maxTouchPoints>0,userAgent:navigator.userAgent,view:w?.clientId,languages:e$(navigator.languages,(e,r,t=e.split(\"-\"))=>B({id:e,language:t[0],region:t[1],primary:0===r,preference:r+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:new Date().getTimezoneOffset()},...at()})),aa=(e,r=\"A\"===td(e)&&ts(e,\"href\"))=>r&&\"#\"!=r&&!r.startsWith(\"javascript:\"),ai=(e,r=td(e),t=tC(e,\"button\"))=>t!==J&&(U(r,\"A\",\"BUTTON\")||\"INPUT\"===r&&U(tu(e,\"type\"),\"button\",\"submit\")||t===G),ao=()=>w?.clientId,as={scope:\"shared\",key:\"referrer\"},al=(e,r)=>{I.variables.set({...as,value:[ao(),e]}),r&&I.variables.get({scope:as.scope,key:as.key,result(t,n,a){t?a():n?.value?.[1]===e&&r()}})},au=rs(),ac=rs(),af=rs(),ad=1,av=()=>ac(),[ap,ah]=ry(),ag=e=>{var r=rs(e,au),t=rs(e,ac),n=rs(e,af),a=rs(e,()=>ad);return(e,i)=>({totalTime:r(e,i),visibleTime:t(e,i),interactiveTime:n(e,i),activations:a(e,i)})},am=ag(),ay=()=>am(),[ab,aw]=ry(),ak=new WeakSet,aS=document.getElementsByTagName(\"iframe\"),aE=e=>(null==e||(e===G||\"\"===e)&&(e=\"add\"),ea(e)&&U(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:eu(e)?e:void 0);function aI(e){if(e){if(null!=e.units&&U(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=e.units>0?\"add\":\"remove\"}return e}}var aA=e=>t_(e,void 0,e=>e$(el(e0(tS,e)?.tags))),aT=e=>e?.component||e?.content,ax=e=>t_(e,r=>r!==e&&!!aT(e0(tS,r)),e=>(S=e0(tS,e),(S=e0(tS,e))&&eO(e_(S.component,S.content,S),\"tags\"))),aN=(e,r)=>r?e:{...e,rect:void 0,content:(E=e.content)&&e$(E,e=>({...e,rect:void 0}))},a$=(e,r=J)=>{var t,n,a,i=[],o=[],s=0;return ti(e,e=>{var n=e0(tS,e);if(n){if(aT(n)){var a=eW(el(n.component),e=>0===s||!r&&(1===s&&e.track?.secondary!==G||e.track?.promote));t=eY(a,e=>e.track?.region)&&ty(e)||void 0;var l=ax(e);n.content&&ra(i,...e$(n.content,e=>({...e,rect:t,...l}))),a?.length&&(ra(o,...e$(a,e=>(s=eG(s,e.track?.secondary?1:2),aN({...e,content:i,rect:t,...l},!!t)))),i=[])}var u=n.area||tO(e,\"area\");u&&ra(o,...e$(u))}}),i.length&&rn(o,aN({id:\"\",rect:t,content:i})),eq(o,e=>{ea(e)?rn(n??=[],e):(e.area??=eC(n,\"/\"),ra(a??=[],e))}),a||n?{components:a,area:eC(n,\"/\")}:void 0},aj=Symbol(),aO=[{id:\"context\",setup(e){ru(()=>eq(aS,e=>e5(ak,e)&&aw(e)),-1e3).trigger(),e.push({get:[{scope:\"view\",key:\"view\",result(e){}}]}),e.variables.get({scope:\"view\",key:\"view\",result:(a,i,o)=>(M(n,a?.value)&&t===(t=\"\"+location.href)||(r=n=a?.value),r&&w&&!w.definition&&(w.definition=r,w.metadata?.posted&&e.events.postPatch(w,{definition:r}),r=void 0),o())});var r,t,n,a=nW({scope:\"tab\",key:\"viewIndex\"})?.value??0,i=nW({scope:\"tab\",key:\"tabIndex\"})?.value;null==i&&nJ({scope:\"tab\",key:\"tabIndex\",value:i=nW({scope:\"shared\",key:\"tabIndex\"})?.value??nW({scope:\"session\",key:C})?.value?.tabs??0},{scope:\"shared\",key:\"tabIndex\",value:i+1});var o=null,s=(t=J)=>{if(!th(\"\"+o,o=location.href)||t){var{source:n,scheme:s,host:l}=rx(location.href+\"\",!0);w={type:\"view\",timestamp:ro(),clientId:nM(),tab:n_,href:n,path:location.pathname,hash:location.hash||void 0,domain:{scheme:s,host:l},tabNumber:i+1,tabViewNumber:a+1,viewport:tk(),duration:am(void 0,!0)},0===i&&(w.firstTab=G),0===i&&0===a&&(w.landingPage=G),nJ({scope:\"tab\",key:\"viewIndex\",value:++a});var u=rN(location.href);if(e$([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,r)=>(w.utm??={})[e]=u[`utm_${e}`]?.[0]),!(w.navigationType=k)&&performance&&e$(performance.getEntriesByType(\"navigation\"),e=>{w.redirects=e.redirectCount,w.navigationType=rq(e.type,/\\_/g,\"-\")}),k=void 0,\"navigate\"===(w.navigationType??=\"navigate\")){var c=nW(as)?.value;c&&t6(document.referrer)&&(w.view=c?.[0],w.relatedEventId=c?.[1],e.variables.set({...as,value:void 0}))}var c=document.referrer||null;c&&!t6(c)&&(w.externalReferrer={href:c,domain:tw(c)}),w.definition=r,r=void 0,e.events.post(w),e.events.registerEventPatchSource(w,()=>({duration:ay()})),ah(w)}};return nk(e=>af(e)),nf(e=>{e?(ac(G),++ad):(ac(J),af(J))}),tb(window,\"popstate\",()=>(k=\"back-forward\",s())),e$([\"push\",\"replace\"],e=>{var r=history[e+=\"State\"];history[e]=(...e)=>{r.apply(history,e),k=\"navigate\",s()}}),s(),{processCommand:r=>aM(r)&&(rn(e,r.username?{type:\"login\",username:r.username}:{type:\"logout\"}),G),decorate(e){!w||r4(e)||rW(e)||(e.view=w.clientId)}}}},{id:\"components\",setup(e){var r=ar(e),t=e=>null==e?void 0:{...e,component:el(e.component),content:el(e.content),tags:el(e.tags)},n=({boundary:e,...n})=>{e6(tS,e,e=>t(\"add\"in n?{...e,component:e_(e?.component,n.component),content:e_(e?.content,n.content),area:n?.area??e?.area,tags:e_(e?.tags,n.tags),cart:n.cart??e?.cart,track:n.track??e?.track}:\"update\"in n?n.update(e):n)),r(e,e0(tS,e))};return{decorate(e){eq(e.components,e=>e9(e,\"track\"))},processCommand:e=>aP(e)?(n(e),G):aV(e)?(e$(((e,r)=>{if(!r)return[];var t=[],n=new Set;return document.querySelectorAll(`[${e}]`).forEach(a=>{if(!e0(n,a))for(var i=[];null!=ts(a,e);){e5(n,a);var o=rR(ts(a,e),\"|\");ts(a,e,null);for(var s=0;s<o.length;s++){var l=o[s];if(\"\"!==l){var u=\"-\"===l?-1:parseInt(ei(l)??\"\",36);if(u<0){i.length+=u;continue}if(0===s&&(i.length=0),isNaN(u)&&/^[\"\\[{]/.test(l))for(var c=\"\";s<o.length;s++)try{l=JSON.parse(c+=o[s]);break}catch(e){}u>=0&&r[u]&&(l=r[u]),rn(i,l)}}rn(t,...e$(i,e=>({add:G,...e,boundary:a})));var f=a.nextElementSibling;\"WBR\"===a.tagName&&a.parentNode?.removeChild(a),a=f}}),t})(e.scan.attribute,e.scan.components),n),G):J}}},{id:\"navigation\",setup(e){var r=r=>{tb(r,[\"click\",\"contextmenu\",\"auxclick\"],r=>{var t,n,a,i,o,s=null,l=J;if(ti(r.target,e=>{var r;s??=ai(e)?e:null,l=l||\"NAV\"===td(e),i??=tC(e,\"clicks\",G,e=>e.track?.clicks)??((r=el(tE(e)?.component))&&eY(r,e=>e.track?.clicks!==J)),o??=tC(e,\"region\",G,e=>e.track?.region)??((r=tE(e)?.component)&&eY(r,e=>e.track?.region))}),s){var u,c=a$(s),f=aA(s);i??=!l;var d={...(o??=G)?{pos:tg(s,r),viewport:tk()}:null,...(t=r.target,n=s,ti(t??n,e=>\"IMG\"===td(e)||e===n?(a={element:{tagName:e.tagName,text:ts(e,\"title\")||ts(e,\"alt\")||e.innerText?.trim().substring(0,100)||void 0}},J):G),a),...c,...f,timing:ay()};if(aa(s)){var v=s.hostname!==location.hostname,{host:p,scheme:h,source:g}=rx(s.href,!1);if(s.host===location.host&&s.pathname===location.pathname&&s.search===location.search){if(\"#\"===s.hash)return;s.hash!==location.hash&&rn(e,B({type:\"anchor_navigation\",anchor:s.hash,...d}));return}var m=B({clientId:nM(),type:\"navigation\",href:v?s.href:g,external:v,domain:{host:p,scheme:h},self:G,anchor:s.hash,...d});r.button<=1&&(1===r.button||r.ctrlKey||r.shiftKey||r.altKey||ts(s,\"target\")!==window.name?(al(m.clientId),m.self=J,rn(e,m)):th(location.href,s.href)||(m.exit=m.external,al(m.clientId)));return}var y=(ti(r.target,(e,r)=>!!(u??=aE(tE(e)?.cart??tO(e,\"cart\")))&&!u.item&&(u.item=eX(tE(e)?.content))&&r(u)),aI(u));(y||i)&&rn(e,y?B({type:\"cart_updated\",...d,...y}):B({type:\"component_click\",...d}))}})};r(document),ab(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var r={},t=tp(G);ap(()=>rd(()=>(r={},t=tp(G)),250)),tb(window,\"scroll\",()=>{var n=tp(),a=tv();if(n.y>=t.y){var i=[];!r.fold&&n.y>=t.y+200&&(r.fold=G,rn(i,\"fold\")),!r[\"page-middle\"]&&a.y>=.5&&(r[\"page-middle\"]=G,rn(i,\"page-middle\")),!r[\"page-end\"]&&a.y>=.99&&(r[\"page-end\"]=G,rn(i,\"page-end\"));var o=e$(i,e=>B({type:\"scroll\",scrollType:e,offset:a}));o.length&&rn(e,o)}})}},{id:\"cart\",setup:e=>({processCommand(r){if(a_(r)){var t=r.cart;return\"clear\"===t?rn(e,{type:\"cart_updated\",action:\"clear\"}):(t=aI(t))&&rn(e,{...t,type:\"cart_updated\"}),G}return aB(r)?(rn(e,{type:\"order\",...r.order}),G):J}})},{id:\"forms\",setup(e){var r=new Map,t=e=>e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"yes\":\"no\":e.value,n=n=>{var a,i=n.form;if(i){var s=tl(i,tI(\"ref\"))||\"track_ref\",l=()=>i.isConnected&&ty(i).width,u=e0(r,i,()=>{var r,t=new Map,n={type:\"form\",name:tl(i,tI(\"form-name\"))||ts(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}};e.events.post(n),e.events.registerEventPatchSource(n,()=>n);var s=()=>{o(),r[3]>=2&&(n.completed=3===r[3]||!l()),e.events.postPatch(n,{...a,totalTime:ro(G)-r[4]}),r[3]=1},u=rl();return tb(i,\"submit\",()=>{a=a$(i),r[3]=3,u(()=>{i.isConnected&&ty(i).width>0?(r[3]=2,u()):s()},750)}),r=[n,t,i,0,ro(G),1]});return e0(u[1],n)||e$(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,r)=>{if(!e.name||\"hidden\"===e.type){\"hidden\"===e.type&&(e.name===s||tC(e,\"ref\"))&&(e.value||(e.value=nP()),u[0].ref=e.value);return}var n=e.name,a=u[0].fields[n]??={id:e.id||n,name:n,label:rq(e.labels?.[0]?.innerText??e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,type:e.type??\"unknown\",[aj]:t(e)};u[0].fields[a.name]=a,u[1].set(e,a)}),[n,u]}},a=(e,[r,t]=n(e)??[],a=t?.[1].get(r))=>a&&[t[0],a,r,t],i=null,o=()=>{if(i){var[e,r,n,a]=i,o=-(s-(s=av())),u=-(l-(l=ro(G))),c=r[aj];(r[aj]=t(n))!==c&&(r.fillOrder??=a[5]++,r.filled&&(r.corrections=(r.corrections??0)+1),r.filled=G,a[3]=2,eq(e.fields,([e,t])=>t.lastField=e===r.name||void 0)),r.activeTime+=o,r.totalTime+=u,e.activeTime+=o,i=null}},s=0,l=0,u=e=>{e&&tb(e,[\"focusin\",\"focusout\",\"change\"],(e,r,t=e.target&&a(e.target))=>{t&&(i=t,\"focusin\"===e.type?(l=ro(G),s=av()):o())})};u(document),ab(e=>e.contentDocument&&u)}}],aC=(...e)=>r=>r===e[0]||e.some(e=>\"string\"==typeof e&&r?.[e]!==void 0),a_=aC(\"cart\"),aM=aC(\"username\"),aU=aC(\"tagAttributes\"),aF=aC(\"disable\"),aP=aC(\"boundary\"),aR=aC(\"extension\"),aq=aC(G,\"flush\"),aD=aC(\"get\"),az=aC(\"listener\"),aB=aC(\"order\"),aV=aC(\"scan\"),aW=aC(\"set\"),aJ=e=>\"function\"==typeof e,aG=e=>{if(I)return I;ea(e)&&(e=nr(e)),e4(tM,e),no(e9(tM,\"clientKey\"));var r=e9(tM,\"apiKey\"),t=te[tM.name]??[];if(!eo(t)){_(`The global variable for the tracker \"${tM.name}\" is used for something else than an array of queued commands.`);return}var n=[],a=[],i=(e,...r)=>{var t=G;a=eW(a,n=>P(()=>(n[e]?.(...r,{tracker:I,unsubscribe:()=>t=J}),t),ns(n)))},o=[],s={applyEventExtensions(e){e.clientId??=nM(),e.timestamp??=ro(),d=G;var r=J;return e$(n,([,t])=>{(r||t.decorate?.(e)===J)&&(r=G)}),r?void 0:e}},l=n9(t3,s),u=n7(t3,s),c=null,f=0,d=J,v=J;return e7(te,[{[tM.name]:[I=Object.freeze({id:\"tracker_\"+nM(),events:u,variables:l,push(...e){if(!c&&r){if(e[0]!==r)throw Error(\"Invalid API key.\");e.splice(0,1)}if(e.length){var t=J;if((e=eW(eO(e,e=>ea(e)?nr(e):e),e=>{if(!e)return J;if(aU(e))tM.tags=e4({},tM.tags,e.tagAttributes);else if(aF(e))return tM.disabled=e.disable,J;else if(aq(e))return t=G,J;else if(aJ(e))return e(I),J;return v||az(e)||aR(e)?G:(o.push(e),J)})).length||t){var s=eZ(e,e=>aR(e)?-100:az(e)?-50:aW(e)?-10:r2(e)?90:0);if(!(c&&c.splice(d?f+1:c.length,0,...s))){for(f=0,c=s;f<c.length;f++)c[f]&&P(()=>{var e,r=c[f];if(i(\"command\",r),d=J,r2(r))u.post(r,!1);else if(aD(r))l.get(...el(r.get));else if(aW(r))l.set(...el(r.set));else if(az(r))rn(a,r.listener);else if(aR(r))(e=P(()=>r.extension.setup(I),e=>nl(r.extension.id,e)))&&(rn(n,[r.priority??100,e]),eZ(n,([e])=>e));else if(aJ(r))r(I);else{var t=J;for(var[,e]of n)if(t=e.processCommand?.(r)??J)break;t||nl(\"invalid-command\",r)}},e=>nl(I,\"internal-error\",e));c=null,t&&u.post([],!0)}}}},__isTracker:G})]}]),nz(async(e,r,n,a)=>{if(\"ready\"===e){var i=F(await l.get({scope:\"session\",key:C,refresh:!0}).value,\"No session data.\");s.deviceSessionId=i.deviceSessionId,i.hasUserAgent||(an(I),i.hasUserAgent=!0),v=!0,o.length&&rn(I,o),a(),rn(I,...e$(aO,e=>({extension:e})),...t,{set:{scope:\"local\",key:\"loaded\",value:!0}})}},!0),I};te[\".tail.js.init\"]=e=>{e(aG)}})();\n//# sourceMappingURL=index.min.debug.js.map\n"
 };
 
 const INITIALIZE_TRACKER_FUNCTION = ".tail.js.init";
@@ -10240,8 +10250,9 @@ const EVENT_HUB_QUERY = "var";
 const CONTEXT_NAV_QUERY = "mnt";
 const SCHEMA_QUERY = "$types";
 const CONTEXT_NAV_REQUEST_ID = "ctx.rid";
-// Must match the key in @tailjs/types/ScopeVariables.ts.
-const SCOPE_INFO_KEY = "info";
+const SCOPE_INFO_KEY = "@info";
+const CONSENT_INFO_KEY = "@consent";
+const SESSION_REFERENCE_KEY = "@session_reference";
 const PATCH_EVENT_POSTFIX = "_patch";
 
 class DefaultSessionReferenceMapper {
@@ -10510,7 +10521,7 @@ class RequestHandler {
      * The overhead of initializing the tracker should not be included if it doesn't, and no request was handled from the URL.
      */ const tracker = deferredPromise(async ()=>{
             const tracker = new Tracker(trackerSettings());
-            await tracker._initialize(trackerInitializationOptions);
+            await tracker._ensureInitialized(trackerInitializationOptions);
             return tracker;
         });
         const result = async (response, { /* Don't write any cookies, changed or not.
@@ -10713,7 +10724,9 @@ class RequestHandler {
                                     const resolvedTracker = await tracker;
                                     const response = {};
                                     if (postRequest.events) {
-                                        //requestTimer.print("post start");
+                                        // This returns a response that may have changed variables in it.
+                                        // A mechanism for pushing changes without using cookies is still under development
+                                        // so we currently do not use the response for any purpose.
                                         await resolvedTracker.post(postRequest.events, {
                                             passive: postRequest.events.every(isPassiveEvent),
                                             deviceSessionId: postRequest.deviceSessionId,
@@ -10825,12 +10838,6 @@ class RequestHandler {
         }).join("");
         return js;
     }
-    _getClientVariables(tracker) {
-        return {
-            ...tracker.transient,
-            consent: tracker.consent
-        };
-    }
     _logExtensionError(extension, method, error) {
         this.environment.log(extension, {
             level: "error",
@@ -10849,7 +10856,6 @@ const createInitialScopeData = (id, timestamp, additionalData)=>({
         isNew: true,
         ...additionalData
     });
-const ANONYMOUS_SESSION_ID = "sessionId";
 class Tracker {
     /**
    * Used for queueing up events so they do not get posted before all extensions have been applied to the request.
@@ -10950,7 +10956,7 @@ class Tracker {
         return this._clientCipher[1](encoded);
     }
     /** @internal */ async _applyExtensions(options) {
-        await this._initialize(options);
+        await this._ensureInitialized(options);
         if (this._extensionState === 0) {
             this._extensionState = 1;
             try {
@@ -11004,26 +11010,7 @@ class Tracker {
         return result;
     }
     // #region DeviceData
-    /**
-   *
-   * Called by {@link TrackerVariableStorage} after successful set operations, to give the tracker a chance to update its state.
-   * (Session and device data)
-   *
-   * @internal
-   */ async _maybeUpdate(key, current) {
-        const scope = variableScope.parse(key.scope);
-        if (key.key === SCOPE_INFO_KEY) {
-            if (scope === VariableScope.Session && key.targetId === this._sessionReferenceId) {
-                current && (this._session = current);
-            } else if (scope === VariableScope.Device && this._consent.level > DataClassification.Anonymous) {
-                this._device = current;
-            }
-        }
-    }
-    /**
-   * Used by the {@link TrackerVariableStorage} to maintain device data stored in the device and only briefly cached on the server.
-   * @internal
-   */ _getClientDeviceVariables() {
+    _getClientDeviceVariables() {
         if (!this._clientDeviceCache) {
             const deviceCache = this._clientDeviceCache = {};
             dataPurposes.pure.map(([purpose, flag])=>{
@@ -11063,16 +11050,16 @@ class Tracker {
    * Similarly, if an old frozen tab suddenly wakes up it will get the new device session.
    * (so yes, they can hypothetically be split across the same tab even though that goes against the definition).
    *
-   * @internal */ async _initialize({ deviceId, deviceSessionId, passive } = {}) {
+   * @internal */ async _ensureInitialized({ deviceId, deviceSessionId, passive } = {}) {
         if (this._initialized === (this._initialized = true)) {
             return false;
         }
         this._requestId = await this.env.nextId("request");
         const timestamp = now();
-        const consentData = (this.cookies["consent"]?.value ?? `${DataClassification.Anonymous}:${DataPurposeFlags.Necessary}`).split(":");
+        const consentData = (this.cookies[this._requestHandler._cookieNames.consent]?.value ?? `${DataPurposeFlags.Necessary}@${DataClassification.Anonymous}`).split("@");
         this._consent = {
-            level: dataClassification.tryParse(consentData[0]) ?? DataClassification.Anonymous,
-            purposes: dataPurposes.tryParse(consentData[1].split(",")) ?? DataPurposeFlags.Necessary
+            level: dataClassification.tryParse(consentData[1]) ?? DataClassification.Anonymous,
+            purposes: dataPurposes.tryParse(consentData[0]?.split(",")) ?? DataPurposeFlags.Necessary
         };
         await this._ensureSession(timestamp, {
             deviceId,
@@ -11110,42 +11097,47 @@ class Tracker {
                 }
             });
         }
-        if (level === DataClassification.Anonymous !== (this.consent.level === DataClassification.Anonymous)) {
-            if (level === DataClassification.Anonymous) {
-                this._sessionReferenceId = await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
-            } else {
-                this._sessionReferenceId = this._session.targetId;
-            }
-            await this.env.storage.set([
-                {
-                    scope: VariableScope.Session,
-                    key: ANONYMOUS_SESSION_ID,
-                    targetId: this._sessionReferenceId,
-                    value: // Delete the key if we moved to cookies, create it otherwise.
-                    this.sessionId === this._sessionReferenceId ? undefined : this._sessionReferenceId
-                }
-            ]);
-        }
+        let previousLevel = this._consent.level;
         this._consent = {
             level,
             purposes
         };
+        if (level <= DataClassification.Anonymous !== previousLevel <= DataClassification.Anonymous) {
+            // We switched from cookie-less to cookies or vice versa.
+            // Refresh scope infos and anonymous session pointer.
+            await this._ensureSession(now(), {
+                refreshState: true
+            });
+            console.log("Updated consent ", this._consent);
+        }
     }
-    async _ensureSession(timestamp, { deviceId, deviceSessionId, passive = false, resetSession = false, resetDevice = false } = {}) {
+    async _ensureSession(timestamp, { deviceId, deviceSessionId = this.deviceSessionId, passive = false, resetSession = false, resetDevice = false, refreshState = false } = {}) {
         if ((resetSession || resetDevice) && this._sessionReferenceId) {
             // Purge old data. No point in storing this since it will no longer be used.
             await this.purge({
                 session: resetSession,
                 device: resetDevice
             });
-        } else if (this._session?.value) {
+        } else if (this._session?.value && !refreshState) {
             return;
         }
-        let sessionId;
+        // In case we refresh, we might already have a session ID.
+        let sessionId = this.sessionId;
         if (this._consent.level > DataClassification.Anonymous) {
+            if (sessionId && this._sessionReferenceId !== sessionId) {
+                // We switched from cookie-less to cookies. Purge reference.
+                await this.env.storage.set([
+                    {
+                        scope: VariableScope.Session,
+                        key: SESSION_REFERENCE_KEY,
+                        targetId: this._sessionReferenceId,
+                        value: undefined
+                    }
+                ]);
+            }
             // CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
             // This means clients must make sure the initial request to endpoint completes before more are sent (or at least do a fair effort).
-            this._sessionReferenceId = sessionId = (resetSession ? undefined : this.httpClientDecrypt(this.cookies[this._requestHandler._cookieNames.session]?.value)?.id) ?? await this.env.nextId("session");
+            this._sessionReferenceId = sessionId = (resetSession ? undefined : this.httpClientDecrypt(this.cookies[this._requestHandler._cookieNames.session]?.value)?.id) ?? (passive ? undefined : sessionId ?? await this.env.nextId("session"));
             this.cookies[this._requestHandler._cookieNames.session] = {
                 httpOnly: true,
                 sameSitePolicy: "None",
@@ -11155,22 +11147,43 @@ class Tracker {
                 })
             };
         } else {
+            if (sessionId && this._sessionReferenceId === sessionId) {
+                // We switched from cookies to cookie-less. Remove deviceId and device info.
+                await this.env.storage.set(truish([
+                    {
+                        scope: VariableScope.Session,
+                        key: SCOPE_INFO_KEY,
+                        targetId: sessionId,
+                        patch: (current)=>({
+                                value: {
+                                    ...current?.value,
+                                    deviceId: undefined
+                                }
+                            })
+                    },
+                    this.deviceId && {
+                        scope: VariableScope.Device,
+                        key: SCOPE_INFO_KEY,
+                        targetId: this.deviceId,
+                        value: undefined
+                    }
+                ]));
+                this._device = undefined;
+            }
             this._sessionReferenceId = await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
             sessionId = requireFound(await this.env.storage.get([
                 {
                     scope: VariableScope.Session,
-                    key: ANONYMOUS_SESSION_ID,
+                    key: SESSION_REFERENCE_KEY,
                     targetId: this._sessionReferenceId,
-                    init: async ()=>({
-                            ...Necessary,
+                    init: async ()=>passive ? undefined : {
                             tags: [
                                 "anonymous"
                             ],
-                            value: await this.env.nextId()
-                        })
+                            value: sessionId ?? await this.env.nextId()
+                        }
                 }
             ]).result).value;
-        //console.log("SessionID", sessionId);
         }
         this._session = // We bypass the TrackerVariableStorage here and use the environment directly.
         // The session ID we currently have is provisional,
@@ -11198,12 +11211,12 @@ class Tracker {
                 }
             }
         ]).result));
-        if (this._session.value) {
-            let device = this._consent.level > DataClassification.Anonymous ? await this.get([
+        if (this._session?.value) {
+            let device = this._consent.level > DataClassification.Anonymous && deviceId ? await this.env.storage.get([
                 {
                     scope: VariableScope.Device,
                     key: SCOPE_INFO_KEY,
-                    purposes: DataPurposeFlags.Necessary,
+                    targetId: this.deviceId,
                     init: async ()=>({
                             classification: this.consent.level,
                             value: createInitialScopeData(this._session.value.deviceId, timestamp, {
@@ -11215,10 +11228,11 @@ class Tracker {
             this._device = device;
             if (device?.value && device.status !== VariableResultStatus.Created && this.session?.isNew) {
                 // A new session started on an existing device.
-                this._device = await this.set([
+                this._device = await this.env.storage.set([
                     {
-                        ...device,
-                        value: undefined,
+                        scope: VariableScope.Device,
+                        key: SCOPE_INFO_KEY,
+                        targetId: this.deviceId,
                         patch: (device)=>device && {
                                 ...device,
                                 value: {
@@ -11233,23 +11247,20 @@ class Tracker {
             if (deviceSessionId != null && this.deviceSessionId != null && deviceSessionId !== this.deviceSessionId) {
                 this._expiredDeviceSessionId = deviceSessionId;
             }
-            this._device = device;
         }
     }
     /**
    *  Must be called last by the request handler just before a response is sent.
    *  The tracker must not be used afterwards.
    *  @internal
-   * */ async _persist(discardCookies = false) {
-        if (discardCookies) {
-            this.cookies = {};
-        } else {
+   * */ async _persist(sendCookies = false) {
+        if (sendCookies) {
             this.cookies[this._requestHandler._cookieNames.consent] = {
                 httpOnly: true,
                 maxAge: Number.MAX_SAFE_INTEGER,
                 essential: true,
                 sameSitePolicy: "None",
-                value: this.consent.purposes + "@" + this.consent.level
+                value: this.consent.level > DataClassification.Anonymous ? this.consent.purposes + "@" + this.consent.level : null
             };
             const splits = {};
             if (this._clientDeviceCache?.touched) {
@@ -11276,18 +11287,20 @@ class Tracker {
                         ]));
                 });
             }
-            if (this.consent.level === DataClassification.Anonymous && this.cookies[this._requestHandler._cookieNames.session]) {
+            if (this.consent.level === DataClassification.Anonymous) {
                 // Clear session cookie if we have one.
-                this.cookies[this._requestHandler._cookieNames.session].value = undefined;
+                this.cookies[this._requestHandler._cookieNames.session] = {};
             }
             dataPurposes.pure.map(([purpose, flag])=>{
                 const remove = this.consent.level === DataClassification.Anonymous || !splits[purpose];
                 const cookieName = this._requestHandler._cookieNames.device[flag];
                 if (remove) {
-                    if (this.cookies[cookieName]) {
-                        this.cookies[cookieName].value = undefined;
-                    }
+                    this.cookies[cookieName] = {};
                 } else if (splits[purpose]) {
+                    if (this.consent.level <= DataClassification.Anonymous) {
+                        // Purge all device cookies if there is no consent, and the client still have some.
+                        this.cookies[cookieName] = {};
+                    }
                     if (!this._clientDeviceCache?.touched) {
                         // Device data has not been touched. Don't send the cookies.
                         delete this.cookies[cookieName];
@@ -11302,6 +11315,8 @@ class Tracker {
                     }
                 }
             });
+        } else {
+            this.cookies = {};
         }
     }
     // #region Storage
@@ -11432,7 +11447,7 @@ async function ensureTracker() {
         const src = [
             trackerConfig.src
         ];
-        src.push("?", "lwglguta");
+        src.push("?", "lwh3jbbe");
         {
             src.push("#", trackerConfig.name);
         }
@@ -11465,7 +11480,7 @@ const DEFAULT = {
 };
 
 const getCookieChunkName = (key, chunk)=>chunk === 0 ? key : `${key}-${chunk}`;
-const sourceCookieChunks = Symbol("Chunks");
+const requestCookies = Symbol("request cookies");
 class CookieMonster {
     _secure;
     constructor(config){
@@ -11476,15 +11491,16 @@ class CookieMonster {
         forEach(cookies, ([key, cookie])=>{
             // These are the chunks
             if (typeof key !== "string") return;
+            const requestCookie = cookies[requestCookies]?.[key];
             // These cookies should not be sent back, since nothing have updated them and we don't want to mess with Max-Age etc..
-            if (cookie.fromRequest && cookie._originalValue === cookie.value) return;
-            responseCookies.push(...this._mapClientResponseCookies(key, cookie, cookies[sourceCookieChunks]?.[key] ?? -1));
+            if (requestCookie && requestCookie?.value === cookie.value) return;
+            responseCookies.push(...this._mapClientResponseCookies(key, cookie, requestCookie?.chunks));
         });
         return responseCookies;
     }
     parseCookieHeader(value) {
         const cookies = {
-            [sourceCookieChunks]: {}
+            [requestCookies]: {}
         };
         if (!value) return cookies;
         const sourceCookies = Object.fromEntries(value.split(";").map((part)=>part.trim()).flatMap((part)=>{
@@ -11507,13 +11523,16 @@ class CookieMonster {
                     break;
                 }
                 chunks.push(chunkValue);
-                cookies[sourceCookieChunks][key] = i;
             }
             const value = chunks.join("");
             cookies[key] = {
                 fromRequest: true,
                 value: value,
                 _originalValue: value
+            };
+            cookies[requestCookies][key] = {
+                ...cookies[key],
+                chunks: chunks.length
             };
         }
         return cookies;
@@ -11579,7 +11598,7 @@ class CookieMonster {
             overflow
         ];
     }
-    _mapClientResponseCookies(name, cookie, originalChunks) {
+    _mapClientResponseCookies(name, cookie, requestChunks = -1) {
         const responseCookies = [];
         for(let i = 0;; i++){
             const [headerString, overflow] = cookie.value ? this._getHeaderValue(name, cookie) : [
@@ -11594,7 +11613,7 @@ class CookieMonster {
                     value: ""
                 };
             }
-            if (i < originalChunks || cookie.value) {
+            if (i <= requestChunks || cookie.value) {
                 const chunkCookieName = getCookieChunkName(name, i);
                 responseCookies.push(this.mapResponseCookie(chunkCookieName, cookie));
             }
@@ -11602,7 +11621,7 @@ class CookieMonster {
                 ...cookie,
                 value: overflow
             };
-            if (!overflow && i >= originalChunks) {
+            if (!overflow && i >= requestChunks) {
                 break;
             }
         }
@@ -13380,19 +13399,45 @@ class VariableStorageCoordinator {
         const censored = [];
         const consent = this._getContextConsent(context);
         keys = keys.map((getter, index)=>{
+            if (!getter) return undefined;
             const error = this._applyScopeId(getter, context);
             if (error) {
                 censored.push([
                     index,
                     {
-                        ...getter,
+                        source: getter,
                         status: VariableResultStatus.Denied,
                         error
                     }
                 ]);
                 return undefined;
             }
-            if (getter?.init) {
+            if (getter.key === CONSENT_INFO_KEY) {
+                // TODO: Generalize and refactor so it is not hard-coded here.
+                censored.push([
+                    index,
+                    getter.scope !== VariableScope.Session || !consent ? {
+                        source: getter,
+                        status: VariableResultStatus.NotFound,
+                        error: `The reserved variable ${CONSENT_INFO_KEY} is only available in session scope, and only if requested from tracking context.`
+                    } : {
+                        source: getter,
+                        status: VariableResultStatus.Success,
+                        current: {
+                            key: CONSENT_INFO_KEY,
+                            scope: VariableScope.Session,
+                            classification: DataClassification.Anonymous,
+                            purposes: DataPurposeFlags.Necessary,
+                            value: {
+                                level: dataClassification.lookup(consent.level),
+                                purposes: dataPurposes.lookup(consent.purposes)
+                            }
+                        }
+                    }
+                ]);
+                return undefined;
+            }
+            if (getter.init) {
                 const mapping = this._getMapping(getter);
                 getter.init = wrap(getter.init, async (original)=>{
                     const result = await original();
@@ -13404,8 +13449,8 @@ class VariableStorageCoordinator {
         const results = await this._storage.get(keys, context);
         for (const [i, result] of censored){
             results[i] = {
-                ...extractKey(result.source),
-                value: undefined,
+                ...extractKey(result.source, result.current ?? result.source),
+                value: result.current?.value,
                 status: result.status,
                 error: result.error
             };
@@ -13429,6 +13474,17 @@ class VariableStorageCoordinator {
         // Censor the values (including patch actions) when the context has a tracker.
         variables.forEach((setter, i)=>{
             if (!setter) return;
+            if (setter.key === CONSENT_INFO_KEY) {
+                censored.push([
+                    i,
+                    {
+                        source: setter,
+                        status: VariableResultStatus.Denied,
+                        error: "Consent can not be set directly. Use ConsentEvents or the tracker's API."
+                    }
+                ]);
+                return undefined;
+            }
             const mapping = this._getMapping(setter);
             if (isVariablePatchAction(setter)) {
                 setter.patch = wrap(setter.patch, async (original, current)=>{
@@ -13960,870 +14016,856 @@ var code$1 = {};
 
 var scope = {};
 
-var hasRequiredScope;
+(function (exports) {
+	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
+	const code_1 = code$1;
+	class ValueError extends Error {
+	    constructor(name) {
+	        super(`CodeGen: "code" for ${name} not defined`);
+	        this.value = name.value;
+	    }
+	}
+	var UsedValueState;
+	(function (UsedValueState) {
+	    UsedValueState[UsedValueState["Started"] = 0] = "Started";
+	    UsedValueState[UsedValueState["Completed"] = 1] = "Completed";
+	})(UsedValueState = exports.UsedValueState || (exports.UsedValueState = {}));
+	exports.varKinds = {
+	    const: new code_1.Name("const"),
+	    let: new code_1.Name("let"),
+	    var: new code_1.Name("var"),
+	};
+	class Scope {
+	    constructor({ prefixes, parent } = {}) {
+	        this._names = {};
+	        this._prefixes = prefixes;
+	        this._parent = parent;
+	    }
+	    toName(nameOrPrefix) {
+	        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
+	    }
+	    name(prefix) {
+	        return new code_1.Name(this._newName(prefix));
+	    }
+	    _newName(prefix) {
+	        const ng = this._names[prefix] || this._nameGroup(prefix);
+	        return `${prefix}${ng.index++}`;
+	    }
+	    _nameGroup(prefix) {
+	        var _a, _b;
+	        if (((_b = (_a = this._parent) === null || _a === void 0 ? void 0 : _a._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || (this._prefixes && !this._prefixes.has(prefix))) {
+	            throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
+	        }
+	        return (this._names[prefix] = { prefix, index: 0 });
+	    }
+	}
+	exports.Scope = Scope;
+	class ValueScopeName extends code_1.Name {
+	    constructor(prefix, nameStr) {
+	        super(nameStr);
+	        this.prefix = prefix;
+	    }
+	    setValue(value, { property, itemIndex }) {
+	        this.value = value;
+	        this.scopePath = (0, code_1._) `.${new code_1.Name(property)}[${itemIndex}]`;
+	    }
+	}
+	exports.ValueScopeName = ValueScopeName;
+	const line = (0, code_1._) `\n`;
+	class ValueScope extends Scope {
+	    constructor(opts) {
+	        super(opts);
+	        this._values = {};
+	        this._scope = opts.scope;
+	        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
+	    }
+	    get() {
+	        return this._scope;
+	    }
+	    name(prefix) {
+	        return new ValueScopeName(prefix, this._newName(prefix));
+	    }
+	    value(nameOrPrefix, value) {
+	        var _a;
+	        if (value.ref === undefined)
+	            throw new Error("CodeGen: ref must be passed in value");
+	        const name = this.toName(nameOrPrefix);
+	        const { prefix } = name;
+	        const valueKey = (_a = value.key) !== null && _a !== void 0 ? _a : value.ref;
+	        let vs = this._values[prefix];
+	        if (vs) {
+	            const _name = vs.get(valueKey);
+	            if (_name)
+	                return _name;
+	        }
+	        else {
+	            vs = this._values[prefix] = new Map();
+	        }
+	        vs.set(valueKey, name);
+	        const s = this._scope[prefix] || (this._scope[prefix] = []);
+	        const itemIndex = s.length;
+	        s[itemIndex] = value.ref;
+	        name.setValue(value, { property: prefix, itemIndex });
+	        return name;
+	    }
+	    getValue(prefix, keyOrRef) {
+	        const vs = this._values[prefix];
+	        if (!vs)
+	            return;
+	        return vs.get(keyOrRef);
+	    }
+	    scopeRefs(scopeName, values = this._values) {
+	        return this._reduceValues(values, (name) => {
+	            if (name.scopePath === undefined)
+	                throw new Error(`CodeGen: name "${name}" has no value`);
+	            return (0, code_1._) `${scopeName}${name.scopePath}`;
+	        });
+	    }
+	    scopeCode(values = this._values, usedValues, getCode) {
+	        return this._reduceValues(values, (name) => {
+	            if (name.value === undefined)
+	                throw new Error(`CodeGen: name "${name}" has no value`);
+	            return name.value.code;
+	        }, usedValues, getCode);
+	    }
+	    _reduceValues(values, valueCode, usedValues = {}, getCode) {
+	        let code = code_1.nil;
+	        for (const prefix in values) {
+	            const vs = values[prefix];
+	            if (!vs)
+	                continue;
+	            const nameSet = (usedValues[prefix] = usedValues[prefix] || new Map());
+	            vs.forEach((name) => {
+	                if (nameSet.has(name))
+	                    return;
+	                nameSet.set(name, UsedValueState.Started);
+	                let c = valueCode(name);
+	                if (c) {
+	                    const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
+	                    code = (0, code_1._) `${code}${def} ${name} = ${c};${this.opts._n}`;
+	                }
+	                else if ((c = getCode === null || getCode === void 0 ? void 0 : getCode(name))) {
+	                    code = (0, code_1._) `${code}${c}${this.opts._n}`;
+	                }
+	                else {
+	                    throw new ValueError(name);
+	                }
+	                nameSet.set(name, UsedValueState.Completed);
+	            });
+	        }
+	        return code;
+	    }
+	}
+	exports.ValueScope = ValueScope;
+	
+} (scope));
 
-function requireScope () {
-	if (hasRequiredScope) return scope;
-	hasRequiredScope = 1;
-	(function (exports) {
-		Object.defineProperty(exports, "__esModule", { value: true });
-		exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
-		const code_1 = code$1;
-		class ValueError extends Error {
-		    constructor(name) {
-		        super(`CodeGen: "code" for ${name} not defined`);
-		        this.value = name.value;
-		    }
-		}
-		var UsedValueState;
-		(function (UsedValueState) {
-		    UsedValueState[UsedValueState["Started"] = 0] = "Started";
-		    UsedValueState[UsedValueState["Completed"] = 1] = "Completed";
-		})(UsedValueState = exports.UsedValueState || (exports.UsedValueState = {}));
-		exports.varKinds = {
-		    const: new code_1.Name("const"),
-		    let: new code_1.Name("let"),
-		    var: new code_1.Name("var"),
-		};
-		class Scope {
-		    constructor({ prefixes, parent } = {}) {
-		        this._names = {};
-		        this._prefixes = prefixes;
-		        this._parent = parent;
-		    }
-		    toName(nameOrPrefix) {
-		        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
-		    }
-		    name(prefix) {
-		        return new code_1.Name(this._newName(prefix));
-		    }
-		    _newName(prefix) {
-		        const ng = this._names[prefix] || this._nameGroup(prefix);
-		        return `${prefix}${ng.index++}`;
-		    }
-		    _nameGroup(prefix) {
-		        var _a, _b;
-		        if (((_b = (_a = this._parent) === null || _a === void 0 ? void 0 : _a._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || (this._prefixes && !this._prefixes.has(prefix))) {
-		            throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
-		        }
-		        return (this._names[prefix] = { prefix, index: 0 });
-		    }
-		}
-		exports.Scope = Scope;
-		class ValueScopeName extends code_1.Name {
-		    constructor(prefix, nameStr) {
-		        super(nameStr);
-		        this.prefix = prefix;
-		    }
-		    setValue(value, { property, itemIndex }) {
-		        this.value = value;
-		        this.scopePath = (0, code_1._) `.${new code_1.Name(property)}[${itemIndex}]`;
-		    }
-		}
-		exports.ValueScopeName = ValueScopeName;
-		const line = (0, code_1._) `\n`;
-		class ValueScope extends Scope {
-		    constructor(opts) {
-		        super(opts);
-		        this._values = {};
-		        this._scope = opts.scope;
-		        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
-		    }
-		    get() {
-		        return this._scope;
-		    }
-		    name(prefix) {
-		        return new ValueScopeName(prefix, this._newName(prefix));
-		    }
-		    value(nameOrPrefix, value) {
-		        var _a;
-		        if (value.ref === undefined)
-		            throw new Error("CodeGen: ref must be passed in value");
-		        const name = this.toName(nameOrPrefix);
-		        const { prefix } = name;
-		        const valueKey = (_a = value.key) !== null && _a !== void 0 ? _a : value.ref;
-		        let vs = this._values[prefix];
-		        if (vs) {
-		            const _name = vs.get(valueKey);
-		            if (_name)
-		                return _name;
-		        }
-		        else {
-		            vs = this._values[prefix] = new Map();
-		        }
-		        vs.set(valueKey, name);
-		        const s = this._scope[prefix] || (this._scope[prefix] = []);
-		        const itemIndex = s.length;
-		        s[itemIndex] = value.ref;
-		        name.setValue(value, { property: prefix, itemIndex });
-		        return name;
-		    }
-		    getValue(prefix, keyOrRef) {
-		        const vs = this._values[prefix];
-		        if (!vs)
-		            return;
-		        return vs.get(keyOrRef);
-		    }
-		    scopeRefs(scopeName, values = this._values) {
-		        return this._reduceValues(values, (name) => {
-		            if (name.scopePath === undefined)
-		                throw new Error(`CodeGen: name "${name}" has no value`);
-		            return (0, code_1._) `${scopeName}${name.scopePath}`;
-		        });
-		    }
-		    scopeCode(values = this._values, usedValues, getCode) {
-		        return this._reduceValues(values, (name) => {
-		            if (name.value === undefined)
-		                throw new Error(`CodeGen: name "${name}" has no value`);
-		            return name.value.code;
-		        }, usedValues, getCode);
-		    }
-		    _reduceValues(values, valueCode, usedValues = {}, getCode) {
-		        let code = code_1.nil;
-		        for (const prefix in values) {
-		            const vs = values[prefix];
-		            if (!vs)
-		                continue;
-		            const nameSet = (usedValues[prefix] = usedValues[prefix] || new Map());
-		            vs.forEach((name) => {
-		                if (nameSet.has(name))
-		                    return;
-		                nameSet.set(name, UsedValueState.Started);
-		                let c = valueCode(name);
-		                if (c) {
-		                    const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
-		                    code = (0, code_1._) `${code}${def} ${name} = ${c};${this.opts._n}`;
-		                }
-		                else if ((c = getCode === null || getCode === void 0 ? void 0 : getCode(name))) {
-		                    code = (0, code_1._) `${code}${c}${this.opts._n}`;
-		                }
-		                else {
-		                    throw new ValueError(name);
-		                }
-		                nameSet.set(name, UsedValueState.Completed);
-		            });
-		        }
-		        return code;
-		    }
-		}
-		exports.ValueScope = ValueScope;
-		
-	} (scope));
-	return scope;
-}
-
-var hasRequiredCodegen;
-
-function requireCodegen () {
-	if (hasRequiredCodegen) return codegen;
-	hasRequiredCodegen = 1;
-	(function (exports) {
-		Object.defineProperty(exports, "__esModule", { value: true });
-		exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
-		const code_1 = code$1;
-		const scope_1 = requireScope();
-		var code_2 = code$1;
-		Object.defineProperty(exports, "_", { enumerable: true, get: function () { return code_2._; } });
-		Object.defineProperty(exports, "str", { enumerable: true, get: function () { return code_2.str; } });
-		Object.defineProperty(exports, "strConcat", { enumerable: true, get: function () { return code_2.strConcat; } });
-		Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return code_2.nil; } });
-		Object.defineProperty(exports, "getProperty", { enumerable: true, get: function () { return code_2.getProperty; } });
-		Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return code_2.stringify; } });
-		Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function () { return code_2.regexpCode; } });
-		Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return code_2.Name; } });
-		var scope_2 = requireScope();
-		Object.defineProperty(exports, "Scope", { enumerable: true, get: function () { return scope_2.Scope; } });
-		Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function () { return scope_2.ValueScope; } });
-		Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function () { return scope_2.ValueScopeName; } });
-		Object.defineProperty(exports, "varKinds", { enumerable: true, get: function () { return scope_2.varKinds; } });
-		exports.operators = {
-		    GT: new code_1._Code(">"),
-		    GTE: new code_1._Code(">="),
-		    LT: new code_1._Code("<"),
-		    LTE: new code_1._Code("<="),
-		    EQ: new code_1._Code("==="),
-		    NEQ: new code_1._Code("!=="),
-		    NOT: new code_1._Code("!"),
-		    OR: new code_1._Code("||"),
-		    AND: new code_1._Code("&&"),
-		    ADD: new code_1._Code("+"),
-		};
-		class Node {
-		    optimizeNodes() {
-		        return this;
-		    }
-		    optimizeNames(_names, _constants) {
-		        return this;
-		    }
-		}
-		class Def extends Node {
-		    constructor(varKind, name, rhs) {
-		        super();
-		        this.varKind = varKind;
-		        this.name = name;
-		        this.rhs = rhs;
-		    }
-		    render({ es5, _n }) {
-		        const varKind = es5 ? scope_1.varKinds.var : this.varKind;
-		        const rhs = this.rhs === undefined ? "" : ` = ${this.rhs}`;
-		        return `${varKind} ${this.name}${rhs};` + _n;
-		    }
-		    optimizeNames(names, constants) {
-		        if (!names[this.name.str])
-		            return;
-		        if (this.rhs)
-		            this.rhs = optimizeExpr(this.rhs, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
-		    }
-		}
-		class Assign extends Node {
-		    constructor(lhs, rhs, sideEffects) {
-		        super();
-		        this.lhs = lhs;
-		        this.rhs = rhs;
-		        this.sideEffects = sideEffects;
-		    }
-		    render({ _n }) {
-		        return `${this.lhs} = ${this.rhs};` + _n;
-		    }
-		    optimizeNames(names, constants) {
-		        if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
-		            return;
-		        this.rhs = optimizeExpr(this.rhs, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        const names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
-		        return addExprNames(names, this.rhs);
-		    }
-		}
-		class AssignOp extends Assign {
-		    constructor(lhs, op, rhs, sideEffects) {
-		        super(lhs, rhs, sideEffects);
-		        this.op = op;
-		    }
-		    render({ _n }) {
-		        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
-		    }
-		}
-		class Label extends Node {
-		    constructor(label) {
-		        super();
-		        this.label = label;
-		        this.names = {};
-		    }
-		    render({ _n }) {
-		        return `${this.label}:` + _n;
-		    }
-		}
-		class Break extends Node {
-		    constructor(label) {
-		        super();
-		        this.label = label;
-		        this.names = {};
-		    }
-		    render({ _n }) {
-		        const label = this.label ? ` ${this.label}` : "";
-		        return `break${label};` + _n;
-		    }
-		}
-		class Throw extends Node {
-		    constructor(error) {
-		        super();
-		        this.error = error;
-		    }
-		    render({ _n }) {
-		        return `throw ${this.error};` + _n;
-		    }
-		    get names() {
-		        return this.error.names;
-		    }
-		}
-		class AnyCode extends Node {
-		    constructor(code) {
-		        super();
-		        this.code = code;
-		    }
-		    render({ _n }) {
-		        return `${this.code};` + _n;
-		    }
-		    optimizeNodes() {
-		        return `${this.code}` ? this : undefined;
-		    }
-		    optimizeNames(names, constants) {
-		        this.code = optimizeExpr(this.code, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
-		    }
-		}
-		class ParentNode extends Node {
-		    constructor(nodes = []) {
-		        super();
-		        this.nodes = nodes;
-		    }
-		    render(opts) {
-		        return this.nodes.reduce((code, n) => code + n.render(opts), "");
-		    }
-		    optimizeNodes() {
-		        const { nodes } = this;
-		        let i = nodes.length;
-		        while (i--) {
-		            const n = nodes[i].optimizeNodes();
-		            if (Array.isArray(n))
-		                nodes.splice(i, 1, ...n);
-		            else if (n)
-		                nodes[i] = n;
-		            else
-		                nodes.splice(i, 1);
-		        }
-		        return nodes.length > 0 ? this : undefined;
-		    }
-		    optimizeNames(names, constants) {
-		        const { nodes } = this;
-		        let i = nodes.length;
-		        while (i--) {
-		            // iterating backwards improves 1-pass optimization
-		            const n = nodes[i];
-		            if (n.optimizeNames(names, constants))
-		                continue;
-		            subtractNames(names, n.names);
-		            nodes.splice(i, 1);
-		        }
-		        return nodes.length > 0 ? this : undefined;
-		    }
-		    get names() {
-		        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
-		    }
-		}
-		class BlockNode extends ParentNode {
-		    render(opts) {
-		        return "{" + opts._n + super.render(opts) + "}" + opts._n;
-		    }
-		}
-		class Root extends ParentNode {
-		}
-		class Else extends BlockNode {
-		}
-		Else.kind = "else";
-		class If extends BlockNode {
-		    constructor(condition, nodes) {
-		        super(nodes);
-		        this.condition = condition;
-		    }
-		    render(opts) {
-		        let code = `if(${this.condition})` + super.render(opts);
-		        if (this.else)
-		            code += "else " + this.else.render(opts);
-		        return code;
-		    }
-		    optimizeNodes() {
-		        super.optimizeNodes();
-		        const cond = this.condition;
-		        if (cond === true)
-		            return this.nodes; // else is ignored here
-		        let e = this.else;
-		        if (e) {
-		            const ns = e.optimizeNodes();
-		            e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
-		        }
-		        if (e) {
-		            if (cond === false)
-		                return e instanceof If ? e : e.nodes;
-		            if (this.nodes.length)
-		                return this;
-		            return new If(not(cond), e instanceof If ? [e] : e.nodes);
-		        }
-		        if (cond === false || !this.nodes.length)
-		            return undefined;
-		        return this;
-		    }
-		    optimizeNames(names, constants) {
-		        var _a;
-		        this.else = (_a = this.else) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
-		        if (!(super.optimizeNames(names, constants) || this.else))
-		            return;
-		        this.condition = optimizeExpr(this.condition, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        const names = super.names;
-		        addExprNames(names, this.condition);
-		        if (this.else)
-		            addNames(names, this.else.names);
-		        return names;
-		    }
-		}
-		If.kind = "if";
-		class For extends BlockNode {
-		}
-		For.kind = "for";
-		class ForLoop extends For {
-		    constructor(iteration) {
-		        super();
-		        this.iteration = iteration;
-		    }
-		    render(opts) {
-		        return `for(${this.iteration})` + super.render(opts);
-		    }
-		    optimizeNames(names, constants) {
-		        if (!super.optimizeNames(names, constants))
-		            return;
-		        this.iteration = optimizeExpr(this.iteration, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        return addNames(super.names, this.iteration.names);
-		    }
-		}
-		class ForRange extends For {
-		    constructor(varKind, name, from, to) {
-		        super();
-		        this.varKind = varKind;
-		        this.name = name;
-		        this.from = from;
-		        this.to = to;
-		    }
-		    render(opts) {
-		        const varKind = opts.es5 ? scope_1.varKinds.var : this.varKind;
-		        const { name, from, to } = this;
-		        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
-		    }
-		    get names() {
-		        const names = addExprNames(super.names, this.from);
-		        return addExprNames(names, this.to);
-		    }
-		}
-		class ForIter extends For {
-		    constructor(loop, varKind, name, iterable) {
-		        super();
-		        this.loop = loop;
-		        this.varKind = varKind;
-		        this.name = name;
-		        this.iterable = iterable;
-		    }
-		    render(opts) {
-		        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
-		    }
-		    optimizeNames(names, constants) {
-		        if (!super.optimizeNames(names, constants))
-		            return;
-		        this.iterable = optimizeExpr(this.iterable, names, constants);
-		        return this;
-		    }
-		    get names() {
-		        return addNames(super.names, this.iterable.names);
-		    }
-		}
-		class Func extends BlockNode {
-		    constructor(name, args, async) {
-		        super();
-		        this.name = name;
-		        this.args = args;
-		        this.async = async;
-		    }
-		    render(opts) {
-		        const _async = this.async ? "async " : "";
-		        return `${_async}function ${this.name}(${this.args})` + super.render(opts);
-		    }
-		}
-		Func.kind = "func";
-		class Return extends ParentNode {
-		    render(opts) {
-		        return "return " + super.render(opts);
-		    }
-		}
-		Return.kind = "return";
-		class Try extends BlockNode {
-		    render(opts) {
-		        let code = "try" + super.render(opts);
-		        if (this.catch)
-		            code += this.catch.render(opts);
-		        if (this.finally)
-		            code += this.finally.render(opts);
-		        return code;
-		    }
-		    optimizeNodes() {
-		        var _a, _b;
-		        super.optimizeNodes();
-		        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNodes();
-		        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
-		        return this;
-		    }
-		    optimizeNames(names, constants) {
-		        var _a, _b;
-		        super.optimizeNames(names, constants);
-		        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
-		        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
-		        return this;
-		    }
-		    get names() {
-		        const names = super.names;
-		        if (this.catch)
-		            addNames(names, this.catch.names);
-		        if (this.finally)
-		            addNames(names, this.finally.names);
-		        return names;
-		    }
-		}
-		class Catch extends BlockNode {
-		    constructor(error) {
-		        super();
-		        this.error = error;
-		    }
-		    render(opts) {
-		        return `catch(${this.error})` + super.render(opts);
-		    }
-		}
-		Catch.kind = "catch";
-		class Finally extends BlockNode {
-		    render(opts) {
-		        return "finally" + super.render(opts);
-		    }
-		}
-		Finally.kind = "finally";
-		class CodeGen {
-		    constructor(extScope, opts = {}) {
-		        this._values = {};
-		        this._blockStarts = [];
-		        this._constants = {};
-		        this.opts = { ...opts, _n: opts.lines ? "\n" : "" };
-		        this._extScope = extScope;
-		        this._scope = new scope_1.Scope({ parent: extScope });
-		        this._nodes = [new Root()];
-		    }
-		    toString() {
-		        return this._root.render(this.opts);
-		    }
-		    // returns unique name in the internal scope
-		    name(prefix) {
-		        return this._scope.name(prefix);
-		    }
-		    // reserves unique name in the external scope
-		    scopeName(prefix) {
-		        return this._extScope.name(prefix);
-		    }
-		    // reserves unique name in the external scope and assigns value to it
-		    scopeValue(prefixOrName, value) {
-		        const name = this._extScope.value(prefixOrName, value);
-		        const vs = this._values[name.prefix] || (this._values[name.prefix] = new Set());
-		        vs.add(name);
-		        return name;
-		    }
-		    getScopeValue(prefix, keyOrRef) {
-		        return this._extScope.getValue(prefix, keyOrRef);
-		    }
-		    // return code that assigns values in the external scope to the names that are used internally
-		    // (same names that were returned by gen.scopeName or gen.scopeValue)
-		    scopeRefs(scopeName) {
-		        return this._extScope.scopeRefs(scopeName, this._values);
-		    }
-		    scopeCode() {
-		        return this._extScope.scopeCode(this._values);
-		    }
-		    _def(varKind, nameOrPrefix, rhs, constant) {
-		        const name = this._scope.toName(nameOrPrefix);
-		        if (rhs !== undefined && constant)
-		            this._constants[name.str] = rhs;
-		        this._leafNode(new Def(varKind, name, rhs));
-		        return name;
-		    }
-		    // `const` declaration (`var` in es5 mode)
-		    const(nameOrPrefix, rhs, _constant) {
-		        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
-		    }
-		    // `let` declaration with optional assignment (`var` in es5 mode)
-		    let(nameOrPrefix, rhs, _constant) {
-		        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
-		    }
-		    // `var` declaration with optional assignment
-		    var(nameOrPrefix, rhs, _constant) {
-		        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
-		    }
-		    // assignment code
-		    assign(lhs, rhs, sideEffects) {
-		        return this._leafNode(new Assign(lhs, rhs, sideEffects));
-		    }
-		    // `+=` code
-		    add(lhs, rhs) {
-		        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
-		    }
-		    // appends passed SafeExpr to code or executes Block
-		    code(c) {
-		        if (typeof c == "function")
-		            c();
-		        else if (c !== code_1.nil)
-		            this._leafNode(new AnyCode(c));
-		        return this;
-		    }
-		    // returns code for object literal for the passed argument list of key-value pairs
-		    object(...keyValues) {
-		        const code = ["{"];
-		        for (const [key, value] of keyValues) {
-		            if (code.length > 1)
-		                code.push(",");
-		            code.push(key);
-		            if (key !== value || this.opts.es5) {
-		                code.push(":");
-		                (0, code_1.addCodeArg)(code, value);
-		            }
-		        }
-		        code.push("}");
-		        return new code_1._Code(code);
-		    }
-		    // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
-		    if(condition, thenBody, elseBody) {
-		        this._blockNode(new If(condition));
-		        if (thenBody && elseBody) {
-		            this.code(thenBody).else().code(elseBody).endIf();
-		        }
-		        else if (thenBody) {
-		            this.code(thenBody).endIf();
-		        }
-		        else if (elseBody) {
-		            throw new Error('CodeGen: "else" body without "then" body');
-		        }
-		        return this;
-		    }
-		    // `else if` clause - invalid without `if` or after `else` clauses
-		    elseIf(condition) {
-		        return this._elseNode(new If(condition));
-		    }
-		    // `else` clause - only valid after `if` or `else if` clauses
-		    else() {
-		        return this._elseNode(new Else());
-		    }
-		    // end `if` statement (needed if gen.if was used only with condition)
-		    endIf() {
-		        return this._endBlockNode(If, Else);
-		    }
-		    _for(node, forBody) {
-		        this._blockNode(node);
-		        if (forBody)
-		            this.code(forBody).endFor();
-		        return this;
-		    }
-		    // a generic `for` clause (or statement if `forBody` is passed)
-		    for(iteration, forBody) {
-		        return this._for(new ForLoop(iteration), forBody);
-		    }
-		    // `for` statement for a range of values
-		    forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
-		        const name = this._scope.toName(nameOrPrefix);
-		        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
-		    }
-		    // `for-of` statement (in es5 mode replace with a normal for loop)
-		    forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
-		        const name = this._scope.toName(nameOrPrefix);
-		        if (this.opts.es5) {
-		            const arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
-		            return this.forRange("_i", 0, (0, code_1._) `${arr}.length`, (i) => {
-		                this.var(name, (0, code_1._) `${arr}[${i}]`);
-		                forBody(name);
-		            });
-		        }
-		        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
-		    }
-		    // `for-in` statement.
-		    // With option `ownProperties` replaced with a `for-of` loop for object keys
-		    forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
-		        if (this.opts.ownProperties) {
-		            return this.forOf(nameOrPrefix, (0, code_1._) `Object.keys(${obj})`, forBody);
-		        }
-		        const name = this._scope.toName(nameOrPrefix);
-		        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
-		    }
-		    // end `for` loop
-		    endFor() {
-		        return this._endBlockNode(For);
-		    }
-		    // `label` statement
-		    label(label) {
-		        return this._leafNode(new Label(label));
-		    }
-		    // `break` statement
-		    break(label) {
-		        return this._leafNode(new Break(label));
-		    }
-		    // `return` statement
-		    return(value) {
-		        const node = new Return();
-		        this._blockNode(node);
-		        this.code(value);
-		        if (node.nodes.length !== 1)
-		            throw new Error('CodeGen: "return" should have one node');
-		        return this._endBlockNode(Return);
-		    }
-		    // `try` statement
-		    try(tryBody, catchCode, finallyCode) {
-		        if (!catchCode && !finallyCode)
-		            throw new Error('CodeGen: "try" without "catch" and "finally"');
-		        const node = new Try();
-		        this._blockNode(node);
-		        this.code(tryBody);
-		        if (catchCode) {
-		            const error = this.name("e");
-		            this._currNode = node.catch = new Catch(error);
-		            catchCode(error);
-		        }
-		        if (finallyCode) {
-		            this._currNode = node.finally = new Finally();
-		            this.code(finallyCode);
-		        }
-		        return this._endBlockNode(Catch, Finally);
-		    }
-		    // `throw` statement
-		    throw(error) {
-		        return this._leafNode(new Throw(error));
-		    }
-		    // start self-balancing block
-		    block(body, nodeCount) {
-		        this._blockStarts.push(this._nodes.length);
-		        if (body)
-		            this.code(body).endBlock(nodeCount);
-		        return this;
-		    }
-		    // end the current self-balancing block
-		    endBlock(nodeCount) {
-		        const len = this._blockStarts.pop();
-		        if (len === undefined)
-		            throw new Error("CodeGen: not in self-balancing block");
-		        const toClose = this._nodes.length - len;
-		        if (toClose < 0 || (nodeCount !== undefined && toClose !== nodeCount)) {
-		            throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
-		        }
-		        this._nodes.length = len;
-		        return this;
-		    }
-		    // `function` heading (or definition if funcBody is passed)
-		    func(name, args = code_1.nil, async, funcBody) {
-		        this._blockNode(new Func(name, args, async));
-		        if (funcBody)
-		            this.code(funcBody).endFunc();
-		        return this;
-		    }
-		    // end function definition
-		    endFunc() {
-		        return this._endBlockNode(Func);
-		    }
-		    optimize(n = 1) {
-		        while (n-- > 0) {
-		            this._root.optimizeNodes();
-		            this._root.optimizeNames(this._root.names, this._constants);
-		        }
-		    }
-		    _leafNode(node) {
-		        this._currNode.nodes.push(node);
-		        return this;
-		    }
-		    _blockNode(node) {
-		        this._currNode.nodes.push(node);
-		        this._nodes.push(node);
-		    }
-		    _endBlockNode(N1, N2) {
-		        const n = this._currNode;
-		        if (n instanceof N1 || (N2 && n instanceof N2)) {
-		            this._nodes.pop();
-		            return this;
-		        }
-		        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
-		    }
-		    _elseNode(node) {
-		        const n = this._currNode;
-		        if (!(n instanceof If)) {
-		            throw new Error('CodeGen: "else" without "if"');
-		        }
-		        this._currNode = n.else = node;
-		        return this;
-		    }
-		    get _root() {
-		        return this._nodes[0];
-		    }
-		    get _currNode() {
-		        const ns = this._nodes;
-		        return ns[ns.length - 1];
-		    }
-		    set _currNode(node) {
-		        const ns = this._nodes;
-		        ns[ns.length - 1] = node;
-		    }
-		}
-		exports.CodeGen = CodeGen;
-		function addNames(names, from) {
-		    for (const n in from)
-		        names[n] = (names[n] || 0) + (from[n] || 0);
-		    return names;
-		}
-		function addExprNames(names, from) {
-		    return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
-		}
-		function optimizeExpr(expr, names, constants) {
-		    if (expr instanceof code_1.Name)
-		        return replaceName(expr);
-		    if (!canOptimize(expr))
-		        return expr;
-		    return new code_1._Code(expr._items.reduce((items, c) => {
-		        if (c instanceof code_1.Name)
-		            c = replaceName(c);
-		        if (c instanceof code_1._Code)
-		            items.push(...c._items);
-		        else
-		            items.push(c);
-		        return items;
-		    }, []));
-		    function replaceName(n) {
-		        const c = constants[n.str];
-		        if (c === undefined || names[n.str] !== 1)
-		            return n;
-		        delete names[n.str];
-		        return c;
-		    }
-		    function canOptimize(e) {
-		        return (e instanceof code_1._Code &&
-		            e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== undefined));
-		    }
-		}
-		function subtractNames(names, from) {
-		    for (const n in from)
-		        names[n] = (names[n] || 0) - (from[n] || 0);
-		}
-		function not(x) {
-		    return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._) `!${par(x)}`;
-		}
-		exports.not = not;
-		const andCode = mappend(exports.operators.AND);
-		// boolean AND (&&) expression with the passed arguments
-		function and(...args) {
-		    return args.reduce(andCode);
-		}
-		exports.and = and;
-		const orCode = mappend(exports.operators.OR);
-		// boolean OR (||) expression with the passed arguments
-		function or(...args) {
-		    return args.reduce(orCode);
-		}
-		exports.or = or;
-		function mappend(op) {
-		    return (x, y) => (x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._) `${par(x)} ${op} ${par(y)}`);
-		}
-		function par(x) {
-		    return x instanceof code_1.Name ? x : (0, code_1._) `(${x})`;
-		}
-		
-	} (codegen));
-	return codegen;
-}
+(function (exports) {
+	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
+	const code_1 = code$1;
+	const scope_1 = scope;
+	var code_2 = code$1;
+	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return code_2._; } });
+	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return code_2.str; } });
+	Object.defineProperty(exports, "strConcat", { enumerable: true, get: function () { return code_2.strConcat; } });
+	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return code_2.nil; } });
+	Object.defineProperty(exports, "getProperty", { enumerable: true, get: function () { return code_2.getProperty; } });
+	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return code_2.stringify; } });
+	Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function () { return code_2.regexpCode; } });
+	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return code_2.Name; } });
+	var scope_2 = scope;
+	Object.defineProperty(exports, "Scope", { enumerable: true, get: function () { return scope_2.Scope; } });
+	Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function () { return scope_2.ValueScope; } });
+	Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function () { return scope_2.ValueScopeName; } });
+	Object.defineProperty(exports, "varKinds", { enumerable: true, get: function () { return scope_2.varKinds; } });
+	exports.operators = {
+	    GT: new code_1._Code(">"),
+	    GTE: new code_1._Code(">="),
+	    LT: new code_1._Code("<"),
+	    LTE: new code_1._Code("<="),
+	    EQ: new code_1._Code("==="),
+	    NEQ: new code_1._Code("!=="),
+	    NOT: new code_1._Code("!"),
+	    OR: new code_1._Code("||"),
+	    AND: new code_1._Code("&&"),
+	    ADD: new code_1._Code("+"),
+	};
+	class Node {
+	    optimizeNodes() {
+	        return this;
+	    }
+	    optimizeNames(_names, _constants) {
+	        return this;
+	    }
+	}
+	class Def extends Node {
+	    constructor(varKind, name, rhs) {
+	        super();
+	        this.varKind = varKind;
+	        this.name = name;
+	        this.rhs = rhs;
+	    }
+	    render({ es5, _n }) {
+	        const varKind = es5 ? scope_1.varKinds.var : this.varKind;
+	        const rhs = this.rhs === undefined ? "" : ` = ${this.rhs}`;
+	        return `${varKind} ${this.name}${rhs};` + _n;
+	    }
+	    optimizeNames(names, constants) {
+	        if (!names[this.name.str])
+	            return;
+	        if (this.rhs)
+	            this.rhs = optimizeExpr(this.rhs, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
+	    }
+	}
+	class Assign extends Node {
+	    constructor(lhs, rhs, sideEffects) {
+	        super();
+	        this.lhs = lhs;
+	        this.rhs = rhs;
+	        this.sideEffects = sideEffects;
+	    }
+	    render({ _n }) {
+	        return `${this.lhs} = ${this.rhs};` + _n;
+	    }
+	    optimizeNames(names, constants) {
+	        if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
+	            return;
+	        this.rhs = optimizeExpr(this.rhs, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        const names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
+	        return addExprNames(names, this.rhs);
+	    }
+	}
+	class AssignOp extends Assign {
+	    constructor(lhs, op, rhs, sideEffects) {
+	        super(lhs, rhs, sideEffects);
+	        this.op = op;
+	    }
+	    render({ _n }) {
+	        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
+	    }
+	}
+	class Label extends Node {
+	    constructor(label) {
+	        super();
+	        this.label = label;
+	        this.names = {};
+	    }
+	    render({ _n }) {
+	        return `${this.label}:` + _n;
+	    }
+	}
+	class Break extends Node {
+	    constructor(label) {
+	        super();
+	        this.label = label;
+	        this.names = {};
+	    }
+	    render({ _n }) {
+	        const label = this.label ? ` ${this.label}` : "";
+	        return `break${label};` + _n;
+	    }
+	}
+	class Throw extends Node {
+	    constructor(error) {
+	        super();
+	        this.error = error;
+	    }
+	    render({ _n }) {
+	        return `throw ${this.error};` + _n;
+	    }
+	    get names() {
+	        return this.error.names;
+	    }
+	}
+	class AnyCode extends Node {
+	    constructor(code) {
+	        super();
+	        this.code = code;
+	    }
+	    render({ _n }) {
+	        return `${this.code};` + _n;
+	    }
+	    optimizeNodes() {
+	        return `${this.code}` ? this : undefined;
+	    }
+	    optimizeNames(names, constants) {
+	        this.code = optimizeExpr(this.code, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
+	    }
+	}
+	class ParentNode extends Node {
+	    constructor(nodes = []) {
+	        super();
+	        this.nodes = nodes;
+	    }
+	    render(opts) {
+	        return this.nodes.reduce((code, n) => code + n.render(opts), "");
+	    }
+	    optimizeNodes() {
+	        const { nodes } = this;
+	        let i = nodes.length;
+	        while (i--) {
+	            const n = nodes[i].optimizeNodes();
+	            if (Array.isArray(n))
+	                nodes.splice(i, 1, ...n);
+	            else if (n)
+	                nodes[i] = n;
+	            else
+	                nodes.splice(i, 1);
+	        }
+	        return nodes.length > 0 ? this : undefined;
+	    }
+	    optimizeNames(names, constants) {
+	        const { nodes } = this;
+	        let i = nodes.length;
+	        while (i--) {
+	            // iterating backwards improves 1-pass optimization
+	            const n = nodes[i];
+	            if (n.optimizeNames(names, constants))
+	                continue;
+	            subtractNames(names, n.names);
+	            nodes.splice(i, 1);
+	        }
+	        return nodes.length > 0 ? this : undefined;
+	    }
+	    get names() {
+	        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
+	    }
+	}
+	class BlockNode extends ParentNode {
+	    render(opts) {
+	        return "{" + opts._n + super.render(opts) + "}" + opts._n;
+	    }
+	}
+	class Root extends ParentNode {
+	}
+	class Else extends BlockNode {
+	}
+	Else.kind = "else";
+	class If extends BlockNode {
+	    constructor(condition, nodes) {
+	        super(nodes);
+	        this.condition = condition;
+	    }
+	    render(opts) {
+	        let code = `if(${this.condition})` + super.render(opts);
+	        if (this.else)
+	            code += "else " + this.else.render(opts);
+	        return code;
+	    }
+	    optimizeNodes() {
+	        super.optimizeNodes();
+	        const cond = this.condition;
+	        if (cond === true)
+	            return this.nodes; // else is ignored here
+	        let e = this.else;
+	        if (e) {
+	            const ns = e.optimizeNodes();
+	            e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
+	        }
+	        if (e) {
+	            if (cond === false)
+	                return e instanceof If ? e : e.nodes;
+	            if (this.nodes.length)
+	                return this;
+	            return new If(not(cond), e instanceof If ? [e] : e.nodes);
+	        }
+	        if (cond === false || !this.nodes.length)
+	            return undefined;
+	        return this;
+	    }
+	    optimizeNames(names, constants) {
+	        var _a;
+	        this.else = (_a = this.else) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+	        if (!(super.optimizeNames(names, constants) || this.else))
+	            return;
+	        this.condition = optimizeExpr(this.condition, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        const names = super.names;
+	        addExprNames(names, this.condition);
+	        if (this.else)
+	            addNames(names, this.else.names);
+	        return names;
+	    }
+	}
+	If.kind = "if";
+	class For extends BlockNode {
+	}
+	For.kind = "for";
+	class ForLoop extends For {
+	    constructor(iteration) {
+	        super();
+	        this.iteration = iteration;
+	    }
+	    render(opts) {
+	        return `for(${this.iteration})` + super.render(opts);
+	    }
+	    optimizeNames(names, constants) {
+	        if (!super.optimizeNames(names, constants))
+	            return;
+	        this.iteration = optimizeExpr(this.iteration, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        return addNames(super.names, this.iteration.names);
+	    }
+	}
+	class ForRange extends For {
+	    constructor(varKind, name, from, to) {
+	        super();
+	        this.varKind = varKind;
+	        this.name = name;
+	        this.from = from;
+	        this.to = to;
+	    }
+	    render(opts) {
+	        const varKind = opts.es5 ? scope_1.varKinds.var : this.varKind;
+	        const { name, from, to } = this;
+	        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
+	    }
+	    get names() {
+	        const names = addExprNames(super.names, this.from);
+	        return addExprNames(names, this.to);
+	    }
+	}
+	class ForIter extends For {
+	    constructor(loop, varKind, name, iterable) {
+	        super();
+	        this.loop = loop;
+	        this.varKind = varKind;
+	        this.name = name;
+	        this.iterable = iterable;
+	    }
+	    render(opts) {
+	        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
+	    }
+	    optimizeNames(names, constants) {
+	        if (!super.optimizeNames(names, constants))
+	            return;
+	        this.iterable = optimizeExpr(this.iterable, names, constants);
+	        return this;
+	    }
+	    get names() {
+	        return addNames(super.names, this.iterable.names);
+	    }
+	}
+	class Func extends BlockNode {
+	    constructor(name, args, async) {
+	        super();
+	        this.name = name;
+	        this.args = args;
+	        this.async = async;
+	    }
+	    render(opts) {
+	        const _async = this.async ? "async " : "";
+	        return `${_async}function ${this.name}(${this.args})` + super.render(opts);
+	    }
+	}
+	Func.kind = "func";
+	class Return extends ParentNode {
+	    render(opts) {
+	        return "return " + super.render(opts);
+	    }
+	}
+	Return.kind = "return";
+	class Try extends BlockNode {
+	    render(opts) {
+	        let code = "try" + super.render(opts);
+	        if (this.catch)
+	            code += this.catch.render(opts);
+	        if (this.finally)
+	            code += this.finally.render(opts);
+	        return code;
+	    }
+	    optimizeNodes() {
+	        var _a, _b;
+	        super.optimizeNodes();
+	        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNodes();
+	        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
+	        return this;
+	    }
+	    optimizeNames(names, constants) {
+	        var _a, _b;
+	        super.optimizeNames(names, constants);
+	        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+	        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
+	        return this;
+	    }
+	    get names() {
+	        const names = super.names;
+	        if (this.catch)
+	            addNames(names, this.catch.names);
+	        if (this.finally)
+	            addNames(names, this.finally.names);
+	        return names;
+	    }
+	}
+	class Catch extends BlockNode {
+	    constructor(error) {
+	        super();
+	        this.error = error;
+	    }
+	    render(opts) {
+	        return `catch(${this.error})` + super.render(opts);
+	    }
+	}
+	Catch.kind = "catch";
+	class Finally extends BlockNode {
+	    render(opts) {
+	        return "finally" + super.render(opts);
+	    }
+	}
+	Finally.kind = "finally";
+	class CodeGen {
+	    constructor(extScope, opts = {}) {
+	        this._values = {};
+	        this._blockStarts = [];
+	        this._constants = {};
+	        this.opts = { ...opts, _n: opts.lines ? "\n" : "" };
+	        this._extScope = extScope;
+	        this._scope = new scope_1.Scope({ parent: extScope });
+	        this._nodes = [new Root()];
+	    }
+	    toString() {
+	        return this._root.render(this.opts);
+	    }
+	    // returns unique name in the internal scope
+	    name(prefix) {
+	        return this._scope.name(prefix);
+	    }
+	    // reserves unique name in the external scope
+	    scopeName(prefix) {
+	        return this._extScope.name(prefix);
+	    }
+	    // reserves unique name in the external scope and assigns value to it
+	    scopeValue(prefixOrName, value) {
+	        const name = this._extScope.value(prefixOrName, value);
+	        const vs = this._values[name.prefix] || (this._values[name.prefix] = new Set());
+	        vs.add(name);
+	        return name;
+	    }
+	    getScopeValue(prefix, keyOrRef) {
+	        return this._extScope.getValue(prefix, keyOrRef);
+	    }
+	    // return code that assigns values in the external scope to the names that are used internally
+	    // (same names that were returned by gen.scopeName or gen.scopeValue)
+	    scopeRefs(scopeName) {
+	        return this._extScope.scopeRefs(scopeName, this._values);
+	    }
+	    scopeCode() {
+	        return this._extScope.scopeCode(this._values);
+	    }
+	    _def(varKind, nameOrPrefix, rhs, constant) {
+	        const name = this._scope.toName(nameOrPrefix);
+	        if (rhs !== undefined && constant)
+	            this._constants[name.str] = rhs;
+	        this._leafNode(new Def(varKind, name, rhs));
+	        return name;
+	    }
+	    // `const` declaration (`var` in es5 mode)
+	    const(nameOrPrefix, rhs, _constant) {
+	        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
+	    }
+	    // `let` declaration with optional assignment (`var` in es5 mode)
+	    let(nameOrPrefix, rhs, _constant) {
+	        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
+	    }
+	    // `var` declaration with optional assignment
+	    var(nameOrPrefix, rhs, _constant) {
+	        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
+	    }
+	    // assignment code
+	    assign(lhs, rhs, sideEffects) {
+	        return this._leafNode(new Assign(lhs, rhs, sideEffects));
+	    }
+	    // `+=` code
+	    add(lhs, rhs) {
+	        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
+	    }
+	    // appends passed SafeExpr to code or executes Block
+	    code(c) {
+	        if (typeof c == "function")
+	            c();
+	        else if (c !== code_1.nil)
+	            this._leafNode(new AnyCode(c));
+	        return this;
+	    }
+	    // returns code for object literal for the passed argument list of key-value pairs
+	    object(...keyValues) {
+	        const code = ["{"];
+	        for (const [key, value] of keyValues) {
+	            if (code.length > 1)
+	                code.push(",");
+	            code.push(key);
+	            if (key !== value || this.opts.es5) {
+	                code.push(":");
+	                (0, code_1.addCodeArg)(code, value);
+	            }
+	        }
+	        code.push("}");
+	        return new code_1._Code(code);
+	    }
+	    // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
+	    if(condition, thenBody, elseBody) {
+	        this._blockNode(new If(condition));
+	        if (thenBody && elseBody) {
+	            this.code(thenBody).else().code(elseBody).endIf();
+	        }
+	        else if (thenBody) {
+	            this.code(thenBody).endIf();
+	        }
+	        else if (elseBody) {
+	            throw new Error('CodeGen: "else" body without "then" body');
+	        }
+	        return this;
+	    }
+	    // `else if` clause - invalid without `if` or after `else` clauses
+	    elseIf(condition) {
+	        return this._elseNode(new If(condition));
+	    }
+	    // `else` clause - only valid after `if` or `else if` clauses
+	    else() {
+	        return this._elseNode(new Else());
+	    }
+	    // end `if` statement (needed if gen.if was used only with condition)
+	    endIf() {
+	        return this._endBlockNode(If, Else);
+	    }
+	    _for(node, forBody) {
+	        this._blockNode(node);
+	        if (forBody)
+	            this.code(forBody).endFor();
+	        return this;
+	    }
+	    // a generic `for` clause (or statement if `forBody` is passed)
+	    for(iteration, forBody) {
+	        return this._for(new ForLoop(iteration), forBody);
+	    }
+	    // `for` statement for a range of values
+	    forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
+	        const name = this._scope.toName(nameOrPrefix);
+	        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
+	    }
+	    // `for-of` statement (in es5 mode replace with a normal for loop)
+	    forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
+	        const name = this._scope.toName(nameOrPrefix);
+	        if (this.opts.es5) {
+	            const arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
+	            return this.forRange("_i", 0, (0, code_1._) `${arr}.length`, (i) => {
+	                this.var(name, (0, code_1._) `${arr}[${i}]`);
+	                forBody(name);
+	            });
+	        }
+	        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
+	    }
+	    // `for-in` statement.
+	    // With option `ownProperties` replaced with a `for-of` loop for object keys
+	    forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
+	        if (this.opts.ownProperties) {
+	            return this.forOf(nameOrPrefix, (0, code_1._) `Object.keys(${obj})`, forBody);
+	        }
+	        const name = this._scope.toName(nameOrPrefix);
+	        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
+	    }
+	    // end `for` loop
+	    endFor() {
+	        return this._endBlockNode(For);
+	    }
+	    // `label` statement
+	    label(label) {
+	        return this._leafNode(new Label(label));
+	    }
+	    // `break` statement
+	    break(label) {
+	        return this._leafNode(new Break(label));
+	    }
+	    // `return` statement
+	    return(value) {
+	        const node = new Return();
+	        this._blockNode(node);
+	        this.code(value);
+	        if (node.nodes.length !== 1)
+	            throw new Error('CodeGen: "return" should have one node');
+	        return this._endBlockNode(Return);
+	    }
+	    // `try` statement
+	    try(tryBody, catchCode, finallyCode) {
+	        if (!catchCode && !finallyCode)
+	            throw new Error('CodeGen: "try" without "catch" and "finally"');
+	        const node = new Try();
+	        this._blockNode(node);
+	        this.code(tryBody);
+	        if (catchCode) {
+	            const error = this.name("e");
+	            this._currNode = node.catch = new Catch(error);
+	            catchCode(error);
+	        }
+	        if (finallyCode) {
+	            this._currNode = node.finally = new Finally();
+	            this.code(finallyCode);
+	        }
+	        return this._endBlockNode(Catch, Finally);
+	    }
+	    // `throw` statement
+	    throw(error) {
+	        return this._leafNode(new Throw(error));
+	    }
+	    // start self-balancing block
+	    block(body, nodeCount) {
+	        this._blockStarts.push(this._nodes.length);
+	        if (body)
+	            this.code(body).endBlock(nodeCount);
+	        return this;
+	    }
+	    // end the current self-balancing block
+	    endBlock(nodeCount) {
+	        const len = this._blockStarts.pop();
+	        if (len === undefined)
+	            throw new Error("CodeGen: not in self-balancing block");
+	        const toClose = this._nodes.length - len;
+	        if (toClose < 0 || (nodeCount !== undefined && toClose !== nodeCount)) {
+	            throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
+	        }
+	        this._nodes.length = len;
+	        return this;
+	    }
+	    // `function` heading (or definition if funcBody is passed)
+	    func(name, args = code_1.nil, async, funcBody) {
+	        this._blockNode(new Func(name, args, async));
+	        if (funcBody)
+	            this.code(funcBody).endFunc();
+	        return this;
+	    }
+	    // end function definition
+	    endFunc() {
+	        return this._endBlockNode(Func);
+	    }
+	    optimize(n = 1) {
+	        while (n-- > 0) {
+	            this._root.optimizeNodes();
+	            this._root.optimizeNames(this._root.names, this._constants);
+	        }
+	    }
+	    _leafNode(node) {
+	        this._currNode.nodes.push(node);
+	        return this;
+	    }
+	    _blockNode(node) {
+	        this._currNode.nodes.push(node);
+	        this._nodes.push(node);
+	    }
+	    _endBlockNode(N1, N2) {
+	        const n = this._currNode;
+	        if (n instanceof N1 || (N2 && n instanceof N2)) {
+	            this._nodes.pop();
+	            return this;
+	        }
+	        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
+	    }
+	    _elseNode(node) {
+	        const n = this._currNode;
+	        if (!(n instanceof If)) {
+	            throw new Error('CodeGen: "else" without "if"');
+	        }
+	        this._currNode = n.else = node;
+	        return this;
+	    }
+	    get _root() {
+	        return this._nodes[0];
+	    }
+	    get _currNode() {
+	        const ns = this._nodes;
+	        return ns[ns.length - 1];
+	    }
+	    set _currNode(node) {
+	        const ns = this._nodes;
+	        ns[ns.length - 1] = node;
+	    }
+	}
+	exports.CodeGen = CodeGen;
+	function addNames(names, from) {
+	    for (const n in from)
+	        names[n] = (names[n] || 0) + (from[n] || 0);
+	    return names;
+	}
+	function addExprNames(names, from) {
+	    return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
+	}
+	function optimizeExpr(expr, names, constants) {
+	    if (expr instanceof code_1.Name)
+	        return replaceName(expr);
+	    if (!canOptimize(expr))
+	        return expr;
+	    return new code_1._Code(expr._items.reduce((items, c) => {
+	        if (c instanceof code_1.Name)
+	            c = replaceName(c);
+	        if (c instanceof code_1._Code)
+	            items.push(...c._items);
+	        else
+	            items.push(c);
+	        return items;
+	    }, []));
+	    function replaceName(n) {
+	        const c = constants[n.str];
+	        if (c === undefined || names[n.str] !== 1)
+	            return n;
+	        delete names[n.str];
+	        return c;
+	    }
+	    function canOptimize(e) {
+	        return (e instanceof code_1._Code &&
+	            e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== undefined));
+	    }
+	}
+	function subtractNames(names, from) {
+	    for (const n in from)
+	        names[n] = (names[n] || 0) - (from[n] || 0);
+	}
+	function not(x) {
+	    return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._) `!${par(x)}`;
+	}
+	exports.not = not;
+	const andCode = mappend(exports.operators.AND);
+	// boolean AND (&&) expression with the passed arguments
+	function and(...args) {
+	    return args.reduce(andCode);
+	}
+	exports.and = and;
+	const orCode = mappend(exports.operators.OR);
+	// boolean OR (||) expression with the passed arguments
+	function or(...args) {
+	    return args.reduce(orCode);
+	}
+	exports.or = or;
+	function mappend(op) {
+	    return (x, y) => (x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._) `${par(x)} ${op} ${par(y)}`);
+	}
+	function par(x) {
+	    return x instanceof code_1.Name ? x : (0, code_1._) `(${x})`;
+	}
+	
+} (codegen));
 
 var util = {};
 
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const code_1 = code$1;
 	// TODO refactor to use Set
 	function toHash(arr) {
@@ -15000,49 +15042,41 @@ var util = {};
 	
 } (util));
 
-var names = {};
+var names$1 = {};
 
-var hasRequiredNames;
-
-function requireNames () {
-	if (hasRequiredNames) return names;
-	hasRequiredNames = 1;
-	Object.defineProperty(names, "__esModule", { value: true });
-	const codegen_1 = requireCodegen();
-	const names$1 = {
-	    // validation function arguments
-	    data: new codegen_1.Name("data"),
-	    // args passed from referencing schema
-	    valCxt: new codegen_1.Name("valCxt"),
-	    instancePath: new codegen_1.Name("instancePath"),
-	    parentData: new codegen_1.Name("parentData"),
-	    parentDataProperty: new codegen_1.Name("parentDataProperty"),
-	    rootData: new codegen_1.Name("rootData"),
-	    dynamicAnchors: new codegen_1.Name("dynamicAnchors"),
-	    // function scoped variables
-	    vErrors: new codegen_1.Name("vErrors"),
-	    errors: new codegen_1.Name("errors"),
-	    this: new codegen_1.Name("this"),
-	    // "globals"
-	    self: new codegen_1.Name("self"),
-	    scope: new codegen_1.Name("scope"),
-	    // JTD serialize/parse name for JSON string and position
-	    json: new codegen_1.Name("json"),
-	    jsonPos: new codegen_1.Name("jsonPos"),
-	    jsonLen: new codegen_1.Name("jsonLen"),
-	    jsonPart: new codegen_1.Name("jsonPart"),
-	};
-	names.default = names$1;
-	
-	return names;
-}
+Object.defineProperty(names$1, "__esModule", { value: true });
+const codegen_1$x = codegen;
+const names = {
+    // validation function arguments
+    data: new codegen_1$x.Name("data"),
+    // args passed from referencing schema
+    valCxt: new codegen_1$x.Name("valCxt"),
+    instancePath: new codegen_1$x.Name("instancePath"),
+    parentData: new codegen_1$x.Name("parentData"),
+    parentDataProperty: new codegen_1$x.Name("parentDataProperty"),
+    rootData: new codegen_1$x.Name("rootData"),
+    dynamicAnchors: new codegen_1$x.Name("dynamicAnchors"),
+    // function scoped variables
+    vErrors: new codegen_1$x.Name("vErrors"),
+    errors: new codegen_1$x.Name("errors"),
+    this: new codegen_1$x.Name("this"),
+    // "globals"
+    self: new codegen_1$x.Name("self"),
+    scope: new codegen_1$x.Name("scope"),
+    // JTD serialize/parse name for JSON string and position
+    json: new codegen_1$x.Name("json"),
+    jsonPos: new codegen_1$x.Name("jsonPos"),
+    jsonLen: new codegen_1$x.Name("jsonLen"),
+    jsonPart: new codegen_1$x.Name("jsonPart"),
+};
+names$1.default = names;
 
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const util_1 = util;
-	const names_1 = requireNames();
+	const names_1 = names$1;
 	exports.keywordError = {
 	    message: ({ keyword }) => (0, codegen_1.str) `must pass "${keyword}" keyword validation`,
 	};
@@ -15162,61 +15196,53 @@ function requireNames () {
 	
 } (errors));
 
-var hasRequiredBoolSchema;
-
-function requireBoolSchema () {
-	if (hasRequiredBoolSchema) return boolSchema;
-	hasRequiredBoolSchema = 1;
-	Object.defineProperty(boolSchema, "__esModule", { value: true });
-	boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0;
-	const errors_1 = errors;
-	const codegen_1 = requireCodegen();
-	const names_1 = requireNames();
-	const boolError = {
-	    message: "boolean schema is false",
-	};
-	function topBoolOrEmptySchema(it) {
-	    const { gen, schema, validateName } = it;
-	    if (schema === false) {
-	        falseSchemaError(it, false);
-	    }
-	    else if (typeof schema == "object" && schema.$async === true) {
-	        gen.return(names_1.default.data);
-	    }
-	    else {
-	        gen.assign((0, codegen_1._) `${validateName}.errors`, null);
-	        gen.return(true);
-	    }
-	}
-	boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema;
-	function boolOrEmptySchema(it, valid) {
-	    const { gen, schema } = it;
-	    if (schema === false) {
-	        gen.var(valid, false); // TODO var
-	        falseSchemaError(it);
-	    }
-	    else {
-	        gen.var(valid, true); // TODO var
-	    }
-	}
-	boolSchema.boolOrEmptySchema = boolOrEmptySchema;
-	function falseSchemaError(it, overrideAllErrors) {
-	    const { gen, data } = it;
-	    // TODO maybe some other interface should be used for non-keyword validation errors...
-	    const cxt = {
-	        gen,
-	        keyword: "false schema",
-	        data,
-	        schema: false,
-	        schemaCode: false,
-	        schemaValue: false,
-	        params: {},
-	        it,
-	    };
-	    (0, errors_1.reportError)(cxt, boolError, undefined, overrideAllErrors);
-	}
-	
-	return boolSchema;
+Object.defineProperty(boolSchema, "__esModule", { value: true });
+boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0;
+const errors_1$2 = errors;
+const codegen_1$w = codegen;
+const names_1$9 = names$1;
+const boolError = {
+    message: "boolean schema is false",
+};
+function topBoolOrEmptySchema(it) {
+    const { gen, schema, validateName } = it;
+    if (schema === false) {
+        falseSchemaError(it, false);
+    }
+    else if (typeof schema == "object" && schema.$async === true) {
+        gen.return(names_1$9.default.data);
+    }
+    else {
+        gen.assign((0, codegen_1$w._) `${validateName}.errors`, null);
+        gen.return(true);
+    }
+}
+boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema;
+function boolOrEmptySchema(it, valid) {
+    const { gen, schema } = it;
+    if (schema === false) {
+        gen.var(valid, false); // TODO var
+        falseSchemaError(it);
+    }
+    else {
+        gen.var(valid, true); // TODO var
+    }
+}
+boolSchema.boolOrEmptySchema = boolOrEmptySchema;
+function falseSchemaError(it, overrideAllErrors) {
+    const { gen, data } = it;
+    // TODO maybe some other interface should be used for non-keyword validation errors...
+    const cxt = {
+        gen,
+        keyword: "false schema",
+        data,
+        schema: false,
+        schemaCode: false,
+        schemaValue: false,
+        params: {},
+        it,
+    };
+    (0, errors_1$2.reportError)(cxt, boolError, undefined, overrideAllErrors);
 }
 
 var dataType = {};
@@ -15274,7 +15300,7 @@ applicability.shouldUseRule = shouldUseRule;
 	const rules_1 = rules;
 	const applicability_1 = applicability;
 	const errors_1 = errors;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const util_1 = util;
 	var DataType;
 	(function (DataType) {
@@ -15474,410 +15500,378 @@ applicability.shouldUseRule = shouldUseRule;
 
 var defaults = {};
 
-var hasRequiredDefaults;
-
-function requireDefaults () {
-	if (hasRequiredDefaults) return defaults;
-	hasRequiredDefaults = 1;
-	Object.defineProperty(defaults, "__esModule", { value: true });
-	defaults.assignDefaults = void 0;
-	const codegen_1 = requireCodegen();
-	const util_1 = util;
-	function assignDefaults(it, ty) {
-	    const { properties, items } = it.schema;
-	    if (ty === "object" && properties) {
-	        for (const key in properties) {
-	            assignDefault(it, key, properties[key].default);
-	        }
-	    }
-	    else if (ty === "array" && Array.isArray(items)) {
-	        items.forEach((sch, i) => assignDefault(it, i, sch.default));
-	    }
-	}
-	defaults.assignDefaults = assignDefaults;
-	function assignDefault(it, prop, defaultValue) {
-	    const { gen, compositeRule, data, opts } = it;
-	    if (defaultValue === undefined)
-	        return;
-	    const childData = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(prop)}`;
-	    if (compositeRule) {
-	        (0, util_1.checkStrictMode)(it, `default is ignored for: ${childData}`);
-	        return;
-	    }
-	    let condition = (0, codegen_1._) `${childData} === undefined`;
-	    if (opts.useDefaults === "empty") {
-	        condition = (0, codegen_1._) `${condition} || ${childData} === null || ${childData} === ""`;
-	    }
-	    // `${childData} === undefined` +
-	    // (opts.useDefaults === "empty" ? ` || ${childData} === null || ${childData} === ""` : "")
-	    gen.if(condition, (0, codegen_1._) `${childData} = ${(0, codegen_1.stringify)(defaultValue)}`);
-	}
-	
-	return defaults;
+Object.defineProperty(defaults, "__esModule", { value: true });
+defaults.assignDefaults = void 0;
+const codegen_1$v = codegen;
+const util_1$t = util;
+function assignDefaults(it, ty) {
+    const { properties, items } = it.schema;
+    if (ty === "object" && properties) {
+        for (const key in properties) {
+            assignDefault(it, key, properties[key].default);
+        }
+    }
+    else if (ty === "array" && Array.isArray(items)) {
+        items.forEach((sch, i) => assignDefault(it, i, sch.default));
+    }
+}
+defaults.assignDefaults = assignDefaults;
+function assignDefault(it, prop, defaultValue) {
+    const { gen, compositeRule, data, opts } = it;
+    if (defaultValue === undefined)
+        return;
+    const childData = (0, codegen_1$v._) `${data}${(0, codegen_1$v.getProperty)(prop)}`;
+    if (compositeRule) {
+        (0, util_1$t.checkStrictMode)(it, `default is ignored for: ${childData}`);
+        return;
+    }
+    let condition = (0, codegen_1$v._) `${childData} === undefined`;
+    if (opts.useDefaults === "empty") {
+        condition = (0, codegen_1$v._) `${condition} || ${childData} === null || ${childData} === ""`;
+    }
+    // `${childData} === undefined` +
+    // (opts.useDefaults === "empty" ? ` || ${childData} === null || ${childData} === ""` : "")
+    gen.if(condition, (0, codegen_1$v._) `${childData} = ${(0, codegen_1$v.stringify)(defaultValue)}`);
 }
 
 var keyword = {};
 
 var code = {};
 
-var hasRequiredCode;
-
-function requireCode () {
-	if (hasRequiredCode) return code;
-	hasRequiredCode = 1;
-	Object.defineProperty(code, "__esModule", { value: true });
-	code.validateUnion = code.validateArray = code.usePattern = code.callValidateCode = code.schemaProperties = code.allSchemaProperties = code.noPropertyInData = code.propertyInData = code.isOwnProperty = code.hasPropFunc = code.reportMissingProp = code.checkMissingProp = code.checkReportMissingProp = void 0;
-	const codegen_1 = requireCodegen();
-	const util_1 = util;
-	const names_1 = requireNames();
-	const util_2 = util;
-	function checkReportMissingProp(cxt, prop) {
-	    const { gen, data, it } = cxt;
-	    gen.if(noPropertyInData(gen, data, prop, it.opts.ownProperties), () => {
-	        cxt.setParams({ missingProperty: (0, codegen_1._) `${prop}` }, true);
-	        cxt.error();
-	    });
-	}
-	code.checkReportMissingProp = checkReportMissingProp;
-	function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
-	    return (0, codegen_1.or)(...properties.map((prop) => (0, codegen_1.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1._) `${missing} = ${prop}`)));
-	}
-	code.checkMissingProp = checkMissingProp;
-	function reportMissingProp(cxt, missing) {
-	    cxt.setParams({ missingProperty: missing }, true);
-	    cxt.error();
-	}
-	code.reportMissingProp = reportMissingProp;
-	function hasPropFunc(gen) {
-	    return gen.scopeValue("func", {
-	        // eslint-disable-next-line @typescript-eslint/unbound-method
-	        ref: Object.prototype.hasOwnProperty,
-	        code: (0, codegen_1._) `Object.prototype.hasOwnProperty`,
-	    });
-	}
-	code.hasPropFunc = hasPropFunc;
-	function isOwnProperty(gen, data, property) {
-	    return (0, codegen_1._) `${hasPropFunc(gen)}.call(${data}, ${property})`;
-	}
-	code.isOwnProperty = isOwnProperty;
-	function propertyInData(gen, data, property, ownProperties) {
-	    const cond = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(property)} !== undefined`;
-	    return ownProperties ? (0, codegen_1._) `${cond} && ${isOwnProperty(gen, data, property)}` : cond;
-	}
-	code.propertyInData = propertyInData;
-	function noPropertyInData(gen, data, property, ownProperties) {
-	    const cond = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(property)} === undefined`;
-	    return ownProperties ? (0, codegen_1.or)(cond, (0, codegen_1.not)(isOwnProperty(gen, data, property))) : cond;
-	}
-	code.noPropertyInData = noPropertyInData;
-	function allSchemaProperties(schemaMap) {
-	    return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
-	}
-	code.allSchemaProperties = allSchemaProperties;
-	function schemaProperties(it, schemaMap) {
-	    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1.alwaysValidSchema)(it, schemaMap[p]));
-	}
-	code.schemaProperties = schemaProperties;
-	function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
-	    const dataAndSchema = passSchema ? (0, codegen_1._) `${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
-	    const valCxt = [
-	        [names_1.default.instancePath, (0, codegen_1.strConcat)(names_1.default.instancePath, errorPath)],
-	        [names_1.default.parentData, it.parentData],
-	        [names_1.default.parentDataProperty, it.parentDataProperty],
-	        [names_1.default.rootData, names_1.default.rootData],
-	    ];
-	    if (it.opts.dynamicRef)
-	        valCxt.push([names_1.default.dynamicAnchors, names_1.default.dynamicAnchors]);
-	    const args = (0, codegen_1._) `${dataAndSchema}, ${gen.object(...valCxt)}`;
-	    return context !== codegen_1.nil ? (0, codegen_1._) `${func}.call(${context}, ${args})` : (0, codegen_1._) `${func}(${args})`;
-	}
-	code.callValidateCode = callValidateCode;
-	const newRegExp = (0, codegen_1._) `new RegExp`;
-	function usePattern({ gen, it: { opts } }, pattern) {
-	    const u = opts.unicodeRegExp ? "u" : "";
-	    const { regExp } = opts.code;
-	    const rx = regExp(pattern, u);
-	    return gen.scopeValue("pattern", {
-	        key: rx.toString(),
-	        ref: rx,
-	        code: (0, codegen_1._) `${regExp.code === "new RegExp" ? newRegExp : (0, util_2.useFunc)(gen, regExp)}(${pattern}, ${u})`,
-	    });
-	}
-	code.usePattern = usePattern;
-	function validateArray(cxt) {
-	    const { gen, data, keyword, it } = cxt;
-	    const valid = gen.name("valid");
-	    if (it.allErrors) {
-	        const validArr = gen.let("valid", true);
-	        validateItems(() => gen.assign(validArr, false));
-	        return validArr;
-	    }
-	    gen.var(valid, true);
-	    validateItems(() => gen.break());
-	    return valid;
-	    function validateItems(notValid) {
-	        const len = gen.const("len", (0, codegen_1._) `${data}.length`);
-	        gen.forRange("i", 0, len, (i) => {
-	            cxt.subschema({
-	                keyword,
-	                dataProp: i,
-	                dataPropType: util_1.Type.Num,
-	            }, valid);
-	            gen.if((0, codegen_1.not)(valid), notValid);
-	        });
-	    }
-	}
-	code.validateArray = validateArray;
-	function validateUnion(cxt) {
-	    const { gen, schema, keyword, it } = cxt;
-	    /* istanbul ignore if */
-	    if (!Array.isArray(schema))
-	        throw new Error("ajv implementation error");
-	    const alwaysValid = schema.some((sch) => (0, util_1.alwaysValidSchema)(it, sch));
-	    if (alwaysValid && !it.opts.unevaluated)
-	        return;
-	    const valid = gen.let("valid", false);
-	    const schValid = gen.name("_valid");
-	    gen.block(() => schema.forEach((_sch, i) => {
-	        const schCxt = cxt.subschema({
-	            keyword,
-	            schemaProp: i,
-	            compositeRule: true,
-	        }, schValid);
-	        gen.assign(valid, (0, codegen_1._) `${valid} || ${schValid}`);
-	        const merged = cxt.mergeValidEvaluated(schCxt, schValid);
-	        // can short-circuit if `unevaluatedProperties/Items` not supported (opts.unevaluated !== true)
-	        // or if all properties and items were evaluated (it.props === true && it.items === true)
-	        if (!merged)
-	            gen.if((0, codegen_1.not)(valid));
-	    }));
-	    cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
-	}
-	code.validateUnion = validateUnion;
-	
-	return code;
+Object.defineProperty(code, "__esModule", { value: true });
+code.validateUnion = code.validateArray = code.usePattern = code.callValidateCode = code.schemaProperties = code.allSchemaProperties = code.noPropertyInData = code.propertyInData = code.isOwnProperty = code.hasPropFunc = code.reportMissingProp = code.checkMissingProp = code.checkReportMissingProp = void 0;
+const codegen_1$u = codegen;
+const util_1$s = util;
+const names_1$8 = names$1;
+const util_2$1 = util;
+function checkReportMissingProp(cxt, prop) {
+    const { gen, data, it } = cxt;
+    gen.if(noPropertyInData(gen, data, prop, it.opts.ownProperties), () => {
+        cxt.setParams({ missingProperty: (0, codegen_1$u._) `${prop}` }, true);
+        cxt.error();
+    });
 }
-
-var hasRequiredKeyword;
-
-function requireKeyword () {
-	if (hasRequiredKeyword) return keyword;
-	hasRequiredKeyword = 1;
-	Object.defineProperty(keyword, "__esModule", { value: true });
-	keyword.validateKeywordUsage = keyword.validSchemaType = keyword.funcKeywordCode = keyword.macroKeywordCode = void 0;
-	const codegen_1 = requireCodegen();
-	const names_1 = requireNames();
-	const code_1 = requireCode();
-	const errors_1 = errors;
-	function macroKeywordCode(cxt, def) {
-	    const { gen, keyword, schema, parentSchema, it } = cxt;
-	    const macroSchema = def.macro.call(it.self, schema, parentSchema, it);
-	    const schemaRef = useKeyword(gen, keyword, macroSchema);
-	    if (it.opts.validateSchema !== false)
-	        it.self.validateSchema(macroSchema, true);
-	    const valid = gen.name("valid");
-	    cxt.subschema({
-	        schema: macroSchema,
-	        schemaPath: codegen_1.nil,
-	        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
-	        topSchemaRef: schemaRef,
-	        compositeRule: true,
-	    }, valid);
-	    cxt.pass(valid, () => cxt.error(true));
-	}
-	keyword.macroKeywordCode = macroKeywordCode;
-	function funcKeywordCode(cxt, def) {
-	    var _a;
-	    const { gen, keyword, schema, parentSchema, $data, it } = cxt;
-	    checkAsyncKeyword(it, def);
-	    const validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate;
-	    const validateRef = useKeyword(gen, keyword, validate);
-	    const valid = gen.let("valid");
-	    cxt.block$data(valid, validateKeyword);
-	    cxt.ok((_a = def.valid) !== null && _a !== void 0 ? _a : valid);
-	    function validateKeyword() {
-	        if (def.errors === false) {
-	            assignValid();
-	            if (def.modifying)
-	                modifyData(cxt);
-	            reportErrs(() => cxt.error());
-	        }
-	        else {
-	            const ruleErrs = def.async ? validateAsync() : validateSync();
-	            if (def.modifying)
-	                modifyData(cxt);
-	            reportErrs(() => addErrs(cxt, ruleErrs));
-	        }
-	    }
-	    function validateAsync() {
-	        const ruleErrs = gen.let("ruleErrs", null);
-	        gen.try(() => assignValid((0, codegen_1._) `await `), (e) => gen.assign(valid, false).if((0, codegen_1._) `${e} instanceof ${it.ValidationError}`, () => gen.assign(ruleErrs, (0, codegen_1._) `${e}.errors`), () => gen.throw(e)));
-	        return ruleErrs;
-	    }
-	    function validateSync() {
-	        const validateErrs = (0, codegen_1._) `${validateRef}.errors`;
-	        gen.assign(validateErrs, null);
-	        assignValid(codegen_1.nil);
-	        return validateErrs;
-	    }
-	    function assignValid(_await = def.async ? (0, codegen_1._) `await ` : codegen_1.nil) {
-	        const passCxt = it.opts.passContext ? names_1.default.this : names_1.default.self;
-	        const passSchema = !(("compile" in def && !$data) || def.schema === false);
-	        gen.assign(valid, (0, codegen_1._) `${_await}${(0, code_1.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
-	    }
-	    function reportErrs(errors) {
-	        var _a;
-	        gen.if((0, codegen_1.not)((_a = def.valid) !== null && _a !== void 0 ? _a : valid), errors);
-	    }
-	}
-	keyword.funcKeywordCode = funcKeywordCode;
-	function modifyData(cxt) {
-	    const { gen, data, it } = cxt;
-	    gen.if(it.parentData, () => gen.assign(data, (0, codegen_1._) `${it.parentData}[${it.parentDataProperty}]`));
-	}
-	function addErrs(cxt, errs) {
-	    const { gen } = cxt;
-	    gen.if((0, codegen_1._) `Array.isArray(${errs})`, () => {
-	        gen
-	            .assign(names_1.default.vErrors, (0, codegen_1._) `${names_1.default.vErrors} === null ? ${errs} : ${names_1.default.vErrors}.concat(${errs})`)
-	            .assign(names_1.default.errors, (0, codegen_1._) `${names_1.default.vErrors}.length`);
-	        (0, errors_1.extendErrors)(cxt);
-	    }, () => cxt.error());
-	}
-	function checkAsyncKeyword({ schemaEnv }, def) {
-	    if (def.async && !schemaEnv.$async)
-	        throw new Error("async keyword in sync schema");
-	}
-	function useKeyword(gen, keyword, result) {
-	    if (result === undefined)
-	        throw new Error(`keyword "${keyword}" failed to compile`);
-	    return gen.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1.stringify)(result) });
-	}
-	function validSchemaType(schema, schemaType, allowUndefined = false) {
-	    // TODO add tests
-	    return (!schemaType.length ||
-	        schemaType.some((st) => st === "array"
-	            ? Array.isArray(schema)
-	            : st === "object"
-	                ? schema && typeof schema == "object" && !Array.isArray(schema)
-	                : typeof schema == st || (allowUndefined && typeof schema == "undefined")));
-	}
-	keyword.validSchemaType = validSchemaType;
-	function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
-	    /* istanbul ignore if */
-	    if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
-	        throw new Error("ajv implementation error");
-	    }
-	    const deps = def.dependencies;
-	    if (deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))) {
-	        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
-	    }
-	    if (def.validateSchema) {
-	        const valid = def.validateSchema(schema[keyword]);
-	        if (!valid) {
-	            const msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` +
-	                self.errorsText(def.validateSchema.errors);
-	            if (opts.validateSchema === "log")
-	                self.logger.error(msg);
-	            else
-	                throw new Error(msg);
-	        }
-	    }
-	}
-	keyword.validateKeywordUsage = validateKeywordUsage;
-	
-	return keyword;
+code.checkReportMissingProp = checkReportMissingProp;
+function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
+    return (0, codegen_1$u.or)(...properties.map((prop) => (0, codegen_1$u.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1$u._) `${missing} = ${prop}`)));
 }
+code.checkMissingProp = checkMissingProp;
+function reportMissingProp(cxt, missing) {
+    cxt.setParams({ missingProperty: missing }, true);
+    cxt.error();
+}
+code.reportMissingProp = reportMissingProp;
+function hasPropFunc(gen) {
+    return gen.scopeValue("func", {
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        ref: Object.prototype.hasOwnProperty,
+        code: (0, codegen_1$u._) `Object.prototype.hasOwnProperty`,
+    });
+}
+code.hasPropFunc = hasPropFunc;
+function isOwnProperty(gen, data, property) {
+    return (0, codegen_1$u._) `${hasPropFunc(gen)}.call(${data}, ${property})`;
+}
+code.isOwnProperty = isOwnProperty;
+function propertyInData(gen, data, property, ownProperties) {
+    const cond = (0, codegen_1$u._) `${data}${(0, codegen_1$u.getProperty)(property)} !== undefined`;
+    return ownProperties ? (0, codegen_1$u._) `${cond} && ${isOwnProperty(gen, data, property)}` : cond;
+}
+code.propertyInData = propertyInData;
+function noPropertyInData(gen, data, property, ownProperties) {
+    const cond = (0, codegen_1$u._) `${data}${(0, codegen_1$u.getProperty)(property)} === undefined`;
+    return ownProperties ? (0, codegen_1$u.or)(cond, (0, codegen_1$u.not)(isOwnProperty(gen, data, property))) : cond;
+}
+code.noPropertyInData = noPropertyInData;
+function allSchemaProperties(schemaMap) {
+    return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
+}
+code.allSchemaProperties = allSchemaProperties;
+function schemaProperties(it, schemaMap) {
+    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1$s.alwaysValidSchema)(it, schemaMap[p]));
+}
+code.schemaProperties = schemaProperties;
+function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
+    const dataAndSchema = passSchema ? (0, codegen_1$u._) `${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
+    const valCxt = [
+        [names_1$8.default.instancePath, (0, codegen_1$u.strConcat)(names_1$8.default.instancePath, errorPath)],
+        [names_1$8.default.parentData, it.parentData],
+        [names_1$8.default.parentDataProperty, it.parentDataProperty],
+        [names_1$8.default.rootData, names_1$8.default.rootData],
+    ];
+    if (it.opts.dynamicRef)
+        valCxt.push([names_1$8.default.dynamicAnchors, names_1$8.default.dynamicAnchors]);
+    const args = (0, codegen_1$u._) `${dataAndSchema}, ${gen.object(...valCxt)}`;
+    return context !== codegen_1$u.nil ? (0, codegen_1$u._) `${func}.call(${context}, ${args})` : (0, codegen_1$u._) `${func}(${args})`;
+}
+code.callValidateCode = callValidateCode;
+const newRegExp = (0, codegen_1$u._) `new RegExp`;
+function usePattern({ gen, it: { opts } }, pattern) {
+    const u = opts.unicodeRegExp ? "u" : "";
+    const { regExp } = opts.code;
+    const rx = regExp(pattern, u);
+    return gen.scopeValue("pattern", {
+        key: rx.toString(),
+        ref: rx,
+        code: (0, codegen_1$u._) `${regExp.code === "new RegExp" ? newRegExp : (0, util_2$1.useFunc)(gen, regExp)}(${pattern}, ${u})`,
+    });
+}
+code.usePattern = usePattern;
+function validateArray(cxt) {
+    const { gen, data, keyword, it } = cxt;
+    const valid = gen.name("valid");
+    if (it.allErrors) {
+        const validArr = gen.let("valid", true);
+        validateItems(() => gen.assign(validArr, false));
+        return validArr;
+    }
+    gen.var(valid, true);
+    validateItems(() => gen.break());
+    return valid;
+    function validateItems(notValid) {
+        const len = gen.const("len", (0, codegen_1$u._) `${data}.length`);
+        gen.forRange("i", 0, len, (i) => {
+            cxt.subschema({
+                keyword,
+                dataProp: i,
+                dataPropType: util_1$s.Type.Num,
+            }, valid);
+            gen.if((0, codegen_1$u.not)(valid), notValid);
+        });
+    }
+}
+code.validateArray = validateArray;
+function validateUnion(cxt) {
+    const { gen, schema, keyword, it } = cxt;
+    /* istanbul ignore if */
+    if (!Array.isArray(schema))
+        throw new Error("ajv implementation error");
+    const alwaysValid = schema.some((sch) => (0, util_1$s.alwaysValidSchema)(it, sch));
+    if (alwaysValid && !it.opts.unevaluated)
+        return;
+    const valid = gen.let("valid", false);
+    const schValid = gen.name("_valid");
+    gen.block(() => schema.forEach((_sch, i) => {
+        const schCxt = cxt.subschema({
+            keyword,
+            schemaProp: i,
+            compositeRule: true,
+        }, schValid);
+        gen.assign(valid, (0, codegen_1$u._) `${valid} || ${schValid}`);
+        const merged = cxt.mergeValidEvaluated(schCxt, schValid);
+        // can short-circuit if `unevaluatedProperties/Items` not supported (opts.unevaluated !== true)
+        // or if all properties and items were evaluated (it.props === true && it.items === true)
+        if (!merged)
+            gen.if((0, codegen_1$u.not)(valid));
+    }));
+    cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
+}
+code.validateUnion = validateUnion;
+
+Object.defineProperty(keyword, "__esModule", { value: true });
+keyword.validateKeywordUsage = keyword.validSchemaType = keyword.funcKeywordCode = keyword.macroKeywordCode = void 0;
+const codegen_1$t = codegen;
+const names_1$7 = names$1;
+const code_1$9 = code;
+const errors_1$1 = errors;
+function macroKeywordCode(cxt, def) {
+    const { gen, keyword, schema, parentSchema, it } = cxt;
+    const macroSchema = def.macro.call(it.self, schema, parentSchema, it);
+    const schemaRef = useKeyword(gen, keyword, macroSchema);
+    if (it.opts.validateSchema !== false)
+        it.self.validateSchema(macroSchema, true);
+    const valid = gen.name("valid");
+    cxt.subschema({
+        schema: macroSchema,
+        schemaPath: codegen_1$t.nil,
+        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+        topSchemaRef: schemaRef,
+        compositeRule: true,
+    }, valid);
+    cxt.pass(valid, () => cxt.error(true));
+}
+keyword.macroKeywordCode = macroKeywordCode;
+function funcKeywordCode(cxt, def) {
+    var _a;
+    const { gen, keyword, schema, parentSchema, $data, it } = cxt;
+    checkAsyncKeyword(it, def);
+    const validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate;
+    const validateRef = useKeyword(gen, keyword, validate);
+    const valid = gen.let("valid");
+    cxt.block$data(valid, validateKeyword);
+    cxt.ok((_a = def.valid) !== null && _a !== void 0 ? _a : valid);
+    function validateKeyword() {
+        if (def.errors === false) {
+            assignValid();
+            if (def.modifying)
+                modifyData(cxt);
+            reportErrs(() => cxt.error());
+        }
+        else {
+            const ruleErrs = def.async ? validateAsync() : validateSync();
+            if (def.modifying)
+                modifyData(cxt);
+            reportErrs(() => addErrs(cxt, ruleErrs));
+        }
+    }
+    function validateAsync() {
+        const ruleErrs = gen.let("ruleErrs", null);
+        gen.try(() => assignValid((0, codegen_1$t._) `await `), (e) => gen.assign(valid, false).if((0, codegen_1$t._) `${e} instanceof ${it.ValidationError}`, () => gen.assign(ruleErrs, (0, codegen_1$t._) `${e}.errors`), () => gen.throw(e)));
+        return ruleErrs;
+    }
+    function validateSync() {
+        const validateErrs = (0, codegen_1$t._) `${validateRef}.errors`;
+        gen.assign(validateErrs, null);
+        assignValid(codegen_1$t.nil);
+        return validateErrs;
+    }
+    function assignValid(_await = def.async ? (0, codegen_1$t._) `await ` : codegen_1$t.nil) {
+        const passCxt = it.opts.passContext ? names_1$7.default.this : names_1$7.default.self;
+        const passSchema = !(("compile" in def && !$data) || def.schema === false);
+        gen.assign(valid, (0, codegen_1$t._) `${_await}${(0, code_1$9.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
+    }
+    function reportErrs(errors) {
+        var _a;
+        gen.if((0, codegen_1$t.not)((_a = def.valid) !== null && _a !== void 0 ? _a : valid), errors);
+    }
+}
+keyword.funcKeywordCode = funcKeywordCode;
+function modifyData(cxt) {
+    const { gen, data, it } = cxt;
+    gen.if(it.parentData, () => gen.assign(data, (0, codegen_1$t._) `${it.parentData}[${it.parentDataProperty}]`));
+}
+function addErrs(cxt, errs) {
+    const { gen } = cxt;
+    gen.if((0, codegen_1$t._) `Array.isArray(${errs})`, () => {
+        gen
+            .assign(names_1$7.default.vErrors, (0, codegen_1$t._) `${names_1$7.default.vErrors} === null ? ${errs} : ${names_1$7.default.vErrors}.concat(${errs})`)
+            .assign(names_1$7.default.errors, (0, codegen_1$t._) `${names_1$7.default.vErrors}.length`);
+        (0, errors_1$1.extendErrors)(cxt);
+    }, () => cxt.error());
+}
+function checkAsyncKeyword({ schemaEnv }, def) {
+    if (def.async && !schemaEnv.$async)
+        throw new Error("async keyword in sync schema");
+}
+function useKeyword(gen, keyword, result) {
+    if (result === undefined)
+        throw new Error(`keyword "${keyword}" failed to compile`);
+    return gen.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1$t.stringify)(result) });
+}
+function validSchemaType(schema, schemaType, allowUndefined = false) {
+    // TODO add tests
+    return (!schemaType.length ||
+        schemaType.some((st) => st === "array"
+            ? Array.isArray(schema)
+            : st === "object"
+                ? schema && typeof schema == "object" && !Array.isArray(schema)
+                : typeof schema == st || (allowUndefined && typeof schema == "undefined")));
+}
+keyword.validSchemaType = validSchemaType;
+function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
+    /* istanbul ignore if */
+    if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
+        throw new Error("ajv implementation error");
+    }
+    const deps = def.dependencies;
+    if (deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))) {
+        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
+    }
+    if (def.validateSchema) {
+        const valid = def.validateSchema(schema[keyword]);
+        if (!valid) {
+            const msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` +
+                self.errorsText(def.validateSchema.errors);
+            if (opts.validateSchema === "log")
+                self.logger.error(msg);
+            else
+                throw new Error(msg);
+        }
+    }
+}
+keyword.validateKeywordUsage = validateKeywordUsage;
 
 var subschema = {};
 
-var hasRequiredSubschema;
-
-function requireSubschema () {
-	if (hasRequiredSubschema) return subschema;
-	hasRequiredSubschema = 1;
-	Object.defineProperty(subschema, "__esModule", { value: true });
-	subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0;
-	const codegen_1 = requireCodegen();
-	const util_1 = util;
-	function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
-	    if (keyword !== undefined && schema !== undefined) {
-	        throw new Error('both "keyword" and "schema" passed, only one allowed');
-	    }
-	    if (keyword !== undefined) {
-	        const sch = it.schema[keyword];
-	        return schemaProp === undefined
-	            ? {
-	                schema: sch,
-	                schemaPath: (0, codegen_1._) `${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}`,
-	                errSchemaPath: `${it.errSchemaPath}/${keyword}`,
-	            }
-	            : {
-	                schema: sch[schemaProp],
-	                schemaPath: (0, codegen_1._) `${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}${(0, codegen_1.getProperty)(schemaProp)}`,
-	                errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1.escapeFragment)(schemaProp)}`,
-	            };
-	    }
-	    if (schema !== undefined) {
-	        if (schemaPath === undefined || errSchemaPath === undefined || topSchemaRef === undefined) {
-	            throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
-	        }
-	        return {
-	            schema,
-	            schemaPath,
-	            topSchemaRef,
-	            errSchemaPath,
-	        };
-	    }
-	    throw new Error('either "keyword" or "schema" must be passed');
-	}
-	subschema.getSubschema = getSubschema;
-	function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
-	    if (data !== undefined && dataProp !== undefined) {
-	        throw new Error('both "data" and "dataProp" passed, only one allowed');
-	    }
-	    const { gen } = it;
-	    if (dataProp !== undefined) {
-	        const { errorPath, dataPathArr, opts } = it;
-	        const nextData = gen.let("data", (0, codegen_1._) `${it.data}${(0, codegen_1.getProperty)(dataProp)}`, true);
-	        dataContextProps(nextData);
-	        subschema.errorPath = (0, codegen_1.str) `${errorPath}${(0, util_1.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`;
-	        subschema.parentDataProperty = (0, codegen_1._) `${dataProp}`;
-	        subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
-	    }
-	    if (data !== undefined) {
-	        const nextData = data instanceof codegen_1.Name ? data : gen.let("data", data, true); // replaceable if used once?
-	        dataContextProps(nextData);
-	        if (propertyName !== undefined)
-	            subschema.propertyName = propertyName;
-	        // TODO something is possibly wrong here with not changing parentDataProperty and not appending dataPathArr
-	    }
-	    if (dataTypes)
-	        subschema.dataTypes = dataTypes;
-	    function dataContextProps(_nextData) {
-	        subschema.data = _nextData;
-	        subschema.dataLevel = it.dataLevel + 1;
-	        subschema.dataTypes = [];
-	        it.definedProperties = new Set();
-	        subschema.parentData = it.data;
-	        subschema.dataNames = [...it.dataNames, _nextData];
-	    }
-	}
-	subschema.extendSubschemaData = extendSubschemaData;
-	function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
-	    if (compositeRule !== undefined)
-	        subschema.compositeRule = compositeRule;
-	    if (createErrors !== undefined)
-	        subschema.createErrors = createErrors;
-	    if (allErrors !== undefined)
-	        subschema.allErrors = allErrors;
-	    subschema.jtdDiscriminator = jtdDiscriminator; // not inherited
-	    subschema.jtdMetadata = jtdMetadata; // not inherited
-	}
-	subschema.extendSubschemaMode = extendSubschemaMode;
-	
-	return subschema;
+Object.defineProperty(subschema, "__esModule", { value: true });
+subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0;
+const codegen_1$s = codegen;
+const util_1$r = util;
+function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
+    if (keyword !== undefined && schema !== undefined) {
+        throw new Error('both "keyword" and "schema" passed, only one allowed');
+    }
+    if (keyword !== undefined) {
+        const sch = it.schema[keyword];
+        return schemaProp === undefined
+            ? {
+                schema: sch,
+                schemaPath: (0, codegen_1$s._) `${it.schemaPath}${(0, codegen_1$s.getProperty)(keyword)}`,
+                errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+            }
+            : {
+                schema: sch[schemaProp],
+                schemaPath: (0, codegen_1$s._) `${it.schemaPath}${(0, codegen_1$s.getProperty)(keyword)}${(0, codegen_1$s.getProperty)(schemaProp)}`,
+                errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1$r.escapeFragment)(schemaProp)}`,
+            };
+    }
+    if (schema !== undefined) {
+        if (schemaPath === undefined || errSchemaPath === undefined || topSchemaRef === undefined) {
+            throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
+        }
+        return {
+            schema,
+            schemaPath,
+            topSchemaRef,
+            errSchemaPath,
+        };
+    }
+    throw new Error('either "keyword" or "schema" must be passed');
 }
+subschema.getSubschema = getSubschema;
+function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
+    if (data !== undefined && dataProp !== undefined) {
+        throw new Error('both "data" and "dataProp" passed, only one allowed');
+    }
+    const { gen } = it;
+    if (dataProp !== undefined) {
+        const { errorPath, dataPathArr, opts } = it;
+        const nextData = gen.let("data", (0, codegen_1$s._) `${it.data}${(0, codegen_1$s.getProperty)(dataProp)}`, true);
+        dataContextProps(nextData);
+        subschema.errorPath = (0, codegen_1$s.str) `${errorPath}${(0, util_1$r.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`;
+        subschema.parentDataProperty = (0, codegen_1$s._) `${dataProp}`;
+        subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
+    }
+    if (data !== undefined) {
+        const nextData = data instanceof codegen_1$s.Name ? data : gen.let("data", data, true); // replaceable if used once?
+        dataContextProps(nextData);
+        if (propertyName !== undefined)
+            subschema.propertyName = propertyName;
+        // TODO something is possibly wrong here with not changing parentDataProperty and not appending dataPathArr
+    }
+    if (dataTypes)
+        subschema.dataTypes = dataTypes;
+    function dataContextProps(_nextData) {
+        subschema.data = _nextData;
+        subschema.dataLevel = it.dataLevel + 1;
+        subschema.dataTypes = [];
+        it.definedProperties = new Set();
+        subschema.parentData = it.data;
+        subschema.dataNames = [...it.dataNames, _nextData];
+    }
+}
+subschema.extendSubschemaData = extendSubschemaData;
+function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
+    if (compositeRule !== undefined)
+        subschema.compositeRule = compositeRule;
+    if (createErrors !== undefined)
+        subschema.createErrors = createErrors;
+    if (allErrors !== undefined)
+        subschema.allErrors = allErrors;
+    subschema.jtdDiscriminator = jtdDiscriminator; // not inherited
+    subschema.jtdMetadata = jtdMetadata; // not inherited
+}
+subschema.extendSubschemaMode = extendSubschemaMode;
 
 var resolve$1 = {};
 
@@ -16024,7 +16018,7 @@ var jsonSchemaTraverseExports = jsonSchemaTraverse.exports;
 
 Object.defineProperty(resolve$1, "__esModule", { value: true });
 resolve$1.getSchemaRefs = resolve$1.resolveUrl = resolve$1.normalizeId = resolve$1._getFullPath = resolve$1.getFullPath = resolve$1.inlineRef = void 0;
-const util_1$p = util;
+const util_1$q = util;
 const equal$2 = fastDeepEqual;
 const traverse = jsonSchemaTraverseExports;
 // TODO refactor to use keyword definitions
@@ -16084,7 +16078,7 @@ function countKeys(schema) {
         if (SIMPLE_INLINED.has(key))
             continue;
         if (typeof schema[key] == "object") {
-            (0, util_1$p.eachItem)(schema[key], (sch) => (count += countKeys(sch)));
+            (0, util_1$q.eachItem)(schema[key], (sch) => (count += countKeys(sch)));
         }
         if (count === Infinity)
             return Infinity;
@@ -16176,583 +16170,559 @@ function getSchemaRefs(schema, baseId) {
 }
 resolve$1.getSchemaRefs = getSchemaRefs;
 
-var hasRequiredValidate;
-
-function requireValidate () {
-	if (hasRequiredValidate) return validate;
-	hasRequiredValidate = 1;
-	Object.defineProperty(validate, "__esModule", { value: true });
-	validate.getData = validate.KeywordCxt = validate.validateFunctionCode = void 0;
-	const boolSchema_1 = requireBoolSchema();
-	const dataType_1 = dataType;
-	const applicability_1 = applicability;
-	const dataType_2 = dataType;
-	const defaults_1 = requireDefaults();
-	const keyword_1 = requireKeyword();
-	const subschema_1 = requireSubschema();
-	const codegen_1 = requireCodegen();
-	const names_1 = requireNames();
-	const resolve_1 = resolve$1;
-	const util_1 = util;
-	const errors_1 = errors;
-	// schema compilation - generates validation function, subschemaCode (below) is used for subschemas
-	function validateFunctionCode(it) {
-	    if (isSchemaObj(it)) {
-	        checkKeywords(it);
-	        if (schemaCxtHasRules(it)) {
-	            topSchemaObjCode(it);
-	            return;
-	        }
-	    }
-	    validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
-	}
-	validate.validateFunctionCode = validateFunctionCode;
-	function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
-	    if (opts.code.es5) {
-	        gen.func(validateName, (0, codegen_1._) `${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
-	            gen.code((0, codegen_1._) `"use strict"; ${funcSourceUrl(schema, opts)}`);
-	            destructureValCxtES5(gen, opts);
-	            gen.code(body);
-	        });
-	    }
-	    else {
-	        gen.func(validateName, (0, codegen_1._) `${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
-	    }
-	}
-	function destructureValCxt(opts) {
-	    return (0, codegen_1._) `{${names_1.default.instancePath}="", ${names_1.default.parentData}, ${names_1.default.parentDataProperty}, ${names_1.default.rootData}=${names_1.default.data}${opts.dynamicRef ? (0, codegen_1._) `, ${names_1.default.dynamicAnchors}={}` : codegen_1.nil}}={}`;
-	}
-	function destructureValCxtES5(gen, opts) {
-	    gen.if(names_1.default.valCxt, () => {
-	        gen.var(names_1.default.instancePath, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.instancePath}`);
-	        gen.var(names_1.default.parentData, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.parentData}`);
-	        gen.var(names_1.default.parentDataProperty, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.parentDataProperty}`);
-	        gen.var(names_1.default.rootData, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.rootData}`);
-	        if (opts.dynamicRef)
-	            gen.var(names_1.default.dynamicAnchors, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.dynamicAnchors}`);
-	    }, () => {
-	        gen.var(names_1.default.instancePath, (0, codegen_1._) `""`);
-	        gen.var(names_1.default.parentData, (0, codegen_1._) `undefined`);
-	        gen.var(names_1.default.parentDataProperty, (0, codegen_1._) `undefined`);
-	        gen.var(names_1.default.rootData, names_1.default.data);
-	        if (opts.dynamicRef)
-	            gen.var(names_1.default.dynamicAnchors, (0, codegen_1._) `{}`);
-	    });
-	}
-	function topSchemaObjCode(it) {
-	    const { schema, opts, gen } = it;
-	    validateFunction(it, () => {
-	        if (opts.$comment && schema.$comment)
-	            commentKeyword(it);
-	        checkNoDefault(it);
-	        gen.let(names_1.default.vErrors, null);
-	        gen.let(names_1.default.errors, 0);
-	        if (opts.unevaluated)
-	            resetEvaluated(it);
-	        typeAndKeywords(it);
-	        returnResults(it);
-	    });
-	    return;
-	}
-	function resetEvaluated(it) {
-	    // TODO maybe some hook to execute it in the end to check whether props/items are Name, as in assignEvaluated
-	    const { gen, validateName } = it;
-	    it.evaluated = gen.const("evaluated", (0, codegen_1._) `${validateName}.evaluated`);
-	    gen.if((0, codegen_1._) `${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1._) `${it.evaluated}.props`, (0, codegen_1._) `undefined`));
-	    gen.if((0, codegen_1._) `${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1._) `${it.evaluated}.items`, (0, codegen_1._) `undefined`));
-	}
-	function funcSourceUrl(schema, opts) {
-	    const schId = typeof schema == "object" && schema[opts.schemaId];
-	    return schId && (opts.code.source || opts.code.process) ? (0, codegen_1._) `/*# sourceURL=${schId} */` : codegen_1.nil;
-	}
-	// schema compilation - this function is used recursively to generate code for sub-schemas
-	function subschemaCode(it, valid) {
-	    if (isSchemaObj(it)) {
-	        checkKeywords(it);
-	        if (schemaCxtHasRules(it)) {
-	            subSchemaObjCode(it, valid);
-	            return;
-	        }
-	    }
-	    (0, boolSchema_1.boolOrEmptySchema)(it, valid);
-	}
-	function schemaCxtHasRules({ schema, self }) {
-	    if (typeof schema == "boolean")
-	        return !schema;
-	    for (const key in schema)
-	        if (self.RULES.all[key])
-	            return true;
-	    return false;
-	}
-	function isSchemaObj(it) {
-	    return typeof it.schema != "boolean";
-	}
-	function subSchemaObjCode(it, valid) {
-	    const { schema, gen, opts } = it;
-	    if (opts.$comment && schema.$comment)
-	        commentKeyword(it);
-	    updateContext(it);
-	    checkAsyncSchema(it);
-	    const errsCount = gen.const("_errs", names_1.default.errors);
-	    typeAndKeywords(it, errsCount);
-	    // TODO var
-	    gen.var(valid, (0, codegen_1._) `${errsCount} === ${names_1.default.errors}`);
-	}
-	function checkKeywords(it) {
-	    (0, util_1.checkUnknownRules)(it);
-	    checkRefsAndKeywords(it);
-	}
-	function typeAndKeywords(it, errsCount) {
-	    if (it.opts.jtd)
-	        return schemaKeywords(it, [], false, errsCount);
-	    const types = (0, dataType_1.getSchemaTypes)(it.schema);
-	    const checkedTypes = (0, dataType_1.coerceAndCheckDataType)(it, types);
-	    schemaKeywords(it, types, !checkedTypes, errsCount);
-	}
-	function checkRefsAndKeywords(it) {
-	    const { schema, errSchemaPath, opts, self } = it;
-	    if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1.schemaHasRulesButRef)(schema, self.RULES)) {
-	        self.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
-	    }
-	}
-	function checkNoDefault(it) {
-	    const { schema, opts } = it;
-	    if (schema.default !== undefined && opts.useDefaults && opts.strictSchema) {
-	        (0, util_1.checkStrictMode)(it, "default is ignored in the schema root");
-	    }
-	}
-	function updateContext(it) {
-	    const schId = it.schema[it.opts.schemaId];
-	    if (schId)
-	        it.baseId = (0, resolve_1.resolveUrl)(it.opts.uriResolver, it.baseId, schId);
-	}
-	function checkAsyncSchema(it) {
-	    if (it.schema.$async && !it.schemaEnv.$async)
-	        throw new Error("async schema in sync schema");
-	}
-	function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
-	    const msg = schema.$comment;
-	    if (opts.$comment === true) {
-	        gen.code((0, codegen_1._) `${names_1.default.self}.logger.log(${msg})`);
-	    }
-	    else if (typeof opts.$comment == "function") {
-	        const schemaPath = (0, codegen_1.str) `${errSchemaPath}/$comment`;
-	        const rootName = gen.scopeValue("root", { ref: schemaEnv.root });
-	        gen.code((0, codegen_1._) `${names_1.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
-	    }
-	}
-	function returnResults(it) {
-	    const { gen, schemaEnv, validateName, ValidationError, opts } = it;
-	    if (schemaEnv.$async) {
-	        // TODO assign unevaluated
-	        gen.if((0, codegen_1._) `${names_1.default.errors} === 0`, () => gen.return(names_1.default.data), () => gen.throw((0, codegen_1._) `new ${ValidationError}(${names_1.default.vErrors})`));
-	    }
-	    else {
-	        gen.assign((0, codegen_1._) `${validateName}.errors`, names_1.default.vErrors);
-	        if (opts.unevaluated)
-	            assignEvaluated(it);
-	        gen.return((0, codegen_1._) `${names_1.default.errors} === 0`);
-	    }
-	}
-	function assignEvaluated({ gen, evaluated, props, items }) {
-	    if (props instanceof codegen_1.Name)
-	        gen.assign((0, codegen_1._) `${evaluated}.props`, props);
-	    if (items instanceof codegen_1.Name)
-	        gen.assign((0, codegen_1._) `${evaluated}.items`, items);
-	}
-	function schemaKeywords(it, types, typeErrors, errsCount) {
-	    const { gen, schema, data, allErrors, opts, self } = it;
-	    const { RULES } = self;
-	    if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES))) {
-	        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition)); // TODO typecast
-	        return;
-	    }
-	    if (!opts.jtd)
-	        checkStrictTypes(it, types);
-	    gen.block(() => {
-	        for (const group of RULES.rules)
-	            groupKeywords(group);
-	        groupKeywords(RULES.post);
-	    });
-	    function groupKeywords(group) {
-	        if (!(0, applicability_1.shouldUseGroup)(schema, group))
-	            return;
-	        if (group.type) {
-	            gen.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers));
-	            iterateKeywords(it, group);
-	            if (types.length === 1 && types[0] === group.type && typeErrors) {
-	                gen.else();
-	                (0, dataType_2.reportTypeError)(it);
-	            }
-	            gen.endIf();
-	        }
-	        else {
-	            iterateKeywords(it, group);
-	        }
-	        // TODO make it "ok" call?
-	        if (!allErrors)
-	            gen.if((0, codegen_1._) `${names_1.default.errors} === ${errsCount || 0}`);
-	    }
-	}
-	function iterateKeywords(it, group) {
-	    const { gen, schema, opts: { useDefaults }, } = it;
-	    if (useDefaults)
-	        (0, defaults_1.assignDefaults)(it, group.type);
-	    gen.block(() => {
-	        for (const rule of group.rules) {
-	            if ((0, applicability_1.shouldUseRule)(schema, rule)) {
-	                keywordCode(it, rule.keyword, rule.definition, group.type);
-	            }
-	        }
-	    });
-	}
-	function checkStrictTypes(it, types) {
-	    if (it.schemaEnv.meta || !it.opts.strictTypes)
-	        return;
-	    checkContextTypes(it, types);
-	    if (!it.opts.allowUnionTypes)
-	        checkMultipleTypes(it, types);
-	    checkKeywordTypes(it, it.dataTypes);
-	}
-	function checkContextTypes(it, types) {
-	    if (!types.length)
-	        return;
-	    if (!it.dataTypes.length) {
-	        it.dataTypes = types;
-	        return;
-	    }
-	    types.forEach((t) => {
-	        if (!includesType(it.dataTypes, t)) {
-	            strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
-	        }
-	    });
-	    narrowSchemaTypes(it, types);
-	}
-	function checkMultipleTypes(it, ts) {
-	    if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
-	        strictTypesError(it, "use allowUnionTypes to allow union type keyword");
-	    }
-	}
-	function checkKeywordTypes(it, ts) {
-	    const rules = it.self.RULES.all;
-	    for (const keyword in rules) {
-	        const rule = rules[keyword];
-	        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
-	            const { type } = rule.definition;
-	            if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
-	                strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
-	            }
-	        }
-	    }
-	}
-	function hasApplicableType(schTs, kwdT) {
-	    return schTs.includes(kwdT) || (kwdT === "number" && schTs.includes("integer"));
-	}
-	function includesType(ts, t) {
-	    return ts.includes(t) || (t === "integer" && ts.includes("number"));
-	}
-	function narrowSchemaTypes(it, withTypes) {
-	    const ts = [];
-	    for (const t of it.dataTypes) {
-	        if (includesType(withTypes, t))
-	            ts.push(t);
-	        else if (withTypes.includes("integer") && t === "number")
-	            ts.push("integer");
-	    }
-	    it.dataTypes = ts;
-	}
-	function strictTypesError(it, msg) {
-	    const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
-	    msg += ` at "${schemaPath}" (strictTypes)`;
-	    (0, util_1.checkStrictMode)(it, msg, it.opts.strictTypes);
-	}
-	class KeywordCxt {
-	    constructor(it, def, keyword) {
-	        (0, keyword_1.validateKeywordUsage)(it, def, keyword);
-	        this.gen = it.gen;
-	        this.allErrors = it.allErrors;
-	        this.keyword = keyword;
-	        this.data = it.data;
-	        this.schema = it.schema[keyword];
-	        this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data;
-	        this.schemaValue = (0, util_1.schemaRefOrVal)(it, this.schema, keyword, this.$data);
-	        this.schemaType = def.schemaType;
-	        this.parentSchema = it.schema;
-	        this.params = {};
-	        this.it = it;
-	        this.def = def;
-	        if (this.$data) {
-	            this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
-	        }
-	        else {
-	            this.schemaCode = this.schemaValue;
-	            if (!(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined)) {
-	                throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
-	            }
-	        }
-	        if ("code" in def ? def.trackErrors : def.errors !== false) {
-	            this.errsCount = it.gen.const("_errs", names_1.default.errors);
-	        }
-	    }
-	    result(condition, successAction, failAction) {
-	        this.failResult((0, codegen_1.not)(condition), successAction, failAction);
-	    }
-	    failResult(condition, successAction, failAction) {
-	        this.gen.if(condition);
-	        if (failAction)
-	            failAction();
-	        else
-	            this.error();
-	        if (successAction) {
-	            this.gen.else();
-	            successAction();
-	            if (this.allErrors)
-	                this.gen.endIf();
-	        }
-	        else {
-	            if (this.allErrors)
-	                this.gen.endIf();
-	            else
-	                this.gen.else();
-	        }
-	    }
-	    pass(condition, failAction) {
-	        this.failResult((0, codegen_1.not)(condition), undefined, failAction);
-	    }
-	    fail(condition) {
-	        if (condition === undefined) {
-	            this.error();
-	            if (!this.allErrors)
-	                this.gen.if(false); // this branch will be removed by gen.optimize
-	            return;
-	        }
-	        this.gen.if(condition);
-	        this.error();
-	        if (this.allErrors)
-	            this.gen.endIf();
-	        else
-	            this.gen.else();
-	    }
-	    fail$data(condition) {
-	        if (!this.$data)
-	            return this.fail(condition);
-	        const { schemaCode } = this;
-	        this.fail((0, codegen_1._) `${schemaCode} !== undefined && (${(0, codegen_1.or)(this.invalid$data(), condition)})`);
-	    }
-	    error(append, errorParams, errorPaths) {
-	        if (errorParams) {
-	            this.setParams(errorParams);
-	            this._error(append, errorPaths);
-	            this.setParams({});
-	            return;
-	        }
-	        this._error(append, errorPaths);
-	    }
-	    _error(append, errorPaths) {
-	        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
-	    }
-	    $dataError() {
-	        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
-	    }
-	    reset() {
-	        if (this.errsCount === undefined)
-	            throw new Error('add "trackErrors" to keyword definition');
-	        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
-	    }
-	    ok(cond) {
-	        if (!this.allErrors)
-	            this.gen.if(cond);
-	    }
-	    setParams(obj, assign) {
-	        if (assign)
-	            Object.assign(this.params, obj);
-	        else
-	            this.params = obj;
-	    }
-	    block$data(valid, codeBlock, $dataValid = codegen_1.nil) {
-	        this.gen.block(() => {
-	            this.check$data(valid, $dataValid);
-	            codeBlock();
-	        });
-	    }
-	    check$data(valid = codegen_1.nil, $dataValid = codegen_1.nil) {
-	        if (!this.$data)
-	            return;
-	        const { gen, schemaCode, schemaType, def } = this;
-	        gen.if((0, codegen_1.or)((0, codegen_1._) `${schemaCode} === undefined`, $dataValid));
-	        if (valid !== codegen_1.nil)
-	            gen.assign(valid, true);
-	        if (schemaType.length || def.validateSchema) {
-	            gen.elseIf(this.invalid$data());
-	            this.$dataError();
-	            if (valid !== codegen_1.nil)
-	                gen.assign(valid, false);
-	        }
-	        gen.else();
-	    }
-	    invalid$data() {
-	        const { gen, schemaCode, schemaType, def, it } = this;
-	        return (0, codegen_1.or)(wrong$DataType(), invalid$DataSchema());
-	        function wrong$DataType() {
-	            if (schemaType.length) {
-	                /* istanbul ignore if */
-	                if (!(schemaCode instanceof codegen_1.Name))
-	                    throw new Error("ajv implementation error");
-	                const st = Array.isArray(schemaType) ? schemaType : [schemaType];
-	                return (0, codegen_1._) `${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
-	            }
-	            return codegen_1.nil;
-	        }
-	        function invalid$DataSchema() {
-	            if (def.validateSchema) {
-	                const validateSchemaRef = gen.scopeValue("validate$data", { ref: def.validateSchema }); // TODO value.code for standalone
-	                return (0, codegen_1._) `!${validateSchemaRef}(${schemaCode})`;
-	            }
-	            return codegen_1.nil;
-	        }
-	    }
-	    subschema(appl, valid) {
-	        const subschema = (0, subschema_1.getSubschema)(this.it, appl);
-	        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl);
-	        (0, subschema_1.extendSubschemaMode)(subschema, appl);
-	        const nextContext = { ...this.it, ...subschema, items: undefined, props: undefined };
-	        subschemaCode(nextContext, valid);
-	        return nextContext;
-	    }
-	    mergeEvaluated(schemaCxt, toName) {
-	        const { it, gen } = this;
-	        if (!it.opts.unevaluated)
-	            return;
-	        if (it.props !== true && schemaCxt.props !== undefined) {
-	            it.props = util_1.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName);
-	        }
-	        if (it.items !== true && schemaCxt.items !== undefined) {
-	            it.items = util_1.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName);
-	        }
-	    }
-	    mergeValidEvaluated(schemaCxt, valid) {
-	        const { it, gen } = this;
-	        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
-	            gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1.Name));
-	            return true;
-	        }
-	    }
-	}
-	validate.KeywordCxt = KeywordCxt;
-	function keywordCode(it, keyword, def, ruleType) {
-	    const cxt = new KeywordCxt(it, def, keyword);
-	    if ("code" in def) {
-	        def.code(cxt, ruleType);
-	    }
-	    else if (cxt.$data && def.validate) {
-	        (0, keyword_1.funcKeywordCode)(cxt, def);
-	    }
-	    else if ("macro" in def) {
-	        (0, keyword_1.macroKeywordCode)(cxt, def);
-	    }
-	    else if (def.compile || def.validate) {
-	        (0, keyword_1.funcKeywordCode)(cxt, def);
-	    }
-	}
-	const JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
-	const RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
-	function getData($data, { dataLevel, dataNames, dataPathArr }) {
-	    let jsonPointer;
-	    let data;
-	    if ($data === "")
-	        return names_1.default.rootData;
-	    if ($data[0] === "/") {
-	        if (!JSON_POINTER.test($data))
-	            throw new Error(`Invalid JSON-pointer: ${$data}`);
-	        jsonPointer = $data;
-	        data = names_1.default.rootData;
-	    }
-	    else {
-	        const matches = RELATIVE_JSON_POINTER.exec($data);
-	        if (!matches)
-	            throw new Error(`Invalid JSON-pointer: ${$data}`);
-	        const up = +matches[1];
-	        jsonPointer = matches[2];
-	        if (jsonPointer === "#") {
-	            if (up >= dataLevel)
-	                throw new Error(errorMsg("property/index", up));
-	            return dataPathArr[dataLevel - up];
-	        }
-	        if (up > dataLevel)
-	            throw new Error(errorMsg("data", up));
-	        data = dataNames[dataLevel - up];
-	        if (!jsonPointer)
-	            return data;
-	    }
-	    let expr = data;
-	    const segments = jsonPointer.split("/");
-	    for (const segment of segments) {
-	        if (segment) {
-	            data = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)((0, util_1.unescapeJsonPointer)(segment))}`;
-	            expr = (0, codegen_1._) `${expr} && ${data}`;
-	        }
-	    }
-	    return expr;
-	    function errorMsg(pointerType, up) {
-	        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
-	    }
-	}
-	validate.getData = getData;
-	
-	return validate;
+Object.defineProperty(validate, "__esModule", { value: true });
+validate.getData = validate.KeywordCxt = validate.validateFunctionCode = void 0;
+const boolSchema_1 = boolSchema;
+const dataType_1$1 = dataType;
+const applicability_1 = applicability;
+const dataType_2 = dataType;
+const defaults_1 = defaults;
+const keyword_1 = keyword;
+const subschema_1 = subschema;
+const codegen_1$r = codegen;
+const names_1$6 = names$1;
+const resolve_1$2 = resolve$1;
+const util_1$p = util;
+const errors_1 = errors;
+// schema compilation - generates validation function, subschemaCode (below) is used for subschemas
+function validateFunctionCode(it) {
+    if (isSchemaObj(it)) {
+        checkKeywords(it);
+        if (schemaCxtHasRules(it)) {
+            topSchemaObjCode(it);
+            return;
+        }
+    }
+    validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
 }
+validate.validateFunctionCode = validateFunctionCode;
+function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
+    if (opts.code.es5) {
+        gen.func(validateName, (0, codegen_1$r._) `${names_1$6.default.data}, ${names_1$6.default.valCxt}`, schemaEnv.$async, () => {
+            gen.code((0, codegen_1$r._) `"use strict"; ${funcSourceUrl(schema, opts)}`);
+            destructureValCxtES5(gen, opts);
+            gen.code(body);
+        });
+    }
+    else {
+        gen.func(validateName, (0, codegen_1$r._) `${names_1$6.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
+    }
+}
+function destructureValCxt(opts) {
+    return (0, codegen_1$r._) `{${names_1$6.default.instancePath}="", ${names_1$6.default.parentData}, ${names_1$6.default.parentDataProperty}, ${names_1$6.default.rootData}=${names_1$6.default.data}${opts.dynamicRef ? (0, codegen_1$r._) `, ${names_1$6.default.dynamicAnchors}={}` : codegen_1$r.nil}}={}`;
+}
+function destructureValCxtES5(gen, opts) {
+    gen.if(names_1$6.default.valCxt, () => {
+        gen.var(names_1$6.default.instancePath, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.instancePath}`);
+        gen.var(names_1$6.default.parentData, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.parentData}`);
+        gen.var(names_1$6.default.parentDataProperty, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.parentDataProperty}`);
+        gen.var(names_1$6.default.rootData, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.rootData}`);
+        if (opts.dynamicRef)
+            gen.var(names_1$6.default.dynamicAnchors, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.dynamicAnchors}`);
+    }, () => {
+        gen.var(names_1$6.default.instancePath, (0, codegen_1$r._) `""`);
+        gen.var(names_1$6.default.parentData, (0, codegen_1$r._) `undefined`);
+        gen.var(names_1$6.default.parentDataProperty, (0, codegen_1$r._) `undefined`);
+        gen.var(names_1$6.default.rootData, names_1$6.default.data);
+        if (opts.dynamicRef)
+            gen.var(names_1$6.default.dynamicAnchors, (0, codegen_1$r._) `{}`);
+    });
+}
+function topSchemaObjCode(it) {
+    const { schema, opts, gen } = it;
+    validateFunction(it, () => {
+        if (opts.$comment && schema.$comment)
+            commentKeyword(it);
+        checkNoDefault(it);
+        gen.let(names_1$6.default.vErrors, null);
+        gen.let(names_1$6.default.errors, 0);
+        if (opts.unevaluated)
+            resetEvaluated(it);
+        typeAndKeywords(it);
+        returnResults(it);
+    });
+    return;
+}
+function resetEvaluated(it) {
+    // TODO maybe some hook to execute it in the end to check whether props/items are Name, as in assignEvaluated
+    const { gen, validateName } = it;
+    it.evaluated = gen.const("evaluated", (0, codegen_1$r._) `${validateName}.evaluated`);
+    gen.if((0, codegen_1$r._) `${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1$r._) `${it.evaluated}.props`, (0, codegen_1$r._) `undefined`));
+    gen.if((0, codegen_1$r._) `${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1$r._) `${it.evaluated}.items`, (0, codegen_1$r._) `undefined`));
+}
+function funcSourceUrl(schema, opts) {
+    const schId = typeof schema == "object" && schema[opts.schemaId];
+    return schId && (opts.code.source || opts.code.process) ? (0, codegen_1$r._) `/*# sourceURL=${schId} */` : codegen_1$r.nil;
+}
+// schema compilation - this function is used recursively to generate code for sub-schemas
+function subschemaCode(it, valid) {
+    if (isSchemaObj(it)) {
+        checkKeywords(it);
+        if (schemaCxtHasRules(it)) {
+            subSchemaObjCode(it, valid);
+            return;
+        }
+    }
+    (0, boolSchema_1.boolOrEmptySchema)(it, valid);
+}
+function schemaCxtHasRules({ schema, self }) {
+    if (typeof schema == "boolean")
+        return !schema;
+    for (const key in schema)
+        if (self.RULES.all[key])
+            return true;
+    return false;
+}
+function isSchemaObj(it) {
+    return typeof it.schema != "boolean";
+}
+function subSchemaObjCode(it, valid) {
+    const { schema, gen, opts } = it;
+    if (opts.$comment && schema.$comment)
+        commentKeyword(it);
+    updateContext$1(it);
+    checkAsyncSchema(it);
+    const errsCount = gen.const("_errs", names_1$6.default.errors);
+    typeAndKeywords(it, errsCount);
+    // TODO var
+    gen.var(valid, (0, codegen_1$r._) `${errsCount} === ${names_1$6.default.errors}`);
+}
+function checkKeywords(it) {
+    (0, util_1$p.checkUnknownRules)(it);
+    checkRefsAndKeywords(it);
+}
+function typeAndKeywords(it, errsCount) {
+    if (it.opts.jtd)
+        return schemaKeywords(it, [], false, errsCount);
+    const types = (0, dataType_1$1.getSchemaTypes)(it.schema);
+    const checkedTypes = (0, dataType_1$1.coerceAndCheckDataType)(it, types);
+    schemaKeywords(it, types, !checkedTypes, errsCount);
+}
+function checkRefsAndKeywords(it) {
+    const { schema, errSchemaPath, opts, self } = it;
+    if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1$p.schemaHasRulesButRef)(schema, self.RULES)) {
+        self.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
+    }
+}
+function checkNoDefault(it) {
+    const { schema, opts } = it;
+    if (schema.default !== undefined && opts.useDefaults && opts.strictSchema) {
+        (0, util_1$p.checkStrictMode)(it, "default is ignored in the schema root");
+    }
+}
+function updateContext$1(it) {
+    const schId = it.schema[it.opts.schemaId];
+    if (schId)
+        it.baseId = (0, resolve_1$2.resolveUrl)(it.opts.uriResolver, it.baseId, schId);
+}
+function checkAsyncSchema(it) {
+    if (it.schema.$async && !it.schemaEnv.$async)
+        throw new Error("async schema in sync schema");
+}
+function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
+    const msg = schema.$comment;
+    if (opts.$comment === true) {
+        gen.code((0, codegen_1$r._) `${names_1$6.default.self}.logger.log(${msg})`);
+    }
+    else if (typeof opts.$comment == "function") {
+        const schemaPath = (0, codegen_1$r.str) `${errSchemaPath}/$comment`;
+        const rootName = gen.scopeValue("root", { ref: schemaEnv.root });
+        gen.code((0, codegen_1$r._) `${names_1$6.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
+    }
+}
+function returnResults(it) {
+    const { gen, schemaEnv, validateName, ValidationError, opts } = it;
+    if (schemaEnv.$async) {
+        // TODO assign unevaluated
+        gen.if((0, codegen_1$r._) `${names_1$6.default.errors} === 0`, () => gen.return(names_1$6.default.data), () => gen.throw((0, codegen_1$r._) `new ${ValidationError}(${names_1$6.default.vErrors})`));
+    }
+    else {
+        gen.assign((0, codegen_1$r._) `${validateName}.errors`, names_1$6.default.vErrors);
+        if (opts.unevaluated)
+            assignEvaluated(it);
+        gen.return((0, codegen_1$r._) `${names_1$6.default.errors} === 0`);
+    }
+}
+function assignEvaluated({ gen, evaluated, props, items }) {
+    if (props instanceof codegen_1$r.Name)
+        gen.assign((0, codegen_1$r._) `${evaluated}.props`, props);
+    if (items instanceof codegen_1$r.Name)
+        gen.assign((0, codegen_1$r._) `${evaluated}.items`, items);
+}
+function schemaKeywords(it, types, typeErrors, errsCount) {
+    const { gen, schema, data, allErrors, opts, self } = it;
+    const { RULES } = self;
+    if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1$p.schemaHasRulesButRef)(schema, RULES))) {
+        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition)); // TODO typecast
+        return;
+    }
+    if (!opts.jtd)
+        checkStrictTypes(it, types);
+    gen.block(() => {
+        for (const group of RULES.rules)
+            groupKeywords(group);
+        groupKeywords(RULES.post);
+    });
+    function groupKeywords(group) {
+        if (!(0, applicability_1.shouldUseGroup)(schema, group))
+            return;
+        if (group.type) {
+            gen.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers));
+            iterateKeywords(it, group);
+            if (types.length === 1 && types[0] === group.type && typeErrors) {
+                gen.else();
+                (0, dataType_2.reportTypeError)(it);
+            }
+            gen.endIf();
+        }
+        else {
+            iterateKeywords(it, group);
+        }
+        // TODO make it "ok" call?
+        if (!allErrors)
+            gen.if((0, codegen_1$r._) `${names_1$6.default.errors} === ${errsCount || 0}`);
+    }
+}
+function iterateKeywords(it, group) {
+    const { gen, schema, opts: { useDefaults }, } = it;
+    if (useDefaults)
+        (0, defaults_1.assignDefaults)(it, group.type);
+    gen.block(() => {
+        for (const rule of group.rules) {
+            if ((0, applicability_1.shouldUseRule)(schema, rule)) {
+                keywordCode(it, rule.keyword, rule.definition, group.type);
+            }
+        }
+    });
+}
+function checkStrictTypes(it, types) {
+    if (it.schemaEnv.meta || !it.opts.strictTypes)
+        return;
+    checkContextTypes(it, types);
+    if (!it.opts.allowUnionTypes)
+        checkMultipleTypes(it, types);
+    checkKeywordTypes(it, it.dataTypes);
+}
+function checkContextTypes(it, types) {
+    if (!types.length)
+        return;
+    if (!it.dataTypes.length) {
+        it.dataTypes = types;
+        return;
+    }
+    types.forEach((t) => {
+        if (!includesType(it.dataTypes, t)) {
+            strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
+        }
+    });
+    narrowSchemaTypes(it, types);
+}
+function checkMultipleTypes(it, ts) {
+    if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
+        strictTypesError(it, "use allowUnionTypes to allow union type keyword");
+    }
+}
+function checkKeywordTypes(it, ts) {
+    const rules = it.self.RULES.all;
+    for (const keyword in rules) {
+        const rule = rules[keyword];
+        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
+            const { type } = rule.definition;
+            if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
+                strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
+            }
+        }
+    }
+}
+function hasApplicableType(schTs, kwdT) {
+    return schTs.includes(kwdT) || (kwdT === "number" && schTs.includes("integer"));
+}
+function includesType(ts, t) {
+    return ts.includes(t) || (t === "integer" && ts.includes("number"));
+}
+function narrowSchemaTypes(it, withTypes) {
+    const ts = [];
+    for (const t of it.dataTypes) {
+        if (includesType(withTypes, t))
+            ts.push(t);
+        else if (withTypes.includes("integer") && t === "number")
+            ts.push("integer");
+    }
+    it.dataTypes = ts;
+}
+function strictTypesError(it, msg) {
+    const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
+    msg += ` at "${schemaPath}" (strictTypes)`;
+    (0, util_1$p.checkStrictMode)(it, msg, it.opts.strictTypes);
+}
+class KeywordCxt {
+    constructor(it, def, keyword) {
+        (0, keyword_1.validateKeywordUsage)(it, def, keyword);
+        this.gen = it.gen;
+        this.allErrors = it.allErrors;
+        this.keyword = keyword;
+        this.data = it.data;
+        this.schema = it.schema[keyword];
+        this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data;
+        this.schemaValue = (0, util_1$p.schemaRefOrVal)(it, this.schema, keyword, this.$data);
+        this.schemaType = def.schemaType;
+        this.parentSchema = it.schema;
+        this.params = {};
+        this.it = it;
+        this.def = def;
+        if (this.$data) {
+            this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
+        }
+        else {
+            this.schemaCode = this.schemaValue;
+            if (!(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined)) {
+                throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
+            }
+        }
+        if ("code" in def ? def.trackErrors : def.errors !== false) {
+            this.errsCount = it.gen.const("_errs", names_1$6.default.errors);
+        }
+    }
+    result(condition, successAction, failAction) {
+        this.failResult((0, codegen_1$r.not)(condition), successAction, failAction);
+    }
+    failResult(condition, successAction, failAction) {
+        this.gen.if(condition);
+        if (failAction)
+            failAction();
+        else
+            this.error();
+        if (successAction) {
+            this.gen.else();
+            successAction();
+            if (this.allErrors)
+                this.gen.endIf();
+        }
+        else {
+            if (this.allErrors)
+                this.gen.endIf();
+            else
+                this.gen.else();
+        }
+    }
+    pass(condition, failAction) {
+        this.failResult((0, codegen_1$r.not)(condition), undefined, failAction);
+    }
+    fail(condition) {
+        if (condition === undefined) {
+            this.error();
+            if (!this.allErrors)
+                this.gen.if(false); // this branch will be removed by gen.optimize
+            return;
+        }
+        this.gen.if(condition);
+        this.error();
+        if (this.allErrors)
+            this.gen.endIf();
+        else
+            this.gen.else();
+    }
+    fail$data(condition) {
+        if (!this.$data)
+            return this.fail(condition);
+        const { schemaCode } = this;
+        this.fail((0, codegen_1$r._) `${schemaCode} !== undefined && (${(0, codegen_1$r.or)(this.invalid$data(), condition)})`);
+    }
+    error(append, errorParams, errorPaths) {
+        if (errorParams) {
+            this.setParams(errorParams);
+            this._error(append, errorPaths);
+            this.setParams({});
+            return;
+        }
+        this._error(append, errorPaths);
+    }
+    _error(append, errorPaths) {
+        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
+    }
+    $dataError() {
+        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
+    }
+    reset() {
+        if (this.errsCount === undefined)
+            throw new Error('add "trackErrors" to keyword definition');
+        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
+    }
+    ok(cond) {
+        if (!this.allErrors)
+            this.gen.if(cond);
+    }
+    setParams(obj, assign) {
+        if (assign)
+            Object.assign(this.params, obj);
+        else
+            this.params = obj;
+    }
+    block$data(valid, codeBlock, $dataValid = codegen_1$r.nil) {
+        this.gen.block(() => {
+            this.check$data(valid, $dataValid);
+            codeBlock();
+        });
+    }
+    check$data(valid = codegen_1$r.nil, $dataValid = codegen_1$r.nil) {
+        if (!this.$data)
+            return;
+        const { gen, schemaCode, schemaType, def } = this;
+        gen.if((0, codegen_1$r.or)((0, codegen_1$r._) `${schemaCode} === undefined`, $dataValid));
+        if (valid !== codegen_1$r.nil)
+            gen.assign(valid, true);
+        if (schemaType.length || def.validateSchema) {
+            gen.elseIf(this.invalid$data());
+            this.$dataError();
+            if (valid !== codegen_1$r.nil)
+                gen.assign(valid, false);
+        }
+        gen.else();
+    }
+    invalid$data() {
+        const { gen, schemaCode, schemaType, def, it } = this;
+        return (0, codegen_1$r.or)(wrong$DataType(), invalid$DataSchema());
+        function wrong$DataType() {
+            if (schemaType.length) {
+                /* istanbul ignore if */
+                if (!(schemaCode instanceof codegen_1$r.Name))
+                    throw new Error("ajv implementation error");
+                const st = Array.isArray(schemaType) ? schemaType : [schemaType];
+                return (0, codegen_1$r._) `${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
+            }
+            return codegen_1$r.nil;
+        }
+        function invalid$DataSchema() {
+            if (def.validateSchema) {
+                const validateSchemaRef = gen.scopeValue("validate$data", { ref: def.validateSchema }); // TODO value.code for standalone
+                return (0, codegen_1$r._) `!${validateSchemaRef}(${schemaCode})`;
+            }
+            return codegen_1$r.nil;
+        }
+    }
+    subschema(appl, valid) {
+        const subschema = (0, subschema_1.getSubschema)(this.it, appl);
+        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl);
+        (0, subschema_1.extendSubschemaMode)(subschema, appl);
+        const nextContext = { ...this.it, ...subschema, items: undefined, props: undefined };
+        subschemaCode(nextContext, valid);
+        return nextContext;
+    }
+    mergeEvaluated(schemaCxt, toName) {
+        const { it, gen } = this;
+        if (!it.opts.unevaluated)
+            return;
+        if (it.props !== true && schemaCxt.props !== undefined) {
+            it.props = util_1$p.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName);
+        }
+        if (it.items !== true && schemaCxt.items !== undefined) {
+            it.items = util_1$p.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName);
+        }
+    }
+    mergeValidEvaluated(schemaCxt, valid) {
+        const { it, gen } = this;
+        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
+            gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1$r.Name));
+            return true;
+        }
+    }
+}
+validate.KeywordCxt = KeywordCxt;
+function keywordCode(it, keyword, def, ruleType) {
+    const cxt = new KeywordCxt(it, def, keyword);
+    if ("code" in def) {
+        def.code(cxt, ruleType);
+    }
+    else if (cxt.$data && def.validate) {
+        (0, keyword_1.funcKeywordCode)(cxt, def);
+    }
+    else if ("macro" in def) {
+        (0, keyword_1.macroKeywordCode)(cxt, def);
+    }
+    else if (def.compile || def.validate) {
+        (0, keyword_1.funcKeywordCode)(cxt, def);
+    }
+}
+const JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
+const RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
+function getData($data, { dataLevel, dataNames, dataPathArr }) {
+    let jsonPointer;
+    let data;
+    if ($data === "")
+        return names_1$6.default.rootData;
+    if ($data[0] === "/") {
+        if (!JSON_POINTER.test($data))
+            throw new Error(`Invalid JSON-pointer: ${$data}`);
+        jsonPointer = $data;
+        data = names_1$6.default.rootData;
+    }
+    else {
+        const matches = RELATIVE_JSON_POINTER.exec($data);
+        if (!matches)
+            throw new Error(`Invalid JSON-pointer: ${$data}`);
+        const up = +matches[1];
+        jsonPointer = matches[2];
+        if (jsonPointer === "#") {
+            if (up >= dataLevel)
+                throw new Error(errorMsg("property/index", up));
+            return dataPathArr[dataLevel - up];
+        }
+        if (up > dataLevel)
+            throw new Error(errorMsg("data", up));
+        data = dataNames[dataLevel - up];
+        if (!jsonPointer)
+            return data;
+    }
+    let expr = data;
+    const segments = jsonPointer.split("/");
+    for (const segment of segments) {
+        if (segment) {
+            data = (0, codegen_1$r._) `${data}${(0, codegen_1$r.getProperty)((0, util_1$p.unescapeJsonPointer)(segment))}`;
+            expr = (0, codegen_1$r._) `${expr} && ${data}`;
+        }
+    }
+    return expr;
+    function errorMsg(pointerType, up) {
+        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
+    }
+}
+validate.getData = getData;
 
 var validation_error = {};
 
-var hasRequiredValidation_error;
-
-function requireValidation_error () {
-	if (hasRequiredValidation_error) return validation_error;
-	hasRequiredValidation_error = 1;
-	Object.defineProperty(validation_error, "__esModule", { value: true });
-	class ValidationError extends Error {
-	    constructor(errors) {
-	        super("validation failed");
-	        this.errors = errors;
-	        this.ajv = this.validation = true;
-	    }
-	}
-	validation_error.default = ValidationError;
-	
-	return validation_error;
+Object.defineProperty(validation_error, "__esModule", { value: true });
+class ValidationError extends Error {
+    constructor(errors) {
+        super("validation failed");
+        this.errors = errors;
+        this.ajv = this.validation = true;
+    }
 }
+validation_error.default = ValidationError;
 
 var ref_error = {};
 
-var hasRequiredRef_error;
-
-function requireRef_error () {
-	if (hasRequiredRef_error) return ref_error;
-	hasRequiredRef_error = 1;
-	Object.defineProperty(ref_error, "__esModule", { value: true });
-	const resolve_1 = resolve$1;
-	class MissingRefError extends Error {
-	    constructor(resolver, baseId, ref, msg) {
-	        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
-	        this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref);
-	        this.missingSchema = (0, resolve_1.normalizeId)((0, resolve_1.getFullPath)(resolver, this.missingRef));
-	    }
-	}
-	ref_error.default = MissingRefError;
-	
-	return ref_error;
+Object.defineProperty(ref_error, "__esModule", { value: true });
+const resolve_1$1 = resolve$1;
+class MissingRefError extends Error {
+    constructor(resolver, baseId, ref, msg) {
+        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
+        this.missingRef = (0, resolve_1$1.resolveUrl)(resolver, baseId, ref);
+        this.missingSchema = (0, resolve_1$1.normalizeId)((0, resolve_1$1.getFullPath)(resolver, this.missingRef));
+    }
 }
+ref_error.default = MissingRefError;
 
 var compile = {};
 
 Object.defineProperty(compile, "__esModule", { value: true });
 compile.resolveSchema = compile.getCompilingSchema = compile.resolveRef = compile.compileSchema = compile.SchemaEnv = void 0;
-const codegen_1$q = requireCodegen();
-const validation_error_1 = requireValidation_error();
-const names_1$5 = requireNames();
+const codegen_1$q = codegen;
+const validation_error_1 = validation_error;
+const names_1$5 = names$1;
 const resolve_1 = resolve$1;
 const util_1$o = util;
-const validate_1$1 = requireValidate();
+const validate_1$1 = validate;
 class SchemaEnv {
     constructor(env) {
         var _a;
@@ -18435,20 +18405,20 @@ uri$1.default = uri;
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
-	var validate_1 = requireValidate();
+	var validate_1 = validate;
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = requireCodegen();
+	var codegen_1 = codegen;
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	const validation_error_1 = requireValidation_error();
-	const ref_error_1 = requireRef_error();
+	const validation_error_1 = validation_error;
+	const ref_error_1 = ref_error;
 	const rules_1 = rules;
 	const compile_1 = compile;
-	const codegen_2 = requireCodegen();
+	const codegen_2 = codegen;
 	const resolve_1 = resolve$1;
 	const dataType_1 = dataType;
 	const util_1 = util;
@@ -19070,10 +19040,10 @@ var ref = {};
 
 Object.defineProperty(ref, "__esModule", { value: true });
 ref.callRef = ref.getValidate = void 0;
-const ref_error_1 = requireRef_error();
-const code_1$8 = requireCode();
-const codegen_1$p = requireCodegen();
-const names_1$4 = requireNames();
+const ref_error_1 = ref_error;
+const code_1$8 = code;
+const codegen_1$p = codegen;
+const names_1$4 = names$1;
 const compile_1$2 = compile;
 const util_1$n = util;
 const def$A = {
@@ -19209,7 +19179,7 @@ var validation$2 = {};
 var limitNumber = {};
 
 Object.defineProperty(limitNumber, "__esModule", { value: true });
-const codegen_1$o = requireCodegen();
+const codegen_1$o = codegen;
 const ops = codegen_1$o.operators;
 const KWDs = {
     maximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
@@ -19237,7 +19207,7 @@ limitNumber.default = def$z;
 var multipleOf = {};
 
 Object.defineProperty(multipleOf, "__esModule", { value: true });
-const codegen_1$n = requireCodegen();
+const codegen_1$n = codegen;
 const error$j = {
     message: ({ schemaCode }) => (0, codegen_1$n.str) `must be multiple of ${schemaCode}`,
     params: ({ schemaCode }) => (0, codegen_1$n._) `{multipleOf: ${schemaCode}}`,
@@ -19289,7 +19259,7 @@ ucs2length$1.default = ucs2length;
 ucs2length.code = 'require("ajv/dist/runtime/ucs2length").default';
 
 Object.defineProperty(limitLength, "__esModule", { value: true });
-const codegen_1$m = requireCodegen();
+const codegen_1$m = codegen;
 const util_1$m = util;
 const ucs2length_1 = ucs2length$1;
 const error$i = {
@@ -19317,8 +19287,8 @@ limitLength.default = def$x;
 var pattern = {};
 
 Object.defineProperty(pattern, "__esModule", { value: true });
-const code_1$7 = requireCode();
-const codegen_1$l = requireCodegen();
+const code_1$7 = code;
+const codegen_1$l = codegen;
 const error$h = {
     message: ({ schemaCode }) => (0, codegen_1$l.str) `must match pattern "${schemaCode}"`,
     params: ({ schemaCode }) => (0, codegen_1$l._) `{pattern: ${schemaCode}}`,
@@ -19342,7 +19312,7 @@ pattern.default = def$w;
 var limitProperties = {};
 
 Object.defineProperty(limitProperties, "__esModule", { value: true });
-const codegen_1$k = requireCodegen();
+const codegen_1$k = codegen;
 const error$g = {
     message({ keyword, schemaCode }) {
         const comp = keyword === "maxProperties" ? "more" : "fewer";
@@ -19367,8 +19337,8 @@ limitProperties.default = def$v;
 var required = {};
 
 Object.defineProperty(required, "__esModule", { value: true });
-const code_1$6 = requireCode();
-const codegen_1$j = requireCodegen();
+const code_1$6 = code;
+const codegen_1$j = codegen;
 const util_1$l = util;
 const error$f = {
     message: ({ params: { missingProperty } }) => (0, codegen_1$j.str) `must have required property '${missingProperty}'`,
@@ -19447,7 +19417,7 @@ required.default = def$u;
 var limitItems = {};
 
 Object.defineProperty(limitItems, "__esModule", { value: true });
-const codegen_1$i = requireCodegen();
+const codegen_1$i = codegen;
 const error$e = {
     message({ keyword, schemaCode }) {
         const comp = keyword === "maxItems" ? "more" : "fewer";
@@ -19481,7 +19451,7 @@ equal$1.default = equal;
 
 Object.defineProperty(uniqueItems, "__esModule", { value: true });
 const dataType_1 = dataType;
-const codegen_1$h = requireCodegen();
+const codegen_1$h = codegen;
 const util_1$k = util;
 const equal_1$2 = equal$1;
 const error$d = {
@@ -19545,7 +19515,7 @@ uniqueItems.default = def$s;
 var _const = {};
 
 Object.defineProperty(_const, "__esModule", { value: true });
-const codegen_1$g = requireCodegen();
+const codegen_1$g = codegen;
 const util_1$j = util;
 const equal_1$1 = equal$1;
 const error$c = {
@@ -19571,7 +19541,7 @@ _const.default = def$r;
 var _enum = {};
 
 Object.defineProperty(_enum, "__esModule", { value: true });
-const codegen_1$f = requireCodegen();
+const codegen_1$f = codegen;
 const util_1$i = util;
 const equal_1 = equal$1;
 const error$b = {
@@ -19655,7 +19625,7 @@ var additionalItems = {};
 
 Object.defineProperty(additionalItems, "__esModule", { value: true });
 additionalItems.validateAdditionalItems = void 0;
-const codegen_1$e = requireCodegen();
+const codegen_1$e = codegen;
 const util_1$h = util;
 const error$a = {
     message: ({ params: { len } }) => (0, codegen_1$e.str) `must NOT have more than ${len} items`,
@@ -19707,9 +19677,9 @@ var items = {};
 
 Object.defineProperty(items, "__esModule", { value: true });
 items.validateTuple = void 0;
-const codegen_1$d = requireCodegen();
+const codegen_1$d = codegen;
 const util_1$g = util;
-const code_1$5 = requireCode();
+const code_1$5 = code;
 const def$o = {
     keyword: "items",
     type: "array",
@@ -19770,9 +19740,9 @@ prefixItems.default = def$n;
 var items2020 = {};
 
 Object.defineProperty(items2020, "__esModule", { value: true });
-const codegen_1$c = requireCodegen();
+const codegen_1$c = codegen;
 const util_1$f = util;
-const code_1$4 = requireCode();
+const code_1$4 = code;
 const additionalItems_1$1 = additionalItems;
 const error$9 = {
     message: ({ params: { len } }) => (0, codegen_1$c.str) `must NOT have more than ${len} items`,
@@ -19801,7 +19771,7 @@ items2020.default = def$m;
 var contains = {};
 
 Object.defineProperty(contains, "__esModule", { value: true });
-const codegen_1$b = requireCodegen();
+const codegen_1$b = codegen;
 const util_1$e = util;
 const error$8 = {
     message: ({ params: { min, max } }) => max === undefined
@@ -19899,9 +19869,9 @@ var dependencies = {};
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const util_1 = util;
-	const code_1 = requireCode();
+	const code_1 = code;
 	exports.error = {
 	    message: ({ params: { property, depsCount, deps } }) => {
 	        const property_ies = depsCount === 1 ? "property" : "properties";
@@ -19986,7 +19956,7 @@ var dependencies = {};
 var propertyNames = {};
 
 Object.defineProperty(propertyNames, "__esModule", { value: true });
-const codegen_1$a = requireCodegen();
+const codegen_1$a = codegen;
 const util_1$d = util;
 const error$7 = {
     message: "property name must be valid",
@@ -20025,9 +19995,9 @@ propertyNames.default = def$k;
 var additionalProperties = {};
 
 Object.defineProperty(additionalProperties, "__esModule", { value: true });
-const code_1$3 = requireCode();
-const codegen_1$9 = requireCodegen();
-const names_1$3 = requireNames();
+const code_1$3 = code;
+const codegen_1$9 = codegen;
+const names_1$3 = names$1;
 const util_1$c = util;
 const error$6 = {
     message: "must NOT have additional properties",
@@ -20132,8 +20102,8 @@ additionalProperties.default = def$j;
 var properties$9 = {};
 
 Object.defineProperty(properties$9, "__esModule", { value: true });
-const validate_1 = requireValidate();
-const code_1$2 = requireCode();
+const validate_1 = validate;
+const code_1$2 = code;
 const util_1$b = util;
 const additionalProperties_1$1 = additionalProperties;
 const def$i = {
@@ -20187,8 +20157,8 @@ properties$9.default = def$i;
 var patternProperties = {};
 
 Object.defineProperty(patternProperties, "__esModule", { value: true });
-const code_1$1 = requireCode();
-const codegen_1$8 = requireCodegen();
+const code_1$1 = code;
+const codegen_1$8 = codegen;
 const util_1$a = util;
 const util_2 = util;
 const def$h = {
@@ -20290,7 +20260,7 @@ not.default = def$g;
 var anyOf = {};
 
 Object.defineProperty(anyOf, "__esModule", { value: true });
-const code_1 = requireCode();
+const code_1 = code;
 const def$f = {
     keyword: "anyOf",
     schemaType: "array",
@@ -20303,7 +20273,7 @@ anyOf.default = def$f;
 var oneOf = {};
 
 Object.defineProperty(oneOf, "__esModule", { value: true });
-const codegen_1$7 = requireCodegen();
+const codegen_1$7 = codegen;
 const util_1$8 = util;
 const error$5 = {
     message: "must match exactly one schema in oneOf",
@@ -20388,7 +20358,7 @@ allOf$1.default = def$d;
 var _if = {};
 
 Object.defineProperty(_if, "__esModule", { value: true });
-const codegen_1$6 = requireCodegen();
+const codegen_1$6 = codegen;
 const util_1$6 = util;
 const error$4 = {
     message: ({ params }) => (0, codegen_1$6.str) `must match "${params.ifClause}" schema`,
@@ -20514,7 +20484,7 @@ var format$3 = {};
 var format$2 = {};
 
 Object.defineProperty(format$2, "__esModule", { value: true });
-const codegen_1$5 = requireCodegen();
+const codegen_1$5 = codegen;
 const error$3 = {
     message: ({ schemaCode }) => (0, codegen_1$5.str) `must match format "${schemaCode}"`,
     params: ({ schemaCode }) => (0, codegen_1$5._) `{format: ${schemaCode}}`,
@@ -20659,7 +20629,7 @@ var types = {};
 } (types));
 
 Object.defineProperty(discriminator, "__esModule", { value: true });
-const codegen_1$4 = requireCodegen();
+const codegen_1$4 = codegen;
 const types_1 = types;
 const compile_1$1 = compile;
 const util_1$4 = util;
@@ -21043,18 +21013,18 @@ var require$$3$1 = {
 	module.exports = exports = Ajv;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.default = Ajv;
-	var validate_1 = requireValidate();
+	var validate_1 = validate;
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = requireCodegen();
+	var codegen_1 = codegen;
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = requireValidation_error();
+	var validation_error_1 = validation_error;
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
-	var ref_error_1 = requireRef_error();
+	var ref_error_1 = ref_error;
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
 	
 } (ajv, ajv.exports));
@@ -21065,7 +21035,7 @@ var ajvExports = ajv.exports;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.formatLimitDefinition = void 0;
 	const ajv_1 = ajvExports;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const ops = codegen_1.operators;
 	const KWDs = {
 	    formatMaximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
@@ -21136,7 +21106,7 @@ var ajvExports = ajv.exports;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	const formats_1 = formats;
 	const limit_1 = limit;
-	const codegen_1 = requireCodegen();
+	const codegen_1 = codegen;
 	const fullName = new codegen_1.Name("fullFormats");
 	const fastName = new codegen_1.Name("fastFormats");
 	const formatsPlugin = (ajv, opts = { keywords: true }) => {
@@ -21184,8 +21154,8 @@ var dynamicAnchor$1 = {};
 
 Object.defineProperty(dynamicAnchor$1, "__esModule", { value: true });
 dynamicAnchor$1.dynamicAnchor = void 0;
-const codegen_1$3 = requireCodegen();
-const names_1$2 = requireNames();
+const codegen_1$3 = codegen;
+const names_1$2 = names$1;
 const compile_1 = compile;
 const ref_1$1 = ref;
 const def$8 = {
@@ -21215,8 +21185,8 @@ var dynamicRef$1 = {};
 
 Object.defineProperty(dynamicRef$1, "__esModule", { value: true });
 dynamicRef$1.dynamicRef = void 0;
-const codegen_1$2 = requireCodegen();
-const names_1$1 = requireNames();
+const codegen_1$2 = codegen;
+const names_1$1 = names$1;
 const ref_1 = ref;
 const def$7 = {
     keyword: "$dynamicRef",
@@ -21354,9 +21324,9 @@ var unevaluated$2 = {};
 var unevaluatedProperties = {};
 
 Object.defineProperty(unevaluatedProperties, "__esModule", { value: true });
-const codegen_1$1 = requireCodegen();
+const codegen_1$1 = codegen;
 const util_1$1 = util;
-const names_1 = requireNames();
+const names_1 = names$1;
 const error$1 = {
     message: "must NOT have unevaluated properties",
     params: ({ params }) => (0, codegen_1$1._) `{unevaluatedProperty: ${params.unevaluatedProperty}}`,
@@ -21420,7 +21390,7 @@ unevaluatedProperties.default = def$1;
 var unevaluatedItems = {};
 
 Object.defineProperty(unevaluatedItems, "__esModule", { value: true });
-const codegen_1 = requireCodegen();
+const codegen_1 = codegen;
 const util_1 = util;
 const error = {
     message: ({ params: { len } }) => (0, codegen_1.str) `must NOT have more than ${len} items`,
@@ -22084,18 +22054,18 @@ jsonSchema202012.default = addMetaSchema2020;
 	module.exports = exports = Ajv2020;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.default = Ajv2020;
-	var validate_1 = requireValidate();
+	var validate_1 = validate;
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = requireCodegen();
+	var codegen_1 = codegen;
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = requireValidation_error();
+	var validation_error_1 = validation_error;
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
-	var ref_error_1 = requireRef_error();
+	var ref_error_1 = ref_error;
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
 	
 } (_2020, _2020.exports));
@@ -22889,4 +22859,4 @@ class SchemaManager {
     }
 }
 
-export { CookieMonster, DEFAULT, EventLogger, EventParser, InMemoryStorage, InMemoryStorageBase, MAX_CACHE_HEADERS, ParsingVariableStorage, PostError, RequestHandler, SCRIPT_CACHE_HEADERS, SchemaManager, SchemaVariableSet, TargetedVariableCollection, Tracker, TrackerEnvironment, VariableMap, VariableSplitStorage, VariableStorageCoordinator, bootstrap, getErrorMessage, hasChanged, inferPrimitiveFromValue, isObjectType, isPrimitiveType, isValidationError, isWritable, mapKey, primitives, sourceCookieChunks, tryParsePrimitiveType };
+export { CookieMonster, DEFAULT, EventLogger, EventParser, InMemoryStorage, InMemoryStorageBase, MAX_CACHE_HEADERS, ParsingVariableStorage, PostError, RequestHandler, SCRIPT_CACHE_HEADERS, SchemaManager, SchemaVariableSet, TargetedVariableCollection, Tracker, TrackerEnvironment, VariableMap, VariableSplitStorage, VariableStorageCoordinator, bootstrap, getErrorMessage, hasChanged, inferPrimitiveFromValue, isObjectType, isPrimitiveType, isValidationError, isWritable, mapKey, primitives, requestCookies, tryParsePrimitiveType };

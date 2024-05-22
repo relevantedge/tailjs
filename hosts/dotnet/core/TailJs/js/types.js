@@ -55,6 +55,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
 const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? value !== undefined$1 ? resultOrProperty(value) : undefined$1 : value?.[resultOrProperty] !== undefined$1 ? value : undefined$1;
 const isBoolean = (value)=>typeof value === "boolean";
+const isInteger = Number.isSafeInteger;
 const isNumber = (value)=>typeof value === "number";
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
@@ -309,7 +310,9 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
             value,
             key
         ]));
-    const parseValue = (value, validateNumbers)=>isNumber(value) ? !flags && validateNumbers ? valueLookup[value] != null ? value : undefined$1 : value : isString(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] : undefined$1;
+    const parseValue = (value, validateNumbers)=>isInteger(value) ? !flags && validateNumbers ? valueLookup[value] != null ? value : undefined$1 : Number.isSafeInteger(value) ? value : undefined$1 : isString(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] ?? // Sometimes a number may have been stored as a string.
+        // Let's see if that is the case.
+        parseValue(parseInt(value), validateNumbers) : undefined$1;
     let invalid = false;
     let carry;
     let carry2;
@@ -383,7 +386,7 @@ var DataClassification;
    * Identifying returning visitors will be possible at this level of consent, but not across devices.
    * Some level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.
    *
-   * This level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.
+   * This level is the default when a user has consented to necessary information being collected via a  cookie disclaimer or similar.
    *
    * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
    */ DataClassification[DataClassification["Indirect"] = 1] = "Indirect";
@@ -414,6 +417,14 @@ var DataClassification;
    */ DataClassification[DataClassification["Sensitive"] = 3] = "Sensitive";
 })(DataClassification || (DataClassification = {}));
 const dataClassification = createEnumAccessor(DataClassification, false, "data classification");
+const dataUsageEquals = (lhs, rhs)=>dataClassification.parse(lhs?.classification ?? lhs?.level) === dataClassification.parse(rhs?.classification ?? rhs?.level) && dataPurposes.parse(lhs?.purposes ?? lhs?.purposes) === dataPurposes.parse(rhs?.purposes ?? rhs?.purposes);
+const parseDataUsage = (classificationOrConsent, defaults)=>classificationOrConsent == null ? undefined : isNumber(classificationOrConsent.classification) && isNumber(classificationOrConsent.purposes) ? classificationOrConsent : {
+        ...classificationOrConsent,
+        level: undefined,
+        purpose: undefined,
+        classification: dataClassification.parse(classificationOrConsent.classification ?? classificationOrConsent.level ?? defaults?.classification ?? 0),
+        purposes: dataPurposes.parse(classificationOrConsent.purposes ?? classificationOrConsent.purpose ?? defaults?.purposes ?? DataPurposeFlags.Necessary)
+    };
 
 var DataPurposeFlags;
 (function(DataPurposeFlags) {
@@ -786,4 +797,4 @@ const getPrivacyAnnotations = (classification)=>{
     return attrs;
 };
 
-export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, SchemaAnnotations, SchemaSystemTypes, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, encodeTag, extractKey, formatKey, getPrivacyAnnotations, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatch, isVariablePatchAction, isViewEvent, parseKey, parsePrivacyTokens, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };
+export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, SchemaAnnotations, SchemaSystemTypes, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, dataUsageEquals, encodeTag, extractKey, formatKey, getPrivacyAnnotations, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatch, isVariablePatchAction, isViewEvent, parseDataUsage, parseKey, parsePrivacyTokens, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };

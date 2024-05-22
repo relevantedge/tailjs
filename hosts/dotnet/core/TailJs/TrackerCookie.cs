@@ -6,7 +6,7 @@ public record TrackerCookie
 {
   public TrackerCookie(
     string? value,
-    int? maxAge = null,
+    long? maxAge = null,
     bool httpOnly = false,
     SameSitePolicy? sameSitePolicy = null,
     bool isEssential = false
@@ -29,7 +29,7 @@ public record TrackerCookie
   public string? Value { get; }
 
   [ScriptMember("maxAge")]
-  public int? MaxAge { get; }
+  public long? MaxAge { get; }
 
   [ScriptMember("httpOnly")]
   public bool HttpOnly { get; }

@@ -2,11 +2,13 @@ import { PATCH_EVENT_POSTFIX } from "@constants";
 import {
   EventPatch,
   PostRequest,
+  PostResponse,
   TrackedEvent,
   clearMetadata,
   isEventPatch,
 } from "@tailjs/types";
 import {
+  F,
   ToggleArray,
   array,
   clock,
@@ -15,13 +17,11 @@ import {
   count,
   diff,
   forEach,
-  join,
   map,
   merge,
   now,
   pluralize,
   push,
-  quote,
   separate,
   structuralEquals,
   throwError,
@@ -31,19 +31,29 @@ import {
   EVENT_POST_FREQUENCY,
   TrackerContext,
   addPageVisibleListener,
+  childGroups,
   debug,
   request,
 } from ".";
 
-export type EventQueue = {
+export interface EventQueuePostOptions {
+  flush?: boolean;
+  async?: boolean;
+  variables?: PostRequest["variables"];
+}
+
+export interface EventQueue {
   /**
    * Posts events to the server. Do not post event patches using this method. Use {@link postPatch} instead.
    * If flush is not explicitly requested, the event will eventually get posted, either by the configured post frequency, or when the user leaves the tab.
    */
-  post<T extends ToggleArray<readonly TrackedEvent[]>>(
+  post<
+    T extends ToggleArray<TrackedEvent[]>,
+    Options extends EventQueuePostOptions | undefined
+  >(
     events: T,
-    flush?: boolean
-  ): Promise<void>;
+    options?: Options
+  ): Promise<Options extends { async: false } ? PostResponse : void>;
 
   /**
    *  Posts a patch to an existing event.
@@ -64,7 +74,7 @@ export type EventQueue = {
     sourceEvent: T,
     source: EventPatchSource<T>
   ): () => void;
-};
+}
 
 type EventPatchData<T extends TrackedEvent> = Omit<
   EventPatch<T>,
@@ -134,16 +144,62 @@ export const createEventQueue = (
     return unbind;
   };
 
+  const postEvents = async <Beacon>(
+    events: TrackedEvent[],
+    beacon: Beacon = true as any,
+    variables: any
+  ): Promise<Beacon extends true ? void : PostResponse> => {
+    events = events.map(
+      (ev) => (
+        // Update metadata in the source event,
+        // and send a clone of the event without client metadata, and its timestamp in relative time
+        // (the server expects this, and will adjust accordingly to its own time).
+        merge(ev, { metadata: { posted: true } }),
+        merge(clearMetadata(clone(ev), true), {
+          timestamp: ev.timestamp! - now(),
+        })
+      )
+    );
+
+    debug(
+      { [childGroups]: map(events, (ev) => [ev, ev.type, F]) },
+      "Posting " +
+        separate([
+          pluralize("new event", [
+            count(events, (ev) => !isEventPatch(ev)) || undefined,
+          ]),
+          pluralize("event update", [
+            count(events, (ev) => isEventPatch(ev)) || undefined,
+          ]),
+        ]) +
+        (beacon ? " asynchronously" : " synchronously") +
+        "."
+    );
+
+    return request<PostRequest>(
+      url,
+      {
+        events,
+        variables,
+        deviceSessionId: context?.deviceSessionId,
+      },
+      { beacon: beacon as any }
+    ) as any;
+  };
+
   const post = async (
-    events: ToggleArray<readonly TrackedEvent[]>,
-    flush = false
-  ) => {
+    events: ToggleArray<TrackedEvent[]>,
+    { flush = false, async = true, variables }: EventQueuePostOptions = {}
+  ): Promise<any> => {
     events = map(array(events), (event) =>
       merge(context.applyEventExtensions(event), { metadata: { queued: true } })
     );
 
     if (events.length) {
       forEach(events, (event) => debug(event, event.type));
+    }
+    if (!async) {
+      return postEvents(events, false, variables);
     }
     if (!flush) {
       events.length && push(queue, ...events);
@@ -156,41 +212,10 @@ export const createEventQueue = (
 
     if (!events.length) return;
 
-    debug(
-      join(events, (ev) => quote(ev.type), ["and"]),
-      "Posting " +
-        separate([
-          pluralize("new event", [
-            count(events, (ev) => !isEventPatch(ev)) || undefined,
-          ]),
-          pluralize("event update", [
-            count(events, (ev) => isEventPatch(ev)) || undefined,
-          ]),
-        ]) +
-        "."
-    );
-
-    request<PostRequest>(
-      url,
-      {
-        events: events.map(
-          (ev) => (
-            // Update metadata in the source event,
-            // and send a clone of the event without client metadata, and its timestamp in relative time
-            // (the server expects this, and will adjust accordingly to its own time).
-            merge(ev, { metadata: { posted: true } }),
-            merge(clearMetadata(clone(ev), true), {
-              timestamp: ev.timestamp! - now(),
-            })
-          )
-        ),
-        deviceSessionId: context?.deviceSessionId,
-      },
-      { beacon: true }
-    );
+    await postEvents(events, true, variables);
   };
 
-  postFrequency > 0 && clock(() => post([], true), postFrequency);
+  postFrequency > 0 && clock(() => post([], { flush: true }), postFrequency);
 
   addPageVisibleListener((visible, unloading, delta) => {
     // Don't do anything if the tab has only been visible for less than a second and a half.
@@ -204,7 +229,7 @@ export const createEventQueue = (
       });
 
       if (queue.length || updatedEvents.length) {
-        post(concat(queue.splice(0), updatedEvents)!, true);
+        post(concat(queue.splice(0), updatedEvents)!, { flush: true });
       }
     }
   });
@@ -212,7 +237,7 @@ export const createEventQueue = (
   return {
     post,
     postPatch: (target, patch, flush) =>
-      post(mapPatchTarget(target, patch), flush),
+      post(mapPatchTarget(target, patch), { flush: true }),
     registerEventPatchSource,
   };
 };

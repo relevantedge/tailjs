@@ -50,6 +50,9 @@ internal static class ScriptEngineExtensions
 
   public static T Get<T>(this object? value, params string[] path) => (T)value.Get(path)!;
 
+  public static long? GetInt64(this object? value, params string[] path) =>
+    value.Get(path) is { } numeric ? Convert.ToInt64(numeric) : null;
+
   public static object? Get(this object? value) => value is Undefined ? null : value;
 
   public static object? Get(this object? value, params string[] path)

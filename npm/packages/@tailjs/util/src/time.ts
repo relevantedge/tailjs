@@ -1,5 +1,6 @@
 import {
   F,
+  MAX_SAFE_INTEGER,
   MaybePromise,
   T,
   isBoolean,
@@ -15,6 +16,7 @@ export const SECOND = MILLISECOND * 1000;
 export const MINUTE = SECOND * 60;
 export const HOUR = MINUTE * 60;
 export const DAY = HOUR * 24;
+export const FOREVER = MAX_SAFE_INTEGER;
 
 export let now: (round?: boolean) => number =
   typeof performance !== "undefined"

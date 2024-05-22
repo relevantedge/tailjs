@@ -1,4 +1,5 @@
 import {
+  DataClassification,
   DataPurposeFlags,
   ParsableConsent,
   UserConsent,
@@ -69,6 +70,7 @@ import {
   VariableStorage,
   VariableStorageContext,
 } from "..";
+import { CONSENT_INFO_KEY } from "@constants";
 
 export type SchemaBoundPrefixMapping = {
   storage: ReadonlyVariableStorage;
@@ -619,16 +621,47 @@ export class VariableStorageCoordinator implements VariableStorage {
     const consent = this._getContextConsent(context);
 
     keys = keys.map((getter, index) => {
+      if (!getter) return undefined;
+
       const error = this._applyScopeId(getter as any, context);
       if (error) {
         censored.push([
           index,
-          { ...getter, status: VariableResultStatus.Denied, error } as any,
+          { source: getter, status: VariableResultStatus.Denied, error } as any,
         ]);
         return undefined;
       }
 
-      if (getter?.init) {
+      if (getter.key === CONSENT_INFO_KEY) {
+        // TODO: Generalize and refactor so it is not hard-coded here.
+        censored.push([
+          index,
+          getter.scope !== VariableScope.Session || !consent
+            ? {
+                source: getter as any,
+                status: VariableResultStatus.NotFound,
+                error: `The reserved variable ${CONSENT_INFO_KEY} is only available in session scope, and only if requested from tracking context.`,
+              }
+            : {
+                source: getter as any,
+                status: VariableResultStatus.Success,
+                current: {
+                  key: CONSENT_INFO_KEY,
+                  scope: VariableScope.Session,
+                  classification: DataClassification.Anonymous,
+                  purposes: DataPurposeFlags.Necessary,
+                  value: {
+                    level: dataClassification.lookup(consent.level),
+                    purposes: dataPurposes.lookup(consent.purposes),
+                  },
+                },
+              },
+        ]);
+
+        return undefined;
+      }
+
+      if (getter.init) {
         const mapping = this._getMapping(getter);
         (getter as ValidatedVariableGetter).init = wrap(
           getter.init,
@@ -658,8 +691,8 @@ export class VariableStorageCoordinator implements VariableStorage {
 
     for (const [i, result] of censored) {
       (results as VariableGetError[])[i] = {
-        ...extractKey(result.source),
-        value: undefined,
+        ...extractKey(result.source, result.current ?? result.source),
+        value: result.current?.value,
         status: result.status as any,
         error: (result as any).error,
       };
@@ -698,6 +731,19 @@ export class VariableStorageCoordinator implements VariableStorage {
     // Censor the values (including patch actions) when the context has a tracker.
     variables.forEach((setter, i) => {
       if (!setter) return;
+
+      if (setter.key === CONSENT_INFO_KEY) {
+        censored.push([
+          i,
+          {
+            source: setter,
+            status: VariableResultStatus.Denied,
+            error:
+              "Consent can not be set directly. Use ConsentEvents or the tracker's API.",
+          },
+        ]);
+        return undefined;
+      }
 
       const mapping = this._getMapping(setter);
       if (isVariablePatchAction(setter)) {

@@ -1,4 +1,5 @@
-import { EnumValue, createEnumAccessor } from "@tailjs/util";
+import { EnumValue, Nullish, createEnumAccessor, isNumber } from "@tailjs/util";
+import { DataPurposeFlags, DataPurposeValue, dataPurposes } from ".";
 
 /**
  * Defines to which extend a piece of information relates to a natural person (user of your app or website).
@@ -29,7 +30,7 @@ export enum DataClassification {
    * Identifying returning visitors will be possible at this level of consent, but not across devices.
    * Some level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.
    *
-   * This level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.
+   * This level is the default when a user has consented to necessary information being collected via a  cookie disclaimer or similar.
    *
    * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
    */
@@ -79,3 +80,53 @@ export type DataClassificationValue<Numeric = boolean> = EnumValue<
 > extends infer T
   ? T
   : never;
+
+export type DataUsageAttributes<NumericEnums = true> = {
+  classification: DataClassificationValue<NumericEnums>;
+  purposes: DataPurposeValue<NumericEnums>;
+};
+
+export type ParsableDataUsageAttributes = {
+  classification?: DataClassificationValue;
+  level?: DataClassificationValue;
+  purpose?: DataPurposeValue;
+  purposes?: DataPurposeValue;
+};
+
+export const dataUsageEquals = (
+  lhs: ParsableDataUsageAttributes | Nullish,
+  rhs: ParsableDataUsageAttributes | Nullish
+) =>
+  dataClassification.parse(lhs?.classification ?? lhs?.level) ===
+    dataClassification.parse(rhs?.classification ?? rhs?.level) &&
+  dataPurposes.parse(lhs?.purposes ?? lhs?.purposes) ===
+    dataPurposes.parse(rhs?.purposes ?? rhs?.purposes);
+
+export const parseDataUsage = <T extends ParsableDataUsageAttributes | Nullish>(
+  classificationOrConsent: T,
+  defaults?: Partial<DataUsageAttributes<boolean>>
+): T extends {}
+  ? DataUsageAttributes<true> & Omit<T, keyof ParsableDataUsageAttributes>
+  : undefined =>
+  classificationOrConsent == null
+    ? (undefined as any)
+    : isNumber(classificationOrConsent.classification) &&
+      isNumber(classificationOrConsent.purposes)
+    ? classificationOrConsent
+    : {
+        ...classificationOrConsent,
+        level: undefined,
+        purpose: undefined,
+        classification: dataClassification.parse(
+          classificationOrConsent.classification ??
+            classificationOrConsent.level ??
+            defaults?.classification ??
+            DataClassification.Anonymous
+        ),
+        purposes: dataPurposes.parse(
+          classificationOrConsent.purposes ??
+            classificationOrConsent.purpose ??
+            defaults?.purposes ??
+            DataPurposeFlags.Necessary
+        ),
+      };

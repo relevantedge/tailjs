@@ -493,7 +493,7 @@ export class RequestHandler {
      */
     const tracker = deferredPromise(async () => {
       const tracker = new Tracker(trackerSettings());
-      await tracker._initialize(trackerInitializationOptions);
+      await tracker._ensureInitialized(trackerInitializationOptions);
 
       return tracker;
     });
@@ -744,7 +744,9 @@ export class RequestHandler {
                 const response: PostResponse = {};
 
                 if (postRequest.events) {
-                  //requestTimer.print("post start");
+                  // This returns a response that may have changed variables in it.
+                  // A mechanism for pushing changes without using cookies is still under development
+                  // so we currently do not use the response for any purpose.
                   await resolvedTracker.post(postRequest.events, {
                     passive: postRequest.events.every(isPassiveEvent),
                     deviceSessionId: postRequest.deviceSessionId,
@@ -897,13 +899,6 @@ export class RequestHandler {
       .join("");
 
     return js;
-  }
-
-  private _getClientVariables(tracker: Tracker) {
-    return {
-      ...tracker.transient,
-      consent: tracker.consent,
-    };
   }
 
   private _logExtensionError(

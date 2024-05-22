@@ -1,7 +1,8 @@
-import { SCOPE_INFO_KEY } from "@constants";
-import { SessionInfo, isTrackedEvent } from "@tailjs/types";
+import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
+import { SessionInfo, isTrackedEvent, requireFound } from "@tailjs/types";
 import {
   F,
+  FOREVER,
   T,
   array,
   assign,
@@ -27,6 +28,7 @@ import {
   TrackerCommand,
   TrackerConfiguration,
   TrackerExtension,
+  TrackerExtensionFactory,
   defaultExtensions,
   isExtensionCommand,
   isFlushCommand,
@@ -75,7 +77,11 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
   }
 
   // Extensions / listeners
-  const extensions: [number, TrackerExtension][] = [];
+  const extensions: [
+    priority: number,
+    extension: TrackerExtension,
+    source: TrackerExtensionFactory
+  ][] = [];
   let listeners: Listener[] = [];
   // Extensions may post commands when constructed and while the tracker is initializing
 
@@ -125,165 +131,180 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
 
   let globalStateResolved = F;
 
-  define(window, [
-    {
-      [trackerConfig.name]: [
-        (tracker = Object.freeze({
-          id: "tracker_" + nextId(),
-          events,
-          variables,
-          push: ((...commands: (TrackerCommand | string)[]) => {
-            if (!mainArgs && apiKey) {
-              if (commands[0] !== apiKey) {
-                throw new Error("Invalid API key.");
-              }
-              commands.splice(0, 1);
-            }
+  Object.defineProperty(window, trackerConfig.name, {
+    value: (tracker = Object.freeze({
+      id: "tracker_" + nextId(),
+      events,
+      variables,
+      push: ((...commands: (TrackerCommand | string)[]) => {
+        if (!mainArgs && apiKey) {
+          if (commands[0] !== apiKey) {
+            throw new Error("Invalid API key.");
+          }
+          commands.splice(0, 1);
+        }
 
-            if (!commands.length) {
-              return;
-            }
+        if (!commands.length) {
+          return;
+        }
 
-            let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
+        let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
 
-            commands = filter(
-              flatMap(commands, (command) =>
-                isString(command)
-                  ? httpDecode<TrackerCommand>(command)
-                  : command
-              ),
-              (command) => {
-                if (!command) return F;
+        commands = filter(
+          flatMap(commands, (command) =>
+            isString(command) ? httpDecode<TrackerCommand>(command) : command
+          ),
+          (command) => {
+            if (!command) return F;
 
-                if (isTagAttributesCommand(command)) {
-                  trackerConfig.tags = assign(
-                    {} as any,
-                    trackerConfig.tags,
-                    command.tagAttributes
-                  );
-                } else if (isToggleCommand(command)) {
-                  trackerConfig.disabled = command.disable;
-                  return F;
-                } else if (isFlushCommand(command)) {
-                  flush = T;
-                  return F;
-                } else if (isTrackerAvailableCommand(command)) {
-                  command(tracker);
-                  return F;
-                }
-                if (
-                  !globalStateResolved &&
-                  !isListenerCommand(command) &&
-                  !isExtensionCommand(command)
-                ) {
-                  pendingStateCommands.push(command);
-                  return F;
-                }
-                // #endregion
-                return T;
-              }
-            );
-
-            if (!commands.length && !flush) {
-              return;
-            }
-
-            const getCommandRank = (cmd: TrackerCommand) =>
-              isExtensionCommand(cmd)
-                ? -100
-                : isListenerCommand(cmd)
-                ? -50
-                : isSetCommand(cmd)
-                ? -10
-                : isTrackedEvent(cmd)
-                ? 90
-                : 0;
-
-            // Put events last to allow listeners and interceptors from the same batch to work on them.
-            // Sets come before gets to avoid unnecessary waiting
-            // Extensions then listeners are first so they can evaluate the rest.
-            const expanded: TrackerCommand[] = sort(commands, getCommandRank);
-
-            // Allow nested calls to tracker.push from listeners and interceptors. Insert commands in the currently processed main batch.
-            if (
-              mainArgs &&
-              mainArgs.splice(
-                insertArgs ? currentArg + 1 : mainArgs.length,
-                0,
-                ...expanded
-              )
-            )
-              return;
-
-            mainArgs = expanded;
-
-            for (currentArg = 0; currentArg < mainArgs.length; currentArg++) {
-              if (!mainArgs[currentArg]) continue;
-              tryCatch(
-                () => {
-                  const command = mainArgs![currentArg];
-                  callListeners("command", command);
-                  insertArgs = F;
-                  if (isTrackedEvent(command)) {
-                    events.post(command, false);
-                  } else if (isGetCommand(command)) {
-                    variables.get(...array(command.get));
-                  } else if (isSetCommand(command)) {
-                    variables.set(...array(command.set));
-                  } else if (isListenerCommand(command)) {
-                    push(listeners, command.listener);
-                  } else if (isExtensionCommand(command)) {
-                    let extension: TrackerExtension | Nullish;
-                    if (
-                      (extension = tryCatch(
-                        () => command.extension.setup(tracker),
-                        (e) => logError(command.extension.id, e)
-                      )!)
-                    ) {
-                      push(extensions, [command.priority ?? 100, extension]);
-                      sort(extensions, ([priority]) => priority);
-                    }
-                  } else if (isTrackerAvailableCommand(command)) {
-                    command(tracker); // Variables have already been loaded once.
-                  } else {
-                    let success = F;
-                    for (const [, extension] of extensions) {
-                      if (
-                        (success = extension.processCommand?.(command) ?? F)
-                      ) {
-                        break;
-                      }
-                    }
-                    !success && logError(ERR_INVALID_COMMAND, command);
-                  }
-                },
-                (e) => logError(tracker, ERR_INTERNAL_ERROR, e)
+            if (isTagAttributesCommand(command)) {
+              trackerConfig.tags = assign(
+                {} as any,
+                trackerConfig.tags,
+                command.tagAttributes
               );
+            } else if (isToggleCommand(command)) {
+              trackerConfig.disabled = command.disable;
+              return F;
+            } else if (isFlushCommand(command)) {
+              flush = T;
+              return F;
+            } else if (isTrackerAvailableCommand(command)) {
+              command(tracker);
+              return F;
             }
+            if (
+              !globalStateResolved &&
+              !isListenerCommand(command) &&
+              !isExtensionCommand(command)
+            ) {
+              pendingStateCommands.push(command);
+              return F;
+            }
+            // #endregion
+            return T;
+          }
+        );
 
-            mainArgs = nil;
-            if (flush) {
-              events.post([], true);
-            }
-          }) as any,
-          [isTracker]: T,
-        })),
-      ],
-    },
-  ]);
+        if (!commands.length && !flush) {
+          return;
+        }
+
+        const getCommandRank = (cmd: TrackerCommand) =>
+          isExtensionCommand(cmd)
+            ? -100
+            : isListenerCommand(cmd)
+            ? -50
+            : isSetCommand(cmd)
+            ? -10
+            : isTrackedEvent(cmd)
+            ? 90
+            : 0;
+
+        // Put events last to allow listeners and interceptors from the same batch to work on them.
+        // Sets come before gets to avoid unnecessary waiting
+        // Extensions then listeners are first so they can evaluate the rest.
+        const expanded: TrackerCommand[] = sort(commands, getCommandRank);
+
+        // Allow nested calls to tracker.push from listeners and interceptors. Insert commands in the currently processed main batch.
+        if (
+          mainArgs &&
+          mainArgs.splice(
+            insertArgs ? currentArg + 1 : mainArgs.length,
+            0,
+            ...expanded
+          )
+        )
+          return;
+
+        mainArgs = expanded;
+
+        for (currentArg = 0; currentArg < mainArgs.length; currentArg++) {
+          if (!mainArgs[currentArg]) continue;
+          tryCatch(
+            () => {
+              const command = mainArgs![currentArg];
+              callListeners("command", command);
+              insertArgs = F;
+              if (isTrackedEvent(command)) {
+                events.post(command);
+              } else if (isGetCommand(command)) {
+                variables.get(...array(command.get));
+              } else if (isSetCommand(command)) {
+                variables.set(...array(command.set));
+              } else if (isListenerCommand(command)) {
+                push(listeners, command.listener);
+              } else if (isExtensionCommand(command)) {
+                let extension: TrackerExtension | Nullish;
+                if (
+                  (extension = tryCatch(
+                    () => command.extension.setup(tracker),
+                    (e) => logError(command.extension.id, e)
+                  )!)
+                ) {
+                  push(extensions, [
+                    command.priority ?? 100,
+                    extension,
+                    command.extension,
+                  ]);
+                  sort(extensions, ([priority]) => priority);
+                }
+              } else if (isTrackerAvailableCommand(command)) {
+                command(tracker); // Variables have already been loaded once.
+              } else {
+                let success = F;
+                for (const [, extension] of extensions) {
+                  if ((success = extension.processCommand?.(command) ?? F)) {
+                    break;
+                  }
+                }
+                !success &&
+                  logError(
+                    ERR_INVALID_COMMAND,
+                    command,
+                    "Loaded extensions:",
+                    extensions.map((extension) => extension[2].id)
+                  );
+              }
+            },
+            (e) => logError(tracker, ERR_INTERNAL_ERROR, e)
+          );
+        }
+
+        mainArgs = nil;
+        if (flush) {
+          events.post([], { flush });
+        }
+      }) as any,
+      [isTracker]: T,
+    })),
+    configurable: false,
+    writable: false,
+  });
 
   addStateListener(async (event, _1, _2, unbind) => {
     // Make sure we have a session on the server before posting anything.
     // As part of this, we also get the device session ID.
     if (event === "ready") {
-      const session = required(
-        await variables.get({
-          scope: "session",
-          key: SCOPE_INFO_KEY,
-          refresh: true,
-        }).value,
-        "No session data."
-      ) as SessionInfo;
+      const session = requireFound(
+        (
+          await variables.get(
+            {
+              scope: "session",
+              key: SCOPE_INFO_KEY,
+              refresh: true,
+            },
+            {
+              scope: "session",
+              key: CONSENT_INFO_KEY,
+              // Refresh the consent status at every new page view in the case the server made changes in the background.
+              // After that, cache it indefinitely since it is presumably only changed by the client until the next page view (in any tab).
+              refresh: true,
+              cache: FOREVER,
+            }
+          )
+        )[0]
+      ).value as SessionInfo;
       trackerContext.deviceSessionId = session.deviceSessionId;
 
       if (!session.hasUserAgent) {

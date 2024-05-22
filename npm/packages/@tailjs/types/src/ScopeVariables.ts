@@ -1,4 +1,9 @@
-import { Timestamp } from ".";
+import {
+  CONSENT_INFO_KEY,
+  SCOPE_INFO_KEY,
+  SESSION_REFERENCE_KEY,
+} from "@constants";
+import { Timestamp, UserConsent } from ".";
 
 /** @privacy anonymous, necessary, server_write */
 export interface ScopeInfo {
@@ -32,10 +37,17 @@ export interface DeviceInfo extends ScopeInfo {
 }
 
 export interface SessionVariables {
-  info?: SessionInfo;
+  /** @privacy anonymous, necessary */
+  [SCOPE_INFO_KEY]?: SessionInfo;
+
+  /** @privacy anonymous, necessary */
+  [CONSENT_INFO_KEY]?: UserConsent;
+
+  /** @privacy anonymous, necessary */
+  [SESSION_REFERENCE_KEY]?: string;
 }
 
 export interface DeviceVariables {
-  /** @privacy anonymous, necessary */
-  info?: DeviceInfo;
+  /** @privacy indirect, necessary */
+  [SCOPE_INFO_KEY]?: DeviceInfo;
 }
