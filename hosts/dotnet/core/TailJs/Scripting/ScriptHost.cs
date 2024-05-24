@@ -36,7 +36,7 @@ internal class ScriptHost : IScriptEngineExtension
     _hostDisposed = hostDisposed;
   }
 
-  internal PromiseLike<object?> Request(ScriptObject request, ScriptObject response)
+  internal object? Request(ScriptObject request, ScriptObject response)
   {
     return Inner().AsPromiseLike();
 
@@ -139,7 +139,7 @@ internal class ScriptHost : IScriptEngineExtension
     }
   }
 
-  internal PromiseLike<object?> Read(string path, object? changeHandler, bool text)
+  internal object? Read(string path, object? changeHandler, bool text)
   {
     var wrappedHandler = changeHandler is IScriptObject handler
       ? text
@@ -147,10 +147,7 @@ internal class ScriptHost : IScriptEngineExtension
           (ChangeHandler<string>)(
             async (path, data) =>
               await handler
-                .InvokeAsFunction(
-                  path,
-                  (Func<PromiseLike<string?>>)(() => data(_hostDisposed).AsTask().AsPromiseLike())
-                )
+                .InvokeAsFunction(path, (Func<object?>)(() => data(_hostDisposed).AsTask().AsPromiseLike()))
                 .ToTask()
                 .ConfigureAwait(false)
                 is true
@@ -160,7 +157,7 @@ internal class ScriptHost : IScriptEngineExtension
             await handler
               .InvokeAsFunction(
                 path,
-                (Func<PromiseLike<object?>>)(() => ConvertResultAsync(data(_hostDisposed)).AsPromiseLike())
+                (Func<object?>)(() => ConvertResultAsync(data(_hostDisposed)).AsPromiseLike())
               )
               .ToTask()
               .ConfigureAwait(false)
@@ -181,7 +178,7 @@ internal class ScriptHost : IScriptEngineExtension
       await read.ConfigureAwait(false) is not { } data ? null : _uint8Converter.FromBytes(data);
   }
 
-  internal PromiseLike<bool> Write(string path, object data, bool text)
+  internal object? Write(string path, object data, bool text)
   {
     return Inner().AsPromiseLike();
     async Task<bool> Inner()
@@ -201,7 +198,7 @@ internal class ScriptHost : IScriptEngineExtension
     }
   }
 
-  internal PromiseLike<object[]> List(string path)
+  internal object? List(string path)
   {
     return Inner().AsPromiseLike();
 
@@ -228,7 +225,7 @@ internal class ScriptHost : IScriptEngineExtension
     }
   }
 
-  internal PromiseLike<bool> Delete(string path)
+  internal object? Delete(string path)
   {
     return Inner().AsPromiseLike();
 
@@ -388,6 +385,7 @@ internal class ScriptHost : IScriptEngineExtension
     }
   }
 
+  // ReSharper disable once InconsistentNaming
   private static string Fnv1a(string text)
   {
     var hash = 14695981039346656037ul;

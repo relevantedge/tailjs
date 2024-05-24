@@ -56,6 +56,7 @@ import {
   window,
 } from "./lib2";
 import { errorLogger, logError } from "./lib2/errors";
+import { addDebugListeners } from "./lib2/debug-listeners";
 
 export let tracker: Tracker;
 export const initializeTracker = (config: TrackerConfiguration | string) => {
@@ -282,6 +283,9 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
     writable: false,
   });
 
+  // TODO: Add conditional compiler flag.
+  addDebugListeners();
+
   addStateListener(async (event, _1, _2, unbind) => {
     // Make sure we have a session on the server before posting anything.
     // As part of this, we also get the device session ID.
@@ -320,7 +324,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
         tracker,
         ...map(defaultExtensions, (extension) => ({ extension })),
         ...queuedCommands,
-        { set: { scope: "local", key: "loaded", value: true } }
+        { set: { scope: "view", key: "loaded", value: true } }
       );
     }
   }, true);

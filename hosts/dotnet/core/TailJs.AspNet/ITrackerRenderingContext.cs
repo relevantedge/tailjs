@@ -1,6 +1,6 @@
 ﻿namespace TailJs.AspNet;
 
-public interface ITrackerRenderingContext : ITrackerAccessor
+public interface ITrackerRenderingContext
 {
   TextWriter? CurrentViewWriter { get; }
 
@@ -9,6 +9,8 @@ public interface ITrackerRenderingContext : ITrackerAccessor
   IDataMarkupHeader? GetDataScopeHeader(ElementBoundaryMapping? mapping);
 
   ValueTask<string> GetClientScriptAsync(IEnumerable<string>? references);
+
+  ValueTask<ITracker?> TryResolveTrackerAsync(CancellationToken cancellationToken = default);
 }
 
 public class NullTrackerRenderingContext : ITrackerRenderingContext
@@ -23,7 +25,8 @@ public class NullTrackerRenderingContext : ITrackerRenderingContext
 
   public IDataMarkupHeader? GetDataScopeHeader(ElementBoundaryMapping? mapping) => null;
 
-  public ValueTask<ITracker?> ResolveTracker(CancellationToken cancellationToken = default) => default;
+  public ValueTask<ITracker?> TryResolveTrackerAsync(CancellationToken cancellationToken = default) =>
+    default;
 
   #endregion
 }

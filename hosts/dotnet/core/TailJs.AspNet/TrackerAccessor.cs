@@ -4,8 +4,11 @@ public class TrackerAccessor : ITrackerAccessor
 {
   private ITracker? _resolvedTracker;
 
-  internal Func<ValueTask<ITracker>>? Resolver { get; set; }
+  public ITrackerHandle? TrackerHandle { get; internal set; }
 
   public async ValueTask<ITracker?> ResolveTracker(CancellationToken cancellationToken = default) =>
-    _resolvedTracker ??= Resolver != null ? await Resolver() : null;
+    _resolvedTracker ??=
+      TrackerHandle != null
+        ? await TrackerHandle.ResolveAsync(cancellationToken).ConfigureAwait(false)
+        : null;
 }

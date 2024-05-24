@@ -63,7 +63,7 @@ export enum DataPurposeFlags {
    *
    * This is implicitly also `Necessary`.
    */
-  Security = 17,
+  Security = 16,
 
   /**
    * Data stored for this purpose may be similar to the performance category, however it is specifically
@@ -71,7 +71,7 @@ export enum DataPurposeFlags {
    *
    * This is implicitly also `Necessary`.
    */
-  Infrastructure = 33,
+  Infrastructure = 32,
 
   /**
    * All purposes that are permissable for anonymous users.

@@ -140,17 +140,6 @@ export class VariableSplitStorage implements VariableStorage {
     return this._cachedStorages;
   }
 
-  configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>,
-    context?: VariableStorageContext
-  ): void {
-    this._storageScopes.forEach(
-      (_, storage) =>
-        isWritable(storage) &&
-        storage.configureScopeDurations(durations, context)
-    );
-  }
-
   public async renew(
     scope: VariableScope,
     scopeIds: string[],
@@ -410,17 +399,20 @@ export class VariableSplitStorage implements VariableStorage {
   async purge(
     filters: VariableFilter<true>[],
     context?: VariableStorageContext
-  ): Promise<void> {
+  ): Promise<boolean> {
     const partitions = this._splitFilters(filters);
     if (!partitions.length) {
-      return;
+      return false;
     }
+    let any = false;
     await waitAll(
       ...partitions.map(
-        ([storage, filters]) =>
-          isWritable(storage) && storage.purge(filters, context)
+        async ([storage, filters]) =>
+          isWritable(storage) &&
+          (any = (await storage.purge(filters, context)) || any)
       )
     );
+    return any;
   }
 }
 

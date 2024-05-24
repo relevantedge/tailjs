@@ -79,14 +79,9 @@ export const isWritable = <T extends ReadonlyVariableStorage>(
 ): storage is T & VariableStorage => !!(storage as any)?.set;
 
 export interface VariableStorage extends ReadonlyVariableStorage {
-  configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>,
-    context?: VariableStorageContext
-  ): void;
-
   renew(
     scope: VariableScope,
-    scopeIds: string[],
+    targetIds: string[],
     context?: VariableStorageContext
   ): MaybePromise<void>;
 
@@ -98,5 +93,5 @@ export interface VariableStorage extends ReadonlyVariableStorage {
   purge(
     filters: VariableFilter<true>[],
     context?: VariableStorageContext
-  ): MaybePromise<void>;
+  ): MaybePromise<boolean>;
 }

@@ -6,7 +6,6 @@ import {
   ValidatedVariableGetter,
   ValidatedVariableSetter,
   Variable,
-  VariableClassification,
   VariableFilter,
   VariableGetError,
   VariableGetResult,
@@ -24,12 +23,12 @@ import {
   VariableSetResult,
   VariableSetResults,
   VariableSetters,
+  VariableUsage,
   dataClassification,
   dataPurposes,
   extractKey,
   formatKey,
   getResultVariable,
-  isVariablePatch,
   isVariablePatchAction,
   parseKey,
   stripPrefix,
@@ -59,6 +58,7 @@ import {
   withSourceIndex,
 } from "../lib";
 
+import { CONSENT_INFO_KEY } from "@constants";
 import {
   ReadonlyVariableStorage,
   SchemaClassification,
@@ -70,7 +70,6 @@ import {
   VariableStorage,
   VariableStorageContext,
 } from "..";
-import { CONSENT_INFO_KEY } from "@constants";
 
 export type SchemaBoundPrefixMapping = {
   storage: ReadonlyVariableStorage;
@@ -83,7 +82,7 @@ export type SchemaBoundPrefixMapping = {
    * If a variable's classification is not explicitly defined in a schema, this will be the default.
    * If omitted, set requests will fail unless classification and purpose is defined.
    */
-  classification?: Partial<VariableClassification>;
+  classification?: Partial<VariableUsage>;
 };
 
 export interface VariableStorageCoordinatorSettings {
@@ -318,7 +317,7 @@ export class VariableStorageCoordinator implements VariableStorage {
     results.forEach(
       (result, i) =>
         result?.status === VariableResultStatus.Unsupported &&
-        isVariablePatch((setter = setters[i]!)) &&
+        (setter = setters[i]!).patch != null &&
         patches.push([i, setter])
     );
 
@@ -395,7 +394,7 @@ export class VariableStorageCoordinator implements VariableStorage {
   }
 
   private _censor<
-    T extends (VariableKey & Partial<VariableClassification>) | undefined,
+    T extends (VariableKey & Partial<VariableUsage>) | undefined,
     V
   >(
     mapping: PrefixVariableMapping,
@@ -437,11 +436,11 @@ export class VariableStorageCoordinator implements VariableStorage {
   }
 
   private _validate<
-    T extends Partial<VariableClassification & VariableMetadata> | undefined
+    T extends Partial<VariableUsage & VariableMetadata> | undefined
   >(
     mapping: PrefixVariableMapping,
     target: T,
-    key: VariableKey & Partial<VariableClassification>,
+    key: VariableKey & Partial<VariableUsage>,
     value: any
   ): T {
     if (!target) return target;
@@ -533,8 +532,8 @@ export class VariableStorageCoordinator implements VariableStorage {
 
   private _censorValidate(
     mapping: PrefixVariableMapping,
-    target: Partial<VariableClassification> & { value: any },
-    key: VariableKey & Partial<VariableClassification>,
+    target: Partial<VariableUsage> & { value: any },
+    key: VariableKey & Partial<VariableUsage>,
     index: number,
     variables: readonly any[],
     censored: [index: number, result: VariableSetResult][],
@@ -792,12 +791,6 @@ export class VariableStorageCoordinator implements VariableStorage {
     return results as any;
   }
 
-  configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>,
-    context?: VariableStorageContext
-  ): void {
-    this._storage.configureScopeDurations(durations, context);
-  }
   renew(
     scope: VariableScope,
     scopeIds: string[],
@@ -808,7 +801,7 @@ export class VariableStorageCoordinator implements VariableStorage {
   purge(
     filters: VariableFilter<true>[],
     context?: VariableStorageContext
-  ): MaybePromise<void> {
+  ): MaybePromise<boolean> {
     return this._storage.purge(filters, context);
   }
 

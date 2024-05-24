@@ -1,6 +1,6 @@
 import {
   Variable,
-  VariableClassification,
+  VariableUsage,
   VariableFilter,
   VariableKey,
   VariablePatch,
@@ -14,6 +14,8 @@ import {
   parseKey,
   patchType,
   toNumericVariableEnums,
+  isVariablePatchAction,
+  VariableValuePatchSetter,
 } from "@tailjs/types";
 import {
   IfNot,
@@ -99,15 +101,11 @@ const requireNumberOrUndefined = (value: any): number | undefined =>
 
 export const applyPatch = async (
   current: VariablePatchSource<any, boolean> | undefined,
-  {
-    classification: level,
-    purposes,
-    patch,
-  }: VariablePatch<any, false> | VariablePatch<any, true>
+  setter: VariablePatch<any, false> | VariablePatch<any, true>
 ): Promise<VariablePatchResult<any, true> | undefined> => {
-  if (isFunction(patch)) {
+  if (isVariablePatchAction(setter)) {
     const patched = toNumericVariableEnums(
-      await patch(toNumericVariableEnums(current))
+      await setter.patch(toNumericVariableEnums(current))
     );
 
     if (patched) {
@@ -121,54 +119,48 @@ export const applyPatch = async (
     return patched;
   }
 
-  const classification: Partial<VariableClassification<true>> = {
-    classification: dataClassification.parse(level!, false),
-    purposes: dataPurposes(purposes ?? current?.purposes),
+  const classification: Partial<VariableUsage<true>> = {
+    classification: dataClassification.parse(setter.classification!, false),
+    purposes: dataPurposes(setter.purposes ?? current?.purposes),
   };
 
   const value = current?.value;
 
-  patch.type = patchType.parse(patch.type);
-
-  switch (patch.type) {
+  setter.patch = patchType.parse(setter.patch);
+  switch (setter.patch) {
     case VariablePatchType.Add:
       return {
         ...classification,
         value: patchSelector(
           requireNumberOrUndefined(value),
-          patch.selector,
-          (value) => (value ?? patch.seed ?? 0) + patch.by
+          setter.selector,
+          (value) => (value ?? setter.seed ?? 0) + setter.value
         ),
       };
     case VariablePatchType.Min:
     case VariablePatchType.Max:
       return {
         ...classification,
-        value: patchSelector(value, patch.selector, (value) =>
+        value: patchSelector(value, setter.selector, (value) =>
           requireNumberOrUndefined(value)
-            ? Math[patch.type === VariablePatchType.Min ? "min" : "max"](
+            ? Math[setter.patch === VariablePatchType.Min ? "min" : "max"](
                 value,
-                patch.value
+                setter.value
               )
-            : patch.value
+            : setter.value
         ),
       };
     case VariablePatchType.IfMatch:
-      if (current?.value !== patch.match) {
-        return undefined;
-      }
-      return {
-        ...classification,
-        value: patchSelector(value, patch.selector, () => patch.value),
-      };
-
     case VariablePatchType.IfNoneMatch:
-      if (current?.value === patch.match) {
+      if (
+        (current?.value === setter.match) ===
+        (setter.patch === VariablePatchType.IfNoneMatch)
+      ) {
         return undefined;
       }
       return {
         ...classification,
-        value: patchSelector(value, patch.selector, () => patch.value),
+        value: patchSelector(value, setter.selector, () => setter.value),
       };
   }
 };

@@ -12,13 +12,18 @@ internal class TrackerEnvironment : ITrackerEnvironment
   public TrackerEnvironment(
     ScriptObject proxy,
     IResourceManager resources,
-    Uint8ArrayConverter uint8ArrayConverter
+    Uint8ArrayConverter uint8ArrayConverter,
+    IScriptObject handle
   )
   {
     _proxy = proxy;
     _resources = resources;
     _uint8ArrayConverter = uint8ArrayConverter;
+
+    Handle = handle;
   }
+
+  public IScriptObject Handle { get; }
 
   #region ITrackerEnvironment Members
 

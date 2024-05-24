@@ -6,11 +6,11 @@ public class NullRequestHandler : IRequestHandler
 
   public void Dispose() { }
 
-  public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITracker tracker) =>
+  public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITrackerHandle? tracker) =>
     Array.Empty<ClientResponseCookie>();
 
   public ValueTask<string?> GetClientScriptsAsync(
-    ITracker tracker,
+    ITrackerHandle? tracker,
     string? nonce = null,
     CancellationToken cancellationToken = default
   ) => default;
@@ -20,7 +20,7 @@ public class NullRequestHandler : IRequestHandler
   public ValueTask InitializeAsync(CancellationToken cancellationToken = default) => default;
 
   public Task PostEventsAsync(
-    ITracker tracker,
+    ITrackerHandle tracker,
     string eventsJson,
     CancellationToken cancellationToken = default
   ) => Task.CompletedTask;

@@ -3,6 +3,7 @@ import defaultSchema from "@tailjs/types/schema";
 import clientScripts from "@tailjs/client/script";
 import {
   DataPurpose,
+  DataPurposeFlags,
   dataPurposes,
   isPassiveEvent,
   PostRequest,
@@ -42,7 +43,6 @@ import {
 import {
   CLIENT_SCRIPT_QUERY,
   CONTEXT_NAV_QUERY,
-  CONTEXT_NAV_REQUEST_ID,
   EVENT_HUB_QUERY,
   INIT_SCRIPT_QUERY,
   SCHEMA_QUERY,
@@ -52,7 +52,8 @@ import {
   array,
   createLock,
   deferred,
-  deferredPromise,
+  DeferredAsync,
+  deferredAsync,
   forEach,
   forEachAsync,
   isPlainObject,
@@ -61,7 +62,7 @@ import {
   JsonObject,
   map,
   match,
-  MaybeDeferredPromise,
+  MaybeDeferredAsync,
   merge,
   obj,
   parseQueryString,
@@ -71,6 +72,7 @@ import {
   RecordType,
   ReplaceProperties,
   required,
+  resolveDeferred,
   some,
 } from "@tailjs/util";
 import { createTransport, from64u } from "@tailjs/util/transport";
@@ -78,7 +80,10 @@ import {
   DefaultSessionReferenceMapper,
   SessionReferenceMapper,
 } from "./ClientIdGenerator";
-import { generateClientConfigScript } from "./lib/clientConfigScript";
+import {
+  generateClientConfigScript,
+  generateClientExternalNavigationScript,
+} from "./lib/clientScripts";
 
 const scripts = {
   main: {
@@ -117,9 +122,9 @@ export class RequestHandler {
   public readonly _cookieNames: {
     consent: string;
     session: string;
-    /** If this is not set, push cookies will not be used. */
-    push?: string;
-    device: Record<DataPurpose, string>;
+
+    deviceByPurpose: Record<DataPurpose, string>;
+    device: string;
   };
   public readonly environment: TrackerEnvironment;
 
@@ -163,16 +168,18 @@ export class RequestHandler {
 
     this._sessionTimeout = sessionTimeout;
     this._cookieNames = {
-      consent: cookies.namePrefix + ":consent",
-      session: cookies.namePrefix + ":session",
-      push: cookies.namePrefix + ":push",
-      device: obj(
+      consent: cookies.namePrefix + ".consent",
+      session: cookies.namePrefix + ".session",
+      device: cookies.namePrefix + ".device",
+      deviceByPurpose: obj(
         dataPurposes.pure.map(
           ([name, flag]) =>
             [
               flag,
-              // Necessary device data is just ".d" (no suffix)
-              cookies.namePrefix + ":" + dataPurposes.format(name),
+              cookies.namePrefix +
+                (flag === DataPurposeFlags.Necessary
+                  ? ""
+                  : "," + dataPurposes.format(name)),
             ] as const
         )
       ),
@@ -419,7 +426,7 @@ export class RequestHandler {
     payload,
     clientIp,
   }: ClientRequest): Promise<{
-    tracker: PromiseLike<Tracker>;
+    tracker: DeferredAsync<Tracker>;
     response: CallbackResponse | null;
   } | null> {
     //const requestTimer = timer("Request").start();
@@ -491,7 +498,7 @@ export class RequestHandler {
      * The reason it is async is if a consuming API wants to use the tracker in its own code.
      * The overhead of initializing the tracker should not be included if it doesn't, and no request was handled from the URL.
      */
-    const tracker = deferredPromise(async () => {
+    const resolveTracker = deferredAsync(async () => {
       const tracker = new Tracker(trackerSettings());
       await tracker._ensureInitialized(trackerInitializationOptions);
 
@@ -513,13 +520,12 @@ export class RequestHandler {
          * The push cookie may be set, but that has a very short age anyway (and hopefully will be replaced with SSE).
          */
         sendCookies = true,
-        push = false,
       } = {}
     ) => {
       if (response) {
         response.headers ??= {};
-        if (tracker.initialized) {
-          const resolvedTracker = await tracker;
+        if (resolveTracker.resolved) {
+          const resolvedTracker = await resolveTracker();
           if (sendCookies) {
             await resolvedTracker._persist(true);
             response.cookies = this.getClientCookies(resolvedTracker);
@@ -538,27 +544,10 @@ export class RequestHandler {
         if (isString(response.body) && !response.headers?.["content-type"]) {
           (response.headers ??= {})["content-type"] = "text/plain";
         }
-
-        if (push && response.body) {
-          // TODO: Change to server-sent events (SSE).
-          if (this._cookieNames.push) {
-            (response.cookies ?? []).push(
-              this._cookies.mapResponseCookie(this._cookieNames.push, {
-                value: response.body as string,
-                essential: true,
-                httpOnly: false,
-                maxAge: 5,
-              })
-            );
-          }
-          // If we had a response before, we don't now. Change status to "OK no content"
-          response.status === 200 && (response.status = 204);
-          response.body = undefined;
-        }
       }
 
       return {
-        tracker,
+        tracker: resolveTracker,
         response: response as CallbackResponse,
       };
     };
@@ -578,7 +567,7 @@ export class RequestHandler {
               // It prevents external scripts to try to get a hold of the storage key via XHR.
               const secDest = headers["sec-fetch-dest"];
               if (secDest && secDest !== "script") {
-                return await result({
+                return result({
                   status: 400,
                   body: "This script can only be loaded from a script tag.",
                   headers: {
@@ -588,7 +577,7 @@ export class RequestHandler {
                 });
               }
               const { clientKey } = trackerSettings();
-              return await result({
+              return result({
                 status: 200,
                 body: generateClientConfigScript({
                   ...this._clientConfig,
@@ -603,9 +592,9 @@ export class RequestHandler {
             }
 
             if ((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])) != null) {
-              return await result({
+              return result({
                 status: 200,
-                body: await this._getClientScripts(tracker, false),
+                body: await this._getClientScripts(resolveTracker, false),
 
                 cacheKey: "external-script",
                 headers: {
@@ -616,58 +605,51 @@ export class RequestHandler {
             }
 
             if ((queryValue = join(query?.[CONTEXT_NAV_QUERY])) != null) {
+              // The user navigated via the context menu in their browser.
+              // If the user has an active session we respond with a small script, that will push the request ID
+              // that caused the navigation to the other browser tabs.
+              // If there is no session it means the user might have shared the link with someone else,
+              // and we must not set any cookies or do anything but redirect since it does not count as a visit to the site.
+
               trackerInitializationOptions = { passive: true };
-              // We need to initialize the tracker to see if it has a session.
-              // If so, we will push a variable that tells the client navigation happened.
-              // Otherwise we will just redirect without sending any cookies.
-              const resolvedTracker = await tracker;
 
-              const parts = match(join(queryValue), /^([0-9a-z]*0)?(.+)$/);
-              const targetUri = parts?.[1];
-              if (!targetUri) return await result({ status: 400 });
+              const [, requestId, targetUri] =
+                match(join(queryValue), /^([0-9]*)(.+)$/) ?? [];
+              if (!targetUri) return result({ status: 400 });
 
-              const requestId = parts?.[0];
-
-              (resolvedTracker.cookies as any) = {};
-              // This cookie is used to signal that external navigation happened from the "open in new tab" context menu.
-              // We do not want the server to echo this cookie.
-
-              SCRIPT_CACHE_HEADERS;
-              return await result(
-                {
-                  status: 301, // Permanent redirect. Never invoke this code again.
-                  headers: {
-                    location: queryValue,
-                    ...MAX_CACHE_HEADERS,
+              if (
+                !requestId ||
+                // We need to initialize the tracker to see if it has a session.
+                !(await resolveTracker())?.sessionId
+              ) {
+                return result(
+                  {
+                    status: 301, // Permanent redirect. Never invoke this code again.
+                    headers: {
+                      location: targetUri,
+                      ...MAX_CACHE_HEADERS,
+                    },
                   },
-                  body:
-                    requestId != null && resolvedTracker.sessionId
-                      ? // Only push data if we have a session. Otherwise we might send cookies to innocent people who may have
-                        // received an encoded link, if the original user decided to copy the link via the context menu.
-                        ({
-                          variables: {
-                            // Set a fictitious variable so the client picks up navigation happened if polling for the request ID.
-                            // The idea is that these request IDs are random with millions of possible values, so collisions are
-                            // very unlikely. This would only happen if another user received a link the user copied via the context menu,
-                            // and then opened it while having an active session waiting for the exact same request ID. #640KShouldBeEnough.
-                            get: [
-                              {
-                                status: 200,
-                                scope: VariableScope.Session,
-                                key: CONTEXT_NAV_REQUEST_ID,
-                                value: requestId,
-                              },
-                            ],
-                          },
-                        } as PostResponse)
-                      : undefined,
+                  { sendCookies: false }
+                );
+              }
+
+              return result({
+                status: 200,
+                body: generateClientExternalNavigationScript(
+                  requestId,
+                  targetUri
+                ),
+                headers: {
+                  "content-type": "text/html",
+                  ...SCRIPT_CACHE_HEADERS,
+                  vary: "sec-fetch-dest",
                 },
-                { sendCookies: false, push: true }
-              );
+              });
             }
 
             if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
-              return await result({
+              return result({
                 status: 200,
                 body: this._schema.schema.definition,
                 headers: {
@@ -704,7 +686,7 @@ export class RequestHandler {
                 }
               }
             }
-            return await result({
+            return result({
               status: 200,
               body: script,
               cacheKey: "script",
@@ -717,7 +699,7 @@ export class RequestHandler {
               const payloadString = payload ? await payload() : null;
 
               if (payloadString == null || payloadString === "") {
-                return await result({
+                return result({
                   status: 400,
                   body: "No data.",
                 });
@@ -737,16 +719,15 @@ export class RequestHandler {
                   deviceId: postRequest.deviceId,
                   deviceSessionId: postRequest.deviceId,
                 };
-                let push = postRequest.beacon;
 
-                const resolvedTracker = await tracker;
+                const resolvedTracker = await resolveTracker();
 
                 const response: PostResponse = {};
 
                 if (postRequest.events) {
                   // This returns a response that may have changed variables in it.
-                  // A mechanism for pushing changes without using cookies is still under development
-                  // so we currently do not use the response for any purpose.
+                  // A mechanism for pushing changes without using cookies is still under development,
+                  // so this does nothing for the client atm.
                   await resolvedTracker.post(postRequest.events, {
                     passive: postRequest.events.every(isPassiveEvent),
                     deviceSessionId: postRequest.deviceSessionId,
@@ -769,14 +750,13 @@ export class RequestHandler {
                   }
                 }
 
-                return await result(
+                return result(
                   response.variables
                     ? {
                         status: 200,
                         body: response,
                       }
-                    : { status: 204 },
-                  { push }
+                    : { status: 204 }
                 );
               } catch (error) {
                 this.environment.log(
@@ -812,11 +792,11 @@ export class RequestHandler {
       });
     }
 
-    return { tracker, response: null };
+    return { tracker: resolveTracker, response: null };
   }
 
   private async _getClientScripts(
-    tracker: MaybeDeferredPromise<Tracker>,
+    tracker: MaybeDeferredAsync<Tracker>,
     html: boolean,
     nonce?: string
   ): Promise<string | undefined> {
@@ -839,7 +819,7 @@ export class RequestHandler {
       this._extensions.map(
         async (extension) =>
           extension.getClientScripts &&
-          extension.getClientScripts(await tracker)
+          extension.getClientScripts(await resolveDeferred(tracker))
       ),
       async (scripts) =>
         forEach(array(await scripts), (script) => {
@@ -856,8 +836,8 @@ export class RequestHandler {
     );
 
     if (html) {
-      if (tracker.initialized === true) {
-        const pendingEvents = (await tracker).clientEvents;
+      if (tracker.resolved) {
+        const pendingEvents = tracker.resolved.clientEvents;
         pendingEvents.length &&
           inlineScripts.push(
             `${trackerRef}.push(${pendingEvents

@@ -1,3 +1,7 @@
 ﻿namespace TailJs;
 
-public record TrackerContext(ITracker Tracker, ClientResponse? Response, bool InitializedEnvironment);
+public record TrackerContext(
+  ITrackerHandle TrackerHandle,
+  ClientResponse? Response,
+  bool InitializedEnvironment
+);

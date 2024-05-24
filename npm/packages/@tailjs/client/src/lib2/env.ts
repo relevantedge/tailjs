@@ -7,17 +7,26 @@ import {
   F,
   T,
   ansi,
+  concat,
+  count,
   isFunction,
   isObject,
   join,
+  map,
   parseUri,
   replace,
-  some,
   split,
+  stickyTimeout,
   type Nullish,
 } from "@tailjs/util";
 import { jsonEncode } from "@tailjs/util/transport";
-import { document } from ".";
+import {
+  DEBUG,
+  addVariablesChangedListener,
+  document,
+  formatAnyVariableScope,
+} from ".";
+import { dataPurposes, sortVariables } from "@tailjs/types";
 
 export const ERR_BUFFER_OVERFLOW = "buffer-overflow";
 export const ERR_POST_FAILED = "post-failed";
@@ -57,7 +66,7 @@ export const debug = (
 ) => {
   group &&
     (collapsed ? console.groupCollapsed : console.group)(
-      (nested ? "" : "tail.js: ") + group
+      (nested ? "" : ansi("tail.js: ", "90;3")) + group
     );
   const children = value?.[childGroups];
   children && (value = value[groupValue]);

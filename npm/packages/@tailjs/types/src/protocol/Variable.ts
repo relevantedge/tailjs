@@ -176,9 +176,7 @@ export interface VersionedVariableKey<NumericEnums extends boolean = boolean>
 /**
  * Defines how the value of variable is classified and for which purposes it can be used.
  */
-export interface VariableClassification<
-  NumericEnums extends boolean = boolean
-> {
+export interface VariableUsage<NumericEnums extends boolean = boolean> {
   /**
    * The legal classification of the kind of data a variable holds.
    * This limits which data will be stored based on a user's consent.
@@ -193,7 +191,7 @@ export interface VariableClassification<
   purposes: DataPurposeValue<NumericEnums>;
 }
 
-export const Necessary: VariableClassification<true> = {
+export const Necessary: VariableUsage<true> = {
   classification: DataClassification.Anonymous,
   purposes: DataPurposeFlags.Necessary,
 };
@@ -240,7 +238,7 @@ export interface VariableVersion {
  */
 export interface VariableHeader<NumericEnums extends boolean = true>
   extends VariableKey<NumericEnums>,
-    VariableClassification<NumericEnums>,
+    VariableUsage<NumericEnums>,
     VariableMetadata,
     VariableVersion {}
 
@@ -266,7 +264,7 @@ export interface Variable<T = any, NumericEnums extends boolean = true>
  * or meets other authorization based requirements.
  */
 export type VariableValidationBasis<NumericEnums extends boolean = boolean> =
-  VariableKey<NumericEnums> & Partial<VariableClassification<NumericEnums>>;
+  VariableKey<NumericEnums> & Partial<VariableUsage<NumericEnums>>;
 
 /** Returns a description of a key that can be used for logging and error messages.  */
 export const formatKey = (key: VariableKey<true> | VariableKey) =>
@@ -325,7 +323,7 @@ export const toNumericVariableEnums: <T>(
 
 export const extractKey = <
   T,
-  C extends undefined | Partial<VariableClassification> = undefined
+  C extends undefined | Partial<VariableUsage> = undefined
 >(
   variable: T & PartialExcept<VariableKey, "key">,
   classificationSource?: C
@@ -341,10 +339,7 @@ export const extractKey = <
           : never) &
         (C extends undefined
           ? {}
-          : MaybePick<
-              C & Partial<VariableClassification<true>>,
-              keyof VariableClassification
-            >)
+          : MaybePick<C & Partial<VariableUsage<true>>, keyof VariableUsage>)
     >
   : never =>
   variable

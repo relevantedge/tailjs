@@ -125,7 +125,7 @@ describe("Variable stores store.", () => {
       (result = await store.set([
         {
           ...key,
-          patch: { type: "ifMatch", match: undefined, value: "version3" },
+          patch: { patch: "ifMatch", match: undefined, value: "version3" },
         },
       ])["result"])?.status
     ).toBe(VariableResultStatus.Unchanged);
@@ -135,7 +135,7 @@ describe("Variable stores store.", () => {
       (result = await store.set([
         {
           ...key,
-          patch: { type: "ifMatch", match: "version2.1", value: "version3" },
+          patch: { patch: "ifMatch", match: "version2.1", value: "version3" },
         },
       ])["result"])?.status
     ).toBe(VariableResultStatus.Success);

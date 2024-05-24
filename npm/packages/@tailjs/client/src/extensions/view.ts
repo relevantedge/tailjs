@@ -1,3 +1,4 @@
+import { SCOPE_INFO_KEY } from "@constants";
 import {
   LocalID,
   View,
@@ -12,7 +13,6 @@ import {
   clock,
   createEvent,
   createTimer,
-  diff,
   forEach,
   map,
   nil,
@@ -21,12 +21,10 @@ import {
   parseUri,
   push,
   replace,
-  structuralEquals,
 } from "@tailjs/util";
 import { TrackerExtensionFactory, isChangeUserCommand } from "..";
 import { tracker } from "../initializeTracker";
 import {
-  LocalVariableScope,
   TAB_ID,
   addPageActivatedListener,
   addPageVisibleListener,
@@ -39,7 +37,6 @@ import {
   setLocalVariables,
   tryGetVariable,
 } from "../lib2";
-import { SCOPE_INFO_KEY } from "@constants";
 
 export let currentViewEvent: ViewEvent | undefined;
 
@@ -66,11 +63,10 @@ export const pushNavigationSource = (
       // Grr! Intellisense won't use the constant scope and key values if `...referrerKey`.
       scope: referrerKey.scope,
       key: referrerKey.key,
-      result: (current: any, previous: any, poll) => {
-        current
+      result: (current: any, previous: any, poll) =>
+        current?.value
           ? poll()
-          : previous?.value?.[1] === navigationEventId && consumed();
-      },
+          : previous?.value?.[1] === navigationEventId && consumed(),
     });
 };
 
@@ -120,45 +116,33 @@ export const context: TrackerExtensionFactory = {
       -1000
     ).trigger();
 
-    tracker.push({
-      get: [
-        {
-          scope: "view",
-          key: "view",
-          result: (value) => {
-            value;
-          },
-        },
-      ],
-    });
-    // Keep track of when new views are set.
-    // A view is considered new if either 1) it is different (duh) or 2) set from a different href.
-    // This is to prevent stray updates from, say, React components that may set the variable every time they rerender.
+    // View definitions may be loaded asynchronously both before and after navigation happens.
+    // This means the `definition` property of the current view event is updated independently of its creation.
+    // If the event has already been sent, and additional patch event is sent with the definition.
+    // When a definition has been associated with the current view event, it will not be changed.
+    // Instead any new view definition that arrives before the next navigation is assumed to be for the next view event.
 
-    // TODO: Move to separate function.
+    let pendingViewDefinition: View | undefined;
 
-    /** This contains the next view for view events. It is cleared when the view event is posted.  */
-    let nextView: View | undefined;
-    let previousHref: string;
-    let currentView: View | undefined;
     tracker.variables.get({
       scope: "view",
       key: "view",
-      result: (value, _, poll) => {
-        // Only update the view
-        (!structuralEquals(currentView, value?.value) ||
-          previousHref !== (previousHref = "" + location.href)) &&
-          (nextView = currentView = value?.value);
-
-        if (nextView && currentViewEvent && !currentViewEvent.definition) {
-          currentViewEvent.definition = nextView;
+      result: (definition, _, poll) => {
+        if (
+          currentViewEvent == null ||
+          !definition?.value ||
+          currentViewEvent?.definition
+        ) {
+          // Buffer for next navigation.
+          pendingViewDefinition = definition?.value;
+        } else {
+          currentViewEvent.definition = definition.value;
           if (currentViewEvent.metadata?.posted) {
             // Send the definition as a patch because the view event has already been posted.
             tracker.events.postPatch(currentViewEvent, {
-              definition: nextView,
+              definition: pendingViewDefinition,
             });
           }
-          nextView = undefined;
         }
 
         return poll();
@@ -270,9 +254,10 @@ export const context: TrackerExtensionFactory = {
           domain: parseDomain(referrer),
         });
 
-      // If we already have a view ready, set this on the event.
-      currentViewEvent.definition = nextView;
-      nextView = undefined;
+      // If we already have a view definition ready, set this on the event, and reset the buffer.
+      currentViewEvent.definition = pendingViewDefinition;
+      pendingViewDefinition = undefined;
+
       tracker.events.post(currentViewEvent);
 
       tracker.events.registerEventPatchSource(currentViewEvent!, () => ({

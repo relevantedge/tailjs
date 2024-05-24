@@ -14,17 +14,34 @@ internal class PromiseLike<T>
     _task = task;
   }
 
+  private bool _invoked;
+  private object? _result;
+
   [ScriptMember("then")]
-  public async Task Then(ScriptObject? fulfilled = null, ScriptObject? rejected = null)
+  public async ValueTask<object?> Then(ScriptObject? fulfilled = null, ScriptObject? rejected = null)
   {
-    try
+    if (!_invoked)
     {
-      var result = await _task;
-      fulfilled?.Invoke(false, result);
+      try
+      {
+        _result = await _task;
+      }
+      catch (Exception ex)
+      {
+        _result = ex;
+      }
     }
-    catch (Exception ex)
-    {
-      rejected?.Invoke(false, ex.Message);
-    }
+
+    return _result is Exception error
+      ? rejected?.InvokeAsFunction(error.Message)
+      : fulfilled?.InvokeAsFunction(_result);
   }
+}
+
+internal class PromiseLike
+{
+  public static Func<object?> Wrap(Func<ValueTask<object?>> lambda) => () => lambda().AsPromiseLike();
+
+  public static Func<object?, object?> Wrap(Func<object?, ValueTask<object?>> lambda) =>
+    argument => lambda(argument).AsPromiseLike();
 }

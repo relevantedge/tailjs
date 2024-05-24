@@ -1,5 +1,6 @@
-﻿using Microsoft.ClearScript;
-using Microsoft.ClearScript.JavaScript;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using Microsoft.ClearScript;
 
 #pragma warning disable CS8974
 
@@ -7,13 +8,22 @@ namespace TailJs.Scripting;
 
 internal static class ScriptEngineExtensions
 {
-  public static PromiseLike<T> AsPromiseLike<T>(this Task<T> task) => new(task);
+  public static object? AsPromiseLike<T>(this ValueTask<T> task) =>
+    task.IsCompleted ? task.Result : new PromiseLike<T>(task.AsTask());
+
+  public static object? AsPromiseLike<T>(this Task<T> task) =>
+    task.IsCompleted ? task.Result : new PromiseLike<T>(task);
 
   public static IEnumerable<T> Enumerate<T>(this object? scriptValue, Func<object?, T> projection) =>
     scriptValue.Enumerate().Select(kv => projection(kv.Value));
 
   public static IEnumerable<T> Enumerate<T>(this object? scriptValue, Func<string, object?, T> projection) =>
     scriptValue.Enumerate().Select(kv => projection(kv.Key, kv.Value));
+
+  public static IEnumerable<T> Enumerate<T>(
+    this object? scriptValue,
+    Func<string, object?, int, T> projection
+  ) => scriptValue.Enumerate().Select((kv, i) => projection(kv.Key, kv.Value, i));
 
   public static IEnumerable<KeyValuePair<string, object?>> Enumerate(this object? scriptValue)
   {
@@ -46,14 +56,67 @@ internal static class ScriptEngineExtensions
     params string[] path
   ) => (scriptObject.Get(path) as IScriptObject).Enumerate();
 
+  public static DateTime? TryGetDateTime(this object? value, string? property = null) =>
+    property.TryGetInt64(property) is { } timestamp
+      ? DateTimeOffset.FromUnixTimeMilliseconds(timestamp).DateTime
+      : value.Get("valueOf") is IScriptObject method
+        ? method.InvokeAsFunction().TryGetDateTime()
+        : null;
+
   public static T Get<T>(this object? value) => (T)value.Get()!;
 
   public static T Get<T>(this object? value, params string[] path) => (T)value.Get(path)!;
 
-  public static long? GetInt64(this object? value, params string[] path) =>
-    value.Get(path) is { } numeric ? Convert.ToInt64(numeric) : null;
+  public static long? TryGetInt64(this object? value, string? property = null) =>
+    value.Get(property) switch
+    {
+      int numeric => numeric,
+      long numeric => numeric,
+      // ReSharper disable once CompareOfFloatsByEqualityOperator
+      double numeric => Math.Round(numeric) == numeric ? (long)numeric : null,
+      string parsable
+        => long.TryParse(parsable, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
+          ? parsed
+          : null,
+      _ => null
+    };
+
+  public static double? TryGetDouble(this object? value, string? property = null) =>
+    value.Get(property) switch
+    {
+      int numeric => numeric,
+      long numeric => numeric,
+      // ReSharper disable once CompareOfFloatsByEqualityOperator
+      double numeric => numeric,
+      string parsable
+        => double.TryParse(parsable, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
+          ? parsed
+          : null,
+      _ => null
+    };
+
+  public static ScriptError? GetScriptError(this object? value, string? property = null) =>
+    (value = value.Get()) switch
+    {
+      null => null,
+      IScriptObject scriptObject when scriptObject.Get("message") is string message
+        => new ScriptError(message, scriptObject.Get("name") as string, scriptObject.Get("stack") as string),
+      string message => new ScriptError(message),
+      _ => new ScriptError(value.ToString())
+    };
 
   public static object? Get(this object? value) => value is Undefined ? null : value;
+
+  public static object? Get(this object? value, string? property) =>
+    property == null ? property : (value as IScriptObject)?[property].Get();
+
+  public static T[]? GetArray<T>(this object? value, string? property) =>
+    value as T[]
+    ?? (
+      value.Get(property) is not { } propertyValue
+        ? null
+        : propertyValue.Enumerate(value => value.Get<T>()).ToArray()
+    );
 
   public static object? Get(this object? value, params string[] path)
   {
@@ -64,11 +127,21 @@ internal static class ScriptEngineExtensions
         return null;
       }
 
-      value = (value as IScriptObject)?[fragment];
+      value = value.Get(fragment);
     }
 
     return value.Get();
   }
+
+  public static T Require<T>(this object? value, string path)
+    where T : notnull =>
+    value.Get(path) is { } nonNull
+      ? (T)nonNull
+      : throw new NullReferenceException(
+        path.Length > 0
+          ? $"The property '{string.Join(".", path)}' is null or undefined."
+          : "The value is null or undefined."
+      );
 
   public static T Require<T>(this object? value, params string[] path)
     where T : notnull =>

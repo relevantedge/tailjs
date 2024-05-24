@@ -8,18 +8,16 @@ import {
   dataPurposes,
   getResultVariable,
   isSuccessResult,
-  isVariablePatch,
   toVariableResultPromise,
 } from "@tailjs/types";
 import {
   If,
-  IsAny,
   MaybeArray,
+  Nullish,
   apply,
   assign,
   clock,
   concat,
-  filter,
   forEach,
   get,
   isBoolean,
@@ -30,6 +28,7 @@ import {
   push,
   remove,
   required,
+  structuralEquals,
   throwError,
 } from "@tailjs/util";
 import {
@@ -49,6 +48,8 @@ import {
   VARIABLE_POLL_FREQUENCY,
   addPageLoadedListener,
   addResponseHandler,
+  addStateListener,
+  addVariablesChangedListener,
   isLocalScopeKey,
   localVariableScope,
   request,
@@ -110,19 +111,30 @@ export const createVariableStorage = (
     );
 
   const invokeCallbacks = (
-    result: ClientVariableGetResult | ClientVariableSetResult | undefined
+    variable: ClientVariable | Nullish,
+    previous?: ClientVariable
   ) => {
-    if (!isSuccessResult(result)) return;
-    const key = variableKeyToString(result);
-    const variable = getResultVariable(result);
+    if (!variable) return;
+
+    const key = variableKeyToString(variable);
+
+    const callbacks = remove(activeCallbacks, key);
+    if (!callbacks?.size) return;
+
     let poll: boolean;
-    forEach(remove(activeCallbacks, key), (callback) => {
+
+    if (
+      variable?.purposes === previous?.purposes &&
+      variable?.classification == previous?.classification &&
+      structuralEquals(variable?.value, previous?.value)
+    ) {
+      // No change.
+      return;
+    }
+
+    forEach(callbacks, (callback) => {
       poll = false;
-      callback?.(
-        variable,
-        tryGetVariable(variable as any) as any,
-        (toggle = true) => (poll = toggle)
-      );
+      callback?.(variable, previous, (toggle = true) => (poll = toggle));
       poll && registerCallbacks(key, callback);
     });
   };
@@ -134,6 +146,12 @@ export const createVariableStorage = (
         loaded && stateDuration >= VARIABLE_POLL_FREQUENCY
       ),
     true
+  );
+
+  addVariablesChangedListener((changes) =>
+    forEach(changes, ([current, previous]) =>
+      invokeCallbacks(current, previous)
+    )
   );
 
   const cacheDurations = new Map<string, number>();
@@ -216,7 +234,7 @@ export const createVariableStorage = (
                   }
                 : false;
             })
-          ).variables?.get ?? [];
+          )?.variables?.get ?? [];
 
         push(
           results,
@@ -230,15 +248,14 @@ export const createVariableStorage = (
           updateVariableState(newLocal);
         }
 
-        return results.map(([result]) => (invokeCallbacks(result), result));
+        return results.map(([result]) => result);
       }, map(getters, (getter) => getter?.error) as any) as any,
 
     set: (
       ...setters: ClientVariableSetter[]
     ): ClientVariableResults<any, false> =>
       toVariableResultPromise(async () => {
-        const newLocal: StateVariable[] = [];
-
+        const localResults: StateVariable[] = [];
         const results: ClientVariableSetResult[] = [];
 
         // Only request non-null setters, and use the most recent version we have already read, if any.
@@ -265,10 +282,10 @@ export const createVariableStorage = (
               source: setter as any,
               current: local,
             };
-            push(newLocal, setResultExpiration(local));
+            push(localResults, setResultExpiration(local));
             return undefined;
           }
-          if (!isVariablePatch(setter) && setter?.version === undefined) {
+          if (setter.patch == null && setter?.version === undefined) {
             setter.version = current?.version;
             // Force the first set, we do not have any cached version to validate against.
             setter.force ??= !!setter.version;
@@ -276,31 +293,28 @@ export const createVariableStorage = (
           return [setter as ClientVariableSetter, sourceIndex];
         });
 
-        const response =
-          requestVariables.length > 0
-            ? []
-            : required(
-                (
-                  await request<PostRequest, PostResponse>(endpoint, {
-                    variables: {
-                      set: requestVariables.map(
-                        (variable) => variable[0] as any
-                      ),
-                    },
-                    deviceSessionId: context?.deviceSessionId,
-                  })
-                ).variables?.set,
-                "No result."
-              );
+        const response = !requestVariables.length
+          ? []
+          : required(
+              (
+                await request<PostRequest, PostResponse>(endpoint, {
+                  variables: {
+                    set: requestVariables.map((variable) => variable[0] as any),
+                  },
+                  deviceSessionId: context?.deviceSessionId,
+                })
+              ).variables?.set,
+              "No result."
+            );
 
-        if (newLocal.length) {
-          updateVariableState(newLocal);
+        if (localResults.length) {
+          updateVariableState(localResults);
         }
 
         forEach(response, (result, index) => {
           const [setter, sourceIndex] = requestVariables[index];
           (result as any).source = setter;
-          invokeCallbacks((results[sourceIndex] = result as any));
+          results[sourceIndex] = result as any;
         });
 
         return results as any;

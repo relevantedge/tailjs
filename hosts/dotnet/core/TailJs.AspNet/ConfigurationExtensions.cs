@@ -78,8 +78,9 @@ public static class ConfigurationExtensions
     services.AddScoped<TrackerHelper>();
     services.AddScoped<ITrackerAccessor, TrackerAccessor>();
     services.AddTransient(services => services.GetRequiredService<ObjectLease<DataMarkupWriter>>().Item);
-    services.AddTransient(services =>
-      services.GetRequiredService<ITrackerAccessor>().ResolveTracker().AsTask()
+    services.AddTransient<ITrackerHandle>(services =>
+      services.GetRequiredService<ITrackerAccessor>().TrackerHandle
+      ?? throw new InvalidOperationException("There is no tracker in the current context.")
     );
 
     return services;

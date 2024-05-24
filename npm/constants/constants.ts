@@ -8,10 +8,14 @@ export const VARIABLES_QUERY = "usr";
 export const CONTEXT_NAV_QUERY = "mnt";
 export const SCHEMA_QUERY = "$types";
 
-export const CONTEXT_NAV_REQUEST_ID = "ctx.rid";
-
 export const SCOPE_INFO_KEY = "@info";
 export const CONSENT_INFO_KEY = "@consent";
 export const SESSION_REFERENCE_KEY = "@session_reference";
 
 export const PATCH_EVENT_POSTFIX = "_patch";
+
+export const CLIENT_STORAGE_PREFIX = "_tail:";
+
+export const CLIENT_STATE_CHANNEL_ID = CLIENT_STORAGE_PREFIX + "state";
+
+export const CLIENT_CALLBACK_CHANNEL_ID = CLIENT_STORAGE_PREFIX + "push";

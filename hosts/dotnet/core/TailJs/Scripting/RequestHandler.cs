@@ -46,13 +46,13 @@ public class RequestHandler : IRequestHandler
   internal ScriptObject Proxy =>
     _proxy ?? throw new InvalidOperationException("The proxy has not been initialized.");
 
-  public ITrackerEnvironment? Environment { get; private set; }
+  internal Uint8ArrayConverter Uint8ArrayConverter { get; private set; } = null!;
 
   private async ValueTask CheckInitialized(CancellationToken cancellationToken = default) =>
     await InitializeAsync(cancellationToken).ConfigureAwait(false);
 
   internal async Task PostEventsAsync(
-    Tracker tracker,
+    ITrackerHandle handle,
     string eventsJson,
     CancellationToken cancellationToken = default
   )
@@ -60,15 +60,10 @@ public class RequestHandler : IRequestHandler
     await CheckInitialized(cancellationToken).ConfigureAwait(false);
 
     await Proxy
-      .InvokeMethod("postEvents", tracker.ScriptHandle, eventsJson)
+      .InvokeMethod("postEvents", TryGetTrackerHandle(handle, true), eventsJson)
       .AwaitScript(cancellationToken: cancellationToken)
       .ConfigureAwait(false);
   }
-
-  internal IReadOnlyList<ClientResponseCookie> GetClientCookies(Tracker tracker) =>
-    CookieCollection.MapCookies(
-      tracker.RequestHandler.Proxy.InvokeMethod("getClientCookies", tracker.ScriptHandle)
-    );
 
   internal string ToJson(IScriptObject value) => (string)Proxy.InvokeMethod("stringify", value);
 
@@ -76,10 +71,23 @@ public class RequestHandler : IRequestHandler
 
   internal IScriptObject FromJson(string json) => (IScriptObject)Proxy.InvokeMethod("parse", json);
 
-  private static Tracker ConvertTracker(ITracker tracker) =>
-    tracker as Tracker ?? throw new ArgumentException("Unsupported implementation of ITracker.");
+  private static IScriptTrackerHandle? ValidateHandle(ITrackerHandle? handle, bool required) =>
+    handle == null
+      ? required
+        ? throw new ArgumentNullException(nameof(handle), "A valid tracker handle is required.")
+        : null
+      : handle as IScriptTrackerHandle
+        ?? throw new ArgumentException("Unsupported implementation of ITracker.");
+
+  private static IScriptObject? TryGetTrackerHandle(ITrackerHandle? handle, bool required = false) =>
+    ValidateHandle(handle, required)?.ScriptHandle;
+
+  private static Tracker? TryGetTracker(ITrackerHandle? handle, bool required = false) =>
+    ValidateHandle(handle, required)?.Resolved;
 
   #region IRequestHandler Members
+
+  public ITrackerEnvironment? Environment { get; private set; }
 
   public void Dispose()
   {
@@ -97,20 +105,22 @@ public class RequestHandler : IRequestHandler
     _disposed.Dispose();
   }
 
-  internal Uint8ArrayConverter Uint8ArrayConverter { get; private set; } = null!;
-
-  public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITracker tracker) =>
-    GetClientCookies(ConvertTracker(tracker));
+  public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITrackerHandle? handle) =>
+    TryGetTracker(handle) is { } tracker
+      ? CookieCollection.MapCookies(
+        tracker.RequestHandler.Proxy.InvokeMethod("getClientCookies", tracker.ScriptHandle)
+      )
+      : Array.Empty<ClientResponseCookie>();
 
   public async ValueTask<string?> GetClientScriptsAsync(
-    ITracker tracker,
+    ITrackerHandle? tracker,
     string? nonce = null,
     CancellationToken cancellationToken = default
   ) =>
-    ConvertTracker(tracker) is { } scriptTracker
+    TryGetTrackerHandle(tracker) is { } scriptHandle
       ? (
-        await scriptTracker
-          .RequestHandler.Proxy.InvokeMethod("getClientScripts", scriptTracker.ScriptHandle, nonce)
+        await Proxy
+          .InvokeMethod("getClientScripts", scriptHandle, nonce)
           .AwaitScript(cancellationToken)
           .ConfigureAwait(false)
       ).Get<string?>()
@@ -197,6 +207,7 @@ public class RequestHandler : IRequestHandler
               )
           ).Invoke(false, requestHandler, this);
 
+        var environmentHandle = (IScriptObject)requestHandler!["environment"];
         Environment = new TrackerEnvironment(
           (ScriptObject)(
             (
@@ -207,10 +218,11 @@ public class RequestHandler : IRequestHandler
                     .ConfigureAwait(false)
                 )
               )
-            ).Invoke(false, requestHandler!["environment"])
+            ).Invoke(false, environmentHandle)
           ),
           _resources,
-          Uint8ArrayConverter
+          Uint8ArrayConverter,
+          environmentHandle
         );
 
         _initialized = true;
@@ -220,10 +232,10 @@ public class RequestHandler : IRequestHandler
   }
 
   Task IRequestHandler.PostEventsAsync(
-    ITracker tracker,
+    ITrackerHandle tracker,
     string eventsJson,
     CancellationToken cancellationToken
-  ) => PostEventsAsync(ConvertTracker(tracker), eventsJson, cancellationToken);
+  ) => PostEventsAsync(tracker, eventsJson, cancellationToken);
 
   public async ValueTask<TrackerContext?> ProcessRequestAsync(
     ClientRequest clientRequest,
@@ -239,15 +251,14 @@ public class RequestHandler : IRequestHandler
         .AwaitScript(cancellationToken)
         .ConfigureAwait(false)
         is not IScriptObject proxyResponse
-      || (await proxyResponse["tracker"].AwaitScript(cancellationToken).ConfigureAwait(false))
-        is not IScriptObject tracker
+      || proxyResponse["tracker"] is not IScriptObject tracker
     )
     {
       return null;
     }
 
     return new TrackerContext(
-      new Tracker(this, tracker, Environment!),
+      new ScriptTrackerHandle(this, tracker),
       proxyResponse["response"] is IScriptObject response
         ? new ClientResponse(
           (int)response["status"],

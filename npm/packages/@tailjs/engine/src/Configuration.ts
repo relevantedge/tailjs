@@ -38,6 +38,22 @@ export type RequestHandlerConfiguration = {
   client?: TrackerConfiguration;
   sessionReferenceMapper?: SessionReferenceMapper;
 
+  /**
+   * Whether device cookies should be split by purpose (performance, functionality etc.) or just be shared in one,
+   * if the user has consented to any of these. No device cookies are stored without consent.
+   *
+   * Depending on your preferences, you may found one of the approaches more convenient when documenting the cookies
+   * used on your site.
+   *
+   *  Regardless, tail.js will not store data for purposes the user has not consented to, and existing data will get purged
+   *  if the user withdraws their consent, so it should not make any difference from a legal point of view whether one or multiple cookies are used.
+   *
+   * This setting only apply to device data since non-essential session data will not be persisted at the client.
+   *
+   * @default false
+   */
+  cookiePerPurpose?: boolean;
+
   storage?: VariableStorageCoordinatorSettings["mappings"];
 
   /**
@@ -94,4 +110,5 @@ export const DEFAULT: Omit<
   includeIp: true,
   client: DEFAULT_CLIENT_CONFIG as any,
   clientKeySeed: "tailjs",
+  cookiePerPurpose: false,
 };
