@@ -18,8 +18,6 @@ public class TrackerRenderingContext : ITrackerRenderingContext
   private readonly ObjectPool<StringBuilder> _writers;
   private readonly TrackerConfiguration _configuration;
 
-  private ITracker? _mappedTracker;
-
   public TrackerRenderingContext(
     IOptions<TrackerConfiguration> configuration,
     ObjectLease<DataMarkupWriter> writerLease,
@@ -61,12 +59,10 @@ public class TrackerRenderingContext : ITrackerRenderingContext
 
   #region ITrackerRenderingContext Members
 
+
   public TextWriter? CurrentViewWriter => _viewWriterAccessor.CurrentWriter;
 
   public IModelContext ItemData { get; }
-
-  public ITracker? Tracker =>
-    ItemData.EnvironmentType == EnvironmentType.Public ? (_mappedTracker ??= _trackerAccessor.Tracker) : null;
 
   public async ValueTask<string> GetClientScriptAsync(IEnumerable<string>? references)
   {
@@ -126,7 +122,11 @@ public class TrackerRenderingContext : ITrackerRenderingContext
       )
       .Append(");")
       .Append("</script>");
-    if (Tracker != null && (await _requestHandler.GetClientScriptsAsync(Tracker, nonce)) is { } trackerScript)
+
+    if (
+      await ResolveTracker() is { } tracker
+      && (await _requestHandler.GetClientScriptsAsync(tracker, nonce)) is { } trackerScript
+    )
     {
       writer.Append(trackerScript);
     }
@@ -162,4 +162,11 @@ public class TrackerRenderingContext : ITrackerRenderingContext
   }
 
   #endregion
+
+
+
+  public async ValueTask<ITracker?> ResolveTracker(CancellationToken cancellationToken = default) =>
+    ItemData.EnvironmentType == EnvironmentType.Public
+      ? await _trackerAccessor.ResolveTracker(cancellationToken)
+      : null;
 }

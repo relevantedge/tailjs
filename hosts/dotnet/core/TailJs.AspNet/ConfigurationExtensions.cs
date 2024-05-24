@@ -6,7 +6,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
-
 using TailJs.AspNet.Helpers;
 using TailJs.IO;
 using TailJs.Scripting;
@@ -20,7 +19,8 @@ public static class ConfigurationExtensions
     IConfiguration? configuration = null,
     IReadOnlyCollection<ITrackerExtension>? extensions = null,
     TrackerConfiguration? configurationOverride = null
-  ) where T : IServiceCollection
+  )
+    where T : IServiceCollection
   {
     var tailFConfiguration = configuration?.GetSection("TailJs");
     if (!tailFConfiguration.Exists())
@@ -56,35 +56,37 @@ public static class ConfigurationExtensions
       services.AddSingleton<IModelContext, ModelContext>();
       services.AddSingleton<IScriptLoggerFactory, ScriptLoggerFactory>();
       services.AddSingleton<IRequestHandlerPool, RequestHandlerPool>();
-      services.AddSingleton<RequestHandlerPool.Services>(
-        provider =>
-          new(provider.GetRequiredService<IWebHostEnvironment>().ContentRootFileProvider, extensions)
+      services.AddSingleton<RequestHandlerPool.Services>(provider =>
+        new(provider.GetRequiredService<IWebHostEnvironment>().ContentRootFileProvider, extensions)
       );
-      services.AddScoped<ObjectLease<DataMarkupWriter>>(
-        services => services.GetRequiredService<DataMarkupWriterFactory>().Rent()
+      services.AddScoped<ObjectLease<DataMarkupWriter>>(services =>
+        services.GetRequiredService<DataMarkupWriterFactory>().Rent()
       );
       services.AddScoped<ITrackerRenderingContext, TrackerRenderingContext>();
       services.AddScoped<IViewWriterAccessor, ViewWriterAccessor>();
       services.AddScoped<RazorPageObserver>();
 
       services.Decorate<ICompositeViewEngine, ViewEngineDecorator>();
-      services.AddScoped<IRequestHandler>(
-        provider => provider.GetRequiredService<IRequestHandlerPool>().GetRequestHandler()
+      services.AddScoped<IRequestHandler>(provider =>
+        provider.GetRequiredService<IRequestHandlerPool>().GetRequestHandler()
       );
-      services.AddScoped<ITrackerEnvironment>(
-        provider => provider.GetRequiredService<IRequestHandler>().Environment!
+      services.AddScoped<ITrackerEnvironment>(provider =>
+        provider.GetRequiredService<IRequestHandler>().Environment!
       );
     }
 
     services.AddScoped<TrackerHelper>();
     services.AddScoped<ITrackerAccessor, TrackerAccessor>();
     services.AddTransient(services => services.GetRequiredService<ObjectLease<DataMarkupWriter>>().Item);
-    services.AddTransient(services => services.GetRequiredService<ITrackerAccessor>().Tracker!);
+    services.AddTransient(services =>
+      services.GetRequiredService<ITrackerAccessor>().ResolveTracker().AsTask()
+    );
 
     return services;
   }
 
-  public static T UseTailJs<T>(this T builder) where T : IApplicationBuilder
+  public static T UseTailJs<T>(this T builder)
+    where T : IApplicationBuilder
   {
     builder.UseMiddleware<TrackerMiddleware>();
 

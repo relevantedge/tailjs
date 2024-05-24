@@ -2,6 +2,10 @@
 
 public class TrackerAccessor : ITrackerAccessor
 {
-  public ITrackerEnvironment Environment { get; set; }
-  public ITracker? Tracker { get; set; }
+  private ITracker? _resolvedTracker;
+
+  internal Func<ValueTask<ITracker>>? Resolver { get; set; }
+
+  public async ValueTask<ITracker?> ResolveTracker(CancellationToken cancellationToken = default) =>
+    _resolvedTracker ??= Resolver != null ? await Resolver() : null;
 }
