@@ -1,7 +1,4 @@
-﻿using System.Text;
-using System.Text.Json;
-
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.ClearScript;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,10 +11,6 @@ public class TrackerMiddleware
 {
   private static long _requestCount;
 
-  public static long RequestCount => _requestCount;
-
-  public static TimeSpan Elapsed => Timer.Elapsed;
-
   private static readonly ConcurrentStopwatch Timer = new();
   private readonly RequestDelegate _next;
 
@@ -25,6 +18,10 @@ public class TrackerMiddleware
   {
     _next = next;
   }
+
+  public static long RequestCount => _requestCount;
+
+  public static TimeSpan Elapsed => Timer.Elapsed;
 
   public async Task InvokeAsync(
     HttpContext context,
@@ -51,8 +48,8 @@ public class TrackerMiddleware
         new ClientRequest(
           context.Request.Method,
           context.Request.GetEncodedUrl(),
-          context.Request.Headers
-            .Select(header => new KeyValuePair<string, string>(header.Key, header.Value!))
+          context
+            .Request.Headers.Select(header => new KeyValuePair<string, string>(header.Key, header.Value!))
             .Where(kv => !string.IsNullOrEmpty(kv.Value)),
           async () => await new StreamReader(context.Request.Body).ReadToEndAsync(),
           //"87.62.100.252"
@@ -69,8 +66,7 @@ public class TrackerMiddleware
         return;
       }
 
-      context.RequestServices.GetRequiredService<ITrackerAccessor>().Tracker = trackerContext.Tracker;
-      //context.RequestServices.GetRequiredService<ITrackerAccessor>().Environment = trackerContext.Tracker;
+      context.RequestServices.GetRequiredService<TrackerAccessor>().Resolver = trackerContext.TrackerResolver;
 
       void AppendCookies(IEnumerable<ClientResponseCookie> cookies)
       {
@@ -101,7 +97,7 @@ public class TrackerMiddleware
 
       context.RequestAborted.Register(() => requestHandler?.Dispose());
 
-      context.Response.OnStarting(() =>
+      context.Response.OnStarting(async () =>
       {
         var sw = Timer.StartNew();
         if (_requestCount < 25)
@@ -111,15 +107,13 @@ public class TrackerMiddleware
 
         try
         {
-          AppendCookies(requestHandler.GetClientCookies(trackerContext.Tracker));
+          AppendCookies(requestHandler.GetClientCookies(await trackerContext.TrackerResolver()));
         }
         finally
         {
           sw.Stop();
         }
         //Interlocked.Add(ref _elapsed, sw.Elapsed.Ticks);
-
-        return Task.CompletedTask;
       });
 
       sw.Stop();

@@ -16,23 +16,23 @@ public class TrackerHelper
 
   public long RequestCount => TrackerMiddleware.RequestCount;
 
-  public string? Variable(string name) => Context?.Tracker?.Variables.GetString(name) ?? null;
-
-  public T? Variable<T>(string name) =>
-    Context?.Tracker?.Variables is { } variables
-      ? variables.TryGetValue<T>(name, out var value)
-        ? value!
-        : default
-      : default;
-
-  public IHtmlContent Variable<T>(string name, Func<T, HelperResult> render)
-  {
-    if (Context?.Tracker?.Variables is { } variables && variables.TryGetValue<T>(name, out var value))
-    {
-      return render(value);
-    }
-    return HtmlString.Empty;
-  }
+  // public string? Variable(string name) => Context?.Tracker?.Variables.GetString(name) ?? null;
+  //
+  // public T? Variable<T>(string name) =>
+  //   Context?.Tracker?.Variables is { } variables
+  //     ? variables.TryGetValue<T>(name, out var value)
+  //       ? value!
+  //       : default
+  //     : default;
+  //
+  // public IHtmlContent Variable<T>(string name, Func<T, HelperResult> render)
+  // {
+  //   if (Context?.Tracker?.Variables is { } variables && variables.TryGetValue<T>(name, out var value))
+  //   {
+  //     return render(value);
+  //   }
+  //   return HtmlString.Empty;
+  // }
 
   public IHtmlContent Component<T>(T component, Func<T, IHtmlContent> render) =>
     Render(component, component, null, render);

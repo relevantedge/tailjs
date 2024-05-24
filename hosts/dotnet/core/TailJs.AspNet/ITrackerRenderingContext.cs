@@ -1,11 +1,7 @@
-﻿using TailJs.Model;
+﻿namespace TailJs.AspNet;
 
-namespace TailJs.AspNet;
-
-public interface ITrackerRenderingContext
+public interface ITrackerRenderingContext : ITrackerAccessor
 {
-  ITracker? Tracker { get; }
-
   TextWriter? CurrentViewWriter { get; }
 
   IModelContext ItemData { get; }
@@ -23,11 +19,11 @@ public class NullTrackerRenderingContext : ITrackerRenderingContext
 
   public IModelContext ItemData { get; } = new NullModelContext();
 
-  public ITracker? Tracker => null;
-
   public ValueTask<string> GetClientScriptAsync(IEnumerable<string>? references) => default;
 
   public IDataMarkupHeader? GetDataScopeHeader(ElementBoundaryMapping? mapping) => null;
+
+  public ValueTask<ITracker?> ResolveTracker(CancellationToken cancellationToken = default) => default;
 
   #endregion
 }

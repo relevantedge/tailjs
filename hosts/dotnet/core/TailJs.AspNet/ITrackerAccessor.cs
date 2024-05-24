@@ -2,6 +2,5 @@
 
 public interface ITrackerAccessor
 {
-  ITrackerEnvironment Environment { get; set; }
-  ITracker? Tracker { get; set; }
+  ValueTask<ITracker?> ResolveTracker(CancellationToken cancellationToken = default);
 }
