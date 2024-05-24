@@ -1,3 +1,4 @@
+import { CLIENT_STATE_CHANNEL_ID } from "@constants";
 import { UUID, dataPurposes, sortVariables } from "@tailjs/types";
 import {
   F,
@@ -15,7 +16,6 @@ import {
   map,
   now,
   obj,
-  pluralize,
   replace,
   stickyTimeout,
 } from "@tailjs/util";
@@ -27,14 +27,13 @@ import {
   HEARTBEAT_FREQUENCY,
   LocalVariableScope,
   NOT_INITIALIZED,
-  STATE_KEY,
   VARIABLE_CACHE_DURATION,
   addEncryptionNegotiatedListener,
   addPageLoadedListener,
+  childGroups,
   debug,
   formatAnyVariableScope,
   listen,
-  childGroups,
   toNumericVariableEnums,
   variableKeyToString,
 } from ".";
@@ -108,12 +107,18 @@ type StateMessage =
 const [addStateListener, dispatchState] = createEvent<
   | [event: "ready", state: State, self: boolean]
   | [event: "tab", tab: TabState, self: boolean]
-  | [
-      event: "variables",
-      updates: Record<string, StateVariable | undefined>,
-      self: boolean
-    ]
 >();
+
+const [addVariablesChangedListener, dispatchVariablesChanged] =
+  createEvent<
+    [
+      changes: [current: StateVariable, previous: StateVariable | undefined][],
+      all: Readonly<typeof tabVariables>,
+      local: boolean
+    ]
+  >();
+
+export { addVariablesChangedListener };
 
 let post: (message: StateMessage, target?: string) => void = NOT_INITIALIZED;
 
@@ -137,54 +142,12 @@ export const setLocalVariables = (
     )
   );
 
-const debugVariableTimeout = stickyTimeout();
-
-const debugVariables = (changes?: typeof tabVariables, flush = F) => {
-  debugVariableTimeout(
-    () => {
-      const variables = concat(
-        sortVariables(map(changes, 1))?.map((variable) => [
-          variable,
-          `${variable.key} (${formatAnyVariableScope(variable.scope)}, ${
-            variable.scope < 0
-              ? "client-side memory only"
-              : dataPurposes.format(variable.purposes)
-          })`,
-          F,
-        ]),
-        [
-          [
-            {
-              [childGroups]: sortVariables(map(tabVariables, 1))?.map(
-                (variable) => [
-                  variable,
-                  `${variable.key} (${formatAnyVariableScope(
-                    variable.scope
-                  )}, ${
-                    variable.scope < 0
-                      ? "client-side memory only"
-                      : dataPurposes.format(variable.purposes)
-                  })`,
-                  F,
-                ]
-              ),
-            },
-            "All variables",
-            T,
-          ],
-        ]
-      )!;
-
-      debug(
-        { [childGroups]: variables },
-        `Variables changed (${count(changes) ?? 0} changed, ${count(
-          tabVariables
-        )} in total).`
-      );
-    },
-    flush ? 0 : 250
+const getVariableChanges = (variables: (StateVariable | undefined)[]) =>
+  map(
+    variables,
+    (current) =>
+      current && [current, tabVariables[variableKeyToString(current)]]
   );
-};
 
 export const updateVariableState = (
   updates: (StateVariable | undefined)[] | undefined
@@ -194,6 +157,9 @@ export const updateVariableState = (
     (variable) => variable && [variableKeyToString(variable), variable]
   );
   if (!changes?.length) return;
+
+  // Collect now before updating the state, but dispatch after the state has changed.
+  const changedEventData = getVariableChanges(updates!);
 
   assign(tabVariables, changes);
   const sharedChanges = filter(
@@ -205,19 +171,18 @@ export const updateVariableState = (
     assign(state.variables, sharedChanges);
     post({ type: "patch", payload: obj(sharedChanges) });
   }
-  dispatchState("variables", obj(changes), true);
-  debugVariables(obj(changes));
+
+  dispatchVariablesChanged(changedEventData, tabVariables, true);
 };
 
 addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
   // Keep tab ID and variables between pages in the same tab.
   addPageLoadedListener((loaded) => {
     if (loaded) {
-      const localState = httpDecrypt(sessionStorage.getItem(STATE_KEY)) as [
-        tabId: string,
-        variables: StateVariable[]
-      ];
-      sessionStorage.removeItem(STATE_KEY);
+      const localState = httpDecrypt(
+        sessionStorage.getItem(CLIENT_STATE_CHANNEL_ID)
+      ) as [tabId: string, variables: StateVariable[]];
+      sessionStorage.removeItem(CLIENT_STATE_CHANNEL_ID);
 
       TAB_ID =
         localState?.[0] ??
@@ -239,10 +204,9 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
           ])
         )
       )!;
-      debugVariables(tabVariables, true);
     } else {
       sessionStorage.setItem(
-        STATE_KEY,
+        CLIENT_STATE_CHANNEL_ID,
         httpEncrypt([
           TAB_ID,
           map(tabVariables, ([, variable]) =>
@@ -255,12 +219,15 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
 
   post = (message: StateMessage, target?: string) => {
     if (!httpEncrypt) return;
-    localStorage.setItem(STATE_KEY, httpEncrypt([TAB_ID, message, target]));
-    localStorage.removeItem(STATE_KEY);
+    localStorage.setItem(
+      CLIENT_STATE_CHANNEL_ID,
+      httpEncrypt([TAB_ID, message, target])
+    );
+    localStorage.removeItem(CLIENT_STATE_CHANNEL_ID);
   };
 
   listen(window, "storage", (ev) => {
-    if (ev.key === STATE_KEY) {
+    if (ev.key === CLIENT_STATE_CHANNEL_ID) {
       const message = httpDecrypt?.(ev.newValue) as [
         sender: string,
         message: StateMessage,
@@ -276,9 +243,13 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
         assign(tabVariables, payload.variables);
         initTimeout.trigger();
       } else if (type === "patch") {
+        // Collect now before updating the state, but dispatch after the state has changed.
+        const changedEventData = getVariableChanges(map(payload, 1));
+
         assign(state.variables, payload);
         assign(tabVariables, payload);
-        dispatchState("variables", payload, false);
+
+        dispatchVariablesChanged(changedEventData, tabVariables, false);
       } else if (type === "tab") {
         assign(state.knownTabs, sender, payload);
         payload && dispatchState("tab", payload, false);

@@ -19,6 +19,7 @@ import {
   unwrap,
   MaybeUndefined,
   ToggleReadonly,
+  isAwaitable,
 } from "..";
 
 export type ErrorGenerator = string | Error | (() => string | Error);
@@ -203,10 +204,49 @@ const handleError = <Handler extends ErrorHandler>(
       )
     : error;
 
+type DeferredProperties<T> = { resolved?: undefined } | { resolved: T };
+
+type NotDeferred = { resolved?: undefined };
+
+export type Deferred<T> = (() => T) & DeferredProperties<T>;
+
+export type DeferredAsync<T> = (() => Promise<T>) & DeferredProperties<T>;
+
+export type MaybeDeferred<T> = (T & NotDeferred) | Deferred<T>;
+export type MaybeDeferredAsync<T> =
+  | ((T | PromiseLike<T>) & NotDeferred)
+  | DeferredAsync<T>;
+
+export const resolveDeferred: {
+  <T>(value: MaybeDeferredAsync<T>): T extends PromiseLike<any>
+    ? T
+    : T | PromiseLike<T>;
+  <T>(value: MaybeDeferred<T>): T;
+} = (value: Deferred<any>) =>
+  typeof value === "function" ? (value as any)?.resolved ?? value() : value;
+
 /** A value that is initialized lazily on-demand. */
-export const deferred = <T>(expression: Wrapped<T>): (() => T) => {
+export const deferred = <T>(expression: Wrapped<T>): Deferred<T> => {
   let result: T | undefined = undefined;
-  return () => (result ??= unwrap(expression));
+  const getter = (() =>
+    getter.initialized
+      ? (result as any)
+      : ((getter.initialized = true),
+        (getter.resolved = result = unwrap(expression)))) as any;
+  return getter;
+};
+
+/** A value that is initialized lazily on-demand. */
+export const deferredAsync = <T>(
+  expression: Wrapped<PromiseLike<T>>
+): DeferredAsync<T> => {
+  let result: T | undefined = undefined;
+  const getter = (async () =>
+    getter.initialized
+      ? (result as any)
+      : ((getter.initialized = true),
+        (getter.resolved = result = await unwrap(expression)))) as any;
+  return getter;
 };
 
 export interface DeferredPromise<T> extends PromiseLike<T> {
@@ -256,7 +296,7 @@ export const tryCatchAsync = async <
 >(
   expression: Wrapped<MaybePromise<T>>,
   errorHandler: E = true as any,
-  always?: () => MaybePromise<void>
+  always?: () => MaybePromise<any>
 ): Promise<T1 | C> => {
   try {
     const result = (await unwrap(expression)) as any;
@@ -274,7 +314,7 @@ export const tryCatchAsync = async <
     } else if (errorHandler) {
       throw e;
     } else {
-      // Boolean  means "swallow".
+      // `false` means "ignore".
       console.error(e);
     }
   } finally {

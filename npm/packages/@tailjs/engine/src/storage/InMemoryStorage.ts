@@ -16,22 +16,11 @@ import {
   dataPurposes,
   extractKey,
   formatKey,
-  isVariablePatch,
   parseKey,
   toNumericVariableEnums,
   variableScope,
 } from "@tailjs/types";
-import {
-  Clock,
-  MaybePromise,
-  Nullish,
-  clock,
-  forEach,
-  now,
-  rank,
-  some,
-  unwrap,
-} from "@tailjs/util";
+import { Nullish, forEach, now, rank, some, unwrap } from "@tailjs/util";
 import { applyPatch, copy, variableId } from "../lib";
 
 import { VariableStorage, VariableStorageContext } from "..";
@@ -48,12 +37,20 @@ export const hasChanged = (
 
 export abstract class InMemoryStorageBase implements VariableStorage {
   private _ttl: Partial<Record<VariableScope, number>> | undefined;
-  private _cleaner: Clock | undefined;
 
   /** For testing purposes to have the router apply the patches. @internal */
   public _testDisablePatch: boolean;
 
-  constructor() {}
+  constructor(
+    scopeDurations?: Partial<Record<VariableScope, number>>,
+    cleanFrequency = 10000
+  ) {
+    this._ttl ??= scopeDurations;
+
+    if (some(this._ttl, ([, ttl]) => ttl! > 0)) {
+      setInterval(() => this.clean(), cleanFrequency);
+    }
+  }
 
   /** If this method return `undefined`, the variable in question will not be updated. */
   protected abstract _getNextVersion(
@@ -235,26 +232,6 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     }
   }
 
-  public configureScopeDurations(
-    durations: Partial<Record<VariableScope, number>>,
-    context?: VariableStorageContext
-  ): MaybePromise<void> {
-    this._ttl ??= {};
-    for (const [scope, duration] of Object.entries(durations).map(
-      ([scope, duration]) => [+scope, duration]
-    )) {
-      duration! > 0 ? (this._ttl![scope] = duration) : delete this._ttl![scope];
-    }
-
-    let hasTtl = some(this._ttl, ([, ttl]) => ttl! > 0);
-    if (this._cleaner || hasTtl) {
-      (this._cleaner ??= clock({
-        callback: () => this.clean(),
-        frequency: 10000,
-      })).toggle(hasTtl);
-    }
-  }
-
   public async get<K extends VariableGetters<true>>(
     getters: VariableGetters<true, K>,
     context?: VariableStorageContext
@@ -381,7 +358,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       }
       let current = scopeVars?.[1].get(key);
 
-      if (isVariablePatch(source)) {
+      if (source.patch != null) {
         if (this._testDisablePatch) {
           results.push({ status: VariableResultStatus.Unsupported, source });
           continue;
@@ -461,9 +438,11 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     filters: VariableFilter<true>[],
     context?: VariableStorageContext
   ) {
+    let any = false;
     for (const variable of this._query(filters)) {
-      this._remove(variable);
+      any = this._remove(variable) || any;
     }
+    return any;
   }
 }
 
@@ -473,8 +452,11 @@ export class InMemoryStorage extends InMemoryStorageBase {
 
   private _nextVersion = 0;
 
-  constructor() {
-    super();
+  constructor(
+    scopeDurations?: Partial<Record<VariableScope, number>>,
+    cleanFrequency = 10000
+  ) {
+    super(scopeDurations, cleanFrequency);
   }
 
   protected _getNextVersion(key: VariableKey) {

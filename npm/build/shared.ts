@@ -86,7 +86,7 @@ export const build = async (options: RollupOptions[]) => {
           if (ev.code === "START") {
             console.log("Build started.");
           } else if (ev.code === "ERROR") {
-            console.log(ev.error);
+            console.log(ev.error.cause);
           } else if (ev.code === "BUNDLE_END") {
             ev.result?.close();
           } else if (ev.code === "END") {

@@ -6,12 +6,16 @@ public interface IRequestHandler : IDisposable
 
   ValueTask InitializeAsync(CancellationToken cancellationToken = default);
 
-  Task PostEventsAsync(ITracker tracker, string eventsJson, CancellationToken cancellationToken = default);
+  Task PostEventsAsync(
+    ITrackerHandle tracker,
+    string eventsJson,
+    CancellationToken cancellationToken = default
+  );
 
-  IReadOnlyList<ClientResponseCookie> GetClientCookies(ITracker tracker);
+  IReadOnlyList<ClientResponseCookie> GetClientCookies(ITrackerHandle? tracker);
 
   ValueTask<string?> GetClientScriptsAsync(
-    ITracker tracker,
+    ITrackerHandle? tracker,
     string? nonce = null,
     CancellationToken cancellationToken = default
   );

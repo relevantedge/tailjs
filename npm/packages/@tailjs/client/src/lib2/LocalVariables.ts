@@ -28,6 +28,7 @@ import {
   UnknownIsAny,
   createEnumAccessor,
   createEnumPropertyParser,
+  isString,
 } from "@tailjs/util";
 
 import type { LocalID, VariableScopeValue, View } from "@tailjs/types";
@@ -358,12 +359,18 @@ export const toNumericVariableEnums = createEnumPropertyParser(
 );
 
 export const variableKeyToString: <
-  S extends ClientVariableKey | { source?: ClientVariableKey }
+  S extends
+    | ClientVariableKey
+    | { source?: ClientVariableKey }
+    | string
+    | Nullish
 >(
   key: S
 ) => MaybeUndefined<S, string> = (key: any): any =>
   key == null
     ? undefined
+    : isString(key)
+    ? key
     : key.source
     ? variableKeyToString(key.source)!
     : `${anyVariableScope(key.scope)}\0${key.key}\0${key.targetId ?? ""}`;

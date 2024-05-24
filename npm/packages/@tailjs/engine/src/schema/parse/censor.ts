@@ -1,8 +1,4 @@
-import {
-  ParsableConsent,
-  VariableClassification,
-  validateConsent,
-} from "@tailjs/types";
+import { ParsableConsent, VariableUsage, validateConsent } from "@tailjs/types";
 import { isArray, isPlainObject } from "@tailjs/util";
 import { ParsedType } from ".";
 import { SchemaClassification, SchemaPropertyStructure } from "../..";
@@ -48,7 +44,7 @@ export const censor = (
   type: ParsedType,
   value: any,
   consent: ParsableConsent,
-  defaultClassification?: VariableClassification,
+  defaultClassification?: VariableUsage,
   write = false
 ) => {
   if (!isPlainObject(value)) return value;

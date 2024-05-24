@@ -14,9 +14,11 @@ import {
   Nullable,
   T,
   Unbinder,
+  array,
   createEventBinders,
   entries,
   filter,
+  forEach,
   isArray,
   joinEventBinders,
   map,
@@ -138,7 +140,7 @@ export const parseAttributeValue: <
   Type extends AttributeValueType | Nullish = "z"
 >(
   value: V,
-  type?: Type
+  type: Type
 ) => MaybeUndefined<
   V,
   Type extends "b"
@@ -146,7 +148,7 @@ export const parseAttributeValue: <
     : V extends ""
     ? undefined
     : ParsedAttributeValue<Type>
-> = (value: any, type) => {
+> = (value: any, type = "z" as any) => {
   if (value == null || value === "null" || (value === "" && type !== "b"))
     return undefined;
 
@@ -350,19 +352,20 @@ export const listen = <K extends keyof AllMaps>(
   name: K | K[],
   listener: (
     ev: AllMaps[K extends any[] ? K[number] : K],
-    unbind?: Unbinder
+    unbind: Unbinder
   ) => any,
   options: AddEventListenerOptions = { capture: true, passive: true }
 ): Binders => {
-  return isArray(name)
-    ? joinEventBinders(
-        ...map(name, (name) => listen(target, name as any, listener, options))
+  name = array(name) as any;
+  return createEventBinders(
+    listener,
+    (listener) =>
+      forEach(name, (name) => target.addEventListener(name, listener, options)),
+    (listener) =>
+      forEach(name, (name) =>
+        target.removeEventListener(name, listener, options)
       )
-    : createEventBinders(
-        listener,
-        (listener) => target.addEventListener(name, listener, options),
-        (listener) => target.addEventListener(name, listener, options)
-      );
+  );
 };
 
 export const parseDomain = (href: string): Domain => {

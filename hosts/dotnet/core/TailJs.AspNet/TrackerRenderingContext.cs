@@ -2,7 +2,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using TailJs.IO;
 
 namespace TailJs.AspNet;
@@ -53,12 +52,7 @@ public class TrackerRenderingContext : ITrackerRenderingContext
         _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
       );
 
-  // JsonSerializer.Serialize(
-  //   _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
-  // );
-
   #region ITrackerRenderingContext Members
-
 
   public TextWriter? CurrentViewWriter => _viewWriterAccessor.CurrentWriter;
 
@@ -124,8 +118,8 @@ public class TrackerRenderingContext : ITrackerRenderingContext
       .Append("</script>");
 
     if (
-      await ResolveTracker() is { } tracker
-      && (await _requestHandler.GetClientScriptsAsync(tracker, nonce)) is { } trackerScript
+      (await _requestHandler.GetClientScriptsAsync(_trackerAccessor.TrackerHandle, nonce)) is
+      { } trackerScript
     )
     {
       writer.Append(trackerScript);
@@ -137,6 +131,11 @@ public class TrackerRenderingContext : ITrackerRenderingContext
   public IDataMarkupHeader? GetDataScopeHeader(ElementBoundaryMapping? mapping) =>
     !mapping.IsEmpty()
       ? new DataMarkupHeader(_writer.GetScopeDataHeader(mapping), _writer.GetScopeDataFooter())
+      : null;
+
+  public async ValueTask<ITracker?> TryResolveTrackerAsync(CancellationToken cancellationToken = default) =>
+    ItemData.EnvironmentType == EnvironmentType.Public
+      ? await _trackerAccessor.ResolveTracker(cancellationToken)
       : null;
 
   #endregion
@@ -164,9 +163,7 @@ public class TrackerRenderingContext : ITrackerRenderingContext
   #endregion
 
 
-
-  public async ValueTask<ITracker?> ResolveTracker(CancellationToken cancellationToken = default) =>
-    ItemData.EnvironmentType == EnvironmentType.Public
-      ? await _trackerAccessor.ResolveTracker(cancellationToken)
-      : null;
+  // JsonSerializer.Serialize(
+  //   _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
+  // );
 }

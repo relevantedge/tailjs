@@ -12,7 +12,7 @@ import {
 import {
   DataPurposeValue,
   Variable,
-  VariableClassification,
+  VariableUsage,
   VariableKey,
   VariableMetadata,
   VariableResultStatus,
@@ -24,8 +24,8 @@ export type VariableInitializerResult<
   T = any,
   Validated = true
 > = (Validated extends true
-  ? VariableClassification<true>
-  : Partial<VariableClassification<boolean>>) &
+  ? VariableUsage<true>
+  : Partial<VariableUsage<boolean>>) &
   VariableMetadata & {
     value: T;
   };
@@ -138,7 +138,9 @@ export type VariableGetSuccessResult<T = any, Patched = boolean> = (
   | (Patched extends true
       ? never
       : {
-          status: VariableResultStatus.NotFound;
+          status:
+            | VariableResultStatus.NotFound
+            | VariableResultStatus.Unchanged;
           value?: undefined;
         } & VariableKey<true>)
 ) & {

@@ -168,7 +168,7 @@ export const createEventQueue = (
           pluralize("new event", [
             count(events, (ev) => !isEventPatch(ev)) || undefined,
           ]),
-          pluralize("event update", [
+          pluralize("event patch", [
             count(events, (ev) => isEventPatch(ev)) || undefined,
           ]),
         ]) +

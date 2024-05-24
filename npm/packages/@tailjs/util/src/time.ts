@@ -139,16 +139,18 @@ export const clock: {
     }
     (instance as any).busy = true;
     if (skipQueue !== true) {
-      await mutex;
+      while (mutex.pending) {
+        await mutex;
+      }
     }
 
-    mutex.reset();
+    !skipQueue && mutex.reset();
 
     if (
       (await tryCatchAsync(
         () => callback!(timer(), -delta + (delta = timer())),
         false,
-        () => mutex.resolve()
+        () => !skipQueue && mutex.resolve()
       )) === false ||
       frequency <= 0 ||
       once

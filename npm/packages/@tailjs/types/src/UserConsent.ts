@@ -3,7 +3,7 @@ import {
   DataClassificationValue,
   DataPurposeFlags,
   DataPurposeValue,
-  VariableClassification,
+  VariableUsage,
   dataClassification,
   dataPurposes,
 } from ".";
@@ -47,7 +47,7 @@ export type ParsableConsent =
 export const validateConsent = (
   source: Partial<ParsableConsent> | undefined,
   consent: ParsableConsent,
-  defaultClassification?: Partial<VariableClassification>,
+  defaultClassification?: Partial<VariableUsage>,
   write = false
 ) => {
   if (!source) return undefined;

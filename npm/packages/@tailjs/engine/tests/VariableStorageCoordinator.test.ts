@@ -98,7 +98,7 @@ describe("VariableStorageCoordinator", () => {
         await coordinator.set([
           {
             ...key,
-            patch: { type: "ifNoneMatch", match: undefined, value: "34" },
+            patch: { patch: "ifNoneMatch", match: undefined, value: "34" },
           },
         ])
       )[0].status

@@ -62,7 +62,7 @@ public class CookieCollection : ICookieCollection
       ? new ClientResponseCookie(
         name,
         value,
-        cookie.GetInt64("maxAge"),
+        cookie.TryGetInt64("maxAge"),
         cookie.Require<bool>("httpOnly"),
         cookie.Require<string>("sameSitePolicy") switch
         {
@@ -76,7 +76,7 @@ public class CookieCollection : ICookieCollection
       )
       : new TrackerCookie(
         value,
-        cookie.GetInt64("maxAge"),
+        cookie.TryGetInt64("maxAge"),
         (bool?)cookie.Get("httpOnly") ?? false,
         ((string?)cookie.Get("sameSitePolicy")) switch
         {

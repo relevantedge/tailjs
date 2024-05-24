@@ -1,5 +1,6 @@
 import {
   AllKeys,
+  EnumValue,
   Extends,
   If,
   IfNot,
@@ -10,21 +11,16 @@ import {
   Nullish,
   PrettifyIntersection,
   array,
+  createEnumAccessor,
   deferredPromise,
   filter,
   isArray,
   map,
   throwError,
+  tryCatchAsync,
   undefined,
 } from "@tailjs/util";
-import {
-  Variable,
-  VariableGetResult,
-  VariableResultStatus,
-  VariableSetResult,
-  VariableSetter,
-  formatKey,
-} from "..";
+import { Variable, VariableGetResult, VariableSetResult, formatKey } from "..";
 
 type SuccessStatus<ChangedOnly = false> =
   | VariableResultStatus.Success
@@ -50,7 +46,10 @@ type VariableSuccessResult<
       value?: infer V;
       status:
         | SuccessStatus<Extends<"changed", Filter>>
-        | IfNot<Extends<"value", Filter>, VariableResultStatus.NotFound>;
+        | IfNot<
+            Extends<"value", Filter>,
+            VariableResultStatus.NotFound | VariableResultStatus.Unchanged
+          >;
     } // Get result
   ? Return extends "result"
     ? R
@@ -96,6 +95,7 @@ export type VariableResultPromise<
           changed: PromiseLike<VariableSuccessResults<T, "changed">>;
           values: PromiseLike<VariableSuccessResults<T, "all", "value">>;
           variables: PromiseLike<VariableSuccessResults<T, "all", "variable">>;
+          /** Run the operation in the background, and handle errors without crashing the app. */
         } & (Push extends true | ((arg: any) => void)
           ? { push(): VariableResultPromise<T, false> }
           : {}) &
@@ -114,12 +114,43 @@ export type VariableResultPromise<
             : {})
       >;
 
+export enum VariableResultStatus {
+  Success = 200,
+  Created = 201,
+  Unchanged = 304,
+  Denied = 403,
+  NotFound = 404,
+  ReadOnly = 405,
+  Conflict = 409,
+  Unsupported = 501,
+  Invalid = 400,
+  Error = 500,
+}
+
+export const resultStatus = createEnumAccessor(
+  VariableResultStatus as typeof VariableResultStatus,
+  false,
+  "variable set status"
+);
+
+export type ResultStatusValue<Numeric extends boolean | undefined = boolean> =
+  EnumValue<
+    typeof VariableResultStatus,
+    VariableResultStatus,
+    false,
+    Numeric
+  > extends infer T
+    ? T
+    : never;
+
 export const toVariableResultPromise = <T extends readonly any[], Push>(
-  results: () => PromiseLike<T>,
+  getResults: () => PromiseLike<T>,
   errorHandlers?: ErrorHandlerParameter<T>,
   push?: Push &
     ((results: Exclude<VariableSuccessResult<T[number]>, undefined>[]) => void)
 ): VariableResultPromise<T, Push> => {
+  const results = getResults();
+
   let mapResults = (results: any): any[] => results;
   let unwrappedResults: any;
   const property = (
@@ -131,7 +162,7 @@ export const toVariableResultPromise = <T extends readonly any[], Push>(
     deferredPromise(
       async () =>
         (unwrappedResults = mapResults(
-          errorHandler(await results(), errorHandlers)
+          errorHandler(await results, errorHandlers)
         )) && map(unwrappedResults)
     );
 
@@ -212,9 +243,9 @@ export const getResultVariable = <R extends ValidatableResult>(
     ? R
     : undefined
 > =>
-  result?.status! < 400
-    ? (result as VariableSetResult)?.current ?? (result as any)
-    : undefined; // This included 404 for getters.
+  isSuccessResult(result)
+    ? (result as VariableSetResult).current ?? (result as any)
+    : undefined;
 
 export const isSuccessResult = (
   result: any

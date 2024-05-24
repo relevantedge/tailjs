@@ -9,18 +9,10 @@ import {
   dataUsageEquals,
   parseDataUsage,
 } from "@tailjs/types";
+import { Clock, F, Nullish, T, clock, restrict } from "@tailjs/util";
 import {
-  Clock,
-  F,
-  Nullish,
-  T,
-  clock,
-  isFunction,
-  restrict,
-} from "@tailjs/util";
-import {
-  TrackerExtensionFactory,
   ConsentCommand,
+  TrackerExtensionFactory,
   isUpdateConsentCommand,
 } from "..";
 import { debug, document } from "../lib2";
@@ -78,39 +70,38 @@ export const consent: TrackerExtensionFactory = {
     return {
       processCommand(command) {
         if (isUpdateConsentCommand(command)) {
-          if (isFunction(command.consent)) {
-            getCurrentConsent(command.consent);
-          } else {
-            const setter = parseDataUsage(command.consent.set);
-            setter &&
-              (async () =>
-                setter.callback?.(...(await updateConsent(setter))))();
-
-            const externalSource = command.consent.externalSource;
-            if (externalSource) {
-              const key = externalSource.key;
-              const poller = (externalSources[key] ??= clock({
-                frequency: externalSource.pollFrequency ?? 1000,
-              }));
-              let previousConsent: DataUsageAttributes | undefined;
-
-              const pollConsent = async () => {
-                if (!document.hasFocus()) return;
-
-                const consent = parseDataUsage(externalSource.poll());
-                if (consent && !dataUsageEquals(previousConsent, consent)) {
-                  const [updated, current] = await updateConsent(consent);
-                  if (updated) {
-                    debug(current, "Consent was updated from " + key);
-                  }
-                  previousConsent = consent;
-                }
-              };
-              poller
-                .restart(externalSource.pollFrequency, pollConsent)
-                .trigger();
-            }
+          const getter = command.consent.get;
+          if (getter) {
+            getCurrentConsent(getter);
           }
+
+          const setter = parseDataUsage(command.consent.set);
+          setter &&
+            (async () => setter.callback?.(...(await updateConsent(setter))))();
+
+          const externalSource = command.consent.externalSource;
+          if (externalSource) {
+            const key = externalSource.key;
+            const poller = (externalSources[key] ??= clock({
+              frequency: externalSource.pollFrequency ?? 1000,
+            }));
+            let previousConsent: DataUsageAttributes | undefined;
+
+            const pollConsent = async () => {
+              if (!document.hasFocus()) return;
+
+              const consent = parseDataUsage(externalSource.poll());
+              if (consent && !dataUsageEquals(previousConsent, consent)) {
+                const [updated, current] = await updateConsent(consent);
+                if (updated) {
+                  debug(current, "Consent was updated from " + key);
+                }
+                previousConsent = consent;
+              }
+            };
+            poller.restart(externalSource.pollFrequency, pollConsent).trigger();
+          }
+
           return T;
         }
         return F;

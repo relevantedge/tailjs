@@ -1,6 +1,6 @@
 import { map, push, restrict } from "@tailjs/util";
 import { Tracker, currentViewEvent, detectDeviceType } from "..";
-import { UserAgentEvent } from "@tailjs/types";
+import { UserAgentEvent, UserAgentLanguage } from "@tailjs/types";
 
 export const postUserAgentEvent = (tracker: Tracker) =>
   push(
@@ -11,7 +11,7 @@ export const postUserAgentEvent = (tracker: Tracker) =>
       userAgent: navigator.userAgent,
       view: currentViewEvent?.clientId,
       languages: map(navigator.languages, (id, i, parts = id.split("-")) =>
-        restrict<UserAgentEvent["languages"]>({
+        restrict<UserAgentLanguage>({
           id,
           language: parts[0],
           region: parts[1],

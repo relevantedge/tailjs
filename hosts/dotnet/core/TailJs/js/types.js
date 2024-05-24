@@ -4,7 +4,8 @@ const throwError = (error, transform = (message)=>new TypeError(message))=>{
 const required = (value, error)=>value != null ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
 /** A value that is initialized lazily on-demand. */ const deferred = (expression)=>{
     let result = undefined;
-    return ()=>result ??= unwrap(expression);
+    const getter = ()=>getter.initialized ? result : (getter.initialized = true, getter.resolved = result = unwrap(expression));
+    return getter;
 };
 /**
  * A promise that is initialized lazily on-demand.
@@ -39,7 +40,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
         } else if (errorHandler) {
             throw e;
         } else {
-            // Boolean  means "swallow".
+            // `false` means "ignore".
             console.error(e);
         }
     } finally{
@@ -470,13 +471,13 @@ var DataPurposeFlags;
    * or for a website to guard itself against various kinds of attacks.
    *
    * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Security"] = 17] = "Security";
+   */ DataPurposeFlags[DataPurposeFlags["Security"] = 16] = "Security";
     /**
    * Data stored for this purpose may be similar to the performance category, however it is specifically
    * only used for things such as health monitoring, system performance and error logging and unrelated to user behavior.
    *
    * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Infrastructure"] = 33] = "Infrastructure";
+   */ DataPurposeFlags[DataPurposeFlags["Infrastructure"] = 32] = "Infrastructure";
     /**
    * All purposes that are permissable for anonymous users.
    */ DataPurposeFlags[DataPurposeFlags["Anonymous"] = 49] = "Anonymous";
@@ -495,7 +496,7 @@ var DataPurposeFlags;
    * Note that this is a special flag that is not included in "Any".
    */ DataPurposeFlags[DataPurposeFlags["Server_Write"] = 4096] = "Server_Write";
 })(DataPurposeFlags || (DataPurposeFlags = {}));
-const purePurposes = 1 | 2 | 4 | 8 | 17 | 33 | 2048;
+const purePurposes = 1 | 2 | 4 | 8 | 16 | 32 | 2048;
 const dataPurposes = createEnumAccessor(DataPurposeFlags, true, "data purpose", purePurposes);
 const singleDataPurpose = createEnumAccessor(DataPurposeFlags, false, "data purpose", 0);
 
@@ -590,6 +591,19 @@ const extractKey = (variable, classificationSource)=>variable ? {
     } : undefined;
 const sortVariables = (variables)=>variables?.filter(FILTER_NULLISH).sort((x, y)=>x.scope === y.scope ? x.key.localeCompare(y.key, "en") : x.scope - y.scope);
 
+var VariablePatchType;
+(function(VariablePatchType) {
+    VariablePatchType[VariablePatchType["Add"] = 0] = "Add";
+    VariablePatchType[VariablePatchType["Min"] = 1] = "Min";
+    VariablePatchType[VariablePatchType["Max"] = 2] = "Max";
+    VariablePatchType[VariablePatchType["IfMatch"] = 3] = "IfMatch";
+    VariablePatchType[VariablePatchType["IfNoneMatch"] = 4] = "IfNoneMatch";
+})(VariablePatchType || (VariablePatchType = {}));
+const patchType = createEnumAccessor(VariablePatchType, false, "variable patch type");
+const isVariablePatchAction = (setter)=>isFunction(setter?.["patch"]);
+
+const isPostResponse = (response)=>!!response?.variables;
+
 var VariableResultStatus;
 (function(VariableResultStatus) {
     VariableResultStatus[VariableResultStatus["Success"] = 200] = "Success";
@@ -604,24 +618,11 @@ var VariableResultStatus;
     VariableResultStatus[VariableResultStatus["Error"] = 500] = "Error";
 })(VariableResultStatus || (VariableResultStatus = {}));
 const resultStatus = createEnumAccessor(VariableResultStatus, false, "variable set status");
-var VariablePatchType;
-(function(VariablePatchType) {
-    VariablePatchType[VariablePatchType["Add"] = 0] = "Add";
-    VariablePatchType[VariablePatchType["Min"] = 1] = "Min";
-    VariablePatchType[VariablePatchType["Max"] = 2] = "Max";
-    VariablePatchType[VariablePatchType["IfMatch"] = 3] = "IfMatch";
-    VariablePatchType[VariablePatchType["IfNoneMatch"] = 4] = "IfNoneMatch";
-})(VariablePatchType || (VariablePatchType = {}));
-const patchType = createEnumAccessor(VariablePatchType, false, "variable patch type");
-const isVariablePatch = (setter)=>!!setter?.["patch"];
-const isVariablePatchAction = (setter)=>isFunction(setter?.["patch"]);
-
-const isPostResponse = (response)=>!!response?.variables;
-
-const toVariableResultPromise = (results, errorHandlers, push)=>{
+const toVariableResultPromise = (getResults, errorHandlers, push)=>{
+    const results = getResults();
     let mapResults = (results)=>results;
     let unwrappedResults;
-    const property = (map, errorHandler = handleResultErrors)=>deferredPromise(async ()=>(unwrappedResults = mapResults(errorHandler(await results(), errorHandlers))) && map(unwrappedResults));
+    const property = (map, errorHandler = handleResultErrors)=>deferredPromise(async ()=>(unwrappedResults = mapResults(errorHandler(await results, errorHandlers))) && map(unwrappedResults));
     const promise = {
         then: property((items)=>items).then,
         all: property((items)=>items, (items)=>items),
@@ -637,14 +638,14 @@ const toVariableResultPromise = (results, errorHandlers, push)=>{
 };
 const getSuccessResults = (results)=>results?.map((result)=>result?.status < 400 ? result : undefined$1);
 const getResultKey = (result)=>result?.source?.key != null ? result.source : result?.key != null ? result : undefined$1;
-const getResultVariable = (result)=>result?.status < 400 ? result?.current ?? result : undefined$1; // This included 404 for getters.
+const getResultVariable = (result)=>isSuccessResult(result) ? result.current ?? result : undefined$1;
 const isSuccessResult = (result)=>result?.status < 400 || result?.status === 404;
 const handleResultErrors = (results, errorHandlers, requireValue)=>{
     const errors = [];
     let errorHandler;
     let errorMessage;
     const successResults = map(array(results), (result, i)=>result && (result.status < 400 || !requireValue && result.status === 404 // Not found can only occur for get requests, and those are all right.
-         ? result : (errorMessage = `${formatKey(result.source ?? result)} could not be ${result.status === 404 ? "found." : `${result.source || result.status !== VariableResultStatus.Error ? "set" : "read"} because ${result.status === VariableResultStatus.Conflict ? `of a conflict. The expected version '${result.source?.version}' did not match the current version '${result.current?.version}'.` : result.status === VariableResultStatus.Denied ? result.error ?? "the operation was denied." : result.status === VariableResultStatus.Invalid ? result.error ?? "the value does not conform to the schema" : result.status === VariableResultStatus.ReadOnly ? "it is read only." : result.status === VariableResultStatus.Error ? `of an unexpected error: ${result.error}` : "of an unknown reason."}`}`, ((errorHandler = errorHandlers?.[i]) == null || errorHandler(result, errorMessage) !== false) && errors.push(errorMessage), undefined$1)));
+         ? result : (errorMessage = `${formatKey(result.source ?? result)} could not be ${result.status === 404 ? "found." : `${result.source || result.status !== 500 ? "set" : "read"} because ${result.status === 409 ? `of a conflict. The expected version '${result.source?.version}' did not match the current version '${result.current?.version}'.` : result.status === 403 ? result.error ?? "the operation was denied." : result.status === 400 ? result.error ?? "the value does not conform to the schema" : result.status === 405 ? "it is read only." : result.status === 500 ? `of an unexpected error: ${result.error}` : "of an unknown reason."}`}`, ((errorHandler = errorHandlers?.[i]) == null || errorHandler(result, errorMessage) !== false) && errors.push(errorMessage), undefined$1)));
     if (errors.length) return throwError(errors.join("\n"));
     return isArray(results) ? successResults : successResults?.[0];
 };
@@ -797,4 +798,4 @@ const getPrivacyAnnotations = (classification)=>{
     return attrs;
 };
 
-export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, SchemaAnnotations, SchemaSystemTypes, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, dataUsageEquals, encodeTag, extractKey, formatKey, getPrivacyAnnotations, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatch, isVariablePatchAction, isViewEvent, parseDataUsage, parseKey, parsePrivacyTokens, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };
+export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, SchemaAnnotations, SchemaSystemTypes, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, dataUsageEquals, encodeTag, extractKey, formatKey, getPrivacyAnnotations, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatchAction, isViewEvent, parseDataUsage, parseKey, parsePrivacyTokens, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };

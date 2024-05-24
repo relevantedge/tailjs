@@ -16,7 +16,7 @@ import {
   Timestamp,
   TrackedEvent,
   Variable,
-  VariableClassification,
+  VariableUsage,
   VariableFilter,
   VariableGetResult,
   VariableGetResults,
@@ -197,7 +197,7 @@ export class Tracker {
   /** Variables that have been added or updated during the request (cf. {@link TrackerStorageContext.push}). */
   private readonly _changedVariables: PickPartial<
     VariableGetSuccessResult,
-    keyof VariableClassification
+    keyof VariableUsage
   >[] = [];
 
   private readonly _clientCipher: Transport;
@@ -402,8 +402,9 @@ export class Tracker {
 
         forEach(
           this.httpClientDecrypt(
-            this.cookies[this._requestHandler._cookieNames.device[purpose]]
-              ?.value
+            this.cookies[
+              this._requestHandler._cookieNames.deviceByPurpose[purpose]
+            ]?.value
           ) as ClientDeviceDataBlob,
           (value) => {
             update((deviceCache!.variables ??= {}), purpose, (current) => {
@@ -563,7 +564,7 @@ export class Tracker {
     let sessionId = this.sessionId;
 
     if (this._consent.level > DataClassification.Anonymous) {
-      if (sessionId && this._sessionReferenceId !== sessionId) {
+      if (sessionId && this._sessionReferenceId !== sessionId && !passive) {
         // We switched from cookie-less to cookies. Purge reference.
         await this.env.storage.set([
           {
@@ -592,7 +593,7 @@ export class Tracker {
         value: this.httpClientEncrypt({ id: this._sessionReferenceId }),
       };
     } else {
-      if (sessionId && this._sessionReferenceId === sessionId) {
+      if (sessionId && this._sessionReferenceId === sessionId && !passive) {
         // We switched from cookies to cookie-less. Remove deviceId and device info.
         await this.env.storage.set(
           truish([
@@ -620,7 +621,7 @@ export class Tracker {
       this._sessionReferenceId =
         await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
 
-      sessionId = requireFound(
+      sessionId = (
         await this.env.storage.get([
           {
             scope: VariableScope.Session,
@@ -637,6 +638,8 @@ export class Tracker {
         ]).result
       ).value;
     }
+
+    if (sessionId == null) return;
 
     this._session =
       // We bypass the TrackerVariableStorage here and use the environment directly.
@@ -806,7 +809,8 @@ export class Tracker {
         const remove =
           this.consent.level === DataClassification.Anonymous ||
           !splits[purpose];
-        const cookieName = this._requestHandler._cookieNames.device[flag];
+        const cookieName =
+          this._requestHandler._cookieNames.deviceByPurpose[flag];
 
         if (remove) {
           this.cookies[cookieName] = {};

@@ -66,7 +66,11 @@ public class TrackerMiddleware
         return;
       }
 
-      context.RequestServices.GetRequiredService<TrackerAccessor>().Resolver = trackerContext.TrackerResolver;
+      var accessor = context.RequestServices.GetRequiredService<ITrackerAccessor>();
+      if (accessor is TrackerAccessor trackerAccessor)
+      {
+        trackerAccessor.TrackerHandle = trackerContext.TrackerHandle;
+      }
 
       void AppendCookies(IEnumerable<ClientResponseCookie> cookies)
       {
@@ -97,7 +101,7 @@ public class TrackerMiddleware
 
       context.RequestAborted.Register(() => requestHandler?.Dispose());
 
-      context.Response.OnStarting(async () =>
+      context.Response.OnStarting(() =>
       {
         var sw = Timer.StartNew();
         if (_requestCount < 25)
@@ -107,12 +111,14 @@ public class TrackerMiddleware
 
         try
         {
-          AppendCookies(requestHandler.GetClientCookies(await trackerContext.TrackerResolver()));
+          AppendCookies(requestHandler.GetClientCookies(accessor.TrackerHandle));
         }
         finally
         {
           sw.Stop();
         }
+
+        return Task.CompletedTask;
         //Interlocked.Add(ref _elapsed, sw.Elapsed.Ticks);
       });
 

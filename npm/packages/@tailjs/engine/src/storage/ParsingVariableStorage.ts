@@ -68,15 +68,6 @@ export class ParsingVariableStorage<
     this.storage = storage;
   }
 
-  configureScopeDurations(
-    durations: Partial<Record<VariableScopeValue<boolean>, number>>,
-    context?: VariableStorageContext
-  ): void {
-    this.storage.configureScopeDurations(
-      obj(durations, ([key, value]) => [variableScope(key), value]),
-      parseContext(context)
-    );
-  }
   renew(
     scope: VariableScopeValue,
     scopeIds: string[],
@@ -91,7 +82,7 @@ export class ParsingVariableStorage<
   purge(
     filters: VariableFilter<boolean>[],
     context?: VariableStorageContext | undefined
-  ): MaybePromise<void> {
+  ): MaybePromise<boolean> {
     return this.storage.purge(map(filters, parseFilter), parseContext(context));
   }
   initialize?(environment: TrackerEnvironment): MaybePromise<void> {
