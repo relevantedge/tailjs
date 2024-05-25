@@ -1,6 +1,5 @@
 import { isPostResponse } from "@tailjs/types";
 import {
-  If,
   NOOP,
   Nullish,
   PrettifyIntersection,
@@ -11,9 +10,9 @@ import {
   forEachAsync,
   isFunction,
   match,
+  stop,
   throwError,
   undefined,
-  stop,
 } from "@tailjs/util";
 import {
   REQUEST_LOCK_KEY,
@@ -38,44 +37,6 @@ const [addResponseHandler, dispatchResponse] = createEvent<[response: any]>();
 export { addRequestHandler, addResponseHandler };
 
 const requestLock = sharedLock(REQUEST_LOCK_KEY);
-
-let pushCookieMatcher: RegExp | undefined;
-let pushCookie: string | Nullish;
-const pollPushCookie = clock(() => {
-  if (pushCookie !== (pushCookie = trackerConfig.pushCookie)) {
-    if (!pushCookie) return;
-    pushCookieMatcher = new RegExp(escapeRegEx(pushCookie) + "=([^;]*)");
-  }
-  const value = httpDecrypt?.(match(document.cookie, pushCookieMatcher)?.[1]);
-  if (isPostResponse(value)) {
-    dispatchResponse(value);
-  }
-}, 1000);
-
-/** The number of "threads" anticipating a push cookie. When this is zero, the poll frequency goes down. */
-let pushExpectations = 0;
-/**
- *  Call this before making a request or otherwise doing something where you anticipate the server to set a push cookie.
- *  (Preparing for a redirect that pushes a cookie via context menu navigation is an example that does not make a request per se.)
- *
- *  Call the function returned as soon as possible, and DEFINITELY call the function at some point if a non-positive timeout is used
- *  lest eager polling will get stuck indefinitely.
- * */
-export const anticipatePushCookie = (timeout = 1000) => {
-  let pushTimeout = 0;
-  let done = () => {
-    done = NOOP; // Prevent further invocations.
-    if (!--pushExpectations) {
-      pollPushCookie.restart(1000);
-      clearTimeout(pushTimeout);
-    }
-  };
-  if (!pushExpectations++) {
-    pollPushCookie.restart(100);
-  }
-  timeout > 0 && setTimeout(done, timeout);
-  return done();
-};
 
 /**
  * If a function, this is run before a request is made (including retries). It is run within the lock, and allows the requested data to be modified.
@@ -126,14 +87,13 @@ export const request: {
 
     return cancel
       ? false
-      : (serialized = (encrypt ? httpEncrypt : (JSON.stringify as any))(
-          currentData
-        ));
+      : (serialized = encrypt
+          ? httpEncrypt(currentData, true)
+          : JSON.stringify(currentData));
   };
 
   if (beacon) {
     if (!prepareRequestData(0)) return;
-    anticipatePushCookie(1000);
 
     !navigator.sendBeacon(
       url,
@@ -169,10 +129,12 @@ export const request: {
               await delay((1 + retry) * 200));
         }
 
-        const responseText = await response.text();
+        const body = encrypt
+          ? new Uint8Array(await response.arrayBuffer())
+          : await response.text();
 
-        const parsed = responseText?.length
-          ? (encrypt ? httpDecrypt : JSON.parse)?.(responseText)
+        const parsed = body?.length
+          ? (encrypt ? httpDecrypt : JSON.parse)?.(body as any)
           : undefined;
 
         if (parsed != null) {

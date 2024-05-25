@@ -16,7 +16,7 @@ import {
   parseUri,
   replace,
   split,
-  stickyTimeout,
+  createTimeout,
   type Nullish,
 } from "@tailjs/util";
 import { jsonEncode } from "@tailjs/util/transport";

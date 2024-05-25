@@ -1,20 +1,25 @@
 import {
   CLIENT_CALLBACK_CHANNEL_ID,
-  CLIENT_STATE_CHANNEL_ID,
   INITIALIZE_TRACKER_FUNCTION,
 } from "@constants";
 import type { TrackerConfiguration } from "@tailjs/client";
-import { Variable } from "@tailjs/types";
-import { httpEncode } from "@tailjs/util/transport";
-import { Tracker } from "..";
+import { createTransport, httpEncode } from "@tailjs/util/transport";
 
-export const generateClientConfigScript = (
-  config: Omit<TrackerConfiguration, "hub" | "dataTags" | "vars">
+export const generateClientBootstrapScript = (
+  config: Omit<TrackerConfiguration, "hub" | "dataTags" | "vars">,
+  encrypt: boolean
 ) => {
+  // Add a layer of "security by obfuscation" - just in case.
+
+  const tempKey = "" + Math.random();
+  const clientConfig = { ...config, dataTags: undefined };
+
   return `((s=document.createElement("script"))=>{s.addEventListener("load",()=>window[${JSON.stringify(
     INITIALIZE_TRACKER_FUNCTION
   )}](init=>init(${JSON.stringify(
-    httpEncode({ ...config, dataTags: undefined })
+    encrypt
+      ? httpEncode([tempKey, createTransport(tempKey)[0](clientConfig, true)])
+      : clientConfig
   )})),true);s.src=${JSON.stringify(
     config.src
   )};document.head.appendChild(s)})();`;

@@ -16,6 +16,6 @@ export const setStorageKey = (key: string | Nullish) => {
   if (httpDecrypt !== NOT_INITIALIZED) return;
 
   [httpEncrypt, httpDecrypt] = createTransport(key);
-  DEBUG && (httpEncrypt = createTransport(null, { json: true })[0]);
+
   dispatchEncryptionNegotiated(httpEncrypt, httpDecrypt);
 };

@@ -247,7 +247,7 @@ public class RequestHandler : IRequestHandler
 
     if (
       await Proxy
-        .InvokeMethod("processRequest", clientRequest)
+        .InvokeMethod("processRequest", clientRequest.Attach(Uint8ArrayConverter))
         .AwaitScript(cancellationToken)
         .ConfigureAwait(false)
         is not IScriptObject proxyResponse

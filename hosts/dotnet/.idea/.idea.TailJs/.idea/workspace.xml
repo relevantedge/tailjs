@@ -12,48 +12,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1756235-4424-458f-b8f3-c8bf8d7b92a2" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/core/TailJs/ITrackerHandle.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Scripting/IScriptTrackerHandle.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Scripting/JsonNodeConverter.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Scripting/ScriptError.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Scripting/ScriptVariableStorage.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/DataClassification.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/DataPurposes.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariable.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableGetResult.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableHeader.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableKey.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableMetadata.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableQueryResults.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableResult.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableSetResult.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableSetter.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableStorage.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableUsage.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/IVariableVersion.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/VariableGetter.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/VariableQueryOptions.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/Variables/VariableScope.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/TailJs/js/variable-storage.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/ConfigurationExtensions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/ConfigurationExtensions.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/ITrackerAccessor.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/ITrackerAccessor.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/ITrackerRenderingContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/ITrackerRenderingContext.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/TrackerAccessor.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/TrackerAccessor.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/TrackerMiddleware.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/TrackerMiddleware.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs.AspNet/TrackerRenderingContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs.AspNet/TrackerRenderingContext.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/IRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/IRequestHandler.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/NullRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/NullRequestHandler.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/CookieCollection.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/CookieCollection.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/ClientRequest.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/ClientRequest.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/IO/BufferPool.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/IO/BufferPool.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/IO/BufferedStack.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/IO/BufferedStack.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/IO/CharBuffer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/IO/CharBuffer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/Pools.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Pools.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/PromiseLike.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/PromiseLike.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/RequestHandlerPool.PooledRequestHandler.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/RequestHandlerPool.PooledRequestHandler.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/ScriptEngineExtensions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/ScriptEngineExtensions.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/ScriptHost.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/ScriptHost.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/Timeouts.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/Timeouts.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/Tracker.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/Tracker.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/TrackerEnvironment.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/TrackerEnvironment.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/TrackerContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/TrackerContext.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/Scripting/Uint8ArrayConverter.cs" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/Scripting/Uint8ArrayConverter.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/engine.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/engine.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/host.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/host.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/schema.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" afterDir="false" />
@@ -61,33 +32,11 @@
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/types.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/types.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../npm/.vscode/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/.vscode/settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/constants/constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/constants/constants.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/commands/ConsentCommand.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/commands/ConsentCommand.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/extensions/consent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/extensions/consent.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib2/LocalVariables.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib2/LocalVariables.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib2/TrackerVariableStorage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib2/TrackerVariableStorage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib2/consts.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib2/consts.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib2/shared-state.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib2/shared-state.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/RequestHandler.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/RequestHandler.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/Tracker.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/Tracker.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/lib/Variable.util.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/lib/Variable.util.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/lib/clientConfigScript.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/schema/parse/censor.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/schema/parse/censor.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/InMemoryStorage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/InMemoryStorage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/ParsingVariableStorage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/ParsingVariableStorage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/VariableSplitStorage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/VariableSplitStorage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/VariableStorage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/VariableStorage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/VariableStorageCoordinator.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/storage/VariableStorageCoordinator.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/tests/InMemoryStorage.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/tests/InMemoryStorage.test.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/tests/VariableStorageCoordinator.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/tests/VariableStorageCoordinator.test.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/DataPurposes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/DataPurposes.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/UserConsent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/UserConsent.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/Variable.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/Variable.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/VariableGetter.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/VariableGetter.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/VariableResult.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/VariableResult.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/VariableSetter.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/VariableSetter.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/lib/clientScripts.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/lib/clientScripts.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/src/time.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/src/time.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/src/types/validation.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/src/types/validation.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -120,6 +69,7 @@
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/7c4b11d0b743413ea1ee149bb34c7672605a0/14/1159ff64/RegexOptions.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/1e3ef8e0f531f5eda8476faaad7e4cc6d1b4259df0279c917a648dc6b4f62b/LogLevel.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/277ef32e36302f49ed8123ac8d33338b87623a4d91655ebd4f98fb948b4fba/DateTime.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/85205d343f2b81cde14cc45fc7fe9bbd4a4f2a96f2691fc52bdb336baacea0/HttpContent.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/eaf74182ad7c943aaf043fd9e7bbb1d564713c6bd276e62966aaa618e9/LoggerExtensions.cs" root0="SKIP_HIGHLIGHTING" />
   </component>
   <component name="MarkdownSettingsMigration">
@@ -223,7 +173,7 @@
       <workItem from="1715691523918" duration="581000" />
       <workItem from="1715849800316" duration="15645000" />
       <workItem from="1716132893450" duration="1419000" />
-      <workItem from="1716545470345" duration="2568000" />
+      <workItem from="1716545470345" duration="15388000" />
     </task>
     <task id="LOCAL-00001" summary="Adjusted project for new repo. Consumed latest event schema.">
       <option name="closed" value="true" />
@@ -258,17 +208,17 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="DotNet Breakpoints">
-          <url>file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs</url>
-          <line>119</line>
-          <properties documentPath="C:\Projects\rlvedge\github\tailjs\hosts\dotnet\core\TailJs\Scripting\RequestHandler.cs" containingFunctionPresentation="Method 'GetClientScriptsAsync'">
+          <url>file://$PROJECT_DIR$/core/TailJs/ClientRequest.cs</url>
+          <line>67</line>
+          <properties documentPath="C:\Projects\rlvedge\github\tailjs\hosts\dotnet\core\TailJs\ClientRequest.cs" containingFunctionPresentation="Lambda expression inside Method 'Payload'">
             <startOffsets>
-              <option value="3948" />
+              <option value="1450" />
             </startOffsets>
             <endOffsets>
-              <option value="4240" />
+              <option value="1680" />
             </endOffsets>
           </properties>
-          <option name="timeStamp" value="5" />
+          <option name="timeStamp" value="7" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

@@ -74,7 +74,7 @@ export interface ClockSettings {
 }
 
 /** Light-weight version of {@link clock}. The trigger and cancel overloads returns true to enable chaining like `timeout(false)&&...` */
-export const stickyTimeout = (
+export const createTimeout = (
   defaultTimeout = 0
 ): {
   (callback: () => void, timeout?: number): void;

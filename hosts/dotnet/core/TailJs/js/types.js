@@ -285,7 +285,7 @@ const unwrap = (value)=>isFunction(value) ? value() : value;
     "and",
     ", "
 ])=>!values ? undefined$1 : (values = map(values)).length === 1 ? values[0] : isArray(separator) ? [
-        values.slice(-1).join(separator[1] ?? ", "),
+        values.slice(0, -1).join(separator[1] ?? ", "),
         " ",
         separator[0],
         " ",

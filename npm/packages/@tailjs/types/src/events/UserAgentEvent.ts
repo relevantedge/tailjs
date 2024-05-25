@@ -84,7 +84,7 @@ export interface UserAgentEvent extends TrackedEvent, SessionScoped {
      */
     height: Float;
 
-    /** Whether the device is held in landscape mode.
+    /** The device was held in landscape mode.
      * @default false
      */
     landscape?: boolean;

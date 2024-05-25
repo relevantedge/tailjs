@@ -51,10 +51,8 @@ public class TrackerMiddleware
           context
             .Request.Headers.Select(header => new KeyValuePair<string, string>(header.Key, header.Value!))
             .Where(kv => !string.IsNullOrEmpty(kv.Value)),
-          async () => await new StreamReader(context.Request.Body).ReadToEndAsync(),
-          //"87.62.100.252"
-          context.Request.Headers["X-Forwarded-For"].ToString()
-            is { Length: > 0 } forwarded
+          async () => await context.Request.Body.ToByteArray(context.RequestAborted),
+          context.Request.Headers["X-Forwarded-For"].ToString() is { Length: > 0 } forwarded
             ? forwarded
             : context.Connection.RemoteIpAddress?.ToString()
         )

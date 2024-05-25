@@ -100,7 +100,7 @@ const requireNumberOrUndefined = (value: any): number | undefined =>
     : throwError("The current value must be undefined or a number.");
 
 export const applyPatch = async (
-  current: VariablePatchSource<any, boolean> | undefined,
+  current: VariablePatchSource<any> | undefined,
   setter: VariablePatch<any, false> | VariablePatch<any, true>
 ): Promise<VariablePatchResult<any, true> | undefined> => {
   if (isVariablePatchAction(setter)) {

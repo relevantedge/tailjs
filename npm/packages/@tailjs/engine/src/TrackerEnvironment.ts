@@ -7,7 +7,7 @@ import {
 import ShortUniqueId from "short-unique-id";
 
 import { MaybeUndefined, Nullish, isObject, isString } from "@tailjs/util";
-import { formatError, params } from "./lib";
+import { params } from "./lib";
 import {
   LogLevel,
   ParsingVariableStorage,
@@ -86,16 +86,16 @@ export class TrackerEnvironment {
     return httpEncode(value);
   }
 
-  public httpDecode<T = any>(encoded: string): T;
-  public httpDecode<T = any>(encoded: string | null | undefined): T | null;
-  public httpDecode(encoded: string): any {
-    return httpDecode(encoded);
+  public httpDecode<T = any>(encoded: string | Uint8Array): T;
+  public httpDecode<T = any>(encoded: null | undefined): undefined;
+  public httpDecode(encoded: any): any {
+    return encoded == null ? undefined : httpDecode(encoded);
   }
 
-  public httpDecrypt<T = any>(encoded: string): T;
-  public httpDecrypt<T = any>(encoded: string | null | undefined): T | null;
-  public httpDecrypt(encoded: string): any {
-    if (encoded == null) return encoded as any;
+  public httpDecrypt<T = any>(encoded: string | Uint8Array): T;
+  public httpDecrypt<T = any>(encoded: null | undefined): undefined;
+  public httpDecrypt(encoded: any): any {
+    if (encoded == null) return undefined;
     return this._crypto.decrypt(encoded);
   }
 

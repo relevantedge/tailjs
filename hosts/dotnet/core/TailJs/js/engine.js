@@ -1720,6 +1720,48 @@ const fromCharCodes = (chars)=>String.fromCharCode(...chars);
     }
     return bytes;
 };
+/**
+ * Decodes the specified UTF8 bytes to a string.
+ *
+ * [Thanks!](https://gist.github.com/Yaffle/5458286)
+ */ const decodeUtf8 = (octets)=>{
+    if (octets == null) return undefined;
+    if (typeof octets === "string") return octets;
+    const chars = [];
+    let i = 0;
+    while(i < octets.length){
+        let octet = octets[i];
+        let bytesNeeded = 0;
+        let codePoint = 0;
+        if (octet <= 0x7f) {
+            bytesNeeded = 0;
+            codePoint = octet & 0xff;
+        } else if (octet <= 0xdf) {
+            bytesNeeded = 1;
+            codePoint = octet & 0x1f;
+        } else if (octet <= 0xef) {
+            bytesNeeded = 2;
+            codePoint = octet & 0x0f;
+        } else if (octet <= 0xf4) {
+            bytesNeeded = 3;
+            codePoint = octet & 0x07;
+        }
+        if (octets.length - i - bytesNeeded > 0) {
+            var k = 0;
+            while(k < bytesNeeded){
+                octet = octets[i + k + 1];
+                codePoint = codePoint << 6 | octet & 0x3f;
+                k += 1;
+            }
+        } else {
+            codePoint = 0xfffd;
+            bytesNeeded = octets.length - i;
+        }
+        chars.push(codePoint);
+        i += bytesNeeded + 1;
+    }
+    return String.fromCodePoint(...chars);
+};
 const throwError = (error, transform = (message)=>new TypeError(message))=>{
     throw isString$1(error = unwrap(error)) ? transform(error) : error;
 };
@@ -1735,6 +1777,7 @@ const tryCatch = (expression, errorHandler = true, always)=>{
 /** Minify friendly version of `false`. */ const undefined$1$1 = void 0;
 /** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 /** Minify friendly version of `null`. */ const nil = null;
+/** The identity function (x)=>x. */ const IDENTITY = (item)=>item;
 /** A function that filters out values != null. */ const FILTER_NULLISH = (item)=>item != nil;
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
 const isBoolean$1 = (value)=>typeof value === "boolean";
@@ -1933,7 +1976,7 @@ const FNVs = {
 };
 const { deserialize: msgDeserialize, serialize: msgSerialize } = msgpack;
 const REF_PROP = "$ref";
-const includeValue = (key, value, includeDefaultValues)=>isSymbol$1(key) ? undefined$1$1 : includeDefaultValues ? value === null || value : value !== undefined$1$1;
+const includeValue = (key, value, includeDefaultValues)=>isSymbol$1(key) ? undefined$1$1 : includeDefaultValues ? value !== undefined$1$1 : value === null || value;
 /**
  * Converts an in-memory object to a format that can be serialized over a wire including cyclic references.
  */ const serialize = (value, msgpack, { defaultValues = true, prettify = false })=>{
@@ -1966,7 +2009,7 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol$1(key) ? undef
         if (isPlainObject(value)) {
             (refs ??= new Map()).set(value, refs.size + 1);
             for(const key in value)patchProperty(value, key);
-        } else if (isIterable(value)) {
+        } else if (isIterable(value) && !(value instanceof Uint8Array)) {
             // Array with undefined values or iterable (which is made into array.). ([,1,2,3] does not reveal its first entry).
             (!isArray$4(value) || Object.keys(value).length < value.length ? [
                 ...value
@@ -2000,7 +2043,7 @@ let _defaultTransports;
  * Creates a pair of {@link Encoder} and {@link Decoder}s as well as a {@link HashFunction<string>}.
  * MessagePack is used for serialization, {@link lfsr} encryption is optionally used if a key is specified, and the input and outputs are Base64URL encoded.
  */ const createTransport = (key, options = {})=>{
-    const factory = (key, { json = false, jsonDecodeFallback = true, ...serializeOptions })=>{
+    const factory = (key, { json = false, ...serializeOptions })=>{
         const fastStringHash = (value, bitsOrNumeric)=>{
             if (isNumber$1(value) && bitsOrNumeric === true) return value;
             value = isString$1(value) ? new Uint8Array(map(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? tryCatch(()=>JSON.stringify(value), ()=>JSON.stringify(serialize(value, false, serializeOptions))) : serialize(value, true, serializeOptions);
@@ -2016,8 +2059,8 @@ let _defaultTransports;
         }
         const [encrypt, decrypt, hash] = lfsr(key);
         return [
-            (data)=>to64u(encrypt(serialize(data, true, serializeOptions))),
-            (encoded)=>encoded != null ? jsonDecodeFallback && (encoded?.[0] === "{" || encoded?.[0] === "[") ? jsonDecode(encoded) : deserialize(decrypt(from64u(encoded))) : null,
+            (data, binary)=>(binary ? IDENTITY : to64u)(encrypt(serialize(data, true, serializeOptions))),
+            (encoded)=>encoded != null ? deserialize(decrypt(encoded instanceof Uint8Array ? encoded : from64u(encoded))) : null,
             (value, numericOrBits)=>fastStringHash(value, numericOrBits)
         ];
     };
@@ -9014,7 +9057,7 @@ var defaultSchema = {
                                 },
                                 "landscape": {
                                     "type": "boolean",
-                                    "description": "Whether the device is held in landscape mode.",
+                                    "description": "The device was held in landscape mode.",
                                     "default": false
                                 }
                             },
@@ -10198,11 +10241,17 @@ class DefaultSessionReferenceMapper {
     }
 }
 
-const generateClientConfigScript = (config)=>{
-    return `((s=document.createElement("script"))=>{s.addEventListener("load",()=>window[${JSON.stringify(INITIALIZE_TRACKER_FUNCTION)}](init=>init(${JSON.stringify(httpEncode({
+const generateClientBootstrapScript = (config, encrypt)=>{
+    // Add a layer of "security by obfuscation" - just in case.
+    const tempKey = "" + Math.random();
+    const clientConfig = {
         ...config,
         dataTags: undefined
-    }))})),true);s.src=${JSON.stringify(config.src)};document.head.appendChild(s)})();`;
+    };
+    return `((s=document.createElement("script"))=>{s.addEventListener("load",()=>window[${JSON.stringify(INITIALIZE_TRACKER_FUNCTION)}](init=>init(${JSON.stringify(encrypt ? httpEncode([
+        tempKey,
+        createTransport(tempKey)[0](clientConfig, true)
+    ]) : clientConfig)})),true);s.src=${JSON.stringify(config.src)};document.head.appendChild(s)})();`;
 };
 const generateClientExternalNavigationScript = (requestId, url)=>{
     // TODO: Update if we decide to change the client to use BroadcastChannel (that would be, if Chrome fixes the bf_cache issues
@@ -10227,9 +10276,7 @@ let SCRIPT_CACHE_HEADERS = {
     "cache-control": "private, max-age=604800"
 }; // A week
 class RequestHandler {
-    _allowUnknownEventTypes;
     _cookies;
-    _debugScript;
     _endpoint;
     _extensionFactories;
     _lock = createLock();
@@ -10240,22 +10287,18 @@ class RequestHandler {
     _script;
     /** @internal */ _cookieNames;
     environment;
-    /** @internal */ _sessionTimeout;
     _clientKeySeed;
     _clientConfig;
     /** @internal */ _sessionReferenceMapper;
-    _initConfig;
+    _config;
     constructor(config){
-        let { trackerName, endpoint, extensions, cookies, allowUnknownEventTypes, debugScript, sessionTimeout, clientKeySeed, client, sessionReferenceMapper } = merge$2({}, DEFAULT, config);
-        this._initConfig = config;
+        let { trackerName, endpoint, extensions, cookies, allowUnknownEventTypes, sessionTimeout, clientKeySeed, client, sessionReferenceMapper } = merge$2({}, DEFAULT, config);
+        this._config = config;
         this._trackerName = trackerName;
         this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
         this._extensionFactories = map$2(extensions);
         this._cookies = new CookieMonster(cookies);
-        this._allowUnknownEventTypes = allowUnknownEventTypes;
-        this._debugScript = debugScript;
         this._sessionReferenceMapper = sessionReferenceMapper ?? new DefaultSessionReferenceMapper();
-        this._sessionTimeout = sessionTimeout;
         this._cookieNames = {
             consent: cookies.namePrefix + ".consent",
             session: cookies.namePrefix + ".session",
@@ -10293,7 +10336,7 @@ class RequestHandler {
         if (this._initialized) return;
         await this._lock(async ()=>{
             if (this._initialized) return;
-            let { host, crypto, environmentTags, encryptionKeys, schemas, storage } = this._initConfig;
+            let { host, crypto, environmentTags, encryptionKeys, schemas, storage } = this._config;
             schemas ??= [];
             if (!schemas.find((schema)=>isPlainObject$1(schema) && schema.$id === "urn:tailjs:core")) {
                 schemas.unshift(defaultSchema);
@@ -10316,14 +10359,18 @@ class RequestHandler {
                 schema: this._schema,
                 mappings: storage
             })), environmentTags);
-            if (typeof this._debugScript === "string") {
-                this._script = await this.environment.readText(this._debugScript, async (_, newText)=>{
-                    const updated = await newText();
-                    if (updated) {
-                        this._script = updated;
-                    }
-                    return true;
-                });
+            if (this._config.debugScript) {
+                if (typeof this._config.debugScript === "string") {
+                    this._script = await this.environment.readText(this._config.debugScript, async (_, newText)=>{
+                        const updated = await newText();
+                        if (updated) {
+                            this._script = updated;
+                        }
+                        return true;
+                    }) ?? undefined;
+                } else {
+                    this._script = scripts.debug;
+                }
             }
             await this.environment.storage.initialize?.(this.environment);
             this._extensions = [
@@ -10354,7 +10401,7 @@ class RequestHandler {
         };
         let events = eventBatch;
         await this.initialize();
-        const validateEvents = (events)=>map$2(events, (ev)=>isValidationError(ev) ? ev : this._allowUnknownEventTypes && !this._schema.getType(ev.type) && ev || this._schema.censor(ev.type, ev, tracker.consent));
+        const validateEvents = (events)=>map$2(events, (ev)=>isValidationError(ev) ? ev : this._config.allowUnknownEventTypes && !this._schema.getType(ev.type) && ev || this._schema.censor(ev.type, ev, tracker.consent));
         let parsed = validateEvents(eventBatch);
         const sourceIndices = new Map();
         parsed.forEach((item, i)=>{
@@ -10412,7 +10459,7 @@ class RequestHandler {
         }
         return {};
     }
-    async processRequest({ method, url, headers: sourceHeaders, payload, clientIp }) {
+    async processRequest({ method, url, headers: sourceHeaders, payload: readPayload, clientIp }) {
         //const requestTimer = timer("Request").start();
         if (!url) return null;
         await this.initialize();
@@ -10461,11 +10508,10 @@ class RequestHandler {
             await tracker._ensureInitialized(trackerInitializationOptions);
             return tracker;
         });
-        const result = async (response, { /* Don't write any cookies, changed or not.
-         * In situations where we redirect and what we are doing might be interpreted as "link decoration",
+        const result = async (response, { /** Don't write any cookies, changed or not.
+         * In situations where we redirect or what we are doing might be interpreted as "link decoration"
          * we don't want the browser to suddenly restrict the age of the user's cookies.
-         * The push cookie may be set, but that has a very short age anyway (and hopefully will be replaced with SSE).
-         */ sendCookies = true } = {})=>{
+         */ sendCookies = true, /** Send the response as JSON */ json = false } = {})=>{
             if (response) {
                 response.headers ??= {};
                 if (resolveTracker.resolved) {
@@ -10478,9 +10524,10 @@ class RequestHandler {
                     }
                 }
                 if (isPlainObject$1(response.body)) {
-                    response.body = response.headers?.["content-type"] === "application/json" ? JSON.stringify(response.body) : trackerSettings().cipher[0](response.body);
+                    response.body = response.headers?.["content-type"] === "application/json" || json ? JSON.stringify(response.body) : trackerSettings().cipher[0](response.body, true);
                 }
                 if (isString$2(response.body) && !response.headers?.["content-type"]) {
+                    // This is probably a lie, but we pretend everything is text to avoid preflight.
                     (response.headers ??= {})["content-type"] = "text/plain";
                 }
             }
@@ -10502,9 +10549,9 @@ class RequestHandler {
                                 // It prevents external scripts to try to get a hold of the storage key via XHR.
                                 const secDest = headers["sec-fetch-dest"];
                                 if (secDest && secDest !== "script") {
+                                    // Crime! Deny in a non-helpful way.
                                     return result({
                                         status: 400,
-                                        body: "This script can only be loaded from a script tag.",
                                         headers: {
                                             ...SCRIPT_CACHE_HEADERS,
                                             vary: "sec-fetch-dest"
@@ -10514,10 +10561,10 @@ class RequestHandler {
                                 const { clientKey } = trackerSettings();
                                 return result({
                                     status: 200,
-                                    body: generateClientConfigScript({
+                                    body: generateClientBootstrapScript({
                                         ...this._clientConfig,
                                         clientKey
-                                    }),
+                                    }, true),
                                     headers: {
                                         "content-type": "application/javascript",
                                         ...SCRIPT_CACHE_HEADERS,
@@ -10586,21 +10633,18 @@ class RequestHandler {
                                 "content-type": "application/javascript",
                                 ...SCRIPT_CACHE_HEADERS
                             };
+                            // Check if we are using a debugging script.
                             let script = this._script;
                             if (!script) {
-                                if (this._debugScript) {
-                                    script = scripts.debug;
+                                const accept = headers["accept-encoding"]?.split(",").map((value)=>value.toLowerCase().trim()) ?? [];
+                                if (accept.includes("br")) {
+                                    script = scripts.main.br;
+                                    scriptHeaders["content-encoding"] = "br";
+                                } else if (accept.includes("gzip")) {
+                                    script = scripts.main.gzip;
+                                    scriptHeaders["content-encoding"] = "gzip";
                                 } else {
-                                    const accept = headers["accept-encoding"]?.split(",").map((value)=>value.toLowerCase().trim()) ?? [];
-                                    if (accept.includes("br")) {
-                                        script = scripts.main.br;
-                                        scriptHeaders["content-encoding"] = "br";
-                                    } else if (accept.includes("gzip")) {
-                                        script = scripts.main.gzip;
-                                        scriptHeaders["content-encoding"] = "gzip";
-                                    } else {
-                                        script = scripts.main.text;
-                                    }
+                                    script = scripts.main.text;
                                 }
                             }
                             return result({
@@ -10613,16 +10657,33 @@ class RequestHandler {
                     case "POST":
                         {
                             if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
-                                const payloadString = payload ? await payload() : null;
-                                if (payloadString == null || payloadString === "") {
+                                const payload = await readPayload?.();
+                                if (payload == null || payload.length === 0) {
                                     return result({
                                         status: 400,
                                         body: "No data."
                                     });
                                 }
                                 try {
-                                    // TODO: Be binary.
-                                    const postRequest = this.environment.httpDecode(payloadString);
+                                    let postRequest;
+                                    let json = false;
+                                    if (headers["content-type"] === "application/json") {
+                                        if (headers["sec-fetch-dest"] && !this._config.allowBrowserJson) {
+                                            // Crime! Deny in a non-helpful way.
+                                            return result({
+                                                status: 400,
+                                                headers: {
+                                                    ...SCRIPT_CACHE_HEADERS,
+                                                    vary: "sec-fetch-dest"
+                                                }
+                                            });
+                                        }
+                                        json = true;
+                                        postRequest = JSON.parse(decodeUtf8(payload));
+                                    } else {
+                                        const { cipher } = trackerSettings();
+                                        postRequest = cipher[1](payload);
+                                    }
                                     if (!postRequest.events && !postRequest.variables) {
                                         return result({
                                             status: 400
@@ -10661,6 +10722,8 @@ class RequestHandler {
                                         body: response
                                     } : {
                                         status: 204
+                                    }, {
+                                        json
                                     });
                                 } catch (error) {
                                     this.environment.log({
@@ -11387,7 +11450,8 @@ const DEFAULT = {
     includeIp: true,
     client: DEFAULT_CLIENT_CONFIG,
     clientKeySeed: "tailjs",
-    cookiePerPurpose: false
+    cookiePerPurpose: false,
+    allowBrowserJson: false
 };
 
 const getCookieChunkName = (key, chunk)=>chunk === 0 ? key : `${key}-${chunk}`;
@@ -12069,10 +12133,10 @@ class TrackerEnvironment {
         return httpEncode(value);
     }
     httpDecode(encoded) {
-        return httpDecode(encoded);
+        return encoded == null ? undefined : httpDecode(encoded);
     }
     httpDecrypt(encoded) {
-        if (encoded == null) return encoded;
+        if (encoded == null) return undefined;
         return this._crypto.decrypt(encoded);
     }
     hash(value, numericOrBits, secure = false) {

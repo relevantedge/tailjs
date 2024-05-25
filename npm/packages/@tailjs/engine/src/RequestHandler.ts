@@ -9,7 +9,6 @@ import {
   PostRequest,
   PostResponse,
   TrackedEvent,
-  VariableScope,
 } from "@tailjs/types";
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
 import { DefaultCryptoProvider } from "./lib";
@@ -75,13 +74,13 @@ import {
   resolveDeferred,
   some,
 } from "@tailjs/util";
-import { createTransport, from64u } from "@tailjs/util/transport";
+import { createTransport, decodeUtf8, from64u } from "@tailjs/util/transport";
 import {
   DefaultSessionReferenceMapper,
   SessionReferenceMapper,
 } from "./ClientIdGenerator";
 import {
-  generateClientConfigScript,
+  generateClientBootstrapScript,
   generateClientExternalNavigationScript,
 } from "./lib/clientScripts";
 
@@ -103,9 +102,7 @@ export let SCRIPT_CACHE_HEADERS = {
 } as const; // A week
 
 export class RequestHandler {
-  private readonly _allowUnknownEventTypes: boolean;
   private readonly _cookies: CookieMonster;
-  private readonly _debugScript: boolean | string;
   private readonly _endpoint: string;
   private readonly _extensionFactories: (() =>
     | TrackerExtension
@@ -116,7 +113,7 @@ export class RequestHandler {
 
   private _extensions: TrackerExtension[];
   private _initialized = false;
-  private _script: null | string;
+  private _script: undefined | string | Uint8Array;
 
   /** @internal */
   public readonly _cookieNames: {
@@ -128,16 +125,13 @@ export class RequestHandler {
   };
   public readonly environment: TrackerEnvironment;
 
-  /** @internal */
-  public _sessionTimeout: number;
-
   private readonly _clientKeySeed: string;
   private readonly _clientConfig: TrackerConfiguration;
 
   /** @internal */
   public readonly _sessionReferenceMapper: SessionReferenceMapper;
 
-  private readonly _initConfig: RequestHandlerConfiguration;
+  private readonly _config: RequestHandlerConfiguration;
 
   constructor(config: RequestHandlerConfiguration) {
     let {
@@ -146,14 +140,13 @@ export class RequestHandler {
       extensions,
       cookies,
       allowUnknownEventTypes,
-      debugScript,
       sessionTimeout,
       clientKeySeed,
       client,
       sessionReferenceMapper,
     } = merge({}, DEFAULT, config);
 
-    this._initConfig = config;
+    this._config = config;
 
     this._trackerName = trackerName;
     this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
@@ -161,12 +154,9 @@ export class RequestHandler {
     this._extensionFactories = map(extensions);
 
     this._cookies = new CookieMonster(cookies);
-    this._allowUnknownEventTypes = allowUnknownEventTypes;
-    this._debugScript = debugScript;
     this._sessionReferenceMapper =
       sessionReferenceMapper ?? new DefaultSessionReferenceMapper();
 
-    this._sessionTimeout = sessionTimeout;
     this._cookieNames = {
       consent: cookies.namePrefix + ".consent",
       session: cookies.namePrefix + ".session",
@@ -225,7 +215,7 @@ export class RequestHandler {
       if (this._initialized) return;
 
       let { host, crypto, environmentTags, encryptionKeys, schemas, storage } =
-        this._initConfig;
+        this._config;
 
       schemas ??= [];
 
@@ -268,17 +258,22 @@ export class RequestHandler {
         environmentTags
       );
 
-      if (typeof this._debugScript === "string") {
-        this._script = await this.environment.readText(
-          this._debugScript,
-          async (_, newText) => {
-            const updated = await newText();
-            if (updated) {
-              this._script = updated;
-            }
-            return true;
-          }
-        );
+      if (this._config.debugScript) {
+        if (typeof this._config.debugScript === "string") {
+          this._script =
+            (await this.environment.readText(
+              this._config.debugScript,
+              async (_, newText) => {
+                const updated = await newText();
+                if (updated) {
+                  this._script = updated;
+                }
+                return true;
+              }
+            )) ?? undefined;
+        } else {
+          this._script = scripts.debug;
+        }
       }
 
       await this.environment.storage.initialize?.(this.environment);
@@ -329,7 +324,7 @@ export class RequestHandler {
       map(events, (ev) =>
         isValidationError(ev)
           ? ev
-          : (this._allowUnknownEventTypes &&
+          : (this._config.allowUnknownEventTypes &&
               !this._schema.getType(ev.type) &&
               ev) ||
             this._schema.censor(ev.type, ev, tracker.consent)
@@ -423,7 +418,7 @@ export class RequestHandler {
     method,
     url,
     headers: sourceHeaders,
-    payload,
+    payload: readPayload,
     clientIp,
   }: ClientRequest): Promise<{
     tracker: DeferredAsync<Tracker>;
@@ -514,12 +509,14 @@ export class RequestHandler {
       > | null,
 
       {
-        /* Don't write any cookies, changed or not.
-         * In situations where we redirect and what we are doing might be interpreted as "link decoration",
+        /** Don't write any cookies, changed or not.
+         * In situations where we redirect or what we are doing might be interpreted as "link decoration"
          * we don't want the browser to suddenly restrict the age of the user's cookies.
-         * The push cookie may be set, but that has a very short age anyway (and hopefully will be replaced with SSE).
          */
         sendCookies = true,
+
+        /** Send the response as JSON */
+        json = false,
       } = {}
     ) => {
       if (response) {
@@ -536,12 +533,13 @@ export class RequestHandler {
 
         if (isPlainObject(response.body)) {
           response.body =
-            response.headers?.["content-type"] === "application/json"
+            response.headers?.["content-type"] === "application/json" || json
               ? JSON.stringify(response.body)
-              : trackerSettings().cipher[0](response.body);
+              : trackerSettings().cipher[0](response.body, true);
         }
 
         if (isString(response.body) && !response.headers?.["content-type"]) {
+          // This is probably a lie, but we pretend everything is text to avoid preflight.
           (response.headers ??= {})["content-type"] = "text/plain";
         }
       }
@@ -567,9 +565,9 @@ export class RequestHandler {
               // It prevents external scripts to try to get a hold of the storage key via XHR.
               const secDest = headers["sec-fetch-dest"];
               if (secDest && secDest !== "script") {
+                // Crime! Deny in a non-helpful way.
                 return result({
                   status: 400,
-                  body: "This script can only be loaded from a script tag.",
                   headers: {
                     ...SCRIPT_CACHE_HEADERS,
                     vary: "sec-fetch-dest",
@@ -579,10 +577,13 @@ export class RequestHandler {
               const { clientKey } = trackerSettings();
               return result({
                 status: 200,
-                body: generateClientConfigScript({
-                  ...this._clientConfig,
-                  clientKey,
-                }),
+                body: generateClientBootstrapScript(
+                  {
+                    ...this._clientConfig,
+                    clientKey,
+                  },
+                  true
+                ),
                 headers: {
                   "content-type": "application/javascript",
                   ...SCRIPT_CACHE_HEADERS,
@@ -666,24 +667,21 @@ export class RequestHandler {
               ...SCRIPT_CACHE_HEADERS,
             };
 
-            let script: string | Uint8Array | null = this._script;
+            // Check if we are using a debugging script.
+            let script = this._script;
             if (!script) {
-              if (this._debugScript) {
-                script = scripts.debug;
+              const accept =
+                headers["accept-encoding"]
+                  ?.split(",")
+                  .map((value) => value.toLowerCase().trim()) ?? [];
+              if (accept.includes("br")) {
+                script = scripts.main.br;
+                scriptHeaders["content-encoding"] = "br";
+              } else if (accept.includes("gzip")) {
+                script = scripts.main.gzip;
+                scriptHeaders["content-encoding"] = "gzip";
               } else {
-                const accept =
-                  headers["accept-encoding"]
-                    ?.split(",")
-                    .map((value) => value.toLowerCase().trim()) ?? [];
-                if (accept.includes("br")) {
-                  script = scripts.main.br;
-                  scriptHeaders["content-encoding"] = "br";
-                } else if (accept.includes("gzip")) {
-                  script = scripts.main.gzip;
-                  scriptHeaders["content-encoding"] = "gzip";
-                } else {
-                  script = scripts.main.text;
-                }
+                script = scripts.main.text;
               }
             }
             return result({
@@ -696,9 +694,9 @@ export class RequestHandler {
 
           case "POST": {
             if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
-              const payloadString = payload ? await payload() : null;
+              const payload = await readPayload?.();
 
-              if (payloadString == null || payloadString === "") {
+              if (payload == null || payload.length === 0) {
                 return result({
                   status: 400,
                   body: "No data.",
@@ -706,9 +704,29 @@ export class RequestHandler {
               }
 
               try {
-                // TODO: Be binary.
-                const postRequest: PostRequest =
-                  this.environment.httpDecode(payloadString);
+                let postRequest: PostRequest;
+                let json = false;
+                if (headers["content-type"] === "application/json") {
+                  if (
+                    headers["sec-fetch-dest"] &&
+                    !this._config.allowBrowserJson
+                  ) {
+                    // Crime! Deny in a non-helpful way.
+                    return result({
+                      status: 400,
+                      headers: {
+                        ...SCRIPT_CACHE_HEADERS,
+                        vary: "sec-fetch-dest",
+                      },
+                    });
+                  }
+                  json = true;
+                  postRequest = JSON.parse(decodeUtf8(payload));
+                } else {
+                  const { cipher } = trackerSettings();
+                  postRequest = cipher[1](payload)!;
+                }
+
                 if (!postRequest.events && !postRequest.variables) {
                   return result({
                     status: 400,
@@ -756,7 +774,8 @@ export class RequestHandler {
                         status: 200,
                         body: response,
                       }
-                    : { status: 204 }
+                    : { status: 204 },
+                  { json }
                 );
               } catch (error) {
                 this.environment.log(

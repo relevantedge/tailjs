@@ -69,12 +69,12 @@ export type ClientScript =
   | {
       /** An external source for the script. */
       src: string;
-      /** Whether the script can be loaded asynchronously. */
+      /** The script can be loaded asynchronously. */
       defer?: boolean;
     }
   | {
       /** A script expression that will get evaluated directly. */
       inline: string;
-      /** Whether there are dependencies between this script expression and others. If not, inline scripts can be merged more efficiently.  */
+      /** There are dependencies between this script expression and others. If not, inline scripts can be merged more efficiently.  */
       allowReorder?: boolean;
     };
