@@ -8,7 +8,7 @@ import {
   nil,
   now,
   replace,
-  stickyTimeout,
+  createTimeout,
   type Nullish,
 } from "@tailjs/util";
 import {
@@ -150,7 +150,7 @@ export const forms: TrackerExtensionFactory = {
           state[3] = FormFillState.Submitted;
         };
 
-        const commitTimeout = stickyTimeout();
+        const commitTimeout = createTimeout();
 
         listen(formElement, "submit", () => {
           capturedContext = getComponentContext(formElement);

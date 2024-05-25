@@ -11,7 +11,7 @@ import {
   nil,
   push,
   restrict,
-  stickyTimeout,
+  createTimeout,
 } from "@tailjs/util";
 import { getScreenPos, getViewport, trackerConfig, trackerFlag } from ".";
 import {
@@ -60,7 +60,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
       let visible = F;
       let impressions = 0;
       let fold: number;
-      const trackImpression = stickyTimeout(trackerConfig.impressionThreshold);
+      const trackImpression = createTimeout(trackerConfig.impressionThreshold);
       const timer = createViewDurationTimer();
       let impressionEvents: ImpressionEvent[] | undefined;
       let unbindPassiveEventSources: NoOpFunction[] | undefined;

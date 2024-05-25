@@ -25,6 +25,7 @@ internal class PromiseLike<T>
       try
       {
         _result = await _task;
+        _invoked = true;
       }
       catch (Exception ex)
       {

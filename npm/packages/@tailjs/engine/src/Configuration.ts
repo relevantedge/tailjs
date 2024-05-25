@@ -38,6 +38,9 @@ export type RequestHandlerConfiguration = {
   client?: TrackerConfiguration;
   sessionReferenceMapper?: SessionReferenceMapper;
 
+  /** Allow browser-based clients to send data as JSON. @default false. */
+  allowBrowserJson?: boolean;
+
   /**
    * Whether device cookies should be split by purpose (performance, functionality etc.) or just be shared in one,
    * if the user has consented to any of these. No device cookies are stored without consent.
@@ -111,4 +114,5 @@ export const DEFAULT: Omit<
   client: DEFAULT_CLIENT_CONFIG as any,
   clientKeySeed: "tailjs",
   cookiePerPurpose: false,
+  allowBrowserJson: false,
 };

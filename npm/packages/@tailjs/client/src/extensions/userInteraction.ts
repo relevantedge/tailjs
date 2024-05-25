@@ -28,7 +28,7 @@ import {
   remove,
   restrict,
   some,
-  stickyTimeout,
+  createTimeout,
   tryCatch,
   tryCatchAsync,
   type Nullish,
@@ -228,7 +228,8 @@ export const userInteraction: TrackerExtensionFactory = {
                 link.href =
                   MNT_URL + "=" + requestId + encodeURIComponent(originalUrl);
 
-                // Poll for the storage key where the request handler will write the request ID if it redirects.
+                // Poll for the storage key where the request handler will write the request ID before it redirects
+                // the user if the link is opened.
                 listen(
                   window,
                   "storage",
@@ -239,6 +240,8 @@ export const userInteraction: TrackerExtensionFactory = {
                       push(tracker, navigationEvent),
                     unbind())
                 );
+
+                createTimeout;
                 // Switch the link back when the context menu closes.
                 listen(
                   document,

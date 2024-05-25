@@ -66,16 +66,18 @@
         }
         if (typeof src === "function") return src.toString();
 
+        if (src instanceof Error) {
+            src = {message: src + "", stack: src.stack};
+        }
+        
         if (src != null && (Array.isArray(src) || Object.getPrototypeOf(src) === Object.prototype)) {
-
             const mapped = Array.isArray(src) ? [] : {};
             for (const [key, value] of Object.entries(src)) {
                 mapped[key] = toLogString(value, depth + 1);
             }
             return depth ? mapped : JSON.stringify(mapped, null, 2);
-        } else if (src instanceof Error) {
-            return {message: src + "", stack: src.stack};
         }
+        
         return depth ? src : "" + src;
     }
     const log = (level) =>

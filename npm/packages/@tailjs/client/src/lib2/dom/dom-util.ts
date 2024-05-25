@@ -244,26 +244,6 @@ export const attributeNames = <
 export const cssProperty = (el: Element, name: string) =>
   getComputedStyle(el).getPropertyValue(name) || nil;
 
-let parameters: {};
-export const define = <
-  T,
-  P extends Record<keyof any, [any, boolean?] | undefined>
->(
-  target: T,
-  props: P
-): T & P =>
-  ((parameters = {}),
-  (map(
-    filter(entries(props), ([_, value]) => value != nil),
-    ([name, [value, writable = F] = []]) =>
-      (parameters[name] = {
-        writable,
-        configurable: writable,
-        value,
-      })
-  ),
-  Object.defineProperties(target, parameters))) as any;
-
 export const tagName = <T extends Element | Nullish>(
   el: T
 ): T extends Nullish ? null : string => (el != nil ? (el.tagName as any) : nil);

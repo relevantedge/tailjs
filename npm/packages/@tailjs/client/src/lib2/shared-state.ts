@@ -17,7 +17,7 @@ import {
   now,
   obj,
   replace,
-  stickyTimeout,
+  createTimeout,
 } from "@tailjs/util";
 import {
   ClientVariable,

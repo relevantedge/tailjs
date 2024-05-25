@@ -3,7 +3,7 @@ import {
   now,
   promise,
   race,
-  stickyTimeout,
+  createTimeout,
   throwError,
   tryCatchAsync,
 } from "@tailjs/util";
@@ -33,12 +33,13 @@ export const sharedLock = (
     (encrypt ? httpDecrypt<LockState> : httpDecode<LockState>)(
       localStorage.getItem(lockId)
     );
+
+  let intervalId = 0;
   const renew = () =>
     localStorage.setItem(
       lockId,
       (encrypt ? httpEncrypt : httpEncode)([TAB_ID, now() + timeout])
     );
-  let renewTimer = stickyTimeout(timeout / 2);
 
   return (async (
     action: any,
@@ -51,12 +52,11 @@ export const sharedLock = (
         renew();
         if (get()?.[0] === TAB_ID) {
           // Keep lock alive while the action executes.
-          renewTimer(renew);
-          return await tryCatchAsync(
-            action,
-            true,
-            () => renewTimer(false) && localStorage.removeItem(lockId)
-          );
+          timeout > 0 && (intervalId = setInterval(() => renew(), timeout / 2));
+          return await tryCatchAsync(action, true, () => {
+            clearInterval(intervalId);
+            localStorage.removeItem(lockId);
+          });
         }
       }
       let waitHandle = promise();

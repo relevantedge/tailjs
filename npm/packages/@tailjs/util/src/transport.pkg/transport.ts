@@ -15,6 +15,7 @@ import {
   map,
   tryCatch,
   undefined,
+  IDENTITY,
 } from "@tailjs/util";
 import { HashFunction, from64u, lfsr, to64u } from ".";
 
@@ -119,19 +120,23 @@ export type EncodableContract<T = Encodable> = Encodable extends T
  * Encodes the specified value to an HTTP querystring/header safe string, that is, does not need to be URI escaped.
  * The function is analogous to `JSON.stringify`, except this one also supports references.
  * @param value The value to encode.
- * @param validate This property has no effect other than letting TypeScript validate whether the value can be deserialized back to its original form without losing properties.
+ * @param binary whether to serialize to a string (URL safe base 64) or Uint8Array. @default false
  *
  * @returns The HTTP encoded representation of the value.
  */
 export type Encoder = {
-  (value: any, validate?: false): string;
-  <T = Encodable>(value: T & EncodableContract<T>, validate: true): string;
+  <Binary extends boolean = false>(
+    value: any,
+    binary?: Binary
+  ): Binary extends true ? Uint8Array : string;
 };
 
 /**
  * Decodes a value encoded with an {@link Encoder}.
  */
-export type Decoder = <T = any>(encoded: string | Nullish) => T | undefined;
+export type Decoder = <T = any>(
+  encoded: string | Uint8Array | Nullish
+) => T | undefined;
 
 const REF_PROP = "$ref";
 
@@ -139,8 +144,8 @@ const includeValue = (key: any, value: any, includeDefaultValues: boolean) =>
   isSymbol(key)
     ? undefined
     : includeDefaultValues
-    ? value === null || value
-    : value !== undefined;
+    ? value !== undefined
+    : value === null || value;
 
 /**
  * Converts an in-memory object to a format that can be serialized over a wire including cyclic references.
@@ -195,7 +200,7 @@ const serialize = <Msgpack extends boolean>(
     if (isPlainObject(value)) {
       (refs ??= new Map()).set(value, refs.size + 1);
       for (const key in value) patchProperty(value, key);
-    } else if (isIterable(value)) {
+    } else if (isIterable(value) && !(value instanceof Uint8Array)) {
       // Array with undefined values or iterable (which is made into array.). ([,1,2,3] does not reveal its first entry).
       (!isArray(value) || Object.keys(value).length < value.length
         ? [...(value as any)]
@@ -275,13 +280,6 @@ export interface TransportOptions {
    * @default false
    */
   json?: boolean;
-  /**
-   * Fallback to unencrypted JSON decoding if a payload starts with `[` or `{`.
-   * Can be used for tolerance if parts of the other end does not support encryption.
-   *
-   * @default true
-   */
-  jsonDecodeFallback?: boolean;
 
   /**
    * Omit falsish values (`""`, `0` and `false`) unless explicitly set to `null`.
@@ -290,7 +288,7 @@ export interface TransportOptions {
    */
   defaultValues?: boolean;
 
-  /** Whether to indent JSON encoded strings. @default true. */
+  /** Indent JSON encoded strings. @default true */
   prettify?: boolean;
 }
 
@@ -305,11 +303,7 @@ export const createTransport = (
 ): Transport => {
   const factory = (
     key: string | Nullish,
-    {
-      json = false,
-      jsonDecodeFallback = true,
-      ...serializeOptions
-    }: TransportOptions
+    { json = false, ...serializeOptions }: TransportOptions
   ): Transport => {
     const fastStringHash = (value: any, bitsOrNumeric: any) => {
       if (isNumber(value) && bitsOrNumeric === true) return value;
@@ -330,7 +324,7 @@ export const createTransport = (
         : tryCatch(() => deserialize(encoded), undefined);
     if (json) {
       return [
-        (data: any) => serialize(data, false, serializeOptions),
+        (data: any) => serialize(data, false, serializeOptions) as any,
         jsonDecode,
         (value: any, numericOrBits?: any) =>
           fastStringHash(value, numericOrBits) as any,
@@ -339,13 +333,17 @@ export const createTransport = (
     const [encrypt, decrypt, hash] = lfsr(key);
 
     return [
-      (data: any) => to64u(encrypt(serialize(data, true, serializeOptions))),
+      (data: any, binary) =>
+        (binary ? IDENTITY : to64u)(
+          encrypt(serialize(data, true, serializeOptions))
+        ) as any,
       (encoded: any) =>
         encoded != null
-          ? // JSON fallback.
-            jsonDecodeFallback && (encoded?.[0] === "{" || encoded?.[0] === "[")
-            ? jsonDecode(encoded)
-            : deserialize(decrypt(from64u(encoded)))
+          ? deserialize(
+              decrypt(
+                encoded instanceof Uint8Array ? encoded : from64u(encoded)
+              )
+            )
           : null,
       (value: any, numericOrBits?: any) =>
         fastStringHash(value, numericOrBits) as any,

@@ -16,10 +16,10 @@ export type BootstrapSettings = {
   /** The relative URL to the Tail.js endpoint. */
   endpoint: string;
 
-  /** A list of schemas. If a string is provided it is intepreted as a path and will get loaded from resources. */
+  /** A list of schemas. If a string is provided it is interpreted as a path and will get loaded from resources. */
   schemas?: (string | JsonObject)[];
 
-  /** Coniguration for cookies. */
+  /** Configuration for cookies. */
   cookies?: RequestHandlerConfiguration["cookies"];
 
   /** {@link TrackerExtension}s that are loaded into the request handler.  */

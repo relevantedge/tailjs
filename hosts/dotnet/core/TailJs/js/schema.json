@@ -1107,7 +1107,7 @@
                 },
                 "landscape": {
                   "type": "boolean",
-                  "description": "Whether the device is held in landscape mode.",
+                  "description": "The device was held in landscape mode.",
                   "default": false
                 }
               },

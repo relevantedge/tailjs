@@ -6,7 +6,6 @@ import {
   T,
   array,
   assign,
-  define,
   filter,
   flatMap,
   isArray,
@@ -16,7 +15,6 @@ import {
   now,
   push,
   remove,
-  required,
   sort,
   throwError,
   tryCatch,
@@ -49,20 +47,29 @@ import {
   createEventQueue,
   createVariableStorage,
   httpDecode,
+  httpDecrypt,
   isTracker,
   nextId,
   setStorageKey,
   trackerConfig,
   window,
 } from "./lib2";
-import { errorLogger, logError } from "./lib2/errors";
 import { addDebugListeners } from "./lib2/debug-listeners";
+import { errorLogger, logError } from "./lib2/errors";
+import { createTransport } from "@tailjs/util/transport";
 
 export let tracker: Tracker;
 export const initializeTracker = (config: TrackerConfiguration | string) => {
   if (tracker) return tracker;
+  let clientKey: string;
+  if (isString(config)) {
+    // Decode the temporary key for decrypting the configuration payload.
+    [clientKey, config] =
+      httpDecode<[key: string, configuration: any]>(config)!;
+    // Decrypt
+    config = createTransport(clientKey)[1](config as any)!;
+  }
 
-  isString(config) && (config = httpDecode<TrackerConfiguration>(config)!);
   assign(trackerConfig, config);
 
   setStorageKey(remove(trackerConfig, "clientKey"));
