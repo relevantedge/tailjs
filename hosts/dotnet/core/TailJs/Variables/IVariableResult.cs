@@ -32,5 +32,6 @@ public record VariablePatchResult(
   JsonNode? Value,
   DataClassification? Classification = null,
   DataPurposes? Purposes = null,
-  string[]? Tags = null
+  string[]? Tags = null,
+  TimeSpan? TimeToLive = null
 ) : IVariableUsageWithDefaults, IVariableMetadata;

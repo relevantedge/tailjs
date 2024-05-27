@@ -2,19 +2,20 @@
 
 public record VariableQueryCursorOptions(string? Previous, bool Include = true);
 
-public record VersionedVariableKey(
-  VariableScope Scope,
-  string Key,
-  string? TargetId = null,
-  string? Version = null
-) : VariableKey(Scope, Key, TargetId);
+public interface IVersionedVariableKey : IVariableKey
+{
+  string? Version { get; }
+}
+
+public record VersionedVariableKey(VariableScope Scope, string Key, string? TargetId, string? Version)
+  : IVersionedVariableKey;
 
 public record VariableQueryOptions(
   bool Count = true,
   long? Top = null,
   VariableQueryCursorOptions? Cursor = null,
   DateTime? IfModifiedSince = null,
-  IReadOnlyList<VersionedVariableKey>? IfNoneMatch = null
+  IReadOnlyList<IVersionedVariableKey>? IfNoneMatch = null
 );
 
 public record VariableClassificationFilter(

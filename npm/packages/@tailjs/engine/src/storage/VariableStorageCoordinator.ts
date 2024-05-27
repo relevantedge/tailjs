@@ -29,6 +29,7 @@ import {
   extractKey,
   formatKey,
   getResultVariable,
+  isSuccessResult,
   isVariablePatchAction,
   parseKey,
   stripPrefix,
@@ -45,6 +46,7 @@ import {
   delay,
   forEach,
   ifDefined,
+  now,
   required,
   tryCatch,
   unwrap,
@@ -619,6 +621,8 @@ export class VariableStorageCoordinator implements VariableStorage {
     const censored: [index: number, result: VariableSetResult][] = [];
     const consent = this._getContextConsent(context);
 
+    let timestamp: number | undefined;
+
     keys = keys.map((getter, index) => {
       if (!getter) return undefined;
 
@@ -649,6 +653,10 @@ export class VariableStorageCoordinator implements VariableStorage {
                   scope: VariableScope.Session,
                   classification: DataClassification.Anonymous,
                   purposes: DataPurposeFlags.Necessary,
+                  created: (timestamp ??= now()),
+                  modified: timestamp,
+                  accessed: timestamp,
+                  version: "",
                   value: {
                     level: dataClassification.lookup(consent.level),
                     purposes: dataPurposes.lookup(consent.purposes),
@@ -686,7 +694,31 @@ export class VariableStorageCoordinator implements VariableStorage {
       return getter;
     });
 
-    const results = await this._storage.get(keys as any, context as any);
+    let expired: Variable[] | undefined;
+
+    const results = (await this._storage.get(keys as any, context as any)).map(
+      (variable) => {
+        if (
+          isSuccessResult(variable, true) &&
+          variable.accessed! + variable.ttl! < (timestamp ??= now())
+        ) {
+          (expired ??= []).push(variable);
+          return {
+            ...extractKey(variable),
+            status: VariableResultStatus.NotFound,
+          };
+        }
+        return variable;
+      }
+    );
+
+    if (expired?.length) {
+      // Delete expired variables on read.
+      await this._storage.set(
+        expired.map((variable) => ({ ...variable, value: undefined })),
+        context
+      );
+    }
 
     for (const [i, result] of censored) {
       (results as VariableGetError[])[i] = {
@@ -699,7 +731,7 @@ export class VariableStorageCoordinator implements VariableStorage {
 
     if (consent) {
       for (const result of results) {
-        if (!result?.value) continue;
+        if (!isSuccessResult(result, true) || !result?.value) continue;
         const mapping = this._getMapping(result);
         if (mapping) {
           if (
@@ -711,7 +743,7 @@ export class VariableStorageCoordinator implements VariableStorage {
               false
             )) == null
           ) {
-            result.status = VariableResultStatus.Denied;
+            result.status = VariableResultStatus.Denied as any;
           }
         }
       }

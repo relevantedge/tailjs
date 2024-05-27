@@ -204,6 +204,18 @@ export interface VariableMetadata {
    * or `newsletter` for everything related to newsletter subscriptions.
    */
   tags?: string[];
+
+  /**
+   * This is a hint to variable storages that the variable should be deleted if it has not been
+   * accessed for this amount of time (time to live).
+   *
+   * Variable storages can decide how accurately they want to enforce this in the background,
+   * yet it will be accurate from a client perspective assuming the storage provides accurate access timestamps.
+   *
+   * Tail.js uses "delete on read" based on the time the variable was last accessed if its
+   * storage has not yet cleaned it.
+   */
+  ttl?: number;
 }
 
 /**
@@ -214,23 +226,29 @@ export interface VariableMetadata {
  */
 export interface VariableVersion {
   /**
-   * Timestamp for when the variable was created.
+   * When the variable was created (Unix timestamp in milliseconds).
    */
-  created?: Timestamp;
+  created: Timestamp;
 
   /**
-   * Timestamp for when the variable was created or modified.
+   * When the variable was last modified. (Unix  ms).
    */
-  modified?: Timestamp;
+  modified: Timestamp;
 
   /**
-   * A unique token that changes every time a variable is changed.
+   * When the variable was last accessed (Unix ms).
+   */
+  accessed: Timestamp;
+
+  /**
+   * A unique token that changes every time a variable is updated.
+   *
    * It follows the semantics of a "weak" ETag in the HTTP protocol.
    * How the value is generated is an internal implementation detail specific to the storage that manages the variable.
    *
-   * The value is only undefined if it is not assumed to exist before a set operation.
+   *
    */
-  version?: string | undefined;
+  version: string;
 }
 
 /**
@@ -270,7 +288,7 @@ export type VariableValidationBasis<NumericEnums extends boolean = boolean> =
 export const formatKey = (key: VariableKey<true> | VariableKey) =>
   `'${key.key}' in ${variableScope.format(key.scope)} scope`;
 
-/** The individual parts of a key specifed as string. */
+/** The individual parts of a key specified as string. */
 export type ParsedKey = {
   /** The prefix of the key, or the empty string if none. */
   prefix: string;

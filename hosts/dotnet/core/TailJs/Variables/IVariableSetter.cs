@@ -12,6 +12,7 @@ public record VariableSetter(
   DataClassification? Classification = null,
   DataPurposes? Purposes = null,
   string[]? Tags = null,
+  TimeSpan? TimeToLive = null,
   bool Force = false
 ) : IVariableSetter, IVariableUsageWithDefaults, IVariableMetadata;
 
@@ -38,7 +39,8 @@ public abstract record VariableValuePatch(
   string? TargetId,
   DataClassification? Classification,
   DataPurposes? Purposes,
-  string[]? Tags
+  string[]? Tags,
+  TimeSpan? TimeToLive
 ) : IVariableSetter, IVariableUsageWithDefaults, IVariableMetadata;
 
 public record VariableAddPatch(
@@ -47,10 +49,21 @@ public record VariableAddPatch(
   string? TargetId,
   double Value,
   double? Seed,
-  DataClassification? Classification,
-  DataPurposes? Purposes,
-  string[]? Tags
-) : VariableValuePatch(VariablePatchType.Add, Scope, Key, TargetId, Classification, Purposes, Tags);
+  DataClassification? Classification = null,
+  DataPurposes? Purposes = null,
+  string[]? Tags = null,
+  TimeSpan? TimeToLive = null
+)
+  : VariableValuePatch(
+    VariablePatchType.Add,
+    Scope,
+    Key,
+    TargetId,
+    Classification,
+    Purposes,
+    Tags,
+    TimeToLive
+  );
 
 public record VariableMinMaxPatch(
   VariableScope Scope,
@@ -58,9 +71,10 @@ public record VariableMinMaxPatch(
   string? TargetId,
   decimal Value,
   bool IfGreater,
-  DataClassification? Classification,
-  DataPurposes? Purposes,
-  string[]? Tags
+  DataClassification? Classification = null,
+  DataPurposes? Purposes = null,
+  string[]? Tags = null,
+  TimeSpan? TimeToLive = null
 )
   : VariableValuePatch(
     IfGreater ? VariablePatchType.Max : VariablePatchType.Min,
@@ -69,7 +83,8 @@ public record VariableMinMaxPatch(
     TargetId,
     Classification,
     Purposes,
-    Tags
+    Tags,
+    TimeToLive
   );
 
 public record VariableConditionalPatch(
@@ -81,7 +96,8 @@ public record VariableConditionalPatch(
   bool IfMatch = true,
   DataClassification? Classification = null,
   DataPurposes? Purposes = null,
-  string[]? Tags = null
+  string[]? Tags = null,
+  TimeSpan? TimeToLive = null
 )
   : VariableValuePatch(
     IfMatch ? VariablePatchType.IfMatch : VariablePatchType.IfNoneMatch,
@@ -90,5 +106,6 @@ public record VariableConditionalPatch(
     TargetId,
     Classification,
     Purposes,
-    Tags
+    Tags,
+    TimeToLive
   );

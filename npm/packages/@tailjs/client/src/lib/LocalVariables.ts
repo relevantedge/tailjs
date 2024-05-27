@@ -227,7 +227,8 @@ export type ClientVariableGetter<
 export type ClientVariableSetter<
   T = any,
   K extends string = string,
-  Local extends boolean = boolean
+  Local extends boolean = boolean,
+  HasResultHandler extends boolean = true
 > = PrettifyIntersection<
   (Local extends true
     ? LocalVariable<GeneralizeConstants<T> | undefined, K, boolean> & {
@@ -237,12 +238,14 @@ export type ClientVariableSetter<
         RestrictVariableTargets<VariableSetter<T, K, false>, true>
       >) & {
     /** A callback that will get invoked when the set operation has completed. */
-    result?: (
-      current: ClientVariable<T, K, Local> | undefined,
-      source: Local extends true
-        ? ClientVariableSetter<any, any, true>
-        : ClientVariableSetter<any, any, false>
-    ) => void;
+    result?: HasResultHandler extends true
+      ? (
+          result: ClientVariableSetResult<
+            T,
+            ClientVariableSetter<T, K, Local, false>
+          >
+        ) => void
+      : undefined;
 
     /**
      * If the get requests fails this callback will be called instead of the entire operation throwing an error.

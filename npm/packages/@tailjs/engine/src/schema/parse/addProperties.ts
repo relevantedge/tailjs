@@ -29,6 +29,9 @@ export const addProperties = (
 
       const ownClassification = parseClassifications(context);
 
+      // if (key === "country") {
+      //   var b = 4;
+      // }
       // TODO: Handle obsolete properties (renames).
       // Should be in the form "oldName": {$ref: "#new-property", deprecated: true}.
       const property: ParsedProperty = {
@@ -43,7 +46,7 @@ export const addProperties = (
         censorIgnore: ownClassification.censorIgnore,
         classification: ownClassification.classification!,
         purposes: ownClassification.purposes!,
-
+        explicit: ownClassification.explicit,
         typeContext,
       };
 

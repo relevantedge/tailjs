@@ -58,75 +58,41 @@ public class TrackerRenderingContext : ITrackerRenderingContext
 
   public IModelContext ItemData { get; }
 
-  public async ValueTask<string> GetClientScriptAsync(IEnumerable<string>? references)
-  {
-    using var script = _writers.Rent();
-    var writer = script.Item;
-    var nonce = _nonceProvider?.GetNonce();
-    writer.Append("<script");
-
-    if (nonce != null)
-    {
-      writer.Append(" nonce=").Append(nonce);
-    }
-
-    writer
-      .Append(">(")
-      .Append(_configuration.TrackerName)
-      .Append("=(window.")
-      .Append(_configuration.TrackerName)
-      .Append("??=[]))")
-      .Append(".push(")
-      .Append(
-        ToScript(
-          new
+  public async ValueTask<string> GetClientScriptAsync(IEnumerable<string>? references) =>
+    await _requestHandler.GetClientScriptsAsync(
+      _trackerAccessor.TrackerHandle,
+      new object[]
+      {
+        new
+        {
+          scan = new
           {
-            scan = new
+            attribute = _configuration.AttributeName,
+            components = references?.Select(reference => JsonNode.Parse(reference))
+              ?? Enumerable.Empty<JsonNode>()
+          },
+        },
+        new
+        {
+          set = new object[]
+          {
+            new
             {
-              attribute = _configuration.AttributeName,
-              components = references?.Select(reference => JsonNode.Parse(reference))
-                ?? Enumerable.Empty<JsonNode>()
+              scope = "view",
+              key = "view",
+              value = ItemData.CurrentContextItem
+            },
+            new
+            {
+              scope = "view",
+              key = "rendered",
+              value = true
             }
           }
-        )
-      )
-      .Append(",")
-      .Append(
-        ToScript(
-          new
-          {
-            set = new[]
-            {
-              new
-              {
-                scope = "view",
-                key = "view",
-                value = ItemData.CurrentContextItem
-              },
-              // TODO: Create variable getter and setter interfaces.
-              // new
-              // {
-              //   scope = "view",
-              //   key = "rendered",
-              //   value = true
-              // }
-            }
-          }
-        )
-      )
-      .Append(");")
-      .Append("</script>");
-
-    if (
-      (await _requestHandler.GetClientScriptsAsync(_trackerAccessor.TrackerHandle, nonce)) is
-      { } trackerScript
-    )
-    {
-      writer.Append(trackerScript);
-    }
-
-    return writer.ToString();
-  }
+        }
+      },
+      _nonceProvider?.GetNonce()
+    ) ?? "";
 
   public IDataMarkupHeader? GetDataScopeHeader(ElementBoundaryMapping? mapping) =>
     !mapping.IsEmpty()

@@ -72,12 +72,20 @@ export type TrackerSettings = Pick<
 > & {
   disabled?: boolean;
   /** Transport used for client-side communication with a key unique('ish) to the client. */
-  cipher?: Transport;
+  transport?: Transport;
+
   clientIp?: string | null;
   headers?: Record<string, string>;
   host: string;
   path: string;
   url: string;
+
+  /**
+   * A pseudo-unique identifier based on information from the client's request.
+   * If this is not provided cookie-less tracking will be disabled.
+   */
+  clientId?: string;
+
   queryString: Record<string, string[]>;
   cookies?: Record<string, Cookie>;
   requestHandler: RequestHandler;
@@ -158,8 +166,9 @@ type ClientDeviceDataBlob = ClientDeviceVariable[];
 type ClientDeviceVariable = [
   key: string,
   classification: DataClassification,
-  version: string | undefined,
-  value: any
+  version: string,
+  value: any,
+  purposes: DataPurposeFlags
 ];
 
 export class Tracker {
@@ -176,6 +185,7 @@ export class Tracker {
   private _extensionState = ExtensionState.Pending;
   private _initialized: boolean;
   private _requestId: string | undefined;
+  private _clientId: string | undefined;
 
   /** @internal  */
   public readonly _clientEvents: TrackedEvent[] = [];
@@ -216,7 +226,8 @@ export class Tracker {
     queryString,
     cookies,
     requestHandler,
-    cipher,
+    transport: cipher,
+    clientId,
   }: TrackerSettings) {
     this.disabled = disabled;
     this._requestHandler = requestHandler;
@@ -238,6 +249,7 @@ export class Tracker {
 
     // Defaults to unencrypted transport if nothing is specified.
     this._clientCipher = cipher ?? defaultTransport;
+    this._clientId = clientId;
   }
 
   public get clientEvents() {
@@ -369,10 +381,6 @@ export class Tracker {
     return response;
   }
 
-  public getClientScripts() {
-    return this._requestHandler.getClientScripts(this);
-  }
-
   public async post(
     events: TrackedEventBatch,
     options: TrackerPostOptions = {}
@@ -397,6 +405,7 @@ export class Tracker {
     if (!this._clientDeviceCache) {
       const deviceCache = (this._clientDeviceCache = {} as DeviceVariableCache);
 
+      let timestamp: number | undefined;
       dataPurposes.pure.map(([purpose, flag]) => {
         // Device variables are stored with a cookie for each purpose.
 
@@ -414,7 +423,10 @@ export class Tracker {
                 classification: value[1],
                 version: value[2],
                 value: value[3],
-                purposes: 0,
+                purposes: value[4],
+                created: (timestamp ??= now()),
+                modified: (timestamp ??= now()),
+                accessed: (timestamp ??= now()),
               };
               current.purposes |= flag;
               return current;
@@ -451,9 +463,9 @@ export class Tracker {
     deviceId,
     deviceSessionId,
     passive,
-  }: TrackerInitializationOptions = {}) {
+  }: TrackerInitializationOptions = {}): Promise<this> {
     if (this._initialized === (this._initialized = true)) {
-      return false;
+      return this;
     }
     this._requestId = await this.env.nextId("request");
 
@@ -477,6 +489,8 @@ export class Tracker {
       deviceSessionId,
       passive,
     });
+
+    return this;
   }
 
   public async reset(
@@ -572,6 +586,7 @@ export class Tracker {
             key: SESSION_REFERENCE_KEY,
             targetId: this._sessionReferenceId,
             value: undefined,
+            force: true,
           },
         ]);
       }
@@ -592,7 +607,7 @@ export class Tracker {
         essential: true,
         value: this.httpClientEncrypt({ id: this._sessionReferenceId }),
       };
-    } else {
+    } else if (this._clientId) {
       if (sessionId && this._sessionReferenceId === sessionId && !passive) {
         // We switched from cookies to cookie-less. Remove deviceId and device info.
         await this.env.storage.set(
@@ -618,8 +633,7 @@ export class Tracker {
         );
         this._device = undefined;
       }
-      this._sessionReferenceId =
-        await this._requestHandler._sessionReferenceMapper.mapSessionId(this);
+      this._sessionReferenceId = this._clientId;
 
       sessionId = (
         await this.env.storage.get([
@@ -637,9 +651,15 @@ export class Tracker {
           },
         ]).result
       ).value;
+    } else {
+      // We do not have any information available for assigning a session ID.
+      this._session = this._device = undefined;
+      return;
     }
 
-    if (sessionId == null) return;
+    if (sessionId == null) {
+      return;
+    }
 
     this._session =
       // We bypass the TrackerVariableStorage here and use the environment directly.
@@ -795,6 +815,7 @@ export class Tracker {
               variable.classification,
               variable.version,
               variable.value,
+              variable.purposes,
             ])
           );
         });
@@ -931,10 +952,9 @@ export class Tracker {
           return (
             result.status !== VariableResultStatus.Unchanged &&
             this._changedVariables.push({
-              ...extractKey(result.source, result.current),
-              value: result.current?.value,
+              ...(result.current ?? extractKey(result.source)),
               status: result.status,
-            })
+            } as any)
           );
         })
     ) as any;

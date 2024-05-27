@@ -66,5 +66,7 @@ export const parseClassifications = (
     classification: classification.classification ?? context.classification,
     purposes: classification.purposes ?? context.purposes,
     censorIgnore: classification.censorIgnore ?? context.censorIgnore,
+    explicit:
+      (classification.classification ?? classification.purposes) != null,
   };
 };

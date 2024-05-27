@@ -9,6 +9,7 @@ import {
   PostRequest,
   PostResponse,
   TrackedEvent,
+  VariableScope,
 } from "@tailjs/types";
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
 import { DefaultCryptoProvider } from "./lib";
@@ -52,7 +53,6 @@ import {
   createLock,
   deferred,
   DeferredAsync,
-  deferredAsync,
   forEach,
   forEachAsync,
   isPlainObject,
@@ -61,8 +61,8 @@ import {
   JsonObject,
   map,
   match,
-  MaybeDeferredAsync,
   merge,
+  MINUTE,
   obj,
   parseQueryString,
   parseUri,
@@ -71,13 +71,17 @@ import {
   RecordType,
   ReplaceProperties,
   required,
-  resolveDeferred,
   some,
 } from "@tailjs/util";
-import { createTransport, decodeUtf8, from64u } from "@tailjs/util/transport";
 import {
-  DefaultSessionReferenceMapper,
-  SessionReferenceMapper,
+  createTransport,
+  decodeUtf8,
+  from64u,
+  httpEncode,
+} from "@tailjs/util/transport";
+import {
+  ClientIdGenerator,
+  DefaultClientIdGenerator,
 } from "./ClientIdGenerator";
 import {
   generateClientBootstrapScript,
@@ -125,11 +129,10 @@ export class RequestHandler {
   };
   public readonly environment: TrackerEnvironment;
 
-  private readonly _clientKeySeed: string;
   private readonly _clientConfig: TrackerConfiguration;
 
   /** @internal */
-  public readonly _sessionReferenceMapper: SessionReferenceMapper;
+  public readonly _clientIdGenerator: ClientIdGenerator;
 
   private readonly _config: RequestHandlerConfiguration;
 
@@ -139,12 +142,9 @@ export class RequestHandler {
       endpoint,
       extensions,
       cookies,
-      allowUnknownEventTypes,
-      sessionTimeout,
-      clientKeySeed,
       client,
-      sessionReferenceMapper,
-    } = merge({}, DEFAULT, config);
+      clientIdGenerator,
+    } = (config = merge({}, DEFAULT, config));
 
     this._config = config;
 
@@ -154,8 +154,8 @@ export class RequestHandler {
     this._extensionFactories = map(extensions);
 
     this._cookies = new CookieMonster(cookies);
-    this._sessionReferenceMapper =
-      sessionReferenceMapper ?? new DefaultSessionReferenceMapper();
+    this._clientIdGenerator =
+      clientIdGenerator ?? new DefaultClientIdGenerator();
 
     this._cookieNames = {
       consent: cookies.namePrefix + ".consent",
@@ -175,7 +175,6 @@ export class RequestHandler {
       ),
     };
 
-    this._clientKeySeed = clientKeySeed;
     this._clientConfig = client;
     this._clientConfig.src = this._endpoint;
   }
@@ -204,8 +203,11 @@ export class RequestHandler {
     return this._cookies.mapResponseCookies(tracker.cookies as any);
   }
 
-  public getClientScripts(tracker: Tracker, nonce?: string) {
-    return this._getClientScripts(tracker, true, nonce);
+  public getClientScripts(
+    tracker: DeferredAsync<Tracker>,
+    { initialCommands, nonce }: { initialCommands?: any; nonce?: string } = {}
+  ) {
+    return this._getClientScripts(tracker, true, initialCommands, nonce);
   }
 
   public async initialize() {
@@ -240,7 +242,13 @@ export class RequestHandler {
 
       if (!storage) {
         storage = {
-          default: { storage: new InMemoryStorage(), schema: "*" },
+          default: {
+            storage: new InMemoryStorage({
+              [VariableScope.Session]:
+                (this._config.sessionTimeout ?? 30) * MINUTE,
+            }),
+            schema: "*",
+          },
         };
       }
 
@@ -414,19 +422,19 @@ export class RequestHandler {
     return {};
   }
 
-  public async processRequest({
-    method,
-    url,
-    headers: sourceHeaders,
-    payload: readPayload,
-    clientIp,
-  }: ClientRequest): Promise<{
+  public async processRequest(request: ClientRequest): Promise<{
     tracker: DeferredAsync<Tracker>;
     response: CallbackResponse | null;
   } | null> {
-    //const requestTimer = timer("Request").start();
+    if (!request.url) return null;
 
-    if (!url) return null;
+    let {
+      method,
+      url,
+      headers: sourceHeaders,
+      payload: getRequestPayload,
+      clientIp,
+    } = request;
 
     await this.initialize();
 
@@ -449,19 +457,20 @@ export class RequestHandler {
 
     let trackerInitializationOptions: TrackerInitializationOptions | undefined;
 
-    let trackerSettings = deferred(() => {
+    let trackerSettings = deferred(async () => {
       clientIp ??=
         headers["x-forwarded-for"]?.[0] ??
         obj(parseQueryString(headers["forwarded"]))?.["for"] ??
         undefined;
 
-      let clientKey: string | undefined;
-      if (this._clientKeySeed) {
-        clientKey = `${clientIp}_${headers?.["user-agent"] ?? ""}`;
-        clientKey = `${clientKey.substring(0, clientKey.length / 2)}${
-          this._clientKeySeed
-        }${clientKey.substring(clientKey.length / 2 + 1)}`;
-        clientKey = this.environment.hash(clientKey, 64);
+      let clientEncryptionKey: string | undefined;
+      if (this._config.clientEncryptionKeySeed) {
+        clientEncryptionKey = await this._clientIdGenerator.generateClientId(
+          this.environment,
+          request,
+          true,
+          this._config.clientEncryptionKeySeed
+        );
       }
 
       return {
@@ -480,11 +489,19 @@ export class RequestHandler {
           ])
         ),
         clientIp,
+        clientId: await this._clientIdGenerator.generateClientId(
+          this.environment,
+          request,
+          false,
+          this._config.clientEncryptionKeySeed ?? ""
+        ),
         requestHandler: this,
         cookies: this._cookies.parseCookieHeader(headers["cookie"]),
-        clientKey,
-        cipher: createTransport(clientKey),
-      } as PickRequired<TrackerSettings, "cipher"> & { clientKey?: string };
+        clientEncryptionKey,
+        transport: createTransport(clientEncryptionKey),
+      } as PickRequired<TrackerSettings, "transport"> & {
+        clientEncryptionKey?: string;
+      };
     });
 
     /**
@@ -493,12 +510,14 @@ export class RequestHandler {
      * The reason it is async is if a consuming API wants to use the tracker in its own code.
      * The overhead of initializing the tracker should not be included if it doesn't, and no request was handled from the URL.
      */
-    const resolveTracker = deferredAsync(async () => {
-      const tracker = new Tracker(trackerSettings());
-      await tracker._ensureInitialized(trackerInitializationOptions);
+    const resolveTracker = deferred(async () =>
+      new Tracker(await trackerSettings())._ensureInitialized(
+        trackerInitializationOptions
+      )
+    );
 
-      return tracker;
-    });
+    // This property can be read from external hosts to get the request handler both from an actual tracker and this handle.
+    (resolveTracker as any)._requestHandler = this;
 
     const result = async (
       response: Partial<
@@ -523,6 +542,7 @@ export class RequestHandler {
         response.headers ??= {};
         if (resolveTracker.resolved) {
           const resolvedTracker = await resolveTracker();
+
           if (sendCookies) {
             await resolvedTracker._persist(true);
             response.cookies = this.getClientCookies(resolvedTracker);
@@ -535,7 +555,7 @@ export class RequestHandler {
           response.body =
             response.headers?.["content-type"] === "application/json" || json
               ? JSON.stringify(response.body)
-              : trackerSettings().cipher[0](response.body, true);
+              : (await trackerSettings()).transport[0](response.body, true);
         }
 
         if (isString(response.body) && !response.headers?.["content-type"]) {
@@ -574,13 +594,13 @@ export class RequestHandler {
                   },
                 });
               }
-              const { clientKey } = trackerSettings();
+              const { clientEncryptionKey } = await trackerSettings();
               return result({
                 status: 200,
                 body: generateClientBootstrapScript(
                   {
                     ...this._clientConfig,
-                    clientKey,
+                    encryptionKey: clientEncryptionKey,
                   },
                   true
                 ),
@@ -694,7 +714,7 @@ export class RequestHandler {
 
           case "POST": {
             if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
-              const payload = await readPayload?.();
+              const payload = await getRequestPayload?.();
 
               if (payload == null || payload.length === 0) {
                 return result({
@@ -723,7 +743,7 @@ export class RequestHandler {
                   json = true;
                   postRequest = JSON.parse(decodeUtf8(payload));
                 } else {
-                  const { cipher } = trackerSettings();
+                  const { transport: cipher } = await trackerSettings();
                   postRequest = cipher[1](payload)!;
                 }
 
@@ -815,8 +835,9 @@ export class RequestHandler {
   }
 
   private async _getClientScripts(
-    tracker: MaybeDeferredAsync<Tracker>,
+    tracker: DeferredAsync<Tracker>,
     html: boolean,
+    initialCommands?: any,
     nonce?: string
   ): Promise<string | undefined> {
     if (!this._initialized) {
@@ -837,8 +858,7 @@ export class RequestHandler {
     await forEachAsync(
       this._extensions.map(
         async (extension) =>
-          extension.getClientScripts &&
-          extension.getClientScripts(await resolveDeferred(tracker))
+          extension.getClientScripts && extension.getClientScripts(tracker)
       ),
       async (scripts) =>
         forEach(array(await scripts), (script) => {
@@ -855,16 +875,29 @@ export class RequestHandler {
     );
 
     if (html) {
+      const keyPrefix = this._clientConfig.key
+        ? JSON.stringify(this._clientConfig.key) + ","
+        : "";
+
       if (tracker.resolved) {
         const pendingEvents = tracker.resolved.clientEvents;
         pendingEvents.length &&
           inlineScripts.push(
-            `${trackerRef}.push(${pendingEvents
+            `${trackerRef}.push(${keyPrefix}${pendingEvents
               .map((event) =>
                 typeof event === "string" ? event : JSON.stringify(event)
               )
               .join(", ")});`
           );
+      }
+      if (initialCommands) {
+        inlineScripts.push(
+          `${trackerRef}.push(${keyPrefix}${
+            isString(initialCommands)
+              ? JSON.stringify(initialCommands)
+              : httpEncode(initialCommands)
+          });`
+        );
       }
 
       otherScripts.push({

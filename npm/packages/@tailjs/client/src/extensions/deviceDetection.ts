@@ -1,5 +1,5 @@
 import type { UserAgentEvent } from "@tailjs/types";
-import { window } from "../lib2";
+import { window } from "../lib";
 
 export const detectDeviceType = (): Pick<
   UserAgentEvent,

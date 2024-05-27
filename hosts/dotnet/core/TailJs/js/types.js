@@ -1,10 +1,24 @@
-const throwError = (error, transform = (message)=>new TypeError(message))=>{
+const throwError = (error, transform = (message)=>new Error(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
 const required = (value, error)=>value != null ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
 /** A value that is initialized lazily on-demand. */ const deferred = (expression)=>{
-    let result = undefined;
-    const getter = ()=>getter.initialized ? result : (getter.initialized = true, getter.resolved = result = unwrap(expression));
+    let result;
+    const getter = ()=>{
+        if (getter.initialized || result) {
+            // Result may either be the resolved value or a pending promise for the resolved value.
+            return result;
+        }
+        result = unwrap(expression);
+        if (result.then) {
+            return result = result.then((resolvedValue)=>{
+                getter.initialized = true;
+                return getter.resolved = result = resolvedValue;
+            });
+        }
+        getter.initialized = true;
+        return getter.resolved = result;
+    };
     return getter;
 };
 /**
@@ -639,7 +653,7 @@ const toVariableResultPromise = (getResults, errorHandlers, push)=>{
 const getSuccessResults = (results)=>results?.map((result)=>result?.status < 400 ? result : undefined$1);
 const getResultKey = (result)=>result?.source?.key != null ? result.source : result?.key != null ? result : undefined$1;
 const getResultVariable = (result)=>isSuccessResult(result) ? result.current ?? result : undefined$1;
-const isSuccessResult = (result)=>result?.status < 400 || result?.status === 404;
+const isSuccessResult = (result, requireValue = false)=>requireValue ? result?.status < 300 : result?.status < 400 || result?.status === 404;
 const handleResultErrors = (results, errorHandlers, requireValue)=>{
     const errors = [];
     let errorHandler;
@@ -772,10 +786,11 @@ const parsePrivacyTokens = (tokens, classification = {})=>{
             classification.censorIgnore ??= keyword === "censor-ignore";
             return;
         }
+        let matched = false;
         let parsed = dataPurposes.tryParse(keyword) ?? dataPurposes.tryParse(keyword.replace(/\-purpose$/g, ""));
         if (parsed != null) {
             classification.purposes = (classification.purposes ?? 0) | parsed;
-            return;
+            matched = true;
         }
         parsed = dataClassification.tryParse(keyword) ?? dataClassification.tryParse(keyword.replace(/^personal-/g, ""));
         if (parsed != null) {
@@ -783,9 +798,9 @@ const parsePrivacyTokens = (tokens, classification = {})=>{
                 throwError(`The data classification '${dataClassification.format(classification.classification)}' has already been specified and conflicts with the classification'${dataClassification.format(parsed)} inferred from the description.`);
             }
             classification.classification ??= parsed;
-            return;
+            matched = true;
         }
-        throwError(`Unknown privacy keyword '${keyword}'.`);
+        !matched && throwError(`Unknown privacy keyword '${keyword}'.`);
     });
     return classification;
 };

@@ -10,8 +10,8 @@ public interface IVariableQueryResults<out T>
   string? Cursor { get; }
 }
 
-public record VariableHeadResults(long? Count, IReadOnlyList<VariableHeader> Results, string? Cursor)
-  : IVariableQueryResults<VariableHeader>;
+public record VariableHeadResults(long? Count, IReadOnlyList<IVariableHeader> Results, string? Cursor)
+  : IVariableQueryResults<IVariableHeader>;
 
 public record VariableQueryResults(long? Count, IReadOnlyList<Variable> Results, string? Cursor)
   : IVariableQueryResults<Variable>;

@@ -5,7 +5,7 @@ import {
   TrackerEnvironment,
   TrackerExtension,
 } from "@tailjs/engine";
-import { Lock, createLock } from "@tailjs/util";
+import { Lock, createLock, truish } from "@tailjs/util";
 
 export interface RavenDbSettings {
   url: string;
@@ -72,27 +72,29 @@ export class RavenDbTracker implements TrackerExtension {
     try {
       const commands: any[] = [];
 
-      const [sessionId, deviceId] = await tracker.get([
-        {
-          scope: "session",
-          key: "rdb:s",
-          init: async () => ({
-            classification: "anonymous",
-            purposes: "necessary",
-            value: (await this._getNextId()).toString(36),
-          }),
-        },
-        {
-          scope: "device",
-          key: "rdb:d",
-          init: async () =>
-            tracker.device && {
+      const [sessionId, deviceId] = await tracker.get(
+        truish([
+          {
+            scope: "session",
+            key: "rdb.s",
+            init: async () => ({
               classification: "anonymous",
               purposes: "necessary",
               value: (await this._getNextId()).toString(36),
-            },
-        },
-      ]).values;
+            }),
+          },
+          tracker.deviceId && {
+            scope: "device",
+            key: "rdb.d",
+            init: async () =>
+              tracker.device && {
+                classification: "anonymous",
+                purposes: "necessary",
+                value: (await this._getNextId()).toString(36),
+              },
+          },
+        ])
+      ).values;
 
       for (let ev of events) {
         ev["rdb:timestamp"] = Date.now();
@@ -103,8 +105,8 @@ export class RavenDbTracker implements TrackerExtension {
         }
 
         if (ev.session) {
-          (ev.session as any)["rdb:deviceId"] = deviceId;
-          (ev.session as any)["rdb:sessionId"] = sessionId;
+          (ev.session as any)["rdb.deviceId"] = deviceId;
+          (ev.session as any)["rdb.sessionId"] = sessionId;
         }
 
         commands.push({

@@ -1,6 +1,6 @@
 import { INITIALIZE_TRACKER_FUNCTION } from "@constants";
 import { initializeTracker } from "./initializeTracker";
-import { window } from "./lib2";
+import { window } from "./lib";
 
 // This assumes the script is loaded from the RequestHandler's ?init route.
 

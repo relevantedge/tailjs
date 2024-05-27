@@ -31,17 +31,18 @@ export class ClientLocation implements TrackerExtension {
     next: NextPatchExtension,
     tracker: Tracker
   ) {
-    if (!this._initialized || !tracker.session)
-      throw new Error("Not initialized");
+    if (!tracker.session) return next(events);
+
+    if (!this._initialized) throw new Error("Not initialized");
     //if (!tracker.consent?.active) return events;
 
     const env = tracker.env;
     let country = "NA";
 
-    const ip = tracker.clientIp;
+    const ip = "87.62.100.252";
 
     if (ip) {
-      const clientHash = env.hash(tracker.clientIp);
+      const clientHash = env.hash(ip + JSON.stringify(tracker.consent));
       if (
         (await tracker.get([{ scope: "session", key: "mx" }]).value) !==
         clientHash
@@ -105,6 +106,7 @@ export class ClientLocation implements TrackerExtension {
             classification: "anonymous",
             purposes: "necessary",
             value: clientHash,
+            force: true,
           },
           {
             scope: "session",
@@ -112,6 +114,7 @@ export class ClientLocation implements TrackerExtension {
             classification: "anonymous",
             purposes: "necessary",
             value: country,
+            force: true,
           },
         ]);
       }

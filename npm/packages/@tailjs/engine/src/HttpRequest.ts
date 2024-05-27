@@ -10,10 +10,14 @@ export interface HttpRequest<Binary extends boolean = false> {
   x509?: ClientCertificate;
 }
 
-export interface ClientRequest {
-  clientIp?: string | null;
-  headers: Record<string, string | string[] | null | undefined>;
-  method: string;
-  payload?: () => MaybePromise<Uint8Array | string | null>;
+export interface ClientRequestHeaders {
   url: string | null;
+  method: string;
+  headers: Record<string, string | string[] | null | undefined>;
+
+  clientIp?: string | null;
+}
+
+export interface ClientRequest extends ClientRequestHeaders {
+  payload?: () => MaybePromise<Uint8Array | string | null>;
 }

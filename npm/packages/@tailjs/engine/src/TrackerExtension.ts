@@ -1,11 +1,6 @@
 import type { TrackedEvent } from "@tailjs/types";
-import { MaybePromise } from "@tailjs/util";
-import type {
-  ParseResult,
-  Tracker,
-  TrackerEnvironment,
-  TrackerInitializationOptions,
-} from "./shared";
+import { DeferredAsync, MaybePromise } from "@tailjs/util";
+import type { ParseResult, Tracker, TrackerEnvironment } from "./shared";
 
 export type NextPatchExtension = (
   events: ParseResult[]
@@ -23,7 +18,7 @@ export type TrackerExtensionContext = {
  *
  * Without any extensions, nothing happens after events have been collected from clients.
  *
- * Since that is not very useful by iteself, a common use case for extensions is to store the collected events in a database or forwarding them to a CDP.
+ * Since that is not very useful by itself, a common use case for extensions is to store the collected events in a database or forwarding them to a CDP.
  * You may also have some legacy analytics solutions, or even run more than one side-by-side. In such case tail.js
  * Since any number of extensions can be loaded with the engine, this concept allows the collected events to "fan out", that is, store them in different systems for different purposes.
  * For the latter use case you can think of tail.js as a "reverse proxy on steroids".
@@ -59,7 +54,9 @@ export interface TrackerExtension {
     context: TrackerExtensionContext
   ): MaybePromise<void>;
 
-  getClientScripts?(tracker: Tracker): ClientScript[] | undefined | null;
+  getClientScripts?(
+    tracker: DeferredAsync<Tracker>
+  ): ClientScript[] | undefined | null;
 }
 
 /**

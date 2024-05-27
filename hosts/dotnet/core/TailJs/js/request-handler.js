@@ -10,8 +10,8 @@
             return requestHandler.getClientCookies(tracker);
         },
 
-        getClientScripts(tracker) {
-            return requestHandler.getClientScripts(tracker);
+        getClientScripts(tracker, options) {
+            return requestHandler.getClientScripts(tracker, options);
         },
 
         getVariable(tracker, name) {

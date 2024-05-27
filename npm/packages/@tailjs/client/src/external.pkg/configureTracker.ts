@@ -1,6 +1,6 @@
 import { TrackerConfiguration } from ".";
 import { tail } from ".";
-import { isTracker, trackerConfig } from "../lib2/config";
+import { isTracker, trackerConfig } from "../lib/config";
 
 export interface EmbeddedTrackerConfiguration extends TrackerConfiguration {
   /**

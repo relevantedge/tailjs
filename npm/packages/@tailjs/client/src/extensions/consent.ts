@@ -15,7 +15,7 @@ import {
   TrackerExtensionFactory,
   isUpdateConsentCommand,
 } from "..";
-import { debug, document } from "../lib2";
+import { debug, document } from "../lib";
 
 export const consent: TrackerExtensionFactory = {
   id: "consent",

@@ -12,12 +12,11 @@
         if (typeof callback !== "function") {
             throw new TypeError("Callback is not a function.");
         }
-        callback();
-        (function invoke() {
+        const invoke = ()=> {
             callback();
             host.SetTimeout(engine, invoke, Math.round(delay), id);
-        })();
-        const id = host.SetTimeout(engine, invoke, Math.round(delay));
+        };
+        const id = host.SetTimeout(engine, invoke, Math.round(delay), 0);
         return id;
     },
     clearInterval(id) {

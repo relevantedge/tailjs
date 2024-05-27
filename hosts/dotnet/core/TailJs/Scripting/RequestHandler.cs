@@ -87,7 +87,7 @@ public class RequestHandler : IRequestHandler
 
   #region IRequestHandler Members
 
-  public ITrackerEnvironment? Environment { get; private set; }
+  public ITrackerEnvironment Environment { get; private set; } = null!;
 
   public void Dispose()
   {
@@ -95,12 +95,14 @@ public class RequestHandler : IRequestHandler
     {
       return;
     }
+
     _disposed.Cancel();
 
     foreach (var extension in _extensions)
     {
       extension.Dispose();
     }
+
     _engine?.Dispose();
     _disposed.Dispose();
   }
@@ -114,13 +116,24 @@ public class RequestHandler : IRequestHandler
 
   public async ValueTask<string?> GetClientScriptsAsync(
     ITrackerHandle? tracker,
+    object? initialCommands = null,
     string? nonce = null,
     CancellationToken cancellationToken = default
   ) =>
     TryGetTrackerHandle(tracker) is { } scriptHandle
       ? (
         await Proxy
-          .InvokeMethod("getClientScripts", scriptHandle, nonce)
+          .InvokeMethod(
+            "getClientScripts",
+            scriptHandle,
+            new
+            {
+              initialCommands = initialCommands is string
+                ? initialCommands
+                : Environment.HttpEncode(JsonNodeConverter.Serialize(initialCommands)),
+              nonce
+            }
+          )
           .AwaitScript(cancellationToken)
           .ConfigureAwait(false)
       ).Get<string?>()
@@ -170,9 +183,9 @@ public class RequestHandler : IRequestHandler
               ",",
               _configuration.ScriptExtensions.Select(config =>
                 $"new {config.Import}({(config.Settings == null ? "" : JsonSerializer.Serialize<IConfiguration>(config.Settings, new JsonSerializerOptions
-                  {
-                    Converters = { ConfigurationJsonConverter.Instance },
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))})"
+                {
+                  Converters = { ConfigurationJsonConverter.Instance },
+                  PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))})"
               )
             )
           )
@@ -182,20 +195,23 @@ public class RequestHandler : IRequestHandler
         var bootstrap = (ScriptObject)
           _engine.Evaluate(new DocumentInfo() { Category = ModuleCategory.Standard }, script);
 
-        var requestHandler = (IScriptObject?)
+        var requestHandler = (IScriptObject)
           await bootstrap
             .Invoke(
               false,
               hostReference,
               _configuration.Endpoint,
-              JsonSerializer.Serialize(_configuration.CookieKeys),
+              JsonNodeConverter.Serialize(_configuration.CookieKeys),
               _configuration.Secure,
               _configuration.ClientScript ?? (object)_configuration.Debug,
               _configuration.ClientKeySeed,
               _trackerExtensions
             )
             .AwaitScript(cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+            .ConfigureAwait(false)!;
+
+        requestHandler.Attach<IRequestHandler>(this);
+        requestHandler.Attach<RequestHandler>(this);
 
         _proxy = (ScriptObject)
           (
@@ -207,7 +223,7 @@ public class RequestHandler : IRequestHandler
               )
           ).Invoke(false, requestHandler, this);
 
-        var environmentHandle = (IScriptObject)requestHandler!["environment"];
+        var environmentHandle = (IScriptObject)requestHandler["environment"];
         Environment = new TrackerEnvironment(
           (ScriptObject)(
             (
@@ -258,7 +274,7 @@ public class RequestHandler : IRequestHandler
     }
 
     return new TrackerContext(
-      new ScriptTrackerHandle(this, tracker),
+      new ScriptTrackerHandle(tracker),
       proxyResponse["response"] is IScriptObject response
         ? new ClientResponse(
           (int)response["status"],

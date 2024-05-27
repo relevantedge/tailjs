@@ -177,7 +177,7 @@ const serialize = <Msgpack extends boolean>(
 
   const inner = (value: any) => {
     if (value == null || isFunction(value) || isSymbol(value)) {
-      return null;
+      return undefined;
     }
 
     if (!isObject(value)) {

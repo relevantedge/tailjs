@@ -120,11 +120,13 @@ internal class ScriptVariableStorage : IVariableStorage
       targetId,
       classification,
       (DataPurposes)source.Get<int>("purposes"),
+      source.RequireDateTime("created"),
+      source.RequireDateTime("modified"),
+      source.RequireDateTime("accessed"),
+      source.Require<string>("version"),
       _json.FromScriptValue(source["value"]),
-      source.Get<string?>("version"),
-      source.TryGetDateTime("created"),
-      source.TryGetDateTime("modified"),
-      source.GetArray<string>("tags")
+      source.GetArray<string>("tags"),
+      source.TryGetTimeSpan("ttl")
     );
   }
 
@@ -174,10 +176,11 @@ internal class ScriptVariableStorage : IVariableStorage
             _ => null
           }
         ),
-        classification = _json.ToScriptValue((int?)(setter as VariableSetter)?.Classification),
-        purposes = _json.ToScriptValue((int?)(setter as VariableSetter)?.Purposes),
-        tags = _json.ToScriptValue((setter as VariableSetter)?.Value),
-        force = _json.ToScriptValue((setter as VariableSetter)?.Value),
+        classification = (int?)(setter as IVariableUsageWithDefaults)?.Classification,
+        purposes = (int?)(setter as IVariableUsageWithDefaults)?.Purposes,
+        tags = (setter as IVariableMetadata)?.Tags,
+        ttl = (int?)((setter as IVariableMetadata)?.TimeToLive?.TotalMilliseconds),
+        force = (setter as VariableSetter)?.Force,
         patch = setter is VariablePatchAction action
           ? PromiseLike.Wrap(
             async (current) =>

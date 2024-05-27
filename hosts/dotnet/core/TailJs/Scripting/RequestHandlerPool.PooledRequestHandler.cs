@@ -49,9 +49,10 @@ public partial class RequestHandlerPool
 
     public ValueTask<string?> GetClientScriptsAsync(
       ITrackerHandle? tracker,
-      string? nonce,
+      object? initialCommands = null,
+      string? nonce = null,
       CancellationToken cancellationToken = default
-    ) => _inner.GetClientScriptsAsync(tracker, nonce, cancellationToken);
+    ) => _inner.GetClientScriptsAsync(tracker, initialCommands, nonce, cancellationToken);
 
     public ValueTask InitializeAsync(CancellationToken cancellationToken = default) =>
       _inner.InitializeAsync(cancellationToken);

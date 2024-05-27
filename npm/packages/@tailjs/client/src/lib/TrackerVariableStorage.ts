@@ -7,7 +7,6 @@ import {
   VariableResultStatus,
   dataPurposes,
   getResultVariable,
-  isSuccessResult,
   toVariableResultPromise,
 } from "@tailjs/types";
 import {
@@ -22,6 +21,7 @@ import {
   get,
   isBoolean,
   isPlainObject,
+  isString,
   map,
   now,
   pick,
@@ -48,7 +48,6 @@ import {
   VARIABLE_POLL_FREQUENCY,
   addPageLoadedListener,
   addResponseHandler,
-  addStateListener,
   addVariablesChangedListener,
   isLocalScopeKey,
   localVariableScope,
@@ -59,6 +58,7 @@ import {
   updateVariableState,
   variableKeyToString,
 } from ".";
+import { Tracker } from "..";
 
 const KEY_PROPS: any[] = ["scope", "key", "targetId", "version"];
 const VARIABLE_PROPS: any[] = [
@@ -77,11 +77,23 @@ const SETTER_PROPS: any[] = [...VARIABLE_PROPS, "value", "force", "patch"];
 export interface TrackerVariableStorage {
   // Omit `init` to allow intellisense to suggest the actual type for reserved keys.
   get<K extends readonly Omit<ClientVariableGetter, "init">[]>(
-    ...getters: (K & ValidateParameters<K, true>) | GetterIntellisense
+    ...getters:
+      | [
+          key: string,
+          ...getters: (K & ValidateParameters<K, true>) | GetterIntellisense
+        ]
+      | (K & ValidateParameters<K, true>)
+      | GetterIntellisense
   ): VariableResultPromise<ClientVariableResults<K, true>>;
   // Omit `value` to allow intellisense to suggest the actual type for reserved keys.
   set<V extends readonly Omit<ClientVariableSetter, "value">[]>(
-    ...setters: (V & ValidateParameters<V, false>) | SetterIntellisense
+    ...setters:
+      | [
+          key: string,
+          ...setters: (V & ValidateParameters<V, false>) | SetterIntellisense
+        ]
+      | (V & ValidateParameters<V, false>)
+      | SetterIntellisense
   ): VariableResultPromise<ClientVariableResults<V, false>>;
 }
 const activeCallbacks = new Map<string, Set<ClientVariableCallback>>();
@@ -106,6 +118,7 @@ export const createVariableStorage = (
     mappedKey: string,
     callbacks?: MaybeArray<ClientVariableCallback>
   ) =>
+    callbacks &&
     apply(callbacks, (callback) =>
       get(activeCallbacks, mappedKey, () => new Set()).add(callback)
     );
@@ -170,6 +183,13 @@ export const createVariableStorage = (
       ...getters: ClientVariableGetter[]
     ): VariableResultPromise<ClientVariableResults<any, true>> =>
       toVariableResultPromise(async () => {
+        let key: string | Nullish;
+        if (!getters[0] || isString(getters[0])) {
+          key = getters[0];
+          getters = getters.slice(1) as any;
+        }
+        context?.validateKey(key);
+
         const results: [ClientVariableGetResult, number][] = [];
 
         let requestGetters = map(getters, (getter, sourceIndex) => [
@@ -255,6 +275,13 @@ export const createVariableStorage = (
       ...setters: ClientVariableSetter[]
     ): ClientVariableResults<any, false> =>
       toVariableResultPromise(async () => {
+        let key: string | Nullish;
+        if (!setters[0] || isString(setters[0])) {
+          key = setters[0];
+          setters = setters.slice(1) as any;
+        }
+        context?.validateKey(key);
+
         const localResults: StateVariable[] = [];
         const results: ClientVariableSetResult[] = [];
 
@@ -290,7 +317,10 @@ export const createVariableStorage = (
             // Force the first set, we do not have any cached version to validate against.
             setter.force ??= !!setter.version;
           }
-          return [setter as ClientVariableSetter, sourceIndex];
+          return [
+            pick(setter, SETTER_PROPS as any) as ClientVariableSetter,
+            sourceIndex,
+          ];
         });
 
         const response = !requestVariables.length
@@ -314,6 +344,7 @@ export const createVariableStorage = (
         forEach(response, (result, index) => {
           const [setter, sourceIndex] = requestVariables[index];
           (result as any).source = setter;
+          setter.result?.(result as any);
           results[sourceIndex] = result as any;
         });
 

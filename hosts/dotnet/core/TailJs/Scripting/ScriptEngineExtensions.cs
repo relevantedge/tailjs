@@ -8,6 +8,22 @@ namespace TailJs.Scripting;
 
 internal static class ScriptEngineExtensions
 {
+  public static object? AsPromiseLike(this ValueTask task) =>
+    task.IsCompletedSuccessfully ? Undefined.Value : task.AsTask().AsPromiseLike();
+
+  public static object? AsPromiseLike(this Task task) =>
+    task.IsCompleted
+      ? task.Status == TaskStatus.RanToCompletion
+        ? Undefined.Value
+        : throw task.Exception ?? new Exception("The task failed for unspecified reasons 🤷‍♀️.")
+      : new PromiseLike<Undefined>(
+        task.ContinueWith(task =>
+          task.Status == TaskStatus.RanToCompletion
+            ? Undefined.Value
+            : throw task.Exception ?? new Exception("The task failed for unspecified reasons 🤷‍♀️.")
+        )
+      );
+
   public static object? AsPromiseLike<T>(this ValueTask<T> task) =>
     task.IsCompleted ? task.Result : new PromiseLike<T>(task.AsTask());
 
@@ -56,14 +72,36 @@ internal static class ScriptEngineExtensions
     params string[] path
   ) => (scriptObject.Get(path) as IScriptObject).Enumerate();
 
+  private static Exception MissingOrWrongValueException(string? property, string? valueType) =>
+    new InvalidOperationException(
+      $"A {valueType} value is missing{(property != null ? $" for the property '{property}'" : "")}."
+    );
+
+  public static DateTime RequireDateTime(this object? value, string? property = null) =>
+    value.TryGetDateTime(property) ?? throw MissingOrWrongValueException(property, "date time");
+
   public static DateTime? TryGetDateTime(this object? value, string? property = null) =>
-    property.TryGetInt64(property) is { } timestamp
-      ? DateTimeOffset.FromUnixTimeMilliseconds(timestamp).DateTime
-      : value.Get("valueOf") is IScriptObject method
-        ? method.InvokeAsFunction().TryGetDateTime()
+    value is DateTime datetime
+      ? datetime
+      : property.TryGetInt64(property) is { } timestamp
+        ? DateTimeOffset.FromUnixTimeMilliseconds(timestamp).DateTime
+        : value.Get("valueOf") is IScriptObject method
+          ? method.InvokeAsFunction().TryGetDateTime()
+          : null;
+
+  public static TimeSpan RequireTimeSpan(this object? value, string? property = null) =>
+    value.TryGetTimeSpan(property) ?? throw MissingOrWrongValueException(property, "time span");
+
+  public static TimeSpan? TryGetTimeSpan(this object? value, string? property = null) =>
+    value is TimeSpan timespan
+      ? timespan
+      : property.TryGetInt64(property) is { } timestamp
+        ? TimeSpan.FromMilliseconds(timestamp)
         : null;
 
   public static T Get<T>(this object? value) => (T)value.Get()!;
+
+  public static T Get<T>(this object? value, string? property) => (T)value.Get(property)!;
 
   public static T Get<T>(this object? value, params string[] path) => (T)value.Get(path)!;
 
@@ -152,15 +190,6 @@ internal static class ScriptEngineExtensions
           ? $"The property '{string.Join(".", path)}' is null or undefined."
           : "The value is null or undefined."
       );
-
-  public static PromiseLike<Undefined> AsPromiseLike(this Task task) =>
-    new(
-      task.ContinueWith(task =>
-        task.Status == TaskStatus.RanToCompletion
-          ? Undefined.Value
-          : throw task.Exception ?? new Exception("The task failed for unspecified reasons 🤷‍♀️.")
-      )
-    );
 
   private static string FormatError(object? error)
   {
@@ -282,6 +311,17 @@ internal static class ScriptEngineExtensions
     }
     return buffer.ToArray();
   }
+
+  public static void Attach<T>(this IScriptObject scriptObject, T instance)
+    where T : class => scriptObject[$"__net__{typeof(T).Name}"] = instance;
+
+  public static T RequireAttachment<T>(this IScriptObject? scriptObject, string? property = null)
+    where T : class =>
+    scriptObject.TryGetAttachment<T>(property)
+    ?? throw new NullReferenceException($"No {typeof(T).Name} is associated with the specified object");
+
+  public static T? TryGetAttachment<T>(this IScriptObject? scriptObject, string? property = null)
+    where T : class => scriptObject?[$"__net__{typeof(T).Name}"] as T;
 
   #region Nested type: LockHandle
 

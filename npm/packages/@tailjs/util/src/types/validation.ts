@@ -20,13 +20,14 @@ import {
   MaybeUndefined,
   ToggleReadonly,
   isAwaitable,
+  MaybeOmit,
 } from "..";
 
 export type ErrorGenerator = string | Error | (() => string | Error);
 
 export const throwError = (
   error: ErrorGenerator,
-  transform: (string: string) => Error = (message) => new TypeError(message)
+  transform: (string: string) => Error = (message) => new Error(message)
 ): never => {
   throw isString((error = unwrap(error))) ? transform(error) : error;
 };
@@ -204,13 +205,13 @@ const handleError = <Handler extends ErrorHandler>(
       )
     : error;
 
-type DeferredProperties<T> = { resolved?: undefined } | { resolved: T };
+type DeferredProperties<T> = { resolved?: Awaited<T> };
 
 type NotDeferred = { resolved?: undefined };
 
 export type Deferred<T> = (() => T) & DeferredProperties<T>;
 
-export type DeferredAsync<T> = (() => Promise<T>) & DeferredProperties<T>;
+export type DeferredAsync<T> = Deferred<MaybePromise<T>>;
 
 export type MaybeDeferred<T> = (T & NotDeferred) | Deferred<T>;
 export type MaybeDeferredAsync<T> =
@@ -218,36 +219,44 @@ export type MaybeDeferredAsync<T> =
   | DeferredAsync<T>;
 
 export const resolveDeferred: {
-  <T>(value: MaybeDeferredAsync<T>): T extends PromiseLike<any>
-    ? T
-    : T | PromiseLike<T>;
-  <T>(value: MaybeDeferred<T>): T;
+  <T>(value: Deferred<T>): T;
+  <T>(value: T): T;
 } = (value: Deferred<any>) =>
-  typeof value === "function" ? (value as any)?.resolved ?? value() : value;
+  isFunction(value) ? (value as any)?.resolved ?? value() : value;
 
 /** A value that is initialized lazily on-demand. */
-export const deferred = <T>(expression: Wrapped<T>): Deferred<T> => {
-  let result: T | undefined = undefined;
-  const getter = (() =>
-    getter.initialized
-      ? (result as any)
-      : ((getter.initialized = true),
-        (getter.resolved = result = unwrap(expression)))) as any;
+export const deferred = <T>(
+  expression: Wrapped<T>
+): T extends PromiseLike<infer T> ? DeferredAsync<T> : Deferred<T> => {
+  let result: any;
+  const getter = (() => {
+    if (getter.initialized || result) {
+      // Result may either be the resolved value or a pending promise for the resolved value.
+      return result;
+    }
+    result = unwrap(expression) as any;
+    if (result.then) {
+      return (result = result.then((resolvedValue: any) => {
+        getter.initialized = true;
+        return (getter.resolved = result = resolvedValue);
+      }));
+    }
+    getter.initialized = true;
+    return (getter.resolved = result);
+  }) as any;
   return getter;
 };
 
-/** A value that is initialized lazily on-demand. */
-export const deferredAsync = <T>(
-  expression: Wrapped<PromiseLike<T>>
-): DeferredAsync<T> => {
-  let result: T | undefined = undefined;
-  const getter = (async () =>
-    getter.initialized
-      ? (result as any)
-      : ((getter.initialized = true),
-        (getter.resolved = result = await unwrap(expression)))) as any;
-  return getter;
-};
+export const asDeferred = <T extends MaybeDeferred<any>>(
+  deferredOrResolved: T
+): T extends Deferred<any> ? T : Deferred<T> =>
+  isFunction(deferredOrResolved)
+    ? deferredOrResolved
+    : (Object.assign(() => deferredOrResolved, {
+        resolved: isAwaitable(deferredOrResolved)
+          ? undefined
+          : deferredOrResolved,
+      }) as any);
 
 export interface DeferredPromise<T> extends PromiseLike<T> {
   initialized: boolean;

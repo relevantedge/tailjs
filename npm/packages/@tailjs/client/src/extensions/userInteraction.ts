@@ -51,7 +51,7 @@ import {
   tagName,
   trackerConfig,
   trackerFlag,
-} from "../lib2";
+} from "../lib";
 import { CLIENT_CALLBACK_CHANNEL_ID } from "@constants";
 
 const isLinkElement = (

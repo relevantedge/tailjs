@@ -6,7 +6,7 @@ import type { TrackerConfiguration } from "@tailjs/client";
 import { createTransport, httpEncode } from "@tailjs/util/transport";
 
 export const generateClientBootstrapScript = (
-  config: Omit<TrackerConfiguration, "hub" | "dataTags" | "vars">,
+  config: TrackerConfiguration,
   encrypt: boolean
 ) => {
   // Add a layer of "security by obfuscation" - just in case.

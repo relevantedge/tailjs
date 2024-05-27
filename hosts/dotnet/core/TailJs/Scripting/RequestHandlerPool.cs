@@ -112,7 +112,7 @@ public partial class RequestHandlerPool : IRequestHandlerPool
 
     ResetHandlers();
     _loggerFactory?.DefaultLogger.LogInformation(
-      $"tailjs request handler pool initialized with max concurrency {configuration.CurrentValue.InstanceCount}."
+      $"tail.js request handler pool initialized with max concurrency {configuration.CurrentValue.InstanceCount}."
     );
   }
 
