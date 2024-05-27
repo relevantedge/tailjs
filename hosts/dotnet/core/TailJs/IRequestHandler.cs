@@ -16,6 +16,7 @@ public interface IRequestHandler : IDisposable
 
   ValueTask<string?> GetClientScriptsAsync(
     ITrackerHandle? tracker,
+    object? initialCommands = null,
     string? nonce = null,
     CancellationToken cancellationToken = default
   );

@@ -59,6 +59,7 @@
       ],
       "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happened, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
       "$id": "urn:tailjs:core:event",
+      "x-privacy-class": "anonymous",
       "x-privacy-purpose": "anonymous",
       "x-privacy-censor": "ignore"
     },
@@ -80,7 +81,7 @@
     },
     "LocalID": {
       "type": "string",
-      "description": "An ID that is unique to the current client."
+      "description": "An identifier that is locally unique to some scope."
     },
     "EventMetadata": {
       "type": "object",
@@ -139,10 +140,12 @@
         "sessionId"
       ],
       "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
+      "x-privacy-class": "anonymous",
       "x-privacy-purpose": "anonymous"
     },
     "UUID": {
-      "type": "string"
+      "type": "string",
+      "description": "An identifier that is globally unique."
     },
     "UserConsent": {
       "type": "object",
@@ -196,6 +199,7 @@
             }
           ],
           "description": "The purposes the user has consented their data to be used for.",
+          "x-privacy-class": "anonymous",
           "x-privacy-purpose": "anonymous"
         }
       },
@@ -206,7 +210,8 @@
       "description": "A user's consent choices."
     },
     "Timestamp": {
-      "type": "number"
+      "type": "number",
+      "description": "Unix timestamp in milliseconds."
     },
     "isTrackedEvent": {
       "$comment": "(ev: any) => ev is TrackedEvent",
@@ -690,7 +695,8 @@
       }
     },
     "Duration": {
-      "type": "number"
+      "type": "number",
+      "description": "Duration in milliseconds."
     },
     "ScreenPosition": {
       "type": "object",
@@ -1001,6 +1007,7 @@
           ]
         }
       ],
+      "x-privacy-class": "anonymous",
       "x-privacy-purpose": "anonymous"
     },
     "UserAgentLanguage": {
@@ -1361,6 +1368,7 @@
             },
             "country": {
               "$ref": "urn:tailjs:core#/definitions/GeoEntity",
+              "x-privacy-class": "anonymous",
               "x-privacy-purpose": "anonymous"
             },
             "continent": {
@@ -2016,7 +2024,7 @@
             },
             "totalTime": {
               "$ref": "urn:tailjs:core#/definitions/Duration",
-              "description": "The total duration from the user started filling out the form until completion or abandoment.."
+              "description": "The total duration from the user started filling out the form until completion or abandonment."
             },
             "fields": {
               "type": "object",
@@ -2113,6 +2121,7 @@
         "lastSeen",
         "views"
       ],
+      "x-privacy-class": "anonymous",
       "x-privacy-purposes": [
         "anonymous",
         "server_write"
@@ -2182,14 +2191,17 @@
       "properties": {
         "@info": {
           "$ref": "urn:tailjs:core#/definitions/SessionInfo",
+          "x-privacy-class": "anonymous",
           "x-privacy-purpose": "anonymous"
         },
         "@consent": {
           "$ref": "urn:tailjs:core#/definitions/UserConsent",
+          "x-privacy-class": "anonymous",
           "x-privacy-purpose": "anonymous"
         },
         "@session_reference": {
           "type": "string",
+          "x-privacy-class": "anonymous",
           "x-privacy-purpose": "anonymous"
         }
       }

@@ -15,6 +15,8 @@ export type ClassificationOrConsent =
 export interface SchemaClassification<NumericEnums extends boolean = boolean> {
   classification: DataClassificationValue<NumericEnums>;
   purposes: DataPurposeValue<NumericEnums>;
+  /** This classification is explicitly defined. */
+  explicit?: boolean;
 }
 
 export interface SchemaPropertyStructure {

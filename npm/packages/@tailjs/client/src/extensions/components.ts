@@ -42,7 +42,7 @@ import {
   parseTags,
   scanAttributes,
   trackerProperty,
-} from "../lib2";
+} from "../lib";
 export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 
 export const componentDomConfiguration = Symbol("DOM configuration");

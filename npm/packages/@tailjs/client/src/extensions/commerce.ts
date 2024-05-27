@@ -16,7 +16,7 @@ import {
   type Nullish,
 } from "@tailjs/util";
 import { TrackerExtensionFactory, isCartCommand, isOrderCommand } from "..";
-import { forAncestorsOrSelf, getBoundaryData, trackerProperty } from "../lib2";
+import { forAncestorsOrSelf, getBoundaryData, trackerProperty } from "../lib";
 
 export const parseCartEventData = (
   data: boolean | string | CartEventData | Nullish

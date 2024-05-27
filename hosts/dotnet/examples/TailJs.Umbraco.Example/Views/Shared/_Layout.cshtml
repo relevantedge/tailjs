@@ -44,8 +44,7 @@
 
 @* @Html.React("Components.TestForm", new{}) *@
 
-<a href="https://www.google.com#test">External link</a>
-<input type="text" value="OK">
+
 @RenderBody()
 
 
@@ -57,7 +56,9 @@
 <script src="@Url.Content("~/static/client.js")" asp-append-version="true"></script>
 @Html.ReactInitJavaScript()
 
-@($"{TrackerMiddleware.Elapsed.TotalMilliseconds/TrackerMiddleware.RequestCount:N2} ms/req ({TrackerMiddleware.RequestCount:N0} requests).")
+<a href="https://www.google.com#test">External link</a>
+
+@* @($"{TrackerMiddleware.Elapsed.TotalMilliseconds/TrackerMiddleware.RequestCount:N2} ms/req ({TrackerMiddleware.RequestCount:N0} requests).") *@
 
 </body>
 </html>

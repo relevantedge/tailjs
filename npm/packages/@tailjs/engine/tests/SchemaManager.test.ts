@@ -17,6 +17,7 @@ import {
   schemaHeader,
   systemEvents,
 } from "./test-schemas";
+import { SCOPE_INFO_KEY } from "@constants";
 
 type AtLeast<T> = T extends object | any[]
   ? Record<keyof any, any> & { [P in keyof T]: AtLeast<T[P]> }
@@ -390,7 +391,7 @@ describe("SchemaManager.", () => {
 
     expect(
       variables.censor(
-        { scope: "session", key: "info" },
+        { scope: "session", key: SCOPE_INFO_KEY },
         {
           id: "test",
           firstSeen: 1337,
@@ -403,7 +404,7 @@ describe("SchemaManager.", () => {
 
     expect(
       variables.censor(
-        { scope: "session", key: "info" },
+        { scope: "session", key: SCOPE_INFO_KEY },
         {
           id: "test",
           firstSeen: 1337,
@@ -413,6 +414,49 @@ describe("SchemaManager.", () => {
         { level: "anonymous", purposes: ["any", "server"] }
       )!.id
     ).toBe("test");
+
+    const locationType = {
+      type: "session_location",
+    };
+
+    const country = {
+      ...locationType,
+      country: {
+        name: "test country",
+      },
+    };
+
+    const city = {
+      ...locationType,
+      city: {
+        name: "test city",
+      },
+    };
+    const locationEvent = {
+      ...country,
+      ...city,
+    };
+
+    expect(
+      manager.censor("session_location", locationEvent, {
+        level: "anonymous",
+        purposes: "necessary",
+      })
+    ).toEqual({ ...country });
+
+    expect(
+      manager.censor("session_location", locationEvent, {
+        level: "indirect",
+        purposes: "necessary",
+      })
+    ).toEqual({ ...country });
+
+    expect(
+      manager.censor("session_location", locationEvent, {
+        level: "indirect",
+        purposes: "performance",
+      })
+    ).toEqual(locationEvent);
 
     // fs.writeFileSync(
     //   "c:/temp/tailjs.json",

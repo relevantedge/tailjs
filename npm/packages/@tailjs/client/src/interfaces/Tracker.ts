@@ -1,6 +1,6 @@
 import { ArrayOrSelf, Nullish } from "@tailjs/util";
 import type { TrackerCommand, TrackerConfiguration } from "..";
-import { EventQueue, TrackerVariableStorage } from "../lib2";
+import { EventQueue, TrackerVariableStorage } from "../lib";
 
 export type Tracker = {
   /**
@@ -18,25 +18,26 @@ export type Tracker = {
   readonly variables: TrackerVariableStorage;
 
   readonly push: {
-    /** Allows commands to be passed as a HTTP encoded string instead of objects. This is useful for server-side generated data. */
-    (httpEncoded: string): void;
-
     /**
-     * Allows commands to be passed as a HTTP encoded string instead of objects. This is useful for server-side generated data.
+     * Allows commands to be passed as an HTTP encoded string or JSON instead of objects. This may be useful for server-side generated data.
      *
-     * Use this overload if a {@link TrackerConfiguration.apiKey} has been configured.
+     * Use this overload if a {@link TrackerConfiguration.key} has been configured.
      */
-    (apiKey: string, httpEncoded: string): void;
+    (key: string, encoded: string): void;
 
-    /** Executes the specified commands. */
-    (...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
+    /** Allows commands to be passed as an HTTP encoded string or JSON instead of objects. This may be useful for server-side generated data. */
+    (encoded: string): void;
 
     /**
      * Executes the specified commands.
      *
-     * Use this overload if a {@link TrackerConfiguration.apiKey} has been configured.
+     * Use this overload if a {@link TrackerConfiguration.key} has been configured.
+     *
      */
-    (apiKey: string, ...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
+    (key: string, ...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
+
+    /** Executes the specified commands. */
+    (...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
   };
   /**
    * The tracker was initialized during server-side rendering.

@@ -1,5 +1,5 @@
 import { MaybeArray, PickRequired } from "@tailjs/util";
-import { ClientVariableGetter } from "../lib2";
+import { ClientVariableGetter } from "../lib";
 import { commandTest } from "./shared";
 
 /**

@@ -19,16 +19,16 @@ import {
   count,
   forEach,
   hasMethod,
-  isObject,
   isArray,
   isFunction,
   isMap,
+  isNumber,
+  isObject,
   isPlainObject,
   isSet,
   map,
   obj,
   throwError,
-  isNumber,
 } from ".";
 
 type ReadonlyMapLike<K = any, V = any> = {
@@ -890,7 +890,7 @@ export const diff = <T>(
 
   if (isPlainObject(updated)) {
     forEach(updated, ([key, value]) => {
-      if (delta[key] === previous[key]) {
+      if (value === previous[key]) {
         // No changes.
         return;
       }
@@ -904,6 +904,7 @@ export const diff = <T>(
       } else if (isNumber(value) && isNumber(previousValue)) {
         value = (patchedValue = value) - previousValue;
       }
+
       delta[key] = value;
       (patched ??= clone(previous))[key] = patchedValue;
     });

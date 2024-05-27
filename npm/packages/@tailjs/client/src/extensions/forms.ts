@@ -1,19 +1,19 @@
 import { FormEvent, FormField, Timestamp } from "@tailjs/types";
 import {
   T,
-  diff,
+  createTimeout,
   forEach,
   get,
   map,
   nil,
   now,
   replace,
-  createTimeout,
   type Nullish,
 } from "@tailjs/util";
 import {
   TrackerExtensionFactory,
   getComponentContext,
+  getViewTimeOffset,
   getVisibleDuration,
   onFrame,
 } from "..";
@@ -26,7 +26,7 @@ import {
   trackerFlag,
   trackerPropertyName,
   uuidv4,
-} from "../lib2";
+} from "../lib";
 
 type FormElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
@@ -101,6 +101,7 @@ export const forms: TrackerExtensionFactory = {
                 "$1"
               ),
               activeTime: 0,
+              totalTime: 0,
               type: el.type ?? "unknown",
               [currentValue as any]: getFormFieldValue(el),
             }) as FormFieldState;
@@ -132,7 +133,10 @@ export const forms: TrackerExtensionFactory = {
 
         tracker.events.post(ev);
 
-        tracker.events.registerEventPatchSource(ev, () => ev as any);
+        tracker.events.registerEventPatchSource(
+          ev,
+          () => ({ ...ev, timeOffset: getViewTimeOffset() } as any)
+        );
 
         let state: FormState;
         const commitEvent = () => {
@@ -216,35 +220,36 @@ export const forms: TrackerExtensionFactory = {
         state[3] = FormFillState.Pending;
         forEach(
           form.fields!,
-          ([name, value]) =>
-            (value.lastField = name === field.name || undefined)
+          ([name, value]) => (value.lastField = name === field.name)
         );
       }
 
       field.activeTime! += active;
       field.totalTime! += total;
       form.activeTime! += active;
+      form.totalTime! += total;
       currentField = nil;
     };
 
     let tv0 = 0;
     let t0 = 0;
-    const wireFormFields = (document: Document | Nullish) => {
+    const wireFormFields = (document: Document | Nullish) =>
       document &&
-        listen(
-          document,
-          ["focusin", "focusout", "change"],
-          (ev, _, current = ev.target && getFieldInfo(ev.target)) => {
-            current &&
-              ((currentField = current),
-              ev.type === "focusin"
-                ? ((t0 = now(T)), (tv0 = getVisibleDuration()))
-                : handleLostFocus());
-          }
-        );
-    };
+      listen(
+        document,
+        ["focusin", "focusout", "change"],
+        (ev, _, current = ev.target && getFieldInfo(ev.target)) =>
+          current &&
+          ((currentField = current),
+          ev.type === "focusin"
+            ? ((t0 = now(T)), (tv0 = getVisibleDuration()))
+            : handleLostFocus())
+      );
 
     wireFormFields(document);
-    onFrame((frame) => frame.contentDocument && wireFormFields);
+    onFrame(
+      (frame) => frame.contentDocument && wireFormFields(frame.contentDocument),
+      true
+    );
   },
 };

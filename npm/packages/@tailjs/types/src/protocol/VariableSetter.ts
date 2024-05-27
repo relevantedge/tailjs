@@ -23,6 +23,7 @@ import {
   VariableResultStatus,
   VariableUsage,
   VariableVersion,
+  VersionedVariableKey,
   variableScope,
 } from "..";
 
@@ -137,16 +138,12 @@ export const patchType = createEnumAccessor(
   "variable patch type"
 );
 
-export type VariableValueSetter<T = any, Validated = false> = (
-  | PickPartial<
-      Variable<T, If<Validated, true, boolean>>,
-      "classification" | "purposes" | "version"
-    >
-  | (PartialExcept<
-      Variable<T, If<Validated, true, boolean>>,
-      keyof VariableKey
-    > & { value: undefined })
-) & {
+export type VariableValueSetter<
+  T = any,
+  Validated = false
+> = (VersionedVariableKey<If<Validated, true, boolean>> &
+  Partial<VariableUsage<If<Validated, true, boolean>>> &
+  VariableMetadata & { value: T | undefined }) & {
   /**
    * Ignore versioning (optimistic concurrency), and save the value regardless.
    * Consider your scenario before doing this.

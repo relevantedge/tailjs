@@ -23,7 +23,7 @@ export interface FormEvent extends UserInteractionEvent {
   activeTime?: Duration;
 
   /**
-   * The total duration from the user started filling out the form until completion or abandoment..
+   * The total duration from the user started filling out the form until completion or abandonment.
    */
   totalTime?: Duration;
 

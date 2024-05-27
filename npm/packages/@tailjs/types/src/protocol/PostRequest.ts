@@ -34,6 +34,11 @@ export interface PostRequest {
   };
 
   /**
+   * If tail.js is hosted in a multi-tenant setup you know what to do.
+   * Otherwise, leave this blank.
+   */
+  apiKey?: string;
+  /**
    * The request was send passively from the client.
    * Any response such as changed variables will be pushed to the client via a cookie.
    */

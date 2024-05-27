@@ -1,6 +1,6 @@
 import { CLIENT_STORAGE_PREFIX } from "@constants";
 import { TrackedEvent } from "@tailjs/types";
-import { throwError } from "@tailjs/util";
+import { Nullish, throwError } from "@tailjs/util";
 
 export const DEBUG = true;
 export const HEARTBEAT_FREQUENCY = 5_000;
@@ -15,4 +15,9 @@ export type TrackerContext = {
   deviceSessionId?: string;
 
   applyEventExtensions(event: TrackedEvent): TrackedEvent | undefined;
+
+  validateKey: {
+    (key: string | Nullish, throwIfInvalid?: true): true;
+    (key: string | Nullish, throwIfInvalid: false): boolean;
+  };
 };

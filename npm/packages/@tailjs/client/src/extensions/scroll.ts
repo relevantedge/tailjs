@@ -1,7 +1,7 @@
 import { ScrollEvent } from "@tailjs/types";
 import { T, defer, map, push, restrict } from "@tailjs/util";
 import { addViewChangedListener, type TrackerExtensionFactory } from "..";
-import { listen, relativeScrollPos, scrollPos } from "../lib2";
+import { listen, relativeScrollPos, scrollPos } from "../lib";
 
 export const scroll: TrackerExtensionFactory = {
   id: "scroll",

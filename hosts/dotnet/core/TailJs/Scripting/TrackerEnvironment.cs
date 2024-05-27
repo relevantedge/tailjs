@@ -21,6 +21,8 @@ internal class TrackerEnvironment : ITrackerEnvironment
     _uint8ArrayConverter = uint8ArrayConverter;
 
     Handle = handle;
+
+    handle.Attach(this);
   }
 
   public IScriptObject Handle { get; }

@@ -247,15 +247,25 @@ export const getResultVariable = <R extends ValidatableResult>(
     ? (result as VariableSetResult).current ?? (result as any)
     : undefined;
 
-export const isSuccessResult = (
-  result: any
-): result is {
-  status:
-    | VariableResultStatus.Success
-    | VariableResultStatus.Created
-    | VariableResultStatus.Unchanged
-    | VariableResultStatus.NotFound;
-} => result?.status! < 400 || result?.status === 404;
+export const isSuccessResult = <RequireValue extends boolean = false>(
+  result: any,
+  requireValue: RequireValue = false as any
+): result is
+  | ({ status: VariableResultStatus.Success | VariableResultStatus.Created } & (
+      | Variable<any, true>
+      | { current: Variable<any, true> }
+    ))
+  | (RequireValue extends true
+      ? never
+      : {
+          status:
+            | VariableResultStatus.Unchanged
+            | VariableResultStatus.NotFound;
+          value?: undefined;
+        }) =>
+  requireValue
+    ? result?.status! < 300
+    : result?.status! < 400 || result?.status === 404;
 
 type ErrorHandler<Result = any> = Result extends undefined
   ? undefined

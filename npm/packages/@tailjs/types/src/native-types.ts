@@ -1,13 +1,25 @@
-export type UUID = string;
 /**
- * An ID that is unique to the current client.
+ * An identifier that is globally unique.
+ */
+export type UUID = string;
+
+/**
+ * An identifier that is locally unique to some scope.
  */
 export type LocalID = string;
+
+/** Unix timestamp in milliseconds. */
 export type Timestamp = number;
+
+/** Duration in milliseconds. */
 export type Duration = number;
+
 export type Integer = number;
+
 export type Float = number;
+
 export type Decimal = number;
+
 export type Percentage = number;
 
 /**

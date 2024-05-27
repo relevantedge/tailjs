@@ -20,6 +20,7 @@ import {
   tryCatch,
   type Nullish,
 } from "@tailjs/util";
+import { createTransport } from "@tailjs/util/transport";
 import {
   Listener,
   Tracker,
@@ -43,38 +44,37 @@ import {
   ERR_INVALID_COMMAND,
   TrackerContext,
   VAR_URL,
+  addDebugListeners,
   addStateListener,
   createEventQueue,
   createVariableStorage,
+  errorLogger,
   httpDecode,
-  httpDecrypt,
   isTracker,
+  logError,
   nextId,
   setStorageKey,
   trackerConfig,
   window,
-} from "./lib2";
-import { addDebugListeners } from "./lib2/debug-listeners";
-import { errorLogger, logError } from "./lib2/errors";
-import { createTransport } from "@tailjs/util/transport";
+} from "./lib";
 
 export let tracker: Tracker;
 export const initializeTracker = (config: TrackerConfiguration | string) => {
   if (tracker) return tracker;
-  let clientKey: string;
+  let clientEncryptionKey: string;
   if (isString(config)) {
     // Decode the temporary key for decrypting the configuration payload.
-    [clientKey, config] =
+    [clientEncryptionKey, config] =
       httpDecode<[key: string, configuration: any]>(config)!;
     // Decrypt
-    config = createTransport(clientKey)[1](config as any)!;
+    config = createTransport(clientEncryptionKey)[1](config as any)!;
   }
 
   assign(trackerConfig, config);
 
-  setStorageKey(remove(trackerConfig, "clientKey"));
+  setStorageKey(remove(trackerConfig, "encryptionKey"));
 
-  const apiKey = remove(trackerConfig, "apiKey");
+  const apiProtectionKey = remove(trackerConfig, "key");
 
   const queuedCommands = window[trackerConfig.name] ?? [];
   if (!isArray(queuedCommands)) {
@@ -126,6 +126,12 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
 
       return skip ? undefined : event;
     },
+    validateKey: (key: string | Nullish, throwIfInvalid = true) =>
+      (!apiProtectionKey && !key) ||
+      key === apiProtectionKey ||
+      ((throwIfInvalid
+        ? throwError(`'${key}' is not a valid key.`)
+        : false) as any),
   };
   // Variables
   const variables = createVariableStorage(VAR_URL, trackerContext);
@@ -145,15 +151,21 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
       events,
       variables,
       push: ((...commands: (TrackerCommand | string)[]) => {
-        if (!mainArgs && apiKey) {
-          if (commands[0] !== apiKey) {
-            throw new Error("Invalid API key.");
-          }
-          commands.splice(0, 1);
-        }
-
         if (!commands.length) {
           return;
+        }
+
+        let key: string | Nullish;
+        if (commands.length > 1 && (!commands[0] || isString(commands[0]))) {
+          key = commands[0];
+          commands = commands.slice(1);
+        }
+
+        if (isString(commands[0])) {
+          const payload = commands[0];
+          commands = payload.match(/^[{[]/)
+            ? JSON.parse(payload)
+            : httpDecode(payload);
         }
 
         let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
@@ -228,55 +240,59 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
         mainArgs = expanded;
 
         for (currentArg = 0; currentArg < mainArgs.length; currentArg++) {
-          if (!mainArgs[currentArg]) continue;
-          tryCatch(
-            () => {
-              const command = mainArgs![currentArg];
-              callListeners("command", command);
-              insertArgs = F;
-              if (isTrackedEvent(command)) {
-                events.post(command);
-              } else if (isGetCommand(command)) {
-                variables.get(...array(command.get));
-              } else if (isSetCommand(command)) {
-                variables.set(...array(command.set));
-              } else if (isListenerCommand(command)) {
-                push(listeners, command.listener);
-              } else if (isExtensionCommand(command)) {
-                let extension: TrackerExtension | Nullish;
-                if (
-                  (extension = tryCatch(
-                    () => command.extension.setup(tracker),
-                    (e) => logError(command.extension.id, e)
-                  )!)
-                ) {
-                  push(extensions, [
-                    command.priority ?? 100,
-                    extension,
-                    command.extension,
-                  ]);
-                  sort(extensions, ([priority]) => priority);
-                }
-              } else if (isTrackerAvailableCommand(command)) {
-                command(tracker); // Variables have already been loaded once.
-              } else {
-                let success = F;
-                for (const [, extension] of extensions) {
-                  if ((success = extension.processCommand?.(command) ?? F)) {
-                    break;
+          const command = mainArgs![currentArg];
+
+          if (!command) continue;
+
+          trackerContext.validateKey(key ?? command.key),
+            tryCatch(
+              () => {
+                const command = mainArgs![currentArg];
+                callListeners("command", command);
+                insertArgs = F;
+                if (isTrackedEvent(command)) {
+                  events.post(command);
+                } else if (isGetCommand(command)) {
+                  variables.get(...array(command.get));
+                } else if (isSetCommand(command)) {
+                  variables.set(...array(command.set));
+                } else if (isListenerCommand(command)) {
+                  push(listeners, command.listener);
+                } else if (isExtensionCommand(command)) {
+                  let extension: TrackerExtension | Nullish;
+                  if (
+                    (extension = tryCatch(
+                      () => command.extension.setup(tracker),
+                      (e) => logError(command.extension.id, e)
+                    )!)
+                  ) {
+                    push(extensions, [
+                      command.priority ?? 100,
+                      extension,
+                      command.extension,
+                    ]);
+                    sort(extensions, ([priority]) => priority);
                   }
+                } else if (isTrackerAvailableCommand(command)) {
+                  command(tracker); // Variables have already been loaded once.
+                } else {
+                  let success = F;
+                  for (const [, extension] of extensions) {
+                    if ((success = extension.processCommand?.(command) ?? F)) {
+                      break;
+                    }
+                  }
+                  !success &&
+                    logError(
+                      ERR_INVALID_COMMAND,
+                      command,
+                      "Loaded extensions:",
+                      extensions.map((extension) => extension[2].id)
+                    );
                 }
-                !success &&
-                  logError(
-                    ERR_INVALID_COMMAND,
-                    command,
-                    "Loaded extensions:",
-                    extensions.map((extension) => extension[2].id)
-                  );
-              }
-            },
-            (e) => logError(tracker, ERR_INTERNAL_ERROR, e)
-          );
+              },
+              (e) => logError(tracker, ERR_INTERNAL_ERROR, e)
+            );
         }
 
         mainArgs = nil;
@@ -284,6 +300,7 @@ export const initializeTracker = (config: TrackerConfiguration | string) => {
           events.post([], { flush });
         }
       }) as any,
+
       [isTracker]: T,
     })),
     configurable: false,

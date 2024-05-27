@@ -17,7 +17,6 @@ import {
   extractKey,
   formatKey,
   parseKey,
-  toNumericVariableEnums,
   variableScope,
 } from "@tailjs/types";
 import { Nullish, forEach, now, rank, some, unwrap } from "@tailjs/util";
@@ -52,10 +51,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     }
   }
 
-  /** If this method return `undefined`, the variable in question will not be updated. */
   protected abstract _getNextVersion(
-    variable: Variable<any, true>
-  ): string | undefined;
+    variable: Variable<any, true> | undefined
+  ): string;
 
   protected abstract _getScopeVariables(
     scope: VariableScope,
@@ -96,10 +94,9 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       true
     )!;
 
-    variable = toNumericVariableEnums(variable);
-
-    const ttl = this._ttl?.[variable.scope];
-    scopeValues[0] = ttl ? (timestamp ?? now()) + ttl : undefined;
+    scopeValues[0] = variable.ttl
+      ? (timestamp ?? now()) + variable.ttl
+      : undefined;
     scopeValues[1].set(variable.key, variable);
     return variable;
   }
@@ -246,6 +243,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
     }));
 
     const results: VariableGetResult[] = [];
+    let timestamp: number | undefined;
     for (const [item, i] of rank(variables)) {
       if (!item.getter) continue;
       if (!item.current) {
@@ -255,7 +253,14 @@ export abstract class InMemoryStorageBase implements VariableStorage {
             // Check if the variable has been created by someone else while the initializer was running.
 
             results[i] = copy(
-              this._update({ ...extractKey(item.getter!), ...initialValue }),
+              this._update({
+                ...extractKey(item.getter!),
+                ...initialValue,
+                created: (timestamp ??= now()),
+                modified: timestamp,
+                accessed: timestamp,
+                version: this._getNextVersion(undefined),
+              }),
               {
                 status: VariableResultStatus.Created,
               } as VariableGetResult
@@ -293,6 +298,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           item.getter?.version && item.getter?.version === item.current?.version
             ? VariableResultStatus.Unchanged
             : VariableResultStatus.Success,
+        accessed: now(),
       } as VariableGetResult);
     }
 
@@ -329,7 +335,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
   ): Promise<VariableSetResults<Setters>> {
     const timestamp = now();
     const results: (VariableSetResult | undefined)[] = [];
-    for (const source of toNumericVariableEnums(variables)) {
+    for (const source of variables) {
       this._validateKey(source);
 
       if (!source) {
@@ -364,9 +370,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
           continue;
         }
 
-        const patched = toNumericVariableEnums(
-          await applyPatch(current, source)
-        );
+        const patched = await applyPatch(current, source);
 
         if (patched == null) {
           results.push({
@@ -408,6 +412,10 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         classification,
         targetId,
         scope,
+        created: current?.created ?? now(),
+        modified: now(),
+        accessed: now(),
+        version: this._getNextVersion(current),
         purposes:
           current?.purposes != null || purposes
             ? (current?.purposes ?? 0) | (purposes ?? 0)
@@ -415,7 +423,6 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         tags: tags && [...tags],
       };
 
-      nextValue.version = this._getNextVersion(nextValue);
       current = this._update(nextValue, timestamp);
 
       results.push(
@@ -450,8 +457,6 @@ export class InMemoryStorage extends InMemoryStorageBase {
   private readonly _variables: Map<string, ScopeVariables>[] =
     variableScope.values.map(() => new Map());
 
-  private _nextVersion = 0;
-
   constructor(
     scopeDurations?: Partial<Record<VariableScope, number>>,
     cleanFrequency = 10000
@@ -459,8 +464,8 @@ export class InMemoryStorage extends InMemoryStorageBase {
     super(scopeDurations, cleanFrequency);
   }
 
-  protected _getNextVersion(key: VariableKey) {
-    return "" + ++this._nextVersion;
+  protected _getNextVersion(key: Variable | undefined) {
+    return key?.version ? "" + (parseInt(key.version) + 1) : "1";
   }
 
   protected _getScopeVariables(
@@ -489,6 +494,11 @@ export class InMemoryStorage extends InMemoryStorageBase {
   protected _getTargetsInScope(
     scope: VariableScope
   ): Iterable<[string, ScopeVariables]> {
-    return this._variables[scope] ?? [];
+    try {
+      return this._variables[scope] ?? [];
+    } catch (e) {
+      console.log("Nope", scope);
+      return [];
+    }
   }
 }

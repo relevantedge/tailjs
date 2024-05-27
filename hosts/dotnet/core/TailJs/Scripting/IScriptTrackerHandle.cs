@@ -11,16 +11,15 @@ internal interface IScriptTrackerHandle : ITrackerHandle
 
 internal class ScriptTrackerHandle : IScriptTrackerHandle
 {
-  private readonly RequestHandler _requestHandler;
-
   public IScriptObject ScriptHandle { get; }
 
   public Tracker? Resolved { get; private set; }
 
-  public ScriptTrackerHandle(RequestHandler requestHandler, IScriptObject scriptHandle)
+  public ScriptTrackerHandle(IScriptObject scriptHandle)
   {
-    _requestHandler = requestHandler;
     ScriptHandle = scriptHandle;
+
+    scriptHandle.Attach<ITrackerHandle>(this);
   }
 
   public async ValueTask<ITracker> ResolveAsync(CancellationToken cancellationToken = default)
@@ -35,6 +34,7 @@ internal class ScriptTrackerHandle : IScriptTrackerHandle
     {
       throw new InvalidOperationException("The tracker could not be resolved.");
     }
-    return Resolved = new Tracker(_requestHandler, handle);
+
+    return Resolved = new Tracker(handle);
   }
 }

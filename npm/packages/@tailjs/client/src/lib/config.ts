@@ -9,8 +9,8 @@ export const trackerConfig: Required<TrackerConfiguration> = {
   postEvents: true,
   postFrequency: 2000,
   requestTimeout: 5000,
-  heartbeatFrequency: 0,
-  clientKey: null,
+  encryptionKey: null,
+  key: null,
   apiKey: null,
 
   /**

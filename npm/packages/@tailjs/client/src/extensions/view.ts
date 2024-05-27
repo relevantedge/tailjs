@@ -36,7 +36,7 @@ import {
   parseDomain,
   setLocalVariables,
   tryGetVariable,
-} from "../lib2";
+} from "../lib";
 
 export let currentViewEvent: ViewEvent | undefined;
 
@@ -98,8 +98,19 @@ export const createViewDurationTimer = (started?: boolean) => {
 const timer = createViewDurationTimer();
 export const getViewTimeOffset = () => timer();
 
-const [onFrame, callOnFrame] = createEvent<[frame: HTMLIFrameElement]>();
-export { onFrame };
+const [addFrameListenerInternal, callOnFrame] =
+  createEvent<[frame: HTMLIFrameElement]>();
+export const onFrame: typeof addFrameListenerInternal = (
+  listener,
+  triggerCurrent
+) => {
+  triggerCurrent &&
+    forEach(frames as any as Iterable<HTMLIFrameElement>, (frame) =>
+      listener(frame, () => false)
+    );
+  return addFrameListenerInternal(listener);
+};
+//export { addFrameListener as onFrame };
 
 const knownFrames = new WeakSet<any>();
 const frames = document.getElementsByTagName("iframe");
@@ -113,7 +124,7 @@ export const context: TrackerExtensionFactory = {
           frames as any as Iterable<HTMLIFrameElement>,
           (frame) => add(knownFrames, frame) && callOnFrame(frame)
         ),
-      -1000
+      1000
     ).trigger();
 
     // View definitions may be loaded asynchronously both before and after navigation happens.

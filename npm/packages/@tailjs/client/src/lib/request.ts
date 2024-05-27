@@ -1,26 +1,14 @@
-import { isPostResponse } from "@tailjs/types";
 import {
-  NOOP,
-  Nullish,
   PrettifyIntersection,
-  clock,
   createEvent,
   delay,
-  escapeRegEx,
   forEachAsync,
   isFunction,
-  match,
   stop,
   throwError,
   undefined,
 } from "@tailjs/util";
-import {
-  REQUEST_LOCK_KEY,
-  httpDecrypt,
-  httpEncrypt,
-  sharedLock,
-  trackerConfig,
-} from ".";
+import { REQUEST_LOCK_KEY, httpDecrypt, httpEncrypt, sharedLock } from ".";
 
 export type RequestOptions<Beacon extends boolean = false> =
   PrettifyIntersection<

@@ -6,13 +6,16 @@ namespace TailJs.Scripting;
 
 internal class Tracker : ITracker, IScriptTrackerHandle
 {
-  internal Tracker(RequestHandler requestHandler, IScriptObject scriptHandle)
+  internal Tracker(IScriptObject scriptHandle)
   {
-    RequestHandler = requestHandler;
+    RequestHandler = scriptHandle.RequireAttachment<RequestHandler>();
     ScriptHandle = scriptHandle;
-    Environment = requestHandler.Environment!;
+    Environment = RequestHandler.Environment;
     Cookies = new CookieCollection((IScriptObject)scriptHandle["cookies"]);
-    Variables = new TrackerVariableCollection(requestHandler.Proxy, scriptHandle);
+    Variables = new TrackerVariableCollection(RequestHandler.Proxy, scriptHandle);
+
+    scriptHandle.Attach<ITracker>(this);
+    scriptHandle.Attach<ITrackerHandle>(this);
   }
 
   internal RequestHandler RequestHandler { get; }

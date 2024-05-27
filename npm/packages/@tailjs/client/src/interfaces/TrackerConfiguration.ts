@@ -91,27 +91,29 @@ export interface TrackerConfiguration {
   captureContextMenu?: boolean;
 
   /**
-   * The name of the cookie that the server.
-   */
-  pushCookie?: string | Nullish;
-
-  /**
    * Log events to the browser's developer console.
    */
   debug?: boolean;
 
   /**
-   * All inter-tab communication will be encrypted using this key.
-   * The same applies to cookies used to communicate with the server.
+   * Inter-tab communication and communication with the server will be encrypted using this key.
+   *
+   * This is optional.
    */
-  clientKey: string | Nullish;
+  encryptionKey?: string | Nullish;
 
   /**
    * A key that locks down the tracker API from external access.
    *
-   * When specified, it must be passed as the first argument to {@link Tracker.push}.
+   * When specified, it must be added as a property to all commands that goes through `push`.
    */
-  apiKey: string | Nullish;
+  key?: string | Nullish;
+
+  /**
+   * If tail.js is hosted in a multi-tenant setup you know what to do.
+   * Otherwise, leave this blank.
+   */
+  apiKey?: string | Nullish;
 
   /**
    * Defines which `data-*` attributes in the surrounding DOM that gets mapped to tags (in addition to `track-tags`).

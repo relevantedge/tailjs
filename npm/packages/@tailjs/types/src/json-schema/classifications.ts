@@ -28,13 +28,14 @@ export const parsePrivacyTokens = (
         return;
       }
 
+      let matched = false;
       let parsed = (dataPurposes.tryParse(keyword) ??
         dataPurposes.tryParse(keyword.replace(/\-purpose$/g, ""))) as
         | number
         | undefined;
       if (parsed != null) {
         classification.purposes = (classification.purposes ?? 0) | parsed;
-        return;
+        matched = true;
       }
 
       parsed =
@@ -54,11 +55,10 @@ export const parsePrivacyTokens = (
           );
         }
         classification.classification ??= parsed;
-
-        return;
+        matched = true;
       }
 
-      throwError(`Unknown privacy keyword '${keyword}'.`);
+      !matched && throwError(`Unknown privacy keyword '${keyword}'.`);
     });
 
   return classification;

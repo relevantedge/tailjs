@@ -3,7 +3,7 @@ import { DEFAULT_CLIENT_CONFIG } from "@tailjs/client/external";
 
 import { type ViewEvent } from "@tailjs/types";
 import { JsonObject } from "@tailjs/util";
-import { SessionReferenceMapper } from "./ClientIdGenerator";
+import { ClientIdGenerator } from "./ClientIdGenerator";
 import { AllRequired } from "./lib";
 import {
   CryptoProvider,
@@ -34,9 +34,9 @@ export type RequestHandlerConfiguration = {
   debugScript?: boolean | string;
   manageConsents?: boolean;
   environmentTags?: string[];
-  clientKeySeed?: string;
+  clientEncryptionKeySeed?: string;
   client?: TrackerConfiguration;
-  sessionReferenceMapper?: SessionReferenceMapper;
+  clientIdGenerator?: ClientIdGenerator;
 
   /** Allow browser-based clients to send data as JSON. @default false. */
   allowBrowserJson?: boolean;
@@ -98,7 +98,7 @@ export const DEFAULT: Omit<
   | "crypto"
   | "encryptionKeys"
   | "storage"
-  | "sessionReferenceMapper"
+  | "clientIdGenerator"
 > = {
   trackerName: "tail",
   cookies: {
@@ -112,7 +112,7 @@ export const DEFAULT: Omit<
   deviceSessionTimeout: 10,
   includeIp: true,
   client: DEFAULT_CLIENT_CONFIG as any,
-  clientKeySeed: "tailjs",
+  clientEncryptionKeySeed: "tailjs",
   cookiePerPurpose: false,
   allowBrowserJson: false,
 };

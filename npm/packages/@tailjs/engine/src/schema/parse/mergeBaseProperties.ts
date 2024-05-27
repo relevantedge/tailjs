@@ -1,5 +1,5 @@
 import { add, forEach, update } from "@tailjs/util";
-import { ParsedType } from ".";
+import { ParsedType, censor } from ".";
 
 export const mergeBaseProperties = (
   type: ParsedType,
@@ -11,10 +11,17 @@ export const mergeBaseProperties = (
     forEach(
       mergeBaseProperties(baseType, seen).properties,
       ([name, property]) =>
-        // Merge base property's settings on current if not overridden.
         update(type.properties, name, (current) => ({
           ...property,
           ...current,
+          ...(!current?.explicit && property.explicit
+            ? {
+                classification: property.classification,
+                purposes: property.purposes,
+                censorIgnore: property.censorIgnore,
+                explicit: true,
+              }
+            : {}),
         }))
     )
   );

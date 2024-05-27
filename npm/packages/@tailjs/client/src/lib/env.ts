@@ -3,8 +3,30 @@ import {
   EVENT_HUB_QUERY,
   VARIABLES_QUERY,
 } from "@constants";
-import type { Nullish } from "@tailjs/util";
-import { T, document, join, parseDomain, replace, split } from ".";
+import {
+  F,
+  T,
+  ansi,
+  concat,
+  count,
+  isFunction,
+  isObject,
+  join,
+  map,
+  parseUri,
+  replace,
+  split,
+  createTimeout,
+  type Nullish,
+} from "@tailjs/util";
+import { jsonEncode } from "@tailjs/util/transport";
+import {
+  DEBUG,
+  addVariablesChangedListener,
+  document,
+  formatAnyVariableScope,
+} from ".";
+import { dataPurposes, sortVariables } from "@tailjs/types";
 
 export const ERR_BUFFER_OVERFLOW = "buffer-overflow";
 export const ERR_POST_FAILED = "post-failed";
@@ -19,12 +41,11 @@ const src = split("" + document.currentScript!["src"], "#");
 const args = split("" + (src[1] || ""), ";");
 
 export const SCRIPT_SRC = src[0];
-export const TRACKER_DOMAIN = args[1] || parseDomain(SCRIPT_SRC)?.domain?.host;
+export const TRACKER_DOMAIN = args[1] || parseUri(SCRIPT_SRC, false)?.host!;
 
 export const isInternalUrl = (url: string | Nullish) =>
   !!(
-    TRACKER_DOMAIN &&
-    parseDomain(url)?.domain?.host.endsWith(TRACKER_DOMAIN) === T
+    TRACKER_DOMAIN && parseUri(url, false)?.host?.endsWith(TRACKER_DOMAIN) === T
   );
 
 export const mapUrl = (...urlParts: string[]) =>
@@ -33,3 +54,37 @@ export const mapUrl = (...urlParts: string[]) =>
 export const VAR_URL = mapUrl("?", EVENT_HUB_QUERY);
 export const MNT_URL = mapUrl("?", CONTEXT_NAV_QUERY);
 export const USR_URL = mapUrl("?", VARIABLES_QUERY);
+
+export const groupValue = Symbol();
+export const childGroups = Symbol();
+
+export const debug = (
+  value: any,
+  group?: string,
+  collapsed = T,
+  nested = F
+) => {
+  group &&
+    (collapsed ? console.groupCollapsed : console.group)(
+      (nested ? "" : ansi("tail.js: ", "90;3")) + group
+    );
+  const children = value?.[childGroups];
+  children && (value = value[groupValue]);
+  value != null &&
+    console.log(
+      isObject(value)
+        ? ansi(jsonEncode(value), "94")
+        : // ? window["chrome"]
+        //   ? prettyPrint(value).join("")
+        //   : JSON.stringify(value, null, 2)
+        isFunction(value)
+        ? "" + value
+        : value
+    );
+  children &&
+    children.forEach(([value, group, collapsed]) =>
+      debug(value, group, collapsed, true)
+    );
+
+  group && console.groupEnd();
+};

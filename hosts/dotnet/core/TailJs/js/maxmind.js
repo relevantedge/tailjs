@@ -2374,411 +2374,9 @@ ieee754.write = function (buffer, value, offset, isLE, mLen, nBytes) {
 	} 
 } (buffer$1));
 
-const undefined$2 = void 0;
-/** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
-const isUndefined = (value)=>value === undefined$2;
-const isDefined = (value)=>value !== undefined$2;
-const ifDefined = (value, result)=>value !== undefined$2 ? result(value) : undefined$2;
-const isNumber = (value)=>typeof value === "number";
-const isString = (value)=>typeof value === "string";
-const isArray = Array.isArray;
 /**
- * Returns the value as an array following these rules:
- * - If the value is undefined (this does not include `null`), so is the return value.
- * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
- * - If the value is iterable, an array containing its values is returned
- * - Otherwise, an array with the value as its single item is returned.
- */ const toArray = (value, clone = false)=>isUndefined(value) ? undefined$2 : !clone && isArray(value) ? value : isIterable(value) ? [
-        ...value
-    ] : // ? toArrayAsync(value)
-    [
-        value
-    ];
-const isObject = (value, acceptIterables = false)=>value != null && typeof value === "object" && (acceptIterables || !value[symbolIterator]);
-const isFunction = (value)=>typeof value === "function";
-const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
-const isAwaitable = (value)=>!!value?.then;
-
-const throwError = (error, transform = (message)=>new TypeError(message))=>{
-    throw isString(error = unwrap(error)) ? transform(error) : error;
-};
-
-let stopInvoked = false;
-function* createFilteringIterator(source, projection) {
-    if (!source) return;
-    let i = 0;
-    for (let item of source){
-        projection && (item = projection(item, i++));
-        if (item !== undefined$2) {
-            yield item;
-        }
-        if (stopInvoked) {
-            stopInvoked = false;
-            break;
-        }
-    }
-}
-function* createObjectIterator(source, action) {
-    let i = 0;
-    for(const key in source){
-        let value = [
-            key,
-            source[key]
-        ];
-        action && (value = action(value, i++));
-        if (value !== undefined$2) {
-            yield value;
-        }
-        if (stopInvoked) {
-            stopInvoked = false;
-            break;
-        }
-    }
-}
-function* createRangeIterator(length = 0, offset = 0) {
-    while(length--)yield offset++;
-}
-function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_INTEGER) {
-    if (isDefined(start)) yield start;
-    while(maxIterations-- && isDefined(start = step(start))){
-        yield start;
-    }
-}
-const sliceAction = (action, start, end)=>(start ?? end) !== undefined$2 ? (start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$2 : end-- ? action ? action(value, index) : value : end) : action;
-const createIterator = (source, projection, start, end)=>source == null ? [] : source[symbolIterator] ? createFilteringIterator(source, start === undefined$2 ? projection : sliceAction(projection, start, end)) : typeof source === "object" ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
-const project = (source, projection, start, end)=>isNumber(projection) ? createIterator(source, undefined$2, projection, start) : createIterator(source, projection, start, end);
-const map = (source, projection, start, end)=>{
-    if (isArray(source)) {
-        let i = 0;
-        const mapped = [];
-        isNumber(projection) && ([projection, start, end] = [
-            undefined$2,
-            projection,
-            start
-        ]);
-        start = start < 0 ? source.length + start : start ?? 0;
-        end = end < 0 ? source.length + end : end ?? source.length;
-        for(; start < end && !stopInvoked; start++){
-            let value = source[start];
-            if (projection && value !== undefined$2) {
-                value = projection(value, i++);
-            }
-            if (value !== undefined$2) {
-                mapped.push(value);
-            }
-        }
-        stopInvoked = false;
-        return mapped;
-    }
-    return source !== undefined$2 ? toArray(project(source, projection, start, end)) : undefined$2;
-};
-const forEachArray$1 = (source, action, start, end)=>{
-    let returnValue;
-    let i = 0;
-    start = start < 0 ? source.length + start : start ?? 0;
-    end = end < 0 ? source.length + end : end ?? source.length;
-    for(; start < end; start++){
-        if (source[start] !== undefined$2 && (returnValue = action(source[start], i++) ?? returnValue, stopInvoked)) {
-            stopInvoked = false;
-            break;
-        }
-    }
-    return returnValue;
-};
-const forEachItereable = (source, action)=>{
-    let returnValue;
-    let i = 0;
-    for (let value of source){
-        if (value !== undefined$2 && (returnValue = action(value, i++) ?? returnValue, stopInvoked)) {
-            stopInvoked = false;
-            break;
-        }
-    }
-    return returnValue;
-};
-const forEachObject$1 = (source, action)=>{
-    let returnValue;
-    let i = 0;
-    for(let key in source){
-        if (returnValue = action([
-            key,
-            source[key]
-        ], i++) ?? returnValue, stopInvoked) {
-            stopInvoked = false;
-            break;
-        }
-    }
-    return returnValue;
-};
-const forEachInternal = (source, action, start, end)=>{
-    if (source == null) return;
-    if (isArray(source)) return forEachArray$1(source, action, start, end);
-    if (start === undefined$2) {
-        if (source[symbolIterator]) return forEachItereable(source, action);
-        if (typeof source === "object") return forEachObject$1(source, action);
-    }
-    let returnValue;
-    for (const value of createIterator(source, action, start, end)){
-        returnValue = value ?? returnValue;
-    }
-    return returnValue;
-};
-const last = (source, predicate, start, end)=>!source ? undefined$2 : isArray(source) ? source[source.length - 1] : forEachInternal(source, (item, i)=>!predicate || predicate(item, i) ? item : undefined$2, start, end);
-
-const define$1 = (target, ...args)=>{
-    const add = (arg, defaults)=>{
-        if (!arg) return;
-        let properties;
-        if (isArray(arg)) {
-            if (isObject(arg[0])) {
-                // Tuple with the first item the defaults and the next the definitions with those defaults,
-                // ([{enumerable: false, ...}, ...])
-                arg.splice(1).forEach((items)=>add(items, arg[0]));
-                return;
-            }
-            // ([[key1, value1], [key2, value2], ...])
-            properties = arg;
-        } else {
-            // An object.
-            properties = map(arg);
-        }
-        properties.forEach(([key, value])=>Object.defineProperty(target, key, {
-                configurable: false,
-                enumerable: true,
-                writable: false,
-                ...defaults,
-                ...isObject(value) && ("get" in value || "value" in value) ? value : isFunction(value) && !value.length ? {
-                    get: value
-                } : {
-                    value
-                }
-            }));
-    };
-    args.forEach((arg)=>add(arg));
-    return target;
-};
-const unwrap = (value)=>isFunction(value) ? unwrap(value()) : isAwaitable(value) ? value.then((result)=>unwrap(result)) : value;
-
-const conjunct = (values, conjunction = "and")=>ifDefined(values, (values)=>(values = isIterable(values) ? map(values, (value)=>value + "") : [
-            values + ""
-        ], values.length === 0 ? "" : values.length === 1 ? values[0] : `${values.slice(0, -1).join(", ")} ${conjunction} ${last(values)}`));
-const quote = (item)=>ifDefined(item, (item)=>isIterable(item) ? map(item, (item)=>"'" + item + "'") : "'" + item + "'");
-
-const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
-    const names = Object.fromEntries(Object.entries(sourceEnum).filter(([key, value])=>isString(key) && isNumber(value)).map(([key, value])=>[
-            key.toLowerCase(),
-            value
-        ]));
-    const entries = Object.entries(names);
-    const values = Object.values(names);
-    const any = values.reduce((any, flag)=>any | flag, 0);
-    const nameLookup = flags ? {
-        ...names,
-        any,
-        none: 0
-    } : names;
-    const valueLookup = Object.fromEntries(entries.map(([key, value])=>[
-            value,
-            key
-        ]));
-    const parseValue = (value, validateNumbers)=>isString(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] : isNumber(value) ? !flags && validateNumbers ? isDefined(valueLookup[value]) ? value : undefined$2 : value : undefined$2;
-    const [tryParse, lookup] = flags ? [
-        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>(flag = parseValue(flag, validateNumbers)) == null ? flags : (flags ?? 0) | flag, undefined$2) : parseValue(value),
-        (value, format)=>(value = tryParse(value, false)) == null ? undefined$2 : format && (value & any) === any ? "any" : (value = entries.filter(([, flag])=>value & flag).map(([name])=>name), format ? value.length ? value.length === 1 ? value[0] : value : "none" : value)
-    ] : [
-        parseValue,
-        (value)=>(value = parseValue(value)) != null ? valueLookup[value] : undefined$2
-    ];
-    let originalValue;
-    const parse = (value, validateNumbers)=>value == null ? undefined$2 : (value = tryParse(originalValue = value, validateNumbers)) == null ? throwError(new TypeError(`${JSON.stringify(originalValue)} is not a valid ${enumName} value.`)) : value;
-    const pure = entries.filter(([, value])=>!pureFlags || pureFlags & value);
-    return define$1((value)=>parse(value), [
-        {
-            configurable: false,
-            enumerable: false
-        },
-        {
-            parse,
-            tryParse,
-            entries,
-            values,
-            lookup,
-            length: entries.length,
-            format: (value)=>lookup(value, true),
-            logFormat: (value, c = "or")=>(value = lookup(value, true), value === "any" ? "any " + enumName : `the ${enumName} ${conjunct(quote(value), c)}`)
-        },
-        flags && {
-            pure,
-            map: (flags, map)=>(flags = parse(flags), pure.filter(([, flag])=>flag & flags).map(map ?? (([, flag])=>flag)))
-        }
-    ]);
-};
-
-var DataClassification;
-(function(DataClassification) {
-    /**
-   * The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.
-   *
-   * Tail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.
-   *
-   * Identifying returning visitors will not be possible at this level.
-   * In-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
-   */ DataClassification[DataClassification["Anonymous"] = 0] = "Anonymous";
-    /**
-   * The data may possibly identify the user if put into context with other data, yet not specifically on its own.
-   *
-   * Examples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.
-   *
-   * Identifying returning visitors will be possible at this level of consent, but not across devices.
-   * Some level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.
-   *
-   * This level is the default when a user has consented to necessary infomration being collected via a  cookie discalimer or similar.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
-   */ DataClassification[DataClassification["Indirect"] = 1] = "Indirect";
-    /**
-   * The data directly identifies the user on its own.
-   *
-   * Examples are name, username, street address and email address.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * Personalization based on past actions such as purchases will also be possible.
-   *
-   * This level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).
-   *
-   * Please note it is possible to access user data even when nothing is tracked beyond the bla... level
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
-   */ DataClassification[DataClassification["Direct"] = 2] = "Direct";
-    /**
-   * Sensitive data about a user.
-   *
-   * Examples are data related to health, financial matters, race, political and religious views, and union membership.
-   * If the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * and so will advanced personalization.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
-   */ DataClassification[DataClassification["Sensitive"] = 3] = "Sensitive";
-})(DataClassification || (DataClassification = {}));
-createEnumAccessor(DataClassification, false, "data classification");
-
-var DataPurposeFlags;
-(function(DataPurposeFlags) {
-    /** Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema. */ DataPurposeFlags[DataPurposeFlags["None"] = 0] = "None";
-    /**
-   * Data stored for this purpose is vital for the system, website or app to function.
-   */ DataPurposeFlags[DataPurposeFlags["Necessary"] = 1] = "Necessary";
-    /**
-   * Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app
-   * according to a user's preferences.
-   *
-   * DO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope
-   * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
-   *
-   * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
-   * also be distributed across multiple domain names.
-   *
-   */ DataPurposeFlags[DataPurposeFlags["Functionality"] = 2] = "Functionality";
-    /**
-   * Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including
-   * demographics and similar traits with the purpose of optimizing the website or app.
-   *
-   * DO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope
-   * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
-   *
-   * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
-   * also be distributed across multiple domain names.
-   *
-   */ DataPurposeFlags[DataPurposeFlags["Performance"] = 4] = "Performance";
-    /**
-   * Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties
-   * or otherwise used to perform marketing outside the scope of the specific website or app.
-   *
-   * If the data is only used for different website and apps that relate to the same product or service, it might not be necessary
-   * to use this category.
-   * This would be the case if a user is able to use an app and website interchangably for the same service. Different areas of a brand may
-   * also be distributed across multiple domain names.
-   */ DataPurposeFlags[DataPurposeFlags["Targeting"] = 8] = "Targeting";
-    /**
-   * Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,
-   * or for a website to guard itself against various kinds of attacks.
-   *
-   * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Security"] = 16] = "Security";
-    /**
-   * Data stored for this purpose may be similar to the performance category, however it is specifically
-   * only used for things such as health monitoring, system performance and error logging and unrelated to user behavior.
-   *
-   * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Infrastructure"] = 32] = "Infrastructure";
-    /**
-   * All purposes that are permissable for anonymous users.
-   */ DataPurposeFlags[DataPurposeFlags["Anonymous"] = 49] = "Anonymous";
-    /**
-   * Data can be used for any purpose.
-   */ DataPurposeFlags[DataPurposeFlags["Any"] = 63] = "Any";
-})(DataPurposeFlags || (DataPurposeFlags = {}));
-const purePurposes = 1 | 2 | 4 | 8 | 16 | 32;
-createEnumAccessor(DataPurposeFlags, true, "data purpose", purePurposes);
-createEnumAccessor(DataPurposeFlags, false, "data purpose");
-
-Object.freeze({
-    level: DataClassification.Anonymous,
-    purposes: DataPurposeFlags.Anonymous
-});
-Object.freeze({
-    level: DataClassification.Sensitive,
-    purposes: DataPurposeFlags.Any
-});
-
-var VariableScope;
-(function(VariableScope) {
-    /** Global variables. */ VariableScope[VariableScope["Global"] = 0] = "Global";
-    /** Variables related to sessions. */ VariableScope[VariableScope["Session"] = 1] = "Session";
-    /** Variables related to a device (browser or app). */ VariableScope[VariableScope["Device"] = 2] = "Device";
-    /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 3] = "User";
-    /**
-   * Variables related to an external identity.
-   * One use case could be used to augment data a CMS with real-time data related to personalization or testing.
-   */ VariableScope[VariableScope["Entity"] = 4] = "Entity";
-})(VariableScope || (VariableScope = {}));
-createEnumAccessor(VariableScope, false, "variable scope");
-
-var VariableResultStatus;
-(function(VariableResultStatus) {
-    VariableResultStatus[VariableResultStatus["Success"] = 200] = "Success";
-    VariableResultStatus[VariableResultStatus["Created"] = 201] = "Created";
-    VariableResultStatus[VariableResultStatus["Unchanged"] = 304] = "Unchanged";
-    VariableResultStatus[VariableResultStatus["Conflict"] = 409] = "Conflict";
-    VariableResultStatus[VariableResultStatus["Unsupported"] = 501] = "Unsupported";
-    VariableResultStatus[VariableResultStatus["Denied"] = 403] = "Denied";
-    VariableResultStatus[VariableResultStatus["ReadOnly"] = 405] = "ReadOnly";
-    VariableResultStatus[VariableResultStatus["NotFound"] = 404] = "NotFound";
-    VariableResultStatus[VariableResultStatus["Invalid"] = 400] = "Invalid";
-    VariableResultStatus[VariableResultStatus["Error"] = 500] = "Error";
-})(VariableResultStatus || (VariableResultStatus = {}));
-createEnumAccessor(VariableResultStatus, false, "variable set status");
-var VariablePatchType;
-(function(VariablePatchType) {
-    VariablePatchType[VariablePatchType["Add"] = 0] = "Add";
-    VariablePatchType[VariablePatchType["Min"] = 1] = "Min";
-    VariablePatchType[VariablePatchType["Max"] = 2] = "Max";
-    VariablePatchType[VariablePatchType["IfMatch"] = 3] = "IfMatch";
-    VariablePatchType[VariablePatchType["IfNoneMatch"] = 4] = "IfNoneMatch";
-})(VariablePatchType || (VariablePatchType = {}));
-createEnumAccessor(VariablePatchType, false, "variable patch type");
-
-/**
- *  No-op function to validate event types in TypeScript. Because function parameters are contravariant, passing an event that does not match on all properties will get red wiggly lines)
- *
- */ const cast = (item)=>item;
+ *  No-op function to validate types in TypeScript. Because function parameters are contravariant, passing an event that does not match on all properties will get red wiggly lines)
+ */ const restrict = (item)=>item;
 
 var lib$3 = {};
 
@@ -20248,26 +19846,27 @@ class ClientLocation {
         this._mmdb = mmdb;
     }
     async patch(events, next, tracker) {
+        if (!tracker.session) return next(events);
         if (!this._initialized) throw new Error("Not initialized");
         //if (!tracker.consent?.active) return events;
         const env = tracker.env;
         let country = "NA";
-        const ip = tracker.clientIp;
-        if (ip) {
-            const clientHash = env.hash(tracker.clientIp);
-            if ((await tracker.get([
+        const ip = "87.62.100.252";
+        {
+            const clientHash = env.hash(ip + JSON.stringify(tracker.consent));
+            if (await tracker.get([
                 {
                     scope: "session",
                     key: "mx"
                 }
-            ]))[0].value !== clientHash) {
+            ]).value !== clientHash) {
                 const location = this.filterNames(this._reader?.get(ip));
                 tracker.requestItems.set(ClientLocation.name, this.filterNames(location, this._language));
                 if (location) {
                     events = [
                         ...events,
-                        cast({
-                            type: "SESSION_LOCATION",
+                        restrict({
+                            type: "session_location",
                             accuracy: location.location?.accuracy_radius,
                             city: location.city ? {
                                 name: location.city.names[this._language],
@@ -20306,14 +19905,16 @@ class ClientLocation {
                         key: "mx",
                         classification: "anonymous",
                         purposes: "necessary",
-                        value: clientHash
+                        value: clientHash,
+                        force: true
                     },
                     {
                         scope: "session",
                         key: "country",
                         classification: "anonymous",
                         purposes: "necessary",
-                        value: country
+                        value: country,
+                        force: true
                     }
                 ]);
             }
