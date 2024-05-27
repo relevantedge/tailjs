@@ -19851,8 +19851,10 @@ class ClientLocation {
         //if (!tracker.consent?.active) return events;
         const env = tracker.env;
         let country = "NA";
-        const ip = "87.62.100.252";
-        {
+        const ip = tracker.clientIp;
+        if (ip) {
+            // Send a new location event whenever the consent changes.
+            // The new consent may influence how much data gets tracked.
             const clientHash = env.hash(ip + JSON.stringify(tracker.consent));
             if (await tracker.get([
                 {
