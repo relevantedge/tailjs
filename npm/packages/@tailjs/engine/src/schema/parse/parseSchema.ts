@@ -4,6 +4,7 @@ import {
   TraverseContext,
   addProperties,
   createSchemaNavigator,
+  maybeMakeEventType,
   parseType,
   updateBaseTypes,
   updateContext,
@@ -32,6 +33,9 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
   );
 
   updateBaseTypes(rootContext);
+  rootContext.parseContext.typeNodes.forEach((type) =>
+    maybeMakeEventType(type)
+  );
 
   return [
     rootContext.parseContext.schemas,

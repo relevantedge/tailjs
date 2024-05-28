@@ -7,7 +7,7 @@ export * from "./mergeBasePropertyClassifications";
 export * from "./parseClassifications";
 export * from "./parseCompositions";
 export * from "./parseDescription";
-export * from "./parseEventTypes";
+export * from "./maybeMakeEventType";
 export * from "./parseSchema";
 export * from "./parseStructure";
 export * from "./parseType";

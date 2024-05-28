@@ -1,10 +1,5 @@
 import { PickPartial, required } from "@tailjs/util";
-import {
-  TraverseContext,
-  parseClassifications,
-  parseDescription,
-  parseEventTypes,
-} from ".";
+import { TraverseContext, parseClassifications, parseDescription } from ".";
 
 export const updateContext = (
   context: PickPartial<TraverseContext, "key">,
@@ -44,7 +39,7 @@ export const updateContext = (
     }
     context.parseContext.schemas.set(schema.id, schema);
 
-    parseEventTypes(childContext);
+    //parseEventTypes(childContext);
   }
   return childContext;
 };
