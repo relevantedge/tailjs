@@ -295,7 +295,7 @@ describe("SchemaManager.", () => {
     ).toBeDefined();
   });
 
-  it("Supports event definitions from properties and sub schemas", () => {
+  it("Supports event definitions from naming convention", () => {
     let schema = SchemaManager.create([
       {
         ...schemaHeader,
@@ -303,7 +303,7 @@ describe("SchemaManager.", () => {
           ...systemEvents,
           events: {
             $defs: {
-              EventType1: {
+              Test1Event: {
                 type: "object",
                 properties: { test: { type: "string" } },
               },
@@ -313,47 +313,36 @@ describe("SchemaManager.", () => {
               },
             },
           },
-          EventType3: {
+          Test3Event: {
             type: "object",
             properties: { number3: { type: "number" } },
           },
-          EventType4: {
+          Test4Event: {
             type: "object",
             properties: { type: { const: "ev4" }, number3: { type: "number" } },
-          },
-          Event: {
-            anyOf: [
-              { $ref: "#/$defs/EventType3" },
-              { $ref: "#/$defs/EventType4" },
-            ],
           },
           "urn:acme:other": {
             $schema: "https://json-schema.org/draft/2020-12/schema",
             $id: "urn:acme:other",
             "x-privacy-purposes": "functionality",
             $defs: {
-              Events: {
+              Test2Event: {
                 type: "object",
-                properties: {
-                  EventType2: {
-                    type: "object",
-                    properties: { test: { type: "string" } },
-                  },
-                },
+                properties: { test: { type: "string" } },
               },
             },
           },
         },
       },
     ]);
-    expect(schema.getType("urn:tailjs:core#EventType1")).toBeDefined();
+    expect(schema.getType("urn:tailjs:core#Test1Event")).toBeDefined();
     expect(schema.getType("urn:tailjs:core#AnotherTestEvent")).toBeDefined();
-    expect(schema.getType("urn:acme:other#EventType2")).toBeDefined();
-    expect(schema.getType("urn:tailjs:core#EventType3")).toBeDefined();
-    expect(schema.getType("urn:tailjs:core#EventType4")).toBeDefined();
-    expect(schema.getType("event_type_1")).toBeDefined();
-    expect(schema.getType("event_type_2")).toBeDefined();
-    expect(schema.getType("event_type_3")).toBeDefined();
+    expect(schema.getType("urn:acme:other#Test2Event")).toBeDefined();
+    expect(schema.getType("urn:tailjs:core#Test3Event")).toBeDefined();
+    expect(schema.getType("urn:tailjs:core#Test4Event")).toBeDefined();
+    expect(schema.getType("test_1")).toBeDefined();
+    expect(schema.getType("test_2")).toBeDefined();
+    expect(schema.getType("test_3")).toBeDefined();
     expect(schema.getType("ev4")).toBeDefined();
     expect(schema.getType("another_test")).toBeDefined();
   });

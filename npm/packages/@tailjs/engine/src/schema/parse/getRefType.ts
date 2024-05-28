@@ -1,5 +1,6 @@
 import {
   MaybeUndefined,
+  Nullish,
   forEach,
   isArray,
   isPlainObject,
@@ -20,16 +21,20 @@ export const getRefSchema = <T extends string | undefined>(
 };
 
 export const getRefType = <T extends string | undefined>(
-  context: TraverseContext,
-  ref: T
+  context: TraverseContext | Nullish,
+  ref: T,
+  require = false
 ): MaybeUndefined<T, ParsedType> => {
-  if (ref == null) return undefined as any;
+  if (ref == null || context == null) return undefined as any;
 
   const def = getRefSchema(context, ref);
-  return required(
-    def && context.parseContext.typeNodes.get(def),
-    () => `Referenced type '${ref}' is not defined`
-  ) as any;
+  const resolved = def && context.parseContext.typeNodes.get(def);
+  return require
+    ? (required(
+        resolved,
+        () => `Referenced type '${ref}' is not defined`
+      ) as any)
+    : resolved;
 };
 
 export const createSchemaNavigator = (node: any) => {

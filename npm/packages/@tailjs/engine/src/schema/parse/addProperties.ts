@@ -24,6 +24,11 @@ export const addProperties = (
   if (composition.context && node.properties) {
     const propertiesContext = updateContext(composition.context, "properties");
     forEach(node.properties, ([key, definition]) => {
+      if (type.properties?.has(key)) {
+        // Already parsed.
+        return;
+      }
+
       const context = updateContext(propertiesContext, key);
       const [typeContext, structure] = parseStructure(context);
 

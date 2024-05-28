@@ -4,6 +4,7 @@ import {
   ParsedType,
   TraverseContext,
   getRefType,
+  maybeMakeEventType,
   mergeBaseProperties,
   updateTypeClassifications,
 } from ".";
@@ -29,7 +30,11 @@ export const updateBaseTypes = (context: TraverseContext) => {
       }
     };
 
-    addBaseTypes(type.composition);
+    type.composition?.compositions?.forEach((composition) =>
+      addBaseTypes(composition)
+    );
+
+    maybeMakeEventType(type);
   });
 
   typeNodes.forEach((type) => {
