@@ -1,7 +1,7 @@
 {
   "name": "@tailjs/types",
   "description": "Default type definitions for tailjs.",
-  "license": "MIT",
+  "license": "LGPL3",
   "version": "0.17.24",
   "main": "src/index.ts",
   "type": "module",
@@ -20,8 +20,6 @@
     "directory": "dist"
   },
   "dependencies": {
-    "@tailjs/util": "workspace:^0.17.24",
-    "@types/semver": "^7.5.8",
-    "semver": "^7.6.0"
+    "@tailjs/util": "workspace:*"
   }
 }

@@ -19,7 +19,7 @@ internal class ScriptTrackerHandle : IScriptTrackerHandle
   {
     ScriptHandle = scriptHandle;
 
-    scriptHandle.Attach<ITrackerHandle>(this);
+    scriptHandle.Attach<IScriptTrackerHandle>(this);
   }
 
   public async ValueTask<ITracker> ResolveAsync(CancellationToken cancellationToken = default)

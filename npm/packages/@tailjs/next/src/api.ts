@@ -1,7 +1,7 @@
 import { TrackerConfiguration } from "@tailjs/client/external";
 import type { RequestHandler, TrackerExtension } from "@tailjs/engine";
 import { bootstrap } from "@tailjs/engine";
-import { NativeHost } from "@tailjs/engine/native";
+import { NativeHost } from "@tailjs/node";
 import type { ConsentEvent, SessionStartedEvent } from "@tailjs/types";
 //import { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";

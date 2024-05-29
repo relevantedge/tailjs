@@ -395,6 +395,14 @@ export const isArray: (value: any) => value is any[] = Array.isArray;
 
 export const isError = (value: any): value is Error => value instanceof Error;
 
+type Lask<T> = T extends readonly (infer Item)[]
+  ? T extends Item[]
+    ? T
+    : never
+  : never;
+
+type Fiddo = Lask<[1, 2, 3]>;
+
 /**
  * Returns the value as an array following these rules:
  * - If the value is undefined (this does not include `null`), so is the return value.
@@ -407,13 +415,13 @@ export const array: {
   //   [T][0],
   //   Promise<T[]>
   // >;
-  <T, Clone extends boolean = false>(value: T, clone?: Clone): T extends Nullish
+  <T>(value: T, clone?: boolean): T extends Nullish
     ? undefined
-    : T extends readonly any[]
-    ? [Clone] extends [false]
+    : T extends Iterable<infer Item>
+    ? T extends Item[]
       ? T
-      : [...T]
-    : (T extends Iterable<infer T> ? T : T)[];
+      : Item[]
+    : T[];
 } = (value: any, clone = false as any): any =>
   value == null
     ? undefined

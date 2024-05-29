@@ -7587,7 +7587,11 @@ Object.defineProperty(response, "__esModule", { value: true });
 (function (exports) {
 	var __createBinding = (commonjsGlobal && commonjsGlobal.__createBinding) || (Object.create ? (function(o, m, k, k2) {
 	    if (k2 === undefined) k2 = k;
-	    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+	    var desc = Object.getOwnPropertyDescriptor(m, k);
+	    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+	      desc = { enumerable: true, get: function() { return m[k]; } };
+	    }
+	    Object.defineProperty(o, k2, desc);
 	}) : (function(o, m, k, k2) {
 	    if (k2 === undefined) k2 = k;
 	    o[k2] = m[k];
@@ -7697,14 +7701,10 @@ var tinyLru = {};
 /**
  * tiny-lru
  *
- * @copyright 2023 Jason Mulligan <jason.mulligan@avoidwork.com>
+ * @copyright 2024 Jason Mulligan <jason.mulligan@avoidwork.com>
  * @license BSD-3-Clause
- * @version 11.0.0
+ * @version 11.2.6
  */
-
-function has (items, key) {
-	return key in items;
-}
 
 class LRU {
 	constructor (max = 0, ttl = 0, resetTtl = false) {
@@ -7727,7 +7727,7 @@ class LRU {
 	}
 
 	delete (key) {
-		if (has(this.items, key)) {
+		if (this.has(key)) {
 			const item = this.items[key];
 
 			delete this.items[key];
@@ -7753,6 +7753,10 @@ class LRU {
 		return this;
 	}
 
+	entries (keys = this.keys()) {
+		return keys.map(key => [key, this.get(key)]);
+	}
+
 	evict (bypass = false) {
 		if (bypass || this.size > 0) {
 			const item = this.first;
@@ -7774,7 +7778,7 @@ class LRU {
 	expiresAt (key) {
 		let result;
 
-		if (has(this.items, key)) {
+		if (this.has(key)) {
 			result = this.items[key].expiry;
 		}
 
@@ -7784,7 +7788,7 @@ class LRU {
 	get (key) {
 		let result;
 
-		if (has(this.items, key)) {
+		if (this.has(key)) {
 			const item = this.items[key];
 
 			if (this.ttl > 0 && item.expiry <= Date.now()) {
@@ -7798,18 +7802,30 @@ class LRU {
 		return result;
 	}
 
+	has (key) {
+		return key in this.items;
+	}
+
 	keys () {
-		return Object.keys(this.items);
+		const result = [];
+		let x = this.first;
+
+		while (x !== null) {
+			result.push(x.key);
+			x = x.next;
+		}
+
+		return result;
 	}
 
 	set (key, value, bypass = false, resetTtl = this.resetTtl) {
 		let item;
 
-		if (bypass || has(this.items, key)) {
+		if (bypass || this.has(key)) {
 			item = this.items[key];
 			item.value = value;
 
-			if (resetTtl) {
+			if (bypass === false && resetTtl) {
 				item.expiry = this.ttl > 0 ? Date.now() + this.ttl : this.ttl;
 			}
 
@@ -7858,6 +7874,10 @@ class LRU {
 
 		return this;
 	}
+
+	values (keys = this.keys()) {
+		return keys.map(key => this.get(key));
+	}
 }
 
 function lru (max = 1000, ttl = 0, resetTtl = false) {
@@ -7876,6 +7896,7 @@ function lru (max = 1000, ttl = 0, resetTtl = false) {
 	return new LRU(max, ttl, resetTtl);
 }
 
+tinyLru.LRU = LRU;
 tinyLru.lru = lru;
 
 var fs = {};
@@ -17147,54 +17168,41 @@ function requireCorrectPath () {
 	Object.defineProperty(correctPath, "__esModule", {
 	  value: true
 	});
-	correctPath.unixify = unixify;
 	correctPath.correctPath = correctPath$1;
+	correctPath.unixify = unixify;
 	var isWin = process$1.platform === 'win32';
-
 	function removeTrailingSeparator(str) {
 	  var i = str.length - 1;
-
 	  if (i < 2) {
 	    return str;
 	  }
-
 	  while (isSeparator(str, i)) {
 	    i--;
 	  }
-
 	  return str.substr(0, i + 1);
 	}
-
 	function isSeparator(str, i) {
 	  var _char = str[i];
 	  return i > 0 && (_char === '/' || isWin && _char === '\\');
 	}
-
 	function normalizePath(str, stripTrailing) {
 	  if (typeof str !== 'string') {
 	    throw new TypeError('expected a string');
 	  }
-
 	  str = str.replace(/[\\\/]+/g, '/');
-
 	  if (stripTrailing !== false) {
 	    str = removeTrailingSeparator(str);
 	  }
-
 	  return str;
 	}
-
 	function unixify(filepath) {
 	  var stripTrailing = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
-
 	  if (isWin) {
 	    filepath = normalizePath(filepath, stripTrailing);
 	    return filepath.replace(/^([a-zA-Z]+:|\.\/)/, '');
 	  }
-
 	  return filepath;
 	}
-
 	function correctPath$1(filepath) {
 	  return unixify(filepath.replace(/^\\\\\?\\.:\\/, '\\'));
 	}
@@ -19480,7 +19488,13 @@ function requireCorrectPath () {
 	            var _a;
 	            var filepath = link.getPath();
 	            var node = link.getNode();
-	            var onNodeChange = function () { return _this.emit('change', 'change', relative(_this._filename, filepath)); };
+	            var onNodeChange = function () {
+	                var filename = relative(_this._filename, filepath);
+	                if (!filename) {
+	                    filename = _this._getName();
+	                }
+	                return _this.emit('change', 'change', filename);
+	            };
 	            node.on('change', onNodeChange);
 	            var removers = (_a = _this._listenerRemovers.get(node.ino)) !== null && _a !== void 0 ? _a : [];
 	            removers.push(function () { return node.removeListener('change', onNodeChange); });
@@ -19575,13 +19589,10 @@ var lists = {};
 Object.defineProperty(lists, "__esModule", {
   value: true
 });
-lists.fsAsyncMethods = lists.fsSyncMethods = lists.fsProps = void 0;
-var fsProps = ['constants', 'F_OK', 'R_OK', 'W_OK', 'X_OK', 'Stats'];
-lists.fsProps = fsProps;
-var fsSyncMethods = ['renameSync', 'ftruncateSync', 'truncateSync', 'chownSync', 'fchownSync', 'lchownSync', 'chmodSync', 'fchmodSync', 'lchmodSync', 'statSync', 'lstatSync', 'fstatSync', 'linkSync', 'symlinkSync', 'readlinkSync', 'realpathSync', 'unlinkSync', 'rmdirSync', 'mkdirSync', 'mkdirpSync', 'readdirSync', 'closeSync', 'openSync', 'utimesSync', 'futimesSync', 'fsyncSync', 'writeSync', 'readSync', 'readFileSync', 'writeFileSync', 'appendFileSync', 'existsSync', 'accessSync', 'fdatasyncSync', 'mkdtempSync', 'copyFileSync', 'createReadStream', 'createWriteStream'];
-lists.fsSyncMethods = fsSyncMethods;
-var fsAsyncMethods = ['rename', 'ftruncate', 'truncate', 'chown', 'fchown', 'lchown', 'chmod', 'fchmod', 'lchmod', 'stat', 'lstat', 'fstat', 'link', 'symlink', 'readlink', 'realpath', 'unlink', 'rmdir', 'mkdir', 'mkdirp', 'readdir', 'close', 'open', 'utimes', 'futimes', 'fsync', 'write', 'read', 'readFile', 'writeFile', 'appendFile', 'exists', 'access', 'fdatasync', 'mkdtemp', 'copyFile', 'watchFile', 'unwatchFile', 'watch'];
-lists.fsAsyncMethods = fsAsyncMethods;
+lists.fsSyncMethods = lists.fsProps = lists.fsAsyncMethods = void 0;
+lists.fsProps = ['constants', 'F_OK', 'R_OK', 'W_OK', 'X_OK', 'Stats'];
+lists.fsSyncMethods = ['renameSync', 'ftruncateSync', 'truncateSync', 'chownSync', 'fchownSync', 'lchownSync', 'chmodSync', 'fchmodSync', 'lchmodSync', 'statSync', 'lstatSync', 'fstatSync', 'linkSync', 'symlinkSync', 'readlinkSync', 'realpathSync', 'unlinkSync', 'rmdirSync', 'mkdirSync', 'mkdirpSync', 'readdirSync', 'closeSync', 'openSync', 'utimesSync', 'futimesSync', 'fsyncSync', 'writeSync', 'readSync', 'readFileSync', 'writeFileSync', 'appendFileSync', 'existsSync', 'accessSync', 'fdatasyncSync', 'mkdtempSync', 'copyFileSync', 'rmSync', 'createReadStream', 'createWriteStream'];
+lists.fsAsyncMethods = ['rename', 'ftruncate', 'truncate', 'chown', 'fchown', 'lchown', 'chmod', 'fchmod', 'lchmod', 'stat', 'lstat', 'fstat', 'link', 'symlink', 'readlink', 'realpath', 'unlink', 'rmdir', 'mkdir', 'mkdirp', 'readdir', 'close', 'open', 'utimes', 'futimes', 'fsync', 'write', 'read', 'readFile', 'writeFile', 'appendFile', 'exists', 'access', 'fdatasync', 'mkdtemp', 'copyFile', 'rm', 'watchFile', 'unwatchFile', 'watch'];
 
 (function (module, exports) {
 	var __assign = (commonjsGlobal && commonjsGlobal.__assign) || function () {

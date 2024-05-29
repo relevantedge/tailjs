@@ -39,7 +39,7 @@ export const Tracker = ({
   exclude = /ErrorBoundary|Provider|Route[a-z_]*|Switch|[a-z_]*Context/gi,
 }: TrackerProperties) => {
   if (!isExternal()) {
-    tail.push({ set: { rendered: true } });
+    tail.push({ set: { scope: "view", key: "rendered", value: true } });
   }
   tail.push({ disable: disabled });
 
@@ -48,8 +48,6 @@ export const Tracker = ({
       context={tail}
       mapState={(el, state: BoundaryDataWithView | null, context) => {
         let mapped = map?.(el, context);
-
-        const name = el.type?.name ?? el.type?.prototype?.name;
 
         if (mapped?.component) {
           mapped.component = filterCurrent(
@@ -75,7 +73,9 @@ export const Tracker = ({
         }
 
         if (mapped?.view) {
-          context.context.push({ set: { view: mapped.view } });
+          context.context.push({
+            set: { scope: "view", key: "view", value: mapped.view },
+          });
         }
 
         if (

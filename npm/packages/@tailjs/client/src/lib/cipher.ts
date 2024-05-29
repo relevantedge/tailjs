@@ -1,5 +1,5 @@
 import { createEvent, type Nullish } from "@tailjs/util";
-import { Decoder, Encoder, createTransport } from "@tailjs/util/transport";
+import { Decoder, Encoder, createTransport } from "@tailjs/transport";
 import { DEBUG, NOT_INITIALIZED } from ".";
 
 export const [httpEncode, httpDecode] = createTransport();

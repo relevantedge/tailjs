@@ -5,7 +5,7 @@ import type {
   ConsentEvent,
   FormEvent,
 } from "@tailjs/types";
-import { BoundaryData } from "../commands";
+import { BoundaryData } from "..";
 
 /***
  * Attributes that can be added to HTML elements to extend tracking.

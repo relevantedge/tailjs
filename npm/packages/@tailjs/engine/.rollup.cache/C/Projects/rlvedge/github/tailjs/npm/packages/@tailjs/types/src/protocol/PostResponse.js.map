@@ -1,1 +1,0 @@
-{"version":3,"file":"PostResponse.js","sourceRoot":"","sources":["PostResponse.ts"],"names":[],"mappings":"","sourcesContent":["import { Variable } from \"..\";\n\nexport interface PostResponse {\n  eventIds?: string[];\n  variables?: Variable[];\n}\n"]}

@@ -1,28 +1,18 @@
-import { BoundaryData } from "@tailjs/client";
-import { BoundaryDataWithView } from "./Tracker";
-
-function mergeArrays<T>(
-  lhs: T | T[] | undefined | null,
-  rhs: T | T[] | undefined | null
-): T | T[] | undefined | null {
-  return !lhs ? rhs : !rhs ? lhs : [...asArray(lhs), ...asArray(rhs)];
-}
-
-export function asArray<T>(item: T | T[] | undefined | null) {
-  return !item ? [] : Array.isArray(item) ? item : [item];
-}
+import { array, concat, map } from "@tailjs/util";
+import { BoundaryDataWithView } from ".";
 
 export function filterCurrent<T>(
-  current: T | T[] | undefined | null,
-  added: T | T[] | undefined | null,
+  current: T | readonly T[] | undefined | null,
+  added: T | readonly T[] | undefined | null,
   selector: (item: T) => string
-) {
-  if (!added || !current) return added;
-  var currentIds = new Set([...asArray(current).map(selector)]);
-  const filtered = asArray(added).filter(
-    (item) => !currentIds.has(selector(item))
+): undefined | T[] {
+  if (!added || !current) return added as any;
+
+  var currentIds = new Set([...array(current).map(selector as any)]);
+  const filtered = array(added).filter(
+    (item) => !currentIds.has(selector(item as any))
   );
-  return filtered.length === 0 ? undefined : filtered;
+  return filtered.length === 0 ? undefined : (filtered as any);
 }
 
 export function mergeStates(
@@ -34,10 +24,10 @@ export function mergeStates(
 
   const merged = {
     view: mapped?.view,
-    content: mergeArrays(current?.content, mapped?.content),
-    component: mergeArrays(current?.component, mapped?.component),
+    content: concat(current?.content, mapped?.content),
+    component: concat(current?.component, mapped?.component),
     area: current?.area ?? mapped?.area,
-    tags: mergeArrays(current?.tags, mapped?.tags),
+    tags: concat(current?.tags, mapped?.tags),
     cart: mapped?.cart ?? current?.cart,
   };
   if (

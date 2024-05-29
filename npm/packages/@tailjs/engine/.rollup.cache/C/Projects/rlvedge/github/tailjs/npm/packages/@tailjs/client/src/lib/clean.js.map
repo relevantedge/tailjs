@@ -1,1 +1,0 @@
-{"version":3,"file":"clean.js","sourceRoot":"","sources":["clean.ts"],"names":[],"mappings":"","sourcesContent":["import { F, T, del, entries, nil, obj } from \".\";\n"]}

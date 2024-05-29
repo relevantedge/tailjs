@@ -155,7 +155,7 @@ function getResolvedEnv() {
 
 export function addCommonPackageData(pkg: Record<string, any>) {
   return {
-    license: "MIT",
+    license: "LGPL3",
     author: "RelevantEdge (https://www.relevant-edge.com)",
     homepage: "https://github.com/relevantedge/tailjs",
     ...pkg,

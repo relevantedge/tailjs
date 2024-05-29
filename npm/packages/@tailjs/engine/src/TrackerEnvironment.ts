@@ -1,13 +1,13 @@
+import { Encodable, hash, httpDecode, httpEncode } from "@tailjs/transport";
 import {
-  Encodable,
-  hash,
-  httpDecode,
-  httpEncode,
-} from "@tailjs/util/transport";
+  MaybeUndefined,
+  Nullish,
+  isObject,
+  isString,
+  parameterList,
+  parseHttpHeader,
+} from "@tailjs/util";
 import ShortUniqueId from "short-unique-id";
-
-import { MaybeUndefined, Nullish, isObject, isString } from "@tailjs/util";
-import { params } from "./lib";
 import {
   LogLevel,
   ParsingVariableStorage,
@@ -195,19 +195,16 @@ export class TrackerEnvironment {
     const cookies: Record<string, Cookie> = {};
 
     for (const cookie of response.cookies) {
-      const ps = params(cookie);
+      const ps = parseHttpHeader(cookie, false);
 
-      if (!ps[0]) continue;
-      const [name, value] = ps[0];
-      const rest = Object.fromEntries(
-        ps.slice(1).map(([k, v]) => [k.toLowerCase(), v])
-      );
+      const [name, value] = ps[parameterList][0] ?? [];
+      if (!name) continue;
 
       cookies[name] = {
         value,
-        httpOnly: "httponly" in rest,
-        sameSitePolicy: SAME_SITE[rest["samesite"]] ?? "Lax",
-        maxAge: rest["max-age"] ? parseInt(rest["max-age"]) : undefined,
+        httpOnly: "httponly" in ps,
+        sameSitePolicy: SAME_SITE[ps["samesite"]] ?? "Lax",
+        maxAge: ps["max-age"] ? parseInt(ps["max-age"]) : undefined,
       };
     }
 

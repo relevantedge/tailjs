@@ -1,7 +1,5 @@
 import React, { isValidElement, ReactNode } from "react";
 
-const ssr = typeof window === "undefined";
-
 export let currentContext: TraverseContext | null = null;
 const CONTEXT_PROPERTY = Symbol(); //"__traverse_ctx";
 

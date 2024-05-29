@@ -1,5 +1,5 @@
+import { TrackedEvent } from ".";
 import { typeTest } from "../util/type-test";
-import { TrackedEvent } from "./TrackedEvent";
 
 /**
  * Events related to users signing in, out etc..

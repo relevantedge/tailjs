@@ -1,4 +1,4 @@
-import { tailjs } from "..";
+import { tailjs } from "@tailjs/express";
 import { expand } from "dotenv-expand";
 import * as dotenv from "dotenv";
 import { ClientLocation } from "@tailjs/maxmind";

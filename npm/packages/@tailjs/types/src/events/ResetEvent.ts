@@ -1,6 +1,5 @@
+import { SystemEvent, TrackedEvent } from ".";
 import { typeTest } from "../util/type-test";
-import { SystemEvent } from "./SystemEvent";
-import { TrackedEvent } from "./TrackedEvent";
 
 /**
  * An event that can be used to reset the current session and optionally also device.

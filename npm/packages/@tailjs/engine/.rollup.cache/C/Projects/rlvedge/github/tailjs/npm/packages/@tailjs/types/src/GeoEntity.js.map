@@ -1,1 +1,0 @@
-{"version":3,"file":"GeoEntity.js","sourceRoot":"","sources":["GeoEntity.ts"],"names":[],"mappings":"","sourcesContent":["import { Float, Integer } from \".\";\n\nexport interface GeoEntity {\n  name: string;\n  geonames?: Integer;\n  iso?: string;\n  confidence?: Float;\n}\n"]}

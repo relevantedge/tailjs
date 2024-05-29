@@ -1,0 +1,25 @@
+{
+  "name": "@tailjs/node",
+  "description": "A node.js native engine host for tail.js.",
+  "license": "LGPL3",
+  "version": "0.17.24",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "tsx ../../../build/rollup.ts",
+    "build:watch": "pnpm run build -w"
+  },
+  "publishConfig": {
+    "directory": "dist"
+  },
+  "dependencies": {
+    "@tailjs/engine": "workspace:*",
+    "@tailjs/transport": "workspace:*",
+    "@tailjs/util": "workspace:*",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.33"
+  }
+}

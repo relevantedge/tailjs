@@ -10,14 +10,17 @@
     "gazonk",
     "lfsr",
     "loslessly",
+    "maxmind",
     "minifyable",
     "msgpack",
+    "nextjs",
     "niels",
     "null'ish",
     "onfullfilled",
     "ontick",
     "Personalizable",
     "pseudonomized",
+    "ravendb",
     "readonlyness",
     "Rebinder",
     "reparse",
@@ -33,7 +36,8 @@
     "unsalvageable",
     "uuidv",
     "Validatable",
-    "Voidefined"
+    "Voidefined",
+    "weirdee"
   ],
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8"

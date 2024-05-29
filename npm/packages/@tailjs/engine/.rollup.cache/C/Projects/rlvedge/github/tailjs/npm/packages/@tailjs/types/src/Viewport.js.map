@@ -1,1 +1,0 @@
-{"version":3,"file":"Viewport.js","sourceRoot":"","sources":["Viewport.ts"],"names":[],"mappings":"","sourcesContent":["import { Rectangle } from \"./Rectangle\";\nimport { Float } from \"./native-types\";\n\nexport interface Viewport extends Rectangle {\n  totalWidth: Float;\n  totalHeight: Float;\n}\n"]}

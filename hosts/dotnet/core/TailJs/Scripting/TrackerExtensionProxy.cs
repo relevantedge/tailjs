@@ -8,30 +8,24 @@ namespace TailJs.Scripting;
 internal class TrackerExtensionProxy
 {
   private readonly ITrackerExtension _extension;
-  private readonly RequestHandler _requestHandler;
   private readonly JsonNodeConverter _json;
 
-  public TrackerExtensionProxy(
-    ITrackerExtension extension,
-    RequestHandler requestHandler,
-    JsonNodeConverter json
-  )
+  public TrackerExtensionProxy(ITrackerExtension extension, JsonNodeConverter json)
   {
     _extension = extension;
-    _requestHandler = requestHandler;
     _json = json;
   }
 
   public object? initialize(IScriptObject environment) =>
-    _extension.InitializeAsync(environment.RequireAttachment<ITrackerEnvironment>()).AsPromiseLike();
+    _extension.InitializeAsync(environment.RequireAttachment<TrackerEnvironment>()).AsPromiseLike();
 
   public object? apply(IScriptObject tracker, object? context = null) =>
-    _extension.ApplyAsync(tracker.RequireAttachment<ITracker>()).AsPromiseLike();
+    _extension.ApplyAsync(tracker.RequireAttachment<Tracker>()).AsPromiseLike();
 
   private IReadOnlyList<JsonObject> ParseEvents(object? scriptEvents) =>
     (scriptEvents as IScriptObject ?? throw new InvalidOperationException("Not a list of events."))
       .Enumerate(ev =>
-        (_json.FromScriptValue(ev) as JsonObject)
+        (_json.ConvertFromScriptValue(ev) as JsonObject)
         ?? throw new InvalidOperationException("Unexpected non-object for event")
       )
       .ToList();
@@ -50,12 +44,12 @@ internal class TrackerExtensionProxy
             await next.InvokeAsFunction(_json.ToScriptValue(events))
               .AwaitScript(cancellationToken: cancellationToken)
           ),
-        tracker.RequireAttachment<ITracker>()
+        tracker.RequireAttachment<Tracker>()
       )
       .AsPromiseLike();
 
   public object? post(IScriptObject events, IScriptObject tracker, object? context = null) =>
-    _extension.PostAsync(ParseEvents(events), tracker.RequireAttachment<ITracker>()).AsPromiseLike();
+    _extension.PostAsync(ParseEvents(events), tracker.RequireAttachment<Tracker>()).AsPromiseLike();
 
   public object? getClientScripts(IScriptObject tracker) =>
     _extension.GetClientScriptsAsync(new ScriptTrackerHandle(tracker)).AsPromiseLike();

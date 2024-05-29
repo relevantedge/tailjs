@@ -1,4 +1,3 @@
-import { SCOPE_INFO_KEY } from "@constants";
 import {
   DeviceInfo,
   ScopeInfo,

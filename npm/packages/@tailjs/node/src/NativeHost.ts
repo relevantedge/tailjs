@@ -3,14 +3,17 @@ import http from "http";
 import https from "https";
 import * as p from "path";
 import { v4 as uuid } from "uuid";
-import zlib from "zlib";
+
 import type {
   ChangeHandler,
   EngineHost,
   HostResponse,
   HttpRequest,
   LogMessage,
-} from "../../engine/src/shared";
+  ResourceEntry,
+} from "@tailjs/engine";
+import { hash } from "@tailjs/transport";
+import { MINUTE, now } from "@tailjs/util";
 
 export class NativeHost implements EngineHost {
   private readonly _rootPath: string;
@@ -21,58 +24,87 @@ export class NativeHost implements EngineHost {
     this._console = console;
   }
 
-  public async compress(
-    data: string | Uint8Array,
-    algorithm: string
-  ): Promise<Uint8Array | null> {
-    if (algorithm === "br") {
-      return await new Promise((resolve, reject) => {
-        zlib.brotliCompress(
-          typeof data === "string" ? data : Buffer.from(data).toString("utf-8"),
-          {
-            params: {
-              [zlib.constants.BROTLI_PARAM_QUALITY]:
-                zlib.constants.BROTLI_MAX_QUALITY,
-            },
-          },
-          (error, result) => {
-            if (error) reject(error);
-            resolve(new Uint8Array(result));
-          }
-        );
+  async ls(path: string): Promise<ResourceEntry[] | null> {
+    path = p.join(this._rootPath, path);
+    if (!path.startsWith(this._rootPath)) {
+      throw new Error(`Invalid path (it is outside the root scope).`);
+    }
+    if (!fs.existsSync(path)) {
+      return null;
+    }
+
+    const filePaths = await fs.promises.readdir(path);
+    const resources: ResourceEntry[] = [];
+    for (const path in filePaths) {
+      if (!path.startsWith(this._rootPath)) {
+        continue;
+      }
+      const stat = fs.statSync(path);
+      const type = stat.isFile()
+        ? "file"
+        : stat.isDirectory()
+        ? "dir"
+        : undefined;
+      if (!type) {
+        continue;
+      }
+
+      resources.push({
+        created: stat.birthtimeMs,
+        modified: stat.mtimeMs,
+        path: path.substring(this._rootPath.length),
+        // TODO: Check if its actually the case? Probably a good service for consumers.
+        readonly: false,
+        type,
+        name: p.basename(path),
       });
     }
-    if (algorithm === "gzip") {
-      return await new Promise((resolve, reject) => {
-        zlib.gzip(
-          typeof data === "string" ? data : Buffer.from(data).toString("utf-8"),
-          {
-            level: 9,
-          },
-          (error, result) => {
-            if (error) reject(error);
-            resolve(new Uint8Array(result));
-          }
-        );
-      });
-    }
-    return null;
+    return resources;
   }
 
-  async log<T extends string | Record<string, any>>({
-    group = "console",
-    data,
-    level = "info",
-    source,
-  }: LogMessage<T>) {
+  private _throttleStats = new Map<
+    string,
+    [lastEvent: number, epochCount: number, totalCount: number]
+  >();
+
+  async log(message: LogMessage) {
+    const throttleKey =
+      message.throttleKey == null
+        ? null
+        : message.throttleKey === ""
+        ? hash(JSON.stringify(message), 64)
+        : message.throttleKey;
+    if (throttleKey != null) {
+      let throttleStats = this._throttleStats.get(throttleKey);
+      if (!throttleStats) {
+        throttleStats = [now(), 0, 0];
+      } else {
+        throttleStats =
+          throttleStats[0] < now() + MINUTE
+            ? [throttleStats[0], throttleStats[1] + 1, throttleStats[2] + 1]
+            : [now(), 0, throttleStats[2] + 1];
+      }
+
+      if (throttleStats[2] >= 3) {
+        message.message += `\n(This kind of event has occurred ${throttleStats[2]} times since start`;
+        if (throttleStats[1] < 3) {
+          message.message += ".)";
+        } else if (throttleStats[1] === 3) {
+          message.message +=
+            " - further events of this kind will not be logged for the next minute.)";
+        } else {
+          return;
+        }
+      }
+    }
+
     const msg = JSON.stringify({
       timestamp: new Date().toISOString(),
-      source,
-      level,
-      data,
+      ...message,
     });
+    const group = message.group ?? "console";
     if (group === "console" || this._console) {
-      switch (level) {
+      switch (message.level) {
         case "debug":
           console.debug(msg);
           break;
@@ -85,30 +117,24 @@ export class NativeHost implements EngineHost {
         default:
           console.log(msg);
       }
-      return;
     }
 
-    let dir = p.join(this._rootPath, "logs");
-    const parts = group.split("/");
-    if (parts.length > 1) {
-      const newDir = p.join(dir, ...parts.slice(0, parts.length - 1));
-      if (!newDir.startsWith(dir)) {
-        throw new Error(`Invalid group name '${group}'.`);
+    if (group !== "console") {
+      let dir = p.join(this._rootPath, "logs");
+      const parts = group.split("/");
+      if (parts.length > 1) {
+        const newDir = p.join(dir, ...parts.slice(0, parts.length - 1));
+        if (!newDir.startsWith(dir)) {
+          throw new Error(`Invalid group name '${group}'.`);
+        }
       }
+      await fs.promises.mkdir(dir, { recursive: true });
+      await fs.promises.appendFile(
+        p.join(dir, `${parts[parts.length - 1]}.json`),
+        `${msg}\n`,
+        "utf-8"
+      );
     }
-    await fs.promises.mkdir(dir, { recursive: true });
-    await fs.promises.appendFile(
-      p.join(dir, `${parts[parts.length - 1]}.json`),
-      `${msg}\n`,
-      "utf-8"
-    );
-  }
-
-  readText(
-    path: string,
-    changeHandler?: ChangeHandler<string>
-  ): Promise<string | null> {
-    return this._read(path, true, changeHandler);
   }
 
   read(
@@ -117,17 +143,51 @@ export class NativeHost implements EngineHost {
   ): Promise<Uint8Array | null> {
     return this._read(path, false, changeHandler);
   }
+  readText(
+    path: string,
+    changeHandler?: ChangeHandler<string>
+  ): Promise<string | null> {
+    return this._read(path, true, changeHandler);
+  }
+
+  async write(path: string, data: Uint8Array): Promise<void> {
+    const fullPath = this._resolvePath(path);
+    await fs.promises.writeFile(fullPath, data);
+  }
+  async writeText(path: string, data: string): Promise<void> {
+    const fullPath = this._resolvePath(path);
+    await fs.promises.writeFile(fullPath, data, "utf-8");
+  }
+
+  async delete(path: string): Promise<boolean> {
+    const fullPath = this._resolvePath(path);
+    if (!fs.existsSync(fullPath)) return false;
+
+    const type = await fs.promises.stat(fullPath);
+
+    if (type.isDirectory()) {
+      await fs.promises.rm(fullPath, { recursive: true });
+    } else {
+      await fs.promises.rm(fullPath);
+    }
+    return true;
+  }
+
+  private _resolvePath(path: string) {
+    const fullPath = p.resolve(p.join(this._rootPath, path));
+
+    if (!fullPath.startsWith(this._rootPath)) {
+      throw new Error("The requested path is outside the root.");
+    }
+    return fullPath;
+  }
 
   private async _read(
     path: string,
     text: boolean,
     changeHandler?: ChangeHandler<any>
   ) {
-    const fullPath = p.resolve(p.join(this._rootPath, path));
-
-    if (!fullPath.startsWith(this._rootPath)) {
-      throw new Error("The requested path is outside the root.");
-    }
+    const fullPath = this._resolvePath(path);
     if (!fs.existsSync(fullPath)) {
       return null;
     }
@@ -242,7 +302,7 @@ export class NativeHost implements EngineHost {
   }
 
   nextId(scope: string): Promise<string> | string {
-    // UUID v4, remove hyphens, reencode as if radix 16 with radix 36 to reduce number of characters further.
+    // UUID v4, remove hyphens, re-encode as if radix 16 with radix 36 to reduce number of characters further.
     return uuid()
       .replaceAll("-", "")
       .match(/[0-9a-fA-F]{1,13}/g)!

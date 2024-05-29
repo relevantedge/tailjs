@@ -17,5 +17,29 @@ public record VariableGetSuccessResult(
   VariableScope Scope,
   string Key,
   string? TargetId,
-  Variable? Variable
-) : IVariableGetResult, IVariableSuccessResult;
+  DataClassification Classification,
+  DataPurposes Purposes,
+  DateTime Created,
+  DateTime Modified,
+  DateTime Accessed,
+  string Version,
+  JsonNode? Value,
+  string[]? Tags = null,
+  TimeSpan? TimeToLive = null
+)
+  : Variable(
+    Scope,
+    Key,
+    TargetId,
+    Classification,
+    Purposes,
+    Created,
+    Modified,
+    Accessed,
+    Version,
+    Value,
+    Tags,
+    TimeToLive
+  ),
+    IVariableGetResult,
+    IVariableSuccessResult;

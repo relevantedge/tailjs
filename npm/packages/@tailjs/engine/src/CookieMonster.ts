@@ -1,14 +1,16 @@
-import { forEach } from "./lib";
+import { forEach } from "@tailjs/util";
 import { ClientResponseCookie, Cookie, CookieConfiguration } from "./shared";
 
 const getCookieChunkName = (key: string, chunk?: number) =>
   chunk === 0 ? key : `${key}-${chunk}`;
 
+export const requestCookieHeader = Symbol("request cookie header");
 export const requestCookies = Symbol("request cookies");
 
 export type ParsedCookieHeaders = Record<string, Cookie> & {
   // We keep the original number of chunks in the request so we can clear them if we return a shorter value (with fewer chunks) in the response
   [requestCookies]: Record<string, Cookie & { chunks: number }>;
+  [requestCookieHeader]?: string;
 };
 
 export class CookieMonster {
@@ -40,10 +42,12 @@ export class CookieMonster {
     return responseCookies;
   }
 
-  public parseCookieHeader(
+  public static parseCookieHeader(
     value: string | null | undefined
   ): ParsedCookieHeaders {
     const cookies: ParsedCookieHeaders = { [requestCookies]: {} };
+    cookies[requestCookieHeader] = value ?? undefined;
+
     if (!value) return cookies;
     const sourceCookies = Object.fromEntries(
       value

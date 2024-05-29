@@ -1,4 +1,6 @@
 import { SCOPE_INFO_KEY, SESSION_REFERENCE_KEY } from "@constants";
+
+import { Transport, defaultTransport } from "@tailjs/transport";
 import {
   DataClassification,
   DataClassificationValue,
@@ -16,15 +18,12 @@ import {
   Timestamp,
   TrackedEvent,
   Variable,
-  VariableUsage,
   VariableFilter,
-  VariableGetResult,
   VariableGetResults,
   VariableGetSuccessResult,
   VariableGetter,
   VariableGetters,
   VariableHeader,
-  VariableKey,
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultPromise,
@@ -33,6 +32,7 @@ import {
   VariableSetResults,
   VariableSetter,
   VariableSetters,
+  VariableUsage,
   dataClassification,
   dataPurposes,
   extractKey,
@@ -40,23 +40,23 @@ import {
   requireFound,
   restrictTargets,
   toVariableResultPromise,
-  variableScope,
 } from "@tailjs/types";
 import {
   MaybePromise,
   Nullish,
   PartialRecord,
   PickPartial,
+  ReadonlyRecord,
+  concat,
   forEach,
   map,
   now,
   truish,
   update,
 } from "@tailjs/util";
-import { Transport, defaultTransport } from "@tailjs/util/transport";
-import { ReadOnlyRecord, params, unparam } from "./lib";
 import {
   Cookie,
+  CookieMonster,
   HttpRequest,
   HttpResponse,
   RequestHandler,
@@ -64,6 +64,7 @@ import {
   TrackedEventBatch,
   TrackerEnvironment,
   VariableStorageContext,
+  requestCookies,
 } from "./shared";
 
 export type TrackerSettings = Pick<
@@ -197,8 +198,8 @@ export class Tracker {
   public readonly cookies: Record<string, Cookie>;
   public readonly disabled: boolean;
   public readonly env: TrackerEnvironment;
-  public readonly headers: ReadOnlyRecord<string, string>;
-  public readonly queryString: ReadOnlyRecord<string, string[]>;
+  public readonly headers: ReadonlyRecord<string, string>;
+  public readonly queryString: ReadonlyRecord<string, string[]>;
   public readonly referrer: string | null;
   public readonly requestItems: Map<any, any>;
   /** Transient variables that can be used by extensions whilst processing a request. */
@@ -366,13 +367,27 @@ export class Tracker {
       Object.assign(finalRequest.headers, request.headers);
     }
 
-    finalRequest.headers["cookie"] = unparam(
-      Object.fromEntries(
-        map(this.cookies, ([key, value]) => [key, value?.value])
-          .filter((kv) => kv[1] != null)
-          .concat(params(finalRequest.headers["cookie"]))
-      )
-    );
+    // Merge the requests cookies, and whatever cookies might have been added to the forwarded request.
+    // The latter overwrites cookies with the same name if they were also sent by the client.
+    const cookies = map(
+      new Map<string, string | Nullish>(
+        concat(
+          map(this.cookies, ([name, cookie]) => [name, cookie.value]),
+          map(
+            CookieMonster.parseCookieHeader(finalRequest.headers["cookies"])?.[
+              requestCookies
+            ],
+            ([name, cookie]) => [name, cookie.value]
+          )
+        )
+      ),
+      ([...args]) =>
+        args.map((value) => encodeURIComponent(value ?? "")).join("=")
+    ).join("; ");
+
+    if (cookies.length) {
+      finalRequest.headers["cookie"] = cookies;
+    }
 
     const response = await this._requestHandler.environment.request(
       finalRequest

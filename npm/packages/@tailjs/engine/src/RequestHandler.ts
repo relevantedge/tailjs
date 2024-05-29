@@ -1,3 +1,11 @@
+import {
+  CLIENT_SCRIPT_QUERY,
+  CONTEXT_NAV_QUERY,
+  EVENT_HUB_QUERY,
+  INIT_SCRIPT_QUERY,
+  SCHEMA_QUERY,
+} from "@constants";
+
 import defaultSchema from "@tailjs/types/schema";
 
 import clientScripts from "@tailjs/client/script";
@@ -11,6 +19,9 @@ import {
   TrackedEvent,
   VariableScope,
 } from "@tailjs/types";
+
+import { SchemaManager } from "@tailjs/json-schema";
+
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
 import { DefaultCryptoProvider } from "./lib";
 
@@ -27,7 +38,6 @@ import {
   ParsingVariableStorage,
   PostError,
   RequestHandlerConfiguration,
-  SchemaManager,
   TrackedEventBatch,
   Tracker,
   TrackerEnvironment,
@@ -40,14 +50,13 @@ import {
   VariableStorageCoordinator,
 } from "./shared";
 
-import {
-  CLIENT_SCRIPT_QUERY,
-  CONTEXT_NAV_QUERY,
-  EVENT_HUB_QUERY,
-  INIT_SCRIPT_QUERY,
-  SCHEMA_QUERY,
-} from "@constants";
 import { TrackerConfiguration } from "@tailjs/client";
+import {
+  createTransport,
+  decodeUtf8,
+  from64u,
+  httpEncode,
+} from "@tailjs/transport";
 import {
   array,
   createLock,
@@ -73,20 +82,11 @@ import {
   required,
   some,
 } from "@tailjs/util";
-import {
-  createTransport,
-  decodeUtf8,
-  from64u,
-  httpEncode,
-} from "@tailjs/util/transport";
-import {
-  ClientIdGenerator,
-  DefaultClientIdGenerator,
-} from "./ClientIdGenerator";
+import { ClientIdGenerator, DefaultClientIdGenerator } from ".";
 import {
   generateClientBootstrapScript,
   generateClientExternalNavigationScript,
-} from "./lib/clientScripts";
+} from "./lib";
 
 const scripts = {
   main: {
@@ -496,7 +496,7 @@ export class RequestHandler {
           this._config.clientEncryptionKeySeed ?? ""
         ),
         requestHandler: this,
-        cookies: this._cookies.parseCookieHeader(headers["cookie"]),
+        cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
         clientEncryptionKey,
         transport: createTransport(clientEncryptionKey),
       } as PickRequired<TrackerSettings, "transport"> & {
