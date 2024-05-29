@@ -1,6 +1,4 @@
-import { CONSENT_INFO_KEY } from "@constants";
 import { ParsableDataUsageAttributes, UserConsent } from "@tailjs/types";
-import { ClientVariableCallback } from "../lib";
 import { commandTest } from "./shared";
 
 export type ExternalConsentPoller = () =>

@@ -2,8 +2,9 @@ import {
   CLIENT_CALLBACK_CHANNEL_ID,
   INITIALIZE_TRACKER_FUNCTION,
 } from "@constants";
+
 import type { TrackerConfiguration } from "@tailjs/client";
-import { createTransport, httpEncode } from "@tailjs/util/transport";
+import { createTransport, httpEncode } from "@tailjs/transport";
 
 export const generateClientBootstrapScript = (
   config: TrackerConfiguration,

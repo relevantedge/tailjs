@@ -1,6 +1,6 @@
 import { TrackerConfiguration } from "@tailjs/client";
 import { EventLogger, TrackerExtension, bootstrap } from "@tailjs/engine";
-import { NativeHost } from "@tailjs/engine/native";
+import { NativeHost } from "@tailjs/node";
 import express, { type Express } from "express";
 import * as fs from "fs/promises";
 import * as http from "http";

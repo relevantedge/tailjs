@@ -14,8 +14,8 @@ internal class Tracker : ITracker, IScriptTrackerHandle
     Cookies = new CookieCollection((IScriptObject)scriptHandle["cookies"]);
     Variables = new TrackerVariableCollection(RequestHandler.Proxy, scriptHandle);
 
-    scriptHandle.Attach<ITracker>(this);
-    scriptHandle.Attach<ITrackerHandle>(this);
+    scriptHandle.Attach<IScriptTrackerHandle>(this);
+    scriptHandle.Attach(this);
   }
 
   internal RequestHandler RequestHandler { get; }

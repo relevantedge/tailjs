@@ -13,14 +13,23 @@ internal class JsonNodeConverter
 
   private readonly Func<string, object?> _parse;
   private readonly Func<object?, string> _stringify;
+  private readonly Func<object?[], object?> _combine;
+  private readonly Func<Exception, object?> _exceptionToError;
 
-  public JsonNodeConverter(Func<string, object?> parse, Func<object?, string> stringify)
+  public JsonNodeConverter(
+    Func<string, object?> parse,
+    Func<object?, string> stringify,
+    Func<object?[], object?> combine,
+    Func<Exception, object?> exceptionToError
+  )
   {
     _parse = parse;
     _stringify = stringify;
+    _combine = combine;
+    _exceptionToError = exceptionToError;
   }
 
-  public JsonNode? FromScriptValue(object? value) =>
+  public JsonNode? ConvertFromScriptValue(object? value) =>
     value switch
     {
       null => null,
@@ -39,17 +48,21 @@ internal class JsonNodeConverter
       _ => throw new NotSupportedException($"Unknown value type {value.GetType().FullName}")
     };
 
-  public object? ToScriptValue(object? value) =>
+  public object? ConvertToScriptValue(object? value) =>
     value switch
     {
-      null => null,
+      null => Undefined.Value,
       string or bool or int or long or double or decimal or Undefined or IScriptObject => value,
       DateTime dateTime => ((DateTimeOffset)dateTime.ToUniversalTime()).ToUnixTimeMilliseconds(),
       TimeSpan timeSpan => (long)timeSpan.TotalMilliseconds,
+      Exception ex => _exceptionToError(ex),
+      JsonNode node => ConvertToScriptValue(node),
       _ => _parse(Serialize(value))
     };
 
-  public object? ToScriptValue(JsonNode? value)
+  public object? Combine(params object?[] values) => _combine(values.Select(ConvertToScriptValue).ToArray());
+
+  public object? ConvertToScriptValue(JsonNode? value)
   {
     if (value == null)
     {

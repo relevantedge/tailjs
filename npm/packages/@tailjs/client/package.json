@@ -1,7 +1,7 @@
 {
   "name": "@tailjs/client",
   "description": "tail.js client library",
-  "license": "MIT",
+  "license": "LGPL3",
   "version": "0.17.24",
   "scripts": {
     "check": "tsc --noEmit",
@@ -12,6 +12,7 @@
   "dependencies": {
     "@tailjs/types": "workspace:*",
     "@tailjs/util": "workspace:*",
+    "@tailjs/transport": "workspace:*",
     "@ygoe/msgpack": "^1.0.3"
   },
   "publishConfig": {

@@ -7,7 +7,6 @@ import * as fs from "fs";
 import { join } from "path";
 import dts from "rollup-plugin-dts";
 //import esbuild from "rollup-plugin-esbuild";
-import swc from "rollup-plugin-swc3";
 
 import package_json from "rollup-plugin-generate-package-json";
 import {
@@ -20,8 +19,6 @@ import {
 
 export async function getExternalBundles(): Promise<Record<string, any>[]> {
   const pkg = await env();
-
-  const shimOnly = pkg.name === "engine" ? new Set(["process"]) : null;
 
   const targets = [
     [`${pkg.path}/dist/v8`, false],
@@ -108,7 +105,11 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
                 { find: "zlib", replacement: "browserify-zlib" },
                 { find: "fs", replacement: "memfs" },
                 { find: "emitter", replacement: "component-emitter" },
-              ].filter((entry) => shimOnly?.has(entry.find) ?? true),
+              ],
+              {
+                find: "@constants",
+                replacement: `${pkg.workspace}/constants/index.ts`,
+              },
               {
                 find: /^@tailjs\/(engine|maxmind|ravendb|sitecore-backends)(\/(.+))?$/,
                 replacement: `${pkg.workspace}/packages/@tailjs/$1/dist/$2/v8/dist/index.mjs`,
@@ -118,22 +119,14 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
                 find: /^@tailjs\/([^\/]+)(?:\/(.+))?$/,
                 replacement: `${pkg.workspace}/packages/@tailjs/$1/dist/$2/dist/index.mjs`,
               },
-              {
-                find: "@constants",
-                replacement: `${pkg.workspace}/constants/index.ts`,
-              },
             ].filter((item) => item),
           }),
           inject({
-            ...Object.fromEntries(
-              (
-                [
-                  ["Buffer", ["buffer", "Buffer"]],
-                  ["process", "process"],
-                  ["crypto", "crypto-browserify"],
-                ] as const
-              ).filter((item) => shimOnly?.has(item[0]) ?? true)
-            ),
+            ...Object.fromEntries([
+              ["Buffer", ["buffer", "Buffer"]],
+              ["process", "process"],
+              ["crypto", "crypto-browserify"],
+            ] as const),
             //TextEncoder: ["text-encoding-polyfill", "TextEncoder"],
             //TextDecoder: ["text-encoding-polyfill", "TextDecoder"],
             global: `${pkg.workspace}/build/shims/global.ts`,
@@ -211,7 +204,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
         watch: {
           exclude: ["**/node_modules/**"],
         },
-        external: [/\@tail\-f\/.+/g],
+        external: [/\@tailjs\/.+/g],
         output: targetOutputs.map((path) => ({
           dir: path[0],
           ...chunkNameFunctions(".d.ts", ext ? "" : "dist/"),

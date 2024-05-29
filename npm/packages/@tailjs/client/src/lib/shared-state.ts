@@ -1,15 +1,13 @@
 import { CLIENT_STATE_CHANNEL_ID } from "@constants";
-import { UUID, dataPurposes, sortVariables } from "@tailjs/types";
+
+import { UUID } from "@tailjs/types";
 import {
-  F,
   MaybeUndefined,
   Nullish,
-  T,
   assign,
   clear,
   clock,
   concat,
-  count,
   createEvent,
   filter,
   forEach,
@@ -17,7 +15,6 @@ import {
   now,
   obj,
   replace,
-  createTimeout,
 } from "@tailjs/util";
 import {
   ClientVariable,
@@ -30,9 +27,6 @@ import {
   VARIABLE_CACHE_DURATION,
   addEncryptionNegotiatedListener,
   addPageLoadedListener,
-  childGroups,
-  debug,
-  formatAnyVariableScope,
   listen,
   toNumericVariableEnums,
   variableKeyToString,
@@ -45,8 +39,7 @@ export interface TabState {
 }
 
 interface StateVariableMetadata {
-  timestamp: number;
-  expires: number;
+  cache: [timestamp: number, expires: number];
 }
 
 export type StateVariable = ClientVariable & StateVariableMetadata;
@@ -135,8 +128,7 @@ export const setLocalVariables = (
   updateVariableState(
     (variables as StateVariable[]).map(
       (variable: StateVariable) => (
-        (variable.timestamp = now()),
-        (variable.expires = VARIABLE_CACHE_DURATION),
+        (variable.cache = [now(), VARIABLE_CACHE_DURATION]),
         toNumericVariableEnums(variable)
       )
     )

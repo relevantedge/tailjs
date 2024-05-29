@@ -1,4 +1,5 @@
 import { PATCH_EVENT_POSTFIX } from "@constants";
+
 import {
   EventPatch,
   PostRequest,

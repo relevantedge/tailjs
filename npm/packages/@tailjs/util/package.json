@@ -1,7 +1,7 @@
 {
   "name": "@tailjs/util",
   "description": "Common utilities for all @tailjs packages.",
-  "license": "MIT",
+  "license": "LGPL3",
   "version": "0.17.24",
   "main": "src/index.ts",
   "type": "module",

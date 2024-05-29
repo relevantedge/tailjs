@@ -1,4 +1,4 @@
-import type { HashFunction } from "@tailjs/util/transport";
+import type { HashFunction } from "@tailjs/transport";
 
 export interface CryptoProvider {
   hash: HashFunction<string>;

@@ -210,8 +210,7 @@ public class RequestHandler : IRequestHandler
             .AwaitScript(cancellationToken: cancellationToken)
             .ConfigureAwait(false)!;
 
-        requestHandler.Attach<IRequestHandler>(this);
-        requestHandler.Attach<RequestHandler>(this);
+        requestHandler.Attach(this);
 
         _proxy = (ScriptObject)
           (

@@ -1,6 +1,4 @@
 import {
-  IterableOrArrayLike,
-  IteratorItem,
   MaybeUndefined,
   Nullish,
   PickRequired,
@@ -55,16 +53,22 @@ export type ParsedUri<
   fragment?: string;
 };
 
+export const parameterList = Symbol();
 export type ParsedQueryString<Delimiters extends QueryStringDelimiterValue> =
   Record<
     string,
     Delimiters extends null | readonly [] | false ? string : string | string[]
-  >;
+  > & {
+    [parameterList]: [
+      string,
+      Delimiters extends null | readonly [] | false ? string : string | string[]
+    ];
+  };
 
 export const uriEncode = (value: any) =>
   value != nil ? encodeURIComponent(value) : undefined;
 
-const parseKeyValue = (
+export const parseKeyValue = (
   value: string | Nullish,
   arrayDelimiters: readonly string[] | readonly [] = ["|", ";", ","],
   decode = true
@@ -189,6 +193,16 @@ export const parseUri = <
         }
       ) as any);
 
+export const parseHttpHeader = <
+  V extends string | Nullish,
+  Delimiters extends QueryStringDelimiterValue = [","]
+>(
+  query: V,
+  arrayDelimiters: Delimiters = [","] as any,
+  decode = true
+): PrettifyIntersection<ParsedQueryString<Delimiters>> =>
+  parseParameters(query, "; ", arrayDelimiters, decode);
+
 export const parseQueryString = <
   V extends string | Nullish,
   Delimiters extends QueryStringDelimiterValue = true
@@ -197,35 +211,59 @@ export const parseQueryString = <
   arrayDelimiters?: Delimiters,
   decode = true
 ): PrettifyIntersection<ParsedQueryString<Delimiters>> =>
-  query == nil
-    ? undefined
-    : (obj(
-        query?.match(/(?:^.*?\?|^)(.*)$/)?.[1]?.split("&"),
-        (
-          part,
-          _,
-          [key, value, values] = parseKeyValue(
+  parseParameters(query, "&", arrayDelimiters, decode);
+
+export const parseParameters = <
+  V extends string | Nullish,
+  Delimiters extends QueryStringDelimiterValue = true
+>(
+  query: V,
+  separator: string,
+  arrayDelimiters?: Delimiters,
+  decode = true
+): PrettifyIntersection<ParsedQueryString<Delimiters>> => {
+  const list: [string, any][] = [];
+
+  const results =
+    query == nil
+      ? undefined
+      : (obj(
+          query?.match(/(?:^.*?\?|^)([^#]*)/)?.[1]?.split(separator),
+          (
             part,
-            arrayDelimiters === false
-              ? []
-              : arrayDelimiters === true
-              ? undefined
-              : arrayDelimiters,
-            decode
-          ) ?? []
-        ) =>
-          (key = key?.replace(/\[\]$/, "")) != null
-            ? arrayDelimiters !== false
-              ? [key, values!.length > 1 ? values! : value!]
-              : [key, value!]
-            : undefined,
-        (current, value) =>
-          current
-            ? arrayDelimiters !== false
-              ? concat(current, value)
-              : (current ? current + "," : "") + value
-            : value
-      ) as any);
+            _,
+            [key, value, values] = parseKeyValue(
+              part,
+              arrayDelimiters === false
+                ? []
+                : arrayDelimiters === true
+                ? undefined
+                : arrayDelimiters,
+              decode
+            ) ?? [],
+            kv: any
+          ) => (
+            (kv =
+              (key = key?.replace(/\[\]$/, "")) != null
+                ? arrayDelimiters !== false
+                  ? [key, values!.length > 1 ? values! : (value! as any)]
+                  : [key, value!]
+                : undefined),
+            list.push(kv),
+            kv
+          ),
+          (current, value) =>
+            current
+              ? arrayDelimiters !== false
+                ? concat(current, value)
+                : (current ? current + "," : "") + value
+              : value
+        ) as any);
+
+  results[parameterList] = list;
+
+  return results;
+};
 
 export const toQueryString = <
   P extends

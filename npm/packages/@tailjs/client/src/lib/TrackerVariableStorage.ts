@@ -58,7 +58,6 @@ import {
   updateVariableState,
   variableKeyToString,
 } from ".";
-import { Tracker } from "..";
 
 const KEY_PROPS: any[] = ["scope", "key", "targetId", "version"];
 const VARIABLE_PROPS: any[] = [
@@ -221,7 +220,7 @@ export const createVariableStorage = (
                     } as any,
                     sourceIndex,
                   ]);
-                } else if (!getter.refresh && current?.expires! < now()) {
+                } else if (!getter.refresh && current?.[1]! < now()) {
                   push(results, [
                     {
                       ...current,
@@ -357,11 +356,12 @@ export const createVariableStorage = (
     timestamp = now()
   ): StateVariable => ({
     ...pick(variable, VARIABLE_PROPS),
-    timestamp,
-    expires:
+    cache: [
+      timestamp,
       timestamp +
-      (get(cacheDurations, variableKeyToString(variable)) ??
-        VARIABLE_CACHE_DURATION),
+        (remove(cacheDurations, variableKeyToString(variable)) ??
+          VARIABLE_CACHE_DURATION),
+    ],
   });
   addResponseHandler(({ variables }) => {
     if (!variables) return;

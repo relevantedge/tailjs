@@ -3,30 +3,21 @@ import {
   EVENT_HUB_QUERY,
   VARIABLES_QUERY,
 } from "@constants";
+
 import {
   F,
   T,
   ansi,
-  concat,
-  count,
   isFunction,
   isObject,
   join,
-  map,
   parseUri,
   replace,
   split,
-  createTimeout,
   type Nullish,
 } from "@tailjs/util";
-import { jsonEncode } from "@tailjs/util/transport";
-import {
-  DEBUG,
-  addVariablesChangedListener,
-  document,
-  formatAnyVariableScope,
-} from ".";
-import { dataPurposes, sortVariables } from "@tailjs/types";
+import { jsonEncode } from "@tailjs/transport";
+import { document } from ".";
 
 export const ERR_BUFFER_OVERFLOW = "buffer-overflow";
 export const ERR_POST_FAILED = "post-failed";

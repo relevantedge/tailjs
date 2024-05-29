@@ -32,7 +32,7 @@ internal class ScriptVariableStorage : IVariableStorage
         purpose = (int?)getter.Purpose,
         refresh = getter.Refresh,
         init = getter.Initializer is { } initializer
-          ? PromiseLike.Wrap(async () => MapVariablePatchResult(await initializer(cancellationToken)))
+          ? PromiseLike.Wrap(async () => _json.ToScriptValue(await initializer(cancellationToken)))
           : null
       })
       .ToArray();
@@ -54,7 +54,8 @@ internal class ScriptVariableStorage : IVariableStorage
             case VariableResultStatus.NotFound:
             case VariableResultStatus.Unchanged:
               var variable =
-                TryParseVariableFragment(result) ?? throw new InvalidOperationException("Unexpected result.");
+                _json.TryParseVariableFragment(result)
+                ?? throw new InvalidOperationException("Unexpected result.");
 
               return new VariableGetSuccessResult(
                 status,
@@ -70,7 +71,8 @@ internal class ScriptVariableStorage : IVariableStorage
             case VariableResultStatus.Invalid:
             case VariableResultStatus.Error:
               var key =
-                TryParseVariableFragment(result) ?? throw new InvalidOperationException("Unexpected result.");
+                _json.TryParseVariableFragment(result)
+                ?? throw new InvalidOperationException("Unexpected result.");
               return new VariableGetErrorResult(
                 status,
                 key.Scope,
@@ -85,49 +87,6 @@ internal class ScriptVariableStorage : IVariableStorage
         }
       )
       .ToArray();
-  }
-
-  private object? MapVariablePatchResult(VariablePatchResult? result) =>
-    result == null
-      ? Undefined.Value
-      : new
-      {
-        classification = (int?)result.Classification,
-        purposes = (int?)result.Purposes,
-        value = _json.ToScriptValue(result.Value),
-        tags = result.Tags
-      };
-
-  private IVariableKey? TryParseVariableFragment(object? variable)
-  {
-    if (variable == Undefined.Value || variable == null)
-      return null;
-    if (variable is not IScriptObject source)
-      throw new InvalidOperationException("A script object was expected.");
-
-    var scope = (VariableScope)source.Require<int>("scope");
-    var key = source.Require<string>("key");
-    var targetId = source.Get<string?>("targetId");
-    var version = source.Get<string?>("version");
-    if ((DataClassification?)source.Get<int?>("classification") is not { } classification)
-    {
-      return new VersionedVariableKey(scope, key, targetId, version);
-    }
-
-    return new Variable(
-      scope,
-      key,
-      targetId,
-      classification,
-      (DataPurposes)source.Get<int>("purposes"),
-      source.RequireDateTime("created"),
-      source.RequireDateTime("modified"),
-      source.RequireDateTime("accessed"),
-      source.Require<string>("version"),
-      _json.FromScriptValue(source["value"]),
-      source.GetArray<string>("tags"),
-      source.TryGetTimeSpan("ttl")
-    );
   }
 
   public ValueTask<VariableHeadResults> HeadAsync(
@@ -184,8 +143,8 @@ internal class ScriptVariableStorage : IVariableStorage
         patch = setter is VariablePatchAction action
           ? PromiseLike.Wrap(
             async (current) =>
-              MapVariablePatchResult(
-                await action.Patch(TryParseVariableFragment(current) as Variable, cancellationToken)
+              _json.ToScriptValue(
+                await action.Patch(_json.TryParseVariableFragment(current) as Variable, cancellationToken)
               )
           )
           : (object?)(setter as VariableValuePatch)?.Type,
@@ -211,7 +170,8 @@ internal class ScriptVariableStorage : IVariableStorage
             case VariableResultStatus.Unchanged:
             {
               var key =
-                TryParseVariableFragment(result) ?? throw new InvalidOperationException("Unexpected result.");
+                _json.TryParseVariableFragment(result)
+                ?? throw new InvalidOperationException("Unexpected result.");
 
               return new VariableSetSuccessResult(
                 setters[i],
@@ -219,14 +179,15 @@ internal class ScriptVariableStorage : IVariableStorage
                 key.Scope,
                 key.Key,
                 key.TargetId,
-                TryParseVariableFragment(result.Get("current")) as IVariable
+                _json.TryParseVariableFragment(result.Get("current")) as IVariable
               );
             }
 
             case VariableResultStatus.Conflict:
             {
               var key =
-                TryParseVariableFragment(result) ?? throw new InvalidOperationException("Unexpected result.");
+                _json.TryParseVariableFragment(result)
+                ?? throw new InvalidOperationException("Unexpected result.");
 
               return new VariableSetConflictResult(
                 setters[i],
@@ -234,10 +195,11 @@ internal class ScriptVariableStorage : IVariableStorage
                 key.Scope,
                 key.Key,
                 key.TargetId,
-                TryParseVariableFragment(result.Get("current")) as IVariable,
+                _json.TryParseVariableFragment(result.Get("current")) as IVariable,
                 result.GetScriptError("error")
               );
             }
+
             case VariableResultStatus.Denied:
             case VariableResultStatus.ReadOnly:
             case VariableResultStatus.Unsupported:
@@ -245,7 +207,8 @@ internal class ScriptVariableStorage : IVariableStorage
             case VariableResultStatus.Error:
             {
               var key =
-                TryParseVariableFragment(result) ?? throw new InvalidOperationException("Unexpected result.");
+                _json.TryParseVariableFragment(result)
+                ?? throw new InvalidOperationException("Unexpected result.");
 
               return new VariableSetErrorResult(
                 setters[i],

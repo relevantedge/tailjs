@@ -1,6 +1,8 @@
+import { SCOPE_INFO_KEY } from "@constants";
+
+import { SchemaManager } from "@tailjs/json-schema";
 import { DataClassification, DataPurposeFlags } from "@tailjs/types";
 import * as fs from "fs";
-import { SchemaManager } from "../src";
 import {
   CompositionTest1,
   PolyTest1,
@@ -17,7 +19,6 @@ import {
   schemaHeader,
   systemEvents,
 } from "./test-schemas";
-import { SCOPE_INFO_KEY } from "@constants";
 
 type AtLeast<T> = T extends object | any[]
   ? Record<keyof any, any> & { [P in keyof T]: AtLeast<T[P]> }

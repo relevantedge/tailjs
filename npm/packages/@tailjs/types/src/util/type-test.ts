@@ -1,4 +1,4 @@
-import { TrackedEvent } from "../events";
+import type { TrackedEvent } from "..";
 
 export const typeTest =
   <T extends TrackedEvent>(...types: string[]) =>

@@ -13,7 +13,16 @@ import type {
  */
 export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
 
+export type ReadonlyRecord<K extends keyof any = keyof any, V = any> = {
+  readonly [P in K]: V;
+};
+
 export type PartialDefined<T> = Partial<Exclude<T, undefined | void>>;
+
+/** Makes all properties and properties on nested objects required. */
+export type AllRequired<T> = {
+  [P in keyof T]-?: T[P] extends RecordType ? AllRequired<T[P]> : T[P];
+};
 
 export type UnionPropertyValue<T, Keys extends keyof any> = T extends infer T
   ? Keys extends infer K

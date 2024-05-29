@@ -106,7 +106,7 @@ const createConfig = (debug?: boolean) =>
             replacement: `${pkg.workspace}/packages/@tailjs/types/src/index.ts`,
           },
           {
-            find: "@tailjs/util/transport",
+            find: "@tailjs/transport",
             replacement: `${pkg.workspace}/packages/@tailjs/util/src/transport.pkg/index.ts`,
           },
           {

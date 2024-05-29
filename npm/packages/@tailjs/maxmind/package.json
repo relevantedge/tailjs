@@ -1,7 +1,7 @@
 {
   "name": "@tailjs/maxmind",
   "description": "tail.js extension for client location based on MaxMind GeoIP.",
-  "license": "MIT",
+  "license": "LGPL3",
   "version": "0.17.24",
   "main": "src/index.ts",
   "author": "RelevantEdge (https://www.relevant-edge.com)",
@@ -15,10 +15,10 @@
     "@maxmind/geoip2-node": "^3.5.0",
     "@tailjs/engine": "workspace:*",
     "@tailjs/types": "workspace:*",
-    "@types/node": "^18.16.3",
-    "maxmind": "^4.3.8",
-    "memfs": "^3.4.13",
-    "mmdb-lib": "^2.0.2"
+    "@types/node": "^18.19.33",
+    "maxmind": "^4.3.19",
+    "memfs": "^3.5.3",
+    "mmdb-lib": "^2.1.0"
   },
   "publishConfig": {
     "directory": "dist"

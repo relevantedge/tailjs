@@ -1,1 +1,0 @@
-{"version":3,"file":"Domain.js","sourceRoot":"","sources":["Domain.ts"],"names":[],"mappings":"","sourcesContent":["/**\n * Represents a domain name, e.g. https://www.foo.co.uk\n */\nexport interface Domain {\n  protocol: string;\n  domainName: string;\n}\n"]}

@@ -8,10 +8,10 @@ namespace TailJs.Scripting;
 
 internal static class ScriptEngineExtensions
 {
-  public static object? AsPromiseLike(this ValueTask task) =>
+  public static object AsPromiseLike(this ValueTask task) =>
     task.IsCompletedSuccessfully ? Undefined.Value : task.AsTask().AsPromiseLike();
 
-  public static object? AsPromiseLike(this Task task) =>
+  public static object AsPromiseLike(this Task task) =>
     task.IsCompleted
       ? task.Status == TaskStatus.RanToCompletion
         ? Undefined.Value
@@ -100,6 +100,9 @@ internal static class ScriptEngineExtensions
         : null;
 
   public static T Get<T>(this object? value) => (T)value.Get()!;
+
+  public static T? TryGet<T>(this object? value, string? property = null)
+    where T : struct => value.Get(property) is { } typedValue ? (T)typedValue : null;
 
   public static T Get<T>(this object? value, string? property) => (T)value.Get(property)!;
 
@@ -209,7 +212,7 @@ internal static class ScriptEngineExtensions
     CancellationToken cancellationToken = default
   )
   {
-    if (scriptObject is not IScriptObject thenable || thenable["then"] is not IScriptObject then)
+    if (scriptObject is not IScriptObject thenable || thenable["then"] is not IScriptObject)
     {
       return scriptObject;
     }

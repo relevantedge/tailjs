@@ -1,5 +1,4 @@
-import { FormEvent } from "./events/FormEvent";
-import { Duration, Integer } from "./native-types";
+import { Duration, FormEvent, Integer } from ".";
 
 /**
  * A form field value in a {@link FormEvent}.

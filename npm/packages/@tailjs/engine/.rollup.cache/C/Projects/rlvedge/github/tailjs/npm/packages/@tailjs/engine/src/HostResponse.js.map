@@ -1,1 +1,0 @@
-{"version":3,"file":"HostResponse.js","sourceRoot":"","sources":["HostResponse.ts"],"names":[],"mappings":"","sourcesContent":["export interface HostResponse<T = string> {\n  status: number;\n  headers: Record<string, string>;\n  cookies: string[];\n  body: T;\n}\n"]}

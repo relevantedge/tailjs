@@ -1,4 +1,5 @@
 import { CONSENT_INFO_KEY } from "@constants";
+
 import {
   ConsentEvent,
   DataUsageAttributes,

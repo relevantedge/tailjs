@@ -1,1 +1,0 @@
-{"version":3,"file":"ExtensionError.js","sourceRoot":"","sources":["ExtensionError.ts"],"names":[],"mappings":"","sourcesContent":["export interface ExtensionError {\r\n  code: number;\r\n  reason?: string;\r\n  details?: string;\r\n}\r\n"]}

@@ -1,3 +1,10 @@
+import { CONSENT_INFO_KEY } from "@constants";
+
+import {
+  SchemaClassification,
+  SchemaManager,
+  SchemaVariableSet,
+} from "@tailjs/json-schema";
 import {
   DataClassification,
   DataPurposeFlags,
@@ -54,24 +61,19 @@ import {
   wrap,
 } from "@tailjs/util";
 import {
-  PartitionItem,
-  applyPatch,
-  partitionItems,
-  withSourceIndex,
-} from "../lib";
-
-import { CONSENT_INFO_KEY } from "@constants";
-import {
   ReadonlyVariableStorage,
-  SchemaClassification,
-  SchemaManager,
-  SchemaVariableSet,
   SplitStorageErrorWrapper,
   VariableContextScopeIds,
   VariableSplitStorage,
   VariableStorage,
   VariableStorageContext,
 } from "..";
+import {
+  PartitionItem,
+  applyPatch,
+  partitionItems,
+  withSourceIndex,
+} from "../lib";
 
 export type SchemaBoundPrefixMapping = {
   storage: ReadonlyVariableStorage;

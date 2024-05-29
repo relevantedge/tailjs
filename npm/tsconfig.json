@@ -14,26 +14,44 @@
 
     "paths": {
       "@constants": ["constants"],
-      "@tailjs/types": ["packages/@tailjs/types/src"],
-      "@tailjs/types/schema": ["packages/@tailjs/types/src/schema"],
-      "@tailjs/types/ts-json-schema-generator": [
-        "packages/@tailjs/types/src/ts-json-schema-generator.pkg"
-      ],
-      "@tailjs/engine": ["./packages/@tailjs/engine/src"],
-      "@tailjs/engine/native": ["./packages/@tailjs/engine/src/native.pkg"],
-      "@tailjs/maxmind": ["./packages/@tailjs/maxmind/src"],
-      "@tailjs/react": ["./packages/@tailjs/react/src"],
+
       "@tailjs/client": ["./packages/@tailjs/client/src"],
-      "@tailjs/util": ["./packages/@tailjs/util/src"],
-      "@tailjs/util/transport": ["./packages/@tailjs/util/src/transport.pkg"],
       "@tailjs/client/external": ["packages/@tailjs/client/src/external.pkg"],
-      "@tailjs/client/build": [
-        "./packages/@tailjs/client/src/lib/build-constants"
+      "@tailjs/client/script": ["packages/@tailjs/client/src/script.pkg"],
+
+      "@tailjs/engine": ["./packages/@tailjs/engine/src"],
+
+      "@tailjs/express": ["./packages/@tailjs/express/src"],
+
+      "@tailjs/json-schema": ["./packages/@tailjs/json-schema/src"],
+
+      "@tailjs/maxmind": ["./packages/@tailjs/maxmind/src"],
+
+      "@tailjs/next": ["./packages/@tailjs/next/src"],
+
+      "@tailjs/node": ["packages/@tailjs/node/src"],
+
+      "@tailjs/ravendb": ["packages/@tailjs/ravendb/src"],
+
+      "@tailjs/react": ["./packages/@tailjs/react/src"],
+
+      "@tailjs/sitecore-cdp": ["./packages/@tailjs/react/src"],
+
+      "@tailjs/sitecore-jss": ["./packages/@tailjs/react/src"],
+
+      "@tailjs/transport": ["./packages/@tailjs/transport"],
+
+      "@tailjs/ts-json-schema-generator": [
+        "packages/@tailjs/ts-json-schema-generator/src"
       ],
-      "@tailjs/client/script": ["packages/@tailjs/client/src/script.pkg"]
+
+      "@tailjs/types": ["packages/@tailjs/types/src"],
+      "@tailjs/types/schema": ["packages/@tailjs/types/src/schema.pkg"],
+
+      "@tailjs/util": ["./packages/@tailjs/util/src"]
     },
     "types": ["jest"]
   },
 
-  "exclude": ["**/dist", "**/build", "*config.js"]
+  "exclude": ["**/dist", "*config.js"]
 }

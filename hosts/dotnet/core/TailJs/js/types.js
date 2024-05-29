@@ -769,48 +769,4 @@ const splitRanks = (ranks)=>ranks?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g, "_"
 };
 const encodeTag = (tag)=>tag == null ? tag : `${tag.ranks.join(":")}${tag.value ? `=${tag.value.replace(/,/g, "\\,")}` : ""}`;
 
-const SchemaSystemTypes = Object.freeze({
-    Event: "urn:tailjs:core:event"
-});
-const SchemaAnnotations = Object.freeze({
-    Tags: "x-tags",
-    Purpose: "x-privacy-purpose",
-    Purposes: "x-privacy-purposes",
-    Classification: "x-privacy-class",
-    Censor: "x-privacy-censor"
-});
-
-const parsePrivacyTokens = (tokens, classification = {})=>{
-    tokens.split(/[,\s]/).map((keyword)=>keyword.trim()).filter((item)=>item).forEach((keyword)=>{
-        if (keyword === "censor-ignore" || keyword === "censor-include") {
-            classification.censorIgnore ??= keyword === "censor-ignore";
-            return;
-        }
-        let matched = false;
-        let parsed = dataPurposes.tryParse(keyword) ?? dataPurposes.tryParse(keyword.replace(/\-purpose$/g, ""));
-        if (parsed != null) {
-            classification.purposes = (classification.purposes ?? 0) | parsed;
-            matched = true;
-        }
-        parsed = dataClassification.tryParse(keyword) ?? dataClassification.tryParse(keyword.replace(/^personal-/g, ""));
-        if (parsed != null) {
-            if (classification.classification && parsed !== classification.classification) {
-                throwError(`The data classification '${dataClassification.format(classification.classification)}' has already been specified and conflicts with the classification'${dataClassification.format(parsed)} inferred from the description.`);
-            }
-            classification.classification ??= parsed;
-            matched = true;
-        }
-        !matched && throwError(`Unknown privacy keyword '${keyword}'.`);
-    });
-    return classification;
-};
-const getPrivacyAnnotations = (classification)=>{
-    const attrs = {};
-    classification.classification != null && (attrs[SchemaAnnotations.Classification] = dataClassification.format(classification.classification));
-    let purposes = dataPurposes.format(classification.purposes);
-    purposes != null && (attrs[isString(purposes) ? SchemaAnnotations.Purpose : SchemaAnnotations.Purposes] = purposes);
-    classification.censorIgnore != null && (attrs[SchemaAnnotations.Censor] = classification.censorIgnore ? "ignore" : "include");
-    return attrs;
-};
-
-export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, SchemaAnnotations, SchemaSystemTypes, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, dataUsageEquals, encodeTag, extractKey, formatKey, getPrivacyAnnotations, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatchAction, isViewEvent, parseDataUsage, parseKey, parsePrivacyTokens, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };
+export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, dataUsageEquals, encodeTag, extractKey, formatKey, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatchAction, isViewEvent, parseDataUsage, parseKey, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };

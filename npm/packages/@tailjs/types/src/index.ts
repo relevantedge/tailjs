@@ -40,4 +40,3 @@ export * from "./ViewTimingData";
 export * from "./protocol";
 export * from "./events";
 export * from "./util";
-export * from "./json-schema";

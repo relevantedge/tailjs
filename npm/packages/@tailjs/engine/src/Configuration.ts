@@ -2,9 +2,8 @@ import type { TrackerConfiguration } from "@tailjs/client/external";
 import { DEFAULT_CLIENT_CONFIG } from "@tailjs/client/external";
 
 import { type ViewEvent } from "@tailjs/types";
-import { JsonObject } from "@tailjs/util";
-import { ClientIdGenerator } from "./ClientIdGenerator";
-import { AllRequired } from "./lib";
+import { JsonObject, AllRequired } from "@tailjs/util";
+import { ClientIdGenerator } from ".";
 import {
   CryptoProvider,
   EngineHost,

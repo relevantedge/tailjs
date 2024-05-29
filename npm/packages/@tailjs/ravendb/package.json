@@ -1,7 +1,7 @@
 {
   "name": "@tailjs/ravendb",
   "description": "tail.js RavenDB backend.",
-  "license": "MIT",
+  "license": "LGPL3",
   "version": "0.17.24",
   "main": "src/index.ts",
   "author": "RelevantEdge (https://www.relevant-edge.com)",
@@ -13,7 +13,7 @@
   "dependencies": {
     "@tailjs/engine": "workspace:*",
     "@tailjs/types": "workspace:*",
-    "ravendb": "^5.2.8",
+    "ravendb": "^5.4.2",
     "semaphore-async-await": "^1.5.1"
   },
   "publishConfig": {

@@ -3,7 +3,7 @@ import {
   createTransport,
   defaultTransport,
   hash,
-} from "@tailjs/util/transport";
+} from "@tailjs/transport";
 import { CryptoProvider } from "..";
 
 /**

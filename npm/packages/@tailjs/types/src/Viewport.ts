@@ -1,5 +1,4 @@
-import { Rectangle } from "./Rectangle";
-import { Float } from "./native-types";
+import { Float, Rectangle } from ".";
 
 export interface Viewport extends Rectangle {
   totalWidth: Float;

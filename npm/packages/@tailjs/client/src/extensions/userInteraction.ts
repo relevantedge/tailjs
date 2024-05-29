@@ -1,3 +1,5 @@
+import { CLIENT_CALLBACK_CHANNEL_ID } from "@constants";
+
 import {
   AnchorNavigationEvent,
   CartUpdatedEvent,
@@ -7,18 +9,10 @@ import {
   UserInteractionEvent,
 } from "@tailjs/types";
 import {
-  TrackerExtensionFactory,
-  getComponentContext,
-  getViewTimeOffset,
-  onFrame,
-  pushNavigationSource,
-  tryGetCartEventData,
-} from "..";
-
-import {
   F,
   T,
   array,
+  createTimeout,
   equalsAny,
   isObject,
   map,
@@ -28,23 +22,26 @@ import {
   remove,
   restrict,
   some,
-  createTimeout,
-  tryCatch,
-  tryCatchAsync,
   type Nullish,
 } from "@tailjs/util";
-import { parseActivationTags } from "..";
+import {
+  TrackerExtensionFactory,
+  getComponentContext,
+  getViewTimeOffset,
+  onFrame,
+  parseActivationTags,
+  pushNavigationSource,
+  tryGetCartEventData,
+} from "..";
 import {
   MNT_URL,
   attr,
-  body,
   forAncestorsOrSelf,
   getBoundaryData,
   getScreenPos,
   getViewport,
   isInternalUrl,
   listen,
-  mapUrl,
   matchExHash,
   nextId,
   normalizedAttribute,
@@ -52,7 +49,6 @@ import {
   trackerConfig,
   trackerFlag,
 } from "../lib";
-import { CLIENT_CALLBACK_CHANNEL_ID } from "@constants";
 
 const isLinkElement = (
   el: Element,

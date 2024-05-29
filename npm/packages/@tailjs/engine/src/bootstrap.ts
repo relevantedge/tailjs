@@ -6,8 +6,7 @@ import {
 } from "./shared";
 
 import type { TrackerConfiguration } from "@tailjs/client";
-import { JsonObject } from "@tailjs/util";
-import { map } from "./lib";
+import { JsonObject, map } from "@tailjs/util";
 
 export type BootstrapSettings = {
   /** The host implementation to use.  */
@@ -79,9 +78,12 @@ export function bootstrap({
     endpoint,
     cookies,
     allowUnknownEventTypes,
-    extensions: map(extensions, (extension) =>
-      typeof extension === "function" ? extension : async () => extension as any
-    ),
+    extensions:
+      map(extensions, (extension) =>
+        typeof extension === "function"
+          ? extension
+          : async () => extension as any
+      ) ?? [],
     encryptionKeys,
     debugScript,
     environmentTags,

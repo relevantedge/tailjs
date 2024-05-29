@@ -1,4 +1,6 @@
 import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
+
+import { createTransport } from "@tailjs/transport";
 import { SessionInfo, isTrackedEvent, requireFound } from "@tailjs/types";
 import {
   F,
@@ -20,7 +22,6 @@ import {
   tryCatch,
   type Nullish,
 } from "@tailjs/util";
-import { createTransport } from "@tailjs/util/transport";
 import {
   Listener,
   Tracker,
