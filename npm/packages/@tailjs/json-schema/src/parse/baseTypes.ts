@@ -8,6 +8,7 @@ import {
   mergeBaseProperties,
   updateTypeClassifications,
 } from ".";
+import { EntityMetadata } from "../consts";
 
 export const updateBaseTypes = (context: TraverseContext) => {
   const baseTypes = new Set<ParsedType>();
@@ -56,6 +57,13 @@ export const updateBaseTypes = (context: TraverseContext) => {
     delete type.context.node.unevaluatedProperties;
 
     type.context.node.type = "object";
+    // Allow the system `$schema` property:
+    Object.assign((type.context.node.properties ??= {}), {
+      [EntityMetadata.TypeId]: {
+        type: "string",
+        description: "System property that contains the type's ID and version.",
+      },
+    });
     if (type.subtypes?.size) {
       if (!type.referencedBy?.size) {
         // The type is abstract. It is used in compositions and not used directly.

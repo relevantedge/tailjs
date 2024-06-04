@@ -26,7 +26,8 @@ export const parseType = (
             // This is a TypeScript function that has sneaked into the schema. Remove.
             return undefined;
           }
-          const defContext = updateContext(context, defPath);
+
+          const defContext = updateContext(context, defPath, true);
           const type = parseType(def, updateContext(defContext, key));
           if (type) {
             defContext.schema?.types.set(type.name, type);

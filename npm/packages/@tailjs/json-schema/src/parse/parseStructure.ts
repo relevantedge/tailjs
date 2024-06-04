@@ -12,10 +12,10 @@ export const parseStructure = (
 
   if (context.node.additionalProperties) {
     structure = { map: true };
-    typeContext = updateContext(typeContext, "additionalProperties");
+    typeContext = updateContext(typeContext, "additionalProperties", true);
   }
   if (typeContext.node.type === "array") {
-    typeContext = updateContext(typeContext, "items");
+    typeContext = updateContext(typeContext, "items", true);
 
     [typeContext, (structure ??= {}).array] = parseStructure(typeContext);
     structure.array ??= true;

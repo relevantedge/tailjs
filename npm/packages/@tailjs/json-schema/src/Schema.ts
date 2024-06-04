@@ -49,13 +49,22 @@ export interface Schema extends SchemaEntity {
 export interface ValidatableSchemaEntity<T = any> extends SchemaEntity {
   validate(value: T): T;
   tryValidate(value: T | undefined): T | undefined;
-  censor: (value: T, consent: ParsableConsent, write: boolean) => T | undefined;
+  /** Patches the data with the type ID, version and censors properties that would violate the consent. */
+  patch: (
+    value: T,
+    consent: ParsableConsent | undefined,
+    write: boolean,
+    addMetadata?: boolean
+  ) => T | undefined;
 }
 
 export interface SchemaType<T = any> extends ValidatableSchemaEntity<T> {
   name: string;
   schema: Schema;
   primitive: boolean;
+
+  /** The SemVer version of the type if available. ETL can use this for consistency and backwards compatibility. */
+  version?: string;
 }
 
 export interface SchemaObjectType<T = any> extends SchemaType<T> {
@@ -85,17 +94,17 @@ export const isPrimitiveType = <T>(
 
 export type AnySchemaType = ExpandTypes<SchemaObjectType | SchemaPrimitiveType>;
 
-export interface SchemaProperty<T = any> extends SchemaEntity {
+export interface SchemaProperty<T = any> extends ValidatableSchemaEntity {
   name: string;
   declaringType: SchemaType;
   type: SchemaType;
   structure?: SchemaPropertyStructure;
   required: boolean;
   definition?: any;
+  /** The property allows multiple object types for its value. */
+  polymorphic?: boolean;
 }
 
-export interface SchemaVariable<T = any>
-  extends SchemaProperty<T>,
-    ValidatableSchemaEntity<T> {
+export interface SchemaVariable<T = any> extends SchemaProperty<T> {
   scope: VariableScope;
 }

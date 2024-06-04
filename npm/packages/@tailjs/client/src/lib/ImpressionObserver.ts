@@ -80,6 +80,16 @@ export const createImpressionObserver = (tracker: Tracker) => {
             trackImpression(() => {
               ++impressions;
               if (!impressionEvents) {
+                const innerText = (el as HTMLElement).innerText;
+                let text: ImpressionEvent["text"];
+                if (innerText?.trim()?.length) {
+                  text = {
+                    characters: innerText.match(/\S/gu)?.length,
+                    words: innerText.match(/\b\w+\b/gu)?.length,
+                    sentences: innerText.match(/\w.*?[.!?]+(\s|$)/gu)?.length,
+                  };
+                }
+
                 impressionEvents = filter(
                   map(
                     components,
@@ -97,6 +107,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
                           viewport: getViewport(),
                           timeOffset: getViewTimeOffset(),
                           impressions,
+                          text,
                           ...getComponentContext(el, T),
                         })) ||
                       nil

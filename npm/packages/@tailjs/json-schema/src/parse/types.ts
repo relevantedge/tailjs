@@ -25,6 +25,7 @@ export interface TraverseContext extends Partial<ParsedSchemaClassification> {
   schema?: ParsedSchema;
   classification?: DataClassification;
   purposes?: DataPurposeFlags;
+  version?: string;
   node: any;
 }
 
@@ -65,6 +66,9 @@ export interface ParsedType
   properties: Map<string, ParsedProperty>;
   abstract?: boolean;
   composition: ParsedComposition;
+
+  /** The SemVer version of the type if available. ETL can use this for consistency and backwards compatibility. */
+  version?: string;
 }
 
 export interface ParsedProperty
@@ -76,6 +80,9 @@ export interface ParsedProperty
   primitiveType?: SchemaPrimitiveType;
   structure?: SchemaPropertyStructure;
   required: boolean;
+
+  /** The property allow one of multiple types for its value. This is currently only reserved for future use. */
+  polymorphic?: boolean;
 
   /**
    * The JSON object in the schema that defines the actual type of the property (takes maps and array definitions into account).

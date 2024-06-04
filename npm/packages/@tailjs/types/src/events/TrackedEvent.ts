@@ -1,14 +1,13 @@
 import type {
   CartUpdatedEvent,
   ComponentClickEvent,
-  Integer,
+  EventMetadata,
   LocalID,
   Session,
   Tagged,
   Timestamp,
+  Uuid,
   ViewEvent,
-  ImpressionEvent,
-  EventMetadata,
 } from "..";
 
 /**
@@ -30,7 +29,7 @@ export interface TrackedEvent extends Tagged {
   type: string;
 
   /**
-   * The ID of the schema the event comes from. It is suggested that the schema ID ends with a hash followed by a SemVer version number. (e.g. urn:tailjs#0.9.0)
+   * The ID of the schema the event comes from. It is suggested that the schema ID includes a SemVer version number in the end. (e.g. urn:tailjs:0.9.0 or https://www.blah.ge/schema/3.21.0)
    */
   schema?: string;
 
@@ -38,7 +37,7 @@ export interface TrackedEvent extends Tagged {
    * This is assigned by the server. Only use {@link clientId} client-side.
    *
    */
-  id?: LocalID;
+  id?: Uuid;
 
   /**
    * This is set by the client and used to when events reference each other.
@@ -52,11 +51,10 @@ export interface TrackedEvent extends Tagged {
    * If set, it means this event contains updates to an existing event with this {@link clientId}, and should not be considered a separate event.
    * It must have the target event's {@link TrackedEvent.type} postfixed with "_patch" (for example "view_patch").
    *
-   * The specific logic for how to combine patches is specific to the event type, but numbers should generally be additive,
-   * that is, patches contains the changes i numeric values, and not new values. In this way aggregations work in queries for
-   * analytics.
+   * Numbers in patches are considered incremental which means the patch will include the amount to add to an existing number (or zero if it does not yet have a value).
+   * All other values are just overwritten with the patch values.
    *
-   * Please pay attention to this property when doing analytics so you don't over count.
+   * Please pay attention to this property when doing analytics lest you may over count otherwise.
    *
    * Patches are always considered passive, cf. {@link EventMetadata.passive}.
    */
@@ -66,6 +64,7 @@ export interface TrackedEvent extends Tagged {
    * The client ID of the event that caused this event to be triggered or got triggered in the same context.
    * For example, a {@link NavigationEvent} may trigger a {@link ViewEvent},
    * or a {@link CartUpdatedEvent} may be triggered with a {@link ComponentClickEvent}.
+   *
    */
   relatedEventId?: LocalID;
 

@@ -278,7 +278,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       if (
         !(
           item.current.purposes &
-          ((item.getter.purpose ?? 0) | DataPurposeFlags.Anonymous)
+          ((item.getter.purpose ?? 0) | DataPurposeFlags.Any_Anonymous)
         )
       ) {
         results[i] = {

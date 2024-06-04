@@ -19,13 +19,13 @@ const primitiveSchema: Schema = {
 
 const primitiveShared: Pick<
   SchemaPrimitiveType,
-  "classification" | "purposes" | "primitive" | "censor" | "validate" | "schema"
+  "classification" | "purposes" | "primitive" | "patch" | "validate" | "schema"
 > = {
   classification: DataClassification.Anonymous,
   purposes: DataPurposeFlags.Any,
   primitive: true,
   schema: primitiveSchema,
-  censor: (value) => value,
+  patch: (value) => value,
   validate: (value) => value,
 };
 

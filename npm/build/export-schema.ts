@@ -26,48 +26,56 @@ const targets: (readonly [
 ];
 
 try {
-  const schema = generateSchema({
+  const sourceSchema = generateSchema({
     path: "{src/ConfiguredComponent.ts,src/ScopeVariables.ts,src/events/**/*.ts}",
     type: "*",
     schemaId: `urn:tailjs:core`,
     tsconfig: "./tsconfig.json",
     classification: "anonymous",
     purposes: "necessary",
+    version: "0.94.3",
   });
 
-  const manager = SchemaManager.create([schema as any]);
-  const tailSchema = JSON.stringify(manager.schema, null, 2);
+  const manager = SchemaManager.create([sourceSchema as any]);
+  const runtimeSchema = manager.schema.definition;
 
   await Promise.all(
-    targets.map(async ([[sourceSchema, runtimeSchema], pkg]) => {
+    targets.map(async ([[sourceSchemaPath, runtimeSchemaPath], pkg]) => {
       if (pkg) {
-        await fs.mkdir(join(sourceSchema, "dist"), { recursive: true });
+        await fs.mkdir(join(sourceSchemaPath, "dist"), { recursive: true });
         await fs.writeFile(
-          join(sourceSchema, "package.json"),
+          join(sourceSchemaPath, "package.json"),
           JSON.stringify({
             private: true,
             main: "dist/index.js",
             module: "dist/index.mjs",
           })
         );
+        console.log(sourceSchemaPath);
         await fs.writeFile(
-          join(sourceSchema, "dist/index.mjs"),
-          `export default ${JSON.stringify(schema)};`
+          join(sourceSchemaPath, "dist/index.mjs"),
+          `export default ${JSON.stringify(sourceSchema)};`
         );
         await fs.writeFile(
-          join(sourceSchema, "dist/index.js"),
-          `module.exports = ${JSON.stringify(schema)};`
+          join(sourceSchemaPath, "dist/index.js"),
+          `module.exports = ${JSON.stringify(sourceSchema)};`
         );
         await fs.writeFile(
-          join(sourceSchema, "dist/index.json"),
-          JSON.stringify(schema, null, 2)
+          join(sourceSchemaPath, "dist/index.json"),
+          JSON.stringify(sourceSchema, null, 2)
         );
       } else {
-        await fs.mkdir(dirname(sourceSchema), { recursive: true });
-        await fs.writeFile(sourceSchema, JSON.stringify(schema, null, 2));
-        if (runtimeSchema) {
-          await fs.mkdir(dirname(runtimeSchema), { recursive: true });
-          await fs.writeFile(runtimeSchema, JSON.stringify(schema, null, 2));
+        await fs.mkdir(dirname(sourceSchemaPath), { recursive: true });
+        await fs.writeFile(
+          sourceSchemaPath,
+          JSON.stringify(sourceSchema, null, 2)
+        );
+        if (runtimeSchemaPath) {
+          await fs.mkdir(dirname(runtimeSchemaPath), { recursive: true });
+          await fs.writeFile(
+            runtimeSchemaPath,
+            JSON.stringify(runtimeSchema, null, 2)
+          );
         }
       }
     })

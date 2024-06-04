@@ -16,10 +16,9 @@ export const mergeBaseProperties = (
           ...current,
           ...(!current?.explicit && property.explicit
             ? {
-                classification:
-                  property.classification ?? current.classification,
-                purposes: property.purposes ?? current.purposes,
-                censorIgnore: property.censorIgnore ?? current.censorIgnore,
+                classification: property.classification,
+                purposes: property.purposes,
+                censorIgnore: property.censorIgnore,
                 // Propagate
                 explicit: true,
               }

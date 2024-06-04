@@ -1,9 +1,12 @@
 import { PickPartial, required } from "@tailjs/util";
 import { TraverseContext, parseClassifications, parseDescription } from ".";
+import { SchemaAnnotations } from "../consts";
 
 export const updateContext = (
   context: PickPartial<TraverseContext, "key">,
-  key: string
+  key: string,
+  // Whether to ignore the x-version property which must be the case below type level (e.g. properties).
+  ignoreVersion = false
 ): TraverseContext => {
   const node =
     key === "#"
@@ -14,8 +17,13 @@ export const updateContext = (
     parent: context,
     key,
     ...parseClassifications(context),
+    version: context.version,
     node,
   };
+  !ignoreVersion &&
+    (childContext.version =
+      node?.[SchemaAnnotations.Version] ?? context.version);
+
   if (node.$id) {
     childContext.$ref = node.$id;
   } else if (key) {
@@ -41,5 +49,6 @@ export const updateContext = (
 
     //parseEventTypes(childContext);
   }
+
   return childContext;
 };

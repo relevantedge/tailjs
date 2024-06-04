@@ -5,6 +5,7 @@ import {
   ParsedType,
   getRefSchema,
   getRefType,
+  normalizeBaseTypes,
   parseClassifications,
   parseDescription,
   parseStructure,
@@ -22,14 +23,20 @@ export const addProperties = (
   const required = new Set(node.required ?? []);
 
   if (composition.context && node.properties) {
-    const propertiesContext = updateContext(composition.context, "properties");
+    const propertiesContext = updateContext(
+      composition.context,
+      "properties",
+      true
+    );
     forEach(node.properties, ([key, definition]) => {
       if (type.properties?.has(key)) {
         // Already parsed.
         return;
       }
 
-      const context = updateContext(propertiesContext, key);
+      normalizeBaseTypes(definition);
+
+      const context = updateContext(propertiesContext, key, true);
       const [typeContext, structure] = parseStructure(context);
 
       const ownClassification = parseClassifications(context);
@@ -55,9 +62,6 @@ export const addProperties = (
         typeContext,
       };
 
-      if (property.name === "deviceSessionId") {
-        var b = 4;
-      }
       let objectType: ParsedType | undefined;
       if (typeContext.node.$ref) {
         const reffed = getRefSchema(typeContext, typeContext.node.$ref);
@@ -76,6 +80,11 @@ export const addProperties = (
       } else {
         property.primitiveType = tryParsePrimitiveType(context.node);
       }
+
+      property.polymorphic =
+        property.objectType?.composition.compositions?.some(
+          (composition) => composition.type === "oneOf"
+        );
 
       if (
         update(type.properties, key, (current) =>

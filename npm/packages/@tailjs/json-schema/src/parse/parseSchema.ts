@@ -1,3 +1,4 @@
+import { dataClassification, dataPurposes } from "@tailjs/types";
 import { Wrapped, map, unwrap } from "@tailjs/util";
 import Ajv, { ErrorObject } from "ajv";
 import {
@@ -9,6 +10,7 @@ import {
   updateBaseTypes,
   updateContext,
 } from ".";
+import { SchemaAnnotations } from "..";
 
 export const parseSchema = (schema: any, ajv: Ajv) => {
   const rootContext = updateContext(
@@ -33,9 +35,17 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
   );
 
   updateBaseTypes(rootContext);
-  rootContext.parseContext.typeNodes.forEach((type) =>
-    maybeMakeEventType(type)
-  );
+
+  rootContext.parseContext.typeNodes.forEach((type) => {
+    maybeMakeEventType(type);
+    type.properties.forEach((property) => {
+      property.context.node[SchemaAnnotations.Classification] =
+        dataClassification.format(property.classification);
+      property.context.node[SchemaAnnotations.Purposes] = dataPurposes.format(
+        property.purposes
+      );
+    });
+  });
 
   return [
     rootContext.parseContext.schemas,

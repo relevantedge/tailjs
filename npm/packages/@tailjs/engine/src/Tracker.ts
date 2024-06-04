@@ -47,12 +47,15 @@ import {
   PartialRecord,
   PickPartial,
   ReadonlyRecord,
+  clone,
   concat,
   forEach,
   map,
   now,
+  structuralEquals,
   truish,
   update,
+  get,
 } from "@tailjs/util";
 import {
   Cookie,
@@ -200,6 +203,7 @@ export class Tracker {
   public readonly env: TrackerEnvironment;
   public readonly headers: ReadonlyRecord<string, string>;
   public readonly queryString: ReadonlyRecord<string, string[]>;
+
   public readonly referrer: string | null;
   public readonly requestItems: Map<any, any>;
   /** Transient variables that can be used by extensions whilst processing a request. */
@@ -548,7 +552,7 @@ export class Tracker {
         session: true,
         device: true,
         filter: {
-          purposes: ~(purposes | DataPurposeFlags.Anonymous),
+          purposes: ~(purposes | DataPurposeFlags.Any_Anonymous),
           classification: {
             min: level + 1,
           },
@@ -676,6 +680,7 @@ export class Tracker {
       return;
     }
 
+    let isNew = false;
     this._session =
       // We bypass the TrackerVariableStorage here and use the environment directly.
       // The session ID we currently have is provisional,
@@ -698,6 +703,7 @@ export class Tracker {
                         ?.value as DeviceInfo);
                 }
 
+                isNew = true;
                 return {
                   ...Necessary,
                   value: createInitialScopeData<SessionInfo>(
@@ -724,7 +730,9 @@ export class Tracker {
         )
       );
 
-    if (this._session?.value) {
+    this._session.value.isNew = isNew;
+
+    if (this._session.value) {
       let device =
         this._consent.level > DataClassification.Anonymous && deviceId
           ? await this.env.storage.get([

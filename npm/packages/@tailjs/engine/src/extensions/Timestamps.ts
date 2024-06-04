@@ -1,12 +1,15 @@
+import { mapAsync } from "@tailjs/util";
 import type { TrackerExtension } from "../shared";
 
 export const Timestamps: TrackerExtension = {
   id: "core-validation",
-  async patch(events, next) {
+  async patch(events, next, tracker) {
     const now = Date.now();
     return (
       await next(
-        events.map((event) => {
+        await mapAsync(events, async (event) => {
+          if (!tracker.sessionId) return;
+
           if (event.timestamp) {
             if (event.timestamp > 0) {
               return {
