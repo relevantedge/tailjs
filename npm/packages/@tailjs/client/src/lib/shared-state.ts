@@ -1,6 +1,6 @@
 import { CLIENT_STATE_CHANNEL_ID } from "@constants";
 
-import { UUID } from "@tailjs/types";
+import { Uuid } from "@tailjs/types";
 import {
   MaybeUndefined,
   Nullish,
@@ -57,7 +57,7 @@ export const nextId = () => (TAB_ID ?? NOT_INITIALIZED()) + "_" + nextLocalId();
 export const nextLocalId = () => ++localId;
 
 const randomValues = (arg: any) => crypto.getRandomValues(arg);
-export const uuidv4 = (): UUID =>
+export const uuidv4 = (): Uuid =>
   replace(
     ([1e7] as any) + -1e3 + -4e3 + -8e3 + -1e11,
     /[018]/g,

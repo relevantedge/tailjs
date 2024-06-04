@@ -335,7 +335,7 @@ export class RequestHandler {
           : (this._config.allowUnknownEventTypes &&
               !this._schema.getType(ev.type) &&
               ev) ||
-            this._schema.censor(ev.type, ev, tracker.consent)
+            this._schema.patch(ev.type, ev, tracker.consent)
       );
 
     let parsed = validateEvents(eventBatch);

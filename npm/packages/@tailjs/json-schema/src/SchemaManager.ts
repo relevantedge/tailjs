@@ -6,6 +6,7 @@ import {
 } from "@tailjs/types";
 
 import {
+  IDENTITY,
   JsonObject,
   MaybeArray,
   MaybeUndefined,
@@ -18,6 +19,7 @@ import {
   get,
   ifDefined,
   invariant,
+  isNumber,
   obj,
   required,
   throwError,
@@ -44,7 +46,7 @@ import {
 import {
   ParsedComposition,
   ParsedType,
-  censor,
+  patchValue,
   parseError,
   parseSchema,
   validationError,
@@ -185,8 +187,17 @@ export class SchemaManager {
 
         definition: parsedType.composition.node,
 
-        censor: (value, classification, write) =>
-          censor(parsedType, value, classification, undefined, write),
+        patch: (value, classification, write, addMetadata) =>
+          patchValue(
+            parsedType,
+            value,
+            classification,
+            undefined,
+            write,
+            // Using a number is not supported through the public API.
+            // This is to support property validation in a more or less hacky way.
+            isNumber(addMetadata) ? addMetadata : addMetadata ? 0 : 1
+          ),
 
         tryValidate: (value) => (validate(value) ? value : undefined),
 
@@ -233,6 +244,19 @@ export class SchemaManager {
       );
 
       forEach(parsed.properties, ([key, parsedProperty]) => {
+        const propertyType = required(
+          parsedProperty.objectType
+            ? this.types.get(parsedProperty.objectType.id)
+            : parsedProperty.primitiveType ?? ({} as any),
+          () =>
+            parseError(
+              parsed.context,
+              `Unknown property type. (${JSON.stringify(
+                parsedProperty.typeContext!.node
+              )})`
+            )
+        );
+
         const property: SchemaProperty = {
           id: parsedProperty.id,
           name: parsedProperty.name,
@@ -246,18 +270,19 @@ export class SchemaManager {
 
           definition: parsedProperty.typeContext?.node,
 
-          type: required(
-            parsedProperty.objectType
-              ? this.types.get(parsedProperty.objectType.id)
-              : parsedProperty.primitiveType ?? ({} as any),
-            () =>
-              parseError(
-                parsed.context,
-                `Unknown property type. (${JSON.stringify(
-                  parsedProperty.typeContext!.node
-                )})`
-              )
-          ),
+          polymorphic: !!parsedProperty.polymorphic,
+          type: propertyType,
+          validate: (value) =>
+            type.validate({ [property.name]: value })?.[property.name],
+          tryValidate: (value) =>
+            type.tryValidate({ [property.name]: value })?.[property.name],
+          patch: (value, consent, write, addMetadata) =>
+            type.patch(
+              { [property.name]: value },
+              consent,
+              write,
+              addMetadata ? (-1 as any) : false
+            )?.[property.name],
         };
         (property as any)["parsed"] = parsedProperty;
         unlock((type.properties ??= new Map())).set(property.name, property);
@@ -297,17 +322,6 @@ export class SchemaManager {
                 `The type '${type.id}' cannot have required properties since it defines scope variables.`
               );
             }
-
-            property.censor = (value, consent, write) =>
-              type.censor({ [property.name]: value }, consent, write)?.[
-                property.name
-              ];
-
-            property.validate = (value) =>
-              type.validate({ [property.name]: value })[property.name];
-
-            property.tryValidate = (value) =>
-              type.tryValidate({ [property.name]: value })?.[property.name];
 
             property.scope = variableScopeTarget!;
 
@@ -472,29 +486,33 @@ export class SchemaManager {
     return this.getType(id, true).validate(value);
   }
 
-  public censor<T>(
+  public patch<T>(
     typeId: string,
     value: T,
     consent: ParsableConsent,
-    validate?: boolean
+    validate?: boolean,
+    addMetadata?: boolean
   ): T | undefined;
-  public censor<T>(
+  public patch<T>(
     eventType: string,
     event: T,
     consent: ParsableConsent,
-    validate?: boolean
+    validate?: boolean,
+    addMetadata?: boolean
   ): T | undefined;
-  public censor(
+  public patch(
     id: string,
     value: any,
     consent: ParsableConsent,
     validate = true,
-    write = false
+    write = false,
+    addMetadata = true
   ) {
     return ifDefined(
       this.getType(id, true),
       (target) => (
-        validate && target.validate(value), target.censor(value, consent, write)
+        validate && target.validate(value),
+        target.patch(value, consent, write, addMetadata)
       )
     );
   }

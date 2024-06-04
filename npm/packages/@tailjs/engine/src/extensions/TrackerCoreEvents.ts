@@ -6,6 +6,7 @@ import {
   SignInEvent,
   SignOutEvent,
   TrackedEvent,
+  Variable,
   dataClassification,
   dataPurposes,
   isConsentEvent,
@@ -17,6 +18,7 @@ import {
 } from "@tailjs/types";
 import { now } from "@tailjs/util";
 import { NextPatchExtension, Tracker, TrackerExtension } from "../shared";
+import { SCOPE_INFO_KEY } from "@constants";
 
 export type SessionConfiguration = {
   /**
@@ -134,22 +136,7 @@ export class TrackerCoreEvents implements TrackerExtension {
         }
       }
 
-      updatedEvents.push(event);
-
-      if (tracker.session.isNew) {
-        updatedEvents.push({
-          type: "session_started",
-          url: tracker.url,
-          sessionNumber: tracker.device?.sessions ?? 1,
-          timeSinceLastSession: tracker.session.previousSession
-            ? tracker.session.firstSeen - tracker.session.previousSession
-            : undefined,
-          tags: tracker.env.tags,
-          timestamp,
-        } as SessionStartedEvent);
-      }
-
-      event.session = {
+      const session = {
         sessionId: tracker.sessionId,
         deviceSessionId: tracker.deviceSessionId,
         deviceId: tracker.deviceId,
@@ -161,6 +148,24 @@ export class TrackerCoreEvents implements TrackerExtension {
         expiredDeviceSessionId: tracker._expiredDeviceSessionId,
         clientIp: tracker.clientIp ?? undefined,
       };
+
+      updatedEvents.push(event);
+
+      if (tracker.session.isNew) {
+        updatedEvents.push({
+          type: "session_started",
+          url: tracker.url,
+          sessionNumber: tracker.device?.sessions ?? 1,
+          timeSinceLastSession: tracker.session.previousSession
+            ? tracker.session.firstSeen - tracker.session.previousSession
+            : undefined,
+          session,
+          tags: tracker.env.tags,
+          timestamp,
+        } as SessionStartedEvent);
+      }
+
+      event.session = session;
 
       if (isUserAgentEvent(event)) {
         sessionPatches.push((data) => (data.hasUserAgent = true));

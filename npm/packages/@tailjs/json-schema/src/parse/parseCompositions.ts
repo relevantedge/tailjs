@@ -6,6 +6,13 @@ import {
   updateContext,
 } from ".";
 
+export const normalizeBaseTypes = (node: any) => {
+  if (node.$ref && node.properties) {
+    (node.allOf ??= []).push({ $ref: node.$ref });
+    delete node.$ref;
+  }
+};
+
 export const parseCompositions = (
   node: any,
   context: TraverseContext,
@@ -46,17 +53,19 @@ export const parseCompositions = (
       _,
       compositionContext = childContext &&
         childContext.node[type] &&
-        updateContext(childContext, type)
+        updateContext(childContext, type, true)
     ) =>
       forEach(node[type], (node, i) =>
-        (composition.compositions ??= []).push(
-          parseCompositions(
+        (composition.compositions ??= []).push({
+          ...parseCompositions(
             node,
             context,
             seen,
-            compositionContext && updateContext(compositionContext, i + "")
-          )
-        )
+            compositionContext &&
+              updateContext(compositionContext, i + "", true)
+          ),
+          type,
+        })
       )
   );
 

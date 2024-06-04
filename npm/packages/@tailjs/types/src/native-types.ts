@@ -1,7 +1,8 @@
 /**
- * An identifier that is globally unique.
+ * An identifier that is globally unique. This does not need to be a "conventional" UUID like 853082a0-cc24-4185-aa30-9caacac02932'.
+ * It is any string that is guaranteed to be globally unique, and may be longer than 128 bits.
  */
-export type UUID = string;
+export type Uuid = string;
 
 /**
  * An identifier that is locally unique to some scope.

@@ -82,10 +82,10 @@ export class SchemaVariableSet {
     );
   }
 
-  public censor<T>(
+  public patch<T>(
     key: VariableKey,
     value: T,
-    consent: ParsableConsent,
+    consent: ParsableConsent | undefined,
     validate = true,
     write = false
   ): T | undefined {
@@ -93,9 +93,9 @@ export class SchemaVariableSet {
       this.get(key),
       (variable) => (
         validate && variable.validate(value),
-        !validateConsent(variable, consent, undefined, write)
+        consent && !validateConsent(variable, consent, undefined, write)
           ? undefined
-          : variable.censor(value, consent, write)
+          : variable.patch(value, consent, write)
       )
     );
   }

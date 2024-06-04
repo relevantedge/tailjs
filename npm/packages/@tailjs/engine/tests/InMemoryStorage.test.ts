@@ -4,6 +4,7 @@ import {
   VariableKey,
   VariableResultStatus,
   VariableSetResult,
+  VariableUsage,
 } from "@tailjs/types";
 import { InMemoryStorage, ParsingVariableStorage } from "../src";
 
@@ -82,7 +83,7 @@ describe("Variable stores store.", () => {
   });
 
   it("InMemoryStore handles version conflicts", async () => {
-    const key: VariableHeader<false> = {
+    const key: VariableKey & VariableUsage = {
       scope: "user",
       targetId: "u",
       key: "test",
@@ -125,7 +126,9 @@ describe("Variable stores store.", () => {
       (result = await store.set([
         {
           ...key,
-          patch: { patch: "ifMatch", match: undefined, value: "version3" },
+          patch: "ifMatch",
+          match: undefined,
+          value: "version3",
         },
       ])["result"])?.status
     ).toBe(VariableResultStatus.Unchanged);
@@ -135,7 +138,9 @@ describe("Variable stores store.", () => {
       (result = await store.set([
         {
           ...key,
-          patch: { patch: "ifMatch", match: "version2.1", value: "version3" },
+          patch: "ifMatch",
+          match: "version2.1",
+          value: "version3",
         },
       ])["result"])?.status
     ).toBe(VariableResultStatus.Success);
@@ -152,7 +157,7 @@ describe("Variable stores store.", () => {
   });
 
   it("InMemoryStore handles queries", async () => {
-    const target: VariableHeader<false> = {
+    const target: VariableKey & VariableUsage = {
       scope: "session",
       targetId: "s",
       classification: "anonymous",

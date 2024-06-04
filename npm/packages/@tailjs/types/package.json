@@ -8,7 +8,7 @@
   "scripts": {
     "schema": "tsx ../../../build/export-schema.ts",
     "check": "tsc --noEmit",
-    "build": "tsx ../../../build/export-schema.ts && tsx ../../../build/rollup.ts",
+    "build": "tsx ../../../build/rollup.ts && tsx ../../../build/export-schema.ts",
     "build:watch": "nodemon --watch src --watch ../../../build/export-schema.ts --ext ts --exec \"pnpm run build\""
   },
   "devDependencies": {

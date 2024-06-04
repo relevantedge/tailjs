@@ -397,33 +397,31 @@ export class VariableStorageCoordinator implements VariableStorage {
     return results;
   }
 
-  private _censor<
+  private _patchAndCensor<
     T extends (VariableKey & Partial<VariableUsage>) | undefined,
     V
   >(
     mapping: PrefixVariableMapping,
     key: T,
     value: V,
-    consent: ParsableConsent,
+    consent: ParsableConsent | undefined,
     write: boolean
   ): MaybeUndefined<T, V> {
     if (key == null || value == null) return undefined as any;
 
     const localKey = stripPrefix(key)!;
-    if (
-      (dataPurposes.parse(key.purposes) ?? ~0) & DataPurposeFlags.Server_Write
-    )
-      if (mapping.variables?.has(localKey)) {
-        return mapping.variables.censor(
-          localKey,
-          value,
-          consent,
-          false,
-          write
-        ) as any;
-      }
+    if (mapping.variables?.has(localKey)) {
+      return mapping.variables.patch(
+        localKey,
+        value,
+        consent,
+        false,
+        write
+      ) as any;
+    }
 
-    return validateConsent(localKey, consent, mapping.classification)
+    return !consent ||
+      validateConsent(localKey, consent, mapping.classification)
       ? (value as any)
       : undefined;
   }
@@ -575,15 +573,14 @@ export class VariableStorageCoordinator implements VariableStorage {
       )
     ) {
       const wasDefined = target.value != null;
-      if (consent) {
-        target.value = this._censor(
-          mapping,
-          { ...key, ...target },
-          target.value,
-          consent,
-          write
-        );
-      }
+
+      target.value = this._patchAndCensor(
+        mapping,
+        { ...key, ...target },
+        target.value,
+        consent,
+        write
+      );
       if (wasDefined && target.value == null) {
         (variables[index] as any) = undefined;
         censored.push([
@@ -731,22 +728,20 @@ export class VariableStorageCoordinator implements VariableStorage {
       };
     }
 
-    if (consent) {
-      for (const result of results) {
-        if (!isSuccessResult(result, true) || !result?.value) continue;
-        const mapping = this._getMapping(result);
-        if (mapping) {
-          if (
-            (result.value = this._censor(
-              mapping,
-              result,
-              result.value,
-              consent,
-              false
-            )) == null
-          ) {
-            result.status = VariableResultStatus.Denied as any;
-          }
+    for (const result of results) {
+      if (!isSuccessResult(result, true) || !result?.value) continue;
+      const mapping = this._getMapping(result);
+      if (mapping) {
+        if (
+          (result.value = this._patchAndCensor(
+            mapping,
+            result,
+            result.value,
+            consent,
+            false
+          )) == null
+        ) {
+          result.status = VariableResultStatus.Denied as any;
         }
       }
     }
@@ -853,18 +848,18 @@ export class VariableStorageCoordinator implements VariableStorage {
   ): Promise<VariableQueryResult<Variable<any, true>>> {
     const results = await this._storage.query(filters, options, context as any);
     const consent = this._getContextConsent(context);
-    if (consent) {
-      results.results = results.results.map((result) => ({
-        ...result,
-        value: this._censor(
-          this._getMapping(result),
-          result,
-          result.value,
-          consent,
-          false
-        ),
-      }));
-    }
+
+    results.results = results.results.map((result) => ({
+      ...result,
+      value: this._patchAndCensor(
+        this._getMapping(result),
+        result,
+        result.value,
+        consent,
+        false
+      ),
+    }));
+
     return results;
   }
 }

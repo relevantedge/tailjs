@@ -28,7 +28,7 @@ export interface UserConsent {
 
 export const NoConsent: Readonly<UserConsent> = Object.freeze({
   level: "anonymous",
-  purposes: "anonymous",
+  purposes: "any_anonymous",
 });
 
 export const FullConsent: Readonly<UserConsent> = Object.freeze({
@@ -90,7 +90,7 @@ export const validateConsent = (
     classification! <= consentClassification &&
     (purposes &
       // No matter what is defined in the consent, it will always include the "anonymous" purposes.
-      (consentPurposes | DataPurposeFlags.Anonymous)) >
+      (consentPurposes | DataPurposeFlags.Any_Anonymous)) >
       0
   );
 };

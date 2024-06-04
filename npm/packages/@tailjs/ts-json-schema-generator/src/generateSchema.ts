@@ -22,6 +22,7 @@ export interface GenerateSchemaConfig {
   tsconfig?: string;
   classification?: DataClassificationValue;
   purposes?: DataPurposeValue;
+  version?: string;
 }
 
 export const generateSchema = (config: GenerateSchemaConfig) => {

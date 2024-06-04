@@ -1,4 +1,4 @@
-import type { DataClassification, SignOutEvent, UUID, UserConsent } from ".";
+import type { DataClassification, SignOutEvent, Uuid, UserConsent } from ".";
 
 /**
  * Identifiers related to a user's session, login and device.
@@ -18,7 +18,7 @@ export interface Session {
    * It is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.
    *
    */
-  sessionId: UUID;
+  sessionId: Uuid;
 
   /**
    * The unique ID of the user's device. This ID does most likely not identify the device reliably over time, since it may be reset if the user purges tracking data, e.g. clears cookies or changes browser.
@@ -28,7 +28,7 @@ export interface Session {
    *
    * It is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.
    */
-  deviceId?: UUID;
+  deviceId?: Uuid;
 
   /**
    * The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again.
@@ -41,7 +41,7 @@ export interface Session {
    *
    * It is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting.
    */
-  deviceSessionId?: UUID;
+  deviceSessionId?: Uuid;
 
   /**
    * The current user owning the session.

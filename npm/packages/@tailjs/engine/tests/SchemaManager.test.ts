@@ -1,6 +1,6 @@
 import { SCOPE_INFO_KEY } from "@constants";
 
-import { SchemaManager } from "@tailjs/json-schema";
+import { EntityMetadata, SchemaManager } from "@tailjs/json-schema";
 import { DataClassification, DataPurposeFlags } from "@tailjs/types";
 import * as fs from "fs";
 import {
@@ -27,6 +27,10 @@ type AtLeast<T> = T extends object | any[]
 type AtLeastPartial<T> = Partial<AtLeast<T>>;
 
 describe("SchemaManager.", () => {
+  const stripMetadata = <T>(value: T): T => (
+    value && delete value[EntityMetadata.TypeId], value
+  );
+
   it("Validates and censors", () => {
     const manager = SchemaManager.create([bigSchema]);
 
@@ -44,76 +48,96 @@ describe("SchemaManager.", () => {
       ],
     };
 
-    expect(manager.validate("urn:tailjs:core#Type1", data)).toBe(data);
+    expect(stripMetadata(manager.validate("urn:tailjs:core#Type1", data))).toBe(
+      data
+    );
 
     expect(() =>
-      manager.validate<TestEvent3>("urn:acme:other#TestEvent3", {
-        type: "current_name",
-        sharedNumber: 32,
-        sharedItems: [{ n: 32 }],
-      })
+      stripMetadata(
+        manager.validate<TestEvent3>("urn:acme:other#TestEvent3", {
+          type: "current_name",
+          sharedNumber: 32,
+          sharedItems: [{ n: 32 }],
+        })
+      )
     ).not.toThrow();
 
     expect(() =>
-      manager.validate<Partial<TestEvent3>>("urn:acme:other#TestEvent3", {
-        type: "current_name",
-        sharedItems: [{ n: 32 }],
-      })
+      stripMetadata(
+        manager.validate<Partial<TestEvent3>>("urn:acme:other#TestEvent3", {
+          type: "current_name",
+          sharedItems: [{ n: 32 }],
+        })
+      )
     ).toThrow("sharedNumber");
 
     // Test partial patch types.
     expect(() =>
-      manager.validate<Partial<TestEvent3>>("current_name", {
-        type: "current_name",
-      })
+      stripMetadata(
+        manager.validate<Partial<TestEvent3>>("current_name", {
+          type: "current_name",
+        })
+      )
     ).toThrow("sharedNumber");
 
     expect(
-      manager.validate<Partial<TestEvent3>>("current_name_patch", {
-        type: "current_name_patch" as any,
-        patchTargetId: "ok",
-      })
+      stripMetadata(
+        manager.validate<Partial<TestEvent3>>("current_name_patch", {
+          type: "current_name_patch" as any,
+          patchTargetId: "ok",
+        })
+      )
     ).toBeDefined();
 
     expect(() =>
-      manager.validate<AtLeast<TestEvent3>>("urn:acme:other#TestEvent3", {
-        type: "current_name",
-        sharedNumber: 10,
-        sharedItems: [{ n: 32, z: false }],
-      })
+      stripMetadata(
+        manager.validate<AtLeast<TestEvent3>>("urn:acme:other#TestEvent3", {
+          type: "current_name",
+          sharedNumber: 10,
+          sharedItems: [{ n: 32, z: false }],
+        })
+      )
     ).toThrow("unevaluatedProperty: z");
 
     expect(
-      manager.censor<TestEvent4>(
-        "urn:acme:other#TestEvent4",
-        {
-          type: "test_event4",
-          name: "test",
-        },
-        { classification: "anonymous", purposes: "any" }
+      stripMetadata(
+        manager.patch<TestEvent4>(
+          "urn:acme:other#TestEvent4",
+          {
+            type: "test_event4",
+            name: "test",
+          },
+          { classification: "anonymous", purposes: "any" }
+        )
       )
     ).toBeUndefined();
 
     expect(() =>
-      manager.validate<TestEvent3>("urn:acme:other#TestEvent2", {
-        type: "current_name",
-        sharedNumber: 32,
-        sharedItems: [{ n: 32 }],
-      })
+      stripMetadata(
+        manager.validate<TestEvent3>("urn:acme:other#TestEvent2", {
+          type: "current_name",
+          sharedNumber: 32,
+          sharedItems: [{ n: 32 }],
+        })
+      )
     ).toThrow("abstract");
 
     expect(
-      manager.censor("urn:tailjs:core#Type1", data, {
-        classification: DataClassification.Sensitive,
-        purposes: DataPurposeFlags.Any,
-      })
+      stripMetadata(
+        manager.patch("urn:tailjs:core#Type1", data, {
+          classification: DataClassification.Sensitive,
+          purposes: DataPurposeFlags.Any,
+        })
+      )
     ).toEqual(data);
 
     expect(
-      manager.censor("urn:tailjs:core#Type1", data, {
-        classification: DataClassification.Anonymous,
-        purposes: DataPurposeFlags.Any,
-      })
+      stripMetadata(
+        manager.patch("urn:tailjs:core#Type1", data, {
+          classification: DataClassification.Anonymous,
+          purposes: DataPurposeFlags.Any,
+        })
+      )
     ).toEqual<typeof data>({
       testNumber: data.testNumber,
       testArray: [
@@ -138,17 +162,21 @@ describe("SchemaManager.", () => {
     );
 
     expect(
-      variables.censor({ scope: "session", key: "test" }, 20, {
-        classification: "anonymous",
-        purposes: "any",
-      })
+      stripMetadata(
+        variables.patch({ scope: "session", key: "test" }, 20, {
+          classification: "anonymous",
+          purposes: "any",
+        })
+      )
     ).toBeUndefined();
 
     expect(
-      variables.censor({ scope: "session", key: "test" }, 20, {
-        classification: "indirect",
-        purposes: "any",
-      })
+      stripMetadata(
+        variables.patch({ scope: "session", key: "test" }, 20, {
+          classification: "indirect",
+          purposes: "any",
+        })
+      )
     ).toBe(20);
 
     expect(
@@ -156,7 +184,7 @@ describe("SchemaManager.", () => {
     ).toBeUndefined();
 
     expect(
-      variables.censor(
+      variables.patch(
         { scope: "session", key: "serverOnly" },
         { alsoClient: "foo", onlyServer: "bar" },
         { classification: "anonymous", purposes: "any" }
@@ -164,41 +192,49 @@ describe("SchemaManager.", () => {
     ).toEqual({ alsoClient: "foo" });
 
     expect(
-      variables.censor(
-        { scope: "session", key: "serverOnly" },
-        { alsoClient: "foo", onlyServer: "bar" },
-        { classification: "anonymous", purposes: ["any", "server"] }
+      stripMetadata(
+        variables.patch(
+          { scope: "session", key: "serverOnly" },
+          { alsoClient: "foo", onlyServer: "bar" },
+          { classification: "anonymous", purposes: ["any", "server"] }
+        )
       )
     ).toEqual({ alsoClient: "foo", onlyServer: "bar" });
 
     for (const key of ["clientReadOnly", "clientReadOnly2"]) {
-      expect(
-        variables.censor(
-          { scope: "session", key },
-          { test: "123" },
-          { classification: "anonymous", purposes: "any" },
-          true,
-          false
+      stripMetadata(
+        expect(
+          variables.patch(
+            { scope: "session", key },
+            { test: "123" },
+            { classification: "anonymous", purposes: "any" },
+            true,
+            false
+          )
         )
       ).toBeDefined();
 
       expect(
-        variables.censor(
-          { scope: "session", key },
-          { test: "123" },
-          { classification: "anonymous", purposes: "any" },
-          true,
-          true
+        stripMetadata(
+          variables.patch(
+            { scope: "session", key },
+            { test: "123" },
+            { classification: "anonymous", purposes: "any" },
+            true,
+            true
+          )
         )
       ).toBeUndefined();
 
       expect(
-        variables.censor(
-          { scope: "session", key },
-          { test: "123" },
-          { classification: "anonymous", purposes: ["any", "server"] },
-          true,
-          true
+        stripMetadata(
+          variables.patch(
+            { scope: "session", key },
+            { test: "123" },
+            { classification: "anonymous", purposes: ["any", "server"] },
+            true,
+            true
+          )
         )
       ).toBeDefined();
     }
@@ -232,6 +268,12 @@ describe("SchemaManager.", () => {
     expect(testType.properties.reference2.unevaluatedProperties).toBe(false);
     expect(testType.properties.reference3.unevaluatedProperties).toBe(false);
     expect(testType.properties.reference4.unevaluatedProperties).toBe(false);
+
+    expect(
+      manager.getType("urn:tailjs:core#Test1").properties?.get("reference")
+        ?.polymorphic
+    ).toBe(true);
+
     expect(
       manager.validate<PolyTest1>("urn:tailjs:core#Test1", {
         reference: { $type: "type1", sub1: "Hello" } as PolyType1,
@@ -380,7 +422,7 @@ describe("SchemaManager.", () => {
     const variables = manager.compileVariableSet("urn:tailjs:core");
 
     expect(
-      variables.censor(
+      variables.patch(
         { scope: "session", key: SCOPE_INFO_KEY },
         {
           id: "test",
@@ -393,7 +435,7 @@ describe("SchemaManager.", () => {
     ).toBeUndefined();
 
     expect(
-      variables.censor(
+      variables.patch(
         { scope: "session", key: SCOPE_INFO_KEY },
         {
           id: "test",
@@ -428,24 +470,30 @@ describe("SchemaManager.", () => {
     };
 
     expect(
-      manager.censor("session_location", locationEvent, {
-        level: "anonymous",
-        purposes: "necessary",
-      })
+      stripMetadata(
+        manager.patch("session_location", locationEvent, {
+          level: "anonymous",
+          purposes: "necessary",
+        })
+      )
     ).toEqual({ ...country });
 
     expect(
-      manager.censor("session_location", locationEvent, {
-        level: "indirect",
-        purposes: "necessary",
-      })
+      stripMetadata(
+        manager.patch("session_location", locationEvent, {
+          level: "indirect",
+          purposes: "necessary",
+        })
+      )
     ).toEqual({ ...country });
 
     expect(
-      manager.censor("session_location", locationEvent, {
-        level: "indirect",
-        purposes: "performance",
-      })
+      stripMetadata(
+        manager.patch("session_location", locationEvent, {
+          level: "indirect",
+          purposes: "performance",
+        })
+      )
     ).toEqual(locationEvent);
 
     // fs.writeFileSync(

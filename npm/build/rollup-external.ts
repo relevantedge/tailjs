@@ -114,7 +114,6 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
                 find: /^@tailjs\/(engine|maxmind|ravendb|sitecore-backends)(\/(.+))?$/,
                 replacement: `${pkg.workspace}/packages/@tailjs/$1/dist/$2/v8/dist/index.mjs`,
               },
-
               {
                 find: /^@tailjs\/([^\/]+)(?:\/(.+))?$/,
                 replacement: `${pkg.workspace}/packages/@tailjs/$1/dist/$2/dist/index.mjs`,
@@ -204,7 +203,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
         watch: {
           exclude: ["**/node_modules/**"],
         },
-        external: [/\@tailjs\/.+/g],
+        external: [/\@tailjs\/.+[^\/]/g],
         output: targetOutputs.map((path) => ({
           dir: path[0],
           ...chunkNameFunctions(".d.ts", ext ? "" : "dist/"),

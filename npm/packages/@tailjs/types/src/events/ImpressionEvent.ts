@@ -1,5 +1,7 @@
 import type {
+  Duration,
   Integer,
+  Percentage,
   TrackingSettings,
   UserInteractionEvent,
   ViewTimingData,
@@ -23,6 +25,51 @@ export interface ImpressionEvent extends UserInteractionEvent {
   impressions?: Integer;
 
   duration?: ViewTimingData;
+
+  /**
+   * Detailed information about the parts of the component that was viewed.
+   *
+   * TODO: Not implemented.
+   */
+  details?: {
+    top?: ViewDetails;
+    middle?: ViewDetails;
+    bottom?: ViewDetails;
+  };
+
+  /**
+   * The length and number of words in the component's text.
+   * This combined with the active time can give an indication of how much the user read if at all.
+   */
+  text?: {
+    /**
+     * The number of characters in the text (including punctuation).
+     */
+    characters?: Integer;
+
+    /**
+     * The number of words in the text.
+     */
+    words?: Integer;
+
+    /**
+     * The number of sentences.
+     */
+    sentences?: Integer;
+  };
+
+  /**
+   * The percentage of the component that was viewed.
+   *
+   * TODO: Not implemented.
+   */
+  percentage?: Percentage;
+}
+
+export interface ViewDetails {
+  seen?: boolean;
+  duration?: Duration;
+  impression?: Integer;
 }
 
 export const isImpressionEvent = typeTest<ImpressionEvent>("impression");

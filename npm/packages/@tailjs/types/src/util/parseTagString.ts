@@ -1,6 +1,13 @@
 import { join } from "@tailjs/util";
 
-export type ParsedTag = { ranks: string[]; value?: string };
+export type ParsedTag = {
+  /**
+   * The label for each level in the hierarchy.    taxonomic ranks of the tagged entity.
+   */
+  path: string[];
+  value?: string;
+  score?: number;
+};
 
 const splitRanks = (ranks?: string) =>
   ranks
@@ -16,7 +23,7 @@ export const parseTagString = (
   input: string | (string | null)[] | null | undefined,
   baseRank?: string,
   target?: Set<string>
-) => {
+): ParsedTag[] => {
   if (!input) return [];
   if (Array.isArray(input)) input = join(input, ",");
   // We have an unescaped percentage sign followed by an uppercase two-digit hexadecimal number. Smells like URI encoding!
@@ -44,15 +51,17 @@ export const parseTagString = (
     baseRanks = splitRanks(baseRank);
 
   input.replace(
-    // Explained:
-    // 1. Tag (group 1): (\s*(?=\=)|(?:\\.|[^,=\r\n])+). It means "skip leading white-space", then either"
-    //   1.1. \s*(?=\=) is "nothing but a `=`": a blank tag name causing the expression to skip to the actual value. ("=80,=43" are techincally supported but will get omitted unless the are base ranks (*))
-    //   2.1. (?:\\.|[^,=\r\n])+ is "something not a linebreak including escaped characters such as \=":
-    // 2. Value: (?:\=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|((?:\\.|\s*[^,\s])*)))?. Anything that starts with a `=` until we find a (non-escaped) comma
+    // Regular expression explained:
+    // 1. Tag name
+    // 1. Tag (group 1): `\s*(\s*(?=\=)|(?:\\.|[^,=+\r\n])+)`
+    //   1.1. \s*(?=\=) is "nothing but a `=`": a blank tag name causing the expression to skip to the actual value. ("=80,=43" are technically supported but will get omitted unless the are base ranks (*))
+    //   2.1. (?:\\.|[^,=\r\n])+ is "something not a line break including escaped characters such as \=":
+    // 2. Value: (?:\=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|((?:\\.|\s*[^,+])*)))?. Anything that starts with a `=` until we find a (non-escaped) comma
     //  2.1: (group 2) "((?:\\.|[^"])*)" is any double-quoted ()`"`) value, can contain commas, anything escaped, or whatever. Goes well with JSON.
     //  2.2: (group 3) is same as 2.1 just with a single quote (`'`).
-    //  2.3: (group 4) is anything but a non-escaped comma (`,`)
-    // 3. The end. (?:[,\s]+|$). This is the tag separator or end of string.
+    //  2.3: (group 4) is anything but a non-escaped comma (`,`) and the score prefix (`+`).
+    // 3. Score:
+    // 4. The end. (?:[,\s]+|$). This is the tag separator or end of string.
     //        Since tags cannot have line-breaks in them, this technically allows tags to be separated by line-breaks instead of comma.
     //        This should not be documented as values can very much have line-breaks, and that syntax will then bite you in the money-maker at some point.
     //        In the scary example below we get "tag1", "tag21:tag22" and then "tag3" with the value "value\tag4=value"(!).
@@ -60,8 +69,8 @@ export const parseTagString = (
     //        tag21:tag22
     //        tag3=value
     //        tag4=value`
-    /\s*(\s*(?=\=)|(?:\\.|[^,=\r\n])+)\s*(?:\=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|((?:\\.|[^,])*)))?\s*(?:[,\s]+|$)/g,
-    (_0, tag, quote1, quote2, unquoted) => {
+    /\s*(\s*(?=\=)|(?:\\.|[^,=\r\n])+?)\s*(?:\=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|((?:\\.|[^,+]|\+(?![0-9]))*)))?\s*(?:\+([0-9]*))?(?:[,\s]+|$)/g,
+    (_0, tag, quote1, quote2, unquoted, score) => {
       let value = quote1 || quote2 || unquoted;
       let ranks = splitRanks(tag);
 
@@ -76,8 +85,9 @@ export const parseTagString = (
         ranks.length && // * cf. expression explanition 1.1
           (tags.push(
             (parsedTag = {
-              ranks,
+              path: ranks,
               value: value || undefined,
+              score: score?.length ? parseInt(score) || undefined : undefined,
             })
           ),
           target?.add(encodeTag(parsedTag)));
@@ -92,6 +102,6 @@ export const encodeTag = <T extends ParsedTag | null | undefined>(
 ): T extends ParsedTag ? string : null | undefined =>
   tag == null
     ? (tag as any)
-    : `${tag.ranks.join(":")}${
+    : `${tag.path.join(":")}${
         tag.value ? `=${tag.value.replace(/,/g, "\\,")}` : ""
       }`;

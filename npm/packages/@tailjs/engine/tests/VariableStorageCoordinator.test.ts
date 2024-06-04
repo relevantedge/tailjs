@@ -11,10 +11,14 @@ import {
 import {
   InMemoryStorage,
   ParsingVariableStorage,
-  SchemaManager,
   VariableStorageCoordinator,
 } from "../src";
 import { prefixedVariableSchema, variablesSchema } from "./test-schemas";
+import { EntityMetadata, SchemaManager } from "@tailjs/json-schema";
+
+const stripMetadata = <T>(value: T): T => (
+  value && delete value[EntityMetadata.TypeId], value
+);
 
 describe("VariableStorageCoordinator", () => {
   const disablePatching = (storage: InMemoryStorage) => (
@@ -98,7 +102,9 @@ describe("VariableStorageCoordinator", () => {
         await coordinator.set([
           {
             ...key,
-            patch: { patch: "ifNoneMatch", match: undefined, value: "34" },
+            patch: "ifNoneMatch",
+            match: undefined,
+            value: "34",
           },
         ])
       )[0].status
@@ -314,7 +320,7 @@ describe("VariableStorageCoordinator", () => {
         await coordinator.set(
           [{ scope: "session", key: "censored", targetId: "bar", value: "ok" }],
           {
-            consent: { level: "anonymous", purposes: "anonymous" },
+            consent: { level: "anonymous", purposes: "necessary" },
           }
         ).all
       )[0].status
@@ -332,58 +338,64 @@ describe("VariableStorageCoordinator", () => {
             },
           ],
           {
-            consent: { level: "anonymous", purposes: "anonymous" },
+            consent: { level: "anonymous", purposes: "necessary" },
           }
         ).all
       )[0].status
     ).toBe(VariableResultStatus.Denied);
 
     expect(
-      (
-        await coordinator.set(
-          [
-            {
-              scope: "device",
-              key: "censored",
-              targetId: "foo",
-              value: { value1: 10, value2: 20 },
-            },
-          ],
-          { consent: { level: "anonymous", purposes: "anonymous" } }
-        )
-      )[0].current?.value
+      stripMetadata(
+        (
+          await coordinator.set(
+            [
+              {
+                scope: "device",
+                key: "censored",
+                targetId: "foo",
+                value: { value1: 10, value2: 20 },
+              },
+            ],
+            { consent: { level: "anonymous", purposes: "necessary" } }
+          )
+        )[0].current?.value
+      )
     ).toEqual({ value1: 10 });
 
     expect(
-      (
-        await coordinator.get(
-          [
-            {
-              scope: "device",
-              key: "censored",
-              targetId: "bar",
-              init: () => ({ value: { value1: 10, value2: 20 } }),
-            },
-          ],
-          { consent: { level: "anonymous", purposes: "anonymous" } }
-        )
-      )[0].value
+      stripMetadata(
+        (
+          await coordinator.get(
+            [
+              {
+                scope: "device",
+                key: "censored",
+                targetId: "bar",
+                init: () => ({ value: { value1: 10, value2: 20 } }),
+              },
+            ],
+            { consent: { level: "anonymous", purposes: "necessary" } }
+          )
+        )[0].value
+      )
     ).toEqual({ value1: 10 });
 
     expect(
-      (
-        await coordinator.get(
-          [
-            {
-              scope: "device",
-              key: "censored",
-              targetId: "baz",
-              init: () => ({ value: { value1: 10, value2: 20 } }),
-            },
-          ],
-          { consent: { level: "anonymous", purposes: "any" } }
-        )
-      )[0].value
+      stripMetadata(
+        (
+          await coordinator.get(
+            [
+              {
+                scope: "device",
+                key: "censored",
+                targetId: "baz",
+                init: () => ({ value: { value1: 10, value2: 20 } }),
+              },
+            ],
+            { consent: { level: "anonymous", purposes: "any" } }
+          )
+        )[0].value
+      )
     ).toEqual({ value1: 10, value2: 20 });
   });
 });

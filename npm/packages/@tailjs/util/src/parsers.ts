@@ -260,7 +260,7 @@ export const parseParameters = <
               : value
         ) as any);
 
-  results[parameterList] = list;
+  results && (results[parameterList] = list);
 
   return results;
 };

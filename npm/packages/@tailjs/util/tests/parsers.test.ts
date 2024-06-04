@@ -9,43 +9,55 @@ import {
 } from "../src/parsers";
 
 describe("parsers.ts", () => {
+  const clean = <T>(value: T) =>
+    Object.fromEntries(
+      Object.entries(value as any).map(([key, value]) =>
+        key === "query" && value ? [key, clean(value)] : [key, value]
+      )
+    );
+
+  const _parseQueryString: typeof parseQueryString = (...args: any) =>
+    clean((parseQueryString as any)(...args)) as any;
+
   it("Parses query strings", () => {
-    expect(parseQueryString("abc=32&test=1,2,3", false)).toEqual({
+    expect(_parseQueryString("abc=32&test=1,2,3", false)).toEqual({
       abc: "32",
       test: "1,2,3",
     });
-    expect(parseQueryString("abc=32&test=1,2,3")).toEqual({
+    expect(_parseQueryString("abc=32&test=1,2,3")).toEqual({
       abc: "32",
       test: ["1", "2", "3"],
     });
 
-    expect(parseQueryString("test1&test2=1&test3=2&test4")).toEqual({
+    expect(_parseQueryString("test1&test2=1&test3=2&test4")).toEqual({
       test1: "",
       test2: "1",
       test3: "2",
       test4: "",
     });
 
-    expect(parseQueryString("test=foo&items[]=bar&items[]=baz+space")).toEqual({
-      test: "foo",
-      items: ["bar", "baz space"],
-    });
+    expect(_parseQueryString("test=foo&items[]=bar&items[]=baz+space")).toEqual(
+      {
+        test: "foo",
+        items: ["bar", "baz space"],
+      }
+    );
 
     expect(
-      parseQueryString("test=foo&items[]=bar&items[]=baz+space", false)
+      _parseQueryString("test=foo&items[]=bar&items[]=baz+space", false)
     ).toEqual({
       test: "foo",
       items: "bar,baz space",
     });
 
     expect(
-      parseQueryString("test=foo&items[]=bar&items[]=baz+space", false)
+      _parseQueryString("test=foo&items[]=bar&items[]=baz+space", false)
     ).toEqual({
       test: "foo",
       items: "bar,baz space",
     });
 
-    expect(parseQueryString("t%C3%A6st=foo%C3%A6st,bar,baz")).toEqual({
+    expect(_parseQueryString("t%C3%A6st=foo%C3%A6st,bar,baz")).toEqual({
       ["tæst"]: ["fooæst", "bar", "baz"],
     });
   });
@@ -74,7 +86,7 @@ describe("parsers.ts", () => {
       expected: Omit<ParsedUri, "source">,
       formatted = uri
     ) => {
-      const parsed = parseUri(uri);
+      const parsed = clean(parseUri(uri));
       expect(obj(parsed)).toEqual({
         ...expected,
         source: uri,

@@ -1,6 +1,6 @@
 export * from "./addProperties";
 export * from "./baseTypes";
-export * from "./censor";
+export * from "./patchValue";
 export * from "./getRefType";
 export * from "./mergeBaseProperties";
 export * from "./mergeBasePropertyClassifications";

@@ -74,9 +74,9 @@ export enum DataPurposeFlags {
   Infrastructure = 32,
 
   /**
-   * All purposes that are permissable for anonymous users.
+   * Any purposes that is permissable for anonymous users.
    */
-  Anonymous = 49, // DataPurposes.Necessary | DataPurposes.Infrastructure | DataPurposes.Security,
+  Any_Anonymous = 49, // DataPurposes.Necessary | DataPurposes.Infrastructure | DataPurposes.Security,
 
   /**
    * Data can be used for any purpose.

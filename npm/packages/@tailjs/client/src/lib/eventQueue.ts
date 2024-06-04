@@ -19,7 +19,6 @@ import {
   count,
   diff,
   forEach,
-  isObject,
   isString,
   map,
   merge,
@@ -39,7 +38,7 @@ import {
   debug,
   request,
 } from ".";
-import { Tracker, UnlockApiCommand } from "..";
+import { UnlockApiCommand } from "..";
 
 export interface EventQueuePostOptions {
   flush?: boolean;

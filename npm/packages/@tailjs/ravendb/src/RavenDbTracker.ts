@@ -5,7 +5,7 @@ import {
   TrackerEnvironment,
   TrackerExtension,
 } from "@tailjs/engine";
-import { Lock, createLock, truish } from "@tailjs/util";
+import { Lock, Nullish, createLock, truish } from "@tailjs/util";
 
 export interface RavenDbSettings {
   url: string;
@@ -72,42 +72,33 @@ export class RavenDbTracker implements TrackerExtension {
     try {
       const commands: any[] = [];
 
-      const [sessionId, deviceId] = await tracker.get(
-        truish([
-          {
-            scope: "session",
-            key: "rdb.s",
-            init: async () => ({
-              classification: "anonymous",
-              purposes: "necessary",
-              value: (await this._getNextId()).toString(36),
-            }),
-          },
-          tracker.deviceId && {
-            scope: "device",
-            key: "rdb.d",
-            init: async () =>
-              tracker.device && {
+      // We add a convenient integer key to the session and event entities to get efficient primary keys
+      // for event and session IDs if doing ETL on the data.
+      let sessionId: string | undefined;
+
+      for (let ev of events) {
+        const session = ev.session;
+        if (!session) {
+          continue;
+        }
+        sessionId ??=
+          tracker.session &&
+          (await tracker.get([
+            {
+              scope: "session",
+              key: "rdb.s",
+              init: async () => ({
                 classification: "anonymous",
                 purposes: "necessary",
                 value: (await this._getNextId()).toString(36),
-              },
-          },
-        ])
-      ).values;
+              }),
+            },
+          ]).value);
 
-      for (let ev of events) {
-        ev["rdb:timestamp"] = Date.now();
-
+        // Integer primary key for the event entity.
         const internalEventId = (await this._getNextId()).toString(36);
-        if (ev["id"] == null) {
-          ev["id"] = `${internalEventId}`;
-        }
 
-        if (ev.session) {
-          (ev.session as any)["rdb.deviceId"] = deviceId;
-          (ev.session as any)["rdb.sessionId"] = sessionId;
-        }
+        ev["rdb:sessionId"] = session.sessionId;
 
         commands.push({
           Type: "PUT",

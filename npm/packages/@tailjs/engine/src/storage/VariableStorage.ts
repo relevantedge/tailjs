@@ -30,7 +30,7 @@ export interface ParsableUserConsent {
   /**
    * The purposes the user has consented their data to be used for.
    *
-   * @privacy anonymous
+   * @privacy anonymous, necessary
    */
   purposes: DataPurposeValue;
 }
