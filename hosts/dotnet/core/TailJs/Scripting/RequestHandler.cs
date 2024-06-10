@@ -136,7 +136,7 @@ public class RequestHandler : IRequestHandler
           )
           .AwaitScript(cancellationToken)
           .ConfigureAwait(false)
-      ).Get<string?>()
+      ).GetScriptValue<string?>()
       : null;
 
   public async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
@@ -284,7 +284,7 @@ public class RequestHandler : IRequestHandler
             Undefined => null,
             _ => throw new InvalidOperationException("Unexpected content.")
           },
-          response["headers"].Enumerate().ToDictionary(kv => kv.Key, kv => (string)kv.Value!),
+          response["headers"].EnumerateScriptValues().ToDictionary(kv => kv.Key, kv => (string)kv.Value!),
           CookieCollection.MapCookies(response["cookies"]),
           response["cacheKey"] as string,
           response["error"] as string

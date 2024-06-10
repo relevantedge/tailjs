@@ -30,7 +30,6 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 /** Minify friendly version of `false`. */ const F = false;
 /** Minify friendly version of `true`. */ const T = true;
 const isBoolean = (value)=>typeof value === "boolean";
-const truish = (value, keepUndefined)=>isArray(value) ? keepUndefined ? value.map((item)=>!!item ? item : undefined$1) : value.filter((item)=>!!item) : !!value ? value : undefined$1;
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
 const isFunction = (value)=>typeof value === "function";
@@ -181,38 +180,67 @@ const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : a
         }
     }
     async post(events, tracker) {
+        if (!tracker.session) {
+            return;
+        }
         try {
             const commands = [];
-            const [sessionId, deviceId] = await tracker.get(truish([
+            // We add a convenient integer keys to the session, device session and event entities to get efficient primary keys
+            // when doing ETL on the data.
+            const ids = await tracker.get([
                 {
                     scope: "session",
-                    key: "rdb.s",
+                    key: "rdb",
                     init: async ()=>({
                             classification: "anonymous",
                             purposes: "necessary",
-                            value: (await this._getNextId()).toString(36)
+                            value: {
+                                source: [
+                                    tracker.sessionId,
+                                    tracker.deviceSessionId
+                                ],
+                                mapped: [
+                                    await this._getNextId(),
+                                    await this._getNextId()
+                                ]
+                            }
                         })
-                },
-                tracker.deviceId && {
-                    scope: "device",
-                    key: "rdb.d",
-                    init: async ()=>tracker.device && {
-                            classification: "anonymous",
-                            purposes: "necessary",
-                            value: (await this._getNextId()).toString(36)
+                }
+            ]).value;
+            var hasChanges = false;
+            if (ids.source[0] !== tracker.sessionId) {
+                ids.mapped[0] = await this._getNextId();
+                hasChanges = true;
+            }
+            if (ids.source[1] !== tracker.deviceSessionId) {
+                ids.mapped[1] = await this._getNextId();
+                hasChanges = true;
+            }
+            if (hasChanges) {
+                // Session and/or device session ID changed.
+                await tracker.set([
+                    {
+                        scope: "session",
+                        key: "rdb",
+                        patch: (current)=>{
+                            if (!current) return;
+                            return {
+                                ...current,
+                                value: ids
+                            };
                         }
-                }
-            ])).values;
+                    }
+                ]);
+            }
             for (let ev of events){
-                ev["rdb:timestamp"] = Date.now();
-                const internalEventId = (await this._getNextId()).toString(36);
-                if (ev["id"] == null) {
-                    ev["id"] = `${internalEventId}`;
+                const session = ev.session;
+                if (!session) {
+                    continue;
                 }
-                if (ev.session) {
-                    ev.session["rdb.deviceId"] = deviceId;
-                    ev.session["rdb.sessionId"] = sessionId;
-                }
+                // Integer primary key for the event entity.
+                const internalEventId = await this._getNextId();
+                ev["rdb:sessionId"] = ids.mapped[0];
+                ev["rdb:deviceSessionId"] = ids.mapped[1];
                 commands.push({
                     Type: "PUT",
                     Id: `events/${internalEventId}`,
@@ -291,7 +319,7 @@ const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : a
                 lockHandle();
             }
         }
-        return id;
+        return id.toString(36);
     }
 }
 

@@ -44,15 +44,15 @@ internal class ScriptHost : IScriptEngineExtension
     {
       try
       {
-        var binary = request.Get<bool?>("binary") == true;
+        var binary = request.GetScriptValue<bool?>("binary") == true;
         var httpRequest = new HttpRequestMessage();
         httpRequest.RequestUri = new Uri(
-          request.Get<string?>("url") ?? throw new ArgumentException("URL is missing.")
+          request.GetScriptValue<string?>("url") ?? throw new ArgumentException("URL is missing.")
         );
-        httpRequest.Method = new HttpMethod(request.Get<string?>("method") ?? "GET");
+        httpRequest.Method = new HttpMethod(request.GetScriptValue<string?>("method") ?? "GET");
 
         var contentType = (string?)null;
-        foreach (var header in request.Enumerate("headers"))
+        foreach (var header in request.EnumerateScriptValues("headers"))
         {
           if (header.Value is not string value)
             continue;
@@ -75,20 +75,20 @@ internal class ScriptHost : IScriptEngineExtension
         {
           httpRequest.Content = new ByteArrayContent(bytes.GetBytes());
         }
-        else if (request.Get<string?>("body") is { } body)
+        else if (request.GetScriptValue<string?>("body") is { } body)
         {
           httpRequest.Content = new StringContent(body, Encoding.UTF8, contentType ?? "application/json");
         }
 
         using var client =
-          request.Get("x509") is IScriptObject x509
-          && (x509.Get("cert") as ITypedArray<byte>)?.ToArray() is { } cert
+          request.GetScriptValue("x509") is IScriptObject x509
+          && (x509.GetScriptValue("cert") as ITypedArray<byte>)?.ToArray() is { } cert
             ? Pools.GetHttpClient(
-              x509.Require<string>("id"),
+              x509.RequireScriptValue<string>("id"),
               handler =>
               {
                 handler.ClientCertificates.Add(
-                  x509.Get<string>("key") is { } key
+                  x509.GetScriptValue<string>("key") is { } key
                     ? new X509Certificate2(cert, key)
                     : new X509Certificate2(cert)
                 );

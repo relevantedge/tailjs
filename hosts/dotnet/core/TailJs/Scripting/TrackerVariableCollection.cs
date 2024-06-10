@@ -2,7 +2,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
 using Microsoft.ClearScript;
 
 namespace TailJs.Scripting;
@@ -20,7 +19,10 @@ public class TrackerVariableCollection : ITrackerVariableCollection
 
   public JsonNode? this[string name]
   {
-    get => JsonNode.Parse(_requestHandler.InvokeMethod("getVariable", _tracker, name).Require<string>());
+    get =>
+      JsonNode.Parse(
+        _requestHandler.InvokeMethod("getVariable", _tracker, name).RequireScriptValue<string>()
+      );
     set => _requestHandler.InvokeMethod("setVariable", _tracker, name, value);
   }
 
@@ -36,15 +38,15 @@ public class TrackerVariableCollection : ITrackerVariableCollection
       value == null ? null : JsonSerializer.Serialize(value)
     );
 
-  public bool TryGetValue<T>(
-    string name,
+  public bool TryGetValue<T>(string name,
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
     [MaybeNullWhen(false)]
 #endif
-    out T value
-  )
+    out T value)
   {
-    var scriptValue = _requestHandler.InvokeMethod("getVariable", _tracker, name).Require<string>();
+    var scriptValue = _requestHandler
+      .InvokeMethod("getVariable", _tracker, name)
+      .RequireScriptValue<string>();
     return (value = JsonSerializer.Deserialize<T>(scriptValue)!) != null;
   }
 
@@ -53,14 +55,11 @@ public class TrackerVariableCollection : ITrackerVariableCollection
   public IEnumerator<KeyValuePair<string, JsonNode>> GetEnumerator() =>
     _requestHandler
       .InvokeMethod("getVariables", _tracker)
-      .Enumerate()
-      .Select(
-        kv =>
-          new KeyValuePair<string, JsonNode?>(
-            kv.Value.Get<string>("key"),
-            JsonNode.Parse(kv.Value.Require<string>("value"))
-          )
-      )
+      .EnumerateScriptValues()
+      .Select(kv => new KeyValuePair<string, JsonNode?>(
+        kv.Value.GetScriptValue<string>("key"),
+        JsonNode.Parse(kv.Value.RequireScriptValue<string>("value"))
+      ))
       .Where(kv => kv.Value != null)
       .GetEnumerator()!;
 

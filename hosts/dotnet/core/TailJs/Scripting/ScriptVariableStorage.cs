@@ -1,5 +1,4 @@
-﻿using System.Text.Json.Nodes;
-using Microsoft.ClearScript;
+﻿using Microsoft.ClearScript;
 using TailJs.Variables;
 
 namespace TailJs.Scripting;
@@ -17,28 +16,32 @@ internal class ScriptVariableStorage : IVariableStorage
 
   #region IVariableStorage Members
 
-  public async ValueTask<IReadOnlyList<IVariableGetResult>> GetAsync(
-    IReadOnlyList<IVariableGetter> getters,
+  public async ValueTask<IReadOnlyList<IVariableGetResult?>> GetAsync(
+    IReadOnlyList<IVariableGetter?> getters,
     CancellationToken cancellationToken = default
   )
   {
     var mappedGetters = getters
-      .Select(getter => new
-      {
-        scope = (int)getter.Scope,
-        key = getter.Key,
-        targetId = getter.TargetId,
-        version = getter.Version,
-        purpose = (int?)getter.Purpose,
-        refresh = getter.Refresh,
-        init = getter.Initializer is { } initializer
-          ? PromiseLike.Wrap(async () => _json.ToScriptValue(await initializer(cancellationToken)))
-          : null
-      })
+      .Select(getter =>
+        getter == null
+          ? (object)Undefined.Value
+          : new
+          {
+            scope = (int)getter.Scope,
+            key = getter.Key,
+            targetId = getter.TargetId,
+            version = getter.Version,
+            purpose = (int?)getter.Purpose,
+            refresh = getter.Refresh,
+            init = getter.Initializer is { } initializer
+              ? PromiseLike.Wrap(async () => _json.ToScriptValue(await initializer(cancellationToken)))
+              : null
+          }
+      )
       .ToArray();
 
     return (await _handle.InvokeMethod("get", new object[] { mappedGetters }).AwaitScript(cancellationToken))
-      .Enumerate<IVariableGetResult>(
+      .EnumerateScriptValues<IVariableGetResult>(
         (result) =>
         {
           if (result == Undefined.Value)
@@ -46,7 +49,7 @@ internal class ScriptVariableStorage : IVariableStorage
               "The underlying storage did not return a result for one or more getters."
             );
 
-          var status = (VariableResultStatus)result.Get<int>("status");
+          var status = (VariableResultStatus)result.GetScriptValue<int>("status");
           switch (status)
           {
             case VariableResultStatus.Created:
@@ -54,7 +57,7 @@ internal class ScriptVariableStorage : IVariableStorage
             case VariableResultStatus.NotFound:
             case VariableResultStatus.Unchanged:
               var variable =
-                _json.TryParseVariableFragment(result)
+                _json.ParseVariableFragment(result) as IVariable
                 ?? throw new InvalidOperationException("Unexpected result.");
 
               return new VariableGetSuccessResult(
@@ -62,7 +65,15 @@ internal class ScriptVariableStorage : IVariableStorage
                 variable.Scope,
                 variable.Key,
                 variable.TargetId,
-                variable as Variable
+                variable.Classification,
+                variable.Purposes,
+                variable.Created,
+                variable.Modified,
+                variable.Accessed,
+                variable.Version,
+                variable.Value,
+                variable.Tags,
+                variable.TimeToLive
               );
 
             case VariableResultStatus.Denied:
@@ -71,7 +82,7 @@ internal class ScriptVariableStorage : IVariableStorage
             case VariableResultStatus.Invalid:
             case VariableResultStatus.Error:
               var key =
-                _json.TryParseVariableFragment(result)
+                _json.ParseVariableFragment(result)
                 ?? throw new InvalidOperationException("Unexpected result.");
               return new VariableGetErrorResult(
                 status,
@@ -89,80 +100,86 @@ internal class ScriptVariableStorage : IVariableStorage
       .ToArray();
   }
 
-  public ValueTask<VariableHeadResults> HeadAsync(
+  public async ValueTask<VariableHeadResults> HeadAsync(
     IReadOnlyList<VariableFilter> filters,
     VariableQueryOptions options,
     CancellationToken cancellationToken = default
-  ) => throw new NotImplementedException();
+  ) =>
+    _json.ParseVariableHeadResults(
+      (
+        await _handle
+          .InvokeMethod(
+            "head",
+            filters.Select(filter => _json.ToScriptValue(filter)).ToArray(),
+            _json.ToScriptValue(options)
+          )
+          .AwaitScript(cancellationToken: cancellationToken)
+      )!
+    );
 
   ValueTask IReadOnlyVariableStorage.InitializeAsync(
     ITrackerEnvironment environment,
     CancellationToken cancellationToken
-  ) => default;
+  )
+  {
+    return default;
+  }
 
-  public ValueTask<bool> PurgeAsync(
+  public async ValueTask<bool> PurgeAsync(
     IReadOnlyList<VariableFilter> filters,
     CancellationToken cancellationToken = default
-  ) => throw new NotImplementedException();
+  ) =>
+    (
+      await _handle
+        .InvokeMethod("purge", filters.Select(filter => _json.ToScriptValue(filter)).ToArray())
+        .AwaitScript(cancellationToken: cancellationToken)
+    ).GetScriptValue<bool>();
 
-  public ValueTask<VariableHeadResults> QueryAsync(
+  public async ValueTask<VariableHeadResults> QueryAsync(
     IReadOnlyList<VariableFilter> filters,
     VariableQueryOptions options,
     CancellationToken cancellationToken = default
-  ) => throw new NotImplementedException();
+  ) =>
+    _json.ParseVariableHeadResults(
+      (
+        await _handle
+          .InvokeMethod(
+            "query",
+            filters.Select(filter => _json.ToScriptValue(filter)).ToArray(),
+            _json.ToScriptValue(options)
+          )
+          .AwaitScript(cancellationToken: cancellationToken)
+      )!
+    );
 
-  public ValueTask RenewAsync(VariableScope scope, IReadOnlyList<string> targetIds) =>
-    throw new NotImplementedException();
+  public async ValueTask RenewAsync(
+    VariableScope scope,
+    IReadOnlyList<string> targetIds,
+    CancellationToken cancellationToken = default
+  )
+  {
+    await _handle.InvokeMethod("renew", _json.ConvertToScriptValue(targetIds)).AwaitScript(cancellationToken);
+  }
 
-  public async ValueTask<IReadOnlyList<IVariableSetResult>> SetAsync(
-    IReadOnlyList<IVariableSetter> setters,
+  public async ValueTask<IReadOnlyList<IVariableSetResult?>> SetAsync(
+    IReadOnlyList<IVariableSetter?> setters,
     CancellationToken cancellationToken = default
   )
   {
     var mappedSetters = setters
-      .Select(setter => new
-      {
-        scope = (int)setter.Scope,
-        key = setter.Key,
-        targetId = setter.TargetId,
-        value = _json.ToScriptValue(
-          setter switch
-          {
-            VariableSetter typed => typed.Value,
-            VariableAddPatch typed => typed.Value,
-            VariableMinMaxPatch typed => typed.Value,
-            VariableConditionalPatch typed => typed.Value,
-            _ => null
-          }
-        ),
-        classification = (int?)(setter as IVariableUsageWithDefaults)?.Classification,
-        purposes = (int?)(setter as IVariableUsageWithDefaults)?.Purposes,
-        tags = (setter as IVariableMetadata)?.Tags,
-        ttl = (int?)((setter as IVariableMetadata)?.TimeToLive?.TotalMilliseconds),
-        force = (setter as VariableSetter)?.Force,
-        patch = setter is VariablePatchAction action
-          ? PromiseLike.Wrap(
-            async (current) =>
-              _json.ToScriptValue(
-                await action.Patch(_json.TryParseVariableFragment(current) as Variable, cancellationToken)
-              )
-          )
-          : (object?)(setter as VariableValuePatch)?.Type,
-        seed = (setter as VariableAddPatch)?.Seed,
-        match = (setter as VariableConditionalPatch)?.Match
-      })
+      .Select(setter => setter == null ? null : _json.ToScriptValue(setter))
       .ToArray();
 
     return (await _handle.InvokeMethod("set", new object[] { mappedSetters }).AwaitScript(cancellationToken))
-      .Enumerate<IVariableSetResult>(
+      .EnumerateScriptValues<IVariableSetResult?>(
         (_, result, i) =>
         {
-          if (result == Undefined.Value)
-            throw new NullReferenceException(
-              "The underlying storage did not return a result for one or more setters."
-            );
+          if (result == null || result == Undefined.Value || setters[i] is not { } setter)
+          {
+            return null;
+          }
 
-          var status = (VariableResultStatus)result.Get<int>("status");
+          var status = (VariableResultStatus)result.GetScriptValue<int>("status");
           switch (status)
           {
             case VariableResultStatus.Created:
@@ -170,32 +187,32 @@ internal class ScriptVariableStorage : IVariableStorage
             case VariableResultStatus.Unchanged:
             {
               var key =
-                _json.TryParseVariableFragment(result)
+                _json.ParseVariableFragment(result)
                 ?? throw new InvalidOperationException("Unexpected result.");
 
               return new VariableSetSuccessResult(
-                setters[i],
+                setter,
                 status,
                 key.Scope,
                 key.Key,
                 key.TargetId,
-                _json.TryParseVariableFragment(result.Get("current")) as IVariable
+                _json.ParseVariableFragment(result.GetScriptValue("current")) as IVariable
               );
             }
 
             case VariableResultStatus.Conflict:
             {
               var key =
-                _json.TryParseVariableFragment(result)
+                _json.ParseVariableFragment(result)
                 ?? throw new InvalidOperationException("Unexpected result.");
 
               return new VariableSetConflictResult(
-                setters[i],
+                setter,
                 status,
                 key.Scope,
                 key.Key,
                 key.TargetId,
-                _json.TryParseVariableFragment(result.Get("current")) as IVariable,
+                _json.ParseVariableFragment(result.GetScriptValue("current")) as IVariable,
                 result.GetScriptError("error")
               );
             }
@@ -207,17 +224,17 @@ internal class ScriptVariableStorage : IVariableStorage
             case VariableResultStatus.Error:
             {
               var key =
-                _json.TryParseVariableFragment(result)
+                _json.ParseVariableFragment(result)
                 ?? throw new InvalidOperationException("Unexpected result.");
 
               return new VariableSetErrorResult(
-                setters[i],
+                setter,
                 status,
                 key.Scope,
                 key.Key,
                 key.TargetId,
                 result.GetScriptError("error"),
-                result.Get<bool?>("transient") == true
+                result.GetScriptValue<bool?>("transient") == true
               );
             }
 

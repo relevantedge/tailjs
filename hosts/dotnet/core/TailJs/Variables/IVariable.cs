@@ -20,7 +20,7 @@ public record Variable(
   JsonNode? Value,
   string[]? Tags = null,
   TimeSpan? TimeToLive = null
-) : VariableKey(Scope, Key, TargetId), IVariable
+) : VariableKey(Scope, Key, TargetId), IVariable, IPartialVariable
 {
   #region IVariable Members
 

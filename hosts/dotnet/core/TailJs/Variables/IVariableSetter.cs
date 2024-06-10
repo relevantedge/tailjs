@@ -11,17 +11,26 @@ public record VariableSetter(
   JsonNode? Value,
   DataClassification? Classification = null,
   DataPurposes? Purposes = null,
+  string? Version = null,
   string[]? Tags = null,
   TimeSpan? TimeToLive = null,
   bool Force = false
-) : IVariableSetter, IVariableUsageWithDefaults, IVariableMetadata;
+) : IVariableSetter, IVersionedVariableKey, IVariableUsageWithDefaults, IVariableMetadata
+{
+  internal object? ScriptSource { get; set; }
+}
 
 public record VariablePatchAction(
   VariableScope Scope,
   string Key,
   string? TargetId,
-  Func<IVariable?, CancellationToken, ValueTask<VariablePatchResult>> Patch
-) : IVariableSetter;
+  Func<IVariable?, CancellationToken, ValueTask<VariablePatchResult?>> Patch,
+  DataClassification? Classification = null,
+  DataPurposes? Purposes = null
+) : IVariableSetter
+{
+  internal object? ScriptSource { get; set; }
+}
 
 public enum VariablePatchType
 {
@@ -41,7 +50,10 @@ public abstract record VariableValuePatch(
   DataPurposes? Purposes,
   string[]? Tags,
   TimeSpan? TimeToLive
-) : IVariableSetter, IVariableUsageWithDefaults, IVariableMetadata;
+) : IVariableSetter, IVariableUsageWithDefaults, IVariableMetadata
+{
+  internal object? ScriptSource { get; set; }
+}
 
 public record VariableAddPatch(
   VariableScope Scope,

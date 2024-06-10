@@ -175,9 +175,6 @@ const map = (source, projection, start, end)=>{
     }
     return source != null ? array(project(source, projection, start, end)) : undefined$1;
 };
-const join = (source, projection, sep)=>source == null ? undefined$1 : isFunction(projection) ? separate(map(isString(source) ? [
-        source
-    ] : source, projection), sep ?? "") : isString(source) ? source : separate(map(source, (item)=>item === false ? undefined$1 : item), projection ?? "");
 const forEachArray = (source, action, start, end)=>{
     let returnValue;
     let i = 0;
@@ -295,7 +292,7 @@ const unwrap = (value)=>isFunction(value) ? value() : value;
  *
  *
  * Useful for enumerations like "item1, item2 and item 3" (`separate(["item1", "item2", "item3"], ["and"])`).
- */ const separate = (values, separator = [
+ */ const enumerate = (values, separator = [
     "and",
     ", "
 ])=>!values ? undefined$1 : (values = map(values)).length === 1 ? values[0] : isArray(separator) ? [
@@ -357,7 +354,7 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
             lookup,
             length: entries.length,
             format: (value)=>lookup(value, true),
-            logFormat: (value, c = "or")=>(value = lookup(value, true), value === "any" ? "any " + enumName : `the ${enumName} ${separate(map(array(value), (value)=>quote(value)), [
+            logFormat: (value, c = "or")=>(value = lookup(value, true), value === "any" ? "any " + enumName : `the ${enumName} ${enumerate(map(array(value), (value)=>quote(value)), [
                     c
                 ])}`)
         },
@@ -380,6 +377,13 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
         })), source);
     return parse;
 };
+
+let matchProjection;
+let collected;
+/**
+ * Matches a regular expression against a string and projects the matched parts, if any.
+ */ const match = (s, regex, selector, collect = false)=>(s ?? regex) == nil ? undefined$1 : selector ? (matchProjection = undefined$1, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(// Replace seems to be a compact way to get the details of each match
+    regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
 
 var DataClassification;
 (function(DataClassification) {
@@ -493,8 +497,8 @@ var DataPurposeFlags;
    * This is implicitly also `Necessary`.
    */ DataPurposeFlags[DataPurposeFlags["Infrastructure"] = 32] = "Infrastructure";
     /**
-   * All purposes that are permissable for anonymous users.
-   */ DataPurposeFlags[DataPurposeFlags["Anonymous"] = 49] = "Anonymous";
+   * Any purposes that is permissable for anonymous users.
+   */ DataPurposeFlags[DataPurposeFlags["Any_Anonymous"] = 49] = "Any_Anonymous";
     /**
    * Data can be used for any purpose.
    *
@@ -516,7 +520,7 @@ const singleDataPurpose = createEnumAccessor(DataPurposeFlags, false, "data purp
 
 const NoConsent = Object.freeze({
     level: "anonymous",
-    purposes: "anonymous"
+    purposes: "any_anonymous"
 });
 const FullConsent = Object.freeze({
     level: "sensitive",
@@ -540,7 +544,7 @@ const validateConsent = (source, consent, defaultClassification, write = false)=
         }
     }
     return source && classification <= consentClassification && (purposes & // No matter what is defined in the consent, it will always include the "anonymous" purposes.
-    (consentPurposes | DataPurposeFlags.Anonymous)) > 0;
+    (consentPurposes | DataPurposeFlags.Any_Anonymous)) > 0;
 };
 
 let metadata;
@@ -714,59 +718,64 @@ const isImpressionEvent = typeTest("impression");
 
 const isResetEvent = typeTest("reset");
 
-const splitRanks = (ranks)=>ranks?.toLowerCase().replace(/[^a-zA-Z0-9:.-]/g, "_").split(":").filter((rank)=>rank) ?? [];
+const maybeDecode = (s)=>// It qualifies:
+    s && /^(%[A-F0-9]{2}|[^%])*$/gi.test(s) && // It needs it:
+    /[A-F0-9]{2}/gi.test(s) ? decodeURIComponent(s) : s;
+const parseTags = (tagString, prefix)=>map(collectTags(tagString, prefix)?.values());
+const parseTagValue = (value, tagName = "tag")=>parseTags(tagName + value)?.[0];
+let key;
+let current;
+const collect = (collected, tag)=>tag && (!(current = collected.get(key = tag.tag + (tag.value ?? ""))) || (current.score ?? 1) < (tag.score ?? 1)) && collected.set(key, tag);
 /**
- * Parses the tags out of a string
- */ const parseTagString = (input, baseRank, target)=>{
-    if (!input) return [];
-    if (Array.isArray(input)) input = join(input, ",");
-    // We have an unescaped percentage sign followed by an uppercase two-digit hexadecimal number. Smells like URI encoding!
-    if (/(?<!(?<!\\)\\)%[A-Z0-9]{2}/.test(input)) {
-        try {
-            input = decodeURIComponent(input.replace(// Change ampersands to commas (as they are value separators), and quote all values just to be sure nothing gets out of control.
-            // That is, `tag=test&tag2&tag3=Encoded%3A%20%22%F0%9F%A5%B3%22` becomes `tag="test",tag2,tag3="Encoded: \"🥳\""
-            /([^=&]+)(?:\=([^&]+))?(&|$)/g, (_, name, value, sep)=>[
-                    name,
-                    value && `="${value.replace(/(?<!(?<!\\)\\)("|%22)/g, '\\"')}"`,
-                    sep && ","
-                ].join("")));
-        // Need to catch exceptions. `decodeURIComponent` will fail on invalid surrogate code points. `%80` is one of those.
-        } catch  {}
+ * Parses tags from a string or array of strings and collects them in a map to avoid duplicates.
+ * In case of ties between tags with the same names and values but with different scores, the highest wins.
+ */ const collectTags = (tagString, prefix = "", collected = new Map())=>{
+    if (!tagString) return undefined;
+    if (isIterable(tagString)) {
+        forEach(tagString, (input)=>collectTags(input, prefix, collected));
+        return collected;
     }
-    let tags = [], parsedTag, baseRanks = splitRanks(baseRank);
-    input.replace(// Explained:
-    // 1. Tag (group 1): (\s*(?=\=)|(?:\\.|[^,=\r\n])+). It means "skip leading white-space", then either"
-    //   1.1. \s*(?=\=) is "nothing but a `=`": a blank tag name causing the expression to skip to the actual value. ("=80,=43" are techincally supported but will get omitted unless the are base ranks (*))
-    //   2.1. (?:\\.|[^,=\r\n])+ is "something not a linebreak including escaped characters such as \=":
-    // 2. Value: (?:\=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|((?:\\.|\s*[^,\s])*)))?. Anything that starts with a `=` until we find a (non-escaped) comma
-    //  2.1: (group 2) "((?:\\.|[^"])*)" is any double-quoted ()`"`) value, can contain commas, anything escaped, or whatever. Goes well with JSON.
-    //  2.2: (group 3) is same as 2.1 just with a single quote (`'`).
-    //  2.3: (group 4) is anything but a non-escaped comma (`,`)
-    // 3. The end. (?:[,\s]+|$). This is the tag separator or end of string.
-    //        Since tags cannot have line-breaks in them, this technically allows tags to be separated by line-breaks instead of comma.
-    //        This should not be documented as values can very much have line-breaks, and that syntax will then bite you in the money-maker at some point.
-    //        In the scary example below we get "tag1", "tag21:tag22" and then "tag3" with the value "value\tag4=value"(!).
-    //        `tag1
-    //        tag21:tag22
-    //        tag3=value
-    //        tag4=value`
-    /\s*(\s*(?=\=)|(?:\\.|[^,=\r\n])+)\s*(?:\=\s*(?:"((?:\\.|[^"])*)"|'((?:\\.|[^'])*)'|((?:\\.|[^,])*)))?\s*(?:[,\s]+|$)/g, (_0, tag, quote1, quote2, unquoted)=>{
-        let value = quote1 || quote2 || unquoted;
-        let ranks = splitRanks(tag);
-        baseRanks.length && // If we have base ranks (that, is a "prefix"), a single tag value is interpreted as a value. E.g. `<a data-name="foo"...` becomes `data:name=foo`.
-        // We have this situation if there is exactly one rank, and no value.
-        // Other examples: `<a data-employee="foo:test" ...` gives `data:employee:foo:test`. `data-employee="=test"` gives us `data:employee=test`, and
-        //    `data-employee="id=80"` gives us `data:employee:id=80`.
-        (ranks.length === 1 && !value && (value = ranks.pop()), ranks = baseRanks.concat(ranks)), // If we don't have any ranks (only a value), we don't have a tag.
-        ranks.length && // * cf. expression explanition 1.1
-        (tags.push(parsedTag = {
-            ranks,
-            value: value || undefined
-        }), target?.add(encodeTag(parsedTag)));
-        return ""; // This is a trick. We are not really replacing anything, we are instead using replace as a for loop.
-    });
-    return tags;
+    /**
+   * [namespace::]name[ws*][(:|=)[ws*]value][`~`score] [( |,|;|&|#) more tags]
+   *
+   * The parts of a tail.j tag are:
+   * 1. Optional namespace (utm, ai, cms).
+   *   - Anything not whitespace, colon (`:`) or tilde (`~`) followed by double colon `::`.
+   * 2. Tag name:
+   *   - Anything not whitespace, colon (`:`), tilde `~` or equality (`=`).
+   * 3. Optional value.
+   *   - Anything not a separator a other whitespace than space (` `).
+   *   - If the value is supposed to contain one of these characters it must be quoted in either single (`\`) or double quotes (`"`).
+   *   - The tag name and value are separated by either:
+   *     - `:` - Follows normal writing convention in many languages (`country: Denmark, name: Glottal sound`), or
+   *     - `=` - Is what you typically write in programming.
+   *   - Escaping values within quotes is not required. The last quote followed by a terminator or score ends the value. (`tag1: "This "value" contains" quotes" tag2=...`)
+   * 4. Optional score. How much the tag applies to the target (for example audience:investors~9 audience:consumers~3 - very relevant for investors, a little bit for consumers).
+   *   - You can use decimals in the score (e.g. 5.343).
+   *   - The parsed score gets divided by 10, so you should generally aim for values between 0 and 10 since that corresponds to a percentage between 0 and 100%.
+   *     This also means that if you output machine generated scores (could be from an algorithm) they tend to already be between 0 and 1, so here you must multiply them with 10 when encoding the tag to get the intended result.
+   *   - The default is 10 (100 %).
+   *
+   *  Tags are separated by either:
+   *     - Space (` `) (input friendly)
+   *     - Hash tag (`#`) - Some people might do that without thinking about it since that is how they normally write tags
+   *     - Comma (`,`) - How most would intuitively join strings in code),
+   *     - Semicolon (`;`) - CSS style
+   *     - Ampersand - URL query string style.
+   *     - Repeated separators gets ignored so don't worry about empty entries if you write something like `tag1,,,,tag2`.
+   *
+   *   Both namespace, name and value will be URI decoded if they contain %xx anywhere in them.
+   */ isString(tagString) ? match(tagString, /(?:([^\s:~]+)::(?![ :=]))?([^\s~]+?)(?:\s*[:=]\s*(?:"((?:"[^"]*|.)*?)(?:"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\s~])))*))\s*)?(?: *~ *(\d*(?:\.\d*)?))?(?:[\s,&;#~]+|$)/g, (_, ns, localName, quoted1, quoted2, unquoted, score)=>{
+        const name = (ns ? maybeDecode(ns) + "::" : "") + prefix + maybeDecode(localName);
+        let tag = {
+            tag: name,
+            value: maybeDecode(quoted1 ?? quoted2 ?? unquoted)
+        };
+        score && parseFloat(score) !== 10 && (tag.score = parseFloat(score) / 10);
+        collect(collected, tag);
+    }) : collect(collected, tagString);
+    return collected;
 };
-const encodeTag = (tag)=>tag == null ? tag : `${tag.ranks.join(":")}${tag.value ? `=${tag.value.replace(/,/g, "\\,")}` : ""}`;
+const encodeTag = (tag)=>tag == null ? tag : tag.tag + (tag.value ? ":" + (/[,&;#~]/.test(tag.value) ? '"' + tag.value + '"' : tag.value) : "") + (tag.score && tag.score !== 1 ? "~" + tag.score * 10 : "");
 
-export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, dataClassification, dataPurposes, dataUsageEquals, encodeTag, extractKey, formatKey, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatchAction, isViewEvent, parseDataUsage, parseKey, parseTagString, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };
+export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, collectTags, dataClassification, dataPurposes, dataUsageEquals, encodeTag, extractKey, formatKey, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatchAction, isViewEvent, parseDataUsage, parseKey, parseTagValue, parseTags, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };

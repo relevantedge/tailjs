@@ -30,24 +30,24 @@ internal class TrackerEnvironment : ITrackerEnvironment
   #region ITrackerEnvironment Members
 
   public long? HashNumber(object? value, bool secure = false) =>
-    _proxy.InvokeMethod("hash", value, secure, true).Get<long?>();
+    _proxy.InvokeMethod("hash", value, secure, true).GetScriptValue<long?>();
 
   public string? HashString(object? value, bool secure = false) =>
-    _proxy.InvokeMethod("hash", value, secure, false).Get<string?>();
+    _proxy.InvokeMethod("hash", value, secure, false).GetScriptValue<string?>();
 
   public T? HttpDecode<T>(string? value) =>
-    _proxy.InvokeMethod("httpDecode", value).Get<string?>() is { } json
+    _proxy.InvokeMethod("httpDecode", value).GetScriptValue<string?>() is { } json
       ? JsonSerializer.Deserialize<T>(json)
       : default;
 
   public T? HttpDecrypt<T>(string value) =>
-    _proxy.InvokeMethod("httpDecrypt", value).Get<string?>() is { } json
+    _proxy.InvokeMethod("httpDecrypt", value).GetScriptValue<string?>() is { } json
       ? JsonSerializer.Deserialize<T>(json)
       : default;
 
-  public string HttpEncode(string json) => _proxy.InvokeMethod("httpEncode", json).Get<string>();
+  public string HttpEncode(string json) => _proxy.InvokeMethod("httpEncode", json).GetScriptValue<string>();
 
-  public string HttpEncrypt(string json) => _proxy.InvokeMethod("httpEncrypt", json).Get<string>();
+  public string HttpEncrypt(string json) => _proxy.InvokeMethod("httpEncrypt", json).GetScriptValue<string>();
 
   public void Log(LogMessage message)
   {
@@ -55,7 +55,7 @@ internal class TrackerEnvironment : ITrackerEnvironment
   }
 
   public async ValueTask<string> NextIdAsync(string scope, CancellationToken cancellationToken = default) =>
-    (await _proxy.InvokeMethod("nextId").AwaitScript(cancellationToken)).Get<string>();
+    (await _proxy.InvokeMethod("nextId").AwaitScript(cancellationToken)).GetScriptValue<string>();
 
   public ValueTask<byte[]?> ReadAsync(
     string path,
