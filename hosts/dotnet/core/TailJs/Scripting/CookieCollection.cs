@@ -34,13 +34,13 @@ public class CookieCollection : ICookieCollection
     [MaybeNullWhen(false)]
 #endif
     out T cookie)
-    where T : TrackerCookie => (cookie = (T?)TryMapCookie(_collection.Get(name))!) != null;
+    where T : TrackerCookie => (cookie = (T?)TryMapCookie(_collection.GetScriptValue(name))!) != null;
 
   internal static IReadOnlyList<ClientResponseCookie> MapCookies(object? cookies) =>
     cookies == null
       ? Array.Empty<ClientResponseCookie>()
       : cookies
-        .Enumerate()
+        .EnumerateScriptValues()
         .Select(cookie =>
           TryMapCookie(cookie.Value) as ClientResponseCookie
           ?? throw new InvalidOperationException("Client cookie expected.")
@@ -55,40 +55,40 @@ public class CookieCollection : ICookieCollection
     if (cookieValue is not IScriptObject cookie || cookieValue == Undefined.Value)
       return null;
 
-    var fromRequest = (bool?)cookie.Get("fromRequest") ?? false;
+    var fromRequest = (bool?)cookie.GetScriptValue("fromRequest") ?? false;
     var value = (string)cookie["value"];
 
-    return cookie.Get<string>("name") is { } name
+    return cookie.GetScriptValue<string>("name") is { } name
       ? new ClientResponseCookie(
         name,
         value,
-        cookie.TryGetInt64("maxAge"),
-        cookie.Require<bool>("httpOnly"),
-        cookie.Require<string>("sameSitePolicy") switch
+        cookie.TryGetScriptInteger("maxAge"),
+        cookie.RequireScriptValue<bool>("httpOnly"),
+        cookie.RequireScriptValue<string>("sameSitePolicy") switch
         {
           "Strict" => SameSitePolicy.Strict,
           "None" => SameSitePolicy.None,
           _ => SameSitePolicy.Lax
         },
-        cookie.Require<bool>("essential"),
-        cookie.Require<bool>("secure"),
-        cookie.Require<string>("headerString")
+        cookie.RequireScriptValue<bool>("essential"),
+        cookie.RequireScriptValue<bool>("secure"),
+        cookie.RequireScriptValue<string>("headerString")
       )
       : new TrackerCookie(
         value,
-        cookie.TryGetInt64("maxAge"),
-        (bool?)cookie.Get("httpOnly") ?? false,
-        ((string?)cookie.Get("sameSitePolicy")) switch
+        cookie.TryGetScriptInteger("maxAge"),
+        (bool?)cookie.GetScriptValue("httpOnly") ?? false,
+        ((string?)cookie.GetScriptValue("sameSitePolicy")) switch
         {
           "Strict" => SameSitePolicy.Strict,
           "None" => SameSitePolicy.None,
           _ => SameSitePolicy.Lax
         },
-        (bool?)cookie.Get("essential") ?? false
+        (bool?)cookie.GetScriptValue("essential") ?? false
       )
       {
         FromRequest = fromRequest,
-        OriginalValue = (string?)cookie.Get("_originalValue")
+        OriginalValue = (string?)cookie.GetScriptValue("_originalValue")
       };
   }
 

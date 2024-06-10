@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Collections;
+using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.ClearScript;
@@ -56,9 +57,23 @@ internal class JsonNodeConverter
       DateTime dateTime => ((DateTimeOffset)dateTime.ToUniversalTime()).ToUnixTimeMilliseconds(),
       TimeSpan timeSpan => (long)timeSpan.TotalMilliseconds,
       Exception ex => _exceptionToError(ex),
+      IEnumerable list => ToScriptArray(list),
       JsonNode node => ConvertToScriptValue(node),
       _ => _parse(Serialize(value))
     };
+
+  private object ToScriptArray(IEnumerable list)
+  {
+    if (list is Array)
+      return list;
+    var items = new List<object?>();
+    foreach (var item in list)
+    {
+      items.Add(ConvertToScriptValue(item));
+    }
+
+    return items.ToArray();
+  }
 
   public object? Combine(params object?[] values) => _combine(values.Select(ConvertToScriptValue).ToArray());
 

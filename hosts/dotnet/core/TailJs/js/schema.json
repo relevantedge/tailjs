@@ -29,7 +29,7 @@
       ],
       "x-privacy-class": "anonymous",
       "x-privacy-purposes": [
-        "anonymous",
+        "necessary",
         "server_write"
       ]
     },
@@ -102,17 +102,17 @@
         "@info": {
           "$ref": "urn:tailjs:core#/definitions/SessionInfo",
           "x-privacy-class": "anonymous",
-          "x-privacy-purpose": "anonymous"
+          "x-privacy-purpose": "necessary"
         },
         "@consent": {
           "$ref": "urn:tailjs:core#/definitions/UserConsent",
           "x-privacy-class": "anonymous",
-          "x-privacy-purpose": "anonymous"
+          "x-privacy-purpose": "necessary"
         },
         "@session_reference": {
           "type": "string",
           "x-privacy-class": "anonymous",
-          "x-privacy-purpose": "anonymous"
+          "x-privacy-purpose": "necessary"
         }
       }
     },
@@ -141,7 +141,7 @@
                 "targeting",
                 "security",
                 "infrastructure",
-                "anonymous",
+                "any_anonymous",
                 "any",
                 "server",
                 "server_write"
@@ -159,7 +159,7 @@
                   "targeting",
                   "security",
                   "infrastructure",
-                  "anonymous",
+                  "any_anonymous",
                   "any",
                   "server",
                   "server_write"
@@ -168,8 +168,7 @@
             }
           ],
           "description": "The purposes the user has consented their data to be used for.",
-          "x-privacy-class": "anonymous",
-          "x-privacy-purpose": "anonymous"
+          "x-privacy-class": "anonymous"
         }
       },
       "required": [
@@ -202,10 +201,10 @@
             },
             "schema": {
               "type": "string",
-              "description": "The ID of the schema the event comes from. It is suggested that the schema ID ends with a hash followed by a SemVer version number. (e.g. urn:tailjs#0.9.0)"
+              "description": "The ID of the schema the event comes from. It is suggested that the schema ID includes a SemVer version number in the end. (e.g. urn:tailjs:0.9.0 or https://www.blah.ge/schema/3.21.0)"
             },
             "id": {
-              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "$ref": "urn:tailjs:core#/definitions/Uuid",
               "description": "This is assigned by the server. Only use  {@link  clientId }  client-side."
             },
             "clientId": {
@@ -218,7 +217,7 @@
             },
             "patchTargetId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
-              "description": "If set, it means this event contains updates to an existing event with this  {@link  clientId } , and should not be considered a separate event. It must have the target event's  {@link  TrackedEvent.type }  postfixed with \"_patch\" (for example \"view_patch\").\n\nThe specific logic for how to combine patches is specific to the event type, but numbers should generally be additive, that is, patches contains the changes i numeric values, and not new values. In this way aggregations work in queries for analytics.\n\nPlease pay attention to this property when doing analytics so you don't over count.\n\nPatches are always considered passive, cf.  {@link  EventMetadata.passive } ."
+              "description": "If set, it means this event contains updates to an existing event with this  {@link  clientId } , and should not be considered a separate event. It must have the target event's  {@link  TrackedEvent.type }  postfixed with \"_patch\" (for example \"view_patch\").\n\nNumbers in patches are considered incremental which means the patch will include the amount to add to an existing number (or zero if it does not yet have a value). All other values are just overwritten with the patch values.\n\nPlease pay attention to this property when doing analytics lest you may over count otherwise.\n\nPatches are always considered passive, cf.  {@link  EventMetadata.passive } ."
             },
             "relatedEventId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
@@ -246,7 +245,7 @@
       "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happened, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
       "$id": "urn:tailjs:core:event",
       "x-privacy-class": "anonymous",
-      "x-privacy-purpose": "anonymous",
+      "x-privacy-purpose": "necessary",
       "x-privacy-censor": "ignore"
     },
     "Tagged": {
@@ -257,13 +256,38 @@
           "items": {
             "$ref": "urn:tailjs:core#/definitions/Tag"
           },
-          "description": "Tags in tailjs are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxnonmy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `conversion:high-value`, `rendering:component:theme=dark`, `ad-campaign=43899` and `ext1:video:play`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the names can be organized in taxonomies with each rank separated by colon (`:`). If there are more than one tag they are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters to store a list of values in the same tag is strongly discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` LESS BAD: `event:eventbrite=8487912` GOOD: Use an  {@link  ExternalReference } .\n\nBAD: `campaign:promo=1, campaign:length:4` GOOD: `campaign:promo, campaign:length=4`\n\nTags can be either be added directly to content and component definitions, or added to HTML tags with the `track-tags` attribute or `--track-tags` CSS property. In the latter case all tags from the HTML elements that contain a component or surround content are added to tracking when the user clicks around.\n\nThis allows some tags to be managed via e.g. CMS and follow thec content around wherever it is used on the website, and other tags to be included by the logic that puts the bits and pieces together to the final webpage the user sees.\n\nThis unified approach gives a clear way to store all domain-specific data in a way that goes very well with analytics. If the shape of the data you want to store is too complex to easily fit into tags, you can instead extend the tracker's event schema."
+          "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources."
         }
       },
       "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details."
     },
     "Tag": {
-      "type": "string"
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string",
+          "description": "The name of the tag including namespace."
+        },
+        "value": {
+          "type": "string",
+          "description": "The value of the tag."
+        },
+        "score": {
+          "$ref": "urn:tailjs:core#/definitions/Float",
+          "description": "How strongly the tags relates to the target.",
+          "default": 1
+        }
+      },
+      "required": [
+        "tag"
+      ]
+    },
+    "Float": {
+      "type": "number"
+    },
+    "Uuid": {
+      "type": "string",
+      "description": "An identifier that is globally unique. This does not need to be a \"conventional\" UUID like 853082a0-cc24-4185-aa30-9caacac02932'. It is any string that is guaranteed to be globally unique, and may be longer than 128 bits."
     },
     "LocalID": {
       "type": "string",
@@ -274,7 +298,7 @@
       "properties": {
         "passive": {
           "type": "boolean",
-          "description": "Hint to the request handler, that new sessions should not be started if all posted events are passive."
+          "description": "Hint to the request handler that new sessions should not be started if all posted events are passive."
         },
         "queued": {
           "type": "boolean",
@@ -291,15 +315,15 @@
       "type": "object",
       "properties": {
         "sessionId": {
-          "$ref": "urn:tailjs:core#/definitions/UUID",
+          "$ref": "urn:tailjs:core#/definitions/Uuid",
           "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
         },
         "deviceId": {
-          "$ref": "urn:tailjs:core#/definitions/UUID",
+          "$ref": "urn:tailjs:core#/definitions/Uuid",
           "description": "The unique ID of the user's device. This ID does most likely not identify the device reliably over time, since it may be reset if the user purges tracking data, e.g. clears cookies or changes browser.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
         },
         "deviceSessionId": {
-          "$ref": "urn:tailjs:core#/definitions/UUID",
+          "$ref": "urn:tailjs:core#/definitions/Uuid",
           "description": "The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again. This means that device sessions can both be significantly shorter and longer that \"normal\" sessions in that it restarts whenever the user navigates completely away from the site and comes back (e.g. while evaluating search results), but it will also survive the user putting their computer to sleep or leaving their browser app in the background for a long time on their phone.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
         },
         "userId": {
@@ -327,11 +351,7 @@
       ],
       "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
       "x-privacy-class": "anonymous",
-      "x-privacy-purpose": "anonymous"
-    },
-    "UUID": {
-      "type": "string",
-      "description": "An identifier that is globally unique."
+      "x-privacy-purpose": "necessary"
     },
     "isTrackedEvent": {
       "$comment": "(ev: any) => ev is TrackedEvent",
@@ -349,46 +369,8 @@
         }
       }
     },
-    "PassiveEvent": {
-      "allOf": [
-        {
-          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "metadata": {
-              "type": "object",
-              "properties": {
-                "passive": {
-                  "type": "boolean",
-                  "description": "Hint to the request handler, that new sessions should not be started if all posted events are passive.",
-                  "const": true
-                },
-                "queued": {
-                  "type": "boolean",
-                  "description": "Hint that the event has been queued."
-                },
-                "posted": {
-                  "type": "boolean",
-                  "description": "Hint to client code, that the event has been posted to the server."
-                }
-              },
-              "required": [
-                "passive"
-              ],
-              "description": "This property must be set on events implementing the interface since events are just data templates and not polymorphic classes."
-            }
-          },
-          "required": [
-            "metadata"
-          ]
-        }
-      ],
-      "description": "Base type for events that adds timing or similar \"after-the-fact\" data to events that has already been posted. These events are special in the sense that they do not start a new session, so if the session has expired before the event is sent to the server, it will not start a new session, but also not be tracked."
-    },
     "isPassiveEvent": {
-      "$comment": "(value: any) => value is PassiveEvent",
+      "$comment": "(\n  value: any) => value is {\n  metadata: EventMetadata & {\n    passive: true;\n  };\n}",
       "type": "object",
       "properties": {
         "namedArgs": {
@@ -744,9 +726,6 @@
       }
     },
     "Decimal": {
-      "type": "number"
-    },
-    "Float": {
       "type": "number"
     },
     "Rectangle": {
@@ -1227,8 +1206,7 @@
           ]
         }
       ],
-      "x-privacy-class": "anonymous",
-      "x-privacy-purpose": "anonymous"
+      "x-privacy-class": "anonymous"
     },
     "UserAgentLanguage": {
       "type": "object",
@@ -1577,21 +1555,23 @@
               "$ref": "urn:tailjs:core#/definitions/Float",
               "description": "This number is like the precise definition of what the bars indicating signal strength on mobile phones represents. Nobody knows. Yet, for this number lower is better."
             },
-            "city": {
+            "continent": {
+              "$ref": "urn:tailjs:core#/definitions/GeoEntity",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purpose": "infrastructure"
+            },
+            "country": {
+              "$ref": "urn:tailjs:core#/definitions/GeoEntity",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purpose": "infrastructure"
+            },
+            "subdivision": {
               "$ref": "urn:tailjs:core#/definitions/GeoEntity"
             },
             "zip": {
               "type": "string"
             },
-            "subdivision": {
-              "$ref": "urn:tailjs:core#/definitions/GeoEntity"
-            },
-            "country": {
-              "$ref": "urn:tailjs:core#/definitions/GeoEntity",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purpose": "anonymous"
-            },
-            "continent": {
+            "city": {
               "$ref": "urn:tailjs:core#/definitions/GeoEntity"
             },
             "lat": {
@@ -1599,9 +1579,6 @@
             },
             "lng": {
               "$ref": "urn:tailjs:core#/definitions/Float"
-            },
-            "providerData": {
-              "type": "object"
             }
           },
           "required": [
@@ -2174,6 +2151,47 @@
             },
             "duration": {
               "$ref": "urn:tailjs:core#/definitions/ViewTimingData"
+            },
+            "details": {
+              "type": "object",
+              "properties": {
+                "top": {
+                  "$ref": "urn:tailjs:core#/definitions/ViewDetails"
+                },
+                "middle": {
+                  "$ref": "urn:tailjs:core#/definitions/ViewDetails"
+                },
+                "bottom": {
+                  "$ref": "urn:tailjs:core#/definitions/ViewDetails"
+                }
+              },
+              "description": "Detailed information about the parts of the component that was viewed.\n\nTODO: Not implemented."
+            },
+            "text": {
+              "type": "object",
+              "properties": {
+                "characters": {
+                  "$ref": "urn:tailjs:core#/definitions/Integer",
+                  "description": "The number of characters in the text (including punctuation)."
+                },
+                "words": {
+                  "$ref": "urn:tailjs:core#/definitions/Integer",
+                  "description": "The number of words in the text."
+                },
+                "sentences": {
+                  "$ref": "urn:tailjs:core#/definitions/Integer",
+                  "description": "The number of sentences."
+                },
+                "readingTime": {
+                  "$ref": "urn:tailjs:core#/definitions/Duration",
+                  "description": "The estimated average duration it will take for a user to read all the text.\n\nThe estimate is assuming \"Silent reading time\" which seems to be 238 words per minute according to [Marc Brysbaert's research] (https://www.sciencedirect.com/science/article/abs/pii/S0749596X19300786?via%3Dihub)"
+                }
+              },
+              "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all."
+            },
+            "percentage": {
+              "$ref": "urn:tailjs:core#/definitions/Percentage",
+              "description": "The percentage of the component that was viewed.\n\nTODO: Not implemented."
             }
           },
           "required": [
@@ -2182,6 +2200,20 @@
         }
       ],
       "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } ."
+    },
+    "ViewDetails": {
+      "type": "object",
+      "properties": {
+        "seen": {
+          "type": "boolean"
+        },
+        "duration": {
+          "$ref": "urn:tailjs:core#/definitions/Duration"
+        },
+        "impression": {
+          "$ref": "urn:tailjs:core#/definitions/Integer"
+        }
+      }
     },
     "ResetEvent": {
       "allOf": [

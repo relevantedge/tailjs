@@ -13,5 +13,5 @@ public interface IVariableQueryResults<out T>
 public record VariableHeadResults(long? Count, IReadOnlyList<IVariableHeader> Results, string? Cursor)
   : IVariableQueryResults<IVariableHeader>;
 
-public record VariableQueryResults(long? Count, IReadOnlyList<Variable> Results, string? Cursor)
-  : IVariableQueryResults<Variable>;
+public record VariableQueryResults(long? Count, IReadOnlyList<IVariable> Results, string? Cursor)
+  : IVariableQueryResults<IVariable>;

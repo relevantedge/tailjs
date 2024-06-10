@@ -30,19 +30,26 @@ internal static class ScriptEngineExtensions
   public static object? AsPromiseLike<T>(this Task<T> task) =>
     task.IsCompleted ? task.Result : new PromiseLike<T>(task);
 
-  public static IEnumerable<T> Enumerate<T>(this object? scriptValue, Func<object?, T> projection) =>
-    scriptValue.Enumerate().Select(kv => projection(kv.Value));
+  public static IEnumerable<T> EnumerateScriptValues<T>(
+    this object? scriptValue,
+    Func<object?, T> projection
+  ) => scriptValue.EnumerateScriptValues().Select(kv => projection(kv.Value));
 
-  public static IEnumerable<T> Enumerate<T>(this object? scriptValue, Func<string, object?, T> projection) =>
-    scriptValue.Enumerate().Select(kv => projection(kv.Key, kv.Value));
+  public static IEnumerable<T> EnumerateScriptValues<T>(
+    this object? scriptValue,
+    Func<string, object?, T> projection
+  ) => scriptValue.EnumerateScriptValues().Select(kv => projection(kv.Key, kv.Value));
 
-  public static IEnumerable<T> Enumerate<T>(
+  public static IEnumerable<T> EnumerateScriptValues<T>(
     this object? scriptValue,
     Func<string, object?, int, T> projection
-  ) => scriptValue.Enumerate().Select((kv, i) => projection(kv.Key, kv.Value, i));
+  ) => scriptValue.EnumerateScriptValues().Select((kv, i) => projection(kv.Key, kv.Value, i));
 
-  public static IEnumerable<KeyValuePair<string, object?>> Enumerate(this object? scriptValue)
+  public static IEnumerable<KeyValuePair<string, object?>> EnumerateScriptValues(this object? scriptValue)
   {
+    if (scriptValue == null || scriptValue == Undefined.Value)
+      yield break;
+
     if (scriptValue is ICollection<object?> array)
     {
       var i = 0;
@@ -67,49 +74,54 @@ internal static class ScriptEngineExtensions
     }
   }
 
-  public static IEnumerable<KeyValuePair<string, object?>> Enumerate(
+  public static IEnumerable<KeyValuePair<string, object?>> EnumerateScriptValues(
     this object? scriptObject,
     params string[] path
-  ) => (scriptObject.Get(path) as IScriptObject).Enumerate();
+  ) => (scriptObject.GetScriptValue(path) as IScriptObject).EnumerateScriptValues();
 
   private static Exception MissingOrWrongValueException(string? property, string? valueType) =>
-    new InvalidOperationException(
+    new InvalidCastException(
       $"A {valueType} value is missing{(property != null ? $" for the property '{property}'" : "")}."
     );
 
-  public static DateTime RequireDateTime(this object? value, string? property = null) =>
-    value.TryGetDateTime(property) ?? throw MissingOrWrongValueException(property, "date time");
+  public static DateTime RequireScriptDateTime(this object? value, string? property = null) =>
+    value.TryGetScriptDateTime(property) ?? throw MissingOrWrongValueException(property, "date time");
 
-  public static DateTime? TryGetDateTime(this object? value, string? property = null) =>
+  public static DateTime? TryGetScriptDateTime(this object? value, string? property = null) =>
     value is DateTime datetime
       ? datetime
-      : property.TryGetInt64(property) is { } timestamp
+      : property.TryGetScriptInteger(property) is { } timestamp
         ? DateTimeOffset.FromUnixTimeMilliseconds(timestamp).DateTime
-        : value.Get("valueOf") is IScriptObject method
-          ? method.InvokeAsFunction().TryGetDateTime()
+        : value.GetScriptValue("valueOf") is IScriptObject method
+          ? method.InvokeAsFunction().TryGetScriptDateTime()
           : null;
 
-  public static TimeSpan RequireTimeSpan(this object? value, string? property = null) =>
+  public static TimeSpan RequireScriptTimeSpan(this object? value, string? property = null) =>
     value.TryGetTimeSpan(property) ?? throw MissingOrWrongValueException(property, "time span");
 
   public static TimeSpan? TryGetTimeSpan(this object? value, string? property = null) =>
     value is TimeSpan timespan
       ? timespan
-      : property.TryGetInt64(property) is { } timestamp
+      : property.TryGetScriptInteger(property) is { } timestamp
         ? TimeSpan.FromMilliseconds(timestamp)
         : null;
 
-  public static T Get<T>(this object? value) => (T)value.Get()!;
+  public static T GetScriptValue<T>(this object? value) => (T)value.GetScriptValue()!;
 
-  public static T? TryGet<T>(this object? value, string? property = null)
-    where T : struct => value.Get(property) is { } typedValue ? (T)typedValue : null;
+  public static T? TryGetScriptValue<T>(this object? value, string? property = null)
+    where T : struct => value.GetScriptValue(property) is { } typedValue ? (T)typedValue : null;
 
-  public static T Get<T>(this object? value, string? property) => (T)value.Get(property)!;
+  public static T GetScriptValue<T>(this object? value, string? property) =>
+    (T)value.GetScriptValue(property)!;
 
-  public static T Get<T>(this object? value, params string[] path) => (T)value.Get(path)!;
+  public static T GetScriptValue<T>(this object? value, params string[] path) =>
+    (T)value.GetScriptValue(path)!;
 
-  public static long? TryGetInt64(this object? value, string? property = null) =>
-    value.Get(property) switch
+  public static long RequireScriptInteger(this object? value, string? property = null) =>
+    value.TryGetScriptInteger(property) ?? throw MissingOrWrongValueException(property, "integer");
+
+  public static long? TryGetScriptInteger(this object? value, string? property = null) =>
+    value.GetScriptValue(property) switch
     {
       int numeric => numeric,
       long numeric => numeric,
@@ -122,8 +134,11 @@ internal static class ScriptEngineExtensions
       _ => null
     };
 
-  public static double? TryGetDouble(this object? value, string? property = null) =>
-    value.Get(property) switch
+  public static double RequireScriptDouble(this object? value, string? property = null) =>
+    value.TryGetScriptDouble(property) ?? throw MissingOrWrongValueException(property, "double");
+
+  public static double? TryGetScriptDouble(this object? value, string? property = null) =>
+    value.GetScriptValue(property) switch
     {
       int numeric => numeric,
       long numeric => numeric,
@@ -137,29 +152,33 @@ internal static class ScriptEngineExtensions
     };
 
   public static ScriptError? GetScriptError(this object? value, string? property = null) =>
-    (value = value.Get()) switch
+    (value = value.GetScriptValue()) switch
     {
       null => null,
-      IScriptObject scriptObject when scriptObject.Get("message") is string message
-        => new ScriptError(message, scriptObject.Get("name") as string, scriptObject.Get("stack") as string),
+      IScriptObject scriptObject when scriptObject.GetScriptValue("message") is string message
+        => new ScriptError(
+          message,
+          scriptObject.GetScriptValue("name") as string,
+          scriptObject.GetScriptValue("stack") as string
+        ),
       string message => new ScriptError(message),
       _ => new ScriptError(value.ToString())
     };
 
-  public static object? Get(this object? value) => value is Undefined ? null : value;
+  public static object? GetScriptValue(this object? value) => value is Undefined ? null : value;
 
-  public static object? Get(this object? value, string? property) =>
-    property == null ? property : (value as IScriptObject)?[property].Get();
+  public static object? GetScriptValue(this object? value, string? property) =>
+    property == null ? property : (value as IScriptObject)?[property].GetScriptValue();
 
-  public static T[]? GetArray<T>(this object? value, string? property) =>
+  public static T[]? GetScriptArray<T>(this object? value, string? property = null) =>
     value as T[]
     ?? (
-      value.Get(property) is not { } propertyValue
+      value.GetScriptValue(property) is not { } propertyValue
         ? null
-        : propertyValue.Enumerate(value => value.Get<T>()).ToArray()
+        : propertyValue.EnumerateScriptValues(value => value.GetScriptValue<T>()).ToArray()
     );
 
-  public static object? Get(this object? value, params string[] path)
+  public static object? GetScriptValue(this object? value, params string[] path)
   {
     foreach (var fragment in path)
     {
@@ -168,15 +187,15 @@ internal static class ScriptEngineExtensions
         return null;
       }
 
-      value = value.Get(fragment);
+      value = value.GetScriptValue(fragment);
     }
 
-    return value.Get();
+    return value.GetScriptValue();
   }
 
-  public static T Require<T>(this object? value, string path)
+  public static T RequireScriptValue<T>(this object? value, string path)
     where T : notnull =>
-    value.Get(path) is { } nonNull
+    value.GetScriptValue(path) is { } nonNull
       ? (T)nonNull
       : throw new NullReferenceException(
         path.Length > 0
@@ -184,9 +203,9 @@ internal static class ScriptEngineExtensions
           : "The value is null or undefined."
       );
 
-  public static T Require<T>(this object? value, params string[] path)
+  public static T RequireScriptValue<T>(this object? value, params string[] path)
     where T : notnull =>
-    value.Get(path) is { } nonNull
+    value.GetScriptValue(path) is { } nonNull
       ? (T)nonNull
       : throw new NullReferenceException(
         path.Length > 0

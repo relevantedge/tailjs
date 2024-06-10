@@ -46,10 +46,12 @@
         <EmbeddedResource Include="js\ravendb.js"/>
         <EmbeddedResource Include="js\request-handler.js"/>
         <EmbeddedResource Include="js\timeouts.js"/>
+        <EmbeddedResource Include="js\json-schema.js"/>
         <EmbeddedResource Include="js\types.js"/>
         <EmbeddedResource Include="js\tail.js"/>
         <EmbeddedResource Include="js\tail.debug.js"/>
         <EmbeddedResource Include="js\tail.debug.map.js"/>
+        <EmbeddedResource Include="js\transport.js"/>
 
         <None Include="README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>

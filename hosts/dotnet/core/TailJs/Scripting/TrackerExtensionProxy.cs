@@ -24,7 +24,7 @@ internal class TrackerExtensionProxy
 
   private IReadOnlyList<JsonObject> ParseEvents(object? scriptEvents) =>
     (scriptEvents as IScriptObject ?? throw new InvalidOperationException("Not a list of events."))
-      .Enumerate(ev =>
+      .EnumerateScriptValues(ev =>
         (_json.ConvertFromScriptValue(ev) as JsonObject)
         ?? throw new InvalidOperationException("Unexpected non-object for event")
       )
@@ -41,7 +41,7 @@ internal class TrackerExtensionProxy
         ParseEvents(events),
         async (events, cancellationToken) =>
           ParseEvents(
-            await next.InvokeAsFunction(_json.ToScriptValue(events))
+            await next.InvokeAsFunction(_json.ConvertToScriptValue(events))
               .AwaitScript(cancellationToken: cancellationToken)
           ),
         tracker.RequireAttachment<Tracker>()

@@ -28,7 +28,10 @@ internal class ScriptTrackerHandle : IScriptTrackerHandle
       return Resolved;
 
     if (
-      (ScriptHandle.Get("resolved") ?? await ScriptHandle.InvokeAsFunction().AwaitScript(cancellationToken))
+      (
+        ScriptHandle.GetScriptValue("resolved")
+        ?? await ScriptHandle.InvokeAsFunction().AwaitScript(cancellationToken)
+      )
       is not IScriptObject handle
     )
     {
