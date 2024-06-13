@@ -679,6 +679,8 @@ const isFormEvent = typeTest("form");
 
 const isComponentClickEvent = typeTest("component_click");
 
+const isComponentClickIntentEvent = typeTest("component_click_intent");
+
 const isComponentViewEvent = typeTest("component_view");
 
 const isNavigationEvent = typeTest("navigation");
@@ -778,4 +780,4 @@ const collect = (collected, tag)=>tag && (!(current = collected.get(key = tag.ta
 };
 const encodeTag = (tag)=>tag == null ? tag : tag.tag + (tag.value ? ":" + (/[,&;#~]/.test(tag.value) ? '"' + tag.value + '"' : tag.value) : "") + (tag.score && tag.score !== 1 ? "~" + tag.score * 10 : "");
 
-export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, collectTags, dataClassification, dataPurposes, dataUsageEquals, encodeTag, extractKey, formatKey, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatchAction, isViewEvent, parseDataUsage, parseKey, parseTagValue, parseTags, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };
+export { DataClassification, DataPurposeFlags, FullConsent, Necessary, NoConsent, VariableEnumProperties, VariablePatchType, VariableResultStatus, VariableScope, clearMetadata, collectTags, dataClassification, dataPurposes, dataUsageEquals, encodeTag, extractKey, formatKey, getResultKey, getResultVariable, getSuccessResults, handleResultErrors, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isImpressionEvent, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTrackerScoped, isUserAgentEvent, isUserConsent, isVariablePatchAction, isViewEvent, parseDataUsage, parseKey, parseTagValue, parseTags, patchType, requireFound, restrictTargets, resultStatus, singleDataPurpose, sortVariables, stripPrefix, toNumericVariableEnums, toVariableResultPromise, validateConsent, variableScope };

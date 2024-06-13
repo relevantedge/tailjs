@@ -173,10 +173,10 @@ public class RequestHandler : IRequestHandler
             )
           )
           .AppendLine(
-            "async (host, endpoint, encryptionKeys, secure, debugScript, clientKeySeed, extensions) => {"
+            "async (host, endpoint, encryptionKeys, secure, debugScript, clientKeySeed, extensions, defaultConsent) => {"
           )
           .Append(
-            "const handler = bootstrap({host,endpoint,cookies: {secure}, debugScript, clientKeySeed, encryptionKeys: JSON.parse(encryptionKeys), extensions: ["
+            "const handler = bootstrap({host,endpoint,cookies: {secure}, debugScript, clientKeySeed, encryptionKeys: JSON.parse(encryptionKeys), defaultConsent: JSON.parse(defaultConsent), extensions: ["
           )
           .AppendLine(
             string.Join(
@@ -205,7 +205,8 @@ public class RequestHandler : IRequestHandler
               _configuration.Secure,
               _configuration.ClientScript ?? (object)_configuration.Debug,
               _configuration.ClientKeySeed,
-              _trackerExtensions
+              _trackerExtensions,
+              JsonNodeConverter.Serialize(_configuration.DefaultConsent)
             )
             .AwaitScript(cancellationToken: cancellationToken)
             .ConfigureAwait(false)!;

@@ -258,7 +258,7 @@ const some = (source, predicate, start, end)=>source == null ? undefined$1 : isP
 // #region get
 const updateSingle = (target, key, value)=>setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
 const setSingle = (target, key, value)=>{
-    if (target.constructor === Object) {
+    if (target.constructor === Object || isArray(target)) {
         value === undefined ? delete target[key] : target[key] = value;
         return value;
     }
@@ -302,7 +302,7 @@ const assign = createSetOrUpdateFunction(setSingle);
 const update = createSetOrUpdateFunction(updateSingle);
 const assignIfUndefined = createSetOrUpdateFunction(setSingleIfNotDefined);
 // #endregion
-const add = (target, key)=>target instanceof Set ? target.has(key) ? false : (target.add(key), true) : get(target, key) !== assign(target, key, true);
+const add = (target, key)=>target instanceof Set || target instanceof WeakSet ? target.has(key) ? false : (target.add(key), true) : get(target, key) !== assign(target, key, true);
 const define = (target, ...args)=>{
     const add = (arg, defaults)=>{
         if (!arg) return;
@@ -9845,7 +9845,10 @@ class SchemaManager {
                 ])
         };
         const reset = ()=>{
-            const ajv = new Ajv().addKeyword("$anchor");
+            const ajv = new Ajv({
+                allowUnionTypes: true,
+                strictTypes: false
+            }).addKeyword("$anchor");
             forEach(SchemaAnnotations, ([, keyword])=>ajv.addKeyword(keyword));
             addFormats(ajv);
             return ajv;

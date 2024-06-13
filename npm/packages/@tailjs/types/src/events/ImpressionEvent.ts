@@ -84,7 +84,7 @@ export interface ImpressionEvent extends UserInteractionEvent {
   /**
    * The percentage of the component's area that was visible at some point during the {@link View}.
    */
-  visible?: Percentage;
+  seen?: Percentage;
 }
 
 export interface ViewDetails {
