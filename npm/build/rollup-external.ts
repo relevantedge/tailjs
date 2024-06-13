@@ -15,6 +15,7 @@ import {
   compilePlugin,
   env,
   getProjects,
+  watchOptions,
 } from "./shared";
 
 export async function getExternalBundles(): Promise<Record<string, any>[]> {
@@ -49,9 +50,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
       applyDefaultConfiguration({
         external: [/\@tailjs\/(?!util)[^\/]+$/g],
         input: join("src/index.external.ts"),
-        watch: {
-          exclude: ["**/node_modules/**"],
-        },
+        watch: watchOptions,
         plugins: [
           // esbuild({
           //   treeShaking: true,
@@ -200,9 +199,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
       !ext && {
         input: `src/index.external.ts`,
         plugins: [dts()],
-        watch: {
-          exclude: ["**/node_modules/**"],
-        },
+        watch: watchOptions,
         external: [/\@tailjs\/.+[^\/]/g],
         output: targetOutputs.map((path) => ({
           dir: path[0],

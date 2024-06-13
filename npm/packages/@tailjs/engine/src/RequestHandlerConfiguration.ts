@@ -1,7 +1,7 @@
-import type { TrackerConfiguration } from "@tailjs/client/external";
+import type { TrackerClientConfiguration } from "@tailjs/client/external";
 import { DEFAULT_CLIENT_CONFIG } from "@tailjs/client/external";
 
-import { type ViewEvent } from "@tailjs/types";
+import { ParsableConsent, UserConsent, type ViewEvent } from "@tailjs/types";
 import { JsonObject, AllRequired } from "@tailjs/util";
 import { ClientIdGenerator } from ".";
 import {
@@ -31,11 +31,11 @@ export type RequestHandlerConfiguration = {
   cookies?: CookieConfiguration;
   allowUnknownEventTypes?: boolean;
   debugScript?: boolean | string;
-  manageConsents?: boolean;
   environmentTags?: string[];
   clientEncryptionKeySeed?: string;
-  client?: TrackerConfiguration;
+  client?: TrackerClientConfiguration;
   clientIdGenerator?: ClientIdGenerator;
+  defaultConsent?: UserConsent<boolean>;
 
   /** Allow browser-based clients to send data as JSON. @default false. */
   allowBrowserJson?: boolean;
@@ -76,13 +76,6 @@ export type RequestHandlerConfiguration = {
    * @default 10
    */
   deviceSessionTimeout?: number;
-
-  /**
-   * Collect the user's IP address.
-   *
-   * @default true
-   */
-  includeIp?: boolean;
 };
 
 export const DEFAULT: Omit<
@@ -106,12 +99,14 @@ export const DEFAULT: Omit<
   },
   allowUnknownEventTypes: true,
   debugScript: false,
-  manageConsents: false,
   sessionTimeout: 30,
   deviceSessionTimeout: 10,
-  includeIp: true,
   client: DEFAULT_CLIENT_CONFIG as any,
   clientEncryptionKeySeed: "tailjs",
   cookiePerPurpose: false,
   allowBrowserJson: false,
+  defaultConsent: {
+    level: "anonymous",
+    purposes: "necessary",
+  },
 };

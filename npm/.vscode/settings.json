@@ -1,6 +1,7 @@
 {
   "cSpell.words": [
     "cacheable",
+    "clickables",
     "clientread",
     "consts",
     "Cookiebot",
@@ -18,6 +19,7 @@
     "null'ish",
     "onfullfilled",
     "ontick",
+    "onwarn",
     "Personalizable",
     "pseudonomized",
     "ravendb",

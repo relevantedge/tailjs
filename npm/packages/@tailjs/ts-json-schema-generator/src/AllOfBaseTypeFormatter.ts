@@ -27,6 +27,7 @@ export class AllOfBaseTypeFormatter extends ObjectTypeFormatter {
     if (types.length === 0) {
       return this.getObjectDefinition(type);
     }
+
     // Split base types by those that are $reffed and those that are not.
     // Use standard behavior for non-reffable
     const baseTypes = types.map(

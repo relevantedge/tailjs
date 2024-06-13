@@ -26,7 +26,7 @@ import {
   Listener,
   Tracker,
   TrackerCommand,
-  TrackerConfiguration,
+  TrackerClientConfiguration,
   TrackerExtension,
   TrackerExtensionFactory,
   defaultExtensions,
@@ -60,7 +60,9 @@ import {
 } from "./lib";
 
 export let tracker: Tracker;
-export const initializeTracker = (config: TrackerConfiguration | string) => {
+export const initializeTracker = (
+  config: TrackerClientConfiguration | string
+) => {
   if (tracker) return tracker;
   let clientEncryptionKey: string;
   if (isString(config)) {

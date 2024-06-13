@@ -10,6 +10,7 @@ import defaultSchema from "@tailjs/types/schema";
 
 import clientScripts from "@tailjs/client/script";
 import {
+  dataClassification,
   DataPurpose,
   DataPurposeFlags,
   dataPurposes,
@@ -17,6 +18,7 @@ import {
   PostRequest,
   PostResponse,
   TrackedEvent,
+  UserConsent,
   VariableScope,
 } from "@tailjs/types";
 
@@ -45,12 +47,12 @@ import {
   TrackerExtensionContext,
   TrackerInitializationOptions,
   TrackerPostOptions,
-  TrackerSettings,
+  TrackerServerConfiguration,
   ValidationError,
   VariableStorageCoordinator,
 } from "./shared";
 
-import { TrackerConfiguration } from "@tailjs/client";
+import { TrackerClientConfiguration } from "@tailjs/client";
 import {
   createTransport,
   decodeUtf8,
@@ -129,12 +131,13 @@ export class RequestHandler {
   };
   public readonly environment: TrackerEnvironment;
 
-  private readonly _clientConfig: TrackerConfiguration;
+  private readonly _clientConfig: TrackerClientConfiguration;
 
   /** @internal */
   public readonly _clientIdGenerator: ClientIdGenerator;
 
   private readonly _config: RequestHandlerConfiguration;
+  private readonly _defaultConsent: UserConsent<true>;
 
   constructor(config: RequestHandlerConfiguration) {
     let {
@@ -144,12 +147,18 @@ export class RequestHandler {
       cookies,
       client,
       clientIdGenerator,
+      defaultConsent,
     } = (config = merge({}, DEFAULT, config));
 
     this._config = config;
 
     this._trackerName = trackerName;
     this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
+
+    this._defaultConsent = {
+      level: dataClassification(defaultConsent.level),
+      purposes: dataPurposes(defaultConsent.purposes),
+    };
 
     this._extensionFactories = map(extensions);
 
@@ -175,8 +184,10 @@ export class RequestHandler {
       ),
     };
 
-    this._clientConfig = client;
-    this._clientConfig.src = this._endpoint;
+    this._clientConfig = {
+      ...client,
+      src: this._endpoint,
+    };
   }
 
   public async applyExtensions(
@@ -445,7 +456,7 @@ export class RequestHandler {
 
     const headers = Object.fromEntries(
       Object.entries(sourceHeaders)
-        .filter(([k, v]) => !!v)
+        .filter(([, v]) => !!v)
         .map(
           ([k, v]) =>
             [k.toLowerCase(), Array.isArray(v) ? v.join(",") : v] as [
@@ -496,10 +507,11 @@ export class RequestHandler {
           this._config.clientEncryptionKeySeed ?? ""
         ),
         requestHandler: this,
+        defaultConsent: this._defaultConsent,
         cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
         clientEncryptionKey,
         transport: createTransport(clientEncryptionKey),
-      } as PickRequired<TrackerSettings, "transport"> & {
+      } as PickRequired<TrackerServerConfiguration, "transport"> & {
         clientEncryptionKey?: string;
       };
     });

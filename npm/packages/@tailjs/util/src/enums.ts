@@ -14,7 +14,7 @@ import {
   throwError,
   undefined,
   quote,
-  separate,
+  enumerate,
   array,
   map,
   isInteger,
@@ -346,7 +346,7 @@ export const createEnumAccessor = <
           (value = lookup(value, true)),
           value === "any"
             ? "any " + enumName
-            : `the ${enumName} ${separate(
+            : `the ${enumName} ${enumerate(
                 map(array(value), (value) => quote(value)),
                 [c]
               )}`

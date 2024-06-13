@@ -4,7 +4,8 @@ import { ClientRequestHeaders, Tracker, TrackerEnvironment } from ".";
  * This is used to generate a unique (or as unique as possible) identifier from a client request without using cookies
  * or any other information stored in the device.
  *
- * The purpose is to have an identifier that is stable over the duration of a session to track anonymous statistics.
+ * The purpose is to have an identifier that is stable over the duration of a session to track anonymous statistics
+ * cookie-less tracking).
  *
  */
 export interface ClientIdGenerator {

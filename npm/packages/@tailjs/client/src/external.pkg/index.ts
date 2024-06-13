@@ -1,7 +1,11 @@
-import type { Tracker, TrackerAttributes, TrackerConfiguration } from "..";
+import type {
+  Tracker,
+  TrackerAttributes,
+  TrackerClientConfiguration,
+} from "..";
 import { trackerConfig } from "../lib/config";
 
-export const DEFAULT_CLIENT_CONFIG: Required<TrackerConfiguration> = {
+export const DEFAULT_CLIENT_CONFIG: Required<TrackerClientConfiguration> = {
   ...trackerConfig,
 };
 

@@ -4,16 +4,20 @@ import {
   AnchorNavigationEvent,
   CartUpdatedEvent,
   ComponentClickEvent,
-  ConfiguredComponent,
+  ComponentClickIntentEvent,
+  ComponentElementInfo,
   NavigationEvent,
+  ScreenPosition,
   UserInteractionEvent,
 } from "@tailjs/types";
 import {
   F,
   T,
-  array,
   createTimeout,
+  ellipsis,
   equalsAny,
+  forEach,
+  get,
   isObject,
   map,
   nil,
@@ -22,6 +26,8 @@ import {
   remove,
   restrict,
   some,
+  stop,
+  update,
   type Nullish,
 } from "@tailjs/util";
 import {
@@ -38,6 +44,8 @@ import {
   attr,
   forAncestorsOrSelf,
   getBoundaryData,
+  getPos,
+  getRect,
   getScreenPos,
   getViewport,
   isInternalUrl,
@@ -67,32 +75,39 @@ const isClickable = (
       equalsAny(normalizedAttribute(el, "type"), "button", "submit")) ||
     attr === T);
 
-function getElementLabel(el: Element | EventTarget | null, container: Element) {
+const getElementInfo = (el: Element, includeRect = false) => ({
+  tagName: el.tagName,
+  text: ellipsis(
+    attr(el, "title")?.trim() ||
+      attr(el, "alt")?.trim() ||
+      (el as HTMLElement).innerText?.trim(),
+    100
+  ),
+  href: (el as any).href?.toString(),
+  rect: includeRect ? getRect(el) : undefined,
+});
+const getElementLabel = (
+  el: Element | EventTarget | null,
+  container: Element,
+  includeRect = false
+) => {
   let info: Pick<UserInteractionEvent, "element"> | undefined;
   forAncestorsOrSelf(el ?? container, (el) =>
     tagName(el) === "IMG" || el === container
       ? ((info = {
-          element: {
-            tagName: el.tagName,
-            text:
-              attr(el, "title") ||
-              attr(el, "alt") ||
-              (el as HTMLElement).innerText?.trim().substring(0, 100) ||
-              undefined,
-          },
+          element: getElementInfo(el, includeRect),
         }),
         F)
       : T
   );
   return info;
-}
+};
 export const userInteraction: TrackerExtensionFactory = {
   id: "navigation",
 
   setup(tracker) {
-    // There can be all kinds of fishy navigation logic happening, so it is not enough just to look at link (<A>) clicks.
-    // Hence, when navigation occurs (in the current tab), we do not send the event before we have an VIEW_END.
-    // We rely on that the logic for VIEW_END takes care all the different ways to navigate (history.push etc.) so this is where we know that navigation happened for sure.
+    // The tracked click positions for click events that has already been posted once.
+    const activeEventClicks = new WeakMap<Node, ScreenPosition[]>();
 
     const stripPositions = <T = any>(el: any, hitTest: boolean): T =>
       hitTest
@@ -114,30 +129,65 @@ export const userInteraction: TrackerExtensionFactory = {
           let trackClicks: boolean | Nullish;
           let trackRegion: boolean | Nullish;
           let clickableElement: HTMLElement | undefined;
+          let containerElement: Element | undefined;
 
           let nav = F;
+
+          let clickables: ComponentElementInfo[] | undefined;
 
           forAncestorsOrSelf<boolean>(ev.target, (el) => {
             isClickable(el) && (clickableElement ??= el);
             nav = nav || tagName(el) === "NAV";
 
-            let cmp: readonly ConfiguredComponent[] | Nullish;
+            const boundary = getBoundaryData(el);
+            const components = boundary?.component;
+            if (!ev.button && components?.length && !clickables) {
+              forEach(
+                el.querySelectorAll("a,button"),
+                (clickable) =>
+                  isClickable(clickable) &&
+                  ((clickables ??= []).length > 3
+                    ? stop() // If there are more than two clickables, there is presumably not any missed click intent.
+                    : clickables.push({
+                        ...getElementInfo(clickable, true),
+                        component: forAncestorsOrSelf(
+                          clickable,
+                          (
+                            child,
+                            r,
+                            _,
+                            childComponents = getBoundaryData(child)?.component
+                          ) => childComponents && r(childComponents[0]),
+                          (child) => child === el
+                        ),
+                      }))
+              );
+
+              if (clickables) {
+                containerElement ??= el;
+              }
+            }
 
             trackClicks ??=
               trackerFlag(el, "clicks", T, (data) => data.track?.clicks) ??
-              ((cmp = array(getBoundaryData(el)?.component)) &&
-                some(cmp, (cmp) => cmp.track?.clicks !== F));
+              (components &&
+                some(components, (cmp) => cmp.track?.clicks !== F));
             trackRegion ??=
               trackerFlag(el, "region", T, (data) => data.track?.region) ??
-              ((cmp = getBoundaryData(el)?.component) &&
-                some(cmp, (cmp) => cmp.track?.region));
+              (components && some(components, (cmp) => cmp.track?.region));
           });
 
-          if (!clickableElement) {
+          if (!(containerElement ??= clickableElement)) {
             return;
           }
-          const componentContext = getComponentContext(clickableElement);
-          const tags = parseActivationTags(clickableElement);
+          const clickIntent = clickables && !clickableElement && trackClicks;
+
+          const componentContext = getComponentContext(
+            containerElement,
+            false,
+            clickIntent
+          );
+          const tags = parseActivationTags(containerElement);
           trackClicks ??= !nav;
           trackRegion ??= T;
 
@@ -148,11 +198,43 @@ export const userInteraction: TrackerExtensionFactory = {
                   viewport: getViewport(),
                 }
               : nil),
-            ...getElementLabel(ev.target, clickableElement),
+            ...getElementLabel(ev.target, containerElement),
             ...componentContext,
             timeOffset: getViewTimeOffset(),
             ...tags,
           };
+          if (!clickableElement) {
+            clickIntent &&
+              update(activeEventClicks, containerElement, (current) => {
+                const pos = getPos(containerElement!, ev);
+                if (!current) {
+                  // Reuse the same event and only add the new click coordinates
+                  // if the element is clicked again to reduce data.
+                  const intentEvent = restrict<ComponentClickIntentEvent>({
+                    type: "component_click_intent",
+                    ...sharedEventProperties,
+                    clicks: (current = [pos]),
+
+                    clickables,
+                  });
+
+                  tracker.events.registerEventPatchSource(
+                    intentEvent,
+                    () => ({
+                      clicks: get(activeEventClicks, containerElement!),
+                    }),
+                    true,
+                    containerElement
+                  );
+                } else {
+                  push(current, pos);
+                }
+
+                return current;
+              });
+
+            return;
+          }
 
           if (isLinkElement(clickableElement!)) {
             const link = clickableElement;

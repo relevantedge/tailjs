@@ -43,7 +43,7 @@ export const forAncestorsOrSelf = <T = any>(
   el: NodeWithParentElement | Nullish,
   action: (
     el: Element,
-    returnValue: (value: T, replace?: boolean) => void,
+    returnValue: (value: T | undefined, replace?: boolean) => void,
     distance: number
   ) => any,
   stoppingCriterion: (el: Element, distance: number) => boolean = (

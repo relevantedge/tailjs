@@ -88,7 +88,7 @@ export interface VariableQueryOptions<NumericEnums extends boolean = boolean> {
    * Used for paging by specifying the value of {@link VariableQueryResult.cursor} from a previous query result.
    * If a previous cursor is specified, the `include` property is ignored.
    *
-   * Please not that the results may not neccessarily contain a cursor. If a cursor was requested and none returned,
+   * Please not that the results may not necessarily contain a cursor. If a cursor was requested and none returned,
    * it means that there are no more data.
    */
   cursor?: {

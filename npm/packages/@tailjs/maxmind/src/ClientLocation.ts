@@ -95,7 +95,12 @@ export class ClientLocation implements TrackerExtension {
               lat: location.location?.latitude,
               lng: location.location?.longitude,
               tags: [
-                `maxmind:build-epoch=${this._reader?.metadata.buildEpoch}`,
+                {
+                  tag: "maxmind:build-epoch",
+                  value:
+                    this._reader?.metadata.buildEpoch?.toString() ??
+                    "(unknown)",
+                },
               ],
             }),
           ];

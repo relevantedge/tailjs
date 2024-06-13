@@ -14,6 +14,7 @@ import {
   compilePlugin,
   env,
   getProjects,
+  watchOptions,
 } from "./shared";
 
 // When in dev mode and copying @tailjs/* to /src/@tailjs/* in a project you will need these packages:
@@ -62,9 +63,7 @@ export const getDistBundles = async (
   ].flatMap(([source, target], i) => [
     applyDefaultConfiguration({
       input: source,
-      watch: {
-        exclude: ["**/node_modules/**"],
-      },
+      watch: watchOptions,
       plugins: [
         compilePlugin(),
         alias({
@@ -151,9 +150,7 @@ export const getDistBundles = async (
     }),
     {
       input: source,
-      watch: {
-        exclude: ["**/node_modules/**"],
-      },
+      watch: watchOptions,
       plugins: [dts()],
       output: destinations.map(([path, asSource]) => {
         const dir = join(path, target);

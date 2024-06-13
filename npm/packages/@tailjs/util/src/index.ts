@@ -21,3 +21,5 @@ export * from "./TupleMap";
 export * from "./parsers";
 
 export * from "./regex";
+
+export * from "./intervals";

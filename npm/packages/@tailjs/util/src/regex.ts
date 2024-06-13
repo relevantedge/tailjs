@@ -57,14 +57,14 @@ export const match: {
   <R, Nulls, Collect extends boolean = false>(
     s: Nullable<string, Nulls>,
     regex: RegExp | Nullish,
-    selector: (...args: string[]) => R | Nullish,
+    selector: (...args: (string | undefined)[]) => R | Nullish,
     collect?: Collect
   ): MaybeUndefined<Nulls, If<Collect, ConstToNormal<R>[], R | undefined>>;
   (s: string | Nullish, match: RegExp | Nullish): RegExpMatchArray | null;
 } = <R>(
   s: string,
   regex: RegExp,
-  selector?: (...args: string[]) => R,
+  selector?: (...args: (string | undefined)[]) => R,
   collect = false
 ) =>
   (s ?? regex) == nil
@@ -132,7 +132,7 @@ export const parseRegex = <T>(
             : unionOrNever(
                 map(
                   split(
-                    text,
+                    text!,
                     new RegExp(
                       `(?<!(?<!\\\\)\\\\)[${join(separators, escapeRegEx)}]`
                     )

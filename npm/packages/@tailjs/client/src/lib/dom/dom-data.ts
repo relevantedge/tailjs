@@ -1,4 +1,9 @@
-import { parseTagString, type Tag } from "@tailjs/types";
+import {
+  ParsableTags,
+  TagCollection,
+  collectTags,
+  type Tag,
+} from "@tailjs/types";
 import {
   F,
   T,
@@ -68,7 +73,7 @@ type CacheMatchRules = [
 const matchAttributeNames = (
   el: Element | Nullish,
   cached: CacheMatchRules | Nullish,
-  tags: Set<string>,
+  tags: TagCollection,
   prefix?: string | boolean,
   value?: string,
   eligible?: boolean
@@ -95,14 +100,14 @@ const matchAttributeNames = (
             ))
         ) && // The empty string is also "true" since it means presence of the attribute without a value (as in `<div tag-yes />).
           (!(value = el!.getAttribute(name)!) || parseBoolean(value)) &&
-          parseTagString(value, replace(prefix, /\-/g, ":"), tags),
+          collectTags(value, replace(prefix, /\-/g, ":"), tags),
         eligible))
   );
 
 // We cache the tracker configuration's rules for tag mappings.
-let cachedTagMapper: (el: Element, tags: Set<string>) => void = () => {};
+let cachedTagMapper: (el: Element, tags: TagCollection) => void = () => {};
 let cachedMappings: TagMappings | undefined;
-const parseTagAttributes = (el: Element, tags: Set<string>) => {
+const parseTagAttributes = (el: Element, tags: TagCollection) => {
   if (cachedMappings === (cachedMappings = trackerConfig.tags)) {
     return cachedTagMapper(el, tags);
   }
@@ -125,7 +130,7 @@ const parseTagAttributes = (el: Element, tags: Set<string>) => {
       [[/^(?:track\-)?tags?(?:$|\-)(.*)/], ...parse(values(cachedMappings))],
     ];
 
-  (cachedTagMapper = (el: Element, tags: Set<string>) =>
+  (cachedTagMapper = (el: Element, tags: TagCollection) =>
     matchAttributeNames(el, cache, tags))(el, tags);
 };
 
@@ -145,7 +150,7 @@ const parsedCssRules: {
 
 const parseCssMappingRules = (
   el: Element,
-  tags: Set<string>,
+  tags: TagCollection,
   rulesString = cssPropertyWithBase(el, "attributes")
 ) => {
   rulesString &&
@@ -162,7 +167,7 @@ const parseCssMappingRules = (
       ]),
       tags
     );
-  parseTagString(cssPropertyWithBase(el, "tags"), undefined, tags);
+  collectTags(cssPropertyWithBase(el, "tags"), undefined, tags);
 };
 
 let currentBoundaryData: BoundaryData<true> | Nullish;
@@ -209,22 +214,22 @@ export type ParsedTags = { tags?: Tag[] };
 export const parseTags = (
   sourceEl: Element | Nullish,
   stoppingCriterion?: (el: Element, distance: number) => boolean,
-  elementTagData?: (el: Element) => Iterable<Tag | Nullish> | Nullish,
-  tags?: Set<string>
+  elementTagData?: (el: Element) => ParsableTags,
+  tags?: TagCollection
 ): ParsedTags =>
   !sourceEl
     ? {}
-    : ((tags ??= new Set<string>()),
+    : ((tags ??= new Map()),
       parseCssMappingRules(sourceEl, tags),
       forAncestorsOrSelf(
         sourceEl,
         (el) => {
           parseTagAttributes(el, tags!);
-          parseTagString(map(elementTagData?.(el)), undefined, tags!);
+          collectTags(elementTagData?.(el), undefined, tags!);
         },
         stoppingCriterion
       ),
-      tags.size ? { tags: [...tags] } : {});
+      tags.size ? { tags: [...tags.values()] } : {});
 
 let styleElement: Node;
 export const injectCssDefaults = (document: Document) => {

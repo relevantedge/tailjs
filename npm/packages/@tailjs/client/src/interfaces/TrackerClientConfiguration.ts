@@ -1,6 +1,5 @@
 import type { ActivationTracking } from "@tailjs/types";
 import type { IterableOrSelf, Nullish, ParsableRegExp } from "@tailjs/util";
-import type { Tracker } from ".";
 
 /**
  * Defines a mapping from HTML element attributes to tags based on their names.
@@ -25,7 +24,7 @@ export type TagMappings = Record<
 /**
  * Tracker configuration.
  */
-export interface TrackerConfiguration {
+export interface TrackerClientConfiguration {
   /**
    * The name of the global variable used for tracking.
    *
@@ -68,7 +67,7 @@ export interface TrackerConfiguration {
   /**
    * The minimum duration (ms) a component needs to be visible before it counts as an impression.
    *
-   * @default 1000
+   * @default 750
    */
   impressionThreshold?: number;
 

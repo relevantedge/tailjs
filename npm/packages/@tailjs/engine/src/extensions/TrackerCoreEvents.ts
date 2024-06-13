@@ -7,6 +7,7 @@ import {
   SignOutEvent,
   TrackedEvent,
   Variable,
+  VariablePatchSource,
   dataClassification,
   dataPurposes,
   isConsentEvent,
@@ -152,17 +153,37 @@ export class TrackerCoreEvents implements TrackerExtension {
       updatedEvents.push(event);
 
       if (tracker.session.isNew) {
-        updatedEvents.push({
-          type: "session_started",
-          url: tracker.url,
-          sessionNumber: tracker.device?.sessions ?? 1,
-          timeSinceLastSession: tracker.session.previousSession
-            ? tracker.session.firstSeen - tracker.session.previousSession
-            : undefined,
-          session,
-          tags: tracker.env.tags,
-          timestamp,
-        } as SessionStartedEvent);
+        let isStillNew = true;
+        await tracker.set([
+          {
+            scope: "session",
+            key: SCOPE_INFO_KEY,
+            patch: (current: VariablePatchSource<SessionInfo>) => {
+              // Make sure we only post the "session_started" event once.
+              if (current?.value?.isNew === true) {
+                return {
+                  value: { ...current.value, isNew: false } as SessionInfo,
+                };
+              }
+              isStillNew = false;
+              return undefined;
+            },
+          },
+        ]);
+
+        if (isStillNew) {
+          updatedEvents.push({
+            type: "session_started",
+            url: tracker.url,
+            sessionNumber: tracker.device?.sessions ?? 1,
+            timeSinceLastSession: tracker.session.previousSession
+              ? tracker.session.firstSeen - tracker.session.previousSession
+              : undefined,
+            session,
+            tags: tracker.env.tags,
+            timestamp,
+          } as SessionStartedEvent);
+        }
       }
 
       event.session = session;

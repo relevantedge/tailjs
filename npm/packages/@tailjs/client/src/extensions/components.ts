@@ -92,7 +92,8 @@ const enum IncludeState {
 
 export const getComponentContext = (
   el: NodeWithParentElement,
-  directOnly = F
+  directOnly = F,
+  includeRegion?: boolean | Nullish
 ) => {
   let collectedContent: ActivatedContent[] = [];
 
@@ -119,7 +120,8 @@ export const getComponentContext = (
       );
 
       rect =
-        (some(components, (item) => item.track?.region) && getRect(el)) ||
+        ((includeRegion ?? some(components, (item) => item.track?.region)) &&
+          getRect(el)) ||
         undefined;
       const tags = parseBoundaryTags(el);
       entry.content &&
@@ -160,7 +162,7 @@ export const getComponentContext = (
     }
 
     const area = entry.area || trackerProperty(el, "area");
-    area && unshift(collected, ...map(area));
+    area && unshift(collected, ...map(array(area)));
   });
 
   let areaPath: string[] | undefined;

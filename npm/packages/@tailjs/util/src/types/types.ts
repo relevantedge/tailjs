@@ -395,14 +395,6 @@ export const isArray: (value: any) => value is any[] = Array.isArray;
 
 export const isError = (value: any): value is Error => value instanceof Error;
 
-type Lask<T> = T extends readonly (infer Item)[]
-  ? T extends Item[]
-    ? T
-    : never
-  : never;
-
-type Fiddo = Lask<[1, 2, 3]>;
-
 /**
  * Returns the value as an array following these rules:
  * - If the value is undefined (this does not include `null`), so is the return value.

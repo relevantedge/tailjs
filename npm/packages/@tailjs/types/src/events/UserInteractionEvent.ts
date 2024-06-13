@@ -1,5 +1,6 @@
 import type {
   ActivatedComponent,
+  ElementInfo,
   ScreenPosition,
   TrackedEvent,
   ViewTimingData,
@@ -31,11 +32,5 @@ export interface UserInteractionEvent extends TrackedEvent {
   area?: string;
 
   /** Information about the activated element, if any. */
-  element?: {
-    /** The tag name of the activated element.  */
-    tagName?: string;
-
-    /** The textual content of the element that was clicked (e.g. the label on a button, or the alt text of an image) */
-    text?: string;
-  };
+  element?: ElementInfo;
 }

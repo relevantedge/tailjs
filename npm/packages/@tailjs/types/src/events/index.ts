@@ -5,6 +5,7 @@ export * from "./PassiveEvent";
 export * from "./UserInteractionEvent";
 export * from "./FormEvent";
 export * from "./ComponentClickEvent";
+export * from "./ComponentClickIntentEvent";
 export * from "./ComponentViewEvent";
 export * from "./NavigationEvent";
 export * from "../ViewTimingData";

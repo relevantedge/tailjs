@@ -11,6 +11,7 @@ import {
   F,
   T,
   add,
+  array,
   clock,
   createEvent,
   createTimer,
@@ -29,6 +30,7 @@ import {
   TAB_ID,
   addPageActivatedListener,
   addPageVisibleListener,
+  getActiveTime,
   getViewport,
   isInternalUrl,
   listen,
@@ -73,7 +75,7 @@ export const pushNavigationSource = (
 
 const totalDuration = createTimer();
 const visibleDuration = createTimer();
-const interactiveDuration = createTimer();
+
 let activations = 1;
 
 export const getVisibleDuration = () => visibleDuration();
@@ -86,12 +88,12 @@ export { addViewChangedListener };
 export const createViewDurationTimer = (started?: boolean) => {
   const totalTime = createTimer(started, totalDuration);
   const visibleTime = createTimer(started, visibleDuration);
-  const interactiveTime = createTimer(started, interactiveDuration);
+  const activeTime = createTimer(started, getActiveTime);
   const activationsCounter = createTimer(started, () => activations);
   return (toggle?: boolean, reset?: boolean) => ({
     totalTime: totalTime(toggle, reset),
     visibleTime: visibleTime(toggle, reset),
-    interactiveTime: interactiveTime(toggle, reset),
+    activeTime: activeTime(toggle, reset),
     activations: activationsCounter(toggle, reset),
   });
 };
@@ -225,7 +227,8 @@ export const context: TrackerExtensionFactory = {
       const qs = parseQueryString(location.href);
       map(
         ["source", "medium", "campaign", "term", "content"],
-        (p, _) => ((currentViewEvent!.utm ??= {})[p] = qs[`utm_${p}`]?.[0])
+        (p, _) =>
+          ((currentViewEvent!.utm ??= {})[p] = array(qs[`utm_${p}`])?.[0])
       );
 
       !(currentViewEvent.navigationType = pushPopNavigation) &&
@@ -279,14 +282,12 @@ export const context: TrackerExtensionFactory = {
       dispatchViewChanged(currentViewEvent);
     };
 
-    addPageActivatedListener((activated) => interactiveDuration(activated));
     addPageVisibleListener((visible) => {
       if (visible) {
         visibleDuration(T);
         ++activations;
       } else {
         visibleDuration(F);
-        interactiveDuration(F);
       }
     });
 

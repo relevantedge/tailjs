@@ -54,7 +54,10 @@ let localId = 0;
 
 export let TAB_ID: string = undefined as any;
 export const nextId = () => (TAB_ID ?? NOT_INITIALIZED()) + "_" + nextLocalId();
-export const nextLocalId = () => ++localId;
+export const nextLocalId = () =>
+  (now(true) - (parseInt(TAB_ID.slice(0, -2), 36) || 0)).toString(36) +
+  "_" +
+  (++localId).toString(36);
 
 const randomValues = (arg: any) => crypto.getRandomValues(arg);
 export const uuidv4 = (): Uuid =>
@@ -178,7 +181,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
 
       TAB_ID =
         localState?.[0] ??
-        now().toString(36) +
+        now(true).toString(36) +
           Math.trunc(1296 * Math.random())
             .toString(36)
             .padStart(2, "0");

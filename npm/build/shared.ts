@@ -3,10 +3,10 @@ import replace from "@rollup/plugin-replace";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
-import { RollupOptions, rollup, watch } from "rollup";
+import { OutputChunk, RollupOptions, rollup, watch } from "rollup";
 import swc from "rollup-plugin-swc3";
 
-export interface PackageEnviornment {
+export interface PackageEnvironment {
   path: string;
   name: string;
   workspace: string;
@@ -57,6 +57,14 @@ export const compilePlugin = ({
     ...args,
   });
 
+export const watchOptions: RollupOptions["watch"] = {
+  exclude: ["**/node_modules"],
+  chokidar: {
+    usePolling: false,
+    useFsEvents: true,
+    awaitWriteFinish: true,
+  },
+};
 export const build = async (options: RollupOptions[]) => {
   await Promise.all(
     options.map(async (config) => {
@@ -108,8 +116,8 @@ export const build = async (options: RollupOptions[]) => {
   );
 };
 
-let resolvedEnv: PackageEnviornment;
-export async function env(client?: boolean): Promise<PackageEnviornment> {
+let resolvedEnv: PackageEnvironment;
+export async function env(client?: boolean): Promise<PackageEnvironment> {
   if (resolvedEnv) {
     return resolvedEnv;
   }
@@ -224,10 +232,10 @@ export function chunkNameFunctions(
   let nextChunkId = 0;
 
   return {
-    chunkFileNames: (chunk) => {
+    chunkFileNames: () => {
       return `${prefix}_${nextChunkId++}${postfix}`;
     },
-    entryFileNames: (chunk) => {
+    entryFileNames: (chunk: OutputChunk) => {
       nextChunkId = 0;
       const name = chunk.name.replace(/index(\.[^\/]+)$/, indexName);
       return `${prefix}${name}${postfix}`;
