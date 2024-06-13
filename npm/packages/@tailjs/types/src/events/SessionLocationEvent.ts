@@ -15,18 +15,20 @@ export interface SessionLocationEvent extends TrackedEvent, SessionScoped {
    */
   accuracy?: Float;
 
-  city?: GeoEntity;
-  zip?: string;
-  subdivision?: GeoEntity;
+  /** @privacy anonymous, infrastructure */
+  continent?: GeoEntity;
 
   /** @privacy anonymous, infrastructure */
   country?: GeoEntity;
-  continent?: GeoEntity;
+
+  subdivision?: GeoEntity;
+
+  zip?: string;
+
+  city?: GeoEntity;
 
   lat?: Float;
   lng?: Float;
-
-  providerData?: Record<string, any>;
 }
 
 export const isClientLocationEvent =

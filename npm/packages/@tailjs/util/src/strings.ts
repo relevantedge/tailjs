@@ -1,10 +1,13 @@
 import {
+  IteratorAction,
+  IteratorSource,
   MaybeUndefined,
   Nullish,
   filter,
   forEach,
   isArray,
   isBoolean,
+  isFunction,
   isIterable,
   isNumber,
   isObject,
@@ -59,7 +62,7 @@ export type EnumerationSeparators = string | [last: string, other?: string];
  *
  * Useful for enumerations like "item1, item2 and item 3" (`separate(["item1", "item2", "item3"], ["and"])`).
  */
-export const separate = (
+export const enumerate = (
   values: any[] | undefined,
   separator: EnumerationSeparators = ["and", ", "]
 ) =>
@@ -241,3 +244,45 @@ export const snakeCase = <S extends string | Nullish>(
 
 export const quote = <T>(item: T, quoteChar = "'"): MaybeUndefined<T, string> =>
   item == null ? (undefined as any) : quoteChar + item + quoteChar;
+
+export const ellipsis = <T extends string | Nullish>(
+  text: T,
+  maxLength: number
+): T =>
+  text && ((text.length > maxLength ? text.slice(0, -1) + "…" : text) as any);
+
+export const join: {
+  /**
+   *  Joins the specified items with a separator (default is "").
+   *  If the source is a string it will be returned as is.
+   *
+   *  The value `false` will be omitted to help syntax like `[condition && "yes"]`.   .
+   */
+  <S extends IteratorSource | string>(
+    source: S,
+    separator?: string | readonly [string, string]
+  ): MaybeUndefined<S, string>;
+
+  /**
+   * Joins the projection of the specified items with a separator (default is "").
+   * If the source is a string it will be considered an array with the string as its single element.
+   */
+  <S extends IteratorSource | string>(
+    source: S,
+    projection: IteratorAction<S extends string ? [string] : S>,
+    separator?: EnumerationSeparators
+  ): MaybeUndefined<S, string>;
+} = (source: any, projection: any, sep?: any) =>
+  source == null
+    ? undefined
+    : isFunction(projection)
+    ? enumerate(
+        map(isString(source) ? [source] : source, projection),
+        sep ?? ""
+      )
+    : isString(source)
+    ? source
+    : enumerate(
+        map(source, (item) => (item === false ? undefined : item)),
+        projection ?? ""
+      );

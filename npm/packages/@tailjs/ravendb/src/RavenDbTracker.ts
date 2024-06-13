@@ -69,36 +69,66 @@ export class RavenDbTracker implements TrackerExtension {
   }
 
   async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
+    if (!tracker.session) {
+      return;
+    }
+
     try {
       const commands: any[] = [];
 
-      // We add a convenient integer key to the session and event entities to get efficient primary keys
-      // for event and session IDs if doing ETL on the data.
-      let sessionId: string | undefined;
+      // We add a convenient integer keys to the session, device session and event entities to get efficient primary keys
+      // when doing ETL on the data.
+      const ids = await tracker.get([
+        {
+          scope: "session",
+          key: "rdb",
+          init: async () => ({
+            classification: "anonymous",
+            purposes: "necessary",
+            value: {
+              source: [tracker.sessionId, tracker.deviceSessionId],
+
+              mapped: [await this._getNextId(), await this._getNextId()],
+            },
+          }),
+        },
+      ]).value;
+
+      var hasChanges = false;
+      if (ids.source[0] !== tracker.sessionId) {
+        ids.mapped[0] = await this._getNextId();
+        hasChanges = true;
+      }
+      if (ids.source[1] !== tracker.deviceSessionId) {
+        ids.mapped[1] = await this._getNextId();
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        // Session and/or device session ID changed.
+        await tracker.set([
+          {
+            scope: "session",
+            key: "rdb",
+            patch: (current) => {
+              if (!current) return;
+              return { ...current, value: ids };
+            },
+          },
+        ]);
+      }
 
       for (let ev of events) {
         const session = ev.session;
         if (!session) {
           continue;
         }
-        sessionId ??=
-          tracker.session &&
-          (await tracker.get([
-            {
-              scope: "session",
-              key: "rdb.s",
-              init: async () => ({
-                classification: "anonymous",
-                purposes: "necessary",
-                value: (await this._getNextId()).toString(36),
-              }),
-            },
-          ]).value);
 
         // Integer primary key for the event entity.
-        const internalEventId = (await this._getNextId()).toString(36);
+        const internalEventId = await this._getNextId();
 
-        ev["rdb:sessionId"] = session.sessionId;
+        ev["rdb:sessionId"] = ids.mapped[0];
+        ev["rdb:deviceSessionId"] = ids.mapped[1];
 
         commands.push({
           Type: "PUT",
@@ -126,7 +156,7 @@ export class RavenDbTracker implements TrackerExtension {
     }
   }
 
-  private async _getNextId(): Promise<number> {
+  private async _getNextId(): Promise<string> {
     let id = ++this._nextId;
 
     if (id >= this._idRangeMax) {
@@ -189,6 +219,6 @@ export class RavenDbTracker implements TrackerExtension {
         lockHandle();
       }
     }
-    return id;
+    return id.toString(36);
   }
 }

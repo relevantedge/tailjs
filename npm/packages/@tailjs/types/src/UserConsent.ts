@@ -12,18 +12,18 @@ import {
 // Otherwise it looks weird.
 
 /** A user's consent choices.  */
-export interface UserConsent {
+export interface UserConsent<NumericEnums extends boolean = false> {
   /**
    * The highest level of data classification the user has consented to be stored.
    */
-  level: DataClassificationValue<false> extends infer T ? T : never;
+  level: DataClassificationValue<NumericEnums> extends infer T ? T : never;
 
   /**
    * The purposes the user has consented their data to be used for.
    *
    * @privacy anonymous
    */
-  purposes: DataPurposeValue<false> extends infer T ? T : never;
+  purposes: DataPurposeValue<NumericEnums> extends infer T ? T : never;
 }
 
 export const NoConsent: Readonly<UserConsent> = Object.freeze({

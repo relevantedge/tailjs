@@ -105,13 +105,13 @@ export interface VariablePatchSource<T = any> extends Variable<T> {
 export type VariablePatchResult<T = any, Validated = boolean> =
   | (VariableMetadata &
       (Partial<VariableUsage<If<Validated, true, boolean>>> & {
-        value: T;
+        value: T | Nullish;
       }))
   | undefined;
 
 export type VariablePatchAction<T = any, Validated = boolean> = (
   current: VariablePatchSource<T> | undefined
-) => MaybePromise<VariablePatchResult<T, Validated> | undefined>;
+) => MaybePromise<VariablePatchResult<T, Validated> | Nullish>;
 
 export enum VariablePatchType {
   Add = 0,

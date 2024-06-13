@@ -55,7 +55,7 @@ const setActivated = () =>
   (dispatchPageActivated((activated = true), activeTime(true)),
   activationTimeout.restart());
 
-listen(window, "focus", setActivated);
+listen(window, ["focus", "scroll"], setActivated);
 listen(window, "blur", () => activationTimeout.trigger());
 
 listen(

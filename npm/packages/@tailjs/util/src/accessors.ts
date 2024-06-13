@@ -104,7 +104,7 @@ const updateSingle = (target: any, key: any, value: any) =>
   setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
 
 const setSingle = (target: any, key: any, value: any) => {
-  if (target.constructor === Object) {
+  if (target.constructor === Object || isArray(target)) {
     value === undefined ? delete target[key] : (target[key] = value);
     return value;
   }
@@ -468,7 +468,7 @@ export const add = <T extends PropertyContainer<any, boolean>>(
   target: T,
   key: KeyType<T>
 ) =>
-  target instanceof Set
+  target instanceof Set || target instanceof WeakSet
     ? target.has(key)
       ? false
       : (target.add(key), true)
@@ -879,6 +879,7 @@ export const diff = <T>(
   updated: T,
   previous: T | undefined
 ): [delta: T, current: T] | undefined => {
+  if (!updated) return undefined;
   if (!isPlainObject(previous)) return [updated, updated];
 
   const delta: any = {};

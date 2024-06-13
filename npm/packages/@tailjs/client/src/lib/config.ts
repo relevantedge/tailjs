@@ -1,8 +1,8 @@
-import type { TrackerConfiguration } from "..";
+import type { TrackerClientConfiguration } from "..";
 
 export const isTracker = "__isTracker";
 
-export const trackerConfig: Required<TrackerConfiguration> = {
+export const trackerConfig: Required<TrackerClientConfiguration> = {
   name: "tail",
   src: "/_t.js",
   disabled: false,

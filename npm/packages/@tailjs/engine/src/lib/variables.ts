@@ -114,7 +114,7 @@ export const applyPatch = async (
       !("tags" in patched) && (patched.tags = current?.tags);
     }
 
-    return patched;
+    return patched ?? undefined;
   }
 
   const classification: Partial<VariableUsage<true>> = {

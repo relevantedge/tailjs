@@ -1,1 +1,1 @@
-export * from "./parseTagString";
+export * from "./parseTags";

@@ -17,6 +17,7 @@ import {
   SessionInfo,
   Timestamp,
   TrackedEvent,
+  UserConsent,
   Variable,
   VariableFilter,
   VariableGetResults,
@@ -47,15 +48,12 @@ import {
   PartialRecord,
   PickPartial,
   ReadonlyRecord,
-  clone,
   concat,
   forEach,
   map,
   now,
-  structuralEquals,
   truish,
   update,
-  get,
 } from "@tailjs/util";
 import {
   Cookie,
@@ -63,17 +61,13 @@ import {
   HttpRequest,
   HttpResponse,
   RequestHandler,
-  RequestHandlerConfiguration,
   TrackedEventBatch,
   TrackerEnvironment,
   VariableStorageContext,
   requestCookies,
 } from "./shared";
 
-export type TrackerSettings = Pick<
-  RequestHandlerConfiguration,
-  "sessionTimeout" | "includeIp"
-> & {
+export interface TrackerServerConfiguration {
   disabled?: boolean;
   /** Transport used for client-side communication with a key unique('ish) to the client. */
   transport?: Transport;
@@ -84,6 +78,8 @@ export type TrackerSettings = Pick<
   path: string;
   url: string;
 
+  defaultConsent: UserConsent<true>;
+
   /**
    * A pseudo-unique identifier based on information from the client's request.
    * If this is not provided cookie-less tracking will be disabled.
@@ -93,7 +89,7 @@ export type TrackerSettings = Pick<
   queryString: Record<string, string[]>;
   cookies?: Record<string, Cookie>;
   requestHandler: RequestHandler;
-};
+}
 
 const enum ExtensionState {
   Pending = 0,
@@ -216,6 +212,7 @@ export class Tracker {
   >[] = [];
 
   private readonly _clientCipher: Transport;
+  private readonly _defaultConsent: UserConsent<true>;
 
   public host: string;
   public path: string;
@@ -233,13 +230,15 @@ export class Tracker {
     requestHandler,
     transport: cipher,
     clientId,
-  }: TrackerSettings) {
+    defaultConsent,
+  }: TrackerServerConfiguration) {
     this.disabled = disabled;
     this._requestHandler = requestHandler;
     this.env = requestHandler.environment;
     this.host = host;
     this.path = path;
     this.url = url;
+    this._defaultConsent = defaultConsent;
 
     this.queryString = queryString ?? {};
 
@@ -491,16 +490,16 @@ export class Tracker {
     const timestamp = now();
     const consentData = (
       this.cookies[this._requestHandler._cookieNames.consent]?.value ??
-      `${DataPurposeFlags.Necessary}@${DataClassification.Anonymous}`
+      `${this._defaultConsent.purposes}@${this._defaultConsent.level}`
     ).split("@");
 
     this._consent = {
       level:
         dataClassification.tryParse(consentData[1]) ??
-        DataClassification.Anonymous,
+        this._defaultConsent.level,
       purposes:
         dataPurposes.tryParse(consentData[0]?.split(",")) ??
-        DataPurposeFlags.Necessary,
+        this._defaultConsent.purposes,
     };
 
     await this._ensureSession(timestamp, {
@@ -680,7 +679,6 @@ export class Tracker {
       return;
     }
 
-    let isNew = false;
     this._session =
       // We bypass the TrackerVariableStorage here and use the environment directly.
       // The session ID we currently have is provisional,
@@ -703,7 +701,6 @@ export class Tracker {
                         ?.value as DeviceInfo);
                 }
 
-                isNew = true;
                 return {
                   ...Necessary,
                   value: createInitialScopeData<SessionInfo>(
@@ -729,8 +726,6 @@ export class Tracker {
           ]).result
         )
       );
-
-    this._session.value.isNew = isNew;
 
     if (this._session.value) {
       let device =

@@ -5,10 +5,11 @@ import {
   TrackerExtension,
 } from "./shared";
 
-import type { TrackerConfiguration } from "@tailjs/client";
+import type { TrackerClientConfiguration } from "@tailjs/client";
 import { JsonObject, map } from "@tailjs/util";
 
-export type BootstrapSettings = {
+export interface BootstrapSettings
+  extends Pick<RequestHandlerConfiguration, "cookies" | "defaultConsent"> {
   /** The host implementation to use.  */
   host: EngineHost;
 
@@ -17,9 +18,6 @@ export type BootstrapSettings = {
 
   /** A list of schemas. If a string is provided it is interpreted as a path and will get loaded from resources. */
   schemas?: (string | JsonObject)[];
-
-  /** Configuration for cookies. */
-  cookies?: RequestHandlerConfiguration["cookies"];
 
   /** {@link TrackerExtension}s that are loaded into the request handler.  */
   extensions?: Iterable<
@@ -58,8 +56,8 @@ export type BootstrapSettings = {
   /**
    * Configuration for the client script.
    */
-  client?: TrackerConfiguration;
-};
+  client?: TrackerClientConfiguration;
+}
 
 export function bootstrap({
   host,
@@ -71,6 +69,7 @@ export function bootstrap({
   encryptionKeys,
   debugScript,
   environmentTags,
+  defaultConsent,
 }: BootstrapSettings) {
   return new RequestHandler({
     host,
@@ -87,5 +86,6 @@ export function bootstrap({
     encryptionKeys,
     debugScript,
     environmentTags,
+    defaultConsent,
   });
 }

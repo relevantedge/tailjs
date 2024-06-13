@@ -777,7 +777,7 @@ export class VariableStorageCoordinator implements VariableStorage {
       if (isVariablePatchAction(setter)) {
         setter.patch = wrap(setter.patch, async (original, current) => {
           const patched = await original(current);
-          return patched === undefined ||
+          return patched == null ||
             this._censorValidate(
               mapping,
               patched,

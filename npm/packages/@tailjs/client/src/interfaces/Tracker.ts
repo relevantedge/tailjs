@@ -1,5 +1,5 @@
 import { ArrayOrSelf, Nullish } from "@tailjs/util";
-import type { TrackerCommand, TrackerConfiguration } from "..";
+import type { TrackerCommand, TrackerClientConfiguration } from "..";
 import { EventQueue, TrackerVariableStorage } from "../lib";
 
 export type Tracker = {
@@ -21,7 +21,7 @@ export type Tracker = {
     /**
      * Allows commands to be passed as an HTTP encoded string or JSON instead of objects. This may be useful for server-side generated data.
      *
-     * Use this overload if a {@link TrackerConfiguration.key} has been configured.
+     * Use this overload if a {@link TrackerClientConfiguration.key} has been configured.
      */
     (key: string, encoded: string): void;
 
@@ -31,7 +31,7 @@ export type Tracker = {
     /**
      * Executes the specified commands.
      *
-     * Use this overload if a {@link TrackerConfiguration.key} has been configured.
+     * Use this overload if a {@link TrackerClientConfiguration.key} has been configured.
      *
      */
     (key: string, ...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;

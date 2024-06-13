@@ -3,6 +3,7 @@ import type {
   CartEventData,
   ConfiguredComponent,
   Content,
+  ParsableTags,
   Tag,
   TrackingSettings,
 } from "@tailjs/types";
@@ -31,7 +32,7 @@ export interface BoundaryData<RequireArrays = false> {
   /**
    *  These tags will be added to the components and content in user activations with the boundary element or any of its descendants.
    */
-  tags?: MaybeArray<Tag, true, RequireArrays> | null;
+  tags?: RequireArrays extends true ? Tag[] : ParsableTags;
 
   /**
    * The element will include cart data when activated.

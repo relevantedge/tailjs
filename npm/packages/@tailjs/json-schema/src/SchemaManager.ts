@@ -123,7 +123,10 @@ export class SchemaManager {
     };
 
     const reset = () => {
-      const ajv = new Ajv().addKeyword("$anchor");
+      const ajv = new Ajv({
+        allowUnionTypes: true,
+        strictTypes: false,
+      }).addKeyword("$anchor");
 
       forEach(SchemaAnnotations, ([, keyword]) => ajv.addKeyword(keyword));
 

@@ -91,7 +91,14 @@ export const consent: TrackerExtensionFactory = {
             const pollConsent = async () => {
               if (!document.hasFocus()) return;
 
-              const consent = parseDataUsage(externalSource.poll());
+              const externalConsent = externalSource.poll();
+
+              if (!externalConsent) return;
+
+              const consent = parseDataUsage({
+                ...previousConsent,
+                ...externalConsent,
+              });
               if (consent && !dataUsageEquals(previousConsent, consent)) {
                 const [updated, current] = await updateConsent(consent);
                 if (updated) {
@@ -127,6 +134,8 @@ export const consent: TrackerExtensionFactory = {
           const consentCookie = document.cookie.match(
             /CookieConsent=([^;]*)/
           )?.[1];
+          if (!consentCookie) return;
+
           let mappedPurpose = 1;
           consentCookie?.replace(
             /([a-z]+):(true|false)/g,

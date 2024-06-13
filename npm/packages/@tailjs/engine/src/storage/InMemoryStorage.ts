@@ -392,7 +392,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
         continue;
       }
 
-      if (value === undefined) {
+      if (value == null) {
         results.push({
           status:
             current && this._remove(current)

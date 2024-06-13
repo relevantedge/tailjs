@@ -10,7 +10,7 @@ export * from "./TrackerExtension";
 export * from "./ParseResult";
 export * from "./RequestHandler";
 export * from "./Tracker";
-export * from "./Configuration";
+export * from "./RequestHandlerConfiguration";
 export * from "./ChangeHandler";
 export * from "./HostResponse";
 export * from "./HostRequest";

@@ -16,5 +16,5 @@ export const SchemaAnnotations = Object.freeze({
 });
 
 export const EntityMetadata = Object.freeze({
-  TypeId: "@type",
+  TypeId: "@schema",
 });

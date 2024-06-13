@@ -25,7 +25,7 @@ import {
   now,
   pluralize,
   push,
-  separate,
+  enumerate,
   structuralEquals,
   throwError,
   unshift,
@@ -78,24 +78,21 @@ export interface EventQueue {
    */
   registerEventPatchSource<T extends ProtectedEvent>(
     sourceEvent: T,
-    source: EventPatchSource<T>
-  ): () => void;
+    source: EventPatchSource<T>,
+    initialPost?: boolean,
+    relatedNode?: Node
+  ): () => undefined;
 }
 
-type EventPatchData<T extends ProtectedEvent> = Omit<
+export type EventPatchData<T extends ProtectedEvent> = Omit<
   EventPatch<T>,
   "patchTargetId" | "metadata" | "type"
 > & { type?: undefined };
 
-export type EventPatchSource<
-  T extends ProtectedEvent = ProtectedEvent,
-  AutoDiff extends boolean = true
-> = (
+export type EventPatchSource<T extends ProtectedEvent = ProtectedEvent> = (
   current: EventPatchData<T>,
-  unbind: () => void
-) => AutoDiff extends true
-  ? EventPatchData<T>
-  : [delta: EventPatchData<T>, current: EventPatchData<T>] | undefined;
+  unbind: () => undefined
+) => EventPatchData<T> | undefined;
 
 export const createEventQueue = (
   url: string,
@@ -119,34 +116,38 @@ export const createEventQueue = (
           patchTargetId: sourceEvent.clientId,
         }) as any);
 
-  const registerEventPatchSource = <
-    T extends ProtectedEvent,
-    AutoDiff extends boolean = true
-  >(
+  const registerEventPatchSource = <T extends ProtectedEvent>(
     sourceEvent: ProtectedEvent,
-    source: EventPatchSource<T, AutoDiff>,
-    autoDiff = true
+    source: EventPatchSource<T>,
+    initialPost = false,
+    relatedNode?: Node
   ) => {
     let unbinding = false;
-    const unbind = () => (unbinding = true);
+    const unbind = (): undefined => {
+      unbinding = true;
+    };
     snapshots.set(sourceEvent, clone(sourceEvent));
     const factory: Factory = () => {
-      const snapshot = snapshots.get(sourceEvent);
-      let [delta, current] =
-        (autoDiff
-          ? diff(source(snapshot, unbind), snapshot)
-          : source(snapshot, unbind)) ?? ([] as any);
-
-      if (delta && !structuralEquals(current, snapshot)) {
-        // The new "current" differs from the previous.
-        snapshots.set(sourceEvent, clone(current));
-        // Add patch target ID and the correct event type to the delta data before we return it.
-        return [mapPatchTarget(sourceEvent, delta) as any, unbinding];
+      if (relatedNode?.isConnected === false) {
+        unbind();
       } else {
-        return [undefined, unbinding];
+        const snapshot = snapshots.get(sourceEvent);
+        let [delta, current] = diff(source(snapshot, unbind), snapshot) ?? [];
+
+        if (delta && !structuralEquals(current, snapshot)) {
+          // The new "current" differs from the previous.
+          snapshots.set(sourceEvent, clone(current));
+          // Add patch target ID and the correct event type to the delta data before we return it.
+          return [mapPatchTarget(sourceEvent, delta) as any, unbinding];
+        }
       }
+
+      return [undefined, unbinding];
     };
     sources.set(sourceEvent, factory);
+    if (initialPost) {
+      post(sourceEvent);
+    }
     return unbind;
   };
 
@@ -178,7 +179,7 @@ export const createEventQueue = (
     debug(
       { [childGroups]: map(events, (ev) => [ev, ev.type, F]) },
       "Posting " +
-        separate([
+        enumerate([
           pluralize("new event", [
             count(events, (ev) => !isEventPatch(ev)) || undefined,
           ]),
@@ -238,7 +239,8 @@ export const createEventQueue = (
     if (!visible && (queue.length || unloading || delta > 1500)) {
       const updatedEvents = map(sources, ([sourceEvent, source]) => {
         const [event, unbinding] = source();
-        unbinding && sources.delete(sourceEvent);
+        unbinding &&
+          (sources.delete(sourceEvent), snapshots.delete(sourceEvent));
         return event;
       });
 

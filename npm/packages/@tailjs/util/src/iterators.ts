@@ -41,7 +41,7 @@ import {
   isTruish,
   symbolIterator,
   undefined,
-  separate,
+  enumerate,
   EnumerationSeparators,
 } from ".";
 
@@ -604,39 +604,6 @@ type ConcatResult_<T> = T extends readonly []
 type ConcatResult<T> = ConcatResult_<T> extends never
   ? undefined
   : ConcatResult_<T>[];
-
-export const join: {
-  /**
-   *  Joins the specified items with a separator (default is "").
-   *  If the source is a string it will be returned as is.
-   *
-   *  The value `false` will be omitted to help syntax like `[condition && "yes"]`.   .
-   */
-  <S extends IteratorSource | string>(
-    source: S,
-    separator?: string | readonly [string, string]
-  ): MaybeUndefined<S, string>;
-
-  /**
-   * Joins the projection of the specified items with a separator (default is "").
-   * If the source is a string it will be considered an array with the string as its single element.
-   */
-  <S extends IteratorSource | string>(
-    source: S,
-    projection: IteratorAction<S extends string ? [string] : S>,
-    separator?: EnumerationSeparators
-  ): MaybeUndefined<S, string>;
-} = (source: any, projection: any, sep?: any) =>
-  source == null
-    ? undefined
-    : isFunction(projection)
-    ? separate(map(isString(source) ? [source] : source, projection), sep ?? "")
-    : isString(source)
-    ? source
-    : separate(
-        map(source, (item) => (item === false ? undefined : item)),
-        projection ?? ""
-      );
 
 type FinalIteratorItem<
   T,

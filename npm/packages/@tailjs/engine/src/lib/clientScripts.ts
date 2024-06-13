@@ -3,11 +3,11 @@ import {
   INITIALIZE_TRACKER_FUNCTION,
 } from "@constants";
 
-import type { TrackerConfiguration } from "@tailjs/client";
+import type { TrackerClientConfiguration } from "@tailjs/client";
 import { createTransport, httpEncode } from "@tailjs/transport";
 
 export const generateClientBootstrapScript = (
-  config: TrackerConfiguration,
+  config: TrackerClientConfiguration,
   encrypt: boolean
 ) => {
   // Add a layer of "security by obfuscation" - just in case.

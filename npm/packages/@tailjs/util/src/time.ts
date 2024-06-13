@@ -42,7 +42,9 @@ export const createTimer = (
       ? (elapsed += -t0 + (t0 = timeReference()))
       : elapsed;
     reset && (elapsed = 0);
+
     (started = toggle) && (t0 = timeReference());
+
     return capturedElapsed;
   };
 };
@@ -71,6 +73,7 @@ export interface ClockSettings {
   trigger?: boolean;
   once?: boolean;
   callback?: ClockCallback;
+  raf?: boolean;
 }
 
 /** Light-weight version of {@link clock}. The trigger and cancel overloads returns true to enable chaining like `timeout(false)&&...` */
@@ -125,6 +128,7 @@ export const clock: {
     trigger = false,
     once = false,
     callback = () => {},
+    raf,
   } = settings;
   frequency = settings.frequency ?? 0;
 
@@ -161,15 +165,21 @@ export const clock: {
     return !((instance as any).busy = false);
   };
 
+  const updateTimeout = () =>
+    (timeoutId = setTimeout(
+      () => (raf ? requestAnimationFrame(timeoutCallback) : timeoutCallback()),
+      frequency < 0 ? -frequency : frequency
+    ) as any);
+
+  const timeoutCallback = () => {
+    instance.active && outerCallback();
+    instance.active && updateTimeout();
+  };
+
   const reset = (start: boolean, resetTimer = !start) => {
     timer(start, resetTimer);
-    clearInterval(timeoutId);
-    (instance as any).active = !!(timeoutId = start
-      ? (setInterval(
-          outerCallback,
-          frequency < 0 ? -frequency : frequency
-        ) as any)
-      : 0);
+    clearTimeout(timeoutId);
+    (instance as any).active = !!(timeoutId = start ? updateTimeout() : 0);
     return instance;
   };
 

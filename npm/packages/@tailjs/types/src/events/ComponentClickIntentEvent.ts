@@ -1,4 +1,10 @@
-import type { UserInteractionEvent, TrackingSettings } from "..";
+import type {
+  UserInteractionEvent,
+  TrackingSettings,
+  ElementInfo,
+  Position,
+  ScreenPosition,
+} from "..";
 import { typeTest } from "../util/type-test";
 
 /**
@@ -10,10 +16,14 @@ import { typeTest } from "../util/type-test";
  * This applies only to components that have click tracking configured,
  *  either via {@link TrackingSettings.clicked}, "track-clicks" in the containing DOM or "--track-clicks" via CSS.
  */
-export interface ComponentClickEvent extends UserInteractionEvent {
+export interface ComponentClickIntentEvent extends UserInteractionEvent {
   type: "component_click_intent";
+
+  clicks?: Position[];
+
+  clickables?: ElementInfo[];
 }
 
-export const isComponentClickIntentEvent = typeTest<ComponentClickEvent>(
+export const isComponentClickIntentEvent = typeTest<ComponentClickIntentEvent>(
   "component_click_intent"
 );

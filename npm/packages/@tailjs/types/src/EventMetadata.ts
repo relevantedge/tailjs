@@ -3,7 +3,7 @@ import { TrackedEvent } from ".";
 
 /** These properties are used to track the state of events as they get collected, and not stored. */
 export interface EventMetadata {
-  /** Hint to the request handler, that new sessions should not be started if all posted events are passive. */
+  /** Hint to the request handler that new sessions should not be started if all posted events are passive. */
   passive?: boolean;
 
   /** Hint that the event has been queued. */

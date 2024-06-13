@@ -16,6 +16,7 @@ import {
   compilePlugin,
   env,
   getProjects,
+  watchOptions,
 } from "./shared";
 
 import strip from "@rollup/plugin-strip";
@@ -65,9 +66,7 @@ const destinations = [
 const createConfig = (debug?: boolean) =>
   applyDefaultConfiguration({
     input: "src/index.browser.ts",
-    watch: {
-      exclude: ["**/node_modules/**"],
-    },
+    watch: watchOptions,
     plugins: [
       // {
       //   transform: (script) =>

@@ -36,6 +36,7 @@ export * from "./ScopeVariables";
 export * from "./EventMetadata";
 export * from "./EventPatch";
 export * from "./ViewTimingData";
+export * from "./ElementInfo";
 
 export * from "./protocol";
 export * from "./events";
