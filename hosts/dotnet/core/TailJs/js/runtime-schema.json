@@ -565,28 +565,8 @@
                   "x-privacy-purposes": "necessary"
                 },
                 "element": {
-                  "type": "object",
-                  "properties": {
-                    "tagName": {
-                      "type": "string",
-                      "description": "The tag name of the activated element.",
-                      "x-privacy-class": "anonymous",
-                      "x-privacy-purposes": "necessary"
-                    },
-                    "text": {
-                      "type": "string",
-                      "description": "The textual content of the element that was clicked (e.g. the label on a button, or the alt text of an image)",
-                      "x-privacy-class": "anonymous",
-                      "x-privacy-purposes": "necessary"
-                    },
-                    "@schema": {
-                      "type": "string",
-                      "description": "System property that contains the type's ID and version."
-                    }
-                  },
+                  "$ref": "urn:tailjs:core#/definitions/ElementInfo",
                   "description": "Information about the activated element, if any.",
-                  "$anchor": "UserInteractionEvent_element",
-                  "unevaluatedProperties": false,
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 }
@@ -1136,19 +1116,19 @@
         "ViewTimingData": {
           "type": "object",
           "properties": {
-            "interactiveTime": {
+            "active": {
               "$ref": "urn:tailjs:core#/definitions/Duration",
               "description": "The time the user has been active in the view/tab. Interactive time is measured as the time where the user is actively scrolling, typing or similar. Specifically defined as [transient activation](https://developer.mozilla.org/en-US/docs/Glossary/Transient_activation) with a timeout of 10 seconds.",
               "x-privacy-class": "anonymous",
               "x-privacy-purposes": "necessary"
             },
-            "visibleTime": {
+            "visible": {
               "$ref": "urn:tailjs:core#/definitions/Duration",
               "description": "The time the view/tab has been visible.",
               "x-privacy-class": "anonymous",
               "x-privacy-purposes": "necessary"
             },
-            "totalTime": {
+            "total": {
               "$ref": "urn:tailjs:core#/definitions/Duration",
               "description": "The time elapsed since the view/tab was opened.",
               "x-privacy-class": "anonymous",
@@ -1250,6 +1230,43 @@
               "description": "System property that contains the type's ID and version."
             }
           },
+          "unevaluatedProperties": false
+        },
+        "ElementInfo": {
+          "type": "object",
+          "properties": {
+            "tagName": {
+              "type": "string",
+              "description": "The tag name of the activated element.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "text": {
+              "type": "string",
+              "description": "The textual content of the element that was clicked (e.g. the label on a button, or the alt text of an image)",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "href": {
+              "type": "string",
+              "description": "The target of the link, if any.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "rect": {
+              "$ref": "urn:tailjs:core#/definitions/Rectangle",
+              "type": "object",
+              "unevaluatedProperties": false,
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "description": "Basic information about an HTML element.",
+          "$anchor": "ElementInfo",
           "unevaluatedProperties": false
         },
         "FormEvent": {
@@ -1413,7 +1430,7 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "const": "component_click_intent",
+                  "const": "component_click",
                   "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered.",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "any"
@@ -1424,8 +1441,57 @@
               ]
             }
           ],
-          "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
+          "description": "The event is triggered when a component is clicked.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
           "$anchor": "ComponentClickEvent",
+          "type": "object",
+          "properties": {
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "ComponentClickIntentEvent": {
+          "allOf": [
+            {
+              "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "component_click_intent",
+                  "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "any"
+                },
+                "clicks": {
+                  "type": "object",
+                  "items": {
+                    "$ref": "urn:tailjs:core#/definitions/Position"
+                  },
+                  "unevaluatedProperties": false,
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "clickables": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "urn:tailjs:core#/definitions/ElementInfo"
+                  },
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          ],
+          "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
+          "$anchor": "ComponentClickIntentEvent",
           "type": "object",
           "properties": {
             "@schema": {
@@ -1638,27 +1704,31 @@
                 },
                 "query": {
                   "type": "string",
+                  "description": "The free-text query used for the search.",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
-                "searchParameter": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "$ref": "urn:tailjs:core#/definitions/SearchParameter"
+                "filters": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "urn:tailjs:core#/definitions/SearchFilter"
                   },
+                  "description": "Any filters that were applied to the search in addition to the query. Filters are assumed combined using \"and\" semantics unless they are for the same field in which case it means that the field must match at least one of the values.\n\nFor example \"age>=10 AND age<=20 AND (type=horse OR type=cat)\"",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
-                "resultCount": {
+                "hits": {
                   "$ref": "urn:tailjs:core#/definitions/Integer",
+                  "description": "The number of results that matched the query.",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
-                "significantResults": {
+                "topHits": {
                   "type": "array",
                   "items": {
                     "$ref": "urn:tailjs:core#/definitions/SearchResult"
                   },
+                  "description": "If some or all of the results are relevant for analytics or AI, they can be included here.",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 }
@@ -1678,7 +1748,7 @@
           },
           "unevaluatedProperties": false
         },
-        "SearchParameter": {
+        "SearchFilter": {
           "allOf": [
             {
               "$ref": "urn:tailjs:core#/definitions/ExternalReference"
@@ -1686,28 +1756,50 @@
             {
               "type": "object",
               "properties": {
+                "group": {
+                  "type": "number",
+                  "description": "If the filter consisted of multiple groups of filters where one of them should match this can be used to separate the groups.\n\nFor example (age>=10 AND age<=20 AND type=horse) OR (age<5 AND type=cat).",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
                 "value": {
-                  "type": "string",
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ],
+                  "description": "The value the field must match. Use UNIX ms timestamps for dates and durations. If the value is the ID of a defined entity use  {@link  reference }  instead.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "reference": {
+                  "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                  "description": "If the value is a defined entity such as a product category use this instead of  {@link  value } .",
+                  "type": "object",
+                  "unevaluatedProperties": false,
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
                 "comparison": {
                   "type": "string",
                   "enum": [
-                    "lt",
-                    "eq",
-                    "gt"
+                    "<",
+                    "<=",
+                    "=",
+                    "!=",
+                    ">=",
+                    ">"
                   ],
+                  "description": "How the field compares against the value.",
+                  "default": "eq",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 }
-              },
-              "required": [
-                "value"
-              ]
+              }
             }
           ],
-          "$anchor": "SearchParameter",
+          "description": "A filter that applies to a field in a search query.",
+          "$anchor": "SearchFilter",
           "type": "object",
           "properties": {
             "@schema": {
@@ -1737,6 +1829,47 @@
             }
           ],
           "$anchor": "SearchResult",
+          "type": "object",
+          "properties": {
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "SearchFieldReferenceFilter": {
+          "allOf": [
+            {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "references": {
+                  "type": "object",
+                  "items": {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                  },
+                  "description": "A list of entities where the field must match at least one of them (or none depending on the comparison).",
+                  "unevaluatedProperties": false,
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "comparison": {
+                  "type": "string",
+                  "enum": [
+                    "eq",
+                    "neq"
+                  ],
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                }
+              }
+            }
+          ],
+          "description": "A search filter that applies to a single field that must match a defined entity (e.g. \"manufacturer\").",
+          "$anchor": "SearchFieldReferenceFilter",
           "type": "object",
           "properties": {
             "@schema": {
@@ -3229,29 +3362,34 @@
                 },
                 "impressions": {
                   "$ref": "urn:tailjs:core#/definitions/Integer",
+                  "description": "The number of times the component was sufficiently visible  to count as an impression. This counter will increment if the component leaves the user's viewport and then comes back.",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
                 "duration": {
                   "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
+                  "description": "For how long the component was visible. This counter starts after an impression has been detected.",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
-                "details": {
+                "regions": {
                   "type": "object",
                   "properties": {
                     "top": {
                       "$ref": "urn:tailjs:core#/definitions/ViewDetails",
+                      "description": "The top 25 % of the component.",
                       "x-privacy-class": "anonymous",
                       "x-privacy-purposes": "necessary"
                     },
                     "middle": {
                       "$ref": "urn:tailjs:core#/definitions/ViewDetails",
+                      "description": "The middle 25 - 75 % of the component.",
                       "x-privacy-class": "anonymous",
                       "x-privacy-purposes": "necessary"
                     },
                     "bottom": {
                       "$ref": "urn:tailjs:core#/definitions/ViewDetails",
+                      "description": "The bottom 25 % of the component.",
                       "x-privacy-class": "anonymous",
                       "x-privacy-purposes": "necessary"
                     },
@@ -3260,8 +3398,8 @@
                       "description": "System property that contains the type's ID and version."
                     }
                   },
-                  "description": "Detailed information about the parts of the component that was viewed.\n\nTODO: Not implemented.",
-                  "$anchor": "ImpressionEvent_details",
+                  "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
+                  "$anchor": "ImpressionEvent_regions",
                   "unevaluatedProperties": false,
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
@@ -3304,9 +3442,9 @@
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
-                "percentage": {
+                "seen": {
                   "$ref": "urn:tailjs:core#/definitions/Percentage",
-                  "description": "The percentage of the component that was viewed.\n\nTODO: Not implemented.",
+                  "description": "The percentage of the component's area that was visible at some point during the  {@link  View  } .",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 }
@@ -3316,7 +3454,7 @@
               ]
             }
           ],
-          "description": "The event is triggered when more than 75 % of the component has been visible for at least 1 second. Components that are too big for 75 % of them to fit in the viewport are counted if they cross the page fold.\n\nThis applies only to components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .",
+          "description": "The event is triggered when more than 75 % of the component's has been visible for at least 1 second, or the component has taken up at least 33 % of the viewport width or height for at least 1 second, whichever comes first.\n\n\nThis only gets tracked for components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .",
           "$anchor": "ImpressionEvent",
           "type": "object",
           "properties": {
@@ -3340,7 +3478,7 @@
               "x-privacy-class": "anonymous",
               "x-privacy-purposes": "necessary"
             },
-            "impression": {
+            "impressions": {
               "$ref": "urn:tailjs:core#/definitions/Integer",
               "x-privacy-class": "anonymous",
               "x-privacy-purposes": "necessary"

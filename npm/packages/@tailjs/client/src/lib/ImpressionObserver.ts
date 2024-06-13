@@ -103,8 +103,8 @@ export const createImpressionObserver = (tracker: Tracker) => {
       //   return overlay;
       // });
 
-      (el as any).style.border = "1px solid blue";
-      (el as any).style.position = "relative";
+      // (el as any).style.border = "1px solid blue";
+      // (el as any).style.position = "relative";
 
       const poll = () => {
         const rect = el.getBoundingClientRect();
@@ -201,6 +201,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
                   middle: regions[1][0],
                   bottom: regions[2][0],
                 },
+                seen: visiblePercentage,
               }))
             );
           }
