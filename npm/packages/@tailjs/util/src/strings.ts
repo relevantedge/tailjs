@@ -1,6 +1,7 @@
 import {
   IteratorAction,
   IteratorSource,
+  MINUTE,
   MaybeUndefined,
   Nullish,
   filter,
@@ -15,6 +16,7 @@ import {
   map,
   push,
   replace,
+  round,
   undefined,
 } from ".";
 
@@ -286,3 +288,119 @@ export const join: {
         map(source, (item) => (item === false ? undefined : item)),
         projection ?? ""
       );
+
+/** Word statistics for a text. */
+export type TextStats = {
+  /** The source text. */
+  text: string;
+
+  /** The number of characters in the text. */
+  length: number;
+
+  /** The number of word characters (a letter or number followed by any number of letters, numbers or apostrophes) in the text. */
+  characters: number;
+
+  /** The number of words in the text. A word is defined as a group of consecutive word characters. */
+  words: number;
+
+  /**
+   * The number of sentences in the text.
+   * A sentence is defined as any group of characters where at least one of them is a word character
+   * terminated by `.`, `!`, `?` or the end of the text.
+   */
+  sentences: number;
+
+  /**
+   * The LIX index for the text. The measure gives an indication of how difficult it is to read.
+   * (https://en.wikipedia.org/wiki/Lix_(readability_test))
+   */
+  lix: number;
+
+  /**
+   * The estimated time it will take for an average user to read all the text.
+   * The duration is in milliseconds since that is the time precision for ECMAScript timestamps.
+   *
+   * The estimate is assuming "Silent reading time" which seems to be 238 words per minute according
+   * to [Marc Brysbaert's research] (https://www.sciencedirect.com/science/article/abs/pii/S0749596X19300786?via%3Dihub)
+   *
+   */
+  readingTime: number;
+
+  /**
+   * The character indices in the source text that demarcates specific fractions of the total numbers of word characters.
+   *
+   * Defaults to 0 %, 25 %, 50 %, 75 % and 100 % of the total number of letters respectively.
+   * The index is for the character after the last letter that that does not exceed the boundary.
+   * For example, the 25 % boundary of "abcd" is 1 (between a and b).
+   */
+  boundaries: { offset: number; wordsBefore: number; readingTime: number }[];
+};
+
+export const getTextStats = (
+  text: string,
+  boundaryLimits = [0, 0.25, 0.5, 0.75, 1]
+): TextStats => {
+  let charMatcher = /[\p{L}\p{N}][\p{L}\p{N}'’]*|([.!?]+)/gu;
+  let match: RegExpMatchArray | null;
+  let chars = 0;
+  let words = 0;
+  let longWords = 0;
+  let sentences = 0;
+
+  let hasWord = false;
+  while ((match = charMatcher.exec(text))) {
+    if (match[1]) {
+      hasWord && ++sentences;
+      hasWord = false;
+    } else {
+      hasWord = true;
+      chars += match[0].length;
+      match[0].length > 6 && ++longWords;
+      ++words;
+    }
+  }
+  hasWord && ++sentences;
+  charMatcher = /[\p{L}\p{N}]|([^\p{L}\p{N}]+)/gu;
+
+  const limits = boundaryLimits.map((boundary) => (boundary * chars) | 0);
+  const boundaries: TextStats["boundaries"] = [];
+
+  let index = 0;
+  let prevIndex: number | undefined;
+  let wordsBefore = 0;
+  let inSentence = false;
+
+  do {
+    match = charMatcher.exec(text)!;
+    if (match?.[1]) {
+      // Word delimiter
+      inSentence && ++wordsBefore;
+    } else {
+      index = match?.index!;
+      let wasBoundary = false;
+      for (let i = 0; i < limits.length; i++) {
+        if (!limits[i]--) {
+          boundaries[i] = {
+            offset: prevIndex ?? index,
+            wordsBefore,
+            readingTime: round(MINUTE * (wordsBefore / 238)),
+          };
+          wasBoundary = true;
+        }
+      }
+      (inSentence = !wasBoundary) || (wordsBefore = 0);
+      prevIndex = index + 1;
+    }
+  } while (match);
+
+  return {
+    text,
+    length: text.length,
+    characters: chars,
+    words,
+    sentences,
+    lix: round(words / sentences + (100 * longWords) / words),
+    readingTime: round(MINUTE * (words / 238)),
+    boundaries,
+  };
+};
