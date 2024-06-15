@@ -82,7 +82,7 @@ export type IteratorItem<S extends IteratorSource> = unknown extends S
   ? readonly [K, V]
   : S extends ArrayLike<infer T>
   ? T
-  : S extends (...args: any) => infer T | undefined
+  : S extends (...args: any) => infer T | Nullish
   ? T
   : never;
 
