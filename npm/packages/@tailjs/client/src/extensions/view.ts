@@ -4,6 +4,7 @@ import {
   LocalID,
   View,
   ViewEvent,
+  ViewTimingData,
   isEventPatch,
   isViewEvent,
 } from "@tailjs/types";
@@ -28,7 +29,6 @@ import { TrackerExtensionFactory, isChangeUserCommand } from "..";
 import { tracker } from "../initializeTracker";
 import {
   TAB_ID,
-  addPageActivatedListener,
   addPageVisibleListener,
   getActiveTime,
   getViewport,
@@ -90,7 +90,7 @@ export const createViewDurationTimer = (started?: boolean) => {
   const visibleTime = createTimer(started, visibleDuration);
   const activeTime = createTimer(started, getActiveTime);
   const activationsCounter = createTimer(started, () => activations);
-  return (toggle?: boolean, reset?: boolean) => ({
+  return (toggle?: boolean, reset?: boolean): ViewTimingData => ({
     totalTime: totalTime(toggle, reset),
     visibleTime: visibleTime(toggle, reset),
     activeTime: activeTime(toggle, reset),

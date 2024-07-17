@@ -1,7 +1,7 @@
 import { assign, forEach, some, sum } from ".";
 
 export type Interval<T> = [start: T, end: T];
-export type Intervals<T> = ReadonlyArray<[start: T, end: T]> & {
+export type Intervals<T = number> = ReadonlyArray<[start: T, end: T]> & {
   /**
    * Updates the intervals to include the specified start and end,
    * and returns the updated total width.

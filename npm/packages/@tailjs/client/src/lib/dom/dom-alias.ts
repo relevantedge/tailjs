@@ -1,4 +1,4 @@
-import type { Nullish } from "@tailjs/util";
+import { toggleAnsi, type Nullish } from "@tailjs/util";
 
 export const SSR = typeof window === "undefined";
 
@@ -23,3 +23,5 @@ export const createElement = (tagName: string) => doc.createElement(tagName);
 
 export const matchSelector = (node: Element | Nullish, selector: string) =>
   !!node?.matches(selector);
+
+toggleAnsi(!!(win as any).chrome);

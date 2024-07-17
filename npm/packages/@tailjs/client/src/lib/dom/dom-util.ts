@@ -15,14 +15,11 @@ import {
   T,
   Unbinder,
   array,
+  concat,
   createEventBinders,
-  entries,
-  filter,
+  createTimeout,
   forEach,
   isArray,
-  joinEventBinders,
-  map,
-  match,
   nil,
   parseBoolean,
   parseUri,
@@ -33,7 +30,7 @@ import {
   type MaybeUndefined,
   type Nullish,
 } from "@tailjs/util";
-import { body, httpDecode, httpDecrypt } from "..";
+import { body, document, httpDecode, httpDecrypt } from "..";
 
 export type NodeWithParentElement = Node | EventTarget;
 
@@ -368,3 +365,99 @@ export const getViewport = (): Viewport => (
     totalHeight: body.offsetHeight,
   }
 );
+
+export type Overlay = {
+  move(rect: DOMRect | Element): Overlay;
+  text(text: string): Overlay;
+  toggle(show: boolean): Overlay;
+};
+export const overlay = (
+  rect?: DOMRect | Element,
+  text?: string,
+  pulse?: boolean
+): Overlay => {
+  let backdropEl: HTMLElement | undefined;
+  let textEl: HTMLElement | undefined;
+
+  let currentText = text;
+  let currentRect: DOMRect | undefined = rect as any;
+  const ensureElements = () => {
+    if (backdropEl) return true;
+
+    backdropEl = document.createElement("div");
+    backdropEl.style.cssText =
+      "position:absolute;border:4px solid blue;pointer-events:none;z-index:100";
+    body.appendChild(backdropEl);
+
+    textEl = document.createElement("div");
+    textEl.style.cssText =
+      "position:absolute; font-family: sans-serif; font-size: 14px; right: 0; top: 0;margin:10px";
+    backdropEl.appendChild(textEl);
+
+    overlay.move(currentRect).text(currentText);
+    return false;
+  };
+
+  const cleaner = createTimeout();
+
+  const overlay = {
+    move(rect: DOMRect | Element | Nullish) {
+      currentRect = rect = (rect as Element).getBoundingClientRect?.() ??
+        rect ?? {
+          top: 0,
+          left: 0,
+          width: 0,
+          height: 0,
+        };
+
+      if (!ensureElements()) {
+        return overlay;
+      }
+
+      if (!currentRect!.width) {
+        return overlay.toggle(false);
+      }
+
+      let offset = body.getBoundingClientRect();
+      ["top", "left", "width", "height"].forEach((p, i) => {
+        backdropEl!.style[p] = rect![p] - (i < 2 ? offset[p] : 0) + "px";
+      });
+      offset = backdropEl!.getBoundingClientRect();
+      textEl!.style.top = (offset.top < 0 ? -offset.top : 0) + "px";
+
+      textEl!.style.right =
+        (offset.right > window.innerWidth
+          ? offset.right - window.innerWidth
+          : 0) + "px";
+
+      return overlay;
+    },
+    text: (text: string | Nullish) => (
+      ensureElements() && (textEl!.innerText = currentText = text ?? ""),
+      overlay
+    ),
+
+    toggle(show: boolean) {
+      if (!backdropEl) {
+        if (!show) return overlay;
+        ensureElements();
+      }
+      backdropEl!.style.transition = show ? "" : "opacity 1s .5s";
+      backdropEl!.style.opacity = show ? "1" : "0";
+
+      show
+        ? cleaner(false)
+        : cleaner(() => {
+            if (!backdropEl) return;
+            body.removeChild(backdropEl);
+            backdropEl = textEl = undefined;
+          }, 1100);
+      return overlay;
+    },
+  };
+
+  currentRect && overlay.move(currentRect).text(currentText);
+  pulse && overlay.toggle(true).toggle(false);
+
+  return overlay;
+};

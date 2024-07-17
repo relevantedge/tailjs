@@ -1,31 +1,31 @@
 import {
   ConfiguredComponent,
   ImpressionEvent,
-  ViewDetails,
+  ImpressionRegionStats,
+  ImpressionTextStats,
 } from "@tailjs/types";
 import {
   F,
+  Intervals,
   NoOpFunction,
   T,
+  TextStats,
+  Timer,
+  assign,
+  clock,
   count,
-  diff,
+  createIntervals,
+  createTimer,
   filter,
   forEach,
+  getTextStats,
   map,
   nil,
   push,
   restrict,
-  createTimeout,
-  MINUTE,
-  createIntervals,
-  createTimer,
-  clock,
-  Clock,
-  max,
-  assign,
-  Timer,
 } from "@tailjs/util";
 import {
+  document,
   getActiveTime,
   getScreenPos,
   getViewport,
@@ -44,6 +44,20 @@ const intersectionHandler = Symbol();
 
 const INTERSECTION_POLL_INTERVAL = 250;
 
+type ImpressionThreshold = [ownRatio: number, viewportRatio: number];
+
+/** The amount of the component that must be visible for the impression to count. */
+const IMPRESSION_START = [0.75, 0.33];
+
+/** The impression stops when only this amount of the component is visible. */
+const IMPRESSION_STOP = [0.25, 0.33];
+
+/** The percentage of the total number of characters contained in the top region. */
+const TEXT_REGION_TOP = 0.25;
+
+/* The percentage of the total number of characters before the bottom region. */
+const TEXT_REGION_BOTTOM = 0.75;
+
 export const createImpressionObserver = (tracker: Tracker) => {
   const observer = new IntersectionObserver(
     (els) => forEach(els, (args) => args.target[intersectionHandler]?.(args))
@@ -61,6 +75,8 @@ export const createImpressionObserver = (tracker: Tracker) => {
   const constrain = (point: number, max: number, min = 0) =>
     point < min ? min : point > max ? max : point;
 
+  const probeRange = document.createRange();
+
   return (el: Element, boundaryData: BoundaryData<true> | undefined) => {
     if (!boundaryData) return;
 
@@ -74,18 +90,45 @@ export const createImpressionObserver = (tracker: Tracker) => {
           (cmp.track?.secondary ?? cmp.inferred) !== T
       ))
     ) {
-      if (!count(components)) {
-        return;
-      }
+      if (!count(components)) return;
 
       let active = F;
       let pendingActive = F;
       let impressions = 0;
-      let intersecting = F;
       let visiblePercentage = 0;
       let regions:
-        | [data: ViewDetails, timer: Timer, pending: boolean, active: boolean][]
+        | [
+            data: ImpressionRegionStats,
+            timer: Timer,
+            pending: boolean,
+            active: boolean,
+            top: number,
+            bottom: number,
+            readTime: number,
+            intervals: Intervals
+          ][]
         | undefined;
+
+      const updateRegion = (
+        index: number,
+        top: number,
+        bottom: number,
+        readTime: number
+      ) => {
+        const region = ((regions ??= [])[index] ??= [
+          { duration: 0, impressions: 0 },
+          createTimer(false, getActiveTime),
+          false,
+          false,
+          0,
+          0,
+          0,
+          createIntervals(),
+        ]);
+        region[4] = top;
+        region[5] = bottom;
+        region[6] = readTime;
+      };
 
       const visible = [createIntervals(), createIntervals()];
 
@@ -105,6 +148,10 @@ export const createImpressionObserver = (tracker: Tracker) => {
 
       // (el as any).style.border = "1px solid blue";
       // (el as any).style.position = "relative";
+
+      let prevHeight = -1;
+      let boundaries: TextStats["boundaries"] | undefined;
+      let stats: ImpressionTextStats | undefined;
 
       const poll = () => {
         const rect = el.getBoundingClientRect();
@@ -128,12 +175,12 @@ export const createImpressionObserver = (tracker: Tracker) => {
          * The threshold for when an impression becomes active/inactive.
          * They depend on whether the impression is currently active.
          */
-        const thresholds = active ? [0.25, 0.33] : [0.33, 0.75];
+        const thresholds = active ? IMPRESSION_STOP : IMPRESSION_START;
+
         /**
          * The smallest of the horizontal and vertical intersection percentage. If this is smaller than the threshold,
          * the component is intuitively not visible (or "impressed", lol).
          */
-
         const qualified =
           (intersectionHeight > thresholds[0] * viewHeight ||
             verticalIntersection > thresholds[0]) &&
@@ -153,17 +200,6 @@ export const createImpressionObserver = (tracker: Tracker) => {
           ++impressions;
           viewDuration(active);
           if (!impressionEvents) {
-            const innerText = (el as HTMLElement).innerText;
-            let text: ImpressionEvent["text"];
-            if (innerText?.trim()?.length) {
-              text = {
-                characters: innerText.match(/\S/gu)?.length,
-                words: innerText.match(/\b\w+\b/gu)?.length,
-                sentences: innerText.match(/\w.*?[.!?]+(\s|$)/gu)?.length,
-              };
-              text.words && (text.readingTime = MINUTE * (text.words / 238));
-            }
-
             impressionEvents = filter(
               map(
                 components,
@@ -181,7 +217,6 @@ export const createImpressionObserver = (tracker: Tracker) => {
                       viewport: getViewport(),
                       timeOffset: getViewTimeOffset(),
                       impressions,
-                      text,
                       ...getComponentContext(el, T),
                     })) ||
                   nil
@@ -191,10 +226,11 @@ export const createImpressionObserver = (tracker: Tracker) => {
           }
 
           if (impressionEvents?.length) {
+            const duration = viewDuration();
             unbindPassiveEventSources = map(impressionEvents, (event) =>
               tracker.events.registerEventPatchSource(event, () => ({
                 relatedEventId: event.clientId!,
-                duration: viewDuration(),
+                duration,
                 impressions: impressions,
                 regions: regions && {
                   top: regions[0][0],
@@ -202,8 +238,75 @@ export const createImpressionObserver = (tracker: Tracker) => {
                   bottom: regions[2][0],
                 },
                 seen: visiblePercentage,
+                text: stats,
+                read:
+                  duration.activeTime &&
+                  stats &&
+                  constrain(
+                    duration.activeTime / stats.readTime,
+                    visiblePercentage
+                  ),
               }))
             );
+          }
+        }
+
+        if (rect.height !== prevHeight) {
+          prevHeight = rect.height;
+          const text = (el as HTMLElement).textContent;
+          ({ boundaries, ...stats } = getTextStats(
+            text ?? "",
+            [0, 0.25, 0.75, 1]
+          ));
+
+          if (regions || rect.height >= 1.25 * viewHeight) {
+            const nodes = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            let node: Node | null;
+            let length = 0;
+
+            let boundaryIndex = 0;
+            regions ??= [];
+            while (
+              boundaryIndex < boundaries.length &&
+              (node = nodes.nextNode())
+            ) {
+              let nodeLength = node.textContent?.length ?? 0;
+              length += nodeLength;
+              while (length >= boundaries[boundaryIndex]?.offset) {
+                // While loop because two boundaries may have the same offset.
+                probeRange[boundaryIndex % 2 ? "setEnd" : "setStart"](
+                  node,
+                  boundaries[boundaryIndex].offset - length + nodeLength
+                );
+
+                if (boundaryIndex++ % 2) {
+                  const { top, bottom } = probeRange.getBoundingClientRect();
+                  const offset = rect.top;
+
+                  if (boundaryIndex < 3) {
+                    updateRegion(
+                      0,
+                      top - offset,
+                      bottom - offset,
+                      boundaries[1].readTime
+                    );
+                  } else {
+                    updateRegion(
+                      1,
+                      regions[0][4],
+                      top - offset,
+                      boundaries[2].readTime
+                    );
+                    updateRegion(
+                      2,
+                      top - offset,
+                      bottom - offset,
+                      boundaries[3].readTime
+                    );
+                  }
+                }
+              }
+            }
           }
         }
 
@@ -223,65 +326,36 @@ export const createImpressionObserver = (tracker: Tracker) => {
               )) /
             area;
         }
-        if (rect.height > viewHeight * 1.25 || regions) {
-          // The component is larger than the viewport. Time top, mid and bottom regions separately.
-          // Also, if it was at some point we keep timing.
-          const top = verticalOffset / rect.height;
-          const bottom = (verticalOffset + intersectionHeight) / rect.height;
-          forEach(
-            (regions ??= map(3, () => [
-              { seen: false, duration: 0, impressions: 0 },
-              createTimer(false, getActiveTime),
-              false,
-              false,
-            ])),
-            (region, i) => {
-              let qualified =
-                active &&
-                (i === 0
-                  ? top <= 0.25
-                  : i === 1
-                  ? top <= 0.75 && bottom >= 0.25
-                  : bottom >= 0.75);
 
-              if (region[2] !== qualified) {
-                region[1]((region[2] = qualified));
-              }
+        if (regions) {
+          forEach(regions, (region) => {
+            const intersectionTop = constrain(
+              rect.top < 0 ? -rect.top : 0,
+              region[5],
+              region[4]
+            );
+            const intersectionBottom = constrain(
+              rect.bottom > viewHeight ? viewHeight : rect.bottom,
+              region[5],
+              region[4]
+            );
 
-              // The region has been visible long enough for the timer to start.
-              if (
-                // Pending active is different from actual active
-                region[3] !== region[2] &&
-                (region[3] =
-                  // If pending active, we check the timer.
-                  region[2] &&
-                  // Has the region been visible beyond the threshold?
-                  region[1]() >
-                    trackerConfig.impressionThreshold -
-                      INTERSECTION_POLL_INTERVAL)
-              ) {
-                region[0].seen = true;
-                // One more impression.
-                ++region[0].impressions!;
-              }
+            // Zero height, nothing to do.
+            let qualified = active && intersectionBottom - intersectionTop > 0;
 
-              if (region[3]) {
-                // We are active. It doesn't matter that the timer goes below the impression threshold
-                // when we reset since we only check for that when inactive.
-                // We reset because we need the total active time for the event, hence add the time elapsed
-                // since last poll.
-                region[0].duration! += region[1](true, true);
-              }
+            const data = region[0];
+            data.duration = region[1](qualified);
+
+            if (qualified) {
+              region[3] !== (region[3] = qualified) && ++region[0].impressions!;
+
+              data.seen =
+                region[7].push(intersectionTop, intersectionBottom) /
+                (region[5] - region[4]);
+              data.read = constrain(data.duration / region[6], data.seen);
             }
-          );
+          });
         }
-        // forEach(overlays, (overlay) => {
-        //   (el as any).style.borderColor = overlay.style.backgroundColor = active
-        //     ? "green"
-        //     : "blue";
-        //   overlay.innerText =
-        //     visiblePercentage + ", " + JSON.stringify(map(regions, 0), null, 2);
-        // });
       };
 
       el[intersectionHandler] = ({

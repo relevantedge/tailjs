@@ -53,6 +53,7 @@ import {
   matchExHash,
   nextId,
   normalizedAttribute,
+  overlay,
   tagName,
   trackerConfig,
   trackerFlag,
@@ -232,6 +233,7 @@ export const userInteraction: TrackerExtensionFactory = {
 
                 return current;
               });
+              //  ,              overlay(containerElement, "Click intent", true)
 
             return;
           }
