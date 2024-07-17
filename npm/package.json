@@ -11,7 +11,7 @@
     "schema": "pnpm --filter @tailjs/types schema",
     "build:watch": "pnpm --workspace-concurrency=2 -r --parallel run --stream build:watch",
     "build:engine": "pnpm --workspace-concurrency=2 -r --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client...\" run --stream build",
-    "build:engine:watch": "pnpm --workspace-concurrency=2 -r --parallel --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client...\" --filter=\"@tailjs/maxmind\" run --stream build:watch",
+    "build:engine:watch": "pnpm --workspace-concurrency=2 -r --parallel --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client...\" --filter=\"@tailjs/maxmind\" run --stream build:watch --ext",
     "build:jss:watch": "pnpm --workspace-concurrency=2 -r run --stream --filter=\"@tailjs/sitecore-jss...\" build:watch",
     "test": "jest",
     "test:watch": "jest --watch"

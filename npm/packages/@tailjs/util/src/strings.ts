@@ -113,6 +113,11 @@ export const pluralize = <
     ? singular
     : plural ?? singular + "s";
 
+let ansiSupported = true;
+
+/** Enables or disables ANSI formatting in console output. */
+export const toggleAnsi = (toggle = true) => (ansiSupported = toggle);
+
 /**
  * Can colorize text using ANSI escape sequences.
  * See e.g. https://developer.chrome.com/docs/devtools/console/format-style for options.
@@ -123,9 +128,9 @@ export const ansi = <Buffer extends string[] | undefined = undefined>(
   buffer?: Buffer
 ): Buffer extends undefined ? string : string[] =>
   buffer
-    ? (push(buffer, "\x1B[", ps, "m"),
+    ? (ansiSupported && push(buffer, "\x1B[", ps, "m"),
       isArray(value) ? push(buffer, ...value) : push(buffer, value),
-      push(buffer, "\x1B[m"),
+      ansiSupported && push(buffer, "\x1B[m"),
       buffer)
     : (ansi(value, ps, []).join("") as any);
 
@@ -324,7 +329,7 @@ export type TextStats = {
    * to [Marc Brysbaert's research] (https://www.sciencedirect.com/science/article/abs/pii/S0749596X19300786?via%3Dihub)
    *
    */
-  readingTime: number;
+  readTime: number;
 
   /**
    * The character indices in the source text that demarcates specific fractions of the total numbers of word characters.
@@ -333,7 +338,7 @@ export type TextStats = {
    * The index is for the character after the last letter that that does not exceed the boundary.
    * For example, the 25 % boundary of "abcd" is 1 (between a and b).
    */
-  boundaries: { offset: number; wordsBefore: number; readingTime: number }[];
+  boundaries: { offset: number; wordsBefore: number; readTime: number }[];
 };
 
 export const getTextStats = (
@@ -383,7 +388,7 @@ export const getTextStats = (
           boundaries[i] = {
             offset: prevIndex ?? index,
             wordsBefore,
-            readingTime: round(MINUTE * (wordsBefore / 238)),
+            readTime: round(MINUTE * (wordsBefore / 238)),
           };
           wasBoundary = true;
         }
@@ -400,7 +405,7 @@ export const getTextStats = (
     words,
     sentences,
     lix: round(words / sentences + (100 * longWords) / words),
-    readingTime: round(MINUTE * (words / 238)),
+    readTime: round(MINUTE * (words / 238)),
     boundaries,
   };
 };

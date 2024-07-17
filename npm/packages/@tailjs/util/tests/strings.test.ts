@@ -110,31 +110,58 @@ describe("strings.ts", () => {
       words: 1,
       sentences: 1,
       lix: 1,
-      readingTime: 252,
+      readTime: 252,
       boundaries: [
         {
           offset: 0,
-          readingTime: 0,
+          readTime: 0,
           wordsBefore: 0,
         },
         {
           offset: 1,
-          readingTime: 0,
+          readTime: 0,
           wordsBefore: 0,
         },
         {
           offset: 2,
-          readingTime: 0,
+          readTime: 0,
           wordsBefore: 0,
         },
         {
           offset: 3,
-          readingTime: 0,
+          readTime: 0,
           wordsBefore: 0,
         },
         {
           offset: 4,
-          readingTime: 0,
+          readTime: 0,
+          wordsBefore: 0,
+        },
+      ],
+    } as TextStats);
+
+    expect(getTextStats("abcd", [0, 0.5, 1])).toEqual({
+      text: "abcd",
+      length: 4,
+      characters: 4,
+      words: 1,
+      sentences: 1,
+      lix: 1,
+      readTime: 252,
+      boundaries: [
+        {
+          offset: 0,
+          readTime: 0,
+          wordsBefore: 0,
+        },
+        {
+          offset: 2,
+          readTime: 0,
+          wordsBefore: 0,
+        },
+        {
+          offset: 4,
+          readTime: 0,
           wordsBefore: 0,
         },
       ],
@@ -146,32 +173,32 @@ describe("strings.ts", () => {
       characters: 11,
       words: 4,
       lix: 4,
-      readingTime: 1008,
+      readTime: 1008,
       sentences: 1,
       boundaries: [
         {
           offset: 0,
-          readingTime: 0,
+          readTime: 0,
           wordsBefore: 0,
         },
         {
           offset: 2,
-          readingTime: 0,
+          readTime: 0,
           wordsBefore: 0,
         },
         {
           offset: 6,
-          readingTime: 252,
+          readTime: 252,
           wordsBefore: 1,
         },
         {
           offset: 11,
-          readingTime: 252,
+          readTime: 252,
           wordsBefore: 1,
         },
         {
           offset: 14,
-          readingTime: 0,
+          readTime: 0,
           wordsBefore: 0,
         },
       ],
@@ -189,32 +216,32 @@ describe("strings.ts", () => {
       characters: 29,
       words: 10,
       lix: 3,
-      readingTime: 2521,
+      readTime: 2521,
       sentences: 4,
       boundaries: [
         {
           offset: 7,
-          readingTime: 0,
+          readTime: 0,
           wordsBefore: 0,
         },
         {
           offset: 16,
-          readingTime: 756,
+          readTime: 756,
           wordsBefore: 3,
         },
         {
           offset: 26,
-          readingTime: 504,
+          readTime: 504,
           wordsBefore: 2,
         },
         {
           offset: 37,
-          readingTime: 756,
+          readTime: 756,
           wordsBefore: 3,
         },
         {
           offset: 51,
-          readingTime: 504,
+          readTime: 504,
           wordsBefore: 2,
         },
       ],
