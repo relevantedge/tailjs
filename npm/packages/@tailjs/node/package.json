@@ -17,9 +17,11 @@
     "@tailjs/engine": "workspace:*",
     "@tailjs/transport": "workspace:*",
     "@tailjs/util": "workspace:*",
+    "request-ip": "^3.3.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@types/node": "^18.19.33"
+    "@types/node": "^18.19.33",
+    "@types/request-ip": "^0.0.38"
   }
 }

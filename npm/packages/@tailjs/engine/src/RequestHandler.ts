@@ -66,6 +66,7 @@ import {
   DeferredAsync,
   forEach,
   forEachAsync,
+  isJsonObject,
   isPlainObject,
   isString,
   join,
@@ -83,6 +84,7 @@ import {
   ReplaceProperties,
   required,
   some,
+  unwrap,
 } from "@tailjs/util";
 import { ClientIdGenerator, DefaultClientIdGenerator } from ".";
 import {
@@ -439,13 +441,7 @@ export class RequestHandler {
   } | null> {
     if (!request.url) return null;
 
-    let {
-      method,
-      url,
-      headers: sourceHeaders,
-      payload: getRequestPayload,
-      clientIp,
-    } = request;
+    let { method, url, headers: sourceHeaders, body, clientIp } = request;
 
     await this.initialize();
 
@@ -585,7 +581,7 @@ export class RequestHandler {
     try {
       let requestPath = path;
 
-      if (requestPath.startsWith(this._endpoint)) {
+      if (requestPath === this._endpoint) {
         requestPath = requestPath.substring(this._endpoint.length);
 
         let queryValue: string | undefined;
@@ -726,9 +722,9 @@ export class RequestHandler {
 
           case "POST": {
             if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
-              const payload = await getRequestPayload?.();
+              body = await unwrap(body);
 
-              if (payload == null || payload.length === 0) {
+              if (body == null || !isJsonObject(body) || body.length === 0) {
                 return result({
                   status: 400,
                   body: "No data.",
@@ -738,7 +734,10 @@ export class RequestHandler {
               try {
                 let postRequest: PostRequest;
                 let json = false;
-                if (headers["content-type"] === "application/json") {
+                if (
+                  headers["content-type"] === "application/json" ||
+                  isJsonObject(body)
+                ) {
                   if (
                     headers["sec-fetch-dest"] &&
                     !this._config.allowBrowserJson
@@ -753,10 +752,12 @@ export class RequestHandler {
                     });
                   }
                   json = true;
-                  postRequest = JSON.parse(decodeUtf8(payload));
+                  postRequest = isJsonObject(body)
+                    ? body
+                    : JSON.parse(decodeUtf8(body));
                 } else {
                   const { transport: cipher } = await trackerSettings();
-                  postRequest = cipher[1](payload)!;
+                  postRequest = cipher[1](body)!;
                 }
 
                 if (!postRequest.events && !postRequest.variables) {
