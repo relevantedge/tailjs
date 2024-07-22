@@ -3345,6 +3345,68 @@
             }
           }
         },
+        "ImpressionTextStats": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "The source text.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "length": {
+              "type": "number",
+              "description": "The number of characters in the text.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "characters": {
+              "type": "number",
+              "description": "The number of word characters (a letter or number followed by any number of letters, numbers or apostrophes) in the text.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "words": {
+              "type": "number",
+              "description": "The number of words in the text. A word is defined as a group of consecutive word characters.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "sentences": {
+              "type": "number",
+              "description": "The number of sentences in the text. A sentence is defined as any group of characters where at least one of them is a word character terminated by `.`, `!`, `?` or the end of the text.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "lix": {
+              "type": "number",
+              "description": "The LIX index for the text. The measure gives an indication of how difficult it is to read. (https://en.wikipedia.org/wiki/Lix_(readability_test))",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "readTime": {
+              "type": "number",
+              "description": "The estimated time it will take for an average user to read all the text. The duration is in milliseconds since that is the time precision for ECMAScript timestamps.\n\nThe estimate is assuming \"Silent reading time\" which seems to be 238 words per minute according to [Marc Brysbaert's research] (https://www.sciencedirect.com/science/article/abs/pii/S0749596X19300786?via%3Dihub)",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "required": [
+            "characters",
+            "length",
+            "lix",
+            "readTime",
+            "sentences",
+            "text",
+            "words"
+          ],
+          "$anchor": "ImpressionTextStats",
+          "unevaluatedProperties": false
+        },
         "ImpressionEvent": {
           "allOf": [
             {
@@ -3376,19 +3438,19 @@
                   "type": "object",
                   "properties": {
                     "top": {
-                      "$ref": "urn:tailjs:core#/definitions/ViewDetails",
+                      "$ref": "urn:tailjs:core#/definitions/ImpressionRegionStats",
                       "description": "The top 25 % of the component.",
                       "x-privacy-class": "anonymous",
                       "x-privacy-purposes": "necessary"
                     },
                     "middle": {
-                      "$ref": "urn:tailjs:core#/definitions/ViewDetails",
+                      "$ref": "urn:tailjs:core#/definitions/ImpressionRegionStats",
                       "description": "The middle 25 - 75 % of the component.",
                       "x-privacy-class": "anonymous",
                       "x-privacy-purposes": "necessary"
                     },
                     "bottom": {
-                      "$ref": "urn:tailjs:core#/definitions/ViewDetails",
+                      "$ref": "urn:tailjs:core#/definitions/ImpressionRegionStats",
                       "description": "The bottom 25 % of the component.",
                       "x-privacy-class": "anonymous",
                       "x-privacy-purposes": "necessary"
@@ -3405,46 +3467,20 @@
                   "x-privacy-purposes": "necessary"
                 },
                 "text": {
-                  "type": "object",
-                  "properties": {
-                    "characters": {
-                      "$ref": "urn:tailjs:core#/definitions/Integer",
-                      "description": "The number of characters in the text (including punctuation).",
-                      "x-privacy-class": "anonymous",
-                      "x-privacy-purposes": "necessary"
-                    },
-                    "words": {
-                      "$ref": "urn:tailjs:core#/definitions/Integer",
-                      "description": "The number of words in the text.",
-                      "x-privacy-class": "anonymous",
-                      "x-privacy-purposes": "necessary"
-                    },
-                    "sentences": {
-                      "$ref": "urn:tailjs:core#/definitions/Integer",
-                      "description": "The number of sentences.",
-                      "x-privacy-class": "anonymous",
-                      "x-privacy-purposes": "necessary"
-                    },
-                    "readingTime": {
-                      "$ref": "urn:tailjs:core#/definitions/Duration",
-                      "description": "The estimated average duration it will take for a user to read all the text.\n\nThe estimate is assuming \"Silent reading time\" which seems to be 238 words per minute according to [Marc Brysbaert's research] (https://www.sciencedirect.com/science/article/abs/pii/S0749596X19300786?via%3Dihub)",
-                      "x-privacy-class": "anonymous",
-                      "x-privacy-purposes": "necessary"
-                    },
-                    "@schema": {
-                      "type": "string",
-                      "description": "System property that contains the type's ID and version."
-                    }
-                  },
+                  "$ref": "urn:tailjs:core#/definitions/ImpressionTextStats",
                   "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all.",
-                  "$anchor": "ImpressionEvent_text",
-                  "unevaluatedProperties": false,
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
                 "seen": {
                   "$ref": "urn:tailjs:core#/definitions/Percentage",
                   "description": "The percentage of the component's area that was visible at some point during the  {@link  View  } .",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "read": {
+                  "$ref": "urn:tailjs:core#/definitions/Percentage",
+                  "description": "The percentage of the text the user can reasonably be assumed to have read  based on the number of words and duration of the impression.",
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 }
@@ -3465,14 +3501,9 @@
           },
           "unevaluatedProperties": false
         },
-        "ViewDetails": {
+        "ImpressionRegionStats": {
           "type": "object",
           "properties": {
-            "seen": {
-              "type": "boolean",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
             "duration": {
               "$ref": "urn:tailjs:core#/definitions/Duration",
               "x-privacy-class": "anonymous",
@@ -3483,12 +3514,23 @@
               "x-privacy-class": "anonymous",
               "x-privacy-purposes": "necessary"
             },
+            "seen": {
+              "$ref": "urn:tailjs:core#/definitions/Percentage",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "read": {
+              "$ref": "urn:tailjs:core#/definitions/Percentage",
+              "description": "The percentage of the component's area that was visible at some point during the  {@link  View  } .",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
             "@schema": {
               "type": "string",
               "description": "System property that contains the type's ID and version."
             }
           },
-          "$anchor": "ViewDetails",
+          "$anchor": "ImpressionRegionStats",
           "unevaluatedProperties": false
         },
         "ResetEvent": {

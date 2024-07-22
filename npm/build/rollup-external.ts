@@ -171,29 +171,30 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
           // ],
           //visualizer({ sourceMap: true, emitFile: "tailjs.html" } as any),
         ].filter((item) => item),
-        output: targetOutputs.flatMap((path) =>
-          [
-            {
-              name: pkg.name,
-              format: "es",
-              dir: path[0],
-              ...chunkNameFunctions(
-                ext ? ".js" : ".mjs",
-                ext ? "" : undefined,
-                ext ? pkg.name : undefined
-              ),
-            },
-            !ext && {
-              name: pkg.name,
-              dir: path[0],
-              format: "cjs",
-              ...chunkNameFunctions(
-                ".js",
-                ext ? "" : undefined,
-                ext ? pkg.name : undefined
-              ),
-            },
-          ].filter((item) => item)
+        output: targetOutputs.flatMap(
+          (path) =>
+            [
+              {
+                name: pkg.name,
+                format: "es",
+                dir: path[0],
+                ...chunkNameFunctions(
+                  ext ? ".js" : ".mjs",
+                  ext ? "" : undefined,
+                  ext ? pkg.name : undefined
+                ),
+              },
+              !ext && {
+                name: pkg.name,
+                dir: path[0],
+                format: "cjs",
+                ...chunkNameFunctions(
+                  ".cjs",
+                  ext ? "" : undefined,
+                  ext ? pkg.name : undefined
+                ),
+              },
+            ].filter((item) => item) as any
         ),
       }),
       !ext && {

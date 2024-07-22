@@ -1171,856 +1171,870 @@ var code$1 = {};
 
 var scope = {};
 
-(function (exports) {
-	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
-	const code_1 = code$1;
-	class ValueError extends Error {
-	    constructor(name) {
-	        super(`CodeGen: "code" for ${name} not defined`);
-	        this.value = name.value;
-	    }
-	}
-	var UsedValueState;
-	(function (UsedValueState) {
-	    UsedValueState[UsedValueState["Started"] = 0] = "Started";
-	    UsedValueState[UsedValueState["Completed"] = 1] = "Completed";
-	})(UsedValueState || (exports.UsedValueState = UsedValueState = {}));
-	exports.varKinds = {
-	    const: new code_1.Name("const"),
-	    let: new code_1.Name("let"),
-	    var: new code_1.Name("var"),
-	};
-	class Scope {
-	    constructor({ prefixes, parent } = {}) {
-	        this._names = {};
-	        this._prefixes = prefixes;
-	        this._parent = parent;
-	    }
-	    toName(nameOrPrefix) {
-	        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
-	    }
-	    name(prefix) {
-	        return new code_1.Name(this._newName(prefix));
-	    }
-	    _newName(prefix) {
-	        const ng = this._names[prefix] || this._nameGroup(prefix);
-	        return `${prefix}${ng.index++}`;
-	    }
-	    _nameGroup(prefix) {
-	        var _a, _b;
-	        if (((_b = (_a = this._parent) === null || _a === void 0 ? void 0 : _a._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || (this._prefixes && !this._prefixes.has(prefix))) {
-	            throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
-	        }
-	        return (this._names[prefix] = { prefix, index: 0 });
-	    }
-	}
-	exports.Scope = Scope;
-	class ValueScopeName extends code_1.Name {
-	    constructor(prefix, nameStr) {
-	        super(nameStr);
-	        this.prefix = prefix;
-	    }
-	    setValue(value, { property, itemIndex }) {
-	        this.value = value;
-	        this.scopePath = (0, code_1._) `.${new code_1.Name(property)}[${itemIndex}]`;
-	    }
-	}
-	exports.ValueScopeName = ValueScopeName;
-	const line = (0, code_1._) `\n`;
-	class ValueScope extends Scope {
-	    constructor(opts) {
-	        super(opts);
-	        this._values = {};
-	        this._scope = opts.scope;
-	        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
-	    }
-	    get() {
-	        return this._scope;
-	    }
-	    name(prefix) {
-	        return new ValueScopeName(prefix, this._newName(prefix));
-	    }
-	    value(nameOrPrefix, value) {
-	        var _a;
-	        if (value.ref === undefined)
-	            throw new Error("CodeGen: ref must be passed in value");
-	        const name = this.toName(nameOrPrefix);
-	        const { prefix } = name;
-	        const valueKey = (_a = value.key) !== null && _a !== void 0 ? _a : value.ref;
-	        let vs = this._values[prefix];
-	        if (vs) {
-	            const _name = vs.get(valueKey);
-	            if (_name)
-	                return _name;
-	        }
-	        else {
-	            vs = this._values[prefix] = new Map();
-	        }
-	        vs.set(valueKey, name);
-	        const s = this._scope[prefix] || (this._scope[prefix] = []);
-	        const itemIndex = s.length;
-	        s[itemIndex] = value.ref;
-	        name.setValue(value, { property: prefix, itemIndex });
-	        return name;
-	    }
-	    getValue(prefix, keyOrRef) {
-	        const vs = this._values[prefix];
-	        if (!vs)
-	            return;
-	        return vs.get(keyOrRef);
-	    }
-	    scopeRefs(scopeName, values = this._values) {
-	        return this._reduceValues(values, (name) => {
-	            if (name.scopePath === undefined)
-	                throw new Error(`CodeGen: name "${name}" has no value`);
-	            return (0, code_1._) `${scopeName}${name.scopePath}`;
-	        });
-	    }
-	    scopeCode(values = this._values, usedValues, getCode) {
-	        return this._reduceValues(values, (name) => {
-	            if (name.value === undefined)
-	                throw new Error(`CodeGen: name "${name}" has no value`);
-	            return name.value.code;
-	        }, usedValues, getCode);
-	    }
-	    _reduceValues(values, valueCode, usedValues = {}, getCode) {
-	        let code = code_1.nil;
-	        for (const prefix in values) {
-	            const vs = values[prefix];
-	            if (!vs)
-	                continue;
-	            const nameSet = (usedValues[prefix] = usedValues[prefix] || new Map());
-	            vs.forEach((name) => {
-	                if (nameSet.has(name))
-	                    return;
-	                nameSet.set(name, UsedValueState.Started);
-	                let c = valueCode(name);
-	                if (c) {
-	                    const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
-	                    code = (0, code_1._) `${code}${def} ${name} = ${c};${this.opts._n}`;
-	                }
-	                else if ((c = getCode === null || getCode === void 0 ? void 0 : getCode(name))) {
-	                    code = (0, code_1._) `${code}${c}${this.opts._n}`;
-	                }
-	                else {
-	                    throw new ValueError(name);
-	                }
-	                nameSet.set(name, UsedValueState.Completed);
-	            });
-	        }
-	        return code;
-	    }
-	}
-	exports.ValueScope = ValueScope;
-	
-} (scope));
+var hasRequiredScope;
 
-(function (exports) {
-	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
-	const code_1 = code$1;
-	const scope_1 = scope;
-	var code_2 = code$1;
-	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return code_2._; } });
-	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return code_2.str; } });
-	Object.defineProperty(exports, "strConcat", { enumerable: true, get: function () { return code_2.strConcat; } });
-	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return code_2.nil; } });
-	Object.defineProperty(exports, "getProperty", { enumerable: true, get: function () { return code_2.getProperty; } });
-	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return code_2.stringify; } });
-	Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function () { return code_2.regexpCode; } });
-	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return code_2.Name; } });
-	var scope_2 = scope;
-	Object.defineProperty(exports, "Scope", { enumerable: true, get: function () { return scope_2.Scope; } });
-	Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function () { return scope_2.ValueScope; } });
-	Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function () { return scope_2.ValueScopeName; } });
-	Object.defineProperty(exports, "varKinds", { enumerable: true, get: function () { return scope_2.varKinds; } });
-	exports.operators = {
-	    GT: new code_1._Code(">"),
-	    GTE: new code_1._Code(">="),
-	    LT: new code_1._Code("<"),
-	    LTE: new code_1._Code("<="),
-	    EQ: new code_1._Code("==="),
-	    NEQ: new code_1._Code("!=="),
-	    NOT: new code_1._Code("!"),
-	    OR: new code_1._Code("||"),
-	    AND: new code_1._Code("&&"),
-	    ADD: new code_1._Code("+"),
-	};
-	class Node {
-	    optimizeNodes() {
-	        return this;
-	    }
-	    optimizeNames(_names, _constants) {
-	        return this;
-	    }
-	}
-	class Def extends Node {
-	    constructor(varKind, name, rhs) {
-	        super();
-	        this.varKind = varKind;
-	        this.name = name;
-	        this.rhs = rhs;
-	    }
-	    render({ es5, _n }) {
-	        const varKind = es5 ? scope_1.varKinds.var : this.varKind;
-	        const rhs = this.rhs === undefined ? "" : ` = ${this.rhs}`;
-	        return `${varKind} ${this.name}${rhs};` + _n;
-	    }
-	    optimizeNames(names, constants) {
-	        if (!names[this.name.str])
-	            return;
-	        if (this.rhs)
-	            this.rhs = optimizeExpr(this.rhs, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
-	    }
-	}
-	class Assign extends Node {
-	    constructor(lhs, rhs, sideEffects) {
-	        super();
-	        this.lhs = lhs;
-	        this.rhs = rhs;
-	        this.sideEffects = sideEffects;
-	    }
-	    render({ _n }) {
-	        return `${this.lhs} = ${this.rhs};` + _n;
-	    }
-	    optimizeNames(names, constants) {
-	        if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
-	            return;
-	        this.rhs = optimizeExpr(this.rhs, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        const names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
-	        return addExprNames(names, this.rhs);
-	    }
-	}
-	class AssignOp extends Assign {
-	    constructor(lhs, op, rhs, sideEffects) {
-	        super(lhs, rhs, sideEffects);
-	        this.op = op;
-	    }
-	    render({ _n }) {
-	        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
-	    }
-	}
-	class Label extends Node {
-	    constructor(label) {
-	        super();
-	        this.label = label;
-	        this.names = {};
-	    }
-	    render({ _n }) {
-	        return `${this.label}:` + _n;
-	    }
-	}
-	class Break extends Node {
-	    constructor(label) {
-	        super();
-	        this.label = label;
-	        this.names = {};
-	    }
-	    render({ _n }) {
-	        const label = this.label ? ` ${this.label}` : "";
-	        return `break${label};` + _n;
-	    }
-	}
-	class Throw extends Node {
-	    constructor(error) {
-	        super();
-	        this.error = error;
-	    }
-	    render({ _n }) {
-	        return `throw ${this.error};` + _n;
-	    }
-	    get names() {
-	        return this.error.names;
-	    }
-	}
-	class AnyCode extends Node {
-	    constructor(code) {
-	        super();
-	        this.code = code;
-	    }
-	    render({ _n }) {
-	        return `${this.code};` + _n;
-	    }
-	    optimizeNodes() {
-	        return `${this.code}` ? this : undefined;
-	    }
-	    optimizeNames(names, constants) {
-	        this.code = optimizeExpr(this.code, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
-	    }
-	}
-	class ParentNode extends Node {
-	    constructor(nodes = []) {
-	        super();
-	        this.nodes = nodes;
-	    }
-	    render(opts) {
-	        return this.nodes.reduce((code, n) => code + n.render(opts), "");
-	    }
-	    optimizeNodes() {
-	        const { nodes } = this;
-	        let i = nodes.length;
-	        while (i--) {
-	            const n = nodes[i].optimizeNodes();
-	            if (Array.isArray(n))
-	                nodes.splice(i, 1, ...n);
-	            else if (n)
-	                nodes[i] = n;
-	            else
-	                nodes.splice(i, 1);
-	        }
-	        return nodes.length > 0 ? this : undefined;
-	    }
-	    optimizeNames(names, constants) {
-	        const { nodes } = this;
-	        let i = nodes.length;
-	        while (i--) {
-	            // iterating backwards improves 1-pass optimization
-	            const n = nodes[i];
-	            if (n.optimizeNames(names, constants))
-	                continue;
-	            subtractNames(names, n.names);
-	            nodes.splice(i, 1);
-	        }
-	        return nodes.length > 0 ? this : undefined;
-	    }
-	    get names() {
-	        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
-	    }
-	}
-	class BlockNode extends ParentNode {
-	    render(opts) {
-	        return "{" + opts._n + super.render(opts) + "}" + opts._n;
-	    }
-	}
-	class Root extends ParentNode {
-	}
-	class Else extends BlockNode {
-	}
-	Else.kind = "else";
-	class If extends BlockNode {
-	    constructor(condition, nodes) {
-	        super(nodes);
-	        this.condition = condition;
-	    }
-	    render(opts) {
-	        let code = `if(${this.condition})` + super.render(opts);
-	        if (this.else)
-	            code += "else " + this.else.render(opts);
-	        return code;
-	    }
-	    optimizeNodes() {
-	        super.optimizeNodes();
-	        const cond = this.condition;
-	        if (cond === true)
-	            return this.nodes; // else is ignored here
-	        let e = this.else;
-	        if (e) {
-	            const ns = e.optimizeNodes();
-	            e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
-	        }
-	        if (e) {
-	            if (cond === false)
-	                return e instanceof If ? e : e.nodes;
-	            if (this.nodes.length)
-	                return this;
-	            return new If(not(cond), e instanceof If ? [e] : e.nodes);
-	        }
-	        if (cond === false || !this.nodes.length)
-	            return undefined;
-	        return this;
-	    }
-	    optimizeNames(names, constants) {
-	        var _a;
-	        this.else = (_a = this.else) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
-	        if (!(super.optimizeNames(names, constants) || this.else))
-	            return;
-	        this.condition = optimizeExpr(this.condition, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        const names = super.names;
-	        addExprNames(names, this.condition);
-	        if (this.else)
-	            addNames(names, this.else.names);
-	        return names;
-	    }
-	}
-	If.kind = "if";
-	class For extends BlockNode {
-	}
-	For.kind = "for";
-	class ForLoop extends For {
-	    constructor(iteration) {
-	        super();
-	        this.iteration = iteration;
-	    }
-	    render(opts) {
-	        return `for(${this.iteration})` + super.render(opts);
-	    }
-	    optimizeNames(names, constants) {
-	        if (!super.optimizeNames(names, constants))
-	            return;
-	        this.iteration = optimizeExpr(this.iteration, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        return addNames(super.names, this.iteration.names);
-	    }
-	}
-	class ForRange extends For {
-	    constructor(varKind, name, from, to) {
-	        super();
-	        this.varKind = varKind;
-	        this.name = name;
-	        this.from = from;
-	        this.to = to;
-	    }
-	    render(opts) {
-	        const varKind = opts.es5 ? scope_1.varKinds.var : this.varKind;
-	        const { name, from, to } = this;
-	        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
-	    }
-	    get names() {
-	        const names = addExprNames(super.names, this.from);
-	        return addExprNames(names, this.to);
-	    }
-	}
-	class ForIter extends For {
-	    constructor(loop, varKind, name, iterable) {
-	        super();
-	        this.loop = loop;
-	        this.varKind = varKind;
-	        this.name = name;
-	        this.iterable = iterable;
-	    }
-	    render(opts) {
-	        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
-	    }
-	    optimizeNames(names, constants) {
-	        if (!super.optimizeNames(names, constants))
-	            return;
-	        this.iterable = optimizeExpr(this.iterable, names, constants);
-	        return this;
-	    }
-	    get names() {
-	        return addNames(super.names, this.iterable.names);
-	    }
-	}
-	class Func extends BlockNode {
-	    constructor(name, args, async) {
-	        super();
-	        this.name = name;
-	        this.args = args;
-	        this.async = async;
-	    }
-	    render(opts) {
-	        const _async = this.async ? "async " : "";
-	        return `${_async}function ${this.name}(${this.args})` + super.render(opts);
-	    }
-	}
-	Func.kind = "func";
-	class Return extends ParentNode {
-	    render(opts) {
-	        return "return " + super.render(opts);
-	    }
-	}
-	Return.kind = "return";
-	class Try extends BlockNode {
-	    render(opts) {
-	        let code = "try" + super.render(opts);
-	        if (this.catch)
-	            code += this.catch.render(opts);
-	        if (this.finally)
-	            code += this.finally.render(opts);
-	        return code;
-	    }
-	    optimizeNodes() {
-	        var _a, _b;
-	        super.optimizeNodes();
-	        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNodes();
-	        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
-	        return this;
-	    }
-	    optimizeNames(names, constants) {
-	        var _a, _b;
-	        super.optimizeNames(names, constants);
-	        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
-	        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
-	        return this;
-	    }
-	    get names() {
-	        const names = super.names;
-	        if (this.catch)
-	            addNames(names, this.catch.names);
-	        if (this.finally)
-	            addNames(names, this.finally.names);
-	        return names;
-	    }
-	}
-	class Catch extends BlockNode {
-	    constructor(error) {
-	        super();
-	        this.error = error;
-	    }
-	    render(opts) {
-	        return `catch(${this.error})` + super.render(opts);
-	    }
-	}
-	Catch.kind = "catch";
-	class Finally extends BlockNode {
-	    render(opts) {
-	        return "finally" + super.render(opts);
-	    }
-	}
-	Finally.kind = "finally";
-	class CodeGen {
-	    constructor(extScope, opts = {}) {
-	        this._values = {};
-	        this._blockStarts = [];
-	        this._constants = {};
-	        this.opts = { ...opts, _n: opts.lines ? "\n" : "" };
-	        this._extScope = extScope;
-	        this._scope = new scope_1.Scope({ parent: extScope });
-	        this._nodes = [new Root()];
-	    }
-	    toString() {
-	        return this._root.render(this.opts);
-	    }
-	    // returns unique name in the internal scope
-	    name(prefix) {
-	        return this._scope.name(prefix);
-	    }
-	    // reserves unique name in the external scope
-	    scopeName(prefix) {
-	        return this._extScope.name(prefix);
-	    }
-	    // reserves unique name in the external scope and assigns value to it
-	    scopeValue(prefixOrName, value) {
-	        const name = this._extScope.value(prefixOrName, value);
-	        const vs = this._values[name.prefix] || (this._values[name.prefix] = new Set());
-	        vs.add(name);
-	        return name;
-	    }
-	    getScopeValue(prefix, keyOrRef) {
-	        return this._extScope.getValue(prefix, keyOrRef);
-	    }
-	    // return code that assigns values in the external scope to the names that are used internally
-	    // (same names that were returned by gen.scopeName or gen.scopeValue)
-	    scopeRefs(scopeName) {
-	        return this._extScope.scopeRefs(scopeName, this._values);
-	    }
-	    scopeCode() {
-	        return this._extScope.scopeCode(this._values);
-	    }
-	    _def(varKind, nameOrPrefix, rhs, constant) {
-	        const name = this._scope.toName(nameOrPrefix);
-	        if (rhs !== undefined && constant)
-	            this._constants[name.str] = rhs;
-	        this._leafNode(new Def(varKind, name, rhs));
-	        return name;
-	    }
-	    // `const` declaration (`var` in es5 mode)
-	    const(nameOrPrefix, rhs, _constant) {
-	        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
-	    }
-	    // `let` declaration with optional assignment (`var` in es5 mode)
-	    let(nameOrPrefix, rhs, _constant) {
-	        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
-	    }
-	    // `var` declaration with optional assignment
-	    var(nameOrPrefix, rhs, _constant) {
-	        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
-	    }
-	    // assignment code
-	    assign(lhs, rhs, sideEffects) {
-	        return this._leafNode(new Assign(lhs, rhs, sideEffects));
-	    }
-	    // `+=` code
-	    add(lhs, rhs) {
-	        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
-	    }
-	    // appends passed SafeExpr to code or executes Block
-	    code(c) {
-	        if (typeof c == "function")
-	            c();
-	        else if (c !== code_1.nil)
-	            this._leafNode(new AnyCode(c));
-	        return this;
-	    }
-	    // returns code for object literal for the passed argument list of key-value pairs
-	    object(...keyValues) {
-	        const code = ["{"];
-	        for (const [key, value] of keyValues) {
-	            if (code.length > 1)
-	                code.push(",");
-	            code.push(key);
-	            if (key !== value || this.opts.es5) {
-	                code.push(":");
-	                (0, code_1.addCodeArg)(code, value);
-	            }
-	        }
-	        code.push("}");
-	        return new code_1._Code(code);
-	    }
-	    // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
-	    if(condition, thenBody, elseBody) {
-	        this._blockNode(new If(condition));
-	        if (thenBody && elseBody) {
-	            this.code(thenBody).else().code(elseBody).endIf();
-	        }
-	        else if (thenBody) {
-	            this.code(thenBody).endIf();
-	        }
-	        else if (elseBody) {
-	            throw new Error('CodeGen: "else" body without "then" body');
-	        }
-	        return this;
-	    }
-	    // `else if` clause - invalid without `if` or after `else` clauses
-	    elseIf(condition) {
-	        return this._elseNode(new If(condition));
-	    }
-	    // `else` clause - only valid after `if` or `else if` clauses
-	    else() {
-	        return this._elseNode(new Else());
-	    }
-	    // end `if` statement (needed if gen.if was used only with condition)
-	    endIf() {
-	        return this._endBlockNode(If, Else);
-	    }
-	    _for(node, forBody) {
-	        this._blockNode(node);
-	        if (forBody)
-	            this.code(forBody).endFor();
-	        return this;
-	    }
-	    // a generic `for` clause (or statement if `forBody` is passed)
-	    for(iteration, forBody) {
-	        return this._for(new ForLoop(iteration), forBody);
-	    }
-	    // `for` statement for a range of values
-	    forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
-	        const name = this._scope.toName(nameOrPrefix);
-	        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
-	    }
-	    // `for-of` statement (in es5 mode replace with a normal for loop)
-	    forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
-	        const name = this._scope.toName(nameOrPrefix);
-	        if (this.opts.es5) {
-	            const arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
-	            return this.forRange("_i", 0, (0, code_1._) `${arr}.length`, (i) => {
-	                this.var(name, (0, code_1._) `${arr}[${i}]`);
-	                forBody(name);
-	            });
-	        }
-	        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
-	    }
-	    // `for-in` statement.
-	    // With option `ownProperties` replaced with a `for-of` loop for object keys
-	    forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
-	        if (this.opts.ownProperties) {
-	            return this.forOf(nameOrPrefix, (0, code_1._) `Object.keys(${obj})`, forBody);
-	        }
-	        const name = this._scope.toName(nameOrPrefix);
-	        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
-	    }
-	    // end `for` loop
-	    endFor() {
-	        return this._endBlockNode(For);
-	    }
-	    // `label` statement
-	    label(label) {
-	        return this._leafNode(new Label(label));
-	    }
-	    // `break` statement
-	    break(label) {
-	        return this._leafNode(new Break(label));
-	    }
-	    // `return` statement
-	    return(value) {
-	        const node = new Return();
-	        this._blockNode(node);
-	        this.code(value);
-	        if (node.nodes.length !== 1)
-	            throw new Error('CodeGen: "return" should have one node');
-	        return this._endBlockNode(Return);
-	    }
-	    // `try` statement
-	    try(tryBody, catchCode, finallyCode) {
-	        if (!catchCode && !finallyCode)
-	            throw new Error('CodeGen: "try" without "catch" and "finally"');
-	        const node = new Try();
-	        this._blockNode(node);
-	        this.code(tryBody);
-	        if (catchCode) {
-	            const error = this.name("e");
-	            this._currNode = node.catch = new Catch(error);
-	            catchCode(error);
-	        }
-	        if (finallyCode) {
-	            this._currNode = node.finally = new Finally();
-	            this.code(finallyCode);
-	        }
-	        return this._endBlockNode(Catch, Finally);
-	    }
-	    // `throw` statement
-	    throw(error) {
-	        return this._leafNode(new Throw(error));
-	    }
-	    // start self-balancing block
-	    block(body, nodeCount) {
-	        this._blockStarts.push(this._nodes.length);
-	        if (body)
-	            this.code(body).endBlock(nodeCount);
-	        return this;
-	    }
-	    // end the current self-balancing block
-	    endBlock(nodeCount) {
-	        const len = this._blockStarts.pop();
-	        if (len === undefined)
-	            throw new Error("CodeGen: not in self-balancing block");
-	        const toClose = this._nodes.length - len;
-	        if (toClose < 0 || (nodeCount !== undefined && toClose !== nodeCount)) {
-	            throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
-	        }
-	        this._nodes.length = len;
-	        return this;
-	    }
-	    // `function` heading (or definition if funcBody is passed)
-	    func(name, args = code_1.nil, async, funcBody) {
-	        this._blockNode(new Func(name, args, async));
-	        if (funcBody)
-	            this.code(funcBody).endFunc();
-	        return this;
-	    }
-	    // end function definition
-	    endFunc() {
-	        return this._endBlockNode(Func);
-	    }
-	    optimize(n = 1) {
-	        while (n-- > 0) {
-	            this._root.optimizeNodes();
-	            this._root.optimizeNames(this._root.names, this._constants);
-	        }
-	    }
-	    _leafNode(node) {
-	        this._currNode.nodes.push(node);
-	        return this;
-	    }
-	    _blockNode(node) {
-	        this._currNode.nodes.push(node);
-	        this._nodes.push(node);
-	    }
-	    _endBlockNode(N1, N2) {
-	        const n = this._currNode;
-	        if (n instanceof N1 || (N2 && n instanceof N2)) {
-	            this._nodes.pop();
-	            return this;
-	        }
-	        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
-	    }
-	    _elseNode(node) {
-	        const n = this._currNode;
-	        if (!(n instanceof If)) {
-	            throw new Error('CodeGen: "else" without "if"');
-	        }
-	        this._currNode = n.else = node;
-	        return this;
-	    }
-	    get _root() {
-	        return this._nodes[0];
-	    }
-	    get _currNode() {
-	        const ns = this._nodes;
-	        return ns[ns.length - 1];
-	    }
-	    set _currNode(node) {
-	        const ns = this._nodes;
-	        ns[ns.length - 1] = node;
-	    }
-	}
-	exports.CodeGen = CodeGen;
-	function addNames(names, from) {
-	    for (const n in from)
-	        names[n] = (names[n] || 0) + (from[n] || 0);
-	    return names;
-	}
-	function addExprNames(names, from) {
-	    return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
-	}
-	function optimizeExpr(expr, names, constants) {
-	    if (expr instanceof code_1.Name)
-	        return replaceName(expr);
-	    if (!canOptimize(expr))
-	        return expr;
-	    return new code_1._Code(expr._items.reduce((items, c) => {
-	        if (c instanceof code_1.Name)
-	            c = replaceName(c);
-	        if (c instanceof code_1._Code)
-	            items.push(...c._items);
-	        else
-	            items.push(c);
-	        return items;
-	    }, []));
-	    function replaceName(n) {
-	        const c = constants[n.str];
-	        if (c === undefined || names[n.str] !== 1)
-	            return n;
-	        delete names[n.str];
-	        return c;
-	    }
-	    function canOptimize(e) {
-	        return (e instanceof code_1._Code &&
-	            e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== undefined));
-	    }
-	}
-	function subtractNames(names, from) {
-	    for (const n in from)
-	        names[n] = (names[n] || 0) - (from[n] || 0);
-	}
-	function not(x) {
-	    return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._) `!${par(x)}`;
-	}
-	exports.not = not;
-	const andCode = mappend(exports.operators.AND);
-	// boolean AND (&&) expression with the passed arguments
-	function and(...args) {
-	    return args.reduce(andCode);
-	}
-	exports.and = and;
-	const orCode = mappend(exports.operators.OR);
-	// boolean OR (||) expression with the passed arguments
-	function or(...args) {
-	    return args.reduce(orCode);
-	}
-	exports.or = or;
-	function mappend(op) {
-	    return (x, y) => (x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._) `${par(x)} ${op} ${par(y)}`);
-	}
-	function par(x) {
-	    return x instanceof code_1.Name ? x : (0, code_1._) `(${x})`;
-	}
-	
-} (codegen));
+function requireScope () {
+	if (hasRequiredScope) return scope;
+	hasRequiredScope = 1;
+	(function (exports) {
+		Object.defineProperty(exports, "__esModule", { value: true });
+		exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
+		const code_1 = code$1;
+		class ValueError extends Error {
+		    constructor(name) {
+		        super(`CodeGen: "code" for ${name} not defined`);
+		        this.value = name.value;
+		    }
+		}
+		var UsedValueState;
+		(function (UsedValueState) {
+		    UsedValueState[UsedValueState["Started"] = 0] = "Started";
+		    UsedValueState[UsedValueState["Completed"] = 1] = "Completed";
+		})(UsedValueState || (exports.UsedValueState = UsedValueState = {}));
+		exports.varKinds = {
+		    const: new code_1.Name("const"),
+		    let: new code_1.Name("let"),
+		    var: new code_1.Name("var"),
+		};
+		class Scope {
+		    constructor({ prefixes, parent } = {}) {
+		        this._names = {};
+		        this._prefixes = prefixes;
+		        this._parent = parent;
+		    }
+		    toName(nameOrPrefix) {
+		        return nameOrPrefix instanceof code_1.Name ? nameOrPrefix : this.name(nameOrPrefix);
+		    }
+		    name(prefix) {
+		        return new code_1.Name(this._newName(prefix));
+		    }
+		    _newName(prefix) {
+		        const ng = this._names[prefix] || this._nameGroup(prefix);
+		        return `${prefix}${ng.index++}`;
+		    }
+		    _nameGroup(prefix) {
+		        var _a, _b;
+		        if (((_b = (_a = this._parent) === null || _a === void 0 ? void 0 : _a._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || (this._prefixes && !this._prefixes.has(prefix))) {
+		            throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
+		        }
+		        return (this._names[prefix] = { prefix, index: 0 });
+		    }
+		}
+		exports.Scope = Scope;
+		class ValueScopeName extends code_1.Name {
+		    constructor(prefix, nameStr) {
+		        super(nameStr);
+		        this.prefix = prefix;
+		    }
+		    setValue(value, { property, itemIndex }) {
+		        this.value = value;
+		        this.scopePath = (0, code_1._) `.${new code_1.Name(property)}[${itemIndex}]`;
+		    }
+		}
+		exports.ValueScopeName = ValueScopeName;
+		const line = (0, code_1._) `\n`;
+		class ValueScope extends Scope {
+		    constructor(opts) {
+		        super(opts);
+		        this._values = {};
+		        this._scope = opts.scope;
+		        this.opts = { ...opts, _n: opts.lines ? line : code_1.nil };
+		    }
+		    get() {
+		        return this._scope;
+		    }
+		    name(prefix) {
+		        return new ValueScopeName(prefix, this._newName(prefix));
+		    }
+		    value(nameOrPrefix, value) {
+		        var _a;
+		        if (value.ref === undefined)
+		            throw new Error("CodeGen: ref must be passed in value");
+		        const name = this.toName(nameOrPrefix);
+		        const { prefix } = name;
+		        const valueKey = (_a = value.key) !== null && _a !== void 0 ? _a : value.ref;
+		        let vs = this._values[prefix];
+		        if (vs) {
+		            const _name = vs.get(valueKey);
+		            if (_name)
+		                return _name;
+		        }
+		        else {
+		            vs = this._values[prefix] = new Map();
+		        }
+		        vs.set(valueKey, name);
+		        const s = this._scope[prefix] || (this._scope[prefix] = []);
+		        const itemIndex = s.length;
+		        s[itemIndex] = value.ref;
+		        name.setValue(value, { property: prefix, itemIndex });
+		        return name;
+		    }
+		    getValue(prefix, keyOrRef) {
+		        const vs = this._values[prefix];
+		        if (!vs)
+		            return;
+		        return vs.get(keyOrRef);
+		    }
+		    scopeRefs(scopeName, values = this._values) {
+		        return this._reduceValues(values, (name) => {
+		            if (name.scopePath === undefined)
+		                throw new Error(`CodeGen: name "${name}" has no value`);
+		            return (0, code_1._) `${scopeName}${name.scopePath}`;
+		        });
+		    }
+		    scopeCode(values = this._values, usedValues, getCode) {
+		        return this._reduceValues(values, (name) => {
+		            if (name.value === undefined)
+		                throw new Error(`CodeGen: name "${name}" has no value`);
+		            return name.value.code;
+		        }, usedValues, getCode);
+		    }
+		    _reduceValues(values, valueCode, usedValues = {}, getCode) {
+		        let code = code_1.nil;
+		        for (const prefix in values) {
+		            const vs = values[prefix];
+		            if (!vs)
+		                continue;
+		            const nameSet = (usedValues[prefix] = usedValues[prefix] || new Map());
+		            vs.forEach((name) => {
+		                if (nameSet.has(name))
+		                    return;
+		                nameSet.set(name, UsedValueState.Started);
+		                let c = valueCode(name);
+		                if (c) {
+		                    const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
+		                    code = (0, code_1._) `${code}${def} ${name} = ${c};${this.opts._n}`;
+		                }
+		                else if ((c = getCode === null || getCode === void 0 ? void 0 : getCode(name))) {
+		                    code = (0, code_1._) `${code}${c}${this.opts._n}`;
+		                }
+		                else {
+		                    throw new ValueError(name);
+		                }
+		                nameSet.set(name, UsedValueState.Completed);
+		            });
+		        }
+		        return code;
+		    }
+		}
+		exports.ValueScope = ValueScope;
+		
+	} (scope));
+	return scope;
+}
+
+var hasRequiredCodegen;
+
+function requireCodegen () {
+	if (hasRequiredCodegen) return codegen;
+	hasRequiredCodegen = 1;
+	(function (exports) {
+		Object.defineProperty(exports, "__esModule", { value: true });
+		exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
+		const code_1 = code$1;
+		const scope_1 = requireScope();
+		var code_2 = code$1;
+		Object.defineProperty(exports, "_", { enumerable: true, get: function () { return code_2._; } });
+		Object.defineProperty(exports, "str", { enumerable: true, get: function () { return code_2.str; } });
+		Object.defineProperty(exports, "strConcat", { enumerable: true, get: function () { return code_2.strConcat; } });
+		Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return code_2.nil; } });
+		Object.defineProperty(exports, "getProperty", { enumerable: true, get: function () { return code_2.getProperty; } });
+		Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return code_2.stringify; } });
+		Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function () { return code_2.regexpCode; } });
+		Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return code_2.Name; } });
+		var scope_2 = requireScope();
+		Object.defineProperty(exports, "Scope", { enumerable: true, get: function () { return scope_2.Scope; } });
+		Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function () { return scope_2.ValueScope; } });
+		Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function () { return scope_2.ValueScopeName; } });
+		Object.defineProperty(exports, "varKinds", { enumerable: true, get: function () { return scope_2.varKinds; } });
+		exports.operators = {
+		    GT: new code_1._Code(">"),
+		    GTE: new code_1._Code(">="),
+		    LT: new code_1._Code("<"),
+		    LTE: new code_1._Code("<="),
+		    EQ: new code_1._Code("==="),
+		    NEQ: new code_1._Code("!=="),
+		    NOT: new code_1._Code("!"),
+		    OR: new code_1._Code("||"),
+		    AND: new code_1._Code("&&"),
+		    ADD: new code_1._Code("+"),
+		};
+		class Node {
+		    optimizeNodes() {
+		        return this;
+		    }
+		    optimizeNames(_names, _constants) {
+		        return this;
+		    }
+		}
+		class Def extends Node {
+		    constructor(varKind, name, rhs) {
+		        super();
+		        this.varKind = varKind;
+		        this.name = name;
+		        this.rhs = rhs;
+		    }
+		    render({ es5, _n }) {
+		        const varKind = es5 ? scope_1.varKinds.var : this.varKind;
+		        const rhs = this.rhs === undefined ? "" : ` = ${this.rhs}`;
+		        return `${varKind} ${this.name}${rhs};` + _n;
+		    }
+		    optimizeNames(names, constants) {
+		        if (!names[this.name.str])
+		            return;
+		        if (this.rhs)
+		            this.rhs = optimizeExpr(this.rhs, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        return this.rhs instanceof code_1._CodeOrName ? this.rhs.names : {};
+		    }
+		}
+		class Assign extends Node {
+		    constructor(lhs, rhs, sideEffects) {
+		        super();
+		        this.lhs = lhs;
+		        this.rhs = rhs;
+		        this.sideEffects = sideEffects;
+		    }
+		    render({ _n }) {
+		        return `${this.lhs} = ${this.rhs};` + _n;
+		    }
+		    optimizeNames(names, constants) {
+		        if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
+		            return;
+		        this.rhs = optimizeExpr(this.rhs, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        const names = this.lhs instanceof code_1.Name ? {} : { ...this.lhs.names };
+		        return addExprNames(names, this.rhs);
+		    }
+		}
+		class AssignOp extends Assign {
+		    constructor(lhs, op, rhs, sideEffects) {
+		        super(lhs, rhs, sideEffects);
+		        this.op = op;
+		    }
+		    render({ _n }) {
+		        return `${this.lhs} ${this.op}= ${this.rhs};` + _n;
+		    }
+		}
+		class Label extends Node {
+		    constructor(label) {
+		        super();
+		        this.label = label;
+		        this.names = {};
+		    }
+		    render({ _n }) {
+		        return `${this.label}:` + _n;
+		    }
+		}
+		class Break extends Node {
+		    constructor(label) {
+		        super();
+		        this.label = label;
+		        this.names = {};
+		    }
+		    render({ _n }) {
+		        const label = this.label ? ` ${this.label}` : "";
+		        return `break${label};` + _n;
+		    }
+		}
+		class Throw extends Node {
+		    constructor(error) {
+		        super();
+		        this.error = error;
+		    }
+		    render({ _n }) {
+		        return `throw ${this.error};` + _n;
+		    }
+		    get names() {
+		        return this.error.names;
+		    }
+		}
+		class AnyCode extends Node {
+		    constructor(code) {
+		        super();
+		        this.code = code;
+		    }
+		    render({ _n }) {
+		        return `${this.code};` + _n;
+		    }
+		    optimizeNodes() {
+		        return `${this.code}` ? this : undefined;
+		    }
+		    optimizeNames(names, constants) {
+		        this.code = optimizeExpr(this.code, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        return this.code instanceof code_1._CodeOrName ? this.code.names : {};
+		    }
+		}
+		class ParentNode extends Node {
+		    constructor(nodes = []) {
+		        super();
+		        this.nodes = nodes;
+		    }
+		    render(opts) {
+		        return this.nodes.reduce((code, n) => code + n.render(opts), "");
+		    }
+		    optimizeNodes() {
+		        const { nodes } = this;
+		        let i = nodes.length;
+		        while (i--) {
+		            const n = nodes[i].optimizeNodes();
+		            if (Array.isArray(n))
+		                nodes.splice(i, 1, ...n);
+		            else if (n)
+		                nodes[i] = n;
+		            else
+		                nodes.splice(i, 1);
+		        }
+		        return nodes.length > 0 ? this : undefined;
+		    }
+		    optimizeNames(names, constants) {
+		        const { nodes } = this;
+		        let i = nodes.length;
+		        while (i--) {
+		            // iterating backwards improves 1-pass optimization
+		            const n = nodes[i];
+		            if (n.optimizeNames(names, constants))
+		                continue;
+		            subtractNames(names, n.names);
+		            nodes.splice(i, 1);
+		        }
+		        return nodes.length > 0 ? this : undefined;
+		    }
+		    get names() {
+		        return this.nodes.reduce((names, n) => addNames(names, n.names), {});
+		    }
+		}
+		class BlockNode extends ParentNode {
+		    render(opts) {
+		        return "{" + opts._n + super.render(opts) + "}" + opts._n;
+		    }
+		}
+		class Root extends ParentNode {
+		}
+		class Else extends BlockNode {
+		}
+		Else.kind = "else";
+		class If extends BlockNode {
+		    constructor(condition, nodes) {
+		        super(nodes);
+		        this.condition = condition;
+		    }
+		    render(opts) {
+		        let code = `if(${this.condition})` + super.render(opts);
+		        if (this.else)
+		            code += "else " + this.else.render(opts);
+		        return code;
+		    }
+		    optimizeNodes() {
+		        super.optimizeNodes();
+		        const cond = this.condition;
+		        if (cond === true)
+		            return this.nodes; // else is ignored here
+		        let e = this.else;
+		        if (e) {
+		            const ns = e.optimizeNodes();
+		            e = this.else = Array.isArray(ns) ? new Else(ns) : ns;
+		        }
+		        if (e) {
+		            if (cond === false)
+		                return e instanceof If ? e : e.nodes;
+		            if (this.nodes.length)
+		                return this;
+		            return new If(not(cond), e instanceof If ? [e] : e.nodes);
+		        }
+		        if (cond === false || !this.nodes.length)
+		            return undefined;
+		        return this;
+		    }
+		    optimizeNames(names, constants) {
+		        var _a;
+		        this.else = (_a = this.else) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+		        if (!(super.optimizeNames(names, constants) || this.else))
+		            return;
+		        this.condition = optimizeExpr(this.condition, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        const names = super.names;
+		        addExprNames(names, this.condition);
+		        if (this.else)
+		            addNames(names, this.else.names);
+		        return names;
+		    }
+		}
+		If.kind = "if";
+		class For extends BlockNode {
+		}
+		For.kind = "for";
+		class ForLoop extends For {
+		    constructor(iteration) {
+		        super();
+		        this.iteration = iteration;
+		    }
+		    render(opts) {
+		        return `for(${this.iteration})` + super.render(opts);
+		    }
+		    optimizeNames(names, constants) {
+		        if (!super.optimizeNames(names, constants))
+		            return;
+		        this.iteration = optimizeExpr(this.iteration, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        return addNames(super.names, this.iteration.names);
+		    }
+		}
+		class ForRange extends For {
+		    constructor(varKind, name, from, to) {
+		        super();
+		        this.varKind = varKind;
+		        this.name = name;
+		        this.from = from;
+		        this.to = to;
+		    }
+		    render(opts) {
+		        const varKind = opts.es5 ? scope_1.varKinds.var : this.varKind;
+		        const { name, from, to } = this;
+		        return `for(${varKind} ${name}=${from}; ${name}<${to}; ${name}++)` + super.render(opts);
+		    }
+		    get names() {
+		        const names = addExprNames(super.names, this.from);
+		        return addExprNames(names, this.to);
+		    }
+		}
+		class ForIter extends For {
+		    constructor(loop, varKind, name, iterable) {
+		        super();
+		        this.loop = loop;
+		        this.varKind = varKind;
+		        this.name = name;
+		        this.iterable = iterable;
+		    }
+		    render(opts) {
+		        return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
+		    }
+		    optimizeNames(names, constants) {
+		        if (!super.optimizeNames(names, constants))
+		            return;
+		        this.iterable = optimizeExpr(this.iterable, names, constants);
+		        return this;
+		    }
+		    get names() {
+		        return addNames(super.names, this.iterable.names);
+		    }
+		}
+		class Func extends BlockNode {
+		    constructor(name, args, async) {
+		        super();
+		        this.name = name;
+		        this.args = args;
+		        this.async = async;
+		    }
+		    render(opts) {
+		        const _async = this.async ? "async " : "";
+		        return `${_async}function ${this.name}(${this.args})` + super.render(opts);
+		    }
+		}
+		Func.kind = "func";
+		class Return extends ParentNode {
+		    render(opts) {
+		        return "return " + super.render(opts);
+		    }
+		}
+		Return.kind = "return";
+		class Try extends BlockNode {
+		    render(opts) {
+		        let code = "try" + super.render(opts);
+		        if (this.catch)
+		            code += this.catch.render(opts);
+		        if (this.finally)
+		            code += this.finally.render(opts);
+		        return code;
+		    }
+		    optimizeNodes() {
+		        var _a, _b;
+		        super.optimizeNodes();
+		        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNodes();
+		        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
+		        return this;
+		    }
+		    optimizeNames(names, constants) {
+		        var _a, _b;
+		        super.optimizeNames(names, constants);
+		        (_a = this.catch) === null || _a === void 0 ? void 0 : _a.optimizeNames(names, constants);
+		        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
+		        return this;
+		    }
+		    get names() {
+		        const names = super.names;
+		        if (this.catch)
+		            addNames(names, this.catch.names);
+		        if (this.finally)
+		            addNames(names, this.finally.names);
+		        return names;
+		    }
+		}
+		class Catch extends BlockNode {
+		    constructor(error) {
+		        super();
+		        this.error = error;
+		    }
+		    render(opts) {
+		        return `catch(${this.error})` + super.render(opts);
+		    }
+		}
+		Catch.kind = "catch";
+		class Finally extends BlockNode {
+		    render(opts) {
+		        return "finally" + super.render(opts);
+		    }
+		}
+		Finally.kind = "finally";
+		class CodeGen {
+		    constructor(extScope, opts = {}) {
+		        this._values = {};
+		        this._blockStarts = [];
+		        this._constants = {};
+		        this.opts = { ...opts, _n: opts.lines ? "\n" : "" };
+		        this._extScope = extScope;
+		        this._scope = new scope_1.Scope({ parent: extScope });
+		        this._nodes = [new Root()];
+		    }
+		    toString() {
+		        return this._root.render(this.opts);
+		    }
+		    // returns unique name in the internal scope
+		    name(prefix) {
+		        return this._scope.name(prefix);
+		    }
+		    // reserves unique name in the external scope
+		    scopeName(prefix) {
+		        return this._extScope.name(prefix);
+		    }
+		    // reserves unique name in the external scope and assigns value to it
+		    scopeValue(prefixOrName, value) {
+		        const name = this._extScope.value(prefixOrName, value);
+		        const vs = this._values[name.prefix] || (this._values[name.prefix] = new Set());
+		        vs.add(name);
+		        return name;
+		    }
+		    getScopeValue(prefix, keyOrRef) {
+		        return this._extScope.getValue(prefix, keyOrRef);
+		    }
+		    // return code that assigns values in the external scope to the names that are used internally
+		    // (same names that were returned by gen.scopeName or gen.scopeValue)
+		    scopeRefs(scopeName) {
+		        return this._extScope.scopeRefs(scopeName, this._values);
+		    }
+		    scopeCode() {
+		        return this._extScope.scopeCode(this._values);
+		    }
+		    _def(varKind, nameOrPrefix, rhs, constant) {
+		        const name = this._scope.toName(nameOrPrefix);
+		        if (rhs !== undefined && constant)
+		            this._constants[name.str] = rhs;
+		        this._leafNode(new Def(varKind, name, rhs));
+		        return name;
+		    }
+		    // `const` declaration (`var` in es5 mode)
+		    const(nameOrPrefix, rhs, _constant) {
+		        return this._def(scope_1.varKinds.const, nameOrPrefix, rhs, _constant);
+		    }
+		    // `let` declaration with optional assignment (`var` in es5 mode)
+		    let(nameOrPrefix, rhs, _constant) {
+		        return this._def(scope_1.varKinds.let, nameOrPrefix, rhs, _constant);
+		    }
+		    // `var` declaration with optional assignment
+		    var(nameOrPrefix, rhs, _constant) {
+		        return this._def(scope_1.varKinds.var, nameOrPrefix, rhs, _constant);
+		    }
+		    // assignment code
+		    assign(lhs, rhs, sideEffects) {
+		        return this._leafNode(new Assign(lhs, rhs, sideEffects));
+		    }
+		    // `+=` code
+		    add(lhs, rhs) {
+		        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
+		    }
+		    // appends passed SafeExpr to code or executes Block
+		    code(c) {
+		        if (typeof c == "function")
+		            c();
+		        else if (c !== code_1.nil)
+		            this._leafNode(new AnyCode(c));
+		        return this;
+		    }
+		    // returns code for object literal for the passed argument list of key-value pairs
+		    object(...keyValues) {
+		        const code = ["{"];
+		        for (const [key, value] of keyValues) {
+		            if (code.length > 1)
+		                code.push(",");
+		            code.push(key);
+		            if (key !== value || this.opts.es5) {
+		                code.push(":");
+		                (0, code_1.addCodeArg)(code, value);
+		            }
+		        }
+		        code.push("}");
+		        return new code_1._Code(code);
+		    }
+		    // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
+		    if(condition, thenBody, elseBody) {
+		        this._blockNode(new If(condition));
+		        if (thenBody && elseBody) {
+		            this.code(thenBody).else().code(elseBody).endIf();
+		        }
+		        else if (thenBody) {
+		            this.code(thenBody).endIf();
+		        }
+		        else if (elseBody) {
+		            throw new Error('CodeGen: "else" body without "then" body');
+		        }
+		        return this;
+		    }
+		    // `else if` clause - invalid without `if` or after `else` clauses
+		    elseIf(condition) {
+		        return this._elseNode(new If(condition));
+		    }
+		    // `else` clause - only valid after `if` or `else if` clauses
+		    else() {
+		        return this._elseNode(new Else());
+		    }
+		    // end `if` statement (needed if gen.if was used only with condition)
+		    endIf() {
+		        return this._endBlockNode(If, Else);
+		    }
+		    _for(node, forBody) {
+		        this._blockNode(node);
+		        if (forBody)
+		            this.code(forBody).endFor();
+		        return this;
+		    }
+		    // a generic `for` clause (or statement if `forBody` is passed)
+		    for(iteration, forBody) {
+		        return this._for(new ForLoop(iteration), forBody);
+		    }
+		    // `for` statement for a range of values
+		    forRange(nameOrPrefix, from, to, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.let) {
+		        const name = this._scope.toName(nameOrPrefix);
+		        return this._for(new ForRange(varKind, name, from, to), () => forBody(name));
+		    }
+		    // `for-of` statement (in es5 mode replace with a normal for loop)
+		    forOf(nameOrPrefix, iterable, forBody, varKind = scope_1.varKinds.const) {
+		        const name = this._scope.toName(nameOrPrefix);
+		        if (this.opts.es5) {
+		            const arr = iterable instanceof code_1.Name ? iterable : this.var("_arr", iterable);
+		            return this.forRange("_i", 0, (0, code_1._) `${arr}.length`, (i) => {
+		                this.var(name, (0, code_1._) `${arr}[${i}]`);
+		                forBody(name);
+		            });
+		        }
+		        return this._for(new ForIter("of", varKind, name, iterable), () => forBody(name));
+		    }
+		    // `for-in` statement.
+		    // With option `ownProperties` replaced with a `for-of` loop for object keys
+		    forIn(nameOrPrefix, obj, forBody, varKind = this.opts.es5 ? scope_1.varKinds.var : scope_1.varKinds.const) {
+		        if (this.opts.ownProperties) {
+		            return this.forOf(nameOrPrefix, (0, code_1._) `Object.keys(${obj})`, forBody);
+		        }
+		        const name = this._scope.toName(nameOrPrefix);
+		        return this._for(new ForIter("in", varKind, name, obj), () => forBody(name));
+		    }
+		    // end `for` loop
+		    endFor() {
+		        return this._endBlockNode(For);
+		    }
+		    // `label` statement
+		    label(label) {
+		        return this._leafNode(new Label(label));
+		    }
+		    // `break` statement
+		    break(label) {
+		        return this._leafNode(new Break(label));
+		    }
+		    // `return` statement
+		    return(value) {
+		        const node = new Return();
+		        this._blockNode(node);
+		        this.code(value);
+		        if (node.nodes.length !== 1)
+		            throw new Error('CodeGen: "return" should have one node');
+		        return this._endBlockNode(Return);
+		    }
+		    // `try` statement
+		    try(tryBody, catchCode, finallyCode) {
+		        if (!catchCode && !finallyCode)
+		            throw new Error('CodeGen: "try" without "catch" and "finally"');
+		        const node = new Try();
+		        this._blockNode(node);
+		        this.code(tryBody);
+		        if (catchCode) {
+		            const error = this.name("e");
+		            this._currNode = node.catch = new Catch(error);
+		            catchCode(error);
+		        }
+		        if (finallyCode) {
+		            this._currNode = node.finally = new Finally();
+		            this.code(finallyCode);
+		        }
+		        return this._endBlockNode(Catch, Finally);
+		    }
+		    // `throw` statement
+		    throw(error) {
+		        return this._leafNode(new Throw(error));
+		    }
+		    // start self-balancing block
+		    block(body, nodeCount) {
+		        this._blockStarts.push(this._nodes.length);
+		        if (body)
+		            this.code(body).endBlock(nodeCount);
+		        return this;
+		    }
+		    // end the current self-balancing block
+		    endBlock(nodeCount) {
+		        const len = this._blockStarts.pop();
+		        if (len === undefined)
+		            throw new Error("CodeGen: not in self-balancing block");
+		        const toClose = this._nodes.length - len;
+		        if (toClose < 0 || (nodeCount !== undefined && toClose !== nodeCount)) {
+		            throw new Error(`CodeGen: wrong number of nodes: ${toClose} vs ${nodeCount} expected`);
+		        }
+		        this._nodes.length = len;
+		        return this;
+		    }
+		    // `function` heading (or definition if funcBody is passed)
+		    func(name, args = code_1.nil, async, funcBody) {
+		        this._blockNode(new Func(name, args, async));
+		        if (funcBody)
+		            this.code(funcBody).endFunc();
+		        return this;
+		    }
+		    // end function definition
+		    endFunc() {
+		        return this._endBlockNode(Func);
+		    }
+		    optimize(n = 1) {
+		        while (n-- > 0) {
+		            this._root.optimizeNodes();
+		            this._root.optimizeNames(this._root.names, this._constants);
+		        }
+		    }
+		    _leafNode(node) {
+		        this._currNode.nodes.push(node);
+		        return this;
+		    }
+		    _blockNode(node) {
+		        this._currNode.nodes.push(node);
+		        this._nodes.push(node);
+		    }
+		    _endBlockNode(N1, N2) {
+		        const n = this._currNode;
+		        if (n instanceof N1 || (N2 && n instanceof N2)) {
+		            this._nodes.pop();
+		            return this;
+		        }
+		        throw new Error(`CodeGen: not in block "${N2 ? `${N1.kind}/${N2.kind}` : N1.kind}"`);
+		    }
+		    _elseNode(node) {
+		        const n = this._currNode;
+		        if (!(n instanceof If)) {
+		            throw new Error('CodeGen: "else" without "if"');
+		        }
+		        this._currNode = n.else = node;
+		        return this;
+		    }
+		    get _root() {
+		        return this._nodes[0];
+		    }
+		    get _currNode() {
+		        const ns = this._nodes;
+		        return ns[ns.length - 1];
+		    }
+		    set _currNode(node) {
+		        const ns = this._nodes;
+		        ns[ns.length - 1] = node;
+		    }
+		}
+		exports.CodeGen = CodeGen;
+		function addNames(names, from) {
+		    for (const n in from)
+		        names[n] = (names[n] || 0) + (from[n] || 0);
+		    return names;
+		}
+		function addExprNames(names, from) {
+		    return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
+		}
+		function optimizeExpr(expr, names, constants) {
+		    if (expr instanceof code_1.Name)
+		        return replaceName(expr);
+		    if (!canOptimize(expr))
+		        return expr;
+		    return new code_1._Code(expr._items.reduce((items, c) => {
+		        if (c instanceof code_1.Name)
+		            c = replaceName(c);
+		        if (c instanceof code_1._Code)
+		            items.push(...c._items);
+		        else
+		            items.push(c);
+		        return items;
+		    }, []));
+		    function replaceName(n) {
+		        const c = constants[n.str];
+		        if (c === undefined || names[n.str] !== 1)
+		            return n;
+		        delete names[n.str];
+		        return c;
+		    }
+		    function canOptimize(e) {
+		        return (e instanceof code_1._Code &&
+		            e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== undefined));
+		    }
+		}
+		function subtractNames(names, from) {
+		    for (const n in from)
+		        names[n] = (names[n] || 0) - (from[n] || 0);
+		}
+		function not(x) {
+		    return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._) `!${par(x)}`;
+		}
+		exports.not = not;
+		const andCode = mappend(exports.operators.AND);
+		// boolean AND (&&) expression with the passed arguments
+		function and(...args) {
+		    return args.reduce(andCode);
+		}
+		exports.and = and;
+		const orCode = mappend(exports.operators.OR);
+		// boolean OR (||) expression with the passed arguments
+		function or(...args) {
+		    return args.reduce(orCode);
+		}
+		exports.or = or;
+		function mappend(op) {
+		    return (x, y) => (x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._) `${par(x)} ${op} ${par(y)}`);
+		}
+		function par(x) {
+		    return x instanceof code_1.Name ? x : (0, code_1._) `(${x})`;
+		}
+		
+	} (codegen));
+	return codegen;
+}
 
 var util = {};
 
 Object.defineProperty(util, "__esModule", { value: true });
 util.checkStrictMode = util.getErrorPath = util.Type = util.useFunc = util.setEvaluated = util.evaluatedPropsToName = util.mergeEvaluated = util.eachItem = util.unescapeJsonPointer = util.escapeJsonPointer = util.escapeFragment = util.unescapeFragment = util.schemaRefOrVal = util.schemaHasRulesButRef = util.schemaHasRules = util.checkUnknownRules = util.alwaysValidSchema = util.toHash = void 0;
-const codegen_1$z = codegen;
-const code_1$a = code$1;
+const codegen_1$s = requireCodegen();
+const code_1$9 = code$1;
 // TODO refactor to use Set
 function toHash(arr) {
     const hash = {};
@@ -2074,9 +2088,9 @@ function schemaRefOrVal({ topSchemaRef, schemaPath }, schema, keyword, $data) {
         if (typeof schema == "number" || typeof schema == "boolean")
             return schema;
         if (typeof schema == "string")
-            return (0, codegen_1$z._) `${schema}`;
+            return (0, codegen_1$s._) `${schema}`;
     }
-    return (0, codegen_1$z._) `${topSchemaRef}${schemaPath}${(0, codegen_1$z.getProperty)(keyword)}`;
+    return (0, codegen_1$s._) `${topSchemaRef}${schemaPath}${(0, codegen_1$s.getProperty)(keyword)}`;
 }
 util.schemaRefOrVal = schemaRefOrVal;
 function unescapeFragment(str) {
@@ -2111,25 +2125,25 @@ function makeMergeEvaluated({ mergeNames, mergeToName, mergeValues, resultToName
     return (gen, from, to, toName) => {
         const res = to === undefined
             ? from
-            : to instanceof codegen_1$z.Name
-                ? (from instanceof codegen_1$z.Name ? mergeNames(gen, from, to) : mergeToName(gen, from, to), to)
-                : from instanceof codegen_1$z.Name
+            : to instanceof codegen_1$s.Name
+                ? (from instanceof codegen_1$s.Name ? mergeNames(gen, from, to) : mergeToName(gen, from, to), to)
+                : from instanceof codegen_1$s.Name
                     ? (mergeToName(gen, to, from), from)
                     : mergeValues(from, to);
-        return toName === codegen_1$z.Name && !(res instanceof codegen_1$z.Name) ? resultToName(gen, res) : res;
+        return toName === codegen_1$s.Name && !(res instanceof codegen_1$s.Name) ? resultToName(gen, res) : res;
     };
 }
 util.mergeEvaluated = {
     props: makeMergeEvaluated({
-        mergeNames: (gen, from, to) => gen.if((0, codegen_1$z._) `${to} !== true && ${from} !== undefined`, () => {
-            gen.if((0, codegen_1$z._) `${from} === true`, () => gen.assign(to, true), () => gen.assign(to, (0, codegen_1$z._) `${to} || {}`).code((0, codegen_1$z._) `Object.assign(${to}, ${from})`));
+        mergeNames: (gen, from, to) => gen.if((0, codegen_1$s._) `${to} !== true && ${from} !== undefined`, () => {
+            gen.if((0, codegen_1$s._) `${from} === true`, () => gen.assign(to, true), () => gen.assign(to, (0, codegen_1$s._) `${to} || {}`).code((0, codegen_1$s._) `Object.assign(${to}, ${from})`));
         }),
-        mergeToName: (gen, from, to) => gen.if((0, codegen_1$z._) `${to} !== true`, () => {
+        mergeToName: (gen, from, to) => gen.if((0, codegen_1$s._) `${to} !== true`, () => {
             if (from === true) {
                 gen.assign(to, true);
             }
             else {
-                gen.assign(to, (0, codegen_1$z._) `${to} || {}`);
+                gen.assign(to, (0, codegen_1$s._) `${to} || {}`);
                 setEvaluated(gen, to, from);
             }
         }),
@@ -2137,8 +2151,8 @@ util.mergeEvaluated = {
         resultToName: evaluatedPropsToName,
     }),
     items: makeMergeEvaluated({
-        mergeNames: (gen, from, to) => gen.if((0, codegen_1$z._) `${to} !== true && ${from} !== undefined`, () => gen.assign(to, (0, codegen_1$z._) `${from} === true ? true : ${to} > ${from} ? ${to} : ${from}`)),
-        mergeToName: (gen, from, to) => gen.if((0, codegen_1$z._) `${to} !== true`, () => gen.assign(to, from === true ? true : (0, codegen_1$z._) `${to} > ${from} ? ${to} : ${from}`)),
+        mergeNames: (gen, from, to) => gen.if((0, codegen_1$s._) `${to} !== true && ${from} !== undefined`, () => gen.assign(to, (0, codegen_1$s._) `${from} === true ? true : ${to} > ${from} ? ${to} : ${from}`)),
+        mergeToName: (gen, from, to) => gen.if((0, codegen_1$s._) `${to} !== true`, () => gen.assign(to, from === true ? true : (0, codegen_1$s._) `${to} > ${from} ? ${to} : ${from}`)),
         mergeValues: (from, to) => (from === true ? true : Math.max(from, to)),
         resultToName: (gen, items) => gen.var("items", items),
     }),
@@ -2146,21 +2160,21 @@ util.mergeEvaluated = {
 function evaluatedPropsToName(gen, ps) {
     if (ps === true)
         return gen.var("props", true);
-    const props = gen.var("props", (0, codegen_1$z._) `{}`);
+    const props = gen.var("props", (0, codegen_1$s._) `{}`);
     if (ps !== undefined)
         setEvaluated(gen, props, ps);
     return props;
 }
 util.evaluatedPropsToName = evaluatedPropsToName;
 function setEvaluated(gen, props, ps) {
-    Object.keys(ps).forEach((p) => gen.assign((0, codegen_1$z._) `${props}${(0, codegen_1$z.getProperty)(p)}`, true));
+    Object.keys(ps).forEach((p) => gen.assign((0, codegen_1$s._) `${props}${(0, codegen_1$s.getProperty)(p)}`, true));
 }
 util.setEvaluated = setEvaluated;
 const snippets = {};
 function useFunc(gen, f) {
     return gen.scopeValue("func", {
         ref: f,
-        code: snippets[f.code] || (snippets[f.code] = new code_1$a._Code(f.code)),
+        code: snippets[f.code] || (snippets[f.code] = new code_1$9._Code(f.code)),
     });
 }
 util.useFunc = useFunc;
@@ -2171,17 +2185,17 @@ var Type;
 })(Type || (util.Type = Type = {}));
 function getErrorPath(dataProp, dataPropType, jsPropertySyntax) {
     // let path
-    if (dataProp instanceof codegen_1$z.Name) {
+    if (dataProp instanceof codegen_1$s.Name) {
         const isNumber = dataPropType === Type.Num;
         return jsPropertySyntax
             ? isNumber
-                ? (0, codegen_1$z._) `"[" + ${dataProp} + "]"`
-                : (0, codegen_1$z._) `"['" + ${dataProp} + "']"`
+                ? (0, codegen_1$s._) `"[" + ${dataProp} + "]"`
+                : (0, codegen_1$s._) `"['" + ${dataProp} + "']"`
             : isNumber
-                ? (0, codegen_1$z._) `"/" + ${dataProp}`
-                : (0, codegen_1$z._) `"/" + ${dataProp}.replace(/~/g, "~0").replace(/\\//g, "~1")`; // TODO maybe use global escapePointer
+                ? (0, codegen_1$s._) `"/" + ${dataProp}`
+                : (0, codegen_1$s._) `"/" + ${dataProp}.replace(/~/g, "~0").replace(/\\//g, "~1")`; // TODO maybe use global escapePointer
     }
-    return jsPropertySyntax ? (0, codegen_1$z.getProperty)(dataProp).toString() : "/" + escapeJsonPointer(dataProp);
+    return jsPropertySyntax ? (0, codegen_1$s.getProperty)(dataProp).toString() : "/" + escapeJsonPointer(dataProp);
 }
 util.getErrorPath = getErrorPath;
 function checkStrictMode(it, msg, mode = it.opts.strictSchema) {
@@ -2194,41 +2208,49 @@ function checkStrictMode(it, msg, mode = it.opts.strictSchema) {
 }
 util.checkStrictMode = checkStrictMode;
 
-var names$1 = {};
+var names = {};
 
-Object.defineProperty(names$1, "__esModule", { value: true });
-const codegen_1$y = codegen;
-const names = {
-    // validation function arguments
-    data: new codegen_1$y.Name("data"), // data passed to validation function
-    // args passed from referencing schema
-    valCxt: new codegen_1$y.Name("valCxt"), // validation/data context - should not be used directly, it is destructured to the names below
-    instancePath: new codegen_1$y.Name("instancePath"),
-    parentData: new codegen_1$y.Name("parentData"),
-    parentDataProperty: new codegen_1$y.Name("parentDataProperty"),
-    rootData: new codegen_1$y.Name("rootData"), // root data - same as the data passed to the first/top validation function
-    dynamicAnchors: new codegen_1$y.Name("dynamicAnchors"), // used to support recursiveRef and dynamicRef
-    // function scoped variables
-    vErrors: new codegen_1$y.Name("vErrors"), // null or array of validation errors
-    errors: new codegen_1$y.Name("errors"), // counter of validation errors
-    this: new codegen_1$y.Name("this"),
-    // "globals"
-    self: new codegen_1$y.Name("self"),
-    scope: new codegen_1$y.Name("scope"),
-    // JTD serialize/parse name for JSON string and position
-    json: new codegen_1$y.Name("json"),
-    jsonPos: new codegen_1$y.Name("jsonPos"),
-    jsonLen: new codegen_1$y.Name("jsonLen"),
-    jsonPart: new codegen_1$y.Name("jsonPart"),
-};
-names$1.default = names;
+var hasRequiredNames;
+
+function requireNames () {
+	if (hasRequiredNames) return names;
+	hasRequiredNames = 1;
+	Object.defineProperty(names, "__esModule", { value: true });
+	const codegen_1 = requireCodegen();
+	const names$1 = {
+	    // validation function arguments
+	    data: new codegen_1.Name("data"), // data passed to validation function
+	    // args passed from referencing schema
+	    valCxt: new codegen_1.Name("valCxt"), // validation/data context - should not be used directly, it is destructured to the names below
+	    instancePath: new codegen_1.Name("instancePath"),
+	    parentData: new codegen_1.Name("parentData"),
+	    parentDataProperty: new codegen_1.Name("parentDataProperty"),
+	    rootData: new codegen_1.Name("rootData"), // root data - same as the data passed to the first/top validation function
+	    dynamicAnchors: new codegen_1.Name("dynamicAnchors"), // used to support recursiveRef and dynamicRef
+	    // function scoped variables
+	    vErrors: new codegen_1.Name("vErrors"), // null or array of validation errors
+	    errors: new codegen_1.Name("errors"), // counter of validation errors
+	    this: new codegen_1.Name("this"),
+	    // "globals"
+	    self: new codegen_1.Name("self"),
+	    scope: new codegen_1.Name("scope"),
+	    // JTD serialize/parse name for JSON string and position
+	    json: new codegen_1.Name("json"),
+	    jsonPos: new codegen_1.Name("jsonPos"),
+	    jsonLen: new codegen_1.Name("jsonLen"),
+	    jsonPart: new codegen_1.Name("jsonPart"),
+	};
+	names.default = names$1;
+	
+	return names;
+}
 
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const util_1 = util;
-	const names_1 = names$1;
+	const names_1 = requireNames();
 	exports.keywordError = {
 	    message: ({ keyword }) => (0, codegen_1.str) `must pass "${keyword}" keyword validation`,
 	};
@@ -2348,53 +2370,61 @@ names$1.default = names;
 	
 } (errors));
 
-Object.defineProperty(boolSchema, "__esModule", { value: true });
-boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0;
-const errors_1$3 = errors;
-const codegen_1$x = codegen;
-const names_1$9 = names$1;
-const boolError = {
-    message: "boolean schema is false",
-};
-function topBoolOrEmptySchema(it) {
-    const { gen, schema, validateName } = it;
-    if (schema === false) {
-        falseSchemaError(it, false);
-    }
-    else if (typeof schema == "object" && schema.$async === true) {
-        gen.return(names_1$9.default.data);
-    }
-    else {
-        gen.assign((0, codegen_1$x._) `${validateName}.errors`, null);
-        gen.return(true);
-    }
-}
-boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema;
-function boolOrEmptySchema(it, valid) {
-    const { gen, schema } = it;
-    if (schema === false) {
-        gen.var(valid, false); // TODO var
-        falseSchemaError(it);
-    }
-    else {
-        gen.var(valid, true); // TODO var
-    }
-}
-boolSchema.boolOrEmptySchema = boolOrEmptySchema;
-function falseSchemaError(it, overrideAllErrors) {
-    const { gen, data } = it;
-    // TODO maybe some other interface should be used for non-keyword validation errors...
-    const cxt = {
-        gen,
-        keyword: "false schema",
-        data,
-        schema: false,
-        schemaCode: false,
-        schemaValue: false,
-        params: {},
-        it,
-    };
-    (0, errors_1$3.reportError)(cxt, boolError, undefined, overrideAllErrors);
+var hasRequiredBoolSchema;
+
+function requireBoolSchema () {
+	if (hasRequiredBoolSchema) return boolSchema;
+	hasRequiredBoolSchema = 1;
+	Object.defineProperty(boolSchema, "__esModule", { value: true });
+	boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0;
+	const errors_1 = errors;
+	const codegen_1 = requireCodegen();
+	const names_1 = requireNames();
+	const boolError = {
+	    message: "boolean schema is false",
+	};
+	function topBoolOrEmptySchema(it) {
+	    const { gen, schema, validateName } = it;
+	    if (schema === false) {
+	        falseSchemaError(it, false);
+	    }
+	    else if (typeof schema == "object" && schema.$async === true) {
+	        gen.return(names_1.default.data);
+	    }
+	    else {
+	        gen.assign((0, codegen_1._) `${validateName}.errors`, null);
+	        gen.return(true);
+	    }
+	}
+	boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema;
+	function boolOrEmptySchema(it, valid) {
+	    const { gen, schema } = it;
+	    if (schema === false) {
+	        gen.var(valid, false); // TODO var
+	        falseSchemaError(it);
+	    }
+	    else {
+	        gen.var(valid, true); // TODO var
+	    }
+	}
+	boolSchema.boolOrEmptySchema = boolOrEmptySchema;
+	function falseSchemaError(it, overrideAllErrors) {
+	    const { gen, data } = it;
+	    // TODO maybe some other interface should be used for non-keyword validation errors...
+	    const cxt = {
+	        gen,
+	        keyword: "false schema",
+	        data,
+	        schema: false,
+	        schemaCode: false,
+	        schemaValue: false,
+	        params: {},
+	        it,
+	    };
+	    (0, errors_1.reportError)(cxt, boolError, undefined, overrideAllErrors);
+	}
+	
+	return boolSchema;
 }
 
 var dataType = {};
@@ -2449,10 +2479,10 @@ applicability.shouldUseRule = shouldUseRule;
 Object.defineProperty(dataType, "__esModule", { value: true });
 dataType.reportTypeError = dataType.checkDataTypes = dataType.checkDataType = dataType.coerceAndCheckDataType = dataType.getJSONTypes = dataType.getSchemaTypes = dataType.DataType = void 0;
 const rules_1 = rules;
-const applicability_1$1 = applicability;
-const errors_1$2 = errors;
-const codegen_1$w = codegen;
-const util_1$u = util;
+const applicability_1 = applicability;
+const errors_1 = errors;
+const codegen_1$r = requireCodegen();
+const util_1$q = util;
 var DataType;
 (function (DataType) {
     DataType[DataType["Correct"] = 0] = "Correct";
@@ -2487,7 +2517,7 @@ function coerceAndCheckDataType(it, types) {
     const { gen, data, opts } = it;
     const coerceTo = coerceToTypes(types, opts.coerceTypes);
     const checkTypes = types.length > 0 &&
-        !(coerceTo.length === 0 && types.length === 1 && (0, applicability_1$1.schemaHasRulesForType)(it, types[0]));
+        !(coerceTo.length === 0 && types.length === 1 && (0, applicability_1.schemaHasRulesForType)(it, types[0]));
     if (checkTypes) {
         const wrongType = checkDataTypes(types, data, opts.strictNumbers, DataType.Wrong);
         gen.if(wrongType, () => {
@@ -2508,15 +2538,15 @@ function coerceToTypes(types, coerceTypes) {
 }
 function coerceData(it, types, coerceTo) {
     const { gen, data, opts } = it;
-    const dataType = gen.let("dataType", (0, codegen_1$w._) `typeof ${data}`);
-    const coerced = gen.let("coerced", (0, codegen_1$w._) `undefined`);
+    const dataType = gen.let("dataType", (0, codegen_1$r._) `typeof ${data}`);
+    const coerced = gen.let("coerced", (0, codegen_1$r._) `undefined`);
     if (opts.coerceTypes === "array") {
-        gen.if((0, codegen_1$w._) `${dataType} == 'object' && Array.isArray(${data}) && ${data}.length == 1`, () => gen
-            .assign(data, (0, codegen_1$w._) `${data}[0]`)
-            .assign(dataType, (0, codegen_1$w._) `typeof ${data}`)
+        gen.if((0, codegen_1$r._) `${dataType} == 'object' && Array.isArray(${data}) && ${data}.length == 1`, () => gen
+            .assign(data, (0, codegen_1$r._) `${data}[0]`)
+            .assign(dataType, (0, codegen_1$r._) `typeof ${data}`)
             .if(checkDataTypes(types, data, opts.strictNumbers), () => gen.assign(coerced, data)));
     }
-    gen.if((0, codegen_1$w._) `${coerced} !== undefined`);
+    gen.if((0, codegen_1$r._) `${coerced} !== undefined`);
     for (const t of coerceTo) {
         if (COERCIBLE.has(t) || (t === "array" && opts.coerceTypes === "array")) {
             coerceSpecificType(t);
@@ -2525,7 +2555,7 @@ function coerceData(it, types, coerceTo) {
     gen.else();
     reportTypeError(it);
     gen.endIf();
-    gen.if((0, codegen_1$w._) `${coerced} !== undefined`, () => {
+    gen.if((0, codegen_1$r._) `${coerced} !== undefined`, () => {
         gen.assign(data, coerced);
         assignParentData(it, coerced);
     });
@@ -2533,70 +2563,70 @@ function coerceData(it, types, coerceTo) {
         switch (t) {
             case "string":
                 gen
-                    .elseIf((0, codegen_1$w._) `${dataType} == "number" || ${dataType} == "boolean"`)
-                    .assign(coerced, (0, codegen_1$w._) `"" + ${data}`)
-                    .elseIf((0, codegen_1$w._) `${data} === null`)
-                    .assign(coerced, (0, codegen_1$w._) `""`);
+                    .elseIf((0, codegen_1$r._) `${dataType} == "number" || ${dataType} == "boolean"`)
+                    .assign(coerced, (0, codegen_1$r._) `"" + ${data}`)
+                    .elseIf((0, codegen_1$r._) `${data} === null`)
+                    .assign(coerced, (0, codegen_1$r._) `""`);
                 return;
             case "number":
                 gen
-                    .elseIf((0, codegen_1$w._) `${dataType} == "boolean" || ${data} === null
+                    .elseIf((0, codegen_1$r._) `${dataType} == "boolean" || ${data} === null
               || (${dataType} == "string" && ${data} && ${data} == +${data})`)
-                    .assign(coerced, (0, codegen_1$w._) `+${data}`);
+                    .assign(coerced, (0, codegen_1$r._) `+${data}`);
                 return;
             case "integer":
                 gen
-                    .elseIf((0, codegen_1$w._) `${dataType} === "boolean" || ${data} === null
+                    .elseIf((0, codegen_1$r._) `${dataType} === "boolean" || ${data} === null
               || (${dataType} === "string" && ${data} && ${data} == +${data} && !(${data} % 1))`)
-                    .assign(coerced, (0, codegen_1$w._) `+${data}`);
+                    .assign(coerced, (0, codegen_1$r._) `+${data}`);
                 return;
             case "boolean":
                 gen
-                    .elseIf((0, codegen_1$w._) `${data} === "false" || ${data} === 0 || ${data} === null`)
+                    .elseIf((0, codegen_1$r._) `${data} === "false" || ${data} === 0 || ${data} === null`)
                     .assign(coerced, false)
-                    .elseIf((0, codegen_1$w._) `${data} === "true" || ${data} === 1`)
+                    .elseIf((0, codegen_1$r._) `${data} === "true" || ${data} === 1`)
                     .assign(coerced, true);
                 return;
             case "null":
-                gen.elseIf((0, codegen_1$w._) `${data} === "" || ${data} === 0 || ${data} === false`);
+                gen.elseIf((0, codegen_1$r._) `${data} === "" || ${data} === 0 || ${data} === false`);
                 gen.assign(coerced, null);
                 return;
             case "array":
                 gen
-                    .elseIf((0, codegen_1$w._) `${dataType} === "string" || ${dataType} === "number"
+                    .elseIf((0, codegen_1$r._) `${dataType} === "string" || ${dataType} === "number"
               || ${dataType} === "boolean" || ${data} === null`)
-                    .assign(coerced, (0, codegen_1$w._) `[${data}]`);
+                    .assign(coerced, (0, codegen_1$r._) `[${data}]`);
         }
     }
 }
 function assignParentData({ gen, parentData, parentDataProperty }, expr) {
     // TODO use gen.property
-    gen.if((0, codegen_1$w._) `${parentData} !== undefined`, () => gen.assign((0, codegen_1$w._) `${parentData}[${parentDataProperty}]`, expr));
+    gen.if((0, codegen_1$r._) `${parentData} !== undefined`, () => gen.assign((0, codegen_1$r._) `${parentData}[${parentDataProperty}]`, expr));
 }
 function checkDataType(dataType, data, strictNums, correct = DataType.Correct) {
-    const EQ = correct === DataType.Correct ? codegen_1$w.operators.EQ : codegen_1$w.operators.NEQ;
+    const EQ = correct === DataType.Correct ? codegen_1$r.operators.EQ : codegen_1$r.operators.NEQ;
     let cond;
     switch (dataType) {
         case "null":
-            return (0, codegen_1$w._) `${data} ${EQ} null`;
+            return (0, codegen_1$r._) `${data} ${EQ} null`;
         case "array":
-            cond = (0, codegen_1$w._) `Array.isArray(${data})`;
+            cond = (0, codegen_1$r._) `Array.isArray(${data})`;
             break;
         case "object":
-            cond = (0, codegen_1$w._) `${data} && typeof ${data} == "object" && !Array.isArray(${data})`;
+            cond = (0, codegen_1$r._) `${data} && typeof ${data} == "object" && !Array.isArray(${data})`;
             break;
         case "integer":
-            cond = numCond((0, codegen_1$w._) `!(${data} % 1) && !isNaN(${data})`);
+            cond = numCond((0, codegen_1$r._) `!(${data} % 1) && !isNaN(${data})`);
             break;
         case "number":
             cond = numCond();
             break;
         default:
-            return (0, codegen_1$w._) `typeof ${data} ${EQ} ${dataType}`;
+            return (0, codegen_1$r._) `typeof ${data} ${EQ} ${dataType}`;
     }
-    return correct === DataType.Correct ? cond : (0, codegen_1$w.not)(cond);
-    function numCond(_cond = codegen_1$w.nil) {
-        return (0, codegen_1$w.and)((0, codegen_1$w._) `typeof ${data} == "number"`, _cond, strictNums ? (0, codegen_1$w._) `isFinite(${data})` : codegen_1$w.nil);
+    return correct === DataType.Correct ? cond : (0, codegen_1$r.not)(cond);
+    function numCond(_cond = codegen_1$r.nil) {
+        return (0, codegen_1$r.and)((0, codegen_1$r._) `typeof ${data} == "number"`, _cond, strictNums ? (0, codegen_1$r._) `isFinite(${data})` : codegen_1$r.nil);
     }
 }
 dataType.checkDataType = checkDataType;
@@ -2605,36 +2635,36 @@ function checkDataTypes(dataTypes, data, strictNums, correct) {
         return checkDataType(dataTypes[0], data, strictNums, correct);
     }
     let cond;
-    const types = (0, util_1$u.toHash)(dataTypes);
+    const types = (0, util_1$q.toHash)(dataTypes);
     if (types.array && types.object) {
-        const notObj = (0, codegen_1$w._) `typeof ${data} != "object"`;
-        cond = types.null ? notObj : (0, codegen_1$w._) `!${data} || ${notObj}`;
+        const notObj = (0, codegen_1$r._) `typeof ${data} != "object"`;
+        cond = types.null ? notObj : (0, codegen_1$r._) `!${data} || ${notObj}`;
         delete types.null;
         delete types.array;
         delete types.object;
     }
     else {
-        cond = codegen_1$w.nil;
+        cond = codegen_1$r.nil;
     }
     if (types.number)
         delete types.integer;
     for (const t in types)
-        cond = (0, codegen_1$w.and)(cond, checkDataType(t, data, strictNums, correct));
+        cond = (0, codegen_1$r.and)(cond, checkDataType(t, data, strictNums, correct));
     return cond;
 }
 dataType.checkDataTypes = checkDataTypes;
 const typeError = {
     message: ({ schema }) => `must be ${schema}`,
-    params: ({ schema, schemaValue }) => typeof schema == "string" ? (0, codegen_1$w._) `{type: ${schema}}` : (0, codegen_1$w._) `{type: ${schemaValue}}`,
+    params: ({ schema, schemaValue }) => typeof schema == "string" ? (0, codegen_1$r._) `{type: ${schema}}` : (0, codegen_1$r._) `{type: ${schemaValue}}`,
 };
 function reportTypeError(it) {
     const cxt = getTypeErrorContext(it);
-    (0, errors_1$2.reportError)(cxt, typeError);
+    (0, errors_1.reportError)(cxt, typeError);
 }
 dataType.reportTypeError = reportTypeError;
 function getTypeErrorContext(it) {
     const { gen, data, schema } = it;
-    const schemaCode = (0, util_1$u.schemaRefOrVal)(it, schema, "type");
+    const schemaCode = (0, util_1$q.schemaRefOrVal)(it, schema, "type");
     return {
         gen,
         keyword: "type",
@@ -2650,378 +2680,410 @@ function getTypeErrorContext(it) {
 
 var defaults = {};
 
-Object.defineProperty(defaults, "__esModule", { value: true });
-defaults.assignDefaults = void 0;
-const codegen_1$v = codegen;
-const util_1$t = util;
-function assignDefaults(it, ty) {
-    const { properties, items } = it.schema;
-    if (ty === "object" && properties) {
-        for (const key in properties) {
-            assignDefault(it, key, properties[key].default);
-        }
-    }
-    else if (ty === "array" && Array.isArray(items)) {
-        items.forEach((sch, i) => assignDefault(it, i, sch.default));
-    }
-}
-defaults.assignDefaults = assignDefaults;
-function assignDefault(it, prop, defaultValue) {
-    const { gen, compositeRule, data, opts } = it;
-    if (defaultValue === undefined)
-        return;
-    const childData = (0, codegen_1$v._) `${data}${(0, codegen_1$v.getProperty)(prop)}`;
-    if (compositeRule) {
-        (0, util_1$t.checkStrictMode)(it, `default is ignored for: ${childData}`);
-        return;
-    }
-    let condition = (0, codegen_1$v._) `${childData} === undefined`;
-    if (opts.useDefaults === "empty") {
-        condition = (0, codegen_1$v._) `${condition} || ${childData} === null || ${childData} === ""`;
-    }
-    // `${childData} === undefined` +
-    // (opts.useDefaults === "empty" ? ` || ${childData} === null || ${childData} === ""` : "")
-    gen.if(condition, (0, codegen_1$v._) `${childData} = ${(0, codegen_1$v.stringify)(defaultValue)}`);
+var hasRequiredDefaults;
+
+function requireDefaults () {
+	if (hasRequiredDefaults) return defaults;
+	hasRequiredDefaults = 1;
+	Object.defineProperty(defaults, "__esModule", { value: true });
+	defaults.assignDefaults = void 0;
+	const codegen_1 = requireCodegen();
+	const util_1 = util;
+	function assignDefaults(it, ty) {
+	    const { properties, items } = it.schema;
+	    if (ty === "object" && properties) {
+	        for (const key in properties) {
+	            assignDefault(it, key, properties[key].default);
+	        }
+	    }
+	    else if (ty === "array" && Array.isArray(items)) {
+	        items.forEach((sch, i) => assignDefault(it, i, sch.default));
+	    }
+	}
+	defaults.assignDefaults = assignDefaults;
+	function assignDefault(it, prop, defaultValue) {
+	    const { gen, compositeRule, data, opts } = it;
+	    if (defaultValue === undefined)
+	        return;
+	    const childData = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(prop)}`;
+	    if (compositeRule) {
+	        (0, util_1.checkStrictMode)(it, `default is ignored for: ${childData}`);
+	        return;
+	    }
+	    let condition = (0, codegen_1._) `${childData} === undefined`;
+	    if (opts.useDefaults === "empty") {
+	        condition = (0, codegen_1._) `${condition} || ${childData} === null || ${childData} === ""`;
+	    }
+	    // `${childData} === undefined` +
+	    // (opts.useDefaults === "empty" ? ` || ${childData} === null || ${childData} === ""` : "")
+	    gen.if(condition, (0, codegen_1._) `${childData} = ${(0, codegen_1.stringify)(defaultValue)}`);
+	}
+	
+	return defaults;
 }
 
 var keyword = {};
 
 var code = {};
 
-Object.defineProperty(code, "__esModule", { value: true });
-code.validateUnion = code.validateArray = code.usePattern = code.callValidateCode = code.schemaProperties = code.allSchemaProperties = code.noPropertyInData = code.propertyInData = code.isOwnProperty = code.hasPropFunc = code.reportMissingProp = code.checkMissingProp = code.checkReportMissingProp = void 0;
-const codegen_1$u = codegen;
-const util_1$s = util;
-const names_1$8 = names$1;
-const util_2$1 = util;
-function checkReportMissingProp(cxt, prop) {
-    const { gen, data, it } = cxt;
-    gen.if(noPropertyInData(gen, data, prop, it.opts.ownProperties), () => {
-        cxt.setParams({ missingProperty: (0, codegen_1$u._) `${prop}` }, true);
-        cxt.error();
-    });
-}
-code.checkReportMissingProp = checkReportMissingProp;
-function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
-    return (0, codegen_1$u.or)(...properties.map((prop) => (0, codegen_1$u.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1$u._) `${missing} = ${prop}`)));
-}
-code.checkMissingProp = checkMissingProp;
-function reportMissingProp(cxt, missing) {
-    cxt.setParams({ missingProperty: missing }, true);
-    cxt.error();
-}
-code.reportMissingProp = reportMissingProp;
-function hasPropFunc(gen) {
-    return gen.scopeValue("func", {
-        // eslint-disable-next-line @typescript-eslint/unbound-method
-        ref: Object.prototype.hasOwnProperty,
-        code: (0, codegen_1$u._) `Object.prototype.hasOwnProperty`,
-    });
-}
-code.hasPropFunc = hasPropFunc;
-function isOwnProperty(gen, data, property) {
-    return (0, codegen_1$u._) `${hasPropFunc(gen)}.call(${data}, ${property})`;
-}
-code.isOwnProperty = isOwnProperty;
-function propertyInData(gen, data, property, ownProperties) {
-    const cond = (0, codegen_1$u._) `${data}${(0, codegen_1$u.getProperty)(property)} !== undefined`;
-    return ownProperties ? (0, codegen_1$u._) `${cond} && ${isOwnProperty(gen, data, property)}` : cond;
-}
-code.propertyInData = propertyInData;
-function noPropertyInData(gen, data, property, ownProperties) {
-    const cond = (0, codegen_1$u._) `${data}${(0, codegen_1$u.getProperty)(property)} === undefined`;
-    return ownProperties ? (0, codegen_1$u.or)(cond, (0, codegen_1$u.not)(isOwnProperty(gen, data, property))) : cond;
-}
-code.noPropertyInData = noPropertyInData;
-function allSchemaProperties(schemaMap) {
-    return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
-}
-code.allSchemaProperties = allSchemaProperties;
-function schemaProperties(it, schemaMap) {
-    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1$s.alwaysValidSchema)(it, schemaMap[p]));
-}
-code.schemaProperties = schemaProperties;
-function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
-    const dataAndSchema = passSchema ? (0, codegen_1$u._) `${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
-    const valCxt = [
-        [names_1$8.default.instancePath, (0, codegen_1$u.strConcat)(names_1$8.default.instancePath, errorPath)],
-        [names_1$8.default.parentData, it.parentData],
-        [names_1$8.default.parentDataProperty, it.parentDataProperty],
-        [names_1$8.default.rootData, names_1$8.default.rootData],
-    ];
-    if (it.opts.dynamicRef)
-        valCxt.push([names_1$8.default.dynamicAnchors, names_1$8.default.dynamicAnchors]);
-    const args = (0, codegen_1$u._) `${dataAndSchema}, ${gen.object(...valCxt)}`;
-    return context !== codegen_1$u.nil ? (0, codegen_1$u._) `${func}.call(${context}, ${args})` : (0, codegen_1$u._) `${func}(${args})`;
-}
-code.callValidateCode = callValidateCode;
-const newRegExp = (0, codegen_1$u._) `new RegExp`;
-function usePattern({ gen, it: { opts } }, pattern) {
-    const u = opts.unicodeRegExp ? "u" : "";
-    const { regExp } = opts.code;
-    const rx = regExp(pattern, u);
-    return gen.scopeValue("pattern", {
-        key: rx.toString(),
-        ref: rx,
-        code: (0, codegen_1$u._) `${regExp.code === "new RegExp" ? newRegExp : (0, util_2$1.useFunc)(gen, regExp)}(${pattern}, ${u})`,
-    });
-}
-code.usePattern = usePattern;
-function validateArray(cxt) {
-    const { gen, data, keyword, it } = cxt;
-    const valid = gen.name("valid");
-    if (it.allErrors) {
-        const validArr = gen.let("valid", true);
-        validateItems(() => gen.assign(validArr, false));
-        return validArr;
-    }
-    gen.var(valid, true);
-    validateItems(() => gen.break());
-    return valid;
-    function validateItems(notValid) {
-        const len = gen.const("len", (0, codegen_1$u._) `${data}.length`);
-        gen.forRange("i", 0, len, (i) => {
-            cxt.subschema({
-                keyword,
-                dataProp: i,
-                dataPropType: util_1$s.Type.Num,
-            }, valid);
-            gen.if((0, codegen_1$u.not)(valid), notValid);
-        });
-    }
-}
-code.validateArray = validateArray;
-function validateUnion(cxt) {
-    const { gen, schema, keyword, it } = cxt;
-    /* istanbul ignore if */
-    if (!Array.isArray(schema))
-        throw new Error("ajv implementation error");
-    const alwaysValid = schema.some((sch) => (0, util_1$s.alwaysValidSchema)(it, sch));
-    if (alwaysValid && !it.opts.unevaluated)
-        return;
-    const valid = gen.let("valid", false);
-    const schValid = gen.name("_valid");
-    gen.block(() => schema.forEach((_sch, i) => {
-        const schCxt = cxt.subschema({
-            keyword,
-            schemaProp: i,
-            compositeRule: true,
-        }, schValid);
-        gen.assign(valid, (0, codegen_1$u._) `${valid} || ${schValid}`);
-        const merged = cxt.mergeValidEvaluated(schCxt, schValid);
-        // can short-circuit if `unevaluatedProperties/Items` not supported (opts.unevaluated !== true)
-        // or if all properties and items were evaluated (it.props === true && it.items === true)
-        if (!merged)
-            gen.if((0, codegen_1$u.not)(valid));
-    }));
-    cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
-}
-code.validateUnion = validateUnion;
+var hasRequiredCode;
 
-Object.defineProperty(keyword, "__esModule", { value: true });
-keyword.validateKeywordUsage = keyword.validSchemaType = keyword.funcKeywordCode = keyword.macroKeywordCode = void 0;
-const codegen_1$t = codegen;
-const names_1$7 = names$1;
-const code_1$9 = code;
-const errors_1$1 = errors;
-function macroKeywordCode(cxt, def) {
-    const { gen, keyword, schema, parentSchema, it } = cxt;
-    const macroSchema = def.macro.call(it.self, schema, parentSchema, it);
-    const schemaRef = useKeyword(gen, keyword, macroSchema);
-    if (it.opts.validateSchema !== false)
-        it.self.validateSchema(macroSchema, true);
-    const valid = gen.name("valid");
-    cxt.subschema({
-        schema: macroSchema,
-        schemaPath: codegen_1$t.nil,
-        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
-        topSchemaRef: schemaRef,
-        compositeRule: true,
-    }, valid);
-    cxt.pass(valid, () => cxt.error(true));
+function requireCode () {
+	if (hasRequiredCode) return code;
+	hasRequiredCode = 1;
+	Object.defineProperty(code, "__esModule", { value: true });
+	code.validateUnion = code.validateArray = code.usePattern = code.callValidateCode = code.schemaProperties = code.allSchemaProperties = code.noPropertyInData = code.propertyInData = code.isOwnProperty = code.hasPropFunc = code.reportMissingProp = code.checkMissingProp = code.checkReportMissingProp = void 0;
+	const codegen_1 = requireCodegen();
+	const util_1 = util;
+	const names_1 = requireNames();
+	const util_2 = util;
+	function checkReportMissingProp(cxt, prop) {
+	    const { gen, data, it } = cxt;
+	    gen.if(noPropertyInData(gen, data, prop, it.opts.ownProperties), () => {
+	        cxt.setParams({ missingProperty: (0, codegen_1._) `${prop}` }, true);
+	        cxt.error();
+	    });
+	}
+	code.checkReportMissingProp = checkReportMissingProp;
+	function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
+	    return (0, codegen_1.or)(...properties.map((prop) => (0, codegen_1.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1._) `${missing} = ${prop}`)));
+	}
+	code.checkMissingProp = checkMissingProp;
+	function reportMissingProp(cxt, missing) {
+	    cxt.setParams({ missingProperty: missing }, true);
+	    cxt.error();
+	}
+	code.reportMissingProp = reportMissingProp;
+	function hasPropFunc(gen) {
+	    return gen.scopeValue("func", {
+	        // eslint-disable-next-line @typescript-eslint/unbound-method
+	        ref: Object.prototype.hasOwnProperty,
+	        code: (0, codegen_1._) `Object.prototype.hasOwnProperty`,
+	    });
+	}
+	code.hasPropFunc = hasPropFunc;
+	function isOwnProperty(gen, data, property) {
+	    return (0, codegen_1._) `${hasPropFunc(gen)}.call(${data}, ${property})`;
+	}
+	code.isOwnProperty = isOwnProperty;
+	function propertyInData(gen, data, property, ownProperties) {
+	    const cond = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(property)} !== undefined`;
+	    return ownProperties ? (0, codegen_1._) `${cond} && ${isOwnProperty(gen, data, property)}` : cond;
+	}
+	code.propertyInData = propertyInData;
+	function noPropertyInData(gen, data, property, ownProperties) {
+	    const cond = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)(property)} === undefined`;
+	    return ownProperties ? (0, codegen_1.or)(cond, (0, codegen_1.not)(isOwnProperty(gen, data, property))) : cond;
+	}
+	code.noPropertyInData = noPropertyInData;
+	function allSchemaProperties(schemaMap) {
+	    return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
+	}
+	code.allSchemaProperties = allSchemaProperties;
+	function schemaProperties(it, schemaMap) {
+	    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1.alwaysValidSchema)(it, schemaMap[p]));
+	}
+	code.schemaProperties = schemaProperties;
+	function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
+	    const dataAndSchema = passSchema ? (0, codegen_1._) `${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
+	    const valCxt = [
+	        [names_1.default.instancePath, (0, codegen_1.strConcat)(names_1.default.instancePath, errorPath)],
+	        [names_1.default.parentData, it.parentData],
+	        [names_1.default.parentDataProperty, it.parentDataProperty],
+	        [names_1.default.rootData, names_1.default.rootData],
+	    ];
+	    if (it.opts.dynamicRef)
+	        valCxt.push([names_1.default.dynamicAnchors, names_1.default.dynamicAnchors]);
+	    const args = (0, codegen_1._) `${dataAndSchema}, ${gen.object(...valCxt)}`;
+	    return context !== codegen_1.nil ? (0, codegen_1._) `${func}.call(${context}, ${args})` : (0, codegen_1._) `${func}(${args})`;
+	}
+	code.callValidateCode = callValidateCode;
+	const newRegExp = (0, codegen_1._) `new RegExp`;
+	function usePattern({ gen, it: { opts } }, pattern) {
+	    const u = opts.unicodeRegExp ? "u" : "";
+	    const { regExp } = opts.code;
+	    const rx = regExp(pattern, u);
+	    return gen.scopeValue("pattern", {
+	        key: rx.toString(),
+	        ref: rx,
+	        code: (0, codegen_1._) `${regExp.code === "new RegExp" ? newRegExp : (0, util_2.useFunc)(gen, regExp)}(${pattern}, ${u})`,
+	    });
+	}
+	code.usePattern = usePattern;
+	function validateArray(cxt) {
+	    const { gen, data, keyword, it } = cxt;
+	    const valid = gen.name("valid");
+	    if (it.allErrors) {
+	        const validArr = gen.let("valid", true);
+	        validateItems(() => gen.assign(validArr, false));
+	        return validArr;
+	    }
+	    gen.var(valid, true);
+	    validateItems(() => gen.break());
+	    return valid;
+	    function validateItems(notValid) {
+	        const len = gen.const("len", (0, codegen_1._) `${data}.length`);
+	        gen.forRange("i", 0, len, (i) => {
+	            cxt.subschema({
+	                keyword,
+	                dataProp: i,
+	                dataPropType: util_1.Type.Num,
+	            }, valid);
+	            gen.if((0, codegen_1.not)(valid), notValid);
+	        });
+	    }
+	}
+	code.validateArray = validateArray;
+	function validateUnion(cxt) {
+	    const { gen, schema, keyword, it } = cxt;
+	    /* istanbul ignore if */
+	    if (!Array.isArray(schema))
+	        throw new Error("ajv implementation error");
+	    const alwaysValid = schema.some((sch) => (0, util_1.alwaysValidSchema)(it, sch));
+	    if (alwaysValid && !it.opts.unevaluated)
+	        return;
+	    const valid = gen.let("valid", false);
+	    const schValid = gen.name("_valid");
+	    gen.block(() => schema.forEach((_sch, i) => {
+	        const schCxt = cxt.subschema({
+	            keyword,
+	            schemaProp: i,
+	            compositeRule: true,
+	        }, schValid);
+	        gen.assign(valid, (0, codegen_1._) `${valid} || ${schValid}`);
+	        const merged = cxt.mergeValidEvaluated(schCxt, schValid);
+	        // can short-circuit if `unevaluatedProperties/Items` not supported (opts.unevaluated !== true)
+	        // or if all properties and items were evaluated (it.props === true && it.items === true)
+	        if (!merged)
+	            gen.if((0, codegen_1.not)(valid));
+	    }));
+	    cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
+	}
+	code.validateUnion = validateUnion;
+	
+	return code;
 }
-keyword.macroKeywordCode = macroKeywordCode;
-function funcKeywordCode(cxt, def) {
-    var _a;
-    const { gen, keyword, schema, parentSchema, $data, it } = cxt;
-    checkAsyncKeyword(it, def);
-    const validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate;
-    const validateRef = useKeyword(gen, keyword, validate);
-    const valid = gen.let("valid");
-    cxt.block$data(valid, validateKeyword);
-    cxt.ok((_a = def.valid) !== null && _a !== void 0 ? _a : valid);
-    function validateKeyword() {
-        if (def.errors === false) {
-            assignValid();
-            if (def.modifying)
-                modifyData(cxt);
-            reportErrs(() => cxt.error());
-        }
-        else {
-            const ruleErrs = def.async ? validateAsync() : validateSync();
-            if (def.modifying)
-                modifyData(cxt);
-            reportErrs(() => addErrs(cxt, ruleErrs));
-        }
-    }
-    function validateAsync() {
-        const ruleErrs = gen.let("ruleErrs", null);
-        gen.try(() => assignValid((0, codegen_1$t._) `await `), (e) => gen.assign(valid, false).if((0, codegen_1$t._) `${e} instanceof ${it.ValidationError}`, () => gen.assign(ruleErrs, (0, codegen_1$t._) `${e}.errors`), () => gen.throw(e)));
-        return ruleErrs;
-    }
-    function validateSync() {
-        const validateErrs = (0, codegen_1$t._) `${validateRef}.errors`;
-        gen.assign(validateErrs, null);
-        assignValid(codegen_1$t.nil);
-        return validateErrs;
-    }
-    function assignValid(_await = def.async ? (0, codegen_1$t._) `await ` : codegen_1$t.nil) {
-        const passCxt = it.opts.passContext ? names_1$7.default.this : names_1$7.default.self;
-        const passSchema = !(("compile" in def && !$data) || def.schema === false);
-        gen.assign(valid, (0, codegen_1$t._) `${_await}${(0, code_1$9.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
-    }
-    function reportErrs(errors) {
-        var _a;
-        gen.if((0, codegen_1$t.not)((_a = def.valid) !== null && _a !== void 0 ? _a : valid), errors);
-    }
+
+var hasRequiredKeyword;
+
+function requireKeyword () {
+	if (hasRequiredKeyword) return keyword;
+	hasRequiredKeyword = 1;
+	Object.defineProperty(keyword, "__esModule", { value: true });
+	keyword.validateKeywordUsage = keyword.validSchemaType = keyword.funcKeywordCode = keyword.macroKeywordCode = void 0;
+	const codegen_1 = requireCodegen();
+	const names_1 = requireNames();
+	const code_1 = requireCode();
+	const errors_1 = errors;
+	function macroKeywordCode(cxt, def) {
+	    const { gen, keyword, schema, parentSchema, it } = cxt;
+	    const macroSchema = def.macro.call(it.self, schema, parentSchema, it);
+	    const schemaRef = useKeyword(gen, keyword, macroSchema);
+	    if (it.opts.validateSchema !== false)
+	        it.self.validateSchema(macroSchema, true);
+	    const valid = gen.name("valid");
+	    cxt.subschema({
+	        schema: macroSchema,
+	        schemaPath: codegen_1.nil,
+	        errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+	        topSchemaRef: schemaRef,
+	        compositeRule: true,
+	    }, valid);
+	    cxt.pass(valid, () => cxt.error(true));
+	}
+	keyword.macroKeywordCode = macroKeywordCode;
+	function funcKeywordCode(cxt, def) {
+	    var _a;
+	    const { gen, keyword, schema, parentSchema, $data, it } = cxt;
+	    checkAsyncKeyword(it, def);
+	    const validate = !$data && def.compile ? def.compile.call(it.self, schema, parentSchema, it) : def.validate;
+	    const validateRef = useKeyword(gen, keyword, validate);
+	    const valid = gen.let("valid");
+	    cxt.block$data(valid, validateKeyword);
+	    cxt.ok((_a = def.valid) !== null && _a !== void 0 ? _a : valid);
+	    function validateKeyword() {
+	        if (def.errors === false) {
+	            assignValid();
+	            if (def.modifying)
+	                modifyData(cxt);
+	            reportErrs(() => cxt.error());
+	        }
+	        else {
+	            const ruleErrs = def.async ? validateAsync() : validateSync();
+	            if (def.modifying)
+	                modifyData(cxt);
+	            reportErrs(() => addErrs(cxt, ruleErrs));
+	        }
+	    }
+	    function validateAsync() {
+	        const ruleErrs = gen.let("ruleErrs", null);
+	        gen.try(() => assignValid((0, codegen_1._) `await `), (e) => gen.assign(valid, false).if((0, codegen_1._) `${e} instanceof ${it.ValidationError}`, () => gen.assign(ruleErrs, (0, codegen_1._) `${e}.errors`), () => gen.throw(e)));
+	        return ruleErrs;
+	    }
+	    function validateSync() {
+	        const validateErrs = (0, codegen_1._) `${validateRef}.errors`;
+	        gen.assign(validateErrs, null);
+	        assignValid(codegen_1.nil);
+	        return validateErrs;
+	    }
+	    function assignValid(_await = def.async ? (0, codegen_1._) `await ` : codegen_1.nil) {
+	        const passCxt = it.opts.passContext ? names_1.default.this : names_1.default.self;
+	        const passSchema = !(("compile" in def && !$data) || def.schema === false);
+	        gen.assign(valid, (0, codegen_1._) `${_await}${(0, code_1.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`, def.modifying);
+	    }
+	    function reportErrs(errors) {
+	        var _a;
+	        gen.if((0, codegen_1.not)((_a = def.valid) !== null && _a !== void 0 ? _a : valid), errors);
+	    }
+	}
+	keyword.funcKeywordCode = funcKeywordCode;
+	function modifyData(cxt) {
+	    const { gen, data, it } = cxt;
+	    gen.if(it.parentData, () => gen.assign(data, (0, codegen_1._) `${it.parentData}[${it.parentDataProperty}]`));
+	}
+	function addErrs(cxt, errs) {
+	    const { gen } = cxt;
+	    gen.if((0, codegen_1._) `Array.isArray(${errs})`, () => {
+	        gen
+	            .assign(names_1.default.vErrors, (0, codegen_1._) `${names_1.default.vErrors} === null ? ${errs} : ${names_1.default.vErrors}.concat(${errs})`)
+	            .assign(names_1.default.errors, (0, codegen_1._) `${names_1.default.vErrors}.length`);
+	        (0, errors_1.extendErrors)(cxt);
+	    }, () => cxt.error());
+	}
+	function checkAsyncKeyword({ schemaEnv }, def) {
+	    if (def.async && !schemaEnv.$async)
+	        throw new Error("async keyword in sync schema");
+	}
+	function useKeyword(gen, keyword, result) {
+	    if (result === undefined)
+	        throw new Error(`keyword "${keyword}" failed to compile`);
+	    return gen.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1.stringify)(result) });
+	}
+	function validSchemaType(schema, schemaType, allowUndefined = false) {
+	    // TODO add tests
+	    return (!schemaType.length ||
+	        schemaType.some((st) => st === "array"
+	            ? Array.isArray(schema)
+	            : st === "object"
+	                ? schema && typeof schema == "object" && !Array.isArray(schema)
+	                : typeof schema == st || (allowUndefined && typeof schema == "undefined")));
+	}
+	keyword.validSchemaType = validSchemaType;
+	function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
+	    /* istanbul ignore if */
+	    if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
+	        throw new Error("ajv implementation error");
+	    }
+	    const deps = def.dependencies;
+	    if (deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))) {
+	        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
+	    }
+	    if (def.validateSchema) {
+	        const valid = def.validateSchema(schema[keyword]);
+	        if (!valid) {
+	            const msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` +
+	                self.errorsText(def.validateSchema.errors);
+	            if (opts.validateSchema === "log")
+	                self.logger.error(msg);
+	            else
+	                throw new Error(msg);
+	        }
+	    }
+	}
+	keyword.validateKeywordUsage = validateKeywordUsage;
+	
+	return keyword;
 }
-keyword.funcKeywordCode = funcKeywordCode;
-function modifyData(cxt) {
-    const { gen, data, it } = cxt;
-    gen.if(it.parentData, () => gen.assign(data, (0, codegen_1$t._) `${it.parentData}[${it.parentDataProperty}]`));
-}
-function addErrs(cxt, errs) {
-    const { gen } = cxt;
-    gen.if((0, codegen_1$t._) `Array.isArray(${errs})`, () => {
-        gen
-            .assign(names_1$7.default.vErrors, (0, codegen_1$t._) `${names_1$7.default.vErrors} === null ? ${errs} : ${names_1$7.default.vErrors}.concat(${errs})`)
-            .assign(names_1$7.default.errors, (0, codegen_1$t._) `${names_1$7.default.vErrors}.length`);
-        (0, errors_1$1.extendErrors)(cxt);
-    }, () => cxt.error());
-}
-function checkAsyncKeyword({ schemaEnv }, def) {
-    if (def.async && !schemaEnv.$async)
-        throw new Error("async keyword in sync schema");
-}
-function useKeyword(gen, keyword, result) {
-    if (result === undefined)
-        throw new Error(`keyword "${keyword}" failed to compile`);
-    return gen.scopeValue("keyword", typeof result == "function" ? { ref: result } : { ref: result, code: (0, codegen_1$t.stringify)(result) });
-}
-function validSchemaType(schema, schemaType, allowUndefined = false) {
-    // TODO add tests
-    return (!schemaType.length ||
-        schemaType.some((st) => st === "array"
-            ? Array.isArray(schema)
-            : st === "object"
-                ? schema && typeof schema == "object" && !Array.isArray(schema)
-                : typeof schema == st || (allowUndefined && typeof schema == "undefined")));
-}
-keyword.validSchemaType = validSchemaType;
-function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
-    /* istanbul ignore if */
-    if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
-        throw new Error("ajv implementation error");
-    }
-    const deps = def.dependencies;
-    if (deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))) {
-        throw new Error(`parent schema must have dependencies of ${keyword}: ${deps.join(",")}`);
-    }
-    if (def.validateSchema) {
-        const valid = def.validateSchema(schema[keyword]);
-        if (!valid) {
-            const msg = `keyword "${keyword}" value is invalid at path "${errSchemaPath}": ` +
-                self.errorsText(def.validateSchema.errors);
-            if (opts.validateSchema === "log")
-                self.logger.error(msg);
-            else
-                throw new Error(msg);
-        }
-    }
-}
-keyword.validateKeywordUsage = validateKeywordUsage;
 
 var subschema = {};
 
-Object.defineProperty(subschema, "__esModule", { value: true });
-subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0;
-const codegen_1$s = codegen;
-const util_1$r = util;
-function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
-    if (keyword !== undefined && schema !== undefined) {
-        throw new Error('both "keyword" and "schema" passed, only one allowed');
-    }
-    if (keyword !== undefined) {
-        const sch = it.schema[keyword];
-        return schemaProp === undefined
-            ? {
-                schema: sch,
-                schemaPath: (0, codegen_1$s._) `${it.schemaPath}${(0, codegen_1$s.getProperty)(keyword)}`,
-                errSchemaPath: `${it.errSchemaPath}/${keyword}`,
-            }
-            : {
-                schema: sch[schemaProp],
-                schemaPath: (0, codegen_1$s._) `${it.schemaPath}${(0, codegen_1$s.getProperty)(keyword)}${(0, codegen_1$s.getProperty)(schemaProp)}`,
-                errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1$r.escapeFragment)(schemaProp)}`,
-            };
-    }
-    if (schema !== undefined) {
-        if (schemaPath === undefined || errSchemaPath === undefined || topSchemaRef === undefined) {
-            throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
-        }
-        return {
-            schema,
-            schemaPath,
-            topSchemaRef,
-            errSchemaPath,
-        };
-    }
-    throw new Error('either "keyword" or "schema" must be passed');
+var hasRequiredSubschema;
+
+function requireSubschema () {
+	if (hasRequiredSubschema) return subschema;
+	hasRequiredSubschema = 1;
+	Object.defineProperty(subschema, "__esModule", { value: true });
+	subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0;
+	const codegen_1 = requireCodegen();
+	const util_1 = util;
+	function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
+	    if (keyword !== undefined && schema !== undefined) {
+	        throw new Error('both "keyword" and "schema" passed, only one allowed');
+	    }
+	    if (keyword !== undefined) {
+	        const sch = it.schema[keyword];
+	        return schemaProp === undefined
+	            ? {
+	                schema: sch,
+	                schemaPath: (0, codegen_1._) `${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}`,
+	                errSchemaPath: `${it.errSchemaPath}/${keyword}`,
+	            }
+	            : {
+	                schema: sch[schemaProp],
+	                schemaPath: (0, codegen_1._) `${it.schemaPath}${(0, codegen_1.getProperty)(keyword)}${(0, codegen_1.getProperty)(schemaProp)}`,
+	                errSchemaPath: `${it.errSchemaPath}/${keyword}/${(0, util_1.escapeFragment)(schemaProp)}`,
+	            };
+	    }
+	    if (schema !== undefined) {
+	        if (schemaPath === undefined || errSchemaPath === undefined || topSchemaRef === undefined) {
+	            throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"');
+	        }
+	        return {
+	            schema,
+	            schemaPath,
+	            topSchemaRef,
+	            errSchemaPath,
+	        };
+	    }
+	    throw new Error('either "keyword" or "schema" must be passed');
+	}
+	subschema.getSubschema = getSubschema;
+	function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
+	    if (data !== undefined && dataProp !== undefined) {
+	        throw new Error('both "data" and "dataProp" passed, only one allowed');
+	    }
+	    const { gen } = it;
+	    if (dataProp !== undefined) {
+	        const { errorPath, dataPathArr, opts } = it;
+	        const nextData = gen.let("data", (0, codegen_1._) `${it.data}${(0, codegen_1.getProperty)(dataProp)}`, true);
+	        dataContextProps(nextData);
+	        subschema.errorPath = (0, codegen_1.str) `${errorPath}${(0, util_1.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`;
+	        subschema.parentDataProperty = (0, codegen_1._) `${dataProp}`;
+	        subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
+	    }
+	    if (data !== undefined) {
+	        const nextData = data instanceof codegen_1.Name ? data : gen.let("data", data, true); // replaceable if used once?
+	        dataContextProps(nextData);
+	        if (propertyName !== undefined)
+	            subschema.propertyName = propertyName;
+	        // TODO something is possibly wrong here with not changing parentDataProperty and not appending dataPathArr
+	    }
+	    if (dataTypes)
+	        subschema.dataTypes = dataTypes;
+	    function dataContextProps(_nextData) {
+	        subschema.data = _nextData;
+	        subschema.dataLevel = it.dataLevel + 1;
+	        subschema.dataTypes = [];
+	        it.definedProperties = new Set();
+	        subschema.parentData = it.data;
+	        subschema.dataNames = [...it.dataNames, _nextData];
+	    }
+	}
+	subschema.extendSubschemaData = extendSubschemaData;
+	function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
+	    if (compositeRule !== undefined)
+	        subschema.compositeRule = compositeRule;
+	    if (createErrors !== undefined)
+	        subschema.createErrors = createErrors;
+	    if (allErrors !== undefined)
+	        subschema.allErrors = allErrors;
+	    subschema.jtdDiscriminator = jtdDiscriminator; // not inherited
+	    subschema.jtdMetadata = jtdMetadata; // not inherited
+	}
+	subschema.extendSubschemaMode = extendSubschemaMode;
+	
+	return subschema;
 }
-subschema.getSubschema = getSubschema;
-function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
-    if (data !== undefined && dataProp !== undefined) {
-        throw new Error('both "data" and "dataProp" passed, only one allowed');
-    }
-    const { gen } = it;
-    if (dataProp !== undefined) {
-        const { errorPath, dataPathArr, opts } = it;
-        const nextData = gen.let("data", (0, codegen_1$s._) `${it.data}${(0, codegen_1$s.getProperty)(dataProp)}`, true);
-        dataContextProps(nextData);
-        subschema.errorPath = (0, codegen_1$s.str) `${errorPath}${(0, util_1$r.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`;
-        subschema.parentDataProperty = (0, codegen_1$s._) `${dataProp}`;
-        subschema.dataPathArr = [...dataPathArr, subschema.parentDataProperty];
-    }
-    if (data !== undefined) {
-        const nextData = data instanceof codegen_1$s.Name ? data : gen.let("data", data, true); // replaceable if used once?
-        dataContextProps(nextData);
-        if (propertyName !== undefined)
-            subschema.propertyName = propertyName;
-        // TODO something is possibly wrong here with not changing parentDataProperty and not appending dataPathArr
-    }
-    if (dataTypes)
-        subschema.dataTypes = dataTypes;
-    function dataContextProps(_nextData) {
-        subschema.data = _nextData;
-        subschema.dataLevel = it.dataLevel + 1;
-        subschema.dataTypes = [];
-        it.definedProperties = new Set();
-        subschema.parentData = it.data;
-        subschema.dataNames = [...it.dataNames, _nextData];
-    }
-}
-subschema.extendSubschemaData = extendSubschemaData;
-function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
-    if (compositeRule !== undefined)
-        subschema.compositeRule = compositeRule;
-    if (createErrors !== undefined)
-        subschema.createErrors = createErrors;
-    if (allErrors !== undefined)
-        subschema.allErrors = allErrors;
-    subschema.jtdDiscriminator = jtdDiscriminator; // not inherited
-    subschema.jtdMetadata = jtdMetadata; // not inherited
-}
-subschema.extendSubschemaMode = extendSubschemaMode;
 
 var resolve$1 = {};
 
@@ -3168,7 +3230,7 @@ var jsonSchemaTraverseExports = jsonSchemaTraverse.exports;
 
 Object.defineProperty(resolve$1, "__esModule", { value: true });
 resolve$1.getSchemaRefs = resolve$1.resolveUrl = resolve$1.normalizeId = resolve$1._getFullPath = resolve$1.getFullPath = resolve$1.inlineRef = void 0;
-const util_1$q = util;
+const util_1$p = util;
 const equal$2 = fastDeepEqual;
 const traverse = jsonSchemaTraverseExports;
 // TODO refactor to use keyword definitions
@@ -3228,7 +3290,7 @@ function countKeys(schema) {
         if (SIMPLE_INLINED.has(key))
             continue;
         if (typeof schema[key] == "object") {
-            (0, util_1$q.eachItem)(schema[key], (sch) => (count += countKeys(sch)));
+            (0, util_1$p.eachItem)(schema[key], (sch) => (count += countKeys(sch)));
         }
         if (count === Infinity)
             return Infinity;
@@ -3320,559 +3382,583 @@ function getSchemaRefs(schema, baseId) {
 }
 resolve$1.getSchemaRefs = getSchemaRefs;
 
-Object.defineProperty(validate, "__esModule", { value: true });
-validate.getData = validate.KeywordCxt = validate.validateFunctionCode = void 0;
-const boolSchema_1 = boolSchema;
-const dataType_1$1 = dataType;
-const applicability_1 = applicability;
-const dataType_2 = dataType;
-const defaults_1 = defaults;
-const keyword_1 = keyword;
-const subschema_1 = subschema;
-const codegen_1$r = codegen;
-const names_1$6 = names$1;
-const resolve_1$2 = resolve$1;
-const util_1$p = util;
-const errors_1 = errors;
-// schema compilation - generates validation function, subschemaCode (below) is used for subschemas
-function validateFunctionCode(it) {
-    if (isSchemaObj(it)) {
-        checkKeywords(it);
-        if (schemaCxtHasRules(it)) {
-            topSchemaObjCode(it);
-            return;
-        }
-    }
-    validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
+var hasRequiredValidate;
+
+function requireValidate () {
+	if (hasRequiredValidate) return validate;
+	hasRequiredValidate = 1;
+	Object.defineProperty(validate, "__esModule", { value: true });
+	validate.getData = validate.KeywordCxt = validate.validateFunctionCode = void 0;
+	const boolSchema_1 = requireBoolSchema();
+	const dataType_1 = dataType;
+	const applicability_1 = applicability;
+	const dataType_2 = dataType;
+	const defaults_1 = requireDefaults();
+	const keyword_1 = requireKeyword();
+	const subschema_1 = requireSubschema();
+	const codegen_1 = requireCodegen();
+	const names_1 = requireNames();
+	const resolve_1 = resolve$1;
+	const util_1 = util;
+	const errors_1 = errors;
+	// schema compilation - generates validation function, subschemaCode (below) is used for subschemas
+	function validateFunctionCode(it) {
+	    if (isSchemaObj(it)) {
+	        checkKeywords(it);
+	        if (schemaCxtHasRules(it)) {
+	            topSchemaObjCode(it);
+	            return;
+	        }
+	    }
+	    validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
+	}
+	validate.validateFunctionCode = validateFunctionCode;
+	function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
+	    if (opts.code.es5) {
+	        gen.func(validateName, (0, codegen_1._) `${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
+	            gen.code((0, codegen_1._) `"use strict"; ${funcSourceUrl(schema, opts)}`);
+	            destructureValCxtES5(gen, opts);
+	            gen.code(body);
+	        });
+	    }
+	    else {
+	        gen.func(validateName, (0, codegen_1._) `${names_1.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
+	    }
+	}
+	function destructureValCxt(opts) {
+	    return (0, codegen_1._) `{${names_1.default.instancePath}="", ${names_1.default.parentData}, ${names_1.default.parentDataProperty}, ${names_1.default.rootData}=${names_1.default.data}${opts.dynamicRef ? (0, codegen_1._) `, ${names_1.default.dynamicAnchors}={}` : codegen_1.nil}}={}`;
+	}
+	function destructureValCxtES5(gen, opts) {
+	    gen.if(names_1.default.valCxt, () => {
+	        gen.var(names_1.default.instancePath, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.instancePath}`);
+	        gen.var(names_1.default.parentData, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.parentData}`);
+	        gen.var(names_1.default.parentDataProperty, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.parentDataProperty}`);
+	        gen.var(names_1.default.rootData, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.rootData}`);
+	        if (opts.dynamicRef)
+	            gen.var(names_1.default.dynamicAnchors, (0, codegen_1._) `${names_1.default.valCxt}.${names_1.default.dynamicAnchors}`);
+	    }, () => {
+	        gen.var(names_1.default.instancePath, (0, codegen_1._) `""`);
+	        gen.var(names_1.default.parentData, (0, codegen_1._) `undefined`);
+	        gen.var(names_1.default.parentDataProperty, (0, codegen_1._) `undefined`);
+	        gen.var(names_1.default.rootData, names_1.default.data);
+	        if (opts.dynamicRef)
+	            gen.var(names_1.default.dynamicAnchors, (0, codegen_1._) `{}`);
+	    });
+	}
+	function topSchemaObjCode(it) {
+	    const { schema, opts, gen } = it;
+	    validateFunction(it, () => {
+	        if (opts.$comment && schema.$comment)
+	            commentKeyword(it);
+	        checkNoDefault(it);
+	        gen.let(names_1.default.vErrors, null);
+	        gen.let(names_1.default.errors, 0);
+	        if (opts.unevaluated)
+	            resetEvaluated(it);
+	        typeAndKeywords(it);
+	        returnResults(it);
+	    });
+	    return;
+	}
+	function resetEvaluated(it) {
+	    // TODO maybe some hook to execute it in the end to check whether props/items are Name, as in assignEvaluated
+	    const { gen, validateName } = it;
+	    it.evaluated = gen.const("evaluated", (0, codegen_1._) `${validateName}.evaluated`);
+	    gen.if((0, codegen_1._) `${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1._) `${it.evaluated}.props`, (0, codegen_1._) `undefined`));
+	    gen.if((0, codegen_1._) `${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1._) `${it.evaluated}.items`, (0, codegen_1._) `undefined`));
+	}
+	function funcSourceUrl(schema, opts) {
+	    const schId = typeof schema == "object" && schema[opts.schemaId];
+	    return schId && (opts.code.source || opts.code.process) ? (0, codegen_1._) `/*# sourceURL=${schId} */` : codegen_1.nil;
+	}
+	// schema compilation - this function is used recursively to generate code for sub-schemas
+	function subschemaCode(it, valid) {
+	    if (isSchemaObj(it)) {
+	        checkKeywords(it);
+	        if (schemaCxtHasRules(it)) {
+	            subSchemaObjCode(it, valid);
+	            return;
+	        }
+	    }
+	    (0, boolSchema_1.boolOrEmptySchema)(it, valid);
+	}
+	function schemaCxtHasRules({ schema, self }) {
+	    if (typeof schema == "boolean")
+	        return !schema;
+	    for (const key in schema)
+	        if (self.RULES.all[key])
+	            return true;
+	    return false;
+	}
+	function isSchemaObj(it) {
+	    return typeof it.schema != "boolean";
+	}
+	function subSchemaObjCode(it, valid) {
+	    const { schema, gen, opts } = it;
+	    if (opts.$comment && schema.$comment)
+	        commentKeyword(it);
+	    updateContext(it);
+	    checkAsyncSchema(it);
+	    const errsCount = gen.const("_errs", names_1.default.errors);
+	    typeAndKeywords(it, errsCount);
+	    // TODO var
+	    gen.var(valid, (0, codegen_1._) `${errsCount} === ${names_1.default.errors}`);
+	}
+	function checkKeywords(it) {
+	    (0, util_1.checkUnknownRules)(it);
+	    checkRefsAndKeywords(it);
+	}
+	function typeAndKeywords(it, errsCount) {
+	    if (it.opts.jtd)
+	        return schemaKeywords(it, [], false, errsCount);
+	    const types = (0, dataType_1.getSchemaTypes)(it.schema);
+	    const checkedTypes = (0, dataType_1.coerceAndCheckDataType)(it, types);
+	    schemaKeywords(it, types, !checkedTypes, errsCount);
+	}
+	function checkRefsAndKeywords(it) {
+	    const { schema, errSchemaPath, opts, self } = it;
+	    if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1.schemaHasRulesButRef)(schema, self.RULES)) {
+	        self.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
+	    }
+	}
+	function checkNoDefault(it) {
+	    const { schema, opts } = it;
+	    if (schema.default !== undefined && opts.useDefaults && opts.strictSchema) {
+	        (0, util_1.checkStrictMode)(it, "default is ignored in the schema root");
+	    }
+	}
+	function updateContext(it) {
+	    const schId = it.schema[it.opts.schemaId];
+	    if (schId)
+	        it.baseId = (0, resolve_1.resolveUrl)(it.opts.uriResolver, it.baseId, schId);
+	}
+	function checkAsyncSchema(it) {
+	    if (it.schema.$async && !it.schemaEnv.$async)
+	        throw new Error("async schema in sync schema");
+	}
+	function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
+	    const msg = schema.$comment;
+	    if (opts.$comment === true) {
+	        gen.code((0, codegen_1._) `${names_1.default.self}.logger.log(${msg})`);
+	    }
+	    else if (typeof opts.$comment == "function") {
+	        const schemaPath = (0, codegen_1.str) `${errSchemaPath}/$comment`;
+	        const rootName = gen.scopeValue("root", { ref: schemaEnv.root });
+	        gen.code((0, codegen_1._) `${names_1.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
+	    }
+	}
+	function returnResults(it) {
+	    const { gen, schemaEnv, validateName, ValidationError, opts } = it;
+	    if (schemaEnv.$async) {
+	        // TODO assign unevaluated
+	        gen.if((0, codegen_1._) `${names_1.default.errors} === 0`, () => gen.return(names_1.default.data), () => gen.throw((0, codegen_1._) `new ${ValidationError}(${names_1.default.vErrors})`));
+	    }
+	    else {
+	        gen.assign((0, codegen_1._) `${validateName}.errors`, names_1.default.vErrors);
+	        if (opts.unevaluated)
+	            assignEvaluated(it);
+	        gen.return((0, codegen_1._) `${names_1.default.errors} === 0`);
+	    }
+	}
+	function assignEvaluated({ gen, evaluated, props, items }) {
+	    if (props instanceof codegen_1.Name)
+	        gen.assign((0, codegen_1._) `${evaluated}.props`, props);
+	    if (items instanceof codegen_1.Name)
+	        gen.assign((0, codegen_1._) `${evaluated}.items`, items);
+	}
+	function schemaKeywords(it, types, typeErrors, errsCount) {
+	    const { gen, schema, data, allErrors, opts, self } = it;
+	    const { RULES } = self;
+	    if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES))) {
+	        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition)); // TODO typecast
+	        return;
+	    }
+	    if (!opts.jtd)
+	        checkStrictTypes(it, types);
+	    gen.block(() => {
+	        for (const group of RULES.rules)
+	            groupKeywords(group);
+	        groupKeywords(RULES.post);
+	    });
+	    function groupKeywords(group) {
+	        if (!(0, applicability_1.shouldUseGroup)(schema, group))
+	            return;
+	        if (group.type) {
+	            gen.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers));
+	            iterateKeywords(it, group);
+	            if (types.length === 1 && types[0] === group.type && typeErrors) {
+	                gen.else();
+	                (0, dataType_2.reportTypeError)(it);
+	            }
+	            gen.endIf();
+	        }
+	        else {
+	            iterateKeywords(it, group);
+	        }
+	        // TODO make it "ok" call?
+	        if (!allErrors)
+	            gen.if((0, codegen_1._) `${names_1.default.errors} === ${errsCount || 0}`);
+	    }
+	}
+	function iterateKeywords(it, group) {
+	    const { gen, schema, opts: { useDefaults }, } = it;
+	    if (useDefaults)
+	        (0, defaults_1.assignDefaults)(it, group.type);
+	    gen.block(() => {
+	        for (const rule of group.rules) {
+	            if ((0, applicability_1.shouldUseRule)(schema, rule)) {
+	                keywordCode(it, rule.keyword, rule.definition, group.type);
+	            }
+	        }
+	    });
+	}
+	function checkStrictTypes(it, types) {
+	    if (it.schemaEnv.meta || !it.opts.strictTypes)
+	        return;
+	    checkContextTypes(it, types);
+	    if (!it.opts.allowUnionTypes)
+	        checkMultipleTypes(it, types);
+	    checkKeywordTypes(it, it.dataTypes);
+	}
+	function checkContextTypes(it, types) {
+	    if (!types.length)
+	        return;
+	    if (!it.dataTypes.length) {
+	        it.dataTypes = types;
+	        return;
+	    }
+	    types.forEach((t) => {
+	        if (!includesType(it.dataTypes, t)) {
+	            strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
+	        }
+	    });
+	    narrowSchemaTypes(it, types);
+	}
+	function checkMultipleTypes(it, ts) {
+	    if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
+	        strictTypesError(it, "use allowUnionTypes to allow union type keyword");
+	    }
+	}
+	function checkKeywordTypes(it, ts) {
+	    const rules = it.self.RULES.all;
+	    for (const keyword in rules) {
+	        const rule = rules[keyword];
+	        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
+	            const { type } = rule.definition;
+	            if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
+	                strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
+	            }
+	        }
+	    }
+	}
+	function hasApplicableType(schTs, kwdT) {
+	    return schTs.includes(kwdT) || (kwdT === "number" && schTs.includes("integer"));
+	}
+	function includesType(ts, t) {
+	    return ts.includes(t) || (t === "integer" && ts.includes("number"));
+	}
+	function narrowSchemaTypes(it, withTypes) {
+	    const ts = [];
+	    for (const t of it.dataTypes) {
+	        if (includesType(withTypes, t))
+	            ts.push(t);
+	        else if (withTypes.includes("integer") && t === "number")
+	            ts.push("integer");
+	    }
+	    it.dataTypes = ts;
+	}
+	function strictTypesError(it, msg) {
+	    const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
+	    msg += ` at "${schemaPath}" (strictTypes)`;
+	    (0, util_1.checkStrictMode)(it, msg, it.opts.strictTypes);
+	}
+	class KeywordCxt {
+	    constructor(it, def, keyword) {
+	        (0, keyword_1.validateKeywordUsage)(it, def, keyword);
+	        this.gen = it.gen;
+	        this.allErrors = it.allErrors;
+	        this.keyword = keyword;
+	        this.data = it.data;
+	        this.schema = it.schema[keyword];
+	        this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data;
+	        this.schemaValue = (0, util_1.schemaRefOrVal)(it, this.schema, keyword, this.$data);
+	        this.schemaType = def.schemaType;
+	        this.parentSchema = it.schema;
+	        this.params = {};
+	        this.it = it;
+	        this.def = def;
+	        if (this.$data) {
+	            this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
+	        }
+	        else {
+	            this.schemaCode = this.schemaValue;
+	            if (!(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined)) {
+	                throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
+	            }
+	        }
+	        if ("code" in def ? def.trackErrors : def.errors !== false) {
+	            this.errsCount = it.gen.const("_errs", names_1.default.errors);
+	        }
+	    }
+	    result(condition, successAction, failAction) {
+	        this.failResult((0, codegen_1.not)(condition), successAction, failAction);
+	    }
+	    failResult(condition, successAction, failAction) {
+	        this.gen.if(condition);
+	        if (failAction)
+	            failAction();
+	        else
+	            this.error();
+	        if (successAction) {
+	            this.gen.else();
+	            successAction();
+	            if (this.allErrors)
+	                this.gen.endIf();
+	        }
+	        else {
+	            if (this.allErrors)
+	                this.gen.endIf();
+	            else
+	                this.gen.else();
+	        }
+	    }
+	    pass(condition, failAction) {
+	        this.failResult((0, codegen_1.not)(condition), undefined, failAction);
+	    }
+	    fail(condition) {
+	        if (condition === undefined) {
+	            this.error();
+	            if (!this.allErrors)
+	                this.gen.if(false); // this branch will be removed by gen.optimize
+	            return;
+	        }
+	        this.gen.if(condition);
+	        this.error();
+	        if (this.allErrors)
+	            this.gen.endIf();
+	        else
+	            this.gen.else();
+	    }
+	    fail$data(condition) {
+	        if (!this.$data)
+	            return this.fail(condition);
+	        const { schemaCode } = this;
+	        this.fail((0, codegen_1._) `${schemaCode} !== undefined && (${(0, codegen_1.or)(this.invalid$data(), condition)})`);
+	    }
+	    error(append, errorParams, errorPaths) {
+	        if (errorParams) {
+	            this.setParams(errorParams);
+	            this._error(append, errorPaths);
+	            this.setParams({});
+	            return;
+	        }
+	        this._error(append, errorPaths);
+	    }
+	    _error(append, errorPaths) {
+	        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
+	    }
+	    $dataError() {
+	        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
+	    }
+	    reset() {
+	        if (this.errsCount === undefined)
+	            throw new Error('add "trackErrors" to keyword definition');
+	        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
+	    }
+	    ok(cond) {
+	        if (!this.allErrors)
+	            this.gen.if(cond);
+	    }
+	    setParams(obj, assign) {
+	        if (assign)
+	            Object.assign(this.params, obj);
+	        else
+	            this.params = obj;
+	    }
+	    block$data(valid, codeBlock, $dataValid = codegen_1.nil) {
+	        this.gen.block(() => {
+	            this.check$data(valid, $dataValid);
+	            codeBlock();
+	        });
+	    }
+	    check$data(valid = codegen_1.nil, $dataValid = codegen_1.nil) {
+	        if (!this.$data)
+	            return;
+	        const { gen, schemaCode, schemaType, def } = this;
+	        gen.if((0, codegen_1.or)((0, codegen_1._) `${schemaCode} === undefined`, $dataValid));
+	        if (valid !== codegen_1.nil)
+	            gen.assign(valid, true);
+	        if (schemaType.length || def.validateSchema) {
+	            gen.elseIf(this.invalid$data());
+	            this.$dataError();
+	            if (valid !== codegen_1.nil)
+	                gen.assign(valid, false);
+	        }
+	        gen.else();
+	    }
+	    invalid$data() {
+	        const { gen, schemaCode, schemaType, def, it } = this;
+	        return (0, codegen_1.or)(wrong$DataType(), invalid$DataSchema());
+	        function wrong$DataType() {
+	            if (schemaType.length) {
+	                /* istanbul ignore if */
+	                if (!(schemaCode instanceof codegen_1.Name))
+	                    throw new Error("ajv implementation error");
+	                const st = Array.isArray(schemaType) ? schemaType : [schemaType];
+	                return (0, codegen_1._) `${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
+	            }
+	            return codegen_1.nil;
+	        }
+	        function invalid$DataSchema() {
+	            if (def.validateSchema) {
+	                const validateSchemaRef = gen.scopeValue("validate$data", { ref: def.validateSchema }); // TODO value.code for standalone
+	                return (0, codegen_1._) `!${validateSchemaRef}(${schemaCode})`;
+	            }
+	            return codegen_1.nil;
+	        }
+	    }
+	    subschema(appl, valid) {
+	        const subschema = (0, subschema_1.getSubschema)(this.it, appl);
+	        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl);
+	        (0, subschema_1.extendSubschemaMode)(subschema, appl);
+	        const nextContext = { ...this.it, ...subschema, items: undefined, props: undefined };
+	        subschemaCode(nextContext, valid);
+	        return nextContext;
+	    }
+	    mergeEvaluated(schemaCxt, toName) {
+	        const { it, gen } = this;
+	        if (!it.opts.unevaluated)
+	            return;
+	        if (it.props !== true && schemaCxt.props !== undefined) {
+	            it.props = util_1.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName);
+	        }
+	        if (it.items !== true && schemaCxt.items !== undefined) {
+	            it.items = util_1.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName);
+	        }
+	    }
+	    mergeValidEvaluated(schemaCxt, valid) {
+	        const { it, gen } = this;
+	        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
+	            gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1.Name));
+	            return true;
+	        }
+	    }
+	}
+	validate.KeywordCxt = KeywordCxt;
+	function keywordCode(it, keyword, def, ruleType) {
+	    const cxt = new KeywordCxt(it, def, keyword);
+	    if ("code" in def) {
+	        def.code(cxt, ruleType);
+	    }
+	    else if (cxt.$data && def.validate) {
+	        (0, keyword_1.funcKeywordCode)(cxt, def);
+	    }
+	    else if ("macro" in def) {
+	        (0, keyword_1.macroKeywordCode)(cxt, def);
+	    }
+	    else if (def.compile || def.validate) {
+	        (0, keyword_1.funcKeywordCode)(cxt, def);
+	    }
+	}
+	const JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
+	const RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
+	function getData($data, { dataLevel, dataNames, dataPathArr }) {
+	    let jsonPointer;
+	    let data;
+	    if ($data === "")
+	        return names_1.default.rootData;
+	    if ($data[0] === "/") {
+	        if (!JSON_POINTER.test($data))
+	            throw new Error(`Invalid JSON-pointer: ${$data}`);
+	        jsonPointer = $data;
+	        data = names_1.default.rootData;
+	    }
+	    else {
+	        const matches = RELATIVE_JSON_POINTER.exec($data);
+	        if (!matches)
+	            throw new Error(`Invalid JSON-pointer: ${$data}`);
+	        const up = +matches[1];
+	        jsonPointer = matches[2];
+	        if (jsonPointer === "#") {
+	            if (up >= dataLevel)
+	                throw new Error(errorMsg("property/index", up));
+	            return dataPathArr[dataLevel - up];
+	        }
+	        if (up > dataLevel)
+	            throw new Error(errorMsg("data", up));
+	        data = dataNames[dataLevel - up];
+	        if (!jsonPointer)
+	            return data;
+	    }
+	    let expr = data;
+	    const segments = jsonPointer.split("/");
+	    for (const segment of segments) {
+	        if (segment) {
+	            data = (0, codegen_1._) `${data}${(0, codegen_1.getProperty)((0, util_1.unescapeJsonPointer)(segment))}`;
+	            expr = (0, codegen_1._) `${expr} && ${data}`;
+	        }
+	    }
+	    return expr;
+	    function errorMsg(pointerType, up) {
+	        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
+	    }
+	}
+	validate.getData = getData;
+	
+	return validate;
 }
-validate.validateFunctionCode = validateFunctionCode;
-function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
-    if (opts.code.es5) {
-        gen.func(validateName, (0, codegen_1$r._) `${names_1$6.default.data}, ${names_1$6.default.valCxt}`, schemaEnv.$async, () => {
-            gen.code((0, codegen_1$r._) `"use strict"; ${funcSourceUrl(schema, opts)}`);
-            destructureValCxtES5(gen, opts);
-            gen.code(body);
-        });
-    }
-    else {
-        gen.func(validateName, (0, codegen_1$r._) `${names_1$6.default.data}, ${destructureValCxt(opts)}`, schemaEnv.$async, () => gen.code(funcSourceUrl(schema, opts)).code(body));
-    }
-}
-function destructureValCxt(opts) {
-    return (0, codegen_1$r._) `{${names_1$6.default.instancePath}="", ${names_1$6.default.parentData}, ${names_1$6.default.parentDataProperty}, ${names_1$6.default.rootData}=${names_1$6.default.data}${opts.dynamicRef ? (0, codegen_1$r._) `, ${names_1$6.default.dynamicAnchors}={}` : codegen_1$r.nil}}={}`;
-}
-function destructureValCxtES5(gen, opts) {
-    gen.if(names_1$6.default.valCxt, () => {
-        gen.var(names_1$6.default.instancePath, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.instancePath}`);
-        gen.var(names_1$6.default.parentData, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.parentData}`);
-        gen.var(names_1$6.default.parentDataProperty, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.parentDataProperty}`);
-        gen.var(names_1$6.default.rootData, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.rootData}`);
-        if (opts.dynamicRef)
-            gen.var(names_1$6.default.dynamicAnchors, (0, codegen_1$r._) `${names_1$6.default.valCxt}.${names_1$6.default.dynamicAnchors}`);
-    }, () => {
-        gen.var(names_1$6.default.instancePath, (0, codegen_1$r._) `""`);
-        gen.var(names_1$6.default.parentData, (0, codegen_1$r._) `undefined`);
-        gen.var(names_1$6.default.parentDataProperty, (0, codegen_1$r._) `undefined`);
-        gen.var(names_1$6.default.rootData, names_1$6.default.data);
-        if (opts.dynamicRef)
-            gen.var(names_1$6.default.dynamicAnchors, (0, codegen_1$r._) `{}`);
-    });
-}
-function topSchemaObjCode(it) {
-    const { schema, opts, gen } = it;
-    validateFunction(it, () => {
-        if (opts.$comment && schema.$comment)
-            commentKeyword(it);
-        checkNoDefault(it);
-        gen.let(names_1$6.default.vErrors, null);
-        gen.let(names_1$6.default.errors, 0);
-        if (opts.unevaluated)
-            resetEvaluated(it);
-        typeAndKeywords(it);
-        returnResults(it);
-    });
-    return;
-}
-function resetEvaluated(it) {
-    // TODO maybe some hook to execute it in the end to check whether props/items are Name, as in assignEvaluated
-    const { gen, validateName } = it;
-    it.evaluated = gen.const("evaluated", (0, codegen_1$r._) `${validateName}.evaluated`);
-    gen.if((0, codegen_1$r._) `${it.evaluated}.dynamicProps`, () => gen.assign((0, codegen_1$r._) `${it.evaluated}.props`, (0, codegen_1$r._) `undefined`));
-    gen.if((0, codegen_1$r._) `${it.evaluated}.dynamicItems`, () => gen.assign((0, codegen_1$r._) `${it.evaluated}.items`, (0, codegen_1$r._) `undefined`));
-}
-function funcSourceUrl(schema, opts) {
-    const schId = typeof schema == "object" && schema[opts.schemaId];
-    return schId && (opts.code.source || opts.code.process) ? (0, codegen_1$r._) `/*# sourceURL=${schId} */` : codegen_1$r.nil;
-}
-// schema compilation - this function is used recursively to generate code for sub-schemas
-function subschemaCode(it, valid) {
-    if (isSchemaObj(it)) {
-        checkKeywords(it);
-        if (schemaCxtHasRules(it)) {
-            subSchemaObjCode(it, valid);
-            return;
-        }
-    }
-    (0, boolSchema_1.boolOrEmptySchema)(it, valid);
-}
-function schemaCxtHasRules({ schema, self }) {
-    if (typeof schema == "boolean")
-        return !schema;
-    for (const key in schema)
-        if (self.RULES.all[key])
-            return true;
-    return false;
-}
-function isSchemaObj(it) {
-    return typeof it.schema != "boolean";
-}
-function subSchemaObjCode(it, valid) {
-    const { schema, gen, opts } = it;
-    if (opts.$comment && schema.$comment)
-        commentKeyword(it);
-    updateContext$1(it);
-    checkAsyncSchema(it);
-    const errsCount = gen.const("_errs", names_1$6.default.errors);
-    typeAndKeywords(it, errsCount);
-    // TODO var
-    gen.var(valid, (0, codegen_1$r._) `${errsCount} === ${names_1$6.default.errors}`);
-}
-function checkKeywords(it) {
-    (0, util_1$p.checkUnknownRules)(it);
-    checkRefsAndKeywords(it);
-}
-function typeAndKeywords(it, errsCount) {
-    if (it.opts.jtd)
-        return schemaKeywords(it, [], false, errsCount);
-    const types = (0, dataType_1$1.getSchemaTypes)(it.schema);
-    const checkedTypes = (0, dataType_1$1.coerceAndCheckDataType)(it, types);
-    schemaKeywords(it, types, !checkedTypes, errsCount);
-}
-function checkRefsAndKeywords(it) {
-    const { schema, errSchemaPath, opts, self } = it;
-    if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1$p.schemaHasRulesButRef)(schema, self.RULES)) {
-        self.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`);
-    }
-}
-function checkNoDefault(it) {
-    const { schema, opts } = it;
-    if (schema.default !== undefined && opts.useDefaults && opts.strictSchema) {
-        (0, util_1$p.checkStrictMode)(it, "default is ignored in the schema root");
-    }
-}
-function updateContext$1(it) {
-    const schId = it.schema[it.opts.schemaId];
-    if (schId)
-        it.baseId = (0, resolve_1$2.resolveUrl)(it.opts.uriResolver, it.baseId, schId);
-}
-function checkAsyncSchema(it) {
-    if (it.schema.$async && !it.schemaEnv.$async)
-        throw new Error("async schema in sync schema");
-}
-function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
-    const msg = schema.$comment;
-    if (opts.$comment === true) {
-        gen.code((0, codegen_1$r._) `${names_1$6.default.self}.logger.log(${msg})`);
-    }
-    else if (typeof opts.$comment == "function") {
-        const schemaPath = (0, codegen_1$r.str) `${errSchemaPath}/$comment`;
-        const rootName = gen.scopeValue("root", { ref: schemaEnv.root });
-        gen.code((0, codegen_1$r._) `${names_1$6.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`);
-    }
-}
-function returnResults(it) {
-    const { gen, schemaEnv, validateName, ValidationError, opts } = it;
-    if (schemaEnv.$async) {
-        // TODO assign unevaluated
-        gen.if((0, codegen_1$r._) `${names_1$6.default.errors} === 0`, () => gen.return(names_1$6.default.data), () => gen.throw((0, codegen_1$r._) `new ${ValidationError}(${names_1$6.default.vErrors})`));
-    }
-    else {
-        gen.assign((0, codegen_1$r._) `${validateName}.errors`, names_1$6.default.vErrors);
-        if (opts.unevaluated)
-            assignEvaluated(it);
-        gen.return((0, codegen_1$r._) `${names_1$6.default.errors} === 0`);
-    }
-}
-function assignEvaluated({ gen, evaluated, props, items }) {
-    if (props instanceof codegen_1$r.Name)
-        gen.assign((0, codegen_1$r._) `${evaluated}.props`, props);
-    if (items instanceof codegen_1$r.Name)
-        gen.assign((0, codegen_1$r._) `${evaluated}.items`, items);
-}
-function schemaKeywords(it, types, typeErrors, errsCount) {
-    const { gen, schema, data, allErrors, opts, self } = it;
-    const { RULES } = self;
-    if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1$p.schemaHasRulesButRef)(schema, RULES))) {
-        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition)); // TODO typecast
-        return;
-    }
-    if (!opts.jtd)
-        checkStrictTypes(it, types);
-    gen.block(() => {
-        for (const group of RULES.rules)
-            groupKeywords(group);
-        groupKeywords(RULES.post);
-    });
-    function groupKeywords(group) {
-        if (!(0, applicability_1.shouldUseGroup)(schema, group))
-            return;
-        if (group.type) {
-            gen.if((0, dataType_2.checkDataType)(group.type, data, opts.strictNumbers));
-            iterateKeywords(it, group);
-            if (types.length === 1 && types[0] === group.type && typeErrors) {
-                gen.else();
-                (0, dataType_2.reportTypeError)(it);
-            }
-            gen.endIf();
-        }
-        else {
-            iterateKeywords(it, group);
-        }
-        // TODO make it "ok" call?
-        if (!allErrors)
-            gen.if((0, codegen_1$r._) `${names_1$6.default.errors} === ${errsCount || 0}`);
-    }
-}
-function iterateKeywords(it, group) {
-    const { gen, schema, opts: { useDefaults }, } = it;
-    if (useDefaults)
-        (0, defaults_1.assignDefaults)(it, group.type);
-    gen.block(() => {
-        for (const rule of group.rules) {
-            if ((0, applicability_1.shouldUseRule)(schema, rule)) {
-                keywordCode(it, rule.keyword, rule.definition, group.type);
-            }
-        }
-    });
-}
-function checkStrictTypes(it, types) {
-    if (it.schemaEnv.meta || !it.opts.strictTypes)
-        return;
-    checkContextTypes(it, types);
-    if (!it.opts.allowUnionTypes)
-        checkMultipleTypes(it, types);
-    checkKeywordTypes(it, it.dataTypes);
-}
-function checkContextTypes(it, types) {
-    if (!types.length)
-        return;
-    if (!it.dataTypes.length) {
-        it.dataTypes = types;
-        return;
-    }
-    types.forEach((t) => {
-        if (!includesType(it.dataTypes, t)) {
-            strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(",")}"`);
-        }
-    });
-    narrowSchemaTypes(it, types);
-}
-function checkMultipleTypes(it, ts) {
-    if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
-        strictTypesError(it, "use allowUnionTypes to allow union type keyword");
-    }
-}
-function checkKeywordTypes(it, ts) {
-    const rules = it.self.RULES.all;
-    for (const keyword in rules) {
-        const rule = rules[keyword];
-        if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
-            const { type } = rule.definition;
-            if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
-                strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
-            }
-        }
-    }
-}
-function hasApplicableType(schTs, kwdT) {
-    return schTs.includes(kwdT) || (kwdT === "number" && schTs.includes("integer"));
-}
-function includesType(ts, t) {
-    return ts.includes(t) || (t === "integer" && ts.includes("number"));
-}
-function narrowSchemaTypes(it, withTypes) {
-    const ts = [];
-    for (const t of it.dataTypes) {
-        if (includesType(withTypes, t))
-            ts.push(t);
-        else if (withTypes.includes("integer") && t === "number")
-            ts.push("integer");
-    }
-    it.dataTypes = ts;
-}
-function strictTypesError(it, msg) {
-    const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
-    msg += ` at "${schemaPath}" (strictTypes)`;
-    (0, util_1$p.checkStrictMode)(it, msg, it.opts.strictTypes);
-}
-class KeywordCxt {
-    constructor(it, def, keyword) {
-        (0, keyword_1.validateKeywordUsage)(it, def, keyword);
-        this.gen = it.gen;
-        this.allErrors = it.allErrors;
-        this.keyword = keyword;
-        this.data = it.data;
-        this.schema = it.schema[keyword];
-        this.$data = def.$data && it.opts.$data && this.schema && this.schema.$data;
-        this.schemaValue = (0, util_1$p.schemaRefOrVal)(it, this.schema, keyword, this.$data);
-        this.schemaType = def.schemaType;
-        this.parentSchema = it.schema;
-        this.params = {};
-        this.it = it;
-        this.def = def;
-        if (this.$data) {
-            this.schemaCode = it.gen.const("vSchema", getData(this.$data, it));
-        }
-        else {
-            this.schemaCode = this.schemaValue;
-            if (!(0, keyword_1.validSchemaType)(this.schema, def.schemaType, def.allowUndefined)) {
-                throw new Error(`${keyword} value must be ${JSON.stringify(def.schemaType)}`);
-            }
-        }
-        if ("code" in def ? def.trackErrors : def.errors !== false) {
-            this.errsCount = it.gen.const("_errs", names_1$6.default.errors);
-        }
-    }
-    result(condition, successAction, failAction) {
-        this.failResult((0, codegen_1$r.not)(condition), successAction, failAction);
-    }
-    failResult(condition, successAction, failAction) {
-        this.gen.if(condition);
-        if (failAction)
-            failAction();
-        else
-            this.error();
-        if (successAction) {
-            this.gen.else();
-            successAction();
-            if (this.allErrors)
-                this.gen.endIf();
-        }
-        else {
-            if (this.allErrors)
-                this.gen.endIf();
-            else
-                this.gen.else();
-        }
-    }
-    pass(condition, failAction) {
-        this.failResult((0, codegen_1$r.not)(condition), undefined, failAction);
-    }
-    fail(condition) {
-        if (condition === undefined) {
-            this.error();
-            if (!this.allErrors)
-                this.gen.if(false); // this branch will be removed by gen.optimize
-            return;
-        }
-        this.gen.if(condition);
-        this.error();
-        if (this.allErrors)
-            this.gen.endIf();
-        else
-            this.gen.else();
-    }
-    fail$data(condition) {
-        if (!this.$data)
-            return this.fail(condition);
-        const { schemaCode } = this;
-        this.fail((0, codegen_1$r._) `${schemaCode} !== undefined && (${(0, codegen_1$r.or)(this.invalid$data(), condition)})`);
-    }
-    error(append, errorParams, errorPaths) {
-        if (errorParams) {
-            this.setParams(errorParams);
-            this._error(append, errorPaths);
-            this.setParams({});
-            return;
-        }
-        this._error(append, errorPaths);
-    }
-    _error(append, errorPaths) {
-        (append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths);
-    }
-    $dataError() {
-        (0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError);
-    }
-    reset() {
-        if (this.errsCount === undefined)
-            throw new Error('add "trackErrors" to keyword definition');
-        (0, errors_1.resetErrorsCount)(this.gen, this.errsCount);
-    }
-    ok(cond) {
-        if (!this.allErrors)
-            this.gen.if(cond);
-    }
-    setParams(obj, assign) {
-        if (assign)
-            Object.assign(this.params, obj);
-        else
-            this.params = obj;
-    }
-    block$data(valid, codeBlock, $dataValid = codegen_1$r.nil) {
-        this.gen.block(() => {
-            this.check$data(valid, $dataValid);
-            codeBlock();
-        });
-    }
-    check$data(valid = codegen_1$r.nil, $dataValid = codegen_1$r.nil) {
-        if (!this.$data)
-            return;
-        const { gen, schemaCode, schemaType, def } = this;
-        gen.if((0, codegen_1$r.or)((0, codegen_1$r._) `${schemaCode} === undefined`, $dataValid));
-        if (valid !== codegen_1$r.nil)
-            gen.assign(valid, true);
-        if (schemaType.length || def.validateSchema) {
-            gen.elseIf(this.invalid$data());
-            this.$dataError();
-            if (valid !== codegen_1$r.nil)
-                gen.assign(valid, false);
-        }
-        gen.else();
-    }
-    invalid$data() {
-        const { gen, schemaCode, schemaType, def, it } = this;
-        return (0, codegen_1$r.or)(wrong$DataType(), invalid$DataSchema());
-        function wrong$DataType() {
-            if (schemaType.length) {
-                /* istanbul ignore if */
-                if (!(schemaCode instanceof codegen_1$r.Name))
-                    throw new Error("ajv implementation error");
-                const st = Array.isArray(schemaType) ? schemaType : [schemaType];
-                return (0, codegen_1$r._) `${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`;
-            }
-            return codegen_1$r.nil;
-        }
-        function invalid$DataSchema() {
-            if (def.validateSchema) {
-                const validateSchemaRef = gen.scopeValue("validate$data", { ref: def.validateSchema }); // TODO value.code for standalone
-                return (0, codegen_1$r._) `!${validateSchemaRef}(${schemaCode})`;
-            }
-            return codegen_1$r.nil;
-        }
-    }
-    subschema(appl, valid) {
-        const subschema = (0, subschema_1.getSubschema)(this.it, appl);
-        (0, subschema_1.extendSubschemaData)(subschema, this.it, appl);
-        (0, subschema_1.extendSubschemaMode)(subschema, appl);
-        const nextContext = { ...this.it, ...subschema, items: undefined, props: undefined };
-        subschemaCode(nextContext, valid);
-        return nextContext;
-    }
-    mergeEvaluated(schemaCxt, toName) {
-        const { it, gen } = this;
-        if (!it.opts.unevaluated)
-            return;
-        if (it.props !== true && schemaCxt.props !== undefined) {
-            it.props = util_1$p.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName);
-        }
-        if (it.items !== true && schemaCxt.items !== undefined) {
-            it.items = util_1$p.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName);
-        }
-    }
-    mergeValidEvaluated(schemaCxt, valid) {
-        const { it, gen } = this;
-        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
-            gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1$r.Name));
-            return true;
-        }
-    }
-}
-validate.KeywordCxt = KeywordCxt;
-function keywordCode(it, keyword, def, ruleType) {
-    const cxt = new KeywordCxt(it, def, keyword);
-    if ("code" in def) {
-        def.code(cxt, ruleType);
-    }
-    else if (cxt.$data && def.validate) {
-        (0, keyword_1.funcKeywordCode)(cxt, def);
-    }
-    else if ("macro" in def) {
-        (0, keyword_1.macroKeywordCode)(cxt, def);
-    }
-    else if (def.compile || def.validate) {
-        (0, keyword_1.funcKeywordCode)(cxt, def);
-    }
-}
-const JSON_POINTER = /^\/(?:[^~]|~0|~1)*$/;
-const RELATIVE_JSON_POINTER = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/;
-function getData($data, { dataLevel, dataNames, dataPathArr }) {
-    let jsonPointer;
-    let data;
-    if ($data === "")
-        return names_1$6.default.rootData;
-    if ($data[0] === "/") {
-        if (!JSON_POINTER.test($data))
-            throw new Error(`Invalid JSON-pointer: ${$data}`);
-        jsonPointer = $data;
-        data = names_1$6.default.rootData;
-    }
-    else {
-        const matches = RELATIVE_JSON_POINTER.exec($data);
-        if (!matches)
-            throw new Error(`Invalid JSON-pointer: ${$data}`);
-        const up = +matches[1];
-        jsonPointer = matches[2];
-        if (jsonPointer === "#") {
-            if (up >= dataLevel)
-                throw new Error(errorMsg("property/index", up));
-            return dataPathArr[dataLevel - up];
-        }
-        if (up > dataLevel)
-            throw new Error(errorMsg("data", up));
-        data = dataNames[dataLevel - up];
-        if (!jsonPointer)
-            return data;
-    }
-    let expr = data;
-    const segments = jsonPointer.split("/");
-    for (const segment of segments) {
-        if (segment) {
-            data = (0, codegen_1$r._) `${data}${(0, codegen_1$r.getProperty)((0, util_1$p.unescapeJsonPointer)(segment))}`;
-            expr = (0, codegen_1$r._) `${expr} && ${data}`;
-        }
-    }
-    return expr;
-    function errorMsg(pointerType, up) {
-        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
-    }
-}
-validate.getData = getData;
 
 var validation_error = {};
 
-Object.defineProperty(validation_error, "__esModule", { value: true });
-class ValidationError extends Error {
-    constructor(errors) {
-        super("validation failed");
-        this.errors = errors;
-        this.ajv = this.validation = true;
-    }
+var hasRequiredValidation_error;
+
+function requireValidation_error () {
+	if (hasRequiredValidation_error) return validation_error;
+	hasRequiredValidation_error = 1;
+	Object.defineProperty(validation_error, "__esModule", { value: true });
+	class ValidationError extends Error {
+	    constructor(errors) {
+	        super("validation failed");
+	        this.errors = errors;
+	        this.ajv = this.validation = true;
+	    }
+	}
+	validation_error.default = ValidationError;
+	
+	return validation_error;
 }
-validation_error.default = ValidationError;
 
 var ref_error = {};
 
-Object.defineProperty(ref_error, "__esModule", { value: true });
-const resolve_1$1 = resolve$1;
-class MissingRefError extends Error {
-    constructor(resolver, baseId, ref, msg) {
-        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
-        this.missingRef = (0, resolve_1$1.resolveUrl)(resolver, baseId, ref);
-        this.missingSchema = (0, resolve_1$1.normalizeId)((0, resolve_1$1.getFullPath)(resolver, this.missingRef));
-    }
+var hasRequiredRef_error;
+
+function requireRef_error () {
+	if (hasRequiredRef_error) return ref_error;
+	hasRequiredRef_error = 1;
+	Object.defineProperty(ref_error, "__esModule", { value: true });
+	const resolve_1 = resolve$1;
+	class MissingRefError extends Error {
+	    constructor(resolver, baseId, ref, msg) {
+	        super(msg || `can't resolve reference ${ref} from id ${baseId}`);
+	        this.missingRef = (0, resolve_1.resolveUrl)(resolver, baseId, ref);
+	        this.missingSchema = (0, resolve_1.normalizeId)((0, resolve_1.getFullPath)(resolver, this.missingRef));
+	    }
+	}
+	ref_error.default = MissingRefError;
+	
+	return ref_error;
 }
-ref_error.default = MissingRefError;
 
 var compile = {};
 
 Object.defineProperty(compile, "__esModule", { value: true });
 compile.resolveSchema = compile.getCompilingSchema = compile.resolveRef = compile.compileSchema = compile.SchemaEnv = void 0;
-const codegen_1$q = codegen;
-const validation_error_1 = validation_error;
-const names_1$5 = names$1;
+const codegen_1$q = requireCodegen();
+const validation_error_1 = requireValidation_error();
+const names_1$5 = requireNames();
 const resolve_1 = resolve$1;
 const util_1$o = util;
-const validate_1$1 = validate;
+const validate_1$1 = requireValidate();
 class SchemaEnv {
     constructor(env) {
         var _a;
@@ -5555,20 +5641,20 @@ uri$1.default = uri;
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
-	var validate_1 = validate;
+	var validate_1 = requireValidate();
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = codegen;
+	var codegen_1 = requireCodegen();
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	const validation_error_1 = validation_error;
-	const ref_error_1 = ref_error;
+	const validation_error_1 = requireValidation_error();
+	const ref_error_1 = requireRef_error();
 	const rules_1 = rules;
 	const compile_1 = compile;
-	const codegen_2 = codegen;
+	const codegen_2 = requireCodegen();
 	const resolve_1 = resolve$1;
 	const dataType_1 = dataType;
 	const util_1 = util;
@@ -6191,10 +6277,10 @@ var ref = {};
 
 Object.defineProperty(ref, "__esModule", { value: true });
 ref.callRef = ref.getValidate = void 0;
-const ref_error_1$1 = ref_error;
-const code_1$8 = code;
-const codegen_1$p = codegen;
-const names_1$4 = names$1;
+const ref_error_1$1 = requireRef_error();
+const code_1$8 = requireCode();
+const codegen_1$p = requireCodegen();
+const names_1$4 = requireNames();
 const compile_1$2 = compile;
 const util_1$n = util;
 const def$A = {
@@ -6330,7 +6416,7 @@ var validation$2 = {};
 var limitNumber = {};
 
 Object.defineProperty(limitNumber, "__esModule", { value: true });
-const codegen_1$o = codegen;
+const codegen_1$o = requireCodegen();
 const ops = codegen_1$o.operators;
 const KWDs = {
     maximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
@@ -6358,7 +6444,7 @@ limitNumber.default = def$z;
 var multipleOf = {};
 
 Object.defineProperty(multipleOf, "__esModule", { value: true });
-const codegen_1$n = codegen;
+const codegen_1$n = requireCodegen();
 const error$j = {
     message: ({ schemaCode }) => (0, codegen_1$n.str) `must be multiple of ${schemaCode}`,
     params: ({ schemaCode }) => (0, codegen_1$n._) `{multipleOf: ${schemaCode}}`,
@@ -6410,7 +6496,7 @@ ucs2length$1.default = ucs2length;
 ucs2length.code = 'require("ajv/dist/runtime/ucs2length").default';
 
 Object.defineProperty(limitLength, "__esModule", { value: true });
-const codegen_1$m = codegen;
+const codegen_1$m = requireCodegen();
 const util_1$m = util;
 const ucs2length_1 = ucs2length$1;
 const error$i = {
@@ -6438,8 +6524,8 @@ limitLength.default = def$x;
 var pattern = {};
 
 Object.defineProperty(pattern, "__esModule", { value: true });
-const code_1$7 = code;
-const codegen_1$l = codegen;
+const code_1$7 = requireCode();
+const codegen_1$l = requireCodegen();
 const error$h = {
     message: ({ schemaCode }) => (0, codegen_1$l.str) `must match pattern "${schemaCode}"`,
     params: ({ schemaCode }) => (0, codegen_1$l._) `{pattern: ${schemaCode}}`,
@@ -6463,7 +6549,7 @@ pattern.default = def$w;
 var limitProperties = {};
 
 Object.defineProperty(limitProperties, "__esModule", { value: true });
-const codegen_1$k = codegen;
+const codegen_1$k = requireCodegen();
 const error$g = {
     message({ keyword, schemaCode }) {
         const comp = keyword === "maxProperties" ? "more" : "fewer";
@@ -6488,8 +6574,8 @@ limitProperties.default = def$v;
 var required = {};
 
 Object.defineProperty(required, "__esModule", { value: true });
-const code_1$6 = code;
-const codegen_1$j = codegen;
+const code_1$6 = requireCode();
+const codegen_1$j = requireCodegen();
 const util_1$l = util;
 const error$f = {
     message: ({ params: { missingProperty } }) => (0, codegen_1$j.str) `must have required property '${missingProperty}'`,
@@ -6568,7 +6654,7 @@ required.default = def$u;
 var limitItems = {};
 
 Object.defineProperty(limitItems, "__esModule", { value: true });
-const codegen_1$i = codegen;
+const codegen_1$i = requireCodegen();
 const error$e = {
     message({ keyword, schemaCode }) {
         const comp = keyword === "maxItems" ? "more" : "fewer";
@@ -6602,7 +6688,7 @@ equal$1.default = equal;
 
 Object.defineProperty(uniqueItems, "__esModule", { value: true });
 const dataType_1 = dataType;
-const codegen_1$h = codegen;
+const codegen_1$h = requireCodegen();
 const util_1$k = util;
 const equal_1$2 = equal$1;
 const error$d = {
@@ -6666,7 +6752,7 @@ uniqueItems.default = def$s;
 var _const = {};
 
 Object.defineProperty(_const, "__esModule", { value: true });
-const codegen_1$g = codegen;
+const codegen_1$g = requireCodegen();
 const util_1$j = util;
 const equal_1$1 = equal$1;
 const error$c = {
@@ -6692,7 +6778,7 @@ _const.default = def$r;
 var _enum = {};
 
 Object.defineProperty(_enum, "__esModule", { value: true });
-const codegen_1$f = codegen;
+const codegen_1$f = requireCodegen();
 const util_1$i = util;
 const equal_1 = equal$1;
 const error$b = {
@@ -6776,7 +6862,7 @@ var additionalItems = {};
 
 Object.defineProperty(additionalItems, "__esModule", { value: true });
 additionalItems.validateAdditionalItems = void 0;
-const codegen_1$e = codegen;
+const codegen_1$e = requireCodegen();
 const util_1$h = util;
 const error$a = {
     message: ({ params: { len } }) => (0, codegen_1$e.str) `must NOT have more than ${len} items`,
@@ -6828,9 +6914,9 @@ var items = {};
 
 Object.defineProperty(items, "__esModule", { value: true });
 items.validateTuple = void 0;
-const codegen_1$d = codegen;
+const codegen_1$d = requireCodegen();
 const util_1$g = util;
-const code_1$5 = code;
+const code_1$5 = requireCode();
 const def$o = {
     keyword: "items",
     type: "array",
@@ -6891,9 +6977,9 @@ prefixItems.default = def$n;
 var items2020 = {};
 
 Object.defineProperty(items2020, "__esModule", { value: true });
-const codegen_1$c = codegen;
+const codegen_1$c = requireCodegen();
 const util_1$f = util;
-const code_1$4 = code;
+const code_1$4 = requireCode();
 const additionalItems_1$1 = additionalItems;
 const error$9 = {
     message: ({ params: { len } }) => (0, codegen_1$c.str) `must NOT have more than ${len} items`,
@@ -6922,7 +7008,7 @@ items2020.default = def$m;
 var contains = {};
 
 Object.defineProperty(contains, "__esModule", { value: true });
-const codegen_1$b = codegen;
+const codegen_1$b = requireCodegen();
 const util_1$e = util;
 const error$8 = {
     message: ({ params: { min, max } }) => max === undefined
@@ -7020,9 +7106,9 @@ var dependencies = {};
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const util_1 = util;
-	const code_1 = code;
+	const code_1 = requireCode();
 	exports.error = {
 	    message: ({ params: { property, depsCount, deps } }) => {
 	        const property_ies = depsCount === 1 ? "property" : "properties";
@@ -7107,7 +7193,7 @@ var dependencies = {};
 var propertyNames = {};
 
 Object.defineProperty(propertyNames, "__esModule", { value: true });
-const codegen_1$a = codegen;
+const codegen_1$a = requireCodegen();
 const util_1$d = util;
 const error$7 = {
     message: "property name must be valid",
@@ -7146,9 +7232,9 @@ propertyNames.default = def$k;
 var additionalProperties = {};
 
 Object.defineProperty(additionalProperties, "__esModule", { value: true });
-const code_1$3 = code;
-const codegen_1$9 = codegen;
-const names_1$3 = names$1;
+const code_1$3 = requireCode();
+const codegen_1$9 = requireCodegen();
+const names_1$3 = requireNames();
 const util_1$c = util;
 const error$6 = {
     message: "must NOT have additional properties",
@@ -7253,8 +7339,8 @@ additionalProperties.default = def$j;
 var properties$9 = {};
 
 Object.defineProperty(properties$9, "__esModule", { value: true });
-const validate_1 = validate;
-const code_1$2 = code;
+const validate_1 = requireValidate();
+const code_1$2 = requireCode();
 const util_1$b = util;
 const additionalProperties_1$1 = additionalProperties;
 const def$i = {
@@ -7308,8 +7394,8 @@ properties$9.default = def$i;
 var patternProperties = {};
 
 Object.defineProperty(patternProperties, "__esModule", { value: true });
-const code_1$1 = code;
-const codegen_1$8 = codegen;
+const code_1$1 = requireCode();
+const codegen_1$8 = requireCodegen();
 const util_1$a = util;
 const util_2 = util;
 const def$h = {
@@ -7411,7 +7497,7 @@ not.default = def$g;
 var anyOf = {};
 
 Object.defineProperty(anyOf, "__esModule", { value: true });
-const code_1 = code;
+const code_1 = requireCode();
 const def$f = {
     keyword: "anyOf",
     schemaType: "array",
@@ -7424,7 +7510,7 @@ anyOf.default = def$f;
 var oneOf = {};
 
 Object.defineProperty(oneOf, "__esModule", { value: true });
-const codegen_1$7 = codegen;
+const codegen_1$7 = requireCodegen();
 const util_1$8 = util;
 const error$5 = {
     message: "must match exactly one schema in oneOf",
@@ -7509,7 +7595,7 @@ allOf$1.default = def$d;
 var _if = {};
 
 Object.defineProperty(_if, "__esModule", { value: true });
-const codegen_1$6 = codegen;
+const codegen_1$6 = requireCodegen();
 const util_1$6 = util;
 const error$4 = {
     message: ({ params }) => (0, codegen_1$6.str) `must match "${params.ifClause}" schema`,
@@ -7635,7 +7721,7 @@ var format$3 = {};
 var format$2 = {};
 
 Object.defineProperty(format$2, "__esModule", { value: true });
-const codegen_1$5 = codegen;
+const codegen_1$5 = requireCodegen();
 const error$3 = {
     message: ({ schemaCode }) => (0, codegen_1$5.str) `must match format "${schemaCode}"`,
     params: ({ schemaCode }) => (0, codegen_1$5._) `{format: ${schemaCode}}`,
@@ -7778,10 +7864,10 @@ var DiscrError;
 })(DiscrError || (types.DiscrError = DiscrError = {}));
 
 Object.defineProperty(discriminator, "__esModule", { value: true });
-const codegen_1$4 = codegen;
+const codegen_1$4 = requireCodegen();
 const types_1 = types;
 const compile_1$1 = compile;
-const ref_error_1 = ref_error;
+const ref_error_1 = requireRef_error();
 const util_1$4 = util;
 const error$2 = {
     message: ({ params: { discrError, tagName } }) => discrError === types_1.DiscrError.Tag
@@ -8168,18 +8254,18 @@ var require$$3$1 = {
 	module.exports.Ajv = Ajv;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.default = Ajv;
-	var validate_1 = validate;
+	var validate_1 = requireValidate();
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = codegen;
+	var codegen_1 = requireCodegen();
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = validation_error;
+	var validation_error_1 = requireValidation_error();
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
-	var ref_error_1 = ref_error;
+	var ref_error_1 = requireRef_error();
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
 	
 } (ajv, ajv.exports));
@@ -8190,7 +8276,7 @@ var ajvExports = ajv.exports;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.formatLimitDefinition = void 0;
 	const ajv_1 = ajvExports;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const ops = codegen_1.operators;
 	const KWDs = {
 	    formatMaximum: { okStr: "<=", ok: ops.LTE, fail: ops.GT },
@@ -8261,7 +8347,7 @@ var ajvExports = ajv.exports;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	const formats_1 = formats;
 	const limit_1 = limit;
-	const codegen_1 = codegen;
+	const codegen_1 = requireCodegen();
 	const fullName = new codegen_1.Name("fullFormats");
 	const fastName = new codegen_1.Name("fastFormats");
 	const formatsPlugin = (ajv, opts = { keywords: true }) => {
@@ -8309,8 +8395,8 @@ var dynamicAnchor$1 = {};
 
 Object.defineProperty(dynamicAnchor$1, "__esModule", { value: true });
 dynamicAnchor$1.dynamicAnchor = void 0;
-const codegen_1$3 = codegen;
-const names_1$2 = names$1;
+const codegen_1$3 = requireCodegen();
+const names_1$2 = requireNames();
 const compile_1 = compile;
 const ref_1$1 = ref;
 const def$8 = {
@@ -8340,8 +8426,8 @@ var dynamicRef$1 = {};
 
 Object.defineProperty(dynamicRef$1, "__esModule", { value: true });
 dynamicRef$1.dynamicRef = void 0;
-const codegen_1$2 = codegen;
-const names_1$1 = names$1;
+const codegen_1$2 = requireCodegen();
+const names_1$1 = requireNames();
 const ref_1 = ref;
 const def$7 = {
     keyword: "$dynamicRef",
@@ -8479,9 +8565,9 @@ var unevaluated$2 = {};
 var unevaluatedProperties = {};
 
 Object.defineProperty(unevaluatedProperties, "__esModule", { value: true });
-const codegen_1$1 = codegen;
+const codegen_1$1 = requireCodegen();
 const util_1$1 = util;
-const names_1 = names$1;
+const names_1 = requireNames();
 const error$1 = {
     message: "must NOT have unevaluated properties",
     params: ({ params }) => (0, codegen_1$1._) `{unevaluatedProperty: ${params.unevaluatedProperty}}`,
@@ -8545,7 +8631,7 @@ unevaluatedProperties.default = def$1;
 var unevaluatedItems = {};
 
 Object.defineProperty(unevaluatedItems, "__esModule", { value: true });
-const codegen_1 = codegen;
+const codegen_1 = requireCodegen();
 const util_1 = util;
 const error = {
     message: ({ params: { len } }) => (0, codegen_1.str) `must NOT have more than ${len} items`,
@@ -9211,18 +9297,18 @@ jsonSchema202012.default = addMetaSchema2020;
 	module.exports.Ajv2020 = Ajv2020;
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.default = Ajv2020;
-	var validate_1 = validate;
+	var validate_1 = requireValidate();
 	Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function () { return validate_1.KeywordCxt; } });
-	var codegen_1 = codegen;
+	var codegen_1 = requireCodegen();
 	Object.defineProperty(exports, "_", { enumerable: true, get: function () { return codegen_1._; } });
 	Object.defineProperty(exports, "str", { enumerable: true, get: function () { return codegen_1.str; } });
 	Object.defineProperty(exports, "stringify", { enumerable: true, get: function () { return codegen_1.stringify; } });
 	Object.defineProperty(exports, "nil", { enumerable: true, get: function () { return codegen_1.nil; } });
 	Object.defineProperty(exports, "Name", { enumerable: true, get: function () { return codegen_1.Name; } });
 	Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function () { return codegen_1.CodeGen; } });
-	var validation_error_1 = validation_error;
+	var validation_error_1 = requireValidation_error();
 	Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function () { return validation_error_1.default; } });
-	var ref_error_1 = ref_error;
+	var ref_error_1 = requireRef_error();
 	Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function () { return ref_error_1.default; } });
 	
 } (_2020, _2020.exports));

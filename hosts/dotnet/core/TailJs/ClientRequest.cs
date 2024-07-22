@@ -52,7 +52,7 @@ public class ClientRequest
     return this;
   }
 
-  [ScriptMember("payload")]
+  [ScriptMember("body")]
   public object? Payload() =>
     _payload == null
       ? null

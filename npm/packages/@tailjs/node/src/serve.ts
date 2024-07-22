@@ -1,9 +1,5 @@
 import http, { createServer } from "http";
-import {
-  TailJsMiddlewareRequest,
-  TailJsMiddlewareSettings,
-  createMiddleware,
-} from ".";
+import { TailJsMiddlewareSettings, createMiddleware } from ".";
 
 export const serve = async ({
   host,
@@ -41,17 +37,13 @@ export const serve = async ({
     }
   );
 
+  server.on("listening", () => {
+    console.log(`Tail.js server listening on ${host ?? "0.0.0.0:" + port}`);
+  });
+
   if (host) {
-    host = host?.replace(/.*:(\d+)$/, (_, hostPort) => {
-      port = parseInt(hostPort);
-      return "";
-    });
-    if (port) {
-      server.listen(port, host);
-    } else {
-      server.listen(host);
-    }
+    server.listen(host);
   } else {
-    server.listen(port);
+    server.listen((port ??= 7412));
   }
 };
