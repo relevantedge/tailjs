@@ -519,3 +519,6 @@ export const round = <T extends number | Nullish>(
     ? number
     : ((decimals = Math.pow(10, !decimals || decimals === true ? 0 : decimals)),
       Math.round(number * decimals) / decimals);
+
+export const isJsonObject = (value: any): value is JsonObject =>
+  isPlainObject(value);
