@@ -1,5 +1,6 @@
 import { findWorkspaceDir } from "@pnpm/find-workspace-dir";
 import replace from "@rollup/plugin-replace";
+import { ChildProcess, spawn } from "child_process";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
@@ -67,8 +68,25 @@ export const watchOptions: RollupOptions["watch"] = {
 };
 export const build = async (options: RollupOptions[]) => {
   await Promise.all(
-    options.map(async (config) => {
+    options.map(async (config, i) => {
       if (!config.output) return;
+      const script =
+        i == 0
+          ? process.argv
+              .map((value, index) =>
+                value === "-e" ? process.argv[index + 1] : undefined
+              )
+              .filter((item) => item)?.[0]
+          : undefined;
+
+      const watchMode = process.argv.includes("-w");
+
+      const isTypes = config.plugins?.[0]?.name === "dts";
+
+      if (isTypes && (watchMode || process.argv.includes("-T"))) {
+        return;
+      }
+
       const outputs = Array.isArray(config.output)
         ? config.output
         : [config.output];
@@ -86,24 +104,59 @@ export const build = async (options: RollupOptions[]) => {
         },
       };
 
-      if (process.argv.includes("-w")) {
+      let currentProcess: ChildProcess | undefined;
+
+      const buildName = `${config.input}${isTypes ? ` (types)` : ""} -> ${
+        outputs[0].dir
+          ? path.relative(process.cwd(), outputs[0].dir)
+          : "(unknown)"
+      }`;
+      let processExited: () => any;
+      let waitForProcessExit: Promise<void> | undefined;
+
+      const runScript = async () => {
+        if (!script) {
+          return;
+        }
+
+        if (waitForProcessExit) {
+          currentProcess?.kill();
+        }
+
+        await waitForProcessExit!;
+        waitForProcessExit = new Promise((r) => (processExited = r));
+
+        currentProcess = spawn("node " + "dist/" + script + ".cjs", {
+          cwd: "dist",
+          shell: true,
+          stdio: "inherit",
+        });
+
+        if (currentProcess.exitCode) {
+          processExited();
+        }
+
+        currentProcess.on("exit", () => {
+          processExited();
+        });
+      };
+
+      console.log(`Build ${buildName} started.`);
+      if (watchMode) {
         let resolve: any;
         const waitForFirstBuild = new Promise((r) => (resolve = r));
         const watcher = watch(config);
         watcher.on("event", (ev) => {
           if (ev.code === "START") {
-            console.log("Build started.");
+            console.log(`Build started. ${config.input}`);
           } else if (ev.code === "ERROR") {
             console.log(ev.error.cause);
           } else if (ev.code === "BUNDLE_END") {
             ev.result?.close();
           } else if (ev.code === "END") {
-            console.log(
-              `Build  completed for '${[outputs[0].dir, outputs[0].name]
-                .join("/")
-                .replace(/\\/g, "/")}'.`
-            );
+            console.log(`Build ${buildName} completed.`);
             resolve();
+            runScript();
           }
         });
 
@@ -111,6 +164,8 @@ export const build = async (options: RollupOptions[]) => {
       } else {
         const bundle = await rollup(config);
         await Promise.all(outputs.map((output) => bundle.write(output)));
+        console.log(`Build ${buildName} completed.`);
+        runScript();
       }
     })
   );
@@ -141,9 +196,9 @@ export async function env(client?: boolean): Promise<PackageEnvironment> {
   });
 }
 
-export function applyDefaultConfiguration(config: Record<string, any>) {
+export function applyDefaultConfiguration(config: RollupOptions) {
   config.plugins = [
-    ...(config.plugins ?? []),
+    ...((config.plugins as any) ?? []),
     replace({
       "globalThis.REVISION": JSON.stringify(Date.now().toString(36)),
       preventAssignment: true,

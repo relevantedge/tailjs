@@ -4,7 +4,7 @@ import { join } from "path";
 import { dts } from "rollup-plugin-dts";
 import package_json from "rollup-plugin-generate-package-json";
 
-import { RollupOptions } from "rollup";
+import { OutputChunk, RollupOptions } from "rollup";
 import { sortPackageJson } from "sort-package-json";
 import { getExternalBundles } from "./rollup-external";
 import {
@@ -28,6 +28,15 @@ export const getDistBundles = async (
 ): Promise<RollupOptions[]> => {
   const pkg = await env();
 
+  // Bundle these scripts separately.
+  const binScripts = Object.entries(pkg.config.bin ?? {}).map(
+    ([key, value]: [string, string]) => ({
+      name: key,
+      src: value,
+      dest: value.replace(/(?:(?:\.\/)?src)(.+)\.ts.?$/, "dist$1.js"),
+    })
+  );
+
   async function addSubPackages(path, basePath = path) {
     for (const entry of await fs.promises.readdir(path)) {
       const subPath = join(path, entry);
@@ -45,24 +54,18 @@ export const getDistBundles = async (
   await addSubPackages(`src`);
 
   const destinations = [
-    [
-      join(
-        pkg.path, //dev ? "dist-dev" : "dist"
-        "dist"
-      ),
-      false,
-    ] as const,
+    [join(pkg.path, "dist"), false] as const,
     ...getProjects(true, pkg.name).flatMap(({ path }) => [
       [join(path, pkg.name), false] as const,
     ]),
   ];
 
   const bundles = [
-    ["src/index.ts", ""],
+    [["src/index.ts"].concat(binScripts.map((script) => script.src)), ""],
     ...Object.entries(subPackages),
-  ].flatMap(([source, target], i) => [
+  ].flatMap(([input, target], i) => [
     applyDefaultConfiguration({
-      input: source,
+      input,
       watch: watchOptions,
       plugins: [
         compilePlugin(),
@@ -76,12 +79,15 @@ export const getDistBundles = async (
         }),
         package_json({
           //inputFolder: pkg.path,
-          baseContents: (pkg) => {
-            pkg = { ...(pkg ?? {}) };
+          baseContents: (pkgJson) => {
+            pkgJson = { ...(pkgJson ?? {}) };
             if (i === 0) {
-              pkg.main = "dist/index.js";
-              pkg.module = "dist/index.mjs";
-              pkg.types = "dist/index.d.ts";
+              pkgJson.main = "dist/index.js";
+              pkgJson.module = "dist/index.mjs";
+              pkgJson.types = "dist/index.d.ts";
+              binScripts.forEach(({ name, dest }) => {
+                (pkgJson.bin ??= {})[name] = dest;
+              });
             } else {
               return {
                 main: "dist/index.js",
@@ -91,14 +97,14 @@ export const getDistBundles = async (
               };
             }
 
-            delete pkg["devDependencies"];
-            delete pkg["scripts"];
+            delete pkgJson["devDependencies"];
+            delete pkgJson["scripts"];
 
-            return sortPackageJson(addCommonPackageData(pkg));
+            return sortPackageJson(addCommonPackageData(pkgJson));
           },
         }),
         {
-          generateBundle: (options, bundle, isWrite) => {
+          generateBundle: (options, bundle: OutputChunk, isWrite) => {
             for (const file in bundle) {
               let code = bundle[file].code;
               for (const key in variables) {
@@ -125,6 +131,7 @@ export const getDistBundles = async (
                 name: pkg.name,
                 dir,
                 ...chunkNameFunctions(prefix + ".js", ""),
+                sourcemap: false,
                 format: "es",
               },
             ]
@@ -137,19 +144,19 @@ export const getDistBundles = async (
                 format: "es",
               },
               dev
-                ? null
+                ? (null as any)
                 : {
                     name: pkg.name,
                     sourcemap: false,
                     dir,
-                    ...chunkNameFunctions(".js"),
+                    ...chunkNameFunctions(".cjs"),
                     format: "cjs",
                   },
             ].filter((item) => item);
       }),
     }),
-    {
-      input: source,
+    ...(Array.isArray(input) ? input : [input]).map((input) => ({
+      input,
       watch: watchOptions,
       plugins: [dts()],
       output: destinations.map(([path, asSource]) => {
@@ -161,7 +168,7 @@ export const getDistBundles = async (
           format: "es",
         };
       }),
-    },
+    })),
   ]);
 
   if (process.argv.includes("--ext")) {
@@ -172,5 +179,5 @@ export const getDistBundles = async (
   if (fs.existsSync(join(pkg.path, "/src/index.external.ts"))) {
     bundles.push(...(await getExternalBundles()));
   }
-  return bundles;
+  return bundles as any;
 };

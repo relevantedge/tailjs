@@ -1,5 +1,10 @@
-import { TrackerConfiguration } from "@tailjs/client";
-import { EventLogger, TrackerExtension, bootstrap } from "@tailjs/engine";
+import { TrackerClientConfiguration } from "@tailjs/client";
+import {
+  EventLogger,
+  Tracker,
+  TrackerExtension,
+  bootstrap,
+} from "@tailjs/engine";
 import { NativeHost } from "@tailjs/node";
 import express, { type Express } from "express";
 import * as fs from "fs/promises";
@@ -10,7 +15,7 @@ import { getClientIp } from "request-ip";
 export type ServerSettings = {
   cookieKeys?: string[];
   extensions?: TrackerExtension[];
-  client?: TrackerConfiguration;
+  client?: TrackerClientConfiguration;
 };
 
 /**
@@ -68,7 +73,7 @@ export const tailjs = (
       });
     }
 
-    (app as any).use((req, res, next) => {
+    (app as Express).use((req, res, next) => {
       (async () => {
         try {
           const { tracker, response } =
@@ -76,7 +81,7 @@ export const tailjs = (
               method: req.method,
               url: req.url,
               headers: req.headers,
-              payload: async () => req.body,
+              body: async () => req.body,
               clientIp: getClientIp(req),
             })) ?? {};
 
@@ -91,13 +96,13 @@ export const tailjs = (
               response.cookies.map((cookie) => cookie.headerString)
             );
 
-            res.send(
-              response.body == null
-                ? ""
-                : typeof response.body === "string"
-                ? response.body
-                : Buffer.from(response.body.buffer)
-            );
+            if (response.body == null) {
+              res.end();
+            } else if (typeof response.body === "string") {
+              res.end(response.body, "utf-8");
+            } else {
+              res.end(Buffer.from(response.body.buffer));
+            }
 
             return;
           }

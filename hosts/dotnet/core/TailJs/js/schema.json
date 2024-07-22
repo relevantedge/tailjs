@@ -2224,6 +2224,48 @@
       ],
       "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics."
     },
+    "ImpressionTextStats": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The source text."
+        },
+        "length": {
+          "type": "number",
+          "description": "The number of characters in the text."
+        },
+        "characters": {
+          "type": "number",
+          "description": "The number of word characters (a letter or number followed by any number of letters, numbers or apostrophes) in the text."
+        },
+        "words": {
+          "type": "number",
+          "description": "The number of words in the text. A word is defined as a group of consecutive word characters."
+        },
+        "sentences": {
+          "type": "number",
+          "description": "The number of sentences in the text. A sentence is defined as any group of characters where at least one of them is a word character terminated by `.`, `!`, `?` or the end of the text."
+        },
+        "lix": {
+          "type": "number",
+          "description": "The LIX index for the text. The measure gives an indication of how difficult it is to read. (https://en.wikipedia.org/wiki/Lix_(readability_test))"
+        },
+        "readTime": {
+          "type": "number",
+          "description": "The estimated time it will take for an average user to read all the text. The duration is in milliseconds since that is the time precision for ECMAScript timestamps.\n\nThe estimate is assuming \"Silent reading time\" which seems to be 238 words per minute according to [Marc Brysbaert's research] (https://www.sciencedirect.com/science/article/abs/pii/S0749596X19300786?via%3Dihub)"
+        }
+      },
+      "required": [
+        "characters",
+        "length",
+        "lix",
+        "readTime",
+        "sentences",
+        "text",
+        "words"
+      ]
+    },
     "ImpressionEvent": {
       "allOf": [
         {
@@ -2249,45 +2291,31 @@
               "type": "object",
               "properties": {
                 "top": {
-                  "$ref": "urn:tailjs:core#/definitions/ViewDetails",
+                  "$ref": "urn:tailjs:core#/definitions/ImpressionRegionStats",
                   "description": "The top 25 % of the component."
                 },
                 "middle": {
-                  "$ref": "urn:tailjs:core#/definitions/ViewDetails",
+                  "$ref": "urn:tailjs:core#/definitions/ImpressionRegionStats",
                   "description": "The middle 25 - 75 % of the component."
                 },
                 "bottom": {
-                  "$ref": "urn:tailjs:core#/definitions/ViewDetails",
+                  "$ref": "urn:tailjs:core#/definitions/ImpressionRegionStats",
                   "description": "The bottom 25 % of the component."
                 }
               },
               "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height."
             },
             "text": {
-              "type": "object",
-              "properties": {
-                "characters": {
-                  "$ref": "urn:tailjs:core#/definitions/Integer",
-                  "description": "The number of characters in the text (including punctuation)."
-                },
-                "words": {
-                  "$ref": "urn:tailjs:core#/definitions/Integer",
-                  "description": "The number of words in the text."
-                },
-                "sentences": {
-                  "$ref": "urn:tailjs:core#/definitions/Integer",
-                  "description": "The number of sentences."
-                },
-                "readingTime": {
-                  "$ref": "urn:tailjs:core#/definitions/Duration",
-                  "description": "The estimated average duration it will take for a user to read all the text.\n\nThe estimate is assuming \"Silent reading time\" which seems to be 238 words per minute according to [Marc Brysbaert's research] (https://www.sciencedirect.com/science/article/abs/pii/S0749596X19300786?via%3Dihub)"
-                }
-              },
+              "$ref": "urn:tailjs:core#/definitions/ImpressionTextStats",
               "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all."
             },
             "seen": {
               "$ref": "urn:tailjs:core#/definitions/Percentage",
               "description": "The percentage of the component's area that was visible at some point during the  {@link  View  } ."
+            },
+            "read": {
+              "$ref": "urn:tailjs:core#/definitions/Percentage",
+              "description": "The percentage of the text the user can reasonably be assumed to have read  based on the number of words and duration of the impression."
             }
           },
           "required": [
@@ -2297,17 +2325,21 @@
       ],
       "description": "The event is triggered when more than 75 % of the component's has been visible for at least 1 second, or the component has taken up at least 33 % of the viewport width or height for at least 1 second, whichever comes first.\n\n\nThis only gets tracked for components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } ."
     },
-    "ViewDetails": {
+    "ImpressionRegionStats": {
       "type": "object",
       "properties": {
-        "seen": {
-          "type": "boolean"
-        },
         "duration": {
           "$ref": "urn:tailjs:core#/definitions/Duration"
         },
         "impressions": {
           "$ref": "urn:tailjs:core#/definitions/Integer"
+        },
+        "seen": {
+          "$ref": "urn:tailjs:core#/definitions/Percentage"
+        },
+        "read": {
+          "$ref": "urn:tailjs:core#/definitions/Percentage",
+          "description": "The percentage of the component's area that was visible at some point during the  {@link  View  } ."
         }
       }
     },
