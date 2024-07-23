@@ -20,7 +20,6 @@ import { restrict } from "@tailjs/util";
 export interface BoundaryDataWithView extends BoundaryData {
   view?: Content | null;
 }
-
 export type TrackerProperties = PropsWithChildren<{
   map?(
     element: JSX.Element,

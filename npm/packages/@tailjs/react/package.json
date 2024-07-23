@@ -3,10 +3,13 @@
   "description": "tail.js preact/react integration.",
   "license": "LGPL3",
   "version": "0.17.24",
+  "main": "dist/dist/index.cjs",
+  "module": "dist/dist/index.mjs",
+  "types": "dist/dist/index.d.ts",
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
-    "build:watch": "pnpm run build -w"
+    "build:watch": "pnpm run build -w -t"
   },
   "dependencies": {
     "@tailjs/client": "workspace:*",
@@ -24,6 +27,8 @@
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0"
+    "@types/react-dom": "^18.3.0",
+    "preact": "^10.22.1",
+    "preact-render-to-string": "^6.5.6"
   }
 }

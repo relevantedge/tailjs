@@ -3,6 +3,7 @@
     "target": "ES2020",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "esModuleInterop": true,
     "noEmit": true,
     "allowJs": true,
     "checkJs": true,
@@ -13,7 +14,8 @@
     "skipLibCheck": true,
     "paths": {
       "react": ["./node_modules/preact/compat/"],
-      "react-dom": ["./node_modules/preact/compat/"]
+      "react-dom": ["./node_modules/preact/compat/"],
+      "@tailjs/client/external": ["./node_modules/@tailjs/client/dist/external"]
     }
   },
   "include": ["node_modules/vite/client.d.ts", "**/*"]
