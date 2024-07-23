@@ -200,32 +200,40 @@ const vars: Record<string, any> = {};
 await build([createConfig(false), createConfig(true)]);
 
 await build(
-  await getDistBundles({
-    '"{Client script}"': () => JSON.stringify(vars.BUNDLE_index_min_js),
-    '"{Client script (gzip)}"': () =>
-      vars.BUNDLE_index_min_js &&
-      JSON.stringify(
-        zlib
-          .gzipSync(vars.BUNDLE_index_min_js, {
-            level: 9,
-          })
-          .toString("base64url")
-      ),
+  await getDistBundles(
+    {
+      '"{Client script}"': () => JSON.stringify(vars.BUNDLE_index_min_js),
+      '"{Client script (gzip)}"': () =>
+        vars.BUNDLE_index_min_js &&
+        JSON.stringify(
+          zlib
+            .gzipSync(vars.BUNDLE_index_min_js, {
+              level: 9,
+            })
+            .toString("base64url")
+        ),
 
-    '"{Client script (br)}"': () =>
-      vars.BUNDLE_index_min_js &&
-      JSON.stringify(
-        zlib
-          .brotliCompressSync(vars.BUNDLE_index_min_js, {
-            params: {
-              [zlib.constants.BROTLI_PARAM_QUALITY]:
-                zlib.constants.BROTLI_MAX_QUALITY,
-            },
-          })
-          .toString("base64url")
-      ),
-    '"{Client debug script}"': () =>
-      vars.BUNDLE_index_min_debug_js &&
-      JSON.stringify(vars.BUNDLE_index_min_debug_js),
-  })
+      '"{Client script (br)}"': () =>
+        vars.BUNDLE_index_min_js &&
+        JSON.stringify(
+          zlib
+            .brotliCompressSync(vars.BUNDLE_index_min_js, {
+              params: {
+                [zlib.constants.BROTLI_PARAM_QUALITY]:
+                  zlib.constants.BROTLI_MAX_QUALITY,
+              },
+            })
+            .toString("base64url")
+        ),
+      '"{Client debug script}"': () =>
+        vars.BUNDLE_index_min_debug_js &&
+        JSON.stringify(vars.BUNDLE_index_min_debug_js),
+    },
+    undefined,
+    (input) => {
+      if (input.includes("script.pkg")) {
+        return ["dist/dist/index.cjs"];
+      }
+    }
+  )
 );

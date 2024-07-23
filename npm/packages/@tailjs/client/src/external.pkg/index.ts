@@ -14,4 +14,5 @@ export * from "../interfaces";
 export * from "./ensureTracker";
 
 export * from "./configureTracker";
+
 export { Tracker, TrackerAttributes };

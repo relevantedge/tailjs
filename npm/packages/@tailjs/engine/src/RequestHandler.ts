@@ -723,7 +723,7 @@ export class RequestHandler {
             if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
               body = await unwrap(body);
 
-              if (body == null || !isJsonObject(body) || body.length === 0) {
+              if (body == null || (!isJsonObject(body) && body.length === 0)) {
                 return result({
                   status: 400,
                   body: "No data.",

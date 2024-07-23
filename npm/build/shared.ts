@@ -1,11 +1,10 @@
 import { findWorkspaceDir } from "@pnpm/find-workspace-dir";
 import replace from "@rollup/plugin-replace";
-import { ChildProcess, spawn, exec } from "child_process";
+import { spawn } from "child_process";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
-import fg from "fast-glob";
 import * as path from "path";
-import { OutputChunk, Plugin, RollupOptions, rollup, watch } from "rollup";
+import { OutputChunk, RollupOptions, rollup, watch } from "rollup";
 import swc from "rollup-plugin-swc3";
 
 export interface PackageEnvironment {
@@ -26,13 +25,16 @@ export const compilePlugin = ({
   if (!fs.existsSync(tscPath)) {
     throw new Error(`'${tscPath}' does not exist.`);
   }
+
   const tscSwcPath = tscPath.replace(/\.json$/, ".swc.json");
   fs.writeFileSync(
     tscSwcPath,
     JSON.stringify({
       extends: tscPath,
       compilerOptions: {
-        paths: {},
+        paths: {
+          "@constants": [path.join(getResolvedEnv().workspace, "constants")],
+        },
       },
     }),
     "utf-8"
@@ -76,6 +78,30 @@ export const compilePlugin = ({
   });
 };
 
+let parsedArgs: Record<string, string> | undefined;
+export const arg = (...names: string[]) => {
+  if (!parsedArgs) {
+    parsedArgs = {};
+    const parse = (args: string[] | undefined) => {
+      if (!args) return;
+      args.forEach((arg, i) => {
+        if (arg.startsWith("-")) {
+          parsedArgs![arg] =
+            args[i + 1]?.startsWith("-") === false ? args[i + 1] : "1";
+        }
+      });
+    };
+    parse(process.env["BUILD_ARGS"]?.split(/\s+/));
+    parse(process.argv.slice(2));
+  }
+  for (const name of names) {
+    if (parsedArgs[name]) {
+      return parsedArgs[name];
+    }
+  }
+  return undefined;
+};
+
 export const watchOptions: RollupOptions["watch"] = {
   exclude: ["**/node_modules"],
   chokidar: {
@@ -89,21 +115,15 @@ export const build = async (options: RollupOptions[]) => {
     options.map(async (config, i) => {
       if (!config.output) return;
 
-      const script =
-        i == 0
-          ? process.argv
-              .map((value, index) =>
-                value === "-e" ? process.argv[index + 1] : undefined
-              )
-              .filter((item) => item)?.[0]
-          : undefined;
-
-      const watchMode = process.argv.includes("-w");
+      const watchMode = arg("-w", "--watch");
 
       const isTypes = (config.plugins as any)?.some(
         (plugin: any) => plugin.name === "dts"
       );
-      if (isTypes && (watchMode || process.argv.includes("-T") || true)) {
+      if (
+        isTypes &&
+        ((watchMode && !arg("-t", "--dts")) || arg("-T", "--no-dts"))
+      ) {
         return;
       }
 
@@ -111,7 +131,7 @@ export const build = async (options: RollupOptions[]) => {
         ? config.output
         : [config.output];
 
-      if (i === 0 && config.output?.[0].dir === "dist") {
+      if (i === 0 && config.output?.[0].dir === "dist" && arg("--clean")) {
         try {
           fs.rmSync("dist", { recursive: true });
         } catch (e) {
@@ -139,89 +159,15 @@ export const build = async (options: RollupOptions[]) => {
         },
       };
 
-      let currentProcess: ChildProcess | undefined;
-
-      let processExited: () => any;
-      let waitForProcessExit: Promise<void> | undefined;
-
-      const runScript = async () => {
-        if (!script) {
-          return;
-        }
-
-        if (currentProcess) {
-          let pid = currentProcess.pid!;
-          const kill = (attempt = 0) => {
-            if (currentProcess?.exitCode == null) {
-              try {
-                if (process.platform === "win32") {
-                  exec("taskkill /T /F /pid " + pid);
-                } else {
-                  process.kill(-pid, attempt ? "SIGKILL" : "SIGINT");
-                }
-                setTimeout(() => kill(attempt + 1), 500);
-              } catch (e) {
-                console.error(e?.message);
-              }
-            } else {
-              setTimeout(() => {
-                currentProcess = undefined;
-                processExited();
-              }, 1000);
-            }
-          };
-
-          kill();
-          //}
-        }
-
-        await waitForProcessExit!;
-        waitForProcessExit = new Promise((r) => (processExited = r));
-
-        const boostrapper = path.join(
-          (await findWorkspaceDir(process.cwd()))!,
-          "build/bootstrap-cli.cjs"
-        );
-
-        if (currentProcess) {
-          return;
-        }
-        currentProcess = spawn(`node "${boostrapper}" "dist/${script}.cjs"`, {
-          cwd: "dist",
-          stdio: "inherit",
-          shell: true,
-        });
-      };
+      let script = i === 0 ? arg("-c", "--cli") : undefined;
 
       console.log(`Build ${buildName} started.`);
       if (watchMode) {
-        ((config.plugins ??= []) as Plugin[]).push({
-          name: "watch-external",
-          async buildStart() {
-            const addDependencies = (dir: string) => {
-              for (const child of fs.readdirSync(dir)) {
-                if (child === "node_modules" || child === "v8") {
-                  continue;
-                }
-                let childPath = path.join(dir, child);
-                if (fs.statSync(childPath).isDirectory()) {
-                  addDependencies(childPath);
-                } else if (child.match(/\.[cm]js$/)) {
-                  this.addWatchFile(childPath);
-                }
-              }
-            };
-
-            addDependencies("node_modules/@tailjs");
-          },
-        });
         let resolve: any;
         const waitForFirstBuild = new Promise((r) => (resolve = r));
-        let runTimeout: any = 0;
         const watcher = watch(config);
-        watcher.on("event", (ev) => {
+        watcher.on("event", async (ev) => {
           if (ev.code === "START") {
-            clearTimeout(runTimeout);
             console.log(`Build started. ${config.input}`);
           } else if (ev.code === "ERROR") {
             console.log(ev.error.cause);
@@ -230,8 +176,21 @@ export const build = async (options: RollupOptions[]) => {
           } else if (ev.code === "END") {
             console.log(`Build ${buildName} completed.`);
             resolve();
-            clearTimeout(runTimeout);
-            runTimeout = setTimeout(() => runScript(), 500);
+            if (script) {
+              const bootstrap = path.join(
+                (await findWorkspaceDir(process.cwd()))!,
+                "build/bootstrap-cli.cjs"
+              );
+              console.log(
+                `pnpm tsx watch --clear-screen=false  "${bootstrap}" "dist/${script}.cjs`
+              );
+              const p = spawn(
+                `pnpm tsx watch --clear-screen=false  "${bootstrap}" "dist/${script}.cjs`,
+                { stdio: "inherit", cwd: "dist", shell: true }
+              );
+
+              script = undefined;
+            }
           }
         });
 
@@ -240,7 +199,6 @@ export const build = async (options: RollupOptions[]) => {
         const bundle = await rollup(config);
         await Promise.all(outputs.map((output) => bundle.write(output)));
         console.log(`Build ${buildName} completed.`);
-        runScript();
       }
     })
   );

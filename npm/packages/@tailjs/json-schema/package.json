@@ -3,7 +3,9 @@
   "description": "JSON schema support for tail.js",
   "license": "LGPL3",
   "version": "0.17.24",
-  "main": "src/index.ts",
+  "main": "dist/dist/index.cjs",
+  "module": "dist/dist/index.mjs",
+  "types": "dist/dist/index.d.ts",
   "type": "module",
   "scripts": {
     "check": "tsc --noEmit",

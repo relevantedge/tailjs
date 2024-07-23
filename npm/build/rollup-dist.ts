@@ -10,6 +10,7 @@ import { getExternalBundles } from "./rollup-external";
 import {
   addCommonPackageData,
   applyDefaultConfiguration,
+  arg,
   chunkNameFunctions,
   compilePlugin,
   env,
@@ -24,7 +25,8 @@ const minify = false;
 
 export const getDistBundles = async (
   variables: Record<string, any> = {},
-  subPackages: Record<string, any> = {}
+  subPackages: Record<string, any> = {},
+  watchFiles?: (input: string) => string[] | void
 ): Promise<RollupOptions[]> => {
   const pkg = await env();
 
@@ -72,6 +74,15 @@ export const getDistBundles = async (
       // },
       plugins: [
         compilePlugin(),
+        {
+          buildStart() {
+            watchFiles?.(typeof input === "string" ? input : input[0])?.forEach(
+              (file) => {
+                this.addWatchFile(file);
+              }
+            );
+          },
+        },
         alias({
           entries: [
             {
@@ -174,13 +185,15 @@ export const getDistBundles = async (
     })),
   ]);
 
-  if (process.argv.includes("--ext")) {
+  if (arg("--ext", "-e")) {
     // External targets only.
     bundles.splice(0);
   }
 
-  if (fs.existsSync(join(pkg.path, "/src/index.external.ts"))) {
-    bundles.push(...(await getExternalBundles()));
+  if (!arg("--dist", "-E")) {
+    if (fs.existsSync(join(pkg.path, "/src/index.external.ts"))) {
+      bundles.push(...(await getExternalBundles()));
+    }
   }
   return bundles as any;
 };

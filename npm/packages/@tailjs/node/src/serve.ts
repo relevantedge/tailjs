@@ -10,7 +10,8 @@ export const serve = async ({
     | { host?: string; port?: undefined }
     | { port?: number; host?: undefined }
   ) = {}) => {
-  settings.endpoint ??= "/";
+  settings.endpoint ??= "/_t.js";
+  settings.debugScript = true;
 
   const middleware = await createMiddleware(settings);
 
@@ -18,7 +19,7 @@ export const serve = async ({
     (req: http.IncomingMessage & { body?: any }, res) => {
       const chunks: any[] = [];
       req.on("data", (chunk) => {
-        chunk.push(chunk);
+        chunks.push(chunk);
       });
 
       req.on("end", () => {

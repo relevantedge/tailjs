@@ -9,13 +9,13 @@
     "check": "pnpm -r run --stream check",
     "build": "pnpm -r run --stream build",
     "schema": "pnpm --filter @tailjs/types schema",
-    "build:watch": "pnpm  -r --parallel run --stream build:watch",
-    "build:engine": "pnpm  -r --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client...\" run --stream build",
-    "build:engine:watch": "pnpm -r --parallel --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client...\" --filter=\"@tailjs/maxmind\" run --stream build:watch --ext",
-    "build:jss:watch": "pnpm -r run --stream --filter=\"@tailjs/sitecore-jss...\" build:watch",
+    "build:watch": "pnpm  -r --if-present --parallel run --stream build:watch",
+    "build:engine": "pnpm  -r --if-present --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client...\" run --stream build",
+    "build:engine:watch": "pnpm -r --if-present --parallel --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client...\" --filter=\"@tailjs/maxmind\" run --stream build:watch --ext",
+    "build:jss:watch": "pnpm -r run --if-present --stream --filter=\"@tailjs/sitecore-jss...\" build:watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "serve": "concurrently \"pnpm -r --filter @tailjs/node^... --parallel --stream build:watch\" \"pnpm --filter @tailjs/node^... serve:watch\""
+    "serve": "env BUILD_ARGS=--dist concurrently \"pnpm -r --if-present --filter @tailjs/react... --filter @tailjs/node^... --parallel --stream build:watch\" \"pnpm --filter @tailjs/node^... serve:watch\""
   },
   "devDependencies": {
     "@pnpm/find-workspace-dir": "^6.0.3",
@@ -88,7 +88,7 @@
     "text-encoding-polyfill": "^0.6.7",
     "timers-browserify": "^2.0.12",
     "ts-jest": "^29.1.4",
-    "tsx": "^4.11.0",
+    "tsx": "^4.16.2",
     "tty-browserify": "^0.0.1",
     "typescript": "^5.4.5",
     "url": "^0.11.3",

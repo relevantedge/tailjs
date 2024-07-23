@@ -8,7 +8,9 @@
     "build": "tsx ../../../build/rollup-client.ts",
     "build:watch": "pnpm run build -w"
   },
-  "main": "src/index.ts",
+  "main": "dist/dist/index.cjs",
+  "module": "dist/dist/index.mjs",
+  "types": "dist/dist/index.d.ts",
   "dependencies": {
     "@tailjs/types": "workspace:*",
     "@tailjs/util": "workspace:*",

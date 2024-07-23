@@ -38,7 +38,7 @@ async function ensureTracker(): Promise<void> {
 
   const injectScript = () => {
     const src = [trackerConfig.src];
-    src.push("?", globalThis.REVISION ?? "");
+    src.push("?init");
     if (trackerConfig.name) {
       src.push("#", trackerConfig.name);
     }

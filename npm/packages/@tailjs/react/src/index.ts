@@ -6,6 +6,7 @@ export type { TraversableElement, TraverseContext } from "./traverseNodes";
 export * from "./trackingDom";
 export * from "./trackingServerDom";
 export * from "./useTrackerVariable";
+export { configureTracker } from "@tailjs/client/external";
 
 export declare namespace React {
   interface DOMAttributes<T> extends TrackerAttributes {}

@@ -583,112 +583,436 @@
           }
         },
         "ActivatedComponent": {
-          "allOf": [
-            {
-              "$ref": "urn:tailjs:core#/definitions/Component"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "content": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "urn:tailjs:core#/definitions/ActivatedContent"
+          "type": "object",
+          "properties": {
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tag": {
+                    "type": "string",
+                    "description": "The name of the tag including namespace.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
                   },
-                  "description": "The activated content in the component.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
+                  "value": {
+                    "type": "string",
+                    "description": "The value of the tag.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "score": {
+                    "type": "number",
+                    "description": "How strongly the tags relates to the target.",
+                    "default": 1,
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "@schema": {
+                    "type": "string",
+                    "description": "System property that contains the type's ID and version."
+                  }
                 },
-                "rect": {
-                  "$ref": "urn:tailjs:core#/definitions/Rectangle",
-                  "description": "The size and position of the component when it was activated relative to the document top (not viewport).",
-                  "type": "object",
-                  "unevaluatedProperties": false,
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "area": {
-                  "type": "string",
-                  "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                }
-              }
-            }
-          ],
-          "description": "The component definition related to a user activation.",
-          "$anchor": "ActivatedComponent",
-          "type": "object",
-          "properties": {
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
-          "unevaluatedProperties": false
-        },
-        "Component": {
-          "allOf": [
-            {
-              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                "required": [
+                  "tag"
+                ],
+                "$anchor": "ActivatedComponent_tags",
+                "unevaluatedProperties": false
+              },
+              "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
             },
-            {
-              "$ref": "urn:tailjs:core#/definitions/Personalizable"
+            "personalization": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tag": {
+                          "type": "string",
+                          "description": "The name of the tag including namespace.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "value": {
+                          "type": "string",
+                          "description": "The value of the tag.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "score": {
+                          "type": "number",
+                          "description": "How strongly the tags relates to the target.",
+                          "default": 1,
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "@schema": {
+                          "type": "string",
+                          "description": "System property that contains the type's ID and version."
+                        }
+                      },
+                      "required": [
+                        "tag"
+                      ],
+                      "$anchor": "ActivatedComponent_personalization_ActivatedComponent_personalization_tags",
+                      "unevaluatedProperties": false
+                    },
+                    "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "version": {
+                        "type": "string",
+                        "description": "Optionally, the version of the item in case the external source supports versioning.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "language": {
+                        "type": "string",
+                        "description": "Optionally, the language of the item in case the external source supports localization.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "source": {
+                        "type": "string",
+                        "description": "Optionally, the ID of the external system referenced.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "referenceType": {
+                        "type": "string",
+                        "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\".",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "isExternal": {
+                        "type": "boolean",
+                        "description": "Flag to indicate that this data comes from an external system that you do not control.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "itemType": {
+                        "type": "string",
+                        "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "path": {
+                        "type": "string",
+                        "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "@schema": {
+                        "type": "string",
+                        "description": "System property that contains the type's ID and version."
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s.",
+                    "$anchor": "ActivatedComponent_personalization_ActivatedComponent_personalization_source",
+                    "unevaluatedProperties": false,
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "variables": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "version": {
+                          "type": "string",
+                          "description": "Optionally, the version of the item in case the external source supports versioning.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "language": {
+                          "type": "string",
+                          "description": "Optionally, the language of the item in case the external source supports localization.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "source": {
+                          "type": "string",
+                          "description": "Optionally, the ID of the external system referenced.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "referenceType": {
+                          "type": "string",
+                          "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\".",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "isExternal": {
+                          "type": "boolean",
+                          "description": "Flag to indicate that this data comes from an external system that you do not control.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "itemType": {
+                          "type": "string",
+                          "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "path": {
+                          "type": "string",
+                          "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "value": {
+                          "type": "string",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "@schema": {
+                          "type": "string",
+                          "description": "System property that contains the type's ID and version."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "value"
+                      ],
+                      "description": "A reference to a variable and its value in personalization.",
+                      "$anchor": "ActivatedComponent_personalization_ActivatedComponent_personalization_variables",
+                      "unevaluatedProperties": false
+                    },
+                    "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "variants": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "version": {
+                          "type": "string",
+                          "description": "Optionally, the version of the item in case the external source supports versioning.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "language": {
+                          "type": "string",
+                          "description": "Optionally, the language of the item in case the external source supports localization.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "source": {
+                          "type": "string",
+                          "description": "Optionally, the ID of the external system referenced.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "referenceType": {
+                          "type": "string",
+                          "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\".",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "isExternal": {
+                          "type": "boolean",
+                          "description": "Flag to indicate that this data comes from an external system that you do not control.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "itemType": {
+                          "type": "string",
+                          "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "path": {
+                          "type": "string",
+                          "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "sources": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "version": {
+                                "type": "string",
+                                "description": "Optionally, the version of the item in case the external source supports versioning.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "language": {
+                                "type": "string",
+                                "description": "Optionally, the language of the item in case the external source supports localization.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "source": {
+                                "type": "string",
+                                "description": "Optionally, the ID of the external system referenced.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "referenceType": {
+                                "type": "string",
+                                "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\".",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "isExternal": {
+                                "type": "boolean",
+                                "description": "Flag to indicate that this data comes from an external system that you do not control.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "itemType": {
+                                "type": "string",
+                                "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "path": {
+                                "type": "string",
+                                "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "relatedVariable": {
+                                "type": "string",
+                                "description": "In case of a multi-variate test (or similar) that runs over multiple components and/or pages, this can be the ID of the specific variable that decided personalization for a specific component.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "personalizationType": {
+                                "type": "string",
+                                "description": "The kind of personalization that relates to this item.",
+                                "x-privacy-class": "anonymous",
+                                "x-privacy-purposes": "necessary"
+                              },
+                              "@schema": {
+                                "type": "string",
+                                "description": "System property that contains the type's ID and version."
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ],
+                            "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } .",
+                            "$anchor": "ActivatedComponent_personalization_ActivatedComponent_personalization_variants_ActivatedComponent_personalization_ActivatedComponent_personalization_variants_sources",
+                            "unevaluatedProperties": false
+                          },
+                          "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "default": {
+                          "type": "boolean",
+                          "description": "If the reference is the default variant.",
+                          "default": false,
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "eligible": {
+                          "type": "boolean",
+                          "description": "If the variant could have been picked.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "selected": {
+                          "type": "boolean",
+                          "description": "If the variant was chosen.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "@schema": {
+                          "type": "string",
+                          "description": "System property that contains the type's ID and version."
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ],
+                      "description": "A reference to the data/content item related to a variant in personalization.",
+                      "$anchor": "ActivatedComponent_personalization_ActivatedComponent_personalization_variants",
+                      "unevaluatedProperties": false
+                    },
+                    "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "@schema": {
+                    "type": "string",
+                    "description": "System property that contains the type's ID and version."
+                  }
+                },
+                "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more.",
+                "$anchor": "ActivatedComponent_personalization",
+                "unevaluatedProperties": false
+              },
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
             },
-            {
-              "$ref": "urn:tailjs:core#/definitions/Tagged"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "typeName": {
-                  "type": "string",
-                  "description": "An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "dataSource": {
-                  "$ref": "urn:tailjs:core#/definitions/ExternalReference",
-                  "description": "Optional references to the content that was used to render the component.",
-                  "type": "object",
-                  "unevaluatedProperties": false,
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "instanceId": {
-                  "type": "string",
-                  "description": "An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "instanceNumber": {
-                  "$ref": "urn:tailjs:core#/definitions/Integer",
-                  "description": "If the same component type is used multiple times on the same page this number indicates which one it is. (As defined in the page's markup, typically this amounts to left-to-right/top-to-bottom).",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "inferred": {
-                  "type": "boolean",
-                  "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
-                  "default": false,
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                }
-              }
-            }
-          ],
-          "$anchor": "Component",
-          "type": "object",
-          "properties": {
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          }
-        },
-        "ExternalReference": {
-          "type": "object",
-          "properties": {
             "id": {
               "type": "string",
               "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component.",
@@ -743,6 +1067,410 @@
               "x-privacy-class": "anonymous",
               "x-privacy-purposes": "necessary"
             },
+            "typeName": {
+              "type": "string",
+              "description": "An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "dataSource": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "version": {
+                  "type": "string",
+                  "description": "Optionally, the version of the item in case the external source supports versioning.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "language": {
+                  "type": "string",
+                  "description": "Optionally, the language of the item in case the external source supports localization.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Optionally, the ID of the external system referenced.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "referenceType": {
+                  "type": "string",
+                  "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\".",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "isExternal": {
+                  "type": "boolean",
+                  "description": "Flag to indicate that this data comes from an external system that you do not control.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "itemType": {
+                  "type": "string",
+                  "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "@schema": {
+                  "type": "string",
+                  "description": "System property that contains the type's ID and version."
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "description": "Optional references to the content that was used to render the component.",
+              "$anchor": "ActivatedComponent_dataSource",
+              "unevaluatedProperties": false,
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "instanceId": {
+              "type": "string",
+              "description": "An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "instanceNumber": {
+              "type": "number",
+              "description": "If the same component type is used multiple times on the same page this number indicates which one it is. (As defined in the page's markup, typically this amounts to left-to-right/top-to-bottom).",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "inferred": {
+              "type": "boolean",
+              "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
+              "default": false,
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tag": {
+                          "type": "string",
+                          "description": "The name of the tag including namespace.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "value": {
+                          "type": "string",
+                          "description": "The value of the tag.",
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "score": {
+                          "type": "number",
+                          "description": "How strongly the tags relates to the target.",
+                          "default": 1,
+                          "x-privacy-class": "anonymous",
+                          "x-privacy-purposes": "necessary"
+                        },
+                        "@schema": {
+                          "type": "string",
+                          "description": "System property that contains the type's ID and version."
+                        }
+                      },
+                      "required": [
+                        "tag"
+                      ],
+                      "$anchor": "ActivatedComponent_content_ActivatedComponent_content_tags",
+                      "unevaluatedProperties": false
+                    },
+                    "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "id": {
+                    "type": "string",
+                    "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "version": {
+                    "type": "string",
+                    "description": "Optionally, the version of the item in case the external source supports versioning.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "language": {
+                    "type": "string",
+                    "description": "Optionally, the language of the item in case the external source supports localization.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "source": {
+                    "type": "string",
+                    "description": "Optionally, the ID of the external system referenced.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "referenceType": {
+                    "type": "string",
+                    "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\".",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "isExternal": {
+                    "type": "boolean",
+                    "description": "Flag to indicate that this data comes from an external system that you do not control.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "itemType": {
+                    "type": "string",
+                    "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "path": {
+                    "type": "string",
+                    "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "commerce": {
+                    "type": "object",
+                    "properties": {
+                      "price": {
+                        "type": "number",
+                        "description": "The unit price.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "unit": {
+                        "type": "string",
+                        "description": "The unit the item is sold by.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "description": "The currency of the price. This field does not have a default value; if unspecified it must be assumed from context.",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "variation": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component.",
+                            "x-privacy-class": "anonymous",
+                            "x-privacy-purposes": "necessary"
+                          },
+                          "version": {
+                            "type": "string",
+                            "description": "Optionally, the version of the item in case the external source supports versioning.",
+                            "x-privacy-class": "anonymous",
+                            "x-privacy-purposes": "necessary"
+                          },
+                          "language": {
+                            "type": "string",
+                            "description": "Optionally, the language of the item in case the external source supports localization.",
+                            "x-privacy-class": "anonymous",
+                            "x-privacy-purposes": "necessary"
+                          },
+                          "source": {
+                            "type": "string",
+                            "description": "Optionally, the ID of the external system referenced.",
+                            "x-privacy-class": "anonymous",
+                            "x-privacy-purposes": "necessary"
+                          },
+                          "referenceType": {
+                            "type": "string",
+                            "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\".",
+                            "x-privacy-class": "anonymous",
+                            "x-privacy-purposes": "necessary"
+                          },
+                          "isExternal": {
+                            "type": "boolean",
+                            "description": "Flag to indicate that this data comes from an external system that you do not control.",
+                            "x-privacy-class": "anonymous",
+                            "x-privacy-purposes": "necessary"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                            "x-privacy-class": "anonymous",
+                            "x-privacy-purposes": "necessary"
+                          },
+                          "itemType": {
+                            "type": "string",
+                            "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                            "x-privacy-class": "anonymous",
+                            "x-privacy-purposes": "necessary"
+                          },
+                          "path": {
+                            "type": "string",
+                            "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+                            "x-privacy-class": "anonymous",
+                            "x-privacy-purposes": "necessary"
+                          },
+                          "@schema": {
+                            "type": "string",
+                            "description": "System property that contains the type's ID and version."
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple).",
+                        "$anchor": "ActivatedComponent_content_ActivatedComponent_content_commerce_ActivatedComponent_content_ActivatedComponent_content_commerce_variation",
+                        "unevaluatedProperties": false,
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "stock": {
+                        "type": "number",
+                        "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many).",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "@schema": {
+                        "type": "string",
+                        "description": "System property that contains the type's ID and version."
+                      }
+                    },
+                    "$anchor": "ActivatedComponent_content_ActivatedComponent_content_commerce",
+                    "unevaluatedProperties": false,
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "rect": {
+                    "type": "object",
+                    "properties": {
+                      "width": {
+                        "type": "number",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "height": {
+                        "type": "number",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "x": {
+                        "type": "number",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "y": {
+                        "type": "number",
+                        "x-privacy-class": "anonymous",
+                        "x-privacy-purposes": "necessary"
+                      },
+                      "@schema": {
+                        "type": "string",
+                        "description": "System property that contains the type's ID and version."
+                      }
+                    },
+                    "required": [
+                      "height",
+                      "width",
+                      "x",
+                      "y"
+                    ],
+                    "description": "The current size and position of the element representing the content relative to the document top (not viewport).",
+                    "$anchor": "ActivatedComponent_content_ActivatedComponent_content_rect",
+                    "unevaluatedProperties": false,
+                    "x-privacy-class": "anonymous",
+                    "x-privacy-purposes": "necessary"
+                  },
+                  "@schema": {
+                    "type": "string",
+                    "description": "System property that contains the type's ID and version."
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "description": "The content definition related to a user activation.",
+                "$anchor": "ActivatedComponent_content",
+                "unevaluatedProperties": false
+              },
+              "description": "The activated content in the component.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "rect": {
+              "type": "object",
+              "properties": {
+                "width": {
+                  "type": "number",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "height": {
+                  "type": "number",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "x": {
+                  "type": "number",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "y": {
+                  "type": "number",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "@schema": {
+                  "type": "string",
+                  "description": "System property that contains the type's ID and version."
+                }
+              },
+              "required": [
+                "height",
+                "width",
+                "x",
+                "y"
+              ],
+              "description": "The size and position of the component when it was activated relative to the document top (not viewport).",
+              "$anchor": "ActivatedComponent_rect",
+              "unevaluatedProperties": false,
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "area": {
+              "type": "string",
+              "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
             "@schema": {
               "type": "string",
               "description": "System property that contains the type's ID and version."
@@ -751,367 +1479,9 @@
           "required": [
             "id"
           ],
-          "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.\n\nAgain, if you only have some hard-coded value, you can just make an external reference and use its  {@link  id }  property for the value. Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID.",
-          "$anchor": "ExternalReference"
-        },
-        "Personalizable": {
-          "type": "object",
-          "properties": {
-            "personalization": {
-              "type": "array",
-              "items": {
-                "$ref": "urn:tailjs:core#/definitions/Personalization"
-              },
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
-          "$anchor": "Personalizable"
-        },
-        "Personalization": {
-          "allOf": [
-            {
-              "$ref": "urn:tailjs:core#/definitions/Tagged"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "source": {
-                  "$ref": "urn:tailjs:core#/definitions/ExternalReference",
-                  "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s.",
-                  "type": "object",
-                  "unevaluatedProperties": false,
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "variables": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "urn:tailjs:core#/definitions/PersonalizationVariable"
-                  },
-                  "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "variants": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "urn:tailjs:core#/definitions/PersonalizationVariant"
-                  },
-                  "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                }
-              }
-            }
-          ],
-          "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more.",
-          "$anchor": "Personalization",
-          "type": "object",
-          "properties": {
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
+          "description": "The component definition related to a user activation.",
+          "$anchor": "ActivatedComponent",
           "unevaluatedProperties": false
-        },
-        "PersonalizationVariable": {
-          "allOf": [
-            {
-              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "value": {
-                  "type": "string",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                }
-              },
-              "required": [
-                "value"
-              ]
-            }
-          ],
-          "description": "A reference to a variable and its value in personalization.",
-          "$anchor": "PersonalizationVariable",
-          "type": "object",
-          "properties": {
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
-          "unevaluatedProperties": false
-        },
-        "PersonalizationVariant": {
-          "allOf": [
-            {
-              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "sources": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "urn:tailjs:core#/definitions/PersonalizationSource"
-                  },
-                  "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "default": {
-                  "type": "boolean",
-                  "description": "If the reference is the default variant.",
-                  "default": false,
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "eligible": {
-                  "type": "boolean",
-                  "description": "If the variant could have been picked.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "selected": {
-                  "type": "boolean",
-                  "description": "If the variant was chosen.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                }
-              }
-            }
-          ],
-          "description": "A reference to the data/content item related to a variant in personalization.",
-          "$anchor": "PersonalizationVariant",
-          "type": "object",
-          "properties": {
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
-          "unevaluatedProperties": false
-        },
-        "PersonalizationSource": {
-          "allOf": [
-            {
-              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "relatedVariable": {
-                  "type": "string",
-                  "description": "In case of a multi-variate test (or similar) that runs over multiple components and/or pages, this can be the ID of the specific variable that decided personalization for a specific component.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                },
-                "personalizationType": {
-                  "type": "string",
-                  "description": "The kind of personalization that relates to this item.",
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                }
-              }
-            }
-          ],
-          "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } .",
-          "$anchor": "PersonalizationSource",
-          "type": "object",
-          "properties": {
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
-          "unevaluatedProperties": false
-        },
-        "Integer": {
-          "type": "number"
-        },
-        "ActivatedContent": {
-          "allOf": [
-            {
-              "$ref": "urn:tailjs:core#/definitions/Content"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "rect": {
-                  "$ref": "urn:tailjs:core#/definitions/Rectangle",
-                  "description": "The current size and position of the element representing the content relative to the document top (not viewport).",
-                  "type": "object",
-                  "unevaluatedProperties": false,
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                }
-              }
-            }
-          ],
-          "description": "The content definition related to a user activation.",
-          "$anchor": "ActivatedContent",
-          "type": "object",
-          "properties": {
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
-          "unevaluatedProperties": false
-        },
-        "Content": {
-          "allOf": [
-            {
-              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
-            },
-            {
-              "$ref": "urn:tailjs:core#/definitions/Tagged"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "commerce": {
-                  "$ref": "urn:tailjs:core#/definitions/CommerceData",
-                  "type": "object",
-                  "unevaluatedProperties": false,
-                  "x-privacy-class": "anonymous",
-                  "x-privacy-purposes": "necessary"
-                }
-              }
-            }
-          ],
-          "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria",
-          "$anchor": "Content",
-          "type": "object",
-          "properties": {
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          }
-        },
-        "CommerceData": {
-          "type": "object",
-          "properties": {
-            "price": {
-              "$ref": "urn:tailjs:core#/definitions/Decimal",
-              "description": "The unit price.",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "unit": {
-              "type": "string",
-              "description": "The unit the item is sold by.",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "currency": {
-              "type": "string",
-              "description": "The currency of the price. This field does not have a default value; if unspecified it must be assumed from context.",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "variation": {
-              "$ref": "urn:tailjs:core#/definitions/ExternalReference",
-              "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple).",
-              "type": "object",
-              "unevaluatedProperties": false,
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "stock": {
-              "$ref": "urn:tailjs:core#/definitions/Float",
-              "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many).",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
-          "$anchor": "CommerceData"
-        },
-        "Decimal": {
-          "type": "number"
-        },
-        "Rectangle": {
-          "allOf": [
-            {
-              "$ref": "urn:tailjs:core#/definitions/Position"
-            },
-            {
-              "$ref": "urn:tailjs:core#/definitions/Size"
-            },
-            {
-              "type": "object"
-            }
-          ],
-          "$anchor": "Rectangle",
-          "type": "object",
-          "properties": {
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          }
-        },
-        "Position": {
-          "type": "object",
-          "properties": {
-            "x": {
-              "$ref": "urn:tailjs:core#/definitions/Float",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "y": {
-              "$ref": "urn:tailjs:core#/definitions/Float",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
-          "required": [
-            "x",
-            "y"
-          ],
-          "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio].",
-          "$anchor": "Position"
-        },
-        "Size": {
-          "type": "object",
-          "properties": {
-            "width": {
-              "$ref": "urn:tailjs:core#/definitions/Float",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "height": {
-              "$ref": "urn:tailjs:core#/definitions/Float",
-              "x-privacy-class": "anonymous",
-              "x-privacy-purposes": "necessary"
-            },
-            "@schema": {
-              "type": "string",
-              "description": "System property that contains the type's ID and version."
-            }
-          },
-          "required": [
-            "width",
-            "height"
-          ],
-          "$anchor": "Size"
         },
         "ViewTimingData": {
           "type": "object",
@@ -1151,6 +1521,9 @@
         "Duration": {
           "type": "number",
           "description": "Duration in milliseconds."
+        },
+        "Integer": {
+          "type": "number"
         },
         "ScreenPosition": {
           "type": "object",
@@ -1231,6 +1604,76 @@
             }
           },
           "unevaluatedProperties": false
+        },
+        "Rectangle": {
+          "allOf": [
+            {
+              "$ref": "urn:tailjs:core#/definitions/Position"
+            },
+            {
+              "$ref": "urn:tailjs:core#/definitions/Size"
+            },
+            {
+              "type": "object"
+            }
+          ],
+          "$anchor": "Rectangle",
+          "type": "object",
+          "properties": {
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          }
+        },
+        "Position": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "$ref": "urn:tailjs:core#/definitions/Float",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "y": {
+              "$ref": "urn:tailjs:core#/definitions/Float",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio].",
+          "$anchor": "Position"
+        },
+        "Size": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "$ref": "urn:tailjs:core#/definitions/Float",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "height": {
+              "$ref": "urn:tailjs:core#/definitions/Float",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "$anchor": "Size"
         },
         "ElementInfo": {
           "type": "object",
@@ -1808,6 +2251,74 @@
             }
           },
           "unevaluatedProperties": false
+        },
+        "ExternalReference": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "version": {
+              "type": "string",
+              "description": "Optionally, the version of the item in case the external source supports versioning.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "language": {
+              "type": "string",
+              "description": "Optionally, the language of the item in case the external source supports localization.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "source": {
+              "type": "string",
+              "description": "Optionally, the ID of the external system referenced.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "referenceType": {
+              "type": "string",
+              "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\".",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "isExternal": {
+              "type": "boolean",
+              "description": "Flag to indicate that this data comes from an external system that you do not control.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "name": {
+              "type": "string",
+              "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "itemType": {
+              "type": "string",
+              "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "path": {
+              "type": "string",
+              "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.\n\nAgain, if you only have some hard-coded value, you can just make an external reference and use its  {@link  id }  property for the value. Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID.",
+          "$anchor": "ExternalReference"
         },
         "SearchResult": {
           "allOf": [
@@ -2428,6 +2939,262 @@
             }
           ],
           "$anchor": "View",
+          "type": "object",
+          "properties": {
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "Content": {
+          "allOf": [
+            {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+            },
+            {
+              "$ref": "urn:tailjs:core#/definitions/Tagged"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "commerce": {
+                  "$ref": "urn:tailjs:core#/definitions/CommerceData",
+                  "type": "object",
+                  "unevaluatedProperties": false,
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                }
+              }
+            }
+          ],
+          "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria",
+          "$anchor": "Content",
+          "type": "object",
+          "properties": {
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          }
+        },
+        "CommerceData": {
+          "type": "object",
+          "properties": {
+            "price": {
+              "$ref": "urn:tailjs:core#/definitions/Decimal",
+              "description": "The unit price.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "unit": {
+              "type": "string",
+              "description": "The unit the item is sold by.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "currency": {
+              "type": "string",
+              "description": "The currency of the price. This field does not have a default value; if unspecified it must be assumed from context.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "variation": {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+              "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple).",
+              "type": "object",
+              "unevaluatedProperties": false,
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "stock": {
+              "$ref": "urn:tailjs:core#/definitions/Float",
+              "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many).",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "$anchor": "CommerceData"
+        },
+        "Decimal": {
+          "type": "number"
+        },
+        "Personalizable": {
+          "type": "object",
+          "properties": {
+            "personalization": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/Personalization"
+              },
+              "x-privacy-class": "anonymous",
+              "x-privacy-purposes": "necessary"
+            },
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "$anchor": "Personalizable"
+        },
+        "Personalization": {
+          "allOf": [
+            {
+              "$ref": "urn:tailjs:core#/definitions/Tagged"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                  "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s.",
+                  "type": "object",
+                  "unevaluatedProperties": false,
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "variables": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "urn:tailjs:core#/definitions/PersonalizationVariable"
+                  },
+                  "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "variants": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "urn:tailjs:core#/definitions/PersonalizationVariant"
+                  },
+                  "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                }
+              }
+            }
+          ],
+          "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more.",
+          "$anchor": "Personalization",
+          "type": "object",
+          "properties": {
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "PersonalizationVariable": {
+          "allOf": [
+            {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                }
+              },
+              "required": [
+                "value"
+              ]
+            }
+          ],
+          "description": "A reference to a variable and its value in personalization.",
+          "$anchor": "PersonalizationVariable",
+          "type": "object",
+          "properties": {
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "PersonalizationVariant": {
+          "allOf": [
+            {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "urn:tailjs:core#/definitions/PersonalizationSource"
+                  },
+                  "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "default": {
+                  "type": "boolean",
+                  "description": "If the reference is the default variant.",
+                  "default": false,
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "eligible": {
+                  "type": "boolean",
+                  "description": "If the variant could have been picked.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "selected": {
+                  "type": "boolean",
+                  "description": "If the variant was chosen.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                }
+              }
+            }
+          ],
+          "description": "A reference to the data/content item related to a variant in personalization.",
+          "$anchor": "PersonalizationVariant",
+          "type": "object",
+          "properties": {
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          },
+          "unevaluatedProperties": false
+        },
+        "PersonalizationSource": {
+          "allOf": [
+            {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "relatedVariable": {
+                  "type": "string",
+                  "description": "In case of a multi-variate test (or similar) that runs over multiple components and/or pages, this can be the ID of the specific variable that decided personalization for a specific component.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "personalizationType": {
+                  "type": "string",
+                  "description": "The kind of personalization that relates to this item.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                }
+              }
+            }
+          ],
+          "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } .",
+          "$anchor": "PersonalizationSource",
           "type": "object",
           "properties": {
             "@schema": {
@@ -3607,6 +4374,65 @@
             }
           },
           "unevaluatedProperties": false
+        },
+        "Component": {
+          "allOf": [
+            {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+            },
+            {
+              "$ref": "urn:tailjs:core#/definitions/Personalizable"
+            },
+            {
+              "$ref": "urn:tailjs:core#/definitions/Tagged"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "typeName": {
+                  "type": "string",
+                  "description": "An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "dataSource": {
+                  "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                  "description": "Optional references to the content that was used to render the component.",
+                  "type": "object",
+                  "unevaluatedProperties": false,
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "instanceId": {
+                  "type": "string",
+                  "description": "An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree.",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "instanceNumber": {
+                  "$ref": "urn:tailjs:core#/definitions/Integer",
+                  "description": "If the same component type is used multiple times on the same page this number indicates which one it is. (As defined in the page's markup, typically this amounts to left-to-right/top-to-bottom).",
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
+                "inferred": {
+                  "type": "boolean",
+                  "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
+                  "default": false,
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                }
+              }
+            }
+          ],
+          "$anchor": "Component",
+          "type": "object",
+          "properties": {
+            "@schema": {
+              "type": "string",
+              "description": "System property that contains the type's ID and version."
+            }
+          }
         },
         "TrackingSettings": {
           "type": "object",

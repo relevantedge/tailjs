@@ -1,0 +1,20 @@
+{
+  "private": true,
+  "name": "preact-sample",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailjs/client": "workspace:*",
+    "@tailjs/react": "workspace:*",
+    "preact": "^10.22.1"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.3"
+  }
+}

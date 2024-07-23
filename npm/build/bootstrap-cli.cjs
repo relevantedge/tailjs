@@ -19,6 +19,15 @@ Module._load = (...args) => {
         .map((segment, i) => (i === 1 ? segment + "/dist" : segment))
         .join("/");
   }
+
+  // let name = args[0];
+  // if (name.match(/^@tailjs\//)) {
+  //   const segments = name.split("/");
+
+  //   args[0] = segments
+  //     .map((name, i) => (i !== 0 && i < 2 ? name + "/dist" : name))
+  //     .join("/");
+  // }
   return wrapped.apply(Module, args);
 };
 
