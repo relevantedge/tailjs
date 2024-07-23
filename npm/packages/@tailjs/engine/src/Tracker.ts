@@ -74,7 +74,7 @@ export interface TrackerServerConfiguration {
 
   clientIp?: string | null;
   headers?: Record<string, string>;
-  host: string;
+  host?: string;
   path: string;
   url: string;
 
@@ -214,9 +214,9 @@ export class Tracker {
   private readonly _clientCipher: Transport;
   private readonly _defaultConsent: UserConsent<true>;
 
-  public host: string;
-  public path: string;
-  public url: string;
+  public readonly host: string | undefined;
+  public readonly path: string;
+  public readonly url: string;
 
   public constructor({
     disabled = false,

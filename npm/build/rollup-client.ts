@@ -106,7 +106,7 @@ const createConfig = (debug?: boolean) =>
           },
           {
             find: "@tailjs/transport",
-            replacement: `${pkg.workspace}/packages/@tailjs/util/src/transport.pkg/index.ts`,
+            replacement: `${pkg.workspace}/packages/@tailjs/transport/src/index.ts`,
           },
           {
             find: "@tailjs/util",
@@ -129,7 +129,7 @@ const createConfig = (debug?: boolean) =>
             }
           }
         },
-      },
+      } as any,
       resolve({ browser: true, preferBuiltins: false }),
       cjs(),
       json(),
@@ -185,12 +185,13 @@ const createConfig = (debug?: boolean) =>
           sourcemap: true,
           name: "tail",
         },
-        debug && {
-          file: `${name}.debug.map.js`,
-          format: "iife",
-          sourcemap: "inline",
-          name: "tail",
-        },
+        debug &&
+          ({
+            file: `${name}.debug.map.js`,
+            format: "iife",
+            sourcemap: "inline",
+            name: "tail",
+          } as any),
       ])
       .filter((x) => x),
   });

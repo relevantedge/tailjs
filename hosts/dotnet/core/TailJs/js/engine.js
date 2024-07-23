@@ -3777,7 +3777,7 @@ class RequestHandler {
         let { method, url, headers: sourceHeaders, body, clientIp } = request;
         await this.initialize();
         const { host, path, query } = parseUri(url);
-        if (host == null || path == null) {
+        if (host == null && path == null) {
             return null;
         }
         const headers = Object.fromEntries(Object.entries(sourceHeaders).filter(([, v])=>!!v).map(([k, v])=>[
@@ -4756,7 +4756,7 @@ async function ensureTracker() {
         const src = [
             trackerConfig.src
         ];
-        src.push("?", "lywza6ps");
+        src.push("?", "lyybumzz");
         {
             src.push("#", trackerConfig.name);
         }

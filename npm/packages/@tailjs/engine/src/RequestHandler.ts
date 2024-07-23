@@ -442,11 +442,10 @@ export class RequestHandler {
     if (!request.url) return null;
 
     let { method, url, headers: sourceHeaders, body, clientIp } = request;
-
     await this.initialize();
-
     const { host, path, query } = parseUri(url);
-    if (host == null || path == null) {
+
+    if (host == null && path == null) {
       return null;
     }
 

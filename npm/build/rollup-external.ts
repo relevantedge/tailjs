@@ -135,7 +135,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
               baseContents: () => {
                 return {
                   private: true,
-                  main: "dist/index.js",
+                  main: "dist/index.cjs",
                   module: "dist/index.mjs",
                   types: "dist/index.d.ts",
                 };
