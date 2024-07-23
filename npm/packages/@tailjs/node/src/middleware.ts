@@ -80,8 +80,6 @@ export const createMiddleware: {
         return next?.();
       }
 
-      const foo: http.IncomingMessage = 0 as any;
-      foo.headers;
       const { tracker, response } =
         (await requestHandler.processRequest({
           method: req.method ?? "GET",
@@ -98,17 +96,18 @@ export const createMiddleware: {
           res.setHeader(name, response.headers[name]);
         }
 
-        res.setHeader(
-          "set-cookie",
-          response.cookies.map((cookie) => cookie.headerString)
-        );
+        response.cookies &&
+          res.setHeader(
+            "set-cookie",
+            response.cookies.map((cookie) => cookie.headerString)
+          );
 
         if (response.body == null) {
           res.end();
         } else if (typeof response.body === "string") {
           res.end(response.body, "utf-8");
         } else if (response.body instanceof Uint8Array) {
-          res.end(Buffer.from(response.body.buffer));
+          res.end(Buffer.from(response.body));
         }
 
         return;
@@ -116,7 +115,8 @@ export const createMiddleware: {
       return next?.();
     } catch (e) {
       res.statusCode = 500;
-      res.end(e.toString(), "utf8");
+      console.error("An error occurred", e);
+      res.end("An error ocurred: " + e, "utf8");
     }
   };
 };

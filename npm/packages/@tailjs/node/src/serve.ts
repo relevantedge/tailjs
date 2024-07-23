@@ -27,7 +27,10 @@ export const serve = async ({
           req.body = req.body.toString("utf8");
         }
 
-        middleware(req, res);
+        middleware(req, res, () => {
+          res.statusCode = 404;
+          res.end("Not found.");
+        });
       });
 
       req.on("error", (error) => {
@@ -42,6 +45,7 @@ export const serve = async ({
   });
 
   if (host) {
+    console.log(host);
     server.listen(host);
   } else {
     server.listen((port ??= 7412));

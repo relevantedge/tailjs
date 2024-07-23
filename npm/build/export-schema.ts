@@ -47,7 +47,7 @@ try {
           join(sourceSchemaPath, "package.json"),
           JSON.stringify({
             private: true,
-            main: "dist/index.js",
+            main: "dist/index.cjs",
             module: "dist/index.mjs",
           })
         );
@@ -57,7 +57,7 @@ try {
           `export default ${JSON.stringify(sourceSchema)};`
         );
         await fs.writeFile(
-          join(sourceSchemaPath, "dist/index.js"),
+          join(sourceSchemaPath, "dist/index.cjs"),
           `module.exports = ${JSON.stringify(sourceSchema)};`
         );
         await fs.writeFile(

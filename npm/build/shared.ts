@@ -1,10 +1,11 @@
 import { findWorkspaceDir } from "@pnpm/find-workspace-dir";
 import replace from "@rollup/plugin-replace";
-import { ChildProcess, spawn } from "child_process";
+import { ChildProcess, spawn, exec } from "child_process";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
+import fg from "fast-glob";
 import * as path from "path";
-import { OutputChunk, RollupOptions, rollup, watch } from "rollup";
+import { OutputChunk, Plugin, RollupOptions, rollup, watch } from "rollup";
 import swc from "rollup-plugin-swc3";
 
 export interface PackageEnvironment {
@@ -20,8 +21,24 @@ export const compilePlugin = ({
   debug = false,
   minify = false,
   args,
-}: { debug?: boolean; minify?: boolean; args?: any } = {}) =>
-  swc({
+}: { debug?: boolean; minify?: boolean; args?: any } = {}) => {
+  const tscPath = args?.tsconfig ?? "./tsconfig.json";
+  if (!fs.existsSync(tscPath)) {
+    throw new Error(`'${tscPath}' does not exist.`);
+  }
+  const tscSwcPath = tscPath.replace(/\.json$/, ".swc.json");
+  fs.writeFileSync(
+    tscSwcPath,
+    JSON.stringify({
+      extends: tscPath,
+      compilerOptions: {
+        paths: {},
+      },
+    }),
+    "utf-8"
+  );
+  return swc({
+    tsconfig: tscSwcPath,
     jsc: {
       target: "es2022",
       transform: {
@@ -57,6 +74,7 @@ export const compilePlugin = ({
 
     ...args,
   });
+};
 
 export const watchOptions: RollupOptions["watch"] = {
   exclude: ["**/node_modules"],
@@ -70,6 +88,7 @@ export const build = async (options: RollupOptions[]) => {
   await Promise.all(
     options.map(async (config, i) => {
       if (!config.output) return;
+
       const script =
         i == 0
           ? process.argv
@@ -81,15 +100,31 @@ export const build = async (options: RollupOptions[]) => {
 
       const watchMode = process.argv.includes("-w");
 
-      const isTypes = config.plugins?.[0]?.name === "dts";
-
-      if (isTypes && (watchMode || process.argv.includes("-T"))) {
+      const isTypes = (config.plugins as any)?.some(
+        (plugin: any) => plugin.name === "dts"
+      );
+      if (isTypes && (watchMode || process.argv.includes("-T") || true)) {
         return;
       }
 
       const outputs = Array.isArray(config.output)
         ? config.output
         : [config.output];
+
+      if (i === 0 && config.output?.[0].dir === "dist") {
+        try {
+          fs.rmSync("dist", { recursive: true });
+        } catch (e) {
+          console.warn("Could not clean existing dist directory.");
+        }
+      }
+
+      const buildName = `${config.input}${isTypes ? ` (types)` : ""} -> ${
+        outputs[0].dir
+          ? path.relative(process.cwd(), outputs[0].dir)
+          : "(unknown)"
+      }`;
+
       config = {
         ...config,
         onwarn: (warning, warn) => {
@@ -106,11 +141,6 @@ export const build = async (options: RollupOptions[]) => {
 
       let currentProcess: ChildProcess | undefined;
 
-      const buildName = `${config.input}${isTypes ? ` (types)` : ""} -> ${
-        outputs[0].dir
-          ? path.relative(process.cwd(), outputs[0].dir)
-          : "(unknown)"
-      }`;
       let processExited: () => any;
       let waitForProcessExit: Promise<void> | undefined;
 
@@ -119,35 +149,79 @@ export const build = async (options: RollupOptions[]) => {
           return;
         }
 
-        if (waitForProcessExit) {
-          currentProcess?.kill();
+        if (currentProcess) {
+          let pid = currentProcess.pid!;
+          const kill = (attempt = 0) => {
+            if (currentProcess?.exitCode == null) {
+              try {
+                if (process.platform === "win32") {
+                  exec("taskkill /T /F /pid " + pid);
+                } else {
+                  process.kill(-pid, attempt ? "SIGKILL" : "SIGINT");
+                }
+                setTimeout(() => kill(attempt + 1), 500);
+              } catch (e) {
+                console.error(e?.message);
+              }
+            } else {
+              setTimeout(() => {
+                currentProcess = undefined;
+                processExited();
+              }, 1000);
+            }
+          };
+
+          kill();
+          //}
         }
 
         await waitForProcessExit!;
         waitForProcessExit = new Promise((r) => (processExited = r));
 
-        currentProcess = spawn("node " + "dist/" + script + ".cjs", {
-          cwd: "dist",
-          shell: true,
-          stdio: "inherit",
-        });
+        const boostrapper = path.join(
+          (await findWorkspaceDir(process.cwd()))!,
+          "build/bootstrap-cli.cjs"
+        );
 
-        if (currentProcess.exitCode) {
-          processExited();
+        if (currentProcess) {
+          return;
         }
-
-        currentProcess.on("exit", () => {
-          processExited();
+        currentProcess = spawn(`node "${boostrapper}" "dist/${script}.cjs"`, {
+          cwd: "dist",
+          stdio: "inherit",
+          shell: true,
         });
       };
 
       console.log(`Build ${buildName} started.`);
       if (watchMode) {
+        ((config.plugins ??= []) as Plugin[]).push({
+          name: "watch-external",
+          async buildStart() {
+            const addDependencies = (dir: string) => {
+              for (const child of fs.readdirSync(dir)) {
+                if (child === "node_modules" || child === "v8") {
+                  continue;
+                }
+                let childPath = path.join(dir, child);
+                if (fs.statSync(childPath).isDirectory()) {
+                  addDependencies(childPath);
+                } else if (child.match(/\.[cm]js$/)) {
+                  this.addWatchFile(childPath);
+                }
+              }
+            };
+
+            addDependencies("node_modules/@tailjs");
+          },
+        });
         let resolve: any;
         const waitForFirstBuild = new Promise((r) => (resolve = r));
+        let runTimeout: any = 0;
         const watcher = watch(config);
         watcher.on("event", (ev) => {
           if (ev.code === "START") {
+            clearTimeout(runTimeout);
             console.log(`Build started. ${config.input}`);
           } else if (ev.code === "ERROR") {
             console.log(ev.error.cause);
@@ -156,7 +230,8 @@ export const build = async (options: RollupOptions[]) => {
           } else if (ev.code === "END") {
             console.log(`Build ${buildName} completed.`);
             resolve();
-            runScript();
+            clearTimeout(runTimeout);
+            runTimeout = setTimeout(() => runScript(), 500);
           }
         });
 

@@ -33,7 +33,7 @@ export const getDistBundles = async (
     ([key, value]: [string, string]) => ({
       name: key,
       src: value,
-      dest: value.replace(/(?:(?:\.\/)?src)(.+)\.ts.?$/, "dist$1.js"),
+      dest: value.replace(/(?:(?:\.\/)?src)(.+)\.ts.?$/, "dist$1.cjs"),
     })
   );
 
@@ -67,6 +67,9 @@ export const getDistBundles = async (
     applyDefaultConfiguration({
       input,
       watch: watchOptions,
+      // external: (src) => {
+
+      // },
       plugins: [
         compilePlugin(),
         alias({
@@ -82,7 +85,7 @@ export const getDistBundles = async (
           baseContents: (pkgJson) => {
             pkgJson = { ...(pkgJson ?? {}) };
             if (i === 0) {
-              pkgJson.main = "dist/index.js";
+              pkgJson.main = "dist/index.cjs";
               pkgJson.module = "dist/index.mjs";
               pkgJson.types = "dist/index.d.ts";
               binScripts.forEach(({ name, dest }) => {
@@ -90,7 +93,7 @@ export const getDistBundles = async (
               });
             } else {
               return {
-                main: "dist/index.js",
+                main: "dist/index.cjs",
                 module: "dist/index.mjs",
                 types: "dist/index.d.ts",
                 private: true,
@@ -130,7 +133,7 @@ export const getDistBundles = async (
               {
                 name: pkg.name,
                 dir,
-                ...chunkNameFunctions(prefix + ".js", ""),
+                ...chunkNameFunctions(prefix + ".cjs", ""),
                 sourcemap: false,
                 format: "es",
               },

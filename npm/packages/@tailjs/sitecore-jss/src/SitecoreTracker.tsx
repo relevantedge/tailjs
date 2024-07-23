@@ -18,7 +18,6 @@ import {
   Content,
   Tagged,
   UserInteractionEvent,
-  cast,
 } from "@tailjs/types";
 
 import React, { PropsWithChildren } from "react";
@@ -48,7 +47,7 @@ export type MappedTag =
  * The rules to use to map tags. The keys are the IDs of the rules and does not have any other purpose than organizing the rules
  * so they are easier to maintain if you have many.
  *
- * Use `false` to supress the default rule "tags" that matches fields and rendering parameters with the names `tags` or `Tags`.
+ * Use `false` to suppress the default rule "tags" that matches fields and rendering parameters with the names `tags` or `Tags`.
  */
 export type TagMappingRules<T> = Record<
   string,
@@ -84,6 +83,9 @@ export type SitecoreTrackerProperties = PropsWithChildren<{
    */
   content?: ContentMapping;
 }>;
+
+const mapTags = (tags: string[] | undefined) => tags?.map((tag) => ({ tag }));
+
 export const SitecoreTracker = ({
   children,
   stickyComponents:
@@ -194,10 +196,10 @@ export const SitecoreTracker = ({
                   preview: mode === "preview" || mode === "edit",
                   language: route.itemLanguage,
                   version: "" + route.itemVersion,
-                  tags: tags.item,
+                  tags: mapTags(tags.item),
                   personalization: getPagePersonalization(layoutData),
                 },
-                tags: tags.activation,
+                tags: mapTags(tags.activation),
               };
             }
           }
@@ -208,7 +210,7 @@ export const SitecoreTracker = ({
         const addContent = (
           result: BoundaryData | undefined
         ): BoundaryData | undefined => {
-          const arrayIt = (value: Content | Content[] | undefined) =>
+          const arrayIt = (value: Content | readonly Content[] | undefined) =>
             Array.isArray(value) ? value : value ? [value] : [];
           const matchedContent = content(el);
 
@@ -279,12 +281,10 @@ export const SitecoreTracker = ({
           const tags = evaluateTagMappings(rendering, componentTags);
 
           const component = mapComponent(layoutData, rendering, tags?.item);
-          const mapped = (componentMap[rendering.uid] = cast<
-            BoundaryData & { component: ConfiguredComponent }
-          >({
+          const mapped = (componentMap[rendering.uid] = {
             component: { ...component, track: { promote: true } },
             area: placeholder,
-            tags: tags.activation,
+            tags: mapTags(tags.activation),
 
             // component &&
             // (Array.isArray(parentComponents)
@@ -299,7 +299,7 @@ export const SitecoreTracker = ({
             //       ? rule(rendering)
             //       : rendering.componentName.match(rule))
             //),
-          }));
+          });
 
           mapped.component.instanceNumber = componentTypeCounts[
             mapped.component.id
@@ -332,7 +332,7 @@ export const SitecoreTracker = ({
         ? { id: normalizeUuids(component.dataSource) }
         : void 0,
       source: "sitecore",
-      tags,
+      tags: mapTags(tags),
       personalization: getComponentPersonalization(layoutData, component),
     };
 

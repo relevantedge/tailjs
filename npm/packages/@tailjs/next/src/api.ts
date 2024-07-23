@@ -1,4 +1,4 @@
-import { TrackerConfiguration } from "@tailjs/client/external";
+import { TrackerClientConfiguration } from "@tailjs/client/external";
 import type { RequestHandler, TrackerExtension } from "@tailjs/engine";
 import { bootstrap } from "@tailjs/engine";
 import { NativeHost } from "@tailjs/node";
@@ -68,7 +68,7 @@ export interface ApiSettings {
   /**
    * Configuration for the tracker client.
    */
-  client?: TrackerConfiguration;
+  client?: TrackerClientConfiguration;
 
   /**
    * Controls whether logs are written to files in the `res/logs` directory or only printed to the console.
@@ -157,7 +157,7 @@ export const tailjs = ({
               ])
           ),
           clientIp: fakeIp?.(req) ?? getClientIp(req),
-          payload: async () => req.body,
+          body: req.body,
         })) ?? {};
 
       if (!response) {
