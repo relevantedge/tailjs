@@ -16,7 +16,6 @@ export const trackerConfig: Required<TrackerClientConfiguration> = {
   /**
    * Log events to the browser's developer console.
    */
-  debug: false,
   impressionThreshold: 1000,
   captureContextMenu: true,
   defaultActivationTracking: "auto",

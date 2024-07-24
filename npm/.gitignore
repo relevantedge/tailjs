@@ -15,3 +15,5 @@ __pycache__/
 
 # Auto-generated tsconfigs for swc build.
 tsconfig*.swc.json
+
+vite.config.ts.*.mjs

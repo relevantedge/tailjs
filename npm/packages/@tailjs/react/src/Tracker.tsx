@@ -33,7 +33,7 @@ export type TrackerProperties = PropsWithChildren<{
 export const Tracker = ({
   children,
   map,
-  trackReactComponents = false,
+  trackReactComponents = true,
   disabled = false,
   exclude = /ErrorBoundary|Provider|Route[a-z_]*|Switch|[a-z_]*Context/gi,
 }: TrackerProperties) => {
