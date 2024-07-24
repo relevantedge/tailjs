@@ -90,11 +90,6 @@ export interface TrackerClientConfiguration {
   captureContextMenu?: boolean;
 
   /**
-   * Log events to the browser's developer console.
-   */
-  debug?: boolean;
-
-  /**
    * Inter-tab communication and communication with the server will be encrypted using this key.
    *
    * This is optional.

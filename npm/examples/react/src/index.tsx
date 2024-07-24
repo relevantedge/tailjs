@@ -6,9 +6,9 @@ import preactLogo from "./assets/preact.svg";
 import "./style.css";
 
 configureTracker((config) => {
-  config.debug = true;
   return config;
 });
+
 export function App() {
   return (
     <Tracker>
