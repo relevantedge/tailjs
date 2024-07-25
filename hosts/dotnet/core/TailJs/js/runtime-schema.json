@@ -1835,7 +1835,7 @@
             },
             "value": {
               "type": "string",
-              "description": "The value of the form field. Be careful with this one, if you have connected a backend where you don't control the data. This value will not be populated unless the user has consented.",
+              "description": "The value of the form field. Be careful with this one.\n\nThe default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.",
               "x-privacy-class": "anonymous",
               "x-privacy-purposes": "necessary"
             },

@@ -25,7 +25,6 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     }
     return undefined;
 };
-
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
 /** Minify friendly version of `false`. */ const F = false;
 /** Minify friendly version of `true`. */ const T = true;
@@ -33,11 +32,8 @@ const isBoolean = (value)=>typeof value === "boolean";
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
 const isFunction = (value)=>typeof value === "function";
-
 const unwrap = (value)=>isFunction(value) ? value() : value;
-
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
-
 class ResettablePromise {
     _promise;
     constructor(){

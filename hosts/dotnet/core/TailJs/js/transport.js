@@ -95,7 +95,6 @@ const tryCatch = (expression, errorHandler = true, always)=>{
         always?.();
     }
 };
-
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
 /** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 /** Minify friendly version of `null`. */ const nil = null;
@@ -115,8 +114,7 @@ const isError = (value)=>value instanceof Error;
  * - Otherwise, an array with the value as its single item is returned.
  */ const array = (value, clone = false)=>value == null ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
         ...value
-    ] : // ? toArrayAsync(value)
-    [
+    ] : [
         value
     ];
 const isObject = (value)=>value !== null && typeof value === "object";
@@ -126,7 +124,6 @@ const isPlainObject = (value)=>value != null && getPrototypeOf(value) === object
 const isSymbol = (value)=>typeof value === "symbol";
 const isFunction = (value)=>typeof value === "function";
 const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
-
 let stopInvoked = false;
 const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
 function* createFilteringIterator(source, projection) {
@@ -204,7 +201,6 @@ const map = (source, projection, start, end)=>{
     }
     return source != null ? array(project(source, projection, start, end)) : undefined$1;
 };
-
 const unwrap = (value)=>isFunction(value) ? value() : value;
 
 /** The number of leading entropy bytes. */ const ENTROPY = 4;
