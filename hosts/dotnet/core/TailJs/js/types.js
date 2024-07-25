@@ -62,7 +62,6 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     }
     return undefined;
 };
-
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
 /** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 /** Minify friendly version of `null`. */ const nil = null;
@@ -82,8 +81,7 @@ const isArray = Array.isArray;
  * - Otherwise, an array with the value as its single item is returned.
  */ const array = (value, clone = false)=>value == null ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
         ...value
-    ] : // ? toArrayAsync(value)
-    [
+    ] : [
         value
     ];
 const isObject = (value)=>value !== null && typeof value === "object";
@@ -94,7 +92,6 @@ const isFunction = (value)=>typeof value === "function";
 const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
 const isMap = (value)=>value instanceof Map;
 const isSet = (value)=>value instanceof Set;
-
 let stopInvoked = false;
 const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
 function* createFilteringIterator(source, projection) {
@@ -248,7 +245,6 @@ const entries = (target)=>!isArray(target) && isIterable(target) ? map(target, i
             index,
             value
         ]) : isObject(target) ? Object.entries(target) : undefined$1;
-
 const define = (target, ...args)=>{
     const add = (arg, defaults)=>{
         if (!arg) return;
@@ -282,7 +278,6 @@ const define = (target, ...args)=>{
     return target;
 };
 const unwrap = (value)=>isFunction(value) ? value() : value;
-
 /**
  * Creates a string enumerating a list of value given a separator, optionally using a different separator between the last two items.
  *
@@ -303,7 +298,6 @@ const unwrap = (value)=>isFunction(value) ? value() : value;
         values[values.length - 1]
     ].join("") : values.join(separator ?? ", ");
 const quote = (item, quoteChar = "'")=>item == null ? undefined$1 : quoteChar + item + quoteChar;
-
 const isBit = (n)=>(n = Math.log2(n), n === (n | 0));
 const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
     const names = Object.fromEntries(Object.entries(sourceEnum).filter(([key, value])=>isString(key) && isNumber(value)).map(([key, value])=>[
@@ -377,13 +371,11 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
         })), source);
     return parse;
 };
-
 let matchProjection;
 let collected;
 /**
  * Matches a regular expression against a string and projects the matched parts, if any.
- */ const match = (s, regex, selector, collect = false)=>(s ?? regex) == nil ? undefined$1 : selector ? (matchProjection = undefined$1, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(// Replace seems to be a compact way to get the details of each match
-    regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
+ */ const match = (s, regex, selector, collect = false)=>(s ?? regex) == nil ? undefined$1 : selector ? (matchProjection = undefined$1, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
 
 var DataClassification;
 (function(DataClassification) {

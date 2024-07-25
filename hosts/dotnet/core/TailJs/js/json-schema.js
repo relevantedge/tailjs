@@ -1,3 +1,5 @@
+import { dataPurposes, dataClassification, DataClassification, DataPurposeFlags, variableScope, formatKey, validateConsent } from '@tailjs/types';
+
 const SchemaSystemTypes = Object.freeze({
     Event: "urn:tailjs:core:event"
 });
@@ -41,7 +43,6 @@ const tryCatch = (expression, errorHandler = true, always)=>{
         always?.();
     }
 };
-
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
 /** Caching this value potentially speeds up tests rather than using `Number.MAX_SAFE_INTEGER`. */ const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 /** Minify friendly version of `null`. */ const nil = null;
@@ -63,8 +64,7 @@ const isError = (value)=>value instanceof Error;
  * - Otherwise, an array with the value as its single item is returned.
  */ const array = (value, clone = false)=>value == null ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
         ...value
-    ] : // ? toArrayAsync(value)
-    [
+    ] : [
         value
     ];
 const isObject = (value)=>value !== null && typeof value === "object";
@@ -75,7 +75,6 @@ const isFunction = (value)=>typeof value === "function";
 const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
 const isMap = (value)=>value instanceof Map;
 const isSet = (value)=>value instanceof Set;
-
 let stopInvoked = false;
 const stop = (yieldValue)=>(stopInvoked = true, yieldValue);
 const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
@@ -244,16 +243,8 @@ const fromEntries = Object.fromEntries;
     }
     return fromEntries(map(source, selector ? (item, index)=>ifDefined(selector(item, index), 1) : (item)=>ifDefined(item, 1)));
 };
-const entries = (target)=>!isArray(target) && isIterable(target) ? map(target, isMap(target) ? (value)=>value : isSet(target) ? (value)=>[
-            value,
-            true
-        ] : (value, index)=>[
-            index,
-            value
-        ]) : isObject(target) ? Object.entries(target) : undefined$1;
 const first = (source, predicate, start, end)=>source == null ? undefined$1 : forEachInternal(source, (value, i)=>!predicate || predicate(value, i) ? stop(value) : undefined$1, start, end);
 const some = (source, predicate, start, end)=>source == null ? undefined$1 : isPlainObject(source) && !predicate ? Object.keys(source).length > 0 : source.some?.(predicate ?? isTruish) ?? forEachInternal(source, predicate ? (item, index)=>predicate(item, index) ? stop(true) : false : ()=>stop(true), start, end) ?? false;
-
 // #endregion
 // #region get
 const updateSingle = (target, key, value)=>setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
@@ -303,38 +294,6 @@ const update = createSetOrUpdateFunction(updateSingle);
 const assignIfUndefined = createSetOrUpdateFunction(setSingleIfNotDefined);
 // #endregion
 const add = (target, key)=>target instanceof Set || target instanceof WeakSet ? target.has(key) ? false : (target.add(key), true) : get(target, key) !== assign(target, key, true);
-const define = (target, ...args)=>{
-    const add = (arg, defaults)=>{
-        if (!arg) return;
-        let properties;
-        if (isArray(arg)) {
-            if (isPlainObject(arg[0])) {
-                // Tuple with the first item the defaults and the next the definitions with those defaults,
-                // ([{enumerable: false, ...}, ...])
-                arg.splice(1).forEach((items)=>add(items, arg[0]));
-                return;
-            }
-            // ([[key1, value1], [key2, value2], ...])
-            properties = arg;
-        } else {
-            // An object.
-            properties = map(arg);
-        }
-        properties.forEach(([key, value])=>Object.defineProperty(target, key, {
-                configurable: false,
-                enumerable: true,
-                writable: false,
-                ...defaults,
-                ...isPlainObject(value) && ("get" in value || "value" in value) ? value : isFunction(value) && !value.length ? {
-                    get: value
-                } : {
-                    value
-                }
-            }));
-    };
-    args.forEach((arg)=>add(arg));
-    return target;
-};
 const unwrap = (value)=>isFunction(value) ? value() : value;
 const unlock = (readonly)=>readonly;
 /** Creates a clone of an object (including arrays, sets and maps) at the specified depth. -1 means "any depth". */ const clone = (value, depth = -1)=>isArray(value) ? depth ? value.map((value)=>clone(value, depth - 1)) : [
@@ -344,303 +303,12 @@ const unlock = (readonly)=>readonly;
             clone(v, depth - 1)
         ]) : {
         ...value
-    } : isSet(value) ? new Set(depth ? map(value, (value)=>clone(value, depth - 1)) : value) : isMap(value) ? new Map(depth ? map(value, (value)=>// Does not clone keys.
-        [
+    } : isSet(value) ? new Set(depth ? map(value, (value)=>clone(value, depth - 1)) : value) : isMap(value) ? new Map(depth ? map(value, (value)=>[
             value[0],
             clone(value[1], depth - 1)
         ]) : value) : value;
-
 const changeCase = (s, upper)=>s == null ? s : upper ? s.toUpperCase() : s.toLowerCase();
 const changeIdentifierCaseStyle = (identifier, type)=>identifier.replace(/([_-]*)(\$*(?:[A-Z]+|[a-z]))([a-z0-9]*)/g, (_, underscores, initial, rest, index)=>(underscores && (!index || type === "kebab" || type === "snake") ? underscores.replace(/./g, type === "snake" ? "-" : "_") : "") + ((index && (type === "kebab" || type === "snake") && !underscores ? type === "snake" ? "-" : "_" : "") + changeCase(initial, type === "pascal" || type === "camel" && index) + changeCase(type === "kebab" || type === "snake" ? rest.replace(/(?<=\D)\d|(?<=\d)\D/g, type === "kebab" ? "_$&" : "-$&") : rest, false)));
-/**
- * Creates a string enumerating a list of value given a separator, optionally using a different separator between the last two items.
- *
- * @param values - The list of items to enumerator.
- * @param separator - The separator to use (defaults to ", "). If given a tuple, the first item is the last separator without spaces.
- * The second item may optionally specify another separator than the default (", ").
- *
- *
- * Useful for enumerations like "item1, item2 and item 3" (`separate(["item1", "item2", "item3"], ["and"])`).
- */ const enumerate = (values, separator = [
-    "and",
-    ", "
-])=>!values ? undefined$1 : (values = map(values)).length === 1 ? values[0] : isArray(separator) ? [
-        values.slice(0, -1).join(separator[1] ?? ", "),
-        " ",
-        separator[0],
-        " ",
-        values[values.length - 1]
-    ].join("") : values.join(separator ?? ", ");
-const quote = (item, quoteChar = "'")=>item == null ? undefined$1 : quoteChar + item + quoteChar;
-
-const isBit = (n)=>(n = Math.log2(n), n === (n | 0));
-const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
-    const names = Object.fromEntries(Object.entries(sourceEnum).filter(([key, value])=>isString(key) && isNumber(value)).map(([key, value])=>[
-            key.toLowerCase(),
-            value
-        ]));
-    const entries = Object.entries(names);
-    const values = Object.values(names);
-    const any = names["any"] ?? values.reduce((any, flag)=>any | flag, 0);
-    const nameLookup = flags ? {
-        ...names,
-        any,
-        none: 0
-    } : names;
-    const valueLookup = Object.fromEntries(Object.entries(nameLookup).map(([key, value])=>[
-            value,
-            key
-        ]));
-    const parseValue = (value, validateNumbers)=>isInteger(value) ? !flags && validateNumbers ? valueLookup[value] != null ? value : undefined$1 : Number.isSafeInteger(value) ? value : undefined$1 : isString(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] ?? // Sometimes a number may have been stored as a string.
-        // Let's see if that is the case.
-        parseValue(parseInt(value), validateNumbers) : undefined$1;
-    let invalid = false;
-    let carry;
-    let carry2;
-    const [tryParse, lookup] = flags ? [
-        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>flag == null || invalid ? flags : (flag = parseValue(flag, validateNumbers)) == null ? (invalid = true, undefined$1) : (flags ?? 0) | flag, (invalid = false, undefined$1)) : parseValue(value),
-        (value, format)=>(value = tryParse(value, false)) == null ? undefined$1 : format && (carry2 = valueLookup[value & any]) ? (carry = lookup(value & ~(value & any), false)).length ? [
-                carry2,
-                ...carry
-            ] : carry2 : (value = entries.filter(([, flag])=>flag && value & flag && isBit(flag)).map(([name])=>name), format ? value.length ? value.length === 1 ? value[0] : value : "none" : value)
-    ] : [
-        parseValue,
-        (value)=>(value = parseValue(value)) != null ? valueLookup[value] : undefined$1
-    ];
-    let originalValue;
-    const parse = (value, validateNumbers)=>value == null ? undefined$1 : (value = tryParse(originalValue = value, validateNumbers)) == null ? throwError(new TypeError(`${JSON.stringify(originalValue)} is not a valid ${enumName} value.`)) : value;
-    const pure = entries.filter(([, value])=>!pureFlags || (pureFlags & value) === value && isBit(value));
-    return define((value)=>parse(value), [
-        {
-            configurable: false,
-            enumerable: false
-        },
-        {
-            parse,
-            tryParse,
-            entries,
-            values,
-            lookup,
-            length: entries.length,
-            format: (value)=>lookup(value, true),
-            logFormat: (value, c = "or")=>(value = lookup(value, true), value === "any" ? "any " + enumName : `the ${enumName} ${enumerate(map(array(value), (value)=>quote(value)), [
-                    c
-                ])}`)
-        },
-        flags && {
-            pure,
-            map: (flags, map)=>(flags = parse(flags), pure.filter(([, flag])=>flag & flags).map(map ?? (([, flag])=>flag)))
-        }
-    ]);
-};
-/**
- * Creates a function that parses the specified enum properties to their numeric values on the object provided.
- * Note that it does the parsing directly on the provided object and does not create a copy.
- */ const createEnumPropertyParser = (...props)=>{
-    const parsers = entries(obj(props, true));
-    const parse = (source)=>(isObject(source) && (isArray(source) ? source.forEach((sourceItem, i)=>source[i] = parse(sourceItem)) : parsers.forEach(([prop, parsers])=>{
-            let parsed = undefined$1;
-            let value;
-            if ((value = source[prop]) == null) return;
-            parsers.length === 1 ? source[prop] = parsers[0].parse(value) : parsers.forEach((parser, i)=>!parsed && (parsed = i === parsers.length - 1 ? parser.parse(value) : parser.tryParse(value)) != null && (source[prop] = parsed));
-        })), source);
-    return parse;
-};
-
-var DataClassification;
-(function(DataClassification) {
-    /**
-   * The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.
-   *
-   * Tail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.
-   *
-   * Identifying returning visitors will not be possible at this level.
-   * In-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
-   */ DataClassification[DataClassification["Anonymous"] = 0] = "Anonymous";
-    /**
-   * The data may possibly identify the user if put into context with other data, yet not specifically on its own.
-   *
-   * Examples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.
-   *
-   * Identifying returning visitors will be possible at this level of consent, but not across devices.
-   * Some level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.
-   *
-   * This level is the default when a user has consented to necessary information being collected via a  cookie disclaimer or similar.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
-   */ DataClassification[DataClassification["Indirect"] = 1] = "Indirect";
-    /**
-   * The data directly identifies the user on its own.
-   *
-   * Examples are name, username, street address and email address.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * Personalization based on past actions such as purchases will also be possible.
-   *
-   * This level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).
-   *
-   * Please note it is possible to access user data even when nothing is tracked beyond the bla... level
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
-   */ DataClassification[DataClassification["Direct"] = 2] = "Direct";
-    /**
-   * Sensitive data about a user.
-   *
-   * Examples are data related to health, financial matters, race, political and religious views, and union membership.
-   * If the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * and so will advanced personalization.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
-   */ DataClassification[DataClassification["Sensitive"] = 3] = "Sensitive";
-})(DataClassification || (DataClassification = {}));
-const dataClassification = createEnumAccessor(DataClassification, false, "data classification");
-
-var DataPurposeFlags;
-(function(DataPurposeFlags) {
-    /** Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema. */ DataPurposeFlags[DataPurposeFlags["None"] = 0] = "None";
-    /**
-   * Data stored for this purpose is vital for the system, website or app to function.
-   */ DataPurposeFlags[DataPurposeFlags["Necessary"] = 1] = "Necessary";
-    /**
-   * Data stored for this purpose is used for personalization or otherwise adjust the appearance of a website or app
-   * according to a user's preferences.
-   *
-   * DO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope
-   * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
-   *
-   * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
-   * also be distributed across multiple domain names.
-   *
-   */ DataPurposeFlags[DataPurposeFlags["Functionality"] = 2] = "Functionality";
-    /**
-   * Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including
-   * demographics and similar traits with the purpose of optimizing the website or app.
-   *
-   * DO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope
-   * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
-   *
-   * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
-   * also be distributed across multiple domain names.
-   *
-   */ DataPurposeFlags[DataPurposeFlags["Performance"] = 4] = "Performance";
-    /**
-   * Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties
-   * or otherwise used to perform marketing outside the scope of the specific website or app.
-   *
-   * If the data is only used for different website and apps that relate to the same product or service, it might not be necessary
-   * to use this category.
-   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
-   * also be distributed across multiple domain names.
-   */ DataPurposeFlags[DataPurposeFlags["Targeting"] = 8] = "Targeting";
-    /**
-   * Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,
-   * or for a website to guard itself against various kinds of attacks.
-   *
-   * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Security"] = 16] = "Security";
-    /**
-   * Data stored for this purpose may be similar to the performance category, however it is specifically
-   * only used for things such as health monitoring, system performance and error logging and unrelated to user behavior.
-   *
-   * This is implicitly also `Necessary`.
-   */ DataPurposeFlags[DataPurposeFlags["Infrastructure"] = 32] = "Infrastructure";
-    /**
-   * Any purposes that is permissable for anonymous users.
-   */ DataPurposeFlags[DataPurposeFlags["Any_Anonymous"] = 49] = "Any_Anonymous";
-    /**
-   * Data can be used for any purpose.
-   *
-   * Flags with a higher value than this are used for restrictions on who can access the data rather what it is used for.
-   */ DataPurposeFlags[DataPurposeFlags["Any"] = 63] = "Any";
-    /**
-   * The data is not available client-side.
-   * Note that this is a special flag that is not included in "Any"
-   */ DataPurposeFlags[DataPurposeFlags["Server"] = 2048] = "Server";
-    /**
-   * The data can only be updated server-side and is read-only client-side.
-   *
-   * Note that this is a special flag that is not included in "Any".
-   */ DataPurposeFlags[DataPurposeFlags["Server_Write"] = 4096] = "Server_Write";
-})(DataPurposeFlags || (DataPurposeFlags = {}));
-const purePurposes = 1 | 2 | 4 | 8 | 16 | 32 | 2048;
-const dataPurposes = createEnumAccessor(DataPurposeFlags, true, "data purpose", purePurposes);
-const singleDataPurpose = createEnumAccessor(DataPurposeFlags, false, "data purpose", 0);
-
-const validateConsent = (source, consent, defaultClassification, write = false)=>{
-    if (!source) return undefined;
-    const classification = dataClassification.parse(source?.classification ?? source?.level, false) ?? required$2(dataClassification(defaultClassification?.classification), "The source has not defined a data classification and no default was provided.");
-    let purposes = dataPurposes.parse(source.purposes, false) ?? required$2(dataPurposes.parse(defaultClassification?.purposes, false), "The source has not defined data purposes and no default was provided.");
-    const consentClassification = dataClassification.parse(consent["classification"] ?? consent["level"], false);
-    const consentPurposes = dataPurposes.parse(consent.purposes, false);
-    // If we are writing, also check that the type is not client-side read-only.
-    // The context will only be given the `Server` flag. `ClientRead` is only for annotations.
-    for (const serverFlag of [
-        DataPurposeFlags.Server,
-        write ? DataPurposeFlags.Server_Write : 0
-    ]){
-        if (purposes & serverFlag && !(consentPurposes & DataPurposeFlags.Server)) {
-            return false;
-        }
-    }
-    return source && classification <= consentClassification && (purposes & // No matter what is defined in the consent, it will always include the "anonymous" purposes.
-    (consentPurposes | DataPurposeFlags.Any_Anonymous)) > 0;
-};
-
-var VariableScope;
-(function(VariableScope) {
-    /** Global variables. */ VariableScope[VariableScope["Global"] = 0] = "Global";
-    /**
-   * Variables related to an external identity.
-   * One use case could be used to augment data a CMS with real-time data related to personalization or testing.
-   */ VariableScope[VariableScope["Entity"] = 1] = "Entity";
-    /** Variables related to sessions. */ VariableScope[VariableScope["Session"] = 2] = "Session";
-    /** Variables related to a device (browser or app). */ VariableScope[VariableScope["Device"] = 3] = "Device";
-    /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 4] = "User";
-})(VariableScope || (VariableScope = {}));
-const variableScope = createEnumAccessor(VariableScope, false, "variable scope");
-({
-    classification: DataClassification.Anonymous,
-    purposes: DataPurposeFlags.Necessary
-});
-/** Returns a description of a key that can be used for logging and error messages.  */ const formatKey = (key)=>`'${key.key}' in ${variableScope.format(key.scope)} scope`;
-const VariableEnumProperties = {
-    scope: variableScope,
-    purpose: singleDataPurpose,
-    purposes: dataPurposes,
-    classification: dataClassification
-};
-createEnumPropertyParser(VariableEnumProperties);
-
-var VariablePatchType;
-(function(VariablePatchType) {
-    VariablePatchType[VariablePatchType["Add"] = 0] = "Add";
-    VariablePatchType[VariablePatchType["Min"] = 1] = "Min";
-    VariablePatchType[VariablePatchType["Max"] = 2] = "Max";
-    VariablePatchType[VariablePatchType["IfMatch"] = 3] = "IfMatch";
-    VariablePatchType[VariablePatchType["IfNoneMatch"] = 4] = "IfNoneMatch";
-})(VariablePatchType || (VariablePatchType = {}));
-createEnumAccessor(VariablePatchType, false, "variable patch type");
-
-var VariableResultStatus;
-(function(VariableResultStatus) {
-    VariableResultStatus[VariableResultStatus["Success"] = 200] = "Success";
-    VariableResultStatus[VariableResultStatus["Created"] = 201] = "Created";
-    VariableResultStatus[VariableResultStatus["Unchanged"] = 304] = "Unchanged";
-    VariableResultStatus[VariableResultStatus["Denied"] = 403] = "Denied";
-    VariableResultStatus[VariableResultStatus["NotFound"] = 404] = "NotFound";
-    VariableResultStatus[VariableResultStatus["ReadOnly"] = 405] = "ReadOnly";
-    VariableResultStatus[VariableResultStatus["Conflict"] = 409] = "Conflict";
-    VariableResultStatus[VariableResultStatus["Unsupported"] = 501] = "Unsupported";
-    VariableResultStatus[VariableResultStatus["Invalid"] = 400] = "Invalid";
-    VariableResultStatus[VariableResultStatus["Error"] = 500] = "Error";
-})(VariableResultStatus || (VariableResultStatus = {}));
-createEnumAccessor(VariableResultStatus, false, "variable set status");
 
 const parsePrivacyTokens = (tokens, classification = {})=>{
     tokens.split(/[,\s]/).map((keyword)=>keyword.trim()).filter((item)=>item).forEach((keyword)=>{
