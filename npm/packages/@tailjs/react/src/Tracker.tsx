@@ -1,4 +1,4 @@
-import React, { PropsWithChildren } from "react";
+import React, { Component, ComponentFactory, PropsWithChildren } from "react";
 
 import {
   BoundaryCommand,
@@ -28,6 +28,7 @@ export type TrackerProperties = PropsWithChildren<{
   trackReactComponents?: boolean;
   disabled?: boolean;
   exclude?: RegExp;
+  ignore?: (ComponentFactory<any, any> | Component)[];
 }>;
 
 export const Tracker = ({
@@ -36,11 +37,17 @@ export const Tracker = ({
   trackReactComponents = true,
   disabled = false,
   exclude = /ErrorBoundary|Provider|Route[a-z_]*|Switch|[a-z_]*Context/gi,
+  ignore,
 }: TrackerProperties) => {
+  if (disabled) {
+    return <>{children}</>;
+  }
   if (!isExternal()) {
     tail.push({ set: { scope: "view", key: "rendered", value: true } });
   }
   tail.push({ disable: disabled });
+
+  const ignoreMap = ignore ? new Set(ignore) : null;
 
   return (
     <MapState
@@ -55,6 +62,7 @@ export const Tracker = ({
             (item) => item.id
           );
         }
+
         if (mapped?.content) {
           mapped.content = filterCurrent(
             context.state?.content,
@@ -62,6 +70,7 @@ export const Tracker = ({
             (item) => item.id
           );
         }
+
         if (mapped?.area) {
           mapped.area = context.state?.area || mapped.area;
         }
@@ -93,6 +102,10 @@ export const Tracker = ({
         return mergeStates(state, mapped);
       }}
       patchProperties={(el, parentState, currentState) => {
+        if (ignoreMap?.has(el.type)) {
+          return false;
+        }
+
         let props: any = undefined;
         const html = typeof el.type === "string";
         let tags = el.props && el.props["track-tags"];
@@ -105,6 +118,7 @@ export const Tracker = ({
             parentState = mergeStates(parentState, { tags });
           }
         }
+
         if ((tags = parentState?.tags)) {
           props = {
             ...el.props,

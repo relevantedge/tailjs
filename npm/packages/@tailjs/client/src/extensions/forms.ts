@@ -2,11 +2,13 @@ import { FormEvent, FormField, Timestamp } from "@tailjs/types";
 import {
   T,
   createTimeout,
+  ellipsis,
   forEach,
   get,
   map,
   nil,
   now,
+  parseBoolean,
   replace,
   type Nullish,
 } from "@tailjs/util";
@@ -47,8 +49,10 @@ type FormState = [
 ];
 
 const currentValue = Symbol();
+const fieldSettings = Symbol();
 type FormFieldState = FormField & {
   [currentValue]: string;
+  [fieldSettings]?: { trackValue?: boolean };
 };
 
 export const forms: TrackerExtensionFactory = {
@@ -61,8 +65,8 @@ export const forms: TrackerExtensionFactory = {
         ? [...element.selectedOptions].map((option) => option.value).join(",")
         : element.type === "checkbox"
         ? element.checked
-          ? "yes"
-          : "no"
+          ? "1"
+          : "0"
         : element.value;
 
     const getFormState = (
@@ -91,6 +95,14 @@ export const forms: TrackerExtensionFactory = {
               return;
             }
 
+            let trackFieldValue = scopeAttribute(
+              el,
+              trackerPropertyName("form-value")
+            );
+            trackFieldValue = trackFieldValue
+              ? parseBoolean(trackFieldValue)
+              : el.type === "checkbox";
+
             const name = el.name;
             const field = (state[0].fields![name] ??= {
               id: el.id || name,
@@ -104,6 +116,7 @@ export const forms: TrackerExtensionFactory = {
               totalTime: 0,
               type: el.type ?? "unknown",
               [currentValue as any]: getFormFieldValue(el),
+              [fieldSettings as any]: { trackValue: trackFieldValue },
             }) as FormFieldState;
 
             state[0].fields![field.name] = field;
@@ -222,6 +235,9 @@ export const forms: TrackerExtensionFactory = {
           form.fields!,
           ([name, value]) => (value.lastField = name === field.name)
         );
+      }
+      if (field[fieldSettings]?.trackValue) {
+        field.value = ellipsis(field[currentValue], 200);
       }
 
       field.activeTime! += active;

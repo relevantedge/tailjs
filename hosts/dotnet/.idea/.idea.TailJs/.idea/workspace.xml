@@ -12,19 +12,28 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1756235-4424-458f-b8f3-c8bf8d7b92a2" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/engine.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/engine.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/json-schema.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/json-schema.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/runtime-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/runtime-schema.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/schema.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.cjs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.cjs.map" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.cjs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.cjs.map" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.cjs" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/extensions/view.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/extensions/view.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/ImpressionObserver.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/ImpressionObserver.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/ViewTimingData.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/ViewTimingData.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/events/ImpressionEvent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/events/ImpressionEvent.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/transport.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/transport.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/types.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/types.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/examples/react/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/react/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/examples/react/src/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/react/src/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/examples/react/src/style.css" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/react/src/style.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/examples/react/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/react/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/examples/react/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/react/vite.config.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -195,6 +204,7 @@
       <workItem from="1718016392918" duration="16301000" />
       <workItem from="1718189849708" duration="2416000" />
       <workItem from="1718351256155" duration="3478000" />
+      <workItem from="1721649033260" duration="2782000" />
     </task>
     <task id="LOCAL-00001" summary="Adjusted project for new repo. Consumed latest event schema.">
       <option name="closed" value="true" />
@@ -233,25 +243,6 @@
     <MESSAGE value="Adjusted project for new repo. Consumed latest event schema." />
     <MESSAGE value="More API plumbing." />
     <option name="LAST_COMMIT_MESSAGE" value="More API plumbing." />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="DotNet Breakpoints">
-          <url>file://$PROJECT_DIR$/core/TailJs/ClientRequest.cs</url>
-          <line>67</line>
-          <properties documentPath="C:\Projects\rlvedge\github\tailjs\hosts\dotnet\core\TailJs\ClientRequest.cs" containingFunctionPresentation="Lambda expression inside Method 'Payload'">
-            <startOffsets>
-              <option value="1450" />
-            </startOffsets>
-            <endOffsets>
-              <option value="1680" />
-            </endOffsets>
-          </properties>
-          <option name="timeStamp" value="7" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

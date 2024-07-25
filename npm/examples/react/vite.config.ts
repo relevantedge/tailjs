@@ -1,9 +1,24 @@
+import react from "@vitejs/plugin-react";
 import preact from "@preact/preset-vite";
 import { defineConfig, Plugin } from "vite";
 import { mapModuleName } from "../../build/use-dist-packages";
+import tailwindcss from "tailwindcss";
+import fs from "fs";
+
+const usePreact = process.argv.includes("--preact");
+const tsconfig = JSON.parse(fs.readFileSync("./tsconfig.json", "utf-8"));
+if (usePreact) {
+  tsconfig.compilerOptions.jsxImportSource = "preact";
+  tsconfig.compilerOptions.paths = {
+    ...tsconfig.compilerOptions.paths,
+    react: ["./node_modules/preact/compat/"],
+    "react-dom": ["./node_modules/preact/compat/"],
+  };
+}
 
 const tailJsPlugin: Plugin = {
   name: "tailjs",
+
   configureServer: (server) => {
     server.watcher.add("./node_modules/@tailjs/react/dist/dist/index.mjs");
     server.middlewares.use((req, res, next) => {
@@ -22,7 +37,15 @@ const tailJsPlugin: Plugin = {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [tailJsPlugin, preact()],
+  plugins: [tailJsPlugin, usePreact ? preact() : react()],
+  // esbuild: {
+  //   tsconfigRaw: JSON.stringify(tsconfig),
+  // },
+  css: {
+    postcss: {
+      plugins: [tailwindcss()],
+    },
+  },
   server: {
     proxy: {
       "/_t.js": {
