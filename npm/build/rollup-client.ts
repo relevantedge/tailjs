@@ -88,10 +88,9 @@ const createConfig = (debug?: boolean) =>
       compilePlugin({
         debug,
         minify: true,
-        args: {
-          tsconfig: `${pkg.path}/tsconfig.browser.json`,
-          sourceMaps: true,
-        },
+
+        tsconfig: `${pkg.path}/tsconfig.browser.json`,
+        sourceMaps: true,
       }),
       !debug &&
         strip({

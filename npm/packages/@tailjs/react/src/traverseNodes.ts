@@ -1,10 +1,15 @@
-import React, { isValidElement, ReactNode } from "react";
+import React, { isValidElement, ReactNode, Fragment } from "react";
 
 export let currentContext: TraverseContext | null = null;
+const sourceNode = Symbol("tail_source");
+
 const CONTEXT_PROPERTY = Symbol(); //"__traverse_ctx";
 
 type Ref = (el: HTMLElement) => void;
-export type TraversableElement = JSX.Element & { ref?: Ref };
+export type TraversableElement = JSX.Element & {
+  ref?: Ref;
+  [sourceNode]?: any;
+};
 
 export type MapStateFunction<State = any, Context = any> = (
   el: TraversableElement,
@@ -48,6 +53,7 @@ export interface TraverseContext<T = any, C = any, N = ReactNode>
   parent: TraverseContext<T, C, TraversableElement> | null;
   context: C;
   depth: number;
+  debug?: boolean;
 }
 
 const createInitialContext = <T, C = undefined>(
@@ -69,6 +75,12 @@ export function traverseNodes<T, C = undefined>(
   return traverseNodesInternal(node, createInitialContext(node, options));
 }
 
+// This is the (seemingly) best way to detect context components in Preact since they are functional components
+// without any other obvious traits.
+// It is not an issue in React where they are `$$typeof: Symbol(react.provider)`,
+// that is, neither component classes nor functional components, and will then just get their children traversed.
+const preactFrameworkComponents = new Set(["Provider", "Consumer"]);
+
 const wrapperTypeKind = Symbol("typeKind");
 
 const componentCache = new WeakMap<any, any>();
@@ -83,7 +95,10 @@ function getOrSet<K, V>(
   }
   return current;
 }
-function traversingInternal(type: any) {
+function wrapType(type: any) {
+  if (preactFrameworkComponents.has(type.name)) {
+    return [2, type];
+  }
   const wrappedTypeKind = type[wrapperTypeKind];
   if (wrappedTypeKind != null) return [wrappedTypeKind, type];
 
@@ -92,6 +107,7 @@ function traversingInternal(type: any) {
 
   if (type.prototype instanceof React.Component || type.prototype?.render) {
     typeKind = 0;
+
     wrapper = getOrSet(
       componentCache,
       type,
@@ -107,11 +123,23 @@ function traversingInternal(type: any) {
     wrapper = getOrSet(
       componentCache,
       type,
-      () =>
-        function (props: any) {
-          return wrapRender(type, props, (props) => type(props));
-        }
+      () => (props: any) => wrapRender(type, props, type.render ?? type)
     );
+  } else if (typeof type.render === "function") {
+    const wrapped = type.render;
+    return [
+      1,
+      {
+        ...type,
+        render: (props: any, ref: any) =>
+          props[CONTEXT_PROPERTY]
+            ? traverseNodesInternal(
+                wrapped(props, ref),
+                props[CONTEXT_PROPERTY]
+              )
+            : wrapped(props, ref),
+      },
+    ];
   }
   if (wrapper) {
     wrapper[wrapperTypeKind] = typeKind;
@@ -128,14 +156,15 @@ function wrapRender(type: any, props: any, inner: (props: any) => any) {
   // Also, remove it before the props are passed to the wrapped component lest it gets confused by an extra, unexpected property.
   let { [CONTEXT_PROPERTY]: context, ...rest } = props;
   if (!context) {
-    return inner(rest);
+    return inner.call(type, rest);
   }
 
   if (context.state != null) {
     context.componentRefreshed?.(type, context.state, rest, context.context);
   }
 
-  const innerResult = inner(rest);
+  let innerResult = inner.call(type, rest);
+
   try {
     currentContext = context;
     return traverseNodesInternal(innerResult, context);
@@ -197,6 +226,16 @@ export function traverseNodesInternal<T, C>(
       parent: context as any,
       depth: context.depth + 1,
     };
+    if (el.type === Fragment) {
+      return {
+        ...el,
+        [sourceNode]: el,
+        props: {
+          ...el.props,
+          children: traverseNodesInternal(el.props.children, newContext),
+        },
+      };
+    }
 
     const patched = context.patchProperties?.(
       el,
@@ -230,24 +269,25 @@ export function traverseNodesInternal<T, C>(
       }
     }
 
-    const [kind, type] = traversingInternal(el.type);
+    const [kind, type] = wrapType(el.type);
 
     switch (kind) {
       case 0: // Class component
       case 1: // Function component
         return {
           ...el,
+          [sourceNode]: el,
           props: { ...el.props, [CONTEXT_PROPERTY]: newContext },
           type,
         };
+
       default:
         const children = el.props?.children;
-
         let memoProps: any;
 
         let memoType = el.type?.type;
         if (memoType) {
-          const [kind, type] = traversingInternal(memoType);
+          const [kind, type] = wrapType(memoType);
 
           if (kind <= 1) {
             memoProps = {
@@ -256,21 +296,26 @@ export function traverseNodesInternal<T, C>(
             };
           }
         }
+
         return children
           ? {
               ...el,
+              [sourceNode]: el,
               ...memoProps,
               props: {
                 ...el.props,
                 children:
                   typeof children === "function"
                     ? (...args: any) =>
-                        traverseNodesInternal(children(...args), newContext)
+                        traverseNodesInternal(
+                          children.apply(el, args),
+                          newContext
+                        )
                     : traverseNodesInternal(children, newContext),
               },
             }
           : memoProps
-          ? { ...el, ...memoProps }
+          ? { ...el, [sourceNode]: el, ...memoProps }
           : el;
     }
   }

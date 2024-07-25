@@ -56,11 +56,9 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
           //   treeShaking: true,
           // }),
           compilePlugin({
-            args: {
-              tsconfig: fs.existsSync(`${pkg.path}/tsconfig.external.json`)
-                ? `${pkg.path}/tsconfig.external.json`
-                : undefined,
-            },
+            tsconfig: fs.existsSync(`${pkg.path}/tsconfig.external.json`)
+              ? `${pkg.path}/tsconfig.external.json`
+              : undefined,
           }),
           resolve({ browser: true, preferBuiltins: false }),
           cjs(),
@@ -135,7 +133,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
               baseContents: () => {
                 return {
                   private: true,
-                  main: "dist/index.cjs",
+                  main: "dist/index.js",
                   module: "dist/index.mjs",
                   types: "dist/index.d.ts",
                 };
@@ -189,7 +187,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
                 dir: path[0],
                 format: "cjs",
                 ...chunkNameFunctions(
-                  ".cjs",
+                  ".js",
                   ext ? "" : undefined,
                   ext ? pkg.name : undefined
                 ),

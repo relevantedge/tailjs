@@ -6,6 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { OutputChunk, RollupOptions, rollup, watch } from "rollup";
 import swc from "rollup-plugin-swc3";
+import ts from "rollup-plugin-ts";
 
 export interface PackageEnvironment {
   path: string;
@@ -19,18 +20,23 @@ export interface PackageEnvironment {
 export const compilePlugin = ({
   debug = false,
   minify = false,
-  args,
-}: { debug?: boolean; minify?: boolean; args?: any } = {}) => {
-  const tscPath = args?.tsconfig ?? "./tsconfig.json";
-  if (!fs.existsSync(tscPath)) {
-    throw new Error(`'${tscPath}' does not exist.`);
+  tsconfig = "./tsconfig.json",
+  sourceMaps = false,
+}: {
+  debug?: boolean;
+  minify?: boolean;
+  tsconfig?: string;
+  sourceMaps?: boolean;
+} = {}) => {
+  if (!fs.existsSync(tsconfig)) {
+    throw new Error(`'${tsconfig}' does not exist.`);
   }
 
-  const tscSwcPath = tscPath.replace(/\.json$/, ".swc.json");
+  const tsconfigSwc = tsconfig.replace(/\.json$/, ".swc.json");
   fs.writeFileSync(
-    tscSwcPath,
+    tsconfigSwc,
     JSON.stringify({
-      extends: tscPath,
+      extends: tsconfig,
       compilerOptions: {
         paths: {
           "@constants": [path.join(getResolvedEnv().workspace, "constants")],
@@ -39,8 +45,46 @@ export const compilePlugin = ({
     }),
     "utf-8"
   );
+  // return ts({
+  //   transpiler: "swc",
+  //   tsconfig: tsconfigSwc,
+  //   swcConfig: {
+  //     jsc: {
+  //       target: "es2022",
+  //       transform: {
+  //         optimizer: {
+  //           globals: {
+  //             vars: {
+  //               __DEBUG__: "" + debug,
+  //             },
+  //           },
+  //         },
+  //       },
+  //       minify: minify
+  //         ? {
+  //             compress: minify && {
+  //               passes: 2,
+  //               ecma: 2022 as any,
+  //               unsafe_comps: true,
+  //               toplevel: true,
+  //               unsafe_arrows: true,
+  //               unsafe_methods: true,
+  //               unsafe_undefined: true,
+  //               pure_funcs: debug ? [] : ["debug"],
+  //             },
+  //             mangle: {
+  //               //props: false, //{ keep_quoted: true, regex: "^[^A-Z].*$" },
+  //               toplevel: false,
+  //             },
+  //           }
+  //         : undefined,
+  //     },
+  //     minify,
+  //     sourceMaps,
+  //   },
+  // });
   return swc({
-    tsconfig: tscSwcPath,
+    tsconfig: tsconfigSwc,
     jsc: {
       target: "es2022",
       transform: {
@@ -54,7 +98,7 @@ export const compilePlugin = ({
       },
       minify: minify
         ? {
-            sourceMap: args?.sourceMaps,
+            sourceMap: sourceMaps,
             compress: minify && {
               passes: 2,
               ecma: 2022 as any,
@@ -74,7 +118,7 @@ export const compilePlugin = ({
     },
     minify,
 
-    ...args,
+    sourceMaps,
   });
 };
 
