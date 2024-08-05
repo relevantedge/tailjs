@@ -64,12 +64,12 @@ export const commerce: TrackerExtensionFactory = {
         if (isCartCommand(command)) {
           let cart = command.cart;
           cart === "clear"
-            ? push(tracker, {
+            ? tracker({
                 type: "cart_updated",
                 action: "clear",
               } as CartUpdatedEvent)
             : (cart = normalizeCartEventData(cart)!) &&
-              push(tracker, {
+              tracker({
                 ...cart,
                 type: "cart_updated",
               } as CartUpdatedEvent);
@@ -77,7 +77,7 @@ export const commerce: TrackerExtensionFactory = {
           return T;
         }
         if (isOrderCommand(command)) {
-          push(tracker, {
+          tracker({
             type: "order",
             ...command.order,
           } as OrderEvent);

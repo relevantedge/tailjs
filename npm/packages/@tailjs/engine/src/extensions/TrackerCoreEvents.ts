@@ -1,3 +1,4 @@
+import { SCOPE_INFO_KEY } from "@constants";
 import {
   DeviceInfo,
   ScopeInfo,
@@ -6,7 +7,6 @@ import {
   SignInEvent,
   SignOutEvent,
   TrackedEvent,
-  Variable,
   VariablePatchSource,
   dataClassification,
   dataPurposes,
@@ -19,7 +19,6 @@ import {
 } from "@tailjs/types";
 import { now } from "@tailjs/util";
 import { NextPatchExtension, Tracker, TrackerExtension } from "../shared";
-import { SCOPE_INFO_KEY } from "@constants";
 
 export type SessionConfiguration = {
   /**
@@ -117,6 +116,7 @@ export class TrackerCoreEvents implements TrackerExtension {
           dataPurposes.tryParse(event.consent.purposes)
         );
       } else if (isResetEvent(event)) {
+        const resetEvent = event;
         if (tracker.session.userId) {
           // Fake a sign out event if the user is currently authenticated.
           events.push(event);
@@ -125,16 +125,15 @@ export class TrackerCoreEvents implements TrackerExtension {
             userId: tracker.authenticatedUserId,
             timestamp: event.timestamp,
           } as SignOutEvent;
-        } else {
-          // Start new session
-          await flushUpdates();
-          await tracker.reset(
-            true,
-            event.includeDevice,
-            event.includeConsent,
-            event.timestamp
-          );
         }
+        // Start new session
+        await flushUpdates();
+        await tracker.reset(
+          true,
+          resetEvent.includeDevice,
+          resetEvent.includeConsent,
+          resetEvent.timestamp
+        );
       }
 
       const session = {

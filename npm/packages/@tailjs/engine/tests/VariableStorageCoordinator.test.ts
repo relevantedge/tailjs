@@ -143,6 +143,44 @@ describe("VariableStorageCoordinator", () => {
     ).toBe("dabc");
   });
 
+  it("Queries", async () => {
+    const { coordinator } = setupStorage();
+
+    await coordinator.set([
+      { scope: "session", key: "test", targetId: "test", value: "test" },
+    ]);
+    let results = await coordinator.query([
+      { scopes: [VariableScope.Session], keys: [":*"] },
+    ]);
+
+    expect(results.results.length).toBe(1);
+    expect(results.results[0].key).toBe("test");
+
+    await coordinator.set([
+      {
+        scope: "device",
+        key: "deviceTest",
+        targetId: "test",
+        value: "test",
+      },
+    ]);
+
+    results = await coordinator.query([
+      { scopes: [VariableScope.Session], keys: [":*"] },
+    ]);
+
+    expect(results.results.length).toBe(1);
+    expect(results.results[0].key).toBe("test");
+
+    results = await coordinator.query([{ keys: [":*"] }]);
+
+    expect(results.results.length).toBe(2);
+    expect(results.results.map((result) => result.key).sort()).toEqual([
+      "deviceTest",
+      "test",
+    ]);
+  });
+
   it("Validates", async () => {
     const { coordinator } = setupStorage();
 

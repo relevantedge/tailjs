@@ -1,4 +1,5 @@
 import {
+  BUILD_REVISION_QUERY,
   CLIENT_SCRIPT_QUERY,
   CONTEXT_NAV_QUERY,
   EVENT_HUB_QUERY,
@@ -414,7 +415,6 @@ export class RequestHandler {
       // TODO: Find a way to push these. They are for external client-side trackers.
       tracker._clientEvents.push(...events);
     } else {
-      //console.log("Posted", eventBatch);
       await Promise.all(
         this._extensions.map(async (extension) => {
           try {
@@ -861,7 +861,9 @@ export class RequestHandler {
 
     const trackerRef = this._trackerName;
     if (html) {
-      trackerScript.push(`window.${trackerRef}||(${trackerRef}=[]);`);
+      trackerScript.push(
+        `window.${trackerRef}??=c=>(${trackerRef}._??=[]).push(c);`
+      );
     }
 
     const inlineScripts: string[] = [trackerScript.join("")];
@@ -895,7 +897,7 @@ export class RequestHandler {
         const pendingEvents = tracker.resolved.clientEvents;
         pendingEvents.length &&
           inlineScripts.push(
-            `${trackerRef}.push(${keyPrefix}${pendingEvents
+            `${trackerRef}(${keyPrefix}${pendingEvents
               .map((event) =>
                 typeof event === "string" ? event : JSON.stringify(event)
               )
@@ -904,7 +906,7 @@ export class RequestHandler {
       }
       if (initialCommands) {
         inlineScripts.push(
-          `${trackerRef}.push(${keyPrefix}${
+          `${trackerRef}(${keyPrefix}${
             isString(initialCommands)
               ? JSON.stringify(initialCommands)
               : httpEncode(initialCommands)
@@ -932,7 +934,9 @@ export class RequestHandler {
             : script.inline;
         } else {
           return html
-            ? `<script src='${script.src}?init'${
+            ? `<script src='${
+                script.src
+              }?${INIT_SCRIPT_QUERY}&${BUILD_REVISION_QUERY}'${
                 script.defer !== false ? " defer" : ""
               }></script>`
             : `try{document.body.appendChild(Object.assign(document.createElement("script"),${JSON.stringify(
@@ -954,7 +958,6 @@ export class RequestHandler {
       level: "error",
       message: `An error occurred when invoking the method '${method}' on an extension.`,
       group: "extensions",
-
       error,
     });
   }

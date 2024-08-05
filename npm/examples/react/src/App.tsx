@@ -2,7 +2,7 @@ import React from "react";
 import { Button, NextUIProvider } from "@nextui-org/react";
 import { Tracker } from "@tailjs/react";
 
-import { configureTracker } from "@tailjs/client/external";
+import { configureTracker, tail } from "@tailjs/client/external";
 
 import preactLogo from "./assets/preact.svg";
 import "./style.css";
@@ -24,7 +24,45 @@ export function App() {
             <input type="text" name="test-text" />
             <input type="checkbox" name="test-boolean" />
           </form>
-          <Button color="primary">A button</Button>
+
+          <Button
+            onClick={() => {
+              tail({
+                consent: {
+                  set: {
+                    level: "anonymous",
+                    purposes: "any",
+                    callback: () => {
+                      console.log("Aso");
+                    },
+                  },
+                },
+              });
+            }}
+            color="primary"
+          >
+            Go private
+          </Button>
+
+          <Button
+            onClick={() => {
+              tail({
+                consent: {
+                  set: {
+                    level: "indirect",
+                    purposes: "any",
+                    callback: () => {
+                      console.log("Asoz");
+                    },
+                  },
+                },
+              });
+            }}
+            color="primary"
+          >
+            Go public
+          </Button>
+          <Button>A button</Button>
           <section>
             <Resource
               title="Learn Preact"

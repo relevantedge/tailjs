@@ -43,9 +43,9 @@ export const Tracker = ({
     return <>{children}</>;
   }
   if (!isExternal()) {
-    tail.push({ set: { scope: "view", key: "rendered", value: true } });
+    tail({ set: { scope: "view", key: "rendered", value: true } });
   }
-  tail.push({ disable: disabled });
+  tail({ disable: disabled });
 
   const ignoreMap = ignore ? new Set(ignore) : null;
 
@@ -81,7 +81,7 @@ export const Tracker = ({
         }
 
         if (mapped?.view) {
-          context.context.push({
+          context.context({
             set: { scope: "view", key: "view", value: mapped.view },
           });
         }
@@ -201,7 +201,7 @@ function getRef({ component, content, area, tags, cart }: BoundaryData) {
       if (component || content || area || tags || cart) {
         //        current.style.backgroundColor = "blue";
         //       current.title = JSON.stringify(component);
-        tail.push(
+        tail(
           restrict<BoundaryCommand>({
             component,
             content,

@@ -485,8 +485,7 @@ export class VariableStorageCoordinator implements VariableStorage {
   ) {
     if (key) {
       const scope = variableScope(key.scope);
-      const scopeIds: VariableContextScopeIds | undefined =
-        context?.tracker ?? context?.scopeIds;
+      const scopeIds = context?.tracker ?? context?.scopeIds;
 
       if (scopeIds) {
         const validateScope = (
@@ -520,7 +519,10 @@ export class VariableStorageCoordinator implements VariableStorage {
                 (key.targetId ??= scopeIds.deviceId)
               )
             : scope === VariableScope.User
-            ? validateScope(scopeIds.userId, (key.targetId ??= scopeIds.userId))
+            ? validateScope(
+                scopeIds.authenticatedUserId,
+                (key.targetId ??= scopeIds.authenticatedUserId)
+              )
             : undefined;
 
         return error;
@@ -530,6 +532,42 @@ export class VariableStorageCoordinator implements VariableStorage {
     }
 
     return undefined;
+  }
+
+  _restrictFilters(
+    filters: VariableFilter<true>[],
+    context?: VariableStorageContext
+  ) {
+    const scopeIds = context?.tracker ?? context?.scopeIds;
+    if (!scopeIds) {
+      return filters;
+    }
+    const scopeTargetedFilters: VariableFilter<true>[] = [];
+    for (const filter of filters) {
+      for (let scope of filter.scopes ?? variableScope.values) {
+        scope = variableScope(scope);
+
+        let scopeTargetId =
+          scope === VariableScope.User
+            ? scopeIds.authenticatedUserId
+            : scope === VariableScope.Device
+            ? scopeIds.deviceId
+            : scope === VariableScope.Session
+            ? scopeIds.sessionId
+            : true;
+        if (!scopeTargetId) {
+          continue;
+        }
+        scopeTargetedFilters.push({
+          ...filter,
+          scopes: [scope],
+          targetIds:
+            scopeTargetId === true ? filter.targetIds : [scopeTargetId],
+        });
+      }
+    }
+
+    return scopeTargetedFilters;
   }
 
   private _censorValidate(
@@ -831,7 +869,10 @@ export class VariableStorageCoordinator implements VariableStorage {
     filters: VariableFilter<true>[],
     context?: VariableStorageContext
   ): MaybePromise<boolean> {
-    return this._storage.purge(filters, context);
+    return this._storage.purge(
+      this._restrictFilters(filters, context),
+      context
+    );
   }
 
   head(
@@ -839,14 +880,22 @@ export class VariableStorageCoordinator implements VariableStorage {
     options?: VariableQueryOptions<true> | undefined,
     context?: VariableStorageContext
   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
-    return this._storage.head(filters, options, context as any);
+    return this._storage.head(
+      this._restrictFilters(filters, context),
+      options,
+      context as any
+    );
   }
   async query(
     filters: VariableFilter<true>[],
     options?: VariableQueryOptions<true> | undefined,
     context?: VariableStorageContext
   ): Promise<VariableQueryResult<Variable<any, true>>> {
-    const results = await this._storage.query(filters, options, context as any);
+    const results = await this._storage.query(
+      this._restrictFilters(filters, context),
+      options,
+      context as any
+    );
     const consent = this._getContextConsent(context);
 
     results.results = results.results.map((result) => ({

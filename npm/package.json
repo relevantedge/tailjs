@@ -15,7 +15,7 @@
     "build:jss:watch": "pnpm -r run --if-present --stream --filter=\"@tailjs/sitecore-jss...\" build:watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "serve": "env BUILD_ARGS=--dist concurrently \"pnpm -r --if-present --filter @tailjs/react... --filter @tailjs/node^... --parallel --stream build:watch\" \"pnpm --filter @tailjs/node^... serve:watch\""
+    "serve": "env BUILD_ARGS=--dist concurrently \"pnpm -r --if-present --filter @tailjs/react... --filter @tailjs/engine... --filter @tailjs/node --parallel --stream build:watch\" \"pnpm --filter @tailjs/node... serve:watch\""
   },
   "devDependencies": {
     "@pnpm/find-workspace-dir": "^6.0.3",

@@ -66,7 +66,7 @@ export const createMiddleware: {
       endpoint: requestHandler.endpoint ?? "/_t.js",
       host,
       extensions: [
-        new EventLogger({ group: "events" }),
+        new EventLogger({ group: "events", minimal: true, console: true }),
         ...(requestHandler.extensions ?? []),
       ],
     });

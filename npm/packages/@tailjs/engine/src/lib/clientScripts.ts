@@ -1,4 +1,5 @@
 import {
+  BUILD_REVISION_QUERY,
   CLIENT_CALLBACK_CHANNEL_ID,
   INITIALIZE_TRACKER_FUNCTION,
 } from "@constants";
@@ -15,15 +16,15 @@ export const generateClientBootstrapScript = (
   const tempKey = "" + Math.random();
   const clientConfig = { ...config, dataTags: undefined };
 
-  return `((s=document.createElement("script"))=>{s.addEventListener("load",()=>window[${JSON.stringify(
+  return `((d=document,s=d.createElement("script"))=>{s.addEventListener("load",()=>window[${JSON.stringify(
     INITIALIZE_TRACKER_FUNCTION
   )}](init=>init(${JSON.stringify(
     encrypt
       ? httpEncode([tempKey, createTransport(tempKey)[0](clientConfig, true)])
       : clientConfig
   )})),true);s.src=${JSON.stringify(
-    config.src
-  )};document.head.appendChild(s)})();`;
+    config.src + (config.src.includes("?") ? "&" : "?") + BUILD_REVISION_QUERY
+  )};d.head.appendChild(s)})();`;
 };
 
 export const generateClientExternalNavigationScript = (

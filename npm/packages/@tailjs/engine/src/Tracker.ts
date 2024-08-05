@@ -41,6 +41,7 @@ import {
   requireFound,
   restrictTargets,
   toVariableResultPromise,
+  variableScope,
 } from "@tailjs/types";
 import {
   MaybePromise,
@@ -155,10 +156,20 @@ const createInitialScopeData = <T extends ScopeInfo>(
 
 interface DeviceVariableCache {
   /** Parsed variables from cookie. */
-  variables?: Record<string, Variable> | undefined;
+  variables?:
+    | Record<
+        string,
+        Variable & {
+          _changed?: boolean;
+        }
+      >
+    | undefined;
 
   /** Only refresh device variables stored at client if changed.  */
   touched?: boolean;
+
+  /** The cached variables from cookies has been loaded into storage. */
+  loaded?: boolean;
 }
 
 type ClientDeviceDataBlob = ClientDeviceVariable[];
@@ -419,22 +430,36 @@ export class Tracker {
 
   // #region DeviceData
 
+  private async _loadCachedDeviceVariables() {
+    // Loads device variables into cache.
+    const variables = this._getClientDeviceVariables();
+    if (variables) {
+      if (this._clientDeviceCache?.loaded) {
+        return;
+      }
+      this._clientDeviceCache!.loaded = true;
+      await this.set(map(variables, ([, value]) => value) as any);
+    }
+  }
+
   private _getClientDeviceVariables() {
     if (!this._clientDeviceCache) {
       const deviceCache = (this._clientDeviceCache = {} as DeviceVariableCache);
 
       let timestamp: number | undefined;
-      dataPurposes.pure.map(([purpose, flag]) => {
+      dataPurposes.pure.map(([, flag]) => {
         // Device variables are stored with a cookie for each purpose.
+
+        const cname = this._requestHandler._cookieNames.deviceByPurpose[flag];
 
         forEach(
           this.httpClientDecrypt(
             this.cookies[
-              this._requestHandler._cookieNames.deviceByPurpose[purpose]
+              this._requestHandler._cookieNames.deviceByPurpose[flag]
             ]?.value
           ) as ClientDeviceDataBlob,
           (value) => {
-            update((deviceCache!.variables ??= {}), purpose, (current) => {
+            update((deviceCache!.variables ??= {}), value[0], (current) => {
               current ??= {
                 scope: VariableScope.Device,
                 key: value[0],
@@ -569,8 +594,6 @@ export class Tracker {
       // We switched from cookie-less to cookies or vice versa.
       // Refresh scope infos and anonymous session pointer.
       await this._ensureSession(now(), { refreshState: true });
-
-      console.log("Updated consent ", this._consent);
     }
   }
 
@@ -595,7 +618,20 @@ export class Tracker {
     // In case we refresh, we might already have a session ID.
     let sessionId = this.sessionId;
 
+    let cachedDeviceData: DeviceInfo | undefined;
+    const getDeviceId = async () =>
+      this._consent.level > DataClassification.Anonymous
+        ? deviceId ??
+          (resetDevice ? undefined : cachedDeviceData?.id) ??
+          (await this.env.nextId("device"))
+        : undefined;
+
     if (this._consent.level > DataClassification.Anonymous) {
+      cachedDeviceData = resetDevice
+        ? undefined
+        : (this._getClientDeviceVariables()?.[SCOPE_INFO_KEY]
+            ?.value as DeviceInfo);
+
       if (sessionId && this._sessionReferenceId !== sessionId && !passive) {
         // We switched from cookie-less to cookies. Purge reference.
         await this.env.storage.set([
@@ -607,10 +643,25 @@ export class Tracker {
             force: true,
           },
         ]);
+
+        await this.env.storage.set([
+          {
+            scope: VariableScope.Session,
+            key: SCOPE_INFO_KEY,
+            targetId: sessionId,
+            patch: async (current) => ({
+              value: {
+                ...current?.value,
+                deviceId: await getDeviceId(),
+              },
+            }),
+          },
+        ]);
       }
 
       // CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
       // This means clients must make sure the initial request to endpoint completes before more are sent (or at least do a fair effort).
+      // Additionally, empty sessions should be filtered by analytics using the collected events.
       this._sessionReferenceId = sessionId =
         (resetSession
           ? undefined
@@ -645,6 +696,7 @@ export class Tracker {
               scope: VariableScope.Device,
               key: SCOPE_INFO_KEY,
               targetId: this.deviceId,
+              force: true,
               value: undefined,
             },
           ])
@@ -693,26 +745,13 @@ export class Tracker {
               init: async () => {
                 if (passive) return undefined;
 
-                let cachedDeviceData: DeviceInfo | undefined;
-                if (this.consent.level > DataClassification.Anonymous) {
-                  cachedDeviceData = resetDevice
-                    ? undefined
-                    : (this._getClientDeviceVariables()?.[SCOPE_INFO_KEY]
-                        ?.value as DeviceInfo);
-                }
-
                 return {
                   ...Necessary,
                   value: createInitialScopeData<SessionInfo>(
                     sessionId!, //INV: !passive => sessionId != null
                     timestamp,
                     {
-                      deviceId:
-                        this._consent.level > DataClassification.Anonymous
-                          ? deviceId ??
-                            (resetDevice ? undefined : cachedDeviceData?.id) ??
-                            (await this.env.nextId("device"))
-                          : undefined,
+                      deviceId: await getDeviceId(),
                       deviceSessionId:
                         deviceSessionId ??
                         (await this.env.nextId("device-session")),
@@ -729,7 +768,7 @@ export class Tracker {
 
     if (this._session.value) {
       let device =
-        this._consent.level > DataClassification.Anonymous && deviceId
+        this._consent.level > DataClassification.Anonymous && this.deviceId
           ? await this.env.storage.get([
               {
                 scope: VariableScope.Device,
@@ -818,10 +857,6 @@ export class Tracker {
             ],
             {
               top: 1000,
-              ifNoneMatch: map(
-                this._clientDeviceCache?.variables,
-                ([, variable]) => variable
-              ),
             }
           )
         ).results;
@@ -844,34 +879,31 @@ export class Tracker {
         this.cookies[this._requestHandler._cookieNames.session] = {};
       }
 
-      dataPurposes.pure.map(([purpose, flag]) => {
-        const remove =
-          this.consent.level === DataClassification.Anonymous ||
-          !splits[purpose];
-        const cookieName =
-          this._requestHandler._cookieNames.deviceByPurpose[flag];
+      if (
+        this.consent.level <= DataClassification.Anonymous ||
+        this._clientDeviceCache?.touched
+      ) {
+        dataPurposes.pure.map(([, purpose]) => {
+          const remove =
+            this.consent.level <= DataClassification.Anonymous ||
+            !splits[purpose];
 
-        if (remove) {
-          this.cookies[cookieName] = {};
-        } else if (splits[purpose]) {
-          if (this.consent.level <= DataClassification.Anonymous) {
-            // Purge all device cookies if there is no consent, and the client still have some.
+          const cookieName =
+            this._requestHandler._cookieNames.deviceByPurpose[purpose];
+
+          if (remove) {
             this.cookies[cookieName] = {};
-          }
-          if (!this._clientDeviceCache?.touched) {
-            // Device data has not been touched. Don't send the cookies.
-            delete this.cookies[cookieName];
-          } else {
+          } else if (splits[purpose]) {
             this.cookies[cookieName] = {
               httpOnly: true,
               maxAge: Number.MAX_SAFE_INTEGER,
               sameSitePolicy: "None",
-              essential: flag === DataPurposeFlags.Necessary,
+              essential: purpose === DataPurposeFlags.Necessary,
               value: this.httpClientEncrypt(splits[purpose]),
             };
           }
-        }
-      });
+        });
+      }
     } else {
       (this.cookies as any) = {};
     }
@@ -902,10 +934,17 @@ export class Tracker {
     true
   > {
     return toVariableResultPromise(
-      async () =>
-        restrictTargets(
+      async () => {
+        if (
+          keys.some((key) => variableScope(key?.scope) === VariableScope.Device)
+        ) {
+          await this._loadCachedDeviceVariables();
+        }
+
+        return restrictTargets(
           await this.env.storage.get(keys, this._getStorageContext(context)).all
-        ),
+        );
+      },
       undefined,
       (results) =>
         results.forEach(
@@ -916,22 +955,24 @@ export class Tracker {
     ) as any;
   }
 
-  head(
+  async head(
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
     context?: TrackerVariableStorageContext
-  ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
+  ): Promise<VariableQueryResult<VariableHeader<true>>> {
+    await this._loadCachedDeviceVariables();
     return this.env.storage.head(
       filters,
       options,
       this._getStorageContext(context)
     );
   }
-  query(
+  async query(
     filters: VariableFilter[],
     options?: VariableQueryOptions | undefined,
     context?: TrackerVariableStorageContext
-  ): MaybePromise<VariableQueryResult<Variable<any>>> {
+  ): Promise<VariableQueryResult<Variable<any>>> {
+    await this._loadCachedDeviceVariables();
     return this.env.storage.query(
       filters,
       options,
@@ -945,6 +986,14 @@ export class Tracker {
   ): VariableResultPromise<RestrictVariableTargets<VariableSetResults<K>>> {
     return toVariableResultPromise(
       async () => {
+        if (
+          variables.some(
+            (key) => variableScope(key?.scope) === VariableScope.Device
+          )
+        ) {
+          await this._loadCachedDeviceVariables();
+        }
+
         const results = restrictTargets(
           await this.env.storage.set(
             variables as VariableSetter[],

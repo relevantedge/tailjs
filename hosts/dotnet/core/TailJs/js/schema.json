@@ -2853,11 +2853,12 @@
             "includeDevice": {
               "type": "boolean",
               "description": "Whether only the session or also the device should be reset.",
-              "default": true
+              "default": false
             },
             "includeConsent": {
               "type": "boolean",
-              "description": "Whether to also reset the consent."
+              "description": "Whether to also reset the consent.",
+              "default": false
             }
           },
           "required": [

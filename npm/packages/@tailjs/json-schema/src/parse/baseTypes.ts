@@ -70,7 +70,7 @@ export const updateBaseTypes = (context: TraverseContext) => {
         type.abstract = true;
       } else {
         type.referencedBy?.forEach((property) => {
-          merge(property.context.node, {
+          merge(property.typeContext?.node ?? property.context.node, {
             type: "object",
             unevaluatedProperties: false,
           });

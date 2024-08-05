@@ -182,7 +182,7 @@ export class CookieMonster {
         cookie = { ...cookie, maxAge: 0, value: "" };
       }
 
-      if (i <= requestChunks || cookie.value) {
+      if (i < requestChunks || cookie.value) {
         const chunkCookieName = getCookieChunkName(name, i);
         responseCookies.push(this.mapResponseCookie(chunkCookieName, cookie));
       }

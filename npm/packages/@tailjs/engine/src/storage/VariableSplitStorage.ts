@@ -275,7 +275,7 @@ export class VariableSplitStorage implements VariableStorage {
       return results;
     }
     if (partitions.length === 1) {
-      return await partitions[0][0][method](partitions[0][1], options);
+      return await partitions[0][0][method]?.(partitions[0][1], options);
     }
 
     type Cursor = [count: number | undefined, cursor: string | undefined][];
@@ -298,7 +298,7 @@ export class VariableSplitStorage implements VariableStorage {
       i < partitions.length && (top > 0 || results.count != null);
       i++
     ) {
-      const [storage, query] = partitions[0];
+      const [storage, query] = partitions[i];
       const storageState = cursor?.[i];
 
       let count: number | undefined;

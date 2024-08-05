@@ -8,6 +8,11 @@ export interface Position {
   y: Float;
 }
 
+export interface Poz {
+  x: Float;
+  y: Float;
+}
+
 /**
  * Represents a position where the units are percentages relative to an element or page.
  */

@@ -310,8 +310,7 @@ export const context: TrackerExtensionFactory = {
     return {
       processCommand: (command) =>
         isChangeUserCommand(command) &&
-        (push(
-          tracker,
+        (tracker(
           command.username
             ? { type: "login", username: command.username }
             : { type: "logout" }
