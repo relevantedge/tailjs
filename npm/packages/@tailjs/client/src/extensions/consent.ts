@@ -126,7 +126,7 @@ export const consent: TrackerExtensionFactory = {
     marketing: 8,
   };
 
-  (window as any).tail.push({
+  (window as any).tail({
     consent: {
       externalSource: {
         key: "Cookiebot",

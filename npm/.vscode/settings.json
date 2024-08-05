@@ -49,7 +49,7 @@
   },
   "python.formatting.provider": "none",
   "search.exclude": {
-    "**/node_modules": true,
-    "**/dist": true
+    "**/node_modules/**": true,
+    "**/dist/**": true
   }
 }

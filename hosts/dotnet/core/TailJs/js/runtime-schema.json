@@ -1911,11 +1911,12 @@
                   "x-privacy-purposes": "any"
                 },
                 "clicks": {
-                  "type": "object",
+                  "type": "array",
                   "items": {
-                    "$ref": "urn:tailjs:core#/definitions/Position"
+                    "$ref": "urn:tailjs:core#/definitions/Position",
+                    "type": "object",
+                    "unevaluatedProperties": false
                   },
-                  "unevaluatedProperties": false,
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
@@ -2358,12 +2359,13 @@
               "type": "object",
               "properties": {
                 "references": {
-                  "type": "object",
+                  "type": "array",
                   "items": {
-                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                    "type": "object",
+                    "unevaluatedProperties": false
                   },
                   "description": "A list of entities where the field must match at least one of them (or none depending on the comparison).",
-                  "unevaluatedProperties": false,
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
@@ -4321,13 +4323,14 @@
                 "includeDevice": {
                   "type": "boolean",
                   "description": "Whether only the session or also the device should be reset.",
-                  "default": true,
+                  "default": false,
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
                 "includeConsent": {
                   "type": "boolean",
                   "description": "Whether to also reset the consent.",
+                  "default": false,
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 }

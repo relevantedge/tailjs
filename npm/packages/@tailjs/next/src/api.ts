@@ -183,7 +183,7 @@ export const tailjs = ({
           }
           res.setHeader(
             "set-cookie",
-            response.cookies.map((cookie) => cookie.headerString)
+            response.cookies?.map((cookie) => cookie.headerString)
           );
         }
 

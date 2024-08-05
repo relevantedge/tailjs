@@ -233,7 +233,7 @@ export const userInteraction: TrackerExtensionFactory = {
 
                 return current;
               });
-              //  ,              overlay(containerElement, "Click intent", true)
+            //  ,              overlay(containerElement, "Click intent", true)
 
             return;
           }
@@ -258,8 +258,7 @@ export const userInteraction: TrackerExtensionFactory = {
               }
               if (link.hash !== location.hash) {
                 if (ev.button === 0)
-                  push(
-                    tracker,
+                  tracker(
                     restrict<AnchorNavigationEvent>({
                       type: "anchor_navigation",
                       anchor: link.hash,
@@ -291,7 +290,7 @@ export const userInteraction: TrackerExtensionFactory = {
                 // If the page loads in a new tab, it will pick up this value as the referrer,
                 //   and we will know navigation happened.
                 pushNavigationSource(navigationEvent.clientId, () =>
-                  push(tracker, navigationEvent)
+                  tracker(navigationEvent)
                 );
                 return;
               }
@@ -317,7 +316,7 @@ export const userInteraction: TrackerExtensionFactory = {
                     ev.key === CLIENT_CALLBACK_CHANNEL_ID &&
                     (ev.newValue &&
                       JSON.parse(ev.newValue)?.requestId === requestId &&
-                      push(tracker, navigationEvent),
+                      tracker(navigationEvent),
                     unbind())
                 );
 
@@ -347,7 +346,7 @@ export const userInteraction: TrackerExtensionFactory = {
                 pushNavigationSource(navigationEvent.clientId);
                 navigationEvent.self = F;
                 // Fire immediately, we are staying on the page.
-                push(tracker, navigationEvent);
+                tracker(navigationEvent);
                 return;
               } else if (!matchExHash(location.href, link.href)) {
                 navigationEvent.exit = navigationEvent.external;
@@ -357,7 +356,7 @@ export const userInteraction: TrackerExtensionFactory = {
 
               // // If it so happened that navigation happened we will send it on VIEW_END.
               // pendingNavigationEvent = registerViewEndAction(() =>
-              //   push(tracker, navigationEvent)
+              //   tracker(navigationEvent)
               // );
             }
             return;
@@ -365,8 +364,7 @@ export const userInteraction: TrackerExtensionFactory = {
 
           const cart = tryGetCartEventData(ev.target as Element);
           (cart || trackClicks) &&
-            push(
-              tracker,
+            tracker(
               cart
                 ? restrict<CartUpdatedEvent>({
                     type: "cart_updated",

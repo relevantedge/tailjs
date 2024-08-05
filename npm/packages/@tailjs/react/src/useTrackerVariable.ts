@@ -21,7 +21,7 @@ export function useTrackerVariable<T = any>(
 
   if (!state.wired) {
     let loadedSynchronously = true;
-    tail.push({
+    tail({
       get: {
         ...(key as any),
         result: (current, _, poll) => {
@@ -48,7 +48,6 @@ export function useTrackerVariable<T = any>(
       value: T,
       classification?: DataClassificationValue,
       purposes?: DataPurposeValue
-    ) =>
-      tail.push({ set: { ...(key as any), value, classification, purposes } }),
+    ) => tail({ set: { ...(key as any), value, classification, purposes } }),
   ] as const;
 }

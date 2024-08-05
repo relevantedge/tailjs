@@ -7,6 +7,7 @@ export const EVENT_HUB_QUERY = "var";
 export const VARIABLES_QUERY = "usr";
 export const CONTEXT_NAV_QUERY = "mnt";
 export const SCHEMA_QUERY = "$types";
+export const BUILD_REVISION_QUERY = "rev=" + globalThis.REVISION;
 
 export const SCOPE_INFO_KEY = "@info";
 export const CONSENT_INFO_KEY = "@consent";

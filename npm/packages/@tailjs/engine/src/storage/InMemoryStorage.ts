@@ -323,7 +323,7 @@ export abstract class InMemoryStorageBase implements VariableStorage {
       count: options?.count ? results.length : undefined,
       // This current implementation does not bother with cursors. If one is requested we just return all results. Boom.
       results: (options?.top && !options?.cursor?.include
-        ? results.slice(options.top)
+        ? results.slice(0, options.top)
         : results
       ).map((variable) => copy(variable)),
     };

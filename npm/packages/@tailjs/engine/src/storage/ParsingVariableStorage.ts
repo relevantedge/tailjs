@@ -154,14 +154,14 @@ export class ParsingVariableStorage<
 
   public toStorage(): VariableStorage {
     const storage: VariableStorage = {} as any;
-    for (const method in [
+    for (const method of [
       "head",
       "query",
       "configureScopeDurations",
       "renew",
       "purge",
     ] as (keyof VariableStorage)[]) {
-      storage[method] = (...args: any) => this[method](...args);
+      storage[method] = (...args: any) => this[method as any](...args);
     }
 
     storage["get"] = (...args: any) => (this.get as any)(...args).all;

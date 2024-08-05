@@ -41,7 +41,7 @@ export const scroll: TrackerExtensionFactory = {
           })
         );
 
-        mapped.length && push(tracker, mapped);
+        mapped.length && tracker(mapped);
       }
     });
   },

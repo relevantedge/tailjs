@@ -138,7 +138,7 @@ export const lfsr = (key?: string | Nullish): CipherFunctions => {
           n =
             source.length -
             ENTROPY -
-            // Padding. If padding is zero it all last PADDING characters are padding.
+            // Padding. If padding is zero, all last PADDING characters are padding.
             ((mixer255 ^ updateMixer(source[i++])) % MAX_PADDING ||
               MAX_PADDING);
           if (n <= 0) return new Uint8Array(0);

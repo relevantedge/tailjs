@@ -1,3 +1,4 @@
+import { BUILD_REVISION_QUERY, INIT_SCRIPT_QUERY } from "@constants";
 import type { EmbeddedTrackerConfiguration } from ".";
 import type { Tracker } from "..";
 import { isTracker, trackerConfig } from "../lib/config";
@@ -5,10 +6,11 @@ import { isTracker, trackerConfig } from "../lib/config";
 const externalConfig = trackerConfig as EmbeddedTrackerConfiguration;
 
 const initialName = trackerConfig.name;
-export let tail: Tracker = (globalThis[initialName] ??= []);
+export let tail: Tracker = (globalThis[initialName] ??= (c: any) =>
+  ((tail as any)._ ??= []).push(c));
 let initialized = false;
 
-tail.push((tracker) => (tail = tracker));
+tail((tracker) => (tail = tracker));
 
 // Give consumer a short chance to call configureTracker, before wiring.
 // Do it explicitly with Promise instead of async to avoid, say, babel to miss the point.
@@ -38,7 +40,7 @@ async function ensureTracker(): Promise<void> {
 
   const injectScript = () => {
     const src = [trackerConfig.src];
-    src.push("?init");
+    src.push("?", INIT_SCRIPT_QUERY, "&", BUILD_REVISION_QUERY);
     if (trackerConfig.name) {
       src.push("#", trackerConfig.name);
     }

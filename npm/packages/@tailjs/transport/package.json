@@ -10,7 +10,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
-    "build:watch": "pnpm run build -w --ext"
+    "build:watch": "pnpm run build -w -t"
   },
   "publishConfig": {
     "directory": "dist"

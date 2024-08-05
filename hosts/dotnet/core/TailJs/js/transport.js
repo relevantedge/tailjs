@@ -279,7 +279,7 @@ const FNVs = {
         key ? (source)=>{
             resetMixer();
             for(i = 0; i < ENTROPY - 1; updateMixer(source[i++]));
-            n = source.length - ENTROPY - // Padding. If padding is zero it all last PADDING characters are padding.
+            n = source.length - ENTROPY - // Padding. If padding is zero, all last PADDING characters are padding.
             ((mixer255 ^ updateMixer(source[i++])) % MAX_PADDING || MAX_PADDING);
             if (n <= 0) return new Uint8Array(0);
             target = new Uint8Array(n);

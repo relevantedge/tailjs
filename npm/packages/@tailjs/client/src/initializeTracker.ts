@@ -79,7 +79,7 @@ export const initializeTracker = (
 
   const apiProtectionKey = remove(trackerConfig, "key");
 
-  const queuedCommands = window[trackerConfig.name] ?? [];
+  const queuedCommands = window[trackerConfig.name]?._ ?? [];
   if (!isArray(queuedCommands)) {
     throwError(
       `The global variable for the tracker "${trackerConfig.name}" is used for something else than an array of queued commands.`
@@ -148,164 +148,166 @@ export const initializeTracker = (
 
   let globalStateResolved = F;
 
-  Object.defineProperty(window, trackerConfig.name, {
-    value: (tracker = Object.freeze({
-      id: "tracker_" + nextId(),
-      events,
-      variables,
-      push: ((...commands: (TrackerCommand | string)[]) => {
-        if (!commands.length) {
-          return;
+  tracker = ((...commands: (TrackerCommand | string)[]) => {
+    if (!commands.length) {
+      return;
+    }
+
+    let key: string | Nullish;
+    if (commands.length > 1 && (!commands[0] || isString(commands[0]))) {
+      key = commands[0];
+      commands = commands.slice(1);
+    }
+
+    if (isString(commands[0])) {
+      const payload = commands[0];
+      commands = payload.match(/^[{[]/)
+        ? JSON.parse(payload)
+        : httpDecode(payload);
+    }
+
+    let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
+
+    commands = filter(
+      flatMap(commands, (command) =>
+        isString(command) ? httpDecode<TrackerCommand>(command) : command
+      ),
+      (command) => {
+        if (!command) return F;
+
+        if (isTagAttributesCommand(command)) {
+          trackerConfig.tags = assign(
+            {} as any,
+            trackerConfig.tags,
+            command.tagAttributes
+          );
+        } else if (isToggleCommand(command)) {
+          trackerConfig.disabled = command.disable;
+          return F;
+        } else if (isFlushCommand(command)) {
+          flush = T;
+          return F;
+        } else if (isTrackerAvailableCommand(command)) {
+          command(tracker);
+          return F;
         }
-
-        let key: string | Nullish;
-        if (commands.length > 1 && (!commands[0] || isString(commands[0]))) {
-          key = commands[0];
-          commands = commands.slice(1);
-        }
-
-        if (isString(commands[0])) {
-          const payload = commands[0];
-          commands = payload.match(/^[{[]/)
-            ? JSON.parse(payload)
-            : httpDecode(payload);
-        }
-
-        let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
-
-        commands = filter(
-          flatMap(commands, (command) =>
-            isString(command) ? httpDecode<TrackerCommand>(command) : command
-          ),
-          (command) => {
-            if (!command) return F;
-
-            if (isTagAttributesCommand(command)) {
-              trackerConfig.tags = assign(
-                {} as any,
-                trackerConfig.tags,
-                command.tagAttributes
-              );
-            } else if (isToggleCommand(command)) {
-              trackerConfig.disabled = command.disable;
-              return F;
-            } else if (isFlushCommand(command)) {
-              flush = T;
-              return F;
-            } else if (isTrackerAvailableCommand(command)) {
-              command(tracker);
-              return F;
-            }
-            if (
-              !globalStateResolved &&
-              !isListenerCommand(command) &&
-              !isExtensionCommand(command)
-            ) {
-              pendingStateCommands.push(command);
-              return F;
-            }
-            // #endregion
-            return T;
-          }
-        );
-
-        if (!commands.length && !flush) {
-          return;
-        }
-
-        const getCommandRank = (cmd: TrackerCommand) =>
-          isExtensionCommand(cmd)
-            ? -100
-            : isListenerCommand(cmd)
-            ? -50
-            : isSetCommand(cmd)
-            ? -10
-            : isTrackedEvent(cmd)
-            ? 90
-            : 0;
-
-        // Put events last to allow listeners and interceptors from the same batch to work on them.
-        // Sets come before gets to avoid unnecessary waiting
-        // Extensions then listeners are first so they can evaluate the rest.
-        const expanded: TrackerCommand[] = sort(commands, getCommandRank);
-
-        // Allow nested calls to tracker.push from listeners and interceptors. Insert commands in the currently processed main batch.
         if (
-          mainArgs &&
-          mainArgs.splice(
-            insertArgs ? currentArg + 1 : mainArgs.length,
-            0,
-            ...expanded
-          )
-        )
-          return;
+          !globalStateResolved &&
+          !isListenerCommand(command) &&
+          !isExtensionCommand(command)
+        ) {
+          pendingStateCommands.push(command);
+          return F;
+        }
+        // #endregion
+        return T;
+      }
+    );
 
-        mainArgs = expanded;
+    if (!commands.length && !flush) {
+      return;
+    }
 
-        for (currentArg = 0; currentArg < mainArgs.length; currentArg++) {
-          const command = mainArgs![currentArg];
+    const getCommandRank = (cmd: TrackerCommand) =>
+      isExtensionCommand(cmd)
+        ? -100
+        : isListenerCommand(cmd)
+        ? -50
+        : isSetCommand(cmd)
+        ? -10
+        : isTrackedEvent(cmd)
+        ? 90
+        : 0;
 
-          if (!command) continue;
+    // Put events last to allow listeners and interceptors from the same batch to work on them.
+    // Sets come before gets to avoid unnecessary waiting
+    // Extensions then listeners are first so they can evaluate the rest.
+    const expanded: TrackerCommand[] = sort(commands, getCommandRank);
 
-          trackerContext.validateKey(key ?? command.key),
-            tryCatch(
-              () => {
-                const command = mainArgs![currentArg];
-                callListeners("command", command);
-                insertArgs = F;
-                if (isTrackedEvent(command)) {
-                  events.post(command);
-                } else if (isGetCommand(command)) {
-                  variables.get(...array(command.get));
-                } else if (isSetCommand(command)) {
-                  variables.set(...array(command.set));
-                } else if (isListenerCommand(command)) {
-                  push(listeners, command.listener);
-                } else if (isExtensionCommand(command)) {
-                  let extension: TrackerExtension | Nullish;
-                  if (
-                    (extension = tryCatch(
-                      () => command.extension.setup(tracker),
-                      (e) => logError(command.extension.id, e)
-                    )!)
-                  ) {
-                    push(extensions, [
-                      command.priority ?? 100,
-                      extension,
-                      command.extension,
-                    ]);
-                    sort(extensions, ([priority]) => priority);
-                  }
-                } else if (isTrackerAvailableCommand(command)) {
-                  command(tracker); // Variables have already been loaded once.
-                } else {
-                  let success = F;
-                  for (const [, extension] of extensions) {
-                    if ((success = extension.processCommand?.(command) ?? F)) {
-                      break;
-                    }
-                  }
-                  !success &&
-                    logError(
-                      ERR_INVALID_COMMAND,
-                      command,
-                      "Loaded extensions:",
-                      extensions.map((extension) => extension[2].id)
-                    );
+    // Allow nested calls to tracker.push from listeners and interceptors. Insert commands in the currently processed main batch.
+    if (
+      mainArgs &&
+      mainArgs.splice(
+        insertArgs ? currentArg + 1 : mainArgs.length,
+        0,
+        ...expanded
+      )
+    )
+      return;
+
+    mainArgs = expanded;
+
+    for (currentArg = 0; currentArg < mainArgs.length; currentArg++) {
+      const command = mainArgs![currentArg];
+
+      if (!command) continue;
+
+      trackerContext.validateKey(key ?? command.key),
+        tryCatch(
+          () => {
+            const command = mainArgs![currentArg];
+            callListeners("command", command);
+            insertArgs = F;
+            if (isTrackedEvent(command)) {
+              events.post(command);
+            } else if (isGetCommand(command)) {
+              variables.get(...array(command.get));
+            } else if (isSetCommand(command)) {
+              variables.set(...array(command.set));
+            } else if (isListenerCommand(command)) {
+              push(listeners, command.listener);
+            } else if (isExtensionCommand(command)) {
+              let extension: TrackerExtension | Nullish;
+              if (
+                (extension = tryCatch(
+                  () => command.extension.setup(tracker),
+                  (e) => logError(command.extension.id, e)
+                )!)
+              ) {
+                push(extensions, [
+                  command.priority ?? 100,
+                  extension,
+                  command.extension,
+                ]);
+                sort(extensions, ([priority]) => priority);
+              }
+            } else if (isTrackerAvailableCommand(command)) {
+              command(tracker); // Variables have already been loaded once.
+            } else {
+              let success = F;
+              for (const [, extension] of extensions) {
+                if ((success = extension.processCommand?.(command) ?? F)) {
+                  break;
                 }
-              },
-              (e) => logError(tracker, ERR_INTERNAL_ERROR, e)
-            );
-        }
+              }
+              !success &&
+                logError(
+                  ERR_INVALID_COMMAND,
+                  command,
+                  "Loaded extensions:",
+                  extensions.map((extension) => extension[2].id)
+                );
+            }
+          },
+          (e) => logError(tracker, ERR_INTERNAL_ERROR, e)
+        );
+    }
 
-        mainArgs = nil;
-        if (flush) {
-          events.post([], { flush });
-        }
-      }) as any,
+    mainArgs = nil;
+    if (flush) {
+      events.post([], { flush });
+    }
+  }) as any;
 
-      [isTracker]: T,
-    })),
+  Object.defineProperty(window, trackerConfig.name, {
+    value: Object.freeze(
+      Object.assign(tracker, {
+        id: "tracker_" + nextId(),
+        events,
+        variables,
+        [isTracker]: T,
+      })
+    ),
     configurable: false,
     writable: false,
   });
@@ -343,12 +345,11 @@ export const initializeTracker = (
         session.hasUserAgent = true;
       }
       globalStateResolved = true;
-      pendingStateCommands.length && push(tracker, pendingStateCommands);
+      pendingStateCommands.length && tracker(pendingStateCommands);
 
       unbind();
 
-      push(
-        tracker,
+      tracker(
         ...map(defaultExtensions, (extension) => ({ extension })),
         ...queuedCommands,
         { set: { scope: "view", key: "loaded", value: true } }

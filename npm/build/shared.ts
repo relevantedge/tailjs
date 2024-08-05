@@ -6,7 +6,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { OutputChunk, RollupOptions, rollup, watch } from "rollup";
 import swc from "rollup-plugin-swc3";
-import ts from "rollup-plugin-ts";
 
 export interface PackageEnvironment {
   path: string;
@@ -147,7 +146,7 @@ export const arg = (...names: string[]) => {
 };
 
 export const watchOptions: RollupOptions["watch"] = {
-  exclude: ["**/node_modules"],
+  exclude: [],
   chokidar: {
     usePolling: false,
     useFsEvents: true,
@@ -225,10 +224,8 @@ export const build = async (options: RollupOptions[]) => {
                 (await findWorkspaceDir(process.cwd()))!,
                 "build/bootstrap-cli.cjs"
               );
-              console.log(
-                `pnpm tsx watch --clear-screen=false  "${bootstrap}" "dist/${script}.cjs`
-              );
-              const p = spawn(
+
+              spawn(
                 `pnpm tsx watch --clear-screen=false  "${bootstrap}" "dist/${script}.cjs`,
                 { stdio: "inherit", cwd: "dist", shell: true }
               );

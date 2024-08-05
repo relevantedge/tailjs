@@ -15,31 +15,31 @@
     "paths": {
       "@constants": ["constants"],
 
-      "@tailjs/client": ["./packages/@tailjs/client/src"],
+      "@tailjs/client": ["packages/@tailjs/client/src"],
       "@tailjs/client/external": ["packages/@tailjs/client/src/external.pkg"],
       "@tailjs/client/script": ["packages/@tailjs/client/src/script.pkg"],
 
-      "@tailjs/engine": ["./packages/@tailjs/engine/src"],
+      "@tailjs/engine": ["packages/@tailjs/engine/src"],
 
-      "@tailjs/express": ["./packages/@tailjs/express/src"],
+      "@tailjs/express": ["packages/@tailjs/express/src"],
 
-      "@tailjs/json-schema": ["./packages/@tailjs/json-schema/src"],
+      "@tailjs/json-schema": ["packages/@tailjs/json-schema/src"],
 
-      "@tailjs/maxmind": ["./packages/@tailjs/maxmind/src"],
+      "@tailjs/maxmind": ["packages/@tailjs/maxmind/src"],
 
-      "@tailjs/next": ["./packages/@tailjs/next/src"],
+      "@tailjs/next": ["packages/@tailjs/next/src"],
 
       "@tailjs/node": ["packages/@tailjs/node/src"],
 
       "@tailjs/ravendb": ["packages/@tailjs/ravendb/src"],
 
-      "@tailjs/react": ["./packages/@tailjs/react/src"],
+      "@tailjs/react": ["packages/@tailjs/react/src"],
 
-      "@tailjs/sitecore-cdp": ["./packages/@tailjs/react/src"],
+      "@tailjs/sitecore-cdp": ["packages/@tailjs/react/src"],
 
-      "@tailjs/sitecore-jss": ["./packages/@tailjs/react/src"],
+      "@tailjs/sitecore-jss": ["packages/@tailjs/react/src"],
 
-      "@tailjs/transport": ["./packages/@tailjs/transport"],
+      "@tailjs/transport": ["packages/@tailjs/transport/src"],
 
       "@tailjs/ts-json-schema-generator": [
         "packages/@tailjs/ts-json-schema-generator/src"
@@ -48,7 +48,7 @@
       "@tailjs/types": ["packages/@tailjs/types/src"],
       "@tailjs/types/schema": ["packages/@tailjs/types/src/schema.pkg"],
 
-      "@tailjs/util": ["./packages/@tailjs/util/src"]
+      "@tailjs/util": ["packages/@tailjs/util/src"]
     },
     "types": ["jest"]
   },

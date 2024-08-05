@@ -1,17 +1,10 @@
 import type {
   AllKeys,
-  And,
-  HasValue,
-  If,
   IfNot,
   IsAny,
-  IsNullish,
   IsStrictlyUnknown,
   Minus,
-  Not,
   Nullish,
-  Or,
-  Undefined,
 } from ".";
 
 export type Empty = readonly [];

@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "preact-sample",
+  "name": "react-sample",
   "type": "module",
   "scripts": {
     "dev": "vite -- --react",

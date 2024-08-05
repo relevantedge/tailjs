@@ -14,7 +14,6 @@ const uuid =
 import { Tracker } from "@tailjs/react";
 import {
   Component,
-  ConfiguredComponent,
   Content,
   Tagged,
   UserInteractionEvent,

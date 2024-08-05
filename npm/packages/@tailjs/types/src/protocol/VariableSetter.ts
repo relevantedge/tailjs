@@ -233,6 +233,8 @@ export type VariableSetResults<K extends readonly any[] = any[]> =
     ? [MapVariableSetResult<Item>, ...VariableSetResults<Rest>]
     : K extends readonly (infer T)[]
     ? MapVariableSetResult<T>[]
+    : unknown extends K
+    ? any
     : never;
 
 type StripPatchFunctionItems<

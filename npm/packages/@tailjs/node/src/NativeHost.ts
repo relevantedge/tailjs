@@ -98,10 +98,10 @@ export class NativeHost implements EngineHost {
       }
     }
 
-    const msg = JSON.stringify({
+    let msg = {
       timestamp: new Date().toISOString(),
       ...message,
-    });
+    } as any;
     const group = message.group ?? "console";
     if (group === "console" || this._console) {
       switch (message.level) {
@@ -118,6 +118,8 @@ export class NativeHost implements EngineHost {
           console.log(msg);
       }
     }
+
+    msg = JSON.stringify(msg);
 
     if (group !== "console") {
       let dir = p.join(this._rootPath, "logs");

@@ -49,10 +49,8 @@ type FormState = [
 ];
 
 const currentValue = Symbol();
-const fieldSettings = Symbol();
 type FormFieldState = FormField & {
   [currentValue]: string;
-  [fieldSettings]?: { trackValue?: boolean };
 };
 
 export const forms: TrackerExtensionFactory = {
@@ -60,14 +58,28 @@ export const forms: TrackerExtensionFactory = {
   setup(tracker) {
     const formEvents = new Map<HTMLFormElement, FormState>();
 
-    const getFormFieldValue = (element: any): string =>
-      element.selectedOptions
+    const getFormFieldValue = (element: any, tracked = false): string => {
+      let include =
+        !tracked || scopeAttribute(element, trackerPropertyName("form-value"));
+
+      tracked &&
+        (include = include
+          ? parseBoolean(include)
+          : element.type === "checkbox");
+
+      let value = element.selectedOptions
         ? [...element.selectedOptions].map((option) => option.value).join(",")
         : element.type === "checkbox"
         ? element.checked
-          ? "1"
-          : "0"
+          ? "true"
+          : "false"
         : element.value;
+
+      if (tracked && value) {
+        value = ellipsis(value, 200);
+      }
+      return include ? value : undefined;
+    };
 
     const getFormState = (
       el: FormElement
@@ -94,15 +106,6 @@ export const forms: TrackerExtensionFactory = {
               }
               return;
             }
-
-            let trackFieldValue = scopeAttribute(
-              el,
-              trackerPropertyName("form-value")
-            );
-            trackFieldValue = trackFieldValue
-              ? parseBoolean(trackFieldValue)
-              : el.type === "checkbox";
-
             const name = el.name;
             const field = (state[0].fields![name] ??= {
               id: el.id || name,
@@ -116,7 +119,7 @@ export const forms: TrackerExtensionFactory = {
               totalTime: 0,
               type: el.type ?? "unknown",
               [currentValue as any]: getFormFieldValue(el),
-              [fieldSettings as any]: { trackValue: trackFieldValue },
+              value: getFormFieldValue(el, true),
             }) as FormFieldState;
 
             state[0].fields![field.name] = field;
@@ -236,9 +239,7 @@ export const forms: TrackerExtensionFactory = {
           ([name, value]) => (value.lastField = name === field.name)
         );
       }
-      if (field[fieldSettings]?.trackValue) {
-        field.value = ellipsis(field[currentValue], 200);
-      }
+      field.value = getFormFieldValue(el, true);
 
       field.activeTime! += active;
       field.totalTime! += total;

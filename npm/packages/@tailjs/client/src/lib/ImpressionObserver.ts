@@ -222,7 +222,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
                   nil
               )
             );
-            push(tracker, impressionEvents);
+            tracker(impressionEvents);
           }
 
           if (impressionEvents?.length) {

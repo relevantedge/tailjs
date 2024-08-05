@@ -344,6 +344,24 @@ describe("SchemaManager.", () => {
         ...schemaHeader,
         $defs: {
           ...systemEvents,
+          Float: {
+            type: "number",
+          },
+          Position: {
+            type: "object",
+            properties: {
+              x: {
+                $ref: "urn:tailjs:core#/$defs/Float",
+              },
+              y: {
+                $ref: "urn:tailjs:core#/$defs/Float",
+              },
+            },
+            required: ["x", "y"],
+            description:
+              "Represents a position where the units are (CSS pixels)[#DevicePixelRatio].",
+          },
+
           events: {
             $defs: {
               Test1Event: {
@@ -353,6 +371,17 @@ describe("SchemaManager.", () => {
               AnotherTestEvent: {
                 type: "object",
                 properties: { test: { type: "string" } },
+              },
+              FooEvent: {
+                type: "object",
+                properties: {
+                  clicks: {
+                    type: "array",
+                    items: {
+                      $ref: "urn:tailjs:core#/$defs/Position",
+                    },
+                  },
+                },
               },
             },
           },
@@ -388,6 +417,8 @@ describe("SchemaManager.", () => {
     expect(schema.getType("test_3")).toBeDefined();
     expect(schema.getType("ev4")).toBeDefined();
     expect(schema.getType("another_test")).toBeDefined();
+
+    schema.getType("foo").validate({ type: "foo", clicks: [{ x: 80, y: 90 }] });
   });
 
   it("Parses the real schema", () => {
@@ -404,12 +435,25 @@ describe("SchemaManager.", () => {
 
     // const clickIntent = manager.getType("component_click_intent");
     // expect(clickIntent).toBeDefined();
+    // clickIntent.validate({
+    //   type: "component_click_intent",
+    //   foos: [{ x: 10, y: 20 }],
+    //   loo: {
+    //     x: 10,
+    //     y: 20,
+    //   },
+    //   goo: {
+    //     x: 20,
+    //     y: 30,
+    //   },
+    //   doos: [{ x: 10, y: 20 }],
+    // });
 
     manager.validate("view_patch", {
       duration: {
         totalTime: 19048,
         visibleTime: 19048,
-        interactiveTime: 13085,
+        activeTime: 13085,
         activations: 0,
       },
       type: "view_patch",
@@ -496,10 +540,10 @@ describe("SchemaManager.", () => {
       )
     ).toEqual(locationEvent);
 
-    // fs.writeFileSync(
-    //   "c:/temp/tailjs.json",
-    //   JSON.stringify(manager.schema.definition, null, 2),
-    //   "utf-8"
-    // );
+    fs.writeFileSync(
+      "c:/temp/tailjs.json",
+      JSON.stringify(manager.schema.definition, null, 2),
+      "utf-8"
+    );
   });
 });

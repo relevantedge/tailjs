@@ -18,7 +18,7 @@ import type { Tracker, TrackerEnvironment } from "..";
 export type VariableContextScopeIds = {
   sessionId?: string;
   deviceId?: string;
-  userId?: string;
+  authenticatedUserId?: string;
 };
 
 export interface ParsableUserConsent {

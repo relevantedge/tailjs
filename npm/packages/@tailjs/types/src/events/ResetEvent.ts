@@ -10,12 +10,14 @@ export interface ResetEvent extends TrackedEvent, SystemEvent {
   /**
    * Whether only the session or also the device should be reset.
    *
-   * @default true
+   * @default false
    */
   includeDevice?: boolean;
 
   /**
    * Whether to also reset the consent.
+   *
+   * @default false
    */
   includeConsent?: boolean;
 }
