@@ -12,6 +12,9 @@ export interface PackageEnvironment {
   name: string;
   workspace: string;
   config: Record<string, any>;
+  updatePackage: (
+    update: (current: Record<string, any>) => Record<string, any> | false
+  ) => void;
 }
 () => {
   compilePlugin({});
@@ -44,44 +47,6 @@ export const compilePlugin = ({
     }),
     "utf-8"
   );
-  // return ts({
-  //   transpiler: "swc",
-  //   tsconfig: tsconfigSwc,
-  //   swcConfig: {
-  //     jsc: {
-  //       target: "es2022",
-  //       transform: {
-  //         optimizer: {
-  //           globals: {
-  //             vars: {
-  //               __DEBUG__: "" + debug,
-  //             },
-  //           },
-  //         },
-  //       },
-  //       minify: minify
-  //         ? {
-  //             compress: minify && {
-  //               passes: 2,
-  //               ecma: 2022 as any,
-  //               unsafe_comps: true,
-  //               toplevel: true,
-  //               unsafe_arrows: true,
-  //               unsafe_methods: true,
-  //               unsafe_undefined: true,
-  //               pure_funcs: debug ? [] : ["debug"],
-  //             },
-  //             mangle: {
-  //               //props: false, //{ keep_quoted: true, regex: "^[^A-Z].*$" },
-  //               toplevel: false,
-  //             },
-  //           }
-  //         : undefined,
-  //     },
-  //     minify,
-  //     sourceMaps,
-  //   },
-  // });
   return swc({
     tsconfig: tsconfigSwc,
     jsc: {
@@ -258,7 +223,7 @@ export async function env(client?: boolean): Promise<PackageEnvironment> {
   dotenv.config({ path: ".env.local" });
   process.chdir(cwd);
   const packageJson = path.join(cwd, "package.json");
-  const config = fs.existsSync(path.join(cwd, "package.json"))
+  let config = fs.existsSync(path.join(cwd, "package.json"))
     ? JSON.parse(fs.readFileSync(packageJson, "utf-8"))
     : null;
 
@@ -266,7 +231,21 @@ export async function env(client?: boolean): Promise<PackageEnvironment> {
     path: cwd,
     name: path.basename(cwd),
     workspace: (await findWorkspaceDir(process.cwd()))!,
-    config,
+    get config() {
+      return config;
+    },
+    updatePackage: (update) => {
+      if (!config) {
+        throw new Error("No package.json");
+      }
+      const updated = update(config);
+      if (updated) {
+        fs.writeFileSync(
+          packageJson,
+          JSON.stringify((config = updated), null, 2)
+        );
+      }
+    },
   });
 }
 
@@ -355,14 +334,15 @@ export function getProjects(
 
 export function chunkNameFunctions(
   postfix = ".js",
-  prefix = "dist/",
+  prefix = "",
   indexName = "index"
 ) {
   let nextChunkId = 0;
 
   return {
-    chunkFileNames: () => {
-      return `${prefix}_${nextChunkId++}${postfix}`;
+    chunkFileNames: (chunk: OutputChunk) => {
+      const name = chunk.name.replace(/index(\.[^\/]+)$/, indexName);
+      return `${prefix}${name}_${nextChunkId++}${postfix}`;
     },
     entryFileNames: (chunk: OutputChunk) => {
       nextChunkId = 0;
@@ -370,4 +350,35 @@ export function chunkNameFunctions(
       return `${prefix}${name}${postfix}`;
     },
   };
+}
+
+export function rebaseExports(
+  pkg: Record<string, any>,
+  target: Record<string, any> = pkg,
+  root = "./dist"
+) {
+  let hasChanges = false;
+  ["main", "module", "types", "exports"].forEach((key) => {
+    if (
+      (pkg[key] && pkg === target) ||
+      JSON.stringify(target[key]) !== JSON.stringify(pkg[key])
+    ) {
+      const mapPath = (obj: Record<string, any>) =>
+        Object.fromEntries(
+          Object.entries(obj).map(([key, value]) =>
+            typeof value === "string" && value.indexOf("./") === 0
+              ? [key, root + value.slice(1)]
+              : [key, mapPath(value)]
+          )
+        );
+      if (pkg[key]) {
+        target[key] = mapPath(pkg[key]);
+      } else {
+        delete target[key];
+      }
+      hasChanges = true;
+    }
+  });
+
+  return hasChanges;
 }

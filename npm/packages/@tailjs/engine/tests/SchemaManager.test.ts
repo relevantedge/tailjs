@@ -433,21 +433,12 @@ describe("SchemaManager.", () => {
     const schema = JSON.parse(fs.readFileSync(fullSchemaPath, "utf-8"));
     const manager = SchemaManager.create([schema]);
 
-    // const clickIntent = manager.getType("component_click_intent");
-    // expect(clickIntent).toBeDefined();
-    // clickIntent.validate({
-    //   type: "component_click_intent",
-    //   foos: [{ x: 10, y: 20 }],
-    //   loo: {
-    //     x: 10,
-    //     y: 20,
-    //   },
-    //   goo: {
-    //     x: 20,
-    //     y: 30,
-    //   },
-    //   doos: [{ x: 10, y: 20 }],
-    // });
+    const clickIntent = manager.getType("component_click_intent");
+    expect(clickIntent).toBeDefined();
+    clickIntent.validate({
+      type: "component_click_intent",
+      clicks: [{ x: 10, y: 20 }],
+    });
 
     manager.validate("view_patch", {
       duration: {
