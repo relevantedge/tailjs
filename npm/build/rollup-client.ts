@@ -4,10 +4,10 @@ import json from "@rollup/plugin-json";
 import resolve from "@rollup/plugin-node-resolve";
 import replace from "@rollup/plugin-replace";
 import { visualizer } from "rollup-plugin-visualizer";
+import { uglify } from "rollup-plugin-uglify";
 
 //import esbuild from "rollup-plugin-esbuild";
 //import terser from "@rollup/plugin-terser";
-//import { uglify } from "rollup-plugin-uglify";
 
 import { getDistBundles } from "./rollup-dist";
 import {
@@ -59,8 +59,8 @@ const pkg = await env(true);
 // }
 
 const destinations = [
-  `${pkg.path}/dist/index.min`,
-  ...getProjects(false, pkg.name).map(({ path }) => `${path}/tail`),
+  `${pkg.path}/dist/iife/index`,
+  //...getProjects(false, pkg.name).map(({ path }) => `${path}/tail`),
 ];
 
 const createConfig = (debug?: boolean) =>
@@ -68,23 +68,6 @@ const createConfig = (debug?: boolean) =>
     input: "src/index.browser.ts",
     watch: watchOptions,
     plugins: [
-      // {
-      //   transform: (script) =>
-      //     debug
-      //       ? script
-      //       : script.replace(
-      //           /debug\(((\(((\(((\([^)]*\)|.)*?)\)|.)*?)\)|.)*?)\)\s*[,;]?/gms,
-      //           ""
-      //         ),
-      // },
-      // swc({
-      //   tsconfig: `${pkg.path}/tsconfig.browser.json`,
-      // }),
-      // esbuild({
-      //   tsconfig: `${pkg.path}/tsconfig.browser.json`,
-      //   treeShaking: true,
-      //   // define: { __DEBUG__: "" + debug },
-      // }),
       compilePlugin({
         debug,
         minify: true,
@@ -141,82 +124,72 @@ const createConfig = (debug?: boolean) =>
         },
       }),
 
-      // terser({
-      //   compress: {
-      //     passes: 2,
-      //     ecma: 2022 as any,
-      //     unsafe_comps: true,
-      //     toplevel: true,
-      //     unsafe_arrows: true,
-      //     unsafe_methods: true,
-      //     unsafe_undefined: true,
-      //     pure_funcs: debug ? [] : ["debug"],
-      //   },
-      //   mangle: {
-      //     properties: false,
-      //     toplevel: false,
-      //   },
-      // }),
+      uglify({
+        compress: {
+          passes: 2,
+          evaluate: "eager",
+        },
+        mangle: false,
+      }),
+      ...(debug
+        ? [
+            // ...(debug
+            //   ? []
+            //   : [visualizer({ sourceMap: true, emitFile: "tailjs.html" })]),
 
-      // uglify({
-      //   compress: {
-      //     passes: 2,
-      //     evaluate: "eager",
-      //   },
-      //   mangle: false,
-      // }),
-
-      // ...(debug
-      //   ? []
-      //   : [visualizer({ sourceMap: true, emitFile: "tailjs.html" })]),
-      debug &&
-        visualizer({
-          filename: "c:/temp/stats.html",
-          brotliSize: true,
-        }),
+            visualizer({
+              filename: "c:/temp/stats.html",
+              brotliSize: true,
+            }),
+          ]
+        : []),
     ],
 
     output: destinations
-      .flatMap((name) => [
-        {
-          file: `${name}${debug ? ".debug" : ""}.js`,
-          format: "iife",
-          sourcemap: true,
-          name: "tail",
-        },
-        debug &&
-          ({
-            file: `${name}.debug.map.js`,
-            format: "iife",
-            sourcemap: "inline",
-            name: "tail",
-          } as any),
-      ])
+      .flatMap(
+        (name) => (
+          console.log(name),
+          [
+            {
+              file: `${name}${debug ? ".debug" : ""}.js`,
+              format: "iife",
+              sourcemap: debug,
+              name: "tail",
+            },
+            debug &&
+              ({
+                file: `${name}.debug.map.js`,
+                format: "iife",
+                sourcemap: "inline",
+                name: "tail",
+              } as any),
+          ]
+        )
+      )
       .filter((x) => x),
   });
 
 const vars: Record<string, any> = {};
 await build([createConfig(false), createConfig(true)]);
-
 await build(
   await getDistBundles(
     {
-      '"{Client script}"': () => JSON.stringify(vars.BUNDLE_index_min_js),
+      '"{Client script}"': () => JSON.stringify(vars.BUNDLE_index_js),
       '"{Client script (gzip)}"': () =>
-        vars.BUNDLE_index_min_js &&
+        vars.BUNDLE_index_js &&
         JSON.stringify(
           zlib
-            .gzipSync(vars.BUNDLE_index_min_js, {
+            .gzipSync(vars.BUNDLE_index_js, {
               level: 9,
             })
             .toString("base64url")
         ),
 
       '"{Client script (br)}"': () =>
-        vars.BUNDLE_index_min_js &&
+        vars.BUNDLE_index_js &&
         JSON.stringify(
           zlib
-            .brotliCompressSync(vars.BUNDLE_index_min_js, {
+            .brotliCompressSync(vars.BUNDLE_index_js, {
               params: {
                 [zlib.constants.BROTLI_PARAM_QUALITY]:
                   zlib.constants.BROTLI_MAX_QUALITY,
@@ -225,13 +198,13 @@ await build(
             .toString("base64url")
         ),
       '"{Client debug script}"': () =>
-        vars.BUNDLE_index_min_debug_js &&
-        JSON.stringify(vars.BUNDLE_index_min_debug_js),
+        vars.BUNDLE_index_debug_js &&
+        JSON.stringify(vars.BUNDLE_index_debug_js),
     },
     undefined,
     (input) => {
       if (input.includes("script.pkg")) {
-        return ["dist/dist/index.cjs"];
+        return ["dist/index.cjs"];
       }
     }
   )

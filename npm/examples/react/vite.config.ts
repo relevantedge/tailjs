@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import preact from "@preact/preset-vite";
 import { defineConfig, Plugin } from "vite";
-import { mapModuleName } from "../../build/use-dist-packages";
+//import { mapModuleName } from "../../build/use-dist-packages";
 import tailwindcss from "tailwindcss";
 import fs from "fs";
 
@@ -26,13 +26,13 @@ const tailJsPlugin: Plugin = {
     });
   },
 
-  async resolveId(id, importer) {
-    const mapped = mapModuleName(id);
-    if (mapped !== id) {
-      const x = await this.resolve(mapped, importer);
-      return x;
-    }
-  },
+  // async resolveId(id, importer) {
+  //   const mapped = mapModuleName(id);
+  //   if (mapped !== id) {
+  //     const x = await this.resolve(mapped, importer);
+  //     return x;
+  //   }
+  // },
 };
 
 // https://vitejs.dev/config/
