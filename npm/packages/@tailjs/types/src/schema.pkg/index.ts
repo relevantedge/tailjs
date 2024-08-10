@@ -1,1 +1,1 @@
-export default globalThis.schema;
+export default "{JSON Schema}" as any;

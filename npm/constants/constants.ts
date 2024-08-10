@@ -20,3 +20,5 @@ export const CLIENT_STORAGE_PREFIX = "_tail:";
 export const CLIENT_STATE_CHANNEL_ID = CLIENT_STORAGE_PREFIX + "state";
 
 export const CLIENT_CALLBACK_CHANNEL_ID = CLIENT_STORAGE_PREFIX + "push";
+
+export const __DEBUG__ = true;

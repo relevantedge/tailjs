@@ -3,9 +3,9 @@
   "description": "tail.js preact/react integration.",
   "license": "LGPL3",
   "version": "0.17.24",
-  "main": "dist/dist/index.cjs",
-  "module": "dist/dist/index.mjs",
-  "types": "dist/dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
@@ -30,5 +30,17 @@
     "@types/react-dom": "^18.3.0",
     "preact": "^10.22.1",
     "preact-render-to-string": "^6.5.6"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
   }
 }

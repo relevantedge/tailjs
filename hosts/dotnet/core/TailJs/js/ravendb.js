@@ -3,15 +3,16 @@ const throwError = (error, transform = (message)=>new Error(message))=>{
 };
 const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     try {
+        var _errorHandler_;
         const result = await unwrap(expression);
-        return isArray(errorHandler) ? errorHandler[0]?.(result) : result;
+        return isArray(errorHandler) ? (_errorHandler_ = errorHandler[0]) === null || _errorHandler_ === void 0 ? void 0 : _errorHandler_.call(errorHandler, result) : result;
     } catch (e) {
         if (!isBoolean(errorHandler)) {
             if (isArray(errorHandler)) {
                 if (!errorHandler[1]) throw e;
                 return errorHandler[1](e);
             }
-            const error = await errorHandler?.(e);
+            const error = await (errorHandler === null || errorHandler === void 0 ? void 0 : errorHandler(e));
             if (error instanceof Error) throw error;
             return error;
         } else if (errorHandler) {
@@ -21,7 +22,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
             console.error(e);
         }
     } finally{
-        await always?.();
+        await (always === null || always === void 0 ? void 0 : always());
     }
     return undefined;
 };
@@ -34,11 +35,20 @@ const isArray = Array.isArray;
 const isFunction = (value)=>typeof value === "function";
 const unwrap = (value)=>isFunction(value) ? value() : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
-class ResettablePromise {
-    _promise;
-    constructor(){
-        this.reset();
+function _define_property$1(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
     }
+    return obj;
+}
+class ResettablePromise {
     get value() {
         return this._promise.value;
     }
@@ -68,15 +78,22 @@ class ResettablePromise {
     then(onfulfilled, onrejected) {
         return this._promise.then(onfulfilled, onrejected);
     }
+    constructor(){
+        _define_property$1(this, "_promise", void 0);
+        this.reset();
+    }
 }
 class OpenPromise {
-    _promise;
-    resolve;
-    reject;
-    value;
-    error;
-    pending = true;
+    then(onfulfilled, onrejected) {
+        return this._promise.then(onfulfilled, onrejected);
+    }
     constructor(){
+        _define_property$1(this, "_promise", void 0);
+        _define_property$1(this, "resolve", void 0);
+        _define_property$1(this, "reject", void 0);
+        _define_property$1(this, "value", void 0);
+        _define_property$1(this, "error", void 0);
+        _define_property$1(this, "pending", true);
         let captured;
         this._promise = new Promise((...args)=>{
             captured = args.map((inner, i)=>(value, ifPending)=>{
@@ -92,9 +109,6 @@ class OpenPromise {
         });
         [this.resolve, this.reject] = captured;
     }
-    then(onfulfilled, onrejected) {
-        return this._promise.then(onfulfilled, onrejected);
-    }
 }
 const createLock = (timeout)=>{
     const semaphore = promise(true);
@@ -107,7 +121,8 @@ const createLock = (timeout)=>{
         const ownerId = arg2;
         let ms = arg1;
         let renewInterval = 0;
-        while(state && ownerId !== state[0] && (state[1] ?? 0) < now()){
+        var _state_;
+        while(state && ownerId !== state[0] && ((_state_ = state[1]) !== null && _state_ !== void 0 ? _state_ : 0) < now()){
             if (await (ms >= 0 ? race(delay(ms), semaphore) : semaphore) === undefined$1) {
                 return undefined$1;
             }
@@ -120,7 +135,7 @@ const createLock = (timeout)=>{
         };
         const renew = ()=>{
             state = [
-                ownerId ?? true,
+                ownerId !== null && ownerId !== void 0 ? ownerId : true,
                 timeout ? now() - timeout : undefined$1
             ];
             timeout && (renewInterval = setTimeout(()=>state && renew(), timeout / 2));
@@ -134,29 +149,30 @@ const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap(
 const promise = (resettable)=>resettable ? new ResettablePromise() : new OpenPromise();
 const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : arg));
 
+function _define_property(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 /**
  * This extension stores events in RavenDB.
  * It maps and assign IDs (and references to them) to events and sessions with incrementing base 36 numbers to reduce space.
  */ class RavenDbTracker {
-    id = "ravendb";
-    _settings;
-    _lock;
-    _env;
-    _cert;
-    constructor(settings){
-        this._settings = settings;
-        this._lock = createLock();
-    }
-    _nextId = 0;
-    _idIndex = 1;
-    _idRangeMax = 0;
-    _idBatchSize = 1000;
     async initialize(env) {
         try {
             this._env = env;
             if (this._settings.x509) {
                 const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
-                const key = "keyPath" in this._settings.x509 ? await this._env.readText(this._settings.x509.keyPath) ?? undefined : this._settings.x509.key;
+                var _ref;
+                const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
                 if (!cert) {
                     throw new Error("Certificate not found.");
                 }
@@ -316,6 +332,19 @@ const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : a
             }
         }
         return id.toString(36);
+    }
+    constructor(settings){
+        _define_property(this, "id", "ravendb");
+        _define_property(this, "_settings", void 0);
+        _define_property(this, "_lock", void 0);
+        _define_property(this, "_env", void 0);
+        _define_property(this, "_cert", void 0);
+        _define_property(this, "_nextId", 0);
+        _define_property(this, "_idIndex", 1);
+        _define_property(this, "_idRangeMax", 0);
+        _define_property(this, "_idBatchSize", 1000);
+        this._settings = settings;
+        this._lock = createLock();
     }
 }
 

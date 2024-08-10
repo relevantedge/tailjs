@@ -3,13 +3,14 @@
     "baseUrl": ".",
     "target": "ESNext",
     "module": "ESNext",
+    "moduleResolution": "Bundler",
 
     "strictNullChecks": true,
     "noErrorTruncation": true,
-    "moduleResolution": "node",
     "preserveConstEnums": false,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     "stripInternal": true,
 
     "paths": {
@@ -46,6 +47,7 @@
       ],
 
       "@tailjs/types": ["packages/@tailjs/types/src"],
+
       "@tailjs/types/schema": ["packages/@tailjs/types/src/schema.pkg"],
 
       "@tailjs/util": ["packages/@tailjs/util/src"]

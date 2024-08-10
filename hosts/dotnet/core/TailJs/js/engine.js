@@ -1,4 +1,4 @@
-import { isConsentEvent, dataClassification, dataPurposes, isResetEvent, isUserAgentEvent, isViewEvent, isSignInEvent, isSignOutEvent, isTrackedEvent, isOrderEvent, isCartEvent, isVariablePatchAction, toNumericVariableEnums, patchType, VariablePatchType, DataPurposeFlags, VariableScope, isPassiveEvent, DataClassification, requireFound, restrictTargets, Necessary, VariableResultStatus, toVariableResultPromise, variableScope, isSuccessResult, extractKey, parseKey, formatKey, stripPrefix, validateConsent, getResultVariable } from '@tailjs/types';
+import { isConsentEvent, dataClassification, dataPurposes, isResetEvent, isUserAgentEvent, isViewEvent, isSignInEvent, isSignOutEvent, isTrackedEvent, isOrderEvent, isCartEvent, isVariablePatchAction, toNumericVariableEnums, patchType, VariablePatchType, VariableScope, isPassiveEvent, DataPurposeFlags, DataClassification, requireFound, restrictTargets, Necessary, VariableResultStatus, toVariableResultPromise, variableScope, isSuccessResult, extractKey, VariableEnumProperties, parseKey, formatKey, stripPrefix, validateConsent, getResultVariable } from '@tailjs/types';
 import { SchemaManager } from '@tailjs/json-schema';
 import { defaultTransport, hash, createTransport, httpEncode, from64u, decodeUtf8, httpDecode } from '@tailjs/transport';
 
@@ -8,7 +8,7 @@ const CLIENT_SCRIPT_QUERY = "opt";
 const EVENT_HUB_QUERY = "var";
 const CONTEXT_NAV_QUERY = "mnt";
 const SCHEMA_QUERY = "$types";
-const BUILD_REVISION_QUERY$1 = "rev=" + "lzgtkuuv";
+const BUILD_REVISION_QUERY$1 = "rev=" + "lzo5w9ep";
 const SCOPE_INFO_KEY = "@info";
 const CONSENT_INFO_KEY = "@consent";
 const SESSION_REFERENCE_KEY = "@session_reference";
@@ -18,14 +18,14 @@ const CLIENT_CALLBACK_CHANNEL_ID = CLIENT_STORAGE_PREFIX + "push";
 const throwError = (error, transform = (message)=>new Error(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
-const required = (value, error)=>value != null ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
+const required = (value, error)=>value != null ? value : throwError(error !== null && error !== void 0 ? error : "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
 const tryCatch = (expression, errorHandler = true, always)=>{
     try {
         return expression();
     } catch (e) {
         return isFunction(errorHandler) ? isError(e = errorHandler(e)) ? throwError(e) : e : isBoolean(errorHandler) ? console.error(errorHandler ? throwError(e) : e) : errorHandler;
     } finally{
-        always?.();
+        always === null || always === void 0 ? void 0 : always();
     }
 };
 /** A value that is initialized lazily on-demand. */ const deferred = (expression)=>{
@@ -49,15 +49,16 @@ const tryCatch = (expression, errorHandler = true, always)=>{
 };
 const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     try {
+        var _errorHandler_;
         const result = await unwrap(expression);
-        return isArray(errorHandler) ? errorHandler[0]?.(result) : result;
+        return isArray(errorHandler) ? (_errorHandler_ = errorHandler[0]) === null || _errorHandler_ === void 0 ? void 0 : _errorHandler_.call(errorHandler, result) : result;
     } catch (e) {
         if (!isBoolean(errorHandler)) {
             if (isArray(errorHandler)) {
                 if (!errorHandler[1]) throw e;
                 return errorHandler[1](e);
             }
-            const error = await errorHandler?.(e);
+            const error = await (errorHandler === null || errorHandler === void 0 ? void 0 : errorHandler(e));
             if (error instanceof Error) throw error;
             return error;
         } else if (errorHandler) {
@@ -67,7 +68,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
             console.error(e);
         }
     } finally{
-        await always?.();
+        await (always === null || always === void 0 ? void 0 : always());
     }
     return undefined;
 };
@@ -78,10 +79,12 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 /** Minify friendly version of `null`. */ const nil = null;
 /** A function that filters out values != null. */ const FILTER_NULLISH = (item)=>item != nil;
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
-const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? value !== undefined$1 ? resultOrProperty(value) : undefined$1 : value?.[resultOrProperty] !== undefined$1 ? value : undefined$1;
+const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? value !== undefined$1 ? resultOrProperty(value) : undefined$1 : (value === null || value === void 0 ? void 0 : value[resultOrProperty]) !== undefined$1 ? value : undefined$1;
 const isBoolean = (value)=>typeof value === "boolean";
 const isTruish = (value)=>!!value;
 const truish = (value, keepUndefined)=>isArray(value) ? keepUndefined ? value.map((item)=>!!item ? item : undefined$1) : value.filter((item)=>!!item) : !!value ? value : undefined$1;
+const isInteger = Number.isSafeInteger;
+const isNumber = (value)=>typeof value === "number";
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
 const isError = (value)=>value instanceof Error;
@@ -101,7 +104,9 @@ const objectPrototype = Object.prototype;
 const getPrototypeOf = Object.getPrototypeOf;
 const isPlainObject = (value)=>value != null && getPrototypeOf(value) === objectPrototype;
 const isFunction = (value)=>typeof value === "function";
-const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
+const isIterable = (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator]) && (typeof value === "object" || acceptStrings));
+const isMap = (value)=>value instanceof Map;
+const isSet = (value)=>value instanceof Set;
 const isJsonObject = (value)=>isPlainObject(value);
 let stopInvoked = false;
 const stop = (yieldValue)=>(stopInvoked = true, yieldValue);
@@ -146,10 +151,10 @@ function* createObjectIterator(source, action) {
 }
 function* createRangeIterator(length = 0, offset) {
     if (length < 0) {
-        offset ??= -length - 1;
+        offset !== null && offset !== void 0 ? offset : offset = -length - 1;
         while(length++)yield offset--;
     } else {
-        offset ??= 0;
+        offset !== null && offset !== void 0 ? offset : offset = 0;
         while(length--)yield offset++;
     }
 }
@@ -159,8 +164,8 @@ function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_
         yield start;
     }
 }
-const sliceAction = (action, start, end)=>(start ?? end) !== undefined$1 ? (action = wrapProjection(action), start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
-/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array?.filter(FILTER_NULLISH);
+const sliceAction = (action, start, end)=>(start !== null && start !== void 0 ? start : end) !== undefined$1 ? (action = wrapProjection(action), start !== null && start !== void 0 ? start : start = 0, end !== null && end !== void 0 ? end : end = MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
+/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array === null || array === void 0 ? void 0 : array.filter(FILTER_NULLISH);
 const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
 const project = (source, projection, start, end)=>createIterator(source, projection, start, end);
 const map = (source, projection, start, end)=>{
@@ -168,8 +173,8 @@ const map = (source, projection, start, end)=>{
     if (isArray(source)) {
         let i = 0;
         const mapped = [];
-        start = start < 0 ? source.length + start : start ?? 0;
-        end = end < 0 ? source.length + end : end ?? source.length;
+        start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
+        end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
         for(; start < end && !stopInvoked; start++){
             let value = source[start];
             if ((projection ? value = projection(value, i++) : value) != null) {
@@ -189,16 +194,17 @@ const mapAsync = async (source, projection, start, end)=>{
 };
 const concat = (...items)=>{
     let merged;
-    forEach(items.length === 1 ? items[0] : items, (item)=>item != null && (merged ??= []).push(...array(item)));
+    forEach(items.length === 1 ? items[0] : items, (item)=>item != null && (merged !== null && merged !== void 0 ? merged : merged = []).push(...array(item)));
     return merged;
 };
 const forEachArray = (source, action, start, end)=>{
     let returnValue;
     let i = 0;
-    start = start < 0 ? source.length + start : start ?? 0;
-    end = end < 0 ? source.length + end : end ?? source.length;
+    start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
+    end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
     for(; start < end; start++){
-        if (source[start] != null && (returnValue = action(source[start], i++) ?? returnValue, stopInvoked)) {
+        var _action;
+        if (source[start] != null && (returnValue = (_action = action(source[start], i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked)) {
             stopInvoked = false;
             break;
         }
@@ -209,7 +215,8 @@ const forEachIterable = (source, action)=>{
     let returnValue;
     let i = 0;
     for (let value of source){
-        if (value != null && (returnValue = action(value, i++) ?? returnValue, stopInvoked)) {
+        var _action;
+        if (value != null && (returnValue = (_action = action(value, i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked)) {
             stopInvoked = false;
             break;
         }
@@ -220,10 +227,11 @@ const forEachObject = (source, action)=>{
     let returnValue;
     let i = 0;
     for(let key in source){
-        if (returnValue = action([
+        var _action;
+        if (returnValue = (_action = action([
             key,
             source[key]
-        ], i++) ?? returnValue, stopInvoked) {
+        ], i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked) {
             stopInvoked = false;
             break;
         }
@@ -263,18 +271,33 @@ const fromEntries = Object.fromEntries;
  */ const obj = (source, selector, merge)=>{
     if (source == null) return undefined$1;
     if (isBoolean(selector) || merge) {
+        var _result, _item_;
         let result = {};
-        forEach(source, merge ? (item, i)=>(item = selector(item, i)) != null && (item[1] = merge(result[item[0]], item[1])) != null && (result[item[0]] = item[1]) : (source)=>forEach(source, selector ? (item)=>item?.[1] != null && ((result[item[0]] ??= []).push(item[1]), result) : (item)=>item?.[1] != null && (result[item[0]] = item[1], result)));
+        forEach(source, merge ? (item, i)=>(item = selector(item, i)) != null && (item[1] = merge(result[item[0]], item[1])) != null && (result[item[0]] = item[1]) : (source)=>forEach(source, selector ? (item)=>{
+                var _;
+                return (item === null || item === void 0 ? void 0 : item[1]) != null && (((_ = (_result = result)[_item_ = item[0]]) !== null && _ !== void 0 ? _ : _result[_item_] = []).push(item[1]), result);
+            } : (item)=>(item === null || item === void 0 ? void 0 : item[1]) != null && (result[item[0]] = item[1], result)));
         return result;
     }
     return fromEntries(map(source, selector ? (item, index)=>ifDefined(selector(item, index), 1) : (item)=>ifDefined(item, 1)));
 };
+const entries = (target)=>!isArray(target) && isIterable(target) ? map(target, isMap(target) ? (value)=>value : isSet(target) ? (value)=>[
+            value,
+            true
+        ] : (value, index)=>[
+            index,
+            value
+        ]) : isObject(target) ? Object.entries(target) : undefined$1;
 const mapFirst = (source, projection, start, end)=>source == null ? undefined$1 : (projection = wrapProjection(projection), forEachInternal(source, (value, i)=>!projection || (value = projection(value, i)) ? stop(value) : undefined$1, start, end));
 const rank = (source)=>createIterator(source, (item, i)=>[
             item,
             i
         ]);
-const some = (source, predicate, start, end)=>source == null ? undefined$1 : isPlainObject(source) && !predicate ? Object.keys(source).length > 0 : source.some?.(predicate ?? isTruish) ?? forEachInternal(source, predicate ? (item, index)=>predicate(item, index) ? stop(true) : false : ()=>stop(true), start, end) ?? false;
+const some = (source, predicate, start, end)=>{
+    var _source_some;
+    var _source_some1, _ref;
+    return source == null ? undefined$1 : isPlainObject(source) && !predicate ? Object.keys(source).length > 0 : (_ref = (_source_some1 = (_source_some = source.some) === null || _source_some === void 0 ? void 0 : _source_some.call(source, predicate !== null && predicate !== void 0 ? predicate : isTruish)) !== null && _source_some1 !== void 0 ? _source_some1 : forEachInternal(source, predicate ? (item, index)=>predicate(item, index) ? stop(true) : false : ()=>stop(true), start, end)) !== null && _ref !== void 0 ? _ref : false;
+};
 // #endregion
 // #region get
 const updateSingle = (target, key, value)=>setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
@@ -313,17 +336,58 @@ const createSetOrUpdateFunction = (setter)=>(target, key, value, error)=>{
         return target;
     };
 const update = createSetOrUpdateFunction(updateSingle);
+const define = (target, ...args)=>{
+    const add = (arg, defaults)=>{
+        if (!arg) return;
+        let properties;
+        if (isArray(arg)) {
+            if (isPlainObject(arg[0])) {
+                // Tuple with the first item the defaults and the next the definitions with those defaults,
+                // ([{enumerable: false, ...}, ...])
+                arg.splice(1).forEach((items)=>add(items, arg[0]));
+                return;
+            }
+            // ([[key1, value1], [key2, value2], ...])
+            properties = arg;
+        } else {
+            // An object.
+            properties = map(arg);
+        }
+        properties.forEach(([key, value])=>Object.defineProperty(target, key, {
+                configurable: false,
+                enumerable: true,
+                writable: false,
+                ...defaults,
+                ...isPlainObject(value) && ("get" in value || "value" in value) ? value : isFunction(value) && !value.length ? {
+                    get: value
+                } : {
+                    value
+                }
+            }));
+    };
+    args.forEach((arg)=>add(arg));
+    return target;
+};
 const unwrap = (value)=>isFunction(value) ? value() : value;
 const wrap = (original, wrap)=>original == null ? original : isFunction(original) ? (...args)=>wrap(original, ...args) : wrap(()=>original);
 const MILLISECOND = 1;
 const SECOND = MILLISECOND * 1000;
 const MINUTE = SECOND * 60;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
-class ResettablePromise {
-    _promise;
-    constructor(){
-        this.reset();
+function _define_property$1$1(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
     }
+    return obj;
+}
+class ResettablePromise {
     get value() {
         return this._promise.value;
     }
@@ -353,15 +417,22 @@ class ResettablePromise {
     then(onfulfilled, onrejected) {
         return this._promise.then(onfulfilled, onrejected);
     }
+    constructor(){
+        _define_property$1$1(this, "_promise", void 0);
+        this.reset();
+    }
 }
 class OpenPromise {
-    _promise;
-    resolve;
-    reject;
-    value;
-    error;
-    pending = true;
+    then(onfulfilled, onrejected) {
+        return this._promise.then(onfulfilled, onrejected);
+    }
     constructor(){
+        _define_property$1$1(this, "_promise", void 0);
+        _define_property$1$1(this, "resolve", void 0);
+        _define_property$1$1(this, "reject", void 0);
+        _define_property$1$1(this, "value", void 0);
+        _define_property$1$1(this, "error", void 0);
+        _define_property$1$1(this, "pending", true);
         let captured;
         this._promise = new Promise((...args)=>{
             captured = args.map((inner, i)=>(value, ifPending)=>{
@@ -377,9 +448,6 @@ class OpenPromise {
         });
         [this.resolve, this.reject] = captured;
     }
-    then(onfulfilled, onrejected) {
-        return this._promise.then(onfulfilled, onrejected);
-    }
 }
 const createLock = (timeout)=>{
     const semaphore = promise(true);
@@ -392,7 +460,8 @@ const createLock = (timeout)=>{
         const ownerId = arg2;
         let ms = arg1;
         let renewInterval = 0;
-        while(state && ownerId !== state[0] && (state[1] ?? 0) < now()){
+        var _state_;
+        while(state && ownerId !== state[0] && ((_state_ = state[1]) !== null && _state_ !== void 0 ? _state_ : 0) < now()){
             if (await (ms >= 0 ? race(delay(ms), semaphore) : semaphore) === undefined$1) {
                 return undefined$1;
             }
@@ -405,7 +474,7 @@ const createLock = (timeout)=>{
         };
         const renew = ()=>{
             state = [
-                ownerId ?? true,
+                ownerId !== null && ownerId !== void 0 ? ownerId : true,
                 timeout ? now() - timeout : undefined$1
             ];
             timeout && (renewInterval = setTimeout(()=>state && renew(), timeout / 2));
@@ -431,22 +500,115 @@ const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : a
  */ const enumerate = (values, separator = [
     "and",
     ", "
-])=>!values ? undefined$1 : (values = map(values)).length === 1 ? values[0] : isArray(separator) ? [
-        values.slice(0, -1).join(separator[1] ?? ", "),
+])=>{
+    var _separator_;
+    return !values ? undefined$1 : (values = map(values)).length === 1 ? values[0] : isArray(separator) ? [
+        values.slice(0, -1).join((_separator_ = separator[1]) !== null && _separator_ !== void 0 ? _separator_ : ", "),
         " ",
         separator[0],
         " ",
         values[values.length - 1]
-    ].join("") : values.join(separator ?? ", ");
+    ].join("") : values.join(separator !== null && separator !== void 0 ? separator : ", ");
+};
+const quote = (item, quoteChar = "'")=>item == null ? undefined$1 : quoteChar + item + quoteChar;
 const join = (source, projection, sep)=>source == null ? undefined$1 : isFunction(projection) ? enumerate(map(isString(source) ? [
         source
-    ] : source, projection), sep ?? "") : isString(source) ? source : enumerate(map(source, (item)=>item === false ? undefined$1 : item), projection ?? "");
+    ] : source, projection), sep !== null && sep !== void 0 ? sep : "") : isString(source) ? source : enumerate(map(source, (item)=>item === false ? undefined$1 : item), projection !== null && projection !== void 0 ? projection : "");
+const isBit = (n)=>(n = Math.log2(n), n === (n | 0));
+const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
+    const names = Object.fromEntries(Object.entries(sourceEnum).filter(([key, value])=>isString(key) && isNumber(value)).map(([key, value])=>[
+            key.toLowerCase(),
+            value
+        ]));
+    const entries = Object.entries(names);
+    const values = Object.values(names);
+    var _names_any;
+    const any = (_names_any = names["any"]) !== null && _names_any !== void 0 ? _names_any : values.reduce((any, flag)=>any | flag, 0);
+    const nameLookup = flags ? {
+        ...names,
+        any,
+        none: 0
+    } : names;
+    const valueLookup = Object.fromEntries(Object.entries(nameLookup).map(([key, value])=>[
+            value,
+            key
+        ]));
+    const parseValue = (value, validateNumbers)=>{
+        var _nameLookup_value, _ref;
+        return isInteger(value) ? !flags && validateNumbers ? valueLookup[value] != null ? value : undefined$1 : Number.isSafeInteger(value) ? value : undefined$1 : isString(value) ? (_ref = (_nameLookup_value = nameLookup[value]) !== null && _nameLookup_value !== void 0 ? _nameLookup_value : nameLookup[value.toLowerCase()]) !== null && _ref !== void 0 ? _ref : // Let's see if that is the case.
+        parseValue(parseInt(value), validateNumbers) : undefined$1;
+    };
+    let invalid = false;
+    let carry;
+    let carry2;
+    const [tryParse, lookup] = flags ? [
+        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>flag == null || invalid ? flags : (flag = parseValue(flag, validateNumbers)) == null ? (invalid = true, undefined$1) : (flags !== null && flags !== void 0 ? flags : 0) | flag, (invalid = false, undefined$1)) : parseValue(value),
+        (value, format)=>(value = tryParse(value, false)) == null ? undefined$1 : format && (carry2 = valueLookup[value & any]) ? (carry = lookup(value & ~(value & any), false)).length ? [
+                carry2,
+                ...carry
+            ] : carry2 : (value = entries.filter(([, flag])=>flag && value & flag && isBit(flag)).map(([name])=>name), format ? value.length ? value.length === 1 ? value[0] : value : "none" : value)
+    ] : [
+        parseValue,
+        (value)=>(value = parseValue(value)) != null ? valueLookup[value] : undefined$1
+    ];
+    let originalValue;
+    const parse = (value, validateNumbers)=>value == null ? undefined$1 : (value = tryParse(originalValue = value, validateNumbers)) == null ? throwError(new TypeError(`${JSON.stringify(originalValue)} is not a valid ${enumName} value.`)) : value;
+    const pure = entries.filter(([, value])=>!pureFlags || (pureFlags & value) === value && isBit(value));
+    return define((value)=>parse(value), [
+        {
+            configurable: false,
+            enumerable: false
+        },
+        {
+            parse,
+            tryParse,
+            entries,
+            values,
+            lookup,
+            length: entries.length,
+            format: (value)=>lookup(value, true),
+            logFormat: (value, c = "or")=>(value = lookup(value, true), value === "any" ? "any " + enumName : `the ${enumName} ${enumerate(map(array(value), (value)=>quote(value)), [
+                    c
+                ])}`)
+        },
+        flags && {
+            pure,
+            map: (flags, map)=>(flags = parse(flags), pure.filter(([, flag])=>flag & flags).map(map !== null && map !== void 0 ? map : ([, flag])=>flag))
+        }
+    ]);
+};
+/**
+ * Creates a function that parses the specified enum properties to their numeric values on the object provided.
+ * Note that it does the parsing directly on the provided object and does not create a copy.
+ */ const createEnumPropertyParser = (...props)=>{
+    const parsers = entries(obj(props, true));
+    const parse = (source)=>(isObject(source) && (isArray(source) ? source.forEach((sourceItem, i)=>source[i] = parse(sourceItem)) : parsers.forEach(([prop, parsers])=>{
+            let parsed = undefined$1;
+            let value;
+            if ((value = source[prop]) == null) return;
+            parsers.length === 1 ? source[prop] = parsers[0].parse(value) : parsers.forEach((parser, i)=>!parsed && (parsed = i === parsers.length - 1 ? parser.parse(value) : parser.tryParse(value)) != null && (source[prop] = parsed));
+        })), source);
+    return parse;
+};
+function _define_property$g(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 class TupleMap extends Map {
-    _instances = new Map();
     _tupleInstance(key) {
         let map = this._instances.get(key[0]);
         !map && this._instances.set(key[0], map = new Map());
-        return map.get(key[1]) ?? (map.set(key[1], key = [
+        var _map_get;
+        return (_map_get = map.get(key[1])) !== null && _map_get !== void 0 ? _map_get : (map.set(key[1], key = [
             ...key
         ]), key);
     }
@@ -472,30 +634,29 @@ class TupleMap extends Map {
         super.set(this._tupleInstance(key), value);
         return this;
     }
-}
-class DoubleMap {
-    _map = new Map();
-    _reverse;
-    _size = 0;
-    constructor(optimizeReverseLookup = false){
-        if (optimizeReverseLookup) {
-            this._reverse = new Map();
-        }
+    constructor(...args){
+        super(...args);
+        _define_property$g(this, "_instances", new Map());
     }
+}
+let _Symbol_toStringTag = Symbol.toStringTag, _Symbol_iterator$2 = Symbol.iterator;
+class DoubleMap {
     clear() {
+        var _this__reverse;
         if (!this._size) {
             return false;
         }
         this._size = 0;
-        this._reverse?.clear();
+        (_this__reverse = this._reverse) === null || _this__reverse === void 0 ? void 0 : _this__reverse.clear();
         this._map.clear();
         return true;
     }
     _cleanDelete(key, map = this._map.get(key[0])) {
         if (!map) return false;
         if (map.delete(key[1])) {
+            var _this__reverse;
             if (!map.size) this._map.delete(key[0]);
-            this._reverse?.delete(key[0]);
+            (_this__reverse = this._reverse) === null || _this__reverse === void 0 ? void 0 : _this__reverse.delete(key[0]);
             --this._size;
             return true;
         }
@@ -509,7 +670,9 @@ class DoubleMap {
                 return this._cleanDelete(key);
             }
             if (!this._reverse) {
-                this._size -= this._map.get(key[0])?.size ?? 0;
+                var _this__map_get;
+                var _this__map_get_size;
+                this._size -= (_this__map_get_size = (_this__map_get = this._map.get(key[0])) === null || _this__map_get === void 0 ? void 0 : _this__map_get.size) !== null && _this__map_get_size !== void 0 ? _this__map_get_size : 0;
                 return this._map.delete(key[0]);
             }
         } else if (key[1] === undefined) {
@@ -534,7 +697,8 @@ class DoubleMap {
    * Returns a specified element from the Map object. If the value that is associated to the provided key is an object, then you will get a reference to that object and any change made to that object will effectively modify it inside the Map.
    * @returns Returns the element associated with the specified key. If no element is associated with the specified key, undefined is returned.
    */ get(key) {
-        return this._map.get(key[0])?.get(key[1]);
+        var _this__map_get;
+        return (_this__map_get = this._map.get(key[0])) === null || _this__map_get === void 0 ? void 0 : _this__map_get.get(key[1]);
     }
     getMap(key) {
         return this._map.get(key);
@@ -542,7 +706,9 @@ class DoubleMap {
     /**
    * @returns boolean indicating whether an element with the specified key exists or not.
    */ has(key) {
-        return this._map.get(key[0])?.has(key[1]) ?? false;
+        var _this__map_get;
+        var _this__map_get_has;
+        return (_this__map_get_has = (_this__map_get = this._map.get(key[0])) === null || _this__map_get === void 0 ? void 0 : _this__map_get.has(key[1])) !== null && _this__map_get_has !== void 0 ? _this__map_get_has : false;
     }
     /**
    * Adds a new element with a specified key and value to the Map. If an element with the same key already exists, the element will be updated.
@@ -575,7 +741,8 @@ class DoubleMap {
         return this._size;
     }
     *iterate(filter) {
-        if (!filter || (filter[0] ?? filter[1]) === undefined) {
+        var _filter_;
+        if (!filter || ((_filter_ = filter[0]) !== null && _filter_ !== void 0 ? _filter_ : filter[1]) === undefined) {
             yield* this;
         } else {
             const [key1Filter, key2Filter] = filter;
@@ -645,10 +812,10 @@ class DoubleMap {
     entries() {
         return this[Symbol.iterator]();
     }
-    get [Symbol.toStringTag]() {
+    get [_Symbol_toStringTag]() {
         return `Map`;
     }
-    *[Symbol.iterator]() {
+    *[_Symbol_iterator$2]() {
         for (const [key1, values] of this._map){
             for (const [key2, value] of values){
                 yield [
@@ -661,6 +828,14 @@ class DoubleMap {
             }
         }
     }
+    constructor(optimizeReverseLookup = false){
+        _define_property$g(this, "_map", new Map());
+        _define_property$g(this, "_reverse", void 0);
+        _define_property$g(this, "_size", 0);
+        if (optimizeReverseLookup) {
+            this._reverse = new Map();
+        }
+    }
 }
 const parameterList = Symbol();
 const parseKeyValue = (value, arrayDelimiters = [
@@ -668,10 +843,12 @@ const parseKeyValue = (value, arrayDelimiters = [
     ";",
     ","
 ], decode = true)=>{
+    var _parts, _ref;
     if (!value) return undefined$1;
     const parts = value.split("=").map((v)=>decode ? decodeURIComponent(v.trim()).replaceAll("+", " ") : v.trim());
-    parts[1] ??= "";
-    parts[2] = parts[1] && arrayDelimiters?.length && mapFirst(arrayDelimiters, (delim, _, split = parts[1].split(delim))=>split.length > 1 ? split : undefined$1) || (parts[1] ? [
+    var _;
+    (_ = (_parts = parts)[_ref = 1]) !== null && _ !== void 0 ? _ : _parts[_ref] = "";
+    parts[2] = parts[1] && (arrayDelimiters === null || arrayDelimiters === void 0 ? void 0 : arrayDelimiters.length) && mapFirst(arrayDelimiters, (delim, _, split = parts[1].split(delim))=>split.length > 1 ? split : undefined$1) || (parts[1] ? [
         parts[1]
     ] : []);
     return parts;
@@ -719,7 +896,7 @@ const parseKeyValue = (value, arrayDelimiters = [
             authority,
             user,
             password,
-            host: bracketHost ?? host,
+            host: bracketHost !== null && bracketHost !== void 0 ? bracketHost : host,
             port: port != null ? parseInt(port) : undefined$1,
             path,
             query: query === false ? queryString : parseQueryString(queryString, query),
@@ -733,8 +910,10 @@ const parseHttpHeader = (query, arrayDelimiters = [
 ], decode = true)=>parseParameters(query, "; ", arrayDelimiters, decode);
 const parseQueryString = (query, arrayDelimiters, decode = true)=>parseParameters(query, "&", arrayDelimiters, decode);
 const parseParameters = (query, separator, arrayDelimiters, decode = true)=>{
+    var _query_match_, _query_match;
     const list = [];
-    const results = query == nil ? undefined$1 : obj(query?.match(/(?:^.*?\?|^)([^#]*)/)?.[1]?.split(separator), (part, _, [key, value, values] = parseKeyValue(part, arrayDelimiters === false ? [] : arrayDelimiters === true ? undefined$1 : arrayDelimiters, decode) ?? [], kv)=>(kv = (key = key?.replace(/\[\]$/, "")) != null ? arrayDelimiters !== false ? [
+    var _parseKeyValue;
+    const results = query == nil ? undefined$1 : obj(query === null || query === void 0 ? void 0 : (_query_match = query.match(/(?:^.*?\?|^)([^#]*)/)) === null || _query_match === void 0 ? void 0 : (_query_match_ = _query_match[1]) === null || _query_match_ === void 0 ? void 0 : _query_match_.split(separator), (part, _, [key, value, values] = (_parseKeyValue = parseKeyValue(part, arrayDelimiters === false ? [] : arrayDelimiters === true ? undefined$1 : arrayDelimiters, decode)) !== null && _parseKeyValue !== void 0 ? _parseKeyValue : [], kv)=>(kv = (key = key === null || key === void 0 ? void 0 : key.replace(/\[\]$/, "")) != null ? arrayDelimiters !== false ? [
             key,
             values.length > 1 ? values : value
         ] : [
@@ -748,10 +927,22 @@ let matchProjection;
 let collected;
 /**
  * Matches a regular expression against a string and projects the matched parts, if any.
- */ const match = (s, regex, selector, collect = false)=>(s ?? regex) == nil ? undefined$1 : selector ? (matchProjection = undefined$1, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
+ */ const match = (s, regex, selector, collect = false)=>(s !== null && s !== void 0 ? s : regex) == nil ? undefined$1 : selector ? (matchProjection = undefined$1, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
 
+function _define_property$f(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 class TrackerCoreEvents {
-    id = "core_events";
     async patch(events, next, tracker) {
         if (!tracker.session) {
             // Do nothing if there is no session. We do not want to start sessions on passive requests (only timing events).
@@ -811,6 +1002,7 @@ class TrackerCoreEvents {
                 await flushUpdates();
                 await tracker.reset(true, resetEvent.includeDevice, resetEvent.includeConsent, resetEvent.timestamp);
             }
+            var _tracker_clientIp;
             const session = {
                 sessionId: tracker.sessionId,
                 deviceSessionId: tracker.deviceSessionId,
@@ -821,7 +1013,7 @@ class TrackerCoreEvents {
                     purposes: dataPurposes.lookup(tracker.consent.purposes)
                 },
                 expiredDeviceSessionId: tracker._expiredDeviceSessionId,
-                clientIp: tracker.clientIp ?? undefined
+                clientIp: (_tracker_clientIp = tracker.clientIp) !== null && _tracker_clientIp !== void 0 ? _tracker_clientIp : undefined
             };
             updatedEvents.push(event);
             if (tracker.session.isNew) {
@@ -831,8 +1023,9 @@ class TrackerCoreEvents {
                         scope: "session",
                         key: SCOPE_INFO_KEY,
                         patch: (current)=>{
+                            var _current_value;
                             // Make sure we only post the "session_started" event once.
-                            if (current?.value?.isNew === true) {
+                            if ((current === null || current === void 0 ? void 0 : (_current_value = current.value) === null || _current_value === void 0 ? void 0 : _current_value.isNew) === true) {
                                 return {
                                     value: {
                                         ...current.value,
@@ -846,10 +1039,12 @@ class TrackerCoreEvents {
                     }
                 ]);
                 if (isStillNew) {
+                    var _tracker_device;
+                    var _tracker_device_sessions;
                     updatedEvents.push({
                         type: "session_started",
                         url: tracker.url,
-                        sessionNumber: tracker.device?.sessions ?? 1,
+                        sessionNumber: (_tracker_device_sessions = (_tracker_device = tracker.device) === null || _tracker_device === void 0 ? void 0 : _tracker_device.sessions) !== null && _tracker_device_sessions !== void 0 ? _tracker_device_sessions : 1,
                         timeSinceLastSession: tracker.session.previousSession ? tracker.session.firstSeen - tracker.session.previousSession : undefined,
                         session,
                         tags: tracker.env.tags,
@@ -861,7 +1056,11 @@ class TrackerCoreEvents {
             if (isUserAgentEvent(event)) {
                 sessionPatches.push((data)=>data.hasUserAgent = true);
             } else if (isViewEvent(event)) {
-                sessionPatches.push((data)=>++data.views, (data)=>event.tabNumber > (data.tabs ??= 0) && (data.tabs = event.tabNumber));
+                var _data;
+                sessionPatches.push((data)=>++data.views, (data)=>{
+                    var _tabs;
+                    return event.tabNumber > ((_tabs = (_data = data).tabs) !== null && _tabs !== void 0 ? _tabs : _data.tabs = 0) && (data.tabs = event.tabNumber);
+                });
                 devicePatches.push((data)=>++data.views);
             } else if (isSignInEvent(event)) {
                 const changed = tracker.authenticatedUserId && tracker.authenticatedUserId != event.userId;
@@ -878,15 +1077,25 @@ class TrackerCoreEvents {
         await flushUpdates();
         return updatedEvents;
     }
+    constructor(){
+        _define_property$f(this, "id", "core_events");
+    }
 }
 
-class EventLogger {
-    configuration;
-    id;
-    constructor(configuration){
-        this.configuration = configuration;
-        this.id = "event-logger";
+function _define_property$e(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
     }
+    return obj;
+}
+class EventLogger {
     async post(events, tracker) {
         for (const ev of events){
             const data = this.configuration.minimal ? {
@@ -904,6 +1113,12 @@ class EventLogger {
                 });
             }
         }
+    }
+    constructor(configuration){
+        _define_property$e(this, "configuration", void 0);
+        _define_property$e(this, "id", void 0);
+        this.configuration = configuration;
+        this.id = "event-logger";
     }
 }
 
@@ -928,19 +1143,40 @@ const Timestamps = {
             return event;
         })), async (ev)=>{
             if (isTrackedEvent(ev)) {
-                ev.timestamp ??= now;
-                ev.id ??= await tracker.env.nextId();
+                var _ev, _ev1;
+                var _timestamp;
+                (_timestamp = (_ev = ev).timestamp) !== null && _timestamp !== void 0 ? _timestamp : _ev.timestamp = now;
+                var _id;
+                (_id = (_ev1 = ev).id) !== null && _id !== void 0 ? _id : _ev1.id = await tracker.env.nextId();
                 return ev;
             }
         });
     }
 };
 
+function _define_property$d(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 function fillPriceDefaults(data, content) {
+    var _content_commerce, _content_commerce1, _content_commerce2;
+    var _data, _data1, _data2;
     if (!content) return data;
-    data.price ??= content.commerce?.price;
-    data.unit ??= content.commerce?.unit;
-    data.currency ??= content.commerce?.unit;
+    var _price;
+    (_price = (_data = data).price) !== null && _price !== void 0 ? _price : _data.price = (_content_commerce = content.commerce) === null || _content_commerce === void 0 ? void 0 : _content_commerce.price;
+    var _unit;
+    (_unit = (_data1 = data).unit) !== null && _unit !== void 0 ? _unit : _data1.unit = (_content_commerce1 = content.commerce) === null || _content_commerce1 === void 0 ? void 0 : _content_commerce1.unit;
+    var _currency;
+    (_currency = (_data2 = data).currency) !== null && _currency !== void 0 ? _currency : _data2.currency = (_content_commerce2 = content.commerce) === null || _content_commerce2 === void 0 ? void 0 : _content_commerce2.unit;
     return data;
 }
 function normalizeCartEventData(data) {
@@ -954,7 +1190,7 @@ function normalizeCartEventData(data) {
 }
 function sum(lines, selector) {
     let selected;
-    return !lines ? undefined : lines.reduce((sum, item)=>(selected = selector(item)) != null ? (sum ?? 0) + selected : sum, undefined);
+    return !lines ? undefined : lines.reduce((sum, item)=>(selected = selector(item)) != null ? (sum !== null && sum !== void 0 ? sum : 0) + selected : sum, undefined);
 }
 function normalizeOrder(order) {
     if (!order) return order;
@@ -981,20 +1217,23 @@ function normalizeOrderLine(line) {
     return line;
 }
 class CommerceExtension {
-    id = "commerce";
     patch(events, next) {
         return next(events.map((event)=>isOrderEvent(event) ? normalizeOrder(event) : isCartEvent(event) ? normalizeCartEventData(event) : event));
+    }
+    constructor(){
+        _define_property$d(this, "id", "commerce");
     }
 }
 
 function bootstrap({ host, endpoint, schemas, cookies, extensions, allowUnknownEventTypes, encryptionKeys, debugScript, environmentTags, defaultConsent }) {
+    var _map;
     return new RequestHandler({
         host,
         schemas,
         endpoint,
         cookies,
         allowUnknownEventTypes,
-        extensions: map(extensions, (extension)=>typeof extension === "function" ? extension : async ()=>extension) ?? [],
+        extensions: (_map = map(extensions, (extension)=>typeof extension === "function" ? extension : async ()=>extension)) !== null && _map !== void 0 ? _map : [],
         encryptionKeys,
         debugScript,
         environmentTags,
@@ -1007,7 +1246,7 @@ function getErrorMessage(validationResult) {
 }
 const isValidationError = (item)=>item && item["type"] == null && item["error"] != null;
 
-var defaultSchema = {
+var index = {
     "$id": "urn:tailjs:core",
     "$schema": "http://json-schema.org/draft-07/schema#",
     "definitions": {
@@ -1434,284 +1673,75 @@ var defaultSchema = {
             ]
         },
         "ActivatedComponent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Component"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/ActivatedContent"
+                            },
+                            "description": "The activated content in the component."
+                        },
+                        "rect": {
+                            "$ref": "urn:tailjs:core#/definitions/Rectangle",
+                            "description": "The size and position of the component when it was activated relative to the document top (not viewport)."
+                        },
+                        "area": {
+                            "type": "string",
+                            "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash."
+                        }
+                    }
+                }
+            ],
+            "description": "The component definition related to a user activation."
+        },
+        "Component": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Personalizable"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Tagged"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "typeName": {
+                            "type": "string",
+                            "description": "An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial."
+                        },
+                        "dataSource": {
+                            "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                            "description": "Optional references to the content that was used to render the component."
+                        },
+                        "instanceId": {
+                            "type": "string",
+                            "description": "An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree."
+                        },
+                        "instanceNumber": {
+                            "$ref": "urn:tailjs:core#/definitions/Integer",
+                            "description": "If the same component type is used multiple times on the same page this number indicates which one it is. (As defined in the page's markup, typically this amounts to left-to-right/top-to-bottom)."
+                        },
+                        "inferred": {
+                            "type": "boolean",
+                            "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
+                            "default": false
+                        }
+                    }
+                }
+            ]
+        },
+        "ExternalReference": {
             "type": "object",
             "properties": {
-                "tags": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "tag": {
-                                "type": "string",
-                                "description": "The name of the tag including namespace."
-                            },
-                            "value": {
-                                "type": "string",
-                                "description": "The value of the tag."
-                            },
-                            "score": {
-                                "type": "number",
-                                "description": "How strongly the tags relates to the target.",
-                                "default": 1
-                            }
-                        },
-                        "required": [
-                            "tag"
-                        ]
-                    },
-                    "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources."
-                },
-                "personalization": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "tags": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "tag": {
-                                            "type": "string",
-                                            "description": "The name of the tag including namespace."
-                                        },
-                                        "value": {
-                                            "type": "string",
-                                            "description": "The value of the tag."
-                                        },
-                                        "score": {
-                                            "type": "number",
-                                            "description": "How strongly the tags relates to the target.",
-                                            "default": 1
-                                        }
-                                    },
-                                    "required": [
-                                        "tag"
-                                    ]
-                                },
-                                "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources."
-                            },
-                            "source": {
-                                "type": "object",
-                                "properties": {
-                                    "id": {
-                                        "type": "string",
-                                        "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
-                                    },
-                                    "version": {
-                                        "type": "string",
-                                        "description": "Optionally, the version of the item in case the external source supports versioning."
-                                    },
-                                    "language": {
-                                        "type": "string",
-                                        "description": "Optionally, the language of the item in case the external source supports localization."
-                                    },
-                                    "source": {
-                                        "type": "string",
-                                        "description": "Optionally, the ID of the external system referenced."
-                                    },
-                                    "referenceType": {
-                                        "type": "string",
-                                        "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
-                                    },
-                                    "isExternal": {
-                                        "type": "boolean",
-                                        "description": "Flag to indicate that this data comes from an external system that you do not control."
-                                    },
-                                    "name": {
-                                        "type": "string",
-                                        "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                    },
-                                    "itemType": {
-                                        "type": "string",
-                                        "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                    },
-                                    "path": {
-                                        "type": "string",
-                                        "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                    }
-                                },
-                                "required": [
-                                    "id"
-                                ],
-                                "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s."
-                            },
-                            "variables": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {
-                                            "type": "string",
-                                            "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
-                                        },
-                                        "version": {
-                                            "type": "string",
-                                            "description": "Optionally, the version of the item in case the external source supports versioning."
-                                        },
-                                        "language": {
-                                            "type": "string",
-                                            "description": "Optionally, the language of the item in case the external source supports localization."
-                                        },
-                                        "source": {
-                                            "type": "string",
-                                            "description": "Optionally, the ID of the external system referenced."
-                                        },
-                                        "referenceType": {
-                                            "type": "string",
-                                            "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
-                                        },
-                                        "isExternal": {
-                                            "type": "boolean",
-                                            "description": "Flag to indicate that this data comes from an external system that you do not control."
-                                        },
-                                        "name": {
-                                            "type": "string",
-                                            "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                        },
-                                        "itemType": {
-                                            "type": "string",
-                                            "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                        },
-                                        "path": {
-                                            "type": "string",
-                                            "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                        },
-                                        "value": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "id",
-                                        "value"
-                                    ],
-                                    "description": "A reference to a variable and its value in personalization."
-                                },
-                                "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms."
-                            },
-                            "variants": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {
-                                            "type": "string",
-                                            "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
-                                        },
-                                        "version": {
-                                            "type": "string",
-                                            "description": "Optionally, the version of the item in case the external source supports versioning."
-                                        },
-                                        "language": {
-                                            "type": "string",
-                                            "description": "Optionally, the language of the item in case the external source supports localization."
-                                        },
-                                        "source": {
-                                            "type": "string",
-                                            "description": "Optionally, the ID of the external system referenced."
-                                        },
-                                        "referenceType": {
-                                            "type": "string",
-                                            "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
-                                        },
-                                        "isExternal": {
-                                            "type": "boolean",
-                                            "description": "Flag to indicate that this data comes from an external system that you do not control."
-                                        },
-                                        "name": {
-                                            "type": "string",
-                                            "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                        },
-                                        "itemType": {
-                                            "type": "string",
-                                            "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                        },
-                                        "path": {
-                                            "type": "string",
-                                            "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                        },
-                                        "sources": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "string",
-                                                        "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
-                                                    },
-                                                    "version": {
-                                                        "type": "string",
-                                                        "description": "Optionally, the version of the item in case the external source supports versioning."
-                                                    },
-                                                    "language": {
-                                                        "type": "string",
-                                                        "description": "Optionally, the language of the item in case the external source supports localization."
-                                                    },
-                                                    "source": {
-                                                        "type": "string",
-                                                        "description": "Optionally, the ID of the external system referenced."
-                                                    },
-                                                    "referenceType": {
-                                                        "type": "string",
-                                                        "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
-                                                    },
-                                                    "isExternal": {
-                                                        "type": "boolean",
-                                                        "description": "Flag to indicate that this data comes from an external system that you do not control."
-                                                    },
-                                                    "name": {
-                                                        "type": "string",
-                                                        "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                                    },
-                                                    "itemType": {
-                                                        "type": "string",
-                                                        "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                                    },
-                                                    "path": {
-                                                        "type": "string",
-                                                        "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                                    },
-                                                    "relatedVariable": {
-                                                        "type": "string",
-                                                        "description": "In case of a multi-variate test (or similar) that runs over multiple components and/or pages, this can be the ID of the specific variable that decided personalization for a specific component."
-                                                    },
-                                                    "personalizationType": {
-                                                        "type": "string",
-                                                        "description": "The kind of personalization that relates to this item."
-                                                    }
-                                                },
-                                                "required": [
-                                                    "id"
-                                                ],
-                                                "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } ."
-                                            },
-                                            "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time."
-                                        },
-                                        "default": {
-                                            "type": "boolean",
-                                            "description": "If the reference is the default variant.",
-                                            "default": false
-                                        },
-                                        "eligible": {
-                                            "type": "boolean",
-                                            "description": "If the variant could have been picked."
-                                        },
-                                        "selected": {
-                                            "type": "boolean",
-                                            "description": "If the variant was chosen."
-                                        }
-                                    },
-                                    "required": [
-                                        "id"
-                                    ],
-                                    "description": "A reference to the data/content item related to a variant in personalization."
-                                },
-                                "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources."
-                            }
-                        },
-                        "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more."
-                    }
-                },
                 "id": {
                     "type": "string",
                     "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
@@ -1747,266 +1777,238 @@ var defaultSchema = {
                 "path": {
                     "type": "string",
                     "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                },
-                "typeName": {
-                    "type": "string",
-                    "description": "An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial."
-                },
-                "dataSource": {
-                    "type": "object",
-                    "properties": {
-                        "id": {
-                            "type": "string",
-                            "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
-                        },
-                        "version": {
-                            "type": "string",
-                            "description": "Optionally, the version of the item in case the external source supports versioning."
-                        },
-                        "language": {
-                            "type": "string",
-                            "description": "Optionally, the language of the item in case the external source supports localization."
-                        },
-                        "source": {
-                            "type": "string",
-                            "description": "Optionally, the ID of the external system referenced."
-                        },
-                        "referenceType": {
-                            "type": "string",
-                            "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
-                        },
-                        "isExternal": {
-                            "type": "boolean",
-                            "description": "Flag to indicate that this data comes from an external system that you do not control."
-                        },
-                        "name": {
-                            "type": "string",
-                            "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                        },
-                        "itemType": {
-                            "type": "string",
-                            "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                        },
-                        "path": {
-                            "type": "string",
-                            "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                        }
-                    },
-                    "required": [
-                        "id"
-                    ],
-                    "description": "Optional references to the content that was used to render the component."
-                },
-                "instanceId": {
-                    "type": "string",
-                    "description": "An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree."
-                },
-                "instanceNumber": {
-                    "type": "number",
-                    "description": "If the same component type is used multiple times on the same page this number indicates which one it is. (As defined in the page's markup, typically this amounts to left-to-right/top-to-bottom)."
-                },
-                "inferred": {
-                    "type": "boolean",
-                    "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
-                    "default": false
-                },
-                "content": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "tags": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "tag": {
-                                            "type": "string",
-                                            "description": "The name of the tag including namespace."
-                                        },
-                                        "value": {
-                                            "type": "string",
-                                            "description": "The value of the tag."
-                                        },
-                                        "score": {
-                                            "type": "number",
-                                            "description": "How strongly the tags relates to the target.",
-                                            "default": 1
-                                        }
-                                    },
-                                    "required": [
-                                        "tag"
-                                    ]
-                                },
-                                "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources."
-                            },
-                            "id": {
-                                "type": "string",
-                                "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
-                            },
-                            "version": {
-                                "type": "string",
-                                "description": "Optionally, the version of the item in case the external source supports versioning."
-                            },
-                            "language": {
-                                "type": "string",
-                                "description": "Optionally, the language of the item in case the external source supports localization."
-                            },
-                            "source": {
-                                "type": "string",
-                                "description": "Optionally, the ID of the external system referenced."
-                            },
-                            "referenceType": {
-                                "type": "string",
-                                "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
-                            },
-                            "isExternal": {
-                                "type": "boolean",
-                                "description": "Flag to indicate that this data comes from an external system that you do not control."
-                            },
-                            "name": {
-                                "type": "string",
-                                "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                            },
-                            "itemType": {
-                                "type": "string",
-                                "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                            },
-                            "path": {
-                                "type": "string",
-                                "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                            },
-                            "commerce": {
-                                "type": "object",
-                                "properties": {
-                                    "price": {
-                                        "type": "number",
-                                        "description": "The unit price."
-                                    },
-                                    "unit": {
-                                        "type": "string",
-                                        "description": "The unit the item is sold by."
-                                    },
-                                    "currency": {
-                                        "type": "string",
-                                        "description": "The currency of the price. This field does not have a default value; if unspecified it must be assumed from context."
-                                    },
-                                    "variation": {
-                                        "type": "object",
-                                        "properties": {
-                                            "id": {
-                                                "type": "string",
-                                                "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
-                                            },
-                                            "version": {
-                                                "type": "string",
-                                                "description": "Optionally, the version of the item in case the external source supports versioning."
-                                            },
-                                            "language": {
-                                                "type": "string",
-                                                "description": "Optionally, the language of the item in case the external source supports localization."
-                                            },
-                                            "source": {
-                                                "type": "string",
-                                                "description": "Optionally, the ID of the external system referenced."
-                                            },
-                                            "referenceType": {
-                                                "type": "string",
-                                                "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
-                                            },
-                                            "isExternal": {
-                                                "type": "boolean",
-                                                "description": "Flag to indicate that this data comes from an external system that you do not control."
-                                            },
-                                            "name": {
-                                                "type": "string",
-                                                "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                            },
-                                            "itemType": {
-                                                "type": "string",
-                                                "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                            },
-                                            "path": {
-                                                "type": "string",
-                                                "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                                            }
-                                        },
-                                        "required": [
-                                            "id"
-                                        ],
-                                        "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple)."
-                                    },
-                                    "stock": {
-                                        "type": "number",
-                                        "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many)."
-                                    }
-                                }
-                            },
-                            "rect": {
-                                "type": "object",
-                                "properties": {
-                                    "width": {
-                                        "type": "number"
-                                    },
-                                    "height": {
-                                        "type": "number"
-                                    },
-                                    "x": {
-                                        "type": "number"
-                                    },
-                                    "y": {
-                                        "type": "number"
-                                    }
-                                },
-                                "required": [
-                                    "height",
-                                    "width",
-                                    "x",
-                                    "y"
-                                ],
-                                "description": "The current size and position of the element representing the content relative to the document top (not viewport)."
-                            }
-                        },
-                        "required": [
-                            "id"
-                        ],
-                        "description": "The content definition related to a user activation."
-                    },
-                    "description": "The activated content in the component."
-                },
-                "rect": {
-                    "type": "object",
-                    "properties": {
-                        "width": {
-                            "type": "number"
-                        },
-                        "height": {
-                            "type": "number"
-                        },
-                        "x": {
-                            "type": "number"
-                        },
-                        "y": {
-                            "type": "number"
-                        }
-                    },
-                    "required": [
-                        "height",
-                        "width",
-                        "x",
-                        "y"
-                    ],
-                    "description": "The size and position of the component when it was activated relative to the document top (not viewport)."
-                },
-                "area": {
-                    "type": "string",
-                    "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash."
                 }
             },
             "required": [
                 "id"
             ],
-            "description": "The component definition related to a user activation."
+            "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.\n\nAgain, if you only have some hard-coded value, you can just make an external reference and use its  {@link  id }  property for the value. Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID."
+        },
+        "Personalizable": {
+            "type": "object",
+            "properties": {
+                "personalization": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "urn:tailjs:core#/definitions/Personalization"
+                    }
+                }
+            }
+        },
+        "Personalization": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Tagged"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "source": {
+                            "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                            "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s."
+                        },
+                        "variables": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/PersonalizationVariable"
+                            },
+                            "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms."
+                        },
+                        "variants": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/PersonalizationVariant"
+                            },
+                            "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources."
+                        }
+                    }
+                }
+            ],
+            "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more."
+        },
+        "PersonalizationVariable": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "value"
+                    ]
+                }
+            ],
+            "description": "A reference to a variable and its value in personalization."
+        },
+        "PersonalizationVariant": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "sources": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "urn:tailjs:core#/definitions/PersonalizationSource"
+                            },
+                            "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time."
+                        },
+                        "default": {
+                            "type": "boolean",
+                            "description": "If the reference is the default variant.",
+                            "default": false
+                        },
+                        "eligible": {
+                            "type": "boolean",
+                            "description": "If the variant could have been picked."
+                        },
+                        "selected": {
+                            "type": "boolean",
+                            "description": "If the variant was chosen."
+                        }
+                    }
+                }
+            ],
+            "description": "A reference to the data/content item related to a variant in personalization."
+        },
+        "PersonalizationSource": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "relatedVariable": {
+                            "type": "string",
+                            "description": "In case of a multi-variate test (or similar) that runs over multiple components and/or pages, this can be the ID of the specific variable that decided personalization for a specific component."
+                        },
+                        "personalizationType": {
+                            "type": "string",
+                            "description": "The kind of personalization that relates to this item."
+                        }
+                    }
+                }
+            ],
+            "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } ."
+        },
+        "Integer": {
+            "type": "number"
+        },
+        "ActivatedContent": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Content"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "rect": {
+                            "$ref": "urn:tailjs:core#/definitions/Rectangle",
+                            "description": "The current size and position of the element representing the content relative to the document top (not viewport)."
+                        }
+                    }
+                }
+            ],
+            "description": "The content definition related to a user activation."
+        },
+        "Content": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Tagged"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "commerce": {
+                            "$ref": "urn:tailjs:core#/definitions/CommerceData"
+                        }
+                    }
+                }
+            ],
+            "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria"
+        },
+        "CommerceData": {
+            "type": "object",
+            "properties": {
+                "price": {
+                    "$ref": "urn:tailjs:core#/definitions/Decimal",
+                    "description": "The unit price."
+                },
+                "unit": {
+                    "type": "string",
+                    "description": "The unit the item is sold by."
+                },
+                "currency": {
+                    "type": "string",
+                    "description": "The currency of the price. This field does not have a default value; if unspecified it must be assumed from context."
+                },
+                "variation": {
+                    "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+                    "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple)."
+                },
+                "stock": {
+                    "$ref": "urn:tailjs:core#/definitions/Float",
+                    "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many)."
+                }
+            }
+        },
+        "Decimal": {
+            "type": "number"
+        },
+        "Rectangle": {
+            "allOf": [
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Position"
+                },
+                {
+                    "$ref": "urn:tailjs:core#/definitions/Size"
+                },
+                {
+                    "type": "object"
+                }
+            ]
+        },
+        "Position": {
+            "type": "object",
+            "properties": {
+                "x": {
+                    "$ref": "urn:tailjs:core#/definitions/Float"
+                },
+                "y": {
+                    "$ref": "urn:tailjs:core#/definitions/Float"
+                }
+            },
+            "required": [
+                "x",
+                "y"
+            ],
+            "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio]."
+        },
+        "Size": {
+            "type": "object",
+            "properties": {
+                "width": {
+                    "$ref": "urn:tailjs:core#/definitions/Float"
+                },
+                "height": {
+                    "$ref": "urn:tailjs:core#/definitions/Float"
+                }
+            },
+            "required": [
+                "width",
+                "height"
+            ]
         },
         "ViewTimingData": {
             "type": "object",
@@ -2032,9 +2034,6 @@ var defaultSchema = {
         "Duration": {
             "type": "number",
             "description": "Duration in milliseconds."
-        },
-        "Integer": {
-            "type": "number"
         },
         "ScreenPosition": {
             "type": "object",
@@ -2085,50 +2084,6 @@ var defaultSchema = {
                         "totalHeight"
                     ]
                 }
-            ]
-        },
-        "Rectangle": {
-            "allOf": [
-                {
-                    "$ref": "urn:tailjs:core#/definitions/Position"
-                },
-                {
-                    "$ref": "urn:tailjs:core#/definitions/Size"
-                },
-                {
-                    "type": "object"
-                }
-            ]
-        },
-        "Position": {
-            "type": "object",
-            "properties": {
-                "x": {
-                    "$ref": "urn:tailjs:core#/definitions/Float"
-                },
-                "y": {
-                    "$ref": "urn:tailjs:core#/definitions/Float"
-                }
-            },
-            "required": [
-                "x",
-                "y"
-            ],
-            "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio]."
-        },
-        "Size": {
-            "type": "object",
-            "properties": {
-                "width": {
-                    "$ref": "urn:tailjs:core#/definitions/Float"
-                },
-                "height": {
-                    "$ref": "urn:tailjs:core#/definitions/Float"
-                }
-            },
-            "required": [
-                "width",
-                "height"
             ]
         },
         "ElementInfo": {
@@ -2514,51 +2469,6 @@ var defaultSchema = {
                 }
             ],
             "description": "A filter that applies to a field in a search query."
-        },
-        "ExternalReference": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
-                },
-                "version": {
-                    "type": "string",
-                    "description": "Optionally, the version of the item in case the external source supports versioning."
-                },
-                "language": {
-                    "type": "string",
-                    "description": "Optionally, the language of the item in case the external source supports localization."
-                },
-                "source": {
-                    "type": "string",
-                    "description": "Optionally, the ID of the external system referenced."
-                },
-                "referenceType": {
-                    "type": "string",
-                    "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
-                },
-                "isExternal": {
-                    "type": "boolean",
-                    "description": "Flag to indicate that this data comes from an external system that you do not control."
-                },
-                "name": {
-                    "type": "string",
-                    "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                },
-                "itemType": {
-                    "type": "string",
-                    "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                },
-                "path": {
-                    "type": "string",
-                    "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
-                }
-            },
-            "required": [
-                "id"
-            ],
-            "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.\n\nAgain, if you only have some hard-coded value, you can just make an external reference and use its  {@link  id }  property for the value. Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID."
         },
         "SearchResult": {
             "allOf": [
@@ -2963,168 +2873,6 @@ var defaultSchema = {
                     }
                 }
             ]
-        },
-        "Content": {
-            "allOf": [
-                {
-                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
-                },
-                {
-                    "$ref": "urn:tailjs:core#/definitions/Tagged"
-                },
-                {
-                    "type": "object",
-                    "properties": {
-                        "commerce": {
-                            "$ref": "urn:tailjs:core#/definitions/CommerceData"
-                        }
-                    }
-                }
-            ],
-            "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria"
-        },
-        "CommerceData": {
-            "type": "object",
-            "properties": {
-                "price": {
-                    "$ref": "urn:tailjs:core#/definitions/Decimal",
-                    "description": "The unit price."
-                },
-                "unit": {
-                    "type": "string",
-                    "description": "The unit the item is sold by."
-                },
-                "currency": {
-                    "type": "string",
-                    "description": "The currency of the price. This field does not have a default value; if unspecified it must be assumed from context."
-                },
-                "variation": {
-                    "$ref": "urn:tailjs:core#/definitions/ExternalReference",
-                    "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple)."
-                },
-                "stock": {
-                    "$ref": "urn:tailjs:core#/definitions/Float",
-                    "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many)."
-                }
-            }
-        },
-        "Decimal": {
-            "type": "number"
-        },
-        "Personalizable": {
-            "type": "object",
-            "properties": {
-                "personalization": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "urn:tailjs:core#/definitions/Personalization"
-                    }
-                }
-            }
-        },
-        "Personalization": {
-            "allOf": [
-                {
-                    "$ref": "urn:tailjs:core#/definitions/Tagged"
-                },
-                {
-                    "type": "object",
-                    "properties": {
-                        "source": {
-                            "$ref": "urn:tailjs:core#/definitions/ExternalReference",
-                            "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s."
-                        },
-                        "variables": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "urn:tailjs:core#/definitions/PersonalizationVariable"
-                            },
-                            "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms."
-                        },
-                        "variants": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "urn:tailjs:core#/definitions/PersonalizationVariant"
-                            },
-                            "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources."
-                        }
-                    }
-                }
-            ],
-            "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more."
-        },
-        "PersonalizationVariable": {
-            "allOf": [
-                {
-                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
-                },
-                {
-                    "type": "object",
-                    "properties": {
-                        "value": {
-                            "type": "string"
-                        }
-                    },
-                    "required": [
-                        "value"
-                    ]
-                }
-            ],
-            "description": "A reference to a variable and its value in personalization."
-        },
-        "PersonalizationVariant": {
-            "allOf": [
-                {
-                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
-                },
-                {
-                    "type": "object",
-                    "properties": {
-                        "sources": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "urn:tailjs:core#/definitions/PersonalizationSource"
-                            },
-                            "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time."
-                        },
-                        "default": {
-                            "type": "boolean",
-                            "description": "If the reference is the default variant.",
-                            "default": false
-                        },
-                        "eligible": {
-                            "type": "boolean",
-                            "description": "If the variant could have been picked."
-                        },
-                        "selected": {
-                            "type": "boolean",
-                            "description": "If the variant was chosen."
-                        }
-                    }
-                }
-            ],
-            "description": "A reference to the data/content item related to a variant in personalization."
-        },
-        "PersonalizationSource": {
-            "allOf": [
-                {
-                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
-                },
-                {
-                    "type": "object",
-                    "properties": {
-                        "relatedVariable": {
-                            "type": "string",
-                            "description": "In case of a multi-variate test (or similar) that runs over multiple components and/or pages, this can be the ID of the specific variable that decided personalization for a specific component."
-                        },
-                        "personalizationType": {
-                            "type": "string",
-                            "description": "The kind of personalization that relates to this item."
-                        }
-                    }
-                }
-            ],
-            "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } ."
         },
         "SessionLocationEvent": {
             "allOf": [
@@ -3893,45 +3641,6 @@ var defaultSchema = {
                 }
             ]
         },
-        "Component": {
-            "allOf": [
-                {
-                    "$ref": "urn:tailjs:core#/definitions/ExternalReference"
-                },
-                {
-                    "$ref": "urn:tailjs:core#/definitions/Personalizable"
-                },
-                {
-                    "$ref": "urn:tailjs:core#/definitions/Tagged"
-                },
-                {
-                    "type": "object",
-                    "properties": {
-                        "typeName": {
-                            "type": "string",
-                            "description": "An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial."
-                        },
-                        "dataSource": {
-                            "$ref": "urn:tailjs:core#/definitions/ExternalReference",
-                            "description": "Optional references to the content that was used to render the component."
-                        },
-                        "instanceId": {
-                            "type": "string",
-                            "description": "An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree."
-                        },
-                        "instanceNumber": {
-                            "$ref": "urn:tailjs:core#/definitions/Integer",
-                            "description": "If the same component type is used multiple times on the same page this number indicates which one it is. (As defined in the page's markup, typically this amounts to left-to-right/top-to-bottom)."
-                        },
-                        "inferred": {
-                            "type": "boolean",
-                            "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
-                            "default": false
-                        }
-                    }
-                }
-            ]
-        },
         "TrackingSettings": {
             "type": "object",
             "properties": {
@@ -3969,20 +3678,45 @@ var defaultSchema = {
 
 const scripts$1 = {
     main: {
-        text: "(()=>{\"use strict\";var e,t,r,n,a,i,o,s,l,u,c,f,d,v,p,h,g,m,y,b,w,k,S,T,I,A,E,x,N,O,C,j,_,M=\"@info\",U=\"@consent\",$=\"_tail:\",F=$+\"state\",q=$+\"push\",P=(e,t=e=>Error(e))=>{throw ef(e=ts(e))?t(e):e},R=(e,t,r=-1)=>{if(e===t||(e??t)==null)return!0;if(eg(e)&&eg(t)&&e.length===t.length){var n=0;for(var a in e){if(e[a]!==t[a]&&!R(e[a],t[a],r-1))return!1;++n}return n===Object.keys(t).length}return!1},z=(e,t,...r)=>e===t||r.length>0&&r.some(t=>z(e,t)),D=(e,t)=>null!=e?e:P(t??\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),W=(e,t=!0,r)=>{try{return e()}catch(e){return eS(t)?ep(e=t(e))?P(e):e:ea(t)?console.error(t?P(e):e):t}finally{r?.()}},B=e=>{var t,r=()=>r.initialized||t?t:(t=ts(e)).then?t=t.then(e=>(r.initialized=!0,r.resolved=t=e)):(r.initialized=!0,r.resolved=t);return r},J=e=>{var t={initialized:!0,then:V(()=>(t.initialized=!0,ts(e)))};return t},V=e=>{var t=B(e);return(e,r)=>L(t,[e,r])},L=async(e,t=!0,r)=>{try{var n=await ts(e);return ev(t)?t[0]?.(n):n}catch(e){if(ea(t)){if(t)throw e;console.error(e)}else{if(ev(t)){if(!t[1])throw e;return t[1](e)}var a=await t?.(e);if(a instanceof Error)throw a;return a}}finally{await r?.()}},K=e=>e,G=void 0,H=Number.MAX_SAFE_INTEGER,X=!1,Y=!0,Z=()=>{},Q=e=>e,ee=e=>null!=e,et=Symbol.iterator,er=(e,t)=>(r,n=!0)=>e(r)?r:t&&n&&null!=r&&null!=(r=t(r))?r:G,en=(e,t)=>eS(t)?e!==G?t(e):G:e?.[t]!==G?e:G,ea=e=>\"boolean\"==typeof e,ei=er(ea,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||G))),eo=e=>!!e,es=e=>e===Y,el=e=>e!==X,eu=Number.isSafeInteger,ec=e=>\"number\"==typeof e,ef=e=>\"string\"==typeof e,ed=er(ef,e=>e?.toString()),ev=Array.isArray,ep=e=>e instanceof Error,eh=(e,t=!1)=>null==e?G:!t&&ev(e)?e:eT(e)?[...e]:[e],eg=e=>null!==e&&\"object\"==typeof e,em=Object.prototype,ey=Object.getPrototypeOf,eb=e=>null!=e&&ey(e)===em,ew=(e,t)=>\"function\"==typeof e?.[t],ek=e=>\"symbol\"==typeof e,eS=e=>\"function\"==typeof e,eT=(e,t=!1)=>!!(e?.[et]&&(\"object\"==typeof e||t)),eI=e=>e instanceof Map,eA=e=>e instanceof Set,eE=(e,t)=>null==e?G:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,ex=!1,eN=e=>(ex=!0,e),eO=e=>null==e?G:eS(e)?e:t=>t[e],eC=(e,t,r)=>(t??r)!==G?(e=eO(e),t??=0,r??=H,(n,a)=>t--?G:r--?e?e(n,a):n:r):e,ej=e=>e?.filter(ee),e_=(e,t,r,n)=>null==e?[]:!t&&ev(e)?ej(e):e[et]?function*(e,t){if(null!=e){if(t){t=eO(t);var r=0;for(var n of e)if(null!=(n=t(n,r++))&&(yield n),ex){ex=!1;break}}else for(var n of e)null!=n&&(yield n)}}(e,r===G?t:eC(t,r,n)):eg(e)?function*(e,t){t=eO(t);var r=0;for(var n in e){var a=[n,e[n]];if(t&&(a=t(a,r++)),null!=a&&(yield a),ex){ex=!1;break}}}(e,eC(t,r,n)):e_(eS(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(t??=-e-1;e++;)yield t--;else for(t??=0;e--;)yield t++}(e,r),t),eM=(e,t)=>t&&!ev(e)?[...e]:e,eU=(e,t,r,n)=>e_(e,t,r,n),e$=(e,t,r=1,n=!1,a,i)=>(function* e(t,r,n,a){if(null!=t){if(t[et]||n&&eg(t))for(var i of a?e_(t):t)1!==r?yield*e(i,r-1,n,!0):yield i;else yield t}})(e_(e,t,a,i),r+1,n,!1),eF=(e,t,r,n)=>{if(t=eO(t),ev(e)){var a=0,i=[];for(r=r<0?e.length+r:r??0,n=n<0?e.length+n:n??e.length;r<n&&!ex;r++){var o=e[r];(t?o=t(o,a++):o)!=null&&i.push(o)}return ex=!1,i}return null!=e?eh(eU(e,t,r,n)):G},eq=(e,t,r,n)=>null!=e?new Set([...eU(e,t,r,n)]):G,eP=(e,t,r=1,n=!1,a,i)=>eh(e$(e,t,r,n,a,i)),eR=(...e)=>{var t;return eV(1===e.length?e[0]:e,e=>null!=e&&(t??=[]).push(...eh(e))),t},ez=(e,t,r,n)=>{var a,i=0;for(r=r<0?e.length+r:r??0,n=n<0?e.length+n:n??e.length;r<n;r++)if(null!=e[r]&&(a=t(e[r],i++)??a,ex)){ex=!1;break}return a},eD=(e,t)=>{var r,n=0;for(var a of e)if(null!=a&&(r=t(a,n++)??r,ex)){ex=!1;break}return r},eW=(e,t)=>{var r,n=0;for(var a in e)if(r=t([a,e[a]],n++)??r,ex){ex=!1;break}return r},eB=(e,t,...r)=>null==e?G:eT(e)?eF(e,e=>t(e,...r)):t(e,...r),eJ=(e,t,r,n)=>{var a;if(null!=e){if(ev(e))return ez(e,t,r,n);if(r===G){if(e[et])return eD(e,t);if(\"object\"==typeof e)return eW(e,t)}for(var i of e_(e,t,r,n))null!=i&&(a=i);return a}},eV=eJ,eL=async(e,t,r,n)=>{var a;if(null==e)return G;for(var i of eU(e,t,r,n))if(null!=(i=await i)&&(a=i),ex){ex=!1;break}return a},eK=Object.fromEntries,eG=(e,t,r)=>{if(null==e)return G;if(ea(t)||r){var n={};return eV(e,r?(e,a)=>null!=(e=t(e,a))&&null!=(e[1]=r(n[e[0]],e[1]))&&(n[e[0]]=e[1]):e=>eV(e,t?e=>e?.[1]!=null&&((n[e[0]]??=[]).push(e[1]),n):e=>e?.[1]!=null&&(n[e[0]]=e[1],n))),n}return eK(eF(e,t?(e,r)=>en(t(e,r),1):e=>en(e,1)))},eH=(e,t,r,n,a)=>{var i=()=>eS(r)?r():r;return eJ(e,(e,n)=>r=t(r,e,n)??i(),n,a)??i()},eX=(e,t=e=>null!=e,r=ev(e),n,a)=>eM(e_(e,(e,r)=>t(e,r)?e:G,n,a),r),eY=(e,t,r,n)=>{var a;if(null==e)return G;if(t)e=eX(e,t,!1,r,n);else{if(null!=(a=e.length??e.size))return a;if(!e[et])return Object.keys(e).length}return a=0,eJ(e,()=>++a)??0},eZ=(e,...t)=>null==e?G:ec(e)?Math.max(e,...t):eH(e,(e,r,n,a=t[1]?t[1](r,n):r)=>null==e||ec(a)&&a>e?a:e,G,t[2],t[3]),eQ=(e,t,r)=>eF(e,eb(e)?e=>e[1]:e=>e,t,r),e0=e=>!ev(e)&&eT(e)?eF(e,eI(e)?e=>e:eA(e)?e=>[e,!0]:(e,t)=>[t,e]):eg(e)?Object.entries(e):G,e1=(e,t,r,n)=>null==e?G:(t=eO(t),eJ(e,(e,r)=>!t||(e=t(e,r))?eN(e):G,r,n)),e2=(e,t,r,n)=>null==e?G:ev(e)||ef(e)?e[e.length-1]:eJ(e,(e,r)=>!t||t(e,r)?e:G,r,n),e4=(e,t,r,n)=>null==e?G:eb(e)&&!t?Object.keys(e).length>0:e.some?.(t??eo)??eJ(e,t?(e,r)=>!!t(e,r)&&eN(!0):()=>eN(!0),r,n)??!1,e6=(e,t=e=>e)=>(e?.sort((e,r)=>t(e)-t(r)),e),e5=(e,t,r)=>(e.constructor===Object||ev(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),e3=(e,t,r)=>{if(e){if(e.constructor===Object&&null==r)return e[t];var n=e.get?e.get(t):e.has?e.has(t):e[t];return void 0===n&&null!=r&&null!=(n=eS(r)?r():r)&&e5(e,t,n),n}},e8=(e,...t)=>(eV(t,t=>eV(t,([t,r])=>{null!=r&&(eb(e[t])&&eb(r)?e8(e[t],r):e[t]=r)})),e),e9=e=>(t,r,n,a)=>{if(t)return void 0!=n?e(t,r,n,a):(eV(r,r=>ev(r)?e(t,r[0],r[1]):eV(r,([r,n])=>e(t,r,n))),t)},e7=e9(e5),te=e9((e,t,r)=>e5(e,t,eS(r)?r(e3(e,t)):r)),tt=(e,t)=>e instanceof Set||e instanceof WeakSet?!e.has(t)&&(e.add(t),!0):e3(e,t)!==e7(e,t,!0),tr=(e,t)=>{if((e??t)!=null){var r=e3(e,t);return ew(e,\"delete\")?e.delete(t):delete e[t],r}},tn=(e,...t)=>{var r=[],n=!1,a=(e,i,o,s)=>{if(e){var l=t[i];i===t.length-1?ev(l)?(n=!0,l.forEach(t=>r.push(tr(e,t)))):r.push(tr(e,l)):(ev(l)?(n=!0,l.forEach(t=>a(e3(e,t),i+1,e,t))):a(e3(e,l),i+1,e,l),!eY(e)&&o&&ta(o,s))}};return a(e,0),n?r:r[0]},ta=(e,t)=>{if(e)return ev(t)?(ev(e)&&e.length>1?t.sort((e,t)=>t-e):t).map(t=>ta(e,t)):ev(e)?t<e.length?e.splice(t,1)[0]:void 0:tr(e,t)},ti=(e,...t)=>{var r=(t,n)=>{var a;if(t){if(ev(t)){if(eb(t[0])){t.splice(1).forEach(e=>r(e,t[0]));return}a=t}else a=eF(t);a.forEach(([t,r])=>Object.defineProperty(e,t,{configurable:!1,enumerable:!0,writable:!1,...n,...eb(r)&&(\"get\"in r||\"value\"in r)?r:eS(r)&&!r.length?{get:r}:{value:r}}))}};return t.forEach(e=>r(e)),e},to=(e,...t)=>{if(void 0!==e)return Object.fromEntries(t.flatMap(r=>eg(r)?ev(r)?r.map(t=>ev(t)?1===t.length?[t[0],e[t[0]]]:to(e[t[0]],...t[1]):[t,e[t]]):Object.entries(t).map(([t,r])=>[t,!0===r?e[t]:to(e[t],r)]):[[r,e[r]]]).filter(e=>null!=e[1]))},ts=e=>eS(e)?e():e,tl=(e,t=-1)=>ev(e)?t?e.map(e=>tl(e,t-1)):[...e]:eb(e)?t?eG(e,([e,r])=>[e,tl(r,t-1)]):{...e}:eA(e)?new Set(t?eF(e,e=>tl(e,t-1)):e):eI(e)?new Map(t?eF(e,e=>[e[0],tl(e[1],t-1)]):e):e,tu=(e,...t)=>e?.push(...t),tc=(e,...t)=>e?.unshift(...t),tf=(e,t)=>{if(e){if(!eb(t))return[e,e];var r,n,a,i={};if(eb(e))return eV(e,([e,o])=>{if(o!==t[e]){if(eb(r=o)){if(!(o=tf(o,t[e])))return;[o,r]=o}else ec(o)&&ec(n)&&(o=(r=o)-n);i[e]=o,(a??=tl(t))[e]=r}}),a?[i,a]:void 0}},td=\"undefined\"!=typeof performance?(e=Y)=>e?Math.trunc(td(X)):performance.timeOrigin+performance.now():Date.now,tv=(e=!0,t=()=>td())=>{var r,n=+e*t(),a=0;return(i=e,o)=>(r=e?a+=-n+(n=t()):a,o&&(a=0),(e=i)&&(n=t()),r)},tp=(e=0)=>{var t,r,n=(a,i=e)=>{if(void 0===a)return!!r;clearTimeout(t),ea(a)?a&&(i<0?el:es)(r?.())?n(r):r=void 0:(r=a,t=setTimeout(()=>n(!0,i),i<0?-i:i))};return n},th=(e,t=0)=>{var r=eS(e)?{frequency:t,callback:e}:e,{queue:n=!0,paused:a=!1,trigger:i=!1,once:o=!1,callback:s=()=>{},raf:l}=r;t=r.frequency??0;var u=0,c=tw(!0).resolve(),f=tv(!a),d=f(),v=async e=>{if(!u||!n&&c.pending&&!0!==e)return!1;if(m.busy=!0,!0!==e)for(;c.pending;)await c;return e||c.reset(),(await L(()=>s(f(),-d+(d=f())),!1,()=>!e&&c.resolve())===!1||t<=0||o)&&g(!1),m.busy=!1,!0},p=()=>u=setTimeout(()=>l?requestAnimationFrame(h):h(),t<0?-t:t),h=()=>{m.active&&v(),m.active&&p()},g=(e,t=!e)=>(f(e,t),clearTimeout(u),m.active=!!(u=e?p():0),m),m={active:!1,busy:!1,restart:(e,r)=>(t=e??t,s=r??s,g(!0,!0)),toggle:(e,t)=>e!==m.active?e?t?(g(!0),m.trigger(),m):g(!0):g(!1):m,trigger:async e=>await v(e)&&(g(m.active),!0)};return m.toggle(!a,i)};class tg{_promise;constructor(){this.reset()}get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new tm,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}}class tm{_promise;resolve;reject;value;error;pending=!0;constructor(){var e;this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(!this.pending){if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")}return this.pending=!1,this[t?\"error\":\"value\"]=r===G||r,e(r),this})}),[this.resolve,this.reject]=e}then(e,t){return this._promise.then(e,t)}}var ty=(e,t=0)=>t>0?setTimeout(e,t):window.queueMicrotask(e),tb=(e,t)=>null==e||isFinite(e)?!e||e<=0?ts(t):new Promise(r=>setTimeout(async()=>r(await ts(t)),e)):P(`Invalid delay ${e}.`),tw=e=>e?new tg:new tm,tk=(...e)=>Promise.race(e.map(e=>eS(e)?e():e)),tS=(e,t,r)=>{var n=!1,a=(...t)=>e(...t,i),i=()=>n!==(n=!1)&&(r(a),!0),o=()=>n!==(n=!0)&&(t(a),!0);return o(),[i,o]},tT=()=>{var e,t=new Set;return[(r,n)=>{var a=tS(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,a[0]),a},(...r)=>(e=r,t.forEach(e=>e(...r)))]},tI=(e,t=[\"and\",\", \"])=>e?1===(e=eF(e)).length?e[0]:ev(t)?[e.slice(0,-1).join(t[1]??\", \"),\" \",t[0],\" \",e[e.length-1]].join(\"\"):e.join(t??\", \"):G,tA=(e,t=\"'\")=>null==e?G:t+e+t,tE=(e,t)=>e&&(e.length>t?e.slice(0,-1)+\"…\":e),tx=(e,t,r)=>null==e?G:eS(t)?tI(eF(ef(e)?[e]:e,t),r??\"\"):ef(e)?e:tI(eF(e,e=>!1===e?G:e),t??\"\"),tN=(e,t=[0,.25,.5,.75,1])=>{for(var r,n,a=/[\\p{L}\\p{N}][\\p{L}\\p{N}'’]*|([.!?]+)/gu,i=0,o=0,s=0,l=0,u=!1;r=a.exec(e);)r[1]?(u&&++l,u=!1):(u=!0,i+=r[0].length,r[0].length>6&&++s,++o);u&&++l,a=/[\\p{L}\\p{N}]|([^\\p{L}\\p{N}]+)/gu;var c=t.map(e=>e*i|0),f=[],d=0,v=0,p=!1;do if(r=a.exec(e),r?.[1])p&&++v;else{d=r?.index;for(var h=!1,g=0;g<c.length;g++)c[g]--||(f[g]={offset:n??d,wordsBefore:v,readTime:eE(v/238*6e4)},h=!0);(p=!h)||(v=0),n=d+1}while(r);return{text:e,length:e.length,characters:i,words:o,sentences:l,lix:eE(o/l+100*s/o),readTime:eE(o/238*6e4),boundaries:f}},tO=e=>(e=Math.log2(e))===(0|e),tC=(e,t,r,n)=>{var a,i,o,s=Object.fromEntries(Object.entries(e).filter(([e,t])=>ef(e)&&ec(t)).map(([e,t])=>[e.toLowerCase(),t])),l=Object.entries(s),u=Object.values(s),c=s.any??u.reduce((e,t)=>e|t,0),f=t?{...s,any:c,none:0}:s,d=Object.fromEntries(Object.entries(f).map(([e,t])=>[t,e])),v=(e,r)=>eu(e)?!t&&r?null!=d[e]?e:G:Number.isSafeInteger(e)?e:G:ef(e)?f[e]??f[e.toLowerCase()]??v(parseInt(e),r):G,p=!1,[h,g]=t?[(e,t)=>Array.isArray(e)?e.reduce((e,r)=>null==r||p?e:null==(r=v(r,t))?(p=!0,G):(e??0)|r,(p=!1,G)):v(e),(e,t)=>null==(e=h(e,!1))?G:t&&(i=d[e&c])?(a=g(e&~(e&c),!1)).length?[i,...a]:i:(e=l.filter(([,t])=>t&&e&t&&tO(t)).map(([e])=>e),t?e.length?1===e.length?e[0]:e:\"none\":e)]:[v,e=>null!=(e=v(e))?d[e]:G],m=(e,t)=>null==e?G:null==(e=h(o=e,t))?P(TypeError(`${JSON.stringify(o)} is not a valid ${r} value.`)):e,y=l.filter(([,e])=>!n||(n&e)===e&&tO(e));return ti(e=>m(e),[{configurable:!1,enumerable:!1},{parse:m,tryParse:h,entries:l,values:u,lookup:g,length:l.length,format:e=>g(e,!0),logFormat:(e,t=\"or\")=>\"any\"===(e=g(e,!0))?\"any \"+r:`the ${r} ${tI(eF(eh(e),e=>tA(e)),[t])}`},t&&{pure:y,map:(e,t)=>(e=m(e),y.filter(([,t])=>t&e).map(t??(([,e])=>e)))}])},tj=(...e)=>{var t=e0(eG(e,!0)),r=e=>(eg(e)&&(ev(e)?e.forEach((t,n)=>e[n]=r(t)):t.forEach(([t,r])=>{var n,a=G;null!=(n=e[t])&&(1===r.length?e[t]=r[0].parse(n):r.forEach((i,o)=>!a&&null!=(a=o===r.length-1?i.parse(n):i.tryParse(n))&&(e[t]=a)))})),e);return r},t_=Symbol(),tM=(e,t=[\"|\",\";\",\",\"],r=!0)=>{if(!e)return G;var n=e.split(\"=\").map(e=>r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim());return n[1]??=\"\",n[2]=n[1]&&t?.length&&e1(t,(e,t,r=n[1].split(e))=>r.length>1?r:G)||(n[1]?[n[1]]:[]),n},tU=(e,t=!0,r)=>null==e?G:tR(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,n,a,i,o,s,l,u,c,f,d)=>{var v={source:e,scheme:r,urn:r?!n:!n&&G,authority:a,user:i,password:o,host:s??l,port:null!=u?parseInt(u):G,path:c,query:!1===t?f:t$(f,t),fragment:d};return v.path=v.path||(v.authority?v.urn?\"\":\"/\":G),v}),t$=(e,t,r=!0)=>tF(e,\"&\",t,r),tF=(e,t,r,n=!0)=>{var a=[],i=null==e?G:eG(e?.match(/(?:^.*?\\?|^)([^#]*)/)?.[1]?.split(t),(e,t,[i,o,s]=tM(e,!1===r?[]:!0===r?G:r,n)??[],l)=>(l=null!=(i=i?.replace(/\\[\\]$/,\"\"))?!1!==r?[i,s.length>1?s:o]:[i,o]:G,a.push(l),l),(e,t)=>e?!1!==r?eR(e,t):(e?e+\",\":\"\")+t:t);return i&&(i[t_]=a),i},tq=(e,t)=>t&&null!=e?t.test(e):G,tP=(e,t,r)=>tR(e,t,r,!0),tR=(r,n,a,i=!1)=>(r??n)==null?G:a?(e=G,i?(t=[],tR(r,n,(...r)=>null!=(e=a(...r))&&t.push(e))):r.replace(n,(...t)=>e=a(...t)),e):r.match(n),tz=e=>e?.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tD=/\\z./g,tW=(e,t)=>(t=tx(eq(eX(e,e=>e?.length)),\"|\"))?RegExp(t,\"gu\"):tD,tB={},tJ=e=>e instanceof RegExp,tV=(e,t=[\",\",\" \"])=>tJ(e)?e:ev(e)?tW(eF(e,e=>tV(e,t)?.source)):ea(e)?e?/./g:tD:ef(e)?tB[e]??=tR(e||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,r,n)=>r?RegExp(r,\"gu\"):tW(eF(tL(n,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${tx(t,tz)}]`)),e=>e&&`^${tx(tL(e,/(?<!(?<!\\\\)\\\\)\\*/),e=>tz(tK(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):G,tL=(e,t)=>e?.split(t)??e,tK=(e,t,r)=>e?.replace(t,r)??e,tG=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return e7(r,{push(n,a){for(var i,o=[n,a],s=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,l=0;l<r.length;l++){var u=r[l];if(0>e(o[1],u[0]))return s(r.splice(l,0,o));if(0>=e(o[0],u[1])){if(0>e(o[0],u[0])&&(i=u[0]=o[0]),e(o[1],u[1])>0&&(i=u[1]=o[1]),!(r[l+1]?.[0]<u[1]))return s(null!=i);i=o=r.splice(l--,1)[0]}}return s(o&&(r[r.length]=o))},width:0})},tH=5e3,tX=()=>()=>P(\"Not initialized.\"),tY=window,tZ=document,tQ=tZ.body,t0=(e,t)=>!!e?.matches(t),t1=H,t2=(e,t,r=(e,t)=>t>=t1)=>{for(var n,a=0,i=X;e?.nodeType===1&&!r(e,a++)&&t(e,(e,t)=>(null!=e&&(n=e,i=t!==Y&&null!=n),Y),a-1)!==X&&!i;){var o=e;null===(e=e.parentElement)&&o?.ownerDocument!==tZ&&(e=o?.ownerDocument.defaultView?.frameElement)}return n},t4=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":return(\"\"+e).trim()?.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||ei(e);case\"n\":return parseFloat(e);case\"j\":return W(()=>JSON.parse(e),Z);case\"h\":return W(()=>ni(e),Z);case\"e\":return W(()=>ns?.(e),Z);default:return ev(t)?\"\"===e?void 0:(\"\"+e).split(\",\").map(e=>e=\"\"===e.trim()?void 0:t4(e,t[0])):void 0}},t6=(e,t,r)=>t4(e?.getAttribute(t),r),t5=(e,t,r)=>t2(e,(e,n)=>n(t6(e,t,r))),t3=(e,t)=>t6(e,t)?.trim()?.toLowerCase(),t8=e=>e?.getAttributeNames(),t9=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,t7=e=>null!=e?e.tagName:null,re=()=>({x:(r=rt(X)).x/(tQ.offsetWidth-window.innerWidth)||0,y:r.y/(tQ.offsetHeight-window.innerHeight)||0}),rt=e=>({x:eE(scrollX,e),y:eE(scrollY,e)}),rr=(e,t)=>tK(e,/#.*$/,\"\")===tK(t,/#.*$/,\"\"),rn=(e,t,r=Y)=>(n=ra(e,t))&&K({xpx:n.x,ypx:n.y,x:eE(n.x/tQ.offsetWidth,4),y:eE(n.y/tQ.offsetHeight,4),pageFolds:r?n.y/window.innerHeight:void 0}),ra=(e,t)=>t?.pointerType&&t?.pageY!=null?{x:t.pageX,y:t.pageY}:e?({x:a,y:i}=ri(e),{x:a,y:i}):void 0,ri=e=>e?(o=e.getBoundingClientRect(),r=rt(X),{x:eE(o.left+r.x),y:eE(o.top+r.y),width:eE(o.width),height:eE(o.height)}):void 0,ro=(e,t,r,n={capture:!0,passive:!0})=>(t=eh(t),tS(r,r=>eV(t,t=>e.addEventListener(t,r,n)),r=>eV(t,t=>e.removeEventListener(t,r,n)))),rs=e=>{var{host:t,scheme:r,port:n}=tU(e,!1);return{host:t+(n?\":\"+n:\"\"),scheme:r}},rl=()=>({...r=rt(Y),width:window.innerWidth,height:window.innerHeight,totalWidth:tQ.offsetWidth,totalHeight:tQ.offsetHeight});(A=s||(s={}))[A.Anonymous=0]=\"Anonymous\",A[A.Indirect=1]=\"Indirect\",A[A.Direct=2]=\"Direct\",A[A.Sensitive=3]=\"Sensitive\";var ru=tC(s,!1,\"data classification\"),rc=(e,t)=>ru.parse(e?.classification??e?.level)===ru.parse(t?.classification??t?.level)&&rd.parse(e?.purposes??e?.purposes)===rd.parse(t?.purposes??t?.purposes),rf=(e,t)=>null==e?void 0:ec(e.classification)&&ec(e.purposes)?e:{...e,level:void 0,purpose:void 0,classification:ru.parse(e.classification??e.level??t?.classification??0),purposes:rd.parse(e.purposes??e.purpose??t?.purposes??l.Necessary)};(E=l||(l={}))[E.None=0]=\"None\",E[E.Necessary=1]=\"Necessary\",E[E.Functionality=2]=\"Functionality\",E[E.Performance=4]=\"Performance\",E[E.Targeting=8]=\"Targeting\",E[E.Security=16]=\"Security\",E[E.Infrastructure=32]=\"Infrastructure\",E[E.Any_Anonymous=49]=\"Any_Anonymous\",E[E.Any=63]=\"Any\",E[E.Server=2048]=\"Server\",E[E.Server_Write=4096]=\"Server_Write\";var rd=tC(l,!0,\"data purpose\",2111),rv=tC(l,!1,\"data purpose\",0),rp=(e,t)=>((u=e?.metadata)&&(t?(delete u.posted,delete u.queued,Object.entries(u).length||delete e.metadata):delete e.metadata),e),rh=e=>!!e?.patchTargetId;(x=c||(c={}))[x.Global=0]=\"Global\",x[x.Entity=1]=\"Entity\",x[x.Session=2]=\"Session\",x[x.Device=3]=\"Device\",x[x.User=4]=\"User\";var rg=tC(c,!1,\"variable scope\");s.Anonymous,l.Necessary;var rm=e=>`'${e.key}' in ${rg.format(e.scope)} scope`,ry={scope:rg,purpose:rv,purposes:rd,classification:ru};tj(ry),(N=f||(f={}))[N.Add=0]=\"Add\",N[N.Min=1]=\"Min\",N[N.Max=2]=\"Max\",N[N.IfMatch=3]=\"IfMatch\",N[N.IfNoneMatch=4]=\"IfNoneMatch\",tC(f,!1,\"variable patch type\"),(O=d||(d={}))[O.Success=200]=\"Success\",O[O.Created=201]=\"Created\",O[O.Unchanged=304]=\"Unchanged\",O[O.Denied=403]=\"Denied\",O[O.NotFound=404]=\"NotFound\",O[O.ReadOnly=405]=\"ReadOnly\",O[O.Conflict=409]=\"Conflict\",O[O.Unsupported=501]=\"Unsupported\",O[O.Invalid=400]=\"Invalid\",O[O.Error=500]=\"Error\",tC(d,!1,\"variable set status\");var rb=(e,t,r)=>{var n,a=e(),i=e=>e,o=(e,r=rT)=>J(async()=>(n=i(r(await a,t)))&&e(n)),s={then:o(e=>e).then,all:o(e=>e,e=>e),changed:o(e=>eX(e,e=>e.status<300)),variables:o(e=>eF(e,rk)),values:o(e=>eF(e,e=>rk(e)?.value)),push:()=>(i=e=>(r?.(eF(rw(e))),e),s),value:o(e=>rk(e[0])?.value),variable:o(e=>rk(e[0])),result:o(e=>e[0])};return s},rw=e=>e?.map(e=>e?.status<400?e:G),rk=e=>rS(e)?e.current??e:G,rS=(e,t=!1)=>t?e?.status<300:e?.status<400||e?.status===404,rT=(e,t,r)=>{var n,a,i=[],o=eF(eh(e),(e,o)=>e&&(e.status<400||!r&&404===e.status?e:(a=`${rm(e.source??e)} could not be ${404===e.status?\"found.\":`${e.source||500!==e.status?\"set\":\"read\"} because ${409===e.status?`of a conflict. The expected version '${e.source?.version}' did not match the current version '${e.current?.version}'.`:403===e.status?e.error??\"the operation was denied.\":400===e.status?e.error??\"the value does not conform to the schema\":405===e.status?\"it is read only.\":500===e.status?`of an unexpected error: ${e.error}`:\"of an unknown reason.\"}`}`,(null==(n=t?.[o])||!1!==n(e,a))&&i.push(a),G)));return i.length?P(i.join(\"\\n\")):ev(e)?o:o?.[0]},rI=e=>rT(e,G,!0),rA=e=>e&&\"string\"==typeof e.type,rE=((...e)=>t=>t?.type&&e.some(e=>e===t?.type))(\"view\"),rx=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,rN=(e,t)=>t&&(!(p=e.get(v=t.tag+(t.value??\"\")))||(p.score??1)<(t.score??1))&&e.set(v,t),rO=(e,t=\"\",r=new Map)=>{if(e)return eT(e)?eV(e,e=>rO(e,t,r)):ef(e)?tR(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,a,i,o,s,l)=>{var u={tag:(n?rx(n)+\"::\":\"\")+t+rx(a),value:rx(i??o??s)};l&&10!==parseFloat(l)&&(u.score=parseFloat(l)/10),rN(r,u)}):rN(r,e),r},rC=new WeakMap,rj=e=>rC.get(e),r_=(e,t=X)=>(t?\"--track-\":\"track-\")+e,rM=(e,t,r,n,a,i)=>t?.[1]&&eV(t8(e),o=>t[0][o]??=(i=X,ef(n=eV(t[1],([t,r,n],a)=>tq(o,t)&&(i=void 0,!r||t0(e,r))&&eN(n??o)))&&(!(a=e.getAttribute(o))||ei(a))&&rO(a,tK(n,/\\-/g,\":\"),r),i)),rU=()=>{},r$=(e,t)=>{if(h===(h=rW.tags))return rU(e,t);var r=e=>e?tJ(e)?[[e]]:eT(e)?eP(e,r):[eb(e)?[tV(e.match),e.selector,e.prefix]:[tV(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(eQ(h))]];(rU=(e,t)=>rM(e,n,t))(e,t)},rF=(e,t)=>tx(eR(t9(e,r_(t,Y)),t9(e,r_(\"base-\"+t,Y))),\" \"),rq={},rP=(e,t,r=rF(e,\"attributes\"))=>{r&&rM(e,rq[r]??=[{},tP(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[tV(r||n),,t])],t),rO(rF(e,\"tags\"),void 0,t)},rR=(e,t,r=X,n)=>(r?t2(e,(e,r)=>r(rR(e,t,X)),eS(r)?r:void 0):tx(eR(t6(e,r_(t)),t9(e,r_(t,Y))),\" \"))??(n&&(g=rj(e))&&n(g))??null,rz=(e,t,r=X,n)=>\"\"===(m=rR(e,t,r,n))||(null==m?m:ei(m)),rD=(e,t,r,n)=>e?(rP(e,n??=new Map),t2(e,e=>{r$(e,n),rO(r?.(e),void 0,n)},t),n.size?{tags:[...n.values()]}:{}):{},rW={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},rB=[],rJ=[],rV=(e,t=0)=>e.charCodeAt(t),rL=e=>String.fromCharCode(...e);[...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>rB[rJ[t]=e.charCodeAt(0)]=t);var rK=e=>{for(var t,r=0,n=e.length,a=[];n>r;)t=e[r++]<<16|e[r++]<<8|e[r++],a.push(rJ[(16515072&t)>>18],rJ[(258048&t)>>12],rJ[(4032&t)>>6],rJ[63&t]);return a.length+=n-r,rL(a)},rG=e=>{for(var t,r=0,n=0,a=e.length,i=new Uint8Array(3*(a/4|0)+(a+3&3)%3);a>r;)i[n++]=rB[rV(e,r++)]<<2|(t=rB[rV(e,r++)])>>4,a>r&&(i[n++]=(15&t)<<4|(t=rB[rV(e,r++)])>>2,a>r&&(i[n++]=(3&t)<<6|rB[rV(e,r++)]));return i},rH={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},rX=(e=256)=>e*Math.random()|0,rY=e=>{var t,r,n,a,i,o=0n,s=0,l=0n,u=[],c=0,f=0,d=0,v=0,p=[];for(d=0;d<e?.length;v+=p[d]=e.charCodeAt(d++));var h=e?()=>{u=[...p],f=255&(c=v),d=-1}:()=>{},g=e=>(f=255&(c+=-u[d=(d+1)%u.length]+(u[d]=e)),e);return[e?e=>{for(h(),a=16-((t=e.length)+4)%16,i=new Uint8Array(4+t+a),n=0;n<3;i[n++]=g(rX()));for(r=0,i[n++]=g(f^16*rX(16)+a);t>r;i[n++]=g(f^e[r++]));for(;a--;)i[n++]=rX();return i}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((f^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(t);t>n;i[n++]=f^g(e[r++]));return i}:e=>e,(e,t=64)=>{if(null==e)return null;for(s=ea(t)?64:t,h(),[o,l]=rH[s],r=0;r<e.length;o=BigInt.asUintN(s,(o^BigInt(f^g(e[r++])))*l));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+o%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):o.toString(36)}]},rZ={exports:{}};(e=>{(()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,a=new Uint8Array(128),i=0;if(t&&t.multiple)for(var o=0;o<e.length;o++)s(e[o]);else s(e);return a.subarray(0,i);function s(e,a){var i,o,d,v,p,h;switch(typeof e){case\"undefined\":u(192);break;case\"boolean\":u(e?195:194);break;case\"number\":(e=>{if(isFinite(e)&&Number.isSafeInteger(e)){if(e>=0&&e<=127)u(e);else if(e<0&&e>=-32)u(e);else if(e>0&&e<=255)c([204,e]);else if(e>=-128&&e<=127)c([208,e]);else if(e>0&&e<=65535)c([205,e>>>8,e]);else if(e>=-32768&&e<=32767)c([209,e>>>8,e]);else if(e>0&&e<=4294967295)c([206,e>>>24,e>>>16,e>>>8,e]);else if(e>=-2147483648&&e<=2147483647)c([210,e>>>24,e>>>16,e>>>8,e]);else if(e>0&&e<=18446744073709552e3){var t=e/4294967296,a=e%4294967296;c([211,t>>>24,t>>>16,t>>>8,t,a>>>24,a>>>16,a>>>8,a])}else e>=-0x8000000000000000&&e<=0x7fffffffffffffff?(u(211),f(e)):e<0?c([211,128,0,0,0,0,0,0,0]):c([207,255,255,255,255,255,255,255,255])}else n||(n=new DataView(r=new ArrayBuffer(8))),n.setFloat64(0,e),u(203),c(new Uint8Array(r))})(e);break;case\"string\":(d=(o=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(e.charCodeAt(n)>127){t=!1;break}for(var a=0,i=new Uint8Array(e.length*(t?1:4)),o=0;o!==r;o++){var s=e.charCodeAt(o);if(s<128){i[a++]=s;continue}if(s<2048)i[a++]=s>>6|192;else{if(s>55295&&s<56320){if(++o>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var l=e.charCodeAt(o);if(l<56320||l>57343)throw Error(\"UTF-8 encode: second surrogate character 0x\"+l.toString(16)+\" at index \"+o+\" out of range\");s=65536+((1023&s)<<10)+(1023&l),i[a++]=s>>18|240,i[a++]=s>>12&63|128}else i[a++]=s>>12|224;i[a++]=s>>6&63|128}i[a++]=63&s|128}return t?i:i.subarray(0,a)})(e)).length)<=31?u(160+d):d<=255?c([217,d]):d<=65535?c([218,d>>>8,d]):c([219,d>>>24,d>>>16,d>>>8,d]),c(o);break;case\"object\":null===e?u(192):e instanceof Date?(e=>{var t=e.getTime()/1e3;if(0===e.getMilliseconds()&&t>=0&&t<4294967296)c([214,255,t>>>24,t>>>16,t>>>8,t]);else if(t>=0&&t<17179869184){var r=1e6*e.getMilliseconds();c([215,255,r>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t])}else{var r=1e6*e.getMilliseconds();c([199,12,255,r>>>24,r>>>16,r>>>8,r]),f(t)}})(e):Array.isArray(e)?l(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((h=(p=e).length)<=255?c([196,h]):h<=65535?c([197,h>>>8,h]):c([198,h>>>24,h>>>16,h>>>8,h]),c(p)):e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?l(e):(e=>{var t=0;for(var r in e)void 0!==e[r]&&t++;for(var r in t<=15?u(128+t):t<=65535?c([222,t>>>8,t]):c([223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(s(r),s(n))}})(e);break;default:if(!a&&t&&t.invalidTypeReplacement)\"function\"==typeof t.invalidTypeReplacement?s(t.invalidTypeReplacement(e),!0):s(t.invalidTypeReplacement,!0);else throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\")}}function l(e){var t=e.length;t<=15?u(144+t):t<=65535?c([220,t>>>8,t]):c([221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;t>r;r++)s(e[r])}function u(e){if(a.length<i+1){for(var t=2*a.length;t<i+1;)t*=2;var r=new Uint8Array(t);r.set(a),a=r}a[i]=e,i++}function c(e){if(a.length<i+e.length){for(var t=2*a.length;t<i+e.length;)t*=2;var r=new Uint8Array(t);r.set(a),a=r}a.set(e,i),i+=e.length}function f(e){var t,r;e>=0?(t=e/4294967296,r=e%4294967296):(t=~(t=Math.abs(++e)/4294967296),r=~(r=Math.abs(e)%4294967296)),c([t>>>24,t>>>16,t>>>8,t,r>>>24,r>>>16,r>>>8,r])}}function r(e,t){var r,n=0;if(e instanceof ArrayBuffer&&(e=new Uint8Array(e)),\"object\"!=typeof e||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(a());else r=a();return r;function a(){var t=e[n++];if(t>=0&&t<=127)return t;if(t>=128&&t<=143)return u(t-128);if(t>=144&&t<=159)return c(t-144);if(t>=160&&t<=191)return f(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return l(-1,1);if(197===t)return l(-1,2);if(198===t)return l(-1,4);if(199===t)return d(-1,1);if(200===t)return d(-1,2);if(201===t)return d(-1,4);if(202===t)return s(4);if(203===t)return s(8);if(204===t)return o(1);if(205===t)return o(2);if(206===t)return o(4);if(207===t)return o(8);if(208===t)return i(1);if(209===t)return i(2);if(210===t)return i(4);if(211===t)return i(8);if(212===t)return d(1);if(213===t)return d(2);if(214===t)return d(4);if(215===t)return d(8);if(216===t)return d(16);if(217===t)return f(-1,1);if(218===t)return f(-1,2);if(219===t)return f(-1,4);if(220===t)return c(-1,2);if(221===t)return c(-1,4);if(222===t)return u(-1,2);if(223===t)return u(-1,4);if(t>=224&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(t){for(var r=0,a=!0;t-- >0;)if(a){var i=e[n++];r+=127&i,128&i&&(r-=128),a=!1}else r*=256,r+=e[n++];return r}function o(t){for(var r=0;t-- >0;)r*=256,r+=e[n++];return r}function s(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return(n+=t,4===t)?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function l(t,r){t<0&&(t=o(r));var a=e.subarray(n,n+t);return n+=t,a}function u(e,t){e<0&&(e=o(t));for(var r={};e-- >0;)r[a()]=a();return r}function c(e,t){e<0&&(e=o(t));for(var r=[];e-- >0;)r.push(a());return r}function f(t,r){t<0&&(t=o(r));var a=n;return n+=t,((e,t,r)=>{var n=t,a=\"\";for(r+=t;r>n;){var i=e[n++];if(i>127){if(i>191&&i<224){if(n>=r)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(i>223&&i<240){if(n+1>=r)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else if(i>239&&i<248){if(n+2>=r)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}else throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1))}if(i<=65535)a+=String.fromCharCode(i);else if(i<=1114111)i-=65536,a+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320);else throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\")}return a})(e,a,t)}function d(e,t){e<0&&(e=o(t));var r=o(1),a=l(e);return 255===r?(e=>{if(4===e.length){var t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];return new Date(1e3*t)}if(8===e.length){var r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=(3&e[3])*4294967296+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7];return new Date(1e3*t+r/1e6)}if(12===e.length){var r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];n-=8;var t=i(8);return new Date(1e3*t+r/1e6)}throw Error(\"Invalid data length for a date value.\")})(a):{type:r,data:a}}}var n={serialize:t,deserialize:r,encode:t,decode:r};e?e.exports=n:window[window.msgpackJsName||\"msgpack\"]=n})()})(rZ);var{deserialize:rQ,serialize:r0}=(C=rZ.exports)&&C.__esModule&&Object.prototype.hasOwnProperty.call(C,\"default\")?C.default:C,r1=\"$ref\",r2=(e,t,r)=>ek(e)?G:r?t!==G:null===t||t,r4=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var a,i,o,s=(e,t,n=e[t],a=r2(t,n,r)?u(n):G)=>(n!==a&&(a!==G||ev(e)?e[t]=a:delete e[t],l(()=>e[t]=n)),a),l=e=>(a??=[]).push(e),u=e=>{if(null==e||eS(e)||ek(e))return G;if(!eg(e))return e;if(e.toJSON&&e!==(e=e.toJSON()))return u(e);if(null!=(o=i?.get(e)))return e[r1]||(e[r1]=o,l(()=>delete e[r1])),{[r1]:o};if(eb(e))for(var t in(i??=new Map).set(e,i.size+1),e)s(e,t);else!eT(e)||e instanceof Uint8Array||(!ev(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?s(e,r):(e[r]=null,l(()=>delete e[r])));return e};return W(()=>t?r0(u(e)??null):W(()=>JSON.stringify(e,G,n?2:0),()=>JSON.stringify(u(e),G,n?2:0)),!0,()=>a?.forEach(e=>e()))},r6=e=>{var t,r,n=e=>eg(e)?e[r1]&&(r=(t??=[])[e[r1]])?r:(e[r1]&&(t[e[r1]]=e,delete e[r1]),Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(ef(e)?JSON.parse(e):null!=e?W(()=>rQ(e),()=>(console.error(\"Invalid message received.\",e),G)):e)},r5=(e,t={})=>{var r=(e,{json:t=!1,...r})=>{var n=(e,n)=>ec(e)&&!0===n?e:o(e=ef(e)?new Uint8Array(eF(e.length,t=>255&e.charCodeAt(t))):t?W(()=>JSON.stringify(e),()=>JSON.stringify(r4(e,!1,r))):r4(e,!0,r),n);if(t)return[e=>r4(e,!1,r),e=>null==e?G:W(()=>r6(e),G),(e,t)=>n(e,t)];var[a,i,o]=rY(e);return[(e,t)=>(t?Q:rK)(a(r4(e,!0,r))),e=>null!=e?r6(i(e instanceof Uint8Array?e:rG(e))):null,(e,t)=>n(e,t)]};if(!e){var n=+(t.json??0);if(n&&!1!==t.prettify)return(y??=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[+n]}return r(e,t)};r5(),r5(null,{json:!0,prettify:!0});var r3=tL(\"\"+tZ.currentScript.src,\"#\"),r8=tL(\"\"+(r3[1]||\"\"),\";\"),r9=r3[0],r7=r8[1]||tU(r9,!1)?.host,ne=e=>!!(r7&&tU(e,!1)?.host?.endsWith(r7)===Y),nt=(...e)=>tK(tx(e),/(^(?=\\?))|(^\\.(?=\\/))/,r9.split(\"?\")[0]),nr=nt(\"?\",\"var\"),nn=nt(\"?\",\"mnt\");nt(\"?\",\"usr\");var[na,ni]=r5(),[no,ns]=[tX,tX],[nl,nu]=tT(),nc=e=>{ns===tX&&([no,ns]=r5(e),nu(no,ns))},nf=e=>t=>nd(e,t),nd=(...e)=>{var t=e.shift();console.error(ef(e[1])?e.shift():e[1]?.message??\"An error occurred\",t.id??t,...e)},[nv,np]=tT(),[nh,ng]=tT(),nm=e=>nb!==(nb=e)&&np(nb=!1,nS(!0,!0)),ny=e=>nw!==(nw=!!e&&\"visible\"===document.visibilityState)&&ng(nw,!e,nk(!0,!0));nv(ny);var nb=!0,nw=!1,nk=tv(!1),nS=tv(!1);ro(window,[\"pagehide\",\"freeze\"],()=>nm(!1)),ro(window,[\"pageshow\",\"resume\"],()=>nm(!0)),ro(document,\"visibilitychange\",()=>(ny(!0),nw&&nm(!0))),np(nb,nS(!0,!0));var nT=!1,nI=tv(!1),[nA,nE]=tT(),nx=th({callback:()=>nT&&nE(nT=!1,nI(!1)),frequency:2e4,once:!0,paused:!0}),nN=()=>!nT&&(nE(nT=!0,nI(!0)),nx.restart());ro(window,[\"focus\",\"scroll\"],nN),ro(window,\"blur\",()=>nx.trigger()),ro(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],nN),nN();var nO=()=>nI();(j=b||(b={}))[j.View=-3]=\"View\",j[j.Tab=-2]=\"Tab\",j[j.Shared=-1]=\"Shared\";var nC=tC(b,!1,\"local variable scope\"),nj=e=>nC.tryParse(e)??rg(e),n_=e=>!!nC.tryParse(e?.scope),nM=tj({scope:nC},ry),nU=e=>null==e?void 0:ef(e)?e:e.source?nU(e.source):`${nj(e.scope)}\\0${e.key}\\0${e.targetId??\"\"}`,n$=e=>{var t=e.split(\"\\0\");return{scope:+t[0],key:t[1],targetId:t[2]}},nF=0,nq=void 0,nP=()=>(nq??tX())+\"_\"+nR(),nR=()=>(td(!0)-(parseInt(nq.slice(0,-2),36)||0)).toString(36)+\"_\"+(++nF).toString(36),nz=e=>crypto.getRandomValues(e),nD=()=>tK(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^nz(new Uint8Array(1))[0]&15>>e/4).toString(16)),nW={},nB={id:nq,heartbeat:td()},nJ={knownTabs:{[nq]:nB},variables:{}},[nV,nL]=tT(),[nK,nG]=tT(),nH=tX,nX=e=>nW[nU(e)],nY=(...e)=>nQ(e.map(e=>(e.cache=[td(),3e3],nM(e)))),nZ=e=>eF(e,e=>e&&[e,nW[nU(e)]]),nQ=e=>{var t=eF(e,e=>e&&[nU(e),e]);if(t?.length){var r=nZ(e);e7(nW,t);var n=eX(t,e=>e[1].scope>b.Tab);n.length&&(e7(nJ.variables,n),nH({type:\"patch\",payload:eG(n)})),nG(r,nW,!0)}};nl((e,t)=>{nv(r=>{if(r){var n=t(sessionStorage.getItem(F));sessionStorage.removeItem(F),nq=n?.[0]??td(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),nW=eG(eR(eX(nW,([,e])=>e.scope===b.View),eF(n?.[1],e=>[nU(e),e])))}else sessionStorage.setItem(F,e([nq,eF(nW,([,e])=>e.scope!==b.View?e:void 0)]))},!0),nH=(t,r)=>{e&&(localStorage.setItem(F,e([nq,t,r])),localStorage.removeItem(F))},ro(window,\"storage\",e=>{if(e.key===F){var n=t?.(e.newValue);if(n&&(!n[2]||n[2]===nq)){var[a,{type:i,payload:o}]=n;if(\"query\"===i)r.active||nH({type:\"set\",payload:nJ},a);else if(\"set\"===i&&r.active)e7(nJ,o),e7(nW,o.variables),r.trigger();else if(\"patch\"===i){var s=nZ(eF(o,1));e7(nJ.variables,o),e7(nW,o),nG(s,nW,!1)}else\"tab\"===i&&(e7(nJ.knownTabs,a,o),o&&nL(\"tab\",o,!1))}}});var r=th(()=>nL(\"ready\",nJ,!0),-25),n=th({callback(){var e=td()-1e4;eV(nJ?.knownTabs,([t,r])=>r[0]<e&&tn(nJ.knownTabs,t)),nB.heartbeat=td(),nH({type:\"tab\",payload:nB})},frequency:5e3,paused:!0}),a=e=>{nH({type:\"tab\",payload:e?nB:void 0}),e?(r.restart(),nH({type:\"query\"})):r.toggle(!1),n.toggle(e)};nv(e=>a(e),!0)},!0);var[n0,n1]=tT(),[n2,n4]=tT(),n6=((e,{timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var a=()=>(r?ns:ni)(localStorage.getItem(e)),i=0,o=()=>localStorage.setItem(e,(r?no:na)([nq,td()+t]));return async(r,s,l=null!=s?1:n)=>{for(;l--;){var u=a();if((!u||u[1]<td())&&(o(),a()?.[0]===nq))return t>0&&(i=setInterval(()=>o(),t/2)),await L(r,!0,()=>{clearInterval(i),localStorage.removeItem(e)});var c=tw(),[f]=ro(window,\"storage\",t=>{t.key!==e||t.newValue||c.resolve()});await tk(tb(s??t),c),f()}null==s&&P(e+\" could not be acquired.\")}})($+\"rq\"),n5=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{var a,i,o=!1,s=r=>{var s=eS(t)?t?.(a,r):t;return!1!==s&&(null!=s&&!0!==s&&(a=s),n1(e,a,r,e=>(o=a===G,a=e)),!o&&(i=n?no(a,!0):JSON.stringify(a)))};if(!r)return await n6(()=>eL(1,async t=>{if(!s(t))return eN();var r=await fetch(e,{method:null!=a?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i});if(r.status>=400)return 0===t?eN(P(`Invalid response: ${await r.text()}`)):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tb((1+t)*200));var o=n?new Uint8Array(await r.arrayBuffer()):await r.text(),l=o?.length?(n?ns:JSON.parse)?.(o):G;return null!=l&&n4(l),eN(l)}));s(0)&&(navigator.sendBeacon(e,new Blob(null!=a?[i]:[],{type:\"text/plain\"}))||P(\"Beacon send failed.\"))},n3=[\"scope\",\"key\",\"targetId\",\"version\"],n8=[...n3,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],n9=[...n3,\"init\",\"purpose\",\"refresh\"],n7=[...n8,\"value\",\"force\",\"patch\"],ae=new Map,at=(e,t)=>{var r=th(async()=>{var e=eF(ae,([e,t])=>({...n$(e),result:[...t]}));e.length&&await u.get(...e)},3e3),n=(e,t)=>t&&eB(t,t=>e3(ae,e,()=>new Set).add(t)),a=(e,t)=>{if(e){var r,a=nU(e),i=ta(ae,a);if(i?.size){if(e?.purposes===t?.purposes&&e?.classification==t?.classification&&R(e?.value,t?.value))return;eV(i,i=>{r=!1,i?.(e,t,(e=!0)=>r=e),r&&n(a,i)})}}};nv((e,t)=>r.toggle(e,e&&t>=3e3),!0),nK(e=>eV(e,([e,t])=>a(e,t)));var i=new Map,o=(e,t)=>e7(i,e,ea(t)?t?void 0:0:t),u={get:(...r)=>rb(async()=>{(!r[0]||ef(r[0]))&&(a=r[0],r=r.slice(1)),t?.validateKey(a);var a,i=[],s=eF(r,(e,t)=>[e,t]),l=[],u=(await n5(e,()=>!!(s=eF(s,([e,t])=>{if(e){var r=nU(e);n(r,e.result);var a=nX(r);e.init&&o(r,e.cache);var s=e.purposes;if((s??~0)&(a?.purposes??~0)){if(!e.refresh&&a?.[1]<td())tu(i,[{...a,status:d.Success},t]);else if(!n_(e))return[to(e,n9),t];else if(eb(e.init)){var u={...nM(e),status:d.Created,...e.init};null!=u.value&&(tu(l,c(u)),tu(i,[u,t]))}}else tu(i,[{...e,status:d.Denied,error:\"No consent for \"+rd.logFormat(s)},t])}})).length&&{variables:{get:eF(s,0)},deviceSessionId:t?.deviceSessionId}))?.variables?.get??[];return tu(i,...eF(u,(e,t)=>e&&[e,s[t][1]])),l.length&&nQ(l),i.map(([e])=>e)},eF(r,e=>e?.error)),set:(...r)=>rb(async()=>{(!r[0]||ef(r[0]))&&(n=r[0],r=r.slice(1)),t?.validateKey(n);var n,a=[],i=[],u=eF(r,(e,t)=>{if(e){var r=nU(e),n=nX(r);if(o(r,e.cache),n_(e)){if(null!=e.patch)return P(\"Local patching is not supported.\");var u={value:e.value,classification:s.Anonymous,purposes:l.Necessary,scope:nC(e.scope),key:e.key};return i[t]={status:n?d.Success:d.Created,source:e,current:u},void tu(a,c(u))}return null==e.patch&&e?.version===void 0&&(e.version=n?.version,e.force??=!!e.version),[to(e,n7),t]}}),f=u.length?D((await n5(e,{variables:{set:u.map(e=>e[0])},deviceSessionId:t?.deviceSessionId})).variables?.set,\"No result.\"):[];return a.length&&nQ(a),eV(f,(e,t)=>{var[r,n]=u[t];e.source=r,r.result?.(e),i[n]=e}),i},eF(r,e=>e?.error))},c=(e,t=td())=>({...to(e,n8),cache:[t,t+(ta(i,nU(e))??3e3)]});return n2(({variables:e})=>{if(e){var t=td(),r=eR(eF(e.get,e=>rk(e)),eF(e.set,e=>rk(e)));r?.length&&nQ(eB(r,c,t))}}),u},ar=(e,t,r=tH)=>{var n=[],a=new WeakMap,i=new Map,o=(e,t)=>e.metadata?.queued?e8(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):P(\"Source event not queued.\"),s=async(r,n=!0,a)=>{var i;return(!r[0]||ef(r[0]))&&(i=r[0],r=r.slice(1)),n5(e,{events:r=r.map(e=>(t?.validateKey(i??e.key),e8(e,{metadata:{posted:!0}}),e8(rp(tl(e),!0),{timestamp:e.timestamp-td()}))),variables:a,deviceSessionId:t?.deviceSessionId},{beacon:n})},l=async(e,{flush:r=!1,async:a=!0,variables:i}={})=>{if((e=eF(eh(e),e=>e8(t.applyEventExtensions(e),{metadata:{queued:!0}}))).length&&eV(e,e=>void 0),!a)return s(e,!1,i);if(!r){e.length&&tu(n,...e);return}n.length&&tc(e,...n.splice(0)),e.length&&await s(e,!0,i)};return r>0&&th(()=>l([],{flush:!0}),r),nh((e,t,r)=>{if(!e&&(n.length||t||r>1500)){var o=eF(i,([e,t])=>{var[r,n]=t();return n&&(i.delete(e),a.delete(e)),r});(n.length||o.length)&&l(eR(n.splice(0),o),{flush:!0})}}),{post:l,postPatch:(e,t,r)=>l(o(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var s=!1,u=()=>{s=!0};return a.set(e,tl(e)),i.set(e,()=>{if(n?.isConnected===!1)u();else{var r=a.get(e),[i,l]=tf(t(r,u),r)??[];if(i&&!R(l,r))return a.set(e,tl(l)),[o(e,i),s]}return[void 0,s]}),r&&l(e),u}}},an=Symbol(),aa=[.75,.33],ai=[.25,.33],ao=e=>{var t=new IntersectionObserver(e=>eV(e,e=>e.target[an]?.(e))),r=new Set;th({callback:()=>eV(r,e=>e()),frequency:250,raf:!0});var n=(e,t,r=0)=>e<r?r:e>t?t:e,a=tZ.createRange();return(i,o)=>{if(o&&(s=eX(o?.component,e=>e.track?.impressions||(e.track?.secondary??e.inferred)!==Y))&&eY(s)){var s,l,u,c,f,d,v=X,p=X,h=0,g=0,m=(e,t,r,n)=>{var a=(l??=[])[e]??=[{duration:0,impressions:0},tv(!1,nO),!1,!1,0,0,0,tG()];a[4]=t,a[5]=r,a[6]=n},y=[tG(),tG()],b=aT(!1),w=tv(!1,nO),k=-1,S=()=>{var t=i.getBoundingClientRect(),r=window.innerWidth,o=window.innerHeight,S=[n(t.top,o),n(t.right,r),n(t.bottom,o),n(t.left,r)],T=S[2]-S[0],I=S[1]-S[3],A=T/t.height||0,E=I/t.width||0,x=v?ai:aa,N=(T>x[0]*o||A>x[0])&&(I>x[0]*r||E>x[0]);if(p!==N&&w(p=N,!0),v!==(v=p&&w()>=rW.impressionThreshold-250)&&(++h,b(v),u||e(u=eX(eF(s,e=>(e.track?.impressions||rz(i,\"impressions\",Y,e=>e.track?.impressions))&&K({type:\"impression\",pos:rn(i),viewport:rl(),timeOffset:aA(),impressions:h,...aq(i,Y)})||null))),u?.length)){var O=b();c=eF(u,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:O,impressions:h,regions:l&&{top:l[0][0],middle:l[1][0],bottom:l[2][0]},seen:g,text:d,read:O.activeTime&&d&&n(O.activeTime/d.readTime,g)})))}if(t.height!==k){k=t.height;var C=i.textContent;if({boundaries:f,...d}=tN(C??\"\",[0,.25,.75,1]),l||t.height>=1.25*o){var j,_=tZ.createTreeWalker(i,NodeFilter.SHOW_TEXT),M=0,U=0;for(l??=[];U<f.length&&(j=_.nextNode());){var $=j.textContent?.length??0;for(M+=$;M>=f[U]?.offset;)if(a[U%2?\"setEnd\":\"setStart\"](j,f[U].offset-M+$),U++%2){var{top:F,bottom:q}=a.getBoundingClientRect(),P=t.top;U<3?m(0,F-P,q-P,f[1].readTime):(m(1,l[0][4],F-P,f[2].readTime),m(2,F-P,q-P,f[3].readTime))}}}}var R=t.left<0?-t.left:0,z=t.top<0?-t.top:0,D=t.width*t.height;v&&(g=y[0].push(z,z+T)*y[1].push(R,R+I)/D),l&&eV(l,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),a=n(t.bottom>o?o:t.bottom,e[5],e[4]),i=v&&a-r>0,s=e[0];s.duration=e[1](i),i&&(e[3]!==(e[3]=i)&&++e[0].impressions,s.seen=e[7].push(r,a)/(e[5]-e[4]),s.read=n(s.duration/e[6],s.seen))})};i[an]=({isIntersecting:e})=>{e7(r,S,e),e||(eV(c,e=>e()),S())},t.observe(i)}}},as=()=>{var e=tY?.screen;if(!e)return{};var{width:t,height:r,orientation:n}=e,a=t<r,i=n?.angle??tY.orientation??0;return(-90===i||90===i)&&([t,r]=[r,t]),{deviceType:t<480?\"mobile\":t<=1024?\"tablet\":\"desktop\",screen:{dpr:tY.devicePixelRatio,width:t,height:r,landscape:a}}},al=e=>e(K({type:\"user_agent\",hasTouch:navigator.maxTouchPoints>0,userAgent:navigator.userAgent,view:k?.clientId,languages:eF(navigator.languages,(e,t,r=e.split(\"-\"))=>K({id:e,language:r[0],region:r[1],primary:0===t,preference:t+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:new Date().getTimezoneOffset()},...as()})),au=(e,t=\"A\"===t7(e)&&t6(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),ac=(e,t=t7(e),r=rz(e,\"button\"))=>r!==X&&(z(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&z(t3(e,\"type\"),\"button\",\"submit\")||r===Y),af=(e,t=!1)=>({tagName:e.tagName,text:tE(t6(e,\"title\")?.trim()||t6(e,\"alt\")?.trim()||e.innerText?.trim(),100),href:e.href?.toString(),rect:t?ri(e):void 0}),ad=(e,t,r=!1)=>{var n;return t2(e??t,e=>\"IMG\"===t7(e)||e===t?(n={element:af(e,r)},X):Y),n},av=e=>{if(w)return w;ef(e)&&([t,e]=ni(e),e=r5(t)[1](e)),e7(rW,e),nc(ta(rW,\"encryptionKey\"));var t,r=ta(rW,\"key\"),n=tY[rW.name]?._??[];if(!ev(n)){P(`The global variable for the tracker \"${rW.name}\" is used for something else than an array of queued commands.`);return}var a=[],i=[],o=(e,...t)=>{var r=Y;i=eX(i,n=>W(()=>(n[e]?.(...t,{tracker:w,unsubscribe:()=>r=X}),r),nf(n)))},s=[],l={applyEventExtensions(e){e.clientId??=nP(),e.timestamp??=td(),v=Y;var t=X;return eF(a,([,r])=>{(t||r.decorate?.(e)===X)&&(t=Y)}),t?void 0:e},validateKey:(e,t=!0)=>!r&&!e||e===r||!!t&&P(`'${e}' is not a valid key.`)},u=at(nr,l),c=ar(nr,l),f=null,d=0,v=X,p=X;return w=(...e)=>{if(e.length){if(e.length>1&&(!e[0]||ef(e[0]))&&(t=e[0],e=e.slice(1)),ef(e[0])){var t,r=e[0];e=r.match(/^[{[]/)?JSON.parse(r):ni(r)}var n=X;if((e=eX(eP(e,e=>ef(e)?ni(e):e),e=>{if(!e)return X;if(aB(e))rW.tags=e7({},rW.tags,e.tagAttributes);else if(aJ(e))return rW.disabled=e.disable,X;else if(aK(e))return n=Y,X;else if(aQ(e))return e(w),X;return p||aH(e)||aL(e)?Y:(s.push(e),X)})).length||n){var h=e6(e,e=>aL(e)?-100:aH(e)?-50:aZ(e)?-10:rA(e)?90:0);if(!(f&&f.splice(v?d+1:f.length,0,...h))){for(d=0,f=h;d<f.length;d++){var g=f[d];g&&(l.validateKey(t??g.key),W(()=>{var e,t=f[d];if(o(\"command\",t),v=X,rA(t))c.post(t);else if(aG(t))u.get(...eh(t.get));else if(aZ(t))u.set(...eh(t.set));else if(aH(t))tu(i,t.listener);else if(aL(t))(e=W(()=>t.extension.setup(w),e=>nd(t.extension.id,e)))&&(tu(a,[t.priority??100,e,t.extension]),e6(a,([e])=>e));else if(aQ(t))t(w);else{var r=X;for(var[,e]of a)if(r=e.processCommand?.(t)??X)break;r||nd(\"invalid-command\",t,\"Loaded extensions:\",a.map(e=>e[2].id))}},e=>nd(w,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}},Object.defineProperty(tY,rW.name,{value:Object.freeze(Object.assign(w,{id:\"tracker_\"+nP(),events:c,variables:u,__isTracker:Y})),configurable:!1,writable:!1}),nV(async(e,t,r,a)=>{if(\"ready\"===e){var i=rI((await u.get({scope:\"session\",key:M,refresh:!0},{scope:\"session\",key:U,refresh:!0,cache:H}))[0]).value;l.deviceSessionId=i.deviceSessionId,i.hasUserAgent||(al(w),i.hasUserAgent=!0),p=!0,s.length&&w(s),a(),w(...eF(aR,e=>({extension:e})),...n,{set:{scope:\"view\",key:\"loaded\",value:!0}})}},!0),w},ap=()=>k?.clientId,ah={scope:\"shared\",key:\"referrer\"},ag=(e,t)=>{w.variables.set({...ah,value:[ap(),e]}),t&&w.variables.get({scope:ah.scope,key:ah.key,result:(r,n,a)=>r?.value?a():n?.value?.[1]===e&&t()})},am=tv(),ay=tv(),ab=1,aw=()=>ay(),[ak,aS]=tT(),aT=e=>{var t=tv(e,am),r=tv(e,ay),n=tv(e,nO),a=tv(e,()=>ab);return(e,i)=>({totalTime:t(e,i),visibleTime:r(e,i),activeTime:n(e,i),activations:a(e,i)})},aI=aT(),aA=()=>aI(),[aE,ax]=tT(),aN=(e,t)=>(t&&eV(aC,t=>e(t,()=>!1)),aE(e)),aO=new WeakSet,aC=document.getElementsByTagName(\"iframe\"),aj=e=>(null==e||(e===Y||\"\"===e)&&(e=\"add\"),ef(e)&&z(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:eg(e)?e:void 0);function a_(e){if(e){if(null!=e.units&&z(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=e.units>0?\"add\":\"remove\"}return e}}var aM=e=>rD(e,void 0,e=>eF(eh(e3(rC,e)?.tags))),aU=e=>e?.component||e?.content,a$=e=>rD(e,t=>t!==e&&!!aU(e3(rC,t)),e=>(T=e3(rC,e),(T=e3(rC,e))&&eP(eR(T.component,T.content,T),\"tags\"))),aF=(e,t)=>t?e:{...e,rect:void 0,content:(I=e.content)&&eF(I,e=>({...e,rect:void 0}))},aq=(e,t=X,r)=>{var n,a,i,o=[],s=[],l=0;return t2(e,e=>{var a=e3(rC,e);if(a){if(aU(a)){var i=eX(eh(a.component),e=>0===l||!t&&(1===l&&e.track?.secondary!==Y||e.track?.promote));n=(r??e4(i,e=>e.track?.region))&&ri(e)||void 0;var u=a$(e);a.content&&tc(o,...eF(a.content,e=>({...e,rect:n,...u}))),i?.length&&(tc(s,...eF(i,e=>(l=eZ(l,e.track?.secondary?1:2),aF({...e,content:o,rect:n,...u},!!n)))),o=[])}var c=a.area||rR(e,\"area\");c&&tc(s,...eF(eh(c)))}}),o.length&&tu(s,aF({id:\"\",rect:n,content:o})),eV(s,e=>{ef(e)?tu(a??=[],e):(e.area??=tx(a,\"/\"),tc(i??=[],e))}),i||a?{components:i,area:tx(a,\"/\")}:void 0},aP=Symbol();_={necessary:1,preferences:2,statistics:4,marketing:8},window.tail({consent:{externalSource:{key:\"Cookiebot\",poll(){var e=tZ.cookie.match(/CookieConsent=([^;]*)/)?.[1];if(e){var t=1;return e?.replace(/([a-z]+):(true|false)/g,(e,r,n)=>(\"true\"===n&&(t|=_[r]??0),\"\")),{level:t>1?1:0,purposes:t}}}}}});var aR=[{id:\"context\",setup(e){th(()=>eV(aC,e=>tt(aO,e)&&ax(e)),1e3).trigger(),e.variables.get({scope:\"view\",key:\"view\",result:(r,n,a)=>(null==k||!r?.value||k?.definition?t=r?.value:(k.definition=r.value,k.metadata?.posted&&e.events.postPatch(k,{definition:t})),a())});var t,r=nX({scope:\"tab\",key:\"viewIndex\"})?.value??0,n=nX({scope:\"tab\",key:\"tabIndex\"})?.value;null==n&&nY({scope:\"tab\",key:\"tabIndex\",value:n=nX({scope:\"shared\",key:\"tabIndex\"})?.value??nX({scope:\"session\",key:M})?.value?.tabs??0},{scope:\"shared\",key:\"tabIndex\",value:n+1});var a=null,i=(i=X)=>{if(!rr(\"\"+a,a=location.href)||i){var{source:o,scheme:s,host:l}=tU(location.href+\"\",!0);k={type:\"view\",timestamp:td(),clientId:nP(),tab:nq,href:o,path:location.pathname,hash:location.hash||void 0,domain:{scheme:s,host:l},tabNumber:n+1,tabViewNumber:r+1,viewport:rl(),duration:aI(void 0,!0)},0===n&&(k.firstTab=Y),0===n&&0===r&&(k.landingPage=Y),nY({scope:\"tab\",key:\"viewIndex\",value:++r});var u=t$(location.href);if(eF([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>(k.utm??={})[e]=eh(u[`utm_${e}`])?.[0]),!(k.navigationType=S)&&performance&&eF(performance.getEntriesByType(\"navigation\"),e=>{k.redirects=e.redirectCount,k.navigationType=tK(e.type,/\\_/g,\"-\")}),S=void 0,\"navigate\"===(k.navigationType??=\"navigate\")){var c=nX(ah)?.value;c&&ne(document.referrer)&&(k.view=c?.[0],k.relatedEventId=c?.[1],e.variables.set({...ah,value:void 0}))}var c=document.referrer||null;c&&!ne(c)&&(k.externalReferrer={href:c,domain:rs(c)}),k.definition=t,t=void 0,e.events.post(k),e.events.registerEventPatchSource(k,()=>({duration:aA()})),aS(k)}};return nh(e=>{e?(ay(Y),++ab):ay(X)}),ro(window,\"popstate\",()=>(S=\"back-forward\",i())),eF([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),S=\"navigate\",i()}}),i(),{processCommand:t=>aW(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),Y),decorate(e){!k||rE(e)||rh(e)||(e.view=k.clientId)}}}},{id:\"components\",setup(e){var t=ao(e),r=e=>null==e?void 0:{...e,component:eh(e.component),content:eh(e.content),tags:eh(e.tags)},n=({boundary:e,...n})=>{te(rC,e,e=>r(\"add\"in n?{...e,component:eR(e?.component,n.component),content:eR(e?.content,n.content),area:n?.area??e?.area,tags:eR(e?.tags,n.tags),cart:n.cart??e?.cart,track:n.track??e?.track}:\"update\"in n?n.update(e):n)),t(e,e3(rC,e))};return{decorate(e){eV(e.components,e=>ta(e,\"track\"))},processCommand:e=>aV(e)?(n(e),Y):aY(e)?(eF(((e,t)=>{if(!t)return[];var r=[],n=new Set;return document.querySelectorAll(`[${e}]`).forEach(a=>{if(!e3(n,a))for(var i=[];null!=t6(a,e);){tt(n,a);var o=tL(t6(a,e),\"|\");t6(a,e,null);for(var s=0;s<o.length;s++){var l=o[s];if(\"\"!==l){var u=\"-\"===l?-1:parseInt(ed(l)??\"\",36);if(u<0){i.length+=u;continue}if(0===s&&(i.length=0),isNaN(u)&&/^[\"\\[{]/.test(l))for(var c=\"\";s<o.length;s++)try{l=JSON.parse(c+=o[s]);break}catch(e){}u>=0&&t[u]&&(l=t[u]),tu(i,l)}}tu(r,...eF(i,e=>({add:Y,...e,boundary:a})));var f=a.nextElementSibling;\"WBR\"===a.tagName&&a.parentNode?.removeChild(a),a=f}}),r})(e.scan.attribute,e.scan.components),n),Y):X}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{ro(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var a,i,o,s,l,u=X;if(t2(n.target,e=>{ac(e)&&(o??=e),u=u||\"NAV\"===t7(e);var t=rj(e),r=t?.component;!n.button&&r?.length&&!l&&(eV(e.querySelectorAll(\"a,button\"),t=>ac(t)&&((l??=[]).length>3?eN():l.push({...af(t,!0),component:t2(t,(e,t,r,n=rj(e)?.component)=>n&&t(n[0]),t=>t===e)}))),l&&(s??=e)),a??=rz(e,\"clicks\",Y,e=>e.track?.clicks)??(r&&e4(r,e=>e.track?.clicks!==X)),i??=rz(e,\"region\",Y,e=>e.track?.region)??(r&&e4(r,e=>e.track?.region))}),s??=o){var c,f=l&&!o&&a,d=aq(s,!1,f),v=aM(s);a??=!u;var p={...(i??=Y)?{pos:rn(o,n),viewport:rl()}:null,...ad(n.target,s),...d,timeOffset:aA(),...v};if(!o){f&&te(t,s,r=>{var a=ra(s,n);if(r)tu(r,a);else{var i=K({type:\"component_click_intent\",...p,clicks:r=[a],clickables:l});e.events.registerEventPatchSource(i,()=>({clicks:e3(t,s)}),!0,s)}return r});return}if(au(o)){var h=o.hostname!==location.hostname,{host:g,scheme:m,source:y}=tU(o.href,!1);if(o.host===location.host&&o.pathname===location.pathname&&o.search===location.search){if(\"#\"===o.hash)return;o.hash!==location.hash&&0===n.button&&e(K({type:\"anchor_navigation\",anchor:o.hash,...p}));return}var b=K({clientId:nP(),type:\"navigation\",href:h?o.href:y,external:h,domain:{host:g,scheme:m},self:Y,anchor:o.hash,...p});if(\"contextmenu\"===n.type){var w=o.href,k=ne(w);if(k){ag(b.clientId,()=>e(b));return}var S=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8);if(!k){if(!rW.captureContextMenu)return;o.href=nn+\"=\"+S+encodeURIComponent(w),ro(window,\"storage\",(t,r)=>t.key===q&&(t.newValue&&JSON.parse(t.newValue)?.requestId===S&&e(b),r())),ro(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),o.href=w})}return}n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||t6(o,\"target\")!==window.name?(ag(b.clientId),b.self=X,e(b)):rr(location.href,o.href)||(b.exit=b.external,ag(b.clientId)));return}var T=(t2(n.target,(e,t)=>!!(c??=aj(rj(e)?.cart??rR(e,\"cart\")))&&!c.item&&(c.item=e2(rj(e)?.content))&&t(c)),a_(c));(T||a)&&e(T?K({type:\"cart_updated\",...p,...T}):K({type:\"component_click\",...p}))}})};r(document),aN(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=rt(Y);ak(()=>ty(()=>(t={},r=rt(Y)),250)),ro(window,\"scroll\",()=>{var n=rt(),a=re();if(n.y>=r.y){var i=[];!t.fold&&n.y>=r.y+200&&(t.fold=Y,tu(i,\"fold\")),!t[\"page-middle\"]&&a.y>=.5&&(t[\"page-middle\"]=Y,tu(i,\"page-middle\")),!t[\"page-end\"]&&a.y>=.99&&(t[\"page-end\"]=Y,tu(i,\"page-end\"));var o=eF(i,e=>K({type:\"scroll\",scrollType:e,offset:a}));o.length&&e(o)}})}},{id:\"cart\",setup:e=>({processCommand(t){if(aD(t)){var r=t.cart;return\"clear\"===r?e({type:\"cart_updated\",action:\"clear\"}):(r=a_(r))&&e({...r,type:\"cart_updated\"}),Y}return aX(t)?(e({type:\"order\",...t.order}),Y):X}})},{id:\"forms\",setup(e){var t=new Map,r=(e,t=!1)=>{var r=!t||t5(e,r_(\"form-value\"));t&&(r=r?ei(r):\"checkbox\"===e.type);var n=e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value;return t&&n&&(n=tE(n,200)),r?n:void 0},n=n=>{var a,i=n.form;if(i){var s=t5(i,r_(\"ref\"))||\"track_ref\",l=()=>i.isConnected&&ri(i).width,u=e3(t,i,()=>{var t,r=new Map,n={type:\"form\",name:t5(i,r_(\"form-name\"))||t6(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}};e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:aA()}));var s=()=>{o(),t[3]>=2&&(n.completed=3===t[3]||!l()),e.events.postPatch(n,{...a,totalTime:td(Y)-t[4]}),t[3]=1},u=tp();return ro(i,\"submit\",()=>{a=aq(i),t[3]=3,u(()=>{i.isConnected&&ri(i).width>0?(t[3]=2,u()):s()},750)}),t=[n,r,i,0,td(Y),1]});return e3(u[1],n)||eF(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,t)=>{if(!e.name||\"hidden\"===e.type){\"hidden\"===e.type&&(e.name===s||rz(e,\"ref\"))&&(e.value||(e.value=nD()),u[0].ref=e.value);return}var n=e.name,a=u[0].fields[n]??={id:e.id||n,name:n,label:tK(e.labels?.[0]?.innerText??e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:e.type??\"unknown\",[aP]:r(e),value:r(e,!0)};u[0].fields[a.name]=a,u[1].set(e,a)}),[n,u]}},a=(e,[t,r]=n(e)??[],a=r?.[1].get(t))=>a&&[r[0],a,t,r],i=null,o=()=>{if(i){var[e,t,n,a]=i,o=-(s-(s=aw())),u=-(l-(l=td(Y))),c=t[aP];(t[aP]=r(n))!==c&&(t.fillOrder??=a[5]++,t.filled&&(t.corrections=(t.corrections??0)+1),t.filled=Y,a[3]=2,eV(e.fields,([e,r])=>r.lastField=e===t.name)),t.value=r(n,!0),t.activeTime+=o,t.totalTime+=u,e.activeTime+=o,e.totalTime+=u,i=null}},s=0,l=0,u=e=>e&&ro(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>r&&(i=r,\"focusin\"===e.type?(l=td(Y),s=aw()):o()));u(document),aN(e=>e.contentDocument&&u(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t=async t=>await e.variables.get({scope:\"session\",key:U,result:t}).value,r=async r=>{if(r){var n=await t();if(!n||rc(n,r=rf(r)))return[!1,n];var a={level:ru.lookup(r.classification),purposes:rd.lookup(r.purposes)};return await e.events.post(K({type:\"consent\",consent:a}),{async:!1,variables:{get:[{scope:\"session\",key:U}]}}),[!0,a]}},n={};return{processCommand(e){if(a0(e)){var a=e.consent.get;a&&t(a);var i=rf(e.consent.set);i&&(async()=>i.callback?.(...await r(i)))();var o=e.consent.externalSource;if(o){var s,l=o.key,u=n[l]??=th({frequency:o.pollFrequency??1e3}),c=async()=>{if(tZ.hasFocus()){var e=o.poll();if(e){var t=rf({...s,...e});t&&!rc(s,t)&&(await r(t),s=t)}}};u.restart(o.pollFrequency,c).trigger()}return Y}return X}}}}],az=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&t?.[e]!==void 0),aD=az(\"cart\"),aW=az(\"username\"),aB=az(\"tagAttributes\"),aJ=az(\"disable\"),aV=az(\"boundary\"),aL=az(\"extension\"),aK=az(Y,\"flush\"),aG=az(\"get\"),aH=az(\"listener\"),aX=az(\"order\"),aY=az(\"scan\"),aZ=az(\"set\"),aQ=e=>\"function\"==typeof e,a0=az(\"consent\");Object.defineProperty(tY,\".tail.js.init\",{writable:!1,configurable:!1,value(e){e(av)}})})();\n//# sourceMappingURL=index.min.js.map\n",
-        gzip: "H4sIAAAAAAACCqS9i3rTSNY2eiuxhklLuOLYzoFERugDGmi6m0OT0EAbA4pdTkQcKUhyDtie57-NfQP7wv4r2etdq0qSndDT37NnmliqKtVx1ap1Ltf1ggczZ5rrtbzI4mHh9C6ibE2rQmUqUZGKVapyNVFTNVRjNVIX6lydqGN1pq7VkbpUp-pAHarn6qF6oq7US_VKPVZf1Wf1InD-J07GqaPe0tMwTXKdFI66Ezifiyie-I56GtxpOnkRFdpR3_B8Ps1PHPU6cKn1QAcPnmRZmrnaQw-Lkyy9XNNjVwdFjrSwoL--Xqg3XF5lwUYHBWMUCYJiPnd1GBZeECTTycTLdDHNkka7h_xj-nR9nX4K_LQmOjkuTvCRefRmmIMkaPfG1AE8R2txsqY9rr0fDRpUln7W1xtv-F3hTWXUA9tQp9dsJgt5oZqC4NXRVz0sWqf6OqdmTUMLW3qhvsswWq1WRsMwQ8hMuQft9fWsladn2i2CB99R0vPUz_wJlcYIG4EOtf_aLcLQebiW6W_TONOjtYtoMtVrcb52Fud5nBw7iib28Ppcm8ltZfp8Eg2161DLjnJQ1H7ccjxq5Z2sR6OtMl6I7HpmhqVdbzGMiuEJTWeZdkCjC_U51omX6TUvk68jpAMM0oluaW68MJmeXyzGcRJNJlR12KJaF-oRAICXAUsLIM1acRIXcTSJv-vRfF6EhU-TIcDQKk50EtIbP1DbD9yl4tx7Gio1fkFvBF2e5_99Ea9nRpQt1K9VZ4JZ7RufvkGD_p8ueugWqxVK77yFratYqD9rdT2iXJNFc4zp_d0tVJ8eB95C_R5E-XUyvDH7ApvRZRQXa9yArV1fYI6LfntAk5h4flKtDuAWK8BPhWd2U295PbS30JNcc-ELW7hR9DuD8gM7DkpDcd4ativUKPWFPsFmoX2dDHU6XmM4M99H9vtoUS64fGyX_TfMjlbPgos0Hq211S_By-nZkc5aLx6-_3zw8OmTz89fHj559uSNeh80OuoDJuYvBo_ZQv0hH2uNX7MnlC6Cg-uzo3TSigudRUWaKZ3ZjeMSjqMqsOHczAszv1hfT-g__jazD25GsJx5yH-mdGI_NqBOuOCZIKNnvg5b_WLAKRplI_TEOUppjqPEoS1NG4_mhHoVB5omPMJubFM319fdThDo-dwZR7QEDlWBNKfIppq-Q84zbEadosZGg2rIebSU90HpCT_TR--Vntopi_ODaKyfJ4U-1jToIfcl4bylrow5A9if0EM9Y8R9HKOPNLAiPeAiLrpxETzMsuia2uBfpc-5BzcWXukTgz46Bk_RWMJnfoMmmmBM0_z5-hC_fcI_euD39UDp42oBMQ1OyrhzqW9nFqGeZ2mRIl3pa5t2rIvXNvkV9f-oBhDU7jW1hzk9U_rSLqYznibDIk7rq8SLqfSpzA8D0VIfDjjjlg-VPqyNutFwUZUuBljRG2MhVIYZfX5jAl9E50o_vJF8oAuln9RRv5nSDs4Mms8XUXHSytJpMnL1XUKR_H6eXrodQkh0ZLVxehH2bBNAbVJdV9hJ-iUacvHSVpr688rOmdROwM6LRcdPwWv02By7jPfCMPMY6gn16ldUUlFSQDiL_v6iXKIjqFixsUEVZfSXTipO8xM_I_yv9NdAYGwcTwrAHDrw2TSgktow-4M66Hzl4wMzG9pVuMvzAsRl1ttgvFmBjhFWB8rKaid7soZF8MoP3IQ2e6KyZtMj4sC9jvVktJZQf668GU9V7yjT0emCUeXaSi1SRVL7brEAZg8YR_j6sSsDol6DBlnt9Y_7KNSHoNt-onQ_GQyAamku3Ig6HEmHlXQgKjsQ3dJx9Kjek8-uLO5SZ6jPP8C83gzdkoaKsiGclxsbJcakkeAA6Xkml2eBmvNrjRB8yErp-21vzPRAGGzojU5PN5vllxsbvXKmGah6mpJsbrPJNRO80UBf2E0BKBcQMViFBvy2Dk4Ys3lR-o4lIDs4DDqgeQHUZU-JzjHEcA2upOcFYG8-Twwx6dkFiwEOUUjNFETceB3aG1nIXb6r3RiEIlVH544vw4hliHauFp5rOoiu0Mpy6Q519Wl9ENwBgRjFo7UA0lZx0B8w9GRBdr8dWhK3mfm0I9s0zKSemvhJWL71svsJpu-qB4jiGunM6WeDHk1_SqCWqogy_JQ2PKZifT1ugXB3U8-Su4JR4pL6tdQpUSJvy_7TcblQ-tvqJkfBRF8Cy7m8eNUXAw9H6utbVwt133FrXAtQKnEGqMGz9FZJJ_2JwzawIw41UUwAkdoZwaDWH3gyNNRywpScIgpOf19aBZ5zmvH2_48J57mucBbNttnXeFQxZYZhhJ28vJVLakrpkhfg_oCsqTMvyygO6CFjpJFwzdkPaybaV7_725oZMVHNqK9PXSQ-aFCv9ke1Plpid2rnDBMD-qnL60ETIEVoF9lHpX-9Of-9FYQv-8Gu9_eyfI-7StjYsHK0fctSP_M4UeLmIV0WeseFFksbvYZNzAkQ8_LFXo3eVZoo_1-VrlH1t46ApsE29qy33Ext81THVWzI79gzbf5o1gElv1kKaZylZ08Soud0rvSz6iif3dYLyzwQP2o549mitpkIAdPBz2e86RQzf5TglQeCJo4hoGOjj81G5AOYCvTYJASc4IMKQH1ExjA9QIkWy7i2aH1j8lc4Vm4Wr1eMGaNiJX76zWUAK0LDdRHLWMgx0pGqwI51wLgp_UtQoRW7WDFzHHRqgmdwPT8rJ-NXKkz_YVmZaVB4DsPY9fh7fqJK35cyDsumZAGDrGlFv5ATwPRPOscsBfLRUf0h-GcgxNQPUWXvuTghTN4Gls8zqxNVyJDwUk7sa7l5uNbG0k6pizL0iiiDjx-ZBupXs4kxt2nEfwWyf5dpVj3EbmcC9Sy6siV8_YsZO4YbgNkMmeNkCqKGL-ZzqiAiMIpo9SNC4c9U0e9CGrNFYKH_qOBaEMoR4xZ6o8p4nTlX6TYzVbwAdJLXMNBz-4GvH5pH4s4bdFwYnNgn-nlgqTkzL1r2FXOESnduI2Of-dXJ_Wu1zg2WWgWy3NTaS6mDd7zS3dtr4m7TTIy5g327kBsY4krdNTgS0mf7B1Ue8Uw0ivDWpX7Q9jULo4hpp3NSp7TG3FS5oRoNaYpm86ULOof3Cz9yY2EIlmO33AU4o8Ek5WlWuBXQexvMdzM_slPjN3QLggvijYfEzpeyNZoDpvlEdBCA5BrpiS70miY-zsefIPNrubol-eUDqLWlT1q5LkL-CxKQ1rkVjUYhvqRflK5_KQ0wQG0tY1RzJt3aa8GQ1J3yiKFqeoJlNTjZkP9KYydRHvJf255FPOWobpFeUD0VpsKS7HDnEmBE2pl7tZ3pEvYtaEke8K9L0J0NMIayShegQe2imiNUqvf4nSeHx-8tzILtM0NZw5yMiZb6S8g6rIhrH63T_FHrF1w1cgiH0x8-G5Dp9qnsgOU15iQE6U-juBfofVfv0JvGU7XxZbB2BvSWyE59gFVRlKKcFQabQKme8o6OUUoNG3buMREGBJiMN9VCXHFP8CwBelGKmTB0kUbL8SSnKKF8-aw8PS7p1RGAcrwfQaXKaNWKpLZqprb-wFDEyGKxfQV-KDEhTBoT11gTdG90QprriRe6EIOpSYsIjifR8ARS5kyO2CKTGcOc1VImEKD-8NvITjTRrrTR-XvfJE5sIj009AfGNOn6ehG56DExzCXRRIVpGpOQiGgCAxp0VJ_QiiZjsadr0bdFUp2wKPEJM4UbEDR7dNCco4tFZCBBkEZxv2IHWvn5JB4CwjoeWAMBVt_MBPUjvjn5brFyEBfeshyVtgsks_RS2Po7XjlntFW4di5hJmBBR59IGeh4fgq5QFSWL7emQdAjPY4T_TpLz3VWXDMIzgjbjOPjaRYdTbQPfJtMz7R5a6vLLC5sDg0lwR_e0hBSEcJxiLLP5nOHFQj8Avkn7yM6GaxiIpxRUT9b-DMuR0-L-hIWKwMEaqD5S-vzR3NjsUFFt9wkU116m0TFC1o9YIhjxhCMJzK7pAIInRp8h33MKFGb-BkM_CJ1zTM3z3gFRzhtK3paOb8NrJRT3ce2loMDh4PUBcyHSggvgVejakohVkncMa1LwxaJrQjSXMi9iomcgKy5MnBI4IdWwfxMkAmdkm_FGEemyDOc66InYIqEimZclLoyQ9mFIVgsK11ULFVVK4Rnz20pTGxViolnVMvks6lZc5-ntcWjI9syyLTXi-Fy1jTJT-JxYXPHy7uXlQvYFZbUpHFoOfkMDw8uQ3ZOjZf70ww9HZiaUlbGERVmdlkWpEZz4aZBQfmKc20NvX5K0xaksrOIfkyBNIZuAsBPA_58A4wifRSkyo2I36B5oF4iAfCtorAfq8jiBWDjUeBME9mDI6dhuUbaiwT-ZzhEIBj9wLPCxC4RAcQCFiP3PS1DrViriM_0qyw-jpNmPTlJLwlgfo4KflTFBVgs6JeYEaF6vDp_3tR3C2I4iBK3yqWYOIyU9R1E30XNYCNpspwTWFmlzDgSpqU6mYuUHAJsGtk5Wmp7lS6O6nexNnpp79K2iKzqs5H1hhMdZYc0lnRaMJEbEZkeQu4QQw4y8XXuuazzIeCjPexnRuHjUw8jGhZRXPZzjDAhyhGiMHy9EftxTaWWUCeNjqFdoWPZZbMxVJk6GV77hRpGk8lRNDz1sTnUjNIJX_HRdR5Ncz3yIxyetPWPj3Xmx3hJae79FE_lx7lVNmXR2J8sgqxXBFmrbIeYHYbgKXFBw6C4BMVrlYq0JOOguHAbxMGNgjG9XogsYE3LVDam83mDCLhh61wnozg5NsJ6XSmVqdRZ62iaX6PfJhNCgl75Tc8TecCwpCrm8yG6oAETrmT-zrOau-jExqjpcndoyWmkyGhodKLsNpQljQ6xD_eD9nyO_XLsQhxpe9KhnizUOc_MdHXpJiHPTV48TOKzCALVp1l0pt0Tzz-h1gusaEHnsjqRmT1rRcMivqAeXLhowr6dg3E-NmoV5hfGQmEswdq0-iRoNNwpgTt96BNwn9F_wUyycOah6_ilURZRVviG6wBfRoSaygnNh7k6dnmeQSymx8d0WlqCkWbeNhRqQsnuMTM3Zy0DQOi753Oiz7Pln5WwVS66LIbQLVSBrZBpyhLAqUpumuCGtsCC9laU52vF8ezzOZ2OcS5aXMNWuERenMS5Xe8Fnc5iAuCWGnrOt9-2OJOLiQ74B8U4k4sZMPtRQZO9sMBjtGC3F64VogmmLPoMR_B_-8qWKT_iwd5aOsDZVpxJwTw-TqJJzVrBzpX0Qqor9wp_IvYEUFTc2pcye7Ew63JWrYupuCcd7vFU93gme2aaaBevrB4b3_RuDuG1PLuuJZs0ETlMnlSabIORG_y1aUFUFl6t8z3RxVc2II6pey2aZDoaXa9ZI4hN6Tgbgizqwy973-FJ6hehw8NyfEMu0kEJIet8TlSRm5mpJM5Q9eszbqcbjQwC_b-Yaz6LriusXzxohzW8g0L-ZZyM0ssW4_kX8TBLiyg_5UU-WlGezudx_hSWG4ABYvKI-yNMFxbMZdcnnwjPWisix4Wkzy2NMViVS6fqa_fL84Tmgs40Yt2i67U7M71ofaHGL0XVyWB57FvoPC1VFa8tlMMop6QFa1QjcNFBTb4gogLh-yztxQ98YDJSTQhbgUvrAM9QbxnBqHQpr428wuRZ3JPSNiBaJwXzdSj42ViHBYayNCX7bl0QGRQHEH3SujCTDGkAng07q0sOZw2Ks_X1jMeuIjA_Kloo12gFaOBE1dZZCC1ZnocOPZf17ztRMnKUo9YcFgwwAwA99FO2DFrS8TCD0CcGj_mvtiK6tvU1jROXZYwh6vCUs-YwI8YPSwK1gRR2HMhi5Dvzkf9MFQ-lP85PzpIwrWjqZqGKUmOvWXhgmFSWLlWdaTr_9__8v44PIL2qlnhJCw8Ln-csv2aBX5-1m4QJ6bjifo2Nnl7KYOLZMIC_ZrU8lVLFSzN3bdXq7qgW_XdvR3WYpLY6BxG-bvY_ns9-X9Cfl4tB7fmn__t__p_B3bnbbzXCQdPbPJ5CBUYw1aajs60m9G8KFQSRcy19xXLengdBTuhO19ebzQlnez4d0SDtmgFYfDMrqvb8YBelc9Vspl7PfLnSK-rEp9ord4aJsKFBkQCcu_G8DfqrPyDaq02UF5F96N8oXWOVUNlLmkjoEbxztHUhgvIREQMtQif6qtTInGDHHROFfXx_aBV5x82mN-wfDzY25nN3TA_BLB2PCWNA3TdSl2k2yh9pqkH7FwqoFpjE10_ci83u1t7dXb1NJM4JtmLPpc6deFTNBQjzJBg1O4vLk3gCbGo2z6zQVwWtvTTuW5BSw5OIcAdxoLkfS5t-qmB8SfSpzv2JmsRXaDTdnDQ77fbdfDP1lnqTlr1RR7AiicAN-2PwOa_ESERMSibpcZetM2m7tecArse3KUYhiLpF7eTekJZbxhncXcFbeSwSnSHQquHFTRbtyiL9Pb3U2eMoB2VNqR5B3UqluUdgZtL4ZOKkYZC3ooRo9SkdPqMpbT67NeeFYigpQnDRuaJS_lAlaaL99sLPCXT--0DGq11lFQGIfattmvIxUxDiC0VCMKJdDKm8f5vlluznZ2Znj1EUf5fHT2kX7nmU5fiKoRgoCRCu-ieKILEI-2aQS4ZbXHltFip0k83n59SuvNAGuYCEgdg1QGZbPYP0j5gdj054l5t5Rqcea7CWzlaCFULcMF7wgArBAGK068MB1RQFx65e_w_9G3pcpJTaxJAiEIcdUyvBpAIMmVEYAK3Tn-JVHTAYYoDhSkHeLUp-38FiAsMO_P5FpfKnZlhjHGIp_GcD4hVuGFjVRpQGLDsMX7sVGfXlzuzXg1cvW2JIF4-vYREBc9okLdaiNSEG7syyhRDkRAxAnHK9NDweRCOhfZ-si40aj7J2YhYx0NkZJrr_txK-zkLNGCCY8bh-zY8nykApoQHZD_5UTdL0dHruH1tMMrGYhMUPBRRlx1hD2hm05Z9Kohx1RPLBdo62iSOHrinohUhbc5qZ_4XINhn2nZk5lE4sRfCQJYJQJyy-LGCbNjufEnK8VrSkltOiSnm01zehQBthbhiWc8fWtjCeLb6uGH8Euu2y3Iy5uUwQmRiCu8acrJKuijAXVlZBBhjzi5uSVyG86DB61qsULaIaYfOSrII86EVwpPF6wDI3q6qLWTDTiEp1TRSkta83OmFcfRe37FLSG_ccdUcYNBOeNZvl4rOxewVyfGFJpTkRSj0QS86A5oAtX0UOVymMreoJQurCdQLHs4co9GnDdKTfvnn-OD07p40EXAOO98z1PGtJ_nAycZ0mTMmZTDK5JcXHhFbgOCrpdwcBXgnEQzNa2tgdKJ7EwgeZphvsBJBVov3Mf4bTkWvr4y9tZ1gC0LjfLtmr1-iwN5S--ckNffzX_3jZbG0QseATIvq4-XHTC-mBcz75_0Pp9PgRL_8zuEvg_D-USQl9kBoDyv0IqqO9se8PmvP-p83moBl6XMR3P47wAdfa__SvkD7nT0P69F9cF739y23h6c7mcanmXnW0sBB2EczydJoN6WhW-fBE0xmdKZpJPwsbiQ9x0TMVTYuTNIuLaz9S0xzSK3VOzCgOfzr7T9K88PMwnKjzNCt8AbNpWJ4WUz4q6ESno464pezampKO_eKOOwZxOc6i4zNabX9UiiUuWvgkkB8QKq2yF-FFi0oQoek7mw4tlLogzq8ozewY6goQp866Ixr4ojJsM0BpTB0HRFXWyN9nUBKfsVH7Jk3jp9bd8GM4_-SZuaVFBO0WGqAp5DBiDkbldAa-4KOIRfgwJBVh_jNfNNLU1gT4ZhKUljVxWLpHbH7sfxzc2VREPdPZLQZ9VG9egSSRWQSEYJZoOiORi088aLksdWG_02-EQ6XBaGwUnyptQgZm5xbmQ3G_-IytrWKC6W81y0ZrJVe0Cp2L3bkqXlfcAsM5ppJ1kG8C10rT2RjZJT4hMU4xNPQIgulnKg7dApNN36K0WzPL4rMxMnwXbVVjeCP6QDs78gkPUsoKH-xnZrES6sl3Y-Nbzmj_46c7Hz-27jZD16PJnS3mA9oPzsePd9bBovwcbH783qKUorRAg7_Hlau_uWzNItUZjx1i2-ZYmjf6-MkVnQnKOZ4S_il-VsWjYEZT-OsNQ2opqoo_LXJUjLT4bPnVmKaLTuZdyUsVbJ3kwVIBexJHeMRFw03qKjVnyLTiEdNpARZjPidsx4jn46bbIkTxcTOcMwK4A7bJWMYCvZrOZ7bz3G7xO02vyfnihvcb-PeR_ufxnz4dq1dQ2n-ng--LxwcrUQ1fPkn670B61Vce_ru7Kcfvd7f4DdkfP7otD1N_p-NgIlt3HW9x5wuWmEDr95JxrfZVGFLSbzXzmmpZkcDZsCorP90ojKEHbc8NkGJ1tXUpqb5HQ58xfLGxbWn9Rmxln1IGxEiw3oNbzFqX8YgwULZCvhK3DZFTG9DHJcCM9ib37enRm1i71imdyhM2o24_0G4KTdeUFbCmP7mbWVXtRBFv63lSNkDhNgpDsTcrv2-b75nKxVOQskijrJuKw5OLczvIhfVaw6VeNIG1qPB9qbPsgDEnpIaJKqh6s7EhqunFoiwJLU7Wt4McQAm2UDx-Yl1AEP0S7OgtVbxnMQ7-vXadl0Sa1lyWWth3HwKRnKnir2CUDqfA-6r4Iyj-ah2lo2tVtO2qNhoWG7O2VBWd4BdVWDOlEmU9CIpOXbAAmgkmyu979HlC9ARoaELFHeiVYTZI60OIRkyXeNtXZrlEmNCXBaHRDxYTEm754KloowPzi_dUR9wrzZZ7cnawOAhUFA3lyURjRDA6CFvpZaKzn80goUf8CzRVsJoD9Xo0nRR_xvoyJN4vOtO2mkVNDbVtBEDfnZolJffbwVPp1MMPhBWOQDQTpswvYyDJwpsNiZlrtH38UC2-0d45TpNIXSGkwmW-r8dfdOSLzJHfI_ulY1yHdAzxC-clNm-Nz_-nkzQqysyvZeY71t0wPyPEJ1Hgf5lSJyulkrieq1dzc_YLQ76ZRX_JbkP6GFr1n4zV0J6qoj11IAXtNFibjO3SaqKmjt2tnYbbIBmOdfGwoC-PpmxOwyRHzaCs6FZmm4lb7JoMSFq3SjDeNZj_1nVQxZ453upNvSRAyZG5b2uhXJDOlDc6KK4nmFfjrcSGG3-yqgaWtgAYVdyrmYgSf1JEx6iSSTiVadnJsysoTbMCuuTW1aZb_NESqdM7bP4NIwaPE4JnTqHK2-qakON1rewvOj4-KZYKSxJKE_WWMfZGW_qJmw-zdDJ5Dyuv6-r9A72jZLXx-XD5V-uukE2A9d_oeKhSVJZYXPGBt3mQGaOc9fXfqK3zKz9pXalr_r1W3DYlbC6PUG2bblCZzZUBIe88OtZP08koJ4oZRW6O0UIOdai0MCKW5DyNE2I4gZ2YRUFFH8SAK6SJKDjhPbUtTx8Wvg4xQxElxYsg421Rvlv4VFkskAIhAtb-EWRscXL8eBITQnkD1Rb4U15QJROeElYfF82sdWWGmhL0ndP7tWdQPKfxo6dOZFCcJM9erfW0orQJ3ZwXYLhZB57nrBmlaRAt6Amj9ANjkWftAiHQf3JBHf09zgtNU2jt8JZLZfosvdC3FkTR3DrBzpg5KSrORliURVC8FbGRFXZKuaZLbIXvNBOQzOVHtOWzidkMoFMxdx_szNyAfzs_N-FAFWkRTbiQvwJjnGOgZQXGFl7PfRjkxALlRGh6Xv9h62GSJtdn6TQPiAZwyjdHPaTM57TaGa1yQBSAY18k62fJIL7Y-bmWfKCTPGaV9hbllG_iqZ9Ng-Kxm0N174yiIlpjPWQ8joesbMcuG1qgzqYWm4et5WJEsYGUvtAT7NOyXHGzXGHLra9no6q682l2nuY654rsC9c1quqqCtVeqIPjVWGbwe4QyK90QOTBuvqaqHS2eFLcKwvmJtu-LtfhV_NwcxpkdNzD1Tzip2yzfjX2-tDt89IAifNuvdRDnedRdu0teu6TYELQMhFoedJ6mSaaAQUPjnqCJFucgaR8k8ynxjGNaLbimoFlKUUKva6sh4JtKlJ7lwKHUUbIB1rcPcou3yTzQA-n4OSDzi5DnLxJ3vOECCDRWBPuCLa6DMb1NCn3MLn-XG2E7X3eCbWkslSwuyV5tu3sQmdBt729x23jrZ7z-R31hQbV3t8t8yXNbIgRNsSE2F-zIcw6OKrb6XQI2i5Mfmc1H8bp5yWvycYjrTNdRCjF2tHQNXa4BD-Ej_RIle-sZh6pFV3A1Iq053NrwVvV6N9MwpGanRgXb5w4RBfK0jwf9dyrYEhwMxS4uWo9m6RH0YQhRx4ddUXJT5KCV46S5VGSDwiECEQYXsyzZPysL4inYNQij5L8NqdFAOTgwczsMWZuyDNH7zEEzWv5kEgXx-vlFdZTNXiXD88wpC8_3ZlpuBIsfoLb2J1ZdtwSETNtIq7GW0h1XxRB_owf_ey43MzZRX3_3dzUi17x1aUtptyXwRgqOJmpl62Ho5Fg4tHIUS8p4UWc8ATRr0mIrnhm6FcSno9fYPJ5WsyzzcA2lcxtzizfHUXTM16eHl7CNRgEEiZ2XwUj6tdI-vWqdTAdYpoI1tE78-aoV5T1ONMRARhloZ_mTbLeJsOTKDmmzK02L5B9l-yfdRJT3nZbVhQvkkHM3lPQGpS1zdhGXiXzjY5Gr5LJNWXuUKZ9NZ1JkzExngU2HXpjXm138uk5jm1qdId7W0uRIsYUgj5vM7LgN8li3Ql9hwx-5kkcrcCYLtYQKIaQhnGOPlo1gCCeEmS40FaKiRyiAw7BxFSGGkRhxq611ojYKp2OE4jSFZ3dHMkjZWZDAoqoaDIxCSxV8ZSZaJNohVAt6dv9rTZUC7bXuSkFyVF2yhmscKlSIVKHRUooukkPx0t-wr4yLg-ETSSpaHYpzqfUg9zUI9XgczA_toay8eVs6HdzcF7SNpJKOW5OxJOxSSl5rdCOiBYMukf6noMgZGKF0qLjAKx0KJ5EB7VYB0VYfUzT4S9VRYyofSXCgKBQZYc315Gdl2kFS02RK7arYjdRr62Rra9TLcwWSjp1yI2CL4RazlCWZXTUS8Irw3QKf_y0WDuCOmrlM2eMndBy_C9AUfLdfE5Q2agXIjAk4hOqcmdB1QxhNsp17dfr-gLX77Wh2SOttcMTQvFX52xItUZnFTDv2k9VO7R2kkhocRRLH88Ea9CXZqqXP7TzX33Z-uLThl-aCbHZC0MH1YC9ZDS5dhnlayPGCjRcmsYffyOhg0apFhUmRkTYeq1IuWNMfEeoYmdpJuGKihBC0WgtJQRCjewsN8Lzk6xNk3JSuFEfJlLGzvCL79hCp0l6maC6PE1azuLL4osyPo4wUw5b_XRALCoL1hPrcmoc0uk4RcyUUqhu9XGv3djY8Xwk8tg6gKR-yhI42g4ciiM7dOFPyB5rEoRjff1mkJQWRx7JngSu1TYWzDsWzDSKl5xr4rSYZM9znYtYX4IyvzIVb35y_91_uPG0vbE_mHUX8_6nfw884pKPYyvkpzK1ArWMW3Vy0CxnL2tKA7fhngu76V4gSlJ03HSNSQRbBHnQpp3jFM4ooePdp9zyhb1qYBN5wYZGr4yYy4GKTjwHbrjkiA_lnwbJvbICFSsdfyNSaejXPub-f6CG892w0V_zgwE0ZEj-D3RqEJrnd_uUTD_04kBF5_Q_OYO785Z3lws48zve_Cdk_NT_9NN_ajk_IQcZa3dF7df_pNZ7_0LdNOK7nkeVsj5u7e5_qMjHEYp9bEGDZ9R5_Y85vqC-UFWiravp6izWmtLhER37xJxmV3SaNB3fN0qdJiVEFmXTcxyGaRjmhH4n6-sdoJeaGA48lTuVeV9O3-wADF8SLz4FL89PIBUJWB_zGsBDDfFiMo6kkj3mlUYJiaISvJcwLc7GRpFFw9MN6p558JoEKi-CpdgJDMKsmQVHv4eKUsR9aQ9ou4UhVGPvFS1lEiAfsm3WiqtkIIFevsHpQsTghgFrZPN50Ra_VnYKJXYq5eOXIDMSyKwkdCnAUccu72aCHjqqf3MTtflxA1oK32EBHkI8ZG9Lc_w7de8SBHOjP9k7QHpeytOzt-JvZ3wEcNKJpqff14OBjT3wmrvp98Xbpg-Vj0i56QCmbTDRQw4i1TrP9Di-GvhcwmMNtEqCPnWm32d1D8_wxw2Cd-oEoOnOnN6g-dlk_6PM1X-4Jx592nOztyWT_oKBjIgT426WPS038pWr37jFPjr42S3UB0gozZtzFOV6w2lyKhsx0vR8g-orK0NmZKx0jew8EzWF-aJTlNvMvvUz9q6Huuw1QRjv0I8HTe-jbzfKR1cSPDa6y5VPW9fjrdn4eHD3o2_2iLUBw9TQyieegs3GQNCHK93ApFAfDYDwQMtQfu_5ayJ_rGQ2YzPbTFSb70EKiUOnYfA930zNrpma2sTUJsQLQxfBeY6DDKGDEJ3APUaqCFS_LzfPAmf3LMjeVHEXYHPAp89ZeOYThJ4BCH9eCi0TuhkgiAC8xI6KhwGRV3aHxcw8CyIXN-NPoKLxVMLO9yHQSc5eX4m1W_MGC5_YBh8L-i6YJZADO4ik6Kg8G_rO5uei9ZWYh1GcgwAcwR4ITCrL4HIW8dHb09Ihpqu3lPHMMAbNPvRDlJddn4NS-E1fi6D51D5E53GZGJ8R-DMXeXhCDyfpZOR36HsjUiQWAeaJL3QyRdNG8v8Q7g1Mhhxia9BR6jvRtEiJ5sd4Z1ZB0GfGfAM8gjxhtM4Acr5HIA6zX_nvn5UBONFEJ1H2mA7Ch6z3z37H9paAZWys99hkyzHdw9Q6Dx89_vnJ02e_PP_1t99fvHz1-o83B4dv_3z3_sNf0dGQ-nJ8En89nZwl6fm3LC-mF5dX19_bne7W9s7uvb39jc_OoDLjMXv3UT_7FSY5S_1pe4PAYh0OcFeqwgBsiA5TGm_C5KGXPMh6XoEwMM3m4P79zu7cPu6ZJ2tfQI25nd2dzk77Xne98B486Oxhdvpud2evvb0nSV1JIvpQyuzy--7WOm3J0tfWhqYJko2MZo9QL032s1s721ZVuAiYZxCQv42TYk8MCrfuutHm9rztNd2oubW-5f17y-tFGFHcT6jrAeaIY4Y0mx4NqTt3i-U06uK2oi_YCII_cTs71PP797dvK9tdKbvFRXfny-UqMpDG9Usw2-r6_W5nd7eztdvd7SSqs3vv3r3dzj4dYbvbfr99NTwad_eHentvu9vtbnV3qEh7f3-n09nt7nU7HSrX6e6h4O5wt9u919Xte0dH7c52d7d7RAXu7ex293eGO3ujRLWvOu2b_-tsHSWgNhELJOju7AKK70rstigZpWeuN2-r7EM9DqalPYJ2Yq2sEzXFXhjS25j-VbbNJgAUJfRG90s7id5FMzjvj1YAdITYYT0xayb8hUOBaqUtcj6gWrs7O-vuMLiA19pGZ-GbE5eD9Lk2uxlsTPujgKrqeP-eWi10051yY3XjtL4OLVSdsJdiZ3fDhcLBmnI0t71_d3ZvQtY2kVORx_GHkvtbPbPex272Hr5rJvpSW5Xp40-d3buU2dn16LteQTBYy5ONZL7rRYgpZgGU6qugReKELPcZsdky6sKxW9YCD_9qDBvbNKTxpyqfBjSfU0e8-4SurMp4eXht6UrCuvGVvALdT2z36xWvdpQx4u727aF88MqN5IHEYyVQLxRG1E_VhEb-Sz8fmNGV4anS4FF8_DwpWlGOHr10c-WmnyRtaYze3UnZH7atKkKxZ3ZNYRtQ7vnL5YByzfTfKyVWQs5t_OhLz0-ruJRbu94CG-qvYEasZZrRqTdbLHpgv2asip7ZkG5rRRklEGbErTM6dOLzCTFijVXraBO51HhKWZ-eKDtmwwAW7PlrTywnSywrfwgmOdeZmFWs2eqFo85bVojFDhYrK01IxeNgYqt9K2PL0e7vpbXlob2b0xoQHyxR5OoRYaNWPj2KBLyIYO6VE5Azrzwz1jU2rHPPWiLYqFdskFBzbfanbme_60lgKdH32-CmlKXDzv6O39nfXipgIo76rvFyrflara__wOBdfLkfBG3iFe4Hne49DzbzMj4JGEgZD4KNre5KxgP5gnCSN3T73fY2zIJr2YTAuntlpVxkb6WI1LC7s7Nl6thR-sGDB3s3atrq3tuVuvBkatu_tbDUud3d397fvUfngpTd5bLdbf7p7P6gmW5n-9723tbutrRVvkqDnfY_qMRM49729u697e32va177f2dHaIAPWsbvVn2bRen-7-r1x630lGFtFJIKwW3UtDRy6mRpEacGg0841xPvW9f7a2ce9yX9tW98fL_QnfqdqGfgYTA82mJQ9MyrZhq1_8_8Hyev3uK1vnv_tmOsEE977SfiZqEFY8rogvec4-m4zFB3R7HCIOcg7nu3W2XA6FSr9pbnhq6Kxs1g801YK8G6kY85NOpi1ACS8QTGyRXdJOcYlkvkcB_S8dx4j0AdM6KKoZbGXDvttPBVnqXOPyOv-2BWyccAVtTRg-8yPnykZ_ykZXfB76Zxf0I50oOX9QiTqZ6wXlQwXk2j-jGOe39MnJY_oAgaH9nfT2_v7O71W3zlm020wdBtowz3x4-3dhbI76CGvbXYvo9O2e9Vz6lAsdRASVJnBmkOLmtmxNpYj6fPNi5t7W99XcN5JoGMapVXvpDrbWvnOakOi9AFzhrESzgRvpqzWmm9Ep8EGLtZZDzQ6vFiGC36bqddndrPSfKsgPSlt8Qyaacnc7evLvdrid013e35jS_AoP1jHm3u92rTawtaJKINM_53fp8hLEf1zF5JKBnlYtEVGx1QkLNu-3myPNHjP9k99xTowGnMD6TtD014n06Mvuos88JtI1Hso3LbIXoGHUAN3ERjSsM0YpyHvhLdrUIUxG6VZRzFu6Ax3S9TWIR2YaSBcKU_CKeTGJZMmJx6bxjnF_cr_CPYLlt3tK34qAaprNfd-517u3v7e4TxrOhljp69-4tLQp2E4SRofYu_1B7-NlVGTEo9NCeF3UM-YN-SPT0_9peZ3-fcFrVpLRFFWVcUTYADoSXM9bYv-GuNWHxbn3CK1SwEreKMx5PorNzPeL80HVPAkiCa6BjYKVD4zohiDipwUpn_5464U6dCKx09vc4gfp8In0uswlWzr2Vjj3_Qb8ovbP7ow7fnkOfbHV_9MntOYzG_yZrd1vmhCe0Bq9VeNNMwptW4Yk4MGvRbC6XKOhs3cFW6O41Ee-3vtsIoEr44N3W3foR-Chto2tyuN2yVUiscpg059BULuqnjhWYwIUnWmefuFYsNCrM1t6ITTYbqt4Sp_xHZcPc_VGWK8Ep_B-XYPdx3pD_hHKGcgxPaz85TUt1Np2f1oZRYnR1JRnNUQgWJQU7sWHNKq6rVy7E9vbNhWivLkTnh_ikXF2CBbCNmaGxcS1D2YGpiWFkRSf3Y2J9a-d9925U9Yvyel5xN-ga2fNN_i5jDUsEhjhbRP14AEvnZrNqb3izvZJl_nGz5dz8b1rnF83xA5rl7FY9KSPKFSrrgUqH98gSCZktkZAeol3-x0aij45yohO0VysPjvo_RJKV-dqrfw7c0r-d_vwBAq3BiQRtq8UuBrVVxwU1GpCNv1eJK8iOzbnXqAXtL-MelYvwv-MU146uiTjhE33NFaYxzWoNe-AhR7oEf3CN7Kn3j5qTnVVrYrkyqGj12XlxbWr94XFy-3zcZEzZjSOpuFLPxAqM4PrH2CALokqsklWcaOSW25ilG73aOc5MmiWCTAbzb8giMtBkTd0CbJ1nS2xvS4mdfVtiiBLb22WJXVP9fseWGKPEbptLEEnDhvl1qQknb3HyrRPPUw0KlKjMYWfN2BOY6rZr1UkQJ2KU62ltSdutNztxN4j3MTXcu5HTNTl7N3K2Tc5-PWdU1dZlffxyTtfkdG7kbJucpSnJXZu8tZy8Z5LrI15LXdvwznKybXV3OdnWfW852da9NOK4rHt_OdnU3WkvJ5u6O53lZFN3p7s8flN3Z2s52da9vZxs695ZTrZ1767UvWvSl4Y5rq1TZ-9Gjm15_0aOaby7NN5h7Ztu50aO_WZp1NP6N1s3cspNRDwMbyLIWuwe3eju7Jr4QvZqoZE-mh67zll-fB4NTwUb-Q4469t2kNicgBgAFVDjzdyEw6MwuUWY7QWsC4_1a1R5FCdRdr3Gtpyu4B_6oAy273gW7RLTR3iXWTvweG0gReo9THQIH5ae-hXWBMVRIqoYDjo1yoCOStq3xcbG2oN2Dzy8ladZRJY1gb_WYwgw1uHSmW0ELN5DoDlhCrO7kPwrKmm_sf7bZbPpSrNli__gW3hlzaojvxR-6NYRn3cqoWnCcF-xPXsVitZNmkGhBLzDDGyMIaaJ-UTUFgbMWgYLS5BhPClqVBrsPmYFBHZEAKQQm_REkKErjjahjlTer9x2tERo4QRnoR-cs_hikWpGZgvcCCJT0qfTZLB00CzRT39XDZ1fZTW1s-tmPeMfDylZGoK7GqOJRhU4jigqqEAve5D0VmAG8lER_sjTfmd9Pb5PW03ieP1AuCImQEvCle4Gg3Eu6l6IMuLA3eqsx6wb291alwYXlnWOifXd4ra2RZSTNDv_vLWt21rr7HBrne7cLdv7cetb-9L6nmm9-89b376t9XvS-N5y4_-1M3_TojVGY8JHWkTkQBYrxX8jVmLU5UGkFlu5ctQMbtNNx5Uog4p2Op1tWKzHGyKEUj_6imjf9hzSOGr5tgIsrIrnIqbr_bdhMhHDvk-3j0xfDbUe5Wv4qrML07zhSRUfLgJ7qiK-I8PumNFtO092HUgD2hWTms6CMDL75Vt9wXadxjakIpu13idogWzGa3KUWijKy9culOXypvtbJW40WJCmRG_dLXhN9m5Un5XVd5er316qvmpsawAuxEM0VgDT1sC7W3EvKLC93Ned5b7u1vt67wd9bWabHb3LPWYi5Udd_sczkmwEez2ZTSZ__rbVW0lePnDNeUs4jU7OUWSPcJycHp2I_oz5nkyhsB8tJHRfEsxKVsQvVI0xoZJGkItkfsgIv8MyVVR6QWIct_rGf8sQFr_m8Iyczy2h4QyChHqAXmR_MbTNlpr5Q9Ve2ovAfRxkf9lGvPX1x63Pn3X-Ih1NoRZcvWsOYeBfXSbWbbOF8LDuY8RuZ3mM44WPrc-w_1hlncC5k-mxo7JuzWeeTb-f-VkIz2MbXgi3flK-uZjBWsT8KabjGUerpZUq4vE1Ytd2FquBtiS0PweiAS_fRSgbeORPET7mGdvAU2uIxBs1OEKjiX3DcWSWwsxPWGfKGTCQjxBeCxr_aOkCFgTY0kvKZqryQG6kOK3FbX4mzOtxPZQzc56EXuBmvL6OkKrspy0JbhmxmSUt1QU_boq4HGLfWNXVzzoDsKv4DVLT-XI4GZzq1Qy_floLKl2KTQhZwzaztNiyEhA2x2ri6i0IgEAgAX022FLwNmGrZZsb5laOW-_PqELN27jeXj30ENu6seQxzMUUkUVP7Hh6Y2CDmoWzLo36xfWaKLS2y8HG2MDN82te3VWUKlg5J2EXMXJvycXnZQHI_rhQFC5HZeSrcrLdZVsVNrA8FujKYEzqIky-QE-fkwaw4HNtbmESA62WFk7dEiluNRhT1uAgZYglXYZFkptD_PLS0sSETFzyavetd7XMTfYHexxgnyzfjVpivTPhPOjcG-r4AlJJ8DLPOJw6zYF4lcPBp7oaQKvZ1zxNfOjz2O5zUdGExuucQw8i3DOu8AjFfUN6uyp-eVqq--BpC-ObFds3RKsKb1_pW1c422ZPW_Z39-UFoZPMZVlFGZydJqcsqZbuhjRTt8ugUgWA418O6N5n7EQr8qE65_tlTJfwDz_7jQ4Lt2rc82q3sYVUc_wjERXNVfZMwtHw_lhufCFYx8rVYfOOlYArJyMUmnF4DgCzC1I1o3WvAaZyy6FZPOBatZxSw8VwmyaobiaD8pIzsd7tZTswGNr5uw-FFtoKit8R_qD4y_p3HAyz-Lxo5dlQOf-COe-eKeJmW32gOzhBOz3k7AeUhKtS7gXZHucVb91sHzxZ2ILvtEq0uBW62T1i2413teSFtLVG-bu4OKFM-Ox-oNUvyvhp8Nq_wtpuup_cMPgYet7c_fSxhedNz9uk1m3AhtDxOOJJQluRX9mJizqYJGXCWULnY8--TXOj-e0nkUpighHMVz9JVZIPgn7xXhXvB_Q-Ucl0EBSHuEiLb7KdJXAiKt7Tbrel6VPcoEVHHd6BkhK-25b2SSI0qEpGN8LCteSSAm_1MuSx3C4WlgV8zbGlDALANduJuK6spUNesZGjilY8QvhwbmNB_b5Qybnpdz85UcmxHQS7RCZHHH33KMDmT87xRPsrOSijjifXXOySi10GDURmdy7iPD6a8L3ANkBLi9Ni-P8e4EZ1VHdMX6gG4ZdTW10vuXCTa4E3NNVWqJMaPOW49HTMJQfmqZelrokD03cQ3uAkHmlar3Gm9XftDBiTJGcoSuC3UjY_SS-pLJzOzupl21K2jCrjVL0WzzpHUG9yzcHUk0sahXxGL5id2tTIIA65-89t9_vJQ5U8sVN8FRBEz8rQ_dyLQ6ryiWu_k-6Pa0bR2xL0v7oVABtUJS_Zz6CBz13zfZu_50W6apko8iwxqE3GmEaa00xIhAyaieRlfbaco8k0kzFTHWXk-KVJkqA7fYdICPokocpMXIrlN4RbWG0oISJKpumVhHp-Tu_u1-CICJQj8UH92oJAKNiAryieHPWV0g6jo2Cjy27hR5JyQCeMhvkn_FT5WVyCk8dwCT5id81JSlO9tuoYrBJ2SUkeV6ELQZBkx7xXPwtSWsoNjTOwSl4ExVfX-AEnj-l0vabEt_WLiW2gABP1uPSpS96W_n8enPqSr5WP8ce29UOWp8I4WMMRavFFJXeCuu2CwWwf204Zi0I61OQY0TCOZw8YW4uPG-gWhHqewlj6m3WASV5LgIrkG6EHGKw2nc9OM3kDOH0jWcUI4LRRhXFNvlWxoYm93NpFMBZcdl-zeORq3GYzebqcrhKOt8bG_Cmo5TdsVCyMBE_9z3J3yG-uY62TN_CwsY0_e_bV_s9Rm_12Zw8R2sAEuPpu0PE-Jd9XzaJoP9G0rHd2HjzQm9vekvCAGn0Hh5TkUTCLR37yTZ1o2jRHOip83GFCOb8GMxayEODl_qyffBv4yaNFzad2tgBW_VMlv5dY9TeVPLNb_hc6EVTynkHkXR9Q4NFe-FAi_eSPKqY6jK6IiNR0ylDjaktvUdEXTEtQTX8FNTddwrp9QqS2Rpxwf9ShpFaMS7D9HaincIVNT_5ic8V7bvLOOiIluJuxUCY4mgDpgyPsQcLXZVxMF9_82iongq9v-8UV9to5F_fz8-h6kkYjxElMOCJo8gzx_N7xfRKLXjKxfgozOggy4drKKz0LNxeHjoMizQiJA2ieF_rMfUpIbSVLwruYXEB5wr6TBNoMw8sQWrvxptPd3122cV8uS2T56IARaVc5bYcBBkEf3yDiH42jDPMq00QH4BEjMFyN7Cbss8a3F5WL4BkLwJX-53ZoShP18I2_vlF7w9Ye2jgiHt_jxEfTL4Hh1GbwS2bU96PKmUVB7NxamaUJBN9QnQm5FHGUYasZVdFIn5YLBcehFu073syWkHUbCKg6n3NYVWIivsl10ER6C4zEJXSkC-Il-ZpbjvYJMiL2MnP3CFVQQhX8ncuvkl8XKqrkk5yJL9fX7aceg6hKaeIZvtMKWulEq463qg4BW27f2Chifzx1U1y-2luF-KpiBuycAbsjC-wU0ZHpjtkpJRpRET5I6dwn2hnFVMrBphcLS3mDTODzkQrwDRgOISJe5o3uDhwO6mSEvaMjANLY6Ojtnv6T2gtrDVZcKWRyCB6VLPcI7mnJo1aJ_biu2nbmXpYT_wjh-yoaBV5addokEmr49o_pJHxUhbeCb1pFqtQaFEBYcExPe9sMqEH7QqcmaEfNN_vJ9TRs58N0Ox1unRIZd1WybZHxbgB8MyuMe1kRdCoHM5Fl0YHK0aiToNNe1JjmSE7ELEwoL_aW95fFS7BEkDsH-J6h27agVqgj9ZPIk61I89wsam4TEhoigzOvCfuahx0_seEKexP4hRgfX6iV4OaBa5oQpvE-37uFW8PgxoKQcAj5KFvPKkRNuEf0B1TaRSTyG3xRbHYhVjP3MWVWtDLj-4zK0vGPEQfCrdl7Di4x-WNigW7BI8T-zFgEJWEHixJ1mIuh5JInqsvcYnLqFkcuYjR5aghTRG8h1Fa-vv7a1U1nOZZCNPw2jTNjneW5d5pO9g2Ie6d2z_WMgHyIEC0BBykXAECk36U1Z88mKpAHmUnKA3PhBWG8CIIwe90Ic-05aHFZM3NRVs43mRG2STqshOA7SNw0iHAZDTYKJFgpr0hCYEF1wpZtRR7C0bRZblBeySoTk-yKRPR3t6PkCqfCRM_Oq0vs1rQlujNzMfdYw6WC9sGZLk7SkRE4RaHz-tXBoeM7z54cOooJEQSn3-AnSqApJeo_jia578TJcDIF-3UGgbgzTDNiKgh7jHDJw8xhZ8uk2IAlHhy79VWxeT6J4sRZKHAPiD7HF5-bEAwPEIjF9lccdajXtStrCCjOiRnWiMkggyC0QLUSKCBqfSkau4yyxP3yRrxIoU3HLTdr4yieaER_WIuKAlZGiPze7Cw2t3ABjgGyI9ftNAvvbrdtebkUa7JMTNq2o5qZPq6sW-oS7dzUklkhEQGEMioJH21KN_X8Z72aLU8jmNBhsI3gzDTsCQilXu7y_TdJdBEfR7RxCIMko0cMtZDQUbceTdIj165dP2Zvb4txaxMOF-HXriOfrqEWMx-0P0DgbgV9RzgjBZbOgR-0MA6QlUg4D7Bve-x_l2wpZ2hj_zi0-vGYw_k4K0HeiA00gZEc41it-CRLOYSPvZRJJftlrXDBqT7j4mP48aLUPSm1Zz8krj_NEBfKHNgDFWkrKVdReYnurDxMy4A75qikIz2SWxs5cj9H6UvucHwCiUuD9ooBFkKXFK-s8pQl_UacQiQ6juMqrIV-ZAIObqEBuXPcXEzkmft5PbVya6wxBYwCIRLjoIjwccRbJA7l9nMuWoVwk-gd9o3aXQ0Ox_nLSevrb1AFT6Eqyhg_5hZKIhpiavvBjHFiDJJOIfC9RDfOAswN3NP5zjfQKjh_rZdxeSwrzSbzPC9Mlv7G8nh7RybPtgmpKZssLtctLWMz36OeaCUOgYXlqNu4km8a8PWuNhx4dlRbWUKPdNzxveMZxxhi3Cv3NSNSsbnh1jNDj6Eb_E0DvfYMtoffag7YyKzUVrpMG5pypoHZ_smOuUy-0XC5eF6Nrb6isp69BKExWgJXpV3Ge1ybo1sA-vX1lEswnpUCcI2xa8snPB1-_yF84Eb1IH6UYu4sbZm9QjDKLIcQAsWU5rEP0I6U4Fl_ZCN8LZbcFBrJ50oN1sc9srQzcYVN5bJ15EpvPUt88JYBc1rVbYKCsayRCy_MRRRTgTWoVKbuRA3dKZaBuzfli3IWxtah7LGuapWIYUpi8jgvUzbkggErVLxOMxu1yktA3NzjgeHO33Lbzmq8OoCHFwz04oiDy5nQc5CThK2VJKomrOh91vEhLH959Qm6i84-daequkyLYCHvFwPcAQEuq-wIsfpw0Fm-HmahGN4kyBWPEbG__jcwnvwDGE8MZ6_MDQYMznVAvwm3hNYESnGjbQ1AlcBKLZq0RAW0xzedNb-z3I1TYeFm7NjKEGzW3ZRgSMLQmEsfV-Pn1QP4lWH2apH8lJXDlZI0Fn6JJK10Q4bibWaAKQnLDVAD1_I2C6Pl8KcLCYJB6xsJsC5qp3VgR8xY15yQhI8FT3FMMJuYlPmK73JB7C-IzG0qrprhzXYPmw03-Y4D66oe_uzW8U0digEe0zI2GgdP-2fAXIdlmNdhNwliojXxK8CO6jCLIJB_umNVO1T5zvtg2geCMELNIFOZQXISRiTGXTV6wddF3ATxhZIYsIG5KphPYJmLPc8Qn8S0Fk2XDsNYMUR6YYhzhU7lknjqum5tYvRiGZING0tn1xtRU9L-LWPcsYSGGbMqiSoO60On0zxTQxxWWBsCiyizEVmKXyqVaX9g3KZt0KPbDrUypmZoQnOGeo9oBaHYJGxX0_lcys1qcTZ9BIVFKGasoU_764BnfE0jkApvLakQwfLzwDKQfJFwZDsZWzvKWxBIfBsCEaDTEqsFWVZGuYJZYgSZpQ1H07lneAoepT-TgKQQCSw4Mzt3cX230AXMg9OuPDv35Y5pft5goau3FLMw-iegXTJ0CUQTk5LTm40nCGDIJA2n4U7ldq322DJ8OGV1UL8MCsvTis7PJ9ccsebJVYE4x3T2cBTtapwy-TLO2rFjY40ZQZ1qRJVROiutY8_wdLOKxCSMI_feWxBfVALXYih3mSf20gVoelap01wU1nEVTjEDx2_kSRMXPILMCYtqoFU_qZmFMjWBM6WMElvM59mDzg6YInuHwVPakBXBU6KDwq3founG1e2aKqrdtKkyxKeuGkitQHp9fQK5am14EJPVegs4YqjyJxw66DU2iV92fuKmolJdGqA-RrTvjJeQP5DNY2_-6ajESvroeSrBu3IIAmoRC9jyhmEXx7e8ujagRdiKc-J3E_ai4XupvakRKZrjNLKxz_oxYloUY7fguGl8L0lfTGzX1xtviDLKSq691uwEV5Kl4v6UW3V-36hxKIEJc95ZUyLLVZRU92xFdN7jIs3W1hbhKDr3-XJNfklr6gJgKxbw5JoNJF8d5RzFuKTdOaio8IX9KBkwhucI6_bS1Rt6TfpMUL67rM_cafNF5aWVQRlwn4Mm3c_CzNcPihD3SEa44UOYzTfQxZbwZa4ow_RDdpJDX0Ec99CGGzTdRUQnWp0yLhQiopfJ4gBLVATwV5wQI5_pES7s-MDx4D4QKWkAo7oBS10E79U5_TsJ2rhq09zJt3S9ZOBOrEGRhC4bTSXOpd-uhajK_TYRqlARq-QV33JO_0kwgeKZ6w16UR9CSxX1dwZ0skb9XVgPquugj2wpo46C6JClopdBVdVpsNFRB9XNuEUQ_01M_5ux6NPgljD0B0E_IWRYpOcs6qbHjNMzeTlKiyI9s1m4GYByBuowOOh3BxsHOFye03MHzwR6D4PDzcJcBICrH54Ez-mdg-Pj9Sq4CKPYjyL1MnAPH1zR53fT-fwhP-G8ei5p2Xz-RNKwg85p6V6ur1-658FLPmEuYKFwEZwjzXuAyHu3RAjbIHhElc3miTpyL2gH0dGIONvvXWYTRCl3GyRl3wkKnVqSoz78CO7M9REim6nSHWAxH-BMvY31Jd80kPH1eHQgigeEHz1EEOEa4JzwTZTfqPUPdFTKvRzYi9Pq5ile-FfBEUxIAmZO-AoEOcxbP0SJhdg6zDI9AV3M-ThuS-pDlbD8aqVLqBNPE2K3CEr8CSIz0rKfxaPRRNNrh18FUOi1O-DAprnWiX-s-N7YEV_56r8yuhu456-vjyBxqCdtjlr2Zlh1zKQCDJAtNNGSn3qz08C-M4Z5HMQsmDNCSQDLrH6NLOZztAiKl-5jKNyVvYJY7h9WEwiopboHQYdy7qYywV_V5wpBHWZav4smp4QzY_UyHemnfDdk6-CXV-8-Hz55f-ipF4Qw3hpfbsERvbf3x5U-9WvwuZVQP_E1zDaklTvB13rvS7liKBW9aAZ3ei8eBOP-W8LKcguE-P703_67yxGCnyQjh1VnrMd0Bu5XhdKm8MaL5h1PvW02_93lBnn5ntqV-raQ0-tW9PE6YJRAo9gKz9y2errxWn2jf2Noje0qeb575nYUA8T2gMuMafmrfHXmdmufbtWyIGVi8-w3gaCV--1wQ54Im36X5iUNvW6rnwODR-5WEMDRFa_5skvYB39X35uH3t1r9JET3qg3zefe5s-00ky0TZQuJYcG6dWbgLG8ggE9xHgV8nuQhqlfYsJaoTigHkQbRIVBtETd6OUtu40C6Nex-1lJSENng2P6DWIPlz2jeB2PqLyFHRPAKN-E2yMKf5MN-DekuZxnjzpWtbIJg37zKULELBDog-g1dxbn1aGfHBv2ie88O4AJqcZ5-ac7LI_xAxeMW9FKhTygnjO9kdfuYQ-KD7CWod2Q9OrXeM4WbPEuN6AU9saTTKUZAEqQSrII-NC_n4GBClt05k9wccWHVq0UAN9QARv7UBXE87n8Ao-znjMgehRSu5lwCVBC-MX97b126JylR_FEO3DE77S72yF0kxMOoj3S-SmtsKOk8_5sdJ751LTU8Tq-0pM36IC6MYRJlIzyYUSNRDwdbJSu3RLh4_7Lz9ExDcBRJ1F-mE6Jaq3k-mfRFSe9htlUTmCC8g9RvFaoTOODwj8NK5xMzR9PYeIGwVb1RZls7y4tDYc2OMgqdS8e4bJuU84XHpDxuI9r0dV5Fp8RfeSzPgb2oUQjwZvJh-rEk0PqOy6insVREvkESpMWHDWwdY04zrPavNErjuCZUwo--4s-U_Ymcuvf4dmoLKhUTj9Y4OC0y5krVNHUBHp-yPeU3WMLZY6w6pzAm8ETGbzzL_jFE0VdtFixLIakztfoIsrZgBXxeiMrf7jHUv-AznOq5mhK-zfhijK5vM39jqsbHzrKefT28PDVS4eOXOf5y9dvD7kP6-uUv8XRY-VGBVuFcvLp0VlcoHwmFqzRuBaX3p3Zu7PKW7TkHCyeSNBYp4gLAtXyfi86hjg5Ym-OMlELoXZIn9pE1SFuTWFGqG78hJVJCziiITUS8mVQlSKecEbJEpWCjVLO2cXV2kxWO89fPCsnn1pnPYSbBDMt18_50Zg9BBbqved_4Ptvowvrj3FpmZvLnrlJ3eW7yAO5sE3DXrbwgBNZPEOI6B3wEHHyRYRnZykWrGM0CCyNkXzor9g84kOf6D3EaKVD8bNlsuACQRhw9tr9glgEx3xFSWUeCHEyPHmZftPZmnNnZipZOJBhwsCBCyGEesGSTeO5FiWIsydhDdKxkcasETtyBtTQ-lIy87U7ZPlGAWHoa6qqD70YtGdMY3ggRuxuAkaixVeYqpnpm3-ppgnBF8D5SDO_lQXvDT8_xiBpAXK0MQlmPxBhzCqpEtxMXrsQJpSSGNwUCtnZBXVJ2Ij3pVPHUzeCZZLcOe1CQNCCZ1SGKEtgDAkm3vPtNAEoVFVqcDTM5krJkW8uRYYehfjXhhZoIqq-gZvoaZFwswBuZlm-sJzWmGZ0Qbw6IZgkw3W2wyDKzONYnFIk6igza7bbl5WdNdswWTO42suDDqyWtBWQaSsgK_jgVnAFqgRkZQHrXyKnuw7sFbObn_qz_mBzyb0j83yCddoewvq-7xmxE7Ebrw2bLT4WvDtFDrV8HTZ_Ej1idY0EEw9oo3AMZn5TjE7KyOV5peSJfq25OlFpG5eZRmUe1fuq8G-1wknwoZ71R91lija1Kuf4fD6PfmHEEP2OYXzwiQ6xblnvvUorgwjcMxPedVcGLl_AxNPnOsKNHXr6yyT6Ga5mD_fbvjhKNNzx-vrYioouwlGz41tamphoWmnig8RNfcSRaE96o5LY7o1sDLpjIpxHg94xLOaWxJpFGB6LWFO2oVA3BLBcnlUijtngDmROADbqYuF5Q76JyS1qE_8M6ZXe-ISoRnr2aiX-khJ5rUS-XOIXlGCFExHA5gK7WvbvLodnD4yfVUvbrY56pudYJc1OB_WseKS0hLxnTUcfXiexXJgd0jooGm9VGuGgdnnn23vt6xCBzlEjdbHXe-vLDiNG3J4BtgR0yHmWQgPzWKaPUAau733vSQApBGcfuY4J5bRRzbFyfk-jES7nKLGY76ioUoMQUxGPwDOYkV7CpoDI2ySabGi5yAejXRgUkayvm6WqZKIJK7YX1r9Lgoxan0q3-KDMgaCM4sqUExcE17xBh3WcUPMgsByDsWFazShWBOrDmgh6qj5_jvNDg9k_gNDBzSbxMdHvuDin0VGXtCbmGbb_f7qVJVMmMn4YL4qlIFxxrQ9_9tzqkAT6jKG4k1sBBPRlL5TRHkMop24t8rZWxChnflmwXbUnqrveZFUkH8SrKSqGk-pbS8kScxFNAJfLyTgRCG1TO3nJGl-6OduzqUtXtK3RG5bMzEpQAO_isXBcsXbMjoKvNeEhOBOGHsfcfMHS-oWYzl4SjXLOPEydro5OgnIuxL9A6mE6ONOZQ18dl4Ycl5VqjXcxa91PTGN9AlEY_y44UFG9aG1RohNRYnIr9EI_1hhFLkznC7nNDSk0GX5iX6DxD_gmXxDMdDRGZxAI0pRdm9-joKOiSx5idA3DvOhURQfGKjI6rEmCqTzxYGegiOXxmukpPEK6GMkjV3RUimM139BBFC3upAQF75tgXcYviJMySapEOX5SS2HeLvcjTuIxPId0k3IfSrefc7efqOjKdvtldQk7M-7RYxZzGTEW-9FET5iSjF6V2rkDXajoceWlRAtgLk7OH10fCh1O2IdvVAaXwK4ilSOxCxLlA_zceJtx9AAnGo0coQc8sAOg0XGtmyOWkXApO8exwkZSGs5n4SxiMTtBrW_8Ua09dy0M1WcTXk0v6dqnSVzk3ExLKlGMzZabNHeAs1c-f1Aa-ZiPbPoD4onxpW-_XJSeu0KsvuDbW36mQRl9g_FBoBN9y80eK9izyY0mNFlvza1dpSCe79caiuRKRXfKunAlkdw93WhEb01VhfhYugSOpmpVe4ZQ_jX0Q4c1Of9hWfmhZ-_vQEeq-0nKyziZ7bGXb8pHvvscsV3lBfU_dZ8LXln9YgF6Ovpmbq5ZuRwMd8EPLLXdrvNMpSQpKofRk7A8-PsWhp022Mp7TGlUDY2nAgs4IXoY1yUhVhIEVDf0Fw0GyDKdDteztMDpnARuFoZ6G8ZUNbm0sPh8j03MpJoM0VhkRDCC60V2VljrmBoblzJ1dZJYZTllvW1c6c9d-jQ3n3IX3Emg_4J87aYOpuN3sWymUrs-6VL1qtGQy3ox30JBE-HfItQcEQvyhvcdPTteb8jdtm3TxA490eCndUVrzg3ijHZsO2XDOE0IpbACYGauiJqaQAOKg3Nyu-CSrogmcjZxT_2QHfa5APiemKjgcFauaO7HCt_45RcLC10qel2q7Hqfg1liLVz8Tk3ukvtdNooi4i8e5v62OouyU74i1d9bKKO1wf0r7sxYSPl8QIIAEgm_P-MT7HGansb6KIUvRTqZVP4Df9ECI8syMFLwsVQWuP1PvcFdb9PjA6dXN7PolLwh4Isjb7qbbj_a-I6LtNwim-r5OCLS0NzGIwoz10EGMCn0xcU8-MzX_dCJjPu_1Ezuzy0edAg82pUFULHg_xlTujdBn9dwKPe7OEroXeqa0XnLyQCn28KNXing6OiKj4WO3vIqJxClbz-X6zSEPK6eyuZ4OMX9f-ZMns9PQyEfYxZaFoHN8d3TWgYxi2L6dFozDxHDCex1o7Epld3uKQfgMB_TTHhMF1mzezChyfuy4-x3Ufb7OYL_OAt7MyPNs1h43SxNTyuFezJCWqbkw999YOidpXqXiKebVYdhvewSXVqVIbA-yqnHNfL01lpt-xBQWktLvhuILwizBg5ZBpf1CFF-UjE1YykZoULx-pkZg7DU3uedK77se8KXgC990yTcAbeT08AIewVCKuMWFqJYmtJnFoB6y56GkM-lsPQ58cs68cYMBpHEtWS8WUStRulZFCcgcZc7h4rl9gJMAN7gKmZSMkpZ1jGWujwireydaLCKbJv9eNoax1lewPP2g2dT8ZNxJqTehHpeR8eavfM__C3YmYVpNrOFtf0r7ixPpYT9fOr2HZl-mJfrUTw9A91EUxkRUwVbcp1ximBquHIbIvC0NS3OCP_OFlC947b4af8LJX2GFOnLQJxhPNWggkZKDkUwLVpwQCjhvLqNmgmB2jvTiBLpg0hE-sB1qgocEdGcEtqTe9NhumufH6dTOixvtFf85pprGjc_fsb9cRuITaQOrGeurZ5R443u0hCrAoaAGGLDRSfldqUDMNGVw7ZlWTxeOaxKMOTpUOh3XdnL6XBZ_Dt2pqKJpO0b7YhSGr1oUDeG0qw9it6YQsGMd8DQwnOWU0mahiX0CFt6S3jWsaF76qn_rtA-NQrtCtQfGkXCAVWwKE18Eg4aM9OhS9wRAXOzScyNT88QWdU9Ic_Tc5zANirAQeDA3mWDIOUyyggbxa4ndoV9B1IvJsj5NHQGquKxTmJ4Ql33dTNwODaCM-iVaYNKTGmsz1yTB4L4oLb2aA1EDf2o2bJMxScCO3rn8o2HxBCx-ghoJTRYapIe455pm-xXJRZ-VSSdFoSnFU2IFe_iWG3QOZc9YcoxO-EfGLwCpk5L5lmkKOZctvRP7WiWeYhSUb3c9J63ZKD51Ae7UaeNLZ1m0oWAlyvbOIk5kgUcM6ym_9oX2zlWcdJAQIyz3afL_E9MQBDeaJXdJSpuI7m1C6aQEMZJ1Rum9aDFZDpRy4PpI3_D0tpE-qqGEeFl-pp-uDAeFJPJlCrkMpL5aeFbjpK7nbTkjWMHQS8HxsNyTRbGZ_UlhElXNRYmcouIVU6ont2CVuAJ8lncKRm6CdbsA-2OD_xKsO7WTMgbZXSeQc9GsVRJaSVmQ81ahMFengfmAsuHRIp-6QNbD75UAZUiKwDfckFtlQGyYo7vzExxAbGkhsEEkXgoZLy3it9dk6WcObEF8sL8chVnMyeWLb9vGYNebiXDkyDt50zlOg6xWBPr9kDIGpxYuNHxy7AIeuROPLYd2ZIQutP7CFlZ3mA3XbrGBGdozgaSkh8QwRvnL6OX7hSX6n7qOx_7s8GmXKc7qUY8RKjOla4W2fVsEtQUDMMm99uE418MmWqkJV9MJYJ1f4rAVpMAD8YFY0K7lR6yJVZtRrvC_8BJqtxC0cJ67YyJ8YKtipGdHMRHEyIGes67R28wPZFVaRKtjY5REVi1hMZZ9PFJPBlJbPcxMFiGEI2tfBglrfIqUGUSKjBFAChA3vsSt9SO4VXcsnQFLbtvZnBi6DuEogjEleUXqPdTeoumV5IBaF2KXwfrP9HTEEefGBtIRuaRRMhyUzqROercdD53Xj78s1SPGsUZ3-wJeVoNl_QaSUsUxcSGVyxzYwKEjd15Y2c4kbLKaYhPqHHG7tba0GqwtuA46fkT0brwsY3wsBBzVoitQBA-a7ko_av1DR5rECUmTC9BVMOyLmbv0b-cx0uLR7-iNeepu2EAJ6m44ZQoRr1tzEGXc6FjZ6mBrUqkE6tVGZnFD6qyEg2CJPTNmGcN1RgCE3jXRmoURN-Im2901Bi6muiFm3s9DKAx5VU6Z3cm5t8_eOHM2OWlgLglqnkhMb0wraMKGnIWPY9umO1R4oU47lKfxjSnEE7mKiulQlmEoAHiCuvxHoxqKpQ4KG1IysX5zPP2ORbqFy2cK5lKn3BtNJAXUSxMFnAx-29EUmyIJFML4VkMaMGR9fLS8SUrnS6AwqIpbkQ2CryUQ3aBeACeLEl6k6ZmzJ4cW17qzLrbXDM3lTLtj_AHrFTjz4KVatbX05IxqufZNOTnOsqGJ_VcSWFRm_Mv7MmU2SgrCZW3pR5HcKBjRqfcmzUzHmIFTtLscx3nSJIvVfFaLLwlXf8RVnCF--PK6rUwGXwSykz4ROYZQtk_KVm9lSmE4eRkTOj5tg7wkVXHbjwgvuedF-wyMHN-SkgSKjsqf-rNomP3qFJ-sODEPVoezUEAvnklWIoV9zgtB2IbhNDOTXwdJXHmG6fipZi9a928i7e2HNSnIEmaTuA0D5oSc3XpDvlL79agJCbqSWGCknyDKKkMKLC-Xjsbq2QPSIN9xJ_DZP8AC32EYHqehLrKlsJb0dP03LktNthSrKuSFZ3BONIM6HJht9DCQtX9oGPkuTaF-KXWsMgmv-lrPHJ0N_McTeSJaJfUemY7MFM38j6m6t2lxfPUES4FH-NGdCyhn2XLnLbpGyj3I2LL4iI4KrkztVzVMgAcBkuHoBluo-EOCW9GX117kjARKxJZPDusY24MW3Ghz2jo8hDobvmBoZlhzQVZrYo-46fnHs7nEQTz7mFYoUKq8bNQvCODAOnP4cLzf4QtHbs1ofLrZSVfDB0Sq45tB342GXQmuzcSWbPMZIcJabZKcsAGI8gKYiB70amo4a_FhKee5ymYnC-DsqnPrTzKOBoKnQ9aInwkresHQda6tuoCIn0bBZHIE9hHm7xmt83x3zk5-CC0nYMXCFMbhQTC2xCLbGcAyow-bO1wnNPlvPLremq9Ep2Mqhr292tVcM7y90gqIypYArNcq3Iy-ZdtNUvTQNCbvUpmr-nQEa2tcJYALVkEn0nWZZ7FletUo59d67NMJBjDpgFpo43j0N76dugyajpTkkDMzQKCTQ7pqpm6ytQt34FpLsOPv4d5g1s2kGYjnTFEFi1-Xlii1jPjgtwpv5WgFWK2siE0o2ogQvOO3C3PX29IlASavIJj3NL4YHREvTzRw9Oj9Iq1l3Im2IhfQBnswmQsNSUS8GrqoDS3MNEDWl8JA7qECW-tPUQkWErUo1Bk_TQ6qAEc6_JbassIjtmVuXhCHByH4FBZmJQKEmIhK7Kc8CZGyX5T1nmLxh_z-MUOlChxJg4_c5DrCauQ47qjFmu_Yk-sxeELDbInrrZgYXybMOWJFe6iVUeJxMS2x_PNt8F7YqIZQ36H1_mcWhyVYtua4rutKk15W41jPRnJzcDLMq7kn8i4EkO-se3DCgG68Gw4AR4Xx_hBbPigyy5-9rqCUcCXqlDOfN6YuJ6nbtE8JEoCCdR0_CNCZxtFf5vtGmC13oFVXnFeu-wixXQYQ1iZ3AiUeGw-2FJTsa768do8wF1eKNulsh7ueaN9co9QKBoN-gmxMDG8ptAZ1an5BtOKIiYSkdfzObDOLSwVm_Gqgye_P3l8qOCk8fDNk4eOV_eJb2g-YgmeTggN6qS2c2Y3ktj321Cp4iLEHA0AUtzCRTVkn4LkZ0z2FFb-oBXsnqofudiZTEZHAZcTYOkn8C1jA24GsUSAMlGT6AgqMwiY-TGXKHg1G-HQ1Lf56WN-123dDT36_Xg3pL93IIu-03G8H8NqzVk5DB1z_4Sj-tHrAQw8PCMhztgLlQ7bep8jMcgNIjXlsILs3oiLQxWt4hQRKjkuipjwJxyTkx2rMxZJs0qugGF2tL7eZ2P1iAPZAR-AJ5OgW7MSKfQ57ryKBgE09BtuTv8F0SWTeFN6n2xADAKwgcEVgT-NoefyT5DBhJaIrKEcqPFk8gqoGlROf2fQbCpJBKhS_jDNMvGbpI229AplJmK12-J0MEYCy8zky8SwL61EZ6NFy4unSA3YsppnDCI9AzDUL2bli5pHVDNIFZxTzCI1g6nSK9l6OVsmbAEL4TZMFiRgPkFvBidTEyMW8mF5ghiYCDkheQeVO4FQgUQFuPaZzebFoVyVtVSHgZ1vZdbBT7EYvek_IcimtxBkEkTSiplZSX1TxmzDYokZ3I90vDes3VjDWyyMeRuNVypaDVFpYkcJldYgQj4b0hLRiYsyZUAVuGYOjD7SaLWzaWuSpqfU1WwlSo9Xabo5tIkpZBMrx247ovqRUSOBzXxYU4AIztPiAk_dWQmJ0r99HhYckqKPOAIcQBY3Gxlx8gqtZS6CbHNkEHubkmkaE93DXaA20k6M6amyYejagwdUGeYkbllXYjF8N-G1aGN7nltSkmUFy0YOLEcoXXeJ2YUh3TRI-hPgTPgpV97IaQsGEE_texh29NaC7cnLiCsQ_P0F_vop4Nn1rLGEfCoLX0IbjQunpFieLJj8amSwRGFZnR1GgR1QcAilaRn8cKUralgzTbC0ZElUQgS6IAT4vQqJbsR0YrvegosCdpK9ALy8YRVGgoRPNVzNbGSC6Ocg-u4aVk1F7_jNKoSQ8ohTlszKkfwrJxvbcST8yQlWXIyU3zmlNNNE0m9I-kD4ARa3SHjGZZivVdEv_GINnP-_gUQiwCKQZjOQGwnmgoaGQbwoCA-iF3wALpZbZYG1jAHEh9BMoWmNc4GvEngFjV5WsR7kPLJqpKW3GMtywWUDeEJFI7EM3DUBJU8ufX1lBcggF7D1WAAM_tAgH1vw3Ut6uZl5ILOBjWguAMPdlF_o2gAA",
-        br: "G-fasxE26A4kI-TvNaKols2jiKpapACqpwJ6wPZyhJ5CLZFSlf3gVmtot_mkmGHvaDtIm3i5E3n40xXHsBSlyeEz1VxQ9mV6cwjp_9HsmP9M8GlLWDq1COxINlmCtI_fZvxm6ulG_binZjgCT7QmFUQun7HNERr7JNeP2mt538tJtLXMK1OAlPyLKfV-Pn-EZWRaMgkGpWmNrRHkcDusVmnt9T5gXZJbvhQ8oybF-i-YWUKKY_-9uvqv31FvUm9gZGY2Rm8KE2CFGS5y2b5rcZtTXcL46fD88jPX1y8S1Lu3DKtTE7KqL_vrUhzSlN1w46B1yU2cLjZz-nrXI-esbc62305FcAqclCigQIHhecvPX6stjpBTJ32SOPOUp-EWRYnZ_vdNSWmQ4Z83Mp6vfc1M09ebeiGdcumLlPqv4jCNtnGxXKAJbl05E7NMtWrldCOQoAdYhAP-7dzUCrFkrXDallqvb9YPn0gbJAjrLVz7tfrKNRJwwowPZ4S8_ez919l__b5dRdad9cQp3WFy0ivNspABE0ihtJTnm4CZpv9XmqZ968YEakOIp_XVJ_tGUU7pcPblNP3_ryqiqruh6WoAnu4GZok0j5gkARO8Q1Kqboz0GhjuMzCi_SDKYTaT2j2Q2kvIDIobFR3D2fkqOqbT2oi55clPMGl9_41YZ5bwzpFWEnhcpKHr2bNDeX_LhG30GK7q6qNuzkBAROFqvw21_yb7kmxp_2K6MVUISSZ7TwfITY90nrhFnfr2IZiKgb92oEgGjc7CypETB0avYQknCGALG_DgCnM4gwMttVVSSjldQMlQRjZMoGaT3PUPg7Fjk7wHeE_tK7LJYdZ2wiDvpWDALZxCCFcldz3rcm4TUDLpFowLACj_Oqvrh-cFOoA4AUB3BwS8fzcBReqZ0PTwDiCARRCmjgafdR1teTj7PqrVO8ArgBn2CmGG9QGQkC0SW3RCuZKk3_7z_gIo4VRi6bScsDkj_RYmPWzIRaGwbVLfmbpnvlYIICJsCo9XCP6cIkn_V5W3nJQyWDW8Ebe7WWaMbcfRkPT_x1Xgd20haFrLR4-amcV_Fpnm99U-vNP37D61NYSUOxmCxZXjXTErJXPaJkB9icCXb-9VqrKm8WU6pgOXs7GJ8N4nCN2GtMLdzC9RjGwdEwO4aTo8RWgj5Fn7GldaYc70GyZAUgB5i-K57a5BnNtM4eZxK4aAe-dQtAguFFE-XJJgDdimV_giNEoZiGiicR-h92eAxtXT2QKFnpYXpc3rhCIIK2R-lo5_UX9TUJQGUHz6L0Xs076U9NcmtrIpQPwpmw6DhfgV_4X5zTzpRi8MRFCIeBepgEtloUWN2KVJCIh6SDA_32w8WYxErDQIhyQAzrwFVvZOmW9GWj0cboWc5TFvVfNEp29O-sIvjZXLpvG1On9sd7ey8dvX1cadufYaG9y6l2ctiefIif5tcly4Z_9aQa7WLlrEVK-J7VEznzpfh8Ezxo3n2RYylCpNV0f0EStAD5Dej4VTQlEC-85S9DNg7N760_BRIJ2xDFiZlYZKiy8zaG52tx8Mnat706B4_5ZA9NTGQMaQLlOzAFw0WBH5iiT11MJV6vtUW9t7BIhBrmdNyYiJmqxoFvGxbP2xJn-GtsAn3q_sCkpjRgse6gPSO9VZSV3k91dtOAudymqbCAVA0XPdUIbaJ-djxhCKbOLXGF0R4omssvVJj6LxADYH0C3G8_lHn09KsTR6pOKViIQKN_eoafj8T6Eqer864ye8s83Dd2-b3x4YzTxh17UfAHjtfDK-COrfdbBGSfSciHccISOln62nfSSeJp5rHk2J2UWYVlTNrk9UhGN19AUSH_Fv9YlxsOrV_zjxT2A30XpaGsAJLtu4EVRW8Y9S2LVvB89YLKwAqU5xn6bHHfDsxLcmEbdq0vJt1atA3KmVEOKJYE1Jdzp5R10vyr6m6QDn_9ERsjsAyrRlado-2QYNTffFvR4FF_dqZuE3ioiJAPGmfEYKSgAA4TUKGWdUdWJesY9660IAu36nhLxNiMKL0ZxJveAQcK7U2Dx797fEf6UjEv2WJEQXZDjtmMFjz3XNIiC-6UCXqkpbMOfIMCsnOuU9bX9mASk50YpxhEppQg9JQ75_OEkDIZG7twaRRDpq5c4KQBOdAe0KxLF2gAGPUKWgsRqjn94uiJS-AQ7QqLBjhD6zuriXmu-WzKlccwwoF4rMR0FlZWo1UOrIF_jmHs9sUSrCKbVzSk-wjYy1WAHzGDqcct8JBXHTMIDTx20uWT4ExAtLVddGwAI7t9DQaDSHtxgdAtraNTiF2OStWQL_1c7oCqUP0aSzxFOaWYNCCC9TQxjYjVtzrixuNdhUoiquV5PjK0kKkAhOLMMUlwnitCIIBHGNssacSfqyrrrioB1UlLqu5t5KMmKaVkO-ZqXHYSGNgqVAYfBdcBXm-sRFljCtrewgukIjm1EwaddJjHUkVSlQeUmq-B4kNNSVLvBSh6sRyxSjSvHIUc-fJZ0CAY1UxdEeWtxTDPKfX8DwHsSjSi4-dC6hKwVlyEte66a1pGMTs59AdovriupBTlDIZwMoL34BJ7w7_Rcq7xDfnL_wi7VtWFzU36jr0poz9kKjqojxAME0SQ5g0mKORISi4FCR-w9s2PyBV17ufcgz6o0DovzIen-7_OGQJ93XzDzrU9Ak2R2iVYnFhxCXNBi1K_SpTXCal37TQFyUyPQJTVg8F44x1oCOWvzMVIazsZsShfUC9nzUNEPnPUeU1S4Zmv3-amErS3nIsijq2IvZZXmugpcd5e4L87b5V1oSzBKwa6quMc5wCoeBkPABRP2MMToe7w8N6l4gjaA146ZADKwzY78nWYwWLpIGFwy_IQb_mmnNgDTPUKYTOASXND6jpxonpoSuJTtJOnPA2jKGjGpeAaclsZFXc-1Di6GL7Jb6gO2CFOcMV6EdE5eMASxuDpeDCLEvdQvS4sBBcrnbdXU5D_yEjGeqqaGKptiWlRSuN70Ag5FOMKzAONKGcMe1wQTsE1ZZ9T1s5I3GeoKRciYQA7X7lSQaEOY83LSW1HTGiYBdEKHCmcFlqnexdquObXiEt_hCC5XU-k32EisOnNefEC814JT9jCpahCkzvmNFWAuGGcveaksMLlVyOlTyZCAeeJuESrMJgLucjrTGGJFYpgZpDRMzpJB_kagW42Bx-xVs6gi5uHEVkWp0DDdsBlgDfdbcyiSj9qL35mxjsz15Ee3HYtztNh9M_1EgVnND0N92hnX8hJgyrWZW_oKXKN9fjljfqSY2Lp7cyE0zUjqwC2zpK1dtQF2Lq8iObnruzrBb6DrAELSIBQZdhx2lzZYA_XRUYNulyGD8Lh7dsfptiI03jC3uDVd18PNr4RR6H00frDUgzGjbRaI0zky3iGOEFh3FAmhs6WSrUc2DPSdRvAP2Wbuxw85DilRqKgSZasSaVGX90mDISUrWFNHCsHS3Slppo1llz1GBzV022mf-w4WPqNmgGYyxkLRCsqgNAGVIxaMptlvnmQVliJKe72l7kWk9RLYNoomyISvZzFjbdlhF4qCMJJraGVSa0hOlURrmzam5WTQZELyGpJy_4NrVpBuyf8CfbtuTARZLimpZEe1aW7YdYIMqXxIkYBXmWAixNn8aBBPrqYYMGGRPThEKlyx2mIpN-AdkMDZAVZ5l3Z0abGsJViRqXARVn2akZydSpzwlFT2I_eUmprogA2deWfpUfcqxHMt1pRXDapy6FyyIsT7jKCaeVp_sflqpdJtjRGcoVcdoM_CbD7Ql6dbNhhpjDY5mqDVeWLTp_Ruy1_RQzMOLFbMjLsSN1aRNzyGAZ4C6SmoX1zIHdhg2Ylb4kFQZUieBqU-fIpxVz9qUXKYUZC32hvB0kZ3ALO8ZN5DgGPPSkIDfjmzfg4O4uH4t9ukFNj5Cqh4BDhN1xpPCXCo0HpiddQBfZVQX4M0CfmIshoTWfBNnGu5tslMI1dKI5smENBmj-CXBkQ2H59t4a-w7JzKX36AuhejqFVmxtVAd2c9gs4aJqusd82B-6i9YRDYiQADOkWo8xaqkgbDiJl8V-phPTjaUZBylSt4LCK8GOCRyMolg6i4DVNUAusNxja_rE6RE4ZVkhT_ISsyQFx4P7IxVLc5uGyM0wDKCgLIl6BWnmGZZfTjjF4FuJ_aaziNMlB9JP8hosWezWB1MZAkFD4oC1qFZW5pM63c5QH0wNVmvGC9qs5IddbB_RHC8QkxleM1o288Atj1gWwTlBQI4cv6wvH0ghtOelJp0zhtA4CImINd4RgUassYv9qMAd35GwOpqg-Q7HfQJWvpt3xrL3wqdYXWLsmkZXN1slSB6PzaOh5EGtR5zPOeVq28Vyk0Vg1wFaUtrUQsKOMUiahQPPJezir6QaVta193RQsGM0A6nCLOQj4NFp_BJ2sLWTBs_IBAIPL5Ts9lpsgEk8lRbBxO5P40cTWNr1xIqmCGF98VrfO4foDbOIKLCXbKjW5IZSladGYNn5PjuJot9rLkKbEw4GPmQvY08Rn-UJ_bPXdaUDUx3uoZd_mQKZbaE7VkPGaLLhLEEoCljC82YsTaQfCuHpfm5hEA8SqHPsLVfq821D4nS2HUbQEX3TyCDoS8B6KWu24dgQoVWmOndEUEJ2je3VMvLeG23e95dU3WYw9H9GrtZzQpPdgYBaki1tNL2gFwr4mNqhQaiOT9YWuy-gtvsIbRK60DZf9dNegA8QFdZTiIDvxqcHpvZQUbfYleKqKzYauXiPZOyg_il9XLD4jNCdiPO0SxwrZXL3skxyQU6b9S8LSL1AMfRremfTdjnzLDsKHtuouvZeIGdIuDEY-nTdGGR5wRKg2YRF3G8MbiSbBtB_YrZ4HcHSPO9k5AgBTBEhJXBZK8C9CehAUnO8NLn-Yw2s-ONawShsSVOb7Ez8l_kK_9qngjN9_t2OenJzwM3DMOeHWLnsqLqlhAL7rDr3my5oCvEeOOyIdaplm5NK7YLy0bLSPNbbkr21TVFmGR26XJ0lLO0-h77PQDfFs38IdKykcdTF8lMA6vCdOTW4ToBPTRo7Ef2Nl5YjzVzY2wAgDERwK8RK-CctS7d8JcgPBGEdJc6ti5T1CsFky8wVPxpNDX9oA9ZW6_XV542-WJoESMffj-M5s38IQ__9gVhpcc4PL3KvjEq2YH384yv-MxYbV9fLIo_MxBZwvaTwIwYwNXefKdD7lNKiifeWYUHp5Dav4X6jEwuSJPA0YAEDwJ_lIx8Ci6EgkdEKWfS5rhPlrlbAK0KdKsCm16BqotpWlEQHXAO2K2G--dyBa3qFENUFkxrtgdRgjmwUshskUcF3MIeb_iBeCl_diklBnvY5Ht0BhlKFIgaqDWimqUsV61sQmXUo020bj8nTzii8zISe6zTiQr61aqafWN_lPuR_Ef2vaXLHozohSsUynq84ixwFENCq2bi1FTS_0c7-aQtbXAAeuSKcKXPcw8TCEGAaUpLwqZ8G3K4uSMmuh4CxJ_l6nPyKENf-hu83uGf7kl9mTuRNSuvwqGld3MFKw-2F5nQB03N8VKgnuYYAB987Mf1L1zAThMFa_f9T4PEA1kT05mQmbSsL6zmxOXPnuKyvbMMwKxnXiSgnmmXLPZE2U5GropPoMKJA2ULuMyGtFWgDDCexQF8_QPaAGhd87aWgcsLFBxGuOvqAIByL3jgejXV_caY-JGZHMBBQCSQOjsJ7Dw0SNAlts9at_O9NZvXDOcZpc1nFdPCDMZwIT2p5o4E68lQIC07rcVSHcD04OGVmVDbrdBCp6z2G2sA4HtyN4Be1MX8aROA-iZz2hJvSYeLOWzVMXLiqU-QprDhmrKL4wHy42ndcsCsMWZN3eLv7p0nf3nlk0_zn6-8UKu53YEmYO_-orw4_f9rBtO_51j-tu__VBsn9CeRrS70fJyxK1u2Xe1RTmaIPqpF-J7rjWreMN2PKUCSdFGWiDbsrvSwDfMZZvK8HGw-ptg68p1kQE2dCdmRE_3lGwGEitjyILahp_VvLSpuVFeulb1T9hbGK64HC-8AUi1tCQH_fHbfTJY31wq756XCKiN3rW7nVrluS4Mx7wm24UTfJdv0MZ0mbJKwdV9NMPnphq6Z9F8xDO4obkGa_BEKTnC3dPtDHf6xWkp3Sitqe6v0iHPCnTKGTkPJzczhswHJ6-O5DkEAfGGrHD_Ia9fLrUuhP2zvKCPH3sv-lsvSeSiLHMalAyA6VnI-6my5GeugY0hY4FZyahwc_2I3owHSnQ5qlxIHNBl1kMb0mTPmYvAMI7yCkJ9xgBYK43GxevIKV1eZ13w4HJVxu8LpE7Uder_ZoHVk_YvVc3Q_XXw0z7hwckpAG0kvjlT-J5WBMeiddBmV68oMbcAVZgJQ-LnFSc26mrUQwNssQeM0QTozf2B4b8UA1lPrlofocC4DBw5efeN8ioGTQSwBl9_Efsdt2mhzRdPOW1iAgQlT5GyNIk5mccC1hLpxpEDnzidZuSRamK44PUPttSasWOn-9ZRAZ2-jWYM4hEEg1PgJguOUDtNfh-AzIIVoYuZG-kzCZ6rT8LiFLpmDdnLvOZxgIty9wgGlnG9ZDTL0B3EiKEjZK47o7wirJVqNZSfHQn-I4Y2TlVmr1SKjHFwNVSq6Wl5vt56c6XrbwwUF6VLLNukEXrpsQafpt8Pk1a-IAI9VLGDr1BeBCPzUsKZmr_kPXj1A-psD7Gf5mut0ZgocfOjLd4t6R05FUUBtIpKJfuid80m20mR-pH8rYx-kPzioDa1xcPxkBXV3wTDer93V_YvpeFnkgB5-5iJdfHwVuq7qTsA6Jr-rFcA01fPGXin5NqsA19uZd3LkTXYabcUFqvEBR07wbEK3aoo_9Lh9RINUbw4g22TLwBmIoRRm5AzuwaVMaBtsQhc8rT6PFk4gNPtKypczqx-rsYWZR9DFZD7wG7s1pMklCASzVD45U51qk01sWnIQs_S5Nq32iJwUAoVh_kkDlpeU33JZDd_XDWR1oy4Vpy6Lr52pkkqrYYNpNGbmJ74xJX3qSMGmBpccWP75h9Jmk5bYkH6VjDd5z_vdiJTslw0RQ2h9qGzt1cFwJKejBbXnOFiNt8ZwKxB7EoxAoNAFAXLb9H7k42UPiTnK8tytjuhXGF69-KybutjeR4CP7_Cl_HmG_cVzWNLqQpE7LvJtTp061i5dylfdSeXFccF7H4j-HvVAu1zcVgr5jeZx1-7x37G6TPBteaItRWt80l40iTDnBbZ1Y6uH5LYt3gC4j17DyXe0zI_1HXxhC85lyZ36P3AyBP8Plt-cnMa90FIfN32AT3149682Th0vzkeIHxQ-2PxuNe34-PaJ1arX1mOo6dSXhUcZeKEZ7k76GK9jLXBDwZvJWJa1tzrKKJmrZ0FZKUWQLNl3keob2mwk5UaWeOdRrnbEeXJXUJMUGyt8Ts5tFIW7Ox5Z6SIjtGHPLldVfPyee5nd2q2d7gi_zpYZVzDGCQVuUj16-9PGG4D1U-FMqlZL4VFYpR-jXDmiaRnlXTM22yV1brwtL6rPc06G6JFT35HZWdlydYxLGgOmViy1ufGVEY69or-m1fYYelu00hrLlSQZuoTYGCi9r4wSNZr3FXWvRt6N3FPO9YtqKYw_uGccRHMfF8kOaT0yFiOH5PVC0_6CMU9sj8KM0EfdKNVVCe74IEz0j24LbTHHoXIKNkGBIUpmBxafxsLlIMFWA-p38GtidcH_rO6W2212m1jk60V1PJzV85Fpu13GhtSx5tu30eMj5YUGl_mwvvUIHi2UJdGgS5gm8tDN5v-fhpiOM0PomHWo1wd16UxN0eussoC0mQaSer_sFLh9sFqBBaVQTtCzdrlKBLLo59iXWX6Mdayq6XC4l0qQVhHGCJ-7XuQ4SSyF2k5CwHFv9gwijldgjlT2uq4RXNu9wpevm7_F7VT08ZTX16_6hqhfyvFGoKYV4P5unbwWfEZKSXt9m8fs7r_QVZQFPMIJoT9aru-QeWZ2ayg_vyfYy7rmPCza1ku69a_4Lk1aCMQo9plIvr7olLxv5KM6ljJdi9nq1S2QM4-hw63wgDvFooomqdX2gaW6YwvGjQoV9iZr6I6wI2LBgLRTxxKHavaI5a9OimR0pe52X62uWLvkBB7vD-vV0Vy7dWRnAfFl2xc6e1E68pjrUNOFJdnCq5i_tSh_tcQoLOxFTwMmYyi5nAL55UoTCOZSeAVU1yKIwsW9ebqaGRssORUmFe2v2gJSHHyHpGP7JNW5bq9GqqrkpiU3_UdJ33ySSCe4CLC-mqpNUO-w6rp00V09KOsyhNdZy0e2MqUSGUdMd6oVf1KoStzkZfte4wpwIQyiKTemCpM1HantR8A4tqwdUIx3zHAHZn0DNffRQkYX_zSU0vCrODxHWxQYa1pO6y7qMrbOGEjIPCNDNp8XEA-USaLO2ViBw4-U9RiEdNlaycE8UGWlQOdO5XMoana9Nrz927QSYZd5S0zsgQ8oGc7a_20AwSzNBoRjHmcU1fhqmf__DfedolpiaEyN6H0_VW3NirXhY_9b256ZPtRnPQBVf_4dCYBuftINdbgd-1m9HL_BPg2aXQfgv_cT_Tjx3jNxwrU2seWVxeSw4G5QOH0bAqT9Ze3P4zhcZZhFBbdT1TrmhDkkm9-sEa31IVsqRy00O_IbBnOrqJvtd6dNzQ1Qa0mZfi4A_VgkaruKS3uHtPnBgL_jknM4FzPVrDhQANjiyBs4ZRqxbSHRvJq1Zc7wbETKjs4qMRAyz83PYr6PWyqmOIOnD0vUwwLhIVMBN303F1kOVV8knVE9xoyO5mmidvpGyvC5NZFTNf8SnGAKcfAb98wMNft3MC0yP1UwyfVys-m01AD0eNVlv7xQJavHisz-q5lxnfl--CIR3fP4WB_pvwOOWNrLMj8NiqMbtbRToA8zofd8MgzNKDRjA_aTUg_-lrId8GzxD6GEwm4KOBb-HrWemtt9LMXab3zc6v4-ByyWigY33bfIGuKHp9FE9lJLyILjhwwmkrY_ipCx_Qe3D8geVNdIl0Va-0YyovsbKi5pcHLriMU8qeNmSE6Dpw_6zFMIcoPWttfnrANKECPK4qRejoRCoaQE5lsUuIHZ0805Ll7aJKM6MvgdXv3JRFh17aDk1LuhbkrTN76013mzmJndGzIsS0p6s1lYXPcpPzLE605K8c9jJzsP8DgakBYUT69HgyMknZEuSzFZLy9kprZf-3URrOoPcP16zXRjU_Nog8qS8WtBWCrkChZ1dK5AH272bm_kP7oLviSLurmECs3WvyZnyiNUNmKi65HBE6aDbCXsyjYr0Q-xYrRp1ewEASCvis870LwfmTHaTnLCBuNWFfCHG7ydjveLyg7AjZXwt6GVFQiCCefgQtgN60kxZDypMyNcKcOdnMTFgCtdMZSZ-vWKXudk_1NXfqWdFHrV84j_y40oa_u9vyyCY4oJvl-zs8HEAhuR8XtlbgUTilAhA2kSpZhg0qpk0CSvsahb3VSjLxILBUZyi3uPUKEvzh3mNTp-5Bf6yCAhGuhmIDLU6fNIqlx2mUFvfXEzlYXJRHc-6JMqybHS0I3FA0cqKV21Y8HT0q2lwyfUeaYotK1xrrJjcRPj6YsqybmZE0qxm6VhfxMRSLrlIg-1SRwhLRtxceV0yg1117AaDTUf1vB4gD-BtctTmM7B1QNC-RwB2VVrXxcu6fDc6POmaO91UgSHtOPeL0oivtLmkvGeWvu-hDYkHtqkFyZcDKYZtk2aJHwMFi-0SVrAYghTD2yw2C28WoMlnDISiko0Ra0lX57TPFmWn7vVfftiuWE6QXe-X3gfLuy-_uFyaUROhZRO9t3f4o_2zWXha4ae4DwPDsjY156r3sAfsv29rYbhKLZWf39KxebNiZeMv4Nx7acSSc7FFPXtLnacixR1qeffhFHDtrkmZFUyMLMl1B6BUUfYRBEeRiAvf3eD7R_-1GfX5T_WothEurG8M5Ul4x80E9XGUlvZhS7lTiEdE-nmEgqhRkZOZdfSzmBrCT4pkGasPgknKa1bVrkSfQBfKWAM5Qw7uBJ9c45UltrNLzxIghyO1u0Qm6pkjNAhwHNbSIV94PiJ1m1N3MaIPME6qXngV_tdlKhGNpEgnAlNceVXxYZOg4rnjoyBrLFRQrPD2Fg0OlQpz8YFsKqr63opDtKVqEib7aNTVNTxjGz6EIAoNwrfqddPFnkF6SJm0j7VfNcc685vZH_hWgXQy2tEuJgqGFrcGUSTdOQhvyagtgGrW3hFJ-p8mXTjXQQgy0iIxH_oA5UFLLddvcRLEf0t3_bKegrjjyeRFd7dDROFrTika2cT5Z_oHRzdzSxKhjfnqmtSChQp8SGYz8cSJzAvWzRa1GnBgjuRdvHukQ_wt8U717u5tbg1_Vle-QnA6S6z6pDkNRc0WVZVFrFsMUk5f7vKFH9f5JPBnjEPJpIEVl4SgAb3btfy1fRv_7-TuOZ0phht5txbfpVt0ajM97wtkHY8i-4My-zF_LxKdi9PFwsKw9vbtGpCVwKktHCqUDIsZqnuByiYrARnCnZuYWCCqIWBM7eLUhacEyIK1pn54ZO8v0gc5frURNHjQB7tHW425zdJBhnlajrZ1pOJXRhlbgdjrxeilbKknBNw3fdpp2xSemAYmDYA63xMrvZLcVye5W3_dxJIPMQFCtdMeZHerWfNJSA94YECVgcQSpHRxgbzRDHiKPeMgFpJDEe2idFqYS8NoiTZvNrIb8d_F_kd3li-_vxkOf17HKd5lpfvNh6W-bEH6Hd05pupOXhc7ooIkLcDBy00uO1yNnAnAhPKCdEiECtIMqKmbk_H5kpW13zZSkGxN2AdkY28O1BX2zA1eyB7Wg7No_TKBZ13l9E5ihINxzkOQ2rRGP__57qftF9G5SPBT-hajis7Erc0_psvJ3SAIOFrQdJvqocpo4fXnjQt6Xylab01_ur_t8JbcJGP7Dt9wRv8ZvGa-98DeCD0rps5-X_B6B34WcxibzekF_UXo62F3rpMSxqxM--85Houk7qyo7Rh4xuBi5FPBnaKIehbse3k_4NuOpiOyDoGWC-fFKA46FeFmOI-Qy94XifFM29BTkhiaw8gvTw6DjhLDWjGvJRvejs62mCKKKmEmki1xDlN6dK10yxp4-p0ceSN0k_AZIyjs9Crl9uORUUKanvSa0m7VXFNooOQGUcc2_YuRKl2XRuhUKBw1gnra3wRYRlKTxND-8N0AKRO29JQOodFwCXm6Gv7Oxh1heDjbTpS8diSSEIH8gUlf2hhhsmpnYAgiMoZBPFfveAsehe_VO_RaM9G2SMd9Afs-z4iejS1YdiHIN0JiYX-bA2esXigugpTCqPQZxqq84N9P-SDsdzY7qkHBFLU4usTAqM_6nkO0jfxDg_YgTFqy5eOurpJaDWBKWcVnmrftn9_w0doByAbFM9BFZnoAcZpTnQQkbGLHGn0CLIZKgZeDaHocOpIzAD-NjgqeYRhL1q6B3PpjosfL_SNZJbwAoqaznzax09WFyJ7noy45GEr-UTggUH03IhF9PBdpYwixEVQIGISg4mEdlaQ80smY7ySQ2dtvm1zfLTO-KRO1skvE9Ezt2nezUh59nSLCICt4g0Ac9y7LegWqDriNwgIdI7lRj7jXmFJSTXQrV_ZRYweboA8Ji8TGZmKlsO0hFTuikR8ywVtjAls34k4sKMpGBPwA2v6FkE488vvuGt78siYH4iDGlW0r_zO80ohaztjHT9Iyl969N_EuPg7USN2VEnSswVkpgoOtatyuhpd_RGpWcoYkcNH_nJqLSRfuntgs7_fWLZhq2FQmVz86dFgSXrai9UIrMjEUwPGteA9g_7L96c4YFOE868NJInPp9xnbzaqpe-cy7SfQFuwx9c3I1Meal3Jy0e5MhJ4sEaoj8DWVr8fgPzyOosT0TJE2PM-NEJVtazR-7chv__66Pjk9Oz84vLq-ub27v7h8en5pVyp1urZ7qFxh-Nj-5__dk_9cPqfH8P5zfPL5e3PqlaYR87q059moPLw_Nu4UvIdtJx0mDqamkue6S_VhsMgwVlaYKoFSxsSfR4lv5b83WnhWPyq15hr0-uuHMfg6fGdEjBDQyaGMHOvrqSxhaLE6z6LxIqZU8fXTWdDWgNpLvx7L3yZWLyHwC6-GeApzSHQyhP62g8v0iEVPk1zgLBjl6aAEGYYWhkqYa-W3iylS8cTNA6cu6jah6EFon6amYdcVRtauN0FMIZQf4f2RPvKXCfdejObgn9OZvEt7QbbljRTLZF6Xi5yzpna519yvm31y37XUz8kWw7AEOflQrpDNVFQtQhRtzvdA_pEmHjS836n1ZG4F_27zEh0PGzqsSy7F5T_NNTuS4vz1tcqyRRJfv5iJM26-V8z3ycZKapoQLT2z7fiuZ3a_tIesXoTv5kRgXLA9T3WdPHzkV3dhT8tMZG2YizUtXnUdLFWDSZnk-cWNPWmiAF731DRK_yYa10k1OfDyNcJv5qWaIiBtJp8bP4KmK4pBLX6Nl1MWY95hFIw5glA3j4dFZZWmKmrzx4lAmkQtUs1-zE_4wBeQ5F7bHGJ9U73G8yDYAmTai8tkl_LB2Um9nLkKkyrRDq-RoohWiEZ4Qb6bLu4mv0Alybyy_3YvbIngH5jBnbqJusJk1i9JvezdtHVwXFswO5L2YX5j6bj2YHFUvECnJPzASX0KKymydp1von26mbbUWMz3ypr20NBoupaxa93hzcha_sWqq0fUdWOG_X0fi5zHMKE-FWhXMRp9sACJyr3Y5TUcowrU4PJzp3XyvYU55E2ZcMk9UxVe6D9CSfvzv97gaNHpI4FNeSSUAoEVGJ-CmcXbdszDGlGvZTQfDn4inNmgIVj4lJkxaGfWYaOclIdo1ZwDhF0HudjiZnOmUe7iSgiKJYZPkFfrjgK8uMh6omF-obUFyZKcg5gFu2t-mMXktgKZ5ZIsKtlDMOGk3b2CjaCoHyl_l2M1X_aMgEbRFyKxvwZgVPQvjNdHJfHhu2GGNXRJCClS3O-1YUMLdI7Hp6vm9J6tKl6xKQfSPsIurJef7b0ykClLSiXboGeYUvinJqRDa8Q5TAZO1GRK5bz7NWKi2SmUQpAONM92GLfB7cFcvdci_bOiXZ8JvW-P7yQvfTqbFKfXpbun1AiT3-xKg6xqHw-5Z7TXaZN6Qg8GcKPLu2ET2YNn1spqd2n1yvLrMxIIjKd2TATmqGx-w97cBH90lV9FJ4Po1_On__zbF7ABFIl9UjknKr-7TvUtROs_xtfcY7DT3kyRXzzwCBSvW-5c2RYzUHJSpRh2Wrg9CWGjtgG1y-k5x07vySG-rlNIDHSHpn16kx2IiV3BiL6LAHRMBoaUISULCoJVpMlXIL4X7pKjgozhY79Ezpu3KkDQw3BHb7OHOQibpaocgLwTbGIwANt1ZQ_aqy2glrLnMa_vIS6pVILhXv1Xx-G4Xy67M48XtigHvbkNY8CHaOtdZMGIY1HsFiMaS436SwAvIvze8hdchpKnwAVMCABZgCsYDxwCKo7ePOFXU9DHk1zuxNrPeGBYHqzqV-ay1BnYNug2XzWAk-dpWYaIcbwAOVujSm1MPjaeQRAgY3Keo1C8TE1UDF0lb1a5PJ7Foazhah0mNJcUP8M-O4fX5nyAqJHfeXzPj7E5tlL86OBnRMcn1JVb_T3BEw5Rs6xDKQc1JgcmyruCvu2CvIq6qKi1ZSVZ6MwYml4TOSMNiKbDpP4dLFOGJ5xa4FURfUFNF0RwIP9zD5QO_hk8CjDn9DyPywLBeMesQpqaKXcH5NaBs2Q8mw9uBwySzvuwqPh1NmVreXklj4SPrmDr1TCUaEh2QeFhy_b87sdM9drGtO7S0rJfYWl0O-jn1uwmxHv5Ngsz7DFfeoh7Md59Dxl6yIDUqSbxcEDPD1p9v8fwr9Tima6LwCOhgaL5CPSy3uwk49zR1K3JlxQFxWtopfZozBi6bATAzf6zVXoXQhmoMV3trWfgMG-LliU7_fzZc4pUo00a5I4nWVBooiIs15EYmGqV157jN9T--2yo3CWHPc2gGVOLgiWhGIl3t1Cclf4DFCrW6lgqqKQvebhQBOYxhOHoW00ut5OBdQ1U_aPgxSt8n2Z_2W9qNAOIRE926cpeKNMeV9bzzBAhlud2bN8aXkuJ809H3XRlCZKBKXeirUG3oIR7WFxMH4c9xPKD0iNI6xVdx09trMtNgJRmIDjAfu59DoHUp2_TIcQNtDfsqvvo6fW_6A-nkJzlOVfZtAU_pZ42oweTn7ewcB3fp9eC2P3XwhQwTlFLBHDRmjsDQdLyN2W-mGdzcjbcwdFK_2nRv8ZrTninclgZ4mk5jhOAE5A-XJwf7z2VYiaaYUIt3H6SNS5SpcHZjsQRpmzG1h1YN2Xnwj3c9pHIo7uz95i87_rnyBssNt2HMfL2HNJ_cjqOn9NskTUWO-7l5S7DG-yHIRhWuRwxFzeX5WyjzgZ0DlVhF0aP8kub-OwO5c_r1Rztzf2Rg_msnIE4XirdXncUUusNdKM-nCG74nh9n2eIF27lkyN3CfR5n7qPkqZtJr9ICVs1vz9hBfISaxl2u3Ij6M7ZKvW6Zc9XuAUJE4GfXuGbx-hbutAhoXcZYWMrnyfuiBdsNRv0cXfJHIBaYUl7CvehKEjX49AESCRsDwz96ncTO3kHpULrFB0hHUEsmUXcjdSuFFlkzea7_2x6tfSBelOLhuQcn8BSc3sEWj6bpcsI80JHrUh00snKUXSGErYC7k1XKT6RvPbtwM3NSqRPo3LZKJyEUHJqEEALQGzf6ahkEhxMPbErgGD9p5dWwLf8zR1gftpqan86ouGoncpl0NDkWqkLhiPUsR3UVtThTO0OsT11Rlitg4CDhSc9si0mqnsqnKmi58Ls4CjDItGVrHVk4cWePqSZDnEj4JR3kL_a8xhT5SRx-ZRo9fC1_tqv1DJbhoAEqft6zqvu4xI27tMImUb5Gi3QAkvSuLBRe7KsAZ1dKmZcgsmTlPzFc6pZky11HpE5D8B2m0D8QgebLCC0atdKYrwf2aWt8YW1eIquWMnW4xY6Tz-L-l2-RKgWmWTakPt36lXbn-Z9dfAz_Psd2u47MbIlk5TUVw3d_4WWfRwhfmxpBuAkRIAiLbObB1trgRXPJ8CYPmxo9N0Sspc4nqYRbgKRkceH0ucDU8pKaJ_r9uHvdzllyjw9Q7NyzBWEAte9xmCl1vP1Q8R3aF1z6_H130O0D59FQhp2Pihl2YILKClH2Cm4itg31UOW37IJ-HHp73cXiLjp1DVvzG9mWz-hJK7mXuyIHIPlRSGCGAV5v-gug-q7Cp8IqfowXtH61fZSLHObGpMiVrGGjhNXJlIMqn0PDDmPsp50Dw4ouBh3AJKZZybz8cM8radzZuLgNoK48fS4TOLFJCNr8K0ye2uy2kx5SNfethVfDIHOS6jOy-O8Qlwe-cewif0RHpJYjBDaYxjDwYMjbDhPcHmdu4Hct4XvINPLtQPgLjdz7GyVibf7TGKTaD9-zyw2UuVLq02nqSOqbJqHGrPPooh5r5PQFpYF_OZPEREd2RKxM4JmEZgLmnhxjb6CrMlZC-rT95yyy8va1wEX4yzI2tTZLVeM5p7Skg06ylu-OrV-AMr3GO5N_m2Rf3rbJrx7dPkpU2kpz8sBr85JAVf__a5n7oJz81A_VsTV9o2_dun7X-pfCtXPCxHfjBydd48on93j4Lm7NM4XHUri3By3aw_Tz4m9HFFirUfOHYhtIeLxBiVxLbIKhGj-U1rilWIQaK_dYFY0rTEn4YWgOYz55tAtGTSpObVOG6Kmv0ONMhpcLIYE5Y2nJRZDcYc7hNXCvs9zYxkurFX5QKAlhVMNW4HsD9ztUmx6rJhHOYzGJa0i2bDcTTc60-40s7g43JbdoB2iQy8FZzHoxCW5k0AKLDH4VhbHAqCKFkyYb_1UvxORWgc2fNe7rPr7DWcOQbz0BBdZcGibAjkh2wS9DG0K3RE2X7g5NPsncunWM4ncdLTr7u7jWVEICG5hRRaGZSqENP50wm7HR2aQCfEL8D_0OAhN6PMiOxyDuEmvgqoEHMUPAjIeIrz1lJX5R2DPuLWhKfvBzfjwRsttbgBBJn09odQmeUGaSQ36JD4-PKCbGJ6ZrsfM6wpflrbAxAXw4U_qij5mPAk_GxPgsSxdBYEkHJmeVU9c0oqynkBH0OJ3n5pGLCDMAfdFtcVZOPh2hQOCnEmCKZ6inHESFIEnCz8t08BQna0Bx9lzfXZtoG0TQp2ZQyzSiLQPiY1PSx_SBZ9hc3ckggcPkai7qosoS5JW9SACiTounwm-zV4RcVcAEr4Ykcf1diEg6m61mKeZWc6mlkBUFnyCNh68IR4kjidkwoVHWD2QIVRwcr2OMAxqRKnQ3YAobwdVtUsj3Hq9I7B9Z2eNoYYw4hTlRuoPe-NG7WHGmvmNQmEitfneNBK5Nysjh843WSS28Ya5NpS5PVkQ6ZCt7njWGOX0txybH93_QXc6ZfJfrLxCUc-tfA0uTVAkMM_ac8oHuQKdOzebEDBmNJQg5n7T-sbWBU-xiW-1B-WOHG5zbatvPPM3CHaYFmketKMsboSTuQqmp9j_aUnQD8c_vPq88RjOnlPZBw9iLMFwBpYk7tXVVnValkf1qyfz8hGq6xZ0LxagSQGbaD1RUCr8AvF0kuj09ql7-3Qixtt0nD4jFGMzAyR3Q6HsVI3JEOt3EshAKy2VZGxgp8Gypkq8rZVpz9npX270okpCLsDWFt_syMFT3-cU-B9zVwRULC12ehSi_K4pqvRmXN01oY6u8dWc6XakEiLcVb7KO4hOGlt3nzm2GreeX-hExalOfDOkursqXJo01t6mVpb7RL5oAUTmIzEAZyuynVk68i5t86M0iT46Bk_lLoBg_nvZmeS-H1nJQ_4GLMbLU4L_otA13_ronMMq5qKIfONdkS2d-HlVIJotlLzuV0X1RaP5PsxJDvacUA52KVdyK8Ro10n_C84A2AmbYiUuiC3bh6_FSQdqPIloyR_CFTkIUd-ZxKVDMcmSMWYZCdgQ1GUu1CPT0cUEd7pmsxZXc7YpSyjTZGhAiQXMj2rkUJUaUP9KZaws7iN14_g83mo0l7agEDfmy8KW0tGG_-5Z0_u3f5xEvqgMxFZWLZO2zQt-KWUmblHuSMyJwdr0bQU6yMnX4iNEh1t8qs7KZjSJjybELxdqmmwMRd4QXbbrEdIUkcdsQBB-VjMq6v3DrYlTewbI3ueceWhnItMW54mWcNkqEuej4FemzIGKcS6Je9qLxYoKebEIII8zoLhLn0jOZg0ehfldSWFHwnVNXk_q9DqoQ9isAkT1ASJmtqLh-WpMpFydfQGfejuD_r9SJBlAmI9klMPw4WgvJ4W0VxDhH45tJjpHFWoM4HRn2QVBbz_GUM5mFYeFNa9bSXx03vOb1O-nFJp-7td6Qvw1b-ms6EbapSFt7zIMeivmS-W7koQABD-iDAq2h-MQ-3elhjxLq992Ls6iNrIaVxqB7SAOKAvUuY-RlXE4TyvNpgfSlarfOzaupo_6z9XVjmqySSolClhE8OoFfxj7w901XXBoh4EWgPwP-iT1TTjBgBg1HWq7q41wAy6CrVc_iGlmEbJVCLSFtQo66prr6MsdrYQlclIVrSrEAmkUUINNt_mw2WqQRtT0l71MouMgGOPXXSxVTqzpIa32WUpQX8XOEMgwTgDGRVuKpk1PjBPqhVzsOcm2HqW6eSPYH-w_JCkP2twT_gBqjYn8cJ-IaUrnz-pu6bjrFRqcr35MIs_dOK5Z5hvPl1mzeJNr56aVneJBgg_Nh6BarQJUq8UVU0FjguxPhKniHlrEJnGgfDAAszaB7_u3vuF6ze6kO3DfFSxNtUIeTnppiY2T-C7TQRg8bcvD7CbotHc4EicIOsFtl48nl1rLK5WFPhwsBatEHHkzxmaN2YDNkRVgzMeORWxj-g1KY3ppOQppFv8aG5TpVNk2taAGRv_kbEpUtbUmIf7JXE5azBKMIC2KwFuipJpiwtM47mSYqdIVnHCHUq6-M3wFDGPfE6nKFxATfWm45i4Z6orB7lp9mzvmMgtoigJ2Cz1lQD9GkYDi9U6ma3vWOz2YsAQnshTbFwe6qu-d_uVjKYE59MhVXC82EdZbUEZcWk9NXqmAJd7GATwfqh2CxiHWQloq5mlKaTsC8rAMbKdgjO1Uu0TZYXRfhy4EzYMElcdGNlcSXtKiWE9IchxhlqEXCECsv3YgvSGBURZgdru1nJppUC2VufXo01L_9fTFLMpaXwleFbInCL1paFx-eg4W0ZzAIudP6RHeWxumwDwHUALg7NhALpjDawMs-OlbeSLT50g8hAdspL0a3dtEhEWnBtSGNk8X91cfkNWTfItiBVcRM5hfS5rLheDLPsxLzyRfDSFV8HUBrZ2aOk2yJPJJ3hl-Dix-vP0wqMMJGJkNvVpZvtN2soSW1JvRHrQ9-LDyQ1GT-Ae42RivT9ZE9XU4QA3LmfsWHr1AL8UhJmeApPMnTC0eimvT9mPCu_8Bq9rd5b5BY57SRKBFekLzW56SRIvlMtVTC_uaYVGIjTFRMsUJo_HDaAnTLXftIaxMhCh2F55yqIm4KMmAzaHo9Ln1gcwfLYsmEjLALADfxxKipwwNqGirWssZOPkiYJ258oJ7z4a3iFlVW9yOTxCzn-_IxTsuFleRlmZnig9aIwggXqVbjngTceucX1o626UtC5J0iWH3ZoeBn40SlzTHmVOUsKodKlqZZp8qfKTMAvSdX_V7lOvRzIMckOMhYeZJutM2S3Y1nBpI4EuA-1IwMjl3cj5tiPAY9sOme9xtVQswOnG_ezZXWeCFjnUPRRKPt95mib6R1MT7eLieLi99OcuWuQAL-5_3lD1L5KJYHUctTS1IssoNgwo32enXlgQyyqPwAu_DNDXMULcYkRCra5jBmXigfXeoL9U_wAM2sY33bDH8dOzz_imEjQd6TBNOPmlJOsgNRbFic4SUKK15pp6R9JunRPxzoOTsqVbWh3GtmcAd9aUHuj_-Ense9jMIvRWMZ1YGptcrazN1EDGhxgzgcvHdmAajmEVraAcPGBydsvftqxNZ5vmWWl3hpZDy5fZppPvRYVKuZ8rIzueuuXMFYMo9a30BYI2DfgZeHowSmj10pFWE7SfQCrQTLdokrYo2yHRQbnmCfEdZ8yJPOLRexhyjqWgOgw1FBsuZg4oyyahGwd0NG6QccN8IlQOj0FDD81kKEcxfnMGo7HM2uBFBTQc-pwuPcrF2K0UlpzC8ZNvMsgA3RkdSbbg5-eino5BoM1j3GDTtHIFNvoixtXNJstoJT92frluXbfgBCcF-t6r7u9CcBKLV04SfHxrHt2gbVo4yHscNjSUv_DdlorOa7SA3eeyFa196e5hgWGkfgq1TH5TsANH3dokKXrDDRzceEq0Uqr7lz6qdN9aw5GI0pbAzYiq4C8k_DjGwRSWtfSxXGXHFxICVIC7Pldm2g-pMr6lXpRfFmOIRGOgZ5_B2SfvcGFZW5E1la_hearCVNMbQ2EfWGoAMHYoE9cETYTYpwYIZhv7RrjPyYQVmSUL5bnS96f0BsMqN5hh5OAmYBDlFJiYzFcj1McZUQ1zmS7PyfTjzRbvdzOJ0c4YgcSo2LmVTMi6ua2_jgkIDxq0GUnIJUZ-DmAlh1lRPjJDb_PjOF_VKolwCjLc66eYUg11zvtrovS6GD0tEZigP5TyI5xFjE7THBG6wv38uBHWdP6Djdl4TdAosR83DU67ZSOlOmwqkbqmF5OiNFEG5FV4_CeSvI-oU2_7Iy6bIMPGp5yWJ_FpdpFEMmnopYj4CVJ7JjU_n2FxApqGADC6iKnIMPjm9QRVDcsEZpIVHC3YSEcikyeE0dIMlmBT0oP4utdjMchlxQpYQ6QSoVFyM5qxPiqbVltKtzKZ4QpbOzNxo-vWw8R3pcxJpWS7qikpMQJq90uCTl2tK8k5igqnI1miSNxDlm4tuxRlbFixIt_7oF2z_OeAzbYGWdARKZFFT2Sf1Dx6MtcpHVjqbPJamOLD2qYG6PV6USGVwZkqI7rWLWMj8UOmV9FGziHwqZl8WJWyx6FKyMOCzp1G5dvVD6HSdv_54BDkQIFMnLw2pspS5fmwKeSoYSN8NLBiE3Q1PUuec93aNtRqI9JdtSTvYGdpWpuh4Ml8gePYij9LkiAQn1VXctSxsrWjQ7xLTCExWLQNLETu0CnhuaDXAtocTplVusRumukaJLZt8T3VMhMlRbCASgPrHEIfHfaq84IwVxFtqxTwOgzdwg_akrfo1O0KTzr29rbMm4_z-PiG6otij-mD550-EopgSAyh4BDhSskg1Rrj2R6dAPaVDgBdzKqH0xtjwLplmwUxnQauy45-XfWAxcRn4H0v2O7n3vVf2wL8znjhw3VgC5Xct6soBCV7_Qym1P7V9at4IXDNJYTRRQ2lFgXUK4JS7LlexNh7eRWp_JEUYt4bPaJImKDjpDlG57A5pm1fEempnniHrwbNOIetmrs4bUGIMR9iyopk5EM8e4GS7ED0qyvbaWu-cqfhYcQvykBkE8fdGLQPtt2JgJdjpRqHfP4Rpt8aupLXRtlmWFknpxKAvKkv5V8u19mXfqN_9ux655g2diBHTpDoOqPZovBmn2Qkgdf2KPv9s9yvQ_pumbZAERvnmLuK0zOl9XltNSzTykzz7id3PlxpPWD-dm4wZIAlFgJ5mMRv7HQrS779Do_Z0FSztH5VysPhFIxXs8Y20eoMR7gxTf0qzMoFpoEgum_nJ11LtBFjbzePQRP2AVbUeNYBIo214SyHAOAnu6usimILp0NBRoJnObv4OEAVXWgJgeSgDHtu3j84711DU0OBGVZDTfRpceNOJRKeKfi-Z4udmwM8FpN1tC5SEZEvS5ZH36QZlwanKTI1THxaMkihs5T8755DAdTKLAFcnoTb2tiR5Xro6RV7I2RuVXO0Z8jo2Bmdu7eD7-m2DO0An6_T9R9Aj_6BfJGi72m5JC5k_hvsw01FPTf6JpH1-G80rg7Xawy1_eOCMbUqmGIpL6hl6yn_tDNlBgDsH5Zy_hxDAvnw8YQXvEssPZllrIx2_v4Xq6NfRGoL6iy3pG5FMzksS697ijVUQ3DmJ_y9limewAY_4e2_QCX1vUFUwuL09iuo5ZkIsYU5v9E8FrFyk1BFV4EG5gampitGN2Qy5V-WcZD2iIUE1famNWlKMilJugIXNFtGWRcqRZoFcbnMDkCJR225UW4fIXPAzptjk6COo3t0iwzs0UgUdlDkIXC0xH77KxZDAa4FTORAMAMtkGOHEqfnUUawwF3Yuqb7jvvBP4lr6nHoSfZAB5pBSiyOFSjoWkFsvQHesWrJ9rUsxvgNTNGPYiyhDinlen7yxR12jTdaEpWdp6h7RA0d7XBQDUuZOIMWOMcAk5Bghh5ZyUKc9sZnOyj8H3T3gQ0xvXXkPsLJpU3T2XAcRPKUDZNCqvGTd-50LrrOI_N8Nej_2RiwsqGysc6h26GaV3bmc1M5caR06vOYamTjq0UTAhdqUIT0P-gV9h4I2KKrjt38Q-j1v5Zemz_aRU4QNP9nAdQrUAnuftw3JjbwJHQbAzbYYNefn_4YC5o6ERp6iofQzx-tjy58tlkRousuFp6g6FTrn1ybn-4VflfWJo4j1U_BPY4mCutP5c0cT0f1OFk_3pTpKNq6iaIFxTOgrZZIb0EAddxwtpWlsiR3mwqQwmLraOqBI3zXB7iJPziCc3i9r2rGBXf8N77DseFWGHlneLTzBhDmpUj0R9BUAG5sPtkhVkgZfF6umwDL4thbrLKkG7VGWQmF8YASIPYAmPvx1PAYJZ8IpslKqizp4RrV3Fn1PtyBHtLwTC9nH1WNwSl155OVlz8Y1iMihxOgHr-kyeyTir_cH7tQyPes5x8BUWculzFU5fqfIjkI-2Ps1Y42x_hEoasJa_aZPRoqWHm-9PrAJN70xfVknFyz8Dh8q_gbJdK7z86-cuesei0zWbUqR8be9x4tP4G5iMcYbTTWGbdKyJ079xRg5cO3qvT0j_I7rz6eA8nP5fuUv8cnVUdImy2LnusOnCPzeuhFtd4GnqEK_lnLZO8GiDkpxwUrVxYl-kPjTBT6xfOv2p0q8m3u8OxNcgLbj2-yF2U6adrlzaJUnqZB8YmVxZTsrVwWays-hVPYElqcf6lnb1FK82vw54L1UoITKNUMK8ud3FqwP_geHJPJcQnIYfjEpaKC9SN_itmzvpafSuiy725SVDOQXCmLsMikH3VQsGr_4TE38oGyr5PDVAPGyFnjObXga9lmxJ6D95twqS0sZaSyKtP5PLvA4eN8k4WB08nXmomQSfPp3KadS7Vu5FJXKn5vJOUmvrobA7eT5Cy13m-U_h_w1eQZ-U9ZIDB8cjRyzTpxVRDOhCbBOMGOO7BYx61Dm75SZv5ZgpMW1YWJTrBbeMrMgsdXeIbWg-qPcHetsVb8qZy_9LhYhIyVSBA9TIlL-OJk_hBENnoABuOXra3dIgHcELDO1VXAtGndufv8w9kBgBDA5rox1P8OgJ6XdQAS6RlxjuG1-ZyM8gGOLh12IWWZ1gIxbdsKxQYEaR4RvcKijUYLyraHEz1Yz4wiQMDRDI1hIYpEo1ayshRR7aqXlx0tnAZxdoDjz3L1x4_rDsdXVKMoDp8n8Vp63Rwan-8EeRYCy7LZa0Hd09rDEzUhoAB_whxLVx16wUeWcRXIFtwnKtXbn2vOkCKyRyWSHZE0W-Ycvk05cOovnTpcapumPr3s7GiDtPrzyxnVwRi5A7IEU02O3iMLjXFg-G57pzIvy5_eYPzMccZ3WrWCgRqL5aBc57DRgOklkFqpJUdxpuGFHrmSH-wKrBPCZCmqJ4pIyQf3kUPLof6eaflz3eeX7GqXTmpTxJhHOKiNN93NxBSiPGpPIujeAe2OkqOYsZZSCDYvmEu-Acnm8VrJfiZkwhCfY4IGreoHT-CrvpjnfvU8xcNmuwdi4ll5qqAnq2rd45XmWWAO_bCAYImN1rbZIQAIim9X28L8oErAeGicZpAx0DNml9fiooLTZq6obY7xmYXjrx4UKtrHP2zCHWA8v89tEcs5nNC-3uz_RlunZh05I-FAxEAvrZ1sc-fJFqB5xpudbxbv-UzdkpfyoPVo2TrQ2QY3AV6Di3bc2Uko0Z4OuMtZ6_8DDqKzO9zobHfd4HZSToduz1arZJ3WLdZcGrRpafbNxMsiaQbaoWERL2XyplFIcP08gMB33JjGociXZ3rG2HHUhbbzZGq2fnw9QbXO2aieq-eka9z5n8J1UqAQl_aV6sLl9oIjpTDxIKW96m0GUjmOdlR6raPXZ7QqizBo43SF2FSK0as8qQIDOOkOoC9_ms8OiIzAQYMk8_Psed9iwjNrW1j4hv9ARAoItNfaSOSccmk8h0wnzGMsu_1yYhsKgY7FtrVNZO5t_cAkDq-bCoSCe-xlMZFEgMNlwkV1-G7HeSjHVE01rhQ8HrxiZmkaggcVvto5EQ5sZHmp1Ab0avueAdXzAxh6-8RXL9fJT6X7w54nKEqBKR7VFROjDKn9hDhjDFuw0wCbx380LtBiLnDsdS-t6yOOmenfHEEmqOnBGjv-ORugiX9MZtfQ8N2hxQiWP1RnVYuXd9l4zlndKWgfaTOthbWCUqqHUu0e3-i9q9Bc9uBGXGN7ZAagIjlA_8VFciwcIeN7Ai1m-nHTcksqw0wQezfRZ1sHr8kLlGpb162rLpHUw-yVnwb9SmqvyBy5w_AaXBVG3r2uh1Fvw8MP0FpLpvHUgYmtm23AByg4IUdI8Vup1bwNcWObXVyOUMBRfyadA7SVrZSfQMF21n4e39nUV9vX7Wa3H2R7e2d7wowcs2doMNix0P4kuWn9zARCGF27oGP5prS4tusy86VEwT0YwS42NwiVZ4ngHPo4PnQdMrW0f7Qf8YW2ELoHQZ-5sE7mvwVHGV3Uedd2BOpioCycS9OwE-Bh6W6EbtePTtiOZirtQ2ZuWk7LGG26iDGZGKU5toqbsxpSENg-1O3GYKsWuhKo2jb5fB4MLXGlNp0Qf0Tf9htTLhPWT-B0m6So_IakdunxdpTxGb1yI4ck62Z5q7BW7xruAtGHWeR68WbptuejlLN3qcEqb-Kgsx0DrCEciA2UnbMGHjHQuZrEaJNh8iswHnlsMdGel9kW3GtJuvOfbqe0vHy4mmdZL8-a83m3I2Y0k6Ye8cyLKj-7l5-BaoaBMXiUcIac1PVhH8zihrQ_eXMF_IhP8VMosm0FSar0RtxrshiEBSyvrMU9lPtNAppUsl3BFhxRzlt5gYHgiqxGa852D6MDDuL6ZRHJhbgAIFX2GIaKEqXQY7Jq3zpRQ0JTW4fDpqmbD3GK3UBOO45hZexsCwSqxQyOPHoFz0XoZEaUDEPFtzaFPoZeZPlspWB8XmWU1TFyHCaSOD105LA4RsPFi9gmMezFOKdW9JMOapGNXT3FeASYtncY6hDAf0qv4YBR_KEy2Cqrp1hP-8Yv4bn2ID6oehQZmyhvRmxASaAT_Aa1b8BvGFOeSbXght6XRC8itz0fBoHTXknufqawZe1-2G6lvmr9uTnIL2AvR0Y59Vk7qD71aTOofZSO3AAPljJmLKmKzKJ1E5Rfy1yLkaTl3f0QjBKa8zkECNBGbd6JIcPuhw5eotJfPhFrYqiiWvhjyk9J1NBlb4ufmGn1tRqf3SRKMnHkYXdDoGTpKSYu2m-WP7oi10TozEN3l_ZeusStOYr8fxg6Xfyo9Tiy5QdVtnkheGzcm2oHCz37FHbH5bRevn-OLlZDCbkORN2cbkfQZnbNzKoI66KcxteRKc5sAeTq1qU7Le3-Gmq8jfMeRYSQJ6oxRm3EgPdC_RjnmxYBxo64TEJDql4N_HTI9ld8ogbLSVhIENhBNnAr6wNR-fBQXXCvWWJtHnI7uwE1-FdbNT-wbWqYg7W4Q9E99--yCEMllCRC7X3lTMI4kkMwxtPWP3ShSWL1Jp2x_nIRR-aLW6UWUSMj8LS9OMlm6oneC-DLU4kApSi583alkm5ApGw_2xBhdG4RdUS4CyrYyZjeZaMWqPDC2vXPZGrkHEBwnDgYQCSACkwXY6oWs8YZxXheYhdwnWbSeF2eVPvVuIPZt5WCDjxUYYDJMA8iwsP74LQBnqY_O-9Mw-P_HcKF6CTSn61T9OkQ1IzpVBkqpuWB6JpC7lX54vQIsRx-u_tomj5Zbf2BK9JmXUzJ1dvp0-7GBv_2fELMJdhwv_54KOzD0c_MkG8PGwOmGrYTkdqHs8HSGJIjrgHT1PYRxZ1fHtW28UnozvYz5hVwvkDYDfny7c1ppvT_mZ3LvcDiMTvIU1abIdaIePUgr1g3z0AlONbzSdu826Lo6MGR0XoSJSedGQO-qGctzhddGrNdRP5n-0UD0xCSYmru4DWvjrwfDGrtucAf0vQiJ-oHJxaRdVIxky4RP0bs4aD23N5I7t7BYML0E_aCQcbRRV3_BEb7wTm-My1NihzAVqnZkMlpcBIRnxyP_mkDzouXLnVrS3cZt9Drxcf3Uo04ZYb9LCYLf1-JsA0_OlkdVT2XgioZBpoH_YCRTsTxRx-jTB4e4gxX2SaS3iqigWqnISQoWjxbUuHyXvhq5cTU2By31eEcTMqzwUG8ULX2NWdFjJPWox7dhyGRrkoXHWiCpFDdLNpA5i_FRdgGwy_ZM-hZs11Yl9LlSLWPsQQQeqSgiG0bKcPWJqWh0f7oIrjr7iNX5Q1yxP1Urg_08D_1F2E-W485ux3OEQxhkD7pi0JE7b1yWFvRtQ0MJ9nDT83x8HuTQ-aDRAQW8FtxU9lh8DF-4nd5jl4lBV33SIXoB-0GyoE9J57Oh66HcQLlKK2NDAFECWCFU4Oy0pQNp7AHneGQLOKwmlKMU6AQ8rug0DO2qnKgZonnJk55DWd6ej8ysQRRjYKrucQeG29ElTxzXNuaGC7HcA6bYSAJmuwHaj40NchmcCW8hjaJY-NWBUmLBq3NnVW51lKBDs_X7qglqS1dkpDEv5z6cGpIs0JHbC8h4VazjRH4I-4TMrrBVCJbKbjYDV-zMgm7NjeQm7mmZvTJN_VHTGC-u3VO23lePbPUzY17_WEHDSa4IIH_-KhBBj2EYWck-Q2R-8OHf1GxjpIphXdLbbBpGKdGZNowu2t9s7UbOVcuMRtVzM_ciTdq-CoMftL4sd110j7eM_36p8e_Btqw5nSM5bwj8nZxHIm-u1yVYjE9aPzLdZ-xA3VZ0UyqMRmpzz8rX8yqOPuSZkOLUzj7OQDZp9US8e0zwEKGrJnq2YsmpFgqq00ZmGispq1VBB4kFuiuUcn65iymzeCk6yLyN1-Xh0jZ4FkYb0VdnuVJUjT9CVUcj4F2vprOAzCHZueOeqo5QC0t4WdbHOOQj2Kd8aHbLXKMIy9UdesO2CCYhduKViHGqBRGM3x7qel7AHfRZkJwjS1CzYYwqrrPa2imI-cUr9lIcKQDXE4tfiRbB03AOPsK6M4RhCLzQjqDL8IE9rshfN7SLgq4AZrADNstC9dqI7E01EbQze4NKupO6PT2SAW3ii7sw7cLfcPNu1hhvLpJ1wuiNtdOEUGF6qgT1D38dd9N3v3AA45NAM9RUCUhQ53IUOUAV8iHeRtGqbrwSMQBUru4C3drCxh8CS8ZnVuEqpYq0ODCxzh6akNpzplLAdbCCfEZNPWxIDksBrIBfvWGGUq800K2CxoQ1aj1qoS6y8KS-Nv-lH8z5UYdv1Vp_8fcyDs5N0qdWo5x6ByZ-kIdzNDph6TupKpodKTvJiuwdKU4NJRUzFDjN_VyjPxpovLQyZoM7codUnbFOTwek57xfnl9FDN6gOSg6RJ1BsOdxUZdjmwsV2TXPM6MxsD7DK0ceB4IjMt0CYc7BV7TQbMOFO99e3mOg53dexz2ius2HCaLi6zueo-Cf7TvnEUwRZyxB9zHDZ02SrLwo-Ha8Axd7weoZPx4-SGhcP09qfeTrEPy--XcUB74AMIkjPKJt1-O_AtAogJjMepHUyuhXrgNQ7enC3yescOr0mU8GiKJK9h6yPPJ0AdL07sS3dH1Qy67U5Vbn438OWXVXn8-wnS56rWm6NEw9d2X7n4TKbyxz9A-7h3fRJmd3TFMDVMbW_bDPIAN8jpKI7FOHsaLBMe9bRY-SYS3YEk4q3rcQxvBzmUkAutZqiIUgjctcniS9obahDVkCSoLv8qMMwfpeLkyF5JZJmqrlkQLGkzucTcArfGwt7bPzlhwgCrPel5EV73dIidjuocHH9UfSZSYZBJFQS4yRN8YxpHgn-hGeB9pfvgYw2lUiKYHkTXLbnbU-oPC3iTV3ofi1c_DoaIfINp5KjkLN3PtrDI3ROZNIgdFnXtHx70W0RFH81c2QuB1uiaGfhDe5mboUivU0r6TSWGLARsnhuenp7vfGDMWy8Hze_ay9IULpk7aoSnrN2_lR1_chK74EcqCqgJvZPLjJSKAHiO-pkAPlFakGnD72Fw5jHQoKHnRF_RRRpV-MJN5-mV2zKgBYPpkyZqNyJEMzftIYWyojpnWiUDAboOsq2vi_RxAu9hxFiTI3ao82NwTPOMdTJXao21_bth63PAEewY3aqlBa-ARsj1DYdrdDf7y6IJKYTUQ8UXdFj-DWQ9EpJPvTxoAhuITcbgsAQJbk6gBZ-qUKpQLRkGAyS7xwJx8KFt7rk1dC-_34oxSvHBDjJglAbqsx80TBMlwrEjrgyTjoaZ5JI_2FH4EqaYmN-BxQLig4Rn9WblTchXHaOinyVo4AlZ2yGSmJzV9pp2tbMki2v0A8ILP2gg1QT9FnDswfGBRbTkqOb6yRt4G3ZqD324nwRHbxlMgIu7AGXCuH3TMBQA4MhuhXmY9hqSNdH6APnzQNuJbLCppVzcboPt5nZHOXcbRBx3sUJihv5HaOOfRk6cj3Q7aiJk3ziHDi-UBHBmWIlhaa9xzS81NJ6ezz-PT3Cyd5u2N30Imqsvph69CiVINks7OAI27mB_cwhqmsy0Izih5BnSrCJXX5Z_KjM8_kZcJCtRILApS7nRqTGbuGX0o4_xv1lKlaUIWKFGiNhse4lt96sfISOkG4FNPtdLVbhhyNWaTWUowQRnzyxCJG5OZ2xOmDj4hPwhkxk13pIRn4gl76mbw-IWgDKdObuouPvnMHfdvSF23z_RqTliuWc3reH1ve7uvgg6yZYQOUiOnwq3M80bVGo8Nm-Io7Vg6vTWlmbRRCI0_cQcpCEOTCKxM7Px-mt4CzAjrgdE4k8kw5JLQRcHwR1OCYtDSNrPoGesiq9oXMjjpGcdFjko6PeAg7oeu7cNuCxdoaLknlWrc67oTFY-stkl5yWW6paFdY4YtcxqWkSNUCQY0ly-ClZYWLT1jR58ix5CdXG7LrCo_0VGKXY2x1iJU6oCwkSCF5qyopaQtGB4o-rjYNWHkBKBIG59TNloiF9kZA4BOLMCIaWtpOIfGmr25MaWAWoKdGIvblrQfNKncp0tmhcDj3PNY6Cis8j_oqVF2R28xmbFfNuqd_SlIYxEqXPY472CMN_6VyBP5ZaZjmWQqyWVXLTUQlXTPaCFIhTlBVAWmZ3rpmCQb2U44yyQdPQyk1JMW60oYFJ_G5G7yP6PaEE0rESdso0_M4_wFSIVZZFHOo4-L6P_IHNpoqnYzT7Qjs701izcsA682GXkPkS0LfqCc2o70KDKMWPUSqh6A1In_02rDEvI77e1uOgeU1qRwJAPRAWEJYvqu1oJM153kyVhuTrMLOcxlWaFa_xO1s63KajoOR_zlyIHqfWx8qvrYLoaQ9UlkXAgdncqYsE-Ub4IFaWCjILyO74pULlAko1SaCCBmBWecB_QE3p4UDUsAg27m0H4HjDiojvDXhaQ32TLikPBwnRnpRLTkLLRjbb9oUzvITIUPCoHqzGEatRy0Zi4Z_jgozpQ5yBg-Z64FqiZ8Fq7icxPWLXwVzuJ0zAMwc86RnOFSqGLTGZVmagAeho_ZOtk_v4czYNK2bJZnjAujIvmqhEXTyv6bZDTJ8jP6bTZqLpYPOKjyyJzNKZM1sUl2dq6vcAVbZ6Xmzz9ci_8SX-8MaEjLdwA"
+        text: "(()=>{\"use strict\";var e,r,t,n,l,i,a,s,v,d,c,f,p,h,g,m,y,b,w,k,S,T,I,A,x,N,O,B=(e,r=e=>Error(e))=>{throw eg(e=rc(e))?r(e):e},J=(e,r,t=-1)=>{if(e===r||null==(null!=e?e:r))return!0;if(ek(e)&&ek(r)&&e.length===r.length){var l,n=0;for(l in e){if(e[l]!==r[l]&&!J(e[l],r[l],t-1))return!1;++n}return n===Object.keys(r).length}return!1},V=(e,r,...t)=>e===r||0<t.length&&t.some(r=>V(e,r)),L=(e,r)=>null!=e?e:B(null!=r?r:\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),K=(e,r=!0,t)=>{try{return e()}catch(e){return ex(r)?eb(e=r(e))?B(e):e:es(r)?console.error(r?B(e):e):r}finally{null!=t&&t()}},G=e=>{var r,t=()=>t.initialized||r?r:(r=rc(e)).then?r=r.then(e=>(t.initialized=!0,t.resolved=r=e)):(t.initialized=!0,t.resolved=r);return t},Y=async(e,r=!0,t)=>{try{var n,l=await rc(e);return ey(r)?null==(n=r[0])?void 0:n.call(r,l):l}catch(e){if(!es(r)){if(ey(r)){if(r[1])return r[1](e);throw e}var i=await(null==r?void 0:r(e));if(i instanceof Error)throw i;return i}if(r)throw e;console.error(e)}finally{await(null==t?void 0:t())}},Z=e=>e,Q=void 0,ee=Number.MAX_SAFE_INTEGER,er=!1,et=!0,en=()=>{},el=e=>e,ei=e=>null!=e,ea=Symbol.iterator,eo=(e,r)=>(t,n=!0)=>e(t)||r&&n&&null!=t&&null!=(t=r(t))?t:Q,eu=(e,r)=>ex(r)?e!==Q?r(e):Q:(null==e?void 0:e[r])!==Q?e:Q,es=e=>\"boolean\"==typeof e,ev=eo(es,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||Q))),ed=e=>!!e,ep=Number.isSafeInteger,eh=e=>\"number\"==typeof e,eg=e=>\"string\"==typeof e,em=eo(eg,e=>null==e?void 0:e.toString()),ey=Array.isArray,eb=e=>e instanceof Error,ew=(e,r=!1)=>null==e?Q:!r&&ey(e)?e:eN(e)?[...e]:[e],ek=e=>null!==e&&\"object\"==typeof e,eS=Object.prototype,eT=Object.getPrototypeOf,eE=e=>null!=e&&eT(e)===eS,eI=(e,r)=>\"function\"==typeof(null==e?void 0:e[r]),eA=e=>\"symbol\"==typeof e,ex=e=>\"function\"==typeof e,eN=(e,r=!1)=>!(null==e||!e[ea]||\"object\"!=typeof e&&!r),eO=e=>e instanceof Map,eC=e=>e instanceof Set,ej=(e,r)=>null==e?Q:!1===r?e:Math.round(e*(r=Math.pow(10,r&&!0!==r?r:0)))/r,e$=!1,e_=e=>(e$=!0,e),eM=e=>null==e?Q:ex(e)?e:r=>r[e],eU=(e,r,t)=>(null!=r?r:t)!==Q?(e=eM(e),null==r&&(r=0),null==t&&(t=ee),(n,l)=>r--?Q:t--?e?e(n,l):n:t):e,eF=e=>null==e?void 0:e.filter(ei),eq=(e,r,t,n)=>null==e?[]:!r&&ey(e)?eF(e):e[ea]?function*(e,r){if(null!=e)if(r){r=eM(r);var t=0;for(n of e)if(null!=(n=r(n,t++))&&(yield n),e$){e$=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,t===Q?r:eU(r,t,n)):ek(e)?function*(e,r){r=eM(r);var n,t=0;for(n in e){var l=[n,e[n]];if(null!=(l=r?r(l,t++):l)&&(yield l),e$){e$=!1;break}}}(e,eU(r,t,n)):eq(ex(e)?function*(e,r,t=Number.MAX_SAFE_INTEGER){for(null!=r&&(yield r);t--&&null!=(r=e(r));)yield r}(e,t,n):function*(e=0,r){if(e<0)for(null==r&&(r=-e-1);e++;)yield r--;else for(null==r&&(r=0);e--;)yield r++}(e,t),r),eR=(e,r,t,n)=>eq(e,r,t,n),ez=(e,r,t=1,n=!1,l,i)=>function*e(r,t,n,l){if(null!=r)if(r[ea]||n&&ek(r))for(var i of l?eq(r):r)1!==t?yield*e(i,t-1,n,!0):yield i;else yield r}(eq(e,r,l,i),t+1,n,!1),eD=(e,r,t,n)=>{if(r=eM(r),ey(e)){var l=0,i=[];for(t=t<0?e.length+t:null!=t?t:0,n=n<0?e.length+n:null!=n?n:e.length;t<n&&!e$;t++){var a=e[t];null!=(r?a=r(a,l++):a)&&i.push(a)}return e$=!1,i}return null!=e?ew(eR(e,r,t,n)):Q},eB=(e,r,t=1,n=!1,l,i)=>ew(ez(e,r,t,n,l,i)),eJ=(...e)=>{var r;return eX(1===e.length?e[0]:e,e=>null!=e&&(null!=r?r:r=[]).push(...ew(e))),r},eG=(e,r,...t)=>null==e?Q:eN(e)?eD(e,e=>r(e,...t)):r(e,...t),eH=(e,r,t,n)=>{var l;if(null!=e){if(ey(e))return((e,r,t,n)=>{var l,i,a=0;for(t=t<0?e.length+t:null!=t?t:0,n=n<0?e.length+n:null!=n?n:e.length;t<n;t++)if(null!=e[t]&&(l=null!=(i=r(e[t],a++))?i:l,e$)){e$=!1;break}return l})(e,r,t,n);if(t===Q){if(e[ea])return((e,r)=>{var t,n,i,l=0;for(i of e)if(null!=i&&(t=null!=(n=r(i,l++))?n:t,e$)){e$=!1;break}return t})(e,r);if(\"object\"==typeof e)return((e,r)=>{var t,n,i,l=0;for(i in e)if(t=null!=(n=r([i,e[i]],l++))?n:t,e$){e$=!1;break}return t})(e,r)}for(var i of eq(e,r,t,n))null!=i&&(l=i);return l}},eX=eH,eZ=Object.fromEntries,eQ=(e,r,t)=>{var n,l,i;return null==e?Q:es(r)||t?(i={},eX(e,t?(e,n)=>null!=(e=r(e,n))&&null!=(e[1]=t(i[e[0]],e[1]))&&(i[e[0]]=e[1]):e=>eX(e,r?e=>{var r;return null!=(null==e?void 0:e[1])&&((null!=(r=(n=i)[l=e[0]])?r:n[l]=[]).push(e[1]),i)}:e=>null!=(null==e?void 0:e[1])&&(i[e[0]]=e[1],i))),i):eZ(eD(e,r?(e,t)=>eu(r(e,t),1):e=>eu(e,1)))},e1=(e,r=e=>null!=e,t=ey(e),n,l)=>(e=>t&&!ey(e)?[...e]:e)(eq(e,(e,t)=>r(e,t)?e:Q,n,l)),e2=(e,r,t,n)=>{var l;if(null==e)return Q;if(r)e=e1(e,r,!1,t,n);else{if(null!=(l=null!=(r=e.length)?r:e.size))return l;if(!e[ea])return Object.keys(e).length}return l=0,null!=(t=eH(e,()=>++l))?t:0},e4=(e,...r)=>null==e?Q:eh(e)?Math.max(e,...r):((e,r,t,n,l)=>{var a=()=>ex(t)?t():t;return null!=(e=eH(e,(e,n)=>{return t=null!=(e=r(t,e,n))?e:a()},n,l))?e:a()})(e,(e,t,n,l=r[1]?r[1](t,n):t)=>null==e||eh(l)&&e<l?l:e,Q,r[2],r[3]),e9=(e,r,t,n)=>{var l;return null==e?Q:eE(e)&&!r?0<Object.keys(e).length:null!=(l=null!=(l=null==(l=e.some)?void 0:l.call(e,null!=r?r:ed))?l:eH(e,r?(e,t)=>!!r(e,t)&&e_(!0):()=>e_(!0),t,n))&&l},e7=(e,r=e=>e)=>(null!=e&&e.sort((e,t)=>r(e)-r(t)),e),re=(e,r,t)=>(e.constructor===Object||ey(e)?void 0===t?delete e[r]:e[r]=t:void 0===t?e.delete?e.delete(r):delete e[r]:e.set?e.set(r,t):e.add?t?e.add(r):e.delete(r):e[r]=t,t),rr=(e,r,t)=>{var n;if(e)return e.constructor===Object&&null==t?e[r]:(void 0===(n=e.get?e.get(r):e.has?e.has(r):e[r])&&null!=t&&null!=(n=ex(t)?t():t)&&re(e,r,n),n)},rt=(e,...r)=>(eX(r,r=>eX(r,([r,t])=>{null!=t&&(eE(e[r])&&eE(t)?rt(e[r],t):e[r]=t)})),e),eo=e=>(r,t,n,l)=>{if(r)return null!=n?e(r,t,n,l):(eX(t,t=>ey(t)?e(r,t[0],t[1]):eX(t,([t,n])=>e(r,t,n))),r)},rl=eo(re),ri=eo((e,r,t)=>re(e,r,ex(t)?t(rr(e,r)):t)),ra=(e,r)=>e instanceof Set||e instanceof WeakSet?!e.has(r)&&(e.add(r),!0):rr(e,r)!==rl(e,r,!0),ro=(e,r)=>{var t;if(null!=(null!=e?e:r))return t=rr(e,r),eI(e,\"delete\")?e.delete(r):delete e[r],t},rs=(e,r)=>{if(e)return ey(r)?(ey(e)&&1<e.length?r.sort((e,r)=>r-e):r).map(r=>rs(e,r)):ey(e)?r<e.length?e.splice(r,1)[0]:void 0:ro(e,r)},rd=(e,...r)=>{if(void 0!==e)return Object.fromEntries(r.flatMap(t=>ek(t)?ey(t)?t.map(r=>ey(r)?1===r.length?[r[0],e[r[0]]]:rd(e[r[0]],...r[1]):[r,e[r]]):Object.entries(r).map(([r,t])=>[r,!0===t?e[r]:rd(e[r],t)]):[[t,e[t]]]).filter(e=>null!=e[1]))},rc=e=>ex(e)?e():e,rf=(e,r=-1)=>ey(e)?r?e.map(e=>rf(e,r-1)):[...e]:eE(e)?r?eQ(e,([e,t])=>[e,rf(t,r-1)]):{...e}:eC(e)?new Set(r?eD(e,e=>rf(e,r-1)):e):eO(e)?new Map(r?eD(e,e=>[e[0],rf(e[1],r-1)]):e):e,rp=(e,...r)=>null==e?void 0:e.push(...r),rh=(e,...r)=>null==e?void 0:e.unshift(...r),rg=(e,r)=>{var t,l,i;if(e)return eE(r)?(i={},eE(e)&&(eX(e,([e,a])=>{if(a!==r[e]){if(eE(t=a)){if(!(a=rg(a,r[e])))return;[a,t]=a}i[e]=a,(null!=l?l:l=rf(r))[e]=t}}),l)?[i,l]:void 0):[e,e]},rm=\"undefined\"!=typeof performance?(e=et)=>e?Math.trunc(rm(er)):performance.timeOrigin+performance.now():Date.now,ry=(e=!0,r=()=>rm())=>{var t,n=+e*r(),l=0;return(i=e,a)=>(t=e?l+=-n+(n=r()):l,a&&(l=0),(e=i)&&(n=r()),t)},rw=(e,r=0)=>{var e=ex(e)?{frequency:r,callback:e}:e,{queue:l=!0,paused:i=!1,trigger:a=!1,once:o=!1,callback:u=()=>{},raf:s}=e,v=(r=null!=(e=e.frequency)?e:0,0),d=(new rS).resolve(),c=ry(!i),f=c(),p=async e=>{if(!v||!l&&d.pending&&!0!==e)return!1;if((y.busy=!0)!==e)for(;d.pending;)await d;return e||d.reset(),(!1===await Y(()=>u(c(),-f+(f=c())),!1,()=>!e&&d.resolve())||r<=0||o)&&m(!1),!(y.busy=!1)},h=()=>v=setTimeout(()=>s?requestAnimationFrame(g):g(),r<0?-r:r),g=()=>{y.active&&p(),y.active&&h()},m=(e,r=!e)=>(c(e,r),clearTimeout(v),y.active=!!(v=e?h():0),y),y={active:!1,busy:!1,restart:(e,t)=>(r=null!=e?e:r,u=null!=t?t:u,m(!0,!0)),toggle:(e,r)=>e!==y.active?e?r?(m(!0),y.trigger(),y):m(!0):m(!1):y,trigger:async e=>await p(e)&&(m(y.active),!0)};return y.toggle(!i,a)};function rk(e,r,t){r in e?Object.defineProperty(e,r,{value:t,enumerable:!0,configurable:!0,writable:!0}):e[r]=t}class rS{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,r=!1){return this._promise.resolve(e,r),this}reject(e,r=!1){return this._promise.reject(e,r),this}reset(){return this._promise=new rT,this}signal(e){return this.resolve(e),this.reset(),this}then(e,r){return this._promise.then(e,r)}constructor(){rk(this,\"_promise\",void 0),this.reset()}}class rT{then(e,r){return this._promise.then(e,r)}constructor(){var e;rk(this,\"_promise\",void 0),rk(this,\"resolve\",void 0),rk(this,\"reject\",void 0),rk(this,\"value\",void 0),rk(this,\"error\",void 0),rk(this,\"pending\",!0),this._promise=new Promise((...r)=>{e=r.map((e,r)=>(t,n)=>{if(this.pending)return this.pending=!1,this[r?\"error\":\"value\"]=t===Q||t,e(t),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var rI=(e,r)=>null==e||isFinite(e)?!e||e<=0?rc(r):new Promise(t=>setTimeout(async()=>t(await rc(r)),e)):B(`Invalid delay ${e}.`),rN=(e,r,t)=>{var n=!1,l=(...r)=>e(...r,i),i=()=>n!==(n=!1)&&(t(l),!0),a=()=>n!==(n=!0)&&(r(l),!0);return a(),[i,a]},eo=()=>{var e,r=new Set;return[(t,n)=>{var l=rN(t,e=>r.add(e),e=>r.delete(e));return n&&e&&t(...e,l[0]),l},(...t)=>(e=t,r.forEach(e=>e(...t)))]},rC=(e,r=[\"and\",\", \"])=>{var t;return e?1===(e=eD(e)).length?e[0]:ey(r)?[e.slice(0,-1).join(null!=(t=r[1])?t:\", \"),\" \",r[0],\" \",e[e.length-1]].join(\"\"):e.join(null!=r?r:\", \"):Q},r$=(e,r)=>e&&(e.length>r?e.slice(0,-1)+\"…\":e),r_=(e,r,t)=>null==e?Q:ex(r)?rC(eD(eg(e)?[e]:e,r),null!=t?t:\"\"):eg(e)?e:rC(eD(e,e=>!1===e?Q:e),null!=r?r:\"\"),rU=e=>(e=Math.log2(e))===(0|e),rF=(e,r,t,n)=>{var l,i,a,o,e=Object.fromEntries(Object.entries(e).filter(([e,r])=>eg(e)&&eh(r)).map(([e,r])=>[e.toLowerCase(),r])),s=Object.entries(e),v=Object.values(e),d=null!=(l=e.any)?l:v.reduce((e,r)=>e|r,0),c=r?{...e,any:d,none:0}:e,f=Object.fromEntries(Object.entries(c).map(([e,r])=>[r,e])),p=(e,t)=>{var n;return ep(e)?!r&&t?null!=f[e]?e:Q:Number.isSafeInteger(e)?e:Q:eg(e)?null!=(n=null!=(n=c[e])?n:c[e.toLowerCase()])?n:p(parseInt(e),t):Q},h=!1,[g,m]=r?[(e,r)=>Array.isArray(e)?e.reduce((e,t)=>null==t||h?e:null==(t=p(t,r))?(h=!0,Q):(null!=e?e:0)|t,(h=!1,Q)):p(e),(e,r)=>null==(e=g(e,!1))?Q:r&&(a=f[e&d])?(i=m(e&~(e&d),!1)).length?[a,...i]:a:(e=s.filter(([,r])=>r&&e&r&&rU(r)).map(([e])=>e),r?e.length?1===e.length?e[0]:e:\"none\":e)]:[p,e=>null!=(e=p(e))?f[e]:Q],y=(e,r)=>null==e?Q:null==(e=g(o=e,r))?B(TypeError(JSON.stringify(o)+` is not a valid ${t} value.`)):e,b=s.filter(([,e])=>!n||(n&e)===e&&rU(e));return((e,r)=>{var t=(r,n)=>{var l;if(r){if(ey(r)){if(eE(r[0]))return void r.splice(1).forEach(e=>t(e,r[0]));l=r}else l=eD(r);l.forEach(([r,t])=>Object.defineProperty(e,r,{configurable:!1,enumerable:!0,writable:!1,...n,...eE(t)&&(\"get\"in t||\"value\"in t)?t:ex(t)&&!t.length?{get:t}:{value:t}}))}};return r.forEach(e=>t(e)),e})(e=>y(e),[[{configurable:!1,enumerable:!1},{parse:y,tryParse:g,entries:s,values:v,lookup:m,length:s.length,format:e=>m(e,!0),logFormat:(e,r=\"or\")=>\"any\"===(e=m(e,!0))?\"any \"+t:`the ${t} `+rC(eD(ew(e),e=>(e=>null==e?Q:\"'\"+e+\"'\")(e)),[r])},r&&{pure:b,map:(e,r)=>(e=y(e),b.filter(([,r])=>r&e).map(null!=r?r:([,e])=>e))}]])},rq=(...e)=>{var r=(e=>!ey(e)&&eN(e)?eD(e,eO(e)?e=>e:eC(e)?e=>[e,!0]:(e,r)=>[r,e]):ek(e)?Object.entries(e):Q)(eQ(e,!0)),t=e=>(ek(e)&&(ey(e)?e.forEach((r,n)=>e[n]=t(r)):r.forEach(([r,t])=>{var n,l=Q;null!=(n=e[r])&&(1===t.length?e[r]=t[0].parse(n):t.forEach((i,a)=>!l&&null!=(l=a===t.length-1?i.parse(n):i.tryParse(n))&&(e[r]=l)))})),e);return t},rP=Symbol(),rR=(e,r=[\"|\",\";\",\",\"],t=!0)=>{var l;return e?(null==(l=e.split(\"=\").map(e=>t?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim()))[1]&&(l[1]=\"\"),l[2]=l[1]&&(null==r?void 0:r.length)&&((e,r)=>null==e?Q:(r=eM(r),eH(e,(e,t)=>!r||(e=r(e,t))?e_(e):Q,void 0,void 0)))(r,(e,r,t=l[1].split(e))=>1<t.length?t:Q)||(l[1]?[l[1]]:[]),l):Q},rz=(e,r=!0,t)=>null==e?Q:rV(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,t,n,l,i,a,o,u,s,v,d,c)=>{e={source:e,scheme:t,urn:t?!n:!n&&Q,authority:l,user:i,password:a,host:null!=o?o:u,port:null!=s?parseInt(s):Q,path:v,query:!1===r?d:rD(d,r),fragment:c};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":Q),e}),rD=(e,r,t=!0)=>rW(e,\"&\",r,t),rW=(e,r,t,n=!0)=>{var a,o=[],e=null==e?Q:eQ(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(r),(e,r,[l,i,u]=null!=(a=rR(e,!1===t?[]:!0===t?Q:t,n))?a:[],s)=>(s=null!=(l=null==l?void 0:l.replace(/\\[\\]$/,\"\"))?!1!==t?[l,1<u.length?u:i]:[l,i]:Q,o.push(s),s),(e,r)=>e?!1!==t?eJ(e,r):(e?e+\",\":\"\")+r:r);return e&&(e[rP]=o),e},rV=(e,r,l,i=!1)=>null==(null!=e?e:r)?Q:l?(t=Q,i?(n=[],rV(e,r,(...e)=>null!=(t=l(...e))&&n.push(t))):e.replace(r,(...e)=>t=l(...e)),t):e.match(r),rL=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),rK=/\\z./g,rG=(e,r)=>(r=r_((e=>null!=e?new Set([...eR(e,void 0,void 0,void 0)]):Q)(e1(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(r,\"gu\"):rK,rH={},rX=e=>e instanceof RegExp,rY=(t,n=[\",\",\" \"])=>{var l;return rX(t)?t:ey(t)?rG(eD(t,e=>{return null==(e=rY(e,n))?void 0:e.source})):es(t)?t?/./g:rK:eg(t)?null!=(l=(e=rH)[r=t])?l:e[r]=rV(t||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,r,t)=>r?RegExp(r,\"gu\"):rG(eD(rZ(t,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${r_(n,rL)}]`)),e=>e&&`^${r_(rZ(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>rL(rQ(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):Q},rZ=(e,r)=>{return null!=(r=null==e?void 0:e.split(r))?r:e},rQ=(e,r,t)=>{return null!=(r=null==e?void 0:e.replace(r,t))?r:e},r0=(e=(e,r)=>e-r,r=e=>e[1]-e[0])=>{var t=[];return rl(t,{push(n,l){for(var i=[n,l],a=(e=!0)=>e?t.width=t.reduce((e,t)=>e+r(t),0):t.width,o=0;o<t.length;o++){var u,s,v=t[o];if(e(i[1],v[0])<0)return a(t.splice(o,0,i));if(e(i[0],v[1])<=0){if(e(i[0],v[0])<0&&(u=v[0]=i[0]),0<e(i[1],v[1])&&(u=v[1]=i[1]),!((null==(s=t[o+1])?void 0:s[0])<v[1]))return a(null!=u);u=i=t.splice(o--,1)[0]}}return a(i&&(t[t.length]=i))},width:0})},r1=((C=l=l||{})[C.Anonymous=0]=\"Anonymous\",C[C.Indirect=1]=\"Indirect\",C[C.Direct=2]=\"Direct\",C[C.Sensitive=3]=\"Sensitive\",rF(l,!1,\"data classification\")),r2=(e,r)=>{var t;return r1.parse(null!=(t=null==e?void 0:e.classification)?t:null==e?void 0:e.level)===r1.parse(null!=(t=null==r?void 0:r.classification)?t:null==r?void 0:r.level)&&r6.parse(null!=(t=null==e?void 0:e.purposes)?t:null==e?void 0:e.purposes)===r6.parse(null!=(t=null==r?void 0:r.purposes)?t:null==r?void 0:r.purposes)},r4=(e,r)=>{var t;return null==e?void 0:eh(e.classification)&&eh(e.purposes)?e:{...e,level:void 0,purpose:void 0,classification:r1.parse(null!=(t=null!=(t=null!=(t=e.classification)?t:e.level)?t:null==r?void 0:r.classification)?t:0),purposes:r6.parse(null!=(e=null!=(t=null!=(t=e.purposes)?t:e.purpose)?t:null==r?void 0:r.purposes)?e:i.Necessary)}},r6=((C=i=i||{})[C.None=0]=\"None\",C[C.Necessary=1]=\"Necessary\",C[C.Functionality=2]=\"Functionality\",C[C.Performance=4]=\"Performance\",C[C.Targeting=8]=\"Targeting\",C[C.Security=16]=\"Security\",C[C.Infrastructure=32]=\"Infrastructure\",C[C.Any_Anonymous=49]=\"Any_Anonymous\",C[C.Any=63]=\"Any\",C[C.Server=2048]=\"Server\",C[C.Server_Write=4096]=\"Server_Write\",rF(i,!0,\"data purpose\",2111)),C=rF(i,!1,\"data purpose\",0),r3=(e,r)=>(!(a=null==e?void 0:e.metadata)||r&&(delete a.posted,delete a.queued,Object.entries(a).length)||delete e.metadata,e),r9=(($=o={})[$.Global=0]=\"Global\",$[$.Entity=1]=\"Entity\",$[$.Session=2]=\"Session\",$[$.Device=3]=\"Device\",rF(o,!($[$.User=4]=\"User\"),\"variable scope\")),o=(l.Anonymous,i.Necessary,{scope:r9,purpose:C,purposes:r6,classification:r1}),tr=(rq(o),e=>null==e?void 0:e.filter(ei).sort((e,r)=>e.scope===r.scope?e.key.localeCompare(r.key,\"en\"):e.scope-r.scope)),tt=((C=$={})[C.Add=0]=\"Add\",C[C.Min=1]=\"Min\",C[C.Max=2]=\"Max\",C[C.IfMatch=3]=\"IfMatch\",rF($,!(C[C.IfNoneMatch=4]=\"IfNoneMatch\"),\"variable patch type\"),($=s=s||{})[$.Success=200]=\"Success\",$[$.Created=201]=\"Created\",$[$.Unchanged=304]=\"Unchanged\",$[$.Denied=403]=\"Denied\",$[$.NotFound=404]=\"NotFound\",$[$.ReadOnly=405]=\"ReadOnly\",$[$.Conflict=409]=\"Conflict\",$[$.Unsupported=501]=\"Unsupported\",$[$.Invalid=400]=\"Invalid\",$[$.Error=500]=\"Error\",rF(s,!1,\"variable set status\"),(e,r,t)=>{var n,l=e(),i=e=>e,e=(e,t=ta)=>(e=>{var r={initialized:!0,then:(e=>{var r=G(e);return(e,t)=>Y(r,[e,t])})(()=>(r.initialized=!0,rc(e)))};return r})(async()=>(n=i(t(await l,r)))&&e(n)),o={then:e(e=>e).then,all:e(e=>e,e=>e),changed:e(e=>e1(e,e=>e.status<300)),variables:e(e=>eD(e,tl)),values:e(e=>eD(e,e=>{return null==(e=tl(e))?void 0:e.value})),push:()=>(i=e=>(null!=t&&t(eD((e=>null==e?void 0:e.map(e=>(null==e?void 0:e.status)<400?e:Q))(e))),e),o),value:e(e=>{return null==(e=tl(e[0]))?void 0:e.value}),variable:e(e=>tl(e[0])),result:e(e=>e[0])};return o}),tl=e=>{var r;return ti(e)?null!=(r=e.current)?r:e:Q},ti=(e,r=!1)=>r?(null==e?void 0:e.status)<300:(null==e?void 0:e.status)<400||404===(null==e?void 0:e.status),ta=(e,r,t)=>{var n,l,i=[],a=eD(ew(e),(e,a)=>{var s;return e&&(e.status<400||!t&&404===e.status?e:(l=(e=>`'${e.key}' in ${r9.format(e.scope)} scope`)(null!=(s=e.source)?s:e)+\" could not be \"+(404===e.status?\"found.\":`${e.source||500!==e.status?\"set\":\"read\"} because `+(409===e.status?`of a conflict. The expected version '${null==(s=e.source)?void 0:s.version}' did not match the current version '${null==(s=e.current)?void 0:s.version}'.`:403===e.status?null!=(s=e.error)?s:\"the operation was denied.\":400===e.status?null!=(s=e.error)?s:\"the value does not conform to the schema\":405===e.status?\"it is read only.\":500===e.status?\"of an unexpected error: \"+e.error:\"of an unknown reason.\")),null!=(n=null==r?void 0:r[a])&&!1===n(e,l)||i.push(l),Q))});return i.length?B(i.join(\"\\n\")):ey(e)?a:null==a?void 0:a[0]},tu=e=>e&&\"string\"==typeof e.type,ts=(e=>r=>(null==r?void 0:r.type)&&e.some(e=>e===(null==r?void 0:r.type)))([\"view\"]),tv=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,td=(e,r)=>{var t;return r&&(!(d=e.get(v=r.tag+(null!=(t=r.value)?t:\"\")))||(null!=(t=d.score)?t:1)<(null!=(t=r.score)?t:1))&&e.set(v,r)},tc=(e,r=\"\",t=new Map)=>{if(e)return eN(e)?eX(e,e=>tc(e,r,t)):eg(e)?rV(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,l,i,a,o,u)=>{l={tag:(n?tv(n)+\"::\":\"\")+r+tv(l),value:tv(null!=(n=null!=i?i:a)?n:o)};u&&10!==parseFloat(u)&&(l.score=parseFloat(u)/10),td(t,l)}):td(t,e),t},tf=((C=c=c||{})[C.View=-3]=\"View\",C[C.Tab=-2]=\"Tab\",C[C.Shared=-1]=\"Shared\",rF(c,!1,\"local variable scope\")),th=e=>{var r;return null!=(r=tf.format(e))?r:r9.format(e)},tg=e=>!!tf.tryParse(null==e?void 0:e.scope),tm=rq({scope:tf},o),ty=e=>{return null==e?void 0:eg(e)?e:e.source?ty(e.source):`${(e=>{var r;return null!=(r=tf.tryParse(e))?r:r9(e)})(e.scope)}\u0000${e.key}\u0000`+(null!=(e=e.targetId)?e:\"\")},tb=e=>{e=e.split(\"\\0\");return{scope:+e[0],key:e[1],targetId:e[2]}},tk=()=>()=>B(\"Not initialized.\"),tS=window,tT=document,tE=tT.body,tA=ee,tx=(e,r,t=(e,r)=>tA<=r)=>{for(var n=0,l=er;1===(null==e?void 0:e.nodeType)&&!t(e,n++)&&r(e,(e,r)=>(null!=e&&(i=e,l=r!==et&&null!=i),et),n-1)!==er&&!l;){var i,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==tT&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return i},tN=(e,r=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===r))switch(r){case!0:case\"z\":var t;return null==(t=(\"\"+e).trim())?void 0:t.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||ev(e);case\"n\":return parseFloat(e);case\"j\":return K(()=>JSON.parse(e),en);case\"h\":return K(()=>nw(e),en);case\"e\":return K(()=>null==nS?void 0:nS(e),en);default:return ey(r)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:tN(e,r[0])):void 0}},tO=(e,r,t)=>tN(null==e?void 0:e.getAttribute(r),t),tC=(e,r,t)=>tx(e,(e,n)=>n(tO(e,r,t))),tj=(e,r)=>{return null==(e=tO(e,r))||null==(r=e.trim())?void 0:r.toLowerCase()},t_=(e,r)=>getComputedStyle(e).getPropertyValue(r)||null,tM=e=>null!=e?e.tagName:null,tF=e=>({x:ej(scrollX,e),y:ej(scrollY,e)}),tq=(e,r)=>rQ(e,/#.*$/,\"\")===rQ(r,/#.*$/,\"\"),tP=(e,r,t=et)=>(p=tR(e,r))&&Z({xpx:p.x,ypx:p.y,x:ej(p.x/tE.offsetWidth,4),y:ej(p.y/tE.offsetHeight,4),pageFolds:t?p.y/window.innerHeight:void 0}),tR=(e,r)=>null!=r&&r.pointerType&&null!=(null==r?void 0:r.pageY)?{x:r.pageX,y:r.pageY}:e?({x:h,y:g}=tz(e),{x:h,y:g}):void 0,tz=e=>e?(m=e.getBoundingClientRect(),f=tF(er),{x:ej(m.left+f.x),y:ej(m.top+f.y),width:ej(m.width),height:ej(m.height)}):void 0,tD=(e,r,t,n={capture:!0,passive:!0})=>(r=ew(r),rN(t,t=>eX(r,r=>e.addEventListener(r,t,n)),t=>eX(r,r=>e.removeEventListener(r,t,n)))),tB=()=>({...f=tF(et),width:window.innerWidth,height:window.innerHeight,totalWidth:tE.offsetWidth,totalHeight:tE.offsetHeight}),tJ=new WeakMap,tV=e=>tJ.get(e),tL=(e,r=er)=>(r?\"--track-\":\"track-\")+e,tK=(e,r,t,n,l,i)=>(null==r?void 0:r[1])&&eX((e=>null==e?void 0:e.getAttributeNames())(e),a=>{var o;return null!=(o=(y=r[0])[b=a])?o:y[b]=(i=er,!eg(n=eX(r[1],([r,t,n],l)=>(r=>r&&null!=a?r.test(a):Q)(r)&&(i=void 0,!t||(e=>!(null==e||!e.matches(t)))(e))&&e_(null!=n?n:a)))||(l=e.getAttribute(a))&&!ev(l)||tc(l,rQ(n,/\\-/g,\":\"),t),i)}),tG=()=>{},tH=(e,r)=>{if(w===(w=t2.tags))return tG(e,r);var t=e=>e?rX(e)?[[e]]:eN(e)?eB(e,t):[eE(e)?[rY(e.match),e.selector,e.prefix]:[rY(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...t(eD(w,eE(w)?e=>e[1]:e=>e,void 0,void 0))]];(tG=(e,r)=>tK(e,n,r))(e,r)},tX=(e,r)=>r_(eJ(t_(e,tL(r,et)),t_(e,tL(\"base-\"+r,et))),\" \"),tY={},tZ=(e,r,t=tX(e,\"attributes\"))=>{var n;t&&tK(e,null!=(n=tY[t])?n:tY[t]=[{},(e=>rV(e,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,r,t,n)=>[rY(t||n),,r],!0))(t)],r),tc(tX(e,\"tags\"),void 0,r)},tQ=(e,r,t=er,n)=>{return null!=(t=null!=(t=t?tx(e,(e,t)=>t(tQ(e,r,er)),ex(t)?t:void 0):r_(eJ(tO(e,tL(r)),t_(e,tL(r,et))),\" \"))?t:n&&(k=tV(e))&&n(k))?t:null},t0=(e,r,t=er,n)=>\"\"===(S=tQ(e,r,t,n))||(null==S?S:ev(S)),t1=(e,r,t,n)=>e&&(null==n&&(n=new Map),tZ(e,n),tx(e,e=>{tH(e,n),tc(null==t?void 0:t(e),void 0,n)},r),n.size)?{tags:[...n.values()]}:{},t2={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},t4=[],t6=[],t5=(e,r=0)=>e.charCodeAt(r),t8=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,r)=>t4[t6[r]=e.charCodeAt(0)]=r),e=>{for(var r,t=0,n=e.length,l=[];t<n;)r=e[t++]<<16|e[t++]<<8|e[t++],l.push(t6[(16515072&r)>>18],t6[(258048&r)>>12],t6[(4032&r)>>6],t6[63&r]);return l.length+=n-t,(e=>String.fromCharCode(...e))(l)}),t7={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},ne=(e=256)=>e*Math.random()|0,nt={exports:{}},{deserialize:nn,serialize:nl}=((()=>{function r(e,r){if(r&&r.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var t,n,l=new Uint8Array(128),i=0;if(r&&r.multiple)for(var a=0;a<e.length;a++)o(e[a]);else o(e);return l.subarray(0,i);function o(e,l){var c,a;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var r;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?v([204,e]):-128<=e&&e<=127?v([208,e]):0<e&&e<=65535?v([205,e>>>8,e]):-32768<=e&&e<=32767?v([209,e>>>8,e]):0<e&&e<=4294967295?v([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?v([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?v([211,(r=e/4294967296)>>>24,r>>>16,r>>>8,r,(r=e%4294967296)>>>24,r>>>16,r>>>8,r]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),d(e)):v(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(t=new ArrayBuffer(8))).setFloat64(0,e),s(203),v(new Uint8Array(t)))})(e);break;case\"string\":(c=(a=(e=>{for(var r=!0,t=e.length,n=0;n<t;n++)if(127<e.charCodeAt(n)){r=!1;break}for(var l=0,i=new Uint8Array(e.length*(r?1:4)),a=0;a!==t;a++){var o=e.charCodeAt(a);if(o<128)i[l++]=o;else{if(o<2048)i[l++]=o>>6|192;else{if(55295<o&&o<56320){if(++a>=t)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(a);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+a+\" out of range\");i[l++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,i[l++]=o>>12&63|128}else i[l++]=o>>12|224;i[l++]=o>>6&63|128}i[l++]=63&o|128}}return r?i:i.subarray(0,l)})(e)).length)<=31?s(160+c):v(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),v(a);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var t,r=e.getTime()/1e3;0===e.getMilliseconds()&&0<=r&&r<4294967296?v([214,255,r>>>24,r>>>16,r>>>8,r]):0<=r&&r<17179869184?v([215,255,(t=1e6*e.getMilliseconds())>>>22,t>>>14,t>>>6,t<<2>>>0|r/4294967296,r>>>24,r>>>16,r>>>8,r]):(v([199,12,255,(t=1e6*e.getMilliseconds())>>>24,t>>>16,t>>>8,t]),d(r))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((a=(c=e).length)<=255?v([196,a]):v(a<=65535?[197,a>>>8,a]:[198,a>>>24,a>>>16,a>>>8,a]),v(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var t,r=0;for(t in e)void 0!==e[t]&&r++;for(t in r<=15?s(128+r):v(r<=65535?[222,r>>>8,r]:[223,r>>>24,r>>>16,r>>>8,r]),e){var n=e[t];void 0!==n&&(o(t),o(n))}})(e);break;default:if(l||!r||!r.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof r.invalidTypeReplacement?o(r.invalidTypeReplacement(e),!0):o(r.invalidTypeReplacement,!0)}}function u(e){var r=e.length;r<=15?s(144+r):v(r<=65535?[220,r>>>8,r]:[221,r>>>24,r>>>16,r>>>8,r]);for(var t=0;t<r;t++)o(e[t])}function s(e){if(l.length<i+1){for(var r=2*l.length;r<i+1;)r*=2;var t=new Uint8Array(r);t.set(l),l=t}l[i]=e,i++}function v(e){if(l.length<i+e.length){for(var r=2*l.length;r<i+e.length;)r*=2;var t=new Uint8Array(r);t.set(l),l=t}l.set(e,i),i+=e.length}function d(e){var r,e=0<=e?(r=e/4294967296,e%4294967296):(r=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));v([r>>>24,r>>>16,r>>>8,r,e>>>24,e>>>16,e>>>8,e])}}function t(e,r){var t,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),r&&r.multiple)for(t=[];n<e.length;)t.push(l());else t=l();return t;function l(){var r=e[n++];if(0<=r&&r<=127)return r;if(128<=r&&r<=143)return s(r-128);if(144<=r&&r<=159)return v(r-144);if(160<=r&&r<=191)return d(r-160);if(192===r)return null;if(193===r)throw Error(\"Invalid byte code 0xc1 found.\");if(194===r)return!1;if(195===r)return!0;if(196===r)return u(-1,1);if(197===r)return u(-1,2);if(198===r)return u(-1,4);if(199===r)return c(-1,1);if(200===r)return c(-1,2);if(201===r)return c(-1,4);if(202===r)return o(4);if(203===r)return o(8);if(204===r)return a(1);if(205===r)return a(2);if(206===r)return a(4);if(207===r)return a(8);if(208===r)return i(1);if(209===r)return i(2);if(210===r)return i(4);if(211===r)return i(8);if(212===r)return c(1);if(213===r)return c(2);if(214===r)return c(4);if(215===r)return c(8);if(216===r)return c(16);if(217===r)return d(-1,1);if(218===r)return d(-1,2);if(219===r)return d(-1,4);if(220===r)return v(-1,2);if(221===r)return v(-1,4);if(222===r)return s(-1,2);if(223===r)return s(-1,4);if(224<=r&&r<=255)return r-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+r+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(r){for(var i,t=0,l=!0;0<r--;)l?(t+=127&(i=e[n++]),128&i&&(t-=128),l=!1):t=(t*=256)+e[n++];return t}function a(r){for(var t=0;0<r--;)t=256*t+e[n++];return t}function o(r){var t=new DataView(e.buffer,n+e.byteOffset,r);return n+=r,4===r?t.getFloat32(0,!1):8===r?t.getFloat64(0,!1):void 0}function u(r,t){r<0&&(r=a(t));t=e.subarray(n,n+r);return n+=r,t}function s(e,r){e<0&&(e=a(r));for(var t={};0<e--;)t[l()]=l();return t}function v(e,r){e<0&&(e=a(r));for(var t=[];0<e--;)t.push(l());return t}function d(r,t){r<0&&(r=a(t));t=n;return n+=r,((e,r,t)=>{var n=r,l=\"\";for(t+=r;n<t;){var i=e[n++];if(127<i)if(191<i&&i<224){if(t<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(223<i&&i<240){if(t<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<i&&i<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1));if(t<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(i<=65535)l+=String.fromCharCode(i);else{if(!(i<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\");i-=65536,l+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320)}}return l})(e,t,r)}function c(e,r){e<0&&(e=a(r));r=a(1),e=u(e);return 255===r?(e=>{var t,r;if(4===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*r);if(8===e.length)return t=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),r=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*r+t/1e6);if(12===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,r=i(8),new Date(1e3*r+t/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:r,data:e}}}var n={serialize:r,deserialize:t,encode:r,decode:t};nt.exports=n})(),($=nt.exports)&&$.__esModule&&Object.prototype.hasOwnProperty.call($,\"default\")?$.default:$),ni=\"$ref\",na=(e,r,t)=>eA(e)?Q:t?r!==Q:null===r||r,no=(e,r,{defaultValues:t=!0,prettify:n=!1})=>{var l,i,a,o=(e,r,n=e[r],l=na(r,n,t)?s(n):Q)=>(n!==l&&(l!==Q||ey(e)?e[r]=l:delete e[r],u(()=>e[r]=n)),l),u=e=>(null!=l?l:l=[]).push(e),s=e=>{if(null==e||ex(e)||eA(e))return Q;if(ek(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(a=null==i?void 0:i.get(e)))return e[ni]||(e[ni]=a,u(()=>delete e[ni])),{[ni]:a};if(eE(e))for(var r in(null!=i?i:i=new Map).set(e,i.size+1),e)o(e,r);else!eN(e)||e instanceof Uint8Array||(!ey(e)||Object.keys(e).length<e.length?[...e]:e).forEach((r,t)=>t in e?o(e,t):(e[t]=null,u(()=>delete e[t])))}return e};return K(()=>{var t;return r?nl(null!=(t=s(e))?t:null):K(()=>JSON.stringify(e,Q,n?2:0),()=>JSON.stringify(s(e),Q,n?2:0))},!0,()=>null==l?void 0:l.forEach(e=>e()))},nu=e=>{var r,t,n=e=>ek(e)?e[ni]&&(t=(null!=r?r:r=[])[e[ni]])?t:(e[ni]&&delete(r[e[ni]]=e)[ni],Object.entries(e).forEach(([r,t])=>t!==(t=n(t))&&(e[r]=t)),e):e;return n(eg(e)?JSON.parse(e):null!=e?K(()=>nn(e),()=>(console.error(\"Invalid message received.\",e),Q)):e)},ns=(e,r={})=>{var t=(e,{json:r=!1,...t})=>{var l,i,a,n=(e,n)=>eh(e)&&!0===n?e:a(e=eg(e)?new Uint8Array(eD(e.length,r=>255&e.charCodeAt(r))):r?K(()=>JSON.stringify(e),()=>JSON.stringify(no(e,!1,t))):no(e,!0,t),n);return r?[e=>no(e,!1,t),e=>null==e?Q:K(()=>nu(e),Q),(e,r)=>n(e,r)]:([l,i,a]=(e=>{for(var r,t,n,l,i,o,a=0n,u=0n,s=[],v=0,d=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],d=255&(v=f),c=-1}:()=>{},g=e=>(d=255&(v+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),l=16-((r=e.length)+4)%16,i=new Uint8Array(4+r+l),n=0;n<3;i[n++]=g(ne()));for(t=0,i[n++]=g(d^16*ne(16)+l);t<r;i[n++]=g(d^e[t++]));for(;l--;)i[n++]=ne();return i}:e=>e,e?e=>{for(h(),t=0;t<3;g(e[t++]));if((r=e.length-4-((d^g(e[t++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(r);n<r;i[n++]=d^g(e[t++]));return i}:e=>e,(e,r=64)=>{if(null==e)return null;for(o=es(r)?64:r,h(),[a,u]=t7[o],t=0;t<e.length;a=BigInt.asUintN(o,(a^BigInt(d^g(e[t++])))*u));return!0===r?Number(BigInt(Number.MIN_SAFE_INTEGER)+a%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):a.toString(36)}]})(e),[(e,r)=>(r?el:t8)(l(no(e,!0,t))),e=>null!=e?nu(i(e instanceof Uint8Array?e:(e=>{for(var r,t=0,n=0,l=e.length,i=new Uint8Array(3*(l/4|0)+(l+3&3)%3);t<l;)i[n++]=t4[t5(e,t++)]<<2|(r=t4[t5(e,t++)])>>4,t<l&&(i[n++]=(15&r)<<4|(r=t4[t5(e,t++)])>>2,t<l)&&(i[n++]=(3&r)<<6|t4[t5(e,t++)]);return i})(e))):null,(e,r)=>n(e,r)])};if(!e){var n=+(null!=(n=r.json)?n:0);if(n&&!1!==r.prettify)return(null!=T?T:T=[t(null,{json:!1}),t(null,{json:!0,prettify:!0})])[n]}return t(e,r)},C=(ns(),ns(null,{json:!0,prettify:!0}),rZ(\"\"+tT.currentScript.src,\"#\")),rF=rZ(\"\"+(C[1]||\"\"),\";\"),nc=C[0],nf=rF[1]||(null==(rq=rz(nc,!1))?void 0:rq.host),np=e=>{return!(!nf||(null==(e=rz(e,!1))||null==(e=e.host)?void 0:e.endsWith(nf))!==et)},o=(...e)=>rQ(r_(e),/(^(?=\\?))|(^\\.(?=\\/))/,nc.split(\"?\")[0]),ng=o(\"?\",\"var\"),nm=o(\"?\",\"mnt\"),ny=(o(\"?\",\"usr\"),Symbol()),[nb,nw]=ns(),[nk,nS]=[tk,tk],[$,nE]=eo(),nx=(...e)=>{var r,l=e.shift();console.error(eg(e[1])?e.shift():null!=(r=null==(r=e[1])?void 0:r.message)?r:\"An error occurred\",null!=(r=l.id)?r:l,...e)},[nN,nO]=eo(),[nC,nj]=eo(),n$=e=>nM!==(nM=e)&&nO(nM=!1,nq(!0,!0)),n_=e=>nU!==(nU=!!e&&\"visible\"===document.visibilityState)&&nj(nU,!e,nF(!0,!0)),nM=(nN(n_),!0),nU=!1,nF=ry(!1),nq=ry(!1),nP=(tD(window,[\"pagehide\",\"freeze\"],()=>n$(!1)),tD(window,[\"pageshow\",\"resume\"],()=>n$(!0)),tD(document,\"visibilitychange\",()=>(n_(!0),nU&&n$(!0))),nO(nM,nq(!0,!0)),!1),nR=ry(!1),[,nD]=eo(),nW=rw({callback:()=>nP&&nD(nP=!1,nR(!1)),frequency:2e4,once:!0,paused:!0}),C=()=>!nP&&(nD(nP=!0,nR(!0)),nW.restart()),nJ=(tD(window,[\"focus\",\"scroll\"],C),tD(window,\"blur\",()=>nW.trigger()),tD(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],C),C(),()=>nR()),nV=0,nL=void 0,nK=()=>(null!=nL?nL:tk())+\"_\"+nG(),nG=()=>(rm(!0)-(parseInt(nL.slice(0,-2),36)||0)).toString(36)+\"_\"+(++nV).toString(36),nY={},nZ={id:nL,heartbeat:rm()},nQ={knownTabs:{[nL]:nZ},variables:{}},[n0,n1]=eo(),[n2,n4]=eo(),n6=tk,n5=e=>nY[ty(e)],n3=(...e)=>n9(e.map(e=>(e.cache=[rm(),3e3],tm(e)))),n8=e=>eD(e,e=>e&&[e,nY[ty(e)]]),n9=e=>{var r=eD(e,e=>e&&[ty(e),e]);null!=r&&r.length&&(e=n8(e),rl(nY,r),(r=e1(r,e=>e[1].scope>c.Tab)).length&&(rl(nQ.variables,r),n6({type:\"patch\",payload:eQ(r)})),n4(e,nY,!0))},[,le]=($((e,r)=>{nN(t=>{var n;t?(t=r(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),nL=null!=(n=null==t?void 0:t[0])?n:rm(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),nY=eQ(eJ(e1(nY,([,e])=>e.scope===c.View),eD(null==t?void 0:t[1],e=>[ty(e),e])))):sessionStorage.setItem(\"_tail:state\",e([nL,eD(nY,([,e])=>e.scope!==c.View?e:void 0)]))},!0),n6=(r,t)=>{e&&(localStorage.setItem(\"_tail:state\",e([nL,r,t])),localStorage.removeItem(\"_tail:state\"))},tD(window,\"storage\",e=>{var i,a,o;\"_tail:state\"!==e.key||!(e=null==r?void 0:r(e.newValue))||e[2]&&e[2]!==nL||([e,{type:i,payload:a}]=e,\"query\"===i?t.active||n6({type:\"set\",payload:nQ},e):\"set\"===i&&t.active?(rl(nQ,a),rl(nY,a.variables),t.trigger()):\"patch\"===i?(o=n8(eD(a,1)),rl(nQ.variables,a),rl(nY,a),n4(o,nY,!1)):\"tab\"===i&&(rl(nQ.knownTabs,e,a),a)&&n1(\"tab\",a,!1))});var t=rw(()=>n1(\"ready\",nQ,!0),-25),n=rw({callback(){var e=rm()-1e4;eX(null==nQ?void 0:nQ.knownTabs,([r,t])=>t[0]<e&&((e,r)=>{var t=[],n=!1,l=(e,i,a,o)=>{var u;e&&(u=r[i],i===r.length-1?ey(u)?(n=!0,u.forEach(r=>t.push(ro(e,r)))):t.push(ro(e,u)):(ey(u)?(n=!0,u.forEach(r=>l(rr(e,r),i+1,e,r))):l(rr(e,u),i+1,e,u),!e2(e)&&a&&rs(a,o)))};return l(e,0),n?t:t[0]})(nQ.knownTabs,[r])),nZ.heartbeat=rm(),n6({type:\"tab\",payload:nZ})},frequency:5e3,paused:!0});nN(e=>(e=>{n6({type:\"tab\",payload:e?nZ:void 0}),e?(t.restart(),n6({type:\"query\"})):t.toggle(!1),n.toggle(e)})(e),!0)},!0),eo()),[lr,lt]=eo(),ln=(({timeout:r=1e3,encrypt:t=!0,retries:n=10}={})=>{var l=()=>(t?nS:nw)(localStorage.getItem(\"_tail:rq\")),i=0,a=()=>localStorage.setItem(\"_tail:rq\",(t?nk:nb)([nL,rm()+r]));return async(t,o,u=null!=o?1:n)=>{for(;u--;){var v=l();if((!v||v[1]<rm())&&(a(),(null==(v=l())?void 0:v[0])===nL))return 0<r&&(i=setInterval(()=>a(),r/2)),Y(t,!0,()=>{clearInterval(i),localStorage.removeItem(\"_tail:rq\")});var d=new rT,[v]=tD(window,\"storage\",r=>{\"_tail:rq\"!==r.key||r.newValue||d.resolve()});e=[rI(null!=o?o:r),d],await Promise.race(e.map(e=>ex(e)?e():e)),v()}var e;null==o&&B(\"_tail:rq could not be acquired.\")}})(),ll=async(e,r,{beacon:t=!1,encrypt:n=!0}={})=>{var l,i,a=!1,o=t=>{var o=ex(r)?null==r?void 0:r(l,t):r;return!1!==o&&(le(e,l=null!=o&&!0!==o?o:l,t,e=>(a=l===Q,l=e)),!a)&&(i=n?nk(l,!0):JSON.stringify(l))};if(!t)return ln(()=>(async r=>{var l,i;for(i of eR(1,r,void 0,void 0))if(null!=(i=await i)&&(l=i),e$){e$=!1;break}return l})(async r=>{var a;return o(r)?400<=(a=await fetch(e,{method:null!=l?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i})).status?0===r?e_(B(\"Invalid response: \"+await a.text())):(console.warn(`Request to ${e} failed on attempt ${r+1}/3.`),await rI(200*(1+r))):(null!=(a=null!=(r=n?new Uint8Array(await a.arrayBuffer()):await a.text())&&r.length?null==(a=n?nS:JSON.parse)?void 0:a(r):Q)&&lt(a),e_(a)):e_()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=l?[i]:[],{type:\"text/plain\"}))&&B(\"Beacon send failed.\")},rF=[\"scope\",\"key\",\"targetId\",\"version\"],la=[...rF,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],lo=[...rF,\"init\",\"purpose\",\"refresh\"],lu=[...la,\"value\",\"force\",\"patch\"],ls=new Map,lv=(e,r)=>{var t=rw(async()=>{var e=eD(ls,([e,r])=>({...tb(e),result:[...r]}));e.length&&await v.get(...e)},3e3),n=(e,r)=>r&&eG(r,r=>rr(ls,e,()=>new Set).add(r)),o=(nN((e,r)=>t.toggle(e,e&&3e3<=r),!0),n2(e=>eX(e,([e,r])=>((e,r)=>{var t,l,i;e&&(l=ty(e),null==(i=rs(ls,l))||!i.size||(null==e?void 0:e.purposes)===(null==r?void 0:r.purposes)&&(null==e?void 0:e.classification)==(null==r?void 0:r.classification)&&J(null==e?void 0:e.value,null==r?void 0:r.value)||eX(i,i=>{t=!1,null!=i&&i(e,r,(e=!0)=>t=e),t&&n(l,i)}))})(e,r))),new Map),u=(e,r)=>rl(o,e,es(r)?r?void 0:0:r),v={get:(...t)=>tt(async()=>{t[0]&&!eg(t[0])||(a=t[0],t=t.slice(1)),null!=r&&r.validateKey(a);var v=[],c=eD(t,(e,r)=>[e,r]),f=[],a=null!=(a=null==(a=await ll(e,()=>!!(c=eD(c,([e,r])=>{if(e){var t,l=ty(e),i=(n(l,e.result),n5(l)),l=(e.init&&u(l,e.cache),e.purposes);if((null!=l?l:-1)&(null!=(t=null==i?void 0:i.purposes)?t:-1))if(!e.refresh&&(null==i?void 0:i[1])<rm())rp(v,[{...i,status:s.Success},r]);else{if(!tg(e))return[rd(e,lo),r];eE(e.init)&&null!=(t={...tm(e),status:s.Created,...e.init}).value&&(rp(f,d(t)),rp(v,[t,r]))}else rp(v,[{...e,status:s.Denied,error:\"No consent for \"+r6.logFormat(l)},r])}})).length&&{variables:{get:eD(c,0)},deviceSessionId:null==r?void 0:r.deviceSessionId}))||null==(a=a.variables)?void 0:a.get)?a:[];return rp(v,...eD(a,(e,r)=>e&&[e,c[r][1]])),f.length&&n9(f),v.map(([e])=>e)},eD(t,e=>null==e?void 0:e.error)),set:(...t)=>tt(async()=>{t[0]&&!eg(t[0])||(a=t[0],t=t.slice(1)),null!=r&&r.validateKey(a);var o=[],v=[],c=eD(t,(e,r)=>{var a,n;if(e)return n=ty(e),a=n5(n),u(n,e.cache),tg(e)?null!=e.patch?B(\"Local patching is not supported.\"):(n={value:e.value,classification:l.Anonymous,purposes:i.Necessary,scope:tf(e.scope),key:e.key},v[r]={status:a?s.Success:s.Created,source:e,current:n},void rp(o,d(n))):(null==e.patch&&void 0===(null==e?void 0:e.version)&&(e.version=null==a?void 0:a.version,null==e.force)&&(e.force=!!e.version),[rd(e,lu),r])}),a=c.length?L(null==(a=(await ll(e,{variables:{set:c.map(e=>e[0])},deviceSessionId:null==r?void 0:r.deviceSessionId})).variables)?void 0:a.set,\"No result.\"):[];return o.length&&n9(o),eX(a,(e,r)=>{var t,[r,l]=c[r];null!=(t=(e.source=r).result)&&t.call(r,e),v[l]=e}),v},eD(t,e=>null==e?void 0:e.error))},d=(e,r=rm())=>{return{...rd(e,la),cache:[r,r+(null!=(r=rs(o,ty(e)))?r:3e3)]}};return lr(({variables:e})=>{var r;e&&(r=rm(),null!=(e=eJ(eD(e.get,e=>tl(e)),eD(e.set,e=>tl(e)))))&&e.length&&n9(eG(e,d,r))}),v},lc=Symbol(),lf=[.75,.33],lp=[.25,.33],lm=()=>{var l,a,i,t=null==tS?void 0:tS.screen;return t?({width:t,height:l,orientation:i}=t,a=t<l,-90!==(i=null!=(i=null!=(i=null==i?void 0:i.angle)?i:tS.orientation)?i:0)&&90!==i||([t,l]=[l,t]),{deviceType:t<480?\"mobile\":t<=1024?\"tablet\":\"desktop\",screen:{dpr:tS.devicePixelRatio,width:t,height:l,landscape:a}}):{}},ly=e=>e(Z({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==A?void 0:A.clientId,languages:eD(navigator.languages,(e,r,t=e.split(\"-\"))=>Z({id:e,language:t[0],region:t[1],primary:0===r,preference:r+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...lm()})),lb=(e,r=\"A\"===tM(e)&&tO(e,\"href\"))=>r&&\"#\"!=r&&!r.startsWith(\"javascript:\"),lw=(e,r=tM(e),t=t0(e,\"button\"))=>t!==er&&(V(r,\"A\",\"BUTTON\")||\"INPUT\"===r&&V(tj(e,\"type\"),\"button\",\"submit\")||t===et),lk=(e,r=!1)=>{var t;return{tagName:e.tagName,text:r$((null==(t=tO(e,\"title\"))?void 0:t.trim())||(null==(t=tO(e,\"alt\"))?void 0:t.trim())||(null==(t=e.innerText)?void 0:t.trim()),100),href:null==(t=e.href)?void 0:t.toString(),rect:r?tz(e):void 0}},lT=e=>{if(I)return I;eg(e)&&([t,e]=nw(e),e=ns(t)[1](e)),rl(t2,e),(e=>{nS===tk&&([nk,nS]=ns(e),nE(nk,nS))})(rs(t2,\"encryptionKey\"));var t,a,o,u,s,v,d,c,f,p,h,g,l=rs(t2,\"key\"),i=null!=(e=null==(t=tS[t2.name])?void 0:t._)?e:[];if(ey(i))return a=[],o=[],u=(e,...r)=>{var t=et;o=e1(o,n=>K(()=>{var l;return null!=(l=n[e])&&l.call(n,...r,{tracker:I,unsubscribe:()=>t=er}),t},(e=>r=>nx(e,r))(n)))},s=[],d=lv(ng,v={applyEventExtensions(e){null==e.clientId&&(e.clientId=nK()),null==e.timestamp&&(e.timestamp=rm()),h=et;var n=er;return eD(a,([,r])=>{var t;!n&&(null==(t=r.decorate)?void 0:t.call(r,e))!==er||(n=et)}),n?void 0:e},validateKey:(e,r=!0)=>!l&&!e||e===l||!!r&&B(`'${e}' is not a valid key.`)}),c=((e,r)=>{var n=[],l=new WeakMap,i=new Map,a=(e,r)=>{var t;return null!=(t=e.metadata)&&t.queued?rt(r,{type:e.type+\"_patch\",patchTargetId:e.clientId}):B(\"Source event not queued.\")},o=async(t,n=!0,l)=>{var i;return t[0]&&!eg(t[0])||(i=t[0],t=t.slice(1)),ll(e,{events:t=t.map(e=>(null!=r&&r.validateKey(null!=i?i:e.key),rt(e,{metadata:{posted:!0}}),rt(r3(rf(e),!0),{timestamp:e.timestamp-rm()}))),variables:l,deviceSessionId:null==r?void 0:r.deviceSessionId},{beacon:n})},u=async(e,{flush:t=!1,async:l=!0,variables:i}={})=>{if((e=eD(ew(e),e=>rt(r.applyEventExtensions(e),{metadata:{queued:!0}}))).length&&eX(e,e=>{}),!l)return o(e,!1,i);t?(n.length&&rh(e,...n.splice(0)),e.length&&await o(e,!0,i)):e.length&&rp(n,...e)};return rw(()=>u([],{flush:!0}),5e3),nC((e,r,t)=>{!e&&(n.length||r||1500<t)&&(e=eD(i,([e,r])=>{var[r,n]=r();return n&&(i.delete(e),l.delete(e)),r}),n.length||e.length)&&u(eJ(n.splice(0),e),{flush:!0})}),{post:u,postPatch:(e,r,t)=>u(a(e,r),{flush:!0}),registerEventPatchSource(e,r,t=!1,n){var o=!1,s=()=>{o=!0};return l.set(e,rf(e)),i.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))s();else{var i=l.get(e),[t,v]=null!=(t=rg(r(i,s),i))?t:[];if(t&&!J(v,i))return l.set(e,rf(v)),[a(e,t),o]}return[void 0,o]}),t&&u(e),s}}})(ng,v),f=null,p=0,g=h=er,I=(...e)=>{if(e.length){1<e.length&&(!e[0]||eg(e[0]))&&(r=e[0],e=e.slice(1)),eg(e[0])&&(e=(t=e[0]).match(/^[{[]/)?JSON.parse(t):nw(t));var r,n=er;if((e=e1(eB(e,e=>eg(e)?nw(e):e),e=>{if(!e)return er;if(lQ(e))t2.tags=rl({},t2.tags,e.tagAttributes);else{if(l0(e))return t2.disabled=e.disable,er;if(l4(e))return n=et,er;if(l7(e))return e(I),er}return g||l5(e)||l2(e)?et:(s.push(e),er)})).length||n){var t=e7(e,e=>l2(e)?-100:l5(e)?-50:l9(e)?-10:tu(e)?90:0);if(!f||!f.splice(h?p+1:f.length,0,...t)){for(p=0,f=t;p<f.length;p++){var i=f[p];i&&(v.validateKey(null!=r?r:i.key),K(()=>{var e=f[p];if(u(\"command\",e),h=er,tu(e))c.post(e);else if(l6(e))d.get(...ew(e.get));else if(l9(e))d.set(...ew(e.set));else if(l5(e))rp(o,e.listener);else if(l2(e))(r=K(()=>e.extension.setup(I),r=>nx(e.extension.id,r)))&&(rp(a,[null!=(t=e.priority)?t:100,r,e.extension]),e7(a,([e])=>e));else if(l7(e))e(I);else{var t,n,r,i=er;for([,r]of a)if(i=null!=(n=null==(n=r.processCommand)?void 0:n.call(r,e))?n:er)break;i||nx(\"invalid-command\",e,\"Loaded extensions:\",a.map(e=>e[2].id))}},e=>nx(I,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}},Object.defineProperty(tS,t2.name,{value:Object.freeze(Object.assign(I,{id:\"tracker_\"+nK(),events:c,variables:d,__isTracker:et})),configurable:!1,writable:!1}),n2((e,r,t)=>{eJ(null==(e=tr(eD(e,1)))?void 0:e.map(e=>[e,`${e.key} (${th(e.scope)}, ${e.scope<0?\"client-side memory only\":r6.format(e.purposes)})`,er]),[[{[ny]:null==(e=tr(eD(r,1)))?void 0:e.map(e=>[e,`${e.key} (${th(e.scope)}, ${e.scope<0?\"client-side memory only\":r6.format(e.purposes)})`,er])},\"All variables\",et]])}),n0(async(e,r,t,n)=>{\"ready\"===e&&(e=(e=>ta(e,Q,!0))((await d.get({scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:ee}))[0]).value,v.deviceSessionId=e.deviceSessionId,e.hasUserAgent||(ly(I),e.hasUserAgent=!0),g=!0,s.length&&I(s),n(),I(...eD(lH,e=>({extension:e})),...i,{set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0),I;B(`The global variable for the tracker \"${t2.name}\" is used for something else than an array of queued commands.`)},lE=()=>null==A?void 0:A.clientId,lI={scope:\"shared\",key:\"referrer\"},lA=(e,r)=>{I.variables.set({...lI,value:[lE(),e]}),r&&I.variables.get({scope:lI.scope,key:lI.key,result(t,n,l){return null!=t&&t.value?l():(null==n||null==(t=n.value)?void 0:t[1])===e&&r()}})},lx=ry(),lN=ry(),lO=1,[lj,l$]=eo(),l_=e=>{var r=ry(e,lx),t=ry(e,lN),n=ry(e,nJ),l=ry(e,()=>lO);return(e,i)=>({totalTime:r(e,i),visibleTime:t(e,i),activeTime:n(e,i),activations:l(e,i)})},lM=l_(),[lF,lq]=eo(),lP=(e,r)=>(r&&eX(lz,r=>e(r,()=>!1)),lF(e)),lR=new WeakSet,lz=document.getElementsByTagName(\"iframe\");function lW(e){if(e){if(null!=e.units&&V(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var lJ=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),lV=e=>t1(e,r=>r!==e&&!!lJ(rr(tJ,r)),e=>(rr(tJ,e),(N=rr(tJ,e))&&eB(eJ(N.component,N.content,N),\"tags\"))),lL=(e,r)=>r?e:{...e,rect:void 0,content:(O=e.content)&&eD(O,e=>({...e,rect:void 0}))},lK=(e,r=er,t)=>{var n,l,i,a=[],o=[],u=0;return tx(e,e=>{var s,i,l=rr(tJ,e);l&&(lJ(l)&&(i=e1(ew(l.component),e=>{var t;return 0===u||!r&&(1===u&&(null==(t=e.track)?void 0:t.secondary)!==et||(null==(t=e.track)?void 0:t.promote))}),n=(null!=t?t:e9(i,e=>{return null==(e=e.track)?void 0:e.region}))&&tz(e)||void 0,s=lV(e),l.content&&rh(a,...eD(l.content,e=>({...e,rect:n,...s}))),null!=i)&&i.length&&(rh(o,...eD(i,e=>{var r;return u=e4(u,null!=(r=e.track)&&r.secondary?1:2),lL({...e,content:a,rect:n,...s},!!n)})),a=[]),i=l.area||tQ(e,\"area\"))&&rh(o,...eD(ew(i)))}),a.length&&rp(o,lL({id:\"\",rect:n,content:a})),eX(o,e=>{eg(e)?rp(null!=l?l:l=[],e):(null==e.area&&(e.area=r_(l,\"/\")),rh(null!=i?i:i=[],e))}),i||l?{components:i,area:r_(l,\"/\")}:void 0},lG=Symbol(),q={necessary:1,preferences:2,statistics:4,marketing:8},lH=(window.tail({consent:{externalSource:{key:\"Cookiebot\",poll(){var t,e=null==(e=tT.cookie.match(/CookieConsent=([^;]*)/))?void 0:e[1];if(e)return t=1,null!=e&&e.replace(/([a-z]+):(true|false)/g,(e,r,n)=>{return\"true\"===n&&(t|=null!=(n=q[r])?n:0),\"\"}),{level:1<t?1:0,purposes:t}}}}}),[{id:\"context\",setup(e){rw(()=>eX(lz,e=>ra(lR,e)&&lq(e)),1e3).trigger(),e.variables.get({scope:\"view\",key:\"view\",result(r,t,l){return null==A||null==r||!r.value||null!=A&&A.definition?n=null==r?void 0:r.value:(A.definition=r.value,null!=(r=A.metadata)&&r.posted&&e.events.postPatch(A,{definition:n})),l()}});var n,r,v=null!=(r=null==(r=n5({scope:\"tab\",key:\"viewIndex\"}))?void 0:r.value)?r:0,d=null==(r=n5({scope:\"tab\",key:\"tabIndex\"}))?void 0:r.value,c=(null==d&&n3({scope:\"tab\",key:\"tabIndex\",value:d=null!=(r=null!=(r=null==(r=n5({scope:\"shared\",key:\"tabIndex\"}))?void 0:r.value)?r:null==(r=n5({scope:\"session\",key:\"@info\"}))||null==(r=r.value)?void 0:r.tabs)?r:0},{scope:\"shared\",key:\"tabIndex\",value:d+1}),null),f=(r=er)=>{var i,a,o,l,p;tq(\"\"+c,c=location.href)&&!r||({source:r,scheme:l,host:i}=rz(location.href+\"\",!0),A={type:\"view\",timestamp:rm(),clientId:nK(),tab:nL,href:r,path:location.pathname,hash:location.hash||void 0,domain:{scheme:l,host:i},tabNumber:d+1,tabViewNumber:v+1,viewport:tB(),duration:lM(void 0,!0)},0===d&&(A.firstTab=et),0===d&&0===v&&(A.landingPage=et),n3({scope:\"tab\",key:\"viewIndex\",value:++v}),a=rD(location.href),eD([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,r)=>{var n;return(null!=(n=(o=A).utm)?n:o.utm={})[e]=null==(n=ew(a[\"utm_\"+e]))?void 0:n[0]}),!(A.navigationType=x)&&performance&&eD(performance.getEntriesByType(\"navigation\"),e=>{A.redirects=e.redirectCount,A.navigationType=rQ(e.type,/\\_/g,\"-\")}),x=void 0,\"navigate\"===(null!=(r=A.navigationType)?r:A.navigationType=\"navigate\")&&(p=null==(l=n5(lI))?void 0:l.value)&&np(document.referrer)&&(A.view=null==p?void 0:p[0],A.relatedEventId=null==p?void 0:p[1],e.variables.set({...lI,value:void 0})),(p=document.referrer||null)&&!np(p)&&(A.externalReferrer={href:p,domain:(()=>{var{host:r,scheme:t,port:n}=rz(p,!1);return{host:r+(n?\":\"+n:\"\"),scheme:t}})()}),A.definition=n,n=void 0,e.events.post(A),e.events.registerEventPatchSource(A,()=>({duration:lM()})),l$(A))};return nC(e=>{e?(lN(et),++lO):lN(er)}),tD(window,\"popstate\",()=>(x=\"back-forward\",f())),eD([\"push\",\"replace\"],e=>{var r=history[e+=\"State\"];history[e]=(...e)=>{r.apply(history,e),x=\"navigate\",f()}}),f(),{processCommand:r=>lZ(r)&&(e(r.username?{type:\"login\",username:r.username}:{type:\"logout\"}),et),decorate(e){!A||ts(e)||(e=>!(null==e||!e.patchTargetId))(e)||(e.view=A.clientId)}}}},{id:\"components\",setup(e){var r=(e=>{var r=new IntersectionObserver(e=>eX(e,e=>{var r,t;return null==(r=(t=e.target)[lc])?void 0:r.call(t,e)})),t=new Set,n=(rw({callback:()=>eX(t,e=>e()),frequency:250,raf:!0}),(e,r,t=0)=>e<t?t:r<e?r:e),l=tT.createRange();return(i,a)=>{var o,u,s,v,d,c,f,p,h,g,m,y,b,w,k,S;a&&(o=e1(null==a?void 0:a.component,e=>{var r;return(null==(r=e.track)?void 0:r.impressions)||(null!=(r=null==(r=e.track)?void 0:r.secondary)?r:e.inferred)!==et}))&&e2(o)&&(p=f=er,g=h=0,m=(e,r,t,n)=>{var l,i=null!=(i=(l=null!=u?u:u=[])[e])?i:l[e]=[{duration:0,impressions:0},ry(!1,nJ),!1,!1,0,0,0,r0()];i[4]=r,i[5]=t,i[6]=n},y=[r0(),r0()],b=l_(!1),w=ry(!1,nJ),k=-1,S=()=>{var O,r=i.getBoundingClientRect(),t=window.innerWidth,a=window.innerHeight,S=[n(r.top,a),n(r.right,t),n(r.bottom,a),n(r.left,t)],T=S[2]-S[0],S=S[1]-S[3],I=T/r.height||0,A=S/r.width||0,x=f?lp:lf,I=(x[0]*a<T||x[0]<I)&&(x[0]*t<S||x[0]<A);if(p!==I&&w(p=I,!0),f!==(f=p&&w()>=t2.impressionThreshold-250)&&(++h,b(f),s||e(s=e1(eD(o,e=>{return((null==(e=e.track)?void 0:e.impressions)||t0(i,\"impressions\",et,e=>{return null==(e=e.track)?void 0:e.impressions}))&&Z({type:\"impression\",pos:tP(i),viewport:tB(),timeOffset:lM(),impressions:h,...lK(i,et)})||null}))),null!=s)&&s.length&&(O=b(),v=eD(s,r=>e.events.registerEventPatchSource(r,()=>({relatedEventId:r.clientId,duration:O,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:O.activeTime&&c&&n(O.activeTime/c.readTime,g)})))),r.height!==k){k=r.height;t=i.textContent;if({boundaries:d,...c}=(e=>{for(var t,n,l=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),i=0,a=0,o=0,u=0,s=!1;t=l.exec(e);)t[1]?(s&&++u,s=!1):(s=!0,i+=t[0].length,6<t[0].length&&++o,++a);s&&++u;var l=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),v=[0,.25,.75,1].map(e=>e*i|0),d=[],f=0,p=!1;do{if(null!=(t=l.exec(e))&&t[1])p&&++f;else{for(var c=null==t?void 0:t.index,h=!1,g=0;g<v.length;g++)v[g]--||(d[g]={offset:null!=n?n:c,wordsBefore:f,readTime:ej(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(t);return{text:e,length:e.length,characters:i,words:a,sentences:u,lix:ej(a/u+100*o/a),readTime:ej(a/238*6e4),boundaries:d}})(null!=t?t:\"\"),u||r.height>=1.25*a){var j=tT.createTreeWalker(i,NodeFilter.SHOW_TEXT),$=0,_=0;for(null==u&&(u=[]);_<d.length&&(M=j.nextNode());){var M,U,F,z,D,P=null!=(U=null==(U=M.textContent)?void 0:U.length)?U:0;for($+=P;$>=(null==(F=d[_])?void 0:F.offset);)l[_%2?\"setEnd\":\"setStart\"](M,d[_].offset-$+P),_++%2&&({top:F,bottom:z}=l.getBoundingClientRect(),D=r.top,_<3?m(0,F-D,z-D,d[1].readTime):(m(1,u[0][4],F-D,d[2].readTime),m(2,F-D,z-D,d[3].readTime)))}}}x=r.left<0?-r.left:0,A=r.top<0?-r.top:0,I=r.width*r.height;f&&(g=y[0].push(A,A+T)*y[1].push(x,x+S)/I),u&&eX(u,e=>{var t=n(r.top<0?-r.top:0,e[5],e[4]),l=n(r.bottom>a?a:r.bottom,e[5],e[4]),i=f&&0<l-t,o=e[0];o.duration=e[1](i),i&&(e[3]!==(e[3]=i)&&++e[0].impressions,o.seen=e[7].push(t,l)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},i[lc]=({isIntersecting:e})=>{rl(t,S,e),e||(eX(v,e=>e()),S())},r.observe(i))}})(e),n=({boundary:e,...n})=>{ri(tJ,e,e=>{var r;return(e=>null==e?void 0:{...e,component:ew(e.component),content:ew(e.content),tags:ew(e.tags)})(\"add\"in n?{...e,component:eJ(null==e?void 0:e.component,n.component),content:eJ(null==e?void 0:e.content,n.content),area:null!=(r=null==n?void 0:n.area)?r:null==e?void 0:e.area,tags:eJ(null==e?void 0:e.tags,n.tags),cart:null!=(r=n.cart)?r:null==e?void 0:e.cart,track:null!=(r=n.track)?r:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),r(e,rr(tJ,e))};return{decorate(e){eX(e.components,e=>rs(e,\"track\"))},processCommand:e=>l1(e)?(n(e),et):l8(e)?(eD(((e,r)=>{var t,n;return r?(t=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(l=>{if(!rr(n,l))for(var i=[];null!=tO(l,e);){ra(n,l);var a,o=rZ(tO(l,e),\"|\");tO(l,e,null);for(var u=0;u<o.length;u++){var v=o[u];if(\"\"!==v){var s=\"-\"===v?-1:parseInt(null!=(s=em(v))?s:\"\",36);if(s<0)i.length+=s;else{if(0===u&&(i.length=0),isNaN(s)&&/^[\"\\[{]/.test(v))for(var c=\"\";u<o.length;u++)try{v=JSON.parse(c+=o[u]);break}catch(e){}0<=s&&r[s]&&(v=r[s]),rp(i,v)}}}rp(t,...eD(i,e=>({add:et,...e,boundary:l})));var f=l.nextElementSibling;\"WBR\"===l.tagName&&null!=(a=l.parentNode)&&a.removeChild(l),l=f}}),t):[]})(e.scan.attribute,e.scan.components),n),et):er}}},{id:\"navigation\",setup(e){var r=new WeakMap,t=t=>{tD(t,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var l,i,a,o,u,s=er;if(tx(n.target,e=>{lw(e)&&null==a&&(a=e),s=s||\"NAV\"===tM(e);var r,v=tV(e),v=null==v?void 0:v.component;!n.button&&null!=v&&v.length&&!u&&(eX(e.querySelectorAll(\"a,button\"),r=>lw(r)&&(3<(null!=u?u:u=[]).length?e_():u.push({...lk(r,!0),component:tx(r,(e,r,t,n=null==(l=tV(e))?void 0:l.component)=>n&&r(n[0]),r=>r===e)}))),u)&&null==o&&(o=e),null==l&&(l=null!=(r=t0(e,\"clicks\",et,e=>{return null==(e=e.track)?void 0:e.clicks}))?r:v&&e9(v,e=>{return(null==(e=e.track)?void 0:e.clicks)!==er})),null==i&&(i=null!=(r=t0(e,\"region\",et,e=>{return null==(e=e.track)?void 0:e.region}))?r:v&&e9(v,e=>{return null==(e=e.track)?void 0:e.region}))}),null!=o?o:o=a){var v,d=u&&!a&&l,c=lK(o,!1,d),f=t1(o,void 0,e=>{return eD(ew(null==(e=rr(tJ,e))?void 0:e.tags))}),p=(null==l&&(l=!s),{...(i=null==i?et:i)?{pos:tP(a,n),viewport:tB()}:null,...((e,r)=>{var n;return tx(null!=e?e:r,e=>\"IMG\"===tM(e)||e===r?(n={element:lk(e,!1)},er):et),n})(n.target,o),...c,timeOffset:lM(),...f});if(a)if(lb(a)){var h=a,c=h.hostname!==location.hostname,{host:f,scheme:y,source:b}=rz(h.href,!1);if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(Z({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,T,w=Z({clientId:nK(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:y},self:et,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||tO(h,\"target\")!==window.name?(lA(w.clientId),w.self=er,e(w)):tq(location.href,h.href)||(w.exit=w.external,lA(w.clientId))):(k=h.href,(b=np(k))?lA(w.clientId,()=>e(w)):(T=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||t2.captureContextMenu&&(h.href=nm+\"=\"+T+encodeURIComponent(k),tD(window,\"storage\",(r,t)=>{return\"_tail:push\"===r.key&&(r.newValue&&(null==(r=JSON.parse(r.newValue))?void 0:r.requestId)===T&&e(w),t())}),tD(t,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,r)=>{r(),h.href=k}))))}else{tx(n.target,(e,r)=>{var t;return!!(null!=v?v:v=(e=>eg(e=null==e||e!==et&&\"\"!==e?e:\"add\")&&V(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ek(e)?e:void 0)(null!=(t=null==(t=tV(e))?void 0:t.cart)?t:tQ(e,\"cart\")))&&!v.item&&(v.item=(e=>null==e?Q:ey(e)||eg(e)?e[e.length-1]:eH(e,(e,t)=>e,void 0,void 0))(null==(t=tV(e))?void 0:t.content))&&r(v)});c=lW(v);(c||l)&&e(Z(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else d&&ri(r,o,t=>{var l=tR(o,n);return t?rp(t,l):(l=Z({type:\"component_click_intent\",...p,clicks:t=[l],clickables:u}),e.events.registerEventPatchSource(l,()=>({clicks:rr(r,o)}),!0,o)),t})}})};t(document),lP(e=>e.contentDocument&&t(e.contentDocument))}},{id:\"scroll\",setup(e){var r={},t=tF(et);lj(()=>{return e=()=>(r={},t=tF(et)),setTimeout(e,250);var e}),tD(window,\"scroll\",()=>{var i,n=tF(),l={x:(f=tF(er)).x/(tE.offsetWidth-window.innerWidth)||0,y:f.y/(tE.offsetHeight-window.innerHeight)||0};n.y>=t.y&&(i=[],!r.fold&&n.y>=t.y+200&&(r.fold=et,rp(i,\"fold\")),!r[\"page-middle\"]&&.5<=l.y&&(r[\"page-middle\"]=et,rp(i,\"page-middle\")),!r[\"page-end\"]&&.99<=l.y&&(r[\"page-end\"]=et,rp(i,\"page-end\")),(n=eD(i,e=>Z({type:\"scroll\",scrollType:e,offset:l}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(r){var t;return lY(r)?(\"clear\"===(t=r.cart)?e({type:\"cart_updated\",action:\"clear\"}):(t=lW(t))&&e({...t,type:\"cart_updated\"}),et):l3(r)?(e({type:\"order\",...r.order}),et):er}})},{id:\"forms\",setup(e){var r,t=new Map,n=(e,r=!1)=>{var t=!r||tC(e,tL(\"form-value\")),e=(r&&(t=t?ev(t):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return r&&(e=e&&r$(e,200)),t?e:void 0},l=r=>{var l,a,s,i=r.form;if(i)return a=tC(i,tL(\"ref\"))||\"track_ref\",s=rr(t,i,()=>{var r,t=new Map,n={type:\"form\",name:tC(i,tL(\"form-name\"))||tO(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}},s=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:lM()})),((e=0)=>{var r,t,n=(l,i=e)=>{if(void 0===l)return!!t;clearTimeout(r),es(l)?l&&(i<0?e=>e!==er:e=>e===et)(null==t?void 0:t())?n(t):t=void 0:(t=l,r=setTimeout(()=>n(!0,i),i<0?-i:i))};return n})());return tD(i,\"submit\",()=>{l=lK(i),r[3]=3,s(()=>{(i.isConnected&&0<tz(i).width?(r[3]=2,s):()=>{o(),2<=r[3]&&(n.completed=3===r[3]||!(i.isConnected&&tz(i).width)),e.events.postPatch(n,{...l,totalTime:rm(et)-r[4]}),r[3]=1})()},750)}),r=[n,t,i,0,rm(et),1]}),rr(s[1],r)||eD(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,r)=>{var v,d,i;e.name&&\"hidden\"!==e.type?(d=e.name,i=null!=(v=(i=s[0].fields)[d])?v:i[d]={id:e.id||d,name:d,label:rQ(null!=(d=null==(v=e.labels)||null==(i=v[0])?void 0:i.innerText)?d:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(v=e.type)?v:\"unknown\",[lG]:n(e),value:n(e,!0)},s[0].fields[i.name]=i,s[1].set(e,i)):\"hidden\"!==e.type||e.name!==a&&!t0(e,\"ref\")||(e.value||(e.value=rQ(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value)}),[r,s]},i=(e,[t,n]=null!=(r=l(e))?r:[],i=null==n?void 0:n[1].get(t))=>i&&[n[0],i,t,n],a=null,o=()=>{var t,l,i,o,v,d,c;a&&([t,l,i,o]=a,v=-(u-(u=lN())),d=-(s-(s=rm(et))),c=l[lG],(l[lG]=n(i))!==c&&(null==l.fillOrder&&(l.fillOrder=o[5]++),l.filled&&(l.corrections=(null!=(c=l.corrections)?c:0)+1),l.filled=et,o[3]=2,eX(t.fields,([e,r])=>r.lastField=e===l.name)),l.value=n(i,!0),l.activeTime+=v,l.totalTime+=d,t.activeTime+=v,t.totalTime+=d,a=null)},u=0,s=0,v=e=>e&&tD(e,[\"focusin\",\"focusout\",\"change\"],(e,r,t=e.target&&i(e.target))=>t&&(a=t,\"focusin\"===e.type?(s=rm(et),u=lN()):o()));v(document),lP(e=>e.contentDocument&&v(e.contentDocument),!0)}},{id:\"consent\",setup(e){var r=async r=>e.variables.get({scope:\"session\",key:\"@consent\",result:r}).value,t=async t=>{var n;if(t)return!(n=await r())||r2(n,t=r4(t))?[!1,n]:(n={level:r1.lookup(t.classification),purposes:r6.lookup(t.purposes)},await e.events.post(Z({type:\"consent\",consent:n}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,n])},n={};return{processCommand(e){var i,a,s,l;return ie(e)?((l=e.consent.get)&&r(l),(i=r4(e.consent.set))&&(async()=>{var e;return null==(e=i.callback)?void 0:e.call(i,...await t(i))})(),(a=e.consent.externalSource)&&(l=a.key,(null!=(e=n[l])?e:n[l]=rw({frequency:null!=(e=a.pollFrequency)?e:1e3})).restart(a.pollFrequency,async()=>{var e;tT.hasFocus()&&(e=a.poll())&&(e=r4({...s,...e}))&&!r2(s,e)&&(await t(e),s=e)}).trigger()),et):er}}}}]),rq=(...e)=>r=>r===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==r?void 0:r[e])),lY=rq(\"cart\"),lZ=rq(\"username\"),lQ=rq(\"tagAttributes\"),l0=rq(\"disable\"),l1=rq(\"boundary\"),l2=rq(\"extension\"),l4=rq(et,\"flush\"),l6=rq(\"get\"),l5=rq(\"listener\"),l3=rq(\"order\"),l8=rq(\"scan\"),l9=rq(\"set\"),l7=e=>\"function\"==typeof e,ie=rq(\"consent\");Object.defineProperty(tS,\".tail.js.init\",{writable:!1,configurable:!1,value(e){e(lT)}})})();\n",
+        gzip: "H4sIAAAAAAACCsS9iXbbSNImOo8iot1qwExRJLXYAgXz91rlKu9SrTRtQ2RSQhkCWACopUj2mde4L3AfbJ7kxhe5ACApd_1z7pzpLotAZiLXyMjYMsJ1veDR3JnlcisvsmhUOL2rMNuSIhOFSEQsIhGKXFyJsRiJiZiKC3EuLsWtOBPX4qs4EafipXgsbsQb8VY8CVz6MJDBo-dZlmau9FB5cZGl11vy3JVBNkJaHzm-XIofuLwogp0OCkYTKhIE2WKRzOI4CFz8NALZl37meZksZlnSaPdQ7CvVsL1NPxl-WrFMzosLfKsfvTlGEYskaPcm1JN4K0q2pMdNDOJhg0rSz_Z24wd-F3gTBXXDNNPpNZvJUr1sJVTz27M_5KhofZW3OTWqm1ma0kvxsxpLq9UqaCx6HO3jQpfc3i5aeXop3Sx49DNKep54xZ9Q6XKcT_SYs37mO4-3MvnnLMrkeOsqjGdyK8q3LqM8j5JzR9Akn95OpZ7oViancTiSrkMdcISDoubjluNRYz-qtWm0RcGLkt3O9eik6y1HYTG6oDm1aTc0yL48w5rxkj3hJfMlBt8fpUmexrIlufFMZ3p-tpxESRjHt3M1ioJGTZUvxXeACV4SrDZArmhFSVREYRz9JceLBcZLU6Pgo1VcyKRPb_xAXXjk1orzIGjE1IcreiOA8zz_20W8nh5YsRS_BWF-m4zWpgPdI4gPwuswKra4K-YreYthG6gk2GkPvf5VGo232n7SGtGQ3UzEnh-XE0mQ1uDZUkB3a56yQWeogWwLz2hF75AlehCp9l3VWGZa4VUA6EcEyXkRJiOZTrZ49T31eWQ6Gy3RjE6VvfpiSc-uUbWdwrRD64UF-x0LJsX7QCULKYM3s8szmbVeP_7188njF88_v3xz-vy75x-EpFnsCFlgLmXCiztfChmrGmSEXw3gQobBye3lWRq3okJmYZFmQqZmF7iEcKgS7B638AgmtrcT-s9AknpwCwLIggCy8N8LOTPfanilff1eYZf3vh6ZNCOTg2zocQGJT3P0yzlLaWrCxKEZoM1EM0p9vApk6socO6xNnd7edjtUzWLhTMI4lw5VgTSnyGaSvkPOe2wwAjP6otGgGqZmsqL8JJzIl0khzyUN9YLbTDiv1uQ5ZwAB09auZlxyX86FnsPqcFpFesIfuGj8NnicZeEttci_Qp7x_K8Bi5DXGhF0vLLO936DZpuAVNIk-vINfgeESeTQH8ihkF_LRcTgnZSRYa2nJwZDTrO0SJEu5KlJO5fFO5P8diLk8wpQULun1B5m8kTIl2ZFncksGRVRWq7NxgUV8rGaOwarWo9uOGOtGmS9qcxBw9S7WDTkQIZDWmk9vob9hE6KjNp6uzapr8OpkE_Xkk9kIeQfVfyup7mDg4Hm-HVYXLSydJaMXXmfMB-_T9Nrt9MWtBSNNo4oQoptAq1dWrV7vMk-oyEXL7TXqD-vA1mtnXYBLyCdMRmv20_6gMXuKg-WQm0DQqzyNX0gNKohoM6CtnmlHUd7TVK2S0iRKsh2dqiJgv7SQcVpfkJV-TSdL4JN8DmJYtrkroyoo3_qjoikMh2DYRXsXvAhggXomzW7z_MHrKlhxWPMNs_QccLpwJeFPuGTLayTZ8sCTVMvi2bTIxLBvY1kPN5KqCv3vDnPZu8sk-HX5VLSpt5CDYz_VS2qiqTy3ZK6UgSMXnz5k6uGQv0FIbLa32r3qAe2g4oEYcIkGCRCDpLhsFd2OMbiuDF32Y_LTscbOo3uVLvxp6vWvtYTavoOpO3NuUcKImxD1GVaXotpaRg4tHqezuUpoOb8SiNBWy-QPG57pk4DSzuSCKqebDZtFTs7PTvddajrScozxZpNbssT2HMfqqCDgeoXIf8y5GMHB0cHxCoVsb2TrqZhKxCUMQSpXZ5oAtIzix9h8eM-tZERLeN1GjgXuUtUVwTykGqjA8pX3YzUWMrZUX1DL2gNuWyHevms2n-mABR4CIZ7Aw9tEQWDIQNKERTH7b4hapuFr49AOvLaNNCkmpnozKSf-CaxVxzT0BryXg-QxPWHgRwUw55Z2H5IeyMUMQAtJECLWtNZfuGGniF4FbqJLP1r6NNrV36wo6FDls75JxsXASX_citcBM4oIvdxpniGFLTU1a84YQPT_74k8gpopXJEVLBXRvPkqQ6jtmtMIkEKdeW7GgleQYt8nslnLtdJGEkV8Xz7KOT3tVXiNelV8I6m4aThD9y10mCU9E7__2MBee3KDtDq0STEgV7BCFQ5pYkQ6K0f-TFQRB1H6MmNl57tK0bESEwzQrQNquMxY8GSRUQIq9FEK4g14oOhgmQjBiQij_3izl4Uqhfcg3Xq4e90gpEn97_S9CAiLBoNh_UefKsDy9pmr6ATrxxdHESW8o-JGJa_BvJ7IX831MwkSy-fJ0R7gUh8Xx6xhoMQlhSvwCBYgcWi6NPagTz-FQiOjmB7INKImNdCVywKlsQgBIUbDbAl6DwH74CDQScEnOCD-EB9RFesbi0zV6uUE31G1bgW09NsRt6AaHZUSwy6nxBDXG40_oA28dK3m_KuOqtdw7bHZ7783eXtl_UZr1N_Z26mUHxH9X9Gb8R9ezQ1HStFMGwD0SG3TKgwIQKGsACCu62QqdJT-FfXrypnSh8f0Qbv3r3BaRSGI3vfYwqDKKMOFyeExhsHmH5eParLM9JIHEAYtHJiPg2OUA00qttsqypFkCtSBD4FLJcjv8doqK_NZszsTpumZj9QGKtOVEownH2mIC_DG1PCd0v8a4YcMntGpALNDXF6frECJ1I3q8DSCAPslgOA0g4DiNLUhsTaq9nVL56efyQG4G37zOAyzVDByIsFdRj0jTyO-zEh-vciG3Qhg9kDPX-0YaHWt9NzFgA1sn77eOOc-qsrpR4CPEiWxFgGPlYMvBTlGSPHNCjq2vdVmG00FFRRxz-7IAN4LvlRYZDt7ZjW6IEFX1mS3eByqNWscEsA9XaYkwUhn8kKoS5bYNmJvRwRf2wlTzRrDO-q0wFIk7GMZSG3wAcxMxQUfiVXtlS-fQBVU_uklUsUo7-glGgftsLxuI8k-kXp6peqASbKslWUxyI5A-Kbu69QGvcLbbu2o4R5JPjDPv9VrV6EeZ__moa9dTkAfVaCMeVnkjtFdCER6yIrKjvFJeyY0ZI84l93QF0fou-2ShfgpJqhJ6qU1gnvPCk8bgJuXiiZMgdW2VaML2q7KOmXlKePtmnWqO1bVMw5hB_pD2NuZLoDKjtksYc-ikD40hhiMP8ZwCPCk510PVQz_ixT8kQfwJSFViSywo8SAFVTfqHDkVL7DTPRmAa98Ezk6mrBh8YKFxKcZ1Zaow7pCvuyQVhLmEPXQow9_ToKnBzvLpgUBQ07t03UwIpFcIoI297uHFtqMbP7KmMuFXJIjxDhFKLWLNdzozZPVn5GcD-NoxHmvOOB4DSCtlTRCSIbV0AIXVEFGpXTYp0ecLPWJA6L19Q61vwrrzmvfGG6pAbSqQir-wMIFOl0x89w6GdjVz9z8wwpBLSYIHrSjUrToBqrheoBFiqwG03VBUhGJQRpIBupGsud21OWaQsa9ohRl5IkuGDvs4nCaCyk1_NI04dWQU5PkAnJuW-O4ue6yHucBwOp-4WKCNpRlLoyR1kiJ56ibCKvAaHEmFgivawVUoG3phQmtizFpAaqZWJD1yy5z9MNJ6WVTBjmgeAyu_hWwVmSX0STwpQ9rwM_U3o1GH3OMKooPHVCuUyZYRbCoYajkLUPcqiIcMI3QahEww2X-LJzYsw412yi3iCkGQzCJVFW9CP0RsPRSacssI-HjGK59Ajh9Ikkjg0w05LQPA1pUS8DZ5aM5SRK5LgUa01lRuTwJTACS4OYMlOEBOHvZORml67E7qkUbBXRpXybRedR0qwmJ-k1QcuzsOBHkd2CXGi0CW5wTFJFXoWyD5ryfuZ6TN5r2p9QnAhZCkwLEDeDnaTJJD61HouQqXLCP1RnhFlVOQTVNDYt0Gyb-mWgoHc-gQZEJqNbPxM44s_C0VcfQCfmlD6TNH_UwWk4y-XYj8C80pY6P5eZH-IlpWH5KZ7sxzMj3s7CiZ8vqctXoAFL6qll2wRR1BbUZUIjgNzsxDP6CBr4KMhu3UbkiUkwotepUklsSQUhjavFohFvb49bU5mMo-RcCwRlqZ2iUu5t62yW30JkznngbHr2k56n9Bhjy2UvFmP0gPYZzSMLIlWJ31wMauaiIzuTpstdosmlgSOjIdER23UI5o-D9mKR0jpcuhBxNGxPOrQeFzxHVwE1dEqgks4Krj_v88zkxeMkugwhoHmRhZfSPff8c2o4I6Z4h5h7T5yrOb5thaMiuqLGp5Rdvl2A6rzU8lumsEbqhBnFMsxMi1flJ0Gj4V4RTNGHPi3HLf0XzFWWT0NEx_FLAyzCrPA1fWZXlQ80MQtKHn4maNhtHIcEgOn5eSx9c-TSOphm-5JQoHvJ1OFtSwMWRuL5nOjz3Pm3JcwZCFCrMlXo49I1FfKpvDSrSVVy0wREtG2WPSP12sq-ajphnjHP3Nfnhdr877KUNm1xy2XmrFUEz5zMLmUWntFIaGBEvk2i85l9v86iQj8vDT20HMVhnhNQz4loU9pJ1yoPi4sob32e0qkY5bLFmUsUUxqoO4pxJhfTAHxXQZ29NBCpBfmbC1cK0WJRFn2G6fhPX5ky9iPeNhtLB7y7T1XBPDpPwriiSOWitheqOrsL-ROl42S58aa-2OxlhaxGV4i2oILCMSUdoZF-rY2lWanT-f9mQ4xSe99ozmbpYW7MYYnPegYDx4Z0hoYN6XrxHSZG15fhnXp2XUO2EceqyKNSxahPYf5YV-dVJ0Sn8XFA74Osr3vj694S-EOGtljQxiHKjksxHVytRut0SxW9o_u2FcaZDMe3W0Y5vasmh_X0S_q_GFRhxiwmigwDuWQdcfZyRbO0WET5C6i_AWNE0hOtTzi6n41AX1cnhojSCl5WenBo412r9M6Y0fH8J-6XlwkNmBaACPTwduveXC5bX2gt3qyyfyz2DcycS36AEDxiTJ40mMmjzQbBITH-vHZhLa-NvEznGRQX0g4haiYk-gVKYnu8087VBKMuOXCrwoIgewMhBdEczM2AacOz5jegRTfcGnF7MFAAJSpiqPQF8e-uFh_TaU7EaosO1echNPp6YMRjeSConqoTaOCEydgRjthyhiVTZE5cpvJBFjxjs4aaeJu5gAFxIcyEtAURr60_0ihxSz03KHI6b1C5J5wtRzCbgAc5MHzMTmc4VN85DljnShVsQ4JvIafP7lm-kBk99fUjEPKVHjSd__U__1_HB8v5uVzlmoKRep09ZWneOYvfQPADT5bnI3fkXGsiVVEsAVMcXIlXkbRQYZH9pNSaSgkap-ddthyiqWsv0JUXwUZpu0ip2g0s2AqDJC2vAyo8Y0b7XJkPXQDaNfukswbQq79Kr2X2NMxBqVGqJ_JgrVKi_HQaYwVOGpfCJmKlk1vIkK5o845nNMFm-hcZqEIiAPvMAwkq549FkiZEL4I2nfyNMY1We03cIfrJXE9FLmMAccpoISNo76seTmjdIB31NxkqqKV7rxfRylvswwjsST_xR6uTxalTdxpmOeri846h7wIoYnAuLoc07IGeiZrBArdZmaoS7orFgvaMr6V3RTAFE-kRm3UB6v2951ckD22PkLLLrb0H24Ie1DAlARkNCoo5jyARyscQc7E9HjLfRuzO9r_p39jjIpY_D8EhRkM_JEovyEt4UrMPHfY2_cl-qsITA5oHobypZoOSy3ew8NhxQ38wLVVe1MyU7a6wUP77obhdtyWojCgNWMrRf-KWB84PJ2_ftJRJSTS5dVOv-QVWYUlabIVbCrHfmxdLRbwRYgfbfFYbHA-hkSwWbrKtDDR4jCUKrStsiBNaEa5nK7ZP4I-BZ81Bycd7ZgQxhAAr2JbJLy7cI5SutPQxMGlGCbagFXt8g8qt07OdFWq3pG47WOQEf1gICBsfIkcdIqIJBPXZjxfgZJa9EVdmzPv6oIP9Yukbmpq4caK9zAbMVkaGMxbi8uAR6zUGg292srMUc95TzC3cvuPHc6GRgZ8LhYH8KxGn6dfZ1L8UWgie6-4JZtMLaFouAf6EgAjNvlCJfJA5RODA6oawkaMOLV3Q6yNty2kW_hciERXMfGlqxH6tz1e3Zofi_Mtpyib99XiokKwuYdUyn84y6Z8J2iGGZaIPeQrO1jeVVFupPCsMSFKdyyFX-eeKRhn9ftTQMsKq2pcFSDjDtcSJhUc0vKHph8Kg2p5jDdn772kk7_WEQB2Fjn_VAh6NuyxIql0A644A8mzPz9bB1Robvu-V8mwlgWZdeFGiCbBbtA9aDAEuVClldRGLTCAqsAdPWPl6p9OPyu-ilgEel5UVLBgMYijdmOarmEhm77SdHg7AD4bUWRCh0wOx4wxFoSz16voZ2XerShba1oXrBI5nZIVQWYzSsfzpw8un6eWUMB8OCTDHEA8ZG9bHcew6TRixMkWjcz2ihiAFgkYUREM86FLnVeKqraRRyUHFuYo1S_OL70t1YSMjJKfUr7AtlJ95zTX7YbgQz4P2QBk7oGE9QDZy7lhDXxgmelQbSvQH-EuYHaSlIsP-qpnhlt3KYBS8-8nt-_hv8PG62doZNj2fjqWPux93vT49cM4n_78onR4_4uW_hvepv_9FmZQwoISPQ8r9OFy4g_bOkT9sLgafdpvDZt_jIr77cYwPuNbBp3_06XP-tE-f_oPrord_uC083ds9t-o8TW_NjCm44q3meTrLRrSnRD66kJcQJRAY-EW_kfgNIq_fi3BWXKSEYW_9WMxymfmRmBI7ep1mYz8UF2lujCPSfurPxDTNTELet2REjrWYEm1IGO7PmcxujRnd2M-euWNQn5MsPL8kaPJHFufKFj4J1A-Wt2U7Q7uVSvQdYul2HVouIGORGUMdBdnZL1BYbDtMA4vsF0uDVgCfpiQYDAn_VSjk96U5oT2gISyHWfAuTe6n1v3-x_7ik6dnfBcStbIk0_xW_qwgLFNEjBhgGWZDQ4iFQfaBaRmW9sOYTsn93_usROqHBHciB47NV5Wgcan7NIbjux8HH4f3dgXtLSIVle0TNdg5nhnAnvlEAaEPRJCIVAnRc6KNLYklzXfyB04h3NqX2Mig8psQ7tm1Udjn3TBIMfki09bzVHnVMLWmU6JxxX2i_96LiNAM5p33TCbMEWAZp1ilQGmoegmmzS9t5MtPyrJK_6mWCaL-VxtNGu1kDT5-uvfxY-t-s-96NG_z5WJIu8X5-PHeNhiaH4Pdj3-1KCX7zlo3Z0H22a3oW6zWg9UmWMkaujFYZ6gOn44rNxoBa0xH_OECC_dBnj-_mdIInfMZYc_sR5F9D21E9uuaiaoqKrLfAja8HjBir7CxFqtnv7qK5mE9VvYdDn5msOc1tTzw52_KfqUCwIwglpj-nGvp79K0UL_AXBSWuYj56--9QRbQ8QjNO44mWl9QXo7Cix933RbhsY-7_QXjJ0JPM1HqRNeGzv3Mfqeu6pwvbv-4gX8f6X8e_xncm9OiJLTcRFF88ZiUIdj88onT6WNpPnbWP_748b6jPsleuRmog92PH92WB0C410GW06ISy3tfPGUrl_1u9Ud1s4ssWFtXs_PZrIQ-rZoZ_cePS0AvbAVtTLHZqDuZtlAgdLMDTqQk4gdDu-4xzd2cNxAbUVrLKRivxkOIcKS21-8XretoTNi2WGHhZBM2DsTw-roEYcx2L7WnZS81Jop8tBClk7JJrHQjqPSu0LXjtmclQoVhFlLRhnWRKdtGWUKdx0FbcRomjb8nbDML8BxELOZpH9v6ldEScjvIhZlTwzVUTI7-NCsYOef6-KuyT2odZl5vFkRB2cGdHaVYXi5tSTadG5ixU3tQuPK0EOsPerYTuO7TIA7ixWK-9AZPW4-JPby9TGd5QJ137JsjnlLmy2QcZUSoBiCJzIvKeqYyiERynlWST2SSR6wU2aMc-0aH3As3hsLHGYdFuMUi42gSjVhPA0jOuit6fwMjHUNfGuS7Boz1yoBINiCxKxmDwbyrugppd1d1NeoP1RGvevgfO0cMyTTNZb6xWzYTPTv8jz1br2tTJq3y_ua5XG3_wl2bPJZZVXstlSJd8JC11lfobPNar8PfPMf1h02rZpZp0-jWSxOHaXrpr86d3Nhidfrs27fnkoYftd7IkczzMLvFvaXskHdQFERmB70hLoM3Dx7ULrBf8MaxbyrzhVakhYR_b3kD1VJUoXel4jvYpyKVd1XgNMzOZQE1wkPKtm9mF45mIEODziHvQvVm9jSRskr7QrxysNflrV1NU-UeJ7efS-Swf8TYoZJkSwWHeyrPtJ1dySzotvcfctt4q-Z8_oX6QoNqHx3afJXGSCIiDlgjCb0Kjuh2Oh1CEU8Dld9ZzYf-Zs-SQTByWNtpl7II8ZG69eVqi6CwRRUUcizsO6vtx2KFPw-NoI4-N8ZEtko2rzsiqLgXpAFA4l7ruzg9C2MGCvXoiHuU_DwpeFEoWT2q5BOCDlp9BgX9rDKeyStC9IxJ1SPPUErnB3J_Im6HYQMPkN_TXo8gz9nKR-lUAqmmRPiUGF5UQFnMuZCfHdnN_LS6n9b3NDEwRUbEwJ9u6olv38ap2UsRpYGW2BqJn4g3-ipvW3E6CmMJLj3MiJBAmnBkwhw5l9vR5UE6F7zp7gX6zBqP1Wk1HivIeh0lPKv0qxPCG55O-tVQP3kNypvnUj_zZN6jyVT52L2qzD6Xse-1qZ0iZQvWLZRMK54HucIDtIyzESaXIB99029qIZ9mMiQwoyz0Ur-prJ-S0UWYnFPmXpsX07wbEEgiyttvKyDAi8p4kxYvcLmLsvYZ96hXlflBhuO3SXxLmQeUaV51Z9JkQgREgS2I3uhX0518NgWTTI0ecG8rKaqIVtrR521GHfymARxyYfoOGc-VgpXmOOctW0KnLLaIRygIhXhizbQ9gEok0lc7WdkQFKG2ydYiuHnlGi4ErNAr-5X878p7tZpI_I0IVWUmtvTYVoTgbeUur7oYXJo_ZFTSai9hvO4aFWYMQTgOSgi5aIux2tuXrMBTN4tFGMc6gel9T-g11Yma1SI452k43mtD6GcmKNelIFYsYs5g4WuZuokzKmKW5tvdqIwioLEh8poNiV2eVbdycZoqczftZC1Mc9d5Bu6vd0xLD_2N56mrMTTAVHdT9XJj71jUvtZBO2z1pS0Ic5lZXOhRI8kuTQpUFAdrVxGKqKJNgt08HXsZoXBmUMAeFVHlVmbWv3t8tCD-N0e_WNC2C4LgzkKiCDdd24BQIQysXNtVFmmcn9dEFwY0uK0GrZZqz6TT7CuW9tGXf92bM0Jd_gvWOMRWHrWULN7VeNRbqgPhi2fIozwwfLPXJ7jyms7WKJ3hFmJabJ3JLafprjTnTIBcWo7_Ba2pbxcL2uiNaiHa2Y7vwPjAWVI9I9i9bX1BZUfVyr6kky1iATTeaW2dXtBxejNlE4UtogZwAG7RsCyPVPbWcEktXYwGPY5Uvy8VZqa69LLfUZUFivW6Wl98QrTVrlYmjE00MF8O2oD6h0_Gresw3xozYqbpoeX6W58rbwvjVCp1GeaC1myrSHkALOsMUdtBbREI-bDXhXC8lRI6p_YO6u05mNlka5bY6eRmfVpR3QPfFvmapNcJKsvTBA4cRE0NWyWHByFYWJYCAqHGRATp-3yxBy3o0krdIiPJe-JG2mbgI7g7bRwdako7NFWH4F5FMQuUVGT9fnqLr3kXOYN6ZlFShVRHAU_dfbhUuKLclqvFCF8NnKtIXjvEhBdXutXdT-4_B493XrR3jobz7nIx-PTPoXf_3u551CpkXrAOZrdSoJKxUdsANWcxvoObpb3dcMfqQoJ7BQcU4XmzYpGh0KKnjBwguC3zxtjOGed1vOPqN5V0NRWom03Mi5HCeI5D56g2b16ze1darF_VwVKMNNoyJhZKb6A0Ax9z_9_QGfhuvzHY8gMgdE7-NxQAEKHl9weUTD_04kCf4Aw-OcP7i5Z3nws4i3ve4l_I-Nfg07_-Xcn5F3KQsXVf6SgGn8R27x-omybivudRpaw82Lr_byrycYxiH1tQN2jdw-Bjji-oL1SVUi1UFAsYdkyHdXhOqL1fXNHp3XR8X4uOm5QQmzMMmXWbhKgf-SFsD1I6hmbb2x0gPmY5X8QpodoZZDyxWoh6-m4HdmRjt6B9s_R8foLVAq3NhInaUTAynOTPBJrBDig9PBk-7yzY6TKLd6bZqAsimMfBDogz9cxU1oipLKaqt9Y5geIiuOvqXhYUE3tksDSvcoQAhs6V2wkqVar31o49PmlEcRkQg6B5i2KyBF1AHM8aSVB-qc14DIrvQ6du0D1OG_eb3bYdMh1Hj73y5Psf5nD8H1-absWIumB--eUYTdP60yDZm8VcllrFj23H4DU9niZfBqDa-CqiMHXQW3e4pCq-sgkZ_j1xQZBvVUhMwrCiOAmuo2ScXoviNBinoxn0SaJ4HhSnrbN0fCuKx4Ek3HFj1EQahRSPjwNGJdaHQNAGoZz1OhtJkIRQ0qlCiw0YOSTNJmRVShmZ1a6MsVF8HGQ4xu3NJ7hTKOg82Omw2TecRcQ9JUONiN6VPdWimklwb0nxPJYYjGdVpanpTtqiY0Zmz_RwUWNxCgpHHzOp1U2lwUpZ2FqERANiM3hlfRNYdZsGl9YljSi0zw3nL0ejODtMB0_Wrwo_LBbOGewQiJbPryOllJmPwlw22j5-qBZ_g_CM8C1V0AShr7TG1q1N3VCpx1V1VFWZo37PHF9V5mi3LvIKrArnJSZvq4I-TOYfNvNHZl_Y8maqAV_IRBe7WCmWXNey5Wo2jyg5sX6GTkxxPfF-9WYUzSJPXF-PX28TUSrf1aj0xNh5eWPNbLS4EFvlbUkcU4E1CKZ99biges5mfIEL-tHiaeWTm_IKaeIWb82JRaX-2KQAUSzIW3VRy8JbZvvqVeiE6iJSRz-b-qhLOOOpQ-OT4jbGxGunM2wI9DMbqGe6dlG8rtwu7gPfnL8hqPVVJnszcec3vvzDzUdZGse_4ky4Ld9_E8BjovjTNK-0P_9o3VcKVADue2JqyxRRvDNog2_ZuNOg-KBGvL39OzU2vfGnrRtxy7-3ghunhN3ieSudTIhk-IW1J_u6H1SmzPpeRucXBfKm4bl8kcbj3C_6KKIQGjHTtG9VKbPK1KMPdfdjMGBrTYkqLGQG_FTetFyTv1Irv3l9miH1_Cv1SacufYJAyrigpPNlUPwFmLXvBsZE8RdTd333UtFaT8C_EG35NI4IbXyA8T2uxhQvcP1IqKW4JOp1UjQnrRs9B5cEDlN6v_W0DoXT-NETF2q0nKSevUrzpU-OgLDKFGJVn68C5TlfC6H5YY0t8YFQBr_RVzjNNVIYFj-_op6-ivJC0tyai5v1Upm8TK_kxoIo-kQdSBDgq6EWZiDVZVPrroezvp6iSIsw5kL-Cqxwjl71FVjB8v_AFCeugcKHUfEzVqT4gSlfkAqv9DVmpbvuOzs7RRaOvu4QRaYfvCadhj8GNS8fG3gApWKjWdkozKjiEuzB3GWxBbHhiq5IV-iKNHBvlf-1wVlAnE8_9W8HZ0O4xJCZaBDBkgRYAZAAbG0lkqHyGpCxoaaqJuxnikkIWbvOl18j4-usUbAxUN0xlDINYCW2kqvwLfDSd0eo2IE4WEGPIUo2JMjXxYKo91gQZkjE7scdqIl9h7FnxNjkO3O5rPi-egP2Gmf5dVB0gaby8mrtd8qhhtLa8m7KfmWL7IEcDo3PkycsYvMH6k7mAAp6NRI6SYgRieWIfbC1ppmcRDdDn0t4bLIEmwDqzGDA2nde8487xMZQJ0DO31vQGxTxu3xLlcVV17j1eK0M7WgB2LHDqhHVcNhzC2sVUfzIbEDmae8covjV4tTPrvzBLT5jBK9o30hcbzavzhkdATtOUyWzdTxl_gZTh-J3g2kLME1OaNYid7zSMhoSth_tnX8CmuK3QcH2y_zAQ2eu1vJXH0-a3kffsDkfXZVATBE4LOET4-UxY9X4eHL_o685HGO1jnklsEo8IbIhWxESIA35ftHIVf3ExNIg9HTxXLy3Z0ZWc8iwrj4r-ubU5RPYLd6rK-J8m0PdE7d3QvXEvtUTW5nV6myy5o22xdeg-FnBe-J-9Yw-jjrXXukc0xfuSaCbZjSnGeQgOOmf-LQJTtBYp-bQydKkCV_rNFwwLSOTEILHBeK_-F4njNZ9Fko7b3z5n6hj5YmjD4Yy54vJibHT94ZLH2DSDeYJDn2a-Ch2RJ6NfGf3c9H6I3fEOMrBoI1hiQsdFOPwnI8Ienth75V25Z7Q1xr1nRr_gJIoL7udQv70I7EjTFV8NQ_hNLKJ0SXtO9YonV7QwwWd3H6HvtdH0tOUzuKb4rVMZmhak32PcRuQhVun2JN0avpOOCtSR_BY54Y6HLAabgfCf_WE0TrMCu1D0Fkc8t-D8vasbI2IYX1K_MljNjorHgZsnOQ8fvL02fMX333_8ocfX71-8_bd-w8npz_9_Muvv_0eno2ovfOL6I-v8WWSTv_M8mJ2dX1z-1e7093bPzh88PBo57MzLE1W9b7fHxSHsPGptdn2hkHG6ivLTAHA4DTJWDoROzQYsoMkL4NbpGZzeHzcOVyYx4f6ScTa9Otw4HYODzoH7Qfd7cx79KjzEEMfuN2Dh-39hyqpq5L223uqzCG_H-5tZ8PSEZDx2BQkOwWjBuV9ka9pPNVj0MZkbswI_UEw3-v6g27n8LCzd9g97CSic_jgwYPDzhEdSof7_qB9MzqbdI9Gcv_hfrfb3eseUJH20dFBp3PYfdjtdKhcp_sQBQ9Hh93ug65sPzg7a3f2u4fdMyrw4OCwe3QwOng4TkT7ptNe_19n7ywZLkUCbU3QPTjEOt9X3gdDIiaIvl7Q_BbBXN5AjUQARBBCQJTLTDHHfpKIyku8DFzmT-bllVPrpo9pyEuCvmgaw2fi6hUP7ZRU34gz98uIU2eOkhV3_tZzIx0Nky3-EIJX24MtU72S0ubEuveMv6iY0cdPRMI-VC3S3EFdxT6Da32zPt_gsyu0XiF68KeVuhIyVeXdLa14gY1b-ews5IphfFTeuU1Z7sony0iEPc2xWu9WzLhW7t_7uds56nrKQZVi_owfUsqS_c7Rgd852q8V0E5DK4q0XuXK3_b2Xfd42sfse-Y46HQf4FZge3t7Z69LiX22a28fq9zuwUH_yh102_tsBr9DE1f5UGU95CzzxeHBwZ7-5kDIR48eqWyq_MGh_RYv-uujSiFTx373aP_o8AFBsCpzyGW6-_zTOaxW2-3sP9h_uHe4b-u2KaqBTvvOj01zGzaI-rQjQOvv2u4ceqqmTNWUcU0ZF_rnfyiEvrZvHq40Y_q8ntN3c5c64AncVCQGBY4U-9wlWgLRrv6fiLJu-4GgpfrWvyEcP9E5SsQG7YVnhPghoHGVfJl3xZPZZELA8ZBOesiiWZZxuO-yR1HqTHuPDlN3ZSMVfEsAe6ECk1of4LsjGCO7NbTNFu4l1oYf7uS46CXKqx3B1HEN8xOtMM9Kp22mGuUXcaUvptL7xJZ0_H3PY8d78KpR8P5VfEP9ZAnZUjA9BkKIBjEdEEFqnXqlxzCHsemE_xe0P232wQEB6HG6vZ0eHxzudZWBYbMZPgqKOj776fTFzsMtOvypTX8rot_LKVuj5DMqcB4WMFCIMo2wZpt6OFNNLBYHD_b2945n32ogl6M0GVcqR20hYc5sq33jNGelg-DOIZSIIUSeY3mz5TRDeiViBS7wMqi-qUt69MRgYWcfNl230-7ubaceHa9tr6neZh6foIvuPq2Lna5Od_twb0FTq25pVTMW3e5-rzKxpqBOoiM25XcjKMz6kR9V0WyswM5a-BBO6RDq6hy2myNsl5HCXbRjHojR0B8ZxEQJD8WI9-QIG6dzxG-0X0dqv5o8AHtYA2vtnlBrwxhTAl37NetpODrpW2RcgFMG4wcq0PV2iYjrKdUfpb2O4jhSi0XU5_Y2YQOcRcclJlFYaJ-3cHYHVjFfdR50Hhw9PDzqPNxXn6mdTxu8Iw_vb2iQ0VRXFKhwn38ORXF83KWH9iKrIL07m3apnc7REWGkv9OUaoMqKLgCYqoEfEqpdfTXLn3OWCVXndpyq6-4rOKMp3F4OZVjzu-7wDujQFbAQ59kHRoPHeIEIaEFic7RAxFyp0ICic7RQ36jDoeqwyYPIDGCS_la6y_v6BWldw7v6u7mHPpkr3vXJ5tzGEt_I-twX83IzK_CpPZHqpxnlv6r2Jto1myWuRmd8wcA9O7DZoZZy8qNRMBjYIE2UnfvLjgR2rlxopzN2ubA2KWwAk-B5pfVY8TwKoT54sUCt7AaMP1hshAyyA_KkJ11CX-HdIStAp62_uU0DfnVdP61NQoTbTxh6UjofHobvIPf1X4_de_KcpVvFv_uEuy6ZWnpRcC8toaylKddgf399RVo11agc9cK9My5CZ_TxXHGTmRT9hTrla3nOjyB4WiOo2bHq5zc3ftx2SnKI07rftDVgqaVsxguo1mhHcOZU7GMBxHxdCJqNsv2rtbbs_dW7m7WTsx_p3V-kex7ommntuzJ2M478ZggyvordJ-o0Xe4K_hvl3ml8CynI196VRpRVPKkV_2QDnh3sHGN7qJRK8Ch_M5YT1ntqstc47kLur0qCqjQdf1Vagke0RYL62_RTv1_jxXbOruFBS6zY67iytKs0o4HJq3CNWJ3sffTv9Wc2rmVJuqVwa5GXk6LW13rnceFK9eIRdiqrXF-fM0lKdk-r9AWM3SGKb4PN8PKG7Elqxe7ducOiJjlyyrmaAarZEN79JjMfWiz9vdMVu5m4K94JLTbbYmDI3svHiX291WJw7L6o44pMUaJw7YqcdRlTWlFOKiS9zh548TzVIOMJFJx1NnS9mO6uv1KdcrVGHGk1bS2SjusNjtzd4hn0TU8WMvp6pyHazl6mEdH1ZxRWVuXjajqOV2d01nL2dc5tSlJXZO8V09-qJOrI94KXdPwQT3ZtHpYTzZ1P6gnm7prI45s3Uf1ZF13p11P1nV3OvVkXXenWx-_rruzV082de_Xk03dB_VkU_fhSt2HOr02zHFlnToP13JMy0drObrxbm28V5Vvup21HPNNbdR59Zu9tRzzjd1mRB_aPbrTPTjUjppMlJyxPJudu85lfj4NR18VNvIdsMabdpAyFCRiIwOVUWGw3IS96YC0gsnga5j1n8t3qPIsSsLsdovvSLgK_7ABoBYvOp5Bu8S5Ed5l_gyMWhtIkXoPi0zCh9aVR4k14UDKIqoIFhP2yh5LUeHusNc-RhQGD1dpm0BYbGTCqMyDyGGb76jtBCw5i2GL6xeBW9xn0WFT4zzrKMC2FlZbA_Whmynw3f3i7g9T15x1QU1eIVtnfJyJhKYGQ3zL6ktR3iFOmkEmGKT7HGBGU8jEM6LTD1cyWMCBDK3_rtBiylke3xLMghCijh4kF5YJTagPK80WNWoKxzVL1uj4CTlkRjkT8yVNBce2KAZ0dgxrx0qNRvpWLXRamVoqB9V6NePNg0lqnXdX3XdltNCOo5gBKsCCGm1QVDnlILOJWHhz1DkmKImOaVcxYVccB8kmQYUyv6xJQro7DK65UqCw3CFw9zrbkXd8fLg43NtW7WlBAm9p3dZ-27ZF5Orfa21vU2udA26t0124tr0NrSuHrN29I9P-Q-9brRqLXSYzVKtwJ8mSmOgbkhhGFCowA0bW_Zsj2980sgdqYA_rA_vWQBFPTLMZXtwMNmk0otL5fQOFO53OPl_4-kZHmbBgU5LN45c3IynH-Ra-6hzCyhn3eHrRjpI9ibu6QjRzewFxHNWyqQDLqKKFktIt6xEwCg7-YDbKaNN-w4ZBxJZgVhH6E8ZlVFKV9WC59qu0tDlQAr4ecUzQAumK12THxNBP2dcudFTqTQ72hkIjPeq73Luv4mM83FBzYWvu1mver9VctrM3BKNBtG8pZD-872Lh94ZcYL_ezYN6Nw-r3Xyw2s1msduRih5gEuTu3v79edgJiD0KQNrc0dhGOpZPUX2IEv6i43AcmnOZ_SmC_5kzM5MJFPblUvlQTIJ5qdWivIrCCw5RGZCRzA_FspcULa0hCxKqlq-XlWne9va91ufPMn-djmdQfa0GQ4OT9bfXiTFIUyEH7sEjOktAHK9_zxhU-vdoCqLAuZfJiSOSyk0V-RgSs_d-0YdJqPEAhkCTdE4qz-zC6H9_VteSOCzflNaliCa3PtwwLlec6KnPlPshaNBCODBC8IwcToPes0kPtRbDhLrBfi-1xyP2HlTz3j5jxSBnwBiKuPJZ5VKT8lhdxhSBWz1ZmoIqk0t4bqafx2WoHRWTg70tqav9hE1gYbm9DXe7yl6YE1zrMptFHBXX9ObGaWQsBiJt5mQ_IHwYDcE_4jcI9Ujs2CiRxjPHrx8ue8qVmSwjR8HVrlvaokfWjMEIJNgcoQnk4in_8oxUG2yls0nKafhZ5ctqsdgY46J0Zm-DoFS9ULEliPIBnCozIJYE8VysDrCAFb-N_mTvcilL1JVLEv0kLq835GzbrYxCPL9i_1p6nkOAj6TfxZXwDbnsONEU8Ja4X1xav1b81NQccXKgmGRWjSoKCGaP-wyatFAcpmg1btSAs9itpqtLmUAEOiuQHn7FBi-Sq068igZbHCegsow7LRXQw5eW4tJ-Mms2wb4xPdWWvgnfNmNf1rVgnRbNXSr-gU7KkYyuILsER_KevePTRKiICbh-W_rik2L-R46rwYFybFes7Psk0Ca6HD0GDsZxgYgjudCWOjcO96uilGdW9Qb7RjoYt1csRuDrrL8ZBjaufZKy_yI2DvbVC_xiIeCOBbYBrAZtOVHzM2cMpRmESk-P_Dv0XfaXFA5XNJPWoVUKvWFCKIr-5LCFuSIeaUz_RvRvQv-mSKSX3ujYvcvxTm_SDKaD0YohywjhqFhmeQEhI2aeWqBVmA6pBcycexVM4AV0p7P0tdkfX-RwTXYz2MkHo4Cq6nj_NH78hk0358aqDtsGsm8GeME-9TuHO241MlFz3_tn53BdkbpPbCvhaKWb3etFTBMG527CG0yHMoOiT6ePP3UO71MmiLjYYwFzJU_Z3ejvejGYFZ2L-srgtMoqsN5nJa_e6527thY4uC_HsLNPQxp_KvNpQIsFdYQ9vpi9Vh9eW3Ul2aRDJgSclN2vVrzaUd5Zh_te7aCqydrQSBqoyMiH-0Q0YESDEJ66igeDdKhHV9qYBE-i85dEO4Q5evTGTYUbflJptTF692e2P7w9s74y83B1YRPd8eWbenTHZvjPlRIr8R937vrS88OSWN879JZDJqHEwHqx6svYLx56xIGWG9bzRNWv1cyN7hLR4mbsJvMuvjFjkMvaau3dd-Pd_QUox7i5t73n_XMP4BdbCIM52QHOONp3IDsXuH9UTfMePdoX9AUHKONPwAdmxA7tbyrbRVmvUniPyx4u6gVLWFFXrZVVXx0NeUslBze6sWYlPmkLGBo2p0qQi6iNcKCWtQzBZgLjqU9O-6f-aTBQMZs1em-w54daSoXegyE7HXrJ0IbB02a2T6n9nMCU_nzjU5H9juskxam5lnsyyqJp0cqzkXD-wX6BXgSqjPuUKHw46_LgI5IqHgVPcR8rmQTZC84yTpWyP4PsLzcZKSe8xkr8zxacAdJ308p1tIbbSCbllxIfKue9Ned6_GWJmWUyzn-Jigs3mXh8RQpRQlLrKRQ3M-DfUey6n9x-8LFPtbmfPrbwvOt5u9R1c3um73jsLyo5D1K8sZsEDO7SvF8mBd5vA1cnzHIUMM4zaeMkZyK5JhyI2R4kX0VyMqQl_CqKr0MxuCeS50PEdqI6blZ8mfKOUOFnvNUg3ucqIl_fFvBXnIEBdVZdCWYtTUJ4HFg-UTePt9IRL-zYEfb7uBWNUShmR7g0c4PkjUje6l4Okqci-cN0-R5fo3nNTtxfB6Aikrd4oqM6-dPGyEg4anHyExf7KWggoIhzFeXRWcwBtM1duxanRfCyc1IQF4fq_qAvRIMIlRdlda-pmjdu8lk5kkeN1NwLDqhCBHbyp316R9TZM1df6hs4uKByEY0lrdIkk_Iv6QwVqXkPxWkXrZTNL9Jrh6MazC6rZduqrL0i6JT9Vo4kHEXLJSo0XPITjUN9Ri-Yn-rkcEc_mC4PRPLMTO4vQXbtzm3oGW79HVX1zKWBYcgfVLcnFWvkfRW0poxqw7v4KV8saOBrV3_e5s95On9p6dAnANfkh_qcTWiQOU2CuvdEk_C0Ok_OWTzL1GipGhvjpDY96u7kwCHWhT5JqC59x6j-hpsyK-08dRXRSD1Fz37GQfHKXNJIflS3Z_QNjFf95JVffKWCTeez00y-wwyqCxUIYkQj3SndkievSp_3XU_QMbegs8WrHXxcjdtsJj_X00XClwyS34N5NPaTV-JC0tSdybDwEeOIct4HcxYFnoZnuU8s46uhn_y-rPgPgYHtIKEhdOym6opk36z7YUDYITngPfPbABduPUKjexY7JEdu6QOEqE5iSWQwQONiT-4RtXHJZxHV9DCouCShTTegfWRqBFY7KvmnoFqMS0Ar3avcDFNns7oa-hD5GVEAv8HWHrimg7sD6taHutz7aIS70dZuC-JoKv--ZaeBrfQPXSWbcabK5c80vI3TcAwvqhl7JU72waX8xnuFZk3Ekg7je9bvOOGBorzSAe-gmZsri_qTIs1oE4PRf1nIS9f5DDt_H64Y-Mr1SjF1V2tDScDciu-F8uIBTgc6vhWE1eGnEkWrA9lbzeS6Xpb4wvEJ78CucNoOwxi8Tf8At580eOv32vpqGvFldASXXrsLgYtP8G5tFxF0ycpg801zIqRLwMpVrjXZME32jVc5b6iYdQZYLWyY4zIHX3H_Ow0xEw0_5JXyd64CbsOUaCdXxR1h4JcFWb3aJ-z6hJDOYtGwt5nLS2m0cYjGZBkZiAnII7e38Rf2Sq-I5KC9okAzskAZLmHa4rAHYpxbUb_QoZmIGrGQDC8r9pMEEbI9lYgvtrfNJ321H0RoNlJYbg3CnxVkajYHt0iMBnbfMzdEtFyxuqfK2njrpLx1EETPKcIz3QO9ES2OEvByIxAGPOm4XI4mEx8tzeUyOocYD1M2h64hauE9L_1O9wDsY_WcMgGDAiCknY7c78lfzQWf9_Yqc7X5UpwCkbEsfXZbh6TCRJiRSmJp8mY9yb47s0E0JKahDKi400HQxZnX59gyYmZFNxm1oqSPOswjNkc1ZcZmf3d9G5tYmyJqdoT63teJM5NIDw3ZZZlKSIgzd9HjiusqBNPEtukXjD-IdahNx4ADjiS_t-zBwlNZwZW8RBbCfofj0JIGwPWjytnfIwyp3fPP76iBGLbfy1vBBJhFSRBUWlVgv-T5MqHHQLuYF-XZQQUpY-DAaUZnW0yEbKHPtjgJXKpP35TKgk55V0oJqmmKOKRBEnTay4o8K1YnedFPTvzk2qsjmRUMn_0J9B4RtaBiDH0LIVFZgVq_-smZp7ASzXUzq8gBlJexAj5KAuOqvOMnxuFDbwZBB3fyinW7kFsgfh-cxB5z2EMEGQEpoylzLmYJc_ZQC8nbKyuLbh9nfB0VfQVpdBXGvP9QSbbbpcH95hZGTjrnsHe2XPQfESqmR-_ssQldNrgiFnoDeiWQn5efMWfKGDWzyFPHFFShAalaUCIv3dKlO22V8VAoz2zvTHQ1uCa2JEwl0iicqVEtKuCY9j-xvf2k7HndD1Y4-nMWZSpuFmtk6AO1WqwHoa1DXBPgqmOBDFu6BldAKBzrMTB0RBqoIEdrJ0YMCbpxc8J8eorjDrHlTJDpVMdpxMipOAfGCAOoaN6DmwO5H6qrxgnBHDzutj1_RSYae1piUNgw4olyiqcCBGZl11nypOLYf3A7NOaVq7alAiTSoR45dmbMLkTueXN5r7xxUdGV1tsJrV83zMo-7rLQmFR1E4l7TnRSXsriIh37Rs_jvHt7cur4znfPTx3BBCri3OzwEyXQmhFjEIVx7jtRMopn4MkuoWdzRmlG7AahvrHMiFJ2-ApkUuzAnhY3z-VNsTuNwyhxlgKMhR8tcYtF-ddSIjL52X1SSs4JOKfEO0s42VKdDluoBRJO34rbr8Mscb98UDc5YWeDYGdbE4I6CWdeW2FRwP4Q_tuaneXuHuKg6YhpL2Ggdt_tNPkwqGucFEO-Kkc33Qgrl3EgeKv3rqS5NSiiTuC_UpNgkQjU1_57xB_HPRJBMxBCNfAZW9LrpS7CqzWS8Co6D2lrExJMxk94d4C4ps49idMzq6QbRHz72xwVlRlHp2hq1adbqEVPEXYgREEDR3k0EuD2HFxpVj54IDhRXtyIs4tDloRnL4QzMq42HVr9aMLeM50V59PEIWq_p46-Iy2YCknZY6YJyUdYz9aKS3HlZ1x8gtu1KDXjUnFoIw8Sh5vBc6smsqhIbpR3Ir6quwkDoWOdTppQs8_cOBc2EBd7cyjOmD9SHhK5V0Osg7S8kFrqK1ZCaikLsW6e0slkOqLUd8qNBBEXMWg0psBUxABPh-lmD7J0wJs7tfYoFkQXUYXwS6RI9C5jWhOJWPV0PZQxk--BYhw0zEUBETDUfgwquaHUmFYgd4erbPduh832svfd_sE3fb_mBfuH9Wp4PcXap8phG1H4v7oREQWP5nweaFXt9nakIkhoP_ZFAM8XuOkes08GJmmYyhP2XvrMrlFM9DVNNcv9bYttHHlXAYeDMqEEi0qkxTloPniEOHeZe6TJDAMVER6-43UgLBshD1iAERntkx-JLg3VyX2lNFMciMEEMOJ1FRPlw3JF8W0xdgzqk6VBDZe_H5UQodzOGXjQcBDRctBscCRVAmfq2AGOKKbG2Unr9vaM8xm5w6uEXWwmhUrV_07H2171nl5RyFfdf8MkShmP661r4ab8gL39M32VTd0rMcDGi4Q6CfzcuPtd8rUIa8BUnJd2BQOERie8gRB_PajzeTiedXtTBLyXL9lQwVSrnQOzbJTLLz0FYuCrpu5EjKEMFqpLBQcPVLZsZSdlWZvyGCy068c3KVuhwvoepixOMzts2ShduFKO6hBXzOKReUWoBIDj9QT9PWZ_1Npb9cvxugv1lQLLikSdQKXCitojBshKxZSxulkMCQMCN1oGlyRwGhETg8BHkE7aziZH7oS2Rj083lKYYCJrG1q55ISg5v_kTkqV4ndtO-n4PkktvnuiNwVtqwM3IVzgJiXkF5VoiRx0aARHm84rdvnHrzDo1Wa71mkzHZ1ENAQ6bJxBYyvuvatewq0X8Kq7cOPRz7rWU37w2LeeuIJdwlwDXdi3e6MCzjaOk9bz-MlSUZG0xinBdGJpm8CMbXvbXinZgIzVac9WEeYlWPUuajKEqZePYvUNP0JVYKsSer_OOCTnEoswMgTSK9fCrlvBc9XtASgaWZ6DHRb_7-ySjTsDdsnYvQpFYkXLTZJW4R-u2X8tN4tGtQPikIcB9kzPoh7rZZGOcIN6ITxis7EMxh9XgxjxgOnhP--hpVAOT1mSUPqRATZSk0pEoyLTqS-Z1VBmOPxTwTDPDhxBpAzLqIZxRtx8xS-2ZasyJiUyLbiwfh1_UCYkhEiE9iXtsQiT2fIySbnvrs6bhK8jxPny1HjjURmeLqYTr_XgQLT29oh4m9JL17xclkGDYxEKGMFraal1qlec0IbJpLQW0kXfnSsnXIVxuhWLNINbMrUXo2VQEOwVx7HYOQKzB27OcFm1h9rxFiZEmXn9CC1WqkMKqHOuKYLcsQAwDGK-NztXAAjmxy-O9x-2-0QonxHF7dBr0Gl39_sOB6-EY-exzL8W6dQRakD-fDzN0Jqq4110I-MPaFOsDS8Ok3E-CqmRkI4X1k_E7BVUur8b8Q-Ct30Oz6nfxJ6F-Wk6G1347eOSqbgMbzjxHfQ5OQd7e3zOqMQWsWkCXn71dnts5ugxkXmYl5djdOh8Bg0cTrTye5tsovBZb6A77NqJOhuNfWk_Z_ka0eHnWDcWjE-z6JLwpc-cInTdxHvBftoHWwe9VXQp_0Ik3nkUJqH_MiniFixRca1bn8OekXeM37KHn5xS8Nnv9JlQPtZ811iweuZOOCpVNxigIwILcsnMmYjPtFvMxxDPFq9Zbsi-mZwL2H96ihtw_uHwGdbIWiyaUwpu54_wKsxZJw9PYvG1qotrwSnYRjVns6LgID7KYA0OQ92fESbrMXE9T346PX37xqHD03n55t1Pp-xzc3v7Z7f4g31SqUgKpg7h5LOzS-Ku4MssYM26iL9WvLbXLAXnxq2idbAowE362T0bYKlQfh-dIipiSPkr7jqV68dS-W-KhjCW_XZBqRzknVJj6wVFp00cEebWr3yA95qzUK2dARs3oi732ZNh6SIzPjWmqy8NcfCyp8NKYw_LYaDde0LzXyB4pbqKGLtFV7BveUhkT7DmX_GJtgxI2Bwyee7yOzMghIPpE6fmU8rxjNObWlRGMRFTcSHO4TNWfQU-HER8LfKOms2TQdFtwSfUsDLwz3C5O1AhuG7dqIxyBQqJaSXmf3Sod80Wy6KXQgWYEgP7qGIyGq_47ouDBHTf9naszjGOtZuJOfuWk5n_UswSAjAA9JlkhTeciy3ZHbP2MJ7cKIaMKZKlMtsbB_GVm5yD6wqn0_iWnXU9vykQ3SrlCZ0bCsNgGKYxzEuQ_Oh6nqVCsJlpj11OuZB9U2enuMBo9S136_NYUcA6cK3eA43EMi3sBRyW5BlQQjnZ9jBXjnwBwmysAuWAOcKhOLZEq69jh-qYrw0YTBME4eo8gns_cTncAEIN1OM8I6DLF9Q7CmpsP0dRjGt-IK3psgjvjlKlIzbZqD2gTFRonn5WuJmWHSn38E3ns1Xu0s-pdcts55-OHKKTT5jc2ZJYPO68qpBFS2lgpPCsk4lNpyJ7aq-xAtEmVkBRhVI5c0NWNZTGBh6htOhmUpq2b6GlnTxuf67iE0HTsuTMbM_NJloLIuYWdvwKHO1kCvNXI4rE_31S1Mq3E-h_ZlbwPZ_EiCjCUg5O83Hrr9JWZOTf4M5lUA3ijAG07thC1VGrlVGjrnCjxkc9VS8acXnJlk13Iw_6-cQWzi4UGklMvDzYoqxKyLSBYcTRO-2XU4U4ZCUajFJQzlzILdUEsOHLAQvVnlYuvDXY36Cua7GgPdc5aLeP2TU2T0ZUkYfQpBE9nAyDrLRfxa6OWtpmnKYlLp8JArB1beWyDEM8gzK_MlScAJWO0mcMShwBNy_eYaP4ttMzN1RKx-rQQNUQ7GW8UvyB2kAmhG1HJMYREj3nihJOof6oeDPjuwkMsB6uKPCrq2GjUfFebtFR0orypykdrnAK4HlE-yjZirorGBvnsXQAXg1L55TZuZvRxOZwdArxjjpfCtqwP7hXojxkKj26guow5FsLIjXWiwOt36AEFtOx3Xe-hPIH6B_CLzZmnAZtcR5cwDHly9Kojq-OGLcTneMSoNwG-EFar3Md3IZ5F_Ymzw7nLfowBRhWgAHxYkL7fhrMB8PdmqF_4flEBBT6rOY7Nnx1DJDWcdk3K4hsJTe4Vp4ahCYrGmUACP4mfs_u85QT2IDICHZhyW-C6SvrcjYv5V1xu3KNhkobt5Y0Kv0odO37lYI4hEz6g0q6JFqH0o2q6HyxiA_4ckrcZRUe0b25vdoj2X7H7oXEXPKVD9So1Tc7RIz5XEt_54CejnSiX2Bt-0dtbRnbmNARNzH756I_bXZ8I1kSbb7e4Kn7x1O23S9602OT35san2BRMBlMCfZo_a424HlcEokUnq8QMVJ_NHFnrjNKLy9DhPGSTAnQTkM_vREHqsOdI3NvNT5E-thK-K8V3-tVShypEnmlRF4vccCTDwkMAat2IF3JxgwSeRiozhKzb_A16plNsVqaYqpkRWMdHwviylAMqgEYs4ijY3OoknYbzkrKD-He5wFTOVpyV-kIAwmgo0QGuGORIVBYxkpKkEaIbAOpbrRqTsWW0NMshUzqqZpgr0Q4JZHUT3wav3IcRKwyDczR3nZ2ynURzqs0HCO0jj29fEeEpeSnO4SBK2JFSp6cl1AYESJNwnhHqqBoHGlM4xLC93p1y7MFRy79z1wRUm4dzc0-tzgRmrAWWqqnyymjU1e_QcB3nlDz4FkdTQLDdJGIUaFJlFHl3B6Lz5-j_FSTyrIA84jARNH5LOMAXYTmr2n59POStT7lwSd_KK2oi4wFMbAg8tbCitHp98WE5dhy782LizJeh9ji-FJ4OW73HUXA7eTRWG5dyss0u-XARw4CftogV2XgU-8LYQWCowFhyuR26K_0J_u_1J8lccJxGZQlp_UvhixhTNpuaU-g3BXPtQVUoIJVsFPVR0XId9zYq7OWP6qdryOTOLkJGwmprPNfUTJJHaFVGzjOxR0FtTqgWlbL6SSCx_HxowTGV6sEIlB8PUXwHdSfjAwGzspvGaPXksFd0OFJDeX2gHyJMO8JgeVLV4n74-_ZtGFu95jPsexYA8OSVjMejuakBhPztnR0DB9FOypDoZc9Ylzg_-ecg3GW4XGgBYH3DL05thxafbWzlg5YHFg5cSEElypYvK5891yECZzHKldChHcUwbqlsUQOXkjEz4PynuFGIdTLwC6LjuPDA2GhUSYzh-p4bHmkl6VkmFE6ZKvxSz3aQfwcmxpkC_EY1aIVKIlfKkjmVugFETeV5NflG2te3fs3HJirxe_HrhXOJ1aNUwSJiVZVMQ31FOASQbsE3xDfwPKcqNg3-vdt0BGD-A8R3zMmW58rRsIZLnPGN5Atqcc3bP6Hx-QH6AT5kY2u3lZiPHJYgDmHI4AsDNaXcNGlrwBwkvbapWwjOSWppLColNgkTuJ-vw7iz7Ccjl-I-E_T1Xc2yGzG3Ej8F8dhIMzCGk_mAF8wsRt_sEzvCRE78V_lJQRaER29Jn9ye6rkVnTQcFgbp-LzN_5FuzVTf43eZ5ZERQ4BmmRDT63dEE6IYKiOMsdy1EVm5Y2LP9AkVs98FLSPdU6fv_TNl-UVXTaTin8INkaCHJl4Z94mZf1IGdXQNKigDx0WKzzKVASeRiP-ASaNxQ8iUxe79BukVgQn-hky-idga96UrYk3pm5BkKE92mO6X1mluY1YzXI1E6FafeS7b4Oyd1T_M_etQjSrXzDuiH80ISpWwjiKqrSqbWUExpE8h3OkUrEdS48vt__gqitfTJxfu3FlFu13VgyCxZvBXSF9AU5pVpX2IHINoayKqEe5yESQar6QVJdWrhYmWugyLSRrOxJzhblAWOwjYqM2BfBcrQOKc0i92WSHRZfGAxyxgvHPinHVE828eKgVuTZ1dd6Z5c5ZbmHCUG1vRxXr_gsiU1UdkVgLCjYL5L47E5Xgn6q_ELjYqel3_C5gRTdrgCKsdUA0GgkLzrHGkGzGLcLN4WLBYQccPDtsPFX2h9YyYvfFRAZWhAgpNwXiyzEt2CbRACGQlEeiA-1NV9wYwLDbqkTRLssL8RBkn13a8rt8Qe6i5heAP0NXiICN-3MLYblPUEuf-vbTpQF1EX9Xarv-DOaJ0fr6nYoGI_e7bFdAbEI0yv19cRlmXznmuP-Qqvg-0NadLZhSunNNWfh8hIP2VdIDf85H3NM0_RrJsxSW7GlsXN4BJkqa7ZQgBaUM_6u-earqDdzBp97wvrdbIejo9Kkp04vA2OHANzYBLHvLdHfdQbjzF8IYukU2k4tJSEe6jaZRiYLhIBuEGEQyxaLkKv6ECTVfqhSOA9EKx633O8cFQVi7VKAXIOIpf8BAMFLBFhyhmCfC6lqqpA4SiMdCN_4gIOGP_-RTpCP3vNJQX8jN53qVCFKP-lQHTVk_1YkQMee3coV6pWxs1dAeb28_VsxGhDOivx4KVJX33WoxE7Sy3HyPq4LbTMdYxxIorqNlRVDuY_YmoisC20PbkykHJQGHxWmwfvEwObBDZ0NzO_KX8HkEM8JV8yxivHHz_ts10NNdFUCurT6mcSR73_pYU2Tjer_vHECN8vtGDzCEjd9voPyXtShn2QqVhpijZzlPSYUv2NgNM5Ymc3twwCEmjF2t1F4F14zFtFf8iVu6I5op2IdjPZXOCypFOo3m2gIkExzdlqhRgVu1kBZnf7m1T5qEL0G2Pw60algBdSnsZq2_IaN95mepy3xXDlq3DIqAC9_WiTfmlokNqSTjzR5a4_QyjBKwFfXOoWJ1lR2zgDdcUtIpV5SCvsHQxi-eUDfGs0wb1Lx2TbAnmEvhMIdO6HFrEmV5gaCeUG3qZPxccS4U5YRR34XnkgtsBLUS0vX6NJtXbK6SPatPJNs-DBw187CBleNodgkLWJrFMDqHvhU3I5GiDiZcQq2qb3q16-GE-tw0eOy1ZsUlB0PFA4T9AzksRS10GoYDh3I-O01ZCfmd8F0U0aBhao07IszQAgc3BCRTmTEHTScN02WVd6aYlZcUIpjpA9cpK3AU6fSY0Ps4wimLYMvm-Wk6I0JjrT0E01ORhXc_fkaUrB3cWBA35uqnqZ6Rv1tBa_V6sIXW6i6_Bak3NdMSY8_GL8vZiPWuJHQyLa-yGtbPY2jAQusKpua7KaTGGG0MuyoWzr8crxfCHb1vMYyWyhXUx7XmFfZgm-6pO1WdMef4B10mmPNmm5qtYwWac946dp8XgrdHwvt8intfRnuvyjXdpE_sRzNBIFb7Ed-3oDWpHTTE6pglqp0l7mOvTLhTb_FYXZqeV_eospC4RxWUup7kKavOZd-N33DIvGaTmE0fLxlH3SnvsUzTqb5xyFXfBA5uqO0Q4F6HGWHTiet5ehNCbM38GRMhzrAkYYOLCPdhbgeyGTh8L90Z9mzasNQvaNWZq_PALt1U4A2tgdqgHzGvSzt9XC37XUWhI26V7WSAEfsawcbpeUTIwCT7ZYmlXxZJZwWoHUyJ0TWDimkQSVHkzAGsB7WrqWQ5rh1KKcguRSFK2qmpJEOwVgglNU9lZBrmrflKUi6ZnX17Rv29QkAabYVe8du0EsA10ywR98kbxKOqDwOWBRccfNPTEbPBvhPeW7sqT80wDwNXNtUr8gdtkYUTpUPTujIOfXUM_io7loQ0JDsTJ_qWjSM_4Ea_1f8RcxMa9LvJ8OJS3IozcS2-ipMeGAK2i1gzfCwZ5lVOya1FP62ydFmrjBaWVyKPVz0-rH1Ssp0YV4vIDyCHsWJCmTmUXTdVqHACRhpqs7a4rEZoM7eNSuM219x3mvVn_ky51RrCki3GhhiUW7hdiXCWg55hNwcsK6If-k9Ftsnarke8wWB_GGQiGhwMg4J-DunQWorbYIBsVUacQeyDa4fXQVnV12CnI05KW7-38CN4Z1TRIliPrhkGGwJrngSDxEXI2SnfpqXHTAXcVC_EHRXppclCaFKBiH6nwcmgO9w5wTlwQs8dPO8NxcvgdDfTkUgXizZRTyf0zqZ4eL0JJv146scTaCxv6OP74fHpYoGn45dYH04rjk902mNWi01pHV9ub1_T6r1kmmwCe8RJMEWa9wgxIzeEmNuhTYAqm80LcQab7HyxkG7OYo9nmufV0Oh-Q8JQB8eiTVvDqaRBjP43ZRWVr5Y6Hq7CamUGGFHi2N65LDes0nSgO5VlHZ8YNYi7YEu7HyGRgFmNOjcrMgxcSCnF3O7b4MzF5Q2ahVxFcP1Ph1amD636ec83VrQU2e6Ftys9UwKa3J9tb88JxvwZLSuA5jIaj2NJrx1-VWBGr128LgnpysQ_V4Z0IwFlhP-2VYpNt7dHuL5STdodtVAMj-KcLU9oN2lIJHD56s2_Bua9V9DOQd363h2AbH6GbRTyvVy--DBa1j2qqchrH-T585up6ww-fpzOXy3x981yWHv71__6n__P8P7CHbQafWLw6bw9nznmqm5bpPRvFkBC1ehQR2KiaeQISlUPkuu-m29vN5szzvZ8gldYhjTZzMdogg-PK28onRJ1EHo99WVP3STe3FEO41lNKPt3FQzagq2KHxyIztCqEu9HC9pyY8h0lLc46vY4LYXBbmUMEMNB_D5FTyZKT2rmb7TmVqLF3oHFBUw3zoN27_z4yiizz5tN72pwPtzZoSNgTA_BXBudlrFoR-I6zcb5E0ktSH8izPIjGvJkt7v38P6h3Ce25wLKnh4hj8YFDhQaBOSNI2Inl9cXUQwDBmvKCXiTQnXCGuMIG3EK8itu1A8FBEBKJDUTccSxm8PdWbPTbt9Pd-GhoNKd0HZHVMGMTTqs2BOU5wy3jhWQPgo6tBr3Q0V4_FEe1aeZlL-E8VcJa5M36Vi-iGLqW-vk-7e_fD59_uupJ-7RQn3WYXHUrM_YhQCdYb3Px-MSF7wO_mglNGhUA1_bqrHX4ifxQvwlnol35jj8yZy_PwWvq1vH4refjNFJ_ydfNXyvGbzr3XtkZBbui2A8-FzSOS90qGZqNB58_me3D_cRzxNoAeiBHYU4Q_e1wEe66M695jtPfG42_9mlvjM-eWFQx19LZZiz8TR8FqgT7vPxXv_SbYsXO8_EX_RvDEcuZqFot126HcEYan_IZcbQo9t8cel2K5_uVbKgaV_eBOqEPG73d9STjxOQm1Zp6HGbzj59JN63CGlC4zkPbrGt2bTksXjcPPXu36J_nHAjbpon3u5LAhFW-sxKWX2gz-9qE_B0LOD9GEReeY4_Cvuhbw_1SqEomCBiV7xTEH6CwU8vbRmczi62cCJF7P1zb8j-aOmXhePNJopXDzeRtoC-A3hU1tFJReztsvflHdVcyjNHHStb2YU3Zv2px9qvCGRx4M6jvCSyk3N9_wIWxuIE3AcuatKEXFky-MSF2iRrpYoch1RcRWMCBW3Q_K2v7PJUZRErSNbJ1PXLJkZorylbnw1aKhoUI1vX6VoDxSFrOYmDW1NvWN8VEb3QX6vxh28oukSysbEf7tR-8Qe6Fyx5X6GnKzZvyC4FfJWqkKGHsKEhts1K1MDEKMyKShMtvG-sExmCKaRqcU0ybSjPOUvfmU1hzaRmLmmpN3Y1C6aYvZYYxZ1hpedVNhFsWTmDOcu7czbNR_3sgGeFaYURVweaEZfd1xK-8uOH_E7008rt4qT05-pqjy6GebPSDXYwcqJDkj8mRu_LAMbMwy-l591Y28bRUKAQt-6XIw7no86Lt7iNCnydhVyopy7ypfBTqDOFs3C8nnpRclMbagH6wtmxubTVmxnTsasgHcxYf-HAD8aVSs0DZwdCqKv-Tscv3YupZSOC-hJ2jP0cGqY95S49P257kY0knFtLvbZWIZo8HMVR_iZ844JG3f00cD4O5sNdFbT-qhz5CIEbVjpcZLfzq6Bihzhqcu910LXliGX7tObL9nFApFE2yOEs-SrAA99djcQV0DY9FVWdnjunvelLlSYsvmCKmqd5QicNDk2tQD-JzmJCTD3nlycfME2xuQdi79iGlEZ9pLI4Z-ExR3sseUr0x1iF9ZpAaoIY9uyKtJWPQtqRxthR6IQScuE9mIFRZlZqUZFHrkotqrbvBTsBKXCZbgBjIoJ7YfRCNJ4ZvYWzG5UBEK65UYcwQNt3FjduoiUYjDnja74XosUAcAcTsPNz4rucN49_thd_tJnolYq4rnUrgC7jK6YcZq-RtNSlHDOXV9vbV5Z8aQCWeEuv7SonFOZGEHgc6hvLnfaO3RWe3lyuhBsJf6bOKxZSfiW2B8xmiZlpwJmNdl_KVFXg-FKkWiJoOj1ghJKwd02YHsAUQlnFz-xMpUp-Ym5msI6-1Naoy028GP8dXlN9sOTrjDRl8kidj_O6-OXuL9VVjaW9LxIpdy71Xine7r_RK6ut39irv_Xl0jC1cD6TBpo6viL-hGChQVAXQ_fzI_H3xFSMoSkqcGPHCGzLxpTGvHS5ao6N-sHGDU4NCavWpkGbDxBSuf9IfEnk9eeaeQ-xN2vs-1K5zMVHmzQbMNowboWhnKJuOi9ff2d3jLr_ksFX11wqpOMTfLKP2CVskH1W04CbMBsyZTu10ZrcgBInS8bRbKUan8GHyly58A5p6i7YzSyErgiGYPU4Ok0ocfnESMhvzZXqMxasX7DCh6XrVLeqKlipZnv7wurCqnkmDfm5DLPRRTVXpWiduvMPzMwF684s0qAfVyXVOh7CqwL7fLeIpHLdM0xGF2n2uYo4VZKvqsJ0TS3e_ypOxXVAH69o_biqah2skxj11XT4Z8JoLYhlNSq-lXmExCOe4NDZ1H6vhp7hu48VR30zpuOgo-1zTMpiQYdFkcU_wo9Votzn6ucwVk9EGFwY3zUO9rsWDrJI3o0fu9elZFxct9A_iE6lew3naH_WlXxCjRX89XVL3kRFcG11NaJeF67Yfw00qLhnQTJ1v9K2qxVieZNqyT0NoNJd8StpzCicFp1WjocoVrkOvSMeEpNNw-sSjTklcJFP1dy9prmjWVINB8ll0wmc5mlTxUD56cPLpwZtU3c2emE07h81ECpvXaxRCbTLMBgIWZ9hpaVUVqVSsopHxlKCnSmfTDQ9VNcpYPQa_q49reopap5l6Wk2dTY55K25mS21qDDb0OP-ypIxFfqpeoBvugTXaGisREezf8XSMBgJBWUYExawb28zsQjUxVyNx3aBK7aAwlDuOMwk3Ev358oIkBg6X8ezME43V_2n4B5n7ZAtNGNB2JXtofDmsL1_46oVFfKS7z7gIXBroRR0nBFl6yQH1u9-Z-jL7112g88RaFZ9jLl3d0RzVzAyIZKVNiudP7_QU88dLRZQXwLfjIySCz39rKaCZgfbW8kajYbLEg-fNWWmMZByrzKmRiKCw1QU1mVg8QE3UsswaX2mZ2PaOXFgEd1KtZ8jpWhXHVBHvk8cSzxUL8oWf7b8OxrNWAuHdS10kFL_ALeNNjxCimLJRri9wiqYYcPKwGQm75nO2N4u3LVEvsTA9K32mrxK2-KKUFC8gJa0F_-hNMDmkNeukatl2NXKqXLOSMsNLQFjd1nXqprG3NLIJEENoNXnN7474eoywkU3u27xXEuoWNGys6Z6gedlcetPWreVskoBs7Ouk0HpZS9p3T4KitYtU17ESzYyYhBjWP7ojGa3zfHvOBmXmZilcfAGk7xGpvx77yhRu0PMT-vgmDgRRlMreeXn1eRqLTIZcxVHR6t1cM5KBUiDWj8JDFdlQdGuIv-y0wfrUSCu3LTknQO23iplscnV4vvMptU5dRth0d78-w0uq1yNbwJ9QVkhDulu3I8aI-lPljDOw2bm3S2V0zOx4bullgvscYO27jQby4z3WNbi52XJsnl6UDAvWVMya6UvmLVkze1AAEum4ikw1SuXv99RTt7Yihk24cBSfXmFi3kO0Rejr2fpDV_lYKoBezpnTsn6dlCBlVZTSxWAthJp_UGni0sYfGO9fYSGoUQ57iubRRocjBod4-6njHajbqESLruHDdhmT_MW-y9hsVzxZ5KLKMj4YguIyqi8qk9zEPEcKAcSxGUy1_CZ44nlTNETz-qWkQaqs6qXCNUi-BisPUx1PKUJ28F7TCZFsMXB62IRtaKxNdeqmPG3RWn33xaTSMZj5QEdMYtqViLJ38GpicapkFCukvBsLkPz1_ZqUaHgyy0wN0CtzyJzP7nRKHoM1AbxZR5cusVEdwG_HLcRp4aP84zjwSivF2tet-HRFXGg6KzQSdggBJ8VlMrXTVy-zyxQ8U7kR1XDFtjUlKcVsINxt6HWKgb7Rt9mkDDviVwhdDeq3smFrLr4i0opOXrf5cJdkXsqyhDuSXSPA6TyRWgTUHIccOhcSoa_7JUqKxV6nthgJ5ow2xdXljq7xImykw32-dILOtFhmyHxgI4VJAUDWkACw7ZQZUWHS2ZuDuuoDLQITcEG-QX7KREnz189f3oqoNV5_OH5Y8erEWowyoh6sqX4JueCsLZMlEtw3pEu7kcx32Z59ytYNuSQ2Csg9QZjqGT8iH7Z179kCB-rPQEfNWcy9rP3hiSz5qtXCGSDzLw084wC9vNbugOqOChBzdyV3U8f8_tu637fo9-P9_v09x7M3-51HO_uLcXb1Y5BYzLqt6MjkjpiEH839FlGq4zLEr5VD-8Z5WgHkXIFEkQiZx_-KmwdPIevTh4utms2OCSy0kg8Jo62HVImy-YJ1nxOp63-h-u-7Z19_HloXs3_HLE7aHceDmnEkr1T3g863idgWfZ7kkKF9YHZHBXZkC-_rnhW7fCduO3OwaNHcnffq4UdBXmD8YLWN3gXxt-ZyIdLuDmUuLaeDEtZDjuj6mdwhhqtKQUwSTDyLuBXJ9reHkCWBRdTVIX2vwjvnDUHm0SdsrUQWwYNdBKiDV4FO-6M_gtiDmIoxvSe03-B2hq46RnEWEbh8k-QQHcDp_yWl4ppIeP4LQ5TyGLKtyAdHAybTVz4QBr2M9_yyDJlm5VbE0pqo5ru9Ud-20PMQvMlSJlU4ROYV2nQKR0mwENTXrxAasAiDIYTmPBpWID5FCSHccU8oRlc0buF6GYwFsVKdlHPVrPLXi9gLNCGxQZ7HixwqVXHLIHBnHqCXRwxQooRHJauoxR_xy5AjbkZPM6weLYQtpbyGLfrIfRC-f9fY2fP2yAMhOG9_yJMVEKoJOmXUNUte6UsbZSBgcEtCgqgLBX_vfe-5w9wg9qp8sVpsGXDcef3uZZ10i7_8d8vV_x37kJ_sM5KPSMf3sOYl9QFy5JR4mc7B6iUMev_CgUzEKp2j0FxSC3QmDClbi03dfEKt1jgrwectDqSU6haiq7Im7b9kgsdYjhr0FcQX2k7BdWt5SbPn_2T1zF7-U6gcoKAQ0EmchER7_LwxySMR-o7UO0GOt8TqnHb3FfkItv5NnSrPLfI1MxnpY3K0nqrD-QbbSNPHIMJCh9Rvo_1M2cEl3EU1-TuqOI0vIyzjQY-sU7QwPQsC81Wk5-f63UU511RK5oGxpO8riJogL8szhDOP_o-VQ5lz859gO5FvRkZQVL4f9Qji0c17BGJ22GbpIrE0G8o8b7G1MAr6Jkt4rmulayqngKa1I1Ri8DKOKfVg3z2ZkR24Bwqd9lEgdI6cqh-sdsSDXDJTsUaAg3dsSlXV2DCOKoo-_T9pTunNjySNR9suVO1sLzRMuNqwHxHs4VnwFDQ4HJhsKxp8dJomLYwARJJfgAsD-zEAGPW3LPhCA-wbGjR1yRpPrGJRBdaz9rS7z7i3pc4VepkDjJT6xDtXrgtF3EFCUVh-WefKzr7e8IR-MUY4M2EGeO02TOAIWu0vPkBSMj_qkjsAAA",
+        br: "G0fsUdRN1msEEUWwcUAC8H4xAXop3oiQG1Q_yE8j5WaMJQ9dKXl31Q_j-wuxhIuhn_Z1psXH5Qn5tdBpOBhVxdaXREdo6SN5v6-ldrpCJY_5FQplOZZcJsuyyzwFiZbCBDeaphWbGOZwOwSeRzXV02gqNo0nPumSjB8HIXVYK4N0phXmUsmfgJmmfv9vqn79GhO1AbzIAClnaavj0nIXZmeWDZKlR_CSmmg0Dx1cQGJwVN_8VPv6JqPAj7cqhJwqh7dXm1PaykWxYHtvNlQGgnxlMYH-c6aMZfY3z3aw3O1FqHrfNJFfvpp-fZNOWY2sGQCkaLksUvqf6xfccOTTHcbI8rJcMoV2fGtqj-ghT-Rs_khP3fbvBF7pNPjK6ud8RdjpfsqUnpLUvcafGSFB0wHU53__tvX_9dt2-VJ7mUUU2jGw-lS3OEzo3GjqXCpqGBxAkuD0yP9vpn2mVQ1Dfs-ZXR_J2EzKpIzAyLosQN1737uD96qqp-tVdx-0AfS7YP40QHLZaJA7ADn_VVVzTnWT0mmAlNQEZ8_BcNZgTADOyHC-PO3-IWdXxpggVMq1NtNRFCqIlGQKQkWJdMnIs0_BorMzBHB_qH7Pv1lNOu7MFiCEEBg7ri_D12p706Sddj57DcYYbL5CPAnS_f8DULV4yLFwyVCGdhupTmlIwCDpNCoTB07cseOePW954D2P3PKBd_whP2YtK3nkN_lW3gkwBMX3Q-gDAFo8OAz9RYIBIH0AQFcDApVfCDBInRgtHtoHxKxzr7OuMyafdV1a4CQOsGfxGHyaq_aBZwAzyTMCMwkVB_dCSRn7bKPL1f0kwH7oOAGC-WpifloeTGYKv-gpbxuyxkHt4PqiqRXyrLqYMwFOZceXAuHsohX-HJ_vOj09pYhLOzfabmRk537ju0PxgwT4lTOvw4pr8C7el6jTWO5xb3js9qJodEkoIplIbJ7j7sTF6amInNqfbcLgl5-_SU0m28xHqco6rMoyw_q9nwh0uc83vEx904hRmInSjGeYIwgLa4ioMNS_iskzLCCzKtP_KIrZAjkOaFe4HehDo5k8ztUycASOtSEpVapYRPtwcYIRESdS4W9DYyqAsMZFdZOVv0kOMpMEQew6TZk7QHDC-q_0JTEzklYUqjMljTr8zHycEDSEJSbQOEwxVNbwdVnodxrhNaghJFFKVAWFrzcfAYYaEuYEoH-oPaCm3-3i22cvQgW4olWpNDkAzQyrA_mUCmvWGrQq00q_r27caLQqMjvuyc7X593eUVUHvTNfvZvIrWGiTM8Oxkafq0_ixZcNjAxIvkqkNi3aExdaulDHPggmJeHiQrqaHD11M-J0DagGhE30_JGIUiPoFm-CmXuBs6sLhV9QmOqmxW4Wm0jCY0mJc1XA9ri7zaTvXO2pMU_8vUC8GyaoceUZr6eCgND0grnHOR7NVPS1VEu6mfaeFohHXy-ZghBvCRZpMQBVzBHaFAzDJTKcvuiBIdVSv7d-hac0yIySPGcnAID5sjNXaLRYbwru8yAbYdqCD2IwxvD3U09boQHJF4AuMTrrT-9OT0_ho4UXzxmJCeDHKi4NbXhJJbk6WhZc6a8fsvj288KbnWDHT7h05QogNdcvg4NcDe9qPA4p_9kSf9IPUSu9OJ95XqFxsZMO4eT3E-YeJEFanR7HU9M3HFBQiNOE_chf171g2-jMD476KaSMpH6de2E9YVw1nqmUTSwhpPeMfnKBRoyAQk6lIthbAy5KLBY01QtMFQ0n3wPiRAkhxmcmJqG4551_XTHBw65cfBaFqwHhBEByc0lACDkt1_6hKGRs6TS0uNdm7WkjaooT_Z_I8JgIELviKHEbO4ERiykw4_Qk2dddoZ7aLbqYCWHPN3XDIVJOgS8a1C06Ang_WNKAtfx3-Y_cZ_v_WuRSczJsEjPhOHJdkzjEYjpSVFfmy5_3biVHXgif6FEUt9uygBSJWY1xjegYghlJw5wFYt15F2wImLyIKTmRuB8VaMcSp2b3sbD7KxmAlALFmY7-_LwlknAbHFARVnBglwUqazNq-xtCsKjWygaEC0EWI6CqXCatoVXDX8anrz9JjVERNt6s1GYnSZ7GPK_0K7WZCZt_94IBcYE-tW2q4WVnvjvy9CLynUYFQ1gV42NtLJpSKulBZSJDEKCkzzQnUwQi8EYqbA6szg0xZRH76SwyAlRf48MpRPAhJE0Z2n8PQ7TjANAIFNHivsSJbY6qdIUsl1DWqgdj284trgY_wVlc0yUWZuq6uBobPGDJlgcUZPEEmzCMryUhocrM3eU2Uks0ZHOT37eFaglML_7WqFrMo258ABcx-vjEZoi_GQG2Z79RvwdxKOqVEOwgc1iqW8uGHIdPKCWpHWA1YVOwzVC6AmjwEQI7AzhaiT02PE0apzqmjb-t3WCtTihvF_s5hfliFc8QfJwDgns0XPw_g8okl4mYfxII_N6aCSatLqnU9Cumyi69j41MpK8y_1asAl6IFRIy-oKikFpkfJZItxkbpcRVl8rBJrReOULy51ZjThOhyOEgrvn3izpOB_-JrRKJ-vEx-GU4C7xNUgrE8IKpoCbhE1J0lf3gjqOBJraY5rktOEceeUOMlz4wHlLjadfp5qDavV0CJDSwSMTKAWqWIcO7kTRuZpoUi2ioBTbk91RLAop-HhpOipfwK6t-hgUu5ZLa7yFXwWry-j50jT0xX9jQUUdFhje4v2nwoOiD0yRwRxFUEWuXyTZDKGObOLizPQ0gRT1VU00HQ5U_X2YEGoXqRuSKX6xqDNBgEQY9gNtHh99PRKOQuybSTG30twU2oe7EFPyJ1H7oqrrm1JMFFxJO4ZCMQvawZMRXSu2UJGE-YE3ALZ0I-zHyzu7SDIB8bIVYlWqNCBpXGiIXuXyfXtoai5IGy2i3kqjB5PD9zKogrgQI2kdKCQtc7FxE5ALJmySr8lNqaJxTqErtW9VXdOEbbKr8v8zcZQjDTNIyN8TgJpEsbCRLI7YyK69I6R0h0AcHdbml67DmFitKpiGN4Ub8tI2B9UwHjwx4Q_t4a6ZwAeCjHlgBTE9UxrLoXhgqsYHCakNYq6UDZ13IQlKDh9bsiQJGxqyXcaxX9T5In05PXgbgqrEn1CUJbSEVK5PNYhuxRHdWAGeTdrYZDVks1xSC98ht6bEpza2Di5RrCgQZs5E52QNc52KUHwXRhgfYMPxyCWyHXGgj6nKNQk5u06Fc5O91kAWMu1DZqzGaAXZ_h440ytKyt6BLMBTXe8o2SA8_e6uAUhSUF20SXUu9mox7goRWV2lSLEULaUa6JK2IE0sqwn-J5OoXCNPNpLak3vjbLVvSgRJOkaWBeDzoxTBBZGyMVJzwIroyDeLIZYpR0LFJTSenTbp_cl3YWtbL1MqQ2JAUIvOR0RVeQ1tUvajA4J3GxCpq5pPyBLZIPYRPS-JAfTmI3hsCLy-TlVEEw6jFYjhixDZm4sYxlrVslcKpvTECj_fpAUEFRfqg27Gul1D2FvqkrUOwwVo7hG2tCZAF4SMaCXDIUnGqMXJ4gghxWGSdV3c98r30TLkfGlgUGWB6Z7XSxTRidccYEY9QIwiILVEbdhZ9JAIOESjFlzFbrZlV7oWtFo_YDB5VWk6H9UELnWtaCAqi3nwwVBMOXEnA6GcKCepFWhonIQNLrfoWPKkR1XGwY23nOWDZArYKWF4igKPml1OVths1u8DSGoJRT_l8Hgic2oTEtRZkN8Br_Ba_GnAX3zIwk1vhBsSHDhhDy2Yc9yfJT2eQ5lIdyyB_6zsIcHlUSwENoJRwEuGSTj0QDXg0gOY0lfHcWyBJB0i0IQvS33fZJtK3XP2QAAYsbFB9NkxKgRSGT7Qq0dA7pSH0xUQLwsvEq7V9eCzasnuDUCKE3BkxEz9L5ke_RbwCOROW4ajRaGcXQ7nRXp9coIr3d1T2SHwZQVSlg-04ur-i4u636yhLahWLL_j_11TTTf91CgU3hOVUQ7jUKsKYAoLJwRIqmMk0kkgrhJqhCyOGMLg8vh3PWvAddQLiGc5vlVQZkFGfvoFOpQ1Y8bc1U0kD3p6nyg_2IBxF3C8W6U6HqoGTKFikOqJw4XdXzRruRNi7HJfVJ_FPgspO-oWih3uNVtl_xgmw5FHF3dzDENA26vsAhVCwgB4qr_Jh5THazobRmgxzaN2U_-4sXlZ9GeVdS7s59-1JoWpWlsJIsqV_6weM_jJgklfXIcCKgP8Fw2iSDwb_n4vTtXXu3r7DTB-tYFi8NhnpbTqN_63-R9Cs_ul6JJN7vj3v78UO4n8SHBAHq4xWPWYaBzyks388gzknZPTJKn-c23Z6L8N1JS5dLZM6VQWFydnf35qASXC3VkWd8las_drRggk8rJvI3iqp4NEmS6hSm-CodnzPyHsrcpUY499tTVa7ywuFg-4pxamDbQBHIJcCDCoMcM3h8hHvGAsoZ_yehNTuzVOsmcPM0fgYBf86ip4pxR291XjmFcwR7ebA1RlEAORcEWhPz-8ItU3iuCPuvemcFpn7hhR6OOWdUIfBE-lqJEtfXO4PWeyhDNGBiBseBtfvAwAtqNkq9kINtOAHLgKJB_oWVsIZK0mYP4gD22IEjYP5sCauxSXb4ycWnXwX2kq4f2WZBjkcANwZErpxSURn1M95Kwx42EoxWWsAJ3qG5ZrItUoS_nQ4YebWX4mrfWBIVm-0GSQbU1Tzn5ioeU9EkLwnYkTeIhBAE0OakxVi31M1lKxbE1JmhbsZWRKLHggvZR2e0gfaD3rtVTiIgoDYjCZH6z-4EUZQkBdOeSX6da1u-kDgE9uCyA5q_2YCYV_9PZLEFm_oQdaSqqHqJy5HTxk3q_9n9MXjN2-jA9CDzF1a527oAwKROJNUpM1Idk6jim92R0cPQ4B4x83PfkwMjgb-cTwZUT3eJKPTBETRb6h015tikwqVmnd_XShM9oCkJTRD_g0n81KeCUnmHpKsslUmnx3FXMW3GWIahe19q1JgsCntQD4SWzQOUC3aHHUgDOgDMAExeA3QuvU7WqUWNcV3yRjRfhLOpy3wxWTcDyON7eWpSepxQ4o8o8HjcK2LnH6DIJ51PxBxU0vAdDhVZN2arxhn-svq6345aQwBXIySkNGNijYS-LjQGntct4Q4oGRhBrpHWX09FtuGywHBh9tPdwfFCy3xrykAo5fT6U5GJ4xuS_T0QAQHjyMMWEciMGihKrF1yIb2xN2jcQjkFrFx3bVJHaGJTfZ3Rg91mal-g-Ps5krcP4iZUDMsq5FURnsHOPFSxNtgCJE7pCYUG-9fMYZKVSZ3x0Ee15y-kDLgM9xxg65dncYj9yGeomPBCJEFyVxZM4HGjdjn1f4S1R194p3WEeA-XiM7yBtBwIotH6twMjLqN9KwpQGZg7JzTeAlpNdtgxUo-4JNRrLMhRVqbKLctde4SzA0qfc2ti0BJAaqWzJxdXvgvW_qutRID1rAcK3ksnGv3-Z-6yTW-FUl6t7IAB23ajI3FdKHbo3TaOhyRER9WGr5n4-gWwMLBv20RUBIuiYItp4O1Z-G4DMQbGGN2-gqtRLvpz5SXEILTtFF7cTEA_v0-gNugME1J17ldXRFsWQ-lLoTR7Q90R8AEYjombWgd7jyOJ7AjtVmFhgjtaxKB3aiTMNKdrW7ERnL5cgwcYIRcFuH5GRkdVYQ732TCHAbwRL6pzp3eDBIA-OJZDSv0-YwUQjYR8X4pwp21nJtrljFhyGM2deA4qrbFzpYrSbtqVdGTReDZMss-hiU083gaUPmeLM5XMUZrXwFBYEwzucR-yzSD-OEc6__UQPossGnrVqwLAVeeF1ZBV99oUpIjn1UxK4HiAoN97-3b9sCmnA4lytsMZjxrbJ6IEFo6UAq1NCJQ0rPHQ96T0E4zz7tywhR6G1p_mKohFdtsn9sgJXZI9s-J1q8q8cjVVzCckTXvzKRxeIbGzq8qf5oiHvwUccOl7EoF8k_lEuINEcXpKvPTCOgsZ8Fp1vep4eQNRxjMlxnW7C0FCe7QpNoubmBHN6OmvYqK8ESTHLCVNevPlV67Sh1QqVao6gNC1NRMaYjm-Ansaki0qKGH1VZNA41wBAWzmVREn5CtsR9MwsQgbI84LD-YiWtQgqN_eGzRj8wdhux4BgcQS-1ik1AXMCVTzH7cKTg0bs1GiEQ6UBg6H-7AgG3PUyyGmdj9c6jMi7YncVJ1fL7o0sl1eQ-mgk4dLTIs7EYsrwQui1g6PHKp_cH511Z4Uzc1SrGsfbc6zpIfl0hwkaTtekG9-DXWkusOQtdDbLHS4okgHhmU04egoEdPPLWp3MH9Huajvnux0-x2geUIDeCgVMkaaBz-Y3BvjA4sVmnAxv1bq0xomUviRUrfA_FTYOmYmBw9_U53q7-98O1l_-E81dnS4qq43Ihp1PXMF36sPqneqG6vC9I732if5W6ptv98OuzsaRPz0609fa0XC1upxeNaZO1zt_Ky60j9Hkhu3qvPbt3XmnBeIJL4yOcqlYmi5suPcFzheNwcGpf-fufljEG_0KPPzo55l7pQo2LGtBp3nh6ZHzT6jXle1ePEt8GO2Hvm2e3i0f2k6BZXxwroYb8gDfAbiaO6pdD6Z6yjaPNjgHn8a9rR3cjRM58W4UsLkcALZUSVX1mGUnlZtRNiQpjsI7A7sr-j_ldJYsSJGQ-1EZ-z09UuhLikgvnQwq5kg6wLcjjX-Pt6sP8ebtu_Tyl-m2XhO2xpBldLItRHEA91WZFbfTMWCNJB-RgemgbUKezqnna2Ev747mJ2ysHtFiGjtCwBlOwTRGete4uz14spkJMD5z8PW9s2ojc3UOsPuDY8rFJFqRvDHBgs8LNrZFD3dNRKinMwOlfWDQO5A9RoM7ZVZszYN24cfyUPTg13a8EPNs3MQfqRdTBla468SKrAW48-VXXG36F9DICAtG1nLF9ZFZlVn1wwDge1sgJtiD_3c4n6_X8edOiWi_Pjqfz7HJDOVtPKLJx5GL9f_T6hrE3wvl4SHvoc-GeD-w6gdykoDJWY0YF5NZzoRLUroMyZR7tNfzXNYKynxERR4l9xyejO0yVrCcStw6-1om4c1PW_mlFF74H-7Ii3av8J0iMEcAFv-JbLgwiEQk1Z4EufNrlFvPXN3EcNTBOUZsPF-3XGrLbHySNDb2B-_KJNn7PywVOX7QJmtZplCdjM-kXzY4-wlqJuyVMuzd4-6z4_-L61On1rPVkjB6ccVw5vkjsTHcL6PLcDDyYxXyCH_EX0Vl3PybOafgC3cBphQzRdTauyKJqK19cJiqAqbsRSD0nDYOI5JR-HFritfNQo2v9tpG9TE_cFQlCa6vpKAUgORsPktQZv0Glq0_nxXAuRDiQkkdPVZS4ljf18mDh9-10so2yZtxjtlCNsEbYukyyXM01Zm2Zhyli9ZLIkjwstgHTbj01gbdyrSEVCtlguDSzpgL7pdpt1s8dDn32o_tFGKVWzWQD6xaG0wgbpcZtagU4GTXAVAypsh4WdGnBRXlx0oo6qgjIuDbrXK5n2sbhc2ES_-1VKyBNmn9urYM06qK8cFCd-_jEejFP33zBnFurs0ReFMRrv-FbxbxIDXr6729uKD688QzXFesW6zyIjF2MBVM2Dc2YVhyGFkw1ssVctajzmISQr8AMD4GYZFvDTdO-X9yYvZzVV4rshZYf2Ey6DqDcHo_9yrWA0P3-rWf7l__v-5HGanpmwnDwEAmIcqsU5L50pmtG21fXgVakVoY_19N0zlbk5pzIKlBea8Ys1xDSkZp-10Wo6V_WyQ0xnQR1jaZW38aZxnop-vZeBSaLxwIECioJ7AoLD-vQKz0BGBaitC5ZtDderVivth590UEXQFfC4uVmHfqSc6-_ZP4pF3pmTNAVWQdEhj69jqz8uCYQpr-utjbbbNlwmpMuHSVCx4IewJFOylSvJ7hftV4XfKxPhMLRmSxy4lHkYt934IV25uULNYxfrNAdCqSiiHsIA4e05VeAUUEqHdj6imtED7vuD2qkjR4mYZ33CWHd8haH2Dlb3fKkzEIL_-Rs3uGdlEvkSWrrXz62ES9ISf_EUTkgOgg1GdJROyA1RSX9OFnBBkzRj_gBCpDhy7kE8OBCTgKzyKh8UdDZyGxxRWOrQA9dlKmccv1TYyBzo5giwy1y0mOmzBaFBlSOVFEpoynxGOIDd4AWEUJ_p4gbE-EqKG6bjCwLXjwpj-aqaS4epmfz6zdPWW8ITXP3mKTeEJivd3tLwPQUany5J2QHSjDZm-pZL5W8OMEOHM3JI7A8KYuWuWe8OOyJhgV9Ch16icOi8NLuLv7RUv3Jb6bdsE6Bs55Eg4q3edPrGzXIsPnND_fa4Jn7kFr0DftwgJ0wOOZmudAi9_7gmHvJRYLEm54bO0Ns65I16riDwF2RjniibNjY2RDVmM7OMMQYGmdx33CHEw5v3yFYpW7eCeW6Q1n6WcY-k-GK-1Dckh4dOq92Cr-NrRUVxdWPCbKKJUkp20uZ43lpcHABoupYRQ_m-eIq1o1ZMQpUlsY8mendDwpXfxtdvCbppTPU3BJ4XcVHXOenH52Ky0-WEhCRQNh024YvG_d1x_f81tFpe0ndwSE8ladPAwOCZ7ZYBk-_K9qUqVkQ1EaXjeTnLl_PpD4cU5y3cwJmr-Jrvg-xIZDzl4NOr2zZF02AXtCYL4-T7y5fbDjCOEc9Su0Q1i0QGynQRBrnaGTmLe4ujM7yxssZ-Fv29gd69MIW7yjToRsgWKgn0ba9qjDdhwfyhXCLjrcaLKBjym2tUuJm7Wb84uj6mKlG86sROQtEHFvfrFkiL_0Wzue1H6mKVBvUdj7DfX8blggOdpgsOKSOGiI1RG8utP89Jn8oJYs9QxYp5ABygsSvVDcezrkuudz1k_RjEroSJ0NgSzY_fjGe37SPuaUURFZr8yu0bkTDFZd-EOeEjdzPeyxuVmc6vcsnTbAQwVNJOAx5k9bFHDPnykI-8fsvTACMyS1mVQQ2CCcFfJyTy1FlQEhjOMO-h4i-OaaKqVsY46jhodf0GS2-KKs1xA-iSUYCw8BdBZlV4ihJzVikBAJRXTOcPqbvdYOb2gwOIKl57W9QvoGVs_qTQTrY1LZns0ot2FU5M8pIzhh1FSmawiK633VXLP5DS94fjboAm9-fTcy3LpRWjlro3EC-H_nfYHGOv6RV8cNue-pjEWf34f477ieLmxFUTQV47Hd7Y36Pw18VBMjHFm1fQCiwG5Rwf0zSiOk-58qgrBH_RsTCW2u7nuay4fJEg-u2OUqnA_xHNvPP82FnqCWhWJyzed-pJ6vUXVO8PWRdks2C-g48Afl_Yx___-ehfyvfhu6Z-g76Jk90222wtF_qhge7eLsS3BZKtsfq3ufV_VuPTJN0Hhk6H48f_X8rfQyLeube0wXpTP968pH_vxNwnzCp23n184KuBghzcY6D1P_QaC_3rhY0WXySuhdSd4j6P41pZ7rX0p29w7FE_Rv5eDEkQyvHwEIGX0K3uD5Ot10ZWceAmPhhs3PX48--jhjRe0QXI2Pbsy4syEeQhiQe7QFkJfsV2-Urja1JmAUoshO3ByrZ1nt1S7tLL6AP0tlnYblMj7GmNdUhNFdOa-BtcWjD9zZC1i82kKJnFyOAR_4AemLc-l182UUfljY75avpFO2LvezPZsivw-fTIZiVR2bz66V94bHiGueGS6-zp_g3QF2g9AufFZBHn33RgJGaIIuiZ80lEopo6X7sQM_i8lle8jYRJv1iQEByl416k-54zNLC6fqZjQz-H70DU25JmoDhd215icy3Lrxyzea73DG7evMkVwv_mGTCz9qDzEY6tz8n5-tMI_0JdjmakC-baghMr-V_zBqjYAWhEjahrx2SwzFsDBnjLzfpQmGMfnpQgShZrzHMnLwVhiYdtU-ZheZR6WwS9JTAMCtzd-nsrPNkXCSSF_h62q7agCxz_9RBWX_FAlJCgSiwmwiSJQ9aTliatuzkd9U_P7M5DqqKKsZWwY_fYe5x87O1FGBYdRA4ZrlqpLnc3o3-_xkEtKuJIqFc0HPMfhtBZiVdnZtmZ8evna_od0DQLpG8N1dw--yvhSQL4c9TP-ovmzDIfYN2kUMiGH_M9_3-Xz-szLthqGpyGYyaX-4iTv6Qjo6KZzp5gTsHIqkUpAOeQiZODr-WO6w2fhhDcSmcVpC9osxYnFp42PsGJOT2boXPYaRrvxpPN66BREXJbYagVbs_1InMCzlPrKfsubn8XRalw-tmJcciAFTJDIRLURbEEepC7BQ3VVLTw0mnIQul3f4yP8Z4AlraCV8DeDRzv0FLJ5x6gXqAWvfmzztRlxoze3Ysy7OsQ4PD1On9i1A_Y6b3zI9vl9pHjzx-bY70gEe2lm1nuTfxKaJVZ7Dg5rOOhLIHV5j1bdfjH2sGpbNGmZo9w278K6-0Q3gRAsYCCXTBU4FG8Ut2jQ1COvet-vj4ePlrjls6I-CSb_H2-fpD1ewbgO8ynjXldw2v5XBf30Ihm63W79Xoeu77py6ici_bBTl7OdT9W9ZJ8uvo8QaaS5wcxDliPwqZ48OYxQKkD_osshcsXI6qduA-EFcIZFov9KPXNsIHjiNTsUMeSpqNuScHb6ZtCujV_J9w9_8WSiDEp-CGZWBSl46uvQhSzjXVAgmIFkdpfMGt4spn_Q9QQB1ynTgUFOYx-jxvzO2w9rsKSIC6WOi_TlwsZoiGa0VUeXBvXoQ8Eukjrx1A3WxGugSNwfMTfCojdlYUwFS3mC-vZtERg-1fbd0qe_ouPiZb30iFXAoZwIUuITctW8-1vHZFa3GP163stKGgUw-7CZS3IoaYwhiCMsChxPccmyE8SSPBLfwOPzUJDjJlkSrZ7gR5R9vs39UeYIxznK_Xs8UNRYUlVCRyb4DZPu6Pgv3qg5hBZI13w2QNr9V7d8JBohRltMuV7c1w4J64f7cR0WJncztuCU2LxaKVVvoQ0kqY6LClwba0V1ean2zbHni87p2zWeqAAEtfOXEGOuP1ZaQqkqzUw5aP7Qf03mUV65mMVBfGqCU5I8ztqCnQDjDyts5uvur0lg4hehJ5TBAlo5GS2S9bRcw3IYd8F3lrCoZ3ua2yhlNBdAAswB3dZEDH59ZEYredPMz4AIMPiGC1sS65fLFNn66aOvElDE06W1nb-LerJdG4ejXkWkfrVSuHOdchbfdy7hW-DM9J-KhCDAPyAX6FxK0RpwzPR_m83BjOQRlyutBq5kpel85t6vw0cjlWnMeFipM7c2q_p84ouLrCA8Kd7CbOr1e7Q5_cO2e54kFRx2jSDx4ew86N5J-r8avTFw3v-KGQdVAnrpcqUXFLuCnvqhFt-UlWrXLf8DoPuIVlnDvXVwM6GkfUx5TFwcmh8-p3qpGBKp2Go1f8_0wS07Yjh3yrcvPCoj8KcgWFGgWzH4rUpVtgpjKLed7UxVzmNRzG1VT0De3lHxHGQ2x7_-LpWLMI7x6spLd2gwXVWvn4esB5HVpr5jLFktDxDvb-DMGLqp-6t0UgErikEOhI5RgUteEN5xqiaQWkGDoA6BHEWFNzSK0KOw3XvyqsjaA1W6TiB-wb2tyLdTuzKYPS_why7_52e2d3b__g8Oj4pHN6dn5xeXV98697e5dut43b7X-2__7qzn1_-C8M8fj74nL8sx9WBGoeWX350FZsqzLtd1ZvbX2cT_q493U0pBANqiUVM0ckN3NSld6BJP0Ih1xILGzetZ75mA-Dy2uVlf3rH2n9lny4OCcWxdPvet1r0Be82Oo-jVbPak-vv14YdFFPQJupm2GRmmUPhMCIQzWC7XAIhjJjNVP_35GNn_sOWwoSIRoIuT70kZkhfX3nYFtyH-N9v9GveFAGQOHXh567XSRQELm-06O25D6G1wFIvLt8uVkRQ-DlAkkPtL-e603oPjz_61NFX8QnJSsEBY-8Hl5CAN45d0NK7U_S-CP2LxX3Kdtn2kA-upIxDVZfqkbAwdawU4bqw3qkREQ-lKgZ5iGASWmQguygknIO4DQsSZ2smtn_2BmEr-wLKW-B0nQcSTmItRDMQrbeqJSbR_1GPYoscrv_GPdtMReUMzKEas6p1T8xJNmD8OYRdjRIhtmH1HEYgMTjbsFizNoMXxslN1utjHCljxdrDZ36FvMNAqmiBqDAIgXj1-Dsvb75NksCOLQYRBd72N8tzd-M5THuwJ_pttgjtwx8vlu-OXU4GG5vQLjDxq9mcP-9WQpsA5745FGIY_opFbtyhkDvjq_-fvq96XqjQ8YdNMR3oS2yP1_r0dZFVbRnU2EatrqvHl5_fRBLKw3zn3UpkFsS9oCDzCsk5PxyGaTCMkhxkG_TOqVaLf7-_A_gPcx9XIKScJNpGoiXaLFPIScDiDdDy_0GC8r-vuH--5P4PlLgHMH93rknprq0NveanjUqPXuBSGOmJCVWv6Y3U7sQkEcjPePnb91ObgAuFljJzRJT0wD1Lh0vRZ_AJwaNoizKupHLnT8Qi3tLWtYUZLt3euSR-x8T8H8FbkOnGBsxyz_y90OWoI63nmBCBvEVpmFqO2SULjpzC0Zziyhc8UNSw-adZmAv3ARDYvjz8t9P69M3rDzv7Gg_5oDm1jkUTIYf4XjMv5vlaaTvfnAzk4XCSqZOeqpPMNU-7PVWZFrXXX3pr4f5Wzs_n1NNj_VOQuT4ACze5Zj7aJcVJDjy0ZFocpQes9TmmRLQ_qhhapWmQFLA0Fy6nx9nIs_QZcb1mWdadMyKWvT8DMYjyeCrfxl0etSWWinD4zPA9sSVloX2AmOW-S6Fhe_Rso8LqfUr6vEon2dfuZPfi_ng84jYbKRfUGr6cow-RuKEmk7BFxh5jNNUZqdGNgeEH86oLaYoFD1iLYYj2cMxghomOym3BLlpoo0_5AQfgcOyf-9291P9cyelvoz2kPCaHX6Og_qo0KImRIm0FeMbUcoiXT7Kp2RXtJRdp_zjkcm_D2ugSKpexjBtqxetD2s9Cza5MpXwDRb8TzHaLPnu4REcejJtU-bYGidTEjI6Nvw8ZDUkr13cbzJ3w-3_a_74lm3tRA60Z2UUUIRrsx7fMbL_DTNaeLyTuDjZY5yiZSpLc1zeO4KYIBj9B2Rsdiv1ABm_8539MfzCQAtS6kFfX1i3SXeI8VJMoDltPIcVzSg6oWFjo6sn7B3ZO6izptwpXQkAPiwGc0OKKy0CDWyacFYESY27F53N4GwCqqqEpdm7St_q3Bv9fxwpawhySPvgNa6dfYxevx7Ja_tbylkw2BaRd8vFvKTaMo95M4QPBMPbcjszjg2zpg1oCx71rHhGZ6VbXY375Fz4o5jN5d8nwTyVE2Ofs5Y2jaV1zIKgtECqi5_jrRIy1d4rYa2AgXnffsiXSmC0M-vjRFGtU_tnV2GVVT8nxTewhE2Yr7DJmA8YNFt76yBADe9axOLktaApTdSydACMcBbvNzx4vG1Bqv-pvXTfdF_Y8QjYHyfN9wGOP5jmZimfBuJTbQShuWdEMXYkNW3uzHS7QWTA5u1GOo7pEgRwfp5zkVPmrWyOJcnNWB4br08ts_E5hKXQULNbjq258Ayo1x4klV47mLSHuPMT3CGP8HmwKuNwgpLgJrD1h5u6FOSneihHzVTt8Nowq3YtWHMvrniAAMIVAElUz9hc4t17gCG2pMT3l00bC7SNpcnWV8y-7F3avmj2leAvt5SmLwa_t_FTnoiSjEqan_iY3LATwHPuY6zfjCETXp5t8QI_hlx_Op8VQNfWTn54X0an6UyYv2b6OV0YfTw8MC8zYX6Z6eegNuMxj85c5ti3Zfh5fCbMDfZ_Tp7Kc-pUmdOz5QDhZaafR2Yuc_BtI_xc5WWOnRrn-KlxvgjiOieLU14dLGU6E-ZvsfxhYLUtM2FeYXdzMGeZo3MWUdSQR5TLOS2WHpM1iT3l4DmV77TnxWDnf0iRPlbcCmApQjEUMhxKOQ27kWVIZtTxOPF3SIP9iffctDXVr11w-kSDvCaeFL4WmfQujepg4hHAKEcYjwb3H0eGmiLO45HU9JMFutkeSlJhysPG7o49MfQcXhwsJFrthQo5q4Cul-3UKrUSKnK0x1OYyJbEh_5imUnjqXkoh1g3C0qVbm9xtWtppp-0zKKJaFuldSmhRNGko54eo07hlORFidba7WRGcMmNkxuAj7oYfmndqDJM8WM0YR5uKfgiqmwGmiY0RO8mlDBoOxL-UmVr-OHCVSs1KvuXOYX3JtUOvmpJ8UmD-_SV9I4rq9zXDUwRGpYIjKQpvBZV4pYaBF4RCmvEoCKu6UhuExUoTrdsD6i0Aoy5e1drsQgrDp6cNMSEC8rKA4F_Ps0i6mQpuD4b5qBLmCRMoGItwvuK8V-OkO-v2H3B-4bHpHseBDQp68IV9vVWi0LmUbvIatC_JKZaSmPmK9nEokYzdn8glq_Y-48uc2vwyMI-xURT413p57D0aqwU1CQBB1_1IvYePEHgG3c2nJ8Gu3D5kMm2-OHS-DgoE4iGroHzxxSj-_upzlMkd8egxRLKqeIyl9SNyL1gTBqVQl53LHNQaE70JLQK_k3wOjIt74FXseenuVLRtolE5_osmISlQgvl-q_4cIN_uZxH0t17Mlw3_Xu3KjJc7-L7KZsHc02GBS9obBwhVW2TzkrdYoqWRvSgznOeM8z7qD-0ZX4fiDLkQvxWp8VSrVwc2JtBAsznZbEmpTNep7KuqJurFCxE7qTnBk0UdLClqDJJX7i3MdC8kOkYUsxKRvgRe3COVfVyFdM3TSrKEDPL_EqeaTK_vpBC3_aDMhKIhkDry28uPFMaiR1YPpmKHNM1-mT--GerJ0kfWXtdsx3po1W62x8Ac3xsOV0ojAJGwiZXlT6xK_uASWd4o4Q5fmPuYmx3o7qNCiA92pUgiP6VNUmKoJPoe3PEplosvlC4BgQLWQojIAShNIK7HjsHceN2ARocP5BCrbbliqzBQaDHzGyD6M0edP-wXA6W-knD-xsRJ6MsVwOSBU5XYThhFdU_jXc6OI86nS2BsjrxTnuQ-Kg6HV9XWw6NCB9u6IDzRzNS5afSDlMwjvzQMfjRy8rKIIkSyJKgcgLjA2MeM9ZmKp0gD9imXaia-sqXc8FtWEsQSgqJyiWR_2K3YwVS5RPPR2Ygz9AT5ud4VblRswdKTLj6MsQBQJKMITHHPlnocz9R4CbulqWGNsAT_rtJWmSb2Vg1aTBOVdne5zPJohFdhzC88KKhqKJM2VF63YzQmkFpUwojED8aDXiMFgcsB8hL3XDwGCVGSC3HzgsE7oFjZab5gsNgPxXcvq0xcH6Gi8BOzuqExh5yiiGJCABz2AukXti9rj15K2qq-awxxiFwu1FM-64TFw4UR5hk3OlapLkYyN_Z1KRyu_vtG5JQfDPnL66RDwERLh7kX3_jEwyjiHRNBm6e0BHhjnRQtDss1pw4haVZYYP2iF8nI8o2tKN87ySDWu3KTHL_Mq78fQalKyc57sTt3L3qDZzu-1W7Vgm-89HqPiz3ScfMstqFTerpc261S0fRoILa7b07pd5jMekKO504gvUPB3OExcpnhOW0TzpRFzJeLodMqgXDPQXatryCC6S-xdV_R7SPC0kn-hhLTy8lOlN39GcNB_TPNru91AsT3ZokMiHOrO7Gtu3TfxyrZBU5U0FktrcT743YN3paGyziN_hpCaglzsAMfxPNeqPbb82lfaUfjstrDy5E0392IFKb87MPQn0R7mcF0XfeURKNPOpxQYJgO57tWUxdtw9GhVWK3oYHimdJR-4Otilj9aiUufpmG7ezD6HNZ_IA_ai3B25RKqDq79BMyv-Zp8O5gqXVT5hEY3WsHoHtICU8_hHWnZUl_89WvgzIGzrtPUGcK-xOZ9JXo-omJKurnbzEtkmlpuApN0Rsq7c1QyHTvquTmFi8Vtyo1zvnivV2K9XlB5N73FXD46Wjl4qC5RrLYEhZc-0E8ZnAeh4ySc1fxVVZHV2tgOiGbUFXr9vbLzWKuOnu5YBhvnN8wRPl217I27OyIkPSwrl_rHiUUQpv6x_GnRIxV_mmnE6qaVRpE3FN7Lbn9enL9qMdjUQWDzzdsKZ2nQ-Z2S8MVvei8Oj-k9kL4QUqvdi9YdxtUlKzq6G5tDY-e4Z8K3ItMj4z2fvXw0VvfHokVpbC-oP91GvrfdPdzSEGd7zg1PQb_iAFv6npW-I_yvrbkLRjKYra31vhovGags3DH_Zv2D8-_JHcEu8zw6c2OM1oof_I-znRA-BrfMDb8rZNnPiwnqudxfpl6g8jaJwSMaM6PrBZB6ESIILhq9nL5-PY_jK6vXQsggTQfDC2fi_-UTUpoOE8O5e_zhKfhc-V7cnUd6qGCSr9E88UUwWJoBlZCfKOBwALZEujAhDsAAo4wSAW_R--m3LPKwci5y9T1o1OjfTRojH66Iq09U781Kce4WzPPBlfHEqjT4DcXzpRonqquhCYPpWTYbxndeq6c20hbPYlViSm3ni8nbUyA6iyJHjpPH3ntRRy1u7uE-EdvJf0lL-LXINCVRyu-_TRjjPBNgP7olY2UoE3XfMIZZc798fRqG6qRScH4jscJoFDYj6Uv-d0ll4fE7nREsug9dXiPXiymtGuBs9R6h09G154e7196e0TfNk_9QOz-Bn0wZ6zDdU2fhZs_8LrxT1Hsn8muIYl21BKji70QE3XALepHGWEFcziTxR0RhyeN5xSTqyMffKeoYtzpeQNBNHJKfyTc5I-RTR-stvKr2x8xzlVZZxRhglsLZN1rNYFlfP6wnfqprKoHcvrPXEkxkv-k8rxaT1ufEbFEtcxr3tU-p41HTJXCg_Q5GN-jHv_Y13C5ROnZ1D4oVPvgxdNvdlm9IEGjm8f9VH9OHpCwNkeNfEqFLF57kgOhCMafUGdWz--Cr8bGCLR_FSwnJVTdacxu7p9XXsWX0s3jdtO_nlj6L9yiIlft8AB0ViXhMgSAL-KLufySr4CAPRNYUku2wLqQFeBshW22lBFWSVbx4Wnjg6j8pmGh6pNO58dL_DbBCxDqBMc-UEDfKPTr7ePHmP2BTf18_lURBLx9aHPaJkaU8c-Hc-F6ANxTiBBXwVwTC9PSduXllWNTrDHj3gHDuvY4UCpaVEhpl0DjX34w-1tl7WlbaeTIbodtCrHa-X9BbzLwl-YtSaTetgIxrKsOGRL0lKN_C3Ndp1hP3ns02bJqjcXlFtLPNsl5-AQ1NOZsa8Zr0mPA9Lfn0Ubb0WNc8O6kHcDIsDXHc7LnxfWOjqbfdjZdKWUGJsUG-wYaQN0KSQICMPcr_lg2JA2uM-1XYl9ZNYjltQnNA4jMWu4uVtzKjy-_GNMHgBp1JBEnl3QyYChAJlkNNOa13qFHB8cLRg9yxoxt6dqNFDmFaWaRCkw8Uxjk8fmiSGLd-V7ydbYgHvVArr5ZZqoJSWmQkoekywzVPGbjmqQU2CnTSL9z0pXtouYfKayYn-aMd3cOTFyPhUJXKhU45o6do1pxzAHmBn9aGuDFZznVFM_v_z3fLXM0MsqKTRIiSjtfOB5tqIbT2tyfkt7wSKpgNi4ANxuBiUNlTLjg2opt0dj08V9R2miXhWqGBW840VnRPkydY7km3YodqKRqEdMIClTZ7y1KPcPf5a3uaWGTDeC2DA94oNmIQ26Ss8mIC0AtQ1f1TEDi45xlofsT64IAuZfQL-bC5eScX6Jl5N_QfUyRtYDcAiSXf6fq94BEF2DuPIanFkjg9fhwEpB-sgU9XWeMxI_RhUtaUDoDlgvo7zBYFIHPme5WFm-7bSxUTlztNREyL8RsdqT7wqtG455Rdt_Umn-DdDVy-YfnNHMc0hiSgz8EHKG0vbnH5Q-O8_mnnMmSO_xRWkBhDS2QmY5cN3ZcXHokNhRGtGjyaRqbTmU4afuej3AR2hKrierbMmgVa6cI0qtaoSH6dHN-hpDUm2NZ_A3ePTmWF4Cf4O00uFjHv43rpmqCLZM3eFOfNm7tpNvWawbvCtQ1Wktawa6oJZ4QPAauJGxA8C6bwu486KzSTlUcCY0uBqTkja6DThZ1UMjkSyOzAF94_s0FpbQCR9lZ2GvzJi9aHcSc9YzB3CrzBHN9fRLi0p5j1WZcZwl6Ci71LjESESQZAwnDypgf40WO0hWI4beGHGyn1-SqphfxARgsRluvE1cfYZxjmbRRasGqkHNkGmYMVIACQkshPdtEf3ve0HDGG5rdYLEqstQVYi4H0hUvmNZxyonbDdIGfVge5YqJSfNPlN4Jeb8rWki-3p0XCFcJX8DQFw520T8pHjkkY_NXeN8bOtuUFlyJ-XZtO2X7SQMpDJBa4POogCPLlZhV8kmkfrm_OKi9JTWrmsFGFtEJtuQHt5Rz6XinDDRFnk8SpFPF1BBkNx3PKTB42bNY2CHZ_7zpyleaAzlpa6OkONyfL9JETuKg0FqyYrmt0Cwe524UZ5JS5deKaYBOYdVhA-tejdFR3QXaKDVm8AZyX-fZIHY1ExDiQTRQwKBHqqEmq3GTEHfIziXITQLswZAADfedf2mo-47O_UhakDps24gRdLuKvEJTxOlQhAHxZ2gGilbfB6SODxeKFYlKhlaSg1fi93IekTVlBnNHaQAUNeUOdOJcdLamgi8izkhRBB8PjWBDeOsXXEXVPEIbE7NapbubJSJ1GkrWmgtLDrwVsTex-JzZYgyGWmM4t3aVogwLoHosMF7ACURfaZ8XpTRHqLLraeOSKK0QPNtufRjbu0ByR6URLTngWhk-EJqQMCiupuYySFiRy6bHwcioOO5PD5XOkmtgZ4Ilm9zxBlrZBDUeBDxrqPSAgZlnLIfujLf_uSAy75BAm3-Ps0EjPBcN7KRsK_zi1N4TUfL7rgJuPw9XZSqeJQJrO-D7ssLiWX_2TcBMqBqRkWC4hBtMF58Ozv27y_IBGn_fFTPEjhJJJQUJzh-K6MO8H0wK0Q0gMrbDSQta1JGmjjaAFvfUjOprRdPR6TS2596p1AYg_ASXdvYPY5lVuc359ote0F0ak4BbgRdrGDoOfFLxoWGilIkRhSl97C-hoEaOQK1NjM62MEMfpyNDlCT2d3_d33FmBHUZ8scBes-DOQi-XLcmS0I1091rJ79DRPbwhcrS4OaDpC_R2fDMzGN2YC34LNW8QjQJmz4ip0gFVnZIEzP7is7LeGCFyVL-8Qz0QzaVo94w547I9BbigD48LNZHj0FASEcCPxj-_XPs4UyviCLrs-SupowhGc8k65SGAlLGOnwmgIPTgplCcTqw581mjSyLBVnqvq-pOYoFzNAsEiujKgUULDgBi1SiomC0nRRl4RfG13BvYc_St1iDycReSaNx7noMHhm_u9lHFJTKWcnKZbxk6HeQuAJ40WSZA2Ho3nsL1JiokFUpCTlN4g2nmi03Po96y7PIHSHcJQu0XEiK8uE-E4hhTMSeAoyXKL6MbweYk7Q506nJHzbI14tufSRitIsy0n09TTVq5ok5POFzJ15_Sa08MUZXa18nDtR4ntehsFIQxiVG0NxG4tj3I8eTlgTnAtMs6VZRGZEOFaS6r_xVqS8LpVE3KHctTsAZ976lJKfOpxBSQmmbHJyIZxQhnIacPL7oEti8dvTBs23clOu2Q8jLS6bIvtdnsnUzXodcEoaEaX52tIRRJe4RKQofvIgUCQ6sU5KVfWNNhi9lE4kBTLjPYI4AqMyNpKaMZmjPM9lNK10VCfokAWxHf1DNhJvB4In7Z1oPGcgCO_UuVOY72hrxwBhHrMHEXXfzPqWTj_NPF2e1t6I2cXEq1FjbzFZSCJu-fLmXz4xNjJcbTooihcSeGvcuNTPZ7Rqz0mylvHVU6XCpCVu-kF2Ebcrjfed496HajsJusCho2uqyB4VEeKKZKTHORLCyYTuZ-vspREX9Myj1Pkh86khz9EduLNYaTTfQHV13r2FEMkdnPQBfqeoZAcRjhxODeeAOklV0kehDRl0ebPfSUCnj4Vez8A08TYdJkWwonVrWMDRp-AG-q-Rlhe72rLGH0pm-hVJbvYHf_Uc6qw8a0SBOajVLDd4k5TEx4igURGf0Sf0y5ThhNYSgdSgI-K4-K6qwdZigessDU27BiiegpM0_Wmzpr7WtY_d4v0d3abdoiwuV5qlCRUDPRacut99-dasyVf1Ex2mUQwdVGkzRL820NraPTTm9nsks53QDhGfScmbZvVpETTjtViOmaALukOd3EWZQGzC2od75FJXylaupEoevgU30NBH4GeCco8i_51ZJXV6fMLoIzmozmv45J6kKbA7saJ-Hrgxpt71Se0ZuT3NLRheQSsyyKKSU1C9EYsoITspuDhf1fQLwT8eeLr171P9Eu8-QPLg_S7kvPTYSDB9i7oT6KXss3plL2xk26jh7BuAyazZFftquK4gVNdVtDSUYwcC4hN6_w2h7BsR7fvYCCBVVl3mu3p2JrgDIim-m74DM2yERFE4GxZcqSpBnycA5Wwl_aqmPdUv-2UzJwd8RjuXnY3zB3R21blOXWowEt1bUElXwCVhfWlo1IxEANC9cLnMQp1MV2QbnTVLAiHwftWZtK7R7pbhjC93uQu6lnG8Qtl-2Sjbmc_ISpTx-NfPF6yV-Mm617tTfYcPWl6oaiECdlnPFm0bOApHzmUmMoLBpSZHVGiPdWfEG5tQ-Rl5G2Mx0j3Mw0i1YKe15cDDPjCtaDmm0QT3i-6VC3QC8wU0RoaVZXSLk6isuAYqP1TIfUVZ_w0xbz4fBZXPoMiBA6tXsp5hpy7qxu_9nZr-KElx2LAgy0oBGZFes67nOCW5pz2Tiec5V2qJoB8RRHw7j-sOXvyy_BGama-Bmg84wBc9XfG5K0ZHibwUZNouSeCs0d5C9VhOc-AVlWqGPgDdwFh2pQ_STmCubqpOd9goPZFhNzrLKMLeFp0WzsUvot8TUneOP0WNS6VifyJV5C-yVUeZxq28D6g8Er_75v3Lcfj5juao6Ih9vFBp4NBC3wcJcoZI3EiUjFIhp6tDL3aLVOLUX3I8YTHkHoJ9N1L00Zd9h1iHWUnoMvPuWgOpZLi_mycI3F9-gxfQrSY6Kdf_svbqJCDzi35DWCtuD3qD8Ufsk-dMrnPnLDViphMSKk2EotknrILum5riCGNQhRLGtMcR0ivrANLbnqtDh74d3NsEPOsZRqeGjlzFecKU1eONvyyp03uFaniJVws_KBHhnkTnEmBIoPaH2rB3lPOJk4AJGGnbqEZBGT-KBYL5rGx4pMVEXlaZP42-IsYLhhVAdqMlJ1G1Dj9jgDDlABV0K2M0NbBUk36Or9xJtVF3GGYORn_lE9BsIs_sdjhUmRQBTbg_7otJL8eD7oRc1ox1nlvQE2NNi1QRijbh2ukyEHCD7RdQHhVCFiIsUXwxxN8h4n3ved7N7dWF2d9l-wMsr02w2BBJz6k7f-Ei-O2hIOr4SZeACQ-03w47BwAIdqfpC-YnTSLBqjXVGYvmNWYrr8sJG-sCVTM8DOQIxVXLUBHJbWdvfBdszcFs9IbD3Ic1AOg2VOd9y8PwHg0eHk4PtYr6gr8Rctpv-4ylYmsPFx_K1JbDn-es-lTcsZcU13MP12noklv3KeRCXapKrdIb9snqnn9_3Zp9y85CKHHBfsJU16T3VQPClNf_FnUaq12RCbDjuT5GkwUvTASMY-hXw9fC6mLg7JeS0nr5Gyq__9H2LbKt6a2zh3mG0hpSYdqIDETatlJqtErIw-Vtuaxwza8gx6jWlNqstSntQ7KcTGyLdKnWK4orOS4xuPPrFWKjial3tmdKG4AhaMwavPUEVcivWD3q_NZP0vdZainVKZ6dKqHiL1eUzvYzvcY-gwft1LnXTwjiTqG4NjFloi_WcsFPiCTqT7TwINdNMsUJWl6LqPEaFJqnoLQxkZ-0PaArzOULFrvevxtQ74Q2L1O5lkrWCLvEeBrARK7STANrabcGUg2G4YvukaimFLuye-eO1xd98bG6_H4oZ9DW5mx2eFJvFH5QBzHevpMHbZ3bskWLra_gjWiO154jGuNQZkfksysarJ7UI1biVov9qFkPPeyZW4lYl1JiCz_dxhdT5JXGC-_X-lcVfvo_Mf5pp7LE0Hy2N0mUFZUx9hWKc0oDEcEFtdqYURSA6MpJY26QnQUNklK_kE4SyMIuImU2krvv_1zbvUFF-o1oWXQJpP4KWl2CbIY_XRCNR06VxAMNplrGofIkpGDCcv2Vq6c3QQuj4gHVORSSj_oZA3SrXIPk37T9iEngdKYUJG0vDFJbZZhA1iP-0Po7av1M9UfBLNS_Xr7j5uXr0vTJRTdZZA6fSve2vBhT1_h8p-s567SM-VLG2oDoZC4_VGmVcyqB9lBT26kXDUqIqh1YUEgPX_EmJ-a-kdqfdlJhTR3GbN2Z26d2EOLe1nZQCdbFCdt6KqYsbIrNEBJoeFD0IwfQZFKW0SwmkCLASjkYgb4sXTktSqwMMXuo1OSjY1VmQlz9afqFSut8_YRTY7b2JLbItlXoMQqDPQdrnywfOp1pP-2H04aMV8VTOY-umjKLJICzoK_DPHAYAH5ME_kj6eNsN3XMy7X9QL93Txx6GGHm7M5OC2fy9rFFYuxbFkNs0euJrUBnF1bLFw3fyz48Uex7IMIAal3Tik8WAYMK_kGbDUFJUVwTMhCiaTB7ih6Ohki9Q1Rf1l5Ss9ty3ctdqvsld2yba1t1ufdsyAqYUAboznaoNEjWavmOfLqNyMdbrAl-aNYBtwFJ4XlkCMMhkYOHicFdwmQHYPmNd6TTq79Nm8I3R1SiNj7ew0K1hyRnbYfDXWo10dbEh9hxQ8tvzYcQRrPNt37I3gvzj8DUGh4JUY5DpFiFrs1DYPLC7uKgZQuPrgPcF5yGfWEFffIDdiZ535A_IAPVOmWhUNpjaKX4GETZlv2HFXIusVMOvINQgFpzOTQm0q7n3bGFihhld_g3Ub6RbQfJlxIFbstB9abxKk42tseD1JnLWzLPPTa7F4cjhIFiEdPm8G8Pkd0p6xmbjctGYZVxoBH7eWImPT2dkssCX-jQHDGGkyf2WISKhOscYcPzgSl39eR2DihqRRG3_AT5aRQndCgRElQODitgIR2FDwvPBF1yaISwvVFvUAbjolsUwm5lhAc_B9MejHIzMsYQGwB3Re-coHMf3Pj0DURK56c0zOg-oe31eK38T_tTSVBsejGODLrgk0xQP-OzPLDjs9D2XcVWGE5ZxVy7qOmsDTZREIzOxRwpB97d9JH8o-JIxhAmITsIrpSGl21g2s9_4PaWUfvhRMGNlI6Y6Q71GsWL48BWr-JZaFPtf7-kKJkf3aR4MUvUsCVhsBLGIJYZ47xlsfpXEn5gZUMh8QoJyL-saXRcbp1BWf2niW1EEAvq6duAagMHZYkKEwe9ewq7CGTYevrnaDOXpd3ZaJTt2RUheihK9j81SFEZkWU4wqHSJxmfkJYfMvp6md_eRlnF8bRPS6uBbbES4NAPxNtA5axDNtCiwDIZ6ghWMjtm1PussPYg1Nt9l-CkwYdG1oLPzOb8gU9e4GEJnobu5bdfc-cKPhrooyYdtepDTwHVXw6IWll55_eBA8G1P3Zo4GDkuZFf-x9OSWfiR-qjmW6G03LroVc4PNB_iZe4we7vtyHnsTG9NPZNTrfUfecVO-mN3uSZ9J-R2rzMhm8KukRabXeb3i3OowZm8cpI_SJiM5G7pKFVaa1t2j6mG_Xjnjc_1Hlhd0EH-HroWrY3wQcXXPS9KjVy9iB4TsPZISVABzZUEqbuJJ-5iKv4l8rdLDDVxCe4TkMWTN1jj8FqSexgx57LKHkTrOrNhtAkHg7UHX_mRzcINv3ZfNHcsawcom3Of59o08q9TcpUFWrK8jx0lZgFXbk4PMN24chqNmd_eynrB34cy3OBqKBAufxj8OSWi_CBlEj2hHXMxfOB41GOWGC1YHg4D8aj_2AmbQ-xbmabYa0ZkVI8B0djEEd8qj61V4vQT35lMDzGZ407-5hNPaf7CI6pRF08vrOInOHj8E95CCwALH6VLLcwWWa7b-0P7F6h1wsVhjaOH_ALpcwjM9W34ayy-ac5RkBmC0fC-31VLzkOVs8in3n0Ox3kWHSaG0ajkWu6d7fs5QXKQZCvu_WG3kOyLA_e2zO2J7iwTz5M1NRXL5zWA-rdgy_rPQtuuwm7Tw_hLqrkNRbiHXHMxe2Jhc2y0C9TujyZwIoNB-u7iFciES-VTolLYnIRqyFUTd-mYvZpDtYBJfuiGU45NG7POUcotw6Tw3hAcr7xqHYrtaBYKtfT7gMSIoiuvVssje3YsOErdOnftkJY2g9O1kc1L_g-BtF9FmD7cQF8jHPGfekJqwc4UzyVbl4W3Klh6huvDFDFoMxkcXkwQjcV1NbYHLet_hgp5cPK_uafWABH8fXkVgAQbJfulq0yNil2W-QQonhSTYkrrdZfW_0qeojtaxyWJKY0INaTohw40dn6SApxdaJMKcBHebUHHAOiB7tEfh2pCd7dxEXD5fFQJR6w2TB5k6W_Jfajif4y5Zw8q0VncbTgNAa0Oi4ySOIzMM8UjYKqBfC2M8fZEai1UYC8EdnMj3wms1tLsmk4fxRiXQeLg_TxWw3txu0r0lDY6DiD8JuGKDYQV6VBzg6Tq5B3nd3J8V7pOpvBrUr2eGt1h3iE1tJeE2koFIWUjMdr-ht4GoQ6QHqRB72l63__vWOFalRNztyUw3njmvNJj1QelayQvcit6OeEguGDnDvhTifmD_x-H-5bQ0Wy6E0oCZs3SxKu2fODnVvsZ7QjCSp1bPP5myYOIf82LNtdvtnwR1_0hR9e9Nr-EJcaZ3lubS8XlUZ68eSZK3vBITsePN_4qKsb3tT6xRU8fqDnftP68eCqreuaZzL_Nmv9oFddYw_tFwr_kdE_1uuPetninuzQXvcfUfW038g8MXOdYpnl7a_2i-aWW9vDYe5ig1AHbTKR4RZR3rKi5Im2glLMDyGhKNK1u4bxkhkPrY3QGP0og_IMRb0O657EXYelRjrW6Vtuu-QIJWsNlZ02HcNdztr_bt_aB6ucdGZgXGPBNRMZZf6YBiWZ08Oob30H_oLquWNAIycHHZPaa23nj-FRUw1FNe8oLa5Ih8x5PTDTRR07JCb02wXp9F4ZXQVUzbhx8yqyCkojB-6TGsbGN6WFP-G4k1l3SZXIfzH2DhCtMD_1JDj44YCuQlXDeyhdmXpXl-tP__9qrN3-zRgmz3z1V2N1tKdFe7akO22dxHBd7-1md_zXHNRwpWqET7cFUKtb0rhjCKhpDlaWEOVOMjVk9ZG9weOfNBNw0b_ji2aDujc2XAfyLIrytP_afuxOSjVHFsNQ43rj7sTmUj9X8TVOV4hxAPr4bqIpth2OBjNdI35f9HVfKZ_D0R20BK7yI2lOeOlBrh5aU4e2e_j7_J0c_MPMHbug2nbGU0serek4CxD6Bgyr7RkFYI_I_533y8vztT6aZ5XeqsmoZa_mFqdjLwddY8iR_wzbzoEVQoxzIVTLm4X1hKL4euBlTZx7Se-gI210ef0xp-VDyNK6W97AS6fSkFENeMy0UpHrjnOPqFecNn9f5HVT-Sj8UVx3Pv479yZvuy5A-S526b93IDjf8ap39uP74UlxvBaNgwch4i2WY0fq9bNdftD42r_PqSR41UbFMO8nfS0_yb_zJ9_nuyJR__SuTDH0e_LhPK78k5Lg8Ss9-NUnTXm-nnzZaO9j_3abXNd1gn-La97Dtfo5ub4ftPfoPvINhQLXtqUzytdxKKx_72LS_FVeN81qfhHylPDf2cf378-q1RIxfm8p9_e_frYcH63mv6fv8ud7Y5c0zjq2c5T31jCXcs70v-2cvTjqvS12P3upYCDjf1VKop63-EhpLYiHB3184LmzpmKxfCNTungfEA7614m95HuuZJW_rHtypnnYIx_DF3X5mR07fgojvf5wiR0GZjtWzoB8BE1l-fnTL90mNkhZbKiue-3atJoxM_0s1xzl6wiztb0o1IBgl5tT4a8braCsg5NUAdcjORoy5zT4NAA9pOGCIKcfdD57EyZ2JOdm9RPvrrkHTClrfKzRrEVFu-r3YzBglHHEH64K_PxKl6kqbH5AyWfx3V0eqkSmFV1ZfTwqbx45qEedJDlV1ZwBJ0S459qtVqYWNgqYvs7b0ECz2FoyBlXCSenzev8fxok7V2_0sLPr5uIHzN_N-HhnnxD1nevU2XxvYIWJfLZzuBGDkX8w-BeLB-64XRriYVSkl-subtRSS0rtgob5n7i1NYdM7IbOnqmRCcHNfh0Sw8DOuzAz9lRTcR-6l6w9CPTnJu4UBOHJari6eHYdoMMNECWHbZodijbq_FuYrj5QXbgBxxQOBBkJPoglh-NAjG66Ac1j4wv03cD444zmWqmdjRw_1WOnMIJmm0gthlVZv5beYYH0pfOrgaJTS9wC9Bkuj61c4jqjxPfozMnor6hqg79tuWhQW0SjjrgZF4gxVi0mecWEe4tkCZl-bmjV-OF1JS8Lt15QdyPK7VAd79Li9d03DDgOlv5Ozrr56iK4vjCF_q6dWvI0zmemKF5E04UhEILXrGnKPOjp9Xa-BKTJ4IfFKSlw_GpDOZFuLxpiv15_mdNjozAvM8_AWjWe6uZeteAUneidD2_b7mik3yxfLi5-ylzHgvA428mkOlEimDXHXtBTEu2VXKtEjn1wpT7ISu0Xct0DMbRib4v1CFlDTrmwaZLZL2k9CBAIRHGDOtPKOu-E9g3BKdjZUurZ5cb20GO4rR-j4PFc4yecioG553n7AKAEPUgGnGSgflIb8fX5zeAfwSrqT1LXPUx7lTe8GA4qbGJATxGpPJ8bW0B3VZhqOGgfnpOylqXmqCCl7Gn647BlK9v1rIXmZg9VjGUWESrNM_SBt3PnDX4iJN4zXZWCYn_wTjD2phOQmtxZw37gijjjy-PZcudSJiOn2nMvoAFOdKXesvYm7aTnIY0nTwHJFtPev39A8omTS5-5ZV6l9t1b9UI7pV_e0r0nEqF32lk574q4oy3_BmET0MBO9YjMgrmDe1mdTMdSB6Recz4sFx0ZhRse9LZedH06zR5iiT0GcqeUquhjA_6wRH_zEzYXHOb1biDjhq0HJIC6cffs1V6qoTEwO9TBtX9rtMX2jBO7LUXO0VUzVpEoTUY7Not2gBvMvsqnkVO1YveYzuP2W2V2uoOaBcFrPS39aGzuC8k83FPJw-Owar0lruvbTh-ADAIh50aZUysZ3faH2dvZHOzQtK9SdzINuFtcvfbQd_1n8pLBqg9j2_P4h7q3rMzEHvJJc-UaWmeeZOyrc5Bk5T7vv-iOP-ZBH8jq-UPnbHeoEzDu3ClZ1i17Lmra9VVknsuo8s9jdHOUfhiuWbSaIgQBh2W42ifnnkdHmj5o8hp1ZehePB2VCKErPuP0cl-3U9zi16wTUyEQIln-GOwPHqjjrxoDjD8uhlxgDyA47ejzJbzQxlYPJ4RW2SqFfIS4twOivFN02Sy3kjelG9IWkeZERzPlj_rOZGFL8lyw4DZOPK-wMw0_-xjbuVtj1jGhmlE8_Qkyec2jtfnL7XzBbn4HJMbhUjdJ8YK9KkGDDZvICDeLW6oYNRXbUqqHnTRsgCTqacyvNxT_NWlVd88Q0WVBdafjgUB501Czdk_qWlhl2PUn6hiJf0oV4rkD4ZppwBtUz2vxJBrJUZAoEySys142RuKWjYY3MIsfMLT2bpQFXDJ0DeWRsVbopMvAm5kYKgcRC9qAjYvYYp4o0ImIVxTuzl_tQjCNEaa2r5A1QvxOaRWzC6EsbZ5KHzdYPCNaWKjg0D_JhKR2qv-YUMtu7gPynLhzb-jbYL2a5pjEid4Yhh0ZE4N17YxyAQGx8rRdQDpCMJOwgUftgixOwtDVabuGKI1e5Ttt1r3HhSfQuH9QKpk3IH78v-Sx6tWcMeFSFDmMgLs_apGZgazIJCs7mWEcK0YoeQKDhxvvnpHZhhpTxyXk5Oz6LWwmJJSLObHaE8qqoNfyX9reOKqHHoE9BZjDD6NnlQ9YKBlNlPvypkrT_hiXqtu8D4-Py1BLZnTR_aK4A-T4Md5HR_vUCZP-JGN47Y7q0fF3s4iwIFOdKo6xeL1rMtrYHy6lL8K9ZSibNUp0lgh6COM7LNaiY8-Yaf6mnVdXM7ezE6lNaZeaMm7ea59ft_RW_sPm8LNculpWHB35SuLXCPzAqAJFG20pFNwLMwpQQqdf0DIfVbqYD0GAf3Wn3RLoyHOCNkiZMo-bi6VJkSuJ3c4kAQUaU7gvwGfX475B0gb0r4Oy-7gOVTgCXEePC3OzLeCGE9_LjNaWqmQHi0MPKI1mim1bnRV0wy-A3pCT2VAIBbqfOXkHEbIyHq3GzHJiqUXD-A4oXCl7i9UNIDhFhEJtNxdxu1rKU2Dsl3yLQcwmLQw3UjqoafDoq8VC6OgY0gk36LgU02RzoEoHt-Dc4Kzh-olto-eBQCTi0wk5aq1lHGr1hpqG886suEzgtSFZDtBJPq0eDU-sKjmKRqh2XE0fWbZSrPx-rYqQeIzzDyQU9EMGEafI77fPOEgpM6vxyDLz3hJykAx1TzKqMI8Tp83Ud6bBmrOHcMLbTUOXF2JatUI72PDD34R8kTtzuqhX3IopY0wkBzJmQmF-tTHNSs_fMetjZW7ZVyHYEyiEhNyg6xWZujM15sqz2ToOtmVfqeNyQV5d4Xcl0dJNiR2cYBC33myVi3ZuAqwYr3RxYl0vn4eeHpy173di5BU1TuKAfbkfG69AyQ-anDl9rT3fUNdPs6DdUXKiYlzTvrG5N3MM8zlp4HQimUfDQKwSn99xQyG_035YApRs-m5Rm4jaTmFcdpTylCpb2MmCxdqgpk-1SO0pojZ43XXLVGLFiPevEcv9bbowOz4ZX-04xw1mYU0mIbJQGFg9tWqgy3-GFKSkuo29k3oaSC9awunzNuFX1-JJONEneMBkhUmWw0FhBNgDWfb7q21t7yrcoEMdKIn10Q6xWak_OlUrzAOWpX8wcQLjye86pWeFgeoR74h_CI_Dj5CjLxTVS6KNV0oPgidG_Kd3yeuu3l-H0qyBULl3qXh8Bihin6i-G4vWWSv8rHP_gRSVX3Bc3CfPnP-etuUHED0aQ5iB35d5769OYhscfKoisCXdN2koLxtw9_ZK7RiAhHIPuwla_CGgTp7VUOmNMb29U7IIZDNm5hhC7qCgNX6jb5mTThhfRlWQYcUd5wxmUPKA70anmpXG8sukiSlwSHlsT6l6lpxxgSc83ja50ubkjZcm-WJcY0XMFRNqNGaj3N9p2324X8U1Ft57y1BKzlNgiBVFHxsAVe3nrVk9NtFGxsC40mbkqATQSf94m0VhKS8bh7GaPg6bSCvzkM5wlZNhoOaoLuK6tYHcEhg0R4-W-mOc1BgUzb8C2cwQBlQ8VrwgibZmdMkuyvmaBF6sZmSjglxzHf6V7iA95F8xKCP7kwGZ80cYDD5sFCFowwCprArdG-LMnWa4nMLnPknTfPmnbeCkdBWC3hVM91G6xlO0oj6rm38gCNCaVv2XLdoqENOhMsp_rgdzEMQD2PDAOHseNnLOwrz8C2lPhMkxxgP2eHOpJ3XtJW5mNXkaNOFRxi4ymvVpoWZfwl1If2zVdg2WmkjWZnfwZiZO8MgmJTcsyztt_UTjCMoX00lSLOYkbLaYvJAxZocgvXUeL2prWNybmKdLvI4CGiweSLan8tnCHno8Y53LmrkcIAAgy9ZICVnEK2kcPqWgAIt0N0ZlYnS1qqaGaBlUZIhNbTDQ4zKcJAh2HDmWxu7BuS0Hev7LzgJC7GC1MnN005T4lKemWaXpFfVrt-oUrSePmbqTnLWgO3WextYAo6kVAaABmlN12R8Gr6kGD4-GV2k1QSmCIQAfpfWm7DMfTK1JlAdYSr-wqYRGU5vQ2QXP6S3a_8Y2JjppNLMr08OtUSELtAwMW138USzgs4szlkA2zgBmKNhr_NHMriqTlckC"
     },
-    debug: "(()=>{\"use strict\";var e,t,r,n,a,i,o,s,l,u,c,f,d,v,p,h,g,m,y,b,w,k,S,T,E,I,A,x,N,O,C,j,$,_=\"@info\",M=\"@consent\",U=\"_tail:\",F=U+\"state\",q=U+\"push\",P=(e,t=e=>Error(e))=>{throw ef(e=ts(e))?t(e):e},R=(e,t,r=-1)=>{if(e===t||(e??t)==null)return!0;if(eg(e)&&eg(t)&&e.length===t.length){var n=0;for(var a in e){if(e[a]!==t[a]&&!R(e[a],t[a],r-1))return!1;++n}return n===Object.keys(t).length}return!1},z=(e,t,...r)=>e===t||r.length>0&&r.some(t=>z(e,t)),D=(e,t)=>null!=e?e:P(t??\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),W=(e,t=!0,r)=>{try{return e()}catch(e){return eS(t)?ep(e=t(e))?P(e):e:ea(t)?console.error(t?P(e):e):t}finally{r?.()}},B=e=>{var t,r=()=>r.initialized||t?t:(t=ts(e)).then?t=t.then(e=>(r.initialized=!0,r.resolved=t=e)):(r.initialized=!0,r.resolved=t);return r},V=e=>{var t={initialized:!0,then:J(()=>(t.initialized=!0,ts(e)))};return t},J=e=>{var t=B(e);return(e,r)=>L(t,[e,r])},L=async(e,t=!0,r)=>{try{var n=await ts(e);return ev(t)?t[0]?.(n):n}catch(e){if(ea(t)){if(t)throw e;console.error(e)}else{if(ev(t)){if(!t[1])throw e;return t[1](e)}var a=await t?.(e);if(a instanceof Error)throw a;return a}}finally{await r?.()}},K=e=>e,G=void 0,H=Number.MAX_SAFE_INTEGER,X=!1,Y=!0,Z=()=>{},Q=e=>e,ee=e=>null!=e,et=Symbol.iterator,er=(e,t)=>(r,n=!0)=>e(r)?r:t&&n&&null!=r&&null!=(r=t(r))?r:G,en=(e,t)=>eS(t)?e!==G?t(e):G:e?.[t]!==G?e:G,ea=e=>\"boolean\"==typeof e,ei=er(ea,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||G))),eo=e=>!!e,es=e=>e===Y,el=e=>e!==X,eu=Number.isSafeInteger,ec=e=>\"number\"==typeof e,ef=e=>\"string\"==typeof e,ed=er(ef,e=>e?.toString()),ev=Array.isArray,ep=e=>e instanceof Error,eh=(e,t=!1)=>null==e?G:!t&&ev(e)?e:eT(e)?[...e]:[e],eg=e=>null!==e&&\"object\"==typeof e,em=Object.prototype,ey=Object.getPrototypeOf,eb=e=>null!=e&&ey(e)===em,ew=(e,t)=>\"function\"==typeof e?.[t],ek=e=>\"symbol\"==typeof e,eS=e=>\"function\"==typeof e,eT=(e,t=!1)=>!!(e?.[et]&&(\"object\"==typeof e||t)),eE=e=>e instanceof Map,eI=e=>e instanceof Set,eA=(e,t)=>null==e?G:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,ex=!1,eN=e=>(ex=!0,e),eO=e=>null==e?G:eS(e)?e:t=>t[e],eC=(e,t,r)=>(t??r)!==G?(e=eO(e),t??=0,r??=H,(n,a)=>t--?G:r--?e?e(n,a):n:r):e,ej=e=>e?.filter(ee),e$=(e,t,r,n)=>null==e?[]:!t&&ev(e)?ej(e):e[et]?function*(e,t){if(null!=e){if(t){t=eO(t);var r=0;for(var n of e)if(null!=(n=t(n,r++))&&(yield n),ex){ex=!1;break}}else for(var n of e)null!=n&&(yield n)}}(e,r===G?t:eC(t,r,n)):eg(e)?function*(e,t){t=eO(t);var r=0;for(var n in e){var a=[n,e[n]];if(t&&(a=t(a,r++)),null!=a&&(yield a),ex){ex=!1;break}}}(e,eC(t,r,n)):e$(eS(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(t??=-e-1;e++;)yield t--;else for(t??=0;e--;)yield t++}(e,r),t),e_=(e,t)=>t&&!ev(e)?[...e]:e,eM=(e,t,r,n)=>e$(e,t,r,n),eU=(e,t,r=1,n=!1,a,i)=>(function* e(t,r,n,a){if(null!=t){if(t[et]||n&&eg(t))for(var i of a?e$(t):t)1!==r?yield*e(i,r-1,n,!0):yield i;else yield t}})(e$(e,t,a,i),r+1,n,!1),eF=(e,t,r,n)=>{if(t=eO(t),ev(e)){var a=0,i=[];for(r=r<0?e.length+r:r??0,n=n<0?e.length+n:n??e.length;r<n&&!ex;r++){var o=e[r];(t?o=t(o,a++):o)!=null&&i.push(o)}return ex=!1,i}return null!=e?eh(eM(e,t,r,n)):G},eq=(e,t,r,n)=>null!=e?new Set([...eM(e,t,r,n)]):G,eP=(e,t,r=1,n=!1,a,i)=>eh(eU(e,t,r,n,a,i)),eR=(...e)=>{var t;return eJ(1===e.length?e[0]:e,e=>null!=e&&(t??=[]).push(...eh(e))),t},ez=(e,t,r,n)=>{var a,i=0;for(r=r<0?e.length+r:r??0,n=n<0?e.length+n:n??e.length;r<n;r++)if(null!=e[r]&&(a=t(e[r],i++)??a,ex)){ex=!1;break}return a},eD=(e,t)=>{var r,n=0;for(var a of e)if(null!=a&&(r=t(a,n++)??r,ex)){ex=!1;break}return r},eW=(e,t)=>{var r,n=0;for(var a in e)if(r=t([a,e[a]],n++)??r,ex){ex=!1;break}return r},eB=(e,t,...r)=>null==e?G:eT(e)?eF(e,e=>t(e,...r)):t(e,...r),eV=(e,t,r,n)=>{var a;if(null!=e){if(ev(e))return ez(e,t,r,n);if(r===G){if(e[et])return eD(e,t);if(\"object\"==typeof e)return eW(e,t)}for(var i of e$(e,t,r,n))null!=i&&(a=i);return a}},eJ=eV,eL=async(e,t,r,n)=>{var a;if(null==e)return G;for(var i of eM(e,t,r,n))if(null!=(i=await i)&&(a=i),ex){ex=!1;break}return a},eK=Object.fromEntries,eG=(e,t,r)=>{if(null==e)return G;if(ea(t)||r){var n={};return eJ(e,r?(e,a)=>null!=(e=t(e,a))&&null!=(e[1]=r(n[e[0]],e[1]))&&(n[e[0]]=e[1]):e=>eJ(e,t?e=>e?.[1]!=null&&((n[e[0]]??=[]).push(e[1]),n):e=>e?.[1]!=null&&(n[e[0]]=e[1],n))),n}return eK(eF(e,t?(e,r)=>en(t(e,r),1):e=>en(e,1)))},eH=(e,t,r,n,a)=>{var i=()=>eS(r)?r():r;return eV(e,(e,n)=>r=t(r,e,n)??i(),n,a)??i()},eX=(e,t=e=>null!=e,r=ev(e),n,a)=>e_(e$(e,(e,r)=>t(e,r)?e:G,n,a),r),eY=(e,t,r,n)=>{var a;if(null==e)return G;if(t)e=eX(e,t,!1,r,n);else{if(null!=(a=e.length??e.size))return a;if(!e[et])return Object.keys(e).length}return a=0,eV(e,()=>++a)??0},eZ=(e,...t)=>null==e?G:ec(e)?Math.max(e,...t):eH(e,(e,r,n,a=t[1]?t[1](r,n):r)=>null==e||ec(a)&&a>e?a:e,G,t[2],t[3]),eQ=(e,t,r)=>eF(e,eb(e)?e=>e[1]:e=>e,t,r),e0=e=>!ev(e)&&eT(e)?eF(e,eE(e)?e=>e:eI(e)?e=>[e,!0]:(e,t)=>[t,e]):eg(e)?Object.entries(e):G,e1=(e,t,r,n)=>null==e?G:(t=eO(t),eV(e,(e,r)=>!t||(e=t(e,r))?eN(e):G,r,n)),e2=(e,t,r,n)=>null==e?G:ev(e)||ef(e)?e[e.length-1]:eV(e,(e,r)=>!t||t(e,r)?e:G,r,n),e4=(e,t,r,n)=>null==e?G:eb(e)&&!t?Object.keys(e).length>0:e.some?.(t??eo)??eV(e,t?(e,r)=>!!t(e,r)&&eN(!0):()=>eN(!0),r,n)??!1,e6=(e,t=e=>e)=>(e?.sort((e,r)=>t(e)-t(r)),e),e5=(e,t,r)=>(e.constructor===Object||ev(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),e3=(e,t,r)=>{if(e){if(e.constructor===Object&&null==r)return e[t];var n=e.get?e.get(t):e.has?e.has(t):e[t];return void 0===n&&null!=r&&null!=(n=eS(r)?r():r)&&e5(e,t,n),n}},e8=(e,...t)=>(eJ(t,t=>eJ(t,([t,r])=>{null!=r&&(eb(e[t])&&eb(r)?e8(e[t],r):e[t]=r)})),e),e9=e=>(t,r,n,a)=>{if(t)return void 0!=n?e(t,r,n,a):(eJ(r,r=>ev(r)?e(t,r[0],r[1]):eJ(r,([r,n])=>e(t,r,n))),t)},e7=e9(e5),te=e9((e,t,r)=>e5(e,t,eS(r)?r(e3(e,t)):r)),tt=(e,t)=>e instanceof Set||e instanceof WeakSet?!e.has(t)&&(e.add(t),!0):e3(e,t)!==e7(e,t,!0),tr=(e,t)=>{if((e??t)!=null){var r=e3(e,t);return ew(e,\"delete\")?e.delete(t):delete e[t],r}},tn=(e,...t)=>{var r=[],n=!1,a=(e,i,o,s)=>{if(e){var l=t[i];i===t.length-1?ev(l)?(n=!0,l.forEach(t=>r.push(tr(e,t)))):r.push(tr(e,l)):(ev(l)?(n=!0,l.forEach(t=>a(e3(e,t),i+1,e,t))):a(e3(e,l),i+1,e,l),!eY(e)&&o&&ta(o,s))}};return a(e,0),n?r:r[0]},ta=(e,t)=>{if(e)return ev(t)?(ev(e)&&e.length>1?t.sort((e,t)=>t-e):t).map(t=>ta(e,t)):ev(e)?t<e.length?e.splice(t,1)[0]:void 0:tr(e,t)},ti=(e,...t)=>{var r=(t,n)=>{var a;if(t){if(ev(t)){if(eb(t[0])){t.splice(1).forEach(e=>r(e,t[0]));return}a=t}else a=eF(t);a.forEach(([t,r])=>Object.defineProperty(e,t,{configurable:!1,enumerable:!0,writable:!1,...n,...eb(r)&&(\"get\"in r||\"value\"in r)?r:eS(r)&&!r.length?{get:r}:{value:r}}))}};return t.forEach(e=>r(e)),e},to=(e,...t)=>{if(void 0!==e)return Object.fromEntries(t.flatMap(r=>eg(r)?ev(r)?r.map(t=>ev(t)?1===t.length?[t[0],e[t[0]]]:to(e[t[0]],...t[1]):[t,e[t]]):Object.entries(t).map(([t,r])=>[t,!0===r?e[t]:to(e[t],r)]):[[r,e[r]]]).filter(e=>null!=e[1]))},ts=e=>eS(e)?e():e,tl=(e,t=-1)=>ev(e)?t?e.map(e=>tl(e,t-1)):[...e]:eb(e)?t?eG(e,([e,r])=>[e,tl(r,t-1)]):{...e}:eI(e)?new Set(t?eF(e,e=>tl(e,t-1)):e):eE(e)?new Map(t?eF(e,e=>[e[0],tl(e[1],t-1)]):e):e,tu=(e,...t)=>e?.push(...t),tc=(e,...t)=>e?.unshift(...t),tf=(e,t)=>{if(e){if(!eb(t))return[e,e];var r,n,a,i={};if(eb(e))return eJ(e,([e,o])=>{if(o!==t[e]){if(eb(r=o)){if(!(o=tf(o,t[e])))return;[o,r]=o}else ec(o)&&ec(n)&&(o=(r=o)-n);i[e]=o,(a??=tl(t))[e]=r}}),a?[i,a]:void 0}},td=\"undefined\"!=typeof performance?(e=Y)=>e?Math.trunc(td(X)):performance.timeOrigin+performance.now():Date.now,tv=(e=!0,t=()=>td())=>{var r,n=+e*t(),a=0;return(i=e,o)=>(r=e?a+=-n+(n=t()):a,o&&(a=0),(e=i)&&(n=t()),r)},tp=(e=0)=>{var t,r,n=(a,i=e)=>{if(void 0===a)return!!r;clearTimeout(t),ea(a)?a&&(i<0?el:es)(r?.())?n(r):r=void 0:(r=a,t=setTimeout(()=>n(!0,i),i<0?-i:i))};return n},th=(e,t=0)=>{var r=eS(e)?{frequency:t,callback:e}:e,{queue:n=!0,paused:a=!1,trigger:i=!1,once:o=!1,callback:s=()=>{},raf:l}=r;t=r.frequency??0;var u=0,c=tw(!0).resolve(),f=tv(!a),d=f(),v=async e=>{if(!u||!n&&c.pending&&!0!==e)return!1;if(m.busy=!0,!0!==e)for(;c.pending;)await c;return e||c.reset(),(await L(()=>s(f(),-d+(d=f())),!1,()=>!e&&c.resolve())===!1||t<=0||o)&&g(!1),m.busy=!1,!0},p=()=>u=setTimeout(()=>l?requestAnimationFrame(h):h(),t<0?-t:t),h=()=>{m.active&&v(),m.active&&p()},g=(e,t=!e)=>(f(e,t),clearTimeout(u),m.active=!!(u=e?p():0),m),m={active:!1,busy:!1,restart:(e,r)=>(t=e??t,s=r??s,g(!0,!0)),toggle:(e,t)=>e!==m.active?e?t?(g(!0),m.trigger(),m):g(!0):g(!1):m,trigger:async e=>await v(e)&&(g(m.active),!0)};return m.toggle(!a,i)};class tg{_promise;constructor(){this.reset()}get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new tm,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}}class tm{_promise;resolve;reject;value;error;pending=!0;constructor(){var e;this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(!this.pending){if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")}return this.pending=!1,this[t?\"error\":\"value\"]=r===G||r,e(r),this})}),[this.resolve,this.reject]=e}then(e,t){return this._promise.then(e,t)}}var ty=(e,t=0)=>t>0?setTimeout(e,t):window.queueMicrotask(e),tb=(e,t)=>null==e||isFinite(e)?!e||e<=0?ts(t):new Promise(r=>setTimeout(async()=>r(await ts(t)),e)):P(`Invalid delay ${e}.`),tw=e=>e?new tg:new tm,tk=(...e)=>Promise.race(e.map(e=>eS(e)?e():e)),tS=(e,t,r)=>{var n=!1,a=(...t)=>e(...t,i),i=()=>n!==(n=!1)&&(r(a),!0),o=()=>n!==(n=!0)&&(t(a),!0);return o(),[i,o]},tT=()=>{var e,t=new Set;return[(r,n)=>{var a=tS(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,a[0]),a},(...r)=>(e=r,t.forEach(e=>e(...r)))]},tE=(e,t=[\"and\",\", \"])=>e?1===(e=eF(e)).length?e[0]:ev(t)?[e.slice(0,-1).join(t[1]??\", \"),\" \",t[0],\" \",e[e.length-1]].join(\"\"):e.join(t??\", \"):G,tI=(e,t,r)=>null==e?G:ev(t)?null==(t=t[0])?G:t+\" \"+tI(e,t,r):null==t?G:1===t?e:r??e+\"s\",tA=!0,tx=(e,t,r)=>r?(tA&&tu(r,\"\\x1b[\",t,\"m\"),ev(e)?tu(r,...e):tu(r,e),tA&&tu(r,\"\\x1b[m\"),r):tx(e,t,[]).join(\"\"),tN=(e,t=\"'\")=>null==e?G:t+e+t,tO=(e,t)=>e&&(e.length>t?e.slice(0,-1)+\"…\":e),tC=(e,t,r)=>null==e?G:eS(t)?tE(eF(ef(e)?[e]:e,t),r??\"\"):ef(e)?e:tE(eF(e,e=>!1===e?G:e),t??\"\"),tj=(e,t=[0,.25,.5,.75,1])=>{for(var r,n,a=/[\\p{L}\\p{N}][\\p{L}\\p{N}'’]*|([.!?]+)/gu,i=0,o=0,s=0,l=0,u=!1;r=a.exec(e);)r[1]?(u&&++l,u=!1):(u=!0,i+=r[0].length,r[0].length>6&&++s,++o);u&&++l,a=/[\\p{L}\\p{N}]|([^\\p{L}\\p{N}]+)/gu;var c=t.map(e=>e*i|0),f=[],d=0,v=0,p=!1;do if(r=a.exec(e),r?.[1])p&&++v;else{d=r?.index;for(var h=!1,g=0;g<c.length;g++)c[g]--||(f[g]={offset:n??d,wordsBefore:v,readTime:eA(v/238*6e4)},h=!0);(p=!h)||(v=0),n=d+1}while(r);return{text:e,length:e.length,characters:i,words:o,sentences:l,lix:eA(o/l+100*s/o),readTime:eA(o/238*6e4),boundaries:f}},t$=e=>(e=Math.log2(e))===(0|e),t_=(e,t,r,n)=>{var a,i,o,s=Object.fromEntries(Object.entries(e).filter(([e,t])=>ef(e)&&ec(t)).map(([e,t])=>[e.toLowerCase(),t])),l=Object.entries(s),u=Object.values(s),c=s.any??u.reduce((e,t)=>e|t,0),f=t?{...s,any:c,none:0}:s,d=Object.fromEntries(Object.entries(f).map(([e,t])=>[t,e])),v=(e,r)=>eu(e)?!t&&r?null!=d[e]?e:G:Number.isSafeInteger(e)?e:G:ef(e)?f[e]??f[e.toLowerCase()]??v(parseInt(e),r):G,p=!1,[h,g]=t?[(e,t)=>Array.isArray(e)?e.reduce((e,r)=>null==r||p?e:null==(r=v(r,t))?(p=!0,G):(e??0)|r,(p=!1,G)):v(e),(e,t)=>null==(e=h(e,!1))?G:t&&(i=d[e&c])?(a=g(e&~(e&c),!1)).length?[i,...a]:i:(e=l.filter(([,t])=>t&&e&t&&t$(t)).map(([e])=>e),t?e.length?1===e.length?e[0]:e:\"none\":e)]:[v,e=>null!=(e=v(e))?d[e]:G],m=(e,t)=>null==e?G:null==(e=h(o=e,t))?P(TypeError(`${JSON.stringify(o)} is not a valid ${r} value.`)):e,y=l.filter(([,e])=>!n||(n&e)===e&&t$(e));return ti(e=>m(e),[{configurable:!1,enumerable:!1},{parse:m,tryParse:h,entries:l,values:u,lookup:g,length:l.length,format:e=>g(e,!0),logFormat:(e,t=\"or\")=>\"any\"===(e=g(e,!0))?\"any \"+r:`the ${r} ${tE(eF(eh(e),e=>tN(e)),[t])}`},t&&{pure:y,map:(e,t)=>(e=m(e),y.filter(([,t])=>t&e).map(t??(([,e])=>e)))}])},tM=(...e)=>{var t=e0(eG(e,!0)),r=e=>(eg(e)&&(ev(e)?e.forEach((t,n)=>e[n]=r(t)):t.forEach(([t,r])=>{var n,a=G;null!=(n=e[t])&&(1===r.length?e[t]=r[0].parse(n):r.forEach((i,o)=>!a&&null!=(a=o===r.length-1?i.parse(n):i.tryParse(n))&&(e[t]=a)))})),e);return r},tU=Symbol(),tF=(e,t=[\"|\",\";\",\",\"],r=!0)=>{if(!e)return G;var n=e.split(\"=\").map(e=>r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim());return n[1]??=\"\",n[2]=n[1]&&t?.length&&e1(t,(e,t,r=n[1].split(e))=>r.length>1?r:G)||(n[1]?[n[1]]:[]),n},tq=(e,t=!0,r)=>null==e?G:tW(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,n,a,i,o,s,l,u,c,f,d)=>{var v={source:e,scheme:r,urn:r?!n:!n&&G,authority:a,user:i,password:o,host:s??l,port:null!=u?parseInt(u):G,path:c,query:!1===t?f:tP(f,t),fragment:d};return v.path=v.path||(v.authority?v.urn?\"\":\"/\":G),v}),tP=(e,t,r=!0)=>tR(e,\"&\",t,r),tR=(e,t,r,n=!0)=>{var a=[],i=null==e?G:eG(e?.match(/(?:^.*?\\?|^)([^#]*)/)?.[1]?.split(t),(e,t,[i,o,s]=tF(e,!1===r?[]:!0===r?G:r,n)??[],l)=>(l=null!=(i=i?.replace(/\\[\\]$/,\"\"))?!1!==r?[i,s.length>1?s:o]:[i,o]:G,a.push(l),l),(e,t)=>e?!1!==r?eR(e,t):(e?e+\",\":\"\")+t:t);return i&&(i[tU]=a),i},tz=(e,t)=>t&&null!=e?t.test(e):G,tD=(e,t,r)=>tW(e,t,r,!0),tW=(r,n,a,i=!1)=>(r??n)==null?G:a?(e=G,i?(t=[],tW(r,n,(...r)=>null!=(e=a(...r))&&t.push(e))):r.replace(n,(...t)=>e=a(...t)),e):r.match(n),tB=e=>e?.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tV=/\\z./g,tJ=(e,t)=>(t=tC(eq(eX(e,e=>e?.length)),\"|\"))?RegExp(t,\"gu\"):tV,tL={},tK=e=>e instanceof RegExp,tG=(e,t=[\",\",\" \"])=>tK(e)?e:ev(e)?tJ(eF(e,e=>tG(e,t)?.source)):ea(e)?e?/./g:tV:ef(e)?tL[e]??=tW(e||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,r,n)=>r?RegExp(r,\"gu\"):tJ(eF(tH(n,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${tC(t,tB)}]`)),e=>e&&`^${tC(tH(e,/(?<!(?<!\\\\)\\\\)\\*/),e=>tB(tX(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):G,tH=(e,t)=>e?.split(t)??e,tX=(e,t,r)=>e?.replace(t,r)??e,tY=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return e7(r,{push(n,a){for(var i,o=[n,a],s=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,l=0;l<r.length;l++){var u=r[l];if(0>e(o[1],u[0]))return s(r.splice(l,0,o));if(0>=e(o[0],u[1])){if(0>e(o[0],u[0])&&(i=u[0]=o[0]),e(o[1],u[1])>0&&(i=u[1]=o[1]),!(r[l+1]?.[0]<u[1]))return s(null!=i);i=o=r.splice(l--,1)[0]}}return s(o&&(r[r.length]=o))},width:0})},tZ=5e3,tQ=()=>()=>P(\"Not initialized.\"),t0=window,t1=document,t2=t1.body,t4=(e,t)=>!!e?.matches(t);((e=!0)=>tA=e)(!!t0.chrome);var t6=H,t5=(e,t,r=(e,t)=>t>=t6)=>{for(var n,a=0,i=X;e?.nodeType===1&&!r(e,a++)&&t(e,(e,t)=>(null!=e&&(n=e,i=t!==Y&&null!=n),Y),a-1)!==X&&!i;){var o=e;null===(e=e.parentElement)&&o?.ownerDocument!==t1&&(e=o?.ownerDocument.defaultView?.frameElement)}return n},t3=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":return(\"\"+e).trim()?.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||ei(e);case\"n\":return parseFloat(e);case\"j\":return W(()=>JSON.parse(e),Z);case\"h\":return W(()=>np(e),Z);case\"e\":return W(()=>ng?.(e),Z);default:return ev(t)?\"\"===e?void 0:(\"\"+e).split(\",\").map(e=>e=\"\"===e.trim()?void 0:t3(e,t[0])):void 0}},t8=(e,t,r)=>t3(e?.getAttribute(t),r),t9=(e,t,r)=>t5(e,(e,n)=>n(t8(e,t,r))),t7=(e,t)=>t8(e,t)?.trim()?.toLowerCase(),re=e=>e?.getAttributeNames(),rt=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,rr=e=>null!=e?e.tagName:null,rn=()=>({x:(r=ra(X)).x/(t2.offsetWidth-window.innerWidth)||0,y:r.y/(t2.offsetHeight-window.innerHeight)||0}),ra=e=>({x:eA(scrollX,e),y:eA(scrollY,e)}),ri=(e,t)=>tX(e,/#.*$/,\"\")===tX(t,/#.*$/,\"\"),ro=(e,t,r=Y)=>(n=rs(e,t))&&K({xpx:n.x,ypx:n.y,x:eA(n.x/t2.offsetWidth,4),y:eA(n.y/t2.offsetHeight,4),pageFolds:r?n.y/window.innerHeight:void 0}),rs=(e,t)=>t?.pointerType&&t?.pageY!=null?{x:t.pageX,y:t.pageY}:e?({x:a,y:i}=rl(e),{x:a,y:i}):void 0,rl=e=>e?(o=e.getBoundingClientRect(),r=ra(X),{x:eA(o.left+r.x),y:eA(o.top+r.y),width:eA(o.width),height:eA(o.height)}):void 0,ru=(e,t,r,n={capture:!0,passive:!0})=>(t=eh(t),tS(r,r=>eJ(t,t=>e.addEventListener(t,r,n)),r=>eJ(t,t=>e.removeEventListener(t,r,n)))),rc=e=>{var{host:t,scheme:r,port:n}=tq(e,!1);return{host:t+(n?\":\"+n:\"\"),scheme:r}},rf=()=>({...r=ra(Y),width:window.innerWidth,height:window.innerHeight,totalWidth:t2.offsetWidth,totalHeight:t2.offsetHeight});(I=s||(s={}))[I.Anonymous=0]=\"Anonymous\",I[I.Indirect=1]=\"Indirect\",I[I.Direct=2]=\"Direct\",I[I.Sensitive=3]=\"Sensitive\";var rd=t_(s,!1,\"data classification\"),rv=(e,t)=>rd.parse(e?.classification??e?.level)===rd.parse(t?.classification??t?.level)&&rh.parse(e?.purposes??e?.purposes)===rh.parse(t?.purposes??t?.purposes),rp=(e,t)=>null==e?void 0:ec(e.classification)&&ec(e.purposes)?e:{...e,level:void 0,purpose:void 0,classification:rd.parse(e.classification??e.level??t?.classification??0),purposes:rh.parse(e.purposes??e.purpose??t?.purposes??l.Necessary)};(A=l||(l={}))[A.None=0]=\"None\",A[A.Necessary=1]=\"Necessary\",A[A.Functionality=2]=\"Functionality\",A[A.Performance=4]=\"Performance\",A[A.Targeting=8]=\"Targeting\",A[A.Security=16]=\"Security\",A[A.Infrastructure=32]=\"Infrastructure\",A[A.Any_Anonymous=49]=\"Any_Anonymous\",A[A.Any=63]=\"Any\",A[A.Server=2048]=\"Server\",A[A.Server_Write=4096]=\"Server_Write\";var rh=t_(l,!0,\"data purpose\",2111),rg=t_(l,!1,\"data purpose\",0),rm=(e,t)=>((u=e?.metadata)&&(t?(delete u.posted,delete u.queued,Object.entries(u).length||delete e.metadata):delete e.metadata),e),ry=e=>!!e?.patchTargetId;(x=c||(c={}))[x.Global=0]=\"Global\",x[x.Entity=1]=\"Entity\",x[x.Session=2]=\"Session\",x[x.Device=3]=\"Device\",x[x.User=4]=\"User\";var rb=t_(c,!1,\"variable scope\");s.Anonymous,l.Necessary;var rw=e=>`'${e.key}' in ${rb.format(e.scope)} scope`,rk={scope:rb,purpose:rg,purposes:rh,classification:rd};tM(rk);var rS=e=>e?.filter(ee).sort((e,t)=>e.scope===t.scope?e.key.localeCompare(t.key,\"en\"):e.scope-t.scope);(N=f||(f={}))[N.Add=0]=\"Add\",N[N.Min=1]=\"Min\",N[N.Max=2]=\"Max\",N[N.IfMatch=3]=\"IfMatch\",N[N.IfNoneMatch=4]=\"IfNoneMatch\",t_(f,!1,\"variable patch type\"),(O=d||(d={}))[O.Success=200]=\"Success\",O[O.Created=201]=\"Created\",O[O.Unchanged=304]=\"Unchanged\",O[O.Denied=403]=\"Denied\",O[O.NotFound=404]=\"NotFound\",O[O.ReadOnly=405]=\"ReadOnly\",O[O.Conflict=409]=\"Conflict\",O[O.Unsupported=501]=\"Unsupported\",O[O.Invalid=400]=\"Invalid\",O[O.Error=500]=\"Error\",t_(d,!1,\"variable set status\");var rT=(e,t,r)=>{var n,a=e(),i=e=>e,o=(e,r=rx)=>V(async()=>(n=i(r(await a,t)))&&e(n)),s={then:o(e=>e).then,all:o(e=>e,e=>e),changed:o(e=>eX(e,e=>e.status<300)),variables:o(e=>eF(e,rI)),values:o(e=>eF(e,e=>rI(e)?.value)),push:()=>(i=e=>(r?.(eF(rE(e))),e),s),value:o(e=>rI(e[0])?.value),variable:o(e=>rI(e[0])),result:o(e=>e[0])};return s},rE=e=>e?.map(e=>e?.status<400?e:G),rI=e=>rA(e)?e.current??e:G,rA=(e,t=!1)=>t?e?.status<300:e?.status<400||e?.status===404,rx=(e,t,r)=>{var n,a,i=[],o=eF(eh(e),(e,o)=>e&&(e.status<400||!r&&404===e.status?e:(a=`${rw(e.source??e)} could not be ${404===e.status?\"found.\":`${e.source||500!==e.status?\"set\":\"read\"} because ${409===e.status?`of a conflict. The expected version '${e.source?.version}' did not match the current version '${e.current?.version}'.`:403===e.status?e.error??\"the operation was denied.\":400===e.status?e.error??\"the value does not conform to the schema\":405===e.status?\"it is read only.\":500===e.status?`of an unexpected error: ${e.error}`:\"of an unknown reason.\"}`}`,(null==(n=t?.[o])||!1!==n(e,a))&&i.push(a),G)));return i.length?P(i.join(\"\\n\")):ev(e)?o:o?.[0]},rN=e=>rx(e,G,!0),rO=e=>e&&\"string\"==typeof e.type,rC=((...e)=>t=>t?.type&&e.some(e=>e===t?.type))(\"view\"),rj=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,r$=(e,t)=>t&&(!(p=e.get(v=t.tag+(t.value??\"\")))||(p.score??1)<(t.score??1))&&e.set(v,t),r_=(e,t=\"\",r=new Map)=>{if(e)return eT(e)?eJ(e,e=>r_(e,t,r)):ef(e)?tW(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,a,i,o,s,l)=>{var u={tag:(n?rj(n)+\"::\":\"\")+t+rj(a),value:rj(i??o??s)};l&&10!==parseFloat(l)&&(u.score=parseFloat(l)/10),r$(r,u)}):r$(r,e),r},rM=new WeakMap,rU=e=>rM.get(e),rF=(e,t=X)=>(t?\"--track-\":\"track-\")+e,rq=(e,t,r,n,a,i)=>t?.[1]&&eJ(re(e),o=>t[0][o]??=(i=X,ef(n=eJ(t[1],([t,r,n],a)=>tz(o,t)&&(i=void 0,!r||t4(e,r))&&eN(n??o)))&&(!(a=e.getAttribute(o))||ei(a))&&r_(a,tX(n,/\\-/g,\":\"),r),i)),rP=()=>{},rR=(e,t)=>{if(h===(h=rL.tags))return rP(e,t);var r=e=>e?tK(e)?[[e]]:eT(e)?eP(e,r):[eb(e)?[tG(e.match),e.selector,e.prefix]:[tG(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(eQ(h))]];(rP=(e,t)=>rq(e,n,t))(e,t)},rz=(e,t)=>tC(eR(rt(e,rF(t,Y)),rt(e,rF(\"base-\"+t,Y))),\" \"),rD={},rW=(e,t,r=rz(e,\"attributes\"))=>{r&&rq(e,rD[r]??=[{},tD(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[tG(r||n),,t])],t),r_(rz(e,\"tags\"),void 0,t)},rB=(e,t,r=X,n)=>(r?t5(e,(e,r)=>r(rB(e,t,X)),eS(r)?r:void 0):tC(eR(t8(e,rF(t)),rt(e,rF(t,Y))),\" \"))??(n&&(g=rU(e))&&n(g))??null,rV=(e,t,r=X,n)=>\"\"===(m=rB(e,t,r,n))||(null==m?m:ei(m)),rJ=(e,t,r,n)=>e?(rW(e,n??=new Map),t5(e,e=>{rR(e,n),r_(r?.(e),void 0,n)},t),n.size?{tags:[...n.values()]}:{}):{},rL={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},rK=[],rG=[],rH=(e,t=0)=>e.charCodeAt(t),rX=e=>String.fromCharCode(...e);[...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>rK[rG[t]=e.charCodeAt(0)]=t);var rY=e=>{for(var t,r=0,n=e.length,a=[];n>r;)t=e[r++]<<16|e[r++]<<8|e[r++],a.push(rG[(16515072&t)>>18],rG[(258048&t)>>12],rG[(4032&t)>>6],rG[63&t]);return a.length+=n-r,rX(a)},rZ=e=>{for(var t,r=0,n=0,a=e.length,i=new Uint8Array(3*(a/4|0)+(a+3&3)%3);a>r;)i[n++]=rK[rH(e,r++)]<<2|(t=rK[rH(e,r++)])>>4,a>r&&(i[n++]=(15&t)<<4|(t=rK[rH(e,r++)])>>2,a>r&&(i[n++]=(3&t)<<6|rK[rH(e,r++)]));return i},rQ={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},r0=(e=256)=>e*Math.random()|0,r1=e=>{var t,r,n,a,i,o=0n,s=0,l=0n,u=[],c=0,f=0,d=0,v=0,p=[];for(d=0;d<e?.length;v+=p[d]=e.charCodeAt(d++));var h=e?()=>{u=[...p],f=255&(c=v),d=-1}:()=>{},g=e=>(f=255&(c+=-u[d=(d+1)%u.length]+(u[d]=e)),e);return[e?e=>{for(h(),a=16-((t=e.length)+4)%16,i=new Uint8Array(4+t+a),n=0;n<3;i[n++]=g(r0()));for(r=0,i[n++]=g(f^16*r0(16)+a);t>r;i[n++]=g(f^e[r++]));for(;a--;)i[n++]=r0();return i}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((f^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(t);t>n;i[n++]=f^g(e[r++]));return i}:e=>e,(e,t=64)=>{if(null==e)return null;for(s=ea(t)?64:t,h(),[o,l]=rQ[s],r=0;r<e.length;o=BigInt.asUintN(s,(o^BigInt(f^g(e[r++])))*l));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+o%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):o.toString(36)}]},r2={exports:{}};(e=>{(()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,a=new Uint8Array(128),i=0;if(t&&t.multiple)for(var o=0;o<e.length;o++)s(e[o]);else s(e);return a.subarray(0,i);function s(e,a){var i,o,d,v,p,h;switch(typeof e){case\"undefined\":u(192);break;case\"boolean\":u(e?195:194);break;case\"number\":(e=>{if(isFinite(e)&&Number.isSafeInteger(e)){if(e>=0&&e<=127)u(e);else if(e<0&&e>=-32)u(e);else if(e>0&&e<=255)c([204,e]);else if(e>=-128&&e<=127)c([208,e]);else if(e>0&&e<=65535)c([205,e>>>8,e]);else if(e>=-32768&&e<=32767)c([209,e>>>8,e]);else if(e>0&&e<=4294967295)c([206,e>>>24,e>>>16,e>>>8,e]);else if(e>=-2147483648&&e<=2147483647)c([210,e>>>24,e>>>16,e>>>8,e]);else if(e>0&&e<=18446744073709552e3){var t=e/4294967296,a=e%4294967296;c([211,t>>>24,t>>>16,t>>>8,t,a>>>24,a>>>16,a>>>8,a])}else e>=-0x8000000000000000&&e<=0x7fffffffffffffff?(u(211),f(e)):e<0?c([211,128,0,0,0,0,0,0,0]):c([207,255,255,255,255,255,255,255,255])}else n||(n=new DataView(r=new ArrayBuffer(8))),n.setFloat64(0,e),u(203),c(new Uint8Array(r))})(e);break;case\"string\":(d=(o=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(e.charCodeAt(n)>127){t=!1;break}for(var a=0,i=new Uint8Array(e.length*(t?1:4)),o=0;o!==r;o++){var s=e.charCodeAt(o);if(s<128){i[a++]=s;continue}if(s<2048)i[a++]=s>>6|192;else{if(s>55295&&s<56320){if(++o>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var l=e.charCodeAt(o);if(l<56320||l>57343)throw Error(\"UTF-8 encode: second surrogate character 0x\"+l.toString(16)+\" at index \"+o+\" out of range\");s=65536+((1023&s)<<10)+(1023&l),i[a++]=s>>18|240,i[a++]=s>>12&63|128}else i[a++]=s>>12|224;i[a++]=s>>6&63|128}i[a++]=63&s|128}return t?i:i.subarray(0,a)})(e)).length)<=31?u(160+d):d<=255?c([217,d]):d<=65535?c([218,d>>>8,d]):c([219,d>>>24,d>>>16,d>>>8,d]),c(o);break;case\"object\":null===e?u(192):e instanceof Date?(e=>{var t=e.getTime()/1e3;if(0===e.getMilliseconds()&&t>=0&&t<4294967296)c([214,255,t>>>24,t>>>16,t>>>8,t]);else if(t>=0&&t<17179869184){var r=1e6*e.getMilliseconds();c([215,255,r>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t])}else{var r=1e6*e.getMilliseconds();c([199,12,255,r>>>24,r>>>16,r>>>8,r]),f(t)}})(e):Array.isArray(e)?l(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((h=(p=e).length)<=255?c([196,h]):h<=65535?c([197,h>>>8,h]):c([198,h>>>24,h>>>16,h>>>8,h]),c(p)):e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?l(e):(e=>{var t=0;for(var r in e)void 0!==e[r]&&t++;for(var r in t<=15?u(128+t):t<=65535?c([222,t>>>8,t]):c([223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(s(r),s(n))}})(e);break;default:if(!a&&t&&t.invalidTypeReplacement)\"function\"==typeof t.invalidTypeReplacement?s(t.invalidTypeReplacement(e),!0):s(t.invalidTypeReplacement,!0);else throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\")}}function l(e){var t=e.length;t<=15?u(144+t):t<=65535?c([220,t>>>8,t]):c([221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;t>r;r++)s(e[r])}function u(e){if(a.length<i+1){for(var t=2*a.length;t<i+1;)t*=2;var r=new Uint8Array(t);r.set(a),a=r}a[i]=e,i++}function c(e){if(a.length<i+e.length){for(var t=2*a.length;t<i+e.length;)t*=2;var r=new Uint8Array(t);r.set(a),a=r}a.set(e,i),i+=e.length}function f(e){var t,r;e>=0?(t=e/4294967296,r=e%4294967296):(t=~(t=Math.abs(++e)/4294967296),r=~(r=Math.abs(e)%4294967296)),c([t>>>24,t>>>16,t>>>8,t,r>>>24,r>>>16,r>>>8,r])}}function r(e,t){var r,n=0;if(e instanceof ArrayBuffer&&(e=new Uint8Array(e)),\"object\"!=typeof e||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(a());else r=a();return r;function a(){var t=e[n++];if(t>=0&&t<=127)return t;if(t>=128&&t<=143)return u(t-128);if(t>=144&&t<=159)return c(t-144);if(t>=160&&t<=191)return f(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return l(-1,1);if(197===t)return l(-1,2);if(198===t)return l(-1,4);if(199===t)return d(-1,1);if(200===t)return d(-1,2);if(201===t)return d(-1,4);if(202===t)return s(4);if(203===t)return s(8);if(204===t)return o(1);if(205===t)return o(2);if(206===t)return o(4);if(207===t)return o(8);if(208===t)return i(1);if(209===t)return i(2);if(210===t)return i(4);if(211===t)return i(8);if(212===t)return d(1);if(213===t)return d(2);if(214===t)return d(4);if(215===t)return d(8);if(216===t)return d(16);if(217===t)return f(-1,1);if(218===t)return f(-1,2);if(219===t)return f(-1,4);if(220===t)return c(-1,2);if(221===t)return c(-1,4);if(222===t)return u(-1,2);if(223===t)return u(-1,4);if(t>=224&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(t){for(var r=0,a=!0;t-- >0;)if(a){var i=e[n++];r+=127&i,128&i&&(r-=128),a=!1}else r*=256,r+=e[n++];return r}function o(t){for(var r=0;t-- >0;)r*=256,r+=e[n++];return r}function s(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return(n+=t,4===t)?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function l(t,r){t<0&&(t=o(r));var a=e.subarray(n,n+t);return n+=t,a}function u(e,t){e<0&&(e=o(t));for(var r={};e-- >0;)r[a()]=a();return r}function c(e,t){e<0&&(e=o(t));for(var r=[];e-- >0;)r.push(a());return r}function f(t,r){t<0&&(t=o(r));var a=n;return n+=t,((e,t,r)=>{var n=t,a=\"\";for(r+=t;r>n;){var i=e[n++];if(i>127){if(i>191&&i<224){if(n>=r)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(i>223&&i<240){if(n+1>=r)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else if(i>239&&i<248){if(n+2>=r)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}else throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1))}if(i<=65535)a+=String.fromCharCode(i);else if(i<=1114111)i-=65536,a+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320);else throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\")}return a})(e,a,t)}function d(e,t){e<0&&(e=o(t));var r=o(1),a=l(e);return 255===r?(e=>{if(4===e.length){var t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];return new Date(1e3*t)}if(8===e.length){var r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=(3&e[3])*4294967296+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7];return new Date(1e3*t+r/1e6)}if(12===e.length){var r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3];n-=8;var t=i(8);return new Date(1e3*t+r/1e6)}throw Error(\"Invalid data length for a date value.\")})(a):{type:r,data:a}}}var n={serialize:t,deserialize:r,encode:t,decode:r};e?e.exports=n:window[window.msgpackJsName||\"msgpack\"]=n})()})(r2);var{deserialize:r4,serialize:r6}=(C=r2.exports)&&C.__esModule&&Object.prototype.hasOwnProperty.call(C,\"default\")?C.default:C,r5=\"$ref\",r3=(e,t,r)=>ek(e)?G:r?t!==G:null===t||t,r8=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var a,i,o,s=(e,t,n=e[t],a=r3(t,n,r)?u(n):G)=>(n!==a&&(a!==G||ev(e)?e[t]=a:delete e[t],l(()=>e[t]=n)),a),l=e=>(a??=[]).push(e),u=e=>{if(null==e||eS(e)||ek(e))return G;if(!eg(e))return e;if(e.toJSON&&e!==(e=e.toJSON()))return u(e);if(null!=(o=i?.get(e)))return e[r5]||(e[r5]=o,l(()=>delete e[r5])),{[r5]:o};if(eb(e))for(var t in(i??=new Map).set(e,i.size+1),e)s(e,t);else!eT(e)||e instanceof Uint8Array||(!ev(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?s(e,r):(e[r]=null,l(()=>delete e[r])));return e};return W(()=>t?r6(u(e)??null):W(()=>JSON.stringify(e,G,n?2:0),()=>JSON.stringify(u(e),G,n?2:0)),!0,()=>a?.forEach(e=>e()))},r9=e=>{var t,r,n=e=>eg(e)?e[r5]&&(r=(t??=[])[e[r5]])?r:(e[r5]&&(t[e[r5]]=e,delete e[r5]),Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(ef(e)?JSON.parse(e):null!=e?W(()=>r4(e),()=>(console.error(\"Invalid message received.\",e),G)):e)},r7=(e,t={})=>{var r=(e,{json:t=!1,...r})=>{var n=(e,n)=>ec(e)&&!0===n?e:o(e=ef(e)?new Uint8Array(eF(e.length,t=>255&e.charCodeAt(t))):t?W(()=>JSON.stringify(e),()=>JSON.stringify(r8(e,!1,r))):r8(e,!0,r),n);if(t)return[e=>r8(e,!1,r),e=>null==e?G:W(()=>r9(e),G),(e,t)=>n(e,t)];var[a,i,o]=r1(e);return[(e,t)=>(t?Q:rY)(a(r8(e,!0,r))),e=>null!=e?r9(i(e instanceof Uint8Array?e:rZ(e))):null,(e,t)=>n(e,t)]};if(!e){var n=+(t.json??0);if(n&&!1!==t.prettify)return(y??=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[+n]}return r(e,t)};r7();var[ne,nt]=r7(null,{json:!0,prettify:!0}),nr=tH(\"\"+t1.currentScript.src,\"#\"),nn=tH(\"\"+(nr[1]||\"\"),\";\"),na=nr[0],ni=nn[1]||tq(na,!1)?.host,no=e=>!!(ni&&tq(e,!1)?.host?.endsWith(ni)===Y),ns=(...e)=>tX(tC(e),/(^(?=\\?))|(^\\.(?=\\/))/,na.split(\"?\")[0]),nl=ns(\"?\",\"var\"),nu=ns(\"?\",\"mnt\");ns(\"?\",\"usr\");var nc=Symbol(),nf=Symbol(),nd=(e,t,r=Y,n=X)=>{t&&(r?console.groupCollapsed:console.group)((n?\"\":tx(\"tail.js: \",\"90;3\"))+t);var a=e?.[nf];a&&(e=e[nc]),null!=e&&console.log(eg(e)?tx(ne(e),\"94\"):eS(e)?\"\"+e:e),a&&a.forEach(([e,t,r])=>nd(e,t,r,!0)),t&&console.groupEnd()},[nv,np]=r7(),[nh,ng]=[tQ,tQ],[nm,ny]=tT(),nb=e=>{ng===tQ&&([nh,ng]=r7(e),ny(nh,ng))},nw=e=>t=>nk(e,t),nk=(...e)=>{var t=e.shift();console.error(ef(e[1])?e.shift():e[1]?.message??\"An error occurred\",t.id??t,...e)},[nS,nT]=tT(),[nE,nI]=tT(),nA=e=>nN!==(nN=e)&&nT(nN=!1,nj(!0,!0)),nx=e=>nO!==(nO=!!e&&\"visible\"===document.visibilityState)&&nI(nO,!e,nC(!0,!0));nS(nx);var nN=!0,nO=!1,nC=tv(!1),nj=tv(!1);ru(window,[\"pagehide\",\"freeze\"],()=>nA(!1)),ru(window,[\"pageshow\",\"resume\"],()=>nA(!0)),ru(document,\"visibilitychange\",()=>(nx(!0),nO&&nA(!0))),nT(nN,nj(!0,!0));var n$=!1,n_=tv(!1),[nM,nU]=tT(),nF=th({callback:()=>n$&&nU(n$=!1,n_(!1)),frequency:2e4,once:!0,paused:!0}),nq=()=>!n$&&(nU(n$=!0,n_(!0)),nF.restart());ru(window,[\"focus\",\"scroll\"],nq),ru(window,\"blur\",()=>nF.trigger()),ru(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],nq),nq();var nP=()=>n_();(j=b||(b={}))[j.View=-3]=\"View\",j[j.Tab=-2]=\"Tab\",j[j.Shared=-1]=\"Shared\";var nR=t_(b,!1,\"local variable scope\"),nz=e=>nR.tryParse(e)??rb(e),nD=e=>nR.format(e)??rb.format(e),nW=e=>!!nR.tryParse(e?.scope),nB=tM({scope:nR},rk),nV=e=>null==e?void 0:ef(e)?e:e.source?nV(e.source):`${nz(e.scope)}\\0${e.key}\\0${e.targetId??\"\"}`,nJ=e=>{var t=e.split(\"\\0\");return{scope:+t[0],key:t[1],targetId:t[2]}},nL=0,nK=void 0,nG=()=>(nK??tQ())+\"_\"+nH(),nH=()=>(td(!0)-(parseInt(nK.slice(0,-2),36)||0)).toString(36)+\"_\"+(++nL).toString(36),nX=e=>crypto.getRandomValues(e),nY=()=>tX(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^nX(new Uint8Array(1))[0]&15>>e/4).toString(16)),nZ={},nQ={id:nK,heartbeat:td()},n0={knownTabs:{[nK]:nQ},variables:{}},[n1,n2]=tT(),[n4,n6]=tT(),n5=tQ,n3=e=>nZ[nV(e)],n8=(...e)=>n7(e.map(e=>(e.cache=[td(),3e3],nB(e)))),n9=e=>eF(e,e=>e&&[e,nZ[nV(e)]]),n7=e=>{var t=eF(e,e=>e&&[nV(e),e]);if(t?.length){var r=n9(e);e7(nZ,t);var n=eX(t,e=>e[1].scope>b.Tab);n.length&&(e7(n0.variables,n),n5({type:\"patch\",payload:eG(n)})),n6(r,nZ,!0)}};nm((e,t)=>{nS(r=>{if(r){var n=t(sessionStorage.getItem(F));sessionStorage.removeItem(F),nK=n?.[0]??td(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),nZ=eG(eR(eX(nZ,([,e])=>e.scope===b.View),eF(n?.[1],e=>[nV(e),e])))}else sessionStorage.setItem(F,e([nK,eF(nZ,([,e])=>e.scope!==b.View?e:void 0)]))},!0),n5=(t,r)=>{e&&(localStorage.setItem(F,e([nK,t,r])),localStorage.removeItem(F))},ru(window,\"storage\",e=>{if(e.key===F){var n=t?.(e.newValue);if(n&&(!n[2]||n[2]===nK)){var[a,{type:i,payload:o}]=n;if(\"query\"===i)r.active||n5({type:\"set\",payload:n0},a);else if(\"set\"===i&&r.active)e7(n0,o),e7(nZ,o.variables),r.trigger();else if(\"patch\"===i){var s=n9(eF(o,1));e7(n0.variables,o),e7(nZ,o),n6(s,nZ,!1)}else\"tab\"===i&&(e7(n0.knownTabs,a,o),o&&n2(\"tab\",o,!1))}}});var r=th(()=>n2(\"ready\",n0,!0),-25),n=th({callback(){var e=td()-1e4;eJ(n0?.knownTabs,([t,r])=>r[0]<e&&tn(n0.knownTabs,t)),nQ.heartbeat=td(),n5({type:\"tab\",payload:nQ})},frequency:5e3,paused:!0}),a=e=>{n5({type:\"tab\",payload:e?nQ:void 0}),e?(r.restart(),n5({type:\"query\"})):r.toggle(!1),n.toggle(e)};nS(e=>a(e),!0)},!0);var[ae,at]=tT(),[ar,an]=tT(),aa=((e,{timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var a=()=>(r?ng:np)(localStorage.getItem(e)),i=0,o=()=>localStorage.setItem(e,(r?nh:nv)([nK,td()+t]));return async(r,s,l=null!=s?1:n)=>{for(;l--;){var u=a();if((!u||u[1]<td())&&(o(),a()?.[0]===nK))return t>0&&(i=setInterval(()=>o(),t/2)),await L(r,!0,()=>{clearInterval(i),localStorage.removeItem(e)});var c=tw(),[f]=ru(window,\"storage\",t=>{t.key!==e||t.newValue||c.resolve()});await tk(tb(s??t),c),f()}null==s&&P(e+\" could not be acquired.\")}})(U+\"rq\"),ai=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{var a,i,o=!1,s=r=>{var s=eS(t)?t?.(a,r):t;return!1!==s&&(null!=s&&!0!==s&&(a=s),at(e,a,r,e=>(o=a===G,a=e)),!o&&(i=n?nh(a,!0):JSON.stringify(a)))};if(!r)return await aa(()=>eL(1,async t=>{if(!s(t))return eN();var r=await fetch(e,{method:null!=a?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i});if(r.status>=400)return 0===t?eN(P(`Invalid response: ${await r.text()}`)):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tb((1+t)*200));var o=n?new Uint8Array(await r.arrayBuffer()):await r.text(),l=o?.length?(n?ng:JSON.parse)?.(o):G;return null!=l&&an(l),eN(l)}));s(0)&&(navigator.sendBeacon(e,new Blob(null!=a?[i]:[],{type:\"text/plain\"}))||P(\"Beacon send failed.\"))},ao=[\"scope\",\"key\",\"targetId\",\"version\"],as=[...ao,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],al=[...ao,\"init\",\"purpose\",\"refresh\"],au=[...as,\"value\",\"force\",\"patch\"],ac=new Map,af=(e,t)=>{var r=th(async()=>{var e=eF(ac,([e,t])=>({...nJ(e),result:[...t]}));e.length&&await u.get(...e)},3e3),n=(e,t)=>t&&eB(t,t=>e3(ac,e,()=>new Set).add(t)),a=(e,t)=>{if(e){var r,a=nV(e),i=ta(ac,a);if(i?.size){if(e?.purposes===t?.purposes&&e?.classification==t?.classification&&R(e?.value,t?.value))return;eJ(i,i=>{r=!1,i?.(e,t,(e=!0)=>r=e),r&&n(a,i)})}}};nS((e,t)=>r.toggle(e,e&&t>=3e3),!0),n4(e=>eJ(e,([e,t])=>a(e,t)));var i=new Map,o=(e,t)=>e7(i,e,ea(t)?t?void 0:0:t),u={get:(...r)=>rT(async()=>{(!r[0]||ef(r[0]))&&(a=r[0],r=r.slice(1)),t?.validateKey(a);var a,i=[],s=eF(r,(e,t)=>[e,t]),l=[],u=(await ai(e,()=>!!(s=eF(s,([e,t])=>{if(e){var r=nV(e);n(r,e.result);var a=n3(r);e.init&&o(r,e.cache);var s=e.purposes;if((s??~0)&(a?.purposes??~0)){if(!e.refresh&&a?.[1]<td())tu(i,[{...a,status:d.Success},t]);else if(!nW(e))return[to(e,al),t];else if(eb(e.init)){var u={...nB(e),status:d.Created,...e.init};null!=u.value&&(tu(l,c(u)),tu(i,[u,t]))}}else tu(i,[{...e,status:d.Denied,error:\"No consent for \"+rh.logFormat(s)},t])}})).length&&{variables:{get:eF(s,0)},deviceSessionId:t?.deviceSessionId}))?.variables?.get??[];return tu(i,...eF(u,(e,t)=>e&&[e,s[t][1]])),l.length&&n7(l),i.map(([e])=>e)},eF(r,e=>e?.error)),set:(...r)=>rT(async()=>{(!r[0]||ef(r[0]))&&(n=r[0],r=r.slice(1)),t?.validateKey(n);var n,a=[],i=[],u=eF(r,(e,t)=>{if(e){var r=nV(e),n=n3(r);if(o(r,e.cache),nW(e)){if(null!=e.patch)return P(\"Local patching is not supported.\");var u={value:e.value,classification:s.Anonymous,purposes:l.Necessary,scope:nR(e.scope),key:e.key};return i[t]={status:n?d.Success:d.Created,source:e,current:u},void tu(a,c(u))}return null==e.patch&&e?.version===void 0&&(e.version=n?.version,e.force??=!!e.version),[to(e,au),t]}}),f=u.length?D((await ai(e,{variables:{set:u.map(e=>e[0])},deviceSessionId:t?.deviceSessionId})).variables?.set,\"No result.\"):[];return a.length&&n7(a),eJ(f,(e,t)=>{var[r,n]=u[t];e.source=r,r.result?.(e),i[n]=e}),i},eF(r,e=>e?.error))},c=(e,t=td())=>({...to(e,as),cache:[t,t+(ta(i,nV(e))??3e3)]});return ar(({variables:e})=>{if(e){var t=td(),r=eR(eF(e.get,e=>rI(e)),eF(e.set,e=>rI(e)));r?.length&&n7(eB(r,c,t))}}),u},ad=(e,t,r=tZ)=>{var n=[],a=new WeakMap,i=new Map,o=(e,t)=>e.metadata?.queued?e8(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):P(\"Source event not queued.\"),s=async(r,n=!0,a)=>{var i;return(!r[0]||ef(r[0]))&&(i=r[0],r=r.slice(1)),nd({[nf]:eF(r=r.map(e=>(t?.validateKey(i??e.key),e8(e,{metadata:{posted:!0}}),e8(rm(tl(e),!0),{timestamp:e.timestamp-td()}))),e=>[e,e.type,X])},\"Posting \"+tE([tI(\"new event\",[eY(r,e=>!ry(e))||void 0]),tI(\"event patch\",[eY(r,e=>ry(e))||void 0])])+(n?\" asynchronously\":\" synchronously\")+\".\"),ai(e,{events:r,variables:a,deviceSessionId:t?.deviceSessionId},{beacon:n})},l=async(e,{flush:r=!1,async:a=!0,variables:i}={})=>{if((e=eF(eh(e),e=>e8(t.applyEventExtensions(e),{metadata:{queued:!0}}))).length&&eJ(e,e=>nd(e,e.type)),!a)return s(e,!1,i);if(!r){e.length&&tu(n,...e);return}n.length&&tc(e,...n.splice(0)),e.length&&await s(e,!0,i)};return r>0&&th(()=>l([],{flush:!0}),r),nE((e,t,r)=>{if(!e&&(n.length||t||r>1500)){var o=eF(i,([e,t])=>{var[r,n]=t();return n&&(i.delete(e),a.delete(e)),r});(n.length||o.length)&&l(eR(n.splice(0),o),{flush:!0})}}),{post:l,postPatch:(e,t,r)=>l(o(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var s=!1,u=()=>{s=!0};return a.set(e,tl(e)),i.set(e,()=>{if(n?.isConnected===!1)u();else{var r=a.get(e),[i,l]=tf(t(r,u),r)??[];if(i&&!R(l,r))return a.set(e,tl(l)),[o(e,i),s]}return[void 0,s]}),r&&l(e),u}}},av=Symbol(),ap=[.75,.33],ah=[.25,.33],ag=e=>{var t=new IntersectionObserver(e=>eJ(e,e=>e.target[av]?.(e))),r=new Set;th({callback:()=>eJ(r,e=>e()),frequency:250,raf:!0});var n=(e,t,r=0)=>e<r?r:e>t?t:e,a=t1.createRange();return(i,o)=>{if(o&&(s=eX(o?.component,e=>e.track?.impressions||(e.track?.secondary??e.inferred)!==Y))&&eY(s)){var s,l,u,c,f,d,v=X,p=X,h=0,g=0,m=(e,t,r,n)=>{var a=(l??=[])[e]??=[{duration:0,impressions:0},tv(!1,nP),!1,!1,0,0,0,tY()];a[4]=t,a[5]=r,a[6]=n},y=[tY(),tY()],b=aM(!1),w=tv(!1,nP),k=-1,S=()=>{var t=i.getBoundingClientRect(),r=window.innerWidth,o=window.innerHeight,S=[n(t.top,o),n(t.right,r),n(t.bottom,o),n(t.left,r)],T=S[2]-S[0],E=S[1]-S[3],I=T/t.height||0,A=E/t.width||0,x=v?ah:ap,N=(T>x[0]*o||I>x[0])&&(E>x[0]*r||A>x[0]);if(p!==N&&w(p=N,!0),v!==(v=p&&w()>=rL.impressionThreshold-250)&&(++h,b(v),u||e(u=eX(eF(s,e=>(e.track?.impressions||rV(i,\"impressions\",Y,e=>e.track?.impressions))&&K({type:\"impression\",pos:ro(i),viewport:rf(),timeOffset:aF(),impressions:h,...aG(i,Y)})||null))),u?.length)){var O=b();c=eF(u,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:O,impressions:h,regions:l&&{top:l[0][0],middle:l[1][0],bottom:l[2][0]},seen:g,text:d,read:O.activeTime&&d&&n(O.activeTime/d.readTime,g)})))}if(t.height!==k){k=t.height;var C=i.textContent;if({boundaries:f,...d}=tj(C??\"\",[0,.25,.75,1]),l||t.height>=1.25*o){var j,$=t1.createTreeWalker(i,NodeFilter.SHOW_TEXT),_=0,M=0;for(l??=[];M<f.length&&(j=$.nextNode());){var U=j.textContent?.length??0;for(_+=U;_>=f[M]?.offset;)if(a[M%2?\"setEnd\":\"setStart\"](j,f[M].offset-_+U),M++%2){var{top:F,bottom:q}=a.getBoundingClientRect(),P=t.top;M<3?m(0,F-P,q-P,f[1].readTime):(m(1,l[0][4],F-P,f[2].readTime),m(2,F-P,q-P,f[3].readTime))}}}}var R=t.left<0?-t.left:0,z=t.top<0?-t.top:0,D=t.width*t.height;v&&(g=y[0].push(z,z+T)*y[1].push(R,R+E)/D),l&&eJ(l,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),a=n(t.bottom>o?o:t.bottom,e[5],e[4]),i=v&&a-r>0,s=e[0];s.duration=e[1](i),i&&(e[3]!==(e[3]=i)&&++e[0].impressions,s.seen=e[7].push(r,a)/(e[5]-e[4]),s.read=n(s.duration/e[6],s.seen))})};i[av]=({isIntersecting:e})=>{e7(r,S,e),e||(eJ(c,e=>e()),S())},t.observe(i)}}},am=()=>{n4((e,t,r)=>{var n=eR(rS(eF(e,1))?.map(e=>[e,`${e.key} (${nD(e.scope)}, ${e.scope<0?\"client-side memory only\":rh.format(e.purposes)})`,X]),[[{[nf]:rS(eF(t,1))?.map(e=>[e,`${e.key} (${nD(e.scope)}, ${e.scope<0?\"client-side memory only\":rh.format(e.purposes)})`,X])},\"All variables\",Y]]);nd({[nf]:n},tx(`Variables changed${r?\"\":\" - merging changes from another tab\"} (${e.length} changed, ${eY(t)} in total).`,\"2;3\"))})},ay=()=>{var e=t0?.screen;if(!e)return{};var{width:t,height:r,orientation:n}=e,a=t<r,i=n?.angle??t0.orientation??0;return(-90===i||90===i)&&([t,r]=[r,t]),{deviceType:t<480?\"mobile\":t<=1024?\"tablet\":\"desktop\",screen:{dpr:t0.devicePixelRatio,width:t,height:r,landscape:a}}},ab=e=>e(K({type:\"user_agent\",hasTouch:navigator.maxTouchPoints>0,userAgent:navigator.userAgent,view:k?.clientId,languages:eF(navigator.languages,(e,t,r=e.split(\"-\"))=>K({id:e,language:r[0],region:r[1],primary:0===t,preference:t+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:new Date().getTimezoneOffset()},...ay()})),aw=(e,t=\"A\"===rr(e)&&t8(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),ak=(e,t=rr(e),r=rV(e,\"button\"))=>r!==X&&(z(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&z(t7(e,\"type\"),\"button\",\"submit\")||r===Y),aS=(e,t=!1)=>({tagName:e.tagName,text:tO(t8(e,\"title\")?.trim()||t8(e,\"alt\")?.trim()||e.innerText?.trim(),100),href:e.href?.toString(),rect:t?rl(e):void 0}),aT=(e,t,r=!1)=>{var n;return t5(e??t,e=>\"IMG\"===rr(e)||e===t?(n={element:aS(e,r)},X):Y),n},aE=e=>{if(w)return w;ef(e)&&([t,e]=np(e),e=r7(t)[1](e)),e7(rL,e),nb(ta(rL,\"encryptionKey\"));var t,r=ta(rL,\"key\"),n=t0[rL.name]?._??[];if(!ev(n)){P(`The global variable for the tracker \"${rL.name}\" is used for something else than an array of queued commands.`);return}var a=[],i=[],o=(e,...t)=>{var r=Y;i=eX(i,n=>W(()=>(n[e]?.(...t,{tracker:w,unsubscribe:()=>r=X}),r),nw(n)))},s=[],l={applyEventExtensions(e){e.clientId??=nG(),e.timestamp??=td(),v=Y;var t=X;return eF(a,([,r])=>{(t||r.decorate?.(e)===X)&&(t=Y)}),t?void 0:e},validateKey:(e,t=!0)=>!r&&!e||e===r||!!t&&P(`'${e}' is not a valid key.`)},u=af(nl,l),c=ad(nl,l),f=null,d=0,v=X,p=X;return w=(...e)=>{if(e.length){if(e.length>1&&(!e[0]||ef(e[0]))&&(t=e[0],e=e.slice(1)),ef(e[0])){var t,r=e[0];e=r.match(/^[{[]/)?JSON.parse(r):np(r)}var n=X;if((e=eX(eP(e,e=>ef(e)?np(e):e),e=>{if(!e)return X;if(a0(e))rL.tags=e7({},rL.tags,e.tagAttributes);else if(a1(e))return rL.disabled=e.disable,X;else if(a6(e))return n=Y,X;else if(ie(e))return e(w),X;return p||a3(e)||a4(e)?Y:(s.push(e),X)})).length||n){var h=e6(e,e=>a4(e)?-100:a3(e)?-50:a7(e)?-10:rO(e)?90:0);if(!(f&&f.splice(v?d+1:f.length,0,...h))){for(d=0,f=h;d<f.length;d++){var g=f[d];g&&(l.validateKey(t??g.key),W(()=>{var e,t=f[d];if(o(\"command\",t),v=X,rO(t))c.post(t);else if(a5(t))u.get(...eh(t.get));else if(a7(t))u.set(...eh(t.set));else if(a3(t))tu(i,t.listener);else if(a4(t))(e=W(()=>t.extension.setup(w),e=>nk(t.extension.id,e)))&&(tu(a,[t.priority??100,e,t.extension]),e6(a,([e])=>e));else if(ie(t))t(w);else{var r=X;for(var[,e]of a)if(r=e.processCommand?.(t)??X)break;r||nk(\"invalid-command\",t,\"Loaded extensions:\",a.map(e=>e[2].id))}},e=>nk(w,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}},Object.defineProperty(t0,rL.name,{value:Object.freeze(Object.assign(w,{id:\"tracker_\"+nG(),events:c,variables:u,__isTracker:Y})),configurable:!1,writable:!1}),am(),n1(async(e,t,r,a)=>{if(\"ready\"===e){var i=rN((await u.get({scope:\"session\",key:_,refresh:!0},{scope:\"session\",key:M,refresh:!0,cache:H}))[0]).value;l.deviceSessionId=i.deviceSessionId,i.hasUserAgent||(ab(w),i.hasUserAgent=!0),p=!0,s.length&&w(s),a(),w(...eF(aX,e=>({extension:e})),...n,{set:{scope:\"view\",key:\"loaded\",value:!0}})}},!0),w},aI=()=>k?.clientId,aA={scope:\"shared\",key:\"referrer\"},ax=(e,t)=>{w.variables.set({...aA,value:[aI(),e]}),t&&w.variables.get({scope:aA.scope,key:aA.key,result:(r,n,a)=>r?.value?a():n?.value?.[1]===e&&t()})},aN=tv(),aO=tv(),aC=1,aj=()=>aO(),[a$,a_]=tT(),aM=e=>{var t=tv(e,aN),r=tv(e,aO),n=tv(e,nP),a=tv(e,()=>aC);return(e,i)=>({totalTime:t(e,i),visibleTime:r(e,i),activeTime:n(e,i),activations:a(e,i)})},aU=aM(),aF=()=>aU(),[aq,aP]=tT(),aR=(e,t)=>(t&&eJ(aD,t=>e(t,()=>!1)),aq(e)),az=new WeakSet,aD=document.getElementsByTagName(\"iframe\"),aW=e=>(null==e||(e===Y||\"\"===e)&&(e=\"add\"),ef(e)&&z(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:eg(e)?e:void 0);function aB(e){if(e){if(null!=e.units&&z(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=e.units>0?\"add\":\"remove\"}return e}}var aV=e=>rJ(e,void 0,e=>eF(eh(e3(rM,e)?.tags))),aJ=e=>e?.component||e?.content,aL=e=>rJ(e,t=>t!==e&&!!aJ(e3(rM,t)),e=>(T=e3(rM,e),(T=e3(rM,e))&&eP(eR(T.component,T.content,T),\"tags\"))),aK=(e,t)=>t?e:{...e,rect:void 0,content:(E=e.content)&&eF(E,e=>({...e,rect:void 0}))},aG=(e,t=X,r)=>{var n,a,i,o=[],s=[],l=0;return t5(e,e=>{var a=e3(rM,e);if(a){if(aJ(a)){var i=eX(eh(a.component),e=>0===l||!t&&(1===l&&e.track?.secondary!==Y||e.track?.promote));n=(r??e4(i,e=>e.track?.region))&&rl(e)||void 0;var u=aL(e);a.content&&tc(o,...eF(a.content,e=>({...e,rect:n,...u}))),i?.length&&(tc(s,...eF(i,e=>(l=eZ(l,e.track?.secondary?1:2),aK({...e,content:o,rect:n,...u},!!n)))),o=[])}var c=a.area||rB(e,\"area\");c&&tc(s,...eF(eh(c)))}}),o.length&&tu(s,aK({id:\"\",rect:n,content:o})),eJ(s,e=>{ef(e)?tu(a??=[],e):(e.area??=tC(a,\"/\"),tc(i??=[],e))}),i||a?{components:i,area:tC(a,\"/\")}:void 0},aH=Symbol();$={necessary:1,preferences:2,statistics:4,marketing:8},window.tail({consent:{externalSource:{key:\"Cookiebot\",poll(){var e=t1.cookie.match(/CookieConsent=([^;]*)/)?.[1];if(e){var t=1;return e?.replace(/([a-z]+):(true|false)/g,(e,r,n)=>(\"true\"===n&&(t|=$[r]??0),\"\")),{level:t>1?1:0,purposes:t}}}}}});var aX=[{id:\"context\",setup(e){th(()=>eJ(aD,e=>tt(az,e)&&aP(e)),1e3).trigger(),e.variables.get({scope:\"view\",key:\"view\",result:(r,n,a)=>(null==k||!r?.value||k?.definition?t=r?.value:(k.definition=r.value,k.metadata?.posted&&e.events.postPatch(k,{definition:t})),a())});var t,r=n3({scope:\"tab\",key:\"viewIndex\"})?.value??0,n=n3({scope:\"tab\",key:\"tabIndex\"})?.value;null==n&&n8({scope:\"tab\",key:\"tabIndex\",value:n=n3({scope:\"shared\",key:\"tabIndex\"})?.value??n3({scope:\"session\",key:_})?.value?.tabs??0},{scope:\"shared\",key:\"tabIndex\",value:n+1});var a=null,i=(i=X)=>{if(!ri(\"\"+a,a=location.href)||i){var{source:o,scheme:s,host:l}=tq(location.href+\"\",!0);k={type:\"view\",timestamp:td(),clientId:nG(),tab:nK,href:o,path:location.pathname,hash:location.hash||void 0,domain:{scheme:s,host:l},tabNumber:n+1,tabViewNumber:r+1,viewport:rf(),duration:aU(void 0,!0)},0===n&&(k.firstTab=Y),0===n&&0===r&&(k.landingPage=Y),n8({scope:\"tab\",key:\"viewIndex\",value:++r});var u=tP(location.href);if(eF([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>(k.utm??={})[e]=eh(u[`utm_${e}`])?.[0]),!(k.navigationType=S)&&performance&&eF(performance.getEntriesByType(\"navigation\"),e=>{k.redirects=e.redirectCount,k.navigationType=tX(e.type,/\\_/g,\"-\")}),S=void 0,\"navigate\"===(k.navigationType??=\"navigate\")){var c=n3(aA)?.value;c&&no(document.referrer)&&(k.view=c?.[0],k.relatedEventId=c?.[1],e.variables.set({...aA,value:void 0}))}var c=document.referrer||null;c&&!no(c)&&(k.externalReferrer={href:c,domain:rc(c)}),k.definition=t,t=void 0,e.events.post(k),e.events.registerEventPatchSource(k,()=>({duration:aF()})),a_(k)}};return nE(e=>{e?(aO(Y),++aC):aO(X)}),ru(window,\"popstate\",()=>(S=\"back-forward\",i())),eF([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),S=\"navigate\",i()}}),i(),{processCommand:t=>aQ(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),Y),decorate(e){!k||rC(e)||ry(e)||(e.view=k.clientId)}}}},{id:\"components\",setup(e){var t=ag(e),r=e=>null==e?void 0:{...e,component:eh(e.component),content:eh(e.content),tags:eh(e.tags)},n=({boundary:e,...n})=>{te(rM,e,e=>r(\"add\"in n?{...e,component:eR(e?.component,n.component),content:eR(e?.content,n.content),area:n?.area??e?.area,tags:eR(e?.tags,n.tags),cart:n.cart??e?.cart,track:n.track??e?.track}:\"update\"in n?n.update(e):n)),t(e,e3(rM,e))};return{decorate(e){eJ(e.components,e=>ta(e,\"track\"))},processCommand:e=>a2(e)?(n(e),Y):a9(e)?(eF(((e,t)=>{if(!t)return[];var r=[],n=new Set;return document.querySelectorAll(`[${e}]`).forEach(a=>{if(!e3(n,a))for(var i=[];null!=t8(a,e);){tt(n,a);var o=tH(t8(a,e),\"|\");t8(a,e,null);for(var s=0;s<o.length;s++){var l=o[s];if(\"\"!==l){var u=\"-\"===l?-1:parseInt(ed(l)??\"\",36);if(u<0){i.length+=u;continue}if(0===s&&(i.length=0),isNaN(u)&&/^[\"\\[{]/.test(l))for(var c=\"\";s<o.length;s++)try{l=JSON.parse(c+=o[s]);break}catch(e){}u>=0&&t[u]&&(l=t[u]),tu(i,l)}}tu(r,...eF(i,e=>({add:Y,...e,boundary:a})));var f=a.nextElementSibling;\"WBR\"===a.tagName&&a.parentNode?.removeChild(a),a=f}}),r})(e.scan.attribute,e.scan.components),n),Y):X}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{ru(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var a,i,o,s,l,u=X;if(t5(n.target,e=>{ak(e)&&(o??=e),u=u||\"NAV\"===rr(e);var t=rU(e),r=t?.component;!n.button&&r?.length&&!l&&(eJ(e.querySelectorAll(\"a,button\"),t=>ak(t)&&((l??=[]).length>3?eN():l.push({...aS(t,!0),component:t5(t,(e,t,r,n=rU(e)?.component)=>n&&t(n[0]),t=>t===e)}))),l&&(s??=e)),a??=rV(e,\"clicks\",Y,e=>e.track?.clicks)??(r&&e4(r,e=>e.track?.clicks!==X)),i??=rV(e,\"region\",Y,e=>e.track?.region)??(r&&e4(r,e=>e.track?.region))}),s??=o){var c,f=l&&!o&&a,d=aG(s,!1,f),v=aV(s);a??=!u;var p={...(i??=Y)?{pos:ro(o,n),viewport:rf()}:null,...aT(n.target,s),...d,timeOffset:aF(),...v};if(!o){f&&te(t,s,r=>{var a=rs(s,n);if(r)tu(r,a);else{var i=K({type:\"component_click_intent\",...p,clicks:r=[a],clickables:l});e.events.registerEventPatchSource(i,()=>({clicks:e3(t,s)}),!0,s)}return r});return}if(aw(o)){var h=o.hostname!==location.hostname,{host:g,scheme:m,source:y}=tq(o.href,!1);if(o.host===location.host&&o.pathname===location.pathname&&o.search===location.search){if(\"#\"===o.hash)return;o.hash!==location.hash&&0===n.button&&e(K({type:\"anchor_navigation\",anchor:o.hash,...p}));return}var b=K({clientId:nG(),type:\"navigation\",href:h?o.href:y,external:h,domain:{host:g,scheme:m},self:Y,anchor:o.hash,...p});if(\"contextmenu\"===n.type){var w=o.href,k=no(w);if(k){ax(b.clientId,()=>e(b));return}var S=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8);if(!k){if(!rL.captureContextMenu)return;o.href=nu+\"=\"+S+encodeURIComponent(w),ru(window,\"storage\",(t,r)=>t.key===q&&(t.newValue&&JSON.parse(t.newValue)?.requestId===S&&e(b),r())),ru(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),o.href=w})}return}n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||t8(o,\"target\")!==window.name?(ax(b.clientId),b.self=X,e(b)):ri(location.href,o.href)||(b.exit=b.external,ax(b.clientId)));return}var T=(t5(n.target,(e,t)=>!!(c??=aW(rU(e)?.cart??rB(e,\"cart\")))&&!c.item&&(c.item=e2(rU(e)?.content))&&t(c)),aB(c));(T||a)&&e(T?K({type:\"cart_updated\",...p,...T}):K({type:\"component_click\",...p}))}})};r(document),aR(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=ra(Y);a$(()=>ty(()=>(t={},r=ra(Y)),250)),ru(window,\"scroll\",()=>{var n=ra(),a=rn();if(n.y>=r.y){var i=[];!t.fold&&n.y>=r.y+200&&(t.fold=Y,tu(i,\"fold\")),!t[\"page-middle\"]&&a.y>=.5&&(t[\"page-middle\"]=Y,tu(i,\"page-middle\")),!t[\"page-end\"]&&a.y>=.99&&(t[\"page-end\"]=Y,tu(i,\"page-end\"));var o=eF(i,e=>K({type:\"scroll\",scrollType:e,offset:a}));o.length&&e(o)}})}},{id:\"cart\",setup:e=>({processCommand(t){if(aZ(t)){var r=t.cart;return\"clear\"===r?e({type:\"cart_updated\",action:\"clear\"}):(r=aB(r))&&e({...r,type:\"cart_updated\"}),Y}return a8(t)?(e({type:\"order\",...t.order}),Y):X}})},{id:\"forms\",setup(e){var t=new Map,r=(e,t=!1)=>{var r=!t||t9(e,rF(\"form-value\"));t&&(r=r?ei(r):\"checkbox\"===e.type);var n=e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value;return t&&n&&(n=tO(n,200)),r?n:void 0},n=n=>{var a,i=n.form;if(i){var s=t9(i,rF(\"ref\"))||\"track_ref\",l=()=>i.isConnected&&rl(i).width,u=e3(t,i,()=>{var t,r=new Map,n={type:\"form\",name:t9(i,rF(\"form-name\"))||t8(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}};e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:aF()}));var s=()=>{o(),t[3]>=2&&(n.completed=3===t[3]||!l()),e.events.postPatch(n,{...a,totalTime:td(Y)-t[4]}),t[3]=1},u=tp();return ru(i,\"submit\",()=>{a=aG(i),t[3]=3,u(()=>{i.isConnected&&rl(i).width>0?(t[3]=2,u()):s()},750)}),t=[n,r,i,0,td(Y),1]});return e3(u[1],n)||eF(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,t)=>{if(!e.name||\"hidden\"===e.type){\"hidden\"===e.type&&(e.name===s||rV(e,\"ref\"))&&(e.value||(e.value=nY()),u[0].ref=e.value);return}var n=e.name,a=u[0].fields[n]??={id:e.id||n,name:n,label:tX(e.labels?.[0]?.innerText??e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:e.type??\"unknown\",[aH]:r(e),value:r(e,!0)};u[0].fields[a.name]=a,u[1].set(e,a)}),[n,u]}},a=(e,[t,r]=n(e)??[],a=r?.[1].get(t))=>a&&[r[0],a,t,r],i=null,o=()=>{if(i){var[e,t,n,a]=i,o=-(s-(s=aj())),u=-(l-(l=td(Y))),c=t[aH];(t[aH]=r(n))!==c&&(t.fillOrder??=a[5]++,t.filled&&(t.corrections=(t.corrections??0)+1),t.filled=Y,a[3]=2,eJ(e.fields,([e,r])=>r.lastField=e===t.name)),t.value=r(n,!0),t.activeTime+=o,t.totalTime+=u,e.activeTime+=o,e.totalTime+=u,i=null}},s=0,l=0,u=e=>e&&ru(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>r&&(i=r,\"focusin\"===e.type?(l=td(Y),s=aj()):o()));u(document),aR(e=>e.contentDocument&&u(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t=async t=>await e.variables.get({scope:\"session\",key:M,result:t}).value,r=async r=>{if(r){var n=await t();if(!n||rv(n,r=rp(r)))return[!1,n];var a={level:rd.lookup(r.classification),purposes:rh.lookup(r.purposes)};return await e.events.post(K({type:\"consent\",consent:a}),{async:!1,variables:{get:[{scope:\"session\",key:M}]}}),[!0,a]}},n={};return{processCommand(e){if(it(e)){var a=e.consent.get;a&&t(a);var i=rp(e.consent.set);i&&(async()=>i.callback?.(...await r(i)))();var o=e.consent.externalSource;if(o){var s,l=o.key,u=n[l]??=th({frequency:o.pollFrequency??1e3}),c=async()=>{if(t1.hasFocus()){var e=o.poll();if(e){var t=rp({...s,...e});if(t&&!rv(s,t)){var[n,a]=await r(t);n&&nd(a,\"Consent was updated from \"+l),s=t}}}};u.restart(o.pollFrequency,c).trigger()}return Y}return X}}}}],aY=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&t?.[e]!==void 0),aZ=aY(\"cart\"),aQ=aY(\"username\"),a0=aY(\"tagAttributes\"),a1=aY(\"disable\"),a2=aY(\"boundary\"),a4=aY(\"extension\"),a6=aY(Y,\"flush\"),a5=aY(\"get\"),a3=aY(\"listener\"),a8=aY(\"order\"),a9=aY(\"scan\"),a7=aY(\"set\"),ie=e=>\"function\"==typeof e,it=aY(\"consent\");Object.defineProperty(t0,\".tail.js.init\",{writable:!1,configurable:!1,value(e){e(aE)}})})();\n//# sourceMappingURL=index.min.debug.js.map\n"
+    debug: "(()=>{\"use strict\";var e,r,t,n,l,i,a,s,v,d,c,f,p,h,g,m,y,b,w,k,S,T,I,A,x,N,O,B=(e,r=e=>Error(e))=>{throw eg(e=rc(e))?r(e):e},V=(e,r,t=-1)=>{if(e===r||null==(null!=e?e:r))return!0;if(ek(e)&&ek(r)&&e.length===r.length){var l,n=0;for(l in e){if(e[l]!==r[l]&&!V(e[l],r[l],t-1))return!1;++n}return n===Object.keys(r).length}return!1},J=(e,r,...t)=>e===r||0<t.length&&t.some(r=>J(e,r)),L=(e,r)=>null!=e?e:B(null!=r?r:\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),K=(e,r=!0,t)=>{try{return e()}catch(e){return ex(r)?eb(e=r(e))?B(e):e:es(r)?console.error(r?B(e):e):r}finally{null!=t&&t()}},G=e=>{var r,t=()=>t.initialized||r?r:(r=rc(e)).then?r=r.then(e=>(t.initialized=!0,t.resolved=r=e)):(t.initialized=!0,t.resolved=r);return t},Y=async(e,r=!0,t)=>{try{var n,l=await rc(e);return ey(r)?null==(n=r[0])?void 0:n.call(r,l):l}catch(e){if(!es(r)){if(ey(r)){if(r[1])return r[1](e);throw e}var i=await(null==r?void 0:r(e));if(i instanceof Error)throw i;return i}if(r)throw e;console.error(e)}finally{await(null==t?void 0:t())}},Z=e=>e,Q=void 0,ee=Number.MAX_SAFE_INTEGER,er=!1,et=!0,en=()=>{},el=e=>e,ei=e=>null!=e,ea=Symbol.iterator,eo=(e,r)=>(t,n=!0)=>e(t)||r&&n&&null!=t&&null!=(t=r(t))?t:Q,eu=(e,r)=>ex(r)?e!==Q?r(e):Q:(null==e?void 0:e[r])!==Q?e:Q,es=e=>\"boolean\"==typeof e,ev=eo(es,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||Q))),ed=e=>!!e,ep=Number.isSafeInteger,eh=e=>\"number\"==typeof e,eg=e=>\"string\"==typeof e,em=eo(eg,e=>null==e?void 0:e.toString()),ey=Array.isArray,eb=e=>e instanceof Error,ew=(e,r=!1)=>null==e?Q:!r&&ey(e)?e:eN(e)?[...e]:[e],ek=e=>null!==e&&\"object\"==typeof e,eS=Object.prototype,eT=Object.getPrototypeOf,eE=e=>null!=e&&eT(e)===eS,eI=(e,r)=>\"function\"==typeof(null==e?void 0:e[r]),eA=e=>\"symbol\"==typeof e,ex=e=>\"function\"==typeof e,eN=(e,r=!1)=>!(null==e||!e[ea]||\"object\"!=typeof e&&!r),eO=e=>e instanceof Map,eC=e=>e instanceof Set,ej=(e,r)=>null==e?Q:!1===r?e:Math.round(e*(r=Math.pow(10,r&&!0!==r?r:0)))/r,e$=!1,e_=e=>(e$=!0,e),eM=e=>null==e?Q:ex(e)?e:r=>r[e],eU=(e,r,t)=>(null!=r?r:t)!==Q?(e=eM(e),null==r&&(r=0),null==t&&(t=ee),(n,l)=>r--?Q:t--?e?e(n,l):n:t):e,eF=e=>null==e?void 0:e.filter(ei),eP=(e,r,t,n)=>null==e?[]:!r&&ey(e)?eF(e):e[ea]?function*(e,r){if(null!=e)if(r){r=eM(r);var t=0;for(n of e)if(null!=(n=r(n,t++))&&(yield n),e$){e$=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,t===Q?r:eU(r,t,n)):ek(e)?function*(e,r){r=eM(r);var n,t=0;for(n in e){var l=[n,e[n]];if(null!=(l=r?r(l,t++):l)&&(yield l),e$){e$=!1;break}}}(e,eU(r,t,n)):eP(ex(e)?function*(e,r,t=Number.MAX_SAFE_INTEGER){for(null!=r&&(yield r);t--&&null!=(r=e(r));)yield r}(e,t,n):function*(e=0,r){if(e<0)for(null==r&&(r=-e-1);e++;)yield r--;else for(null==r&&(r=0);e--;)yield r++}(e,t),r),eR=(e,r,t,n)=>eP(e,r,t,n),ez=(e,r,t=1,n=!1,l,i)=>function*e(r,t,n,l){if(null!=r)if(r[ea]||n&&ek(r))for(var i of l?eP(r):r)1!==t?yield*e(i,t-1,n,!0):yield i;else yield r}(eP(e,r,l,i),t+1,n,!1),eD=(e,r,t,n)=>{if(r=eM(r),ey(e)){var l=0,i=[];for(t=t<0?e.length+t:null!=t?t:0,n=n<0?e.length+n:null!=n?n:e.length;t<n&&!e$;t++){var a=e[t];null!=(r?a=r(a,l++):a)&&i.push(a)}return e$=!1,i}return null!=e?ew(eR(e,r,t,n)):Q},eB=(e,r,t=1,n=!1,l,i)=>ew(ez(e,r,t,n,l,i)),eV=(...e)=>{var r;return eX(1===e.length?e[0]:e,e=>null!=e&&(null!=r?r:r=[]).push(...ew(e))),r},eG=(e,r,...t)=>null==e?Q:eN(e)?eD(e,e=>r(e,...t)):r(e,...t),eH=(e,r,t,n)=>{var l;if(null!=e){if(ey(e))return((e,r,t,n)=>{var l,i,a=0;for(t=t<0?e.length+t:null!=t?t:0,n=n<0?e.length+n:null!=n?n:e.length;t<n;t++)if(null!=e[t]&&(l=null!=(i=r(e[t],a++))?i:l,e$)){e$=!1;break}return l})(e,r,t,n);if(t===Q){if(e[ea])return((e,r)=>{var t,n,i,l=0;for(i of e)if(null!=i&&(t=null!=(n=r(i,l++))?n:t,e$)){e$=!1;break}return t})(e,r);if(\"object\"==typeof e)return((e,r)=>{var t,n,i,l=0;for(i in e)if(t=null!=(n=r([i,e[i]],l++))?n:t,e$){e$=!1;break}return t})(e,r)}for(var i of eP(e,r,t,n))null!=i&&(l=i);return l}},eX=eH,eZ=Object.fromEntries,eQ=(e,r,t)=>{var n,l,i;return null==e?Q:es(r)||t?(i={},eX(e,t?(e,n)=>null!=(e=r(e,n))&&null!=(e[1]=t(i[e[0]],e[1]))&&(i[e[0]]=e[1]):e=>eX(e,r?e=>{var r;return null!=(null==e?void 0:e[1])&&((null!=(r=(n=i)[l=e[0]])?r:n[l]=[]).push(e[1]),i)}:e=>null!=(null==e?void 0:e[1])&&(i[e[0]]=e[1],i))),i):eZ(eD(e,r?(e,t)=>eu(r(e,t),1):e=>eu(e,1)))},e1=(e,r=e=>null!=e,t=ey(e),n,l)=>(e=>t&&!ey(e)?[...e]:e)(eP(e,(e,t)=>r(e,t)?e:Q,n,l)),e2=(e,r,t,n)=>{var l;if(null==e)return Q;if(r)e=e1(e,r,!1,t,n);else{if(null!=(l=null!=(r=e.length)?r:e.size))return l;if(!e[ea])return Object.keys(e).length}return l=0,null!=(t=eH(e,()=>++l))?t:0},e4=(e,...r)=>null==e?Q:eh(e)?Math.max(e,...r):((e,r,t,n,l)=>{var a=()=>ex(t)?t():t;return null!=(e=eH(e,(e,n)=>{return t=null!=(e=r(t,e,n))?e:a()},n,l))?e:a()})(e,(e,t,n,l=r[1]?r[1](t,n):t)=>null==e||eh(l)&&e<l?l:e,Q,r[2],r[3]),e9=(e,r,t,n)=>{var l;return null==e?Q:eE(e)&&!r?0<Object.keys(e).length:null!=(l=null!=(l=null==(l=e.some)?void 0:l.call(e,null!=r?r:ed))?l:eH(e,r?(e,t)=>!!r(e,t)&&e_(!0):()=>e_(!0),t,n))&&l},e7=(e,r=e=>e)=>(null!=e&&e.sort((e,t)=>r(e)-r(t)),e),re=(e,r,t)=>(e.constructor===Object||ey(e)?void 0===t?delete e[r]:e[r]=t:void 0===t?e.delete?e.delete(r):delete e[r]:e.set?e.set(r,t):e.add?t?e.add(r):e.delete(r):e[r]=t,t),rr=(e,r,t)=>{var n;if(e)return e.constructor===Object&&null==t?e[r]:(void 0===(n=e.get?e.get(r):e.has?e.has(r):e[r])&&null!=t&&null!=(n=ex(t)?t():t)&&re(e,r,n),n)},rt=(e,...r)=>(eX(r,r=>eX(r,([r,t])=>{null!=t&&(eE(e[r])&&eE(t)?rt(e[r],t):e[r]=t)})),e),eo=e=>(r,t,n,l)=>{if(r)return null!=n?e(r,t,n,l):(eX(t,t=>ey(t)?e(r,t[0],t[1]):eX(t,([t,n])=>e(r,t,n))),r)},rl=eo(re),ri=eo((e,r,t)=>re(e,r,ex(t)?t(rr(e,r)):t)),ra=(e,r)=>e instanceof Set||e instanceof WeakSet?!e.has(r)&&(e.add(r),!0):rr(e,r)!==rl(e,r,!0),ro=(e,r)=>{var t;if(null!=(null!=e?e:r))return t=rr(e,r),eI(e,\"delete\")?e.delete(r):delete e[r],t},rs=(e,r)=>{if(e)return ey(r)?(ey(e)&&1<e.length?r.sort((e,r)=>r-e):r).map(r=>rs(e,r)):ey(e)?r<e.length?e.splice(r,1)[0]:void 0:ro(e,r)},rd=(e,...r)=>{if(void 0!==e)return Object.fromEntries(r.flatMap(t=>ek(t)?ey(t)?t.map(r=>ey(r)?1===r.length?[r[0],e[r[0]]]:rd(e[r[0]],...r[1]):[r,e[r]]):Object.entries(r).map(([r,t])=>[r,!0===t?e[r]:rd(e[r],t)]):[[t,e[t]]]).filter(e=>null!=e[1]))},rc=e=>ex(e)?e():e,rf=(e,r=-1)=>ey(e)?r?e.map(e=>rf(e,r-1)):[...e]:eE(e)?r?eQ(e,([e,t])=>[e,rf(t,r-1)]):{...e}:eC(e)?new Set(r?eD(e,e=>rf(e,r-1)):e):eO(e)?new Map(r?eD(e,e=>[e[0],rf(e[1],r-1)]):e):e,rp=(e,...r)=>null==e?void 0:e.push(...r),rh=(e,...r)=>null==e?void 0:e.unshift(...r),rg=(e,r)=>{var t,l,i;if(e)return eE(r)?(i={},eE(e)&&(eX(e,([e,a])=>{if(a!==r[e]){if(eE(t=a)){if(!(a=rg(a,r[e])))return;[a,t]=a}i[e]=a,(null!=l?l:l=rf(r))[e]=t}}),l)?[i,l]:void 0):[e,e]},rm=\"undefined\"!=typeof performance?(e=et)=>e?Math.trunc(rm(er)):performance.timeOrigin+performance.now():Date.now,ry=(e=!0,r=()=>rm())=>{var t,n=+e*r(),l=0;return(i=e,a)=>(t=e?l+=-n+(n=r()):l,a&&(l=0),(e=i)&&(n=r()),t)},rw=(e,r=0)=>{var e=ex(e)?{frequency:r,callback:e}:e,{queue:l=!0,paused:i=!1,trigger:a=!1,once:o=!1,callback:u=()=>{},raf:s}=e,v=(r=null!=(e=e.frequency)?e:0,0),d=(new rS).resolve(),c=ry(!i),f=c(),p=async e=>{if(!v||!l&&d.pending&&!0!==e)return!1;if((y.busy=!0)!==e)for(;d.pending;)await d;return e||d.reset(),(!1===await Y(()=>u(c(),-f+(f=c())),!1,()=>!e&&d.resolve())||r<=0||o)&&m(!1),!(y.busy=!1)},h=()=>v=setTimeout(()=>s?requestAnimationFrame(g):g(),r<0?-r:r),g=()=>{y.active&&p(),y.active&&h()},m=(e,r=!e)=>(c(e,r),clearTimeout(v),y.active=!!(v=e?h():0),y),y={active:!1,busy:!1,restart:(e,t)=>(r=null!=e?e:r,u=null!=t?t:u,m(!0,!0)),toggle:(e,r)=>e!==y.active?e?r?(m(!0),y.trigger(),y):m(!0):m(!1):y,trigger:async e=>await p(e)&&(m(y.active),!0)};return y.toggle(!i,a)};function rk(e,r,t){r in e?Object.defineProperty(e,r,{value:t,enumerable:!0,configurable:!0,writable:!0}):e[r]=t}class rS{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,r=!1){return this._promise.resolve(e,r),this}reject(e,r=!1){return this._promise.reject(e,r),this}reset(){return this._promise=new rT,this}signal(e){return this.resolve(e),this.reset(),this}then(e,r){return this._promise.then(e,r)}constructor(){rk(this,\"_promise\",void 0),this.reset()}}class rT{then(e,r){return this._promise.then(e,r)}constructor(){var e;rk(this,\"_promise\",void 0),rk(this,\"resolve\",void 0),rk(this,\"reject\",void 0),rk(this,\"value\",void 0),rk(this,\"error\",void 0),rk(this,\"pending\",!0),this._promise=new Promise((...r)=>{e=r.map((e,r)=>(t,n)=>{if(this.pending)return this.pending=!1,this[r?\"error\":\"value\"]=t===Q||t,e(t),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var r$,rI=(e,r)=>null==e||isFinite(e)?!e||e<=0?rc(r):new Promise(t=>setTimeout(async()=>t(await rc(r)),e)):B(`Invalid delay ${e}.`),rN=(e,r,t)=>{var n=!1,l=(...r)=>e(...r,i),i=()=>n!==(n=!1)&&(t(l),!0),a=()=>n!==(n=!0)&&(r(l),!0);return a(),[i,a]},eo=()=>{var e,r=new Set;return[(t,n)=>{var l=rN(t,e=>r.add(e),e=>r.delete(e));return n&&e&&t(...e,l[0]),l},(...t)=>(e=t,r.forEach(e=>e(...t)))]},rC=(e,r=[\"and\",\", \"])=>{var t;return e?1===(e=eD(e)).length?e[0]:ey(r)?[e.slice(0,-1).join(null!=(t=r[1])?t:\", \"),\" \",r[0],\" \",e[e.length-1]].join(\"\"):e.join(null!=r?r:\", \"):Q},rj=(e,r,t)=>null==e?Q:ey(r)?null==(r=r[0])?Q:r+\" \"+rj(e,r,t):null==r?Q:1===r?e:null!=t?t:e+\"s\",r_=(e,r,t)=>t?(r$&&rp(t,\"\u001b[\",r,\"m\"),ey(e)?rp(t,...e):rp(t,e),r$&&rp(t,\"\u001b[m\"),t):r_(e,r,[]).join(\"\"),rU=(e,r)=>e&&(e.length>r?e.slice(0,-1)+\"…\":e),rF=(e,r,t)=>null==e?Q:ex(r)?rC(eD(eg(e)?[e]:e,r),null!=t?t:\"\"):eg(e)?e:rC(eD(e,e=>!1===e?Q:e),null!=r?r:\"\"),rq=e=>(e=Math.log2(e))===(0|e),rR=(e,r,t,n)=>{var l,i,a,o,e=Object.fromEntries(Object.entries(e).filter(([e,r])=>eg(e)&&eh(r)).map(([e,r])=>[e.toLowerCase(),r])),s=Object.entries(e),v=Object.values(e),d=null!=(l=e.any)?l:v.reduce((e,r)=>e|r,0),c=r?{...e,any:d,none:0}:e,f=Object.fromEntries(Object.entries(c).map(([e,r])=>[r,e])),p=(e,t)=>{var n;return ep(e)?!r&&t?null!=f[e]?e:Q:Number.isSafeInteger(e)?e:Q:eg(e)?null!=(n=null!=(n=c[e])?n:c[e.toLowerCase()])?n:p(parseInt(e),t):Q},h=!1,[g,m]=r?[(e,r)=>Array.isArray(e)?e.reduce((e,t)=>null==t||h?e:null==(t=p(t,r))?(h=!0,Q):(null!=e?e:0)|t,(h=!1,Q)):p(e),(e,r)=>null==(e=g(e,!1))?Q:r&&(a=f[e&d])?(i=m(e&~(e&d),!1)).length?[a,...i]:a:(e=s.filter(([,r])=>r&&e&r&&rq(r)).map(([e])=>e),r?e.length?1===e.length?e[0]:e:\"none\":e)]:[p,e=>null!=(e=p(e))?f[e]:Q],y=(e,r)=>null==e?Q:null==(e=g(o=e,r))?B(TypeError(JSON.stringify(o)+` is not a valid ${t} value.`)):e,b=s.filter(([,e])=>!n||(n&e)===e&&rq(e));return((e,r)=>{var t=(r,n)=>{var l;if(r){if(ey(r)){if(eE(r[0]))return void r.splice(1).forEach(e=>t(e,r[0]));l=r}else l=eD(r);l.forEach(([r,t])=>Object.defineProperty(e,r,{configurable:!1,enumerable:!0,writable:!1,...n,...eE(t)&&(\"get\"in t||\"value\"in t)?t:ex(t)&&!t.length?{get:t}:{value:t}}))}};return r.forEach(e=>t(e)),e})(e=>y(e),[[{configurable:!1,enumerable:!1},{parse:y,tryParse:g,entries:s,values:v,lookup:m,length:s.length,format:e=>m(e,!0),logFormat:(e,r=\"or\")=>\"any\"===(e=m(e,!0))?\"any \"+t:`the ${t} `+rC(eD(ew(e),e=>(e=>null==e?Q:\"'\"+e+\"'\")(e)),[r])},r&&{pure:b,map:(e,r)=>(e=y(e),b.filter(([,r])=>r&e).map(null!=r?r:([,e])=>e))}]])},rz=(...e)=>{var r=(e=>!ey(e)&&eN(e)?eD(e,eO(e)?e=>e:eC(e)?e=>[e,!0]:(e,r)=>[r,e]):ek(e)?Object.entries(e):Q)(eQ(e,!0)),t=e=>(ek(e)&&(ey(e)?e.forEach((r,n)=>e[n]=t(r)):r.forEach(([r,t])=>{var n,l=Q;null!=(n=e[r])&&(1===t.length?e[r]=t[0].parse(n):t.forEach((i,a)=>!l&&null!=(l=a===t.length-1?i.parse(n):i.tryParse(n))&&(e[r]=l)))})),e);return t},rD=Symbol(),rW=(e,r=[\"|\",\";\",\",\"],t=!0)=>{var l;return e?(null==(l=e.split(\"=\").map(e=>t?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim()))[1]&&(l[1]=\"\"),l[2]=l[1]&&(null==r?void 0:r.length)&&((e,r)=>null==e?Q:(r=eM(r),eH(e,(e,t)=>!r||(e=r(e,t))?e_(e):Q,void 0,void 0)))(r,(e,r,t=l[1].split(e))=>1<t.length?t:Q)||(l[1]?[l[1]]:[]),l):Q},rB=(e,r=!0,t)=>null==e?Q:rG(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,t,n,l,i,a,o,u,s,v,d,c)=>{e={source:e,scheme:t,urn:t?!n:!n&&Q,authority:l,user:i,password:a,host:null!=o?o:u,port:null!=s?parseInt(s):Q,path:v,query:!1===r?d:rV(d,r),fragment:c};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":Q),e}),rV=(e,r,t=!0)=>rJ(e,\"&\",r,t),rJ=(e,r,t,n=!0)=>{var a,o=[],e=null==e?Q:eQ(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(r),(e,r,[l,i,u]=null!=(a=rW(e,!1===t?[]:!0===t?Q:t,n))?a:[],s)=>(s=null!=(l=null==l?void 0:l.replace(/\\[\\]$/,\"\"))?!1!==t?[l,1<u.length?u:i]:[l,i]:Q,o.push(s),s),(e,r)=>e?!1!==t?eV(e,r):(e?e+\",\":\"\")+r:r);return e&&(e[rD]=o),e},rG=(e,r,l,i=!1)=>null==(null!=e?e:r)?Q:l?(t=Q,i?(n=[],rG(e,r,(...e)=>null!=(t=l(...e))&&n.push(t))):e.replace(r,(...e)=>t=l(...e)),t):e.match(r),rH=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),rX=/\\z./g,rY=(e,r)=>(r=rF((e=>null!=e?new Set([...eR(e,void 0,void 0,void 0)]):Q)(e1(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(r,\"gu\"):rX,rZ={},rQ=e=>e instanceof RegExp,r0=(t,n=[\",\",\" \"])=>{var l;return rQ(t)?t:ey(t)?rY(eD(t,e=>{return null==(e=r0(e,n))?void 0:e.source})):es(t)?t?/./g:rX:eg(t)?null!=(l=(e=rZ)[r=t])?l:e[r]=rG(t||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,r,t)=>r?RegExp(r,\"gu\"):rY(eD(r1(t,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${rF(n,rH)}]`)),e=>e&&`^${rF(r1(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>rH(r2(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):Q},r1=(e,r)=>{return null!=(r=null==e?void 0:e.split(r))?r:e},r2=(e,r,t)=>{return null!=(r=null==e?void 0:e.replace(r,t))?r:e},r4=(e=(e,r)=>e-r,r=e=>e[1]-e[0])=>{var t=[];return rl(t,{push(n,l){for(var i=[n,l],a=(e=!0)=>e?t.width=t.reduce((e,t)=>e+r(t),0):t.width,o=0;o<t.length;o++){var u,s,v=t[o];if(e(i[1],v[0])<0)return a(t.splice(o,0,i));if(e(i[0],v[1])<=0){if(e(i[0],v[0])<0&&(u=v[0]=i[0]),0<e(i[1],v[1])&&(u=v[1]=i[1]),!((null==(s=t[o+1])?void 0:s[0])<v[1]))return a(null!=u);u=i=t.splice(o--,1)[0]}}return a(i&&(t[t.length]=i))},width:0})},r6=((C=l=l||{})[C.Anonymous=0]=\"Anonymous\",C[C.Indirect=1]=\"Indirect\",C[C.Direct=2]=\"Direct\",C[C.Sensitive=3]=\"Sensitive\",rR(l,!1,\"data classification\")),r5=(e,r)=>{var t;return r6.parse(null!=(t=null==e?void 0:e.classification)?t:null==e?void 0:e.level)===r6.parse(null!=(t=null==r?void 0:r.classification)?t:null==r?void 0:r.level)&&r8.parse(null!=(t=null==e?void 0:e.purposes)?t:null==e?void 0:e.purposes)===r8.parse(null!=(t=null==r?void 0:r.purposes)?t:null==r?void 0:r.purposes)},r3=(e,r)=>{var t;return null==e?void 0:eh(e.classification)&&eh(e.purposes)?e:{...e,level:void 0,purpose:void 0,classification:r6.parse(null!=(t=null!=(t=null!=(t=e.classification)?t:e.level)?t:null==r?void 0:r.classification)?t:0),purposes:r8.parse(null!=(e=null!=(t=null!=(t=e.purposes)?t:e.purpose)?t:null==r?void 0:r.purposes)?e:i.Necessary)}},r8=((C=i=i||{})[C.None=0]=\"None\",C[C.Necessary=1]=\"Necessary\",C[C.Functionality=2]=\"Functionality\",C[C.Performance=4]=\"Performance\",C[C.Targeting=8]=\"Targeting\",C[C.Security=16]=\"Security\",C[C.Infrastructure=32]=\"Infrastructure\",C[C.Any_Anonymous=49]=\"Any_Anonymous\",C[C.Any=63]=\"Any\",C[C.Server=2048]=\"Server\",C[C.Server_Write=4096]=\"Server_Write\",rR(i,!0,\"data purpose\",2111)),C=rR(i,!1,\"data purpose\",0),r7=(e,r)=>(!(a=null==e?void 0:e.metadata)||r&&(delete a.posted,delete a.queued,Object.entries(a).length)||delete e.metadata,e),te=e=>!(null==e||!e.patchTargetId),tr=(($=o={})[$.Global=0]=\"Global\",$[$.Entity=1]=\"Entity\",$[$.Session=2]=\"Session\",$[$.Device=3]=\"Device\",rR(o,!($[$.User=4]=\"User\"),\"variable scope\")),o=(l.Anonymous,i.Necessary,{scope:tr,purpose:C,purposes:r8,classification:r6}),tl=(rz(o),e=>null==e?void 0:e.filter(ei).sort((e,r)=>e.scope===r.scope?e.key.localeCompare(r.key,\"en\"):e.scope-r.scope)),ti=((C=$={})[C.Add=0]=\"Add\",C[C.Min=1]=\"Min\",C[C.Max=2]=\"Max\",C[C.IfMatch=3]=\"IfMatch\",rR($,!(C[C.IfNoneMatch=4]=\"IfNoneMatch\"),\"variable patch type\"),($=s=s||{})[$.Success=200]=\"Success\",$[$.Created=201]=\"Created\",$[$.Unchanged=304]=\"Unchanged\",$[$.Denied=403]=\"Denied\",$[$.NotFound=404]=\"NotFound\",$[$.ReadOnly=405]=\"ReadOnly\",$[$.Conflict=409]=\"Conflict\",$[$.Unsupported=501]=\"Unsupported\",$[$.Invalid=400]=\"Invalid\",$[$.Error=500]=\"Error\",rR(s,!1,\"variable set status\"),(e,r,t)=>{var n,l=e(),i=e=>e,e=(e,t=ts)=>(e=>{var r={initialized:!0,then:(e=>{var r=G(e);return(e,t)=>Y(r,[e,t])})(()=>(r.initialized=!0,rc(e)))};return r})(async()=>(n=i(t(await l,r)))&&e(n)),o={then:e(e=>e).then,all:e(e=>e,e=>e),changed:e(e=>e1(e,e=>e.status<300)),variables:e(e=>eD(e,to)),values:e(e=>eD(e,e=>{return null==(e=to(e))?void 0:e.value})),push:()=>(i=e=>(null!=t&&t(eD((e=>null==e?void 0:e.map(e=>(null==e?void 0:e.status)<400?e:Q))(e))),e),o),value:e(e=>{return null==(e=to(e[0]))?void 0:e.value}),variable:e(e=>to(e[0])),result:e(e=>e[0])};return o}),to=e=>{var r;return tu(e)?null!=(r=e.current)?r:e:Q},tu=(e,r=!1)=>r?(null==e?void 0:e.status)<300:(null==e?void 0:e.status)<400||404===(null==e?void 0:e.status),ts=(e,r,t)=>{var n,l,i=[],a=eD(ew(e),(e,a)=>{var s;return e&&(e.status<400||!t&&404===e.status?e:(l=(e=>`'${e.key}' in ${tr.format(e.scope)} scope`)(null!=(s=e.source)?s:e)+\" could not be \"+(404===e.status?\"found.\":`${e.source||500!==e.status?\"set\":\"read\"} because `+(409===e.status?`of a conflict. The expected version '${null==(s=e.source)?void 0:s.version}' did not match the current version '${null==(s=e.current)?void 0:s.version}'.`:403===e.status?null!=(s=e.error)?s:\"the operation was denied.\":400===e.status?null!=(s=e.error)?s:\"the value does not conform to the schema\":405===e.status?\"it is read only.\":500===e.status?\"of an unexpected error: \"+e.error:\"of an unknown reason.\")),null!=(n=null==r?void 0:r[a])&&!1===n(e,l)||i.push(l),Q))});return i.length?B(i.join(\"\\n\")):ey(e)?a:null==a?void 0:a[0]},td=e=>e&&\"string\"==typeof e.type,tc=(e=>r=>(null==r?void 0:r.type)&&e.some(e=>e===(null==r?void 0:r.type)))([\"view\"]),tf=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,tp=(e,r)=>{var t;return r&&(!(d=e.get(v=r.tag+(null!=(t=r.value)?t:\"\")))||(null!=(t=d.score)?t:1)<(null!=(t=r.score)?t:1))&&e.set(v,r)},th=(e,r=\"\",t=new Map)=>{if(e)return eN(e)?eX(e,e=>th(e,r,t)):eg(e)?rG(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,l,i,a,o,u)=>{l={tag:(n?tf(n)+\"::\":\"\")+r+tf(l),value:tf(null!=(n=null!=i?i:a)?n:o)};u&&10!==parseFloat(u)&&(l.score=parseFloat(u)/10),tp(t,l)}):tp(t,e),t},tg=((C=c=c||{})[C.View=-3]=\"View\",C[C.Tab=-2]=\"Tab\",C[C.Shared=-1]=\"Shared\",rR(c,!1,\"local variable scope\")),ty=e=>{var r;return null!=(r=tg.format(e))?r:tr.format(e)},tb=e=>!!tg.tryParse(null==e?void 0:e.scope),tw=rz({scope:tg},o),tk=e=>{return null==e?void 0:eg(e)?e:e.source?tk(e.source):`${(e=>{var r;return null!=(r=tg.tryParse(e))?r:tr(e)})(e.scope)}\u0000${e.key}\u0000`+(null!=(e=e.targetId)?e:\"\")},tS=e=>{e=e.split(\"\\0\");return{scope:+e[0],key:e[1],targetId:e[2]}},tE=()=>()=>B(\"Not initialized.\"),tI=window,tA=document,tx=tA.body,tO=((e=>r$=e)(!!tI.chrome),ee),tC=(e,r,t=(e,r)=>tO<=r)=>{for(var n=0,l=er;1===(null==e?void 0:e.nodeType)&&!t(e,n++)&&r(e,(e,r)=>(null!=e&&(i=e,l=r!==et&&null!=i),et),n-1)!==er&&!l;){var i,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==tA&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return i},tj=(e,r=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===r))switch(r){case!0:case\"z\":var t;return null==(t=(\"\"+e).trim())?void 0:t.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||ev(e);case\"n\":return parseFloat(e);case\"j\":return K(()=>JSON.parse(e),en);case\"h\":return K(()=>nx(e),en);case\"e\":return K(()=>null==nO?void 0:nO(e),en);default:return ey(r)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:tj(e,r[0])):void 0}},t$=(e,r,t)=>tj(null==e?void 0:e.getAttribute(r),t),t_=(e,r,t)=>tC(e,(e,n)=>n(t$(e,r,t))),tM=(e,r)=>{return null==(e=t$(e,r))||null==(r=e.trim())?void 0:r.toLowerCase()},tF=(e,r)=>getComputedStyle(e).getPropertyValue(r)||null,tP=e=>null!=e?e.tagName:null,tR=e=>({x:ej(scrollX,e),y:ej(scrollY,e)}),tz=(e,r)=>r2(e,/#.*$/,\"\")===r2(r,/#.*$/,\"\"),tD=(e,r,t=et)=>(p=tW(e,r))&&Z({xpx:p.x,ypx:p.y,x:ej(p.x/tx.offsetWidth,4),y:ej(p.y/tx.offsetHeight,4),pageFolds:t?p.y/window.innerHeight:void 0}),tW=(e,r)=>null!=r&&r.pointerType&&null!=(null==r?void 0:r.pageY)?{x:r.pageX,y:r.pageY}:e?({x:h,y:g}=tB(e),{x:h,y:g}):void 0,tB=e=>e?(m=e.getBoundingClientRect(),f=tR(er),{x:ej(m.left+f.x),y:ej(m.top+f.y),width:ej(m.width),height:ej(m.height)}):void 0,tV=(e,r,t,n={capture:!0,passive:!0})=>(r=ew(r),rN(t,t=>eX(r,r=>e.addEventListener(r,t,n)),t=>eX(r,r=>e.removeEventListener(r,t,n)))),tL=()=>({...f=tR(et),width:window.innerWidth,height:window.innerHeight,totalWidth:tx.offsetWidth,totalHeight:tx.offsetHeight}),tK=new WeakMap,tG=e=>tK.get(e),tH=(e,r=er)=>(r?\"--track-\":\"track-\")+e,tX=(e,r,t,n,l,i)=>(null==r?void 0:r[1])&&eX((e=>null==e?void 0:e.getAttributeNames())(e),a=>{var o;return null!=(o=(y=r[0])[b=a])?o:y[b]=(i=er,!eg(n=eX(r[1],([r,t,n],l)=>(r=>r&&null!=a?r.test(a):Q)(r)&&(i=void 0,!t||(e=>!(null==e||!e.matches(t)))(e))&&e_(null!=n?n:a)))||(l=e.getAttribute(a))&&!ev(l)||th(l,r2(n,/\\-/g,\":\"),t),i)}),tY=()=>{},tZ=(e,r)=>{if(w===(w=t5.tags))return tY(e,r);var t=e=>e?rQ(e)?[[e]]:eN(e)?eB(e,t):[eE(e)?[r0(e.match),e.selector,e.prefix]:[r0(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...t(eD(w,eE(w)?e=>e[1]:e=>e,void 0,void 0))]];(tY=(e,r)=>tX(e,n,r))(e,r)},tQ=(e,r)=>rF(eV(tF(e,tH(r,et)),tF(e,tH(\"base-\"+r,et))),\" \"),t0={},t1=(e,r,t=tQ(e,\"attributes\"))=>{var n;t&&tX(e,null!=(n=t0[t])?n:t0[t]=[{},(e=>rG(e,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,r,t,n)=>[r0(t||n),,r],!0))(t)],r),th(tQ(e,\"tags\"),void 0,r)},t2=(e,r,t=er,n)=>{return null!=(t=null!=(t=t?tC(e,(e,t)=>t(t2(e,r,er)),ex(t)?t:void 0):rF(eV(t$(e,tH(r)),tF(e,tH(r,et))),\" \"))?t:n&&(k=tG(e))&&n(k))?t:null},t4=(e,r,t=er,n)=>\"\"===(S=t2(e,r,t,n))||(null==S?S:ev(S)),t6=(e,r,t,n)=>e&&(null==n&&(n=new Map),t1(e,n),tC(e,e=>{tZ(e,n),th(null==t?void 0:t(e),void 0,n)},r),n.size)?{tags:[...n.values()]}:{},t5={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,impressionThreshold:1e3,captureContextMenu:!0,defaultActivationTracking:\"auto\",tags:{default:[\"data-id\",\"data-name\"]}},t3=[],t8=[],t9=(e,r=0)=>e.charCodeAt(r),ne=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,r)=>t3[t8[r]=e.charCodeAt(0)]=r),e=>{for(var r,t=0,n=e.length,l=[];t<n;)r=e[t++]<<16|e[t++]<<8|e[t++],l.push(t8[(16515072&r)>>18],t8[(258048&r)>>12],t8[(4032&r)>>6],t8[63&r]);return l.length+=n-t,(e=>String.fromCharCode(...e))(l)}),nt={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},nn=(e=256)=>e*Math.random()|0,ni={exports:{}},{deserialize:na,serialize:no}=((()=>{function r(e,r){if(r&&r.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var t,n,l=new Uint8Array(128),i=0;if(r&&r.multiple)for(var a=0;a<e.length;a++)o(e[a]);else o(e);return l.subarray(0,i);function o(e,l){var c,a;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var r;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?v([204,e]):-128<=e&&e<=127?v([208,e]):0<e&&e<=65535?v([205,e>>>8,e]):-32768<=e&&e<=32767?v([209,e>>>8,e]):0<e&&e<=4294967295?v([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?v([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?v([211,(r=e/4294967296)>>>24,r>>>16,r>>>8,r,(r=e%4294967296)>>>24,r>>>16,r>>>8,r]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),d(e)):v(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(t=new ArrayBuffer(8))).setFloat64(0,e),s(203),v(new Uint8Array(t)))})(e);break;case\"string\":(c=(a=(e=>{for(var r=!0,t=e.length,n=0;n<t;n++)if(127<e.charCodeAt(n)){r=!1;break}for(var l=0,i=new Uint8Array(e.length*(r?1:4)),a=0;a!==t;a++){var o=e.charCodeAt(a);if(o<128)i[l++]=o;else{if(o<2048)i[l++]=o>>6|192;else{if(55295<o&&o<56320){if(++a>=t)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(a);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+a+\" out of range\");i[l++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,i[l++]=o>>12&63|128}else i[l++]=o>>12|224;i[l++]=o>>6&63|128}i[l++]=63&o|128}}return r?i:i.subarray(0,l)})(e)).length)<=31?s(160+c):v(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),v(a);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var t,r=e.getTime()/1e3;0===e.getMilliseconds()&&0<=r&&r<4294967296?v([214,255,r>>>24,r>>>16,r>>>8,r]):0<=r&&r<17179869184?v([215,255,(t=1e6*e.getMilliseconds())>>>22,t>>>14,t>>>6,t<<2>>>0|r/4294967296,r>>>24,r>>>16,r>>>8,r]):(v([199,12,255,(t=1e6*e.getMilliseconds())>>>24,t>>>16,t>>>8,t]),d(r))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((a=(c=e).length)<=255?v([196,a]):v(a<=65535?[197,a>>>8,a]:[198,a>>>24,a>>>16,a>>>8,a]),v(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var t,r=0;for(t in e)void 0!==e[t]&&r++;for(t in r<=15?s(128+r):v(r<=65535?[222,r>>>8,r]:[223,r>>>24,r>>>16,r>>>8,r]),e){var n=e[t];void 0!==n&&(o(t),o(n))}})(e);break;default:if(l||!r||!r.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof r.invalidTypeReplacement?o(r.invalidTypeReplacement(e),!0):o(r.invalidTypeReplacement,!0)}}function u(e){var r=e.length;r<=15?s(144+r):v(r<=65535?[220,r>>>8,r]:[221,r>>>24,r>>>16,r>>>8,r]);for(var t=0;t<r;t++)o(e[t])}function s(e){if(l.length<i+1){for(var r=2*l.length;r<i+1;)r*=2;var t=new Uint8Array(r);t.set(l),l=t}l[i]=e,i++}function v(e){if(l.length<i+e.length){for(var r=2*l.length;r<i+e.length;)r*=2;var t=new Uint8Array(r);t.set(l),l=t}l.set(e,i),i+=e.length}function d(e){var r,e=0<=e?(r=e/4294967296,e%4294967296):(r=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));v([r>>>24,r>>>16,r>>>8,r,e>>>24,e>>>16,e>>>8,e])}}function t(e,r){var t,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),r&&r.multiple)for(t=[];n<e.length;)t.push(l());else t=l();return t;function l(){var r=e[n++];if(0<=r&&r<=127)return r;if(128<=r&&r<=143)return s(r-128);if(144<=r&&r<=159)return v(r-144);if(160<=r&&r<=191)return d(r-160);if(192===r)return null;if(193===r)throw Error(\"Invalid byte code 0xc1 found.\");if(194===r)return!1;if(195===r)return!0;if(196===r)return u(-1,1);if(197===r)return u(-1,2);if(198===r)return u(-1,4);if(199===r)return c(-1,1);if(200===r)return c(-1,2);if(201===r)return c(-1,4);if(202===r)return o(4);if(203===r)return o(8);if(204===r)return a(1);if(205===r)return a(2);if(206===r)return a(4);if(207===r)return a(8);if(208===r)return i(1);if(209===r)return i(2);if(210===r)return i(4);if(211===r)return i(8);if(212===r)return c(1);if(213===r)return c(2);if(214===r)return c(4);if(215===r)return c(8);if(216===r)return c(16);if(217===r)return d(-1,1);if(218===r)return d(-1,2);if(219===r)return d(-1,4);if(220===r)return v(-1,2);if(221===r)return v(-1,4);if(222===r)return s(-1,2);if(223===r)return s(-1,4);if(224<=r&&r<=255)return r-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+r+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function i(r){for(var i,t=0,l=!0;0<r--;)l?(t+=127&(i=e[n++]),128&i&&(t-=128),l=!1):t=(t*=256)+e[n++];return t}function a(r){for(var t=0;0<r--;)t=256*t+e[n++];return t}function o(r){var t=new DataView(e.buffer,n+e.byteOffset,r);return n+=r,4===r?t.getFloat32(0,!1):8===r?t.getFloat64(0,!1):void 0}function u(r,t){r<0&&(r=a(t));t=e.subarray(n,n+r);return n+=r,t}function s(e,r){e<0&&(e=a(r));for(var t={};0<e--;)t[l()]=l();return t}function v(e,r){e<0&&(e=a(r));for(var t=[];0<e--;)t.push(l());return t}function d(r,t){r<0&&(r=a(t));t=n;return n+=r,((e,r,t)=>{var n=r,l=\"\";for(t+=r;n<t;){var i=e[n++];if(127<i)if(191<i&&i<224){if(t<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");i=(31&i)<<6|63&e[n++]}else if(223<i&&i<240){if(t<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");i=(15&i)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<i&&i<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+i.toString(16)+\" at index \"+(n-1));if(t<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");i=(7&i)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(i<=65535)l+=String.fromCharCode(i);else{if(!(i<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+i.toString(16)+\" exceeds UTF-16 reach\");i-=65536,l+=String.fromCharCode(i>>10|55296)+String.fromCharCode(1023&i|56320)}}return l})(e,t,r)}function c(e,r){e<0&&(e=a(r));r=a(1),e=u(e);return 255===r?(e=>{var t,r;if(4===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*r);if(8===e.length)return t=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),r=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*r+t/1e6);if(12===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,r=i(8),new Date(1e3*r+t/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:r,data:e}}}var n={serialize:r,deserialize:t,encode:r,decode:t};ni.exports=n})(),($=ni.exports)&&$.__esModule&&Object.prototype.hasOwnProperty.call($,\"default\")?$.default:$),nu=\"$ref\",ns=(e,r,t)=>eA(e)?Q:t?r!==Q:null===r||r,nv=(e,r,{defaultValues:t=!0,prettify:n=!1})=>{var l,i,a,o=(e,r,n=e[r],l=ns(r,n,t)?s(n):Q)=>(n!==l&&(l!==Q||ey(e)?e[r]=l:delete e[r],u(()=>e[r]=n)),l),u=e=>(null!=l?l:l=[]).push(e),s=e=>{if(null==e||ex(e)||eA(e))return Q;if(ek(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(a=null==i?void 0:i.get(e)))return e[nu]||(e[nu]=a,u(()=>delete e[nu])),{[nu]:a};if(eE(e))for(var r in(null!=i?i:i=new Map).set(e,i.size+1),e)o(e,r);else!eN(e)||e instanceof Uint8Array||(!ey(e)||Object.keys(e).length<e.length?[...e]:e).forEach((r,t)=>t in e?o(e,t):(e[t]=null,u(()=>delete e[t])))}return e};return K(()=>{var t;return r?no(null!=(t=s(e))?t:null):K(()=>JSON.stringify(e,Q,n?2:0),()=>JSON.stringify(s(e),Q,n?2:0))},!0,()=>null==l?void 0:l.forEach(e=>e()))},nd=e=>{var r,t,n=e=>ek(e)?e[nu]&&(t=(null!=r?r:r=[])[e[nu]])?t:(e[nu]&&delete(r[e[nu]]=e)[nu],Object.entries(e).forEach(([r,t])=>t!==(t=n(t))&&(e[r]=t)),e):e;return n(eg(e)?JSON.parse(e):null!=e?K(()=>na(e),()=>(console.error(\"Invalid message received.\",e),Q)):e)},nc=(e,r={})=>{var t=(e,{json:r=!1,...t})=>{var l,i,a,n=(e,n)=>eh(e)&&!0===n?e:a(e=eg(e)?new Uint8Array(eD(e.length,r=>255&e.charCodeAt(r))):r?K(()=>JSON.stringify(e),()=>JSON.stringify(nv(e,!1,t))):nv(e,!0,t),n);return r?[e=>nv(e,!1,t),e=>null==e?Q:K(()=>nd(e),Q),(e,r)=>n(e,r)]:([l,i,a]=(e=>{for(var r,t,n,l,i,o,a=0n,u=0n,s=[],v=0,d=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],d=255&(v=f),c=-1}:()=>{},g=e=>(d=255&(v+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),l=16-((r=e.length)+4)%16,i=new Uint8Array(4+r+l),n=0;n<3;i[n++]=g(nn()));for(t=0,i[n++]=g(d^16*nn(16)+l);t<r;i[n++]=g(d^e[t++]));for(;l--;)i[n++]=nn();return i}:e=>e,e?e=>{for(h(),t=0;t<3;g(e[t++]));if((r=e.length-4-((d^g(e[t++]))%16||16))<=0)return new Uint8Array(0);for(n=0,i=new Uint8Array(r);n<r;i[n++]=d^g(e[t++]));return i}:e=>e,(e,r=64)=>{if(null==e)return null;for(o=es(r)?64:r,h(),[a,u]=nt[o],t=0;t<e.length;a=BigInt.asUintN(o,(a^BigInt(d^g(e[t++])))*u));return!0===r?Number(BigInt(Number.MIN_SAFE_INTEGER)+a%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):a.toString(36)}]})(e),[(e,r)=>(r?el:ne)(l(nv(e,!0,t))),e=>null!=e?nd(i(e instanceof Uint8Array?e:(e=>{for(var r,t=0,n=0,l=e.length,i=new Uint8Array(3*(l/4|0)+(l+3&3)%3);t<l;)i[n++]=t3[t9(e,t++)]<<2|(r=t3[t9(e,t++)])>>4,t<l&&(i[n++]=(15&r)<<4|(r=t3[t9(e,t++)])>>2,t<l)&&(i[n++]=(3&r)<<6|t3[t9(e,t++)]);return i})(e))):null,(e,r)=>n(e,r)])};if(!e){var n=+(null!=(n=r.json)?n:0);if(n&&!1!==r.prettify)return(null!=T?T:T=[t(null,{json:!1}),t(null,{json:!0,prettify:!0})])[n]}return t(e,r)},[nf,,]=(nc(),nc(null,{json:!0,prettify:!0})),C=r1(\"\"+tA.currentScript.src,\"#\"),rR=r1(\"\"+(C[1]||\"\"),\";\"),nm=C[0],ny=rR[1]||(null==(rz=rB(nm,!1))?void 0:rz.host),nb=e=>{return!(!ny||(null==(e=rB(e,!1))||null==(e=e.host)?void 0:e.endsWith(ny))!==et)},o=(...e)=>r2(rF(e),/(^(?=\\?))|(^\\.(?=\\/))/,nm.split(\"?\")[0]),nk=o(\"?\",\"var\"),nS=o(\"?\",\"mnt\"),nT=(o(\"?\",\"usr\"),Symbol()),nE=Symbol(),nI=(e,r,t=et,n=er)=>{r&&(t?console.groupCollapsed:console.group)((n?\"\":r_(\"tail.js: \",\"90;3\"))+r);t=null==e?void 0:e[nE];null!=(e=t?e[nT]:e)&&console.log(ek(e)?r_(nf(e),\"94\"):ex(e)?\"\"+e:e),t&&t.forEach(([e,r,t])=>nI(e,r,t,!0)),r&&console.groupEnd()},[nA,nx]=nc(),[nN,nO]=[tE,tE],[$,nj]=eo(),nM=(...e)=>{var r,l=e.shift();console.error(eg(e[1])?e.shift():null!=(r=null==(r=e[1])?void 0:r.message)?r:\"An error occurred\",null!=(r=l.id)?r:l,...e)},[nU,nF]=eo(),[nP,nq]=eo(),nR=e=>nD!==(nD=e)&&nF(nD=!1,nV(!0,!0)),nz=e=>nW!==(nW=!!e&&\"visible\"===document.visibilityState)&&nq(nW,!e,nB(!0,!0)),nD=(nU(nz),!0),nW=!1,nB=ry(!1),nV=ry(!1),nJ=(tV(window,[\"pagehide\",\"freeze\"],()=>nR(!1)),tV(window,[\"pageshow\",\"resume\"],()=>nR(!0)),tV(document,\"visibilitychange\",()=>(nz(!0),nW&&nR(!0))),nF(nD,nV(!0,!0)),!1),nL=ry(!1),[,nG]=eo(),nH=rw({callback:()=>nJ&&nG(nJ=!1,nL(!1)),frequency:2e4,once:!0,paused:!0}),C=()=>!nJ&&(nG(nJ=!0,nL(!0)),nH.restart()),nY=(tV(window,[\"focus\",\"scroll\"],C),tV(window,\"blur\",()=>nH.trigger()),tV(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],C),C(),()=>nL()),nZ=0,nQ=void 0,n0=()=>(null!=nQ?nQ:tE())+\"_\"+n1(),n1=()=>(rm(!0)-(parseInt(nQ.slice(0,-2),36)||0)).toString(36)+\"_\"+(++nZ).toString(36),n6={},n5={id:nQ,heartbeat:rm()},n3={knownTabs:{[nQ]:n5},variables:{}},[n8,n9]=eo(),[n7,le]=eo(),lr=tE,lt=e=>n6[tk(e)],ln=(...e)=>li(e.map(e=>(e.cache=[rm(),3e3],tw(e)))),ll=e=>eD(e,e=>e&&[e,n6[tk(e)]]),li=e=>{var r=eD(e,e=>e&&[tk(e),e]);null!=r&&r.length&&(e=ll(e),rl(n6,r),(r=e1(r,e=>e[1].scope>c.Tab)).length&&(rl(n3.variables,r),lr({type:\"patch\",payload:eQ(r)})),le(e,n6,!0))},[,lo]=($((e,r)=>{nU(t=>{var n;t?(t=r(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),nQ=null!=(n=null==t?void 0:t[0])?n:rm(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),n6=eQ(eV(e1(n6,([,e])=>e.scope===c.View),eD(null==t?void 0:t[1],e=>[tk(e),e])))):sessionStorage.setItem(\"_tail:state\",e([nQ,eD(n6,([,e])=>e.scope!==c.View?e:void 0)]))},!0),lr=(r,t)=>{e&&(localStorage.setItem(\"_tail:state\",e([nQ,r,t])),localStorage.removeItem(\"_tail:state\"))},tV(window,\"storage\",e=>{var i,a,o;\"_tail:state\"!==e.key||!(e=null==r?void 0:r(e.newValue))||e[2]&&e[2]!==nQ||([e,{type:i,payload:a}]=e,\"query\"===i?t.active||lr({type:\"set\",payload:n3},e):\"set\"===i&&t.active?(rl(n3,a),rl(n6,a.variables),t.trigger()):\"patch\"===i?(o=ll(eD(a,1)),rl(n3.variables,a),rl(n6,a),le(o,n6,!1)):\"tab\"===i&&(rl(n3.knownTabs,e,a),a)&&n9(\"tab\",a,!1))});var t=rw(()=>n9(\"ready\",n3,!0),-25),n=rw({callback(){var e=rm()-1e4;eX(null==n3?void 0:n3.knownTabs,([r,t])=>t[0]<e&&((e,r)=>{var t=[],n=!1,l=(e,i,a,o)=>{var u;e&&(u=r[i],i===r.length-1?ey(u)?(n=!0,u.forEach(r=>t.push(ro(e,r)))):t.push(ro(e,u)):(ey(u)?(n=!0,u.forEach(r=>l(rr(e,r),i+1,e,r))):l(rr(e,u),i+1,e,u),!e2(e)&&a&&rs(a,o)))};return l(e,0),n?t:t[0]})(n3.knownTabs,[r])),n5.heartbeat=rm(),lr({type:\"tab\",payload:n5})},frequency:5e3,paused:!0});nU(e=>(e=>{lr({type:\"tab\",payload:e?n5:void 0}),e?(t.restart(),lr({type:\"query\"})):t.toggle(!1),n.toggle(e)})(e),!0)},!0),eo()),[lu,ls]=eo(),lv=(({timeout:r=1e3,encrypt:t=!0,retries:n=10}={})=>{var l=()=>(t?nO:nx)(localStorage.getItem(\"_tail:rq\")),i=0,a=()=>localStorage.setItem(\"_tail:rq\",(t?nN:nA)([nQ,rm()+r]));return async(t,o,u=null!=o?1:n)=>{for(;u--;){var v=l();if((!v||v[1]<rm())&&(a(),(null==(v=l())?void 0:v[0])===nQ))return 0<r&&(i=setInterval(()=>a(),r/2)),Y(t,!0,()=>{clearInterval(i),localStorage.removeItem(\"_tail:rq\")});var d=new rT,[v]=tV(window,\"storage\",r=>{\"_tail:rq\"!==r.key||r.newValue||d.resolve()});e=[rI(null!=o?o:r),d],await Promise.race(e.map(e=>ex(e)?e():e)),v()}var e;null==o&&B(\"_tail:rq could not be acquired.\")}})(),ld=async(e,r,{beacon:t=!1,encrypt:n=!0}={})=>{var l,i,a=!1,o=t=>{var o=ex(r)?null==r?void 0:r(l,t):r;return!1!==o&&(lo(e,l=null!=o&&!0!==o?o:l,t,e=>(a=l===Q,l=e)),!a)&&(i=n?nN(l,!0):JSON.stringify(l))};if(!t)return lv(()=>(async r=>{var l,i;for(i of eR(1,r,void 0,void 0))if(null!=(i=await i)&&(l=i),e$){e$=!1;break}return l})(async r=>{var a;return o(r)?400<=(a=await fetch(e,{method:null!=l?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain\"},body:i})).status?0===r?e_(B(\"Invalid response: \"+await a.text())):(console.warn(`Request to ${e} failed on attempt ${r+1}/3.`),await rI(200*(1+r))):(null!=(a=null!=(r=n?new Uint8Array(await a.arrayBuffer()):await a.text())&&r.length?null==(a=n?nO:JSON.parse)?void 0:a(r):Q)&&ls(a),e_(a)):e_()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=l?[i]:[],{type:\"text/plain\"}))&&B(\"Beacon send failed.\")},rR=[\"scope\",\"key\",\"targetId\",\"version\"],lf=[...rR,\"created\",\"modified\",\"classification\",\"purposes\",\"tags\",\"readonly\",\"value\"],lp=[...rR,\"init\",\"purpose\",\"refresh\"],lh=[...lf,\"value\",\"force\",\"patch\"],lg=new Map,lm=(e,r)=>{var t=rw(async()=>{var e=eD(lg,([e,r])=>({...tS(e),result:[...r]}));e.length&&await v.get(...e)},3e3),n=(e,r)=>r&&eG(r,r=>rr(lg,e,()=>new Set).add(r)),o=(nU((e,r)=>t.toggle(e,e&&3e3<=r),!0),n7(e=>eX(e,([e,r])=>((e,r)=>{var t,l,i;e&&(l=tk(e),null==(i=rs(lg,l))||!i.size||(null==e?void 0:e.purposes)===(null==r?void 0:r.purposes)&&(null==e?void 0:e.classification)==(null==r?void 0:r.classification)&&V(null==e?void 0:e.value,null==r?void 0:r.value)||eX(i,i=>{t=!1,null!=i&&i(e,r,(e=!0)=>t=e),t&&n(l,i)}))})(e,r))),new Map),u=(e,r)=>rl(o,e,es(r)?r?void 0:0:r),v={get:(...t)=>ti(async()=>{t[0]&&!eg(t[0])||(a=t[0],t=t.slice(1)),null!=r&&r.validateKey(a);var v=[],c=eD(t,(e,r)=>[e,r]),f=[],a=null!=(a=null==(a=await ld(e,()=>!!(c=eD(c,([e,r])=>{if(e){var t,l=tk(e),i=(n(l,e.result),lt(l)),l=(e.init&&u(l,e.cache),e.purposes);if((null!=l?l:-1)&(null!=(t=null==i?void 0:i.purposes)?t:-1))if(!e.refresh&&(null==i?void 0:i[1])<rm())rp(v,[{...i,status:s.Success},r]);else{if(!tb(e))return[rd(e,lp),r];eE(e.init)&&null!=(t={...tw(e),status:s.Created,...e.init}).value&&(rp(f,d(t)),rp(v,[t,r]))}else rp(v,[{...e,status:s.Denied,error:\"No consent for \"+r8.logFormat(l)},r])}})).length&&{variables:{get:eD(c,0)},deviceSessionId:null==r?void 0:r.deviceSessionId}))||null==(a=a.variables)?void 0:a.get)?a:[];return rp(v,...eD(a,(e,r)=>e&&[e,c[r][1]])),f.length&&li(f),v.map(([e])=>e)},eD(t,e=>null==e?void 0:e.error)),set:(...t)=>ti(async()=>{t[0]&&!eg(t[0])||(a=t[0],t=t.slice(1)),null!=r&&r.validateKey(a);var o=[],v=[],c=eD(t,(e,r)=>{var a,n;if(e)return n=tk(e),a=lt(n),u(n,e.cache),tb(e)?null!=e.patch?B(\"Local patching is not supported.\"):(n={value:e.value,classification:l.Anonymous,purposes:i.Necessary,scope:tg(e.scope),key:e.key},v[r]={status:a?s.Success:s.Created,source:e,current:n},void rp(o,d(n))):(null==e.patch&&void 0===(null==e?void 0:e.version)&&(e.version=null==a?void 0:a.version,null==e.force)&&(e.force=!!e.version),[rd(e,lh),r])}),a=c.length?L(null==(a=(await ld(e,{variables:{set:c.map(e=>e[0])},deviceSessionId:null==r?void 0:r.deviceSessionId})).variables)?void 0:a.set,\"No result.\"):[];return o.length&&li(o),eX(a,(e,r)=>{var t,[r,l]=c[r];null!=(t=(e.source=r).result)&&t.call(r,e),v[l]=e}),v},eD(t,e=>null==e?void 0:e.error))},d=(e,r=rm())=>{return{...rd(e,lf),cache:[r,r+(null!=(r=rs(o,tk(e)))?r:3e3)]}};return lu(({variables:e})=>{var r;e&&(r=rm(),null!=(e=eV(eD(e.get,e=>to(e)),eD(e.set,e=>to(e)))))&&e.length&&li(eG(e,d,r))}),v},lb=Symbol(),lw=[.75,.33],lk=[.25,.33],lE=()=>{var l,a,i,t=null==tI?void 0:tI.screen;return t?({width:t,height:l,orientation:i}=t,a=t<l,-90!==(i=null!=(i=null!=(i=null==i?void 0:i.angle)?i:tI.orientation)?i:0)&&90!==i||([t,l]=[l,t]),{deviceType:t<480?\"mobile\":t<=1024?\"tablet\":\"desktop\",screen:{dpr:tI.devicePixelRatio,width:t,height:l,landscape:a}}):{}},lI=e=>e(Z({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==A?void 0:A.clientId,languages:eD(navigator.languages,(e,r,t=e.split(\"-\"))=>Z({id:e,language:t[0],region:t[1],primary:0===r,preference:r+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...lE()})),lA=(e,r=\"A\"===tP(e)&&t$(e,\"href\"))=>r&&\"#\"!=r&&!r.startsWith(\"javascript:\"),lx=(e,r=tP(e),t=t4(e,\"button\"))=>t!==er&&(J(r,\"A\",\"BUTTON\")||\"INPUT\"===r&&J(tM(e,\"type\"),\"button\",\"submit\")||t===et),lN=(e,r=!1)=>{var t;return{tagName:e.tagName,text:rU((null==(t=t$(e,\"title\"))?void 0:t.trim())||(null==(t=t$(e,\"alt\"))?void 0:t.trim())||(null==(t=e.innerText)?void 0:t.trim()),100),href:null==(t=e.href)?void 0:t.toString(),rect:r?tB(e):void 0}},lC=e=>{if(I)return I;eg(e)&&([t,e]=nx(e),e=nc(t)[1](e)),rl(t5,e),(e=>{nO===tE&&([nN,nO]=nc(e),nj(nN,nO))})(rs(t5,\"encryptionKey\"));var t,a,o,u,s,v,d,c,f,p,h,g,l=rs(t5,\"key\"),i=null!=(e=null==(t=tI[t5.name])?void 0:t._)?e:[];if(ey(i))return a=[],o=[],u=(e,...r)=>{var t=et;o=e1(o,n=>K(()=>{var l;return null!=(l=n[e])&&l.call(n,...r,{tracker:I,unsubscribe:()=>t=er}),t},(e=>r=>nM(e,r))(n)))},s=[],d=lm(nk,v={applyEventExtensions(e){null==e.clientId&&(e.clientId=n0()),null==e.timestamp&&(e.timestamp=rm()),h=et;var n=er;return eD(a,([,r])=>{var t;!n&&(null==(t=r.decorate)?void 0:t.call(r,e))!==er||(n=et)}),n?void 0:e},validateKey:(e,r=!0)=>!l&&!e||e===l||!!r&&B(`'${e}' is not a valid key.`)}),c=((e,r)=>{var n=[],l=new WeakMap,i=new Map,a=(e,r)=>{var t;return null!=(t=e.metadata)&&t.queued?rt(r,{type:e.type+\"_patch\",patchTargetId:e.clientId}):B(\"Source event not queued.\")},o=async(t,n=!0,l)=>{var i;return t[0]&&!eg(t[0])||(i=t[0],t=t.slice(1)),nI({[nE]:eD(t=t.map(e=>(null!=r&&r.validateKey(null!=i?i:e.key),rt(e,{metadata:{posted:!0}}),rt(r7(rf(e),!0),{timestamp:e.timestamp-rm()}))),e=>[e,e.type,er])},\"Posting \"+rC([rj(\"new event\",[e2(t,e=>!te(e))||void 0]),rj(\"event patch\",[e2(t,e=>te(e))||void 0])])+(n?\" asynchronously\":\" synchronously\")+\".\"),ld(e,{events:t,variables:l,deviceSessionId:null==r?void 0:r.deviceSessionId},{beacon:n})},u=async(e,{flush:t=!1,async:l=!0,variables:i}={})=>{if((e=eD(ew(e),e=>rt(r.applyEventExtensions(e),{metadata:{queued:!0}}))).length&&eX(e,e=>nI(e,e.type)),!l)return o(e,!1,i);t?(n.length&&rh(e,...n.splice(0)),e.length&&await o(e,!0,i)):e.length&&rp(n,...e)};return rw(()=>u([],{flush:!0}),5e3),nP((e,r,t)=>{!e&&(n.length||r||1500<t)&&(e=eD(i,([e,r])=>{var[r,n]=r();return n&&(i.delete(e),l.delete(e)),r}),n.length||e.length)&&u(eV(n.splice(0),e),{flush:!0})}),{post:u,postPatch:(e,r,t)=>u(a(e,r),{flush:!0}),registerEventPatchSource(e,r,t=!1,n){var o=!1,s=()=>{o=!0};return l.set(e,rf(e)),i.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))s();else{var i=l.get(e),[t,v]=null!=(t=rg(r(i,s),i))?t:[];if(t&&!V(v,i))return l.set(e,rf(v)),[a(e,t),o]}return[void 0,o]}),t&&u(e),s}}})(nk,v),f=null,p=0,g=h=er,I=(...e)=>{if(e.length){1<e.length&&(!e[0]||eg(e[0]))&&(r=e[0],e=e.slice(1)),eg(e[0])&&(e=(t=e[0]).match(/^[{[]/)?JSON.parse(t):nx(t));var r,n=er;if((e=e1(eB(e,e=>eg(e)?nx(e):e),e=>{if(!e)return er;if(l3(e))t5.tags=rl({},t5.tags,e.tagAttributes);else{if(l8(e))return t5.disabled=e.disable,er;if(ie(e))return n=et,er;if(io(e))return e(I),er}return g||it(e)||l7(e)?et:(s.push(e),er)})).length||n){var t=e7(e,e=>l7(e)?-100:it(e)?-50:ia(e)?-10:td(e)?90:0);if(!f||!f.splice(h?p+1:f.length,0,...t)){for(p=0,f=t;p<f.length;p++){var i=f[p];i&&(v.validateKey(null!=r?r:i.key),K(()=>{var e=f[p];if(u(\"command\",e),h=er,td(e))c.post(e);else if(ir(e))d.get(...ew(e.get));else if(ia(e))d.set(...ew(e.set));else if(it(e))rp(o,e.listener);else if(l7(e))(r=K(()=>e.extension.setup(I),r=>nM(e.extension.id,r)))&&(rp(a,[null!=(t=e.priority)?t:100,r,e.extension]),e7(a,([e])=>e));else if(io(e))e(I);else{var t,n,r,i=er;for([,r]of a)if(i=null!=(n=null==(n=r.processCommand)?void 0:n.call(r,e))?n:er)break;i||nM(\"invalid-command\",e,\"Loaded extensions:\",a.map(e=>e[2].id))}},e=>nM(I,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}},Object.defineProperty(tI,t5.name,{value:Object.freeze(Object.assign(I,{id:\"tracker_\"+n0(),events:c,variables:d,__isTracker:et})),configurable:!1,writable:!1}),n7((e,r,t)=>{var n=eV(null==(n=tl(eD(e,1)))?void 0:n.map(e=>[e,`${e.key} (${ty(e.scope)}, ${e.scope<0?\"client-side memory only\":r8.format(e.purposes)})`,er]),[[{[nE]:null==(n=tl(eD(r,1)))?void 0:n.map(e=>[e,`${e.key} (${ty(e.scope)}, ${e.scope<0?\"client-side memory only\":r8.format(e.purposes)})`,er])},\"All variables\",et]]);nI({[nE]:n},r_(`Variables changed${t?\"\":\" - merging changes from another tab\"} (${e.length} changed, ${e2(r)} in total).`,\"2;3\"))}),n8(async(e,r,t,n)=>{\"ready\"===e&&(e=(e=>ts(e,Q,!0))((await d.get({scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:ee}))[0]).value,v.deviceSessionId=e.deviceSessionId,e.hasUserAgent||(lI(I),e.hasUserAgent=!0),g=!0,s.length&&I(s),n(),I(...eD(l2,e=>({extension:e})),...i,{set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0),I;B(`The global variable for the tracker \"${t5.name}\" is used for something else than an array of queued commands.`)},lj=()=>null==A?void 0:A.clientId,l$={scope:\"shared\",key:\"referrer\"},l_=(e,r)=>{I.variables.set({...l$,value:[lj(),e]}),r&&I.variables.get({scope:l$.scope,key:l$.key,result(t,n,l){return null!=t&&t.value?l():(null==n||null==(t=n.value)?void 0:t[1])===e&&r()}})},lM=ry(),lU=ry(),lF=1,[lq,lR]=eo(),lz=e=>{var r=ry(e,lM),t=ry(e,lU),n=ry(e,nY),l=ry(e,()=>lF);return(e,i)=>({totalTime:r(e,i),visibleTime:t(e,i),activeTime:n(e,i),activations:l(e,i)})},lD=lz(),[lB,lV]=eo(),lJ=(e,r)=>(r&&eX(lK,r=>e(r,()=>!1)),lB(e)),lL=new WeakSet,lK=document.getElementsByTagName(\"iframe\");function lH(e){if(e){if(null!=e.units&&J(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var lY=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),lZ=e=>t6(e,r=>r!==e&&!!lY(rr(tK,r)),e=>(rr(tK,e),(N=rr(tK,e))&&eB(eV(N.component,N.content,N),\"tags\"))),lQ=(e,r)=>r?e:{...e,rect:void 0,content:(O=e.content)&&eD(O,e=>({...e,rect:void 0}))},l0=(e,r=er,t)=>{var n,l,i,a=[],o=[],u=0;return tC(e,e=>{var s,i,l=rr(tK,e);l&&(lY(l)&&(i=e1(ew(l.component),e=>{var t;return 0===u||!r&&(1===u&&(null==(t=e.track)?void 0:t.secondary)!==et||(null==(t=e.track)?void 0:t.promote))}),n=(null!=t?t:e9(i,e=>{return null==(e=e.track)?void 0:e.region}))&&tB(e)||void 0,s=lZ(e),l.content&&rh(a,...eD(l.content,e=>({...e,rect:n,...s}))),null!=i)&&i.length&&(rh(o,...eD(i,e=>{var r;return u=e4(u,null!=(r=e.track)&&r.secondary?1:2),lQ({...e,content:a,rect:n,...s},!!n)})),a=[]),i=l.area||t2(e,\"area\"))&&rh(o,...eD(ew(i)))}),a.length&&rp(o,lQ({id:\"\",rect:n,content:a})),eX(o,e=>{eg(e)?rp(null!=l?l:l=[],e):(null==e.area&&(e.area=rF(l,\"/\")),rh(null!=i?i:i=[],e))}),i||l?{components:i,area:rF(l,\"/\")}:void 0},l1=Symbol(),P={necessary:1,preferences:2,statistics:4,marketing:8},l2=(window.tail({consent:{externalSource:{key:\"Cookiebot\",poll(){var t,e=null==(e=tA.cookie.match(/CookieConsent=([^;]*)/))?void 0:e[1];if(e)return t=1,null!=e&&e.replace(/([a-z]+):(true|false)/g,(e,r,n)=>{return\"true\"===n&&(t|=null!=(n=P[r])?n:0),\"\"}),{level:1<t?1:0,purposes:t}}}}}),[{id:\"context\",setup(e){rw(()=>eX(lK,e=>ra(lL,e)&&lV(e)),1e3).trigger(),e.variables.get({scope:\"view\",key:\"view\",result(r,t,l){return null==A||null==r||!r.value||null!=A&&A.definition?n=null==r?void 0:r.value:(A.definition=r.value,null!=(r=A.metadata)&&r.posted&&e.events.postPatch(A,{definition:n})),l()}});var n,r,v=null!=(r=null==(r=lt({scope:\"tab\",key:\"viewIndex\"}))?void 0:r.value)?r:0,d=null==(r=lt({scope:\"tab\",key:\"tabIndex\"}))?void 0:r.value,c=(null==d&&ln({scope:\"tab\",key:\"tabIndex\",value:d=null!=(r=null!=(r=null==(r=lt({scope:\"shared\",key:\"tabIndex\"}))?void 0:r.value)?r:null==(r=lt({scope:\"session\",key:\"@info\"}))||null==(r=r.value)?void 0:r.tabs)?r:0},{scope:\"shared\",key:\"tabIndex\",value:d+1}),null),f=(r=er)=>{var i,a,o,l,p;tz(\"\"+c,c=location.href)&&!r||({source:r,scheme:l,host:i}=rB(location.href+\"\",!0),A={type:\"view\",timestamp:rm(),clientId:n0(),tab:nQ,href:r,path:location.pathname,hash:location.hash||void 0,domain:{scheme:l,host:i},tabNumber:d+1,tabViewNumber:v+1,viewport:tL(),duration:lD(void 0,!0)},0===d&&(A.firstTab=et),0===d&&0===v&&(A.landingPage=et),ln({scope:\"tab\",key:\"viewIndex\",value:++v}),a=rV(location.href),eD([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,r)=>{var n;return(null!=(n=(o=A).utm)?n:o.utm={})[e]=null==(n=ew(a[\"utm_\"+e]))?void 0:n[0]}),!(A.navigationType=x)&&performance&&eD(performance.getEntriesByType(\"navigation\"),e=>{A.redirects=e.redirectCount,A.navigationType=r2(e.type,/\\_/g,\"-\")}),x=void 0,\"navigate\"===(null!=(r=A.navigationType)?r:A.navigationType=\"navigate\")&&(p=null==(l=lt(l$))?void 0:l.value)&&nb(document.referrer)&&(A.view=null==p?void 0:p[0],A.relatedEventId=null==p?void 0:p[1],e.variables.set({...l$,value:void 0})),(p=document.referrer||null)&&!nb(p)&&(A.externalReferrer={href:p,domain:(()=>{var{host:r,scheme:t,port:n}=rB(p,!1);return{host:r+(n?\":\"+n:\"\"),scheme:t}})()}),A.definition=n,n=void 0,e.events.post(A),e.events.registerEventPatchSource(A,()=>({duration:lD()})),lR(A))};return nP(e=>{e?(lU(et),++lF):lU(er)}),tV(window,\"popstate\",()=>(x=\"back-forward\",f())),eD([\"push\",\"replace\"],e=>{var r=history[e+=\"State\"];history[e]=(...e)=>{r.apply(history,e),x=\"navigate\",f()}}),f(),{processCommand:r=>l5(r)&&(e(r.username?{type:\"login\",username:r.username}:{type:\"logout\"}),et),decorate(e){!A||tc(e)||te(e)||(e.view=A.clientId)}}}},{id:\"components\",setup(e){var r=(e=>{var r=new IntersectionObserver(e=>eX(e,e=>{var r,t;return null==(r=(t=e.target)[lb])?void 0:r.call(t,e)})),t=new Set,n=(rw({callback:()=>eX(t,e=>e()),frequency:250,raf:!0}),(e,r,t=0)=>e<t?t:r<e?r:e),l=tA.createRange();return(i,a)=>{var o,u,s,v,d,c,f,p,h,g,m,y,b,w,k,S;a&&(o=e1(null==a?void 0:a.component,e=>{var r;return(null==(r=e.track)?void 0:r.impressions)||(null!=(r=null==(r=e.track)?void 0:r.secondary)?r:e.inferred)!==et}))&&e2(o)&&(p=f=er,g=h=0,m=(e,r,t,n)=>{var l,i=null!=(i=(l=null!=u?u:u=[])[e])?i:l[e]=[{duration:0,impressions:0},ry(!1,nY),!1,!1,0,0,0,r4()];i[4]=r,i[5]=t,i[6]=n},y=[r4(),r4()],b=lz(!1),w=ry(!1,nY),k=-1,S=()=>{var O,r=i.getBoundingClientRect(),t=window.innerWidth,a=window.innerHeight,S=[n(r.top,a),n(r.right,t),n(r.bottom,a),n(r.left,t)],T=S[2]-S[0],S=S[1]-S[3],I=T/r.height||0,A=S/r.width||0,x=f?lk:lw,I=(x[0]*a<T||x[0]<I)&&(x[0]*t<S||x[0]<A);if(p!==I&&w(p=I,!0),f!==(f=p&&w()>=t5.impressionThreshold-250)&&(++h,b(f),s||e(s=e1(eD(o,e=>{return((null==(e=e.track)?void 0:e.impressions)||t4(i,\"impressions\",et,e=>{return null==(e=e.track)?void 0:e.impressions}))&&Z({type:\"impression\",pos:tD(i),viewport:tL(),timeOffset:lD(),impressions:h,...l0(i,et)})||null}))),null!=s)&&s.length&&(O=b(),v=eD(s,r=>e.events.registerEventPatchSource(r,()=>({relatedEventId:r.clientId,duration:O,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:O.activeTime&&c&&n(O.activeTime/c.readTime,g)})))),r.height!==k){k=r.height;t=i.textContent;if({boundaries:d,...c}=(e=>{for(var t,n,l=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),i=0,a=0,o=0,u=0,s=!1;t=l.exec(e);)t[1]?(s&&++u,s=!1):(s=!0,i+=t[0].length,6<t[0].length&&++o,++a);s&&++u;var l=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),v=[0,.25,.75,1].map(e=>e*i|0),d=[],f=0,p=!1;do{if(null!=(t=l.exec(e))&&t[1])p&&++f;else{for(var c=null==t?void 0:t.index,h=!1,g=0;g<v.length;g++)v[g]--||(d[g]={offset:null!=n?n:c,wordsBefore:f,readTime:ej(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(t);return{text:e,length:e.length,characters:i,words:a,sentences:u,lix:ej(a/u+100*o/a),readTime:ej(a/238*6e4),boundaries:d}})(null!=t?t:\"\"),u||r.height>=1.25*a){var j=tA.createTreeWalker(i,NodeFilter.SHOW_TEXT),$=0,_=0;for(null==u&&(u=[]);_<d.length&&(M=j.nextNode());){var M,U,F,z,D,q=null!=(U=null==(U=M.textContent)?void 0:U.length)?U:0;for($+=q;$>=(null==(F=d[_])?void 0:F.offset);)l[_%2?\"setEnd\":\"setStart\"](M,d[_].offset-$+q),_++%2&&({top:F,bottom:z}=l.getBoundingClientRect(),D=r.top,_<3?m(0,F-D,z-D,d[1].readTime):(m(1,u[0][4],F-D,d[2].readTime),m(2,F-D,z-D,d[3].readTime)))}}}x=r.left<0?-r.left:0,A=r.top<0?-r.top:0,I=r.width*r.height;f&&(g=y[0].push(A,A+T)*y[1].push(x,x+S)/I),u&&eX(u,e=>{var t=n(r.top<0?-r.top:0,e[5],e[4]),l=n(r.bottom>a?a:r.bottom,e[5],e[4]),i=f&&0<l-t,o=e[0];o.duration=e[1](i),i&&(e[3]!==(e[3]=i)&&++e[0].impressions,o.seen=e[7].push(t,l)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},i[lb]=({isIntersecting:e})=>{rl(t,S,e),e||(eX(v,e=>e()),S())},r.observe(i))}})(e),n=({boundary:e,...n})=>{ri(tK,e,e=>{var r;return(e=>null==e?void 0:{...e,component:ew(e.component),content:ew(e.content),tags:ew(e.tags)})(\"add\"in n?{...e,component:eV(null==e?void 0:e.component,n.component),content:eV(null==e?void 0:e.content,n.content),area:null!=(r=null==n?void 0:n.area)?r:null==e?void 0:e.area,tags:eV(null==e?void 0:e.tags,n.tags),cart:null!=(r=n.cart)?r:null==e?void 0:e.cart,track:null!=(r=n.track)?r:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),r(e,rr(tK,e))};return{decorate(e){eX(e.components,e=>rs(e,\"track\"))},processCommand:e=>l9(e)?(n(e),et):ii(e)?(eD(((e,r)=>{var t,n;return r?(t=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(l=>{if(!rr(n,l))for(var i=[];null!=t$(l,e);){ra(n,l);var a,o=r1(t$(l,e),\"|\");t$(l,e,null);for(var u=0;u<o.length;u++){var v=o[u];if(\"\"!==v){var s=\"-\"===v?-1:parseInt(null!=(s=em(v))?s:\"\",36);if(s<0)i.length+=s;else{if(0===u&&(i.length=0),isNaN(s)&&/^[\"\\[{]/.test(v))for(var c=\"\";u<o.length;u++)try{v=JSON.parse(c+=o[u]);break}catch(e){}0<=s&&r[s]&&(v=r[s]),rp(i,v)}}}rp(t,...eD(i,e=>({add:et,...e,boundary:l})));var f=l.nextElementSibling;\"WBR\"===l.tagName&&null!=(a=l.parentNode)&&a.removeChild(l),l=f}}),t):[]})(e.scan.attribute,e.scan.components),n),et):er}}},{id:\"navigation\",setup(e){var r=new WeakMap,t=t=>{tV(t,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var l,i,a,o,u,s=er;if(tC(n.target,e=>{lx(e)&&null==a&&(a=e),s=s||\"NAV\"===tP(e);var r,v=tG(e),v=null==v?void 0:v.component;!n.button&&null!=v&&v.length&&!u&&(eX(e.querySelectorAll(\"a,button\"),r=>lx(r)&&(3<(null!=u?u:u=[]).length?e_():u.push({...lN(r,!0),component:tC(r,(e,r,t,n=null==(l=tG(e))?void 0:l.component)=>n&&r(n[0]),r=>r===e)}))),u)&&null==o&&(o=e),null==l&&(l=null!=(r=t4(e,\"clicks\",et,e=>{return null==(e=e.track)?void 0:e.clicks}))?r:v&&e9(v,e=>{return(null==(e=e.track)?void 0:e.clicks)!==er})),null==i&&(i=null!=(r=t4(e,\"region\",et,e=>{return null==(e=e.track)?void 0:e.region}))?r:v&&e9(v,e=>{return null==(e=e.track)?void 0:e.region}))}),null!=o?o:o=a){var v,d=u&&!a&&l,c=l0(o,!1,d),f=t6(o,void 0,e=>{return eD(ew(null==(e=rr(tK,e))?void 0:e.tags))}),p=(null==l&&(l=!s),{...(i=null==i?et:i)?{pos:tD(a,n),viewport:tL()}:null,...((e,r)=>{var n;return tC(null!=e?e:r,e=>\"IMG\"===tP(e)||e===r?(n={element:lN(e,!1)},er):et),n})(n.target,o),...c,timeOffset:lD(),...f});if(a)if(lA(a)){var h=a,c=h.hostname!==location.hostname,{host:f,scheme:y,source:b}=rB(h.href,!1);if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(Z({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,T,w=Z({clientId:n0(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:y},self:et,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||t$(h,\"target\")!==window.name?(l_(w.clientId),w.self=er,e(w)):tz(location.href,h.href)||(w.exit=w.external,l_(w.clientId))):(k=h.href,(b=nb(k))?l_(w.clientId,()=>e(w)):(T=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||t5.captureContextMenu&&(h.href=nS+\"=\"+T+encodeURIComponent(k),tV(window,\"storage\",(r,t)=>{return\"_tail:push\"===r.key&&(r.newValue&&(null==(r=JSON.parse(r.newValue))?void 0:r.requestId)===T&&e(w),t())}),tV(t,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,r)=>{r(),h.href=k}))))}else{tC(n.target,(e,r)=>{var t;return!!(null!=v?v:v=(e=>eg(e=null==e||e!==et&&\"\"!==e?e:\"add\")&&J(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ek(e)?e:void 0)(null!=(t=null==(t=tG(e))?void 0:t.cart)?t:t2(e,\"cart\")))&&!v.item&&(v.item=(e=>null==e?Q:ey(e)||eg(e)?e[e.length-1]:eH(e,(e,t)=>e,void 0,void 0))(null==(t=tG(e))?void 0:t.content))&&r(v)});c=lH(v);(c||l)&&e(Z(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else d&&ri(r,o,t=>{var l=tW(o,n);return t?rp(t,l):(l=Z({type:\"component_click_intent\",...p,clicks:t=[l],clickables:u}),e.events.registerEventPatchSource(l,()=>({clicks:rr(r,o)}),!0,o)),t})}})};t(document),lJ(e=>e.contentDocument&&t(e.contentDocument))}},{id:\"scroll\",setup(e){var r={},t=tR(et);lq(()=>{return e=()=>(r={},t=tR(et)),setTimeout(e,250);var e}),tV(window,\"scroll\",()=>{var i,n=tR(),l={x:(f=tR(er)).x/(tx.offsetWidth-window.innerWidth)||0,y:f.y/(tx.offsetHeight-window.innerHeight)||0};n.y>=t.y&&(i=[],!r.fold&&n.y>=t.y+200&&(r.fold=et,rp(i,\"fold\")),!r[\"page-middle\"]&&.5<=l.y&&(r[\"page-middle\"]=et,rp(i,\"page-middle\")),!r[\"page-end\"]&&.99<=l.y&&(r[\"page-end\"]=et,rp(i,\"page-end\")),(n=eD(i,e=>Z({type:\"scroll\",scrollType:e,offset:l}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(r){var t;return l6(r)?(\"clear\"===(t=r.cart)?e({type:\"cart_updated\",action:\"clear\"}):(t=lH(t))&&e({...t,type:\"cart_updated\"}),et):il(r)?(e({type:\"order\",...r.order}),et):er}})},{id:\"forms\",setup(e){var r,t=new Map,n=(e,r=!1)=>{var t=!r||t_(e,tH(\"form-value\")),e=(r&&(t=t?ev(t):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return r&&(e=e&&rU(e,200)),t?e:void 0},l=r=>{var l,a,s,i=r.form;if(i)return a=t_(i,tH(\"ref\"))||\"track_ref\",s=rr(t,i,()=>{var r,t=new Map,n={type:\"form\",name:t_(i,tH(\"form-name\"))||t$(i,\"name\")||i.id||void 0,activeTime:0,totalTime:0,fields:{}},s=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:lD()})),((e=0)=>{var r,t,n=(l,i=e)=>{if(void 0===l)return!!t;clearTimeout(r),es(l)?l&&(i<0?e=>e!==er:e=>e===et)(null==t?void 0:t())?n(t):t=void 0:(t=l,r=setTimeout(()=>n(!0,i),i<0?-i:i))};return n})());return tV(i,\"submit\",()=>{l=l0(i),r[3]=3,s(()=>{(i.isConnected&&0<tB(i).width?(r[3]=2,s):()=>{o(),2<=r[3]&&(n.completed=3===r[3]||!(i.isConnected&&tB(i).width)),e.events.postPatch(n,{...l,totalTime:rm(et)-r[4]}),r[3]=1})()},750)}),r=[n,t,i,0,rm(et),1]}),rr(s[1],r)||eD(i.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,r)=>{var v,d,i;e.name&&\"hidden\"!==e.type?(d=e.name,i=null!=(v=(i=s[0].fields)[d])?v:i[d]={id:e.id||d,name:d,label:r2(null!=(d=null==(v=e.labels)||null==(i=v[0])?void 0:i.innerText)?d:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(v=e.type)?v:\"unknown\",[l1]:n(e),value:n(e,!0)},s[0].fields[i.name]=i,s[1].set(e,i)):\"hidden\"!==e.type||e.name!==a&&!t4(e,\"ref\")||(e.value||(e.value=r2(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value)}),[r,s]},i=(e,[t,n]=null!=(r=l(e))?r:[],i=null==n?void 0:n[1].get(t))=>i&&[n[0],i,t,n],a=null,o=()=>{var t,l,i,o,v,d,c;a&&([t,l,i,o]=a,v=-(u-(u=lU())),d=-(s-(s=rm(et))),c=l[l1],(l[l1]=n(i))!==c&&(null==l.fillOrder&&(l.fillOrder=o[5]++),l.filled&&(l.corrections=(null!=(c=l.corrections)?c:0)+1),l.filled=et,o[3]=2,eX(t.fields,([e,r])=>r.lastField=e===l.name)),l.value=n(i,!0),l.activeTime+=v,l.totalTime+=d,t.activeTime+=v,t.totalTime+=d,a=null)},u=0,s=0,v=e=>e&&tV(e,[\"focusin\",\"focusout\",\"change\"],(e,r,t=e.target&&i(e.target))=>t&&(a=t,\"focusin\"===e.type?(s=rm(et),u=lU()):o()));v(document),lJ(e=>e.contentDocument&&v(e.contentDocument),!0)}},{id:\"consent\",setup(e){var r=async r=>e.variables.get({scope:\"session\",key:\"@consent\",result:r}).value,t=async t=>{var n;if(t)return!(n=await r())||r5(n,t=r3(t))?[!1,n]:(n={level:r6.lookup(t.classification),purposes:r8.lookup(t.purposes)},await e.events.post(Z({type:\"consent\",consent:n}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,n])},n={};return{processCommand(e){var i,a,l,s,v;return iu(e)?((l=e.consent.get)&&r(l),(i=r3(e.consent.set))&&(async()=>{var e;return null==(e=i.callback)?void 0:e.call(i,...await t(i))})(),(a=e.consent.externalSource)&&(v=a.key,(null!=(l=n[v])?l:n[v]=rw({frequency:null!=(e=a.pollFrequency)?e:1e3})).restart(a.pollFrequency,async()=>{var e,n,l;tA.hasFocus()&&(e=a.poll())&&(e=r3({...s,...e}))&&!r5(s,e)&&([n,l]=await t(e),n&&nI(l,\"Consent was updated from \"+v),s=e)}).trigger()),et):er}}}}]),rz=(...e)=>r=>r===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==r?void 0:r[e])),l6=rz(\"cart\"),l5=rz(\"username\"),l3=rz(\"tagAttributes\"),l8=rz(\"disable\"),l9=rz(\"boundary\"),l7=rz(\"extension\"),ie=rz(et,\"flush\"),ir=rz(\"get\"),it=rz(\"listener\"),il=rz(\"order\"),ii=rz(\"scan\"),ia=rz(\"set\"),io=e=>\"function\"==typeof e,iu=rz(\"consent\");Object.defineProperty(tI,\".tail.js.init\",{writable:!1,configurable:!1,value(e){e(lC)}})})();\n//# sourceMappingURL=tail.debug.js.map\n"
 };
 
+function _define_property$c(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 /**
  * A crypto provider based on linear feedback XOR, entropy and padding.
  */ class DefaultCryptoProvider {
-    _currentCipherId;
-    _ciphers;
+    hash(value, numericOrBits) {
+        return this._ciphers[this._currentCipherId][2](value, numericOrBits);
+    }
+    decrypt(cipher) {
+        let cipherId = "";
+        cipher = cipher.replace(/^(.*?)!/, (_, m1)=>(cipherId = m1, ""));
+        var _this__ciphers_cipherId;
+        return ((_this__ciphers_cipherId = this._ciphers[cipherId]) !== null && _this__ciphers_cipherId !== void 0 ? _this__ciphers_cipherId : this._ciphers[this._currentCipherId])[1](cipher);
+    }
+    encrypt(source) {
+        return `${this._currentCipherId}!${this._ciphers[this._currentCipherId][0](source)}`;
+    }
     constructor(keys){
-        if (!keys?.length) {
+        _define_property$c(this, "_currentCipherId", void 0);
+        _define_property$c(this, "_ciphers", void 0);
+        if (!(keys === null || keys === void 0 ? void 0 : keys.length)) {
             this._currentCipherId = "";
             this._ciphers = {
                 "": defaultTransport
@@ -3994,17 +3728,6 @@ const scripts$1 = {
                 createTransport(key)
             ]));
         this._currentCipherId = hash(keys[0], 32);
-    }
-    hash(value, numericOrBits) {
-        return this._ciphers[this._currentCipherId][2](value, numericOrBits);
-    }
-    decrypt(cipher) {
-        let cipherId = "";
-        cipher = cipher.replace(/^(.*?)!/, (_, m1)=>(cipherId = m1, ""));
-        return (this._ciphers[cipherId] ?? this._ciphers[this._currentCipherId])[1](cipher);
-    }
-    encrypt(source) {
-        return `${this._currentCipherId}!${this._ciphers[this._currentCipherId][0](source)}`;
     }
 }
 
@@ -4034,7 +3757,9 @@ const patchSelector = (value, selector, update)=>{
             }
         } else {
             if (!current) {
-                patchTarget = i ? current = patchTarget[selector] ??= {} : value ??= {};
+                var _patchTarget, _selector;
+                var _;
+                patchTarget = i ? current = (_ = (_patchTarget = patchTarget)[_selector = selector]) !== null && _ !== void 0 ? _ : _patchTarget[_selector] = {} : value !== null && value !== void 0 ? value : value = {};
             }
         }
     });
@@ -4045,23 +3770,30 @@ const applyPatch = async (current, setter)=>{
     if (isVariablePatchAction(setter)) {
         const patched = toNumericVariableEnums(await setter.patch(toNumericVariableEnums(current)));
         if (patched) {
-            patched.classification ??= dataClassification.parse(current?.classification);
-            patched.purposes ??= dataPurposes.parse(current?.purposes);
-            !("tags" in patched) && (patched.tags = current?.tags);
+            var _patched, _patched1;
+            var _classification;
+            (_classification = (_patched = patched).classification) !== null && _classification !== void 0 ? _classification : _patched.classification = dataClassification.parse(current === null || current === void 0 ? void 0 : current.classification);
+            var _purposes;
+            (_purposes = (_patched1 = patched).purposes) !== null && _purposes !== void 0 ? _purposes : _patched1.purposes = dataPurposes.parse(current === null || current === void 0 ? void 0 : current.purposes);
+            !("tags" in patched) && (patched.tags = current === null || current === void 0 ? void 0 : current.tags);
         }
-        return patched ?? undefined;
+        return patched !== null && patched !== void 0 ? patched : undefined;
     }
+    var _setter_purposes;
     const classification = {
         classification: dataClassification.parse(setter.classification, false),
-        purposes: dataPurposes(setter.purposes ?? current?.purposes)
+        purposes: dataPurposes((_setter_purposes = setter.purposes) !== null && _setter_purposes !== void 0 ? _setter_purposes : current === null || current === void 0 ? void 0 : current.purposes)
     };
-    const value = current?.value;
+    const value = current === null || current === void 0 ? void 0 : current.value;
     setter.patch = patchType.parse(setter.patch);
     switch(setter.patch){
         case VariablePatchType.Add:
             return {
                 ...classification,
-                value: patchSelector(requireNumberOrUndefined(value), setter.selector, (value)=>(value ?? setter.seed ?? 0) + setter.value)
+                value: patchSelector(requireNumberOrUndefined(value), setter.selector, (value)=>{
+                    var _ref;
+                    return ((_ref = value !== null && value !== void 0 ? value : setter.seed) !== null && _ref !== void 0 ? _ref : 0) + setter.value;
+                })
             };
         case VariablePatchType.Min:
         case VariablePatchType.Max:
@@ -4071,7 +3803,7 @@ const applyPatch = async (current, setter)=>{
             };
         case VariablePatchType.IfMatch:
         case VariablePatchType.IfNoneMatch:
-            if (current?.value === setter.match === (setter.patch === VariablePatchType.IfNoneMatch)) {
+            if ((current === null || current === void 0 ? void 0 : current.value) === setter.match === (setter.patch === VariablePatchType.IfNoneMatch)) {
                 return undefined;
             }
             return {
@@ -4085,7 +3817,7 @@ const withSourceIndex = (items)=>items.map((item, sourceIndex)=>[
             item
         ]);
 const partitionItems = (items)=>items.map((item)=>item[1]);
-const mergeKeys = async (results, partitionMappings, partitionResults)=>partitionMappings?.length ? (await partitionResults(partitionMappings.map((item)=>item?.[1]))).forEach((result, i)=>result && (results[partitionMappings[i][0]] = result)) : undefined;
+const mergeKeys = async (results, partitionMappings, partitionResults)=>(partitionMappings === null || partitionMappings === void 0 ? void 0 : partitionMappings.length) ? (await partitionResults(partitionMappings.map((item)=>item === null || item === void 0 ? void 0 : item[1]))).forEach((result, i)=>result && (results[partitionMappings[i][0]] = result)) : undefined;
 
 const generateClientBootstrapScript = (config, encrypt)=>{
     // Add a layer of "security by obfuscation" - just in case.
@@ -4107,6 +3839,19 @@ const generateClientExternalNavigationScript = (requestId, url)=>{
     }))});localStorage.removeItem(${JSON.stringify(CLIENT_CALLBACK_CHANNEL_ID)});}catch(e){console.error(e);}location.replace(${JSON.stringify(url)});</script></head><body>(Redirecting to ${url}...)</body></html>`;
 };
 
+function _define_property$b(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 const scripts = {
     main: {
         text: scripts$1.main.text,
@@ -4122,52 +3867,12 @@ let SCRIPT_CACHE_HEADERS = {
     "cache-control": "private, max-age=604800"
 }; // A week
 class RequestHandler {
-    _cookies;
-    _endpoint;
-    _extensionFactories;
-    _lock = createLock();
-    _schema;
-    _trackerName;
-    _extensions;
-    _initialized = false;
-    _script;
-    /** @internal */ _cookieNames;
-    environment;
-    _clientConfig;
-    /** @internal */ _clientIdGenerator;
-    _config;
-    _defaultConsent;
-    constructor(config){
-        let { trackerName, endpoint, extensions, cookies, client, clientIdGenerator, defaultConsent } = config = merge({}, DEFAULT, config);
-        this._config = config;
-        this._trackerName = trackerName;
-        this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
-        this._defaultConsent = {
-            level: dataClassification(defaultConsent.level),
-            purposes: dataPurposes(defaultConsent.purposes)
-        };
-        this._extensionFactories = map(extensions);
-        this._cookies = new CookieMonster(cookies);
-        this._clientIdGenerator = clientIdGenerator ?? new DefaultClientIdGenerator();
-        this._cookieNames = {
-            consent: cookies.namePrefix + ".consent",
-            session: cookies.namePrefix + ".session",
-            device: cookies.namePrefix + ".device",
-            deviceByPurpose: obj(dataPurposes.pure.map(([name, flag])=>[
-                    flag,
-                    cookies.namePrefix + (flag === DataPurposeFlags.Necessary ? "" : "," + dataPurposes.format(name))
-                ]))
-        };
-        this._clientConfig = {
-            ...client,
-            src: this._endpoint
-        };
-    }
     async applyExtensions(tracker, context) {
         for (const extension of this._extensions){
             // Call the apply method in post context to let extension do whatever they need before events are processed (e.g. initialize session).
             try {
-                await extension.apply?.(tracker, context);
+                var _extension_apply;
+                await ((_extension_apply = extension.apply) === null || _extension_apply === void 0 ? void 0 : _extension_apply.call(extension, tracker, context));
             } catch (e) {
                 this._logExtensionError(extension, "apply", e);
             }
@@ -4186,11 +3891,12 @@ class RequestHandler {
     async initialize() {
         if (this._initialized) return;
         await this._lock(async ()=>{
+            var _this_environment_storage_initialize, _this_environment_storage;
             if (this._initialized) return;
             let { host, crypto, environmentTags, encryptionKeys, schemas, storage } = this._config;
-            schemas ??= [];
+            schemas !== null && schemas !== void 0 ? schemas : schemas = [];
             if (!schemas.find((schema)=>isPlainObject(schema) && schema.$id === "urn:tailjs:core")) {
-                schemas.unshift(defaultSchema);
+                schemas.unshift(index);
             }
             for (const [schema, i] of rank(schemas)){
                 if (isString(schema)) {
@@ -4198,34 +3904,36 @@ class RequestHandler {
                 }
             }
             if (!storage) {
+                var _this__config_sessionTimeout;
                 storage = {
                     default: {
                         storage: new InMemoryStorage({
-                            [VariableScope.Session]: (this._config.sessionTimeout ?? 30) * MINUTE
+                            [VariableScope.Session]: ((_this__config_sessionTimeout = this._config.sessionTimeout) !== null && _this__config_sessionTimeout !== void 0 ? _this__config_sessionTimeout : 30) * MINUTE
                         }),
                         schema: "*"
                     }
                 };
             }
             this._schema = SchemaManager.create(schemas);
-            this.environment = new TrackerEnvironment(host, crypto ?? new DefaultCryptoProvider(encryptionKeys), new ParsingVariableStorage(new VariableStorageCoordinator({
+            this.environment = new TrackerEnvironment(host, crypto !== null && crypto !== void 0 ? crypto : new DefaultCryptoProvider(encryptionKeys), new ParsingVariableStorage(new VariableStorageCoordinator({
                 schema: this._schema,
                 mappings: storage
             })), environmentTags);
             if (this._config.debugScript) {
                 if (typeof this._config.debugScript === "string") {
-                    this._script = await this.environment.readText(this._config.debugScript, async (_, newText)=>{
+                    var _ref;
+                    this._script = (_ref = await this.environment.readText(this._config.debugScript, async (_, newText)=>{
                         const updated = await newText();
                         if (updated) {
                             this._script = updated;
                         }
                         return true;
-                    }) ?? undefined;
+                    })) !== null && _ref !== void 0 ? _ref : undefined;
                 } else {
                     this._script = scripts.debug;
                 }
             }
-            await this.environment.storage.initialize?.(this.environment);
+            await ((_this_environment_storage_initialize = (_this_environment_storage = this.environment.storage).initialize) === null || _this_environment_storage_initialize === void 0 ? void 0 : _this_environment_storage_initialize.call(_this_environment_storage, this.environment));
             this._extensions = [
                 Timestamps,
                 new TrackerCoreEvents(),
@@ -4234,8 +3942,9 @@ class RequestHandler {
                     let extension = null;
                     try {
                         extension = await factory();
-                        if (extension?.initialize) {
-                            await extension.initialize?.(this.environment);
+                        if (extension === null || extension === void 0 ? void 0 : extension.initialize) {
+                            var _extension_initialize;
+                            await ((_extension_initialize = extension.initialize) === null || _extension_initialize === void 0 ? void 0 : _extension_initialize.call(extension, this.environment));
                             this.environment.log(extension, `The extension ${extension.id} was initialized.`);
                         }
                         return extension;
@@ -4250,7 +3959,7 @@ class RequestHandler {
     }
     async post(tracker, eventBatch, options) {
         const context = {
-            passive: !!options?.passive
+            passive: !!(options === null || options === void 0 ? void 0 : options.passive)
         };
         let events = eventBatch;
         await this.initialize();
@@ -4266,9 +3975,10 @@ class RequestHandler {
             const events = [];
             for (const item of parsed){
                 if (isValidationError(item)) {
+                    var _sourceIndices_get;
                     validationErrors.push({
                         // The key for the source index of a validation error may be the error itself during the initial validation.
-                        sourceIndex: sourceIndices.get(item.source) ?? sourceIndices.get(item),
+                        sourceIndex: (_sourceIndices_get = sourceIndices.get(item.source)) !== null && _sourceIndices_get !== void 0 ? _sourceIndices_get : sourceIndices.get(item),
                         source: item.source,
                         error: item.error
                     });
@@ -4300,9 +4010,11 @@ class RequestHandler {
         } else {
             await Promise.all(this._extensions.map(async (extension)=>{
                 try {
-                    await extension.post?.(eventBatch, tracker, context) ?? Promise.resolve();
+                    var _extension_post;
+                    var _ref;
+                    (_ref = await ((_extension_post = extension.post) === null || _extension_post === void 0 ? void 0 : _extension_post.call(extension, eventBatch, tracker, context))) !== null && _ref !== void 0 ? _ref : Promise.resolve();
                 } catch (e) {
-                    extensionErrors[extension.id] = e instanceof Error ? e : new Error(e?.toString());
+                    extensionErrors[extension.id] = e instanceof Error ? e : new Error(e === null || e === void 0 ? void 0 : e.toString());
                 }
             }));
         }
@@ -4325,24 +4037,27 @@ class RequestHandler {
             ]));
         let trackerInitializationOptions;
         let trackerSettings = deferred(async ()=>{
-            clientIp ??= headers["x-forwarded-for"]?.[0] ?? obj(parseQueryString(headers["forwarded"]))?.["for"] ?? undefined;
+            var _headers_xforwardedfor, _obj;
+            var _headers_xforwardedfor_, _ref;
+            clientIp !== null && clientIp !== void 0 ? clientIp : clientIp = (_ref = (_headers_xforwardedfor_ = (_headers_xforwardedfor = headers["x-forwarded-for"]) === null || _headers_xforwardedfor === void 0 ? void 0 : _headers_xforwardedfor[0]) !== null && _headers_xforwardedfor_ !== void 0 ? _headers_xforwardedfor_ : (_obj = obj(parseQueryString(headers["forwarded"]))) === null || _obj === void 0 ? void 0 : _obj["for"]) !== null && _ref !== void 0 ? _ref : undefined;
             let clientEncryptionKey;
             if (this._config.clientEncryptionKeySeed) {
                 clientEncryptionKey = await this._clientIdGenerator.generateClientId(this.environment, request, true, this._config.clientEncryptionKeySeed);
             }
+            var _this__config_clientEncryptionKeySeed;
             return {
                 headers,
                 host,
                 path,
                 url,
-                queryString: Object.fromEntries(Object.entries(query ?? {}).map(([key, value])=>[
+                queryString: Object.fromEntries(Object.entries(query !== null && query !== void 0 ? query : {}).map(([key, value])=>[
                         key,
                         !value ? [] : Array.isArray(value) ? value.map((value)=>value || "") : [
                             value
                         ]
                     ])),
                 clientIp,
-                clientId: await this._clientIdGenerator.generateClientId(this.environment, request, false, this._config.clientEncryptionKeySeed ?? ""),
+                clientId: await this._clientIdGenerator.generateClientId(this.environment, request, false, (_this__config_clientEncryptionKeySeed = this._config.clientEncryptionKeySeed) !== null && _this__config_clientEncryptionKeySeed !== void 0 ? _this__config_clientEncryptionKeySeed : ""),
                 requestHandler: this,
                 defaultConsent: this._defaultConsent,
                 cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
@@ -4363,7 +4078,10 @@ class RequestHandler {
          * we don't want the browser to suddenly restrict the age of the user's cookies.
          */ sendCookies = true, /** Send the response as JSON */ json = false } = {})=>{
             if (response) {
-                response.headers ??= {};
+                var _response_headers;
+                var _response;
+                var _headers;
+                (_headers = (_response = response).headers) !== null && _headers !== void 0 ? _headers : _response.headers = {};
                 if (resolveTracker.resolved) {
                     const resolvedTracker = await resolveTracker();
                     if (sendCookies) {
@@ -4374,11 +4092,14 @@ class RequestHandler {
                     }
                 }
                 if (isPlainObject(response.body)) {
-                    response.body = response.headers?.["content-type"] === "application/json" || json ? JSON.stringify(response.body) : (await trackerSettings()).transport[0](response.body, true);
+                    var _response_headers1;
+                    response.body = ((_response_headers1 = response.headers) === null || _response_headers1 === void 0 ? void 0 : _response_headers1["content-type"]) === "application/json" || json ? JSON.stringify(response.body) : (await trackerSettings()).transport[0](response.body, true);
                 }
-                if (isString(response.body) && !response.headers?.["content-type"]) {
-                    // This is probably a lie, but we pretend everything is text to avoid preflight.
-                    (response.headers ??= {})["content-type"] = "text/plain";
+                if (isString(response.body) && !((_response_headers = response.headers) === null || _response_headers === void 0 ? void 0 : _response_headers["content-type"])) {
+                    var // This is probably a lie, but we pretend everything is text to avoid preflight.
+                    _response1;
+                    var _headers1;
+                    ((_headers1 = (_response1 = response).headers) !== null && _headers1 !== void 0 ? _headers1 : _response1.headers = {})["content-type"] = "text/plain";
                 }
             }
             return {
@@ -4394,7 +4115,7 @@ class RequestHandler {
                 switch(method.toUpperCase()){
                     case "GET":
                         {
-                            if ((queryValue = join(query?.[INIT_SCRIPT_QUERY$1])) != null) {
+                            if ((queryValue = join(query === null || query === void 0 ? void 0 : query[INIT_SCRIPT_QUERY$1])) != null) {
                                 // This is set by most modern browsers.
                                 // It prevents external scripts to try to get a hold of the storage key via XHR.
                                 const secDest = headers["sec-fetch-dest"];
@@ -4422,7 +4143,7 @@ class RequestHandler {
                                     }
                                 });
                             }
-                            if ((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])) != null) {
+                            if ((queryValue = join(query === null || query === void 0 ? void 0 : query[CLIENT_SCRIPT_QUERY])) != null) {
                                 return result({
                                     status: 200,
                                     body: await this._getClientScripts(resolveTracker, false),
@@ -4433,7 +4154,8 @@ class RequestHandler {
                                     }
                                 });
                             }
-                            if ((queryValue = join(query?.[CONTEXT_NAV_QUERY])) != null) {
+                            if ((queryValue = join(query === null || query === void 0 ? void 0 : query[CONTEXT_NAV_QUERY])) != null) {
+                                var _this;
                                 // The user navigated via the context menu in their browser.
                                 // If the user has an active session we respond with a small script, that will push the request ID
                                 // that caused the navigation to the other browser tabs.
@@ -4442,12 +4164,13 @@ class RequestHandler {
                                 trackerInitializationOptions = {
                                     passive: true
                                 };
-                                const [, requestId, targetUri] = match(join(queryValue), /^([0-9]*)(.+)$/) ?? [];
+                                var _match;
+                                const [, requestId, targetUri] = (_match = match(join(queryValue), /^([0-9]*)(.+)$/)) !== null && _match !== void 0 ? _match : [];
                                 if (!targetUri) return result({
                                     status: 400
                                 });
                                 if (!requestId || // We need to initialize the tracker to see if it has a session.
-                                !(await resolveTracker())?.sessionId) {
+                                !((_this = await resolveTracker()) === null || _this === void 0 ? void 0 : _this.sessionId)) {
                                     return result({
                                         status: 301,
                                         headers: {
@@ -4468,7 +4191,7 @@ class RequestHandler {
                                     }
                                 });
                             }
-                            if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
+                            if ((queryValue = join(query === null || query === void 0 ? void 0 : query[SCHEMA_QUERY])) != null) {
                                 return result({
                                     status: 200,
                                     body: this._schema.schema.definition,
@@ -4486,7 +4209,9 @@ class RequestHandler {
                             // Check if we are using a debugging script.
                             let script = this._script;
                             if (!script) {
-                                const accept = headers["accept-encoding"]?.split(",").map((value)=>value.toLowerCase().trim()) ?? [];
+                                var _headers_acceptencoding;
+                                var _headers_acceptencoding_split_map;
+                                const accept = (_headers_acceptencoding_split_map = (_headers_acceptencoding = headers["accept-encoding"]) === null || _headers_acceptencoding === void 0 ? void 0 : _headers_acceptencoding.split(",").map((value)=>value.toLowerCase().trim())) !== null && _headers_acceptencoding_split_map !== void 0 ? _headers_acceptencoding_split_map : [];
                                 if (accept.includes("br")) {
                                     script = scripts.main.br;
                                     scriptHeaders["content-encoding"] = "br";
@@ -4506,7 +4231,7 @@ class RequestHandler {
                         }
                     case "POST":
                         {
-                            if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
+                            if ((queryValue = join(query === null || query === void 0 ? void 0 : query[EVENT_HUB_QUERY])) != null) {
                                 body = await unwrap(body);
                                 if (body == null || !isJsonObject(body) && body.length === 0) {
                                     return result({
@@ -4557,12 +4282,16 @@ class RequestHandler {
                                     }
                                     if (postRequest.variables) {
                                         if (postRequest.variables.get) {
-                                            (response.variables ??= {}).get = await resolvedTracker.get(postRequest.variables.get, {
+                                            var _response;
+                                            var _variables;
+                                            ((_variables = (_response = response).variables) !== null && _variables !== void 0 ? _variables : _response.variables = {}).get = await resolvedTracker.get(postRequest.variables.get, {
                                                 client: true
                                             }).all;
                                         }
                                         if (postRequest.variables.set) {
-                                            (response.variables ??= {}).set = await resolvedTracker.set(postRequest.variables.set, {
+                                            var _response1;
+                                            var _variables1;
+                                            ((_variables1 = (_response1 = response).variables) !== null && _variables1 !== void 0 ? _variables1 : _response1.variables = {}).set = await resolvedTracker.set(postRequest.variables.set, {
                                                 client: true
                                             }).all;
                                         }
@@ -4672,8 +4401,62 @@ class RequestHandler {
             error
         });
     }
+    constructor(config){
+        _define_property$b(this, "_cookies", void 0);
+        _define_property$b(this, "_endpoint", void 0);
+        _define_property$b(this, "_extensionFactories", void 0);
+        _define_property$b(this, "_lock", createLock());
+        _define_property$b(this, "_schema", void 0);
+        _define_property$b(this, "_trackerName", void 0);
+        _define_property$b(this, "_extensions", void 0);
+        _define_property$b(this, "_initialized", false);
+        _define_property$b(this, "_script", void 0);
+        /** @internal */ _define_property$b(this, "_cookieNames", void 0);
+        _define_property$b(this, "environment", void 0);
+        _define_property$b(this, "_clientConfig", void 0);
+        /** @internal */ _define_property$b(this, "_clientIdGenerator", void 0);
+        _define_property$b(this, "_config", void 0);
+        _define_property$b(this, "_defaultConsent", void 0);
+        let { trackerName, endpoint, extensions, cookies, client, clientIdGenerator, defaultConsent } = config = merge({}, DEFAULT, config);
+        this._config = config;
+        this._trackerName = trackerName;
+        this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
+        this._defaultConsent = {
+            level: dataClassification(defaultConsent.level),
+            purposes: dataPurposes(defaultConsent.purposes)
+        };
+        this._extensionFactories = map(extensions);
+        this._cookies = new CookieMonster(cookies);
+        this._clientIdGenerator = clientIdGenerator !== null && clientIdGenerator !== void 0 ? clientIdGenerator : new DefaultClientIdGenerator();
+        this._cookieNames = {
+            consent: cookies.namePrefix + ".consent",
+            session: cookies.namePrefix + ".session",
+            device: cookies.namePrefix + ".device",
+            deviceByPurpose: obj(dataPurposes.pure.map(([name, flag])=>[
+                    flag,
+                    cookies.namePrefix + (flag === DataPurposeFlags.Necessary ? "" : "," + dataPurposes.format(name))
+                ]))
+        };
+        this._clientConfig = {
+            ...client,
+            src: this._endpoint
+        };
+    }
 }
 
+function _define_property$a(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 const createInitialScopeData = (id, timestamp, additionalData)=>({
         id,
         firstSeen: timestamp,
@@ -4683,75 +4466,9 @@ const createInitialScopeData = (id, timestamp, additionalData)=>({
         ...additionalData
     });
 class Tracker {
-    /**
-   * Used for queueing up events so they do not get posted before all extensions have been applied to the request.
-   *
-   * Without this queue this might happen if one of the first extensions posted an event in the apply method.
-   * It would then pass through the post pipeline in a nested call and see `_extensionsApplied` to be `true` even though they were not, hence miss their logic.
-   */ _eventQueue = [];
-    _extensionState = 0;
-    _initialized;
-    _requestId;
-    _clientId;
-    /** @internal  */ _clientEvents = [];
-    /** @internal */ _requestHandler;
-    clientIp;
-    cookies;
-    disabled;
-    env;
-    headers;
-    queryString;
-    referrer;
-    requestItems;
-    /** Transient variables that can be used by extensions whilst processing a request. */ transient;
-    /** Variables that have been added or updated during the request (cf. {@link TrackerStorageContext.push}). */ _changedVariables = [];
-    _clientCipher;
-    _defaultConsent;
-    host;
-    path;
-    url;
-    constructor({ disabled = false, clientIp, headers, host, path, url, queryString, cookies, requestHandler, transport: cipher, clientId, defaultConsent }){
-        this.disabled = disabled;
-        this._requestHandler = requestHandler;
-        this.env = requestHandler.environment;
-        this.host = host;
-        this.path = path;
-        this.url = url;
-        this._defaultConsent = defaultConsent;
-        this.queryString = queryString ?? {};
-        this.headers = headers ?? {};
-        this.cookies = cookies ?? {};
-        this.transient = {};
-        this.requestItems = new Map();
-        this.clientIp = clientIp;
-        this.referrer = this.headers["referer"] ?? null;
-        // Defaults to unencrypted transport if nothing is specified.
-        this._clientCipher = cipher ?? defaultTransport;
-        this._clientId = clientId;
-    }
     get clientEvents() {
         return this._clientEvents;
     }
-    /** A unique ID used to look up session data. This is a pointer to the session data that includes the actual session ID.
-   *
-   * In this way the session ID for a pseudonomized cookie-less identifier may be truly anonymized.
-   * It also protects against race conditions. If one concurrent request changes the session (e.g. resets it), the other(s) will see it.
-   *
-   */ _sessionReferenceId;
-    /** @internal */ _session;
-    /** @internal */ _device;
-    /**
-   * See {@link Session.expiredDeviceSessionId}.
-   * @internal
-   */ _expiredDeviceSessionId;
-    /**
-   * Device variables are only persisted in the device.
-   * However, when used they are temporarily stored in memory like session variables to avoid race conditions.
-   */ _clientDeviceCache;
-    _consent = {
-        level: DataClassification.Anonymous,
-        purposes: DataPurposeFlags.Necessary
-    };
     get consent() {
         return this._consent;
     }
@@ -4762,22 +4479,28 @@ class Tracker {
         return this._initialized;
     }
     get session() {
-        return this._session?.value;
+        var _this__session;
+        return (_this__session = this._session) === null || _this__session === void 0 ? void 0 : _this__session.value;
     }
     get sessionId() {
-        return this.session?.id;
+        var _this_session;
+        return (_this_session = this.session) === null || _this_session === void 0 ? void 0 : _this_session.id;
     }
     get deviceSessionId() {
-        return this._session?.value?.deviceSessionId;
+        var _this__session_value, _this__session;
+        return (_this__session = this._session) === null || _this__session === void 0 ? void 0 : (_this__session_value = _this__session.value) === null || _this__session_value === void 0 ? void 0 : _this__session_value.deviceSessionId;
     }
     get device() {
-        return this._device?.value;
+        var _this__device;
+        return (_this__device = this._device) === null || _this__device === void 0 ? void 0 : _this__device.value;
     }
     get deviceId() {
-        return this._session?.value?.deviceId;
+        var _this__session_value, _this__session;
+        return (_this__session = this._session) === null || _this__session === void 0 ? void 0 : (_this__session_value = _this__session.value) === null || _this__session_value === void 0 ? void 0 : _this__session_value.deviceId;
     }
     get authenticatedUserId() {
-        return this._session?.value?.userId;
+        var _this__session_value, _this__session;
+        return (_this__session = this._session) === null || _this__session === void 0 ? void 0 : (_this__session_value = _this__session.value) === null || _this__session_value === void 0 ? void 0 : _this__session_value.userId;
     }
     httpClientEncrypt(value) {
         return this._clientCipher[0](value);
@@ -4804,6 +4527,7 @@ class Tracker {
         }
     }
     async forwardRequest(request) {
+        var _CookieMonster_parseCookieHeader;
         const finalRequest = {
             url: request.url,
             binary: request.binary,
@@ -4820,10 +4544,10 @@ class Tracker {
         const cookies = map(new Map(concat(map(this.cookies, ([name, cookie])=>[
                 name,
                 cookie.value
-            ]), map(CookieMonster.parseCookieHeader(finalRequest.headers["cookies"])?.[requestCookies], ([name, cookie])=>[
+            ]), map((_CookieMonster_parseCookieHeader = CookieMonster.parseCookieHeader(finalRequest.headers["cookies"])) === null || _CookieMonster_parseCookieHeader === void 0 ? void 0 : _CookieMonster_parseCookieHeader[requestCookies], ([name, cookie])=>[
                 name,
                 cookie.value
-            ]))), ([...args])=>args.map((value)=>encodeURIComponent(value ?? "")).join("=")).join("; ");
+            ]))), ([...args])=>args.map((value)=>encodeURIComponent(value !== null && value !== void 0 ? value : "")).join("=")).join("; ");
         if (cookies.length) {
             finalRequest.headers["cookie"] = cookies;
         }
@@ -4840,7 +4564,9 @@ class Tracker {
         }
         const result = await this._requestHandler.post(this, events, options);
         if (this._changedVariables.length) {
-            ((result.variables ??= {}).get ??= []).push(...this._changedVariables);
+            var _result, _ref;
+            var _variables, _get;
+            ((_get = (_ref = (_variables = (_result = result).variables) !== null && _variables !== void 0 ? _variables : _result.variables = {}).get) !== null && _get !== void 0 ? _get : _ref.get = []).push(...this._changedVariables);
         }
         return result;
     }
@@ -4849,7 +4575,8 @@ class Tracker {
         // Loads device variables into cache.
         const variables = this._getClientDeviceVariables();
         if (variables) {
-            if (this._clientDeviceCache?.loaded) {
+            var _this__clientDeviceCache;
+            if ((_this__clientDeviceCache = this._clientDeviceCache) === null || _this__clientDeviceCache === void 0 ? void 0 : _this__clientDeviceCache.loaded) {
                 return;
             }
             this._clientDeviceCache.loaded = true;
@@ -4861,20 +4588,23 @@ class Tracker {
             const deviceCache = this._clientDeviceCache = {};
             let timestamp;
             dataPurposes.pure.map(([, flag])=>{
+                var _this_cookies_this__requestHandler__cookieNames_deviceByPurpose_flag;
                 // Device variables are stored with a cookie for each purpose.
                 this._requestHandler._cookieNames.deviceByPurpose[flag];
-                forEach(this.httpClientDecrypt(this.cookies[this._requestHandler._cookieNames.deviceByPurpose[flag]]?.value), (value)=>{
-                    update(deviceCache.variables ??= {}, value[0], (current)=>{
-                        current ??= {
+                forEach(this.httpClientDecrypt((_this_cookies_this__requestHandler__cookieNames_deviceByPurpose_flag = this.cookies[this._requestHandler._cookieNames.deviceByPurpose[flag]]) === null || _this_cookies_this__requestHandler__cookieNames_deviceByPurpose_flag === void 0 ? void 0 : _this_cookies_this__requestHandler__cookieNames_deviceByPurpose_flag.value), (value)=>{
+                    var _deviceCache;
+                    var _variables;
+                    update((_variables = (_deviceCache = deviceCache).variables) !== null && _variables !== void 0 ? _variables : _deviceCache.variables = {}, value[0], (current)=>{
+                        current !== null && current !== void 0 ? current : current = {
                             scope: VariableScope.Device,
                             key: value[0],
                             classification: value[1],
                             version: value[2],
                             value: value[3],
                             purposes: value[4],
-                            created: timestamp ??= now(),
-                            modified: timestamp ??= now(),
-                            accessed: timestamp ??= now()
+                            created: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now(),
+                            modified: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now(),
+                            accessed: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now()
                         };
                         current.purposes |= flag;
                         return current;
@@ -4902,15 +4632,18 @@ class Tracker {
    * (so yes, they can hypothetically be split across the same tab even though that goes against the definition).
    *
    * @internal */ async _ensureInitialized({ deviceId, deviceSessionId, passive } = {}) {
+        var _this_cookies_this__requestHandler__cookieNames_consent, _consentData_;
         if (this._initialized === (this._initialized = true)) {
             return this;
         }
         this._requestId = await this.env.nextId("request");
         const timestamp = now();
-        const consentData = (this.cookies[this._requestHandler._cookieNames.consent]?.value ?? `${this._defaultConsent.purposes}@${this._defaultConsent.level}`).split("@");
+        var _this_cookies_this__requestHandler__cookieNames_consent_value;
+        const consentData = ((_this_cookies_this__requestHandler__cookieNames_consent_value = (_this_cookies_this__requestHandler__cookieNames_consent = this.cookies[this._requestHandler._cookieNames.consent]) === null || _this_cookies_this__requestHandler__cookieNames_consent === void 0 ? void 0 : _this_cookies_this__requestHandler__cookieNames_consent.value) !== null && _this_cookies_this__requestHandler__cookieNames_consent_value !== void 0 ? _this_cookies_this__requestHandler__cookieNames_consent_value : `${this._defaultConsent.purposes}@${this._defaultConsent.level}`).split("@");
+        var _dataClassification_tryParse, _dataPurposes_tryParse;
         this._consent = {
-            level: dataClassification.tryParse(consentData[1]) ?? this._defaultConsent.level,
-            purposes: dataPurposes.tryParse(consentData[0]?.split(",")) ?? this._defaultConsent.purposes
+            level: (_dataClassification_tryParse = dataClassification.tryParse(consentData[1])) !== null && _dataClassification_tryParse !== void 0 ? _dataClassification_tryParse : this._defaultConsent.level,
+            purposes: (_dataPurposes_tryParse = dataPurposes.tryParse((_consentData_ = consentData[0]) === null || _consentData_ === void 0 ? void 0 : _consentData_.split(","))) !== null && _dataPurposes_tryParse !== void 0 ? _dataPurposes_tryParse : this._defaultConsent.purposes
         };
         await this._ensureSession(timestamp, {
             deviceId,
@@ -4924,7 +4657,7 @@ class Tracker {
             await this.updateConsent(DataClassification.Anonymous, DataPurposeFlags.Necessary);
         }
         if (this._session) {
-            await this._ensureSession(referenceTimestamp ?? now(), {
+            await this._ensureSession(referenceTimestamp !== null && referenceTimestamp !== void 0 ? referenceTimestamp : now(), {
                 deviceId,
                 deviceSessionId,
                 resetSession: session,
@@ -4934,8 +4667,10 @@ class Tracker {
     }
     async updateConsent(level, purposes) {
         if (!this._session) return;
-        level = dataClassification.parse(level) ?? this.consent.level;
-        purposes = dataPurposes.parse(purposes) ?? this.consent.purposes;
+        var _dataClassification_parse;
+        level = (_dataClassification_parse = dataClassification.parse(level)) !== null && _dataClassification_parse !== void 0 ? _dataClassification_parse : this.consent.level;
+        var _dataPurposes_parse;
+        purposes = (_dataPurposes_parse = dataPurposes.parse(purposes)) !== null && _dataPurposes_parse !== void 0 ? _dataPurposes_parse : this.consent.purposes;
         if (level < this.consent.level || ~purposes & this.consent.purposes) {
             // If the user downgraded the level of consent or removed purposes we need to delete existing data that does not match.
             await this.purge({
@@ -4963,21 +4698,26 @@ class Tracker {
         }
     }
     async _ensureSession(timestamp, { deviceId, deviceSessionId = this.deviceSessionId, passive = false, resetSession = false, resetDevice = false, refreshState = false } = {}) {
+        var _this__session;
         if ((resetSession || resetDevice) && this._sessionReferenceId) {
             // Purge old data. No point in storing this since it will no longer be used.
             await this.purge({
                 session: resetSession,
                 device: resetDevice
             });
-        } else if (this._session?.value && !refreshState) {
+        } else if (((_this__session = this._session) === null || _this__session === void 0 ? void 0 : _this__session.value) && !refreshState) {
             return;
         }
         // In case we refresh, we might already have a session ID.
         let sessionId = this.sessionId;
         let cachedDeviceData;
-        const getDeviceId = async ()=>this._consent.level > DataClassification.Anonymous ? deviceId ?? (resetDevice ? undefined : cachedDeviceData?.id) ?? await this.env.nextId("device") : undefined;
+        const getDeviceId = async ()=>{
+            var _ref;
+            return this._consent.level > DataClassification.Anonymous ? (_ref = deviceId !== null && deviceId !== void 0 ? deviceId : resetDevice ? undefined : cachedDeviceData === null || cachedDeviceData === void 0 ? void 0 : cachedDeviceData.id) !== null && _ref !== void 0 ? _ref : await this.env.nextId("device") : undefined;
+        };
         if (this._consent.level > DataClassification.Anonymous) {
-            cachedDeviceData = resetDevice ? undefined : this._getClientDeviceVariables()?.[SCOPE_INFO_KEY]?.value;
+            var _this__getClientDeviceVariables_SCOPE_INFO_KEY, _this__getClientDeviceVariables, _this_httpClientDecrypt, _this_cookies_this__requestHandler__cookieNames_session;
+            cachedDeviceData = resetDevice ? undefined : (_this__getClientDeviceVariables = this._getClientDeviceVariables()) === null || _this__getClientDeviceVariables === void 0 ? void 0 : (_this__getClientDeviceVariables_SCOPE_INFO_KEY = _this__getClientDeviceVariables[SCOPE_INFO_KEY]) === null || _this__getClientDeviceVariables_SCOPE_INFO_KEY === void 0 ? void 0 : _this__getClientDeviceVariables_SCOPE_INFO_KEY.value;
             if (sessionId && this._sessionReferenceId !== sessionId && !passive) {
                 // We switched from cookie-less to cookies. Purge reference.
                 await this.env.storage.set([
@@ -4996,17 +4736,18 @@ class Tracker {
                         targetId: sessionId,
                         patch: async (current)=>({
                                 value: {
-                                    ...current?.value,
+                                    ...current === null || current === void 0 ? void 0 : current.value,
                                     deviceId: await getDeviceId()
                                 }
                             })
                     }
                 ]);
             }
+            var _ref;
             // CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
             // This means clients must make sure the initial request to endpoint completes before more are sent (or at least do a fair effort).
             // Additionally, empty sessions should be filtered by analytics using the collected events.
-            this._sessionReferenceId = sessionId = (resetSession ? undefined : this.httpClientDecrypt(this.cookies[this._requestHandler._cookieNames.session]?.value)?.id) ?? (passive ? undefined : sessionId ?? await this.env.nextId("session"));
+            this._sessionReferenceId = sessionId = (_ref = resetSession ? undefined : (_this_httpClientDecrypt = this.httpClientDecrypt((_this_cookies_this__requestHandler__cookieNames_session = this.cookies[this._requestHandler._cookieNames.session]) === null || _this_cookies_this__requestHandler__cookieNames_session === void 0 ? void 0 : _this_cookies_this__requestHandler__cookieNames_session.value)) === null || _this_httpClientDecrypt === void 0 ? void 0 : _this_httpClientDecrypt.id) !== null && _ref !== void 0 ? _ref : passive ? undefined : sessionId !== null && sessionId !== void 0 ? sessionId : await this.env.nextId("session");
             this.cookies[this._requestHandler._cookieNames.session] = {
                 httpOnly: true,
                 sameSitePolicy: "None",
@@ -5025,7 +4766,7 @@ class Tracker {
                         targetId: sessionId,
                         patch: (current)=>({
                                 value: {
-                                    ...current?.value,
+                                    ...current === null || current === void 0 ? void 0 : current.value,
                                     deviceId: undefined
                                 }
                             })
@@ -5050,7 +4791,7 @@ class Tracker {
                             tags: [
                                 "anonymous"
                             ],
-                            value: sessionId ?? await this.env.nextId()
+                            value: sessionId !== null && sessionId !== void 0 ? sessionId : await this.env.nextId()
                         }
                 }
             ]).result).value;
@@ -5076,8 +4817,8 @@ class Tracker {
                         ...Necessary,
                         value: createInitialScopeData(sessionId, timestamp, {
                             deviceId: await getDeviceId(),
-                            deviceSessionId: deviceSessionId ?? await this.env.nextId("device-session"),
-                            previousSession: cachedDeviceData?.lastSeen,
+                            deviceSessionId: deviceSessionId !== null && deviceSessionId !== void 0 ? deviceSessionId : await this.env.nextId("device-session"),
+                            previousSession: cachedDeviceData === null || cachedDeviceData === void 0 ? void 0 : cachedDeviceData.lastSeen,
                             hasUserAgent: false
                         })
                     };
@@ -5085,6 +4826,7 @@ class Tracker {
             }
         ]).result));
         if (this._session.value) {
+            var _this_session;
             let device = this._consent.level > DataClassification.Anonymous && this.deviceId ? await this.env.storage.get([
                 {
                     scope: VariableScope.Device,
@@ -5099,7 +4841,7 @@ class Tracker {
                 }
             ]).result : undefined;
             this._device = device;
-            if (device?.value && device.status !== VariableResultStatus.Created && this.session?.isNew) {
+            if ((device === null || device === void 0 ? void 0 : device.value) && device.status !== VariableResultStatus.Created && ((_this_session = this.session) === null || _this_session === void 0 ? void 0 : _this_session.isNew)) {
                 // A new session started on an existing device.
                 this._device = await this.env.storage.set([
                     {
@@ -5128,6 +4870,7 @@ class Tracker {
    *  @internal
    * */ async _persist(sendCookies = false) {
         if (sendCookies) {
+            var _this__clientDeviceCache, _this__clientDeviceCache1;
             this.cookies[this._requestHandler._cookieNames.consent] = {
                 httpOnly: true,
                 maxAge: Number.MAX_SAFE_INTEGER,
@@ -5136,7 +4879,7 @@ class Tracker {
                 value: this.consent.level > DataClassification.Anonymous ? this.consent.purposes + "@" + this.consent.level : null
             };
             const splits = {};
-            if (this._clientDeviceCache?.touched) {
+            if ((_this__clientDeviceCache = this._clientDeviceCache) === null || _this__clientDeviceCache === void 0 ? void 0 : _this__clientDeviceCache.touched) {
                 // We have updated device data and need to refresh to get whatever other processes may have written (if any).
                 const deviceValues = (await this.query([
                     {
@@ -5151,20 +4894,24 @@ class Tracker {
                     top: 1000
                 })).results;
                 forEach(deviceValues, (variable)=>{
-                    dataPurposes.map(variable.purposes, ([, purpose])=>(splits[purpose] ??= []).push([
+                    var _splits, _purpose;
+                    dataPurposes.map(variable.purposes, ([, purpose])=>{
+                        var _;
+                        return ((_ = (_splits = splits)[_purpose = purpose]) !== null && _ !== void 0 ? _ : _splits[_purpose] = []).push([
                             variable.key,
                             variable.classification,
                             variable.version,
                             variable.value,
                             variable.purposes
-                        ]));
+                        ]);
+                    });
                 });
             }
             if (this.consent.level === DataClassification.Anonymous) {
                 // Clear session cookie if we have one.
                 this.cookies[this._requestHandler._cookieNames.session] = {};
             }
-            if (this.consent.level <= DataClassification.Anonymous || this._clientDeviceCache?.touched) {
+            if (this.consent.level <= DataClassification.Anonymous || ((_this__clientDeviceCache1 = this._clientDeviceCache) === null || _this__clientDeviceCache1 === void 0 ? void 0 : _this__clientDeviceCache1.touched)) {
                 dataPurposes.pure.map(([, purpose])=>{
                     const remove = this.consent.level <= DataClassification.Anonymous || !splits[purpose];
                     const cookieName = this._requestHandler._cookieNames.deviceByPurpose[purpose];
@@ -5204,11 +4951,11 @@ class Tracker {
     }
     get(keys, context) {
         return toVariableResultPromise(async ()=>{
-            if (keys.some((key)=>variableScope(key?.scope) === VariableScope.Device)) {
+            if (keys.some((key)=>variableScope(key === null || key === void 0 ? void 0 : key.scope) === VariableScope.Device)) {
                 await this._loadCachedDeviceVariables();
             }
             return restrictTargets(await this.env.storage.get(keys, this._getStorageContext(context)).all);
-        }, undefined, (results)=>results.forEach((result)=>result?.status <= VariableResultStatus.Created && this._changedVariables.push(result)));
+        }, undefined, (results)=>results.forEach((result)=>(result === null || result === void 0 ? void 0 : result.status) <= VariableResultStatus.Created && this._changedVariables.push(result)));
     }
     async head(filters, options, context) {
         await this._loadCachedDeviceVariables();
@@ -5220,7 +4967,7 @@ class Tracker {
     }
     set(variables, context) {
         return toVariableResultPromise(async ()=>{
-            if (variables.some((key)=>variableScope(key?.scope) === VariableScope.Device)) {
+            if (variables.some((key)=>variableScope(key === null || key === void 0 ? void 0 : key.scope) === VariableScope.Device)) {
                 await this._loadCachedDeviceVariables();
             }
             const results = restrictTargets(await this.env.storage.set(variables, this._getStorageContext(context)).all);
@@ -5234,8 +4981,9 @@ class Tracker {
             }
             return results;
         }, undefined, (results)=>forEach(results, (result)=>{
+                var _result_current;
                 return result.status !== VariableResultStatus.Unchanged && this._changedVariables.push({
-                    ...result.current ?? extractKey(result.source),
+                    ...(_result_current = result.current) !== null && _result_current !== void 0 ? _result_current : extractKey(result.source),
                     status: result.status
                 });
             }));
@@ -5278,6 +5026,73 @@ class Tracker {
         ]);
         filters.length && await this.env.storage.purge(filters);
     }
+    constructor({ disabled = false, clientIp, headers, host, path, url, queryString, cookies, requestHandler, transport: cipher, clientId, defaultConsent }){
+        /**
+   * Used for queueing up events so they do not get posted before all extensions have been applied to the request.
+   *
+   * Without this queue this might happen if one of the first extensions posted an event in the apply method.
+   * It would then pass through the post pipeline in a nested call and see `_extensionsApplied` to be `true` even though they were not, hence miss their logic.
+   */ _define_property$a(this, "_eventQueue", []);
+        _define_property$a(this, "_extensionState", 0);
+        _define_property$a(this, "_initialized", void 0);
+        _define_property$a(this, "_requestId", void 0);
+        _define_property$a(this, "_clientId", void 0);
+        /** @internal  */ _define_property$a(this, "_clientEvents", []);
+        /** @internal */ _define_property$a(this, "_requestHandler", void 0);
+        _define_property$a(this, "clientIp", void 0);
+        _define_property$a(this, "cookies", void 0);
+        _define_property$a(this, "disabled", void 0);
+        _define_property$a(this, "env", void 0);
+        _define_property$a(this, "headers", void 0);
+        _define_property$a(this, "queryString", void 0);
+        _define_property$a(this, "referrer", void 0);
+        _define_property$a(this, "requestItems", void 0);
+        /** Transient variables that can be used by extensions whilst processing a request. */ _define_property$a(this, "transient", void 0);
+        /** Variables that have been added or updated during the request (cf. {@link TrackerStorageContext.push}). */ _define_property$a(this, "_changedVariables", []);
+        _define_property$a(this, "_clientCipher", void 0);
+        _define_property$a(this, "_defaultConsent", void 0);
+        _define_property$a(this, "host", void 0);
+        _define_property$a(this, "path", void 0);
+        _define_property$a(this, "url", void 0);
+        /** A unique ID used to look up session data. This is a pointer to the session data that includes the actual session ID.
+   *
+   * In this way the session ID for a pseudonomized cookie-less identifier may be truly anonymized.
+   * It also protects against race conditions. If one concurrent request changes the session (e.g. resets it), the other(s) will see it.
+   *
+   */ _define_property$a(this, "_sessionReferenceId", void 0);
+        /** @internal */ _define_property$a(this, "_session", void 0);
+        /** @internal */ _define_property$a(this, "_device", void 0);
+        /**
+   * See {@link Session.expiredDeviceSessionId}.
+   * @internal
+   */ _define_property$a(this, "_expiredDeviceSessionId", void 0);
+        /**
+   * Device variables are only persisted in the device.
+   * However, when used they are temporarily stored in memory like session variables to avoid race conditions.
+   */ _define_property$a(this, "_clientDeviceCache", void 0);
+        _define_property$a(this, "_consent", {
+            level: DataClassification.Anonymous,
+            purposes: DataPurposeFlags.Necessary
+        });
+        this.disabled = disabled;
+        this._requestHandler = requestHandler;
+        this.env = requestHandler.environment;
+        this.host = host;
+        this.path = path;
+        this.url = url;
+        this._defaultConsent = defaultConsent;
+        this.queryString = queryString !== null && queryString !== void 0 ? queryString : {};
+        this.headers = headers !== null && headers !== void 0 ? headers : {};
+        this.cookies = cookies !== null && cookies !== void 0 ? cookies : {};
+        this.transient = {};
+        this.requestItems = new Map();
+        this.clientIp = clientIp;
+        var _this_headers_referer;
+        this.referrer = (_this_headers_referer = this.headers["referer"]) !== null && _this_headers_referer !== void 0 ? _this_headers_referer : null;
+        // Defaults to unencrypted transport if nothing is specified.
+        this._clientCipher = cipher !== null && cipher !== void 0 ? cipher : defaultTransport;
+        this._clientId = clientId;
+    }
 }
 
 const isTracker = "__isTracker";
@@ -5303,11 +5118,26 @@ const trackerConfig = {
         ]
     }
 };
+var LocalVariableScope;
+(function(LocalVariableScope) {
+    /** Variables are only available in memory in the current view. */ LocalVariableScope[LocalVariableScope["View"] = -3] = "View";
+    /** Variables are only available in memory in the current tab, including between views in the same tab as navigation occurs. */ LocalVariableScope[LocalVariableScope["Tab"] = -2] = "Tab";
+    /** Variables are only available in memory and shared between all tabs. */ LocalVariableScope[LocalVariableScope["Shared"] = -1] = "Shared";
+})(LocalVariableScope || (LocalVariableScope = {}));
+const localVariableScope = createEnumAccessor(LocalVariableScope, false, "local variable scope");
+createEnumPropertyParser({
+    scope: localVariableScope
+}, VariableEnumProperties);
 const INIT_SCRIPT_QUERY = "init";
-const BUILD_REVISION_QUERY = "rev=" + "lzgtkyf6";
+const BUILD_REVISION_QUERY = "rev=" + "lzo5wgsl";
+var _tail, _globalThis, _initialName;
 const externalConfig = trackerConfig;
 const initialName = trackerConfig.name;
-let tail = globalThis[initialName] ??= (c)=>(tail._ ??= []).push(c);
+var _;
+let tail = (_ = (_globalThis = globalThis)[_initialName = initialName]) !== null && _ !== void 0 ? _ : _globalThis[_initialName] = (c)=>{
+    var __;
+    return ((__ = (_tail = tail)._) !== null && __ !== void 0 ? __ : _tail._ = []).push(c);
+};
 let initialized = false;
 tail((tracker)=>tail = tracker);
 // Give consumer a short chance to call configureTracker, before wiring.
@@ -5359,23 +5189,33 @@ const DEFAULT = {
     }
 };
 
+function _define_property$9(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 const getCookieChunkName = (key, chunk)=>chunk === 0 ? key : `${key}-${chunk}`;
 const requestCookieHeader = Symbol("request cookie header");
 const requestCookies = Symbol("request cookies");
 class CookieMonster {
-    _secure;
-    constructor(config){
-        this._secure = config.secure !== false;
-    }
     mapResponseCookies(cookies) {
         const responseCookies = [];
         forEach(cookies, ([key, cookie])=>{
+            var _cookies_requestCookies;
             // These are the chunks
             if (typeof key !== "string") return;
-            const requestCookie = cookies[requestCookies]?.[key];
+            const requestCookie = (_cookies_requestCookies = cookies[requestCookies]) === null || _cookies_requestCookies === void 0 ? void 0 : _cookies_requestCookies[key];
             // These cookies should not be sent back, since nothing have updated them and we don't want to mess with Max-Age etc..
-            if (requestCookie && requestCookie?.value === cookie.value) return;
-            responseCookies.push(...this._mapClientResponseCookies(key, cookie, requestCookie?.chunks));
+            if (requestCookie && (requestCookie === null || requestCookie === void 0 ? void 0 : requestCookie.value) === cookie.value) return;
+            responseCookies.push(...this._mapClientResponseCookies(key, cookie, requestCookie === null || requestCookie === void 0 ? void 0 : requestCookie.chunks));
         });
         return responseCookies;
     }
@@ -5383,7 +5223,7 @@ class CookieMonster {
         const cookies = {
             [requestCookies]: {}
         };
-        cookies[requestCookieHeader] = value ?? undefined;
+        cookies[requestCookieHeader] = value !== null && value !== void 0 ? value : undefined;
         if (!value) return cookies;
         const sourceCookies = Object.fromEntries(value.split(";").map((part)=>part.trim()).flatMap((part)=>{
             try {
@@ -5420,13 +5260,14 @@ class CookieMonster {
         return cookies;
     }
     mapResponseCookie(name, cookie) {
+        var _cookie_httpOnly, _cookie_sameSitePolicy, _cookie_essential;
         return {
             name: name,
             value: cookie.value,
             maxAge: cookie.maxAge,
-            httpOnly: cookie.httpOnly ?? true,
-            sameSitePolicy: cookie.sameSitePolicy === "None" && !this._secure ? "Lax" : cookie.sameSitePolicy ?? "Lax",
-            essential: cookie.essential ?? false,
+            httpOnly: (_cookie_httpOnly = cookie.httpOnly) !== null && _cookie_httpOnly !== void 0 ? _cookie_httpOnly : true,
+            sameSitePolicy: cookie.sameSitePolicy === "None" && !this._secure ? "Lax" : (_cookie_sameSitePolicy = cookie.sameSitePolicy) !== null && _cookie_sameSitePolicy !== void 0 ? _cookie_sameSitePolicy : "Lax",
+            essential: (_cookie_essential = cookie.essential) !== null && _cookie_essential !== void 0 ? _cookie_essential : false,
             secure: this._secure,
             headerString: this._getHeaderValue(name, cookie)[0]
         };
@@ -5445,14 +5286,16 @@ class CookieMonster {
         if (cookie.maxAge != null || clear) {
             parts.push(`Max-Age=${clear ? 0 : Math.min(34560000, cookie.maxAge)}`);
         }
-        parts.push(`SameSite=${cookie.sameSitePolicy === "None" && !this._secure ? "Lax" : cookie.sameSitePolicy ?? "Lax"}`);
+        var _cookie_sameSitePolicy;
+        parts.push(`SameSite=${cookie.sameSitePolicy === "None" && !this._secure ? "Lax" : (_cookie_sameSitePolicy = cookie.sameSitePolicy) !== null && _cookie_sameSitePolicy !== void 0 ? _cookie_sameSitePolicy : "Lax"}`);
         let attributeLength = parts.join().length;
         if (attributeLength > 0) {
             attributeLength += 2; // + 2 because additional `; ` between key/value and attributes.
         }
         const cutoff = 4093 - attributeLength;
         const encodedName = encodeURIComponent(name);
-        const value = cookie.value ?? "";
+        var _cookie_value;
+        const value = (_cookie_value = cookie.value) !== null && _cookie_value !== void 0 ? _cookie_value : "";
         let encodedValue = encodeURIComponent(value);
         // Find maximum unencoded cookie value length
         const maxValueLength = cutoff - encodedName.length - 1; // -1 because `=`.
@@ -5509,16 +5352,33 @@ class CookieMonster {
         }
         return responseCookies;
     }
+    constructor(config){
+        _define_property$9(this, "_secure", void 0);
+        this._secure = config.secure !== false;
+    }
 }
 
+function _define_property$8(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 class PostError extends Error {
-    validation;
-    extensions;
     constructor(validation, extensions){
         super([
             ...validation.map((item)=>`The event ${JSON.stringify(item.source)} (${item.sourceIndex ? `source index #${item.sourceIndex}` : "no source index"}) is invalid: ${item.error}`),
             ...map(extensions, (item)=>`'${item[0]}' failed: ${item[1]}`)
         ].join("\n"));
+        _define_property$8(this, "validation", void 0);
+        _define_property$8(this, "extensions", void 0);
         this.validation = validation;
         this.extensions = extensions;
     }
@@ -6011,6 +5871,19 @@ var shortUniqueId = {exports: {}};
 var shortUniqueIdExports = shortUniqueId.exports;
 var ShortUniqueId = /*@__PURE__*/getDefaultExportFromCjs(shortUniqueIdExports);
 
+function _define_property$7(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 const SAME_SITE = {
     strict: "Strict",
     lax: "Lax",
@@ -6018,34 +5891,26 @@ const SAME_SITE = {
 };
 const uuid = new ShortUniqueId();
 const getDefaultLogSourceName = (source)=>{
+    var _source_constructor;
     if (!source) return undefined;
     if (!isObject(source)) return "" + source;
-    let constructorName = source.constructor?.name;
-    let name = source.logId ?? source.id;
+    let constructorName = (_source_constructor = source.constructor) === null || _source_constructor === void 0 ? void 0 : _source_constructor.name;
+    var _source_logId;
+    let name = (_source_logId = source.logId) !== null && _source_logId !== void 0 ? _source_logId : source.id;
     if (name) {
         return (constructorName && constructorName !== "Object" ? constructorName + ":" : "") + name;
     }
-    return constructorName ?? "" + source;
+    return constructorName !== null && constructorName !== void 0 ? constructorName : "" + source;
 };
 class TrackerEnvironment {
-    _crypto;
-    _host;
-    _logGroups = new Map();
-    tags;
-    cookieVersion;
-    storage;
-    constructor(host, crypto, storage, tags, cookieVersion = "C"){
-        this._host = host;
-        this._crypto = crypto;
-        this.tags = tags;
-        this.cookieVersion = cookieVersion;
-        this.storage = storage;
-    }
     /** @internal */ _setLogInfo(...sources) {
-        sources.forEach((source)=>this._logGroups.set(source, {
+        sources.forEach((source)=>{
+            var _source_name;
+            return this._logGroups.set(source, {
                 group: source.group,
-                name: source.name ?? getDefaultLogSourceName(source)
-            }));
+                name: (_source_name = source.name) !== null && _source_name !== void 0 ? _source_name : getDefaultLogSourceName(source)
+            });
+        });
     }
     httpEncrypt(value) {
         return this._crypto.encrypt(value);
@@ -6064,16 +5929,20 @@ class TrackerEnvironment {
         return value == null ? value : secure ? this._crypto.hash(value, numericOrBits) : hash(value, numericOrBits);
     }
     log(source, arg, level, error) {
+        var _message, _message1;
         // This is what you get if you try to log nothing (null or undefined); Nothing.
         if (!arg) return;
         const message = !isObject(arg) || arg instanceof Error ? {
             message: arg instanceof Error ? "An error ocurred" : arg,
-            level: level ?? (error ? "error" : "info"),
+            level: level !== null && level !== void 0 ? level : error ? "error" : "info",
             error
         } : arg;
-        const { group, name = getDefaultLogSourceName(source) } = this._logGroups.get(source) ?? {};
-        message.group ??= group;
-        message.source ??= name;
+        var _this__logGroups_get;
+        const { group, name = getDefaultLogSourceName(source) } = (_this__logGroups_get = this._logGroups.get(source)) !== null && _this__logGroups_get !== void 0 ? _this__logGroups_get : {};
+        var _group;
+        (_group = (_message = message).group) !== null && _group !== void 0 ? _group : _message.group = group;
+        var _source;
+        (_source = (_message1 = message).source) !== null && _source !== void 0 ? _source : _message1.source = name;
         this._host.log(message);
     }
     async nextId(scope) {
@@ -6086,16 +5955,20 @@ class TrackerEnvironment {
         return this._host.read(path, changeHandler);
     }
     async request(request) {
-        request.method ??= request.body ? "POST" : "GET";
-        request.headers ??= {};
+        var _request, _request1, _responseHeaders, _contenttype;
+        var _method;
+        (_method = (_request = request).method) !== null && _method !== void 0 ? _method : _request.method = request.body ? "POST" : "GET";
+        var _headers;
+        (_headers = (_request1 = request).headers) !== null && _headers !== void 0 ? _headers : _request1.headers = {};
         delete request.headers["host"];
         delete request.headers["accept-encoding"];
+        var _request_headers;
         const response = await this._host.request({
             url: request.url,
             binary: request.binary,
             method: request.method,
             body: request.body,
-            headers: request.headers ?? {},
+            headers: (_request_headers = request.headers) !== null && _request_headers !== void 0 ? _request_headers : {},
             x509: request.x509
         });
         const responseHeaders = Object.fromEntries(Object.entries(response.headers).map(([name, value])=>[
@@ -6105,16 +5978,19 @@ class TrackerEnvironment {
         const cookies = {};
         for (const cookie of response.cookies){
             const ps = parseHttpHeader(cookie, false);
-            const [name, value] = ps[parameterList][0] ?? [];
+            var _ps_parameterList_;
+            const [name, value] = (_ps_parameterList_ = ps[parameterList][0]) !== null && _ps_parameterList_ !== void 0 ? _ps_parameterList_ : [];
             if (!name) continue;
+            var _SAME_SITE_ps_samesite;
             cookies[name] = {
                 value,
                 httpOnly: "httponly" in ps,
-                sameSitePolicy: SAME_SITE[ps["samesite"]] ?? "Lax",
+                sameSitePolicy: (_SAME_SITE_ps_samesite = SAME_SITE[ps["samesite"]]) !== null && _SAME_SITE_ps_samesite !== void 0 ? _SAME_SITE_ps_samesite : "Lax",
                 maxAge: ps["max-age"] ? parseInt(ps["max-age"]) : undefined
             };
         }
-        responseHeaders["content-type"] ??= "text/plain";
+        var _;
+        (_ = (_responseHeaders = responseHeaders)[_contenttype = "content-type"]) !== null && _ !== void 0 ? _ : _responseHeaders[_contenttype] = "text/plain";
         return {
             request,
             status: response.status,
@@ -6134,22 +6010,38 @@ class TrackerEnvironment {
         this.log(source, message, "warn", error);
     }
     error(source, message, error) {
-        this.log(source, isString(message) ? message : (error = message)?.message, "error", error);
+        var _this;
+        this.log(source, isString(message) ? message : (_this = error = message) === null || _this === void 0 ? void 0 : _this.message, "error", error);
+    }
+    constructor(host, crypto, storage, tags, cookieVersion = "C"){
+        _define_property$7(this, "_crypto", void 0);
+        _define_property$7(this, "_host", void 0);
+        _define_property$7(this, "_logGroups", new Map());
+        _define_property$7(this, "tags", void 0);
+        _define_property$7(this, "cookieVersion", void 0);
+        _define_property$7(this, "storage", void 0);
+        this._host = host;
+        this._crypto = crypto;
+        this.tags = tags;
+        this.cookieVersion = cookieVersion;
+        this.storage = storage;
     }
 }
 
-class DefaultClientIdGenerator {
-    _headers;
-    constructor({ headers = [
-        "accept-encoding",
-        "accept-language",
-        "sec-ch-ua",
-        "sec-ch-ua-mobile",
-        "sec-ch-ua-platform",
-        "user-agent"
-    ] } = {}){
-        this._headers = headers;
+function _define_property$6(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
     }
+    return obj;
+}
+class DefaultClientIdGenerator {
     async generateClientId(environment, request, stationary, entropy) {
         let clientString = [
             stationary ? "" : request.clientIp,
@@ -6159,23 +6051,40 @@ class DefaultClientIdGenerator {
         ].join("&");
         return environment.hash(clientString, 128);
     }
+    constructor({ headers = [
+        "accept-encoding",
+        "accept-language",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "user-agent"
+    ] } = {}){
+        _define_property$6(this, "_headers", void 0);
+        this._headers = headers;
+    }
 }
 
-const hasChanged = (getter, current)=>getter.version == null || current?.version !== getter.version;
-class InMemoryStorageBase {
-    _ttl;
-    /** For testing purposes to have the router apply the patches. @internal */ _testDisablePatch;
-    constructor(scopeDurations, cleanFrequency = 10000){
-        this._ttl ??= scopeDurations;
-        if (some(this._ttl, ([, ttl])=>ttl > 0)) {
-            setInterval(()=>this.clean(), cleanFrequency);
-        }
+function _define_property$5(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
     }
+    return obj;
+}
+const hasChanged = (getter, current)=>getter.version == null || (current === null || current === void 0 ? void 0 : current.version) !== getter.version;
+class InMemoryStorageBase {
     _remove(variable, timestamp) {
         const values = this._getScopeVariables(variable.scope, variable.targetId, false);
-        if (values?.[1].has(variable.key)) {
-            const ttl = this._ttl?.[variable.scope];
-            values[0] = ttl ? (timestamp ?? now()) + ttl : undefined;
+        if (values === null || values === void 0 ? void 0 : values[1].has(variable.key)) {
+            var _this__ttl;
+            const ttl = (_this__ttl = this._ttl) === null || _this__ttl === void 0 ? void 0 : _this__ttl[variable.scope];
+            values[0] = ttl ? (timestamp !== null && timestamp !== void 0 ? timestamp : now()) + ttl : undefined;
             values[1].delete(variable.key);
             return true;
         }
@@ -6183,7 +6092,7 @@ class InMemoryStorageBase {
     }
     _update(variable, timestamp) {
         let scopeValues = this._getScopeVariables(variable.scope, variable.targetId, true);
-        scopeValues[0] = variable.ttl ? (timestamp ?? now()) + variable.ttl : undefined;
+        scopeValues[0] = variable.ttl ? (timestamp !== null && timestamp !== void 0 ? timestamp : now()) + variable.ttl : undefined;
         scopeValues[1].set(variable.key, variable);
         return variable;
     }
@@ -6196,42 +6105,49 @@ class InMemoryStorageBase {
     _query(filters, settings) {
         const results = new Set();
         const timestamp = now();
-        const ifNoneMatch = settings?.ifNoneMatch ? new Map(settings.ifNoneMatch.map((variable)=>[
+        const ifNoneMatch = (settings === null || settings === void 0 ? void 0 : settings.ifNoneMatch) ? new Map(settings.ifNoneMatch.map((variable)=>[
                 variableId(variable),
                 variable.version
             ])) : null;
-        const ifModifiedSince = settings?.ifModifiedSince ?? 0;
+        var _settings_ifModifiedSince;
+        const ifModifiedSince = (_settings_ifModifiedSince = settings === null || settings === void 0 ? void 0 : settings.ifModifiedSince) !== null && _settings_ifModifiedSince !== void 0 ? _settings_ifModifiedSince : 0;
         for (const queryFilter of filters){
             const match = (variable)=>{
+                var _classification_levels;
                 const { purposes, classification, tags } = queryFilter;
-                if (!variable || variable.purposes && purposes && !(variable.purposes & purposes) || classification && (variable.classification < classification.min || variable.classification > classification.max || classification.levels?.some((level)=>variable.classification === level) === false) || tags && (!variable.tags || !tags.some((tags)=>tags.every((tag)=>variable.tags.includes(tag))))) {
+                if (!variable || variable.purposes && purposes && !(variable.purposes & purposes) || classification && (variable.classification < classification.min || variable.classification > classification.max || ((_classification_levels = classification.levels) === null || _classification_levels === void 0 ? void 0 : _classification_levels.some((level)=>variable.classification === level)) === false) || tags && (!variable.tags || !tags.some((tags)=>tags.every((tag)=>variable.tags.includes(tag))))) {
                     return false;
                 }
                 let matchVersion;
-                if (ifModifiedSince && variable.modified < ifModifiedSince || (matchVersion = ifNoneMatch?.get(variableId(variable))) != null && variable.version === matchVersion) {
+                if (ifModifiedSince && variable.modified < ifModifiedSince || (matchVersion = ifNoneMatch === null || ifNoneMatch === void 0 ? void 0 : ifNoneMatch.get(variableId(variable))) != null && variable.version === matchVersion) {
                     // Skip the variable because it is too old or unchanged based on the settings provided for the query.
                     return false;
                 }
                 return true;
             };
-            for (const scope of queryFilter.scopes ?? variableScope.values){
-                for (const [, scopeVars] of queryFilter.targetIds?.map((targetId)=>[
+            var _queryFilter_scopes;
+            for (const scope of (_queryFilter_scopes = queryFilter.scopes) !== null && _queryFilter_scopes !== void 0 ? _queryFilter_scopes : variableScope.values){
+                var _queryFilter_targetIds;
+                var _queryFilter_targetIds_map;
+                for (const [, scopeVars] of (_queryFilter_targetIds_map = (_queryFilter_targetIds = queryFilter.targetIds) === null || _queryFilter_targetIds === void 0 ? void 0 : _queryFilter_targetIds.map((targetId)=>[
                         targetId,
                         this._getScopeVariables(scope, targetId, false)
-                    ]) ?? this._getTargetsInScope(scope)){
+                    ])) !== null && _queryFilter_targetIds_map !== void 0 ? _queryFilter_targetIds_map : this._getTargetsInScope(scope)){
+                    var _queryFilter_keys;
                     if (!scopeVars || scopeVars[0] <= timestamp) continue;
                     const vars = scopeVars[1];
                     let nots = undefined;
-                    const mappedKeys = queryFilter.keys?.map((key)=>{
+                    var _queryFilter_keys_map;
+                    const mappedKeys = (_queryFilter_keys_map = (_queryFilter_keys = queryFilter.keys) === null || _queryFilter_keys === void 0 ? void 0 : _queryFilter_keys.map((key)=>{
                         // Find keys that starts with `!` to exclude them from the results.
                         const parsed = parseKey(key);
                         if (parsed.not) {
-                            (nots ??= new Set()).add(parsed.sourceKey);
+                            (nots !== null && nots !== void 0 ? nots : nots = new Set()).add(parsed.sourceKey);
                         }
                         return parsed.key;
-                    }) ?? vars.keys();
+                    })) !== null && _queryFilter_keys_map !== void 0 ? _queryFilter_keys_map : vars.keys();
                     for (const key of mappedKeys.includes("*") ? vars.keys() : mappedKeys){
-                        if (nots?.has(key)) continue;
+                        if (nots === null || nots === void 0 ? void 0 : nots.has(key)) continue;
                         const value = vars.get(key);
                         if (match(value)) {
                             results.add(value);
@@ -6253,8 +6169,9 @@ class InMemoryStorageBase {
         });
     }
     renew(scope, targetIds, context) {
+        var _this__ttl;
         const timestamp = now();
-        const ttl = this._ttl?.[scope];
+        const ttl = (_this__ttl = this._ttl) === null || _this__ttl === void 0 ? void 0 : _this__ttl[scope];
         if (!ttl) return;
         for (const targetId of targetIds){
             const vars = this._getScopeVariables(scope, targetId, false);
@@ -6264,23 +6181,28 @@ class InMemoryStorageBase {
         }
     }
     async get(getters, context) {
-        const variables = getters.map((getter)=>({
-                current: getter && this._getScopeVariables(getter.scope, getter.targetId, false)?.[1].get(getter.key),
+        const variables = getters.map((getter)=>{
+            var _this__getScopeVariables;
+            return {
+                current: getter && ((_this__getScopeVariables = this._getScopeVariables(getter.scope, getter.targetId, false)) === null || _this__getScopeVariables === void 0 ? void 0 : _this__getScopeVariables[1].get(getter.key)),
                 getter
-            }));
+            };
+        });
         const results = [];
         let timestamp;
         for (const [item, i] of rank(variables)){
+            var _item_getter, _item_getter1, _item_current;
             if (!item.getter) continue;
             if (!item.current) {
-                if (item.getter?.init) {
+                var _item_getter2;
+                if ((_item_getter2 = item.getter) === null || _item_getter2 === void 0 ? void 0 : _item_getter2.init) {
                     const initialValue = await unwrap(item.getter.init);
-                    if (initialValue?.value) {
+                    if (initialValue === null || initialValue === void 0 ? void 0 : initialValue.value) {
                         // Check if the variable has been created by someone else while the initializer was running.
                         results[i] = copy(this._update({
                             ...extractKey(item.getter),
                             ...initialValue,
-                            created: timestamp ??= now(),
+                            created: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now(),
                             modified: timestamp,
                             accessed: timestamp,
                             version: this._getNextVersion(undefined)
@@ -6296,16 +6218,18 @@ class InMemoryStorageBase {
                 };
                 continue;
             }
-            if (!(item.current.purposes & ((item.getter.purpose ?? 0) | DataPurposeFlags.Any_Anonymous))) {
+            var _item_getter_purpose;
+            if (!(item.current.purposes & (((_item_getter_purpose = item.getter.purpose) !== null && _item_getter_purpose !== void 0 ? _item_getter_purpose : 0) | DataPurposeFlags.Any_Anonymous))) {
+                var _item_getter_purpose1;
                 results[i] = {
                     ...extractKey(item.getter),
                     status: VariableResultStatus.Denied,
-                    error: `${formatKey(item.getter)} is not stored for ${dataPurposes.logFormat(item.getter.purpose ?? DataPurposeFlags.Necessary)}`
+                    error: `${formatKey(item.getter)} is not stored for ${dataPurposes.logFormat((_item_getter_purpose1 = item.getter.purpose) !== null && _item_getter_purpose1 !== void 0 ? _item_getter_purpose1 : DataPurposeFlags.Necessary)}`
                 };
                 continue;
             }
             results[i] = copy(item.current, {
-                status: item.getter?.version && item.getter?.version === item.current?.version ? VariableResultStatus.Unchanged : VariableResultStatus.Success,
+                status: ((_item_getter = item.getter) === null || _item_getter === void 0 ? void 0 : _item_getter.version) && ((_item_getter1 = item.getter) === null || _item_getter1 === void 0 ? void 0 : _item_getter1.version) === ((_item_current = item.current) === null || _item_current === void 0 ? void 0 : _item_current.version) ? VariableResultStatus.Unchanged : VariableResultStatus.Success,
                 accessed: now()
             });
         }
@@ -6315,11 +6239,12 @@ class InMemoryStorageBase {
         return this.query(filters, options);
     }
     query(filters, options, context) {
+        var _options_cursor;
         const results = this._query(filters, options);
         return {
-            count: options?.count ? results.length : undefined,
+            count: (options === null || options === void 0 ? void 0 : options.count) ? results.length : undefined,
             // This current implementation does not bother with cursors. If one is requested we just return all results. Boom.
-            results: (options?.top && !options?.cursor?.include ? results.slice(0, options.top) : results).map((variable)=>copy(variable))
+            results: ((options === null || options === void 0 ? void 0 : options.top) && !(options === null || options === void 0 ? void 0 : (_options_cursor = options.cursor) === null || _options_cursor === void 0 ? void 0 : _options_cursor.include) ? results.slice(0, options.top) : results).map((variable)=>copy(variable))
         };
     }
     async set(variables, context) {
@@ -6333,10 +6258,10 @@ class InMemoryStorageBase {
             }
             let { key, targetId, scope, classification, purposes, value, version, tags } = source;
             let scopeVars = this._getScopeVariables(source.scope, source.targetId, false);
-            if (scopeVars?.[0] < timestamp) {
+            if ((scopeVars === null || scopeVars === void 0 ? void 0 : scopeVars[0]) < timestamp) {
                 scopeVars = undefined;
             }
-            let current = scopeVars?.[1].get(key);
+            let current = scopeVars === null || scopeVars === void 0 ? void 0 : scopeVars[1].get(key);
             if (source.patch != null) {
                 if (this._testDisablePatch) {
                     results.push({
@@ -6354,10 +6279,12 @@ class InMemoryStorageBase {
                     });
                     continue;
                 }
-                classification = patched.classification ?? classification;
-                purposes = patched.purposes ?? purposes;
+                var _patched_classification;
+                classification = (_patched_classification = patched.classification) !== null && _patched_classification !== void 0 ? _patched_classification : classification;
+                var _patched_purposes;
+                purposes = (_patched_purposes = patched.purposes) !== null && _patched_purposes !== void 0 ? _patched_purposes : purposes;
                 value = patched.value;
-            } else if (!source.force && current?.version !== version) {
+            } else if (!source.force && (current === null || current === void 0 ? void 0 : current.version) !== version) {
                 results.push({
                     status: VariableResultStatus.Conflict,
                     source,
@@ -6374,17 +6301,18 @@ class InMemoryStorageBase {
                 continue;
             }
             const previous = current;
+            var _current_created, _current_purposes;
             const nextValue = {
                 key,
                 value,
                 classification,
                 targetId,
                 scope,
-                created: current?.created ?? now(),
+                created: (_current_created = current === null || current === void 0 ? void 0 : current.created) !== null && _current_created !== void 0 ? _current_created : now(),
                 modified: now(),
                 accessed: now(),
                 version: this._getNextVersion(current),
-                purposes: current?.purposes != null || purposes ? (current?.purposes ?? 0) | (purposes ?? 0) : DataPurposeFlags.Necessary,
+                purposes: (current === null || current === void 0 ? void 0 : current.purposes) != null || purposes ? ((_current_purposes = current === null || current === void 0 ? void 0 : current.purposes) !== null && _current_purposes !== void 0 ? _current_purposes : 0) | (purposes !== null && purposes !== void 0 ? purposes : 0) : DataPurposeFlags.Necessary,
                 tags: tags && [
                     ...tags
                 ]
@@ -6408,19 +6336,27 @@ class InMemoryStorageBase {
         }
         return any;
     }
+    constructor(scopeDurations, cleanFrequency = 10000){
+        _define_property$5(this, "_ttl", void 0);
+        /** For testing purposes to have the router apply the patches. @internal */ _define_property$5(this, "_testDisablePatch", void 0);
+        var _this__ttl;
+        (_this__ttl = this._ttl) !== null && _this__ttl !== void 0 ? _this__ttl : this._ttl = scopeDurations;
+        if (some(this._ttl, ([, ttl])=>ttl > 0)) {
+            setInterval(()=>this.clean(), cleanFrequency);
+        }
+    }
 }
 class InMemoryStorage extends InMemoryStorageBase {
-    _variables = variableScope.values.map(()=>new Map());
-    constructor(scopeDurations, cleanFrequency = 10000){
-        super(scopeDurations, cleanFrequency);
-    }
     _getNextVersion(key) {
-        return key?.version ? "" + (parseInt(key.version) + 1) : "1";
+        return (key === null || key === void 0 ? void 0 : key.version) ? "" + (parseInt(key.version) + 1) : "1";
     }
     _getScopeVariables(scope, targetId, require) {
-        let values = this._variables[scope]?.get(targetId ?? "");
+        var _this__variables_scope;
+        let values = (_this__variables_scope = this._variables[scope]) === null || _this__variables_scope === void 0 ? void 0 : _this__variables_scope.get(targetId !== null && targetId !== void 0 ? targetId : "");
         if (!values && require) {
-            (this._variables[scope] ??= new Map()).set(targetId ?? "", values = [
+            var _this__variables, _scope;
+            var _;
+            ((_ = (_this__variables = this._variables)[_scope = scope]) !== null && _ !== void 0 ? _ : _this__variables[_scope] = new Map()).set(targetId !== null && targetId !== void 0 ? targetId : "", values = [
                 undefined,
                 new Map()
             ]);
@@ -6428,21 +6364,41 @@ class InMemoryStorage extends InMemoryStorageBase {
         return values;
     }
     _resetScope(scope) {
-        this._variables[scope]?.clear();
+        var _this__variables_scope;
+        (_this__variables_scope = this._variables[scope]) === null || _this__variables_scope === void 0 ? void 0 : _this__variables_scope.clear();
     }
     _deleteTarget(scope, targetId) {
-        this._variables[scope]?.delete(targetId);
+        var _this__variables_scope;
+        (_this__variables_scope = this._variables[scope]) === null || _this__variables_scope === void 0 ? void 0 : _this__variables_scope.delete(targetId);
     }
     _getTargetsInScope(scope) {
         try {
-            return this._variables[scope] ?? [];
+            var _this__variables_scope;
+            return (_this__variables_scope = this._variables[scope]) !== null && _this__variables_scope !== void 0 ? _this__variables_scope : [];
         } catch (e) {
             console.log("Nope", scope);
             return [];
         }
     }
+    constructor(scopeDurations, cleanFrequency = 10000){
+        super(scopeDurations, cleanFrequency);
+        _define_property$5(this, "_variables", variableScope.values.map(()=>new Map()));
+    }
 }
 
+function _define_property$4(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 const parseFilter = (filter)=>{
     filter.scopes = map(filter.scopes, variableScope);
     filter.classification && (filter.classification = {
@@ -6454,11 +6410,11 @@ const parseFilter = (filter)=>{
     return filter;
 };
 const parseQueryOptions = (options)=>{
-    options?.ifNoneMatch && (options.ifNoneMatch = toNumericVariableEnums(options.ifNoneMatch));
+    (options === null || options === void 0 ? void 0 : options.ifNoneMatch) && (options.ifNoneMatch = toNumericVariableEnums(options.ifNoneMatch));
     return options;
 };
 const parseContext = (context)=>{
-    context?.consent && (context.consent = {
+    (context === null || context === void 0 ? void 0 : context.consent) && (context.consent = {
         level: dataClassification(context.consent.level),
         purposes: dataPurposes(context.consent.purposes)
     });
@@ -6467,10 +6423,6 @@ const parseContext = (context)=>{
 /**
  * A wrapper around a {@link VariableStorage} that accepts string values for enums.
  */ class ParsingVariableStorage {
-    storage;
-    constructor(storage){
-        this.storage = storage;
-    }
     renew(scope, scopeIds, context) {
         return this.storage.renew(variableScope(scope), scopeIds, parseContext(context));
     }
@@ -6478,7 +6430,8 @@ const parseContext = (context)=>{
         return this.storage.purge(map(filters, parseFilter), parseContext(context));
     }
     initialize(environment) {
-        return this.storage.initialize?.(environment);
+        var _this_storage_initialize, _this_storage;
+        return (_this_storage_initialize = (_this_storage = this.storage).initialize) === null || _this_storage_initialize === void 0 ? void 0 : _this_storage_initialize.call(_this_storage, environment);
     }
     get(keys, context) {
         return toVariableResultPromise(async ()=>{
@@ -6531,40 +6484,53 @@ const parseContext = (context)=>{
         storage["set"] = (...args)=>this.set(...args).all;
         return storage;
     }
+    constructor(storage){
+        _define_property$4(this, "storage", void 0);
+        this.storage = storage;
+    }
 }
 
+function _define_property$3(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
+let _Symbol_iterator$1 = Symbol.iterator;
 class TargetedVariableCollection {
-    _scopes = new Map();
-    _size = 0;
     get size() {
         return this._size;
-    }
-    _updateSize = (delta)=>{
-        this._size += delta;
-    };
-    constructor(values){
-        if (values) {
-            this.set(values);
-        }
     }
     get(key, init) {
         if (key == null) return undefined;
         if (isString(key)) {
             return this._scopes.get(key);
         }
-        let targetId = key.targetId ?? "";
+        var _key_targetId;
+        let targetId = (_key_targetId = key.targetId) !== null && _key_targetId !== void 0 ? _key_targetId : "";
         let collection = this._scopes.get(targetId);
         if (init && !collection) {
             this._scopes.set(targetId, collection = new VariableMap(this._updateSize));
         }
-        return collection?.get(key, init && ((scope, key)=>init(mapKey(scope, key, targetId))));
+        return collection === null || collection === void 0 ? void 0 : collection.get(key, init && ((scope, key)=>init(mapKey(scope, key, targetId))));
     }
     has(source, scope) {
+        var _this__scopes_get;
         if (source == null) return undefined;
         if (isString(source)) {
-            return scope != null ? this._scopes.get(source)?.has(scope) ?? false : this._scopes.has(source);
+            var _this__scopes_get1;
+            var _this__scopes_get_has;
+            return scope != null ? (_this__scopes_get_has = (_this__scopes_get1 = this._scopes.get(source)) === null || _this__scopes_get1 === void 0 ? void 0 : _this__scopes_get1.has(scope)) !== null && _this__scopes_get_has !== void 0 ? _this__scopes_get_has : false : this._scopes.has(source);
         }
-        return this._scopes.get(source.targetId ?? "")?.has(source) ?? false;
+        var _source_targetId, _this__scopes_get_has1;
+        return (_this__scopes_get_has1 = (_this__scopes_get = this._scopes.get((_source_targetId = source.targetId) !== null && _source_targetId !== void 0 ? _source_targetId : "")) === null || _this__scopes_get === void 0 ? void 0 : _this__scopes_get.has(source)) !== null && _this__scopes_get_has1 !== void 0 ? _this__scopes_get_has1 : false;
     }
     clear() {
         this._updateSize(-this._size);
@@ -6572,6 +6538,7 @@ class TargetedVariableCollection {
         return this;
     }
     delete(key) {
+        var _this__scopes_get;
         if (key == null) return false;
         if (isIterable(key)) {
             let deleted = false;
@@ -6589,7 +6556,8 @@ class TargetedVariableCollection {
             this._scopes.delete(key);
             return true;
         }
-        return this._scopes.get(key.targetId ?? "")?.delete(key) ?? false;
+        var _key_targetId, _this__scopes_get_delete;
+        return (_this__scopes_get_delete = (_this__scopes_get = this._scopes.get((_key_targetId = key.targetId) !== null && _key_targetId !== void 0 ? _key_targetId : "")) === null || _this__scopes_get === void 0 ? void 0 : _this__scopes_get.delete(key)) !== null && _this__scopes_get_delete !== void 0 ? _this__scopes_get_delete : false;
     }
     set(key, value) {
         if (key == null) return this;
@@ -6603,12 +6571,13 @@ class TargetedVariableCollection {
             this.delete(key);
             return this;
         }
-        const targetId = key.targetId ?? "";
+        var _key_targetId;
+        const targetId = (_key_targetId = key.targetId) !== null && _key_targetId !== void 0 ? _key_targetId : "";
         let scopes = this._scopes.get(targetId);
         if (!this._scopes.has(targetId)) {
             this._scopes.set(targetId, scopes = new VariableMap(this._updateSize));
         }
-        scopes?.set(key, value);
+        scopes === null || scopes === void 0 ? void 0 : scopes.set(key, value);
         return this;
     }
     update(key, update) {
@@ -6620,7 +6589,7 @@ class TargetedVariableCollection {
     targets(keys) {
         return keys ? this._scopes.keys() : this._scopes.entries();
     }
-    *[Symbol.iterator]() {
+    *[_Symbol_iterator$1]() {
         for (const [targetId, scopes] of this._scopes){
             for (const [[scope, key], value] of scopes){
                 yield [
@@ -6630,8 +6599,31 @@ class TargetedVariableCollection {
             }
         }
     }
+    constructor(values){
+        _define_property$3(this, "_scopes", new Map());
+        _define_property$3(this, "_size", 0);
+        _define_property$3(this, "_updateSize", (delta)=>{
+            this._size += delta;
+        });
+        if (values) {
+            this.set(values);
+        }
+    }
 }
 
+function _define_property$2(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
 const mapKey = (scope, key, targetId)=>scope === VariableScope.Global ? {
         scope,
         key
@@ -6640,23 +6632,15 @@ const mapKey = (scope, key, targetId)=>scope === VariableScope.Global ? {
         key,
         targetId
     };
+let _Symbol_iterator = Symbol.iterator;
 class VariableMap {
-    _values = new Map();
-    _onSizeChanged;
-    constructor(arg){
-        if (isFunction(arg)) {
-            this._onSizeChanged = arg;
-        } else if (arg) {
-            this.set(arg);
-        }
-    }
-    _size = 0;
     get size() {
         return this._size;
     }
     _updateSize(delta) {
+        var _this__onSizeChanged, _this;
         this._size += delta;
-        this._onSizeChanged?.(delta);
+        (_this__onSizeChanged = (_this = this)._onSizeChanged) === null || _this__onSizeChanged === void 0 ? void 0 : _this__onSizeChanged.call(_this, delta);
     }
     get(source, arg2, init) {
         if (source == null) return undefined;
@@ -6671,7 +6655,7 @@ class VariableMap {
         }
         let values = this._values.get(scope);
         if (key != null) {
-            let value = values?.get(key);
+            let value = values === null || values === void 0 ? void 0 : values.get(key);
             if (init && value === undefined) {
                 if (!values) {
                     this._values.set(scope, values = new Map());
@@ -6684,16 +6668,21 @@ class VariableMap {
         return values;
     }
     has(source, key) {
+        var _this__values_get;
         if (source == null) return undefined;
         if (isObject(source)) {
-            return this._values.get(variableScope.parse(source.scope, false))?.has(source.key) ?? false;
+            var _this__values_get1;
+            var _this__values_get_has;
+            return (_this__values_get_has = (_this__values_get1 = this._values.get(variableScope.parse(source.scope, false))) === null || _this__values_get1 === void 0 ? void 0 : _this__values_get1.has(source.key)) !== null && _this__values_get_has !== void 0 ? _this__values_get_has : false;
         }
         const scope = variableScope.parse(source, false);
-        return key != null ? this._values.get(scope)?.has(key) ?? false : this._values.has(scope);
+        var _this__values_get_has1;
+        return key != null ? (_this__values_get_has1 = (_this__values_get = this._values.get(scope)) === null || _this__values_get === void 0 ? void 0 : _this__values_get.has(key)) !== null && _this__values_get_has1 !== void 0 ? _this__values_get_has1 : false : this._values.has(scope);
     }
     clear() {
+        var _this__values;
         this._updateSize(-this._size);
-        this._values?.clear();
+        (_this__values = this._values) === null || _this__values === void 0 ? void 0 : _this__values.clear();
         return this;
     }
     delete(arg1, arg2) {
@@ -6779,7 +6768,7 @@ class VariableMap {
     scopes(keys) {
         return keys ? this._values.keys() : this._values.entries();
     }
-    *[Symbol.iterator]() {
+    *[_Symbol_iterator]() {
         for (const [scope, values] of this._values){
             for (const [key, value] of values){
                 yield [
@@ -6792,20 +6781,32 @@ class VariableMap {
             }
         }
     }
+    constructor(arg){
+        _define_property$2(this, "_values", new Map());
+        _define_property$2(this, "_onSizeChanged", void 0);
+        _define_property$2(this, "_size", 0);
+        if (isFunction(arg)) {
+            this._onSizeChanged = arg;
+        } else if (arg) {
+            this.set(arg);
+        }
+    }
 }
 
-class VariableSplitStorage {
-    _mappings = new DoubleMap();
-    _cachedStorages = null;
-    _errorWrappers = new Map();
-    _patchers;
-    constructor(mappings, patchers){
-        this._patchers = patchers;
-        forEach(unwrap(mappings), ([scope, mappings])=>forEach(mappings, ([prefix, { storage }])=>(this._errorWrappers.set(storage, new SplitStorageErrorWrapperImpl(storage)), this._mappings.set([
-                    1 * scope,
-                    prefix
-                ], storage))));
+function _define_property$1(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
     }
+    return obj;
+}
+class VariableSplitStorage {
     _keepPrefix(storage) {
         return storage instanceof VariableSplitStorage;
     }
@@ -6860,7 +6861,8 @@ class VariableSplitStorage {
         for (const filter of filters){
             const keySplits = new Map();
             const addKey = (storage, key)=>storage && get(keySplits, storage, ()=>new Set()).add(this._keepPrefix(storage) ? key.sourceKey : key.key);
-            const scopes = filter.scopes ?? variableScope.values;
+            var _filter_scopes;
+            const scopes = (_filter_scopes = filter.scopes) !== null && _filter_scopes !== void 0 ? _filter_scopes : variableScope.values;
             for (const scope of scopes){
                 const scopePrefixes = this._mappings.getMap(scope);
                 if (!scopePrefixes) continue;
@@ -6898,31 +6900,38 @@ class VariableSplitStorage {
             throw: false
         };
         const results = [];
-        await waitAll(...map(this._splitKeys(keys), ([storage, split])=>mergeKeys(results, split, async (variables)=>await this._patchers?.get?.(this._errorWrappers.get(storage), variables, await storage.get(variables, context), context) ?? variables)));
+        await waitAll(...map(this._splitKeys(keys), ([storage, split])=>mergeKeys(results, split, async (variables)=>{
+                var _this__patchers_get, _this__patchers;
+                var _ref;
+                return (_ref = await ((_this__patchers = this._patchers) === null || _this__patchers === void 0 ? void 0 : (_this__patchers_get = _this__patchers.get) === null || _this__patchers_get === void 0 ? void 0 : _this__patchers_get.call(_this__patchers, this._errorWrappers.get(storage), variables, await storage.get(variables, context), context))) !== null && _ref !== void 0 ? _ref : variables;
+            })));
         return results;
     }
     async _queryOrHead(method, filters, options, context) {
+        var _options_cursor, _options_cursor1, _options_cursor2;
         const partitions = this._splitFilters(filters);
         const results = {
-            count: options?.count ? 0 : undefined,
+            count: (options === null || options === void 0 ? void 0 : options.count) ? 0 : undefined,
             results: []
         };
         if (!partitions.length) {
             return results;
         }
         if (partitions.length === 1) {
-            return await partitions[0][0][method]?.(partitions[0][1], options);
+            var _partitions___method, _partitions__;
+            return await ((_partitions___method = (_partitions__ = partitions[0][0])[method]) === null || _partitions___method === void 0 ? void 0 : _partitions___method.call(_partitions__, partitions[0][1], options));
         }
-        const includeCursor = options?.cursor?.include || !!options?.cursor?.previous;
-        let cursor = options?.cursor?.previous ? JSON.parse(options.cursor.previous) : undefined;
-        let top = options?.top ?? 100;
+        const includeCursor = (options === null || options === void 0 ? void 0 : (_options_cursor = options.cursor) === null || _options_cursor === void 0 ? void 0 : _options_cursor.include) || !!(options === null || options === void 0 ? void 0 : (_options_cursor1 = options.cursor) === null || _options_cursor1 === void 0 ? void 0 : _options_cursor1.previous);
+        let cursor = (options === null || options === void 0 ? void 0 : (_options_cursor2 = options.cursor) === null || _options_cursor2 === void 0 ? void 0 : _options_cursor2.previous) ? JSON.parse(options.cursor.previous) : undefined;
+        var _options_top;
+        let top = (_options_top = options === null || options === void 0 ? void 0 : options.top) !== null && _options_top !== void 0 ? _options_top : 100;
         let anyCursor = false;
         for(let i = 0; // Keep going as long as we need the total count, or have not sufficient results to meet top (or done).
         // If one of the storages returns an undefined count even though requested, we will also blank out the count in the combined results
         // and stop reading from additional storages since total count is no longer needed.
         i < partitions.length && (top > 0 || results.count != null); i++){
             const [storage, query] = partitions[i];
-            const storageState = cursor?.[i];
+            const storageState = cursor === null || cursor === void 0 ? void 0 : cursor[i];
             let count;
             if (storageState && (storageState[1] == null || !top)) {
                 // We have persisted the total count from the storage in the combined cursor.
@@ -6935,13 +6944,13 @@ class VariableSplitStorage {
                     top,
                     cursor: {
                         include: includeCursor,
-                        previous: storageState?.[1]
+                        previous: storageState === null || storageState === void 0 ? void 0 : storageState[1]
                     }
                 }, context);
                 count = storageCount;
                 if (includeCursor) {
-                    anyCursor ||= !!storageCursor;
-                    (cursor ??= [])[i] = [
+                    anyCursor || (anyCursor = !!storageCursor);
+                    (cursor !== null && cursor !== void 0 ? cursor : cursor = [])[i] = [
                         count,
                         storageCursor
                     ];
@@ -6974,7 +6983,11 @@ class VariableSplitStorage {
             throw: false
         };
         const results = [];
-        await waitAll(...map(this._splitKeys(variables), ([storage, split])=>isWritable(storage) && mergeKeys(results, split, async (variables)=>await this._patchers?.set?.(this._errorWrappers.get(storage), variables, await storage.set(variables, context), context) ?? variables)));
+        await waitAll(...map(this._splitKeys(variables), ([storage, split])=>isWritable(storage) && mergeKeys(results, split, async (variables)=>{
+                var _this__patchers_set, _this__patchers;
+                var _ref;
+                return (_ref = await ((_this__patchers = this._patchers) === null || _this__patchers === void 0 ? void 0 : (_this__patchers_set = _this__patchers.set) === null || _this__patchers_set === void 0 ? void 0 : _this__patchers_set.call(_this__patchers, this._errorWrappers.get(storage), variables, await storage.set(variables, context), context))) !== null && _ref !== void 0 ? _ref : variables;
+            })));
         return results;
     }
     async purge(filters, context) {
@@ -6986,14 +6999,19 @@ class VariableSplitStorage {
         await waitAll(...partitions.map(async ([storage, filters])=>isWritable(storage) && (any = await storage.purge(filters, context) || any)));
         return any;
     }
+    constructor(mappings, patchers){
+        _define_property$1(this, "_mappings", new DoubleMap());
+        _define_property$1(this, "_cachedStorages", null);
+        _define_property$1(this, "_errorWrappers", new Map());
+        _define_property$1(this, "_patchers", void 0);
+        this._patchers = patchers;
+        forEach(unwrap(mappings), ([scope, mappings])=>forEach(mappings, ([prefix, { storage }])=>(this._errorWrappers.set(storage, new SplitStorageErrorWrapperImpl(storage)), this._mappings.set([
+                    1 * scope,
+                    prefix
+                ], storage))));
+    }
 }
 class SplitStorageErrorWrapperImpl {
-    _storage;
-    writable;
-    constructor(storage){
-        this._storage = storage;
-        this.writable = isWritable(storage);
-    }
     async get(keys, context) {
         try {
             return await this._storage.get(keys, context);
@@ -7016,40 +7034,30 @@ class SplitStorageErrorWrapperImpl {
                 });
         }
     }
+    constructor(storage){
+        _define_property$1(this, "_storage", void 0);
+        _define_property$1(this, "writable", void 0);
+        this._storage = storage;
+        this.writable = isWritable(storage);
+    }
 }
 
-const isWritable = (storage)=>!!storage?.set;
+const isWritable = (storage)=>!!(storage === null || storage === void 0 ? void 0 : storage.set);
 
-class VariableStorageCoordinator {
-    _settings;
-    _variables = new TupleMap();
-    _storage;
-    constructor({ mappings, schema, retries = 3, transientRetryDelay = 50, errorRetryDelay = 250 }){
-        const normalizeMappings = (mappings)=>mappings?.storage ? {
-                "": mappings
-            } : mappings;
-        const defaultMapping = mappings.default && normalizeMappings(mappings.default);
-        const normalizedMappings = {};
-        forEach(mappings, ([scope, mappings])=>scope !== "default" && mappings && (normalizedMappings[variableScope(scope)] = normalizeMappings(mappings)));
-        defaultMapping && forEach(variableScope.values, (scope)=>!normalizedMappings[scope] && (normalizedMappings[scope] = defaultMapping));
-        this._storage = new VariableSplitStorage(normalizedMappings, {
-            get: (storage, getters, results, context)=>this._patchGetResults(storage, getters, results, context),
-            set: (storage, setters, results, context)=>this._patchSetResults(storage, setters, results, context)
+function _define_property(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
         });
-        this._settings = {
-            mappings,
-            retries,
-            transientRetryDelay,
-            errorRetryDelay
-        };
-        forEach(variableScope.values, (scope)=>forEach(normalizedMappings[scope], ([prefix, mapping])=>this._variables.set([
-                    scope,
-                    prefix
-                ], {
-                    variables: ifDefined(mapping.schema, (schemas)=>schema.compileVariableSet(schemas)),
-                    classification: mapping.classification
-                })));
+    } else {
+        obj[key] = value;
     }
+    return obj;
+}
+class VariableStorageCoordinator {
     async _setWithRetry(setters, targetStorage, context, patch) {
         const finalResults = [];
         let pending = withSourceIndex(setters.map((source, i)=>{
@@ -7098,7 +7106,8 @@ class VariableStorageCoordinator {
         }
         // Map original sources (lest something was patched).
         finalResults.forEach((result, i)=>{
-            if (context?.tracker && result?.status <= 201 && result?.current?.scope === VariableScope.Device) {
+            var _result_current;
+            if ((context === null || context === void 0 ? void 0 : context.tracker) && (result === null || result === void 0 ? void 0 : result.status) <= 201 && (result === null || result === void 0 ? void 0 : (_result_current = result.current) === null || _result_current === void 0 ? void 0 : _result_current.scope) === VariableScope.Device) {
                 context.tracker._touchClientDeviceData();
             }
             return result && (result.source = setters[i]);
@@ -7108,9 +7117,10 @@ class VariableStorageCoordinator {
     async _patchGetResults(storage, getters, results, context) {
         const initializerSetters = [];
         for(let i = 0; i < getters.length; i++){
+            var _results_i;
             if (!getters[i]) continue;
             const getter = getters[i];
-            if (!getter.init || results[i]?.status !== VariableResultStatus.NotFound) {
+            if (!getter.init || ((_results_i = results[i]) === null || _results_i === void 0 ? void 0 : _results_i.status) !== VariableResultStatus.NotFound) {
                 continue;
             }
             if (!storage.writable) {
@@ -7133,7 +7143,7 @@ class VariableStorageCoordinator {
     async _patchSetResults(storage, setters, results, context) {
         const patches = [];
         let setter;
-        results.forEach((result, i)=>result?.status === VariableResultStatus.Unsupported && (setter = setters[i]).patch != null && patches.push([
+        results.forEach((result, i)=>(result === null || result === void 0 ? void 0 : result.status) === VariableResultStatus.Unsupported && (setter = setters[i]).patch != null && patches.push([
                 i,
                 setter
             ]));
@@ -7141,7 +7151,7 @@ class VariableStorageCoordinator {
             const patch = async (patchIndex, result)=>{
                 const [sourceIndex, patch] = patches[patchIndex];
                 if (!setters[sourceIndex]) return undefined;
-                if (result?.status === VariableResultStatus.Error) {
+                if ((result === null || result === void 0 ? void 0 : result.status) === VariableResultStatus.Error) {
                     results[sourceIndex] = {
                         status: VariableResultStatus.Error,
                         error: result.error,
@@ -7188,9 +7198,10 @@ class VariableStorageCoordinator {
         return results;
     }
     _patchAndCensor(mapping, key, value, consent, write) {
+        var _mapping_variables;
         if (key == null || value == null) return undefined;
         const localKey = stripPrefix(key);
-        if (mapping.variables?.has(localKey)) {
+        if ((_mapping_variables = mapping.variables) === null || _mapping_variables === void 0 ? void 0 : _mapping_variables.has(localKey)) {
             return mapping.variables.patch(localKey, value, consent, false, write);
         }
         return !consent || validateConsent(localKey, consent, mapping.classification) ? value : undefined;
@@ -7203,25 +7214,32 @@ class VariableStorageCoordinator {
         ]), ()=>`No storage provider is mapped to the prefix '${prefix}' in ${variableScope.format(scope)}`);
     }
     _validate(mapping, target, key, value) {
+        var _mapping_variables;
         if (!target) return target;
-        const definition = mapping.variables?.get(stripPrefix(key));
+        const definition = (_mapping_variables = mapping.variables) === null || _mapping_variables === void 0 ? void 0 : _mapping_variables.get(stripPrefix(key));
         if (definition) {
             target.classification = definition.classification;
             target.purposes = definition.purposes;
         } else {
-            target.classification ??= key?.classification ?? mapping.classification?.classification;
-            target.purposes ??= key?.purposes ?? key?.purpose /* getters */  ?? mapping.classification?.purposes;
+            var _mapping_classification, _mapping_classification1;
+            var _target, _target1;
+            var _key_classification, _classification;
+            (_classification = (_target = target).classification) !== null && _classification !== void 0 ? _classification : _target.classification = (_key_classification = key === null || key === void 0 ? void 0 : key.classification) !== null && _key_classification !== void 0 ? _key_classification : (_mapping_classification = mapping.classification) === null || _mapping_classification === void 0 ? void 0 : _mapping_classification.classification;
+            var _key_purposes, _ref /* getters */ , _purposes;
+            (_purposes = (_target1 = target).purposes) !== null && _purposes !== void 0 ? _purposes : _target1.purposes = (_ref = (_key_purposes = key === null || key === void 0 ? void 0 : key.purposes) !== null && _key_purposes !== void 0 ? _key_purposes : key === null || key === void 0 ? void 0 : key.purpose) !== null && _ref !== void 0 ? _ref : (_mapping_classification1 = mapping.classification) === null || _mapping_classification1 === void 0 ? void 0 : _mapping_classification1.purposes;
         }
         required(target.classification, ()=>`The variable ${formatKey(key)} must have an explicit classification since it is not defined in a schema, and its storage does not have a default classification.`);
         required(target.purposes, ()=>`The variable ${formatKey(key)} must have explicit purposes since it is not defined in a schema, and its storage does not have a default classification.`);
-        value != null && definition?.validate(value);
+        value != null && (definition === null || definition === void 0 ? void 0 : definition.validate(value));
         return target;
     }
     _applyScopeId(key, context) {
         if (key) {
             const scope = variableScope(key.scope);
-            const scopeIds = context?.tracker ?? context?.scopeIds;
+            var _context_tracker;
+            const scopeIds = (_context_tracker = context === null || context === void 0 ? void 0 : context.tracker) !== null && _context_tracker !== void 0 ? _context_tracker : context === null || context === void 0 ? void 0 : context.scopeIds;
             if (scopeIds) {
+                var _key, _key1, _key2;
                 const validateScope = (expectedTarget, actualTarget)=>{
                     if (!actualTarget) {
                         return scope === VariableScope.Session ? "The tracker does not have an associated session." : scope === VariableScope.Device ? "The tracker does not have associated device data, most likely due to the lack of consent." : "The tracker does not have an authenticated user associated.";
@@ -7231,7 +7249,8 @@ class VariableStorageCoordinator {
                     }
                     return undefined;
                 };
-                const error = scope === VariableScope.Session ? validateScope(scopeIds.sessionId, key.targetId ??= scopeIds.sessionId) : scope === VariableScope.Device ? validateScope(scopeIds.deviceId, key.targetId ??= scopeIds.deviceId) : scope === VariableScope.User ? validateScope(scopeIds.authenticatedUserId, key.targetId ??= scopeIds.authenticatedUserId) : undefined;
+                var _targetId, _targetId1, _targetId2;
+                const error = scope === VariableScope.Session ? validateScope(scopeIds.sessionId, (_targetId = (_key = key).targetId) !== null && _targetId !== void 0 ? _targetId : _key.targetId = scopeIds.sessionId) : scope === VariableScope.Device ? validateScope(scopeIds.deviceId, (_targetId1 = (_key1 = key).targetId) !== null && _targetId1 !== void 0 ? _targetId1 : _key1.targetId = scopeIds.deviceId) : scope === VariableScope.User ? validateScope(scopeIds.authenticatedUserId, (_targetId2 = (_key2 = key).targetId) !== null && _targetId2 !== void 0 ? _targetId2 : _key2.targetId = scopeIds.authenticatedUserId) : undefined;
                 return error;
             } else if (scope !== VariableScope.Global && !key.targetId) {
                 return `Target ID is required for non-global scopes when variables are not managed through the tracker.`;
@@ -7240,13 +7259,15 @@ class VariableStorageCoordinator {
         return undefined;
     }
     _restrictFilters(filters, context) {
-        const scopeIds = context?.tracker ?? context?.scopeIds;
+        var _context_tracker;
+        const scopeIds = (_context_tracker = context === null || context === void 0 ? void 0 : context.tracker) !== null && _context_tracker !== void 0 ? _context_tracker : context === null || context === void 0 ? void 0 : context.scopeIds;
         if (!scopeIds) {
             return filters;
         }
         const scopeTargetedFilters = [];
         for (const filter of filters){
-            for (let scope of filter.scopes ?? variableScope.values){
+            var _filter_scopes;
+            for (let scope of (_filter_scopes = filter.scopes) !== null && _filter_scopes !== void 0 ? _filter_scopes : variableScope.values){
                 scope = variableScope(scope);
                 let scopeTargetId = scope === VariableScope.User ? scopeIds.authenticatedUserId : scope === VariableScope.Device ? scopeIds.deviceId : scope === VariableScope.Session ? scopeIds.sessionId : true;
                 if (!scopeTargetId) {
@@ -7309,23 +7330,6 @@ class VariableStorageCoordinator {
         }
         return false;
     }
-    _getContextConsent = (context)=>{
-        let consent = context?.tracker?.consent;
-        if (!consent && (consent = context?.consent)) {
-            consent = {
-                level: dataClassification(consent.level),
-                purposes: dataPurposes(consent.purposes)
-            };
-        }
-        if (!consent) return consent;
-        consent = {
-            ...consent
-        };
-        if (!context?.client) {
-            consent.purposes |= DataPurposeFlags.Server;
-        }
-        return consent;
-    };
     async get(keys, context) {
         const censored = [];
         const consent = this._getContextConsent(context);
@@ -7360,7 +7364,7 @@ class VariableStorageCoordinator {
                             scope: VariableScope.Session,
                             classification: DataClassification.Anonymous,
                             purposes: DataPurposeFlags.Necessary,
-                            created: timestamp ??= now(),
+                            created: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now(),
                             modified: timestamp,
                             accessed: timestamp,
                             version: "",
@@ -7377,15 +7381,15 @@ class VariableStorageCoordinator {
                 const mapping = this._getMapping(getter);
                 getter.init = wrap(getter.init, async (original)=>{
                     const result = await original();
-                    return result?.value != null && this._censorValidate(mapping, result, getter, index, keys, censored, consent, context, true) ? result : undefined;
+                    return (result === null || result === void 0 ? void 0 : result.value) != null && this._censorValidate(mapping, result, getter, index, keys, censored, consent, context, true) ? result : undefined;
                 });
             }
             return getter;
         });
         let expired;
         const results = (await this._storage.get(keys, context)).map((variable)=>{
-            if (isSuccessResult(variable, true) && variable.accessed + variable.ttl < (timestamp ??= now())) {
-                (expired ??= []).push(variable);
+            if (isSuccessResult(variable, true) && variable.accessed + variable.ttl < (timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now())) {
+                (expired !== null && expired !== void 0 ? expired : expired = []).push(variable);
                 return {
                     ...extractKey(variable),
                     status: VariableResultStatus.NotFound
@@ -7393,7 +7397,7 @@ class VariableStorageCoordinator {
             }
             return variable;
         });
-        if (expired?.length) {
+        if (expired === null || expired === void 0 ? void 0 : expired.length) {
             // Delete expired variables on read.
             await this._storage.set(expired.map((variable)=>({
                     ...variable,
@@ -7401,15 +7405,17 @@ class VariableStorageCoordinator {
                 })), context);
         }
         for (const [i, result] of censored){
+            var _result_current;
+            var _result_current1;
             results[i] = {
-                ...extractKey(result.source, result.current ?? result.source),
-                value: result.current?.value,
+                ...extractKey(result.source, (_result_current1 = result.current) !== null && _result_current1 !== void 0 ? _result_current1 : result.source),
+                value: (_result_current = result.current) === null || _result_current === void 0 ? void 0 : _result_current.value,
                 status: result.status,
                 error: result.error
             };
         }
         for (const result of results){
-            if (!isSuccessResult(result, true) || !result?.value) continue;
+            if (!isSuccessResult(result, true) || !(result === null || result === void 0 ? void 0 : result.value)) continue;
             const mapping = this._getMapping(result);
             if (mapping) {
                 if ((result.value = this._patchAndCensor(mapping, result, result.value, consent, false)) == null) {
@@ -7469,6 +7475,53 @@ class VariableStorageCoordinator {
                 value: this._patchAndCensor(this._getMapping(result), result, result.value, consent, false)
             }));
         return results;
+    }
+    constructor({ mappings, schema, retries = 3, transientRetryDelay = 50, errorRetryDelay = 250 }){
+        _define_property(this, "_settings", void 0);
+        _define_property(this, "_variables", new TupleMap());
+        _define_property(this, "_storage", void 0);
+        _define_property(this, "_getContextConsent", (context)=>{
+            var _context_tracker;
+            let consent = context === null || context === void 0 ? void 0 : (_context_tracker = context.tracker) === null || _context_tracker === void 0 ? void 0 : _context_tracker.consent;
+            if (!consent && (consent = context === null || context === void 0 ? void 0 : context.consent)) {
+                consent = {
+                    level: dataClassification(consent.level),
+                    purposes: dataPurposes(consent.purposes)
+                };
+            }
+            if (!consent) return consent;
+            consent = {
+                ...consent
+            };
+            if (!(context === null || context === void 0 ? void 0 : context.client)) {
+                consent.purposes |= DataPurposeFlags.Server;
+            }
+            return consent;
+        });
+        const normalizeMappings = (mappings)=>(mappings === null || mappings === void 0 ? void 0 : mappings.storage) ? {
+                "": mappings
+            } : mappings;
+        const defaultMapping = mappings.default && normalizeMappings(mappings.default);
+        const normalizedMappings = {};
+        forEach(mappings, ([scope, mappings])=>scope !== "default" && mappings && (normalizedMappings[variableScope(scope)] = normalizeMappings(mappings)));
+        defaultMapping && forEach(variableScope.values, (scope)=>!normalizedMappings[scope] && (normalizedMappings[scope] = defaultMapping));
+        this._storage = new VariableSplitStorage(normalizedMappings, {
+            get: (storage, getters, results, context)=>this._patchGetResults(storage, getters, results, context),
+            set: (storage, setters, results, context)=>this._patchSetResults(storage, setters, results, context)
+        });
+        this._settings = {
+            mappings,
+            retries,
+            transientRetryDelay,
+            errorRetryDelay
+        };
+        forEach(variableScope.values, (scope)=>forEach(normalizedMappings[scope], ([prefix, mapping])=>this._variables.set([
+                    scope,
+                    prefix
+                ], {
+                    variables: ifDefined(mapping.schema, (schemas)=>schema.compileVariableSet(schemas)),
+                    classification: mapping.classification
+                })));
     }
 }
 

@@ -1,56 +1,145 @@
 import { findWorkspaceDir } from "@pnpm/find-workspace-dir";
 import replace from "@rollup/plugin-replace";
-import { spawn } from "child_process";
-import * as dotenv from "dotenv";
+import { execSync, spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { OutputChunk, RollupOptions, rollup, watch } from "rollup";
+import { OutputChunk, Plugin, RollupOptions, rollup, watch } from "rollup";
 import swc from "rollup-plugin-swc3";
+import sortPackageJson from "sort-package-json";
 
 export interface PackageEnvironment {
   path: string;
   name: string;
   workspace: string;
   config: Record<string, any>;
+  externalTargets: string[];
   updatePackage: (
-    update: (current: Record<string, any>) => Record<string, any> | false
+    update: (current: Record<string, any>) => Record<string, any> | false | void
   ) => void;
 }
-() => {
-  compilePlugin({});
+
+export const packageJson = (
+  source: () => Record<string, any> | void
+): Plugin => ({
+  name: "package-json",
+  generateBundle(options) {
+    const json = source();
+    if (json) {
+      fs.writeFileSync(
+        path.join(options.dir || path.dirname(options.file!), "package.json"),
+        JSON.stringify(sortPackageJson(json), null, 2),
+        "utf-8"
+      );
+    }
+  },
+});
+
+export const getPackageVersion = (
+  target: PackageEnvironment,
+  packageName = "@tailjs/" + target.name
+) => {
+  const version =
+    JSON.parse(
+      fs.readFileSync(
+        path.join(target.workspace, "packages", packageName, "package.json"),
+        "utf-8"
+      )
+    )["version"] ??
+    JSON.parse(
+      fs.readFileSync(path.join(target.workspace, "package.json"), "utf-8")
+    )["version"];
+  if (!version) {
+    throw new Error(`No version is defined for the package '${packageName}'.`);
+  }
+  return version;
 };
-export const compilePlugin = ({
-  debug = false,
-  minify = false,
-  tsconfig = "./tsconfig.json",
-  sourceMaps = false,
-}: {
-  debug?: boolean;
-  minify?: boolean;
-  tsconfig?: string;
-  sourceMaps?: boolean;
-} = {}) => {
-  if (!fs.existsSync(tsconfig)) {
-    throw new Error(`'${tsconfig}' does not exist.`);
+
+export const pack = async (pkg: PackageEnvironment) => {
+  const mapDir = (segments: string[], clear = false) => {
+    const p = path.join(...segments);
+    clear && fs.existsSync(p) && fs.rmSync(p, { recursive: true });
+    !fs.existsSync(p) && fs.mkdirSync(p);
+    return p;
+  };
+
+  const distRoot = mapDir([pkg.workspace, "dist"]);
+  const packDestination = mapDir([distRoot, "packed"]);
+
+  const tgzFile = execSync(
+    'npm pack --silent --pack-destination "' + packDestination + '"',
+    {
+      cwd: path.join(pkg.path, "dist"),
+    }
+  )
+    .toString()
+    .trim();
+
+  const installTestRoot = mapDir([distRoot, "all"]);
+
+  // Disable TypeScript configuration etc. from parent directories.
+  ["tsconfig.json", "jsconfig.json"].forEach((cfg) =>
+    fs.writeFileSync(path.join(installTestRoot, cfg), "{}", "utf-8")
+  );
+
+  const allPackagesPath = path.join(installTestRoot, "package.json");
+  const allPackages = fs.existsSync(allPackagesPath)
+    ? JSON.parse(fs.readFileSync(allPackagesPath, "utf-8"))
+    : {
+        private: true,
+        description:
+          "Package for testing that all packages install correctly (see if it works with `npm install`).",
+      };
+  const hash = JSON.stringify(allPackages);
+
+  allPackages.dependencies ??= {};
+  allPackages.dependencies["@tailjs/" + pkg.name] =
+    "file:" + path.join(packDestination, tgzFile);
+
+  if (JSON.stringify(allPackages) !== hash) {
+    fs.writeFileSync(
+      allPackagesPath,
+      JSON.stringify(allPackages, null, 2),
+      "utf-8"
+    );
+  }
+};
+
+export const compilePlugin = (
+  pkg: PackageEnvironment,
+  {
+    debug = false,
+    minify = false,
+    tsconfig = "./tsconfig",
+    sourceMaps = false,
+  }: {
+    debug?: boolean;
+    minify?: boolean;
+    tsconfig?: string;
+    sourceMaps?: boolean;
+  } = {}
+) => {
+  if (!fs.existsSync(tsconfig + ".json")) {
+    throw new Error(`'${tsconfig}.json' does not exist.`);
   }
 
-  const tsconfigSwc = tsconfig.replace(/\.json$/, ".swc.json");
+  const tsconfigSwc = tsconfig + ".swc.json";
   fs.writeFileSync(
     tsconfigSwc,
     JSON.stringify({
-      extends: tsconfig,
+      extends: tsconfig + ".json",
       compilerOptions: {
         paths: {
-          "@constants": [path.join(getResolvedEnv().workspace, "constants")],
+          "@constants": [path.join(pkg.workspace, "constants")],
         },
       },
     }),
     "utf-8"
   );
+
   return swc({
     tsconfig: tsconfigSwc,
     jsc: {
-      target: "es2022",
+      target: "es2019",
       transform: {
         optimizer: {
           globals: {
@@ -118,12 +207,74 @@ export const watchOptions: RollupOptions["watch"] = {
     awaitWriteFinish: true,
   },
 };
-export const build = async (options: RollupOptions[]) => {
+
+export type BuildOptions = {
+  export?: boolean;
+  buildStart?(): Promise<void>;
+  buildEnd?(): Promise<void>;
+};
+export const build = async (
+  options: RollupOptions[],
+  { export: exportScripts = true, buildStart, buildEnd }: BuildOptions = {}
+) => {
+  const pkg = await env();
+
+  const buildEndActions: ((() => void | Promise<void>) | undefined)[] = [
+    buildEnd,
+  ];
+
+  if (pkg.externalTargets.length && exportScripts) {
+    buildEndActions.push(async () => {
+      const pkg = await env();
+      const src = "./dist/es/index.mjs";
+      if (fs.existsSync(src)) {
+        for (const target of pkg.externalTargets) {
+          if (!fs.existsSync(target)) {
+            console.warn(`External target '${target}' does not exist.`);
+            continue;
+          }
+          const targetFile = path.join(target, pkg.name + ".js");
+          await fs.promises.copyFile(src, targetFile);
+          console.log(`Copied the external script to '${targetFile}'.`);
+        }
+      }
+    });
+  }
+
+  exportScripts && buildEndActions.push(() => pack(pkg));
+
+  const watchMode = arg("-w", "--watch");
+
+  let script = arg("-c", "--cli")?.trim();
+  if (script) {
+    exportScripts &&
+      buildEndActions.push(async () => {
+        if (!script) return;
+        console.log(`Running script '${script}'.`);
+
+        spawn(
+          `${
+            watchMode ? "pnpm nodemon -e js,cjs,mjs" : "node"
+          } "./dist/cli/${script}.cjs"`,
+          {
+            stdio: "inherit",
+            shell: true,
+          }
+        );
+        script = undefined;
+      });
+  }
+
+  buildEnd = async () => {
+    for (const action of buildEndActions) {
+      await action?.();
+    }
+  };
+
+  let pending = 0;
   await Promise.all(
     options.map(async (config, i) => {
       if (!config.output) return;
-
-      const watchMode = arg("-w", "--watch");
 
       const isTypes = (config.plugins as any)?.some(
         (plugin: any) => plugin.name === "dts"
@@ -167,8 +318,6 @@ export const build = async (options: RollupOptions[]) => {
         },
       };
 
-      let script = i === 0 ? arg("-c", "--cli") : undefined;
-
       console.log(`Build ${buildName} started.`);
       if (watchMode) {
         let resolve: any;
@@ -176,6 +325,8 @@ export const build = async (options: RollupOptions[]) => {
         const watcher = watch(config);
         watcher.on("event", async (ev) => {
           if (ev.code === "START") {
+            !pending++ && (await buildStart?.());
+
             console.log(`Build started. ${config.input}`);
           } else if (ev.code === "ERROR") {
             console.log(ev.error.cause);
@@ -183,54 +334,68 @@ export const build = async (options: RollupOptions[]) => {
             ev.result?.close();
           } else if (ev.code === "END") {
             console.log(`Build ${buildName} completed.`);
+            !--pending && (await buildEnd?.());
+
             resolve();
-            if (script) {
-              const bootstrap = path.join(
-                (await findWorkspaceDir(process.cwd()))!,
-                "build/bootstrap-cli.cjs"
-              );
-
-              spawn(
-                `pnpm tsx watch --clear-screen=false  "${bootstrap}" "dist/${script}.cjs`,
-                { stdio: "inherit", cwd: "dist", shell: true }
-              );
-
-              script = undefined;
-            }
           }
         });
 
         await waitForFirstBuild;
       } else {
+        if (!pending++) {
+          await buildStart?.();
+        }
         const bundle = await rollup(config);
         await Promise.all(outputs.map((output) => bundle.write(output)));
         console.log(`Build ${buildName} completed.`);
+        if (!--pending) {
+          await buildEnd?.();
+        }
       }
     })
   );
 };
 
+export type ScriptTarget = {
+  id: string;
+  path: string;
+  libs: Record<string, boolean>;
+};
+
+export const getExternalTargets = async (): Promise<ScriptTarget[]> => {
+  const ws = await findWorkspaceDir(process.cwd());
+  if (!ws) return [];
+  const configPath = path.join(ws, "targets.json");
+  if (!fs.existsSync(configPath)) return [];
+
+  const config = JSON.parse(await fs.promises.readFile(configPath, "utf8"));
+  return Object.entries(config).map(([key, value]: any) => ({
+    id: key,
+    path: path.resolve(ws, value.path),
+    libs: Object.fromEntries(value.libs.map((lib) => [lib, true])),
+  }));
+};
+
 let resolvedEnv: PackageEnvironment;
-export async function env(client?: boolean): Promise<PackageEnvironment> {
+export async function env(): Promise<PackageEnvironment> {
   if (resolvedEnv) {
     return resolvedEnv;
   }
 
   const cwd = process.cwd();
-  const ws = await findWorkspaceDir(process.cwd());
-  process.chdir(ws!);
-  dotenv.config();
-  dotenv.config({ path: ".env.local" });
-  process.chdir(cwd);
   const packageJson = path.join(cwd, "package.json");
   let config = fs.existsSync(path.join(cwd, "package.json"))
     ? JSON.parse(fs.readFileSync(packageJson, "utf-8"))
     : null;
 
+  const name = path.basename(cwd);
   return (resolvedEnv = {
     path: cwd,
-    name: path.basename(cwd),
+    name,
     workspace: (await findWorkspaceDir(process.cwd()))!,
+    externalTargets: (await getExternalTargets())
+      .filter((target) => target.libs[name] || target.libs["*"])
+      .map((target) => target.path),
     get config() {
       return config;
     },
@@ -260,15 +425,6 @@ export function applyDefaultConfiguration(config: RollupOptions) {
   return config;
 }
 
-function getResolvedEnv() {
-  if (resolvedEnv === null) {
-    throw new Error(
-      "The build environment has not been resolved. Call await env() somewhere first."
-    );
-  }
-  return resolvedEnv;
-}
-
 export function addCommonPackageData(pkg: Record<string, any>) {
   return {
     license: "LGPL3",
@@ -278,107 +434,17 @@ export function addCommonPackageData(pkg: Record<string, any>) {
   };
 }
 
-export function getProjects(
-  modules?: boolean,
-  packageName?: string
-): readonly {
-  name: string;
-  path: string;
-  module: boolean;
-  asSource: boolean;
-}[] {
-  const env = getResolvedEnv();
-  return [
-    ...(function* () {
-      for (const key in process.env) {
-        if (key.toUpperCase().startsWith("TARGET_")) {
-          const name = key.substring(7);
-          let [target, args] = process.env[key]!.split(";");
-          const packages = args?.split(",");
-
-          if (!path.isAbsolute(target)) {
-            target = path.join(env.workspace, target);
-          }
-
-          if (!fs.existsSync(target)) {
-            throw new Error(
-              `The path '${target}' does not exist for the project '${name}'.`
-            );
-          }
-
-          var parts = target.replace(/\\/g, "/").split("/");
-          var isModule = parts.some((part) => part === "node_modules");
-
-          if (modules != null && isModule !== modules) {
-            continue;
-          }
-
-          if (
-            packageName &&
-            packages?.some((name) => name === packageName) === false
-          ) {
-            continue;
-          }
-
-          yield {
-            name: name,
-            path: isModule ? `${target}/@tailjs` : target,
-            module: isModule,
-            asSource: isModule && parts[parts.length - 1] !== "node_modules",
-          };
-        }
-      }
-    })(),
-  ];
-}
-
-export function chunkNameFunctions(
-  postfix = ".js",
-  prefix = "",
-  indexName = "index"
-) {
+export function chunkNameFunctions(extension = ".js") {
   let nextChunkId = 0;
-
   return {
     chunkFileNames: (chunk: OutputChunk) => {
-      const name = chunk.name.replace(/index(\.[^\/]+)$/, indexName);
-      return `${prefix}${name}_${nextChunkId++}${postfix}`;
+      const name = chunk.name.replace(/([^.]+).*/, "$1");
+      return `${name}_${nextChunkId++}${extension}`;
     },
     entryFileNames: (chunk: OutputChunk) => {
       nextChunkId = 0;
-      const name = chunk.name.replace(/index(\.[^\/]+)$/, indexName);
-      return `${prefix}${name}${postfix}`;
+      const name = chunk.name.replace(/([^.]+).*/, "$1");
+      return `${name}${extension}`;
     },
   };
-}
-
-export function rebaseExports(
-  pkg: Record<string, any>,
-  target: Record<string, any> = pkg,
-  root = "./dist"
-) {
-  let hasChanges = false;
-  ["main", "module", "types", "exports"].forEach((key) => {
-    if (
-      (pkg[key] && pkg === target) ||
-      JSON.stringify(target[key]) !== JSON.stringify(pkg[key])
-    ) {
-      const mapPath = (obj: Record<string, any>) =>
-        Object.fromEntries(
-          Object.entries(obj).map(([key, value]) =>
-            typeof value === "string" && value.indexOf("./") === 0
-              ? [key, root + value.slice(1)]
-              : [key, mapPath(value)]
-          )
-        );
-      if (pkg[key]) {
-        target[key] = mapPath(pkg[key]);
-      } else {
-        delete target[key];
-      }
-      hasChanges = true;
-    }
-  });
-
-  return hasChanges;
 }

@@ -13,11 +13,63 @@
   <component name="ChangeListManager">
     <list default="true" id="b1756235-4424-458f-b8f3-c8bf8d7b92a2" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/engine.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/engine.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/json-schema.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/json-schema.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/runtime-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/runtime-schema.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/schema.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/.env" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/.vscode/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/.vscode/settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/build/export-schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/build/export-schema.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/build/rollup-client.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/build/rollup-client.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/build/rollup-dist.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/build/rollup-dist.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/build/rollup-external.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/build/rollup-external.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/build/shared.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/build/shared.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/constants/constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/constants/constants.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/examples/react/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/react/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/commands/GetCommand.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/commands/GetCommand.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/commands/SetCommand.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/commands/SetCommand.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/interfaces/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/interfaces/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/LocalVariables.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/TrackerVariableStorage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/TrackerVariableStorage.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/debug-listeners.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/debug-listeners.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/shared-state.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/shared-state.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/types.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/tsconfig.browser.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/tsconfig.browser.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/json-schema/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/json-schema/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/json-schema/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/json-schema/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/maxmind/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/maxmind/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/next/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/next/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/node/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/node/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/node/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/node/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/mergeStates.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/mergeStates.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/useTrackerVariable.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/useTrackerVariable.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/sitecore-cdp/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/sitecore-cdp/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/sitecore-jss/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/sitecore-jss/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/transport/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/transport/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/transport/src/transport.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/transport/src/transport.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/transport/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/transport/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ts-json-schema-generator/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ts-json-schema-generator/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ts-json-schema-generator/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ts-json-schema-generator/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/ActivatedComponent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/ActivatedComponent.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/ActivatedContent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/ActivatedContent.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/src/index.external.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/pnpm-lock.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/tsconfig.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -191,6 +243,7 @@
       <workItem from="1721649033260" duration="2782000" />
       <workItem from="1722593115211" duration="2826000" />
       <workItem from="1722611491568" duration="6027000" />
+      <workItem from="1723038984282" duration="1362000" />
     </task>
     <task id="LOCAL-00001" summary="Adjusted project for new repo. Consumed latest event schema.">
       <option name="closed" value="true" />

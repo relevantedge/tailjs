@@ -3,9 +3,9 @@
   "description": "A node.js native engine host for tail.js.",
   "license": "LGPL3",
   "version": "0.17.24",
-  "main": "dist/dist/index.cjs",
-  "module": "dist/dist/index.mjs",
-  "types": "dist/dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "scripts": {
     "check": "tsc --noEmit",
@@ -32,5 +32,17 @@
   "devDependencies": {
     "@types/node": "^18.19.33",
     "@types/request-ip": "^0.0.38"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
   }
 }

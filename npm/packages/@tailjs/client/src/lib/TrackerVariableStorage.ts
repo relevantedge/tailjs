@@ -32,6 +32,18 @@ import {
   throwError,
 } from "@tailjs/util";
 import {
+  StateVariable,
+  TrackerContext,
+  VARIABLE_CACHE_DURATION,
+  VARIABLE_POLL_FREQUENCY,
+  addPageLoadedListener,
+  addResponseHandler,
+  addVariablesChangedListener,
+  request,
+  tryGetVariable,
+  updateVariableState,
+} from ".";
+import {
   ClientVariable,
   ClientVariableCallback,
   ClientVariableGetResult,
@@ -42,22 +54,12 @@ import {
   LocalVariableScopeValue,
   ReservedVariableKey,
   ReservedVariableType,
-  StateVariable,
-  TrackerContext,
-  VARIABLE_CACHE_DURATION,
-  VARIABLE_POLL_FREQUENCY,
-  addPageLoadedListener,
-  addResponseHandler,
-  addVariablesChangedListener,
   isLocalScopeKey,
   localVariableScope,
-  request,
   stringToVariableKey,
   toNumericVariableEnums,
-  tryGetVariable,
-  updateVariableState,
   variableKeyToString,
-} from ".";
+} from "..";
 
 const KEY_PROPS: any[] = ["scope", "key", "targetId", "version"];
 const VARIABLE_PROPS: any[] = [

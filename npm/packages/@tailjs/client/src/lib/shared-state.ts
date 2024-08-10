@@ -17,20 +17,22 @@ import {
   replace,
 } from "@tailjs/util";
 import {
-  ClientVariable,
-  ClientVariableGetter,
-  ClientVariableResults,
   GetterIntellisense,
   HEARTBEAT_FREQUENCY,
-  LocalVariableScope,
   NOT_INITIALIZED,
   VARIABLE_CACHE_DURATION,
   addEncryptionNegotiatedListener,
   addPageLoadedListener,
   listen,
+} from ".";
+import {
+  ClientVariable,
+  ClientVariableGetter,
+  ClientVariableResults,
+  LocalVariableScope,
   toNumericVariableEnums,
   variableKeyToString,
-} from ".";
+} from "..";
 
 export interface TabState {
   id: string;

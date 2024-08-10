@@ -14,8 +14,6 @@ export * from "./errors";
 
 export * from "./page-events";
 
-export * from "./LocalVariables";
-
 export * from "./shared-state";
 
 export * from "./concurrency";

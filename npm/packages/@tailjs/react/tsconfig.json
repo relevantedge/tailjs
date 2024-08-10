@@ -3,6 +3,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["es2022", "dom"],
+    "resolveJsonModule": true,
     "strictNullChecks": true,
     "jsx": "react",
     "noErrorTruncation": false,

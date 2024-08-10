@@ -1,10 +1,5 @@
-import { tail } from "@tailjs/client/external";
-import {
-  DataClassificationValue,
-  DataPurposeValue,
-  VariableKey,
-} from "@tailjs/types";
-import { ClientVariableKey } from "packages/@tailjs/client/src/lib";
+import { ClientVariableKey, tail } from "@tailjs/client/external";
+import { DataClassificationValue, DataPurposeValue } from "@tailjs/types";
 import { useRef, useState } from "react";
 
 export function useTrackerVariable<T = any>(

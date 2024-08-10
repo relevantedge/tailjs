@@ -1,5 +1,5 @@
 import { MaybeArray } from "@tailjs/util";
-import { ClientVariableSetter } from "../lib";
+import { ClientVariableSetter } from "..";
 import { commandTest } from "./shared";
 
 /**

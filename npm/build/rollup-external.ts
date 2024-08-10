@@ -6,206 +6,139 @@ import resolve from "@rollup/plugin-node-resolve";
 import * as fs from "fs";
 import { join } from "path";
 import dts from "rollup-plugin-dts";
-//import esbuild from "rollup-plugin-esbuild";
 
-import package_json from "rollup-plugin-generate-package-json";
 import {
   applyDefaultConfiguration,
   chunkNameFunctions,
   compilePlugin,
   env,
-  getProjects,
+  packageJson,
   watchOptions,
 } from "./shared";
 
 export async function getExternalBundles(): Promise<Record<string, any>[]> {
   const pkg = await env();
 
-  const targets = [
-    [`${pkg.path}/dist/v8`, false],
-    ...getProjects(false, pkg.name).map(
-      ({ path }) => [join(path), true] as const
-    ),
-    ...getProjects(true, pkg.name).map(
-      ({ path }) => [join(path, pkg.name, "v8"), false] as const
-    ),
-  ] as const;
+  const targets = [`${pkg.path}/dist/es`];
 
   for (const path of targets) {
-    fs.mkdirSync(path[0], { recursive: true });
+    fs.mkdirSync(path, { recursive: true });
   }
 
-  return [true, false].flatMap((ext) => {
-    const targetOutputs = targets.filter((entry) => entry[1] === ext);
-    if (!targetOutputs.length) return [];
+  let tsconfig = fs.existsSync("./tsconfig.external.json")
+    ? `./tsconfig.external`
+    : "./tsconfig";
 
-    if (ext && !fs.existsSync(join(pkg.path, "dist"))) {
-      console.warn(
-        "You need to run build a second time to generate the external non-NodeJS bundles (since they rely on dist output from the first build)."
-      );
-      return [];
-    }
+  return [
+    applyDefaultConfiguration({
+      external: [/\@tailjs\/(?!util)[^\/]+$/g],
+      input: join("src/index.external.ts"),
+      watch: watchOptions,
+      plugins: [
+        // esbuild({
+        //   treeShaking: true,
+        // }),
+        compilePlugin(pkg, {
+          tsconfig,
+        }),
+        resolve({ browser: true, preferBuiltins: false }),
+        cjs(),
+        json(),
 
-    return [
-      applyDefaultConfiguration({
-        external: [/\@tailjs\/(?!util)[^\/]+$/g],
-        input: join("src/index.external.ts"),
-        watch: watchOptions,
-        plugins: [
-          // esbuild({
-          //   treeShaking: true,
-          // }),
-          compilePlugin({
-            tsconfig: fs.existsSync(`${pkg.path}/tsconfig.external.json`)
-              ? `${pkg.path}/tsconfig.external.json`
-              : undefined,
-          }),
-          resolve({ browser: true, preferBuiltins: false }),
-          cjs(),
-          json(),
+        alias({
+          entries: [
+            ...[
+              {
+                find: "net",
+                replacement: `${pkg.workspace}/build/shims/net.ts`,
+              },
+              { find: "assert", replacement: "assert" },
+              //{ find: "buffer", replacement: "buffer" },
+              {
+                find: "console",
+                replacement: "console-browserify",
+              },
+              // { find: "crypto", replacement: "crypto-browserify" },
+              { find: "stream", replacement: "stream-browserify" },
+              { find: "domain", replacement: "domain-browser" },
+              { find: "events", replacement: "events" },
+              { find: "http", replacement: "stream-http" },
+              { find: "https", replacement: "stream-http" },
+              { find: "os", replacement: "os" },
+              { find: "path", replacement: "path" },
+              { find: "process", replacement: "process-es6" },
+              { find: "punycode", replacement: "punycode" },
+              { find: "querystring", replacement: "querystring" },
+              { find: "stream", replacement: "stream-browserify" },
+              {
+                find: "string_decoder",
+                replacement: "string_decoder",
+              },
+              { find: "sys", replacement: "util" },
+              { find: "timers", replacement: "timers-browserify" },
+              { find: "tty", replacement: "tty-browserify" },
+              { find: "url", replacement: "url" },
+              { find: "util", replacement: "util" },
+              { find: "vm", replacement: "vm-browserify" },
+              { find: "zlib", replacement: "browserify-zlib" },
+              { find: "fs", replacement: "memfs" },
+              { find: "emitter", replacement: "component-emitter" },
+            ],
+            {
+              find: "@constants",
+              replacement: `${pkg.workspace}/constants/index.ts`,
+            },
+          ].filter((item) => item),
+        }),
+        inject({
+          ...Object.fromEntries([
+            ["Buffer", ["buffer", "Buffer"]],
+            ["process", "process"],
+            ["crypto", "crypto-browserify"],
+          ] as const),
+          //TextEncoder: ["text-encoding-polyfill", "TextEncoder"],
+          //TextDecoder: ["text-encoding-polyfill", "TextDecoder"],
+          global: `${pkg.workspace}/build/shims/global.ts`,
+        }),
 
-          alias({
-            entries: [
-              ...[
-                {
-                  find: "net",
-                  replacement: `${pkg.workspace}/build/shims/net.ts`,
-                },
-                { find: "assert", replacement: "assert" },
-                //{ find: "buffer", replacement: "buffer" },
-                {
-                  find: "console",
-                  replacement: "console-browserify",
-                },
-                // { find: "crypto", replacement: "crypto-browserify" },
-                { find: "stream", replacement: "stream-browserify" },
-                { find: "domain", replacement: "domain-browser" },
-                { find: "events", replacement: "events" },
-                { find: "http", replacement: "stream-http" },
-                { find: "https", replacement: "stream-http" },
-                { find: "os", replacement: "os" },
-                { find: "path", replacement: "path" },
-                { find: "process", replacement: "process-es6" },
-                { find: "punycode", replacement: "punycode" },
-                { find: "querystring", replacement: "querystring" },
-                { find: "stream", replacement: "stream-browserify" },
-                {
-                  find: "string_decoder",
-                  replacement: "string_decoder",
-                },
-                { find: "sys", replacement: "util" },
-                { find: "timers", replacement: "timers-browserify" },
-                { find: "tty", replacement: "tty-browserify" },
-                { find: "url", replacement: "url" },
-                { find: "util", replacement: "util" },
-                { find: "vm", replacement: "vm-browserify" },
-                { find: "zlib", replacement: "browserify-zlib" },
-                { find: "fs", replacement: "memfs" },
-                { find: "emitter", replacement: "component-emitter" },
-              ],
-              {
-                find: "@constants",
-                replacement: `${pkg.workspace}/constants/index.ts`,
-              },
-              {
-                find: /^@tailjs\/(engine|maxmind|ravendb|sitecore-backends)(\/(.+))?$/,
-                replacement: `${pkg.workspace}/packages/@tailjs/$1/dist/$2/v8/dist/index.mjs`,
-              },
-              {
-                find: /^@tailjs\/([^\/]+)(?:\/(.+))?$/,
-                replacement: `${pkg.workspace}/packages/@tailjs/$1/dist/$2/dist/index.mjs`,
-              },
-            ].filter((item) => item),
-          }),
-          inject({
-            ...Object.fromEntries([
-              ["Buffer", ["buffer", "Buffer"]],
-              ["process", "process"],
-              ["crypto", "crypto-browserify"],
-            ] as const),
-            //TextEncoder: ["text-encoding-polyfill", "TextEncoder"],
-            //TextDecoder: ["text-encoding-polyfill", "TextDecoder"],
-            global: `${pkg.workspace}/build/shims/global.ts`,
-          }),
-
-          !ext &&
-            package_json({
-              baseContents: () => {
-                return {
-                  private: true,
-                  main: "dist/index.js",
-                  module: "dist/index.mjs",
-                  types: "dist/index.d.ts",
-                };
-              },
-            }),
-          // [
-          //   ...(ext
-          //     ? [
-          //         replace({
-          //           preventAssignment: true,
-          //           delimiters: ["\\b", "\\b(?!\\.)"],
-          //           values: {
-          //             const: "var",
-          //             let: "var",
-          //           },
-          //         }),
-          //         terser({
-          //           compress: {
-          //             passes: 2,
-          //             ecma: 2020,
-          //             unsafe_comps: false,
-          //             module: true,
-          //             toplevel: false,
-          //           },
-          //           mangle: true,
-          //           // mangle: {
-          //           //   properties: false,
-          //           //   toplevel: false,
-          //           // },
-          //         }),
-          //       ]
-          //     : []),
-          // ],
-          //visualizer({ sourceMap: true, emitFile: "tailjs.html" } as any),
-        ].filter((item) => item),
-        output: targetOutputs.flatMap(
-          (path) =>
-            [
-              {
-                name: pkg.name,
-                format: "es",
-                dir: path[0],
-                ...chunkNameFunctions(
-                  ext ? ".js" : ".mjs",
-                  ext ? "" : undefined,
-                  ext ? pkg.name : undefined
-                ),
-              },
-              !ext && {
-                name: pkg.name,
-                dir: path[0],
-                format: "cjs",
-                ...chunkNameFunctions(
-                  ".js",
-                  ext ? "" : undefined,
-                  ext ? pkg.name : undefined
-                ),
-              },
-            ].filter((item) => item) as any
-        ),
-      }),
-      !ext && {
-        input: `src/index.external.ts`,
-        plugins: [dts()],
-        watch: watchOptions,
-        external: [/\@tailjs\/.+[^\/]/g],
-        output: targetOutputs.map((path) => ({
-          dir: path[0],
-          ...chunkNameFunctions(".d.ts", ext ? "" : "dist/"),
-          format: "es",
+        packageJson(() => ({
+          private: true,
+          name: pkg.name + "/ecma",
+          description: "Pure ECMAScript without Node.js dependencies.",
+          main: "index.cjs",
+          module: "index.mjs",
+          types: "index.d.ts",
         })),
-      },
-    ].filter((item) => item) as any;
-  });
+      ].filter((item) => item),
+
+      output: targets.flatMap(
+        (dir) =>
+          [
+            {
+              name: pkg.name,
+              format: "es",
+              dir,
+              ...chunkNameFunctions(".mjs"),
+            },
+            {
+              name: pkg.name,
+              dir,
+              format: "cjs",
+              ...chunkNameFunctions(".js"),
+            },
+          ].filter((item) => item) as any
+      ),
+    }),
+    {
+      input: `src/index.external.ts`,
+      plugins: [dts({ tsconfig: tsconfig + ".swc.json" })],
+      watch: watchOptions,
+      external: [/\@tailjs\/.+[^\/]/g],
+      output: targets.map((dir) => ({
+        dir,
+        ...chunkNameFunctions(".d.ts"),
+        format: "es",
+      })),
+    },
+  ].filter((item) => item) as any;
 }

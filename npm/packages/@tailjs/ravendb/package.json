@@ -3,9 +3,9 @@
   "description": "tail.js RavenDB backend.",
   "license": "LGPL3",
   "version": "0.17.24",
-  "main": "dist/dist/index.cjs",
-  "module": "dist/dist/index.mjs",
-  "types": "dist/dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "author": "RelevantEdge (https://www.relevant-edge.com)",
   "homepage": "https://github.com/relevantedge/tailjs",
   "scripts": {
@@ -13,12 +13,25 @@
     "build:watch": "pnpm run build -w"
   },
   "dependencies": {
-    "@tailjs/engine": "workspace:*",
-    "@tailjs/types": "workspace:*",
+    "@tailjs/engine": "^0.17.24",
+    "@tailjs/types": "^0.17.24",
+    "@tailjs/util": "^0.17.24",
     "ravendb": "^5.4.2",
     "semaphore-async-await": "^1.5.1"
   },
   "publishConfig": {
     "directory": "dist"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
   }
 }
