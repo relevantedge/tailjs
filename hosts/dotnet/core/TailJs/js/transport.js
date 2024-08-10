@@ -92,7 +92,7 @@ const tryCatch = (expression, errorHandler = true, always)=>{
     } catch (e) {
         return isFunction(errorHandler) ? isError(e = errorHandler(e)) ? throwError(e) : e : isBoolean(errorHandler) ? console.error(errorHandler ? throwError(e) : e) : errorHandler;
     } finally{
-        always?.();
+        always === null || always === void 0 ? void 0 : always();
     }
 };
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
@@ -123,7 +123,7 @@ const getPrototypeOf = Object.getPrototypeOf;
 const isPlainObject = (value)=>value != null && getPrototypeOf(value) === objectPrototype;
 const isSymbol = (value)=>typeof value === "symbol";
 const isFunction = (value)=>typeof value === "function";
-const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
+const isIterable = (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator]) && (typeof value === "object" || acceptStrings));
 let stopInvoked = false;
 const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
 function* createFilteringIterator(source, projection) {
@@ -166,10 +166,10 @@ function* createObjectIterator(source, action) {
 }
 function* createRangeIterator(length = 0, offset) {
     if (length < 0) {
-        offset ??= -length - 1;
+        offset !== null && offset !== void 0 ? offset : offset = -length - 1;
         while(length++)yield offset--;
     } else {
-        offset ??= 0;
+        offset !== null && offset !== void 0 ? offset : offset = 0;
         while(length--)yield offset++;
     }
 }
@@ -179,8 +179,8 @@ function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_
         yield start;
     }
 }
-const sliceAction = (action, start, end)=>(start ?? end) !== undefined$1 ? (action = wrapProjection(action), start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
-/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array?.filter(FILTER_NULLISH);
+const sliceAction = (action, start, end)=>(start !== null && start !== void 0 ? start : end) !== undefined$1 ? (action = wrapProjection(action), start !== null && start !== void 0 ? start : start = 0, end !== null && end !== void 0 ? end : end = MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
+/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array === null || array === void 0 ? void 0 : array.filter(FILTER_NULLISH);
 const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
 const project = (source, projection, start, end)=>createIterator(source, projection, start, end);
 const map = (source, projection, start, end)=>{
@@ -188,8 +188,8 @@ const map = (source, projection, start, end)=>{
     if (isArray(source)) {
         let i = 0;
         const mapped = [];
-        start = start < 0 ? source.length + start : start ?? 0;
-        end = end < 0 ? source.length + end : end ?? source.length;
+        start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
+        end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
         for(; start < end && !stopInvoked; start++){
             let value = source[start];
             if ((projection ? value = projection(value, i++) : value) != null) {
@@ -250,7 +250,7 @@ const FNVs = {
     /** Current start of the mixer window. */ let iw = 0;
     /** Initial mixer. */ let mixer0 = 0;
     /** Initial bytes for the mixer. */ const window0 = [];
-    for(iw = 0; iw < key?.length; mixer0 += window0[iw] = key.charCodeAt(iw++));
+    for(iw = 0; iw < (key === null || key === void 0 ? void 0 : key.length); mixer0 += window0[iw] = key.charCodeAt(iw++));
     /** Resets the mixer when (en/de)cryption starts. */ const resetMixer = key ? ()=>{
         window = [
             ...window0
@@ -878,7 +878,7 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
     let refs;
     let refIndex;
     const patchProperty = (target, key, value = target[key], patched = includeValue(key, value, defaultValues) ? inner(value) : undefined$1)=>(value !== patched && (patched === undefined$1 && !isArray(target) ? delete target[key] : target[key] = patched, addCleaner(()=>target[key] = value)), patched);
-    const addCleaner = (cleaner)=>(cleaners ??= []).push(cleaner);
+    const addCleaner = (cleaner)=>(cleaners !== null && cleaners !== void 0 ? cleaners : cleaners = []).push(cleaner);
     const inner = (value)=>{
         if (value == null || isFunction(value) || isSymbol(value)) {
             return undefined$1;
@@ -889,7 +889,7 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
         if (value.toJSON && value !== (value = value.toJSON())) {
             return inner(value);
         }
-        if ((refIndex = refs?.get(value)) != null) {
+        if ((refIndex = refs === null || refs === void 0 ? void 0 : refs.get(value)) != null) {
             if (!value[REF_PROP]) {
                 // Only assign ID parameter if used.
                 value[REF_PROP] = refIndex;
@@ -900,7 +900,7 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
             };
         }
         if (isPlainObject(value)) {
-            (refs ??= new Map()).set(value, refs.size + 1);
+            (refs !== null && refs !== void 0 ? refs : refs = new Map()).set(value, refs.size + 1);
             for(const key in value)patchProperty(value, key);
         } else if (isIterable(value) && !(value instanceof Uint8Array)) {
             // Array with undefined values or iterable (which is made into array.). ([,1,2,3] does not reveal its first entry).
@@ -910,7 +910,10 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
         }
         return value;
     };
-    return tryCatch(()=>msgpack ? msgSerialize(inner(value) ?? null) : tryCatch(()=>JSON.stringify(value, undefined$1, prettify ? 2 : 0), ()=>JSON.stringify(inner(value), undefined$1, prettify ? 2 : 0)), true, ()=>cleaners?.forEach((cleaner)=>cleaner()));
+    return tryCatch(()=>{
+        var _inner;
+        return msgpack ? msgSerialize((_inner = inner(value)) !== null && _inner !== void 0 ? _inner : null) : tryCatch(()=>JSON.stringify(value, undefined$1, prettify ? 2 : 0), ()=>JSON.stringify(inner(value), undefined$1, prettify ? 2 : 0));
+    }, true, ()=>cleaners === null || cleaners === void 0 ? void 0 : cleaners.forEach((cleaner)=>cleaner()));
 };
 /**
  * Hydrates the format returned by {@link serialize} back to its original in-memory format.
@@ -919,7 +922,7 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
     let matchedRef;
     const inner = (value)=>{
         if (!isObject(value)) return value;
-        if (value[REF_PROP] && (matchedRef = (refs ??= [])[value[REF_PROP]])) {
+        if (value[REF_PROP] && (matchedRef = (refs !== null && refs !== void 0 ? refs : refs = [])[value[REF_PROP]])) {
             return matchedRef;
         }
         if (value[REF_PROP]) {
@@ -958,9 +961,10 @@ let _defaultTransports;
         ];
     };
     if (!key) {
-        let json = +(options.json ?? 0);
+        var _options_json;
+        let json = +((_options_json = options.json) !== null && _options_json !== void 0 ? _options_json : 0);
         if (json && options.prettify !== false) {
-            return (_defaultTransports ??= [
+            return (_defaultTransports !== null && _defaultTransports !== void 0 ? _defaultTransports : _defaultTransports = [
                 factory(null, {
                     json: false
                 }),

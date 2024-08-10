@@ -257,10 +257,10 @@ const deserialize = (value: string | Uint8Array) => {
 
   return inner(
     isString(value)
-      ? JSON.parse(value)
+      ? JSON.parse(value as any)
       : value != null
       ? tryCatch(
-          () => msgDeserialize(value),
+          () => msgDeserialize(value as any),
           () => (console.error(`Invalid message received.`, value), undefined)
         )
       : value

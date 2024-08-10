@@ -3,6 +3,7 @@ export * from "./Position";
 export * from "./Size";
 export * from "./Rectangle";
 export * from "./Viewport";
+
 export * from "./Tagged";
 export * from "./ExternalReference";
 export * from "./Tag";

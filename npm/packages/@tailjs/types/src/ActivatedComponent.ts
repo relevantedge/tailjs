@@ -1,4 +1,4 @@
-import type { ActivatedContent, Component, Integer, Rectangle } from "..";
+import type { ActivatedContent, Component, Rectangle } from ".";
 
 /**
  * The component definition related to a user activation.

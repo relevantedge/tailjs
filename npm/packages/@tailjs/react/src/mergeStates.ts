@@ -1,4 +1,4 @@
-import { array, concat, map } from "@tailjs/util";
+import { array, concat } from "@tailjs/util";
 import { BoundaryDataWithView } from ".";
 
 export function filterCurrent<T>(

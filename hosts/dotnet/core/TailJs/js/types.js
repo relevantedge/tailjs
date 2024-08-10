@@ -1,7 +1,7 @@
 const throwError = (error, transform = (message)=>new Error(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
-const required = (value, error)=>value != null ? value : throwError(error ?? "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
+const required = (value, error)=>value != null ? value : throwError(error !== null && error !== void 0 ? error : "A required value is missing", (text)=>new TypeError(text.replace("...", " is required.")));
 /** A value that is initialized lazily on-demand. */ const deferred = (expression)=>{
     let result;
     const getter = ()=>{
@@ -40,15 +40,16 @@ const thenMethod = (expression)=>{
 };
 const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     try {
+        var _errorHandler_;
         const result = await unwrap(expression);
-        return isArray(errorHandler) ? errorHandler[0]?.(result) : result;
+        return isArray(errorHandler) ? (_errorHandler_ = errorHandler[0]) === null || _errorHandler_ === void 0 ? void 0 : _errorHandler_.call(errorHandler, result) : result;
     } catch (e) {
         if (!isBoolean(errorHandler)) {
             if (isArray(errorHandler)) {
                 if (!errorHandler[1]) throw e;
                 return errorHandler[1](e);
             }
-            const error = await errorHandler?.(e);
+            const error = await (errorHandler === null || errorHandler === void 0 ? void 0 : errorHandler(e));
             if (error instanceof Error) throw error;
             return error;
         } else if (errorHandler) {
@@ -58,7 +59,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
             console.error(e);
         }
     } finally{
-        await always?.();
+        await (always === null || always === void 0 ? void 0 : always());
     }
     return undefined;
 };
@@ -67,7 +68,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 /** Minify friendly version of `null`. */ const nil = null;
 /** A function that filters out values != null. */ const FILTER_NULLISH = (item)=>item != nil;
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
-const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? value !== undefined$1 ? resultOrProperty(value) : undefined$1 : value?.[resultOrProperty] !== undefined$1 ? value : undefined$1;
+const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? value !== undefined$1 ? resultOrProperty(value) : undefined$1 : (value === null || value === void 0 ? void 0 : value[resultOrProperty]) !== undefined$1 ? value : undefined$1;
 const isBoolean = (value)=>typeof value === "boolean";
 const isInteger = Number.isSafeInteger;
 const isNumber = (value)=>typeof value === "number";
@@ -89,7 +90,7 @@ const objectPrototype = Object.prototype;
 const getPrototypeOf = Object.getPrototypeOf;
 const isPlainObject = (value)=>value != null && getPrototypeOf(value) === objectPrototype;
 const isFunction = (value)=>typeof value === "function";
-const isIterable = (value, acceptStrings = false)=>!!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
+const isIterable = (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator]) && (typeof value === "object" || acceptStrings));
 const isMap = (value)=>value instanceof Map;
 const isSet = (value)=>value instanceof Set;
 let stopInvoked = false;
@@ -134,10 +135,10 @@ function* createObjectIterator(source, action) {
 }
 function* createRangeIterator(length = 0, offset) {
     if (length < 0) {
-        offset ??= -length - 1;
+        offset !== null && offset !== void 0 ? offset : offset = -length - 1;
         while(length++)yield offset--;
     } else {
-        offset ??= 0;
+        offset !== null && offset !== void 0 ? offset : offset = 0;
         while(length--)yield offset++;
     }
 }
@@ -147,8 +148,8 @@ function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_
         yield start;
     }
 }
-const sliceAction = (action, start, end)=>(start ?? end) !== undefined$1 ? (action = wrapProjection(action), start ??= 0, end ??= MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
-/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array?.filter(FILTER_NULLISH);
+const sliceAction = (action, start, end)=>(start !== null && start !== void 0 ? start : end) !== undefined$1 ? (action = wrapProjection(action), start !== null && start !== void 0 ? start : start = 0, end !== null && end !== void 0 ? end : end = MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
+/** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array === null || array === void 0 ? void 0 : array.filter(FILTER_NULLISH);
 const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
 const mapToArray = (projected, map)=>map && !isArray(projected) ? [
         ...projected
@@ -159,8 +160,8 @@ const map = (source, projection, start, end)=>{
     if (isArray(source)) {
         let i = 0;
         const mapped = [];
-        start = start < 0 ? source.length + start : start ?? 0;
-        end = end < 0 ? source.length + end : end ?? source.length;
+        start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
+        end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
         for(; start < end && !stopInvoked; start++){
             let value = source[start];
             if ((projection ? value = projection(value, i++) : value) != null) {
@@ -175,10 +176,11 @@ const map = (source, projection, start, end)=>{
 const forEachArray = (source, action, start, end)=>{
     let returnValue;
     let i = 0;
-    start = start < 0 ? source.length + start : start ?? 0;
-    end = end < 0 ? source.length + end : end ?? source.length;
+    start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
+    end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
     for(; start < end; start++){
-        if (source[start] != null && (returnValue = action(source[start], i++) ?? returnValue, stopInvoked)) {
+        var _action;
+        if (source[start] != null && (returnValue = (_action = action(source[start], i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked)) {
             stopInvoked = false;
             break;
         }
@@ -189,7 +191,8 @@ const forEachIterable = (source, action)=>{
     let returnValue;
     let i = 0;
     for (let value of source){
-        if (value != null && (returnValue = action(value, i++) ?? returnValue, stopInvoked)) {
+        var _action;
+        if (value != null && (returnValue = (_action = action(value, i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked)) {
             stopInvoked = false;
             break;
         }
@@ -200,10 +203,11 @@ const forEachObject = (source, action)=>{
     let returnValue;
     let i = 0;
     for(let key in source){
-        if (returnValue = action([
+        var _action;
+        if (returnValue = (_action = action([
             key,
             source[key]
-        ], i++) ?? returnValue, stopInvoked) {
+        ], i++)) !== null && _action !== void 0 ? _action : returnValue, stopInvoked) {
             stopInvoked = false;
             break;
         }
@@ -231,8 +235,12 @@ const fromEntries = Object.fromEntries;
  */ const obj = (source, selector, merge)=>{
     if (source == null) return undefined$1;
     if (isBoolean(selector) || merge) {
+        var _result, _item_;
         let result = {};
-        forEach(source, merge ? (item, i)=>(item = selector(item, i)) != null && (item[1] = merge(result[item[0]], item[1])) != null && (result[item[0]] = item[1]) : (source)=>forEach(source, selector ? (item)=>item?.[1] != null && ((result[item[0]] ??= []).push(item[1]), result) : (item)=>item?.[1] != null && (result[item[0]] = item[1], result)));
+        forEach(source, merge ? (item, i)=>(item = selector(item, i)) != null && (item[1] = merge(result[item[0]], item[1])) != null && (result[item[0]] = item[1]) : (source)=>forEach(source, selector ? (item)=>{
+                var _;
+                return (item === null || item === void 0 ? void 0 : item[1]) != null && (((_ = (_result = result)[_item_ = item[0]]) !== null && _ !== void 0 ? _ : _result[_item_] = []).push(item[1]), result);
+            } : (item)=>(item === null || item === void 0 ? void 0 : item[1]) != null && (result[item[0]] = item[1], result)));
         return result;
     }
     return fromEntries(map(source, selector ? (item, index)=>ifDefined(selector(item, index), 1) : (item)=>ifDefined(item, 1)));
@@ -290,13 +298,16 @@ const unwrap = (value)=>isFunction(value) ? value() : value;
  */ const enumerate = (values, separator = [
     "and",
     ", "
-])=>!values ? undefined$1 : (values = map(values)).length === 1 ? values[0] : isArray(separator) ? [
-        values.slice(0, -1).join(separator[1] ?? ", "),
+])=>{
+    var _separator_;
+    return !values ? undefined$1 : (values = map(values)).length === 1 ? values[0] : isArray(separator) ? [
+        values.slice(0, -1).join((_separator_ = separator[1]) !== null && _separator_ !== void 0 ? _separator_ : ", "),
         " ",
         separator[0],
         " ",
         values[values.length - 1]
-    ].join("") : values.join(separator ?? ", ");
+    ].join("") : values.join(separator !== null && separator !== void 0 ? separator : ", ");
+};
 const quote = (item, quoteChar = "'")=>item == null ? undefined$1 : quoteChar + item + quoteChar;
 const isBit = (n)=>(n = Math.log2(n), n === (n | 0));
 const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
@@ -306,7 +317,8 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
         ]));
     const entries = Object.entries(names);
     const values = Object.values(names);
-    const any = names["any"] ?? values.reduce((any, flag)=>any | flag, 0);
+    var _names_any;
+    const any = (_names_any = names["any"]) !== null && _names_any !== void 0 ? _names_any : values.reduce((any, flag)=>any | flag, 0);
     const nameLookup = flags ? {
         ...names,
         any,
@@ -316,14 +328,16 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
             value,
             key
         ]));
-    const parseValue = (value, validateNumbers)=>isInteger(value) ? !flags && validateNumbers ? valueLookup[value] != null ? value : undefined$1 : Number.isSafeInteger(value) ? value : undefined$1 : isString(value) ? nameLookup[value] ?? nameLookup[value.toLowerCase()] ?? // Sometimes a number may have been stored as a string.
-        // Let's see if that is the case.
+    const parseValue = (value, validateNumbers)=>{
+        var _nameLookup_value, _ref;
+        return isInteger(value) ? !flags && validateNumbers ? valueLookup[value] != null ? value : undefined$1 : Number.isSafeInteger(value) ? value : undefined$1 : isString(value) ? (_ref = (_nameLookup_value = nameLookup[value]) !== null && _nameLookup_value !== void 0 ? _nameLookup_value : nameLookup[value.toLowerCase()]) !== null && _ref !== void 0 ? _ref : // Let's see if that is the case.
         parseValue(parseInt(value), validateNumbers) : undefined$1;
+    };
     let invalid = false;
     let carry;
     let carry2;
     const [tryParse, lookup] = flags ? [
-        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>flag == null || invalid ? flags : (flag = parseValue(flag, validateNumbers)) == null ? (invalid = true, undefined$1) : (flags ?? 0) | flag, (invalid = false, undefined$1)) : parseValue(value),
+        (value, validateNumbers)=>Array.isArray(value) ? value.reduce((flags, flag)=>flag == null || invalid ? flags : (flag = parseValue(flag, validateNumbers)) == null ? (invalid = true, undefined$1) : (flags !== null && flags !== void 0 ? flags : 0) | flag, (invalid = false, undefined$1)) : parseValue(value),
         (value, format)=>(value = tryParse(value, false)) == null ? undefined$1 : format && (carry2 = valueLookup[value & any]) ? (carry = lookup(value & ~(value & any), false)).length ? [
                 carry2,
                 ...carry
@@ -354,7 +368,7 @@ const createEnumAccessor = (sourceEnum, flags, enumName, pureFlags)=>{
         },
         flags && {
             pure,
-            map: (flags, map)=>(flags = parse(flags), pure.filter(([, flag])=>flag & flags).map(map ?? (([, flag])=>flag)))
+            map: (flags, map)=>(flags = parse(flags), pure.filter(([, flag])=>flag & flags).map(map !== null && map !== void 0 ? map : ([, flag])=>flag))
         }
     ]);
 };
@@ -375,7 +389,7 @@ let matchProjection;
 let collected;
 /**
  * Matches a regular expression against a string and projects the matched parts, if any.
- */ const match = (s, regex, selector, collect = false)=>(s ?? regex) == nil ? undefined$1 : selector ? (matchProjection = undefined$1, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
+ */ const match = (s, regex, selector, collect = false)=>(s !== null && s !== void 0 ? s : regex) == nil ? undefined$1 : selector ? (matchProjection = undefined$1, collect ? (collected = [], match(s, regex, (...args)=>(matchProjection = selector(...args)) != null && collected.push(matchProjection))) : s.replace(regex, (...args)=>matchProjection = selector(...args)), matchProjection) : s.match(regex);
 
 var DataClassification;
 (function(DataClassification) {
@@ -428,14 +442,20 @@ var DataClassification;
    */ DataClassification[DataClassification["Sensitive"] = 3] = "Sensitive";
 })(DataClassification || (DataClassification = {}));
 const dataClassification = createEnumAccessor(DataClassification, false, "data classification");
-const dataUsageEquals = (lhs, rhs)=>dataClassification.parse(lhs?.classification ?? lhs?.level) === dataClassification.parse(rhs?.classification ?? rhs?.level) && dataPurposes.parse(lhs?.purposes ?? lhs?.purposes) === dataPurposes.parse(rhs?.purposes ?? rhs?.purposes);
-const parseDataUsage = (classificationOrConsent, defaults)=>classificationOrConsent == null ? undefined : isNumber(classificationOrConsent.classification) && isNumber(classificationOrConsent.purposes) ? classificationOrConsent : {
+const dataUsageEquals = (lhs, rhs)=>{
+    var _lhs_classification, _rhs_classification, _lhs_purposes, _rhs_purposes;
+    return dataClassification.parse((_lhs_classification = lhs === null || lhs === void 0 ? void 0 : lhs.classification) !== null && _lhs_classification !== void 0 ? _lhs_classification : lhs === null || lhs === void 0 ? void 0 : lhs.level) === dataClassification.parse((_rhs_classification = rhs === null || rhs === void 0 ? void 0 : rhs.classification) !== null && _rhs_classification !== void 0 ? _rhs_classification : rhs === null || rhs === void 0 ? void 0 : rhs.level) && dataPurposes.parse((_lhs_purposes = lhs === null || lhs === void 0 ? void 0 : lhs.purposes) !== null && _lhs_purposes !== void 0 ? _lhs_purposes : lhs === null || lhs === void 0 ? void 0 : lhs.purposes) === dataPurposes.parse((_rhs_purposes = rhs === null || rhs === void 0 ? void 0 : rhs.purposes) !== null && _rhs_purposes !== void 0 ? _rhs_purposes : rhs === null || rhs === void 0 ? void 0 : rhs.purposes);
+};
+const parseDataUsage = (classificationOrConsent, defaults)=>{
+    var _classificationOrConsent_classification, _ref, _ref1, _classificationOrConsent_purposes, _ref2, _ref3;
+    return classificationOrConsent == null ? undefined : isNumber(classificationOrConsent.classification) && isNumber(classificationOrConsent.purposes) ? classificationOrConsent : {
         ...classificationOrConsent,
         level: undefined,
         purpose: undefined,
-        classification: dataClassification.parse(classificationOrConsent.classification ?? classificationOrConsent.level ?? defaults?.classification ?? 0),
-        purposes: dataPurposes.parse(classificationOrConsent.purposes ?? classificationOrConsent.purpose ?? defaults?.purposes ?? DataPurposeFlags.Necessary)
+        classification: dataClassification.parse((_ref1 = (_ref = (_classificationOrConsent_classification = classificationOrConsent.classification) !== null && _classificationOrConsent_classification !== void 0 ? _classificationOrConsent_classification : classificationOrConsent.level) !== null && _ref !== void 0 ? _ref : defaults === null || defaults === void 0 ? void 0 : defaults.classification) !== null && _ref1 !== void 0 ? _ref1 : 0),
+        purposes: dataPurposes.parse((_ref3 = (_ref2 = (_classificationOrConsent_purposes = classificationOrConsent.purposes) !== null && _classificationOrConsent_purposes !== void 0 ? _classificationOrConsent_purposes : classificationOrConsent.purpose) !== null && _ref2 !== void 0 ? _ref2 : defaults === null || defaults === void 0 ? void 0 : defaults.purposes) !== null && _ref3 !== void 0 ? _ref3 : DataPurposeFlags.Necessary)
     };
+};
 
 var DataPurposeFlags;
 (function(DataPurposeFlags) {
@@ -518,12 +538,15 @@ const FullConsent = Object.freeze({
     level: "sensitive",
     purposes: "any"
 });
-const isUserConsent = (value)=>!!value?.["level"];
+const isUserConsent = (value)=>!!(value === null || value === void 0 ? void 0 : value["level"]);
 const validateConsent = (source, consent, defaultClassification, write = false)=>{
     if (!source) return undefined;
-    const classification = dataClassification.parse(source?.classification ?? source?.level, false) ?? required(dataClassification(defaultClassification?.classification), "The source has not defined a data classification and no default was provided.");
-    let purposes = dataPurposes.parse(source.purposes, false) ?? required(dataPurposes.parse(defaultClassification?.purposes, false), "The source has not defined data purposes and no default was provided.");
-    const consentClassification = dataClassification.parse(consent["classification"] ?? consent["level"], false);
+    var _source_classification, _dataClassification_parse;
+    const classification = (_dataClassification_parse = dataClassification.parse((_source_classification = source === null || source === void 0 ? void 0 : source.classification) !== null && _source_classification !== void 0 ? _source_classification : source === null || source === void 0 ? void 0 : source.level, false)) !== null && _dataClassification_parse !== void 0 ? _dataClassification_parse : required(dataClassification(defaultClassification === null || defaultClassification === void 0 ? void 0 : defaultClassification.classification), "The source has not defined a data classification and no default was provided.");
+    var _dataPurposes_parse;
+    let purposes = (_dataPurposes_parse = dataPurposes.parse(source.purposes, false)) !== null && _dataPurposes_parse !== void 0 ? _dataPurposes_parse : required(dataPurposes.parse(defaultClassification === null || defaultClassification === void 0 ? void 0 : defaultClassification.purposes, false), "The source has not defined data purposes and no default was provided.");
+    var _consent_classification;
+    const consentClassification = dataClassification.parse((_consent_classification = consent["classification"]) !== null && _consent_classification !== void 0 ? _consent_classification : consent["level"], false);
     const consentPurposes = dataPurposes.parse(consent.purposes, false);
     // If we are writing, also check that the type is not client-side read-only.
     // The context will only be given the `Server` flag. `ClientRead` is only for annotations.
@@ -540,9 +563,9 @@ const validateConsent = (source, consent, defaultClassification, write = false)=
 };
 
 let metadata;
-const clearMetadata = (event, client)=>((metadata = event?.metadata) && (client ? (delete metadata.posted, delete metadata.queued, !Object.entries(metadata).length && delete event.metadata) : delete event.metadata), event);
+const clearMetadata = (event, client)=>((metadata = event === null || event === void 0 ? void 0 : event.metadata) && (client ? (delete metadata.posted, delete metadata.queued, !Object.entries(metadata).length && delete event.metadata) : delete event.metadata), event);
 
-const isEventPatch = (value)=>!!value?.patchTargetId;
+const isEventPatch = (value)=>!!(value === null || value === void 0 ? void 0 : value.patchTargetId);
 
 var VariableScope;
 (function(VariableScope) {
@@ -556,8 +579,8 @@ var VariableScope;
     /** Variables related to an identified user. */ VariableScope[VariableScope["User"] = 4] = "User";
 })(VariableScope || (VariableScope = {}));
 const variableScope = createEnumAccessor(VariableScope, false, "variable scope");
-const isTrackerScoped = (value)=>variableScope(value?.scope) >= 2;
-/** Removes target ID from tracker scoped variables and variable results. */ const restrictTargets = (value)=>(isArray(value) ? value.map(restrictTargets) : isTrackerScoped(value) && delete value.targetId, value?.current && restrictTargets(value.current), value);
+const isTrackerScoped = (value)=>variableScope(value === null || value === void 0 ? void 0 : value.scope) >= 2;
+/** Removes target ID from tracker scoped variables and variable results. */ const restrictTargets = (value)=>(isArray(value) ? value.map(restrictTargets) : isTrackerScoped(value) && delete value.targetId, (value === null || value === void 0 ? void 0 : value.current) && restrictTargets(value.current), value);
 const Necessary = {
     classification: DataClassification.Anonymous,
     purposes: DataPurposeFlags.Necessary
@@ -599,7 +622,7 @@ const extractKey = (variable, classificationSource)=>variable ? {
             purposes: dataPurposes(classificationSource.purposes)
         }
     } : undefined;
-const sortVariables = (variables)=>variables?.filter(FILTER_NULLISH).sort((x, y)=>x.scope === y.scope ? x.key.localeCompare(y.key, "en") : x.scope - y.scope);
+const sortVariables = (variables)=>variables === null || variables === void 0 ? void 0 : variables.filter(FILTER_NULLISH).sort((x, y)=>x.scope === y.scope ? x.key.localeCompare(y.key, "en") : x.scope - y.scope);
 
 var VariablePatchType;
 (function(VariablePatchType) {
@@ -610,9 +633,9 @@ var VariablePatchType;
     VariablePatchType[VariablePatchType["IfNoneMatch"] = 4] = "IfNoneMatch";
 })(VariablePatchType || (VariablePatchType = {}));
 const patchType = createEnumAccessor(VariablePatchType, false, "variable patch type");
-const isVariablePatchAction = (setter)=>isFunction(setter?.["patch"]);
+const isVariablePatchAction = (setter)=>isFunction(setter === null || setter === void 0 ? void 0 : setter["patch"]);
 
-const isPostResponse = (response)=>!!response?.variables;
+const isPostResponse = (response)=>!!(response === null || response === void 0 ? void 0 : response.variables);
 
 var VariableResultStatus;
 (function(VariableResultStatus) {
@@ -638,34 +661,53 @@ const toVariableResultPromise = (getResults, errorHandlers, push)=>{
         all: property((items)=>items, (items)=>items),
         changed: property((items)=>filter(items, (item)=>item.status < 300)),
         variables: property((items)=>map(items, getResultVariable)),
-        values: property((items)=>map(items, (item)=>getResultVariable(item)?.value)),
-        push: ()=>(mapResults = (results)=>(push?.(map(getSuccessResults(results))), results), promise),
-        value: property((items)=>getResultVariable(items[0])?.value),
+        values: property((items)=>map(items, (item)=>{
+                var _getResultVariable;
+                return (_getResultVariable = getResultVariable(item)) === null || _getResultVariable === void 0 ? void 0 : _getResultVariable.value;
+            })),
+        push: ()=>(mapResults = (results)=>(push === null || push === void 0 ? void 0 : push(map(getSuccessResults(results))), results), promise),
+        value: property((items)=>{
+            var _getResultVariable;
+            return (_getResultVariable = getResultVariable(items[0])) === null || _getResultVariable === void 0 ? void 0 : _getResultVariable.value;
+        }),
         variable: property((items)=>getResultVariable(items[0])),
         result: property((items)=>items[0])
     };
     return promise;
 };
-const getSuccessResults = (results)=>results?.map((result)=>result?.status < 400 ? result : undefined$1);
-const getResultKey = (result)=>result?.source?.key != null ? result.source : result?.key != null ? result : undefined$1;
-const getResultVariable = (result)=>isSuccessResult(result) ? result.current ?? result : undefined$1;
-const isSuccessResult = (result, requireValue = false)=>requireValue ? result?.status < 300 : result?.status < 400 || result?.status === 404;
+const getSuccessResults = (results)=>results === null || results === void 0 ? void 0 : results.map((result)=>(result === null || result === void 0 ? void 0 : result.status) < 400 ? result : undefined$1);
+const getResultKey = (result)=>{
+    var _result_source;
+    return (result === null || result === void 0 ? void 0 : (_result_source = result.source) === null || _result_source === void 0 ? void 0 : _result_source.key) != null ? result.source : (result === null || result === void 0 ? void 0 : result.key) != null ? result : undefined$1;
+};
+const getResultVariable = (result)=>{
+    var _result_current;
+    return isSuccessResult(result) ? (_result_current = result.current) !== null && _result_current !== void 0 ? _result_current : result : undefined$1;
+};
+const isSuccessResult = (result, requireValue = false)=>requireValue ? (result === null || result === void 0 ? void 0 : result.status) < 300 : (result === null || result === void 0 ? void 0 : result.status) < 400 || (result === null || result === void 0 ? void 0 : result.status) === 404;
 const handleResultErrors = (results, errorHandlers, requireValue)=>{
     const errors = [];
     let errorHandler;
     let errorMessage;
-    const successResults = map(array(results), (result, i)=>result && (result.status < 400 || !requireValue && result.status === 404 // Not found can only occur for get requests, and those are all right.
-         ? result : (errorMessage = `${formatKey(result.source ?? result)} could not be ${result.status === 404 ? "found." : `${result.source || result.status !== 500 ? "set" : "read"} because ${result.status === 409 ? `of a conflict. The expected version '${result.source?.version}' did not match the current version '${result.current?.version}'.` : result.status === 403 ? result.error ?? "the operation was denied." : result.status === 400 ? result.error ?? "the value does not conform to the schema" : result.status === 405 ? "it is read only." : result.status === 500 ? `of an unexpected error: ${result.error}` : "of an unknown reason."}`}`, ((errorHandler = errorHandlers?.[i]) == null || errorHandler(result, errorMessage) !== false) && errors.push(errorMessage), undefined$1)));
+    const successResults = map(array(results), (result, i)=>{
+        var _result_source, _result_current;
+        var _result_source1, _result_error, _result_error1;
+        return result && (result.status < 400 || !requireValue && result.status === 404 // Not found can only occur for get requests, and those are all right.
+         ? result : (errorMessage = `${formatKey((_result_source1 = result.source) !== null && _result_source1 !== void 0 ? _result_source1 : result)} could not be ${result.status === 404 ? "found." : `${result.source || result.status !== 500 ? "set" : "read"} because ${result.status === 409 ? `of a conflict. The expected version '${(_result_source = result.source) === null || _result_source === void 0 ? void 0 : _result_source.version}' did not match the current version '${(_result_current = result.current) === null || _result_current === void 0 ? void 0 : _result_current.version}'.` : result.status === 403 ? (_result_error = result.error) !== null && _result_error !== void 0 ? _result_error : "the operation was denied." : result.status === 400 ? (_result_error1 = result.error) !== null && _result_error1 !== void 0 ? _result_error1 : "the value does not conform to the schema" : result.status === 405 ? "it is read only." : result.status === 500 ? `of an unexpected error: ${result.error}` : "of an unknown reason."}`}`, ((errorHandler = errorHandlers === null || errorHandlers === void 0 ? void 0 : errorHandlers[i]) == null || errorHandler(result, errorMessage) !== false) && errors.push(errorMessage), undefined$1));
+    });
     if (errors.length) return throwError(errors.join("\n"));
-    return isArray(results) ? successResults : successResults?.[0];
+    return isArray(results) ? successResults : successResults === null || successResults === void 0 ? void 0 : successResults[0];
 };
 const requireFound = (variable)=>handleResultErrors(variable, undefined$1, true);
 
 const isTrackedEvent = (ev)=>ev && typeof ev.type === "string";
 
-const isPassiveEvent = (value)=>!!(value?.metadata?.passive || value?.patchTargetId);
+const isPassiveEvent = (value)=>{
+    var _value_metadata;
+    return !!((value === null || value === void 0 ? void 0 : (_value_metadata = value.metadata) === null || _value_metadata === void 0 ? void 0 : _value_metadata.passive) || (value === null || value === void 0 ? void 0 : value.patchTargetId));
+};
 
-const typeTest = (...types)=>(ev)=>ev?.type && types.some((type)=>type === ev?.type);
+const typeTest = (...types)=>(ev)=>(ev === null || ev === void 0 ? void 0 : ev.type) && types.some((type)=>type === (ev === null || ev === void 0 ? void 0 : ev.type));
 
 const isFormEvent = typeTest("form");
 
@@ -715,11 +757,20 @@ const isResetEvent = typeTest("reset");
 const maybeDecode = (s)=>// It qualifies:
     s && /^(%[A-F0-9]{2}|[^%])*$/gi.test(s) && // It needs it:
     /[A-F0-9]{2}/gi.test(s) ? decodeURIComponent(s) : s;
-const parseTags = (tagString, prefix)=>map(collectTags(tagString, prefix)?.values());
-const parseTagValue = (value, tagName = "tag")=>parseTags(tagName + value)?.[0];
+const parseTags = (tagString, prefix)=>{
+    var _collectTags;
+    return map((_collectTags = collectTags(tagString, prefix)) === null || _collectTags === void 0 ? void 0 : _collectTags.values());
+};
+const parseTagValue = (value, tagName = "tag")=>{
+    var _parseTags;
+    return (_parseTags = parseTags(tagName + value)) === null || _parseTags === void 0 ? void 0 : _parseTags[0];
+};
 let key;
 let current;
-const collect = (collected, tag)=>tag && (!(current = collected.get(key = tag.tag + (tag.value ?? ""))) || (current.score ?? 1) < (tag.score ?? 1)) && collected.set(key, tag);
+const collect = (collected, tag)=>{
+    var _tag_value, _current_score, _tag_score;
+    return tag && (!(current = collected.get(key = tag.tag + ((_tag_value = tag.value) !== null && _tag_value !== void 0 ? _tag_value : ""))) || ((_current_score = current.score) !== null && _current_score !== void 0 ? _current_score : 1) < ((_tag_score = tag.score) !== null && _tag_score !== void 0 ? _tag_score : 1)) && collected.set(key, tag);
+};
 /**
  * Parses tags from a string or array of strings and collects them in a map to avoid duplicates.
  * In case of ties between tags with the same names and values but with different scores, the highest wins.
@@ -761,9 +812,10 @@ const collect = (collected, tag)=>tag && (!(current = collected.get(key = tag.ta
    *   Both namespace, name and value will be URI decoded if they contain %xx anywhere in them.
    */ isString(tagString) ? match(tagString, /(?:([^\s:~]+)::(?![ :=]))?([^\s~]+?)(?:\s*[:=]\s*(?:"((?:"[^"]*|.)*?)(?:"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\s~])))*))\s*)?(?: *~ *(\d*(?:\.\d*)?))?(?:[\s,&;#~]+|$)/g, (_, ns, localName, quoted1, quoted2, unquoted, score)=>{
         const name = (ns ? maybeDecode(ns) + "::" : "") + prefix + maybeDecode(localName);
+        var _ref;
         let tag = {
             tag: name,
-            value: maybeDecode(quoted1 ?? quoted2 ?? unquoted)
+            value: maybeDecode((_ref = quoted1 !== null && quoted1 !== void 0 ? quoted1 : quoted2) !== null && _ref !== void 0 ? _ref : unquoted)
         };
         score && parseFloat(score) !== 10 && (tag.score = parseFloat(score) / 10);
         collect(collected, tag);

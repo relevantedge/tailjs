@@ -11,6 +11,7 @@ type MappedComponent = [
   },
   elements: HTMLElement[]
 ];
+
 export function scanAttributes(
   attributeName: string,
   references: MappedComponent[0][]

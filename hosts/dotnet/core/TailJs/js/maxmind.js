@@ -19846,16 +19846,20 @@ utils.default = {
 	
 } (lib$3));
 
-class ClientLocation {
-    _language;
-    _mmdb;
-    _initialized = false;
-    _reader;
-    id = "ClientLocation";
-    constructor({ language = "en", mmdb = "maxmind/GeoLite2-City.mmdb" } = {}){
-        this._language = language;
-        this._mmdb = mmdb;
+function _define_property(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
     }
+    return obj;
+}
+class ClientLocation {
     async patch(events, next, tracker) {
         if (!tracker.session) return next(events);
         if (!this._initialized) throw new Error("Not initialized");
@@ -19873,20 +19877,23 @@ class ClientLocation {
                     key: "mx"
                 }
             ]).value !== clientHash) {
-                const location = this.filterNames(this._reader?.get(ip));
+                var _this__reader, _location_country;
+                const location = this.filterNames((_this__reader = this._reader) === null || _this__reader === void 0 ? void 0 : _this__reader.get(ip));
                 tracker.requestItems.set(ClientLocation.name, this.filterNames(location, this._language));
                 if (location) {
+                    var _location_location, _location_postal, _location_location1, _location_location2, _this__reader_metadata_buildEpoch, _this__reader1;
+                    var _this__reader_metadata_buildEpoch_toString;
                     events = [
                         ...events,
                         restrict({
                             type: "session_location",
-                            accuracy: location.location?.accuracy_radius,
+                            accuracy: (_location_location = location.location) === null || _location_location === void 0 ? void 0 : _location_location.accuracy_radius,
                             city: location.city ? {
                                 name: location.city.names[this._language],
                                 geonames: location.city.geoname_id,
                                 confidence: location.city.confidence
                             } : undefined,
-                            zip: location.postal?.code,
+                            zip: (_location_postal = location.postal) === null || _location_postal === void 0 ? void 0 : _location_postal.code,
                             subdivision: location.subdivisions ? location.subdivisions.map((sub)=>({
                                     name: sub.names[this._language],
                                     geonames: sub.geoname_id,
@@ -19903,18 +19910,19 @@ class ClientLocation {
                                 geonames: location.continent.geoname_id,
                                 iso: location.continent.code
                             } : undefined,
-                            lat: location.location?.latitude,
-                            lng: location.location?.longitude,
+                            lat: (_location_location1 = location.location) === null || _location_location1 === void 0 ? void 0 : _location_location1.latitude,
+                            lng: (_location_location2 = location.location) === null || _location_location2 === void 0 ? void 0 : _location_location2.longitude,
                             tags: [
                                 {
                                     tag: "maxmind:build-epoch",
-                                    value: this._reader?.metadata.buildEpoch?.toString() ?? "(unknown)"
+                                    value: (_this__reader_metadata_buildEpoch_toString = (_this__reader1 = this._reader) === null || _this__reader1 === void 0 ? void 0 : (_this__reader_metadata_buildEpoch = _this__reader1.metadata.buildEpoch) === null || _this__reader_metadata_buildEpoch === void 0 ? void 0 : _this__reader_metadata_buildEpoch.toString()) !== null && _this__reader_metadata_buildEpoch_toString !== void 0 ? _this__reader_metadata_buildEpoch_toString : "(unknown)"
                                 }
                             ]
                         })
                     ];
                 }
-                country = location?.country?.names[this._language] ?? "NA";
+                var _location_country_names_this__language;
+                country = (_location_country_names_this__language = location === null || location === void 0 ? void 0 : (_location_country = location.country) === null || _location_country === void 0 ? void 0 : _location_country.names[this._language]) !== null && _location_country_names_this__language !== void 0 ? _location_country_names_this__language : "NA";
                 await tracker.set([
                     {
                         scope: "session",
@@ -19943,7 +19951,8 @@ class ClientLocation {
             const value = parent[p];
             if (typeof value !== "object") continue;
             if (p === "names") {
-                const primaryName = value[language] ?? value["en"];
+                var _value_language;
+                const primaryName = (_value_language = value[language]) !== null && _value_language !== void 0 ? _value_language : value["en"];
                 if (primaryName) {
                     parent[p] = {
                         [language]: value[language]
@@ -19967,6 +19976,15 @@ class ClientLocation {
             }
         };
         await createReader(true);
+    }
+    constructor({ language = "en", mmdb = "maxmind/GeoLite2-City.mmdb" } = {}){
+        _define_property(this, "_language", void 0);
+        _define_property(this, "_mmdb", void 0);
+        _define_property(this, "_initialized", false);
+        _define_property(this, "_reader", void 0);
+        _define_property(this, "id", "ClientLocation");
+        this._language = language;
+        this._mmdb = mmdb;
     }
 }
 

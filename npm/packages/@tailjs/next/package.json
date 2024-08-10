@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/next",
-  "description": "tail.js NextJS intergration.",
+  "description": "tail.js NextJS integration.",
   "license": "LGPL3",
   "version": "0.17.24",
   "scripts": {
@@ -11,6 +11,7 @@
   "dependencies": {
     "@tailjs/client": "workspace:*",
     "@tailjs/engine": "workspace:*",
+    "@tailjs/node": "workspace:^0.17.24",
     "@tailjs/react": "workspace:*",
     "@tailjs/types": "workspace:*",
     "@types/request-ip": "^0.0.38",
@@ -29,5 +30,20 @@
   },
   "publishConfig": {
     "directory": "dist"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
   }
 }

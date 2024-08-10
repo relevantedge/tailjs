@@ -21,7 +21,8 @@ importers:
       '@types/benchmark': ^2.1.5
       '@types/jest': ^29.5.12
       '@types/node': ^18.19.33
-      '@ygoe/msgpack': ^1.0.3
+      '@types/targz': ^1.0.4
+      '@ygoe/msgpack': github:nielskuhnel/msgpack.js#feature/big-float-fix
       as: ^0.4.1
       assert: ^2.1.0
       benchmark: ^2.1.4
@@ -59,6 +60,7 @@ importers:
       querystring: ^0.2.1
       rollup: ^3.29.4
       rollup-plugin-dts: ^6.1.1
+      rollup-plugin-dts-bundle-generator: ^1.4.0
       rollup-plugin-esbuild: ^5.0.0
       rollup-plugin-external-globals: ^0.8.0
       rollup-plugin-generate-package-json: ^3.2.0
@@ -75,6 +77,7 @@ importers:
       stream-http: ^3.2.0
       string_decoder: ^1.3.0
       syncpack: ^12.3.2
+      targz: ^1.0.1
       text-encoding-polyfill: ^0.6.7
       timers-browserify: ^2.0.12
       ts-jest: ^29.1.4
@@ -111,7 +114,8 @@ importers:
       '@types/benchmark': 2.1.5
       '@types/jest': 29.5.12
       '@types/node': 18.19.33
-      '@ygoe/msgpack': 1.0.3
+      '@types/targz': 1.0.4
+      '@ygoe/msgpack': github.com/nielskuhnel/msgpack.js/ad309e8a7e5319c2472193e3b28df68124caa590
       as: 0.4.1
       assert: 2.1.0
       benchmark: 2.1.4
@@ -147,6 +151,7 @@ importers:
       querystring: 0.2.1
       rollup: 3.29.4
       rollup-plugin-dts: 6.1.1_ftjhs6aygkn6qiylmzpaj2gfza
+      rollup-plugin-dts-bundle-generator: 1.4.0
       rollup-plugin-esbuild: 5.0.0_hsi2rkpgpsmibgz47q2sggrn7q
       rollup-plugin-external-globals: 0.8.0_rollup@3.29.4
       rollup-plugin-generate-package-json: 3.2.0_rollup@3.29.4
@@ -162,6 +167,7 @@ importers:
       stream-browserify: 3.0.0
       stream-http: 3.2.0
       string_decoder: 1.3.0
+      targz: 1.0.1
       text-encoding-polyfill: 0.6.7
       timers-browserify: 2.0.12
       ts-jest: 29.1.4_xtxmrrfsq2shoxaflp2sx454ym
@@ -258,6 +264,7 @@ importers:
       '@maxmind/geoip2-node': ^3.5.0
       '@tailjs/engine': workspace:*
       '@tailjs/types': workspace:*
+      '@tailjs/util': workspace:^0.17.24
       '@types/node': ^18.19.33
       maxmind: ^4.3.19
       memfs: ^3.5.3
@@ -266,6 +273,7 @@ importers:
       '@maxmind/geoip2-node': 3.5.0
       '@tailjs/engine': link:../engine
       '@tailjs/types': link:../types
+      '@tailjs/util': link:../util
       '@types/node': 18.19.33
       maxmind: 4.3.19
       memfs: 3.5.3
@@ -276,6 +284,7 @@ importers:
     specifiers:
       '@tailjs/client': workspace:*
       '@tailjs/engine': workspace:*
+      '@tailjs/node': workspace:^0.17.24
       '@tailjs/react': workspace:*
       '@tailjs/types': workspace:*
       '@types/fs-extra': ^11.0.4
@@ -288,6 +297,7 @@ importers:
     dependencies:
       '@tailjs/client': link:../client
       '@tailjs/engine': link:../engine
+      '@tailjs/node': link:../node
       '@tailjs/react': link:../react
       '@tailjs/types': link:../types
       '@types/request-ip': 0.0.38
@@ -328,11 +338,13 @@ importers:
     specifiers:
       '@tailjs/engine': workspace:*
       '@tailjs/types': workspace:*
+      '@tailjs/util': workspace:^0.17.24
       ravendb: ^5.4.2
       semaphore-async-await: ^1.5.1
     dependencies:
       '@tailjs/engine': link:../engine
       '@tailjs/types': link:../types
+      '@tailjs/util': link:../util
       ravendb: 5.4.2
       semaphore-async-await: 1.5.1
     publishDirectory: dist
@@ -435,13 +447,11 @@ importers:
 
   packages/@tailjs/types:
     specifiers:
-      '@tailjs/ts-json-schema-generator': workspace:^0.17.24
       '@tailjs/util': workspace:*
       typedoc: ^0.24.8
       typedoc-plugin-expand-object-like-types: ^0.1.2
       typedoc-plugin-markdown: ^3.17.1
     dependencies:
-      '@tailjs/ts-json-schema-generator': link:../ts-json-schema-generator
       '@tailjs/util': link:../util
     devDependencies:
       typedoc: 0.24.8_typescript@5.1.6
@@ -5536,6 +5546,25 @@ packages:
       '@types/stream-chain': 2.1.0
     dev: false
 
+  /@types/tar-fs/2.0.4:
+    resolution: {integrity: sha512-ipPec0CjTmVDWE+QKr9cTmIIoTl7dFG/yARCM5MqK8i6CNLIG1P8x4kwDsOQY1ChZOZjH0wO9nvfgBvWl4R3kA==}
+    dependencies:
+      '@types/node': 18.19.33
+      '@types/tar-stream': 3.1.3
+    dev: true
+
+  /@types/tar-stream/3.1.3:
+    resolution: {integrity: sha512-Zbnx4wpkWBMBSu5CytMbrT5ZpMiF55qgM+EpHzR4yIDu7mv52cej8hTkOc6K+LzpkOAbxwn/m7j3iO+/l42YkQ==}
+    dependencies:
+      '@types/node': 18.19.33
+    dev: true
+
+  /@types/targz/1.0.4:
+    resolution: {integrity: sha512-4i2weIjweWsnrvutLH7dM/+FPVSFSqxb+XKWo61tAiHxyYYHveImqys5JijMboKJz+jhFu24SlFrdVAB0xAMIw==}
+    dependencies:
+      '@types/tar-fs': 2.0.4
+    dev: true
+
   /@types/ua-parser-js/0.7.39:
     resolution: {integrity: sha512-P/oDfpofrdtF5xw433SPALpdSchtJmY7nsJItf8h3KXqOslkbySh8zq4dSWXH2oTjRvJ5PczVEoCZPow6GicLg==}
     dev: true
@@ -5642,6 +5671,7 @@ packages:
 
   /@ygoe/msgpack/1.0.3:
     resolution: {integrity: sha512-Sjp0O/sNgOJxTOO1c2Zuu7nsHRIGu2iGPYyhUedKKbcHyUl73jbCaomEFJZHNb/6i94B+ZNZHVnFgpo0ENSXxQ==}
+    dev: false
 
   /abstract-leveldown/0.12.4:
     resolution: {integrity: sha512-TOod9d5RDExo6STLMGa+04HGkl+TlMfbDnTyN93/ETJ9DpQ0DaYLqcMZlbXvdc4W3vVo1Qrl+WhSp8zvDsJ+jA==}
@@ -5984,6 +6014,13 @@ packages:
       readable-stream: 1.0.34
     dev: true
 
+  /bl/1.2.3:
+    resolution: {integrity: sha512-pvcNpa0UU69UT341rO6AYy4FVAIkUHuZXRIWbq+zHnsVcRzDDjIAhGuuYoi0d//cwIwtt4pkpKycWEfjdV+vww==}
+    dependencies:
+      readable-stream: 2.3.8
+      safe-buffer: 5.2.1
+    dev: true
+
   /bluebird/3.7.2:
     resolution: {integrity: sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==}
     dev: false
@@ -6145,6 +6182,17 @@ packages:
       node-int64: 0.4.0
     dev: true
 
+  /buffer-alloc-unsafe/1.1.0:
+    resolution: {integrity: sha512-TEM2iMIEQdJ2yjPJoSIsldnleVaAk1oW3DBVUykyOLsEsFmEc9kn+SFFPz+gl54KQNxlDnAwCXosOS9Okx2xAg==}
+    dev: true
+
+  /buffer-alloc/1.2.0:
+    resolution: {integrity: sha512-CFsHQgjtW1UChdXgbyJGtnm+O/uLQeZdtbDo8mfUgYXCHSM1wgrVxXm6bSyrUuErEb+4sYVGCzASBRot7zyrow==}
+    dependencies:
+      buffer-alloc-unsafe: 1.1.0
+      buffer-fill: 1.0.0
+    dev: true
+
   /buffer-browserify/0.2.5:
     resolution: {integrity: sha512-3ko6TTBwXb15w2OgZuyAzLJwUFClBMvcKcmhF+iQ79G71K8Fc3RqKzroCN0a0DbZw2GM3q9lNoqfYYCTq6w7QA==}
     deprecated: Package not maintained. Recent browserify uses https://github.com/feross/buffer
@@ -6154,6 +6202,10 @@ packages:
 
   /buffer-es6/4.9.3:
     resolution: {integrity: sha512-Ibt+oXxhmeYJSsCkODPqNpPmyegefiD8rfutH1NYGhMZQhSp95Rz7haemgnJ6dxa6LT+JLLbtgOMORRluwKktw==}
+    dev: true
+
+  /buffer-fill/1.0.0:
+    resolution: {integrity: sha512-T7zexNBwiiaCOGDg9xNX9PBmjrubblRkENuptryuI64URkXDFum9il/JGL8Lm8wYfAXpredVXXZz7eMHilimiQ==}
     dev: true
 
   /buffer-from/1.1.2:
@@ -6315,6 +6367,10 @@ packages:
       readdirp: 3.6.0
     optionalDependencies:
       fsevents: 2.3.3
+
+  /chownr/1.1.4:
+    resolution: {integrity: sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg==}
+    dev: true
 
   /ci-info/3.9.0:
     resolution: {integrity: sha512-NIxF55hv4nSqQswkAeiOi1r83xy8JldOFDTWiug55KBu9Jnblncd2U6ViHmYgHf01TPZS77NJBhBMKdWj9HQMQ==}
@@ -7034,6 +7090,15 @@ packages:
     engines: {node: '>=12'}
     dev: true
 
+  /dts-bundle-generator/7.2.0:
+    resolution: {integrity: sha512-pHjRo52hvvLDRijzIYRTS9eJR7vAOs3gd/7jx+7YVnLU8ay3yPUWGtHXPtuMBSlJYk/s4nq1SvXObDCZVguYMg==}
+    engines: {node: '>=14.0.0'}
+    hasBin: true
+    dependencies:
+      typescript: 5.4.5
+      yargs: 17.7.2
+    dev: true
+
   /eastasianwidth/0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
@@ -7084,6 +7149,12 @@ packages:
     resolution: {integrity: sha512-TPJXq8JqFaVYm2CWmPvnP2Iyo4ZSM7/QKcSmuMLDObfpH5fi7RUGmd/rTDf+rut/saiDiQEeVTNgAmJEdAOx0w==}
     engines: {node: '>= 0.8'}
     dev: false
+
+  /end-of-stream/1.4.4:
+    resolution: {integrity: sha512-+uw1inIHVPQoaVuHzRyXd21icM+cnt4CzD5rW+NC1wjOUSTOs+Te7FOv7AhN7vS9x/oIyhLP5PR1H+phQAHu5Q==}
+    dependencies:
+      once: 1.4.0
+    dev: true
 
   /enquirer/2.4.1:
     resolution: {integrity: sha512-rRqJg/6gd538VHvR3PSrdRBb/1Vy2YfzHqzvbhGIQpDRKIa4FgV/54b5Q1xYSxOOwKvjXweS26E0Q+nAMwp2pQ==}
@@ -7585,6 +7656,10 @@ packages:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
     engines: {node: '>= 0.6'}
     dev: false
+
+  /fs-constants/1.0.0:
+    resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
+    dev: true
 
   /fs-extra/11.2.0:
     resolution: {integrity: sha512-PmDi3uwK5nFuXh7XDTlVnS17xJS7vW36is2+w3xcv8SVxiB4NyATf4ctkVY5bkSjX0Y4nbvZCq1/EjtEyr9ktw==}
@@ -9402,7 +9477,6 @@ packages:
     hasBin: true
     dependencies:
       minimist: 1.2.8
-    dev: false
 
   /mmdb-lib/2.1.0:
     resolution: {integrity: sha512-tdDTZmnI5G4UoSctv2KxM/3VQt2XRj4CmR5R4VsAWsOUcS3LysHR34wtixWm/pXxXdkBDuN92auxkC0T2+qd1Q==}
@@ -10177,6 +10251,13 @@ packages:
       safe-buffer: 5.2.1
     dev: true
 
+  /pump/1.0.3:
+    resolution: {integrity: sha512-8k0JupWme55+9tCVE+FS5ULT3K6AbgqrGa58lTT49RpyfwwcGedHqaC5LlQNdEAumn/wFsu6aPwkuPMioy8kqw==}
+    dependencies:
+      end-of-stream: 1.4.4
+      once: 1.4.0
+    dev: true
+
   /punycode/1.4.1:
     resolution: {integrity: sha512-jmYNElW7yvO7TV33CjSmvSiE2yco3bV2czu/OzDKdMNVZQWfxCblURLhf+47syQRBntjfLdd/H0egrzIG+oaFQ==}
     dev: true
@@ -10574,6 +10655,13 @@ packages:
       inherits: 2.0.4
     dev: true
 
+  /rollup-plugin-dts-bundle-generator/1.4.0:
+    resolution: {integrity: sha512-++Vax6N0iFiH6/hqbKvdnVvyz48grMqAos6TqW4wajQE0AgDzbQK0hbsyDgKTTQoz1BjanC0omOJc/RnQoYajQ==}
+    dependencies:
+      dts-bundle-generator: 7.2.0
+      rollup: 2.79.1
+    dev: true
+
   /rollup-plugin-dts/6.1.1_ftjhs6aygkn6qiylmzpaj2gfza:
     resolution: {integrity: sha512-aSHRcJ6KG2IHIioYlvAOcEq6U99sVtqDDKVhnwt70rW6tsz3tv5OSjEiWcgzfsHdLyGXZ/3b/7b/+Za3Y6r1XA==}
     engines: {node: '>=16'}
@@ -10767,6 +10855,14 @@ packages:
     dependencies:
       magic-string: 0.30.10
       rollup: 3.29.4
+    dev: true
+
+  /rollup/2.79.1:
+    resolution: {integrity: sha512-uKxbd0IhMZOhjAiD5oAFp7BqvkA4Dv47qpOCtaNvng4HBwdbWtdOh8f5nZNuk2rp51PMGk3bzfWu5oayNEuYnw==}
+    engines: {node: '>=10.0.0'}
+    hasBin: true
+    optionalDependencies:
+      fsevents: 2.3.3
     dev: true
 
   /rollup/3.29.4:
@@ -11500,6 +11596,34 @@ packages:
     transitivePeerDependencies:
       - ts-node
 
+  /tar-fs/1.16.3:
+    resolution: {integrity: sha512-NvCeXpYx7OsmOh8zIOP/ebG55zZmxLE0etfWRbWok+q2Qo8x/vOR/IJT1taADXPe+jsiu9axDb3X4B+iIgNlKw==}
+    dependencies:
+      chownr: 1.1.4
+      mkdirp: 0.5.6
+      pump: 1.0.3
+      tar-stream: 1.6.2
+    dev: true
+
+  /tar-stream/1.6.2:
+    resolution: {integrity: sha512-rzS0heiNf8Xn7/mpdSVVSMAWAoy9bfb1WOTYC78Z0UQKeKa/CWS8FOq0lKGNa8DWKAn9gxjCvMLYc5PGXYlK2A==}
+    engines: {node: '>= 0.8.0'}
+    dependencies:
+      bl: 1.2.3
+      buffer-alloc: 1.2.0
+      end-of-stream: 1.4.4
+      fs-constants: 1.0.0
+      readable-stream: 2.3.8
+      to-buffer: 1.1.1
+      xtend: 4.0.2
+    dev: true
+
+  /targz/1.0.1:
+    resolution: {integrity: sha512-6q4tP9U55mZnRuMTBqnqc3nwYQY3kv+QthCFZuMk+Tn1qYUnMPmL/JZ/mzgXINzFpSqfU+242IFmFU9VPvqaQw==}
+    dependencies:
+      tar-fs: 1.16.3
+    dev: true
+
   /terser/5.31.0:
     resolution: {integrity: sha512-Q1JFAoUKE5IMfI4Z/lkE/E6+SwgzO+x4tq4v1AyBLRj8VSYvRO6A/rQrPg1yud4g0En9EKI1TvFRF2tQFcoUkg==}
     engines: {node: '>=10'}
@@ -11565,6 +11689,10 @@ packages:
 
   /tmpl/1.0.5:
     resolution: {integrity: sha512-3f0uOEAQwIqGuWW2MVzYg8fV/QNnc/IpuJNG837rLuczAaLVHslWHZQj4IGiEl5Hs3kkbhwL9Ab7Hrsmuj+Smw==}
+    dev: true
+
+  /to-buffer/1.1.1:
+    resolution: {integrity: sha512-lx9B5iv7msuFYE3dytT+KE5tap+rNYw+K4jVkb9R/asAb+pbBSM17jtunHplhBe6RRJdZx3Pn2Jph24O32mOVg==}
     dev: true
 
   /to-fast-properties/2.0.0:
@@ -12430,4 +12558,3 @@ packages:
     resolution: {tarball: https://codeload.github.com/nielskuhnel/msgpack.js/tar.gz/ad309e8a7e5319c2472193e3b28df68124caa590}
     name: '@ygoe/msgpack'
     version: 1.0.3
-    dev: false
