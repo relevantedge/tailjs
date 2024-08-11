@@ -14,7 +14,20 @@ configureTracker((config) => {
 export function App() {
   return (
     <NextUIProvider>
-      <Tracker disabled={false}>
+      <Tracker
+        disabled={false}
+        trackReactComponents={true}
+        map={(el, ctx) => {
+          // if (el.props?.color === "primary") {
+          //   return {
+          //     component: { id: "TEST!" },
+          //   };
+          // }
+          // if (el.type === "button" && el.props?.color === "primary") {
+          //   console.log("Nosso!!!");
+          // }
+        }}
+      >
         <div>
           <a href="https://preactjs.com" target="_blank">
             <img src={preactLogo} alt="Preact logo" height="160" width="160" />
@@ -32,9 +45,6 @@ export function App() {
                   set: {
                     level: "anonymous",
                     purposes: "any",
-                    callback: () => {
-                      console.log("Aso");
-                    },
                   },
                 },
               });
@@ -51,9 +61,6 @@ export function App() {
                   set: {
                     level: "indirect",
                     purposes: "any",
-                    callback: () => {
-                      console.log("Asoz");
-                    },
                   },
                 },
               });

@@ -78,7 +78,10 @@ export const consent: TrackerExtensionFactory = {
 
           const setter = parseDataUsage(command.consent.set);
           setter &&
-            (async () => setter.callback?.(...(await updateConsent(setter))))();
+            (async () =>
+              (setter.callback ?? (() => {}))(
+                ...(await updateConsent(setter))
+              ))();
 
           const externalSource = command.consent.externalSource;
           if (externalSource) {

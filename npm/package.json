@@ -16,6 +16,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "serve": "env concurrently \"pnpm -r --filter @tailjs/react... --filter @tailjs/node^... --parallel --stream build:watch\" \"pnpm --filter @tailjs/node serve:watch\"",
+    "example:react": "pnpm --filter react-sample dev",
+    "example:preact": "pnpm --filter react-sample dev --preact",
     "clean": "rimraf packages/@tailjs/*/dist"
   },
   "devDependencies": {

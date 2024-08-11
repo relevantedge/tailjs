@@ -1,23 +1,22 @@
+import fg from "fast-glob";
 import * as fs from "fs";
 import { join } from "path";
-import fg from "fast-glob";
 
 import alias from "@rollup/plugin-alias";
 import { dts } from "rollup-plugin-dts";
 
 import { ModuleFormat, RollupOptions } from "rollup";
-import { getExternalBundles } from "./rollup-external";
 import {
   addCommonPackageData,
+  applyChunkNames,
   applyDefaultConfiguration,
   arg,
-  chunkNameFunctions,
   compilePlugin,
   env,
   getPackageVersion,
-  packageJson,
-  watchOptions,
-} from "./shared";
+  packageJsonPlugin,
+} from "./lib";
+import { getExternalBundles } from "./rollup-external";
 
 export const getDistBundles = async ({
   variables = {},
@@ -66,10 +65,6 @@ export const getDistBundles = async ({
     ...entries.flatMap(([input, target], i) => [
       applyDefaultConfiguration({
         input,
-        watch: watchOptions,
-        // external: (src) => {
-
-        // },
         plugins: [
           compilePlugin(pkg),
           {
@@ -95,7 +90,7 @@ export const getDistBundles = async ({
             ],
           }),
 
-          packageJson(() => {
+          packageJsonPlugin(() => {
             if (!target) {
               const pkgJson = { ...pkg.config };
               pkgJson.type = "module";
@@ -213,30 +208,31 @@ export const getDistBundles = async ({
             sourcemap: false,
             banner: target === "cli" ? "#!/usr/bin/env node" : "",
             dir,
-            ...chunkNameFunctions(extension),
+            ...applyChunkNames(extension),
             format,
           }));
         }),
       }),
       ...(target === "cli"
         ? [] // No typings for CLI scripts.
-        : (Array.isArray(input) ? input : [input]).map((input) => ({
-            input,
-            watch: watchOptions,
-            external: [/\@tailjs\/.+[^\/]/g],
-            plugins: [
-              dts({
-                tsconfig: "tsconfig.swc.json",
+        : (Array.isArray(input) ? input : [input]).map((input) =>
+            applyDefaultConfiguration({
+              input,
+              external: [/\@tailjs\/.+[^\/]/g],
+              plugins: [
+                dts({
+                  tsconfig: "tsconfig.swc.json",
+                }),
+              ],
+              output: destinations.map((path) => {
+                const dir = join(path, target);
+                return {
+                  dir,
+                  ...applyChunkNames(".d.ts"),
+                };
               }),
-            ],
-            output: destinations.map((path) => {
-              const dir = join(path, target);
-              return {
-                dir,
-                ...chunkNameFunctions(".d.ts"),
-              };
-            }),
-          }))),
+            })
+          )),
     ]),
   ];
 

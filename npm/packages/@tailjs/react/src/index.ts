@@ -2,7 +2,7 @@ import type { TrackerAttributes } from "@tailjs/client";
 export * from "./MapState";
 export * from "./Tracker";
 export * from "./useTracking";
-export type { TraversableElement, TraverseContext } from "./traverseNodes";
+export type { TraversableElement, TraverseContext } from "./internal";
 export * from "./trackingDom";
 export * from "./trackingServerDom";
 export * from "./useTrackerVariable";

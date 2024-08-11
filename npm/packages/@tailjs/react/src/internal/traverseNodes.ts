@@ -252,20 +252,28 @@ export function traverseNodesInternal<T, C>(
       }
       if (patched.props || patched.ref) {
         const [currentRef, patchedRef] = [el["ref"], patched.ref];
-        if (!currentRef || typeof currentRef === "function") {
-          el = {
-            ...el,
-            props:
-              patched.props && patched.props !== el.props
-                ? patched.props
-                : el.props,
-            ref: patchedRef
-              ? currentRef
+        el = {
+          ...el,
+          props:
+            patched.props && patched.props !== el.props
+              ? patched.props
+              : el.props,
+          ref: patchedRef
+            ? currentRef
+              ? typeof currentRef === "function"
                 ? (el) => (patchedRef(el), currentRef(el))
-                : patchedRef
-              : currentRef,
-          };
-        }
+                : ({
+                    get current() {
+                      return (currentRef as any).current;
+                    },
+                    set current(el) {
+                      patchedRef(el);
+                      (currentRef as any).current = el;
+                    },
+                  } as any)
+              : patchedRef
+            : currentRef,
+        };
       }
     }
 

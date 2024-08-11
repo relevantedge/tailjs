@@ -4,8 +4,8 @@ import { join } from "path";
 import { generateSchema } from "@tailjs/ts-json-schema-generator";
 
 import { SchemaManager } from "@tailjs/json-schema";
+import { build, env } from "./lib";
 import { getDistBundles } from "./rollup-dist";
-import { build, env } from "./shared";
 
 const pkg = await env();
 
