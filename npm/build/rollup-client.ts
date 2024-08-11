@@ -10,14 +10,8 @@ import { visualizer } from "rollup-plugin-visualizer";
 //import esbuild from "rollup-plugin-esbuild";
 //import terser from "@rollup/plugin-terser";
 
+import { applyDefaultConfiguration, build, compilePlugin, env } from "./lib";
 import { getDistBundles } from "./rollup-dist";
-import {
-  applyDefaultConfiguration,
-  build,
-  compilePlugin,
-  env,
-  watchOptions,
-} from "./shared";
 
 import strip from "@rollup/plugin-strip";
 import * as zlib from "zlib";
@@ -29,7 +23,6 @@ const destinations = [`${pkg.path}/dist/iife`];
 const createConfig = (debug?: boolean) =>
   applyDefaultConfiguration({
     input: "src/index.browser.ts",
-    watch: watchOptions,
     plugins: [
       compilePlugin(pkg, {
         debug,
@@ -94,12 +87,8 @@ const createConfig = (debug?: boolean) =>
       }),
       ...(debug
         ? [
-            // ...(debug
-            //   ? []
-            //   : [visualizer({ sourceMap: true, emitFile: "tailjs.html" })]),
-
             visualizer({
-              filename: "c:/temp/stats.html",
+              filename: pkg.workspace + "/.temp/client.html",
               brotliSize: true,
             }),
           ]
@@ -174,7 +163,7 @@ await build(
     },
     watchFiles: (input) => {
       if (input.includes("script.pkg")) {
-        return ["dist/index.cjs"];
+        return ["dist/iife/tail.js"];
       }
     },
   })

@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import preact from "@preact/preset-vite";
 import { defineConfig, Plugin } from "vite";
+import fg from "fast-glob";
 //import { mapModuleName } from "../../build/use-dist-packages";
 import tailwindcss from "tailwindcss";
 import fs from "fs";
@@ -19,8 +20,12 @@ if (usePreact) {
 const tailJsPlugin: Plugin = {
   name: "tailjs",
 
-  configureServer: (server) => {
-    server.watcher.add("./node_modules/@tailjs/react/dist/dist/index.mjs");
+  async configureServer(server) {
+    (await fg("node_modules/@tailjs/*/dist/**/*.mjs")).forEach((dep) => {
+      console.log(dep);
+      return server.watcher.add(dep);
+    });
+
     server.middlewares.use((req, res, next) => {
       next();
     });

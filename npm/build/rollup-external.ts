@@ -8,13 +8,12 @@ import { join } from "path";
 import dts from "rollup-plugin-dts";
 
 import {
+  applyChunkNames,
   applyDefaultConfiguration,
-  chunkNameFunctions,
   compilePlugin,
   env,
-  packageJson,
-  watchOptions,
-} from "./shared";
+  packageJsonPlugin,
+} from "./lib";
 
 export async function getExternalBundles(): Promise<Record<string, any>[]> {
   const pkg = await env();
@@ -33,7 +32,6 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
     applyDefaultConfiguration({
       external: [/\@tailjs\/(?!util)[^\/]+$/g],
       input: join("src/index.external.ts"),
-      watch: watchOptions,
       plugins: [
         // esbuild({
         //   treeShaking: true,
@@ -101,7 +99,7 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
           global: `${pkg.workspace}/build/shims/global.ts`,
         }),
 
-        packageJson(() => ({
+        packageJsonPlugin(() => ({
           private: true,
           name: pkg.name + "/ecma",
           description: "Pure ECMAScript without Node.js dependencies.",
@@ -118,27 +116,26 @@ export async function getExternalBundles(): Promise<Record<string, any>[]> {
               name: pkg.name,
               format: "es",
               dir,
-              ...chunkNameFunctions(".mjs"),
+              ...applyChunkNames(".mjs"),
             },
             {
               name: pkg.name,
               dir,
               format: "cjs",
-              ...chunkNameFunctions(".js"),
+              ...applyChunkNames(".js"),
             },
           ].filter((item) => item) as any
       ),
     }),
-    {
+    applyDefaultConfiguration({
       input: `src/index.external.ts`,
       plugins: [dts({ tsconfig: tsconfig + ".swc.json" })],
-      watch: watchOptions,
       external: [/\@tailjs\/.+[^\/]/g],
       output: targets.map((dir) => ({
         dir,
-        ...chunkNameFunctions(".d.ts"),
+        ...applyChunkNames(".d.ts"),
         format: "es",
       })),
-    },
+    }),
   ].filter((item) => item) as any;
 }

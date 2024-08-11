@@ -7,15 +7,11 @@ import {
   isExternal,
   tail,
 } from "@tailjs/client/external";
-
 import { Content } from "@tailjs/types";
-import {
-  MapState,
-  TraverseContext,
-  filterCurrent,
-  mergeStates,
-} from "./internal";
 import { restrict } from "@tailjs/util";
+
+import { MapState } from ".";
+import { TraverseContext, filterCurrent, mergeStates } from "./internal";
 
 export interface BoundaryDataWithView extends BoundaryData {
   view?: Content | null;
@@ -95,7 +91,11 @@ export const Tracker = ({
         ) {
           mapped = {
             ...mapped,
-            component: { id: el.type.name, inferred: true, source: "react" },
+            component: {
+              id: el.type.displayName || el.type.name,
+              inferred: true,
+              source: "react",
+            },
           };
         }
 
@@ -179,7 +179,6 @@ export const Tracker = ({
             parentState.tags)
         ) {
           const ref = getRef(parentState);
-
           return props ? { props: props, ref, state: currentState } : { ref };
         } else if (props) {
           return { props, state: currentState };
@@ -196,7 +195,6 @@ function getRef({ component, content, area, tags, cart }: BoundaryData) {
 
   return (el: HTMLElement | null) => {
     if (el === current) return;
-
     if ((current = el) != null) {
       if (component || content || area || tags || cart) {
         //        current.style.backgroundColor = "blue";

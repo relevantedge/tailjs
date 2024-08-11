@@ -24,6 +24,7 @@
     "ontick",
     "onwarn",
     "Personalizable",
+    "Pipeable",
     "Preact",
     "pseudonomized",
     "ravendb",

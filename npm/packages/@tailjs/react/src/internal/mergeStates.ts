@@ -1,5 +1,5 @@
 import { array, concat } from "@tailjs/util";
-import { BoundaryDataWithView } from ".";
+import type { BoundaryDataWithView } from "..";
 
 export function filterCurrent<T>(
   current: T | readonly T[] | undefined | null,
