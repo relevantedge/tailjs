@@ -78,7 +78,7 @@ export const build = async (
       );
       if (
         isTypes &&
-        ((watchMode && !arg("-t", "--dts")) || arg("-T", "--no-dts"))
+        ((false && watchMode && !arg("-t", "--dts")) || arg("-T", "--no-dts"))
       ) {
         return;
       }

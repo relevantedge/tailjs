@@ -5,6 +5,7 @@ import type {
   ConsentEvent,
   FormEvent,
 } from "@tailjs/types";
+import { ParsableTags } from "@tailjs/types";
 import { BoundaryData } from "..";
 
 /***
@@ -30,7 +31,7 @@ export interface TrackerAttributes {
   /**
    * These tags will be added to user activations with this DOM element or any of its descendants.
    */
-  ["track-tags"]?: string | string[];
+  ["track-tags"]?: ParsableTags;
 
   /**
    * Track clicks on this DOM element as if it was a button (clicks are tracked by default for A and BUTTON elements).

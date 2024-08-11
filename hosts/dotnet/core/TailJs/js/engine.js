@@ -8,7 +8,7 @@ const CLIENT_SCRIPT_QUERY = "opt";
 const EVENT_HUB_QUERY = "var";
 const CONTEXT_NAV_QUERY = "mnt";
 const SCHEMA_QUERY = "$types";
-const BUILD_REVISION_QUERY$1 = "rev=" + "lzpmsdxd";
+const BUILD_REVISION_QUERY$1 = "rev=" + "lzpqeqk7";
 const SCOPE_INFO_KEY = "@info";
 const CONSENT_INFO_KEY = "@consent";
 const SESSION_REFERENCE_KEY = "@session_reference";
@@ -5129,7 +5129,7 @@ createEnumPropertyParser({
     scope: localVariableScope
 }, VariableEnumProperties);
 const INIT_SCRIPT_QUERY = "init";
-const BUILD_REVISION_QUERY = "rev=" + "lzpmskq5";
+const BUILD_REVISION_QUERY = "rev=" + "lzpqez76";
 var _tail, _globalThis, _initialName;
 const externalConfig = trackerConfig;
 const initialName = trackerConfig.name;
