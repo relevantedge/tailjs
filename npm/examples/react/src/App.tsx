@@ -28,7 +28,7 @@ export function App() {
           // }
         }}
       >
-        <div>
+        <div track-tags={{ tag: "test", value: "yes", score: 0.5 }}>
           <a href="https://preactjs.com" target="_blank">
             <img src={preactLogo} alt="Preact logo" height="160" width="160" />
           </a>
