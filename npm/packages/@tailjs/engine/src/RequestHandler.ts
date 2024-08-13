@@ -4,6 +4,7 @@ import {
   CONTEXT_NAV_QUERY,
   EVENT_HUB_QUERY,
   INIT_SCRIPT_QUERY,
+  PLACEHOLDER_SCRIPT,
   SCHEMA_QUERY,
 } from "@constants";
 
@@ -112,7 +113,6 @@ export let SCRIPT_CACHE_HEADERS = {
 
 export class RequestHandler {
   private readonly _cookies: CookieMonster;
-  private readonly _endpoint: string;
   private readonly _extensionFactories: (() =>
     | TrackerExtension
     | Promise<TrackerExtension>)[];
@@ -124,6 +124,10 @@ export class RequestHandler {
   private _initialized = false;
   private _script: undefined | string | Uint8Array;
 
+  private readonly _clientConfig: TrackerClientConfiguration;
+  private readonly _config: RequestHandlerConfiguration;
+  private readonly _defaultConsent: UserConsent<true>;
+
   /** @internal */
   public readonly _cookieNames: {
     consent: string;
@@ -132,15 +136,12 @@ export class RequestHandler {
     deviceByPurpose: Record<DataPurpose, string>;
     device: string;
   };
-  public readonly environment: TrackerEnvironment;
 
-  private readonly _clientConfig: TrackerClientConfiguration;
+  public readonly endpoint: string;
+  public readonly environment: TrackerEnvironment;
 
   /** @internal */
   public readonly _clientIdGenerator: ClientIdGenerator;
-
-  private readonly _config: RequestHandlerConfiguration;
-  private readonly _defaultConsent: UserConsent<true>;
 
   constructor(config: RequestHandlerConfiguration) {
     let {
@@ -156,7 +157,7 @@ export class RequestHandler {
     this._config = config;
 
     this._trackerName = trackerName;
-    this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
+    this.endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
 
     this._defaultConsent = {
       level: dataClassification(defaultConsent.level),
@@ -189,7 +190,7 @@ export class RequestHandler {
 
     this._clientConfig = {
       ...client,
-      src: this._endpoint,
+      src: this.endpoint,
     };
   }
 
@@ -294,7 +295,9 @@ export class RequestHandler {
               }
             )) ?? undefined;
         } else {
-          this._script = scripts.debug;
+          this._script =
+            (await this.environment.readText("js/tail.debug.map.js")) ??
+            scripts.debug;
         }
       }
 
@@ -450,7 +453,7 @@ export class RequestHandler {
     }
 
     const headers = Object.fromEntries(
-      Object.entries(sourceHeaders)
+      Object.entries((sourceHeaders ??= {}))
         .filter(([, v]) => !!v)
         .map(
           ([k, v]) =>
@@ -580,9 +583,7 @@ export class RequestHandler {
     try {
       let requestPath = path;
 
-      if (requestPath === this._endpoint) {
-        requestPath = requestPath.substring(this._endpoint.length);
-
+      if (requestPath === this.endpoint) {
         let queryValue: string | undefined;
 
         switch (method.toUpperCase()) {
@@ -737,10 +738,7 @@ export class RequestHandler {
                   headers["content-type"] === "application/json" ||
                   isJsonObject(body)
                 ) {
-                  if (
-                    headers["sec-fetch-dest"] &&
-                    !this._config.allowBrowserJson
-                  ) {
+                  if (headers["sec-fetch-dest"]) {
                     // Crime! Deny in a non-helpful way.
                     return result({
                       status: 400,
@@ -861,9 +859,7 @@ export class RequestHandler {
 
     const trackerRef = this._trackerName;
     if (html) {
-      trackerScript.push(
-        `window.${trackerRef}??=c=>(${trackerRef}._??=[]).push(c);`
-      );
+      trackerScript.push(PLACEHOLDER_SCRIPT(trackerRef, true));
     }
 
     const inlineScripts: string[] = [trackerScript.join("")];
@@ -915,7 +911,7 @@ export class RequestHandler {
       }
 
       otherScripts.push({
-        src: `${this._endpoint}${
+        src: `${this.endpoint}${
           this._trackerName && this._trackerName !== DEFAULT.trackerName
             ? `#${this._trackerName}`
             : ""
@@ -934,11 +930,9 @@ export class RequestHandler {
             : script.inline;
         } else {
           return html
-            ? `<script src='${
-                script.src
-              }?${INIT_SCRIPT_QUERY}&${BUILD_REVISION_QUERY}'${
-                script.defer !== false ? " defer" : ""
-              }></script>`
+            ? `<script src='${script.src}?${INIT_SCRIPT_QUERY}${
+                BUILD_REVISION_QUERY ? "&" + BUILD_REVISION_QUERY : ""
+              }'${script.defer !== false ? " defer" : ""}></script>`
             : `try{document.body.appendChild(Object.assign(document.createElement("script"),${JSON.stringify(
                 { src: script.src, async: script.defer }
               )}))}catch(e){console.error(e);}`;

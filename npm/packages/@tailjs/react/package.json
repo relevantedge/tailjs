@@ -8,28 +8,26 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "check": "tsc --noEmit",
-    "build": "tsx ../../../build/rollup.ts",
+    "build": "rimraf dist && tsx ../../../build/rollup.ts --preserve-modules",
     "build:watch": "pnpm run build -w -t"
   },
   "dependencies": {
-    "@tailjs/client": "workspace:*",
-    "@tailjs/types": "workspace:*",
-    "@tailjs/util": "workspace:*",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "@tailjs/client": "^0.17.24",
+    "@tailjs/types": "^0.17.24",
+    "@tailjs/util": "^0.17.24"
   },
   "peerDependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": ">=18.3.1",
+    "react-dom": ">=18.3.1"
   },
   "publishConfig": {
     "directory": "dist"
   },
   "devDependencies": {
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "preact": "^10.22.1",
-    "preact-render-to-string": "^6.5.6"
+    "@types/react": ">=18.3.3",
+    "@types/react-dom": ">=18.3.0",
+    "preact": ">=10.22.1",
+    "preact-render-to-string": ">=6.5.6"
   },
   "exports": {
     ".": {

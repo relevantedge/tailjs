@@ -1,6 +1,17 @@
 import { array, concat } from "@tailjs/util";
 import type { BoundaryDataWithView } from "..";
 
+export const tryGet = <T, P extends keyof T>(
+  src: T,
+  prop: P
+): T[P] | undefined => {
+  try {
+    return src[prop];
+  } catch (e) {
+    return undefined;
+  }
+};
+
 export function filterCurrent<T>(
   current: T | readonly T[] | undefined | null,
   added: T | readonly T[] | undefined | null,

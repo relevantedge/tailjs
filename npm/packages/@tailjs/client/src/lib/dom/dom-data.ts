@@ -16,7 +16,6 @@ import {
   isRegEx,
   isString,
   join,
-  map,
   matches,
   nil,
   parseBoolean,

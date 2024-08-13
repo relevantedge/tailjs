@@ -23,7 +23,10 @@ export const generateClientBootstrapScript = (
       ? httpEncode([tempKey, createTransport(tempKey)[0](clientConfig, true)])
       : clientConfig
   )})),true);s.src=${JSON.stringify(
-    config.src + (config.src.includes("?") ? "&" : "?") + BUILD_REVISION_QUERY
+    config.src +
+      (BUILD_REVISION_QUERY
+        ? (config.src.includes("?") ? "&" : "?") + BUILD_REVISION_QUERY
+        : "")
   )};d.head.appendChild(s)})();`;
 };
 

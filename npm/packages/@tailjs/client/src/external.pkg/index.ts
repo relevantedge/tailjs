@@ -1,18 +1,8 @@
-import type {
-  Tracker,
-  TrackerAttributes,
-  TrackerClientConfiguration,
-} from "..";
-import { trackerConfig } from "../lib/config";
+import type { Tracker, TrackerAttributes } from "..";
 
-export const DEFAULT_CLIENT_CONFIG: Required<TrackerClientConfiguration> = {
-  ...trackerConfig,
-};
+export * from "./config";
 
 export * from "../commands";
 export * from "../interfaces";
-export * from "./ensureTracker";
-
-export * from "./configureTracker";
 
 export { Tracker, TrackerAttributes };

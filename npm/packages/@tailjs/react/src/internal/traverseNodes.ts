@@ -1,14 +1,18 @@
 import React, { isValidElement, ReactNode, Fragment } from "react";
 
 export let currentContext: TraverseContext | null = null;
-const sourceNode = Symbol("tail_source");
 
 const CONTEXT_PROPERTY = Symbol(); //"__traverse_ctx";
 
 type Ref = (el: HTMLElement) => void;
 export type TraversableElement = JSX.Element & {
   ref?: Ref;
-  [sourceNode]?: any;
+  /**
+   * Check this flag before accessing any other property than `name` and the elements `type` property if in NextJS context.
+   * The type may be a client module that has not yet been loaded in a server component in which case NextJS will throw
+   * a nasty error like "[...] You cannot dot into a client module from a server component".
+   */
+  typeStub?: boolean;
 };
 
 export type MapStateFunction<State = any, Context = any> = (
@@ -54,6 +58,10 @@ export interface TraverseContext<T = any, C = any, N = ReactNode>
   context: C;
   depth: number;
   debug?: boolean;
+
+  component?: TraversableElement | null;
+  /** Whether the current component is rendered at the server or not. */
+  clientRendering?: boolean;
 }
 
 const createInitialContext = <T, C = undefined>(
@@ -64,6 +72,7 @@ const createInitialContext = <T, C = undefined>(
   state: options.initialState ?? null,
   node,
   parent: null,
+  component: null,
   context: options.context as any,
   depth: 0,
 });
@@ -79,9 +88,11 @@ export function traverseNodes<T, C = undefined>(
 // without any other obvious traits.
 // It is not an issue in React where they are `$$typeof: Symbol(react.provider)`,
 // that is, neither component classes nor functional components, and will then just get their children traversed.
-const preactFrameworkComponents = new Set(["Provider", "Consumer"]);
+const frameworkComponents =
+  /ErrorBoundary|Provider|Route[a-z_]*|Switch|[a-z_]*Context/gi;
 
 const wrapperTypeKind = Symbol("typeKind");
+const nextJsProbe = Symbol("Client module?");
 
 const componentCache = new WeakMap<any, any>();
 function getOrSet<K, V>(
@@ -95,17 +106,32 @@ function getOrSet<K, V>(
   }
   return current;
 }
+const isTypeStub = (type: any) => {
+  try {
+    type?.[nextJsProbe];
+    return false;
+  } catch (e) {
+    return true;
+  }
+};
 function wrapType(type: any) {
-  if (preactFrameworkComponents.has(type.name)) {
+  if (
+    isTypeStub(type) ||
+    (type.displayName || type.name)?.match(frameworkComponents)
+  ) {
     return [2, type];
   }
+
   const wrappedTypeKind = type[wrapperTypeKind];
   if (wrappedTypeKind != null) return [wrappedTypeKind, type];
 
   let wrapper: any;
   let typeKind = 2;
 
-  if (type.prototype instanceof React.Component || type.prototype?.render) {
+  if (
+    (React.Component && type.prototype instanceof React.Component) ||
+    type.prototype?.render
+  ) {
     typeKind = 0;
 
     wrapper = getOrSet(
@@ -217,6 +243,10 @@ export function traverseNodesInternal<T, C>(
   return mapped;
 
   function inner(el: TraversableElement) {
+    if (isTypeStub(el.type)) {
+      el = { ...el, typeStub: true };
+    }
+
     let currentState = context.mapState(el, context.state, context);
 
     const newContext: TraverseContext<T, C> = {
@@ -225,11 +255,15 @@ export function traverseNodesInternal<T, C>(
       node,
       parent: context as any,
       depth: context.depth + 1,
+      component:
+        typeof el.type === "function" || el.typeStub ? el : context.component,
+      clientRendering:
+        typeof window !== "undefined" || context.component?.typeStub,
     };
+
     if (el.type === Fragment) {
       return {
         ...el,
-        [sourceNode]: el,
         props: {
           ...el.props,
           children: traverseNodesInternal(el.props.children, newContext),
@@ -277,14 +311,13 @@ export function traverseNodesInternal<T, C>(
       }
     }
 
-    const [kind, type] = wrapType(el.type);
+    const [kind, type] = el.typeStub ? [2, el.type] : wrapType(el.type);
 
     switch (kind) {
       case 0: // Class component
       case 1: // Function component
         return {
           ...el,
-          [sourceNode]: el,
           props: { ...el.props, [CONTEXT_PROPERTY]: newContext },
           type,
         };
@@ -293,7 +326,7 @@ export function traverseNodesInternal<T, C>(
         const children = el.props?.children;
         let memoProps: any;
 
-        let memoType = el.type?.type;
+        let memoType = !el.typeStub && el.type?.type;
         if (memoType) {
           const [kind, type] = wrapType(memoType);
 
@@ -308,7 +341,6 @@ export function traverseNodesInternal<T, C>(
         return children
           ? {
               ...el,
-              [sourceNode]: el,
               ...memoProps,
               props: {
                 ...el.props,
@@ -323,7 +355,7 @@ export function traverseNodesInternal<T, C>(
               },
             }
           : memoProps
-          ? { ...el, [sourceNode]: el, ...memoProps }
+          ? { ...el, ...memoProps }
           : el;
     }
   }

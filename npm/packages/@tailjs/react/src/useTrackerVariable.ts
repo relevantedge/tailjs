@@ -1,3 +1,4 @@
+"use client";
 import { ClientVariableKey, tail } from "@tailjs/client/external";
 import { DataClassificationValue, DataPurposeValue } from "@tailjs/types";
 import { useRef, useState } from "react";

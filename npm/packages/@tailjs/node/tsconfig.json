@@ -1,9 +1,12 @@
 {
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
-    "stripInternal": false,
-    "preserveConstEnums": false,
-
-    "types": ["node"]
+    "target": "ES2022",
+    "lib": ["es2022", "dom"],
+    "resolveJsonModule": true,
+    "strictNullChecks": true,
+    "jsx": "react",
+    "noErrorTruncation": false,
+    "preserveConstEnums": false
   }
 }

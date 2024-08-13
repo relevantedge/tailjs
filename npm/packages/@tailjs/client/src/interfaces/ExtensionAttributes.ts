@@ -1,5 +1,4 @@
 import type {
-  ActivationTracking,
   CartAction,
   CartEventData,
   ConsentEvent,
@@ -40,15 +39,17 @@ export interface TrackerAttributes {
   ["track-button"]?: boolean | 0 | 1 | "";
 
   /**
-   *  element with this attribute modifies the cart.
+   * An element with this attribute modifies the cart.
    * If not an object it is shorthand for the {@link CartCommandParameters.action} property where `true` or the empty string means `add`.
    */
   ["track-cart"]?: "" | true | CartAction | CartEventData;
 
   /**
-   * Defines how component clicks are tracked cf. {@link ActivationTracking}.
+   * Whether clicks are tracked or not.
+   * This needs to be set to `true` on links and buttons rendered from server-side React components
+   * if the tracker context should be included in the click events.
    */
-  ["track-clicks"]?: ActivationTracking;
+  ["track-clicks"]?: boolean;
 
   /**
    * Used to indicate that the form field should be included in the {@link FormEvent} if the form is submitted.

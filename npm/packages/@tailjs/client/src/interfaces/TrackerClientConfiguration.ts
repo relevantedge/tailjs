@@ -1,4 +1,3 @@
-import type { ActivationTracking } from "@tailjs/types";
 import type { IterableOrSelf, Nullish, ParsableRegExp } from "@tailjs/util";
 
 /**
@@ -70,14 +69,6 @@ export interface TrackerClientConfiguration {
    * @default 750
    */
   impressionThreshold?: number;
-
-  /**
-   * The default level for activation tracking.
-   *
-   * @deprecated
-   * @default 'direct`
-   */
-  defaultActivationTracking?: ActivationTracking;
 
   /**
    * Whether tabs opened via the right-click context menu should be tracked.

@@ -68,6 +68,50 @@ export const consent: TrackerExtensionFactory = {
 
     const externalSources: Record<string, Clock> = {};
 
+    (() => {
+      // Map CookieBot to tail.js purposes.
+      const purposeMappings = {
+        necessary: 1,
+        preferences: 2,
+        statistics: 4,
+        marketing: 8,
+      };
+
+      // TODO: Make injectable to support more than one.
+      // Ideally, it could be injected in the init script from the request handler.
+      tracker({
+        consent: {
+          externalSource: {
+            key: "Cookiebot",
+            poll: () => {
+              const consentCookie = document.cookie.match(
+                /CookieConsent=([^;]*)/
+              )?.[1];
+              if (!consentCookie) return;
+
+              let mappedPurpose = 1;
+              consentCookie?.replace(
+                /([a-z]+):(true|false)/g,
+                (_, category, toggled) => (
+                  toggled === "true" &&
+                    (mappedPurpose |= purposeMappings[category] ?? 0),
+                  ""
+                )
+              );
+
+              return {
+                level:
+                  mappedPurpose > 1
+                    ? 1 /* Indirect (using cookies). */
+                    : 0 /* Anonymous (cookie-less). */,
+                purposes: mappedPurpose,
+              };
+            },
+          },
+        },
+      } as ConsentCommand);
+    })();
+
     return {
       processCommand(command) {
         if (isUpdateConsentCommand(command)) {
@@ -120,44 +164,3 @@ export const consent: TrackerExtensionFactory = {
     };
   },
 };
-(() => {
-  // Map CookieBot to tail.js purposes.
-  const purposeMappings = {
-    necessary: 1,
-    preferences: 2,
-    statistics: 4,
-    marketing: 8,
-  };
-
-  (window as any).tail({
-    consent: {
-      externalSource: {
-        key: "Cookiebot",
-        poll: () => {
-          const consentCookie = document.cookie.match(
-            /CookieConsent=([^;]*)/
-          )?.[1];
-          if (!consentCookie) return;
-
-          let mappedPurpose = 1;
-          consentCookie?.replace(
-            /([a-z]+):(true|false)/g,
-            (_, category, toggled) => (
-              toggled === "true" &&
-                (mappedPurpose |= purposeMappings[category] ?? 0),
-              ""
-            )
-          );
-
-          return {
-            level:
-              mappedPurpose > 1
-                ? 1 /* Indirect (using cookies). */
-                : 0 /* Anonymous (cookie-less). */,
-            purposes: mappedPurpose,
-          };
-        },
-      },
-    },
-  } as ConsentCommand);
-})();

@@ -1,7 +1,7 @@
 import fs from "fs";
 import http from "http";
 import https from "https";
-import * as p from "path";
+import { resolve, join, basename, dirname } from "path";
 import { v4 as uuid } from "uuid";
 
 import type {
@@ -20,12 +20,12 @@ export class NativeHost implements EngineHost {
   private readonly _console: boolean;
 
   constructor(rootPath: string, console = true) {
-    this._rootPath = p.resolve(rootPath);
+    this._rootPath = resolve(rootPath);
     this._console = console;
   }
 
   async ls(path: string): Promise<ResourceEntry[] | null> {
-    path = p.join(this._rootPath, path);
+    path = join(this._rootPath, path);
     if (!path.startsWith(this._rootPath)) {
       throw new Error(`Invalid path (it is outside the root scope).`);
     }
@@ -56,7 +56,7 @@ export class NativeHost implements EngineHost {
         // TODO: Check if its actually the case? Probably a good service for consumers.
         readonly: false,
         type,
-        name: p.basename(path),
+        name: basename(path),
       });
     }
     return resources;
@@ -122,17 +122,17 @@ export class NativeHost implements EngineHost {
     msg = JSON.stringify(msg);
 
     if (group !== "console") {
-      let dir = p.join(this._rootPath, "logs");
+      let dir = join(this._rootPath, "logs");
       const parts = group.split("/");
       if (parts.length > 1) {
-        const newDir = p.join(dir, ...parts.slice(0, parts.length - 1));
+        const newDir = join(dir, ...parts.slice(0, parts.length - 1));
         if (!newDir.startsWith(dir)) {
           throw new Error(`Invalid group name '${group}'.`);
         }
       }
       await fs.promises.mkdir(dir, { recursive: true });
       await fs.promises.appendFile(
-        p.join(dir, `${parts[parts.length - 1]}.json`),
+        join(dir, `${parts[parts.length - 1]}.json`),
         `${msg}\n`,
         "utf-8"
       );
@@ -176,7 +176,18 @@ export class NativeHost implements EngineHost {
   }
 
   private _resolvePath(path: string) {
-    const fullPath = p.resolve(p.join(this._rootPath, path));
+    if (path === "js/tail.debug.map.js") {
+      try {
+        const resolved = require.resolve("@tailjs/client");
+        return join(dirname(resolved), "iife", path.substring(3));
+      } catch (e) {
+        console.log(
+          `${path} is not available - it requires the @tailjs/client package to be installed explicitly.`
+        );
+      }
+    }
+
+    const fullPath = resolve(join(this._rootPath, path));
 
     if (!fullPath.startsWith(this._rootPath)) {
       throw new Error("The requested path is outside the root.");

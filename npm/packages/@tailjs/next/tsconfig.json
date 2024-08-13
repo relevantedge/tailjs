@@ -6,11 +6,5 @@
     "jsx": "react",
     "noErrorTruncation": false,
     "preserveConstEnums": false
-  },
-  "include": [
-    "./src",
-    "../sitecore-backends/src/CdpTracker.ts",
-    "src/api.ts",
-    "src/index.ts"
-  ]
+  }
 }

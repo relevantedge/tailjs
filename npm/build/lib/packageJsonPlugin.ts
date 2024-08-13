@@ -19,6 +19,8 @@ export const packageJsonPlugin = (
   generateBundle(options) {
     const json = source();
     if (json) {
+      // const dir = options.dir || path.dirname(options.file!);
+      // fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(
         path.join(options.dir || path.dirname(options.file!), "package.json"),
         JSON.stringify(sortPackageJson(json), null, 2),

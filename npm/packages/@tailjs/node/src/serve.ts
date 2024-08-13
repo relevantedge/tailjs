@@ -1,11 +1,11 @@
 import http, { createServer } from "http";
-import { TailJsMiddlewareSettings, createMiddleware } from ".";
+import { TailJsMiddlewareConfiguration, createServerContext } from ".";
 
 export const serve = async ({
   host,
   port,
   ...settings
-}: TailJsMiddlewareSettings &
+}: TailJsMiddlewareConfiguration &
   (
     | { host?: string; port?: undefined }
     | { port?: number; host?: undefined }
@@ -13,7 +13,10 @@ export const serve = async ({
   settings.endpoint ??= "/_t.js";
   settings.debugScript = true;
 
-  const middleware = await createMiddleware(settings);
+  const { middleware } = await createServerContext({
+    ...settings,
+    lazy: false,
+  });
 
   const server = createServer(
     (req: http.IncomingMessage & { body?: any }, res) => {
