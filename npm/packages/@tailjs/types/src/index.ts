@@ -32,7 +32,6 @@ export * from "./CommerceData";
 export * from "./Personalizable";
 export * from "./OrderQuantity";
 export * from "./OrderLine";
-export * from "./ActivationTracking";
 export * from "./ScopeVariables";
 export * from "./EventMetadata";
 export * from "./EventPatch";

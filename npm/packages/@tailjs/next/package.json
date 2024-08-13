@@ -5,31 +5,24 @@
   "version": "0.17.24",
   "scripts": {
     "check": "tsc --noEmit",
-    "build": "tsx ../../../build/rollup.ts",
+    "build": "tsx ../../../build/rollup.ts --preserve-modules",
     "build:watch": "pnpm run build -w"
   },
   "dependencies": {
-    "@tailjs/client": "workspace:*",
-    "@tailjs/engine": "workspace:*",
-    "@tailjs/node": "workspace:^0.17.24",
-    "@tailjs/react": "workspace:*",
-    "@tailjs/types": "workspace:*",
-    "@types/request-ip": "^0.0.38",
-    "fs-extra": "^11.2.0",
-    "next": "^14.2.3",
-    "react": "^18.3.1",
-    "request-ip": "^3.3.0"
+    "@tailjs/engine": "workspace:^0.17.24",
+    "@tailjs/node": "workspace:*",
+    "@tailjs/react": "workspace:*"
   },
   "devDependencies": {
-    "@types/fs-extra": "^11.0.4",
-    "@types/node": "^18.19.33"
-  },
-  "peerDependencies": {
-    "next": ">=13.0.0",
-    "react": "^18.3.1"
+    "@types/node": ">=18.19.33",
+    "@types/react": ">=18.3.3"
   },
   "publishConfig": {
     "directory": "dist"
+  },
+  "peerDependencies": {
+    "next": ">=13.0.0",
+    "react": ">=18.3.1"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

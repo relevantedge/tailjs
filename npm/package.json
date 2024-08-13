@@ -15,9 +15,10 @@
     "build:jss:watch": "pnpm -r run --if-present --stream --filter=\"@tailjs/sitecore-jss...\" build:watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "serve": "env concurrently \"pnpm -r --filter @tailjs/react... --filter @tailjs/node^... --parallel --stream build:watch\" \"pnpm --filter @tailjs/node serve:watch\"",
+    "serve": "env concurrently \"pnpm -r --filter @tailjs/next... --filter @tailjs/node^... --parallel --stream build:watch\" \"pnpm --filter @tailjs/node serve:watch\"",
     "example:react": "pnpm --filter react-sample dev",
     "example:preact": "pnpm --filter react-sample dev --preact",
+    "example:next": "pnpm --filter next-sample dev",
     "clean": "rimraf packages/@tailjs/*/dist"
   },
   "devDependencies": {
@@ -86,6 +87,7 @@
     "rollup-plugin-ts": "^3.4.5",
     "rollup-plugin-uglify": "^6.0.4",
     "rollup-plugin-visualizer": "^5.12.0",
+    "rollup-preserve-directives": "^1.1.1",
     "sort-package-json": "^2.10.0",
     "stream": "^0.0.2",
     "stream-browserify": "^3.0.0",

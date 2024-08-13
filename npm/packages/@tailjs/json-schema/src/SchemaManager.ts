@@ -6,7 +6,6 @@ import {
 } from "@tailjs/types";
 
 import {
-  IDENTITY,
   JsonObject,
   MaybeArray,
   MaybeUndefined,
@@ -46,9 +45,9 @@ import {
 import {
   ParsedComposition,
   ParsedType,
-  patchValue,
   parseError,
   parseSchema,
+  patchValue,
   validationError,
 } from "./parse";
 

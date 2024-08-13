@@ -13,7 +13,7 @@ export interface HttpRequest<Binary extends boolean = false> {
 export interface ClientRequestHeaders {
   url: string | null;
   method: string;
-  headers: Record<string, string | string[] | undefined>;
+  headers: Record<string, string | readonly string[] | undefined>;
 
   clientIp?: string | null;
 }

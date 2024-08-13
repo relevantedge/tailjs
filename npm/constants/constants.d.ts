@@ -1,6 +1,6 @@
 export declare const QUERY_DEVICE = "qd";
 export declare const INITIALIZE_TRACKER_FUNCTION = ".tail.js.init";
-export declare const INIT_SCRIPT_QUERY = "init";
+export declare const INIT_SCRIPT_QUERY = "inito";
 export declare const CLIENT_SCRIPT_QUERY = "opt";
 export declare const EVENT_HUB_QUERY = "var";
 export declare const VARIABLES_QUERY = "usr";

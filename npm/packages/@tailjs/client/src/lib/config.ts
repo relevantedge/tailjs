@@ -18,6 +18,6 @@ export const trackerConfig: Required<TrackerClientConfiguration> = {
    */
   impressionThreshold: 1000,
   captureContextMenu: true,
-  defaultActivationTracking: "auto",
+
   tags: { default: ["data-id", "data-name"] },
 };

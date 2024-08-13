@@ -1,9 +1,10 @@
 import fg from "fast-glob";
 import * as fs from "fs";
-import { join } from "path";
+import { join, basename } from "path";
 
 import alias from "@rollup/plugin-alias";
 import { dts } from "rollup-plugin-dts";
+import preserveDirectives from "rollup-preserve-directives";
 
 import { ModuleFormat, RollupOptions } from "rollup";
 import {
@@ -17,6 +18,8 @@ import {
   packageJsonPlugin,
 } from "./lib";
 import { getExternalBundles } from "./rollup-external";
+
+const preserveModules = !!arg("--preserve-modules");
 
 export const getDistBundles = async ({
   variables = {},
@@ -55,12 +58,12 @@ export const getDistBundles = async ({
   await addSubPackages(`src`);
 
   const destinations = [join(pkg.path, "dist")];
-
   const entries = [
     [["src/index.ts"], ""],
     ...binScripts.map((script) => [script.src, "cli"]),
     ...Object.entries(subPackages),
   ];
+
   const bundles = [
     ...entries.flatMap(([input, target], i) => [
       applyDefaultConfiguration({
@@ -70,7 +73,7 @@ export const getDistBundles = async ({
           {
             name: "watch-files",
             async buildStart() {
-              (await fg("node_modules/@tailjs/*/dist/**/*.cjs")).forEach(
+              (await fg("node_modules/@tailjs/*/dist/package.json")).forEach(
                 (file) => this.addWatchFile(file)
               );
 
@@ -81,6 +84,7 @@ export const getDistBundles = async ({
               });
             },
           },
+
           alias({
             entries: [
               {
@@ -90,6 +94,7 @@ export const getDistBundles = async ({
             ],
           }),
 
+          preserveDirectives(),
           packageJsonPlugin(() => {
             if (!target) {
               const pkgJson = { ...pkg.config };
@@ -199,13 +204,19 @@ export const getDistBundles = async ({
             },
           },
         ],
+        treeshake: {
+          moduleSideEffects: !preserveModules,
+        },
         output: destinations.flatMap((path) => {
           const dir = join(path, target);
+          console.log(dir);
           return [
             ["es", ".mjs"],
             ["cjs", ".cjs"],
           ].map(([format, extension]: [ModuleFormat, string]) => ({
             sourcemap: false,
+            preserveModules,
+            preserveModulesRoot: "src",
             banner: target === "cli" ? "#!/usr/bin/env node" : "",
             dir,
             ...applyChunkNames(extension),
@@ -218,7 +229,7 @@ export const getDistBundles = async ({
         : (Array.isArray(input) ? input : [input]).map((input) =>
             applyDefaultConfiguration({
               input,
-              external: [/\@tailjs\/.+[^\/]/g],
+              //external: [/\@tailjs\/.+[^\/]/g],
               plugins: [
                 dts({
                   tsconfig: "tsconfig.swc.json",

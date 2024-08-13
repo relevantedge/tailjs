@@ -1,15 +1,16 @@
+"use client";
 import React, { Component, ComponentFactory, PropsWithChildren } from "react";
 
 import {
   BoundaryCommand,
   BoundaryData,
   Tracker as TrackerType,
-  isExternal,
   tail,
 } from "@tailjs/client/external";
 import { Content } from "@tailjs/types";
 import { restrict } from "@tailjs/util";
 
+import { BUILD_REVISION_QUERY, INIT_SCRIPT_QUERY } from "@constants";
 import { MapState } from ".";
 import { TraverseContext, filterCurrent, mergeStates } from "./internal";
 
@@ -22,9 +23,11 @@ export type TrackerProperties = PropsWithChildren<{
     context: TraverseContext<BoundaryData, TrackerType>
   ): null | void | BoundaryDataWithView;
   trackReactComponents?: boolean;
+  endpoint?: string;
   disabled?: boolean;
   exclude?: RegExp;
   ignore?: (ComponentFactory<any, any> | Component)[];
+  scriptTag?: JSX.Element | ((endpoint: string) => JSX.Element);
 }>;
 
 export const Tracker = ({
@@ -32,161 +35,188 @@ export const Tracker = ({
   map,
   trackReactComponents = true,
   disabled = false,
-  exclude = /ErrorBoundary|Provider|Route[a-z_]*|Switch|[a-z_]*Context/gi,
+  endpoint,
+  exclude,
   ignore,
+  scriptTag = <script async></script>,
 }: TrackerProperties) => {
   if (disabled) {
     return <>{children}</>;
   }
-  if (!isExternal()) {
-    tail({ set: { scope: "view", key: "rendered", value: true } });
+  if (disabled) {
+    tail({ disable: true });
+  } else {
+    tail(
+      { disable: false },
+      { set: { scope: "view", key: "rendered", value: true } }
+    );
   }
-  tail({ disable: disabled });
 
   const ignoreMap = ignore ? new Set(ignore) : null;
 
+  endpoint ??=
+    (typeof scriptTag === "function" ? "" : scriptTag.props.src) || "/_t.js";
+
+  endpoint = [
+    // Strip whatever querystring and hash that might be in the endpoint URI,
+    endpoint!.replace(/[?#].*/, ""),
+    "?",
+    // append the "?init" parameter,
+    INIT_SCRIPT_QUERY,
+    // and a cache buster.
+    BUILD_REVISION_QUERY ? "&" + BUILD_REVISION_QUERY : "",
+  ].join("");
+
+  scriptTag =
+    typeof scriptTag === "function"
+      ? scriptTag(endpoint)
+      : { ...scriptTag, props: { ...scriptTag.props, src: endpoint } };
+
   return (
-    <MapState
-      context={tail}
-      mapState={(el, state: BoundaryDataWithView | null, context) => {
-        let mapped = map?.(el, context);
+    <>
+      <MapState
+        context={tail}
+        mapState={(el, state: BoundaryDataWithView | null, context) => {
+          let mapped = map?.(el, context);
 
-        if (mapped?.component) {
-          mapped.component = filterCurrent(
-            context.state?.component,
-            mapped.component,
-            (item) => item.id
-          );
-        }
+          if (mapped?.component) {
+            mapped.component = filterCurrent(
+              context.state?.component,
+              mapped.component,
+              (item) => item.id
+            );
+          }
 
-        if (mapped?.content) {
-          mapped.content = filterCurrent(
-            context.state?.content,
-            mapped.content,
-            (item) => item.id
-          );
-        }
+          if (mapped?.content) {
+            mapped.content = filterCurrent(
+              context.state?.content,
+              mapped.content,
+              (item) => item.id
+            );
+          }
 
-        if (mapped?.area) {
-          mapped.area = context.state?.area || mapped.area;
-        }
+          if (mapped?.area) {
+            mapped.area = context.state?.area || mapped.area;
+          }
 
-        if (typeof el.type === "string") {
-          // Ignore DOM elements unless explicitly told not to. We only want to wire the immediate children of JSX components.
-          return mapped ?? null;
-        }
+          if (typeof el.type === "string") {
+            // Ignore DOM elements unless explicitly told not to. We only want to wire the immediate children of JSX components.
+            return mapped ?? null;
+          }
 
-        if (mapped?.view) {
-          context.context({
-            set: { scope: "view", key: "view", value: mapped.view },
-          });
-        }
+          if (mapped?.view) {
+            context.context({
+              set: { scope: "view", key: "view", value: mapped.view },
+            });
+          }
 
-        if (
-          trackReactComponents &&
-          (!mapped?.component as any) &&
-          el.type.name &&
-          !el.type._context &&
-          !el.type.name.match(exclude)
-        ) {
-          mapped = {
-            ...mapped,
-            component: {
-              id: el.type.displayName || el.type.name,
-              inferred: true,
-              source: "react",
-            },
-          };
-        }
+          if (
+            trackReactComponents &&
+            (!mapped?.component as any) &&
+            el.type.name &&
+            (!exclude || !el.type.name.match(exclude))
+          ) {
+            mapped = {
+              ...mapped,
+              component: {
+                id: el.type.displayName || el.type.name,
+                inferred: true,
+                source: "react",
+              },
+            };
+          }
 
-        return mergeStates(state, mapped);
-      }}
-      patchProperties={(el, parentState, currentState) => {
-        if (ignoreMap?.has(el.type)) {
-          return false;
-        }
+          return mergeStates(state, mapped);
+        }}
+        patchProperties={(el, parentState, currentState) => {
+          if (ignoreMap?.has(el.type)) {
+            return false;
+          }
 
-        let props: any = undefined;
-        const html = typeof el.type === "string";
-        let tags = el.props && el.props["track-tags"];
-        if (tags) {
-          if (!html) {
-            currentState = mergeStates(currentState, { tags });
-            props = { ...el.props };
-            delete props["track-tags"];
+          let props: any = undefined;
+          const html = typeof el.type === "string";
+          let tags = el.props && el.props["track-tags"];
+          if (tags) {
+            if (!html) {
+              currentState = mergeStates(currentState, { tags });
+              props = { ...el.props };
+              delete props["track-tags"];
+            } else {
+              parentState = mergeStates(parentState, { tags });
+            }
+          }
+
+          if ((tags = parentState?.tags)) {
+            props = {
+              ...el.props,
+              ["track-tags"]: Array.isArray(tags) ? tags.join(",") : tags,
+            };
+          }
+
+          let updated: Record<string, any> | undefined;
+          if ((updated = scanProperties(props ?? el.props))) {
+            props = updated;
           } else {
-            parentState = mergeStates(parentState, { tags });
-          }
-        }
+            // Also decent first level properties if no properties are found in case item data is passed a property like `props: {item: T}` instead of `props: T`.
 
-        if ((tags = parentState?.tags)) {
-          props = {
-            ...el.props,
-            ["track-tags"]: Array.isArray(tags) ? tags.join(",") : tags,
-          };
-        }
-
-        let updated: Record<string, any> | undefined;
-        if ((updated = scanProperties(props ?? el.props))) {
-          props = updated;
-        } else {
-          // Also decent first level properties if no properties are found in case item data is passed a property like `props: {item: T}` instead of `props: T`.
-
-          for (const key in el.props) {
-            updated = scanProperties(el.props[key]);
-            if (updated) {
-              props ??= el.props;
-              props[key] = updated;
-            }
-          }
-        }
-
-        function scanProperties(props: Record<string, any>) {
-          const orgProps = props;
-          for (const [name, patch] of [
-            ["track-area", (value) => ({ area: value })],
-            [
-              "track-component",
-              (value) => ({
-                component: typeof value === "string" ? { id: value } : value,
-              }),
-            ],
-            ["track-tags", (value) => ({ tags: value })],
-            ["track-content", (value) => ({ content: value })],
-            ["track-cart", (value) => ({ cart: value })],
-          ] as [string, (value: any) => BoundaryData][]) {
-            if (props && props[name]) {
-              if (html) {
-                parentState = mergeStates(parentState, patch(props[name]));
-              } else {
-                currentState = mergeStates(currentState, patch(props[name]));
+            for (const key in el.props) {
+              updated = scanProperties(el.props[key]);
+              if (updated) {
+                props ??= el.props;
+                props[key] = updated;
               }
-              props = { ...props };
-
-              delete props[name];
             }
           }
-          return props !== orgProps ? props : undefined;
-        }
 
-        if (
-          html &&
-          parentState &&
-          (parentState.component ||
-            parentState.content ||
-            parentState.area ||
-            parentState.cart ||
-            parentState.tags)
-        ) {
-          const ref = getRef(parentState);
-          return props ? { props: props, ref, state: currentState } : { ref };
-        } else if (props) {
-          return { props, state: currentState };
-        }
-      }}
-    >
-      {children}
-    </MapState>
+          function scanProperties(props: Record<string, any>) {
+            const orgProps = props;
+            for (const [name, patch] of [
+              ["track-area", (value) => ({ area: value })],
+              [
+                "track-component",
+                (value) => ({
+                  component: typeof value === "string" ? { id: value } : value,
+                }),
+              ],
+              ["track-tags", (value) => ({ tags: value })],
+              ["track-content", (value) => ({ content: value })],
+              ["track-cart", (value) => ({ cart: value })],
+            ] as [string, (value: any) => BoundaryData][]) {
+              if (props && props[name]) {
+                if (html) {
+                  parentState = mergeStates(parentState, patch(props[name]));
+                } else {
+                  currentState = mergeStates(currentState, patch(props[name]));
+                }
+                props = { ...props };
+
+                delete props[name];
+              }
+            }
+            return props !== orgProps ? props : undefined;
+          }
+
+          if (
+            typeof window !== "undefined" &&
+            html &&
+            parentState &&
+            (parentState.component ||
+              parentState.content ||
+              parentState.area ||
+              parentState.cart ||
+              parentState.tags)
+          ) {
+            const ref = getRef(parentState);
+            return props ? { props: props, ref, state: currentState } : { ref };
+          } else if (props) {
+            return { props, state: currentState };
+          }
+        }}
+      >
+        {children}
+      </MapState>
+      {scriptTag}
+    </>
   );
 };
 
@@ -197,6 +227,7 @@ function getRef({ component, content, area, tags, cart }: BoundaryData) {
     if (el === current) return;
     if ((current = el) != null) {
       if (component || content || area || tags || cart) {
+        console.log(el, component);
         //        current.style.backgroundColor = "blue";
         //       current.title = JSON.stringify(component);
         tail(

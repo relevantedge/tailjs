@@ -2,32 +2,15 @@ import React from "react";
 import { Button, NextUIProvider } from "@nextui-org/react";
 import { Tracker } from "@tailjs/react";
 
-import { configureTracker, tail } from "@tailjs/client/external";
+import { tail } from "@tailjs/client/external";
 
 import preactLogo from "./assets/preact.svg";
 import "./style.css";
 
-configureTracker((config) => {
-  return config;
-});
-
 export function App() {
   return (
     <NextUIProvider>
-      <Tracker
-        disabled={false}
-        trackReactComponents={true}
-        map={(el, ctx) => {
-          // if (el.props?.color === "primary") {
-          //   return {
-          //     component: { id: "TEST!" },
-          //   };
-          // }
-          // if (el.type === "button" && el.props?.color === "primary") {
-          //   console.log("Nosso!!!");
-          // }
-        }}
-      >
+      <Tracker disabled={false} trackReactComponents={true}>
         <div track-tags={{ tag: "test", value: "yes", score: 0.5 }}>
           <a href="https://preactjs.com" target="_blank">
             <img src={preactLogo} alt="Preact logo" height="160" width="160" />
