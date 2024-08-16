@@ -340,4 +340,6 @@ export const requireFound = <
 >(
   variable: T
 ): VariableSuccessResult<T, "value"> =>
-  handleResultErrors(variable, undefined, true) as any;
+  variable == null
+    ? throwError("No variable.")
+    : (handleResultErrors(variable, undefined, true) as any);

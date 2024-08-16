@@ -16,7 +16,7 @@
     "directory": "dist"
   },
   "dependencies": {
-    "@tailjs/util": "workspace:*",
+    "@tailjs/util": "^0.17.24",
     "@ygoe/msgpack": "github:nielskuhnel/msgpack.js#feature/big-float-fix"
   },
   "exports": {
@@ -30,5 +30,6 @@
         "default": "./dist/index.cjs"
       }
     }
-  }
+  },
+  "bin": {}
 }

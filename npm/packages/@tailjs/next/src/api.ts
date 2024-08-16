@@ -1,22 +1,27 @@
-import { createServerContext } from "@tailjs/node";
-//Do not delete, lest won't build.
-import type { Tracker } from "@tailjs/engine";
-import { NextApiRequest, NextApiResponse } from "next";
+import { addTailJsConfiguration, createServerContext } from "@tailjs/node";
+//Do not delete `import "@tailjs/engine"`, lest otherwise won't build types.d.ts.
+import "@tailjs/engine";
+
+import { NextApiHandler } from "next";
 import getConfig from "next/config";
 
-const config = (
-  typeof getConfig === "function" ? getConfig() : (getConfig as any).default?.()
-)?.serverRuntimeConfig?.tailjs;
+addTailJsConfiguration(
+  // Adding this a function enables `setConfig` from`next/config` to be used
+  // along with `addTailJsConfiguration` depending on taste.
+  (current) => ({
+    endpoint: "/api/tailjs",
+    ...current,
+    ...(typeof getConfig === "function"
+      ? getConfig()
+      : (getConfig as any).default?.()
+    )?.serverRuntimeConfig?.tailjs,
+  })
+);
 
-const { middleware, tracker, endpoint } = createServerContext({
-  ...config,
-  debugScript: true,
-});
+const { middleware, tracker } = createServerContext(
+  { matchAnyPath: true },
+  true
+);
+const api: NextApiHandler = middleware;
 
-export const api = (req: NextApiRequest, res: NextApiResponse) => {
-  // Ignore rewrites.
-  req.url = req.url?.replace(/^[^?]*/, endpoint);
-  return middleware(req, res);
-};
-
-export { tracker };
+export { api, tracker };

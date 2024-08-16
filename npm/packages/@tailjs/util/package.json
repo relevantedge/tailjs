@@ -29,5 +29,6 @@
         "default": "./dist/index.cjs"
       }
     }
-  }
+  },
+  "bin": {}
 }

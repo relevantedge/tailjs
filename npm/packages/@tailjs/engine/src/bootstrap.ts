@@ -9,12 +9,19 @@ import type { TrackerClientConfiguration } from "@tailjs/client";
 import { JsonObject, map } from "@tailjs/util";
 
 export interface BootstrapSettings
-  extends Pick<RequestHandlerConfiguration, "cookies" | "defaultConsent"> {
+  extends Pick<
+    RequestHandlerConfiguration,
+    "cookies" | "defaultConsent" | "json"
+  > {
   /** The host implementation to use.  */
   host: EngineHost;
 
-  /** The relative URL to the Tail.js endpoint. */
-  endpoint: string;
+  /**
+   * The absolute URL to the Tail.js endpoint.
+   *
+   * @default /_t.js
+   */
+  endpoint?: string;
 
   /** A list of schemas. If a string is provided it is interpreted as a path and will get loaded from resources. */
   schemas?: (string | JsonObject)[];
@@ -61,10 +68,11 @@ export interface BootstrapSettings
 
 export function bootstrap({
   host,
-  endpoint,
+  endpoint = "./_t.js",
   schemas,
   cookies,
   extensions,
+  json,
   allowUnknownEventTypes,
   encryptionKeys,
   debugScript,
@@ -83,6 +91,7 @@ export function bootstrap({
           ? extension
           : async () => extension as any
       ) ?? [],
+    json,
     encryptionKeys,
     debugScript,
     environmentTags,

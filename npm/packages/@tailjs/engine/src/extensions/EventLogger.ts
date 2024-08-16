@@ -5,11 +5,13 @@ export class EventLogger implements TrackerExtension {
 
   constructor(
     public readonly configuration: {
-      group: string;
+      group?: string;
       minimal?: boolean;
       console?: boolean;
     }
-  ) {}
+  ) {
+    this.configuration.group ??= "events";
+  }
 
   async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
     for (const ev of events) {
