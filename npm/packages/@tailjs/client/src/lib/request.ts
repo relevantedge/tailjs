@@ -95,7 +95,7 @@ export const request: {
       new Blob(currentData != null ? [serialized] : [], {
         // This content type avoids the overhead of the "preflight" request that is otherwise made by browsers in cross-domain scenarios.
         // (application/x-www-form-urlencoded could also work).
-        type: "text/plain",
+        type: "text/plain; charset=iso-8859-1",
       })
     ) && throwError("Beacon send failed.");
   } else {
@@ -110,7 +110,7 @@ export const request: {
           credentials: "include",
           mode: "cors",
           headers: {
-            "Content-Type": "text/plain",
+            "Content-Type": "text/plain; charset=iso-8859-1",
           },
           body: serialized,
         });

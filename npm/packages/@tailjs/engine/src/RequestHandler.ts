@@ -513,7 +513,7 @@ export class RequestHandler {
           this.environment,
           request,
           false,
-          this._config.clientEncryptionKeySeed ?? ""
+          this._config.clientEncryptionKeySeed || ""
         ),
         requestHandler: this,
         defaultConsent: this._defaultConsent,
