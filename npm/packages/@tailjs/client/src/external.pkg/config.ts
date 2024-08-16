@@ -17,7 +17,7 @@ export const setTrackerName = (name: string) => {
       value: prop.value,
       writable: prop.value[isTracker],
     });
-  } else {
+  } else if (!globalThis[name]) {
     PLACEHOLDER_SCRIPT(name);
   }
   return globalThis[(CLIENT_CONFIG.name = name)];

@@ -11,6 +11,7 @@ import {
   filter,
   flatMap,
   isArray,
+  isJsonString,
   isString,
   map,
   nil,
@@ -70,7 +71,9 @@ export const initializeTracker = (
     [clientEncryptionKey, config] =
       httpDecode<[key: string, configuration: any]>(config)!;
     // Decrypt
-    config = createTransport(clientEncryptionKey)[1](config as any)!;
+    config = createTransport(clientEncryptionKey, { decodeJson: true })[1](
+      config as any
+    )!;
   }
 
   assign(trackerConfig, config);
@@ -161,7 +164,7 @@ export const initializeTracker = (
 
     if (isString(commands[0])) {
       const payload = commands[0];
-      commands = payload.match(/^[{[]/)
+      commands = isJsonString(payload)
         ? JSON.parse(payload)
         : httpDecode(payload);
     }

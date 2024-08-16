@@ -45,12 +45,13 @@
     }
   },
   "dependencies": {
-    "@tailjs/types": "workspace:*",
-    "@tailjs/util": "workspace:*",
-    "@tailjs/transport": "workspace:*",
+    "@tailjs/types": "^0.17.24",
+    "@tailjs/util": "^0.17.24",
+    "@tailjs/transport": "^0.17.24",
     "@ygoe/msgpack": "github:nielskuhnel/msgpack.js#feature/big-float-fix"
   },
   "publishConfig": {
     "directory": "dist"
-  }
+  },
+  "bin": {}
 }

@@ -12,6 +12,7 @@ export const trackerConfig: Required<TrackerClientConfiguration> = {
   encryptionKey: null,
   key: null,
   apiKey: null,
+  json: false,
 
   /**
    * Log events to the browser's developer console.

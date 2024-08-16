@@ -58,6 +58,7 @@ import { TrackerClientConfiguration } from "@tailjs/client";
 import {
   createTransport,
   decodeUtf8,
+  defaultJsonTransport,
   from64u,
   httpEncode,
 } from "@tailjs/transport";
@@ -69,6 +70,7 @@ import {
   forEach,
   forEachAsync,
   isJsonObject,
+  isJsonString,
   isPlainObject,
   isString,
   join,
@@ -110,6 +112,10 @@ export const MAX_CACHE_HEADERS = {
 export let SCRIPT_CACHE_HEADERS = {
   "cache-control": "private, max-age=604800",
 } as const; // A week
+
+export type ProcessRequestOptions = {
+  matchAnyPath?: boolean;
+};
 
 export class RequestHandler {
   private readonly _cookies: CookieMonster;
@@ -154,7 +160,7 @@ export class RequestHandler {
       defaultConsent,
     } = (config = merge({}, DEFAULT, config));
 
-    this._config = config;
+    this._config = Object.freeze(config);
 
     this._trackerName = trackerName;
     this.endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
@@ -188,10 +194,11 @@ export class RequestHandler {
       ),
     };
 
-    this._clientConfig = {
+    this._clientConfig = Object.freeze({
       ...client,
       src: this.endpoint,
-    };
+      json: this._config.json,
+    });
   }
 
   public async applyExtensions(
@@ -438,7 +445,10 @@ export class RequestHandler {
     return {};
   }
 
-  public async processRequest(request: ClientRequest): Promise<{
+  public async processRequest(
+    request: ClientRequest,
+    { matchAnyPath = false }: ProcessRequestOptions = {}
+  ): Promise<{
     tracker: DeferredAsync<Tracker>;
     response: CallbackResponse | null;
   } | null> {
@@ -474,12 +484,13 @@ export class RequestHandler {
 
       let clientEncryptionKey: string | undefined;
       if (this._config.clientEncryptionKeySeed) {
-        clientEncryptionKey = await this._clientIdGenerator.generateClientId(
-          this.environment,
-          request,
-          true,
-          this._config.clientEncryptionKeySeed
-        );
+        !this._config.json &&
+          (clientEncryptionKey = await this._clientIdGenerator.generateClientId(
+            this.environment,
+            request,
+            true,
+            this._config.clientEncryptionKeySeed
+          ));
       }
 
       return {
@@ -508,7 +519,9 @@ export class RequestHandler {
         defaultConsent: this._defaultConsent,
         cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
         clientEncryptionKey,
-        transport: createTransport(clientEncryptionKey),
+        transport: this._config.json
+          ? defaultJsonTransport
+          : createTransport(clientEncryptionKey),
       } as PickRequired<TrackerServerConfiguration, "transport"> & {
         clientEncryptionKey?: string;
       };
@@ -563,7 +576,9 @@ export class RequestHandler {
 
         if (isPlainObject(response.body)) {
           response.body =
-            response.headers?.["content-type"] === "application/json" || json
+            response.headers?.["content-type"] === "application/json" ||
+            json ||
+            this._config.json
               ? JSON.stringify(response.body)
               : (await trackerSettings()).transport[0](response.body, true);
         }
@@ -583,7 +598,7 @@ export class RequestHandler {
     try {
       let requestPath = path;
 
-      if (requestPath === this.endpoint) {
+      if (requestPath === this.endpoint || (requestPath && matchAnyPath)) {
         let queryValue: string | undefined;
 
         switch (method.toUpperCase()) {
@@ -608,6 +623,7 @@ export class RequestHandler {
                 body: generateClientBootstrapScript(
                   {
                     ...this._clientConfig,
+                    src: matchAnyPath ? requestPath : this._clientConfig.src,
                     encryptionKey: clientEncryptionKey,
                   },
                   true
@@ -736,9 +752,10 @@ export class RequestHandler {
                 let json = false;
                 if (
                   headers["content-type"] === "application/json" ||
+                  isJsonString(body) ||
                   isJsonObject(body)
                 ) {
-                  if (headers["sec-fetch-dest"]) {
+                  if (!this._config.json && headers["sec-fetch-dest"]) {
                     // Crime! Deny in a non-helpful way.
                     return result({
                       status: 400,
@@ -848,7 +865,8 @@ export class RequestHandler {
     tracker: DeferredAsync<Tracker>,
     html: boolean,
     initialCommands?: any,
-    nonce?: string
+    nonce?: string,
+    endpoint?: string
   ): Promise<string | undefined> {
     if (!this._initialized) {
       return undefined;
@@ -911,7 +929,7 @@ export class RequestHandler {
       }
 
       otherScripts.push({
-        src: `${this.endpoint}${
+        src: `${endpoint ?? this.endpoint}${
           this._trackerName && this._trackerName !== DEFAULT.trackerName
             ? `#${this._trackerName}`
             : ""

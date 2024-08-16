@@ -23,13 +23,19 @@ export const CLIENT_STATE_CHANNEL_ID = CLIENT_STORAGE_PREFIX + "state";
 
 export const CLIENT_CALLBACK_CHANNEL_ID = CLIENT_STORAGE_PREFIX + "push";
 
-export const PLACEHOLDER_SCRIPT = <Quote extends boolean = false>(
+export const PLACEHOLDER_SCRIPT: <Quote extends boolean = false>(
+  trackerName?: string,
+  quote?: Quote
+) => Quote extends true ? string : (...commands: any[]) => void = ((
   trackerName = "tail",
-  quote: Quote = false as any
-): Quote extends true ? string : (...commands: any[]) => void =>
-  quote
-    ? `window.${trackerName}??=c=>(${trackerName}._??=[]).push(c);`
-    : (globalThis[trackerName] ??= (c: any) =>
-        (globalThis[trackerName]._ ??= []).push(c));
+  quote: boolean
+) => {
+  if (quote) {
+    return `(window.${trackerName}??=c=>${trackerName}._?.push(c) ?? ${trackerName}(c))._=[];`;
+  }
+
+  (globalThis[trackerName] ??= (c: any) =>
+    globalThis[trackerName]._?.push(c) ?? globalThis[trackerName](c))._ = [];
+}) as any;
 
 export const __DEBUG__ = true;

@@ -8,7 +8,13 @@ import {
   throwError,
   undefined,
 } from "@tailjs/util";
-import { REQUEST_LOCK_KEY, httpDecrypt, httpEncrypt, sharedLock } from ".";
+import {
+  REQUEST_LOCK_KEY,
+  USE_ENCRYPTION,
+  httpDecrypt,
+  httpEncrypt,
+  sharedLock,
+} from ".";
 
 export type RequestOptions<Beacon extends boolean = false> =
   PrettifyIntersection<
@@ -50,6 +56,7 @@ export const request: {
   data: any,
   { beacon = false, encrypt = true }: RequestOptions<boolean> = {}
 ) => {
+  encrypt = encrypt && USE_ENCRYPTION;
   let cancel = false;
   let currentData: any;
   let serialized: any;

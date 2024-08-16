@@ -21,6 +21,19 @@ import { getExternalBundles } from "./rollup-external";
 
 const preserveModules = !!arg("--preserve-modules");
 
+/**
+ * Directories ending with this will be included as sub packages.
+ *
+ * For example, `/src/extra.pkg` will become `@tailjs/package/extra`)
+ */
+const SUB_PACKAGE_POSTFIX = ".pkg";
+/**
+ * Typescript files ending with this will be added as bin scripts.
+ *
+ * For example, `my-script.bin.ts` will be added as `{"bin": {"my-script": "dist/cli/my-script.cjs"}}` in the exported package.json.
+ */
+const BIN_SCRIPT_POSTFIX = ".bin.ts";
+
 export const getDistBundles = async ({
   variables = {},
   subPackages = {},
@@ -33,29 +46,34 @@ export const getDistBundles = async ({
 } = {}): Promise<RollupOptions[]> => {
   const pkg = await env();
   // Bundle these scripts separately.
-  const binScripts = Object.entries(pkg.config.bin ?? {}).map(
-    ([key, value]: [string, string]) => ({
-      name: key,
-      src: value,
-      dest: value.replace(/(?:(?:\.\/)?src\/)(.+)\.ts.?$/, "./cli/$1.cjs"),
-    })
-  );
 
-  async function addSubPackages(path: string, basePath = path) {
+  const binScripts: { name: string; src: string; dest: string }[] = [];
+
+  async function applyFileConventions(path: string, basePath = path) {
     for (const entry of await fs.promises.readdir(path)) {
       const subPath = join(path, entry);
       if (fs.statSync(subPath).isDirectory()) {
-        if (entry.endsWith(".pkg")) {
+        if (entry.endsWith(SUB_PACKAGE_POSTFIX)) {
           subPackages[join(subPath, "index.ts")] = join(
             path.substring(basePath.length + 1),
-            entry.substring(0, entry.length - 4)
+            entry.substring(0, entry.length - SUB_PACKAGE_POSTFIX.length)
           );
         }
-        addSubPackages(subPath, basePath);
+        applyFileConventions(subPath, basePath);
+      } else if (entry.endsWith(BIN_SCRIPT_POSTFIX)) {
+        const name = entry.substring(
+          0,
+          entry.length - BIN_SCRIPT_POSTFIX.length
+        );
+        binScripts.push({
+          name,
+          src: subPath,
+          dest: "cli/" + name,
+        });
       }
     }
   }
-  await addSubPackages(`src`);
+  await applyFileConventions(`src`);
 
   const destinations = [join(pkg.path, "dist")];
   const entries = [
@@ -98,6 +116,15 @@ export const getDistBundles = async ({
           packageJsonPlugin(() => {
             if (!target) {
               const pkgJson = { ...pkg.config };
+              let npmScripts: Record<string, string> | undefined;
+
+              // Preserve npm install scripts.
+              ["preinstall", "install", "postinstall"]
+                .map((script) => [script, pkgJson.scripts?.[script]])
+                .forEach(
+                  ([key, value]) => value && ((npmScripts ??= {})[key] = value)
+                );
+
               pkgJson.type = "module";
               [
                 "devDependencies",
@@ -107,6 +134,8 @@ export const getDistBundles = async ({
                 "types",
                 "publishConfig",
               ].forEach((key) => delete pkgJson[key]);
+
+              npmScripts && (pkgJson["scripts"] = npmScripts);
 
               binScripts.forEach(({ name, dest }) => {
                 (pkgJson.bin ??= {})[name] = dest;
@@ -154,6 +183,12 @@ export const getDistBundles = async ({
                     ])
                   ),
                 },
+                bin: Object.fromEntries(
+                  binScripts.map((item) => [
+                    item.name,
+                    root + item.dest + ".cjs",
+                  ])
+                ),
               });
 
               Object.assign(pkgJson, getExports());
@@ -209,7 +244,7 @@ export const getDistBundles = async ({
         },
         output: destinations.flatMap((path) => {
           const dir = join(path, target);
-          console.log(dir);
+
           return [
             ["es", ".mjs"],
             ["cjs", ".cjs"],

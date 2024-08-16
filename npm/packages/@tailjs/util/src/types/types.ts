@@ -522,3 +522,10 @@ export const round = <T extends number | Nullish>(
 
 export const isJsonObject = (value: any): value is JsonObject =>
   isPlainObject(value);
+
+const testFirstLast = (s: string, first: string, last: string) =>
+  s[0] === first && s[s.length - 1] === last;
+
+export const isJsonString = (value: any): boolean =>
+  isString(value) &&
+  (testFirstLast(value, "{", "}") || testFirstLast(value, "[", "]"));

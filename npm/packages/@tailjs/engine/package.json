@@ -15,11 +15,11 @@
     "build:watch": "pnpm run build -w"
   },
   "dependencies": {
-    "@tailjs/client": "workspace:*",
-    "@tailjs/json-schema": "workspace:*",
-    "@tailjs/transport": "workspace:*",
-    "@tailjs/types": "workspace:*",
-    "@tailjs/util": "workspace:*",
+    "@tailjs/client": "^0.17.24",
+    "@tailjs/json-schema": "^0.17.24",
+    "@tailjs/transport": "^0.17.24",
+    "@tailjs/types": "^0.17.24",
+    "@tailjs/util": "^0.17.24",
     "short-unique-id": "^5.2.0",
     "url-parse": "^1.5.10"
   },
@@ -37,5 +37,6 @@
         "default": "./dist/index.cjs"
       }
     }
-  }
+  },
+  "bin": {}
 }

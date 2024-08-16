@@ -698,7 +698,7 @@ const handleResultErrors = (results, errorHandlers, requireValue)=>{
     if (errors.length) return throwError(errors.join("\n"));
     return isArray(results) ? successResults : successResults === null || successResults === void 0 ? void 0 : successResults[0];
 };
-const requireFound = (variable)=>handleResultErrors(variable, undefined$1, true);
+const requireFound = (variable)=>variable == null ? throwError("No variable.") : handleResultErrors(variable, undefined$1, true);
 
 const isTrackedEvent = (ev)=>ev && typeof ev.type === "string";
 

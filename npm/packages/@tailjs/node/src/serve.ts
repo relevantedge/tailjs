@@ -15,7 +15,6 @@ export const serve = async ({
 
   const { middleware } = await createServerContext({
     ...settings,
-    lazy: false,
   });
 
   const server = createServer(
@@ -49,7 +48,6 @@ export const serve = async ({
   });
 
   if (host) {
-    console.log(host);
     server.listen(host);
   } else {
     server.listen((port ??= 7412));

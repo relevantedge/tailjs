@@ -124,6 +124,8 @@ const isPlainObject = (value)=>value != null && getPrototypeOf(value) === object
 const isSymbol = (value)=>typeof value === "symbol";
 const isFunction = (value)=>typeof value === "function";
 const isIterable = (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator]) && (typeof value === "object" || acceptStrings));
+const testFirstLast = (s, first, last)=>s[0] === first && s[s.length - 1] === last;
+const isJsonString = (value)=>isString(value) && (testFirstLast(value, "{", "}") || testFirstLast(value, "[", "]"));
 let stopInvoked = false;
 const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
 function* createFilteringIterator(source, projection) {
@@ -932,14 +934,14 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
         Object.entries(value).forEach(([k, v])=>v !== (v = inner(v)) && (value[k] = v));
         return value;
     };
-    return inner(isString(value) ? JSON.parse(value) : value != null ? tryCatch(()=>msgDeserialize(value), ()=>(console.error(`Invalid message received.`, value), undefined$1)) : value);
+    return inner(isString(value) ? tryCatch(()=>JSON.parse(value), ()=>console.error(`Invalid JSON received.`, value)) : value != null ? tryCatch(()=>msgDeserialize(value), ()=>(console.error(`Invalid message received.`, value), undefined$1)) : value);
 };
 let _defaultTransports;
 /**
  * Creates a pair of {@link Encoder} and {@link Decoder}s as well as a {@link HashFunction<string>}.
  * MessagePack is used for serialization, {@link lfsr} encryption is optionally used if a key is specified, and the input and outputs are Base64URL encoded.
  */ const createTransport = (key, options = {})=>{
-    const factory = (key, { json = false, ...serializeOptions })=>{
+    const factory = (key, { json = false, decodeJson = false, ...serializeOptions })=>{
         const fastStringHash = (value, bitsOrNumeric)=>{
             if (isNumber(value) && bitsOrNumeric === true) return value;
             value = isString(value) ? new Uint8Array(map(value.length, (i)=>value.charCodeAt(i) & 255)) : json ? tryCatch(()=>JSON.stringify(value), ()=>JSON.stringify(serialize(value, false, serializeOptions))) : serialize(value, true, serializeOptions);
@@ -956,7 +958,7 @@ let _defaultTransports;
         const [encrypt, decrypt, hash] = lfsr(key);
         return [
             (data, binary)=>(binary ? IDENTITY : to64u)(encrypt(serialize(data, true, serializeOptions))),
-            (encoded)=>encoded != null ? deserialize(decrypt(encoded instanceof Uint8Array ? encoded : from64u(encoded))) : null,
+            (encoded)=>encoded != null ? deserialize(decrypt(encoded instanceof Uint8Array ? encoded : decodeJson && isJsonString(encoded) ? jsonDecode(encoded) : from64u(encoded))) : null,
             (value, numericOrBits)=>fastStringHash(value, numericOrBits)
         ];
     };
@@ -978,6 +980,10 @@ let _defaultTransports;
     return factory(key, options);
 };
 const defaultTransport = createTransport();
+/** A transport that encrypts and decrypts messages, but also allows plain JSON message to be decoded.  */ const defaultJsonDecodeTransport = createTransport(null, {
+    json: true,
+    decodeJson: true
+});
 const defaultJsonTransport = createTransport(null, {
     json: true,
     prettify: true
@@ -985,4 +991,4 @@ const defaultJsonTransport = createTransport(null, {
 const [httpEncode, httpDecode, hash] = defaultTransport;
 const [jsonEncode, jsonDecode] = defaultJsonTransport;
 
-export { charCode, createTransport, decodeUtf8, defaultJsonTransport, defaultTransport, from64u, fromCharCodes, hash, httpDecode, httpEncode, jsonDecode, jsonEncode, lfsr, to64u };
+export { charCode, createTransport, decodeUtf8, defaultJsonDecodeTransport, defaultJsonTransport, defaultTransport, from64u, fromCharCodes, hash, httpDecode, httpEncode, jsonDecode, jsonEncode, lfsr, to64u };

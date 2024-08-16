@@ -112,4 +112,12 @@ export interface TrackerClientConfiguration {
    *
    */
   tags?: TagMappings;
+
+  /**
+   * Use JSON instead of LFSR encrypted MessagePack. This should only be set for debugging purposes
+   * since it enables fingerprinting.
+   *
+   * This is controlled by the request handler's configuration and cannot be set independently.
+   */
+  json?: boolean;
 }

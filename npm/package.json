@@ -15,10 +15,10 @@
     "build:jss:watch": "pnpm -r run --if-present --stream --filter=\"@tailjs/sitecore-jss...\" build:watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "serve": "env concurrently \"pnpm -r --filter @tailjs/next... --filter @tailjs/node^... --parallel --stream build:watch\" \"pnpm --filter @tailjs/node serve:watch\"",
+    "serve": "concurrently \"pnpm -r --filter @tailjs/next --filter @tailjs/node^... --parallel --stream build:watch\" \"pnpm --filter @tailjs/node serve:watch\"",
     "example:react": "pnpm --filter react-sample dev",
     "example:preact": "pnpm --filter react-sample dev --preact",
-    "example:next": "pnpm --filter next-sample dev",
+    "example:next": "concurrently pnpm --filter next-sample dev",
     "clean": "rimraf packages/@tailjs/*/dist"
   },
   "devDependencies": {

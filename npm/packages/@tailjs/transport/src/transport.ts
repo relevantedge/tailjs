@@ -16,6 +16,7 @@ import {
   tryCatch,
   undefined,
   IDENTITY,
+  isJsonString,
 } from "@tailjs/util";
 import { HashFunction, from64u, lfsr, to64u } from ".";
 
@@ -257,7 +258,10 @@ const deserialize = (value: string | Uint8Array) => {
 
   return inner(
     isString(value)
-      ? JSON.parse(value as any)
+      ? tryCatch(
+          () => JSON.parse(value as any),
+          () => console.error(`Invalid JSON received.`, value)
+        )
       : value != null
       ? tryCatch(
           () => msgDeserialize(value as any),
@@ -290,6 +294,9 @@ export interface TransportOptions {
 
   /** Indent JSON encoded strings. @default true */
   prettify?: boolean;
+
+  /** Allow received messages to be JSON. */
+  decodeJson?: boolean;
 }
 
 let _defaultTransports: [cipher: Transport, json: Transport] | undefined;
@@ -303,7 +310,7 @@ export const createTransport = (
 ): Transport => {
   const factory = (
     key: string | Nullish,
-    { json = false, ...serializeOptions }: TransportOptions
+    { json = false, decodeJson = false, ...serializeOptions }: TransportOptions
   ): Transport => {
     const fastStringHash = (value: any, bitsOrNumeric: any) => {
       if (isNumber(value) && bitsOrNumeric === true) return value;
@@ -341,7 +348,11 @@ export const createTransport = (
         encoded != null
           ? deserialize(
               decrypt(
-                encoded instanceof Uint8Array ? encoded : from64u(encoded)
+                encoded instanceof Uint8Array
+                  ? encoded
+                  : decodeJson && isJsonString(encoded)
+                  ? jsonDecode(encoded)
+                  : from64u(encoded)
               )
             )
           : null,
@@ -363,6 +374,11 @@ export const createTransport = (
 };
 
 export const defaultTransport = createTransport();
+/** A transport that encrypts and decrypts messages, but also allows plain JSON message to be decoded.  */
+export const defaultJsonDecodeTransport = createTransport(null, {
+  json: true,
+  decodeJson: true,
+});
 export const defaultJsonTransport = createTransport(null, {
   json: true,
   prettify: true,

@@ -6,16 +6,20 @@
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts --preserve-modules",
-    "build:watch": "pnpm run build -w"
+    "build:watch": "pnpm run build -w",
+    "postinstall": "npx tailjs-configure-next"
   },
   "dependencies": {
-    "@tailjs/engine": "workspace:^0.17.24",
-    "@tailjs/node": "workspace:*",
-    "@tailjs/react": "workspace:*"
+    "@tailjs/engine": "^0.17.24",
+    "@tailjs/node": "^0.17.24",
+    "@tailjs/react": "^0.17.24"
   },
   "devDependencies": {
     "@types/node": ">=18.19.33",
     "@types/react": ">=18.3.3"
+  },
+  "bin": {
+    "tailjs-configure-next": "./dist/cli/tailjs-configure-next.cjs"
   },
   "publishConfig": {
     "directory": "dist"
