@@ -75,7 +75,6 @@ export const initializeTracker = (
       config as any
     )!;
   }
-
   assign(trackerConfig, config);
 
   setStorageKey(remove(trackerConfig, "encryptionKey"));

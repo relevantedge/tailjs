@@ -153,13 +153,17 @@ export const createServerContext: {
         return await next?.();
       }
 
+      let body = request.body;
+      if (!finalConfig?.json && typeof body === "string") {
+        body = Uint8Array.from(body, (p) => p.charCodeAt(0));
+      }
       const { tracker, response: tailResponse } =
         (await requestHandler!.processRequest(
           {
             method: request.method ?? "GET",
             url: request.url,
             headers: request.headers,
-            body: request.body,
+            body,
             clientIp: request.clientIp || getClientIp(request),
           },
           { matchAnyPath: !resolveTracker && finalConfig!.matchAnyPath }

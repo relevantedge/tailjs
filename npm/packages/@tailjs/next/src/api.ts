@@ -22,6 +22,7 @@ const { middleware, tracker } = createServerContext(
   { matchAnyPath: true },
   true
 );
-const api: NextApiHandler = middleware;
+const api: NextApiHandler = (request, response) =>
+  middleware(request, response);
 
 export { api, tracker };
