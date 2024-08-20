@@ -1,8 +1,6 @@
 import type {
-  ElementInfo,
-  Float,
+  ComponentElementInfo,
   Position,
-  Poz,
   TrackingSettings,
   UserInteractionEvent,
 } from "..";
@@ -22,7 +20,7 @@ export interface ComponentClickIntentEvent extends UserInteractionEvent {
 
   clicks?: Position[];
 
-  clickables?: ElementInfo[];
+  clickables?: ComponentElementInfo[];
 }
 
 export const isComponentClickIntentEvent = typeTest<ComponentClickIntentEvent>(

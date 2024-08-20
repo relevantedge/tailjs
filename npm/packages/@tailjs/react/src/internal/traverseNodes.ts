@@ -140,7 +140,16 @@ function getOrSet<K, V>(
   return current;
 }
 const isClientSideComponent = (el: any) =>
-  isTypeStub(el.type) || (typeof el.type === "function" && !el.type.length);
+  isTypeStub(el.type) ||
+  (typeof el.type === "function" &&
+    !el.type.length &&
+    // NextJs likes this kind of functions on the server, to tell you when a component is a client thing.
+    // For example:
+    // `function(){throw Error("Attempted to call the default export of "+r+" from the server but it's on the client.
+    //  It's not possible to invoke a client function from the server, it can only be rendered as a Component or passed
+    //  to props of a Client Component.")}`
+
+    el.type.toString().match(/^(function)?[^0-9a-zA-Z]*throw Error/));
 
 const isTypeStub = (type: any) => {
   try {

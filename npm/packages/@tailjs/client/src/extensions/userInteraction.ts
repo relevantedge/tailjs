@@ -184,11 +184,13 @@ export const userInteraction: TrackerExtensionFactory = {
           const clickIntent = clickables && !clickableElement && trackClicks;
 
           const componentContext = getComponentContext(
-            containerElement,
+            clickableElement ?? containerElement,
             false,
             clickIntent
           );
-          const tags = parseActivationTags(containerElement);
+          const tags = parseActivationTags(
+            clickableElement ?? containerElement
+          );
           trackClicks ??= !nav;
           trackRegion ??= T;
 
