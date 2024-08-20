@@ -1,6 +1,11 @@
 import { createClientConfiguration } from "@tailjs/next";
 import Link from "next/link";
 
+// This file configures the context for tracking.
+//
+// Wrap the content you want to track with the ConfiguredTracker component.
+// Preferably, this should be in one of your high-level 'layout.tsx' or 'page.tsx' files.
+
 export default createClientConfiguration({
   map: ({ type, props }) => {
     // The below are just examples.
@@ -8,7 +13,7 @@ export default createClientConfiguration({
 
     if (props.componentId) {
       // Associate tracked events that happens in the context of
-      // a React components that get a property called `componentId`
+      // a React components that get a property called 'componentId'
       // with this. (Assuming this property comes from some kind of headless CMS)
       return {
         component: { id: props.componentId },
@@ -28,7 +33,7 @@ export default createClientConfiguration({
     }
 
     if (type === "main") {
-      // Add a tag to all events that is related to content in the page's `<main>` element.
+      // Add a tag to all events that is related to content in the page's '<main>' element.
       return { tags: [{ tag: "content:area", value: "main" }] };
     }
   },

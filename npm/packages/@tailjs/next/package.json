@@ -19,7 +19,7 @@
     "@types/react": ">=18.3.3"
   },
   "bin": {
-    "tailjs-configure-next": "./dist/cli/tailjs-configure-next.cjs"
+    "tailjs-init-next": "./dist/cli/tailjs-init-next.cjs"
   },
   "publishConfig": {
     "directory": "dist"
