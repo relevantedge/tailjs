@@ -1,7 +1,7 @@
 export type {
   TraversableElement,
   TraverseContext,
-  ConfiguredTracker,
+  ConfiguredTrackerComponent as ConfiguredTracker,
 } from "./internal";
 
 import type { TrackerAttributes } from "@tailjs/client";

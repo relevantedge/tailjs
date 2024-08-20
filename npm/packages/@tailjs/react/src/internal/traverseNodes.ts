@@ -26,7 +26,7 @@ export type TraversableElement = JSX.Element & {
   clientTypeReference?: boolean;
 };
 
-export type ConfiguredTracker = FunctionComponent<
+export type ConfiguredTrackerComponent = FunctionComponent<
   PropsWithChildren<{ clientSide?: boolean; root?: boolean }>
 >;
 
@@ -98,6 +98,12 @@ export interface TraverseContext<T = any, C = any, N = ReactNode>
 
   clientComponentContext?: boolean;
 }
+
+// Potentially have a look at what the React Dev tool extension does.
+// The code in this file is significantly shorter, but also a little bit "heuristic".
+//
+// If anything turns out to fail, we can start looking into porting the Dev tool approach:
+// https://github.com/facebook/react-devtools/blob/v3/backend/attachRendererFiber.js
 
 const createInitialContext = <T, C = undefined>(
   node: ReactNode,

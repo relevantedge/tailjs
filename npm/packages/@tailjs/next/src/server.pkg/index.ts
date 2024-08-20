@@ -1,2 +1,2 @@
-export * from "./createServer";
+export * from "./createApi";
 export { ConsoleLogger } from "@tailjs/node";
