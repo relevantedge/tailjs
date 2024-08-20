@@ -1,4 +1,4 @@
-import { ActivatedComponent, Component, Rectangle } from ".";
+import { Component, Rectangle } from ".";
 
 /** Basic information about an HTML element. */
 export interface ElementInfo {

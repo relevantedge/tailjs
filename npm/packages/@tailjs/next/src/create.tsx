@@ -1,6 +1,6 @@
-import React, { FunctionComponent, PropsWithChildren } from "react";
-import { BoundaryDataMapper, Tracker, ConfiguredTracker } from "@tailjs/react";
+import { BoundaryDataMapper, ConfiguredTracker, Tracker } from "@tailjs/react";
 import Script from "next/script";
+import React, { FunctionComponent } from "react";
 
 export type ClientConfiguration = {
   map?: BoundaryDataMapper;
@@ -17,18 +17,25 @@ export const compileTracker = (
     endpoint = process.env.NEXT_PUBLIC_TAILJS_API || "/api/tailjs",
     scriptTag: ScriptTag = Script,
   }: ClientConfiguration,
-  clientResolver: () => ConfiguredTracker
+  clientResolver?: () => ConfiguredTracker,
+  serverResolver?: () => ConfiguredTracker
 ): ConfiguredTracker => {
   let Client: ConfiguredTracker | undefined;
+  let Server: ConfiguredTracker | undefined;
 
   const ConfiguredTracker: ConfiguredTracker = (props) => {
-    if (!Client) {
-      const Inner = clientResolver();
-      Client = (props) => <Inner {...{ ...props, [clientScope]: 1 }} />;
+    if (clientResolver) {
+      if (!Client) {
+        const Inner = clientResolver();
+        Client = (props) => <Inner {...{ ...props, [clientScope]: 1 }} />;
+      }
+      if (props.clientSide && !props[clientScope]) {
+        // If we do not have a client component, we are the client.
+        return <Client {...props} />;
+      }
     }
-    if (props.clientSide && !props[clientScope]) {
-      // If we do not have a client component, we are the client.
-      return <Client {...props} />;
+    if (serverResolver) {
+      Server ??= serverResolver();
     }
 
     return (

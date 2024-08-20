@@ -104,6 +104,7 @@ export const getComponentContext = (
   let rect: Rectangle | undefined;
   forAncestorsOrSelf(el, (el) => {
     const entry = get(boundaryData, el);
+
     if (!entry) {
       return;
     }

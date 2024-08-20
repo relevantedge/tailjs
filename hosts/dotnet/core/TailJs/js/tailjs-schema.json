@@ -1002,7 +1002,7 @@
             "clickables": {
               "type": "array",
               "items": {
-                "$ref": "urn:tailjs:core#/definitions/ElementInfo"
+                "$ref": "urn:tailjs:core#/definitions/ComponentElementInfo"
               }
             }
           },
@@ -1012,6 +1012,22 @@
         }
       ],
       "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS."
+    },
+    "ComponentElementInfo": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ElementInfo"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "$ref": "urn:tailjs:core#/definitions/Component"
+            }
+          }
+        }
+      ],
+      "description": "Basic information about an HTML element that is associated with a component."
     },
     "ComponentViewEvent": {
       "allOf": [
