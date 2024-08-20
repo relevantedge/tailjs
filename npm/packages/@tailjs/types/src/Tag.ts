@@ -3,6 +3,7 @@ import { Float } from ".";
 
 export type ParsableTags =
   | Tag
+  | Tag[]
   | Iterable<Tag | string | Nullish>
   | string
   | string[]

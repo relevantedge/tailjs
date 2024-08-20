@@ -1,9 +1,3 @@
-import { ConsoleLogger, createServer } from "@tailjs/next/server";
+import api from "../../../../tailjs.api.config";
 
-const { GET, POST } = createServer({
-  // Tail.js configuration settings
-  debugScript: true,
-  extensions: [], //new ConsoleLogger()],
-});
-
-export { GET, POST };
+export const { GET, POST } = api;

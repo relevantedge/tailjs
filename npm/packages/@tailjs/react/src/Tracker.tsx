@@ -197,7 +197,7 @@ export const Tracker = ({
           if ((tags = parentState?.tags)) {
             props = {
               ...el.props,
-              ["track-tags"]: Array.isArray(tags) ? tags.join(",") : tags,
+              ["track-tags"]: tags,
             };
           }
 
@@ -232,8 +232,11 @@ export const Tracker = ({
             ] as [string, (value: any) => BoundaryData][]) {
               if (props && props[name]) {
                 if (html) {
+                  // Attach the HTML element's tracker configuration to itself.
                   parentState = mergeStates(parentState, patch(props[name]));
                 } else {
+                  // Attach the component's tracker configuration to the first
+                  // suitable HTML elements.
                   currentState = mergeStates(currentState, patch(props[name]));
                 }
                 props = { ...props };
@@ -265,6 +268,10 @@ export const Tracker = ({
                   ...(props ?? el.props),
                   _t: index.toString(36),
                 },
+                ref:
+                  typeof window !== "undefined"
+                    ? getRef(parentState)
+                    : undefined,
                 state: currentState,
               };
             } else if (typeof window !== "undefined") {

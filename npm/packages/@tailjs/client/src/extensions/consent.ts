@@ -10,13 +10,13 @@ import {
   dataUsageEquals,
   parseDataUsage,
 } from "@tailjs/types";
-import { Clock, F, Nullish, T, clock, restrict } from "@tailjs/util";
+import { Clock, F, Nullish, T, clock, map, restrict } from "@tailjs/util";
 import {
   ConsentCommand,
   TrackerExtensionFactory,
   isUpdateConsentCommand,
 } from "..";
-import { debug, document } from "../lib";
+import { debug, document, window } from "../lib";
 
 export const consent: TrackerExtensionFactory = {
   id: "consent",
@@ -66,51 +66,82 @@ export const consent: TrackerExtensionFactory = {
       return [true, userConsent] as any;
     };
 
-    const externalSources: Record<string, Clock> = {};
-
     (() => {
-      // Map CookieBot to tail.js purposes.
-      const purposeMappings = {
-        necessary: 1,
-        preferences: 2,
-        statistics: 4,
-        marketing: 8,
-      };
-
       // TODO: Make injectable to support more than one.
       // Ideally, it could be injected in the init script from the request handler.
+      // However, hooking into the main categories of Google's consent mode v2 should cover most cases.
+
+      // Since the data layer is a capped buffer that may get rotated
+      // we detect changes by keeping track of the last element in the array.
+      // This also handles the situation where someone replaces the data layer.
+
+      const GCMv2Mappings = {
+        // Performance
+        analytics_storage: 4,
+        // Functionality
+        functionality_storage: 2,
+
+        // This should be covered with normal "functionality".
+        // No distinction between functionality and personalization in common cookie CMP, e.g. CookieBot.
+        // Not sure why Google thinks this is a different.
+        //
+        // Tail.js ignores it for now instead of adding even more things to think about when categorizing data.
+        personalization_storage: 0,
+
+        ad_storage: 8, // Targeting
+
+        security_storage: 16, // Security
+      };
+
+      let dataLayerHead: any;
       tracker({
         consent: {
           externalSource: {
-            key: "Cookiebot",
+            key: "Google Consent Mode v2",
+            frequency: 250,
             poll: () => {
-              const consentCookie = document.cookie.match(
-                /CookieConsent=([^;]*)/
-              )?.[1];
-              if (!consentCookie) return;
+              const layer = window["dataLayer"];
+              const previousHead = dataLayerHead;
+              let n: number = layer?.length;
+              if (
+                !n ||
+                (dataLayerHead === (dataLayerHead = layer[n - 1]) &&
+                  dataLayerHead) // Also check that the last item has a value, otherwise an empty element could trick us.
+              ) {
+                return;
+              }
 
-              let mappedPurpose = 1;
-              consentCookie?.replace(
-                /([a-z]+):(true|false)/g,
-                (_, category, toggled) => (
-                  toggled === "true" &&
-                    (mappedPurpose |= purposeMappings[category] ?? 0),
-                  ""
-                )
-              );
+              let item: any;
+              let purposes = 1;
+              while (
+                n-- &&
+                ((item = layer[n]) !== previousHead || !previousHead) // Check all items if we have not captured the previous head.
+              ) {
+                // Read from the end of the buffer to see if there is any ["consent", "update", ...] entry
+                // since last time we checked.
+                if (item?.[0] === "consent" && item[1] === "update") {
+                  map(
+                    GCMv2Mappings,
+                    ([key, code]) =>
+                      item[2][key] === "granted" && (purposes |= code)
+                  );
 
-              return {
-                level:
-                  mappedPurpose > 1
-                    ? 1 /* Indirect (using cookies). */
-                    : 0 /* Anonymous (cookie-less). */,
-                purposes: mappedPurpose,
-              };
+                  return {
+                    level:
+                      purposes > 1
+                        ? 1 // Indirect
+                        : 0, // Anonymous (cookie-less)
+                    purposes,
+                  };
+                }
+              }
             },
           },
         },
       } as ConsentCommand);
     })();
+
+    const externalConsentSources: Record<string, Clock> = {};
 
     return {
       processCommand(command) {
@@ -130,8 +161,8 @@ export const consent: TrackerExtensionFactory = {
           const externalSource = command.consent.externalSource;
           if (externalSource) {
             const key = externalSource.key;
-            const poller = (externalSources[key] ??= clock({
-              frequency: externalSource.pollFrequency ?? 1000,
+            const poller = (externalConsentSources[key] ??= clock({
+              frequency: externalSource.frequency ?? 1000,
             }));
             let previousConsent: DataUsageAttributes | undefined;
 
@@ -154,7 +185,7 @@ export const consent: TrackerExtensionFactory = {
                 previousConsent = consent;
               }
             };
-            poller.restart(externalSource.pollFrequency, pollConsent).trigger();
+            poller.restart(externalSource.frequency, pollConsent).trigger();
           }
 
           return T;

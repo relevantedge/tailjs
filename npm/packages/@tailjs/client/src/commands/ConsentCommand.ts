@@ -31,7 +31,7 @@ export interface ConsentCommand {
       key: string;
       poll: ExternalConsentPoller;
       /** @default 1000 */
-      pollFrequency?: number;
+      frequency?: number;
     };
   };
 }

@@ -1,16 +1,21 @@
 import {
-  TailJsMiddlewareConfigurationSource,
+  TailJsMiddlewareConfiguration,
   TailJsRouteHandler,
   TrackerResolver,
   addTailJsConfiguration,
   createServerContext,
 } from "@tailjs/node";
 
+// The import is required for d.ts generation to work(?!).
 import type { Tracker } from "@tailjs/engine";
 import { NextApiHandler } from "next";
 
-export const createServer = (
-  config: TailJsMiddlewareConfigurationSource
+export const createApi = (
+  config:
+    | TailJsMiddlewareConfiguration
+    | (() =>
+        | Promise<TailJsMiddlewareConfiguration>
+        | TailJsMiddlewareConfiguration)
 ): NextApiHandler & {
   api: NextApiHandler;
   routeHandler: TailJsRouteHandler;
