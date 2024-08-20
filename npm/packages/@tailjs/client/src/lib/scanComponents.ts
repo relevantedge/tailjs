@@ -41,7 +41,7 @@ export function scanAttributes(
           stack.length += number;
           continue;
         } else if (i === 0) {
-          stack.length = 0; // The first item has an value to replace the stack since not preceded by neither "|" nor an negative number (pop).
+          stack.length = 0; // The first item has a value to replace the stack since not preceded by neither "|" nor a negative number (pop).
         }
 
         if (isNaN(number) && /^["\[{]/.test(item)) {

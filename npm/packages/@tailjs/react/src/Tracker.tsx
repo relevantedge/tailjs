@@ -1,4 +1,3 @@
-"use client";
 import React, { Component, ComponentFactory, PropsWithChildren } from "react";
 
 import {
@@ -8,27 +7,59 @@ import {
   tail,
 } from "@tailjs/client/external";
 import { Content } from "@tailjs/types";
-import { restrict } from "@tailjs/util";
+import { get, map as mapItems, restrict } from "@tailjs/util";
 
-import { BUILD_REVISION_QUERY, INIT_SCRIPT_QUERY } from "@constants";
+import {
+  BUILD_REVISION_QUERY,
+  INIT_SCRIPT_QUERY,
+  PLACEHOLDER_SCRIPT,
+} from "@constants";
 import { MapState } from ".";
-import { TraverseContext, filterCurrent, mergeStates } from "./internal";
+import {
+  ConfiguredTrackerSettings,
+  TraverseContext,
+  filterCurrent,
+  mergeStates,
+} from "./internal";
 
 export interface BoundaryDataWithView extends BoundaryData {
   view?: Content | null;
 }
-export type TrackerProperties = PropsWithChildren<{
-  map?(
-    element: JSX.Element,
-    context: TraverseContext<BoundaryData, TrackerType>
-  ): null | void | BoundaryDataWithView;
-  trackReactComponents?: boolean;
-  endpoint?: string;
-  disabled?: boolean;
-  exclude?: RegExp;
-  ignore?: (ComponentFactory<any, any> | Component)[];
-  scriptTag?: JSX.Element | ((endpoint: string) => JSX.Element);
-}>;
+export type JsxMappingContext = TraverseContext<BoundaryData, TrackerType>;
+
+export type BoundaryDataMapper = (
+  element: JSX.Element,
+  context: JsxMappingContext
+) => null | void | BoundaryDataWithView;
+
+export type TrackerProperties = PropsWithChildren<
+  {
+    map?: BoundaryDataMapper;
+    trackReactComponents?: boolean;
+    endpoint?: string;
+    disabled?: boolean;
+    exclude?: RegExp;
+    ignore?: (ComponentFactory<any, any> | Component)[];
+    scriptTag?: boolean | JSX.Element | ((endpoint: string) => JSX.Element);
+    embedBoundaryData?: boolean;
+  } & ConfiguredTrackerSettings
+>;
+
+const BoundaryReferences = ({ references }: { references: () => any[] }) => {
+  const components = references();
+
+  return (
+    components.length > 0 && (
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `${PLACEHOLDER_SCRIPT("tail", true)}tail(${JSON.stringify({
+            scan: { attribute: "_t", components },
+          })});`,
+        }}
+      ></script>
+    )
+  );
+};
 
 export const Tracker = ({
   children,
@@ -38,7 +69,11 @@ export const Tracker = ({
   endpoint,
   exclude,
   ignore,
-  scriptTag = <script async></script>,
+  scriptTag = true,
+  serverTracker,
+  clientTracker,
+  embedBoundaryData = false,
+  clientComponentContext,
 }: TrackerProperties) => {
   if (disabled) {
     return <>{children}</>;
@@ -54,28 +89,41 @@ export const Tracker = ({
 
   const ignoreMap = ignore ? new Set(ignore) : null;
 
-  endpoint ??=
-    (typeof scriptTag === "function" ? "" : scriptTag.props.src) || "/_t.js";
+  if (scriptTag !== false) {
+    if (scriptTag === true) {
+      scriptTag = <script async></script>;
+    }
+    endpoint ??=
+      (typeof scriptTag === "function" ? "" : scriptTag.props.src) || "/_t.js";
 
-  endpoint = [
-    // Strip whatever querystring and hash that might be in the endpoint URI,
-    endpoint!.replace(/[?#].*/, ""),
-    "?",
-    // append the "?init" parameter,
-    INIT_SCRIPT_QUERY,
-    // and a cache buster.
-    BUILD_REVISION_QUERY ? "&" + BUILD_REVISION_QUERY : "",
-  ].join("");
+    endpoint = [
+      // Strip whatever querystring and hash that might be in the endpoint URI,
+      endpoint!.replace(/[?#].*/, ""),
+      "?",
+      // append the "?init" parameter,
+      INIT_SCRIPT_QUERY,
+      // and a cache buster.
+      BUILD_REVISION_QUERY ? "&" + BUILD_REVISION_QUERY : "",
+    ].join("");
 
-  scriptTag =
-    typeof scriptTag === "function"
-      ? scriptTag(endpoint)
-      : { ...scriptTag, props: { ...scriptTag.props, src: endpoint } };
+    scriptTag =
+      typeof scriptTag === "function"
+        ? scriptTag(endpoint)
+        : { ...scriptTag, props: { ...scriptTag.props, src: endpoint } };
+  }
+
+  /** Boundary data for SSR rendered elements. */
+  const collectedBoundaryReferences:
+    | Map<any, [data: any, index: number]>
+    | undefined = embedBoundaryData ? new Map() : undefined;
 
   return (
     <>
       <MapState
         context={tail}
+        clientTracker={clientTracker}
+        serverTracker={serverTracker}
+        clientComponentContext={clientComponentContext}
         mapState={(el, state: BoundaryDataWithView | null, context) => {
           let mapped = map?.(el, context);
 
@@ -197,7 +245,6 @@ export const Tracker = ({
           }
 
           if (
-            typeof window !== "undefined" &&
             html &&
             parentState &&
             (parentState.component ||
@@ -206,15 +253,42 @@ export const Tracker = ({
               parentState.cart ||
               parentState.tags)
           ) {
-            const ref = getRef(parentState);
-            return props ? { props: props, ref, state: currentState } : { ref };
-          } else if (props) {
+            if (embedBoundaryData) {
+              const [, index] = get(
+                collectedBoundaryReferences,
+                JSON.stringify(parentState),
+                () => [parentState, collectedBoundaryReferences!.size]
+              );
+
+              return {
+                props: {
+                  ...(props ?? el.props),
+                  _t: index.toString(36),
+                },
+                state: currentState,
+              };
+            } else if (typeof window !== "undefined") {
+              const ref = getRef(parentState);
+              return props
+                ? { props: props, ref, state: currentState }
+                : { ref };
+            }
+          }
+
+          if (props) {
             return { props, state: currentState };
           }
         }}
       >
         {children}
       </MapState>
+      {embedBoundaryData && (
+        <BoundaryReferences
+          references={() =>
+            mapItems(collectedBoundaryReferences!, ([, [data]]) => data)
+          }
+        />
+      )}
       {scriptTag}
     </>
   );
@@ -227,14 +301,11 @@ function getRef({ component, content, area, tags, cart }: BoundaryData) {
     if (el === current) return;
     if ((current = el) != null) {
       if (component || content || area || tags || cart) {
-        console.log(el, component);
-        //        current.style.backgroundColor = "blue";
-        //       current.title = JSON.stringify(component);
         tail(
           restrict<BoundaryCommand>({
             component,
             content,
-            area: area,
+            area,
             tags,
             cart,
             boundary: current,

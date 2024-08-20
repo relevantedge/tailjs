@@ -13,21 +13,21 @@ export interface TailJsMiddlewareRequest
     Pick<http.IncomingMessage, "url" | "method" | "headers"> {}
 
 export interface TailJsMiddlewareResponse
-  extends Pick<
-    http.ServerResponse,
-    "statusCode" | "setHeader" | "getHeader" | "end" | "writeHead"
-  > {}
+  extends Pick<http.ServerResponse, "statusCode" | "getHeader" | "writeHead"> {
+  setHeader(name: string, value: string | string[]): void;
+  end(chunk?: any, encoding?: string): void;
+}
 
 export type TailJsMiddleware = <T = void>(
   request: TailJsMiddlewareRequest,
   response: TailJsMiddlewareResponse,
-  next?: (err?: any) => T
-) => T;
+  next?: (err?: any) => T | Promise<T>
+) => Promise<T>;
 
-export type TailJsMiddlewareConfiguration = Omit<
-  BootstrapSettings,
-  "host" | "endpoint"
-> & {
+export type TailJsRouteHandler = (request: Request) => Promise<Response>;
+
+export interface TailJsMiddlewareConfiguration
+  extends Omit<BootstrapSettings, "host" | "endpoint"> {
   /**
    * The endpoint for the tracker script / API.
    *
@@ -49,7 +49,7 @@ export type TailJsMiddlewareConfiguration = Omit<
    * @default ./res
    */
   resourcesPath?: string;
-};
+}
 
 export type TailJsMiddlewareConfigurationSource =
   | TailJsMiddlewareConfiguration
@@ -60,13 +60,21 @@ export type TailJsMiddlewareConfigurationSource =
   | Promise<TailJsMiddlewareConfigurationSource>
   | { default: TailJsMiddlewareConfigurationSource };
 
-export type TailJsServerContext = {
-  middleware: TailJsMiddleware;
-  tracker(
+export type TrackerResolver = {
+  (
     request: TailJsMiddlewareRequest,
     response: TailJsMiddlewareResponse
   ): Promise<Tracker | undefined>;
+  (request: Request): Promise<
+    (Tracker & { addHeaders<T extends Response>(response: T): T }) | undefined
+  >;
 };
+
+export interface TailJsServerContext {
+  middleware: TailJsMiddleware;
+  routeHandler: TailJsRouteHandler;
+  tracker: TrackerResolver;
+}
 
 export type TailJsMiddlewareConfigurationResolver = (
   current: TailJsMiddlewareConfiguration

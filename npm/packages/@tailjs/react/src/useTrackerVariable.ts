@@ -1,5 +1,5 @@
 "use client";
-import { ClientVariableKey, tail } from "@tailjs/client/external";
+import { ClientVariableKey, GetCommand, tail } from "@tailjs/client/external";
 import { DataClassificationValue, DataPurposeValue } from "@tailjs/types";
 import { useRef, useState } from "react";
 
@@ -17,9 +17,9 @@ export function useTrackerVariable<T = any>(
 
   if (!state.wired) {
     let loadedSynchronously = true;
-    tail({
+    tail(<GetCommand>{
       get: {
-        ...(key as any),
+        ...key,
         result: (current, _, poll) => {
           if (!state.current || current?.value !== state.current?.[0]) {
             state.current = [current?.value];

@@ -1,4 +1,11 @@
-import React, { isValidElement, ReactNode, Fragment } from "react";
+import React, {
+  Fragment,
+  FunctionComponent,
+  PropsWithChildren,
+  ReactNode,
+  isValidElement,
+} from "react";
+import { Tracker } from "../Tracker";
 
 export let currentContext: TraverseContext | null = null;
 
@@ -8,11 +15,37 @@ type Ref = (el: HTMLElement) => void;
 export type TraversableElement = JSX.Element & {
   ref?: Ref;
   /**
-   * Check this flag before accessing any other property than `name` and the elements `type` property if in NextJS context.
+   * Check this flag before accessing any other property than `name` and the elements `type` property if in server component context
+   * (often the case if using NextJS).
    * The type may be a client module that has not yet been loaded in a server component in which case NextJS will throw
    * a nasty error like "[...] You cannot dot into a client module from a server component".
+   *
+   * If you have a mix of client and server components, a better options is to use your own component that wraps
+   * the Tracker element with its configuration and use the {@link ConfiguredTrackerSettings.clientTracker} property.
    */
-  typeStub?: boolean;
+  clientTypeReference?: boolean;
+};
+
+export type ConfiguredTracker = FunctionComponent<
+  PropsWithChildren<{ clientSide?: boolean; root?: boolean }>
+>;
+
+export type ConfiguredTrackerSettings = {
+  /**
+   * When using server components, functions cannot be passed to client components,
+   * so to track both you need to create your own component that wraps the tracker with your
+   * custom configuration like:
+   *
+   * ```
+   * "use client";
+   * export const ConfiguredTracker = ()=><Tracker map={...} />
+   * ```
+   */
+  clientTracker?: FunctionComponent<PropsWithChildren<{ root?: boolean }>>;
+
+  serverTracker?: FunctionComponent<PropsWithChildren>;
+
+  clientComponentContext?: boolean;
 };
 
 export type MapStateFunction<State = any, Context = any> = (
@@ -51,7 +84,8 @@ export interface TraverseOptions<T, Context>
 }
 
 export interface TraverseContext<T = any, C = any, N = ReactNode>
-  extends TraverseFunctions<T, C> {
+  extends TraverseFunctions<T, C>,
+    ConfiguredTrackerSettings {
   state: T | null;
   node: N;
   parent: TraverseContext<T, C, TraversableElement> | null;
@@ -59,9 +93,10 @@ export interface TraverseContext<T = any, C = any, N = ReactNode>
   depth: number;
   debug?: boolean;
 
+  /** The current React component containing the context's node.  */
   component?: TraversableElement | null;
-  /** Whether the current component is rendered at the server or not. */
-  clientRendering?: boolean;
+
+  clientComponentContext?: boolean;
 }
 
 const createInitialContext = <T, C = undefined>(
@@ -77,22 +112,20 @@ const createInitialContext = <T, C = undefined>(
   depth: 0,
 });
 
-export function traverseNodes<T, C = undefined>(
+export const traverseNodes = <T, C = undefined>(
   node: ReactNode,
   options: TraverseOptions<T, C>
-) {
-  return traverseNodesInternal(node, createInitialContext(node, options));
-}
+) => traverseNodesInternal(node, createInitialContext(node, options));
 
 // This is the (seemingly) best way to detect context components in Preact since they are functional components
 // without any other obvious traits.
 // It is not an issue in React where they are `$$typeof: Symbol(react.provider)`,
 // that is, neither component classes nor functional components, and will then just get their children traversed.
-const frameworkComponents =
-  /ErrorBoundary|Provider|Route[a-z_]*|Switch|[a-z_]*Context/gi;
+const frameworkComponents = /ErrorBoundary|Provider|Switch|[a-z_]*Context/gi;
 
 const wrapperTypeKind = Symbol("typeKind");
 const nextJsProbe = Symbol("Client module?");
+const seen = Symbol("Seen");
 
 const componentCache = new WeakMap<any, any>();
 function getOrSet<K, V>(
@@ -106,6 +139,9 @@ function getOrSet<K, V>(
   }
   return current;
 }
+const isClientSideComponent = (el: any) =>
+  isTypeStub(el.type) || (typeof el.type === "function" && !el.type.length);
+
 const isTypeStub = (type: any) => {
   try {
     type?.[nextJsProbe];
@@ -114,7 +150,7 @@ const isTypeStub = (type: any) => {
     return true;
   }
 };
-function wrapType(type: any) {
+function wrapType(type: any): [kind: number, type: any] {
   if (
     isTypeStub(type) ||
     (type.displayName || type.name)?.match(frameworkComponents)
@@ -217,6 +253,12 @@ function mergeProperties(target: any, source: any) {
 }
 
 const mapCache = new WeakMap<any, any>();
+const isInternal = (type: any, context: TraverseContext) =>
+  type &&
+  (type === Tracker ||
+    type === context.clientTracker ||
+    type === context.serverTracker);
+
 export function traverseNodesInternal<T, C>(
   node: ReactNode,
   context: TraverseContext<T, C>
@@ -239,15 +281,56 @@ export function traverseNodesInternal<T, C>(
     return node;
   }
 
-  mapCache.set(node, (mapped = inner(node)));
+  mapped = inner(node);
+  !isInternal(mapped?.type, context) && mapCache.set(node, mapped);
   return mapped;
 
   function inner(el: TraversableElement) {
+    if (isInternal(el.type, context)) {
+      return el;
+    }
+
+    if (isClientSideComponent(el)) {
+      // Continue parsing the component in client scope.
+      if (context.clientTracker && !context.clientComponentContext) {
+        return React.createElement(context.clientTracker, {
+          children: el,
+          root: false,
+          key: el.key,
+        } as any);
+      }
+    } else if (context.serverTracker && context.clientComponentContext) {
+      // Go back to server side components.
+      return React.createElement(context.serverTracker, {
+        children: el,
+        root: false,
+        key: el.key,
+      } as any);
+    }
+
     if (isTypeStub(el.type)) {
-      el = { ...el, typeStub: true };
+      el = { ...el, clientTypeReference: true };
+    }
+
+    if (el.type._payload) {
+      // This is how we detect lazy components.
+      return React.lazy(async () => {
+        let type = await el.type._payload;
+        if (type.default) {
+          type = type.default;
+        }
+        return {
+          default: type && traverseNodesInternal({ ...el, type }, context),
+        };
+      });
     }
 
     let currentState = context.mapState(el, context.state, context);
+
+    const component =
+      typeof el.type === "function" || el.clientTypeReference
+        ? el
+        : context.component;
 
     const newContext: TraverseContext<T, C> = {
       ...context,
@@ -255,10 +338,7 @@ export function traverseNodesInternal<T, C>(
       node,
       parent: context as any,
       depth: context.depth + 1,
-      component:
-        typeof el.type === "function" || el.typeStub ? el : context.component,
-      clientRendering:
-        typeof window !== "undefined" || context.component?.typeStub,
+      component,
     };
 
     if (el.type === Fragment) {
@@ -311,7 +391,9 @@ export function traverseNodesInternal<T, C>(
       }
     }
 
-    const [kind, type] = el.typeStub ? [2, el.type] : wrapType(el.type);
+    const [kind, type] = el.clientTypeReference
+      ? [2, el.type]
+      : wrapType(el.type);
 
     switch (kind) {
       case 0: // Class component
@@ -323,10 +405,24 @@ export function traverseNodesInternal<T, C>(
         };
 
       default:
+        if (el.props.value && isValidElement(el.props.value)) {
+          el = {
+            ...el,
+            props: {
+              ...el.props,
+              value:
+                context.clientComponentContext && context.serverTracker
+                  ? React.createElement(context.serverTracker!, {
+                      children: el.props.value,
+                    })
+                  : traverseNodes(el.props.value, context),
+            },
+          };
+        }
         const children = el.props?.children;
         let memoProps: any;
 
-        let memoType = !el.typeStub && el.type?.type;
+        let memoType = !el.clientTypeReference && el.type?.type;
         if (memoType) {
           const [kind, type] = wrapType(memoType);
 

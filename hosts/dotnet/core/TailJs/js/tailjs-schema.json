@@ -1499,6 +1499,11 @@
               "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
               "description": "For how long the view was active. This is set via patches"
             },
+            "httpStatus": {
+              "type": "number",
+              "description": "The HTTP status for the response associated with the view.",
+              "default": 200
+            },
             "utm": {
               "type": "object",
               "properties": {

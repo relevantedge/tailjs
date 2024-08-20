@@ -5,6 +5,7 @@ const nextConfig = {
       debugScript: true,
     },
   },
+
   // env: {
   //   NEXT_PUBLIC_TAILJS_API: "/_t.js",
   // },

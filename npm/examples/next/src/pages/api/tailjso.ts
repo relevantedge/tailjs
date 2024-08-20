@@ -1,3 +1,5 @@
+import { createServer } from "@tailjs/next/server";
+
 /* 
  * The API route handler for tail.js.
  * This file is auto-generated and should not be edited directly         
@@ -19,9 +21,9 @@
   }
  
  */
-import { api } from "@tailjs/next";
-import { addTailJsConfiguration } from "@tailjs/node";
 
-addTailJsConfiguration(import("../../../tailjs.config"));
-
-export default api;
+export default createServer({
+  // Tail.js configuration settings
+  debugScript: true,
+  extensions: [], //new ConsoleLogger()],
+});

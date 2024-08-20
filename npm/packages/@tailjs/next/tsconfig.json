@@ -5,6 +5,7 @@
     "strictNullChecks": true,
     "jsx": "react",
     "noErrorTruncation": false,
-    "preserveConstEnums": false
+    "preserveConstEnums": false,
+    "types": ["node"]
   }
 }

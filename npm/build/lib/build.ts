@@ -126,7 +126,7 @@ export const build = async (
 
             console.log(`Build started. ${config.input}`);
           } else if (ev.code === "ERROR") {
-            console.log("ERROR", ev.error.cause);
+            console.log("ERROR", ev.error.cause || ev.error);
           } else if (ev.code === "BUNDLE_END") {
             ev.result?.close();
           } else if (ev.code === "END") {

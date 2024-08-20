@@ -1,22 +1,17 @@
 import { OutputChunk } from "rollup";
 
 export function applyChunkNames(extension = ".js") {
-  const nextChunkIds: Record<string, number> = {};
+  let _ids: Record<string, number> = {};
 
-  const getChunkPrefix = (chunk: OutputChunk) =>
-    chunk.name.replace(/([^.]+).*/, "$1");
+  const nextChunkId = (chunk: OutputChunk, reset = false) => {
+    reset && (_ids = {});
+    const prefix = chunk.name.replace(/([^.]+).*/, "$1");
+    let id = (_ids[prefix] = (_ids[prefix] ?? -1) + 1);
+    return (id ? prefix + "_" + id : prefix) + extension;
+  };
+
   return {
-    chunkFileNames: (chunk: OutputChunk) => {
-      const name = getChunkPrefix(chunk);
-      const nextChunkId = (nextChunkIds[name] = (nextChunkIds[name] ??= 0) + 1);
-      return nextChunkId === 1
-        ? name + extension
-        : name + "_" + (nextChunkId - 1) + extension;
-    },
-    entryFileNames: (chunk: OutputChunk) => {
-      const name = getChunkPrefix(chunk);
-      nextChunkIds[name] = 1;
-      return name + extension;
-    },
+    chunkFileNames: (chunk: OutputChunk) => nextChunkId(chunk),
+    entryFileNames: (chunk: OutputChunk) => nextChunkId(chunk, true),
   };
 }

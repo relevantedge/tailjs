@@ -2240,6 +2240,13 @@
                   "x-privacy-class": "anonymous",
                   "x-privacy-purposes": "necessary"
                 },
+                "httpStatus": {
+                  "type": "number",
+                  "description": "The HTTP status for the response associated with the view.",
+                  "default": 200,
+                  "x-privacy-class": "anonymous",
+                  "x-privacy-purposes": "necessary"
+                },
                 "utm": {
                   "type": "object",
                   "properties": {
