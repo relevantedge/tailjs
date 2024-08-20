@@ -62,6 +62,13 @@ export interface ViewEvent extends TrackedEvent {
   duration?: ViewTimingData;
 
   /**
+   * The HTTP status for the response associated with the view.
+   *
+   * @default 200
+   */
+  httpStatus?: number;
+
+  /**
    * Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].
    */
   utm?: {

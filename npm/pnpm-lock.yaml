@@ -194,6 +194,7 @@ importers:
       postcss: ^8
       react: ^18
       react-dom: ^18
+      server-only: ^0.0.1
       tailwindcss: ^3.4.1
       typescript: ^5
     dependencies:
@@ -204,6 +205,7 @@ importers:
       next: 14.2.5_nnrd3gsncyragczmpvfhocinkq
       react: 18.3.1
       react-dom: 18.3.1_react@18.3.1
+      server-only: 0.0.1
     devDependencies:
       '@types/node': 20.14.15
       '@types/react': 18.3.3
@@ -11235,6 +11237,10 @@ packages:
       send: 0.18.0
     transitivePeerDependencies:
       - supports-color
+    dev: false
+
+  /server-only/0.0.1:
+    resolution: {integrity: sha512-qepMx2JxAa5jjfzxG79yPPq+8BuFToHd1hm7kI+Z4zAq1ftQiP7HcxMhDDItrbtwVeLg/cY2JnKnrcFkmiswNA==}
     dev: false
 
   /set-function-length/1.2.2:

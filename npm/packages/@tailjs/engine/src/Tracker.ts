@@ -44,7 +44,6 @@ import {
   variableScope,
 } from "@tailjs/types";
 import {
-  MaybePromise,
   Nullish,
   PartialRecord,
   PickPartial,

@@ -1,17 +1,13 @@
-import { EventLogger } from "@tailjs/engine";
-import type { TailJsMiddlewareConfiguration } from "@tailjs/node";
+//import { buildServer, configure } from "./common";
 
-export * from "./api";
+// export const buildIt = (map: (src: string) => string) => {
+//   return buildServer(configure(map));
+// };
 
-export { Tracker } from "./Tracker";
+export * from "./create";
+// export let Hello: any;
+// import("./client").then((module) => (Hello = module));
 
-// Sample extension for "tailjs.config.ts"
-export class TailJsConsoleLogger extends EventLogger {
-  constructor() {
-    super({ console: true });
-  }
-}
+//export let
 
-// Re-export  the middleware configuration type to avoid an explicit dependency on @tailjs/node
-// in "tailjs.config.ts" (at least with pnpm).
-export type TailJsApiConfiguration = TailJsMiddlewareConfiguration;
+//export * from "./createTracker";

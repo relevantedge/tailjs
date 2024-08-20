@@ -8,7 +8,7 @@ const CLIENT_SCRIPT_QUERY = "opt";
 const EVENT_HUB_QUERY = "var";
 const CONTEXT_NAV_QUERY = "mnt";
 const SCHEMA_QUERY = "$types";
-const BUILD_REVISION_QUERY = "rev=" + "lzwo8gp3" ;
+const BUILD_REVISION_QUERY = "rev=" + "m01ixc9d" ;
 const SCOPE_INFO_KEY = "@info";
 const CONSENT_INFO_KEY = "@consent";
 const SESSION_REFERENCE_KEY = "@session_reference";
@@ -2764,6 +2764,11 @@ var index = {
                         "duration": {
                             "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
                             "description": "For how long the view was active. This is set via patches"
+                        },
+                        "httpStatus": {
+                            "type": "number",
+                            "description": "The HTTP status for the response associated with the view.",
+                            "default": 200
                         },
                         "utm": {
                             "type": "object",

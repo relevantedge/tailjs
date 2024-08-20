@@ -19,7 +19,7 @@ import {
 } from "./lib";
 import { getExternalBundles } from "./rollup-external";
 
-const preserveModules = !!arg("--preserve-modules");
+const PRESERVE_MODULES = !!arg("--preserve-modules");
 
 /**
  * Directories ending with this will be included as sub packages.
@@ -83,203 +83,219 @@ export const getDistBundles = async ({
   ];
 
   const bundles = [
-    ...entries.flatMap(([input, target], i) => [
-      applyDefaultConfiguration({
-        input,
-        plugins: [
-          compilePlugin(pkg),
-          {
-            name: "watch-files",
-            async buildStart() {
-              (await fg("node_modules/@tailjs/*/dist/package.json")).forEach(
-                (file) => this.addWatchFile(file)
-              );
-
-              watchFiles?.(
-                typeof input === "string" ? input : input[0]
-              )?.forEach((file) => {
-                this.addWatchFile(file);
-              });
-            },
-          },
-
-          alias({
-            entries: [
-              {
-                find: "@constants",
-                replacement: `${pkg.workspace}/constants/index.ts`,
-              },
-            ],
-          }),
-
-          preserveDirectives(),
-          packageJsonPlugin(() => {
-            if (!target) {
-              const pkgJson = { ...pkg.config };
-              let npmScripts: Record<string, string> | undefined;
-
-              // Preserve npm install scripts.
-              ["preinstall", "install", "postinstall"]
-                .map((script) => [script, pkgJson.scripts?.[script]])
-                .forEach(
-                  ([key, value]) => value && ((npmScripts ??= {})[key] = value)
+    ...entries.flatMap(([input, target], i) => {
+      const preserveModules = PRESERVE_MODULES && !i;
+      return [
+        applyDefaultConfiguration({
+          input,
+          plugins: [
+            compilePlugin(pkg),
+            {
+              name: "watch-files",
+              async buildStart() {
+                (await fg("node_modules/@tailjs/*/dist/package.json")).forEach(
+                  (file) => this.addWatchFile(file)
                 );
 
-              pkgJson.type = "module";
-              [
-                "devDependencies",
-                "scripts",
-                "main",
-                "module",
-                "types",
-                "publishConfig",
-              ].forEach((key) => delete pkgJson[key]);
+                watchFiles?.(
+                  typeof input === "string" ? input : input[0]
+                )?.forEach((file) => {
+                  this.addWatchFile(file);
+                });
+              },
+            },
 
-              npmScripts && (pkgJson["scripts"] = npmScripts);
+            alias({
+              entries: [
+                {
+                  find: "@constants",
+                  replacement: `${pkg.workspace}/constants/index.ts`,
+                },
+              ],
+            }),
 
-              binScripts.forEach(({ name, dest }) => {
-                (pkgJson.bin ??= {})[name] = dest;
-              });
+            preserveDirectives(),
+            packageJsonPlugin(() => {
+              if (!target) {
+                const pkgJson = { ...pkg.config };
+                let npmScripts: Record<string, string> | undefined;
 
-              Object.entries(pkgJson.dependencies ?? {}).forEach(
-                ([key, value]: [string, string]) =>
-                  (pkgJson.dependencies[key] = value.replace(
-                    /^workspace:(.*)/,
-                    (_, version) =>
-                      version === "*"
-                        ? "^" + getPackageVersion(pkg, key)
-                        : version
-                  ))
-              );
+                // Preserve npm install scripts.
+                ["preinstall", "install", "postinstall"]
+                  .map((script) => [script, pkgJson.scripts?.[script]])
+                  .forEach(
+                    ([key, value]) =>
+                      value && ((npmScripts ??= {})[key] = value)
+                  );
 
-              const getExports = (root = "./") => ({
-                main: root + "index.cjs",
-                module: root + "index.mjs",
-                types: root + "index.d.ts",
-                exports: {
-                  ".": {
-                    import: {
-                      types: root + "index.d.ts",
-                      default: root + "index.mjs",
-                    },
-                    require: {
-                      types: root + "index.d.ts",
-                      default: root + "index.cjs",
-                    },
-                  },
-                  ...Object.fromEntries(
-                    Object.values(subPackages).map((name) => [
-                      "./" + name,
-                      {
-                        import: {
-                          types: root + name + "/index.d.ts",
-                          default: root + name + "/index.mjs",
-                        },
-                        require: {
-                          types: root + name + "/index.d.ts",
-                          default: root + name + "/index.cjs",
-                        },
+                pkgJson.type = "module";
+                [
+                  "devDependencies",
+                  "scripts",
+                  "main",
+                  "module",
+                  "types",
+                  "publishConfig",
+                ].forEach((key) => delete pkgJson[key]);
+
+                npmScripts && (pkgJson["scripts"] = npmScripts);
+
+                binScripts.forEach(({ name, dest }) => {
+                  (pkgJson.bin ??= {})[name] = dest;
+                });
+
+                Object.entries(pkgJson.dependencies ?? {}).forEach(
+                  ([key, value]: [string, string]) =>
+                    (pkgJson.dependencies[key] = value.replace(
+                      /^workspace:(.*)/,
+                      (_, version) =>
+                        version === "*"
+                          ? "^" + getPackageVersion(pkg, key)
+                          : version
+                    ))
+                );
+
+                const getExports = (root = "./") => ({
+                  main: root + "index.cjs",
+                  module: root + "index.mjs",
+                  types: root + "index.d.ts",
+                  exports: {
+                    ".": {
+                      import: {
+                        types: root + "index.d.ts",
+                        default: root + "index.mjs",
                       },
+                      require: {
+                        types: root + "index.d.ts",
+                        default: root + "index.cjs",
+                      },
+                    },
+                    ...Object.fromEntries(
+                      Object.values(subPackages).map((name) => [
+                        "./" + name,
+                        {
+                          import: {
+                            types: root + name + "/index.d.ts",
+                            default: root + name + "/index.mjs",
+                          },
+                          require: {
+                            types: root + name + "/index.d.ts",
+                            default: root + name + "/index.cjs",
+                          },
+                        },
+                      ])
+                    ),
+                  },
+                  bin: Object.fromEntries(
+                    binScripts.map((item) => [
+                      item.name,
+                      root + item.dest + ".cjs",
                     ])
                   ),
-                },
-                bin: Object.fromEntries(
-                  binScripts.map((item) => [
-                    item.name,
-                    root + item.dest + ".cjs",
-                  ])
-                ),
-              });
+                });
 
-              Object.assign(pkgJson, getExports());
+                Object.assign(pkgJson, getExports());
 
-              // Update the main package.json with the exports.
-              // This is only needed for internal development where the packages reference each other.
-              pkg.updatePackage((current) => {
-                const exports = getExports("./dist/");
+                // Update the main package.json with the exports.
+                // This is only needed for internal development where the packages reference each other.
+                pkg.updatePackage((current) => {
+                  const exports = getExports("./dist/");
+                  if (
+                    Object.entries(exports).some(
+                      ([key, value]) =>
+                        JSON.stringify(value) !== JSON.stringify(current[key])
+                    )
+                  ) {
+                    return { ...current, ...exports };
+                  }
+                });
+
+                pkgJson.version = getPackageVersion(pkg);
+                return addCommonPackageData(pkgJson);
+              } else if (target !== "cli") {
+                return {
+                  private: true,
+                  main: "index.cjs",
+                  module: "index.mjs",
+                  types: "index.d.ts",
+                };
+              }
+            }),
+            {
+              name: "merge-variables",
+              generateBundle: (options, bundle, isWrite) => {
+                // Used for inlining the client script and JSON schema.
+                for (const file in bundle) {
+                  let code = (bundle[file] as any).code;
+                  for (const key in variables) {
+                    let index = code.indexOf(key);
+                    if (index !== -1) {
+                      const value = variables[key]();
+                      code =
+                        code.substring(0, index) +
+                        value +
+                        code.substring(index + key.length);
+                    }
+                  }
+                  (bundle[file] as any).code = code;
+                }
+              },
+            },
+          ],
+          // treeshake: {
+          //   moduleSideEffects: true,
+          // },
+          output: destinations.flatMap((path) => {
+            const dir = join(path, target);
+
+            return [
+              ["es", ".mjs"],
+              ["cjs", ".cjs"],
+            ].map(([format, extension]: [ModuleFormat, string]) => ({
+              sourcemap: false,
+              // preserveModules,
+              // preserveModulesRoot: "src",
+              hoistTransitiveImports: false,
+              banner: target === "cli" ? "#!/usr/bin/env node" : "",
+              dir,
+              manualChunks: (id, { getModuleInfo }) => {
+                const module = getModuleInfo(id);
                 if (
-                  Object.entries(exports).some(
-                    ([key, value]) =>
-                      JSON.stringify(value) !== JSON.stringify(current[key])
+                  module?.meta?.preserveDirectives?.directives?.includes(
+                    "use client"
                   )
                 ) {
-                  return { ...current, ...exports };
+                  return "client";
                 }
-              });
-
-              pkgJson.version = getPackageVersion(pkg);
-              return addCommonPackageData(pkgJson);
-            } else if (target !== "cli") {
-              return {
-                private: true,
-                main: "index.cjs",
-                module: "index.mjs",
-                types: "index.d.ts",
-              };
-            }
+                return "index";
+              },
+              ...applyChunkNames(extension),
+              format,
+            }));
           }),
-          {
-            name: "merge-variables",
-            generateBundle: (options, bundle, isWrite) => {
-              // Used for inlining the client script and JSON schema.
-              for (const file in bundle) {
-                let code = (bundle[file] as any).code;
-                for (const key in variables) {
-                  let index = code.indexOf(key);
-                  if (index !== -1) {
-                    const value = variables[key]();
-                    code =
-                      code.substring(0, index) +
-                      value +
-                      code.substring(index + key.length);
-                  }
-                }
-                (bundle[file] as any).code = code;
-              }
-            },
-          },
-        ],
-        treeshake: {
-          moduleSideEffects: !preserveModules,
-        },
-        output: destinations.flatMap((path) => {
-          const dir = join(path, target);
-
-          return [
-            ["es", ".mjs"],
-            ["cjs", ".cjs"],
-          ].map(([format, extension]: [ModuleFormat, string]) => ({
-            sourcemap: false,
-            preserveModules,
-            preserveModulesRoot: "src",
-            banner: target === "cli" ? "#!/usr/bin/env node" : "",
-            dir,
-            ...applyChunkNames(extension),
-            format,
-          }));
         }),
-      }),
-      ...(target === "cli"
-        ? [] // No typings for CLI scripts.
-        : (Array.isArray(input) ? input : [input]).map((input) =>
-            applyDefaultConfiguration({
-              input,
-              //external: [/\@tailjs\/.+[^\/]/g],
-              plugins: [
-                dts({
-                  tsconfig: "tsconfig.swc.json",
+        ...(target === "cli"
+          ? [] // No typings for CLI scripts.
+          : (Array.isArray(input) ? input : [input]).map((input) =>
+              applyDefaultConfiguration({
+                input,
+                //external: [/\@tailjs\/.+[^\/]/g],
+                plugins: [
+                  dts({
+                    tsconfig: "tsconfig.swc.json",
+                  }),
+                ],
+                output: destinations.map((path) => {
+                  const dir = join(path, target);
+                  return {
+                    dir,
+                    ...applyChunkNames(".d.ts"),
+                  };
                 }),
-              ],
-              output: destinations.map((path) => {
-                const dir = join(path, target);
-                return {
-                  dir,
-                  ...applyChunkNames(".d.ts"),
-                };
-              }),
-            })
-          )),
-    ]),
+              })
+            )),
+      ];
+    }),
   ];
 
   if (arg("--ext", "-e")) {

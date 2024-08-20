@@ -9,7 +9,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "build": "rimraf dist && tsx ../../../build/rollup.ts --preserve-modules",
-    "build:watch": "pnpm run build -w -t"
+    "build:watch": "pnpm run build -w"
   },
   "dependencies": {
     "@tailjs/client": "^0.17.24",
@@ -40,5 +40,6 @@
         "default": "./dist/index.cjs"
       }
     }
-  }
+  },
+  "bin": {}
 }
