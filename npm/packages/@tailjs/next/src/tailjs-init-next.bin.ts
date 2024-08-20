@@ -1,40 +1,61 @@
 import fs from "fs";
 import path from "path";
 
-let nextConfigFile: string | undefined;
-if (
-  !["js", "mjs", "ts"].some((ext) =>
-    fs.existsSync((nextConfigFile = "./next.config." + ext))
-  )
-) {
+const reset = "\x1b[0m";
+const green = "\x1b[32;1m";
+const blue = "\x1b[34m";
+const flash = "\x1b[37m";
+
+const format = (text: string, format = green) => format + text + reset;
+
+if (process.argv.includes("--help")) {
   console.log(
-    "tail.js: No NextJS config file found in the current directory, no action taken."
+    format(
+      "\n@tailjs/next was installed.\n\nPlease run `npx tailjs-init-next` to setup configuration and routing.\n"
+    )
   );
 } else {
-  console.log(
-    `tailjs: Found the NextJS configuration file '${nextConfigFile!}'.`
-  );
-  const prefix = fs.existsSync("src") ? "./src/" : "./";
-  const apiDir = prefix + "api/tailjs";
-  const apiConfigFile = "./tailjs.client.api.ts";
-  const clientConfigFile = "./tailjs.client.config.ts";
+  let nextConfigFile: string | undefined;
+  if (
+    !["js", "mjs", "ts"].some((ext) =>
+      fs.existsSync((nextConfigFile = "./next.config." + ext))
+    )
+  ) {
+    console.log(
+      format(
+        "tail.js: No NextJS config file found in the current directory, no action taken."
+      )
+    );
+  } else {
+    console.log(
+      format(
+        `tailjs: Found the NextJS configuration file '${nextConfigFile!}'.\n`
+      )
+    );
+    const prefix = fs.existsSync("src") ? "./src/" : "./";
+    const apiDir = prefix + "app/api/tailjs";
+    if (!fs.existsSync(apiDir)) {
+      fs.mkdirSync(apiDir, { recursive: true });
+    }
+    const apiConfigFile = "./tailjs.api.config.ts";
+    const clientConfigFile = "./tailjs.client.config.ts";
 
-  for (const [file, description, content] of [
-    [
-      apiConfigFile,
-      "API configuration file",
-      `import { ConsoleLogger, createApi } from "@tailjs/next/server";
+    for (const [file, description, content] of [
+      [
+        apiConfigFile,
+        "API configuration file",
+        `import { ConsoleLogger, createApi } from "@tailjs/next/server";
 
 export default createApi({
   debugScript: true, // Useful to see what is going on, once first installed.
   extensions: [new ConsoleLogger()], // Add extensions here to store data etc.
 });
 `,
-    ],
-    [
-      clientConfigFile,
-      "Client configuration file",
-      `import { createClientConfiguration } from "@tailjs/next";
+      ],
+      [
+        clientConfigFile,
+        "Client configuration file",
+        `import { createClientConfiguration } from "@tailjs/next";
 import Link from "next/link";
 
 // This file configures the context for tracking.
@@ -75,44 +96,67 @@ export default createClientConfiguration({
   },
 });
 `,
-    ],
-    [
-      apiDir + "/route.ts",
-      "API route handler",
-      `import api from "${path.posix.relative(apiDir, apiConfigFile)}";
+      ],
+      [
+        apiDir + "/route.ts",
+        "API route handler",
+        `import api from "${path.posix
+          .relative(apiDir, apiConfigFile)
+          .slice(0, -3)}";
 
 export const { GET, POST } = api;`,
-    ],
-    [
-      apiDir + "/_client.ts",
-      "Boilerplate for the tracking component.",
-      `"use client";
+      ],
+      [
+        apiDir + "/_client.ts",
+        "Boilerplate for the tracking component.",
+        `"use client";
 import { ConfiguredTracker as _client_tracker } from "./ConfiguredTracker";
 export default _client_tracker;
 `,
-    ],
-    [
-      apiDir + "/ConfiguredTracker.ts",
-      "The tracking component",
-      `import { compileTracker } from "@tailjs/next";
+      ],
+      [
+        apiDir + "/ConfiguredTracker.ts",
+        "The tracking component",
+        `import { compileTracker } from "@tailjs/next";
 import client from "./_client";
-import configuration from "${path.posix.relative(apiDir, clientConfigFile)}";
+import configuration from "${path.posix
+          .relative(apiDir, clientConfigFile)
+          .slice(0, -3)}";
 
 export const ConfiguredTracker = compileTracker(configuration, () => client);
 `,
-    ],
-  ])
-    try {
-      if (fs.existsSync(file)) {
-        console.log(`tail.js: '${file}' already exists, no action taken.`);
-      } else {
-        fs.writeFileSync(file, content, "utf-8");
-        console.log(`tail.js: '${file}' was added to the project.`);
+      ],
+    ])
+      try {
+        if (fs.existsSync(file)) {
+          console.log(
+            format(
+              `tail.js: ${description} ('${file}') already exists, no action taken.\n`,
+              blue
+            )
+          );
+        } else {
+          fs.writeFileSync(file, content, "utf-8");
+          console.log(
+            format(
+              `tail.js: ${description} ('${file}') was added to your project.\n`
+            )
+          );
+        }
+      } catch (e) {
+        console.error(
+          `tail.js: ${description} ('${file}') could not be created.\n`,
+          e
+        );
       }
-    } catch (e) {
-      console.error(
-        `tail.js: The file '${file}' for the tail.js API route could be created.`,
-        e
-      );
-    }
+
+    console.log(
+      format(
+        `tail.js: Configuration and routing were added.\n\nPlease remember to wrap your layout or page content in the ConfiguredTracker component ('${
+          apiDir + "/ConfiguredTracker.ts"
+        }').`,
+        flash
+      )
+    );
+  }
 }
