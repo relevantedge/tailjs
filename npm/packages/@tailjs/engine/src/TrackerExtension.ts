@@ -7,7 +7,7 @@ export type NextPatchExtension = (
   events: ParseResult[]
 ) => Promise<TrackedEvent[]>;
 
-export type TrackedEventBatch = TrackedEvent[];
+export type TrackedEventBatch = (TrackedEvent & Record<string, any>)[];
 
 export type TrackerExtensionContext = {
   passive: boolean;

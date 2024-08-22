@@ -62,7 +62,11 @@ export function useTrackerVariable<T = any>(
       let resolve: any;
       const promise = new Promise<any>((r) => (resolve = r));
       tail(<GetCommand>{
-        get: { ...key, refresh: true, result: (current) => resolve(current) },
+        get: {
+          ...key,
+          refresh: true,
+          result: (current) => resolve(notifyChanged(current as any)),
+        },
       });
       return promise;
     },

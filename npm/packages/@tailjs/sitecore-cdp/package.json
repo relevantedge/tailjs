@@ -2,7 +2,6 @@
   "name": "@tailjs/sitecore-cdp",
   "description": "tail.js extensions for Sitecore CDP.",
   "license": "LGPL3",
-  "version": "0.17.24",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -14,8 +13,8 @@
     "build:watch": "pnpm run build -w"
   },
   "dependencies": {
-    "@tailjs/engine": "^0.17.24",
-    "@tailjs/types": "^0.17.24"
+    "@tailjs/engine": "workspace:*",
+    "@tailjs/types": "workspace:*"
   },
   "publishConfig": {
     "directory": "dist"
@@ -31,6 +30,5 @@
         "default": "./dist/index.cjs"
       }
     }
-  },
-  "bin": {}
+  }
 }

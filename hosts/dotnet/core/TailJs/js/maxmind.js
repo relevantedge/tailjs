@@ -2632,11 +2632,11 @@ var browser$2 = /*#__PURE__*/Object.freeze({
 	versions: versions
 });
 
-var assert = {exports: {}};
+var assert$1 = {exports: {}};
 
 var errors$1 = {};
 
-var util$2 = {};
+var util$3 = {};
 
 var types = {};
 
@@ -4867,7 +4867,7 @@ var inherits_browserExports$1 = inherits_browser$1.exports;
 	  return callbackified;
 	}
 	exports.callbackify = callbackify; 
-} (util$2));
+} (util$3));
 
 var hasRequiredErrors;
 
@@ -4995,7 +4995,7 @@ function requireErrors () {
 	}, TypeError);
 	createErrorType('ERR_INVALID_ARG_VALUE', function (name, value) {
 	  var reason = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'is invalid';
-	  if (util === undefined) util = util$2;
+	  if (util === undefined) util = util$3;
 	  var inspected = util.inspect(value);
 	  if (inspected.length > 128) {
 	    inspected = "".concat(inspected.slice(0, 128), "...");
@@ -5066,7 +5066,7 @@ function requireAssertion_error () {
 	function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 	function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf.bind() : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
 	function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-	var _require = util$2,
+	var _require = util$3,
 	  inspect = _require.inspect;
 	var _require2 = requireErrors(),
 	  ERR_INVALID_ARG_TYPE = _require2.codes.ERR_INVALID_ARG_TYPE;
@@ -6017,7 +6017,7 @@ function requireComparisons () {
 	var hasOwnProperty = uncurryThis(Object.prototype.hasOwnProperty);
 	var propertyIsEnumerable = uncurryThis(Object.prototype.propertyIsEnumerable);
 	var objectToString = uncurryThis(Object.prototype.toString);
-	var _require$types = util$2.types,
+	var _require$types = util$3.types,
 	  isAnyArrayBuffer = _require$types.isAnyArrayBuffer,
 	  isArrayBufferView = _require$types.isArrayBufferView,
 	  isDate = _require$types.isDate,
@@ -6559,7 +6559,7 @@ function requireComparisons () {
 var hasRequiredAssert;
 
 function requireAssert () {
-	if (hasRequiredAssert) return assert.exports;
+	if (hasRequiredAssert) return assert$1.exports;
 	hasRequiredAssert = 1;
 
 	function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -6576,9 +6576,9 @@ function requireAssert () {
 	  ERR_INVALID_RETURN_VALUE = _require$codes.ERR_INVALID_RETURN_VALUE,
 	  ERR_MISSING_ARGS = _require$codes.ERR_MISSING_ARGS;
 	var AssertionError = requireAssertion_error();
-	var _require2 = util$2,
+	var _require2 = util$3,
 	  inspect = _require2.inspect;
-	var _require$types = util$2.types,
+	var _require$types = util$3.types,
 	  isPromise = _require$types.isPromise,
 	  isRegExp = _require$types.isRegExp;
 	var objectAssign = polyfill$2();
@@ -6597,7 +6597,7 @@ function requireAssert () {
 	// AssertionError's when particular conditions are not met. The
 	// assert module must conform to the following interface.
 
-	var assert$1 = assert.exports = ok;
+	var assert = assert$1.exports = ok;
 	var NO_EXCEPTION_SENTINEL = {};
 
 	// All of the following functions must throw an AssertionError
@@ -6643,10 +6643,10 @@ function requireAssert () {
 	  }
 	  throw err;
 	}
-	assert$1.fail = fail;
+	assert.fail = fail;
 
 	// The AssertionError is defined in internal/error.
-	assert$1.AssertionError = AssertionError;
+	assert.AssertionError = AssertionError;
 	function innerOk(fn, argLen, value, message) {
 	  if (!value) {
 	    var generatedMessage = false;
@@ -6676,11 +6676,11 @@ function requireAssert () {
 	  }
 	  innerOk.apply(void 0, [ok, args.length].concat(args));
 	}
-	assert$1.ok = ok;
+	assert.ok = ok;
 
 	// The equality assertion tests shallow, coercive equality with ==.
 	/* eslint-disable no-restricted-properties */
-	assert$1.equal = function equal(actual, expected, message) {
+	assert.equal = function equal(actual, expected, message) {
 	  if (arguments.length < 2) {
 	    throw new ERR_MISSING_ARGS('actual', 'expected');
 	  }
@@ -6698,7 +6698,7 @@ function requireAssert () {
 
 	// The non-equality assertion tests for whether two objects are not
 	// equal with !=.
-	assert$1.notEqual = function notEqual(actual, expected, message) {
+	assert.notEqual = function notEqual(actual, expected, message) {
 	  if (arguments.length < 2) {
 	    throw new ERR_MISSING_ARGS('actual', 'expected');
 	  }
@@ -6715,7 +6715,7 @@ function requireAssert () {
 	};
 
 	// The equivalence assertion tests a deep equality relation.
-	assert$1.deepEqual = function deepEqual(actual, expected, message) {
+	assert.deepEqual = function deepEqual(actual, expected, message) {
 	  if (arguments.length < 2) {
 	    throw new ERR_MISSING_ARGS('actual', 'expected');
 	  }
@@ -6732,7 +6732,7 @@ function requireAssert () {
 	};
 
 	// The non-equivalence assertion tests for any deep inequality.
-	assert$1.notDeepEqual = function notDeepEqual(actual, expected, message) {
+	assert.notDeepEqual = function notDeepEqual(actual, expected, message) {
 	  if (arguments.length < 2) {
 	    throw new ERR_MISSING_ARGS('actual', 'expected');
 	  }
@@ -6749,7 +6749,7 @@ function requireAssert () {
 	};
 	/* eslint-enable */
 
-	assert$1.deepStrictEqual = function deepStrictEqual(actual, expected, message) {
+	assert.deepStrictEqual = function deepStrictEqual(actual, expected, message) {
 	  if (arguments.length < 2) {
 	    throw new ERR_MISSING_ARGS('actual', 'expected');
 	  }
@@ -6764,7 +6764,7 @@ function requireAssert () {
 	    });
 	  }
 	};
-	assert$1.notDeepStrictEqual = notDeepStrictEqual;
+	assert.notDeepStrictEqual = notDeepStrictEqual;
 	function notDeepStrictEqual(actual, expected, message) {
 	  if (arguments.length < 2) {
 	    throw new ERR_MISSING_ARGS('actual', 'expected');
@@ -6780,7 +6780,7 @@ function requireAssert () {
 	    });
 	  }
 	}
-	assert$1.strictEqual = function strictEqual(actual, expected, message) {
+	assert.strictEqual = function strictEqual(actual, expected, message) {
 	  if (arguments.length < 2) {
 	    throw new ERR_MISSING_ARGS('actual', 'expected');
 	  }
@@ -6794,7 +6794,7 @@ function requireAssert () {
 	    });
 	  }
 	};
-	assert$1.notStrictEqual = function notStrictEqual(actual, expected, message) {
+	assert.notStrictEqual = function notStrictEqual(actual, expected, message) {
 	  if (arguments.length < 2) {
 	    throw new ERR_MISSING_ARGS('actual', 'expected');
 	  }
@@ -6994,13 +6994,13 @@ function requireAssert () {
 	  }
 	  throw actual;
 	}
-	assert$1.throws = function throws(promiseFn) {
+	assert.throws = function throws(promiseFn) {
 	  for (var _len2 = arguments.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
 	    args[_key2 - 1] = arguments[_key2];
 	  }
 	  expectsError.apply(void 0, [throws, getActual(promiseFn)].concat(args));
 	};
-	assert$1.rejects = function rejects(promiseFn) {
+	assert.rejects = function rejects(promiseFn) {
 	  for (var _len3 = arguments.length, args = new Array(_len3 > 1 ? _len3 - 1 : 0), _key3 = 1; _key3 < _len3; _key3++) {
 	    args[_key3 - 1] = arguments[_key3];
 	  }
@@ -7008,13 +7008,13 @@ function requireAssert () {
 	    return expectsError.apply(void 0, [rejects, result].concat(args));
 	  });
 	};
-	assert$1.doesNotThrow = function doesNotThrow(fn) {
+	assert.doesNotThrow = function doesNotThrow(fn) {
 	  for (var _len4 = arguments.length, args = new Array(_len4 > 1 ? _len4 - 1 : 0), _key4 = 1; _key4 < _len4; _key4++) {
 	    args[_key4 - 1] = arguments[_key4];
 	  }
 	  expectsNoError.apply(void 0, [doesNotThrow, getActual(fn)].concat(args));
 	};
-	assert$1.doesNotReject = function doesNotReject(fn) {
+	assert.doesNotReject = function doesNotReject(fn) {
 	  for (var _len5 = arguments.length, args = new Array(_len5 > 1 ? _len5 - 1 : 0), _key5 = 1; _key5 < _len5; _key5++) {
 	    args[_key5 - 1] = arguments[_key5];
 	  }
@@ -7022,7 +7022,7 @@ function requireAssert () {
 	    return expectsNoError.apply(void 0, [doesNotReject, result].concat(args));
 	  });
 	};
-	assert$1.ifError = function ifError(err) {
+	assert.ifError = function ifError(err) {
 	  if (err !== null && err !== undefined) {
 	    var message = 'ifError got unwanted exception: ';
 	    if (_typeof(err) === 'object' && typeof err.message === 'string') {
@@ -7093,10 +7093,10 @@ function requireAssert () {
 	    throw err;
 	  }
 	}
-	assert$1.match = function match(string, regexp, message) {
+	assert.match = function match(string, regexp, message) {
 	  internalMatch(string, regexp, message, match, 'match');
 	};
-	assert$1.doesNotMatch = function doesNotMatch(string, regexp, message) {
+	assert.doesNotMatch = function doesNotMatch(string, regexp, message) {
 	  internalMatch(string, regexp, message, doesNotMatch, 'doesNotMatch');
 	};
 
@@ -7107,14 +7107,14 @@ function requireAssert () {
 	  }
 	  innerOk.apply(void 0, [strict, args.length].concat(args));
 	}
-	assert$1.strict = objectAssign(strict, assert$1, {
-	  equal: assert$1.strictEqual,
-	  deepEqual: assert$1.deepStrictEqual,
-	  notEqual: assert$1.notStrictEqual,
-	  notDeepEqual: assert$1.notDeepStrictEqual
+	assert.strict = objectAssign(strict, assert, {
+	  equal: assert.strictEqual,
+	  deepEqual: assert.deepStrictEqual,
+	  notEqual: assert.notStrictEqual,
+	  notDeepEqual: assert.notDeepStrictEqual
 	});
-	assert$1.strict.strict = assert$1.strict;
-	return assert.exports;
+	assert.strict.strict = assert.strict;
+	return assert$1.exports;
 }
 
 var lib$2 = {};
@@ -7137,7 +7137,13 @@ const legacyErrorMessage$1 = `Maxmind v2 module has changed API.\n\
 Upgrade instructions can be found here: \
 https://github.com/runk/node-maxmind/wiki/Migration-guide\n\
 If you want to use legacy library then explicitly install maxmind@1`;
+const assert = (condition, message) => {
+    if (!condition) {
+        throw new Error(message);
+    }
+};
 utils$2.default = {
+    assert,
     concat2: concat2$1,
     concat3: concat3$1,
     concat4: concat4$1,
@@ -7148,9 +7154,8 @@ var __importDefault$4 = (commonjsGlobal && commonjsGlobal.__importDefault) || fu
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(decoder, "__esModule", { value: true });
-const assert_1 = __importDefault$4(requireAssert());
 const utils_1$1 = __importDefault$4(utils$2);
-(0, assert_1.default)(typeof BigInt !== 'undefined', 'Apparently you are using old version of node. Please upgrade to node 10.4.x or above.');
+utils_1$1.default.assert(typeof BigInt !== 'undefined', 'Apparently you are using old version of node. Please upgrade to node 10.4.x or above.');
 var DataType;
 (function (DataType) {
     DataType[DataType["Extended"] = 0] = "Extended";
@@ -7179,7 +7184,8 @@ const cursor = (value, offset) => ({ value, offset });
 class Decoder {
     constructor(db, baseOffset = 0, cache = noCache) {
         this.telemetry = {};
-        (0, assert_1.default)((this.db = db), 'Database buffer is required');
+        utils_1$1.default.assert(Boolean(db), 'Database buffer is required');
+        this.db = db;
         this.baseOffset = baseOffset;
         this.cache = cache;
     }
@@ -7501,7 +7507,6 @@ var metadata = {};
 	};
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.isLegacyFormat = exports.parseMetadata = void 0;
-	const assert_1 = __importDefault(requireAssert());
 	const decoder_1 = __importDefault(decoder);
 	const utils_1 = __importDefault(utils$2);
 	const METADATA_START_MARKER = buffer$1.Buffer.from('ABCDEF4D61784D696E642E636F6D', 'hex');
@@ -7514,7 +7519,7 @@ var metadata = {};
 	            ? utils_1.default.legacyErrorMessage
 	            : 'Cannot parse binary database');
 	    }
-	    (0, assert_1.default)([24, 28, 32].indexOf(metadata.record_size) > -1, 'Unsupported record size');
+	    utils_1.default.assert([24, 28, 32].indexOf(metadata.record_size) > -1, 'Unsupported record size');
 	    return {
 	        binaryFormatMajorVersion: metadata.binary_format_major_version,
 	        binaryFormatMinorVersion: metadata.binary_format_minor_version,
@@ -7703,7 +7708,7 @@ var tinyLru = {};
  *
  * @copyright 2024 Jason Mulligan <jason.mulligan@avoidwork.com>
  * @license BSD-3-Clause
- * @version 11.2.6
+ * @version 11.2.11
  */
 
 class LRU {
@@ -7968,20 +7973,17 @@ else
 
 Object.defineProperty(Stats$1, "__esModule", { value: true });
 Stats$1.Stats = void 0;
-var constants_1$1 = constants;
-var getBigInt_1 = getBigInt;
-var S_IFMT$1 = constants_1$1.constants.S_IFMT, S_IFDIR$1 = constants_1$1.constants.S_IFDIR, S_IFREG$1 = constants_1$1.constants.S_IFREG, S_IFBLK$1 = constants_1$1.constants.S_IFBLK, S_IFCHR$1 = constants_1$1.constants.S_IFCHR, S_IFLNK$1 = constants_1$1.constants.S_IFLNK, S_IFIFO$1 = constants_1$1.constants.S_IFIFO, S_IFSOCK$1 = constants_1$1.constants.S_IFSOCK;
+const constants_1$1 = constants;
+const getBigInt_1 = getBigInt;
+const { S_IFMT: S_IFMT$1, S_IFDIR: S_IFDIR$1, S_IFREG: S_IFREG$1, S_IFBLK: S_IFBLK$1, S_IFCHR: S_IFCHR$1, S_IFLNK: S_IFLNK$1, S_IFIFO: S_IFIFO$1, S_IFSOCK: S_IFSOCK$1 } = constants_1$1.constants;
 /**
  * Statistics about a file/directory, like `fs.Stats`.
  */
-var Stats = /** @class */ (function () {
-    function Stats() {
-    }
-    Stats.build = function (node, bigint) {
-        if (bigint === void 0) { bigint = false; }
-        var stats = new Stats();
-        var uid = node.uid, gid = node.gid, atime = node.atime, mtime = node.mtime, ctime = node.ctime;
-        var getStatNumber = !bigint ? function (number) { return number; } : getBigInt_1.default;
+class Stats {
+    static build(node, bigint = false) {
+        const stats = new Stats();
+        const { uid, gid, atime, mtime, ctime } = node;
+        const getStatNumber = !bigint ? number => number : getBigInt_1.default;
         // Copy all values on Stats from Node, so that if Node values
         // change, values on Stats would still be the old ones,
         // just like in Node fs.
@@ -7998,40 +8000,39 @@ var Stats = /** @class */ (function () {
         stats.birthtime = ctime;
         stats.atimeMs = getStatNumber(atime.getTime());
         stats.mtimeMs = getStatNumber(mtime.getTime());
-        var ctimeMs = getStatNumber(ctime.getTime());
+        const ctimeMs = getStatNumber(ctime.getTime());
         stats.ctimeMs = ctimeMs;
         stats.birthtimeMs = ctimeMs;
         stats.dev = getStatNumber(0);
         stats.mode = getStatNumber(node.mode);
         stats.nlink = getStatNumber(node.nlink);
         return stats;
-    };
-    Stats.prototype._checkModeProperty = function (property) {
+    }
+    _checkModeProperty(property) {
         return (Number(this.mode) & S_IFMT$1) === property;
-    };
-    Stats.prototype.isDirectory = function () {
+    }
+    isDirectory() {
         return this._checkModeProperty(S_IFDIR$1);
-    };
-    Stats.prototype.isFile = function () {
+    }
+    isFile() {
         return this._checkModeProperty(S_IFREG$1);
-    };
-    Stats.prototype.isBlockDevice = function () {
+    }
+    isBlockDevice() {
         return this._checkModeProperty(S_IFBLK$1);
-    };
-    Stats.prototype.isCharacterDevice = function () {
+    }
+    isCharacterDevice() {
         return this._checkModeProperty(S_IFCHR$1);
-    };
-    Stats.prototype.isSymbolicLink = function () {
+    }
+    isSymbolicLink() {
         return this._checkModeProperty(S_IFLNK$1);
-    };
-    Stats.prototype.isFIFO = function () {
+    }
+    isFIFO() {
         return this._checkModeProperty(S_IFIFO$1);
-    };
-    Stats.prototype.isSocket = function () {
+    }
+    isSocket() {
         return this._checkModeProperty(S_IFSOCK$1);
-    };
-    return Stats;
-}());
+    }
+}
 Stats$1.Stats = Stats;
 Stats$1.default = Stats;
 
@@ -8042,29 +8043,16 @@ var encoding = {};
 var buffer = {};
 
 (function (exports) {
-	var __spreadArray = (commonjsGlobal && commonjsGlobal.__spreadArray) || function (to, from, pack) {
-	    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-	        if (ar || !(i in from)) {
-	            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-	            ar[i] = from[i];
-	        }
-	    }
-	    return to.concat(ar || Array.prototype.slice.call(from));
-	};
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.bufferFrom = exports.bufferAllocUnsafe = exports.Buffer = void 0;
-	var buffer_1 = buffer$1;
+	const buffer_1 = buffer$1;
 	Object.defineProperty(exports, "Buffer", { enumerable: true, get: function () { return buffer_1.Buffer; } });
-	function bufferV0P12Ponyfill(arg0) {
-	    var args = [];
-	    for (var _i = 1; _i < arguments.length; _i++) {
-	        args[_i - 1] = arguments[_i];
-	    }
-	    return new (buffer_1.Buffer.bind.apply(buffer_1.Buffer, __spreadArray([void 0, arg0], args, false)))();
+	function bufferV0P12Ponyfill(arg0, ...args) {
+	    return new buffer_1.Buffer(arg0, ...args);
 	}
-	var bufferAllocUnsafe = buffer_1.Buffer.allocUnsafe || bufferV0P12Ponyfill;
+	const bufferAllocUnsafe = buffer_1.Buffer.allocUnsafe || bufferV0P12Ponyfill;
 	exports.bufferAllocUnsafe = bufferAllocUnsafe;
-	var bufferFrom = buffer_1.Buffer.from || bufferV0P12Ponyfill;
+	const bufferFrom = buffer_1.Buffer.from || bufferV0P12Ponyfill;
 	exports.bufferFrom = bufferFrom; 
 } (buffer));
 
@@ -8076,77 +8064,51 @@ var errors = {};
 	// change. The NodeError classes here all expose a `code` property whose
 	// value statically and permanently identifies the error. While the error
 	// message may change, the code should not.
-	var __extends = (commonjsGlobal && commonjsGlobal.__extends) || (function () {
-	    var extendStatics = function (d, b) {
-	        extendStatics = Object.setPrototypeOf ||
-	            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-	            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-	        return extendStatics(d, b);
-	    };
-	    return function (d, b) {
-	        if (typeof b !== "function" && b !== null)
-	            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-	        extendStatics(d, b);
-	        function __() { this.constructor = d; }
-	        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-	    };
-	})();
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.E = exports.AssertionError = exports.message = exports.RangeError = exports.TypeError = exports.Error = void 0;
-	var assert = requireAssert();
-	var util = util$2;
-	var kCode = typeof Symbol === 'undefined' ? '_kCode' : Symbol('code');
-	var messages = {}; // new Map();
+	const assert = requireAssert();
+	const util = util$3;
+	const kCode = typeof Symbol === 'undefined' ? '_kCode' : Symbol('code');
+	const messages = {}; // new Map();
 	function makeNodeError(Base) {
-	    return /** @class */ (function (_super) {
-	        __extends(NodeError, _super);
-	        function NodeError(key) {
-	            var args = [];
-	            for (var _i = 1; _i < arguments.length; _i++) {
-	                args[_i - 1] = arguments[_i];
-	            }
-	            var _this = _super.call(this, message(key, args)) || this;
-	            _this.code = key;
-	            _this[kCode] = key;
-	            _this.name = "".concat(_super.prototype.name, " [").concat(_this[kCode], "]");
-	            return _this;
+	    return class NodeError extends Base {
+	        constructor(key, ...args) {
+	            super(message(key, args));
+	            this.code = key;
+	            this[kCode] = key;
+	            this.name = `${super.name} [${this[kCode]}]`;
 	        }
-	        return NodeError;
-	    }(Base));
+	    };
 	}
-	var g = typeof globalThis !== 'undefined' ? globalThis : commonjsGlobal;
-	var AssertionError = /** @class */ (function (_super) {
-	    __extends(AssertionError, _super);
-	    function AssertionError(options) {
-	        var _this = this;
+	const g = typeof globalThis !== 'undefined' ? globalThis : commonjsGlobal;
+	class AssertionError extends g.Error {
+	    constructor(options) {
 	        if (typeof options !== 'object' || options === null) {
 	            throw new exports.TypeError('ERR_INVALID_ARG_TYPE', 'options', 'object');
 	        }
 	        if (options.message) {
-	            _this = _super.call(this, options.message) || this;
+	            super(options.message);
 	        }
 	        else {
-	            _this = _super.call(this, "".concat(util.inspect(options.actual).slice(0, 128), " ") +
-	                "".concat(options.operator, " ").concat(util.inspect(options.expected).slice(0, 128))) || this;
+	            super(`${util.inspect(options.actual).slice(0, 128)} ` +
+	                `${options.operator} ${util.inspect(options.expected).slice(0, 128)}`);
 	        }
-	        _this.generatedMessage = !options.message;
-	        _this.name = 'AssertionError [ERR_ASSERTION]';
-	        _this.code = 'ERR_ASSERTION';
-	        _this.actual = options.actual;
-	        _this.expected = options.expected;
-	        _this.operator = options.operator;
-	        exports.Error.captureStackTrace(_this, options.stackStartFunction);
-	        return _this;
+	        this.generatedMessage = !options.message;
+	        this.name = 'AssertionError [ERR_ASSERTION]';
+	        this.code = 'ERR_ASSERTION';
+	        this.actual = options.actual;
+	        this.expected = options.expected;
+	        this.operator = options.operator;
+	        exports.Error.captureStackTrace(this, options.stackStartFunction);
 	    }
-	    return AssertionError;
-	}(g.Error));
+	}
 	exports.AssertionError = AssertionError;
 	function message(key, args) {
 	    assert.strictEqual(typeof key, 'string');
 	    // const msg = messages.get(key);
-	    var msg = messages[key];
-	    assert(msg, "An invalid error message key was used: ".concat(key, "."));
-	    var fmt;
+	    const msg = messages[key];
+	    assert(msg, `An invalid error message key was used: ${key}.`);
+	    let fmt;
 	    if (typeof msg === 'function') {
 	        fmt = msg;
 	    }
@@ -8187,18 +8149,18 @@ var errors = {};
 	E('ERR_CHILD_CLOSED_BEFORE_REPLY', 'Child closed before reply received');
 	E('ERR_CONSOLE_WRITABLE_STREAM', 'Console expects a writable stream instance for %s');
 	E('ERR_CPU_USAGE', 'Unable to obtain cpu usage %s');
-	E('ERR_DNS_SET_SERVERS_FAILED', function (err, servers) { return "c-ares failed to set servers: \"".concat(err, "\" [").concat(servers, "]"); });
+	E('ERR_DNS_SET_SERVERS_FAILED', (err, servers) => `c-ares failed to set servers: "${err}" [${servers}]`);
 	E('ERR_FALSY_VALUE_REJECTION', 'Promise was rejected with falsy value');
-	E('ERR_ENCODING_NOT_SUPPORTED', function (enc) { return "The \"".concat(enc, "\" encoding is not supported"); });
-	E('ERR_ENCODING_INVALID_ENCODED_DATA', function (enc) { return "The encoded data was not valid for encoding ".concat(enc); });
+	E('ERR_ENCODING_NOT_SUPPORTED', enc => `The "${enc}" encoding is not supported`);
+	E('ERR_ENCODING_INVALID_ENCODED_DATA', enc => `The encoded data was not valid for encoding ${enc}`);
 	E('ERR_HTTP_HEADERS_SENT', 'Cannot render headers after they are sent to the client');
 	E('ERR_HTTP_INVALID_STATUS_CODE', 'Invalid status code: %s');
 	E('ERR_HTTP_TRAILER_INVALID', 'Trailers are invalid with this transfer encoding');
 	E('ERR_INDEX_OUT_OF_RANGE', 'Index out of range');
 	E('ERR_INVALID_ARG_TYPE', invalidArgType);
-	E('ERR_INVALID_ARRAY_LENGTH', function (name, len, actual) {
+	E('ERR_INVALID_ARRAY_LENGTH', (name, len, actual) => {
 	    assert.strictEqual(typeof actual, 'number');
-	    return "The array \"".concat(name, "\" (length ").concat(actual, ") must be of length ").concat(len, ".");
+	    return `The array "${name}" (length ${actual}) must be of length ${len}.`;
 	});
 	E('ERR_INVALID_BUFFER_SIZE', 'Buffer size must be a multiple of %s');
 	E('ERR_INVALID_CALLBACK', 'Callback must be a function');
@@ -8209,16 +8171,16 @@ var errors = {};
 	E('ERR_INVALID_FILE_URL_PATH', 'File URL path %s');
 	E('ERR_INVALID_HANDLE_TYPE', 'This handle type cannot be sent');
 	E('ERR_INVALID_IP_ADDRESS', 'Invalid IP address: %s');
-	E('ERR_INVALID_OPT_VALUE', function (name, value) {
-	    return "The value \"".concat(String(value), "\" is invalid for option \"").concat(name, "\"");
+	E('ERR_INVALID_OPT_VALUE', (name, value) => {
+	    return `The value "${String(value)}" is invalid for option "${name}"`;
 	});
-	E('ERR_INVALID_OPT_VALUE_ENCODING', function (value) { return "The value \"".concat(String(value), "\" is invalid for option \"encoding\""); });
+	E('ERR_INVALID_OPT_VALUE_ENCODING', value => `The value "${String(value)}" is invalid for option "encoding"`);
 	E('ERR_INVALID_REPL_EVAL_CONFIG', 'Cannot specify both "breakEvalOnSigint" and "eval" for REPL');
 	E('ERR_INVALID_SYNC_FORK_INPUT', 'Asynchronous forks do not support Buffer, Uint8Array or string input: %s');
 	E('ERR_INVALID_THIS', 'Value of "this" must be of type %s');
 	E('ERR_INVALID_TUPLE', '%s must be an iterable %s tuple');
 	E('ERR_INVALID_URL', 'Invalid URL: %s');
-	E('ERR_INVALID_URL_SCHEME', function (expected) { return "The URL must be ".concat(oneOf(expected, 'scheme')); });
+	E('ERR_INVALID_URL_SCHEME', expected => `The URL must be ${oneOf(expected, 'scheme')}`);
 	E('ERR_IPC_CHANNEL_CLOSED', 'Channel closed');
 	E('ERR_IPC_DISCONNECTED', 'IPC channel is already disconnected');
 	E('ERR_IPC_ONE_PIPE', 'Child process can have only one IPC pipe');
@@ -8240,7 +8202,7 @@ var errors = {};
 	E('ERR_STDOUT_CLOSE', 'process.stdout cannot be closed');
 	E('ERR_STREAM_WRAP', 'Stream has StringDecoder set or is in objectMode');
 	E('ERR_TLS_CERT_ALTNAME_INVALID', "Hostname/IP does not match certificate's altnames: %s");
-	E('ERR_TLS_DH_PARAM_SIZE', function (size) { return "DH parameter size ".concat(size, " is less than 2048"); });
+	E('ERR_TLS_DH_PARAM_SIZE', size => `DH parameter size ${size} is less than 2048`);
 	E('ERR_TLS_HANDSHAKE_TIMEOUT', 'TLS handshake timeout');
 	E('ERR_TLS_RENEGOTIATION_FAILED', 'Failed to renegotiate');
 	E('ERR_TLS_REQUIRED_SERVER_NAME', '"servername" is required parameter for Server.addContext');
@@ -8255,7 +8217,7 @@ var errors = {};
 	function invalidArgType(name, expected, actual) {
 	    assert(name, 'name is required');
 	    // determiner: 'must be' or 'must not be'
-	    var determiner;
+	    let determiner;
 	    if (expected.includes('not ')) {
 	        determiner = 'must not be';
 	        expected = expected.split('not ')[1];
@@ -8263,68 +8225,64 @@ var errors = {};
 	    else {
 	        determiner = 'must be';
 	    }
-	    var msg;
+	    let msg;
 	    if (Array.isArray(name)) {
-	        var names = name.map(function (val) { return "\"".concat(val, "\""); }).join(', ');
-	        msg = "The ".concat(names, " arguments ").concat(determiner, " ").concat(oneOf(expected, 'type'));
+	        const names = name.map(val => `"${val}"`).join(', ');
+	        msg = `The ${names} arguments ${determiner} ${oneOf(expected, 'type')}`;
 	    }
 	    else if (name.includes(' argument')) {
 	        // for the case like 'first argument'
-	        msg = "The ".concat(name, " ").concat(determiner, " ").concat(oneOf(expected, 'type'));
+	        msg = `The ${name} ${determiner} ${oneOf(expected, 'type')}`;
 	    }
 	    else {
-	        var type = name.includes('.') ? 'property' : 'argument';
-	        msg = "The \"".concat(name, "\" ").concat(type, " ").concat(determiner, " ").concat(oneOf(expected, 'type'));
+	        const type = name.includes('.') ? 'property' : 'argument';
+	        msg = `The "${name}" ${type} ${determiner} ${oneOf(expected, 'type')}`;
 	    }
 	    // if actual value received, output it
 	    if (arguments.length >= 3) {
-	        msg += ". Received type ".concat(actual !== null ? typeof actual : 'null');
+	        msg += `. Received type ${actual !== null ? typeof actual : 'null'}`;
 	    }
 	    return msg;
 	}
-	function missingArgs() {
-	    var args = [];
-	    for (var _i = 0; _i < arguments.length; _i++) {
-	        args[_i] = arguments[_i];
-	    }
+	function missingArgs(...args) {
 	    assert(args.length > 0, 'At least one arg needs to be specified');
-	    var msg = 'The ';
-	    var len = args.length;
-	    args = args.map(function (a) { return "\"".concat(a, "\""); });
+	    let msg = 'The ';
+	    const len = args.length;
+	    args = args.map(a => `"${a}"`);
 	    switch (len) {
 	        case 1:
-	            msg += "".concat(args[0], " argument");
+	            msg += `${args[0]} argument`;
 	            break;
 	        case 2:
-	            msg += "".concat(args[0], " and ").concat(args[1], " arguments");
+	            msg += `${args[0]} and ${args[1]} arguments`;
 	            break;
 	        default:
 	            msg += args.slice(0, len - 1).join(', ');
-	            msg += ", and ".concat(args[len - 1], " arguments");
+	            msg += `, and ${args[len - 1]} arguments`;
 	            break;
 	    }
-	    return "".concat(msg, " must be specified");
+	    return `${msg} must be specified`;
 	}
 	function oneOf(expected, thing) {
 	    assert(expected, 'expected is required');
 	    assert(typeof thing === 'string', 'thing is required');
 	    if (Array.isArray(expected)) {
-	        var len = expected.length;
+	        const len = expected.length;
 	        assert(len > 0, 'At least one expected value needs to be specified');
 	        // tslint:disable-next-line
-	        expected = expected.map(function (i) { return String(i); });
+	        expected = expected.map(i => String(i));
 	        if (len > 2) {
-	            return "one of ".concat(thing, " ").concat(expected.slice(0, len - 1).join(', '), ", or ") + expected[len - 1];
+	            return `one of ${thing} ${expected.slice(0, len - 1).join(', ')}, or ` + expected[len - 1];
 	        }
 	        else if (len === 2) {
-	            return "one of ".concat(thing, " ").concat(expected[0], " or ").concat(expected[1]);
+	            return `one of ${thing} ${expected[0]} or ${expected[1]}`;
 	        }
 	        else {
-	            return "of ".concat(thing, " ").concat(expected[0]);
+	            return `of ${thing} ${expected[0]}`;
 	        }
 	    }
 	    else {
-	        return "of ".concat(thing, " ").concat(String(expected));
+	        return `of ${thing} ${String(expected)}`;
 	    }
 	}
 	function bufferOutOfBounds(name, isWriting) {
@@ -8332,7 +8290,7 @@ var errors = {};
 	        return 'Attempt to write outside buffer bounds';
 	    }
 	    else {
-	        return "\"".concat(name, "\" is outside of buffer bounds");
+	        return `"${name}" is outside of buffer bounds`;
 	    }
 	} 
 } (errors));
@@ -8340,8 +8298,8 @@ var errors = {};
 (function (exports) {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.strToEncoding = exports.assertEncoding = exports.ENCODING_UTF8 = void 0;
-	var buffer_1 = buffer;
-	var errors$1 = errors;
+	const buffer_1 = buffer;
+	const errors$1 = errors;
 	exports.ENCODING_UTF8 = 'utf8';
 	function assertEncoding(encoding) {
 	    if (encoding && !buffer_1.Buffer.isEncoding(encoding))
@@ -8360,50 +8318,49 @@ var errors = {};
 
 Object.defineProperty(Dirent$1, "__esModule", { value: true });
 Dirent$1.Dirent = void 0;
-var constants_1 = constants;
-var encoding_1 = encoding;
-var S_IFMT = constants_1.constants.S_IFMT, S_IFDIR = constants_1.constants.S_IFDIR, S_IFREG = constants_1.constants.S_IFREG, S_IFBLK = constants_1.constants.S_IFBLK, S_IFCHR = constants_1.constants.S_IFCHR, S_IFLNK = constants_1.constants.S_IFLNK, S_IFIFO = constants_1.constants.S_IFIFO, S_IFSOCK = constants_1.constants.S_IFSOCK;
+const constants_1 = constants;
+const encoding_1 = encoding;
+const { S_IFMT, S_IFDIR, S_IFREG, S_IFBLK, S_IFCHR, S_IFLNK, S_IFIFO, S_IFSOCK } = constants_1.constants;
 /**
  * A directory entry, like `fs.Dirent`.
  */
-var Dirent = /** @class */ (function () {
-    function Dirent() {
+class Dirent {
+    constructor() {
         this.name = '';
         this.mode = 0;
     }
-    Dirent.build = function (link, encoding) {
-        var dirent = new Dirent();
-        var mode = link.getNode().mode;
+    static build(link, encoding) {
+        const dirent = new Dirent();
+        const { mode } = link.getNode();
         dirent.name = (0, encoding_1.strToEncoding)(link.getName(), encoding);
         dirent.mode = mode;
         return dirent;
-    };
-    Dirent.prototype._checkModeProperty = function (property) {
+    }
+    _checkModeProperty(property) {
         return (this.mode & S_IFMT) === property;
-    };
-    Dirent.prototype.isDirectory = function () {
+    }
+    isDirectory() {
         return this._checkModeProperty(S_IFDIR);
-    };
-    Dirent.prototype.isFile = function () {
+    }
+    isFile() {
         return this._checkModeProperty(S_IFREG);
-    };
-    Dirent.prototype.isBlockDevice = function () {
+    }
+    isBlockDevice() {
         return this._checkModeProperty(S_IFBLK);
-    };
-    Dirent.prototype.isCharacterDevice = function () {
+    }
+    isCharacterDevice() {
         return this._checkModeProperty(S_IFCHR);
-    };
-    Dirent.prototype.isSymbolicLink = function () {
+    }
+    isSymbolicLink() {
         return this._checkModeProperty(S_IFLNK);
-    };
-    Dirent.prototype.isFIFO = function () {
+    }
+    isFIFO() {
         return this._checkModeProperty(S_IFIFO);
-    };
-    Dirent.prototype.isSocket = function () {
+    }
+    isSocket() {
         return this._checkModeProperty(S_IFSOCK);
-    };
-    return Dirent;
-}());
+    }
+}
 Dirent$1.Dirent = Dirent;
 Dirent$1.default = Dirent;
 
@@ -8411,7 +8368,7 @@ var volume = {};
 
 var path = {exports: {}};
 
-var util$1 = {};
+var util$2 = {};
 
 var isBufferBrowser = function isBuffer(arg) {
   return arg && typeof arg === 'object'
@@ -9033,10 +8990,10 @@ var inherits_browserExports = inherits_browser.exports;
 	function hasOwnProperty(obj, prop) {
 	  return Object.prototype.hasOwnProperty.call(obj, prop);
 	} 
-} (util$1));
+} (util$2));
 
 var isWindows = process$1.platform === 'win32';
-var util = util$1;
+var util$1 = util$2;
 
 
 // resolves . and .. elements in a path array with directory names there
@@ -9157,7 +9114,7 @@ win32.resolve = function() {
     }
 
     // Skip empty and invalid entries
-    if (!util.isString(path)) {
+    if (!util$1.isString(path)) {
       throw new TypeError('Arguments to path.resolve must be strings');
     } else if (!path) {
       continue;
@@ -9244,7 +9201,7 @@ win32.join = function() {
   var paths = [];
   for (var i = 0; i < arguments.length; i++) {
     var arg = arguments[i];
-    if (!util.isString(arg)) {
+    if (!util$1.isString(arg)) {
       throw new TypeError('Arguments to path.join must be strings');
     }
     if (arg) {
@@ -9319,7 +9276,7 @@ win32.relative = function(from, to) {
 
 win32._makeLong = function(path) {
   // Note: this will *probably* throw somewhere.
-  if (!util.isString(path))
+  if (!util$1.isString(path))
     return path;
 
   if (!path) {
@@ -9377,7 +9334,7 @@ win32.extname = function(path) {
 
 
 win32.format = function(pathObject) {
-  if (!util.isObject(pathObject)) {
+  if (!util$1.isObject(pathObject)) {
     throw new TypeError(
         "Parameter 'pathObject' must be an object, not " + typeof pathObject
     );
@@ -9385,7 +9342,7 @@ win32.format = function(pathObject) {
 
   var root = pathObject.root || '';
 
-  if (!util.isString(root)) {
+  if (!util$1.isString(root)) {
     throw new TypeError(
         "'pathObject.root' must be a string or undefined, not " +
         typeof pathObject.root
@@ -9405,7 +9362,7 @@ win32.format = function(pathObject) {
 
 
 win32.parse = function(pathString) {
-  if (!util.isString(pathString)) {
+  if (!util$1.isString(pathString)) {
     throw new TypeError(
         "Parameter 'pathString' must be a string, not " + typeof pathString
     );
@@ -9450,7 +9407,7 @@ posix.resolve = function() {
     var path = (i >= 0) ? arguments[i] : process$1.cwd();
 
     // Skip empty and invalid entries
-    if (!util.isString(path)) {
+    if (!util$1.isString(path)) {
       throw new TypeError('Arguments to path.resolve must be strings');
     } else if (!path) {
       continue;
@@ -9499,7 +9456,7 @@ posix.join = function() {
   var path = '';
   for (var i = 0; i < arguments.length; i++) {
     var segment = arguments[i];
-    if (!util.isString(segment)) {
+    if (!util$1.isString(segment)) {
       throw new TypeError('Arguments to path.join must be strings');
     }
     if (segment) {
@@ -9583,7 +9540,7 @@ posix.extname = function(path) {
 
 
 posix.format = function(pathObject) {
-  if (!util.isObject(pathObject)) {
+  if (!util$1.isObject(pathObject)) {
     throw new TypeError(
         "Parameter 'pathObject' must be an object, not " + typeof pathObject
     );
@@ -9591,7 +9548,7 @@ posix.format = function(pathObject) {
 
   var root = pathObject.root || '';
 
-  if (!util.isString(root)) {
+  if (!util$1.isString(root)) {
     throw new TypeError(
         "'pathObject.root' must be a string or undefined, not " +
         typeof pathObject.root
@@ -9605,7 +9562,7 @@ posix.format = function(pathObject) {
 
 
 posix.parse = function(pathString) {
-  if (!util.isString(pathString)) {
+  if (!util$1.isString(pathString)) {
     throw new TypeError(
         "Parameter 'pathString' must be a string, not " + typeof pathString
     );
@@ -9651,7 +9608,7 @@ var require$$0$1 = /*@__PURE__*/getAugmentedNamespace(browser$2);
 var setImmediate$1 = {};
 
 Object.defineProperty(setImmediate$1, "__esModule", { value: true });
-var _setImmediate;
+let _setImmediate;
 if (typeof setImmediate === 'function')
     _setImmediate = setImmediate.bind(typeof globalThis !== 'undefined' ? globalThis : commonjsGlobal);
 else
@@ -9671,7 +9628,7 @@ process.createProcess = void 0;
  *
  * @return {IProcess | undefined}
  */
-var maybeReturnProcess = function () {
+const maybeReturnProcess = () => {
     if (typeof process$1 !== 'undefined') {
         return process$1;
     }
@@ -9683,15 +9640,15 @@ var maybeReturnProcess = function () {
     }
 };
 function createProcess() {
-    var p = maybeReturnProcess() || {};
+    const p = maybeReturnProcess() || {};
     if (!p.cwd)
-        p.cwd = function () { return '/'; };
+        p.cwd = () => '/';
     if (!p.nextTick)
         p.nextTick = setImmediate$1.default;
     if (!p.emitWarning)
-        p.emitWarning = function (message, type) {
+        p.emitWarning = (message, type) => {
             // tslint:disable-next-line:no-console
-            console.warn("".concat(type).concat(type ? ': ' : '').concat(message));
+            console.warn(`${type}${type ? ': ' : ''}${message}`);
         };
     if (!p.env)
         p.env = {};
@@ -10179,215 +10136,162 @@ function eventTargetAgnosticAddListener(emitter, name, listener, flags) {
 var eventsExports = events.exports;
 
 (function (exports) {
-	var __extends = (commonjsGlobal && commonjsGlobal.__extends) || (function () {
-	    var extendStatics = function (d, b) {
-	        extendStatics = Object.setPrototypeOf ||
-	            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-	            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-	        return extendStatics(d, b);
-	    };
-	    return function (d, b) {
-	        if (typeof b !== "function" && b !== null)
-	            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-	        extendStatics(d, b);
-	        function __() { this.constructor = d; }
-	        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-	    };
-	})();
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.File = exports.Link = exports.Node = exports.SEP = void 0;
-	var process_1 = process;
-	var buffer_1 = buffer;
-	var constants_1 = constants;
-	var events_1 = eventsExports;
-	var Stats_1 = Stats$1;
-	var S_IFMT = constants_1.constants.S_IFMT, S_IFDIR = constants_1.constants.S_IFDIR, S_IFREG = constants_1.constants.S_IFREG, S_IFLNK = constants_1.constants.S_IFLNK, O_APPEND = constants_1.constants.O_APPEND;
-	var getuid = function () { var _a, _b; return (_b = (_a = process_1.default.getuid) === null || _a === void 0 ? void 0 : _a.call(process_1.default)) !== null && _b !== void 0 ? _b : 0; };
-	var getgid = function () { var _a, _b; return (_b = (_a = process_1.default.getgid) === null || _a === void 0 ? void 0 : _a.call(process_1.default)) !== null && _b !== void 0 ? _b : 0; };
+	const process_1 = process;
+	const buffer_1 = buffer;
+	const constants_1 = constants;
+	const events_1 = eventsExports;
+	const Stats_1 = Stats$1;
+	const { S_IFMT, S_IFDIR, S_IFREG, S_IFLNK, O_APPEND } = constants_1.constants;
+	const getuid = () => { var _a, _b; return (_b = (_a = process_1.default.getuid) === null || _a === void 0 ? void 0 : _a.call(process_1.default)) !== null && _b !== void 0 ? _b : 0; };
+	const getgid = () => { var _a, _b; return (_b = (_a = process_1.default.getgid) === null || _a === void 0 ? void 0 : _a.call(process_1.default)) !== null && _b !== void 0 ? _b : 0; };
 	exports.SEP = '/';
 	/**
 	 * Node in a file system (like i-node, v-node).
 	 */
-	var Node = /** @class */ (function (_super) {
-	    __extends(Node, _super);
-	    function Node(ino, perm) {
-	        if (perm === void 0) { perm = 438; }
-	        var _this = _super.call(this) || this;
+	class Node extends events_1.EventEmitter {
+	    constructor(ino, perm = 0o666) {
+	        super();
 	        // User ID and group ID.
-	        _this._uid = getuid();
-	        _this._gid = getgid();
-	        _this._atime = new Date();
-	        _this._mtime = new Date();
-	        _this._ctime = new Date();
-	        _this._perm = 438; // Permissions `chmod`, `fchmod`
-	        _this.mode = S_IFREG; // S_IFDIR, S_IFREG, etc.. (file by default?)
+	        this._uid = getuid();
+	        this._gid = getgid();
+	        this._atime = new Date();
+	        this._mtime = new Date();
+	        this._ctime = new Date();
+	        this._perm = 0o666; // Permissions `chmod`, `fchmod`
+	        this.mode = S_IFREG; // S_IFDIR, S_IFREG, etc.. (file by default?)
 	        // Number of hard links pointing at this Node.
-	        _this._nlink = 1;
-	        _this._perm = perm;
-	        _this.mode |= perm;
-	        _this.ino = ino;
-	        return _this;
+	        this._nlink = 1;
+	        this._perm = perm;
+	        this.mode |= perm;
+	        this.ino = ino;
 	    }
-	    Object.defineProperty(Node.prototype, "ctime", {
-	        get: function () {
-	            return this._ctime;
-	        },
-	        set: function (ctime) {
-	            this._ctime = ctime;
-	        },
-	        enumerable: false,
-	        configurable: true
-	    });
-	    Object.defineProperty(Node.prototype, "uid", {
-	        get: function () {
-	            return this._uid;
-	        },
-	        set: function (uid) {
-	            this._uid = uid;
-	            this.ctime = new Date();
-	        },
-	        enumerable: false,
-	        configurable: true
-	    });
-	    Object.defineProperty(Node.prototype, "gid", {
-	        get: function () {
-	            return this._gid;
-	        },
-	        set: function (gid) {
-	            this._gid = gid;
-	            this.ctime = new Date();
-	        },
-	        enumerable: false,
-	        configurable: true
-	    });
-	    Object.defineProperty(Node.prototype, "atime", {
-	        get: function () {
-	            return this._atime;
-	        },
-	        set: function (atime) {
-	            this._atime = atime;
-	            this.ctime = new Date();
-	        },
-	        enumerable: false,
-	        configurable: true
-	    });
-	    Object.defineProperty(Node.prototype, "mtime", {
-	        get: function () {
-	            return this._mtime;
-	        },
-	        set: function (mtime) {
-	            this._mtime = mtime;
-	            this.ctime = new Date();
-	        },
-	        enumerable: false,
-	        configurable: true
-	    });
-	    Object.defineProperty(Node.prototype, "perm", {
-	        get: function () {
-	            return this._perm;
-	        },
-	        set: function (perm) {
-	            this._perm = perm;
-	            this.ctime = new Date();
-	        },
-	        enumerable: false,
-	        configurable: true
-	    });
-	    Object.defineProperty(Node.prototype, "nlink", {
-	        get: function () {
-	            return this._nlink;
-	        },
-	        set: function (nlink) {
-	            this._nlink = nlink;
-	            this.ctime = new Date();
-	        },
-	        enumerable: false,
-	        configurable: true
-	    });
-	    Node.prototype.getString = function (encoding) {
-	        if (encoding === void 0) { encoding = 'utf8'; }
+	    set ctime(ctime) {
+	        this._ctime = ctime;
+	    }
+	    get ctime() {
+	        return this._ctime;
+	    }
+	    set uid(uid) {
+	        this._uid = uid;
+	        this.ctime = new Date();
+	    }
+	    get uid() {
+	        return this._uid;
+	    }
+	    set gid(gid) {
+	        this._gid = gid;
+	        this.ctime = new Date();
+	    }
+	    get gid() {
+	        return this._gid;
+	    }
+	    set atime(atime) {
+	        this._atime = atime;
+	        this.ctime = new Date();
+	    }
+	    get atime() {
+	        return this._atime;
+	    }
+	    set mtime(mtime) {
+	        this._mtime = mtime;
+	        this.ctime = new Date();
+	    }
+	    get mtime() {
+	        return this._mtime;
+	    }
+	    set perm(perm) {
+	        this._perm = perm;
+	        this.ctime = new Date();
+	    }
+	    get perm() {
+	        return this._perm;
+	    }
+	    set nlink(nlink) {
+	        this._nlink = nlink;
+	        this.ctime = new Date();
+	    }
+	    get nlink() {
+	        return this._nlink;
+	    }
+	    getString(encoding = 'utf8') {
 	        this.atime = new Date();
 	        return this.getBuffer().toString(encoding);
-	    };
-	    Node.prototype.setString = function (str) {
+	    }
+	    setString(str) {
 	        // this.setBuffer(bufferFrom(str, 'utf8'));
 	        this.buf = (0, buffer_1.bufferFrom)(str, 'utf8');
 	        this.touch();
-	    };
-	    Node.prototype.getBuffer = function () {
+	    }
+	    getBuffer() {
 	        this.atime = new Date();
 	        if (!this.buf)
 	            this.setBuffer((0, buffer_1.bufferAllocUnsafe)(0));
 	        return (0, buffer_1.bufferFrom)(this.buf); // Return a copy.
-	    };
-	    Node.prototype.setBuffer = function (buf) {
+	    }
+	    setBuffer(buf) {
 	        this.buf = (0, buffer_1.bufferFrom)(buf); // Creates a copy of data.
 	        this.touch();
-	    };
-	    Node.prototype.getSize = function () {
+	    }
+	    getSize() {
 	        return this.buf ? this.buf.length : 0;
-	    };
-	    Node.prototype.setModeProperty = function (property) {
+	    }
+	    setModeProperty(property) {
 	        this.mode = (this.mode & ~S_IFMT) | property;
-	    };
-	    Node.prototype.setIsFile = function () {
+	    }
+	    setIsFile() {
 	        this.setModeProperty(S_IFREG);
-	    };
-	    Node.prototype.setIsDirectory = function () {
+	    }
+	    setIsDirectory() {
 	        this.setModeProperty(S_IFDIR);
-	    };
-	    Node.prototype.setIsSymlink = function () {
+	    }
+	    setIsSymlink() {
 	        this.setModeProperty(S_IFLNK);
-	    };
-	    Node.prototype.isFile = function () {
+	    }
+	    isFile() {
 	        return (this.mode & S_IFMT) === S_IFREG;
-	    };
-	    Node.prototype.isDirectory = function () {
+	    }
+	    isDirectory() {
 	        return (this.mode & S_IFMT) === S_IFDIR;
-	    };
-	    Node.prototype.isSymlink = function () {
+	    }
+	    isSymlink() {
 	        // return !!this.symlink;
 	        return (this.mode & S_IFMT) === S_IFLNK;
-	    };
-	    Node.prototype.makeSymlink = function (steps) {
+	    }
+	    makeSymlink(steps) {
 	        this.symlink = steps;
 	        this.setIsSymlink();
-	    };
-	    Node.prototype.write = function (buf, off, len, pos) {
-	        if (off === void 0) { off = 0; }
-	        if (len === void 0) { len = buf.length; }
-	        if (pos === void 0) { pos = 0; }
+	    }
+	    write(buf, off = 0, len = buf.length, pos = 0) {
 	        if (!this.buf)
 	            this.buf = (0, buffer_1.bufferAllocUnsafe)(0);
 	        if (pos + len > this.buf.length) {
-	            var newBuf = (0, buffer_1.bufferAllocUnsafe)(pos + len);
+	            const newBuf = (0, buffer_1.bufferAllocUnsafe)(pos + len);
 	            this.buf.copy(newBuf, 0, 0, this.buf.length);
 	            this.buf = newBuf;
 	        }
 	        buf.copy(this.buf, pos, off, off + len);
 	        this.touch();
 	        return len;
-	    };
+	    }
 	    // Returns the number of bytes read.
-	    Node.prototype.read = function (buf, off, len, pos) {
-	        if (off === void 0) { off = 0; }
-	        if (len === void 0) { len = buf.byteLength; }
-	        if (pos === void 0) { pos = 0; }
+	    read(buf, off = 0, len = buf.byteLength, pos = 0) {
 	        this.atime = new Date();
 	        if (!this.buf)
 	            this.buf = (0, buffer_1.bufferAllocUnsafe)(0);
-	        var actualLen = len;
+	        let actualLen = len;
 	        if (actualLen > buf.byteLength) {
 	            actualLen = buf.byteLength;
 	        }
 	        if (actualLen + pos > this.buf.length) {
 	            actualLen = this.buf.length - pos;
 	        }
-	        this.buf.copy(buf, off, pos, pos + actualLen);
+	        const buf2 = buf instanceof buffer$1.Buffer ? buf : buffer$1.Buffer.from(buf.buffer);
+	        this.buf.copy(buf2, off, pos, pos + actualLen);
 	        return actualLen;
-	    };
-	    Node.prototype.truncate = function (len) {
-	        if (len === void 0) { len = 0; }
+	    }
+	    truncate(len = 0) {
 	        if (!len)
 	            this.buf = (0, buffer_1.bufferAllocUnsafe)(0);
 	        else {
@@ -10397,31 +10301,29 @@ var eventsExports = events.exports;
 	                this.buf = this.buf.slice(0, len);
 	            }
 	            else {
-	                var buf = (0, buffer_1.bufferAllocUnsafe)(len);
+	                const buf = (0, buffer_1.bufferAllocUnsafe)(len);
 	                this.buf.copy(buf);
 	                buf.fill(0, this.buf.length);
 	                this.buf = buf;
 	            }
 	        }
 	        this.touch();
-	    };
-	    Node.prototype.chmod = function (perm) {
+	    }
+	    chmod(perm) {
 	        this.perm = perm;
-	        this.mode = (this.mode & ~511) | perm;
+	        this.mode = (this.mode & ~0o777) | perm;
 	        this.touch();
-	    };
-	    Node.prototype.chown = function (uid, gid) {
+	    }
+	    chown(uid, gid) {
 	        this.uid = uid;
 	        this.gid = gid;
 	        this.touch();
-	    };
-	    Node.prototype.touch = function () {
+	    }
+	    touch() {
 	        this.mtime = new Date();
 	        this.emit('change', this);
-	    };
-	    Node.prototype.canRead = function (uid, gid) {
-	        if (uid === void 0) { uid = getuid(); }
-	        if (gid === void 0) { gid = getgid(); }
+	    }
+	    canRead(uid = getuid(), gid = getgid()) {
 	        if (this.perm & 4 /* S.IROTH */) {
 	            return true;
 	        }
@@ -10436,10 +10338,8 @@ var eventsExports = events.exports;
 	            }
 	        }
 	        return false;
-	    };
-	    Node.prototype.canWrite = function (uid, gid) {
-	        if (uid === void 0) { uid = getuid(); }
-	        if (gid === void 0) { gid = getgid(); }
+	    }
+	    canWrite(uid = getuid(), gid = getgid()) {
 	        if (this.perm & 2 /* S.IWOTH */) {
 	            return true;
 	        }
@@ -10454,11 +10354,11 @@ var eventsExports = events.exports;
 	            }
 	        }
 	        return false;
-	    };
-	    Node.prototype.del = function () {
+	    }
+	    del() {
 	        this.emit('delete', this);
-	    };
-	    Node.prototype.toJSON = function () {
+	    }
+	    toJSON() {
 	        return {
 	            ino: this.ino,
 	            uid: this.uid,
@@ -10472,58 +10372,49 @@ var eventsExports = events.exports;
 	            symlink: this.symlink,
 	            data: this.getString(),
 	        };
-	    };
-	    return Node;
-	}(events_1.EventEmitter));
+	    }
+	}
 	exports.Node = Node;
 	/**
 	 * Represents a hard link that points to an i-node `node`.
 	 */
-	var Link = /** @class */ (function (_super) {
-	    __extends(Link, _super);
-	    function Link(vol, parent, name) {
-	        var _this = _super.call(this) || this;
-	        _this.children = {};
-	        // Path to this node as Array: ['usr', 'bin', 'node'].
-	        _this._steps = [];
-	        // "i-node" number of the node.
-	        _this.ino = 0;
-	        // Number of children.
-	        _this.length = 0;
-	        _this.vol = vol;
-	        _this.parent = parent;
-	        _this.name = name;
-	        _this.syncSteps();
-	        return _this;
+	class Link extends events_1.EventEmitter {
+	    get steps() {
+	        return this._steps;
 	    }
-	    Object.defineProperty(Link.prototype, "steps", {
-	        get: function () {
-	            return this._steps;
-	        },
-	        // Recursively sync children steps, e.g. in case of dir rename
-	        set: function (val) {
-	            this._steps = val;
-	            for (var _i = 0, _a = Object.entries(this.children); _i < _a.length; _i++) {
-	                var _b = _a[_i], child = _b[0], link = _b[1];
-	                if (child === '.' || child === '..') {
-	                    continue;
-	                }
-	                link === null || link === void 0 ? void 0 : link.syncSteps();
+	    // Recursively sync children steps, e.g. in case of dir rename
+	    set steps(val) {
+	        this._steps = val;
+	        for (const [child, link] of Object.entries(this.children)) {
+	            if (child === '.' || child === '..') {
+	                continue;
 	            }
-	        },
-	        enumerable: false,
-	        configurable: true
-	    });
-	    Link.prototype.setNode = function (node) {
+	            link === null || link === void 0 ? void 0 : link.syncSteps();
+	        }
+	    }
+	    constructor(vol, parent, name) {
+	        super();
+	        this.children = {};
+	        // Path to this node as Array: ['usr', 'bin', 'node'].
+	        this._steps = [];
+	        // "i-node" number of the node.
+	        this.ino = 0;
+	        // Number of children.
+	        this.length = 0;
+	        this.vol = vol;
+	        this.parent = parent;
+	        this.name = name;
+	        this.syncSteps();
+	    }
+	    setNode(node) {
 	        this.node = node;
 	        this.ino = node.ino;
-	    };
-	    Link.prototype.getNode = function () {
+	    }
+	    getNode() {
 	        return this.node;
-	    };
-	    Link.prototype.createChild = function (name, node) {
-	        if (node === void 0) { node = this.vol.createNode(); }
-	        var link = new Link(this.vol, this, name);
+	    }
+	    createChild(name, node = this.vol.createNode()) {
+	        const link = new Link(this.vol, this, name);
 	        link.setNode(node);
 	        if (node.isDirectory()) {
 	            link.children['.'] = link;
@@ -10531,13 +10422,12 @@ var eventsExports = events.exports;
 	        }
 	        this.setChild(name, link);
 	        return link;
-	    };
-	    Link.prototype.setChild = function (name, link) {
-	        if (link === void 0) { link = new Link(this.vol, this, name); }
+	    }
+	    setChild(name, link = new Link(this.vol, this, name)) {
 	        this.children[name] = link;
 	        link.parent = this;
 	        this.length++;
-	        var node = link.getNode();
+	        const node = link.getNode();
 	        if (node.isDirectory()) {
 	            link.children['..'] = this;
 	            this.getNode().nlink++;
@@ -10545,9 +10435,9 @@ var eventsExports = events.exports;
 	        this.getNode().mtime = new Date();
 	        this.emit('child:add', link, this);
 	        return link;
-	    };
-	    Link.prototype.deleteChild = function (link) {
-	        var node = link.getNode();
+	    }
+	    deleteChild(link) {
+	        const node = link.getNode();
 	        if (node.isDirectory()) {
 	            delete link.children['..'];
 	            this.getNode().nlink--;
@@ -10556,19 +10446,19 @@ var eventsExports = events.exports;
 	        this.length--;
 	        this.getNode().mtime = new Date();
 	        this.emit('child:delete', link, this);
-	    };
-	    Link.prototype.getChild = function (name) {
+	    }
+	    getChild(name) {
 	        this.getNode().mtime = new Date();
 	        if (Object.hasOwnProperty.call(this.children, name)) {
 	            return this.children[name];
 	        }
-	    };
-	    Link.prototype.getPath = function () {
+	    }
+	    getPath() {
 	        return this.steps.join(exports.SEP);
-	    };
-	    Link.prototype.getName = function () {
+	    }
+	    getName() {
 	        return this.steps[this.steps.length - 1];
-	    };
+	    }
 	    // del() {
 	    //     const parent = this.parent;
 	    //     if(parent) {
@@ -10585,36 +10475,33 @@ var eventsExports = events.exports;
 	     *
 	     * @return {Link|null}
 	     */
-	    Link.prototype.walk = function (steps, stop, i) {
-	        if (stop === void 0) { stop = steps.length; }
-	        if (i === void 0) { i = 0; }
+	    walk(steps, stop = steps.length, i = 0) {
 	        if (i >= steps.length)
 	            return this;
 	        if (i >= stop)
 	            return this;
-	        var step = steps[i];
-	        var link = this.getChild(step);
+	        const step = steps[i];
+	        const link = this.getChild(step);
 	        if (!link)
 	            return null;
 	        return link.walk(steps, stop, i + 1);
-	    };
-	    Link.prototype.toJSON = function () {
+	    }
+	    toJSON() {
 	        return {
 	            steps: this.steps,
 	            ino: this.ino,
 	            children: Object.keys(this.children),
 	        };
-	    };
-	    Link.prototype.syncSteps = function () {
+	    }
+	    syncSteps() {
 	        this.steps = this.parent ? this.parent.steps.concat([this.name]) : [this.name];
-	    };
-	    return Link;
-	}(events_1.EventEmitter));
+	    }
+	}
 	exports.Link = Link;
 	/**
 	 * Represents an open file (file descriptor) that points to a `Link` (Hard-link) and a `Node`.
 	 */
-	var File = /** @class */ (function () {
+	class File {
 	    /**
 	     * Open a Link-Node pair. `node` is provided separately as that might be a different node
 	     * rather the one `link` points to, because it might be a symlink.
@@ -10623,69 +10510,60 @@ var eventsExports = events.exports;
 	     * @param flags
 	     * @param fd
 	     */
-	    function File(link, node, flags, fd) {
-	        /**
-	         * A cursor/offset position in a file, where data will be written on write.
-	         * User can "seek" this position.
-	         */
-	        this.position = 0;
+	    constructor(link, node, flags, fd) {
 	        this.link = link;
 	        this.node = node;
 	        this.flags = flags;
 	        this.fd = fd;
-	    }
-	    File.prototype.getString = function (encoding) {
-	        return this.node.getString();
-	    };
-	    File.prototype.setString = function (str) {
-	        this.node.setString(str);
-	    };
-	    File.prototype.getBuffer = function () {
-	        return this.node.getBuffer();
-	    };
-	    File.prototype.setBuffer = function (buf) {
-	        this.node.setBuffer(buf);
-	    };
-	    File.prototype.getSize = function () {
-	        return this.node.getSize();
-	    };
-	    File.prototype.truncate = function (len) {
-	        this.node.truncate(len);
-	    };
-	    File.prototype.seekTo = function (position) {
-	        this.position = position;
-	    };
-	    File.prototype.stats = function () {
-	        return Stats_1.default.build(this.node);
-	    };
-	    File.prototype.write = function (buf, offset, length, position) {
-	        if (offset === void 0) { offset = 0; }
-	        if (length === void 0) { length = buf.length; }
-	        if (typeof position !== 'number')
-	            position = this.position;
+	        this.position = 0;
 	        if (this.flags & O_APPEND)
-	            position = this.getSize();
-	        var bytes = this.node.write(buf, offset, length, position);
-	        this.position = position + bytes;
-	        return bytes;
-	    };
-	    File.prototype.read = function (buf, offset, length, position) {
-	        if (offset === void 0) { offset = 0; }
-	        if (length === void 0) { length = buf.byteLength; }
+	            this.position = this.getSize();
+	    }
+	    getString(encoding = 'utf8') {
+	        return this.node.getString();
+	    }
+	    setString(str) {
+	        this.node.setString(str);
+	    }
+	    getBuffer() {
+	        return this.node.getBuffer();
+	    }
+	    setBuffer(buf) {
+	        this.node.setBuffer(buf);
+	    }
+	    getSize() {
+	        return this.node.getSize();
+	    }
+	    truncate(len) {
+	        this.node.truncate(len);
+	    }
+	    seekTo(position) {
+	        this.position = position;
+	    }
+	    stats() {
+	        return Stats_1.default.build(this.node);
+	    }
+	    write(buf, offset = 0, length = buf.length, position) {
 	        if (typeof position !== 'number')
 	            position = this.position;
-	        var bytes = this.node.read(buf, offset, length, position);
+	        const bytes = this.node.write(buf, offset, length, position);
 	        this.position = position + bytes;
 	        return bytes;
-	    };
-	    File.prototype.chmod = function (perm) {
+	    }
+	    read(buf, offset = 0, length = buf.byteLength, position) {
+	        if (typeof position !== 'number')
+	            position = this.position;
+	        const bytes = this.node.read(buf, offset, length, position);
+	        this.position = position + bytes;
+	        return bytes;
+	    }
+	    chmod(perm) {
 	        this.node.chmod(perm);
-	    };
-	    File.prototype.chown = function (uid, gid) {
+	    }
+	    chown(uid, gid) {
 	        this.node.chown(uid, gid);
-	    };
-	    return File;
-	}());
+	    }
+	}
 	exports.File = File; 
 } (node));
 
@@ -10697,7 +10575,7 @@ Object.defineProperty(setTimeoutUnref$1, "__esModule", { value: true });
  * only in Node's environment it will "unref" its macro task.
  */
 function setTimeoutUnref(callback, time, args) {
-    var ref = setTimeout.apply(typeof globalThis !== 'undefined' ? globalThis : commonjsGlobal, arguments);
+    const ref = setTimeout.apply(typeof globalThis !== 'undefined' ? globalThis : commonjsGlobal, arguments);
     if (ref && typeof ref === 'object' && typeof ref.unref === 'function')
         ref.unref();
     return ref;
@@ -14027,163 +13905,160 @@ Stream.prototype.pipe = function(dest, options) {
 
 var promises = {};
 
-var __spreadArray = (commonjsGlobal && commonjsGlobal.__spreadArray) || function (to, from, pack) {
-    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-        if (ar || !(i in from)) {
-            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-            ar[i] = from[i];
-        }
-    }
-    return to.concat(ar || Array.prototype.slice.call(from));
-};
-Object.defineProperty(promises, "__esModule", { value: true });
-promises.FileHandle = void 0;
-function promisify(vol, fn, getResult) {
-    if (getResult === void 0) { getResult = function (input) { return input; }; }
-    return function () {
-        var args = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-        }
-        return new Promise(function (resolve, reject) {
-            vol[fn].bind(vol).apply(void 0, __spreadArray(__spreadArray([], args, false), [function (error, result) {
-                    if (error)
-                        return reject(error);
-                    return resolve(getResult(result));
-                }], false));
+var FileHandle$1 = {};
+
+var util = {};
+
+Object.defineProperty(util, "__esModule", { value: true });
+util.promisify = void 0;
+function promisify(fs, fn, getResult = input => input) {
+    return (...args) => new Promise((resolve, reject) => {
+        fs[fn].bind(fs)(...args, (error, result) => {
+            if (error)
+                return reject(error);
+            return resolve(getResult(result));
         });
-    };
+    });
 }
-var FileHandle = /** @class */ (function () {
-    function FileHandle(vol, fd) {
-        this.vol = vol;
+util.promisify = promisify;
+
+Object.defineProperty(FileHandle$1, "__esModule", { value: true });
+FileHandle$1.FileHandle = void 0;
+const util_1$2 = util;
+class FileHandle {
+    constructor(fs, fd) {
+        this.fs = fs;
         this.fd = fd;
     }
-    FileHandle.prototype.appendFile = function (data, options) {
-        return promisify(this.vol, 'appendFile')(this.fd, data, options);
-    };
-    FileHandle.prototype.chmod = function (mode) {
-        return promisify(this.vol, 'fchmod')(this.fd, mode);
-    };
-    FileHandle.prototype.chown = function (uid, gid) {
-        return promisify(this.vol, 'fchown')(this.fd, uid, gid);
-    };
-    FileHandle.prototype.close = function () {
-        return promisify(this.vol, 'close')(this.fd);
-    };
-    FileHandle.prototype.datasync = function () {
-        return promisify(this.vol, 'fdatasync')(this.fd);
-    };
-    FileHandle.prototype.read = function (buffer, offset, length, position) {
-        return promisify(this.vol, 'read', function (bytesRead) { return ({ bytesRead: bytesRead, buffer: buffer }); })(this.fd, buffer, offset, length, position);
-    };
-    FileHandle.prototype.readFile = function (options) {
-        return promisify(this.vol, 'readFile')(this.fd, options);
-    };
-    FileHandle.prototype.stat = function (options) {
-        return promisify(this.vol, 'fstat')(this.fd, options);
-    };
-    FileHandle.prototype.sync = function () {
-        return promisify(this.vol, 'fsync')(this.fd);
-    };
-    FileHandle.prototype.truncate = function (len) {
-        return promisify(this.vol, 'ftruncate')(this.fd, len);
-    };
-    FileHandle.prototype.utimes = function (atime, mtime) {
-        return promisify(this.vol, 'futimes')(this.fd, atime, mtime);
-    };
-    FileHandle.prototype.write = function (buffer, offset, length, position) {
-        return promisify(this.vol, 'write', function (bytesWritten) { return ({ bytesWritten: bytesWritten, buffer: buffer }); })(this.fd, buffer, offset, length, position);
-    };
-    FileHandle.prototype.writeFile = function (data, options) {
-        return promisify(this.vol, 'writeFile')(this.fd, data, options);
-    };
-    return FileHandle;
-}());
-promises.FileHandle = FileHandle;
+    appendFile(data, options) {
+        return (0, util_1$2.promisify)(this.fs, 'appendFile')(this.fd, data, options);
+    }
+    chmod(mode) {
+        return (0, util_1$2.promisify)(this.fs, 'fchmod')(this.fd, mode);
+    }
+    chown(uid, gid) {
+        return (0, util_1$2.promisify)(this.fs, 'fchown')(this.fd, uid, gid);
+    }
+    close() {
+        return (0, util_1$2.promisify)(this.fs, 'close')(this.fd);
+    }
+    datasync() {
+        return (0, util_1$2.promisify)(this.fs, 'fdatasync')(this.fd);
+    }
+    read(buffer, offset, length, position) {
+        return (0, util_1$2.promisify)(this.fs, 'read', bytesRead => ({ bytesRead, buffer }))(this.fd, buffer, offset, length, position);
+    }
+    readFile(options) {
+        return (0, util_1$2.promisify)(this.fs, 'readFile')(this.fd, options);
+    }
+    stat(options) {
+        return (0, util_1$2.promisify)(this.fs, 'fstat')(this.fd, options);
+    }
+    sync() {
+        return (0, util_1$2.promisify)(this.fs, 'fsync')(this.fd);
+    }
+    truncate(len) {
+        return (0, util_1$2.promisify)(this.fs, 'ftruncate')(this.fd, len);
+    }
+    utimes(atime, mtime) {
+        return (0, util_1$2.promisify)(this.fs, 'futimes')(this.fd, atime, mtime);
+    }
+    write(buffer, offset, length, position) {
+        return (0, util_1$2.promisify)(this.fs, 'write', bytesWritten => ({ bytesWritten, buffer }))(this.fd, buffer, offset, length, position);
+    }
+    writeFile(data, options) {
+        return (0, util_1$2.promisify)(this.fs, 'writeFile')(this.fd, data, options);
+    }
+}
+FileHandle$1.FileHandle = FileHandle;
+
+Object.defineProperty(promises, "__esModule", { value: true });
+promises.createPromisesApi = void 0;
+const FileHandle_1 = FileHandle$1;
+const util_1$1 = util;
 function createPromisesApi(vol) {
     if (typeof Promise === 'undefined')
         return null;
     return {
-        FileHandle: FileHandle,
-        access: function (path, mode) {
-            return promisify(vol, 'access')(path, mode);
+        FileHandle: FileHandle_1.FileHandle,
+        access(path, mode) {
+            return (0, util_1$1.promisify)(vol, 'access')(path, mode);
         },
-        appendFile: function (path, data, options) {
-            return promisify(vol, 'appendFile')(path instanceof FileHandle ? path.fd : path, data, options);
+        appendFile(path, data, options) {
+            return (0, util_1$1.promisify)(vol, 'appendFile')(path instanceof FileHandle_1.FileHandle ? path.fd : path, data, options);
         },
-        chmod: function (path, mode) {
-            return promisify(vol, 'chmod')(path, mode);
+        chmod(path, mode) {
+            return (0, util_1$1.promisify)(vol, 'chmod')(path, mode);
         },
-        chown: function (path, uid, gid) {
-            return promisify(vol, 'chown')(path, uid, gid);
+        chown(path, uid, gid) {
+            return (0, util_1$1.promisify)(vol, 'chown')(path, uid, gid);
         },
-        copyFile: function (src, dest, flags) {
-            return promisify(vol, 'copyFile')(src, dest, flags);
+        copyFile(src, dest, flags) {
+            return (0, util_1$1.promisify)(vol, 'copyFile')(src, dest, flags);
         },
-        lchmod: function (path, mode) {
-            return promisify(vol, 'lchmod')(path, mode);
+        lchmod(path, mode) {
+            return (0, util_1$1.promisify)(vol, 'lchmod')(path, mode);
         },
-        lchown: function (path, uid, gid) {
-            return promisify(vol, 'lchown')(path, uid, gid);
+        lchown(path, uid, gid) {
+            return (0, util_1$1.promisify)(vol, 'lchown')(path, uid, gid);
         },
-        link: function (existingPath, newPath) {
-            return promisify(vol, 'link')(existingPath, newPath);
+        link(existingPath, newPath) {
+            return (0, util_1$1.promisify)(vol, 'link')(existingPath, newPath);
         },
-        lstat: function (path, options) {
-            return promisify(vol, 'lstat')(path, options);
+        lstat(path, options) {
+            return (0, util_1$1.promisify)(vol, 'lstat')(path, options);
         },
-        mkdir: function (path, options) {
-            return promisify(vol, 'mkdir')(path, options);
+        mkdir(path, options) {
+            return (0, util_1$1.promisify)(vol, 'mkdir')(path, options);
         },
-        mkdtemp: function (prefix, options) {
-            return promisify(vol, 'mkdtemp')(prefix, options);
+        mkdtemp(prefix, options) {
+            return (0, util_1$1.promisify)(vol, 'mkdtemp')(prefix, options);
         },
-        open: function (path, flags, mode) {
-            return promisify(vol, 'open', function (fd) { return new FileHandle(vol, fd); })(path, flags, mode);
+        open(path, flags, mode) {
+            return (0, util_1$1.promisify)(vol, 'open', fd => new FileHandle_1.FileHandle(vol, fd))(path, flags, mode);
         },
-        readdir: function (path, options) {
-            return promisify(vol, 'readdir')(path, options);
+        readdir(path, options) {
+            return (0, util_1$1.promisify)(vol, 'readdir')(path, options);
         },
-        readFile: function (id, options) {
-            return promisify(vol, 'readFile')(id instanceof FileHandle ? id.fd : id, options);
+        readFile(id, options) {
+            return (0, util_1$1.promisify)(vol, 'readFile')(id instanceof FileHandle_1.FileHandle ? id.fd : id, options);
         },
-        readlink: function (path, options) {
-            return promisify(vol, 'readlink')(path, options);
+        readlink(path, options) {
+            return (0, util_1$1.promisify)(vol, 'readlink')(path, options);
         },
-        realpath: function (path, options) {
-            return promisify(vol, 'realpath')(path, options);
+        realpath(path, options) {
+            return (0, util_1$1.promisify)(vol, 'realpath')(path, options);
         },
-        rename: function (oldPath, newPath) {
-            return promisify(vol, 'rename')(oldPath, newPath);
+        rename(oldPath, newPath) {
+            return (0, util_1$1.promisify)(vol, 'rename')(oldPath, newPath);
         },
-        rmdir: function (path) {
-            return promisify(vol, 'rmdir')(path);
+        rmdir(path, options) {
+            return (0, util_1$1.promisify)(vol, 'rmdir')(path, options);
         },
-        rm: function (path, options) {
-            return promisify(vol, 'rm')(path, options);
+        rm(path, options) {
+            return (0, util_1$1.promisify)(vol, 'rm')(path, options);
         },
-        stat: function (path, options) {
-            return promisify(vol, 'stat')(path, options);
+        stat(path, options) {
+            return (0, util_1$1.promisify)(vol, 'stat')(path, options);
         },
-        symlink: function (target, path, type) {
-            return promisify(vol, 'symlink')(target, path, type);
+        symlink(target, path, type) {
+            return (0, util_1$1.promisify)(vol, 'symlink')(target, path, type);
         },
-        truncate: function (path, len) {
-            return promisify(vol, 'truncate')(path, len);
+        truncate(path, len) {
+            return (0, util_1$1.promisify)(vol, 'truncate')(path, len);
         },
-        unlink: function (path) {
-            return promisify(vol, 'unlink')(path);
+        unlink(path) {
+            return (0, util_1$1.promisify)(vol, 'unlink')(path);
         },
-        utimes: function (path, atime, mtime) {
-            return promisify(vol, 'utimes')(path, atime, mtime);
+        utimes(path, atime, mtime) {
+            return (0, util_1$1.promisify)(vol, 'utimes')(path, atime, mtime);
         },
-        writeFile: function (id, data, options) {
-            return promisify(vol, 'writeFile')(id instanceof FileHandle ? id.fd : id, data, options);
+        writeFile(id, data, options) {
+            return (0, util_1$1.promisify)(vol, 'writeFile')(id instanceof FileHandle_1.FileHandle ? id.fd : id, data, options);
         },
     };
 }
-promises.default = createPromisesApi;
+promises.createPromisesApi = createPromisesApi;
 
 var url = {};
 
@@ -14978,7 +14853,10 @@ function requireObjectInspect () {
 	    if (typeof window !== 'undefined' && obj === window) {
 	        return '{ [object Window] }';
 	    }
-	    if (obj === commonjsGlobal) {
+	    if (
+	        (typeof globalThis !== 'undefined' && obj === globalThis)
+	        || (typeof commonjsGlobal !== 'undefined' && obj === commonjsGlobal)
+	    ) {
 	        return '{ [object globalThis] }';
 	    }
 	    if (!isDate(obj) && !isRegExp(obj)) {
@@ -16090,6 +15968,7 @@ function requireParse () {
 	    parameterLimit: 1000,
 	    parseArrays: true,
 	    plainObjects: false,
+	    strictDepth: false,
 	    strictNullHandling: false
 	};
 
@@ -16121,6 +16000,7 @@ function requireParse () {
 	    var obj = { __proto__: null };
 
 	    var cleanStr = options.ignoreQueryPrefix ? str.replace(/^\?/, '') : str;
+	    cleanStr = cleanStr.replace(/%5B/gi, '[').replace(/%5D/gi, ']');
 	    var limit = options.parameterLimit === Infinity ? undefined : options.parameterLimit;
 	    var parts = cleanStr.split(options.delimiter, limit);
 	    var skipIndex = -1; // Keep track of where the utf8 sentinel was found
@@ -16191,7 +16071,9 @@ function requireParse () {
 	        var root = chain[i];
 
 	        if (root === '[]' && options.parseArrays) {
-	            obj = options.allowEmptyArrays && leaf === '' ? [] : [].concat(leaf);
+	            obj = options.allowEmptyArrays && (leaf === '' || (options.strictNullHandling && leaf === null))
+	                ? []
+	                : [].concat(leaf);
 	        } else {
 	            obj = options.plainObjects ? Object.create(null) : {};
 	            var cleanRoot = root.charAt(0) === '[' && root.charAt(root.length - 1) === ']' ? root.slice(1, -1) : root;
@@ -16264,9 +16146,12 @@ function requireParse () {
 	        keys.push(segment[1]);
 	    }
 
-	    // If there's a remainder, just add whatever is left
+	    // If there's a remainder, check strictDepth option for throw, else just add whatever is left
 
 	    if (segment) {
+	        if (options.strictDepth === true) {
+	            throw new RangeError('Input depth exceeded depth option of ' + options.depth + ' and strictDepth is true');
+	        }
 	        keys.push('[' + key.slice(segment.index) + ']');
 	    }
 
@@ -16323,6 +16208,7 @@ function requireParse () {
 	        parameterLimit: typeof opts.parameterLimit === 'number' ? opts.parameterLimit : defaults.parameterLimit,
 	        parseArrays: opts.parseArrays !== false,
 	        plainObjects: typeof opts.plainObjects === 'boolean' ? opts.plainObjects : defaults.plainObjects,
+	        strictDepth: typeof opts.strictDepth === 'boolean' ? !!opts.strictDepth : defaults.strictDepth,
 	        strictNullHandling: typeof opts.strictNullHandling === 'boolean' ? opts.strictNullHandling : defaults.strictNullHandling
 	    };
 	};
@@ -17210,56 +17096,32 @@ function requireCorrectPath () {
 }
 
 (function (exports) {
-	var __extends = (commonjsGlobal && commonjsGlobal.__extends) || (function () {
-	    var extendStatics = function (d, b) {
-	        extendStatics = Object.setPrototypeOf ||
-	            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-	            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-	        return extendStatics(d, b);
-	    };
-	    return function (d, b) {
-	        if (typeof b !== "function" && b !== null)
-	            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-	        extendStatics(d, b);
-	        function __() { this.constructor = d; }
-	        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-	    };
-	})();
-	var __spreadArray = (commonjsGlobal && commonjsGlobal.__spreadArray) || function (to, from, pack) {
-	    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-	        if (ar || !(i in from)) {
-	            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-	            ar[i] = from[i];
-	        }
-	    }
-	    return to.concat(ar || Array.prototype.slice.call(from));
-	};
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.FSWatcher = exports.StatWatcher = exports.Volume = exports.toUnixTimestamp = exports.bufferToEncoding = exports.dataToBuffer = exports.dataToStr = exports.pathToSteps = exports.filenameToSteps = exports.pathToFilename = exports.flagsToNumber = exports.FLAGS = void 0;
-	var pathModule = pathExports;
-	var node_1 = node;
-	var Stats_1 = Stats$1;
-	var Dirent_1 = Dirent$1;
-	var buffer_1 = buffer;
-	var setImmediate_1 = setImmediate$1;
-	var process_1 = process;
-	var setTimeoutUnref_1 = setTimeoutUnref$1;
-	var stream_1 = streamBrowserify;
-	var constants_1 = constants;
-	var events_1 = eventsExports;
-	var encoding_1 = encoding;
-	var errors$1 = errors;
-	var util = util$2;
-	var promises_1 = promises;
-	var resolveCrossPlatform = pathModule.resolve;
-	var O_RDONLY = constants_1.constants.O_RDONLY, O_WRONLY = constants_1.constants.O_WRONLY, O_RDWR = constants_1.constants.O_RDWR, O_CREAT = constants_1.constants.O_CREAT, O_EXCL = constants_1.constants.O_EXCL, O_TRUNC = constants_1.constants.O_TRUNC, O_APPEND = constants_1.constants.O_APPEND, O_SYNC = constants_1.constants.O_SYNC, O_DIRECTORY = constants_1.constants.O_DIRECTORY, F_OK = constants_1.constants.F_OK, COPYFILE_EXCL = constants_1.constants.COPYFILE_EXCL, COPYFILE_FICLONE_FORCE = constants_1.constants.COPYFILE_FICLONE_FORCE;
-	var _a = pathModule.posix ? pathModule.posix : pathModule, sep = _a.sep, relative = _a.relative, join = _a.join, dirname = _a.dirname;
-	var isWin = process_1.default.platform === 'win32';
-	var kMinPoolSpace = 128;
+	const pathModule = pathExports;
+	const node_1 = node;
+	const Stats_1 = Stats$1;
+	const Dirent_1 = Dirent$1;
+	const buffer_1 = buffer;
+	const setImmediate_1 = setImmediate$1;
+	const process_1 = process;
+	const setTimeoutUnref_1 = setTimeoutUnref$1;
+	const stream_1 = streamBrowserify;
+	const constants_1 = constants;
+	const events_1 = eventsExports;
+	const encoding_1 = encoding;
+	const errors$1 = errors;
+	const util = util$3;
+	const promises_1 = promises;
+	const resolveCrossPlatform = pathModule.resolve;
+	const { O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_EXCL, O_TRUNC, O_APPEND, O_SYNC, O_DIRECTORY, F_OK, COPYFILE_EXCL, COPYFILE_FICLONE_FORCE, } = constants_1.constants;
+	const { sep, relative, join, dirname } = pathModule.posix ? pathModule.posix : pathModule;
+	const isWin = process_1.default.platform === 'win32';
+	const kMinPoolSpace = 128;
 	// const kMaxLength = require('buffer').kMaxLength;
 	// ---------------------------------------- Error messages
 	// TODO: Use `internal/errors.js` in the future.
-	var ERRSTR = {
+	const ERRSTR = {
 	    PATH_STR: 'path must be a string or Buffer',
 	    // FD:             'file descriptor must be a unsigned 32-bit integer',
 	    FD: 'fd must be a file descriptor',
@@ -17276,67 +17138,60 @@ function requireCorrectPath () {
 	    LENGTH: 'length must be an integer',
 	    POSITION: 'position must be an integer',
 	};
-	var ERRSTR_OPTS = function (tipeof) { return "Expected options to be either an object or a string, but got ".concat(tipeof, " instead"); };
+	const ERRSTR_OPTS = tipeof => `Expected options to be either an object or a string, but got ${tipeof} instead`;
 	// const ERRSTR_FLAG = flag => `Unknown file open flag: ${flag}`;
-	var ENOENT = 'ENOENT';
-	var EBADF = 'EBADF';
-	var EINVAL = 'EINVAL';
-	var EPERM = 'EPERM';
-	var EPROTO = 'EPROTO';
-	var EEXIST = 'EEXIST';
-	var ENOTDIR = 'ENOTDIR';
-	var EMFILE = 'EMFILE';
-	var EACCES = 'EACCES';
-	var EISDIR = 'EISDIR';
-	var ENOTEMPTY = 'ENOTEMPTY';
-	var ENOSYS = 'ENOSYS';
-	var ERR_FS_EISDIR = 'ERR_FS_EISDIR';
-	function formatError(errorCode, func, path, path2) {
-	    if (func === void 0) { func = ''; }
-	    if (path === void 0) { path = ''; }
-	    if (path2 === void 0) { path2 = ''; }
-	    var pathFormatted = '';
+	const ENOENT = 'ENOENT';
+	const EBADF = 'EBADF';
+	const EINVAL = 'EINVAL';
+	const EPERM = 'EPERM';
+	const EPROTO = 'EPROTO';
+	const EEXIST = 'EEXIST';
+	const ENOTDIR = 'ENOTDIR';
+	const EMFILE = 'EMFILE';
+	const EACCES = 'EACCES';
+	const EISDIR = 'EISDIR';
+	const ENOTEMPTY = 'ENOTEMPTY';
+	const ENOSYS = 'ENOSYS';
+	const ERR_FS_EISDIR = 'ERR_FS_EISDIR';
+	function formatError(errorCode, func = '', path = '', path2 = '') {
+	    let pathFormatted = '';
 	    if (path)
-	        pathFormatted = " '".concat(path, "'");
+	        pathFormatted = ` '${path}'`;
 	    if (path2)
-	        pathFormatted += " -> '".concat(path2, "'");
+	        pathFormatted += ` -> '${path2}'`;
 	    switch (errorCode) {
 	        case ENOENT:
-	            return "ENOENT: no such file or directory, ".concat(func).concat(pathFormatted);
+	            return `ENOENT: no such file or directory, ${func}${pathFormatted}`;
 	        case EBADF:
-	            return "EBADF: bad file descriptor, ".concat(func).concat(pathFormatted);
+	            return `EBADF: bad file descriptor, ${func}${pathFormatted}`;
 	        case EINVAL:
-	            return "EINVAL: invalid argument, ".concat(func).concat(pathFormatted);
+	            return `EINVAL: invalid argument, ${func}${pathFormatted}`;
 	        case EPERM:
-	            return "EPERM: operation not permitted, ".concat(func).concat(pathFormatted);
+	            return `EPERM: operation not permitted, ${func}${pathFormatted}`;
 	        case EPROTO:
-	            return "EPROTO: protocol error, ".concat(func).concat(pathFormatted);
+	            return `EPROTO: protocol error, ${func}${pathFormatted}`;
 	        case EEXIST:
-	            return "EEXIST: file already exists, ".concat(func).concat(pathFormatted);
+	            return `EEXIST: file already exists, ${func}${pathFormatted}`;
 	        case ENOTDIR:
-	            return "ENOTDIR: not a directory, ".concat(func).concat(pathFormatted);
+	            return `ENOTDIR: not a directory, ${func}${pathFormatted}`;
 	        case EISDIR:
-	            return "EISDIR: illegal operation on a directory, ".concat(func).concat(pathFormatted);
+	            return `EISDIR: illegal operation on a directory, ${func}${pathFormatted}`;
 	        case EACCES:
-	            return "EACCES: permission denied, ".concat(func).concat(pathFormatted);
+	            return `EACCES: permission denied, ${func}${pathFormatted}`;
 	        case ENOTEMPTY:
-	            return "ENOTEMPTY: directory not empty, ".concat(func).concat(pathFormatted);
+	            return `ENOTEMPTY: directory not empty, ${func}${pathFormatted}`;
 	        case EMFILE:
-	            return "EMFILE: too many open files, ".concat(func).concat(pathFormatted);
+	            return `EMFILE: too many open files, ${func}${pathFormatted}`;
 	        case ENOSYS:
-	            return "ENOSYS: function not implemented, ".concat(func).concat(pathFormatted);
+	            return `ENOSYS: function not implemented, ${func}${pathFormatted}`;
 	        case ERR_FS_EISDIR:
-	            return "[ERR_FS_EISDIR]: Path is a directory: ".concat(func, " returned EISDIR (is a directory) ").concat(path);
+	            return `[ERR_FS_EISDIR]: Path is a directory: ${func} returned EISDIR (is a directory) ${path}`;
 	        default:
-	            return "".concat(errorCode, ": error occurred, ").concat(func).concat(pathFormatted);
+	            return `${errorCode}: error occurred, ${func}${pathFormatted}`;
 	    }
 	}
-	function createError(errorCode, func, path, path2, Constructor) {
-	    if (func === void 0) { func = ''; }
-	    if (path === void 0) { path = ''; }
-	    if (path2 === void 0) { path2 = ''; }
-	    if (Constructor === void 0) { Constructor = Error; }
-	    var error = new Constructor(formatError(errorCode, func, path, path2));
+	function createError(errorCode, func = '', path = '', path2 = '', Constructor = Error) {
+	    const error = new Constructor(formatError(errorCode, func, path, path2));
 	    error.code = errorCode;
 	    if (path) {
 	        error.path = path;
@@ -17382,7 +17237,7 @@ function requireCorrectPath () {
 	    if (typeof flags === 'number')
 	        return flags;
 	    if (typeof flags === 'string') {
-	        var flagsNum = FLAGS[flags];
+	        const flagsNum = FLAGS[flags];
 	        if (typeof flagsNum !== 'undefined')
 	            return flagsNum;
 	    }
@@ -17392,11 +17247,11 @@ function requireCorrectPath () {
 	exports.flagsToNumber = flagsToNumber;
 	// ---------------------------------------- Options
 	function getOptions(defaults, options) {
-	    var opts;
+	    let opts;
 	    if (!options)
 	        return defaults;
 	    else {
-	        var tipeof = typeof options;
+	        const tipeof = typeof options;
 	        switch (tipeof) {
 	            case 'string':
 	                opts = Object.assign({}, defaults, { encoding: options });
@@ -17413,7 +17268,7 @@ function requireCorrectPath () {
 	    return opts;
 	}
 	function optsGenerator(defaults) {
-	    return function (options) { return getOptions(defaults, options); };
+	    return options => getOptions(defaults, options);
 	}
 	function validateCallback(callback) {
 	    if (typeof callback !== 'function')
@@ -17421,77 +17276,70 @@ function requireCorrectPath () {
 	    return callback;
 	}
 	function optsAndCbGenerator(getOpts) {
-	    return function (options, callback) {
-	        return typeof options === 'function' ? [getOpts(), options] : [getOpts(options), validateCallback(callback)];
-	    };
+	    return (options, callback) => typeof options === 'function' ? [getOpts(), options] : [getOpts(options), validateCallback(callback)];
 	}
-	var optsDefaults = {
+	const optsDefaults = {
 	    encoding: 'utf8',
 	};
-	var getDefaultOpts = optsGenerator(optsDefaults);
-	var getDefaultOptsAndCb = optsAndCbGenerator(getDefaultOpts);
-	var readFileOptsDefaults = {
+	const getDefaultOpts = optsGenerator(optsDefaults);
+	const getDefaultOptsAndCb = optsAndCbGenerator(getDefaultOpts);
+	const readFileOptsDefaults = {
 	    flag: 'r',
 	};
-	var getReadFileOptions = optsGenerator(readFileOptsDefaults);
-	var writeFileDefaults = {
+	const getReadFileOptions = optsGenerator(readFileOptsDefaults);
+	const writeFileDefaults = {
 	    encoding: 'utf8',
 	    mode: 438 /* MODE.DEFAULT */,
 	    flag: FLAGS[FLAGS.w],
 	};
-	var getWriteFileOptions = optsGenerator(writeFileDefaults);
-	var appendFileDefaults = {
+	const getWriteFileOptions = optsGenerator(writeFileDefaults);
+	const appendFileDefaults = {
 	    encoding: 'utf8',
 	    mode: 438 /* MODE.DEFAULT */,
 	    flag: FLAGS[FLAGS.a],
 	};
-	var getAppendFileOpts = optsGenerator(appendFileDefaults);
-	var getAppendFileOptsAndCb = optsAndCbGenerator(getAppendFileOpts);
-	var realpathDefaults = optsDefaults;
-	var getRealpathOptions = optsGenerator(realpathDefaults);
-	var getRealpathOptsAndCb = optsAndCbGenerator(getRealpathOptions);
-	var mkdirDefaults = {
+	const getAppendFileOpts = optsGenerator(appendFileDefaults);
+	const getAppendFileOptsAndCb = optsAndCbGenerator(getAppendFileOpts);
+	const realpathDefaults = optsDefaults;
+	const getRealpathOptions = optsGenerator(realpathDefaults);
+	const getRealpathOptsAndCb = optsAndCbGenerator(getRealpathOptions);
+	const mkdirDefaults = {
 	    mode: 511 /* MODE.DIR */,
 	    recursive: false,
 	};
-	var getMkdirOptions = function (options) {
+	const getMkdirOptions = (options) => {
 	    if (typeof options === 'number')
 	        return Object.assign({}, mkdirDefaults, { mode: options });
 	    return Object.assign({}, mkdirDefaults, options);
 	};
-	var rmdirDefaults = {
+	const rmdirDefaults = {
 	    recursive: false,
 	};
-	var getRmdirOptions = function (options) {
+	const getRmdirOptions = (options) => {
 	    return Object.assign({}, rmdirDefaults, options);
 	};
-	var getRmOpts = optsGenerator(optsDefaults);
-	var getRmOptsAndCb = optsAndCbGenerator(getRmOpts);
-	var readdirDefaults = {
+	const getRmOpts = optsGenerator(optsDefaults);
+	const getRmOptsAndCb = optsAndCbGenerator(getRmOpts);
+	const readdirDefaults = {
 	    encoding: 'utf8',
 	    withFileTypes: false,
 	};
-	var getReaddirOptions = optsGenerator(readdirDefaults);
-	var getReaddirOptsAndCb = optsAndCbGenerator(getReaddirOptions);
-	var statDefaults = {
+	const getReaddirOptions = optsGenerator(readdirDefaults);
+	const getReaddirOptsAndCb = optsAndCbGenerator(getReaddirOptions);
+	const statDefaults = {
 	    bigint: false,
 	};
-	var getStatOptions = function (options) {
-	    if (options === void 0) { options = {}; }
-	    return Object.assign({}, statDefaults, options);
-	};
-	var getStatOptsAndCb = function (options, callback) {
-	    return typeof options === 'function' ? [getStatOptions(), options] : [getStatOptions(options), validateCallback(callback)];
-	};
+	const getStatOptions = (options = {}) => Object.assign({}, statDefaults, options);
+	const getStatOptsAndCb = (options, callback) => typeof options === 'function' ? [getStatOptions(), options] : [getStatOptions(options), validateCallback(callback)];
 	// ---------------------------------------- Utility functions
 	function getPathFromURLPosix(url) {
 	    if (url.hostname !== '') {
 	        throw new errors$1.TypeError('ERR_INVALID_FILE_URL_HOST', process_1.default.platform);
 	    }
-	    var pathname = url.pathname;
-	    for (var n = 0; n < pathname.length; n++) {
+	    const pathname = url.pathname;
+	    for (let n = 0; n < pathname.length; n++) {
 	        if (pathname[n] === '%') {
-	            var third = pathname.codePointAt(n + 2) | 0x20;
+	            const third = pathname.codePointAt(n + 2) | 0x20;
 	            if (pathname[n + 1] === '2' && third === 102) {
 	                throw new errors$1.TypeError('ERR_INVALID_FILE_URL_PATH', 'must not include encoded / characters');
 	            }
@@ -17510,24 +17358,21 @@ function requireCorrectPath () {
 	        }
 	        path = getPathFromURLPosix(path);
 	    }
-	    var pathString = String(path);
+	    const pathString = String(path);
 	    nullCheck(pathString);
 	    // return slash(pathString);
 	    return pathString;
 	}
 	exports.pathToFilename = pathToFilename;
-	var resolve = function (filename, base) {
-	    if (base === void 0) { base = process_1.default.cwd(); }
-	    return resolveCrossPlatform(base, filename);
-	};
+	let resolve = (filename, base = process_1.default.cwd()) => resolveCrossPlatform(base, filename);
 	if (isWin) {
-	    var _resolve_1 = resolve;
-	    var unixify_1 = requireCorrectPath().unixify;
-	    resolve = function (filename, base) { return unixify_1(_resolve_1(filename, base)); };
+	    const _resolve = resolve;
+	    const { unixify } = requireCorrectPath();
+	    resolve = (filename, base) => unixify(_resolve(filename, base));
 	}
 	function filenameToSteps(filename, base) {
-	    var fullPath = resolve(filename, base);
-	    var fullPathSansSlash = fullPath.substring(1);
+	    const fullPath = resolve(filename, base);
+	    const fullPathSansSlash = fullPath.substring(1);
 	    if (!fullPathSansSlash)
 	        return [];
 	    return fullPathSansSlash.split(sep);
@@ -17537,8 +17382,7 @@ function requireCorrectPath () {
 	    return filenameToSteps(pathToFilename(path));
 	}
 	exports.pathToSteps = pathToSteps;
-	function dataToStr(data, encoding) {
-	    if (encoding === void 0) { encoding = encoding_1.ENCODING_UTF8; }
+	function dataToStr(data, encoding = encoding_1.ENCODING_UTF8) {
 	    if (buffer_1.Buffer.isBuffer(data))
 	        return data.toString(encoding);
 	    else if (data instanceof Uint8Array)
@@ -17547,8 +17391,7 @@ function requireCorrectPath () {
 	        return String(data);
 	}
 	exports.dataToStr = dataToStr;
-	function dataToBuffer(data, encoding) {
-	    if (encoding === void 0) { encoding = encoding_1.ENCODING_UTF8; }
+	function dataToBuffer(data, encoding = encoding_1.ENCODING_UTF8) {
 	    if (buffer_1.Buffer.isBuffer(data))
 	        return data;
 	    else if (data instanceof Uint8Array)
@@ -17566,7 +17409,7 @@ function requireCorrectPath () {
 	exports.bufferToEncoding = bufferToEncoding;
 	function nullCheck(path, callback) {
 	    if (('' + path).indexOf('\u0000') !== -1) {
-	        var er = new Error('Path must be a string without null bytes');
+	        const er = new Error('Path must be a string without null bytes');
 	        er.code = ENOENT;
 	        if (typeof callback !== 'function')
 	            throw er;
@@ -17585,7 +17428,7 @@ function requireCorrectPath () {
 	    return undefined;
 	}
 	function modeToNumber(mode, def) {
-	    var result = _modeToNumber(mode, def);
+	    const result = _modeToNumber(mode, def);
 	    if (typeof result !== 'number' || isNaN(result))
 	        throw new TypeError(ERRSTR.MODE_INT);
 	    return result;
@@ -17624,11 +17467,11 @@ function requireCorrectPath () {
 	        throw TypeError(ERRSTR.GID);
 	}
 	function flattenJSON(nestedJSON) {
-	    var flatJSON = {};
+	    const flatJSON = {};
 	    function flatten(pathPrefix, node) {
-	        for (var path in node) {
-	            var contentOrNode = node[path];
-	            var joinedPath = join(pathPrefix, path);
+	        for (const path in node) {
+	            const contentOrNode = node[path];
+	            const joinedPath = join(pathPrefix, path);
 	            if (typeof contentOrNode === 'string') {
 	                flatJSON[joinedPath] = contentOrNode;
 	            }
@@ -17649,9 +17492,23 @@ function requireCorrectPath () {
 	/**
 	 * `Volume` represents a file system.
 	 */
-	var Volume = /** @class */ (function () {
-	    function Volume(props) {
-	        if (props === void 0) { props = {}; }
+	class Volume {
+	    static fromJSON(json, cwd) {
+	        const vol = new Volume();
+	        vol.fromJSON(json, cwd);
+	        return vol;
+	    }
+	    static fromNestedJSON(json, cwd) {
+	        const vol = new Volume();
+	        vol.fromNestedJSON(json, cwd);
+	        return vol;
+	    }
+	    get promises() {
+	        if (this.promisesApi === null)
+	            throw new Error('Promise is not supported in this environment.');
+	        return this.promisesApi;
+	    }
+	    constructor(props = {}) {
 	        // I-node number counter.
 	        this.ino = 0;
 	        // A mapping for i-node numbers to i-nodes (`Node`);
@@ -17667,77 +17524,41 @@ function requireCorrectPath () {
 	        this.maxFiles = 10000;
 	        // Current number of open files.
 	        this.openFiles = 0;
-	        this.promisesApi = (0, promises_1.default)(this);
+	        this.promisesApi = (0, promises_1.createPromisesApi)(this);
 	        this.statWatchers = {};
 	        this.props = Object.assign({ Node: node_1.Node, Link: node_1.Link, File: node_1.File }, props);
-	        var root = this.createLink();
+	        const root = this.createLink();
 	        root.setNode(this.createNode(true));
-	        var self = this; // tslint:disable-line no-this-assignment
-	        this.StatWatcher = /** @class */ (function (_super) {
-	            __extends(StatWatcher, _super);
-	            function StatWatcher() {
-	                return _super.call(this, self) || this;
+	        const self = this; // tslint:disable-line no-this-assignment
+	        this.StatWatcher = class extends StatWatcher {
+	            constructor() {
+	                super(self);
 	            }
-	            return StatWatcher;
-	        }(StatWatcher));
-	        var _ReadStream = FsReadStream;
-	        this.ReadStream = /** @class */ (function (_super) {
-	            __extends(class_1, _super);
-	            function class_1() {
-	                var args = [];
-	                for (var _i = 0; _i < arguments.length; _i++) {
-	                    args[_i] = arguments[_i];
-	                }
-	                return _super.apply(this, __spreadArray([self], args, false)) || this;
+	        };
+	        const _ReadStream = FsReadStream;
+	        this.ReadStream = class extends _ReadStream {
+	            constructor(...args) {
+	                super(self, ...args);
 	            }
-	            return class_1;
-	        }(_ReadStream));
-	        var _WriteStream = FsWriteStream;
-	        this.WriteStream = /** @class */ (function (_super) {
-	            __extends(class_2, _super);
-	            function class_2() {
-	                var args = [];
-	                for (var _i = 0; _i < arguments.length; _i++) {
-	                    args[_i] = arguments[_i];
-	                }
-	                return _super.apply(this, __spreadArray([self], args, false)) || this;
+	        };
+	        const _WriteStream = FsWriteStream;
+	        this.WriteStream = class extends _WriteStream {
+	            constructor(...args) {
+	                super(self, ...args);
 	            }
-	            return class_2;
-	        }(_WriteStream));
-	        this.FSWatcher = /** @class */ (function (_super) {
-	            __extends(FSWatcher, _super);
-	            function FSWatcher() {
-	                return _super.call(this, self) || this;
+	        };
+	        this.FSWatcher = class extends FSWatcher {
+	            constructor() {
+	                super(self);
 	            }
-	            return FSWatcher;
-	        }(FSWatcher));
+	        };
 	        root.setChild('.', root);
 	        root.getNode().nlink++;
 	        root.setChild('..', root);
 	        root.getNode().nlink++;
 	        this.root = root;
 	    }
-	    Volume.fromJSON = function (json, cwd) {
-	        var vol = new Volume();
-	        vol.fromJSON(json, cwd);
-	        return vol;
-	    };
-	    Volume.fromNestedJSON = function (json, cwd) {
-	        var vol = new Volume();
-	        vol.fromNestedJSON(json, cwd);
-	        return vol;
-	    };
-	    Object.defineProperty(Volume.prototype, "promises", {
-	        get: function () {
-	            if (this.promisesApi === null)
-	                throw new Error('Promise is not supported in this environment.');
-	            return this.promisesApi;
-	        },
-	        enumerable: false,
-	        configurable: true
-	    });
-	    Volume.prototype.createLink = function (parent, name, isDirectory, perm) {
-	        if (isDirectory === void 0) { isDirectory = false; }
+	    createLink(parent, name, isDirectory = false, perm) {
 	        if (!parent) {
 	            return new this.props.Link(this, null, '');
 	        }
@@ -17745,75 +17566,74 @@ function requireCorrectPath () {
 	            throw new Error('createLink: name cannot be empty');
 	        }
 	        return parent.createChild(name, this.createNode(isDirectory, perm));
-	    };
-	    Volume.prototype.deleteLink = function (link) {
-	        var parent = link.parent;
+	    }
+	    deleteLink(link) {
+	        const parent = link.parent;
 	        if (parent) {
 	            parent.deleteChild(link);
 	            return true;
 	        }
 	        return false;
-	    };
-	    Volume.prototype.newInoNumber = function () {
-	        var releasedFd = this.releasedInos.pop();
+	    }
+	    newInoNumber() {
+	        const releasedFd = this.releasedInos.pop();
 	        if (releasedFd)
 	            return releasedFd;
 	        else {
 	            this.ino = (this.ino + 1) % 0xffffffff;
 	            return this.ino;
 	        }
-	    };
-	    Volume.prototype.newFdNumber = function () {
-	        var releasedFd = this.releasedFds.pop();
+	    }
+	    newFdNumber() {
+	        const releasedFd = this.releasedFds.pop();
 	        return typeof releasedFd === 'number' ? releasedFd : Volume.fd--;
-	    };
-	    Volume.prototype.createNode = function (isDirectory, perm) {
-	        if (isDirectory === void 0) { isDirectory = false; }
-	        var node = new this.props.Node(this.newInoNumber(), perm);
+	    }
+	    createNode(isDirectory = false, perm) {
+	        const node = new this.props.Node(this.newInoNumber(), perm);
 	        if (isDirectory)
 	            node.setIsDirectory();
 	        this.inodes[node.ino] = node;
 	        return node;
-	    };
-	    Volume.prototype.getNode = function (ino) {
+	    }
+	    getNode(ino) {
 	        return this.inodes[ino];
-	    };
-	    Volume.prototype.deleteNode = function (node) {
+	    }
+	    deleteNode(node) {
 	        node.del();
 	        delete this.inodes[node.ino];
 	        this.releasedInos.push(node.ino);
-	    };
+	    }
 	    // Generates 6 character long random string, used by `mkdtemp`.
-	    Volume.prototype.genRndStr = function () {
-	        var str = (Math.random() + 1).toString(36).substring(2, 8);
+	    genRndStr() {
+	        const str = (Math.random() + 1).toString(36).substring(2, 8);
 	        if (str.length === 6)
 	            return str;
 	        else
 	            return this.genRndStr();
-	    };
+	    }
 	    // Returns a `Link` (hard link) referenced by path "split" into steps.
-	    Volume.prototype.getLink = function (steps) {
+	    getLink(steps) {
 	        return this.root.walk(steps);
-	    };
+	    }
 	    // Just link `getLink`, but throws a correct user error, if link to found.
-	    Volume.prototype.getLinkOrThrow = function (filename, funcName) {
-	        var steps = filenameToSteps(filename);
-	        var link = this.getLink(steps);
+	    getLinkOrThrow(filename, funcName) {
+	        const steps = filenameToSteps(filename);
+	        const link = this.getLink(steps);
 	        if (!link)
 	            throw createError(ENOENT, funcName, filename);
 	        return link;
-	    };
+	    }
 	    // Just like `getLink`, but also dereference/resolves symbolic links.
-	    Volume.prototype.getResolvedLink = function (filenameOrSteps) {
-	        var steps = typeof filenameOrSteps === 'string' ? filenameToSteps(filenameOrSteps) : filenameOrSteps;
-	        var link = this.root;
-	        var i = 0;
+	    getResolvedLink(filenameOrSteps) {
+	        let steps = typeof filenameOrSteps === 'string' ? filenameToSteps(filenameOrSteps) : filenameOrSteps;
+	        let link = this.root;
+	        let i = 0;
 	        while (i < steps.length) {
-	            var step = steps[i];
+	            const step = steps[i];
 	            link = link.getChild(step);
 	            if (!link)
 	                return null;
-	            var node = link.getNode();
+	            const node = link.getNode();
 	            if (node.isSymlink()) {
 	                steps = node.symlink.concat(steps.slice(i + 1));
 	                link = this.root;
@@ -17823,15 +17643,15 @@ function requireCorrectPath () {
 	            i++;
 	        }
 	        return link;
-	    };
+	    }
 	    // Just like `getLinkOrThrow`, but also dereference/resolves symbolic links.
-	    Volume.prototype.getResolvedLinkOrThrow = function (filename, funcName) {
-	        var link = this.getResolvedLink(filename);
+	    getResolvedLinkOrThrow(filename, funcName) {
+	        const link = this.getResolvedLink(filename);
 	        if (!link)
 	            throw createError(ENOENT, funcName, filename);
 	        return link;
-	    };
-	    Volume.prototype.resolveSymlinks = function (link) {
+	    }
+	    resolveSymlinks(link) {
 	        // let node: Node = link.getNode();
 	        // while(link && node.isSymlink()) {
 	        //     link = this.getLink(node.symlink);
@@ -17840,38 +17660,38 @@ function requireCorrectPath () {
 	        // }
 	        // return link;
 	        return this.getResolvedLink(link.steps.slice(1));
-	    };
+	    }
 	    // Just like `getLinkOrThrow`, but also verifies that the link is a directory.
-	    Volume.prototype.getLinkAsDirOrThrow = function (filename, funcName) {
-	        var link = this.getLinkOrThrow(filename, funcName);
+	    getLinkAsDirOrThrow(filename, funcName) {
+	        const link = this.getLinkOrThrow(filename, funcName);
 	        if (!link.getNode().isDirectory())
 	            throw createError(ENOTDIR, funcName, filename);
 	        return link;
-	    };
+	    }
 	    // Get the immediate parent directory of the link.
-	    Volume.prototype.getLinkParent = function (steps) {
+	    getLinkParent(steps) {
 	        return this.root.walk(steps, steps.length - 1);
-	    };
-	    Volume.prototype.getLinkParentAsDirOrThrow = function (filenameOrSteps, funcName) {
-	        var steps = filenameOrSteps instanceof Array ? filenameOrSteps : filenameToSteps(filenameOrSteps);
-	        var link = this.getLinkParent(steps);
+	    }
+	    getLinkParentAsDirOrThrow(filenameOrSteps, funcName) {
+	        const steps = filenameOrSteps instanceof Array ? filenameOrSteps : filenameToSteps(filenameOrSteps);
+	        const link = this.getLinkParent(steps);
 	        if (!link)
 	            throw createError(ENOENT, funcName, sep + steps.join(sep));
 	        if (!link.getNode().isDirectory())
 	            throw createError(ENOTDIR, funcName, sep + steps.join(sep));
 	        return link;
-	    };
-	    Volume.prototype.getFileByFd = function (fd) {
+	    }
+	    getFileByFd(fd) {
 	        return this.fds[String(fd)];
-	    };
-	    Volume.prototype.getFileByFdOrThrow = function (fd, funcName) {
+	    }
+	    getFileByFdOrThrow(fd, funcName) {
 	        if (!isFd(fd))
 	            throw TypeError(ERRSTR.FD);
-	        var file = this.getFileByFd(fd);
+	        const file = this.getFileByFd(fd);
 	        if (!file)
 	            throw createError(EBADF, funcName);
 	        return file;
-	    };
+	    }
 	    /**
 	     * @todo This is not used anymore. Remove.
 	     */
@@ -17900,13 +17720,12 @@ function requireCorrectPath () {
 	      }
 	    }
 	    */
-	    Volume.prototype.wrapAsync = function (method, args, callback) {
-	        var _this = this;
+	    wrapAsync(method, args, callback) {
 	        validateCallback(callback);
-	        (0, setImmediate_1.default)(function () {
-	            var result;
+	        (0, setImmediate_1.default)(() => {
+	            let result;
 	            try {
-	                result = method.apply(_this, args);
+	                result = method.apply(this, args);
 	            }
 	            catch (err) {
 	                callback(err);
@@ -17914,29 +17733,26 @@ function requireCorrectPath () {
 	            }
 	            callback(null, result);
 	        });
-	    };
-	    Volume.prototype._toJSON = function (link, json, path) {
-	        var _a;
-	        if (link === void 0) { link = this.root; }
-	        if (json === void 0) { json = {}; }
-	        var isEmpty = true;
-	        var children = link.children;
+	    }
+	    _toJSON(link = this.root, json = {}, path) {
+	        let isEmpty = true;
+	        let children = link.children;
 	        if (link.getNode().isFile()) {
-	            children = (_a = {}, _a[link.getName()] = link.parent.getChild(link.getName()), _a);
+	            children = { [link.getName()]: link.parent.getChild(link.getName()) };
 	            link = link.parent;
 	        }
-	        for (var name_1 in children) {
-	            if (name_1 === '.' || name_1 === '..') {
+	        for (const name in children) {
+	            if (name === '.' || name === '..') {
 	                continue;
 	            }
 	            isEmpty = false;
-	            var child = link.getChild(name_1);
+	            const child = link.getChild(name);
 	            if (!child) {
 	                throw new Error('_toJSON: unexpected undefined');
 	            }
-	            var node = child.getNode();
+	            const node = child.getNode();
 	            if (node.isFile()) {
-	                var filename = child.getPath();
+	                let filename = child.getPath();
 	                if (path)
 	                    filename = relative(path, filename);
 	                json[filename] = node.getString();
@@ -17945,25 +17761,22 @@ function requireCorrectPath () {
 	                this._toJSON(child, json, path);
 	            }
 	        }
-	        var dirPath = link.getPath();
+	        let dirPath = link.getPath();
 	        if (path)
 	            dirPath = relative(path, dirPath);
 	        if (dirPath && isEmpty) {
 	            json[dirPath] = null;
 	        }
 	        return json;
-	    };
-	    Volume.prototype.toJSON = function (paths, json, isRelative) {
-	        if (json === void 0) { json = {}; }
-	        if (isRelative === void 0) { isRelative = false; }
-	        var links = [];
+	    }
+	    toJSON(paths, json = {}, isRelative = false) {
+	        const links = [];
 	        if (paths) {
 	            if (!(paths instanceof Array))
 	                paths = [paths];
-	            for (var _i = 0, paths_1 = paths; _i < paths_1.length; _i++) {
-	                var path = paths_1[_i];
-	                var filename = pathToFilename(path);
-	                var link = this.getResolvedLink(filename);
+	            for (const path of paths) {
+	                const filename = pathToFilename(path);
+	                const link = this.getResolvedLink(filename);
 	                if (!link)
 	                    continue;
 	                links.push(link);
@@ -17974,19 +17787,17 @@ function requireCorrectPath () {
 	        }
 	        if (!links.length)
 	            return json;
-	        for (var _a = 0, links_1 = links; _a < links_1.length; _a++) {
-	            var link = links_1[_a];
+	        for (const link of links)
 	            this._toJSON(link, json, isRelative ? link.getPath() : '');
-	        }
 	        return json;
-	    };
-	    Volume.prototype.fromJSON = function (json, cwd) {
-	        if (cwd === void 0) { cwd = process_1.default.cwd(); }
-	        for (var filename in json) {
-	            var data = json[filename];
+	    }
+	    // TODO: `cwd` should probably not invoke `process.cwd()`.
+	    fromJSON(json, cwd = process_1.default.cwd()) {
+	        for (let filename in json) {
+	            const data = json[filename];
 	            filename = resolve(filename, cwd);
 	            if (typeof data === 'string') {
-	                var dir = dirname(filename);
+	                const dir = dirname(filename);
 	                this.mkdirpBase(dir, 511 /* MODE.DIR */);
 	                this.writeFileSync(filename, data);
 	            }
@@ -17994,11 +17805,11 @@ function requireCorrectPath () {
 	                this.mkdirpBase(filename, 511 /* MODE.DIR */);
 	            }
 	        }
-	    };
-	    Volume.prototype.fromNestedJSON = function (json, cwd) {
+	    }
+	    fromNestedJSON(json, cwd) {
 	        this.fromJSON(flattenJSON(json), cwd);
-	    };
-	    Volume.prototype.reset = function () {
+	    }
+	    reset() {
 	        this.ino = 0;
 	        this.inodes = {};
 	        this.releasedInos = [];
@@ -18007,24 +17818,23 @@ function requireCorrectPath () {
 	        this.openFiles = 0;
 	        this.root = this.createLink();
 	        this.root.setNode(this.createNode(true));
-	    };
+	    }
 	    // Legacy interface
-	    Volume.prototype.mountSync = function (mountpoint, json) {
+	    mountSync(mountpoint, json) {
 	        this.fromJSON(json, mountpoint);
-	    };
-	    Volume.prototype.openLink = function (link, flagsNum, resolveSymlinks) {
-	        if (resolveSymlinks === void 0) { resolveSymlinks = true; }
+	    }
+	    openLink(link, flagsNum, resolveSymlinks = true) {
 	        if (this.openFiles >= this.maxFiles) {
 	            // Too many open files.
 	            throw createError(EMFILE, 'open', link.getPath());
 	        }
 	        // Resolve symlinks.
-	        var realLink = link;
+	        let realLink = link;
 	        if (resolveSymlinks)
 	            realLink = this.resolveSymlinks(link);
 	        if (!realLink)
 	            throw createError(ENOENT, 'open', link.getPath());
-	        var node = realLink.getNode();
+	        const node = realLink.getNode();
 	        // Check whether node is a directory
 	        if (node.isDirectory()) {
 	            if ((flagsNum & (O_RDONLY | O_RDWR | O_WRONLY)) !== O_RDONLY)
@@ -18040,23 +17850,22 @@ function requireCorrectPath () {
 	                throw createError(EACCES, 'open', link.getPath());
 	            }
 	        }
-	        var file = new this.props.File(link, node, flagsNum, this.newFdNumber());
+	        const file = new this.props.File(link, node, flagsNum, this.newFdNumber());
 	        this.fds[file.fd] = file;
 	        this.openFiles++;
 	        if (flagsNum & O_TRUNC)
 	            file.truncate();
 	        return file;
-	    };
-	    Volume.prototype.openFile = function (filename, flagsNum, modeNum, resolveSymlinks) {
-	        if (resolveSymlinks === void 0) { resolveSymlinks = true; }
-	        var steps = filenameToSteps(filename);
-	        var link = resolveSymlinks ? this.getResolvedLink(steps) : this.getLink(steps);
+	    }
+	    openFile(filename, flagsNum, modeNum, resolveSymlinks = true) {
+	        const steps = filenameToSteps(filename);
+	        let link = resolveSymlinks ? this.getResolvedLink(steps) : this.getLink(steps);
 	        if (link && flagsNum & O_EXCL)
 	            throw createError(EEXIST, 'open', filename);
 	        // Try creating a new file, if it does not exist.
 	        if (!link && flagsNum & O_CREAT) {
 	            // const dirLink: Link = this.getLinkParent(steps);
-	            var dirLink = this.getResolvedLink(steps.slice(0, steps.length - 1));
+	            const dirLink = this.getResolvedLink(steps.slice(0, steps.length - 1));
 	            // if(!dirLink) throw createError(ENOENT, 'open', filename);
 	            if (!dirLink)
 	                throw createError(ENOENT, 'open', sep + steps.join(sep));
@@ -18067,54 +17876,52 @@ function requireCorrectPath () {
 	        if (link)
 	            return this.openLink(link, flagsNum, resolveSymlinks);
 	        throw createError(ENOENT, 'open', filename);
-	    };
-	    Volume.prototype.openBase = function (filename, flagsNum, modeNum, resolveSymlinks) {
-	        if (resolveSymlinks === void 0) { resolveSymlinks = true; }
-	        var file = this.openFile(filename, flagsNum, modeNum, resolveSymlinks);
+	    }
+	    openBase(filename, flagsNum, modeNum, resolveSymlinks = true) {
+	        const file = this.openFile(filename, flagsNum, modeNum, resolveSymlinks);
 	        if (!file)
 	            throw createError(ENOENT, 'open', filename);
 	        return file.fd;
-	    };
-	    Volume.prototype.openSync = function (path, flags, mode) {
-	        if (mode === void 0) { mode = 438 /* MODE.DEFAULT */; }
+	    }
+	    openSync(path, flags, mode = 438 /* MODE.DEFAULT */) {
 	        // Validate (1) mode; (2) path; (3) flags - in that order.
-	        var modeNum = modeToNumber(mode);
-	        var fileName = pathToFilename(path);
-	        var flagsNum = flagsToNumber(flags);
+	        const modeNum = modeToNumber(mode);
+	        const fileName = pathToFilename(path);
+	        const flagsNum = flagsToNumber(flags);
 	        return this.openBase(fileName, flagsNum, modeNum);
-	    };
-	    Volume.prototype.open = function (path, flags, a, b) {
-	        var mode = a;
-	        var callback = b;
+	    }
+	    open(path, flags, a, b) {
+	        let mode = a;
+	        let callback = b;
 	        if (typeof a === 'function') {
 	            mode = 438 /* MODE.DEFAULT */;
 	            callback = a;
 	        }
 	        mode = mode || 438 /* MODE.DEFAULT */;
-	        var modeNum = modeToNumber(mode);
-	        var fileName = pathToFilename(path);
-	        var flagsNum = flagsToNumber(flags);
+	        const modeNum = modeToNumber(mode);
+	        const fileName = pathToFilename(path);
+	        const flagsNum = flagsToNumber(flags);
 	        this.wrapAsync(this.openBase, [fileName, flagsNum, modeNum], callback);
-	    };
-	    Volume.prototype.closeFile = function (file) {
+	    }
+	    closeFile(file) {
 	        if (!this.fds[file.fd])
 	            return;
 	        this.openFiles--;
 	        delete this.fds[file.fd];
 	        this.releasedFds.push(file.fd);
-	    };
-	    Volume.prototype.closeSync = function (fd) {
+	    }
+	    closeSync(fd) {
 	        validateFd(fd);
-	        var file = this.getFileByFdOrThrow(fd, 'close');
+	        const file = this.getFileByFdOrThrow(fd, 'close');
 	        this.closeFile(file);
-	    };
-	    Volume.prototype.close = function (fd, callback) {
+	    }
+	    close(fd, callback) {
 	        validateFd(fd);
 	        this.wrapAsync(this.closeSync, [fd], callback);
-	    };
-	    Volume.prototype.openFileOrGetById = function (id, flagsNum, modeNum) {
+	    }
+	    openFileOrGetById(id, flagsNum, modeNum) {
 	        if (typeof id === 'number') {
-	            var file = this.fds[id];
+	            const file = this.fds[id];
 	            if (!file)
 	                throw createError(ENOENT);
 	            return file;
@@ -18122,48 +17929,47 @@ function requireCorrectPath () {
 	        else {
 	            return this.openFile(pathToFilename(id), flagsNum, modeNum);
 	        }
-	    };
-	    Volume.prototype.readBase = function (fd, buffer, offset, length, position) {
-	        var file = this.getFileByFdOrThrow(fd);
+	    }
+	    readBase(fd, buffer, offset, length, position) {
+	        const file = this.getFileByFdOrThrow(fd);
 	        return file.read(buffer, Number(offset), Number(length), position);
-	    };
-	    Volume.prototype.readSync = function (fd, buffer, offset, length, position) {
+	    }
+	    readSync(fd, buffer, offset, length, position) {
 	        validateFd(fd);
 	        return this.readBase(fd, buffer, offset, length, position);
-	    };
-	    Volume.prototype.read = function (fd, buffer, offset, length, position, callback) {
-	        var _this = this;
+	    }
+	    read(fd, buffer, offset, length, position, callback) {
 	        validateCallback(callback);
 	        // This `if` branch is from Node.js
 	        if (length === 0) {
-	            return process_1.default.nextTick(function () {
+	            return process_1.default.nextTick(() => {
 	                if (callback)
 	                    callback(null, 0, buffer);
 	            });
 	        }
-	        (0, setImmediate_1.default)(function () {
+	        (0, setImmediate_1.default)(() => {
 	            try {
-	                var bytes = _this.readBase(fd, buffer, offset, length, position);
+	                const bytes = this.readBase(fd, buffer, offset, length, position);
 	                callback(null, bytes, buffer);
 	            }
 	            catch (err) {
 	                callback(err);
 	            }
 	        });
-	    };
-	    Volume.prototype.readFileBase = function (id, flagsNum, encoding) {
-	        var result;
-	        var isUserFd = typeof id === 'number';
-	        var userOwnsFd = isUserFd && isFd(id);
-	        var fd;
+	    }
+	    readFileBase(id, flagsNum, encoding) {
+	        let result;
+	        const isUserFd = typeof id === 'number';
+	        const userOwnsFd = isUserFd && isFd(id);
+	        let fd;
 	        if (userOwnsFd)
 	            fd = id;
 	        else {
-	            var filename = pathToFilename(id);
-	            var steps = filenameToSteps(filename);
-	            var link = this.getResolvedLink(steps);
+	            const filename = pathToFilename(id);
+	            const steps = filenameToSteps(filename);
+	            const link = this.getResolvedLink(steps);
 	            if (link) {
-	                var node = link.getNode();
+	                const node = link.getNode();
 	                if (node.isDirectory())
 	                    throw createError(EISDIR, 'open', link.getPath());
 	            }
@@ -18178,28 +17984,28 @@ function requireCorrectPath () {
 	            }
 	        }
 	        return result;
-	    };
-	    Volume.prototype.readFileSync = function (file, options) {
-	        var opts = getReadFileOptions(options);
-	        var flagsNum = flagsToNumber(opts.flag);
+	    }
+	    readFileSync(file, options) {
+	        const opts = getReadFileOptions(options);
+	        const flagsNum = flagsToNumber(opts.flag);
 	        return this.readFileBase(file, flagsNum, opts.encoding);
-	    };
-	    Volume.prototype.readFile = function (id, a, b) {
-	        var _a = optsAndCbGenerator(getReadFileOptions)(a, b), opts = _a[0], callback = _a[1];
-	        var flagsNum = flagsToNumber(opts.flag);
+	    }
+	    readFile(id, a, b) {
+	        const [opts, callback] = optsAndCbGenerator(getReadFileOptions)(a, b);
+	        const flagsNum = flagsToNumber(opts.flag);
 	        this.wrapAsync(this.readFileBase, [id, flagsNum, opts.encoding], callback);
-	    };
-	    Volume.prototype.writeBase = function (fd, buf, offset, length, position) {
-	        var file = this.getFileByFdOrThrow(fd, 'write');
+	    }
+	    writeBase(fd, buf, offset, length, position) {
+	        const file = this.getFileByFdOrThrow(fd, 'write');
 	        return file.write(buf, offset, length, position);
-	    };
-	    Volume.prototype.writeSync = function (fd, a, b, c, d) {
+	    }
+	    writeSync(fd, a, b, c, d) {
 	        validateFd(fd);
-	        var encoding;
-	        var offset;
-	        var length;
-	        var position;
-	        var isBuffer = typeof a !== 'string';
+	        let encoding;
+	        let offset;
+	        let length;
+	        let position;
+	        const isBuffer = typeof a !== 'string';
 	        if (isBuffer) {
 	            offset = (b || 0) | 0;
 	            length = c;
@@ -18209,7 +18015,7 @@ function requireCorrectPath () {
 	            position = b;
 	            encoding = c;
 	        }
-	        var buf = dataToBuffer(a, encoding);
+	        const buf = dataToBuffer(a, encoding);
 	        if (isBuffer) {
 	            if (typeof length === 'undefined') {
 	                length = buf.length;
@@ -18220,19 +18026,18 @@ function requireCorrectPath () {
 	            length = buf.length;
 	        }
 	        return this.writeBase(fd, buf, offset, length, position);
-	    };
-	    Volume.prototype.write = function (fd, a, b, c, d, e) {
-	        var _this = this;
+	    }
+	    write(fd, a, b, c, d, e) {
 	        validateFd(fd);
-	        var offset;
-	        var length;
-	        var position;
-	        var encoding;
-	        var callback;
-	        var tipa = typeof a;
-	        var tipb = typeof b;
-	        var tipc = typeof c;
-	        var tipd = typeof d;
+	        let offset;
+	        let length;
+	        let position;
+	        let encoding;
+	        let callback;
+	        const tipa = typeof a;
+	        const tipb = typeof b;
+	        const tipc = typeof c;
+	        const tipd = typeof d;
 	        if (tipa !== 'string') {
 	            if (tipb === 'function') {
 	                callback = b;
@@ -18267,7 +18072,7 @@ function requireCorrectPath () {
 	                callback = d;
 	            }
 	        }
-	        var buf = dataToBuffer(a, encoding);
+	        const buf = dataToBuffer(a, encoding);
 	        if (tipa !== 'string') {
 	            if (typeof length === 'undefined')
 	                length = buf.length;
@@ -18276,10 +18081,10 @@ function requireCorrectPath () {
 	            offset = 0;
 	            length = buf.length;
 	        }
-	        var cb = validateCallback(callback);
-	        (0, setImmediate_1.default)(function () {
+	        const cb = validateCallback(callback);
+	        (0, setImmediate_1.default)(() => {
 	            try {
-	                var bytes = _this.writeBase(fd, buf, offset, length, position);
+	                const bytes = this.writeBase(fd, buf, offset, length, position);
 	                if (tipa !== 'string') {
 	                    cb(null, bytes, buf);
 	                }
@@ -18291,25 +18096,25 @@ function requireCorrectPath () {
 	                cb(err);
 	            }
 	        });
-	    };
-	    Volume.prototype.writeFileBase = function (id, buf, flagsNum, modeNum) {
+	    }
+	    writeFileBase(id, buf, flagsNum, modeNum) {
 	        // console.log('writeFileBase', id, buf, flagsNum, modeNum);
 	        // const node = this.getNodeByIdOrCreate(id, flagsNum, modeNum);
 	        // node.setBuffer(buf);
-	        var isUserFd = typeof id === 'number';
-	        var fd;
+	        const isUserFd = typeof id === 'number';
+	        let fd;
 	        if (isUserFd)
 	            fd = id;
 	        else {
 	            fd = this.openBase(pathToFilename(id), flagsNum, modeNum);
 	            // fd = this.openSync(id as PathLike, flagsNum, modeNum);
 	        }
-	        var offset = 0;
-	        var length = buf.length;
-	        var position = flagsNum & O_APPEND ? undefined : 0;
+	        let offset = 0;
+	        let length = buf.length;
+	        let position = flagsNum & O_APPEND ? undefined : 0;
 	        try {
 	            while (length > 0) {
-	                var written = this.writeSync(fd, buf, offset, length, position);
+	                const written = this.writeSync(fd, buf, offset, length, position);
 	                offset += written;
 	                length -= written;
 	                if (position !== undefined)
@@ -18320,48 +18125,48 @@ function requireCorrectPath () {
 	            if (!isUserFd)
 	                this.closeSync(fd);
 	        }
-	    };
-	    Volume.prototype.writeFileSync = function (id, data, options) {
-	        var opts = getWriteFileOptions(options);
-	        var flagsNum = flagsToNumber(opts.flag);
-	        var modeNum = modeToNumber(opts.mode);
-	        var buf = dataToBuffer(data, opts.encoding);
+	    }
+	    writeFileSync(id, data, options) {
+	        const opts = getWriteFileOptions(options);
+	        const flagsNum = flagsToNumber(opts.flag);
+	        const modeNum = modeToNumber(opts.mode);
+	        const buf = dataToBuffer(data, opts.encoding);
 	        this.writeFileBase(id, buf, flagsNum, modeNum);
-	    };
-	    Volume.prototype.writeFile = function (id, data, a, b) {
-	        var options = a;
-	        var callback = b;
+	    }
+	    writeFile(id, data, a, b) {
+	        let options = a;
+	        let callback = b;
 	        if (typeof a === 'function') {
 	            options = writeFileDefaults;
 	            callback = a;
 	        }
-	        var cb = validateCallback(callback);
-	        var opts = getWriteFileOptions(options);
-	        var flagsNum = flagsToNumber(opts.flag);
-	        var modeNum = modeToNumber(opts.mode);
-	        var buf = dataToBuffer(data, opts.encoding);
+	        const cb = validateCallback(callback);
+	        const opts = getWriteFileOptions(options);
+	        const flagsNum = flagsToNumber(opts.flag);
+	        const modeNum = modeToNumber(opts.mode);
+	        const buf = dataToBuffer(data, opts.encoding);
 	        this.wrapAsync(this.writeFileBase, [id, buf, flagsNum, modeNum], cb);
-	    };
-	    Volume.prototype.linkBase = function (filename1, filename2) {
-	        var steps1 = filenameToSteps(filename1);
-	        var link1 = this.getLink(steps1);
+	    }
+	    linkBase(filename1, filename2) {
+	        const steps1 = filenameToSteps(filename1);
+	        const link1 = this.getLink(steps1);
 	        if (!link1)
 	            throw createError(ENOENT, 'link', filename1, filename2);
-	        var steps2 = filenameToSteps(filename2);
+	        const steps2 = filenameToSteps(filename2);
 	        // Check new link directory exists.
-	        var dir2 = this.getLinkParent(steps2);
+	        const dir2 = this.getLinkParent(steps2);
 	        if (!dir2)
 	            throw createError(ENOENT, 'link', filename1, filename2);
-	        var name = steps2[steps2.length - 1];
+	        const name = steps2[steps2.length - 1];
 	        // Check if new file already exists.
 	        if (dir2.getChild(name))
 	            throw createError(EEXIST, 'link', filename1, filename2);
-	        var node = link1.getNode();
+	        const node = link1.getNode();
 	        node.nlink++;
 	        dir2.createChild(name, node);
-	    };
-	    Volume.prototype.copyFileBase = function (src, dest, flags) {
-	        var buf = this.readFileSync(src);
+	    }
+	    copyFileBase(src, dest, flags) {
+	        const buf = this.readFileSync(src);
 	        if (flags & COPYFILE_EXCL) {
 	            if (this.existsSync(dest)) {
 	                throw createError(EEXIST, 'copyFile', src, dest);
@@ -18371,17 +18176,17 @@ function requireCorrectPath () {
 	            throw createError(ENOSYS, 'copyFile', src, dest);
 	        }
 	        this.writeFileBase(dest, buf, FLAGS.w, 438 /* MODE.DEFAULT */);
-	    };
-	    Volume.prototype.copyFileSync = function (src, dest, flags) {
-	        var srcFilename = pathToFilename(src);
-	        var destFilename = pathToFilename(dest);
+	    }
+	    copyFileSync(src, dest, flags) {
+	        const srcFilename = pathToFilename(src);
+	        const destFilename = pathToFilename(dest);
 	        return this.copyFileBase(srcFilename, destFilename, (flags || 0) | 0);
-	    };
-	    Volume.prototype.copyFile = function (src, dest, a, b) {
-	        var srcFilename = pathToFilename(src);
-	        var destFilename = pathToFilename(dest);
-	        var flags;
-	        var callback;
+	    }
+	    copyFile(src, dest, a, b) {
+	        const srcFilename = pathToFilename(src);
+	        const destFilename = pathToFilename(dest);
+	        let flags;
+	        let callback;
 	        if (typeof a === 'function') {
 	            flags = 0;
 	            callback = a;
@@ -18392,87 +18197,85 @@ function requireCorrectPath () {
 	        }
 	        validateCallback(callback);
 	        this.wrapAsync(this.copyFileBase, [srcFilename, destFilename, flags], callback);
-	    };
-	    Volume.prototype.linkSync = function (existingPath, newPath) {
-	        var existingPathFilename = pathToFilename(existingPath);
-	        var newPathFilename = pathToFilename(newPath);
+	    }
+	    linkSync(existingPath, newPath) {
+	        const existingPathFilename = pathToFilename(existingPath);
+	        const newPathFilename = pathToFilename(newPath);
 	        this.linkBase(existingPathFilename, newPathFilename);
-	    };
-	    Volume.prototype.link = function (existingPath, newPath, callback) {
-	        var existingPathFilename = pathToFilename(existingPath);
-	        var newPathFilename = pathToFilename(newPath);
+	    }
+	    link(existingPath, newPath, callback) {
+	        const existingPathFilename = pathToFilename(existingPath);
+	        const newPathFilename = pathToFilename(newPath);
 	        this.wrapAsync(this.linkBase, [existingPathFilename, newPathFilename], callback);
-	    };
-	    Volume.prototype.unlinkBase = function (filename) {
-	        var steps = filenameToSteps(filename);
-	        var link = this.getLink(steps);
+	    }
+	    unlinkBase(filename) {
+	        const steps = filenameToSteps(filename);
+	        const link = this.getLink(steps);
 	        if (!link)
 	            throw createError(ENOENT, 'unlink', filename);
 	        // TODO: Check if it is file, dir, other...
 	        if (link.length)
 	            throw Error('Dir not empty...');
 	        this.deleteLink(link);
-	        var node = link.getNode();
+	        const node = link.getNode();
 	        node.nlink--;
 	        // When all hard links to i-node are deleted, remove the i-node, too.
 	        if (node.nlink <= 0) {
 	            this.deleteNode(node);
 	        }
-	    };
-	    Volume.prototype.unlinkSync = function (path) {
-	        var filename = pathToFilename(path);
+	    }
+	    unlinkSync(path) {
+	        const filename = pathToFilename(path);
 	        this.unlinkBase(filename);
-	    };
-	    Volume.prototype.unlink = function (path, callback) {
-	        var filename = pathToFilename(path);
+	    }
+	    unlink(path, callback) {
+	        const filename = pathToFilename(path);
 	        this.wrapAsync(this.unlinkBase, [filename], callback);
-	    };
-	    Volume.prototype.symlinkBase = function (targetFilename, pathFilename) {
-	        var pathSteps = filenameToSteps(pathFilename);
+	    }
+	    symlinkBase(targetFilename, pathFilename) {
+	        const pathSteps = filenameToSteps(pathFilename);
 	        // Check if directory exists, where we about to create a symlink.
-	        var dirLink = this.getLinkParent(pathSteps);
+	        const dirLink = this.getLinkParent(pathSteps);
 	        if (!dirLink)
 	            throw createError(ENOENT, 'symlink', targetFilename, pathFilename);
-	        var name = pathSteps[pathSteps.length - 1];
+	        const name = pathSteps[pathSteps.length - 1];
 	        // Check if new file already exists.
 	        if (dirLink.getChild(name))
 	            throw createError(EEXIST, 'symlink', targetFilename, pathFilename);
 	        // Create symlink.
-	        var symlink = dirLink.createChild(name);
+	        const symlink = dirLink.createChild(name);
 	        symlink.getNode().makeSymlink(filenameToSteps(targetFilename));
 	        return symlink;
-	    };
+	    }
 	    // `type` argument works only on Windows.
-	    Volume.prototype.symlinkSync = function (target, path, type) {
-	        var targetFilename = pathToFilename(target);
-	        var pathFilename = pathToFilename(path);
+	    symlinkSync(target, path, type) {
+	        const targetFilename = pathToFilename(target);
+	        const pathFilename = pathToFilename(path);
 	        this.symlinkBase(targetFilename, pathFilename);
-	    };
-	    Volume.prototype.symlink = function (target, path, a, b) {
-	        var callback = validateCallback(typeof a === 'function' ? a : b);
-	        var targetFilename = pathToFilename(target);
-	        var pathFilename = pathToFilename(path);
+	    }
+	    symlink(target, path, a, b) {
+	        const callback = validateCallback(typeof a === 'function' ? a : b);
+	        const targetFilename = pathToFilename(target);
+	        const pathFilename = pathToFilename(path);
 	        this.wrapAsync(this.symlinkBase, [targetFilename, pathFilename], callback);
-	    };
-	    Volume.prototype.realpathBase = function (filename, encoding) {
-	        var steps = filenameToSteps(filename);
-	        var realLink = this.getResolvedLink(steps);
+	    }
+	    realpathBase(filename, encoding) {
+	        const steps = filenameToSteps(filename);
+	        const realLink = this.getResolvedLink(steps);
 	        if (!realLink)
 	            throw createError(ENOENT, 'realpath', filename);
 	        return (0, encoding_1.strToEncoding)(realLink.getPath() || '/', encoding);
-	    };
-	    Volume.prototype.realpathSync = function (path, options) {
+	    }
+	    realpathSync(path, options) {
 	        return this.realpathBase(pathToFilename(path), getRealpathOptions(options).encoding);
-	    };
-	    Volume.prototype.realpath = function (path, a, b) {
-	        var _a = getRealpathOptsAndCb(a, b), opts = _a[0], callback = _a[1];
-	        var pathFilename = pathToFilename(path);
+	    }
+	    realpath(path, a, b) {
+	        const [opts, callback] = getRealpathOptsAndCb(a, b);
+	        const pathFilename = pathToFilename(path);
 	        this.wrapAsync(this.realpathBase, [pathFilename, opts.encoding], callback);
-	    };
-	    Volume.prototype.lstatBase = function (filename, bigint, throwIfNoEntry) {
-	        if (bigint === void 0) { bigint = false; }
-	        if (throwIfNoEntry === void 0) { throwIfNoEntry = false; }
-	        var link = this.getLink(filenameToSteps(filename));
+	    }
+	    lstatBase(filename, bigint = false, throwIfNoEntry = false) {
+	        const link = this.getLink(filenameToSteps(filename));
 	        if (link) {
 	            return Stats_1.default.build(link.getNode(), bigint);
 	        }
@@ -18482,19 +18285,17 @@ function requireCorrectPath () {
 	        else {
 	            throw createError(ENOENT, 'lstat', filename);
 	        }
-	    };
-	    Volume.prototype.lstatSync = function (path, options) {
-	        var _a = getStatOptions(options), _b = _a.throwIfNoEntry, throwIfNoEntry = _b === void 0 ? true : _b, _c = _a.bigint, bigint = _c === void 0 ? false : _c;
+	    }
+	    lstatSync(path, options) {
+	        const { throwIfNoEntry = true, bigint = false } = getStatOptions(options);
 	        return this.lstatBase(pathToFilename(path), bigint, throwIfNoEntry);
-	    };
-	    Volume.prototype.lstat = function (path, a, b) {
-	        var _a = getStatOptsAndCb(a, b), _b = _a[0], _c = _b.throwIfNoEntry, throwIfNoEntry = _c === void 0 ? true : _c, _d = _b.bigint, bigint = _d === void 0 ? false : _d, callback = _a[1];
+	    }
+	    lstat(path, a, b) {
+	        const [{ throwIfNoEntry = true, bigint = false }, callback] = getStatOptsAndCb(a, b);
 	        this.wrapAsync(this.lstatBase, [pathToFilename(path), bigint, throwIfNoEntry], callback);
-	    };
-	    Volume.prototype.statBase = function (filename, bigint, throwIfNoEntry) {
-	        if (bigint === void 0) { bigint = false; }
-	        if (throwIfNoEntry === void 0) { throwIfNoEntry = true; }
-	        var link = this.getResolvedLink(filenameToSteps(filename));
+	    }
+	    statBase(filename, bigint = false, throwIfNoEntry = true) {
+	        const link = this.getResolvedLink(filenameToSteps(filename));
 	        if (link) {
 	            return Stats_1.default.build(link.getNode(), bigint);
 	        }
@@ -18504,100 +18305,97 @@ function requireCorrectPath () {
 	        else {
 	            throw createError(ENOENT, 'stat', filename);
 	        }
-	    };
-	    Volume.prototype.statSync = function (path, options) {
-	        var _a = getStatOptions(options), _b = _a.bigint, bigint = _b === void 0 ? true : _b, _c = _a.throwIfNoEntry, throwIfNoEntry = _c === void 0 ? true : _c;
+	    }
+	    statSync(path, options) {
+	        const { bigint = true, throwIfNoEntry = true } = getStatOptions(options);
 	        return this.statBase(pathToFilename(path), bigint, throwIfNoEntry);
-	    };
-	    Volume.prototype.stat = function (path, a, b) {
-	        var _a = getStatOptsAndCb(a, b), _b = _a[0], _c = _b.bigint, bigint = _c === void 0 ? false : _c, _d = _b.throwIfNoEntry, throwIfNoEntry = _d === void 0 ? true : _d, callback = _a[1];
+	    }
+	    stat(path, a, b) {
+	        const [{ bigint = false, throwIfNoEntry = true }, callback] = getStatOptsAndCb(a, b);
 	        this.wrapAsync(this.statBase, [pathToFilename(path), bigint, throwIfNoEntry], callback);
-	    };
-	    Volume.prototype.fstatBase = function (fd, bigint) {
-	        if (bigint === void 0) { bigint = false; }
-	        var file = this.getFileByFd(fd);
+	    }
+	    fstatBase(fd, bigint = false) {
+	        const file = this.getFileByFd(fd);
 	        if (!file)
 	            throw createError(EBADF, 'fstat');
 	        return Stats_1.default.build(file.node, bigint);
-	    };
-	    Volume.prototype.fstatSync = function (fd, options) {
+	    }
+	    fstatSync(fd, options) {
 	        return this.fstatBase(fd, getStatOptions(options).bigint);
-	    };
-	    Volume.prototype.fstat = function (fd, a, b) {
-	        var _a = getStatOptsAndCb(a, b), opts = _a[0], callback = _a[1];
+	    }
+	    fstat(fd, a, b) {
+	        const [opts, callback] = getStatOptsAndCb(a, b);
 	        this.wrapAsync(this.fstatBase, [fd, opts.bigint], callback);
-	    };
-	    Volume.prototype.renameBase = function (oldPathFilename, newPathFilename) {
-	        var link = this.getLink(filenameToSteps(oldPathFilename));
+	    }
+	    renameBase(oldPathFilename, newPathFilename) {
+	        const link = this.getLink(filenameToSteps(oldPathFilename));
 	        if (!link)
 	            throw createError(ENOENT, 'rename', oldPathFilename, newPathFilename);
 	        // TODO: Check if it is directory, if non-empty, we cannot move it, right?
-	        var newPathSteps = filenameToSteps(newPathFilename);
+	        const newPathSteps = filenameToSteps(newPathFilename);
 	        // Check directory exists for the new location.
-	        var newPathDirLink = this.getLinkParent(newPathSteps);
+	        const newPathDirLink = this.getLinkParent(newPathSteps);
 	        if (!newPathDirLink)
 	            throw createError(ENOENT, 'rename', oldPathFilename, newPathFilename);
 	        // TODO: Also treat cases with directories and symbolic links.
 	        // TODO: See: http://man7.org/linux/man-pages/man2/rename.2.html
 	        // Remove hard link from old folder.
-	        var oldLinkParent = link.parent;
+	        const oldLinkParent = link.parent;
 	        if (oldLinkParent) {
 	            oldLinkParent.deleteChild(link);
 	        }
 	        // Rename should overwrite the new path, if that exists.
-	        var name = newPathSteps[newPathSteps.length - 1];
+	        const name = newPathSteps[newPathSteps.length - 1];
 	        link.name = name;
-	        link.steps = __spreadArray(__spreadArray([], newPathDirLink.steps, true), [name], false);
+	        link.steps = [...newPathDirLink.steps, name];
 	        newPathDirLink.setChild(link.getName(), link);
-	    };
-	    Volume.prototype.renameSync = function (oldPath, newPath) {
-	        var oldPathFilename = pathToFilename(oldPath);
-	        var newPathFilename = pathToFilename(newPath);
+	    }
+	    renameSync(oldPath, newPath) {
+	        const oldPathFilename = pathToFilename(oldPath);
+	        const newPathFilename = pathToFilename(newPath);
 	        this.renameBase(oldPathFilename, newPathFilename);
-	    };
-	    Volume.prototype.rename = function (oldPath, newPath, callback) {
-	        var oldPathFilename = pathToFilename(oldPath);
-	        var newPathFilename = pathToFilename(newPath);
+	    }
+	    rename(oldPath, newPath, callback) {
+	        const oldPathFilename = pathToFilename(oldPath);
+	        const newPathFilename = pathToFilename(newPath);
 	        this.wrapAsync(this.renameBase, [oldPathFilename, newPathFilename], callback);
-	    };
-	    Volume.prototype.existsBase = function (filename) {
+	    }
+	    existsBase(filename) {
 	        return !!this.statBase(filename);
-	    };
-	    Volume.prototype.existsSync = function (path) {
+	    }
+	    existsSync(path) {
 	        try {
 	            return this.existsBase(pathToFilename(path));
 	        }
 	        catch (err) {
 	            return false;
 	        }
-	    };
-	    Volume.prototype.exists = function (path, callback) {
-	        var _this = this;
-	        var filename = pathToFilename(path);
+	    }
+	    exists(path, callback) {
+	        const filename = pathToFilename(path);
 	        if (typeof callback !== 'function')
 	            throw Error(ERRSTR.CB);
-	        (0, setImmediate_1.default)(function () {
+	        (0, setImmediate_1.default)(() => {
 	            try {
-	                callback(_this.existsBase(filename));
+	                callback(this.existsBase(filename));
 	            }
 	            catch (err) {
 	                callback(false);
 	            }
 	        });
-	    };
-	    Volume.prototype.accessBase = function (filename, mode) {
+	    }
+	    accessBase(filename, mode) {
 	        this.getLinkOrThrow(filename, 'access');
 	        // TODO: Verify permissions
-	    };
-	    Volume.prototype.accessSync = function (path, mode) {
-	        if (mode === void 0) { mode = F_OK; }
-	        var filename = pathToFilename(path);
+	    }
+	    accessSync(path, mode = F_OK) {
+	        const filename = pathToFilename(path);
 	        mode = mode | 0;
 	        this.accessBase(filename, mode);
-	    };
-	    Volume.prototype.access = function (path, a, b) {
-	        var mode = F_OK;
-	        var callback;
+	    }
+	    access(path, a, b) {
+	        let mode = F_OK;
+	        let callback;
 	        if (typeof a !== 'function') {
 	            mode = a | 0; // cast to number
 	            callback = validateCallback(b);
@@ -18605,197 +18403,196 @@ function requireCorrectPath () {
 	        else {
 	            callback = a;
 	        }
-	        var filename = pathToFilename(path);
+	        const filename = pathToFilename(path);
 	        this.wrapAsync(this.accessBase, [filename, mode], callback);
-	    };
-	    Volume.prototype.appendFileSync = function (id, data, options) {
-	        if (options === void 0) { options = appendFileDefaults; }
-	        var opts = getAppendFileOpts(options);
+	    }
+	    appendFileSync(id, data, options = appendFileDefaults) {
+	        const opts = getAppendFileOpts(options);
 	        // force append behavior when using a supplied file descriptor
 	        if (!opts.flag || isFd(id))
 	            opts.flag = 'a';
 	        this.writeFileSync(id, data, opts);
-	    };
-	    Volume.prototype.appendFile = function (id, data, a, b) {
-	        var _a = getAppendFileOptsAndCb(a, b), opts = _a[0], callback = _a[1];
+	    }
+	    appendFile(id, data, a, b) {
+	        const [opts, callback] = getAppendFileOptsAndCb(a, b);
 	        // force append behavior when using a supplied file descriptor
 	        if (!opts.flag || isFd(id))
 	            opts.flag = 'a';
 	        this.writeFile(id, data, opts, callback);
-	    };
-	    Volume.prototype.readdirBase = function (filename, options) {
-	        var steps = filenameToSteps(filename);
-	        var link = this.getResolvedLink(steps);
+	    }
+	    readdirBase(filename, options) {
+	        const steps = filenameToSteps(filename);
+	        const link = this.getResolvedLink(steps);
 	        if (!link)
 	            throw createError(ENOENT, 'readdir', filename);
-	        var node = link.getNode();
+	        const node = link.getNode();
 	        if (!node.isDirectory())
 	            throw createError(ENOTDIR, 'scandir', filename);
 	        if (options.withFileTypes) {
-	            var list_1 = [];
-	            for (var name_2 in link.children) {
-	                var child = link.getChild(name_2);
-	                if (!child || name_2 === '.' || name_2 === '..') {
+	            const list = [];
+	            for (const name in link.children) {
+	                const child = link.getChild(name);
+	                if (!child || name === '.' || name === '..') {
 	                    continue;
 	                }
-	                list_1.push(Dirent_1.default.build(child, options.encoding));
+	                list.push(Dirent_1.default.build(child, options.encoding));
 	            }
 	            if (!isWin && options.encoding !== 'buffer')
-	                list_1.sort(function (a, b) {
+	                list.sort((a, b) => {
 	                    if (a.name < b.name)
 	                        return -1;
 	                    if (a.name > b.name)
 	                        return 1;
 	                    return 0;
 	                });
-	            return list_1;
+	            return list;
 	        }
-	        var list = [];
-	        for (var name_3 in link.children) {
-	            if (name_3 === '.' || name_3 === '..') {
+	        const list = [];
+	        for (const name in link.children) {
+	            if (name === '.' || name === '..') {
 	                continue;
 	            }
-	            list.push((0, encoding_1.strToEncoding)(name_3, options.encoding));
+	            list.push((0, encoding_1.strToEncoding)(name, options.encoding));
 	        }
 	        if (!isWin && options.encoding !== 'buffer')
 	            list.sort();
 	        return list;
-	    };
-	    Volume.prototype.readdirSync = function (path, options) {
-	        var opts = getReaddirOptions(options);
-	        var filename = pathToFilename(path);
+	    }
+	    readdirSync(path, options) {
+	        const opts = getReaddirOptions(options);
+	        const filename = pathToFilename(path);
 	        return this.readdirBase(filename, opts);
-	    };
-	    Volume.prototype.readdir = function (path, a, b) {
-	        var _a = getReaddirOptsAndCb(a, b), options = _a[0], callback = _a[1];
-	        var filename = pathToFilename(path);
+	    }
+	    readdir(path, a, b) {
+	        const [options, callback] = getReaddirOptsAndCb(a, b);
+	        const filename = pathToFilename(path);
 	        this.wrapAsync(this.readdirBase, [filename, options], callback);
-	    };
-	    Volume.prototype.readlinkBase = function (filename, encoding) {
-	        var link = this.getLinkOrThrow(filename, 'readlink');
-	        var node = link.getNode();
+	    }
+	    readlinkBase(filename, encoding) {
+	        const link = this.getLinkOrThrow(filename, 'readlink');
+	        const node = link.getNode();
 	        if (!node.isSymlink())
 	            throw createError(EINVAL, 'readlink', filename);
-	        var str = sep + node.symlink.join(sep);
+	        const str = sep + node.symlink.join(sep);
 	        return (0, encoding_1.strToEncoding)(str, encoding);
-	    };
-	    Volume.prototype.readlinkSync = function (path, options) {
-	        var opts = getDefaultOpts(options);
-	        var filename = pathToFilename(path);
+	    }
+	    readlinkSync(path, options) {
+	        const opts = getDefaultOpts(options);
+	        const filename = pathToFilename(path);
 	        return this.readlinkBase(filename, opts.encoding);
-	    };
-	    Volume.prototype.readlink = function (path, a, b) {
-	        var _a = getDefaultOptsAndCb(a, b), opts = _a[0], callback = _a[1];
-	        var filename = pathToFilename(path);
+	    }
+	    readlink(path, a, b) {
+	        const [opts, callback] = getDefaultOptsAndCb(a, b);
+	        const filename = pathToFilename(path);
 	        this.wrapAsync(this.readlinkBase, [filename, opts.encoding], callback);
-	    };
-	    Volume.prototype.fsyncBase = function (fd) {
+	    }
+	    fsyncBase(fd) {
 	        this.getFileByFdOrThrow(fd, 'fsync');
-	    };
-	    Volume.prototype.fsyncSync = function (fd) {
+	    }
+	    fsyncSync(fd) {
 	        this.fsyncBase(fd);
-	    };
-	    Volume.prototype.fsync = function (fd, callback) {
+	    }
+	    fsync(fd, callback) {
 	        this.wrapAsync(this.fsyncBase, [fd], callback);
-	    };
-	    Volume.prototype.fdatasyncBase = function (fd) {
+	    }
+	    fdatasyncBase(fd) {
 	        this.getFileByFdOrThrow(fd, 'fdatasync');
-	    };
-	    Volume.prototype.fdatasyncSync = function (fd) {
+	    }
+	    fdatasyncSync(fd) {
 	        this.fdatasyncBase(fd);
-	    };
-	    Volume.prototype.fdatasync = function (fd, callback) {
+	    }
+	    fdatasync(fd, callback) {
 	        this.wrapAsync(this.fdatasyncBase, [fd], callback);
-	    };
-	    Volume.prototype.ftruncateBase = function (fd, len) {
-	        var file = this.getFileByFdOrThrow(fd, 'ftruncate');
+	    }
+	    ftruncateBase(fd, len) {
+	        const file = this.getFileByFdOrThrow(fd, 'ftruncate');
 	        file.truncate(len);
-	    };
-	    Volume.prototype.ftruncateSync = function (fd, len) {
+	    }
+	    ftruncateSync(fd, len) {
 	        this.ftruncateBase(fd, len);
-	    };
-	    Volume.prototype.ftruncate = function (fd, a, b) {
-	        var len = typeof a === 'number' ? a : 0;
-	        var callback = validateCallback(typeof a === 'number' ? b : a);
+	    }
+	    ftruncate(fd, a, b) {
+	        const len = typeof a === 'number' ? a : 0;
+	        const callback = validateCallback(typeof a === 'number' ? b : a);
 	        this.wrapAsync(this.ftruncateBase, [fd, len], callback);
-	    };
-	    Volume.prototype.truncateBase = function (path, len) {
-	        var fd = this.openSync(path, 'r+');
+	    }
+	    truncateBase(path, len) {
+	        const fd = this.openSync(path, 'r+');
 	        try {
 	            this.ftruncateSync(fd, len);
 	        }
 	        finally {
 	            this.closeSync(fd);
 	        }
-	    };
-	    Volume.prototype.truncateSync = function (id, len) {
+	    }
+	    truncateSync(id, len) {
 	        if (isFd(id))
 	            return this.ftruncateSync(id, len);
 	        this.truncateBase(id, len);
-	    };
-	    Volume.prototype.truncate = function (id, a, b) {
-	        var len = typeof a === 'number' ? a : 0;
-	        var callback = validateCallback(typeof a === 'number' ? b : a);
+	    }
+	    truncate(id, a, b) {
+	        const len = typeof a === 'number' ? a : 0;
+	        const callback = validateCallback(typeof a === 'number' ? b : a);
 	        if (isFd(id))
 	            return this.ftruncate(id, len, callback);
 	        this.wrapAsync(this.truncateBase, [id, len], callback);
-	    };
-	    Volume.prototype.futimesBase = function (fd, atime, mtime) {
-	        var file = this.getFileByFdOrThrow(fd, 'futimes');
-	        var node = file.node;
+	    }
+	    futimesBase(fd, atime, mtime) {
+	        const file = this.getFileByFdOrThrow(fd, 'futimes');
+	        const node = file.node;
 	        node.atime = new Date(atime * 1000);
 	        node.mtime = new Date(mtime * 1000);
-	    };
-	    Volume.prototype.futimesSync = function (fd, atime, mtime) {
+	    }
+	    futimesSync(fd, atime, mtime) {
 	        this.futimesBase(fd, toUnixTimestamp(atime), toUnixTimestamp(mtime));
-	    };
-	    Volume.prototype.futimes = function (fd, atime, mtime, callback) {
+	    }
+	    futimes(fd, atime, mtime, callback) {
 	        this.wrapAsync(this.futimesBase, [fd, toUnixTimestamp(atime), toUnixTimestamp(mtime)], callback);
-	    };
-	    Volume.prototype.utimesBase = function (filename, atime, mtime) {
-	        var fd = this.openSync(filename, 'r');
+	    }
+	    utimesBase(filename, atime, mtime) {
+	        const fd = this.openSync(filename, 'r');
 	        try {
 	            this.futimesBase(fd, atime, mtime);
 	        }
 	        finally {
 	            this.closeSync(fd);
 	        }
-	    };
-	    Volume.prototype.utimesSync = function (path, atime, mtime) {
+	    }
+	    utimesSync(path, atime, mtime) {
 	        this.utimesBase(pathToFilename(path), toUnixTimestamp(atime), toUnixTimestamp(mtime));
-	    };
-	    Volume.prototype.utimes = function (path, atime, mtime, callback) {
+	    }
+	    utimes(path, atime, mtime, callback) {
 	        this.wrapAsync(this.utimesBase, [pathToFilename(path), toUnixTimestamp(atime), toUnixTimestamp(mtime)], callback);
-	    };
-	    Volume.prototype.mkdirBase = function (filename, modeNum) {
-	        var steps = filenameToSteps(filename);
+	    }
+	    mkdirBase(filename, modeNum) {
+	        const steps = filenameToSteps(filename);
 	        // This will throw if user tries to create root dir `fs.mkdirSync('/')`.
 	        if (!steps.length) {
 	            throw createError(EEXIST, 'mkdir', filename);
 	        }
-	        var dir = this.getLinkParentAsDirOrThrow(filename, 'mkdir');
+	        const dir = this.getLinkParentAsDirOrThrow(filename, 'mkdir');
 	        // Check path already exists.
-	        var name = steps[steps.length - 1];
+	        const name = steps[steps.length - 1];
 	        if (dir.getChild(name))
 	            throw createError(EEXIST, 'mkdir', filename);
 	        dir.createChild(name, this.createNode(true, modeNum));
-	    };
+	    }
 	    /**
 	     * Creates directory tree recursively.
 	     * @param filename
 	     * @param modeNum
 	     */
-	    Volume.prototype.mkdirpBase = function (filename, modeNum) {
-	        var fullPath = resolve(filename);
-	        var fullPathSansSlash = fullPath.substring(1);
-	        var steps = !fullPathSansSlash ? [] : fullPathSansSlash.split(sep);
-	        var link = this.root;
-	        var created = false;
-	        for (var i = 0; i < steps.length; i++) {
-	            var step = steps[i];
+	    mkdirpBase(filename, modeNum) {
+	        const fullPath = resolve(filename);
+	        const fullPathSansSlash = fullPath.substring(1);
+	        const steps = !fullPathSansSlash ? [] : fullPathSansSlash.split(sep);
+	        let link = this.root;
+	        let created = false;
+	        for (let i = 0; i < steps.length; i++) {
+	            const step = steps[i];
 	            if (!link.getNode().isDirectory())
 	                throw createError(ENOTDIR, 'mkdir', link.getPath());
-	            var child = link.getChild(step);
+	            const child = link.getChild(step);
 	            if (child) {
 	                if (child.getNode().isDirectory())
 	                    link = child;
@@ -18808,37 +18605,36 @@ function requireCorrectPath () {
 	            }
 	        }
 	        return created ? fullPath : undefined;
-	    };
-	    Volume.prototype.mkdirSync = function (path, options) {
-	        var opts = getMkdirOptions(options);
-	        var modeNum = modeToNumber(opts.mode, 511);
-	        var filename = pathToFilename(path);
+	    }
+	    mkdirSync(path, options) {
+	        const opts = getMkdirOptions(options);
+	        const modeNum = modeToNumber(opts.mode, 0o777);
+	        const filename = pathToFilename(path);
 	        if (opts.recursive)
 	            return this.mkdirpBase(filename, modeNum);
 	        this.mkdirBase(filename, modeNum);
-	    };
-	    Volume.prototype.mkdir = function (path, a, b) {
-	        var opts = getMkdirOptions(a);
-	        var callback = validateCallback(typeof a === 'function' ? a : b);
-	        var modeNum = modeToNumber(opts.mode, 511);
-	        var filename = pathToFilename(path);
+	    }
+	    mkdir(path, a, b) {
+	        const opts = getMkdirOptions(a);
+	        const callback = validateCallback(typeof a === 'function' ? a : b);
+	        const modeNum = modeToNumber(opts.mode, 0o777);
+	        const filename = pathToFilename(path);
 	        if (opts.recursive)
 	            this.wrapAsync(this.mkdirpBase, [filename, modeNum], callback);
 	        else
 	            this.wrapAsync(this.mkdirBase, [filename, modeNum], callback);
-	    };
+	    }
 	    // legacy interface
-	    Volume.prototype.mkdirpSync = function (path, mode) {
-	        return this.mkdirSync(path, { mode: mode, recursive: true });
-	    };
-	    Volume.prototype.mkdirp = function (path, a, b) {
-	        var mode = typeof a === 'function' ? undefined : a;
-	        var callback = validateCallback(typeof a === 'function' ? a : b);
-	        this.mkdir(path, { mode: mode, recursive: true }, callback);
-	    };
-	    Volume.prototype.mkdtempBase = function (prefix, encoding, retry) {
-	        if (retry === void 0) { retry = 5; }
-	        var filename = prefix + this.genRndStr();
+	    mkdirpSync(path, mode) {
+	        return this.mkdirSync(path, { mode, recursive: true });
+	    }
+	    mkdirp(path, a, b) {
+	        const mode = typeof a === 'function' ? undefined : a;
+	        const callback = validateCallback(typeof a === 'function' ? a : b);
+	        this.mkdir(path, { mode, recursive: true }, callback);
+	    }
+	    mkdtempBase(prefix, encoding, retry = 5) {
+	        const filename = prefix + this.genRndStr();
 	        try {
 	            this.mkdirBase(filename, 511 /* MODE.DIR */);
 	            return (0, encoding_1.strToEncoding)(filename, encoding);
@@ -18853,41 +18649,40 @@ function requireCorrectPath () {
 	            else
 	                throw err;
 	        }
-	    };
-	    Volume.prototype.mkdtempSync = function (prefix, options) {
-	        var encoding = getDefaultOpts(options).encoding;
+	    }
+	    mkdtempSync(prefix, options) {
+	        const { encoding } = getDefaultOpts(options);
 	        if (!prefix || typeof prefix !== 'string')
 	            throw new TypeError('filename prefix is required');
 	        nullCheck(prefix);
 	        return this.mkdtempBase(prefix, encoding);
-	    };
-	    Volume.prototype.mkdtemp = function (prefix, a, b) {
-	        var _a = getDefaultOptsAndCb(a, b), encoding = _a[0].encoding, callback = _a[1];
+	    }
+	    mkdtemp(prefix, a, b) {
+	        const [{ encoding }, callback] = getDefaultOptsAndCb(a, b);
 	        if (!prefix || typeof prefix !== 'string')
 	            throw new TypeError('filename prefix is required');
 	        if (!nullCheck(prefix))
 	            return;
 	        this.wrapAsync(this.mkdtempBase, [prefix, encoding], callback);
-	    };
-	    Volume.prototype.rmdirBase = function (filename, options) {
-	        var opts = getRmdirOptions(options);
-	        var link = this.getLinkAsDirOrThrow(filename, 'rmdir');
+	    }
+	    rmdirBase(filename, options) {
+	        const opts = getRmdirOptions(options);
+	        const link = this.getLinkAsDirOrThrow(filename, 'rmdir');
 	        // Check directory is empty.
 	        if (link.length && !opts.recursive)
 	            throw createError(ENOTEMPTY, 'rmdir', filename);
 	        this.deleteLink(link);
-	    };
-	    Volume.prototype.rmdirSync = function (path, options) {
+	    }
+	    rmdirSync(path, options) {
 	        this.rmdirBase(pathToFilename(path), options);
-	    };
-	    Volume.prototype.rmdir = function (path, a, b) {
-	        var opts = getRmdirOptions(a);
-	        var callback = validateCallback(typeof a === 'function' ? a : b);
+	    }
+	    rmdir(path, a, b) {
+	        const opts = getRmdirOptions(a);
+	        const callback = validateCallback(typeof a === 'function' ? a : b);
 	        this.wrapAsync(this.rmdirBase, [pathToFilename(path), opts], callback);
-	    };
-	    Volume.prototype.rmBase = function (filename, options) {
-	        if (options === void 0) { options = {}; }
-	        var link = this.getResolvedLink(filename);
+	    }
+	    rmBase(filename, options = {}) {
+	        const link = this.getResolvedLink(filename);
 	        if (!link) {
 	            // "stat" is used to match Node's native error message.
 	            if (!options.force)
@@ -18900,78 +18695,78 @@ function requireCorrectPath () {
 	            }
 	        }
 	        this.deleteLink(link);
-	    };
-	    Volume.prototype.rmSync = function (path, options) {
+	    }
+	    rmSync(path, options) {
 	        this.rmBase(pathToFilename(path), options);
-	    };
-	    Volume.prototype.rm = function (path, a, b) {
-	        var _a = getRmOptsAndCb(a, b), opts = _a[0], callback = _a[1];
+	    }
+	    rm(path, a, b) {
+	        const [opts, callback] = getRmOptsAndCb(a, b);
 	        this.wrapAsync(this.rmBase, [pathToFilename(path), opts], callback);
-	    };
-	    Volume.prototype.fchmodBase = function (fd, modeNum) {
-	        var file = this.getFileByFdOrThrow(fd, 'fchmod');
+	    }
+	    fchmodBase(fd, modeNum) {
+	        const file = this.getFileByFdOrThrow(fd, 'fchmod');
 	        file.chmod(modeNum);
-	    };
-	    Volume.prototype.fchmodSync = function (fd, mode) {
+	    }
+	    fchmodSync(fd, mode) {
 	        this.fchmodBase(fd, modeToNumber(mode));
-	    };
-	    Volume.prototype.fchmod = function (fd, mode, callback) {
+	    }
+	    fchmod(fd, mode, callback) {
 	        this.wrapAsync(this.fchmodBase, [fd, modeToNumber(mode)], callback);
-	    };
-	    Volume.prototype.chmodBase = function (filename, modeNum) {
-	        var fd = this.openSync(filename, 'r');
+	    }
+	    chmodBase(filename, modeNum) {
+	        const fd = this.openSync(filename, 'r');
 	        try {
 	            this.fchmodBase(fd, modeNum);
 	        }
 	        finally {
 	            this.closeSync(fd);
 	        }
-	    };
-	    Volume.prototype.chmodSync = function (path, mode) {
-	        var modeNum = modeToNumber(mode);
-	        var filename = pathToFilename(path);
+	    }
+	    chmodSync(path, mode) {
+	        const modeNum = modeToNumber(mode);
+	        const filename = pathToFilename(path);
 	        this.chmodBase(filename, modeNum);
-	    };
-	    Volume.prototype.chmod = function (path, mode, callback) {
-	        var modeNum = modeToNumber(mode);
-	        var filename = pathToFilename(path);
+	    }
+	    chmod(path, mode, callback) {
+	        const modeNum = modeToNumber(mode);
+	        const filename = pathToFilename(path);
 	        this.wrapAsync(this.chmodBase, [filename, modeNum], callback);
-	    };
-	    Volume.prototype.lchmodBase = function (filename, modeNum) {
-	        var fd = this.openBase(filename, O_RDWR, 0, false);
+	    }
+	    lchmodBase(filename, modeNum) {
+	        const fd = this.openBase(filename, O_RDWR, 0, false);
 	        try {
 	            this.fchmodBase(fd, modeNum);
 	        }
 	        finally {
 	            this.closeSync(fd);
 	        }
-	    };
-	    Volume.prototype.lchmodSync = function (path, mode) {
-	        var modeNum = modeToNumber(mode);
-	        var filename = pathToFilename(path);
+	    }
+	    lchmodSync(path, mode) {
+	        const modeNum = modeToNumber(mode);
+	        const filename = pathToFilename(path);
 	        this.lchmodBase(filename, modeNum);
-	    };
-	    Volume.prototype.lchmod = function (path, mode, callback) {
-	        var modeNum = modeToNumber(mode);
-	        var filename = pathToFilename(path);
+	    }
+	    lchmod(path, mode, callback) {
+	        const modeNum = modeToNumber(mode);
+	        const filename = pathToFilename(path);
 	        this.wrapAsync(this.lchmodBase, [filename, modeNum], callback);
-	    };
-	    Volume.prototype.fchownBase = function (fd, uid, gid) {
+	    }
+	    fchownBase(fd, uid, gid) {
 	        this.getFileByFdOrThrow(fd, 'fchown').chown(uid, gid);
-	    };
-	    Volume.prototype.fchownSync = function (fd, uid, gid) {
+	    }
+	    fchownSync(fd, uid, gid) {
 	        validateUid(uid);
 	        validateGid(gid);
 	        this.fchownBase(fd, uid, gid);
-	    };
-	    Volume.prototype.fchown = function (fd, uid, gid, callback) {
+	    }
+	    fchown(fd, uid, gid, callback) {
 	        validateUid(uid);
 	        validateGid(gid);
 	        this.wrapAsync(this.fchownBase, [fd, uid, gid], callback);
-	    };
-	    Volume.prototype.chownBase = function (filename, uid, gid) {
-	        var link = this.getResolvedLinkOrThrow(filename, 'chown');
-	        var node = link.getNode();
+	    }
+	    chownBase(filename, uid, gid) {
+	        const link = this.getResolvedLinkOrThrow(filename, 'chown');
+	        const node = link.getNode();
 	        node.chown(uid, gid);
 	        // if(node.isFile() || node.isSymlink()) {
 	        //
@@ -18980,34 +18775,34 @@ function requireCorrectPath () {
 	        // } else {
 	        // TODO: What do we do here?
 	        // }
-	    };
-	    Volume.prototype.chownSync = function (path, uid, gid) {
+	    }
+	    chownSync(path, uid, gid) {
 	        validateUid(uid);
 	        validateGid(gid);
 	        this.chownBase(pathToFilename(path), uid, gid);
-	    };
-	    Volume.prototype.chown = function (path, uid, gid, callback) {
+	    }
+	    chown(path, uid, gid, callback) {
 	        validateUid(uid);
 	        validateGid(gid);
 	        this.wrapAsync(this.chownBase, [pathToFilename(path), uid, gid], callback);
-	    };
-	    Volume.prototype.lchownBase = function (filename, uid, gid) {
+	    }
+	    lchownBase(filename, uid, gid) {
 	        this.getLinkOrThrow(filename, 'lchown').getNode().chown(uid, gid);
-	    };
-	    Volume.prototype.lchownSync = function (path, uid, gid) {
+	    }
+	    lchownSync(path, uid, gid) {
 	        validateUid(uid);
 	        validateGid(gid);
 	        this.lchownBase(pathToFilename(path), uid, gid);
-	    };
-	    Volume.prototype.lchown = function (path, uid, gid, callback) {
+	    }
+	    lchown(path, uid, gid, callback) {
 	        validateUid(uid);
 	        validateGid(gid);
 	        this.wrapAsync(this.lchownBase, [pathToFilename(path), uid, gid], callback);
-	    };
-	    Volume.prototype.watchFile = function (path, a, b) {
-	        var filename = pathToFilename(path);
-	        var options = a;
-	        var listener = b;
+	    }
+	    watchFile(path, a, b) {
+	        const filename = pathToFilename(path);
+	        let options = a;
+	        let listener = b;
 	        if (typeof options === 'function') {
 	            listener = a;
 	            options = null;
@@ -19015,15 +18810,15 @@ function requireCorrectPath () {
 	        if (typeof listener !== 'function') {
 	            throw Error('"watchFile()" requires a listener function');
 	        }
-	        var interval = 5007;
-	        var persistent = true;
+	        let interval = 5007;
+	        let persistent = true;
 	        if (options && typeof options === 'object') {
 	            if (typeof options.interval === 'number')
 	                interval = options.interval;
 	            if (typeof options.persistent === 'boolean')
 	                persistent = options.persistent;
 	        }
-	        var watcher = this.statWatchers[filename];
+	        let watcher = this.statWatchers[filename];
 	        if (!watcher) {
 	            watcher = new this.StatWatcher();
 	            watcher.start(filename, persistent, interval);
@@ -19031,10 +18826,10 @@ function requireCorrectPath () {
 	        }
 	        watcher.addListener('change', listener);
 	        return watcher;
-	    };
-	    Volume.prototype.unwatchFile = function (path, listener) {
-	        var filename = pathToFilename(path);
-	        var watcher = this.statWatchers[filename];
+	    }
+	    unwatchFile(path, listener) {
+	        const filename = pathToFilename(path);
+	        const watcher = this.statWatchers[filename];
 	        if (!watcher)
 	            return;
 	        if (typeof listener === 'function') {
@@ -19047,82 +18842,77 @@ function requireCorrectPath () {
 	            watcher.stop();
 	            delete this.statWatchers[filename];
 	        }
-	    };
-	    Volume.prototype.createReadStream = function (path, options) {
+	    }
+	    createReadStream(path, options) {
 	        return new this.ReadStream(path, options);
-	    };
-	    Volume.prototype.createWriteStream = function (path, options) {
+	    }
+	    createWriteStream(path, options) {
 	        return new this.WriteStream(path, options);
-	    };
+	    }
 	    // watch(path: PathLike): FSWatcher;
 	    // watch(path: PathLike, options?: IWatchOptions | string): FSWatcher;
-	    Volume.prototype.watch = function (path, options, listener) {
-	        var filename = pathToFilename(path);
-	        var givenOptions = options;
+	    watch(path, options, listener) {
+	        const filename = pathToFilename(path);
+	        let givenOptions = options;
 	        if (typeof options === 'function') {
 	            listener = options;
 	            givenOptions = null;
 	        }
 	        // tslint:disable-next-line prefer-const
-	        var _a = getDefaultOpts(givenOptions), persistent = _a.persistent, recursive = _a.recursive, encoding = _a.encoding;
+	        let { persistent, recursive, encoding } = getDefaultOpts(givenOptions);
 	        if (persistent === undefined)
 	            persistent = true;
 	        if (recursive === undefined)
 	            recursive = false;
-	        var watcher = new this.FSWatcher();
+	        const watcher = new this.FSWatcher();
 	        watcher.start(filename, persistent, recursive, encoding);
 	        if (listener) {
 	            watcher.addListener('change', listener);
 	        }
 	        return watcher;
-	    };
-	    /**
-	     * Global file descriptor counter. UNIX file descriptors start from 0 and go sequentially
-	     * up, so here, in order not to conflict with them, we choose some big number and descrease
-	     * the file descriptor of every new opened file.
-	     * @type {number}
-	     * @todo This should not be static, right?
-	     */
-	    Volume.fd = 0x7fffffff;
-	    return Volume;
-	}());
+	    }
+	}
 	exports.Volume = Volume;
+	/**
+	 * Global file descriptor counter. UNIX file descriptors start from 0 and go sequentially
+	 * up, so here, in order not to conflict with them, we choose some big number and descrease
+	 * the file descriptor of every new opened file.
+	 * @type {number}
+	 * @todo This should not be static, right?
+	 */
+	Volume.fd = 0x7fffffff;
 	function emitStop(self) {
 	    self.emit('stop');
 	}
-	var StatWatcher = /** @class */ (function (_super) {
-	    __extends(StatWatcher, _super);
-	    function StatWatcher(vol) {
-	        var _this = _super.call(this) || this;
-	        _this.onInterval = function () {
+	class StatWatcher extends events_1.EventEmitter {
+	    constructor(vol) {
+	        super();
+	        this.onInterval = () => {
 	            try {
-	                var stats = _this.vol.statSync(_this.filename);
-	                if (_this.hasChanged(stats)) {
-	                    _this.emit('change', stats, _this.prev);
-	                    _this.prev = stats;
+	                const stats = this.vol.statSync(this.filename);
+	                if (this.hasChanged(stats)) {
+	                    this.emit('change', stats, this.prev);
+	                    this.prev = stats;
 	                }
 	            }
 	            finally {
-	                _this.loop();
+	                this.loop();
 	            }
 	        };
-	        _this.vol = vol;
-	        return _this;
+	        this.vol = vol;
 	    }
-	    StatWatcher.prototype.loop = function () {
+	    loop() {
 	        this.timeoutRef = this.setTimeout(this.onInterval, this.interval);
-	    };
-	    StatWatcher.prototype.hasChanged = function (stats) {
+	    }
+	    hasChanged(stats) {
 	        // if(!this.prev) return false;
 	        if (stats.mtimeMs > this.prev.mtimeMs)
 	            return true;
 	        if (stats.nlink !== this.prev.nlink)
 	            return true;
 	        return false;
-	    };
-	    StatWatcher.prototype.start = function (path, persistent, interval) {
-	        if (persistent === void 0) { persistent = true; }
-	        if (interval === void 0) { interval = 5007; }
+	    }
+	    start(path, persistent = true, interval = 5007) {
 	        this.filename = pathToFilename(path);
 	        this.setTimeout = persistent
 	            ? setTimeout.bind(typeof globalThis !== 'undefined' ? globalThis : commonjsGlobal)
@@ -19130,13 +18920,12 @@ function requireCorrectPath () {
 	        this.interval = interval;
 	        this.prev = this.vol.statSync(this.filename);
 	        this.loop();
-	    };
-	    StatWatcher.prototype.stop = function () {
+	    }
+	    stop() {
 	        clearTimeout(this.timeoutRef);
 	        process_1.default.nextTick(emitStop, this);
-	    };
-	    return StatWatcher;
-	}(events_1.EventEmitter));
+	    }
+	}
 	exports.StatWatcher = StatWatcher;
 	var pool;
 	function allocNewPool(poolSize) {
@@ -19157,7 +18946,7 @@ function requireCorrectPath () {
 	    this.path = pathToFilename(path);
 	    this.fd = options.fd === undefined ? null : options.fd;
 	    this.flags = options.flags === undefined ? 'r' : options.flags;
-	    this.mode = options.mode === undefined ? 438 : options.mode;
+	    this.mode = options.mode === undefined ? 0o666 : options.mode;
 	    this.start = options.start;
 	    this.end = options.end;
 	    this.autoClose = options.autoClose === undefined ? true : options.autoClose;
@@ -19189,7 +18978,7 @@ function requireCorrectPath () {
 	}
 	FsReadStream.prototype.open = function () {
 	    var self = this; // tslint:disable-line no-this-assignment
-	    this._vol.open(this.path, this.flags, this.mode, function (er, fd) {
+	    this._vol.open(this.path, this.flags, this.mode, (er, fd) => {
 	        if (er) {
 	            if (self.autoClose) {
 	                if (self.destroy)
@@ -19253,12 +19042,11 @@ function requireCorrectPath () {
 	    }
 	};
 	FsReadStream.prototype._destroy = function (err, cb) {
-	    this.close(function (err2) {
+	    this.close(err2 => {
 	        cb(err || err2);
 	    });
 	};
 	FsReadStream.prototype.close = function (cb) {
-	    var _this = this;
 	    var _a;
 	    if (cb)
 	        this.once('close', cb);
@@ -19267,7 +19055,7 @@ function requireCorrectPath () {
 	            this.once('open', closeOnOpen);
 	            return;
 	        }
-	        return process_1.default.nextTick(function () { return _this.emit('close'); });
+	        return process_1.default.nextTick(() => this.emit('close'));
 	    }
 	    // Since Node 18, there is only a getter for '.closed'.
 	    // The first branch mimics other setters from Readable.
@@ -19278,11 +19066,11 @@ function requireCorrectPath () {
 	    else {
 	        this.closed = true;
 	    }
-	    this._vol.close(this.fd, function (er) {
+	    this._vol.close(this.fd, er => {
 	        if (er)
-	            _this.emit('error', er);
+	            this.emit('error', er);
 	        else
-	            _this.emit('close');
+	            this.emit('close');
 	    });
 	    this.fd = null;
 	};
@@ -19302,7 +19090,7 @@ function requireCorrectPath () {
 	    this.path = pathToFilename(path);
 	    this.fd = options.fd === undefined ? null : options.fd;
 	    this.flags = options.flags === undefined ? 'w' : options.flags;
-	    this.mode = options.mode === undefined ? 438 : options.mode;
+	    this.mode = options.mode === undefined ? 0o666 : options.mode;
 	    this.start = options.start;
 	    this.autoClose = options.autoClose === undefined ? true : !!options.autoClose;
 	    this.pos = undefined;
@@ -19349,7 +19137,7 @@ function requireCorrectPath () {
 	        });
 	    }
 	    var self = this; // tslint:disable-line no-this-assignment
-	    this._vol.write(this.fd, data, 0, data.length, this.pos, function (er, bytes) {
+	    this._vol.write(this.fd, data, 0, data.length, this.pos, (er, bytes) => {
 	        if (er) {
 	            if (self.autoClose && self.destroy) {
 	                self.destroy();
@@ -19368,17 +19156,17 @@ function requireCorrectPath () {
 	            this._writev(data, cb);
 	        });
 	    }
-	    var self = this; // tslint:disable-line no-this-assignment
-	    var len = data.length;
-	    var chunks = new Array(len);
+	    const self = this; // tslint:disable-line no-this-assignment
+	    const len = data.length;
+	    const chunks = new Array(len);
 	    var size = 0;
 	    for (var i = 0; i < len; i++) {
 	        var chunk = data[i].chunk;
 	        chunks[i] = chunk;
 	        size += chunk.length;
 	    }
-	    var buf = buffer_1.Buffer.concat(chunks);
-	    this._vol.write(this.fd, buf, 0, buf.length, this.pos, function (er, bytes) {
+	    const buf = buffer_1.Buffer.concat(chunks);
+	    this._vol.write(this.fd, buf, 0, buf.length, this.pos, (er, bytes) => {
 	        if (er) {
 	            if (self.destroy)
 	                self.destroy();
@@ -19391,7 +19179,6 @@ function requireCorrectPath () {
 	        this.pos += size;
 	};
 	FsWriteStream.prototype.close = function (cb) {
-	    var _this = this;
 	    var _a;
 	    if (cb)
 	        this.once('close', cb);
@@ -19400,7 +19187,7 @@ function requireCorrectPath () {
 	            this.once('open', closeOnOpen);
 	            return;
 	        }
-	        return process_1.default.nextTick(function () { return _this.emit('close'); });
+	        return process_1.default.nextTick(() => this.emit('close'));
 	    }
 	    // Since Node 18, there is only a getter for '.closed'.
 	    // The first branch mimics other setters from Writable.
@@ -19411,11 +19198,11 @@ function requireCorrectPath () {
 	    else {
 	        this.closed = true;
 	    }
-	    this._vol.close(this.fd, function (er) {
+	    this._vol.close(this.fd, er => {
 	        if (er)
-	            _this.emit('error', er);
+	            this.emit('error', er);
 	        else
-	            _this.emit('close');
+	            this.emit('close');
 	    });
 	    this.fd = null;
 	};
@@ -19423,30 +19210,28 @@ function requireCorrectPath () {
 	// There is no shutdown() for files.
 	FsWriteStream.prototype.destroySoon = FsWriteStream.prototype.end;
 	// ---------------------------------------- FSWatcher
-	var FSWatcher = /** @class */ (function (_super) {
-	    __extends(FSWatcher, _super);
-	    function FSWatcher(vol) {
-	        var _this = _super.call(this) || this;
-	        _this._filename = '';
-	        _this._filenameEncoded = '';
+	class FSWatcher extends events_1.EventEmitter {
+	    constructor(vol) {
+	        super();
+	        this._filename = '';
+	        this._filenameEncoded = '';
 	        // _persistent: boolean = true;
-	        _this._recursive = false;
-	        _this._encoding = encoding_1.ENCODING_UTF8;
+	        this._recursive = false;
+	        this._encoding = encoding_1.ENCODING_UTF8;
 	        // inode -> removers
-	        _this._listenerRemovers = new Map();
-	        _this._onParentChild = function (link) {
-	            if (link.getName() === _this._getName()) {
-	                _this._emit('rename');
+	        this._listenerRemovers = new Map();
+	        this._onParentChild = (link) => {
+	            if (link.getName() === this._getName()) {
+	                this._emit('rename');
 	            }
 	        };
-	        _this._emit = function (type) {
-	            _this.emit('change', type, _this._filenameEncoded);
+	        this._emit = (type) => {
+	            this.emit('change', type, this._filenameEncoded);
 	        };
-	        _this._persist = function () {
-	            _this._timer = setTimeout(_this._persist, 1e6);
+	        this._persist = () => {
+	            this._timer = setTimeout(this._persist, 1e6);
 	        };
-	        _this._vol = vol;
-	        return _this;
+	        this._vol = vol;
 	        // TODO: Emit "error" messages when watching.
 	        // this._handle.onchange = function(status, eventType, filename) {
 	        //     if (status < 0) {
@@ -19461,14 +19246,10 @@ function requireCorrectPath () {
 	        //     }
 	        // };
 	    }
-	    FSWatcher.prototype._getName = function () {
+	    _getName() {
 	        return this._steps[this._steps.length - 1];
-	    };
-	    FSWatcher.prototype.start = function (path, persistent, recursive, encoding) {
-	        var _this = this;
-	        if (persistent === void 0) { persistent = true; }
-	        if (recursive === void 0) { recursive = false; }
-	        if (encoding === void 0) { encoding = encoding_1.ENCODING_UTF8; }
+	    }
+	    start(path, persistent = true, recursive = false, encoding = encoding_1.ENCODING_UTF8) {
 	        this._filename = pathToFilename(path);
 	        this._steps = filenameToSteps(this._filename);
 	        this._filenameEncoded = (0, encoding_1.strToEncoding)(this._filename);
@@ -19479,34 +19260,34 @@ function requireCorrectPath () {
 	            this._link = this._vol.getLinkOrThrow(this._filename, 'FSWatcher');
 	        }
 	        catch (err) {
-	            var error = new Error("watch ".concat(this._filename, " ").concat(err.code));
+	            const error = new Error(`watch ${this._filename} ${err.code}`);
 	            error.code = err.code;
 	            error.errno = err.code;
 	            throw error;
 	        }
-	        var watchLinkNodeChanged = function (link) {
+	        const watchLinkNodeChanged = (link) => {
 	            var _a;
-	            var filepath = link.getPath();
-	            var node = link.getNode();
-	            var onNodeChange = function () {
-	                var filename = relative(_this._filename, filepath);
+	            const filepath = link.getPath();
+	            const node = link.getNode();
+	            const onNodeChange = () => {
+	                let filename = relative(this._filename, filepath);
 	                if (!filename) {
-	                    filename = _this._getName();
+	                    filename = this._getName();
 	                }
-	                return _this.emit('change', 'change', filename);
+	                return this.emit('change', 'change', filename);
 	            };
 	            node.on('change', onNodeChange);
-	            var removers = (_a = _this._listenerRemovers.get(node.ino)) !== null && _a !== void 0 ? _a : [];
-	            removers.push(function () { return node.removeListener('change', onNodeChange); });
-	            _this._listenerRemovers.set(node.ino, removers);
+	            const removers = (_a = this._listenerRemovers.get(node.ino)) !== null && _a !== void 0 ? _a : [];
+	            removers.push(() => node.removeListener('change', onNodeChange));
+	            this._listenerRemovers.set(node.ino, removers);
 	        };
-	        var watchLinkChildrenChanged = function (link) {
+	        const watchLinkChildrenChanged = (link) => {
 	            var _a;
-	            var node = link.getNode();
+	            const node = link.getNode();
 	            // when a new link added
-	            var onLinkChildAdd = function (l) {
-	                _this.emit('change', 'rename', relative(_this._filename, l.getPath()));
-	                setTimeout(function () {
+	            const onLinkChildAdd = (l) => {
+	                this.emit('change', 'rename', relative(this._filename, l.getPath()));
+	                setTimeout(() => {
 	                    // 1. watch changes of the new link-node
 	                    watchLinkNodeChanged(l);
 	                    // 2. watch changes of the new link-node's children
@@ -19514,27 +19295,26 @@ function requireCorrectPath () {
 	                });
 	            };
 	            // when a new link deleted
-	            var onLinkChildDelete = function (l) {
+	            const onLinkChildDelete = (l) => {
 	                // remove the listeners of the children nodes
-	                var removeLinkNodeListeners = function (curLink) {
-	                    var ino = curLink.getNode().ino;
-	                    var removers = _this._listenerRemovers.get(ino);
+	                const removeLinkNodeListeners = (curLink) => {
+	                    const ino = curLink.getNode().ino;
+	                    const removers = this._listenerRemovers.get(ino);
 	                    if (removers) {
-	                        removers.forEach(function (r) { return r(); });
-	                        _this._listenerRemovers.delete(ino);
+	                        removers.forEach(r => r());
+	                        this._listenerRemovers.delete(ino);
 	                    }
-	                    Object.values(curLink.children).forEach(function (childLink) {
+	                    Object.values(curLink.children).forEach(childLink => {
 	                        if (childLink) {
 	                            removeLinkNodeListeners(childLink);
 	                        }
 	                    });
 	                };
 	                removeLinkNodeListeners(l);
-	                _this.emit('change', 'rename', relative(_this._filename, l.getPath()));
+	                this.emit('change', 'rename', relative(this._filename, l.getPath()));
 	            };
 	            // children nodes changed
-	            Object.entries(link.children).forEach(function (_a) {
-	                var name = _a[0], childLink = _a[1];
+	            Object.entries(link.children).forEach(([name, childLink]) => {
 	                if (childLink && name !== '.' && name !== '..') {
 	                    watchLinkNodeChanged(childLink);
 	                }
@@ -19542,14 +19322,13 @@ function requireCorrectPath () {
 	            // link children add/remove
 	            link.on('child:add', onLinkChildAdd);
 	            link.on('child:delete', onLinkChildDelete);
-	            var removers = (_a = _this._listenerRemovers.get(node.ino)) !== null && _a !== void 0 ? _a : [];
-	            removers.push(function () {
+	            const removers = (_a = this._listenerRemovers.get(node.ino)) !== null && _a !== void 0 ? _a : [];
+	            removers.push(() => {
 	                link.removeListener('child:add', onLinkChildAdd);
 	                link.removeListener('child:delete', onLinkChildDelete);
 	            });
 	            if (recursive) {
-	                Object.entries(link.children).forEach(function (_a) {
-	                    var name = _a[0], childLink = _a[1];
+	                Object.entries(link.children).forEach(([name, childLink]) => {
 	                    if (childLink && name !== '.' && name !== '..') {
 	                        watchLinkChildrenChanged(childLink);
 	                    }
@@ -19558,7 +19337,7 @@ function requireCorrectPath () {
 	        };
 	        watchLinkNodeChanged(this._link);
 	        watchLinkChildrenChanged(this._link);
-	        var parent = this._link.parent;
+	        const parent = this._link.parent;
 	        if (parent) {
 	            // parent.on('child:add', this._onParentChild);
 	            parent.setMaxListeners(parent.getMaxListeners() + 1);
@@ -19566,21 +19345,20 @@ function requireCorrectPath () {
 	        }
 	        if (persistent)
 	            this._persist();
-	    };
-	    FSWatcher.prototype.close = function () {
+	    }
+	    close() {
 	        clearTimeout(this._timer);
-	        this._listenerRemovers.forEach(function (removers) {
-	            removers.forEach(function (r) { return r(); });
+	        this._listenerRemovers.forEach(removers => {
+	            removers.forEach(r => r());
 	        });
 	        this._listenerRemovers.clear();
-	        var parent = this._link.parent;
+	        const parent = this._link.parent;
 	        if (parent) {
 	            // parent.removeListener('child:add', this._onParentChild);
 	            parent.removeListener('child:delete', this._onParentChild);
 	        }
-	    };
-	    return FSWatcher;
-	}(events_1.EventEmitter));
+	    }
+	}
 	exports.FSWatcher = FSWatcher; 
 } (volume));
 
@@ -19595,52 +19373,54 @@ lists.fsSyncMethods = ['renameSync', 'ftruncateSync', 'truncateSync', 'chownSync
 lists.fsAsyncMethods = ['rename', 'ftruncate', 'truncate', 'chown', 'fchown', 'lchown', 'chmod', 'fchmod', 'lchmod', 'stat', 'lstat', 'fstat', 'link', 'symlink', 'readlink', 'realpath', 'unlink', 'rmdir', 'mkdir', 'mkdirp', 'readdir', 'close', 'open', 'utimes', 'futimes', 'fsync', 'write', 'read', 'readFile', 'writeFile', 'appendFile', 'exists', 'access', 'fdatasync', 'mkdtemp', 'copyFile', 'rm', 'watchFile', 'unwatchFile', 'watch'];
 
 (function (module, exports) {
-	var __assign = (commonjsGlobal && commonjsGlobal.__assign) || function () {
-	    __assign = Object.assign || function(t) {
-	        for (var s, i = 1, n = arguments.length; i < n; i++) {
-	            s = arguments[i];
-	            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-	                t[p] = s[p];
-	        }
-	        return t;
-	    };
-	    return __assign.apply(this, arguments);
-	};
 	Object.defineProperty(exports, "__esModule", { value: true });
-	exports.fs = exports.createFsFromVolume = exports.vol = exports.Volume = void 0;
-	var Stats_1 = Stats$1;
-	var Dirent_1 = Dirent$1;
-	var volume_1 = volume;
-	var _a = lists, fsSyncMethods = _a.fsSyncMethods, fsAsyncMethods = _a.fsAsyncMethods;
-	var constants_1 = constants;
-	var F_OK = constants_1.constants.F_OK, R_OK = constants_1.constants.R_OK, W_OK = constants_1.constants.W_OK, X_OK = constants_1.constants.X_OK;
+	exports.memfs = exports.fs = exports.createFsFromVolume = exports.vol = exports.Volume = void 0;
+	const Stats_1 = Stats$1;
+	const Dirent_1 = Dirent$1;
+	const volume_1 = volume;
+	const { fsSyncMethods, fsAsyncMethods } = lists;
+	const constants_1 = constants;
+	const { F_OK, R_OK, W_OK, X_OK } = constants_1.constants;
 	exports.Volume = volume_1.Volume;
 	// Default volume.
 	exports.vol = new volume_1.Volume();
 	function createFsFromVolume(vol) {
-	    var fs = { F_OK: F_OK, R_OK: R_OK, W_OK: W_OK, X_OK: X_OK, constants: constants_1.constants, Stats: Stats_1.default, Dirent: Dirent_1.default };
+	    const fs = { F_OK, R_OK, W_OK, X_OK, constants: constants_1.constants, Stats: Stats_1.default, Dirent: Dirent_1.default };
 	    // Bind FS methods.
-	    for (var _i = 0, fsSyncMethods_1 = fsSyncMethods; _i < fsSyncMethods_1.length; _i++) {
-	        var method = fsSyncMethods_1[_i];
+	    for (const method of fsSyncMethods)
 	        if (typeof vol[method] === 'function')
 	            fs[method] = vol[method].bind(vol);
-	    }
-	    for (var _a = 0, fsAsyncMethods_1 = fsAsyncMethods; _a < fsAsyncMethods_1.length; _a++) {
-	        var method = fsAsyncMethods_1[_a];
+	    for (const method of fsAsyncMethods)
 	        if (typeof vol[method] === 'function')
 	            fs[method] = vol[method].bind(vol);
-	    }
 	    fs.StatWatcher = vol.StatWatcher;
 	    fs.FSWatcher = vol.FSWatcher;
 	    fs.WriteStream = vol.WriteStream;
 	    fs.ReadStream = vol.ReadStream;
 	    fs.promises = vol.promises;
 	    fs._toUnixTimestamp = volume_1.toUnixTimestamp;
+	    fs.__vol = vol;
 	    return fs;
 	}
 	exports.createFsFromVolume = createFsFromVolume;
 	exports.fs = createFsFromVolume(exports.vol);
-	module.exports = __assign(__assign({}, module.exports), exports.fs);
+	/**
+	 * Creates a new file system instance.
+	 *
+	 * @param json File system structure expressed as a JSON object.
+	 *        Use `null` for empty directories and empty string for empty files.
+	 * @param cwd Current working directory. The JSON structure will be created
+	 *        relative to this path.
+	 * @returns A `memfs` file system instance, which is a drop-in replacement for
+	 *          the `fs` module.
+	 */
+	const memfs = (json = {}, cwd = '/') => {
+	    const volume = exports.Volume.fromJSON(json, cwd);
+	    const fs = createFsFromVolume(volume);
+	    return fs;
+	};
+	exports.memfs = memfs;
+	module.exports = Object.assign(Object.assign({}, module.exports), exports.fs);
 	module.exports.semantic = true; 
 } (lib$1, lib$1.exports));
 
@@ -19651,7 +19431,7 @@ var __importDefault$1 = (commonjsGlobal && commonjsGlobal.__importDefault) || fu
 };
 Object.defineProperty(fs, "__esModule", { value: true });
 const fs_1 = __importDefault$1(libExports);
-const util_1 = __importDefault$1(util$2);
+const util_1 = __importDefault$1(util$3);
 fs.default = {
     existsSync: fs_1.default.existsSync,
     readFile: util_1.default.promisify(fs_1.default.readFile),
@@ -19793,7 +19573,7 @@ utils.default = {
 	    if ((0, is_gzip_1.default)(database)) {
 	        throw new Error('Looks like you are passing in a file in gzip format, please use mmdb database instead.');
 	    }
-	    const cache = (0, tiny_lru_1.lru)(((_a = opts === null || opts === void 0 ? void 0 : opts.cache) === null || _a === void 0 ? void 0 : _a.max) || 60000);
+	    const cache = (0, tiny_lru_1.lru)(((_a = opts === null || opts === void 0 ? void 0 : opts.cache) === null || _a === void 0 ? void 0 : _a.max) || 10000);
 	    const reader = new mmdb_lib_1.Reader(database, { cache });
 	    if (opts && !!opts.watchForUpdates) {
 	        if (opts.watchForUpdatesHook &&

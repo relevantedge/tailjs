@@ -2,7 +2,6 @@
   "name": "@tailjs/client",
   "description": "tail.js client library",
   "license": "LGPL3",
-  "version": "0.17.24",
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup-client.ts",
@@ -45,13 +44,12 @@
     }
   },
   "dependencies": {
-    "@tailjs/types": "^0.17.24",
-    "@tailjs/util": "^0.17.24",
-    "@tailjs/transport": "^0.17.24",
+    "@tailjs/types": "workspace:*",
+    "@tailjs/util": "workspace:*",
+    "@tailjs/transport": "workspace:*",
     "@ygoe/msgpack": "github:nielskuhnel/msgpack.js#feature/big-float-fix"
   },
   "publishConfig": {
     "directory": "dist"
-  },
-  "bin": {}
+  }
 }

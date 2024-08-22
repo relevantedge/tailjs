@@ -425,11 +425,6 @@ export class Tracker {
     return response;
   }
 
-  public signIn(signIn: Omit<SignInEvent, "type">) {
-    (signIn as any).type = "sign_in";
-    return this.post([signIn as any]);
-  }
-
   public async post(
     events: TrackedEventBatch,
     options: TrackerPostOptions = {}
@@ -785,6 +780,14 @@ export class Tracker {
           ]).result
         )
       );
+
+    // console.log(
+    //   "Tracker on request handler: " +
+    //     this._requestHandler.instanceId +
+    //     " with the " +
+    //     sessionId,
+    //   this._session.value
+    // );
 
     if (this._session.value) {
       let device =

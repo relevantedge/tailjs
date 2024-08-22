@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { resolveTracker } from "../tailjs/route";
 
 export const POST = async (req: Request) => {
@@ -6,9 +7,10 @@ export const POST = async (req: Request) => {
     return Response.json({ error: "user expected." }, { status: 400 });
   }
 
-  const [tracker, response] = await resolveTracker(req);
+  const tracker = await resolveTracker(req);
+  if (!tracker) return NextResponse.json({ error: "Tracking is disabled." });
 
-  await tracker?.signIn({ userId: user });
+  await tracker.post([{ type: "sign_in", userId: user }]);
 
-  return response.json({ ok: true });
+  return await tracker.writeTo(NextResponse.json({ ok: true }));
 };

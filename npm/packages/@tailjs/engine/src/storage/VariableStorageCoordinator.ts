@@ -63,7 +63,6 @@ import {
 import {
   ReadonlyVariableStorage,
   SplitStorageErrorWrapper,
-  VariableContextScopeIds,
   VariableSplitStorage,
   VariableStorage,
   VariableStorageContext,

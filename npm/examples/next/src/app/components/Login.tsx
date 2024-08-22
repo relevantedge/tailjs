@@ -1,20 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { login } from "./actions";
 import { useTrackerVariable } from "@tailjs/react";
-import { SessionInfo } from "@tailjs/types";
+import type { SessionInfo } from "@tailjs/types";
 
 export const Login = () => {
   const [user, setUser] = useState("test-user");
-  const [sessionInfo, , updateSessionInfo] = useTrackerVariable<SessionInfo>({
+
+  const [sessionInfo, , refresh] = useTrackerVariable<SessionInfo>({
     key: "@info",
     scope: "session",
   });
 
   return (
     <>
-      <div>Current user {sessionInfo?.value}</div>
+      <div>Current user: {sessionInfo?.value?.userId}</div>
       <div>
         <label>
           Impersonate user name
@@ -30,6 +31,7 @@ export const Login = () => {
         <button
           onClick={async () => {
             console.log("Login response: ", await login(user));
+            await refresh();
           }}
         >
           Login

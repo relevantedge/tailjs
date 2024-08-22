@@ -2,7 +2,6 @@
   "name": "@tailjs/types",
   "description": "Default type definitions for tailjs.",
   "license": "LGPL3",
-  "version": "0.17.24",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -22,7 +21,7 @@
     "directory": "dist"
   },
   "dependencies": {
-    "@tailjs/util": "^0.17.24"
+    "@tailjs/util": "workspace:*"
   },
   "exports": {
     ".": {
@@ -45,6 +44,5 @@
         "default": "./dist/schema/index.cjs"
       }
     }
-  },
-  "bin": {}
+  }
 }

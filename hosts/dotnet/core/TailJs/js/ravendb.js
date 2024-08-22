@@ -1,3 +1,67 @@
+function _define_property$2(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
+class RavenDbConfiguration {
+    async initialize(env) {
+        try {
+            this._env = env;
+            if (this._settings.x509) {
+                const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
+                var _ref;
+                const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
+                if (!cert) {
+                    throw new Error("Certificate not found.");
+                }
+                this._cert = {
+                    id: this.id,
+                    cert,
+                    key
+                };
+            }
+        } catch (e) {
+            env.log(this, {
+                group: this.id,
+                level: "error",
+                source: `${this.id}:initialize`,
+                message: "" + e
+            });
+        }
+    }
+    async request(method, operation, payload) {
+        if (operation[0] !== "/") {
+            operation = "/" + operation;
+        }
+        const response = (await this._env.request({
+            method: method,
+            url: `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${operation}`,
+            headers: {
+                ["content-type"]: "application/json"
+            },
+            body: JSON.stringify(payload),
+            x509: this._cert
+        })).body;
+        return JSON.parse(response);
+    }
+    constructor(id, settings){
+        _define_property$2(this, "_env", void 0);
+        _define_property$2(this, "_cert", void 0);
+        _define_property$2(this, "_settings", void 0);
+        _define_property$2(this, "id", void 0);
+        this.id = id;
+        this._settings = settings;
+    }
+}
+
 const throwError = (error, transform = (message)=>new Error(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
@@ -35,7 +99,7 @@ const isArray = Array.isArray;
 const isFunction = (value)=>typeof value === "function";
 const unwrap = (value)=>isFunction(value) ? value() : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
-function _define_property$1(obj, key, value) {
+function _define_property$1$1(obj, key, value) {
     if (key in obj) {
         Object.defineProperty(obj, key, {
             value: value,
@@ -79,7 +143,7 @@ class ResettablePromise {
         return this._promise.then(onfulfilled, onrejected);
     }
     constructor(){
-        _define_property$1(this, "_promise", void 0);
+        _define_property$1$1(this, "_promise", void 0);
         this.reset();
     }
 }
@@ -88,12 +152,12 @@ class OpenPromise {
         return this._promise.then(onfulfilled, onrejected);
     }
     constructor(){
-        _define_property$1(this, "_promise", void 0);
-        _define_property$1(this, "resolve", void 0);
-        _define_property$1(this, "reject", void 0);
-        _define_property$1(this, "value", void 0);
-        _define_property$1(this, "error", void 0);
-        _define_property$1(this, "pending", true);
+        _define_property$1$1(this, "_promise", void 0);
+        _define_property$1$1(this, "resolve", void 0);
+        _define_property$1$1(this, "reject", void 0);
+        _define_property$1$1(this, "value", void 0);
+        _define_property$1$1(this, "error", void 0);
+        _define_property$1$1(this, "pending", true);
         let captured;
         this._promise = new Promise((...args)=>{
             captured = args.map((inner, i)=>(value, ifPending)=>{
@@ -149,7 +213,7 @@ const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap(
 const promise = (resettable)=>resettable ? new ResettablePromise() : new OpenPromise();
 const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : arg));
 
-function _define_property(obj, key, value) {
+function _define_property$1(obj, key, value) {
     if (key in obj) {
         Object.defineProperty(obj, key, {
             value: value,
@@ -334,18 +398,59 @@ function _define_property(obj, key, value) {
         return id.toString(36);
     }
     constructor(settings){
-        _define_property(this, "id", "ravendb");
-        _define_property(this, "_settings", void 0);
-        _define_property(this, "_lock", void 0);
-        _define_property(this, "_env", void 0);
-        _define_property(this, "_cert", void 0);
-        _define_property(this, "_nextId", 0);
-        _define_property(this, "_idIndex", 1);
-        _define_property(this, "_idRangeMax", 0);
-        _define_property(this, "_idBatchSize", 1000);
+        _define_property$1(this, "id", "ravendb");
+        _define_property$1(this, "_settings", void 0);
+        _define_property$1(this, "_lock", void 0);
+        _define_property$1(this, "_env", void 0);
+        _define_property$1(this, "_cert", void 0);
+        _define_property$1(this, "_nextId", 0);
+        _define_property$1(this, "_idIndex", 1);
+        _define_property$1(this, "_idRangeMax", 0);
+        _define_property$1(this, "_idBatchSize", 1000);
         this._settings = settings;
         this._lock = createLock();
     }
 }
 
-export { RavenDbTracker };
+function _define_property(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
+class RavenDbVariableStorage {
+    renew(scope, targetIds, context) {
+        throw new Error("Method not implemented.");
+    }
+    set(variables, context) {
+        throw new Error("Method not implemented.");
+    }
+    purge(filters, context) {
+        throw new Error("Method not implemented.");
+    }
+    initialize(environment) {
+        throw new Error("Method not implemented.");
+    }
+    get(keys, context) {
+        throw new Error("Method not implemented.");
+    }
+    head(filters, options, context) {
+        throw new Error("Method not implemented.");
+    }
+    query(filters, options, context) {
+        throw new Error("Method not implemented.");
+    }
+    constructor(settings){
+        _define_property(this, "_settings", void 0);
+        this._settings = settings;
+    }
+}
+
+export { RavenDbConfiguration, RavenDbTracker, RavenDbVariableStorage };

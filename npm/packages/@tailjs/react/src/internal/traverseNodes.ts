@@ -5,6 +5,7 @@ import React, {
   PropsWithChildren,
   ReactNode,
   isValidElement,
+  useEffect,
 } from "react";
 import { Tracker } from "../Tracker";
 
@@ -69,6 +70,7 @@ export interface TraverseFunctions<T, C> {
   componentRefreshed?: ComponentRefreshedFunction<T, C>;
   /** Hook for custom parsing of certain elements if required. */
   parse?: ParseOverrideFunction;
+  ignoreType?: (type: any) => boolean | void;
 }
 
 export interface TraverseOptions<T, Context>
@@ -123,8 +125,6 @@ export const traverseNodes = <T, C = undefined>(
 const frameworkComponents = /ErrorBoundary|Provider|Switch|[a-z_]*Context/gi;
 
 const wrapperTypeKind = Symbol("typeKind");
-const nextJsProbe = Symbol("Client module?");
-const seen = Symbol("Seen");
 
 const componentCache = new WeakMap<any, any>();
 function getOrSet<K, V>(
@@ -139,17 +139,13 @@ function getOrSet<K, V>(
   return current;
 }
 
-const isTypeStub = (type: any) => {
-  try {
-    type?._payload?.then;
-    return false;
-  } catch (e) {
-    return true;
-  }
-};
-function wrapType(type: any): [kind: number, type: any] {
+function wrapType(
+  type: any,
+  context: TraverseContext
+): [kind: number, type: any] {
   if (
-    isTypeStub(type) ||
+    context.ignoreType?.(type) ||
+    type === Tracker ||
     (type.displayName || type.name)?.match(frameworkComponents)
   ) {
     return [2, type];
@@ -160,8 +156,21 @@ function wrapType(type: any): [kind: number, type: any] {
 
   let wrapper: any;
   let typeKind = 2;
+  if (type.$$typeof === LAZY_SYMBOL) {
+    typeKind = 1;
 
-  if (
+    wrapper = type;
+
+    type._payload.then(() => {
+      let resolvedType = type._payload.value;
+      const wrapped = wrapType(resolvedType, context)[1];
+      wrapped.default = wrapped;
+      // We need to do it this way. Returning a new React.lazy based on the current's payload
+      // results in some weird errors caused to double rendering.
+      // The specific lazy component must have some special meaning deep inside NextJs and React's stomachs.
+      type._payload.value = wrapped;
+    });
+  } else if (
     (React.Component && type.prototype instanceof React.Component) ||
     type.prototype?.render
   ) {
@@ -177,6 +186,7 @@ function wrapType(type: any): [kind: number, type: any] {
           }
         }
     );
+    mergeProperties(wrapper, type);
   } else if (typeof type === "function") {
     typeKind = 1;
     wrapper = getOrSet(
@@ -184,25 +194,19 @@ function wrapType(type: any): [kind: number, type: any] {
       type,
       () => (props: any) => wrapRender(type, props, type.render ?? type)
     );
+    mergeProperties(wrapper, type);
   } else if (typeof type.render === "function") {
     const wrapped = type.render;
-    return [
-      1,
-      {
-        ...type,
-        render: (props: any, ref: any) =>
-          props[CONTEXT_PROPERTY]
-            ? traverseNodesInternal(
-                wrapped(props, ref),
-                props[CONTEXT_PROPERTY]
-              )
-            : wrapped(props, ref),
-      },
-    ];
+    wrapper = getOrSet(componentCache, type, () => ({
+      ...type,
+      render: (props: any, ref: any) =>
+        props[CONTEXT_PROPERTY]
+          ? traverseNodesInternal(wrapped(props, ref), props[CONTEXT_PROPERTY])
+          : wrapped(props, ref),
+    }));
   }
   if (wrapper) {
     wrapper[wrapperTypeKind] = typeKind;
-    mergeProperties(wrapper, type);
 
     return [typeKind, wrapper];
   }
@@ -238,10 +242,12 @@ function isTraversable(el: ReactNode): el is TraversableElement {
   return isValidElement(el);
 }
 
-function mergeProperties(target: any, source: any) {
+function mergeProperties(target: any, source: any, overwrite = true) {
   for (const [name, value] of Object.entries(
     Object.getOwnPropertyDescriptors(source)
   )) {
+    if (!overwrite && target[name]) return;
+
     if (Object.getOwnPropertyDescriptor(target, name)?.configurable === false) {
       continue;
     }
@@ -254,7 +260,11 @@ export function traverseNodesInternal<T, C>(
   node: ReactNode,
   context: TraverseContext<T, C>
 ) {
-  if ((node as any)?.type === Tracker) {
+  if (
+    (node as any)?.type === Tracker ||
+    !node ||
+    context.ignoreType?.((node as any)?.type)
+  ) {
     // Trackers do not traverse Trackers.
     return node;
   }
@@ -276,7 +286,9 @@ export function traverseNodesInternal<T, C>(
     return node;
   }
 
-  mapCache.set(node, (mapped = inner(node)));
+  mapped = inner(node);
+  mapCache.set(node, mapped);
+
   return mapped;
 
   function inner(el: TraversableElement): TraverseResult {
@@ -289,24 +301,9 @@ export function traverseNodesInternal<T, C>(
       }
     }
 
-    if (el?.type?.$$typeof === LAZY_SYMBOL) {
-      return React.lazy(async () => {
-        let type = await el.type._payload;
-        if (type.default) {
-          type = type.default;
-        }
-        return {
-          default: type && traverseNodesInternal({ ...el, type }, context),
-        };
-      });
-    }
-
     let currentState = context.mapState(el, context.state, context);
 
-    const component =
-      typeof el.type === "function" || el.clientTypeReference
-        ? el
-        : context.component;
+    const component = typeof el.type === "function" ? el : context.component;
 
     const newContext: TraverseContext<T, C> = {
       ...context,
@@ -367,9 +364,7 @@ export function traverseNodesInternal<T, C>(
       }
     }
 
-    const [kind, type] = el.clientTypeReference
-      ? [2, el.type]
-      : wrapType(el.type);
+    const [kind, type] = wrapType(el.type, context);
 
     switch (kind) {
       case 0: // Class component
@@ -395,9 +390,9 @@ export function traverseNodesInternal<T, C>(
         const children = el.props?.children;
         let memoProps: any;
 
-        let memoType = !el.clientTypeReference && el.type?.type;
+        let memoType = el.type?.type;
         if (memoType) {
-          const [kind, type] = wrapType(memoType);
+          const [kind, type] = wrapType(memoType, context);
 
           if (kind <= 1) {
             memoProps = {
