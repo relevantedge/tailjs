@@ -1,33 +1,26 @@
 import {
   HttpRequest,
+  TrackedEventBatch,
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
 } from "@tailjs/engine";
-import { TrackedEvent, transformLocalIds } from "@tailjs/types";
-import { parseString } from "@tailjs/util";
-import { Lock } from "semaphore-async-await";
-
-export interface RavenDbSettings {
-  url: string;
-  database: string;
-  x509?: ({ cert: Uint8Array | string } | { certPath: string }) &
-    ({ key?: string } | { keyPath: string });
-}
+import { Lock, createLock } from "@tailjs/util";
+import { RavenDbSettings } from ".";
 
 /**
  * This extension stores events in RavenDB.
  * It maps and assign IDs (and references to them) to events and sessions with incrementing base 36 numbers to reduce space.
  */
 export class RavenDbTracker implements TrackerExtension {
-  public readonly name = "ravendb";
+  public readonly id = "ravendb";
   private readonly _settings: RavenDbSettings;
   private _lock: Lock;
   private _env: TrackerEnvironment;
   private _cert?: HttpRequest["x509"];
   constructor(settings: RavenDbSettings) {
     this._settings = settings;
-    this._lock = new Lock();
+    this._lock = createLock();
   }
 
   private _nextId = 0;
@@ -54,72 +47,82 @@ export class RavenDbTracker implements TrackerExtension {
           throw new Error("Certificate not found.");
         }
         this._cert = {
-          id: this.name,
+          id: this.id,
           cert,
           key,
         };
       }
     } catch (e) {
-      env.log({
-        group: this.name,
+      env.log(this, {
+        group: this.id,
         level: "error",
-        source: `${this.name}:initialize`,
-        data: "" + e,
+        source: `${this.id}:initialize`,
+        message: "" + e,
       });
     }
   }
 
-  async post(
-    events: TrackedEvent[],
-    tracker: Tracker,
-    env: TrackerEnvironment
-  ): Promise<void> {
+  async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
+    if (!tracker.session) {
+      return;
+    }
+
     try {
       const commands: any[] = [];
 
-      let sessionId = parseString(tracker.vars["rd_s"]?.value);
-      let deviceId = parseString(tracker.vars["rd_d"]?.value);
-      let deviceSessionId = parseString(tracker.vars["rd_ds"]?.value);
+      // We add a convenient integer keys to the session, device session and event entities to get efficient primary keys
+      // when doing ETL on the data.
+      const ids = await tracker.get([
+        {
+          scope: "session",
+          key: "rdb",
+          init: async () => ({
+            classification: "anonymous",
+            purposes: "necessary",
+            value: {
+              source: [tracker.sessionId, tracker.deviceSessionId],
 
-      tracker.vars["rd_s"] = {
-        scope: "session",
-        essential: true,
-        critical: true,
-        value: (sessionId ??= (await this._getNextId()).toString(36)),
-      };
+              mapped: [await this._getNextId(), await this._getNextId()],
+            },
+          }),
+        },
+      ]).value;
 
-      tracker.vars["rd_d"] = {
-        scope: "device",
-        essential: true,
-        critical: true,
-        value: (deviceId ??= (await this._getNextId()).toString(36)),
-      };
+      var hasChanges = false;
+      if (ids.source[0] !== tracker.sessionId) {
+        ids.mapped[0] = await this._getNextId();
+        hasChanges = true;
+      }
+      if (ids.source[1] !== tracker.deviceSessionId) {
+        ids.mapped[1] = await this._getNextId();
+        hasChanges = true;
+      }
 
-      tracker.vars["rd_ds"] = {
-        scope: "device-session",
-        essential: true,
-        critical: true,
-        value: (deviceSessionId ??= (await this._getNextId()).toString(36)),
-      };
+      if (hasChanges) {
+        // Session and/or device session ID changed.
+        await tracker.set([
+          {
+            scope: "session",
+            key: "rdb",
+            patch: (current) => {
+              if (!current) return;
+              return { ...current, value: ids };
+            },
+          },
+        ]);
+      }
 
       for (let ev of events) {
-        ev["rdb:timestamp"] = Date.now();
-
-        ev = transformLocalIds(ev, (id) => `${sessionId}/${id}`);
-        const internalEventId = (await this._getNextId()).toString(36);
-        if (ev["id"] == null) {
-          ev["id"] = `${internalEventId}`;
+        const session = ev.session;
+        if (!session) {
+          continue;
         }
 
-        if (ev.session) {
-          (ev.session as any)["rdb:deviceId"] = ev.session.deviceId;
-          (ev.session as any)["rdb:sessionId"] = ev.session.sessionId;
-          (ev.session as any)["rdb:deviceSessionId"] =
-            ev.session.deviceSessionId;
-          ev.session.deviceId = deviceId;
-          ev.session.sessionId = sessionId;
-          ev.session.deviceSessionId = deviceSessionId;
-        }
+        // Integer primary key for the event entity.
+        const internalEventId = await this._getNextId();
+
+        ev["rdb:sessionId"] = ids.mapped[0];
+        ev["rdb:deviceSessionId"] = ids.mapped[1];
 
         commands.push({
           Type: "PUT",
@@ -143,20 +146,15 @@ export class RavenDbTracker implements TrackerExtension {
         body: JSON.stringify({ Commands: commands }),
       });
     } catch (e) {
-      env.log({
-        group: this.name,
-        level: "error",
-        source: `${this.name}:post`,
-        data: "" + e,
-      });
+      tracker.env.error(this, e);
     }
   }
 
-  private async _getNextId(): Promise<number> {
+  private async _getNextId(): Promise<string> {
     let id = ++this._nextId;
 
     if (id >= this._idRangeMax) {
-      await this._lock.wait();
+      const lockHandle = await this._lock();
       try {
         id = ++this._nextId;
         if (id >= this._idRangeMax) {
@@ -197,26 +195,24 @@ export class RavenDbTracker implements TrackerExtension {
             }
             idMax = value + this._idBatchSize;
 
-            this._env.log({
-              group: this.name,
-              level: "debug",
-              source: "ids",
-              data: `The server reported the next global ID to be ${value}. Retrying with next ID ${idMax}.`,
-            });
+            this._env.debug(
+              this,
+              `The server reported the next global ID to be ${value}. Retrying with next ID ${idMax}.`
+            );
           }
           id = ++this._nextId;
         }
       } catch (e) {
-        this._env.log({
-          group: this.name,
+        this._env.log(this, {
+          group: this.id,
           level: "error",
-          source: this.name,
-          data: "" + e,
+          source: this.id,
+          message: "" + e,
         });
       } finally {
-        this._lock.release();
+        lockHandle();
       }
     }
-    return id;
+    return id.toString(36);
   }
 }

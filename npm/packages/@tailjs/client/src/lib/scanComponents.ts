@@ -1,20 +1,7 @@
 import type { Component, ExternalReference } from "@tailjs/types";
-import {
-  F,
-  T,
-  attr,
-  document,
-  get,
-  hashSet,
-  map,
-  nil,
-  parseInt,
-  push,
-  set,
-  split,
-  str,
-} from ".";
 import type { BoundaryCommand } from "..";
+import { T, add, get, map, nil, push, split, toString } from "@tailjs/util";
+import { attr } from ".";
 
 type MappedComponent = [
   command: {
@@ -24,6 +11,7 @@ type MappedComponent = [
   },
   elements: HTMLElement[]
 ];
+
 export function scanAttributes(
   attributeName: string,
   references: MappedComponent[0][]
@@ -31,7 +19,7 @@ export function scanAttributes(
   if (!references) return [];
   const commands: BoundaryCommand[] = [];
 
-  const seen = hashSet<any>();
+  const seen = new Set<any>();
   document.querySelectorAll(`[${attributeName}]`).forEach((el) => {
     if (get(seen, el)) {
       return;
@@ -40,7 +28,7 @@ export function scanAttributes(
     const stack: any[] = [];
 
     while (attr(el, attributeName) != nil) {
-      set(seen, el);
+      add(seen, el);
       const delta = split(attr(el, attributeName)!, "|");
       attr(el, attributeName, nil);
       for (let i = 0; i < delta.length; i++) {
@@ -48,12 +36,12 @@ export function scanAttributes(
         if (item === "") {
           continue; // If the attribute starts with "|" it means "keep stack". Splitting the array on "|" will give an empty item.
         }
-        const number = item === "-" ? -1 : parseInt(str(item, F) ?? "", 36);
+        const number = item === "-" ? -1 : parseInt(toString(item) ?? "", 36);
         if (number < 0) {
           stack.length += number;
           continue;
         } else if (i === 0) {
-          stack.length = 0; // The first item has an value to replace the stack since not preceded by neither "|" nor an negative number (pop).
+          stack.length = 0; // The first item has a value to replace the stack since not preceded by neither "|" nor a negative number (pop).
         }
 
         if (isNaN(number) && /^["\[{]/.test(item)) {
@@ -70,7 +58,7 @@ export function scanAttributes(
         if (number >= 0 && references[number]) {
           item = references[number];
         }
-        stack.push(item);
+        push(stack, item);
       }
       push(
         commands,

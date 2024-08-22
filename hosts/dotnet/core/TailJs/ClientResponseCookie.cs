@@ -5,13 +5,14 @@ public record ClientResponseCookie : TrackerCookie
   public ClientResponseCookie(
     string name,
     string value,
-    int? maxAge,
+    long? maxAge,
     bool httpOnly,
     SameSitePolicy sameSitePolicy,
     bool isEssential,
     bool secure,
     string headerString
-  ) : base(value, maxAge, httpOnly, sameSitePolicy, isEssential)
+  )
+    : base(value, maxAge, httpOnly, sameSitePolicy, isEssential)
   {
     Name = name;
     HeaderString = headerString;

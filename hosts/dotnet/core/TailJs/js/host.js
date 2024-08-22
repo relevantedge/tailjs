@@ -22,25 +22,68 @@
             }
             return response;
         },
-        readText(path, changeHandler) {
-            return host.Read(path, changeHandler, true);
+        async ls(path) {
+            return [...await host.List(path)].map(entry => ({
+                path: entry.path,
+                name: entry.name,
+                type: entry.type,
+                readonly: entry.readonly,
+                created: entry.created ? new Date(entry.created) : undefined,
+                modified: entry.modified ? new Date(entry.modified) : undefined
+            }));
         },
+        
         read(path, changeHandler) {
             return host.Read(path, changeHandler, false);
         },
-        log({group, level, source, data} = {}) {
+        readText(path, changeHandler) {
+            return host.Read(path, changeHandler, true);
+        },
+        write(path, data) {
+            return host.Write(path, data, false);
+        },
+        writeText(path, data) {
+            return host.Write(path, data, true);
+        },
+        delete(path) {
+            return host.Delete(path);
+        },
+        log({level, error, ...rest} = {}) {
             host.Log(JSON.stringify({
-                data,
                 level: logLevels[level] ?? 6,
-                group: group ?? null,
-                source: source ?? null
+                error: error != null ? {message: error.message, name: error.name, stack: error.stack} : null,
+                ...rest
             }));
         },
     };
+    const toLogString = (src, depth = 0, topLevel=true) => {
+        if (!depth && Array.isArray(src) && topLevel) {
+            if (src.length <= 1) {
+                src = src[0];
+            } else {
+                return "\n" + src.map((value, i) => `#${i}: ${toLogString(value, 0, false)}`).join("\n");
+            }
+        }
+        if (typeof src === "function") return src.toString();
+
+        if (src instanceof Error) {
+            src = {message: src + "", stack: src.stack};
+        }
+        
+        if (src != null && (Array.isArray(src) || Object.getPrototypeOf(src) === Object.prototype)) {
+            const mapped = Array.isArray(src) ? [] : {};
+            for (const [key, value] of Object.entries(src)) {
+                mapped[key] = toLogString(value, depth + 1);
+            }
+            return depth ? mapped : JSON.stringify(mapped, null, 2);
+        }
+        
+        return depth ? src : "" + src;
+    }
     const log = (level) =>
         (...args) => host.Log(JSON.stringify({
             level,
-            data: args.length > 1 ? JSON.stringify(args) : JSON.stringify(args[0])
+            message: toLogString(args)
         }));
 
     globalThis.console = {

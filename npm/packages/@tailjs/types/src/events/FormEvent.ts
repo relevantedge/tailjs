@@ -1,8 +1,8 @@
-import type { Duration, FormField, Timestamp, UserInteractionEvent } from "..";
+import type { Duration, FormField, UserInteractionEvent } from "..";
 import { typeTest } from "../util/type-test";
 
 export interface FormEvent extends UserInteractionEvent {
-  type: "FORM";
+  type: "form";
 
   /**
    * The name of the form that was submitted.
@@ -23,7 +23,7 @@ export interface FormEvent extends UserInteractionEvent {
   activeTime?: Duration;
 
   /**
-   * The total duration from the user started filling out the form until completion or abandoment..
+   * The total duration from the user started filling out the form until completion or abandonment.
    */
   totalTime?: Duration;
 
@@ -41,4 +41,4 @@ export interface FormEvent extends UserInteractionEvent {
   ref?: string;
 }
 
-export const isFormEvent = typeTest<FormEvent>("FORM");
+export const isFormEvent = typeTest<FormEvent>("form");

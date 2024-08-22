@@ -1,0 +1,35 @@
+{
+  "name": "@tailjs/json-schema",
+  "description": "JSON schema support for tail.js",
+  "license": "LGPL3",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "tsx ../../../build/rollup.ts",
+    "build:watch": "pnpm run build -w --ext"
+  },
+  "publishConfig": {
+    "directory": "dist"
+  },
+  "dependencies": {
+    "@tailjs/types": "workspace:*",
+    "@tailjs/util": "workspace:*",
+    "ajv": "^8.14.0",
+    "ajv-formats": "^2.1.1"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  }
+}

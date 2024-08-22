@@ -1,10 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
-
 using TailJs.IO;
 
 namespace TailJs.AspNet;
@@ -19,8 +16,6 @@ public class TrackerRenderingContext : ITrackerRenderingContext
   private readonly IScriptNonceProvider? _nonceProvider;
   private readonly ObjectPool<StringBuilder> _writers;
   private readonly TrackerConfiguration _configuration;
-
-  private ITracker? _mappedTracker;
 
   public TrackerRenderingContext(
     IOptions<TrackerConfiguration> configuration,
@@ -51,13 +46,11 @@ public class TrackerRenderingContext : ITrackerRenderingContext
   }
 
   private string ToScript<T>(T value) =>
-    JsonSerializer.Serialize(
-      _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
-    );
-
-  // JsonSerializer.Serialize(
-  //   _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
-  // );
+    _configuration.UseJson
+      ? JsonSerializer.Serialize(value, _writer.JsonSerializerOptions)
+      : JsonSerializer.Serialize(
+        _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
+      );
 
   #region ITrackerRenderingContext Members
 
@@ -65,56 +58,50 @@ public class TrackerRenderingContext : ITrackerRenderingContext
 
   public IModelContext ItemData { get; }
 
-  public ITracker? Tracker =>
-    ItemData.EnvironmentType == EnvironmentType.Public ? (_mappedTracker ??= _trackerAccessor.Tracker) : null;
-
-  public string GetClientScript(IEnumerable<string>? references)
-  {
-    using var script = _writers.Rent();
-    var writer = script.Item;
-    var nonce = _nonceProvider?.GetNonce();
-    writer.Append("<script");
-
-    if (nonce != null)
-    {
-      writer.Append(" nonce=").Append(nonce);
-    }
-
-    writer
-      .Append(">(")
-      .Append(_configuration.TrackerName)
-      .Append("=(window.")
-      .Append(_configuration.TrackerName)
-      .Append("??=[]))")
-      .Append(".push(")
-      .Append(
-        ToScript(
-          new
+  public async ValueTask<string> GetClientScriptAsync(IEnumerable<string>? references) =>
+    await _requestHandler.GetClientScriptsAsync(
+      _trackerAccessor.TrackerHandle,
+      new object[]
+      {
+        new
+        {
+          scan = new
           {
-            scan = new
+            attribute = _configuration.AttributeName,
+            components = references?.Select(reference => JsonNode.Parse(reference))
+              ?? Enumerable.Empty<JsonNode>()
+          },
+        },
+        new
+        {
+          set = new object[]
+          {
+            new
             {
-              attribute = _configuration.AttributeName,
-              components = references?.Select(reference => JsonNode.Parse(reference))
-                ?? Enumerable.Empty<JsonNode>()
+              scope = "view",
+              key = "view",
+              value = ItemData.CurrentContextItem
+            },
+            new
+            {
+              scope = "view",
+              key = "rendered",
+              value = true
             }
           }
-        )
-      )
-      .Append(",")
-      .Append(ToScript(new { set = new { view = ItemData.CurrentContextItem, rendered = true } }))
-      .Append(");")
-      .Append("</script>");
-    if (Tracker != null && _requestHandler.GetClientScripts(Tracker, nonce) is { } trackerScript)
-    {
-      writer.Append(trackerScript);
-    }
-
-    return writer.ToString();
-  }
+        }
+      },
+      _nonceProvider?.GetNonce()
+    ) ?? "";
 
   public IDataMarkupHeader? GetDataScopeHeader(ElementBoundaryMapping? mapping) =>
     !mapping.IsEmpty()
       ? new DataMarkupHeader(_writer.GetScopeDataHeader(mapping), _writer.GetScopeDataFooter())
+      : null;
+
+  public async ValueTask<ITracker?> TryResolveTrackerAsync(CancellationToken cancellationToken = default) =>
+    ItemData.EnvironmentType == EnvironmentType.Public
+      ? await _trackerAccessor.ResolveTracker(cancellationToken)
       : null;
 
   #endregion
@@ -140,4 +127,9 @@ public class TrackerRenderingContext : ITrackerRenderingContext
   }
 
   #endregion
+
+
+  // JsonSerializer.Serialize(
+  //   _environment.HttpEncode(JsonSerializer.Serialize(value, _writer.JsonSerializerOptions))
+  // );
 }

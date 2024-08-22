@@ -29,7 +29,7 @@ export interface UserAgentLanguage {
 }
 
 export interface UserAgentEvent extends TrackedEvent, SessionScoped {
-  type: "USER_AGENT";
+  type: "user_agent";
 
   /**
    *  Has touch
@@ -84,11 +84,11 @@ export interface UserAgentEvent extends TrackedEvent, SessionScoped {
      */
     height: Float;
 
-    /** Whether the device is held in landscape mode.
+    /** The device was held in landscape mode.
      * @default false
      */
     landscape?: boolean;
   };
 }
 
-export const isUserAgentEvent = typeTest<UserAgentEvent>("USER_AGENT");
+export const isUserAgentEvent = typeTest<UserAgentEvent>("user_agent");

@@ -1,12 +1,13 @@
-import type { ReservedVariables } from "..";
+import { MaybeArray } from "@tailjs/util";
+import { ClientVariableSetter } from "..";
 import { commandTest } from "./shared";
 
 /**
- * Set the specified properties in the tracker's variables
+ * Used to set variables (data) in the backend.
  */
 export interface SetCommand {
   /** An object where the names of the properties correspond to the variables set in the tracker. */
-  set: Record<string, any> & Partial<ReservedVariables>;
+  set: MaybeArray<ClientVariableSetter<any, string>>;
 }
 
 export const isSetCommand = commandTest<SetCommand>("set");

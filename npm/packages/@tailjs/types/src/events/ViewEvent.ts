@@ -1,4 +1,12 @@
-import type { Domain, Integer, LocalID, Size, TrackedEvent, View } from "..";
+import type {
+  Domain,
+  Integer,
+  LocalID,
+  TrackedEvent,
+  View,
+  ViewTimingData,
+  Viewport,
+} from "..";
 import { typeTest } from "../util/type-test";
 
 export interface ClickIds {
@@ -9,16 +17,24 @@ export interface ClickIds {
   googleAnalytics?: string;
 }
 
+/**
+ * This event is sent a user navigates between views. (page, screen or similar).
+ *
+ * This event does not
+ *
+ */
 export interface ViewEvent extends TrackedEvent {
-  type: "VIEW";
+  type: "view";
 
   /**
-   * The ID of the view event that is referenced by {@link ViewContext}.
+   * @inheritdoc
    */
-  id: LocalID;
+  clientId: LocalID;
 
   /**
    * The primary content used to generate the view including the personalization that led to the decision, if any.
+   * If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL
+   * on the website, the view definition may follow from a separate patch event.
    */
   definition?: View;
 
@@ -41,6 +57,16 @@ export interface ViewEvent extends TrackedEvent {
    * The path portion of the URL.
    */
   path?: string;
+
+  /** For how long the view was active. This is set via patches */
+  duration?: ViewTimingData;
+
+  /**
+   * The HTTP status for the response associated with the view.
+   *
+   * @default 200
+   */
+  httpStatus?: number;
 
   /**
    * Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].
@@ -94,11 +120,16 @@ export interface ViewEvent extends TrackedEvent {
   firstTab?: boolean;
 
   /**
-   * The 1-indexed view number in the current tab.
+   * The tab number in the current session.
+   */
+  tabNumber?: Integer;
+
+  /**
+   * The view number in the current tab.
    * This is kept as a convenience, yet technically redundant since it follows from timestamps and context.
    * @default 1
    */
-  tabIndex?: Integer;
+  tabViewNumber?: Integer;
 
   /**
    * Number of redirects that happened during navigation to this view.*/
@@ -125,9 +156,9 @@ export interface ViewEvent extends TrackedEvent {
   };
 
   /**
-   * The size of the user's view port (e.g. browser window) when the page was opened.
+   * The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened.
    */
-  viewport?: Size;
+  viewport?: Viewport;
 
   /**
    * The type of view, e.g. "page" or "screen".
@@ -137,4 +168,4 @@ export interface ViewEvent extends TrackedEvent {
   viewType?: string;
 }
 
-export const isViewEvent = typeTest<ViewEvent>("VIEW");
+export const isViewEvent = typeTest<ViewEvent>("view");

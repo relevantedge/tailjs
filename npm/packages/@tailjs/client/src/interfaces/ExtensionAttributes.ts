@@ -1,14 +1,11 @@
 import type {
-  ActivationTracking,
   CartAction,
   CartEventData,
-  Component,
   ConsentEvent,
-  Content,
   FormEvent,
-  View,
 } from "@tailjs/types";
-import { BoundaryData } from "../commands";
+import { ParsableTags } from "@tailjs/types";
+import { BoundaryData } from "..";
 
 /***
  * Attributes that can be added to HTML elements to extend tracking.
@@ -33,7 +30,7 @@ export interface TrackerAttributes {
   /**
    * These tags will be added to user activations with this DOM element or any of its descendants.
    */
-  ["track-tags"]?: string | string[];
+  ["track-tags"]?: ParsableTags;
 
   /**
    * Track clicks on this DOM element as if it was a button (clicks are tracked by default for A and BUTTON elements).
@@ -42,21 +39,23 @@ export interface TrackerAttributes {
   ["track-button"]?: boolean | 0 | 1 | "";
 
   /**
-   *  element with this attribute modifies the cart.
+   * An element with this attribute modifies the cart.
    * If not an object it is shorthand for the {@link CartCommandParameters.action} property where `true` or the empty string means `add`.
    */
   ["track-cart"]?: "" | true | CartAction | CartEventData;
 
   /**
-   * Defines how component clicks are tracked cf. {@link ActivationTracking}.
+   * Whether clicks are tracked or not.
+   * This needs to be set to `true` on links and buttons rendered from server-side React components
+   * if the tracker context should be included in the click events.
    */
-  ["track-clicks"]?: ActivationTracking;
+  ["track-clicks"]?: boolean;
 
   /**
    * Used to indicate that the form field should be included in the {@link FormEvent} if the form is submitted.
    * It can be put on either each field individually or the entire form.
    *
-   * Be careful NOT TO INADVERDENTLY TRACK PERSONAL DATA.
+   * Be careful NOT TO INADVERTENTLY TRACK PERSONAL DATA.
    * If you do it on purpose it may be perfectly fine depending on which backends you have connected.
    *
    * This attribute has no effect unless the user has consented via an {@link ConsentEvent}.

@@ -1,11 +1,13 @@
+export type {
+  TraversableElement,
+  TraverseContext,
+  ConfiguredTrackerComponent as ConfiguredTracker,
+} from "./internal";
+
 import type { TrackerAttributes } from "@tailjs/client";
 export * from "./MapState";
 export * from "./Tracker";
 export * from "./useTracking";
-export * from "./useConsent";
-export type { TraversableElement, TraverseContext } from "./traverseNodes";
-export * from "./trackingDom";
-export * from "./trackingServerDom";
 export * from "./useTrackerVariable";
 
 export declare namespace React {

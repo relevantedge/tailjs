@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using TailJs.Variables;
 
 namespace TailJs;
 
@@ -41,6 +42,14 @@ public class TrackerConfiguration : IOptionsMonitor<TrackerConfiguration>
 
   public bool Secure { get; set; } = true;
 
+  public UserConsent? DefaultConsent { get; set; }
+
+  /// <summary>
+  /// Whether configuration and component data should be passed to the client as JSON instead of using MessagePack.
+  /// Good for testing and debugging.
+  /// </summary>
+  public bool UseJson { get; set; } = true;
+
   public List<ScriptExtensionConfiguration> ScriptExtensions { get; set; } = new();
 
   public TrackerConfiguration Get(string? name) => this;
@@ -51,7 +60,7 @@ public class TrackerConfiguration : IOptionsMonitor<TrackerConfiguration>
 
   /// <summary>
   /// Rules to decide whether to include or exclude data-* attributes as tags.
-  /// ECMAScript syntax for regular expressions is supported. Otherwise explicit attribute names separated by comma are assumed.
+  /// ECMAScript syntax for regular expressions is supported. Otherwise, explicit attribute names separated by comma are assumed.
   /// The first rule that explicitly includes are excludes is used.
   ///
   /// The default is to include attribute where the name ends with "id".
@@ -67,3 +76,5 @@ public record ScriptExtensionConfiguration(
   IConfigurationSection? Settings = null,
   string? Module = null
 );
+
+public record UserConsent(DataClassification Level, DataPurposes Purposes);

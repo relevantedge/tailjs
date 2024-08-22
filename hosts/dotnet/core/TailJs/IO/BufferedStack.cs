@@ -2,16 +2,17 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-
 namespace TailJs.IO;
 
 [DebuggerDisplay("BufferedStack({Length})")]
-internal struct BufferedStack<T> : IReadOnlyCollection<T>, IDisposable where T : notnull
+internal struct BufferedStack<T> : IReadOnlyCollection<T>, IDisposable
+  where T : notnull
 {
   private readonly T? _defaultValue;
   private T[] _buffer;
 
-  public BufferedStack() : this(default) { }
+  public BufferedStack()
+    : this(default) { }
 
   public BufferedStack(T? defaultValue)
   {
@@ -58,7 +59,6 @@ internal struct BufferedStack<T> : IReadOnlyCollection<T>, IDisposable where T :
     Length = 0;
   }
 
-
   #region IDisposable Members
 
   public void Dispose()
@@ -68,7 +68,7 @@ internal struct BufferedStack<T> : IReadOnlyCollection<T>, IDisposable where T :
       return;
     }
 
-    BufferPool<T>.Dispose(_buffer);
+    BufferPool<T>.Return(_buffer);
 
     _buffer = null!;
   }

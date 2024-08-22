@@ -1,5 +1,6 @@
 import { TrackedEvent } from "@tailjs/types";
 import { TrackerCommand, Tracker } from "..";
+import { MaybePromise } from "@tailjs/util";
 
 export type TrackerExtension = {
   /**
@@ -10,7 +11,7 @@ export type TrackerExtension = {
 
   /**
    * Optionally implements custom logic in response to a command.
-   * Returning `true` indcates that the extension handled the command.
+   * Returning `true` indicates that the extension handled the command.
    *
    * If no extensions processed the command, an error occurs.
    */

@@ -1,5 +1,4 @@
-import { FormEvent } from "./events/FormEvent";
-import { Duration, Integer } from "./native-types";
+import { Duration, FormEvent, Integer } from ".";
 
 /**
  * A form field value in a {@link FormEvent}.
@@ -38,8 +37,10 @@ export interface FormField {
   totalTime?: Duration;
 
   /**
-   * The value of the form field. Be careful with this one, if you have connected a backend where you don't control the data.
-   * This value will not be populated unless the user has consented.
+   * The value of the form field. Be careful with this one.
+   *
+   * The default is only to track whether checkboxes are selected.
+   * Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.
    */
   value?: string;
 

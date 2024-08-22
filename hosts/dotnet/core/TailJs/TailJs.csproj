@@ -7,6 +7,15 @@
         <LangVersion>11</LangVersion>
         <RootNamespace>TailJs</RootNamespace>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <Version>0.17.24</Version>
+        <Title>.NET host for tail.js</Title>
+        <Authors>tail.js</Authors>
+        <Copyright>RelevantEdge</Copyright>
+        <PackageProjectUrl>https://www.tailjs.org/</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/relevantedge/tailjs/blob/main/LICENSE</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/relevantedge/tailjs</RepositoryUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <ItemGroup Condition=" '$(TargetFramework)'=='net481'">
@@ -26,7 +35,7 @@
         <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0"/>
         <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.3.2"/>
         <PackageReference Include="System.Runtime" Version="4.3.1"/>
-        <PackageReference Include="System.Text.Json" Version="7.0.3"/>
+        <PackageReference Include="System.Text.Json" Version="8.0.4" />
     </ItemGroup>
 
     <ItemGroup>
@@ -37,10 +46,14 @@
         <EmbeddedResource Include="js\ravendb.js"/>
         <EmbeddedResource Include="js\request-handler.js"/>
         <EmbeddedResource Include="js\timeouts.js"/>
+        <EmbeddedResource Include="js\json-schema.js"/>
         <EmbeddedResource Include="js\types.js"/>
         <EmbeddedResource Include="js\tail.js"/>
         <EmbeddedResource Include="js\tail.debug.js"/>
         <EmbeddedResource Include="js\tail.debug.map.js"/>
+        <EmbeddedResource Include="js\transport.js"/>
+
+        <None Include="README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
     <ItemGroup>

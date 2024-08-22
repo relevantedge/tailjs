@@ -1,7 +1,6 @@
 ﻿// ReSharper disable UnusedMember.Global
 
 using System.Collections.Concurrent;
-
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
 
@@ -32,7 +31,7 @@ internal class Timeouts : IScriptEngineExtension
     }
   }
 
-  public long SetTimeout(V8ScriptEngine source, ScriptObject callback, int delay, int currentId)
+  public long SetTimeout(V8ScriptEngine source, ScriptObject callback, object? delay, int currentId)
   {
     var id = currentId > 0 ? currentId : Interlocked.Increment(ref _nextId);
     var cts = new CancellationTokenSource();
@@ -46,7 +45,7 @@ internal class Timeouts : IScriptEngineExtension
       CancellationTokenSource? cancellation = null;
       try
       {
-        await Task.Delay(delay, cts.Token).ConfigureAwait(false);
+        await Task.Delay(Convert.ToInt32(delay), cts.Token).ConfigureAwait(false);
         if (_timeouts.TryRemove(id, out var registration) && !registration.IsCancellationRequested)
         {
           (cancellation = registration).Cancel();
@@ -64,7 +63,7 @@ internal class Timeouts : IScriptEngineExtension
     }
   }
 
-    #region IScriptEngineExtension Members
+  #region IScriptEngineExtension Members
 
   public void Dispose()
   {
@@ -84,7 +83,7 @@ internal class Timeouts : IScriptEngineExtension
 
   public async ValueTask<ScriptObject?> SetupAsync(
     V8ScriptEngine engine,
-    IResourceLoader resources,
+    IResourceManager resources,
     CancellationToken cancellationToken = default
   )
   {
@@ -96,5 +95,5 @@ internal class Timeouts : IScriptEngineExtension
     return null;
   }
 
-    #endregion
+  #endregion
 }

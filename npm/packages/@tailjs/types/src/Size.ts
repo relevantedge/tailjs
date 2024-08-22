@@ -1,4 +1,4 @@
-import { Float } from "./native-types";
+import { Float } from ".";
 
 export interface Size {
   width: Float;

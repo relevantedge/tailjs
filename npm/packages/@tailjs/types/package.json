@@ -1,20 +1,48 @@
 {
   "name": "@tailjs/types",
   "description": "Default type definitions for tailjs.",
-  "license": "MIT",
-  "version": "0.17.24",
-  "main": "src/index.ts",
+  "license": "LGPL3",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "type": "module",
   "scripts": {
-    "schema": "node ../../../build/export-schema.mjs",
-    "build": "node ../../../build/export-schema.mjs && rollup  --config ../../../build/rollup.mjs",
-    "build:watch": "nodemon --watch src --watch ../../../build/export-schema.mjs --ext ts --exec \"pnpm run build\""
+    "schema": "tsx ../../../build/export-schema.ts",
+    "check": "tsc --noEmit",
+    "build": "tsx ../../../build/export-schema.ts",
+    "build:watch": "pnpm run build -w"
   },
   "devDependencies": {
     "typedoc": "^0.24.8",
     "typedoc-plugin-expand-object-like-types": "^0.1.2",
-    "typedoc-plugin-markdown": "^3.15.3"
+    "typedoc-plugin-markdown": "^3.17.1"
   },
   "publishConfig": {
     "directory": "dist"
+  },
+  "dependencies": {
+    "@tailjs/util": "workspace:*"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./schema": {
+      "import": {
+        "types": "./dist/schema/index.d.ts",
+        "default": "./dist/schema/index.mjs"
+      },
+      "require": {
+        "types": "./dist/schema/index.d.ts",
+        "default": "./dist/schema/index.cjs"
+      }
+    }
   }
 }

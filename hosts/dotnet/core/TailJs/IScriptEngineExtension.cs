@@ -7,7 +7,7 @@ namespace TailJs
   {
     ValueTask<ScriptObject?> SetupAsync(
       V8ScriptEngine engine,
-      IResourceLoader resources,
+      IResourceManager resources,
       CancellationToken cancellationToken = default
     );
   }

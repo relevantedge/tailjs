@@ -1,104 +1,87 @@
-import type { Nullish } from "@tailjs/util";
-import {
-  F,
-  Json,
-  T,
-  TAB_ID,
-  defer,
-  filter,
-  fun,
-  map,
-  mapSharedId,
-  nil,
-  shared,
-  shift,
-  size,
-} from ".";
+export const ignoreChannel = 0;
+// import { filter, isPlainObject, map } from "@tailjs/util";
+// import { TAB_ID, bindStorage, sharedStorage } from ".";
 
-export interface MessageHandler<T extends Json = Json> {
-  (value: Exclude<T, null>, sourceId: string, direct: boolean): boolean | void;
-}
+// /**
+//  * A channel is used by tabs to communicate with each other.
+//  */
+// export type Channel<T> = {
+//   /**
+//    * Posts a message in the channel.
+//    *
+//    * @param payload The payload of the message.
+//    * @param target If specified, on the tab with this ID will get the message.
+//    */
+//   post(payload: T, target?: string): void;
 
-export type MessageSource = [sourceId: string, direct: boolean, self: string];
+//   /**
+//    * Stop receiving messages from the channel.
+//    * A tab automatically subscribes/unsubscribes when it enters and leaves bfcache.
+//    */
+//   unsubscribe: () => void;
+// };
 
-type HandlerArgs<F> = F extends (
-  source: MessageSource,
-  ...args: infer A
-) => void
-  ? A
-  : never;
+// type ChannelPayload<T> = [sender: string, payload: T, target?: string];
 
-type ExtractMessageTypes<T> = T extends {
-  [key in infer K]: (...args: any[]) => void;
-}
-  ? K extends string | number
-    ? [K, ...HandlerArgs<T[K]>]
-    : never
-  : never;
+// /**
+//  * Subscribes to the channel with the specified id.
+//  */
+// export const subscribeChannel = <T>(
+//   id: string,
+//   handler: (sender: string, payload: T, direct: boolean) => void,
+//   listenSelf = false,
+//   storage = sharedStorage
+// ): Channel<T> => {
+//   const channel = bindStorage<ChannelPayload<T>>(id, 0, storage);
+//   return {
+//     post: (payload, target) => channel.set([TAB_ID, payload, target]),
+//     unsubscribe: channel.observe(
+//       (value) =>
+//         value != null &&
+//         (!value[2] || value[2] === TAB_ID) &&
+//         handler(value[0], value[1], value[2] != null),
+//       listenSelf
+//     )[0],
+//   };
+// };
 
-export interface Channel<Default extends Json = Json> {
-  <T extends Default>(handler: MessageHandler<T>, self?: boolean): () =>
-    | void
-    | boolean;
-  <T extends Default>(data: T, ...targetIds: (string | Nullish)[]): void;
-}
+// let chatChannel: Channel<[message: string, error?: string]> | undefined;
+// export const error: {
+//   (message: string, fatal: boolean): void;
+//   (message: string, cause?: any, fatal?: boolean);
+// } = (message: string, error?: any, throwError = false) => {
+//   if (typeof error === "boolean") {
+//     throwError = error;
+//     error = null;
+//   }
+//   log(error ? message : null, error ?? message);
+//   if (throwError) {
+//     throw new Error(message);
+//   }
+// };
 
-export const createChannel: {
-  <T extends Json = Json>(id: string): Channel<T>;
-  <
-    Handlers extends Record<
-      string | number,
-      (source: MessageSource, ...args: any[]) => void
-    >
-  >(
-    id: string,
-    handlers: Handlers,
-    self?: boolean
-  ): Channel<ExtractMessageTypes<Handlers>>;
-} = (id: any, handlers?: any, self?: any): any => {
-  id = mapSharedId(`c_${id}`);
-  const channelKey = id;
+// export const log = (message: any, error?: any) => {
+//   const source = message;
+//   if (error) {
+//     error = JSON.stringify(
+//       (error = isPlainObject(error)
+//         ? {
+//             message: error.message ?? error,
+//             stack: error.stack,
+//           }
+//         : error)
+//     );
+//   }
 
-  const getTargetKey = (targetId: string) => `${id}!${targetId}`;
-  const ownKey = getTargetKey(TAB_ID);
-
-  const channel = (arg0: any, ...rest: any[]): any => {
-    let cleared = T;
-    if (fun(arg0)) {
-      // Add listener.
-      return shared((key, value, _, sourceId) => {
-        if (
-          value != nil &&
-          sourceId &&
-          (key === channelKey || key === ownKey)
-        ) {
-          const result = (arg0 as MessageHandler)(
-            value,
-            sourceId,
-            key === ownKey
-          );
-
-          return result !== F;
-        }
-      }, (rest[0] ?? self) === T);
-    }
-    rest = filter(rest);
-
-    map(size(rest) ? map(rest, getTargetKey) : [id], (destinationKey) => {
-      cleared = F;
-      shared(destinationKey, arg0);
-      defer(() => cleared !== (cleared = T) && shared(destinationKey, nil));
-    });
-  };
-
-  if (handlers) {
-    channel((value: any, sourceId: string, direct: boolean) =>
-      handlers[shift(value) as any]?.(
-        [sourceId, direct, sourceId === TAB_ID],
-        ...value
-      )
-    );
-  }
-
-  return channel;
-};
+//   message = JSON.stringify(message);
+//   (chatChannel ??= subscribeChannel<[string, string]>(
+//     "chat",
+//     (sender, parts) =>
+//       console[parts[1] ? "error" : "log"](
+//         sender === TAB_ID ? "This tab" : `Other tab (${sender})`,
+//         ...map(filter(parts), (value) => JSON.parse(value))
+//       ),
+//     true
+//   )).post([message, error]);
+//   return source;
+// };

@@ -1,8 +1,16 @@
-import { Encodable, Nulls, hash, httpDecode, httpEncode } from "@tailjs/util";
-import ShortUniqueId from "short-unique-id";
-
-import { formatError, params } from "./lib";
+import { Encodable, hash, httpDecode, httpEncode } from "@tailjs/transport";
 import {
+  MaybeUndefined,
+  Nullish,
+  isObject,
+  isString,
+  parameterList,
+  parseHttpHeader,
+} from "@tailjs/util";
+import ShortUniqueId from "short-unique-id";
+import {
+  LogLevel,
+  ParsingVariableStorage,
   type ChangeHandler,
   type Cookie,
   type CryptoProvider,
@@ -10,35 +18,64 @@ import {
   type HttpRequest,
   type HttpResponse,
   type LogMessage,
-  type ModelMetadata,
 } from "./shared";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
 const uuid = new ShortUniqueId();
 
+const getDefaultLogSourceName = (source: any): string | undefined => {
+  if (!source) return undefined;
+  if (!isObject(source)) return "" + source;
+
+  let constructorName = source.constructor?.name;
+  let name = source.logId ?? source.id;
+  if (name) {
+    return (
+      (constructorName && constructorName !== "Object"
+        ? constructorName + ":"
+        : "") + name
+    );
+  }
+  return constructorName ?? "" + source;
+};
+
 export class TrackerEnvironment {
   private readonly _crypto: CryptoProvider;
   private readonly _host: EngineHost;
-  public readonly metadata: ModelMetadata;
+  private readonly _logGroups = new Map<
+    any,
+    { group: string; name?: string }
+  >();
+
   public readonly tags?: string[];
-  public readonly hasManagedConsents: boolean;
   public readonly cookieVersion: string;
+  public readonly storage: ParsingVariableStorage;
 
   constructor(
     host: EngineHost,
     crypto: CryptoProvider,
-    metadata: ModelMetadata,
-    hasManagedConsents: boolean,
+    storage: ParsingVariableStorage,
     tags?: string[],
     cookieVersion = "C"
   ) {
     this._host = host;
     this._crypto = crypto;
-    this.metadata = metadata;
     this.tags = tags;
     this.cookieVersion = cookieVersion;
-    this.hasManagedConsents = hasManagedConsents;
+    this.storage = storage;
+  }
+
+  /** @internal */
+  public _setLogInfo(
+    ...sources: { source: any; group: string; name: string }[]
+  ) {
+    sources.forEach((source) =>
+      this._logGroups.set(source, {
+        group: source.group,
+        name: source.name ?? getDefaultLogSourceName(source),
+      })
+    );
   }
 
   public httpEncrypt(value: Encodable) {
@@ -49,16 +86,16 @@ export class TrackerEnvironment {
     return httpEncode(value);
   }
 
-  public httpDecode<T>(encoded: string): T;
-  public httpDecode<T>(encoded: string | null | undefined): T | null;
-  public httpDecode(encoded: string): any {
-    return httpDecode(encoded);
+  public httpDecode<T = any>(encoded: string | Uint8Array): T;
+  public httpDecode<T = any>(encoded: null | undefined): undefined;
+  public httpDecode(encoded: any): any {
+    return encoded == null ? undefined : httpDecode(encoded);
   }
 
-  public httpDecrypt<T>(encoded: string): T;
-  public httpDecrypt<T>(encoded: string | null | undefined): T | null;
-  public httpDecrypt(encoded: string): any {
-    if (encoded == null) return encoded as any;
+  public httpDecrypt<T = any>(encoded: string | Uint8Array): T;
+  public httpDecrypt<T = any>(encoded: null | undefined): undefined;
+  public httpDecrypt(encoded: any): any {
+    if (encoded == null) return undefined;
     return this._crypto.decrypt(encoded);
   }
 
@@ -66,12 +103,12 @@ export class TrackerEnvironment {
     source: T,
     numeric: B,
     secure?: boolean
-  ): B extends true ? number : T & Nulls<T>;
+  ): B extends true ? number : MaybeUndefined<T>;
   public hash<T extends string | null | undefined>(
     source: T,
     bits?: 32 | 64 | 128,
     secure?: boolean
-  ): string & Nulls<T>;
+  ): MaybeUndefined<T, string>;
   public hash(value: any, numericOrBits: any, secure = false): any {
     return value == null
       ? (value as any)
@@ -80,20 +117,38 @@ export class TrackerEnvironment {
       : hash(value, numericOrBits);
   }
 
-  public log(message: LogMessage<string | Record<string, any>>): void;
+  public log(source: any, message: LogMessage): void;
   public log(
-    message: Omit<LogMessage<string | Record<string, any>>, "data">,
-    error: any
+    source: any,
+    message: string | Error | Nullish,
+    logLevel?: LogLevel,
+    error?: Error
   ): void;
   public log(
-    message: LogMessage<string | Record<string, any>>,
+    source: any,
+    arg: LogMessage | string | Error | Nullish,
+    level?: LogLevel,
     error?: Error
   ): void {
-    if (error) {
-      message.data = formatError(error);
-      message.level ??= "error";
-    }
-    this._host.log(message);
+    // This is what you get if you try to log nothing (null or undefined); Nothing.
+    if (!arg) return;
+
+    const message: Partial<LogMessage> =
+      !isObject(arg) || arg instanceof Error
+        ? {
+            message: arg instanceof Error ? "An error ocurred" : arg,
+            level: level ?? (error ? "error" : "info"),
+            error,
+          }
+        : arg;
+
+    const { group, name = getDefaultLogSourceName(source) } =
+      this._logGroups.get(source) ?? {};
+
+    message.group ??= group;
+    message.source ??= name;
+
+    this._host.log(message as LogMessage);
   }
 
   public async nextId(scope?: string) {
@@ -140,19 +195,16 @@ export class TrackerEnvironment {
     const cookies: Record<string, Cookie> = {};
 
     for (const cookie of response.cookies) {
-      const ps = params(cookie);
+      const ps = parseHttpHeader(cookie, false);
 
-      if (!ps[0]) continue;
-      const [name, value] = ps[0];
-      const rest = Object.fromEntries(
-        ps.slice(1).map(([k, v]) => [k.toLowerCase(), v])
-      );
+      const [name, value] = ps[parameterList][0] ?? [];
+      if (!name) continue;
 
       cookies[name] = {
         value,
-        httpOnly: "httponly" in rest,
-        sameSitePolicy: SAME_SITE[rest["samesite"]] ?? "Lax",
-        maxAge: rest["max-age"] ? parseInt(rest["max-age"]) : undefined,
+        httpOnly: "httponly" in ps,
+        sameSitePolicy: SAME_SITE[ps["samesite"]] ?? "Lax",
+        maxAge: ps["max-age"] ? parseInt(ps["max-age"]) : undefined,
       };
     }
 
@@ -166,4 +218,36 @@ export class TrackerEnvironment {
       body: response.body,
     };
   }
+
+  // #region LogShortcuts
+
+  public trace(source: any, message: string) {
+    this.log(source, message, "trace");
+  }
+
+  public debug(source: any, message: string) {
+    this.log(source, message, "debug");
+  }
+
+  public warn(source: any, message: string, error?: Error): void;
+  public warn(
+    source: any,
+    message: string | null | undefined,
+    error: Error
+  ): void;
+  public warn(source: any, message: string, error?: Error) {
+    this.log(source, message, "warn", error);
+  }
+
+  public error(source: any, message: string, error?: Error): void;
+  public error(source: any, error: Error): void;
+  public error(source: any, message: string | Error, error?: Error) {
+    this.log(
+      source,
+      isString(message) ? message : (error = message)?.message,
+      "error",
+      error
+    );
+  }
+  // #endregion
 }

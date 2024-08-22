@@ -1,3 +1,4 @@
+import type { Json, JsonObject, MaybePromise, Wrapped } from "@tailjs/util";
 import type { ClientCertificate } from "./shared";
 
 export interface HttpRequest<Binary extends boolean = false> {
@@ -9,10 +10,16 @@ export interface HttpRequest<Binary extends boolean = false> {
   x509?: ClientCertificate;
 }
 
-export interface ClientRequest {
-  clientIp?: string | null;
-  headers: Record<string, string | string[] | null | undefined>;
-  method: string;
-  payload?: () => Promise<string | null> | null;
+export interface ClientRequestHeaders {
   url: string | null;
+  method: string;
+  headers: Record<string, string | readonly string[] | undefined>;
+
+  clientIp?: string | null;
+}
+
+export interface ClientRequest extends ClientRequestHeaders {
+  body?: Wrapped<
+    MaybePromise<Uint8Array | string | JsonObject | null | undefined>
+  >;
 }

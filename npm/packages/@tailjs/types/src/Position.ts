@@ -1,9 +1,14 @@
-import { Float, Integer, Percentage } from "./native-types";
+import { Float, Integer, Percentage } from ".";
 
 /**
  * Represents a position where the units are (CSS pixels)[#DevicePixelRatio].
  */
 export interface Position {
+  x: Float;
+  y: Float;
+}
+
+export interface Poz {
   x: Float;
   y: Float;
 }

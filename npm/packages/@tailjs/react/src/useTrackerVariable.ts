@@ -1,28 +1,74 @@
-import { tail } from "@tailjs/client/external";
+"use client";
+import {
+  ClientVariable,
+  ClientVariableKey,
+  GetCommand,
+  tail,
+} from "@tailjs/client/external";
+import { DataClassificationValue, DataPurposeValue } from "@tailjs/types";
 import { useRef, useState } from "react";
 
-export function useTrackerVariable<T = any>(name: string, poll = true) {
-  let [currentValue, setValue] = useState<T>();
-  const loadOnce = useRef(false);
-  if (!loadOnce.current) {
-    tail.push({
+export function useTrackerVariable<T = any>(
+  key: ClientVariableKey,
+  poll = true
+): [
+  value: ClientVariable<T> | undefined,
+  update: (
+    value: T | undefined,
+    classification?: DataClassificationValue,
+    purposes?: DataPurposeValue
+  ) => Promise<void>,
+  refresh: () => Promise<ClientVariable<T> | undefined>
+] {
+  let [, notifyChanged] = useState<T>();
+
+  const state = (useRef<
+    { polling?: boolean; current?: [any]; wired?: boolean } | undefined
+  >().current ??= {});
+
+  state.polling = poll;
+
+  if (!state.wired) {
+    let loadedSynchronously = true;
+    tail(<GetCommand>{
       get: {
-        [name](value) {
-          if (value != undefined) {
-            currentValue = value;
+        ...key,
+        result: (current, _, poll) => {
+          if (!state.current || current?.value !== state.current?.[0]) {
+            state.current = [current?.value];
+            // Don't update the state if we got the variable result instantly from cache or whatever.
+            !loadedSynchronously && notifyChanged(state.current[0]);
           }
-          if (loadOnce.current) {
-            // If the get method returns immediately it the tracker has a current value, and we do not want to refresh the component by setting the state.
-            setValue(value);
+          if (state.polling) {
+            return poll();
+          } else {
+            // This handler will be unbound, so we need to create a new one next time.
+            state.wired = false;
           }
-          return poll;
         },
       },
     });
-    loadOnce.current = true;
+    loadedSynchronously = false;
+    state.wired = true;
   }
   return [
-    currentValue,
-    (value: T) => tail.push({ set: { [name]: value } }),
+    state.current?.[0],
+    (
+      value: T,
+      classification?: DataClassificationValue,
+      purposes?: DataPurposeValue
+    ) => tail({ set: { ...(key as any), value, classification, purposes } }),
+    () => {
+      let resolve: any;
+      const promise = new Promise<any>((r) => (resolve = r));
+      tail(<GetCommand>{
+        get: {
+          ...key,
+          refresh: true,
+          result: (current) => resolve(notifyChanged(current as any)),
+        },
+      });
+      return promise;
+    },
   ] as const;
 }

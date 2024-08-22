@@ -12,26 +12,79 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1756235-4424-458f-b8f3-c8bf8d7b92a2" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/examples/TailJs.Umbraco.Example/appsettings.local.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/engine.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/engine.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/TailJs/js/transport.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/transport.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/build/rollup-dist.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/build/rollup-dist.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/initializeTracker.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/initializeTracker.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/cipher.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/cipher.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/RequestHandler.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/RequestHandler.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/transport/src/transport.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/transport/src/transport.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="ChangesViewManager">
+    <option name="groupingKeys">
+      <option value="directory" />
+    </option>
+  </component>
+  <component name="DpaMonitoringSettings">
+    <option name="autoShow" value="false" />
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/core/TailJs.AspNet/DataMarkupWriterFactory.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs.AspNet/ITrackerRenderingContext.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs.AspNet/TrackerRenderingContext.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/IO/DataMarkupWriter.Parse.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/IO/DataMarkupWriter.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/IO/DataMarkupWriterSettings.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/NullRequestHandler.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/JsonNodeConverter.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandlerPool.PooledRequestHandler.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandlerPool.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/ScriptVariableStorage.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/TrackerEnvironment.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/TrackerExtensionProxy.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/VariableHelpers.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Scripting/VariableStorageProxy.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/TrackerConfiguration.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Variables/IVariable.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Variables/IVariableGetResult.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Variables/IVariableResult.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/core/TailJs/Variables/IVariableSetResult.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/19f489b8b49b0ffacdffaed17801a6bcb3375c7a/src/libraries/System.Private.CoreLib/src/System/DateTimeOffset.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/544c7e6eb3d5525c6f85341f51217d81d7c8ed80/src/libraries/System.Private.CoreLib/src/System/Threading/Tasks/Task.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/544c7e6eb3d5525c6f85341f51217d81d7c8ed80/src/libraries/System.Private.CoreLib/src/System/Threading/Tasks/ValueTask.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/5b20af47d99620150c53eaf5db8636fdf730b126/src/libraries/System.Text.Json/src/System/Text/Json/Nodes/JsonObject.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/5b20af47d99620150c53eaf5db8636fdf730b126/src/libraries/System.Text.Json/src/System/Text/Json/Serialization/JsonSerializerOptions.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/Symbols/src/dotnet/runtime/d099f075e45d2aa6007a22b71b45a08758559f80/src/libraries/Microsoft.Extensions.Logging/src/Logger.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/3418ebfaf0184f13884ad24607e606c7a8b0/8a/fa810e6e/IStartupFilter.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/5755466c10f44d58afccfa51830f971310278/6b/80053cfc/ILoggerFactory.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/da9310554e4a4d9582b91b1d9fd5c73723908/d1/47c5a5da/ILoggerProvider.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/10cea641a1a5358b03367d4c377442f1651a32fe68cd548562b44cfc79e893/IComposer.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/1566186ffe4dacb375daaba02f08390ff632a4be54422704f9f4ceef731/ConsoleLogger.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/9d5aa63b38f1c8bf2c7dffafaf1a6fa0fce0feaed0a2fd70d98a35f9979275/ConsoleLoggerProvider.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/c2d5fa29e54f7ed444294e3d02efee4713b16cbe44c8690efbc22cf7eb7b/ILogger.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/eacce541aea4343da72fa852aadb945151e86e945e6ae0b260527f81a84e2e/ILoggerFactory.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/2ef0191b30684937a869061138f38973572e20/2c/a0882198/DateTimeOffset.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/46ddc4a1254649a0a8193ff687c5bbb7741b0/75/a0c3bca7/Undefined.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/DecompilerCache/decompiler/7c4b11d0b743413ea1ee149bb34c7672605a0/14/1159ff64/RegexOptions.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/1e3ef8e0f531f5eda8476faaad7e4cc6d1b4259df0279c917a648dc6b4f62b/LogLevel.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/277ef32e36302f49ed8123ac8d33338b87623a4d91655ebd4f98fb948b4fba/DateTime.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/85205d343f2b81cde14cc45fc7fe9bbd4a4f2a96f2691fc52bdb336baacea0/HttpContent.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/8e73479ff66fec7e1d65bf7166e1fafa468640c7d56c2044f96fc18dbb1b70/DateTimeOffset.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/b8398ea2593d0ce96fce65af07a483b98eb96b13be3a3525fdcc975dbb865ff/Task.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/eaf74182ad7c943aaf043fd9e7bbb1d564713c6bd276e62966aaa618e9/LoggerExtensions.cs" root0="SKIP_HIGHLIGHTING" />
+  </component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
   </component>
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="ProjectColorInfo">{
@@ -46,31 +99,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    ".NET Launch Settings Profile.TailJs.Umbraco.Example: Umbraco.Web.UI.executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Projects/rlvedge/github/tailjs/hosts/dotnet/TailJs.sln",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.intellij.csharpier.CSharpierSettingsComponent",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;.NET Launch Settings Profile.TailJs.Umbraco.Example: Umbraco.Web.UI.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feature/1-unify-utility&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Projects/rlvedge/github/tailjs/hosts/dotnet/TailJs.sln&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.stylelint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.stylelint&quot;: &quot;&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;editor.preferences.fonts.default&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\niels\\AppData\\Local\\JetBrains\\Toolbox\\apps\\Rider\\ch-0\\241.15989.179\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
-  "keyToStringList": {
-    "rider.external.source.directories": [
-      "C:\\Users\\niels\\AppData\\Roaming\\JetBrains\\Rider2023.3\\resharper-host\\DecompilerCache",
-      "C:\\Users\\niels\\AppData\\Roaming\\JetBrains\\Rider2023.3\\resharper-host\\SourcesCache",
-      "C:\\Users\\niels\\AppData\\Local\\Symbols\\src"
+  &quot;keyToStringList&quot;: {
+    &quot;rider.external.source.directories&quot;: [
+      &quot;C:\\Users\\niels\\AppData\\Roaming\\JetBrains\\Rider2024.1\\resharper-host\\DecompilerCache&quot;,
+      &quot;C:\\Users\\niels\\AppData\\Roaming\\JetBrains\\Rider2024.1\\resharper-host\\SourcesCache&quot;,
+      &quot;C:\\Users\\niels\\AppData\\Local\\Symbols\\src&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected=".NET Launch Settings Profile.TailJs.Umbraco.Example: Umbraco.Web.UI">
     <configuration name="TailJs.CodeGen" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />
@@ -122,7 +178,26 @@
       <workItem from="1705295516382" duration="12000000" />
       <workItem from="1705317884389" duration="684000" />
       <workItem from="1705318635295" duration="32255000" />
-      <workItem from="1705480434063" duration="604000" />
+      <workItem from="1705480434063" duration="20384000" />
+      <workItem from="1705886941974" duration="1442000" />
+      <workItem from="1706118353366" duration="5869000" />
+      <workItem from="1706373646763" duration="6874000" />
+      <workItem from="1707131419513" duration="3484000" />
+      <workItem from="1713180151538" duration="2397000" />
+      <workItem from="1715691523918" duration="581000" />
+      <workItem from="1715849800316" duration="15645000" />
+      <workItem from="1716132893450" duration="1419000" />
+      <workItem from="1716545470345" duration="27228000" />
+      <workItem from="1716800981558" duration="25193000" />
+      <workItem from="1717491800533" duration="15156000" />
+      <workItem from="1718016218119" duration="124000" />
+      <workItem from="1718016392918" duration="16301000" />
+      <workItem from="1718189849708" duration="2416000" />
+      <workItem from="1718351256155" duration="3478000" />
+      <workItem from="1721649033260" duration="2782000" />
+      <workItem from="1722593115211" duration="2826000" />
+      <workItem from="1722611491568" duration="6027000" />
+      <workItem from="1723038984282" duration="6326000" />
     </task>
     <task id="LOCAL-00001" summary="Adjusted project for new repo. Consumed latest event schema.">
       <option name="closed" value="true" />
@@ -140,48 +215,30 @@
       <option name="project" value="LOCAL" />
       <updated>1701871457511</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="More API plumbing.">
+      <option name="closed" value="true" />
+      <created>1718031663495</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1718031663495</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="UnityCheckinConfiguration" checkUnsavedScenes="true" />
+  <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
     <MESSAGE value="Adjusted project for new repo. Consumed latest event schema." />
-    <option name="LAST_COMMIT_MESSAGE" value="Adjusted project for new repo. Consumed latest event schema." />
+    <MESSAGE value="More API plumbing." />
+    <option name="LAST_COMMIT_MESSAGE" value="More API plumbing." />
   </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="DotNet Breakpoints">
-          <url>file://$PROJECT_DIR$/core/TailJs.AspNet/ConfigurationExtensions.cs</url>
-          <line>74</line>
-          <properties documentPath="C:\Projects\rlvedge\devops\tail.js\hosts\dotnet\core\TailJs.AspNet\ConfigurationExtensions.cs" initialLine="74" containingFunctionPresentation="Lambda expression inside Method 'AddTailF'">
-            <startOffsets>
-              <option value="2725" />
-            </startOffsets>
-            <endOffsets>
-              <option value="2784" />
-            </endOffsets>
-          </properties>
-          <option name="timeStamp" value="3" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="DotNet Breakpoints">
-          <url>file://$PROJECT_DIR$/core/TailJs/Scripting/RequestHandler.cs</url>
-          <line>211</line>
-          <properties documentPath="C:\Projects\rlvedge\devops\tail.js\hosts\dotnet\core\TailJs\Scripting\RequestHandler.cs" initialLine="211" containingFunctionPresentation="Method 'InitializeAsync'">
-            <startOffsets>
-              <option value="7631" />
-            </startOffsets>
-            <endOffsets>
-              <option value="7651" />
-            </endOffsets>
-          </properties>
-          <option name="timeStamp" value="5" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>

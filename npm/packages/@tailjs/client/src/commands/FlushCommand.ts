@@ -1,4 +1,4 @@
-import { T } from "../lib/alias";
+import { T } from "@tailjs/util";
 import { commandTest } from "./shared";
 
 /**

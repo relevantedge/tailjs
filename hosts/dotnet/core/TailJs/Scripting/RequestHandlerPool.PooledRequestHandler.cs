@@ -44,17 +44,21 @@ public partial class RequestHandlerPool
       }
     }
 
-    public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITracker tracker) =>
+    public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITrackerHandle? tracker) =>
       _inner.GetClientCookies(tracker);
 
-    public string? GetClientScripts(ITracker tracker, string? nonce) =>
-      _inner.GetClientScripts(tracker, nonce);
+    public ValueTask<string?> GetClientScriptsAsync(
+      ITrackerHandle? tracker,
+      object? initialCommands = null,
+      string? nonce = null,
+      CancellationToken cancellationToken = default
+    ) => _inner.GetClientScriptsAsync(tracker, initialCommands, nonce, cancellationToken);
 
     public ValueTask InitializeAsync(CancellationToken cancellationToken = default) =>
       _inner.InitializeAsync(cancellationToken);
 
     public Task PostEventsAsync(
-      ITracker tracker,
+      ITrackerHandle tracker,
       string eventsJson,
       CancellationToken cancellationToken = default
     ) => _inner.PostEventsAsync(tracker, eventsJson, cancellationToken);

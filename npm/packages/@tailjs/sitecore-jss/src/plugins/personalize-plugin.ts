@@ -133,13 +133,13 @@ export function getComponentPersonalization(
   };
 
   if (selected[1]) {
-    personalization.tags = [`p13n:renderxml:uid=${selected[1]}`];
+    personalization.tags = [{ tag: "p13n:renderxml:uid", value: selected[1] }];
   }
 
   return [personalization];
 }
 
-class PeronalizePlugin {
+class PersonalizePlugin {
   order = 2.5;
 
   async exec(props: { layoutData: LayoutServiceData }) {
@@ -154,4 +154,4 @@ class PeronalizePlugin {
   }
 }
 
-export const tailFPlugin = new PeronalizePlugin();
+export const tailPlugin = new PersonalizePlugin();

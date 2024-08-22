@@ -1,0 +1,2449 @@
+{
+  "$id": "urn:tailjs:core",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ScopeInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "firstSeen": {
+          "$ref": "urn:tailjs:core#/definitions/Timestamp"
+        },
+        "lastSeen": {
+          "$ref": "urn:tailjs:core#/definitions/Timestamp"
+        },
+        "views": {
+          "type": "number"
+        },
+        "isNew": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "firstSeen",
+        "lastSeen",
+        "views"
+      ],
+      "x-privacy-class": "anonymous",
+      "x-privacy-purposes": [
+        "necessary",
+        "server_write"
+      ]
+    },
+    "Timestamp": {
+      "type": "number",
+      "description": "Unix timestamp in milliseconds."
+    },
+    "SessionInfo": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ScopeInfo"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "x-privacy-purposes": [
+                "none",
+                "server"
+              ]
+            },
+            "deviceSessionId": {
+              "type": "string"
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "previousSession": {
+              "$ref": "urn:tailjs:core#/definitions/Timestamp"
+            },
+            "hasUserAgent": {
+              "type": "boolean"
+            },
+            "tabs": {
+              "type": "number",
+              "description": "The total number of tabs opened during the session."
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "DeviceInfo": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ScopeInfo"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sessions": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "sessions"
+          ]
+        }
+      ]
+    },
+    "SessionVariables": {
+      "type": "object",
+      "properties": {
+        "@info": {
+          "$ref": "urn:tailjs:core#/definitions/SessionInfo",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purpose": "necessary"
+        },
+        "@consent": {
+          "$ref": "urn:tailjs:core#/definitions/UserConsent",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purpose": "necessary"
+        },
+        "@session_reference": {
+          "type": "string",
+          "x-privacy-class": "anonymous",
+          "x-privacy-purpose": "necessary"
+        }
+      }
+    },
+    "UserConsent": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "anonymous",
+            "indirect",
+            "direct",
+            "sensitive"
+          ],
+          "description": "The highest level of data classification the user has consented to be stored."
+        },
+        "purposes": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "none",
+                "necessary",
+                "functionality",
+                "performance",
+                "targeting",
+                "security",
+                "infrastructure",
+                "any_anonymous",
+                "any",
+                "server",
+                "server_write"
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "necessary",
+                  "functionality",
+                  "performance",
+                  "targeting",
+                  "security",
+                  "infrastructure",
+                  "any_anonymous",
+                  "any",
+                  "server",
+                  "server_write"
+                ]
+              }
+            }
+          ],
+          "description": "The purposes the user has consented their data to be used for.",
+          "x-privacy-class": "anonymous"
+        }
+      },
+      "required": [
+        "level",
+        "purposes"
+      ],
+      "description": "A user's consent choices."
+    },
+    "DeviceVariables": {
+      "type": "object",
+      "properties": {
+        "@info": {
+          "$ref": "urn:tailjs:core#/definitions/DeviceInfo",
+          "x-privacy-class": "indirect",
+          "x-privacy-purpose": "necessary"
+        }
+      }
+    },
+    "TrackedEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "schema": {
+              "type": "string",
+              "description": "The ID of the schema the event comes from. It is suggested that the schema ID includes a SemVer version number in the end. (e.g. urn:tailjs:0.9.0 or https://www.blah.ge/schema/3.21.0)"
+            },
+            "id": {
+              "$ref": "urn:tailjs:core#/definitions/Uuid",
+              "description": "This is assigned by the server. Only use  {@link  clientId }  client-side."
+            },
+            "clientId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "This is set by the client and used to when events reference each other."
+            },
+            "metadata": {
+              "$ref": "urn:tailjs:core#/definitions/EventMetadata",
+              "description": "These properties are used to track the state of the event as it gets collected, and is not persisted."
+            },
+            "patchTargetId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "If set, it means this event contains updates to an existing event with this  {@link  clientId } , and should not be considered a separate event. It must have the target event's  {@link  TrackedEvent.type }  postfixed with \"_patch\" (for example \"view_patch\").\n\nNumbers in patches are considered incremental which means the patch will include the amount to add to an existing number (or zero if it does not yet have a value). All other values are just overwritten with the patch values.\n\nPlease pay attention to this property when doing analytics lest you may over count otherwise.\n\nPatches are always considered passive, cf.  {@link  EventMetadata.passive } ."
+            },
+            "relatedEventId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "The client ID of the event that caused this event to be triggered or got triggered in the same context. For example, a  {@link  NavigationEvent  }  may trigger a  {@link  ViewEvent } , or a  {@link  CartUpdatedEvent }  may be triggered with a  {@link  ComponentClickEvent } ."
+            },
+            "session": {
+              "$ref": "urn:tailjs:core#/definitions/Session",
+              "description": "The session associated with the event."
+            },
+            "view": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "When applicable, the view where the event happened (related by  {@link  ViewEvent } )."
+            },
+            "timestamp": {
+              "$ref": "urn:tailjs:core#/definitions/Timestamp",
+              "description": "This timestamp will always have a value before it reaches a backend. If specified, it must be a negative number when sent from the client (difference between when the event was generated and when is was posted in milliseconds).",
+              "default": "now"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happened, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
+      "$id": "urn:tailjs:core:event",
+      "x-privacy-class": "anonymous",
+      "x-privacy-purpose": "necessary",
+      "x-privacy-censor": "ignore"
+    },
+    "Tagged": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:tailjs:core#/definitions/Tag"
+          },
+          "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources."
+        }
+      },
+      "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details."
+    },
+    "Tag": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string",
+          "description": "The name of the tag including namespace."
+        },
+        "value": {
+          "type": "string",
+          "description": "The value of the tag."
+        },
+        "score": {
+          "$ref": "urn:tailjs:core#/definitions/Float",
+          "description": "How strongly the tags relates to the target.",
+          "default": 1
+        }
+      },
+      "required": [
+        "tag"
+      ]
+    },
+    "Float": {
+      "type": "number"
+    },
+    "Uuid": {
+      "type": "string",
+      "description": "An identifier that is globally unique. This does not need to be a \"conventional\" UUID like 853082a0-cc24-4185-aa30-9caacac02932'. It is any string that is guaranteed to be globally unique, and may be longer than 128 bits."
+    },
+    "LocalID": {
+      "type": "string",
+      "description": "An identifier that is locally unique to some scope."
+    },
+    "EventMetadata": {
+      "type": "object",
+      "properties": {
+        "passive": {
+          "type": "boolean",
+          "description": "Hint to the request handler that new sessions should not be started if all posted events are passive."
+        },
+        "queued": {
+          "type": "boolean",
+          "description": "Hint that the event has been queued."
+        },
+        "posted": {
+          "type": "boolean",
+          "description": "Hint to client code, that the event has been posted to the server."
+        }
+      },
+      "description": "These properties are used to track the state of events as they get collected, and not stored."
+    },
+    "Session": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "$ref": "urn:tailjs:core#/definitions/Uuid",
+          "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+        },
+        "deviceId": {
+          "$ref": "urn:tailjs:core#/definitions/Uuid",
+          "description": "The unique ID of the user's device. This ID does most likely not identify the device reliably over time, since it may be reset if the user purges tracking data, e.g. clears cookies or changes browser.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+        },
+        "deviceSessionId": {
+          "$ref": "urn:tailjs:core#/definitions/Uuid",
+          "description": "The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again. This means that device sessions can both be significantly shorter and longer that \"normal\" sessions in that it restarts whenever the user navigates completely away from the site and comes back (e.g. while evaluating search results), but it will also survive the user putting their computer to sleep or leaving their browser app in the background for a long time on their phone.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The current user owning the session.",
+          "x-privacy-class": "direct"
+        },
+        "consent": {
+          "$ref": "urn:tailjs:core#/definitions/UserConsent",
+          "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less."
+        },
+        "clientIp": {
+          "type": "string",
+          "description": "The IP address of the device where the session is active.",
+          "x-privacy-class": "indirect",
+          "x-privacy-purpose": "infrastructure"
+        },
+        "expiredDeviceSessionId": {
+          "type": "string",
+          "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session)."
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
+      "x-privacy-class": "anonymous",
+      "x-privacy-purpose": "necessary"
+    },
+    "isTrackedEvent": {
+      "$comment": "(ev: any) => ev is TrackedEvent",
+      "type": "object",
+      "properties": {
+        "namedArgs": {
+          "type": "object",
+          "properties": {
+            "ev": {}
+          },
+          "required": [
+            "ev"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "isPassiveEvent": {
+      "$comment": "(\n  value: any) => value is {\n  metadata: EventMetadata & {\n    passive: true;\n  };\n}",
+      "type": "object",
+      "properties": {
+        "namedArgs": {
+          "type": "object",
+          "properties": {
+            "value": {}
+          },
+          "required": [
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "UserInteractionEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/ActivatedComponent"
+              },
+              "description": "Relevant components and content in the scope of the activated element."
+            },
+            "timeOffset": {
+              "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
+              "description": "The time the event happened relative to the view were it was generated."
+            },
+            "pos": {
+              "$ref": "urn:tailjs:core#/definitions/ScreenPosition",
+              "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled)."
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#/definitions/Viewport",
+              "description": "The viewport of the user's browser when the event happened."
+            },
+            "area": {
+              "type": "string",
+              "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash."
+            },
+            "element": {
+              "$ref": "urn:tailjs:core#/definitions/ElementInfo",
+              "description": "Information about the activated element, if any."
+            }
+          }
+        }
+      ]
+    },
+    "ActivatedComponent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Component"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/ActivatedContent"
+              },
+              "description": "The activated content in the component."
+            },
+            "rect": {
+              "$ref": "urn:tailjs:core#/definitions/Rectangle",
+              "description": "The size and position of the component when it was activated relative to the document top (not viewport)."
+            },
+            "area": {
+              "type": "string",
+              "description": "An optional name of the area of the page (i.e. in the DOM) where the component is rendered. By convention this should the path of nested content areas separated by a slash."
+            }
+          }
+        }
+      ],
+      "description": "The component definition related to a user activation."
+    },
+    "Component": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/Personalizable"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "typeName": {
+              "type": "string",
+              "description": "An additional type name that defines the component as represented in code. For example, the name of a (p)react component or ASP.NET partial."
+            },
+            "dataSource": {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+              "description": "Optional references to the content that was used to render the component."
+            },
+            "instanceId": {
+              "type": "string",
+              "description": "An optional, unique identifier for the specific instance of the component with its parameters and current position in the rendered element tree."
+            },
+            "instanceNumber": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "If the same component type is used multiple times on the same page this number indicates which one it is. (As defined in the page's markup, typically this amounts to left-to-right/top-to-bottom)."
+            },
+            "inferred": {
+              "type": "boolean",
+              "description": "A flag indicating whether the component was automatically inferred from context (e.g. by traversing the tree of React components).",
+              "default": false
+            }
+          }
+        }
+      ]
+    },
+    "ExternalReference": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID as defined by some external source, e.g. CMS.\n\nThe property is required but an empty string is permitted. The library itself uses the empty string to indicate an \"empty\" root component if a page has content that is not wrapped in a component."
+        },
+        "version": {
+          "type": "string",
+          "description": "Optionally, the version of the item in case the external source supports versioning."
+        },
+        "language": {
+          "type": "string",
+          "description": "Optionally, the language of the item in case the external source supports localization."
+        },
+        "source": {
+          "type": "string",
+          "description": "Optionally, the ID of the external system referenced."
+        },
+        "referenceType": {
+          "type": "string",
+          "description": "Optionally, how the item is referenced in case the external source supports multiple kinds of references, e.g. \"parent\" or \"pointer\"."
+        },
+        "isExternal": {
+          "type": "boolean",
+          "description": "Flag to indicate that this data comes from an external system that you do not control."
+        },
+        "name": {
+          "type": "string",
+          "description": "Optionally, the name of the item at the time an event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
+        },
+        "itemType": {
+          "type": "string",
+          "description": "Optionally, the type of item referenced. In CMS context this corresponds to \"template\". Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
+        },
+        "path": {
+          "type": "string",
+          "description": "Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space."
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.\n\nAgain, if you only have some hard-coded value, you can just make an external reference and use its  {@link  id }  property for the value. Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID."
+    },
+    "Personalizable": {
+      "type": "object",
+      "properties": {
+        "personalization": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:tailjs:core#/definitions/Personalization"
+          }
+        }
+      }
+    },
+    "Personalization": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+              "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s."
+            },
+            "variables": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/PersonalizationVariable"
+              },
+              "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms."
+            },
+            "variants": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/PersonalizationVariant"
+              },
+              "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources."
+            }
+          }
+        }
+      ],
+      "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more."
+    },
+    "PersonalizationVariable": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ]
+        }
+      ],
+      "description": "A reference to a variable and its value in personalization."
+    },
+    "PersonalizationVariant": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sources": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/PersonalizationSource"
+              },
+              "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time."
+            },
+            "default": {
+              "type": "boolean",
+              "description": "If the reference is the default variant.",
+              "default": false
+            },
+            "eligible": {
+              "type": "boolean",
+              "description": "If the variant could have been picked."
+            },
+            "selected": {
+              "type": "boolean",
+              "description": "If the variant was chosen."
+            }
+          }
+        }
+      ],
+      "description": "A reference to the data/content item related to a variant in personalization."
+    },
+    "PersonalizationSource": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "relatedVariable": {
+              "type": "string",
+              "description": "In case of a multi-variate test (or similar) that runs over multiple components and/or pages, this can be the ID of the specific variable that decided personalization for a specific component."
+            },
+            "personalizationType": {
+              "type": "string",
+              "description": "The kind of personalization that relates to this item."
+            }
+          }
+        }
+      ],
+      "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } ."
+    },
+    "Integer": {
+      "type": "number"
+    },
+    "ActivatedContent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Content"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rect": {
+              "$ref": "urn:tailjs:core#/definitions/Rectangle",
+              "description": "The current size and position of the element representing the content relative to the document top (not viewport)."
+            }
+          }
+        }
+      ],
+      "description": "The content definition related to a user activation."
+    },
+    "Content": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "commerce": {
+              "$ref": "urn:tailjs:core#/definitions/CommerceData"
+            }
+          }
+        }
+      ],
+      "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria"
+    },
+    "CommerceData": {
+      "type": "object",
+      "properties": {
+        "price": {
+          "$ref": "urn:tailjs:core#/definitions/Decimal",
+          "description": "The unit price."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The unit the item is sold by."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency of the price. This field does not have a default value; if unspecified it must be assumed from context."
+        },
+        "variation": {
+          "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+          "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple)."
+        },
+        "stock": {
+          "$ref": "urn:tailjs:core#/definitions/Float",
+          "description": "The current number of units in stock.\n\nUse fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many)."
+        }
+      }
+    },
+    "Decimal": {
+      "type": "number"
+    },
+    "Rectangle": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Position"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/Size"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "Position": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "$ref": "urn:tailjs:core#/definitions/Float"
+        },
+        "y": {
+          "$ref": "urn:tailjs:core#/definitions/Float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio]."
+    },
+    "Size": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "$ref": "urn:tailjs:core#/definitions/Float"
+        },
+        "height": {
+          "$ref": "urn:tailjs:core#/definitions/Float"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ]
+    },
+    "ViewTimingData": {
+      "type": "object",
+      "properties": {
+        "activeTime": {
+          "$ref": "urn:tailjs:core#/definitions/Duration",
+          "description": "The time the user has been active in the view/tab. Interactive time is measured as the time where the user is actively scrolling, typing or similar. Specifically defined as [transient activation](https://developer.mozilla.org/en-US/docs/Glossary/Transient_activation) with a timeout of 10 seconds."
+        },
+        "visibleTime": {
+          "$ref": "urn:tailjs:core#/definitions/Duration",
+          "description": "The time the view/tab has been visible."
+        },
+        "totalTime": {
+          "$ref": "urn:tailjs:core#/definitions/Duration",
+          "description": "The time elapsed since the view/tab was opened."
+        },
+        "activations": {
+          "$ref": "urn:tailjs:core#/definitions/Integer",
+          "description": "The number of times the user toggled away from the view/tab and back."
+        }
+      }
+    },
+    "Duration": {
+      "type": "number",
+      "description": "Duration in milliseconds."
+    },
+    "ScreenPosition": {
+      "type": "object",
+      "properties": {
+        "xpx": {
+          "$ref": "urn:tailjs:core#/definitions/Integer"
+        },
+        "ypx": {
+          "$ref": "urn:tailjs:core#/definitions/Integer"
+        },
+        "x": {
+          "$ref": "urn:tailjs:core#/definitions/Percentage"
+        },
+        "y": {
+          "$ref": "urn:tailjs:core#/definitions/Percentage"
+        },
+        "pageFolds": {
+          "$ref": "urn:tailjs:core#/definitions/Float",
+          "description": "The vertical position as a multiple of the page fold position (less than 1 means that the element was visible without scrolling)."
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "description": "Represents a position where the units are percentages relative to an element or page."
+    },
+    "Percentage": {
+      "type": "number"
+    },
+    "Viewport": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Rectangle"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "totalWidth": {
+              "$ref": "urn:tailjs:core#/definitions/Float"
+            },
+            "totalHeight": {
+              "$ref": "urn:tailjs:core#/definitions/Float"
+            }
+          },
+          "required": [
+            "totalWidth",
+            "totalHeight"
+          ]
+        }
+      ]
+    },
+    "ElementInfo": {
+      "type": "object",
+      "properties": {
+        "tagName": {
+          "type": "string",
+          "description": "The tag name of the activated element."
+        },
+        "text": {
+          "type": "string",
+          "description": "The textual content of the element that was clicked (e.g. the label on a button, or the alt text of an image)"
+        },
+        "href": {
+          "type": "string",
+          "description": "The target of the link, if any."
+        },
+        "rect": {
+          "$ref": "urn:tailjs:core#/definitions/Rectangle"
+        }
+      },
+      "description": "Basic information about an HTML element."
+    },
+    "FormEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "form",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "name": {
+              "type": "string",
+              "description": "The name of the form that was submitted."
+            },
+            "completed": {
+              "type": "boolean",
+              "description": "Indicates whether the form was completed (that is, submitted). If this is false it means that the form was abandoned.",
+              "default": false
+            },
+            "activeTime": {
+              "$ref": "urn:tailjs:core#/definitions/Duration",
+              "description": "The duration the user was actively filling the form."
+            },
+            "totalTime": {
+              "$ref": "urn:tailjs:core#/definitions/Duration",
+              "description": "The total duration from the user started filling out the form until completion or abandonment."
+            },
+            "fields": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "urn:tailjs:core#/definitions/FormField"
+              },
+              "description": "All fields in the form (as detected)."
+            },
+            "ref": {
+              "type": "string",
+              "description": "A correlation ID. If a hidden input element has the name \"_tailref\", the HTML attribute \"track-ref\" or css variable \"--track-ref: 1\" its value will be used. If all of the above is difficult to inject in the way the form is embedded, the form element or any of its ancestors may alternatively have the HTML attribute \"track-ref\" with the name of the hidden input field that contains the reference.\n\nIf no initial value a unique one will be assigned. Make sure to store the value in receiving end."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "FormField": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the form field."
+        },
+        "label": {
+          "type": "string",
+          "description": "The label of the form field."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of the input field."
+        },
+        "filled": {
+          "type": "boolean",
+          "description": "If a user provided a value for the form field.\n\nFor checkboxes and prefilled drop-downs this is only set if the user changed the value (for checkboxes that is clicked them)."
+        },
+        "corrections": {
+          "$ref": "urn:tailjs:core#/definitions/Integer",
+          "description": "The number of times the field was changed after initially being filled."
+        },
+        "activeTime": {
+          "$ref": "urn:tailjs:core#/definitions/Duration",
+          "description": "How long the user was active in the field (field had focus on active tab)."
+        },
+        "totalTime": {
+          "$ref": "urn:tailjs:core#/definitions/Duration",
+          "description": "How long the user was in the field (including if the user left the tab and came back)."
+        },
+        "value": {
+          "type": "string",
+          "description": "The value of the form field. Be careful with this one.\n\nThe default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope."
+        },
+        "fillOrder": {
+          "$ref": "urn:tailjs:core#/definitions/Integer",
+          "description": "This field's number in the order the form was filled. A field is \"filled\" the first time the user types something in it.\n\nIf a checkbox or pre-filled drop down is left unchanged it will not get assigned a number."
+        },
+        "lastField": {
+          "type": "boolean",
+          "description": "The field was the last one to be filled before the form was either submitted or abandoned."
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "description": "A form field value in a  {@link  FormEvent } ."
+    },
+    "ComponentClickEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "component_click",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "The event is triggered when a component is clicked.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS."
+    },
+    "ComponentClickIntentEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "component_click_intent",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "clicks": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/Position"
+              }
+            },
+            "clickables": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/ComponentElementInfo"
+              }
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS."
+    },
+    "ComponentElementInfo": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ElementInfo"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "$ref": "urn:tailjs:core#/definitions/Component"
+            }
+          }
+        }
+      ],
+      "description": "Basic information about an HTML element that is associated with a component."
+    },
+    "ComponentViewEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "component_view",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "This event is triggered when the user scrolls a component into view if it is configured for this kind of tracking."
+    },
+    "NavigationEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "navigation",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "clientId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "The ID of the navigation event. This will be added as  {@link  TrackedEvent.relatedEventId }  to view event that followed after the navigation."
+            },
+            "href": {
+              "type": "string",
+              "description": "The destination URL of the navigation"
+            },
+            "exit": {
+              "type": "boolean",
+              "description": "Indicates that the user went away from the site to an external URL."
+            },
+            "anchor": {
+              "type": "string",
+              "description": "The anchor specified in the href if any."
+            },
+            "external": {
+              "type": "boolean",
+              "description": "Indicates that the navigation is to an external domain"
+            },
+            "domain": {
+              "$ref": "urn:tailjs:core#/definitions/Domain",
+              "description": "The domain of the destination"
+            },
+            "self": {
+              "type": "boolean",
+              "description": "Whether the navigation happened in the current view or a new tab/window was opened."
+            }
+          },
+          "required": [
+            "type",
+            "clientId",
+            "href",
+            "self"
+          ]
+        }
+      ]
+    },
+    "Domain": {
+      "type": "object",
+      "properties": {
+        "scheme": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "scheme",
+        "host"
+      ],
+      "description": "Represents a domain name, e.g. https://www.foo.co.uk"
+    },
+    "ScrollEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "scroll",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "offset": {
+              "$ref": "urn:tailjs:core#/definitions/ScreenPosition",
+              "description": "The offset relative to the page size (100 % is bottom, 0 % is top)"
+            },
+            "scrollType": {
+              "type": "string",
+              "enum": [
+                "fold",
+                "article-end",
+                "page-middle",
+                "page-end",
+                "read",
+                "offset"
+              ],
+              "description": "The type of scrolling."
+            }
+          },
+          "required": [
+            "type",
+            "offset"
+          ]
+        }
+      ]
+    },
+    "SearchEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "search",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "query": {
+              "type": "string",
+              "description": "The free-text query used for the search."
+            },
+            "filters": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/SearchFilter"
+              },
+              "description": "Any filters that were applied to the search in addition to the query. Filters are assumed combined using \"and\" semantics unless they are for the same field in which case it means that the field must match at least one of the values.\n\nFor example \"age>=10 AND age<=20 AND (type=horse OR type=cat)\""
+            },
+            "hits": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "The number of results that matched the query."
+            },
+            "topHits": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/SearchResult"
+              },
+              "description": "If some or all of the results are relevant for analytics or AI, they can be included here."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "SearchFilter": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "group": {
+              "type": "number",
+              "description": "If the filter consisted of multiple groups of filters where one of them should match this can be used to separate the groups.\n\nFor example (age>=10 AND age<=20 AND type=horse) OR (age<5 AND type=cat)."
+            },
+            "value": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ],
+              "description": "The value the field must match. Use UNIX ms timestamps for dates and durations. If the value is the ID of a defined entity use  {@link  reference }  instead."
+            },
+            "reference": {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+              "description": "If the value is a defined entity such as a product category use this instead of  {@link  value } ."
+            },
+            "comparison": {
+              "type": "string",
+              "enum": [
+                "<",
+                "<=",
+                "=",
+                "!=",
+                ">=",
+                ">"
+              ],
+              "description": "How the field compares against the value.",
+              "default": "eq"
+            }
+          }
+        }
+      ],
+      "description": "A filter that applies to a field in a search query."
+    },
+    "SearchResult": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rank": {
+              "$ref": "urn:tailjs:core#/definitions/Integer"
+            }
+          },
+          "required": [
+            "rank"
+          ]
+        }
+      ]
+    },
+    "SearchFieldReferenceFilter": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "references": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/ExternalReference"
+              },
+              "description": "A list of entities where the field must match at least one of them (or none depending on the comparison)."
+            },
+            "comparison": {
+              "type": "string",
+              "enum": [
+                "eq",
+                "neq"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "A search filter that applies to a single field that must match a defined entity (e.g. \"manufacturer\")."
+    },
+    "SessionStartedEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "session_started",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "url": {
+              "type": "string"
+            },
+            "sessionNumber": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "The total number of sessions from the given device (regardless of username)."
+            },
+            "timeSinceLastSession": {
+              "$ref": "urn:tailjs:core#/definitions/Duration",
+              "description": "The time since the last session from this device."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "x-privacy-class": "anonymous"
+    },
+    "UserAgentLanguage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The full language tag as specified by (RFC 5646/BCP 47)[https://datatracker.ietf.org/doc/html/rfc5646]"
+        },
+        "language": {
+          "type": "string",
+          "description": "The language name (ISO 639)."
+        },
+        "region": {
+          "type": "string",
+          "description": "Dialect (ISO 3166 region)."
+        },
+        "primary": {
+          "type": "boolean",
+          "description": "If it is the users primary preference."
+        },
+        "preference": {
+          "$ref": "urn:tailjs:core#/definitions/Integer",
+          "description": "The user's preference of the language (1 is highest)."
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "primary",
+        "preference"
+      ]
+    },
+    "UserAgentEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/SessionScoped"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "user_agent",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "hasTouch": {
+              "type": "boolean",
+              "description": "Has touch"
+            },
+            "deviceType": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "tablet",
+                "desktop"
+              ],
+              "description": "The device type (inferred from screen size). The assumption is:   - anything width a logical device pixel width less than 480 is a phone,   - anything with a logical device pixel width less than or equal to 1024 (iPad Pro12.9\") is a tablet,   - the rest are desktops.\n\nDevice width is the physical width of the device regardless of its orientation."
+            },
+            "userAgent": {
+              "type": "string",
+              "description": "User agent string"
+            },
+            "languages": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/UserAgentLanguage"
+              },
+              "description": "The user's language preferences as configured in the user's device."
+            },
+            "timezone": {
+              "type": "object",
+              "properties": {
+                "iana": {
+                  "type": "string"
+                },
+                "offset": {
+                  "$ref": "urn:tailjs:core#/definitions/Float",
+                  "description": "The offset from GMT in hours."
+                }
+              },
+              "required": [
+                "iana",
+                "offset"
+              ]
+            },
+            "screen": {
+              "type": "object",
+              "properties": {
+                "dpr": {
+                  "$ref": "urn:tailjs:core#/definitions/Float",
+                  "description": "Device pixel ratio (i.e. how many physical pixels per logical CSS pixel)"
+                },
+                "width": {
+                  "$ref": "urn:tailjs:core#/definitions/Float",
+                  "description": "Device width."
+                },
+                "height": {
+                  "$ref": "urn:tailjs:core#/definitions/Float",
+                  "description": "Device height."
+                },
+                "landscape": {
+                  "type": "boolean",
+                  "description": "The device was held in landscape mode.",
+                  "default": false
+                }
+              },
+              "required": [
+                "dpr",
+                "width",
+                "height"
+              ],
+              "description": "Screen"
+            }
+          },
+          "required": [
+            "type",
+            "userAgent",
+            "timezone"
+          ]
+        }
+      ]
+    },
+    "SessionScoped": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Scoped"
+        },
+        {
+          "type": "object"
+        }
+      ],
+      "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened."
+    },
+    "Scoped": {
+      "type": "object",
+      "description": "Base interface for other marker interfaces that specifies that an event is scoped to something else than page views."
+    },
+    "ClickIds": {
+      "type": "object",
+      "properties": {
+        "google": {
+          "type": "string"
+        },
+        "googleDoubleClick": {
+          "type": "string"
+        },
+        "facebook": {
+          "type": "string"
+        },
+        "microsoft": {
+          "type": "string"
+        },
+        "googleAnalytics": {
+          "type": "string"
+        }
+      }
+    },
+    "ViewEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "view",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "clientId": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "This is set by the client and used to when events reference each other."
+            },
+            "definition": {
+              "$ref": "urn:tailjs:core#/definitions/View",
+              "description": "The primary content used to generate the view including the personalization that led to the decision, if any. If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL on the website, the view definition may follow from a separate patch event."
+            },
+            "tab": {
+              "$ref": "urn:tailjs:core#/definitions/LocalID",
+              "description": "The tab where the view was shown."
+            },
+            "href": {
+              "type": "string",
+              "description": "The fully qualified URL as shown in the address line of the browser excluding the domain."
+            },
+            "hash": {
+              "type": "string",
+              "description": "The hash part of the URL (/about-us#address)."
+            },
+            "path": {
+              "type": "string",
+              "description": "The path portion of the URL."
+            },
+            "duration": {
+              "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
+              "description": "For how long the view was active. This is set via patches"
+            },
+            "httpStatus": {
+              "type": "number",
+              "description": "The HTTP status for the response associated with the view.",
+              "default": 200
+            },
+            "utm": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "medium": {
+                  "type": "string"
+                },
+                "campaign": {
+                  "type": "string"
+                },
+                "term": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              },
+              "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters]."
+            },
+            "queryString": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "description": "The query string parameters in the URL, e.g. utm_campaign. Each parameter can have multiple values, for example If the parameter is specified more than once. If the parameter is only specified once pipes, semicolons and commas are assumed to separate values (in that order). A parameter without a value will get recorded as an empty string."
+            },
+            "domain": {
+              "$ref": "urn:tailjs:core#/definitions/Domain",
+              "description": "The domain part of the href, if any."
+            },
+            "landingPage": {
+              "type": "boolean",
+              "description": "Indicates that this was the first view in the first tab the user opened. Note that this is NOT tied to the session. If a user closes all tabs and windows for the site and then later navigates back to the site in the same session this flag will be set again.",
+              "default": false
+            },
+            "firstTab": {
+              "type": "boolean",
+              "description": "Indicates that no other tabs were open when the view happened. This flag allows a backend to extend the definition of a session that can last indefinitely but still restart after inactivity. By measuring the time between a view with this flag and the previous event from the same device, it is possible to see for how long the device has been away from the site.",
+              "default": false
+            },
+            "tabNumber": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "The tab number in the current session."
+            },
+            "tabViewNumber": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "The view number in the current tab. This is kept as a convenience, yet technically redundant since it follows from timestamps and context.",
+              "default": 1
+            },
+            "redirects": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "Number of redirects that happened during navigation to this view."
+            },
+            "navigationType": {
+              "type": "string",
+              "enum": [
+                "navigate",
+                "back-forward",
+                "prerender",
+                "reload"
+              ],
+              "description": "Navigation type."
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "manual",
+                "automatic"
+              ],
+              "description": "Indicates whether the event was manually triggered through a tracker command, or happened automatically by the tracker's ability to infer navigation.",
+              "default": "automatic"
+            },
+            "externalReferrer": {
+              "type": "object",
+              "properties": {
+                "href": {
+                  "type": "string"
+                },
+                "domain": {
+                  "$ref": "urn:tailjs:core#/definitions/Domain"
+                }
+              },
+              "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field."
+            },
+            "viewport": {
+              "$ref": "urn:tailjs:core#/definitions/Viewport",
+              "description": "The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened."
+            },
+            "viewType": {
+              "type": "string",
+              "description": "The type of view, e.g. \"page\" or \"screen\".",
+              "default": "page"
+            }
+          },
+          "required": [
+            "type",
+            "clientId",
+            "href"
+          ]
+        }
+      ],
+      "description": "This event is sent a user navigates between views. (page, screen or similar).\n\nThis event does not"
+    },
+    "View": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Content"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/Personalizable"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "preview": {
+              "type": "boolean",
+              "description": "The page was shown in preview/staging mode."
+            }
+          }
+        }
+      ]
+    },
+    "SessionLocationEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/SessionScoped"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "session_location",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "accuracy": {
+              "$ref": "urn:tailjs:core#/definitions/Float",
+              "description": "This number is like the precise definition of what the bars indicating signal strength on mobile phones represents. Nobody knows. Yet, for this number lower is better."
+            },
+            "continent": {
+              "$ref": "urn:tailjs:core#/definitions/GeoEntity",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purpose": "infrastructure"
+            },
+            "country": {
+              "$ref": "urn:tailjs:core#/definitions/GeoEntity",
+              "x-privacy-class": "anonymous",
+              "x-privacy-purpose": "infrastructure"
+            },
+            "subdivision": {
+              "$ref": "urn:tailjs:core#/definitions/GeoEntity"
+            },
+            "zip": {
+              "type": "string"
+            },
+            "city": {
+              "$ref": "urn:tailjs:core#/definitions/GeoEntity"
+            },
+            "lat": {
+              "$ref": "urn:tailjs:core#/definitions/Float"
+            },
+            "lng": {
+              "$ref": "urn:tailjs:core#/definitions/Float"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "This event is triggered whenever the user's location changes.",
+      "x-privacy-class": "indirect",
+      "x-privacy-purpose": "performance"
+    },
+    "GeoEntity": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "geonames": {
+          "$ref": "urn:tailjs:core#/definitions/Integer"
+        },
+        "iso": {
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "urn:tailjs:core#/definitions/Float"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "AnchorNavigationEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "anchor_navigation",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "anchor": {
+              "type": "string",
+              "description": "The name of the anchor."
+            }
+          },
+          "required": [
+            "type",
+            "anchor"
+          ]
+        }
+      ],
+      "description": "The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)"
+    },
+    "ConsentEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "consent",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "consent": {
+              "$ref": "urn:tailjs:core#/definitions/UserConsent"
+            }
+          },
+          "required": [
+            "type",
+            "consent"
+          ]
+        }
+      ],
+      "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are expected to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes."
+    },
+    "CommerceEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "CartAction": {
+      "type": "string",
+      "enum": [
+        "add",
+        "remove",
+        "update",
+        "clear"
+      ]
+    },
+    "CartUpdatedEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/CommerceEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/CartEventData"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cart_updated",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "Indicates that a shopping cart was updated."
+    },
+    "CartEventData": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/OrderQuantity"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/ExternalUse"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "$ref": "urn:tailjs:core#/definitions/CartAction",
+              "description": "The way the cart was modified.",
+              "default": "add"
+            }
+          }
+        }
+      ]
+    },
+    "OrderQuantity": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/CommerceData"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "units": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "The number of units.",
+              "default": 1
+            },
+            "item": {
+              "$ref": "urn:tailjs:core#/definitions/ExternalReference",
+              "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context."
+            }
+          }
+        }
+      ],
+      "description": "Base information for the amount of an item added to an  {@link  Order }  or cart that is shared between  {@link  CartUpdatedEvent }  and  {@link  OrderLine } ."
+    },
+    "ExternalUse": {
+      "type": "object",
+      "description": "Types and interfaces extending this marker interface directly must have a concrete type that can be instantiated in code-generation scenarios because they are referenced directly outside of the types package."
+    },
+    "OrderEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/CommerceEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/Order"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "An order submitted by a user."
+    },
+    "Order": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "internalId": {
+              "type": "string",
+              "description": "A reference that can be used both before the order is completed, and if the order ID shown to the user is different from how the order is stored in underlying systems."
+            },
+            "orderId": {
+              "type": "string",
+              "description": "The order ID as shown to the user."
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:tailjs:core#/definitions/OrderLine"
+              },
+              "description": "Optionally, all the items in the order at the time the order was made."
+            },
+            "discount": {
+              "$ref": "urn:tailjs:core#/definitions/Decimal",
+              "description": "The total discount given for this order including the sum of individual order line discounts"
+            },
+            "delivery": {
+              "$ref": "urn:tailjs:core#/definitions/Decimal",
+              "description": "The delivery cost, if any, and it is not included as an order line."
+            },
+            "vat": {
+              "$ref": "urn:tailjs:core#/definitions/Decimal",
+              "description": "The VAT included in the total."
+            },
+            "total": {
+              "$ref": "urn:tailjs:core#/definitions/Decimal",
+              "description": "The total of the order including VAT, delivery, discounts and any other costs added."
+            },
+            "paymentMethod": {
+              "type": "string",
+              "description": "The payment method selected for the order."
+            },
+            "currency": {
+              "type": "string",
+              "description": "The currency used for the order.\n\nThe order lines are assumed to be in this currency if not explicitly specified for each. (It is not an error to have order lines with different currencies it is just a bit... unusual)."
+            }
+          },
+          "required": [
+            "orderId"
+          ]
+        }
+      ],
+      "description": "Represents an order for tracking purposes."
+    },
+    "OrderLine": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/OrderQuantity"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/Tagged"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lineId": {
+              "type": "string",
+              "description": "An optional identifier that makes it possible to reference this order line directly."
+            },
+            "vat": {
+              "$ref": "urn:tailjs:core#/definitions/Decimal",
+              "description": "The VAT included in the total."
+            },
+            "total": {
+              "$ref": "urn:tailjs:core#/definitions/Decimal",
+              "description": "The total for this order line including VAT"
+            }
+          }
+        }
+      ]
+    },
+    "CartAbandonedEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/CommerceEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/Order"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cart_abandoned",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "lastCartEvent": {
+              "$ref": "urn:tailjs:core#/definitions/Timestamp",
+              "description": "The timestamp for the last time the shopping cart was modified by the user before abandonment."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "The shopping cart was abandoned. Currently there is no logic in the tracker to trigger this event automatically, hence a custom trigger must be implemented."
+    },
+    "OrderStatusEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "order": {
+              "type": "string",
+              "description": "A reference to the order that changed status."
+            }
+          },
+          "required": [
+            "order"
+          ]
+        }
+      ],
+      "description": "Base event for events that related to an order changing status."
+    },
+    "OrderConfirmedEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_confirmed",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "An order was accepted.\n\nThis may be useful to track if some backend system needs to validate if the order submitted by the user is possible, or just for monitoring whether your site is healthy and actually processes the orders that come in.\n\nThis event should also imply that the user got a confirmation."
+    },
+    "OrderCancelledEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_cancelled",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "cancelledByUser": {
+              "type": "boolean",
+              "description": "Indicates if the user cancelled the order or it happended during a background process.",
+              "default": "false;"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "An order was cancelled."
+    },
+    "OrderCompletedEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "order_completed",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "An order was cancelled."
+    },
+    "PaymentEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/CommerceEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "orderReference": {
+              "type": "string",
+              "description": "The reference to order for which payment was made, either  {@link  Order.orderId }  or  {@link  Order.internalId } ."
+            },
+            "amount": {
+              "$ref": "urn:tailjs:core#/definitions/Decimal",
+              "description": "The amount paid."
+            },
+            "paymentMethod": {
+              "type": "string",
+              "description": "A domain specific value for the payment method."
+            },
+            "currency": {
+              "type": "string",
+              "description": "The currency of the payment."
+            }
+          },
+          "required": [
+            "orderReference",
+            "amount"
+          ]
+        }
+      ],
+      "description": "Events related to order payments."
+    },
+    "PaymentAcceptedEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/PaymentEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "payment_accepted",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "finalPayment": {
+              "type": "boolean",
+              "description": "The payment was the final payment, hence completed the order.",
+              "default": "true;"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "The payment for an order was accepted."
+    },
+    "PaymentRejectedEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/PaymentEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "payment_rejected",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "A payment for the order was rejected."
+    },
+    "AuthenticationEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object"
+        }
+      ],
+      "description": "Events related to users signing in, out etc.."
+    },
+    "SignInEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/AuthenticationEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sign_in",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "userId": {
+              "type": "string",
+              "description": "The user that signed in."
+            },
+            "evidence": {
+              "type": "string",
+              "description": "Custom data that can be used to validate the login server-side to make sure that userdata cannot get hijacked by abusing the API."
+            }
+          },
+          "required": [
+            "type",
+            "userId"
+          ]
+        }
+      ],
+      "description": "A user signed in."
+    },
+    "SignOutEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/AuthenticationEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "sign_out",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "userId": {
+              "type": "string",
+              "description": "The user that signed out."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "A user actively signed out. (Session expiry doesn't count)."
+    },
+    "SystemEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "type": "object"
+        }
+      ],
+      "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics."
+    },
+    "ImpressionTextStats": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The source text."
+        },
+        "length": {
+          "type": "number",
+          "description": "The number of characters in the text."
+        },
+        "characters": {
+          "type": "number",
+          "description": "The number of word characters (a letter or number followed by any number of letters, numbers or apostrophes) in the text."
+        },
+        "words": {
+          "type": "number",
+          "description": "The number of words in the text. A word is defined as a group of consecutive word characters."
+        },
+        "sentences": {
+          "type": "number",
+          "description": "The number of sentences in the text. A sentence is defined as any group of characters where at least one of them is a word character terminated by `.`, `!`, `?` or the end of the text."
+        },
+        "lix": {
+          "type": "number",
+          "description": "The LIX index for the text. The measure gives an indication of how difficult it is to read. (https://en.wikipedia.org/wiki/Lix_(readability_test))"
+        },
+        "readTime": {
+          "type": "number",
+          "description": "The estimated time it will take for an average user to read all the text. The duration is in milliseconds since that is the time precision for ECMAScript timestamps.\n\nThe estimate is assuming \"Silent reading time\" which seems to be 238 words per minute according to [Marc Brysbaert's research] (https://www.sciencedirect.com/science/article/abs/pii/S0749596X19300786?via%3Dihub)"
+        }
+      },
+      "required": [
+        "characters",
+        "length",
+        "lix",
+        "readTime",
+        "sentences",
+        "text",
+        "words"
+      ]
+    },
+    "ImpressionEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/UserInteractionEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "impression",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "impressions": {
+              "$ref": "urn:tailjs:core#/definitions/Integer",
+              "description": "The number of times the component was sufficiently visible  to count as an impression. This counter will increment if the component leaves the user's viewport and then comes back."
+            },
+            "duration": {
+              "$ref": "urn:tailjs:core#/definitions/ViewTimingData",
+              "description": "For how long the component was visible. This counter starts after an impression has been detected."
+            },
+            "regions": {
+              "type": "object",
+              "properties": {
+                "top": {
+                  "$ref": "urn:tailjs:core#/definitions/ImpressionRegionStats",
+                  "description": "The top 25 % of the component."
+                },
+                "middle": {
+                  "$ref": "urn:tailjs:core#/definitions/ImpressionRegionStats",
+                  "description": "The middle 25 - 75 % of the component."
+                },
+                "bottom": {
+                  "$ref": "urn:tailjs:core#/definitions/ImpressionRegionStats",
+                  "description": "The bottom 25 % of the component."
+                }
+              },
+              "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height."
+            },
+            "text": {
+              "$ref": "urn:tailjs:core#/definitions/ImpressionTextStats",
+              "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all."
+            },
+            "seen": {
+              "$ref": "urn:tailjs:core#/definitions/Percentage",
+              "description": "The percentage of the component's area that was visible at some point during the  {@link  View  } ."
+            },
+            "read": {
+              "$ref": "urn:tailjs:core#/definitions/Percentage",
+              "description": "The percentage of the text the user can reasonably be assumed to have read  based on the number of words and duration of the impression."
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "The event is triggered when more than 75 % of the component's has been visible for at least 1 second, or the component has taken up at least 33 % of the viewport width or height for at least 1 second, whichever comes first.\n\n\nThis only gets tracked for components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } ."
+    },
+    "ImpressionRegionStats": {
+      "type": "object",
+      "properties": {
+        "duration": {
+          "$ref": "urn:tailjs:core#/definitions/Duration"
+        },
+        "impressions": {
+          "$ref": "urn:tailjs:core#/definitions/Integer"
+        },
+        "seen": {
+          "$ref": "urn:tailjs:core#/definitions/Percentage"
+        },
+        "read": {
+          "$ref": "urn:tailjs:core#/definitions/Percentage",
+          "description": "The percentage of the component's area that was visible at some point during the  {@link  View  } ."
+        }
+      }
+    },
+    "ResetEvent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/TrackedEvent"
+        },
+        {
+          "$ref": "urn:tailjs:core#/definitions/SystemEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "reset",
+              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+            },
+            "includeDevice": {
+              "type": "boolean",
+              "description": "Whether only the session or also the device should be reset.",
+              "default": false
+            },
+            "includeConsent": {
+              "type": "boolean",
+              "description": "Whether to also reset the consent.",
+              "default": false
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ],
+      "description": "An event that can be used to reset the current session and optionally also device. Intended for debugging and not relayed to backends."
+    },
+    "ConfiguredComponent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/Component"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "track": {
+              "$ref": "urn:tailjs:core#/definitions/TrackingSettings",
+              "description": "Settings for how the component will be tracked.\n\nThese settings are not tracked, that is, this property is stripped from the data sent to the server."
+            }
+          }
+        }
+      ]
+    },
+    "TrackingSettings": {
+      "type": "object",
+      "properties": {
+        "promote": {
+          "type": "boolean",
+          "description": "Always include in  {@link  UserInteractionEvent.components } , also if it is a parent component. By default only the closest component will be included.\n\nThis does not apply to impression tracking.\n\nNot inherited by child components.\n\nHTML attribute: `track-promote`. CSS: `--track-promote: 1/yes/true`.",
+          "default": false
+        },
+        "secondary": {
+          "type": "boolean",
+          "description": "The component will only be tracked with the closest non-secondary component as if the latter had the  {@link  promote }  flag.\n\nThis does not apply to impression tracking.\n\nNot inherited by child components.\n\nHTML attribute: `track-secondary`. \\ CSS: `--track-secondary: 1/yes/true`.",
+          "default": false
+        },
+        "region": {
+          "type": "boolean",
+          "description": "Track the visible region occupied by the component or content.\n\nInherited by child components (also if specified on non-component DOM element).\n\nHTML attribute: `track-region`. \\ CSS: `--track-region: 1/yes/true`.",
+          "default": false
+        },
+        "clicks": {
+          "type": "boolean",
+          "description": "Track clicks. Note that clicks are always tracked if they cause navigation.\n\nInherited by child components (also if specified on non-component DOM element).\n\nHTML attribute: `track-clicks`. CSS: `--track-clicks: 1/yes/true`.",
+          "default": "true unless in a `<nav>` tag"
+        },
+        "impressions": {
+          "type": "boolean",
+          "description": "Track impressions, that is, when the component becomes visible in the user's browser for the first time. This goes well with  {@link  region } .\n\nNot inherited by child components.\n\nHTML attribute: `track-impressions`. CSS: `--track-impressions: 1/yes/true`.",
+          "default": false
+        }
+      }
+    }
+  },
+  "x-privacy-class": "anonymous",
+  "x-privacy-purpose": "necessary"
+}

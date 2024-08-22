@@ -1,12 +1,16 @@
-import { forEach } from "./lib";
+import { forEach } from "@tailjs/util";
 import { ClientResponseCookie, Cookie, CookieConfiguration } from "./shared";
 
 const getCookieChunkName = (key: string, chunk?: number) =>
   chunk === 0 ? key : `${key}-${chunk}`;
-export const sourceCookieChunks = Symbol("Chunks");
+
+export const requestCookieHeader = Symbol("request cookie header");
+export const requestCookies = Symbol("request cookies");
+
 export type ParsedCookieHeaders = Record<string, Cookie> & {
   // We keep the original number of chunks in the request so we can clear them if we return a shorter value (with fewer chunks) in the response
-  [sourceCookieChunks]: Record<string, number>;
+  [requestCookies]: Record<string, Cookie & { chunks: number }>;
+  [requestCookieHeader]?: string;
 };
 
 export class CookieMonster {
@@ -25,25 +29,25 @@ export class CookieMonster {
       // These are the chunks
       if (typeof key !== "string") return;
 
+      const requestCookie = cookies[requestCookies]?.[key];
+
       // These cookies should not be sent back, since nothing have updated them and we don't want to mess with Max-Age etc..
-      if (cookie.fromRequest && cookie._originalValue === cookie.value) return;
+      if (requestCookie && requestCookie?.value === cookie.value) return;
 
       responseCookies.push(
-        ...this._mapClientResponseCookies(
-          key,
-          cookie,
-          cookies[sourceCookieChunks]?.[key] ?? -1
-        )
+        ...this._mapClientResponseCookies(key, cookie, requestCookie?.chunks)
       );
     });
 
     return responseCookies;
   }
 
-  public parseCookieHeader(
+  public static parseCookieHeader(
     value: string | null | undefined
   ): ParsedCookieHeaders {
-    const cookies: ParsedCookieHeaders = { [sourceCookieChunks]: {} };
+    const cookies: ParsedCookieHeaders = { [requestCookies]: {} };
+    cookies[requestCookieHeader] = value ?? undefined;
+
     if (!value) return cookies;
     const sourceCookies = Object.fromEntries(
       value
@@ -68,7 +72,6 @@ export class CookieMonster {
           break;
         }
         chunks.push(chunkValue);
-        cookies[sourceCookieChunks][key] = i;
       }
       const value = chunks.join("");
       cookies[key] = {
@@ -76,15 +79,35 @@ export class CookieMonster {
         value: value,
         _originalValue: value,
       } as Cookie;
+
+      cookies[requestCookies][key] = { ...cookies[key], chunks: chunks.length };
     }
 
     return cookies;
+  }
+
+  public mapResponseCookie(name: string, cookie: Cookie) {
+    return {
+      name: name,
+      value: cookie.value,
+      maxAge: cookie.maxAge,
+      httpOnly: cookie.httpOnly ?? true,
+      sameSitePolicy:
+        cookie.sameSitePolicy === "None" && !this._secure
+          ? "Lax"
+          : cookie.sameSitePolicy ?? "Lax",
+      essential: cookie.essential ?? false,
+      secure: this._secure,
+      headerString: this._getHeaderValue(name, cookie)[0],
+    };
   }
 
   private _getHeaderValue(
     name: string,
     cookie: Cookie
   ): [header: string, overflow: string] {
+    const clear = cookie.value == null || cookie.maxAge! <= 0;
+
     const parts = ["Path=/"];
     if (this._secure) {
       parts.push("Secure");
@@ -92,8 +115,8 @@ export class CookieMonster {
     if (cookie.httpOnly) {
       parts.push("HttpOnly");
     }
-    if (cookie.maxAge != null || !cookie.value) {
-      parts.push(`Max-Age=${cookie.value ? cookie.maxAge : 0}`);
+    if (cookie.maxAge != null || clear) {
+      parts.push(`Max-Age=${clear ? 0 : Math.min(34560000, cookie.maxAge!)}`);
     }
     parts.push(
       `SameSite=${
@@ -145,7 +168,7 @@ export class CookieMonster {
   private _mapClientResponseCookies(
     name: string,
     cookie: Cookie,
-    originalChunks: number
+    requestChunks = -1
   ): ClientResponseCookie[] {
     const responseCookies: ClientResponseCookie[] = [];
 
@@ -159,23 +182,13 @@ export class CookieMonster {
         cookie = { ...cookie, maxAge: 0, value: "" };
       }
 
-      const chunkCookieName = getCookieChunkName(name, i);
-      responseCookies.push({
-        name: chunkCookieName,
-        value: cookie.value,
-        maxAge: cookie.maxAge,
-        httpOnly: cookie.httpOnly ?? true,
-        sameSitePolicy:
-          cookie.sameSitePolicy === "None" && !this._secure
-            ? "Lax"
-            : cookie.sameSitePolicy ?? "Lax",
-        essential: cookie.essential ?? false,
-        secure: this._secure,
-        headerString: this._getHeaderValue(chunkCookieName, cookie)[0],
-      });
+      if (i < requestChunks || cookie.value) {
+        const chunkCookieName = getCookieChunkName(name, i);
+        responseCookies.push(this.mapResponseCookie(chunkCookieName, cookie));
+      }
       cookie = { ...cookie, value: overflow };
 
-      if (!overflow && i >= originalChunks) {
+      if (!overflow && i >= requestChunks) {
         break;
       }
     }

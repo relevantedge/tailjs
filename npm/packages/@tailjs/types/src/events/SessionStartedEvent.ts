@@ -1,8 +1,9 @@
 import type { Duration, Integer, TrackedEvent } from "..";
 import { typeTest } from "../util/type-test";
 
+/** @privacy anonymous */
 export interface SessionStartedEvent extends TrackedEvent {
-  type: "SESSION_STARTED";
+  type: "session_started";
 
   url?: string;
 
@@ -18,4 +19,4 @@ export interface SessionStartedEvent extends TrackedEvent {
 }
 
 export const isSessionStartedEvent =
-  typeTest<SessionStartedEvent>("SESSION_STARTED");
+  typeTest<SessionStartedEvent>("session_started");

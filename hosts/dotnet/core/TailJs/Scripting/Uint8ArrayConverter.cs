@@ -1,5 +1,6 @@
 ﻿using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
+using TailJs.IO;
 
 namespace TailJs.Scripting;
 
@@ -21,10 +22,12 @@ public class Uint8ArrayConverter
 
   public byte[] ToBytes(ITypedArray<byte> bytes) => bytes.ToArray();
 
-  public ITypedArray<byte> FromBytes(byte[] data)
+  public ITypedArray<byte> FromBytes(byte[] data) => FromBytes(new ArraySegment<byte>(data));
+
+  public ITypedArray<byte> FromBytes(ArraySegment<byte> data)
   {
-    var uint8 = (ITypedArray<byte>)_factory.Invoke(false, data.Length);
-    uint8.WriteBytes(data, 0, (ulong)data.Length, 0);
+    var uint8 = (ITypedArray<byte>)_factory.Invoke(false, data.Count);
+    uint8.WriteBytes(data.Array, 0, (ulong)data.Count, 0);
     return uint8;
   }
 }

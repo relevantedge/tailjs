@@ -1,36 +1,51 @@
 {
   "name": "@tailjs/sitecore-jss",
-  "description": "tail.js intergration for Sitecore XM Cloud/JSS.",
-  "license": "MIT",
-  "version": "0.17.24",
+  "description": "tail.js integration for Sitecore XM Cloud/JSS.",
+  "license": "LGPL3",
   "scripts": {
-    "build": "rollup --config ../../../build/rollup.mjs",
+    "check": "tsc --noEmit",
+    "build": "tsx ../../../build/rollup.ts",
     "build:watch": "pnpm run build -w"
   },
   "dependencies": {
-    "@sitecore-jss/sitecore-jss": "^21.1.1",
-    "@sitecore-jss/sitecore-jss-nextjs": "^21.1.1",
+    "@sitecore-jss/sitecore-jss": "^21.7.1",
+    "@sitecore-jss/sitecore-jss-nextjs": "^21.7.1",
     "@tailjs/client": "workspace:*",
-    "@tailjs/next": "workspace:*",
     "@tailjs/engine": "workspace:*",
+    "@tailjs/next": "workspace:*",
     "@tailjs/react": "workspace:*",
     "@tailjs/types": "workspace:*",
     "@types/request-ip": "^0.0.38",
-    "fs-extra": "^11.1.1",
-    "next": "^13.3.4",
-    "react": "^18.2.0",
+    "fs-extra": "^11.2.0",
+    "next": "^14.2.3",
+    "react": "^18.3.1",
     "request-ip": "^3.3.0"
   },
   "devDependencies": {
-    "@types/fs-extra": "^11.0.1",
-    "@types/node": "^18.16.3",
-    "@types/react": "^18.2.2"
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^18.19.33",
+    "@types/react": "^18.3.3"
   },
   "peerDependencies": {
-    "next": ">=12.1.0",
-    "react": "^18.2.0"
+    "next": ">=13.0.0",
+    "react": "^18.3.1"
   },
   "publishConfig": {
     "directory": "dist"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
   }
 }
