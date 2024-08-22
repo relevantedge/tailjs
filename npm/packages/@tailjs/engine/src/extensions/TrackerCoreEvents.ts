@@ -18,7 +18,12 @@ import {
   isViewEvent,
 } from "@tailjs/types";
 import { now } from "@tailjs/util";
-import { NextPatchExtension, Tracker, TrackerExtension } from "../shared";
+import {
+  NextPatchExtension,
+  ParseResult,
+  Tracker,
+  TrackerExtension,
+} from "../shared";
 
 export type SessionConfiguration = {
   /**
@@ -107,7 +112,7 @@ export class TrackerCoreEvents implements TrackerExtension {
       devicePatches = [];
     };
 
-    const updatedEvents: TrackedEvent[] = [];
+    const updatedEvents: ParseResult[] = [];
 
     for (let event of events) {
       if (isConsentEvent(event)) {
@@ -202,13 +207,19 @@ export class TrackerCoreEvents implements TrackerExtension {
           tracker.authenticatedUserId &&
           tracker.authenticatedUserId != event.userId;
 
-        if (
-          changed &&
-          (await tracker._requestHandler._validateLoginEvent(
-            event.userId,
-            event.evidence
-          ))
-        ) {
+        if (changed) {
+          if (
+            !(await tracker._requestHandler._validateSignInEvent(
+              tracker,
+              event
+            ))
+          ) {
+            updatedEvents[updatedEvents.length - 1] = {
+              error:
+                "Sign-ins without evidence is only possible in a trusted context. To support sign-ins from the client API, you must register an extension that validates the sign-in event based on its provided evidence.",
+              source: event,
+            };
+          }
           event.session.userId = event.userId;
           sessionPatches.push(
             (data) => (data.userId = (event as SignInEvent).userId)

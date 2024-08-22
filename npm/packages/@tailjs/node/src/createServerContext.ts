@@ -4,16 +4,19 @@ import {
   ClientResponseCookie,
   EventLogger,
   RequestHandler,
+  Tracker,
   bootstrap,
 } from "@tailjs/engine";
 import onHeaders from "on-headers";
 import {
   NativeHost,
+  TrackerFromRequest,
   TailJsMiddlewareConfiguration,
   TailJsMiddlewareConfigurationSource,
   TailJsMiddlewareRequest,
   TailJsMiddlewareResponse,
   TailJsServerContext,
+  TailJsRouteRequest,
 } from ".";
 
 let globalResolvers: TailJsMiddlewareConfigurationSource[] = [];
@@ -165,7 +168,10 @@ export const createServerContext: {
             body,
             clientIp: request.clientIp || getClientIp(request),
           },
-          { matchAnyPath: !resolveTracker && finalConfig!.matchAnyPath }
+          {
+            matchAnyPath: !resolveTracker && finalConfig!.matchAnyPath,
+            trustedContext: resolveTracker,
+          }
         )) ?? {};
 
       request[trackerSymbol] = tracker;
@@ -211,13 +217,20 @@ export const createServerContext: {
     }
   };
 
-  const routeHandler = async (request: Request, resolveTracker = false) => {
+  const routeHandler = async <Resolve extends boolean>(
+    request: TailJsRouteRequest,
+    resolveTracker: Resolve
+  ): Promise<Resolve extends false ? Response : TrackerFromRequest | null> => {
+    if (resolveTracker && request[trackerSymbol]) {
+      // Use the result we already have on subsequent requests.
+      return request[trackerSymbol];
+    }
     const responseHeaders: Record<string, any> = {};
     let responseBody: any;
 
     const requestWrapper: TailJsMiddlewareRequest = {
       url: request.url,
-      clientIp: (request as any).ip,
+      clientIp: request.ip ?? (request as any).clientIp,
       method: request.method,
       headers: {},
       body: (await request.body?.getReader().read())?.value,
@@ -233,7 +246,7 @@ export const createServerContext: {
     });
 
     const responseWrapper: TailJsMiddlewareResponse = {
-      statusCode: 0,
+      statusCode: 200,
       getHeader: (name) => responseHeaders[name],
       setHeader: (name, value) => (responseHeaders[name] = value),
       end: (chunk) => (responseBody = chunk),
@@ -246,52 +259,76 @@ export const createServerContext: {
       undefined,
       resolveTracker
     );
-    request[trackerSymbol] = requestWrapper[trackerSymbol];
 
-    // Trigger the on-head listener.
-    responseWrapper.writeHead(responseWrapper.statusCode);
+    if (!resolveTracker) {
+      // Trigger the on-head listener.
+      responseWrapper.writeHead(responseWrapper.statusCode);
 
-    return new Response(
-      responseBody == null ? undefined : new Blob([responseBody]).stream(),
+      return new Response(
+        responseBody == null ? undefined : new Blob([responseBody]).stream(),
+        {
+          headers: Object.entries(responseHeaders).flatMap(([key, value]) =>
+            value == null
+              ? []
+              : Array.isArray(value)
+              ? value.map((value) => [key, value])
+              : [[key, value]]
+          ) as [string, string][],
+          status: responseWrapper.statusCode ?? 200,
+        }
+      ) as any;
+    }
+
+    const tracker = await requestWrapper[trackerSymbol]?.();
+
+    const cookies = () => requestHandler!.getClientCookies(tracker);
+
+    const updateResponse = (response: Response) => {
+      for (const cookie of cookies()) {
+        response.headers.append("set-cookie", cookie.headerString);
+      }
+      return response;
+    };
+
+    // Wrapper around Response that adds the tracker headers.
+    const response = Object.assign(
+      (body?: BodyInit | null, init?: ResponseInit) =>
+        updateResponse(new Response(body, init)),
       {
-        headers: Object.entries(responseHeaders).flatMap(([key, value]) =>
-          value == null
-            ? []
-            : Array.isArray(value)
-            ? value.map((value) => [key, value])
-            : [[key, value]]
-        ) as [string, string][],
-        status: responseWrapper.statusCode,
+        error: () => updateResponse(Response.error()),
+        json: (data: any, init?: ResponseInit) =>
+          updateResponse(Response.json(data, init)),
+        redirect: (url: string | URL, status?: number) =>
+          updateResponse(Response.redirect(url, status)),
       }
     );
+
+    if (tracker) {
+      tracker.updateResponse = updateResponse;
+    }
+
+    return (request[trackerSymbol] = [tracker, response, cookies]) as any;
   };
 
   const context: TailJsServerContext = {
     middleware: ((request: any, response: any, next: any) =>
       middleware(request, response, next)) as any,
-    routeHandler: async (request) => routeHandler(request),
-    async tracker(
-      request: TailJsMiddlewareRequest | Request,
+    routeHandler: async (request) => routeHandler(request, false),
+    async resolveTracker(
+      request: TailJsMiddlewareRequest | TailJsRouteRequest,
       response?: TailJsMiddlewareResponse
     ) {
+      if (response === undefined) {
+        return routeHandler(request as TailJsRouteRequest, true);
+      }
+
       if (request[trackerSymbol] === undefined) {
-        if (request instanceof Request) {
-          const routeResponse = await routeHandler(request, true);
-          request[trackerSymbol] &&
-            (request[trackerSymbol].addHeaders = (response: Response) => {
-              routeResponse.headers.forEach((value, key) =>
-                response.headers.append(key, value)
-              );
-              return response;
-            });
-        } else {
-          await middleware(request, response!, undefined, true);
-        }
+        await middleware(request as any, response!, undefined, true);
         // Null means we tried but nothing came back.
         // This tells us not to invoke the middleware again next time someone asks during this request.
         request[trackerSymbol] ??= null;
       }
-      return request[trackerSymbol] ?? undefined;
+      return request[trackerSymbol]?.() ?? undefined;
     },
   };
 

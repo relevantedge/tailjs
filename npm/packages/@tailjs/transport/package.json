@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@tailjs/util": "^0.17.24",
-    "@ygoe/msgpack": "github:nielskuhnel/msgpack.js#feature/big-float-fix"
+    "@ygoe/msgpack": "https://github.com/nielskuhnel/msgpack.js/tarball/feature/big-float-fix"
   },
   "exports": {
     ".": {

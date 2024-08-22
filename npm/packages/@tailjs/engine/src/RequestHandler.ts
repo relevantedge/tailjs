@@ -95,6 +95,7 @@ import {
   generateClientBootstrapScript,
   generateClientExternalNavigationScript,
 } from "./lib";
+import { SignInEvent } from "packages/@tailjs/types/dist";
 
 const scripts = {
   main: {
@@ -114,7 +115,16 @@ export let SCRIPT_CACHE_HEADERS = {
 } as const; // A week
 
 export type ProcessRequestOptions = {
+  /**
+   * Any path is considered the main API route.
+   * This is useful when rewriting this route from a reverse proxy without having to change the tracker configuration.
+   */
   matchAnyPath?: boolean;
+
+  /**
+   * The request comes from a trusted context (typically, server-side tracking).
+   */
+  trustedContext?: boolean;
 };
 
 export class RequestHandler {
@@ -216,12 +226,34 @@ export class RequestHandler {
   }
 
   /** @internal */
-  public async _validateLoginEvent(userId: string, evidence: string) {
-    //TODO
-    return true;
+  public async _validateSignInEvent(tracker: Tracker, event: SignInEvent) {
+    if (tracker.trustedContext && !event.evidence) {
+      return true;
+    }
+
+    for (const extension of this._extensions) {
+      if (
+        extension.validateSignIn &&
+        (await extension.validateSignIn(tracker, event))
+      ) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
-  public getClientCookies(tracker: Tracker): ClientResponseCookie[] {
+  /**
+   * This method must be called once when all operations have finished on the tracker
+   * returned from {@link processRequest} outside the main API route to get the cookies
+   * for the response when the tracker has been used externally.
+   */
+  public getClientCookies(
+    tracker: Tracker | undefined
+  ): ClientResponseCookie[] {
+    if (!tracker) return [];
+
+    tracker._persist(true);
     return this._cookies.mapResponseCookies(tracker.cookies as any);
   }
 
@@ -447,7 +479,7 @@ export class RequestHandler {
 
   public async processRequest(
     request: ClientRequest,
-    { matchAnyPath = false }: ProcessRequestOptions = {}
+    { matchAnyPath = false, trustedContext = false }: ProcessRequestOptions = {}
   ): Promise<{
     tracker: DeferredAsync<Tracker>;
     response: CallbackResponse | null;
@@ -515,6 +547,7 @@ export class RequestHandler {
           false,
           this._config.clientEncryptionKeySeed || ""
         ),
+        trustedContext,
         requestHandler: this,
         defaultConsent: this._defaultConsent,
         cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
@@ -567,7 +600,6 @@ export class RequestHandler {
           const resolvedTracker = await resolveTracker();
 
           if (sendCookies) {
-            await resolvedTracker._persist(true);
             response.cookies = this.getClientCookies(resolvedTracker);
           } else {
             await resolvedTracker._persist(false);

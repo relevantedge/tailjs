@@ -295,6 +295,7 @@ export const createVariableStorage = (
           if (isLocalScopeKey(setter)) {
             if (setter.patch != null)
               return throwError("Local patching is not supported.");
+
             const local: ClientVariable<any, any, true> = {
               value: setter.value,
               classification: DataClassification.Anonymous,
@@ -303,14 +304,28 @@ export const createVariableStorage = (
               key: setter.key,
             };
 
-            results[sourceIndex] = {
-              status: current
-                ? VariableResultStatus.Success
-                : VariableResultStatus.Created,
-              source: setter as any,
-              current: local,
-            };
-            push(localResults, setResultExpiration(local));
+            if (
+              current &&
+              current.value === local.value &&
+              current.classification === local.classification &&
+              current.purposes == local.purposes &&
+              current.scope === local.scope
+            ) {
+              results[sourceIndex] = {
+                status: VariableResultStatus.Unchanged,
+                source: setter as any,
+                current,
+              };
+            } else {
+              results[sourceIndex] = {
+                status: current
+                  ? VariableResultStatus.Success
+                  : VariableResultStatus.Created,
+                source: setter as any,
+                current: local,
+              };
+              push(localResults, setResultExpiration(local));
+            }
             return undefined;
           }
           if (setter.patch == null && setter?.version === undefined) {

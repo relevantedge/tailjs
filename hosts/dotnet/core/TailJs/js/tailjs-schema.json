@@ -2202,8 +2202,7 @@
           },
           "required": [
             "type",
-            "userId",
-            "evidence"
+            "userId"
           ]
         }
       ],

@@ -201,7 +201,7 @@ export const userInteraction: TrackerExtensionFactory = {
                   viewport: getViewport(),
                 }
               : nil),
-            ...getElementLabel(ev.target, containerElement),
+            ...getElementLabel(ev.target, clickableElement ?? containerElement),
             ...componentContext,
             timeOffset: getViewTimeOffset(),
             ...tags,

@@ -20,7 +20,7 @@ export interface SignInEvent extends AuthenticationEvent {
    * Custom data that can be used to validate the login server-side to make sure that userdata cannot get hijacked
    * by abusing the API.
    */
-  evidence: string;
+  evidence?: string;
 }
 
 /**
