@@ -1,12 +1,13 @@
 import type {
   CartUpdatedEvent,
   ComponentClickEvent,
+  EventMetadata,
   LocalID,
   Session,
-  ViewEvent,
   Tagged,
   Timestamp,
-  Integer,
+  Uuid,
+  ViewEvent,
 } from "..";
 
 /**
@@ -14,8 +15,10 @@ import type {
  *
  * The naming convention is:
  * - If the event represents something that can also be considered an entity like "a page view", "a user location" etc. the name should be a (deverbal) noun.
- * - If the event only indicates something that happend, like "session started", "view ended" etc. the name should be a verb in the past tense.
+ * - If the event only indicates something that happened, like "session started", "view ended" etc. the name should be a verb in the past tense.
  *
+ * @id urn:tailjs:core:event
+ * @privacy censor-ignore anonymous necessary
  */
 export interface TrackedEvent extends Tagged {
   /**
@@ -26,42 +29,44 @@ export interface TrackedEvent extends Tagged {
   type: string;
 
   /**
-   * The ID of the schema the event comes from. It is suggested that the schema ID ends with a hash followed by a SemVer version number. (e.g. urn:tailjs#0.9.0)
+   * The ID of the schema the event comes from. It is suggested that the schema ID includes a SemVer version number in the end. (e.g. urn:tailjs:0.9.0 or https://www.blah.ge/schema/3.21.0)
    */
   schema?: string;
 
   /**
-   * A token that may be included by the client to ensure that session state does not get lost if cookies are missing.
-   * It should only be included in the first event if multiple events are posted to avoid transmitting unnecessary data.
+   * This is assigned by the server. Only use {@link clientId} client-side.
    *
-   * It gets cleared by the request handler before sent to backends and should not be considered for analytics since it is an internal implementation detail.
    */
-  affinity?: any;
+  id?: Uuid;
 
   /**
-   * This may be assigned or transformed by backends if needed.
-   * It is client-assigned for {@link ViewEvent}s
-   */
-  id?: LocalID;
-
-  /**
-   * This is set by the client and can be used to dedupplicate events sent multiple times if the endpoint timed out.
+   * This is set by the client and used to when events reference each other.
    */
   clientId?: LocalID;
 
-  /**
-   * The number of times the client tried to sent the event if the endpoint timed out
-   *
-   * @default 0
-   */
-  retry?: Integer;
+  /** These properties are used to track the state of the event as it gets collected, and is not persisted. */
+  metadata?: EventMetadata;
 
   /**
-   * The event that caused this event to be triggered or got triggered in the same context.
-   * For example a {@link NavigationEvent} may trigger a {@link ViewEvent},
-   * or a {@link CartUpdatedEvent} my be triggered with a {@link ComponentClickEvent}.
+   * If set, it means this event contains updates to an existing event with this {@link clientId}, and should not be considered a separate event.
+   * It must have the target event's {@link TrackedEvent.type} postfixed with "_patch" (for example "view_patch").
+   *
+   * Numbers in patches are considered incremental which means the patch will include the amount to add to an existing number (or zero if it does not yet have a value).
+   * All other values are just overwritten with the patch values.
+   *
+   * Please pay attention to this property when doing analytics lest you may over count otherwise.
+   *
+   * Patches are always considered passive, cf. {@link EventMetadata.passive}.
    */
-  related?: LocalID;
+  patchTargetId?: LocalID;
+
+  /**
+   * The client ID of the event that caused this event to be triggered or got triggered in the same context.
+   * For example, a {@link NavigationEvent} may trigger a {@link ViewEvent},
+   * or a {@link CartUpdatedEvent} may be triggered with a {@link ComponentClickEvent}.
+   *
+   */
+  relatedEventId?: LocalID;
 
   /**
    * The session associated with the event.

@@ -1,27 +1,43 @@
 {
   "name": "@tailjs/react",
   "description": "tail.js preact/react integration.",
-  "license": "MIT",
-  "version": "0.17.24",
+  "license": "LGPL3",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "rollup --config ../../../build/rollup.mjs",
+    "check": "tsc --noEmit",
+    "build": "rimraf dist && tsx ../../../build/rollup.ts --preserve-modules",
     "build:watch": "pnpm run build -w"
   },
   "dependencies": {
     "@tailjs/client": "workspace:*",
     "@tailjs/types": "workspace:*",
-    "@types/react": "^18.2.2",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "@tailjs/util": "workspace:*"
   },
   "peerDependencies": {
-    "@types/react": "^18.0.28",
-    "react": "^18.2.0"
+    "react": ">=18.3.1",
+    "react-dom": ">=18.3.1"
   },
   "publishConfig": {
     "directory": "dist"
   },
   "devDependencies": {
-    "@types/react-dom": "^18.2.6"
+    "@types/react": ">=18.3.3",
+    "@types/react-dom": ">=18.3.0",
+    "preact": ">=10.22.1",
+    "preact-render-to-string": ">=6.5.6"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
   }
 }

@@ -1,17 +1,53 @@
 {
   "name": "@tailjs/client",
   "description": "tail.js client library",
-  "license": "MIT",
-  "version": "0.17.24",
+  "license": "LGPL3",
   "scripts": {
-    "build": "rollup --config ../../../build/rollup.client.mjs",
+    "check": "tsc --noEmit",
+    "build": "tsx ../../../build/rollup-client.ts",
     "build:watch": "pnpm run build -w"
   },
-  "main": "src/index.ts",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./external": {
+      "import": {
+        "types": "./dist/external/index.d.ts",
+        "default": "./dist/external/index.mjs"
+      },
+      "require": {
+        "types": "./dist/external/index.d.ts",
+        "default": "./dist/external/index.cjs"
+      }
+    },
+    "./script": {
+      "import": {
+        "types": "./dist/script/index.d.ts",
+        "default": "./dist/script/index.mjs"
+      },
+      "require": {
+        "types": "./dist/script/index.d.ts",
+        "default": "./dist/script/index.cjs"
+      }
+    }
+  },
   "dependencies": {
     "@tailjs/types": "workspace:*",
     "@tailjs/util": "workspace:*",
-    "@ygoe/msgpack": "^1.0.3"
+    "@tailjs/transport": "workspace:*",
+    "@ygoe/msgpack": "github:nielskuhnel/msgpack.js#feature/big-float-fix"
   },
   "publishConfig": {
     "directory": "dist"

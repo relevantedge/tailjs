@@ -1,16 +1,20 @@
 import type {
   ActivatedComponent,
+  ElementInfo,
   ScreenPosition,
   TrackedEvent,
-  ViewTimingEvent,
+  ViewTimingData,
   Viewport,
 } from "..";
 
-export interface UserInteractionEvent extends TrackedEvent, ViewTimingEvent {
+export interface UserInteractionEvent extends TrackedEvent {
   /**
    * Relevant components and content in the scope of the activated element.
    */
   components?: ActivatedComponent[];
+
+  /** The time the event happened relative to the view were it was generated. */
+  timeOffset?: ViewTimingData;
 
   /**
    * The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).
@@ -28,11 +32,5 @@ export interface UserInteractionEvent extends TrackedEvent, ViewTimingEvent {
   area?: string;
 
   /** Information about the activated element, if any. */
-  element?: {
-    /** The tag name of the activated element.  */
-    tagName?: string;
-
-    /** The textual content of the element that was clicked (e.g. the label on a button, or the alt text of an image) */
-    text?: string;
-  };
+  element?: ElementInfo;
 }

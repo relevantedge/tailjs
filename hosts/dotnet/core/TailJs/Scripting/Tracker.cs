@@ -4,28 +4,40 @@ using Microsoft.ClearScript;
 
 namespace TailJs.Scripting;
 
-public class Tracker : ITracker
+internal class Tracker : ITracker, IScriptTrackerHandle
 {
-  internal RequestHandler RequestHandler { get; }
-
-  internal Tracker(RequestHandler requestHandler, IScriptObject scriptHandle, ITrackerEnvironment environment)
+  internal Tracker(IScriptObject scriptHandle)
   {
-    RequestHandler = requestHandler;
+    RequestHandler = scriptHandle.RequireAttachment<RequestHandler>();
     ScriptHandle = scriptHandle;
-    Environment = environment;
+    Environment = RequestHandler.Environment;
     Cookies = new CookieCollection((IScriptObject)scriptHandle["cookies"]);
-    Variables = new TrackerVariableCollection(requestHandler.Proxy, scriptHandle);
+    Variables = new TrackerVariableCollection(RequestHandler.Proxy, scriptHandle);
+
+    scriptHandle.Attach<IScriptTrackerHandle>(this);
+    scriptHandle.Attach(this);
   }
 
-  internal IScriptObject ScriptHandle { get; }
+  internal RequestHandler RequestHandler { get; }
+
+  #region IScriptTrackerHandle Members
+
+  public Tracker Resolved => this;
+
+  public IScriptObject ScriptHandle { get; }
+
+  public ValueTask<ITracker> ResolveAsync(CancellationToken cancellationToken = default) => new(this);
+
+  #endregion
+
 
   #region ITracker Members
 
   public ICookieCollection Cookies { get; }
 
-  public string Url => (string)ScriptHandle["url"];
-
   public ITrackerEnvironment Environment { get; }
+
+  public string Url => (string)ScriptHandle["url"];
 
   public ITrackerVariableCollection Variables { get; }
 

@@ -1,12 +1,13 @@
-import { SessionLocationEvent, TrackedEvent, cast } from "@tailjs/types";
-import { Reader } from "maxmind";
-import type { CityResponse } from "mmdb-lib";
 import {
   NextPatchExtension,
   type Tracker,
   type TrackerEnvironment,
   type TrackerExtension,
 } from "@tailjs/engine";
+import { SessionLocationEvent, TrackedEvent } from "@tailjs/types";
+import { restrict } from "@tailjs/util";
+import { Reader } from "maxmind";
+import type { CityResponse } from "mmdb-lib";
 
 export class ClientLocation implements TrackerExtension {
   private readonly _language: string;
@@ -15,7 +16,7 @@ export class ClientLocation implements TrackerExtension {
   private _initialized = false;
   private _reader: Reader<CityResponse> | null;
 
-  public readonly name = "ClientLocation";
+  public readonly id = "ClientLocation";
 
   constructor({
     language = "en",
@@ -26,12 +27,14 @@ export class ClientLocation implements TrackerExtension {
   }
 
   public async patch(
-    next: NextPatchExtension,
     events: TrackedEvent[],
+    next: NextPatchExtension,
     tracker: Tracker
   ) {
+    if (!tracker.session) return next(events);
+
     if (!this._initialized) throw new Error("Not initialized");
-    if (!tracker.consent?.active) return events;
+    //if (!tracker.consent?.active) return events;
 
     const env = tracker.env;
     let country = "NA";
@@ -39,8 +42,13 @@ export class ClientLocation implements TrackerExtension {
     const ip = tracker.clientIp;
 
     if (ip) {
-      const clientHash = env.hash(tracker.clientIp);
-      if (tracker.vars["mx"]?.value !== clientHash) {
+      // Send a new location event whenever the consent changes.
+      // The new consent may influence how much data gets tracked.
+      const clientHash = env.hash(ip + JSON.stringify(tracker.consent));
+      if (
+        (await tracker.get([{ scope: "session", key: "mx" }]).value) !==
+        clientHash
+      ) {
         const location = this.filterNames(this._reader?.get(ip));
         tracker.requestItems.set(
           ClientLocation.name,
@@ -50,16 +58,9 @@ export class ClientLocation implements TrackerExtension {
         if (location) {
           events = [
             ...events,
-            cast<SessionLocationEvent>({
-              type: "SESSION_LOCATION",
+            restrict<SessionLocationEvent>({
+              type: "session_location",
               accuracy: location.location?.accuracy_radius,
-              session: {
-                sessionId: tracker.session.id,
-                timestamp: tracker.session.started,
-                deviceId: tracker.device.id,
-                username: tracker._clientState.username,
-              },
-
               city: location.city
                 ? {
                     name: location.city.names[this._language],
@@ -94,27 +95,37 @@ export class ClientLocation implements TrackerExtension {
               lat: location.location?.latitude,
               lng: location.location?.longitude,
               tags: [
-                `maxmind:build-epoch=${this._reader?.metadata.buildEpoch}`,
+                {
+                  tag: "maxmind:build-epoch",
+                  value:
+                    this._reader?.metadata.buildEpoch?.toString() ??
+                    "(unknown)",
+                },
               ],
             }),
           ];
         }
         country = location?.country?.names[this._language] ?? "NA";
-        tracker.vars["mx"] = {
-          scope: "session",
-          essential: false,
-          critical: true,
-          value: clientHash,
-        };
+        await tracker.set([
+          {
+            scope: "session",
+            key: "mx",
+            classification: "anonymous",
+            purposes: "necessary",
+            value: clientHash,
+            force: true,
+          },
+          {
+            scope: "session",
+            key: "country",
+            classification: "anonymous",
+            purposes: "necessary",
+            value: country,
+            force: true,
+          },
+        ]);
       }
     }
-
-    tracker.vars["country"] = {
-      scope: "session",
-      essential: false,
-      client: true,
-      value: country,
-    };
 
     return await next(events);
   }
@@ -148,11 +159,10 @@ export class ClientLocation implements TrackerExtension {
 
       this._reader = data ? new Reader<CityResponse>(Buffer.from(data)) : null;
       if (this._reader == null) {
-        host.log({
-          level: "error",
-          group: "maxmind",
-          data: `'${this._mmdb}' could not be loaded from the environment host.`,
-        });
+        host.error(
+          this,
+          `'${this._mmdb}' could not be loaded from the environment host.`
+        );
       }
     };
 

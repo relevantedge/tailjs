@@ -11,7 +11,7 @@ export interface HttpResponse<Binary extends boolean = false> {
 export interface CallbackResponse {
   body?: string | Uint8Array;
   cacheKey?: string;
-  cookies: ClientResponseCookie[];
+  cookies?: ClientResponseCookie[];
   error?: Error;
   headers: Record<string, string>;
   status: number;

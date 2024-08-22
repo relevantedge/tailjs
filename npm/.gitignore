@@ -11,3 +11,11 @@ __pycache__/
 .env.local
 
 **/data/*.json
+
+.temp/
+
+
+# Auto-generated tsconfigs for swc build.
+tsconfig*.swc.json
+
+vite.config.ts.*.mjs

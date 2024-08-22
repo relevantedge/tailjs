@@ -1,319 +1,249 @@
-import { Encodable } from "@tailjs/util";
-import {
-  F,
-  T,
-  TAB_ID,
-  array,
-  decode,
-  encode,
-  filter,
-  fun,
-  httpDecode,
-  httpDecrypt,
-  httpEncode,
-  httpEncrypt,
-  map,
-  mapSharedId,
-  nil,
-  now,
-  push,
-  shift,
-  timeout,
-  undefined,
-} from ".";
+const ignoreStorage = 0;
+// import {
+//   Binders,
+//   Listener,
+//   clear,
+//   clock,
+//   createEvent,
+//   forEach,
+//   isString,
+//   joinEventBinders,
+//   now,
+// } from "@tailjs/util";
+// import {
+//   TAB_ID,
+//   addPageLoadedListener,
+//   httpDecrypt as deserialize,
+//   error,
+//   listen,
+//   httpEncrypt as serialize,
+// } from ".";
 
-export interface SimpleStorage {
-  getItem: (key: string) => string | null;
-  setItem: (key: string, value: string, timeout?: number) => void;
-  removeItem: (key: string) => void;
+// export type Metadata<T = any> = [value: T, source?: string, expires?: number];
 
-  /**
-   * A flag whether the storage natively supports expiry of stale value. In that case, the timestamp for expiry will not be serialized.
-   * This is the case for cookies, so no need to bloat the scarce data capacity more than necessary.
-   */
-  supportsExpiry?: boolean;
-}
+// export type StorageProviderObserver<T = any> = (
+//   newValue: T | undefined,
+//   oldValue: T | undefined,
+//   key: string | null
+// ) => void;
 
-export interface StorageAccess {
-  <T extends Encodable = Encodable>(key: string): T | null;
-  <T extends Encodable>(key: string, value: T, timeout?: number): T;
+// export interface StorageProvider {
+//   getItem<T = any>(key: string): [value: T, source?: string] | undefined;
+//   setItem<T = any>(
+//     key: string,
+//     value: T,
+//     source?: string,
+//     timeout?: number
+//   ): void;
+//   removeItem(key: string): void;
+//   observe?<T = any>(key: string, observer: StorageProviderObserver<T>): Binders;
+// }
 
-  <T extends Encodable>(
-    key: string,
-    value: (current: T) => T,
-    timeout?: number
-  ): T;
-}
+// type TypedStorageObserverArgs<T = any> = [
+//   newValue: T | undefined,
+//   context: {
+//     key: string | null;
+//     oldValue: string | undefined;
+//     source?: string | undefined;
+//     self?: boolean;
+//   }
+// ];
+// export type TypedStorageObserver<T = any> = Listener<
+//   TypedStorageObserverArgs<T>
+// >;
 
-export interface MappedStorageAccess<T extends Encodable> {
-  (): T | null;
-  (value: T, timeout?: number): T;
-  (value: (current: T) => T, timeout?: number): T;
-}
+// export interface TypedStorage {
+//   get<T = any>(key: string): T | undefined;
+//   set<T>(key: string, value: T, timeout?: number): T;
+//   delete(key: string): void;
+//   update<T = any>(
+//     key: string,
+//     newValue: (current: T | undefined) => T,
+//     timeout?: number
+//   ): T;
+//   observe?<T = any>(
+//     key: string,
+//     observer: TypedStorageObserver<T>,
+//     includeSelf?: boolean
+//   ): Binders;
+// }
 
-export interface ObservableStorageAccess extends StorageAccess {
-  <T extends Encodable | null>(
-    handler: StorageItemListener<T>,
-    self: boolean
-  ): () => boolean | void;
-}
+// export interface BoundStorage<T = any> {
+//   get(): T | undefined;
+//   set<Value extends T | undefined>(value: Value, timeout?: number): Value;
+//   delete(): void;
+//   update<Undefined extends undefined | T = T>(
+//     newValue: (current: T | undefined) => T | Undefined,
+//     timeout?: number
+//   ): T | Undefined;
+//   observe?(observer: TypedStorageObserver<T>, observeSelf?: boolean): Binders;
+// }
 
-export type StorageItemListener<T extends Encodable = Encodable> = (
-  key: string,
-  value: T | null,
-  oldValue: T | null,
-  sourceId: string | null
-) => boolean | void;
+// export const mapStorage = <P extends StorageProvider>(
+//   provider: P
+// ): P["observe"] extends undefined ? TypedStorage : Required<TypedStorage> => {
+//   const [addOwnListener, dispatchOwn] = createEvent<TypedStorageObserverArgs>();
 
-const memoryStorage = (): SimpleStorage => {
-  const values: Record<string, string> = {};
-  return {
-    getItem: (key) => values[key] as any,
-    setItem: (key, value) => (values[key] = value),
-    removeItem: (key) => delete values[key],
-  };
-};
+//   const get = (key: string) => provider.getItem(key)?.[0];
 
-type StorageEntry<T extends Encodable = Encodable> = [
-  value: T,
-  expires?: number,
-  source?: string
-];
+//   const set = <T>(key: string, value: T | undefined, timeout?: number) => {
+//     const oldValue = get(key);
+//     if (value === undefined) {
+//       provider.removeItem(key);
+//       dispatchOwn(undefined, { key, oldValue, source: TAB_ID, self: true });
+//     } else {
+//       provider.setItem(key, value, TAB_ID, timeout);
+//       dispatchOwn(value, { key, oldValue, source: TAB_ID, self: true });
+//     }
+//     if (timeout! <= 0) {
+//       provider.removeItem(key);
+//     }
+//     return value as any;
+//   };
 
-const serialize = <T extends Encodable = Encodable>(
-  value: T,
-  expires?: number,
-  sourceId?: string | null,
-  secure = false
-): T extends null ? null : string =>
-  value == nil
-    ? nil
-    : ((secure ? httpEncrypt : httpEncode)(
-        sourceId || expires
-          ? {
-              $: [
-                value as any,
-                expires, // If there is a source ID we need a value to keep the array length.
-                sourceId,
-              ],
-            }
-          : value
-      ) as any);
+//   let retries = 0;
+//   const update = <T>(
+//     key: string,
+//     newValue: (current: T | undefined) => T | undefined,
+//     timeout: number
+//   ) => {
+//     if (retries++ > 3) {
+//       error(`Race condition ('${key}').`, true);
+//     }
+//     const value = set(key, newValue(provider.getItem<T>(key)?.[0]), timeout);
+//     const writtenValue = provider.getItem(key);
+//     if (writtenValue?.[1] && writtenValue?.[1] !== TAB_ID) {
+//       return update(key, newValue, timeout);
+//     }
+//     retries = 0;
+//     return value;
+//   };
 
-let decoded: any, expires: number;
-const deserialize = <T extends Encodable = Encodable>(
-  value: string | null,
-  removeExpired?: () => void,
-  secure = false
-): StorageEntry<T> | null =>
-  !value /* including empty string */
-    ? nil
-    : ((decoded = (secure ? httpDecrypt : httpDecode)(value)),
-      decoded.$
-        ? (((expires = +((decoded = decoded.$)[1] ?? 0)),
-          expires > 0 && expires < now(F)
-            ? (removeExpired?.(), nil)
-            : [decoded[0], expires, decoded[2]]) as StorageEntry<any>)
-        : [decoded]);
+//   return {
+//     get,
+//     set,
+//     delete: (key) => set(key, undefined),
+//     update,
+//     observe: provider.observe
+//       ? (key, listener, observeSelf) => {
+//           const [unbind, bind] = joinEventBinders(
+//             provider.observe!(key, (newValue, oldValue, key) =>
+//               listener(
+//                 newValue?.[0],
+//                 { key, oldValue: oldValue?.[0], source: newValue?.[1] },
+//                 unbind
+//               )
+//             ),
+//             observeSelf
+//               ? addOwnListener(
+//                   (value, context, unbind) =>
+//                     context.key === key && listener(value, context, unbind)
+//                 )
+//               : undefined
+//           );
+//           return [unbind, bind];
+//         }
+//       : undefined,
+//   } as TypedStorage as any;
+// };
 
-type StorageDelta = {
-  key: string | null;
-  newValue: string | null;
-  oldValue: string | null;
-};
+// const parsePayload = (value: any): [value: string, timeout?: number] => {
+//   if (!isString(value)) return [value];
 
-type DeltaEventMapper = (
-  listener: (delta: StorageDelta) => void,
-  remove?: boolean
-) => void;
+//   const [, payload, parsedTimeout] = value.match(/(.*?)(?:@:([0-9a-z]+))?$/)!;
+//   return [
+//     payload,
+//     parsedTimeout != null ? parseInt(parsedTimeout, 36) : undefined,
+//   ];
+// };
+// const purgeIfExpired = (key: string, value: any) => {
+//   const [payload, timeout] = parsePayload(value);
+//   if (timeout && timeout - now() < 0) {
+//     clear(localStorage, key);
+//     return undefined;
+//   }
+//   return payload;
+// };
 
-let entry: StorageEntry<Encodable> | null;
-let oldEntry: StorageEntry<Encodable> | null;
-const storage: {
-  (storage: SimpleStorage): StorageAccess;
-  (
-    storage: SimpleStorage,
-    register?: DeltaEventMapper,
-    secure?: boolean
-  ): ObservableStorageAccess;
-} = (
-  storage: SimpleStorage,
-  register?: DeltaEventMapper,
-  secure?: boolean
-): ObservableStorageAccess => {
-  const sourceId = register ? TAB_ID : undefined;
-  const removeExpired = (key: string | null) => () =>
-    key && storage.removeItem(key);
+// export const [tabStorage, sharedStorage] = [sessionStorage, localStorage].map(
+//   (storage) =>
+//     mapStorage({
+//       getItem: (key) =>
+//         deserialize?.(purgeIfExpired(key, storage.getItem(key))),
+//       setItem: (key, value, source, timeout) =>
+//         storage.setItem(
+//           key,
+//           serialize?.([value, source]) +
+//             (timeout! > 0 ? `@:${(now() + timeout!).toString(36)}` : "")
+//         ),
+//       removeItem: (key) => storage.removeItem(key),
+//       observe: (key, observer) => {
+//         const [unbind, bind] = listen(
+//           window,
+//           "storage",
+//           ({ key: changedKey, newValue, oldValue }) =>
+//             key == changedKey &&
+//             observer(
+//               deserialize?.(parsePayload(newValue)[0]),
+//               deserialize?.(parsePayload(oldValue)[0]),
+//               key
+//             )
+//         );
 
-  const ownListeners = new Set<StorageItemListener>();
-  const accessor = Object.assign((arg0: any, arg1?: any, arg2?: any): any => {
-    if (fun(arg0)) {
-      if (!register) return;
-      // Listener.
-      const [innerHandler, triggerSelf = F] = [arg0, arg1] as [
-        StorageItemListener,
-        boolean
-      ];
+//         return joinEventBinders(
+//           [unbind, bind],
+//           addPageLoadedListener((loaded) => (loaded ? bind() : unbind()))
+//         );
+//       },
+//     })
+// );
 
-      const handler: StorageItemListener = (...args) => {
-        let res = innerHandler(...args);
-        return res === F && unlisten?.();
-      };
+// const purgeTask = clock({
+//   frequency: 2000,
+//   callback: () =>
+//     forEach(localStorage, ([key, value]) => !purgeIfExpired(key as any, value)),
+//   trigger: true,
+// });
+// addPageLoadedListener((loaded) => purgeTask.toggle(loaded));
 
-      const listener = ({ key, newValue, oldValue }: StorageEvent): any => (
-        ((entry = deserialize(newValue, removeExpired(key), secure)),
-        (oldEntry = deserialize(oldValue, undefined, secure))),
-        key &&
-          handler(
-            key,
-            entry?.[0] ?? nil,
-            oldEntry?.[0] ?? nil,
-            entry?.[2] ?? nil
-          )
-      );
+// export type StoredValue<T> = {
+//   (): T | undefined;
+//   <V extends T>(value: V, timeout?: number): V;
+// };
 
-      let unlisten = () => (
-        (unlisten = nil!), register(listener, T), ownListeners.delete(handler)
-      );
+// export const storedValue =
+//   <T>(key: string, storage: TypedStorage = sharedStorage): StoredValue<T> =>
+//   (value?: T | undefined, timeout?: number) => (
+//     value != null && (storage.set(key, value, timeout), value), storage.get(key)
+//   );
 
-      register(listener);
+// export const bindStorage: {
+//   <T>(
+//     key: string,
+//     defaultTimeout?: number,
+//     storage?: Required<TypedStorage>
+//   ): Required<BoundStorage<T>>;
+//   <T>(
+//     key: string,
+//     defaultTimeout?: number,
+//     storage?: TypedStorage
+//   ): BoundStorage<T>;
+// } = <T>(
+//   key: string,
+//   defaultTimeout?: number,
+//   storage: TypedStorage = sharedStorage
+// ): Required<BoundStorage<T>> => ({
+//   get: () => storage.get<T>(key),
+//   set: (value, timeout) =>
+//     value === undefined
+//       ? storage.delete(key)
+//       : storage.set(key, value as any, timeout ?? defaultTimeout),
+//   delete: () => storage.delete(key),
+//   update: (updater, timeout) =>
+//     storage.update(key, updater as any, timeout ?? defaultTimeout),
+//   observe: storage.observe
+//     ? (observer, includeSelf) => storage.observe!(key, observer, includeSelf)
+//     : undefined!,
+// });
 
-      triggerSelf && ownListeners.add(handler);
-      return unlisten;
-    }
-    let [key, value, timeout = 0] = [arg0, arg1, arg2] as [
-      string,
-      Encodable | ((current: any) => any) | undefined,
-      number
-    ];
-
-    if (value === undefined) {
-      // get
-      return (
-        deserialize(storage.getItem(key), removeExpired(key), secure)?.[0] ??
-        nil
-      );
-    }
-
-    if (fun(value)) {
-      //update
-      return accessor(key, value(accessor(key)), timeout);
-    }
-
-    // set
-    const data =
-      value == nil || timeout < 0
-        ? nil
-        : serialize(
-            value,
-            timeout && !storage.supportsExpiry ? now(T) + timeout : undefined,
-            sourceId,
-            secure
-          );
-
-    data == nil
-      ? storage?.removeItem(key)
-      : storage?.setItem(key, data, timeout > 0 ? timeout : undefined);
-
-    ownListeners.size &&
-      (((entry = deserialize(data, undefined, secure)),
-      (oldEntry = deserialize(storage.getItem(key), undefined, secure))),
-      ownListeners.forEach((handler) =>
-        handler(key, entry?.[0] ?? nil, oldEntry?.[0] ?? nil, entry?.[2] ?? nil)
-      ));
-    return value;
-  });
-  return accessor;
-};
-
-export const cookieStorage: SimpleStorage = {
-  getItem: (key) => (
-    (key = encode(key)),
-    decode(
-      document.cookie
-        .split(";")
-        .map((kv) => kv.split("="))
-        .find((kv) => kv[0].trim() === key)?.[1] || nil
-    )
-  ),
-  setItem: (key, value, maxAge) =>
-    (document.cookie = `${encode(key)}=${encode(
-      value ?? ""
-    )}; Path=/; SameSite=Lax${
-      !value || maxAge != nil
-        ? `; Max-Age=${Math.round((maxAge ?? 0) / 1000)}`
-        : ""
-    }`),
-
-  removeItem: (key) => cookieStorage.setItem(key, "", 0),
-
-  supportsExpiry: true,
-};
-
-export const memory = storage(memoryStorage());
-export const cookies = storage(cookieStorage);
-export const secureCookies = storage(cookieStorage, undefined, true);
-export const session = storage(sessionStorage);
-export const shared = storage(
-  localStorage,
-  (listener, remove) =>
-    remove
-      ? window.removeEventListener("storage", listener)
-      : window.addEventListener("storage", listener),
-  true
-);
-export const bind = <T extends Encodable = Encodable>(
-  storage: StorageAccess,
-  key: string,
-  useSharedId = T
-): MappedStorageAccess<T> => {
-  useSharedId && (key = mapSharedId(key));
-  return (...args: any[]) => (storage as any)(key, ...args);
-};
-
-export type SharedQueue<T extends Encodable = Encodable> = {
-  (item: T, replace?: boolean): () => boolean;
-  (): T | null;
-};
-export const sharedQueue = <T extends Encodable>(
-  key: string,
-  keyExpiry = 2000,
-  useSharedId = T
-): SharedQueue<T> => {
-  const queue = bind<[item: T, expires: number][]>(shared, key, useSharedId);
-  return (item?: T, replace = F): any => {
-    if (item === undefined) {
-      // Get
-      let match: T | null = nil;
-      queue((current) => {
-        current = filter(current, (item) => item[1] > now());
-        match = shift(current)?.[0] ?? nil;
-        return current;
-      });
-
-      return match;
-    }
-
-    let exists = T;
-
-    const updateQueue = (replace: boolean) =>
-      queue((current) =>
-        replace
-          ? map(current, (other) =>
-              other[0] === item
-                ? ((exists = T), [item, now() + keyExpiry])
-                : (other as any)
-            )
-          : push(current ?? [], [item, now() + keyExpiry])!
-      );
-
-    updateQueue(replace);
-    if (keyExpiry) {
-      let poll = timeout();
-      const refreshKey = () => (updateQueue(T), !exists && poll(), exists);
-
-      poll(refreshKey, -keyExpiry / 2);
-    }
-    return () => exists;
-  };
-};
+// //export const createSharedLock = ()=>createLock()

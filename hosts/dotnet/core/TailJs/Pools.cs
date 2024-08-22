@@ -2,16 +2,15 @@
 using System.Net;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
-
 using Microsoft.IO;
-
+using TailJs.IO;
 using TailJs.Scripting;
 
 [assembly: InternalsVisibleTo("TailJs.AspNet.Vintage")]
 
 namespace TailJs;
 
-internal class Pools
+public static class Pools
 {
   private static readonly RecyclableMemoryStreamManager MemoryStreams = new();
 
@@ -19,6 +18,33 @@ internal class Pools
   private static readonly ConcurrentDictionary<string, SharedHttpClient> Clients = new();
 
   public static MemoryStream GetStream() => MemoryStreams.GetStream();
+
+  /// <summary>
+  /// Reads a stream to a pooled byte array. DO REMEMBER TO DISPOSE IT.
+  /// </summary>
+  public static async ValueTask<ArrayBuffer<byte>> ToByteArray(
+    this Stream stream,
+    CancellationToken cancellationToken = default,
+    int bufferSize = 65536
+  )
+  {
+    var bytes = new ArrayBuffer<byte>();
+    var buffer = BufferPool<byte>.Rent(bufferSize);
+    try
+    {
+      int read;
+      while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+      {
+        bytes.Append(buffer, read);
+      }
+
+      return bytes;
+    }
+    finally
+    {
+      BufferPool<byte>.Return(buffer);
+    }
+  }
 
   public static HttpClientLease GetHttpClient(string? id = null, Action<HttpClientHandler>? configure = null)
   {
@@ -43,7 +69,7 @@ internal class Pools
       && DateTime.UtcNow - client.Created <= TimeSpan.FromMinutes(10);
   }
 
-    #region Nested type: HttpClientLease
+  #region Nested type: HttpClientLease
 
   public class HttpClientLease : IDisposable
   {
@@ -58,7 +84,7 @@ internal class Pools
 
     public HttpClient Instance { get; }
 
-        #region IDisposable Members
+    #region IDisposable Members
 
     public void Dispose()
     {
@@ -68,13 +94,13 @@ internal class Pools
       _disposeAction = null;
     }
 
-        #endregion
+    #endregion
   }
 
-    #endregion
+  #endregion
 
 
-    #region Nested type: HttpClientPool
+  #region Nested type: HttpClientPool
 
   internal class SharedHttpClient
   {
@@ -124,5 +150,5 @@ internal class Pools
     }
   }
 
-    #endregion
+  #endregion
 }

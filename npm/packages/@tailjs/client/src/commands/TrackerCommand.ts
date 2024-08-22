@@ -3,39 +3,46 @@ import type {
   BoundaryCommand,
   CartCommand,
   ChangeUserCommand,
-  TagAttributesCommand,
+  ConsentCommand,
   ExtensionCommand,
   FlushCommand,
   FormCommand,
   GetCommand,
   ListenerCommand,
   OrderCommand,
-  RefreshCommand,
   SetCommand,
+  TagAttributesCommand,
   ToggleCommand,
-  TrackerAvailableCommand,
+  UseTrackerCommand,
   ViewCommand,
 } from "..";
+import { Nullish } from "@tailjs/util";
 
-export interface TrackEventCommand extends TrackedEvent {}
+export type TrackEventCommand = Omit<TrackedEvent, "id"> &
+  Partial<Pick<TrackedEvent, "id">>;
 
 export type TrackerCommand =
-  | TrackEventCommand
-  | TrackEventCommand[]
-  | FlushCommand
-  | GetCommand
-  | SetCommand
-  | ListenerCommand
-  | ExtensionCommand
-  | RefreshCommand
-  | TagAttributesCommand
-  | ToggleCommand
-  | TrackerAvailableCommand
-  | ViewCommand
-  | BoundaryCommand
-  | ChangeUserCommand
-  | CartCommand
-  | OrderCommand
-  | FormCommand
-  | null
-  | undefined;
+  | (
+      | TrackEventCommand
+      | TrackEventCommand[]
+      | FlushCommand
+      | GetCommand
+      | SetCommand
+      | ListenerCommand
+      | ExtensionCommand
+      | TagAttributesCommand
+      | ToggleCommand
+      | ViewCommand
+      | BoundaryCommand
+      | ChangeUserCommand
+      | CartCommand
+      | OrderCommand
+      | FormCommand
+      | ConsentCommand
+      | UseTrackerCommand
+    ) &
+      UnlockApiCommand;
+
+export type UnlockApiCommand = {
+  key?: string | Nullish;
+};

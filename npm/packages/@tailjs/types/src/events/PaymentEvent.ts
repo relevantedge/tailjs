@@ -27,7 +27,7 @@ export interface PaymentEvent extends CommerceEvent {
  * The payment for an order was accepted.
  */
 export interface PaymentAcceptedEvent extends PaymentEvent {
-  type: "PAYMENT_ACCEPTED";
+  type: "payment_accepted";
 
   /**
    * The payment was the final payment, hence completed the order.
@@ -40,10 +40,10 @@ export interface PaymentAcceptedEvent extends PaymentEvent {
  * A payment for the order was rejected.
  */
 export interface PaymentRejectedEvent extends PaymentEvent {
-  type: "PAYMENT_REJECTED";
+  type: "payment_rejected";
 }
 
 export const isPaymentAcceptedEvent =
-  typeTest<PaymentAcceptedEvent>("PAYMENT_ACCEPTED");
+  typeTest<PaymentAcceptedEvent>("payment_accepted");
 export const isPaymentRejectedEvent =
-  typeTest<PaymentRejectedEvent>("PAYMENT_REJECTED");
+  typeTest<PaymentRejectedEvent>("payment_rejected");

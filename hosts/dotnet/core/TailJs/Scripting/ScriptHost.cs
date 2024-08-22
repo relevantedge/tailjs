@@ -1,28 +1,30 @@
 ﻿// ReSharper disable UnusedMember.Global
 
+using System.Collections.Concurrent;
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
+using System.Text.RegularExpressions;
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 
 namespace TailJs.Scripting;
 
 internal class ScriptHost : IScriptEngineExtension
 {
-  private readonly IResourceLoader _resources;
+  private readonly IResourceManager _resources;
 
   private readonly IScriptLoggerFactory? _loggerFactory;
   private readonly Uint8ArrayConverter _uint8Converter;
   private readonly CancellationToken _hostDisposed;
 
   public ScriptHost(
-    IResourceLoader resources,
+    IResourceManager resources,
     IScriptLoggerFactory? loggerFactory,
     Uint8ArrayConverter uint8Converter,
     CancellationToken hostDisposed
@@ -34,7 +36,7 @@ internal class ScriptHost : IScriptEngineExtension
     _hostDisposed = hostDisposed;
   }
 
-  internal PromiseLike<object?> Request(ScriptObject request, ScriptObject response)
+  internal object? Request(ScriptObject request, ScriptObject response)
   {
     return Inner().AsPromiseLike();
 
@@ -42,15 +44,15 @@ internal class ScriptHost : IScriptEngineExtension
     {
       try
       {
-        var binary = request.Get<bool?>("binary") == true;
+        var binary = request.GetScriptValue<bool?>("binary") == true;
         var httpRequest = new HttpRequestMessage();
         httpRequest.RequestUri = new Uri(
-          request.Get<string?>("url") ?? throw new ArgumentException("URL is missing.")
+          request.GetScriptValue<string?>("url") ?? throw new ArgumentException("URL is missing.")
         );
-        httpRequest.Method = new HttpMethod(request.Get<string?>("method") ?? "GET");
+        httpRequest.Method = new HttpMethod(request.GetScriptValue<string?>("method") ?? "GET");
 
         var contentType = (string?)null;
-        foreach (var header in request.Enumerate("headers"))
+        foreach (var header in request.EnumerateScriptValues("headers"))
         {
           if (header.Value is not string value)
             continue;
@@ -73,20 +75,20 @@ internal class ScriptHost : IScriptEngineExtension
         {
           httpRequest.Content = new ByteArrayContent(bytes.GetBytes());
         }
-        else if (request.Get<string?>("body") is { } body)
+        else if (request.GetScriptValue<string?>("body") is { } body)
         {
           httpRequest.Content = new StringContent(body, Encoding.UTF8, contentType ?? "application/json");
         }
 
         using var client =
-          request.Get("x509") is IScriptObject x509
-          && (x509.Get("cert") as ITypedArray<byte>)?.ToArray() is { } cert
+          request.GetScriptValue("x509") is IScriptObject x509
+          && (x509.GetScriptValue("cert") as ITypedArray<byte>)?.ToArray() is { } cert
             ? Pools.GetHttpClient(
-              x509.Require<string>("id"),
+              x509.RequireScriptValue<string>("id"),
               handler =>
               {
                 handler.ClientCertificates.Add(
-                  x509.Get<string>("key") is { } key
+                  x509.GetScriptValue<string>("key") is { } key
                     ? new X509Certificate2(cert, key)
                     : new X509Certificate2(cert)
                 );
@@ -117,13 +119,11 @@ internal class ScriptHost : IScriptEngineExtension
 
         response["status"] = (int)httpResponse.StatusCode;
         response["body"] = binary
-          ? _uint8Converter.FromBytes(
-            await httpResponse.Content.ReadAsByteArrayAsync(
+          ? _uint8Converter.FromBytes(await httpResponse.Content.ReadAsByteArrayAsync(
 #if NET7_0_OR_GREATER
               _hostDisposed
 #endif
-            )
-          )
+            ))
           : await httpResponse.Content.ReadAsStringAsync(
 #if NET7_0_OR_GREATER
             _hostDisposed
@@ -139,7 +139,7 @@ internal class ScriptHost : IScriptEngineExtension
     }
   }
 
-  internal PromiseLike<object?> Read(string path, object? changeHandler, bool text)
+  internal object? Read(string path, object? changeHandler, bool text)
   {
     var wrappedHandler = changeHandler is IScriptObject handler
       ? text
@@ -147,10 +147,7 @@ internal class ScriptHost : IScriptEngineExtension
           (ChangeHandler<string>)(
             async (path, data) =>
               await handler
-                .InvokeAsFunction(
-                  path,
-                  (Func<PromiseLike<string?>>)(() => data(_hostDisposed).AsTask().AsPromiseLike())
-                )
+                .InvokeAsFunction(path, (Func<object?>)(() => data(_hostDisposed).AsTask().AsPromiseLike()))
                 .ToTask()
                 .ConfigureAwait(false)
                 is true
@@ -160,7 +157,7 @@ internal class ScriptHost : IScriptEngineExtension
             await handler
               .InvokeAsFunction(
                 path,
-                (Func<PromiseLike<object?>>)(() => ConvertResultAsync(data(_hostDisposed)).AsPromiseLike())
+                (Func<object?>)(() => ConvertResultAsync(data(_hostDisposed)).AsPromiseLike())
               )
               .ToTask()
               .ConfigureAwait(false)
@@ -181,6 +178,70 @@ internal class ScriptHost : IScriptEngineExtension
       await read.ConfigureAwait(false) is not { } data ? null : _uint8Converter.FromBytes(data);
   }
 
+  internal object? Write(string path, object data, bool text)
+  {
+    return Inner().AsPromiseLike();
+    async Task<bool> Inner()
+    {
+      if (text)
+      {
+        await _resources.WriteTextAsync(path, (string)data, _hostDisposed).ConfigureAwait(false);
+      }
+      else
+      {
+        await _resources
+          .WriteAsync(path, _uint8Converter.ToBytes((ITypedArray<byte>)data), _hostDisposed)
+          .ConfigureAwait(false);
+      }
+
+      return true;
+    }
+  }
+
+  internal object? List(string path)
+  {
+    return Inner().AsPromiseLike();
+
+    async Task<object[]> Inner()
+    {
+      return (await _resources.ListAsync(path, _hostDisposed).ConfigureAwait(false))
+        .Select(entry =>
+          (object)
+            new
+            {
+              path = entry.Path,
+              name = entry.Name,
+              type = entry.IsDirectory ? "dir" : "file",
+              @readonly = entry.IsReadOnly,
+              created = entry.Created is { } created
+                ? new DateTimeOffset(created).ToUnixTimeMilliseconds()
+                : 0,
+              modified = entry.Modified is { } modified
+                ? new DateTimeOffset(modified).ToUnixTimeMilliseconds()
+                : 0,
+            }
+        )
+        .ToArray();
+    }
+  }
+
+  internal object? Delete(string path)
+  {
+    return Inner().AsPromiseLike();
+
+    async Task<bool> Inner()
+    {
+      return await _resources.DeleteAsync(path, _hostDisposed).ConfigureAwait(false);
+    }
+  }
+
+  private readonly ConcurrentDictionary<
+    string,
+    (long LastEvent, int EpochCount, int TotalCount)
+  > _logThrottleCounts = new();
+
+  private static readonly JsonSerializerOptions LogJsonSerializerOptions = new() { WriteIndented = true };
+
   internal void Log(string messageJson)
   {
     try
@@ -190,21 +251,132 @@ internal class ScriptHost : IScriptEngineExtension
         new JsonSerializerOptions() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
       )!;
 
-      var logMessage =
-        $"{(string.IsNullOrEmpty(message.Source) ? "" : $"{message.Source}: ")}{
-          (
-            (message.Data as JsonValue)?.TryGetValue<string>(out var stringMessage) == true
-              ? stringMessage
-              : message.Data?.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) ?? "(null)"
-          )
-        }";
-      if ((_loggerFactory?.GetLogger(message.Group!)) is { } logger)
+      var logMessage = new StringBuilder();
+      if (!string.IsNullOrEmpty(message.Source))
       {
-        logger.Log(message.Level, logMessage);
+        logMessage.Append(message.Source).Append(": ");
+      }
+      logMessage.Append(message.Message);
+      if (!string.IsNullOrEmpty(message.Group))
+      {
+        logMessage.Append($" #{message.Group}");
+      }
+
+      if (message.Details != null)
+      {
+        logMessage
+          .AppendLine()
+          .Append(
+            Indent(
+              sb => sb.Append("Details: ").Append(message.Details.ToJsonString(LogJsonSerializerOptions)),
+              false
+            )
+          );
+      }
+
+      if (message.Error is { } error)
+      {
+        logMessage
+          .AppendLine()
+          .Append(
+            Indent(sb =>
+            {
+              sb.Append("Error");
+              if (error.Name is { Length: > 0 } name && name != "Error")
+              {
+                sb.Append(" (").Append(name).Append(")");
+              }
+
+              sb.Append(": ").Append(error.Message);
+            })
+          );
+
+        if (error.Stack is { Length: > 0 } stack)
+        {
+          logMessage
+            .AppendLine()
+            .Append(
+              Indent(sb =>
+                sb.Append("Stack: ")
+                  .Append(
+                    Indent(
+                      Regex.Replace(
+                        stack,
+                        @"^.*?(^\s*at.*)$",
+                        "$1",
+                        RegexOptions.Singleline | RegexOptions.Multiline
+                      ),
+                      false,
+                      @"^\s*"
+                    )
+                  )
+              )
+            );
+        }
+      }
+
+      if (message.ThrottleKey is { } throttleKey)
+      {
+        if (throttleKey == "")
+        {
+          throttleKey = Fnv1a(message.ToString());
+        }
+
+        var throttleStats = _logThrottleCounts.AddOrUpdate(
+          throttleKey,
+          (_) => (DateTime.UtcNow.Ticks, 0, 0),
+          (_, current) =>
+            current.LastEvent < DateTime.UtcNow.Add(TimeSpan.FromMinutes(1)).Ticks
+              ? (current.LastEvent, current.EpochCount + 1, current.TotalCount + 1)
+              : (DateTime.UtcNow.Ticks, 0, current.TotalCount + 1)
+        );
+
+        if (throttleStats.TotalCount >= 3)
+        {
+          logMessage
+            .AppendLine()
+            .Append("(This kind of event has occurred ")
+            .Append(throttleStats.TotalCount.ToString("N0"))
+            .Append(" times since start");
+          if (throttleStats.EpochCount < 3)
+          {
+            logMessage.Append(".)");
+          }
+          if (throttleStats.EpochCount == 3)
+          {
+            logMessage
+              .AppendLine()
+              .AppendLine(" - further events of this kind will not be logged for the next minute.)");
+          }
+          else
+          {
+            return;
+          }
+        }
+      }
+
+      if (
+        (
+          string.IsNullOrEmpty(message.Group)
+            ? _loggerFactory?.DefaultLogger
+            : _loggerFactory?.GetLogger(message.Group)
+        ) is
+        { } logger
+      )
+      {
+        logger.Log(message.Level, logMessage.ToString());
       }
       else
       {
-        Console.Out.WriteLine($"{message.Level}: {message.Data ?? "(undefined)"}");
+        var formatted = $"{DateTime.UtcNow:o}{message.Level}: {logMessage}";
+        if (message.Level < LogLevel.Warning)
+        {
+          Console.Out.WriteLine(formatted);
+        }
+        else
+        {
+          Console.Error.WriteLine(formatted);
+        }
       }
     }
     catch (Exception ex)
@@ -213,13 +385,55 @@ internal class ScriptHost : IScriptEngineExtension
     }
   }
 
+  // ReSharper disable once InconsistentNaming
+  private static string Fnv1a(string text)
+  {
+    var hash = 14695981039346656037ul;
+    var bytes = Encoding.UTF8.GetBytes(text).AsSpan();
+    unchecked
+    {
+      foreach (var p in bytes)
+      {
+        hash = (ulong)(1099511628211L * ((long)hash ^ p));
+      }
+    }
+
+    return Convert.ToBase64String(BitConverter.GetBytes(hash));
+  }
+
+  private static string Indent(Action<StringBuilder> text, bool indentFirst = true, string match = "^")
+  {
+    return Indent(
+      sb =>
+      {
+        text(sb);
+        return sb;
+      },
+      indentFirst,
+      match
+    );
+  }
+
+  private static string Indent(string text, bool indentFirst = true, string match = "^") =>
+    Indent(sb => sb.Append(text), indentFirst, match);
+
+  private static string Indent(
+    Func<StringBuilder, StringBuilder> text,
+    bool indentFirst = true,
+    string match = "^"
+  )
+  {
+    var indented = Regex.Replace(text(new StringBuilder()).ToString(), match, "  ", RegexOptions.Multiline);
+    return indentFirst || indented.Length < 2 ? indented : indented.Substring(2);
+  }
+
   #region IScriptEngineExtension Members
 
   public void Dispose() { }
 
   public async ValueTask<ScriptObject?> SetupAsync(
     V8ScriptEngine engine,
-    IResourceLoader resources,
+    IResourceManager resources,
     CancellationToken cancellationToken = default
   )
   {

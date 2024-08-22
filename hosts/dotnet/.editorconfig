@@ -6,6 +6,7 @@ max_line_length = 110
 [*.{cs,vb,cshtml}]
 
 indent_size = 2
+max_line_length = 110
 
 ## constant fields should be PascalCase
 dotnet_naming_rule.constant_fields_should_be_pascal_case.severity = warning

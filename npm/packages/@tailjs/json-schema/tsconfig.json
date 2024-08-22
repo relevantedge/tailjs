@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "stripInternal": false,
+    "preserveConstEnums": false,
+
+    "types": []
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "@tailjs/sitecore-cdp",
+  "description": "tail.js extensions for Sitecore CDP.",
+  "license": "LGPL3",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "author": "RelevantEdge (https://www.relevant-edge.com)",
+  "homepage": "https://github.com/relevantedge/tailjs",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "tsx ../../../build/rollup.ts",
+    "build:watch": "pnpm run build -w"
+  },
+  "dependencies": {
+    "@tailjs/engine": "workspace:*",
+    "@tailjs/types": "workspace:*"
+  },
+  "publishConfig": {
+    "directory": "dist"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  }
+}

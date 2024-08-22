@@ -1,62 +1,62 @@
+import { CLIENT_CALLBACK_CHANNEL_ID } from "@constants";
+
 import {
   AnchorNavigationEvent,
   CartUpdatedEvent,
   ComponentClickEvent,
-  ConfiguredComponent,
+  ComponentClickIntentEvent,
+  ComponentElementInfo,
   NavigationEvent,
+  ScreenPosition,
   UserInteractionEvent,
-  cast,
-  isViewEndedEvent,
 } from "@tailjs/types";
+import {
+  F,
+  T,
+  createTimeout,
+  ellipsis,
+  equalsAny,
+  forEach,
+  get,
+  isObject,
+  map,
+  nil,
+  parseUri,
+  push,
+  remove,
+  restrict,
+  some,
+  stop,
+  update,
+  type Nullish,
+} from "@tailjs/util";
 import {
   TrackerExtensionFactory,
   getComponentContext,
+  getViewTimeOffset,
   onFrame,
+  parseActivationTags,
   pushNavigationSource,
   tryGetCartEventData,
 } from "..";
-
-import { CONTEXT_MENU_COOKIE } from "@constants";
-import type { Nullish } from "@tailjs/util";
-import { parseActivationTags } from "..";
 import {
-  F,
   MNT_URL,
-  T,
-  any,
   attr,
-  attrl,
-  clear,
-  cookies,
-  del,
-  document,
-  encode,
-  equals,
   forAncestorsOrSelf,
   getBoundaryData,
+  getPos,
+  getRect,
   getScreenPos,
   getViewport,
   isInternalUrl,
-  keys,
   listen,
-  location,
-  map,
-  mapUrl,
   matchExHash,
-  navigator,
   nextId,
-  nil,
-  noopAction,
-  obj,
-  parseDomain,
-  push,
-  registerViewEndAction,
+  normalizedAttribute,
+  overlay,
   tagName,
-  timeout,
   trackerConfig,
   trackerFlag,
-  tryCatch,
-  window,
 } from "../lib";
 
 const isLinkElement = (
@@ -71,49 +71,54 @@ const isClickable = (
   attr = trackerFlag(el, "button")
 ): el is HTMLElement =>
   attr !== F &&
-  (equals(t, "A", "BUTTON") ||
-    (t === "INPUT" && equals(attrl(el, "type"), "button", "submit")) ||
+  (equalsAny(t, "A", "BUTTON") ||
+    (t === "INPUT" &&
+      equalsAny(normalizedAttribute(el, "type"), "button", "submit")) ||
     attr === T);
 
-function getElementLabel(el: Element | EventTarget | null, container: Element) {
+const getElementInfo = (el: Element, includeRect = false) => ({
+  tagName: el.tagName,
+  text: ellipsis(
+    attr(el, "title")?.trim() ||
+      attr(el, "alt")?.trim() ||
+      (el as HTMLElement).innerText?.trim(),
+    100
+  ),
+  href: (el as any).href?.toString(),
+  rect: includeRect ? getRect(el) : undefined,
+});
+const getElementLabel = (
+  el: Element | EventTarget | null,
+  container: Element,
+  includeRect = false
+) => {
   let info: Pick<UserInteractionEvent, "element"> | undefined;
   forAncestorsOrSelf(el ?? container, (el) =>
-    equals(tagName(el), "IMG") || el === container
+    tagName(el) === "IMG" || el === container
       ? ((info = {
-          element: {
-            tagName: el.tagName,
-            text:
-              attr(el, "title") ||
-              attr(el, "alt") ||
-              (el as HTMLElement).innerText?.trim().substring(0, 100) ||
-              undefined,
-          },
+          element: getElementInfo(el, includeRect),
         }),
         F)
       : T
   );
   return info;
-}
+};
 export const userInteraction: TrackerExtensionFactory = {
   id: "navigation",
 
   setup(tracker) {
-    const pollContextCookie = timeout();
-
-    // There can be all kinds of fishy navigation logic happening, so it is not enough just to look at link (<A>) clicks.
-    // Hence, when navigation occurs (in the current tab), we do not send the event before we have an VIEW_END.
-    // We rely on that the logic for VIEW_END takes care all the different ways to navigate (history.push etc.) so this is where we know that navigation happened for sure.
-    let pendingNavigationEvent = noopAction;
+    // The tracked click positions for click events that has already been posted once.
+    const activeEventClicks = new WeakMap<Node, ScreenPosition[]>();
 
     const stripPositions = <T = any>(el: any, hitTest: boolean): T =>
       hitTest
         ? el
-        : (map(keys(el), (key) =>
+        : (map(el, ([key]) =>
             key === "rect" ||
             //key === "pos"  Changed so pos is always included.
             key === "viewport"
-              ? del(el, key)
-              : obj(el[key]) &&
+              ? remove(el, key)
+              : isObject(el[key]) &&
                 map(el[key], (item) => stripPositions(item, hitTest))
           ),
           el);
@@ -122,36 +127,70 @@ export const userInteraction: TrackerExtensionFactory = {
         document,
         ["click", "contextmenu", "auxclick"],
         (ev: MouseEvent) => {
-          // Cancel whatever we might be waiting for.
-          pendingNavigationEvent?.(F);
-
           let trackClicks: boolean | Nullish;
           let trackRegion: boolean | Nullish;
-          let clickableElement: HTMLElement | null = nil! as HTMLElement; // Typescript insists this is never?
+          let clickableElement: HTMLElement | undefined;
+          let containerElement: Element | undefined;
 
           let nav = F;
 
+          let clickables: ComponentElementInfo[] | undefined;
+
           forAncestorsOrSelf<boolean>(ev.target, (el) => {
-            clickableElement ??= isClickable(el) ? el : nil;
+            isClickable(el) && (clickableElement ??= el);
             nav = nav || tagName(el) === "NAV";
 
-            let cmp: ConfiguredComponent | ConfiguredComponent[] | Nullish;
+            const boundary = getBoundaryData(el);
+            const components = boundary?.component;
+            if (!ev.button && components?.length && !clickables) {
+              forEach(
+                el.querySelectorAll("a,button"),
+                (clickable) =>
+                  isClickable(clickable) &&
+                  ((clickables ??= []).length > 3
+                    ? stop() // If there are more than two clickables, there is presumably not any missed click intent.
+                    : clickables.push({
+                        ...getElementInfo(clickable, true),
+                        component: forAncestorsOrSelf(
+                          clickable,
+                          (
+                            child,
+                            r,
+                            _,
+                            childComponents = getBoundaryData(child)?.component
+                          ) => childComponents && r(childComponents[0]),
+                          (child) => child === el
+                        ),
+                      }))
+              );
+
+              if (clickables) {
+                containerElement ??= el;
+              }
+            }
 
             trackClicks ??=
               trackerFlag(el, "clicks", T, (data) => data.track?.clicks) ??
-              ((cmp = getBoundaryData(el)?.component) &&
-                any(cmp, (cmp) => cmp.track?.clicks !== F));
+              (components &&
+                some(components, (cmp) => cmp.track?.clicks !== F));
             trackRegion ??=
               trackerFlag(el, "region", T, (data) => data.track?.region) ??
-              ((cmp = getBoundaryData(el)?.component) &&
-                any(cmp, (cmp) => cmp.track?.region));
+              (components && some(components, (cmp) => cmp.track?.region));
           });
 
-          if (!clickableElement) {
+          if (!(containerElement ??= clickableElement)) {
             return;
           }
-          const componentContext = getComponentContext(clickableElement);
-          const tags = parseActivationTags(clickableElement);
+          const clickIntent = clickables && !clickableElement && trackClicks;
+
+          const componentContext = getComponentContext(
+            clickableElement ?? containerElement,
+            false,
+            clickIntent
+          );
+          const tags = parseActivationTags(
+            clickableElement ?? containerElement
+          );
           trackClicks ??= !nav;
           trackRegion ??= T;
 
@@ -162,131 +201,180 @@ export const userInteraction: TrackerExtensionFactory = {
                   viewport: getViewport(),
                 }
               : nil),
-            ...getElementLabel(ev.target, clickableElement),
+            ...getElementLabel(ev.target, clickableElement ?? containerElement),
             ...componentContext,
+            timeOffset: getViewTimeOffset(),
             ...tags,
-            timing: {},
           };
+          if (!clickableElement) {
+            clickIntent &&
+              update(activeEventClicks, containerElement, (current) => {
+                const pos = getPos(containerElement!, ev);
+                if (!current) {
+                  // Reuse the same event and only add the new click coordinates
+                  // if the element is clicked again to reduce data.
+                  const intentEvent = restrict<ComponentClickIntentEvent>({
+                    type: "component_click_intent",
+                    ...sharedEventProperties,
+                    clicks: (current = [pos]),
+
+                    clickables,
+                  });
+
+                  tracker.events.registerEventPatchSource(
+                    intentEvent,
+                    () => ({
+                      clicks: get(activeEventClicks, containerElement!),
+                    }),
+                    true,
+                    containerElement
+                  );
+                } else {
+                  push(current, pos);
+                }
+
+                return current;
+              });
+            //  ,              overlay(containerElement, "Click intent", true)
+
+            return;
+          }
 
           if (isLinkElement(clickableElement!)) {
-            const external = clickableElement.hostname !== location.hostname;
-            const { domain, href } = parseDomain(clickableElement.href);
+            const link = clickableElement;
+            const external = link.hostname !== location.hostname;
+
+            const {
+              host,
+              scheme,
+              source: href,
+            } = parseUri(link.href, false, true);
             if (
-              clickableElement.host === location.host &&
-              clickableElement.pathname === location.pathname &&
-              clickableElement.search === location.search
+              link.host === location.host &&
+              link.pathname === location.pathname &&
+              link.search === location.search
             ) {
-              if (clickableElement.hash === "#") {
+              if (link.hash === "#") {
                 // Don't care about that one.
                 return;
               }
-              if (clickableElement.hash !== location.hash) {
-                push(
-                  tracker,
-                  cast<AnchorNavigationEvent>({
-                    type: "ANCHOR_NAVIGATION",
-                    anchor: clickableElement.hash,
-                    ...sharedEventProperties,
-                  })
+              if (link.hash !== location.hash) {
+                if (ev.button === 0)
+                  tracker(
+                    restrict<AnchorNavigationEvent>({
+                      type: "anchor_navigation",
+                      anchor: link.hash,
+                      ...sharedEventProperties,
+                    })
+                  );
+              }
+              return;
+            }
+
+            const navigationEvent: NavigationEvent = restrict<NavigationEvent>({
+              clientId: nextId(),
+              type: "navigation",
+              href: external ? link.href : href,
+              external,
+              domain: { host, scheme },
+              self: T,
+              anchor: link.hash,
+              ...sharedEventProperties,
+            });
+
+            // There does not seem to be any way to detect when the user clicks
+            // "Open link in new tab/window", so we need to do a little extra gymnastics to capture it.
+            if (ev.type === "contextmenu") {
+              const originalUrl = link.href;
+              const internalUrl = isInternalUrl(originalUrl);
+              if (internalUrl) {
+                // Detecting internal navigation is not that hard.
+                // If the page loads in a new tab, it will pick up this value as the referrer,
+                //   and we will know navigation happened.
+                pushNavigationSource(navigationEvent.clientId, () =>
+                  tracker(navigationEvent)
+                );
+                return;
+              }
+
+              // Detecting external navigation is _much_ harder.
+              // Unfortunately we need to rewrite the URL to redirect via the request handler, and poll for a local storage key.
+              // This is only a problem if the user decides to copy the link from the context menu and share it,
+              // since some may argue the link looks "obscure".
+              var requestId = ("" + Math.random())
+                .replace(".", "")
+                .substring(1, 8);
+              if (!internalUrl) {
+                if (!trackerConfig.captureContextMenu) return;
+                link.href =
+                  MNT_URL + "=" + requestId + encodeURIComponent(originalUrl);
+
+                // Poll for the storage key where the request handler will write the request ID before it redirects
+                // the user if the link is opened.
+                listen(
+                  window,
+                  "storage",
+                  (ev, unbind) =>
+                    ev.key === CLIENT_CALLBACK_CHANNEL_ID &&
+                    (ev.newValue &&
+                      JSON.parse(ev.newValue)?.requestId === requestId &&
+                      tracker(navigationEvent),
+                    unbind())
+                );
+
+                createTimeout;
+                // Switch the link back when the context menu closes.
+                listen(
+                  document,
+                  ["keydown", "keyup", "visibilitychange", "pointermove"],
+                  (_, unbind) => {
+                    unbind();
+
+                    link.href = originalUrl;
+                  }
                 );
               }
               return;
             }
 
-            const navigationEvent: NavigationEvent = cast<NavigationEvent>({
-              id: nextId(),
-              type: "NAVIGATION",
-              href: external ? clickableElement.href : href,
-              external,
-              domain,
-              self: T,
-              anchor: clickableElement.hash,
-              ...sharedEventProperties,
-            });
-
-            if (ev.type === "contextmenu") {
-              const referrerConsumed = pushNavigationSource(navigationEvent.id);
-
-              const currentUrl = clickableElement.href;
-              const internalUrl = isInternalUrl(currentUrl);
-
-              if (!internalUrl) {
-                if (!trackerConfig.captureContextMenu) return;
-                clickableElement.href = mapUrl(
-                  MNT_URL,
-                  "=",
-                  encode(currentUrl)
-                );
-                tryCatch(
-                  () =>
-                    navigator.userActivation?.isActive &&
-                    navigator.clipboard.writeText(currentUrl)
-                );
-              }
-
-              const flag = Date.now();
-              cookies(CONTEXT_MENU_COOKIE, flag, 11000);
-              pollContextCookie(() => {
-                (clickableElement as HTMLAnchorElement).href = currentUrl;
-                if (
-                  !referrerConsumed() ||
-                  +cookies(CONTEXT_MENU_COOKIE)! === flag + 1
-                ) {
-                  cookies(CONTEXT_MENU_COOKIE, nil);
-                  navigationEvent.self = F;
-                  push(tracker, navigationEvent);
-                  clear(pollContextCookie);
-                }
-              }, -100);
-
-              let unbindAll = listen(
-                document,
-                ["keydown", "keyup", "visibilitychange", "pointermove"],
-                () =>
-                  unbindAll() &&
-                  clear(pollContextCookie, 10000, () =>
-                    cookies(CONTEXT_MENU_COOKIE, "")
-                  )
-              );
-            } else if (ev.button <= 1) {
+            if (ev.button <= 1) {
               if (
                 ev.button === 1 || //Middle-click: new tab.
                 ev.ctrlKey || // New tab
                 ev.shiftKey || // New window
                 ev.altKey || // Download
-                attr(clickableElement, "target") !== window.name
+                attr(link, "target") !== window.name
               ) {
-                pushNavigationSource(navigationEvent.id);
+                pushNavigationSource(navigationEvent.clientId);
                 navigationEvent.self = F;
                 // Fire immediately, we are staying on the page.
-                push(tracker, navigationEvent);
+                tracker(navigationEvent);
                 return;
-              } else if (!matchExHash(location.href, clickableElement.href)) {
+              } else if (!matchExHash(location.href, link.href)) {
                 navigationEvent.exit = navigationEvent.external;
                 // No "real" navigation will happen if it is only the hash changing.
-                pushNavigationSource(navigationEvent.id);
+                pushNavigationSource(navigationEvent.clientId);
               }
 
-              // If it so happened that navigation happened we will send it on VIEW_END.
-              pendingNavigationEvent = registerViewEndAction(() =>
-                push(tracker, navigationEvent)
-              );
+              // // If it so happened that navigation happened we will send it on VIEW_END.
+              // pendingNavigationEvent = registerViewEndAction(() =>
+              //   tracker(navigationEvent)
+              // );
             }
             return;
           }
 
           const cart = tryGetCartEventData(ev.target as Element);
           (cart || trackClicks) &&
-            push(
-              tracker,
+            tracker(
               cart
-                ? cast<CartUpdatedEvent>({
-                    type: "CART_UPDATED",
+                ? restrict<CartUpdatedEvent>({
+                    type: "cart_updated",
                     ...sharedEventProperties,
                     ...cart,
                   })
-                : cast<ComponentClickEvent>({
-                    type: "COMPONENT_CLICK",
+                : restrict<ComponentClickEvent>({
+                    type: "component_click",
                     ...sharedEventProperties,
                   })
             );
@@ -299,13 +387,5 @@ export const userInteraction: TrackerExtensionFactory = {
     onFrame(
       (frame) => frame.contentDocument && trackDocument(frame.contentDocument)
     );
-
-    return {
-      decorate(eventData) {
-        if (isViewEndedEvent(eventData)) {
-          pendingNavigationEvent(T);
-        }
-      },
-    };
   },
 };

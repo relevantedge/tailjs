@@ -1,4 +1,4 @@
-import type { Content, Rectangle } from "..";
+import type { Content, Rectangle } from ".";
 
 /**
  * The content definition related to a user activation.

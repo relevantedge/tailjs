@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-
 namespace TailJs.IO;
 
 [DebuggerDisplay("{Debug}")]
@@ -59,7 +58,7 @@ public record CharBuffer : IDisposable
 
   public void Reset()
   {
-    BufferPool<char>.Dispose(_buffer);
+    BufferPool<char>.Return(_buffer);
     _buffer = Array.Empty<char>();
 
     Length = 0;
@@ -71,7 +70,7 @@ public record CharBuffer : IDisposable
 
   public void Dispose()
   {
-    BufferPool<char>.Dispose(_buffer);
+    BufferPool<char>.Return(_buffer);
   }
 
   #endregion

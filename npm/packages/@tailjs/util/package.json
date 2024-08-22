@@ -1,17 +1,29 @@
 {
   "name": "@tailjs/util",
   "description": "Common utilities for all @tailjs packages.",
-  "license": "MIT",
-  "version": "0.17.24",
-  "main": "src/index.ts",
+  "license": "LGPL3",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "type": "module",
   "scripts": {
-    "build": "rollup --config ../../../build/rollup.mjs",
+    "check": "tsc --noEmit",
+    "build": "tsx ../../../build/rollup.ts",
     "build:watch": "pnpm run build -w"
   },
   "publishConfig": {
     "directory": "dist"
   },
-  "dependencies": {
-    "@ygoe/msgpack": "^1.0.3"
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
   }
 }

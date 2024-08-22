@@ -2,7 +2,7 @@
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "dom"],
+    "lib": ["ES2022", "dom", "DOM.Iterable"],
     "strictNullChecks": true,
     "noErrorTruncation": false,
     "preserveConstEnums": false

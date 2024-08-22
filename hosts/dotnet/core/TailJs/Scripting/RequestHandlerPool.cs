@@ -13,7 +13,7 @@ public partial class RequestHandlerPool : IRequestHandlerPool
 
   private long _nextHandler;
   private readonly Debounce _recycler;
-  private readonly ResourceLoader _resources;
+  private readonly ResourceManager _resources;
   private readonly IDisposable? _configurationChangeMonitor;
 
   public RequestHandlerPool(
@@ -59,9 +59,11 @@ public partial class RequestHandlerPool : IRequestHandlerPool
       if (File.Exists(resourcePath) || services != null)
       {
         providers.Add(
-          Path.IsPathRooted(resourcePath)
-            ? new PhysicalFileProvider(resourcePath)
-            : RewriteFileProvider.FromPrefix(resourcePath, services!.DefaultProvider)
+          MutableFileProvider.AsMutable(
+            Path.IsPathRooted(resourcePath)
+              ? new PhysicalFileProvider(resourcePath)
+              : RewriteFileProvider.FromPrefix(resourcePath, services!.DefaultProvider)
+          )
         );
       }
     }
@@ -91,7 +93,7 @@ public partial class RequestHandlerPool : IRequestHandlerPool
       }
     );
 
-    _resources = new ResourceLoader(
+    _resources = new ResourceManager(
       providers,
       async (path) =>
       {
@@ -110,7 +112,7 @@ public partial class RequestHandlerPool : IRequestHandlerPool
 
     ResetHandlers();
     _loggerFactory?.DefaultLogger.LogInformation(
-      $"tail-f request handler pool initialized with max concurrency {configuration.CurrentValue.InstanceCount}."
+      $"tail.js request handler pool initialized with max concurrency {configuration.CurrentValue.InstanceCount}."
     );
   }
 
@@ -119,17 +121,14 @@ public partial class RequestHandlerPool : IRequestHandlerPool
     var previous = _requestHandlers;
     _requestHandlers = Enumerable
       .Range(0, _configuration.CurrentValue.InstanceCount)
-      .Select(
-        _ =>
-          new PooledRequestHandler(
-            new RequestHandler(
-              Options.Create(_configuration.CurrentValue),
-              _resources,
-              _services?.Extensions ?? Array.Empty<ITrackerExtension>(),
-              _loggerFactory
-            )
-          )
-      )
+      .Select(_ => new PooledRequestHandler(
+        new RequestHandler(
+          Options.Create(_configuration.CurrentValue),
+          _resources,
+          _services?.Extensions ?? Array.Empty<ITrackerExtension>(),
+          _loggerFactory
+        )
+      ))
       .ToArray();
 
     if (previous != null)

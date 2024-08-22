@@ -3,7 +3,6 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
@@ -20,7 +19,7 @@ public class RequestHandler : IRequestHandler
 
   private readonly SemaphoreSlim _mutex = new(1);
 
-  private readonly ResourceLoader _resources;
+  private readonly ResourceManager _resources;
   private readonly ITrackerExtension[] _trackerExtensions;
   private readonly IScriptLoggerFactory? _loggerFactory;
 
@@ -31,7 +30,7 @@ public class RequestHandler : IRequestHandler
 
   public RequestHandler(
     IOptions<TrackerConfiguration> configuration,
-    ResourceLoader resources,
+    ResourceManager resources,
     ITrackerExtension[] trackerExtensions,
     IScriptLoggerFactory? loggerFactory
   )
@@ -47,13 +46,13 @@ public class RequestHandler : IRequestHandler
   internal ScriptObject Proxy =>
     _proxy ?? throw new InvalidOperationException("The proxy has not been initialized.");
 
-  public ITrackerEnvironment? Environment { get; private set; }
+  internal Uint8ArrayConverter Uint8ArrayConverter { get; private set; } = null!;
 
   private async ValueTask CheckInitialized(CancellationToken cancellationToken = default) =>
     await InitializeAsync(cancellationToken).ConfigureAwait(false);
 
   internal async Task PostEventsAsync(
-    Tracker tracker,
+    ITrackerHandle handle,
     string eventsJson,
     CancellationToken cancellationToken = default
   )
@@ -61,15 +60,10 @@ public class RequestHandler : IRequestHandler
     await CheckInitialized(cancellationToken).ConfigureAwait(false);
 
     await Proxy
-      .InvokeMethod("postEvents", tracker.ScriptHandle, eventsJson)
+      .InvokeMethod("postEvents", TryGetTrackerHandle(handle, true), eventsJson)
       .AwaitScript(cancellationToken: cancellationToken)
       .ConfigureAwait(false);
   }
-
-  internal IReadOnlyList<ClientResponseCookie> GetClientCookies(Tracker tracker) =>
-    CookieCollection.MapCookies(
-      tracker.RequestHandler.Proxy.InvokeMethod("getClientCookies", tracker.ScriptHandle)
-    );
 
   internal string ToJson(IScriptObject value) => (string)Proxy.InvokeMethod("stringify", value);
 
@@ -77,10 +71,23 @@ public class RequestHandler : IRequestHandler
 
   internal IScriptObject FromJson(string json) => (IScriptObject)Proxy.InvokeMethod("parse", json);
 
-  private static Tracker ConvertTracker(ITracker tracker) =>
-    tracker as Tracker ?? throw new ArgumentException("Unsupported implementation of ITracker.");
+  private static IScriptTrackerHandle? ValidateHandle(ITrackerHandle? handle, bool required) =>
+    handle == null
+      ? required
+        ? throw new ArgumentNullException(nameof(handle), "A valid tracker handle is required.")
+        : null
+      : handle as IScriptTrackerHandle
+        ?? throw new ArgumentException("Unsupported implementation of ITracker.");
+
+  private static IScriptObject? TryGetTrackerHandle(ITrackerHandle? handle, bool required = false) =>
+    ValidateHandle(handle, required)?.ScriptHandle;
+
+  private static Tracker? TryGetTracker(ITrackerHandle? handle, bool required = false) =>
+    ValidateHandle(handle, required)?.Resolved;
 
   #region IRequestHandler Members
+
+  public ITrackerEnvironment Environment { get; private set; } = null!;
 
   public void Dispose()
   {
@@ -88,26 +95,48 @@ public class RequestHandler : IRequestHandler
     {
       return;
     }
+
     _disposed.Cancel();
 
     foreach (var extension in _extensions)
     {
       extension.Dispose();
     }
+
     _engine?.Dispose();
     _disposed.Dispose();
   }
 
-  internal Uint8ArrayConverter Uint8ArrayConverter { get; private set; } = null!;
+  public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITrackerHandle? handle) =>
+    TryGetTracker(handle) is { } tracker
+      ? CookieCollection.MapCookies(
+        tracker.RequestHandler.Proxy.InvokeMethod("getClientCookies", tracker.ScriptHandle)
+      )
+      : Array.Empty<ClientResponseCookie>();
 
-  public IReadOnlyList<ClientResponseCookie> GetClientCookies(ITracker tracker) =>
-    GetClientCookies(ConvertTracker(tracker));
-
-  public string? GetClientScripts(ITracker tracker, string? nonce = null) =>
-    ConvertTracker(tracker) is { } scriptTracker
-      ? scriptTracker.RequestHandler.Proxy
-        .InvokeMethod("getClientScripts", scriptTracker.ScriptHandle, nonce)
-        .Get<string?>()
+  public async ValueTask<string?> GetClientScriptsAsync(
+    ITrackerHandle? tracker,
+    object? initialCommands = null,
+    string? nonce = null,
+    CancellationToken cancellationToken = default
+  ) =>
+    TryGetTrackerHandle(tracker) is { } scriptHandle
+      ? (
+        await Proxy
+          .InvokeMethod(
+            "getClientScripts",
+            scriptHandle,
+            new
+            {
+              initialCommands = initialCommands is string
+                ? initialCommands
+                : Environment.HttpEncode(JsonNodeConverter.Serialize(initialCommands)),
+              nonce
+            }
+          )
+          .AwaitScript(cancellationToken)
+          .ConfigureAwait(false)
+      ).GetScriptValue<string?>()
       : null;
 
   public async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
@@ -120,6 +149,7 @@ public class RequestHandler : IRequestHandler
         _loggerFactory?.DefaultLogger.LogInformation("Initializing script host...");
         _engine = new V8ScriptEngine();
         _engine.AccessContext = typeof(RequestHandler);
+
         _engine.DocumentSettings.AccessFlags = DocumentAccessFlags.EnableFileLoading;
         _engine.DocumentSettings.Loader = new ResourceDocumentLoader(_resources);
         Uint8ArrayConverter = new Uint8ArrayConverter(_engine);
@@ -137,27 +167,25 @@ public class RequestHandler : IRequestHandler
           .AppendLine(
             string.Join(
               "",
-              _configuration.ScriptExtensions.Select(
-                config =>
-                  $"import {{{config.Import}}} from {JsonSerializer.Serialize(config.Module ?? "js/engine.js")};"
+              _configuration.ScriptExtensions.Select(config =>
+                $"import {{{config.Import}}} from {JsonSerializer.Serialize(config.Module ?? "js/engine.js")};"
               )
             )
           )
           .AppendLine(
-            "async (host, endpoint, encryptionKeys, secure, debugScript, useSession, clientKeySeed, extensions) => {"
+            "async (host, endpoint, encryptionKeys, secure, debugScript, clientKeySeed, extensions, defaultConsent) => {"
           )
           .Append(
-            "const handler = bootstrap({host,endpoint,cookies: {secure}, debugScript, useSession, clientKeySeed, encryptionKeys: JSON.parse(encryptionKeys), extensions: ["
+            "const handler = bootstrap({host,endpoint,cookies: {secure}, debugScript, clientKeySeed, encryptionKeys: JSON.parse(encryptionKeys), defaultConsent: JSON.parse(defaultConsent), extensions: ["
           )
           .AppendLine(
             string.Join(
               ",",
-              _configuration.ScriptExtensions.Select(
-                config =>
-                  $"new {config.Import}({(config.Settings == null ? "" : JsonSerializer.Serialize<IConfiguration>(config.Settings, new JsonSerializerOptions
-                  {
-                    Converters = { ConfigurationJsonConverter.Instance },
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))})"
+              _configuration.ScriptExtensions.Select(config =>
+                $"new {config.Import}({(config.Settings == null ? "" : JsonSerializer.Serialize<IConfiguration>(config.Settings, new JsonSerializerOptions
+                {
+                  Converters = { ConfigurationJsonConverter.Instance },
+                  PropertyNamingPolicy = JsonNamingPolicy.CamelCase }))})"
               )
             )
           )
@@ -167,21 +195,23 @@ public class RequestHandler : IRequestHandler
         var bootstrap = (ScriptObject)
           _engine.Evaluate(new DocumentInfo() { Category = ModuleCategory.Standard }, script);
 
-        var requestHandler = (IScriptObject?)
+        var requestHandler = (IScriptObject)
           await bootstrap
             .Invoke(
               false,
               hostReference,
               _configuration.Endpoint,
-              JsonSerializer.Serialize(_configuration.CookieKeys),
+              JsonNodeConverter.Serialize(_configuration.CookieKeys),
               _configuration.Secure,
-              _configuration.ClientScript ?? (object)_configuration.Debug, //(_configuration.Debug ? "js/tail-f.debug.js" : "js/tail-f.js"),
-              _configuration.UseSession,
+              _configuration.ClientScript ?? (object)_configuration.Debug,
               _configuration.ClientKeySeed,
-              _trackerExtensions
+              _trackerExtensions,
+              JsonNodeConverter.Serialize(_configuration.DefaultConsent)
             )
             .AwaitScript(cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+            .ConfigureAwait(false)!;
+
+        requestHandler.Attach(this);
 
         _proxy = (ScriptObject)
           (
@@ -193,6 +223,7 @@ public class RequestHandler : IRequestHandler
               )
           ).Invoke(false, requestHandler, this);
 
+        var environmentHandle = (IScriptObject)requestHandler["environment"];
         Environment = new TrackerEnvironment(
           (ScriptObject)(
             (
@@ -203,10 +234,11 @@ public class RequestHandler : IRequestHandler
                     .ConfigureAwait(false)
                 )
               )
-            ).Invoke(false, requestHandler!["environment"])
+            ).Invoke(false, environmentHandle)
           ),
           _resources,
-          Uint8ArrayConverter
+          Uint8ArrayConverter,
+          environmentHandle
         );
 
         _initialized = true;
@@ -216,10 +248,10 @@ public class RequestHandler : IRequestHandler
   }
 
   Task IRequestHandler.PostEventsAsync(
-    ITracker tracker,
+    ITrackerHandle tracker,
     string eventsJson,
     CancellationToken cancellationToken
-  ) => PostEventsAsync(ConvertTracker(tracker), eventsJson, cancellationToken);
+  ) => PostEventsAsync(tracker, eventsJson, cancellationToken);
 
   public async ValueTask<TrackerContext?> ProcessRequestAsync(
     ClientRequest clientRequest,
@@ -231,7 +263,7 @@ public class RequestHandler : IRequestHandler
 
     if (
       await Proxy
-        .InvokeMethod("processRequest", clientRequest)
+        .InvokeMethod("processRequest", clientRequest.Attach(Uint8ArrayConverter))
         .AwaitScript(cancellationToken)
         .ConfigureAwait(false)
         is not IScriptObject proxyResponse
@@ -242,7 +274,7 @@ public class RequestHandler : IRequestHandler
     }
 
     return new TrackerContext(
-      new Tracker(this, tracker, Environment),
+      new ScriptTrackerHandle(tracker),
       proxyResponse["response"] is IScriptObject response
         ? new ClientResponse(
           (int)response["status"],
@@ -253,7 +285,7 @@ public class RequestHandler : IRequestHandler
             Undefined => null,
             _ => throw new InvalidOperationException("Unexpected content.")
           },
-          response["headers"].Enumerate().ToDictionary(kv => kv.Key, kv => (string)kv.Value!),
+          response["headers"].EnumerateScriptValues().ToDictionary(kv => kv.Key, kv => (string)kv.Value!),
           CookieCollection.MapCookies(response["cookies"]),
           response["cacheKey"] as string,
           response["error"] as string
@@ -270,9 +302,9 @@ public class RequestHandler : IRequestHandler
 
   private class ResourceDocumentLoader : DefaultDocumentLoader
   {
-    private readonly ResourceLoader _resources;
+    private readonly ResourceManager _resources;
 
-    public ResourceDocumentLoader(ResourceLoader resources)
+    public ResourceDocumentLoader(ResourceManager resources)
     {
       _resources = resources;
     }
@@ -285,7 +317,8 @@ public class RequestHandler : IRequestHandler
       DocumentContextCallback contextCallback
     )
     {
-      specifier = Regex.Replace(specifier, @"^@tail-f\/(?<Package>.*)", "js/${Package}.js");
+      specifier = Regex.Replace(specifier, @"^@tailjs\/(?<Package>.*)", "js/${Package}.js");
+
       if (specifier.StartsWith("js/"))
       {
         sourceInfo ??= new DocumentInfo(specifier);

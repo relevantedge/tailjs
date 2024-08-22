@@ -1,0 +1,14 @@
+{
+  "dotnet": {
+    "path": "../hosts/dotnet/core/TailJs/js",
+    "libs": [
+      "engine",
+      "maxmind",
+      "client",
+      "ravendb",
+      "types",
+      "json-schema",
+      "transport"
+    ]
+  }
+}

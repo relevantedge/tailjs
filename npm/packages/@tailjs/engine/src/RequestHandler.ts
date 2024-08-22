@@ -1,10 +1,33 @@
+import {
+  BUILD_REVISION_QUERY,
+  CLIENT_SCRIPT_QUERY,
+  CONTEXT_NAV_QUERY,
+  EVENT_HUB_QUERY,
+  INIT_SCRIPT_QUERY,
+  PLACEHOLDER_SCRIPT,
+  SCHEMA_QUERY,
+} from "@constants";
+
+import defaultSchema from "@tailjs/types/schema";
+
 import clientScripts from "@tailjs/client/script";
-import { isResetEvent, TrackedEvent } from "@tailjs/types";
-import queryString from "query-string";
-import { Lock } from "semaphore-async-await";
-import urlParse from "url-parse";
-import { CommerceExtension } from "./extensions";
-import { any, DefaultCryptoProvider, map, merge } from "./lib";
+import {
+  dataClassification,
+  DataPurpose,
+  DataPurposeFlags,
+  dataPurposes,
+  isPassiveEvent,
+  PostRequest,
+  PostResponse,
+  TrackedEvent,
+  UserConsent,
+  VariableScope,
+} from "@tailjs/types";
+
+import { SchemaManager } from "@tailjs/json-schema";
+
+import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
+import { DefaultCryptoProvider } from "./lib";
 
 import {
   CallbackResponse,
@@ -13,28 +36,66 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
-  EventParser,
+  InMemoryStorage,
   isValidationError,
   ParseResult,
+  ParsingVariableStorage,
   PostError,
   RequestHandlerConfiguration,
-  SessionEvents,
-  Timestamps,
+  TrackedEventBatch,
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
+  TrackerExtensionContext,
+  TrackerInitializationOptions,
   TrackerPostOptions,
+  TrackerServerConfiguration,
   ValidationError,
+  VariableStorageCoordinator,
 } from "./shared";
 
+import { TrackerClientConfiguration } from "@tailjs/client";
 import {
-  CONTEXT_MENU_COOKIE,
-  MUTEX_REQUEST_COOKIE,
-  MUTEX_RESPONSE_COOKIE,
-} from "@constants";
-import { TrackerConfiguration } from "@tailjs/client";
-import { from64u } from "@tailjs/util";
-import { generateClientConfigScript } from "./lib/clientConfigScript";
+  createTransport,
+  decodeUtf8,
+  defaultJsonTransport,
+  from64u,
+  httpEncode,
+} from "@tailjs/transport";
+import {
+  array,
+  createLock,
+  deferred,
+  DeferredAsync,
+  forEach,
+  forEachAsync,
+  isJsonObject,
+  isJsonString,
+  isPlainObject,
+  isString,
+  join,
+  JsonObject,
+  map,
+  match,
+  merge,
+  MINUTE,
+  obj,
+  parseQueryString,
+  parseUri,
+  PickRequired,
+  rank,
+  RecordType,
+  ReplaceProperties,
+  required,
+  some,
+  unwrap,
+} from "@tailjs/util";
+import { ClientIdGenerator, DefaultClientIdGenerator } from ".";
+import {
+  generateClientBootstrapScript,
+  generateClientExternalNavigationScript,
+} from "./lib";
+import { SignInEvent } from "packages/@tailjs/types/dist";
 
 const scripts = {
   main: {
@@ -45,138 +106,249 @@ const scripts = {
   debug: clientScripts.debug,
 };
 
-export let SCRIPT_CACHE_CONTROL: string = "private, max-age=604800"; // A week
+export const MAX_CACHE_HEADERS = {
+  "cache-control": "private, max-age=2147483648",
+} as const; // As long as possible (https://datatracker.ietf.org/doc/html/rfc9111#section-1.2.2).
 
-export type PostRequest = [
-  events: TrackedEvent[],
-  env?: [affinity?: any, discard?: boolean]
-];
+export let SCRIPT_CACHE_HEADERS = {
+  "cache-control": "private, max-age=604800",
+} as const; // A week
+
+export type ProcessRequestOptions = {
+  /**
+   * Any path is considered the main API route.
+   * This is useful when rewriting this route from a reverse proxy without having to change the tracker configuration.
+   */
+  matchAnyPath?: boolean;
+
+  /**
+   * The request comes from a trusted context (typically, server-side tracking).
+   */
+  trustedContext?: boolean;
+};
 
 export class RequestHandler {
-  private readonly _allowUnknownEventTypes: boolean;
   private readonly _cookies: CookieMonster;
-  private readonly _debugScript: boolean | string;
-  private readonly _endpoint: string;
-  private readonly _extensionFactories: (() => Promise<TrackerExtension>)[];
-  private readonly _lock = new Lock();
-  private readonly _parser: EventParser;
+  private readonly _extensionFactories: (() =>
+    | TrackerExtension
+    | Promise<TrackerExtension>)[];
+  private readonly _lock = createLock();
+  private readonly _schema: SchemaManager;
   private readonly _trackerName: string;
-  private readonly _useSession: boolean;
 
   private _extensions: TrackerExtension[];
   private _initialized = false;
-  private _script: null | string;
+  private _script: undefined | string | Uint8Array;
+
+  private readonly _clientConfig: TrackerClientConfiguration;
+  private readonly _config: RequestHandlerConfiguration;
+  private readonly _defaultConsent: UserConsent<true>;
+
+  public readonly instanceId: string;
 
   /** @internal */
   public readonly _cookieNames: {
-    optInIdentifiers: string;
-    essentialIdentifiers: string;
-    optInSession: string;
-    essentialSession: string;
+    consent: string;
+    session: string;
+
+    deviceByPurpose: Record<DataPurpose, string>;
+    device: string;
   };
+
+  public readonly endpoint: string;
   public readonly environment: TrackerEnvironment;
 
   /** @internal */
-  public _sessionTimeout: number;
-  private readonly _clientKeySeed: string;
-  private readonly _clientConfig: TrackerConfiguration;
+  public readonly _clientIdGenerator: ClientIdGenerator;
 
   constructor(config: RequestHandlerConfiguration) {
-    const {
+    let {
       trackerName,
       endpoint,
-      host,
       extensions,
-      parser,
-      crypto,
       cookies,
-      allowUnknownEventTypes,
-      debugScript,
-      useSession,
-      environmentTags,
-      manageConsents,
-      sessionTimeout,
-      clientKeySeed,
-      encryptionKeys,
       client,
-    } = merge({}, DEFAULT, config);
+      clientIdGenerator,
+      defaultConsent,
+    } = (config = merge({}, DEFAULT, config));
+
+    this._config = Object.freeze(config);
 
     this._trackerName = trackerName;
-    this._endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
-    this._extensionFactories = map(extensions);
+    this.endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
 
-    this._parser = parser;
-
-    this.environment = new TrackerEnvironment(
-      host,
-      crypto ?? new DefaultCryptoProvider(encryptionKeys),
-      parser,
-      manageConsents,
-      environmentTags
-    );
-
-    this._cookies = new CookieMonster(cookies);
-    this._allowUnknownEventTypes = allowUnknownEventTypes;
-    this._useSession = useSession;
-    this._debugScript = debugScript;
-
-    this._sessionTimeout = sessionTimeout;
-    this._cookieNames = {
-      optInIdentifiers: `${cookies.namePrefix}.id`,
-      essentialIdentifiers: `${cookies.namePrefix}.e.id`,
-      optInSession: `${cookies.namePrefix}.s`,
-      essentialSession: `${cookies.namePrefix}.e.s`,
+    this._defaultConsent = {
+      level: dataClassification(defaultConsent.level),
+      purposes: dataPurposes(defaultConsent.purposes),
     };
 
-    this._clientKeySeed = clientKeySeed;
-    this._clientConfig = client;
-    this._clientConfig.src = this._endpoint;
+    this._extensionFactories = map(extensions);
+
+    this._cookies = new CookieMonster(cookies);
+    this._clientIdGenerator =
+      clientIdGenerator ?? new DefaultClientIdGenerator();
+
+    this._cookieNames = {
+      consent: cookies.namePrefix + ".consent",
+      session: cookies.namePrefix + ".session",
+      device: cookies.namePrefix + ".device",
+      deviceByPurpose: obj(
+        dataPurposes.pure.map(
+          ([name, flag]) =>
+            [
+              flag,
+              cookies.namePrefix +
+                (flag === DataPurposeFlags.Necessary
+                  ? ""
+                  : "," + dataPurposes.format(name)),
+            ] as const
+        )
+      ),
+    };
+
+    this._clientConfig = Object.freeze({
+      ...client,
+      src: this.endpoint,
+      json: this._config.json,
+    });
   }
 
   public async applyExtensions(
     tracker: Tracker,
-    variables: Record<string, any> = {}
+    context: TrackerExtensionContext
   ) {
-    //console.log(`EXT.IN: ${++this._activeExtensionRequests}`);
     for (const extension of this._extensions) {
       // Call the apply method in post context to let extension do whatever they need before events are processed (e.g. initialize session).
       try {
-        await extension.apply?.(tracker, variables);
+        await extension.apply?.(tracker, context);
       } catch (e) {
         this._logExtensionError(extension, "apply", e);
       }
     }
   }
 
-  public getClientCookies(tracker: Tracker): ClientResponseCookie[] {
+  /** @internal */
+  public async _validateSignInEvent(tracker: Tracker, event: SignInEvent) {
+    if (tracker.trustedContext && !event.evidence) {
+      return true;
+    }
+
+    for (const extension of this._extensions) {
+      if (
+        extension.validateSignIn &&
+        (await extension.validateSignIn(tracker, event))
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * This method must be called once when all operations have finished on the tracker
+   * returned from {@link processRequest} outside the main API route to get the cookies
+   * for the response when the tracker has been used externally.
+   */
+  public async getClientCookies(
+    tracker: Tracker | undefined
+  ): Promise<ClientResponseCookie[]> {
+    if (!tracker) return [];
+
+    await tracker._persist(true);
     return this._cookies.mapResponseCookies(tracker.cookies as any);
   }
 
-  public getClientScripts(tracker: Tracker, nonce?: string) {
-    return this._getClientScripts(tracker, true, nonce);
+  public getClientScripts(
+    tracker: DeferredAsync<Tracker>,
+    { initialCommands, nonce }: { initialCommands?: any; nonce?: string } = {}
+  ) {
+    return this._getClientScripts(tracker, true, initialCommands, nonce);
   }
 
   public async initialize() {
     if (this._initialized) return;
-    await this._lock.acquire();
-    try {
+
+    await this._lock(async () => {
       if (this._initialized) return;
 
-      if (typeof this._debugScript === "string") {
-        this._script = await this.environment.readText(
-          this._debugScript,
-          async (_, newText) => {
-            const updated = await newText();
-            if (updated) {
-              this._script = updated;
-            }
-            return true;
-          }
-        );
+      let { host, crypto, environmentTags, encryptionKeys, schemas, storage } =
+        this._config;
+
+      schemas ??= [];
+
+      if (
+        !schemas.find(
+          (schema) => isPlainObject(schema) && schema.$id === "urn:tailjs:core"
+        )
+      ) {
+        schemas.unshift(defaultSchema);
       }
+
+      for (const [schema, i] of rank(schemas)) {
+        if (isString(schema)) {
+          schemas[i] = JSON.parse(
+            required(
+              await host.readText(schema),
+              () => `The schema path '${schema}' does not exists`
+            )
+          );
+        }
+      }
+
+      if (!storage) {
+        storage = {
+          default: {
+            storage: new InMemoryStorage({
+              [VariableScope.Session]:
+                (this._config.sessionTimeout ?? 30) * MINUTE,
+            }),
+            schema: "*",
+          },
+        };
+      }
+
+      (this as any)._schema = SchemaManager.create(schemas as JsonObject[]);
+
+      (this as any).environment = new TrackerEnvironment(
+        host,
+        crypto ?? new DefaultCryptoProvider(encryptionKeys),
+        new ParsingVariableStorage(
+          new VariableStorageCoordinator({
+            schema: this._schema,
+            mappings: storage,
+          })
+        ),
+        environmentTags
+      );
+
+      (this as any).instanceId = this.environment.nextId("request-handler-id");
+
+      if (this._config.debugScript) {
+        if (typeof this._config.debugScript === "string") {
+          this._script =
+            (await this.environment.readText(
+              this._config.debugScript,
+              async (_, newText) => {
+                const updated = await newText();
+                if (updated) {
+                  this._script = updated;
+                }
+                return true;
+              }
+            )) ?? undefined;
+        } else {
+          this._script =
+            (await this.environment.readText("js/tail.debug.map.js")) ??
+            scripts.debug;
+        }
+      }
+
+      await this.environment.storage.initialize?.(this.environment);
+
       this._extensions = [
         Timestamps,
-        this._useSession ? new SessionEvents() : null,
+        new TrackerCoreEvents(),
         new CommerceExtension(),
         ...(await Promise.all(
           this._extensionFactories.map(async (factory) => {
@@ -185,9 +357,10 @@ export class RequestHandler {
               extension = await factory();
               if (extension?.initialize) {
                 await extension.initialize?.(this.environment);
-                this.environment.log({
-                  data: `The extension ${extension.name} was initialized.`,
-                });
+                this.environment.log(
+                  extension,
+                  `The extension ${extension.id} was initialized.`
+                );
               }
               return extension;
             } catch (e) {
@@ -201,35 +374,39 @@ export class RequestHandler {
           })
         )),
       ].filter((item) => item != null) as TrackerExtension[];
+
       this._initialized = true;
-    } finally {
-      this._lock.release();
-    }
+    });
   }
 
   public async post(
     tracker: Tracker,
-    events: TrackedEvent[],
-    { routeToClient, affinity }: TrackerPostOptions
-  ): Promise<void> {
+    eventBatch: TrackedEventBatch,
+    options: TrackerPostOptions
+  ): Promise<PostResponse> {
+    const context = { passive: !!options?.passive };
+    let events = eventBatch;
     await this.initialize();
-    let parsed = this._parser.parseAndValidate(
-      events,
-      !this._allowUnknownEventTypes
-    );
+
+    const validateEvents = (events: ParseResult[]): ParseResult[] =>
+      map(events, (ev) =>
+        isValidationError(ev)
+          ? ev
+          : (this._config.allowUnknownEventTypes &&
+              !this._schema.getType(ev.type) &&
+              ev) ||
+            this._schema.patch(ev.type, ev, tracker.consent)
+      );
+
+    let parsed = validateEvents(eventBatch);
 
     const sourceIndices = new Map<{}, number>();
-    parsed = parsed.filter((item) =>
-      !isValidationError(item) && isResetEvent(item)
-        ? (tracker.purgeCookies(item.includeDevice), false)
-        : true
-    );
 
     parsed.forEach((item, i) => {
       sourceIndices.set(item, i);
     });
 
-    await tracker._applyExtensions(affinity);
+    await tracker._applyExtensions(options);
 
     const validationErrors: (ValidationError & { sourceIndex?: number })[] = [];
 
@@ -257,18 +434,18 @@ export class RequestHandler {
       results: ParseResult[]
     ): Promise<TrackedEvent[]> => {
       const extension = patchExtensions[index];
-      const events = collectValidationErrors(this._parser.validate(results));
+      const events = collectValidationErrors(validateEvents(results));
       if (!extension) return events;
       try {
         return collectValidationErrors(
-          this._parser.validate(
+          validateEvents(
             await extension.patch!(
+              events,
               async (events) => {
                 return await callPatch(index + 1, events);
               },
-              events,
               tracker,
-              this.environment
+              context
             )
           )
         );
@@ -277,51 +454,53 @@ export class RequestHandler {
         return events;
       }
     };
-    events = await callPatch(0, parsed);
+
+    eventBatch = await callPatch(0, parsed);
     const extensionErrors: Record<string, Error> = {};
-    if (routeToClient) {
+    if (options.routeToClient) {
+      // TODO: Find a way to push these. They are for external client-side trackers.
       tracker._clientEvents.push(...events);
     } else {
       await Promise.all(
         this._extensions.map(async (extension) => {
           try {
-            (await extension.post?.(events, tracker, this.environment)) ??
+            (await extension.post?.(eventBatch, tracker, context)) ??
               Promise.resolve();
           } catch (e) {
-            extensionErrors[extension.name] =
+            extensionErrors[extension.id] =
               e instanceof Error ? e : new Error(e?.toString());
           }
         })
       );
     }
 
-    if (validationErrors.length || any(extensionErrors)) {
+    if (validationErrors.length || some(extensionErrors)) {
       throw new PostError(validationErrors, extensionErrors);
     }
+
+    return {};
   }
 
-  public async processRequest({
-    method,
-    url,
-    headers: sourceHeaders,
-    payload,
-    clientIp,
-  }: ClientRequest): Promise<{
-    tracker: Tracker;
+  public async processRequest(
+    request: ClientRequest,
+    { matchAnyPath = false, trustedContext = false }: ProcessRequestOptions = {}
+  ): Promise<{
+    tracker: DeferredAsync<Tracker>;
     response: CallbackResponse | null;
   } | null> {
-    //const requestTimer = timer("Request").start();
+    if (!request.url) return null;
 
-    if (!url) return null;
-
+    let { method, url, headers: sourceHeaders, body, clientIp } = request;
     await this.initialize();
+    const { host, path, query } = parseUri(url);
 
-    const { host, pathname: path, query } = urlParse(url);
-    const parsedQuery = queryString.parse(query);
+    if (host == null && path == null) {
+      return null;
+    }
 
     const headers = Object.fromEntries(
-      Object.entries(sourceHeaders)
-        .filter(([k, v]) => !!v)
+      Object.entries((sourceHeaders ??= {}))
+        .filter(([, v]) => !!v)
         .map(
           ([k, v]) =>
             [k.toLowerCase(), Array.isArray(v) ? v.join(",") : v] as [
@@ -331,201 +510,229 @@ export class RequestHandler {
         )
     );
 
-    const tracker = new Tracker({
-      headers,
-      host,
-      path,
-      url,
-      queryString: Object.fromEntries(
-        Object.entries(parsedQuery ?? {}).map(([key, value]) => [
-          key,
-          !value
-            ? []
-            : Array.isArray(value)
-            ? value.map((value) => value || "")
-            : [value],
-        ])
-      ),
-      clientIp,
-      requestHandler: this,
-      cookies: this._cookies.parseCookieHeader(headers["cookie"]),
-      clientKeySeed: this._clientKeySeed,
+    let trackerInitializationOptions: TrackerInitializationOptions | undefined;
+
+    let trackerSettings = deferred(async () => {
+      clientIp ??=
+        headers["x-forwarded-for"]?.[0] ??
+        obj(parseQueryString(headers["forwarded"]))?.["for"] ??
+        undefined;
+
+      let clientEncryptionKey: string | undefined;
+      if (this._config.clientEncryptionKeySeed) {
+        !this._config.json &&
+          (clientEncryptionKey = await this._clientIdGenerator.generateClientId(
+            this.environment,
+            request,
+            true,
+            this._config.clientEncryptionKeySeed
+          ));
+      }
+
+      return {
+        headers,
+        host,
+        path,
+        url,
+        queryString: Object.fromEntries(
+          Object.entries(query ?? {}).map(([key, value]) => [
+            key,
+            !value
+              ? []
+              : Array.isArray(value)
+              ? value.map((value) => value || "")
+              : [value],
+          ])
+        ),
+        clientIp,
+        clientId: await this._clientIdGenerator.generateClientId(
+          this.environment,
+          request,
+          false,
+          this._config.clientEncryptionKeySeed || ""
+        ),
+        trustedContext,
+        requestHandler: this,
+        defaultConsent: this._defaultConsent,
+        cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
+        clientEncryptionKey,
+        transport: this._config.json
+          ? defaultJsonTransport
+          : createTransport(clientEncryptionKey),
+      } as PickRequired<TrackerServerConfiguration, "transport"> & {
+        clientEncryptionKey?: string;
+      };
     });
 
-    try {
-      let extensionRequestType: null | "post" | "usr" = null;
-      const result = (
-        response: Partial<CallbackResponse> | null,
-        discardTrackerCookies = false
-      ) => {
-        if (extensionRequestType) {
-          !discardTrackerCookies && tracker._persist();
+    /**
+     * Set trackerInit before calling this or this first time, if something is needed.
+     *
+     * The reason it is async is if a consuming API wants to use the tracker in its own code.
+     * The overhead of initializing the tracker should not be included if it doesn't, and no request was handled from the URL.
+     */
+    const resolveTracker = deferred(async () =>
+      new Tracker(await trackerSettings())._ensureInitialized(
+        trackerInitializationOptions
+      )
+    );
 
-          console.log(
-            tracker.httpClientDecrypt(
-              tracker.cookies[MUTEX_REQUEST_COOKIE]?.value
-            )
-          );
-          // tracker.cookies[MUTEX_RESPONSE_COOKIE] = {
-          //   httpOnly: false,
-          //   value: tracker.httpClientEncrypt([
-          //     [
-          //       tracker._clientState.affinity,
-          //       // Client request data is encoded per protocol definition.
-          //       tracker.httpClientDecrypt(
-          //         tracker.cookies[MUTEX_REQUEST_COOKIE]?.value
-          //       ),
-          //       response?.error?.toString(),
-          //       tracker._clientState.getChangedVariables(),
-          //     ],
-          //     0, // No expiration for the client storage
-          //   ]),
-          // };
-          // tracker.cookies[MUTEX_REQUEST_COOKIE] = {
-          //   httpOnly: false,
-          //   value: null,
-          // };
+    // This property can be read from external hosts to get the request handler both from an actual tracker and this handle.
+    (resolveTracker as any)._requestHandler = this;
+
+    const result = async (
+      response: Partial<
+        ReplaceProperties<
+          CallbackResponse,
+          { body: CallbackResponse["body"] | RecordType }
+        >
+      > | null,
+
+      {
+        /** Don't write any cookies, changed or not.
+         * In situations where we redirect or what we are doing might be interpreted as "link decoration"
+         * we don't want the browser to suddenly restrict the age of the user's cookies.
+         */
+        sendCookies = true,
+
+        /** Send the response as JSON */
+        json = false,
+      } = {}
+    ) => {
+      if (response) {
+        response.headers ??= {};
+        if (resolveTracker.resolved) {
+          const resolvedTracker = await resolveTracker();
+
+          if (sendCookies) {
+            response.cookies = await this.getClientCookies(resolvedTracker);
+          } else {
+            await resolvedTracker._persist(false);
+          }
         }
-        if (response) {
-          response.headers ??= {};
-          response.cookies = this.getClientCookies(tracker);
+
+        if (isPlainObject(response.body)) {
+          response.body =
+            response.headers?.["content-type"] === "application/json" ||
+            json ||
+            this._config.json
+              ? JSON.stringify(response.body)
+              : (await trackerSettings()).transport[0](response.body, true);
         }
 
-        //requestTimer.print("end");
+        if (isString(response.body) && !response.headers?.["content-type"]) {
+          // This is probably a lie, but we pretend everything is text to avoid preflight.
+          (response.headers ??= {})["content-type"] = "text/plain";
+        }
+      }
 
-        return {
-          tracker,
-          response: response as CallbackResponse,
-        };
+      return {
+        tracker: resolveTracker,
+        response: response as CallbackResponse,
       };
+    };
 
+    try {
       let requestPath = path;
 
-      if (requestPath.startsWith(this._endpoint)) {
-        //requestTimer.print("endpoint start");
+      if (requestPath === this.endpoint || (requestPath && matchAnyPath)) {
+        let queryValue: string | undefined;
 
-        requestPath = requestPath.substring(this._endpoint.length);
-
-        if ("init" in parsedQuery) {
-          // This is set by most modern browsers.
-          // It prevents external scripts to try to get a hold of the storage key via XHR.
-          const secDest = headers["sec-fetch-dest"];
-          if (secDest && secDest !== "script") {
-            return result({
-              status: 400,
-              body: "This script can only be loaded from a script tag.",
-              headers: {
-                "content-type": "text/plain",
-                "cache-control": SCRIPT_CACHE_CONTROL,
-                vary: "sec-fetch-dest",
-              },
-            });
-          }
-          return result({
-            status: 200,
-            body: generateClientConfigScript(tracker, {
-              ...this._clientConfig,
-              clientKey: tracker.clientKey,
-            }),
-            headers: {
-              "content-type": "application/javascript",
-              "cache-control": SCRIPT_CACHE_CONTROL,
-              vary: "sec-fetch-dest",
-            },
-          });
-        }
-
-        if ("usr" in parsedQuery) {
-          await tracker._initialize();
-          tracker.vars.test = {
-            essential: true,
-            scope: "session",
-            value: (parseInt(tracker.vars.test?.value as any) || 0) + 1,
-          };
-          tracker._persist();
-          console.log(
-            tracker.vars.test,
-            payload ? await payload() : "no payload"
-          );
-          //console.log(tracker.vars);
-          // This both responds to GET and POST.
-          // extensionRequestType = "usr";
-
-          // await new Promise((resolve) => {
-          //   setTimeout(() => resolve(null as any), 2000);
-          // });
-          return result({
-            status: 200,
-            body: "ok",
-            headers: {
-              "content-type": "text/plain",
-            },
-          });
-          // await tracker._applyExtensions(payload ? await payload() : null);
-          // return result({
-          //   status: 200,
-          //   body: JSON.stringify(this._getClientVariables(tracker)),
-          //   headers: {
-          //     "cache-control": "no-cache, no-store, must-revalidate",
-          //     "content-type": "application/json",
-          //     pragma: "no-cache",
-          //     expires: "0",
-          //   },
-          // });
-        }
         switch (method.toUpperCase()) {
           case "GET": {
-            if ("opt" in parsedQuery) {
+            if ((queryValue = join(query?.[INIT_SCRIPT_QUERY])) != null) {
+              // This is set by most modern browsers.
+              // It prevents external scripts to try to get a hold of the storage key via XHR.
+              const secDest = headers["sec-fetch-dest"];
+              if (secDest && secDest !== "script") {
+                // Crime! Deny in a non-helpful way.
+                return result({
+                  status: 400,
+                  headers: {
+                    ...SCRIPT_CACHE_HEADERS,
+                    vary: "sec-fetch-dest",
+                  },
+                });
+              }
+              const { clientEncryptionKey } = await trackerSettings();
               return result({
                 status: 200,
-                body: this._getClientScripts(tracker, false),
+                body: generateClientBootstrapScript(
+                  {
+                    ...this._clientConfig,
+                    src: matchAnyPath ? requestPath : this._clientConfig.src,
+                    encryptionKey: clientEncryptionKey,
+                  },
+                  true
+                ),
+                headers: {
+                  "content-type": "application/javascript",
+                  ...SCRIPT_CACHE_HEADERS,
+                  vary: "sec-fetch-dest",
+                },
+              });
+            }
+
+            if ((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])) != null) {
+              return result({
+                status: 200,
+                body: await this._getClientScripts(resolveTracker, false),
 
                 cacheKey: "external-script",
                 headers: {
-                  "cache-control": SCRIPT_CACHE_CONTROL,
                   "content-type": "application/javascript",
+                  ...SCRIPT_CACHE_HEADERS,
                 },
               });
             }
-            if ("mnt" in parsedQuery) {
-              const mnt = Array.isArray(parsedQuery["mnt"])
-                ? parsedQuery["mnt"].join("")
-                : parsedQuery["mnt"];
 
-              const contextMenuCookie =
-                tracker.cookies[CONTEXT_MENU_COOKIE]?.value;
+            if ((queryValue = join(query?.[CONTEXT_NAV_QUERY])) != null) {
+              // The user navigated via the context menu in their browser.
+              // If the user has an active session we respond with a small script, that will push the request ID
+              // that caused the navigation to the other browser tabs.
+              // If there is no session it means the user might have shared the link with someone else,
+              // and we must not set any cookies or do anything but redirect since it does not count as a visit to the site.
 
-              // Don't write any other cookies (that is, clear those we have).
-              // If for any reason this redirect is considered "link decoration" or similar
-              // we don't want the browser to store the rest of our cookies in a restrictive way.
-              (tracker.cookies as any) = {};
-              // This cookie is used to signal that external navigation happened from the "open in new tab" context menu.
-              // We do not want the server to echo this cookie.
+              trackerInitializationOptions = { passive: true };
 
-              if (contextMenuCookie) {
-                tracker.cookies[CONTEXT_MENU_COOKIE] = {
-                  essential: true,
-                  httpOnly: false,
-                  maxAge: 30,
-                  value: "" + (+contextMenuCookie + 1),
-                  sameSitePolicy: "Lax",
-                };
+              const [, requestId, targetUri] =
+                match(join(queryValue), /^([0-9]*)(.+)$/) ?? [];
+              if (!targetUri) return result({ status: 400 });
+
+              if (
+                !requestId ||
+                // We need to initialize the tracker to see if it has a session.
+                !(await resolveTracker())?.sessionId
+              ) {
+                return result(
+                  {
+                    status: 301, // Permanent redirect. Never invoke this code again.
+                    headers: {
+                      location: targetUri,
+                      ...MAX_CACHE_HEADERS,
+                    },
+                  },
+                  { sendCookies: false }
+                );
               }
-              return result({
-                status: 301,
-                headers: {
-                  location: mnt + "",
-                  "cache-control": "no-cache, no-store, must-revalidate",
-                  pragma: "no-cache",
-                  expires: "0",
-                },
-              });
-            }
 
-            if ("$types" in parsedQuery) {
               return result({
                 status: 200,
-                body: JSON.stringify(this._parser.events, null, 2),
+                body: generateClientExternalNavigationScript(
+                  requestId,
+                  targetUri
+                ),
+                headers: {
+                  "content-type": "text/html",
+                  ...SCRIPT_CACHE_HEADERS,
+                  vary: "sec-fetch-dest",
+                },
+              });
+            }
+
+            if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
+              return result({
+                status: 200,
+                body: this._schema.schema.definition,
                 headers: {
                   "content-type": "application/json",
                 },
@@ -533,29 +740,28 @@ export class RequestHandler {
               });
             }
 
+            // Default for GET is to send script.
+
             const scriptHeaders = {
               "content-type": "application/javascript",
-              "cache-control": SCRIPT_CACHE_CONTROL,
+              ...SCRIPT_CACHE_HEADERS,
             };
 
-            let script: string | Uint8Array | null = this._script;
+            // Check if we are using a debugging script.
+            let script = this._script;
             if (!script) {
-              if (this._debugScript) {
-                script = scripts.debug;
+              const accept =
+                headers["accept-encoding"]
+                  ?.split(",")
+                  .map((value) => value.toLowerCase().trim()) ?? [];
+              if (accept.includes("br")) {
+                script = scripts.main.br;
+                scriptHeaders["content-encoding"] = "br";
+              } else if (accept.includes("gzip")) {
+                script = scripts.main.gzip;
+                scriptHeaders["content-encoding"] = "gzip";
               } else {
-                const accept =
-                  tracker.headers["accept-encoding"]
-                    ?.split(",")
-                    .map((value) => value.toLowerCase().trim()) ?? [];
-                if (accept.includes("br")) {
-                  script = scripts.main.br;
-                  scriptHeaders["content-encoding"] = "br";
-                } else if (accept.includes("gzip")) {
-                  script = scripts.main.gzip;
-                  scriptHeaders["content-encoding"] = "gzip";
-                } else {
-                  script = scripts.main.text;
-                }
+                script = scripts.main.text;
               }
             }
             return result({
@@ -567,73 +773,137 @@ export class RequestHandler {
           }
 
           case "POST": {
-            const payloadString = payload ? await payload() : null;
+            if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
+              body = await unwrap(body);
 
-            if (payloadString == null || payloadString === "") {
-              return result({
-                status: 400,
-                body: "No data.",
-                headers: {
-                  "content-type": "text/plain",
-                },
-              });
-            }
-
-            const postRequest: PostRequest =
-              this.environment.httpDecode(payloadString);
-
-            try {
-              extensionRequestType = "post";
-              //requestTimer.print("post start");
-              await tracker.post(postRequest[0], {
-                affinity: postRequest[1]?.[0],
-              });
-              //requestTimer.print("post end");
-              return result({ status: 202 }, postRequest[1]?.[1]);
-            } catch (error) {
-              this.environment.log(
-                {
-                  group: "system/request-handler",
-                  source: "post",
-                },
-                error
-              );
-              if (error instanceof PostError) {
+              if (body == null || (!isJsonObject(body) && body.length === 0)) {
                 return result({
-                  status: Object.keys(error.extensions).length ? 500 : 400,
-                  body: error.message,
-                  headers: {
-                    "content-type": "text/plain",
-                  },
-                  error,
+                  status: 400,
+                  body: "No data.",
                 });
               }
-              throw error;
+
+              try {
+                let postRequest: PostRequest;
+                let json = false;
+                if (
+                  headers["content-type"] === "application/json" ||
+                  isJsonString(body) ||
+                  isJsonObject(body)
+                ) {
+                  if (!this._config.json && headers["sec-fetch-dest"]) {
+                    // Crime! Deny in a non-helpful way.
+                    return result({
+                      status: 400,
+                      headers: {
+                        ...SCRIPT_CACHE_HEADERS,
+                        vary: "sec-fetch-dest",
+                      },
+                    });
+                  }
+                  json = true;
+                  postRequest = isJsonObject(body)
+                    ? body
+                    : JSON.parse(decodeUtf8(body));
+                } else {
+                  const { transport: cipher } = await trackerSettings();
+                  postRequest = cipher[1](body)!;
+                }
+
+                if (!postRequest.events && !postRequest.variables) {
+                  return result({
+                    status: 400,
+                  });
+                }
+
+                trackerInitializationOptions = {
+                  deviceId: postRequest.deviceId,
+                  deviceSessionId: postRequest.deviceId,
+                };
+
+                const resolvedTracker = await resolveTracker();
+
+                const response: PostResponse = {};
+
+                if (postRequest.events) {
+                  // This returns a response that may have changed variables in it.
+                  // A mechanism for pushing changes without using cookies is still under development,
+                  // so this does nothing for the client atm.
+                  await resolvedTracker.post(postRequest.events, {
+                    passive: postRequest.events.every(isPassiveEvent),
+                    deviceSessionId: postRequest.deviceSessionId,
+                    deviceId: postRequest.deviceId,
+                  });
+                }
+
+                if (postRequest.variables) {
+                  if (postRequest.variables.get) {
+                    (response.variables ??= {}).get = await resolvedTracker.get(
+                      postRequest.variables.get,
+                      { client: true }
+                    ).all;
+                  }
+                  if (postRequest.variables.set) {
+                    (response.variables ??= {}).set = await resolvedTracker.set(
+                      postRequest.variables.set,
+                      { client: true }
+                    ).all;
+                  }
+                }
+
+                return result(
+                  response.variables
+                    ? {
+                        status: 200,
+                        body: response,
+                      }
+                    : { status: 204 },
+                  { json }
+                );
+              } catch (error) {
+                this.environment.log(
+                  {
+                    group: "system/request-handler",
+                    source: "post",
+                  },
+                  error
+                );
+                if (error instanceof PostError) {
+                  return result({
+                    status: Object.keys(error.extensions).length ? 500 : 400,
+                    body: error.message,
+                    error,
+                  });
+                }
+                throw error;
+              }
             }
           }
         }
 
         return result({
           status: 400,
-          body: `Bad request.`,
-          headers: {
-            "content-type": "text/plain",
-          },
+          body: "Bad request.",
         });
       }
     } catch (ex) {
-      console.error(ex.stack);
-      throw ex;
+      console.error("Unexpected error while processing request.", ex);
+      return result({
+        status: 500,
+        body: ex.toString(),
+      });
     }
 
-    return { tracker, response: null };
+    return { tracker: resolveTracker, response: null };
   }
 
-  private _getClientScripts(
-    tracker: Tracker,
+  private async _getClientScripts(
+    tracker: DeferredAsync<Tracker>,
     html: boolean,
-    nonce?: string
-  ): string | undefined {
+    initialCommands?: any,
+    nonce?: string,
+    endpoint?: string
+  ): Promise<string | undefined> {
     if (!this._initialized) {
       return undefined;
     }
@@ -643,51 +913,59 @@ export class RequestHandler {
 
     const trackerRef = this._trackerName;
     if (html) {
-      trackerScript.push(`window.${trackerRef}||(${trackerRef}=[]);`);
+      trackerScript.push(PLACEHOLDER_SCRIPT(trackerRef, true));
     }
 
     const inlineScripts: string[] = [trackerScript.join("")];
     const otherScripts: ClientScript[] = [];
 
-    this._extensions
-      .map((extension) =>
-        extension.getClientScripts?.(tracker, this.environment)
-      )
-      .flatMap((item) => item ?? [])
-      .forEach((script) => {
-        if ("inline" in script) {
-          // Prevent errors from preempting other scripts.
-          script.inline = wrapTryCatch(script.inline);
+    await forEachAsync(
+      this._extensions.map(
+        async (extension) =>
+          extension.getClientScripts && extension.getClientScripts(tracker)
+      ),
+      async (scripts) =>
+        forEach(array(await scripts), (script) => {
+          if ("inline" in script) {
+            // Prevent errors from preempting other scripts.
+            script.inline = wrapTryCatch(script.inline);
 
-          if (script.allowReorder !== false) {
-            inlineScripts.push(script.inline);
-            return;
+            if (script.allowReorder !== false) {
+              inlineScripts.push(script.inline);
+              return;
+            }
           }
-        }
-        otherScripts.push(script);
-      });
+        })
+    );
 
     if (html) {
-      const variables = this._getClientVariables(tracker);
+      const keyPrefix = this._clientConfig.key
+        ? JSON.stringify(this._clientConfig.key) + ","
+        : "";
 
-      if (Object.keys(variables).length) {
-        inlineScripts.push(
-          `${trackerRef}.push(${JSON.stringify({ set: variables })});`
-        );
+      if (tracker.resolved) {
+        const pendingEvents = tracker.resolved.clientEvents;
+        pendingEvents.length &&
+          inlineScripts.push(
+            `${trackerRef}(${keyPrefix}${pendingEvents
+              .map((event) =>
+                typeof event === "string" ? event : JSON.stringify(event)
+              )
+              .join(", ")});`
+          );
       }
-      const pendingEvents = tracker.clientEvents;
-      if (pendingEvents.length) {
+      if (initialCommands) {
         inlineScripts.push(
-          `${trackerRef}.push(${pendingEvents
-            .map((event) =>
-              typeof event === "string" ? event : JSON.stringify(event)
-            )
-            .join(", ")});`
+          `${trackerRef}(${keyPrefix}${
+            isString(initialCommands)
+              ? JSON.stringify(initialCommands)
+              : httpEncode(initialCommands)
+          });`
         );
       }
 
       otherScripts.push({
-        src: `${this._endpoint}${
+        src: `${endpoint ?? this.endpoint}${
           this._trackerName && this._trackerName !== DEFAULT.trackerName
             ? `#${this._trackerName}`
             : ""
@@ -706,9 +984,9 @@ export class RequestHandler {
             : script.inline;
         } else {
           return html
-            ? `<script src='${script.src}?init'${
-                script.defer !== false ? " defer" : ""
-              }></script>`
+            ? `<script src='${script.src}?${INIT_SCRIPT_QUERY}${
+                BUILD_REVISION_QUERY ? "&" + BUILD_REVISION_QUERY : ""
+              }'${script.defer !== false ? " defer" : ""}></script>`
             : `try{document.body.appendChild(Object.assign(document.createElement("script"),${JSON.stringify(
                 { src: script.src, async: script.defer }
               )}))}catch(e){console.error(e);}`;
@@ -719,24 +997,16 @@ export class RequestHandler {
     return js;
   }
 
-  private _getClientVariables(tracker: Tracker) {
-    return {
-      ...tracker.transient,
-      consent: tracker.consent,
-    };
-  }
-
   private _logExtensionError(
     extension: TrackerExtension | null,
     method: string,
     error: any
   ) {
-    this.environment.log(
-      {
-        group: "extensions",
-        source: extension ? `${extension.name}.${method}` : method,
-      },
-      error
-    );
+    this.environment.log(extension, {
+      level: "error",
+      message: `An error occurred when invoking the method '${method}' on an extension.`,
+      group: "extensions",
+      error,
+    });
   }
 }
