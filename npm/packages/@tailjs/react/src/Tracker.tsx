@@ -1,4 +1,9 @@
-import React, { Component, ComponentFactory, PropsWithChildren } from "react";
+import React, {
+  Component,
+  ComponentFactory,
+  FunctionComponent,
+  PropsWithChildren,
+} from "react";
 
 import {
   BoundaryData,
@@ -36,7 +41,7 @@ export type TrackerProperties = PropsWithChildren<{
   endpoint?: string;
   disabled?: boolean;
   exclude?: RegExp;
-  ignore?: (ComponentFactory<any, any> | Component)[];
+  ignore?: (FunctionComponent<any> | Component<any>)[];
   scriptTag?: boolean | JSX.Element | ((endpoint: string) => JSX.Element);
   embedBoundaryData?: boolean;
   parseOverride?: ParseOverrideFunction;
@@ -121,6 +126,7 @@ export const Tracker = ({
       <MapState
         context={tail}
         parse={parseOverride}
+        ignoreType={(type) => ignoreMap?.has(type)}
         mapState={(el, state: BoundaryDataWithView | null, context) => {
           let mapped = map?.(el, context);
 

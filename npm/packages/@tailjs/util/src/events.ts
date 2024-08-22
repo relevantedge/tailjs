@@ -153,12 +153,12 @@ export const createChainedEvent = <T = void, Args extends any[] = []>(): [
   const invoke = (node: Node | undefined, args: Args) => (
     (next = node?.[2]),
     node
-      ? node[1][0](
+      ? (node[1][0](
           ...args,
           (...nextArgs: Args) =>
             invoke(next!, nextArgs.length ? nextArgs : args),
           node[1][2][0]
-        )
+        ) as any)
       : undefined
   );
 

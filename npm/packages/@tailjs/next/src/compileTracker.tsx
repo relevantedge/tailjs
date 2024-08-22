@@ -84,10 +84,11 @@ export const compileTracker = (
           scriptTag:
             props.root !== false ? <ScriptTag src={endpoint} /> : false,
           embedBoundaryData: !clientSide,
+          ignore: [ConfiguredTracker, Client],
           children: props.children,
         }}
         parseOverride={(el, parse) => {
-          if (el.type === ConfiguredTracker) return el;
+          if (el.type === ConfiguredTracker || el.type === Client) return el;
 
           if (isClientRef(el)) {
             return <Client>{mapEl(el, parse)}</Client>;

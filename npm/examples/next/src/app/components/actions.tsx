@@ -3,9 +3,16 @@
 import { resolveTracker } from "../api/tailjs/route";
 
 export async function login(user: string) {
-  using tracker = await resolveTracker();
+  const tracker = await resolveTracker();
 
-  await tracker?.signIn({userId: user});
+  if (tracker) {
+    await tracker.post([{ type: "sign_in", userId: user }]);
 
-  return {success: true, sessionId: tracker?.sessionId};
+    return await tracker.json({
+      success: true,
+      sessionId: tracker?.sessionId,
+      user: tracker?.authenticatedUserId,
+    });
+  }
+  return { error: "Tracking is disabled." };
 }

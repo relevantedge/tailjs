@@ -128,6 +128,7 @@ export const getDistBundles = async ({
                       value && ((npmScripts ??= {})[key] = value)
                   );
 
+                pkgJson.version = getPackageVersion(pkg);
                 pkgJson.type = "module";
                 [
                   "devDependencies",
@@ -144,7 +145,9 @@ export const getDistBundles = async ({
                   (pkgJson.bin ??= {})[name] = dest;
                 });
 
-                Object.entries(pkgJson.dependencies ?? {}).forEach(
+                pkgJson.dependencies = { ...pkgJson.dependencies };
+
+                Object.entries(pkgJson.dependencies).forEach(
                   ([key, value]: [string, string]) =>
                     (pkgJson.dependencies[key] = value.replace(
                       /^workspace:(.*)/,
@@ -186,12 +189,14 @@ export const getDistBundles = async ({
                       ])
                     ),
                   },
-                  bin: Object.fromEntries(
-                    binScripts.map((item) => [
-                      item.name,
-                      root + item.dest + ".cjs",
-                    ])
-                  ),
+                  bin: binScripts.length
+                    ? Object.fromEntries(
+                        binScripts.map((item) => [
+                          item.name,
+                          root + item.dest + ".cjs",
+                        ])
+                      )
+                    : undefined,
                 });
 
                 Object.assign(pkgJson, getExports());

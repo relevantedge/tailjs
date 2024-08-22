@@ -2,7 +2,6 @@
   "name": "@tailjs/engine",
   "description": "tail.js server engine (@tailjs/server/external can be used directly from an external V8 engine without nodejs. This is how e.g. the .NET interop works).",
   "license": "LGPL3",
-  "version": "0.17.24",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -15,11 +14,11 @@
     "build:watch": "pnpm run build -w"
   },
   "dependencies": {
-    "@tailjs/client": "^0.17.24",
-    "@tailjs/json-schema": "^0.17.24",
-    "@tailjs/transport": "^0.17.24",
-    "@tailjs/types": "^0.17.24",
-    "@tailjs/util": "^0.17.24",
+    "@tailjs/client": "workspace:*",
+    "@tailjs/json-schema": "workspace:*",
+    "@tailjs/transport": "workspace:*",
+    "@tailjs/types": "workspace:*",
+    "@tailjs/util": "workspace:*",
     "short-unique-id": "^5.2.0",
     "url-parse": "^1.5.10"
   },
@@ -37,6 +36,5 @@
         "default": "./dist/index.cjs"
       }
     }
-  },
-  "bin": {}
+  }
 }

@@ -144,6 +144,8 @@ export class RequestHandler {
   private readonly _config: RequestHandlerConfiguration;
   private readonly _defaultConsent: UserConsent<true>;
 
+  public readonly instanceId: string;
+
   /** @internal */
   public readonly _cookieNames: {
     consent: string;
@@ -248,12 +250,12 @@ export class RequestHandler {
    * returned from {@link processRequest} outside the main API route to get the cookies
    * for the response when the tracker has been used externally.
    */
-  public getClientCookies(
+  public async getClientCookies(
     tracker: Tracker | undefined
-  ): ClientResponseCookie[] {
+  ): Promise<ClientResponseCookie[]> {
     if (!tracker) return [];
 
-    tracker._persist(true);
+    await tracker._persist(true);
     return this._cookies.mapResponseCookies(tracker.cookies as any);
   }
 
@@ -319,6 +321,8 @@ export class RequestHandler {
         ),
         environmentTags
       );
+
+      (this as any).instanceId = this.environment.nextId("request-handler-id");
 
       if (this._config.debugScript) {
         if (typeof this._config.debugScript === "string") {
@@ -600,7 +604,7 @@ export class RequestHandler {
           const resolvedTracker = await resolveTracker();
 
           if (sendCookies) {
-            response.cookies = this.getClientCookies(resolvedTracker);
+            response.cookies = await this.getClientCookies(resolvedTracker);
           } else {
             await resolvedTracker._persist(false);
           }

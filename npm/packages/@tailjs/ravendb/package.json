@@ -2,7 +2,6 @@
   "name": "@tailjs/ravendb",
   "description": "tail.js RavenDB backend.",
   "license": "LGPL3",
-  "version": "0.17.24",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -13,9 +12,9 @@
     "build:watch": "pnpm run build -w"
   },
   "dependencies": {
-    "@tailjs/engine": "^0.17.24",
-    "@tailjs/types": "^0.17.24",
-    "@tailjs/util": "^0.17.24",
+    "@tailjs/engine": "workspace:*",
+    "@tailjs/types": "workspace:*",
+    "@tailjs/util": "workspace:*",
     "ravendb": "^5.4.2",
     "semaphore-async-await": "^1.5.1"
   },
@@ -33,6 +32,5 @@
         "default": "./dist/index.cjs"
       }
     }
-  },
-  "bin": {}
+  }
 }

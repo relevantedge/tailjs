@@ -2,7 +2,6 @@
   "name": "@tailjs/maxmind",
   "description": "tail.js extension for client location based on MaxMind GeoIP.",
   "license": "LGPL3",
-  "version": "0.17.24",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -15,9 +14,9 @@
   },
   "dependencies": {
     "@maxmind/geoip2-node": "^3.5.0",
-    "@tailjs/engine": "^0.17.24",
-    "@tailjs/types": "^0.17.24",
-    "@tailjs/util": "^0.17.24",
+    "@tailjs/engine": "workspace:*",
+    "@tailjs/types": "workspace:*",
+    "@tailjs/util": "workspace:*",
     "@types/node": "^18.19.33",
     "maxmind": "^4.3.19",
     "memfs": "^3.5.3",
@@ -37,6 +36,5 @@
         "default": "./dist/index.cjs"
       }
     }
-  },
-  "bin": {}
+  }
 }

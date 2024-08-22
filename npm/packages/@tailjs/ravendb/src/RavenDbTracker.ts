@@ -5,14 +5,8 @@ import {
   TrackerEnvironment,
   TrackerExtension,
 } from "@tailjs/engine";
-import { Lock, Nullish, createLock, truish } from "@tailjs/util";
-
-export interface RavenDbSettings {
-  url: string;
-  database: string;
-  x509?: ({ cert: Uint8Array | string } | { certPath: string }) &
-    ({ key?: string } | { keyPath: string });
-}
+import { Lock, createLock } from "@tailjs/util";
+import { RavenDbSettings } from ".";
 
 /**
  * This extension stores events in RavenDB.

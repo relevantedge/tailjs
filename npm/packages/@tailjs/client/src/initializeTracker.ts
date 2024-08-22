@@ -150,7 +150,13 @@ export const initializeTracker = (
 
   let globalStateResolved = F;
 
+  let ready = false;
   tracker = ((...commands: (TrackerCommand | string)[]) => {
+    if (!ready) {
+      queuedCommands.push(...commands);
+      return;
+    }
+
     if (!commands.length) {
       return;
     }
@@ -351,11 +357,13 @@ export const initializeTracker = (
 
       unbind();
 
+      // Now we accept commands.
+      ready = true;
       tracker(
         ...map(defaultExtensions, (extension) => ({ extension })),
-        ...queuedCommands,
-        { set: { scope: "view", key: "loaded", value: true } }
+        ...queuedCommands
       );
+      tracker({ set: { scope: "view", key: "loaded", value: true } });
     }
   }, true);
 

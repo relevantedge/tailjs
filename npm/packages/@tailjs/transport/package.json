@@ -2,7 +2,6 @@
   "name": "@tailjs/transport",
   "description": "The wire format used by tail.js.",
   "license": "LGPL3",
-  "version": "0.17.24",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -16,7 +15,7 @@
     "directory": "dist"
   },
   "dependencies": {
-    "@tailjs/util": "^0.17.24",
+    "@tailjs/util": "workspace:*",
     "@ygoe/msgpack": "https://github.com/nielskuhnel/msgpack.js/tarball/feature/big-float-fix"
   },
   "exports": {
@@ -30,6 +29,5 @@
         "default": "./dist/index.cjs"
       }
     }
-  },
-  "bin": {}
+  }
 }

@@ -18,6 +18,7 @@ import {
   TailJsServerContext,
   TailJsRouteRequest,
 } from ".";
+import { deferred } from "@tailjs/util";
 
 let globalResolvers: TailJsMiddlewareConfigurationSource[] = [];
 let globalResolversSealed = false;
@@ -69,6 +70,7 @@ export const addTailJsConfiguration = (
   (replace ? (globalResolvers = []) : globalResolvers).push(configuration);
 };
 
+const FINAL_COOKIES = Symbol();
 export const createServerContext: {
   (
     settings?: TailJsMiddlewareConfigurationSource,
@@ -174,7 +176,21 @@ export const createServerContext: {
           }
         )) ?? {};
 
-      request[trackerSymbol] = tracker;
+      request[trackerSymbol] =
+        tracker &&
+        deferred(async () => {
+          const resolved = await tracker();
+          (resolved as any).dispose = async () => {
+            setCookies(
+              response,
+              await requestHandler!.getClientCookies(resolved)
+            );
+          };
+
+          Symbol.asyncDispose &&
+            (resolved[Symbol.asyncDispose] = () => (resolved as any).dispose());
+          return resolved;
+        });
 
       if (!resolveTracker && tailResponse) {
         response.statusCode = tailResponse.status;
@@ -194,15 +210,6 @@ export const createServerContext: {
         return;
       }
 
-      onHeaders(
-        response as any,
-        () =>
-          tracker?.resolved &&
-          setCookies(
-            response,
-            requestHandler!.getClientCookies(tracker.resolved)
-          )
-      );
       return await next?.();
     } catch (e) {
       if (resolveTracker) {
@@ -261,9 +268,6 @@ export const createServerContext: {
     );
 
     if (!resolveTracker) {
-      // Trigger the on-head listener.
-      responseWrapper.writeHead(responseWrapper.statusCode);
-
       return new Response(
         responseBody == null ? undefined : new Blob([responseBody]).stream(),
         {
@@ -280,34 +284,34 @@ export const createServerContext: {
     }
 
     const tracker = await requestWrapper[trackerSymbol]?.();
+    if (tracker && !tracker.getFinalCookies) {
+      // TODO: Maybe add an lock mechanism like "checkDisposed" internally in the tracker
+      // so it can reject further operations if disposed.
+      const dispose = (tracker.dispose = async () =>
+        (tracker[FINAL_COOKIES] ??= await requestHandler!.getClientCookies(
+          tracker
+        )));
 
-    const cookies = () => requestHandler!.getClientCookies(tracker);
+      tracker.getFinalCookies = async () => {
+        await dispose();
+        return tracker[FINAL_COOKIES];
+      };
 
-    const updateResponse = (response: Response) => {
-      for (const cookie of cookies()) {
-        response.headers.append("set-cookie", cookie.headerString);
-      }
-      return response;
-    };
+      tracker.json = async (payload: any) =>
+        tracker.writeTo(Response.json(payload));
 
-    // Wrapper around Response that adds the tracker headers.
-    const response = Object.assign(
-      (body?: BodyInit | null, init?: ResponseInit) =>
-        updateResponse(new Response(body, init)),
-      {
-        error: () => updateResponse(Response.error()),
-        json: (data: any, init?: ResponseInit) =>
-          updateResponse(Response.json(data, init)),
-        redirect: (url: string | URL, status?: number) =>
-          updateResponse(Response.redirect(url, status)),
-      }
-    );
-
-    if (tracker) {
-      tracker.updateResponse = updateResponse;
+      tracker.writeTo = async (response: Response) => {
+        for (const cookie of await tracker.getFinalCookies()) {
+          response.headers.append(
+            "set-cookie",
+            (cookie as ClientResponseCookie).headerString
+          );
+        }
+        return response;
+      };
     }
 
-    return (request[trackerSymbol] = [tracker, response, cookies]) as any;
+    return tracker;
   };
 
   const context: TailJsServerContext = {

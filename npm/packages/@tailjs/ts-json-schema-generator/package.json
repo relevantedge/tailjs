@@ -2,7 +2,6 @@
   "name": "@tailjs/ts-json-schema-generator",
   "description": "Extensions and patches for ts-json-schema-generator for providing the JSON schema structure tail.js wants.",
   "license": "LGPL3",
-  "version": "0.17.24",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -21,9 +20,9 @@
     "directory": "dist"
   },
   "dependencies": {
-    "@tailjs/util": "^0.17.24",
-    "@tailjs/types": "^0.17.24",
-    "@tailjs/json-schema": "^0.17.24"
+    "@tailjs/util": "workspace:*",
+    "@tailjs/types": "workspace:*",
+    "@tailjs/json-schema": "workspace:*"
   },
   "exports": {
     ".": {
@@ -36,6 +35,5 @@
         "default": "./dist/index.cjs"
       }
     }
-  },
-  "bin": {}
+  }
 }

@@ -2,17 +2,16 @@
   "name": "@tailjs/next",
   "description": "tail.js NextJS integration.",
   "license": "LGPL3",
-  "version": "0.17.24",
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
     "build:watch": "pnpm run build -w",
-    "postinstall": "npx tailjs-init-next --help"
+    "postinstall": "\"./node_modules/.bin/tailjs-init-next\""
   },
   "dependencies": {
-    "@tailjs/engine": "^0.17.24",
-    "@tailjs/node": "^0.17.24",
-    "@tailjs/react": "^0.17.24"
+    "@tailjs/engine": "workspace:*",
+    "@tailjs/node": "workspace:*",
+    "@tailjs/react": "workspace:*"
   },
   "devDependencies": {
     "@types/node": ">=18.19.33",

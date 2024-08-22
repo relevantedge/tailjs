@@ -1,5 +1,6 @@
 import { Tracker } from "@tailjs/engine";
 import {
+  DisposableTracker,
   TailJsMiddlewareConfiguration,
   TailJsRouteHandler,
   TrackerResolver,
@@ -10,7 +11,8 @@ import { headers, cookies } from "next/headers";
 
 // The import is required for d.ts generation to work(?!).
 import { NextApiHandler } from "next";
-import { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
+
+const WIRED = Symbol();
 
 export const createApi = (
   config:
@@ -23,11 +25,8 @@ export const createApi = (
   routeHandler: TailJsRouteHandler;
   resolveTracker: TrackerResolver &
     (() => Promise<
-      | (Tracker & {
-          /** When using the tracker from a server action, this method must be called before the result is returned. */
-          dispose(): void;
-
-          [Symbol.dispose](): void;
+      | (DisposableTracker & {
+          json<T = void>(payload?: T): Promise<T>;
         })
       | undefined
     >);
@@ -54,33 +53,38 @@ export const createApi = (
           return undefined;
         }
 
-        const [tracker, , trackerCookies] = await resolveTracker({
+        const tracker = await resolveTracker({
           url,
           method: "POST",
           headers: requestHeaders,
           body: null,
         });
 
-        if (tracker) {
-          const dispose = ((tracker as any).dispose = () => {
-            const responseCookies = cookies();
-            for (const cookie of trackerCookies()) {
-              if (!cookie.value) {
-                responseCookies.delete(cookie.name);
-              } else {
-                responseCookies.set({
-                  name: cookie.name,
-                  value: cookie.value,
-                  httpOnly: cookie.httpOnly,
-                  maxAge: cookie.maxAge,
-                  secure: cookie.secure,
-                  sameSite: cookie.sameSitePolicy?.toLowerCase() as any,
-                });
-              }
+        if (!tracker || tracker[WIRED]) return tracker;
+
+        (tracker as any).dispose = async () => {
+          const responseCookies = cookies();
+          for (const cookie of await tracker.getFinalCookies()) {
+            if (!cookie.value) {
+              responseCookies.delete(cookie.name);
+            } else {
+              responseCookies.set({
+                name: cookie.name,
+                value: cookie.value,
+                httpOnly: cookie.httpOnly,
+                maxAge: cookie.maxAge,
+                secure: cookie.secure,
+                sameSite: cookie.sameSitePolicy?.toLowerCase() as any,
+              });
             }
-          });
-          Symbol.dispose && (tracker[Symbol.dispose] = dispose);
-        }
+          }
+        };
+
+        (tracker as any).json = async (payload?: any) => {
+          await tracker.dispose();
+          return payload;
+        };
+
         return tracker as any;
       }
       return resolveTracker(req, res);

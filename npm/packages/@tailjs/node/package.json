@@ -2,7 +2,6 @@
   "name": "@tailjs/node",
   "description": "A node.js native engine host for tail.js.",
   "license": "LGPL3",
-  "version": "0.17.24",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -21,12 +20,12 @@
     "directory": "dist"
   },
   "dependencies": {
-    "@tailjs/client": "^0.17.24",
-    "@tailjs/engine": "^0.17.24",
-    "@tailjs/json-schema": "^0.17.24",
-    "@tailjs/transport": "^0.17.24",
-    "@tailjs/types": "^0.17.24",
-    "@tailjs/util": "^0.17.24",
+    "@tailjs/client": "workspace:*",
+    "@tailjs/engine": "workspace:*",
+    "@tailjs/json-schema": "workspace:*",
+    "@tailjs/transport": "workspace:*",
+    "@tailjs/types": "workspace:*",
+    "@tailjs/util": "workspace:*",
     "on-headers": "^1.0.2",
     "request-ip": "^3.3.0",
     "uuid": "^9.0.1"

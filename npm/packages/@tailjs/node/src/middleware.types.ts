@@ -62,6 +62,11 @@ export interface TailJsMiddlewareConfiguration
   resourcesPath?: string;
 }
 
+export interface DisposableTracker extends Tracker {
+  dispose(): Promise<void>;
+  [Symbol.asyncDispose](): Promise<void>;
+}
+
 export type TailJsMiddlewareConfigurationSource =
   | TailJsMiddlewareConfiguration
   | null
@@ -80,13 +85,14 @@ export type TrackerResolver = {
   (
     request: TailJsMiddlewareRequest,
     response: TailJsMiddlewareResponse
-  ): Promise<Tracker | undefined>;
+  ): Promise<DisposableTracker | undefined>;
   (request: TailJsRouteRequest): Promise<
-    [
-      tracker: Tracker | undefined,
-      response: typeof Response,
-      cookies: () => ClientResponseCookie[]
-    ]
+    | (DisposableTracker & {
+        writeTo<T extends Response>(response: T): Promise<T>;
+        json(payload: any): Promise<Response>;
+        getFinalCookies(): Promise<ClientResponseCookie[]>;
+      })
+    | undefined
   >;
 };
 

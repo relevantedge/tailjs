@@ -108,6 +108,7 @@ export class TrackerCoreEvents implements TrackerExtension {
             }
           : undefined,
       ]);
+
       sessionPatches = [];
       devicePatches = [];
     };
@@ -203,9 +204,7 @@ export class TrackerCoreEvents implements TrackerExtension {
         );
         devicePatches.push((data) => ++data.views);
       } else if (isSignInEvent(event)) {
-        const changed =
-          tracker.authenticatedUserId &&
-          tracker.authenticatedUserId != event.userId;
+        const changed = tracker.authenticatedUserId != event.userId;
 
         if (changed) {
           if (
@@ -221,9 +220,10 @@ export class TrackerCoreEvents implements TrackerExtension {
             };
           }
           event.session.userId = event.userId;
-          sessionPatches.push(
-            (data) => (data.userId = (event as SignInEvent).userId)
-          );
+
+          sessionPatches.push((data) => {
+            data.userId = (event as SignInEvent).userId;
+          });
         }
       } else if (isSignOutEvent(event)) {
         sessionPatches.push((data) => (data.userId = undefined));

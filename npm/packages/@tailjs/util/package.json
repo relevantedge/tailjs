@@ -2,7 +2,6 @@
   "name": "@tailjs/util",
   "description": "Common utilities for all @tailjs packages.",
   "license": "LGPL3",
-  "version": "0.17.24",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -26,6 +25,5 @@
         "default": "./dist/index.cjs"
       }
     }
-  },
-  "bin": {}
+  }
 }
