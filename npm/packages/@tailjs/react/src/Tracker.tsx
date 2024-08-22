@@ -1,13 +1,11 @@
 import React, { Component, ComponentFactory, PropsWithChildren } from "react";
 
 import {
-  BoundaryCommand,
   BoundaryData,
   Tracker as TrackerType,
   tail,
 } from "@tailjs/client/external";
 import { Content } from "@tailjs/types";
-import { get, map as mapItems, restrict } from "@tailjs/util";
 
 import {
   BUILD_REVISION_QUERY,
@@ -16,7 +14,7 @@ import {
 } from "@constants";
 import { MapState } from ".";
 import {
-  ConfiguredTrackerSettings,
+  ParseOverrideFunction,
   TraverseContext,
   filterCurrent,
   mergeStates,
@@ -32,25 +30,31 @@ export type BoundaryDataMapper = (
   context: JsxMappingContext
 ) => null | void | BoundaryDataWithView;
 
-export type TrackerProperties = PropsWithChildren<
-  {
-    map?: BoundaryDataMapper;
-    trackReactComponents?: boolean;
-    endpoint?: string;
-    disabled?: boolean;
-    exclude?: RegExp;
-    ignore?: (ComponentFactory<any, any> | Component)[];
-    scriptTag?: boolean | JSX.Element | ((endpoint: string) => JSX.Element);
-    embedBoundaryData?: boolean;
-  } & ConfiguredTrackerSettings
->;
+export type TrackerProperties = PropsWithChildren<{
+  map?: BoundaryDataMapper;
+  trackReactComponents?: boolean;
+  endpoint?: string;
+  disabled?: boolean;
+  exclude?: RegExp;
+  ignore?: (ComponentFactory<any, any> | Component)[];
+  scriptTag?: boolean | JSX.Element | ((endpoint: string) => JSX.Element);
+  embedBoundaryData?: boolean;
+  parseOverride?: ParseOverrideFunction;
+}>;
+
+const TrackerRendered = () => {
+  tail({ set: { scope: "view", key: "rendered", value: true } });
+  return null;
+};
 
 const BoundaryReferences = ({ references }: { references: () => any[] }) => {
   const components = references();
 
   return (
+    typeof window === "undefined" &&
     components.length > 0 && (
       <script
+        suppressHydrationWarning
         dangerouslySetInnerHTML={{
           __html: `${PLACEHOLDER_SCRIPT("tail", true)}tail(${JSON.stringify({
             scan: { attribute: "_t", components },
@@ -70,10 +74,8 @@ export const Tracker = ({
   exclude,
   ignore,
   scriptTag = true,
-  serverTracker,
-  clientTracker,
   embedBoundaryData = false,
-  clientComponentContext,
+  parseOverride,
 }: TrackerProperties) => {
   if (disabled) {
     return <>{children}</>;
@@ -81,10 +83,7 @@ export const Tracker = ({
   if (disabled) {
     tail({ disable: true });
   } else {
-    tail(
-      { disable: false },
-      { set: { scope: "view", key: "rendered", value: true } }
-    );
+    tail({ disable: false });
   }
 
   const ignoreMap = ignore ? new Set(ignore) : null;
@@ -121,9 +120,7 @@ export const Tracker = ({
     <>
       <MapState
         context={tail}
-        clientTracker={clientTracker}
-        serverTracker={serverTracker}
-        clientComponentContext={clientComponentContext}
+        parse={parseOverride}
         mapState={(el, state: BoundaryDataWithView | null, context) => {
           let mapped = map?.(el, context);
 
@@ -257,11 +254,15 @@ export const Tracker = ({
               parentState.tags)
           ) {
             if (embedBoundaryData) {
-              const [, index] = get(
-                collectedBoundaryReferences,
-                JSON.stringify(parentState),
-                () => [parentState, collectedBoundaryReferences!.size]
-              );
+              const key = JSON.stringify(parentState);
+              let current = collectedBoundaryReferences!.get(key);
+              !current &&
+                collectedBoundaryReferences!.set(
+                  key,
+                  (current = [parentState, collectedBoundaryReferences!.size])
+                );
+
+              const [, index] = current;
 
               return {
                 props: {
@@ -289,14 +290,17 @@ export const Tracker = ({
       >
         {children}
       </MapState>
-      {embedBoundaryData && (
+      {embedBoundaryData && typeof window === "undefined" && (
         <BoundaryReferences
           references={() =>
-            mapItems(collectedBoundaryReferences!, ([, [data]]) => data)
+            Object.entries(collectedBoundaryReferences!).map(
+              ([, [data]]) => data
+            )
           }
         />
       )}
       {scriptTag}
+      {!disabled && <TrackerRendered />}
     </>
   );
 };
@@ -308,16 +312,14 @@ function getRef({ component, content, area, tags, cart }: BoundaryData) {
     if (el === current) return;
     if ((current = el) != null) {
       if (component || content || area || tags || cart) {
-        tail(
-          restrict<BoundaryCommand>({
-            component,
-            content,
-            area,
-            tags,
-            cart,
-            boundary: current,
-          })
-        );
+        tail({
+          component,
+          content,
+          area,
+          tags,
+          cart,
+          boundary: current,
+        });
       }
     }
   };

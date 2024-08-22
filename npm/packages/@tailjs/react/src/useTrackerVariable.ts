@@ -1,12 +1,25 @@
 "use client";
-import { ClientVariableKey, GetCommand, tail } from "@tailjs/client/external";
+import {
+  ClientVariable,
+  ClientVariableKey,
+  GetCommand,
+  tail,
+} from "@tailjs/client/external";
 import { DataClassificationValue, DataPurposeValue } from "@tailjs/types";
 import { useRef, useState } from "react";
 
 export function useTrackerVariable<T = any>(
   key: ClientVariableKey,
   poll = true
-) {
+): [
+  value: ClientVariable<T> | undefined,
+  update: (
+    value: T | undefined,
+    classification?: DataClassificationValue,
+    purposes?: DataPurposeValue
+  ) => Promise<void>,
+  refresh: () => Promise<ClientVariable<T> | undefined>
+] {
   let [, notifyChanged] = useState<T>();
 
   const state = (useRef<
@@ -45,5 +58,13 @@ export function useTrackerVariable<T = any>(
       classification?: DataClassificationValue,
       purposes?: DataPurposeValue
     ) => tail({ set: { ...(key as any), value, classification, purposes } }),
+    () => {
+      let resolve: any;
+      const promise = new Promise<any>((r) => (resolve = r));
+      tail(<GetCommand>{
+        get: { ...key, refresh: true, result: (current) => resolve(current) },
+      });
+      return promise;
+    },
   ] as const;
 }

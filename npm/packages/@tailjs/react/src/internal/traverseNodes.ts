@@ -1,4 +1,5 @@
 import React, {
+  ExoticComponent,
   Fragment,
   FunctionComponent,
   PropsWithChildren,
@@ -9,7 +10,7 @@ import { Tracker } from "../Tracker";
 
 export let currentContext: TraverseContext | null = null;
 
-const CONTEXT_PROPERTY = Symbol(); //"__traverse_ctx";
+const CONTEXT_PROPERTY = Symbol();
 
 type Ref = (el: HTMLElement) => void;
 export type TraversableElement = JSX.Element & {
@@ -26,27 +27,13 @@ export type TraversableElement = JSX.Element & {
   clientTypeReference?: boolean;
 };
 
+export const LAZY_SYMBOL = React.lazy((() => {}) as any)?.["$$typeof"];
+
+export type TraverseResult = TraversableElement | ExoticComponent;
+
 export type ConfiguredTrackerComponent = FunctionComponent<
   PropsWithChildren<{ clientSide?: boolean; root?: boolean }>
 >;
-
-export type ConfiguredTrackerSettings = {
-  /**
-   * When using server components, functions cannot be passed to client components,
-   * so to track both you need to create your own component that wraps the tracker with your
-   * custom configuration like:
-   *
-   * ```
-   * "use client";
-   * export const ConfiguredTracker = ()=><Tracker map={...} />
-   * ```
-   */
-  clientTracker?: FunctionComponent<PropsWithChildren<{ root?: boolean }>>;
-
-  serverTracker?: FunctionComponent<PropsWithChildren>;
-
-  clientComponentContext?: boolean;
-};
 
 export type MapStateFunction<State = any, Context = any> = (
   el: TraversableElement,
@@ -71,10 +58,17 @@ export type ComponentRefreshedFunction<State = any, Context = any> = (
   context: Context
 ) => void;
 
+export type ParseOverrideFunction = (
+  el: TraversableElement,
+  traverse: (el: TraversableElement) => TraversableElement
+) => TraverseResult | void | false;
+
 export interface TraverseFunctions<T, C> {
   mapState: MapStateFunction<T, C>;
   patchProperties?: PatchPropertiesFunction<T, C>;
   componentRefreshed?: ComponentRefreshedFunction<T, C>;
+  /** Hook for custom parsing of certain elements if required. */
+  parse?: ParseOverrideFunction;
 }
 
 export interface TraverseOptions<T, Context>
@@ -84,8 +78,7 @@ export interface TraverseOptions<T, Context>
 }
 
 export interface TraverseContext<T = any, C = any, N = ReactNode>
-  extends TraverseFunctions<T, C>,
-    ConfiguredTrackerSettings {
+  extends TraverseFunctions<T, C> {
   state: T | null;
   node: N;
   parent: TraverseContext<T, C, TraversableElement> | null;
@@ -145,21 +138,10 @@ function getOrSet<K, V>(
   }
   return current;
 }
-const isClientSideComponent = (el: any) =>
-  isTypeStub(el.type) ||
-  (typeof el.type === "function" &&
-    !el.type.length &&
-    // NextJs likes this kind of functions on the server, to tell you when a component is a client thing.
-    // For example:
-    // `function(){throw Error("Attempted to call the default export of "+r+" from the server but it's on the client.
-    //  It's not possible to invoke a client function from the server, it can only be rendered as a Component or passed
-    //  to props of a Client Component.")}`
-
-    el.type.toString().match(/^(function)?[^0-9a-zA-Z]*throw Error/));
 
 const isTypeStub = (type: any) => {
   try {
-    type?.[nextJsProbe];
+    type?._payload?.then;
     return false;
   } catch (e) {
     return true;
@@ -268,16 +250,14 @@ function mergeProperties(target: any, source: any) {
 }
 
 const mapCache = new WeakMap<any, any>();
-const isInternal = (type: any, context: TraverseContext) =>
-  type &&
-  (type === Tracker ||
-    type === context.clientTracker ||
-    type === context.serverTracker);
-
 export function traverseNodesInternal<T, C>(
   node: ReactNode,
   context: TraverseContext<T, C>
 ) {
+  if ((node as any)?.type === Tracker) {
+    // Trackers do not traverse Trackers.
+    return node;
+  }
   // We do this caching because portals and similar may otherwise cause infinite loops
   let mapped = mapCache.get(node);
   if (mapped) {
@@ -296,39 +276,20 @@ export function traverseNodesInternal<T, C>(
     return node;
   }
 
-  mapped = inner(node);
-  !isInternal(mapped?.type, context) && mapCache.set(node, mapped);
+  mapCache.set(node, (mapped = inner(node)));
   return mapped;
 
-  function inner(el: TraversableElement) {
-    if (isInternal(el.type, context)) {
-      return el;
-    }
-
-    if (isClientSideComponent(el)) {
-      // Continue parsing the component in client scope.
-      if (context.clientTracker && !context.clientComponentContext) {
-        return React.createElement(context.clientTracker, {
-          children: el,
-          root: false,
-          key: el.key,
-        } as any);
+  function inner(el: TraversableElement): TraverseResult {
+    if (context.parse) {
+      const parsed = context.parse(el, (el) =>
+        traverseNodesInternal(el, context)
+      );
+      if (parsed) {
+        return parsed;
       }
-    } else if (context.serverTracker && context.clientComponentContext) {
-      // Go back to server side components.
-      return React.createElement(context.serverTracker, {
-        children: el,
-        root: false,
-        key: el.key,
-      } as any);
     }
 
-    if (isTypeStub(el.type)) {
-      el = { ...el, clientTypeReference: true };
-    }
-
-    if (el.type._payload) {
-      // This is how we detect lazy components.
+    if (el?.type?.$$typeof === LAZY_SYMBOL) {
       return React.lazy(async () => {
         let type = await el.type._payload;
         if (type.default) {
@@ -421,16 +382,13 @@ export function traverseNodesInternal<T, C>(
 
       default:
         if (el.props.value && isValidElement(el.props.value)) {
+          // A context provider may have an element as its value.
+          // If so, traverse it.
           el = {
             ...el,
             props: {
               ...el.props,
-              value:
-                context.clientComponentContext && context.serverTracker
-                  ? React.createElement(context.serverTracker!, {
-                      children: el.props.value,
-                    })
-                  : traverseNodes(el.props.value, context),
+              value: traverseNodes(el.props.value, context),
             },
           };
         }

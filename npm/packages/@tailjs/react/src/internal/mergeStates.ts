@@ -1,4 +1,3 @@
-import { array, concat } from "@tailjs/util";
 import type { BoundaryDataWithView } from "..";
 
 export const tryGet = <T, P extends keyof T>(
@@ -11,6 +10,17 @@ export const tryGet = <T, P extends keyof T>(
     return undefined;
   }
 };
+
+// Reduce bundle size by not referencing @tailjs/util and just having the two needed functions here.
+const array = (item: any) => (Array.isArray(item) ? item : [item]);
+const concat = (left: any, right: any) =>
+  left === right
+    ? left
+    : left == null
+    ? right
+    : right == null
+    ? right
+    : [...array(left), ...array(right)];
 
 export function filterCurrent<T>(
   current: T | readonly T[] | undefined | null,

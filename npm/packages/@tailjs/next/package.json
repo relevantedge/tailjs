@@ -7,7 +7,7 @@
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
     "build:watch": "pnpm run build -w",
-    "postinstall": "npx tailjs-configure-next"
+    "postinstall": "npx tailjs-init-next --help"
   },
   "dependencies": {
     "@tailjs/engine": "^0.17.24",

@@ -1,5 +1,5 @@
 import { dataPurposes, sortVariables } from "@tailjs/types";
-import { F, T, ansi, concat, count, map } from "@tailjs/util";
+import { F, T, ansi, concat, count, filter, map } from "@tailjs/util";
 import { addVariablesChangedListener, childGroups, debug } from ".";
 import { __DEBUG__ } from "@constants";
 import { formatAnyVariableScope } from "..";

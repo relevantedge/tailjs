@@ -1,4 +1,6 @@
+"use client";
 import React from "react";
+
 export const ClickIntentTest = () => {
   return (
     <div className="p-6">

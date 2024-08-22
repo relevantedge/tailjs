@@ -1,18 +1,13 @@
-import React, { PropsWithChildren } from "react";
+import { PropsWithChildren } from "react";
 
-import {
-  ConfiguredTrackerSettings,
-  TraverseFunctions,
-  traverseNodes,
-} from "./internal";
+import { TraverseFunctions, traverseNodes } from "./internal";
 
-export type MapStateProperties<State = any, Context = any> = PropsWithChildren<
-  TraverseFunctions<State, Context> &
-    ConfiguredTrackerSettings & {
-      context: Context;
-      clientComponentContext?: boolean;
-    }
->;
+export interface MapStateProperties<State = any, Context = any>
+  extends TraverseFunctions<State, Context>,
+    PropsWithChildren {
+  context: Context;
+  clientComponentContext?: boolean;
+}
 
 export const MapState = <State, Context>(
   props: MapStateProperties<State, Context>

@@ -21,9 +21,9 @@
     "directory": "dist"
   },
   "dependencies": {
-    "@tailjs/util": "workspace:*",
-    "@tailjs/types": "workspace:*",
-    "@tailjs/json-schema": "workspace:*"
+    "@tailjs/util": "^0.17.24",
+    "@tailjs/types": "^0.17.24",
+    "@tailjs/json-schema": "^0.17.24"
   },
   "exports": {
     ".": {
@@ -36,5 +36,6 @@
         "default": "./dist/index.cjs"
       }
     }
-  }
+  },
+  "bin": {}
 }

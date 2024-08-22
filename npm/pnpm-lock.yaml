@@ -22,7 +22,7 @@ importers:
       '@types/jest': ^29.5.12
       '@types/node': ^18.19.33
       '@types/targz': ^1.0.4
-      '@ygoe/msgpack': github:nielskuhnel/msgpack.js#feature/big-float-fix
+      '@ygoe/msgpack': https://github.com/nielskuhnel/msgpack.js/tarball/feature/big-float-fix
       as: ^0.4.1
       assert: ^2.1.0
       benchmark: ^2.1.4

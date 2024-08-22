@@ -1,4 +1,10 @@
-import type { BootstrapSettings, ClientRequest, Tracker } from "@tailjs/engine";
+import type {
+  BootstrapSettings,
+  ClientRequest,
+  ClientResponseCookie,
+  Cookie,
+  Tracker,
+} from "@tailjs/engine";
 import * as http from "http";
 
 type MaybePromise<T> = T | Promise<T>;
@@ -11,6 +17,11 @@ type MaybePromise<T> = T | Promise<T>;
 export interface TailJsMiddlewareRequest
   extends Pick<ClientRequest, "clientIp" | "body">,
     Pick<http.IncomingMessage, "url" | "method" | "headers"> {}
+
+export interface TailJsRouteRequest
+  extends Pick<Request, "url" | "method" | "headers" | "body"> {
+  ip?: string;
+}
 
 export interface TailJsMiddlewareResponse
   extends Pick<http.ServerResponse, "statusCode" | "getHeader" | "writeHead"> {
@@ -60,20 +71,29 @@ export type TailJsMiddlewareConfigurationSource =
   | Promise<TailJsMiddlewareConfigurationSource>
   | { default: TailJsMiddlewareConfigurationSource };
 
+export type TrackerFromRequest = Tracker & {
+  /** Adds the headers that reflects changes made with the tracker to the response. */
+  updateResponse<T extends Response>(response: T): T;
+};
+
 export type TrackerResolver = {
   (
     request: TailJsMiddlewareRequest,
     response: TailJsMiddlewareResponse
   ): Promise<Tracker | undefined>;
-  (request: Request): Promise<
-    (Tracker & { addHeaders<T extends Response>(response: T): T }) | undefined
+  (request: TailJsRouteRequest): Promise<
+    [
+      tracker: Tracker | undefined,
+      response: typeof Response,
+      cookies: () => ClientResponseCookie[]
+    ]
   >;
 };
 
 export interface TailJsServerContext {
   middleware: TailJsMiddleware;
   routeHandler: TailJsRouteHandler;
-  tracker: TrackerResolver;
+  resolveTracker: TrackerResolver;
 }
 
 export type TailJsMiddlewareConfigurationResolver = (

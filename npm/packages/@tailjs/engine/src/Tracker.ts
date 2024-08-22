@@ -66,6 +66,7 @@ import {
   VariableStorageContext,
   requestCookies,
 } from "./shared";
+import { SignInEvent } from "packages/@tailjs/types/dist";
 
 export interface TrackerServerConfiguration {
   disabled?: boolean;
@@ -89,6 +90,8 @@ export interface TrackerServerConfiguration {
   queryString: Record<string, string[]>;
   cookies?: Record<string, Cookie>;
   requestHandler: RequestHandler;
+
+  trustedContext?: boolean;
 }
 
 const enum ExtensionState {
@@ -215,6 +218,16 @@ export class Tracker {
   /** Transient variables that can be used by extensions whilst processing a request. */
   public readonly transient: Record<string, any>;
 
+  /**
+   * Whether the tracker has been instantiated in a trusted context.
+   * A trusted context is when the tracker's API is used for server-side tracker.
+   *
+   * Signing in without evidence is only possible in trusted contexts.
+   *
+   * Extensions may use this flag for additional functionality that is only available in server-side tracking context.
+   */
+  public readonly trustedContext: boolean;
+
   /** Variables that have been added or updated during the request (cf. {@link TrackerStorageContext.push}). */
   private readonly _changedVariables: PickPartial<
     VariableGetSuccessResult,
@@ -241,6 +254,7 @@ export class Tracker {
     transport: cipher,
     clientId,
     defaultConsent,
+    trustedContext,
   }: TrackerServerConfiguration) {
     this.disabled = disabled;
     this._requestHandler = requestHandler;
@@ -260,6 +274,8 @@ export class Tracker {
     this.clientIp = clientIp;
 
     this.referrer = this.headers["referer"] ?? null;
+
+    this.trustedContext = !!trustedContext;
 
     // Defaults to unencrypted transport if nothing is specified.
     this._clientCipher = cipher ?? defaultTransport;
@@ -407,6 +423,11 @@ export class Tracker {
     );
 
     return response;
+  }
+
+  public signIn(signIn: Omit<SignInEvent, "type">) {
+    (signIn as any).type = "sign_in";
+    return this.post([signIn as any]);
   }
 
   public async post(

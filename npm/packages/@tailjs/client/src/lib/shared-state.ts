@@ -124,7 +124,7 @@ export const tryGetVariable: {
   <K extends ClientVariableGetter>(key: K | GetterIntellisense[0]):
     | (ClientVariableResults<[K], true>[0] & StateVariableMetadata)
     | undefined;
-  <K extends string | Nullish>(key: K): MaybeUndefined<K, StateVariable>;
+  <K extends string | Nullish>(key: K): StateVariable | undefined;
 } = (key: any) => tabVariables[variableKeyToString(key)!] as any;
 
 export const setLocalVariables = (

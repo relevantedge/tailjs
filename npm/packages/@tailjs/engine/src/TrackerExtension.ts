@@ -1,6 +1,7 @@
 import type { TrackedEvent } from "@tailjs/types";
 import { DeferredAsync, MaybePromise } from "@tailjs/util";
 import type { ParseResult, Tracker, TrackerEnvironment } from "./shared";
+import { SignInEvent } from "packages/@tailjs/types/dist";
 
 export type NextPatchExtension = (
   events: ParseResult[]
@@ -57,6 +58,8 @@ export interface TrackerExtension {
   getClientScripts?(
     tracker: DeferredAsync<Tracker>
   ): ClientScript[] | undefined | null;
+
+  validateSignIn?(tracker: Tracker, event: SignInEvent): Promise<boolean>;
 }
 
 /**
