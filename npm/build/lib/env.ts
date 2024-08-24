@@ -6,6 +6,7 @@ import { getExternalTargets } from ".";
 export interface PackageEnvironment {
   path: string;
   name: string;
+  qualifiedName: string;
   workspace: string;
   config: Record<string, any>;
   externalTargets: string[];
@@ -30,6 +31,7 @@ export const env = async (): Promise<PackageEnvironment> => {
   return (resolvedEnv = {
     path: cwd,
     name,
+    qualifiedName: "@tailjs/" + name,
     workspace: (await findWorkspaceDir(process.cwd()))!,
     externalTargets: (await getExternalTargets())
       .filter((target) => target.libs[name] || target.libs["*"])

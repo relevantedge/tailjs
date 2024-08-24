@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { ConfiguredTracker } from "./api/tailjs/ConfiguredTracker";
+import { ConfiguredTracker } from "./api/tailjs/ConfiguredTracker.Server";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -19,7 +19,6 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ConfiguredTracker>{children}</ConfiguredTracker>
-        {/* {children} */}
       </body>
     </html>
   );

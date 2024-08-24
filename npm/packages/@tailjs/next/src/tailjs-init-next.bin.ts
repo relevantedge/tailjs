@@ -4,6 +4,7 @@ import path from "path";
 const reset = "\x1b[0m";
 const green = "\x1b[32;1m";
 const blue = "\x1b[34m";
+const blueBold = "\x1b[34;1m";
 const flash = "\x1b[37m";
 
 const format = (text: string, format = green) => format + text + reset;
@@ -23,7 +24,8 @@ if (process.argv.includes("--help")) {
   ) {
     console.log(
       format(
-        "tail.js: No NextJS config file found in the current directory, no action taken."
+        "tail.js: No NextJS config file found in the current directory, no action taken.",
+        blue
       )
     );
   } else {
@@ -34,11 +36,27 @@ if (process.argv.includes("--help")) {
     );
     const prefix = fs.existsSync("src") ? "./src/" : "./";
     const apiDir = prefix + "app/api/tailjs";
-    if (!fs.existsSync(apiDir)) {
-      fs.mkdirSync(apiDir, { recursive: true });
+    const componentDir = apiDir + "/components";
+
+    const useAt =
+      fs.existsSync("tsconfig.json") &&
+      fs.readFileSync("tsconfig.json").includes('"@/*":');
+
+    for (const dir of [apiDir, componentDir]) {
+      !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
     }
+
     const apiConfigFile = "./tailjs.api.config.ts";
     const clientConfigFile = "./tailjs.client.config.ts";
+    const routeHandler = apiDir + "/route.ts";
+    const componentIndex = componentDir + "/index.ts";
+    const clientComponent = componentDir + "/ConfiguredTracker.client.ts";
+    const serverComponent = componentDir + "/ConfiguredTracker.server.ts";
+
+    const getImportReference = (from: string, to: string) =>
+      useAt
+        ? "@/" + path.posix.relative(prefix, to).replace(".ts", "")
+        : path.posix.relative(from, to).replace(".ts", "");
 
     for (const [file, description, content] of [
       [
@@ -98,32 +116,37 @@ export default createClientConfiguration({
 `,
       ],
       [
-        apiDir + "/route.ts",
+        routeHandler,
         "API route handler",
-        `import api from "${path.posix
-          .relative(apiDir, apiConfigFile)
-          .slice(0, -3)}";
+        `import api from "${getImportReference(apiDir, apiConfigFile)}";
 
 export const { GET, POST } = api;`,
       ],
       [
-        apiDir + "/_client.ts",
-        "Boilerplate for the tracking component.",
+        clientComponent,
+        "Client tracker component",
         `"use client";
-import { ConfiguredTracker as _client_tracker } from "./ConfiguredTracker";
-export default _client_tracker;
+import { bakeTracker } from "@tailjs/next";
+import configuration from "${getImportReference(apiDir, clientConfigFile)}"
+
+export const ConfiguredClientTracker = bakeTracker(configuration);
 `,
       ],
       [
-        apiDir + "/ConfiguredTracker.ts",
-        "The tracking component",
-        `import { compileTracker } from "@tailjs/next";
-import client from "./_client";
-import configuration from "${path.posix
-          .relative(apiDir, clientConfigFile)
-          .slice(0, -3)}";
+        serverComponent,
+        "Server tracker component",
+        `import { bakeTracker } from "@tailjs/next";
+import {ConfiguredClientTracker} from "./ConfiguredTracker.client";
+import configuration from "${getImportReference(apiDir, clientConfigFile)}"
 
-export const ConfiguredTracker = compileTracker(configuration, () => client);
+export const ConfiguredTracker = bakeTracker(configuration, ConfiguredClientTracker);
+`,
+      ],
+      [
+        componentIndex,
+        "Component index file",
+        `export {ConfiguredClientTracker} from "./ConfiguredTracker.client";
+export {ConfiguredTracker} from "./ConfiguredTracker.server";
 `,
       ],
     ])
@@ -139,7 +162,8 @@ export const ConfiguredTracker = compileTracker(configuration, () => client);
           fs.writeFileSync(file, content, "utf-8");
           console.log(
             format(
-              `tail.js: ${description} ('${file}') was added to your project.\n`
+              `tail.js: ${description} ('${file}') was added to your project.\n`,
+              blueBold
             )
           );
         }
@@ -152,9 +176,12 @@ export const ConfiguredTracker = compileTracker(configuration, () => client);
 
     console.log(
       format(
-        `tail.js: Configuration and routing were added.\n\nPlease remember to wrap your layout or page content in the ConfiguredTracker component ('${
-          apiDir + "/ConfiguredTracker.ts"
-        }').`,
+        `tail.js: Configuration and routing were added.
+
+Please remember to wrap your root layout, or specific parts you want to track, in the <ConfiguredTracker> component (import from '${getImportReference(
+          ".",
+          componentDir
+        )}').`,
         flash
       )
     );

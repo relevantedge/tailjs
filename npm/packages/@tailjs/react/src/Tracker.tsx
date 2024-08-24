@@ -1,9 +1,4 @@
-import React, {
-  Component,
-  ComponentFactory,
-  FunctionComponent,
-  PropsWithChildren,
-} from "react";
+import React, { FunctionComponent, PropsWithChildren } from "react";
 
 import {
   BoundaryData,
@@ -17,11 +12,15 @@ import {
   INIT_SCRIPT_QUERY,
   PLACEHOLDER_SCRIPT,
 } from "@constants";
-import { MapState } from ".";
+import {
+  IncludeExcludeRules,
+  MapState,
+  compileIncludeExcludeRules,
+  concatRules,
+} from ".";
 import {
   ParseOverrideFunction,
   TraverseContext,
-  filterCurrent,
   mergeStates,
 } from "./internal";
 
@@ -33,17 +32,82 @@ export type JsxMappingContext = TraverseContext<BoundaryData, TrackerType>;
 export type BoundaryDataMapper = (
   element: JSX.Element,
   context: JsxMappingContext
-) => null | void | BoundaryDataWithView;
+) => null | false | void | BoundaryDataWithView;
 
 export type TrackerProperties = PropsWithChildren<{
-  map?: BoundaryDataMapper;
+  /**
+   * This function intercepts all React elements before they are rendered
+   * as a central and solid means for inferring CMS context based on properties or (React) component types.
+   */
+  map?: BoundaryDataMapper | BoundaryDataMapper[];
+
+  /**
+   * Whether the names of React components are included in the tracking context or not.
+   * This means you can track user behavior back to which React components that got clicked
+   * in the parts of your website where there are no explicitly defined context (e.g. content from a CMS).
+   */
   trackReactComponents?: boolean;
+
+  /**
+   * The URL for the tail.js request handler
+   */
   endpoint?: string;
+
+  /**
+   * Do not track. It may be easier to set this property than to add/remove the component.
+   */
   disabled?: boolean;
-  exclude?: RegExp;
-  ignore?: (FunctionComponent<any> | Component<any>)[];
+  /**
+   * Components who are explicitly mentioned here, or whose name/display name matches
+   * any of the rules will not be included for context in tracked events.
+   * (It will probably not help you much in analytics to know that someone clicked a button in the
+   * "MainContentRouterLayoutBoundaryManager3", right?).
+   *
+   * If stuff gets too complicated you can also specify a custom function that does whatever logic you need.
+   *
+   * @default [/(Router|Boundary|Handler)$/]
+   */
+  exclude?: IncludeExcludeRules;
+
+  /**
+   * Same as {@link exclude}, just the other way around. If something
+   * is included it will not be excluded, yet, if it is not included but also not excluded, it will get included.
+   *
+   * If both include and exclude are specified, these are the rules:
+   * ```
+   * Include + whatever = Include
+   * Not include + Exclude = Exclude
+   * Not include + Not Exclude = Include
+   * ```
+   *
+   */
+  include?: IncludeExcludeRules;
+
+  /**
+   * These components will not be parsed, so content, tags etc.
+   * will not be inferred in anything they render. This may be desireable
+   * for components with A LOT of children such as a data visualizations.
+   * (Or some twisted edge case this library does not support, hence break rendering 🤞).
+   */
+  stoppers?: IncludeExcludeRules;
+
+  /**
+   * The JSX for the script tag that will include the tracker script.
+   */
   scriptTag?: boolean | JSX.Element | ((endpoint: string) => JSX.Element);
-  embedBoundaryData?: boolean;
+
+  /**
+   * The collected tracking contexts will be embedded statically in the rendered HTML without the need for client-side hydration.
+   * Use this for static site generation (SSG).
+   *
+   * It defaults to `false` in normal React, and `true` in contexts that support server-side components.
+   */
+  ssg?: boolean;
+
+  /**
+   * Allows custom parsing of certain elements. A good example is the NextJs configuration
+   * for the tracker that supports client and server components.
+   */
   parseOverride?: ParseOverrideFunction;
 }>;
 
@@ -70,16 +134,20 @@ const BoundaryReferences = ({ references }: { references: () => any[] }) => {
   );
 };
 
+const forEach = <T,>(item: T, action: (item: T) => void) =>
+  item && (Array.isArray(item) ? item.forEach(action) : action(item));
+
 export const Tracker = ({
   children,
   map,
   trackReactComponents = true,
   disabled = false,
   endpoint,
+  include,
   exclude,
-  ignore,
+  stoppers,
   scriptTag = true,
-  embedBoundaryData = false,
+  ssg: embedBoundaryData = false,
   parseOverride,
 }: TrackerProperties) => {
   if (disabled) {
@@ -91,7 +159,14 @@ export const Tracker = ({
     tail({ disable: false });
   }
 
-  const ignoreMap = ignore ? new Set(ignore) : null;
+  const mappers = Array.isArray(map) ? map : map ? [map] : [];
+
+  exclude ??= [/(Router|Boundary|Handler)$/];
+  const excludeType = compileIncludeExcludeRules(include, exclude);
+  let stop = compileIncludeExcludeRules(
+    undefined,
+    concatRules([Tracker], stoppers)
+  );
 
   if (scriptTag !== false) {
     if (scriptTag === true) {
@@ -121,66 +196,74 @@ export const Tracker = ({
     | Map<any, [data: any, index: number]>
     | undefined = embedBoundaryData ? new Map() : undefined;
 
+  const seen = new Set<string>();
   return (
     <>
       <MapState
         context={tail}
         parse={parseOverride}
-        ignoreType={(type) => ignoreMap?.has(type)}
+        ignoreType={stop}
         mapState={(el, state: BoundaryDataWithView | null, context) => {
-          let mapped = map?.(el, context);
+          const mapped: BoundaryDataWithView[] = mappers
+            .map((mapper) => mapper(el, context))
+            .filter((item) => item) as any;
 
-          if (mapped?.component) {
-            mapped.component = filterCurrent(
-              context.state?.component,
-              mapped.component,
-              (item) => item.id
-            );
+          let allMapped: BoundaryDataWithView | undefined;
+          for (const prop of ["component", "content"]) {
+            seen.clear();
+            // Add the IDs we already have, lest we add them again.
+            forEach(context.state?.[prop], (cmp: any) => seen.add(cmp.id));
+
+            for (const item of mapped) {
+              forEach(
+                item[prop],
+                (item) =>
+                  !seen.has(item.id) &&
+                  (seen.add(item.id),
+                  ((allMapped ??= {})[prop] ??= []).push(item))
+              );
+            }
           }
 
-          if (mapped?.content) {
-            mapped.content = filterCurrent(
-              context.state?.content,
-              mapped.content,
-              (item) => item.id
-            );
-          }
-
-          if (mapped?.area) {
-            mapped.area = context.state?.area || mapped.area;
+          for (const item of mapped) {
+            if (item?.area) {
+              (allMapped ??= {}).area = item.area;
+            }
+            if (item?.view && !allMapped?.view) {
+              context.context({
+                set: {
+                  scope: "view",
+                  key: "view",
+                  value: ((allMapped ??= {}).view = item.view),
+                },
+              });
+            }
           }
 
           if (typeof el.type === "string") {
             // Ignore DOM elements unless explicitly told not to. We only want to wire the immediate children of JSX components.
-            return mapped ?? null;
-          }
-
-          if (mapped?.view) {
-            context.context({
-              set: { scope: "view", key: "view", value: mapped.view },
-            });
+            return allMapped ?? null;
           }
 
           if (
             trackReactComponents &&
-            (!mapped?.component as any) &&
+            (!allMapped?.component as any) &&
             el.type.name &&
-            (!exclude || !el.type.name.match(exclude))
+            !excludeType?.(el.type)
           ) {
-            mapped = {
-              ...mapped,
-              component: {
+            // If we do not have an explicit component, let's see if we can use one from React.
+            (allMapped ??= {}).component = [
+              {
                 id: el.type.displayName || el.type.name,
                 inferred: true,
                 source: "react",
               },
-            };
+            ];
           }
-
-          return mergeStates(state, mapped);
+          return mergeStates(state, allMapped);
         }}
         patchProperties={(el, parentState, currentState) => {
-          if (ignoreMap?.has(el.type)) {
+          if (stop?.(el.type)) {
             return false;
           }
 

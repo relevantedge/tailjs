@@ -150,7 +150,9 @@ export const getComponentContext = (
               stripRects(
                 {
                   ...item,
-                  content: collectedContent,
+                  content: collectedContent.length
+                    ? collectedContent
+                    : undefined,
                   rect,
                   ...tags,
                 },
