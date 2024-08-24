@@ -8,7 +8,9 @@
   "scripts": {
     "check": "tsc --noEmit",
     "build": "rimraf dist && tsx ../../../build/rollup.ts --preserve-modules",
-    "build:watch": "pnpm run build -w"
+    "build:watch": "pnpm run build -w",
+    "dist": "tsx ../../../build/publish.ts",
+    "dist:dry": "pnpm run dist --dry"
   },
   "dependencies": {
     "@tailjs/client": "workspace:*",

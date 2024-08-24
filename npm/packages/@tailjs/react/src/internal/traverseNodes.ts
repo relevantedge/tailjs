@@ -1,21 +1,20 @@
 import React, {
   ExoticComponent,
   Fragment,
-  FunctionComponent,
-  PropsWithChildren,
   ReactNode,
   isValidElement,
-  useEffect,
 } from "react";
-import { Tracker } from "../Tracker";
+import { ExcludeRule } from "../rules";
+
+export type Nullish = null | undefined | void;
 
 export let currentContext: TraverseContext | null = null;
 
 const CONTEXT_PROPERTY = Symbol();
 
-type Ref = (el: HTMLElement) => void;
+type RefFunction = (el: HTMLElement) => void;
 export type TraversableElement = JSX.Element & {
-  ref?: Ref;
+  ref?: RefFunction | { current: any };
   /**
    * Check this flag before accessing any other property than `name` and the elements `type` property if in server component context
    * (often the case if using NextJS).
@@ -28,13 +27,10 @@ export type TraversableElement = JSX.Element & {
   clientTypeReference?: boolean;
 };
 
-export const LAZY_SYMBOL = React.lazy((() => {}) as any)?.["$$typeof"];
+const isLazy = (type: any) => type._payload;
+const isForwardRef = (type: any) => type.render;
 
 export type TraverseResult = TraversableElement | ExoticComponent;
-
-export type ConfiguredTrackerComponent = FunctionComponent<
-  PropsWithChildren<{ clientSide?: boolean; root?: boolean }>
->;
 
 export type MapStateFunction<State = any, Context = any> = (
   el: TraversableElement,
@@ -48,7 +44,7 @@ export type PatchPropertiesFunction<State = any, Context = any> = (
   currentState: State | null,
   context: Context
 ) =>
-  | { ref?: Ref; props?: Record<string, any>; state?: State | null }
+  | { ref?: RefFunction; props?: Record<string, any>; state?: State | null }
   | void
   | false;
 
@@ -70,7 +66,7 @@ export interface TraverseFunctions<T, C> {
   componentRefreshed?: ComponentRefreshedFunction<T, C>;
   /** Hook for custom parsing of certain elements if required. */
   parse?: ParseOverrideFunction;
-  ignoreType?: (type: any) => boolean | void;
+  ignoreType?: ExcludeRule;
 }
 
 export interface TraverseOptions<T, Context>
@@ -118,14 +114,6 @@ export const traverseNodes = <T, C = undefined>(
   options: TraverseOptions<T, C>
 ) => traverseNodesInternal(node, createInitialContext(node, options));
 
-// This is the (seemingly) best way to detect context components in Preact since they are functional components
-// without any other obvious traits.
-// It is not an issue in React where they are `$$typeof: Symbol(react.provider)`,
-// that is, neither component classes nor functional components, and will then just get their children traversed.
-const frameworkComponents = /ErrorBoundary|Provider|Switch|[a-z_]*Context/gi;
-
-const wrapperTypeKind = Symbol("typeKind");
-
 const componentCache = new WeakMap<any, any>();
 function getOrSet<K, V>(
   map: { get: (key: K) => V | undefined; set: (key: K, value: V) => any },
@@ -139,135 +127,31 @@ function getOrSet<K, V>(
   return current;
 }
 
-function wrapType(
-  type: any,
-  context: TraverseContext
-): [kind: number, type: any] {
-  if (
-    context.ignoreType?.(type) ||
-    type === Tracker ||
-    (type.displayName || type.name)?.match(frameworkComponents)
-  ) {
-    return [2, type];
-  }
+const isTraversable = (el: any): el is TraversableElement =>
+  el && (Array.isArray(el) || isValidElement(el) || isLazy(el));
 
-  const wrappedTypeKind = type[wrapperTypeKind];
-  if (wrappedTypeKind != null) return [wrappedTypeKind, type];
-
-  let wrapper: any;
-  let typeKind = 2;
-  if (type.$$typeof === LAZY_SYMBOL) {
-    typeKind = 1;
-
-    wrapper = type;
-
-    type._payload.then(() => {
-      let resolvedType = type._payload.value;
-      const wrapped = wrapType(resolvedType, context)[1];
-      wrapped.default = wrapped;
-      // We need to do it this way. Returning a new React.lazy based on the current's payload
-      // results in some weird errors caused to double rendering.
-      // The specific lazy component must have some special meaning deep inside NextJs and React's stomachs.
-      type._payload.value = wrapped;
-    });
-  } else if (
-    (React.Component && type.prototype instanceof React.Component) ||
-    type.prototype?.render
-  ) {
-    typeKind = 0;
-
-    wrapper = getOrSet(
-      componentCache,
-      type,
-      () =>
-        class extends type {
-          render() {
-            return wrapRender(type, this.props, (props) => super.render(props));
-          }
-        }
-    );
-    mergeProperties(wrapper, type);
-  } else if (typeof type === "function") {
-    typeKind = 1;
-    wrapper = getOrSet(
-      componentCache,
-      type,
-      () => (props: any) => wrapRender(type, props, type.render ?? type)
-    );
-    mergeProperties(wrapper, type);
-  } else if (typeof type.render === "function") {
-    const wrapped = type.render;
-    wrapper = getOrSet(componentCache, type, () => ({
-      ...type,
-      render: (props: any, ref: any) =>
-        props[CONTEXT_PROPERTY]
-          ? traverseNodesInternal(wrapped(props, ref), props[CONTEXT_PROPERTY])
-          : wrapped(props, ref),
-    }));
-  }
-  if (wrapper) {
-    wrapper[wrapperTypeKind] = typeKind;
-
-    return [typeKind, wrapper];
-  }
-
-  return [2, type];
-}
-
-function wrapRender(type: any, props: any, inner: (props: any) => any) {
-  // Get context from the injected properties.
-  // Also, remove it before the props are passed to the wrapped component lest it gets confused by an extra, unexpected property.
-  let { [CONTEXT_PROPERTY]: context, ...rest } = props;
-  if (!context) {
-    return inner.call(type, rest);
-  }
-
-  if (context.state != null) {
-    context.componentRefreshed?.(type, context.state, rest, context.context);
-  }
-
-  let innerResult = inner.call(type, rest);
-
-  try {
-    currentContext = context;
-    return traverseNodesInternal(innerResult, context);
-  } catch (e) {
-    console.error("traverseNodesInternal failed: ", e);
-  } finally {
-    currentContext = null;
-  }
-}
-
-function isTraversable(el: ReactNode): el is TraversableElement {
-  return isValidElement(el);
-}
-
-function mergeProperties(target: any, source: any, overwrite = true) {
+function mergeProperties(target: any, source: any) {
   for (const [name, value] of Object.entries(
     Object.getOwnPropertyDescriptors(source)
   )) {
-    if (!overwrite && target[name]) return;
-
-    if (Object.getOwnPropertyDescriptor(target, name)?.configurable === false) {
+    if (Object.getOwnPropertyDescriptor(target, name)) {
       continue;
     }
     Object.defineProperty(target, name, { ...value, configurable: true });
   }
+  return target;
 }
 
 const mapCache = new WeakMap<any, any>();
 export function traverseNodesInternal<T, C>(
   node: ReactNode,
-  context: TraverseContext<T, C>
+  context: TraverseContext<T, C> | Nullish
 ) {
-  if (
-    (node as any)?.type === Tracker ||
-    !node ||
-    context.ignoreType?.((node as any)?.type)
-  ) {
+  if (!context || !isTraversable(node)) {
     // Trackers do not traverse Trackers.
     return node;
   }
+
   // We do this caching because portals and similar may otherwise cause infinite loops
   let mapped = mapCache.get(node);
   if (mapped) {
@@ -282,80 +166,94 @@ export function traverseNodesInternal<T, C>(
     return mapped;
   }
 
-  if (!isTraversable(node)) {
-    return node;
-  }
-
-  mapped = inner(node);
-  mapCache.set(node, mapped);
+  mapCache.set(node, (mapped = inner(node, context)));
 
   return mapped;
 
-  function inner(el: TraversableElement): TraverseResult {
-    if (context.parse) {
-      const parsed = context.parse(el, (el) =>
-        traverseNodesInternal(el, context)
+  function inner(
+    el: TraversableElement,
+    parentContext: TraverseContext
+  ): TraverseResult {
+    if (parentContext.ignoreType?.((node as any)?.type)) {
+      return el;
+    }
+
+    if (el.type === Fragment) {
+      // A group of elements. Traverse as if it was an array.
+      return {
+        ...el,
+        props: {
+          ...el.props,
+          children: traverseNodesInternal(el.props.children, parentContext),
+        },
+      };
+    }
+
+    if (parentContext.parse) {
+      // Check for parse overrides (e.g. child components in NextJs)
+      const parsed = parentContext.parse(el, (el) =>
+        traverseProps(el, parentContext)
       );
       if (parsed) {
         return parsed;
       }
     }
 
-    let currentState = context.mapState(el, context.state, context);
+    if (isLazy(el)) {
+      // A React.lazy is also valid as an element itself.
+      return traverseLazy(el, true, parentContext);
+    }
 
-    const component = typeof el.type === "function" ? el : context.component;
+    let state = parentContext.mapState(
+      // Make sure there are props, to allow destructuring without weird edge case undefined errors.
+      el.props ? el : { ...el, props: {} },
+      parentContext.state,
+      parentContext
+    );
 
-    const newContext: TraverseContext<T, C> = {
-      ...context,
-      state: currentState,
+    const component =
+      typeof el.type === "function" ? el : parentContext.component;
+
+    const childContext: TraverseContext<T, C> = {
+      ...parentContext,
+      state,
       node,
-      parent: context as any,
-      depth: context.depth + 1,
+      parent: parentContext as any,
+      depth: parentContext.depth + 1,
       component,
     };
 
-    if (el.type === Fragment) {
-      return {
-        ...el,
-        props: {
-          ...el.props,
-          children: traverseNodesInternal(el.props.children, newContext),
-        },
-      };
-    }
-
-    const patched = context.patchProperties?.(
+    const patched = parentContext.patchProperties?.(
       el,
-      context.state,
-      currentState,
-      context.context
+      parentContext.state,
+      state,
+      parentContext.context
     );
 
     if (patched === false) {
+      // Do not traverse the element further.
       return el;
     } else if (patched) {
       if (patched.state) {
-        newContext.state = patched.state;
+        childContext.state = patched.state;
       }
       if (patched.props || patched.ref) {
-        const [currentRef, patchedRef] = [el["ref"], patched.ref];
+        const currentRef = el.ref;
+        const patchedRef = patched.ref;
         el = {
           ...el,
-          props:
-            patched.props && patched.props !== el.props
-              ? patched.props
-              : el.props,
+          props: patched.props ?? el.props,
           ref: patchedRef
-            ? currentRef
+            ? currentRef // Combine the current and new refs
               ? typeof currentRef === "function"
                 ? (el) => (patchedRef(el), currentRef(el))
                 : ({
                     get current() {
-                      return (currentRef as any).current;
+                      return currentRef.current;
                     },
                     set current(el) {
                       patchedRef(el);
-                      (currentRef as any).current = el;
+                      currentRef.current = el;
                     },
                   } as any)
               : patchedRef
@@ -364,63 +262,155 @@ export function traverseNodesInternal<T, C>(
       }
     }
 
-    const [kind, type] = wrapType(el.type, context);
+    const wrapped = wrapType(el.type, parentContext);
 
-    switch (kind) {
-      case 0: // Class component
-      case 1: // Function component
-        return {
-          ...el,
-          props: { ...el.props, [CONTEXT_PROPERTY]: newContext },
-          type,
-        };
+    if (wrapped) {
+      return {
+        ...el,
+        props: { ...el.props, [CONTEXT_PROPERTY]: childContext },
+        type: wrapped,
+      };
+    }
 
-      default:
-        if (el.props.value && isValidElement(el.props.value)) {
-          // A context provider may have an element as its value.
-          // If so, traverse it.
-          el = {
-            ...el,
-            props: {
-              ...el.props,
-              value: traverseNodes(el.props.value, context),
-            },
-          };
-        }
-        const children = el.props?.children;
-        let memoProps: any;
+    return traverseProps(el, parentContext);
+  }
+}
 
-        let memoType = el.type?.type;
-        if (memoType) {
-          const [kind, type] = wrapType(memoType, context);
+const traverseLazy = (
+  lazy: any,
+  forElement: boolean,
+  context: TraverseContext
+) => {
+  // A lazy can both be used as a replacement for a type and an element.
+  // The latter case seems to be the only situation where react allows something that is not
+  // {type, props, ...} like.
+  return getOrSet(componentCache, lazy, () => {
+    const replaceValue = () => {
+      const value = lazy._payload.value;
+      if (forElement) {
+        lazy._payload.value = traverseNodesInternal(value, context);
+      } else if (!context.ignoreType?.(value)) {
+        lazy._payload.value =
+          wrapType(value, context) ??
+          (({ [CONTEXT_PROPERTY]: context }: any = {}) =>
+            traverseNodesInternal(value, context));
+      }
+    };
+    if (lazy._payload.status === "fulfilled") {
+      replaceValue();
+    } else {
+      lazy._payload.then(replaceValue);
+    }
 
-          if (kind <= 1) {
-            memoProps = {
-              type,
-              props: { ...el.props, [CONTEXT_PROPERTY]: newContext },
-            };
-          }
-        }
+    return lazy;
+  });
+};
 
-        return children
-          ? {
-              ...el,
-              ...memoProps,
-              props: {
-                ...el.props,
-                children:
-                  typeof children === "function"
-                    ? (...args: any) =>
-                        traverseNodesInternal(
-                          children.apply(el, args),
-                          newContext
-                        )
-                    : traverseNodesInternal(children, newContext),
-              },
+const IS_WRAPPED = Symbol();
+function wrapType(type: any, context: TraverseContext) {
+  if (!type || context.ignoreType?.(type)) {
+    return;
+  }
+
+  if (type[IS_WRAPPED]) {
+    return type;
+  }
+
+  const wrapped = inner();
+  if (wrapped) {
+    wrapped[IS_WRAPPED] = true;
+    return wrapped;
+  }
+
+  function inner() {
+    if (
+      (React.Component && type.prototype instanceof React.Component) ||
+      type.prototype?.render
+    ) {
+      return getOrSet(componentCache, type, () =>
+        mergeProperties(
+          class extends type {
+            render() {
+              return wrapRender(type, this.props, (props) =>
+                super.render(props)
+              );
             }
-          : memoProps
-          ? { ...el, ...memoProps }
-          : el;
+          },
+          type
+        )
+      );
+    } else if (typeof type === "function") {
+      return getOrSet(componentCache, type, () =>
+        mergeProperties((props: any) => wrapRender(type, props), type)
+      );
+    }
+    if (isLazy(type)) {
+      return traverseLazy(type, false, context);
+    } else if (type?.type) {
+      // Memo
+      return getOrSet(componentCache, type, () =>
+        mergeProperties({ type: wrapType(type.type, context) ?? type }, type)
+      );
+    } else if (isForwardRef(type)) {
+      // Forward ref.
+      return getOrSet(componentCache, type, () =>
+        React.forwardRef(
+          ({ [CONTEXT_PROPERTY]: context, ...props }: any = {}, ref: any) =>
+            traverseNodesInternal(type.render(props, ref), context)
+        )
+      );
     }
   }
 }
+
+function wrapRender(
+  type: any,
+  { [CONTEXT_PROPERTY]: context, ...props }: any = {},
+  inner: (props: any) => any = type
+) {
+  // Get context from the injected properties.
+  // Also, remove it before the props are passed to the wrapped component lest it gets confused by an extra, unexpected property.
+  if (!context) {
+    return inner.call(type, props);
+  }
+
+  if (context.state != null) {
+    context.componentRefreshed?.(type, context.state, props, context.context);
+  }
+
+  let innerResult = inner.call(type, props);
+
+  const render = (innerResult: any) => {
+    currentContext = context;
+
+    try {
+      return traverseNodesInternal(innerResult, context);
+    } catch (e) {
+      console.error("traverseNodesInternal failed: ", e);
+    } finally {
+      currentContext = null;
+    }
+  };
+
+  return innerResult?.then ? innerResult.then(render) : render(innerResult);
+}
+
+const traversePropValue = (value: any, context: TraverseContext) =>
+  isTraversable(value)
+    ? traverseNodesInternal(value, context)
+    : typeof value === "function"
+    ? (...args: any) => traversePropValue(value(...args), context)
+    : value;
+
+const traverseProps = (el: any, context: TraverseContext) =>
+  el.props
+    ? {
+        ...el,
+        props: Object.fromEntries(
+          Object.entries(el.props).map(([key, value]) => [
+            key,
+            traversePropValue(value, context),
+          ])
+        ),
+      }
+    : el;

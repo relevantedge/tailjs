@@ -22,7 +22,6 @@ import {
   now,
   parseQueryString,
   parseUri,
-  push,
   replace,
 } from "@tailjs/util";
 import { TrackerExtensionFactory, isChangeUserCommand } from "..";

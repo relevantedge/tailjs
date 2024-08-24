@@ -5,16 +5,20 @@ import { PackageEnvironment } from ".";
 
 export let parsedArgs: Record<string, string> | undefined;
 
-export const pack = async (pkg: PackageEnvironment) => {
-  const mapDir = (segments: string[], clear = false) => {
-    const p = path.join(...segments);
-    clear && fs.existsSync(p) && fs.rmSync(p, { recursive: true });
-    !fs.existsSync(p) && fs.mkdirSync(p);
-    return p;
-  };
+const mapDir = (segments: string[], clear = false) => {
+  const p = path.join(...segments);
+  clear && fs.existsSync(p) && fs.rmSync(p, { recursive: true });
+  !fs.existsSync(p) && fs.mkdirSync(p);
+  return p;
+};
 
-  const distRoot = mapDir([pkg.workspace, "dist"]);
-  const packDestination = mapDir([distRoot, "packed"]);
+export const getPublishRoot = (pkg: PackageEnvironment) => {
+  const root = mapDir([pkg.workspace, "dist"]);
+  return { root, packed: mapDir([root, "packed"]) } as const;
+};
+
+export const pack = async (pkg: PackageEnvironment) => {
+  const { root: distRoot, packed: packDestination } = getPublishRoot(pkg);
 
   const tgzFile = execSync(
     'npm pack --silent --pack-destination "' + packDestination + '"',
@@ -43,7 +47,7 @@ export const pack = async (pkg: PackageEnvironment) => {
   const hash = JSON.stringify(allPackages);
 
   allPackages.dependencies ??= {};
-  allPackages.dependencies["@tailjs/" + pkg.name] =
+  allPackages.dependencies[pkg.qualifiedName] =
     "file:" + path.join(packDestination, tgzFile);
 
   if (JSON.stringify(allPackages) !== hash) {

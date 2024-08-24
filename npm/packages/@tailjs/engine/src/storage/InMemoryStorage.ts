@@ -494,11 +494,6 @@ export class InMemoryStorage extends InMemoryStorageBase {
   protected _getTargetsInScope(
     scope: VariableScope
   ): Iterable<[string, ScopeVariables]> {
-    try {
-      return this._variables[scope] ?? [];
-    } catch (e) {
-      console.log("Nope", scope);
-      return [];
-    }
+    return this._variables[scope] ?? [];
   }
 }

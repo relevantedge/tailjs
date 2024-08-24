@@ -5,7 +5,9 @@
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
-    "build:watch": "pnpm run build -w"
+    "build:watch": "pnpm run build -w",
+    "dist": "tsx ../../../build/publish.ts",
+    "dist:dry": "pnpm run dist --dry"
   },
   "dependencies": {
     "@sitecore-jss/sitecore-jss": "^21.7.1",

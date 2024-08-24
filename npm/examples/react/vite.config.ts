@@ -22,7 +22,6 @@ const tailJsPlugin: Plugin = {
 
   async configureServer(server) {
     (await fg("node_modules/@tailjs/*/dist/**/*.mjs")).forEach((dep) => {
-      console.log(dep);
       return server.watcher.add(dep);
     });
 

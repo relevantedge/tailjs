@@ -5,7 +5,9 @@
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup-client.ts",
-    "build:watch": "pnpm run build -w"
+    "build:watch": "pnpm run build -w",
+    "dist": "tsx ../../../build/publish.ts",
+    "dist:dry": "pnpm run dist --dry"
   },
   "type": "module",
   "main": "./dist/index.cjs",
