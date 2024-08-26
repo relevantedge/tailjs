@@ -481,8 +481,20 @@ export const isAsyncIterable = (value: any): value is AsyncIterable<any> =>
 export const toIterable = <T>(value: T | Iterable<T>): Iterable<T> =>
   isIterable(value) ? value : [value];
 
+export const asMap: <T extends Iterable<readonly [any, any]> | Nullish>(
+  values: T
+) => T extends Iterable<readonly [infer Key, infer Value]>
+  ? Map<Key, Value>
+  : undefined = (values: any): any =>
+  values == null ? undefined : new Set(values);
+
 export const isMap = (value: any): value is Map<any, any> =>
   value instanceof Map;
+
+export const asSet: <T extends Iterable<any> | Nullish>(
+  values: T
+) => T extends Iterable<infer T> ? Set<T> : undefined = (values: any): any =>
+  values == null ? undefined : new Set(values);
 
 export const isSet = (value: any): value is Set<any> => value instanceof Set;
 

@@ -834,7 +834,7 @@ type KeyValueParts<T> = T extends readonly [infer Key, infer Value]
   ? [Key, Value]
   : [undefined, undefined];
 
-const fromEntries = Object.fromEntries;
+export const fromEntries = Object.fromEntries;
 
 /**
  * Like Object.fromEntries, but accepts any iterable source and a projection instead of just key/value pairs.

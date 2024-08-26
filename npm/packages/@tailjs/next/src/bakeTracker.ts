@@ -1,7 +1,7 @@
 import { Tracker } from "@tailjs/react";
 import Script from "next/script";
 import { createElement, FunctionComponent, PropsWithChildren } from "react";
-import { ClientConfiguration } from ".";
+import type { ClientConfiguration } from ".";
 
 const isClientRef = (el: any) =>
   (el as any)?.type?.$$typeof?.toString() === "Symbol(react.client.reference)";
@@ -36,9 +36,11 @@ export type ConfiguredTrackerComponent = FunctionComponent<
  */
 export const bakeTracker = (
   {
-    map,
-    endpoint = process.env.NEXT_PUBLIC_TAILJS_API || "/api/tailjs",
-    scriptTag: ScriptTag = Script,
+    tracker: {
+      map,
+      endpoint = process.env.NEXT_PUBLIC_TAILJS_API || "/api/tailjs",
+      scriptTag,
+    },
   }: ClientConfiguration,
   clientTracker?: ConfiguredTrackerComponent
 ): ConfiguredTrackerComponent => {
@@ -52,8 +54,8 @@ export const bakeTracker = (
       map,
       ssg: !clientSide,
       stoppers: [ConfiguredTracker, clientTracker],
-      scriptTag:
-        root !== false ? createElement(ScriptTag, { src: endpoint }) : false,
+      scriptTag: root ? scriptTag : false,
+      endpoint,
       parseOverride(el, traverse) {
         if (isClientRef(el)) {
           if (!clientTracker) {

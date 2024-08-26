@@ -251,8 +251,11 @@ export const createEnumAccessor = <
     ? { ...names, any, none: 0 }
     : names;
 
+  let allFlags = 0;
   const valueLookup = Object.fromEntries(
-    Object.entries(nameLookup).map(([key, value]) => [value, key])
+    Object.entries(nameLookup).map(
+      ([key, value]) => ((allFlags |= value), [value, key])
+    )
   );
 
   const parseValue = (value: any, validateNumbers?: boolean) =>

@@ -1,5 +1,13 @@
-import { EnumValue, Nullish, createEnumAccessor, isNumber } from "@tailjs/util";
-import { DataPurposeFlags, DataPurposeValue, dataPurposes } from ".";
+import {
+  EnumValue,
+  Nullish,
+  createEnumAccessor,
+  fromEntries,
+  isNumber,
+  quote,
+  throwError,
+} from "@tailjs/util";
+import { DataPurposeValue, dataPurposes } from ".";
 
 /**
  * Defines to which extend a piece of information relates to a natural person (user of your app or website).
@@ -9,67 +17,67 @@ import { DataPurposeFlags, DataPurposeValue, dataPurposes } from ".";
  * YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
  *
  */
-export enum DataClassification {
+export type DataClassification =
   /**
-   * The data cannot reasonably be linked to a specific user after the user leaves the website or app, and their session ends.
+   * The data cannot be linked to a specific individual after they leave the website or app, and their session ends.
    *
-   * Tail.js will collect this kind of data in a way that does not use cookies or rely on other information persisted in the user's device.
+   * This does NOT include seemingly anonymous data such as the hash of an IP address, since that may still be linked back
+   * to an individual using "additional information". As an example, if you want to test if a specific person visited a website at a given time
+   * and you know their IP address at that time by some other means, you can generate the same hash and see if it is there.
    *
-   * Identifying returning visitors will not be possible at this level.
-   * In-session personalization will be possible based on the actions a user has taken such as adding or removing things to a shopping basket, or reading an article.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
-   */
-  Anonymous = 0,
+   * Tail.js will collect this kind of data in a way that does not use cookies or other information persisted in the individual's device. */
+  | "anonymous"
 
   /**
-   * The data may possibly identify the user if put into context with other data, yet not specifically on its own.
+   * The data is unlikely to identify an individual by itself, but may link to a specific individual if combined with other data.
    *
-   * Examples of data you should classify as at least indirect personal data are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.
-   *
-   * Identifying returning visitors will be possible at this level of consent, but not across devices.
-   * Some level of personalization to returning visitors will be possible without knowing their specific preferences with certainty.
-   *
-   * This level is the default when a user has consented to necessary information being collected via a  cookie disclaimer or similar.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
+   * Examples are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.
    */
-  Indirect = 1,
+  | "indirect"
 
   /**
-   * The data directly identifies the user on its own.
+   * The data directly identifies a specific individual.
    *
-   * Examples are name, username, street address and email address.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * Personalization based on past actions such as purchases will also be possible.
-   *
-   * This level is the default should be considered the default level if users are offered an option to create a user profile or link an existing user profile from an external identity provider (Google, GitHub, Microsoft etc.).
-   *
-   * Please note it is possible to access user data even when nothing is tracked beyond the bla... level
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
+   * Examples are names, email addresses, user names, customer IDs from a CRM system or order numbers that can be linked
+   * to another system where the persons details are available.
    */
-  Direct = 2,
+  | "direct"
 
   /**
-   * Sensitive data about a user.
+   * Not only does the data identify a specific individual but may also reveal sensitive information about the user
+   * such as health data, financial matters, race, political and religious views, or union membership.
    *
-   * Examples are data related to health, financial matters, race, political and religious views, and union membership.
-   * If the user is given the option to consent at this level, it should be very clear, and you must make sure that all levels of your tail.js implementation and connected services meets the necessary levels of compliance for this in your infrastructure.
-   *
-   * Identifying returning visitors across devices will be possible at this level of consent.
-   * and so will advanced personalization.
-   *
-   * As always, YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with default settings.
+   * tail.js's default schema does not have any data with this classification. If you intend to capture sensitive data in your events
+   * you may consider pseudonomizing it by hashing it or obfuscating it by some other mechanism.
+   * Whether the data will then classify as "indirect" or still be "sensitive" depends on context, but it will arguably then be
+   * "less sensitive".
    */
-  Sensitive = 3,
-}
+  | "sensitive";
 
-export const dataClassification = createEnumAccessor(
-  DataClassification,
-  false,
-  "data classification"
+export const labels: readonly DataClassification[] = [
+  "anonymous",
+  "indirect",
+  "direct",
+  "sensitive",
+];
+
+const validClassifications = fromEntries(labels.map((key) => [key, key]));
+
+export const dataClassification: {
+  <T extends DataClassification | (string & {}) | Nullish>(
+    value: T
+  ): T extends Nullish ? undefined : DataClassification;
+
+  readonly labels: readonly DataClassification[];
+} = Object.assign(
+  (value: any) =>
+    value == null
+      ? undefined
+      : ((validClassifications[value] ??
+          throwError(
+            `The data classification '${quote(value)}' is not defined.`
+          )) as any),
+  { labels }
 );
 
 export type DataClassificationValue<Numeric = boolean> = EnumValue<
