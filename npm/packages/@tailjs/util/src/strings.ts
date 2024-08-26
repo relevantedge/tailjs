@@ -111,7 +111,7 @@ export const pluralize = <
     ? undefined!
     : n === 1
     ? singular
-    : plural ?? singular + "s";
+    : plural ?? (singular === "is" ? "are" : singular + "s");
 
 let ansiSupported = true;
 
@@ -249,8 +249,15 @@ export const snakeCase = <S extends string | Nullish>(
     ((prev ? prev + "-" : "") + p).toLowerCase()
   ) as any;
 
-export const quote = <T>(item: T, quoteChar = "'"): MaybeUndefined<T, string> =>
-  item == null ? (undefined as any) : quoteChar + item + quoteChar;
+export const quote = <T>(
+  item: T,
+  quoteChar = "'"
+): MaybeUndefined<T, T extends readonly any[] ? string[] : string> =>
+  item == null
+    ? (undefined as any)
+    : isArray(item)
+    ? map(item, (item) => quote(item, quoteChar))
+    : quoteChar + item + quoteChar;
 
 export const ellipsis = <T extends string | Nullish>(
   text: T,

@@ -173,7 +173,8 @@ export const Tracker = ({
       scriptTag = <script async></script>;
     }
     endpoint ??=
-      (typeof scriptTag === "function" ? "" : scriptTag.props.src) || "/_t.js";
+      (typeof scriptTag === "function" ? null : scriptTag.props.src) ||
+      "/_t.js";
 
     endpoint = [
       // Strip whatever querystring and hash that might be in the endpoint URI,
