@@ -14,18 +14,24 @@ import type {
  * The base type for all events that are tracked.
  *
  * The naming convention is:
- * - If the event represents something that can also be considered an entity like "a page view", "a user location" etc. the name should be a (deverbal) noun.
- * - If the event only indicates something that happened, like "session started", "view ended" etc. the name should be a verb in the past tense.
+ * - If the event represents something that can also be considered an entity like a "page view", "user location" etc. the name should be that.
+ * - If the event indicates something that happened, like "session started", "view ended" etc. the name should end with a verb in the past tense.
  *
  * @id urn:tailjs:core:event
- * @privacy censor-ignore anonymous necessary
+ * @privacy system
  */
 export interface TrackedEvent extends Tagged {
   /**
    * The type name of the event.
    *
-   * This MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered.
-   * */
+   * All concrete event types must override this property with a constant value, and it is an error to try
+   * to store an event without a constant type.
+   *
+   * Since this is a system property that is ignored during censoring per default,
+   * it automatically becomes anonymous and necessary in custom events without required properties unless the system
+   * annotation is explicitly repeated.
+   *
+   */
   type: string;
 
   /**

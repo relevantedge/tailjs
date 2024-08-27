@@ -1,5 +1,5 @@
 export * from "./consts";
-export * from "./classifications";
+export * from "./usage";
 
 export * from "./Schema";
 export * from "./primitives";

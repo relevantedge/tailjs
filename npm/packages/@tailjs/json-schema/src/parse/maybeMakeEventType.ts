@@ -34,6 +34,7 @@ export const maybeMakeEventType = (type: ParsedType) => {
         type,
         (type.composition = parseCompositions(eventSchema, type.context))
       );
+
       return true;
     }
   }

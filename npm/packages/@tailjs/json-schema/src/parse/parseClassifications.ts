@@ -1,74 +1,54 @@
-import {
-  DataClassification,
-  DataPurposeFlags,
-  dataClassification,
-  dataPurposes,
-} from "@tailjs/types";
-import { tryCatch } from "@tailjs/util";
-import { ParsedSchemaClassification, TraverseContext, parseError } from ".";
+import { LabelSet, throwError } from "@tailjs/util";
+import { TraverseContext } from ".";
 import {
   SchemaAnnotations,
+  SchemaClassificationLabel,
   getPrivacyAnnotations,
-  parsePrivacyTokens,
+  schemaDataUsage,
 } from "..";
 
-export const parseClassifications = (
-  context: Partial<TraverseContext>
-): Partial<ParsedSchemaClassification> => {
+export const parseSchemaUsage = (context: Partial<TraverseContext>) => {
   const node = context.node;
 
-  const classification: Partial<ParsedSchemaClassification> = {};
-
-  if (node[SchemaAnnotations.Censor] != null) {
-    classification.censorIgnore = node[SchemaAnnotations.Censor] === "ignore";
-  }
-
-  if (
-    (node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes]) !=
-    null
-  ) {
-    parseError(
-      context,
-      "x-privacy-purpose and x-privacy-purposes cannot be specified at the same time."
-    );
-  }
-
-  classification.classification = dataClassification.parse(
-    node[SchemaAnnotations.Classification]
-  );
-
-  classification.purposes = dataPurposes.parse(
-    node[SchemaAnnotations.Purpose] ?? node[SchemaAnnotations.Purposes]
-  );
+  const keywords: LabelSet<SchemaClassificationLabel>[] = [
+    node[SchemaAnnotations.System] && "system",
+    node[SchemaAnnotations.Purposes],
+    node[SchemaAnnotations.Classification],
+  ];
 
   if (node.description) {
-    const parsed = (node.description as string)
-      .replace(/@privacy (.+)/g, (_, keywords: string) => {
-        tryCatch(
-          () => parsePrivacyTokens(keywords, classification),
-          (err) => parseError(context, err)
-        );
+    node.description = (node.description as string)
+      .replace(/@privacy (.+)/g, (_, body: string) => {
+        keywords.push(...(body.split(/[,\s]+/) as any));
         return "";
       })
       .trim();
 
-    if (!parsed.length) {
+    if (!node.description.length) {
+      // Remove the description if it only had privacy annotations.
       delete node.description;
     }
-
-    Object.assign(node, getPrivacyAnnotations(classification));
   }
 
-  if ((classification.censorIgnore ??= context.censorIgnore)) {
-    classification.classification ??= DataClassification.Anonymous;
-    classification.purposes ??= DataPurposeFlags.Any;
+  const nodeClassification = schemaDataUsage(keywords);
+  if (
+    nodeClassification?.system &&
+    (nodeClassification.classification || nodeClassification.purposes)
+  ) {
+    throwError(
+      "The system annotation cannot be combined with data classification or purposes"
+    );
   }
 
-  return {
-    classification: classification.classification ?? context.classification,
-    purposes: classification.purposes ?? context.purposes,
-    censorIgnore: classification.censorIgnore ?? context.censorIgnore,
-    explicit:
-      (classification.classification ?? classification.purposes) != null,
-  };
+  nodeClassification &&
+    Object.assign(node, getPrivacyAnnotations(nodeClassification));
+
+  let classification = schemaDataUsage.merge(context.usage ?? {}, keywords);
+  if (classification !== context.usage) {
+    classification.explicit = true;
+  } else {
+    classification = { ...classification };
+  }
+
+  return classification;
 };

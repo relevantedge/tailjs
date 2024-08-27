@@ -1,10 +1,40 @@
 import {
   EnumValueOf,
   createEnumAccessor,
+  createEnumParser,
   createEnumPropertyParser,
+  createLabelParser,
 } from "../src";
 
 describe("enums.ts", () => {
+  it("supports labeled enum labels", () => {
+    const foo = createEnumParser("test", ["a", "b", "c"]);
+
+    expect(foo("a")).toBe("a");
+  });
+
+  it("supports labeled enum objects", () => {
+    type Foo = {
+      a?: boolean;
+      b?: boolean;
+    };
+
+    const foo = createLabelParser<Foo, keyof Foo, true>(
+      "test",
+      true,
+      {
+        a: (value) => (value.a = true),
+        b: (value) => (value.b = true),
+      },
+      (value) => [value.a && "a", value.b && "b"]
+    );
+
+    expect(() => foo("gg")).toThrow("not defined");
+
+    expect(foo("a")).toEqual({ a: true });
+    expect(foo.format({ a: true })).toEqual(["a"]);
+    expect(foo(["a", "b"])).toEqual({ a: true, b: true });
+  });
   it("applies to non-flag enums", () => {
     const helper = createEnumAccessor(
       { value1: 10, value2: 20 } as const,

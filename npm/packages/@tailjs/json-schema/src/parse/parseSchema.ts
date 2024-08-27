@@ -36,17 +36,6 @@ export const parseSchema = (schema: any, ajv: Ajv) => {
 
   updateBaseTypes(rootContext);
 
-  rootContext.parseContext.typeNodes.forEach((type) => {
-    maybeMakeEventType(type);
-    type.properties.forEach((property) => {
-      property.context.node[SchemaAnnotations.Classification] =
-        dataClassification.format(property.classification);
-      property.context.node[SchemaAnnotations.Purposes] = dataPurposes.format(
-        property.purposes
-      );
-    });
-  });
-
   return [
     rootContext.parseContext.schemas,
     rootContext.parseContext.types,

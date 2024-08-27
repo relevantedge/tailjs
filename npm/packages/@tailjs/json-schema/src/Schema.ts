@@ -1,32 +1,22 @@
 import {
-  DataClassificationValue,
-  DataPurposeValue,
-  ParsableConsent,
+  ConsentEvaluationContext,
   TrackedEvent,
   VariableScope,
 } from "@tailjs/types";
 import { ExpandTypes } from "@tailjs/util";
-
-export type ClassificationOrConsent =
-  | SchemaClassification
-  | { level: DataClassificationValue; purposes: DataPurposeValue };
-
-export interface SchemaClassification<NumericEnums extends boolean = boolean> {
-  classification: DataClassificationValue<NumericEnums>;
-  purposes: DataPurposeValue<NumericEnums>;
-  /** This classification is explicitly defined. */
-  explicit?: boolean;
-}
+import { SchemaDataUsage } from "./usage";
+import { UserConsent } from "packages/@tailjs/types/dist";
 
 export interface SchemaPropertyStructure {
   map?: boolean;
   array?: boolean | SchemaPropertyStructure;
 }
 
-export interface SchemaEntity extends SchemaClassification<true> {
+export interface SchemaEntity {
   id: string;
   title?: string;
   description?: string;
+  usage?: SchemaDataUsage;
 
   /**
    * Can be used to categorize types in documentation and limit variable queries.
@@ -52,8 +42,8 @@ export interface ValidatableSchemaEntity<T = any> extends SchemaEntity {
   /** Patches the data with the type ID, version and censors properties that would violate the consent. */
   patch: (
     value: T,
-    consent: ParsableConsent | undefined,
-    write: boolean,
+    consent: UserConsent | undefined,
+    context: ConsentEvaluationContext | undefined,
     addMetadata?: boolean
   ) => T | undefined;
 }

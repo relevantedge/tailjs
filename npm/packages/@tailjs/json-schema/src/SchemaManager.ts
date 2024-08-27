@@ -1,8 +1,9 @@
 import {
-  ParsableConsent,
   TrackedEvent,
   VariableScope,
   variableScope,
+  UserConsent,
+  ConsentEvaluationContext,
 } from "@tailjs/types";
 
 import {
@@ -144,8 +145,7 @@ export class SchemaManager {
         id: parsed.id,
         ...extractDescription(parsed),
 
-        classification: parsed.classification!,
-        purposes: parsed.purposes!,
+        usage: parsed.usage,
         types: new Map(),
         subSchemas: new Map(),
         definition: parsed.definition,
@@ -177,9 +177,7 @@ export class SchemaManager {
         id: parsedType.id,
         name: parsedType.name,
         ...extractDescription(parsedType),
-
-        classification: parsedType.classification!,
-        purposes: parsedType.purposes!,
+        usage: parsedType.usage,
         primitive: false,
         abstract: !!parsedType.abstract,
         schema: invariant(
@@ -189,7 +187,7 @@ export class SchemaManager {
 
         definition: parsedType.composition.node,
 
-        patch: (value, classification, write, addMetadata) =>
+        patch: (value, classification, context, addMetadata) =>
           patchValue(
             parsedType,
             value,
@@ -264,8 +262,8 @@ export class SchemaManager {
           name: parsedProperty.name,
           ...extractDescription(parsed),
 
-          classification: parsedProperty.classification,
-          purposes: parsedProperty.purposes,
+          usage: parsedProperty.usage,
+
           declaringType: type,
           structure: parsedProperty.structure,
           required: parsedProperty.required,
@@ -491,30 +489,34 @@ export class SchemaManager {
   public patch<T>(
     typeId: string,
     value: T,
-    consent: ParsableConsent,
+    consent: UserConsent,
     validate?: boolean,
+    context?: ConsentEvaluationContext,
+
     addMetadata?: boolean
   ): T | undefined;
   public patch<T>(
     eventType: string,
     event: T,
-    consent: ParsableConsent,
+    consent: UserConsent,
     validate?: boolean,
+    context?: ConsentEvaluationContext,
+
     addMetadata?: boolean
   ): T | undefined;
   public patch(
     id: string,
     value: any,
-    consent: ParsableConsent,
+    consent: UserConsent,
     validate = true,
-    write = false,
+    context?: any,
     addMetadata = true
   ) {
     return ifDefined(
       this.getType(id, true),
       (target) => (
         validate && target.validate(value),
-        target.patch(value, consent, write, addMetadata)
+        target.patch(value, consent, context ?? {}, addMetadata)
       )
     );
   }

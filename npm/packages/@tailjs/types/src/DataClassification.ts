@@ -1,13 +1,10 @@
 import {
-  EnumValue,
   Nullish,
-  createEnumAccessor,
+  createEnumParser,
   fromEntries,
-  isNumber,
   quote,
   throwError,
 } from "@tailjs/util";
-import { DataPurposeValue, dataPurposes } from ".";
 
 /**
  * Defines to which extend a piece of information relates to a natural person (user of your app or website).
@@ -54,87 +51,66 @@ export type DataClassification =
    */
   | "sensitive";
 
-export const labels: readonly DataClassification[] = [
-  "anonymous",
-  "indirect",
-  "direct",
-  "sensitive",
-];
-
-const validClassifications = fromEntries(labels.map((key) => [key, key]));
-
-export const dataClassification: {
-  <T extends DataClassification | (string & {}) | Nullish>(
-    value: T
-  ): T extends Nullish ? undefined : DataClassification;
-
-  readonly labels: readonly DataClassification[];
-} = Object.assign(
-  (value: any) =>
-    value == null
-      ? undefined
-      : ((validClassifications[value] ??
-          throwError(
-            `The data classification '${quote(value)}' is not defined.`
-          )) as any),
-  { labels }
+export const dataClassification = createEnumParser<DataClassification>(
+  "data classification",
+  ["anonymous", "indirect", "direct", "sensitive"]
 );
 
-export type DataClassificationValue<Numeric = boolean> = EnumValue<
-  typeof DataClassification,
-  DataClassification,
-  false,
-  Numeric
-> extends infer T
-  ? T
-  : never;
+// export type DataClassificationValue<Numeric = boolean> = EnumValue<
+//   typeof DataClassification,
+//   DataClassification,
+//   false,
+//   Numeric
+// > extends infer T
+//   ? T
+//   : never;
 
-export type DataUsageAttributes<NumericEnums = true> = {
-  classification: DataClassificationValue<NumericEnums>;
-  purposes: DataPurposeValue<NumericEnums>;
-};
+// export type DataUsageAttributes<NumericEnums = true> = {
+//   classification: DataClassificationValue<NumericEnums>;
+//   purposes: DataPurposeValue<NumericEnums>;
+// };
 
-export type ParsableDataUsageAttributes = {
-  classification?: DataClassificationValue;
-  level?: DataClassificationValue;
-  purpose?: DataPurposeValue;
-  purposes?: DataPurposeValue;
-};
+// export type ParsableDataUsageAttributes = {
+//   classification?: DataClassificationValue;
+//   level?: DataClassificationValue;
+//   purpose?: DataPurposeValue;
+//   purposes?: DataPurposeValue;
+// };
 
-export const dataUsageEquals = (
-  lhs: ParsableDataUsageAttributes | Nullish,
-  rhs: ParsableDataUsageAttributes | Nullish
-) =>
-  dataClassification.parse(lhs?.classification ?? lhs?.level) ===
-    dataClassification.parse(rhs?.classification ?? rhs?.level) &&
-  dataPurposes.parse(lhs?.purposes ?? lhs?.purposes) ===
-    dataPurposes.parse(rhs?.purposes ?? rhs?.purposes);
+// export const dataUsageEquals = (
+//   lhs: ParsableDataUsageAttributes | Nullish,
+//   rhs: ParsableDataUsageAttributes | Nullish
+// ) =>
+//   dataClassification.parse(lhs?.classification ?? lhs?.level) ===
+//     dataClassification.parse(rhs?.classification ?? rhs?.level) &&
+//   dataPurposes.parse(lhs?.purposes ?? lhs?.purposes) ===
+//     dataPurposes.parse(rhs?.purposes ?? rhs?.purposes);
 
-export const parseDataUsage = <T extends ParsableDataUsageAttributes | Nullish>(
-  classificationOrConsent: T,
-  defaults?: Partial<DataUsageAttributes<boolean>>
-): T extends {}
-  ? DataUsageAttributes<true> & Omit<T, keyof ParsableDataUsageAttributes>
-  : undefined =>
-  classificationOrConsent == null
-    ? (undefined as any)
-    : isNumber(classificationOrConsent.classification) &&
-      isNumber(classificationOrConsent.purposes)
-    ? classificationOrConsent
-    : {
-        ...classificationOrConsent,
-        level: undefined,
-        purpose: undefined,
-        classification: dataClassification.parse(
-          classificationOrConsent.classification ??
-            classificationOrConsent.level ??
-            defaults?.classification ??
-            DataClassification.Anonymous
-        ),
-        purposes: dataPurposes.parse(
-          classificationOrConsent.purposes ??
-            classificationOrConsent.purpose ??
-            defaults?.purposes ??
-            DataPurposeFlags.Necessary
-        ),
-      };
+// export const parseDataUsage = <T extends ParsableDataUsageAttributes | Nullish>(
+//   classificationOrConsent: T,
+//   defaults?: Partial<DataUsageAttributes<boolean>>
+// ): T extends {}
+//   ? DataUsageAttributes<true> & Omit<T, keyof ParsableDataUsageAttributes>
+//   : undefined =>
+//   classificationOrConsent == null
+//     ? (undefined as any)
+//     : isNumber(classificationOrConsent.classification) &&
+//       isNumber(classificationOrConsent.purposes)
+//     ? classificationOrConsent
+//     : {
+//         ...classificationOrConsent,
+//         level: undefined,
+//         purpose: undefined,
+//         classification: dataClassification.parse(
+//           classificationOrConsent.classification ??
+//             classificationOrConsent.level ??
+//             defaults?.classification ??
+//             DataClassification.Anonymous
+//         ),
+//         purposes: dataPurposes.parse(
+//           classificationOrConsent.purposes ??
+//             classificationOrConsent.purpose ??
+//             defaults?.purposes ??
+//             DataPurposeFlags.Necessary
+//         ),
+//       };

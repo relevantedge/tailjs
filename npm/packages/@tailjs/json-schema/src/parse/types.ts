@@ -1,8 +1,7 @@
-import type { DataClassification, DataPurposeFlags } from "@tailjs/types";
 import { PickPartial } from "@tailjs/util";
 import type Ajv from "ajv";
 import {
-  SchemaClassification,
+  SchemaDataUsage,
   SchemaPrimitiveType,
   SchemaPropertyStructure,
 } from "..";
@@ -14,7 +13,7 @@ export interface ParseContext {
   navigator: (context: TraverseContext, ref: string) => any;
 }
 
-export interface TraverseContext extends Partial<ParsedSchemaClassification> {
+export interface TraverseContext {
   ajv: Ajv;
   id?: string;
   parent?: PickPartial<TraverseContext, "key">;
@@ -23,8 +22,7 @@ export interface TraverseContext extends Partial<ParsedSchemaClassification> {
   key: string;
   $ref?: string;
   schema?: ParsedSchema;
-  classification?: DataClassification;
-  purposes?: DataPurposeFlags;
+  usage?: SchemaDataUsage;
   version?: string;
   node: any;
 }
@@ -42,19 +40,16 @@ export interface ParsedSchemaEntity {
   title?: string;
   description?: string;
   context: TraverseContext;
+  usage: SchemaDataUsage;
   tags?: string[];
 }
-export interface ParsedSchema
-  extends ParsedSchemaEntity,
-    Partial<SchemaClassification<true>> {
+export interface ParsedSchema extends ParsedSchemaEntity {
   types: Map<string, ParsedType>;
   subSchemas?: Map<string, ParsedSchema>;
   definition?: any;
 }
 
-export interface ParsedType
-  extends ParsedSchemaEntity,
-    Partial<SchemaClassification<true>> {
+export interface ParsedType extends ParsedSchemaEntity {
   schemaId?: string;
   name: string;
   declaringProperty?: ParsedProperty;
@@ -71,9 +66,7 @@ export interface ParsedType
   version?: string;
 }
 
-export interface ParsedProperty
-  extends ParsedSchemaEntity,
-    ParsedSchemaClassification {
+export interface ParsedProperty extends ParsedSchemaEntity {
   name: string;
   declaringType: ParsedType;
   objectType?: ParsedType;
@@ -88,16 +81,4 @@ export interface ParsedProperty
    * The JSON object in the schema that defines the actual type of the property (takes maps and array definitions into account).
    */
   typeContext?: TraverseContext;
-}
-
-export interface ParsedSchemaClassification extends SchemaClassification<true> {
-  /**
-   * Ignore when censoring and calculating type classifications.
-   * If only ignored properties are left after censoring an object, it is not returned.
-   *
-   * The use case is common event properties such as type or session that will be in all events,
-   * but it is not sensible to track an event where all its specific properties are censored.
-   */
-
-  censorIgnore?: boolean;
 }

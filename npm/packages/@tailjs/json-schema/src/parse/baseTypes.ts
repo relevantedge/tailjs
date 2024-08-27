@@ -1,4 +1,4 @@
-import { concat, expand, merge } from "@tailjs/util";
+import { concat, expand, merge, some } from "@tailjs/util";
 import {
   ParsedComposition,
   ParsedType,
@@ -8,7 +8,7 @@ import {
   mergeBaseProperties,
   updateTypeClassifications,
 } from ".";
-import { EntityMetadata } from "../consts";
+import { EntityMetadata, SchemaSystemTypes } from "../consts";
 
 export const updateBaseTypes = (context: TraverseContext) => {
   const baseTypes = new Set<ParsedType>();
@@ -41,6 +41,26 @@ export const updateBaseTypes = (context: TraverseContext) => {
   typeNodes.forEach((type) => {
     mergeBaseProperties(type, baseTypes);
     updateTypeClassifications(type, properties);
+
+    const systemEventType = getRefType(
+      type.composition.context,
+      SchemaSystemTypes.Event
+    );
+
+    const eventType =
+      type.extendsAll?.has(systemEventType) && type.properties.get("type");
+    if (
+      eventType &&
+      eventType.primitiveType?.allowedValues &&
+      !eventType.usage.explicit &&
+      eventType.usage.system &&
+      some(type.properties, ([, prop]) => !prop.usage.system && prop.required)
+    ) {
+      // Custom event without required properties gets it type annotated as "necessary",
+      // lest it would otherwise not be captured.
+
+      eventType.usage.system = false;
+    }
   });
 
   // Restrict all type not to have unknown properties by adding `unevaluatedProperties: false`.

@@ -18,7 +18,241 @@ import {
   array,
   map,
   isInteger,
+  fromEntries,
+  Falsish,
 } from ".";
+
+export type ParsableLabelValue<Target, Labels extends string> =
+  | Nullish
+  | Target
+  | Labels
+  | false
+  | (string & {})
+  | readonly (Labels | (string & {}) | false | Nullish)[]
+  | ParsableLabelValue<Target, Labels>[];
+
+export const source = Symbol();
+
+export type LabelMapper<Target, Labels extends string> = (
+  target: Target,
+  label: Labels
+) => void;
+export type LabelMapping<Target, Labels extends string> = {
+  readonly [P in Labels & string]: LabelMapper<Target, Labels>;
+};
+
+export type LabelSet<Labels extends string> =
+  | Labels
+  | false
+  | Nullish
+  | LabelSet<Labels>[];
+
+export type LabelGenerator<Target, Labels extends string> = (
+  value: Target,
+  useDefault: boolean
+) => LabelSet<Labels>;
+
+/** Only one of the labels are allowed from each group. */
+export type LabelGroups<Labels> = readonly (readonly Labels[])[];
+
+export interface LabelParser<
+  Target,
+  Labels extends string,
+  Flags extends boolean
+> {
+  (value: ParsableLabelValue<Target, Labels>): Target | undefined;
+  readonly labels: Labels[] & { readonly [P in Labels]: P };
+
+  merge<T extends Target | Nullish>(
+    current: T,
+    value: ParsableLabelValue<Target, Labels>
+  ): T extends Nullish ? undefined : Target;
+
+  format<T extends Target | Nullish, UseDefault extends boolean = false>(
+    value: T,
+    includeDefault?: UseDefault
+  ): T extends Nullish
+    ? undefined
+    : (Flags extends true ? Labels[] : Labels) | undefined;
+
+  readonly [source]: {
+    mappings: LabelMapping<Target, Labels>;
+    generator: LabelGenerator<Target, Labels>;
+    mutex?: LabelGroups<Labels>;
+  };
+}
+
+export interface EnumParser<Levels extends string> {
+  <T extends Levels | (string & {}) | number | Nullish>(
+    value: T
+  ): T extends Nullish ? undefined : Levels;
+  readonly levels: Levels[];
+  readonly ranks: { [P in Levels]: number };
+  compare(lhs: Levels | number, rhs: Levels | number): number;
+  min(...values: (Levels | number | Nullish)[]): Levels | undefined;
+  max(...values: (Levels | number | Nullish)[]): Levels | undefined;
+}
+
+export const createEnumParser: <Levels extends string>(
+  name: string,
+  levels: Levels[]
+) => EnumParser<Levels> = (name, levels) => {
+  const ranks = fromEntries(levels.map((key, i) => [key, i])) as any;
+
+  const getRank = (value: any): number | undefined =>
+    value == null ? undefined : isNumber(value) ? value : ranks[value];
+  const minMax =
+    (max: boolean) =>
+    (...levels: any[]) => {
+      const testValues = map(levels, getRank);
+      return testValues.length
+        ? levels[Math[max ? "max" : "min"](...testValues)]
+        : undefined;
+    };
+
+  return Object.assign(
+    (value: any) =>
+      value == null
+        ? undefined
+        : ((isNumber(value)
+            ? levels[value]
+            : (ranks[value] != null ? value : null) ??
+              throwError(
+                `The ${name} '${quote(value)}' is not defined.`
+              )) as any),
+    {
+      levels,
+      ranks,
+      compare: (lhs: any, rhs: any) => getRank(lhs)! - getRank(rhs)!,
+      min: minMax(false),
+      max: minMax(true),
+    }
+  );
+};
+
+/**
+ *  Assumes an object in the form `{setting1?: ..., setting2?: ...}` that
+ *  may represented as a combination of string labels, e.g. "setting1", "setting2", "both", "none"
+ *  that can be combined.
+ */
+export const createLabelParser: <
+  Target,
+  Labels extends string,
+  Flags extends boolean
+>(
+  name: string,
+  flags: Flags,
+  mappings: LabelMapping<Target, Labels>,
+  generator: LabelGenerator<Target, Labels>,
+  mutex?: LabelGroups<Labels>,
+  options?: {
+    defaultValue?(): Target;
+    clone?(current: Target): Target;
+    applyDefaults?(parsed: Target): Target;
+  }
+) => LabelParser<Target, Labels, Flags> = (
+  name,
+  flags,
+  mappings,
+  generator,
+  mutex,
+  { defaultValue, clone, applyDefaults } = {}
+) => {
+  let mutexGroups: Record<string, number[] | undefined> | undefined;
+
+  mutex?.forEach((values, i) => {
+    mutexGroups ??= {};
+    values.forEach((value) => (mutexGroups![value] ??= []).push(i));
+  });
+
+  let action: any;
+  const applyLabel = (target: any, label: string): boolean =>
+    (action = mappings[label]) ? (action(target, label), true) : false;
+
+  const apply = (target: any, value: any) => {
+    if (value == null) return target;
+
+    if (isArray(value)) {
+      value = value.flat().filter(isString);
+      if (!value.length) return target;
+    } else if (isObject(value)) {
+      return target ? apply(target, generator(value, false)) : value;
+    }
+
+    target = target
+      ? clone
+        ? clone(target)
+        : { ...target }
+      : defaultValue?.() ?? {};
+
+    let invalids: string[] | undefined;
+
+    if (isArray(value)) {
+      if (!flags && value.length > 1)
+        throwError(`Only a single label is allowed for ${name}.`);
+      const seen = mutexGroups ? <string[]>[] : undefined;
+
+      for (const label of value) {
+        if (!isString(label)) continue;
+
+        mutexGroups?.[label]?.forEach((group) => {
+          const current = seen![group];
+          if (current) {
+            throwError(
+              `The ${name} labels ${quote(current)} and ${quote(
+                label
+              )} are mutually exclusive.`
+            );
+          }
+          seen![group] = label;
+        });
+
+        !applyLabel(target, label) && (invalids ??= []).push(label);
+      }
+    } else {
+      !applyLabel(target, value) && (invalids ??= []).push(value);
+    }
+
+    return invalids
+      ? throwError(
+          invalids.length === 1
+            ? `The ${name} label ${quote(invalids[0])} is not defined.`
+            : `The ${name} labels ${enumerate(
+                quote(invalids)
+              )} are not defined.`
+        )
+      : target;
+  };
+
+  const labels = Object.keys(mappings);
+  return Object.freeze(
+    Object.assign((value: any) => apply(undefined, value), {
+      labels: Object.assign(
+        Object.keys(mappings) as any[],
+        fromEntries(labels.map((label) => [label, label]))
+      ) as any,
+      format(value: any, useDefault = false) {
+        if (value == null) return undefined;
+
+        let labels = generator(value, useDefault) as any[];
+        if (!labels) return undefined;
+        if (isArray(labels)) {
+          labels = labels.flat().filter((value) => value);
+          return flags ? labels : labels?.length ? labels[0] : undefined;
+        }
+        return flags ? [labels] : labels;
+      },
+      merge(current: any, value: any) {
+        return apply(current, value);
+      },
+      [source]: {
+        mappings,
+        generator,
+        mutex,
+      },
+    })
+  );
+};
 
 export type ParsedValue<
   T extends EnumHelper<any, any, any>,

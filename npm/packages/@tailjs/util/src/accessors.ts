@@ -447,7 +447,31 @@ const createSetOrUpdateFunction =
   };
 
 export const assign = createSetOrUpdateFunction<true, false>(setSingle);
-export const update = createSetOrUpdateFunction<false, false>(updateSingle);
+export const update: <
+  T extends PropertyContainer | Nullish,
+  K extends KeyType<T>
+>(
+  target: T,
+  key: K,
+  update: (current: ValueType<T, K> | undefined) => ValueType<T, K> | undefined
+) => T = (target, key, update) => {
+  let value: any;
+  if (hasMethod(target, "set")) {
+    (value = update(target.get(key)) === undefined)
+      ? target.delete(key)
+      : target.set(key, value);
+  } else if (hasMethod(target, "add")) {
+    value = target.has(key);
+    update(value) ? target.add(key) : target.delete(key);
+  } else if (target) {
+    value = (target as any)[key] = update((target as any)[key]);
+    if (value === undefined && isPlainObject(target)) {
+      delete target[key];
+    }
+  }
+
+  return target;
+};
 export const assignIfUndefined = createSetOrUpdateFunction<false, true>(
   setSingleIfNotDefined
 );
