@@ -2,7 +2,7 @@ import {
   concat,
   createLabelParser,
   entries,
-  LabeledValue,
+  ParsableLabelValue,
   LabelMapper,
   source,
 } from "@tailjs/util";
@@ -43,7 +43,7 @@ export interface DataUsage {
   access?: DataAccess;
 }
 
-export type DataUsageValue = LabeledValue<DataUsage, DataUsageLabel>;
+export type DataUsageValue = ParsableLabelValue<DataUsage, DataUsageLabel>;
 
 const mappings: Record<
   DataUsageLabel,
@@ -54,18 +54,17 @@ for (const [label, mapper] of entries(dataAccess[source].mappings))
   mappings[label] = (value) => mapper((value.access ??= {}), label);
 for (const [label, mapper] of entries(dataPurposes[source].mappings))
   mappings[label] = (value) => mapper((value.purposes ??= {}), label);
-for (const label of dataClassification.labels)
+for (const label of dataClassification.levels)
   mappings[label] = (value) => (value.classification = label);
 
 export const dataUsage = createLabelParser<DataUsage, DataUsageLabel, true>(
   "data usage",
   true,
   mappings,
-  (value, useDefault) =>
-    concat(
-      dataAccess.format(value.access, useDefault),
-      dataPurposes.format(value.purposes, useDefault),
-      value.classification ?? (useDefault && "anonymous")
-    ) as any,
-  [...dataAccess[source].mutex!, dataClassification.labels]
+  (value, useDefault) => [
+    dataAccess.format(value.access, useDefault),
+    dataPurposes.format(value.purposes, useDefault),
+    value.classification ?? (useDefault && "anonymous"),
+  ],
+  [...dataAccess[source].mutex!, dataClassification.levels]
 );

@@ -1,27 +1,23 @@
-import { UnsupportedSpecifier } from "node_modules/syncpack/dist/specifier/unsupported";
 import {
   MaybeUndefined,
   Nullish,
   PickRequired,
   PrettifyIntersection,
   RecordType,
-  assign,
   concat,
-  entries,
   enumerate,
-  filter,
   forEach,
+  fromEntries,
   isArray,
+  isNumber,
   isObject,
   isString,
   join,
-  keys,
   map,
   mapFirst,
   match,
   nil,
   obj,
-  pluralize,
   quote,
   throwError,
   undefined,
@@ -340,174 +336,3 @@ export const formatUri = <Uri extends Omit<ParsedUri, "source">>(
           "?" + (isString(uri.query) ? uri.query : toQueryString(uri.query)),
         uri.fragment && "#" + uri.fragment,
       ]) || undefined!;
-
-export type LabeledValue<Target, Labels extends string> =
-  | Target
-  | Labels[number]
-  | (string & {})
-  | readonly (Labels | (string & {}) | false | Nullish)[];
-
-export const source = Symbol();
-
-export type LabelMapper<Target, Labels extends string> = (
-  target: Target,
-  label: Labels
-) => void;
-export type LabelMapping<Target, Labels extends string> = {
-  readonly [P in Labels & string]: LabelMapper<Target, Labels>;
-};
-
-export type LabelGenerator<
-  Target,
-  Labels extends string,
-  Flags extends boolean
-> = (
-  value: Target,
-  useDefault: boolean
-) => Flags extends true
-  ? (Labels | false | Nullish)[]
-  : Labels | false | Nullish;
-
-/** Only one of the labels are allowed from each group. */
-export type LabelGroups<Labels> = readonly (readonly Labels[])[];
-
-export interface LabelParser<
-  Target,
-  Labels extends string,
-  Flags extends boolean
-> {
-  <T extends LabeledValue<Target, Labels> | Nullish>(
-    value: T
-  ): T extends Nullish ? undefined : Target;
-
-  readonly labels: Labels[];
-  merge<
-    T extends Target | Nullish,
-    Value extends LabeledValue<Target, Labels> | Nullish
-  >(
-    current: T,
-    value: LabeledValue<Target, Labels>
-  ): Value extends Nullish ? T : Target;
-  format<T extends Target | Nullish, UseDefault extends boolean = false>(
-    value: T,
-    includeDefault?: UseDefault
-  ): T extends Nullish
-    ? undefined
-    : (Flags extends true ? Labels[] : Labels) | undefined;
-
-  readonly [source]: {
-    mappings: LabelMapping<Target, Labels>;
-    generator: LabelGenerator<Target, Labels, Flags>;
-    mutex?: LabelGroups<Labels>;
-  };
-}
-
-/**
- *  Assumes an object in the form `{setting1?: ..., setting2?: ...}` that
- *  may represented as a combination of string labels, e.g. "setting1", "setting2", "both", "none"
- *  that can be combined.
- */
-export const createLabelParser: <
-  Target,
-  Labels extends string,
-  Flags extends boolean
->(
-  name: string,
-  flags: Flags,
-  mappings: LabelMapping<Target, Labels>,
-  generator: LabelGenerator<Target, Labels, Flags>,
-  mutex?: LabelGroups<Labels>,
-  defaultValue?: () => Target
-) => LabelParser<Target, Labels, Flags> = (
-  name,
-  flags,
-  mappings,
-  generator,
-  mutex,
-  defaultValue?
-) => {
-  let mutexGroups: Record<string, number> | undefined;
-
-  mutex?.forEach((values, i) => {
-    mutexGroups ??= {};
-    values.forEach((value) => (mutexGroups![value] = i));
-  });
-
-  let action: any;
-  const applyLabel = (target: any, label: string): boolean =>
-    (action = mappings[label] ? (action(target, label), true) : false);
-
-  const apply = (target: any, value: any) => {
-    if (value == null) return target;
-
-    if (isObject(value)) {
-      return target ? apply(target, generator(value, false)) : value;
-    }
-
-    target ??= defaultValue?.() ?? {};
-
-    let invalids: string[] | undefined;
-
-    if (isArray(value)) {
-      if (!flags && value.length > 1)
-        throwError(`Only a single label is allowed for ${name}.`);
-      const seen = mutexGroups ? <string[]>[] : undefined;
-
-      for (const label of value) {
-        if (!isString(label)) continue;
-
-        if (mutexGroups) {
-          const group = mutexGroups[label];
-          const current = seen![group];
-          if (current) {
-            throwError(
-              `The ${name} labels ${quote(current)} and ${quote(
-                label
-              )} are mutually exclusive.`
-            );
-          }
-          seen![group] = label;
-        }
-
-        !applyLabel(target, label) && (invalids ??= []).push(label);
-      }
-    } else {
-      !applyLabel(target, value) && (invalids ??= []).push(value);
-    }
-
-    return invalids
-      ? throwError(
-          invalids.length === 1
-            ? `The ${name} label ${quote(invalids[0])} is not defined.`
-            : `The ${name} labels ${enumerate(
-                quote(invalids)
-              )} are not defined.`
-        )
-      : target;
-  };
-
-  return Object.freeze(
-    Object.assign((value: any) => apply(undefined, value), {
-      labels: Object.keys(mappings) as any[],
-      format(value: any, useDefault = false) {
-        if (value == null) return undefined;
-
-        const labels = generator(value, useDefault);
-        if (!labels) return undefined;
-        if (isArray(value)) {
-          value = value.filter((value) => value);
-          return flags ? value : value.length ? value[0] : undefined;
-        }
-        return flags ? [value] : value;
-      },
-      merge(current: any, value: any) {
-        return apply(current, value);
-      },
-      [source]: {
-        mappings,
-        generator,
-        mutex,
-      },
-    })
-  );
-};

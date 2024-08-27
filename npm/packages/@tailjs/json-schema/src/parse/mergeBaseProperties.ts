@@ -14,13 +14,10 @@ export const mergeBaseProperties = (
         update(type.properties, name, (current) => ({
           ...property,
           ...current,
-          ...(!current?.explicit && property.explicit
+          // Use the property's own usage if it is explicit.
+          ...(!current?.usage?.explicit && property.usage?.explicit
             ? {
-                classification: property.classification,
-                purposes: property.purposes,
-                censorIgnore: property.censorIgnore,
-                // Propagate
-                explicit: true,
+                usage: property.usage,
               }
             : {}),
         }))

@@ -1,4 +1,10 @@
-import { createLabelParser, LabeledValue } from "@tailjs/util";
+import {
+  createEnumParser,
+  createLabelParser,
+  EnumParser,
+  LabelParser,
+  ParsableLabelValue,
+} from "@tailjs/util";
 
 export type DataAccessLabel =
   /**
@@ -9,7 +15,9 @@ export type DataAccessLabel =
   /** The data will never be read or written. This can be useful to disable parts of a schema without deleting it. */
   | "disabled"
   /**
-   * The data cannot be changed once written.
+   * NOT IMPLEMENTED!
+   *
+   * The data cannot be changed once set to another value than `null` or `undefined`.
    * This does not necessarily have to be when an object is created, just as long as the value has not been set before.
    */
   | "readonly"
@@ -30,33 +38,51 @@ export type DataAccessLabel =
    */
   | "trusted-write";
 
+export type RestrictionLabel =
+  | "public"
+  | "trusted-only"
+  | "trusted-write"
+  | "disabled";
+
 /**
  * Defines restrictions on when and where data may be read and written.
  */
 export type DataAccess = {
   readonly?: boolean;
-  restriction?: "trusted-only" | "trusted-write" | "disabled";
+  restriction?: RestrictionLabel;
 };
 
-export type DataAccessValue = LabeledValue<DataAccess, DataAccessLabel>;
+export type DataAccessValue = ParsableLabelValue<DataAccess, DataAccessLabel>;
 
-export const dataAccess = createLabelParser<DataAccess, DataAccessLabel, true>(
-  "data access",
-  true,
+export const dataAccess: LabelParser<DataAccess, DataAccessLabel, true> & {
+  restrictions: EnumParser<RestrictionLabel>;
+} = Object.assign(
+  createLabelParser<DataAccess, DataAccessLabel, true>(
+    "data access",
+    true,
+    {
+      readonly: (value) => (value.readonly = true),
+      mutable: (value) => delete value.readonly,
+      disabled: (value) => (value.restriction = "disabled"),
+      public: (value) => delete value.restriction,
+      "trusted-only": (value) => (value.restriction = "trusted-only"),
+      "trusted-write": (value) => (value.restriction = "trusted-write"),
+    },
+    (value, useDefault) => [
+      value?.readonly && "readonly",
+      value.restriction ?? (useDefault ? "public" : undefined),
+    ],
+    [
+      ["readonly", "mutable", "disabled"],
+      ["public", "trusted-only", "trusted-write"],
+    ]
+  ),
   {
-    readonly: (value) => (value.readonly = true),
-    mutable: (value) => delete value.readonly,
-    disabled: (value) => (value.restriction = "disabled"),
-    public: (value) => delete value.restriction,
-    "trusted-only": (value) => (value.restriction = "trusted-only"),
-    "trusted-write": (value) => (value.restriction = "trusted-write"),
-  },
-  (value, useDefault) => [
-    value?.readonly && "readonly",
-    value.restriction ?? (useDefault ? "public" : undefined),
-  ],
-  [
-    ["readonly", "mutable", "disabled"],
-    ["public", "trusted-only", "trusted-write"],
-  ]
+    restrictions: createEnumParser("data access restriction", [
+      "public",
+      "trusted-only",
+      "trusted-write",
+      "disabled",
+    ]),
+  }
 );

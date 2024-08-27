@@ -1,4 +1,3 @@
-import { DataClassification, DataPurposeFlags } from "@tailjs/types";
 import {
   forEach,
   isInteger,
@@ -12,17 +11,19 @@ import { Schema, SchemaPrimitiveType } from ".";
 const primitiveSchema: Schema = {
   id: "urn:tailjs:primitive",
   title: "Primitive types",
-  classification: DataClassification.Anonymous,
-  purposes: DataPurposeFlags.Any,
+  usage: {
+    classification: "anonymous",
+  },
   types: new Map(),
 };
 
 const primitiveShared: Pick<
   SchemaPrimitiveType,
-  "classification" | "purposes" | "primitive" | "patch" | "validate" | "schema"
+  "usage" | "primitive" | "patch" | "validate" | "schema"
 > = {
-  classification: DataClassification.Anonymous,
-  purposes: DataPurposeFlags.Any,
+  usage: {
+    classification: "anonymous",
+  },
   primitive: true,
   schema: primitiveSchema,
   patch: (value) => value,

@@ -1,24 +1,23 @@
-import { DataPurposeFlags } from "@tailjs/types";
-import { ParsedSchemaClassification } from ".";
+import { dataAccess, dataClassification, dataPurposes } from "@tailjs/types";
+import { SchemaDataUsage } from "..";
 
 export const updateMinClassifications = (
-  type: Partial<ParsedSchemaClassification>,
-  classifications: Partial<ParsedSchemaClassification>
+  typeUsage: SchemaDataUsage,
+  apply: SchemaDataUsage
 ) => {
-  if (classifications.classification != null) {
-    type.classification = Math.min(
-      type.classification ?? classifications.classification,
-      classifications.classification
-    );
-  }
-  if (classifications.purposes != null) {
-    type.purposes =
-      (type.purposes ?? 0) |
-      // Flags higher than "Any" are reserved for special purposes, and does not participate here.
-      (classifications.purposes & DataPurposeFlags.Any);
-  }
+  typeUsage.classification = dataClassification.min(
+    typeUsage.classification,
+    apply.classification
+  );
 
-  // Censor ignore can only go from type to property and not the other way around.
-  // Hence is specifically not updated here.
-  // type.censorIgnore ??= classifications.censorIgnore;
+  typeUsage.purposes = dataPurposes.merge(typeUsage.purposes, apply.purposes);
+
+  typeUsage.access ??= { readonly: apply.access?.readonly };
+  typeUsage.access.readonly &&
+    !apply.access?.readonly &&
+    delete typeUsage.access.readonly;
+  typeUsage.access.restriction = dataAccess.restrictions.min(
+    typeUsage.access.restriction ?? 0,
+    apply.access?.restriction ?? 0
+  );
 };

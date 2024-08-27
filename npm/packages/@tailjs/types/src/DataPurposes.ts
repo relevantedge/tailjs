@@ -1,4 +1,4 @@
-import { LabeledValue, createLabelParser, map } from "@tailjs/util";
+import { ParsableLabelValue, createLabelParser, map } from "@tailjs/util";
 
 export type DataPurposeLabel = "necessary" | keyof DataPurposes;
 
@@ -75,7 +75,10 @@ export interface DataPurposes {
   security?: boolean;
 }
 
-export type DataPurposeValue = LabeledValue<DataPurposes, DataPurposeLabel>;
+export type DataPurposeValue = ParsableLabelValue<
+  DataPurposes,
+  DataPurposeLabel
+>;
 
 export const dataPurposes = createLabelParser<
   DataPurposes,

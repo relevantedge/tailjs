@@ -5,9 +5,12 @@ import {
   TraverseContext,
   parseDescription,
   parseError,
+  parseSchemaUsage,
   tryParseObjectComposition,
   updateContext,
 } from ".";
+import { parseDataUsage } from "packages/@tailjs/types/dist";
+import { schemaDataUsage } from "..";
 
 export const parseType = (
   node: any,
@@ -68,6 +71,7 @@ export const parseType = (
       topLevel: !declaringProperty,
       properties: new Map(),
       composition: objectComposition,
+      usage: parseSchemaUsage(context),
     };
 
     context.node.$anchor ??= encodeURIComponent(type.name);

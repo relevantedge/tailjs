@@ -1,96 +1,106 @@
-import { required } from "@tailjs/util";
 import {
-  DataClassificationValue,
-  DataPurposeFlags,
+  LabelMapper,
+  Nullish,
+  ParsableLabelValue,
+  createLabelParser,
+  entries,
+  isArray,
+  isObject,
+  isString,
+  required,
+  source,
+} from "@tailjs/util";
+import {
+  DataClassification,
+  DataPurposeLabel,
   DataPurposeValue,
+  DataPurposes,
+  DataUsage,
   VariableUsage,
   dataClassification,
   dataPurposes,
 } from ".";
 
-// The `extender infer T` stuff below is to inline the enums in the JSON schema.
-// Otherwise it looks weird.
-
-/** A user's consent choices.  */
-export interface UserConsent<NumericEnums extends boolean = false> {
+export interface UserConsent {
   /**
-   * The highest level of data classification the user has consented to be stored.
+   * The classification of the data.
    */
-  level: DataClassificationValue<NumericEnums> extends infer T ? T : never;
+  classification: DataClassification;
 
   /**
-   * The purposes the user has consented their data to be used for.
-   *
-   * @privacy anonymous
+   * The purposes the data may be used for.
    */
-  purposes: DataPurposeValue<NumericEnums> extends infer T ? T : never;
+  purposes: DataPurposes;
 }
 
 export const NoConsent: Readonly<UserConsent> = Object.freeze({
-  level: "anonymous",
-  purposes: "any_anonymous",
+  classification: "anonymous",
+  purposes: {},
 });
 
 export const FullConsent: Readonly<UserConsent> = Object.freeze({
-  level: "sensitive",
-  purposes: "any",
+  classification: "sensitive",
+  purposes: {
+    functionality: true,
+    marketing: true,
+    performance: true,
+    personalization: true,
+    security: true,
+  },
 });
 
-export const isUserConsent = (value: any) => !!value?.["level"];
+export const isUserConsent = (value: any) => !!value?.["classification"];
 
-export type ParsableConsent =
-  | {
-      classification: DataClassificationValue;
-      purposes: DataPurposeValue;
-    }
-  | { level: DataClassificationValue; purposes: DataPurposeValue };
+export type ConsentEvaluationContext = {
+  trusted?: boolean;
+  write?: boolean;
+  personalization?: boolean;
+  security?: boolean;
+};
+
 export const validateConsent = (
-  source: Partial<ParsableConsent> | undefined,
-  consent: ParsableConsent,
-  defaultClassification?: Partial<VariableUsage>,
-  write = false
+  source: DataUsage | Nullish,
+  consent: DataUsage | Nullish,
+  defaultUsage?: DataUsage,
+
+  { write, trusted, personalization, security }: ConsentEvaluationContext = {}
 ) => {
   if (!source) return undefined;
-  const classification =
-    dataClassification.parse(
-      (source as any)?.classification ?? (source as any)?.level,
-      false
-    ) ??
-    required(
-      dataClassification(defaultClassification?.classification),
-      "The source has not defined a data classification and no default was provided."
-    );
-  let purposes =
-    dataPurposes.parse(source.purposes, false) ??
-    required(
-      dataPurposes.parse(defaultClassification?.purposes, false),
-      "The source has not defined data purposes and no default was provided."
-    );
 
-  const consentClassification = dataClassification.parse(
-    consent["classification"] ?? consent["level"],
-    false
-  );
-
-  const consentPurposes = dataPurposes.parse(consent.purposes, false);
-
-  // If we are writing, also check that the type is not client-side read-only.
-  // The context will only be given the `Server` flag. `ClientRead` is only for annotations.
-  for (const serverFlag of [
-    DataPurposeFlags.Server,
-    write ? DataPurposeFlags.Server_Write : 0,
-  ]) {
-    if (purposes & serverFlag && !(consentPurposes & DataPurposeFlags.Server)) {
-      return false;
-    }
+  const restriction = source.access?.restriction;
+  if (
+    restriction === "disabled" ||
+    (!trusted &&
+      (restriction === "trusted-only" ||
+        (restriction === "trusted-write" && write)))
+  ) {
+    return false;
   }
 
+  if (!consent) {
+    return true;
+  }
+
+  if (
+    dataClassification.compare(
+      source.classification ?? defaultUsage?.classification ?? 0,
+      consent.classification ?? 0
+    ) >= 0
+  ) {
+    return false;
+  }
+
+  const sp = source.purposes ?? defaultUsage?.purposes;
+  const cp = consent?.purposes;
+
   return (
-    source &&
-    classification! <= consentClassification &&
-    (purposes &
-      // No matter what is defined in the consent, it will always include the "anonymous" purposes.
-      (consentPurposes | DataPurposeFlags.Any_Anonymous)) >
-      0
+    !sp ||
+    !cp ||
+    ((!cp.performance || sp.performance) &&
+      (!cp.functionality || sp.functionality) &&
+      (!cp.marketing || sp.marketing) &&
+      (!(personalization ? cp.personalization : cp.functionality) ||
+        (personalization ? sp.personalization : cp.personalization)) &&
+      (!security || !cp.security || sp.security))
   );
 };

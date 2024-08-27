@@ -6,7 +6,7 @@ import {
   getRefSchema,
   getRefType,
   normalizeBaseTypes,
-  parseClassifications,
+  parseSchemaUsage,
   parseDescription,
   parseStructure,
   parseType,
@@ -18,7 +18,7 @@ import { tryParsePrimitiveType } from "..";
 export const addProperties = (
   type: ParsedType,
   composition: ParsedComposition
-) => {
+): void => {
   const node = composition.node;
   const required = new Set(node.required ?? []);
 
@@ -39,7 +39,7 @@ export const addProperties = (
       const context = updateContext(propertiesContext, key, true);
       const [typeContext, structure] = parseStructure(context);
 
-      const ownClassification = parseClassifications(context);
+      const ownUsage = parseSchemaUsage(context);
 
       // TODO: Handle obsolete properties (renames).
       // Should be in the form "oldName": {$ref: "#new-property", deprecated: true}.
@@ -51,11 +51,7 @@ export const addProperties = (
         declaringType: type,
         required: required.has(key),
         structure,
-        // Allow classifications to be undefined for now. We will try to derive them from context later.
-        censorIgnore: ownClassification.censorIgnore,
-        classification: ownClassification.classification!,
-        purposes: ownClassification.purposes!,
-        explicit: ownClassification.explicit,
+        usage: ownUsage,
         typeContext,
       };
 
@@ -83,18 +79,17 @@ export const addProperties = (
           (composition) => composition.type === "oneOf"
         );
 
-      if (
-        update(type.properties, key, (current) =>
-          current != null &&
+      const current = type.properties.get(key);
+      type.properties.set(
+        key,
+        current &&
           (current.objectType ?? current.primitiveType)?.id !==
             (property.objectType ?? property.primitiveType)?.id
-            ? throwError(
-                "Properties in composed types must all have the same time."
-              )
-            : property
-        )
-      ) {
-      }
+          ? throwError(
+              "Properties in composed types must all be of the same type."
+            )
+          : property
+      );
     });
   }
 

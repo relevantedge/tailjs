@@ -1,11 +1,12 @@
-import { ParsableConsent, VariableUsage, validateConsent } from "@tailjs/types";
+import {
+  ConsentEvaluationContext,
+  UserConsent,
+  VariableUsage,
+  validateConsent,
+} from "@tailjs/types";
 import { isArray, isPlainObject } from "@tailjs/util";
 import { ParsedType } from ".";
-import {
-  SchemaClassification,
-  SchemaPropertyStructure,
-  EntityMetadata,
-} from "..";
+import { EntityMetadata, SchemaPropertyStructure } from "..";
 
 const traverseValue = (
   type: ParsedType,
@@ -52,21 +53,16 @@ const traverseValue = (
 export const patchValue = (
   type: ParsedType,
   value: any,
-  consent: ParsableConsent | undefined,
+  consent: UserConsent | undefined,
   defaultClassification?: VariableUsage,
-  write = false,
-  schemaDepth = 0
+  schemaDepth = 0,
+  context?: ConsentEvaluationContext
 ) => {
   if (!isPlainObject(value)) return value;
 
   if (
     consent &&
-    !validateConsent(
-      type as Required<SchemaClassification>,
-      consent,
-      defaultClassification,
-      write
-    )
+    !validateConsent(type.usage, consent, defaultClassification, context)
   )
     return undefined;
 
@@ -80,7 +76,12 @@ export const patchValue = (
 
       if (
         !property ||
-        !validateConsent(property, consent, defaultClassification)
+        !validateConsent(
+          property.usage,
+          consent,
+          defaultClassification,
+          context
+        )
       ) {
         continue;
       }
@@ -96,8 +97,8 @@ export const patchValue = (
                 value,
                 consent,
                 undefined,
-                write,
-                schemaDepth + 1
+                schemaDepth + 1,
+                context
               )
           )
         : value[key];
@@ -107,7 +108,7 @@ export const patchValue = (
       }
 
       patched[key] = propertyValue;
-      if (!property.censorIgnore) {
+      if (!property.usage.system) {
         any = true;
       }
     }

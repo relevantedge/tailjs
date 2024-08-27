@@ -1,5 +1,6 @@
 import {
-  ParsableConsent,
+  ConsentEvaluationContext,
+  UserConsent,
   VariableKey,
   VariableScope,
   formatKey,
@@ -85,17 +86,17 @@ export class SchemaVariableSet {
   public patch<T>(
     key: VariableKey,
     value: T,
-    consent: ParsableConsent | undefined,
+    consent: UserConsent | undefined,
     validate = true,
-    write = false
+    context?: ConsentEvaluationContext
   ): T | undefined {
     return ifDefined(
       this.get(key),
       (variable) => (
         validate && variable.validate(value),
-        consent && !validateConsent(variable, consent, undefined, write)
+        consent && !validateConsent(variable.usage, consent, undefined, context)
           ? undefined
-          : variable.patch(value, consent, write)
+          : variable.patch(value, consent, context)
       )
     );
   }

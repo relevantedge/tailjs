@@ -1,6 +1,7 @@
 import { PickPartial, required } from "@tailjs/util";
-import { TraverseContext, parseClassifications, parseDescription } from ".";
+import { TraverseContext, parseSchemaUsage, parseDescription } from ".";
 import { SchemaAnnotations } from "../consts";
+import { DEFAULT_SCHEMA_USAGE } from "..";
 
 export const updateContext = (
   context: PickPartial<TraverseContext, "key">,
@@ -16,7 +17,7 @@ export const updateContext = (
     ...context,
     parent: context,
     key,
-    ...parseClassifications(context),
+    ...parseSchemaUsage(context),
     version: context.version,
     node,
   };
@@ -40,6 +41,7 @@ export const updateContext = (
       context: childContext,
       types: new Map(),
       definition: node,
+      usage: DEFAULT_SCHEMA_USAGE,
     });
 
     if (context.schema) {

@@ -425,7 +425,7 @@ export const array: {
       // ? toArrayAsync(value)
       ([value] as any);
 
-export const isObject = (value: any): value is Record<keyof any, any> =>
+export const isObject = (value: any): value is object & Record<any, any> =>
   value !== null && typeof value === "object";
 
 const objectPrototype = Object.prototype;

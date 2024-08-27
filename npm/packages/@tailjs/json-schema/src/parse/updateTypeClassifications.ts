@@ -1,14 +1,13 @@
-import { DataPurposeFlags, validateConsent } from "@tailjs/types";
-import { add, forEach, some } from "@tailjs/util";
+import { validateConsent } from "@tailjs/types";
+import { add, forEach } from "@tailjs/util";
 import {
   ParsedProperty,
   ParsedType,
   mergeBasePropertyClassifications,
-  parseClassifications,
   parseError,
   updateMinClassifications,
 } from ".";
-import { SchemaClassification } from "..";
+import { SchemaDataUsage } from "..";
 
 export const updateTypeClassifications = (
   type: ParsedType,
@@ -20,24 +19,9 @@ export const updateTypeClassifications = (
   type.extends?.forEach((type) => updateTypeClassifications(type, seen));
 
   const objectTypeProperties: ParsedProperty[] = [];
-  const typeClassifications = parseClassifications(type.context);
-  [DataPurposeFlags.Server, DataPurposeFlags.Server_Write].forEach(
-    (serverPurpose) => {
-      if (typeClassifications.purposes! & serverPurpose) {
-        type.purposes = (type.purposes ?? 0) | serverPurpose;
-      }
-      // Inherit server and client read flags from base types.
-      // (These are special since they also apply type-wide and not just for properties.)
-      if (
-        some(type.extends, (baseType) => baseType.purposes! & serverPurpose)
-      ) {
-        type.purposes = (type.purposes ?? 0) | serverPurpose;
-      }
-    }
-  );
 
   forEach(type.properties, ([, property]) => {
-    // Before looking for classifications in the surrounding context, start by seeing if a base type has aproperty with the same name.
+    // Before looking for classifications in the surrounding context, start by seeing if a base type has a property with the same name.
     // If so inherit those settings.
     mergeBasePropertyClassifications(
       property.declaringType,
@@ -47,35 +31,35 @@ export const updateTypeClassifications = (
 
     if (
       property.objectType &&
-      (property.classification == null || property.purposes == null)
+      (property.usage.classification == null || property.usage.purposes == null)
     ) {
       // We do not resolve this from context, rather we look at the referenced object type.
       // (If classification is not explicitly set, we might as well use the minimum classification from the type that will not censor it away).
       objectTypeProperties.push(property);
     } else {
       // Normal properties without explicit classifications get them from the defaults at the place they are in the schema tree.
-      property.classification ??= property.context.classification!;
-      property.purposes ??= property.context.purposes!;
+      property.usage.classification ??= property.context.usage!.classification;
+      property.usage.purposes ??= property.context.usage!.purposes;
     }
 
-    updateMinClassifications(type, property);
+    updateMinClassifications(type.usage, property.usage);
   });
 
   forEach(objectTypeProperties, (property) => {
     const type = updateTypeClassifications(property.objectType!, seen);
-    property.classification ??= type.classification!;
-    property.purposes ??= type.purposes!;
-    updateMinClassifications(type, property);
+    property.usage.classification ??= type.usage.classification!;
+    property.usage.purposes ??= type.usage.purposes!;
+    updateMinClassifications(type.usage, property.usage);
   });
 
   forEach(type.properties, ([, property]) => {
-    if (property.classification == null)
+    if (property.usage.classification == null)
       throw parseError(
         property.context,
         "The property's classification is not explicitly specified and cannot be inferred from scope."
       );
 
-    if (property.purposes == null)
+    if (property.usage.purposes == null)
       throw parseError(
         property.context,
         "The property's purposes are not explicitly specified and cannot be inferred from scope."
@@ -83,7 +67,7 @@ export const updateTypeClassifications = (
 
     if (
       property.required &&
-      !validateConsent(type as SchemaClassification, property)
+      !validateConsent(type as SchemaDataUsage, property.usage)
     ) {
       throw parseError(
         property.context,
@@ -91,7 +75,7 @@ export const updateTypeClassifications = (
       );
     }
 
-    updateMinClassifications(type.context.schema!, property);
+    updateMinClassifications(type.context.schema!.usage, property.usage);
   });
 
   return type;

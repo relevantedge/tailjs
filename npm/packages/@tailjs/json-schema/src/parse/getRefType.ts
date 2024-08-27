@@ -62,7 +62,7 @@ export const createSchemaNavigator = (node: any) => {
     if (!node) {
       throw parseError(
         context,
-        `Unabled to resolve navigation root node for the ref '${ref}'`
+        `Unable to resolve navigation root node for the ref '${ref}'`
       );
     }
     const segments = (parts[1] ?? "").split("/").filter((item) => item);

@@ -7,21 +7,23 @@ export const mergeBasePropertyClassifications = (
   target: ParsedProperty,
   seen?: Set<ParsedType>
 ) => {
-  if (
-    (target.classification != null &&
-      target.purposes != null &&
-      target.censorIgnore != null) ||
-    !add((seen ??= new Set()), declaringType)
-  ) {
+  const usage = target.usage;
+  if (!add((seen ??= new Set()), declaringType)) {
+    // Nothing to see here. Either processed or fully defined.
     return;
   }
 
   declaringType.extends?.forEach((baseType) => {
-    const baseProperty = baseType.properties.get(name);
-    if (baseProperty) {
-      target.classification ??= baseProperty.classification;
-      target.purposes ??= baseProperty.purposes;
-      target.censorIgnore ??= baseProperty.censorIgnore;
+    const baseUsage = baseType.properties.get(name)?.usage;
+    if (baseUsage && !usage.system) {
+      if (baseUsage.system) {
+        usage.classification = usage.purposes = undefined;
+        usage.system = true;
+      } else {
+        usage.classification ??= baseUsage.classification;
+        usage.purposes ??= baseUsage.purposes;
+        usage.access ??= baseUsage.access;
+      }
     }
     mergeBasePropertyClassifications(baseType, name, target, seen);
   });
