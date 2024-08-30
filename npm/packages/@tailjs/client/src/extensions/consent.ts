@@ -51,7 +51,8 @@ export const consent: TrackerExtensionFactory = {
         level: dataClassification.lookup(consent!.classification)!,
         purposes: dataPurposes.lookup(consent!.purposes)!,
       };
-      const result = await tracker.events.post(
+
+      await tracker.events.post(
         restrict<ConsentEvent>({
           type: "consent",
           consent: userConsent,
@@ -127,7 +128,7 @@ export const consent: TrackerExtensionFactory = {
                   );
 
                   return {
-                    level:
+                    classification:
                       purposes > 1
                         ? 1 // Indirect
                         : 0, // Anonymous (cookie-less)
@@ -159,6 +160,7 @@ export const consent: TrackerExtensionFactory = {
               ))();
 
           const externalSource = command.consent.externalSource;
+
           if (externalSource) {
             const key = externalSource.key;
             const poller = (externalConsentSources[key] ??= clock({

@@ -22,7 +22,6 @@ import {
   now,
   parseQueryString,
   parseUri,
-  push,
   replace,
 } from "@tailjs/util";
 import { TrackerExtensionFactory, isChangeUserCommand } from "..";
@@ -30,6 +29,7 @@ import { tracker } from "../initializeTracker";
 import {
   TAB_ID,
   addPageVisibleListener,
+  debug,
   getActiveTime,
   getViewport,
   isInternalUrl,
@@ -149,6 +149,10 @@ export const context: TrackerExtensionFactory = {
         ) {
           // Buffer for next navigation.
           pendingViewDefinition = definition?.value;
+          if (definition?.value?.navigation) {
+            // Post view registered. This was custom navigation that we are not normally intercepting.
+            postView(true);
+          }
         } else {
           currentViewEvent.definition = definition.value;
           if (currentViewEvent.metadata?.posted) {
@@ -156,6 +160,11 @@ export const context: TrackerExtensionFactory = {
             tracker.events.postPatch(currentViewEvent, {
               definition: pendingViewDefinition,
             });
+          } else {
+            debug(
+              currentViewEvent,
+              currentViewEvent.type + " (definition updated)"
+            );
           }
         }
 

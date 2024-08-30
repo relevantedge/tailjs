@@ -26,7 +26,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".tailjs.ts"
+    ".tailjs.ts",
+    "src/app/api/tailjs/ConfiguredTracker.Client.ts"
   ],
   "exclude": ["node_modules"]
 }

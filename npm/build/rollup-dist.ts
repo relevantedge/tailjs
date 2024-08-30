@@ -14,6 +14,7 @@ import {
   arg,
   compilePlugin,
   env,
+  getPackageReferenceString,
   getPackageVersion,
   packageJsonPlugin,
 } from "./lib";
@@ -33,6 +34,10 @@ const SUB_PACKAGE_POSTFIX = ".pkg";
  * For example, `my-script.bin.ts` will be added as `{"bin": {"my-script": "dist/cli/my-script.cjs"}}` in the exported package.json.
  */
 const BIN_SCRIPT_POSTFIX = ".bin.ts";
+
+// Make the built packages references each other by absolute path rather than their npm version.
+// This is useful for local development from other projects.
+const usePathReferences = !!arg("--paths");
 
 export const getDistBundles = async ({
   variables = {},
@@ -149,12 +154,9 @@ export const getDistBundles = async ({
 
                 Object.entries(pkgJson.dependencies).forEach(
                   ([key, value]: [string, string]) =>
-                    (pkgJson.dependencies[key] = value.replace(
-                      /^workspace:(.*)/,
-                      (_, version) =>
-                        version === "*"
-                          ? "^" + getPackageVersion(pkg, key)
-                          : version
+                    (pkgJson.dependencies[key] = getPackageReferenceString(
+                      pkg,
+                      { packageName: key, reference: value, usePathReferences }
                     ))
                 );
 

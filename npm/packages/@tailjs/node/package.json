@@ -11,7 +11,9 @@
     "build": "tsx ../../../build/rollup.ts",
     "build:watch": "pnpm run build -w",
     "serve": "tsx ../../../build/rollup.ts -c tailjs",
-    "serve:watch": "pnpm run serve -w"
+    "serve:watch": "pnpm run serve -w",
+    "dist": "tsx ../../../build/publish.ts",
+    "dist:dry": "pnpm run dist --dry"
   },
   "bin": {
     "tailjs": "./dist/cli/tailjs.cjs"
