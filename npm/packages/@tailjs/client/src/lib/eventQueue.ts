@@ -48,6 +48,12 @@ export interface EventQueuePostOptions {
 
 export type ProtectedEvent = TrackedEvent & UnlockApiCommand;
 
+const postCallback = Symbol();
+export const registerPostCallback = <T extends TrackedEvent>(
+  ev: T,
+  callback: (ev: T) => boolean | void
+) => ((ev[postCallback] = callback), ev);
+
 export interface EventQueue {
   /**
    * Posts events to the server. Do not post event patches using this method. Use {@link postPatch} instead.
@@ -163,18 +169,23 @@ export const createEventQueue = (
       key = events[0];
       events = events.slice(1) as any;
     }
-    events = events.map(
-      (ev: any) => (
-        context?.validateKey(key ?? ev.key),
-        // Update metadata in the source event,
-        // and send a clone of the event without client metadata, and its timestamp in relative time
-        // (the server expects this, and will adjust accordingly to its own time).
-        merge(ev, { metadata: { posted: true } }),
-        merge(clearMetadata(clone(ev), true), {
-          timestamp: ev.timestamp! - now(),
-        })
-      )
-    );
+    events = map(events, (ev: any) => {
+      context?.validateKey(key ?? ev.key);
+      // Update metadata in the source event,
+      // and send a clone of the event without client metadata, and its timestamp in relative time
+      // (the server expects this, and will adjust accordingly to its own time).
+      merge(ev, { metadata: { posted: true } });
+      if (ev[postCallback]) {
+        if (ev[postCallback](ev) === false) {
+          return undefined;
+        }
+        delete ev[postCallback];
+      }
+
+      return merge(clearMetadata(clone(ev), true), {
+        timestamp: ev.timestamp! - now(),
+      });
+    });
 
     debug(
       { [childGroups]: map(events, (ev) => [ev, ev.type, F]) },
@@ -206,13 +217,20 @@ export const createEventQueue = (
     events: ToggleArray<ProtectedEvent[]>,
     { flush = false, async = true, variables }: EventQueuePostOptions = {}
   ): Promise<any> => {
-    events = map(array(events), (event) =>
-      merge(context.applyEventExtensions(event), { metadata: { queued: true } })
+    const newEvents: ProtectedEvent[] = [];
+
+    events = map(
+      array(events),
+      (event) => (
+        !event.metadata?.queued && push(newEvents, event),
+        merge(context.applyEventExtensions(event), {
+          metadata: { queued: true },
+        })
+      )
     );
 
-    if (events.length) {
-      forEach(events, (event) => debug(event, event.type));
-    }
+    forEach(newEvents, (event) => debug(event, event.type));
+
     if (!async) {
       return postEvents(events, false, variables);
     }

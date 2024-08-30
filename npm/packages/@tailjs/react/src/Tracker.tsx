@@ -163,17 +163,15 @@ export const Tracker = ({
 
   exclude ??= [/(Router|Boundary|Handler)$/];
   const excludeType = compileIncludeExcludeRules(include, exclude);
-  let stop = compileIncludeExcludeRules(
-    undefined,
-    concatRules([Tracker], stoppers)
-  );
+  let stop = compileIncludeExcludeRules(undefined, stoppers);
 
   if (scriptTag !== false) {
     if (scriptTag === true) {
       scriptTag = <script async></script>;
     }
     endpoint ??=
-      (typeof scriptTag === "function" ? "" : scriptTag.props.src) || "/_t.js";
+      (typeof scriptTag === "function" ? null : scriptTag.props.src) ||
+      "/_t.js";
 
     endpoint = [
       // Strip whatever querystring and hash that might be in the endpoint URI,
@@ -201,7 +199,16 @@ export const Tracker = ({
     <>
       <MapState
         context={tail}
-        parse={parseOverride}
+        parse={(el, traverse) => {
+          if (el.type == Tracker) {
+            // Trackers don't track trackers.
+            if (el.props.scriptTag !== false) {
+              el = { ...el, props: { ...el.props, scriptTag: false } };
+            }
+            return el;
+          }
+          return parseOverride?.(el, traverse);
+        }}
         ignoreType={stop}
         mapState={(el, state: BoundaryDataWithView | null, context) => {
           const mapped: BoundaryDataWithView[] = mappers

@@ -1,7 +1,7 @@
 {
   "name": "@tailjs/next",
   "description": "tail.js NextJS integration.",
-  "license": "LGPL3",  
+  "license": "LGPL3",
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
