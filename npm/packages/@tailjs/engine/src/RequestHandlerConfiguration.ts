@@ -5,6 +5,7 @@ import {
   UserConsent,
   type ViewEvent,
   type ViewTimingData,
+  type DataPurposes,
 } from "@tailjs/types";
 import { AllRequired, JsonObject } from "@tailjs/util";
 import { ClientIdGenerator } from ".";
@@ -131,7 +132,24 @@ export type RequestHandlerConfiguration = {
    *
    * @default Anonymous/Necessary
    */
-  defaultConsent?: UserConsent<boolean>;
+  defaultConsent?: UserConsent;
+
+  /**
+   * Configured whether the two purposes personalization and security should be treated
+   * as separate purposes, or just considered synonymous with functionality and necessary respectively.
+   *
+   * The default is to not treat them separately, and this follows the common options in cookie
+   * disclaimers.
+   *
+   * Google Consent Mode v2 has separate flags for personalization and security, which is why
+   * you might want to enable the distinction.
+   *
+   * When a purpose is not treated separately, the become synonymous with their counterpart,
+   * and both are set if either is set when the user gives or updates their consent.
+   * That is, consent for inactive purposes cannot be controlled independently if not active.
+   *
+   */
+  additionalPurposes?: Pick<DataPurposes, "personalization" | "security">;
 
   /**
    * Whether device cookies should be split by purpose (performance, functionality etc.) or just be shared in one,
@@ -188,6 +206,7 @@ export const DEFAULT: Omit<
   | "encryptionKeys"
   | "storage"
   | "clientIdGenerator"
+  | "additionalPurposes"
 > = {
   trackerName: "tail",
   cookies: {
@@ -203,7 +222,9 @@ export const DEFAULT: Omit<
   cookiePerPurpose: false,
   json: false,
   defaultConsent: {
-    level: "anonymous",
-    purposes: "necessary",
+    classification: "anonymous",
+    purposes: {
+      necessary: true,
+    }, // Necessary only.
   },
 };

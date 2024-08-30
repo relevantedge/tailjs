@@ -4,22 +4,21 @@ import {
   Extends,
   Nullish,
   Property,
+  array,
   define,
   entries,
+  enumerate,
+  fromEntries,
   isArray,
+  isInteger,
   isNumber,
   isObject,
   isString,
+  map,
   obj,
+  quote,
   throwError,
   undefined,
-  quote,
-  enumerate,
-  array,
-  map,
-  isInteger,
-  fromEntries,
-  Falsish,
 } from ".";
 
 export type ParsableLabelValue<Target, Labels extends string> =
@@ -148,7 +147,6 @@ export const createLabelParser: <
   options?: {
     defaultValue?(): Target;
     clone?(current: Target): Target;
-    applyDefaults?(parsed: Target): Target;
   }
 ) => LabelParser<Target, Labels, Flags> = (
   name,
@@ -156,7 +154,7 @@ export const createLabelParser: <
   mappings,
   generator,
   mutex,
-  { defaultValue, clone, applyDefaults } = {}
+  { defaultValue, clone } = {}
 ) => {
   let mutexGroups: Record<string, number[] | undefined> | undefined;
 
