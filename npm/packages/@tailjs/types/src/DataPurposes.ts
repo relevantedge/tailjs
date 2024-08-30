@@ -12,6 +12,16 @@ export type DataPurposeLabel = "necessary" | keyof DataPurposes;
  */
 export interface DataPurposes {
   /**
+   * If this consent is cleared, collection of any data for the user is complete disabled.
+   *
+   * There seems to be consensus amongst similar analytics platforms
+   * that no privacy act actively prohibits collecting completely anonymous
+   * data without consents, so this purpose should normally not be excluded since you
+   * may loose valuable data you probably were allowed to have  .
+   */
+  necessary?: boolean;
+
+  /**
    * Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including
    * demographics and similar traits with the purpose of optimizing the website or app.
    *

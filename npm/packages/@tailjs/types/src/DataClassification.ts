@@ -1,10 +1,4 @@
-import {
-  Nullish,
-  createEnumParser,
-  fromEntries,
-  quote,
-  throwError,
-} from "@tailjs/util";
+import { createEnumParser } from "@tailjs/util";
 
 /**
  * Defines to which extend a piece of information relates to a natural person (user of your app or website).
