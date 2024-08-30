@@ -9,7 +9,9 @@
   "homepage": "https://github.com/relevantedge/tailjs",
   "scripts": {
     "build": "tsx ../../../build/rollup.ts",
-    "build:watch": "pnpm run build -w"
+    "build:watch": "pnpm run build -w",
+    "dist": "tsx ../../../build/publish.ts",
+    "dist:dry": "pnpm run dist --dry"
   },
   "dependencies": {
     "@tailjs/engine": "workspace:*",

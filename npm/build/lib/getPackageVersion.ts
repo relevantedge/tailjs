@@ -2,9 +2,25 @@ import * as fs from "fs";
 import * as path from "path";
 import { PackageEnvironment } from ".";
 
+export const getPackageReferenceString = (
+  pkg: PackageEnvironment,
+  {
+    packageName,
+    reference,
+    usePathReferences: usePathReferences = false,
+  }: { packageName: string; reference: string; usePathReferences: boolean }
+) => {
+  return reference.replace(/^workspace:(.*)/, (_, version) =>
+    usePathReferences
+      ? path.join(pkg.workspace, "packages", packageName, "dist")
+      : version === "*"
+      ? "^" + getPackageVersion(pkg, packageName)
+      : version
+  );
+};
 export const getPackageVersion = (
   target: PackageEnvironment,
-  packageName = "@tailjs/" + target.name
+  packageName = target.qualifiedName
 ) => {
   const version =
     JSON.parse(

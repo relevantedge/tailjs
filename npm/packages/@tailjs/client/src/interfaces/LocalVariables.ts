@@ -38,8 +38,16 @@ export type ReferringViewData = [
   relatedEventId: LocalID | undefined
 ];
 
+export interface CurrentView extends View {
+  /**
+   * If the view is updated, and this is set, it is considered navigation.
+   * Use this if you have implemented custom navigation that does not make use of
+   * history.push/replace.
+   */
+  navigation?: boolean;
+}
 type ReservedVariableDefinitions = {
-  view: View;
+  view: CurrentView;
   tags: string[];
   rendered: boolean;
   loaded: boolean;

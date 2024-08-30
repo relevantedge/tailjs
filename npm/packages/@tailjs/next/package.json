@@ -6,7 +6,8 @@
     "check": "tsc --noEmit",
     "build": "tsx ../../../build/rollup.ts",
     "build:watch": "pnpm run build -w",
-    "postinstall": "\"./node_modules/.bin/tailjs-init-next\""
+    "dist": "tsx ../../../build/publish.ts",
+    "dist:dry": "pnpm run dist --dry"
   },
   "dependencies": {
     "@tailjs/engine": "workspace:*",

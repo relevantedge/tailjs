@@ -781,14 +781,6 @@ export class Tracker {
         )
       );
 
-    // console.log(
-    //   "Tracker on request handler: " +
-    //     this._requestHandler.instanceId +
-    //     " with the " +
-    //     sessionId,
-    //   this._session.value
-    // );
-
     if (this._session.value) {
       let device =
         this._consent.level > DataClassification.Anonymous && this.deviceId

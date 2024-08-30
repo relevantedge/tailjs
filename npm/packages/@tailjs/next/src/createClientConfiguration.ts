@@ -1,10 +1,10 @@
-import type { BoundaryDataMapper } from "@tailjs/react";
-import type { FunctionComponent } from "react";
+import type { TrackerProperties } from "@tailjs/react";
 
 export type ClientConfiguration = {
-  map?: BoundaryDataMapper;
-  endpoint?: string;
-  scriptTag?: FunctionComponent<{ src: string }>;
+  tracker: Pick<
+    TrackerProperties,
+    "map" | "include" | "exclude" | "stoppers" | "endpoint" | "scriptTag"
+  >;
 };
 
 export const createClientConfiguration = (config: ClientConfiguration) =>
