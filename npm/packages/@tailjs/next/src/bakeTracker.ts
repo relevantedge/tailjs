@@ -48,7 +48,7 @@ export const bakeTracker = (
 
   const ConfiguredTracker: ConfiguredTrackerComponent = ({
     children,
-    root,
+    root = true,
   }) => {
     return createElement(Tracker, {
       map,
@@ -63,7 +63,10 @@ export const bakeTracker = (
               "Client components cannot be tracked from the server unless a client version is also configured (cf. the description of bakeTracker in @tailjs/next)."
             );
           }
-          return createElement(clientTracker, { children: traverse(el) });
+          return createElement(clientTracker, {
+            children: traverse(el),
+            root: false,
+          });
         }
       },
       children,

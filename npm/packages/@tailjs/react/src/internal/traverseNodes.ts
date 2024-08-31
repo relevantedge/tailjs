@@ -148,7 +148,6 @@ export function traverseNodesInternal<T, C>(
   context: TraverseContext<T, C> | Nullish
 ) {
   if (!context || !isTraversable(node)) {
-    // Trackers do not traverse Trackers.
     return node;
   }
 
