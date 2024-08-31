@@ -163,10 +163,7 @@ export const Tracker = ({
 
   exclude ??= [/(Router|Boundary|Handler)$/];
   const excludeType = compileIncludeExcludeRules(include, exclude);
-  let stop = compileIncludeExcludeRules(
-    undefined,
-    concatRules([Tracker], stoppers)
-  );
+  let stop = compileIncludeExcludeRules(undefined, stoppers);
 
   if (scriptTag !== false) {
     if (scriptTag === true) {
@@ -202,7 +199,16 @@ export const Tracker = ({
     <>
       <MapState
         context={tail}
-        parse={parseOverride}
+        parse={(el, traverse) => {
+          if (el.type == Tracker) {
+            // Trackers don't track trackers.
+            if (el.props.scriptTag !== false) {
+              el = { ...el, props: { ...el.props, scriptTag: false } };
+            }
+            return el;
+          }
+          return parseOverride?.(el, traverse);
+        }}
         ignoreType={stop}
         mapState={(el, state: BoundaryDataWithView | null, context) => {
           const mapped: BoundaryDataWithView[] = mappers
