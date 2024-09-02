@@ -1,4 +1,5 @@
 import {
+  IDENTITY,
   IteratorAction,
   IteratorSource,
   MINUTE,
@@ -70,7 +71,7 @@ export const enumerate = (
 ) =>
   !values
     ? undefined
-    : (values = map(values)).length === 1
+    : (values = values.filter(IDENTITY)).length === 1
     ? values[0]
     : isArray(separator)
     ? [

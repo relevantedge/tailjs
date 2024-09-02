@@ -1,4 +1,5 @@
 import {
+  DataPurposeName,
   DEFAULT_SCHEMA_EVENT_TYPE,
   DEFAULT_SCHEMA_NS,
   type PrimitiveSchemaType,
@@ -11,13 +12,16 @@ import {
 } from "@tailjs/types";
 import { VariableStorageContext } from "..";
 import { parseSchemaEntity, SchemaParseContext } from "./validation";
-import { VariableKey } from "packages/@tailjs/types/dist";
 
 export interface ParsedSchemaEntity extends SchemaEntity {
   id: string;
   namespace: string;
 
-  censor<T>(value: T, context: VariableStorageContext): T | null;
+  censor<T>(
+    value: T,
+    context: VariableStorageContext,
+    targetPurpose?: DataPurposeName
+  ): T | null;
 
   validate<T>(
     value: T,

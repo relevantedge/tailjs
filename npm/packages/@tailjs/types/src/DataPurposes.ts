@@ -1,18 +1,72 @@
+import { array, isArray, isString, Nullish } from "@tailjs/util";
+
+export type DataPurposeName = keyof DataPurposes;
+export const DATA_PURPOSES: DataPurposeName[] = [
+  "necessary",
+  "performance",
+  "functionality",
+  "marketing",
+  "personalization",
+  "security",
+];
+
+export const getDataPurposeNames = (
+  purposes: DataPurposes | undefined
+): DataPurposeName[] => {
+  const names: any[] = [];
+  if (!purposes) return names;
+  for (const key in purposes) {
+    purposes[key] && names.push(key);
+  }
+
+  return names;
+};
+
+export const parseDataPurposes = <
+  T extends DataPurposeName | DataPurposeName[] | DataPurposes | Nullish
+>(
+  purposeNames: T
+): T extends Nullish ? undefined : DataPurposes => {
+  if (purposeNames == null) return undefined!;
+  if (!isArray(purposeNames)) {
+    if (!isString(purposeNames)) {
+      return purposeNames as any;
+    }
+    purposeNames = [purposeNames] as any;
+  }
+
+  const purposes: DataPurposes = {};
+  for (const name of purposeNames as any) {
+    purposes[name as any] = true;
+  }
+  return purposes as any;
+};
+
 /**
- * Defines the purposes data points will be used for in a schema,
- * and similarly which data points may be stored for (natural) individuals given their consent.
+ * The purposes data can be used for.
+ * Non-necessary data requires an individual's consent to be collected and used.
  *
- * Data-points that are categorized as "anonymous" will also be stored regardless of consent.
+ * Data categorized as "anonymous" will be stored regardless of consent since a consent only relates
+ * to "personal data", and anonymous data is just "data".
+ *
+ * Whether the two purposes "personalization" and "security" are considered separate purposes
+ * is configurable. The default is to consider "personalization" the same as "functionality", and
+ * "security" the same as "necessary".
  */
 export interface DataPurposes {
   /**
-   * If this is explicitly disabled in a consent, no data will be collected for the individual.
-   * This overrides any other purpose set in the consent.
    *
-   * Likewise, if this is disabled a schema definition, that part of the schema will not be used.
-   * This can be used to conditionally disable parts of the schema without deleting it.
+   * This purpose cannot be removed from a consent. If the intention is to not store data
+   * for a specific individual, use the data classification "never" instead.
    *
-   * @default true
+   * Even necessary data will only be stored if its general data classification is compatible with the current consent.
+   *
+   * In schema definitions the data is assumed necessary if no other purposes are specified.
+   * It is also possible to mark data as necessary in combination with other purposes.
+   * This means the data needs to be there for a genuinely necessary purpose, but may optionally
+   * _also_ be used for, say, personalization if the user has consented to their data being stored for this purpose.
+   *
+   * Even if stored for other purposes, data cannot be read and used for a purpose without consent.
    */
   necessary?: boolean;
 

@@ -1,20 +1,30 @@
 import { createEnumParser } from "@tailjs/util";
 
 /**
- * Defines to which extend a piece of information relates to a natural person (user of your app or website).
+ * Defines to which extend a piece of information relates to a natural individual which is typically someone visiting your app or website.
  *
- * Tail.js requires all data points (data types and their properties) to be classified to prevent any data from being stored or otherwise used beyond a user's consent.
+ * Tail.js requires all data that can be collected to be classified to prevent any data from being stored or otherwise used beyond
+ * an individual's consent.
  *
- * YOU (or client and/or employer) are responsible for the legality of the collection of data, its classification at any level of consent for any duration of time - not tail.js, even with its default settings, intended design or implementation.
+ * Be aware that de default settings in the tail.js schema *do not* guarantee legal compliance, and you are responsible
+ * for not using the collected data for other purposes than those intended.
  *
  */
 export type DataClassification =
   /**
+   * A "consent" for this data classification means that no data will be stored for any reason.
+   *
+   * Likewise, if used in a schema all data with this classification will not be stored.
+   */
+  | "never"
+
+  /**
    * The data cannot be linked to a specific individual after they leave the website or app, and their session ends.
    *
-   * This does NOT include seemingly anonymous data such as the hash of an IP address, since that may still be linked back
+   * This does _not_ include seemingly anonymous data such as the hash of an IP address, since that may still be linked back
    * to an individual using "additional information". As an example, if you want to test if a specific person visited a website at a given time
-   * and you know their IP address at that time by some other means, you can generate the same hash and see if it is there.
+   * and you know their IP address at that time by some other means, you can generate a hash with the same algorithm and see if it is
+   * in the data.
    *
    * Tail.js will collect this kind of data in a way that does not use cookies or other information persisted in the individual's device. */
   | "anonymous"
@@ -47,7 +57,7 @@ export type DataClassification =
 
 export const dataClassification = createEnumParser<DataClassification>(
   "data classification",
-  ["anonymous", "indirect", "direct", "sensitive"]
+  ["never", "anonymous", "indirect", "direct", "sensitive"]
 );
 
 // export type DataClassificationValue<Numeric = boolean> = EnumValue<

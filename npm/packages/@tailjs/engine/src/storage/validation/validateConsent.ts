@@ -1,51 +1,97 @@
 import {
+  DataClassification,
   dataClassification,
+  DataPurposeName,
+  DataPurposes,
   DataUsage,
-  NECESSARY_CONSENT,
 } from "@tailjs/types";
-import type { AllRequired } from "@tailjs/util";
 
+const DEFAULT_PURPOSES: DataPurposes = { necessary: true };
+const DEFAULT_CLASSIFICATION = "anonymous";
+
+type ConsentValidationOptions = {
+  /** If data is being read for a specific purpose both the schema definition and consent must include the purpose. */
+  targetPurpose?: DataPurposeName;
+
+  /** The schema's data usage must have at least one of the consent's purposes, but none other.  */
+  intersect?: boolean;
+
+  /** Consider the security purpose different from "necessary". */
+  security?: boolean;
+  /** Consider the personalization purpose different from "functionality". */
+  personalization?: boolean;
+};
 export const validateConsent = (
-  target?: DataUsage,
-  consent?: DataUsage,
-  defaultConsent?: DataUsage
+  schema?: DataUsage,
+  test?: DataUsage,
+  options?: ConsentValidationOptions
 ) => {
-  let tp = target?.purposes!;
-  let dp = defaultConsent?.purposes;
-  let cp = consent?.purposes ?? dp;
-  if ((cp?.necessary ?? dp?.necessary) === false || tp.necessary === false) {
-    // We do literally never want anything.
+  if (schema?.classification === "never") {
+    // This part of the schema is disabled.
     return false;
   }
 
   if (
-    dataClassification.compare(
-      consent?.classification ?? defaultConsent?.classification ?? 0,
-      target?.classification ?? 0
-    ) < 0
+    // Default is "anonymous".
+    !schema?.classification ||
+    schema?.classification === "anonymous" ||
+    // Nothing to test against.
+    // If no consent is specified it is assumed that we are _not_ acting on behalf of a tracker.
+    !test
   ) {
-    // Classification is not high enough.
-    return false;
-  }
-
-  if (tp == null || cp == null) {
-    // No requirements.
     return true;
   }
 
-  dp ??= cp;
+  if (
+    dataClassification.ranks[schema.classification || DEFAULT_CLASSIFICATION] >
+    dataClassification.ranks[test.classification || DEFAULT_CLASSIFICATION]
+  ) {
+    // Classification is too high.
+    return false;
+  }
 
-  // Check against each purpose. If required by target, it must be in the consent or the default consent.
+  return validateConsentPurposes(schema.purposes, test.purposes, options);
+};
+
+export const validateConsentPurposes = (
+  schema: DataPurposes = DEFAULT_PURPOSES,
+  test: DataPurposes = DEFAULT_PURPOSES,
+  {
+    targetPurpose,
+    intersect,
+    personalization,
+    security,
+  }: ConsentValidationOptions = {}
+) => {
+  if (targetPurpose && !(test[targetPurpose] && schema[targetPurpose])) {
+    // Target purpose is not mentioned as a purpose for the data in the schema and/or there is no consent for the purpose.
+    return false;
+  }
+
+  // Do we match at least one purpose?
+  const hasOne =
+    (schema.necessary && test.functionality) ||
+    (schema.functionality && test.functionality) ||
+    (schema.marketing && test.marketing) ||
+    (schema.performance && test.performance) ||
+    (schema.personalization &&
+      (personalization ? test.personalization : test.functionality)) ||
+    (schema.security && (security ? test.security : test.necessary));
+
+  if (!hasOne || !intersect) {
+    return true;
+  }
+
+  // Only accept if the schema also has no other purposes than those tested against.
   return (
-    !tp.performance ||
-    (cp.performance ?? dp.performance) ||
-    !tp.functionality ||
-    (cp.functionality ?? dp.functionality) ||
-    !tp.marketing ||
-    (cp.marketing ?? dp.marketing) ||
-    !tp.personalization ||
-    (cp.personalization ?? dp.personalization) ||
-    !tp.security ||
-    (cp.security ?? dp.security)
+    (!schema.necessary || (schema.necessary && test.necessary)) &&
+    (!schema.functionality || (schema.functionality && test.functionality)) &&
+    (!schema.marketing || (schema.marketing && test.marketing)) &&
+    (!schema.performance || (schema.performance && test.performance)) &&
+    (!schema.personalization ||
+      (schema.personalization &&
+        (personalization ? test.personalization : test.functionality))) &&
+    (!schema.security ||
+      (schema.security && (security ? test.security : test.necessary)))
   );
 };
