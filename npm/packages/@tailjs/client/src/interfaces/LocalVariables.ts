@@ -10,7 +10,7 @@ import {
   VariableGetResult,
   VariableGetter,
   VariableKey,
-  VariableResultStatus,
+  VariableStatus,
   VariableSetResult,
   VariableSetter,
   variableScope,
@@ -139,14 +139,14 @@ type LocalVariableGetResult<
   (
     | ({
         status:
-          | VariableResultStatus.Success
-          | VariableResultStatus.Unchanged
-          | VariableResultStatus.Created;
+          | VariableStatus.Success
+          | VariableStatus.Unchanged
+          | VariableStatus.Created;
       } & LocalVariable<T, K & string>)
     | IfNot<
         Patched,
         {
-          status: VariableResultStatus.NotFound;
+          status: VariableStatus.NotFound;
           value?: undefined;
         }
       >
@@ -157,9 +157,9 @@ type LocalVariableGetResult<
 type LocalVariableSetResult<T, Source> = PrettifyIntersection<{
   source: Source;
   status:
-    | VariableResultStatus.Success
-    | VariableResultStatus.Unchanged
-    | VariableResultStatus.Created;
+    | VariableStatus.Success
+    | VariableStatus.Unchanged
+    | VariableStatus.Created;
   current: Source extends { value: infer Value }
     ? Value extends undefined
       ? undefined

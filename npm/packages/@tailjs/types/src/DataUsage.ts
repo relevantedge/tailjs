@@ -1,70 +1,37 @@
-import {
-  concat,
-  createLabelParser,
-  entries,
-  ParsableLabelValue,
-  LabelMapper,
-  source,
-} from "@tailjs/util";
-import {
-  dataAccess,
-  DataAccess,
-  DataAccessLabel,
-  dataClassification,
-  DataClassification,
-  DataPurposeLabel,
-  dataPurposes,
-  DataPurposes,
-} from ".";
-
-export type DataUsageLabel =
-  | DataClassification
-  | DataAccessLabel
-  | DataPurposeLabel;
+import { DataClassification, DataPurposes } from ".";
 
 /**
- * The classification, purposes and access restrictions for a piece of information
- * that in combination fully defines how it is allowed to pass through the system, if at all.
+ * The classification and purposes of a data point that determines whether
+ * it can be stored or used given an individual's consent.
  */
 export interface DataUsage {
   /**
-   * The classification of the data.
+   * The maximum classification of data a user has consented to be collected and stored.
+   *
+   * Any property with a classification higher than this will be cleared (censored) before an object is stored.
+   * If all properties gets censored, the object is not stored at all.
+   *
+   * Anonymous data does not require active consent, so data is stored regardless of its purposes
+   * since it is not "personal data" but just "data".
+   * This means you should not annotate all anonymous data as "necessary" in your schema, but rather
+   * use the purpose(s) that would require consent had the data not been anonymous.
+   *
+   * In this way you can simply remove the `anonymous` annotation from a field or object if it turns
+   * out it is not truly anonymous. After that the data can no longer be read for purposes without
+   * user consent. However, tail.js does not currently support redacting/purging the data from storage
+   * so this you need to do manually.
+   *
    */
   classification?: DataClassification;
 
   /**
    * The purposes the data may be used for.
+   *
+   * If a data point has multiple purposes, consent is only need for one of them
+   * for the data to get stored. However, if some logic tries to read the data for a purpose without consent,
+   * it is not returned, since it is only stored for other purposes.
+   *
+   * Purposes do not restrict anonymous data.
    */
   purposes?: DataPurposes;
-
-  /**
-   * Access restrictions that applies to the data.
-   */
-  access?: DataAccess;
 }
-
-export type DataUsageValue = ParsableLabelValue<DataUsage, DataUsageLabel>;
-
-const mappings: Record<
-  DataUsageLabel,
-  LabelMapper<DataUsage, DataUsageLabel>
-> = {} as any;
-
-for (const [label, mapper] of entries(dataAccess[source].mappings))
-  mappings[label] = (value) => mapper((value.access ??= {}), label);
-for (const [label, mapper] of entries(dataPurposes[source].mappings))
-  mappings[label] = (value) => mapper((value.purposes ??= {}), label);
-for (const label of dataClassification.levels)
-  mappings[label] = (value) => (value.classification = label);
-
-export const dataUsage = createLabelParser<DataUsage, DataUsageLabel, true>(
-  "data usage",
-  true,
-  mappings,
-  (value, useDefault) => [
-    dataAccess.format(value.access, useDefault),
-    dataPurposes.format(value.purposes, useDefault),
-    value.classification ?? (useDefault && "anonymous"),
-  ],
-  [...dataAccess[source].mutex!, dataClassification.levels]
-);

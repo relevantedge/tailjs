@@ -16,8 +16,8 @@ export const updateMinClassifications = (
   typeUsage.access.readonly &&
     !apply.access?.readonly &&
     delete typeUsage.access.readonly;
-  typeUsage.access.restriction = dataAccess.restrictions.min(
-    typeUsage.access.restriction ?? 0,
-    apply.access?.restriction ?? 0
+  typeUsage.access.visibility = dataAccess.restrictions.min(
+    typeUsage.access.visibility ?? 0,
+    apply.access?.visibility ?? 0
   );
 };

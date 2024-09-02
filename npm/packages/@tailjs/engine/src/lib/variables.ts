@@ -33,8 +33,8 @@ export const variableId = <T extends VariableKey | undefined | null>(
   variable: T
 ) =>
   variable
-    ? variable.targetId
-      ? variable.scope + variable.targetId + variable.key
+    ? variable.entityId
+      ? variable.scope + variable.entityId + variable.key
       : variable.scope + variable.key
     : undefined;
 

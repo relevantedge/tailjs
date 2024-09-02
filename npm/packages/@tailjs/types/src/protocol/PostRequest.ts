@@ -1,27 +1,10 @@
 import { Nullish } from "@tailjs/util";
 import {
-  RestrictVariableTargets,
-  StripPatchFunctions,
   TrackedEvent,
   VariableGetter,
-  VariableSetter,
+  VariableValueSetter,
+  WithScopeDefaults,
 } from "..";
-
-export type PostVariableGetter<
-  T = any,
-  K extends string = string
-> = RestrictVariableTargets<
-  StripPatchFunctions<VariableGetter<T, K, false>>,
-  true
->;
-
-export type PostVariableSetter<
-  T = any,
-  K extends string = string
-> = RestrictVariableTargets<
-  StripPatchFunctions<VariableSetter<T, K, false>>,
-  true
->;
 
 export interface PostRequest {
   /** New events to add. */
@@ -29,8 +12,8 @@ export interface PostRequest {
 
   /** Results from variable operations. */
   variables?: {
-    get?: readonly (PostVariableGetter | Nullish)[];
-    set?: readonly (PostVariableSetter | Nullish)[];
+    get?: readonly (WithScopeDefaults<VariableGetter> | Nullish)[];
+    set?: readonly (WithScopeDefaults<VariableValueSetter> | Nullish)[];
   };
 
   /**

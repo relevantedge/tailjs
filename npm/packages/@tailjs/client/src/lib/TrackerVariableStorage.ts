@@ -4,7 +4,7 @@ import {
   PostRequest,
   PostResponse,
   VariableResultPromise,
-  VariableResultStatus,
+  VariableStatus,
   dataPurposes,
   getResultVariable,
   toVariableResultPromise,
@@ -216,7 +216,7 @@ export const createVariableStorage = (
                   push(results, [
                     {
                       ...getter,
-                      status: VariableResultStatus.Denied,
+                      status: VariableStatus.Denied,
                       error:
                         "No consent for " + dataPurposes.logFormat(purposes),
                     } as any,
@@ -226,7 +226,7 @@ export const createVariableStorage = (
                   push(results, [
                     {
                       ...current,
-                      status: VariableResultStatus.Success,
+                      status: VariableStatus.Success,
                     } as any,
                     sourceIndex,
                   ]);
@@ -235,7 +235,7 @@ export const createVariableStorage = (
                     const local: ClientVariableGetResult<any, any, any, true> =
                       {
                         ...toNumericVariableEnums(getter),
-                        status: VariableResultStatus.Created,
+                        status: VariableStatus.Created,
                         ...getter.init,
                       };
                     if (local.value != null) {
@@ -312,15 +312,15 @@ export const createVariableStorage = (
               current.scope === local.scope
             ) {
               results[sourceIndex] = {
-                status: VariableResultStatus.Unchanged,
+                status: VariableStatus.Unchanged,
                 source: setter as any,
                 current,
               };
             } else {
               results[sourceIndex] = {
                 status: current
-                  ? VariableResultStatus.Success
-                  : VariableResultStatus.Created,
+                  ? VariableStatus.Success
+                  : VariableStatus.Created,
                 source: setter as any,
                 current: local,
               };

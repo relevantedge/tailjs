@@ -28,7 +28,7 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultPromise,
-  VariableResultStatus,
+  VariableStatus,
   VariableScope,
   VariableSetResults,
   VariableSetter,
@@ -807,7 +807,7 @@ export class Tracker {
 
       if (
         device?.value &&
-        device.status !== VariableResultStatus.Created &&
+        device.status !== VariableStatus.Created &&
         this.session?.isNew
       ) {
         // A new session started on an existing device.
@@ -964,7 +964,7 @@ export class Tracker {
       (results) =>
         results.forEach(
           (result) =>
-            result?.status <= VariableResultStatus.Created &&
+            result?.status <= VariableStatus.Created &&
             this._changedVariables.push(result)
         )
     ) as any;
@@ -1032,7 +1032,7 @@ export class Tracker {
       (results) =>
         forEach(results, (result) => {
           return (
-            result.status !== VariableResultStatus.Unchanged &&
+            result.status !== VariableStatus.Unchanged &&
             this._changedVariables.push({
               ...(result.current ?? extractKey(result.source)),
               status: result.status,

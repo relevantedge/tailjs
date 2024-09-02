@@ -1,200 +1,105 @@
-import {
-  EnumValue,
-  FILTER_NULLISH,
-  MaybePick,
-  MaybeUndefined,
-  Nullish,
-  ParsedEnumResult,
-  PartialExcept,
-  PrettifyIntersection,
-  createEnumAccessor,
-  createEnumPropertyParser,
-  isArray,
-} from "@tailjs/util";
-import {
-  DataClassification,
-  DataClassificationValue,
-  DataPurposeFlags,
-  DataPurposeValue,
-  Timestamp,
-  dataClassification,
-  dataPurposes,
-  singleDataPurpose,
-} from "..";
+import { createEnumParser } from "@tailjs/util";
+import { Timestamp } from "..";
+import { SchemaDataUsage, SchemaEntity } from "./SchemaDefinition";
 
-export enum VariableScope {
-  /** Global variables. */
-  Global = 0,
+/**
+ * The scope for a variable including the entity it relates to and its life time..
+ */
+export type VariableScope =
+  /**
+   * Variables that are not bound to individuals, does not contain personal data, and not subject to censoring.
+   * These may be used for purposes such as shared runtime configuration
+   * or to augment an external entity with real-time data for personalization or testing.
+   */
+  | "global"
 
   /**
-   * Variables related to an external identity.
-   * One use case could be used to augment data a CMS with real-time data related to personalization or testing.
+   * Variables that relates to an individuals current session. These are purged when the session ends.
+   *
+   * Session variables can only be read for the current session from untrusted contexts.
    */
-  Entity = 1,
+  | "session"
 
-  /** Variables related to sessions. */
-  Session = 2,
+  /**
+   * Variables that relates to an individual's device.
+   *
+   * These variables are physically stored in the device where the available space may be very limited.
+   * For example, do not exceed a total of 2 KiB if targeting web browsers.
+   *
+   * To prevent race conditions between concurrent requests, device data may temporarily be loaded into session storage.
+   *
+   * Any data stored here is per definition at least `indirect` since it is linked to a device.
+   */
+  | "device"
 
-  /** Variables related to a device (browser or app). */
-  Device = 3,
+  /**
+   * Variables that relates to an individual across devices.
+   * Associating a user ID with a session can only happen from a trusted context,
+   * but data for the associated user can then be read from untrusted contexts unless a `trusted-only` restriction is put on the data.
+   *
+   * Any data stored here is per definition at least `direct` since it directly linked to an individual.
+   */
+  | "user";
 
-  /** Variables related to an identified user. */
-  User = 4,
-}
-
-export const variableScope = createEnumAccessor(
-  VariableScope as typeof VariableScope,
-  false,
-  "variable scope"
-);
-
-export type VariableScopeValue<Numeric extends boolean | undefined = boolean> =
-  EnumValue<typeof VariableScope, VariableScope, false, Numeric> extends infer T
-    ? T
-    : never;
-
-/** Transforms properties with known enum types to their parsable counterparts. */
-export type Parsable<T, Numeric extends boolean | undefined = boolean> = {
-  [P in keyof T]: T[P] extends DataClassification | undefined | null
-    ? DataClassificationValue<MaybeUndefined<T[P], Numeric>>
-    : T[P] extends DataPurposeFlags | undefined | null
-    ? DataPurposeValue<MaybeUndefined<T[P], Numeric>>
-    : T[P] extends VariableScope | undefined | null
-    ? VariableScopeValue<MaybeUndefined<T[P], Numeric>>
-    : Parsable<T[P], Numeric>;
-};
+export const variableScope = createEnumParser("variable scope", [
+  "global",
+  "session",
+  "device",
+  "user",
+]);
 
 /**
  * Uniquely addresses a variable by scope, target and key name.
  */
-export interface VariableKey<NumericEnums extends boolean = boolean> {
+export interface VariableKey {
   /** The scope the variable belongs to. */
-  scope: VariableScopeValue<NumericEnums>;
+  scope: VariableScope;
+
+  /**
+   * An optional identifier of a specific variable storage such as "crm" or "personalization"
+   * if not addressing tail.js's own storage.
+   */
+  source?: string;
 
   /**
    * The name of the variable.
    *
-   * A key may have a prefix that decides which variable storage it is routed to.
-   * The prefix and the key are separated by colon (`prefix:key`). Additional colons will be considered part of the variable name.
-   * To address a variable with a colon in its name without prefix use `:key`, for example `:colon:in:my:name`.
+   * A key may have a prefix that decides which variable storage it is routed to such as `crm:` or `personalization:`.
+   * The prefix and the key are separated by a colon (`prefix:key`), and the key may not contain a colon itself.
    */
   key: string;
 
   /**
    * The ID of the entity in the scope the variable belongs to.
-   * This is ignored for global variables, and can be set to `""`.
+   *
+   * In the global scope, variables augmenting external entities the IDs should be prefixed with the entity type such as `page:xxxx`
+   * if they are not unique identifiers to avoid clashes.
    */
-  targetId?: string;
+  entityId: string;
 }
 
-export type RestrictedVariable<
-  T = any,
-  NumericEnums extends boolean = true,
-  TrackerScoped extends boolean = true
-> = RestrictVariableTargets<Variable<T, NumericEnums>, TrackerScoped>;
-
-type RestrictVariableItemTargets<
-  T extends readonly any[],
-  TrackerScoped extends boolean
-> = T extends readonly []
-  ? []
-  : T extends [infer Item, ...infer Rest]
-  ? [
-      RestrictVariableTargets<Item, TrackerScoped>,
-      ...RestrictVariableItemTargets<Rest, TrackerScoped>
-    ]
-  : T extends readonly (infer T)[]
-  ? RestrictVariableTargets<T, TrackerScoped>[]
-  : never;
-
-type TrackerScopeValue =
-  | VariableScope.User
-  | "user"
-  | VariableScope.Device
-  | "device"
-  | VariableScope.Session
-  | "session";
-
-export type RestrictVariableTargets<
-  T,
-  TrackerScoped extends boolean = true
-> = boolean extends TrackerScoped
+export type WithScopeDefaults<
+  T extends { scope: string; entityId: string },
+  AllowNonDefault extends boolean = false
+> = AllowNonDefault extends true
   ? T
-  : T extends readonly any[]
-  ? RestrictVariableItemTargets<T, TrackerScoped>
-  : T extends { current: infer C }
-  ? PrettifyIntersection<
-      Omit<T, "current"> & {
-        current: RestrictVariableTargets<C, TrackerScoped>;
-      }
-    >
-  : PrettifyIntersection<
-      T extends { scope: any; targetId?: any }
-        ? Omit<T, "targetId"> &
-            (
-              | {
-                  scope:
-                    | VariableScope.Global
-                    | "global"
-                    | (TrackerScoped extends true ? TrackerScopeValue : never);
-                  targetId?: undefined;
-                }
-              | {
-                  scope:
-                    | (TrackerScoped extends true ? never : TrackerScopeValue)
-                    | VariableScope.Entity
-                    | "entity";
-                  targetId: T["targetId"] & string;
-                }
-            )
-        : T
-    >;
-
-export const isTrackerScoped = (
-  value: any
-): value is { scope: TrackerScopeValue } =>
-  variableScope(value?.scope) >= VariableScope.Session;
-
-/** Removes target ID from tracker scoped variables and variable results. */
-export const restrictTargets = <T>(value: T): RestrictVariableTargets<T> => (
-  isArray(value)
-    ? value.map(restrictTargets)
-    : isTrackerScoped(value) && delete (value as any).targetId,
-  (value as any)?.current && restrictTargets((value as any).current),
-  value as any
-);
+  : Omit<T, "scope" | "entityId"> &
+      (T["scope"] extends infer Scope extends string
+        ? Scope extends "global"
+          ? {
+              scope: Scope;
+              entityId: string;
+            }
+          : { scope: Scope; entityId?: undefined }
+        : never);
 
 /**
  * A {@link VariableKey} that optionally includes the expected version of a variable value.
  * This is used for "if none match" queries to invalidate caches efficiently.
  */
-export interface VersionedVariableKey<NumericEnums extends boolean = boolean>
-  extends VariableKey<NumericEnums> {
+export interface VersionedVariableKey extends VariableKey {
   version?: string;
 }
-
-/**
- * Defines how the value of variable is classified and for which purposes it can be used.
- */
-export interface VariableUsage<NumericEnums extends boolean = boolean> {
-  /**
-   * The legal classification of the kind of data a variable holds.
-   * This limits which data will be stored based on a user's consent.
-   */
-  classification: DataClassificationValue<NumericEnums>;
-
-  /**
-   * Optionally defines the possible uses of the data a variables holds (they are binary flags).
-   * When a variable is requested by some logic, it may be stated what the data is used for.
-   * If the user has not consented to data being used for this purpose the variable will not be avaiable.
-   */
-  purposes: DataPurposeValue<NumericEnums>;
-}
-
-export const Necessary: VariableUsage<true> = {
-  classification: DataClassification.Anonymous,
-  purposes: DataPurposeFlags.Necessary,
-};
 
 export interface VariableMetadata {
   /**
@@ -231,14 +136,9 @@ export interface VariableVersion {
   created: Timestamp;
 
   /**
-   * When the variable was last modified. (Unix  ms).
+   * When the variable was last modified. (Unix ms).
    */
   modified: Timestamp;
-
-  /**
-   * When the variable was last accessed (Unix ms).
-   */
-  accessed: Timestamp;
 
   /**
    * A unique token that changes every time a variable is updated.
@@ -251,12 +151,22 @@ export interface VariableVersion {
   version: string;
 }
 
+export interface VariableSchemaSource extends SchemaDataUsage {
+  namespace: string;
+  type: string;
+  property: string;
+}
+
+export interface VariableSource {
+  /** Optional metadata about the variables definition. */
+  schema?: VariableSchemaSource;
+}
+
 /**
  * All data related to a variable except its value.
  */
-export interface VariableHeader<NumericEnums extends boolean = true>
-  extends VariableKey<NumericEnums>,
-    VariableUsage<NumericEnums>,
+export interface VariableHeader
+  extends VariableKey,
     VariableMetadata,
     VariableVersion {}
 
@@ -264,125 +174,22 @@ export interface VariableHeader<NumericEnums extends boolean = true>
  * A variable is a specific piece of information that can be classified and changed independently.
  * A variable can either be global or related to a specific entity or tracker scope.
  */
-export interface Variable<T = any, NumericEnums extends boolean = true>
-  extends VariableHeader<NumericEnums> {
-  /**
-   * The value of the variable is read-only. Trying to update its value in its storage will result in an error.
-   */
-  readonly?: boolean;
-
+export interface Variable<T = any> extends VariableHeader {
   /**
    * The value of the variable. It must only be undefined in a set operation in which case it means "delete".
    */
   value: T;
 }
 
-/**
- * The information needed about a variable to validate whether it complies with a user's consents,
- * or meets other authorization based requirements.
- */
-export type VariableValidationBasis<NumericEnums extends boolean = boolean> =
-  VariableKey<NumericEnums> & Partial<VariableUsage<NumericEnums>>;
-
 /** Returns a description of a key that can be used for logging and error messages.  */
-export const formatKey = (key: VariableKey<true> | VariableKey) =>
-  `'${key.key}' in ${variableScope.format(key.scope)} scope`;
-
-/** The individual parts of a key specified as string. */
-export type ParsedKey = {
-  /** The prefix of the key, or the empty string if none. */
-  prefix: string;
-
-  /** The excluding its prefix. */
-  key: string;
-
-  /** The original key string. */
-  sourceKey: string;
-
-  /** For queries. */
-  not?: boolean;
-};
-
-export const stripPrefix = <T extends VariableKey | undefined>(key: T): T =>
-  key && { ...key, key: parseKey(key.key).key };
-
-/** Returns the individual parts of a key specified as a string.  */
-export const parseKey = <T extends string | undefined>(
-  sourceKey: T
-): MaybeUndefined<T, ParsedKey> => {
-  if (sourceKey == null) return undefined as any;
-  const not = sourceKey[0] === "!";
-  if (not) {
-    sourceKey = (sourceKey.slice(1) as T)!;
-  }
-  const prefixIndex = sourceKey.indexOf(":");
-  const prefix = prefixIndex < 0 ? "" : sourceKey.substring(0, prefixIndex);
-  const key = prefixIndex > -1 ? sourceKey.slice(prefixIndex + 1) : sourceKey;
-
-  return {
-    prefix,
-    key,
-    sourceKey,
-    not,
-  } as any;
-};
-
-export const VariableEnumProperties = {
-  scope: variableScope,
-  purpose: singleDataPurpose,
-  purposes: dataPurposes,
-  classification: dataClassification,
-} as const;
-
-export const toNumericVariableEnums: <T>(
-  value: T
-) => ParsedEnumResult<T, [typeof VariableEnumProperties]> =
-  createEnumPropertyParser(VariableEnumProperties);
-
-export const extractKey = <
-  T,
-  C extends undefined | Partial<VariableUsage> = undefined
->(
-  variable: T & PartialExcept<VariableKey, "key">,
-  classificationSource?: C
-): T extends undefined
-  ? undefined
-  : T extends VariableKey
-  ? PrettifyIntersection<
-      MaybePick<T, keyof VariableKey> &
-        ("scope" extends keyof T
-          ? {
-              scope: VariableScope;
-            }
-          : never) &
-        (C extends undefined
-          ? {}
-          : MaybePick<C & Partial<VariableUsage<true>>, keyof VariableUsage>)
-    >
-  : never =>
-  variable
-    ? ({
-        scope: variableScope(variable.scope),
-        targetId: variable.targetId,
-        key: variable.key,
-        ...(classificationSource && {
-          classification: dataClassification(
-            classificationSource.classification
-          ),
-          purposes: dataPurposes(classificationSource.purposes),
-        }),
-      } as Required<VariableKey> as any)
-    : undefined;
-
-export const sortVariables = <
-  T extends ({ scope: number; key: string } | Nullish)[] | Nullish
->(
-  variables: T
-): T extends readonly any[] ? (T[number] & {})[] : undefined =>
-  variables
-    ?.filter(FILTER_NULLISH)
-    .sort((x, y) =>
-      x!.scope === y!.scope
-        ? x!.key.localeCompare(y!.key, "en")
-        : x!.scope - y!.scope
-    ) as any;
+export const formatKey = (
+  key: {
+    key: string;
+    scope: string;
+    entityId?: string;
+  },
+  error?: string
+) =>
+  `'${key.key}'${error ? " " + error : ""} in ${key.scope} scope${
+    key.entityId ? `for '${key.entityId}'` : ""
+  }`;

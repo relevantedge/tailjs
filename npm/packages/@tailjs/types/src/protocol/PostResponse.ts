@@ -1,20 +1,9 @@
-import { Nullish } from "@tailjs/util";
 import {
-  RestrictVariableTargets,
   TrackedEvent,
   VariableGetResult,
   VariableSetResult,
+  WithScopeDefaults,
 } from "..";
-
-export type PostVariableGetResult = RestrictVariableTargets<
-  VariableGetResult,
-  true
->;
-
-export type PostVariableSetResult = Omit<
-  RestrictVariableTargets<VariableSetResult, true>,
-  "source"
->;
 
 export interface PostResponse {
   /**
@@ -23,13 +12,10 @@ export interface PostResponse {
    */
   variables?: {
     /** Results from get operations made via a {@link PostRequest} or variables the server wants to push. */
-    get?: (PostVariableGetResult | undefined)[];
+    get?: (WithScopeDefaults<VariableGetResult> | undefined)[];
 
     /** Result from set operations made via a {@link PostRequest}. */
-    set?: (
-      | Omit<RestrictVariableTargets<VariableSetResult, true>, "source">
-      | undefined
-    )[];
+    set?: (WithScopeDefaults<VariableSetResult> | undefined)[];
   };
 
   /** Events to be routed to an external client-side tracker. */

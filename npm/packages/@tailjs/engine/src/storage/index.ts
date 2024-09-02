@@ -1,3 +1,4 @@
+export * from "./TypeResolver";
 export * from "./InMemoryStorage";
 export * from "./ParsingVariableStorage";
 export * from "./TargetedVariableMap";
