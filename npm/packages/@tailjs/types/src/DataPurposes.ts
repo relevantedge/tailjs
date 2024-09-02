@@ -1,35 +1,30 @@
-import { ParsableLabelValue, createLabelParser, map } from "@tailjs/util";
-
-export type DataPurposeLabel = "necessary" | keyof DataPurposes;
-
 /**
  * Defines the purposes data points will be used for in a schema,
- * and similarly which data points may be stored for a user given their consent.
+ * and similarly which data points may be stored for (natural) individuals given their consent.
  *
- * Essential "consent" is always implied.
- * Data-points that are categorized as "anonymous" will also be stored
- * regardless of consent.
+ * Data-points that are categorized as "anonymous" will also be stored regardless of consent.
  */
 export interface DataPurposes {
   /**
-   * If this consent is cleared, collection of any data for the user is complete disabled.
+   * If this is explicitly disabled in a consent, no data will be collected for the individual.
+   * This overrides any other purpose set in the consent.
    *
-   * There seems to be consensus amongst similar analytics platforms
-   * that no privacy act actively prohibits collecting completely anonymous
-   * data without consents, so this purpose should normally not be excluded since you
-   * may loose valuable data you probably were allowed to have  .
+   * Likewise, if this is disabled a schema definition, that part of the schema will not be used.
+   * This can be used to conditionally disable parts of the schema without deleting it.
+   *
+   * @default true
    */
   necessary?: boolean;
 
   /**
-   * Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including
+   * Data stored for this purpose is used to gain insights on how individuals interact with a website or app optionally including
    * demographics and similar traits with the purpose of optimizing the website or app.
    *
    * DO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope
    * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
    *
    * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
+   * This would be the case if an individual is able to use an app and website interchangeably for the same service. Different areas of a brand may
    * also be distributed across multiple domain names.
    *
    */
@@ -37,7 +32,7 @@ export interface DataPurposes {
 
   /**
    * Data stored for this purpose is used for settings that adjust the appearance of a website or app
-   * according to a user's preferences such as "dark mode" or localization of date and number formatting.
+   * according to an individual's preferences such as "dark mode" or localization of date and number formatting.
    *
    * Depending on your configuration, a functionality consent may also include personalization.
    * Personalization such as suggested articles and videos is per definition functionality,
@@ -50,7 +45,7 @@ export interface DataPurposes {
    * It may be okay if the data is only used for different website and apps that relate to the same product, brand or service, hence
    * the information is still "first party" with respect to the legal entity/brand to whom the consent is made.
    *
-   * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
+   * This would be the case if an individual is able to use an app and website interchangeably for the same service. Different areas of a brand may
    * also be distributed across multiple domain names.
    *
    */
@@ -84,129 +79,3 @@ export interface DataPurposes {
    */
   security?: boolean;
 }
-
-export type DataPurposeValue = ParsableLabelValue<
-  DataPurposes,
-  DataPurposeLabel
->;
-
-export const dataPurposes = createLabelParser<
-  DataPurposes,
-  DataPurposeLabel,
-  true
->(
-  "data purpose",
-  true,
-  {
-    necessary: (value) => value,
-    performance: (value) => (value.performance = true),
-    functionality: (value) => (value.functionality = true),
-    marketing: (value) => (value.marketing = true),
-    personalization: (value) => (value.personalization = true),
-    security: (value) => (value.security = true),
-  },
-  (value) => {
-    const mapped = map(value, ([key, value]) => value && key);
-    return mapped.length ? mapped : ["necessary"];
-  }
-);
-
-// /** Purposes data can be used for, including combinations of {@link DataPurpose} */
-// export enum DataPurposeFlags {
-//   /** Data without a purpose will not get stored and cannot be used for any reason. This can be used to disable parts of a schema. */
-//   None = 0,
-
-//   /**
-//    * These cookies are required for basic functionality, and ensure that essential services work properly.
-//    * For example, tail.js does not work without the ID fields on events.
-//    *
-//    * No active consent is needed for necessary cookies.
-//    *
-//    */
-//   Necessary = 1,
-
-//   /**
-//    * Data stored for this purpose is used for settings that adjust the appearance of a website or app
-//    * according to a user's preferences such as "dark mode" or localization of date and number formatting.
-//    *
-//    * It may also be used for personalization.
-//    *
-//    * DO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope
-//    * of the website or app. Use {@link DataPurposeFlags.Marketing} instead.
-//    *
-//    * It may be okay if the data is only used for different website and apps that relate to the same product, brand or service, hence
-//    * the information is still "first party" with respect to the legal entity/brand to whom the consent is made.
-//    *
-//    * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
-//    * also be distributed across multiple domain names.
-//    *
-//    */
-//   Functionality = 2,
-
-//   /**
-//    * Data stored for this purpose is used to gain insights on how users interact with a website or app optionally including
-//    * demographics and similar traits with the purpose of optimizing the website or app.
-//    *
-//    * DO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope
-//    * of the website or app. Use {@link DataPurposeFlags.Targeting} instead.
-//    *
-//    * It may be okay if the data is only used for different website and apps that relate to the same product or service.
-//    * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
-//    * also be distributed across multiple domain names.
-//    *
-//    */
-//   Performance = 4,
-
-//   /**
-//    * Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties
-//    * or otherwise used to perform marketing outside the scope of the specific website or app.
-//    *
-//    * If the data is only used for different website and apps that relate to the same product or service, it might not be necessary
-//    * to use this category.
-//    * This would be the case if a user is able to use an app and website interchangeably for the same service. Different areas of a brand may
-//    * also be distributed across multiple domain names.
-//    */
-//   Targeting = 8,
-
-//   /**
-//    * Data stored for this purpose is used for security purposes. As examples, this can both be data related to securing an authenticated user's session,
-//    * or for a website to guard itself against various kinds of attacks.
-//    *
-//    * This is implicitly also `Necessary`.
-//    */
-//   Security = 16,
-// }
-
-// export type DataPurpose =
-//   | DataPurposeFlags.Necessary
-//   | DataPurposeFlags.Functionality
-//   | DataPurposeFlags.Performance
-//   | DataPurposeFlags.Targeting;
-
-// const purePurposes: DataPurpose =
-//   DataPurposeFlags.Necessary |
-//   DataPurposeFlags.Functionality |
-//   DataPurposeFlags.Performance |
-//   DataPurposeFlags.Targeting |
-//   DataPurposeFlags.Security;
-
-// export const dataPurposes = createEnumAccessor(
-//   DataPurposeFlags as typeof DataPurposeFlags,
-//   true,
-//   "data purpose",
-//   purePurposes
-// );
-
-// export const singleDataPurpose = createEnumAccessor(
-//   DataPurposeFlags as typeof DataPurposeFlags,
-//   false,
-//   "data purpose",
-//   0
-// );
-
-// export type DataPurposeValue<Numeric = boolean> = EnumValue<
-//   typeof DataPurposeFlags,
-//   DataPurposeFlags,
-//   true,
-//   Numeric
-// >;

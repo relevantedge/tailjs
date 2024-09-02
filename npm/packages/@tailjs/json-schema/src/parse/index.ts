@@ -4,7 +4,7 @@ export * from "./patchValue";
 export * from "./getRefType";
 export * from "./mergeBaseProperties";
 export * from "./mergeBasePropertyClassifications";
-export * from "./parseClassifications";
+export * from "./parseSchemaUsage";
 export * from "./parseCompositions";
 export * from "./parseDescription";
 export * from "./maybeMakeEventType";

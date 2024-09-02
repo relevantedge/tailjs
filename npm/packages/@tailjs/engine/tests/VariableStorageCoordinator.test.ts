@@ -1,7 +1,7 @@
 import {
   ResultStatusValue,
   VariableKey,
-  VariableResultStatus,
+  VariableStatus,
   VariableScope,
   VariableSetter,
   resultStatus,
@@ -78,17 +78,17 @@ describe("VariableStorageCoordinator", () => {
       defaultStorage,
       prefixSessionStorage1,
     } = setupStorage();
-    const key: VariableKey = { scope: "session", key: "test", targetId: "foo" };
+    const key: VariableKey = { scope: "session", key: "test", entityId: "foo" };
     const prefixedKey = { ...key, key: "test:prefixed" };
     expect(await coordinator.get([key]).value).toBeUndefined();
 
     expect(
       (await coordinator.set([{ ...key, value: "32" }]).result).status
-    ).toBe(VariableResultStatus.Created);
+    ).toBe(VariableStatus.Created);
 
     expect(
       (await coordinator.set([{ ...key, value: "33" }]).all)[0].status
-    ).toBe(VariableResultStatus.Conflict);
+    ).toBe(VariableStatus.Conflict);
 
     expect(await coordinator.get([key]).value).toBe("32");
     expect(await sessionStorage.get([key]).value).toBe("32");
@@ -108,14 +108,14 @@ describe("VariableStorageCoordinator", () => {
           },
         ])
       )[0].status
-    ).toBe(VariableResultStatus.Success);
+    ).toBe(VariableStatus.Success);
 
     expect((await coordinator.get([key]))[0].value).toBe("34");
     expect((await sessionStorage.get([key]))[0].value).toBe("34");
 
     expect(
       (await coordinator.set([{ ...prefixedKey, value: "abc" }]))[0].status
-    ).toBe(VariableResultStatus.Created);
+    ).toBe(VariableStatus.Created);
     expect((await coordinator.get([key]))[0].value).toBe("34");
     expect((await coordinator.get([prefixedKey]))[0].value).toBe("abc");
 
@@ -191,7 +191,7 @@ describe("VariableStorageCoordinator", () => {
           { scope: "session", key: "test", targetId: "foo", value: "ok" },
         ])
       )[0].status
-    ).toBe(VariableResultStatus.Created);
+    ).toBe(VariableStatus.Created);
 
     // Validation of schema bound variables.
     expect(
@@ -200,7 +200,7 @@ describe("VariableStorageCoordinator", () => {
           { scope: "session", key: "test", targetId: "bar", value: "ok" },
         ])
       )[0].status
-    ).toBe(VariableResultStatus.Created);
+    ).toBe(VariableStatus.Created);
 
     // Cannot set again (to check that targets gets considered.)
     expect(
@@ -209,7 +209,7 @@ describe("VariableStorageCoordinator", () => {
           { scope: "session", key: "test", targetId: "bar", value: "ok" },
         ]).all
       )[0].status
-    ).toBe(VariableResultStatus.Conflict);
+    ).toBe(VariableStatus.Conflict);
 
     // Validation of schema bound variables.
     expect(
@@ -236,7 +236,7 @@ describe("VariableStorageCoordinator", () => {
         { scope: "session", key: "notDefined", targetId: "foo", value: 32 },
       ]).all
     )[0];
-    expect(notDefinedResult.status).toBe(VariableResultStatus.Invalid);
+    expect(notDefinedResult.status).toBe(VariableStatus.Invalid);
     expect((notDefinedResult as any).error + "").toContain("explicit");
 
     const testSetter = async (
@@ -326,7 +326,7 @@ describe("VariableStorageCoordinator", () => {
           },
         ]).all
       )[0].status
-    ).toBe(VariableResultStatus.Invalid);
+    ).toBe(VariableStatus.Invalid);
 
     expect(
       (
@@ -339,7 +339,7 @@ describe("VariableStorageCoordinator", () => {
           },
         ]).all
       )[0].status
-    ).toBe(VariableResultStatus.Created);
+    ).toBe(VariableStatus.Created);
   });
 
   it("Censors", async () => {
@@ -351,7 +351,7 @@ describe("VariableStorageCoordinator", () => {
           { scope: "session", key: "censored", targetId: "foo", value: "ok" },
         ])
       )[0].status
-    ).toBe(VariableResultStatus.Created);
+    ).toBe(VariableStatus.Created);
 
     expect(
       (
@@ -362,7 +362,7 @@ describe("VariableStorageCoordinator", () => {
           }
         ).all
       )[0].status
-    ).toBe(VariableResultStatus.Denied);
+    ).toBe(VariableStatus.Denied);
 
     expect(
       (
@@ -380,7 +380,7 @@ describe("VariableStorageCoordinator", () => {
           }
         ).all
       )[0].status
-    ).toBe(VariableResultStatus.Denied);
+    ).toBe(VariableStatus.Denied);
 
     expect(
       stripMetadata(

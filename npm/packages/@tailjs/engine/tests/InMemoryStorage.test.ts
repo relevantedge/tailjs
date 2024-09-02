@@ -2,7 +2,7 @@ import {
   VariableFilter,
   VariableHeader,
   VariableKey,
-  VariableResultStatus,
+  VariableStatus,
   VariableSetResult,
   VariableUsage,
 } from "@tailjs/types";
@@ -27,7 +27,7 @@ describe("Variable stores store.", () => {
           },
         ]).all
       )[0].status
-    ).toBe(VariableResultStatus.Created);
+    ).toBe(VariableStatus.Created);
 
     expect(await store.get([{ ...key }]).value).toBe("test");
 
@@ -43,9 +43,9 @@ describe("Variable stores store.", () => {
     expect(
       (await store.get(sessionKeys).all).map((result) => result.status)
     ).toEqual([
-      VariableResultStatus.NotFound,
-      VariableResultStatus.NotFound,
-      VariableResultStatus.NotFound,
+      VariableStatus.NotFound,
+      VariableStatus.NotFound,
+      VariableStatus.NotFound,
     ]);
 
     const setSessions = await store.set(
@@ -58,9 +58,9 @@ describe("Variable stores store.", () => {
     expect(
       setSessions.map((result) => [result.status, result.current?.value])
     ).toEqual([
-      [VariableResultStatus.Created, "test0"],
-      [VariableResultStatus.Created, "test1"],
-      [VariableResultStatus.Created, "test2"],
+      [VariableStatus.Created, "test0"],
+      [VariableStatus.Created, "test1"],
+      [VariableStatus.Created, "test2"],
     ]);
 
     expect(
@@ -79,13 +79,13 @@ describe("Variable stores store.", () => {
           },
         ])
       )[0]
-    ).toMatchObject({ status: VariableResultStatus.Created, value: 10 });
+    ).toMatchObject({ status: VariableStatus.Created, value: 10 });
   });
 
   it("InMemoryStore handles version conflicts", async () => {
     const key: VariableKey & VariableUsage = {
       scope: "user",
-      targetId: "u",
+      entityId: "u",
       key: "test",
       classification: "direct",
       purposes: "any",
@@ -97,12 +97,12 @@ describe("Variable stores store.", () => {
       await store.set([{ ...key, value: "version1" }])
     )[0] as any as VariableSetResult;
 
-    expect(result?.status).toBe(VariableResultStatus.Created);
+    expect(result?.status).toBe(VariableStatus.Created);
 
     expect(
       (result = (await store.set([{ ...key, value: "version1" }]).all)[0])
         ?.status
-    ).toBe(VariableResultStatus.Conflict);
+    ).toBe(VariableStatus.Conflict);
 
     let firstVersion = result.current?.version;
     expect([!!firstVersion, result.current?.value]).toEqual([true, "version1"]);
@@ -110,7 +110,7 @@ describe("Variable stores store.", () => {
       (result = await store.set([
         { ...key, value: "version2", version: result.current!.version },
       ]).result)?.status
-    ).toBe(VariableResultStatus.Success);
+    ).toBe(VariableStatus.Success);
     expect(result?.current?.version).toBeDefined();
     expect(result?.current?.version).not.toBe(firstVersion);
 
@@ -118,7 +118,7 @@ describe("Variable stores store.", () => {
       (result = await store.set([
         { ...key, patch: (current) => ({ value: current?.value + ".1" }) },
       ]).result)?.status
-    ).toBe(VariableResultStatus.Success);
+    ).toBe(VariableStatus.Success);
 
     expect(result?.current?.value).toBe("version2.1");
 
@@ -131,7 +131,7 @@ describe("Variable stores store.", () => {
           value: "version3",
         },
       ])["result"])?.status
-    ).toBe(VariableResultStatus.Unchanged);
+    ).toBe(VariableStatus.Unchanged);
     expect(result?.current?.value).toBe("version2.1");
 
     expect(
@@ -143,23 +143,23 @@ describe("Variable stores store.", () => {
           value: "version3",
         },
       ])["result"])?.status
-    ).toBe(VariableResultStatus.Success);
+    ).toBe(VariableStatus.Success);
     expect(result?.current?.value).toBe("version3");
 
     const currentVersion = result?.current?.version;
     expect(
       (await store.get([{ ...key, version: currentVersion }])["result"])?.status
-    ).toBe(VariableResultStatus.Unchanged);
+    ).toBe(VariableStatus.Unchanged);
     expect(
       (await store.get([{ ...key, version: currentVersion + "not" }])["result"])
         ?.status
-    ).toBe(VariableResultStatus.Success);
+    ).toBe(VariableStatus.Success);
   });
 
   it("InMemoryStore handles queries", async () => {
     const target: VariableKey & VariableUsage = {
       scope: "session",
-      targetId: "s",
+      entityId: "s",
       classification: "anonymous",
       purposes: "necessary",
       key: "",
