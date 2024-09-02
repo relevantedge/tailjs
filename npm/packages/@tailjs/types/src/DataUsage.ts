@@ -1,8 +1,16 @@
-import { DataClassification, DataPurposes } from ".";
+import { enumerate, pluralize } from "@tailjs/util";
+import { DataClassification, DataPurposes, getDataPurposeNames } from ".";
+import { AllRequired } from "packages/@tailjs/util/dist";
+
+export const formatDataUsage = (usage?: DataUsage) =>
+  (usage?.classification ?? "anonymous") +
+  " data for " +
+  enumerate(getDataPurposeNames(usage?.purposes)) +
+  " purposes.";
 
 /**
- * The classification and purposes of a data point that determines whether
- * it can be stored or used given an individual's consent.
+ * The combination of the classification and purposes it can be used for determines whether
+ * data can be stored or used when compared to an individual's consent.
  */
 export interface DataUsage {
   /**
@@ -21,6 +29,8 @@ export interface DataUsage {
    * user consent. However, tail.js does not currently support redacting/purging the data from storage
    * so this you need to do manually.
    *
+   * @default anonymous
+   *
    */
   classification?: DataClassification;
 
@@ -35,3 +45,30 @@ export interface DataUsage {
    */
   purposes?: DataPurposes;
 }
+
+// export const applyDataUsageDefaults = (
+//   target: DataUsage | undefined,
+//   defaults: FullySpecifiedDataUsage,
+//   /** Decides whether the necessary purpose is mandatory or not. */
+//   forConsent: boolean
+// ): FullySpecifiedDataUsage => {
+//   let purposes: DataPurposes = { ...target?.purposes };
+//   const merged: DataUsage = {
+//     classification: target?.classification ?? defaults.classification,
+//     purposes,
+//   };
+//   for (const purpose in defaults.purposes) {
+//     purposes[purpose] ??= defaults.purposes[purpose];
+//   }
+
+//   if (forConsent) {
+//     merged.purposes!.necessary = true;
+//   }
+
+//   return merged as any;
+// };
+
+// /** Data usage with all parameters set. */
+// export type FullySpecifiedDataUsage = Required<
+//   DataUsage & { purposes: Required<DataPurposes> }
+// >;

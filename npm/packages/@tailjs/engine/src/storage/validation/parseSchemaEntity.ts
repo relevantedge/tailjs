@@ -1,10 +1,14 @@
 import {
   AnonymousSchemaType,
+  DataPurposeName,
+  formatDataUsage,
   SchemaProperty,
   SchemaPropertyType,
   SchemaType,
+  UserConsent,
 } from "@tailjs/types";
 import {
+  ConsentValidationOptions,
   getDefaultParseContext,
   getMinimumUsage,
   mergeUsage,
@@ -22,10 +26,13 @@ import {
 const parsedTypeSymbol = Symbol();
 const validatorSymbol = Symbol();
 export type ValidatorFunction = (
-  censorOnly: boolean,
   value: any,
   previousValue: any | null,
-  context: VariableStorageContext,
+  context: {
+    read: boolean;
+    consent?: UserConsent;
+    trusted?: boolean;
+  } & ConsentValidationOptions,
   path: string,
   errors: string[]
 ) => any;
@@ -122,12 +129,11 @@ const getTypeValidator = (
         validationError = "must be an object";
         const keyValidator = getTypeValidator(type.key, parseContext);
         const itemValidator = getTypeValidator(type.item, parseContext);
-        innerValidator = (censorOnly, value, prev, context, path, errors) => {
+        innerValidator = (value, prev, context, path, errors) => {
           const validatedItems: Record<any, any> = [];
           let currentErrorCount = errors.length;
           for (const key in value) {
             keyValidator(
-              censorOnly,
               key,
               undefined,
               context,
@@ -135,7 +141,6 @@ const getTypeValidator = (
               errors
             );
             const validatedValue = itemValidator(
-              censorOnly,
               value[key],
               undefined,
               context,
@@ -158,12 +163,11 @@ const getTypeValidator = (
         typeTest = Array.isArray;
         validationError = "must be an array";
         const itemValidator = getTypeValidator(type.item, parseContext);
-        innerValidator = (censorOnly, value, prev, context, path, errors) => {
+        innerValidator = (value, prev, context, path, errors) => {
           const validatedItems: any[] = [];
           let i = 0;
           for (const item of value) {
             const validated = itemValidator(
-              censorOnly,
               item,
               undefined,
               context,
@@ -198,14 +202,15 @@ const getTypeValidator = (
 
   cachedTypeValidators.set(
     JSON.stringify(type),
-    (validator = (censorOnly, value, prev, context, path, errors) => {
-      if (!censorOnly && !typeTest(value)) {
-        errors.push(path + " " + validationError);
+    (validator = (value, prev, context, path, errors) => {
+      if (!typeTest(value)) {
+        !context.read && errors.push(path + " " + validationError);
+
         return undefined;
       }
 
       return innerValidator
-        ? innerValidator(censorOnly, value, prev, context, path, errors)
+        ? innerValidator(value, prev, context, path, errors)
         : value;
     })
   );
@@ -297,9 +302,10 @@ export const parseSchemaEntity: {
       }
     }
 
-    validator = (censorOnly, value, prev, context, path, errors) => {
+    validator = (value, prev, context, path, errors) => {
+      const { read } = context;
       if (value && typeof value !== "object") {
-        !censorOnly && errors.push(path + " is not an object.");
+        !read && errors.push(path + " is not an object.");
         return undefined;
       }
 
@@ -308,11 +314,11 @@ export const parseSchemaEntity: {
       if (
         minimumUsage?.access &&
         !validateAccess(
-          censorOnly,
+          read,
           minimumUsage.access,
           value,
           prev,
-          context,
+          context.trusted,
           path,
           errors
         )
@@ -323,8 +329,8 @@ export const parseSchemaEntity: {
       if (
         !validateConsent(
           minimumUsage?.consent,
-          context.consent,
-          context.defaultConsent
+          context.consent
+          // Do not use "required purposes". Only one is needed for writing.
         )
       ) {
         return undefined;
@@ -338,7 +344,7 @@ export const parseSchemaEntity: {
       for (const prop of required) {
         if (value[prop.name] == null) {
           valid = false;
-          !censorOnly &&
+          !read &&
             errors.push(
               extendPath(path, prop.name, ".") + " is missing a required value."
             );
@@ -348,7 +354,7 @@ export const parseSchemaEntity: {
       for (const key in value) {
         const prop = props[key];
         if (!prop) {
-          !censorOnly &&
+          !read &&
             errors.push(
               extendPath(path, key, ".") + " is not defined in the schema."
             );
@@ -359,9 +365,9 @@ export const parseSchemaEntity: {
 
         const propValue = value[key];
         const prevPropValue = prev?.[key];
-        if (propValue != null && !prop.required) {
+        if (propValue != null || !prop.required) {
           const censored = prop[validatorSymbol](
-            censorOnly,
+            read,
             propValue,
             prevPropValue,
             context,
@@ -375,13 +381,24 @@ export const parseSchemaEntity: {
           }
 
           if (censored == null && prop.required) {
-            // A required property was censored.
+            !read &&
+              errors.push(
+                `${extendPath(
+                  path,
+                  prop.name,
+                  "."
+                )} does not satisfy the current consent for ${formatDataUsage(
+                  context.consent
+                )} only since it contains ${formatDataUsage(
+                  prop.usage?.consent
+                )}.`
+              );
             valid = false;
           }
         }
       }
 
-      return censorOnly || valid ? value : undefined;
+      return read || valid ? value : undefined;
     };
 
     parsed = {
@@ -405,26 +422,22 @@ export const parseSchemaEntity: {
       type: getParsedPropertyType(entity.type),
     };
 
-    validator = (censorOnly, value, prev, context, path, errors) => {
+    validator = (value, prev, context, path, errors) => {
+      const { read } = context;
+
       let initialErrors = errors.length;
-      if (
-        !validateConsent(
-          entity.usage?.consent,
-          context.consent,
-          context.defaultConsent
-        )
-      ) {
+      if (!validateConsent(entity.usage?.consent, context.consent, context)) {
         return undefined;
       }
 
       if (
         entity.usage?.access &&
         !validateAccess(
-          censorOnly,
+          read,
           entity.usage.access,
           value,
           prev,
-          context,
+          context.trusted,
           path,
           errors
         )
@@ -432,7 +445,7 @@ export const parseSchemaEntity: {
         return undefined;
       }
 
-      if (censorOnly) {
+      if (read) {
         return value;
       } else if (entity.required && value == null) {
         errors.push(path + " is required");
@@ -442,7 +455,7 @@ export const parseSchemaEntity: {
         return undefined;
       }
 
-      value = typeValidator(censorOnly, value, prev, context, path, errors);
+      value = typeValidator(value, prev, context, path, errors);
 
       if (initialErrors < errors.length) {
         return undefined;
@@ -456,8 +469,25 @@ export const parseSchemaEntity: {
   parseContext.collect(
     (parsed = Object.assign(parsed, {
       schema: parseContext.schema.namespace!,
-      censor: (value: any, context: VariableStorageContext) =>
-        validator!(true, value, undefined, context, "", []),
+      censor: (
+        value: any,
+        context: VariableStorageContext,
+        targetPurpose?: DataPurposeName
+      ) => {
+        return validator!(
+          value,
+          undefined,
+          {
+            read: true,
+            consent: context.consent,
+            ...context.validation,
+            targetPurpose,
+            trusted: context.trusted,
+          },
+          "",
+          []
+        );
+      },
       validate: (
         value: any,
         previous: any,
@@ -466,10 +496,14 @@ export const parseSchemaEntity: {
       ) => {
         const throwErrors = !errors;
         value = validator!(
-          false,
           value,
           previous,
-          context,
+          {
+            read: false,
+            consent: context.consent,
+            ...context.validation,
+            trusted: context.trusted,
+          },
           "",
           (errors ??= [])
         );

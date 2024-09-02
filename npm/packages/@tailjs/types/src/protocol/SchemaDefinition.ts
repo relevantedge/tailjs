@@ -5,20 +5,12 @@ export const DEFAULT_SCHEMA_NAME = "Tail.js";
 export const DEFAULT_SCHEMA_NS = "urn:tailjs:core";
 export const DEFAULT_SCHEMA_EVENT_TYPE = "TrackedEvent";
 
-export interface SchemaDataUsage {
+export interface SchemaDataUsage extends DataUsage {
   /**
    * Access restrictions that applies to the data.
    */
   access?: DataAccess;
 
-  /**
-   * The minimum consent required to for this data.
-   *
-   * Specifically, the consent's data classification must not be lower,
-   * and the consent must have at least one of the purposes when stored
-   * and all of the requested purposes when read.
-   *
-   */
   consent?: DataUsage;
 }
 

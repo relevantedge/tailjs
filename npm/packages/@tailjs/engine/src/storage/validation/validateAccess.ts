@@ -2,19 +2,17 @@ import type { DataAccess } from "@tailjs/types";
 import type { VariableStorageContext } from "../..";
 
 export const validateAccess = (
-  censorOnly: boolean,
+  read: boolean,
   access: DataAccess,
   value: any,
   previous: any,
-  context: VariableStorageContext,
+  trusted: boolean | undefined,
   path: string,
   errors: string[]
 ): any => {
   let valid = true;
-  if (censorOnly) {
-    return access.visibility === "trusted-only" && !context.trusted
-      ? undefined
-      : value;
+  if (read) {
+    return access.visibility === "trusted-only" && !trusted ? undefined : value;
   }
 
   if (previous !== undefined && access.readonly) {
@@ -22,7 +20,7 @@ export const validateAccess = (
     valid = false;
   }
   if (
-    !context.trusted &&
+    !trusted &&
     value !== previous &&
     (access.visibility === "trusted-only" ||
       access.visibility === "trusted-write")

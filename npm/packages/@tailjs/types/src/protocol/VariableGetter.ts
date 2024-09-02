@@ -1,4 +1,5 @@
 import {
+  DataPurposeName,
   DataPurposes,
   VariableErrorResult,
   VariableKey,
@@ -13,14 +14,8 @@ export interface VariableGetter extends VariableKey {
   /**
    * The purpose for which the data will be used.
    * If unspecified, it will default to the purposes defined in the schema.
-   *
-   * The only scenario where it makes sense to use this is if the variable has multiple purposes,
-   * and the user has only consented to one of those.
-   *
-   * Requesting data for a purpose that is not defined in the schema will only return data
-   * if the schema defines the purpose as "necessary".
    */
-  purpose?: keyof DataPurposes | (keyof DataPurposes)[];
+  purpose?: DataPurposeName;
 }
 
 export interface VariableGetterWithDefault<T = any> extends VariableGetter {
