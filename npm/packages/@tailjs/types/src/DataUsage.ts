@@ -1,12 +1,36 @@
-import { enumerate, pluralize } from "@tailjs/util";
-import { DataClassification, DataPurposes, getDataPurposeNames } from ".";
-import { AllRequired } from "packages/@tailjs/util/dist";
+import { enumerate } from "@tailjs/util";
+import {
+  dataClassification,
+  DataClassification,
+  dataPurposes,
+  DataPurposes,
+  testPurposes,
+} from ".";
 
 export const formatDataUsage = (usage?: DataUsage) =>
   (usage?.classification ?? "anonymous") +
   " data for " +
-  enumerate(getDataPurposeNames(usage?.purposes)) +
+  enumerate(dataPurposes(usage?.purposes, true)) +
   " purposes.";
+
+export const validateConsent = (target: DataUsage, consent: DataUsage) => {
+  if (target.classification === "never" || consent.classification === "never") {
+    return false;
+  }
+  if (target.classification === "anonymous") {
+    // Anonymous data does not require consent (it is not "_personal_ data" - just _data_).
+    return true;
+  }
+  if (
+    dataClassification.ranks[target.classification] >
+    dataClassification.ranks[consent.classification]
+  ) {
+    // Too personal.
+    return false;
+  }
+
+  return testPurposes(target.purposes, consent.purposes);
+};
 
 /**
  * The combination of the classification and purposes it can be used for determines whether
@@ -32,7 +56,7 @@ export interface DataUsage {
    * @default anonymous
    *
    */
-  classification?: DataClassification;
+  classification: DataClassification;
 
   /**
    * The purposes the data may be used for.
@@ -43,7 +67,7 @@ export interface DataUsage {
    *
    * Purposes do not restrict anonymous data.
    */
-  purposes?: DataPurposes;
+  purposes: DataPurposes;
 }
 
 // export const applyDataUsageDefaults = (

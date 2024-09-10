@@ -1,4 +1,4 @@
-import { VariableScopeValue } from "@tailjs/types";
+import { VariableScope } from "@tailjs/types";
 
 /**
  * An IdProvider is used to map client-local IDs to global IDs in the context of a {@link VariableScope} (session, user or device).
@@ -33,8 +33,8 @@ export interface IdentifierProvider {
    *
    */
   mapId(
-    scope: VariableScopeValue,
-    scopeId: string,
+    scope: VariableScope,
+    entityId: string,
     localId?: string,
     ttl?: number
   ): Promise<string>;

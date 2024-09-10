@@ -1,4 +1,4 @@
-import { obj } from "../src";
+import { obj, OmitUnion } from "../src";
 import {
   ParsedUri,
   appendQueryString,
@@ -83,7 +83,7 @@ describe("parsers.ts", () => {
   it("Parses URLs", () => {
     const testUri = (
       uri: string,
-      expected: Omit<ParsedUri, "source">,
+      expected: OmitUnion<ParsedUri, "source">,
       formatted = uri
     ) => {
       const parsed = clean(parseUri(uri));

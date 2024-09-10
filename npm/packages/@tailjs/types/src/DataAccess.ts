@@ -13,8 +13,8 @@ export type DataVisibility =
  */
 export type DataAccess = {
   /** The data cannot be changed once set. */
-  readonly?: boolean;
-  visibility?: DataVisibility;
+  readonly: boolean;
+  visibility: DataVisibility;
 };
 
 export const dataVisibility = createEnumParser("data restriction", [

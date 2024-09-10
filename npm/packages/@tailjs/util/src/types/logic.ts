@@ -204,6 +204,30 @@ export type ValueOrDefault<T, R, D = undefined> = T extends NonNullable<T>
 export type OmitNullish<T, Default = never> = T extends Nullish ? Default : T;
 
 /**
+ * The union all keys of the types in union.
+ */
+export type AllKeys<T> = T extends infer T ? keyof T : never;
+
+/**
+ * Version of Omit that restricts the keys to those actually keys of the type for safety during refactoring.
+ */
+export type OmitKeys<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+
+/**
+ * Removes the specified keys from each type in a union.
+ */
+export type OmitUnion<T, K extends AllKeys<T>> = T extends infer T
+  ? Omit<T, K>
+  : never;
+
+/**
+ * Picks the specified keys from each type in a union.
+ */
+export type PickUnion<T, K extends keyof any> = T extends infer T
+  ? Pick<T, K & keyof T>
+  : never;
+
+/**
  * The defined part of a type, excluding undefined and void (which is also undefined).
  * `null` is considered defined. Use {@link OmitNullish} if `null` should also not be removed.
  */

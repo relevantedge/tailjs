@@ -2,7 +2,7 @@ import {
   TrackedEvent,
   VariableGetResult,
   VariableSetResult,
-  WithScopeDefaults,
+  ScopedKey,
 } from "..";
 
 export interface PostResponse {
@@ -12,10 +12,10 @@ export interface PostResponse {
    */
   variables?: {
     /** Results from get operations made via a {@link PostRequest} or variables the server wants to push. */
-    get?: (WithScopeDefaults<VariableGetResult> | undefined)[];
+    get?: (ScopedKey<VariableGetResult> | undefined)[];
 
     /** Result from set operations made via a {@link PostRequest}. */
-    set?: (WithScopeDefaults<VariableSetResult> | undefined)[];
+    set?: (ScopedKey<VariableSetResult> | undefined)[];
   };
 
   /** Events to be routed to an external client-side tracker. */

@@ -1,7 +1,7 @@
 import { SCOPE_INFO_KEY } from "@constants";
 
 import { EntityMetadata, SchemaManager } from "@tailjs/json-schema";
-import { DataClassification, DataPurposeFlags } from "@tailjs/types";
+import { dataClassification, DataPurposeFlags } from "@tailjs/types";
 import * as fs from "fs";
 import {
   CompositionTest1,
@@ -125,7 +125,7 @@ describe("SchemaManager.", () => {
     expect(
       stripMetadata(
         manager.patch("urn:tailjs:core#Type1", data, {
-          classification: DataClassification.Sensitive,
+          classification: dataClassification.Sensitive,
           purposes: DataPurposeFlags.Any,
         })
       )
@@ -134,7 +134,7 @@ describe("SchemaManager.", () => {
     expect(
       stripMetadata(
         manager.patch("urn:tailjs:core#Type1", data, {
-          classification: DataClassification.Anonymous,
+          classification: dataClassification.Anonymous,
           purposes: DataPurposeFlags.Any,
         })
       )
@@ -153,7 +153,7 @@ describe("SchemaManager.", () => {
 
     expect(
       variables.get({ scope: "session", key: "test" })?.classification
-    ).toBe(DataClassification.Indirect);
+    ).toBe(dataClassification.Indirect);
 
     expect(variables.get({ scope: "session", key: "404" })).toBeUndefined();
 

@@ -1,20 +1,19 @@
 import {
-  AnonymousSchemaType,
+  SchemaEmbeddedType,
   DataPurposeName,
   formatDataUsage,
   SchemaProperty,
   SchemaPropertyType,
-  SchemaType,
   UserConsent,
 } from "@tailjs/types";
 import {
-  ConsentValidationOptions,
   getDefaultParseContext,
   getMinimumUsage,
   mergeUsage,
   SchemaParseContext,
   validateAccess,
   validateConsent,
+  ValidateConsentOptions,
 } from ".";
 import {
   ParsedSchemaProperty,
@@ -32,7 +31,7 @@ export type ValidatorFunction = (
     read: boolean;
     consent?: UserConsent;
     trusted?: boolean;
-  } & ConsentValidationOptions,
+  } & ValidateConsentOptions,
   path: string,
   errors: string[]
 ) => any;
@@ -55,7 +54,7 @@ const getParsedPropertyType = (
     return type;
   }
   if ("item" in type) {
-    return { ...type, item: getParsedPropertyType(type.item) };
+    return { ...type, item: getParsedPropertyType(type.value) };
   }
   return type[parsedTypeSymbol] as ParsedSchemaType;
 };
@@ -119,8 +118,8 @@ const getTypeValidator = (
       break;
     default:
       if ("const" in type) {
-        typeTest = (value) => value === type.const;
-        validationError = "must have the value " + JSON.stringify(type.const);
+        typeTest = (value) => value === type.enum;
+        validationError = "must have the value " + JSON.stringify(type.enum);
         break;
       }
 
@@ -128,7 +127,7 @@ const getTypeValidator = (
         typeTest = (value) => value !== null && typeof value === "object";
         validationError = "must be an object";
         const keyValidator = getTypeValidator(type.key, parseContext);
-        const itemValidator = getTypeValidator(type.item, parseContext);
+        const itemValidator = getTypeValidator(type.value, parseContext);
         innerValidator = (value, prev, context, path, errors) => {
           const validatedItems: Record<any, any> = [];
           let currentErrorCount = errors.length;
@@ -220,7 +219,7 @@ const getTypeValidator = (
 
 export const parseSchemaEntity: {
   (
-    type: AnonymousSchemaType,
+    type: SchemaEmbeddedType,
     parseContext: SchemaParseContext
   ): ParsedSchemaType;
   (
@@ -228,7 +227,7 @@ export const parseSchemaEntity: {
     parseContext: SchemaParseContext
   ): ParsedSchemaProperty;
 } = (
-  entity: AnonymousSchemaType | SchemaProperty,
+  entity: SchemaEmbeddedType | SchemaProperty,
   parseContext: SchemaParseContext
 ): any => {
   let parsed = entity[parsedTypeSymbol];
@@ -293,8 +292,8 @@ export const parseSchemaEntity: {
         }
       }
 
-      if (baseType.baseType) {
-        baseType = parseContext.resolveType(baseType.baseType, parseContext);
+      if (baseType.extends) {
+        baseType = parseContext.resolveType(baseType.extends, parseContext);
       } else if (baseType.event && baseType !== parseContext.eventBaseType) {
         baseType = parseContext.eventBaseType;
       } else {
@@ -479,7 +478,7 @@ export const parseSchemaEntity: {
           undefined,
           {
             read: true,
-            consent: context.consent,
+            consent: context.scope?.consent,
             ...context.validation,
             targetPurpose,
             trusted: context.trusted,
@@ -500,7 +499,7 @@ export const parseSchemaEntity: {
           previous,
           {
             read: false,
-            consent: context.consent,
+            consent: context.scope?.consent,
             ...context.validation,
             trusted: context.trusted,
           },

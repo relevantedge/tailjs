@@ -60,7 +60,7 @@ export const match: {
     selector: (...args: (string | undefined)[]) => R | Nullish,
     collect?: Collect
   ): MaybeUndefined<Nulls, If<Collect, ConstToNormal<R>[], R | undefined>>;
-  (s: string | Nullish, match: RegExp | Nullish): RegExpMatchArray | null;
+  (s: string | Nullish, match: RegExp | Nullish): RegExpMatchArray | undefined;
 } = <R>(
   s: string,
   regex: RegExp,
@@ -86,7 +86,7 @@ export const match: {
             (...args) => (matchProjection = selector(...args)) as any
           ),
       matchProjection)
-    : s.match(regex);
+    : s.match(regex) ?? undefined;
 
 /**
  * Replaces reserved characters to get a regular expression that matches the string.

@@ -13,9 +13,9 @@ import defaultSchema from "@tailjs/types/schema";
 import clientScripts from "@tailjs/client/script";
 import {
   dataClassification,
-  DataPurpose,
-  DataPurposeFlags,
+  DataPurposeName,
   dataPurposes,
+  DataPurposes,
   isPassiveEvent,
   PostRequest,
   PostResponse,
@@ -39,7 +39,6 @@ import {
   InMemoryStorage,
   isValidationError,
   ParseResult,
-  ParsingVariableStorage,
   PostError,
   RequestHandlerConfiguration,
   TrackedEventBatch,
@@ -50,7 +49,8 @@ import {
   TrackerInitializationOptions,
   TrackerPostOptions,
   TrackerServerConfiguration,
-  ValidationError,
+  TypeResolver,
+  SchemaValidationError,
   VariableStorageCoordinator,
 } from "./shared";
 
@@ -69,6 +69,7 @@ import {
   DeferredAsync,
   forEach,
   forEachAsync,
+  fromEntries,
   isJsonObject,
   isJsonString,
   isPlainObject,
@@ -133,7 +134,7 @@ export class RequestHandler {
     | TrackerExtension
     | Promise<TrackerExtension>)[];
   private readonly _lock = createLock();
-  private readonly _schema: SchemaManager;
+  private readonly _schema: TypeResolver;
   private readonly _trackerName: string;
 
   private _extensions: TrackerExtension[];
@@ -142,7 +143,7 @@ export class RequestHandler {
 
   private readonly _clientConfig: TrackerClientConfiguration;
   private readonly _config: RequestHandlerConfiguration;
-  private readonly _defaultConsent: UserConsent<true>;
+  private readonly _defaultConsent: UserConsent;
 
   public readonly instanceId: string;
 
@@ -151,7 +152,7 @@ export class RequestHandler {
     consent: string;
     session: string;
 
-    deviceByPurpose: Record<DataPurpose, string>;
+    deviceByPurpose: Record<DataPurposeName, string>;
     device: string;
   };
 
@@ -177,10 +178,7 @@ export class RequestHandler {
     this._trackerName = trackerName;
     this.endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
 
-    this._defaultConsent = {
-      level: dataClassification(defaultConsent.level),
-      purposes: dataPurposes(defaultConsent.purposes),
-    };
+    this._defaultConsent = defaultConsent;
 
     this._extensionFactories = map(extensions);
 
@@ -192,18 +190,10 @@ export class RequestHandler {
       consent: cookies.namePrefix + ".consent",
       session: cookies.namePrefix + ".session",
       device: cookies.namePrefix + ".device",
-      deviceByPurpose: obj(
-        dataPurposes.pure.map(
-          ([name, flag]) =>
-            [
-              flag,
-              cookies.namePrefix +
-                (flag === DataPurposeFlags.Necessary
-                  ? ""
-                  : "," + dataPurposes.format(name)),
-            ] as const
-        )
-      ),
+      deviceByPurpose: obj(dataPurposes.names, (purpose) => [
+        purpose,
+        cookies.namePrefix + (purpose === "necessary" ? "" : "," + purpose),
+      ]),
     };
 
     this._clientConfig = Object.freeze({
@@ -298,13 +288,7 @@ export class RequestHandler {
 
       if (!storage) {
         storage = {
-          default: {
-            storage: new InMemoryStorage({
-              [VariableScope.Session]:
-                (this._config.sessionTimeout ?? 30) * MINUTE,
-            }),
-            schema: "*",
-          },
+          session: new InMemoryStorage(30 * 1000 * 60),
         };
       }
 
@@ -313,12 +297,7 @@ export class RequestHandler {
       (this as any).environment = new TrackerEnvironment(
         host,
         crypto ?? new DefaultCryptoProvider(encryptionKeys),
-        new ParsingVariableStorage(
-          new VariableStorageCoordinator({
-            schema: this._schema,
-            mappings: storage,
-          })
-        ),
+        new VariableStorageCoordinator(storage, this._schema),
         environmentTags
       );
 
@@ -392,10 +371,9 @@ export class RequestHandler {
       map(events, (ev) =>
         isValidationError(ev)
           ? ev
-          : (this._config.allowUnknownEventTypes &&
-              !this._schema.getType(ev.type) &&
-              ev) ||
-            this._schema.patch(ev.type, ev, tracker.consent)
+          : this._schema
+              .getEvent(ev.type)
+              .censor(ev, { consent: tracker.consent })
       );
 
     let parsed = validateEvents(eventBatch);
@@ -408,7 +386,9 @@ export class RequestHandler {
 
     await tracker._applyExtensions(options);
 
-    const validationErrors: (ValidationError & { sourceIndex?: number })[] = [];
+    const validationErrors: (SchemaValidationError & {
+      sourceIndex?: number;
+    })[] = [];
 
     function collectValidationErrors(parsed: ParseResult[]) {
       const events: TrackedEvent[] = [];
@@ -732,7 +712,7 @@ export class RequestHandler {
             if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
               return result({
                 status: 200,
-                body: this._schema.schema.definition,
+                body: this._schema.definition,
                 headers: {
                   "content-type": "application/json",
                 },

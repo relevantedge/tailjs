@@ -1,5 +1,5 @@
 import {
-  DataClassification,
+  dataClassification,
   DataPurposeFlags,
   PostRequest,
   PostResponse,
@@ -216,7 +216,7 @@ export const createVariableStorage = (
                   push(results, [
                     {
                       ...getter,
-                      status: VariableStatus.Denied,
+                      status: VariableStatus.Forbidden,
                       error:
                         "No consent for " + dataPurposes.logFormat(purposes),
                     } as any,
@@ -298,7 +298,7 @@ export const createVariableStorage = (
 
             const local: ClientVariable<any, any, true> = {
               value: setter.value,
-              classification: DataClassification.Anonymous,
+              classification: dataClassification.Anonymous,
               purposes: DataPurposeFlags.Necessary,
               scope: localVariableScope(setter.scope),
               key: setter.key,
@@ -312,7 +312,7 @@ export const createVariableStorage = (
               current.scope === local.scope
             ) {
               results[sourceIndex] = {
-                status: VariableStatus.Unchanged,
+                status: VariableStatus.NotModified,
                 source: setter as any,
                 current,
               };

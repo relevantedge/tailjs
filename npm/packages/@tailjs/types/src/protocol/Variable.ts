@@ -1,6 +1,6 @@
-import { createEnumParser } from "@tailjs/util";
-import { Timestamp } from "..";
-import { SchemaDataUsage, SchemaEntity } from "./SchemaDefinition";
+import { createEnumParser, Nullish, OmitUnion, Pretty } from "@tailjs/util";
+import { Timestamp, VariableGetter, VariableSetter } from "..";
+import { SchemaDataUsage } from "./SchemaDefinition";
 
 /**
  * The scope for a variable including the entity it relates to and its life time..
@@ -52,14 +52,14 @@ export const variableScope = createEnumParser("variable scope", [
  * Uniquely addresses a variable by scope, target and key name.
  */
 export interface VariableKey {
-  /** The scope the variable belongs to. */
-  scope: VariableScope;
-
   /**
    * An optional identifier of a specific variable storage such as "crm" or "personalization"
    * if not addressing tail.js's own storage.
    */
   source?: string;
+
+  /** The scope the variable belongs to. */
+  scope: string;
 
   /**
    * The name of the variable.
@@ -77,21 +77,6 @@ export interface VariableKey {
    */
   entityId: string;
 }
-
-export type WithScopeDefaults<
-  T extends { scope: string; entityId: string },
-  AllowNonDefault extends boolean = false
-> = AllowNonDefault extends true
-  ? T
-  : Omit<T, "scope" | "entityId"> &
-      (T["scope"] extends infer Scope extends string
-        ? Scope extends "global"
-          ? {
-              scope: Scope;
-              entityId: string;
-            }
-          : { scope: Scope; entityId?: undefined }
-        : never);
 
 /**
  * A {@link VariableKey} that optionally includes the expected version of a variable value.
@@ -181,15 +166,90 @@ export interface Variable<T = any> extends VariableHeader {
   value: T;
 }
 
+// Helpers
+export type StripKey<T> = T extends infer T
+  ? Omit<T, keyof VariableKey>
+  : never;
+export type PickKey<T> = Pick<T, keyof VariableKey & keyof T>;
+
+/** Limits the allowed scopes for a variable key.  */
+export type RestrictVariableScopes<KeyType, Scopes> = [Scopes] extends [never]
+  ? never
+  : { [P in keyof KeyType]: P extends "scope" ? Scopes : KeyType[P] };
+
+export type ReplaceKey<Target, Source> = StripKey<Target> & PickKey<Source>;
+
+/**
+ * Split a type the extends VariableKey into two version:
+ *  - Explicit scopes where entityId is required
+ *  - Implicit scopes where the entityId is implied, so it must either be omitted or undefined.
+ */
+export type ScopedKey<
+  Scopes extends string,
+  ExplicitScopes extends string = Scopes,
+  KeyType extends VariableKey = VariableKey
+> = [Scopes] extends [ExplicitScopes]
+  ? KeyType // No change. Entity ID always required.
+  : KeyType extends KeyType
+  ? [unknown] extends [ExplicitScopes]
+    ? RestrictVariableScopes<Omit<KeyType, "entityId">, { entityId?: string }> // Entity ID is optional for all scopes (accepts any kind of key).
+    : [ExplicitScopes] extends [never]
+    ? RestrictVariableScopes<
+        Omit<KeyType, "entityId"> & { entityId?: undefined },
+        Scopes
+      >
+    :
+        | RestrictVariableScopes<KeyType, ExplicitScopes & Scopes>
+        | RestrictVariableScopes<
+            // vscode intellisense is too "smart", and will initially not suggest the explicit scopes before entityId is set
+            // if just using {entityId?: string}
+            Omit<KeyType, "entityId"> & ({ entityId: undefined } | {}),
+            Exclude<Scopes, ExplicitScopes>
+          >
+  : never;
+
+/**
+ * Remove source and scope from a type the extends VariableKey.
+ * This is used for core variable storages that are already mapped to a source and scope.
+ */
+export type RemoveVariableContext<
+  KeyType,
+  AddFields = {}
+> = KeyType extends infer KeyType
+  ? Omit<KeyType, "source" | "scope"> &
+      (KeyType extends VariableKey ? AddFields : {})
+  : never;
+
 /** Returns a description of a key that can be used for logging and error messages.  */
 export const formatKey = (
-  key: {
+  {
+    key,
+    scope = "",
+    entityId = "",
+  }: {
     key: string;
-    scope: string;
+    scope?: string;
     entityId?: string;
   },
-  error?: string
+  error: string | undefined = ""
 ) =>
-  `'${key.key}'${error ? " " + error : ""} in ${key.scope} scope${
-    key.entityId ? `for '${key.entityId}'` : ""
-  }`;
+  [
+    "'" + key + "'",
+    error,
+    scope && "in " + scope + "scope",
+    entityId && "for " + entityId,
+  ].join(" ");
+
+export const copyKey = <
+  T extends (Partial<VariableKey> & { key: string }) | Nullish
+>(
+  value: T
+): Pick<T, keyof T & ("source" | "key" | "scope" | "entityId")> =>
+  value == null
+    ? value
+    : ({
+        source: value.source,
+        key: value.key,
+        scope: value.scope,
+        entityId: value.entityId,
+      } as any);

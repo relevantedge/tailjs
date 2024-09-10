@@ -1,14 +1,20 @@
 import {
+  copyKey,
+  filterKeys,
   Variable,
-  VariableGetResult,
-  VariableGetter,
   VariableQuery,
   VariableStatus,
-  VariableSetResult,
-  VariableValueSetter,
-  VariableKey,
 } from "@tailjs/types";
-import { copyKey, jsonClone, VariableStorage } from ".";
+import { jsonClone } from "@tailjs/util";
+import {
+  VariableStorage,
+  VariableStorageGetResult,
+  VariableStorageGetter,
+  VariableStorageKey,
+  VariableStorageSetResult,
+  VariableStorageSetter,
+  VariableStorageVariable,
+} from ".";
 
 export class InMemoryStorage implements VariableStorage, Disposable {
   private _nextVersion: number = 1;
@@ -18,7 +24,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     string,
     [
       lastAccessed: number,
-      variables: Map<string, Variable & { accessed: number }>
+      variables: Map<string, VariableStorageVariable & { accessed: number }>
     ]
   > = new Map();
   private readonly _ttl: number | undefined;
@@ -63,14 +69,18 @@ export class InMemoryStorage implements VariableStorage, Disposable {
   }
 
   private _hasExpired(
-    variable: (Variable & { accessed: number }) | undefined,
+    variable: (VariableStorageVariable & { accessed: number }) | undefined,
     now: number
   ) {
     return variable?.ttl != null && variable.accessed + variable.ttl < now;
   }
 
-  private _getVariable(key: VariableKey, now: number, set?: Map<string, any>) {
-    const variables = this._getVariables(key.entityId, now);
+  private _getVariable(
+    key: VariableStorageKey,
+    now: number,
+    set?: Map<string, any>
+  ) {
+    const variables = this._getVariables(key.entityId!, now);
     if (!variables) return undefined;
 
     let variable = variables[1].get(key.key);
@@ -83,10 +93,12 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     return variable;
   }
 
-  get(keys: VariableGetter[]): Promise<VariableGetResult[]> {
+  async get(
+    keys: VariableStorageGetter[]
+  ): Promise<VariableStorageGetResult[]> {
     this._checkDisposed();
 
-    const results: VariableGetResult[] = [];
+    const results: VariableStorageGetResult[] = [];
     const now = Date.now();
 
     for (const getter of keys) {
@@ -102,7 +114,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
           variable.modified <= getter.ifModifiedSince) ||
         (getter.ifNoneMatch != null && variable.version === getter.ifNoneMatch)
       ) {
-        results.push({ status: VariableStatus.Unchanged, ...key });
+        results.push({ status: VariableStatus.NotModified, ...key });
         continue;
       }
 
@@ -115,10 +127,10 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     return Promise.resolve(results);
   }
 
-  set(values: VariableValueSetter[]): Promise<VariableSetResult[]> {
+  set(values: VariableStorageSetter[]): Promise<VariableStorageSetResult[]> {
     this._checkDisposed();
 
-    const results: VariableSetResult[] = [];
+    const results: VariableStorageSetResult[] = [];
     const now = Date.now();
 
     for (const setter of values) {
@@ -134,7 +146,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
       }
 
       if (!variable && setter.value == null) {
-        results.push({ status: VariableStatus.Unchanged, ...key });
+        results.push({ status: VariableStatus.NotModified, ...key });
         continue;
       }
 
@@ -180,18 +192,22 @@ export class InMemoryStorage implements VariableStorage, Disposable {
   private _purgeOrQuery(queries: VariableQuery[], purge = false): any {
     this._checkDisposed();
 
-    const results: Variable[] | undefined = purge ? undefined : [];
+    const results: VariableStorageVariable[] | undefined = purge
+      ? undefined
+      : [];
     const now = Date.now();
 
     for (const query of queries) {
-      const variables = this._entities.get(query.entityId);
+      const variables = this._entities.get(query.entityId!);
       if (!variables) {
         continue;
       }
-      for (const key of query.includeKeys ?? variables[1].keys()) {
-        if (query?.excludeKeys?.includes(key) === true) {
-          continue;
-        }
+
+      for (const key of filterKeys(
+        query.keys,
+        variables[1].keys(),
+        (compiled) => (query.keys = compiled)
+      )) {
         if (purge) {
           variables[1].delete(key);
           continue;
@@ -203,7 +219,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         }
       }
       if (!variables[1].size) {
-        this._entities.delete(query.entityId);
+        this._entities.delete(query.entityId!);
       }
     }
     return Promise.resolve(results);
