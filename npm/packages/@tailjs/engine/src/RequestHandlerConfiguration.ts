@@ -13,7 +13,7 @@ import {
   CryptoProvider,
   EngineHost,
   TrackerExtension,
-  VariableStorageCoordinatorSettings,
+  VariableStorageMappings,
 } from "./shared";
 
 /** Gives a hint what a string might be for methods that serialize results to strings */
@@ -73,12 +73,6 @@ export type RequestHandlerConfiguration = {
    * Configuration of cookie names, and common security attributes for cookies.
    */
   cookies?: CookieConfiguration;
-
-  /**
-   * Whether events that are not defined in a schema can be accepted.
-   * BE AWARE this partially disables the otherwise strong privacy and data compliance guarantees.
-   */
-  allowUnknownEventTypes?: boolean;
 
   /**
    * Either the path to an alternative script to use instead of the default minified one.
@@ -171,7 +165,7 @@ export type RequestHandlerConfiguration = {
    * Mappings of on or more backends that provides variables in the different scopes.
    * If a variable storage is not configured for a scope (such as User) this data will not get stored anywhere.
    */
-  storage?: VariableStorageCoordinatorSettings["mappings"];
+  storage?: VariableStorageMappings;
 
   /**
    * The session timeout in minutes.
@@ -213,7 +207,6 @@ export const DEFAULT: Omit<
     namePrefix: ".tail",
     secure: true,
   },
-  allowUnknownEventTypes: true,
   debugScript: false,
   sessionTimeout: 30,
   deviceSessionTimeout: 10,

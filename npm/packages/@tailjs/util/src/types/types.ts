@@ -181,31 +181,33 @@ export type ExpandTypes<
 
 /* JSON */
 
-export type JsonArray = Json[];
-
-export type JsonTuple = {
-  [TupleIndex in number]?: Json;
-};
-
-export type JsonObject = {
-  [props: string | number]: Json;
-} & { [symbols: symbol]: never };
-
-type JsonOnly<T> = T extends Json ? T : never;
+/** Merges properties in a union which makes it look prettier in Intellisense. */
+export type Pretty<T> = T extends infer T ? { [P in keyof T]: T[P] } : never;
 
 /**
- * All possible values that can be represented with JSON.
+ * Intellisense can be annoying when dealing with intersections.
+ * This one adds the properties from all the other types to each type as optional properties that can only be undefined.
+ *
+ * Like `{x: number}|{y:number}|{x:number,y:string}` becomes `{x:number, y?:undefined} | {y:number, x?:undefined} | {x:number, y:string}`.
  */
-export type Json<T = unknown> = unknown extends T
-  ? Nullish | string | number | boolean | JsonArray | JsonTuple | JsonObject
-  : Omit<
-      {
-        [P in keyof T]: JsonOnly<T[P]>;
-      },
-      symbol
-    >;
+export type MergeKeysUndefined<
+  Options,
+  AllKeys extends keyof any = Options extends infer Option
+    ? keyof Option
+    : never
+> = Pretty<
+  Options extends infer Option
+    ? Option & { [P in Exclude<AllKeys, keyof Option>]?: undefined }
+    : never
+>;
 
-export type ToJsonAble<T> = { toJSON(): T };
+/**
+ * Use for function parameters where you want an array to be interpreted as as tuple with a finite number of elements.
+ *
+ * By suggesting a parameter may be a one-tuple, TypeScript will treat the argument as a tuple,
+ * also if there are more than one element.
+ */
+export type TupleParameter<T> = readonly T[] | readonly [T];
 
 /** Minify friendly version of `false`. */
 export const undefined = void 0;
@@ -531,9 +533,6 @@ export const round = <T extends number | Nullish>(
     ? number
     : ((decimals = Math.pow(10, !decimals || decimals === true ? 0 : decimals)),
       Math.round(number * decimals) / decimals);
-
-export const isJsonObject = (value: any): value is JsonObject =>
-  isPlainObject(value);
 
 const testFirstLast = (s: string, first: string, last: string) =>
   s[0] === first && s[s.length - 1] === last;

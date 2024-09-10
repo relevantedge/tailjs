@@ -1,4 +1,4 @@
-import type { DataClassification, SignOutEvent, Uuid, UserConsent } from ".";
+import type { dataClassification, SignOutEvent, Uuid, UserConsent } from ".";
 
 /**
  * Identifiers related to a user's session, login and device.
@@ -51,7 +51,7 @@ export interface Session {
   userId?: string;
 
   /**
-   * The user's consent choices. {@link DataClassification.Anonymous} means the session is cookie-less.
+   * The user's consent choices. {@link dataClassification.Anonymous} means the session is cookie-less.
    *
    */
   consent?: UserConsent;

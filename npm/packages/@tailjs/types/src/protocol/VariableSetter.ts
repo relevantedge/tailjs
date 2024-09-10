@@ -2,6 +2,7 @@ import {
   VariableConflictResult,
   VariableErrorResult,
   VariableKey,
+  VariableResult,
   VariableStatus,
   VariableUnchangedResult,
   VariableValueResult,
@@ -21,13 +22,17 @@ export interface VariableValueSetter<T = any> extends VersionedVariableKey {
 
 export interface VariablePatch<T = any> extends VariableKey {
   ttl?: number;
-  patch: (current: T | null) => T | null;
+  /**
+   * Apply a patch to the current value.
+   * `null` means "delete", `undefined` means "do nothing", so be aware of your "nulls"
+   * */
+  patch: (current: T | null) => T | null | undefined;
 }
 
 export type VariableSetter<T = any> = VariableValueSetter<T> | VariablePatch<T>;
 
-export interface VariableDeleteResult extends VariableKey {
-  status: VariableStatus.Success | VariableStatus.Unchanged;
+export interface VariableDeleteResult extends VariableResult {
+  status: VariableStatus.Success | VariableStatus.NotModified;
   value: null;
 }
 
@@ -35,5 +40,4 @@ export type VariableSetResult<T = any> =
   | VariableErrorResult
   | VariableConflictResult<T>
   | VariableUnchangedResult
-  | VariableDeleteResult
-  | VariableValueResult<T>;
+  | (T extends null ? VariableDeleteResult : VariableValueResult<T>);

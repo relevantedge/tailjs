@@ -10,17 +10,14 @@ import {
   TogglePromise,
   UnwrapPromiseLike,
   Wrapped,
-  isObject,
   isArray,
+  isAwaitable,
   isBoolean,
   isError,
   isFunction,
+  isObject,
   isString,
   unwrap,
-  MaybeUndefined,
-  ToggleReadonly,
-  isAwaitable,
-  MaybeOmit,
 } from "..";
 
 export type ErrorGenerator = string | Error | (() => string | Error);

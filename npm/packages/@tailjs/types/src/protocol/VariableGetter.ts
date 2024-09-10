@@ -1,14 +1,12 @@
 import {
   DataPurposeName,
-  DataPurposes,
   VariableErrorResult,
   VariableKey,
-  VariableStatus,
   VariableUnchangedResult,
   VariableValueResult,
 } from "..";
 
-export interface VariableGetter extends VariableKey {
+export interface ReadOnlyVariableGetter extends VariableKey {
   ifModifiedSince?: number;
   ifNoneMatch?: string;
   /**
@@ -18,14 +16,9 @@ export interface VariableGetter extends VariableKey {
   purpose?: DataPurposeName;
 }
 
-export interface VariableGetterWithDefault<T = any> extends VariableGetter {
+export interface VariableGetter<T = any> extends ReadOnlyVariableGetter {
   ttl?: number;
-  init?: (key: VariableKey) => T | null;
-}
-
-export interface VariableNotFoundResult extends VariableKey {
-  status: VariableStatus.NotFound;
-  value: null;
+  init?: () => T | null | undefined;
 }
 
 export type VariableGetResult<T = any> =

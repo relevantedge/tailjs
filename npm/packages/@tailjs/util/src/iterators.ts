@@ -5,6 +5,7 @@ import {
   Entries,
   Extends,
   FILTER_NULLISH,
+  Falsish,
   GeneralizeConstants,
   If,
   IfNot,
@@ -21,6 +22,7 @@ import {
   RecordType,
   StrictUndefined,
   UndefinedIfEmpty,
+  UnionToIntersection,
   add,
   array,
   get,
@@ -834,7 +836,51 @@ type KeyValueParts<T> = T extends readonly [infer Key, infer Value]
   ? [Key, Value]
   : [undefined, undefined];
 
-export const fromEntries = Object.fromEntries;
+type ObjectEntryType<T> = T extends infer T
+  ? { [P in keyof T]-?: [P, T[P]] }[keyof T]
+  : never;
+
+type ObjectFromEntries<EntryType extends readonly [keyof any, any]> =
+  UnionToIntersection<
+    EntryType extends readonly [infer Key extends keyof any, infer Value]
+      ? { [P in Key]: Value }
+      : never
+  >;
+
+/** Fast version of `obj`. */
+export const fromEntries: {
+  <Source extends Iterable<readonly [keyof any, any] | Falsish> | Nullish>(
+    source: Source
+  ): Source extends Iterable<infer Entry extends readonly [keyof any, any]>
+    ? ObjectFromEntries<Entry>
+    : undefined;
+  <
+    Source extends Record<keyof any, any> | Nullish,
+    Mapped extends readonly [keyof any, any] | Falsish = ObjectEntryType<Source>
+  >(
+    source: Source,
+    map: (entry: ObjectEntryType<Source>, index: number) => Mapped | Nullish
+  ): Source extends Nullish
+    ? undefined
+    : ObjectFromEntries<
+        Mapped extends readonly [keyof any, any] ? Mapped : never
+      >;
+} = (source: any, map?: any) => {
+  if (source == null) return undefined;
+  const result: any = {};
+  if (map) {
+    let i = 0;
+    let value: any;
+    for (const key in source) {
+      (value = map(source[key], i++)) && (result[key] = value);
+    }
+  } else {
+    for (const entry of source) {
+      entry && (result[entry[0]] = entry[1]);
+    }
+  }
+  return result;
+};
 
 /**
  * Like Object.fromEntries, but accepts any iterable source and a projection instead of just key/value pairs.

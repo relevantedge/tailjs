@@ -2,19 +2,29 @@ import {
   Variable,
   VariableErrorResult,
   VariableGetResult,
-  VariableGetter,
+  ReadOnlyVariableGetter,
   VariableKey,
   VariableQuery,
   VariableScope,
   VariableSetResult,
   VariableStatus,
   VariableValueSetter,
+  copyKey,
+  PickKey,
+  filterKeys,
 } from "@tailjs/types";
 import {
-  copyKey,
   isWritableStorage,
+  normalizeStorageMappings,
   ReadOnlyVariableStorage,
   VariableStorage,
+  VariableStorageGetResult,
+  VariableStorageGetter,
+  VariableStorageMappings,
+  VariableStorageQuery,
+  VariableStorageSetResult,
+  VariableStorageSetter,
+  VariableStorageVariable,
 } from ".";
 
 export type WithTrace<T, Trace = undefined> = T & {
@@ -28,10 +38,6 @@ export type AddSourceTrace<Source, Trace> = Trace extends undefined
   ? Source & { [traceSymbol]?: undefined }
   : Source & { [traceSymbol]: [AddSourceTrace<Source, Trace>, Trace] };
 
-export type VariableStorageMappings = {
-  [P in VariableScope]: Record<string, ReadOnlyVariableStorage>;
-};
-
 const unknownSource = (
   key: VariableKey
 ): AddTrace<VariableErrorResult, any> => ({
@@ -40,6 +46,9 @@ const unknownSource = (
   [traceSymbol]: key[traceSymbol],
   error: `The scope ${key.scope} has no source with the ID '${key.source}'.`,
 });
+
+type SplitFields = Pick<VariableKey, "source" | "scope">;
+type SplitQueryFields = Pick<VariableQuery, "sources" | "scopes">;
 
 export const traceSymbol = Symbol();
 export const addSourceTrace = <Item, Trace>(
@@ -54,24 +63,37 @@ export const addTrace = <Item, Trace>(
   trace: Trace
 ): AddTrace<Item, Trace> => ((item[traceSymbol] = trace), item as any);
 
-export const mergeTrace = <Item, Trace>(
-  item: Item,
-  trace: { [traceSymbol]?: Trace }
-): AddTrace<Item, Trace> => ((item[traceSymbol] = trace), item as any);
+const mergeTrace = <Target extends {}, Trace>(
+  target: Target,
+  {
+    source,
+    scope,
+    [traceSymbol]: trace,
+  }: { [traceSymbol]?: Trace } & SplitFields
+): AddTrace<Target & SplitFields, Trace> =>
+  Object.assign(target, { source, scope, [traceSymbol]: trace }) as any;
 
-export class VariableSplitStorage implements VariableStorage, Disposable {
-  private readonly _mappings: VariableStorageMappings;
+export class VariableSplitStorage
+  implements VariableStorage<SplitFields>, Disposable
+{
+  private readonly _mappings: Record<
+    string,
+    Record<string, ReadOnlyVariableStorage>
+  >;
 
   constructor(mappings: VariableStorageMappings) {
-    this._mappings = mappings;
+    this._mappings = {};
+    for (const { scope, source, storage } of normalizeStorageMappings(
+      mappings
+    )) {
+      (this._mappings[scope] ??= {})[source] = storage;
+    }
   }
 
-  private async _splitApply<
-    T extends { scope: VariableScope; source?: string },
-    R
-  >(
+  private async _splitApply<T extends { scope: string; source?: string }, R>(
     keys: T[],
     action: (
+      source: SplitFields,
       target: ReadOnlyVariableStorage,
       keys: T[],
       error?: string | undefined
@@ -81,11 +103,15 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
     const results: R[] = [];
     const splits = new Map<
       ReadOnlyVariableStorage,
-      [keys: T[], sourceIndices: number[]]
+      [source: SplitFields, keys: T[], sourceIndices: number[]]
     >();
     let sourceIndex = 0;
+
     for (const key of keys) {
-      const storage = this._mappings[key.scope]?.[key.source ?? ""];
+      const { scope, source } = key;
+
+      let storage = this._mappings[scope]?.[source ?? ""];
+
       if (!storage) {
         const errorResult = notFound?.(key);
         errorResult && (results[sourceIndex++] = errorResult);
@@ -93,24 +119,30 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
       }
 
       let storageKeys = splits.get(storage);
-      !storageKeys && splits.set(storage, (storageKeys = [[], []]));
-      storageKeys[0].push(key);
-      storageKeys[1].push(sourceIndex);
+      !storageKeys &&
+        splits.set(storage, (storageKeys = [{ source, scope }, [], []]));
+      storageKeys[1].push(key);
+      storageKeys[2].push(sourceIndex);
       sourceIndex++;
     }
 
     const tasks: Promise<void>[] = [];
-    splits.forEach(([keys, sourceIndices], storage) => {
+    splits.forEach(([source, keys, sourceIndices], storage) => {
       tasks.push(
         (async () => {
           let i = 0;
           try {
-            for (const result of (await action(storage, keys, undefined)) ??
-              []) {
+            for (const result of (await action(
+              source,
+              storage,
+              keys,
+              undefined
+            )) ?? []) {
               results[sourceIndices[i++]] = result;
             }
           } catch (e) {
             await action(
+              source,
               storage,
               keys,
               e?.message || (e ? "" + e : "(unspecified error)")
@@ -126,13 +158,13 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
   }
 
   async get<Trace = undefined>(
-    keys: WithTrace<VariableGetter, Trace>[]
-  ): Promise<AddTrace<VariableGetResult, Trace>[]> {
+    keys: WithTrace<VariableStorageGetter<SplitFields>, Trace>[]
+  ): Promise<AddTrace<VariableStorageGetResult<SplitFields>, Trace>[]> {
     if (!keys.length) return [];
 
     return this._splitApply(
       keys,
-      async (storage, keys, error) =>
+      async (_source, storage, keys, error) =>
         error
           ? keys.map((key) =>
               mergeTrace(
@@ -153,13 +185,13 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
   }
 
   set<Trace = undefined>(
-    values: WithTrace<VariableValueSetter, Trace>[]
-  ): Promise<AddTrace<VariableSetResult, Trace>[]> {
+    values: WithTrace<VariableStorageSetter<SplitFields>, Trace>[]
+  ): Promise<AddTrace<VariableStorageSetResult<SplitFields>, Trace>[]> {
     if (!values.length) return [] as any;
 
     return this._splitApply(
       values,
-      async (storage, setters, error) =>
+      async (_source, storage, setters, error) =>
         isWritableStorage(storage)
           ? error
             ? setters.map((setter) =>
@@ -179,7 +211,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
           : setters.map((setter) =>
               mergeTrace(
                 {
-                  status: VariableStatus.ReadOnly,
+                  status: VariableStatus.BadRequest,
                   ...copyKey(setter),
                 },
                 setter
@@ -189,32 +221,48 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
     );
   }
 
-  private _splitSourceQueries(queries: VariableQuery[]) {
-    const split: (VariableQuery & { source: string })[] = [];
+  public splitSourceQueries<T extends VariableStorageQuery<SplitQueryFields>>(
+    queries: T[]
+  ): (VariableQuery & SplitFields)[] {
+    const split: (T & SplitFields)[] = [];
     for (const query of queries) {
-      let includeSources =
-        query.includeSources ?? Object.keys(this._mappings[query.scope] ?? []);
-      if (query.excludeSources) {
-        const exclude = new Set(query.excludeSources);
-        includeSources = includeSources.filter((key) => !exclude.has(key));
+      for (const scope of filterKeys(
+        query.scopes,
+        Object.keys(this._mappings),
+        (filter) => (query.scopes = filter)
+      )) {
+        split.push(
+          ...filterKeys(
+            query.sources,
+            Object.keys(this._mappings[scope] ?? []),
+            (filter) => (query.sources = filter)
+          ).map((source) => ({ source, scope, ...query }))
+        );
       }
-      split.push(...includeSources.map((source) => ({ ...query, source })));
     }
     return split;
   }
-  async purge(queries: VariableQuery[]): Promise<void> {
+  async purge(
+    queries: VariableStorageQuery<SplitQueryFields>[]
+  ): Promise<void> {
     await this._splitApply(
-      this._splitSourceQueries(queries),
-      async (storage, queries) => {
+      this.splitSourceQueries(queries),
+      async (_source, storage, queries) => {
         isWritableStorage(storage) && (await storage.purge(queries));
       }
     );
   }
-  async query(queries: VariableQuery[]): Promise<Variable[]> {
+  async query(
+    queries: VariableQuery[]
+  ): Promise<VariableStorageVariable<SplitFields>[]> {
     return (
       await this._splitApply(
-        this._splitSourceQueries(queries),
-        async (storage, queries) => [await storage.query(queries)]
+        this.splitSourceQueries(queries),
+        async (source, storage, queries) => [
+          (
+            await storage.query(queries)
+          ).map((result) => mergeTrace(result, source)),
+        ]
       )
     ).flat();
   }

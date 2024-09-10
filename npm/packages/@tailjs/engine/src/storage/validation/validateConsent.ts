@@ -1,5 +1,5 @@
 import {
-  DataClassification,
+  dataClassification,
   dataClassification,
   DataPurposeName,
   DataPurposes,
@@ -9,7 +9,7 @@ import {
 const DEFAULT_PURPOSES: DataPurposes = { necessary: true };
 const DEFAULT_CLASSIFICATION = "anonymous";
 
-type ConsentValidationOptions = {
+export type ValidateConsentOptions = {
   /** If data is being read for a specific purpose both the schema definition and consent must include the purpose. */
   targetPurpose?: DataPurposeName;
 
@@ -24,7 +24,7 @@ type ConsentValidationOptions = {
 export const validateConsent = (
   schema?: DataUsage,
   test?: DataUsage,
-  options?: ConsentValidationOptions
+  options?: ValidateConsentOptions
 ) => {
   if (schema?.classification === "never") {
     // This part of the schema is disabled.
@@ -61,7 +61,7 @@ export const validateConsentPurposes = (
     intersect,
     personalization,
     security,
-  }: ConsentValidationOptions = {}
+  }: ValidateConsentOptions = {}
 ) => {
   if (targetPurpose && !(test[targetPurpose] && schema[targetPurpose])) {
     // Target purpose is not mentioned as a purpose for the data in the schema and/or there is no consent for the purpose.

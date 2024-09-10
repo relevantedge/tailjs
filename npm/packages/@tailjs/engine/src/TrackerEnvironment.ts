@@ -10,7 +10,7 @@ import {
 import ShortUniqueId from "short-unique-id";
 import {
   LogLevel,
-  ParsingVariableStorage,
+  VariableStorageCoordinator,
   type ChangeHandler,
   type Cookie,
   type CryptoProvider,
@@ -50,12 +50,12 @@ export class TrackerEnvironment {
 
   public readonly tags?: string[];
   public readonly cookieVersion: string;
-  public readonly storage: ParsingVariableStorage;
+  public readonly storage: VariableStorageCoordinator;
 
   constructor(
     host: EngineHost,
     crypto: CryptoProvider,
-    storage: ParsingVariableStorage,
+    storage: VariableStorageCoordinator,
     tags?: string[],
     cookieVersion = "C"
   ) {

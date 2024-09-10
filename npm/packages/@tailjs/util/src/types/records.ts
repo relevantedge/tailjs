@@ -181,7 +181,9 @@ type TupleEntries<T, Index extends number = 0> = T extends readonly []
   : never;
 
 export type Entries<T> = T extends infer T
-  ? T extends Primitives
+  ? T extends Nullish
+    ? undefined
+    : T extends Primitives
     ? never
     : T extends Iterable<any>
     ? T extends ReadonlyMap<infer K, infer V>

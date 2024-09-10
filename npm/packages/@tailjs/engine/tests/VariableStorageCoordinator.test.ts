@@ -236,7 +236,7 @@ describe("VariableStorageCoordinator", () => {
         { scope: "session", key: "notDefined", targetId: "foo", value: 32 },
       ]).all
     )[0];
-    expect(notDefinedResult.status).toBe(VariableStatus.Invalid);
+    expect(notDefinedResult.status).toBe(VariableStatus.BadRequest);
     expect((notDefinedResult as any).error + "").toContain("explicit");
 
     const testSetter = async (
@@ -326,7 +326,7 @@ describe("VariableStorageCoordinator", () => {
           },
         ]).all
       )[0].status
-    ).toBe(VariableStatus.Invalid);
+    ).toBe(VariableStatus.BadRequest);
 
     expect(
       (
@@ -362,7 +362,7 @@ describe("VariableStorageCoordinator", () => {
           }
         ).all
       )[0].status
-    ).toBe(VariableStatus.Denied);
+    ).toBe(VariableStatus.Forbidden);
 
     expect(
       (
@@ -380,7 +380,7 @@ describe("VariableStorageCoordinator", () => {
           }
         ).all
       )[0].status
-    ).toBe(VariableStatus.Denied);
+    ).toBe(VariableStatus.Forbidden);
 
     expect(
       stripMetadata(

@@ -65,7 +65,7 @@ export type ParsedQueryString<Delimiters extends QueryStringDelimiterValue> =
     string,
     Delimiters extends null | readonly [] | false ? string : string | string[]
   > & {
-    [parameterList]: [
+    [parameterList]?: [
       string,
       Delimiters extends null | readonly [] | false ? string : string | string[]
     ];
@@ -151,12 +151,17 @@ export const parseUri = <
   uri: Uri,
   query: QueryString = true as any,
   requireAuthority?: RequireAuthority
-): PrettifyIntersection<
-  RequireAuthority extends true
-    ? PickRequired<ParsedUri<QueryString>, "scheme" | "host" | "urn" | "path">
-    : ParsedUri<QueryString>,
-  true
-> =>
+):
+  | PrettifyIntersection<
+      RequireAuthority extends true
+        ? PickRequired<
+            ParsedUri<QueryString>,
+            "scheme" | "host" | "urn" | "path"
+          >
+        : ParsedUri<QueryString>,
+      true
+    >
+  | undefined =>
   uri == nil
     ? undefined
     : (match(

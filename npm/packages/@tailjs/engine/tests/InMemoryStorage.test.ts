@@ -131,7 +131,7 @@ describe("Variable stores store.", () => {
           value: "version3",
         },
       ])["result"])?.status
-    ).toBe(VariableStatus.Unchanged);
+    ).toBe(VariableStatus.NotModified);
     expect(result?.current?.value).toBe("version2.1");
 
     expect(
@@ -149,7 +149,7 @@ describe("Variable stores store.", () => {
     const currentVersion = result?.current?.version;
     expect(
       (await store.get([{ ...key, version: currentVersion }])["result"])?.status
-    ).toBe(VariableStatus.Unchanged);
+    ).toBe(VariableStatus.NotModified);
     expect(
       (await store.get([{ ...key, version: currentVersion + "not" }])["result"])
         ?.status

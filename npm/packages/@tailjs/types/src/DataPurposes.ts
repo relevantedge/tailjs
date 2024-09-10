@@ -1,4 +1,4 @@
-import { array, isArray, isString, Nullish } from "@tailjs/util";
+import { fromEntries, isArray, isString, Nullish } from "@tailjs/util";
 
 export type DataPurposeName = keyof DataPurposes;
 export const DATA_PURPOSES: DataPurposeName[] = [
@@ -9,6 +9,99 @@ export const DATA_PURPOSES: DataPurposeName[] = [
   "personalization",
   "security",
 ];
+
+const VALID_PURPOSE_NAMES = fromEntries(
+  DATA_PURPOSES.map((purpose) => [purpose, purpose])
+);
+
+export const DATA_PURPOSES_ALL: DataPurposes = Object.freeze(
+  fromEntries(DATA_PURPOSES.map((purpose) => [purpose, true]))
+);
+
+/**
+ * Compares whether a consent is sufficient for a set of target purposes, or whether
+ * a filter matches all the purposes in a target.
+ *
+ * @param target The target to validate the consent against.
+ * @param test The set of allowed purposes in either a consent or filter.
+ * @param intersect  Whether the target must have all the purposes in the consent, and no other purposes than those.
+ *  This is used for purging data when a consent is updated.
+ *  If data is only stored for purposes that are no longer included in the consent, it must be deleted. Conversely, it may be kept
+ *  if just one of its purposes are still valid.
+ *
+ *  The default is "normal" consent validation which only requires the target to have one purpose with consent (or no required purposes).
+ *
+ *  @default false
+ * @returns
+ */
+export const testPurposes = (
+  target: DataPurposes,
+  test: DataPurposes,
+  intersect = false
+) => {
+  if (intersect) {
+    for (const purpose in test) {
+      if (test[purpose] && !target[purpose]) {
+        // At least one purpose in the consent is not present in the target.
+        return false;
+      }
+    }
+    for (const purpose in target) {
+      if (target[purpose] && !test[purpose]) {
+        // The target has a purpose that is not included in the consent.
+        return false;
+      }
+    }
+
+    return true;
+  }
+  let hasAny = false;
+  for (const purpose in target) {
+    if (target[purpose]) {
+      if (test[purpose]) {
+        // Just one of the purposes is good enough.
+        return true;
+      }
+      hasAny = true;
+    }
+  }
+  // The target has at least one required purpose, and the consent does not include any.
+  return !hasAny;
+};
+
+export const dataPurposes: {
+  <
+    T extends string | string[] | DataPurposes | Nullish,
+    Names extends boolean = false
+  >(
+    value: T,
+    names?: Names
+  ): T extends Nullish
+    ? undefined
+    : Names extends true
+    ? DataPurposeName[]
+    : DataPurposes;
+
+  names: DataPurposeName[];
+} = Object.assign(
+  (value: any, names: boolean = false): any => {
+    if (value == null) return undefined!;
+    if (isString(value)) {
+      value = [value] as any;
+    }
+    if (isArray(value)) {
+      const purposes: DataPurposes = {};
+      for (const name of value as any) {
+        if (!VALID_PURPOSE_NAMES[name]) continue;
+        purposes[name as any] = true;
+      }
+      value = purposes as any;
+    }
+
+    return names ? Object.keys(value as any) : (value as any);
+  },
+  { names: DATA_PURPOSES }
+);
 
 export const getDataPurposeNames = (
   purposes: DataPurposes | undefined
@@ -23,7 +116,7 @@ export const getDataPurposeNames = (
 };
 
 export const parseDataPurposes = <
-  T extends DataPurposeName | DataPurposeName[] | DataPurposes | Nullish
+  T extends string | string[] | DataPurposes | Nullish
 >(
   purposeNames: T
 ): T extends Nullish ? undefined : DataPurposes => {
@@ -37,6 +130,7 @@ export const parseDataPurposes = <
 
   const purposes: DataPurposes = {};
   for (const name of purposeNames as any) {
+    if (!VALID_PURPOSE_NAMES[name]) continue;
     purposes[name as any] = true;
   }
   return purposes as any;

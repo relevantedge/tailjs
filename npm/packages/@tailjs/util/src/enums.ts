@@ -24,13 +24,29 @@ import {
 export interface EnumParser<Levels extends string> {
   <
     T extends Levels | (string & {}) | number | Nullish,
+    Numeric extends boolean = false,
+    Validate extends boolean = true
+  >(
+    value: T,
+    numeric?: Numeric,
+    validate?: Validate
+  ): T extends Nullish
+    ? undefined
+    :
+        | (Numeric extends true ? number : Levels)
+        | (Validate extends true ? never : undefined);
+  readonly levels: Levels[];
+  readonly ranks: { [P in Levels]: number };
+  tryParse<
+    T extends Levels | (string & {}) | number | Nullish,
     Numeric extends boolean = false
   >(
     value: T,
-    numeric?: Numeric
-  ): T extends Nullish ? undefined : Numeric extends true ? number : Levels;
-  readonly levels: Levels[];
-  readonly ranks: { [P in Levels]: number };
+    numeric?: boolean,
+    validate?: boolean
+  ): T extends Nullish
+    ? undefined
+    : (Numeric extends true ? number : Levels) | undefined;
   compare(lhs: Levels | number, rhs: Levels | number): number;
   min(...values: (Levels | number | Nullish)[]): Levels | undefined;
   max(...values: (Levels | number | Nullish)[]): Levels | undefined;
@@ -42,12 +58,14 @@ export const createEnumParser: <Levels extends string>(
 ) => EnumParser<Levels> = (name, levels) => {
   const ranks = fromEntries(levels.map((key, i) => [key, i])) as any;
 
-  const parse = (value: any, numeric = false) =>
+  const parse = (value: any, numeric = false, validate = true) =>
     value == null
       ? undefined
       : isNumber(value)
       ? value < 0 || value >= levels.length
-        ? throwError(`${value} is not a valid ${name}.`)
+        ? validate
+          ? throwError(`${value} is not a valid ${name}.`)
+          : undefined
         : numeric
         ? value
         : levels[value]
@@ -55,9 +73,9 @@ export const createEnumParser: <Levels extends string>(
           ? numeric
             ? ranks[value]
             : value
-          : throwError(
-              `The ${name} '${quote(value)}' is not defined.`
-            )) as any);
+          : validate
+          ? throwError(`The ${name} '${quote(value)}' is not defined.`)
+          : undefined) as any);
 
   const compare = (lhs: any, rhs: any) =>
     (lhs = parse(lhs, true)) < (rhs = parse(rhs, true))
@@ -86,6 +104,7 @@ export const createEnumParser: <Levels extends string>(
     levels,
     ranks,
     compare,
+    tryParse: (value: any, numeric?: boolean) => parse(value, numeric, false),
     min: minMax(false),
     max: minMax(true),
   });

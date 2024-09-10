@@ -1,41 +1,46 @@
-import { Variable, VariableKey } from ".";
+import { Variable, VariableGetResult, VariableKey, VariableSetResult } from ".";
 
 export enum VariableStatus {
   Success = 200,
   Created = 201,
-  Unchanged = 304,
-  Denied = 403,
+  NotModified = 304,
+  Forbidden = 403,
   NotFound = 404,
-  ReadOnly = 405,
+  BadRequest = 405,
   Conflict = 409,
   Unsupported = 501,
-  Invalid = 400,
+
   Error = 500,
 }
 
 export type VariableSuccessStatus =
   | VariableStatus.Success
   | VariableStatus.Created
-  | VariableStatus.Unchanged;
+  | VariableStatus.NotModified;
 
 export type VariableErrorStatus =
-  | VariableStatus.Denied
+  | VariableStatus.Forbidden
   | VariableStatus.NotFound
-  | VariableStatus.ReadOnly
+  | VariableStatus.BadRequest
   | VariableStatus.Unsupported
-  | VariableStatus.Invalid
   | VariableStatus.Conflict
   | VariableStatus.Error;
 
-export type VariableErrorResult<T = any> = VariableKey &
+export interface VariableResult extends VariableKey {
+  status: VariableStatus;
+}
+
+export type VariableErrorResult<T = any> = VariableResult &
   (
     | {
+        status: VariableStatus.NotFound;
+      }
+    | {
         status:
-          | VariableStatus.Denied
-          | VariableStatus.NotFound
-          | VariableStatus.ReadOnly
+          | VariableStatus.Forbidden
+          | VariableStatus.BadRequest
           | VariableStatus.Unsupported
-          | VariableStatus.Invalid;
+          | VariableStatus.NotFound;
         error?: string;
         transient?: false;
       }
@@ -53,7 +58,7 @@ export const isSuccessResult = (
   status:
     | VariableStatus.Success
     | VariableStatus.Created
-    | VariableStatus.Unchanged;
+    | VariableStatus.NotModified;
 } => value?.status < 400;
 
 export const isValueResult = (
@@ -70,15 +75,21 @@ export const isTransientError = (
 ): value is { status: VariableStatus.Error; transient: true } =>
   (value as any)?.transient;
 
-export interface VariableConflictResult<T = any> extends VariableKey {
+export interface VariableConflictResult<T = any> extends VariableResult {
   status: VariableStatus.Conflict;
   current: Variable<T> | null;
 }
 
-export interface VariableUnchangedResult extends VariableKey {
-  status: VariableStatus.Unchanged;
+export interface VariableUnchangedResult extends VariableResult {
+  status: VariableStatus.NotModified;
 }
 
-export interface VariableValueResult<T = any> extends Variable<T> {
+export interface VariableValueResult<T = any>
+  extends VariableResult,
+    Variable<T> {
   status: VariableStatus.Success | VariableStatus.Created;
 }
+
+export type AnyVariableResult<T = any> =
+  | VariableGetResult<T>
+  | VariableSetResult<T>;

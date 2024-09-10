@@ -1,22 +1,98 @@
+import { MergeKeysUndefined, Pretty } from "@tailjs/util";
 import { VariableScope } from ".";
+import { DataClassification, DataPurposes } from "..";
+
+export type KeyFilter<T = string> = MergeKeysUndefined<
+  Iterable<T> | { not: Iterable<T> }
+>;
+
+export type RangeFilter<T> = MergeKeysUndefined<
+  { eq: T } | (({ gt?: T } | { gte: T }) & ({ lt?: T } | { lte: T }))
+>;
+
+export const filterKeys = <T, Values extends Iterable<T>>(
+  filter: KeyFilter<T> | undefined,
+  values: Values,
+  assignCompiled: (filter: KeyFilter<T>) => void
+): Values => {
+  if (filter == null) {
+    return values;
+  }
+
+  let set: Set<T>;
+
+  if (filter.not) {
+    set =
+      filter.not instanceof Set
+        ? filter.not
+        : (filter.not = new Set(filter.not));
+  } else {
+    set =
+      filter instanceof Set
+        ? filter
+        : (assignCompiled((filter = new Set(filter))), filter as any);
+  }
+
+  return [...values].filter(
+    (value) => set.has(value) === (set === filter)
+  ) as any;
+};
+
+export const filterRangeValue = <T>(
+  value: T | undefined,
+  filter: RangeFilter<T> | undefined,
+  rank: (value: Exclude<T, undefined>) => number
+) => {
+  if (value == null || filter == null) {
+    return true;
+  }
+
+  if ("eq" in filter) {
+    return value === filter.eq;
+  }
+
+  const valueRank = rank(value);
+  return (
+    (filter.lt
+      ? valueRank < rank(filter.lt)
+      : filter.lte
+      ? valueRank <= rank(filter.lte)
+      : true) &&
+    (filter.gt
+      ? valueRank > rank(filter.gt)
+      : filter.gte
+      ? valueRank >= rank(filter.gte)
+      : true)
+  );
+};
 
 /** Queries the keys for a given entity. */
-export interface VariableQuery {
-  scope: VariableScope;
+export interface VariableQuery<Scopes extends string = string> {
+  /**
+   *  The sources to query. If omitted, all sources are queried.
+   *  Use the empty string (`""`) for the default source.
+   */
+  sources?: KeyFilter;
 
+  /** Only query keys in these scopes. If omitted, all scopes are queried. */
+  scopes?: KeyFilter<Scopes>;
+
+  /** The keys to match. If omitted, all keys are targeted. */
+  keys?: KeyFilter;
+
+  /** The entity the query applies to*/
   entityId: string;
 
-  /** Limit the query to these sources. The default is to query all sources. */
-  includeSources?: string[];
+  /** Gets variables that have changed since this timestamp. (Not implemented). */
+  ifModifiedSince?: number;
 
-  /** Limit the query to all sources not mentioned here. */
-  excludeSources?: string[];
+  /** Only query keys for variables with a data classification in this range. */
+  classification?: RangeFilter<DataClassification>;
 
-  /** Only target these keys. If omitted, all keys are targeted (if not excluded). */
-  includeKeys?: string[];
-
-  /** Do not target these specific keys. */
-  excludeKeys?: string[];
+  /**
+   * Only query keys for variables that have/do not have the combination of these purposes.
+   */
+  purposes?: DataPurposes;
 }
 
 // import {

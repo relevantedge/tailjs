@@ -1,5 +1,5 @@
 import {
-  DataClassification,
+  dataClassification,
   DataPurposeFlags,
   MapVariableGetResult,
   MapVariableSetResult,
@@ -8,7 +8,7 @@ import {
   Variable,
   VariableEnumProperties,
   VariableGetResult,
-  VariableGetter,
+  ReadOnlyVariableGetter,
   VariableKey,
   VariableStatus,
   VariableSetResult,
@@ -140,7 +140,7 @@ type LocalVariableGetResult<
     | ({
         status:
           | VariableStatus.Success
-          | VariableStatus.Unchanged
+          | VariableStatus.NotModified
           | VariableStatus.Created;
       } & LocalVariable<T, K & string>)
     | IfNot<
@@ -158,7 +158,7 @@ type LocalVariableSetResult<T, Source> = PrettifyIntersection<{
   source: Source;
   status:
     | VariableStatus.Success
-    | VariableStatus.Unchanged
+    | VariableStatus.NotModified
     | VariableStatus.Created;
   current: Source extends { value: infer Value }
     ? Value extends undefined
@@ -207,7 +207,7 @@ export type ClientVariableGetter<
           init?: { value: GeneralizeConstants<T> | undefined };
         }
     : StripPatchFunctions<
-        RestrictVariableTargets<VariableGetter<T, K, false>, true>
+        RestrictVariableTargets<ReadOnlyVariableGetter<T, K, false>, true>
       >) & {
     /**
      * A callback to do something with the result.
