@@ -7,7 +7,7 @@ import {
   VariableKey,
   VariableQuery,
   VariableSetResult,
-  VariableStatus,
+  VariableResultStatus,
   VariableValueSetter,
 } from "@tailjs/types";
 import { jsonClone } from "@tailjs/util";
@@ -95,7 +95,11 @@ export class InMemoryStorage implements VariableStorage, Disposable {
       const key = copyKey(getter);
       const variable = this._getVariable(getter, now);
       if (!variable) {
-        results.push({ status: VariableStatus.NotFound, ...key });
+        results.push({
+          status: VariableResultStatus.NotFound,
+          ...key,
+          value: null,
+        });
         continue;
       }
 
@@ -104,12 +108,16 @@ export class InMemoryStorage implements VariableStorage, Disposable {
           variable.modified <= getter.ifModifiedSince) ||
         (getter.ifNoneMatch != null && variable.version === getter.ifNoneMatch)
       ) {
-        results.push({ status: VariableStatus.NotModified, ...key });
+        results.push({
+          status: VariableResultStatus.NotModified,
+          ...key,
+          value: undefined,
+        });
         continue;
       }
 
       results.push({
-        status: VariableStatus.Success,
+        status: VariableResultStatus.Success,
         ...variable,
         value: jsonClone(variable.value),
       });
@@ -128,7 +136,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
       let variable = this._getVariable(setter, now);
       if (!setter.force && variable?.version !== setter.version) {
         results.push({
-          status: VariableStatus.Conflict,
+          status: VariableResultStatus.Conflict,
           ...key,
           current: null,
         });
@@ -136,7 +144,11 @@ export class InMemoryStorage implements VariableStorage, Disposable {
       }
 
       if (!variable && setter.value == null) {
-        results.push({ status: VariableStatus.NotModified, ...key });
+        results.push({
+          status: VariableResultStatus.NotModified,
+          ...key,
+          value: null,
+        });
         continue;
       }
 
@@ -148,7 +160,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
       if (setter.value == null) {
         variables[1].delete(setter.key);
         results.push({
-          status: VariableStatus.Success,
+          status: VariableResultStatus.Success,
           ...key,
           value: null,
         });
@@ -172,7 +184,9 @@ export class InMemoryStorage implements VariableStorage, Disposable {
       results.push({
         ...variable,
         value: jsonClone(variable.value),
-        status: created ? VariableStatus.Created : VariableStatus.Success,
+        status: created
+          ? VariableResultStatus.Created
+          : VariableResultStatus.Success,
       });
     }
 

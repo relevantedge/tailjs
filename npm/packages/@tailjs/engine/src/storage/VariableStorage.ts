@@ -1,21 +1,32 @@
 import {
-  AnyVariableResult,
   formatKey,
+  isNotFoundResult,
   isSuccessResult,
+  MapVariableResult,
   ReadOnlyVariableGetter,
   ScopedKey,
   Variable,
   VariableGetResult,
   VariableGetter,
+  VariableGetterCallback,
+  VariableKey,
   VariablePatchFunction,
   VariableQuery,
+  VariableResult,
   VariableSetResult,
   VariableSetter,
-  VariableValueResult,
+  VariableSetterCallback,
   VariableValueSetter,
 } from "@tailjs/types";
-import { DenyExtraProperties, Pretty, TupleParameter } from "@tailjs/util";
-import { TrackerEnvironment } from "../TrackerEnvironment";
+import {
+  DenyExtraProperties,
+  Falsish,
+  FalsishToUndefined,
+  Pretty,
+  TupleParameter,
+} from "@tailjs/util";
+import { error } from "console";
+import { TrackerEnvironment } from "..";
 
 export type ScopedVariableGetters<
   Scopes extends string,
@@ -52,67 +63,59 @@ export interface VariableStorage extends ReadOnlyVariableStorage {
 export const isWritableStorage = (storage: any): storage is VariableStorage =>
   "set" in storage;
 
-type SuccessOnly<Result, Toggle> = Toggle extends true
-  ? {
-      [Index in keyof Result]: Toggle extends true
-        ? Result[Index] extends infer Result
-          ? Result extends { value: any }
-            ? Result
-            : never
-          : never
-        : Result[Index];
-    }
-  : Result;
-
-type PickValue<Result extends readonly any[]> = {
-  [P in keyof Result]: Result[P] extends infer Result
-    ? Result extends { value: infer Value }
-      ? Value
-      : never
-    : never;
-};
-
 /**
- * Typescript is not smart enough to suggest the properties for the return type in patch functions
- * in a tuple of variable setters unless this "little" trick is applied:
- * 1. Disallow the item from the original tuple if it has a patch function.
- * 2. Add an intersection with a patch function with the same type for the current value and disallow any additional
- *    properties from the result that are not present in the current value.
+ * Without this little trick, TypeScript is not smart enough to suggest the properties for the return type in patch functions
+ * even if the parameter type is specified, that is, `patch: (current: {x: string})=>(no intellisense here)`
  */
-export type WithPatchIntellisense<Setters extends readonly any[]> =
-  | (Setters & {
-      [P in keyof Setters]: Setters[P] extends { patch(...args: any): any }
-        ? never
-        : Setters[P];
-    })
-  | {
-      [P in keyof Setters]: Setters[P] extends {
+export type WithCallbackIntellisense<Operation> =
+  Operation extends readonly any[]
+    ? {
+        [P in keyof Operation]: WithCallbackIntellisense<Operation[P]>;
+      }
+    : Operation extends {
         patch: VariablePatchFunction<infer Current, infer Result>;
       }
-        ? unknown extends Current
-          ? Setters[P]
-          : Omit<Setters[P], "patch"> & {
+    ? Omit<
+        unknown extends Current
+          ? Operation
+          : Omit<Operation, "patch"> & {
               patch: VariablePatchFunction<
                 any,
                 DenyExtraProperties<Result, Current>
               >;
-            }
-        : Setters[P];
-    };
+            },
+        "callback"
+      > & { callback?: VariableSetterCallback<Result> }
+    : Operation extends Falsish
+    ? Operation
+    : Omit<Operation, "callback"> & {
+        callback?: Operation extends { value: infer T }
+          ? VariableSetterCallback<T>
+          : VariableGetterCallback<
+              Operation extends { init: () => infer T } ? T : any
+            >;
+      };
 
-export interface VariableResultPromise<K extends readonly any[]>
-  extends Promise<K> {
-  require(): Promise<SuccessOnly<K, true>>;
-  values(): Promise<PickValue<K>>;
-  value(): Promise<PickValue<K>[0]>;
-  first<Require extends boolean = true>(
-    require?: Require
-  ): Promise<SuccessOnly<K, Require>[0]>;
-}
+type TupleOrSelf<T> =
+  | (T & { [Symbol.iterator]?: never })
+  | readonly T[]
+  | readonly [T];
 
-const formatVariableResult = (
-  result: VariableGetResult | VariableSetResult
-) => {
+export type VariableOperationParameter<
+  T extends VariableKey,
+  Scopes extends string,
+  ExplicitScopes extends string = Scopes
+> = undefined | TupleOrSelf<Falsish | ScopedKey<T, Scopes, ExplicitScopes>>;
+
+export type VariableResultPromise<Operations> =
+  FalsishToUndefined<Operations> extends infer Operations
+    ? Promise<MapVariableResult<Operations>> & {
+        throw(): Promise<MapVariableResult<Operations, "throw">>;
+        value(): Promise<MapVariableResult<Operations, "value">>;
+      }
+    : never;
+
+const formatVariableResult = (result: VariableResult) => {
   const key = formatKey(result);
   const error = (result as any).error;
   return result.status < 400
@@ -122,39 +125,57 @@ const formatVariableResult = (
       }.`;
 };
 
-export const toVariableResultPromise = <K extends AnyVariableResult[]>(
-  variables: Promise<K> | K
-): VariableResultPromise<K> => {
-  const getResults = async <Throw extends boolean>(
-    require: Throw
-  ): Promise<
-    Throw extends true ? VariableValueResult[] : AnyVariableResult[]
-  > => {
-    const results = await variables;
-    const success: any[] = [];
+export const toVariableResultPromise = <
+  Operations extends undefined | { [Symbol.iterator]?: never } | readonly any[]
+>(
+  operations: Operations,
+  handler: (operations: Operations[]) => Promise<VariableResult[]>
+): VariableResultPromise<Operations> => {
+  const mapResults = async (
+    type:
+      | 0 // any
+      | 1 // throw on errors
+      | 2 // values (also throw on errors)
+  ) => {
+    const ops = Array.isArray(operations) ? operations : [operations];
+    // The raw results from the map function including error results.
+    const resultSource = await handler(ops.filter((op) => op));
+    // The results we will return if there are no errors;
+    const results: any[] = [];
     const errors: string[] = [];
-    for (const result of results) {
-      if (isSuccessResult(result)) {
-        success.push(result);
+    const callbacks: (() => any)[] = [];
+    let i = 0;
+    for (const op of ops) {
+      if (!op) {
+        // Falsish to undefined.
+        results.push(undefined);
+        continue;
+      }
+      const result = resultSource[i++];
+      if (op.callback) {
+        callbacks.push(op.callback(result));
+      }
+      if (!type || isSuccessResult(result) || isNotFoundResult(result)) {
+        results.push(type > 1 ? result["value"] : result);
       } else {
         errors.push(formatVariableResult(result));
       }
     }
-    if (require) {
+    if (error.length) {
       throw new Error(errors.join("\n"));
     }
-    return results as any;
-  };
-  const resultPromise = Object.assign(
-    (variables as any)?.then ? variables : Promise.resolve(variables),
-    {
-      require: () => getResults(true),
-      values: async () =>
-        (await getResults(true)).map((result) => result.value),
-      first: async (require = true) => (await getResults(require))[0],
-      value: async () => (await resultPromise.values())[0],
+
+    for (const callback of callbacks) {
+      await callback();
     }
-  );
+
+    return ops === operations ? ops : ops[0]; // Single value if single value.
+  };
+
+  const resultPromise = Object.assign(mapResults(0), {
+    throw: () => mapResults(1),
+    value: () => mapResults(2),
+  });
 
   return resultPromise as any;
 };

@@ -1,15 +1,15 @@
-import { OmitUnion } from "@tailjs/util";
+import { MaybePromiseLike } from "@tailjs/util";
 import {
   Variable,
   VariableGetResult,
-  VariableGetter,
+  VariableInitializer,
   VariableKey,
   VariablePatch,
   VariableSetResult,
   VariableValueSetter,
 } from "../..";
 
-export enum VariableStatus {
+export enum VariableResultStatus {
   Success = 200,
   Created = 201,
   NotModified = 304,
@@ -17,86 +17,78 @@ export enum VariableStatus {
   NotFound = 404,
   BadRequest = 405,
   Conflict = 409,
-  Unsupported = 501,
 
   Error = 500,
 }
 
 export type VariableSuccessStatus =
-  | VariableStatus.Success
-  | VariableStatus.Created
-  | VariableStatus.NotModified;
+  | VariableResultStatus.Success
+  | VariableResultStatus.Created
+  | VariableResultStatus.NotModified;
 
 export type VariableErrorStatus =
-  | VariableStatus.Forbidden
-  | VariableStatus.NotFound
-  | VariableStatus.BadRequest
-  | VariableStatus.Unsupported
-  | VariableStatus.Conflict
-  | VariableStatus.Error;
+  | VariableResultStatus.Forbidden
+  | VariableResultStatus.NotFound
+  | VariableResultStatus.BadRequest
+  | VariableResultStatus.Conflict
+  | VariableResultStatus.Error;
 
 export interface VariableResult extends VariableKey {
-  status: VariableStatus;
+  status: VariableResultStatus;
 }
 
-export type VariableErrorResult<T = any> = VariableResult &
-  (
-    | {
-        status: VariableStatus.NotFound;
-      }
-    | {
-        status:
-          | VariableStatus.Forbidden
-          | VariableStatus.BadRequest
-          | VariableStatus.Unsupported
-          | VariableStatus.NotFound;
-        error?: string;
-        transient?: false;
-      }
-    | VariableConflictResult<T>
-    | {
-        status: VariableStatus.Error;
-        error: string;
-        transient?: boolean;
-      }
-  );
+export interface VariableNotFoundResult extends VariableResult {
+  status: VariableResultStatus.NotFound;
+  value: null;
+}
+
+export interface VariableValueErrorResult extends VariableResult {
+  status: VariableResultStatus.Forbidden | VariableResultStatus.BadRequest;
+  error?: string;
+  transient?: false;
+}
+
+export interface VariableErrorResult extends VariableResult {
+  status: VariableResultStatus.Error;
+  error: string;
+  transient?: boolean;
+}
 
 export const isSuccessResult = (
   value: any
 ): value is {
   status:
-    | VariableStatus.Success
-    | VariableStatus.Created
-    | VariableStatus.NotModified;
+    | VariableResultStatus.Success
+    | VariableResultStatus.Created
+    | VariableResultStatus.NotModified;
 } => value?.status < 400;
 
-export const isValueResult = (
+export const isNotFoundResult = (
   value: any
-): value is {
-  status: VariableStatus.Success | VariableStatus.Created;
-} => value?.status < 300 && value.value;
+): value is { status: VariableResultStatus.NotFound } =>
+  value?.status === VariableResultStatus.NotFound;
 
 export const isErrorResult = (value: any): value is VariableErrorResult =>
   value?.status >= 400;
 
 export const isTransientError = (
   value: any
-): value is { status: VariableStatus.Error; transient: true } =>
+): value is { status: VariableResultStatus.Error; transient: true } =>
   (value as any)?.transient;
 
 export interface VariableConflictResult<T = any> extends VariableResult {
-  status: VariableStatus.Conflict;
+  status: VariableResultStatus.Conflict;
   current: Variable<T> | null;
 }
 
 export interface VariableUnchangedResult extends VariableResult {
-  status: VariableStatus.NotModified;
+  status: VariableResultStatus.NotModified;
 }
 
-export interface VariableValueResult<T = any>
+export interface VariableSuccessResult<T = any>
   extends VariableResult,
     Variable<T> {
-  status: VariableStatus.Success | VariableStatus.Created;
+  status: VariableResultStatus.Success | VariableResultStatus.Created;
 }
 
 export type AnyVariableResult<T = any> =
@@ -110,30 +102,82 @@ type ReplaceKey<Target, Source> = Target extends infer Target
     : never
   : never;
 
-export type MapVariableResult<Operation> = Operation extends
-  | Pick<VariableValueSetter<infer Result>, "value">
-  | Pick<VariablePatch<infer Current, infer Result>, "patch">
-  ? ReplaceKey<
-      VariableSetResult<
-        unknown extends Current
-          ? unknown extends Result
-            ? any
-            : Result
-          : Current
-      >,
-      Operation
-    >
-  : ReplaceKey<
-      VariableGetResult<
-        Operation extends Pick<VariableGetter<infer Result>, "init">
-          ? unknown extends Result
-            ? any
-            : Result
-          : never
-      >,
-      Operation
-    >;
+/** Any variable result that should not throw an error. */
+export type ValidVariableResult<T = any> =
+  | VariableSuccessResult<T>
+  | VariableNotFoundResult;
 
-export type MapVariableResults<Operations extends readonly any[]> = {
-  [Index in keyof Operations]: MapVariableResult<Operations[Index]>;
-};
+export type MapVariableResult<
+  Operation,
+  Type extends "any" | "throw" | "value" = "any"
+> = Operation extends undefined
+  ? undefined
+  : Operation extends readonly any[]
+  ? {
+      [P in keyof Operation]: MapVariableResult<Operation[P], Type>;
+    }
+  : (
+      Operation extends
+        | Pick<VariableValueSetter<infer Result>, "value">
+        | Pick<VariablePatch<infer Current, infer Result>, "patch">
+        ? ReplaceKey<
+            VariableSetResult<
+              (
+                unknown extends Current
+                  ? unknown extends Result
+                    ? any
+                    : Result
+                  : Current
+              ) extends infer T
+                ? { [P in keyof T]: T[P] }
+                : never
+            >,
+            Operation
+          >
+        : ReplaceKey<
+            VariableGetResult<
+              Operation extends Pick<VariableInitializer<infer Result>, "init">
+                ? unknown extends Result
+                  ? any
+                  : Result extends infer Result
+                  ? { [P in keyof Result]: Result[P] }
+                  : never
+                : any
+            > & {
+              status: Exclude<
+                VariableResultStatus,
+                | (Operation extends
+                    | { ifModifiedSince: number }
+                    | { ifNoneMatch: string }
+                    ? never
+                    : VariableUnchangedResult["status"])
+                | (Operation extends { init: any }
+                    ? never
+                    :
+                        | VariableResultStatus.Created
+                        | VariableValueErrorResult["status"])
+              >;
+            },
+            Operation
+          >
+    ) extends infer Result
+  ? (
+      Type extends "any"
+        ? Result
+        : Result extends { status: VariableResultStatus.NotFound }
+        ? Type extends "value"
+          ? null
+          : Result
+        : Result extends { status: VariableResultStatus.NotModified }
+        ? Type extends "value"
+          ? undefined
+          : Result
+        : Result extends { status: VariableSuccessStatus; value: any }
+        ? Type extends "value"
+          ? Result["value"]
+          : Result
+        : never
+    ) extends infer Result
+    ? { [P in keyof Result]: Result[P] }
+    : never
+  : never;

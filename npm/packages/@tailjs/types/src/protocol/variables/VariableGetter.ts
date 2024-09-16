@@ -4,7 +4,10 @@ import {
   VariableErrorResult,
   VariableKey,
   VariableUnchangedResult,
-  VariableValueResult,
+  VariableSuccessResult,
+  VariableNotFoundResult,
+  VariableValueErrorResult,
+  ValidVariableResult,
 } from "../..";
 
 export interface ReadOnlyVariableGetter extends VariableKey {
@@ -17,12 +20,20 @@ export interface ReadOnlyVariableGetter extends VariableKey {
   purpose?: DataPurposeName;
 }
 
-export interface VariableGetter<T = any> extends ReadOnlyVariableGetter {
+export interface VariableInitializer<T> extends ReadOnlyVariableGetter {
   ttl?: number;
-  init?: () => MaybePromiseLike<T | null | undefined>;
+  init: () => MaybePromiseLike<T | null | undefined>;
 }
+
+export type VariableGetterCallback<T> = (result: VariableGetResult<T>) => any;
+
+export type VariableGetter<T = any> =
+  | ReadOnlyVariableGetter
+  | VariableInitializer<T>;
 
 export type VariableGetResult<T = any> =
   | VariableErrorResult
-  | VariableUnchangedResult
-  | VariableValueResult<T>;
+  | VariableNotFoundResult
+  | (VariableUnchangedResult & { value: undefined })
+  | VariableValueErrorResult
+  | VariableSuccessResult<T>;
