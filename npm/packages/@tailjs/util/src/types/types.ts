@@ -319,6 +319,12 @@ export const isNotTrue = <T>(value: T): value is Exclude<T, true> =>
 
 export type Falsish = void | null | undefined | 0 | "" | false;
 
+export type FalsishToUndefined<T> = T extends readonly any[]
+  ? { [P in keyof T]: FalsishToUndefined<T[P]> }
+  : T extends Falsish
+  ? undefined
+  : T;
+
 export const isFalsish = (value: any): value is Falsish => !value;
 
 export const isFalse = (value: any): value is false => value === F;

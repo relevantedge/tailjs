@@ -5,13 +5,14 @@ import {
   Variable,
   VariableErrorResult,
   VariableGetResult,
-  VariableGetter,
   VariableKey,
   VariableQuery,
+  VariableResultStatus,
   VariableSetResult,
-  VariableStatus,
+  VariableValueErrorResult,
   VariableValueSetter,
 } from "@tailjs/types";
+import { forEachAsync } from "@tailjs/util";
 import {
   isWritableStorage,
   normalizeStorageMappings,
@@ -21,7 +22,6 @@ import {
   VariableStorageMappings,
   VariableStorageQuery,
 } from "..";
-import { forEachAsync } from "@tailjs/util";
 
 export type WithTrace<T, Trace = undefined> = T & {
   [traceSymbol]?: Trace;
@@ -36,8 +36,8 @@ export type AddSourceTrace<Source, Trace> = Trace extends undefined
 
 const unknownSource = (
   key: VariableKey
-): AddTrace<VariableErrorResult, any> => ({
-  status: VariableStatus.Unsupported,
+): AddTrace<VariableValueErrorResult, any> => ({
+  status: VariableResultStatus.BadRequest,
   ...copyKey(key as any as VariableKey),
   [traceSymbol]: key[traceSymbol],
   error: `The scope ${key.scope} has no source with the ID '${key.source}'.`,
@@ -162,7 +162,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
           ? keys.map((key) =>
               mergeTrace(
                 {
-                  status: VariableStatus.Error,
+                  status: VariableResultStatus.Error,
                   ...copyKey(key),
                   error: error,
                   transient: true,
@@ -190,7 +190,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
             ? setters.map((setter) =>
                 mergeTrace(
                   {
-                    status: VariableStatus.Error,
+                    status: VariableResultStatus.Error,
                     ...copyKey(setter),
                     error: error,
                     transient: true,
@@ -204,7 +204,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
           : setters.map((setter) =>
               mergeTrace(
                 {
-                  status: VariableStatus.BadRequest,
+                  status: VariableResultStatus.BadRequest,
                   ...copyKey(setter),
                 },
                 setter

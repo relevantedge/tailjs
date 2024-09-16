@@ -1,7 +1,7 @@
 import {
   ResultStatusValue,
   VariableKey,
-  VariableStatus,
+  VariableResultStatus,
   VariableScope,
   VariableSetter,
   resultStatus,
@@ -84,11 +84,11 @@ describe("VariableStorageCoordinator", () => {
 
     expect(
       (await coordinator.set([{ ...key, value: "32" }]).result).status
-    ).toBe(VariableStatus.Created);
+    ).toBe(VariableResultStatus.Created);
 
     expect(
       (await coordinator.set([{ ...key, value: "33" }]).all)[0].status
-    ).toBe(VariableStatus.Conflict);
+    ).toBe(VariableResultStatus.Conflict);
 
     expect(await coordinator.get([key]).value).toBe("32");
     expect(await sessionStorage.get([key]).value).toBe("32");
@@ -108,14 +108,14 @@ describe("VariableStorageCoordinator", () => {
           },
         ])
       )[0].status
-    ).toBe(VariableStatus.Success);
+    ).toBe(VariableResultStatus.Success);
 
     expect((await coordinator.get([key]))[0].value).toBe("34");
     expect((await sessionStorage.get([key]))[0].value).toBe("34");
 
     expect(
       (await coordinator.set([{ ...prefixedKey, value: "abc" }]))[0].status
-    ).toBe(VariableStatus.Created);
+    ).toBe(VariableResultStatus.Created);
     expect((await coordinator.get([key]))[0].value).toBe("34");
     expect((await coordinator.get([prefixedKey]))[0].value).toBe("abc");
 
@@ -191,7 +191,7 @@ describe("VariableStorageCoordinator", () => {
           { scope: "session", key: "test", targetId: "foo", value: "ok" },
         ])
       )[0].status
-    ).toBe(VariableStatus.Created);
+    ).toBe(VariableResultStatus.Created);
 
     // Validation of schema bound variables.
     expect(
@@ -200,7 +200,7 @@ describe("VariableStorageCoordinator", () => {
           { scope: "session", key: "test", targetId: "bar", value: "ok" },
         ])
       )[0].status
-    ).toBe(VariableStatus.Created);
+    ).toBe(VariableResultStatus.Created);
 
     // Cannot set again (to check that targets gets considered.)
     expect(
@@ -209,7 +209,7 @@ describe("VariableStorageCoordinator", () => {
           { scope: "session", key: "test", targetId: "bar", value: "ok" },
         ]).all
       )[0].status
-    ).toBe(VariableStatus.Conflict);
+    ).toBe(VariableResultStatus.Conflict);
 
     // Validation of schema bound variables.
     expect(
@@ -236,7 +236,7 @@ describe("VariableStorageCoordinator", () => {
         { scope: "session", key: "notDefined", targetId: "foo", value: 32 },
       ]).all
     )[0];
-    expect(notDefinedResult.status).toBe(VariableStatus.BadRequest);
+    expect(notDefinedResult.status).toBe(VariableResultStatus.BadRequest);
     expect((notDefinedResult as any).error + "").toContain("explicit");
 
     const testSetter = async (
@@ -326,7 +326,7 @@ describe("VariableStorageCoordinator", () => {
           },
         ]).all
       )[0].status
-    ).toBe(VariableStatus.BadRequest);
+    ).toBe(VariableResultStatus.BadRequest);
 
     expect(
       (
@@ -339,7 +339,7 @@ describe("VariableStorageCoordinator", () => {
           },
         ]).all
       )[0].status
-    ).toBe(VariableStatus.Created);
+    ).toBe(VariableResultStatus.Created);
   });
 
   it("Censors", async () => {
@@ -351,7 +351,7 @@ describe("VariableStorageCoordinator", () => {
           { scope: "session", key: "censored", targetId: "foo", value: "ok" },
         ])
       )[0].status
-    ).toBe(VariableStatus.Created);
+    ).toBe(VariableResultStatus.Created);
 
     expect(
       (
@@ -362,7 +362,7 @@ describe("VariableStorageCoordinator", () => {
           }
         ).all
       )[0].status
-    ).toBe(VariableStatus.Forbidden);
+    ).toBe(VariableResultStatus.Forbidden);
 
     expect(
       (
@@ -380,7 +380,7 @@ describe("VariableStorageCoordinator", () => {
           }
         ).all
       )[0].status
-    ).toBe(VariableStatus.Forbidden);
+    ).toBe(VariableResultStatus.Forbidden);
 
     expect(
       stripMetadata(

@@ -8,19 +8,16 @@ import {
   formatKey,
   isErrorResult,
   isTransientError,
-  isValueResult,
-  MapVariableResults,
   testPurposes,
   Variable,
   VariableErrorResult,
   VariableGetResult,
   VariableGetter,
-  VariableKey,
   VariableQuery,
+  VariableResultStatus,
   VariableScope,
   VariableSetResult,
   VariableSetter,
-  VariableStatus,
   VariableValueSetter,
 } from "@tailjs/types";
 import { delay } from "@tailjs/util";
@@ -33,15 +30,13 @@ import {
   ParsedSchemaObjectType,
   ReadOnlyVariableStorage,
   SchemaValidationError,
-  ScopedVariableGetters,
-  ScopedVariableSetters,
   toVariableResultPromise,
   traceSymbol,
   TrackerEnvironment,
   TypeResolver,
-  VariableResultPromise,
+  VariableOperationParameter,
   VariableSplitStorage,
-  WithPatchIntellisense,
+  WithCallbackIntellisense,
 } from "..";
 
 type StorageMappingEntry = {
@@ -115,13 +110,8 @@ const censorResult = <Result extends VariableGetResult | VariableSetResult>(
   type: ParsedSchemaObjectType,
   context: VariableStorageContext,
   targetPurpose?: DataPurposeName
-):
-  | AddTrace<
-      VariableKey & { status: VariableStatus.NotFound },
-      Result extends { [traceSymbol]: infer Trace } ? Trace : undefined
-    >
-  | Result => {
-  if (isValueResult(result)) {
+): Result => {
+  if ("value" in result && result.value != null) {
     const consent = context.scope?.consent;
     if (
       (consent && targetPurpose && !consent.purposes[targetPurpose]) ||
@@ -131,7 +121,7 @@ const censorResult = <Result extends VariableGetResult | VariableSetResult>(
       })) == undefined
     ) {
       return {
-        status: VariableStatus.NotFound,
+        status: VariableResultStatus.NotFound,
         [traceSymbol]: result[traceSymbol],
         ...copyKey(result),
       } as any;
@@ -144,7 +134,7 @@ const validateEntityId = (
   target: { scope: string; entityId?: string },
   context: VariableStorageContext
 ):
-  | (VariableErrorResult & { status: VariableStatus.BadRequest })
+  | (VariableErrorResult & { status: VariableResultStatus.BadRequest })
   | undefined => {
   if (context.scope == null || target.scope === "global") {
     if (target.entityId == undefined) {
@@ -209,18 +199,34 @@ export class VariableStorageCoordinator {
     return types.getVariable(scope, key, false);
   }
 
-  public get<Getters extends ScopedVariableGetters<VariableScope, any>>(
-    keys: Getters,
+  public get<
+    Getters extends VariableOperationParameter<
+      VariableGetter,
+      VariableScope,
+      any
+    >
+  >(
+    getters: WithCallbackIntellisense<Getters>,
     context?: VariableStorageContext
-  ): MapVariableResults<Getters> {
-    return toVariableResultPromise(this._get(keys as any, context)) as any;
+  ) {
+    return toVariableResultPromise(getters, (keys) =>
+      this._get(keys as any, context)
+    );
   }
 
-  public set<Setters extends ScopedVariableSetters<VariableScope, any>>(
-    keys: WithPatchIntellisense<Setters>,
+  public set<
+    Setters extends VariableOperationParameter<
+      VariableSetter,
+      VariableScope,
+      any
+    >
+  >(
+    setters: WithCallbackIntellisense<Setters>,
     context?: VariableStorageContext
-  ): VariableResultPromise<MapVariableResults<Setters>> {
-    return toVariableResultPromise(this._set(keys as any, context)) as any;
+  ) {
+    return toVariableResultPromise(setters, (setters) =>
+      this._set(setters as any, context)
+    );
   }
 
   private async _get(
@@ -245,7 +251,7 @@ export class VariableStorageCoordinator {
         validateEntityId(key, context);
       } catch (error) {
         results[index++] = {
-          status: VariableStatus.BadRequest,
+          status: VariableResultStatus.BadRequest,
           ...copyKey(key),
           error: error.message,
         };
@@ -267,7 +273,7 @@ export class VariableStorageCoordinator {
         continue;
       }
       results[index++] = {
-        status: VariableStatus.Unsupported,
+        status: VariableResultStatus.BadRequest,
         ...copyKey(key),
         error: formatKey(key, "is not defined"),
       };
@@ -284,11 +290,14 @@ export class VariableStorageCoordinator {
           result[traceSymbol];
 
         result = censorResult(result, type, context, targetPurpose);
-        if (isValueResult((results[sourceIndex] = result))) {
+        if ("value" in (results[sourceIndex] = result)) {
           continue;
         } else if (isTransientError(result)) {
           pendingGetters.push(getter);
-        } else if (result.status === VariableStatus.NotFound && getter.init) {
+        } else if (
+          result.status === VariableResultStatus.NotFound &&
+          "init" in getter
+        ) {
           try {
             let initValue = await getter.init();
             if (initValue == null) {
@@ -303,7 +312,7 @@ export class VariableStorageCoordinator {
             );
             if (errors.length) {
               results[sourceIndex] = {
-                status: VariableStatus.BadRequest,
+                status: VariableResultStatus.BadRequest,
                 ...copyKey(getter),
                 error: formatValidationErrors(errors),
               };
@@ -321,7 +330,7 @@ export class VariableStorageCoordinator {
             );
           } catch (e) {
             results[sourceIndex] = {
-              status: VariableStatus.Error,
+              status: VariableResultStatus.Error,
               ...copyKey(getter),
               error: e + "",
             };
@@ -337,11 +346,12 @@ export class VariableStorageCoordinator {
       for (const result of await this._storage.set(pendingSetters.splice(0))) {
         const [setter, [sourceIndex, type, targetPurpose]] =
           result[traceSymbol];
-        if (result.status === VariableStatus.Conflict) {
+
+        if (result.status === VariableResultStatus.Conflict) {
           if (result.current?.value) {
             results[sourceIndex] = censorResult(
               {
-                status: VariableStatus.Success,
+                status: VariableResultStatus.Success,
                 ...result.current,
               },
               type,
@@ -352,14 +362,23 @@ export class VariableStorageCoordinator {
             //
             pendingSetters.push(setter);
           }
-        } else if (isValueResult(result) || isErrorResult(result)) {
-          results[sourceIndex] = censorResult(result, type, context);
+        } else if (isTransientError(result)) {
+          pendingSetters.push(setter);
+        } else {
+          if (result.status === VariableResultStatus.NotModified) {
+            result.status = VariableResultStatus.Success;
+          }
+          // Cast as any. The set result that doesn't overlap is a delete result,
+          // but a delete result at this point would mean an invariant was violated
+          // since we not add pending setters for null or undefined init results.
+          results[sourceIndex] = censorResult(result, type, context) as any;
         }
       }
     }
 
     return results;
   }
+
   private async _set(
     keys: VariableSetter[],
     context: VariableStorageContext = this._defaultContext
@@ -383,7 +402,7 @@ export class VariableStorageCoordinator {
         validateEntityId(key, context);
       } catch (error) {
         results[index++] = {
-          status: VariableStatus.BadRequest,
+          status: VariableResultStatus.BadRequest,
           ...copyKey(key),
           error: error.message,
         };
@@ -396,7 +415,7 @@ export class VariableStorageCoordinator {
         continue;
       }
       results[index++] = {
-        status: VariableStatus.Unsupported,
+        status: VariableResultStatus.BadRequest,
         ...copyKey(key),
         error: formatKey(key, "is not defined"),
       };
@@ -432,9 +451,8 @@ export class VariableStorageCoordinator {
           }
           continue;
         }
-        const current = (result[traceSymbol][1][3] = isValueResult(result)
-          ? result
-          : undefined);
+        const current = (result[traceSymbol][1][3] =
+          "version" in result ? result : undefined);
 
         let next: any;
         try {
@@ -443,7 +461,7 @@ export class VariableStorageCoordinator {
             if (setter.version !== current?.version) {
               // We already now this will be a conflict, so lets set the result already.
               results[sourceIndex] = {
-                status: VariableStatus.Conflict,
+                status: VariableResultStatus.Conflict,
                 ...copyKey(setter),
                 current: current?.value
                   ? type.censor(current?.value, {
@@ -475,7 +493,7 @@ export class VariableStorageCoordinator {
 
           if (errors.length) {
             results[sourceIndex] = {
-              status: VariableStatus.BadRequest,
+              status: VariableResultStatus.BadRequest,
               ...copyKey(setter),
               error: formatValidationErrors(errors),
             };
@@ -496,7 +514,7 @@ export class VariableStorageCoordinator {
           );
         } catch (e) {
           results[sourceIndex] = {
-            status: VariableStatus.Error,
+            status: VariableResultStatus.Error,
             ...copyKey(setter),
             error: e?.message || (e ? "" + e : "(unspecified error)"),
           };
@@ -510,7 +528,7 @@ export class VariableStorageCoordinator {
       for (let result of await this._storage.set(valueSetters)) {
         const [setter, [sourceIndex, type]] = result[traceSymbol];
         if (
-          result.status === VariableStatus.Conflict &&
+          result.status === VariableResultStatus.Conflict &&
           "patch" in setter &&
           retry < MAX_PATCH_RETRIES
         ) {

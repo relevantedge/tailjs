@@ -18,8 +18,8 @@ import {
   VariableGetter,
   VariableSetResult,
   VariableSetter,
-  VariableStatus,
-  VariableValueResult,
+  VariableResultStatus,
+  VariableSuccessResult,
   dataClassification as dc,
   isSuccessResult,
   parseDataPurposes as dp,
@@ -204,7 +204,7 @@ export class Tracker {
   public readonly trustedContext: boolean;
 
   /** Variables that have been added or updated during the request (cf. {@link TrackerStorageContext.push}). */
-  private readonly _changedVariables: VariableValueResult<any>[] = [];
+  private readonly _changedVariables: VariableSuccessResult<any>[] = [];
 
   private readonly _clientCipher: Transport;
   private readonly _defaultConsent: UserConsent;
@@ -764,7 +764,7 @@ export class Tracker {
 
       if (
         device?.value &&
-        device.status !== VariableStatus.Created &&
+        device.status !== VariableResultStatus.Created &&
         this.session?.isNew
       ) {
         // A new session started on an existing device.
@@ -958,7 +958,7 @@ export class Tracker {
       (results) =>
         forEach(results, (result) => {
           return (
-            result.status !== VariableStatus.NotModified &&
+            result.status !== VariableResultStatus.NotModified &&
             this._changedVariables.push({
               ...(result.current ?? copyKey(result.source)),
               status: result.status,

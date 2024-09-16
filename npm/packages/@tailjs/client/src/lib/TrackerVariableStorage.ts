@@ -4,7 +4,7 @@ import {
   PostRequest,
   PostResponse,
   VariableResultPromise,
-  VariableStatus,
+  VariableResultStatus,
   dataPurposes,
   getResultVariable,
   toVariableResultPromise,
@@ -216,7 +216,7 @@ export const createVariableStorage = (
                   push(results, [
                     {
                       ...getter,
-                      status: VariableStatus.Forbidden,
+                      status: VariableResultStatus.Forbidden,
                       error:
                         "No consent for " + dataPurposes.logFormat(purposes),
                     } as any,
@@ -226,7 +226,7 @@ export const createVariableStorage = (
                   push(results, [
                     {
                       ...current,
-                      status: VariableStatus.Success,
+                      status: VariableResultStatus.Success,
                     } as any,
                     sourceIndex,
                   ]);
@@ -235,7 +235,7 @@ export const createVariableStorage = (
                     const local: ClientVariableGetResult<any, any, any, true> =
                       {
                         ...toNumericVariableEnums(getter),
-                        status: VariableStatus.Created,
+                        status: VariableResultStatus.Created,
                         ...getter.init,
                       };
                     if (local.value != null) {
@@ -312,15 +312,15 @@ export const createVariableStorage = (
               current.scope === local.scope
             ) {
               results[sourceIndex] = {
-                status: VariableStatus.NotModified,
+                status: VariableResultStatus.NotModified,
                 source: setter as any,
                 current,
               };
             } else {
               results[sourceIndex] = {
                 status: current
-                  ? VariableStatus.Success
-                  : VariableStatus.Created,
+                  ? VariableResultStatus.Success
+                  : VariableResultStatus.Created,
                 source: setter as any,
                 current: local,
               };
