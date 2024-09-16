@@ -3,7 +3,7 @@ import {
   Falsish,
   If,
   IsAny,
-  MaybePromise,
+  MaybePromiseLike,
   NotFunction,
   Nullish,
   OmitNullish,
@@ -183,8 +183,10 @@ type ErrorHandlerResult<Handler> = Handler extends true
   ? TogglePromise<UnwrapPromiseLike<R> extends Error ? never : R, R>
   : void;
 
-const maybeAwait = <T, R>(value: MaybePromise<T>, action: (value: T) => R): R =>
-  (value as any)?.then(action) ?? action(value as any);
+const maybeAwait = <T, R>(
+  value: MaybePromiseLike<T>,
+  action: (value: T) => R
+): R => (value as any)?.then(action) ?? action(value as any);
 
 const handleError = <Handler extends ErrorHandler>(
   errorHandler: Handler,
@@ -208,7 +210,7 @@ type NotDeferred = { resolved?: undefined };
 
 export type Deferred<T> = (() => T) & DeferredProperties<T>;
 
-export type DeferredAsync<T> = Deferred<MaybePromise<T>>;
+export type DeferredAsync<T> = Deferred<MaybePromiseLike<T>>;
 
 export type MaybeDeferred<T> = (T & NotDeferred) | Deferred<T>;
 export type MaybeDeferredAsync<T> =
@@ -268,7 +270,7 @@ export type MaybeDeferredPromise<T> =
  * For promises this is more convenient than {@link deferred}, since it just returns a promise instead of a function.
  */
 export const deferredPromise = <T>(
-  expression: Wrapped<MaybePromise<T>>
+  expression: Wrapped<MaybePromiseLike<T>>
 ): DeferredPromise<T> => {
   let promise: DeferredPromise<T> = {
     initialized: true,
@@ -278,7 +280,7 @@ export const deferredPromise = <T>(
 };
 
 export const thenMethod = <T>(
-  expression: Wrapped<MaybePromise<T>>
+  expression: Wrapped<MaybePromiseLike<T>>
 ): (<TResult1 = T, TResult2 = never>(
   onfulfilled?:
     | ((value: T) => TResult1 | PromiseLike<TResult1>)
@@ -297,12 +299,12 @@ export const thenMethod = <T>(
 export const tryCatchAsync = async <
   T,
   C = void,
-  E extends boolean | ((error: any) => MaybePromise<C>) = true,
+  E extends boolean | ((error: any) => MaybePromiseLike<C>) = true,
   T1 = T
 >(
-  expression: Wrapped<MaybePromise<T>>,
+  expression: Wrapped<MaybePromiseLike<T>>,
   errorHandler: E = true as any,
-  always?: () => MaybePromise<any>
+  always?: () => MaybePromiseLike<any>
 ): Promise<T1 | C> => {
   try {
     const result = (await unwrap(expression)) as any;

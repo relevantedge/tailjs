@@ -3,127 +3,50 @@ import {
   formatKey,
   isSuccessResult,
   ReadOnlyVariableGetter,
-  RemoveVariableContext,
-  ReplaceKey,
   ScopedKey,
-  StripKey,
   Variable,
   VariableGetResult,
   VariableGetter,
-  VariableKey,
+  VariablePatchFunction,
   VariableQuery,
   VariableSetResult,
   VariableSetter,
   VariableValueResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { Pretty, TupleParameter } from "@tailjs/util";
-
-type MapGetResults<Keys extends readonly any[]> = {
-  [Index in keyof Keys]: StripKey<Keys[Index]> extends StripKey<
-    VariableGetter<infer T>
-  >
-    ? Pretty<ReplaceKey<VariableGetResult<T>, Keys[Index]>> extends infer Result
-      ? // Pretty print
-        { [P in keyof Result]: Result[P] }
-      : never
-    : never;
-};
-
-type MapSetResults<Keys extends readonly any[]> = {
-  [Index in keyof Keys]: StripKey<Keys[Index]> extends StripKey<
-    VariableSetter<infer T>
-  >
-    ? ReplaceKey<VariableSetResult<T>, Keys[Index]> extends infer Result
-      ? // Pretty print
-        { [P in keyof Result]: Result[P] }
-      : never
-    : never;
-};
+import { DenyExtraProperties, Pretty, TupleParameter } from "@tailjs/util";
+import { TrackerEnvironment } from "../TrackerEnvironment";
 
 export type ScopedVariableGetters<
   Scopes extends string,
   ExplicitScopes extends string = Scopes
-> = TupleParameter<ScopedKey<Scopes, ExplicitScopes, VariableGetter>>;
-
-export type ScopedVariableGetResults<Getters extends readonly any[]> =
-  VariableResultPromise<MapGetResults<Getters>>;
+> = TupleParameter<ScopedKey<VariableGetter, Scopes, ExplicitScopes>>;
 
 export type ScopedVariableSetters<
   Scopes extends string,
   ExplicitScopes extends string = Scopes
-> = TupleParameter<ScopedKey<Scopes, ExplicitScopes, VariableGetter>>;
+> = TupleParameter<ScopedKey<VariableSetter, Scopes, ExplicitScopes>>;
 
-export type ScopedVariableSetResults<Setters extends readonly any[]> =
-  VariableResultPromise<MapGetResults<Setters>>;
-
-export interface ScopedStorage<
-  Scopes extends string,
-  ExplicitScopes extends string = Scopes
-> {
-  get<Getters extends ScopedVariableGetters<Scopes, ExplicitScopes>>(
-    getters: Getters
-  ): ScopedVariableGetResults<Getters>;
-
-  set<Setters extends ScopedVariableSetters<Scopes, ExplicitScopes>>(
-    setters: Setters
-  ): VariableResultPromise<MapSetResults<Setters>>;
-}
-
-export type VariableStorageKey<AddFields = {}> = RemoveVariableContext<
-  VariableKey,
-  AddFields
+export type VariableStorageQuery = Pretty<
+  Omit<VariableQuery, "classification" | "purposes">
 >;
 
-export type VariableStorageGetter<AddFields = {}> = RemoveVariableContext<
-  ReadOnlyVariableGetter,
-  AddFields
->;
-export type VariableStorageGetResult<AddFields = {}> = RemoveVariableContext<
-  VariableGetResult,
-  AddFields
->;
-
-export type VariableStorageSetter<AddFields = {}> = RemoveVariableContext<
-  VariableValueSetter,
-  AddFields
->;
-export type VariableStorageSetResult<AddFields = {}> = RemoveVariableContext<
-  VariableSetResult,
-  AddFields
->;
-
-export type VariableStorageVariable<AddFields = {}> = RemoveVariableContext<
-  Variable,
-  AddFields
->;
-
-export type VariableStorageQuery<AddFields = {}> = Pretty<
-  Omit<VariableQuery, "scopes" | "sources" | "classification" | "purposes"> &
-    AddFields
->;
-
-export interface ReadOnlyVariableStorage<AddFields = {}> {
+export interface ReadOnlyVariableStorage {
   /** Gets or initializes the variables with the specified keys. */
-  get(
-    keys: VariableStorageGetter<AddFields>[]
-  ): Promise<VariableStorageGetResult<AddFields>[]>;
+  get(keys: ReadOnlyVariableGetter[]): Promise<VariableGetResult[]>;
 
   /** Gets the variables for the specified entities. */
-  query(
-    queries: VariableStorageQuery<AddFields>[]
-  ): Promise<VariableStorageVariable<AddFields>[]>;
+  query(queries: VariableStorageQuery[]): Promise<Variable[]>;
+
+  initialize?(environment: TrackerEnvironment): Promise<void>;
 }
 
-export interface VariableStorage<AddFields = {}>
-  extends ReadOnlyVariableStorage {
+export interface VariableStorage extends ReadOnlyVariableStorage {
   /** Sets the variables with the specified keys and values. */
-  set(
-    values: VariableStorageSetter<AddFields>[]
-  ): Promise<VariableStorageSetResult<AddFields>[]>;
+  set(values: VariableValueSetter[]): Promise<VariableSetResult[]>;
 
   /** Purges all the keys matching the specified queries.  */
-  purge(queries: VariableStorageQuery<AddFields>[]): Promise<void>;
+  purge(queries: VariableStorageQuery[]): Promise<void>;
 }
 
 export const isWritableStorage = (storage: any): storage is VariableStorage =>
@@ -148,6 +71,34 @@ type PickValue<Result extends readonly any[]> = {
       : never
     : never;
 };
+
+/**
+ * Typescript is not smart enough to suggest the properties for the return type in patch functions
+ * in a tuple of variable setters unless this "little" trick is applied:
+ * 1. Disallow the item from the original tuple if it has a patch function.
+ * 2. Add an intersection with a patch function with the same type for the current value and disallow any additional
+ *    properties from the result that are not present in the current value.
+ */
+export type WithPatchIntellisense<Setters extends readonly any[]> =
+  | (Setters & {
+      [P in keyof Setters]: Setters[P] extends { patch(...args: any): any }
+        ? never
+        : Setters[P];
+    })
+  | {
+      [P in keyof Setters]: Setters[P] extends {
+        patch: VariablePatchFunction<infer Current, infer Result>;
+      }
+        ? unknown extends Current
+          ? Setters[P]
+          : Omit<Setters[P], "patch"> & {
+              patch: VariablePatchFunction<
+                any,
+                DenyExtraProperties<Result, Current>
+              >;
+            }
+        : Setters[P];
+    };
 
 export interface VariableResultPromise<K extends readonly any[]>
   extends Promise<K> {
@@ -207,3 +158,12 @@ export const toVariableResultPromise = <K extends AnyVariableResult[]>(
 
   return resultPromise as any;
 };
+
+export const SCHEMA_TYPE_PROPERTY = "@type";
+export interface SchemaTypeInfo {
+  type: string;
+  version?: string;
+}
+export interface TypedSchemaData {
+  "@type"?: SchemaTypeInfo;
+}

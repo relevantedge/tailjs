@@ -1,5 +1,5 @@
 import type { TrackedEvent } from "@tailjs/types";
-import { DeferredAsync, MaybePromise } from "@tailjs/util";
+import { DeferredAsync, MaybePromiseLike } from "@tailjs/util";
 import type { ParseResult, Tracker, TrackerEnvironment } from "./shared";
 import { SignInEvent } from "packages/@tailjs/types/dist";
 
@@ -35,25 +35,25 @@ export type TrackerExtensionContext = {
 export interface TrackerExtension {
   readonly id: string;
 
-  initialize?(environment: TrackerEnvironment): MaybePromise<void>;
+  initialize?(environment: TrackerEnvironment): MaybePromiseLike<void>;
 
   apply?(
     tracker: Tracker,
     context: TrackerExtensionContext
-  ): MaybePromise<void>;
+  ): MaybePromiseLike<void>;
 
   patch?(
     events: TrackedEvent[],
     next: NextPatchExtension,
     tracker: Tracker,
     context: TrackerExtensionContext
-  ): MaybePromise<ParseResult[]>;
+  ): MaybePromiseLike<ParseResult[]>;
 
   post?(
     events: TrackedEventBatch,
     tracker: Tracker,
     context: TrackerExtensionContext
-  ): MaybePromise<void>;
+  ): MaybePromiseLike<void>;
 
   getClientScripts?(
     tracker: DeferredAsync<Tracker>

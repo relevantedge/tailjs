@@ -1,19 +1,34 @@
 import { Nullish } from "@tailjs/util";
 import {
-  TrackedEvent,
   ReadOnlyVariableGetter,
-  VariableValueSetter,
   ScopedKey,
+  TrackedEvent,
+  VariableScope,
+  VariableValueSetter,
 } from "..";
 
-export interface PostRequest {
+export interface PostRequest<Scoped extends boolean = false> {
   /** New events to add. */
   events?: TrackedEvent[];
 
   /** Results from variable operations. */
   variables?: {
-    get?: readonly (ScopedKey<ReadOnlyVariableGetter> | Nullish)[];
-    set?: readonly (ScopedKey<VariableValueSetter> | Nullish)[];
+    get?: readonly (
+      | ScopedKey<
+          ReadOnlyVariableGetter,
+          VariableScope,
+          Scoped extends true ? "global" : VariableScope
+        >
+      | Nullish
+    )[];
+    set?: readonly (
+      | ScopedKey<
+          VariableValueSetter,
+          VariableScope,
+          Scoped extends true ? "global" : VariableScope
+        >
+      | Nullish
+    )[];
   };
 
   /**

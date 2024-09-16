@@ -30,7 +30,11 @@ export interface EnumParser<Levels extends string> {
     value: T,
     numeric?: Numeric,
     validate?: Validate
-  ): T extends Nullish
+  ): T extends Levels
+    ? Numeric extends true
+      ? number
+      : Levels
+    : T extends Nullish
     ? undefined
     :
         | (Numeric extends true ? number : Levels)

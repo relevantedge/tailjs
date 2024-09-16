@@ -53,7 +53,5 @@
       "@tailjs/util": ["packages/@tailjs/util/src"]
     },
     "types": ["jest"]
-  },
-
-  "exclude": ["**/dist", "*config.js"]
+  }
 }

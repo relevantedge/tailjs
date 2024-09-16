@@ -1,10 +1,6 @@
-import {
-  SchemaArrayType,
-  SchemaPrimitiveType,
-  SchemaRecordType,
-} from "@tailjs/types";
-import { ValidatableSchemaEntity, VALIDATION_ERROR } from "..";
+import { SchemaValueType } from "@tailjs/types";
 import { enumerate } from "@tailjs/util";
+import { SchemaValidationError, VALIDATION_ERROR } from "../../..";
 
 const REGEX_DATE = /^\d{4}-\d{2}-\d{2}Z$/;
 const REGEX_DATETIME =
@@ -19,23 +15,30 @@ const REGEX_EMAIL =
 
 export type SchemaPrimitiveValueValidator = (
   value: any,
-  errors: any[]
+  errors: SchemaValidationError[]
 ) => any | null;
 
-const addError = (errors: string[], value: any, message: string) => (
-  errors.push(`${JSON.stringify(value)} ${message}.`), VALIDATION_ERROR
+const addError = (
+  errors: SchemaValidationError[],
+  value: any,
+  message: string
+) => (
+  errors.push({
+    path: "",
+    source: value,
+    message: `${JSON.stringify(value)} ${message}.`,
+  }),
+  VALIDATION_ERROR
 );
 
 const primitiveValidators: Record<string, SchemaPrimitiveValueValidator> = {};
 export const getPrimitiveTypeValidator = (
-  type: SchemaPrimitiveType
+  type: SchemaValueType
 ): {
   validator: SchemaPrimitiveValueValidator;
   enumValues: any[] | undefined;
 } => {
-  let validator = (primitiveValidators[type.primitive] ??= create(
-    type.primitive
-  ));
+  let validator = (primitiveValidators[type.primitive] ??= create(type));
 
   const maxLength = type["maxLength"];
   if (maxLength != null) {
@@ -101,10 +104,8 @@ export const getPrimitiveTypeValidator = (
   }
   return { validator, enumValues: enumValues ? [...enumValues] : undefined };
 
-  function create(
-    type: SchemaPrimitiveType["primitive"]
-  ): SchemaPrimitiveValueValidator {
-    switch (type) {
+  function create(type: SchemaValueType): SchemaPrimitiveValueValidator {
+    switch (type.primitive) {
       case "boolean":
         return (value, errors) =>
           typeof value === "boolean"
@@ -158,6 +159,31 @@ export const getPrimitiveTypeValidator = (
             ? value
             : addError(errors, value, "is not a valid number");
       case "string":
+        switch (type.format) {
+          case "uri":
+            return (value, errors) =>
+              REGEX_URI.test(value)
+                ? value
+                : addError(errors, value, "is not a valid URI");
+
+          case "url":
+            return (value, errors) => {
+              const match = REGEX_URI.exec(value);
+              if (!match) return addError(errors, value, "is not a valid URL");
+              return match[2]
+                ? value
+                : addError(
+                    errors,
+                    value,
+                    "is not a valid URL (it is a URI, but a URL is required)"
+                  );
+            };
+          case "email":
+            return (value, errors) =>
+              REGEX_EMAIL.test(value)
+                ? value.toLowerCase()
+                : addError(errors, value, "is not a valid email address");
+        }
         return (value, errors) =>
           typeof value === "string"
             ? value
@@ -167,30 +193,6 @@ export const getPrimitiveTypeValidator = (
         return (value, errors) =>
           REGEX_GUID.exec(value)?.[1].toLowerCase() ??
           addError(errors, value, "is not a valid UUID");
-
-      case "uri":
-        return (value, errors) =>
-          REGEX_URI.test(value)
-            ? value
-            : addError(errors, value, "is not a valid URI");
-
-      case "url":
-        return (value, errors) => {
-          const match = REGEX_URI.exec(value);
-          if (!match) return addError(errors, value, "is not a valid URL");
-          return match[2]
-            ? value
-            : addError(
-                errors,
-                value,
-                "is not a valid URL (it is a URI, but a URL is required)"
-              );
-        };
-      case "email":
-        return (value, errors) =>
-          REGEX_EMAIL.test(value)
-            ? value.toLowerCase()
-            : addError(errors, value, "is not a valid email address");
 
       default:
         throw new TypeError(`'${type}' is not a supported primitive type.`);

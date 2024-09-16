@@ -1,4 +1,5 @@
 import {
+  AllKeys,
   Defined,
   Extends,
   IsAny,
@@ -77,7 +78,10 @@ export type UnwrapPromiseLike<T> = T extends PromiseLike<infer T>
   ? UnwrapPromiseLike<T>
   : T;
 
-export type MaybePromise<T> = T | PromiseLike<T>;
+export type MaybePromiseLike<T> = T | PromiseLike<T>;
+
+export type MaybePromise<T> = T | Promise<T>;
+
 /**
  * Shorthand for a value that is optionally awaitable.
  */
@@ -113,13 +117,6 @@ export type Nulls<T, NullLevels = null | undefined> = T extends
   ? T extends NullLevels | void
     ? T & NullLevels
     : NullLevels
-  : never;
-
-/** All keys of any type in a union */
-export type AllKeys<Ts> = Ts extends infer T
-  ? unknown extends T
-    ? keyof any
-    : keyof T
   : never;
 
 /** If any type in a union has a value for the given property that cannot be null'ish.*/
@@ -183,23 +180,6 @@ export type ExpandTypes<
 
 /** Merges properties in a union which makes it look prettier in Intellisense. */
 export type Pretty<T> = T extends infer T ? { [P in keyof T]: T[P] } : never;
-
-/**
- * Intellisense can be annoying when dealing with intersections.
- * This one adds the properties from all the other types to each type as optional properties that can only be undefined.
- *
- * Like `{x: number}|{y:number}|{x:number,y:string}` becomes `{x:number, y?:undefined} | {y:number, x?:undefined} | {x:number, y:string}`.
- */
-export type MergeKeysUndefined<
-  Options,
-  AllKeys extends keyof any = Options extends infer Option
-    ? keyof Option
-    : never
-> = Pretty<
-  Options extends infer Option
-    ? Option & { [P in Exclude<AllKeys, keyof Option>]?: undefined }
-    : never
->;
 
 /**
  * Use for function parameters where you want an array to be interpreted as as tuple with a finite number of elements.

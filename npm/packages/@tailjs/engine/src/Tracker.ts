@@ -47,10 +47,8 @@ import {
   RequestHandler,
   TrackedEventBatch,
   TrackerEnvironment,
-  VariableDataUsageQuery,
   VariableResultPromise,
   VariableStorageContext,
-  copyKey,
   requestCookies,
   toVariableResultPromise,
 } from "./shared";
@@ -424,7 +422,7 @@ export class Tracker {
         return;
       }
       this._clientDeviceCache!.loaded = true;
-      await this.set(map(variables, ([, value]) => value) as any);
+      await this._set(map(variables, ([, value]) => value) as any);
     }
   }
 
@@ -633,12 +631,11 @@ export class Tracker {
               scope: "session",
               key: SCOPE_INFO_KEY,
               entityId: sessionId,
-              patch: async (current) => ({
-                value: {
-                  ...current?.value,
+              patch: async (current: SessionI) =>
+                ({
+                  ...current,
                   deviceId: await getDeviceId(),
-                },
-              }),
+                } as SessionInfo),
             },
           ],
           { trusted: true }
@@ -689,19 +686,17 @@ export class Tracker {
       }
       this._sessionReferenceId = this._clientId;
 
-      sessionId = (
-        await this.env.storage
-          .get([
-            {
-              scope: "session",
-              key: SESSION_REFERENCE_KEY,
-              entityId: this._sessionReferenceId,
-              init: async () =>
-                passive ? undefined : sessionId ?? (await this.env.nextId()),
-            },
-          ])
-          .first()
-      ).value;
+      sessionId = await this.env.storage
+        .get([
+          {
+            scope: "session",
+            key: SESSION_REFERENCE_KEY,
+            entityId: this._sessionReferenceId,
+            init: async () =>
+              passive ? undefined : sessionId ?? (await this.env.nextId()),
+          },
+        ])
+        .value();
     } else {
       // We do not have any information available for assigning a session ID.
       this._session = this._device = undefined;

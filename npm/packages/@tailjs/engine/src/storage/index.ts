@@ -1,6 +1,4 @@
-export * from "./primitive-types";
-export * from "./polymorphism";
-export * from "./TypeResolver";
+export * from "./types";
 export * from "./InMemoryStorage";
 export * from "./VariableSplitStorage";
 export * from "./VariableStorage";

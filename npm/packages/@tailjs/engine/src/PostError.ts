@@ -1,9 +1,9 @@
 import { map } from "@tailjs/util";
-import { SchemaValidationError } from "./shared";
+import { SchemaValidationError, ValidationError } from "./shared";
 
 export class PostError extends Error {
   constructor(
-    public readonly validation: (SchemaValidationError & {
+    public readonly validation: (ValidationError & {
       sourceIndex?: number;
     })[],
     public readonly extensions: Record<string, Error>
