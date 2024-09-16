@@ -1,31 +1,27 @@
 import {
+  copyKey,
+  filterKeys,
+  ReadOnlyVariableGetter,
   Variable,
   VariableErrorResult,
   VariableGetResult,
-  ReadOnlyVariableGetter,
+  VariableGetter,
   VariableKey,
   VariableQuery,
-  VariableScope,
   VariableSetResult,
   VariableStatus,
   VariableValueSetter,
-  copyKey,
-  PickKey,
-  filterKeys,
 } from "@tailjs/types";
 import {
   isWritableStorage,
   normalizeStorageMappings,
   ReadOnlyVariableStorage,
+  TrackerEnvironment,
   VariableStorage,
-  VariableStorageGetResult,
-  VariableStorageGetter,
   VariableStorageMappings,
   VariableStorageQuery,
-  VariableStorageSetResult,
-  VariableStorageSetter,
-  VariableStorageVariable,
-} from ".";
+} from "..";
+import { forEachAsync } from "@tailjs/util";
 
 export type WithTrace<T, Trace = undefined> = T & {
   [traceSymbol]?: Trace;
@@ -48,7 +44,6 @@ const unknownSource = (
 });
 
 type SplitFields = Pick<VariableKey, "source" | "scope">;
-type SplitQueryFields = Pick<VariableQuery, "sources" | "scopes">;
 
 export const traceSymbol = Symbol();
 export const addSourceTrace = <Item, Trace>(
@@ -73,9 +68,7 @@ const mergeTrace = <Target extends {}, Trace>(
 ): AddTrace<Target & SplitFields, Trace> =>
   Object.assign(target, { source, scope, [traceSymbol]: trace }) as any;
 
-export class VariableSplitStorage
-  implements VariableStorage<SplitFields>, Disposable
-{
+export class VariableSplitStorage implements VariableStorage, Disposable {
   private readonly _mappings: Record<
     string,
     Record<string, ReadOnlyVariableStorage>
@@ -158,8 +151,8 @@ export class VariableSplitStorage
   }
 
   async get<Trace = undefined>(
-    keys: WithTrace<VariableStorageGetter<SplitFields>, Trace>[]
-  ): Promise<AddTrace<VariableStorageGetResult<SplitFields>, Trace>[]> {
+    keys: WithTrace<ReadOnlyVariableGetter, Trace>[]
+  ): Promise<AddTrace<VariableGetResult, Trace>[]> {
     if (!keys.length) return [];
 
     return this._splitApply(
@@ -185,8 +178,8 @@ export class VariableSplitStorage
   }
 
   set<Trace = undefined>(
-    values: WithTrace<VariableStorageSetter<SplitFields>, Trace>[]
-  ): Promise<AddTrace<VariableStorageSetResult<SplitFields>, Trace>[]> {
+    values: WithTrace<VariableValueSetter, Trace>[]
+  ): Promise<AddTrace<VariableSetResult, Trace>[]> {
     if (!values.length) return [] as any;
 
     return this._splitApply(
@@ -221,7 +214,7 @@ export class VariableSplitStorage
     );
   }
 
-  public splitSourceQueries<T extends VariableStorageQuery<SplitQueryFields>>(
+  public splitSourceQueries<T extends VariableStorageQuery>(
     queries: T[]
   ): (VariableQuery & SplitFields)[] {
     const split: (T & SplitFields)[] = [];
@@ -242,9 +235,7 @@ export class VariableSplitStorage
     }
     return split;
   }
-  async purge(
-    queries: VariableStorageQuery<SplitQueryFields>[]
-  ): Promise<void> {
+  async purge(queries: VariableStorageQuery[]): Promise<void> {
     await this._splitApply(
       this.splitSourceQueries(queries),
       async (_source, storage, queries) => {
@@ -252,9 +243,7 @@ export class VariableSplitStorage
       }
     );
   }
-  async query(
-    queries: VariableQuery[]
-  ): Promise<VariableStorageVariable<SplitFields>[]> {
+  async query(queries: VariableStorageQuery[]): Promise<Variable[]> {
     return (
       await this._splitApply(
         this.splitSourceQueries(queries),
@@ -265,6 +254,14 @@ export class VariableSplitStorage
         ]
       )
     ).flat();
+  }
+
+  public async initialize(environment: TrackerEnvironment): Promise<void> {
+    await forEachAsync(this._mappings, ([, mappings]) =>
+      forEachAsync(mappings, ([, storage]) =>
+        storage?.initialize?.(environment)
+      )
+    );
   }
 
   [Symbol.dispose](): void {

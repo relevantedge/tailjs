@@ -1,25 +1,25 @@
 import { enumerate, forEach, get, map } from "@tailjs/util";
-import { ParsedSchemaType, SchemaValidationError } from "..";
+import { ParsedSchemaObjectType, SchemaValidationError } from "../../..";
 
-const formatTypeNames = (types: ParsedSchemaType[]) =>
+const formatTypeNames = (types: ParsedSchemaObjectType[]) =>
   enumerate(types.map((type) => quoteString(type.id)));
 
 const quoteString = (s: any) =>
   s == null ? "" : typeof s === "string" ? '"' + s + '"' : "" + s;
 
 export const createTypeSelector = (
-  unionTypes: ParsedSchemaType[]
+  unionTypes: ParsedSchemaObjectType[]
 ): {
-  discriminatedTypes: ParsedSchemaType[];
+  discriminatedTypes: ParsedSchemaObjectType[];
   selector: (
     value: any,
     errors: SchemaValidationError[]
-  ) => ParsedSchemaType | undefined;
+  ) => ParsedSchemaObjectType | undefined;
 } => {
   const traverse = (
-    types: ParsedSchemaType[],
-    action: (type: ParsedSchemaType) => void,
-    seen = new Set<ParsedSchemaType>()
+    types: ParsedSchemaObjectType[],
+    action: (type: ParsedSchemaObjectType) => void,
+    seen = new Set<ParsedSchemaObjectType>()
   ) => {
     for (const type of types) {
       if (seen.has(type)) {
@@ -31,12 +31,12 @@ export const createTypeSelector = (
     }
   };
   // Type to enum value mappings per property.
-  const enumProperties = new Map<string, Map<any, ParsedSchemaType[]>>();
+  const enumProperties = new Map<string, Map<any, ParsedSchemaObjectType[]>>();
 
-  const allTypes: ParsedSchemaType[] = [];
+  const allTypes: ParsedSchemaObjectType[] = [];
   traverse(unionTypes, (type) => {
     allTypes.push(type);
-    if (type.marker) return;
+    if (type.abstract) return;
 
     forEach(type.allProperties, ([key, property]) => {
       if (!("enumValues" in property.type) || !property.type.enumValues?.length)
@@ -52,11 +52,11 @@ export const createTypeSelector = (
   });
 
   // An abstract type is a marker type, or allowing any value for an enum type.
-  const abstractTypes = new Set<ParsedSchemaType>();
+  const abstractTypes = new Set<ParsedSchemaObjectType>();
 
-  const typesByDiscriminator = new Map<string, ParsedSchemaType[]>();
+  const typesByDiscriminator = new Map<string, ParsedSchemaObjectType[]>();
   traverse(unionTypes, (type) => {
-    if (type.marker) {
+    if (type.abstract) {
       abstractTypes.add(type);
       return;
     }
@@ -94,8 +94,8 @@ export const createTypeSelector = (
     }
   });
 
-  const uniqueDiscriminators = new Map<string, ParsedSchemaType>();
-  const unambiguousTypes = new Set<ParsedSchemaType>();
+  const uniqueDiscriminators = new Map<string, ParsedSchemaObjectType>();
+  const unambiguousTypes = new Set<ParsedSchemaObjectType>();
   forEach(
     typesByDiscriminator,
     ([discriminator, types]) =>
@@ -104,8 +104,10 @@ export const createTypeSelector = (
       uniqueDiscriminators.set(discriminator, types[0]))
   );
 
-  const ambiguousTypes: [ParsedSchemaType, [string, ParsedSchemaType[]][]][] =
-    [];
+  const ambiguousTypes: [
+    ParsedSchemaObjectType,
+    [string, ParsedSchemaObjectType[]][]
+  ][] = [];
   traverse(unionTypes, (type) => {
     if (!abstractTypes.has(type) && !unambiguousTypes.has(type)) {
       ambiguousTypes.push([
@@ -149,13 +151,13 @@ export const createTypeSelector = (
         .join(", ");
       const type = uniqueDiscriminators.get(discriminator);
       if (!type) {
-        errors.push([
-          "",
-          `The discriminator ${discriminator} does not match any type in the union ${formatTypeNames(
+        errors.push({
+          path: "",
+          source: value,
+          message: `The discriminator ${discriminator} does not match any type in the union ${formatTypeNames(
             unionTypes
           )}.`,
-          "invalid",
-        ]);
+        });
       }
       return type;
     },

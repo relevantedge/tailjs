@@ -1,11 +1,11 @@
 import { ClientRequestHeaders, Tracker, TrackerEnvironment } from ".";
 
 /**
- * This is used to generate a unique (or as unique as possible) identifier from a client request without using cookies
- * or any other information stored in the device.
- *
- * The purpose is to have an identifier that is stable over the duration of a session to track anonymous statistics
- * cookie-less tracking).
+ * This is used to generate a probabilistically unique identifier from a client request
+ * for anonymous tracking. This identifier is used to reference an anonymous session
+ * and will not get stored itself.
+ * That means the generated identifier may contain personal data which is by all chance the case
+ * if any client-specific information is used from the request.
  *
  */
 export interface ClientIdGenerator {
@@ -14,17 +14,10 @@ export interface ClientIdGenerator {
    *
    * @param environment The tracker environment where the request happened.
    * @param request The client request information to use as the basis for the identifier.
-   * @param stationary Only include information that is unlikely to change between sessions.
-   * This will amongst other things exclude the IP address, and these identifiers are not suitable for
-   * tracking. However, they a great for adding entropy to cryptographic keys.
-   * @param entropy Entropy that will be added before a hash is generated. This adds an additional layer
-   * to make the generated IDs anonymous.
    */
   generateClientId(
     environment: TrackerEnvironment,
-    request: ClientRequestHeaders,
-    stationary: boolean,
-    entropy?: string
+    request: ClientRequestHeaders
   ): Promise<string>;
 }
 
@@ -51,17 +44,11 @@ export class DefaultClientIdGenerator implements ClientIdGenerator {
 
   public async generateClientId(
     environment: TrackerEnvironment,
-    request: ClientRequestHeaders,
-    stationary: boolean,
-    entropy?: string
+    request: ClientRequestHeaders
   ): Promise<string> {
-    let clientString: string = [
-      stationary ? "" : request.clientIp,
-      entropy,
+    return [
+      request.clientIp,
       ...this._headers.map((header) => request.headers[header] + ""),
-      entropy,
     ].join("&");
-
-    return environment.hash(clientString, 128);
   }
 }

@@ -1,10 +1,11 @@
+import { MaybePromiseLike } from "@tailjs/util";
 import {
   DataPurposeName,
   VariableErrorResult,
   VariableKey,
   VariableUnchangedResult,
   VariableValueResult,
-} from "..";
+} from "../..";
 
 export interface ReadOnlyVariableGetter extends VariableKey {
   ifModifiedSince?: number;
@@ -18,7 +19,7 @@ export interface ReadOnlyVariableGetter extends VariableKey {
 
 export interface VariableGetter<T = any> extends ReadOnlyVariableGetter {
   ttl?: number;
-  init?: () => T | null | undefined;
+  init?: () => MaybePromiseLike<T | null | undefined>;
 }
 
 export type VariableGetResult<T = any> =

@@ -2,141 +2,51 @@ import {
   CORE_EVENT_DISCRIMINATOR,
   CORE_EVENT_TYPE,
   CORE_SCHEMA_NS,
-  dataClassification,
-  DataUsage,
-  dataVisibility,
   SCHEMA_DATA_USAGE_ANONYMOUS,
   SCHEMA_DATA_USAGE_MAX,
-  SchemaArrayType,
-  SchemaDataUsage,
-  SchemaEmbeddedType,
-  SchemaRecordType,
-  SchemaTypeReference,
-  SchemaUnionType,
+  SchemaTypeDefinition,
   validateConsent,
+  type SchemaDataUsage,
   type SchemaDefinition,
-  type SchemaPrimitiveType,
-  type SchemaProperty,
+  type SchemaObjectType,
+  type SchemaPropertyDefinition,
   type SchemaPropertyType,
-  type SchemaType,
+  type SchemaTypeReference,
   type VariableScope,
 } from "@tailjs/types";
-import { forEach, fromEntries, get, Nullish } from "@tailjs/util";
+import { forEach, get } from "@tailjs/util";
 
-import { createTypeSelector, getPrimitiveTypeValidator } from ".";
+export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
+  validate: (value, _current, _context, _errors) => value,
+  censor: (value, _context) => value,
+};
+
+import {
+  ParsedSchemaObjectType,
+  ParsedSchemaPropertyDefinition,
+  ParsedSchemaPropertyType,
+  ParsedSchemaUnionType,
+  ParsedSchemaValueType,
+  SCHEMA_TYPE_PROPERTY,
+  SchemaTypeInfo,
+  TypedSchemaData,
+} from "../..";
+
+import {
+  createTypeSelector,
+  getMinimumUsage,
+  getPrimitiveTypeValidator,
+  mergeUsage,
+  pushInnerErrors,
+  ValidatableSchemaEntity,
+  VALIDATION_ERROR,
+} from "./validation";
+import { version } from "os";
 
 export type SchemaDefinitionSource = {
   definition: SchemaDefinition;
   referencesOnly?: boolean;
 };
-
-export interface ParsedSchemaEntity {
-  id: string;
-  namespace: string;
-  name: string;
-
-  /** The minimum required usage for any data from this type to appear. */
-  usage: SchemaDataUsage;
-
-  // The usage hints as they built up following types, properties and base types.
-  usageOverrides: Partial<SchemaDataUsage> | undefined;
-}
-
-export interface SchemaValidationContext {
-  trusted: boolean;
-}
-
-export interface SchemaCensorContext {
-  trusted: boolean;
-  consent?: DataUsage;
-}
-
-export const VALIDATION_ERROR = Symbol();
-
-export type SchemaValueValidator = <T>(
-  target: T,
-  current: any,
-  context: SchemaValidationContext,
-  errors: SchemaValidationError[]
-) => T | typeof VALIDATION_ERROR;
-
-export type SchemaCensorFunction = <T>(
-  target: T,
-  context: SchemaCensorContext
-) => T | undefined;
-
-export interface ValidatableSchemaEntity {
-  validate: SchemaValueValidator;
-  censor: SchemaCensorFunction;
-}
-
-export interface ParsedSchemaPrimitiveType extends ValidatableSchemaEntity {
-  enumValues?: any[];
-  source: SchemaPrimitiveType;
-}
-
-export interface ParsedSchemaArrayType extends ValidatableSchemaEntity {
-  item: ParsedSchemaPropertyType;
-  source: SchemaArrayType;
-}
-
-export interface ParsedSchemaRecordType extends ValidatableSchemaEntity {
-  key: ParsedSchemaPrimitiveType;
-  value: ParsedSchemaPropertyType;
-  source: SchemaRecordType;
-}
-
-export interface ParsedSchemaUnionType extends ValidatableSchemaEntity {
-  union: ParsedSchemaType[];
-  source: SchemaUnionType | SchemaTypeReference | SchemaEmbeddedType;
-}
-
-export type ParsedSchemaPropertyType =
-  | ParsedSchemaPrimitiveType
-  | ParsedSchemaArrayType
-  | ParsedSchemaRecordType
-  | ParsedSchemaType
-  | ParsedSchemaUnionType;
-
-export interface ParsedSchemaType
-  extends ParsedSchemaEntity,
-    ValidatableSchemaEntity {
-  extends: ParsedSchemaType[];
-
-  properties: { [P in string]: ParsedSchemaProperty };
-
-  allProperties: { [P in string]: ParsedSchemaProperty };
-
-  embedded: boolean;
-
-  marker: boolean;
-
-  referencedBy: ParsedSchemaProperty[];
-
-  extendedBy: ParsedSchemaType[];
-
-  /**
-   * The values of an event's `type` property that maps to this schema type.
-   * An empty array means that the type is a base type for events that cannot be used directly.
-   *
-   * `null` means "unrelated to events".
-   */
-  eventNames: string[] | null;
-
-  source: SchemaEmbeddedType;
-}
-
-export interface ParsedSchemaProperty
-  extends ParsedSchemaEntity,
-    ValidatableSchemaEntity {
-  name: string;
-  required?: boolean;
-  type: ParsedSchemaPropertyType;
-
-  source: SchemaProperty;
-
-  declaringType: ParsedSchemaType;
-}
 
 type TypeParseContext = {
   namespace: string;
@@ -147,128 +57,20 @@ type TypeParseContext = {
   referencesOnly: boolean;
 };
 
-export interface ParsedTypeCollection {
-  events: Map<string, ParsedSchemaType>;
-  variables: Map<string, Map<string, ParsedSchemaType>>;
-  types: Map<string, ParsedSchemaType>;
-}
-
-export interface ParsedSchemaDefinition
-  extends ParsedSchemaEntity,
-    ParsedTypeCollection {
-  source: SchemaDefinition;
-}
-
-export type SchemaValidationError = [
-  path: string,
-  message: string,
-  type: "forbidden" | "invalid"
-];
-
-export const formatValidationErrors = (
-  errors: readonly SchemaValidationError[]
-): string | undefined => {
-  if (!errors.length) return undefined;
-
-  const formatted = errors.map(([field, message]) =>
-    field ? field + ": " + message : message
-  );
-  return formatted.join("\n");
-};
-
-const getMinimumUsage = <T extends SchemaDataUsage | Nullish>(
-  current: T,
-  other: T
-): T =>
-  current
-    ? other
-      ? {
-          readonly: current.readonly && other.readonly,
-          visibility:
-            dataVisibility.ranks[current.visibility] <=
-            dataVisibility.ranks[other.visibility]
-              ? current.visibility
-              : other.visibility,
-          classification:
-            dataClassification.ranks[current.classification] <=
-            dataClassification.ranks[other.classification]
-              ? current.classification
-              : other.classification,
-          purposes: fromEntries(current.purposes, ([key, value]) =>
-            value && !other.purposes[key] ? undefined : [key, value]
-          ),
-        }
-      : current
-    : (other as any);
-
-const mergeUsage = <
-  T extends undefined | Partial<SchemaDataUsage>,
-  U extends undefined | Partial<SchemaDataUsage>
->(
-  current: T,
-  update: U
-): T extends undefined ? (U extends undefined ? undefined : U) : T & U =>
-  update
-    ? current
-      ? ({
-          readonly: update.readonly ?? current.readonly,
-          visibility: update.visibility ?? current.visibility,
-          classification: update.classification ?? current.classification,
-          purposes: update.purposes ?? current.purposes,
-        } as any)
-      : update
-    : current;
-
 const getTypeId = (namespace: string, name: string) => namespace + "#" + name;
 
-const joinPath = (prefix: string, current: string) =>
-  current.length ? prefix + (prefix[0] === "[" ? "" : ".") + current : prefix;
-
-const pushInnerErrors = (
-  prefix: string,
-  value: any,
-  current: any,
-  context: SchemaValidationContext,
-  errors: SchemaValidationError[],
-  validatable: { validate: SchemaValueValidator }
-) => {
-  const innerErrors: SchemaValidationError[] = [];
-  if (
-    (value = validatable.validate(value, current, context, innerErrors)) ===
-    VALIDATION_ERROR
-  ) {
-    errors.push(
-      ...innerErrors.map(
-        ([path, error, type]) =>
-          [joinPath(prefix, path), error, type] as SchemaValidationError
-      )
-    );
-  }
-  return value;
-};
-
-const VALIDATE_PASSTHROUGH: SchemaValueValidator = (
-  value,
-  _current,
-  _context,
-  _errors
-) => value;
-const CENSOR_PASSTHROUGH: SchemaCensorFunction = (value, _context) => value;
-
-const typeStub = Symbol();
-
 export class TypeResolver {
-  private readonly _types = new Map<string, ParsedSchemaType>();
+  private readonly _types = new Map<string, ParsedSchemaObjectType>();
   private readonly _variables = new Map<
     string,
-    Map<string, ParsedSchemaType>
+    Map<string, ParsedSchemaObjectType>
   >();
-  private readonly _events = new Map<string, ParsedSchemaType>();
+  private readonly _events = new Map<string, ParsedSchemaObjectType>();
 
-  private _eventBaseType: ParsedSchemaType | undefined;
+  private _eventBaseType: ParsedSchemaObjectType | undefined;
 
   private _parsePropertyType(
-    property: ParsedSchemaProperty,
+    property: ParsedSchemaPropertyDefinition,
     type: SchemaPropertyType,
     required: boolean,
     parseContext: TypeParseContext
@@ -298,11 +100,11 @@ export class TypeResolver {
         item: itemType,
         validate: (value, current, context, errors) => {
           if (!Array.isArray(value)) {
-            errors.push([
-              prefix,
-              JSON.stringify(value) + " is not an array.",
-              "invalid",
-            ]);
+            errors.push({
+              path: prefix,
+              source: value,
+              message: "The value is not an array.",
+            });
             return VALIDATION_ERROR;
           }
           let hasErrors = false;
@@ -346,7 +148,7 @@ export class TypeResolver {
         type.key,
         true,
         parseContext
-      ) as ParsedSchemaPrimitiveType;
+      ) as ParsedSchemaValueType;
       const valueType = this._parsePropertyType(
         property,
         type.value,
@@ -359,11 +161,11 @@ export class TypeResolver {
         value: valueType,
         validate: (value, current, context, errors) => {
           if (typeof value !== "object") {
-            errors.push([
-              "",
-              JSON.stringify(value) + " is not a record (JSON object).",
-              "invalid",
-            ]);
+            errors.push({
+              path: "",
+              source: value,
+              message: "The value is not a record (JSON object).",
+            });
             return VALIDATION_ERROR;
           }
           const validated: Record<keyof any, any> = {};
@@ -420,8 +222,7 @@ export class TypeResolver {
         union = {
           union: [parsed],
           source: type,
-          censor: CENSOR_PASSTHROUGH,
-          validate: VALIDATE_PASSTHROUGH,
+          ...DEFAULT_CENSOR_VALIDATE,
         };
       } else {
         return parsed;
@@ -445,16 +246,38 @@ export class TypeResolver {
         return parsed;
       }),
       source: type,
-      censor: CENSOR_PASSTHROUGH,
-      validate: VALIDATE_PASSTHROUGH,
+      ...DEFAULT_CENSOR_VALIDATE,
     };
 
     const { selector } = createTypeSelector(union.union);
     union.censor = (target, context) =>
       selector(target, [])?.censor(target, context);
-    union.validate = (target, current, context, errors) =>
-      selector(target, errors)?.validate(target, current, context, errors) ??
-      VALIDATION_ERROR;
+    union.validate = (target, current, context, errors) => {
+      const type = selector(target, errors);
+      let validated: typeof target & TypedSchemaData;
+      if (
+        !type ||
+        (validated = type.validate(target, current, context, errors) as any) ===
+          VALIDATION_ERROR
+      ) {
+        return VALIDATION_ERROR;
+      }
+
+      const currentTypeInfo = validated[SCHEMA_TYPE_PROPERTY];
+      if (
+        currentTypeInfo?.type !== type.id ||
+        currentTypeInfo?.version !== type.version
+      ) {
+        if (validated === target) {
+          validated = { ...validated };
+        }
+        validated[SCHEMA_TYPE_PROPERTY] = {
+          type: type.id,
+          version: type.version,
+        };
+      }
+      return validated;
+    };
 
     return union;
   }
@@ -465,10 +288,10 @@ export class TypeResolver {
    * when all types have been parsed.
    */
   private _parseType(
-    source: SchemaType | SchemaTypeReference | SchemaEmbeddedType,
+    source: SchemaObjectType | SchemaTypeReference | SchemaObjectType,
     context: TypeParseContext,
-    referencingProperty: ParsedSchemaProperty | null
-  ): ParsedSchemaType {
+    referencingProperty: ParsedSchemaPropertyDefinition | null
+  ): ParsedSchemaObjectType {
     let id: string;
     if ("type" in source) {
       id = getTypeId(source.namespace ?? context.namespace, source.type);
@@ -482,7 +305,7 @@ export class TypeResolver {
       referencingProperty && parsed.referencedBy.push(referencingProperty);
       return parsed;
     }
-    let name = (source as SchemaType).name;
+    let name = (source as SchemaTypeDefinition).name;
     if (!name) {
       if (!referencingProperty) {
         throw new TypeError(
@@ -512,23 +335,22 @@ export class TypeResolver {
     }
     id = getTypeId(context.namespace, name);
 
-    const parsed: ParsedSchemaType = {
+    const parsed: ParsedSchemaObjectType = {
       id,
       name,
       namespace: context.namespace,
       usage: SCHEMA_DATA_USAGE_MAX,
       usageOverrides: undefined,
       embedded: !("name" in source),
-      marker: !!source.marker,
+      abstract: !!(source as SchemaTypeDefinition).abstract,
       extends: [],
       properties: undefined as any,
       allProperties: {},
-      censor: CENSOR_PASSTHROUGH,
-      validate: VALIDATE_PASSTHROUGH,
       extendedBy: [],
       referencedBy: [],
       eventNames: null,
       source: source,
+      ...DEFAULT_CENSOR_VALIDATE,
     };
 
     this._types.set(id, parsed);
@@ -542,7 +364,7 @@ export class TypeResolver {
       this._eventBaseType = parsed;
     }
 
-    let usageOverrides = source.usage ?? {};
+    let usageOverrides = (source as SchemaTypeDefinition).usage ?? {};
     if (referencingProperty != null) {
       usageOverrides = mergeUsage(
         referencingProperty.usageOverrides,
@@ -555,9 +377,9 @@ export class TypeResolver {
   }
 
   private _parseTypeProperties(
-    parsed: ParsedSchemaType,
+    parsed: ParsedSchemaObjectType,
     context: TypeParseContext
-  ): ParsedSchemaType {
+  ): ParsedSchemaObjectType {
     if (parsed.properties != null) {
       return parsed;
     }
@@ -575,7 +397,7 @@ export class TypeResolver {
       ) ?? [];
 
     if (
-      parsed.source.event ||
+      parsed.source["event"] ||
       parsed === this._eventBaseType ||
       parsed.extends.some((baseType) => baseType === this._eventBaseType)
     ) {
@@ -598,7 +420,12 @@ export class TypeResolver {
     }
 
     for (const parsedBaseType of parsed.extends) {
-      usageOverrides = mergeUsage(usageOverrides, parsedBaseType.source.usage);
+      if ("usage" in parsedBaseType.source) {
+        usageOverrides = mergeUsage(
+          usageOverrides,
+          parsedBaseType.source.usage
+        );
+      }
       parsedBaseType.extendedBy.push(parsed);
     }
 
@@ -654,7 +481,7 @@ export class TypeResolver {
         );
       }
     }
-    const requiredProperties: ParsedSchemaProperty[] = [];
+    const requiredProperties: ParsedSchemaPropertyDefinition[] = [];
 
     for (const key in props) {
       const prop = props[key];
@@ -701,11 +528,11 @@ export class TypeResolver {
       for (const key in target) {
         const prop = props[key];
         if (!prop) {
-          errors.push([
-            key,
-            "The property is not defined in the schema.",
-            "invalid",
-          ]);
+          errors.push({
+            path: key,
+            source: target,
+            message: "The property is not defined in the schema.",
+          });
           continue;
         }
         const targetValue = target[key];
@@ -731,13 +558,13 @@ export class TypeResolver {
   }
 
   private _parseProperty(
-    declaringType: ParsedSchemaType,
-    property: SchemaProperty,
+    declaringType: ParsedSchemaObjectType,
+    property: SchemaPropertyDefinition,
     context: TypeParseContext
-  ): ParsedSchemaProperty {
+  ): ParsedSchemaPropertyDefinition {
     const usageOverrides = mergeUsage(context.usageOverrides, property.usage);
 
-    const parsed: ParsedSchemaProperty = {
+    const parsed: ParsedSchemaPropertyDefinition = {
       namespace: context.namespace,
       declaringType,
       id: declaringType.id + "_" + property.name,
@@ -746,9 +573,8 @@ export class TypeResolver {
       usageOverrides,
       type: null as any,
 
-      validate: VALIDATE_PASSTHROUGH,
-      censor: CENSOR_PASSTHROUGH,
       source: property,
+      ...DEFAULT_CENSOR_VALIDATE,
     };
     parsed.type = this._parsePropertyType(
       parsed,
@@ -769,18 +595,20 @@ export class TypeResolver {
 
     parsed.validate = (value, current, context, errors) => {
       if (readonly && (value || value !== current)) {
-        errors.push([
-          name,
-          "The property is read-only (cannot be changed once set).",
-          "forbidden",
-        ]);
+        errors.push({
+          path: name,
+          source: value,
+          message: "The property is read-only (cannot be changed once set).",
+          security: true,
+        });
       }
       if (visibility !== "public") {
-        errors.push([
-          name,
-          "The property cannot be set from untrusted context.",
-          "forbidden",
-        ]);
+        errors.push({
+          path: name,
+          source: value,
+          message: "The property cannot be set from untrusted context.",
+          security: true,
+        });
       }
       return pushInnerErrors(name, value, current, context, errors, type);
     };
@@ -798,7 +626,7 @@ export class TypeResolver {
     const typeStubs: [
       context: TypeParseContext,
       variable: [scope: string, key: string] | undefined,
-      type: ParsedSchemaType | SchemaTypeReference
+      type: ParsedSchemaObjectType | SchemaTypeReference
     ][] = [];
     for (const { definition: schema, referencesOnly } of schemas) {
       // Parse types only (no extensions, no properties).
@@ -823,7 +651,7 @@ export class TypeResolver {
             // Not a reference, yet cannot be embedded here,
             // so we give it a name.
 
-            (type as SchemaType).name = scope + "_" + key;
+            (type as SchemaTypeDefinition).name = scope + "_" + key;
             typeStubs.push([
               schemaParseContext,
               referencesOnly ? undefined : [scope, key],
@@ -862,7 +690,7 @@ export class TypeResolver {
   getEvent<Required extends boolean = true>(
     eventType: string,
     required: Required = false as any
-  ): ParsedSchemaType | (Required extends true ? never : undefined) {
+  ): ParsedSchemaObjectType | (Required extends true ? never : undefined) {
     let type = this._events.get(eventType) ?? this._types.get(eventType);
     if (required && !type) {
       throw new Error(`The event "${eventType}" is not defined.`);
@@ -881,7 +709,7 @@ export class TypeResolver {
     typeName: string,
     required: Required = false as any,
     defaultNamespace?: string
-  ): ParsedSchemaType | (Required extends true ? never : undefined) {
+  ): ParsedSchemaObjectType | (Required extends true ? never : undefined) {
     const typeId = typeName.includes("#")
       ? typeName
       : (defaultNamespace ?? CORE_SCHEMA_NS) + "#" + typeName;
@@ -895,7 +723,7 @@ export class TypeResolver {
 
   public readonly variables: readonly {
     key: { scope: VariableScope; key: string };
-    type: ParsedSchemaType;
+    type: ParsedSchemaObjectType;
   }[] = [];
 
   public get definition() {
@@ -906,7 +734,7 @@ export class TypeResolver {
     scope: string,
     key: string,
     required?: Required
-  ): ParsedSchemaType | (Required extends true ? never : undefined) {
+  ): ParsedSchemaObjectType | (Required extends true ? never : undefined) {
     const uniqueKey = scope + "-" + key;
     const variable = this._variables.get(uniqueKey);
     if (!variable && required) {

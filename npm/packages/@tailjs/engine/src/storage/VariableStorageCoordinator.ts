@@ -9,6 +9,7 @@ import {
   isErrorResult,
   isTransientError,
   isValueResult,
+  MapVariableResults,
   testPurposes,
   Variable,
   VariableErrorResult,
@@ -29,17 +30,18 @@ import {
   addTrace,
   AddTrace,
   formatValidationErrors,
-  ParsedSchemaType,
+  ParsedSchemaObjectType,
   ReadOnlyVariableStorage,
   SchemaValidationError,
-  ScopedVariableGetResults,
   ScopedVariableGetters,
-  ScopedVariableSetResults,
   ScopedVariableSetters,
   toVariableResultPromise,
   traceSymbol,
+  TrackerEnvironment,
   TypeResolver,
+  VariableResultPromise,
   VariableSplitStorage,
+  WithPatchIntellisense,
 } from "..";
 
 type StorageMappingEntry = {
@@ -110,7 +112,7 @@ const MAX_ERROR_RETRIES = 3;
 
 const censorResult = <Result extends VariableGetResult | VariableSetResult>(
   result: Result,
-  type: ParsedSchemaType,
+  type: ParsedSchemaObjectType,
   context: VariableStorageContext,
   targetPurpose?: DataPurposeName
 ):
@@ -200,7 +202,7 @@ export class VariableStorageCoordinator {
     scope: string,
     key: string,
     source?: string
-  ): ParsedSchemaType | undefined {
+  ): ParsedSchemaObjectType | undefined {
     const types =
       this._storageTypeResolvers.get(getScopeSourceKey(scope, source)) ??
       this._types;
@@ -210,14 +212,14 @@ export class VariableStorageCoordinator {
   public get<Getters extends ScopedVariableGetters<VariableScope, any>>(
     keys: Getters,
     context?: VariableStorageContext
-  ): ScopedVariableGetResults<Getters> {
+  ): MapVariableResults<Getters> {
     return toVariableResultPromise(this._get(keys as any, context)) as any;
   }
 
   public set<Setters extends ScopedVariableSetters<VariableScope, any>>(
-    keys: Setters,
+    keys: WithPatchIntellisense<Setters>,
     context?: VariableStorageContext
-  ): ScopedVariableSetResults<Setters> {
+  ): VariableResultPromise<MapVariableResults<Setters>> {
     return toVariableResultPromise(this._set(keys as any, context)) as any;
   }
 
@@ -227,7 +229,11 @@ export class VariableStorageCoordinator {
   ): Promise<VariableGetResult[]> {
     if (!keys.length) return [];
 
-    type TraceData = [number, ParsedSchemaType, DataPurposeName | undefined];
+    type TraceData = [
+      number,
+      ParsedSchemaObjectType,
+      DataPurposeName | undefined
+    ];
 
     const requireTargetPurpose = context.validation?.requireTargetPurpose;
     const results: VariableGetResult[] = [];
@@ -284,8 +290,8 @@ export class VariableStorageCoordinator {
           pendingGetters.push(getter);
         } else if (result.status === VariableStatus.NotFound && getter.init) {
           try {
-            let initValue = getter.init();
-            if (!initValue) {
+            let initValue = await getter.init();
+            if (initValue == null) {
               continue;
             }
             let errors: SchemaValidationError[] = [];
@@ -307,6 +313,7 @@ export class VariableStorageCoordinator {
                 {
                   ...copyKey(getter),
                   ttl: getter.ttl,
+                  version: null,
                   value: initValue,
                 },
                 [sourceIndex, type, targetPurpose]
@@ -364,7 +371,7 @@ export class VariableStorageCoordinator {
       VariableSetter,
       [
         sourceIndex: number,
-        type: ParsedSchemaType,
+        type: ParsedSchemaObjectType,
         retries: number,
         current: Variable | undefined
       ]
@@ -601,5 +608,9 @@ export class VariableStorageCoordinator {
       context,
       false
     );
+  }
+
+  public async initialize?(environment: TrackerEnvironment) {
+    await this._storage.initialize(environment);
   }
 }

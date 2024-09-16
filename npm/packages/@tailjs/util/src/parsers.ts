@@ -161,7 +161,7 @@ export const parseUri = <
         : ParsedUri<QueryString>,
       true
     >
-  | undefined =>
+  | (Uri extends Nullish ? undefined : never) =>
   uri == nil
     ? undefined
     : (match(

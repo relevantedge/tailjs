@@ -1,7 +1,7 @@
 import {
   F,
   MAX_SAFE_INTEGER,
-  MaybePromise,
+  MaybePromiseLike,
   T,
   isBoolean,
   isFunction,
@@ -56,7 +56,7 @@ export const createTimer = (
 export type ClockCallback = (
   elapsed: number,
   delta: number
-) => MaybePromise<any>;
+) => MaybePromiseLike<any>;
 
 export interface Clock {
   readonly active: boolean;

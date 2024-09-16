@@ -52,6 +52,7 @@ import {
   TypeResolver,
   SchemaValidationError,
   VariableStorageCoordinator,
+  ValidationError,
 } from "./shared";
 
 import { TrackerClientConfiguration } from "@tailjs/client";
@@ -371,9 +372,10 @@ export class RequestHandler {
       map(events, (ev) =>
         isValidationError(ev)
           ? ev
-          : this._schema
-              .getEvent(ev.type)
-              .censor(ev, { consent: tracker.consent })
+          : this._schema.getEvent(ev.type).censor(ev, {
+              trusted: tracker.trustedContext,
+              consent: tracker.consent,
+            })
       );
 
     let parsed = validateEvents(eventBatch);
@@ -386,7 +388,7 @@ export class RequestHandler {
 
     await tracker._applyExtensions(options);
 
-    const validationErrors: (SchemaValidationError & {
+    const validationErrors: (ValidationError & {
       sourceIndex?: number;
     })[] = [];
 

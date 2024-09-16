@@ -1,6 +1,7 @@
-import { createEnumParser, Nullish, OmitUnion, Pretty } from "@tailjs/util";
-import { Timestamp, VariableGetter, VariableSetter } from "..";
-import { SchemaDataUsage } from "./SchemaDefinition";
+import { createEnumParser, Nullish } from "@tailjs/util";
+import { Timestamp } from "../..";
+import { SchemaDataUsage } from "../schema/SchemaDataUsage";
+import { VariableKey } from "./VariableKey";
 
 /**
  * The scope for a variable including the entity it relates to and its life time..
@@ -49,72 +50,16 @@ export const variableScope = createEnumParser("variable scope", [
 ]);
 
 /**
- * Uniquely addresses a variable by scope, target and key name.
+ * A variable is a specific piece of information that can be classified and changed independently.
+ * A variable can either be global or related to a specific entity or tracker scope.
  */
-export interface VariableKey {
-  /**
-   * An optional identifier of a specific variable storage such as "crm" or "personalization"
-   * if not addressing tail.js's own storage.
-   */
-  source?: string;
+export interface Variable<T = any> extends VariableKey {
+  schema?: {
+    type: string;
+    version?: string;
+    usage: SchemaDataUsage;
+  };
 
-  /** The scope the variable belongs to. */
-  scope: string;
-
-  /**
-   * The name of the variable.
-   *
-   * A key may have a prefix that decides which variable storage it is routed to such as `crm:` or `personalization:`.
-   * The prefix and the key are separated by a colon (`prefix:key`), and the key may not contain a colon itself.
-   */
-  key: string;
-
-  /**
-   * The ID of the entity in the scope the variable belongs to.
-   *
-   * In the global scope, variables augmenting external entities the IDs should be prefixed with the entity type such as `page:xxxx`
-   * if they are not unique identifiers to avoid clashes.
-   */
-  entityId: string;
-}
-
-/**
- * A {@link VariableKey} that optionally includes the expected version of a variable value.
- * This is used for "if none match" queries to invalidate caches efficiently.
- */
-export interface VersionedVariableKey extends VariableKey {
-  version?: string;
-}
-
-export interface VariableMetadata {
-  /**
-   * Optionally categorizes variables.
-   *
-   * For example, the tag `address` could be used for all variables related to a user's address,
-   * or `newsletter` for everything related to newsletter subscriptions.
-   */
-  tags?: string[];
-
-  /**
-   * This is a hint to variable storages that the variable should be deleted if it has not been
-   * accessed for this amount of time (time to live).
-   *
-   * Variable storages can decide how accurately they want to enforce this in the background,
-   * yet it will be accurate from a client perspective assuming the storage provides accurate access timestamps.
-   *
-   * Tail.js uses "delete on read" based on the time the variable was last accessed if its
-   * storage has not yet cleaned it.
-   */
-  ttl?: number;
-}
-
-/**
- * Information about when a variable's value was modified and a unique version (ETag) used for conflict resolution
- * in case multiple processes try to update it at the same time (optimistic concurrency).
- *
- * Only the version, and not the modified timestamp must be relied on during conflict resolution.
- */
-export interface VariableVersion {
   /**
    * When the variable was created (Unix timestamp in milliseconds).
    */
@@ -134,32 +79,19 @@ export interface VariableVersion {
    *
    */
   version: string;
-}
 
-export interface VariableSchemaSource extends SchemaDataUsage {
-  namespace: string;
-  type: string;
-  property: string;
-}
+  /**
+   * This is a hint to variable storages that the variable should be deleted if it has not been
+   * accessed for this amount of time (time to live).
+   *
+   * Variable storages can decide how accurately they want to enforce this in the background,
+   * yet it will be accurate from a client perspective assuming the storage provides accurate access timestamps.
+   *
+   * Tail.js uses "delete on read" based on the time the variable was last accessed if its
+   * storage has not yet cleaned it.
+   */
+  ttl?: number;
 
-export interface VariableSource {
-  /** Optional metadata about the variables definition. */
-  schema?: VariableSchemaSource;
-}
-
-/**
- * All data related to a variable except its value.
- */
-export interface VariableHeader
-  extends VariableKey,
-    VariableMetadata,
-    VariableVersion {}
-
-/**
- * A variable is a specific piece of information that can be classified and changed independently.
- * A variable can either be global or related to a specific entity or tracker scope.
- */
-export interface Variable<T = any> extends VariableHeader {
   /**
    * The value of the variable. It must only be undefined in a set operation in which case it means "delete".
    */
@@ -185,15 +117,22 @@ export type ReplaceKey<Target, Source> = StripKey<Target> & PickKey<Source>;
  *  - Implicit scopes where the entityId is implied, so it must either be omitted or undefined.
  */
 export type ScopedKey<
-  Scopes extends string,
-  ExplicitScopes extends string = Scopes,
-  KeyType extends VariableKey = VariableKey
-> = [Scopes] extends [ExplicitScopes]
+  KeyType extends VariableKey = VariableKey,
+  Scopes extends string = VariableScope,
+  ExplicitScopes extends string = "global"
+> = [unknown] extends [ExplicitScopes]
+  ? KeyType extends KeyType
+    ? RestrictVariableScopes<
+        Omit<KeyType, "entityId"> & {
+          entityId?: string;
+        }, // Entity ID is optional for all scopes (accepts any kind of key).
+        Scopes
+      >
+    : never
+  : [Scopes] extends [ExplicitScopes]
   ? KeyType // No change. Entity ID always required.
   : KeyType extends KeyType
-  ? [unknown] extends [ExplicitScopes]
-    ? RestrictVariableScopes<Omit<KeyType, "entityId">, { entityId?: string }> // Entity ID is optional for all scopes (accepts any kind of key).
-    : [ExplicitScopes] extends [never]
+  ? [ExplicitScopes] extends [never]
     ? RestrictVariableScopes<
         Omit<KeyType, "entityId"> & { entityId?: undefined },
         Scopes
@@ -206,18 +145,6 @@ export type ScopedKey<
             Omit<KeyType, "entityId"> & ({ entityId: undefined } | {}),
             Exclude<Scopes, ExplicitScopes>
           >
-  : never;
-
-/**
- * Remove source and scope from a type the extends VariableKey.
- * This is used for core variable storages that are already mapped to a source and scope.
- */
-export type RemoveVariableContext<
-  KeyType,
-  AddFields = {}
-> = KeyType extends infer KeyType
-  ? Omit<KeyType, "source" | "scope"> &
-      (KeyType extends VariableKey ? AddFields : {})
   : never;
 
 /** Returns a description of a key that can be used for logging and error messages.  */

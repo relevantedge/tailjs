@@ -73,7 +73,6 @@ export function bootstrap({
   cookies,
   extensions,
   json,
-  allowUnknownEventTypes,
   encryptionKeys,
   debugScript,
   environmentTags,
@@ -84,7 +83,6 @@ export function bootstrap({
     schemas,
     endpoint,
     cookies,
-    allowUnknownEventTypes,
     extensions:
       map(extensions, (extension) =>
         typeof extension === "function"

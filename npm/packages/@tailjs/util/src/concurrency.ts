@@ -1,6 +1,6 @@
 import {
   If,
-  MaybePromise,
+  MaybePromiseLike,
   MaybeUndefined,
   Nullish,
   TogglePromise,
@@ -125,7 +125,7 @@ export interface Lock {
    * If a owner ID is specified the lock will be reentrant for that ID.
    */
   <T, Ms extends number | undefined = undefined>(
-    action: () => MaybePromise<T>,
+    action: () => MaybePromiseLike<T>,
     timeout?: Ms,
     ownerId?: string
   ): Promise<T | If<Ms, undefined>>;

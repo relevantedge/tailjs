@@ -1,12 +1,11 @@
-import { MergeKeysUndefined, Pretty } from "@tailjs/util";
-import { VariableScope } from ".";
-import { DataClassification, DataPurposes } from "..";
+import { StrictUnion } from "@tailjs/util";
+import { DataClassification, DataPurposes } from "../..";
 
-export type KeyFilter<T = string> = MergeKeysUndefined<
+export type KeyFilter<T = string> = StrictUnion<
   Iterable<T> | { not: Iterable<T> }
 >;
 
-export type RangeFilter<T> = MergeKeysUndefined<
+export type RangeFilter<T> = StrictUnion<
   { eq: T } | (({ gt?: T } | { gte: T }) & ({ lt?: T } | { lte: T }))
 >;
 
@@ -39,9 +38,9 @@ export const filterKeys = <T, Values extends Iterable<T>>(
 };
 
 export const filterRangeValue = <T>(
-  value: T | undefined,
+  value: T,
   filter: RangeFilter<T> | undefined,
-  rank: (value: Exclude<T, undefined>) => number
+  rank: (value: NonNullable<T>) => number
 ) => {
   if (value == null || filter == null) {
     return true;
