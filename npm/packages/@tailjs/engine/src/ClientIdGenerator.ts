@@ -14,10 +14,12 @@ export interface ClientIdGenerator {
    *
    * @param environment The tracker environment where the request happened.
    * @param request The client request information to use as the basis for the identifier.
+   * @param stationary Whether to exclude information that may change during a session such as IP address.
    */
   generateClientId(
     environment: TrackerEnvironment,
-    request: ClientRequestHeaders
+    request: ClientRequestHeaders,
+    stationary: boolean
   ): Promise<string>;
 }
 
@@ -44,10 +46,11 @@ export class DefaultClientIdGenerator implements ClientIdGenerator {
 
   public async generateClientId(
     environment: TrackerEnvironment,
-    request: ClientRequestHeaders
+    request: ClientRequestHeaders,
+    stationary: boolean
   ): Promise<string> {
     return [
-      request.clientIp,
+      stationary ? "" : request.clientIp,
       ...this._headers.map((header) => request.headers[header] + ""),
     ].join("&");
   }

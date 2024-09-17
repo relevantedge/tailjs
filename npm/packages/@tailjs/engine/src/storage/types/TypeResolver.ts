@@ -1,9 +1,10 @@
 import {
   CORE_EVENT_DISCRIMINATOR,
-  CORE_EVENT_TYPE,
   CORE_SCHEMA_NS,
   SCHEMA_DATA_USAGE_ANONYMOUS,
   SCHEMA_DATA_USAGE_MAX,
+  SchemaPrimitiveType,
+  SchemaSystemTypeDefinition,
   SchemaTypeDefinition,
   validateConsent,
   type SchemaDataUsage,
@@ -14,7 +15,7 @@ import {
   type SchemaTypeReference,
   type VariableScope,
 } from "@tailjs/types";
-import { forEach, get } from "@tailjs/util";
+import { forEach, get, isArray } from "@tailjs/util";
 
 export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
   validate: (value, _current, _context, _errors) => value,
@@ -23,12 +24,11 @@ export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
 
 import {
   ParsedSchemaObjectType,
+  ParsedSchemaPrimitiveType,
   ParsedSchemaPropertyDefinition,
   ParsedSchemaPropertyType,
   ParsedSchemaUnionType,
-  ParsedSchemaValueType,
   SCHEMA_TYPE_PROPERTY,
-  SchemaTypeInfo,
   TypedSchemaData,
 } from "../..";
 
@@ -38,10 +38,10 @@ import {
   getPrimitiveTypeValidator,
   mergeUsage,
   pushInnerErrors,
+  throwValidationErrors,
   ValidatableSchemaEntity,
   VALIDATION_ERROR,
 } from "./validation";
-import { version } from "os";
 
 export type SchemaDefinitionSource = {
   definition: SchemaDefinition;
@@ -71,215 +71,264 @@ export class TypeResolver {
 
   private _parsePropertyType(
     property: ParsedSchemaPropertyDefinition,
-    type: SchemaPropertyType,
-    required: boolean,
+    type: SchemaPropertyType & { required?: boolean },
     parseContext: TypeParseContext
   ): ParsedSchemaPropertyType {
-    const prefix = property.name;
+    const propertyType = ((): ParsedSchemaPropertyType => {
+      if ("primitive" in type || "enum" in type) {
+        const { validator: inner, enumValues } =
+          getPrimitiveTypeValidator(type);
+        return {
+          source: type,
+          enumValues,
+          validate: (value, _current, _context, errors) => inner(value, errors),
+          censor: (value) => value,
+        };
+      }
+      if ("item" in type) {
+        const required = !!type.required;
 
-    if ("primitive" in type) {
-      const { validator: inner, enumValues } = getPrimitiveTypeValidator(type);
-      return {
-        source: type,
-        enumValues,
-        validate: (value, _current, _context, errors) => inner(value, errors),
-        censor: (value) => value,
-      };
-    }
-    if ("item" in type) {
-      const required = !!type.required;
-
-      const itemType = this._parsePropertyType(
-        property,
-        type.item,
-        required,
-        parseContext
-      );
-      return {
-        source: type,
-        item: itemType,
-        validate: (value, current, context, errors) => {
-          if (!Array.isArray(value)) {
-            errors.push({
-              path: prefix,
-              source: value,
-              message: "The value is not an array.",
-            });
-            return VALIDATION_ERROR;
-          }
-          let hasErrors = false;
-          let index = 0;
-          const validated: any[] = [];
-          for (let item of value) {
-            if (
-              (item = pushInnerErrors(
+        const itemType = this._parsePropertyType(
+          property,
+          type.item,
+          parseContext
+        );
+        return {
+          source: type,
+          item: itemType,
+          validate: (value, current, context, errors) => {
+            if (!Array.isArray(value)) {
+              errors.push({
+                path: "",
+                source: value,
+                message: `${JSON.stringify(value)} is not an array.`,
+              });
+              return VALIDATION_ERROR;
+            }
+            let initialErrors = errors.length;
+            let index = 0;
+            let validated: any[] = value;
+            for (let item of value) {
+              let validatedItem = pushInnerErrors(
                 "[" + index + "]",
                 item,
-                current === undefined ? undefined : current[index] ?? null,
+                current === undefined ? undefined : current?.[index] ?? null,
                 context,
                 errors,
                 itemType
-              )) === VALIDATION_ERROR
-            ) {
-              hasErrors = true;
-            }
-            validated.push(item);
-          }
-
-          return hasErrors ? VALIDATION_ERROR : (validated as any);
-        },
-        censor: (value: any, context) => {
-          const censored: any[] = [];
-          for (let item of value) {
-            if ((item = itemType.censor(item, context)) === undefined) {
-              if (required) {
-                return undefined;
+              );
+              if (validatedItem !== item) {
+                if (validated === value) {
+                  validated = [...value];
+                }
+                validated[index] =
+                  validatedItem === VALIDATION_ERROR
+                    ? undefined
+                    : validatedItem;
               }
-            }
-            censored.push(item);
-          }
-          return censored as any;
-        },
-      };
-    }
-    if ("key" in type) {
-      const keyType = this._parsePropertyType(
-        property,
-        type.key,
-        true,
-        parseContext
-      ) as ParsedSchemaValueType;
-      const valueType = this._parsePropertyType(
-        property,
-        type.value,
-        !!type.required,
-        parseContext
-      );
-      return {
-        source: type,
-        key: keyType,
-        value: valueType,
-        validate: (value, current, context, errors) => {
-          if (typeof value !== "object") {
-            errors.push({
-              path: "",
-              source: value,
-              message: "The value is not a record (JSON object).",
-            });
-            return VALIDATION_ERROR;
-          }
-          const validated: Record<keyof any, any> = {};
-          let hasErrors = false;
-          for (let key in value) {
-            if (
-              (key = pushInnerErrors(
-                "[key]",
-                key,
-                undefined,
-                context,
-                errors,
-                keyType
-              )) === VALIDATION_ERROR
-            ) {
-              hasErrors = true;
-              continue;
+
+              ++index;
             }
 
-            if (
-              (validated[key] = pushInnerErrors(
+            return errors.length > initialErrors
+              ? VALIDATION_ERROR
+              : (validated as any);
+          },
+
+          censor: (value: any, context) => {
+            let censored: any[] = value;
+            let censoredItem: any;
+            let index = 0;
+            for (let item of value) {
+              const censoredItem = itemType.censor(item, context);
+              if (censoredItem !== item) {
+                if (censoredItem == null && type.item.required) {
+                  return undefined;
+                }
+
+                if (censored === value) {
+                  censored = [...censored];
+                }
+                censored[index] = censored;
+              }
+
+              ++index;
+            }
+            return censored as any;
+          },
+        };
+      }
+      if ("key" in type) {
+        const keyType = this._parsePropertyType(
+          property,
+          { ...type.key, required: true },
+          parseContext
+        ) as ParsedSchemaPrimitiveType;
+        const valueType = this._parsePropertyType(
+          property,
+          type.value,
+          parseContext
+        );
+        return {
+          source: type,
+          key: keyType,
+          value: valueType,
+          validate: (value, current, context, errors) => {
+            if (typeof value !== "object" || isArray(value)) {
+              errors.push({
+                path: "",
+                source: value,
+                message: `${JSON.stringify(
+                  value
+                )} is not a record (JSON object).`,
+              });
+              return VALIDATION_ERROR;
+            }
+            let validated: Record<keyof any, any> = value as any;
+            const initialErrors = errors.length;
+            for (let key in value) {
+              if (
+                pushInnerErrors(
+                  "[key]",
+                  key,
+                  undefined,
+                  context,
+                  errors,
+                  keyType
+                ) === VALIDATION_ERROR
+              ) {
+                continue;
+              }
+
+              const property = value[key];
+              const validatedProperty = pushInnerErrors(
                 key,
                 value[key],
-                current === undefined ? undefined : current[key] ?? null,
+                current === undefined ? undefined : current?.[key] ?? null,
                 context,
                 errors,
                 valueType
-              ))
-            ) {
-              hasErrors = true;
+              );
+              if (validatedProperty !== property) {
+                if (validated === value) {
+                  validated = { ...value };
+                }
+                validated[key] =
+                  validatedProperty === VALIDATION_ERROR
+                    ? undefined
+                    : validatedProperty;
+              }
             }
-          }
-          return hasErrors ? VALIDATION_ERROR : validated;
-        },
-        censor: (value, context) => {
-          const censored: Record<any, any> = {};
-          for (const key in value) {
-            const propertyValue = valueType.censor(value[key], context);
-            if (propertyValue !== undefined) {
-              censored[key] = propertyValue;
-            } else if (required) {
-              return undefined;
+            return errors.length > initialErrors ? VALIDATION_ERROR : validated;
+          },
+          censor: (value, context) => {
+            let censored: Record<any, any> = {};
+            for (const key in value) {
+              const propertyValue = value[key];
+              const censoredPropertyValue = valueType.censor(
+                propertyValue,
+                context
+              );
+              if (censoredPropertyValue !== propertyValue) {
+                if (type.value.required && censoredPropertyValue == null) {
+                  return undefined;
+                }
+
+                if (censored === value) {
+                  censored = { ...value } as any;
+                }
+
+                censored[key] = censoredPropertyValue;
+              }
             }
+            return censored;
+          },
+        };
+      }
+
+      let union: ParsedSchemaUnionType;
+      if ("properties" in type || "type" in type) {
+        const parsed = this._parseType(type, parseContext, property);
+        if (parsed.extendedBy.length > 1) {
+          union = {
+            union: [parsed],
+            source: type,
+            ...DEFAULT_CENSOR_VALIDATE,
+          };
+        } else {
+          return parsed;
+        }
+      }
+      if (!("union" in type)) {
+        throw new TypeError(
+          "Unsupported property type: " + JSON.stringify(type)
+        );
+      }
+
+      union = {
+        union: type.union.map((type) => {
+          const parsed = this._parsePropertyType(property, type, parseContext);
+          if (!("properties" in parsed)) {
+            throw new TypeError("Only object types can be part of a union");
           }
-          return censored;
-        },
+          return parsed;
+        }),
+        source: type,
+        ...DEFAULT_CENSOR_VALIDATE,
+      };
+
+      const { selector } = createTypeSelector(union.union);
+      union.censor = (target, context) =>
+        selector(target, [])?.censor(target, context);
+      union.validate = (target, current, context, errors) => {
+        const type = selector(target, errors);
+        let validated: typeof target & TypedSchemaData;
+        if (
+          !type ||
+          (validated = type.validate(
+            target,
+            current,
+            context,
+            errors
+          ) as any) === VALIDATION_ERROR
+        ) {
+          return VALIDATION_ERROR;
+        }
+
+        const currentTypeInfo = validated[SCHEMA_TYPE_PROPERTY];
+        if (
+          currentTypeInfo?.type !== type.id ||
+          currentTypeInfo?.version !== type.version
+        ) {
+          if (validated === target) {
+            validated = { ...validated };
+          }
+          validated[SCHEMA_TYPE_PROPERTY] = {
+            type: type.id,
+            version: type.version,
+          };
+        }
+        return validated;
+      };
+
+      return union;
+    })();
+
+    if (type.required) {
+      const inner = propertyType.validate.bind(propertyType);
+      propertyType.validate = (value, current, context, errors) => {
+        if (value == null) {
+          errors.push({
+            path: "",
+            message: "A value is required",
+            source: value,
+          });
+          return VALIDATION_ERROR;
+        }
+        return inner(value, current, context, errors);
       };
     }
-
-    let union: ParsedSchemaUnionType;
-    if ("properties" in type) {
-      const parsed = this._parseType(type, parseContext, property);
-      if (parsed.extendedBy.length) {
-        union = {
-          union: [parsed],
-          source: type,
-          ...DEFAULT_CENSOR_VALIDATE,
-        };
-      } else {
-        return parsed;
-      }
-    }
-    if (!("union" in type)) {
-      throw new TypeError("Unsupported property type: " + JSON.stringify(type));
-    }
-
-    union = {
-      union: type.union.map((type) => {
-        const parsed = this._parsePropertyType(
-          property,
-          type,
-          false,
-          parseContext
-        );
-        if (!("properties" in parsed)) {
-          throw new TypeError("Only object types can be part of a union");
-        }
-        return parsed;
-      }),
-      source: type,
-      ...DEFAULT_CENSOR_VALIDATE,
-    };
-
-    const { selector } = createTypeSelector(union.union);
-    union.censor = (target, context) =>
-      selector(target, [])?.censor(target, context);
-    union.validate = (target, current, context, errors) => {
-      const type = selector(target, errors);
-      let validated: typeof target & TypedSchemaData;
-      if (
-        !type ||
-        (validated = type.validate(target, current, context, errors) as any) ===
-          VALIDATION_ERROR
-      ) {
-        return VALIDATION_ERROR;
-      }
-
-      const currentTypeInfo = validated[SCHEMA_TYPE_PROPERTY];
-      if (
-        currentTypeInfo?.type !== type.id ||
-        currentTypeInfo?.version !== type.version
-      ) {
-        if (validated === target) {
-          validated = { ...validated };
-        }
-        validated[SCHEMA_TYPE_PROPERTY] = {
-          type: type.id,
-          version: type.version,
-        };
-      }
-      return validated;
-    };
-
-    return union;
+    return propertyType;
   }
 
   /**
@@ -288,7 +337,7 @@ export class TypeResolver {
    * when all types have been parsed.
    */
   private _parseType(
-    source: SchemaObjectType | SchemaTypeReference | SchemaObjectType,
+    source: SchemaObjectType | SchemaTypeReference | SchemaTypeDefinition,
     context: TypeParseContext,
     referencingProperty: ParsedSchemaPropertyDefinition | null
   ): ParsedSchemaObjectType {
@@ -305,13 +354,17 @@ export class TypeResolver {
       referencingProperty && parsed.referencedBy.push(referencingProperty);
       return parsed;
     }
+
     let name = (source as SchemaTypeDefinition).name;
+    let embedded = false;
+
     if (!name) {
       if (!referencingProperty) {
         throw new TypeError(
           "A type must have a name or be embedded in a property."
         );
       }
+      embedded = true;
       const namePath: string[] = [];
       while (referencingProperty) {
         namePath.unshift(referencingProperty.name, "type");
@@ -334,13 +387,18 @@ export class TypeResolver {
       name = namePath.join("_");
     }
     id = getTypeId(context.namespace, name);
+    if (this._types.has(id)) {
+      throw new Error(
+        `The namespace '${context.namespace}' already contains a type with the name '${name}'.`
+      );
+    }
 
     const parsed: ParsedSchemaObjectType = {
       id,
       name,
       namespace: context.namespace,
       usage: SCHEMA_DATA_USAGE_MAX,
-      usageOverrides: undefined,
+      usageOverrides: (source as SchemaTypeDefinition).usage ?? {},
       embedded: !("name" in source),
       abstract: !!(source as SchemaTypeDefinition).abstract,
       extends: [],
@@ -355,40 +413,52 @@ export class TypeResolver {
 
     this._types.set(id, parsed);
 
-    if (id === CORE_EVENT_TYPE) {
+    if ((source as SchemaSystemTypeDefinition).system === "event") {
       if (this._eventBaseType) {
         throw new Error(
-          `The base type for tracked events ("${CORE_EVENT_TYPE}") can only be defined once.`
+          `'${id}' tries to define itself as the base type for tracked events, yet '${this._eventBaseType.id}' has already done that.`
+        );
+      }
+      if (
+        (source.properties?.[CORE_EVENT_DISCRIMINATOR] as SchemaPrimitiveType)
+          ?.primitive !== "string" ||
+        source.properties?.[CORE_EVENT_DISCRIMINATOR].required !== true
+      ) {
+        throw new Error(
+          `'${id}' tries to define itself as the base type for tracked events, but is missing the required string property '${CORE_EVENT_DISCRIMINATOR}'.`
         );
       }
       this._eventBaseType = parsed;
     }
 
-    let usageOverrides = (source as SchemaTypeDefinition).usage ?? {};
     if (referencingProperty != null) {
-      usageOverrides = mergeUsage(
-        referencingProperty.usageOverrides,
-        usageOverrides
+      parsed.usageOverrides = mergeUsage(
+        parsed.usageOverrides,
+        referencingProperty.usageOverrides
       );
       parsed.referencedBy.push(referencingProperty);
+    }
+
+    if (embedded) {
+      this._parseTypeProperties(parsed, context);
     }
 
     return parsed;
   }
 
   private _parseTypeProperties(
-    parsed: ParsedSchemaObjectType,
+    parsedType: ParsedSchemaObjectType,
     context: TypeParseContext
   ): ParsedSchemaObjectType {
-    if (parsed.properties != null) {
-      return parsed;
+    if (parsedType.properties != null) {
+      return parsedType;
     }
 
-    parsed.properties = {};
+    parsedType.properties = {};
 
-    const source = parsed.source;
-    let usageOverrides = parsed.usageOverrides;
-    parsed.extends =
+    const source = parsedType.source;
+    let usageOverrides = parsedType.usageOverrides;
+    parsedType.extends =
       source.extends?.map((baseType) =>
         this._parseTypeProperties(
           this._parseType(baseType, context, null),
@@ -397,87 +467,104 @@ export class TypeResolver {
       ) ?? [];
 
     if (
-      parsed.source["event"] ||
-      parsed === this._eventBaseType ||
-      parsed.extends.some((baseType) => baseType === this._eventBaseType)
+      parsedType.source["event"] ||
+      parsedType === this._eventBaseType ||
+      parsedType.extends.some((baseType) => baseType === this._eventBaseType)
     ) {
-      parsed.eventNames = [];
+      parsedType.eventNames = [];
     }
 
     if (
-      parsed.eventNames &&
-      parsed !== this._eventBaseType &&
-      !parsed.extends.some((baseType) => baseType.eventNames)
+      parsedType.eventNames &&
+      parsedType !== this._eventBaseType &&
+      !parsedType.extends.some((baseType) => baseType.eventNames)
     ) {
       // The first type in the inheritance chain that is an event.
       // Make the type extend the event base type (if we have any).
       if (!this._eventBaseType) {
         throw new Error(
-          `The type "${parsed.id}" is marked as an event, but the base type ("${CORE_EVENT_TYPE}") is not defined in any schema.`
+          `The type "${parsedType.id}" is marked as an event, but the system event base type is not defined in any schema.`
         );
       }
-      parsed.extends.unshift(this._eventBaseType);
+      parsedType.extends.unshift(this._eventBaseType);
     }
 
-    for (const parsedBaseType of parsed.extends) {
+    for (const parsedBaseType of parsedType.extends) {
       if ("usage" in parsedBaseType.source) {
         usageOverrides = mergeUsage(
           usageOverrides,
           parsedBaseType.source.usage
         );
       }
-      parsedBaseType.extendedBy.push(parsed);
+      parsedBaseType.extendedBy.push(parsedType);
     }
 
     // Don't apply context usage before we have merged the extended types' usage.
-    parsed.usageOverrides = mergeUsage(context.usageOverrides, usageOverrides);
+    parsedType.usageOverrides = mergeUsage(
+      context.usageOverrides,
+      usageOverrides
+    );
 
-    for (const baseType of parsed.extends) {
+    for (const baseType of parsedType.extends) {
       for (const key in baseType.properties) {
-        parsed.allProperties[key] ??= baseType.properties[key];
+        parsedType.allProperties[key] ??= baseType.properties[key];
       }
     }
 
     for (const key in source.properties) {
-      const property = this._parseProperty(parsed, source.properties[key], {
+      const baseProperty = parsedType.allProperties[key];
+      const sourceProperty = source.properties[key];
+      if (baseProperty?.required) {
+        if (sourceProperty.required === false) {
+          throw new Error(
+            "A property cannot explicitly be defined as optional if its base property is required."
+          );
+        }
+        sourceProperty.required = true;
+      }
+
+      const property = this._parseProperty(parsedType, key, sourceProperty, {
         ...context,
         usageOverrides:
           // Overridden properties inherits the (final) usage from the overridden property.
-          parsed.allProperties[key]?.usage ?? parsed.usageOverrides,
+          baseProperty?.usage ?? parsedType.usageOverrides,
       });
-      parsed.allProperties[key] = parsed.properties[key] = property;
+
+      parsedType.allProperties[key] = parsedType.properties[key] = property;
     }
 
-    const props = parsed.allProperties;
-    if (parsed.eventNames) {
+    const props = parsedType.allProperties;
+    if (parsedType.eventNames) {
       const discriminator = props[CORE_EVENT_DISCRIMINATOR];
       if (!discriminator) {
         throw new Error(
-          `The type "${parsed.id}" is marked as an event but missing the "${CORE_EVENT_DISCRIMINATOR}" property.`
+          `The type "${parsedType.id}" is marked as an event but missing the "${CORE_EVENT_DISCRIMINATOR}" property.`
         );
       }
 
-      if (
-        "enumValues" in discriminator.type &&
-        discriminator.type.enumValues &&
-        !context.referencesOnly
-      ) {
-        if (!discriminator.type.enumValues?.length) {
-          throw new Error(
-            `The event type "${parsed.id}" does not have any discriminator values.`
+      if ("enumValues" in discriminator.type && discriminator.type.enumValues) {
+        if (!context.referencesOnly) {
+          if (!discriminator.type.enumValues?.length) {
+            throw new Error(
+              `The event type "${parsedType.id}" does not have any discriminator values.`
+            );
+          }
+
+          (parsedType.eventNames = discriminator.type.enumValues).forEach(
+            (discriminator) => {
+              const current = this._events.get(discriminator);
+              if (current) {
+                throw new Error(
+                  `The event type "${parsedType.id}" cannot use the discriminator "${discriminator}" since that is already used by "${current.id}"`
+                );
+              }
+              this._events.set(discriminator, parsedType);
+            }
           );
         }
-
-        (parsed.eventNames = discriminator.type.enumValues).forEach(
-          (discriminator) => {
-            const current = this._events.get(discriminator);
-            if (current) {
-              throw new Error(
-                `The event type "${parsed.id}" cannot use the discriminator "${discriminator}" since that is already used by "${current.id}"`
-              );
-            }
-            this._events.set(discriminator, parsed);
-          }
+      } else if (!parsedType.abstract) {
+        throw new Error(
+          `A non-abstract event type must have specific type name(s) defined as enum values for its '${CORE_EVENT_DISCRIMINATOR}' property.`
         );
       }
     }
@@ -485,12 +572,12 @@ export class TypeResolver {
 
     for (const key in props) {
       const prop = props[key];
-      parsed.usage = getMinimumUsage(parsed.usage, prop.usage);
+      parsedType.usage = getMinimumUsage(parsedType.usage, prop.usage);
 
       prop.required && requiredProperties.push(prop);
     }
 
-    parsed.censor = (target, context) => {
+    parsedType.censor = (target, context) => {
       let censored = target;
 
       for (const key in target) {
@@ -508,57 +595,70 @@ export class TypeResolver {
             // the entire object becomes censored (since it would be invalid if missing a required property).
             return undefined;
           }
-          if (targetValue !== censoredValue) {
-            if (target === censored) {
-              // Make a shallow clone if we are changing values.
-              censored = { ...target };
-            }
-            target[key] = censoredValue;
+          if (target === censored) {
+            // Make a shallow clone if we are changing values.
+            censored = { ...target };
           }
+          censored[key] = censoredValue;
         }
       }
       return censored;
     };
 
-    parsed.validate = (target, current, context, errors) => {
+    parsedType.validate = (target, current, context, errors) => {
       // Here we could leverage the type's `usage` that is the minimum usage defined
       // by any property. Let's do that when we have tested the rest of this code...
       const currentErrors = errors.length;
       let validated = target;
+      const validateProperty = (prop: ParsedSchemaPropertyDefinition) => {
+        const targetValue = target[prop.name];
+        const validatedValue = prop.validate(
+          targetValue,
+          current === undefined ? undefined : current?.[prop.name] ?? null,
+          context,
+          errors
+        );
+
+        if (validatedValue !== targetValue) {
+          if (target === validated) {
+            // Make a shallow clone if we are changing values.
+            validated = { ...target };
+          }
+
+          validated[prop.name] =
+            validatedValue === VALIDATION_ERROR
+              ? (undefined as any)
+              : validatedValue;
+        }
+      };
+
+      for (const required of requiredProperties) {
+        validateProperty(required);
+      }
       for (const key in target) {
         const prop = props[key];
         if (!prop) {
           errors.push({
             path: key,
             source: target,
-            message: "The property is not defined in the schema.",
+            message: `The property is not defined for the type '${parsedType.id}'.`,
           });
           continue;
-        }
-        const targetValue = target[key];
-        const validatedValue = prop.validate(
-          targetValue,
-          current === undefined ? undefined : current?.[key] ?? null,
-          context,
-          errors
-        );
-        if (targetValue !== validatedValue) {
-          if (target === validated) {
-            // Make a shallow clone if we are changing values.
-            validated = { ...target };
-          }
-          validated[key] = targetValue;
+        } else if (!prop.required) {
+          // Required properties have already been validated.
+          validateProperty(prop);
         }
       }
 
       return currentErrors < errors.length ? VALIDATION_ERROR : validated;
     };
 
-    return parsed;
+    return parsedType;
   }
 
   private _parseProperty(
     declaringType: ParsedSchemaObjectType,
+    name: string,
     property: SchemaPropertyDefinition,
     context: TypeParseContext
   ): ParsedSchemaPropertyDefinition {
@@ -567,22 +667,21 @@ export class TypeResolver {
     const parsed: ParsedSchemaPropertyDefinition = {
       namespace: context.namespace,
       declaringType,
-      id: declaringType.id + "_" + property.name,
-      name: property.name,
+      id: declaringType.id + "." + name,
+      name,
       usage: mergeUsage(context.defaultUsage, usageOverrides),
       usageOverrides,
       type: null as any,
-
+      required: !!property.required,
       source: property,
       ...DEFAULT_CENSOR_VALIDATE,
     };
-    parsed.type = this._parsePropertyType(
-      parsed,
-      property.type,
-      !!property.required,
-      { ...context, usageOverrides }
-    );
-    const { type, name, usage } = parsed;
+    parsed.type = this._parsePropertyType(parsed, property, {
+      ...context,
+      usageOverrides,
+    });
+
+    const { type, usage } = parsed;
 
     const { readonly, visibility } = usage;
 
@@ -602,7 +701,7 @@ export class TypeResolver {
           security: true,
         });
       }
-      if (visibility !== "public") {
+      if (visibility !== "public" && value !== current) {
         errors.push({
           path: name,
           source: value,
@@ -612,6 +711,19 @@ export class TypeResolver {
       }
       return pushInnerErrors(name, value, current, context, errors, type);
     };
+
+    if (property.default != null) {
+      property.default = throwValidationErrors(
+        (errors) =>
+          parsed.type.validate(
+            property.default,
+            undefined,
+            { trusted: true },
+            errors
+          ),
+        `The default value does not match the property type for ${parsed.id}`
+      );
+    }
 
     return parsed;
   }
@@ -629,27 +741,49 @@ export class TypeResolver {
       type: ParsedSchemaObjectType | SchemaTypeReference
     ][] = [];
     for (const { definition: schema, referencesOnly } of schemas) {
-      // Parse types only (no extensions, no properties).
-      schema.namespace ??=
-        "urn:" + schema.name.toLowerCase().replace(/[^_:.a-zA-Z0-9]/g, "_");
+      // Validate schema namespaces and
+      // populate the type dictionary with initial type stubs without properties and base types.
+
+      throwValidationErrors((errors) =>
+        getPrimitiveTypeValidator({
+          primitive: "string",
+          format: "uri",
+        }).validator(schema.namespace, errors)
+      );
+
+      schema.name ??= schema.namespace;
+
       const schemaParseContext: TypeParseContext = {
         namespace: schema.namespace!,
         defaultUsage: mergeUsage(defaultUsage, schema.usage),
         usageOverrides: schema.usage,
         referencesOnly: !!referencesOnly,
       };
-      schema.types?.forEach((type) =>
+
+      // Start by populating the types dictionary with type stubs without properties and base types.
+      forEach(schema.types, ([name, type]: [string, SchemaTypeDefinition]) => {
+        type.name ??= name;
         typeStubs.push([
           schemaParseContext,
           ,
           this._parseType(type, schemaParseContext, null),
-        ])
-      );
+        ]);
+      });
+    }
+
+    for (const { definition: schema, referencesOnly } of schemas) {
+      const schemaParseContext: TypeParseContext = {
+        namespace: schema.namespace!,
+        defaultUsage: mergeUsage(defaultUsage, schema.usage),
+        usageOverrides: schema.usage,
+        referencesOnly: !!referencesOnly,
+      };
+
+      // Find variables.
       forEach(schema.variables, ([scope, keys]) => {
         forEach(keys, ([key, type]) => {
           if (!("type" in type)) {
-            // Not a reference, yet cannot be embedded here,
-            // so we give it a name.
+            // Not a reference, upgrade the anonymous object types to a type definition by giving it a name.
 
             (type as SchemaTypeDefinition).name = scope + "_" + key;
             typeStubs.push([
@@ -683,13 +817,14 @@ export class TypeResolver {
             `The type "${type.id}" cannot be registered for the variable key "${variable[1]}" in ${variable[0]} scope, since it is already used by "${current.id}".`
           );
         }
+        variableKeys.set(variable[1], type);
       }
     }
   }
 
-  getEvent<Required extends boolean = true>(
+  getEventType<Required extends boolean = true>(
     eventType: string,
-    required: Required = false as any
+    required: Required = true as any
   ): ParsedSchemaObjectType | (Required extends true ? never : undefined) {
     let type = this._events.get(eventType) ?? this._types.get(eventType);
     if (required && !type) {
@@ -707,7 +842,7 @@ export class TypeResolver {
 
   getType<Required extends boolean = true>(
     typeName: string,
-    required: Required = false as any,
+    required: Required = true as any,
     defaultNamespace?: string
   ): ParsedSchemaObjectType | (Required extends true ? never : undefined) {
     const typeId = typeName.includes("#")
@@ -733,7 +868,7 @@ export class TypeResolver {
   getVariable<Required extends boolean = true>(
     scope: string,
     key: string,
-    required?: Required
+    required: Required = true as any
   ): ParsedSchemaObjectType | (Required extends true ? never : undefined) {
     const uniqueKey = scope + "-" + key;
     const variable = this._variables.get(uniqueKey);

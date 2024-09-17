@@ -3,7 +3,6 @@ import {
   filterKeys,
   ReadOnlyVariableGetter,
   Variable,
-  VariableErrorResult,
   VariableGetResult,
   VariableKey,
   VariableQuery,
@@ -20,7 +19,6 @@ import {
   TrackerEnvironment,
   VariableStorage,
   VariableStorageMappings,
-  VariableStorageQuery,
 } from "..";
 
 export type WithTrace<T, Trace = undefined> = T & {
@@ -214,7 +212,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
     );
   }
 
-  public splitSourceQueries<T extends VariableStorageQuery>(
+  public splitSourceQueries<T extends VariableQuery>(
     queries: T[]
   ): (VariableQuery & SplitFields)[] {
     const split: (T & SplitFields)[] = [];
@@ -235,7 +233,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
     }
     return split;
   }
-  async purge(queries: VariableStorageQuery[]): Promise<void> {
+  async purge(queries: VariableQuery[]): Promise<void> {
     await this._splitApply(
       this.splitSourceQueries(queries),
       async (_source, storage, queries) => {
@@ -243,7 +241,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
       }
     );
   }
-  async query(queries: VariableStorageQuery[]): Promise<Variable[]> {
+  async query(queries: VariableQuery[]): Promise<Variable[]> {
     return (
       await this._splitApply(
         this.splitSourceQueries(queries),

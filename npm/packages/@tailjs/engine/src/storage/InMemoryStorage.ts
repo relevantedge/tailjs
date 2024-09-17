@@ -5,13 +5,12 @@ import {
   VariableGetResult,
   VariableGetter,
   VariableKey,
-  VariableQuery,
-  VariableSetResult,
   VariableResultStatus,
+  VariableSetResult,
   VariableValueSetter,
 } from "@tailjs/types";
 import { jsonClone } from "@tailjs/util";
-import { VariableStorage } from "..";
+import { VariableStorage, VariableStorageQuery } from "..";
 
 type InMemoryVariable = Variable & { accessed: number };
 
@@ -19,10 +18,12 @@ export class InMemoryStorage implements VariableStorage, Disposable {
   private _nextVersion: number = 1;
   private _disposed = false;
 
-  private readonly _entities: Map<
-    string,
-    [lastAccessed: number, variables: Map<string, InMemoryVariable>]
-  > = new Map();
+  private readonly _entities: {
+    [Scope in string]: Map<
+      string,
+      [lastAccessed: number, variables: Map<string, InMemoryVariable>]
+    >;
+  } = {};
   private readonly _ttl: number | undefined;
 
   constructor(ttl?: number) {
@@ -38,23 +39,25 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     const now = Date.now();
     const expiredEntities: string[] = [];
 
-    this._entities.forEach(
-      (value, key) => value[0] + this._ttl! < now && expiredEntities.push(key)
-    );
+    for (const key in this._entities) {
+      this._entities[key].forEach(
+        (value, key) => value[0] + this._ttl! < now && expiredEntities.push(key)
+      );
 
-    for (const key of expiredEntities) {
-      this._entities.delete(key);
+      for (const key of expiredEntities) {
+        this._entities[key].delete(key);
+      }
     }
 
     setTimeout(() => this._purgeExpired, 10000);
   }
 
-  private _getVariables(entityId: string, now: number) {
-    let variables = this._entities.get(entityId);
+  private _getVariables(scope: string, entityId: string, now: number) {
+    let variables = this._entities[scope]?.get(entityId);
     if (variables) {
       if (this._ttl && variables[0] + this._ttl < now) {
         // Expired but not yet cleaned by background thread.
-        this._entities.delete(entityId);
+        this._entities[scope].delete(entityId);
         variables = undefined;
       } else {
         variables[0] = Date.now();
@@ -72,7 +75,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
   }
 
   private _getVariable(key: VariableKey, now: number, set?: Map<string, any>) {
-    const variables = this._getVariables(key.entityId!, now);
+    const variables = this._getVariables(key.scope, key.entityId!, now);
     if (!variables) return undefined;
 
     let variable = variables[1].get(key.key);
@@ -152,18 +155,27 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         continue;
       }
 
-      let variables = this._entities.get(key.entityId);
+      let variables = (this._entities[key.scope] ??= new Map()).get(
+        key.entityId
+      );
       if (!variables) {
-        this._entities.set(key.entityId, (variables = [now, new Map()]));
+        this._entities[key.scope].set(
+          key.entityId,
+          (variables = [now, new Map()])
+        );
       }
 
-      if (setter.value == null) {
+      if (setter.value === null) {
         variables[1].delete(setter.key);
         results.push({
           status: VariableResultStatus.Success,
           ...key,
           value: null,
         });
+        if (!variables[1].size) {
+          this._entities[key.scope].delete(key.entityId);
+        }
+
         continue;
       }
 
@@ -193,14 +205,14 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     return Promise.resolve(results);
   }
 
-  private _purgeOrQuery(queries: VariableQuery[], purge = false): any {
+  private _purgeOrQuery(queries: VariableStorageQuery[], purge = false): any {
     this._checkDisposed();
 
     const results: Variable[] | undefined = purge ? undefined : [];
     const now = Date.now();
 
     for (const query of queries) {
-      const variables = this._entities.get(query.entityId!);
+      const variables = this._entities[query.scope]?.get(query.entityId!);
       if (!variables) {
         continue;
       }
@@ -221,17 +233,17 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         }
       }
       if (!variables[1].size) {
-        this._entities.delete(query.entityId!);
+        this._entities[query.scope]?.delete(query.entityId!);
       }
     }
     return Promise.resolve(results);
   }
 
-  purge(queries: VariableQuery[]): Promise<void> {
+  purge(queries: VariableStorageQuery[]): Promise<void> {
     return this._purgeOrQuery(queries, true);
   }
 
-  query(queries: VariableQuery[]): Promise<Variable[]> {
+  query(queries: VariableStorageQuery[]): Promise<Variable[]> {
     return this._purgeOrQuery(queries, false);
   }
 

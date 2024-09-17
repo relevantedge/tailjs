@@ -872,7 +872,7 @@ export const fromEntries: {
     let i = 0;
     let value: any;
     for (const key in source) {
-      (value = map(source[key], i++)) && (result[key] = value);
+      (value = map([key, source[key]], i++)) && (result[key] = value);
     }
   } else {
     for (const entry of source) {

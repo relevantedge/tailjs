@@ -1,5 +1,5 @@
 import { map } from "@tailjs/util";
-import { SchemaValidationError, ValidationError } from "./shared";
+import { ValidationError } from "./shared";
 
 export class PostError extends Error {
   constructor(

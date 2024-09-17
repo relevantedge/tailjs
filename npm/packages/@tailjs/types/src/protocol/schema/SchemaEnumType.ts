@@ -1,9 +1,9 @@
 export type SchemaEnumType =
   | {
-      primitive: "string";
+      primitive?: "string";
       enum: string[];
     }
   | {
-      primitive: "number";
+      primitive?: "number";
       enum: number[];
     };

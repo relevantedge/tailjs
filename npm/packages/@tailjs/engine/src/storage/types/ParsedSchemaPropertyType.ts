@@ -3,11 +3,11 @@ import {
   ParsedSchemaObjectType,
   ParsedSchemaRecordType,
   ParsedSchemaUnionType,
-  ParsedSchemaValueType,
+  ParsedSchemaPrimitiveType,
 } from "../..";
 
 export type ParsedSchemaPropertyType =
-  | ParsedSchemaValueType
+  | ParsedSchemaPrimitiveType
   | ParsedSchemaArrayType
   | ParsedSchemaRecordType
   | ParsedSchemaObjectType

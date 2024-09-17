@@ -39,7 +39,10 @@ export type ScopedVariableSetters<
 > = TupleParameter<ScopedKey<VariableSetter, Scopes, ExplicitScopes>>;
 
 export type VariableStorageQuery = Pretty<
-  Omit<VariableQuery, "classification" | "purposes">
+  Omit<VariableQuery, "classification" | "purposes" | "scopes" | "sources"> & {
+    source?: string;
+    scope: string;
+  }
 >;
 
 export interface ReadOnlyVariableStorage {

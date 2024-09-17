@@ -7,7 +7,6 @@ import {
   SignInEvent,
   SignOutEvent,
   TrackedEvent,
-  VariablePatchSource,
   dataClassification,
   dataPurposes,
   isConsentEvent,

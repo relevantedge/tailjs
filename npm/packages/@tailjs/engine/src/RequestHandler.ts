@@ -12,19 +12,14 @@ import defaultSchema from "@tailjs/types/schema";
 
 import clientScripts from "@tailjs/client/script";
 import {
-  dataClassification,
   DataPurposeName,
   dataPurposes,
-  DataPurposes,
   isPassiveEvent,
   PostRequest,
   PostResponse,
   TrackedEvent,
   UserConsent,
-  VariableScope,
 } from "@tailjs/types";
-
-import { SchemaManager } from "@tailjs/json-schema";
 
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
 import { DefaultCryptoProvider } from "./lib";
@@ -36,11 +31,13 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
+  formatValidationErrors,
   InMemoryStorage,
   isValidationError,
   ParseResult,
   PostError,
   RequestHandlerConfiguration,
+  SchemaValidationError,
   TrackedEventBatch,
   Tracker,
   TrackerEnvironment,
@@ -50,9 +47,9 @@ import {
   TrackerPostOptions,
   TrackerServerConfiguration,
   TypeResolver,
-  SchemaValidationError,
-  VariableStorageCoordinator,
+  VALIDATION_ERROR,
   ValidationError,
+  VariableStorageCoordinator,
 } from "./shared";
 
 import { TrackerClientConfiguration } from "@tailjs/client";
@@ -70,17 +67,14 @@ import {
   DeferredAsync,
   forEach,
   forEachAsync,
-  fromEntries,
   isJsonObject,
   isJsonString,
   isPlainObject,
   isString,
   join,
-  JsonObject,
   map,
   match,
   merge,
-  MINUTE,
   obj,
   parseQueryString,
   parseUri,
@@ -92,12 +86,12 @@ import {
   some,
   unwrap,
 } from "@tailjs/util";
+import { SignInEvent } from "packages/@tailjs/types/dist";
 import { ClientIdGenerator, DefaultClientIdGenerator } from ".";
 import {
   generateClientBootstrapScript,
   generateClientExternalNavigationScript,
 } from "./lib";
-import { SignInEvent } from "packages/@tailjs/types/dist";
 
 const scripts = {
   main: {
@@ -293,7 +287,7 @@ export class RequestHandler {
         };
       }
 
-      (this as any)._schema = SchemaManager.create(schemas as JsonObject[]);
+      (this as any)._schema = 0 as any; //SchemaManager.create(schemas as JsonObject[]);
 
       (this as any).environment = new TrackerEnvironment(
         host,
@@ -369,19 +363,42 @@ export class RequestHandler {
     await this.initialize();
 
     const validateEvents = (events: ParseResult[]): ParseResult[] =>
-      map(events, (ev) =>
-        isValidationError(ev)
-          ? ev
-          : this._schema.getEvent(ev.type).censor(ev, {
-              trusted: tracker.trustedContext,
-              consent: tracker.consent,
-            })
-      );
+      map(events, (ev) => {
+        if (isValidationError(ev)) return ev;
+        const eventType = this._schema.getEventType(ev.type, false);
+        if (!eventType) {
+          return {
+            error: `The event type '${ev.type}' is not defined`,
+            source: ev,
+          };
+        }
+
+        let errors: SchemaValidationError[] = [];
+        if (
+          eventType.validate(
+            ev,
+            undefined,
+            { trusted: tracker.trustedContext },
+            errors
+          ) === VALIDATION_ERROR ||
+          errors.length
+        ) {
+          return {
+            error: `The data is not valid for an '${ev.type}' event ('${
+              eventType.id
+            }'):\n${formatValidationErrors(errors)}`,
+            source: ev,
+          };
+        }
+
+        return this._schema.getEventType(ev.type).censor(ev, {
+          trusted: tracker.trustedContext,
+          consent: tracker.consent,
+        });
+      });
 
     let parsed = validateEvents(eventBatch);
-
     const sourceIndices = new Map<{}, number>();
-
     parsed.forEach((item, i) => {
       sourceIndices.set(item, i);
     });
@@ -503,11 +520,14 @@ export class RequestHandler {
       let clientEncryptionKey: string | undefined;
       if (this._config.clientEncryptionKeySeed) {
         !this._config.json &&
-          (clientEncryptionKey = await this._clientIdGenerator.generateClientId(
-            this.environment,
-            request,
-            true,
-            this._config.clientEncryptionKeySeed
+          (clientEncryptionKey = this.environment.hash(
+            (this._config.clientEncryptionKeySeed || "") +
+              (await this._clientIdGenerator.generateClientId(
+                this.environment,
+                request,
+                true
+              )),
+            64
           ));
       }
 
@@ -527,11 +547,13 @@ export class RequestHandler {
           ])
         ),
         clientIp,
-        clientId: await this._clientIdGenerator.generateClientId(
-          this.environment,
-          request,
-          false,
-          this._config.clientEncryptionKeySeed || ""
+        sessionReferenceId: this.environment.hash(
+          await this._clientIdGenerator.generateClientId(
+            this.environment,
+            request,
+            false
+          ),
+          128
         ),
         trustedContext,
         requestHandler: this,

@@ -6,17 +6,17 @@ import {
   SchemaRecordType,
   SchemaTypeReference,
   SchemaUnionType,
-  SchemaValueType,
+  SchemaPrimitiveType,
 } from "../..";
 
-export interface SchemaPropertyDefinition extends SchemaEntity {
-  name: string;
-  required?: boolean;
-  type: SchemaPropertyType;
-}
+export type SchemaPropertyDefinition = SchemaEntity &
+  SchemaPropertyType & {
+    required?: boolean;
+    default?: any;
+  };
 
 export type SchemaPropertyType =
-  | SchemaValueType
+  | SchemaPrimitiveType
   | SchemaEnumType
   | SchemaArrayType
   | SchemaRecordType

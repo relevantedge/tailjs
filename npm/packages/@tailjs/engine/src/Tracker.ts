@@ -70,7 +70,7 @@ export interface TrackerServerConfiguration {
    * A pseudo-unique identifier based on information from the client's request.
    * If this is not provided cookie-less tracking will be disabled.
    */
-  clientId?: string;
+  sessionReferenceId?: string;
 
   queryString: Record<string, string[]>;
   cookies?: Record<string, Cookie>;
@@ -173,7 +173,6 @@ export class Tracker {
   private _extensionState = ExtensionState.Pending;
   private _initialized: boolean;
   private _requestId: string | undefined;
-  private _clientId: string | undefined;
 
   /** @internal  */
   public readonly _clientEvents: TrackedEvent[] = [];
@@ -224,7 +223,7 @@ export class Tracker {
     cookies,
     requestHandler,
     transport: cipher,
-    clientId,
+    sessionReferenceId,
     defaultConsent,
     trustedContext,
   }: TrackerServerConfiguration) {
@@ -251,7 +250,7 @@ export class Tracker {
 
     // Defaults to unencrypted transport if nothing is specified.
     this._clientCipher = cipher ?? defaultTransport;
-    this._clientId = clientId;
+    this._sessionReferenceId = sessionReferenceId;
   }
 
   public get clientEvents() {
@@ -264,7 +263,7 @@ export class Tracker {
    * It also protects against race conditions. If one concurrent request changes the session (e.g. resets it), the other(s) will see it.
    *
    */
-  public _sessionReferenceId: string;
+  public _sessionReferenceId: string | undefined;
 
   /** @internal */
   public _session: Variable<SessionInfo> | undefined;
@@ -631,7 +630,7 @@ export class Tracker {
               scope: "session",
               key: SCOPE_INFO_KEY,
               entityId: sessionId,
-              patch: async (current: SessionI) =>
+              patch: async (current: SessionInfo) =>
                 ({
                   ...current,
                   deviceId: await getDeviceId(),
@@ -659,7 +658,7 @@ export class Tracker {
         essential: true,
         value: this.httpClientEncrypt({ id: this._sessionReferenceId }),
       };
-    } else if (this._clientId) {
+    } else if (this._sessionReferenceId) {
       if (sessionId && this._sessionReferenceId === sessionId && !passive) {
         // We switched from cookies to cookie-less. Remove deviceId and device info.
         await this.env.storage.set(
@@ -684,7 +683,7 @@ export class Tracker {
         );
         this._device = undefined;
       }
-      this._sessionReferenceId = this._clientId;
+      this._sessionReferenceId = this._sessionReferenceId;
 
       sessionId = await this.env.storage
         .get([
