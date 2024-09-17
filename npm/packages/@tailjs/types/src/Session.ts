@@ -9,6 +9,13 @@ import type { dataClassification, SignOutEvent, Uuid, UserConsent } from ".";
  */
 export interface Session {
   /**
+   * If a non-anonymous session started as an anonymous session, this is the anonymous session ID.
+   * Since an anonymous session is not necessarily unique to a device, processing logic may decide
+   * whether and how to stitch the anonymous and non-anonymous session together.
+   */
+  originalSessionId?: Uuid;
+
+  /**
    * The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards).
    * Sessions are reset when an authenticated user logs out (triggered by the {@link SignOutEvent}).
    *

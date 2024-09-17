@@ -10,7 +10,7 @@ export type SchemaValidationError = {
 export const VALIDATION_ERROR = Symbol();
 
 export const joinPath = (prefix: string, current: string) =>
-  current.length ? prefix + (prefix[0] === "[" ? "" : ".") + current : prefix;
+  current?.length ? prefix + (current[0] === "[" ? "" : ".") + current : prefix;
 
 export const pushInnerErrors = (
   prefix: string,
@@ -23,7 +23,8 @@ export const pushInnerErrors = (
   const innerErrors: SchemaValidationError[] = [];
   if (
     (value = validatable.validate(value, current, context, innerErrors)) ===
-    VALIDATION_ERROR
+      VALIDATION_ERROR ||
+    innerErrors.length
   ) {
     errors.push(
       ...innerErrors.map((error) => ({
@@ -35,10 +36,24 @@ export const pushInnerErrors = (
   return value;
 };
 
+export const throwValidationErrors = <R>(
+  action: (errors: SchemaValidationError[]) => R,
+  message?: string
+): Exclude<R, typeof VALIDATION_ERROR> => {
+  const errors: SchemaValidationError[] = [];
+  const result = action(errors);
+  if (result === VALIDATION_ERROR || errors.length) {
+    throw new Error(
+      (message ? message + ":\n" : "") + formatValidationErrors(errors)
+    );
+  }
+  return result as any;
+};
+
 export const formatValidationErrors = (
   errors: readonly SchemaValidationError[]
 ): string | undefined => {
-  if (!errors.length) return undefined;
+  if (!errors.length) return "(unspecified error)";
 
   const formatted = errors.map(({ path, message }) =>
     path ? path + ": " + message : message

@@ -1,11 +1,11 @@
-import type { TrackerClientConfiguration } from "@tailjs/client/external";
-import { CLIENT_CONFIG } from "@tailjs/client/external";
+// import type { TrackerClientConfiguration } from "@tailjs/client/external";
+// import { CLIENT_CONFIG } from "@tailjs/client/external";
 
 import {
   UserConsent,
+  type DataPurposes,
   type ViewEvent,
   type ViewTimingData,
-  type DataPurposes,
 } from "@tailjs/types";
 import { AllRequired, JsonObject } from "@tailjs/util";
 import { ClientIdGenerator } from ".";
@@ -110,7 +110,7 @@ export type RequestHandlerConfiguration = {
   /**
    * The configuration for the client-side tracker.
    */
-  client?: TrackerClientConfiguration;
+  client?: any; //TrackerClientConfiguration;
 
   /**
    * The specific logic that maps a cookie-less client request to a unique'ish identifier.
@@ -210,7 +210,7 @@ export const DEFAULT: Omit<
   debugScript: false,
   sessionTimeout: 30,
   deviceSessionTimeout: 10,
-  client: CLIENT_CONFIG as any,
+  client: 0 as any, //CLIENT_CONFIG as any,
   clientEncryptionKeySeed: "tailjs",
   cookiePerPurpose: false,
   json: false,

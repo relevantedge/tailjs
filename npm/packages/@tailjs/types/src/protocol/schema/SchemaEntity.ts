@@ -1,8 +1,6 @@
 import { SchemaDataUsage } from "../..";
 
 export interface SchemaEntity {
-  name: string;
-
   description?: string;
 
   /**

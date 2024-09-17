@@ -1,15 +1,15 @@
-import { SchemaValueType } from "@tailjs/types";
+import { SchemaEnumType, SchemaPrimitiveType } from "@tailjs/types";
 import { enumerate } from "@tailjs/util";
 import { SchemaValidationError, VALIDATION_ERROR } from "../../..";
 
-const REGEX_DATE = /^\d{4}-\d{2}-\d{2}Z$/;
+const REGEX_DATE = /^\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.000)?)?Z$/;
 const REGEX_DATETIME =
   /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?)?Z$/;
-const REGEX_GUID =
-  /^\{?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}?$/;
+const REGEX_UUID =
+  /^\{?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\}?$/;
 
 const REGEX_URI =
-  /^(?:(?:([\w+.-]+):)?(\/\/)?)?((?:([^:@]+)(?:\:([^@]*))?@)?(?:\[([^\]]+)\]|([0-9:]+|[^/+]+?))?(?::(\d*))?)?(\/[^#?]*)?(?:\?([^#]*))?(?:#(.*))?$/;
+  /^(?:(?:([\w+.-]+):)(\/\/)?)((?:([^:@]+)(?:\:([^@]*))?@)?(?:\[([^\]]+)\]|([0-9:]+|[^/+]+?))(?::(\d*))?)(\/[^#?]*)?(?:\?([^#]*))?(?:#(.*))?$/;
 const REGEX_EMAIL =
   /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:(\[(([0-9.]+)|([0-9a-f:]+))\])|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9]))?$/;
 
@@ -31,14 +31,23 @@ const addError = (
   VALIDATION_ERROR
 );
 
+const isNumber = (value: any) =>
+  typeof value === "number" ? value : !isNaN(+value) || value === "NaN";
+
 const primitiveValidators: Record<string, SchemaPrimitiveValueValidator> = {};
 export const getPrimitiveTypeValidator = (
-  type: SchemaValueType
+  type: SchemaPrimitiveType | SchemaEnumType
 ): {
   validator: SchemaPrimitiveValueValidator;
   enumValues: any[] | undefined;
 } => {
-  let validator = (primitiveValidators[type.primitive] ??= create(type));
+  if (!type.primitive) {
+    type.primitive = typeof (type.enum?.[0] ?? "") as any;
+  }
+
+  let validator = (primitiveValidators[
+    type.primitive + "-" + (type["format"] ?? "")
+  ] ??= create(type as SchemaPrimitiveType));
 
   const maxLength = type["maxLength"];
   if (maxLength != null) {
@@ -76,9 +85,9 @@ export const getPrimitiveTypeValidator = (
   if ("enum" in type) {
     const inner = validator;
     enumValues = new Set(
-      (Array.isArray(type.enum) ? type.enum : [type.enum]).map((value) => {
+      (Array.isArray(type.enum) ? type.enum : [type.enum]).map((value: any) => {
         const errors = [];
-        if ((value = inner(value, errors) === VALIDATION_ERROR)) {
+        if ((value = inner(value, errors)) === VALIDATION_ERROR) {
           throw new TypeError(errors[0]);
         }
         return value;
@@ -87,13 +96,16 @@ export const getPrimitiveTypeValidator = (
 
     if (!enumValues.size) {
       throw new TypeError(
-        "At least one const value to test against is required."
+        "At least one enum value to test against is required."
       );
     }
 
-    const errorMessage = enumerate(
-      (type.enum as any[]).map((value: any) => JSON.stringify(value), ["or"])
-    );
+    const errorMessage =
+      "is not the constant value " +
+      enumerate(
+        (type.enum as any[]).map((value: any) => JSON.stringify(value)),
+        ["or"]
+      );
 
     validator = (value, errors) =>
       (value = inner(value, errors)) === VALIDATION_ERROR
@@ -104,42 +116,49 @@ export const getPrimitiveTypeValidator = (
   }
   return { validator, enumValues: enumValues ? [...enumValues] : undefined };
 
-  function create(type: SchemaValueType): SchemaPrimitiveValueValidator {
+  function create(type: SchemaPrimitiveType): SchemaPrimitiveValueValidator {
     switch (type.primitive) {
       case "boolean":
         return (value, errors) =>
           typeof value === "boolean"
             ? value
-            : addError(errors, value, "is not a valid Boolean");
+            : addError(errors, value, "is not a Boolean");
 
       case "date":
         return (value, errors) =>
-          REGEX_DATE.test(value) && !isNaN(new Date(value).valueOf())
+          REGEX_DATE.test(value) && !isNaN(+new Date(value))
             ? value
-            : addError(errors, value, "is not a valid ISO8601 date");
+            : addError(
+                errors,
+                value,
+                "is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)"
+              );
 
+      case "timestamp":
       case "datetime":
+        const iso =
+          "format" in type
+            ? type.format !== "unix"
+            : type.primitive === "datetime";
         return (value, errors) => {
-          if (typeof value === "number") {
-            if (!Number.isInteger(value))
+          if (isNumber(value)) {
+            if (!Number.isInteger((value = +value)))
               return addError(errors, value, "is not a valid UNIX timestamp");
-          } else if (
-            !REGEX_DATETIME.test(value) &&
-            isNaN(new Date(value).valueOf())
-          ) {
+          } else if (!REGEX_DATETIME.test(value) || isNaN(+new Date(value))) {
             return addError(
               errors,
               value,
-              "is not a valid ISO 8601 UTC date/time"
+              "is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)"
             );
           }
 
-          return new Date(value).toISOString();
+          value = new Date(value);
+          return iso ? new Date(value).toISOString() : +value;
         };
 
       case "duration":
         return (value, errors) =>
-          typeof value === "number" && Number.isInteger(value)
+          isNumber(value) && Number.isInteger((value = +value))
             ? value
             : addError(
                 errors,
@@ -149,15 +168,13 @@ export const getPrimitiveTypeValidator = (
 
       case "integer":
         return (value, errors) =>
-          Number.isInteger(value)
+          isNumber(value) && Number.isInteger((value = +value))
             ? value
             : addError(errors, value, "is not a valid integer");
 
       case "number":
         return (value, errors) =>
-          typeof value === "number"
-            ? value
-            : addError(errors, value, "is not a valid number");
+          isNumber(value) ? +value : addError(errors, value, "is not a number");
       case "string":
         switch (type.format) {
           case "uri":
@@ -178,6 +195,18 @@ export const getPrimitiveTypeValidator = (
                     "is not a valid URL (it is a URI, but a URL is required)"
                   );
             };
+          case "urn":
+            return (value, errors) => {
+              const match = REGEX_URI.exec(value);
+              if (!match) return addError(errors, value, "is not a valid URN");
+              return match[1] === "urn" && !match[2]
+                ? value
+                : addError(
+                    errors,
+                    value,
+                    "is not a valid URN (it is a URI, but a URN is required)"
+                  );
+            };
           case "email":
             return (value, errors) =>
               REGEX_EMAIL.test(value)
@@ -187,11 +216,11 @@ export const getPrimitiveTypeValidator = (
         return (value, errors) =>
           typeof value === "string"
             ? value
-            : addError(errors, value, "is not a valid string");
+            : addError(errors, value, "is not a string");
 
       case "uuid":
         return (value, errors) =>
-          REGEX_GUID.exec(value)?.[1].toLowerCase() ??
+          REGEX_UUID.exec(value)?.[1].toLowerCase() ??
           addError(errors, value, "is not a valid UUID");
 
       default:

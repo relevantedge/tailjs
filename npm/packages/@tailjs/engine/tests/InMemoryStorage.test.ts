@@ -1,6 +1,5 @@
 import {
   VariableFilter,
-  VariableHeader,
   VariableKey,
   VariableResultStatus,
   VariableSetResult,

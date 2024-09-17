@@ -1,12 +1,6 @@
 import {
   dataClassification,
-  DataPurposeFlags,
-  MapVariableGetResult,
-  MapVariableSetResult,
-  RestrictVariableTargets,
-  StripPatchFunctions,
   Variable,
-  VariableEnumProperties,
   VariableGetResult,
   ReadOnlyVariableGetter,
   VariableKey,
@@ -31,7 +25,7 @@ import {
   isString,
 } from "@tailjs/util";
 
-import type { LocalID, VariableScopeValue, View } from "@tailjs/types";
+import type { LocalID, View } from "@tailjs/types";
 
 export type ReferringViewData = [
   viewId: LocalID,

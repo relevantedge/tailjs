@@ -1,6 +1,7 @@
 import {
   SchemaEntity,
   SchemaObjectType,
+  SchemaTypeDefinition,
   SchemaTypeReference,
   VersionedSchemaEntity,
 } from "../..";
@@ -11,6 +12,8 @@ export const CORE_EVENT_TYPE = "urn:tailjs:core#TrackedEvent";
 export const CORE_EVENT_DISCRIMINATOR = "type";
 
 export interface SchemaDefinition extends SchemaEntity, VersionedSchemaEntity {
+  name?: string;
+
   /**
    * The namespace be unique for each schema and be in the form a valid URI (either URL or URN).
    * If unspecified, the schema name will converted into a URN and used as namespace.
@@ -21,5 +24,5 @@ export interface SchemaDefinition extends SchemaEntity, VersionedSchemaEntity {
       [Key in string]?: SchemaTypeReference | SchemaObjectType;
     };
   };
-  types?: SchemaObjectType[];
+  types?: { [TypeName in string]: Omit<SchemaTypeDefinition, "name"> };
 }

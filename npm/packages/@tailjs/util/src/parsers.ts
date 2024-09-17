@@ -5,12 +5,8 @@ import {
   PrettifyIntersection,
   RecordType,
   concat,
-  enumerate,
   forEach,
-  fromEntries,
   isArray,
-  isNumber,
-  isObject,
   isString,
   join,
   map,
@@ -18,8 +14,6 @@ import {
   match,
   nil,
   obj,
-  quote,
-  throwError,
   undefined,
 } from ".";
 

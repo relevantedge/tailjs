@@ -1,4 +1,4 @@
-export * from "./Schema";
+export * from "./SchemaDefinition";
 export * from "./SchemaArrayType";
 export * from "./SchemaDataUsage";
 export * from "./SchemaEntity";
@@ -9,4 +9,4 @@ export * from "./SchemaRecordType";
 export * from "./SchemaTypeReference";
 export * from "./SchemaTypeDefinition";
 export * from "./SchemaUnionType";
-export * from "./SchemaValueType";
+export * from "./SchemaPrimitiveType";

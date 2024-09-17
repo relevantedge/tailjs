@@ -1,7 +1,6 @@
-import { SchemaPropertyType, SchemaValueType } from "../..";
+import { SchemaPropertyType, SchemaPrimitiveType } from "../..";
 
 export type SchemaRecordType = {
-  key: SchemaValueType;
-  value: SchemaPropertyType;
-  required?: boolean;
+  key: SchemaPrimitiveType;
+  value: SchemaPropertyType & { required?: boolean };
 };

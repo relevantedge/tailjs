@@ -3,11 +3,10 @@ import {
   DataPurposeName,
   VariableErrorResult,
   VariableKey,
-  VariableUnchangedResult,
-  VariableSuccessResult,
   VariableNotFoundResult,
+  VariableSuccessResult,
+  VariableUnchangedResult,
   VariableValueErrorResult,
-  ValidVariableResult,
 } from "../..";
 
 export interface ReadOnlyVariableGetter extends VariableKey {
