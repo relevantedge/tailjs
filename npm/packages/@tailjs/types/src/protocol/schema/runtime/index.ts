@@ -1,3 +1,4 @@
+export * from "./ParsedSchemaDefinition";
 export * from "./ParsedSchemaArrayType";
 export * from "./ParsedSchemaEntity";
 export * from "./ParsedSchemaObjectType";

@@ -1,4 +1,10 @@
-import { fromEntries, isArray, isString, Nullish } from "@tailjs/util";
+import {
+  fromEntries,
+  isArray,
+  isString,
+  Nullish,
+  throwError,
+} from "@tailjs/util";
 
 export type DataPurposeName = keyof DataPurposes;
 export const DATA_PURPOSES: DataPurposeName[] = [
@@ -118,7 +124,8 @@ export const getDataPurposeNames = (
 export const parseDataPurposes = <
   T extends string | string[] | DataPurposes | Nullish
 >(
-  purposeNames: T
+  purposeNames: T,
+  validate = true
 ): T extends Nullish ? undefined : DataPurposes => {
   if (purposeNames == null) return undefined!;
   if (!isArray(purposeNames)) {
@@ -130,7 +137,10 @@ export const parseDataPurposes = <
 
   const purposes: DataPurposes = {};
   for (const name of purposeNames as any) {
-    if (!VALID_PURPOSE_NAMES[name]) continue;
+    if (!VALID_PURPOSE_NAMES[name]) {
+      validate && throwError(`The purpose name '${name}' is not defined.`);
+      continue;
+    }
     purposes[name as any] = true;
   }
   return purposes as any;

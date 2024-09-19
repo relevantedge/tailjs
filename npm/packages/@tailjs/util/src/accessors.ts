@@ -142,6 +142,24 @@ export const setSingleIfNotDefined = (
   return setSingle(target, key, value);
 };
 
+export const tryAdd: {
+  <T extends PropertyContainer, K extends KeyType<T>>(
+    target: T,
+    key: K,
+    value: Wrapped<ValueType<T, K, "set">>,
+    conflict?: (current: ValueType<T, K>) => void
+  ): boolean;
+} = (target, key, value, conflict) => {
+  const current = get(target, key);
+  if (current != null) {
+    conflict?.(current as any);
+    return false;
+  }
+  setSingle(target, key, unwrap(value));
+  return true;
+};
+
+const getSymbol = Symbol();
 export const get: {
   <T extends ReadonlyPropertyContainer | Nullish, K extends KeyType<T>>(
     target: T,
@@ -457,7 +475,7 @@ export const update: <
 ) => T = (target, key, update) => {
   let value: any;
   if (hasMethod(target, "set")) {
-    (value = update(target.get(key)) === undefined)
+    (value = update(target.get(key))) === undefined
       ? target.delete(key)
       : target.set(key, value);
   } else if (hasMethod(target, "add")) {

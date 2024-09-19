@@ -182,12 +182,3 @@ export const toVariableResultPromise = <
 
   return resultPromise as any;
 };
-
-export const SCHEMA_TYPE_PROPERTY = "@type";
-export interface SchemaTypeInfo {
-  type: string;
-  version?: string;
-}
-export interface TypedSchemaData {
-  "@type"?: SchemaTypeInfo;
-}

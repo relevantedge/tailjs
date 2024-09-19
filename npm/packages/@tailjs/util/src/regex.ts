@@ -1,4 +1,5 @@
 import {
+  IDENTITY,
   If,
   MaybeUndefined,
   Nullable,
@@ -160,8 +161,14 @@ export const parseRegex = <T>(
  */
 export const split = <T extends string | Nullish>(
   s: T,
-  separator: RegExp | string
-): MaybeUndefined<T, string[]> => s?.split(separator) ?? (s as any);
+  separator: RegExp | string,
+  trim = true
+): MaybeUndefined<T, string[]> =>
+  s == null
+    ? undefined
+    : trim
+    ? split(s, separator, false)!.filter(IDENTITY)
+    : (s.split(separator) as any);
 
 /**
  * Better minifyable version of `String`'s `replace` method that allows a null'ish parameter.

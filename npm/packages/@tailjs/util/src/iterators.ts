@@ -114,7 +114,7 @@ export type IteratorAction<
   S extends IteratorSource = IteratorSource,
   Projection = unknown,
   Value = IteratorItem<S>
-> = AllKeys<IteratorItem<S>> | FunctionalIteratorAction<S, Projection, Value>;
+> = AllKeys<Value> | FunctionalIteratorAction<S, Projection, Value>;
 
 // We need both the inferred return value from the IteratorAction and the IteratorAction itself used as the parameter
 // in functions like `<S extends IteratorSource, Return, Action>(source: S, action: IteratorAction<S,Return> | P)=>IteratorProjection<S,Return,Action>.
@@ -334,19 +334,30 @@ const mapToArray = <T, M>(
   map && !isArray(projected) ? [...projected] : (projected as any);
 
 type ProjectFunction = {
-  <S extends IteratorSource, R, P>(
+  <S extends IteratorSource, R, P extends IteratorAction<S, R>>(
     source: S,
-    projection?: IteratorAction<S, R> | P,
+    projection?: P,
     ...rest: StartEndArgs<S>
   ): Iterable<IteratorProjection<S, R, P>>;
 };
 
 type MapFunction = {
-  <S extends IteratorSource, R, P>(
+  <S extends IteratorSource, R, P extends FunctionalIteratorAction<S, R>>(
     source: S,
-    projection?: IteratorAction<S, R> | P,
+    projection?: undefined,
     ...rest: StartEndArgs<S>
-  ): MaybeUndefined<S, Exclude<IteratorProjection<S, R, P>, Nullish>[]>;
+  ): MaybeUndefined<S, Exclude<IteratorItem<S>, Nullish>[]>;
+  <S extends IteratorSource, R>(
+    source: S,
+    projection: FunctionalIteratorAction<S, R>,
+    ...rest: StartEndArgs<S>
+  ): MaybeUndefined<S, Exclude<R, Nullish>[]>;
+
+  <S extends IteratorSource, Key extends AllKeys<S>>(
+    source: S,
+    projection: Key,
+    ...rest: StartEndArgs<S>
+  ): MaybeUndefined<S, Exclude<Property<IteratorItem<S>, Key>, Nullish>[]>;
 };
 
 type FlatProjectFunction = <

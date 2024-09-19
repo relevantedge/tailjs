@@ -6,9 +6,10 @@ import {
   ParsedSchemaPrimitiveType,
 } from "../..";
 
-export type ParsedSchemaPropertyType =
+export type ParsedSchemaPropertyType = (
   | ParsedSchemaPrimitiveType
   | ParsedSchemaArrayType
   | ParsedSchemaRecordType
   | ParsedSchemaObjectType
-  | ParsedSchemaUnionType;
+  | ParsedSchemaUnionType
+) & { toString(): string };

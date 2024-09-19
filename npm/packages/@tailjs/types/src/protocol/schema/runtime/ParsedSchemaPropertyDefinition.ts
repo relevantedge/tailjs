@@ -17,4 +17,6 @@ export interface ParsedSchemaPropertyDefinition
   source: SchemaPropertyDefinition;
 
   declaringType: ParsedSchemaObjectType;
+
+  baseProperty?: ParsedSchemaPropertyDefinition;
 }
