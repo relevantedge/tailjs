@@ -1,4 +1,3 @@
-export * from "./types";
 export * from "./InMemoryStorage";
 export * from "./VariableSplitStorage";
 export * from "./VariableStorage";

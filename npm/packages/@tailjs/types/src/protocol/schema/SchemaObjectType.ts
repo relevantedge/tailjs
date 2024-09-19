@@ -14,3 +14,9 @@ export interface SchemaObjectType {
     [P in string]: SchemaPropertyDefinition;
   };
 }
+
+export const SCHEMA_TYPE_PROPERTY = "@type";
+
+export interface SchemaTypedData {
+  "@type"?: string;
+}

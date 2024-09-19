@@ -46,14 +46,11 @@ export interface EnumParser<Levels extends string> {
     Numeric extends boolean = false
   >(
     value: T,
-    numeric?: boolean,
-    validate?: boolean
+    numeric?: boolean
   ): T extends Nullish
     ? undefined
     : (Numeric extends true ? number : Levels) | undefined;
   compare(lhs: Levels | number, rhs: Levels | number): number;
-  min(...values: (Levels | number | Nullish)[]): Levels | undefined;
-  max(...values: (Levels | number | Nullish)[]): Levels | undefined;
 }
 
 export const createEnumParser: <Levels extends string>(
@@ -88,29 +85,11 @@ export const createEnumParser: <Levels extends string>(
       ? 1
       : 0;
 
-  const minMax =
-    (max: boolean) =>
-    (...levels: any[]) => {
-      let result = -1,
-        current: number | undefined;
-      for (const level in levels) {
-        if (
-          (current = parse(level, true)) != null &&
-          (result < 0 || (max ? current > result : current < result))
-        ) {
-          result = current;
-        }
-      }
-      return levels[result];
-    };
-
   return Object.assign(parse, {
     levels,
     ranks,
     compare,
     tryParse: (value: any, numeric?: boolean) => parse(value, numeric, false),
-    min: minMax(false),
-    max: minMax(true),
   });
 };
 

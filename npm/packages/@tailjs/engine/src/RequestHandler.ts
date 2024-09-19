@@ -14,11 +14,15 @@ import clientScripts from "@tailjs/client/script";
 import {
   DataPurposeName,
   dataPurposes,
+  formatValidationErrors,
   isPassiveEvent,
   PostRequest,
   PostResponse,
+  SchemaValidationError,
   TrackedEvent,
+  TypeResolver,
   UserConsent,
+  VALIDATION_ERROR,
 } from "@tailjs/types";
 
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
@@ -31,13 +35,11 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
-  formatValidationErrors,
   InMemoryStorage,
   isValidationError,
   ParseResult,
   PostError,
   RequestHandlerConfiguration,
-  SchemaValidationError,
   TrackedEventBatch,
   Tracker,
   TrackerEnvironment,
@@ -46,8 +48,6 @@ import {
   TrackerInitializationOptions,
   TrackerPostOptions,
   TrackerServerConfiguration,
-  TypeResolver,
-  VALIDATION_ERROR,
   ValidationError,
   VariableStorageCoordinator,
 } from "./shared";
@@ -166,6 +166,7 @@ export class RequestHandler {
       client,
       clientIdGenerator,
       defaultConsent,
+      schemas,
     } = (config = merge({}, DEFAULT, config));
 
     this._config = Object.freeze(config);
@@ -196,6 +197,9 @@ export class RequestHandler {
       src: this.endpoint,
       json: this._config.json,
     });
+
+    // TODO: Will fail. JSON schema to internal schema is probably the easiest option.
+    this._schema = new TypeResolver(schemas as any);
   }
 
   public async applyExtensions(
@@ -287,8 +291,6 @@ export class RequestHandler {
         };
       }
 
-      (this as any)._schema = 0 as any; //SchemaManager.create(schemas as JsonObject[]);
-
       (this as any).environment = new TrackerEnvironment(
         host,
         crypto ?? new DefaultCryptoProvider(encryptionKeys),
@@ -365,7 +367,7 @@ export class RequestHandler {
     const validateEvents = (events: ParseResult[]): ParseResult[] =>
       map(events, (ev) => {
         if (isValidationError(ev)) return ev;
-        const eventType = this._schema.getEventType(ev.type, false);
+        const eventType = this._schema.getEvent(ev.type, false);
         if (!eventType) {
           return {
             error: `The event type '${ev.type}' is not defined`,
@@ -391,7 +393,7 @@ export class RequestHandler {
           };
         }
 
-        return this._schema.getEventType(ev.type).censor(ev, {
+        return this._schema.getEvent(ev.type).censor(ev, {
           trusted: tracker.trustedContext,
           consent: tracker.consent,
         });

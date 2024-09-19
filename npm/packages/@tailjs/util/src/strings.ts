@@ -5,6 +5,7 @@ import {
   MINUTE,
   MaybeUndefined,
   Nullish,
+  array,
   filter,
   forEach,
   isArray,
@@ -18,6 +19,7 @@ import {
   push,
   replace,
   round,
+  symbolIterator,
   undefined,
 } from ".";
 
@@ -65,23 +67,29 @@ export type EnumerationSeparators = string | [last: string, other?: string];
  *
  * Useful for enumerations like "item1, item2 and item 3" (`separate(["item1", "item2", "item3"], ["and"])`).
  */
-export const enumerate = (
-  values: any[] | undefined,
+export const enumerate = <T extends Iterable<any> | Nullish>(
+  values: T,
   separator: EnumerationSeparators = ["and", ", "]
-) =>
-  !values
-    ? undefined
-    : (values = values.filter(IDENTITY)).length === 1
-    ? values[0]
-    : isArray(separator)
-    ? [
-        values.slice(0, -1).join(separator[1] ?? ", "),
-        " ",
-        separator[0],
-        " ",
-        values[values.length - 1],
-      ].join("")
-    : values.join(separator ?? ", ");
+): MaybeUndefined<T, string> => {
+  if (!values) return undefined as any;
+
+  const filtered = array(values).filter(IDENTITY);
+  return (
+    filtered.length === 0
+      ? ""
+      : filtered.length === 1
+      ? filtered[0] + ""
+      : isArray(separator)
+      ? [
+          filtered.slice(0, -1).join(separator[1] ?? ", "),
+          " ",
+          separator[0],
+          " ",
+          filtered[filtered.length - 1],
+        ].join("")
+      : filtered.join(separator ?? ", ")
+  ) as any;
+};
 
 /**
  * Pluralizes a noun using standard English rules.
@@ -253,10 +261,10 @@ export const snakeCase = <S extends string | Nullish>(
 export const quote = <T>(
   item: T,
   quoteChar = "'"
-): MaybeUndefined<T, T extends readonly any[] ? string[] : string> =>
+): MaybeUndefined<T, T extends Iterable<any> ? string[] : string> =>
   item == null
     ? (undefined as any)
-    : isArray(item)
+    : item[symbolIterator]
     ? map(item, (item) => quote(item, quoteChar))
     : quoteChar + item + quoteChar;
 

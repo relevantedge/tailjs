@@ -69,30 +69,3 @@ export interface DataUsage {
    */
   purposes: DataPurposes;
 }
-
-// export const applyDataUsageDefaults = (
-//   target: DataUsage | undefined,
-//   defaults: FullySpecifiedDataUsage,
-//   /** Decides whether the necessary purpose is mandatory or not. */
-//   forConsent: boolean
-// ): FullySpecifiedDataUsage => {
-//   let purposes: DataPurposes = { ...target?.purposes };
-//   const merged: DataUsage = {
-//     classification: target?.classification ?? defaults.classification,
-//     purposes,
-//   };
-//   for (const purpose in defaults.purposes) {
-//     purposes[purpose] ??= defaults.purposes[purpose];
-//   }
-
-//   if (forConsent) {
-//     merged.purposes!.necessary = true;
-//   }
-
-//   return merged as any;
-// };
-
-// /** Data usage with all parameters set. */
-// export type FullySpecifiedDataUsage = Required<
-//   DataUsage & { purposes: Required<DataPurposes> }
-// >;

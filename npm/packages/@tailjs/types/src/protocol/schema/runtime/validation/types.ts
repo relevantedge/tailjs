@@ -14,12 +14,14 @@ export type SchemaValueValidator = <T>(
   target: T,
   current: any,
   context: SchemaValidationContext,
-  errors: SchemaValidationError[]
+  errors: SchemaValidationError[],
+  polymorphic?: boolean
 ) => T | typeof VALIDATION_ERROR;
 
 export type SchemaCensorFunction = <T>(
   target: T,
-  context: SchemaCensorContext
+  context: SchemaCensorContext,
+  polymorphic?: boolean
 ) => T | undefined;
 
 export interface ValidatableSchemaEntity {

@@ -6,7 +6,6 @@ import {
   TogglePromise,
   Unwrap,
   Wrapped,
-  createTimer,
   isFunction,
   now,
   throwError,
@@ -149,7 +148,7 @@ export const createLock = (timeout?: number): Lock => {
     const ownerId = arg2 as string;
 
     let ms = arg1 as number;
-    let renewInterval = 0;
+    let renewInterval: any = 0;
     while (state && ownerId !== state[0] && (state[1] ?? 0)! < now()) {
       if (
         (await (ms >= 0 ? race(delay(ms), semaphore) : semaphore)) === undefined

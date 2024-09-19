@@ -6,9 +6,13 @@ import {
   filterKeys,
   filterRangeValue,
   formatKey,
+  formatValidationErrors,
   isErrorResult,
   isTransientError,
+  ParsedSchemaObjectType,
+  SchemaValidationError,
   testPurposes,
+  TypeResolver,
   Variable,
   VariableErrorResult,
   VariableGetResult,
@@ -26,14 +30,10 @@ import {
   addSourceTrace,
   addTrace,
   AddTrace,
-  formatValidationErrors,
-  ParsedSchemaObjectType,
   ReadOnlyVariableStorage,
-  SchemaValidationError,
   toVariableResultPromise,
   traceSymbol,
   TrackerEnvironment,
-  TypeResolver,
   VariableOperationParameter,
   VariableSplitStorage,
   WithCallbackIntellisense,
@@ -51,22 +51,31 @@ export type VariableStorageMappings = {
     | Record<string, ReadOnlyVariableStorage | StorageMappingEntry>;
 };
 
+const normalizeStorageMapping = (
+  entry: ReadOnlyVariableStorage | StorageMappingEntry
+): StorageMappingEntry => {
+  return "get" in entry ? { storage: entry, schemas: "*" } : entry;
+};
+
 export const normalizeStorageMappings = (
   mappings: VariableStorageMappings
 ): ({ scope: string; source: string } & StorageMappingEntry)[] => {
   const normalized: any[] = [];
   for (const scope in mappings) {
     const sources = mappings[scope];
-    if ("get" in sources) {
-      normalized.push({ scope, source: "", storage: sources });
+    if ("get" in sources || "storage" in sources) {
+      normalized.push({
+        scope,
+        source: "",
+        ...normalizeStorageMapping(sources),
+      });
     } else {
       for (const source in sources) {
-        const sourceMapping = sources[source];
-        if ("get" in sourceMapping) {
-          normalized.push({ scope, source, storage: sourceMapping });
-        } else {
-          normalized.push({ scope, source, ...sourceMapping });
-        }
+        normalized.push({
+          scope,
+          source,
+          ...normalizeStorageMapping(sources[source]),
+        });
       }
     }
   }

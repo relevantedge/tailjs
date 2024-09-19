@@ -11,6 +11,7 @@ import {
 
 export type SchemaPropertyDefinition = SchemaEntity &
   SchemaPropertyType & {
+    name: string;
     required?: boolean;
     default?: any;
   };
@@ -22,4 +23,5 @@ export type SchemaPropertyType =
   | SchemaRecordType
   | SchemaTypeReference
   | SchemaObjectType
-  | SchemaUnionType;
+  | SchemaUnionType
+  | { type: "base" };

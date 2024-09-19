@@ -39,11 +39,11 @@ export const getPrimitiveTypeValidator = (
   type: SchemaPrimitiveType | SchemaEnumType
 ): {
   validator: SchemaPrimitiveValueValidator;
+  primitive: SchemaPrimitiveType["primitive"];
   enumValues: any[] | undefined;
 } => {
-  if (!type.primitive) {
-    type.primitive = typeof (type.enum?.[0] ?? "") as any;
-  }
+  let primitive =
+    type.primitive ?? (type.primitive = typeof (type.enum?.[0] ?? "") as any);
 
   let validator = (primitiveValidators[
     type.primitive + "-" + (type["format"] ?? "")
@@ -114,7 +114,11 @@ export const getPrimitiveTypeValidator = (
         ? value
         : addError(errors, value, errorMessage);
   }
-  return { validator, enumValues: enumValues ? [...enumValues] : undefined };
+  return {
+    validator,
+    primitive,
+    enumValues: enumValues ? [...enumValues] : undefined,
+  };
 
   function create(type: SchemaPrimitiveType): SchemaPrimitiveValueValidator {
     switch (type.primitive) {
@@ -224,7 +228,9 @@ export const getPrimitiveTypeValidator = (
           addError(errors, value, "is not a valid UUID");
 
       default:
-        throw new TypeError(`'${type}' is not a supported primitive type.`);
+        throw new TypeError(
+          `'${JSON.stringify(type)}' is not a supported primitive type.`
+        );
     }
   }
 };

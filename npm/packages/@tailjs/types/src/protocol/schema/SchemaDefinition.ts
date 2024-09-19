@@ -24,5 +24,6 @@ export interface SchemaDefinition extends SchemaEntity, VersionedSchemaEntity {
       [Key in string]?: SchemaTypeReference | SchemaObjectType;
     };
   };
-  types?: { [TypeName in string]: Omit<SchemaTypeDefinition, "name"> };
+
+  types?: { [TypeName in string]: SchemaTypeDefinition };
 }

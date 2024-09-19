@@ -1,11 +1,11 @@
-import { StrictUnion } from "@tailjs/util";
+import { StrictIntersection } from "@tailjs/util";
 import { DataClassification, DataPurposes } from "../..";
 
-export type KeyFilter<T = string> = StrictUnion<
+export type KeyFilter<T = string> = StrictIntersection<
   Iterable<T> | { not: Iterable<T> }
 >;
 
-export type RangeFilter<T> = StrictUnion<
+export type RangeFilter<T> = StrictIntersection<
   { eq: T } | (({ gt?: T } | { gte: T }) & ({ lt?: T } | { lte: T }))
 >;
 
@@ -174,7 +174,7 @@ export interface VariableQuery<Scopes extends string = string> {
 //    * Hint to indicate that no more results than this are needed.
 //    * A storage will decide its own default value if not specified, and may choose to return fewer results if more efficient.
 //    *
-//    * If a cursor is requested this property changes its meaning slightly to be the prefered page size instead of max results.
+//    * If a cursor is requested this property changes its meaning slightly to be the preferred page size instead of max results.
 //    * In this case a storage may also decide to return more results than requested if that is more efficient for paging.
 //    *
 //    */
