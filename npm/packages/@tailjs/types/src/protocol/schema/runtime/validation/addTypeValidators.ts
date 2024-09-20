@@ -101,6 +101,7 @@ export const addTypeValidators = (type: ParsedSchemaObjectType) => {
 
   if (type.extendedBy.size) {
     const {
+      map,
       mapped,
       validation: { censor: polymorphicCensor, validate: polymorphicValidate },
     } = createSchemaTypeMapper([type]);

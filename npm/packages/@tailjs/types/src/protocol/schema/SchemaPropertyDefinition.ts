@@ -11,7 +11,6 @@ import {
 
 export type SchemaPropertyDefinition = SchemaEntity &
   SchemaPropertyType & {
-    name: string;
     required?: boolean;
     default?: any;
   };

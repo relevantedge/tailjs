@@ -1,11 +1,11 @@
-import { StrictIntersection } from "@tailjs/util";
+import { StrictUnion } from "@tailjs/util";
 import { DataClassification, DataPurposes } from "../..";
 
-export type KeyFilter<T = string> = StrictIntersection<
+export type KeyFilter<T = string> = StrictUnion<
   Iterable<T> | { not: Iterable<T> }
 >;
 
-export type RangeFilter<T> = StrictIntersection<
+export type RangeFilter<T> = StrictUnion<
   { eq: T } | (({ gt?: T } | { gte: T }) & ({ lt?: T } | { lte: T }))
 >;
 

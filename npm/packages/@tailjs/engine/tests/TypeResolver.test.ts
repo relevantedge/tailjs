@@ -1,4 +1,5 @@
 import {
+  SCHEMA_TYPE_PROPERTY,
   SchemaSystemTypeDefinition,
   throwValidationErrors,
   TypeResolver,
@@ -121,13 +122,68 @@ describe("TypeResolver", () => {
         errors
       )
     );
-    console.log(validated);
 
     expect(validated.date).toBe("2024-01-01T00:00:00.000Z");
     expect(validated.nested.hej["80"]).toEqual([
       "564f46b5-339e-4bf3-afb9-1c24b6a050e3",
       "b30af4cc-7e31-4016-b8a4-abb1e4f3bfd8",
     ]);
+
+    expect(
+      throwValidationErrors((errors) =>
+        testType.validate(
+          {
+            type: "test_event",
+            ged: 90,
+          },
+          null,
+          { trusted: false },
+          errors
+        )
+      )[SCHEMA_TYPE_PROPERTY]
+    ).toBe("urn:test#Test2");
+
+    expect(
+      throwValidationErrors((errors) =>
+        testType.validate(
+          {
+            type: "test_event",
+            geis: 30,
+          },
+          null,
+          { trusted: false },
+          errors
+        )
+      )[SCHEMA_TYPE_PROPERTY]
+    ).toBe("urn:test#Test3");
+
+    expect(
+      throwValidationErrors((errors) =>
+        testType.validate(
+          {
+            type: "test_event",
+          },
+          null,
+          { trusted: false },
+          errors
+        )
+      )[SCHEMA_TYPE_PROPERTY]
+    ).toBe("urn:test#Test");
+
+    expect(() =>
+      throwValidationErrors((errors) =>
+        testType.validate(
+          {
+            type: "test_event",
+            ged: 40,
+            geis: 30,
+          },
+          null,
+          { trusted: false },
+          errors
+        )
+      )
+    ).toThrow(/geis:.*not defined/);
   });
 
   it("Censors", () => {
