@@ -678,14 +678,44 @@ export const concat: {
   return merged as any;
 };
 
-export const expand = <T>(
-  root: T | T[],
+type ExpandItem<T> = Exclude<T extends readonly (infer T)[] ? T : T, Nullish>;
+
+export const expand = <
+  T,
+  IncludeSelfParameter extends boolean | readonly [boolean] = [true]
+>(
+  root: T,
   selector: (
-    current: Exclude<T, Nullish>
-  ) => Iterable<T | undefined> | undefined,
-  includeSelf = true
-): T extends undefined ? undefined : Exclude<T, Nullish>[] =>
-  traverseInternal(root, selector, includeSelf, [], new Set()) as any;
+    current: ExpandItem<T>
+  ) => Iterable<ExpandItem<T> | Nullish> | ExpandItem<T> | Nullish,
+  includeSelf: IncludeSelfParameter = [true] as any
+): T extends undefined
+  ? undefined
+  : IncludeSelfParameter extends readonly [boolean]
+  ? ExpandItem<T>[]
+  : Set<T> => {
+  const [asArray, self] = isBoolean(includeSelf)
+    ? [false, includeSelf]
+    : [true, includeSelf[0]];
+  const seen = new Set<T>();
+  expandInternal(isArray(root) ? root : [root], selector, seen, self);
+  return asArray ? [...seen] : (seen as any);
+};
+
+const expandInternal = (
+  value: unknown,
+  selector: (current: unknown) => Iterable<unknown> | unknown | Nullish,
+  seen: Set<any>,
+  include = true
+) => {
+  if (value == null) return;
+  if (value[symbolIterator]) {
+    for (const item of value as any)
+      expandInternal(item, selector, seen, include);
+  }
+  include && seen.add(value);
+  expandInternal(selector(value), selector, seen, include);
+};
 
 const forEachArray = (
   source: readonly any[],
@@ -883,7 +913,7 @@ export const fromEntries: {
     let i = 0;
     let value: any;
     for (const key in source) {
-      (value = map([key, source[key]], i++)) && (result[key] = value);
+      (value = map([key, source[key]], i++)) && (result[value[0]] = value[1]);
     }
   } else {
     for (const entry of source) {

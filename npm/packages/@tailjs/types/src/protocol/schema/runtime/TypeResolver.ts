@@ -11,6 +11,7 @@ import {
   first,
   forEach,
   get,
+  isString,
   throwError,
   tryAdd,
 } from "@tailjs/util";
@@ -30,6 +31,7 @@ import {
 
 import {
   createSchemaTypeMapper,
+  parseBaseTypes,
   parseType,
   parseTypeProperties,
   SchemaTypeMapper,
@@ -37,10 +39,10 @@ import {
 } from "./parsing";
 import {
   getPrimitiveTypeValidator,
-  mergeUsage,
   throwValidationErrors,
   ValidatableSchemaEntity,
 } from "./validation";
+import { addTypeValidators } from "./validation/add-type-validators";
 
 export type SchemaDefinitionSource = {
   definition: SchemaDefinition;
@@ -112,7 +114,7 @@ export class TypeResolver {
           parsedTypes: this._types,
           systemTypes: this._systemTypes,
           eventTypes: this._events,
-          defaultUsage: mergeUsage(defaultUsage, parsed.usageOverrides),
+          defaultUsage,
           usageOverrides: definition.usage,
           referencesOnly: !!referencesOnly,
           localTypes: parsed.types,
@@ -129,6 +131,11 @@ export class TypeResolver {
           typeStubs.push([context, , parseType([name, type], context, null)]);
         }
       );
+    }
+
+    for (const [schema, context] of schemaContexts) {
+      // Parse base types so "extendedBy" is populated for all types before we parse properties..
+      forEach(schema.types, ([, type]) => parseBaseTypes(type, context));
     }
 
     for (const [schema, context] of schemaContexts) {
@@ -170,6 +177,7 @@ export class TypeResolver {
 
     forEach(this._types, ([, type]) => {
       // Finish the types.
+      addTypeValidators(type);
 
       forEach(type.extendedBy, (subtype) => {
         forEach(type.referencedBy, (prop) => subtype.referencedBy.add(prop));
@@ -207,16 +215,22 @@ export class TypeResolver {
         );
       }
 
-      forEach(selector?.discriminators.type?.values, ([typeName, { type }]) => {
-        if (!type) {
-          throwError("Event types name must map uniquely to a single type.");
-        } else {
-          type.schema.types.set(typeName, type);
-          (type.eventNames ??= []).push(typeName);
+      forEach(
+        selector?.subtypes?.type?.values,
+        ([typeName, { type, baseType }]) => {
+          if (!type && !baseType) {
+            throwError(
+              "If multiple types are using the same event type name, they must share a common base class."
+            );
+          } else if (isString(typeName)) {
+            type = baseType ?? type!;
+            type.schema.types.set(typeName, type);
+            (type.eventNames ??= []).push(typeName);
 
-          this._events.set(typeName, type);
+            this._events.set(typeName, type);
+          }
         }
-      });
+      );
 
       this._eventMapper = map;
     }
