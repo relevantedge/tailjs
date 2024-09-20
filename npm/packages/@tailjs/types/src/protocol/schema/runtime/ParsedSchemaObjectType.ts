@@ -3,11 +3,7 @@ import {
   SchemaTypeDefinition,
   VariableKey,
 } from "@tailjs/types";
-import {
-  ParsedSchemaDefinition,
-  ParsedSchemaEntity,
-  ParsedSchemaPropertyDefinition,
-} from "../..";
+import { ParsedSchemaEntity, ParsedSchemaPropertyDefinition } from "../..";
 import { ValidatableSchemaEntity } from "./validation";
 
 export type SchemaVariableKey = Pick<VariableKey, "scope" | "key">;

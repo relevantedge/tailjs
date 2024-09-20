@@ -1,5 +1,9 @@
 import { DataUsage } from "@tailjs/types";
-import { SchemaValidationError, VALIDATION_ERROR } from "../../..";
+import {
+  SchemaTypedData,
+  SchemaValidationError,
+  VALIDATION_ERROR,
+} from "../../..";
 
 export interface SchemaValidationContext {
   trusted: boolean;
@@ -10,13 +14,13 @@ export interface SchemaCensorContext {
   consent?: DataUsage;
 }
 
-export type SchemaValueValidator = <T>(
+export type SchemaValueValidator = <T extends {}>(
   target: T,
   current: any,
   context: SchemaValidationContext,
   errors: SchemaValidationError[],
   polymorphic?: boolean
-) => T | typeof VALIDATION_ERROR;
+) => (T & SchemaTypedData) | typeof VALIDATION_ERROR;
 
 export type SchemaCensorFunction = <T>(
   target: T,

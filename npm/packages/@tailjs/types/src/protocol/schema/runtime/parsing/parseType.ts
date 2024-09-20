@@ -7,7 +7,7 @@ import {
   SchemaTypeDefinition,
   SchemaTypeReference,
 } from "@tailjs/types";
-import { first } from "@tailjs/util";
+import { first, IDENTITY } from "@tailjs/util";
 import { parseBaseTypes, parseTypeProperties, TypeParseContext } from ".";
 import {
   DEFAULT_CENSOR_VALIDATE,
@@ -116,8 +116,9 @@ export const parseType = (
     properties: {},
     extendedBy: new Set(),
     referencedBy: new Set(referencingProperty ? [referencingProperty] : []),
-    source: source,
     ...DEFAULT_CENSOR_VALIDATE,
+
+    source: source,
     toString: () => stringName,
   };
 

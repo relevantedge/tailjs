@@ -1,12 +1,10 @@
 import {
   entries,
   enumerate,
-  first,
   forEach,
   fromEntries,
   get,
   map,
-  quote,
   some,
   update,
 } from "@tailjs/util";
@@ -25,23 +23,6 @@ import {
 
 const isFullyRequired = (prop: Property) =>
   prop.required && (!prop.baseProperty || isFullyRequired(prop.baseProperty));
-
-const getCommonDenominator = (types: Type[]): Type | undefined => {
-  if (types.length <= 1) return types[0];
-  for (let i = 0; i < types.length; i++) {
-    let all = true;
-    for (let j = 0; j < types.length; j++) {
-      if (i !== j && !types[i].extendedBy.has(types[j])) {
-        all = false;
-        if (j > i) {
-          i = j - 1;
-        }
-        break;
-      }
-    }
-    if (all) return types[i];
-  }
-};
 
 type PropertyValueBranches = {
   values: { [Value in string]?: SchemaTypeSelector };
@@ -64,6 +45,20 @@ export type SchemaTypeSelector =
 
 export type SchemaTypeMapper = (data: any) => Type | undefined;
 
+export const getCommonDenominator = (types: Type[]): Type | undefined => {
+  if (types.length <= 1) return types[0];
+  for (let i = 0; i < types.length; i++) {
+    let all = true;
+    for (let j = 0; j < types.length; j++) {
+      if (i !== j && !types[i].extendedBy.has(types[j])) {
+        all = false;
+        break;
+      }
+    }
+    if (all) return types[i];
+  }
+};
+
 function* descendantsOrSelf(types: Type | Iterable<Type>): Iterable<Type> {
   if (Symbol.iterator in types) {
     for (const type of types) {
@@ -74,22 +69,6 @@ function* descendantsOrSelf(types: Type | Iterable<Type>): Iterable<Type> {
     yield* types.extendedBy;
   }
 }
-
-export const traverseSelectors = (
-  selector: SchemaTypeSelector | undefined,
-  action: (
-    selector: SchemaTypeSelector,
-    prop: string,
-    value: string | undefined
-  ) => void
-): void =>
-  forEach(selector?.subtypes, ([prop, { fallback, values }]) => {
-    forEach(values, ([value, selector]) => {
-      selector && action(selector, prop, value);
-      traverseSelectors(selector, action);
-    });
-    fallback && action(fallback, prop, undefined);
-  });
 
 function* ancestors(
   types: Type | Iterable<Type>,
