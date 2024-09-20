@@ -8,7 +8,7 @@ import {
   SchemaTypeReference,
 } from "@tailjs/types";
 import { first } from "@tailjs/util";
-import { parseTypeProperties, TypeParseContext } from ".";
+import { parseBaseTypes, parseTypeProperties, TypeParseContext } from ".";
 import {
   DEFAULT_CENSOR_VALIDATE,
   ParsedSchemaObjectType,
@@ -26,7 +26,7 @@ export const getEntityIdProperties = (id: string, version?: string) => ({
 });
 
 /**
- * Parses the specified type, _not_ including properties.
+ * Parses the specified type, _not_ including base types properties.
  * A separate call to {@link _parseTypeProperties} must follow,
  * when all types have been parsed.
  */
@@ -104,11 +104,15 @@ export const parseType = (
     name,
 
     usage: SCHEMA_DATA_USAGE_MAX,
-    usageOverrides: (source as SchemaTypeDefinition).usage ?? {},
+    usageOverrides:
+      mergeUsage(
+        schema.usageOverrides,
+        (source as SchemaTypeDefinition).usage
+      ) ?? {},
     embedded: embedded,
     abstract: !!(source as SchemaTypeDefinition).abstract,
-    extends: [],
-    ownProperties: undefined as any,
+    extends: null as any, // Indicate that base types has not been parsed yet (parseBaseTypes).
+    ownProperties: null as any, // We use this to indicate the properties has not been parsed yet (parseTypeProperties).
     properties: {},
     extendedBy: new Set(),
     referencedBy: new Set(referencingProperty ? [referencingProperty] : []),
@@ -147,6 +151,7 @@ export const parseType = (
   }
 
   if (embedded) {
+    parseBaseTypes(parsed, context);
     parseTypeProperties(parsed, context);
   }
 

@@ -63,7 +63,7 @@ describe("TypeResolver", () => {
               },
             },
             Test2: {
-              //  extends: [{ type: "Test" }],
+              extends: [{ type: "Test" }],
               event: true,
               properties: {
                 type: {
@@ -75,11 +75,26 @@ describe("TypeResolver", () => {
                 },
               },
             },
+            Test3: {
+              extends: [{ type: "Test" }],
+              event: true,
+              properties: {
+                type: {
+                  enum: ["test_event"],
+                },
+                geis: {
+                  primitive: "number",
+                  required: true,
+                },
+              },
+            },
           },
         },
       },
     ]);
 
+    console.log(resolver.getType("urn:test#Test")?.id);
+    console.log(resolver.getEvent("test_event")?.id);
     const testType = resolver.getType("urn:test#Test");
     expect(resolver.getEvent("test_event") === testType).toBe(true);
 
@@ -88,6 +103,8 @@ describe("TypeResolver", () => {
         {
           type: "test_event",
           test: "ok",
+          ged: 90,
+
           nested: {
             hej: {
               80: [
@@ -178,6 +195,43 @@ describe("TypeResolver", () => {
                 },
               },
             },
+            SubCensored: {
+              extends: [{ type: "Censored" }],
+              properties: {
+                hello: {
+                  usage: { classification: "anonymous" },
+                  primitive: "string",
+                },
+              },
+            },
+            SubCensored2: {
+              extends: [{ type: "Censored" }],
+              properties: {
+                boom: {
+                  primitive: "boolean",
+                  required: true,
+                },
+                hello: {
+                  primitive: "string",
+                },
+              },
+            },
+            SubCensored2_1: {
+              extends: [{ type: "SubCensored2" }],
+              // "anonymous" should take effect on all own properties instead of base types "indirect".
+              usage: { classification: "anonymous" },
+              properties: {
+                boom: {
+                  type: "base",
+                  // Override the classification of the base property (seemingly weird thing to do, but why not?)
+                  usage: { classification: "anonymous" },
+                },
+                test21: {
+                  required: true,
+                  primitive: "number",
+                },
+              },
+            },
           },
         },
       },
@@ -213,6 +267,66 @@ describe("TypeResolver", () => {
       nested: {
         ok: "",
       },
+    });
+
+    // Polymorphic censoring. Subtype 1 has anonymous hello.
+    expect(
+      censorType.censor(
+        {
+          boom: true,
+          hello: "ok",
+          ok: "Anonymous, but boom is required, so censored.",
+        },
+        {
+          trusted: false,
+          consent: {
+            classification: "anonymous",
+            purposes: {},
+          },
+        }
+      )
+    ).toBeUndefined();
+
+    // Polymorphic censoring. Subtype 2 (boom required) has indirect hello
+    expect(
+      censorType.censor(
+        {
+          hello: "ok",
+          boom: true,
+          test21: 10,
+          ok: "Anonymous can be here.",
+          pers: "Censored",
+        },
+        {
+          trusted: false,
+          consent: {
+            classification: "anonymous",
+            purposes: {},
+          },
+        }
+      )
+    ).toEqual({
+      boom: true,
+      test21: 10,
+      ok: "Anonymous can be here.",
+    });
+
+    // Polymorphic censoring. Subtype 2.1 (boom required, but now anonymous) allows the data.
+    expect(
+      censorType.censor(
+        {
+          hello: "ok",
+        },
+        {
+          trusted: false,
+          consent: {
+            classification: "anonymous",
+            purposes: {},
+          },
+        }
+      )
+    ).toEqual({
+      hello: "ok",
     });
 
     expect(

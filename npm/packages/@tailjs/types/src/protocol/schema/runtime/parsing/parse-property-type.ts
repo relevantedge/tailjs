@@ -1,5 +1,5 @@
 import { SchemaPropertyType } from "@tailjs/types";
-import { isArray } from "@tailjs/util";
+import { isArray, throwError } from "@tailjs/util";
 import { createSchemaTypeMapper, parseType, TypeParseContext } from ".";
 import {
   ParsedSchemaPrimitiveType,
@@ -200,7 +200,7 @@ export const parsePropertyType = (
       return parseType(type, parseContext, property);
     }
     if (!("union" in type)) {
-      throw new TypeError("Unsupported property type: " + JSON.stringify(type));
+      throwError("Unsupported property type: " + JSON.stringify(type));
     }
 
     const union = type.union.map((type) =>

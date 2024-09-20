@@ -5,4 +5,5 @@ export * from "./polymorphism";
 export * from "./parse-property-type";
 export * from "./parse-type";
 export * from "./parse-property";
+export * from "./parse-base-types";
 export * from "./parse-type-properties";

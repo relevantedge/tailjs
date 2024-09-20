@@ -101,9 +101,9 @@ export type ValueType<
 // #region get
 
 const updateSingle = (target: any, key: any, value: any) =>
-  setSingle(target, key, isFunction(value) ? value(get(target, key)) : value);
+  set(target, key, isFunction(value) ? value(get(target, key)) : value);
 
-const setSingle = (target: any, key: any, value: any) => {
+const set = (target: any, key: any, value: any) => {
   if (target.constructor === Object || isArray(target)) {
     value === undefined ? delete target[key] : (target[key] = value);
     return value;
@@ -139,7 +139,7 @@ export const setSingleIfNotDefined = (
   if (currentValue != null) {
     throwError(error(key, currentValue, value, target));
   }
-  return setSingle(target, key, value);
+  return set(target, key, value);
 };
 
 export const tryAdd: {
@@ -155,11 +155,10 @@ export const tryAdd: {
     conflict?.(current as any);
     return false;
   }
-  setSingle(target, key, unwrap(value));
+  set(target, key, unwrap(value));
   return true;
 };
 
-const getSymbol = Symbol();
 export const get: {
   <T extends ReadonlyPropertyContainer | Nullish, K extends KeyType<T>>(
     target: T,
@@ -202,7 +201,7 @@ export const get: {
 
   if (value === undefined && init != null) {
     (value = isFunction(init) ? (init as any)() : init) != null &&
-      setSingle(target, key, value);
+      set(target, key, value);
   }
   return value;
 };
@@ -464,7 +463,7 @@ const createSetOrUpdateFunction =
     return target;
   };
 
-export const assign = createSetOrUpdateFunction<true, false>(setSingle);
+export const assign = createSetOrUpdateFunction<true, false>(set);
 export const update: <
   T extends PropertyContainer | Nullish,
   K extends KeyType<T>
@@ -500,7 +499,7 @@ export const swap = <T extends PropertyContainer, K extends KeyType<T>>(
   value: ValueType<T, K>
 ): ValueType<T, K, "get"> => {
   const current = get(target, key) as any;
-  if (value !== current) setSingle(target, key, value);
+  if (value !== current) set(target, key, value);
   return current as any;
 };
 
