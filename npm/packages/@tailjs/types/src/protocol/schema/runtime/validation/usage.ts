@@ -30,7 +30,7 @@ export const getMinimumUsage = <T extends SchemaDataUsage | Nullish>(
       : current
     : (other as any);
 
-export const mergeUsage = <
+export const overrideUsage = <
   T extends undefined | Partial<SchemaDataUsage>,
   U extends undefined | Partial<SchemaDataUsage>
 >(

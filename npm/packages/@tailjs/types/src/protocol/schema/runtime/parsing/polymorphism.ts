@@ -1,16 +1,22 @@
 import {
+  array,
+  collect,
   entries,
   enumerate,
+  filter,
   forEach,
   fromEntries,
   get,
+  isPlainObject,
   map,
-  some,
+  maxBy,
+  StrictUnion,
   update,
+  values,
 } from "@tailjs/util";
 import {
   hasEnumValues,
-  ParsedSchemaPrimitiveType,
+  ParsedSchemaPrimitiveType as Primitive,
   ParsedSchemaPropertyDefinition as Property,
   SCHEMA_TYPE_PROPERTY,
   ParsedSchemaObjectType as Type,
@@ -24,103 +30,319 @@ import {
 const isFullyRequired = (prop: Property) =>
   prop.required && (!prop.baseProperty || isFullyRequired(prop.baseProperty));
 
-type PropertyValueBranches = {
-  values: { [Value in string]?: SchemaTypeSelector };
-  fallback?: SchemaTypeSelector;
+type TypeSelector = { type: Type };
+type PropertySelector = {
+  property: string;
+  discrete: boolean;
+  alternative?: Selector;
+
+  // Branch out on the property value.
+  values: Map<string | number, Selector>;
 };
 
-export type SchemaTypeSelector =
-  | {
-      type: Type;
-      baseType?: undefined;
-      subtypes?: undefined;
+type PropertyValueMap = {
+  name: string;
+  types: Set<Type>;
+  discrete: boolean;
+
+  values: Map<string | number, Set<Type>>;
+};
+
+type Selector = StrictUnion<TypeSelector | PropertySelector>;
+
+let value: any;
+const selectorFoo = (data: any, selector: Selector | undefined) =>
+  !selector || !isPlainObject(data)
+    ? undefined
+    : selector.type ??
+      selectorFoo(
+        data,
+        data[selector.property] != null
+          ? selector.values[selector.discrete ? "*" : value]
+          : selector.alternative
+      );
+
+const mapTypeFoo = (types: Type[]) => {
+  const roots = new Set(types);
+  types = [...subtypesOf(types, true)];
+
+  const discriminatorLookup = new Map<string, PropertyValueMap>();
+
+  for (const type of types) {
+    const props = roots.has(type)
+      ? // Include properties from base types that are not included.
+        type.properties
+      : type.ownProperties;
+    let prop: Property;
+    let hasOwn = false;
+    for (const name in props) {
+      if (!isFullyRequired((prop = props[name]))) continue;
+      hasOwn ||= prop.type !== prop.baseProperty?.type;
+
+      update(
+        discriminatorLookup,
+        name,
+        (current) => (
+          ((current ??= {
+            name,
+            types: new Set(),
+            discrete: false,
+            values: new Map(),
+            // If the property is as an enum anywhere, it is discrete.
+            // That means we will only match data that has one of the enum values from one of the types.
+          }).discrete ||= hasEnumValues(prop.type)),
+          current
+        )
+      );
     }
-  | {
-      type?: undefined;
-      baseType?: Type;
-      subtypes?: {
-        [Property in string]: PropertyValueBranches;
-      };
+    if (!hasOwn) {
+      for (const baseType of type.extends) {
+        // The type does not have any properties disambiguating it from its base types.
+        // A unambiguous selector is not possible unless they are abstract, so we make them.
+        baseType.abstract = true;
+      }
+    }
+  }
+
+  const discriminators = values(discriminatorLookup);
+
+  for (const type of types) {
+    if (type.abstract) continue;
+
+    for (const { name, types, discrete, values } of discriminators) {
+      let prop: Property;
+      let target: PropertyValueMap;
+      if (!(prop = type.properties[name])) continue;
+
+      for (const value of discrete
+        ? (prop.type as Primitive).enumValues ?? []
+        : ["*"]) {
+        types.add(type);
+        get(values, value, () => new Set()).add(type);
+      }
+    }
+  }
+
+  // Sort by the maximum number of types that can be mapped by a selector from each property.
+
+  function mapSelector(unmapped: Set<Type>, props: PropertyValueMap[]) {
+    let type: Type | undefined;
+    if (unmapped.size <= 1) {
+      // Single type.
+      unmapped.forEach((item) => (type = item));
+      return type && { type };
+    }
+
+    // Find the property that covers as many of the types as possible,
+    // and resolve ties by the property with the most values to heuristically reduce the number of branches.
+    let size: number;
+    const [prop, overlap] = maxBy(props, (prop, current) =>
+      (size = prop.types.intersection(unmapped).size) === current
+        ? prop.values.size
+        : size
+    )!;
+    if (!overlap) {
+      // An unambiguous selector is impossible.
+      return undefined;
+    }
+
+    const selector: PropertySelector = {
+      property: prop.name,
+      discrete: prop.values["*"],
+      values: new Map(),
     };
+
+    const nextProps = props.filter((other) => other !== prop);
+    let remaining = new Set(unmapped);
+    for (const [value, types] of prop.values) {
+      const mapped = mapSelector(types.intersection(unmapped), nextProps);
+      if (mapped == null) {
+        // An unambiguous selector is impossible.
+        return mapped;
+      }
+      selector.values.set(value, mapped);
+      remaining = remaining.difference(types);
+    }
+    if (remaining.size) {
+      selector.alternative = mapSelector(remaining, nextProps);
+    }
+  }
+  return mapSelector(array(propertyLookup.values()));
+};
+
+const buildFoo = (
+  types: Type[],
+  properties: Map<string, PropertyValueMap>,
+  rootProperty?: string
+) => {
+  const props = [...properties].sort(
+    (x, y) => y[1].values!.size - x[1].values!.size
+  );
+
+  function mapOne(
+    unmapped: Set<Type>,
+    pendingSelectors: [name: string, values: PropertyValueMap][]
+  ) {
+    let intersection: Set<Type>;
+    const candidates = map(pendingSelectors, (item) =>
+      (intersection = item[1].types.intersection(unmapped)).size
+        ? [item, intersection]
+        : undefined
+    ).sort(([, x], [, y]) => y.size - x.size);
+
+    for (const [name, info] of pendingSelectors) {
+    }
+  }
+};
+
+const pickBestSelector = (selectors: Iterable<Selector>) => {
+  let best: Selector | undefined;
+  for (const selector of selectors) {
+    if (selector.type) {
+      // A direct match is always best.
+      return selector;
+    }
+    if (
+      selector.property &&
+      (!best?.property || selector.mapped > best.mapped)
+    ) {
+      // A selector with many values is more efficient than going through a lot of nested selectors.
+      best = selector;
+    }
+  }
+  return best;
+};
+
+const finishFoos = (selectors: Iterable<Selector>, unmapped: Set<Type>) => {
+  let best = pickBestSelector(selectors);
+  if (best?.property) {
+    for (const [name, selector] of best.values) {
+      if (selector.type) {
+        unmapped.delete(selector.type);
+        continue;
+      }
+    }
+  }
+
+  return best;
+};
+
+// const selectorFoo = (data: any, selector: Selector | undefined) => {
+//   if (!selector?.property) return selector?.type;
+
+//   let value = data[selector.property];
+//   let subSelector: Selector | undefined;
+//   if( selector.values){
+//     return selectorFoo(data, selector.values[value] ?? selector.subSelector);
+//   }
+//   //return
+//   return value != null ? selector.values && (subSelector= selector.values?.[value]) ? selectorFoo
+
+//   return value != null && selector.type
+//     ? selector.type
+//     : selectorFoo(
+//         data,
+//         value == null || !(subSelector = selector.values?.[value])
+//           ? selector.subSelector
+//           : subSelector
+//       );
+// };
+
+type PropertyValueBranches = {
+  values: { [Value in string]?: SchemaTypeSelector };
+  other?: SchemaTypeSelector;
+};
+
+export type SchemaTypeSelector = StrictUnion<
+  { baseType: Type; mapped: Set<Type> } & (
+    | { match: Type }
+    | { selectors: PropertyValueBranches; default?: SchemaTypeSelector }
+  )
+>;
 
 export type SchemaTypeMapper = (data: any) => Type | undefined;
 
-export const getCommonDenominator = (types: Type[]): Type | undefined => {
-  if (types.length <= 1) return types[0];
-  for (let i = 0; i < types.length; i++) {
-    let all = true;
-    for (let j = 0; j < types.length; j++) {
-      if (i !== j && !types[i].extendedBy.has(types[j])) {
-        all = false;
-        break;
+export const isAssignableTo = (type: Type, baseType: Type) =>
+  type === baseType || type.extendsAll.has(baseType);
+
+const sortedSymbol = Symbol();
+
+/** Performs a topological sort on the given types, so a type that extends another type will come after. */
+export const sortByInheritance = (source: Iterable<Type>): readonly Type[] => {
+  if (source[sortedSymbol]) return source as Type[];
+
+  const types = array(source);
+  for (let i = 0; i < types.length - 1; i++) {
+    if (isAssignableTo(types[i], types[i + 1])) {
+      for (let j = i; j >= 0 && isAssignableTo(types[j], types[j + 1]); j--) {
+        // Keep bubbling the type up, as long
+        [types[j + 1], types[j]] = [types[j], types[j + 1]];
       }
     }
-    if (all) return types[i];
   }
+  types[sortedSymbol] = true;
+  return types;
 };
 
-function* descendantsOrSelf(types: Type | Iterable<Type>): Iterable<Type> {
-  if (Symbol.iterator in types) {
-    for (const type of types) {
-      yield* descendantsOrSelf(type);
-    }
-  } else {
-    yield types;
-    yield* types.extendedBy;
-  }
-}
+const rootsSymbol = Symbol();
 
-function* ancestors(
-  types: Type | Iterable<Type>,
-  seen = new Set<Type>()
-): Iterable<Type> {
-  if (Symbol.iterator in types) {
-    for (const type of types) {
-      yield* ancestors(type, seen);
-    }
-  } else {
-    for (const baseType of types.extendedBy) {
-      if (!seen.has(baseType)) {
-        seen.add(baseType);
-        yield* ancestors(baseType, seen);
-      }
-    }
-  }
-}
+/** Returns the types that do not extend any other type.*/
+export const getRootTypes = (types: Iterable<Type>): readonly Type[] =>
+  types[rootsSymbol] ??
+  ((types = sortByInheritance(types))[rootsSymbol] = (types as Type[]).filter(
+    (type, i) => !i || !type.extendsAll.has(types[i - 1])
+  ));
+
+const leavesSymbol = Symbol();
+export const getLeaves = (types: Iterable<Type>): readonly Type[] =>
+  types[leavesSymbol] ??
+  ((types = sortByInheritance(types))[rootsSymbol] = (types as Type[]).filter(
+    (type) => !type.extendedBy.length
+  ));
+
+export const baseTypesOf = (types: Type | Iterable<Type>, orSelf = false) =>
+  collect(types, (type) => type.extends, orSelf);
+
+export const subtypesOf = (types: Type | Iterable<Type>, orSelf = false) =>
+  collect(types, (type) => type.extendedBy, orSelf);
 
 export const createSchemaTypeMapper: (
-  types: Type[],
-  filter?: (type: Type) => boolean,
-  prioritize?: string[]
+  types: readonly Type[],
+  prioritize?: string[],
+  subtypeFilter?: (type: Type) => any
 ) => {
   map: SchemaTypeMapper;
   selector?: SchemaTypeSelector;
   mapped: Set<Type>;
   unmapped: Set<Type>;
   validation: { censor: SchemaCensorFunction; validate: SchemaValueValidator };
-} = (types, filter, prioritize) => {
-  if (types.length === 1 && !types[0].extendedBy.size) {
-    // Single concrete type.
+} = (types, prioritize, subtypeFilter) => {
+  if (types.length < 2 && !types[0].extendedBy.length) {
+    // Fast path for single or no type.
     const type = types[0];
     return {
       map: () => type,
       mapped: new Set(types),
       unmapped: new Set(),
       validation: {
-        censor: (target, context) => type.censor(target, context, false),
-        validate: (target, current, context, errors) => {
-          const validated = type.validate(
-            target,
-            current,
-            context,
-            errors,
-            false
-          );
-          if (validated != VALIDATION_ERROR) {
-            validated[SCHEMA_TYPE_PROPERTY] = type.qualifiedName;
-          }
-          return validated;
-        },
+        censor: type
+          ? (target, context) => type.censor(target, context, false)
+          : () => {},
+        validate: type
+          ? (target, current, context, errors) => {
+              const validated = type.validate(
+                target,
+                current,
+                context,
+                errors,
+                false
+              );
+              if (validated != VALIDATION_ERROR) {
+                validated[SCHEMA_TYPE_PROPERTY] = type.qualifiedName;
+              }
+              return validated;
+            }
+          : () => {},
       },
     };
   }
@@ -131,151 +353,122 @@ export const createSchemaTypeMapper: (
       // Property name.
       string,
       // Values for the property.
-      Set<string>
+      Set<string | number>
     >;
   };
 
+  /** Common variable when looking up cached type info to save code lines. */
+
+  let info: TypePropertyInfo;
+  const typeInfos = new Map<Type, TypePropertyInfo | null>();
+  const discriminators = new Map<string, { discrete: boolean }>();
   const valueMappings = new Map<
     string,
-    Map<string, Map<Type, TypePropertyInfo>>
+    {
+      types: Set<Type>;
+      values: Map<string | number, Map<Type, TypePropertyInfo>>;
+    }
   >();
 
-  const typeInfos = new Map<Type, TypePropertyInfo | null>();
-
-  const removeValueMappings = (type: Type | TypePropertyInfo) => {
-    const info = "type" in type ? type : typeInfos.get(type);
-    forEach(info?.props, ([prop, values]) =>
-      forEach(values, (value) =>
-        valueMappings.get(prop)?.get(value)?.delete(info!.type)
-      )
-    );
-  };
-
-  const discriminators = new Map<string, { discrete: boolean }>();
-  const roots = new Set(types);
-  for (const type of descendantsOrSelf(types)) {
-    forEach(
-      roots.has(type) ? type.properties : type.ownProperties,
-      ([key, prop]) =>
-        isFullyRequired(prop) &&
-        update(discriminators, key, (current) => ({
-          discrete: current?.discrete || hasEnumValues(prop.type),
-        }))
-    );
-  }
-
-  const mapPropertyValues = (type: Type) => {
-    const cached = typeInfos.get(type);
-    if (cached) {
-      return cached;
-    }
-
-    if (type.abstract || filter?.(type) === false) {
-      typeInfos.set(type, null);
-      return null;
-    }
-
-    // Make sure base types are parsed.
-    forEach(type.extends, mapPropertyValues);
-
-    const info: TypePropertyInfo = { type, props: new Map() };
-    typeInfos.set(type, info);
-
-    let hasOwn = false;
-    for (const [key, { discrete }] of discriminators) {
-      const prop = type.properties[key];
-      if (!prop) continue;
-      forEach(
-        discrete ? (prop.type as ParsedSchemaPrimitiveType).enumValues : ["*"],
-        (value) => {
-          hasOwn = true;
-          value = value.toString();
-          get(
-            get(valueMappings, key, () => new Map()),
-            value,
-            () => new Map()
-          ).set(type, info);
-          get(info.props, key, () => new Set()).add(value);
-        }
-      );
-    }
-    if (!hasOwn) {
-      // Base types does not have any discriminators, since the subtype has inherited them all.
-      // Remove base types from value mappings.
-      for (const baseType of ancestors(type)) {
-        removeValueMappings(baseType);
-      }
-    }
-  };
-
-  for (const type of descendantsOrSelf(types)) {
-    mapPropertyValues(type);
-  }
-
-  let unmapped = new Set<Type>();
-  forEach(valueMappings, ([, values]) =>
-    forEach(values, ([, types]) =>
-      forEach(types, ([type]) => unmapped.add(type))
+  // Expand all subtypes and sort topologically.
+  types = sortByInheritance(
+    filter(
+      subtypesOf(types, true),
+      (type) => !type.abstract && subtypeFilter?.(type) !== false
     )
   );
-  for (const type of descendantsOrSelf(types)) {
-    if (type.extendedBy.size === 0 && !unmapped.has(type)) {
-      // Leaf type without required properties, including properties from base types.
-      unmapped.add(type);
+
+  const roots = new Set(getRootTypes(types));
+
+  for (const type of getLeaves(types)) {
+    // Leaves first. Then we can avoid unnecessary base types.
+    typeInfos.set(type, (info = { type, props: new Map() }));
+    let hasOwn = false;
+    let prop: Property;
+    let values: (string | number)[];
+
+    for (const [key, { discrete }] of discriminators) {
+      if (!(prop = type.properties[key])) {
+        continue;
+      }
+
+      for (const value of discrete
+        ? (prop.type as Primitive).enumValues ?? []
+        : ["*"]) {
+        hasOwn =
+          !discrete ||
+          // The type might have overridden an enum property without changing the enum values
+          // (for example, to change usage).
+          prop.type !== prop.baseProperty?.type ||
+          hasOwn;
+
+        const mapped = get(valueMappings, key, () => ({
+          types: new Set(),
+          values: new Map(),
+        }));
+        mapped.types.add(type);
+        get(mapped.values, value, () => new Map()).set(type, info);
+        get(info.props, key, () => new Set()).add(value);
+      }
+    }
+
+    if (hasOwn) {
+      // Do not process base types if the type has no new distinguishing property values.
+      // This means they will have exactly the same discriminators, and the base types can safely be assumed abstract.
+      for (const baseType of type.extends) {
+        if (typeInfos.has(baseType)) continue;
+      }
     }
   }
 
-  const prioritized = prioritize?.length ? new Set(prioritize) : null;
-  // Order properties by the number of distinct values they can have (and explicit prioritization).
-  // This to reduce the number of selector trees.
-  const propertiesByLikelihood = [...valueMappings].sort(
-    ([name1, { size: x }], [name2, { size: y }]) =>
-      prioritized?.has(name1) === prioritized?.has(name2)
-        ? y - x
-        : prioritized?.has(name1)
-        ? Number.MIN_SAFE_INTEGER
-        : Number.MAX_SAFE_INTEGER
+  const unmapped = new Set(typeInfos.keys());
+  const prioritized = new Set(prioritize);
+
+  // Order properties by the number of types they cover to reduce the size of the tree.
+  //
+  const selectorProps = [...valueMappings].sort(
+    (x, y) =>
+      +prioritized.has(y[0]) - +prioritized.has[x[0]] ||
+      y[1].types.size - x[1].types.size
   );
 
   const mapped = new Set<Type>();
   const createSelector = (
-    parentProps?: Map<string, string>,
-    subset?: Set<Type>
+    unmapped: Set<Type>,
+    exclude: Map<string, string>
   ): SchemaTypeSelector | undefined => {
     let selector: SchemaTypeSelector | undefined;
-    for (const [prop, values] of propertiesByLikelihood) {
-      if (parentProps?.has(prop) === true) {
+    let propValues: PropertyValueBranches | undefined;
+    for (const [prop, values] of selectorProps) {
+      if (exclude?.has(prop) === true) {
         continue;
       }
 
-      let propValues: PropertyValueBranches | undefined;
-
-      if (!parentProps && !unmapped.size) {
+      if (!exclude && !unmapped.size) {
         // Done. All mapped.
         break;
       }
-      // Capture the types that were mapped before we branch out on the property.
-      // When done, the mapped types not in this set,
-      const previouslyMapped = [...(subset ?? unmapped)];
 
-      for (let [value, types] of values) {
-        if (subset && !some(types, ([type]) => subset.has(type))) {
-          // We are only looking for disambiguating a subset of the types for a nested selector.
-          // Don't branch out on the rest.
-          continue;
-        } else if (value === "" && !subset?.size) {
-          // Only consider the absence of required property when disambiguating.
-          continue;
-        }
+      for (let [value, types] of values.values) {
+        let candidates = filter(types.values(), (info) => types.has(type));
 
-        let candidates = map(types, ([, info]) =>
-          !some(
-            parentProps,
-            ([name, value]) => info.props.get(name)?.has(value) !== true
-          )
-            ? info
-            : undefined
-        );
+        // if (types && !some(types, ([type]) => types.has(type))) {
+        //   // We are only looking for disambiguating a subset of the types for a nested selector.
+        //   // Don't branch out on the rest.
+        //   continue;
+        // } else if (value === "" && !types?.size) {
+        //   // Only consider the absence of required property when disambiguating.
+        //   continue;
+        // }
+
+        // let candidates = map(types, ([, info]) =>
+        //   !some(
+        //     exclude,
+        //     ([name, value]) => info.props.get(name)?.has(value) !== true
+        //   )
+        //     ? info
+        //     : undefined
+        // );
 
         if (!candidates.length) {
           continue;
@@ -292,7 +485,7 @@ export const createSchemaTypeMapper: (
         }
 
         const childSelector = createSelector(
-          new Map([...(parentProps ?? []), [prop, value]]),
+          new Map([...(exclude ?? []), [prop, value]]),
           new Set(map(candidates, (candidate) => candidate.type))
         );
 
@@ -305,7 +498,7 @@ export const createSchemaTypeMapper: (
       if (stillMissing.length === 1 && propValues) {
         // The type will now be fully mapped in the "spill-over" bucket.
         const fallback = stillMissing[0];
-        propValues.fallback = { type: fallback };
+        propValues.other = { type: fallback };
 
         removeValueMappings(fallback);
         unmapped.delete(fallback);
@@ -315,7 +508,9 @@ export const createSchemaTypeMapper: (
       if (propValues) {
         ((selector ??= {}).subtypes ??= {})[prop] = propValues;
         let allTypes: Type[] | null = [];
-        for (const [, { fallback, values }] of entries(selector.subtypes)) {
+        for (const [, { other: fallback, values }] of entries(
+          selector.subtypes
+        )) {
           fallback?.type && allTypes.push(fallback.type);
           for (const [, selector] of entries(values)) {
             if (selector?.type) {
@@ -331,7 +526,7 @@ export const createSchemaTypeMapper: (
             break;
           }
         }
-        allTypes && (selector.baseType = getCommonDenominator(allTypes));
+        allTypes && (selector.baseType = sortByInheritance(allTypes));
       }
     }
     return selector;
@@ -345,7 +540,7 @@ export const createSchemaTypeMapper: (
   ): SchemaTypeMapper => {
     const matchers = map(
       selector.subtypes!,
-      ([prop, { fallback, values }]): SchemaTypeMapper => {
+      ([prop, { other: fallback, values }]): SchemaTypeMapper => {
         const lookup = fromEntries(values, ([value, selector]) => [
           value,
           selector!.type ?? compile(selector!),

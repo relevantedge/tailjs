@@ -7,7 +7,7 @@ import { ValidatableSchemaEntity } from "./validation";
 
 export interface ParsedSchemaPrimitiveType extends ValidatableSchemaEntity {
   primitive: SchemaPrimitiveType["primitive"];
-  enumValues?: (string | number)[];
+  enumValues?: Set<string | number>;
   source: SchemaPrimitiveType | SchemaEnumType;
 }
 

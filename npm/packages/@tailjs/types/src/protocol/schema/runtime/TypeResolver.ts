@@ -42,7 +42,7 @@ import {
   throwValidationErrors,
   ValidatableSchemaEntity,
 } from "./validation";
-import { addTypeValidators } from "./validation/add-type-validators";
+import { addTypeValidators } from "./validation/addTypeValidators";
 
 export type SchemaDefinitionSource = {
   definition: SchemaDefinition;
@@ -195,13 +195,8 @@ export class TypeResolver {
     if (eventType) {
       const { map, selector, unmapped } = createSchemaTypeMapper(
         [eventType],
-        (type) =>
-          !type.schema.referencesOnly &&
-          !!(
-            type.properties[CORE_EVENT_DISCRIMINATOR]
-              ?.type as ParsedSchemaPrimitiveType
-          ).enumValues,
-        ["type"]
+        ["type"],
+        (type) => !type.schema.referencesOnly
       );
       if (unmapped.size) {
         throwError(

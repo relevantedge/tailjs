@@ -36,7 +36,6 @@ type ReadonlyMapLike<K = any, V = any> = {
   get(key: K): V | undefined;
 };
 
-// #region Shared types
 type MapLike<K = any, V = any> = ReadonlyMapLike<K, V> & {
   set(key: K, value: V): any;
   delete(key: K): any;
@@ -95,13 +94,6 @@ export type ValueType<
     ? boolean
     : T[K] | If<And<Extends<T, RecordType>, Extends<Context, "set">>, undefined>
   : never;
-
-// #endregion
-
-// #region get
-
-const updateSingle = (target: any, key: any, value: any) =>
-  set(target, key, isFunction(value) ? value(get(target, key)) : value);
 
 const set = (target: any, key: any, value: any) => {
   if (target.constructor === Object || isArray(target)) {
@@ -191,7 +183,6 @@ export const get: {
   init?: Wrapped<R>
 ) => {
   if (!target) return undefined as any;
-  if (target.constructor === Object && init == null) return target[key as any];
 
   let value = (target as any).get
     ? (target as any).get(key)
@@ -205,10 +196,6 @@ export const get: {
   }
   return value;
 };
-
-// #endregion
-
-// #region set and update
 
 type UpdateFunction<
   T extends ReadonlyPropertyContainer,
@@ -503,17 +490,13 @@ export const swap = <T extends PropertyContainer, K extends KeyType<T>>(
   return current as any;
 };
 
-// #endregion
-
 export const add = <T extends PropertyContainer<any, boolean>>(
   target: T,
   key: KeyType<T>
 ) =>
   target instanceof Set || target instanceof WeakSet
-    ? target.has(key)
-      ? false
-      : (target.add(key), true)
-    : get(target, key) !== assign(target, key, true as any);
+    ? !target.has(key) && (target.add(key), true)
+    : !get(target, key) && (set(target, key, true), true);
 
 export const has = <T extends ReadonlyPropertyContainer>(
   target: T,

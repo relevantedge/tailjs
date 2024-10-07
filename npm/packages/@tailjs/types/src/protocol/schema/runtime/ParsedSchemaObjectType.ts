@@ -11,8 +11,23 @@ export type SchemaVariableKey = Pick<VariableKey, "scope" | "key">;
 export interface ParsedSchemaObjectType
   extends ParsedSchemaEntity,
     ValidatableSchemaEntity {
-  /** Other types the inherits properties from. */
+  /** The type cannot be used directly for data. */
+  abstract: boolean;
+
+  /** The type is defined in a property. */
+  embedded: boolean;
+
+  /** Other types the inherits properties from directly. */
   extends: ParsedSchemaObjectType[];
+
+  /** Other types the inherits properties, both directly and indirectly. */
+  extendsAll: Set<ParsedSchemaObjectType>;
+
+  /** All types extending this type either directly or indirectly. */
+  extendedBy: ParsedSchemaObjectType[];
+
+  /** All types extending this type either directly or indirectly. */
+  extendedByAll: Set<ParsedSchemaObjectType>;
 
   /** The properties the type declares itself. */
   ownProperties: {
@@ -24,17 +39,8 @@ export interface ParsedSchemaObjectType
     [P in string]: ParsedSchemaPropertyDefinition;
   };
 
-  /** The type is defined in a property. */
-  embedded: boolean;
-
-  /** The type cannot be used directly for data. */
-  abstract: boolean;
-
   /** The properties where this type is used */
   referencedBy: Set<ParsedSchemaPropertyDefinition>;
-
-  /** All types extending this type either directly or indirectly. */
-  extendedBy: Set<ParsedSchemaObjectType>;
 
   /** An object of this type can be tracked as an event. */
   eventNames?: string[];

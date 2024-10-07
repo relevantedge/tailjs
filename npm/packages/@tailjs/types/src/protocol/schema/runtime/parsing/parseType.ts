@@ -14,7 +14,7 @@ import {
   ParsedSchemaObjectType,
   ParsedSchemaPropertyDefinition,
 } from "../../..";
-import { mergeUsage } from "../validation";
+import { overrideUsage } from "../validation";
 
 export const getTypeId = (namespace: string, name: string) =>
   namespace + "#" + name;
@@ -105,16 +105,18 @@ export const parseType = (
 
     usage: SCHEMA_DATA_USAGE_MAX,
     usageOverrides:
-      mergeUsage(
+      overrideUsage(
         schema.usageOverrides,
         (source as SchemaTypeDefinition).usage
       ) ?? {},
     embedded: embedded,
     abstract: !!(source as SchemaTypeDefinition).abstract,
     extends: null as any, // Indicate that base types has not been parsed yet (parseBaseTypes).
+    extendsAll: new Set(),
+    extendedBy: [],
+    extendedByAll: new Set(),
     ownProperties: null as any, // We use this to indicate the properties has not been parsed yet (parseTypeProperties).
     properties: {},
-    extendedBy: new Set(),
     referencedBy: new Set(referencingProperty ? [referencingProperty] : []),
     ...DEFAULT_CENSOR_VALIDATE,
 
@@ -144,7 +146,7 @@ export const parseType = (
   }
 
   if (referencingProperty != null) {
-    parsed.usageOverrides = mergeUsage(
+    parsed.usageOverrides = overrideUsage(
       referencingProperty.usageOverrides,
       parsed.usageOverrides
     );

@@ -40,7 +40,7 @@ export const getPrimitiveTypeValidator = (
 ): {
   validator: SchemaPrimitiveValueValidator;
   primitive: SchemaPrimitiveType["primitive"];
-  enumValues: any[] | undefined;
+  enumValues: Set<string | number> | undefined;
 } => {
   let primitive =
     type.primitive ?? (type.primitive = typeof (type.enum?.[0] ?? "") as any);

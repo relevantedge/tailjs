@@ -1,7 +1,16 @@
-import { add, forEach, throwError } from "@tailjs/util";
+import { add, throwError } from "@tailjs/util";
 import { parseType, TypeParseContext } from ".";
 import { ParsedSchemaObjectType } from "../../../..";
-import { mergeUsage } from "../validation";
+import { overrideUsage } from "../validation";
+
+export const addBaseType = (
+  subtype: ParsedSchemaObjectType,
+  baseType: ParsedSchemaObjectType
+) => {
+  add(baseType.extendedByAll, subtype) && baseType.extendedBy.push(subtype);
+  add(subtype.extendsAll, baseType) && subtype.extends.push(subtype);
+  return subtype;
+};
 
 export const parseBaseTypes = (
   parsedType: ParsedSchemaObjectType,
@@ -10,43 +19,47 @@ export const parseBaseTypes = (
   if (parsedType.extends) {
     return parsedType;
   }
+  parsedType.extends = [];
+
   const { systemTypes: systemTypes, usageOverrides: baseUsageOverrides } =
     context;
 
   const source = parsedType.source;
   let usageOverrides = parsedType.usageOverrides;
-  parsedType.extends =
-    source.extends?.map((baseType) =>
+
+  source.extends?.forEach((baseType) =>
+    addBaseType(
+      parsedType,
       parseBaseTypes(parseType(baseType, context, null), context)
-    ) ?? [];
+    )
+  );
 
   if (
     parsedType.source["event"] &&
     !parsedType.extends.some((baseType) =>
-      systemTypes.event?.extendedBy.has(baseType)
+      systemTypes.event?.extendedByAll.has(baseType)
     )
   ) {
-    parsedType.extends.unshift(
+    addBaseType(
+      parsedType,
       systemTypes.event ??
         throwError(
           "The system base type for tracked events has not been defined."
         )
     );
-    systemTypes.event?.extendedBy.add(parsedType);
   }
 
   for (const parsedBaseType of parsedType.extends) {
     if ("usage" in parsedBaseType.source) {
-      usageOverrides = mergeUsage(parsedBaseType.source.usage, usageOverrides);
+      usageOverrides = overrideUsage(
+        parsedBaseType.source.usage,
+        usageOverrides
+      );
     }
-    const traverse = (baseType: ParsedSchemaObjectType) =>
-      add(baseType.extendedBy, parsedType) &&
-      forEach(baseType.extends, traverse);
-    traverse(parsedBaseType);
   }
 
   // Don't apply context usage before we have merged the extended types' usage.
-  parsedType.usageOverrides = mergeUsage(baseUsageOverrides, usageOverrides);
+  parsedType.usageOverrides = overrideUsage(baseUsageOverrides, usageOverrides);
 
   return parsedType;
 };

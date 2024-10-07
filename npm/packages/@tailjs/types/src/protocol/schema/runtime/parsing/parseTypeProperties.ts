@@ -23,12 +23,12 @@ export const parseTypeProperties = (
 
   const source = parsedType.source;
 
-  forEach(parsedType.extends, (baseType) =>
+  forEach(parsedType.extendsAll, (baseType) =>
     // Make sure we have all the base type's properties.
     parseTypeProperties(baseType, context)
   );
 
-  for (const baseType of parsedType.extends) {
+  for (const baseType of parsedType.extendsAll) {
     for (const key in baseType.properties) {
       parsedType.properties[key] ??= baseType.properties[key];
     }
