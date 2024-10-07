@@ -40,6 +40,7 @@ import {
   isString,
   isTruish,
   symbolIterator,
+  throwError,
   undefined,
 } from ".";
 
@@ -53,6 +54,7 @@ export const toCharCodes = (s: string) =>
 export const codePoint = (string: string, index: number = 0) =>
   string.codePointAt(index)!;
 
+export type ProperIteratorSource = Iterable<any> | RecordType;
 export type IteratorSource =
   | Nullish
   | number
@@ -290,7 +292,7 @@ const sliceAction = <S extends IteratorSource, R, P>(
 export type IteratorFilter<S extends IteratorSource> = (
   value: IteratorItem<S>,
   index: number
-) => any;
+) => unknown;
 
 /** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */
 export const filterArray = <T extends readonly any[] | undefined>(
@@ -523,21 +525,15 @@ export function* concatIterators<S extends IteratorSource[]>(
 export const intersection = <
   T,
   A extends Iterable<T> | undefined,
-  B extends Iterable<T> | undefined,
-  MapToArray extends boolean = A extends any[]
-    ? true
-    : B extends any[]
-    ? true
-    : false
+  B extends Iterable<T> | undefined
 >(
   a: A,
-  b: B,
-  mapToArray?: MapToArray
-): MapToArray extends true ? T[] : Iterable<T> => {
+  b: B
+): T[] => {
   if (!a || !b) return [];
   isSet(b) && ([b, a] = [a, b] as any);
   const lookup = isSet(a) ? a : new Set(a);
-  return filter(b, (value) => lookup.has(value), mapToArray) as any;
+  return filter(b, (value) => lookup.has(value)) as any;
 };
 
 export const intersects = (
@@ -679,6 +675,55 @@ export const concat: {
 };
 
 type ExpandItem<T> = Exclude<T extends readonly (infer T)[] ? T : T, Nullish>;
+
+type ItemOrSelf<T> = Exclude<
+  T extends string ? T : T extends Iterable<infer T> ? T : T,
+  Nullish
+>;
+
+export function collect<T, R>(
+  source: T,
+  selector: (source: ItemOrSelf<T>) => R | Nullish,
+  includeSelf?: false,
+  depth?: 0 | 1,
+  collected?: Set<unknown>
+): Iterable<ItemOrSelf<R>>;
+export function collect<T, R>(
+  source: T | R | Nullish,
+  selector: (source: ItemOrSelf<T>) => R | Nullish,
+  includeSelf?: boolean,
+  depth?: number,
+  collected?: Set<unknown>
+): Iterable<ItemOrSelf<T> | ItemOrSelf<R>>;
+export function* collect(
+  source: any,
+  selector: (source: any) => any,
+  includeSelf = false,
+  depth = -1,
+  collected: Set<any> = new Set()
+): Iterable<any> {
+  if (isIterable(source)) {
+    for (const item of source) {
+      if (!collected.has(item)) {
+        yield* collect(item, selector, includeSelf, depth, collected);
+      }
+    }
+  } else if (source != null && !collected.has(source)) {
+    if (includeSelf) {
+      collected.add(source);
+      yield source as any;
+    }
+    if (depth--) {
+      yield* collect(
+        selector(source as any) as any,
+        selector,
+        includeSelf,
+        depth,
+        collected
+      );
+    }
+  }
+}
 
 export const expand = <
   T,
@@ -1079,43 +1124,19 @@ export const reduce: <
   );
 };
 
-type FilterItem<S extends IteratorSource, F> = F extends (
-  value: any,
-  ...args: any
-) => value is infer T
-  ? T
-  : IteratorItem<S>;
-
 export const filter: {
-  <
-    S extends IteratorSource,
-    MapToArray extends boolean = S extends Nullish | readonly any[]
-      ? true
-      : false,
-    P extends IteratorFilter<S> = IteratorFilter<S>
-  >(
+  <S extends IteratorSource, P extends IteratorFilter<S>>(
     source: S,
     predicate?: P,
-    map?: MapToArray,
-    ...rest: StartEndArgs<S>
-  ): MapToArray extends true
-    ? MaybeUndefined<S, FilterItem<S, P>[]>
-    : Iterable<FilterItem<S, P>>;
-} = (
-  source: IteratorSource,
-  predicate: IteratorFilter<any> = (item: any) => item != null,
-  map = isArray(source) as any,
-  start?: any,
-  end?: any
-) =>
-  mapToArray(
-    createIterator(
-      source,
-      (item, index) => (predicate(item, index) ? item : undefined),
-      start,
-      end
-    ),
-    map
+    ...args: StartEndArgs<S>
+  ): MaybeUndefined<S, Exclude<Exclude<IteratorItem<S>, Falsish>[], never[]>>;
+} = (source, predicate, start?: any, end?: any) =>
+  (map as any)(
+    source,
+    (value: any, index: any) =>
+      value && predicate?.(value, index) ? value : undefined,
+    start,
+    end
   ) as any;
 
 let filterInternal = filter;
@@ -1126,16 +1147,12 @@ export const count: <S extends IteratorSource>(
   ...rest: StartEndArgs<S>
 ) => MaybeUndefined<S, number> = (
   source: IteratorSource,
-  filter?: IteratorFilter<IteratorSource>,
-  start?: any,
-  end?: any
+  filter?: IteratorFilter<IteratorSource>
 ) => {
   if (source == null) return undefined as any;
 
   let n: number;
-  if (filter) {
-    source = filterInternal(source, filter, false, start, end) as any;
-  } else {
+  if (!filter) {
     if ((n = source!["length"] ?? source!["size"]) != null) {
       return n;
     }
@@ -1143,8 +1160,14 @@ export const count: <S extends IteratorSource>(
       return Object.keys(source).length;
     }
   }
+
   n = 0;
-  return forEachInternal(source, () => ++n) ?? (0 as any);
+  return (
+    forEachInternal(
+      source,
+      filter ? (item, index) => (filter!(item, index) ? ++n : n) : () => ++n
+    ) ?? (0 as any)
+  );
 };
 
 export const sum: {
@@ -1218,6 +1241,22 @@ export const min: MinMaxFunction = (source: any, ...args: any[]) =>
         args[3]
       );
 
+export const maxBy = <T>(
+  source: Iterable<T>,
+  selector: (item: T, currentMax?: number) => number | false | Nullish
+) => {
+  let best: [T, number] | undefined;
+  let selected: number | boolean | Nullish;
+  for (const item of source) {
+    selected = selector(item, best?.[1]);
+    if (selected === false) return best;
+    if (!best || selected! > best[1]) {
+      best = [item, selected!];
+    }
+  }
+  return best;
+};
+
 export const max: MinMaxFunction = (source: any, ...args: any[]) =>
   source == null
     ? undefined
@@ -1244,11 +1283,15 @@ export const values: <S extends IteratorSource>(
   ...rest: StartEndArgs<S>
 ) => MaybeUndefined<
   S,
-  IteratorItem<S> extends readonly [any, infer Item] ? Item : IteratorItem<S>
+  (IteratorItem<S> extends readonly [any, infer Item]
+    ? Item
+    : IteratorItem<S>)[]
 > = (source, start?: any, end?: any) =>
   (map as any)(
     source,
-    isPlainObject(source) ? (item: any) => item[1] : (item: any) => item,
+    isPlainObject(source) || isMap(source)
+      ? (item: any) => item[1]
+      : (item: any) => item,
     start,
     end
   );
@@ -1349,22 +1392,6 @@ export const last: <S extends IteratorSource | undefined>(
         end
       );
 
-export const find: <S extends IteratorSource>(
-  source: S,
-  predicate: IteratorFilter<S>,
-  ...rest: StartEndArgs<S>
-) => MaybeUndefined<S, IteratorItem<S>> = (
-  source,
-  predicate,
-  start?: any,
-  end?: any
-) =>
-  source == null
-    ? undefined
-    : (source as any).find
-    ? (source as any).find(predicate)
-    : first(filterInternal(source as any, predicate, false, start, end));
-
 export const rank = <S extends IteratorSource>(source: S) =>
   createIterator(source, (item, i) => [item, i] as const);
 
@@ -1408,11 +1435,14 @@ export const every: <S extends IteratorSource>(
  * Array's `sort` function that offers a single function that is applied on each element instead of having to do it twice (`[...].sort(x,y)=>f(x)-f(y)`).
  * Default is to use the value directly.
  */
-export const sort = <T extends any[] | Nullish, Item extends IteratorItem<T>>(
+export const sort = <
+  T extends Iterable<any> | Nullish,
+  Item extends IteratorItem<T>
+>(
   items: T,
   rank: (item: Item) => number = (item) => item as any
 ): MaybeUndefined<T, Item[]> =>
-  (items?.sort((lhs, rhs) => rank(lhs) - rank(rhs)), items) as any;
+  (array(items)?.sort((lhs, rhs) => rank(lhs) - rank(rhs)), items) as any;
 
 export const binarySearch: {
   (arr: Array<number>, find: number): number;

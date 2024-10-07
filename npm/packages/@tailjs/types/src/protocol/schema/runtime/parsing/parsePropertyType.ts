@@ -1,5 +1,5 @@
 import { SchemaPropertyType } from "@tailjs/types";
-import { isArray, throwError } from "@tailjs/util";
+import { isArray, map, throwError } from "@tailjs/util";
 import { createSchemaTypeMapper, parseType, TypeParseContext } from ".";
 import {
   ParsedSchemaPrimitiveType,
@@ -28,7 +28,7 @@ export const parsePropertyType = (
       if (enumValues) {
         name +=
           " [" +
-          enumValues.map((value) => JSON.stringify(value)).join(", ") +
+          map(enumValues, (value) => JSON.stringify(value)).join(", ") +
           "]";
       }
 

@@ -1,14 +1,13 @@
 import { SchemaPropertyDefinition, validateConsent } from "@tailjs/types";
-import { getEntityIdProperties, parsePropertyType } from ".";
+import { enumerate, forEach, throwError } from "@tailjs/util";
+import { getEntityIdProperties, parsePropertyType, TypeParseContext } from ".";
 import {
   DEFAULT_CENSOR_VALIDATE,
   ParsedSchemaObjectType,
   ParsedSchemaPropertyDefinition,
   throwValidationErrors,
 } from "../../..";
-import { mergeUsage, pushInnerErrors } from "../validation";
-import { TypeParseContext } from ".";
-import { enumerate, forEach, throwError } from "@tailjs/util";
+import { overrideUsage, pushInnerErrors } from "../validation";
 
 export const parseProperty = (
   declaringType: ParsedSchemaObjectType,
@@ -17,7 +16,7 @@ export const parseProperty = (
   context: TypeParseContext,
   baseProperty?: ParsedSchemaPropertyDefinition
 ): ParsedSchemaPropertyDefinition => {
-  const usageOverrides = mergeUsage(
+  const usageOverrides = overrideUsage(
     // Properties inherit usage from base properties, not from the type that overrides them.
     baseProperty ? baseProperty.usageOverrides : declaringType.usageOverrides,
     property.usage
@@ -33,7 +32,7 @@ export const parseProperty = (
     schema: declaringType.schema,
     declaringType,
     name,
-    usage: mergeUsage(defaultUsage, usageOverrides),
+    usage: overrideUsage(defaultUsage, usageOverrides),
     usageOverrides,
     type: null as any,
     required: !!property.required,
@@ -98,7 +97,7 @@ export const parseProperty = (
         types,
         (type) =>
           !baseTypes.some(
-            (baseType) => type !== baseType && !baseType.extendedBy.has(type)
+            (baseType) => type !== baseType && !baseType.extendedByAll.has(type)
           ) &&
           overrideError(
             `The type ${type} is not the same or an extension of the base property's ${enumerate(
@@ -109,16 +108,23 @@ export const parseProperty = (
       );
     } else if ("enumValues" in type && type.enumValues) {
       if ("enumValues" in baseType && baseType.enumValues) {
-        if (
-          !type.enumValues.every((value) =>
-            baseType.enumValues!.includes(value)
-          )
-        ) {
-          overrideError();
+        for (const value of type.enumValues) {
+          if (!baseType.enumValues.has(value)) {
+            overrideError();
+          }
+          if (baseType.enumValues.size === type.enumValues.size) {
+            // They are the same, so we enable reference equality
+            // between the types
+            parsedProperty.type = baseType;
+          }
         }
       }
     } else if ("" + baseType !== "" + type) {
       overrideError();
+    } else {
+      // Always merge base property type.
+      // We do not handle min/max value or max-length overrides.
+      parsedProperty.type = baseType;
     }
   }
 

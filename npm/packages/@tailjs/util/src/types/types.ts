@@ -319,10 +319,13 @@ export const isNotTrue = <T>(value: T): value is Exclude<T, true> =>
 
 export type Falsish = void | null | undefined | 0 | "" | false;
 
-export type FalsishToUndefined<T> = T extends readonly any[]
+export type FalsishToUndefined<
+  T,
+  Undefined = undefined
+> = T extends readonly any[]
   ? { [P in keyof T]: FalsishToUndefined<T[P]> }
   : T extends Falsish
-  ? undefined
+  ? Undefined
   : T;
 
 export const isFalsish = (value: any): value is Falsish => !value;
@@ -409,20 +412,14 @@ export const array: {
     ? value
     : isIterable(value)
     ? [...value]
-    : // : isAsyncIterable(value)
-      // ? toArrayAsync(value)
-      ([value] as any);
+    : ([value] as any);
 
 export const isObject = (value: any): value is object & Record<any, any> =>
   value !== null && typeof value === "object";
 
-const objectPrototype = Object.prototype;
-const getPrototypeOf = Object.getPrototypeOf;
-
 export const isPlainObject = (
   value: any
-): value is RecordType<keyof any, any> =>
-  value != null && getPrototypeOf(value) === objectPrototype;
+): value is RecordType<keyof any, any> => value?.constructor === Object;
 
 export const hasProperty = <P extends keyof any>(
   value: any,

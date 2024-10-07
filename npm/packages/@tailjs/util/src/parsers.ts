@@ -284,10 +284,10 @@ export const toQueryString = <
     : (map(parameters, ([key, value]) =>
         isString(key)
           ? key +
-              "=" +
-              (isArray(value)
-                ? map(value, uriEncode).join(delimiter)
-                : uriEncode(value)) ?? ""
+            "=" +
+            (isArray(value)
+              ? map(value, uriEncode).join(delimiter)
+              : uriEncode(value) ?? "")
           : undefined
       )?.join("&") as any);
 

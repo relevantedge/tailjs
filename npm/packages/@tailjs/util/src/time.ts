@@ -85,7 +85,7 @@ export const createTimeout = (
   (trigger: true): true;
   (): boolean;
 } => {
-  let handle: number;
+  let handle: any;
   let currentCallback: (() => void) | undefined;
 
   const stickyTimeout = (arg?: any, timeout = defaultTimeout) => {
