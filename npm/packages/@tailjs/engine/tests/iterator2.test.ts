@@ -1,9 +1,11 @@
 import {
   add2,
+  array2,
   assign2,
   clone2,
   forEach2,
   get2,
+  group2,
   map2,
   obj2,
   sort2,
@@ -100,6 +102,42 @@ describe("iterators(2)", () => {
     ).toEqual({
       a: 80,
       b: 90,
+    });
+  });
+
+  it("Groups", () => {
+    expect(
+      array2(
+        group2([
+          [1, 1],
+          [1, 2],
+          [2, 3],
+        ])
+      )
+    ).toEqual([
+      [1, [1, 2]],
+      [2, [3]],
+    ]);
+
+    expect(
+      group2(
+        [
+          [1, 1],
+          [1, 2],
+          [2, 3],
+        ],
+        false
+      )
+    ).toEqual({ 1: [1, 2], 2: [3] });
+
+    expect(array2(group2(3, (n) => [n < 2 ? 1 : 2, n + 1]))).toEqual([
+      [1, [1, 2]],
+      [2, [3]],
+    ]);
+
+    expect(group2(3, (n) => [n < 2 ? 1 : 2, n + 1], false)).toEqual({
+      1: [1, 2],
+      2: [3],
     });
   });
 

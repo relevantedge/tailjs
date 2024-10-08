@@ -50,7 +50,7 @@ type ItSource<T = any> =
   | Iterable<T>
   | Nullish;
 
-type Kv2 = readonly [keyof any | undefined, any];
+type Kv2<K = keyof any> = readonly [K | undefined, any];
 
 type Obj2<KeyValues extends Kv2 | Nullish> = UnionToIntersection<
   KeyValues extends readonly [infer Key extends keyof any, infer Value]
@@ -60,9 +60,9 @@ type Obj2<KeyValues extends Kv2 | Nullish> = UnionToIntersection<
   ? { [P in keyof T]: T[P] }
   : never;
 
-type Obj2Source =
-  | { [P in keyof any]: any }
-  | Iterable<readonly [keyof any | undefined, any]>
+type Obj2Source<K = keyof any> =
+  | ({ [P in keyof any]: any } & { [Symbol.iterator]?: undefined })
+  | Iterable<Kv2<K>>
   | Nullish;
 
 type OptionalKeys<T, K extends keyof T = keyof T> = K extends keyof any
@@ -221,16 +221,21 @@ export const filter2: {
 
 export const map2: {
   <It extends ItSource, T, R = ItItem<It>, S extends R | unknown = unknown>(
-    target: It | ItSource<T>,
-    projection?: ItFunction2<ItItem<It>, S, R>
+    source: It | ItSource<T>,
+    projection?: ItFunction2<ItItem<It>, S, R>,
+    target?: ItItem<It>[]
   ): R extends Nullish ? R : ItProjection<R>[];
-} = (target: any, projection?: any) =>
-  target != null
-    ? (target[forEachFunction] || assignForEach(target))(target, projection, [])
-    : target;
+} = (source: any, projection?: any, target = []) =>
+  source != null
+    ? (source[forEachFunction] || assignForEach(source))(
+        source,
+        projection,
+        target
+      )
+    : source;
 
 export const obj2: {
-  <It extends Obj2Source>(source: It | ItSource): It extends Nullish
+  <It extends Obj2Source>(source: It): It extends Nullish
     ? It
     : Obj2SourceToObj<It>;
   <It extends ItSource, T, R extends Kv2, S extends R>(
@@ -258,6 +263,61 @@ export const obj2: {
     )
   );
   return target;
+};
+
+type Group2Result<Source, AsMap> = AsMap extends true
+  ? Source extends Iterable<infer T extends Kv2<any>>
+    ? Map<Exclude<T[0], undefined>, T[1][]>
+    : Source extends { [P in infer Key]: infer Value }
+    ? Map<Key, Value[]>
+    : never
+  : Source extends Iterable<infer T extends Kv2>
+  ? { [P in Exclude<T[0], undefined>]: T[1] }
+  : Source extends { [P in infer Key]: infer Value }
+  ? { [P in Key]: Value[] }
+  : never;
+
+export const group2: {
+  <It extends Obj2Source, AsMap extends boolean = true>(
+    source: It,
+    map?: AsMap
+  ): It extends Nullish ? It : Group2Result<Obj2SourceToObj<It>, AsMap>;
+  <It extends Obj2Source<any>>(source: It): It extends Nullish
+    ? It
+    : Group2Result<Obj2SourceToObj<It>, true>;
+  <
+    It extends ItSource,
+    T,
+    R extends Kv2,
+    S extends R,
+    AsMap extends boolean = true
+  >(
+    source: It | ItSource<T>,
+    projection: ItFunction2<ItItem<It>, S, R>,
+    map?: AsMap
+  ): Group2Result<R, AsMap>;
+  <It extends ItSource, T, R extends Kv2<any>, S extends R>(
+    source: It | ItSource<T>,
+    projection: ItFunction2<ItItem<It>, S, R>
+  ): Group2Result<R, true>;
+} = (source: any, projection?: any, map?: any) => {
+  projection != null &&
+    typeof projection !== "function" &&
+    ([projection, map] = [undefined, projection]);
+  let groups: any, kv: [any, any];
+  forEach2(
+    source,
+    map !== false
+      ? ((groups = new Map()),
+        (item, index, prev) =>
+          (kv = projection ? projection(item, index, prev) : item) &&
+          get2(groups, kv[0], () => []).push(kv[1]))
+      : ((groups = {}),
+        (item, index, prev) =>
+          (kv = projection ? projection(item, index, prev) : item) &&
+          (groups[kv[0]] ??= []).push(kv[1]))
+  );
+  return groups as any;
 };
 
 export const assign2: {
@@ -297,17 +357,28 @@ export const add2: {
 } = (target: Set<any> | WeakSet<any>, item: any) =>
   !target.has(item) && !!target.add(item);
 
+type UnknownIsOkay<R, V> = R extends undefined
+  ? R
+  : unknown extends V
+  ? any
+  : V extends R
+  ? R
+  : V & R extends never[]
+  ? R
+  : never;
+
+type NeverIsAny<T> = T extends never[] ? any[] : T;
+
 export const get2: {
-  <K, V, R extends V | undefined = V | undefined>(
-    target: Map<K, V>,
+  <K, V, R = undefined>(
+    target: Map<K, V> | WeakMap<K & WeakKey, V>,
     key: K,
-    add?: () => R
-  ): R;
-  <K extends {}, V, R extends V | undefined = undefined>(
-    target: WeakMap<K, V>,
-    key: K,
-    add?: () => R
-  ): R;
+    add?: () => R & UnknownIsOkay<R, V>
+  ): unknown extends V
+    ? NeverIsAny<R>
+    : R extends undefined
+    ? V | undefined
+    : V;
 } = (target: Map<any, any> | WeakMap<any, any>, key: any, add: any) => {
   let value = target.get(key);
   if (value === undefined && add && (value = add()) !== undefined) {
@@ -317,16 +388,17 @@ export const get2: {
 };
 
 export const update2: {
-  <K, V, R extends V | undefined = V | undefined>(
-    target: Map<K, V>,
+  <K, V, R>(
+    target: Map<K, V> | WeakMap<K & WeakKey, V>,
     key: K,
-    update: R | ((current: V | undefined) => R)
-  ): R;
-  <K extends {}, V, R extends V | undefined = undefined>(
-    target: WeakMap<K, V>,
-    key: K,
-    update: R | ((current: V | undefined) => R)
-  ): R;
+    update:
+      | (R & (V | undefined))
+      | ((current: V | undefined) => R & UnknownIsOkay<R, V>)
+  ): unknown extends V
+    ? NeverIsAny<R>
+    : R extends undefined
+    ? V | undefined
+    : V;
 } = (target: Map<any, any> | WeakMap<any, any>, key: any, update: any) => {
   let value =
     typeof update === "function"
@@ -338,6 +410,31 @@ export const update2: {
     target.set(key, value);
   }
   return value;
+};
+
+export const concat2: {
+  <T extends readonly any[]>(args: T): T extends readonly (infer T)[]
+    ? (T extends Iterable<infer T> ? T : T extends object ? KeyValues<T> : T)[]
+    : never;
+
+  <T extends readonly any[]>(...args: T): {
+    [P in keyof T]: T[P] extends Iterable<infer T>
+      ? T
+      : T[P] extends object
+      ? KeyValues<T[P]>
+      : T[P];
+  }[number][];
+} = (arg0: any, ...other: any[]) => {
+  if (other.length) return clone2([arg0, ...other]);
+
+  const result: any[] = [];
+  for (const arg of arg0) {
+    if (arg != null) {
+      if (typeof arg === "object") map2(arg, undefined, result);
+      else result.push(arg);
+    }
+  }
+  return result;
 };
 
 export const forEach2: {
