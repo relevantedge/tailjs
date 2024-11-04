@@ -15,7 +15,7 @@ import {
   KeyValueSourcesToObject,
   MAX_SAFE_INTEGER,
   MaybeUndefined,
-  Minus,
+  Subtract,
   Nullish,
   OmitNullish,
   Property,
@@ -177,7 +177,7 @@ type FlatIteratorItem<T, D extends number = 1, Object = false> = T extends
       | (Object extends true ? Record<keyof any, any> : never)
   ? D extends 1
     ? IteratorItem<T>
-    : FlatIteratorItem<IteratorItem<T>, Minus<D, 1>, Object>
+    : FlatIteratorItem<IteratorItem<T>, Subtract<D, 1>, Object>
   : T;
 
 const wrapProjection = <P>(
@@ -626,7 +626,7 @@ type FinalIteratorItem<
   ? FinalIteratorItem<
       T,
       ArraysOnly,
-      -1 extends MaxDepth ? -1 : Minus<MaxDepth, 1>
+      -1 extends MaxDepth ? -1 : Subtract<MaxDepth, 1>
     >
   : T;
 

@@ -18,5 +18,5 @@ export interface SchemaObjectType {
 export const SCHEMA_TYPE_PROPERTY = "@type";
 
 export interface SchemaTypedData {
-  "@type"?: string;
+  "@type"?: [id: string, version?: string];
 }

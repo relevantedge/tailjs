@@ -69,7 +69,8 @@ export type EnumerationSeparators = string | [last: string, other?: string];
  */
 export const enumerate = <T extends Iterable<any> | Nullish>(
   values: T,
-  separator: EnumerationSeparators = ["and", ", "]
+  separator: EnumerationSeparators = ["and", ", "],
+  format?: (enumerated: string, n: number) => string
 ): MaybeUndefined<T, string> => {
   if (!values) return undefined as any;
 

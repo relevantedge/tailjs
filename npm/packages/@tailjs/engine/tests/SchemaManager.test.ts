@@ -25,7 +25,7 @@ type AtLeast<T> = T extends object | any[]
   : T;
 
 type AtLeastPartial<T> = Partial<AtLeast<T>>;
-
+("https://dev.azure.com/relevantedge/");
 describe("SchemaManager.", () => {
   const stripMetadata = <T>(value: T): T => (
     value && delete value[EntityMetadata.TypeId], value

@@ -1,15 +1,7 @@
 import { forEach } from "@tailjs/util";
-import { createSchemaTypeMapper, parseProperty, TypeParseContext } from ".";
-import {
-  ParsedSchemaObjectType,
-  ParsedSchemaPropertyDefinition,
-} from "../../..";
-import {
-  getMinimumUsage,
-  SchemaCensorFunction,
-  SchemaValueValidator,
-  VALIDATION_ERROR,
-} from "../validation";
+import { parseProperty, TypeParseContext } from ".";
+import { ParsedSchemaObjectType } from "../../..";
+import { getMinimumUsage } from "../validation";
 
 export const parseTypeProperties = (
   parsedType: ParsedSchemaObjectType,

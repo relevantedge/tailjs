@@ -3,7 +3,7 @@ import type {
   IfNot,
   IsAny,
   IsStrictlyUnknown,
-  Minus,
+  Subtract,
   Nullish,
 } from ".";
 
@@ -139,7 +139,7 @@ export type VariableTuple<
     : Template["length"]
 > = MaxLength extends 0
   ? readonly []
-  : readonly [Item, ...VariableTuple<Item, Template, Minus<MaxLength, 1>>];
+  : readonly [Item, ...VariableTuple<Item, Template, Subtract<MaxLength, 1>>];
 
 type Navigate<T, K extends keyof any> = K extends ""
   ? T

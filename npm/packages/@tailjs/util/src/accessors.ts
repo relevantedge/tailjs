@@ -9,7 +9,7 @@ import {
   KeyValuePairsToObject,
   MaybeUndefined,
   MethodOverloads,
-  Minus,
+  Subtract,
   NotFunction,
   Nullish,
   PrettifyIntersection,
@@ -518,7 +518,7 @@ type RemoveDeepArgs<
         | RemoveDeepArgs<
             ValueType<T>,
             [...Current, KeyType<T>[] | KeyType<T>],
-            Minus<Depth, 1>
+            Subtract<Depth, 1>
           >
   : Current;
 
