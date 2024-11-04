@@ -1,7 +1,6 @@
 import type {
   ParsedSchemaDefinition,
   SchemaDataUsage,
-  SchemaDefinition,
   SchemaTypeSystemRole,
 } from "@tailjs/types";
 import { ParsedSchemaObjectType } from "../../..";
@@ -16,8 +15,6 @@ export type TypeParseContext = {
   referencesOnly: boolean;
 
   systemTypes: { [P in SchemaTypeSystemRole]?: ParsedSchemaObjectType };
-
-  eventTypes: Map<string, ParsedSchemaObjectType>;
 
   parsedTypes: Map<string, ParsedSchemaObjectType>;
 

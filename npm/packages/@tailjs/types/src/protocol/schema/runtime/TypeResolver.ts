@@ -6,15 +6,7 @@ import {
   type SchemaTypeReference,
   type VariableScope,
 } from "@tailjs/types";
-import {
-  enumerate,
-  first,
-  forEach,
-  get,
-  isString,
-  throwError,
-  tryAdd,
-} from "@tailjs/util";
+import { forEach, get, tryAdd } from "@tailjs/util";
 
 export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
   validate: (value, _current, _context, _errors) => value,
@@ -22,10 +14,8 @@ export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
 };
 
 import {
-  CORE_EVENT_DISCRIMINATOR,
   ParsedSchemaDefinition,
   ParsedSchemaObjectType,
-  ParsedSchemaPrimitiveType,
   SchemaVariableKey,
 } from "../..";
 
@@ -34,7 +24,7 @@ import {
   parseBaseTypes,
   parseType,
   parseTypeProperties,
-  SchemaTypeMapper,
+  SchemaTypeSelector,
   TypeParseContext,
 } from "./parsing";
 import {
@@ -53,9 +43,7 @@ export class TypeResolver {
   private readonly _schemas = new Map<string, ParsedSchemaDefinition>();
   private readonly _types = new Map<string, ParsedSchemaObjectType>();
   private readonly _systemTypes: TypeParseContext["systemTypes"] = {};
-
-  private readonly _events = new Map<string, ParsedSchemaObjectType>();
-  private _eventMapper: SchemaTypeMapper | undefined;
+  private readonly _eventMapper: SchemaTypeSelector | undefined;
 
   private readonly _variables = new Map<
     string,
@@ -113,7 +101,6 @@ export class TypeResolver {
           schema: parsed,
           parsedTypes: this._types,
           systemTypes: this._systemTypes,
-          eventTypes: this._events,
           defaultUsage,
           usageOverrides: definition.usage,
           referencesOnly: !!referencesOnly,
@@ -193,63 +180,15 @@ export class TypeResolver {
 
     const eventType = this._systemTypes.event;
     if (eventType) {
-      const { map, selector, unmapped } = createSchemaTypeMapper(
-        [eventType],
-        ["type"],
-        (type) => !type.schema.referencesOnly
-      );
-      if (unmapped.size) {
-        throwError(
-          unmapped.size > 1
-            ? `The event types ${enumerate(
-                unmapped
-              )} do not have at least one unique value for their 'type' property.`
-            : `The event type ${first(
-                unmapped
-              )} does not have at least one unique value for its 'type' property.`
-        );
-      }
-
-      forEach(
-        selector?.subtypes?.type?.values,
-        ([typeName, { type, baseType }]) => {
-          if (!type && !baseType) {
-            throwError(
-              "If multiple types are using the same event type name, they must share a common base class."
-            );
-          } else if (isString(typeName)) {
-            type = baseType ?? type!;
-            type.schema.types.set(typeName, type);
-            (type.eventNames ??= []).push(typeName);
-
-            this._events.set(typeName, type);
-          }
-        }
-      );
-
-      this._eventMapper = map;
+      this._eventMapper = createSchemaTypeMapper([eventType]).match;
     }
   }
 
-  getEvent<Required extends boolean = true>(
-    eventType: string,
-    required: Required = true as any
-  ): ParsedSchemaObjectType | (Required extends true ? never : undefined) {
-    let type = this._events.get(eventType) ?? this._types.get(eventType);
-    if (required && !type) {
-      throw new Error(`The event "${eventType}" is not defined.`);
-    }
-    if (type && !type.eventNames?.length) {
-      if (required) {
-        throw new Error(`The type "${type.id}" is not a concrete event type.`);
-      }
-      return undefined as any;
-    }
-
-    return type as any;
+  public getEventType(eventData: any) {
+    return this._eventMapper?.(eventData);
   }
 
-  getType<Required extends boolean = true>(
+  public getType<Required extends boolean = true>(
     typeName: string,
     required: Required = true as any,
     defaultNamespace?: string
@@ -274,7 +213,7 @@ export class TypeResolver {
     return JSON.stringify(this._source);
   }
 
-  getVariable<Required extends boolean = true>(
+  public getVariable<Required extends boolean = true>(
     scope: string,
     key: string,
     required: Required = true as any

@@ -1,5 +1,5 @@
 import { SchemaEnumType, SchemaPrimitiveType } from "@tailjs/types";
-import { enumerate } from "@tailjs/util";
+import { enumerate, set2 } from "@tailjs/util";
 import { SchemaValidationError, VALIDATION_ERROR } from "../../..";
 
 const REGEX_DATE = /^\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.000)?)?Z$/;
@@ -117,7 +117,7 @@ export const getPrimitiveTypeValidator = (
   return {
     validator,
     primitive,
-    enumValues: enumValues ? [...enumValues] : undefined,
+    enumValues: set2(enumValues),
   };
 
   function create(type: SchemaPrimitiveType): SchemaPrimitiveValueValidator {

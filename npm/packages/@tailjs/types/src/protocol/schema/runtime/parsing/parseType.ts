@@ -7,7 +7,7 @@ import {
   SchemaTypeDefinition,
   SchemaTypeReference,
 } from "@tailjs/types";
-import { first, IDENTITY } from "@tailjs/util";
+import { first } from "@tailjs/util";
 import { parseBaseTypes, parseTypeProperties, TypeParseContext } from ".";
 import {
   DEFAULT_CENSOR_VALIDATE,

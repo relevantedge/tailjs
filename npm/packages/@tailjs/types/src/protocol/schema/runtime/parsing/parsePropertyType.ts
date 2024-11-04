@@ -207,13 +207,14 @@ export const parsePropertyType = (
       parseType(type, parseContext, property)
     );
 
-    const { validation } = createSchemaTypeMapper(union);
+    const { censor, validate } = createSchemaTypeMapper(union);
 
     const name = "union(" + union.map((type) => "" + type).join(", ") + ")";
     return {
       union,
       source: type,
-      ...validation,
+      censor,
+      validate,
       toString: () => name,
     };
   })();

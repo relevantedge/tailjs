@@ -42,9 +42,6 @@ export interface ParsedSchemaObjectType
   /** The properties where this type is used */
   referencedBy: Set<ParsedSchemaPropertyDefinition>;
 
-  /** An object of this type can be tracked as an event. */
-  eventNames?: string[];
-
   /**
    * The keys of the variables the type can be used for (scope / key).
    */

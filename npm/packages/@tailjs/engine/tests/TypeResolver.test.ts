@@ -83,7 +83,7 @@ describe("TypeResolver", () => {
                 type: {
                   enum: ["test_event"],
                 },
-                geis: {
+                geiss: {
                   primitive: "number",
                   required: true,
                 },
@@ -95,9 +95,7 @@ describe("TypeResolver", () => {
     ]);
 
     console.log(resolver.getType("urn:test#Test")?.id);
-    console.log(resolver.getEvent("test_event")?.id);
     const testType = resolver.getType("urn:test#Test");
-    expect(resolver.getEvent("test_event") === testType).toBe(true);
 
     let validated = throwValidationErrors((errors) =>
       testType.validate(
@@ -140,7 +138,7 @@ describe("TypeResolver", () => {
           { trusted: false },
           errors
         )
-      )[SCHEMA_TYPE_PROPERTY]
+      )[SCHEMA_TYPE_PROPERTY]?.[0]
     ).toBe("urn:test#Test2");
 
     expect(
@@ -148,13 +146,13 @@ describe("TypeResolver", () => {
         testType.validate(
           {
             type: "test_event",
-            geis: 30,
+            geiss: 30,
           },
           null,
           { trusted: false },
           errors
         )
-      )[SCHEMA_TYPE_PROPERTY]
+      )[SCHEMA_TYPE_PROPERTY]?.[0]
     ).toBe("urn:test#Test3");
 
     expect(
@@ -167,7 +165,7 @@ describe("TypeResolver", () => {
           { trusted: false },
           errors
         )
-      )[SCHEMA_TYPE_PROPERTY]
+      )[SCHEMA_TYPE_PROPERTY]?.[0]
     ).toBe("urn:test#Test");
 
     expect(() =>
@@ -176,14 +174,14 @@ describe("TypeResolver", () => {
           {
             type: "test_event",
             ged: 40,
-            geis: 30,
+            geiss: 30,
           },
           null,
           { trusted: false },
           errors
         )
       )
-    ).toThrow(/geis:.*not defined/);
+    ).toThrow(/geiss:.*not defined/);
   });
 
   it("Censors", () => {
@@ -257,6 +255,7 @@ describe("TypeResolver", () => {
                 hello: {
                   usage: { classification: "anonymous" },
                   primitive: "string",
+                  required: true,
                 },
               },
             },

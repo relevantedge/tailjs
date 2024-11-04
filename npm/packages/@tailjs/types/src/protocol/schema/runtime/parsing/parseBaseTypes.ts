@@ -8,7 +8,7 @@ export const addBaseType = (
   baseType: ParsedSchemaObjectType
 ) => {
   add(baseType.extendedByAll, subtype) && baseType.extendedBy.push(subtype);
-  add(subtype.extendsAll, baseType) && subtype.extends.push(subtype);
+  add(subtype.extendsAll, baseType) && subtype.extends.push(baseType);
   return subtype;
 };
 

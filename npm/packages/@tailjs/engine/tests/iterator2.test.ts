@@ -1,18 +1,27 @@
 import {
-  add2,
+  toggle2,
+  all2,
   array2,
   assign2,
+  avg2,
   clone2,
+  filter2,
+  flatMap2,
   forEach2,
   get2,
   group2,
   map2,
+  max2,
+  min2,
   obj2,
+  skip2,
+  some2,
   sort2,
   stop2,
-  topoSort,
-  TRUISH,
+  sum2,
+  topoSort2,
   update2,
+  enumerate2,
 } from "@tailjs/util";
 
 type Item = [id: string, deps?: Item[]];
@@ -20,11 +29,11 @@ type Item = [id: string, deps?: Item[]];
 describe("iterators(2)", () => {
   it("Maps and eaches", () => {
     expect(map2([1, 2, 3, 4], (x) => x)).toEqual([1, 2, 3, 4]);
-    expect(map2([1, 2, 3, 4], (x) => (x === 3 ? stop2() : x))).toEqual([1, 2]);
+    expect(map2([1, 2, 3, 4], (x) => (x === 3 ? stop2 : x))).toEqual([1, 2]);
     expect(map2([1, 2, 3, 4], (x) => (x === 3 ? stop2(x) : x))).toEqual([
       1, 2, 3,
     ]);
-    expect(map2([1, 2, 3, 4], (x) => x)).toEqual([1, 2, 3, 4]);
+    expect(map2([1, 2, 3, null, 4], (x) => x)).toEqual([1, 2, 3, null, 4]);
 
     expect(map2({ a: "test", b: 20 })).toEqual([
       ["a", "test"],
@@ -50,7 +59,7 @@ describe("iterators(2)", () => {
     ).toEqual([1, 2]);
 
     expect(map2(4)).toEqual([0, 1, 2, 3]);
-    expect(map2(4, TRUISH)).toEqual([1, 2, 3]);
+    expect(map2(4, (x) => x || skip2)).toEqual([1, 2, 3]);
 
     expect(
       forEach2([1, 2, 3, 2], (item, index, prev: number = 0) =>
@@ -62,7 +71,24 @@ describe("iterators(2)", () => {
     testMap.set(10, "ok");
     testMap.set(20, "ok2");
     expect(forEach2(testMap)).toEqual([20, "ok2"]);
+
+    type Childish = { id: number; parent?: Childish };
+    const x: Childish = { id: 0 };
+    const y: Childish = { id: 1, parent: x };
+    const z: Childish = { id: 2, parent: y };
+    expect(map2((current: Childish) => (current ? current.parent : z))).toEqual(
+      [z, y, x]
+    );
+    expect(
+      map2(
+        (current: Childish) => (current ? current.parent : z),
+        (item) => (item === y ? stop2(x) : item)
+      )
+    ).toEqual([z, x]);
+
+    expect(filter2([0, 1, null, 2])).toEqual([1, 2]);
   });
+
   it("Sorts normally", () => {
     expect(sort2(["a", "c", "b", 10])).toEqual([10, "a", "b", "c"]);
     expect(sort2(["a", "c", undefined, "b", 10, null])).toEqual([
@@ -85,6 +111,24 @@ describe("iterators(2)", () => {
       a: 32,
       b: "ok",
     });
+  });
+
+  it("Somes and alls", () => {
+    expect(some2([1, 2, 3])).toBe(true);
+    expect(some2([0, false, null, undefined])).toBe(false);
+    expect(some2([])).toBe(false);
+
+    expect(some2([0, "", 0, 0], (item, i, prev) => i >= 1 && prev === "")).toBe(
+      true
+    );
+
+    expect(all2([1, 2, 3])).toBe(true);
+    expect(all2([0, 1, 2, 3])).toBe(false);
+    expect(all2([])).toBe(true);
+
+    expect(all2([0, "", 0, 0], (item, i, prev) => i !== 2 || prev === "")).toBe(
+      true
+    );
   });
 
   it("Makes objects", () => {
@@ -153,9 +197,9 @@ describe("iterators(2)", () => {
 
   it("Does map and set things", () => {
     const s = new Set<string>();
-    expect(add2(s, "1")).toBe(true);
-    expect(add2(s, "2")).toBe(true);
-    expect(add2(s, "1")).toBe(false);
+    expect(toggle2(s, "1")).toBe(true);
+    expect(toggle2(s, "2")).toBe(true);
+    expect(toggle2(s, "1")).toBe(false);
 
     const m = new Map<string, number>();
     expect(get2(m, "1")).toBeUndefined();
@@ -176,6 +220,62 @@ describe("iterators(2)", () => {
     expect(m.size).toBe(0);
   });
 
+  it("Flat maps", () => {
+    expect(flatMap2([1, 2, 3])).toEqual([1, 2, 3]);
+    expect(flatMap2([1, 2, [3, 4]], undefined, 1)).toEqual([1, 2, 3, 4]);
+    expect(flatMap2([1, 2, [3, 4]], undefined, 0)).toEqual([1, 2, [3, 4]]);
+    expect(flatMap2({ gg: 80 })).toEqual(["gg", 80]);
+    expect(flatMap2({ gg: [1, 2], p: { ok: 10 } })).toEqual([
+      "gg",
+      1,
+      2,
+      "p",
+      { ok: 10 },
+    ]);
+    expect(flatMap2(2, (x) => [x, [1, x]], -1, [2])).toEqual([
+      2, 0, 1, 0, 1, 1, 1,
+    ]);
+    expect(flatMap2(2, (x) => (x ? stop2 : [x, [1, x]]), -1, [2])).toEqual([
+      2, 0, 1, 0,
+    ]);
+
+    expect(
+      flatMap2((x = [1, 2, 3, 4]) => (x.length ? x.slice(0, -1) : undefined))
+    ).toEqual([1, 2, 3, 1, 2, 1]);
+  });
+
+  it("Min, max, sum, etc.", () => {
+    expect(min2([1, 3, 2])).toBe(1);
+    expect(max2([1, 3, 2])).toBe(3);
+    expect(sum2([1, 3, 2])).toBe(6);
+    expect(avg2([1, 3, 2])).toBe(2);
+
+    const x = { n: 10 };
+    const y = { n: 5 };
+    const z = { n: 10 };
+    expect(max2([x, y, z], (item) => item.n, true)).toBe(x);
+  });
+
+  it("Enumerates", () => {
+    expect(enumerate2([1, 2, 3])).toBe("1, 2 and 3");
+    expect(enumerate2([1, 2, 3, null, 4], (x) => x && "Item " + x)).toBe(
+      "Item 1, Item 2, Item 3 and Item 4"
+    );
+    expect(enumerate2([1, 2, 3, null, 4], "or")).toBe("1, 2, 3 or 4");
+    expect(enumerate2([1, 2, 3, null, 4], ", or", null)).toBe("1, 2, 3, or 4");
+    expect(
+      enumerate2(
+        [1, 2, 3, null, 4],
+        (x) => x && x + 1,
+        ", or",
+        null,
+        (s, n) => n + ": " + s
+      )
+    ).toBe("4: 2, 3, 4, or 5");
+
+    expect(enumerate2([1, 2, 3], "", ";")).toBe("1; 2; 3");
+  });
+
   it("Sort topologically", () => {
     const item1: Item = ["1"];
     const item11: Item = ["1.1", [item1]];
@@ -189,15 +289,17 @@ describe("iterators(2)", () => {
     const item2: Item = ["2"];
     const item21: Item = ["2.1", [item111]];
 
-    expect(topoSort([item1, item11, item2], (item) => item[1])).toEqual([
-      item1,
-      item2,
-      item11,
-    ]);
+    expect(
+      topoSort2(
+        [item1, item11, item2],
+        (item) => item[1],
+        (item) => item[0]
+      )
+    ).toEqual([item1, item2, item11]);
 
     expect(
       // Item 1.2 omitted, so item121 only depends on item 1.1 and item122 is a root item.
-      topoSort(
+      topoSort2(
         [item13, item111, item2, item21, item11, item1, item122, item121],
         (item) => item[1]
       )
@@ -216,9 +318,17 @@ describe("iterators(2)", () => {
     const itemC12: Item = ["C12", [itemC1]];
     const itemC121: Item = ["C121", [itemC12]];
     itemC1[1]!.push(itemC121);
+
     expect(
       // Item 1.2 omitted, so item121 only depends on item 1.1 and item122 is a root item.
-      () => topoSort([itemC1, itemC12, itemC121], (item) => item[1])
+      () => topoSort2([itemC1, itemC12, itemC121], (item) => item[1], 0)
     ).toThrow("Cyclic");
+
+    expect(
+      topoSort2(
+        sort2([item13, item2, item12, item121, item1], (item) => item[0]),
+        (item) => item[1]
+      )
+    ).toEqual([item1, item2, item12, item13, item121]);
   });
 });

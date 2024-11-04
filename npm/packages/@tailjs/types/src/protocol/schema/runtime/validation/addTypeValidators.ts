@@ -4,7 +4,10 @@ import {
   SchemaValueValidator,
   VALIDATION_ERROR,
 } from ".";
-import { ParsedSchemaPropertyDefinition } from "../../../..";
+import {
+  ParsedSchemaPropertyDefinition,
+  SCHEMA_TYPE_PROPERTY,
+} from "../../../..";
 import { ParsedSchemaObjectType } from "../ParsedSchemaObjectType";
 import { createSchemaTypeMapper } from "../parsing";
 
@@ -24,7 +27,9 @@ export const addTypeValidators = (type: ParsedSchemaObjectType) => {
 
     for (const key in target) {
       const prop = props[key];
-
+      if (!prop) {
+        var b = 9;
+      }
       const targetValue = target[prop.name];
       const censoredValue = !prop
         ? // Remove keys we do not know.
@@ -96,14 +101,17 @@ export const addTypeValidators = (type: ParsedSchemaObjectType) => {
       }
     }
 
+    validated[SCHEMA_TYPE_PROPERTY] = type.version
+      ? [type.id, type.version]
+      : [type.id];
     return currentErrors < errors.length ? VALIDATION_ERROR : validated;
   };
 
-  if (type.extendedBy.size) {
+  if (type.extendedBy.length) {
     const {
-      map,
       mapped,
-      validation: { censor: polymorphicCensor, validate: polymorphicValidate },
+      censor: polymorphicCensor,
+      validate: polymorphicValidate,
     } = createSchemaTypeMapper([type]);
 
     type.censor = (target, context, polymorphic = true) =>
@@ -116,9 +124,6 @@ export const addTypeValidators = (type: ParsedSchemaObjectType) => {
         context,
         errors
       );
-
-    // If the type cannot be mapped directly to a value
-    type.abstract ||= !mapped.has(type);
   } else {
     type.censor = censor;
     type.validate = validate;
