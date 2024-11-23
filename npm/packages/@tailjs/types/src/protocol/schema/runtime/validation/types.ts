@@ -1,9 +1,9 @@
-import { DataUsage } from "@tailjs/types";
 import {
+  DataUsage,
   SchemaTypedData,
   SchemaValidationError,
   VALIDATION_ERROR,
-} from "../../..";
+} from "../../../..";
 
 export interface SchemaValidationContext {
   trusted: boolean;

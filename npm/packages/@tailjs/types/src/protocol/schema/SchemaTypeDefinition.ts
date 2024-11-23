@@ -1,8 +1,8 @@
-import { SchemaObjectType, VersionedSchemaEntity } from "../..";
+import { SchemaObjectTypeDefinition, VersionedSchemaEntity } from "../..";
 
 export interface SchemaTypeDefinition
   extends VersionedSchemaEntity,
-    SchemaObjectType {
+    SchemaObjectTypeDefinition {
   /**
    * This type can only be extended by other types, and not define data by itself.
    */
@@ -16,7 +16,7 @@ export type SchemaTypeSystemRole = "event";
 
 export interface SchemaSystemTypeDefinition extends SchemaTypeDefinition {
   /**
-   * Reserved for internal platform use.
+   * Reserved for internal platform use only to identify core types that play special roles in the system.
    */
   system?: SchemaTypeSystemRole;
 }

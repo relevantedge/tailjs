@@ -1,21 +1,26 @@
-import { SchemaPropertyDefinition, validateConsent } from "@tailjs/types";
 import { enumerate, forEach, throwError } from "@tailjs/util";
 import { getEntityIdProperties, parsePropertyType, TypeParseContext } from ".";
 import {
   DEFAULT_CENSOR_VALIDATE,
-  ParsedSchemaObjectType,
-  ParsedSchemaPropertyDefinition,
+  SchemaObjectType,
+  SchemaProperty,
+  SchemaPropertyDefinition,
   throwValidationErrors,
-} from "../../..";
-import { overrideUsage, pushInnerErrors } from "../validation";
+  validateConsent,
+} from "../../../..";
+import {
+  createAccessValidator,
+  overrideUsage,
+  pushInnerErrors,
+} from "../validation";
 
 export const parseProperty = (
-  declaringType: ParsedSchemaObjectType,
+  declaringType: SchemaObjectType,
   name: string,
   property: SchemaPropertyDefinition,
   context: TypeParseContext,
-  baseProperty?: ParsedSchemaPropertyDefinition
-): ParsedSchemaPropertyDefinition => {
+  baseProperty?: SchemaProperty
+): SchemaProperty => {
   const usageOverrides = overrideUsage(
     // Properties inherit usage from base properties, not from the type that overrides them.
     baseProperty ? baseProperty.usageOverrides : declaringType.usageOverrides,
@@ -24,7 +29,7 @@ export const parseProperty = (
 
   const { defaultUsage } = context;
 
-  const parsedProperty: ParsedSchemaPropertyDefinition = {
+  const parsedProperty: SchemaProperty = {
     ...getEntityIdProperties(
       declaringType.id + "." + name,
       declaringType.version
@@ -135,25 +140,12 @@ export const parseProperty = (
       ? undefined
       : type.censor(value, context);
 
-  parsedProperty.validate = (value, current, context, errors) => {
-    if (readonly && (value || value !== current)) {
-      errors.push({
-        path: name,
-        source: value,
-        message: "The property is read-only (cannot be changed once set).",
-        security: true,
-      });
-    }
-    if (visibility !== "public" && value !== current) {
-      errors.push({
-        path: name,
-        source: value,
-        message: "The property cannot be set from untrusted context.",
-        security: true,
-      });
-    }
-    return pushInnerErrors(name, value, current, context, errors, type);
-  };
+  parsedProperty.validate = createAccessValidator(
+    name,
+    type,
+    { readonly, visibility },
+    "property"
+  );
 
   if (property.default != null) {
     property.default = throwValidationErrors(

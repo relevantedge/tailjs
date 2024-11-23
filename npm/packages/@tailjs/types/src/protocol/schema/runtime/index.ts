@@ -1,17 +1,23 @@
-export * from "./ParsedSchemaDefinition";
-export * from "./ParsedSchemaArrayType";
-export * from "./ParsedSchemaEntity";
-export * from "./ParsedSchemaObjectType";
-export * from "./ParsedSchemaPropertyDefinition";
-export * from "./ParsedSchemaPropertyType";
-export * from "./ParsedSchemaRecordType";
-export * from "./ParsedSchemaUnionType";
-export * from "./ParsedSchemaPrimitiveType";
+export * from "./Schema";
+export * from "./SchemaArrayType";
+export * from "./SchemaEntity";
+export * from "./SchemaObjectType";
+export * from "./SchemaPrimitiveType";
+export * from "./SchemaProperty";
+export * from "./SchemaPropertyType";
+export * from "./SchemaRecordType";
+export * from "./SchemaUnionType";
+export * from "./SchemaVariable";
 export * from "./TypeResolver";
 
 export {
-  type SchemaValidationError,
   VALIDATION_ERROR,
   formatValidationErrors,
   throwValidationErrors,
+  type SchemaCensorContext,
+  type SchemaCensorFunction,
+  type SchemaValidationContext,
+  type SchemaValidationError,
+  type SchemaValueValidator,
+  type ValidatableSchemaEntity,
 } from "./validation";

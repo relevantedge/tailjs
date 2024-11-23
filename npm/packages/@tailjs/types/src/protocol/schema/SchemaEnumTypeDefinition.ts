@@ -1,4 +1,4 @@
-export type SchemaEnumType =
+export type SchemaEnumTypeDefinition =
   | {
       primitive?: "string";
       enum: string[];

@@ -1,6 +1,6 @@
 import { SchemaDataUsage } from "../..";
 
-export interface SchemaEntity {
+export interface SchemaDefinitionEntity {
   description?: string;
 
   /**
@@ -19,7 +19,7 @@ export interface SchemaEntity {
   usage?: Partial<SchemaDataUsage>;
 }
 
-export interface VersionedSchemaEntity extends SchemaEntity {
+export interface VersionedSchemaEntity extends SchemaDefinitionEntity {
   /**
    * The version of a schema or type following SemVer 2.0 conventions.
    *

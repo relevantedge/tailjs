@@ -166,9 +166,11 @@ export const formatKey = (
     "'" + key + "'",
     source && "from '" + source + "'",
     error,
-    scope && "in " + scope + "scope",
+    scope && "in " + scope + " scope",
     entityId && "for " + entityId,
-  ].join(" ");
+  ]
+    .filter((s) => s)
+    .join(" ");
 
 export const copyKey = <
   T extends (Partial<VariableKey> & { key: string }) | Nullish

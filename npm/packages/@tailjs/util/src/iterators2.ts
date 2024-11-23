@@ -59,7 +59,7 @@ type ForEachFunction = (
   context: any
 ) => any;
 
-type KeyValues<T> = { [P in keyof T]: [P, T[P]] }[keyof T];
+type KeyValues<T> = { [P in keyof T]-?: [P, T[P]] }[keyof T];
 
 type ItItem<T> = unknown extends T
   ? any

@@ -1,19 +1,17 @@
-import {
-  CORE_EVENT_DISCRIMINATOR,
-  SCHEMA_DATA_USAGE_MAX,
-  SchemaObjectType,
-  SchemaPrimitiveType,
-  SchemaSystemTypeDefinition,
-  SchemaTypeDefinition,
-  SchemaTypeReference,
-} from "@tailjs/types";
-import { first } from "@tailjs/util";
+import { first, throwTypeError } from "@tailjs/util";
 import { parseBaseTypes, parseTypeProperties, TypeParseContext } from ".";
 import {
+  CORE_EVENT_DISCRIMINATOR,
   DEFAULT_CENSOR_VALIDATE,
-  ParsedSchemaObjectType,
-  ParsedSchemaPropertyDefinition,
-} from "../../..";
+  SCHEMA_DATA_USAGE_MAX,
+  SchemaObjectType,
+  SchemaObjectTypeDefinition,
+  SchemaPrimitiveTypeDefinition,
+  SchemaProperty,
+  SchemaSystemTypeDefinition,
+  SchemaTypeDefinition,
+  SchemaTypeDefinitionReference,
+} from "../../../..";
 import { overrideUsage } from "../validation";
 
 export const getTypeId = (namespace: string, name: string) =>
@@ -25,6 +23,22 @@ export const getEntityIdProperties = (id: string, version?: string) => ({
   qualifiedName: version ? id + "," + version : id,
 });
 
+const resolveLocalTypeMapping = (
+  nameOrId: string,
+  context: TypeParseContext
+) => {
+  nameOrId = nameOrId.split("#")[0];
+
+  if (nameOrId === context.schema.source.localTypeMappings?.event) {
+    return (
+      context.systemTypes.event ??
+      throwTypeError(
+        "Schemas with a local mapping to the system event type must be included _after_ the system schema"
+      )
+    );
+  }
+};
+
 /**
  * Parses the specified type, _not_ including base types properties.
  * A separate call to {@link _parseTypeProperties} must follow,
@@ -32,19 +46,24 @@ export const getEntityIdProperties = (id: string, version?: string) => ({
  */
 export const parseType = (
   source:
-    | SchemaObjectType
-    | SchemaTypeReference
+    | SchemaObjectTypeDefinition
+    | SchemaTypeDefinitionReference
+    | string
     | [name: string, definition: SchemaTypeDefinition],
   context: TypeParseContext,
-  referencingProperty: ParsedSchemaPropertyDefinition | null
-): ParsedSchemaObjectType => {
+  referencingProperty: SchemaProperty | null
+): SchemaObjectType => {
   let id: string;
 
   const { schema, parsedTypes, localTypes, systemTypes: systemTypes } = context;
-  if ("type" in source) {
-    id = getTypeId(source.namespace ?? schema.namespace, source.type);
-    // Reference.
-    const parsed = parsedTypes.get(id);
+  if (typeof source === "string") {
+    source = { reference: source };
+  }
+  if ("reference" in source) {
+    // Type reference.
+    id = getTypeId(source.namespace ?? schema.namespace, source.reference);
+
+    const parsed = resolveLocalTypeMapping(id, context) ?? parsedTypes.get(id);
     if (!parsed) {
       throw new Error(
         `The referenced type "${id}" is not defined in any schema.`
@@ -57,6 +76,7 @@ export const parseType = (
   let name: string;
   let embedded: boolean;
   if (Array.isArray(source)) {
+    // Key/value pair from a definition's `types` map.
     name = source[0];
     source = source[1];
     embedded = false;
@@ -89,6 +109,12 @@ export const parseType = (
 
     name = namePath.join("_");
   }
+
+  const mappedType = resolveLocalTypeMapping(name, context);
+  if (mappedType) {
+    return mappedType;
+  }
+
   id = getTypeId(schema.namespace, name);
   if (parsedTypes.has(id)) {
     throw new Error(
@@ -98,7 +124,7 @@ export const parseType = (
 
   const version = (source as SchemaTypeDefinition).version ?? schema.version;
   const stringName = "'" + id + "'";
-  const parsed: ParsedSchemaObjectType = {
+  const parsed: SchemaObjectType = {
     ...getEntityIdProperties(id, version),
     schema,
     name,
@@ -134,8 +160,11 @@ export const parseType = (
       );
     }
     if (
-      (source.properties?.[CORE_EVENT_DISCRIMINATOR] as SchemaPrimitiveType)
-        ?.primitive !== "string" ||
+      (
+        source.properties?.[
+          CORE_EVENT_DISCRIMINATOR
+        ] as SchemaPrimitiveTypeDefinition
+      )?.primitive !== "string" ||
       source.properties?.[CORE_EVENT_DISCRIMINATOR].required !== true
     ) {
       throw new Error(

@@ -17,11 +17,7 @@ import {
   toJSON2,
   topoSort2,
 } from "@tailjs/util";
-import {
-  ParsedSchemaPrimitiveType,
-  ParsedSchemaPropertyDefinition,
-  ParsedSchemaObjectType as Type,
-} from "../../../..";
+import { SchemaPrimitiveType, SchemaObjectType as Type } from "../../../..";
 import {
   SchemaCensorFunction,
   SchemaValueValidator,
@@ -92,9 +88,7 @@ export const createSchemaTypeMapper = (
       forEach2(type.properties, ([name, prop]) =>
         forEach2(
           prop.required &&
-            ((prop.type as ParsedSchemaPrimitiveType)?.enumValues ?? [
-              anyValue,
-            ]),
+            ((prop.type as SchemaPrimitiveType)?.enumValues ?? [anyValue]),
           (value) =>
             get2(
               get2(discriminators, name, () => new Map()),

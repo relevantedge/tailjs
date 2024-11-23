@@ -1,6 +1,10 @@
-import { SchemaEnumType, SchemaPrimitiveType } from "@tailjs/types";
 import { enumerate, set2 } from "@tailjs/util";
-import { SchemaValidationError, VALIDATION_ERROR } from "../../..";
+import {
+  SchemaEnumTypeDefinition,
+  SchemaPrimitiveTypeDefinition,
+  SchemaValidationError,
+  VALIDATION_ERROR,
+} from "../../../..";
 
 const REGEX_DATE = /^\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.000)?)?Z$/;
 const REGEX_DATETIME =
@@ -36,10 +40,10 @@ const isNumber = (value: any) =>
 
 const primitiveValidators: Record<string, SchemaPrimitiveValueValidator> = {};
 export const getPrimitiveTypeValidator = (
-  type: SchemaPrimitiveType | SchemaEnumType
+  type: SchemaPrimitiveTypeDefinition | SchemaEnumTypeDefinition
 ): {
   validator: SchemaPrimitiveValueValidator;
-  primitive: SchemaPrimitiveType["primitive"];
+  primitive: SchemaPrimitiveTypeDefinition["primitive"];
   enumValues: Set<string | number> | undefined;
 } => {
   let primitive =
@@ -47,7 +51,7 @@ export const getPrimitiveTypeValidator = (
 
   let validator = (primitiveValidators[
     type.primitive + "-" + (type["format"] ?? "")
-  ] ??= create(type as SchemaPrimitiveType));
+  ] ??= create(type as SchemaPrimitiveTypeDefinition));
 
   const maxLength = type["maxLength"];
   if (maxLength != null) {
@@ -120,7 +124,9 @@ export const getPrimitiveTypeValidator = (
     enumValues: set2(enumValues),
   };
 
-  function create(type: SchemaPrimitiveType): SchemaPrimitiveValueValidator {
+  function create(
+    type: SchemaPrimitiveTypeDefinition
+  ): SchemaPrimitiveValueValidator {
     switch (type.primitive) {
       case "boolean":
         return (value, errors) =>

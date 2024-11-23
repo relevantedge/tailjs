@@ -4,7 +4,7 @@ export type SchemaValidationError = {
   path: string;
   message: string;
   source: any;
-  security?: boolean;
+  forbidden?: boolean;
 };
 
 export const VALIDATION_ERROR = Symbol();

@@ -28,6 +28,8 @@ export const throwError = (
 ): never => {
   throw isString((error = unwrap(error))) ? transform(error) : error;
 };
+export const throwTypeError = (message: string): never =>
+  throwError(new TypeError(message));
 
 type CombineTypeTests<T> = T extends []
   ? {}

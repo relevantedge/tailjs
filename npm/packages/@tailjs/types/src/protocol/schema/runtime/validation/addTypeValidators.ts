@@ -5,16 +5,16 @@ import {
   VALIDATION_ERROR,
 } from ".";
 import {
-  ParsedSchemaPropertyDefinition,
   SCHEMA_TYPE_PROPERTY,
+  SchemaObjectType,
+  SchemaProperty,
 } from "../../../..";
-import { ParsedSchemaObjectType } from "../ParsedSchemaObjectType";
 import { createSchemaTypeMapper } from "../parsing";
 
-export const addTypeValidators = (type: ParsedSchemaObjectType) => {
+export const addTypeValidators = (type: SchemaObjectType) => {
   const props = type.properties;
 
-  const requiredProperties: ParsedSchemaPropertyDefinition[] = [];
+  const requiredProperties: SchemaProperty[] = [];
 
   for (const key in props) {
     const prop = props[key];
@@ -26,10 +26,9 @@ export const addTypeValidators = (type: ParsedSchemaObjectType) => {
     let censored = target;
 
     for (const key in target) {
+      if (key === SCHEMA_TYPE_PROPERTY) continue;
+
       const prop = props[key];
-      if (!prop) {
-        var b = 9;
-      }
       const targetValue = target[prop.name];
       const censoredValue = !prop
         ? // Remove keys we do not know.
@@ -61,7 +60,7 @@ export const addTypeValidators = (type: ParsedSchemaObjectType) => {
     // by any property. Let's do that when we have tested the rest of this code...
     const currentErrors = errors.length;
     let validated = target;
-    const validateProperty = (prop: ParsedSchemaPropertyDefinition) => {
+    const validateProperty = (prop: SchemaProperty) => {
       const targetValue = target[prop.name];
       const validatedValue = prop.validate(
         targetValue,
@@ -87,6 +86,8 @@ export const addTypeValidators = (type: ParsedSchemaObjectType) => {
       validateProperty(required);
     }
     for (const key in target) {
+      if (key === SCHEMA_TYPE_PROPERTY) continue;
+
       const prop = props[key];
       if (!prop) {
         errors.push({
@@ -108,11 +109,8 @@ export const addTypeValidators = (type: ParsedSchemaObjectType) => {
   };
 
   if (type.extendedBy.length) {
-    const {
-      mapped,
-      censor: polymorphicCensor,
-      validate: polymorphicValidate,
-    } = createSchemaTypeMapper([type]);
+    const { censor: polymorphicCensor, validate: polymorphicValidate } =
+      createSchemaTypeMapper([type]);
 
     type.censor = (target, context, polymorphic = true) =>
       (polymorphic ? polymorphicCensor : censor)(target, context);

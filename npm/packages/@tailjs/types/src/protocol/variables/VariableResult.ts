@@ -1,4 +1,3 @@
-import { MaybePromiseLike } from "@tailjs/util";
 import {
   Variable,
   VariableGetResult,
@@ -54,22 +53,18 @@ export interface VariableErrorResult extends VariableResult {
   transient?: boolean;
 }
 
-export const isSuccessResult = (
-  value: any
+export const isSuccessResult = <RequireFound extends boolean = true>(
+  value: any,
+  requireFound: RequireFound = true as any
 ): value is {
   status:
     | VariableResultStatus.Success
     | VariableResultStatus.Created
-    | VariableResultStatus.NotModified;
-} => value?.status < 400;
-
-export const isNotFoundResult = (
-  value: any
-): value is { status: VariableResultStatus.NotFound } =>
-  value?.status === VariableResultStatus.NotFound;
-
-export const isErrorResult = (value: any): value is VariableErrorResult =>
-  value?.status >= 400;
+    | VariableResultStatus.NotModified
+    | (true extends RequireFound ? never : VariableResultStatus.NotFound);
+} =>
+  value?.status < 400 ||
+  (!requireFound && value?.status === VariableResultStatus.NotFound);
 
 export const isTransientError = (
   value: any
@@ -109,7 +104,7 @@ export type ValidVariableResult<T = any> =
 
 export type MapVariableResult<
   Operation,
-  Type extends "any" | "throw" | "value" = "any"
+  Type extends "any" | "raw" | "value" = "any"
 > = Operation extends undefined
   ? undefined
   : Operation extends readonly any[]
@@ -162,7 +157,7 @@ export type MapVariableResult<
           >
     ) extends infer Result
   ? (
-      Type extends "any"
+      Type extends "raw"
         ? Result
         : Result extends { status: VariableResultStatus.NotFound }
         ? Type extends "value"

@@ -53,7 +53,7 @@ describe("TypeResolver", () => {
                   default: "2024-01-02T00:00:00Z",
                 },
                 self: {
-                  type: "Test",
+                  reference: "Test",
                 },
                 test: {
                   usage: {
@@ -64,7 +64,7 @@ describe("TypeResolver", () => {
               },
             },
             Test2: {
-              extends: [{ type: "Test" }],
+              extends: [{ reference: "Test" }],
               event: true,
               properties: {
                 type: {
@@ -77,7 +77,7 @@ describe("TypeResolver", () => {
               },
             },
             Test3: {
-              extends: [{ type: "Test" }],
+              extends: [{ reference: "Test" }],
               event: true,
               properties: {
                 type: {
@@ -250,7 +250,7 @@ describe("TypeResolver", () => {
               },
             },
             SubCensored: {
-              extends: [{ type: "Censored" }],
+              extends: [{ reference: "Censored" }],
               properties: {
                 hello: {
                   usage: { classification: "anonymous" },
@@ -260,7 +260,7 @@ describe("TypeResolver", () => {
               },
             },
             SubCensored2: {
-              extends: [{ type: "Censored" }],
+              extends: [{ reference: "Censored" }],
               properties: {
                 boom: {
                   primitive: "boolean",
@@ -272,12 +272,12 @@ describe("TypeResolver", () => {
               },
             },
             SubCensored2_1: {
-              extends: [{ type: "SubCensored2" }],
+              extends: [{ reference: "SubCensored2" }],
               // "anonymous" should take effect on all own properties instead of base types "indirect".
               usage: { classification: "anonymous" },
               properties: {
                 boom: {
-                  type: "base",
+                  reference: "base",
                   // Override the classification of the base property (seemingly weird thing to do, but why not?)
                   usage: { classification: "anonymous" },
                 },

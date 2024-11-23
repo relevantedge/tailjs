@@ -3,8 +3,8 @@ import {
   SchemaAdapter,
   SchemaDataUsage,
   SchemaDefinition,
-  SchemaEntity,
-  SchemaObjectType,
+  SchemaDefinitionEntity,
+  SchemaObjectTypeDefinition,
   VersionedSchemaEntity,
 } from "..";
 import {
@@ -53,7 +53,7 @@ const throwParseError: {
       : false
     : throwError(context.path + ": " + arg1)) as any;
 
-const parseEntityAttributes = <T extends SchemaEntity>(
+const parseEntityAttributes = <T extends SchemaDefinitionEntity>(
   context: ParseContext,
   target: T,
   node: any
@@ -121,7 +121,7 @@ export const JsonSchema: SchemaAdapter = {
     const json = JSON.parse(source);
 
     const parsed: SchemaDefinition[] = [];
-    const typeRefs = new Map<string, SchemaObjectType>();
+    const typeRefs = new Map<string, SchemaObjectTypeDefinition>();
 
     const parseType = (node: any, context: ParseContext) => {};
     const traverseDefinition = (

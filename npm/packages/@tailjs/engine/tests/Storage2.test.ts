@@ -4,10 +4,10 @@ import { InMemoryStorage } from "../src";
 describe("The new", () => {
   it("News", async () => {
     const storage = new InMemoryStorage();
-    let x = (
+    let variable = (
       await storage.get([{ scope: "test", key: "test", entityId: "test" }])
     )[0];
-    expect(x.status).toBe(VariableResultStatus.NotFound);
+    expect(variable.status).toBe(VariableResultStatus.NotFound);
 
     expect(
       (
@@ -17,10 +17,10 @@ describe("The new", () => {
       )[0]
     ).toMatchObject({ status: VariableResultStatus.Created });
 
-    x = (
+    variable = (
       await storage.get([{ scope: "test", key: "test", entityId: "test" }])
     )[0] as VariableSuccessResult;
-    expect(x).toMatchObject({
+    expect(variable).toMatchObject({
       status: VariableResultStatus.Success,
       value: "test",
     });
@@ -50,16 +50,16 @@ describe("The new", () => {
             scope: "test",
             key: "test",
             entityId: "test",
-            version: x.version,
+            version: variable.version,
             value: null,
           },
         ])
       )[0]
     ).toMatchObject({ status: VariableResultStatus.Success });
 
-    x = (
+    variable = (
       await storage.get([{ scope: "test", key: "test", entityId: "test" }])
     )[0];
-    expect(x.status).toBe(VariableResultStatus.NotFound);
+    expect(variable.status).toBe(VariableResultStatus.NotFound);
   });
 });

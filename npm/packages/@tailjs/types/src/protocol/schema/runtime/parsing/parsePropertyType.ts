@@ -1,20 +1,20 @@
-import { SchemaPropertyType } from "@tailjs/types";
 import { isArray, map, throwError } from "@tailjs/util";
 import { createSchemaTypeMapper, parseType, TypeParseContext } from ".";
 import {
-  ParsedSchemaPrimitiveType,
-  ParsedSchemaPropertyDefinition,
-  ParsedSchemaPropertyType,
+  SchemaPrimitiveType,
+  SchemaProperty,
+  SchemaPropertyType,
+  SchemaPropertyTypeDefinition,
   VALIDATION_ERROR,
-} from "../../..";
+} from "../../../..";
 import { getPrimitiveTypeValidator, pushInnerErrors } from "../validation";
 
 export const parsePropertyType = (
-  property: ParsedSchemaPropertyDefinition,
-  type: SchemaPropertyType & { required?: boolean },
+  property: SchemaProperty,
+  type: SchemaPropertyTypeDefinition & { required?: boolean },
   parseContext: TypeParseContext
-): ParsedSchemaPropertyType => {
-  const propertyType = ((): ParsedSchemaPropertyType => {
+): SchemaPropertyType => {
+  const propertyType = ((): SchemaPropertyType => {
     if ("primitive" in type || "enum" in type) {
       const {
         validator: inner,
@@ -114,7 +114,7 @@ export const parsePropertyType = (
         property,
         { ...type.key, required: true },
         parseContext
-      ) as ParsedSchemaPrimitiveType;
+      ) as SchemaPrimitiveType;
       const valueType = parsePropertyType(property, type.value, parseContext);
       const name = "record(" + keyType + ", " + valueType + ")";
       return {
@@ -196,7 +196,7 @@ export const parsePropertyType = (
       };
     }
 
-    if ("properties" in type || "type" in type) {
+    if ("properties" in type || "reference" in type) {
       return parseType(type, parseContext, property);
     }
     if (!("union" in type)) {

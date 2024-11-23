@@ -7,9 +7,10 @@ import {
   filterRangeValue,
   formatKey,
   formatValidationErrors,
-  isErrorResult,
+  isSuccessResult,
   isTransientError,
-  ParsedSchemaObjectType,
+  SchemaObjectType,
+  SchemaVariable,
   SchemaValidationError,
   testPurposes,
   TypeResolver,
@@ -23,8 +24,9 @@ import {
   VariableSetResult,
   VariableSetter,
   VariableValueSetter,
+  ValidatableSchemaEntity,
 } from "@tailjs/types";
-import { delay } from "@tailjs/util";
+import { delay, forEach2 } from "@tailjs/util";
 import {
   AddSourceTrace,
   addSourceTrace,
@@ -83,9 +85,16 @@ export const normalizeStorageMappings = (
 };
 
 export interface ConsentValidationSettings {
-  /** Consider the security purpose different from "necessary". */
+  /**
+   * Consider the security purpose different from "necessary".
+   * @default false
+   */
   security?: boolean;
-  /** Consider the personalization purpose different from "functionality". */
+
+  /**
+   * Consider the personalization purpose different from "functionality".
+   * @default false
+   */
   personalization?: boolean;
 
   /**
@@ -108,6 +117,10 @@ export type VariableStorageContext = {
     consent?: DataUsage;
   };
   validation?: ConsentValidationSettings;
+  /**
+   * Whether restrictions on data access visibility applies.
+   * @default false
+   */
   trusted?: boolean;
 };
 
@@ -116,7 +129,7 @@ const MAX_ERROR_RETRIES = 3;
 
 const censorResult = <Result extends VariableGetResult | VariableSetResult>(
   result: Result,
-  type: ParsedSchemaObjectType,
+  type: ValidatableSchemaEntity,
   context: VariableStorageContext,
   targetPurpose?: DataPurposeName
 ): Result => {
@@ -179,10 +192,11 @@ export class VariableStorageCoordinator {
   constructor(
     mappings: VariableStorageMappings,
     types: TypeResolver,
-    defaultContext: VariableStorageContext = { trusted: true }
+    defaultContext: VariableStorageContext = { trusted: false }
   ) {
     this._storage = new VariableSplitStorage(mappings);
     this._defaultContext = defaultContext;
+    this._types = types;
     for (const { source, scope, schemas } of normalizeStorageMappings(
       mappings
     )) {
@@ -201,7 +215,7 @@ export class VariableStorageCoordinator {
     scope: string,
     key: string,
     source?: string
-  ): ParsedSchemaObjectType | undefined {
+  ): SchemaVariable | undefined {
     const types =
       this._storageTypeResolvers.get(getScopeSourceKey(scope, source)) ??
       this._types;
@@ -244,11 +258,7 @@ export class VariableStorageCoordinator {
   ): Promise<VariableGetResult[]> {
     if (!keys.length) return [];
 
-    type TraceData = [
-      number,
-      ParsedSchemaObjectType,
-      DataPurposeName | undefined
-    ];
+    type TraceData = [number, SchemaVariable, DataPurposeName | undefined];
 
     const requireTargetPurpose = context.validation?.requireTargetPurpose;
     const results: VariableGetResult[] = [];
@@ -267,8 +277,8 @@ export class VariableStorageCoordinator {
         continue;
       }
 
-      const type = this.getVariable(key.scope, key.key, key.source);
-      if (type) {
+      const variable = this.getVariable(key.scope, key.key, key.source);
+      if (variable) {
         const targetPurpose = key.purpose;
         if (requireTargetPurpose && !targetPurpose) {
           throw new Error(
@@ -277,7 +287,7 @@ export class VariableStorageCoordinator {
         }
 
         pendingGetters.push(
-          addSourceTrace(key, [index++, type, targetPurpose])
+          addSourceTrace(key, [index++, variable, targetPurpose])
         );
         continue;
       }
@@ -295,10 +305,10 @@ export class VariableStorageCoordinator {
       if (retry > 1) await delay(100);
 
       for (let result of await this._storage.get(pendingGetters.splice(0))) {
-        const [getter, [sourceIndex, type, targetPurpose]] =
+        const [getter, [sourceIndex, variable, targetPurpose]] =
           result[traceSymbol];
 
-        result = censorResult(result, type, context, targetPurpose);
+        result = censorResult(result, variable, context, targetPurpose);
         if ("value" in (results[sourceIndex] = result)) {
           continue;
         } else if (isTransientError(result)) {
@@ -313,7 +323,7 @@ export class VariableStorageCoordinator {
               continue;
             }
             let errors: SchemaValidationError[] = [];
-            initValue = type.validate(
+            initValue = variable.validate(
               initValue,
               undefined,
               { trusted: !!context.trusted },
@@ -334,7 +344,7 @@ export class VariableStorageCoordinator {
                   version: null,
                   value: initValue,
                 },
-                [sourceIndex, type, targetPurpose]
+                [sourceIndex, variable, targetPurpose]
               )
             );
           } catch (e) {
@@ -353,7 +363,7 @@ export class VariableStorageCoordinator {
       if (retry > 1) await delay(100);
 
       for (const result of await this._storage.set(pendingSetters.splice(0))) {
-        const [setter, [sourceIndex, type, targetPurpose]] =
+        const [setter, [sourceIndex, variable, targetPurpose]] =
           result[traceSymbol];
 
         if (result.status === VariableResultStatus.Conflict) {
@@ -363,7 +373,7 @@ export class VariableStorageCoordinator {
                 status: VariableResultStatus.Success,
                 ...result.current,
               },
-              type,
+              variable,
               context,
               targetPurpose
             );
@@ -380,7 +390,7 @@ export class VariableStorageCoordinator {
           // Cast as any. The set result that doesn't overlap is a delete result,
           // but a delete result at this point would mean an invariant was violated
           // since we not add pending setters for null or undefined init results.
-          results[sourceIndex] = censorResult(result, type, context) as any;
+          results[sourceIndex] = censorResult(result, variable, context) as any;
         }
       }
     }
@@ -399,7 +409,7 @@ export class VariableStorageCoordinator {
       VariableSetter,
       [
         sourceIndex: number,
-        type: ParsedSchemaObjectType,
+        variable: SchemaVariable,
         retries: number,
         current: Variable | undefined
       ]
@@ -418,9 +428,11 @@ export class VariableStorageCoordinator {
         continue;
       }
 
-      const type = this.getVariable(key.scope, key.key, key.source);
-      if (type) {
-        pendingSetters.push(addSourceTrace(key, [index++, type, 0, undefined]));
+      const variable = this.getVariable(key.scope, key.key, key.source);
+      if (variable) {
+        pendingSetters.push(
+          addSourceTrace(key, [index++, variable, 0, undefined])
+        );
         continue;
       }
       results[index++] = {
@@ -444,12 +456,12 @@ export class VariableStorageCoordinator {
 
       for (const result of await this._storage.get(
         pendingSetters
-          .slice(0)
+          .splice(0)
           .map((setter) => addTrace(copyKey(setter), setter[traceSymbol]))
       )) {
-        const [setter, [sourceIndex, type]] = result[traceSymbol];
+        const [setter, [sourceIndex, variable]] = result[traceSymbol];
 
-        if (isErrorResult(result)) {
+        if (!isSuccessResult(result, false)) {
           results[sourceIndex] = result;
           // Retry
           if (
@@ -473,7 +485,7 @@ export class VariableStorageCoordinator {
                 status: VariableResultStatus.Conflict,
                 ...copyKey(setter),
                 current: current?.value
-                  ? type.censor(current?.value, {
+                  ? variable.censor(current?.value, {
                       trusted: !!context.trusted,
                       consent: context.scope?.consent,
                     }) ?? {}
@@ -481,7 +493,7 @@ export class VariableStorageCoordinator {
               };
               continue;
             }
-            next = type.validate(
+            next = variable.validate(
               setter.value,
               current?.value,
               {
@@ -490,9 +502,9 @@ export class VariableStorageCoordinator {
               errors
             );
           } else {
-            next = type.validate(
+            next = variable.validate(
               setter.patch(
-                type.censor(current?.value, { trusted: !!context.trusted })
+                variable.censor(current?.value, { trusted: !!context.trusted })
               ),
               current?.value,
               { trusted: !!context.trusted },
@@ -502,10 +514,13 @@ export class VariableStorageCoordinator {
 
           if (errors.length) {
             results[sourceIndex] = {
-              status: VariableResultStatus.BadRequest,
+              status: errors[0].forbidden
+                ? VariableResultStatus.Forbidden
+                : VariableResultStatus.BadRequest,
               ...copyKey(setter),
               error: formatValidationErrors(errors),
             };
+            continue;
           }
 
           // Convert to value setter.
@@ -518,7 +533,7 @@ export class VariableStorageCoordinator {
                 value: next,
               },
               // Reuse original setter data, so we know what to do if retried.
-              setter[traceSymbol][1]
+              setter[traceSymbol]
             )
           );
         } catch (e) {
@@ -535,7 +550,7 @@ export class VariableStorageCoordinator {
       }
 
       for (let result of await this._storage.set(valueSetters)) {
-        const [setter, [sourceIndex, type]] = result[traceSymbol];
+        const [setter, [sourceIndex, variable]] = result[traceSymbol];
         if (
           result.status === VariableResultStatus.Conflict &&
           "patch" in setter &&
@@ -546,7 +561,7 @@ export class VariableStorageCoordinator {
           continue;
         }
 
-        results[sourceIndex] = censorResult(result, type, context);
+        results[sourceIndex] = censorResult(result, variable, context);
       }
     }
 
@@ -564,32 +579,34 @@ export class VariableStorageCoordinator {
       validateEntityId(query, context);
 
       const variableKeys: string[] = [];
-      const types =
+      const resolver =
         this._storageTypeResolvers.get(
           getScopeSourceKey(query.scope, query.source)
         ) ?? this._types;
-      for (const variable of types.variables) {
-        const usage = variable.type.usage;
+      forEach2(resolver.variables, ([, variables]) =>
+        forEach2(variables, ([key, { type }]) => {
+          const usage = type.usage;
 
-        if (
-          !filterRangeValue(
-            usage.classification,
-            query.classification,
-            (classification) => dataClassification(classification, true)
-          )
-        ) {
-          continue;
-        }
+          if (
+            !filterRangeValue(
+              usage.classification,
+              query.classification,
+              (classification) => dataClassification(classification, true)
+            )
+          ) {
+            return;
+          }
 
-        if (
-          query.purposes &&
-          !testPurposes(usage.purposes, query.purposes, intersect)
-        ) {
-          continue;
-        }
+          if (
+            query.purposes &&
+            !testPurposes(usage.purposes, query.purposes, intersect)
+          ) {
+            return;
+          }
 
-        variableKeys.push(variable.key.key);
-      }
+          variableKeys.push(key);
+        })
+      );
 
       query.keys = query.keys
         ? filterKeys(query.keys, variableKeys, () => {

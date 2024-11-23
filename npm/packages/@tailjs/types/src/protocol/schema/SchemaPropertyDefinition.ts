@@ -1,26 +1,27 @@
 import {
-  SchemaArrayType,
-  SchemaEntity,
-  SchemaEnumType,
-  SchemaObjectType,
-  SchemaRecordType,
-  SchemaTypeReference,
-  SchemaUnionType,
-  SchemaPrimitiveType,
+  SchemaArrayTypeDefinition,
+  SchemaDefinitionEntity,
+  SchemaEnumTypeDefinition,
+  SchemaObjectTypeDefinition,
+  SchemaRecordTypeDefinition,
+  SchemaTypeDefinitionReference,
+  SchemaUnionTypeDefinition,
+  SchemaPrimitiveTypeDefinition,
 } from "../..";
 
-export type SchemaPropertyDefinition = SchemaEntity &
-  SchemaPropertyType & {
-    required?: boolean;
-    default?: any;
-  };
+export type SchemaPropertyDefinition =
+  | SchemaDefinitionEntity &
+      SchemaPropertyTypeDefinition & {
+        required?: boolean;
+        default?: any;
+      };
 
-export type SchemaPropertyType =
-  | SchemaPrimitiveType
-  | SchemaEnumType
-  | SchemaArrayType
-  | SchemaRecordType
-  | SchemaTypeReference
-  | SchemaObjectType
-  | SchemaUnionType
-  | { type: "base" };
+export type SchemaPropertyTypeDefinition =
+  | SchemaPrimitiveTypeDefinition
+  | SchemaEnumTypeDefinition
+  | SchemaArrayTypeDefinition
+  | SchemaRecordTypeDefinition
+  | SchemaTypeDefinitionReference
+  | SchemaObjectTypeDefinition
+  | SchemaUnionTypeDefinition
+  | { reference: "base" };
