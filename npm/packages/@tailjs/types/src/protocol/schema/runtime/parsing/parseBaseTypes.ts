@@ -1,11 +1,11 @@
 import { add, throwError } from "@tailjs/util";
 import { parseType, TypeParseContext } from ".";
-import { ParsedSchemaObjectType } from "../../../..";
+import { SchemaObjectType } from "../../../..";
 import { overrideUsage } from "../validation";
 
 export const addBaseType = (
-  subtype: ParsedSchemaObjectType,
-  baseType: ParsedSchemaObjectType
+  subtype: SchemaObjectType,
+  baseType: SchemaObjectType
 ) => {
   add(baseType.extendedByAll, subtype) && baseType.extendedBy.push(subtype);
   add(subtype.extendsAll, baseType) && subtype.extends.push(baseType);
@@ -13,7 +13,7 @@ export const addBaseType = (
 };
 
 export const parseBaseTypes = (
-  parsedType: ParsedSchemaObjectType,
+  parsedType: SchemaObjectType,
   context: TypeParseContext
 ) => {
   if (parsedType.extends) {

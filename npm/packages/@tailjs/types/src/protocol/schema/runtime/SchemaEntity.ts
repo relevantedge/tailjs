@@ -1,9 +1,9 @@
-import { ParsedSchemaDefinition, SchemaDataUsage } from "@tailjs/types";
+import { Schema, SchemaDataUsage } from "../../..";
 
-export interface ParsedSchemaEntity {
+export interface SchemaEntity {
   id: string;
 
-  schema: ParsedSchemaDefinition;
+  schema: Schema;
 
   name: string;
   version?: string;

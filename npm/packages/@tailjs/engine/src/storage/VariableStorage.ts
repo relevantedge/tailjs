@@ -1,6 +1,5 @@
 import {
   formatKey,
-  isNotFoundResult,
   isSuccessResult,
   MapVariableResult,
   ReadOnlyVariableGetter,
@@ -13,6 +12,7 @@ import {
   VariablePatchFunction,
   VariableQuery,
   VariableResult,
+  VariableResultStatus,
   VariableSetResult,
   VariableSetter,
   VariableSetterCallback,
@@ -25,7 +25,6 @@ import {
   Pretty,
   TupleParameter,
 } from "@tailjs/util";
-import { error } from "console";
 import { TrackerEnvironment } from "..";
 
 export type ScopedVariableGetters<
@@ -113,19 +112,23 @@ export type VariableOperationParameter<
 export type VariableResultPromise<Operations> =
   FalsishToUndefined<Operations> extends infer Operations
     ? Promise<MapVariableResult<Operations>> & {
-        throw(): Promise<MapVariableResult<Operations, "throw">>;
-        value(): Promise<MapVariableResult<Operations, "value">>;
-      }
+        /** Return variables with error status codes instead of throwing errors. */
+        raw(): Promise<MapVariableResult<Operations, "raw">>;
+      } & (Operations extends readonly any[]
+          ? { values(): Promise<MapVariableResult<Operations, "value">> }
+          : { value(): Promise<MapVariableResult<Operations, "value">> })
     : never;
 
 const formatVariableResult = (result: VariableResult) => {
   const key = formatKey(result);
   const error = (result as any).error;
   return result.status < 400
-    ? `${key} succeeded with status ${result.status}.`
-    : `${key} failed with status ${result.status}${
-        error ? ` (${error})` : ""
-      }.`;
+    ? `${key} succeeded with status ${result.status} - ${
+        VariableResultStatus[result.status]
+      }.`
+    : `${key} failed with status ${result.status} - ${
+        VariableResultStatus[result.status]
+      }${error ? ` (${error})` : ""}.`;
 };
 
 export const toVariableResultPromise = <
@@ -158,13 +161,13 @@ export const toVariableResultPromise = <
       if (op.callback) {
         callbacks.push(op.callback(result));
       }
-      if (!type || isSuccessResult(result) || isNotFoundResult(result)) {
+      if (!type || isSuccessResult(result, false)) {
         results.push(type > 1 ? result["value"] : result);
       } else {
         errors.push(formatVariableResult(result));
       }
     }
-    if (error.length) {
+    if (errors.length) {
       throw new Error(errors.join("\n"));
     }
 
@@ -172,12 +175,13 @@ export const toVariableResultPromise = <
       await callback();
     }
 
-    return ops === operations ? ops : ops[0]; // Single value if single value.
+    return ops === operations ? results : results[0]; // Single value if single value.
   };
 
-  const resultPromise = Object.assign(mapResults(0), {
-    throw: () => mapResults(1),
+  const resultPromise = Object.assign(mapResults(1), {
+    raw: () => mapResults(0),
     value: () => mapResults(2),
+    values: () => mapResults(2),
   });
 
   return resultPromise as any;

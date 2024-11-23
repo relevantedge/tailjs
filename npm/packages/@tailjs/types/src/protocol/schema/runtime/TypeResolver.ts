@@ -3,10 +3,18 @@ import {
   SCHEMA_DATA_USAGE_ANONYMOUS,
   SchemaTypeDefinition,
   type SchemaDefinition,
-  type SchemaTypeReference,
+  type SchemaTypeDefinitionReference,
   type VariableScope,
-} from "@tailjs/types";
-import { forEach, get, tryAdd } from "@tailjs/util";
+} from "../../..";
+import {
+  forEach,
+  forEach2,
+  get,
+  map2,
+  obj2,
+  pick2,
+  tryAdd,
+} from "@tailjs/util";
 
 export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
   validate: (value, _current, _context, _errors) => value,
@@ -14,8 +22,9 @@ export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
 };
 
 import {
-  ParsedSchemaDefinition,
-  ParsedSchemaObjectType,
+  Schema,
+  SchemaObjectType,
+  SchemaVariable,
   SchemaVariableKey,
 } from "../..";
 
@@ -28,7 +37,9 @@ import {
   TypeParseContext,
 } from "./parsing";
 import {
+  createAccessValidator,
   getPrimitiveTypeValidator,
+  overrideUsage,
   throwValidationErrors,
   ValidatableSchemaEntity,
 } from "./validation";
@@ -36,19 +47,20 @@ import { addTypeValidators } from "./validation/addTypeValidators";
 
 export type SchemaDefinitionSource = {
   definition: SchemaDefinition;
-  referencesOnly?: boolean;
+  /**
+   * Do not add events and variables from this schema to avoid name clashes.
+   * Use this if the types from the schema are referenced by other schemas that provide events and variables.
+   */
+  typesOnly?: boolean;
 };
 
 export class TypeResolver {
-  private readonly _schemas = new Map<string, ParsedSchemaDefinition>();
-  private readonly _types = new Map<string, ParsedSchemaObjectType>();
+  private readonly _schemas = new Map<string, Schema>();
+  private readonly _types = new Map<string, SchemaObjectType>();
   private readonly _systemTypes: TypeParseContext["systemTypes"] = {};
   private readonly _eventMapper: SchemaTypeSelector | undefined;
 
-  private readonly _variables = new Map<
-    string,
-    Map<string, ParsedSchemaObjectType>
-  >();
+  private readonly _variables = new Map<string, Map<string, SchemaVariable>>();
 
   private readonly _source: readonly SchemaDefinitionSource[];
 
@@ -60,54 +72,52 @@ export class TypeResolver {
     const typeStubs: [
       context: TypeParseContext,
       variable: SchemaVariableKey | undefined,
-      type: ParsedSchemaObjectType | SchemaTypeReference
+      type: SchemaObjectType | SchemaTypeDefinitionReference
     ][] = [];
 
-    const schemaContexts: [
-      schema: ParsedSchemaDefinition,
-      context: TypeParseContext
-    ][] = schemas.map(({ definition, referencesOnly }) => {
-      const namespace = throwValidationErrors((errors) =>
-        getPrimitiveTypeValidator({
-          primitive: "string",
-          format: "uri",
-        }).validator(definition.namespace, errors)
-      );
-      if (this._schemas.has(namespace)) {
-        throw new Error(
-          `Only one schema can define the namespace '${namespace}'.`
+    const schemaContexts: [schema: Schema, context: TypeParseContext][] =
+      schemas.map(({ definition, typesOnly }) => {
+        const namespace = throwValidationErrors((errors) =>
+          getPrimitiveTypeValidator({
+            primitive: "string",
+            format: "uri",
+          }).validator(definition.namespace, errors)
         );
-      }
-      const parsed: ParsedSchemaDefinition = {
-        id: namespace,
-        namespace,
-        source: definition,
-        schema: undefined as any,
-        name: definition.name ?? namespace,
-        qualifiedName: namespace,
-        referencesOnly: !!referencesOnly,
-        version: definition.version,
-        usageOverrides: definition.usage,
-        types: new Map(),
-        events: new Map(),
-        variables: new Map(),
-      };
-      parsed.schema = parsed;
-      this._schemas.set(namespace, parsed);
-
-      return [
-        parsed,
-        {
-          schema: parsed,
-          parsedTypes: this._types,
-          systemTypes: this._systemTypes,
-          defaultUsage,
+        if (this._schemas.has(namespace)) {
+          throw new Error(
+            `Only one schema can define the namespace '${namespace}'.`
+          );
+        }
+        const parsed: Schema = {
+          id: namespace,
+          namespace,
+          source: definition,
+          schema: undefined as any,
+          name: definition.name ?? namespace,
+          qualifiedName: namespace,
+          typesOnly: !!typesOnly,
+          version: definition.version,
           usageOverrides: definition.usage,
-          referencesOnly: !!referencesOnly,
-          localTypes: parsed.types,
-        },
-      ];
-    });
+          types: new Map(),
+          events: new Map(),
+          variables: new Map(),
+        };
+        parsed.schema = parsed;
+        this._schemas.set(namespace, parsed);
+
+        return [
+          parsed,
+          {
+            schema: parsed,
+            parsedTypes: this._types,
+            systemTypes: this._systemTypes,
+            defaultUsage,
+            usageOverrides: definition.usage,
+            typesOnly: !!typesOnly,
+            localTypes: parsed.types,
+          },
+        ];
+      });
 
     for (const [schema, context] of schemaContexts) {
       // Populate the type dictionary with initial type stubs without properties and base types.
@@ -128,25 +138,43 @@ export class TypeResolver {
     for (const [schema, context] of schemaContexts) {
       // Find variables.
       forEach(schema.source.variables, ([scope, keys]) => {
-        forEach(keys, ([key, type]) => {
-          let variableType: ParsedSchemaObjectType;
+        forEach(keys, ([key, definition]) => {
+          let variableType: SchemaObjectType;
 
-          if (!("type" in type)) {
-            // Not a reference, upgrade the anonymous object types to a type definition by giving it a name.
+          if (typeof definition === "string") {
+            definition = { reference: definition };
+          }
+          if (!("reference" in definition) && !("type" in definition)) {
+            definition = { type: definition };
+          }
 
-            variableType = parseType([scope + "_" + key, type], context, null);
-          } else {
+          if ("reference" in definition) {
             // Get the referenced type.
-            variableType = parseType(type, context, null);
+            variableType = parseType(definition.reference, context, null);
+          } else {
+            // Not a reference, upgrade the anonymous object types to a type definition by giving it a name.
+            variableType = parseType(
+              [scope + "_" + key, definition.type],
+              context,
+              null
+            );
           }
 
           tryAdd(
             get(this._variables, scope, () => new Map()),
             key,
-            variableType,
+            {
+              key,
+              scope,
+              access: definition.access as any,
+              validate: null!,
+              censor: null!,
+              description: definition.description,
+              type: variableType,
+            },
             (current) => {
               throw new Error(
-                `The type "${variableType.id}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${current.id}".`
+                `The type "${variableType.id}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${current.type.id}".`
               );
             }
           );
@@ -182,6 +210,29 @@ export class TypeResolver {
     if (eventType) {
       this._eventMapper = createSchemaTypeMapper([eventType]).match;
     }
+
+    this.types = obj2(this._types);
+    this.variables = obj2(this._variables, ([scope, variables]) => [
+      scope,
+      obj2(variables, ([key, variable]) => {
+        const { readonly, visibility } = overrideUsage(
+          variable.type.usage,
+          variable.access
+        );
+        variable.validate = createAccessValidator(
+          scope + "." + key,
+          variable.type,
+          (variable.access = { readonly, visibility }),
+          "variable"
+        );
+        variable.censor = (target, context) =>
+          !context.trusted && visibility === "trusted-only"
+            ? undefined
+            : variable.type.censor(target, context);
+
+        return [key, variable];
+      }),
+    ]);
   }
 
   public getEventType(eventData: any) {
@@ -192,7 +243,7 @@ export class TypeResolver {
     typeName: string,
     required: Required = true as any,
     defaultNamespace?: string
-  ): ParsedSchemaObjectType | (Required extends true ? never : undefined) {
+  ): SchemaObjectType | (Required extends true ? never : undefined) {
     const typeId = typeName.includes("#")
       ? typeName
       : (defaultNamespace ?? CORE_SCHEMA_NS) + "#" + typeName;
@@ -204,11 +255,6 @@ export class TypeResolver {
     return type as any;
   }
 
-  public readonly variables: readonly {
-    key: { scope: VariableScope; key: string };
-    type: ParsedSchemaObjectType;
-  }[] = [];
-
   public get definition() {
     return JSON.stringify(this._source);
   }
@@ -217,9 +263,8 @@ export class TypeResolver {
     scope: string,
     key: string,
     required: Required = true as any
-  ): ParsedSchemaObjectType | (Required extends true ? never : undefined) {
-    const uniqueKey = scope + "-" + key;
-    const variable = this._variables.get(uniqueKey);
+  ): SchemaVariable | (Required extends true ? never : undefined) {
+    const variable = this._variables.get(scope)?.get(key);
     if (!variable && required) {
       throw new Error(
         `The variable '${key}' in ${scope} scope is not defined.`
@@ -228,13 +273,15 @@ export class TypeResolver {
     return variable as any;
   }
 
-  public *getTypes() {
-    for (const [, type] of this._types) {
-      yield type;
-    }
-  }
+  public readonly types: {
+    readonly [P in string]?: Readonly<SchemaObjectType>;
+  };
 
-  public *getVariables() {}
+  public readonly variables: {
+    readonly [P in VariableScope | (string & {})]?: {
+      readonly [P in string]: Readonly<SchemaVariable>;
+    };
+  };
 
   public subset(schemas: string | string[]) {
     const selectedSchemas = new Set<SchemaDefinitionSource>();
@@ -260,8 +307,8 @@ export class TypeResolver {
     return new TypeResolver(
       this._source.map((source) =>
         selectedSchemas.has(source)
-          ? { ...source, referencesOnly: false }
-          : { ...source, referencesOnly: true }
+          ? { ...source, typesOnly: false }
+          : { ...source, typesOnly: true }
       )
     );
   }

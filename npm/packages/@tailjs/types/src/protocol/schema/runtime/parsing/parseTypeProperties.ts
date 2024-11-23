@@ -1,12 +1,12 @@
 import { forEach } from "@tailjs/util";
 import { parseProperty, TypeParseContext } from ".";
-import { ParsedSchemaObjectType } from "../../..";
+import { SchemaObjectType } from "../../../..";
 import { getMinimumUsage } from "../validation";
 
 export const parseTypeProperties = (
-  parsedType: ParsedSchemaObjectType,
+  parsedType: SchemaObjectType,
   context: TypeParseContext
-): ParsedSchemaObjectType => {
+): SchemaObjectType => {
   if (parsedType.ownProperties != null) {
     return parsedType;
   }

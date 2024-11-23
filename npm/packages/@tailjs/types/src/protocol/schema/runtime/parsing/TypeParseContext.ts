@@ -1,22 +1,23 @@
-import type {
-  ParsedSchemaDefinition,
+import {
+  Schema,
   SchemaDataUsage,
+  SchemaObjectType,
   SchemaTypeSystemRole,
-} from "@tailjs/types";
-import { ParsedSchemaObjectType } from "../../..";
+} from "../../../..";
 
 export type TypeParseContext = {
-  schema: ParsedSchemaDefinition;
+  schema: Schema;
 
   defaultUsage: SchemaDataUsage;
+
   usageOverrides: Partial<SchemaDataUsage> | undefined;
 
   /** Do not load event types and variables. */
-  referencesOnly: boolean;
+  typesOnly: boolean;
 
-  systemTypes: { [P in SchemaTypeSystemRole]?: ParsedSchemaObjectType };
+  systemTypes: { [P in SchemaTypeSystemRole]?: SchemaObjectType };
 
-  parsedTypes: Map<string, ParsedSchemaObjectType>;
+  parsedTypes: Map<string, SchemaObjectType>;
 
-  localTypes: Map<string, ParsedSchemaObjectType>;
+  localTypes: Map<string, SchemaObjectType>;
 };

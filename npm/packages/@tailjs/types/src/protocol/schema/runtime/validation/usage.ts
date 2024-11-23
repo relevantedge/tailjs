@@ -1,13 +1,16 @@
+import { fromEntries, Nullish } from "@tailjs/util";
 import {
+  DataAccess,
   dataClassification,
   dataVisibility,
   SchemaDataUsage,
-} from "@tailjs/types";
-import { fromEntries, Nullish } from "@tailjs/util";
+} from "../../../..";
+import { SchemaValueValidator } from "./types";
+import { pushInnerErrors } from ".";
 
 export const getMinimumUsage = <T extends SchemaDataUsage | Nullish>(
   current: T,
-  other: T
+  other: T | Nullish
 ): T =>
   current
     ? other
@@ -47,3 +50,30 @@ export const overrideUsage = <
         } as any)
       : update
     : current;
+
+export const createAccessValidator =
+  (
+    name: string,
+    type: { validate: SchemaValueValidator },
+    { readonly, visibility }: DataAccess,
+    targetType = "property"
+  ): SchemaValueValidator =>
+  (value, current, context, errors) => {
+    if (readonly && (value || value !== current)) {
+      errors.push({
+        path: name,
+        source: value,
+        message: `The ${targetType} is read-only (cannot be changed once set).`,
+        forbidden: true,
+      });
+    }
+    if (!context.trusted && visibility !== "public" && value !== current) {
+      errors.push({
+        path: name,
+        source: value,
+        message: `The ${targetType} cannot be set from untrusted context.`,
+        forbidden: true,
+      });
+    }
+    return pushInnerErrors(name, value, current, context, errors, type);
+  };

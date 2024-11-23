@@ -1,4 +1,4 @@
-export type SchemaPrimitiveType =
+export type SchemaPrimitiveTypeDefinition =
   | {
       primitive: "boolean" | "uuid" | "duration" | "date" | "timestamp";
     }

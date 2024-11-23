@@ -1,13 +1,13 @@
-import { SchemaPropertyDefinition, SchemaTypeReference } from "../..";
+import { SchemaPropertyDefinition, SchemaTypeDefinitionReference } from "../..";
 
-export interface SchemaObjectType {
+export interface SchemaObjectTypeDefinition {
   /**
    * The type inherits properties from these other types.
    *
    * Data usage will be inherited by these types in order, that is, if both the first and last
    * type has a data classification, the last one wins.
    */
-  extends?: SchemaTypeReference[];
+  extends?: (SchemaTypeDefinitionReference | string)[];
 
   /** The properties of the type. */
   properties: {
