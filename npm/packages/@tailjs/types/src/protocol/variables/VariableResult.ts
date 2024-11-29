@@ -104,7 +104,7 @@ export type ValidVariableResult<T = any> =
 
 export type MapVariableResult<
   Operation,
-  Type extends "any" | "raw" | "value" = "any"
+  Type extends "success" | "raw" | "value" = "success"
 > = Operation extends undefined
   ? undefined
   : Operation extends readonly any[]

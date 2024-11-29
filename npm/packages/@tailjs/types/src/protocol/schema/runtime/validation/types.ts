@@ -1,17 +1,17 @@
 import {
+  DataPurposeName,
   DataUsage,
+  OptionalPurposes,
   SchemaTypedData,
   SchemaValidationError,
   VALIDATION_ERROR,
 } from "../../../..";
 
 export interface SchemaValidationContext {
-  trusted: boolean;
-}
-
-export interface SchemaCensorContext {
-  trusted: boolean;
+  trusted?: boolean;
+  targetPurpose?: DataPurposeName;
   consent?: DataUsage;
+  optionalPurposes?: OptionalPurposes;
 }
 
 export type SchemaValueValidator = <T extends {}>(
@@ -24,7 +24,7 @@ export type SchemaValueValidator = <T extends {}>(
 
 export type SchemaCensorFunction = <T>(
   target: T,
-  context: SchemaCensorContext,
+  context: SchemaValidationContext,
   polymorphic?: boolean
 ) => T | undefined;
 

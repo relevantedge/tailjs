@@ -1,5 +1,4 @@
 import {
-  ConsentEvaluationContext,
   UserConsent,
   VariableKey,
   VariableScope,

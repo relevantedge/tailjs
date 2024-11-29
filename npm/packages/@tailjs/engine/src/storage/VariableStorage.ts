@@ -131,6 +131,28 @@ const formatVariableResult = (result: VariableResult) => {
       }${error ? ` (${error})` : ""}.`;
 };
 
+export class VariableStorageError<
+  Operations extends undefined | { [Symbol.iterator]?: never } | readonly any[]
+> extends Error {
+  public readonly succeeded: MapVariableResult<Operations, "success">;
+
+  public readonly failed: Exclude<
+    MapVariableResult<Operations, "raw">,
+    MapVariableResult<Operations, "success">
+  >;
+
+  constructor(operations: Operations, message: string) {
+    super(message ?? "One or more operations failed.");
+    this.succeeded =
+      ((operations as VariableResult[])?.filter((operation) =>
+        isSuccessResult(operation, false)
+      ) as any) ?? [];
+    this.failed =
+      ((operations as VariableResult[])?.filter(
+        (operation) => !isSuccessResult(operation, false)
+      ) as any) ?? [];
+  }
+}
 export const toVariableResultPromise = <
   Operations extends undefined | { [Symbol.iterator]?: never } | readonly any[]
 >(
@@ -168,7 +190,7 @@ export const toVariableResultPromise = <
       }
     }
     if (errors.length) {
-      throw new Error(errors.join("\n"));
+      throw new VariableStorageError(ops, errors.join("\n"));
     }
 
     for (const callback of callbacks) {
@@ -178,11 +200,16 @@ export const toVariableResultPromise = <
     return ops === operations ? results : results[0]; // Single value if single value.
   };
 
-  const resultPromise = Object.assign(mapResults(1), {
-    raw: () => mapResults(0),
-    value: () => mapResults(2),
-    values: () => mapResults(2),
-  });
+  const resultPromise = Object.assign(
+    {
+      then: (...args: any) => mapResults(1).then(...args),
+    },
+    {
+      raw: () => mapResults(0),
+      value: () => mapResults(2),
+      values: () => mapResults(2),
+    }
+  );
 
   return resultPromise as any;
 };

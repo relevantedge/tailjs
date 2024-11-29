@@ -22,6 +22,7 @@ import {
   topoSort2,
   update2,
   enumerate2,
+  pick2,
 } from "@tailjs/util";
 
 type Item = [id: string, deps?: Item[]];
@@ -111,6 +112,128 @@ describe("iterators(2)", () => {
       a: 32,
       b: "ok",
     });
+
+    // No merge, overwrite (three variations):
+    expect(assign2({ a: 32, b: { a: 80 }, c: true }, { b: { b: 43 } })).toEqual(
+      {
+        a: 32,
+        b: { b: 43 },
+        c: true,
+      }
+    );
+    expect(
+      assign2({ a: 32, b: { a: 80 }, c: true }, { b: { b: 43 } }, false)
+    ).toEqual({
+      a: 32,
+      b: { b: 43 },
+      c: true,
+    });
+
+    expect(
+      assign2({ a: 32, b: { a: 80 }, c: true }, { b: { b: 43 } }, false, true)
+    ).toEqual({
+      a: 32,
+      b: { b: 43 },
+      c: true,
+    });
+
+    // Merge, overwrite (two variations):
+    expect(
+      assign2(
+        {
+          a: 32,
+          b: { a: 80, nested: { g: "test", i: 80 } },
+          c: true,
+          e: { ok: true },
+        },
+        {
+          b: { b: 43, nested: { g: "replace", h: "abc" } },
+          c: false,
+          d: 79,
+          e: undefined,
+        },
+        true
+      )
+    ).toEqual({
+      a: 32,
+      b: { a: 80, b: 43, nested: { g: "replace", h: "abc", i: 80 } },
+      c: false,
+      d: 79,
+    });
+
+    let merged: any;
+    expect(
+      (merged = assign2(
+        {
+          a: 32,
+          b: { a: 80, nested: { g: "test", i: 80 } },
+          c: true,
+          e: { ok: true },
+        },
+        {
+          b: { b: 43, nested: { g: "replace", h: "abc" } },
+          c: false,
+          d: 79,
+          e: undefined,
+        },
+        true,
+        true
+      ))
+    ).toEqual({
+      a: 32,
+      b: { a: 80, b: 43, nested: { g: "replace", h: "abc", i: 80 } },
+      c: false,
+      d: 79,
+    });
+
+    expect("e" in merged).toBe(false);
+
+    // No overwrite (merge / no merge)
+    expect(
+      (merged = assign2(
+        {
+          a: 32,
+          b: { a: 80, nested: { g: "test", i: 80 } },
+          c: true,
+          e: { ok: true },
+        },
+        {
+          b: { b: 43, nested: { g: "replace", h: "abc" } },
+          c: false,
+          d: 79,
+          e: undefined,
+        },
+        true,
+        false
+      ))
+    ).toEqual({
+      a: 32,
+      b: { a: 80, b: 43, nested: { g: "test", h: "abc", i: 80 } },
+      c: true,
+      d: 79,
+      e: { ok: true },
+    });
+    expect("e" in merged).toBe(true);
+
+    expect(
+      assign2(
+        {
+          a: 32,
+          b: { a: 80, nested: { g: "test", i: 80 } },
+          c: true,
+          e: { ok: true },
+        },
+        { b: { b: 43, nested: { g: "replace", h: "abc" } }, c: false, d: 79 },
+        false,
+        false
+      )
+    ).toEqual({
+      a: 32,
+      b: { a: 80, nested: { g: "test", i: 80 } },
+      c: true,
+      d: 79,
+      e: { ok: true },
+    });
   });
 
   it("Somes and alls", () => {
@@ -142,10 +265,9 @@ describe("iterators(2)", () => {
 
     let target = { a: 32, b: 90 };
     expect(
-      obj2(target, ([key]) => (key === "b" ? undefined : [key, 80]), target)
+      obj2(target, ([key]) => (key === "b" ? undefined : [key, 80]))
     ).toEqual({
       a: 80,
-      b: 90,
     });
   });
 
@@ -182,6 +304,28 @@ describe("iterators(2)", () => {
     expect(group2(3, (n) => [n < 2 ? 1 : 2, n + 1], false)).toEqual({
       1: [1, 2],
       2: [3],
+    });
+  });
+
+  it("Picks", () => {
+    expect(pick2({ a: 32, b: "80", d: null }, ["b", "d"])).toEqual({
+      b: "80",
+      d: null,
+    });
+
+    expect(
+      pick2(
+        { a: 32, b: "80", c: undefined } as {
+          a: number;
+          b: string;
+          c?: string;
+          d?: string;
+        },
+        ["b", "d"]
+      )
+    ).toEqual({
+      b: "80",
+      c: undefined,
     });
   });
 
