@@ -5,11 +5,8 @@ import {
   VariableKey,
   VariableResult,
   VariableResultStatus,
-  VariableUnchangedResult,
   VariableSuccessResult,
   VariableValueErrorResult,
-  Variable,
-  ValidVariableResult,
 } from "../..";
 
 export interface VariableValueSetter<T = any> extends VariableKey {

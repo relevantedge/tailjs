@@ -4,6 +4,7 @@ import {
   DataClassification,
   dataPurposes,
   DataPurposes,
+  PurposeTestOptions,
   testPurposes,
 } from ".";
 
@@ -13,7 +14,11 @@ export const formatDataUsage = (usage?: DataUsage) =>
   enumerate(dataPurposes(usage?.purposes, true)) +
   " purposes.";
 
-export const validateConsent = (target: DataUsage, consent: DataUsage) => {
+export const validateConsent = (
+  target: DataUsage,
+  consent: DataUsage,
+  options: PurposeTestOptions
+) => {
   if (target.classification === "never" || consent.classification === "never") {
     return false;
   }
@@ -29,7 +34,7 @@ export const validateConsent = (target: DataUsage, consent: DataUsage) => {
     return false;
   }
 
-  return testPurposes(target.purposes, consent.purposes);
+  return testPurposes(target.purposes, consent.purposes, options);
 };
 
 /**

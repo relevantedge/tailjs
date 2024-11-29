@@ -1,4 +1,11 @@
-import { Falsish, IfNever, isArray, Subtract, UnionToIntersection } from ".";
+import {
+  AllRequired,
+  Falsish,
+  isArray,
+  PartialRecord,
+  RecordType,
+  UnionToIntersection,
+} from ".";
 
 // Faster versions of map and forEach. The others are a bit "muddy".
 // Here we assign a designated iterator to an object's prototype in the hope V8 megamorphism are less likely to kick in.
@@ -112,32 +119,111 @@ type Obj2Source<K = keyof any, V = any> =
   | Iterable<Kv2<K, V> | undefined>
   | Nullish;
 
-type OptionalKeys<T, K extends keyof T = keyof T> = K extends keyof any
-  ? T extends { [P in K]: unknown }
+type SpecificKeys<K extends keyof any> = K extends keyof any
+  ? string extends K
+    ? never
+    : number extends K
+    ? never
+    : symbol extends K
     ? never
     : K
   : never;
 
-type Merge2<
+type GenericKeys<K extends keyof any> = K extends keyof any
+  ? string extends K
+    ? K
+    : number extends K
+    ? K
+    : symbol extends K
+    ? K
+    : never
+  : never;
+
+type OptionalKeys<T, K extends keyof T = keyof T> = K extends keyof T
+  ? { [P in K]?: T[K] } extends Pick<T, K>
+    ? K
+    : never
+  : never;
+
+type RequiredKeys<T> = Exclude<keyof T, OptionalKeys<T>>;
+
+type Merge2<T1, T2, MergeRecords, Overwrite> = T1 extends Nullish
+  ? T1
+  : T2 extends Nullish
+  ? T2
+  : _Merge2<T1, T2, MergeRecords, Overwrite>;
+
+type _MergeRecords2<
+  T1P,
+  T2P,
+  Deep,
+  Overwrite,
+  Default = never
+> = Deep extends true
+  ? T1P extends RecordType
+    ? T2P extends RecordType
+      ? Merge2<T1P, T2P, true, Overwrite>
+      : Default
+    : Default
+  : Default;
+
+type _Merge2<
   T1,
   T2,
+  MergeRecords,
+  Overwrite,
   O1 extends keyof T1 = OptionalKeys<T1>,
   O2 extends keyof T2 = OptionalKeys<T2>,
-  R1 extends keyof T1 = Exclude<keyof T1, O1>,
-  R2 extends keyof T2 = Exclude<keyof T2, O2>
-> = {
-  // Optional in T1.If optional in T2, it can be either.
-  [P in Exclude<O1, R2>]?: P extends keyof T2 ? T1[P] | T2[P] : T1[P];
-} & {
-  // Required in T1. If optional in T2 it can be either.
-  [P in Exclude<R1, R2>]: P extends keyof T2 ? T1[P] | T2[P] : T1[P];
-} & {
-  // Optional in T2, not already handled above.
-  [P in Exclude<O2, keyof T1>]?: T2[P];
-} & {
-  // In T2, not optional or not in T1
-  [P in R2]: T2[P];
-};
+  R1 extends keyof T1 = RequiredKeys<T1>,
+  R2 extends keyof T2 = RequiredKeys<T2>
+> = Pick<T1, Exclude<keyof T1, SpecificKeys<keyof T2>>> &
+  Pick<T2, Exclude<keyof T2, SpecificKeys<keyof T1>>> & {
+    // Resulting property may be optional only if both optional in T1 and T2
+    [P in O1 & O2]?:
+      | T1[P]
+      | T2[P]
+      | _MergeRecords2<T1[P], T2[P], MergeRecords, Overwrite>;
+  } & {
+    // Can only be T1 if overwrite=false
+    [P in O1 & R2]:
+      | T2[P]
+      | _MergeRecords2<
+          T1[P],
+          T2[P],
+          MergeRecords,
+          Overwrite,
+          Overwrite extends false
+            ? Exclude<T1[P], RecordType | undefined>
+            : never
+        >;
+  } & {
+    // Will never be T2 if overwrite=false
+    [P in R1 & O2]:
+      | T1[P]
+      | _MergeRecords2<
+          T1[P],
+          T2[P],
+          MergeRecords,
+          Overwrite,
+          Overwrite extends false ? never : Exclude<T2[P], RecordType>
+        >;
+  } & {
+    // Overwrite decides whether the value is T1 or T2
+    [P in R1 & R2]: _MergeRecords2<
+      T1[P],
+      T2[P],
+      MergeRecords,
+      Overwrite,
+      Exclude<
+        Overwrite extends false
+          ? T1[P] | T2[GenericKeys<R1> & keyof T2]
+          : T1[GenericKeys<R2> & keyof T1] | T2[P],
+        RecordType
+      >
+    >;
+  } extends infer T
+  ? { [P in keyof T]: T[P] }
+  : never;
 
 type Obj2SourceToObj<T> = T extends Nullish
   ? {}
@@ -147,12 +233,23 @@ type Obj2SourceToObj<T> = T extends Nullish
 
 type MergeObj2Sources<
   S extends readonly any[],
-  Merged = {}
-> = S extends readonly [infer T, ...infer Rest]
-  ? T extends infer T
-    ? MergeObj2Sources<Rest, Merge2<Merged, Obj2SourceToObj<T>>>
-    : never
-  : Merged;
+  Merged,
+  MergeRecords,
+  Overwrite
+> = (
+  S extends readonly [infer T, ...infer Rest]
+    ? T extends infer T
+      ? MergeObj2Sources<
+          Rest,
+          Merge2<Merged, Obj2SourceToObj<T>, MergeRecords, Overwrite>,
+          MergeRecords,
+          Overwrite
+        >
+      : never
+    : Merged
+) extends infer T
+  ? { [P in keyof T]: T[P] }
+  : never;
 
 const forEachIterable2: () => ForEachFunction =
   () => (target, projection, mapped, seed, context) => {
@@ -267,20 +364,20 @@ const createForEachFunction = (target: any): ForEachFunction => {
     : target.constructor === Object
     ? ((it1 = forEachIterable2()),
       (it2 = forEachKeyValue2()),
-      (target, projection, mapped) =>
+      (target, projection, mapped, seed, context) =>
         (target.constructor === Object
           ? symbolIterator in target
             ? it1
             : it2
-          : assignForEach(target))(target, projection, mapped))
+          : assignForEach(target))(target, projection, mapped, seed, context))
     : typeof target === "number"
     ? ((it1 = forEachIterable2()),
-      (target, projection: any, mapped) =>
-        it1(range2(target), projection, mapped))
+      (target, projection: any, mapped, seed, context) =>
+        it1(range2(target), projection, mapped, seed, context))
     : typeof target === "function"
     ? ((it1 = forEachIterable2()),
-      (target, projection: any, mapped) =>
-        it1(traverse2(target), projection, mapped))
+      (target, projection: any, mapped, seed, context) =>
+        it1(traverse2(target), projection, mapped, seed, context))
     : typeof target === "object"
     ? symbolIterator in target
       ? forEachIterable2()
@@ -363,16 +460,30 @@ type SelectorResult<
   : Exclude<ValueOf<T, S>, Require extends true ? undefined : never>;
 
 export const pick2: {
-  <
-    It extends ItSource,
-    S extends Selector<ItItem<It>>,
-    Require extends boolean = true
-  >(
-    source: It,
-    selector: S,
-    require?: Require
-  ): SelectorResult<ItItem<It>, S, Require>[];
-} = (source, selector) => map2(source, normalizeSelector(selector)) as any;
+  <T extends object | Nullish, TK extends keyof (T & {}), K extends AnyKey<T>>(
+    target: T,
+    // The `K | G` trick is because TypeScript will consider `["prop1", "prop2"]` as `string[]`
+    //  without the `K extends keyof T` constraint (in which case it gets it right as ("prop1"|"prop2")[]).
+    // `keyof T` is too restrictive since we also want to support intersection types.
+    keys: Iterable<TK | K>
+  ): T extends Nullish
+    ? T
+    : T extends infer T
+    ? (TK | K) & keyof T extends infer K extends keyof T
+      ? {
+          [P in K]: T[P];
+        }
+      : never
+    : never;
+} = (target, keys) =>
+  target == null
+    ? target
+    : (obj2(keys, (key) =>
+        // The first check is presumably faster than the `in` operator.
+        target[key as any] != null || key in target
+          ? [key, target[key as any]]
+          : skip2
+      ) as any);
 
 export const filter2: {
   <It extends ItSource>(target: It): It extends Nullish
@@ -584,19 +695,8 @@ export const obj2: {
     source: It,
     projection: ItCallback2<It, S, R>
   ): It extends Nullish ? It : Obj2<ItProjection<R>>;
-  <It extends ItSource, R extends Kv2 | Nullish, S extends R, Target>(
-    source: It,
-    projection: ItCallback2<It, S, R>,
-    target: Target
-  ): It extends Nullish
-    ? Target
-    : Merge2<
-        Target extends undefined ? {} : Target,
-        Obj2<ItProjection<R>>
-      > extends infer T
-    ? { [P in keyof T]: T[P] }
-    : never;
-} = (source: any, projection?: any, target = {}) => {
+} = (source: any, projection?: any) => {
+  const target = {};
   forEach2(
     source,
     (item, index, seed) => (
@@ -624,21 +724,26 @@ const setupAssign = (
       any,
       Map<any, any>
     >;
-    prototype[getSymbol] = (map: any, key: any) => map.get(key);
+    prototype[getSymbol] = prototype.get;
   }
   for (const { prototype } of [Set, WeakSet]) {
-    prototype[assignSymbol] = ((item, _, kv, set) =>
-      item !== undefined &&
-      ((kv ||= isArray(item) && item.length === 2 ? 1 : -1) < 0
-        ? set.add(item)
-        : item[1]
-        ? set.add(item[0])
-        : set.delete(item[0]))) as ItCallback2<any, any, any, Set<any>>;
+    prototype[assignSymbol] = ((item, _1, _2, set) =>
+      item &&
+      (item[1] ? set.add(item[0]) : set.delete(item[0]))) as ItCallback2<
+      any,
+      any,
+      any,
+      Set<any>
+    >;
     prototype[getSymbol] = prototype.has;
   }
 
   Object.prototype[assignSymbol] = ((item: any, _1, _2, target) =>
-    item && (target[item[0]] = item[1])) as ItCallback2<any, any, any, any>;
+    item &&
+    (item[1] === undefined
+      ? delete target[item[0]]
+      : (target[item[0]] = item[1]))) as ItCallback2<any, any, any, any>;
+
   Object.prototype[getSymbol] = function (key: any) {
     return this[key];
   };
@@ -649,34 +754,78 @@ const setupAssign = (
 export const assign2: {
   <K, V, T extends Map<K, V> | WeakMap<K & {}, V>>(
     target: T,
-    ...sources: readonly Obj2Source<K, V>[]
+    ...sources: Obj2Source<K, V>[]
   ): T;
   <K, T extends Set<K> | WeakSet<K & {}>>(
     target: T,
-    ...sources: readonly Obj2Source<K>[]
+    ...sources: Obj2Source<K>[]
   ): T;
   <V, T extends Set<V> | WeakSet<V & {}>>(
     target: T,
     ...sources: readonly (Nullish | Iterable<V>)[]
   ): T;
+  <T, Its extends Obj2Source[]>(target: T, ...sources: Its): MergeObj2Sources<
+    Its,
+    T,
+    false,
+    true
+  >;
+  <T, Its extends Obj2Source[], Merge extends boolean>(
+    target: T,
+    ...sources: [...sources: Its, deep: Merge]
+  ): MergeObj2Sources<Its, T, Merge, true>;
   <
     T,
-    Its extends T extends
-      | Map<any, any>
-      | WeakMap<any, any>
-      | Set<any>
-      | WeakSet<any>
-      ? never
-      : readonly Obj2Source[]
+    Its extends Obj2Source[],
+    Merge extends boolean,
+    Overwrite extends boolean
   >(
     target: T,
-    ...sources: Its
-  ): MergeObj2Sources<Its, T> extends infer T
-    ? { [P in keyof T]: T[P] }
-    : never;
+    ...sources: [...sources: Its, deep: Merge, overwrite: Overwrite]
+  ): MergeObj2Sources<Its, T, Merge, Overwrite>;
 } = (target: any, ...sources: any[]) => {
-  const assign = (target[assignSymbol] ??= setupAssign(target, assignSymbol));
-  for (const source of sources) forEach2(source, assign, 0, target);
+  const assign = target[assignSymbol] || setupAssign(target, assignSymbol);
+  let merge: boolean;
+  if (typeof (merge = sources[sources.length - 1]) === "boolean") {
+    let overwrite: boolean,
+      n = sources.length - 1;
+
+    if (typeof (overwrite = sources[sources.length - 2]) === "boolean") {
+      [merge, overwrite] = [overwrite, merge];
+      --n;
+    } else {
+      overwrite = true;
+    }
+    if (merge || !overwrite) {
+      let current: any;
+      for (const source of sources) {
+        if (!n--) break;
+        forEach2(
+          source,
+          (kv: any, index, acc, context) => {
+            if (!kv) return;
+            if (
+              merge &&
+              kv[1]?.constructor === Object &&
+              (current = target[kv[0]])?.constructor === Object
+            ) {
+              assign2(current, kv[1], merge, overwrite);
+            } else if (overwrite || target[kv[0]] === undefined) {
+              assign(kv, index, acc, context);
+            }
+          },
+          undefined,
+          target
+        );
+      }
+      return target;
+    }
+  }
+
+  for (const source of sources) {
+    forEach2(source, assign, undefined, target);
+  }
+
   return target;
 };
 
@@ -690,7 +839,9 @@ export const exchange2: {
     K
   >;
 } = (target: any, key: any, value: any) => {
-  const current = (target[getSymbol] ??= setupAssign(target, getSymbol));
+  const current = (
+    target[getSymbol] || (setupAssign(target, getSymbol), target[getSymbol])
+  )(key);
   if (current !== value) {
     target[assignSymbol]!([key, value], 0, 0, target);
   }

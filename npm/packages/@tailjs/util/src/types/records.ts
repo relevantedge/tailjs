@@ -20,9 +20,16 @@ export type ReadonlyRecord<K extends keyof any = keyof any, V = any> = {
 export type PartialDefined<T> = Partial<Exclude<T, undefined | void>>;
 
 /** Makes all properties and properties on nested objects required. */
-export type AllRequired<T> = {
-  [P in keyof T]-?: T[P] extends RecordType ? AllRequired<T[P]> : T[P];
-};
+export type AllRequired<T, Nulls = never> = T extends undefined | Nulls
+  ? never
+  : T extends null
+  ? null
+  : {
+      [P in keyof T]-?: Exclude<
+        T extends RecordType ? AllRequired<T[P], Nulls> : T[P],
+        undefined
+      >;
+    };
 
 export type UnionPropertyValue<T, Keys extends keyof any> = T extends infer T
   ? Keys extends infer K

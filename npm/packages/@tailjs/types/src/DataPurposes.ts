@@ -25,6 +25,41 @@ export const DATA_PURPOSES_ALL: DataPurposes = Object.freeze(
 );
 
 /**
+ * Optional purposes that must be treated separately.
+ */
+export interface OptionalPurposes {
+  /**
+   * Consider the security purpose different from "necessary".
+   * @default false
+   */
+  security: boolean;
+
+  /**
+   * Consider the personalization purpose different from "functionality".
+   * @default false
+   */
+  personalization: boolean;
+}
+
+export const mapOptionalPurpose: {
+  <T extends string | Nullish>(
+    optionalPurposes: OptionalPurposes | Nullish,
+    purpose: T
+  ): T extends Nullish ? T : DataPurposeName;
+} = (optionalPurposes, purpose): any =>
+  purpose === "personalization" && optionalPurposes?.personalization !== true
+    ? "functionality"
+    : purpose === "security" && optionalPurposes?.security !== true
+    ? "necessary"
+    : purpose;
+
+export interface PurposeTestOptions {
+  intersect?: boolean;
+  targetPurpose?: DataPurposeName;
+  optionalPurposes?: OptionalPurposes;
+}
+
+/**
  * Compares whether a consent is sufficient for a set of target purposes, or whether
  * a filter matches all the purposes in a target.
  *
@@ -43,16 +78,24 @@ export const DATA_PURPOSES_ALL: DataPurposes = Object.freeze(
 export const testPurposes = (
   target: DataPurposes,
   test: DataPurposes,
-  intersect = false
+  { intersect, optionalPurposes, targetPurpose }: PurposeTestOptions
 ) => {
+  if (
+    targetPurpose &&
+    !test[mapOptionalPurpose(optionalPurposes, targetPurpose)]
+  ) {
+    return false;
+  }
   if (intersect) {
-    for (const purpose in test) {
+    for (let purpose in test) {
+      purpose = mapOptionalPurpose(optionalPurposes, purpose);
       if (test[purpose] && !target[purpose]) {
         // At least one purpose in the consent is not present in the target.
         return false;
       }
     }
-    for (const purpose in target) {
+    for (let purpose in target) {
+      purpose = mapOptionalPurpose(optionalPurposes, purpose);
       if (target[purpose] && !test[purpose]) {
         // The target has a purpose that is not included in the consent.
         return false;
@@ -62,7 +105,8 @@ export const testPurposes = (
     return true;
   }
   let hasAny = false;
-  for (const purpose in target) {
+  for (let purpose in target) {
+    purpose = mapOptionalPurpose(optionalPurposes, purpose);
     if (target[purpose]) {
       if (test[purpose]) {
         // Just one of the purposes is good enough.

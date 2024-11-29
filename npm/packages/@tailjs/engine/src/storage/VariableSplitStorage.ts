@@ -11,10 +11,9 @@ import {
   VariableValueErrorResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { forEachAsync } from "@tailjs/util";
+import { forEach2, forEachAsync, get2 } from "@tailjs/util";
 import {
   isWritableStorage,
-  normalizeStorageMappings,
   ReadOnlyVariableStorage,
   TrackerEnvironment,
   VariableStorage,
@@ -74,11 +73,14 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
 
   constructor(mappings: VariableStorageMappings) {
     this._mappings = {};
-    for (const { scope, source, storage } of normalizeStorageMappings(
-      mappings
-    )) {
-      (this._mappings[scope] ??= {})[source] = storage;
-    }
+    forEach2(mappings, ([scope, defaultConfig]) => {
+      if (!defaultConfig) return;
+      (this._mappings[scope] ??= {})[""] = defaultConfig.provider;
+      forEach2(defaultConfig.prefixes, ([prefix, config]) => {
+        if (!config) return;
+        (this._mappings[scope] ??= {})[prefix] = config.provider;
+      });
+    });
   }
 
   private async _splitApply<T extends { scope: string; source?: string }, R>(

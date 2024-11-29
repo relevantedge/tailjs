@@ -6,15 +6,7 @@ import {
   type SchemaTypeDefinitionReference,
   type VariableScope,
 } from "../../..";
-import {
-  forEach,
-  forEach2,
-  get,
-  map2,
-  obj2,
-  pick2,
-  tryAdd,
-} from "@tailjs/util";
+import { forEach2, get2, map2, obj2, pick2, tryAdd } from "@tailjs/util";
 
 export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
   validate: (value, _current, _context, _errors) => value,
@@ -122,7 +114,7 @@ export class TypeResolver {
     for (const [schema, context] of schemaContexts) {
       // Populate the type dictionary with initial type stubs without properties and base types.
       // This allows circular references to be resolved, and schemas and their types be parsed in any order.
-      forEach(
+      forEach2(
         schema.source.types,
         ([name, type]: [string, SchemaTypeDefinition]) => {
           typeStubs.push([context, , parseType([name, type], context, null)]);
@@ -132,13 +124,16 @@ export class TypeResolver {
 
     for (const [schema, context] of schemaContexts) {
       // Parse base types so "extendedBy" is populated for all types before we parse properties..
-      forEach(schema.types, ([, type]) => parseBaseTypes(type, context));
+      forEach2(schema.types, ([, type]) => parseBaseTypes(type, context));
     }
 
     for (const [schema, context] of schemaContexts) {
       // Find variables.
-      forEach(schema.source.variables, ([scope, keys]) => {
-        forEach(keys, ([key, definition]) => {
+      forEach2(schema.source.variables, ([scope, keys]) => {
+        forEach2(keys, ([key, definition]) => {
+          if (!definition) {
+            return;
+          }
           let variableType: SchemaObjectType;
 
           if (typeof definition === "string") {
@@ -161,7 +156,7 @@ export class TypeResolver {
           }
 
           tryAdd(
-            get(this._variables, scope, () => new Map()),
+            get2(this._variables, scope, () => new Map()),
             key,
             {
               key,
@@ -179,26 +174,26 @@ export class TypeResolver {
             }
           );
 
-          get(schema.variables, scope, () => new Map()).set(key, variableType);
-          get(
+          get2(schema.variables, scope, () => new Map()).set(key, variableType);
+          get2(
             (variableType.variables ??= new Map()),
             scope,
             () => new Set()
           ).add(key);
         });
       });
-      forEach(schema.types, ([, type]) => parseTypeProperties(type, context));
+      forEach2(schema.types, ([, type]) => parseTypeProperties(type, context));
     }
 
-    forEach(this._types, ([, type]) => {
+    forEach2(this._types, ([, type]) => {
       // Finish the types.
       addTypeValidators(type);
 
-      forEach(type.extendedBy, (subtype) => {
-        forEach(type.referencedBy, (prop) => subtype.referencedBy.add(prop));
-        forEach(type.variables, ([scope, keys]) =>
-          forEach(keys, (key) =>
-            get((subtype.variables ??= new Map()), scope, () => new Set()).add(
+      forEach2(type.extendedBy, (subtype) => {
+        forEach2(type.referencedBy, (prop) => subtype.referencedBy.add(prop));
+        forEach2(type.variables, ([scope, keys]) =>
+          forEach2(keys, (key) =>
+            get2((subtype.variables ??= new Map()), scope, () => new Set()).add(
               key
             )
           )
@@ -215,18 +210,18 @@ export class TypeResolver {
     this.variables = obj2(this._variables, ([scope, variables]) => [
       scope,
       obj2(variables, ([key, variable]) => {
-        const { readonly, visibility } = overrideUsage(
-          variable.type.usage,
-          variable.access
-        );
+        const access = (variable.access = pick2(
+          overrideUsage(variable.type.usage, variable.access),
+          ["readonly", "visibility"]
+        ));
         variable.validate = createAccessValidator(
           scope + "." + key,
           variable.type,
-          (variable.access = { readonly, visibility }),
+          variable.access,
           "variable"
         );
         variable.censor = (target, context) =>
-          !context.trusted && visibility === "trusted-only"
+          !context.trusted && access.visibility === "trusted-only"
             ? undefined
             : variable.type.censor(target, context);
 

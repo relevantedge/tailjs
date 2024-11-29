@@ -2,6 +2,7 @@ import {
   copyKey,
   dataClassification,
   DataPurposeName,
+  DataPurposes,
   DataUsage,
   filterKeys,
   filterRangeValue,
@@ -9,11 +10,14 @@ import {
   formatValidationErrors,
   isSuccessResult,
   isTransientError,
-  SchemaObjectType,
-  SchemaVariable,
+  mapOptionalPurpose,
+  OptionalPurposes,
+  SchemaCensorContext,
   SchemaValidationError,
+  SchemaVariable,
   testPurposes,
   TypeResolver,
+  ValidatableSchemaEntity,
   Variable,
   VariableErrorResult,
   VariableGetResult,
@@ -24,9 +28,8 @@ import {
   VariableSetResult,
   VariableSetter,
   VariableValueSetter,
-  ValidatableSchemaEntity,
 } from "@tailjs/types";
-import { delay, forEach2 } from "@tailjs/util";
+import { AllRequired, assign2, delay, forEach2, Nullish } from "@tailjs/util";
 import {
   AddSourceTrace,
   addSourceTrace,
@@ -38,72 +41,86 @@ import {
   TrackerEnvironment,
   VariableOperationParameter,
   VariableSplitStorage,
+  VariableStorage,
   WithCallbackIntellisense,
 } from "..";
 
-type StorageMappingEntry = {
+export interface StorageMapping {
   storage: ReadOnlyVariableStorage;
-  schemas?: string | string[];
-};
+  schemas?: string[];
+}
+
+export interface RetrySettings {
+  /** Maximum number of retries before giving up. */
+  attempts: number;
+
+  /** Delay between retries. */
+  delay: number;
+
+  /**
+   * The maximum value of an additional random delay that gets added to the delay
+   * to spread out retry attempts to break ties and reduce contention when multiple processes
+   * are attempting the same action simultaneously.
+   */
+  jitter: number;
+}
 
 export type VariableStorageMappings = {
-  [P in VariableScope]?:
-    | ReadOnlyVariableStorage
-    | StorageMappingEntry
-    | Record<string, ReadOnlyVariableStorage | StorageMappingEntry>;
+  [P in VariableScope]?: {
+    provider: VariableStorage;
+    schemas?: string[];
+    prefixes?: {
+      [P in string]: {
+        provider: ReadOnlyVariableStorage;
+        schemas?: string[];
+      };
+    };
+  };
 };
 
-const normalizeStorageMapping = (
-  entry: ReadOnlyVariableStorage | StorageMappingEntry
-): StorageMappingEntry => {
-  return "get" in entry ? { storage: entry, schemas: "*" } : entry;
-};
+export interface VariableStorageCoordinatorSettings {
+  retries?: {
+    /**
+     * Retry settings for patch conflicts.
+     *
+     * The default is 50 ms between a maximum of 10 retries with 25 ms jitter.
+     */
+    patch?: Partial<RetrySettings>;
 
-export const normalizeStorageMappings = (
-  mappings: VariableStorageMappings
-): ({ scope: string; source: string } & StorageMappingEntry)[] => {
-  const normalized: any[] = [];
-  for (const scope in mappings) {
-    const sources = mappings[scope];
-    if ("get" in sources || "storage" in sources) {
-      normalized.push({
-        scope,
-        source: "",
-        ...normalizeStorageMapping(sources),
-      });
-    } else {
-      for (const source in sources) {
-        normalized.push({
-          scope,
-          source,
-          ...normalizeStorageMapping(sources[source]),
-        });
-      }
-    }
-  }
-  return normalized;
-};
+    /**
+     * Retry settings for transient errors.
+     *
+     * The default is 500 ms between a maximum of 3 retries with 250 ms jitter.
+     */
+    error?: Partial<RetrySettings>;
+  };
 
-export interface ConsentValidationSettings {
-  /**
-   * Consider the security purpose different from "necessary".
-   * @default false
-   */
-  security?: boolean;
+  /** Optional purposes that must be treated separately.  */
+  optionalPurposes?: Partial<OptionalPurposes>;
 
-  /**
-   * Consider the personalization purpose different from "functionality".
-   * @default false
-   */
-  personalization?: boolean;
-
-  /**
-   * If this is configured and a get request does not explicitly specify a purpose, an error is thrown.
-   *
-   * @default false
-   */
-  requireTargetPurpose?: boolean;
+  storage: VariableStorageMappings;
 }
+
+const DEFAULT_SETTINGS: AllRequired<
+  Omit<VariableStorageCoordinatorSettings, "storage">
+> = {
+  retries: {
+    patch: {
+      attempts: 10,
+      delay: 50,
+      jitter: 25,
+    },
+    error: {
+      attempts: 3,
+      delay: 500,
+      jitter: 250,
+    },
+  },
+  optionalPurposes: {
+    security: false,
+    personalization: false,
+  },
+};
 
 export const isTransientErrorObject = (error: any) =>
   error?.["transient"] || (error?.message + "").match(/\btransient\b/i) != null;
@@ -116,16 +133,13 @@ export type VariableStorageContext = {
     userId?: string;
     consent?: DataUsage;
   };
-  validation?: ConsentValidationSettings;
+  optionalPurposes?: OptionalPurposes;
   /**
    * Whether restrictions on data access visibility applies.
    * @default false
    */
   trusted?: boolean;
 };
-
-const MAX_PATCH_RETRIES = 10;
-const MAX_ERROR_RETRIES = 3;
 
 const censorResult = <Result extends VariableGetResult | VariableSetResult>(
   result: Result,
@@ -134,16 +148,14 @@ const censorResult = <Result extends VariableGetResult | VariableSetResult>(
   targetPurpose?: DataPurposeName
 ): Result => {
   if ("value" in result && result.value != null) {
-    const consent = context.scope?.consent;
     if (
-      (consent && targetPurpose && !consent.purposes[targetPurpose]) ||
-      (result.value = type.censor((result as any).value, {
-        trusted: !!context.trusted,
-        consent,
-      })) == undefined
+      (result.value = type.censor(
+        (result as any).value,
+        targetPurpose ? { ...context, targetPurpose } : context
+      )) == undefined
     ) {
       return {
-        status: VariableResultStatus.NotFound,
+        status: VariableResultStatus.Forbidden,
         [traceSymbol]: result[traceSymbol],
         ...copyKey(result),
       } as any;
@@ -151,6 +163,9 @@ const censorResult = <Result extends VariableGetResult | VariableSetResult>(
   }
   return result;
 };
+
+const errorDelay = (settings: RetrySettings) =>
+  delay(settings.delay + Math.random() * settings.jitter);
 
 const validateEntityId = (
   target: { scope: string; entityId?: string },
@@ -169,7 +184,7 @@ const validateEntityId = (
   const expectedId = context.scope[target.scope];
   if (expectedId == undefined) {
     throw new Error(
-      "`No ID is available for ${target.scope} scope in the current session.`"
+      `No ID is available for ${target.scope} scope in the current session.`
     );
   }
   if (target.entityId && expectedId !== target.entityId) {
@@ -188,30 +203,45 @@ export class VariableStorageCoordinator {
   private readonly _types: TypeResolver;
   private readonly _storageTypeResolvers = new Map<string, TypeResolver>();
   private readonly _defaultContext: VariableStorageContext;
+  private readonly _optionalPurposes: VariableStorageCoordinatorSettings["optionalPurposes"];
+  private readonly _patchRetries: Required<RetrySettings>;
+  private readonly _errorRetries: Required<RetrySettings>;
 
   constructor(
-    mappings: VariableStorageMappings,
+    { storage, ...settings }: VariableStorageCoordinatorSettings,
     types: TypeResolver,
     defaultContext: VariableStorageContext = { trusted: false }
   ) {
-    this._storage = new VariableSplitStorage(mappings);
+    this._storage = new VariableSplitStorage(storage);
     this._defaultContext = defaultContext;
     this._types = types;
-    for (const { source, scope, schemas } of normalizeStorageMappings(
-      mappings
-    )) {
-      if (!schemas) {
-        continue;
-      }
+
+    forEach2(storage, ([scope, defaultConfig]) => {
+      if (!defaultConfig) return;
+
       this._storageTypeResolvers.set(
-        getScopeSourceKey(scope, source),
-        this._types.subset(schemas)
+        getScopeSourceKey(scope),
+        defaultConfig.schemas
+          ? this._types.subset(defaultConfig.schemas)
+          : this._types
       );
-    }
-    this._types = types;
+      forEach2(defaultConfig.prefixes, ([prefix, config]) => {
+        if (!config) return;
+
+        this._storageTypeResolvers.set(
+          getScopeSourceKey(scope, prefix),
+          config.schemas ? this._types.subset(config.schemas) : this._types
+        );
+      });
+    });
+
+    ({
+      retries: { patch: this._patchRetries, error: this._errorRetries },
+      optionalPurposes: this._optionalPurposes,
+    } = assign2(settings, DEFAULT_SETTINGS, true, false));
   }
 
-  private getVariable(
+  private _getVariable(
     scope: string,
     key: string,
     source?: string
@@ -260,7 +290,6 @@ export class VariableStorageCoordinator {
 
     type TraceData = [number, SchemaVariable, DataPurposeName | undefined];
 
-    const requireTargetPurpose = context.validation?.requireTargetPurpose;
     const results: VariableGetResult[] = [];
     let pendingGetters: AddSourceTrace<VariableGetter, TraceData>[] = [];
 
@@ -277,14 +306,9 @@ export class VariableStorageCoordinator {
         continue;
       }
 
-      const variable = this.getVariable(key.scope, key.key, key.source);
+      const variable = this._getVariable(key.scope, key.key, key.source);
       if (variable) {
         const targetPurpose = key.purpose;
-        if (requireTargetPurpose && !targetPurpose) {
-          throw new Error(
-            "A target purpose is required when reading data. This can be turned off in the configuration setting `consentValidation.requestTargetPurpose`."
-          );
-        }
 
         pendingGetters.push(
           addSourceTrace(key, [index++, variable, targetPurpose])
@@ -301,8 +325,8 @@ export class VariableStorageCoordinator {
     const pendingSetters: AddSourceTrace<VariableValueSetter, TraceData>[] = [];
 
     let retry = 0;
-    while (pendingGetters.length && retry++ < MAX_ERROR_RETRIES) {
-      if (retry > 1) await delay(100);
+    while (pendingGetters.length && retry++ < this._errorRetries.attempts) {
+      if (retry > 1) await errorDelay(this._errorRetries);
 
       for (let result of await this._storage.get(pendingGetters.splice(0))) {
         const [getter, [sourceIndex, variable, targetPurpose]] =
@@ -359,8 +383,8 @@ export class VariableStorageCoordinator {
     }
 
     retry = 0;
-    while (pendingSetters.length && retry++ < MAX_ERROR_RETRIES) {
-      if (retry > 1) await delay(100);
+    while (pendingSetters.length && retry++ < this._errorRetries.attempts) {
+      if (retry > 1) await errorDelay(this._errorRetries);
 
       for (const result of await this._storage.set(pendingSetters.splice(0))) {
         const [setter, [sourceIndex, variable, targetPurpose]] =
@@ -402,6 +426,11 @@ export class VariableStorageCoordinator {
     keys: VariableSetter[],
     context: VariableStorageContext = this._defaultContext
   ): Promise<VariableSetResult[]> {
+    const validationContext: SchemaCensorContext = {
+      trusted: !!context.trusted,
+      consent: context.scope?.consent,
+    };
+
     if (!keys.length) return [];
 
     const results: VariableSetResult[] = [];
@@ -428,7 +457,7 @@ export class VariableStorageCoordinator {
         continue;
       }
 
-      const variable = this.getVariable(key.scope, key.key, key.source);
+      const variable = this._getVariable(key.scope, key.key, key.source);
       if (variable) {
         pendingSetters.push(
           addSourceTrace(key, [index++, variable, 0, undefined])
@@ -443,10 +472,10 @@ export class VariableStorageCoordinator {
     }
 
     let retry = 0;
-    while (pendingSetters.length && retry++ <= MAX_PATCH_RETRIES) {
+    while (pendingSetters.length && retry++ <= this._patchRetries.attempts) {
       if (retry > 1) {
         // Add random delay in the hope that we resolve conflict races.
-        await delay(100 + 50 * Math.random());
+        await errorDelay(this._patchRetries);
       }
 
       const valueSetters: AddTrace<
@@ -466,7 +495,7 @@ export class VariableStorageCoordinator {
           // Retry
           if (
             isTransientError(result) &&
-            result[traceSymbol][1][2]++ < MAX_ERROR_RETRIES
+            result[traceSymbol][1][2]++ < this._errorRetries.attempts
           ) {
             pendingSetters.push(setter);
           }
@@ -475,42 +504,22 @@ export class VariableStorageCoordinator {
         const current = (result[traceSymbol][1][3] =
           "version" in result ? result : undefined);
 
-        let next: any;
         try {
           const errors: SchemaValidationError[] = [];
-          if (!("patch" in setter)) {
-            if (setter.version !== current?.version) {
-              // We already now this will be a conflict, so lets set the result already.
-              results[sourceIndex] = {
-                status: VariableResultStatus.Conflict,
-                ...copyKey(setter),
-                current: current?.value
-                  ? variable.censor(current?.value, {
-                      trusted: !!context.trusted,
-                      consent: context.scope?.consent,
-                    }) ?? {}
-                  : null,
-              };
-              continue;
-            }
-            next = variable.validate(
-              setter.value,
+
+          let value = variable.censor(
+            variable.validate(
+              "patch" in setter
+                ? setter.patch(
+                    variable.censor(current?.value, validationContext)
+                  )
+                : setter.value,
               current?.value,
-              {
-                trusted: !!context.trusted,
-              },
+              validationContext,
               errors
-            );
-          } else {
-            next = variable.validate(
-              setter.patch(
-                variable.censor(current?.value, { trusted: !!context.trusted })
-              ),
-              current?.value,
-              { trusted: !!context.trusted },
-              errors
-            );
-          }
+            ),
+            validationContext
+          );
 
           if (errors.length) {
             results[sourceIndex] = {
@@ -523,14 +532,31 @@ export class VariableStorageCoordinator {
             continue;
           }
 
-          // Convert to value setter.
+          if (!("patch" in setter) && setter.version !== current?.version) {
+            // Access tests are done before concurrency tests.
+            // It would be weird to be told there was a conflict, then resolve it, and then be told you
+            // were not allowed in the first place.
+
+            results[sourceIndex] = {
+              status: VariableResultStatus.Conflict,
+              ...copyKey(setter),
+              current: current?.value
+                ? variable.censor(current?.value, validationContext) ?? {}
+                : null,
+            };
+            // We do not need to continue until the underlying storage tells us about the conflict since we already know at this point.
+            // Yet, it must still also do its own check since it may be used from many places.
+            continue;
+          }
+
+          // Add a clone of the source setter with the new validated and censored value.
           valueSetters.push(
             addTrace(
               {
                 ...setter,
                 patch: undefined,
                 version: current?.version,
-                value: next,
+                value,
               },
               // Reuse original setter data, so we know what to do if retried.
               setter[traceSymbol]
@@ -554,7 +580,7 @@ export class VariableStorageCoordinator {
         if (
           result.status === VariableResultStatus.Conflict &&
           "patch" in setter &&
-          retry < MAX_PATCH_RETRIES
+          retry < this._patchRetries.attempts
         ) {
           // Reapply the patch.
           pendingSetters.push(setter);
@@ -599,7 +625,7 @@ export class VariableStorageCoordinator {
 
           if (
             query.purposes &&
-            !testPurposes(usage.purposes, query.purposes, intersect)
+            !testPurposes(usage.purposes, query.purposes, { intersect })
           ) {
             return;
           }
@@ -616,14 +642,17 @@ export class VariableStorageCoordinator {
     }
 
     let retry = 0;
-    while (retry++ < MAX_ERROR_RETRIES) {
+    while (retry++ < this._errorRetries.attempts) {
       try {
         return await action(mapped);
       } catch (e) {
-        if (retry === MAX_ERROR_RETRIES || !isTransientErrorObject(e)) {
+        if (
+          retry === this._errorRetries.attempts ||
+          !isTransientErrorObject(e)
+        ) {
           throw e;
         }
-        await delay(100);
+        await errorDelay(this._errorRetries);
       }
     }
     // Never happens.
