@@ -4,7 +4,7 @@ import { ValidatableSchemaEntity } from "./validation";
 export interface SchemaVariable extends ValidatableSchemaEntity {
   key: string;
   scope: string;
-  access: DataAccess;
+  usage: SchemaDataUsage;
   description?: string;
   type: SchemaObjectType;
 }

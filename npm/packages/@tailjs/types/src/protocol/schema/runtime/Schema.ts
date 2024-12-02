@@ -1,4 +1,9 @@
-import { SchemaDefinition, SchemaEntity, SchemaObjectType } from "../../..";
+import {
+  SchemaDefinition,
+  SchemaEntity,
+  SchemaObjectType,
+  SchemaVariable,
+} from "../../..";
 
 export interface Schema extends SchemaEntity {
   source: SchemaDefinition;
@@ -7,5 +12,8 @@ export interface Schema extends SchemaEntity {
 
   types: Map<string, SchemaObjectType>;
   events: Map<string, SchemaObjectType>;
-  variables: Map<string, Map<string, SchemaObjectType>>;
+  variables: Map<
+    string,
+    Map<string, SchemaVariable & { type: SchemaObjectType }>
+  >;
 }

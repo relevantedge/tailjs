@@ -1,16 +1,18 @@
 import { MaybePromiseLike } from "@tailjs/util";
 import {
+  ScopedKey,
   VariableConflictResult,
   VariableErrorResult,
   VariableKey,
   VariableResult,
   VariableResultStatus,
+  VariableScope,
   VariableSuccessResult,
   VariableValueErrorResult,
 } from "../..";
 
 export interface VariableValueSetter<T = any> extends VariableKey {
-  /** The value to set. Undefined means delete.*/
+  /** The value to set. Null means delete.*/
   value: T | null;
 
   /** Expire the variable if not changed or accessed within this number of ms. */
@@ -47,7 +49,7 @@ export interface VariablePatch<Current = any, Patched extends Current = Current>
   ttl?: number;
   /**
    * Apply a patch to the current value.
-   * `null` means "delete", `undefined` means "do nothing" - so be aware of your "nulls".
+   * `null` means "delete" whereas `undefined` means "do nothing" - so be aware of your "nulls".
    * */
   patch: VariablePatchFunction<Current, Patched>;
 }
@@ -57,6 +59,12 @@ export type VariableSetterCallback<T> = (result: VariableSetResult<T>) => any;
 export type VariableSetter<T = any, Patched extends T = T> =
   | VariableValueSetter<T>
   | VariablePatch<T, Patched>;
+
+export type ScopedVariableSetter<T = any, Patched extends T = T> = ScopedKey<
+  VariableSetter<T, Patched>,
+  VariableScope,
+  any
+>;
 
 export interface VariableDeleteResult extends VariableResult {
   status: VariableResultStatus.Success | VariableResultStatus.NotModified;

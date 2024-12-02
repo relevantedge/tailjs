@@ -2,7 +2,6 @@ import {
   copyKey,
   dataClassification,
   DataPurposeName,
-  DataPurposes,
   DataUsage,
   filterKeys,
   filterRangeValue,
@@ -10,26 +9,35 @@ import {
   formatValidationErrors,
   isSuccessResult,
   isTransientError,
-  mapOptionalPurpose,
   OptionalPurposes,
-  SchemaCensorContext,
+  SchemaValidationContext,
   SchemaValidationError,
   SchemaVariable,
   testPurposes,
   TypeResolver,
   ValidatableSchemaEntity,
   Variable,
-  VariableErrorResult,
   VariableGetResult,
   VariableGetter,
   VariableQuery,
+  VariableQueryOptions,
+  VariableQueryResult,
   VariableResultStatus,
   VariableScope,
   VariableSetResult,
   VariableSetter,
   VariableValueSetter,
 } from "@tailjs/types";
-import { AllRequired, assign2, delay, forEach2, Nullish } from "@tailjs/util";
+import {
+  AllRequired,
+  assign2,
+  delay,
+  forEach2,
+  formatError,
+  map2,
+  skip2,
+  throwError,
+} from "@tailjs/util";
 import {
   AddSourceTrace,
   addSourceTrace,
@@ -67,11 +75,11 @@ export interface RetrySettings {
 
 export type VariableStorageMappings = {
   [P in VariableScope]?: {
-    provider: VariableStorage;
+    storage: VariableStorage;
     schemas?: string[];
     prefixes?: {
       [P in string]: {
-        provider: ReadOnlyVariableStorage;
+        storage: ReadOnlyVariableStorage;
         schemas?: string[];
       };
     };
@@ -95,14 +103,14 @@ export interface VariableStorageCoordinatorSettings {
     error?: Partial<RetrySettings>;
   };
 
-  /** Optional purposes that must be treated separately.  */
-  optionalPurposes?: Partial<OptionalPurposes>;
+  /** Include stack traces in errors. */
+  includeStackTraces?: boolean;
 
-  storage: VariableStorageMappings;
+  scopes: VariableStorageMappings;
 }
 
 const DEFAULT_SETTINGS: AllRequired<
-  Omit<VariableStorageCoordinatorSettings, "storage">
+  Omit<VariableStorageCoordinatorSettings, "scopes">
 > = {
   retries: {
     patch: {
@@ -116,10 +124,8 @@ const DEFAULT_SETTINGS: AllRequired<
       jitter: 250,
     },
   },
-  optionalPurposes: {
-    security: false,
-    personalization: false,
-  },
+
+  includeStackTraces: true,
 };
 
 export const isTransientErrorObject = (error: any) =>
@@ -141,18 +147,22 @@ export type VariableStorageContext = {
   trusted?: boolean;
 };
 
+const mapValidationContext = (
+  context: VariableStorageContext,
+  targetPurpose: DataPurposeName | undefined
+): SchemaValidationContext =>
+  context.scope?.consent || targetPurpose
+    ? { ...context, targetPurpose, consent: context.scope?.consent }
+    : context;
+
 const censorResult = <Result extends VariableGetResult | VariableSetResult>(
   result: Result,
   type: ValidatableSchemaEntity,
-  context: VariableStorageContext,
-  targetPurpose?: DataPurposeName
+  context: SchemaValidationContext
 ): Result => {
   if ("value" in result && result.value != null) {
     if (
-      (result.value = type.censor(
-        (result as any).value,
-        targetPurpose ? { ...context, targetPurpose } : context
-      )) == undefined
+      (result.value = type.censor((result as any).value, context)) == undefined
     ) {
       return {
         status: VariableResultStatus.Forbidden,
@@ -164,22 +174,20 @@ const censorResult = <Result extends VariableGetResult | VariableSetResult>(
   return result;
 };
 
-const errorDelay = (settings: RetrySettings) =>
+const retryDelay = (settings: RetrySettings) =>
   delay(settings.delay + Math.random() * settings.jitter);
 
-const validateEntityId = (
-  target: { scope: string; entityId?: string },
+const validateEntityId = <T extends { scope: string; entityId?: string }>(
+  target: T,
   context: VariableStorageContext
-):
-  | (VariableErrorResult & { status: VariableResultStatus.BadRequest })
-  | undefined => {
+): T => {
   if (context.scope == null || target.scope === "global") {
     if (target.entityId == undefined) {
       throw new Error(
         `An entity ID for ${target.scope} scope is required in this context.`
       );
     }
-    return;
+    return target;
   }
   const expectedId = context.scope[target.scope];
   if (expectedId == undefined) {
@@ -193,22 +201,30 @@ const validateEntityId = (
     );
   }
   target.entityId = expectedId;
+  return target;
 };
 
-const getScopeSourceKey = (scope: string, source?: string) =>
+const getScopeSourceKey = (scope: string, source?: string | null) =>
   source ? scope + "|" + source : scope;
+
+export type VariableStorageCoordinatorQueryOptions = {
+  context?: VariableStorageContext;
+  options?: VariableQueryOptions;
+};
 
 export class VariableStorageCoordinator {
   private readonly _storage: VariableSplitStorage;
   private readonly _types: TypeResolver;
   private readonly _storageTypeResolvers = new Map<string, TypeResolver>();
   private readonly _defaultContext: VariableStorageContext;
-  private readonly _optionalPurposes: VariableStorageCoordinatorSettings["optionalPurposes"];
   private readonly _patchRetries: Required<RetrySettings>;
   private readonly _errorRetries: Required<RetrySettings>;
+  private readonly _settings: AllRequired<
+    Omit<VariableStorageCoordinatorSettings, "scopes">
+  >;
 
   constructor(
-    { storage, ...settings }: VariableStorageCoordinatorSettings,
+    { scopes: storage, ...settings }: VariableStorageCoordinatorSettings,
     types: TypeResolver,
     defaultContext: VariableStorageContext = { trusted: false }
   ) {
@@ -237,14 +253,19 @@ export class VariableStorageCoordinator {
 
     ({
       retries: { patch: this._patchRetries, error: this._errorRetries },
-      optionalPurposes: this._optionalPurposes,
-    } = assign2(settings, DEFAULT_SETTINGS, true, false));
+    } = this._settings = assign2(
+      settings,
+      defaultContext,
+      DEFAULT_SETTINGS,
+      true,
+      false
+    ));
   }
 
   private _getVariable(
     scope: string,
     key: string,
-    source?: string
+    source?: string | null
   ): SchemaVariable | undefined {
     const types =
       this._storageTypeResolvers.get(getScopeSourceKey(scope, source)) ??
@@ -254,7 +275,7 @@ export class VariableStorageCoordinator {
 
   public get<
     Getters extends VariableOperationParameter<
-      VariableGetter,
+      VariableGetter & { value?: never; patch?: never },
       VariableScope,
       any
     >
@@ -301,7 +322,7 @@ export class VariableStorageCoordinator {
         results[index++] = {
           status: VariableResultStatus.BadRequest,
           ...copyKey(key),
-          error: error.message,
+          error: formatError(error, this._settings.includeStackTraces),
         };
         continue;
       }
@@ -326,13 +347,14 @@ export class VariableStorageCoordinator {
 
     let retry = 0;
     while (pendingGetters.length && retry++ < this._errorRetries.attempts) {
-      if (retry > 1) await errorDelay(this._errorRetries);
+      if (retry > 1) await retryDelay(this._errorRetries);
 
       for (let result of await this._storage.get(pendingGetters.splice(0))) {
         const [getter, [sourceIndex, variable, targetPurpose]] =
           result[traceSymbol];
 
-        result = censorResult(result, variable, context, targetPurpose);
+        const validationContext = mapValidationContext(context, getter.purpose);
+        result = censorResult(result, variable, validationContext);
         if ("value" in (results[sourceIndex] = result)) {
           continue;
         } else if (isTransientError(result)) {
@@ -350,7 +372,7 @@ export class VariableStorageCoordinator {
             initValue = variable.validate(
               initValue,
               undefined,
-              { trusted: !!context.trusted },
+              validationContext,
               errors
             );
             if (errors.length) {
@@ -371,11 +393,11 @@ export class VariableStorageCoordinator {
                 [sourceIndex, variable, targetPurpose]
               )
             );
-          } catch (e) {
+          } catch (error) {
             results[sourceIndex] = {
               status: VariableResultStatus.Error,
               ...copyKey(getter),
-              error: e + "",
+              error: formatError(error, this._settings.includeStackTraces),
             };
           }
         }
@@ -384,12 +406,13 @@ export class VariableStorageCoordinator {
 
     retry = 0;
     while (pendingSetters.length && retry++ < this._errorRetries.attempts) {
-      if (retry > 1) await errorDelay(this._errorRetries);
+      if (retry > 1) await retryDelay(this._errorRetries);
 
       for (const result of await this._storage.set(pendingSetters.splice(0))) {
         const [setter, [sourceIndex, variable, targetPurpose]] =
           result[traceSymbol];
 
+        const validationContext = mapValidationContext(context, targetPurpose);
         if (result.status === VariableResultStatus.Conflict) {
           if (result.current?.value) {
             results[sourceIndex] = censorResult(
@@ -398,8 +421,7 @@ export class VariableStorageCoordinator {
                 ...result.current,
               },
               variable,
-              context,
-              targetPurpose
+              validationContext
             );
           } else {
             //
@@ -414,7 +436,11 @@ export class VariableStorageCoordinator {
           // Cast as any. The set result that doesn't overlap is a delete result,
           // but a delete result at this point would mean an invariant was violated
           // since we not add pending setters for null or undefined init results.
-          results[sourceIndex] = censorResult(result, variable, context) as any;
+          results[sourceIndex] = censorResult(
+            result,
+            variable,
+            validationContext
+          ) as any;
         }
       }
     }
@@ -426,10 +452,7 @@ export class VariableStorageCoordinator {
     keys: VariableSetter[],
     context: VariableStorageContext = this._defaultContext
   ): Promise<VariableSetResult[]> {
-    const validationContext: SchemaCensorContext = {
-      trusted: !!context.trusted,
-      consent: context.scope?.consent,
-    };
+    const validationContext = mapValidationContext(context, undefined);
 
     if (!keys.length) return [];
 
@@ -452,12 +475,13 @@ export class VariableStorageCoordinator {
         results[index++] = {
           status: VariableResultStatus.BadRequest,
           ...copyKey(key),
-          error: error.message,
+          error: formatError(error, this._settings.includeStackTraces),
         };
         continue;
       }
 
       const variable = this._getVariable(key.scope, key.key, key.source);
+
       if (variable) {
         pendingSetters.push(
           addSourceTrace(key, [index++, variable, 0, undefined])
@@ -475,7 +499,7 @@ export class VariableStorageCoordinator {
     while (pendingSetters.length && retry++ <= this._patchRetries.attempts) {
       if (retry > 1) {
         // Add random delay in the hope that we resolve conflict races.
-        await errorDelay(this._patchRetries);
+        await retryDelay(this._patchRetries);
       }
 
       const valueSetters: AddTrace<
@@ -511,7 +535,8 @@ export class VariableStorageCoordinator {
             variable.validate(
               "patch" in setter
                 ? setter.patch(
-                    variable.censor(current?.value, validationContext)
+                    // The patch function runs on uncensored data so external logic do not have to deal with missing properties.
+                    current?.value
                   )
                 : setter.value,
               current?.value,
@@ -566,7 +591,7 @@ export class VariableStorageCoordinator {
           results[sourceIndex] = {
             status: VariableResultStatus.Error,
             ...copyKey(setter),
-            error: e?.message || (e ? "" + e : "(unspecified error)"),
+            error: formatError(e, this._settings.includeStackTraces),
           };
         }
       }
@@ -577,6 +602,7 @@ export class VariableStorageCoordinator {
 
       for (let result of await this._storage.set(valueSetters)) {
         const [setter, [sourceIndex, variable]] = result[traceSymbol];
+        const validationContext = mapValidationContext(context, undefined);
         if (
           result.status === VariableResultStatus.Conflict &&
           "patch" in setter &&
@@ -587,7 +613,11 @@ export class VariableStorageCoordinator {
           continue;
         }
 
-        results[sourceIndex] = censorResult(result, variable, context);
+        results[sourceIndex] = censorResult(
+          result,
+          variable,
+          validationContext
+        );
       }
     }
 
@@ -599,18 +629,31 @@ export class VariableStorageCoordinator {
     action: (filter: VariableQuery[]) => Promise<R>,
     context: VariableStorageContext,
     intersect: boolean
-  ) {
+  ): Promise<R> {
     const mapped: VariableQuery[] = [];
     for (const query of this._storage.splitSourceQueries(filters)) {
-      validateEntityId(query, context);
+      if (context.scope && query.scope !== "global") {
+        if (query.entityIds?.length! > 1) {
+          throwError(
+            `Entity IDs are not allowed in query filters for the ${context.scope} scope from session context.`
+          );
+        }
+        query.entityIds = [
+          validateEntityId(
+            { scope: query.scope, entityId: query.entityIds?.[0]! },
+            context
+          ).entityId,
+        ];
+      }
 
-      const variableKeys: string[] = [];
+      let variableKeys: string[] = [];
       const resolver =
         this._storageTypeResolvers.get(
           getScopeSourceKey(query.scope, query.source)
         ) ?? this._types;
-      forEach2(resolver.variables, ([, variables]) =>
-        forEach2(variables, ([key, { type }]) => {
+
+      if (query.classification || query.purposes) {
+        forEach2(resolver.variables[query.scope], ([key, { type }]) => {
           const usage = type.usage;
 
           if (
@@ -631,14 +674,16 @@ export class VariableStorageCoordinator {
           }
 
           variableKeys.push(key);
-        })
-      );
+        });
 
-      query.keys = query.keys
-        ? filterKeys(query.keys, variableKeys, () => {
-            /* Don't cache this one*/
-          })
-        : variableKeys;
+        query.keys = query.keys
+          ? (variableKeys = filterKeys(query.keys, variableKeys, () => {
+              /* Don't cache this one*/
+            }))
+          : variableKeys;
+      }
+
+      mapped.push(query);
     }
 
     let retry = 0;
@@ -652,7 +697,7 @@ export class VariableStorageCoordinator {
         ) {
           throw e;
         }
-        await errorDelay(this._errorRetries);
+        await retryDelay(this._errorRetries);
       }
     }
     // Never happens.
@@ -671,13 +716,37 @@ export class VariableStorageCoordinator {
     );
   }
 
-  public query(
+  public async query(
     filters: VariableQuery[],
-    context: VariableStorageContext = this._defaultContext
-  ): Promise<Variable<any>[]> {
-    return this._queryOrPurge(
+    {
+      context = this._defaultContext,
+      options,
+    }: VariableStorageCoordinatorQueryOptions = {}
+  ): Promise<VariableQueryResult> {
+    return await this._queryOrPurge(
       filters,
-      (filters) => this._storage.query(filters),
+      async (filters) => {
+        const result = await this._storage.query(filters, options);
+        const consent = context.scope?.consent;
+        if (consent) {
+          const validationContext = mapValidationContext(context, undefined);
+          result.variables = map2(result.variables, (variable) => {
+            const variableType = this._storageTypeResolvers
+              .get(getScopeSourceKey(variable.scope, variable.source))
+              ?.getVariable(variable.scope, variable.key, false);
+            const censored = variableType?.censor(
+              variable.value,
+              validationContext
+            );
+            return censored
+              ? this._storageTypeResolvers.get(
+                  getScopeSourceKey(variable.scope, variable.source)
+                )
+              : skip2;
+          });
+        }
+        return result;
+      },
       context,
       false
     );

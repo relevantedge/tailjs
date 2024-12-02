@@ -7,7 +7,7 @@ export interface VariableKey {
    * An optional identifier of a specific variable storage such as "crm" or "personalization"
    * if not addressing tail.js's own storage.
    */
-  source?: string;
+  source?: string | null;
 
   /** The scope the variable belongs to. */
   scope: string;

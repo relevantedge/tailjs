@@ -1,8 +1,8 @@
 import { VariableResultStatus, VariableSuccessResult } from "@tailjs/types";
 import { InMemoryStorage } from "../src";
 
-describe("The new", () => {
-  it("News", async () => {
+describe("MemoryStorage", () => {
+  it("CRUDs", async () => {
     const storage = new InMemoryStorage();
     let variable = (
       await storage.get([{ scope: "test", key: "test", entityId: "test" }])
@@ -39,7 +39,9 @@ describe("The new", () => {
       )[0]
     ).toMatchObject({ status: VariableResultStatus.NotFound });
 
-    const results = await storage.query([{ scope: "test", entityId: "test" }]);
+    const { variables: results } = await storage.query([
+      { scope: "test", entityIds: ["test"] },
+    ]);
     expect(results.length).toBe(1);
     expect(results[0]).toMatchObject({ value: "test" });
 

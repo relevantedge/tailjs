@@ -23,6 +23,9 @@ export const addTypeValidators = (type: SchemaObjectType) => {
   }
 
   const censor: SchemaCensorFunction = (target, context) => {
+    if (target == null) {
+      return target;
+    }
     let censored = target;
 
     for (const key in target) {

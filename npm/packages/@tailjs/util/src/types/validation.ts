@@ -259,8 +259,44 @@ export const asDeferred = <T extends MaybeDeferred<any>>(
           : deferredOrResolved,
       }) as any);
 
-export interface DeferredPromise<T> extends PromiseLike<T> {
-  initialized: boolean;
+class DeferredPromise<T> extends Promise<T> {
+  private readonly _action: () => Promise<T>;
+  private _result: Promise<T>;
+
+  public get initialized() {
+    return this._result != null;
+  }
+
+  constructor(action: () => Promise<T>) {
+    super(() => {});
+    this._action = action;
+  }
+
+  then<TResult1 = T, TResult2 = never>(
+    onfulfilled?:
+      | ((value: T) => TResult1 | PromiseLike<TResult1>)
+      | null
+      | undefined,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | null
+      | undefined
+  ): Promise<TResult1 | TResult2> {
+    return (this._result ??= this._action()).then(onfulfilled, onrejected);
+  }
+
+  catch<TResult = never>(
+    onrejected?:
+      | ((reason: any) => TResult | PromiseLike<TResult>)
+      | null
+      | undefined
+  ): Promise<T | TResult> {
+    return (this._result ??= this._action()).catch(onrejected);
+  }
+
+  finally(onfinally?: (() => void) | null | undefined): Promise<T> {
+    return (this._result ??= this._action()).finally(onfinally);
+  }
 }
 
 export type MaybeDeferredPromise<T> =
@@ -274,29 +310,34 @@ export type MaybeDeferredPromise<T> =
 export const deferredPromise = <T>(
   expression: Wrapped<MaybePromiseLike<T>>
 ): DeferredPromise<T> => {
-  let promise: DeferredPromise<T> = {
-    initialized: true,
-    then: thenMethod(() => ((promise.initialized = true), unwrap(expression))),
-  };
-  return promise;
+  return new DeferredPromise(async () => unwrap(expression));
 };
 
-export const thenMethod = <T>(
-  expression: Wrapped<MaybePromiseLike<T>>
-): (<TResult1 = T, TResult2 = never>(
-  onfulfilled?:
-    | ((value: T) => TResult1 | PromiseLike<TResult1>)
-    | undefined
-    | null,
-  onrejected?:
-    | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-    | undefined
-    | null
-) => PromiseLike<TResult1 | TResult2>) => {
-  let result = deferred(expression);
-  return (onfullfilled?, onrejected?) =>
-    tryCatchAsync(result, [onfullfilled, onrejected] as any);
-};
+export const formatError = (error: any, includeStackTrace?: boolean) =>
+  !error
+    ? "(unspecified error)"
+    : includeStackTrace && error.stack
+    ? `${formatError(error, false)}\n${error.stack}`
+    : error.message
+    ? `${error.name}: ${error.message}`
+    : "" + error;
+
+// export const thenMethod = <T>(
+//   expression: Wrapped<MaybePromiseLike<T>>
+// ): (<TResult1 = T, TResult2 = never>(
+//   onfulfilled?:
+//     | ((value: T) => TResult1 | PromiseLike<TResult1>)
+//     | undefined
+//     | null,
+//   onrejected?:
+//     | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+//     | undefined
+//     | null
+// ) => PromiseLike<TResult1 | TResult2>) => {
+//   let result = deferred(expression);
+//   return (onfullfilled?, onrejected?) =>
+//     tryCatchAsync(result, [onfullfilled, onrejected] as any);
+// };
 
 export const tryCatchAsync = async <
   T,

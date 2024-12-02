@@ -33,7 +33,7 @@ const resolveLocalTypeMapping = (
     return (
       context.systemTypes.event ??
       throwTypeError(
-        "Schemas with a local mapping to the system event type must be included _after_ the system schema"
+        "Schemas with a local mapping to the system event type must be included after the system schema"
       )
     );
   }
@@ -60,8 +60,17 @@ export const parseType = (
     source = { reference: source };
   }
   if ("reference" in source) {
+    let { namespace, reference } = source;
+    if (!namespace) {
+      // Allow the reference to include the namespace.
+      const nameParts = reference.split("#");
+      if (nameParts.length > 1) {
+        [namespace, reference] = nameParts;
+      }
+    }
+
     // Type reference.
-    id = getTypeId(source.namespace ?? schema.namespace, source.reference);
+    id = getTypeId(namespace ?? schema.namespace, reference);
 
     const parsed = resolveLocalTypeMapping(id, context) ?? parsedTypes.get(id);
     if (!parsed) {
@@ -130,11 +139,7 @@ export const parseType = (
     name,
 
     usage: SCHEMA_DATA_USAGE_MAX,
-    usageOverrides:
-      overrideUsage(
-        schema.usageOverrides,
-        (source as SchemaTypeDefinition).usage
-      ) ?? {},
+    usageOverrides: overrideUsage(schema.usageOverrides, source) ?? {},
     embedded: embedded,
     abstract: !!(source as SchemaTypeDefinition).abstract,
     extends: null as any, // Indicate that base types has not been parsed yet (parseBaseTypes).

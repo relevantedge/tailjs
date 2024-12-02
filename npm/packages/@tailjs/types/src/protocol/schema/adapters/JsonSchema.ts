@@ -1,18 +1,15 @@
 import { forEach, Nullish, split, throwError } from "@tailjs/util";
 import {
   SchemaAdapter,
-  SchemaDataUsage,
   SchemaDefinition,
   SchemaDefinitionEntity,
   SchemaObjectTypeDefinition,
   VersionedSchemaEntity,
 } from "..";
 import {
-  DataAccess,
   DataClassification,
   dataClassification,
   DataPurposeName,
-  dataPurposes,
   DataVisibility,
   dataVisibility,
   parseDataPurposes,
@@ -92,26 +89,25 @@ const parseEntityAttributes = <T extends SchemaDefinitionEntity>(
       if ((matched = dataClassification.tryParse(keyword))) {
         throwParseError(
           context,
-          target.usage?.classification,
+          target.classification,
           (current) =>
             `Data classification can only be specified once. It is already '${current}'`
         );
-        (target.usage ??= {}).classification = matched;
+        target.classification = matched;
       } else if ((matched = dataVisibility.tryParse(keyword))) {
         throwParseError(
           context,
-          target.usage?.visibility,
+          target.visibility,
           (current) =>
             `Data visibility can only be specified once. It is already '${current}'`
         );
-        (target.usage ??= {}).visibility = matched;
+        target.visibility = matched;
       } else {
         purposeNames.push(keyword);
       }
     })
   );
-  purposeNames.length &&
-    ((target.usage ??= {}).purposes = parseDataPurposes(purposeNames));
+  purposeNames.length && (target.purposes = parseDataPurposes(purposeNames));
 
   return target;
 };

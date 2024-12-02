@@ -6,12 +6,19 @@ import {
   VariableGetResult,
   VariableKey,
   VariableQuery,
+  VariableQueryOptions,
+  VariableQueryResult,
   VariableResultStatus,
   VariableSetResult,
   VariableValueErrorResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { forEach2, forEachAsync, get2 } from "@tailjs/util";
+import {
+  forEach2,
+  forEachAsync,
+  formatError,
+  MAX_SAFE_INTEGER,
+} from "@tailjs/util";
 import {
   isWritableStorage,
   ReadOnlyVariableStorage,
@@ -65,25 +72,37 @@ const mergeTrace = <Target extends {}, Trace>(
 ): AddTrace<Target & SplitFields, Trace> =>
   Object.assign(target, { source, scope, [traceSymbol]: trace }) as any;
 
+export interface VariableSplitStorageSettings {
+  includeStackTraces?: boolean;
+}
+
 export class VariableSplitStorage implements VariableStorage, Disposable {
   private readonly _mappings: Record<
     string,
     Record<string, ReadOnlyVariableStorage>
   >;
+  private readonly _settings: VariableSplitStorageSettings | undefined;
 
-  constructor(mappings: VariableStorageMappings) {
+  constructor(
+    mappings: VariableStorageMappings,
+    settings?: VariableSplitStorageSettings
+  ) {
     this._mappings = {};
+    this._settings = settings;
     forEach2(mappings, ([scope, defaultConfig]) => {
       if (!defaultConfig) return;
-      (this._mappings[scope] ??= {})[""] = defaultConfig.provider;
+      (this._mappings[scope] ??= {})[""] = defaultConfig.storage;
       forEach2(defaultConfig.prefixes, ([prefix, config]) => {
         if (!config) return;
-        (this._mappings[scope] ??= {})[prefix] = config.provider;
+        (this._mappings[scope] ??= {})[prefix] = config.storage;
       });
     });
   }
 
-  private async _splitApply<T extends { scope: string; source?: string }, R>(
+  private async _splitApply<
+    T extends { scope: string; source?: string | null },
+    R
+  >(
     keys: T[],
     action: (
       source: SplitFields,
@@ -138,7 +157,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
               source,
               storage,
               keys,
-              e?.message || (e ? "" + e : "(unspecified error)")
+              formatError(e, this._settings?.includeStackTraces)
             );
           }
         })()
@@ -229,7 +248,13 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
             query.sources,
             Object.keys(this._mappings[scope] ?? []),
             (filter) => (query.sources = filter)
-          ).map((source) => ({ source, scope, ...query }))
+          ).map((source) => ({
+            source,
+            scope,
+            ...query,
+            sources: [source],
+            scopes: [scope],
+          }))
         );
       }
     }
@@ -243,17 +268,46 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
       }
     );
   }
-  async query(queries: VariableQuery[]): Promise<Variable[]> {
-    return (
+  async query(
+    queries: VariableQuery[],
+    { page = 100, cursor }: VariableQueryOptions = {}
+  ): Promise<VariableQueryResult> {
+    const sourceQueries = this.splitSourceQueries(queries);
+    // Cursor: Current query, current cursor
+    const match = cursor?.match(/^(\d+)(?::(.*))?$/);
+    let offset = match ? +match[1] : 0;
+    let queryCursor = match?.[2] || undefined;
+
+    const variables: Variable[] = [];
+    for (; offset < sourceQueries.length; offset++) {
       await this._splitApply(
-        this.splitSourceQueries(queries),
-        async (source, storage, queries) => [
-          (
-            await storage.query(queries)
-          ).map((result) => mergeTrace(result, source)),
-        ]
-      )
-    ).flat();
+        [sourceQueries[offset]],
+        async (source, storage, queries) => {
+          const { cursor: newCursor, variables: resultVariables } =
+            await storage.query(queries, { page, cursor: queryCursor });
+          queryCursor = newCursor;
+
+          page -= resultVariables.length;
+          variables.push(
+            ...resultVariables.map((variable) => mergeTrace(variable, source))
+          );
+        }
+      );
+      if (queryCursor) {
+        if (page <= 0) {
+          return { variables, cursor: `${offset}:${queryCursor}` };
+        }
+        --offset;
+      } else if (offset < sourceQueries.length - 1 && page <= 0) {
+        return {
+          variables,
+          cursor: `${offset + 1}`,
+        };
+      }
+    }
+    return {
+      variables,
+    };
   }
 
   public async initialize(environment: TrackerEnvironment): Promise<void> {

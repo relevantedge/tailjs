@@ -28,6 +28,12 @@ const forEachFunction = Symbol();
 
 type Nullish = null | undefined | void;
 
+type EncourageTuples =
+  | readonly [any]
+  | readonly [any][]
+  | readonly [any][][]
+  | readonly [any][][][];
+
 type ItCallback2<It, S, R, Context = It> = (
   item: ItItem<It>,
   index: number,
@@ -39,10 +45,7 @@ type ItCallback2<It, S, R, Context = It> = (
   | typeof stop2
   // Encourage TypeScript to interpret return values as tuples rather than arrays,
   // e.g. `[1,2,[3,4]]` becomes `[number,number,[number,number]]` instead of `(number|number[])[]`).
-  | readonly [any]
-  | readonly [any][]
-  | readonly [any][][]
-  | readonly [any][][][];
+  | EncourageTuples;
 
 type ItFilterCallback2<It> = (
   item: ItItem<It>,
@@ -879,7 +882,7 @@ export const get2: {
   <K, V, R = undefined>(
     target: Map<K, V> | WeakMap<K & WeakKey, V>,
     key: K,
-    add?: () => R & UnknownIsOkay<R, V>
+    add?: () => (R & UnknownIsOkay<R, V>) | EncourageTuples
   ): unknown extends V
     ? NeverIsAny<R>
     : R extends undefined

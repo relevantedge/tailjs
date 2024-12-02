@@ -10,8 +10,8 @@ import {
 } from "../../../..";
 import {
   createAccessValidator,
+  createCensorAction,
   overrideUsage,
-  pushInnerErrors,
 } from "../validation";
 
 export const parseProperty = (
@@ -24,7 +24,7 @@ export const parseProperty = (
   const usageOverrides = overrideUsage(
     // Properties inherit usage from base properties, not from the type that overrides them.
     baseProperty ? baseProperty.usageOverrides : declaringType.usageOverrides,
-    property.usage
+    property
   );
 
   const { defaultUsage } = context;
@@ -56,7 +56,6 @@ export const parseProperty = (
         });
 
   const { type, usage } = parsedProperty;
-  const { readonly, visibility } = usage!;
 
   if (baseProperty?.required) {
     if (property.required === false) {
@@ -133,17 +132,11 @@ export const parseProperty = (
     }
   }
 
-  parsedProperty.censor = (value, context) =>
-    !context.trusted && visibility === "trusted-only"
-      ? undefined
-      : context.consent && !validateConsent(usage!, context.consent)
-      ? undefined
-      : type.censor(value, context);
-
+  parsedProperty.censor = createCensorAction(usage, type);
   parsedProperty.validate = createAccessValidator(
     name,
     type,
-    { readonly, visibility },
+    usage,
     "property"
   );
 

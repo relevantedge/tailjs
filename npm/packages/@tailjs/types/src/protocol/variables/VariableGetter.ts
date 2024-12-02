@@ -1,9 +1,11 @@
 import { MaybePromiseLike } from "@tailjs/util";
 import {
   DataPurposeName,
+  ScopedKey,
   VariableErrorResult,
   VariableKey,
   VariableNotFoundResult,
+  VariableScope,
   VariableSuccessResult,
   VariableUnchangedResult,
   VariableValueErrorResult,
@@ -29,6 +31,12 @@ export type VariableGetterCallback<T> = (result: VariableGetResult<T>) => any;
 export type VariableGetter<T = any> =
   | ReadOnlyVariableGetter
   | VariableInitializer<T>;
+
+export type ScopedVariableGetter<T = any> = ScopedKey<
+  VariableGetter<T>,
+  VariableScope,
+  any
+>;
 
 export type VariableGetResult<T = any> =
   | VariableErrorResult

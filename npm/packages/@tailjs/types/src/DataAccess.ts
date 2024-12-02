@@ -12,8 +12,18 @@ export type DataVisibility =
  * Defines restrictions on where data is available and when it can be modified.
  */
 export type DataAccess = {
-  /** The data cannot be changed once set. */
+  /**
+   * The data cannot be changed once set.
+   *
+   * For schema definitions see {@link SchemaDataUsage} for inheritance rules.
+   */
   readonly: boolean;
+
+  /**
+   * If data can be accessed outside trusted context.
+   *
+   * For schema definitions see {@link SchemaDataUsage} for inheritance rules.
+   */
   visibility: DataVisibility;
 };
 

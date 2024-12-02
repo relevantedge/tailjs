@@ -4,13 +4,14 @@ import {
   MapVariableResult,
   ReadOnlyVariableGetter,
   ScopedKey,
-  Variable,
   VariableGetResult,
   VariableGetter,
   VariableGetterCallback,
   VariableKey,
   VariablePatchFunction,
   VariableQuery,
+  VariableQueryOptions,
+  VariableQueryResult,
   VariableResult,
   VariableResultStatus,
   VariableSetResult,
@@ -19,6 +20,7 @@ import {
   VariableValueSetter,
 } from "@tailjs/types";
 import {
+  deferredPromise,
   DenyExtraProperties,
   Falsish,
   FalsishToUndefined,
@@ -39,7 +41,7 @@ export type ScopedVariableSetters<
 
 export type VariableStorageQuery = Pretty<
   Omit<VariableQuery, "classification" | "purposes" | "scopes" | "sources"> & {
-    source?: string;
+    source?: string | null;
     scope: string;
   }
 >;
@@ -49,7 +51,10 @@ export interface ReadOnlyVariableStorage {
   get(keys: ReadOnlyVariableGetter[]): Promise<VariableGetResult[]>;
 
   /** Gets the variables for the specified entities. */
-  query(queries: VariableStorageQuery[]): Promise<Variable[]>;
+  query(
+    queries: VariableStorageQuery[],
+    options?: VariableQueryOptions
+  ): Promise<VariableQueryResult>;
 
   initialize?(environment: TrackerEnvironment): Promise<void>;
 }
@@ -111,7 +116,7 @@ export type VariableOperationParameter<
 
 export type VariableResultPromise<Operations> =
   FalsishToUndefined<Operations> extends infer Operations
-    ? Promise<MapVariableResult<Operations>> & {
+    ? PromiseLike<MapVariableResult<Operations>> & {
         /** Return variables with error status codes instead of throwing errors. */
         raw(): Promise<MapVariableResult<Operations, "raw">>;
       } & (Operations extends readonly any[]
@@ -153,6 +158,7 @@ export class VariableStorageError<
       ) as any) ?? [];
   }
 }
+
 export const toVariableResultPromise = <
   Operations extends undefined | { [Symbol.iterator]?: never } | readonly any[]
 >(
@@ -184,12 +190,21 @@ export const toVariableResultPromise = <
         callbacks.push(op.callback(result));
       }
       if (!type || isSuccessResult(result, false)) {
-        results.push(type > 1 ? result["value"] : result);
+        results.push(
+          type && result.status === VariableResultStatus.NotFound
+            ? null
+            : type > 1
+            ? result["value"]
+            : result
+        );
       } else {
         errors.push(formatVariableResult(result));
       }
     }
     if (errors.length) {
+      if (errors.length > 10) {
+        errors.push(`\n(and ${errors.splice(10).length} more...)`);
+      }
       throw new VariableStorageError(ops, errors.join("\n"));
     }
 
@@ -201,9 +216,7 @@ export const toVariableResultPromise = <
   };
 
   const resultPromise = Object.assign(
-    {
-      then: (...args: any) => mapResults(1).then(...args),
-    },
+    deferredPromise(() => mapResults(1)),
     {
       raw: () => mapResults(0),
       value: () => mapResults(2),
