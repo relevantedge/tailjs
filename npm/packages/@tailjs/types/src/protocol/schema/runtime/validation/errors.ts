@@ -22,9 +22,10 @@ export const pushInnerErrors = (
 ) => {
   const innerErrors: SchemaValidationError[] = [];
   if (
-    (value = validatable.validate(value, current, context, innerErrors)) ===
+    value != null &&
+    ((value = validatable.validate(value, current, context, innerErrors)) ===
       VALIDATION_ERROR ||
-    innerErrors.length
+      innerErrors.length)
   ) {
     errors.push(
       ...innerErrors.map((error) => ({

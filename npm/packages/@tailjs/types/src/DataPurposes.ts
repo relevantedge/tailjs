@@ -41,17 +41,51 @@ export interface OptionalPurposes {
   personalization: boolean;
 }
 
-export const mapOptionalPurpose: {
+const mapOptionalPurpose: {
   <T extends string | Nullish>(
-    optionalPurposes: OptionalPurposes | Nullish,
-    purpose: T
+    purpose: T,
+    optionalPurposes: OptionalPurposes | Nullish
   ): T extends Nullish ? T : DataPurposeName;
-} = (optionalPurposes, purpose): any =>
+} = (purpose, optionalPurposes): any =>
   purpose === "personalization" && optionalPurposes?.personalization !== true
     ? "functionality"
     : purpose === "security" && optionalPurposes?.security !== true
     ? "necessary"
     : purpose;
+
+const mapOptionalPurposes: {
+  (
+    purposes: DataPurposes,
+    optionalPurposes: OptionalPurposes | Nullish
+  ): DataPurposes;
+} = (purposes, optionalPurposes) => {
+  let mappedPurposes = purposes;
+  if (mappedPurposes["necessary"] === false) {
+    mappedPurposes = { ...purposes };
+    mappedPurposes["necessary"] = true;
+  }
+  if (
+    optionalPurposes?.personalization !== true &&
+    mappedPurposes["personalization"] != null
+  ) {
+    mappedPurposes === purposes && (mappedPurposes = { ...purposes });
+    if (mappedPurposes["functionality"] != null) {
+      mappedPurposes["personalization"] = mappedPurposes["functionality"];
+    } else {
+      mappedPurposes["functionality"] = mappedPurposes["personalization"];
+    }
+  }
+  if (
+    optionalPurposes?.security !== true &&
+    mappedPurposes["security"] != null
+  ) {
+    mappedPurposes === purposes && (mappedPurposes = { ...purposes });
+
+    mapOptionalPurposes["security"] = true;
+  }
+
+  return mappedPurposes;
+};
 
 export interface PurposeTestOptions {
   intersect?: boolean;
@@ -82,20 +116,24 @@ export const testPurposes = (
 ) => {
   if (
     targetPurpose &&
-    !test[mapOptionalPurpose(optionalPurposes, targetPurpose)]
+    (targetPurpose = mapOptionalPurpose(targetPurpose, optionalPurposes)) !==
+      "necessary" &&
+    !test[mapOptionalPurpose(targetPurpose, optionalPurposes)]
   ) {
     return false;
   }
+
+  target = mapOptionalPurposes(target, optionalPurposes);
+  test = mapOptionalPurposes(test, optionalPurposes);
+
   if (intersect) {
     for (let purpose in test) {
-      purpose = mapOptionalPurpose(optionalPurposes, purpose);
       if (test[purpose] && !target[purpose]) {
         // At least one purpose in the consent is not present in the target.
         return false;
       }
     }
     for (let purpose in target) {
-      purpose = mapOptionalPurpose(optionalPurposes, purpose);
       if (target[purpose] && !test[purpose]) {
         // The target has a purpose that is not included in the consent.
         return false;
@@ -106,7 +144,6 @@ export const testPurposes = (
   }
   let hasAny = false;
   for (let purpose in target) {
-    purpose = mapOptionalPurpose(optionalPurposes, purpose);
     if (target[purpose]) {
       if (test[purpose]) {
         // Just one of the purposes is good enough.

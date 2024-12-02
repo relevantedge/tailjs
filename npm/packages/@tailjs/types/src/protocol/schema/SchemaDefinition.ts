@@ -1,5 +1,5 @@
 import {
-  DataAccess,
+  SchemaDataUsage,
   SchemaDefinitionEntity,
   SchemaObjectTypeDefinition,
   SchemaTypeDefinition,
@@ -37,11 +37,11 @@ export interface SchemaDefinition
         | SchemaObjectTypeDefinition
         | ({
             description?: string;
-            access?: Partial<DataAccess>;
-          } & (
-            | { type: SchemaObjectTypeDefinition }
-            | SchemaTypeDefinitionReference
-          ));
+          } & Partial<SchemaDataUsage> &
+            (
+              | { type: SchemaObjectTypeDefinition }
+              | SchemaTypeDefinitionReference
+            ));
     };
   };
 

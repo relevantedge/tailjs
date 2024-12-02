@@ -6,6 +6,7 @@ import {
   DataPurposes,
   PurposeTestOptions,
   testPurposes,
+  SchemaDataUsage,
 } from ".";
 
 export const formatDataUsage = (usage?: DataUsage) =>
@@ -58,6 +59,8 @@ export interface DataUsage {
    * user consent. However, tail.js does not currently support redacting/purging the data from storage
    * so this you need to do manually.
    *
+   * For schema definitions see {@link SchemaDataUsage} for inheritance rules.
+   *
    * @default anonymous
    *
    */
@@ -71,6 +74,8 @@ export interface DataUsage {
    * it is not returned, since it is only stored for other purposes.
    *
    * Purposes do not restrict anonymous data.
+   *
+   * For schema definitions see {@link SchemaDataUsage} for inheritance rules.
    */
   purposes: DataPurposes;
 }

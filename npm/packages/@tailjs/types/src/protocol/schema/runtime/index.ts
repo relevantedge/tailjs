@@ -14,7 +14,6 @@ export {
   VALIDATION_ERROR,
   formatValidationErrors,
   throwValidationErrors,
-  type SchemaCensorContext,
   type SchemaCensorFunction,
   type SchemaValidationContext,
   type SchemaValidationError,

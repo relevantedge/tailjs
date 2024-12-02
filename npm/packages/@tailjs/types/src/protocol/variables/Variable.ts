@@ -155,7 +155,7 @@ export const formatKey = (
     entityId = "",
     source = "",
   }: {
-    source?: string;
+    source?: string | null;
     scope?: string;
     key: string;
     entityId?: string;

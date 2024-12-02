@@ -1,3 +1,4 @@
+import { forEach2, get2, obj2, tryAdd } from "@tailjs/util";
 import {
   CORE_SCHEMA_NS,
   SCHEMA_DATA_USAGE_ANONYMOUS,
@@ -6,7 +7,6 @@ import {
   type SchemaTypeDefinitionReference,
   type VariableScope,
 } from "../../..";
-import { forEach2, get2, map2, obj2, pick2, tryAdd } from "@tailjs/util";
 
 export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
   validate: (value, _current, _context, _errors) => value,
@@ -30,6 +30,7 @@ import {
 } from "./parsing";
 import {
   createAccessValidator,
+  createCensorAction,
   getPrimitiveTypeValidator,
   overrideUsage,
   throwValidationErrors,
@@ -89,7 +90,7 @@ export class TypeResolver {
           qualifiedName: namespace,
           typesOnly: !!typesOnly,
           version: definition.version,
-          usageOverrides: definition.usage,
+          usageOverrides: definition,
           types: new Map(),
           events: new Map(),
           variables: new Map(),
@@ -104,7 +105,7 @@ export class TypeResolver {
             parsedTypes: this._types,
             systemTypes: this._systemTypes,
             defaultUsage,
-            usageOverrides: definition.usage,
+            usageOverrides: definition,
             typesOnly: !!typesOnly,
             localTypes: parsed.types,
           },
@@ -128,60 +129,6 @@ export class TypeResolver {
     }
 
     for (const [schema, context] of schemaContexts) {
-      // Find variables.
-      forEach2(schema.source.variables, ([scope, keys]) => {
-        forEach2(keys, ([key, definition]) => {
-          if (!definition) {
-            return;
-          }
-          let variableType: SchemaObjectType;
-
-          if (typeof definition === "string") {
-            definition = { reference: definition };
-          }
-          if (!("reference" in definition) && !("type" in definition)) {
-            definition = { type: definition };
-          }
-
-          if ("reference" in definition) {
-            // Get the referenced type.
-            variableType = parseType(definition.reference, context, null);
-          } else {
-            // Not a reference, upgrade the anonymous object types to a type definition by giving it a name.
-            variableType = parseType(
-              [scope + "_" + key, definition.type],
-              context,
-              null
-            );
-          }
-
-          tryAdd(
-            get2(this._variables, scope, () => new Map()),
-            key,
-            {
-              key,
-              scope,
-              access: definition.access as any,
-              validate: null!,
-              censor: null!,
-              description: definition.description,
-              type: variableType,
-            },
-            (current) => {
-              throw new Error(
-                `The type "${variableType.id}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${current.type.id}".`
-              );
-            }
-          );
-
-          get2(schema.variables, scope, () => new Map()).set(key, variableType);
-          get2(
-            (variableType.variables ??= new Map()),
-            scope,
-            () => new Set()
-          ).add(key);
-        });
-      });
       forEach2(schema.types, ([, type]) => parseTypeProperties(type, context));
     }
 
@@ -206,24 +153,86 @@ export class TypeResolver {
       this._eventMapper = createSchemaTypeMapper([eventType]).match;
     }
 
+    for (const [schema, context] of schemaContexts) {
+      if (schema.typesOnly) {
+        // Schema only included for type references, do not consider exported variables.
+        continue;
+      }
+      // Find variables.
+      forEach2(schema.source.variables, ([scope, keys]) => {
+        forEach2(keys, ([key, definition]) => {
+          if (!definition) {
+            return;
+          }
+          let variableType: SchemaObjectType;
+
+          if (typeof definition === "string") {
+            definition = { reference: definition };
+          }
+          if (!("reference" in definition) && !("type" in definition)) {
+            definition = { type: definition };
+          }
+
+          if ("reference" in definition) {
+            // Get the referenced type.
+            variableType = parseType(definition, context, null);
+          } else {
+            // Not a reference, upgrade the anonymous object types to a type definition by giving it a name.
+            variableType = parseType(
+              [scope + "_" + key, definition.type],
+              context,
+              null
+            );
+          }
+
+          const variable: SchemaVariable = {
+            key,
+            scope,
+            usage: definition as any,
+            validate: null!,
+            censor: null!,
+            description: definition.description,
+            type: variableType,
+          };
+
+          tryAdd(
+            get2(this._variables, scope, () => new Map()),
+            key,
+            variable,
+            (current) => {
+              throw new Error(
+                `The type "${variableType.id}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${current.type.id}".`
+              );
+            }
+          );
+
+          get2(schema.variables, scope, () => new Map()).set(key, variable);
+          get2(
+            (variableType.variables ??= new Map()),
+            scope,
+            () => new Set()
+          ).add(key);
+        });
+      });
+    }
+
     this.types = obj2(this._types);
     this.variables = obj2(this._variables, ([scope, variables]) => [
       scope,
       obj2(variables, ([key, variable]) => {
-        const access = (variable.access = pick2(
-          overrideUsage(variable.type.usage, variable.access),
-          ["readonly", "visibility"]
+        const usage = (variable.usage = overrideUsage(
+          variable.type.usage,
+          variable.usage
         ));
+
         variable.validate = createAccessValidator(
           scope + "." + key,
           variable.type,
-          variable.access,
+          usage,
           "variable"
         );
-        variable.censor = (target, context) =>
-          !context.trusted && access.visibility === "trusted-only"
-            ? undefined
-            : variable.type.censor(target, context);
+
+        variable.censor = createCensorAction(usage, variable.type);
 
         return [key, variable];
       }),

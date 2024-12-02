@@ -1,10 +1,13 @@
+import { AllKeys } from "@tailjs/util";
 import {
   Variable,
   VariableGetResult,
+  VariableGetter,
   VariableInitializer,
   VariableKey,
   VariablePatch,
   VariableSetResult,
+  VariableSetter,
   VariableValueSetter,
 } from "../..";
 
@@ -115,52 +118,63 @@ export type MapVariableResult<
       Operation extends
         | Pick<VariableValueSetter<infer Result>, "value">
         | Pick<VariablePatch<infer Current, infer Result>, "patch">
-        ? ReplaceKey<
-            VariableSetResult<
-              (
-                unknown extends Current
+        ? [
+            "set",
+            ReplaceKey<
+              VariableSetResult<
+                (
+                  unknown extends Current
+                    ? unknown extends Result
+                      ? any
+                      : Result
+                    : Current
+                ) extends infer T
+                  ? { [P in keyof T]: T[P] }
+                  : never
+              >,
+              Operation
+            >
+          ]
+        : [
+            "get",
+            ReplaceKey<
+              VariableGetResult<
+                Operation extends Pick<
+                  VariableInitializer<infer Result>,
+                  "init"
+                >
                   ? unknown extends Result
                     ? any
-                    : Result
-                  : Current
-              ) extends infer T
-                ? { [P in keyof T]: T[P] }
-                : never
-            >,
-            Operation
-          >
-        : ReplaceKey<
-            VariableGetResult<
-              Operation extends Pick<VariableInitializer<infer Result>, "init">
-                ? unknown extends Result
-                  ? any
-                  : Result extends infer Result
-                  ? { [P in keyof Result]: Result[P] }
-                  : never
-                : any
-            > & {
-              status: Exclude<
-                VariableResultStatus,
-                | (Operation extends
-                    | { ifModifiedSince: number }
-                    | { ifNoneMatch: string }
-                    ? never
-                    : VariableUnchangedResult["status"])
-                | (Operation extends { init: any }
-                    ? never
-                    :
-                        | VariableResultStatus.Created
-                        | VariableValueErrorResult["status"])
-              >;
-            },
-            Operation
-          >
-    ) extends infer Result
+                    : Result extends infer Result
+                    ? { [P in keyof Result]: Result[P] }
+                    : never
+                  : any
+              > & {
+                status: Exclude<
+                  VariableResultStatus,
+                  | (Operation extends
+                      | { ifModifiedSince: number }
+                      | { ifNoneMatch: string }
+                      ? never
+                      : VariableUnchangedResult["status"])
+                  | (Operation extends { init: any }
+                      ? never
+                      :
+                          | VariableResultStatus.Created
+                          | VariableValueErrorResult["status"])
+                >;
+              },
+              Operation
+            >
+          ]
+    ) extends [infer OperationType, infer Result]
   ? (
       Type extends "raw"
         ? Result
         : Result extends { status: VariableResultStatus.NotFound }
         ? Type extends "value"
+          ? null
+          : OperationType extends "get"
           ? null
           : Result
         : Result extends { status: VariableResultStatus.NotModified }

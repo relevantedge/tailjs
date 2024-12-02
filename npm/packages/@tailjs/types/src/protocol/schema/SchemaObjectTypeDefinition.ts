@@ -1,6 +1,10 @@
-import { SchemaPropertyDefinition, SchemaTypeDefinitionReference } from "../..";
+import {
+  SchemaDataUsage,
+  SchemaPropertyDefinition,
+  SchemaTypeDefinitionReference,
+} from "../..";
 
-export interface SchemaObjectTypeDefinition {
+export interface SchemaObjectTypeDefinition extends Partial<SchemaDataUsage> {
   /**
    * The type inherits properties from these other types.
    *
