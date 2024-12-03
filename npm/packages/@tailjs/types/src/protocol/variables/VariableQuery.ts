@@ -1,4 +1,4 @@
-import { StrictUnion } from "@tailjs/util";
+import { map2, Nullish, set2, skip2, StrictUnion } from "@tailjs/util";
 import { DataClassification, DataPurposes, Variable } from "../..";
 
 export type KeyFilter<T = string> = StrictUnion<
@@ -9,32 +9,28 @@ export type RangeFilter<T> = StrictUnion<
   { eq: T } | (({ gt?: T } | { gte: T }) & ({ lt?: T } | { lte: T }))
 >;
 
-export const filterKeys = <T, Values extends Iterable<T>>(
-  filter: KeyFilter<T> | undefined,
-  values: Values,
-  assignCompiled: (filter: KeyFilter<T>) => void
-): Values => {
+const filterSetSymbol = Symbol();
+export const filterKeys = <T, Values, K = T>(
+  filter: KeyFilter<K> | undefined,
+  values: Iterable<T> & Values,
+  key?: (item: T) => K
+): Values | T[] => {
   if (filter == null) {
     return values;
   }
 
-  let set: Set<T>;
+  let cached = filter[filterSetSymbol] as { set: Set<K>; not: boolean };
 
-  if (filter.not) {
-    set =
-      filter.not instanceof Set
-        ? filter.not
-        : (filter.not = new Set(filter.not));
-  } else {
-    set =
-      filter instanceof Set
-        ? filter
-        : (assignCompiled((filter = new Set(filter))), filter as any);
+  if (!cached) {
+    cached = filter[filterSetSymbol] = filter.not
+      ? { set: set2(filter.not), not: true }
+      : { set: set2(filter), not: false };
   }
+  const { set, not } = cached;
 
-  return [...values].filter(
-    (value) => set.has(value) === (set === filter)
-  ) as any;
+  return map2(values, (value) =>
+    set.has(key ? key(value) : (value as any)) !== not ? value : skip2
+  ) as T[];
 };
 
 export const filterRangeValue = <T>(
@@ -73,6 +69,9 @@ export interface VariableQuery<Scopes extends string = string> {
    */
   sources?: KeyFilter<string | null>;
 
+  /** Only query keys in this scopes. Takes precedence over {@link scopes}. */
+  scope?: Scopes | Nullish;
+
   /** Only query keys in these scopes. If omitted, all scopes are queried. */
   scopes?: KeyFilter<Scopes>;
 
@@ -92,6 +91,15 @@ export interface VariableQuery<Scopes extends string = string> {
    * Only query keys for variables that have/do not have the combination of these purposes.
    */
   purposes?: DataPurposes;
+}
+
+export interface VariablePurgeOptions {
+  /**
+   * Without this flag, purge filters not addressing specific entity IDs will fail as a safety measure.
+   *
+   * Also, bulk deletes are not allowed from untrusted context.
+   */
+  bulk?: boolean;
 }
 
 export interface VariableQueryOptions {

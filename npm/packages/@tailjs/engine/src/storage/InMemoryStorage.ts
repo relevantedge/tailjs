@@ -11,7 +11,19 @@ import {
   VariableSetResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { get2, jsonClone, map2, MAX_SAFE_INTEGER } from "@tailjs/util";
+import {
+  assign2,
+  flatMap2,
+  forEach,
+  get2,
+  group2,
+  jsonClone,
+  map2,
+  MAX_SAFE_INTEGER,
+  set2,
+  skip2,
+  toggle2,
+} from "@tailjs/util";
 import { VariableStorage, VariableStorageQuery } from "..";
 
 const internalIdSymbol = Symbol();
@@ -217,83 +229,120 @@ export class InMemoryStorage implements VariableStorage, Disposable {
 
   private _purgeOrQuery(
     queries: VariableStorageQuery[],
+    purge: false,
+    options?: VariableQueryOptions
+  ): VariableQueryResult;
+  private _purgeOrQuery(queries: VariableStorageQuery[], purge: true): number;
+  private _purgeOrQuery(
+    queries: VariableStorageQuery[],
     purge = false,
     { page = 100, cursor }: VariableQueryOptions = {}
-  ): VariableQueryResult {
+  ) {
+    if (!purge && page <= 0) return { variables: [] };
+
     this._checkDisposed();
 
-    const variables: Variable[] | undefined = [];
+    const variables: Variable[] = [];
     const now = Date.now();
+    let purged = 0;
 
-    const cursorParts = map2(cursor?.split(","), (value) => +value) ?? [
-      0, 0, 0,
-    ];
+    let [cursorScopeIndex = 0, cursorEntityId = -1, cursorVariableIndex = 0] =
+      map2(cursor?.split("."), (value) => +value || 0) ?? [];
 
-    let queryIndex = 0;
-    for (const query of queries) {
-      if (++queryIndex <= cursorParts[0]) {
+    let scopeIndex = 0;
+    const scopes = group2(queries, (query) => [
+      this._entities[query.scope],
+      [query, query.entityIds && set2(query.entityIds)],
+    ]);
+    for (const [entities, scopeQueries] of scopes) {
+      if (scopeIndex++ < cursorScopeIndex) {
         continue;
       }
 
-      for (const entityId of query.entityIds ??
-        this._entities[query.scope]?.keys() ??
-        []) {
-        const [, internalEntityId = 0, entityVariables] =
-          this._entities[query.scope]?.get(entityId) ?? [];
-        if (
-          !entityVariables ||
-          (!purge && internalEntityId <= cursorParts[1])
-        ) {
+      let entityIds: Set<string> | undefined;
+      for (const [query] of scopeQueries) {
+        if (query.entityIds) {
+          if (entityIds) {
+            for (const entityId of entityIds) {
+              entityIds.add(entityId);
+            }
+          } else {
+            entityIds = new Set(query.entityIds);
+          }
+        } else {
+          entityIds = undefined;
+          break;
+        }
+      }
+
+      for (const entityId of entityIds ?? entities.keys()) {
+        const data = entities.get(entityId);
+        if (!data) {
+          continue;
+        }
+        const [, internalEntityId, entityVariables] = data;
+        if (!purge && internalEntityId < cursorEntityId) {
           continue;
         }
 
-        for (const key of filterKeys(
-          query.keys,
-          entityVariables.keys(),
-          (compiled) => (query.keys = compiled)
-        )) {
-          if (purge) {
-            entityVariables.delete(key);
-            continue;
-          }
-          const variable = entityVariables.get(key);
+        if (variables.length >= page) {
+          return { variables, cursor: `${scopeIndex - 1}.${internalEntityId}` };
+        }
 
-          if (
-            variable &&
-            !this._hasExpired(variable, now) &&
-            (!query.ifModifiedSince ||
-              variable.modified > query.ifModifiedSince)
-          ) {
-            if (!purge) {
-              if (variable[internalIdSymbol] <= cursorParts[1]) {
-                continue;
-              }
-              if (!page--) {
-                // We have more results, but have reached the page limit.
-                // Return the collected variables and the cursor state to get the next page.
-                return { cursor: cursorParts.join(","), variables };
+        const matchedVariables = new Set<Variable>();
+        for (const [query, queryEntityIds] of scopeQueries) {
+          if (queryEntityIds?.has(entityId) === false) continue;
+
+          for (const [variableKey, variable] of filterKeys(
+            query.keys,
+            entityVariables,
+            ([key]) => key
+          )) {
+            if (
+              variable &&
+              (purge || !this._hasExpired(variable, now)) &&
+              (!query.ifModifiedSince ||
+                variable.modified > query.ifModifiedSince)
+            ) {
+              if (purge) {
+                if (entityVariables.delete(variableKey)) {
+                  ++purged;
+                }
+              } else {
+                matchedVariables.add(variable);
               }
             }
-            cursorParts[1] = variable[internalIdSymbol];
-            variables!.push({ ...variable, value: jsonClone(variable.value) });
           }
         }
-        if (purge && !entityVariables.size) {
-          this._entities[query.scope]?.delete(entityId);
+
+        let variableIndex = 0;
+        for (const variable of matchedVariables) {
+          if (variableIndex++ < cursorVariableIndex) {
+            continue;
+          }
+          if (variables.length >= page) {
+            return {
+              variables,
+              cursor: `${scopeIndex - 1}.${internalEntityId}.${variableIndex}`,
+            };
+          }
+
+          variables.push({
+            ...variable,
+            value: jsonClone(variable.value),
+          });
         }
-        cursorParts[1] = internalEntityId!;
-        cursorParts[2] = 0;
+        cursorVariableIndex = 0;
       }
-      cursorParts[0] = queryIndex;
-      cursorParts[1] = 0;
+      cursorEntityId = -1;
     }
 
     // We have enumerated all variables, we are done - no cursor.
-    return { variables };
+    return purge ? purged : { variables };
   }
 
-  async purge(queries: VariableStorageQuery[]): Promise<void> {
-    this._purgeOrQuery(queries, true);
+  async purge(queries: VariableStorageQuery[]): Promise<number> {
+    return this._purgeOrQuery(queries, true);
   }
 
   async query(

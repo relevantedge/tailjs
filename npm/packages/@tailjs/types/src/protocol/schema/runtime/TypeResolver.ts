@@ -188,11 +188,13 @@ export class TypeResolver {
           const variable: SchemaVariable = {
             key,
             scope,
+            type: variableType,
+            description: definition.description,
+
+            // These gets initialized later.
             usage: definition as any,
             validate: null!,
             censor: null!,
-            description: definition.description,
-            type: variableType,
           };
 
           tryAdd(

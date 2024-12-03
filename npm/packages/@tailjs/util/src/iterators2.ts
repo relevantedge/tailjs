@@ -1,8 +1,7 @@
 import {
-  AllRequired,
   Falsish,
   isArray,
-  PartialRecord,
+  isIterable,
   RecordType,
   UnionToIntersection,
 } from ".";
@@ -85,15 +84,29 @@ type ItItem<T> = unknown extends T
   ? KeyValues<T>
   : never;
 
-type ItArray<It> = It extends Nullish
-  ? It
-  : [ItItem<It>] extends [never]
-  ? undefined
-  : ItItem<It>[];
+type ItArray<It> = FalsishItSourceIsNullish<
+  It,
+  [ItItem<It>] extends [never] ? undefined : ItItem<It>[]
+>;
 
 type ItProjection<R> = R extends typeof skip2 | typeof stop2 ? never : R;
 
-type ItSource = object | number | ((current: any) => any) | Falsish;
+type ItSource =
+  | object
+  | Iterable<any>
+  | number
+  | ((current: any) => any)
+  | Falsish;
+
+type FalsishItSourceIsNullish<It, Default = never> = It extends Exclude<
+  Falsish,
+  0
+>
+  ? It extends Nullish
+    ? It
+    : undefined
+  : Default;
+
 type ItSourceOf<T> = unknown extends T
   ? ItSource
   : [T] extends [never]
@@ -105,7 +118,7 @@ type ItSourceOf<T> = unknown extends T
       | (T extends number ? number : never)
       | ((current: T) => T | undefined)
       | Iterable<T>
-      | Nullish;
+      | Falsish;
 
 type Kv2<K = keyof any, V = any> = readonly [K, V];
 
@@ -393,29 +406,31 @@ const assignForEach = (target: any) =>
     createForEachFunction(target));
 
 export const map2: {
-  <It extends ItSourceOf<T>, T, Target = never[]>(
-    source: It,
-    projection?: undefined | null,
-    target?: Target & T[]
-  ): Target extends never[] ? ItArray<It> : Target;
   <
-    It extends ItSource | Falsish,
-    R extends T,
+    It extends ItSource,
+    R,
     S extends R,
-    T,
+    Signal extends typeof skip2 | typeof stop2 | never, // Otherwise R may be `symbol`
     Target = undefined,
     Context = It
   >(
     source: It,
-    projection: ItCallback2<It, S, R> | Nullish,
-    target?: Target & T[],
+    projection: ItCallback2<It, S, R | Signal>,
+    target?: Target & ItProjection<R>[],
     seed?: S,
     context?: Context
-  ): It extends Falsish
-    ? Target
-    : Target extends never[] | undefined
-    ? ItProjection<R>[]
-    : Target;
+  ): FalsishItSourceIsNullish<
+    It,
+    ItProjection<R>[] extends Target ? Target : ItProjection<R>[]
+  >;
+
+  <It extends ItSourceOf<T>, T, Target = never[]>(
+    source: It,
+    projection?: undefined | null,
+    target?: Target & T[],
+    seed?: any,
+    context?: any
+  ): Target extends never[] ? ItArray<It> : Target;
 } = (
   source: any,
   projection?: any,
@@ -571,31 +586,43 @@ type Dec<A extends number> = A extends 0
 
 type Flat<T, Depth extends number> = Depth extends 0
   ? T
-  : T extends readonly (infer T)[]
+  : T extends string
+  ? T
+  : T extends Iterable<infer T>
   ? Flat<T, Dec<Depth>>
   : T;
 
 export const flatMap2: {
-  <It extends ItSource, Depth extends number = -1>(
-    source: It,
-    projection?: Nullish,
-    depth?: Depth,
-    target?: any[]
-  ): It extends Nullish ? It : Flat<ItItem<It>, Depth>[];
   <
     It extends ItSource,
     R,
     S extends R,
+    Signal extends typeof skip2 | typeof stop2 | never, // Otherwise R may be `symbol`
+    Target = undefined,
     Context = It,
     Depth extends number = -1
   >(
     source: It,
-    projection: ItCallback2<It, S, R> | Nullish,
+    projection: ItCallback2<It, S, R | Signal>,
     depth?: Depth,
-    target?: any[],
+    target?: Target & Flat<ItProjection<R>, Depth>[],
     seed?: S,
     context?: Context
-  ): It extends Nullish ? It : Flat<ItProjection<R>, Depth>[];
+  ): FalsishItSourceIsNullish<
+    It,
+    Flat<ItProjection<R>, Depth>[] extends Target
+      ? Target
+      : Flat<ItProjection<R>, Depth>[]
+  >;
+
+  <It extends ItSource, Depth extends number = -1>(
+    source: It,
+    projection?: Nullish,
+    depth?: Depth,
+    target?: any[],
+    seed?: any,
+    context?: any
+  ): It extends Nullish ? It : Flat<ItItem<It>, Depth>[];
 } = (
   source: any,
   projection?: any,
@@ -607,8 +634,9 @@ export const flatMap2: {
   map2(
     source,
     (item, index, previous) =>
-      isArray(projection ? (item = projection(item, index, previous)) : item) &&
-      depth
+      isIterable(
+        projection ? (item = projection(item, index, previous)) : item
+      ) && depth
         ? (flatMap2(item, undefined, depth - 1, target, item), skip2)
         : item,
     target,
@@ -648,28 +676,31 @@ type Group2Result<Source, AsMap> = AsMap extends true
   : never;
 
 export const group2: {
-  <It extends Obj2Source, AsMap extends boolean = true>(
-    source: It,
-    map?: AsMap
-  ): It extends Nullish ? It : Group2Result<Obj2SourceToObj<It>, AsMap>;
   <It extends Obj2Source<any>>(source: It): It extends Nullish
     ? It
     : Group2Result<Obj2SourceToObj<It>, true>;
+
+  <It extends ItSource, R extends Kv2<any> | Falsish, S extends R>(
+    source: It,
+    projection: ItCallback2<It, S, R>,
+    map?: true
+  ): Group2Result<ItProjection<Exclude<R, Falsish>>[], true>;
+
   <
     It extends ItSource,
-    T,
-    R extends Kv2,
+    R extends Kv2 | Falsish,
     S extends R,
     AsMap extends boolean = true
   >(
     source: It,
     projection: ItCallback2<It, S, R>,
-    map?: AsMap
-  ): Group2Result<R, AsMap>;
-  <It extends ItSource, R extends Kv2<any>, S extends R>(
+    map: AsMap
+  ): Group2Result<ItProjection<Exclude<R, Falsish>>[], AsMap>;
+
+  <It extends Obj2Source, AsMap extends boolean = true>(
     source: It,
-    projection: ItCallback2<It, S, R>
-  ): Group2Result<R, true>;
+    map?: AsMap
+  ): It extends Nullish ? It : Group2Result<Obj2SourceToObj<It>, AsMap>;
 } = (source: any, projection?: any, map?: any) => {
   projection != null &&
     typeof projection !== "function" &&
@@ -681,13 +712,24 @@ export const group2: {
       ? ((groups = new Map()),
         (item, index, prev) =>
           (kv = projection ? projection(item, index, prev) : item) &&
+          kv[0] !== undefined &&
           get2(groups, kv[0], () => []).push(kv[1]))
       : ((groups = {}),
         (item, index, prev) =>
           (kv = projection ? projection(item, index, prev) : item) &&
+          kv[0] !== undefined &&
           (groups[kv[0]] ??= []).push(kv[1]))
   );
   return groups as any;
+};
+
+export const keys2 = Object.keys;
+
+export const keyCount2 = (obj: any) => {
+  if (!obj) return 0;
+  let count = 0;
+  for (const _ in obj) ++count;
+  return count;
 };
 
 export const obj2: {
@@ -763,9 +805,9 @@ export const assign2: {
     target: T,
     ...sources: Obj2Source<K>[]
   ): T;
-  <V, T extends Set<V> | WeakSet<V & {}>>(
+  <K, T extends Set<K> | WeakSet<K & {}>>(
     target: T,
-    ...sources: readonly (Nullish | Iterable<V>)[]
+    ...sources: readonly (Nullish | Iterable<[K, boolean]>)[]
   ): T;
   <T, Its extends Obj2Source[]>(target: T, ...sources: Its): MergeObj2Sources<
     Its,
@@ -932,7 +974,7 @@ export const toggle2: {
   <T>(target: Set<T> | WeakSet<T & {}>, item: T, toggle?: boolean): boolean;
 } = (target: Set<any> | WeakSet<any>, item: any, toggle = true) =>
   target.has(item) !== toggle &&
-  !!(toggle ? target.add(item) : target.delete(item));
+  (toggle ? !!target.add(item) : target.delete(item));
 
 type UnknownIsOkay<R, V> = R extends undefined
   ? R
@@ -978,7 +1020,7 @@ export const set2 = <T>(
     ? source
     : source == null
     ? source
-    : (new Set(source[symbolIterator] ? source : ([source] as any)) as any);
+    : (new Set(isIterable(source) ? source : ([source] as any)) as any);
 
 export const some2: {
   <It extends ItSource>(source: It, predicate?: ItFilterCallback2<It>): boolean;

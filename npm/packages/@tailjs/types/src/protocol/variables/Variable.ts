@@ -10,7 +10,7 @@ export type VariableScope =
   /**
    * Variables that are not bound to individuals, does not contain personal data, and not subject to censoring.
    * These may be used for purposes such as shared runtime configuration
-   * or to augment an external entity with real-time data for personalization or testing.
+   * or augmenting external entities with real-time data for personalization or testing.
    */
   | "global"
 

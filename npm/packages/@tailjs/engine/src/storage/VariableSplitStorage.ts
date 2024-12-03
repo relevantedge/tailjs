@@ -1,6 +1,7 @@
 import {
   copyKey,
   filterKeys,
+  isTransientError,
   ReadOnlyVariableGetter,
   Variable,
   VariableGetResult,
@@ -13,18 +14,15 @@ import {
   VariableValueErrorResult,
   VariableValueSetter,
 } from "@tailjs/types";
+import { forEach2, forEachAsync, formatError, keys2 } from "@tailjs/util";
 import {
-  forEach2,
-  forEachAsync,
-  formatError,
-  MAX_SAFE_INTEGER,
-} from "@tailjs/util";
-import {
+  isTransientErrorObject,
   isWritableStorage,
   ReadOnlyVariableStorage,
   TrackerEnvironment,
   VariableStorage,
   VariableStorageMappings,
+  VariableStorageQuery,
 } from "..";
 
 export type WithTrace<T, Trace = undefined> = T & {
@@ -38,14 +36,13 @@ export type AddSourceTrace<Source, Trace> = Trace extends undefined
   ? Source & { [traceSymbol]?: undefined }
   : Source & { [traceSymbol]: [AddSourceTrace<Source, Trace>, Trace] };
 
-const unknownSource = (
-  key: VariableKey
-): AddTrace<VariableValueErrorResult, any> => ({
-  status: VariableResultStatus.BadRequest,
-  ...copyKey(key as any as VariableKey),
-  [traceSymbol]: key[traceSymbol],
-  error: `The scope ${key.scope} has no source with the ID '${key.source}'.`,
-});
+const unknownSource = (key: { scope: string; source?: string | null }): any =>
+  ({
+    status: VariableResultStatus.BadRequest,
+    ...copyKey(key as any as VariableKey),
+    [traceSymbol]: key[traceSymbol],
+    error: `The scope ${key.scope} has no source with the ID '${key.source}'.`,
+  } satisfies AddTrace<VariableValueErrorResult, any>);
 
 type SplitFields = Pick<VariableKey, "source" | "scope">;
 
@@ -107,10 +104,18 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
     action: (
       source: SplitFields,
       target: ReadOnlyVariableStorage,
-      keys: T[],
-      error?: string | undefined
-    ) => Promise<R[] | undefined | void>,
-    notFound?: (key: T) => R | undefined | void
+      keys: T[]
+    ) => Promise<false | (R[] | undefined | void)>,
+    {
+      notFound,
+      parallel = true,
+    }: {
+      notFound?: (key: {
+        scope: string;
+        source?: string | null;
+      }) => R | undefined | void;
+      parallel?: boolean;
+    } = {}
   ): Promise<R[]> {
     const results: R[] = [];
     const splits = new Map<
@@ -138,33 +143,30 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
       sourceIndex++;
     }
 
-    const tasks: Promise<void>[] = [];
-    splits.forEach(([source, keys, sourceIndices], storage) => {
-      tasks.push(
-        (async () => {
-          let i = 0;
-          try {
-            for (const result of (await action(
-              source,
-              storage,
-              keys,
-              undefined
-            )) ?? []) {
-              results[sourceIndices[i++]] = result;
-            }
-          } catch (e) {
-            await action(
-              source,
-              storage,
-              keys,
-              formatError(e, this._settings?.includeStackTraces)
-            );
+    const tasks: Promise<any>[] = [];
+    for (const [storage, [source, keys, sourceIndices]] of splits) {
+      const task = (async () => {
+        let i = 0;
+        const actionResults = await action(source, storage, keys);
+        if (actionResults) {
+          for (const result of actionResults) {
+            results[sourceIndices[i++]] = result;
           }
-        })()
-      );
-    });
+        }
+        return actionResults;
+      })();
+      if (parallel) {
+        tasks.push(task);
+      } else {
+        if ((await task) === false) {
+          break;
+        }
+      }
+    }
 
-    await Promise.all(tasks);
+    if (tasks.length) {
+      await Promise.all(tasks);
+    }
 
     return results;
   }
@@ -176,23 +178,26 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
 
     return this._splitApply(
       keys,
-      async (_source, storage, keys, error) =>
-        error
-          ? keys.map((key) =>
-              mergeTrace(
-                {
-                  status: VariableResultStatus.Error,
-                  ...copyKey(key),
-                  error: error,
-                  transient: true,
-                },
-                key
-              )
+      async (_source, storage, keys) => {
+        try {
+          return (await storage.get(keys)).map((result, i) =>
+            mergeTrace(result, keys[i])
+          );
+        } catch (error) {
+          return keys.map((key) =>
+            mergeTrace(
+              {
+                status: VariableResultStatus.Error,
+                ...copyKey(key),
+                error: formatError(error, this._settings?.includeStackTraces),
+                transient: isTransientErrorObject(error),
+              },
+              key
             )
-          : (await storage.get(keys)).map((result, i) =>
-              mergeTrace(result, keys[i])
-            ),
-      unknownSource as any
+          );
+        }
+      },
+      { notFound: unknownSource }
     );
   }
 
@@ -203,110 +208,126 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
 
     return this._splitApply(
       values,
-      async (_source, storage, setters, error) =>
-        isWritableStorage(storage)
-          ? error
-            ? setters.map((setter) =>
-                mergeTrace(
-                  {
-                    status: VariableResultStatus.Error,
-                    ...copyKey(setter),
-                    error: error,
-                    transient: true,
-                  },
-                  setter
-                )
-              )
-            : (await storage.set(setters)).map((setter, i) =>
-                mergeTrace(setter, setters[i])
-              )
-          : setters.map((setter) =>
+      async (_source, storage, setters) => {
+        if (isWritableStorage(storage)) {
+          try {
+            return (await storage.set(setters)).map((setter, i) =>
+              mergeTrace(setter, setters[i])
+            );
+          } catch (error) {
+            return setters.map((setter) =>
               mergeTrace(
                 {
-                  status: VariableResultStatus.BadRequest,
+                  status: VariableResultStatus.Error,
                   ...copyKey(setter),
+                  error: formatError(error, this._settings?.includeStackTraces),
+                  transient: isTransientErrorObject(error),
                 },
                 setter
               )
-            ),
-      unknownSource as any
+            );
+          }
+        } else {
+          return setters.map((setter) =>
+            mergeTrace(
+              {
+                status: VariableResultStatus.BadRequest,
+                ...copyKey(setter),
+              },
+              setter
+            )
+          );
+        }
+      },
+      { notFound: unknownSource }
     );
   }
 
   public splitSourceQueries<T extends VariableQuery>(
     queries: T[]
   ): (VariableQuery & SplitFields)[] {
-    const split: (T & SplitFields)[] = [];
+    const splits: (VariableQuery & SplitFields)[] = [];
+
     for (const query of queries) {
       for (const scope of filterKeys(
-        query.scopes,
-        Object.keys(this._mappings),
-        (filter) => (query.scopes = filter)
+        query.scope ? [query.scope] : query.scopes,
+        keys2(this._mappings)
       )) {
-        split.push(
-          ...filterKeys(
-            query.sources,
-            Object.keys(this._mappings[scope] ?? []),
-            (filter) => (query.sources = filter)
-          ).map((source) => ({
+        for (const source of filterKeys(
+          query.sources,
+          keys2(this._mappings[scope] ?? [])
+        )) {
+          splits.push({
             source,
             scope,
             ...query,
             sources: [source],
             scopes: [scope],
-          }))
-        );
+          });
+        }
       }
     }
-    return split;
+    return splits;
   }
-  async purge(queries: VariableQuery[]): Promise<void> {
+
+  async purge(queries: VariableStorageQuery[]): Promise<number> {
+    let purged = 0;
     await this._splitApply(
       this.splitSourceQueries(queries),
       async (_source, storage, queries) => {
-        isWritableStorage(storage) && (await storage.purge(queries));
-      }
+        if (isWritableStorage(storage)) {
+          purged += await storage.purge(queries);
+        }
+      },
+      { parallel: false }
     );
+    return purged;
   }
+
   async query(
-    queries: VariableQuery[],
-    { page = 100, cursor }: VariableQueryOptions = {}
+    queries: VariableStorageQuery[],
+    { page = 100, cursor: splitCursor }: VariableQueryOptions = {}
   ): Promise<VariableQueryResult> {
     const sourceQueries = this.splitSourceQueries(queries);
     // Cursor: Current query, current cursor
-    const match = cursor?.match(/^(\d+)(?::(.*))?$/);
-    let offset = match ? +match[1] : 0;
-    let queryCursor = match?.[2] || undefined;
+    const match = splitCursor?.match(/^(\d+)(?::(.*))?$/);
+    let cursorOffset = match ? +match[1] : 0;
+    let cursor = match?.[2] || undefined;
 
     const variables: Variable[] = [];
-    for (; offset < sourceQueries.length; offset++) {
-      await this._splitApply(
-        [sourceQueries[offset]],
-        async (source, storage, queries) => {
-          const { cursor: newCursor, variables: resultVariables } =
-            await storage.query(queries, { page, cursor: queryCursor });
-          queryCursor = newCursor;
+    let nextCursor: string | undefined;
+    let offset = 0;
 
-          page -= resultVariables.length;
+    await this._splitApply(
+      sourceQueries,
+      async (source, storage, queries) => {
+        if (offset++ < cursorOffset) {
+          return;
+        }
+
+        do {
+          const result = await storage.query(queries, {
+            page,
+            cursor: cursor,
+          });
+          cursor = result.cursor;
+
           variables.push(
-            ...resultVariables.map((variable) => mergeTrace(variable, source))
+            ...result.variables.map((variable) => mergeTrace(variable, source))
           );
-        }
-      );
-      if (queryCursor) {
-        if (page <= 0) {
-          return { variables, cursor: `${offset}:${queryCursor}` };
-        }
-        --offset;
-      } else if (offset < sourceQueries.length - 1 && page <= 0) {
-        return {
-          variables,
-          cursor: `${offset + 1}`,
-        };
-      }
-    }
+          if ((page -= result.variables.length) <= 0) {
+            nextCursor = cursor ? `${offset - 1}:${cursor}` : `${offset}`;
+            // Stop
+            return false;
+          }
+        } while (cursor);
+      },
+      { parallel: false }
+    );
+
     return {
       variables,
+      cursor: nextCursor,
     };
   }
 
