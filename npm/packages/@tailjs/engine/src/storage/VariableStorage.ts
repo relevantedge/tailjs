@@ -63,8 +63,8 @@ export interface VariableStorage extends ReadOnlyVariableStorage {
   /** Sets the variables with the specified keys and values. */
   set(values: VariableValueSetter[]): Promise<VariableSetResult[]>;
 
-  /** Purges all the keys matching the specified queries.  */
-  purge(queries: VariableStorageQuery[]): Promise<void>;
+  /** Purges all the keys matching the specified queries. Returns the number of deleted variables.  */
+  purge(queries: VariableStorageQuery[]): Promise<number>;
 }
 
 export const isWritableStorage = (storage: any): storage is VariableStorage =>

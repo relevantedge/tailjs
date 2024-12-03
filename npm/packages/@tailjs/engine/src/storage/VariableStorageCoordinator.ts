@@ -19,6 +19,7 @@ import {
   Variable,
   VariableGetResult,
   VariableGetter,
+  VariablePurgeOptions,
   VariableQuery,
   VariableQueryOptions,
   VariableQueryResult,
@@ -34,8 +35,11 @@ import {
   delay,
   forEach2,
   formatError,
+  isArray,
+  keyCount2,
   map2,
   skip2,
+  some2,
   throwError,
 } from "@tailjs/util";
 import {
@@ -50,6 +54,7 @@ import {
   VariableOperationParameter,
   VariableSplitStorage,
   VariableStorage,
+  VariableStorageQuery,
   WithCallbackIntellisense,
 } from "..";
 
@@ -189,7 +194,7 @@ const validateEntityId = <T extends { scope: string; entityId?: string }>(
     }
     return target;
   }
-  const expectedId = context.scope[target.scope];
+  const expectedId = context.scope[target.scope + "Id"];
   if (expectedId == undefined) {
     throw new Error(
       `No ID is available for ${target.scope} scope in the current session.`
@@ -210,6 +215,11 @@ const getScopeSourceKey = (scope: string, source?: string | null) =>
 export type VariableStorageCoordinatorQueryOptions = {
   context?: VariableStorageContext;
   options?: VariableQueryOptions;
+};
+
+export type VariableStorageCoordinatorPurgeOptions = {
+  context?: VariableStorageContext;
+  options?: VariablePurgeOptions;
 };
 
 export class VariableStorageCoordinator {
@@ -626,24 +636,30 @@ export class VariableStorageCoordinator {
 
   private async _queryOrPurge<R>(
     filters: VariableQuery[],
-    action: (filter: VariableQuery[]) => Promise<R>,
+    action: (filter: VariableStorageQuery[]) => Promise<R>,
     context: VariableStorageContext,
-    intersect: boolean
+    purge: boolean
   ): Promise<R> {
-    const mapped: VariableQuery[] = [];
-    for (const query of this._storage.splitSourceQueries(filters)) {
-      if (context.scope && query.scope !== "global") {
-        if (query.entityIds?.length! > 1) {
+    const mapped: VariableStorageQuery[] = [];
+    for (let query of this._storage.splitSourceQueries(filters)) {
+      if (!context.trusted) {
+        if (query.scope !== "global") {
+          if (query.entityIds?.length! > 1) {
+            throwError(
+              `Entity IDs are not allowed in query filters for the ${context.scope} scope from session context.`
+            );
+          }
+          query.entityIds = [
+            validateEntityId(
+              { scope: query.scope, entityId: query.entityIds?.[0]! },
+              context
+            ).entityId,
+          ];
+        } else if (!query.entityIds) {
           throwError(
-            `Entity IDs are not allowed in query filters for the ${context.scope} scope from session context.`
+            "Specific Entity IDs are required for queries in the global scope from untrusted context."
           );
         }
-        query.entityIds = [
-          validateEntityId(
-            { scope: query.scope, entityId: query.entityIds?.[0]! },
-            context
-          ).entityId,
-        ];
       }
 
       let variableKeys: string[] = [];
@@ -653,8 +669,9 @@ export class VariableStorageCoordinator {
         ) ?? this._types;
 
       if (query.classification || query.purposes) {
-        forEach2(resolver.variables[query.scope], ([key, { type }]) => {
-          const usage = type.usage;
+        const scopeVariables = resolver.variables[query.scope];
+        forEach2(scopeVariables, ([key, variable]) => {
+          const usage = variable.usage;
 
           if (
             !filterRangeValue(
@@ -668,7 +685,9 @@ export class VariableStorageCoordinator {
 
           if (
             query.purposes &&
-            !testPurposes(usage.purposes, query.purposes, { intersect })
+            !testPurposes(usage.purposes, query.purposes, {
+              intersect: purge ? "all" : "some",
+            })
           ) {
             return;
           }
@@ -676,11 +695,20 @@ export class VariableStorageCoordinator {
           variableKeys.push(key);
         });
 
-        query.keys = query.keys
-          ? (variableKeys = filterKeys(query.keys, variableKeys, () => {
-              /* Don't cache this one*/
-            }))
-          : variableKeys;
+        if (!variableKeys.length) {
+          // No keys
+          continue;
+        }
+
+        if (query.keys) {
+          variableKeys = filterKeys(query.keys, variableKeys);
+        }
+        if (variableKeys.length < keyCount2(scopeVariables)) {
+          query = {
+            ...query,
+            keys: variableKeys,
+          };
+        }
       }
 
       mapped.push(query);
@@ -704,27 +732,46 @@ export class VariableStorageCoordinator {
     return undefined as any;
   }
 
-  public purge(
-    filters: VariableQuery[],
-    context: VariableStorageContext = this._defaultContext
-  ) {
-    return this._queryOrPurge(
+  public async purge(
+    filters: VariableQuery | VariableQuery[],
+    {
+      context = this._defaultContext,
+      options,
+    }: VariableStorageCoordinatorPurgeOptions = {}
+  ): Promise<number> {
+    if (!isArray(filters)) {
+      filters = [filters];
+    }
+
+    if (
+      (!options?.bulk || !context.trusted) &&
+      some2(filters, (filter) => !filter.entityIds)
+    ) {
+      return throwError(
+        context.trusted
+          ? "If no entity IDs are specified, the bulk option must be set to true."
+          : "Bulk delete are not allowed from untrusted context."
+      );
+    }
+    let purged = 0;
+    await this._queryOrPurge(
       filters,
-      (filters) => this._storage.purge(filters),
+      async (filters) => (purged += await this._storage.purge(filters)),
       context,
       true
     );
+    return purged;
   }
 
   public async query(
-    filters: VariableQuery[],
+    filters: VariableQuery | VariableQuery[],
     {
       context = this._defaultContext,
       options,
     }: VariableStorageCoordinatorQueryOptions = {}
   ): Promise<VariableQueryResult> {
     return await this._queryOrPurge(
-      filters,
+      !isArray(filters) ? [filters] : filters,
       async (filters) => {
         const result = await this._storage.query(filters, options);
         const consent = context.scope?.consent;
@@ -738,11 +785,7 @@ export class VariableStorageCoordinator {
               variable.value,
               validationContext
             );
-            return censored
-              ? this._storageTypeResolvers.get(
-                  getScopeSourceKey(variable.scope, variable.source)
-                )
-              : skip2;
+            return censored ?? skip2;
           });
         }
         return result;

@@ -60,35 +60,33 @@ const mapOptionalPurposes: {
   ): DataPurposes;
 } = (purposes, optionalPurposes) => {
   let mappedPurposes = purposes;
-  if (mappedPurposes["necessary"] === false) {
+  if (mappedPurposes.necessary === false) {
     mappedPurposes = { ...purposes };
-    mappedPurposes["necessary"] = true;
+    mappedPurposes.necessary = true;
   }
   if (
     optionalPurposes?.personalization !== true &&
-    mappedPurposes["personalization"] != null
+    mappedPurposes.personalization != null
   ) {
     mappedPurposes === purposes && (mappedPurposes = { ...purposes });
-    if (mappedPurposes["functionality"] != null) {
-      mappedPurposes["personalization"] = mappedPurposes["functionality"];
+    if (mappedPurposes.functionality != null) {
+      mappedPurposes.personalization = mappedPurposes.functionality;
     } else {
-      mappedPurposes["functionality"] = mappedPurposes["personalization"];
+      mappedPurposes.functionality = mappedPurposes.personalization;
     }
+    delete mappedPurposes.personalization;
   }
-  if (
-    optionalPurposes?.security !== true &&
-    mappedPurposes["security"] != null
-  ) {
+  if (optionalPurposes?.security !== true && mappedPurposes.security != null) {
     mappedPurposes === purposes && (mappedPurposes = { ...purposes });
 
-    mapOptionalPurposes["security"] = true;
+    delete mappedPurposes.security;
   }
 
   return mappedPurposes;
 };
 
 export interface PurposeTestOptions {
-  intersect?: boolean;
+  intersect?: "some" | "all" | false;
   targetPurpose?: DataPurposeName;
   optionalPurposes?: OptionalPurposes;
 }
@@ -133,15 +131,19 @@ export const testPurposes = (
         return false;
       }
     }
-    for (let purpose in target) {
-      if (target[purpose] && !test[purpose]) {
-        // The target has a purpose that is not included in the consent.
-        return false;
+
+    if (intersect === "all") {
+      for (let purpose in target) {
+        if (target[purpose] && !test[purpose]) {
+          // The target has a purpose that is not included in the consent.
+          return false;
+        }
       }
     }
 
     return true;
   }
+
   let hasAny = false;
   for (let purpose in target) {
     if (target[purpose]) {
