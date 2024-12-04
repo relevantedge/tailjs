@@ -133,7 +133,7 @@ type Obj2<KeyValues extends Kv2 | Nullish> = UnionToIntersection<
 type Obj2Source<K = keyof any, V = any> =
   | ({ [P in K & keyof any]: V } & { [Symbol.iterator]?: undefined })
   | Iterable<Kv2<K, V> | undefined>
-  | Nullish;
+  | Falsish;
 
 type SpecificKeys<K extends keyof any> = K extends keyof any
   ? string extends K
@@ -506,10 +506,10 @@ export const pick2: {
 export const filter2: {
   <It extends ItSource>(target: It): It extends Nullish
     ? It
-    : Exclude<ItItem<It>, typeof skip2 | typeof stop2 | Nullish>[];
+    : Exclude<ItItem<It>, typeof skip2 | typeof stop2 | Falsish>[];
   <
     It extends ItSource,
-    R extends Exclude<ItItem<It>, typeof skip2 | typeof stop2 | Nullish>
+    R extends Exclude<ItItem<It>, typeof skip2 | typeof stop2 | Falsish>
   >(
     target: It,
     filter: ItGuardedFilterCallback2<It, R>,
@@ -522,7 +522,7 @@ export const filter2: {
     target: It,
     filter: { has(item: Exclude<ItItem<It>, Nullish>): any },
     invert?: boolean
-  ): It extends Nullish ? It : ItItem<Exclude<It, Nullish>>[];
+  ): It extends Nullish ? It : ItItem<Exclude<It, Falsish>>[];
 } = (items: any, filter?: any, invert = false) =>
   map2(
     items,
@@ -754,46 +754,32 @@ export const obj2: {
 
 const assignSymbol = Symbol();
 const getSymbol = Symbol();
-const setupAssign = (
-  target: any,
-  symbol: typeof assignSymbol | typeof getSymbol
-) => {
+let hasAssign = false;
+const setupAssign = () => {
+  if (hasAssign) {
+    return;
+  }
+
   for (const { prototype } of [Map, WeakMap]) {
-    prototype[assignSymbol] = ((item, _1, _2, map) =>
-      item &&
-      (item[1] === undefined
-        ? map.delete(item[0])
-        : map.set(item[0], item[1]))) as ItCallback2<
-      any,
-      any,
-      any,
-      Map<any, any>
-    >;
+    prototype[assignSymbol] = (target: Map<any, any>, key: any, value: any) =>
+      value === undefined ? target.delete(key) : target.set(key, value);
     prototype[getSymbol] = prototype.get;
   }
+
   for (const { prototype } of [Set, WeakSet]) {
-    prototype[assignSymbol] = ((item, _1, _2, set) =>
-      item &&
-      (item[1] ? set.add(item[0]) : set.delete(item[0]))) as ItCallback2<
-      any,
-      any,
-      any,
-      Set<any>
-    >;
+    prototype[assignSymbol] = (target: Set<any>, key: any, value: any) =>
+      value ? target.add(key) : target.delete(key);
+
     prototype[getSymbol] = prototype.has;
   }
 
-  Object.prototype[assignSymbol] = ((item: any, _1, _2, target) =>
-    item &&
-    (item[1] === undefined
-      ? delete target[item[0]]
-      : (target[item[0]] = item[1]))) as ItCallback2<any, any, any, any>;
+  Object.prototype[assignSymbol] = (target: Set<any>, key: any, value: any) =>
+    (target[key] = value);
 
   Object.prototype[getSymbol] = function (key: any) {
     return this[key];
   };
-
-  return target[symbol];
+  hasAssign = true;
 };
 
 export const assign2: {
@@ -804,10 +790,6 @@ export const assign2: {
   <K, T extends Set<K> | WeakSet<K & {}>>(
     target: T,
     ...sources: Obj2Source<K>[]
-  ): T;
-  <K, T extends Set<K> | WeakSet<K & {}>>(
-    target: T,
-    ...sources: readonly (Nullish | Iterable<[K, boolean]>)[]
   ): T;
   <T, Its extends Obj2Source[]>(target: T, ...sources: Its): MergeObj2Sources<
     Its,
@@ -829,7 +811,8 @@ export const assign2: {
     ...sources: [...sources: Its, deep: Merge, overwrite: Overwrite]
   ): MergeObj2Sources<Its, T, Merge, Overwrite>;
 } = (target: any, ...sources: any[]) => {
-  const assign = target[assignSymbol] || setupAssign(target, assignSymbol);
+  !hasAssign && setupAssign();
+  const assign = target[assignSymbol];
   let merge: boolean;
   if (typeof (merge = sources[sources.length - 1]) === "boolean") {
     let overwrite: boolean,
@@ -845,30 +828,37 @@ export const assign2: {
       let current: any;
       for (const source of sources) {
         if (!n--) break;
-        forEach2(
-          source,
-          (kv: any, index, acc, context) => {
-            if (!kv) return;
-            if (
-              merge &&
-              kv[1]?.constructor === Object &&
-              (current = target[kv[0]])?.constructor === Object
-            ) {
-              assign2(current, kv[1], merge, overwrite);
-            } else if (overwrite || target[kv[0]] === undefined) {
-              assign(kv, index, acc, context);
-            }
-          },
-          undefined,
-          target
-        );
+        source &&
+          forEach2(
+            source,
+            (kv: any) => {
+              if (!kv) return;
+              if (
+                merge &&
+                kv[1]?.constructor === Object &&
+                (current = target[kv[0]])?.constructor === Object
+              ) {
+                assign2(current, kv[1], merge, overwrite);
+              } else if (overwrite || target[kv[0]] === undefined) {
+                target[kv[0]] = kv[1];
+              }
+            },
+            undefined,
+            target
+          );
       }
       return target;
     }
   }
 
   for (const source of sources) {
-    forEach2(source, assign, undefined, target);
+    source &&
+      forEach2(
+        source,
+        (kv) => kv && assign(target, kv[0], kv[1]),
+        undefined,
+        target
+      );
   }
 
   return target;
@@ -884,11 +874,10 @@ export const exchange2: {
     K
   >;
 } = (target: any, key: any, value: any) => {
-  const current = (
-    target[getSymbol] || (setupAssign(target, getSymbol), target[getSymbol])
-  )(key);
+  !hasAssign && setupAssign();
+  const current = target[getSymbol](key);
   if (current !== value) {
-    target[assignSymbol]!([key, value], 0, 0, target);
+    target[assignSymbol](target, key, value);
   }
   return current as any;
 };
@@ -939,35 +928,45 @@ export const get2: {
 };
 
 export const update2: {
-  <K, V, R extends V | undefined | NeverIsOkay<V>>(
-    target: Map<K, V> | WeakMap<K & WeakKey, V>,
+  <K, V, R extends V | undefined>(
+    target: Map<K, V> | WeakMap<K & {}, V>,
     key: K,
-    update: (current: V | undefined) => R
-  ): unknown extends V
-    ? NeverIsAny<R>
-    : R extends undefined
-    ? V | undefined
-    : V;
-  <K, V, R extends V | undefined | NeverIsOkay<V>>(
-    target: Map<K, V> | WeakMap<K & WeakKey, V>,
+    update: R | ((current: V | undefined) => R)
+  ): R;
+  <K>(
+    target: Set<K> | WeakSet<K & {}>,
     key: K,
-    update: R
-  ): unknown extends V
-    ? NeverIsAny<R>
-    : R extends undefined
-    ? V | undefined
-    : V;
-} = (target: Map<any, any> | WeakMap<any, any>, key: any, update: any) => {
-  let value =
-    typeof update === "function"
-      ? update(target.get ? target.get(key) : target[key])
-      : update;
-  if (value === undefined) {
-    target.delete(key);
-  } else {
-    target.set(key, value);
-  }
+    update: (current: boolean, ...args: any) => any
+  ): boolean;
+  <K>(target: Set<K> | WeakSet<K & {}>, key: K, update: any): boolean;
+  <T extends {}, K extends keyof T, V extends T[K], R extends V>(
+    target: T,
+    key: K,
+    update: R | ((current: V) => R)
+  ): R;
+} = (target: any, key: any, update: any) => {
+  let value: any;
+  !hasAssign && setupAssign();
+
+  target[assignSymbol](
+    target,
+    key,
+    (value =
+      typeof update === "function" ? update(target[getSymbol](key)) : update)
+  );
+
   return value;
+};
+
+export const add2 = <
+  S extends Set<T> | (T extends object ? WeakSet<T> : never) | Nullish,
+  T
+>(
+  target: S,
+  values: readonly T[]
+): S => {
+  for (const value of values) target?.add(value);
+  return target;
 };
 
 export const toggle2: {

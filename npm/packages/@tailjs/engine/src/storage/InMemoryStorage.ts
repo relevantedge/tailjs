@@ -1,5 +1,5 @@
 import {
-  copyKey,
+  extractKey,
   filterKeys,
   Variable,
   VariableGetResult,
@@ -97,7 +97,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     return variable?.ttl != null && variable.accessed + variable.ttl < now;
   }
 
-  private _getVariable(key: VariableKey, now: number, set?: Map<string, any>) {
+  private _getVariable(key: VariableKey, now: number) {
     const [, , variables] =
       this._getVariables(key.scope, key.entityId!, now) ?? [];
     if (!variables) return undefined;
@@ -119,7 +119,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     const now = Date.now();
 
     for (const getter of keys) {
-      const key = copyKey(getter);
+      const key = extractKey(getter);
       const variable = this._getVariable(getter, now);
       if (!variable) {
         results.push({
@@ -159,7 +159,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     const now = Date.now();
 
     for (const setter of values) {
-      const key = copyKey(setter);
+      const key = extractKey(setter);
       let variable = this._getVariable(setter, now);
       if (!setter.force && variable?.version !== setter.version) {
         results.push({
@@ -229,22 +229,25 @@ export class InMemoryStorage implements VariableStorage, Disposable {
 
   private _purgeOrQuery(
     queries: VariableStorageQuery[],
-    purge: false,
+    action: "query",
     options?: VariableQueryOptions
   ): VariableQueryResult;
-  private _purgeOrQuery(queries: VariableStorageQuery[], purge: true): number;
   private _purgeOrQuery(
     queries: VariableStorageQuery[],
-    purge = false,
+    action: "purge" | "refresh"
+  ): number;
+  private _purgeOrQuery(
+    queries: VariableStorageQuery[],
+    action: "purge" | "refresh" | "query",
     { page = 100, cursor }: VariableQueryOptions = {}
   ) {
-    if (!purge && page <= 0) return { variables: [] };
+    if (action === "query" && page <= 0) return { variables: [] };
 
     this._checkDisposed();
 
     const variables: Variable[] = [];
     const now = Date.now();
-    let purged = 0;
+    let affected = 0;
 
     let [cursorScopeIndex = 0, cursorEntityId = -1, cursorVariableIndex = 0] =
       map2(cursor?.split("."), (value) => +value || 0) ?? [];
@@ -281,7 +284,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
           continue;
         }
         const [, internalEntityId, entityVariables] = data;
-        if (!purge && internalEntityId < cursorEntityId) {
+        if (action === "query" && internalEntityId < cursorEntityId) {
           continue;
         }
 
@@ -300,14 +303,17 @@ export class InMemoryStorage implements VariableStorage, Disposable {
           )) {
             if (
               variable &&
-              (purge || !this._hasExpired(variable, now)) &&
+              (action === "purge" || !this._hasExpired(variable, now)) &&
               (!query.ifModifiedSince ||
                 variable.modified > query.ifModifiedSince)
             ) {
-              if (purge) {
+              if (action === "purge") {
                 if (entityVariables.delete(variableKey)) {
-                  ++purged;
+                  ++affected;
                 }
+              } else if (action === "refresh") {
+                this._getVariable(variable, now);
+                ++affected;
               } else {
                 matchedVariables.add(variable);
               }
@@ -338,18 +344,22 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     }
 
     // We have enumerated all variables, we are done - no cursor.
-    return purge ? purged : { variables };
+    return action === "query" ? { variables } : affected;
   }
 
   async purge(queries: VariableStorageQuery[]): Promise<number> {
-    return this._purgeOrQuery(queries, true);
+    return this._purgeOrQuery(queries, "purge");
+  }
+
+  async refresh(queries: VariableStorageQuery[]): Promise<number> {
+    return this._purgeOrQuery(queries, "refresh");
   }
 
   async query(
     queries: VariableStorageQuery[],
     options?: VariableQueryOptions
   ): Promise<VariableQueryResult> {
-    return this._purgeOrQuery(queries, false, options);
+    return this._purgeOrQuery(queries, "query", options);
   }
 
   private _checkDisposed() {

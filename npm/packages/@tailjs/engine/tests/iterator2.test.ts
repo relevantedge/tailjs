@@ -186,7 +186,7 @@ describe("iterators(2)", () => {
       d: 79,
     });
 
-    expect("e" in merged).toBe(false);
+    expect(merged["e"]).toBeUndefined();
 
     // No overwrite (merge / no merge)
     expect(
@@ -362,6 +362,12 @@ describe("iterators(2)", () => {
     expect(m.size).toBe(1);
     update2(m, "1", undefined);
     expect(m.size).toBe(0);
+
+    const o: { a: number; b?: string } = { a: 10 };
+    expect(update2(o, "a", (current) => current + 1)).toBe(11);
+    expect(o).toEqual({ a: 11 });
+    expect(update2(o, "b", (current) => (current ? "fail" : "ok"))).toBe("ok");
+    expect(o).toEqual({ a: 11, b: "ok" });
   });
 
   it("Flat maps", () => {

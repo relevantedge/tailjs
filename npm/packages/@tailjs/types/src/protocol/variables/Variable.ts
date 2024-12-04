@@ -118,8 +118,8 @@ export type ReplaceKey<Target, Source> = StripKey<Target> & PickKey<Source>;
  */
 export type ScopedKey<
   KeyType extends VariableKey = VariableKey,
-  Scopes extends string = VariableScope,
-  ExplicitScopes extends string = "global"
+  Scopes extends string = string,
+  ExplicitScopes extends string = any
 > = [unknown] extends [ExplicitScopes]
   ? KeyType extends KeyType
     ? RestrictVariableScopes<
@@ -142,11 +142,22 @@ export type ScopedKey<
         | RestrictVariableScopes<
             // vscode intellisense is too "smart", and will initially not suggest the explicit scopes before entityId is set
             // if just using {entityId?: string}
-            Omit<KeyType, "entityId"> & ({ entityId: undefined } | {}),
+            Omit<KeyType, "entityId"> & { entityId?: undefined },
             Exclude<Scopes, ExplicitScopes>
           >
   : never;
 
+export type MatchKey<Key, Source> = (
+  Key extends any
+    ? Omit<Key, "entityId" | "scope"> &
+        Pick<
+          Source & { scope: Key[keyof Key & "scope"] },
+          keyof Source & ("scope" | "entityId")
+        >
+    : never
+) extends infer T
+  ? { [P in keyof T]: T[P] }
+  : never;
 /** Returns a description of a key that can be used for logging and error messages.  */
 export const formatKey = (
   {
@@ -172,7 +183,7 @@ export const formatKey = (
     .filter((s) => s)
     .join(" ");
 
-export const copyKey = <
+export const extractKey = <
   T extends (Partial<VariableKey> & { key: string }) | Nullish
 >(
   value: T

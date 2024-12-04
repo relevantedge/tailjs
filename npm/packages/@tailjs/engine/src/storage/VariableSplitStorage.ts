@@ -1,5 +1,5 @@
 import {
-  copyKey,
+  extractKey,
   filterKeys,
   isTransientError,
   ReadOnlyVariableGetter,
@@ -39,7 +39,7 @@ export type AddSourceTrace<Source, Trace> = Trace extends undefined
 const unknownSource = (key: { scope: string; source?: string | null }): any =>
   ({
     status: VariableResultStatus.BadRequest,
-    ...copyKey(key as any as VariableKey),
+    ...extractKey(key as any as VariableKey),
     [traceSymbol]: key[traceSymbol],
     error: `The scope ${key.scope} has no source with the ID '${key.source}'.`,
   } satisfies AddTrace<VariableValueErrorResult, any>);
@@ -188,7 +188,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
             mergeTrace(
               {
                 status: VariableResultStatus.Error,
-                ...copyKey(key),
+                ...extractKey(key),
                 error: formatError(error, this._settings?.includeStackTraces),
                 transient: isTransientErrorObject(error),
               },
@@ -219,7 +219,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
               mergeTrace(
                 {
                   status: VariableResultStatus.Error,
-                  ...copyKey(setter),
+                  ...extractKey(setter),
                   error: formatError(error, this._settings?.includeStackTraces),
                   transient: isTransientErrorObject(error),
                 },
@@ -232,7 +232,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
             mergeTrace(
               {
                 status: VariableResultStatus.BadRequest,
-                ...copyKey(setter),
+                ...extractKey(setter),
               },
               setter
             )
@@ -244,7 +244,7 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
   }
 
   public splitSourceQueries<T extends VariableQuery>(
-    queries: T[]
+    queries: readonly T[]
   ): (VariableQuery & SplitFields)[] {
     const splits: (VariableQuery & SplitFields)[] = [];
 
@@ -282,6 +282,20 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
       { parallel: false }
     );
     return purged;
+  }
+
+  async refresh(queries: VariableStorageQuery[]): Promise<number> {
+    let refreshed = 0;
+    await this._splitApply(
+      this.splitSourceQueries(queries),
+      async (_source, storage, queries) => {
+        if (isWritableStorage(storage)) {
+          refreshed += await storage.refresh(queries);
+        }
+      },
+      { parallel: false }
+    );
+    return refreshed;
   }
 
   async query(

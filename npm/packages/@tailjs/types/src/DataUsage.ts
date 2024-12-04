@@ -1,18 +1,17 @@
-import { enumerate } from "@tailjs/util";
+import { enumerate, map2, Nullish, skip2 } from "@tailjs/util";
 import {
   dataClassification,
   DataClassification,
   dataPurposes,
   DataPurposes,
   PurposeTestOptions,
-  testPurposes,
   SchemaDataUsage,
 } from ".";
 
 export const formatDataUsage = (usage?: DataUsage) =>
   (usage?.classification ?? "anonymous") +
   " data for " +
-  enumerate(dataPurposes(usage?.purposes, true)) +
+  enumerate(dataPurposes(usage?.purposes, { names: true })) +
   " purposes.";
 
 export const validateConsent = (
@@ -35,7 +34,7 @@ export const validateConsent = (
     return false;
   }
 
-  return testPurposes(target.purposes, consent.purposes, options);
+  return dataPurposes.test(target.purposes, consent.purposes, options);
 };
 
 /**
@@ -79,3 +78,29 @@ export interface DataUsage {
    */
   purposes: DataPurposes;
 }
+
+export const usageToString = (usage: DataUsage): string | null => {
+  const purposes = dataPurposes(usage.purposes, { names: true });
+
+  return usage.classification === "anonymous" && !purposes.length
+    ? null
+    : `${usage.classification}:${purposes}`;
+};
+
+export const usageFromString = (
+  usageString: string | Nullish,
+  defaultUsage?: DataUsage
+): DataUsage => {
+  if (!usageString)
+    return defaultUsage
+      ? {
+          classification: defaultUsage.classification,
+          purposes: { ...defaultUsage.purposes },
+        }
+      : { classification: "anonymous", purposes: {} };
+  const [classification, purposes] = usageString.split(":");
+  return {
+    classification: dataClassification.tryParse(classification) ?? "anonymous",
+    purposes: dataPurposes(purposes, { validate: false }),
+  };
+};

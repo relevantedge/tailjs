@@ -156,6 +156,12 @@ describe("VariableStorageCoordinator", () => {
       name: "test 1",
     });
 
+    const narko = await coordinator.get({
+      scope: "user",
+      key: "test1",
+      entityId: "foo",
+    });
+
     expect(
       // Instead of `value()`, we get the full variable result and test the value property instead
       // to test the different flavors of value result promises.

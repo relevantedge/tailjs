@@ -11,8 +11,12 @@ export type Empty = readonly [];
 
 export type IsTuple<T> = T extends [] | [any, ...any] ? true : false;
 
+export type ItemOrSelf<T> = T extends readonly any[] ? T[number] : T;
+
 /** A simpler version of {@link MaybeArray} that does not use type inference to simplify function signatures. */
-export type ArrayOrSelf<T> = T | T[];
+export type ArrayOrSelf<T, Readonly extends boolean = true> =
+  | T
+  | (Readonly extends true ? readonly T[] : T[]);
 
 export type ToggleArray<T, Toggle = boolean> = T extends readonly (infer Item)[]
   ? Toggle extends true

@@ -75,4 +75,7 @@ export type VariableSetResult<T = any> =
   | VariableErrorResult
   | VariableConflictResult<T>
   | VariableValueErrorResult
-  | (T extends null ? VariableDeleteResult : VariableSuccessResult<T>);
+  | (
+      | (null extends T ? VariableDeleteResult : never)
+      | VariableSuccessResult<T>
+    );

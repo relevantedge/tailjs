@@ -73,7 +73,7 @@ export interface VariableQuery<Scopes extends string = string> {
   scope?: Scopes | Nullish;
 
   /** Only query keys in these scopes. If omitted, all scopes are queried. */
-  scopes?: KeyFilter<Scopes>;
+  scopes?: Scopes[];
 
   /** The keys to match. If omitted, all keys are targeted. */
   keys?: KeyFilter;
@@ -120,3 +120,17 @@ export interface VariableQueryResult {
   /** The cursor to use if there are more results. */
   cursor?: string;
 }
+
+export const consumeQueryResults = async (
+  query: (cursor: string | undefined) => Promise<VariableQueryResult>,
+  callback: (results: Variable[]) => any
+) => {
+  let cursor: string | undefined;
+  do {
+    const { variables, cursor: nextCursor } = await query(cursor);
+    if (variables.length) {
+      await callback(variables);
+    }
+    cursor = nextCursor;
+  } while (cursor);
+};

@@ -1,4 +1,5 @@
 import {
+  add2,
   all2,
   assign2,
   collect2,
@@ -101,7 +102,7 @@ export const createSchemaTypeMapper = (
     forEach2(discriminators, ([, value]) => {
       // If there are more than 1 one value, it means there is at least one enum value.
       value.size > 1 && value.delete(anyValue);
-      return forEach2(value, ([, types]) => assign2(mapped, types));
+      return forEach2(value, ([, types]) => add2(mapped, types));
     });
 
     const isOptional = (type: Type, name: string) =>

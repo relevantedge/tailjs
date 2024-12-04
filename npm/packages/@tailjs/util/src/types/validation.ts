@@ -309,9 +309,7 @@ export type MaybeDeferredPromise<T> =
  */
 export const deferredPromise = <T>(
   expression: Wrapped<MaybePromiseLike<T>>
-): DeferredPromise<T> => {
-  return new DeferredPromise(async () => unwrap(expression));
-};
+): DeferredPromise<T> => new DeferredPromise(async () => unwrap(expression));
 
 export const formatError = (error: any, includeStackTrace?: boolean) =>
   !error
