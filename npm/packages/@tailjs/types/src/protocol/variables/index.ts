@@ -4,3 +4,4 @@ export * from "./VariableKey";
 export * from "./VariableQuery";
 export * from "./VariableResult";
 export * from "./VariableSetter";
+export * from "./VariableResultPromise";

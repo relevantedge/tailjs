@@ -28,9 +28,10 @@ export interface VariableInitializer<T> extends ReadOnlyVariableGetter {
 
 export type VariableGetterCallback<T> = (result: VariableGetResult<T>) => any;
 
-export type VariableGetter<T = any> =
+export type VariableGetter<T = any> = (
   | ReadOnlyVariableGetter
-  | VariableInitializer<T>;
+  | VariableInitializer<T>
+) & { value?: never; patch?: never }; // These two properties to avoid VariableGetter extends VariableSetter.
 
 export type ScopedVariableGetter<T = any> = ScopedKey<
   VariableGetter<T>,

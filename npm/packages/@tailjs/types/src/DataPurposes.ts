@@ -2,11 +2,14 @@ import {
   fromEntries,
   isArray,
   isString,
+  keys2,
   Nullish,
+  obj2,
   throwError,
 } from "@tailjs/util";
+import { DataUsage } from "./DataUsage";
 
-export type DataPurposeName = keyof DataPurposes;
+export type DataPurposeName = keyof DataPurposes | "necessary";
 export const DATA_PURPOSES: DataPurposeName[] = [
   "necessary",
   "performance",
@@ -16,9 +19,10 @@ export const DATA_PURPOSES: DataPurposeName[] = [
   "security",
 ];
 
-const VALID_PURPOSE_NAMES = fromEntries(
-  DATA_PURPOSES.map((purpose) => [purpose, purpose])
-);
+const VALID_PURPOSE_NAMES = obj2(DATA_PURPOSES, (purpose) => [
+  purpose,
+  purpose,
+]);
 
 export const DATA_PURPOSES_ALL: DataPurposes = Object.freeze(
   fromEntries(DATA_PURPOSES.map((purpose) => [purpose, true]))
@@ -60,10 +64,6 @@ const mapOptionalPurposes: {
   ): DataPurposes;
 } = (purposes, optionalPurposes) => {
   let mappedPurposes = purposes;
-  if (mappedPurposes.necessary === false) {
-    mappedPurposes = { ...purposes };
-    mappedPurposes.necessary = true;
-  }
   if (
     optionalPurposes?.personalization !== true &&
     mappedPurposes.personalization != null
@@ -91,144 +91,125 @@ export interface PurposeTestOptions {
   optionalPurposes?: OptionalPurposes;
 }
 
-/**
- * Compares whether a consent is sufficient for a set of target purposes, or whether
- * a filter matches all the purposes in a target.
- *
- * @param target The target to validate the consent against.
- * @param test The set of allowed purposes in either a consent or filter.
- * @param intersect  Whether the target must have all the purposes in the consent, and no other purposes than those.
- *  This is used for purging data when a consent is updated.
- *  If data is only stored for purposes that are no longer included in the consent, it must be deleted. Conversely, it may be kept
- *  if just one of its purposes are still valid.
- *
- *  The default is "normal" consent validation which only requires the target to have one purpose with consent (or no required purposes).
- *
- *  @default false
- * @returns
- */
-export const testPurposes = (
-  target: DataPurposes,
-  test: DataPurposes,
-  { intersect, optionalPurposes, targetPurpose }: PurposeTestOptions
-) => {
-  if (
-    targetPurpose &&
-    (targetPurpose = mapOptionalPurpose(targetPurpose, optionalPurposes)) !==
-      "necessary" &&
-    !test[mapOptionalPurpose(targetPurpose, optionalPurposes)]
-  ) {
-    return false;
-  }
-
-  target = mapOptionalPurposes(target, optionalPurposes);
-  test = mapOptionalPurposes(test, optionalPurposes);
-
-  if (intersect) {
-    for (let purpose in test) {
-      if (test[purpose] && !target[purpose]) {
-        // At least one purpose in the consent is not present in the target.
-        return false;
-      }
-    }
-
-    if (intersect === "all") {
-      for (let purpose in target) {
-        if (target[purpose] && !test[purpose]) {
-          // The target has a purpose that is not included in the consent.
-          return false;
-        }
-      }
-    }
-
-    return true;
-  }
-
-  let hasAny = false;
-  for (let purpose in target) {
-    if (target[purpose]) {
-      if (test[purpose]) {
-        // Just one of the purposes is good enough.
-        return true;
-      }
-      hasAny = true;
-    }
-  }
-  // The target has at least one required purpose, and the consent does not include any.
-  return !hasAny;
-};
-
 export const dataPurposes: {
   <
-    T extends string | string[] | DataPurposes | Nullish,
+    T extends string | string[] | DataPurposes | DataUsage | Nullish,
     Names extends boolean = false
   >(
     value: T,
-    names?: Names
+    options?: { names?: Names; validate?: boolean }
   ): T extends Nullish
-    ? undefined
+    ? T
     : Names extends true
     ? DataPurposeName[]
     : DataPurposes;
 
+  /**
+   * Compares whether a consent is sufficient for a set of target purposes, or whether
+   * a filter matches all the purposes in a target.
+   *
+   * @param target The target to validate the consent against.
+   * @param test The set of allowed purposes in either a consent or filter.
+   * @param options Options for how to test.
+   *
+   *  The default is "normal" consent validation which only requires the target to have one purpose with consent (or no required purposes).
+   *
+   */
+  test(
+    target: DataPurposes,
+    test: DataPurposes,
+    options?: PurposeTestOptions
+  ): boolean;
+
   names: DataPurposeName[];
 } = Object.assign(
-  (value: any, names: boolean = false): any => {
-    if (value == null) return undefined!;
+  (value: any, { names = false, validate = true } = {}) => {
+    if (value == null) return value;
+    if (value.purposes) {
+      // From DataUsage
+      value = value.purposes;
+    }
+
     if (isString(value)) {
-      value = [value] as any;
+      value = value.split(",");
     }
     if (isArray(value)) {
       const purposes: DataPurposes = {};
       for (const name of value as any) {
-        if (!VALID_PURPOSE_NAMES[name]) continue;
-        purposes[name as any] = true;
+        if (!VALID_PURPOSE_NAMES[name]) {
+          validate && throwError(`The purpose name '${name}' is not defined.`);
+          continue;
+        } else if (name !== "necessary") {
+          purposes[name as any] = true;
+        }
       }
-      value = purposes as any;
+      value = purposes;
     }
 
-    return names ? Object.keys(value as any) : (value as any);
+    if (names) {
+      const result = keys2(value);
+      return result.length ? result : ["necessary"];
+    }
+    return value;
   },
-  { names: DATA_PURPOSES }
+  {
+    names: DATA_PURPOSES,
+    test(
+      target: DataPurposes,
+      test: DataPurposes,
+      { intersect, optionalPurposes, targetPurpose }: PurposeTestOptions
+    ) {
+      if (
+        targetPurpose &&
+        (targetPurpose = mapOptionalPurpose(
+          targetPurpose,
+          optionalPurposes
+        )) !== "necessary" &&
+        !test[mapOptionalPurpose(targetPurpose, optionalPurposes)]
+      ) {
+        return false;
+      }
+
+      target = mapOptionalPurposes(target, optionalPurposes);
+      test = mapOptionalPurposes(test, optionalPurposes);
+
+      if (intersect) {
+        for (let purpose in test) {
+          if (test[purpose] && !target[purpose]) {
+            // At least one purpose in the consent is not present in the target.
+            return false;
+          }
+        }
+
+        if (intersect === "all") {
+          for (let purpose in target) {
+            if (target[purpose] && !test[purpose]) {
+              // The target has a purpose that is not included in the consent.
+              return false;
+            }
+          }
+        }
+
+        return true;
+      }
+
+      let hasAny = false;
+      for (let purpose in target) {
+        if (target[purpose]) {
+          if (test[purpose]) {
+            // Just one of the purposes is good enough.
+            return true;
+          }
+          hasAny = true;
+        }
+      }
+      // The target has at least one required purpose, and the consent does not include any.
+      return !hasAny;
+    },
+  }
 );
 
-export const getDataPurposeNames = (
-  purposes: DataPurposes | undefined
-): DataPurposeName[] => {
-  const names: any[] = [];
-  if (!purposes) return names;
-  for (const key in purposes) {
-    purposes[key] && names.push(key);
-  }
-
-  return names;
-};
-
-export const parseDataPurposes = <
-  T extends string | string[] | DataPurposes | Nullish
->(
-  purposeNames: T,
-  validate = true
-): T extends Nullish ? undefined : DataPurposes => {
-  if (purposeNames == null) return undefined!;
-  if (!isArray(purposeNames)) {
-    if (!isString(purposeNames)) {
-      return purposeNames as any;
-    }
-    purposeNames = [purposeNames] as any;
-  }
-
-  const purposes: DataPurposes = {};
-  for (const name of purposeNames as any) {
-    if (!VALID_PURPOSE_NAMES[name]) {
-      validate && throwError(`The purpose name '${name}' is not defined.`);
-      continue;
-    }
-    purposes[name as any] = true;
-  }
-  return purposes as any;
-};
-
+//
 /**
  * The purposes data can be used for.
  * Non-necessary data requires an individual's consent to be collected and used.
@@ -241,22 +222,6 @@ export const parseDataPurposes = <
  * "security" the same as "necessary".
  */
 export interface DataPurposes {
-  /**
-   *
-   * This purpose cannot be removed from a consent. If the intention is to not store data
-   * for a specific individual, use the data classification "never" instead.
-   *
-   * Even necessary data will only be stored if its general data classification is compatible with the current consent.
-   *
-   * In schema definitions the data is assumed necessary if no other purposes are specified.
-   * It is also possible to mark data as necessary in combination with other purposes.
-   * This means the data needs to be there for a genuinely necessary purpose, but may optionally
-   * _also_ be used for, say, personalization if the user has consented to their data being stored for this purpose.
-   *
-   * Even if stored for other purposes, data cannot be read and used for a purpose without consent.
-   */
-  necessary?: boolean;
-
   /**
    * Data stored for this purpose is used to gain insights on how individuals interact with a website or app optionally including
    * demographics and similar traits with the purpose of optimizing the website or app.

@@ -1,24 +1,28 @@
 import {
-  copyKey,
   dataClassification,
   DataPurposeName,
+  dataPurposes,
   DataUsage,
+  extractKey,
   filterKeys,
   filterRangeValue,
   formatKey,
   formatValidationErrors,
   isSuccessResult,
   isTransientError,
+  isVariableResult,
   OptionalPurposes,
   SchemaValidationContext,
   SchemaValidationError,
   SchemaVariable,
-  testPurposes,
+  toVariableResultPromise,
   TypeResolver,
   ValidatableSchemaEntity,
   Variable,
   VariableGetResult,
   VariableGetter,
+  VariableOperationParameter,
+  VariableOperationResult,
   VariablePurgeOptions,
   VariableQuery,
   VariableQueryOptions,
@@ -28,9 +32,11 @@ import {
   VariableSetResult,
   VariableSetter,
   VariableValueSetter,
+  WithCallbackIntellisense,
 } from "@tailjs/types";
 import {
   AllRequired,
+  ArrayOrSelf,
   assign2,
   delay,
   forEach2,
@@ -38,6 +44,7 @@ import {
   isArray,
   keyCount2,
   map2,
+  Nullish,
   skip2,
   some2,
   throwError,
@@ -48,14 +55,11 @@ import {
   addTrace,
   AddTrace,
   ReadOnlyVariableStorage,
-  toVariableResultPromise,
   traceSymbol,
   TrackerEnvironment,
-  VariableOperationParameter,
   VariableSplitStorage,
   VariableStorage,
   VariableStorageQuery,
-  WithCallbackIntellisense,
 } from "..";
 
 export interface StorageMapping {
@@ -172,7 +176,7 @@ const censorResult = <Result extends VariableGetResult | VariableSetResult>(
       return {
         status: VariableResultStatus.Forbidden,
         [traceSymbol]: result[traceSymbol],
-        ...copyKey(result),
+        ...extractKey(result),
       } as any;
     }
   }
@@ -212,14 +216,13 @@ const validateEntityId = <T extends { scope: string; entityId?: string }>(
 const getScopeSourceKey = (scope: string, source?: string | null) =>
   source ? scope + "|" + source : scope;
 
-export type VariableStorageCoordinatorQueryOptions = {
+export type VariableStorageCoordinatorQueryOptions = VariableQueryOptions & {
   context?: VariableStorageContext;
-  options?: VariableQueryOptions;
 };
 
 export type VariableStorageCoordinatorPurgeOptions = {
   context?: VariableStorageContext;
-  options?: VariablePurgeOptions;
+  bulk?: boolean;
 };
 
 export class VariableStorageCoordinator {
@@ -272,30 +275,210 @@ export class VariableStorageCoordinator {
     ));
   }
 
-  private _getVariable(
-    scope: string,
-    key: string,
-    source?: string | null
-  ): SchemaVariable | undefined {
-    const types =
+  private _getTypeResolver({
+    scope,
+    source,
+  }: {
+    scope: string;
+    source?: string | Nullish;
+  }) {
+    return (
       this._storageTypeResolvers.get(getScopeSourceKey(scope, source)) ??
-      this._types;
-    return types.getVariable(scope, key, false);
+      throwError(
+        `No storage is defined for ${scope}${source ? `:${source}` : ""}`
+      )
+    );
+  }
+  private _getVariable(key: {
+    scope: string;
+    key: string;
+    source?: string | null;
+  }): SchemaVariable | undefined {
+    return this._getTypeResolver(key).getVariable(key.scope, key.key, false);
+  }
+
+  private _assignResultSchemas<T extends readonly any[]>(results: T): T {
+    for (const result of results) {
+      if (isVariableResult(result)) {
+        const variable = this._getVariable(result);
+        if (variable) {
+          result.schema = {
+            type: variable.type.id,
+            version: variable.type.version,
+            usage: variable.usage,
+          };
+        }
+      }
+    }
+    return results;
   }
 
   public get<
     Getters extends VariableOperationParameter<
-      VariableGetter & { value?: never; patch?: never },
+      VariableGetter,
       VariableScope,
       any
     >
   >(
     getters: WithCallbackIntellisense<Getters>,
-    context?: VariableStorageContext
-  ) {
-    return toVariableResultPromise(getters, (keys) =>
-      this._get(keys as any, context)
-    );
+    context: VariableStorageContext = this._defaultContext
+  ): VariableOperationResult<"get", Getters, VariableScope, VariableScope> {
+    return toVariableResultPromise(
+      "get",
+      getters,
+      async (getters: VariableGetter[]) => {
+        if (!getters.length) return [];
+
+        type TraceData = [number, SchemaVariable, DataPurposeName | undefined];
+
+        const results: VariableGetResult[] = [];
+        let pendingGetters: AddSourceTrace<VariableGetter, TraceData>[] = [];
+
+        let index = 0;
+        for (const key of getters) {
+          try {
+            validateEntityId(key, context);
+          } catch (error) {
+            results[index++] = {
+              status: VariableResultStatus.BadRequest,
+              ...extractKey(key),
+              error: formatError(error, this._settings.includeStackTraces),
+            };
+            continue;
+          }
+
+          const variable = this._getVariable(key);
+          if (variable) {
+            const targetPurpose = key.purpose;
+
+            pendingGetters.push(
+              addSourceTrace(key, [index++, variable, targetPurpose])
+            );
+            continue;
+          }
+          results[index++] = {
+            status: VariableResultStatus.BadRequest,
+            ...extractKey(key),
+            error: formatKey(key, "is not defined"),
+          };
+        }
+
+        const pendingSetters: AddSourceTrace<VariableValueSetter, TraceData>[] =
+          [];
+
+        let retry = 0;
+        while (pendingGetters.length && retry++ < this._errorRetries.attempts) {
+          if (retry > 1) await retryDelay(this._errorRetries);
+
+          for (let result of await this._storage.get(
+            pendingGetters.splice(0)
+          )) {
+            const [getter, [sourceIndex, variable, targetPurpose]] =
+              result[traceSymbol];
+
+            const validationContext = mapValidationContext(
+              context,
+              getter.purpose
+            );
+            result = censorResult(result, variable, validationContext);
+            if ("value" in (results[sourceIndex] = result)) {
+              continue;
+            } else if (isTransientError(result)) {
+              pendingGetters.push(getter);
+            } else if (
+              result.status === VariableResultStatus.NotFound &&
+              "init" in getter
+            ) {
+              try {
+                let initValue = await getter.init();
+                if (initValue == null) {
+                  continue;
+                }
+                let errors: SchemaValidationError[] = [];
+                initValue = variable.validate(
+                  initValue,
+                  undefined,
+                  validationContext,
+                  errors
+                );
+                if (errors.length) {
+                  results[sourceIndex] = {
+                    status: VariableResultStatus.BadRequest,
+                    ...extractKey(getter),
+                    error: formatValidationErrors(errors),
+                  };
+                }
+                pendingSetters.push(
+                  addSourceTrace(
+                    {
+                      ...extractKey(getter),
+                      ttl: getter.ttl,
+                      version: null,
+                      value: initValue,
+                    },
+                    [sourceIndex, variable, targetPurpose]
+                  )
+                );
+              } catch (error) {
+                results[sourceIndex] = {
+                  status: VariableResultStatus.Error,
+                  ...extractKey(getter),
+                  error: formatError(error, this._settings.includeStackTraces),
+                };
+              }
+            }
+          }
+        }
+
+        retry = 0;
+        while (pendingSetters.length && retry++ < this._errorRetries.attempts) {
+          if (retry > 1) await retryDelay(this._errorRetries);
+
+          for (const result of await this._storage.set(
+            pendingSetters.splice(0)
+          )) {
+            const [setter, [sourceIndex, variable, targetPurpose]] =
+              result[traceSymbol];
+
+            const validationContext = mapValidationContext(
+              context,
+              targetPurpose
+            );
+            if (result.status === VariableResultStatus.Conflict) {
+              if (result.current?.value) {
+                results[sourceIndex] = censorResult(
+                  {
+                    status: VariableResultStatus.Success,
+                    ...result.current,
+                  },
+                  variable,
+                  validationContext
+                );
+              } else {
+                //
+                pendingSetters.push(setter);
+              }
+            } else if (isTransientError(result)) {
+              pendingSetters.push(setter);
+            } else {
+              if (result.status === VariableResultStatus.NotModified) {
+                result.status = VariableResultStatus.Success;
+              }
+              // Cast as any. The set result that doesn't overlap is a delete result,
+              // but a delete result at this point would mean an invariant was violated
+              // since we not add pending setters for null or undefined init results.
+              results[sourceIndex] = censorResult(
+                result,
+                variable,
+                validationContext
+              ) as any;
+            }
+          }
+        }
+
+        return this._assignResultSchemas(results);
+      }
+    ) as any;
   }
 
   public set<
@@ -306,339 +489,187 @@ export class VariableStorageCoordinator {
     >
   >(
     setters: WithCallbackIntellisense<Setters>,
-    context?: VariableStorageContext
-  ) {
-    return toVariableResultPromise(setters, (setters) =>
-      this._set(setters as any, context)
-    );
-  }
-
-  private async _get(
-    keys: VariableGetter[],
     context: VariableStorageContext = this._defaultContext
-  ): Promise<VariableGetResult[]> {
-    if (!keys.length) return [];
+  ): VariableOperationResult<"set", Setters, VariableScope, VariableScope> {
+    return toVariableResultPromise("set", setters, async (setters) => {
+      const validationContext = mapValidationContext(context, undefined);
 
-    type TraceData = [number, SchemaVariable, DataPurposeName | undefined];
+      if (!setters.length) return [];
 
-    const results: VariableGetResult[] = [];
-    let pendingGetters: AddSourceTrace<VariableGetter, TraceData>[] = [];
+      const results: VariableSetResult[] = [];
+      let pendingSetters: AddSourceTrace<
+        VariableSetter,
+        [
+          sourceIndex: number,
+          variable: SchemaVariable,
+          retries: number,
+          current: Variable | undefined
+        ]
+      >[] = [];
 
-    let index = 0;
-    for (const key of keys) {
-      try {
-        validateEntityId(key, context);
-      } catch (error) {
+      let index = 0;
+      for (const key of setters) {
+        try {
+          validateEntityId(key, context);
+        } catch (error) {
+          results[index++] = {
+            status: VariableResultStatus.BadRequest,
+            ...extractKey(key),
+            error: formatError(error, this._settings.includeStackTraces),
+          };
+          continue;
+        }
+
+        const variable = this._getVariable(key);
+
+        if (variable) {
+          pendingSetters.push(
+            addSourceTrace(key, [index++, variable, 0, undefined])
+          );
+          continue;
+        }
         results[index++] = {
           status: VariableResultStatus.BadRequest,
-          ...copyKey(key),
-          error: formatError(error, this._settings.includeStackTraces),
+          ...extractKey(key),
+          error: formatKey(key, "is not defined"),
         };
-        continue;
       }
 
-      const variable = this._getVariable(key.scope, key.key, key.source);
-      if (variable) {
-        const targetPurpose = key.purpose;
+      let retry = 0;
+      while (pendingSetters.length && retry++ <= this._patchRetries.attempts) {
+        if (retry > 1) {
+          // Add random delay in the hope that we resolve conflict races.
+          await retryDelay(this._patchRetries);
+        }
 
-        pendingGetters.push(
-          addSourceTrace(key, [index++, variable, targetPurpose])
-        );
-        continue;
-      }
-      results[index++] = {
-        status: VariableResultStatus.BadRequest,
-        ...copyKey(key),
-        error: formatKey(key, "is not defined"),
-      };
-    }
+        const valueSetters: AddTrace<
+          VariableValueSetter,
+          (typeof pendingSetters)[number][typeof traceSymbol]
+        >[] = [];
 
-    const pendingSetters: AddSourceTrace<VariableValueSetter, TraceData>[] = [];
+        for (const result of await this._storage.get(
+          pendingSetters
+            .splice(0)
+            .map((setter) => addTrace(extractKey(setter), setter[traceSymbol]))
+        )) {
+          const [setter, [sourceIndex, variable]] = result[traceSymbol];
 
-    let retry = 0;
-    while (pendingGetters.length && retry++ < this._errorRetries.attempts) {
-      if (retry > 1) await retryDelay(this._errorRetries);
-
-      for (let result of await this._storage.get(pendingGetters.splice(0))) {
-        const [getter, [sourceIndex, variable, targetPurpose]] =
-          result[traceSymbol];
-
-        const validationContext = mapValidationContext(context, getter.purpose);
-        result = censorResult(result, variable, validationContext);
-        if ("value" in (results[sourceIndex] = result)) {
-          continue;
-        } else if (isTransientError(result)) {
-          pendingGetters.push(getter);
-        } else if (
-          result.status === VariableResultStatus.NotFound &&
-          "init" in getter
-        ) {
-          try {
-            let initValue = await getter.init();
-            if (initValue == null) {
-              continue;
+          if (!isSuccessResult(result, false)) {
+            results[sourceIndex] = result;
+            // Retry
+            if (
+              isTransientError(result) &&
+              result[traceSymbol][1][2]++ < this._errorRetries.attempts
+            ) {
+              pendingSetters.push(setter);
             }
-            let errors: SchemaValidationError[] = [];
-            initValue = variable.validate(
-              initValue,
-              undefined,
-              validationContext,
-              errors
+            continue;
+          }
+          const current = (result[traceSymbol][1][3] =
+            "version" in result ? result : undefined);
+
+          try {
+            const errors: SchemaValidationError[] = [];
+
+            let value = variable.censor(
+              variable.validate(
+                "patch" in setter
+                  ? setter.patch(
+                      // The patch function runs on uncensored data so external logic do not have to deal with missing properties.
+                      current?.value
+                    )
+                  : setter.value,
+                current?.value,
+                validationContext,
+                errors
+              ),
+              validationContext
             );
+
             if (errors.length) {
               results[sourceIndex] = {
-                status: VariableResultStatus.BadRequest,
-                ...copyKey(getter),
+                status: errors[0].forbidden
+                  ? VariableResultStatus.Forbidden
+                  : VariableResultStatus.BadRequest,
+                ...extractKey(setter),
                 error: formatValidationErrors(errors),
               };
+              continue;
             }
-            pendingSetters.push(
-              addSourceTrace(
+
+            if (!("patch" in setter) && setter.version !== current?.version) {
+              // Access tests are done before concurrency tests.
+              // It would be weird to be told there was a conflict, then resolve it, and then be told you
+              // were not allowed in the first place.
+
+              results[sourceIndex] = {
+                status: VariableResultStatus.Conflict,
+                ...extractKey(setter),
+                current: current?.value
+                  ? variable.censor(current?.value, validationContext) ?? {}
+                  : null,
+              };
+              // We do not need to continue until the underlying storage tells us about the conflict since we already know at this point.
+              // Yet, it must still also do its own check since it may be used from many places.
+              continue;
+            }
+
+            // Add a clone of the source setter with the new validated and censored value.
+            valueSetters.push(
+              addTrace(
                 {
-                  ...copyKey(getter),
-                  ttl: getter.ttl,
-                  version: null,
-                  value: initValue,
+                  ...setter,
+                  patch: undefined,
+                  version: current?.version,
+                  value,
                 },
-                [sourceIndex, variable, targetPurpose]
+                // Reuse original setter data, so we know what to do if retried.
+                setter[traceSymbol]
               )
             );
-          } catch (error) {
+          } catch (e) {
             results[sourceIndex] = {
               status: VariableResultStatus.Error,
-              ...copyKey(getter),
-              error: formatError(error, this._settings.includeStackTraces),
+              ...extractKey(setter),
+              error: formatError(e, this._settings.includeStackTraces),
             };
           }
         }
-      }
-    }
 
-    retry = 0;
-    while (pendingSetters.length && retry++ < this._errorRetries.attempts) {
-      if (retry > 1) await retryDelay(this._errorRetries);
+        if (!valueSetters.length) {
+          continue;
+        }
 
-      for (const result of await this._storage.set(pendingSetters.splice(0))) {
-        const [setter, [sourceIndex, variable, targetPurpose]] =
-          result[traceSymbol];
-
-        const validationContext = mapValidationContext(context, targetPurpose);
-        if (result.status === VariableResultStatus.Conflict) {
-          if (result.current?.value) {
-            results[sourceIndex] = censorResult(
-              {
-                status: VariableResultStatus.Success,
-                ...result.current,
-              },
-              variable,
-              validationContext
-            );
-          } else {
-            //
+        for (let result of await this._storage.set(valueSetters)) {
+          const [setter, [sourceIndex, variable]] = result[traceSymbol];
+          const validationContext = mapValidationContext(context, undefined);
+          if (
+            result.status === VariableResultStatus.Conflict &&
+            "patch" in setter &&
+            retry < this._patchRetries.attempts
+          ) {
+            // Reapply the patch.
             pendingSetters.push(setter);
+            continue;
           }
-        } else if (isTransientError(result)) {
-          pendingSetters.push(setter);
-        } else {
-          if (result.status === VariableResultStatus.NotModified) {
-            result.status = VariableResultStatus.Success;
-          }
-          // Cast as any. The set result that doesn't overlap is a delete result,
-          // but a delete result at this point would mean an invariant was violated
-          // since we not add pending setters for null or undefined init results.
+
           results[sourceIndex] = censorResult(
             result,
             variable,
             validationContext
-          ) as any;
-        }
-      }
-    }
-
-    return results;
-  }
-
-  private async _set(
-    keys: VariableSetter[],
-    context: VariableStorageContext = this._defaultContext
-  ): Promise<VariableSetResult[]> {
-    const validationContext = mapValidationContext(context, undefined);
-
-    if (!keys.length) return [];
-
-    const results: VariableSetResult[] = [];
-    let pendingSetters: AddSourceTrace<
-      VariableSetter,
-      [
-        sourceIndex: number,
-        variable: SchemaVariable,
-        retries: number,
-        current: Variable | undefined
-      ]
-    >[] = [];
-
-    let index = 0;
-    for (const key of keys) {
-      try {
-        validateEntityId(key, context);
-      } catch (error) {
-        results[index++] = {
-          status: VariableResultStatus.BadRequest,
-          ...copyKey(key),
-          error: formatError(error, this._settings.includeStackTraces),
-        };
-        continue;
-      }
-
-      const variable = this._getVariable(key.scope, key.key, key.source);
-
-      if (variable) {
-        pendingSetters.push(
-          addSourceTrace(key, [index++, variable, 0, undefined])
-        );
-        continue;
-      }
-      results[index++] = {
-        status: VariableResultStatus.BadRequest,
-        ...copyKey(key),
-        error: formatKey(key, "is not defined"),
-      };
-    }
-
-    let retry = 0;
-    while (pendingSetters.length && retry++ <= this._patchRetries.attempts) {
-      if (retry > 1) {
-        // Add random delay in the hope that we resolve conflict races.
-        await retryDelay(this._patchRetries);
-      }
-
-      const valueSetters: AddTrace<
-        VariableValueSetter,
-        (typeof pendingSetters)[number][typeof traceSymbol]
-      >[] = [];
-
-      for (const result of await this._storage.get(
-        pendingSetters
-          .splice(0)
-          .map((setter) => addTrace(copyKey(setter), setter[traceSymbol]))
-      )) {
-        const [setter, [sourceIndex, variable]] = result[traceSymbol];
-
-        if (!isSuccessResult(result, false)) {
-          results[sourceIndex] = result;
-          // Retry
-          if (
-            isTransientError(result) &&
-            result[traceSymbol][1][2]++ < this._errorRetries.attempts
-          ) {
-            pendingSetters.push(setter);
-          }
-          continue;
-        }
-        const current = (result[traceSymbol][1][3] =
-          "version" in result ? result : undefined);
-
-        try {
-          const errors: SchemaValidationError[] = [];
-
-          let value = variable.censor(
-            variable.validate(
-              "patch" in setter
-                ? setter.patch(
-                    // The patch function runs on uncensored data so external logic do not have to deal with missing properties.
-                    current?.value
-                  )
-                : setter.value,
-              current?.value,
-              validationContext,
-              errors
-            ),
-            validationContext
           );
-
-          if (errors.length) {
-            results[sourceIndex] = {
-              status: errors[0].forbidden
-                ? VariableResultStatus.Forbidden
-                : VariableResultStatus.BadRequest,
-              ...copyKey(setter),
-              error: formatValidationErrors(errors),
-            };
-            continue;
-          }
-
-          if (!("patch" in setter) && setter.version !== current?.version) {
-            // Access tests are done before concurrency tests.
-            // It would be weird to be told there was a conflict, then resolve it, and then be told you
-            // were not allowed in the first place.
-
-            results[sourceIndex] = {
-              status: VariableResultStatus.Conflict,
-              ...copyKey(setter),
-              current: current?.value
-                ? variable.censor(current?.value, validationContext) ?? {}
-                : null,
-            };
-            // We do not need to continue until the underlying storage tells us about the conflict since we already know at this point.
-            // Yet, it must still also do its own check since it may be used from many places.
-            continue;
-          }
-
-          // Add a clone of the source setter with the new validated and censored value.
-          valueSetters.push(
-            addTrace(
-              {
-                ...setter,
-                patch: undefined,
-                version: current?.version,
-                value,
-              },
-              // Reuse original setter data, so we know what to do if retried.
-              setter[traceSymbol]
-            )
-          );
-        } catch (e) {
-          results[sourceIndex] = {
-            status: VariableResultStatus.Error,
-            ...copyKey(setter),
-            error: formatError(e, this._settings.includeStackTraces),
-          };
         }
       }
 
-      if (!valueSetters.length) {
-        continue;
-      }
-
-      for (let result of await this._storage.set(valueSetters)) {
-        const [setter, [sourceIndex, variable]] = result[traceSymbol];
-        const validationContext = mapValidationContext(context, undefined);
-        if (
-          result.status === VariableResultStatus.Conflict &&
-          "patch" in setter &&
-          retry < this._patchRetries.attempts
-        ) {
-          // Reapply the patch.
-          pendingSetters.push(setter);
-          continue;
-        }
-
-        results[sourceIndex] = censorResult(
-          result,
-          variable,
-          validationContext
-        );
-      }
-    }
-
-    return results;
+      return this._assignResultSchemas(results);
+    }) as any;
   }
 
   private async _queryOrPurge<R>(
-    filters: VariableQuery[],
+    filters: readonly VariableQuery<VariableScope>[],
     action: (filter: VariableStorageQuery[]) => Promise<R>,
     context: VariableStorageContext,
-    purge: boolean
+    purgeFilter: boolean
   ): Promise<R> {
     const mapped: VariableStorageQuery[] = [];
     for (let query of this._storage.splitSourceQueries(filters)) {
@@ -663,10 +694,7 @@ export class VariableStorageCoordinator {
       }
 
       let variableKeys: string[] = [];
-      const resolver =
-        this._storageTypeResolvers.get(
-          getScopeSourceKey(query.scope, query.source)
-        ) ?? this._types;
+      const resolver = this._getTypeResolver(query);
 
       if (query.classification || query.purposes) {
         const scopeVariables = resolver.variables[query.scope];
@@ -685,8 +713,8 @@ export class VariableStorageCoordinator {
 
           if (
             query.purposes &&
-            !testPurposes(usage.purposes, query.purposes, {
-              intersect: purge ? "all" : "some",
+            !dataPurposes.test(usage.purposes, query.purposes, {
+              intersect: purgeFilter ? "all" : "some",
             })
           ) {
             return;
@@ -733,10 +761,10 @@ export class VariableStorageCoordinator {
   }
 
   public async purge(
-    filters: VariableQuery | VariableQuery[],
+    filters: ArrayOrSelf<VariableQuery<VariableScope>>,
     {
       context = this._defaultContext,
-      options,
+      bulk,
     }: VariableStorageCoordinatorPurgeOptions = {}
   ): Promise<number> {
     if (!isArray(filters)) {
@@ -744,7 +772,7 @@ export class VariableStorageCoordinator {
     }
 
     if (
-      (!options?.bulk || !context.trusted) &&
+      (!bulk || !context.trusted) &&
       some2(filters, (filter) => !filter.entityIds)
     ) {
       return throwError(
@@ -764,10 +792,10 @@ export class VariableStorageCoordinator {
   }
 
   public async query(
-    filters: VariableQuery | VariableQuery[],
+    filters: ArrayOrSelf<VariableQuery<VariableScope>>,
     {
       context = this._defaultContext,
-      options,
+      ...options
     }: VariableStorageCoordinatorQueryOptions = {}
   ): Promise<VariableQueryResult> {
     return await this._queryOrPurge(
@@ -778,9 +806,7 @@ export class VariableStorageCoordinator {
         if (consent) {
           const validationContext = mapValidationContext(context, undefined);
           result.variables = map2(result.variables, (variable) => {
-            const variableType = this._storageTypeResolvers
-              .get(getScopeSourceKey(variable.scope, variable.source))
-              ?.getVariable(variable.scope, variable.key, false);
+            const variableType = this._getVariable(variable);
             const censored = variableType?.censor(
               variable.value,
               validationContext
@@ -793,6 +819,24 @@ export class VariableStorageCoordinator {
       context,
       false
     );
+  }
+
+  public async refresh(
+    filters: ArrayOrSelf<VariableQuery<VariableScope>>,
+    context = this._defaultContext
+  ) {
+    if (!isArray(filters)) {
+      filters = [filters];
+    }
+
+    let refreshed = 0;
+    await this._queryOrPurge(
+      filters,
+      async (filters) => (refreshed += await this._storage.refresh(filters)),
+      context,
+      true
+    );
+    return refreshed;
   }
 
   public async initialize?(environment: TrackerEnvironment) {

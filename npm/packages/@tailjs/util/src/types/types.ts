@@ -382,7 +382,7 @@ export const toString = createTypeConverter(isString, (value) =>
   value?.toString()
 );
 
-export const isArray: (value: any) => value is any[] = Array.isArray;
+export const isArray: (value: any) => value is readonly any[] = Array.isArray;
 
 export const isError = (value: any): value is Error => value instanceof Error;
 

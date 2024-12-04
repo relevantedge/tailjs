@@ -1,5 +1,6 @@
-import { AllKeys } from "@tailjs/util";
+import { AllKeys, Falsish } from "@tailjs/util";
 import {
+  ScopedKey,
   Variable,
   VariableGetResult,
   VariableGetter,
@@ -56,6 +57,9 @@ export interface VariableErrorResult extends VariableResult {
   transient?: boolean;
 }
 
+export const isVariableResult = (value: any): value is Variable =>
+  (value as Variable)?.value != null;
+
 export const isSuccessResult = <RequireFound extends boolean = true>(
   value: any,
   requireFound: RequireFound = true as any
@@ -66,8 +70,10 @@ export const isSuccessResult = <RequireFound extends boolean = true>(
     | VariableResultStatus.NotModified
     | (true extends RequireFound ? never : VariableResultStatus.NotFound);
 } =>
-  value?.status < 400 ||
-  (!requireFound && value?.status === VariableResultStatus.NotFound);
+  value &&
+  ((value as VariableResult).status < 400 ||
+    (!requireFound &&
+      (value as VariableResult).status === VariableResultStatus.NotFound));
 
 export const isTransientError = (
   value: any
@@ -94,7 +100,7 @@ export type AnyVariableResult<T = any> =
   | VariableSetResult<T>;
 
 type ReplaceKey<Target, Source> = Target extends infer Target
-  ? Omit<Target, keyof VariableKey> &
+  ? Omit<Target, keyof Source & keyof VariableKey> &
       Pick<Source, keyof Source & keyof VariableKey> extends infer T
     ? { [P in keyof T]: T[P] }
     : never
@@ -107,12 +113,19 @@ export type ValidVariableResult<T = any> =
 
 export type MapVariableResult<
   Operation,
-  Type extends "success" | "raw" | "value" = "success"
-> = Operation extends undefined
+  Type extends "success" | "raw" | "value" = "success",
+  Scopes extends string | never = never,
+  ExplicitScopes extends string = any
+> = Operation extends Falsish
   ? undefined
   : Operation extends readonly any[]
   ? {
-      [P in keyof Operation]: MapVariableResult<Operation[P], Type>;
+      [P in keyof Operation]: MapVariableResult<
+        Operation[P],
+        Type,
+        Scopes,
+        ExplicitScopes
+      >;
     }
   : (
       Operation extends
@@ -122,19 +135,17 @@ export type MapVariableResult<
             "set",
             ReplaceKey<
               VariableSetResult<
-                (
-                  unknown extends Current
-                    ? unknown extends Result
-                      ? any
-                      : Result
-                    : Current
-                ) extends infer T
-                  ? { [P in keyof T]: T[P] }
-                  : never
+                unknown extends Current
+                  ? unknown extends Result
+                    ? any
+                    : Result
+                  : Current
               >,
               Operation
             >
           ]
+        : [Operation] extends [never]
+        ? never
         : [
             "get",
             ReplaceKey<
@@ -145,9 +156,7 @@ export type MapVariableResult<
                 >
                   ? unknown extends Result
                     ? any
-                    : Result extends infer Result
-                    ? { [P in keyof Result]: Result[P] }
-                    : never
+                    : Result
                   : any
               > & {
                 status: Exclude<
@@ -173,9 +182,9 @@ export type MapVariableResult<
         ? Result
         : Result extends { status: VariableResultStatus.NotFound }
         ? Type extends "value"
-          ? null
+          ? undefined
           : OperationType extends "get"
-          ? null
+          ? undefined
           : Result
         : Result extends { status: VariableResultStatus.NotModified }
         ? Type extends "value"
@@ -187,6 +196,18 @@ export type MapVariableResult<
           : Result
         : never
     ) extends infer Result
-    ? { [P in keyof Result]: Result[P] }
+    ? Type extends "value"
+      ? Result
+      : Result extends { [x: string]: never }
+      ? never
+      : [Scopes] extends [never]
+      ? { [P in keyof Result]: Result[P] }
+      : ScopedKey<
+          Result & VariableKey,
+          Scopes,
+          ExplicitScopes
+        > extends infer Pretty
+      ? { [P in keyof Pretty]: Pretty[P] }
+      : never
     : never
   : never;
