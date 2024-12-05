@@ -5,7 +5,7 @@ import {
   SchemaObjectType,
   SchemaProperty,
   SchemaPropertyDefinition,
-  throwValidationErrors,
+  handleValidationErrors,
   validateConsent,
 } from "../../../..";
 import {
@@ -141,7 +141,7 @@ export const parseProperty = (
   );
 
   if (property.default != null) {
-    property.default = throwValidationErrors(
+    property.default = handleValidationErrors(
       (errors) =>
         parsedProperty.type.validate(
           property.default,
@@ -149,6 +149,7 @@ export const parseProperty = (
           { trusted: true },
           errors
         ),
+      null,
       `The default value does not match the property type for ${parsedProperty.id}`
     );
   }

@@ -23,6 +23,7 @@ import {
   update2,
   enumerate2,
   pick2,
+  indent2,
 } from "@tailjs/util";
 
 type Item = [id: string, deps?: Item[]];
@@ -480,5 +481,21 @@ describe("iterators(2)", () => {
         (item) => item[1]
       )
     ).toEqual([item1, item2, item12, item13, item121]);
+  });
+
+  it("Indents", () => {
+    let s: string;
+    expect((s = indent2("This is\na test\r\nyes"))).toBe(
+      "  This is\n  a test\r\n  yes"
+    );
+    expect(
+      (s = indent2(`
+      already
+        indented
+    weird
+      
+      line
+      `))
+    ).toBe("\n  already\n    indented\n  weird\n\n  line\n");
   });
 });

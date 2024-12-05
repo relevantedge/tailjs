@@ -120,7 +120,7 @@ export type MapVariableResult<
   ? undefined
   : Operation extends readonly any[]
   ? {
-      [P in keyof Operation]: MapVariableResult<
+      -readonly [P in keyof Operation]: MapVariableResult<
         Operation[P],
         Type,
         Scopes,
@@ -207,7 +207,9 @@ export type MapVariableResult<
           Scopes,
           ExplicitScopes
         > extends infer Pretty
-      ? { [P in keyof Pretty]: Pretty[P] }
+      ? Pretty extends { [x: string]: never }
+        ? never
+        : { [P in keyof Pretty]: Pretty[P] }
       : never
     : never
   : never;

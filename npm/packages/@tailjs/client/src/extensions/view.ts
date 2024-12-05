@@ -212,7 +212,7 @@ export const context: TrackerExtensionFactory = {
         source: href,
         scheme,
         host,
-      } = parseUri(location.href + "", true, true);
+      } = parseUri(location.href + "", { requireAuthority: true });
       currentViewEvent = {
         type: "view",
         timestamp: now(),

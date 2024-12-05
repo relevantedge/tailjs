@@ -275,7 +275,7 @@ describe("VariableStorageCoordinator", () => {
         ],
         { trusted: true }
       )
-      .raw()) as any; // Raw to ignore errors.
+      .all()) as any; // Raw to ignore errors.
 
     expect(sessionVariable2).toMatchObject({
       status: 200,
@@ -362,7 +362,7 @@ describe("VariableStorageCoordinator", () => {
             entityId: "foo",
             patch: () => ({ test: "CDP name" }),
           })
-          .raw()
+          .all()
       ).status
     ).toBe(405); // Not defined.
 

@@ -14,15 +14,13 @@ import clientScripts from "@tailjs/client/script";
 import {
   DataPurposeName,
   dataPurposes,
-  formatValidationErrors,
   isPassiveEvent,
   PostRequest,
   PostResponse,
-  SchemaValidationError,
   TrackedEvent,
   TypeResolver,
   UserConsent,
-  VALIDATION_ERROR,
+  ValidationError,
 } from "@tailjs/types";
 
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
@@ -48,7 +46,7 @@ import {
   TrackerInitializationOptions,
   TrackerPostOptions,
   TrackerServerConfiguration,
-  ValidationError,
+  ValidationErrorResult,
   VariableStorageCoordinator,
 } from "./shared";
 
@@ -61,21 +59,22 @@ import {
   httpEncode,
 } from "@tailjs/transport";
 import {
-  array,
   createLock,
   deferred,
   DeferredAsync,
-  forEach,
-  forEachAsync,
+  filter2,
+  formatError,
+  hasKeys2,
+  indent2,
   isJsonObject,
   isJsonString,
   isPlainObject,
   isString,
   join,
-  map,
+  map2,
   match,
   merge,
-  obj,
+  obj2,
   parseQueryString,
   parseUri,
   PickRequired,
@@ -83,7 +82,7 @@ import {
   RecordType,
   ReplaceProperties,
   required,
-  some,
+  skip2,
   unwrap,
 } from "@tailjs/util";
 import { SignInEvent } from "packages/@tailjs/types/dist";
@@ -176,7 +175,7 @@ export class RequestHandler {
 
     this._defaultConsent = defaultConsent;
 
-    this._extensionFactories = map(extensions);
+    this._extensionFactories = filter2(extensions);
 
     this._cookies = new CookieMonster(cookies);
     this._clientIdGenerator =
@@ -186,7 +185,7 @@ export class RequestHandler {
       consent: cookies.namePrefix + ".consent",
       session: cookies.namePrefix + ".session",
       device: cookies.namePrefix + ".device",
-      deviceByPurpose: obj(dataPurposes.names, (purpose) => [
+      deviceByPurpose: obj2(dataPurposes.names, (purpose) => [
         purpose,
         cookies.namePrefix + (purpose === "necessary" ? "" : "," + purpose),
       ]),
@@ -287,14 +286,14 @@ export class RequestHandler {
 
       if (!storage) {
         storage = {
-          session: new InMemoryStorage(30 * 1000 * 60),
+          session: { storage: new InMemoryStorage(30 * 1000 * 60) },
         };
       }
 
       (this as any).environment = new TrackerEnvironment(
         host,
         crypto ?? new DefaultCryptoProvider(encryptionKeys),
-        new VariableStorageCoordinator(storage, this._schema),
+        new VariableStorageCoordinator({ scopes: storage }, this._schema),
         environmentTags
       );
 
@@ -365,38 +364,30 @@ export class RequestHandler {
     await this.initialize();
 
     const validateEvents = (events: ParseResult[]): ParseResult[] =>
-      map(events, (ev) => {
+      map2(events, (ev) => {
         if (isValidationError(ev)) return ev;
-        const eventType = this._schema.getEvent(ev.type, false);
-        if (!eventType) {
+        try {
+          const eventType = this._schema.getEventType(ev);
+
+          ev = eventType.validate(ev, undefined, {
+            trusted: tracker.trustedContext,
+          });
+
+          return (
+            eventType.censor(ev, {
+              trusted: tracker.trustedContext,
+              consent: tracker.consent,
+            }) ?? skip2
+          );
+        } catch (e) {
           return {
-            error: `The event type '${ev.type}' is not defined`,
+            error:
+              e instanceof ValidationError
+                ? `Invalid data for '${ev.type}' event:\n${indent2(e.message)}`
+                : formatError(e),
             source: ev,
           };
         }
-
-        let errors: SchemaValidationError[] = [];
-        if (
-          eventType.validate(
-            ev,
-            undefined,
-            { trusted: tracker.trustedContext },
-            errors
-          ) === VALIDATION_ERROR ||
-          errors.length
-        ) {
-          return {
-            error: `The data is not valid for an '${ev.type}' event ('${
-              eventType.id
-            }'):\n${formatValidationErrors(errors)}`,
-            source: ev,
-          };
-        }
-
-        return this._schema.getEvent(ev.type).censor(ev, {
-          trusted: tracker.trustedContext,
-          consent: tracker.consent,
-        });
       });
 
     let parsed = validateEvents(eventBatch);
@@ -407,7 +398,7 @@ export class RequestHandler {
 
     await tracker._applyExtensions(options);
 
-    const validationErrors: (ValidationError & {
+    const validationErrors: (ValidationErrorResult & {
       sourceIndex?: number;
     })[] = [];
 
@@ -475,7 +466,7 @@ export class RequestHandler {
       );
     }
 
-    if (validationErrors.length || some(extensionErrors)) {
+    if (validationErrors.length || hasKeys2(extensionErrors)) {
       throw new PostError(validationErrors, extensionErrors);
     }
 
@@ -516,7 +507,7 @@ export class RequestHandler {
     let trackerSettings = deferred(async () => {
       clientIp ??=
         headers["x-forwarded-for"]?.[0] ??
-        obj(parseQueryString(headers["forwarded"]))?.["for"] ??
+        obj2(parseQueryString(headers["forwarded"]))?.["for"] ??
         undefined;
 
       let clientEncryptionKey: string | undefined;
@@ -790,7 +781,7 @@ export class RequestHandler {
               }
 
               try {
-                let postRequest: PostRequest;
+                let postRequest: PostRequest<true>;
                 let json = false;
                 if (
                   headers["content-type"] === "application/json" ||
@@ -829,7 +820,7 @@ export class RequestHandler {
 
                 const resolvedTracker = await resolveTracker();
 
-                const response: PostResponse = {};
+                const response: PostResponse<true> = {};
 
                 if (postRequest.events) {
                   // This returns a response that may have changed variables in it.
@@ -844,16 +835,14 @@ export class RequestHandler {
 
                 if (postRequest.variables) {
                   if (postRequest.variables.get) {
-                    (response.variables ??= {}).get = await resolvedTracker.get(
-                      postRequest.variables.get,
-                      { client: true }
-                    ).all;
+                    (response.variables ??= {}).get = await resolvedTracker
+                      .get(postRequest.variables.get)
+                      .all();
                   }
                   if (postRequest.variables.set) {
-                    (response.variables ??= {}).set = await resolvedTracker.set(
-                      postRequest.variables.set,
-                      { client: true }
-                    ).all;
+                    (response.variables ??= {}).set = await resolvedTracker
+                      .set(postRequest.variables.set)
+                      .all();
                   }
                 }
 
@@ -925,24 +914,21 @@ export class RequestHandler {
     const inlineScripts: string[] = [trackerScript.join("")];
     const otherScripts: ClientScript[] = [];
 
-    await forEachAsync(
-      this._extensions.map(
-        async (extension) =>
-          extension.getClientScripts && extension.getClientScripts(tracker)
-      ),
-      async (scripts) =>
-        forEach(array(await scripts), (script) => {
-          if ("inline" in script) {
-            // Prevent errors from preempting other scripts.
-            script.inline = wrapTryCatch(script.inline);
+    for (const extension of this._extensions) {
+      const scripts =
+        extension.getClientScripts && extension.getClientScripts(tracker);
+      for (const script of scripts ?? []) {
+        if ("inline" in script) {
+          // Prevent errors from preempting other scripts.
+          script.inline = wrapTryCatch(script.inline);
 
-            if (script.allowReorder !== false) {
-              inlineScripts.push(script.inline);
-              return;
-            }
+          if (script.allowReorder !== false) {
+            inlineScripts.push(script.inline);
+            return;
           }
-        })
-    );
+        }
+      }
+    }
 
     if (html) {
       const keyPrefix = this._clientConfig.key
@@ -981,7 +967,7 @@ export class RequestHandler {
     }
 
     const js = [{ inline: inlineScripts.join("") }, ...otherScripts]
-      .map((script, i) => {
+      .map((script) => {
         if ("inline" in script) {
           return html
             ? `<script${nonce ? ` nonce="${nonce}"` : ""}>${

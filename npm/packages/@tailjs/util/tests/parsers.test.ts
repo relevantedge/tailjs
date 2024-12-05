@@ -1,8 +1,8 @@
-import { obj, OmitUnion } from "../src";
+import { OmitUnion } from "../src";
 import {
-  ParsedUri,
   appendQueryString,
   formatUri,
+  ParsedUri,
   parseQueryString,
   parseUri,
   toQueryString,
@@ -20,7 +20,9 @@ describe("parsers.ts", () => {
     clean((parseQueryString as any)(...args)) as any;
 
   it("Parses query strings", () => {
-    expect(_parseQueryString("abc=32&test=1,2,3", false)).toEqual({
+    expect(
+      _parseQueryString("abc=32&test=1,2,3", { delimiters: false })
+    ).toEqual({
       abc: "32",
       test: "1,2,3",
     });
@@ -44,14 +46,18 @@ describe("parsers.ts", () => {
     );
 
     expect(
-      _parseQueryString("test=foo&items[]=bar&items[]=baz+space", false)
+      _parseQueryString("test=foo&items[]=bar&items[]=baz+space", {
+        delimiters: false,
+      })
     ).toEqual({
       test: "foo",
       items: "bar,baz space",
     });
 
     expect(
-      _parseQueryString("test=foo&items[]=bar&items[]=baz+space", false)
+      _parseQueryString("test=foo&items[]=bar&items[]=baz+space", {
+        delimiters: false,
+      })
     ).toEqual({
       test: "foo",
       items: "bar,baz space",
@@ -87,7 +93,7 @@ describe("parsers.ts", () => {
       formatted = uri
     ) => {
       const parsed = clean(parseUri(uri));
-      expect(obj(parsed)).toEqual({
+      expect(parsed).toEqual({
         ...expected,
         source: uri,
         authority: formatUri({

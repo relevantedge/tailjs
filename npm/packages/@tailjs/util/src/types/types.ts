@@ -1,12 +1,4 @@
-import {
-  AllKeys,
-  Defined,
-  Extends,
-  IsAny,
-  MaybeUndefined,
-  ToggleReadonly,
-  tryCatch,
-} from "..";
+import { AllKeys, Extends, MaybeUndefined, ToggleReadonly, tryCatch } from "..";
 
 /**
  * The ECMAScript primitive types.

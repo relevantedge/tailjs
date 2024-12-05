@@ -23,7 +23,6 @@ import {
   VariableGetter,
   VariableOperationParameter,
   VariableOperationResult,
-  VariablePurgeOptions,
   VariableQuery,
   VariableQueryOptions,
   VariableQueryResult,

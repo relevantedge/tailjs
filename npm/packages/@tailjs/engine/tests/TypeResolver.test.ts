@@ -1,7 +1,7 @@
 import {
   SCHEMA_TYPE_PROPERTY,
   SchemaSystemTypeDefinition,
-  throwValidationErrors,
+  handleValidationErrors,
   TypeResolver,
 } from "@tailjs/types";
 
@@ -97,7 +97,7 @@ describe("TypeResolver", () => {
     console.log(resolver.getType("urn:test#Test")?.id);
     const testType = resolver.getType("urn:test#Test");
 
-    let validated = throwValidationErrors((errors) =>
+    let validated = handleValidationErrors((errors) =>
       testType.validate(
         {
           type: "test_event",
@@ -128,7 +128,7 @@ describe("TypeResolver", () => {
     ]);
 
     expect(
-      throwValidationErrors((errors) =>
+      handleValidationErrors((errors) =>
         testType.validate(
           {
             type: "test_event",
@@ -142,7 +142,7 @@ describe("TypeResolver", () => {
     ).toBe("urn:test#Test2");
 
     expect(
-      throwValidationErrors((errors) =>
+      handleValidationErrors((errors) =>
         testType.validate(
           {
             type: "test_event",
@@ -156,7 +156,7 @@ describe("TypeResolver", () => {
     ).toBe("urn:test#Test3");
 
     expect(
-      throwValidationErrors((errors) =>
+      handleValidationErrors((errors) =>
         testType.validate(
           {
             type: "test_event",
@@ -169,7 +169,7 @@ describe("TypeResolver", () => {
     ).toBe("urn:test#Test");
 
     expect(() =>
-      throwValidationErrors((errors) =>
+      handleValidationErrors((errors) =>
         testType.validate(
           {
             type: "test_event",

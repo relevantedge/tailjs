@@ -4,7 +4,7 @@ import {
   Nullish,
   isObject,
   isString,
-  parameterList,
+  parameterListSymbol,
   parseHttpHeader,
 } from "@tailjs/util";
 import ShortUniqueId from "short-unique-id";
@@ -195,9 +195,12 @@ export class TrackerEnvironment {
     const cookies: Record<string, Cookie> = {};
 
     for (const cookie of response.cookies) {
-      const ps = parseHttpHeader(cookie, false);
+      const ps = parseHttpHeader(cookie, {
+        delimiters: false,
+        lowerCase: true,
+      });
 
-      const [name, value] = ps[parameterList][0] ?? [];
+      const [name, value] = ps[parameterListSymbol]?.[0] ?? [];
       if (!name) continue;
 
       cookies[name] = {

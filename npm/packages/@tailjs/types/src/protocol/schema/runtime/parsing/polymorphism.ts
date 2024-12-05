@@ -20,9 +20,11 @@ import {
 } from "@tailjs/util";
 import { SchemaPrimitiveType, SchemaObjectType as Type } from "../../../..";
 import {
+  handleValidationErrors,
   SchemaCensorFunction,
+  ValidationErrorContext,
   SchemaValueValidator,
-  VALIDATION_ERROR,
+  VALIDATION_ERROR_SYMBOL,
 } from "../validation";
 
 export type SchemaTypeMapper = (data: any) => Type | undefined;
@@ -215,18 +217,19 @@ export const createSchemaTypeMapper = (
       value != null ? selector(value)?.censor(value, context, false) : value,
     mapped,
     unmapped,
-    validate(value, current, context, errors) {
-      if (value == null) return value;
-      const type = selector(value);
-      if (!type) {
-        errors.push({
-          path: "",
-          source: value,
-          message: JSON.stringify(value) + errorMessage,
-        });
-        return VALIDATION_ERROR;
-      }
-      return type.validate(value, current, context, errors, false);
-    },
+    validate: (value, current, context, errors) =>
+      handleValidationErrors((errors) => {
+        if (value == null) return value;
+        const type = selector(value);
+        if (!type) {
+          errors.push({
+            path: "",
+            source: value,
+            message: JSON.stringify(value) + errorMessage,
+          });
+          return VALIDATION_ERROR_SYMBOL;
+        }
+        return type.validate(value, current, context, errors, false);
+      }, errors),
   };
 };
