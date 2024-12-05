@@ -1,5 +1,10 @@
 import { fromEntries, Nullish } from "@tailjs/util";
-import { pushInnerErrors, SchemaCensorFunction, SchemaValueValidator } from ".";
+import {
+  pushInnerErrors,
+  SchemaCensorFunction,
+  SchemaValueValidator,
+  handleValidationErrors,
+} from ".";
 import {
   DataAccess,
   dataClassification,
@@ -73,28 +78,29 @@ export const createAccessValidator =
     usage: SchemaDataUsage | Nullish,
     targetType = "property"
   ): SchemaValueValidator =>
-  (value, current, context, errors) => {
-    if (usage) {
-      if (usage.readonly && current != null && value !== current) {
-        errors.push({
-          path: name,
-          source: value,
-          message: `The ${targetType} is read-only (cannot be changed once set).`,
-          forbidden: true,
-        });
+  (value, current, context, errors) =>
+    handleValidationErrors((errors) => {
+      if (usage) {
+        if (usage.readonly && current != null && value !== current) {
+          errors.push({
+            path: name,
+            source: value,
+            message: `The ${targetType} is read-only (cannot be changed once set).`,
+            forbidden: true,
+          });
+        }
+        if (
+          !context.trusted &&
+          usage.visibility !== "public" &&
+          value !== current
+        ) {
+          errors.push({
+            path: name,
+            source: value,
+            message: `The ${targetType} cannot be set from untrusted context.`,
+            forbidden: true,
+          });
+        }
       }
-      if (
-        !context.trusted &&
-        usage.visibility !== "public" &&
-        value !== current
-      ) {
-        errors.push({
-          path: name,
-          source: value,
-          message: `The ${targetType} cannot be set from untrusted context.`,
-          forbidden: true,
-        });
-      }
-    }
-    return pushInnerErrors(name, value, current, context, errors, type);
-  };
+      return pushInnerErrors(name, value, current, context, errors, type);
+    }, errors);

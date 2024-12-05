@@ -1,30 +1,35 @@
+import { Nullish, throwError } from "@tailjs/util";
 import { SchemaValidationContext, SchemaValueValidator } from ".";
 
-export type SchemaValidationError = {
+export type ValidationErrorContext = {
   path: string;
   message: string;
   source: any;
   forbidden?: boolean;
 };
 
-export const VALIDATION_ERROR = Symbol();
+export const VALIDATION_ERROR_SYMBOL = Symbol();
 
 export const joinPath = (prefix: string, current: string) =>
   current?.length ? prefix + (current[0] === "[" ? "" : ".") + current : prefix;
 
-export const pushInnerErrors = (
+export const pushInnerErrors = <T>(
   prefix: string,
-  value: any,
+  value: T,
   current: any,
   context: SchemaValidationContext,
-  errors: SchemaValidationError[],
+  errors: ValidationErrorContext[],
   validatable: { validate: SchemaValueValidator }
-) => {
-  const innerErrors: SchemaValidationError[] = [];
+): T | typeof VALIDATION_ERROR_SYMBOL => {
+  const innerErrors: ValidationErrorContext[] = [];
   if (
     value != null &&
-    ((value = validatable.validate(value, current, context, innerErrors)) ===
-      VALIDATION_ERROR ||
+    ((value = validatable.validate(
+      value,
+      current,
+      context,
+      innerErrors
+    ) as any) === VALIDATION_ERROR_SYMBOL ||
       innerErrors.length)
   ) {
     errors.push(
@@ -37,27 +42,46 @@ export const pushInnerErrors = (
   return value;
 };
 
-export const throwValidationErrors = <R>(
-  action: (errors: SchemaValidationError[]) => R,
+export class ValidationError extends Error {
+  constructor(errors: ValidationErrorContext[], message?: string) {
+    super((message ? message + ":\n" : "") + formatValidationErrors(errors));
+  }
+}
+
+export const handleValidationErrors = <
+  R,
+  Collected extends ValidationErrorContext[] | Nullish
+>(
+  action: (
+    errors: ValidationErrorContext[]
+  ) => R | typeof VALIDATION_ERROR_SYMBOL,
+  collectedErrors?: Collected,
   message?: string
-): Exclude<R, typeof VALIDATION_ERROR> => {
-  const errors: SchemaValidationError[] = [];
+): Collected extends Nullish
+  ? Exclude<R, typeof VALIDATION_ERROR_SYMBOL>
+  : R => {
+  const errors: ValidationErrorContext[] = collectedErrors ?? [];
+
   const result = action(errors);
-  if (result === VALIDATION_ERROR || errors.length) {
-    throw new Error(
-      (message ? message + ":\n" : "") + formatValidationErrors(errors)
-    );
+  if (
+    !collectedErrors &&
+    (result === VALIDATION_ERROR_SYMBOL || errors.length)
+  ) {
+    throw new ValidationError(errors, message);
   }
   return result as any;
 };
 
 export const formatValidationErrors = (
-  errors: readonly SchemaValidationError[]
+  errors: readonly ValidationErrorContext[]
 ): string | undefined => {
   if (!errors.length) return "(unspecified error)";
 
-  const formatted = errors.map(({ path, message }) =>
-    path ? path + ": " + message : message
+  const formatted = (errors.length > 10 ? errors.slice(0, 10) : errors).map(
+    ({ path, message }) => (path ? `${path}: ${message}` : message)
   );
+  if (errors.length > 10) {
+    formatted.push("", `(and ${errors.length - 10} more)`);
+  }
   return formatted.join("\n");
 };

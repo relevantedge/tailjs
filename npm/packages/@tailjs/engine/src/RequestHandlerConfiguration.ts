@@ -187,21 +187,24 @@ export type RequestHandlerConfiguration = {
   deviceSessionTimeout?: number;
 };
 
-export const DEFAULT: Omit<
-  AllRequired<RequestHandlerConfiguration>,
-  | "schemas"
-  | "backends"
-  | "host"
-  | "extensions"
-  | "endpoint"
-  | "scriptPath"
-  | "environmentTags"
-  | "crypto"
-  | "encryptionKeys"
-  | "storage"
-  | "clientIdGenerator"
-  | "additionalPurposes"
-> = {
+export const DEFAULT:
+  | Omit<
+      AllRequired<RequestHandlerConfiguration>,
+      | "schemas"
+      | "backends"
+      | "host"
+      | "extensions"
+      | "endpoint"
+      | "scriptPath"
+      | "environmentTags"
+      | "crypto"
+      | "encryptionKeys"
+      | "storage"
+      | "clientIdGenerator"
+      | "additionalPurposes"
+      | "defaultConsent"
+    > &
+      Pick<Required<RequestHandlerConfiguration>, "defaultConsent"> = {
   trackerName: "tail",
   cookies: {
     namePrefix: ".tail",
@@ -216,8 +219,6 @@ export const DEFAULT: Omit<
   json: false,
   defaultConsent: {
     classification: "anonymous",
-    purposes: {
-      necessary: true,
-    }, // Necessary only.
+    purposes: {}, // Necessary only.
   },
 };

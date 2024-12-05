@@ -118,8 +118,8 @@ export type VariableResultPromise<
   : Promise<
       MapVariableResult<Operations, "success", Scopes, ExplicitScopes>
     > & {
-      /** Return variables with error status codes instead of throwing errors. */
-      raw(): Promise<
+      /** Return all variable results with error status codes instead of throwing errors. */
+      all(): Promise<
         MapVariableResult<Operations, "raw", Scopes, ExplicitScopes>
       >;
     } & (Operations extends readonly any[]

@@ -38,20 +38,17 @@ import {
 } from "@tailjs/types";
 import {
   ArrayOrSelf,
-  MAX_SAFE_INTEGER,
   Nullish,
   PartialRecord,
   ReadonlyRecord,
   concat,
   filter2,
-  forEach,
   forEach2,
   isArray,
   map,
   map2,
   now,
   obj,
-  some,
   some2,
   truish,
   update2,
@@ -888,7 +885,7 @@ export class Tracker {
         }
         return this.env.storage
           .get(getters as any, this._getStorageContext(context))
-          .raw() as any;
+          .all() as any;
       }
     ) as any;
   }
@@ -906,7 +903,7 @@ export class Tracker {
 
       const results = await this.env.storage
         .set(setters, this._getStorageContext(context))
-        .raw();
+        .all();
 
       for (const result of results) {
         if (

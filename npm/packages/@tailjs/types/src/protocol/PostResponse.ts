@@ -6,7 +6,7 @@ import {
   VariableSetResult,
 } from "..";
 
-export interface PostResponse<Scoped extends boolean = true> {
+export interface PostResponse<Scoped extends boolean = false> {
   /**
    * Results from variable operations.
    * The server may push variables to the client by including get results that the client has not requested.

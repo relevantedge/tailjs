@@ -1,8 +1,9 @@
 import {
   getMinimumUsage,
+  handleValidationErrors,
   SchemaCensorFunction,
   SchemaValueValidator,
-  VALIDATION_ERROR,
+  VALIDATION_ERROR_SYMBOL,
 } from ".";
 import {
   SCHEMA_TYPE_PROPERTY,
@@ -58,58 +59,61 @@ export const addTypeValidators = (type: SchemaObjectType) => {
     return censored;
   };
 
-  const validate: SchemaValueValidator = (target, current, context, errors) => {
-    // Here we could leverage the type's `usage` that is the minimum usage defined
-    // by any property. Let's do that when we have tested the rest of this code...
-    const currentErrors = errors.length;
-    let validated = target;
-    const validateProperty = (prop: SchemaProperty) => {
-      const targetValue = target[prop.name];
-      const validatedValue = prop.validate(
-        targetValue,
-        current === undefined ? undefined : current?.[prop.name] ?? null,
-        context,
-        errors
-      );
+  const validate: SchemaValueValidator = (target, current, context, errors) =>
+    handleValidationErrors((errors) => {
+      // Here we could leverage the type's `usage` that is the minimum usage defined
+      // by any property. Let's do that when we have tested the rest of this code...
+      const currentErrors = errors.length;
+      let validated = target;
+      const validateProperty = (prop: SchemaProperty) => {
+        const targetValue = target[prop.name];
+        const validatedValue = prop.validate(
+          targetValue,
+          current === undefined ? undefined : current?.[prop.name] ?? null,
+          context,
+          errors
+        );
 
-      if (validatedValue !== targetValue) {
-        if (target === validated) {
-          // Make a shallow clone if we are changing values.
-          validated = { ...target };
+        if (validatedValue !== targetValue) {
+          if (target === validated) {
+            // Make a shallow clone if we are changing values.
+            validated = { ...target };
+          }
+
+          validated[prop.name] =
+            validatedValue === VALIDATION_ERROR_SYMBOL
+              ? (undefined as any)
+              : validatedValue;
         }
+      };
 
-        validated[prop.name] =
-          validatedValue === VALIDATION_ERROR
-            ? (undefined as any)
-            : validatedValue;
+      for (const required of requiredProperties) {
+        validateProperty(required);
       }
-    };
+      for (const key in target) {
+        if (key === SCHEMA_TYPE_PROPERTY) continue;
 
-    for (const required of requiredProperties) {
-      validateProperty(required);
-    }
-    for (const key in target) {
-      if (key === SCHEMA_TYPE_PROPERTY) continue;
-
-      const prop = props[key];
-      if (!prop) {
-        errors.push({
-          path: key,
-          source: target,
-          message: `The property is not defined for the type '${type.id}'.`,
-        });
-        continue;
-      } else if (!prop.required) {
-        // Required properties have already been validated.
-        validateProperty(prop);
+        const prop = props[key];
+        if (!prop) {
+          errors.push({
+            path: key,
+            source: target,
+            message: `The property is not defined for the type '${type.id}'.`,
+          });
+          continue;
+        } else if (!prop.required) {
+          // Required properties have already been validated.
+          validateProperty(prop);
+        }
       }
-    }
 
-    validated[SCHEMA_TYPE_PROPERTY] = type.version
-      ? [type.id, type.version]
-      : [type.id];
-    return currentErrors < errors.length ? VALIDATION_ERROR : validated;
-  };
+      validated[SCHEMA_TYPE_PROPERTY] = type.version
+        ? [type.id, type.version]
+        : [type.id];
+      return currentErrors < errors.length
+        ? VALIDATION_ERROR_SYMBOL
+        : validated;
+    }, errors);
 
   if (type.extendedBy.length) {
     const { censor: polymorphicCensor, validate: polymorphicValidate } =

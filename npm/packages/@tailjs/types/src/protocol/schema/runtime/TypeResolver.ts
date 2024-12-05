@@ -1,4 +1,11 @@
-import { forEach2, get2, obj2, tryAdd } from "@tailjs/util";
+import {
+  forEach2,
+  get2,
+  Nullish,
+  obj2,
+  throwError,
+  tryAdd,
+} from "@tailjs/util";
 import {
   CORE_SCHEMA_NS,
   SCHEMA_DATA_USAGE_ANONYMOUS,
@@ -33,7 +40,7 @@ import {
   createCensorAction,
   getPrimitiveTypeValidator,
   overrideUsage,
-  throwValidationErrors,
+  handleValidationErrors,
   ValidatableSchemaEntity,
 } from "./validation";
 import { addTypeValidators } from "./validation/addTypeValidators";
@@ -70,7 +77,7 @@ export class TypeResolver {
 
     const schemaContexts: [schema: Schema, context: TypeParseContext][] =
       schemas.map(({ definition, typesOnly }) => {
-        const namespace = throwValidationErrors((errors) =>
+        const namespace = handleValidationErrors((errors) =>
           getPrimitiveTypeValidator({
             primitive: "string",
             format: "uri",
@@ -241,8 +248,12 @@ export class TypeResolver {
     ]);
   }
 
-  public getEventType(eventData: any) {
-    return this._eventMapper?.(eventData);
+  public getEventType<T>(
+    eventData: T
+  ): T extends Nullish ? T : SchemaObjectType {
+    return !this._eventMapper
+      ? throwError("System event type has not been configured")
+      : eventData && (this._eventMapper(eventData) as any);
   }
 
   public getType<Required extends boolean = true>(

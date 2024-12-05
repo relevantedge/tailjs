@@ -11,12 +11,13 @@ export * from "./SchemaVariable";
 export * from "./TypeResolver";
 
 export {
-  VALIDATION_ERROR,
+  VALIDATION_ERROR_SYMBOL,
   formatValidationErrors,
-  throwValidationErrors,
+  handleValidationErrors,
+  ValidationError,
   type SchemaCensorFunction,
   type SchemaValidationContext,
-  type SchemaValidationError,
+  type ValidationErrorContext as SchemaValidationError,
   type SchemaValueValidator,
   type ValidatableSchemaEntity,
 } from "./validation";

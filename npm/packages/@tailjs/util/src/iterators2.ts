@@ -2,7 +2,9 @@ import {
   Falsish,
   isArray,
   isIterable,
+  Primitives,
   RecordType,
+  replace,
   UnionToIntersection,
 } from ".";
 
@@ -45,6 +47,20 @@ type ItCallback2<It, S, R, Context = It> = (
   // Encourage TypeScript to interpret return values as tuples rather than arrays,
   // e.g. `[1,2,[3,4]]` becomes `[number,number,[number,number]]` instead of `(number|number[])[]`).
   | EncourageTuples;
+
+export type Mutable<T> = T extends
+  | Map<any, any>
+  | WeakMap<any, any>
+  | Set<any>
+  | WeakSet<any>
+  ? T
+  : T extends ReadonlyMap<infer K, infer V>
+  ? Map<K, V>
+  : T extends ReadonlySet<infer K>
+  ? Set<K>
+  : T extends Primitives
+  ? T
+  : { -readonly [P in keyof T]: Mutable<T[P]> };
 
 type ItFilterCallback2<It> = (
   item: ItItem<It>,
@@ -241,9 +257,9 @@ type _Merge2<
   ? { [P in keyof T]: T[P] }
   : never;
 
-type Obj2SourceToObj<T> = T extends Nullish
+type Obj2SourceToObj<T> = T extends Falsish
   ? {}
-  : T extends Iterable<infer Kv extends Kv2>
+  : T extends Iterable<Falsish | infer Kv extends Kv2>
   ? Obj2<Kv>
   : T;
 
@@ -320,18 +336,19 @@ const forEachKeyValue2: () => ForEachFunction =
 const forEachArray2: () => ForEachFunction =
   () => (target: any[], projection, mapped, seed, context) => {
     let projected: any, item: any;
-    for (let i = 0, n = target.length; i < n; ) {
+    for (let i = 0, n = target.length; i < n; i++) {
       item = target[i];
       if (
-        (projected = projection
-          ? projection(item, i++, seed, context)
-          : item) !== skip2
+        (projected = projection ? projection(item, i, seed, context) : item) !==
+        skip2
       ) {
         if (projected === stop2) {
           break;
         }
         seed = projected;
-        if (mapped) mapped.push(projected);
+        if (mapped) {
+          mapped.push(projected);
+        }
         if (stopInvoked) {
           stopInvoked = false;
           break;
@@ -725,10 +742,15 @@ export const group2: {
 
 export const keys2 = Object.keys;
 
-export const keyCount2 = (obj: any) => {
+export const hasKeys2 = (obj: any) => !!keyCount2(obj, true);
+export const keyCount2 = (obj: any, some = false) => {
   if (!obj) return 0;
   let count = 0;
-  for (const _ in obj) ++count;
+  for (const _ in obj) {
+    if (++count && some) {
+      return 1;
+    }
+  }
   return count;
 };
 
@@ -1053,7 +1075,7 @@ export const concat2: {
   const result: any[] = [];
   for (const arg of arg0) {
     if (arg != null) {
-      if (arg[symbolIterator]) map2(arg, undefined, result);
+      if (isIterable(arg)) map2(arg, undefined, result);
       else result.push(arg);
     }
   }
@@ -1239,7 +1261,27 @@ export const join2: {
     ? source
     : typeof arg1 === "function"
     ? map2(source, arg1).join(arg2 ?? ",")
-    : array2(source).join(arg1 ?? ",");
+    : filter2(source).join(arg1 ?? ",");
+
+export const indent2 = <T extends string | Nullish>(
+  text: T,
+  indent = "  "
+): T extends Nullish ? T : string => {
+  if (text == null) return text as any;
+  let i = 0;
+  let baseIndent = 0;
+  return replace(text, /( *)([^\r\n]*)(\r?\n?)/g, (_, lineIndent, text, br) => {
+    if (!text) {
+      return br;
+    }
+    if (!i++) {
+      baseIndent = lineIndent.length;
+    }
+    return `${indent}${
+      lineIndent.length >= baseIndent ? lineIndent.slice(baseIndent) : ""
+    }${text}${br}`;
+  }) as any;
+};
 
 export const enumerate2: {
   <It extends ItSource>(
@@ -1292,3 +1334,6 @@ export const fromJSON2 = <Value extends string | Nullish>(
   value: Value
 ): Value extends Nullish ? Value : string =>
   value == null ? value : JSON.parse(value);
+
+export const mutate2 = /*#__PURE__*/ <T>(target: T): Mutable<T> =>
+  target as any;

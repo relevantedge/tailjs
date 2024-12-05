@@ -4,20 +4,29 @@ import {
   PickRequired,
   PrettifyIntersection,
   RecordType,
-  concat,
+  concat2,
   forEach,
+  forEach2,
+  group2,
   isArray,
   isString,
   join,
+  join2,
   map,
-  mapFirst,
+  map2,
   match,
   nil,
-  obj,
+  obj2,
+  skip2,
+  stop2,
   undefined,
 } from ".";
 
-type QueryStringDelimiterValue = boolean | readonly string[] | readonly [];
+type QueryStringDelimiterValue =
+  | boolean
+  | string
+  | readonly string[]
+  | readonly [];
 
 export type ParsedUri<
   QueryStringDelimiters extends QueryStringDelimiterValue = QueryStringDelimiterValue
@@ -53,42 +62,53 @@ export type ParsedUri<
   fragment?: string;
 };
 
-export const parameterList = Symbol();
+export const parameterListSymbol = Symbol();
 export type ParsedQueryString<Delimiters extends QueryStringDelimiterValue> =
   Record<
     string,
-    Delimiters extends null | readonly [] | false ? string : string | string[]
+    Delimiters extends Nullish | readonly [] | false
+      ? string
+      : string | string[]
   > & {
-    [parameterList]?: [
+    [parameterListSymbol]?: [
       string,
-      Delimiters extends null | readonly [] | false ? string : string | string[]
+      Delimiters extends Nullish | readonly [] | false
+        ? string
+        : string | string[]
     ];
   };
 
 export const uriEncode = (value: any) =>
   value != nil ? encodeURIComponent(value) : undefined;
 
-export const parseKeyValue = (
+export const parseKeyValue = <
+  Delimiters extends QueryStringDelimiterValue = ["|", ";", ","]
+>(
   value: string | Nullish,
-  arrayDelimiters: readonly string[] | readonly [] = ["|", ";", ","],
-  decode = true
+  {
+    delimiters = ["|", ";", ","] as any,
+    decode = true,
+    lowerCase,
+  }: QueryStringParseOptions<Delimiters> = {}
 ):
   | readonly [key: string, value: string | undefined, values: string[]]
   | undefined => {
   if (!value) return undefined;
-  const parts: [string, string, string[]] = value
-    .split("=")
-    .map((v) =>
-      decode ? decodeURIComponent(v.trim()).replaceAll("+", " ") : v.trim()
-    ) as any;
+  const parts: [string, string, string[]] = value.split("=").map((v) => {
+    v = decode ? decodeURIComponent(v.trim()).replaceAll("+", " ") : v.trim();
+    return lowerCase ? v.toLowerCase() : v;
+  }) as any;
+  let split: string[];
   parts[1] ??= "";
   parts[2] =
     (parts[1] &&
-      arrayDelimiters?.length &&
-      mapFirst(arrayDelimiters, (delim, _, split = parts[1]!.split(delim)) =>
-        split.length > 1 ? split : undefined
+      ((isString(delimiters) && (delimiters = [delimiters] as any)) ||
+        isArray(delimiters)) &&
+      forEach2(delimiters as string[], (delim) =>
+        (split = parts[1]!.split(delim)).length > 1 ? stop2(split) : undefined
       )) ||
     (parts[1] ? [parts[1]] : []);
+
   return parts;
 };
 
@@ -139,20 +159,22 @@ export const parseKeyValue = (
  */
 export const parseUri = <
   Uri extends string | Nullish,
-  QueryString extends QueryStringDelimiterValue = true,
+  Delimiter extends QueryStringDelimiterValue = true,
   RequireAuthority extends boolean = false
 >(
   uri: Uri,
-  query: QueryString = true as any,
-  requireAuthority?: RequireAuthority
+  {
+    delimiters = true as any,
+    requireAuthority,
+    ...options
+  }: QueryStringParseOptions<Delimiter> & {
+    requireAuthority?: RequireAuthority;
+  } = {}
 ):
   | PrettifyIntersection<
       RequireAuthority extends true
-        ? PickRequired<
-            ParsedUri<QueryString>,
-            "scheme" | "host" | "urn" | "path"
-          >
-        : ParsedUri<QueryString>,
+        ? PickRequired<ParsedUri<Delimiter>, "scheme" | "host" | "urn" | "path">
+        : ParsedUri<Delimiter>,
       true
     >
   | (Uri extends Nullish ? undefined : never) =>
@@ -186,9 +208,11 @@ export const parseUri = <
             port: port != null ? parseInt(port) : undefined,
             path,
             query:
-              query === false
+              delimiters === false
                 ? queryString
-                : parseQueryString(queryString, query),
+                : queryString
+                ? parseQueryString(queryString, { ...options, delimiters })
+                : undefined,
             fragment,
           };
           parsed.path =
@@ -198,25 +222,31 @@ export const parseUri = <
         }
       ) as any);
 
+export type QueryStringParseOptions<
+  Delimiters extends QueryStringDelimiterValue = [","]
+> = {
+  delimiters?: Delimiters;
+  decode?: boolean;
+  lowerCase?: boolean;
+};
+
 export const parseHttpHeader = <
   V extends string | Nullish,
-  Delimiters extends QueryStringDelimiterValue = [","]
+  Delimiter extends QueryStringDelimiterValue = ","
 >(
   query: V,
-  arrayDelimiters: Delimiters = [","] as any,
-  decode = true
-): PrettifyIntersection<ParsedQueryString<Delimiters>> =>
-  parseParameters(query, "; ", arrayDelimiters, decode);
+  options?: QueryStringParseOptions<Delimiter>
+): PrettifyIntersection<ParsedQueryString<Delimiter>> =>
+  parseParameters(query, "; ", options);
 
 export const parseQueryString = <
   V extends string | Nullish,
   Delimiters extends QueryStringDelimiterValue = true
 >(
   query: V,
-  arrayDelimiters?: Delimiters,
-  decode = true
+  options?: QueryStringParseOptions<Delimiters>
 ): PrettifyIntersection<ParsedQueryString<Delimiters>> =>
-  parseParameters(query, "&", arrayDelimiters, decode);
+  parseParameters(query, "&", options);
 
 export const parseParameters = <
   V extends string | Nullish,
@@ -224,50 +254,44 @@ export const parseParameters = <
 >(
   query: V,
   separator: string,
-  arrayDelimiters?: Delimiters,
-  decode = true
+  {
+    delimiters = true as any,
+    ...options
+  }: QueryStringParseOptions<Delimiters> = {}
 ): PrettifyIntersection<ParsedQueryString<Delimiters>> => {
-  const list: [string, any][] = [];
+  const parameters = map2(
+    query?.match(/(?:^.*?\?|^)([^#]*)/)?.[1]?.split(separator),
+    (part) => {
+      let [key, value, values] =
+        parseKeyValue(part, {
+          ...options,
+          delimiters:
+            delimiters === false
+              ? []
+              : delimiters === true
+              ? undefined
+              : delimiters,
+        }) ?? [];
+      return (key = key?.replace(/\[\]$/, "")) != null
+        ? delimiters !== false
+          ? [key, values!.length > 1 ? values! : value!]
+          : [key, value!]
+        : skip2;
+    }
+  );
 
-  const results =
-    query == nil
-      ? undefined
-      : (obj(
-          query?.match(/(?:^.*?\?|^)([^#]*)/)?.[1]?.split(separator),
-          (
-            part,
-            _,
-            [key, value, values] = parseKeyValue(
-              part,
-              arrayDelimiters === false
-                ? []
-                : arrayDelimiters === true
-                ? undefined
-                : arrayDelimiters,
-              decode
-            ) ?? [],
-            kv: any
-          ) => (
-            (kv =
-              (key = key?.replace(/\[\]$/, "")) != null
-                ? arrayDelimiters !== false
-                  ? [key, values!.length > 1 ? values! : (value! as any)]
-                  : [key, value!]
-                : undefined),
-            list.push(kv),
-            kv
-          ),
-          (current, value) =>
-            current
-              ? arrayDelimiters !== false
-                ? concat(current, value)
-                : (current ? current + "," : "") + value
-              : value
-        ) as any);
+  const results = obj2(group2(parameters, false), ([key, values]) => [
+    key,
+    delimiters !== false
+      ? values.length > 1
+        ? concat2(values)
+        : values[0]
+      : values.join(","),
+  ]) as any;
 
-  results && (results[parameterList] = list);
-
-  return results;
+  return results
+    ? ((results[parameterListSymbol] = parameters), results)
+    : results;
 };
 
 export const toQueryString = <
@@ -321,17 +345,20 @@ export const formatUri = <Uri extends Omit<ParsedUri, "source">>(
 ): MaybeUndefined<Uri, string> =>
   uri == nil
     ? (undefined as any)
-    : join([
-        uri.scheme || uri.urn === false
-          ? (uri.scheme ? uri.scheme + ":" : "") + (!uri.urn ? "//" : "")
-          : "",
-        uri.user,
-        uri.password ? ":" + uri.password : undefined,
-        uri.user && "@",
-        uri.host,
-        uri.port ? ":" + uri.port : undefined,
-        uri.path === "/" ? "" : uri.path,
-        uri.query &&
-          "?" + (isString(uri.query) ? uri.query : toQueryString(uri.query)),
-        uri.fragment && "#" + uri.fragment,
-      ]) || undefined!;
+    : join2(
+        [
+          uri.scheme || uri.urn === false
+            ? (uri.scheme ? uri.scheme + ":" : "") + (!uri.urn ? "//" : "")
+            : "",
+          uri.user,
+          uri.password ? ":" + uri.password : undefined,
+          uri.user && "@",
+          uri.host,
+          uri.port ? ":" + uri.port : undefined,
+          uri.path === "/" ? "" : uri.path,
+          uri.query &&
+            "?" + (isString(uri.query) ? uri.query : toQueryString(uri.query)),
+          uri.fragment && "#" + uri.fragment,
+        ],
+        ""
+      ) || undefined!;

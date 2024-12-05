@@ -1,8 +1,11 @@
 import {
   forEach,
+  forEach2,
   isInteger,
   isNumber,
   isString,
+  Mutable,
+  mutate2,
   single,
   unlock,
 } from "@tailjs/util";
@@ -87,8 +90,8 @@ export const primitives = {
   } as SchemaPrimitiveType,
 } as const;
 
-forEach(primitives, ([, type]) =>
-  unlock(primitiveSchema.types).set(type.id, type)
+forEach2(primitives, ([, type]) =>
+  mutate2(primitiveSchema.types).set(type.id, type)
 );
 
 export const inferPrimitiveFromValue = (value: any) =>

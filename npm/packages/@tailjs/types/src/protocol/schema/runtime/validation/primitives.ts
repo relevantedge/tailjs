@@ -3,7 +3,7 @@ import {
   SchemaEnumTypeDefinition,
   SchemaPrimitiveTypeDefinition,
   SchemaValidationError,
-  VALIDATION_ERROR,
+  VALIDATION_ERROR_SYMBOL,
 } from "../../../..";
 
 const REGEX_DATE = /^\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.000)?)?Z$/;
@@ -32,7 +32,7 @@ const addError = (
     source: value,
     message: `${JSON.stringify(value)} ${message}.`,
   }),
-  VALIDATION_ERROR
+  VALIDATION_ERROR_SYMBOL
 );
 
 const isNumber = (value: any) =>
@@ -57,7 +57,7 @@ export const getPrimitiveTypeValidator = (
   if (maxLength != null) {
     const inner = validator;
     validator = (value, errors) =>
-      (value = inner(value, errors)) === VALIDATION_ERROR
+      (value = inner(value, errors)) === VALIDATION_ERROR_SYMBOL
         ? value
         : value.length > maxLength
         ? addError(
@@ -78,7 +78,7 @@ export const getPrimitiveTypeValidator = (
         : `at most ${max}`;
     const inner = validator;
     validator = (value, errors) =>
-      (value = inner(value, errors)) === VALIDATION_ERROR
+      (value = inner(value, errors)) === VALIDATION_ERROR_SYMBOL
         ? value
         : (min == null || value >= min) && (max == null || value <= max)
         ? value
@@ -91,7 +91,7 @@ export const getPrimitiveTypeValidator = (
     enumValues = new Set(
       (Array.isArray(type.enum) ? type.enum : [type.enum]).map((value: any) => {
         const errors = [];
-        if ((value = inner(value, errors)) === VALIDATION_ERROR) {
+        if ((value = inner(value, errors)) === VALIDATION_ERROR_SYMBOL) {
           throw new TypeError(errors[0]);
         }
         return value;
@@ -112,7 +112,7 @@ export const getPrimitiveTypeValidator = (
       );
 
     validator = (value, errors) =>
-      (value = inner(value, errors)) === VALIDATION_ERROR
+      (value = inner(value, errors)) === VALIDATION_ERROR_SYMBOL
         ? value
         : enumValues!.has(value)
         ? value

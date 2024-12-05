@@ -5,9 +5,13 @@ import {
   SchemaProperty,
   SchemaPropertyType,
   SchemaPropertyTypeDefinition,
-  VALIDATION_ERROR,
+  VALIDATION_ERROR_SYMBOL,
 } from "../../../..";
-import { getPrimitiveTypeValidator, pushInnerErrors } from "../validation";
+import {
+  getPrimitiveTypeValidator,
+  pushInnerErrors,
+  handleValidationErrors,
+} from "../validation";
 
 export const parsePropertyType = (
   property: SchemaProperty,
@@ -36,7 +40,8 @@ export const parsePropertyType = (
         source: type,
         primitive,
         enumValues,
-        validate: (value, _current, _context, errors) => inner(value, errors),
+        validate: (value, _current, _context, errors) =>
+          handleValidationErrors((errors) => inner(value, errors), errors),
         censor: (value) => value,
         toString: () => name,
       };
@@ -70,42 +75,45 @@ export const parsePropertyType = (
           }
           return censored as any;
         },
-        validate: (value, current, context, errors) => {
-          if (!Array.isArray(value)) {
-            errors.push({
-              path: "",
-              source: value,
-              message: `${JSON.stringify(value)} is not an array.`,
-            });
-            return VALIDATION_ERROR;
-          }
-          let initialErrors = errors.length;
-          let index = 0;
-          let validated: any[] = value;
-          for (let item of value) {
-            let validatedItem = pushInnerErrors(
-              "[" + index + "]",
-              item,
-              current === undefined ? undefined : current?.[index] ?? null,
-              context,
-              errors,
-              itemType
-            );
-            if (validatedItem !== item) {
-              if (validated === value) {
-                validated = [...value];
+        validate: (value, current, context, errors) =>
+          handleValidationErrors((errors) => {
+            if (!Array.isArray(value)) {
+              errors.push({
+                path: "",
+                source: value,
+                message: `${JSON.stringify(value)} is not an array.`,
+              });
+              return VALIDATION_ERROR_SYMBOL;
+            }
+            let initialErrors = errors.length;
+            let index = 0;
+            let validated: any[] = value;
+            for (let item of value) {
+              let validatedItem = pushInnerErrors(
+                "[" + index + "]",
+                item,
+                current === undefined ? undefined : current?.[index] ?? null,
+                context,
+                errors,
+                itemType
+              );
+              if (validatedItem !== item) {
+                if (validated === value) {
+                  validated = [...value];
+                }
+                validated[index] =
+                  validatedItem === VALIDATION_ERROR_SYMBOL
+                    ? undefined
+                    : validatedItem;
               }
-              validated[index] =
-                validatedItem === VALIDATION_ERROR ? undefined : validatedItem;
+
+              ++index;
             }
 
-            ++index;
-          }
-
-          return errors.length > initialErrors
-            ? VALIDATION_ERROR
-            : (validated as any);
-        },
+            return errors.length > initialErrors
+              ? VALIDATION_ERROR_SYMBOL
+              : (validated as any);
+          }, errors),
         toString: () => name,
       };
     }
@@ -144,54 +152,57 @@ export const parsePropertyType = (
           }
           return censored;
         },
-        validate: (value, current, context, errors) => {
-          if (typeof value !== "object" || isArray(value)) {
-            errors.push({
-              path: "",
-              source: value,
-              message: `${JSON.stringify(
-                value
-              )} is not a record (JSON object).`,
-            });
-            return VALIDATION_ERROR;
-          }
-          let validated: Record<keyof any, any> = value as any;
-          const initialErrors = errors.length;
-          for (let key in value) {
-            if (
-              pushInnerErrors(
-                "[key]",
+        validate: (value, current, context, errors) =>
+          handleValidationErrors((errors) => {
+            if (typeof value !== "object" || isArray(value)) {
+              errors.push({
+                path: "",
+                source: value,
+                message: `${JSON.stringify(
+                  value
+                )} is not a record (JSON object).`,
+              });
+              return VALIDATION_ERROR_SYMBOL;
+            }
+            let validated: Record<keyof any, any> = value as any;
+            const initialErrors = errors.length;
+            for (let key in value) {
+              if (
+                pushInnerErrors(
+                  "[key]",
+                  key,
+                  undefined,
+                  context,
+                  errors,
+                  keyType
+                ) === VALIDATION_ERROR_SYMBOL
+              ) {
+                continue;
+              }
+
+              const property = value[key];
+              const validatedProperty = pushInnerErrors(
                 key,
-                undefined,
+                value[key],
+                current === undefined ? undefined : current?.[key] ?? null,
                 context,
                 errors,
-                keyType
-              ) === VALIDATION_ERROR
-            ) {
-              continue;
-            }
-
-            const property = value[key];
-            const validatedProperty = pushInnerErrors(
-              key,
-              value[key],
-              current === undefined ? undefined : current?.[key] ?? null,
-              context,
-              errors,
-              valueType
-            );
-            if (validatedProperty !== property) {
-              if (validated === value) {
-                validated = { ...value };
+                valueType
+              );
+              if (validatedProperty !== property) {
+                if (validated === value) {
+                  validated = { ...value };
+                }
+                validated[key] =
+                  validatedProperty === VALIDATION_ERROR_SYMBOL
+                    ? undefined
+                    : validatedProperty;
               }
-              validated[key] =
-                validatedProperty === VALIDATION_ERROR
-                  ? undefined
-                  : validatedProperty;
             }
-          }
-          return errors.length > initialErrors ? VALIDATION_ERROR : validated;
-        },
+            return errors.length > initialErrors
+              ? VALIDATION_ERROR_SYMBOL
+              : validated;
+          }, errors),
         toString: () => name,
       };
     }
@@ -221,17 +232,18 @@ export const parsePropertyType = (
 
   if (type.required) {
     const inner = propertyType.validate.bind(propertyType);
-    propertyType.validate = (value, current, context, errors) => {
-      if (value == null) {
-        errors.push({
-          path: "",
-          message: "A value is required",
-          source: value,
-        });
-        return VALIDATION_ERROR;
-      }
-      return inner(value, current, context, errors);
-    };
+    propertyType.validate = (value, current, context, errors) =>
+      handleValidationErrors((errors) => {
+        if (value == null) {
+          errors.push({
+            path: "",
+            message: "A value is required",
+            source: value,
+          });
+          return VALIDATION_ERROR_SYMBOL;
+        }
+        return inner(value, current, context, errors);
+      }, errors);
   }
   return propertyType;
 };
