@@ -7,7 +7,7 @@
  * The tailjs model generally prefers using external references rather than simple strings for most properties
  * since that gives you the option to collect structured data that integrates well in, say, BI scenarios.
  *
- * The tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change.
+ * The tenet is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change.
  * Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources.
  * The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.
  *

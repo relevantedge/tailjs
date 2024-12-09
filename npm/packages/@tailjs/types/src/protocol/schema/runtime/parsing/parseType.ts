@@ -55,7 +55,13 @@ export const parseType = (
 ): SchemaObjectType => {
   let id: string;
 
-  const { schema, parsedTypes, localTypes, systemTypes: systemTypes } = context;
+  const {
+    schema,
+    parsedTypes,
+    localTypes,
+    typeAliases,
+    systemTypes: systemTypes,
+  } = context;
   if (typeof source === "string") {
     source = { reference: source };
   }
@@ -71,6 +77,7 @@ export const parseType = (
 
     // Type reference.
     id = getTypeId(namespace ?? schema.namespace, reference);
+    id = typeAliases.get(id) ?? id;
 
     const parsed = resolveLocalTypeMapping(id, context) ?? parsedTypes.get(id);
     if (!parsed) {
@@ -86,8 +93,7 @@ export const parseType = (
   let embedded: boolean;
   if (Array.isArray(source)) {
     // Key/value pair from a definition's `types` map.
-    name = source[0];
-    source = source[1];
+    [name, source] = source;
     embedded = false;
   } else {
     embedded = true;
@@ -125,10 +131,23 @@ export const parseType = (
   }
 
   id = getTypeId(schema.namespace, name);
+
   if (parsedTypes.has(id)) {
     throw new Error(
       `The namespace '${schema.namespace}' already contains a type with the name '${name}'.`
     );
+  }
+
+  if (source.name && source.name !== name) {
+    name = source.name;
+    const originalId = id;
+    id = getTypeId(schema.namespace, name);
+    if (parsedTypes.has(id)) {
+      throw new Error(
+        `The namespace '${schema.namespace}' already contains a type with the name '${name}'.`
+      );
+    }
+    typeAliases.set(originalId, id);
   }
 
   const version = (source as SchemaTypeDefinition).version ?? schema.version;
@@ -141,6 +160,7 @@ export const parseType = (
     usage: SCHEMA_DATA_USAGE_MAX,
     usageOverrides: overrideUsage(schema.usageOverrides, source) ?? {},
     embedded: embedded,
+    description: (source as SchemaTypeDefinition).description,
     abstract: !!(source as SchemaTypeDefinition).abstract,
     extends: null as any, // Indicate that base types has not been parsed yet (parseBaseTypes).
     extendsAll: new Set(),

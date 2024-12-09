@@ -1,4 +1,12 @@
-import { AllKeys, Extends, MaybeUndefined, ToggleReadonly, tryCatch } from "..";
+import {
+  AllKeys,
+  ArrayOrSelf,
+  Extends,
+  MaybeArray,
+  MaybeUndefined,
+  ToggleReadonly,
+  tryCatch,
+} from "..";
 
 /**
  * The ECMAScript primitive types.
@@ -51,6 +59,42 @@ export type NotFunction =
 
 /** Shorter than writing all this out, and slightly easier to read. */
 export type Nullish = null | undefined;
+export type CaptureNullish<Parameter, Nulls> = (Parameter | Nullish) & Nulls;
+export type MaybeNullish<Parameter, Nulls> = Nulls extends Nullish
+  ? Nulls
+  : Parameter;
+
+export const isTruish = <T>(value: T): value is Exclude<T, Falsish> => !!value;
+export const isTrue = (value: any): value is true => value === T;
+export const isNotTrue = <T>(value: T): value is Exclude<T, true> =>
+  value !== T;
+
+export type Falsish = void | null | undefined | 0 | "" | false;
+export type CaptureFalsish<Parameter, Nulls> = (Parameter | Falsish) & Nulls;
+export type MaybeFalsish<
+  Parameter,
+  Value = Parameter
+> = Parameter extends Falsish
+  ? Parameter extends Nullish
+    ? Parameter
+    : undefined
+  : Value;
+
+export type NullishOrFalse = void | null | undefined | false;
+export type CaptureNullishOrFalse<Parameter, Nulls> = (
+  | Parameter
+  | NullishOrFalse
+) &
+  Nulls;
+
+export type MaybeNullishOrFalse<
+  Parameter,
+  Value = Parameter
+> = Parameter extends NullishOrFalse
+  ? Parameter extends Nullish
+    ? Parameter
+    : undefined
+  : Value;
 
 /** A record type that is neither iterable or a function. */
 export type RecordType<K extends keyof any = keyof any, V = any> = object & {
@@ -258,16 +302,19 @@ export const symbolIterator = Symbol.iterator;
 export const symbolAsyncIterator = Symbol.asyncIterator;
 
 export const createTypeConverter =
-  <T>(
-    typeTester: TypeTester<T>,
-    parser?: (value: any) => T | undefined
-  ): TypeConverter<T> =>
-  (value: any, parse = true as any) =>
-    typeTester(value)
-      ? value
-      : parser && parse && value != null && (value = parser(value)) != null
-      ? value
-      : (undefined as any);
+  /*#__PURE__*/
+
+
+    <T>(
+      typeTester: TypeTester<T>,
+      parser?: (value: any) => T | undefined
+    ): TypeConverter<T> =>
+    (value: any, parse = true as any) =>
+      typeTester(value)
+        ? value
+        : parser && parse && value != null && (value = parser(value)) != null
+        ? value
+        : (undefined as any);
 
 export const ifDefined = <T, P, R>(
   value: T,
@@ -303,14 +350,6 @@ export const parseBoolean = createTypeConverter(isBoolean, (value) =>
     : undefined
 );
 
-export const isTruish = <T>(value: T): value is Exclude<T, Falsish> => !!value;
-
-export const isTrue = (value: any): value is true => value === T;
-export const isNotTrue = <T>(value: T): value is Exclude<T, true> =>
-  value !== T;
-
-export type Falsish = void | null | undefined | 0 | "" | false;
-
 export type FalsishToUndefined<
   T,
   Undefined = undefined
@@ -325,11 +364,6 @@ export const isFalsish = (value: any): value is Falsish => !value;
 export const isFalse = (value: any): value is false => value === F;
 export const isNotFalse = <T>(value: T): value is Exclude<T, false> =>
   value !== F;
-
-/** An array where it is easy to conditionally leave elements out like `["item1", condition&&"item2", undefined]`. */
-export type MaybeFalsish<T> = T extends readonly (infer Item)[]
-  ? ToggleReadonly<MaybeFalsish<Item>[], T>
-  : T | Falsish;
 
 export const truish: {
   <T>(items: Iterable<T | Falsish>, keepUndefined?: false): T[];
@@ -374,9 +408,20 @@ export const toString = createTypeConverter(isString, (value) =>
   value?.toString()
 );
 
-export const isArray: (value: any) => value is readonly any[] = Array.isArray;
+export const isArray: <T>(
+  value: T
+) => value is any[] extends T
+  ? unknown extends T
+    ? any[]
+    : T extends readonly any[]
+    ? T
+    : T extends any[]
+    ? T
+    : never
+  : never = Array.isArray as any;
 
-export const isError = (value: any): value is Error => value instanceof Error;
+export const isError = /*#__PURE__*/ (value: any): value is Error =>
+  value instanceof Error;
 
 /**
  * Returns the value as an array following these rules:
@@ -390,14 +435,18 @@ export const array: {
   //   [T][0],
   //   Promise<T[]>
   // >;
-  <T>(value: T, clone?: boolean): T extends Nullish
-    ? undefined
-    : T extends Iterable<infer Item>
-    ? T extends Item[]
-      ? T
-      : Item[]
-    : T[];
-} = (value: any, clone = false as any): any =>
+  <T>(value: T, clone?: boolean): T extends any
+    ? unknown[] extends T
+      ? any[]
+      : T extends Nullish
+      ? undefined
+      : T extends Iterable<infer Item>
+      ? T extends Item[]
+        ? T
+        : Item[]
+      : T[]
+    : never;
+} = /*#__PURE__*/ (value: any, clone = false as any): any =>
   value == null
     ? undefined
     : !clone && isArray(value)
@@ -406,19 +455,21 @@ export const array: {
     ? [...value]
     : ([value] as any);
 
-export const isObject = (value: any): value is object & Record<any, any> =>
+export const isObject = /*#__PURE__*/ (
+  value: any
+): value is object & Record<any, any> =>
   value !== null && typeof value === "object";
 
-export const isPlainObject = (
+export const isPlainObject = /*#__PURE__*/ (
   value: any
 ): value is RecordType<keyof any, any> => value?.constructor === Object;
 
-export const hasProperty = <P extends keyof any>(
+export const hasProperty = /*#__PURE__*/ <P extends keyof any>(
   value: any,
   property: P
 ): value is { [Prop in P]: any } => isObject(value) && property in value;
 
-export const hasMethods = <Names extends readonly (keyof any)[]>(
+export const hasMethods = /*#__PURE__*/ <Names extends readonly (keyof any)[]>(
   value: any,
   ...names: Names
 ): value is {
@@ -428,54 +479,65 @@ export const hasMethods = <Names extends readonly (keyof any)[]>(
     ? false
     : names.every((name) => typeof value[name] === "function");
 
-export const hasMethod = <Name extends keyof any>(
+export const hasMethod = /*#__PURE__*/ <Name extends keyof any>(
   value: any,
   name: Name
 ): value is {
   [P in Name]: (...args: any) => any;
 } => typeof (value as any)?.[name] === "function";
 
-export const isDate = (value: any): value is Date => value instanceof Date;
+export const isDate = /*#__PURE__*/ (value: any): value is Date =>
+  value instanceof Date;
 export const parseDate = createTypeConverter(isDate, (value) =>
   isNaN((value = Date.parse(value))) ? undefined : value
 );
 
-export const isSymbol = (value: any): value is symbol =>
+export const isSymbol = /*#__PURE__*/ (value: any): value is symbol =>
   typeof value === "symbol";
 
-export const isFunction = (value: any): value is (...args: any) => any =>
-  typeof value === "function";
+export const isFunction = /*#__PURE__*/ (
+  value: any
+): value is (...args: any) => any => typeof value === "function";
 
-export const isIterable = (
+export const isPromiseLike = /*#__PURE__*/ (
+  value: any
+): value is PromiseLike<any> => !!value?.["then"];
+
+export const isIterable = /*#__PURE__*/ (
   value: any,
   acceptStrings = false
 ): value is Iterable<any> =>
   !!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
 
-export const isAsyncIterable = (value: any): value is AsyncIterable<any> =>
-  !!value?.[symbolAsyncIterator];
+export const isAsyncIterable = /*#__PURE__*/ (
+  value: any
+): value is AsyncIterable<any> => !!value?.[symbolAsyncIterator];
 
-export const toIterable = <T>(value: T | Iterable<T>): Iterable<T> =>
-  isIterable(value) ? value : [value];
+export const toIterable = /*#__PURE__*/ <T>(
+  value: T | Iterable<T>
+): Iterable<T> => (isIterable(value) ? value : [value]);
 
 export const asMap: <T extends Iterable<readonly [any, any]> | Nullish>(
   values: T
 ) => T extends Iterable<readonly [infer Key, infer Value]>
   ? Map<Key, Value>
-  : undefined = (values: any): any =>
+  : undefined = /*#__PURE__*/ (values: any): any =>
   values == null ? undefined : new Set(values);
 
-export const isMap = (value: any): value is Map<any, any> =>
+export const isMap = /*#__PURE__*/ (value: any): value is Map<any, any> =>
   value instanceof Map;
 
 export const asSet: <T extends Iterable<any> | Nullish>(
   values: T
-) => T extends Iterable<infer T> ? Set<T> : undefined = (values: any): any =>
-  values == null ? undefined : new Set(values);
+) => T extends Iterable<infer T> ? Set<T> : undefined = /*#__PURE__*/ (
+  values: any
+): any => (values == null ? undefined : new Set(values));
 
-export const isSet = (value: any): value is Set<any> => value instanceof Set;
+export const isSet = /*#__PURE__*/ (value: any): value is Set<any> =>
+  value instanceof Set;
 
-export const isAwaitable = (value: any): value is Promise<any> => !!value?.then;
+export const isAwaitable = /*#__PURE__*/ (value: any): value is Promise<any> =>
+  !!value?.then;
 
 /**
  * If the value is a promise, it will be awaited.

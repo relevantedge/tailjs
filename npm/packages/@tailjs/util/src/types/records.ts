@@ -19,6 +19,10 @@ export type ReadonlyRecord<K extends keyof any = keyof any, V = any> = {
 
 export type PartialDefined<T> = Partial<Exclude<T, undefined | void>>;
 
+export type Freeze<T> = T extends RecordType | readonly any[]
+  ? { readonly [P in keyof T]: Freeze<T[P]> }
+  : T;
+
 /** Makes all properties and properties on nested objects required. */
 export type AllRequired<T, Nulls = never> = T extends undefined | Nulls
   ? never

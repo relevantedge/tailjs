@@ -2,9 +2,8 @@ import { SCOPE_INFO_KEY, SESSION_REFERENCE_KEY } from "@constants";
 import { Transport, defaultTransport } from "@tailjs/transport";
 import {
   DATA_PURPOSES,
-  DataClassification,
   DataPurposeName,
-  DataPurposes,
+  DataUsage,
   DeviceInfo,
   PostResponse,
   ScopeInfo,
@@ -38,6 +37,7 @@ import {
 } from "@tailjs/types";
 import {
   ArrayOrSelf,
+  Freeze,
   Nullish,
   PartialRecord,
   ReadonlyRecord,
@@ -281,7 +281,7 @@ export class Tracker {
   public _session: Variable<SessionInfo> | undefined;
 
   /** @internal */
-  public _device?: Variable<DeviceInfo> | undefined;
+  public _device?: Variable<DeviceInfo>;
 
   /**
    * See {@link Session.expiredDeviceSessionId}.
@@ -300,7 +300,7 @@ export class Tracker {
     purposes: {},
   };
 
-  public get consent() {
+  public get consent(): Freeze<DataUsage> {
     return this._consent;
   }
 
@@ -312,7 +312,7 @@ export class Tracker {
     return this._initialized;
   }
 
-  public get session(): Readonly<SessionInfo> | undefined {
+  public get session(): Freeze<SessionInfo> | undefined {
     return this._session?.value;
   }
 
@@ -324,7 +324,7 @@ export class Tracker {
     return this._session?.value?.deviceSessionId;
   }
 
-  public get device(): Readonly<DeviceInfo> | undefined {
+  public get device(): Freeze<DeviceInfo> | undefined {
     return this._device?.value;
   }
 
@@ -517,16 +517,23 @@ export class Tracker {
     return this;
   }
 
-  public async reset(
-    session: boolean,
+  public async reset({
+    session = true,
     device = false,
     consent = false,
-    referenceTimestamp?: Timestamp,
-    deviceId?: string,
-    deviceSessionId?: string
-  ) {
+    referenceTimestamp,
+    deviceId,
+    deviceSessionId,
+  }: {
+    session: boolean;
+    device?: boolean;
+    consent?: boolean;
+    referenceTimestamp?: Timestamp;
+    deviceId?: string;
+    deviceSessionId?: string;
+  }) {
     if (consent) {
-      await this.updateConsent("anonymous", {});
+      await this.updateConsent({ classification: "anonymous", purposes: {} });
     }
     if (this._session) {
       await this._ensureSession(referenceTimestamp ?? now(), {
@@ -538,12 +545,14 @@ export class Tracker {
     }
   }
 
-  public async updateConsent(
-    classification?: DataClassification,
-    purposes?: DataPurposes
-  ): Promise<void> {
+  public async updateConsent({
+    purposes,
+    classification,
+  }: Partial<DataUsage>): Promise<void> {
     if (!this._session) return;
 
+    purposes = dataPurposes(purposes);
+    classification = dataClassification(classification);
     purposes ??= this.consent.purposes;
     classification ??= this.consent.classification;
 

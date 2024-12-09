@@ -64,6 +64,8 @@ export class TypeResolver {
 
   private readonly _source: readonly SchemaDefinitionSource[];
 
+  public schemas: readonly Schema[];
+
   constructor(
     schemas: readonly SchemaDefinitionSource[],
     defaultUsage = SCHEMA_DATA_USAGE_ANONYMOUS
@@ -93,6 +95,7 @@ export class TypeResolver {
           namespace,
           source: definition,
           schema: undefined as any,
+          description: definition.description,
           name: definition.name ?? namespace,
           qualifiedName: namespace,
           typesOnly: !!typesOnly,
@@ -115,6 +118,7 @@ export class TypeResolver {
             usageOverrides: definition,
             typesOnly: !!typesOnly,
             localTypes: parsed.types,
+            typeAliases: new Map(),
           },
         ];
       });
@@ -246,6 +250,8 @@ export class TypeResolver {
         return [key, variable];
       }),
     ]);
+
+    this.schemas = [...this._schemas.values()];
   }
 
   public getEventType<T>(

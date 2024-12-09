@@ -2,6 +2,7 @@
 // import { CLIENT_CONFIG } from "@tailjs/client/external";
 
 import {
+  Tag,
   UserConsent,
   type DataPurposes,
   type ViewEvent,
@@ -95,7 +96,7 @@ export type RequestHandlerConfiguration = {
    * Common tags that will be added to all collected events. This can be used to differentiate between different
    * server nodes in a clustered environment, or the purpose of environment (like dev, qa, staging or production).
    */
-  environmentTags?: string[];
+  environmentTags?: Tag[];
 
   /**
    * This is used to add entropy to temporary keys used for short-term communication and

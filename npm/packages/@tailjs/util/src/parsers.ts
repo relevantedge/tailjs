@@ -305,15 +305,15 @@ export const toQueryString = <
 ): MaybeUndefined<P, string> =>
   parameters == nil
     ? undefined
-    : (map(parameters, ([key, value]) =>
-        isString(key)
+    : (map(parameters, ([key, value]) => {
+        return isString(key)
           ? key +
-            "=" +
-            (isArray(value)
-              ? map(value, uriEncode).join(delimiter)
-              : uriEncode(value) ?? "")
-          : undefined
-      )?.join("&") as any);
+              "=" +
+              (isArray(value)
+                ? map(value, uriEncode).join(delimiter)
+                : uriEncode(value) ?? "")
+          : undefined;
+      })?.join("&") as any);
 
 export const appendQueryString = <Uri extends string | undefined>(
   baseUri: Uri,

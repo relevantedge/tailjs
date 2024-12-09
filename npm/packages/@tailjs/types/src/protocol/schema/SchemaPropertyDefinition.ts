@@ -9,12 +9,11 @@ import {
   SchemaPrimitiveTypeDefinition,
 } from "../..";
 
-export type SchemaPropertyDefinition =
-  | SchemaDefinitionEntity &
-      SchemaPropertyTypeDefinition & {
-        required?: boolean;
-        default?: any;
-      };
+export type SchemaPropertyDefinition = SchemaDefinitionEntity &
+  SchemaPropertyTypeDefinition & {
+    required?: boolean;
+    default?: any;
+  };
 
 export type SchemaPropertyTypeDefinition =
   | SchemaPrimitiveTypeDefinition

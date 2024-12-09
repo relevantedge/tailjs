@@ -19,6 +19,7 @@ import {
   type HttpResponse,
   type LogMessage,
 } from "./shared";
+import { Tag } from "@tailjs/types";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
@@ -48,7 +49,7 @@ export class TrackerEnvironment {
     { group: string; name?: string }
   >();
 
-  public readonly tags?: string[];
+  public readonly tags?: Tag[];
   public readonly cookieVersion: string;
   public readonly storage: VariableStorageCoordinator;
 
@@ -56,7 +57,7 @@ export class TrackerEnvironment {
     host: EngineHost,
     crypto: CryptoProvider,
     storage: VariableStorageCoordinator,
-    tags?: string[],
+    tags?: Tag[],
     cookieVersion = "C"
   ) {
     this._host = host;
@@ -136,7 +137,7 @@ export class TrackerEnvironment {
     const message: Partial<LogMessage> =
       !isObject(arg) || arg instanceof Error
         ? {
-            message: arg instanceof Error ? "An error ocurred" : arg,
+            message: arg instanceof Error ? "An error occurred" : arg,
             level: level ?? (error ? "error" : "info"),
             error,
           }

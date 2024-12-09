@@ -21,6 +21,7 @@ import {
   TypeResolver,
   UserConsent,
   ValidationError,
+  SignInEvent,
 } from "@tailjs/types";
 
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
@@ -85,7 +86,6 @@ import {
   skip2,
   unwrap,
 } from "@tailjs/util";
-import { SignInEvent } from "packages/@tailjs/types/dist";
 import { ClientIdGenerator, DefaultClientIdGenerator } from ".";
 import {
   generateClientBootstrapScript,
@@ -354,6 +354,37 @@ export class RequestHandler {
     });
   }
 
+  private _validateEvents(
+    tracker: Tracker,
+    events: ParseResult[]
+  ): ParseResult[] {
+    return map2(events, (ev) => {
+      if (isValidationError(ev)) return ev;
+      try {
+        const eventType = this._schema.getEventType(ev);
+
+        ev = eventType.validate(ev, undefined, {
+          trusted: tracker.trustedContext,
+        });
+
+        return (
+          eventType.censor(ev, {
+            trusted: tracker.trustedContext,
+            consent: tracker.consent,
+          }) ?? skip2
+        );
+      } catch (e) {
+        return {
+          error:
+            e instanceof ValidationError
+              ? `Invalid data for '${ev.type}' event:\n${indent2(e.message)}`
+              : formatError(e),
+          source: ev,
+        };
+      }
+    });
+  }
+
   public async post(
     tracker: Tracker,
     eventBatch: TrackedEventBatch,
@@ -363,34 +394,7 @@ export class RequestHandler {
     let events = eventBatch;
     await this.initialize();
 
-    const validateEvents = (events: ParseResult[]): ParseResult[] =>
-      map2(events, (ev) => {
-        if (isValidationError(ev)) return ev;
-        try {
-          const eventType = this._schema.getEventType(ev);
-
-          ev = eventType.validate(ev, undefined, {
-            trusted: tracker.trustedContext,
-          });
-
-          return (
-            eventType.censor(ev, {
-              trusted: tracker.trustedContext,
-              consent: tracker.consent,
-            }) ?? skip2
-          );
-        } catch (e) {
-          return {
-            error:
-              e instanceof ValidationError
-                ? `Invalid data for '${ev.type}' event:\n${indent2(e.message)}`
-                : formatError(e),
-            source: ev,
-          };
-        }
-      });
-
-    let parsed = validateEvents(eventBatch);
+    let parsed = this._validateEvents(tracker, eventBatch);
     const sourceIndices = new Map<{}, number>();
     parsed.forEach((item, i) => {
       sourceIndices.set(item, i);
@@ -426,11 +430,14 @@ export class RequestHandler {
       results: ParseResult[]
     ): Promise<TrackedEvent[]> => {
       const extension = patchExtensions[index];
-      const events = collectValidationErrors(validateEvents(results));
+      const events = collectValidationErrors(
+        this._validateEvents(tracker, results)
+      );
       if (!extension) return events;
       try {
         return collectValidationErrors(
-          validateEvents(
+          this._validateEvents(
+            tracker,
             await extension.patch!(
               events,
               async (events) => {

@@ -20,4 +20,6 @@ export type TypeParseContext = {
   parsedTypes: Map<string, SchemaObjectType>;
 
   localTypes: Map<string, SchemaObjectType>;
+
+  typeAliases: Map<string, string>;
 };
