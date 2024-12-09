@@ -1,7 +1,7 @@
 import {
+  handleValidationErrors,
   SCHEMA_TYPE_PROPERTY,
   SchemaSystemTypeDefinition,
-  handleValidationErrors,
   TypeResolver,
 } from "@tailjs/types";
 
@@ -56,9 +56,7 @@ describe("TypeResolver", () => {
                   reference: "Test",
                 },
                 test: {
-                  usage: {
-                    visibility: "public",
-                  },
+                  visibility: "public",
                   primitive: "string",
                 },
               },
@@ -193,55 +191,45 @@ describe("TypeResolver", () => {
 
           types: {
             Censored: {
-              usage: {
-                classification: "indirect",
-              },
+              classification: "indirect",
               properties: {
                 ok: {
-                  usage: { classification: "anonymous" },
+                  classification: "anonymous",
                   primitive: "string",
                 },
                 pers: {
                   primitive: "string",
                 },
                 perf: {
-                  usage: {
-                    purposes: { performance: true },
-                  },
+                  purposes: { performance: true },
+
                   primitive: "string",
                 },
                 secret: {
                   primitive: "number",
-                  usage: {
-                    visibility: "trusted-only",
-                  },
+                  visibility: "trusted-only",
                 },
                 nested: {
-                  usage: {
-                    classification: "anonymous",
-                    purposes: { performance: true },
-                  },
+                  classification: "anonymous",
+                  purposes: { performance: true },
+
                   properties: {
                     ok: { primitive: "string" },
                     req: {
-                      usage: {
-                        classification: "indirect",
-                        // Implicitly "performance"
-                      },
+                      classification: "indirect",
+                      // Implicitly "performance" inherited from type
                       required: false,
                       primitive: "boolean",
                     },
                   },
                 },
                 nestedReq: {
-                  usage: { classification: "anonymous" },
+                  classification: "anonymous",
                   properties: {
                     ok: { primitive: "string" },
                     req: {
-                      usage: {
-                        classification: "indirect",
-                        purposes: { performance: true, functionality: true },
-                      },
+                      classification: "indirect",
+                      purposes: { performance: true, functionality: true },
                       required: true,
                       primitive: "boolean",
                     },
@@ -253,7 +241,7 @@ describe("TypeResolver", () => {
               extends: [{ reference: "Censored" }],
               properties: {
                 hello: {
-                  usage: { classification: "anonymous" },
+                  classification: "anonymous",
                   primitive: "string",
                   required: true,
                 },
@@ -274,12 +262,12 @@ describe("TypeResolver", () => {
             SubCensored2_1: {
               extends: [{ reference: "SubCensored2" }],
               // "anonymous" should take effect on all own properties instead of base types "indirect".
-              usage: { classification: "anonymous" },
+              classification: "anonymous",
               properties: {
                 boom: {
                   reference: "base",
                   // Override the classification of the base property (seemingly weird thing to do, but why not?)
-                  usage: { classification: "anonymous" },
+                  classification: "anonymous",
                 },
                 test21: {
                   required: true,

@@ -1,7 +1,6 @@
-import type { TrackedEvent } from "@tailjs/types";
+import type { TrackedEvent, SignInEvent } from "@tailjs/types";
 import { DeferredAsync, MaybePromiseLike } from "@tailjs/util";
 import type { ParseResult, Tracker, TrackerEnvironment } from "./shared";
-import { SignInEvent } from "packages/@tailjs/types/dist";
 
 export type NextPatchExtension = (
   events: ParseResult[]

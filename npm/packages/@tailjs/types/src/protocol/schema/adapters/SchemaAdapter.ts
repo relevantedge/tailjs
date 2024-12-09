@@ -1,7 +1,7 @@
-import { SchemaDefinition } from "../SchemaDefinition";
+import { Schema, SchemaDefinition } from "../../..";
 
 export interface SchemaAdapter {
   parse(source: string): SchemaDefinition[];
 
-  serialize(schemas: SchemaDefinition[]): string | undefined;
+  serialize(schemas: readonly Schema[]): string | undefined;
 }

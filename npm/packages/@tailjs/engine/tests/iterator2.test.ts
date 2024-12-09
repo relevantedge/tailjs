@@ -1,29 +1,31 @@
 import {
-  toggle2,
   all2,
   array2,
   assign2,
   avg2,
   clone2,
+  enumerate2,
   filter2,
   flatMap2,
   forEach2,
+  forEachAsync2,
   get2,
   group2,
+  indent2,
   map2,
+  mapAsync2,
   max2,
   min2,
   obj2,
+  pick2,
   skip2,
   some2,
   sort2,
   stop2,
   sum2,
+  toggle2,
   topoSort2,
   update2,
-  enumerate2,
-  pick2,
-  indent2,
 } from "@tailjs/util";
 
 type Item = [id: string, deps?: Item[]];
@@ -68,6 +70,12 @@ describe("iterators(2)", () => {
         item > prev ? item : prev
       )
     ).toBe(3);
+
+    expect(map2("hello")).toEqual(["h", "e", "l", "l", "o"]);
+    expect(map2("")).toEqual([]);
+    expect(map2(0)).toEqual([]);
+    expect(map2(false)).toBeUndefined();
+    expect(map2("Lol💀")).toEqual(["L", "o", "l", "💀"]);
 
     const testMap = new Map<number, string>();
     testMap.set(10, "ok");
@@ -497,5 +505,68 @@ describe("iterators(2)", () => {
       line
       `))
     ).toBe("\n  already\n    indented\n  weird\n\n  line\n");
+  });
+
+  it("Asyncs", async () => {
+    async function* asyncIt() {
+      yield 1;
+      yield 2;
+      yield Promise.resolve(3);
+    }
+
+    await expect(forEachAsync2(asyncIt())).resolves.toBe(3);
+    await expect(forEachAsync2([1, 2, 3])).resolves.toBe(3);
+    await expect(forEachAsync2(asyncIt(), (x) => x + 1)).resolves.toBe(4);
+    await expect(forEachAsync2(asyncIt(), async (x) => x + 1)).resolves.toBe(4);
+    await expect(
+      forEachAsync2(asyncIt(), (x) => (x === 2 ? Promise.resolve(x) : x + 1))
+    ).resolves.toBe(4);
+    await expect(forEachAsync2([1, 2, 3], (x) => x + 1)).resolves.toBe(4);
+    await expect(forEachAsync2(3, async (x) => x + 2)).resolves.toBe(4);
+    await expect(
+      forEachAsync2(
+        (x = 0) => (x > 2 ? undefined : x + 1),
+        (x) => (x === 2 ? Promise.resolve(x) : x + 1)
+      )
+    ).resolves.toBe(4);
+
+    await expect(mapAsync2(asyncIt())).resolves.toEqual([1, 2, 3]);
+    await expect(
+      mapAsync2(Promise.resolve(asyncIt()), async (item) =>
+        Promise.resolve(item)
+      )
+    ).resolves.toEqual([1, 2, 3]);
+    await expect(mapAsync2([1, 2, 3])).resolves.toEqual([1, 2, 3]);
+    await expect(mapAsync2(asyncIt(), (x) => x + 1)).resolves.toEqual([
+      2, 3, 4,
+    ]);
+    await expect(mapAsync2(asyncIt(), async (x) => x + 1)).resolves.toEqual([
+      2, 3, 4,
+    ]);
+    await expect(
+      mapAsync2(asyncIt(), (x) => (x === 2 ? Promise.resolve(x) : x + 1))
+    ).resolves.toEqual([2, 2, 4]);
+    await expect(mapAsync2([1, 2, 3], (x) => x + 1)).resolves.toEqual([
+      2, 3, 4,
+    ]);
+    await expect(mapAsync2(3, async (x) => x + 2)).resolves.toEqual([2, 3, 4]);
+    await expect(
+      mapAsync2(
+        (x = 0) => (x > 2 ? undefined : x + 1),
+        (x) => (x === 2 ? Promise.resolve(x) : x + 1)
+      )
+    ).resolves.toEqual([2, 2, 4]);
+
+    await expect(forEachAsync2(null)).resolves.toBe(null);
+    await expect(forEachAsync2(undefined)).resolves.toBe(undefined);
+    await expect(forEachAsync2(false)).resolves.toBe(undefined);
+    await expect(forEachAsync2(0)).resolves.toBe(undefined);
+    await expect(forEachAsync2("")).resolves.toBe(undefined);
+
+    await expect(mapAsync2(null)).resolves.toBe(null);
+    await expect(mapAsync2(undefined)).resolves.toBe(undefined);
+    await expect(mapAsync2(false)).resolves.toBe(undefined);
+    await expect(mapAsync2(0)).resolves.toEqual([]);
+    await expect(mapAsync2("")).resolves.toEqual([]);
   });
 });

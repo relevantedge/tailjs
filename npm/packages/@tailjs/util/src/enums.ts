@@ -21,6 +21,14 @@ import {
   undefined,
 } from ".";
 
+export interface EnumParseOptions<
+  Numeric extends boolean,
+  Validate extends boolean
+> {
+  numeric?: Numeric;
+  validate?: Validate;
+}
+
 export interface EnumParser<Levels extends string> {
   <
     T extends Levels | (string & {}) | number | Nullish,

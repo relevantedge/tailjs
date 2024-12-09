@@ -1,4 +1,11 @@
-import { enumerate, map2, Nullish, skip2 } from "@tailjs/util";
+import {
+  enumerate,
+  Falsish,
+  MaybeFalsish,
+  map2,
+  Nullish,
+  skip2,
+} from "@tailjs/util";
 import {
   dataClassification,
   DataClassification,
@@ -78,6 +85,15 @@ export interface DataUsage {
    */
   purposes: DataPurposes;
 }
+
+export const cloneUsage = <T extends DataUsage | Nullish>(
+  usage: T
+): MaybeFalsish<T, DataUsage> =>
+  usage &&
+  ({
+    classification: usage.classification,
+    purposes: { ...usage.purposes },
+  } satisfies DataUsage as any);
 
 export const usageToString = (usage: DataUsage): string | null => {
   const purposes = dataPurposes(usage.purposes, { names: true });

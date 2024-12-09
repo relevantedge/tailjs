@@ -2,6 +2,7 @@ import {
   ScopedVariableSetter,
   TypeResolver,
   VariableQuery,
+  VariableScope,
   VariableSetResult,
   VariableSuccessResult,
 } from "@tailjs/types";
@@ -154,12 +155,6 @@ describe("VariableStorageCoordinator", () => {
         .value()
     ).toMatchObject({
       name: "test 1",
-    });
-
-    const narko = await coordinator.get({
-      scope: "user",
-      key: "test1",
-      entityId: "foo",
     });
 
     expect(
@@ -448,7 +443,7 @@ describe("VariableStorageCoordinator", () => {
     let { cursor, variables } = await coordinator.query(
       [{ scopes: ["session"] }],
       {
-        options: { page: 10 },
+        page: 10,
       }
     );
     expect(variables.map((variable) => variable.entityId)).toEqual(
@@ -458,7 +453,8 @@ describe("VariableStorageCoordinator", () => {
     ({ cursor, variables } = await coordinator.query(
       [{ scopes: ["session"] }],
       {
-        options: { page: 10, cursor },
+        page: 10,
+        cursor,
       }
     ));
 
@@ -469,7 +465,8 @@ describe("VariableStorageCoordinator", () => {
     ({ cursor, variables } = await coordinator.query(
       [{ scopes: ["session"] }],
       {
-        options: { page: 100, cursor },
+        page: 100,
+        cursor,
       }
     ));
 
@@ -490,7 +487,8 @@ describe("VariableStorageCoordinator", () => {
     ({ cursor, variables } = await coordinator.query(
       [{ scopes: ["session"] }],
       {
-        options: { page: 10000, cursor },
+        page: 10000,
+        cursor,
       }
     ));
 
@@ -500,7 +498,8 @@ describe("VariableStorageCoordinator", () => {
     ({ cursor, variables } = await coordinator.query(
       [{ scopes: ["session", "user"] }],
       {
-        options: { page: 10000, cursor },
+        page: 10000,
+        cursor,
       }
     ));
 
@@ -508,7 +507,8 @@ describe("VariableStorageCoordinator", () => {
     expect(cursor).toBeUndefined();
 
     ({ cursor, variables } = await coordinator.query([{}], {
-      options: { page: 10000, cursor },
+      page: 10000,
+      cursor,
     }));
 
     expect(variables.length).toBe(120);
@@ -517,7 +517,8 @@ describe("VariableStorageCoordinator", () => {
     ({ cursor, variables } = await coordinator.query(
       [{ entityIds: [userIds[2]] }],
       {
-        options: { page: 10000, cursor },
+        page: 10000,
+        cursor,
       }
     ));
 
@@ -528,7 +529,8 @@ describe("VariableStorageCoordinator", () => {
     ({ cursor, variables } = await coordinator.query(
       [{ entityIds: [userIds[1], userIds[2]] }],
       {
-        options: { page: 1, cursor },
+        page: 1,
+        cursor,
       }
     ));
 
@@ -539,7 +541,8 @@ describe("VariableStorageCoordinator", () => {
     ({ cursor, variables } = await coordinator.query(
       [{ entityIds: [userIds[1], userIds[2]] }],
       {
-        options: { page: 1, cursor },
+        page: 1,
+        cursor,
       }
     ));
 
@@ -550,7 +553,8 @@ describe("VariableStorageCoordinator", () => {
     ({ cursor, variables } = await coordinator.query(
       [{ entityIds: [userIds[1], userIds[2]] }],
       {
-        options: { page: 1, cursor },
+        page: 1,
+        cursor,
       }
     ));
 
@@ -563,7 +567,8 @@ describe("VariableStorageCoordinator", () => {
     ]);
 
     ({ cursor, variables } = await coordinator.query([{}], {
-      options: { page: 10000, cursor },
+      page: 10000,
+      cursor,
     }));
 
     expect(variables.length).toBe(70); // Half of the test 1 variables have been deleted.
@@ -598,7 +603,8 @@ describe("VariableStorageCoordinator", () => {
       )
     );
     ({ cursor, variables } = await coordinator.query([{}], {
-      options: { page: 10000, cursor },
+      page: 10000,
+      cursor,
     }));
 
     expect(variables.length).toBe(120); // Half of the test 1 variables have been deleted and 20 session:test2, 20 user:test2 and 10 user:test4 have been added.
@@ -610,7 +616,7 @@ describe("VariableStorageCoordinator", () => {
     expect({
       length: (
         await coordinator.query([{}, {}], {
-          options: { page: 10000 },
+          page: 10000,
         })
       ).variables.length,
     }).toEqual({ length: 120 });
@@ -646,12 +652,16 @@ describe("VariableStorageCoordinator", () => {
       [[{ classification: { gt: "anonymous", lt: "sensitive" } }], 20], // session:test2
       [[{ classification: { gt: "sensitive" } }], 0], //// Impossible, nothing is more sensitive than sensitive
       [[{}, {}, {}], 120], // Multiple "query all" queries should still only return each variable once.
-    ] satisfies [VariableQuery[], number, context?: VariableStorageContext][]) {
+    ] satisfies [
+      VariableQuery<VariableScope>[],
+      number,
+      context?: VariableStorageContext
+    ][]) {
       expect({
         queries,
         length: (
           await coordinator.query(queries, {
-            options: { page: 10000 },
+            page: 10000,
             context,
           })
         ).variables.length,
@@ -665,14 +675,14 @@ describe("VariableStorageCoordinator", () => {
     expect(
       await coordinator.purge(
         { purposes: { performance: true } },
-        { options: { bulk: true } }
+        { bulk: true }
       )
     ).toBe(20); // Does not target user:test4 since that is also marketing.
 
     expect(
       await coordinator.purge(
         { purposes: { performance: true } },
-        { options: { bulk: true } }
+        { bulk: true }
       )
     ).toBe(0);
 
@@ -681,10 +691,10 @@ describe("VariableStorageCoordinator", () => {
         {
           purposes: { performance: true, marketing: true },
         },
-        { options: { bulk: true } }
+        { bulk: true }
       )
     ).toBe(10);
 
-    expect(await coordinator.purge({}, { options: { bulk: true } })).toBe(90); // All remaining variables
+    expect(await coordinator.purge({}, { bulk: true })).toBe(90); // All remaining variables
   });
 });

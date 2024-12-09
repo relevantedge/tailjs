@@ -1,11 +1,18 @@
 import {
+  CaptureNullish,
   Falsish,
+  MaybeFalsish,
   isArray,
   isIterable,
+  isPromiseLike,
+  NullishOrFalse,
+  MaybeNullish,
   Primitives,
   RecordType,
   replace,
   UnionToIntersection,
+  MaybeNullishOrFalse,
+  MaybePromiseLike,
 } from ".";
 
 // Faster versions of map and forEach. The others are a bit "muddy".
@@ -13,19 +20,43 @@ import {
 
 let stopInvoked = false;
 const stopSymbol = Symbol();
+const forEachSymbol = Symbol();
+const asyncIteratorFactorySymbol = Symbol();
+const assignSymbol = Symbol();
+const getSymbol = Symbol();
+
 export const skip2 = Symbol();
 export const stop2: (<T = any>(value: T) => T) & typeof stopSymbol = (<T>(
   value: T
 ) => ((stopInvoked = true), value)) as any;
 
+for (const { prototype } of [Map, WeakMap]) {
+  prototype[assignSymbol] = (target: Map<any, any>, key: any, value: any) =>
+    value === undefined ? target.delete(key) : target.set(key, value);
+  prototype[getSymbol] = prototype.get;
+}
+
+for (const { prototype } of [Set, WeakSet]) {
+  prototype[assignSymbol] = (target: Set<any>, key: any, value: any) =>
+    value ? target.add(key) : target.delete(key);
+
+  prototype[getSymbol] = prototype.has;
+}
+
+Object.prototype[assignSymbol] = (target: Set<any>, key: any, value: any) =>
+  (target[key] = value);
+
+Object.prototype[getSymbol] = function (key: any) {
+  return this[key];
+};
+
 const symbolIterator = Symbol.iterator;
+const symbolAsyncIterator = Symbol.asyncIterator;
 const throwError = function (e: string) {
   throw new Error(e);
 };
 
 const TRUISH = <T>(item: T) => item || skip2;
-
-const forEachFunction = Symbol();
 
 type Nullish = null | undefined | void;
 
@@ -100,28 +131,23 @@ type ItItem<T> = unknown extends T
   ? KeyValues<T>
   : never;
 
-type ItArray<It> = FalsishItSourceIsNullish<
+type ItArray<It> = MaybeNullishOrFalse<
   It,
   [ItItem<It>] extends [never] ? undefined : ItItem<It>[]
 >;
 
-type ItProjection<R> = R extends typeof skip2 | typeof stop2 ? never : R;
+type ItProjection<R, ExcludeTypes = never> = R extends
+  | typeof skip2
+  | typeof stop2
+  ? never
+  : Exclude<R, ExcludeTypes>;
 
 type ItSource =
   | object
   | Iterable<any>
   | number
   | ((current: any) => any)
-  | Falsish;
-
-type FalsishItSourceIsNullish<It, Default = never> = It extends Exclude<
-  Falsish,
-  0
->
-  ? It extends Nullish
-    ? It
-    : undefined
-  : Default;
+  | NullishOrFalse;
 
 type ItSourceOf<T> = unknown extends T
   ? ItSource
@@ -134,6 +160,7 @@ type ItSourceOf<T> = unknown extends T
       | (T extends number ? number : never)
       | ((current: T) => T | undefined)
       | Iterable<T>
+      | Iterator<T>
       | Falsish;
 
 type Kv2<K = keyof any, V = any> = readonly [K, V];
@@ -283,6 +310,15 @@ type MergeObj2Sources<
   ? { [P in keyof T]: T[P] }
   : never;
 
+const iterateEntries = () => {
+  function* iterateEntries(value: any) {
+    for (const key in value) {
+      yield [key, value[key]];
+    }
+  }
+  return (target: any) => iterateEntries(target);
+};
+
 const forEachIterable2: () => ForEachFunction =
   () => (target, projection, mapped, seed, context) => {
     let projected: any,
@@ -367,12 +403,13 @@ export function* traverse2(next: <T>(current: T | undefined) => T | Nullish) {
   while ((item = next(item)) !== undefined) yield item;
 }
 
-export const collect2 = <T>(
-  source: T | Iterable<T>,
+export const collect2 = <T, Nulls>(
+  source: T | Iterable<T> | Nulls,
   generator: (item: T) => Iterable<T> | Nullish,
   includeSelf = true,
   collected = new Set<T>()
-): Set<T> => {
+): MaybeNullish<Set<T>, Nulls> => {
+  if (!source) return source as any;
   if (source[symbolIterator]) {
     forEach2(source as Iterable<T>, (item) =>
       collect2(item, generator, includeSelf, collected)
@@ -387,40 +424,63 @@ export const collect2 = <T>(
       }
     }
   }
-  return collected;
+  return collected as any;
 };
 
-const createForEachFunction = (target: any): ForEachFunction => {
+export const push2 = <T, Item extends T | undefined>(
+  target: T[],
+  item: Item
+): Item => (item !== undefined && target.push(item), item);
+
+let genericIterable = forEachIterable2();
+let genericKeyValue = forEachKeyValue2();
+const assignForEach = (target: {}) => {
   let it1: any, it2: any;
-  return target.constructor === Array
-    ? forEachArray2()
-    : target.constructor === Object
-    ? ((it1 = forEachIterable2()),
-      (it2 = forEachKeyValue2()),
-      (target, projection, mapped, seed, context) =>
-        (target.constructor === Object
-          ? symbolIterator in target
-            ? it1
-            : it2
-          : assignForEach(target))(target, projection, mapped, seed, context))
-    : typeof target === "number"
-    ? ((it1 = forEachIterable2()),
-      (target, projection: any, mapped, seed, context) =>
-        it1(range2(target), projection, mapped, seed, context))
-    : typeof target === "function"
-    ? ((it1 = forEachIterable2()),
-      (target, projection: any, mapped, seed, context) =>
-        it1(traverse2(target), projection, mapped, seed, context))
-    : typeof target === "object"
-    ? symbolIterator in target
-      ? forEachIterable2()
-      : forEachKeyValue2()
-    : () => {};
+  return Object.getPrototypeOf(target)[forEachSymbol] ??
+    target.constructor === Object
+    ? target[symbolIterator]
+      ? genericIterable
+      : genericKeyValue
+    : (Object.getPrototypeOf(target)[forEachSymbol] ??=
+        target.constructor === Array
+          ? forEachArray2()
+          : target.constructor === Object
+          ? (((it1 = forEachIterable2()),
+            (it2 = forEachKeyValue2()),
+            (target, projection, mapped, seed, context) =>
+              (symbolIterator in target ? it1 : it2)(
+                target,
+                projection,
+                mapped,
+                seed,
+                context
+              )) satisfies ForEachFunction)
+          : typeof target === "number"
+          ? (((it1 = forEachIterable2()),
+            (target, projection: any, mapped, seed, context) =>
+              it1(
+                range2(target),
+                projection,
+                mapped,
+                seed,
+                context
+              )) satisfies ForEachFunction)
+          : typeof target === "function"
+          ? (((it1 = forEachIterable2()),
+            (target, projection: any, mapped, seed, context) =>
+              it1(
+                traverse2(target),
+                projection,
+                mapped,
+                seed,
+                context
+              )) satisfies ForEachFunction)
+          : typeof target[symbolIterator] === "function"
+          ? forEachIterable2()
+          : typeof target === "object"
+          ? forEachKeyValue2()
+          : () => {});
 };
-
-const assignForEach = (target: any) =>
-  (Object.getPrototypeOf(target)[forEachFunction] =
-    createForEachFunction(target));
 
 export const map2: {
   <
@@ -436,7 +496,7 @@ export const map2: {
     target?: Target & ItProjection<R>[],
     seed?: S,
     context?: Context
-  ): FalsishItSourceIsNullish<
+  ): MaybeNullishOrFalse<
     It,
     ItProjection<R>[] extends Target ? Target : ItProjection<R>[]
   >;
@@ -455,11 +515,9 @@ export const map2: {
   seed?: any,
   context = source
 ) =>
-  !source && source !== 0
-    ? source == null
-      ? source
-      : undefined
-    : (source[forEachFunction] || assignForEach(source))(
+  source == null
+    ? source
+    : (source[forEachSymbol] || assignForEach(source))(
         source,
         projection,
         target,
@@ -483,16 +541,6 @@ type ValueOf<T, K> = T extends infer T
     ? T[K]
     : never
   : never;
-
-type SelectorResult<
-  T,
-  S extends Selector,
-  Require extends boolean = true
-> = S extends Nullish
-  ? T
-  : S extends (...args: any) => infer R
-  ? R
-  : Exclude<ValueOf<T, S>, Require extends true ? undefined : never>;
 
 export const pick2: {
   <T extends object | Nullish, TK extends keyof (T & {}), K extends AnyKey<T>>(
@@ -539,7 +587,7 @@ export const filter2: {
     target: It,
     filter: { has(item: Exclude<ItItem<It>, Nullish>): any },
     invert?: boolean
-  ): It extends Nullish ? It : ItItem<Exclude<It, Falsish>>[];
+  ): It extends Nullish ? It : ItItem<Exclude<It, NullishOrFalse>>[];
 } = (items: any, filter?: any, invert = false) =>
   map2(
     items,
@@ -552,16 +600,21 @@ export const filter2: {
   );
 
 export const take2: {
-  <It extends ItSource | Falsish>(
+  <It extends ItSource>(
     source: It,
     count: number,
     projection?: undefined
   ): ItArray<It>;
-  <It extends ItSource | Falsish, R, S extends R>(
+  <
+    It extends ItSource,
+    R,
+    S extends R,
+    Signal extends typeof skip2 | typeof stop2 | never
+  >(
     source: It,
     count: number,
-    projection: ItCallback2<It, S, R>
-  ): It extends Falsish ? undefined : ItProjection<R>[];
+    projection: ItCallback2<It, S, R | Signal>
+  ): MaybeNullishOrFalse<It, ItProjection<R>[]>;
 } = (source: any, count: any, projection?: any) =>
   map2(
     source,
@@ -625,7 +678,7 @@ export const flatMap2: {
     target?: Target & Flat<ItProjection<R>, Depth>[],
     seed?: S,
     context?: Context
-  ): FalsishItSourceIsNullish<
+  ): MaybeNullishOrFalse<
     It,
     Flat<ItProjection<R>, Depth>[] extends Target
       ? Target
@@ -662,22 +715,33 @@ export const flatMap2: {
   );
 
 export const forEach2: {
-  <It extends ItSource | Falsish>(source: It): It extends Falsish
-    ? undefined
-    : ItItem<It> | undefined;
-  <It extends ItSource | Falsish, R, S extends R, Context = It>(
+  <It extends ItSource>(source: It): MaybeNullishOrFalse<
+    It,
+    ItItem<It> | undefined
+  >;
+  <
+    It extends ItSource,
+    R,
+    S extends R,
+    Signal extends typeof skip2 | typeof stop2 | never,
+    Context = It
+  >(
     source: It,
-    projection: ItCallback2<It, S, R, Context> | Nullish,
+    projection: ItCallback2<It, S, R | Signal, Context> | Nullish,
     seed?: S,
     context?: Context
-  ): It extends Falsish ? undefined : ItProjection<R> | undefined;
+  ): MaybeNullishOrFalse<It, ItProjection<R> | undefined>;
 } = (source: any, projection?: any, seed?: any, context = source) =>
   source
-    ? (
-        source[forEachFunction] ||
-        (Object.getPrototypeOf(source)[forEachFunction] =
-          createForEachFunction(source))
-      )(source, projection, undefined, seed, context)
+    ? (source[forEachSymbol] || assignForEach(source))(
+        source,
+        projection,
+        undefined,
+        seed,
+        context
+      )
+    : source == null
+    ? source
     : undefined;
 
 type Group2Result<Source, AsMap> = AsMap extends true
@@ -697,27 +761,33 @@ export const group2: {
     ? It
     : Group2Result<Obj2SourceToObj<It>, true>;
 
-  <It extends ItSource, R extends Kv2<any> | Falsish, S extends R>(
+  <
+    It extends ItSource,
+    R extends Kv2<any> | Falsish,
+    S extends R,
+    Signal extends typeof skip2 | typeof stop2 | never
+  >(
     source: It,
-    projection: ItCallback2<It, S, R>,
+    projection: ItCallback2<It, S, R | Signal>,
     map?: true
-  ): Group2Result<ItProjection<Exclude<R, Falsish>>[], true>;
+  ): MaybeNullishOrFalse<It, Group2Result<ItProjection<R, Falsish>[], true>>;
 
   <
     It extends ItSource,
     R extends Kv2 | Falsish,
     S extends R,
+    Signal extends typeof skip2 | typeof stop2 | never,
     AsMap extends boolean = true
   >(
     source: It,
-    projection: ItCallback2<It, S, R>,
+    projection: ItCallback2<It, S, R | Signal>,
     map: AsMap
-  ): Group2Result<ItProjection<Exclude<R, Falsish>>[], AsMap>;
+  ): MaybeNullishOrFalse<It, Group2Result<ItProjection<R, Falsish>[], AsMap>>;
 
-  <It extends Obj2Source, AsMap extends boolean = true>(
+  <It extends Obj2Source | Falsish, AsMap extends boolean = true>(
     source: It,
     map?: AsMap
-  ): It extends Nullish ? It : Group2Result<Obj2SourceToObj<It>, AsMap>;
+  ): MaybeFalsish<It, Group2Result<Obj2SourceToObj<It>, AsMap>>;
 } = (source: any, projection?: any, map?: any) => {
   projection != null &&
     typeof projection !== "function" &&
@@ -737,7 +807,8 @@ export const group2: {
           kv[0] !== undefined &&
           (groups[kv[0]] ??= []).push(kv[1]))
   );
-  return groups as any;
+
+  return groups;
 };
 
 export const keys2 = Object.keys;
@@ -758,9 +829,14 @@ export const obj2: {
   <It extends Obj2Source>(source: It): It extends Nullish
     ? It
     : Obj2SourceToObj<It>;
-  <It extends ItSource, R extends Kv2 | Nullish, S extends R>(
+  <
+    It extends ItSource,
+    R extends Kv2 | Nullish,
+    S extends R,
+    Signal extends typeof skip2 | typeof stop2 | never
+  >(
     source: It,
-    projection: ItCallback2<It, S, R>
+    projection: ItCallback2<It, S, R | Signal>
   ): It extends Nullish ? It : Obj2<ItProjection<R>>;
 } = (source: any, projection?: any) => {
   const target = {};
@@ -772,36 +848,6 @@ export const obj2: {
     )
   );
   return target;
-};
-
-const assignSymbol = Symbol();
-const getSymbol = Symbol();
-let hasAssign = false;
-const setupAssign = () => {
-  if (hasAssign) {
-    return;
-  }
-
-  for (const { prototype } of [Map, WeakMap]) {
-    prototype[assignSymbol] = (target: Map<any, any>, key: any, value: any) =>
-      value === undefined ? target.delete(key) : target.set(key, value);
-    prototype[getSymbol] = prototype.get;
-  }
-
-  for (const { prototype } of [Set, WeakSet]) {
-    prototype[assignSymbol] = (target: Set<any>, key: any, value: any) =>
-      value ? target.add(key) : target.delete(key);
-
-    prototype[getSymbol] = prototype.has;
-  }
-
-  Object.prototype[assignSymbol] = (target: Set<any>, key: any, value: any) =>
-    (target[key] = value);
-
-  Object.prototype[getSymbol] = function (key: any) {
-    return this[key];
-  };
-  hasAssign = true;
 };
 
 export const assign2: {
@@ -833,7 +879,6 @@ export const assign2: {
     ...sources: [...sources: Its, deep: Merge, overwrite: Overwrite]
   ): MergeObj2Sources<Its, T, Merge, Overwrite>;
 } = (target: any, ...sources: any[]) => {
-  !hasAssign && setupAssign();
   const assign = target[assignSymbol];
   let merge: boolean;
   if (typeof (merge = sources[sources.length - 1]) === "boolean") {
@@ -891,17 +936,17 @@ export const exchange2: {
     | V
     | undefined;
   <K>(target: Set<K> | WeakSet<K & {}>, key: K, toggle: any): boolean;
-  <T, K extends AnyKey<T>>(target: T, key: K, value: ValueOf<T, K>): ValueOf<
-    T,
-    K
-  >;
+  <T, K extends AnyKey<T>>(
+    target: T & NotMapOrSet<T>,
+    key: K,
+    value: ValueOf<T, K>
+  ): ValueOf<T, K>;
 } = (target: any, key: any, value: any) => {
-  !hasAssign && setupAssign();
   const current = target[getSymbol](key);
   if (current !== value) {
     target[assignSymbol](target, key, value);
   }
-  return current as any;
+  return current;
 };
 
 export const clone2: {
@@ -913,7 +958,7 @@ export const clone2: {
     for (const p in value) {
       const propValue = value[p];
       clone[p] =
-        depth !== 0 && typeof propValue === "object" && propValue
+        depth && propValue != null && typeof propValue === "object"
           ? clone2(propValue, depth - 1)
           : propValue;
     }
@@ -922,7 +967,6 @@ export const clone2: {
   return value;
 };
 
-type NeverIsOkay<V> = V extends readonly any[] ? never[] : V;
 type NeverIsAny<T> = T extends never[]
   ? any[]
   : unknown extends T
@@ -949,26 +993,37 @@ export const get2: {
   return value;
 };
 
+type NotMapOrSet<T> = T extends
+  | ReadonlyMap<any, any>
+  | WeakMap<any, any>
+  | ReadonlySet<any>
+  | WeakSet<any>
+  ? never
+  : T;
+
 export const update2: {
-  <K, V, R extends V | undefined>(
-    target: Map<K, V> | WeakMap<K & {}, V>,
+  <K, V, Nulls, R extends V | undefined>(
+    target: CaptureNullish<Map<K, V> | WeakMap<K & {}, V>, Nulls>,
     key: K,
-    update: R | ((current: V | undefined) => R)
-  ): R;
-  <K>(
-    target: Set<K> | WeakSet<K & {}>,
+    update: R | ((current: V | undefined) => R | EncourageTuples)
+  ): MaybeNullish<R, Nulls>;
+  <K, Nulls>(
+    target: CaptureNullish<Set<K> | WeakSet<K & {}>, Nulls>,
     key: K,
     update: (current: boolean, ...args: any) => any
-  ): boolean;
-  <K>(target: Set<K> | WeakSet<K & {}>, key: K, update: any): boolean;
-  <T extends {}, K extends keyof T, V extends T[K], R extends V>(
-    target: T,
+  ): MaybeNullish<boolean, Nulls>;
+  <K, Nulls>(
+    target: CaptureNullish<Set<K> | WeakSet<K & {}>, Nulls>,
     key: K,
-    update: R | ((current: V) => R)
-  ): R;
+    update: any
+  ): MaybeNullish<boolean, Nulls>;
+  <T extends {}, K extends AnyKey<T>, V extends T[K], Nulls, R extends V>(
+    target: CaptureNullish<T & NotMapOrSet<T>, Nulls>,
+    key: K,
+    update: R | ((current: V) => R | EncourageTuples)
+  ): MaybeNullish<R, Nulls>;
 } = (target: any, key: any, update: any) => {
   let value: any;
-  !hasAssign && setupAssign();
 
   target[assignSymbol](
     target,
@@ -987,15 +1042,21 @@ export const add2 = <
   target: S,
   values: readonly T[]
 ): S => {
+  if (!target) return target;
   for (const value of values) target?.add(value);
   return target;
 };
 
 export const toggle2: {
-  <T>(target: Set<T> | WeakSet<T & {}>, item: T, toggle?: boolean): boolean;
-} = (target: Set<any> | WeakSet<any>, item: any, toggle = true) =>
-  target.has(item) !== toggle &&
-  (toggle ? !!target.add(item) : target.delete(item));
+  <T, Nulls>(
+    target: CaptureNullish<Set<T> | WeakSet<T & {}>, Nulls>,
+    item: T,
+    toggle?: boolean
+  ): MaybeNullish<boolean, Nulls>;
+} = (target: Set<any> | WeakSet<any> | Nullish, item: any, toggle = true) =>
+  (target &&
+    target.has(item) !== toggle &&
+    (toggle ? !!target.add(item) : target.delete(item))) as any;
 
 type UnknownIsOkay<R, V> = R extends undefined
   ? R
@@ -1010,7 +1071,7 @@ type UnknownIsOkay<R, V> = R extends undefined
 export const array2 = <T>(
   source: T
 ): unknown extends T
-  ? any
+  ? any[]
   : T extends Nullish
   ? T
   : T extends readonly any[]
@@ -1113,7 +1174,7 @@ export const sort2: {
         ? -1
         : +x - +y)
     );
-  }) as any;
+  });
 };
 
 export const topoSort2 = <T>(
@@ -1208,7 +1269,7 @@ const reduce2 = (
           undefined
             ? (result = reduce(prev, value))
             : prev
-  ) as any;
+  );
   return result;
 };
 
@@ -1251,9 +1312,14 @@ export const join2: {
   <It extends ItSource>(source: It, separator?: string): It extends Nullish
     ? It
     : string;
-  <It extends ItSource, R, S extends R = any>(
+  <
+    It extends ItSource,
+    R,
+    Signal extends typeof skip2 | typeof stop2 | never,
+    S extends R = any
+  >(
     source: It,
-    projection?: ItCallback2<It, S, R>,
+    projection?: ItCallback2<It, S, R | Signal>,
     separator?: string
   ): It extends Nullish ? It : string;
 } = (source: any, arg1: any, arg2?: any) =>
@@ -1290,9 +1356,14 @@ export const enumerate2: {
     separator?: string | Nullish,
     result?: (enumerated: string, n: number) => string
   ): It extends Nullish ? It : string;
-  <It extends ItSource, R, S extends R>(
+  <
+    It extends ItSource,
+    R,
+    S extends R,
+    Signal extends typeof skip2 | typeof stop2 | never
+  >(
     values: It,
-    format: ItCallback2<It, S, R>,
+    format: ItCallback2<It, S, R | Signal>,
     conjunction?: string,
     separator?: string | Nullish,
     result?: (enumerated: string, n: number) => string
@@ -1337,3 +1408,166 @@ export const fromJSON2 = <Value extends string | Nullish>(
 
 export const mutate2 = /*#__PURE__*/ <T>(target: T): Mutable<T> =>
   target as any;
+
+type AsyncItSource = MaybePromiseLike<
+  ItSource | AsyncIterable<any> | Iterable<PromiseLike<any>>
+>;
+type AsyncItSourceOf<T> = MaybePromiseLike<
+  ItSourceOf<T> | AsyncIterable<MaybePromiseLike<T>> | Iterable<PromiseLike<T>>
+>;
+type AsyncItItem<It> = It extends PromiseLike<infer T>
+  ? AsyncItItem<T>
+  : It extends
+      | AsyncIterable<MaybePromiseLike<infer T>>
+      | Iterable<MaybePromiseLike<infer T>>
+  ? T
+  : It extends AsyncIterable<infer T>
+  ? T
+  : ItItem<It>;
+
+type AsyncItCallback2<It, S, R, Context = It> = ItCallback2<
+  Iterable<AsyncItItem<It>>,
+  S,
+  MaybePromiseLike<R>,
+  Context
+>;
+
+type UnwrapPromiseLike<T> = T extends PromiseLike<infer T> ? T : T;
+type AsyncItProjection<R> = ItProjection<UnwrapPromiseLike<R>>;
+
+export const forEachAsync2: {
+  <It extends AsyncItSource | Falsish>(source: It): Promise<
+    It extends Falsish ? undefined : AsyncItItem<It> | undefined
+  >;
+  <
+    It extends AsyncItSource,
+    R,
+    S extends UnwrapPromiseLike<R>,
+    Signal extends typeof skip2 | typeof stop2 | never,
+    Context = It
+  >(
+    source: It,
+    projection: AsyncItCallback2<It, S, R | Signal, Context> | Nullish,
+    seed?: S,
+    context?: Context
+  ): Promise<It extends Falsish ? undefined : AsyncItProjection<R> | undefined>;
+} = (source: any, projection?: any, seed?: any, context?: any) =>
+  source
+    ? iterateAsync2(source, projection, undefined, seed, context)
+    : Promise.resolve(source == null ? source : undefined);
+
+export const mapAsync2: {
+  <
+    It extends ItSource,
+    R,
+    S extends UnwrapPromiseLike<R>,
+    Signal extends typeof skip2 | typeof stop2 | never, // Otherwise R may be `symbol`
+    Target = undefined,
+    Context = It
+  >(
+    source: It,
+    projection: AsyncItCallback2<It, S, R | Signal>,
+    target?: Target & AsyncItProjection<R>[],
+    seed?: S,
+    context?: Context
+  ): Promise<
+    MaybeNullishOrFalse<
+      It,
+      AsyncItProjection<R>[] extends Target ? Target : AsyncItProjection<R>[]
+    >
+  >;
+
+  <It extends AsyncItSourceOf<T>, T, Target = never[]>(
+    source: It,
+    projection?: undefined | null,
+    target?: Target & T[],
+    seed?: any,
+    context?: any
+  ): Promise<
+    Target extends never[] ? ItArray<Iterable<AsyncItItem<It>>> : Target
+  >;
+} = (source: any, projection: any, target = [], seed: any, context: any) =>
+  source === false
+    ? Promise.resolve(undefined)
+    : source == null
+    ? Promise.resolve(source)
+    : iterateAsync2(source, projection, target, seed, context);
+
+type AsyncIteratorFactory<T = any, V = any> = (
+  target: T
+) => MaybePromiseLike<IteratorResult<V>>;
+
+const assignAsyncIteratorFactory: (target: {}) => AsyncIteratorFactory = (
+  target
+) =>
+  Object.getPrototypeOf(target)[asyncIteratorFactorySymbol] ??
+  target.constructor === Object
+    ? target[symbolIterator]?.() ??
+      target[symbolAsyncIterator]?.() ??
+      iterateEntries()
+    : (Object.getPrototypeOf(target)[asyncIteratorFactorySymbol] ??= <
+        AsyncIteratorFactory
+      >(typeof target === "function"
+        ? (target) => traverse2(target)
+        : typeof target === "number"
+        ? (target) => range2(target)
+        : typeof target[symbolIterator] === "function"
+        ? (target) => target[symbolIterator]()
+        : typeof target[symbolAsyncIterator] === "function"
+        ? (target) => target[symbolAsyncIterator]()
+        : typeof target === "object"
+        ? iterateEntries()
+        : () => ({ next: () => ({ done: true }) })));
+
+const iterateAsync2 = async (
+  source: any,
+  projection?: ItCallback2<any, any, any, any> | Nullish,
+  mapped?: any[],
+  seed?: any,
+  context?: any
+) => {
+  if (isPromiseLike(source)) {
+    source = await source;
+  }
+
+  const iterator = (
+    source[asyncIteratorFactorySymbol] ?? assignAsyncIteratorFactory(source)
+  )(source);
+  let result: MaybePromiseLike<IteratorResult<any>>;
+  let projected: any,
+    i = 0;
+
+  while ((result = iterator.next())) {
+    if (isPromiseLike(result)) {
+      result = (await result) as IteratorResult<any>;
+    }
+    if (result.done) {
+      break;
+    }
+
+    let item = result.value;
+    if (isPromiseLike(item)) {
+      item = await item;
+    }
+
+    if (
+      (projected = projection ? projection(item, i++, seed, context) : item) !==
+      skip2
+    ) {
+      if (isPromiseLike(projected)) {
+        projected = await projected;
+      }
+      if (projected === stop2) {
+        break;
+      }
+      seed = projected;
+      if (mapped) mapped.push(projected);
+      if (stopInvoked) {
+        stopInvoked = false;
+        break;
+      }
+    }
+  }
+
+  return mapped || seed;
+};

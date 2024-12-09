@@ -85,8 +85,9 @@ export interface TrackedEvent extends Tagged {
   view?: LocalID;
 
   /**
-   * This timestamp will always have a value before it reaches a backend.
    * If specified, it must be a negative number when sent from the client (difference between when the event was generated and when is was posted in milliseconds).
+   *
+   * The timestamp is assigned before it reaches a backend.
    *
    * @default now
    */

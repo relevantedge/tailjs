@@ -46,7 +46,7 @@ export class ClientLocation implements TrackerExtension {
       // The new consent may influence how much data gets tracked.
       const clientHash = env.hash(ip + JSON.stringify(tracker.consent));
       if (
-        (await tracker.get([{ scope: "session", key: "mx" }]).value) !==
+        (await tracker.get({ scope: "session", key: "mx" }).value()) !==
         clientHash
       ) {
         const location = this.filterNames(this._reader?.get(ip));

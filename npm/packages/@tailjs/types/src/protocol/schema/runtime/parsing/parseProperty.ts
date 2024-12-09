@@ -37,6 +37,7 @@ export const parseProperty = (
     schema: declaringType.schema,
     declaringType,
     name,
+    description: property.description,
     usage: overrideUsage(defaultUsage, usageOverrides),
     usageOverrides,
     type: null as any,

@@ -760,7 +760,7 @@ export class VariableStorageCoordinator {
   }
 
   public async purge(
-    filters: ArrayOrSelf<VariableQuery<VariableScope>>,
+    filters: ArrayOrSelf<VariableQuery<VariableScope>, false>,
     {
       context = this._defaultContext,
       bulk,

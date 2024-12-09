@@ -6,13 +6,14 @@ export interface SchemaEntity {
   schema: Schema;
 
   name: string;
+
   version?: string;
 
   qualifiedName: string;
 
-  /** The minimum required usage for any data from this type to appear. */
+  description?: string;
+
   usage?: SchemaDataUsage;
 
-  // The usage hints as they built up following types, properties and base types.
-  usageOverrides: Partial<SchemaDataUsage> | undefined;
+  usageOverrides?: Partial<SchemaDataUsage> | undefined;
 }

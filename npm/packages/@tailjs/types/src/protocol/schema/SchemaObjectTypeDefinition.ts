@@ -6,6 +6,11 @@ import {
 
 export interface SchemaObjectTypeDefinition extends Partial<SchemaDataUsage> {
   /**
+   * May be used to override the type name if it does not match the keys in the schema.
+   */
+  name?: string;
+
+  /**
    * The type inherits properties from these other types.
    *
    * Data usage will be inherited by these types in order, that is, if both the first and last

@@ -1,7 +1,6 @@
 import {
   add2,
   all2,
-  assign2,
   collect2,
   enumerate2,
   filter2,
@@ -22,7 +21,6 @@ import { SchemaPrimitiveType, SchemaObjectType as Type } from "../../../..";
 import {
   handleValidationErrors,
   SchemaCensorFunction,
-  ValidationErrorContext,
   SchemaValueValidator,
   VALIDATION_ERROR_SYMBOL,
 } from "../validation";
@@ -75,6 +73,9 @@ export const createSchemaTypeMapper = (
   validate: SchemaValueValidator;
 } => {
   const discriminators = new Map<string, Map<DiscriminatorValue, Type[]>>();
+  const lasse = subtypesOf(rootTypes, true);
+  const ifsso = filter2(subtypesOf(rootTypes, true), (type) => !type.abstract);
+
   const types = topoSort2(
     filter2(subtypesOf(rootTypes, true), (type) => !type.abstract),
     (type) => type.extends

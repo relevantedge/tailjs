@@ -6,6 +6,7 @@ import {
 } from "./shared";
 
 import type { TrackerClientConfiguration } from "@tailjs/client";
+import { Tag } from "@tailjs/types";
 import { JsonObject, map } from "@tailjs/util";
 
 export interface BootstrapSettings
@@ -58,7 +59,7 @@ export interface BootstrapSettings
    * If your deployment has multiple servers or environments, this can be used to identify them in the collected data.
    * These tags will only be added to {@link SessionStartedEvent}s.
    */
-  environmentTags?: string[];
+  environmentTags?: Tag[];
 
   /**
    * Configuration for the client script.
