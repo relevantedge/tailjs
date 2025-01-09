@@ -1,6 +1,7 @@
-import { isArray, map, throwError } from "@tailjs/util";
+import { indent2, isArray, map, throwError } from "@tailjs/util";
 import { createSchemaTypeMapper, parseType, TypeParseContext } from ".";
 import {
+  SchemaObjectType,
   SchemaPrimitiveType,
   SchemaProperty,
   SchemaPropertyType,
@@ -8,26 +9,33 @@ import {
   VALIDATION_ERROR_SYMBOL,
 } from "../../../..";
 import {
+  formatErrorSource,
+  formatValidationErrors,
   getPrimitiveTypeValidator,
-  pushInnerErrors,
   handleValidationErrors,
+  pushInnerErrors,
+  SchemaCensorFunction,
+  SchemaValueValidator,
+  ValidationErrorContext,
 } from "../validation";
 
 export const parsePropertyType = (
-  property: SchemaProperty,
-  type: SchemaPropertyTypeDefinition & { required?: boolean },
-  parseContext: TypeParseContext
+  property: SchemaProperty | null,
+  definition: SchemaPropertyTypeDefinition & { required?: boolean },
+  parseContext: TypeParseContext,
+  allowNumericStrings = false,
+  typeNamePostfix?: string
 ): SchemaPropertyType => {
   const propertyType = ((): SchemaPropertyType => {
-    if ("primitive" in type || "enum" in type) {
+    if ("primitive" in definition || "enum" in definition) {
       const {
         validator: inner,
         enumValues,
         primitive,
-      } = getPrimitiveTypeValidator(type);
+      } = getPrimitiveTypeValidator(definition, allowNumericStrings);
       let name = primitive;
-      if ("format" in type) {
-        name += " (" + type.format + ")";
+      if ("format" in definition) {
+        name += " (" + definition.format + ")";
       }
       if (enumValues) {
         name +=
@@ -36,23 +44,34 @@ export const parsePropertyType = (
           "]";
       }
 
-      return {
-        source: type,
+      const parsedType: SchemaPropertyType = {
+        source: definition,
         primitive,
         enumValues,
         validate: (value, _current, _context, errors) =>
-          handleValidationErrors((errors) => inner(value, errors), errors),
+          handleValidationErrors(
+            (errors) => (
+              errors.forEach((error) => (error.type = parsedType)),
+              inner(value, errors)
+            ),
+            errors
+          ),
         censor: (value) => value,
         toString: () => name,
       };
+      return parsedType;
     }
-    if ("item" in type) {
-      const itemType = parsePropertyType(property, type.item, parseContext);
-      const required = !!type.required;
+    if ("item" in definition) {
+      const itemType = parsePropertyType(
+        property,
+        definition.item,
+        parseContext
+      );
+      const required = !!definition.required;
 
       const name = "array(" + itemType + ")";
-      return {
-        source: type,
+      const parsedType: SchemaPropertyType = {
+        source: definition,
         item: itemType,
 
         censor: (value: any, context) => {
@@ -80,8 +99,9 @@ export const parsePropertyType = (
             if (!Array.isArray(value)) {
               errors.push({
                 path: "",
+                type: parsedType,
                 source: value,
-                message: `${JSON.stringify(value)} is not an array.`,
+                message: `${formatErrorSource(value)} is not an array.`,
               });
               return VALIDATION_ERROR_SYMBOL;
             }
@@ -116,17 +136,23 @@ export const parsePropertyType = (
           }, errors),
         toString: () => name,
       };
+      return parsedType;
     }
-    if ("key" in type) {
+    if ("key" in definition) {
       const keyType = parsePropertyType(
         property,
-        { ...type.key, required: true },
-        parseContext
+        { ...definition.key, required: true },
+        parseContext,
+        true
       ) as SchemaPrimitiveType;
-      const valueType = parsePropertyType(property, type.value, parseContext);
+      const valueType = parsePropertyType(
+        property,
+        definition.value,
+        parseContext
+      );
       const name = "record(" + keyType + ", " + valueType + ")";
-      return {
-        source: type,
+      const parsedType: SchemaPropertyType = {
+        source: definition,
         key: keyType,
         value: valueType,
 
@@ -139,7 +165,7 @@ export const parsePropertyType = (
               context
             );
             if (censoredPropertyValue !== propertyValue) {
-              if (type.value.required && censoredPropertyValue == null) {
+              if (definition.value.required && censoredPropertyValue == null) {
                 return undefined;
               }
 
@@ -154,11 +180,12 @@ export const parsePropertyType = (
         },
         validate: (value, current, context, errors) =>
           handleValidationErrors((errors) => {
-            if (typeof value !== "object" || isArray(value)) {
+            if (!value || typeof value !== "object" || isArray(value)) {
               errors.push({
                 path: "",
+                type: parsedType,
                 source: value,
-                message: `${JSON.stringify(
+                message: `${formatErrorSource(
                   value
                 )} is not a record (JSON object).`,
               });
@@ -205,38 +232,117 @@ export const parsePropertyType = (
           }, errors),
         toString: () => name,
       };
+      return parsedType;
     }
 
-    if ("properties" in type || "reference" in type) {
-      return parseType(type, parseContext, property);
-    }
-    if (!("union" in type)) {
-      throwError("Unsupported property type: " + JSON.stringify(type));
+    if ("properties" in definition || "reference" in definition) {
+      if (!property) {
+        throwError(
+          "Object-typed properties can only be parsed in the context of a name property (none was provided)."
+        );
+      }
+      return parseType(definition, parseContext, property, typeNamePostfix);
     }
 
-    const union = type.union.map((type) =>
-      parseType(type, parseContext, property)
+    if (!("union" in definition)) {
+      throwError("Unsupported property type: " + JSON.stringify(definition));
+    }
+
+    const unionTypes = definition.union.map((type, i) =>
+      parsePropertyType(property, type, parseContext, false, "" + i)
     );
+    if (!unionTypes.length) {
+      throwError("Empty union types are not allowed.");
+    }
 
-    const { censor, validate } = createSchemaTypeMapper(union);
+    const validators: {
+      censor: SchemaCensorFunction;
+      validate: SchemaValueValidator;
+    }[] = [];
 
-    const name = "union(" + union.map((type) => "" + type).join(", ") + ")";
-    return {
-      union,
-      source: type,
-      censor,
-      validate,
+    const objectTypes: SchemaObjectType[] = [];
+
+    for (const type of unionTypes) {
+      if ("properties" in type) {
+        objectTypes.push(type);
+      } else {
+        validators.push({ censor: type.censor, validate: type.validate });
+      }
+    }
+    if (objectTypes.length) {
+      validators.push(createSchemaTypeMapper(objectTypes));
+    }
+
+    const unionTypeList = unionTypes.map((type) => "" + type).join(", ");
+    const name = `union(${unionTypeList})`;
+
+    const parsedType: SchemaPropertyType = {
+      union: unionTypes,
+      source: definition,
+      censor:
+        validators.length === 1
+          ? validators[0].censor
+          : (target, context, polymorphic) => {
+              for (const { censor, validate } of validators) {
+                if (
+                  validate(
+                    target as any,
+                    undefined,
+                    context,
+                    [],
+                    polymorphic
+                  ) !== VALIDATION_ERROR_SYMBOL
+                ) {
+                  return censor(target, context, polymorphic);
+                }
+                return target;
+              }
+            },
+      validate:
+        validators.length === 1
+          ? validators[0].validate
+          : (target, current, context, errors, polymorphic) =>
+              handleValidationErrors((errors) => {
+                const aggregatedErrors: ValidationErrorContext[] = [];
+                for (const { validate } of validators) {
+                  const validated = validate(
+                    target as any,
+                    current,
+                    context,
+                    aggregatedErrors,
+                    polymorphic
+                  );
+                  if (validated !== VALIDATION_ERROR_SYMBOL) {
+                    return validated;
+                  }
+                }
+
+                errors.push({
+                  path: "",
+                  type: parsedType,
+                  source: target,
+                  message: `${formatErrorSource(
+                    target
+                  )} does not match any of the allowed types ${unionTypeList}:\n${indent2(
+                    formatValidationErrors(aggregatedErrors, "- ")
+                  )}`,
+                });
+
+                return VALIDATION_ERROR_SYMBOL;
+              }, errors),
       toString: () => name,
     };
+    return parsedType;
   })();
 
-  if (type.required) {
-    const inner = propertyType.validate.bind(propertyType);
+  if (property && (definition.required || property.required)) {
+    const inner = propertyType.validate;
     propertyType.validate = (value, current, context, errors) =>
       handleValidationErrors((errors) => {
         if (value == null) {
           errors.push({
             path: "",
+            type: propertyType,
             message: "A value is required",
             source: value,
           });
@@ -245,5 +351,6 @@ export const parsePropertyType = (
         return inner(value, current, context, errors);
       }, errors);
   }
+
   return propertyType;
 };

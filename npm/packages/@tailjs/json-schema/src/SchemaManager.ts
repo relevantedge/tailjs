@@ -1,6 +1,6 @@
 import {
   TrackedEvent,
-  VariableScope,
+  ServerVariableScope,
   variableScope,
   UserConsent,
   ConsentEvaluationContext,
@@ -10,7 +10,7 @@ import {
   JsonObject,
   MaybeArray,
   MaybeUndefined,
-  RecordType,
+  SimpleObject,
   array,
   assignIfUndefined,
   clone,
@@ -112,7 +112,7 @@ export class SchemaManager {
         "`" +
         PATCH_TARGET_ID +
         "` and `type`.",
-      $defs: obj(schemas, (schema: RecordType) => [
+      $defs: obj(schemas, (schema: SimpleObject) => [
         validate(
           schema.$id,
           schema.$id && schema.$schema,
@@ -309,7 +309,7 @@ export class SchemaManager {
 
         // If $defs defines object types named of a variable scope + "Variables" ("GlobalVariables", "SessionVariables", "DeviceVariables",  "UserVariables" or"EntityVariables"),
         // their properties will be added as variable definitions to the respective scopes.
-        let variableScopeTarget: VariableScope | undefined;
+        let variableScopeTarget: ServerVariableScope | undefined;
         if (
           type.name.endsWith("Variables") &&
           (variableScopeTarget = variableScope.tryParse(

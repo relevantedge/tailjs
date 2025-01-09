@@ -2,11 +2,13 @@ import {
   flatMap2,
   forEach2,
   get2,
+  map2,
   skip2,
   throwError,
   update2,
 } from "@tailjs/util";
 import {
+  AnySchemaTypeDefinition,
   SchemaDefinition,
   SchemaObjectTypeDefinition,
   SchemaTypeDefinition,
@@ -19,10 +21,10 @@ export type ParseContext = {
   schemas: SchemaDefinition[];
   types: Map<string, SchemaTypeDefinition & ParsedJsonSchemaTypeDefinition>;
   refs: {
-    add(ref: string, id: string, type: SchemaTypeDefinition): void;
+    add(ref: string, id: string, type: AnySchemaTypeDefinition): void;
     resolve(
       ref: string,
-      callback: (id: string, type: SchemaTypeDefinition) => void
+      callback: (id: string, type: AnySchemaTypeDefinition) => void
     ): void;
     pending(): string[];
   };
@@ -38,11 +40,14 @@ export interface ParsedJsonSchemaTypeDefinition
 }
 
 export const createRootContext = (root: any): ParseContext => {
-  const typeRefs = new Map<string, [id: string, type: SchemaTypeDefinition]>();
+  const typeRefs = new Map<
+    string,
+    [id: string, type: AnySchemaTypeDefinition]
+  >();
 
   const refCallbacks = new Map<
     string,
-    ((id: string, type: SchemaTypeDefinition) => void)[]
+    ((id: string, type: AnySchemaTypeDefinition) => void)[]
   >();
 
   return {
@@ -60,6 +65,7 @@ export const createRootContext = (root: any): ParseContext => {
         forEach2(refCallbacks.get(ref)?.splice(0), (callback) =>
           callback(id, type)
         );
+        refCallbacks.delete(ref);
       },
       resolve: (ref, callback) => {
         const current = typeRefs.get(ref);
@@ -70,10 +76,7 @@ export const createRootContext = (root: any): ParseContext => {
         get2(refCallbacks, ref, () => []).push(callback);
       },
 
-      pending: () =>
-        flatMap2(refCallbacks, ([ref, values]) =>
-          values?.length ? ref : skip2
-        ),
+      pending: () => map2(refCallbacks, ([ref]) => ref),
     },
   };
 };
@@ -84,8 +87,12 @@ export const getPath = (context: ParseContext) =>
 export const contextError = (context: ParseContext, message: string) =>
   throwError(`${getPath(context)}: ${message}`);
 
-export const navigateContext = (parent: ParseContext, key: string | number) => {
-  const node = parent.node[key];
+export const navigateContext = (
+  parent: ParseContext,
+  key: string | number,
+  proxy?: any
+) => {
+  const node = proxy ?? parent.node[key];
   if (!node || typeof node !== "object") {
     return contextError(parent, `Property '${key}' is not an object or array.`);
   }

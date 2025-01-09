@@ -1,31 +1,32 @@
 import {
   all2,
   array2,
-  assign2,
   avg2,
   clone2,
-  enumerate2,
+  itemize2,
   filter2,
   flatMap2,
   forEach2,
-  forEachAsync2,
+  forEachAwait2,
   get2,
   group2,
   indent2,
   map2,
-  mapAsync2,
+  mapAwait2,
   max2,
+  merge2,
   min2,
   obj2,
   pick2,
+  set2,
   skip2,
   some2,
   sort2,
   stop2,
   sum2,
-  toggle2,
   topoSort2,
   update2,
+  join2,
 } from "@tailjs/util";
 
 type Item = [id: string, deps?: Item[]];
@@ -95,12 +96,22 @@ describe("iterators(2)", () => {
         (item) => (item === y ? stop2(x) : item)
       )
     ).toEqual([z, x]);
-
-    expect(filter2([0, 1, null, 2])).toEqual([1, 2]);
   });
 
-  it("Sorts normally", () => {
+  it("Filters", () => {
+    expect(filter2([0, 1, null, 2], false)).toEqual([1, 2]);
+    expect(filter2([0, 1, null, 2], true)).toEqual([0, 1, 2]);
+    expect(filter2([0, 1, null, 2])).toEqual([0, 1, 2]);
+
+    expect(filter2([0, 1, null, 2], new Set([2]))).toEqual([2]);
+    expect(filter2([0, 1, null, 2], new Set([2]), true)).toEqual([0, 1]);
+    expect(filter2([0, 1, null, 2], (x) => x == null)).toEqual([null]);
+    expect(filter2([0, 1, null, 2], (x) => x == null, true)).toEqual([0, 1, 2]);
+  });
+
+  it("Sorts", () => {
     expect(sort2(["a", "c", "b", 10])).toEqual([10, "a", "b", "c"]);
+    expect(sort2(["a", "c", "b", 10], true)).toEqual(["c", "b", "a", 10]);
     expect(sort2(["a", "c", undefined, "b", 10, null])).toEqual([
       null,
       10,
@@ -110,28 +121,68 @@ describe("iterators(2)", () => {
       // ES sort always puts undefined entries last.
       undefined,
     ]);
+
+    expect(sort2(["a", "c", "b", 10], (x) => x, true)).toEqual([
+      "c",
+      "b",
+      "a",
+      10,
+    ]);
+    expect(sort2(["a", "c", "b"], [])).toEqual(["a", "b", "c"]); // No selectors, sort by value.
+    expect(sort2(["a", "c", "b"], [], true)).toEqual(["c", "b", "a"]); // No selectors, sort by value.
+
+    expect(sort2(["a", "c", "b", 10], [(x) => x, (x) => x], true)).toEqual([
+      "c",
+      "b",
+      "a",
+      10,
+    ]);
+
+    // Multi-property sort:
+    expect(
+      sort2(
+        [
+          { a: 10, b: 0 },
+          { a: 0, b: 10 },
+          { a: 10, b: -1 },
+        ],
+        [(item) => item.a, (item) => item.b]
+      )
+    ).toEqual([
+      { a: 0, b: 10 },
+      { a: 10, b: -1 },
+      { a: 10, b: 0 },
+    ]);
   });
 
   it("Assigns", () => {
-    expect(assign2({ a: 32 }, [["b", true]] as const)).toEqual({
+    expect(merge2({ a: 32 }, [[["b", true]]])).toEqual({
       a: 32,
       b: true,
     });
-    expect(assign2({ a: 32 }, [["b", true]] as const, { b: "ok" })).toEqual({
+    expect(merge2({ a: 32 }, [[["b", true]] as const, { b: "ok" }])).toEqual({
       a: 32,
       b: "ok",
     });
 
     // No merge, overwrite (three variations):
-    expect(assign2({ a: 32, b: { a: 80 }, c: true }, { b: { b: 43 } })).toEqual(
-      {
-        a: 32,
-        b: { b: 43 },
-        c: true,
-      }
-    );
     expect(
-      assign2({ a: 32, b: { a: 80 }, c: true }, { b: { b: 43 } }, false)
+      merge2(
+        { a: 32, b: { a: 80 }, c: true },
+        { b: { b: 43 } },
+        { deep: false }
+      )
+    ).toEqual({
+      a: 32,
+      b: { b: 43 },
+      c: true,
+    });
+    expect(
+      merge2(
+        { a: 32, b: { a: 80 }, c: true },
+        { b: { b: 43 } },
+        { deep: false }
+      )
     ).toEqual({
       a: 32,
       b: { b: 43 },
@@ -139,7 +190,11 @@ describe("iterators(2)", () => {
     });
 
     expect(
-      assign2({ a: 32, b: { a: 80 }, c: true }, { b: { b: 43 } }, false, true)
+      merge2(
+        { a: 32, b: { a: 80 }, c: true },
+        { b: { b: 43 } },
+        { deep: false, overwrite: true }
+      )
     ).toEqual({
       a: 32,
       b: { b: 43 },
@@ -148,20 +203,24 @@ describe("iterators(2)", () => {
 
     // Merge, overwrite (two variations):
     expect(
-      assign2(
+      merge2(
         {
           a: 32,
           b: { a: 80, nested: { g: "test", i: 80 } },
           c: true,
           e: { ok: true },
         },
+        [
+          {
+            b: { b: 43, nested: { g: "replace", h: "abc" } },
+            c: false,
+            d: 79,
+            e: undefined,
+          },
+        ],
         {
-          b: { b: 43, nested: { g: "replace", h: "abc" } },
-          c: false,
-          d: 79,
-          e: undefined,
-        },
-        true
+          deep: true,
+        }
       )
     ).toEqual({
       a: 32,
@@ -172,7 +231,7 @@ describe("iterators(2)", () => {
 
     let merged: any;
     expect(
-      (merged = assign2(
+      (merged = merge2(
         {
           a: 32,
           b: { a: 80, nested: { g: "test", i: 80 } },
@@ -185,8 +244,7 @@ describe("iterators(2)", () => {
           d: 79,
           e: undefined,
         },
-        true,
-        true
+        { deep: true, overwrite: true }
       ))
     ).toEqual({
       a: 32,
@@ -199,7 +257,7 @@ describe("iterators(2)", () => {
 
     // No overwrite (merge / no merge)
     expect(
-      (merged = assign2(
+      (merged = merge2(
         {
           a: 32,
           b: { a: 80, nested: { g: "test", i: 80 } },
@@ -212,8 +270,10 @@ describe("iterators(2)", () => {
           d: 79,
           e: undefined,
         },
-        true,
-        false
+        {
+          deep: true,
+          overwrite: false,
+        }
       ))
     ).toEqual({
       a: 32,
@@ -225,16 +285,22 @@ describe("iterators(2)", () => {
     expect("e" in merged).toBe(true);
 
     expect(
-      assign2(
+      merge2(
         {
           a: 32,
           b: { a: 80, nested: { g: "test", i: 80 } },
           c: true,
           e: { ok: true },
         },
-        { b: { b: 43, nested: { g: "replace", h: "abc" } }, c: false, d: 79 },
-        false,
-        false
+        {
+          b: { b: 43, nested: { g: "replace", h: "abc" } },
+          c: false,
+          d: 79,
+        },
+        {
+          deep: false,
+          overwrite: false,
+        }
       )
     ).toEqual({
       a: 32,
@@ -350,9 +416,9 @@ describe("iterators(2)", () => {
 
   it("Does map and set things", () => {
     const s = new Set<string>();
-    expect(toggle2(s, "1")).toBe(true);
-    expect(toggle2(s, "2")).toBe(true);
-    expect(toggle2(s, "1")).toBe(false);
+    // expect(toggle2(s, "1")).toBe(true);
+    // expect(toggle2(s, "2")).toBe(true);
+    // expect(toggle2(s, "1")).toBe(false);
 
     const m = new Map<string, number>();
     expect(get2(m, "1")).toBeUndefined();
@@ -362,14 +428,14 @@ describe("iterators(2)", () => {
     expect(m.get("1")).toBe(80);
 
     expect(update2(m, "1", (current) => current! + 1)).toBe(81);
-    expect(update2(m, "2", 90)).toBe(90);
+    expect(set2(m, "2", 90)).toBe(90);
 
     expect(m.size).toBe(2);
     update2(m, "2", () => undefined);
     expect(m.size).toBe(1);
-    update2(m, "3", undefined);
+    set2(m, "3", undefined);
     expect(m.size).toBe(1);
-    update2(m, "1", undefined);
+    set2(m, "1", undefined);
     expect(m.size).toBe(0);
 
     const o: { a: number; b?: string } = { a: 10 };
@@ -416,23 +482,36 @@ describe("iterators(2)", () => {
   });
 
   it("Enumerates", () => {
-    expect(enumerate2([1, 2, 3])).toBe("1, 2 and 3");
-    expect(enumerate2([1, 2, 3, null, 4], (x) => x && "Item " + x)).toBe(
+    expect(itemize2([1, 2, 3])).toBe("1, 2 and 3");
+    expect(itemize2([1, 2, "", 3, ""])).toBe("1, 2 and 3");
+    expect(itemize2([1, 2, 3, null, 4], (x) => x && "Item " + x)).toBe(
       "Item 1, Item 2, Item 3 and Item 4"
     );
-    expect(enumerate2([1, 2, 3, null, 4], "or")).toBe("1, 2, 3 or 4");
-    expect(enumerate2([1, 2, 3, null, 4], ", or", null)).toBe("1, 2, 3, or 4");
+    expect(itemize2([1, 2, 3, null, 4], "or")).toBe("1, 2, 3 or 4");
+    expect(itemize2([1, 2, 3, null, 4], [",", "or"])).toBe("1, 2, 3 or 4");
+    expect(itemize2([1, 2, 3, null, 4], ", or")).toBe("1, 2, 3, or 4");
     expect(
-      enumerate2(
+      itemize2(
         [1, 2, 3, null, 4],
         (x) => x && x + 1,
-        ", or",
-        null,
+        ["+", "+ or"],
         (s, n) => n + ": " + s
       )
-    ).toBe("4: 2, 3, 4, or 5");
+    ).toBe("4: 2+ 3+ 4+ or 5");
 
-    expect(enumerate2([1, 2, 3], "", ";")).toBe("1; 2; 3");
+    expect(itemize2([1, 2, 3], [";", ""])).toBe("1; 2 3");
+  });
+
+  it("Joins", () => {
+    expect(join2(0)).toBe("0");
+    expect(join2("abc")).toBe("abc");
+    expect(join2(["test", "", 0, "x", null, false])).toBe("test0x");
+    expect(join2([])).toBe("");
+    expect(join2([1])).toBe("1");
+    expect(join2([1, 2], "-")).toBe("1-2");
+    expect(join2(null)).toBe(null);
+    expect(join2(undefined)).toBe(undefined);
+    expect(join2(false)).toBe("");
   });
 
   it("Sort topologically", () => {
@@ -514,59 +593,59 @@ describe("iterators(2)", () => {
       yield Promise.resolve(3);
     }
 
-    await expect(forEachAsync2(asyncIt())).resolves.toBe(3);
-    await expect(forEachAsync2([1, 2, 3])).resolves.toBe(3);
-    await expect(forEachAsync2(asyncIt(), (x) => x + 1)).resolves.toBe(4);
-    await expect(forEachAsync2(asyncIt(), async (x) => x + 1)).resolves.toBe(4);
+    await expect(forEachAwait2(asyncIt())).resolves.toBe(3);
+    await expect(forEachAwait2([1, 2, 3])).resolves.toBe(3);
+    await expect(forEachAwait2(asyncIt(), (x) => x + 1)).resolves.toBe(4);
+    await expect(forEachAwait2(asyncIt(), async (x) => x + 1)).resolves.toBe(4);
     await expect(
-      forEachAsync2(asyncIt(), (x) => (x === 2 ? Promise.resolve(x) : x + 1))
+      forEachAwait2(asyncIt(), (x) => (x === 2 ? Promise.resolve(x) : x + 1))
     ).resolves.toBe(4);
-    await expect(forEachAsync2([1, 2, 3], (x) => x + 1)).resolves.toBe(4);
-    await expect(forEachAsync2(3, async (x) => x + 2)).resolves.toBe(4);
+    await expect(forEachAwait2([1, 2, 3], (x) => x + 1)).resolves.toBe(4);
+    await expect(forEachAwait2(3, async (x) => x + 2)).resolves.toBe(4);
     await expect(
-      forEachAsync2(
+      forEachAwait2(
         (x = 0) => (x > 2 ? undefined : x + 1),
         (x) => (x === 2 ? Promise.resolve(x) : x + 1)
       )
     ).resolves.toBe(4);
 
-    await expect(mapAsync2(asyncIt())).resolves.toEqual([1, 2, 3]);
+    await expect(mapAwait2(asyncIt())).resolves.toEqual([1, 2, 3]);
     await expect(
-      mapAsync2(Promise.resolve(asyncIt()), async (item) =>
+      mapAwait2(Promise.resolve(asyncIt()), async (item) =>
         Promise.resolve(item)
       )
     ).resolves.toEqual([1, 2, 3]);
-    await expect(mapAsync2([1, 2, 3])).resolves.toEqual([1, 2, 3]);
-    await expect(mapAsync2(asyncIt(), (x) => x + 1)).resolves.toEqual([
+    await expect(mapAwait2([1, 2, 3])).resolves.toEqual([1, 2, 3]);
+    await expect(mapAwait2(asyncIt(), (x) => x + 1)).resolves.toEqual([
       2, 3, 4,
     ]);
-    await expect(mapAsync2(asyncIt(), async (x) => x + 1)).resolves.toEqual([
+    await expect(mapAwait2(asyncIt(), async (x) => x + 1)).resolves.toEqual([
       2, 3, 4,
     ]);
     await expect(
-      mapAsync2(asyncIt(), (x) => (x === 2 ? Promise.resolve(x) : x + 1))
+      mapAwait2(asyncIt(), (x) => (x === 2 ? Promise.resolve(x) : x + 1))
     ).resolves.toEqual([2, 2, 4]);
-    await expect(mapAsync2([1, 2, 3], (x) => x + 1)).resolves.toEqual([
+    await expect(mapAwait2([1, 2, 3], (x) => x + 1)).resolves.toEqual([
       2, 3, 4,
     ]);
-    await expect(mapAsync2(3, async (x) => x + 2)).resolves.toEqual([2, 3, 4]);
+    await expect(mapAwait2(3, async (x) => x + 2)).resolves.toEqual([2, 3, 4]);
     await expect(
-      mapAsync2(
+      mapAwait2(
         (x = 0) => (x > 2 ? undefined : x + 1),
         (x) => (x === 2 ? Promise.resolve(x) : x + 1)
       )
     ).resolves.toEqual([2, 2, 4]);
 
-    await expect(forEachAsync2(null)).resolves.toBe(null);
-    await expect(forEachAsync2(undefined)).resolves.toBe(undefined);
-    await expect(forEachAsync2(false)).resolves.toBe(undefined);
-    await expect(forEachAsync2(0)).resolves.toBe(undefined);
-    await expect(forEachAsync2("")).resolves.toBe(undefined);
+    await expect(forEachAwait2(null)).resolves.toBe(null);
+    await expect(forEachAwait2(undefined)).resolves.toBe(undefined);
+    await expect(forEachAwait2(false)).resolves.toBe(undefined);
+    await expect(forEachAwait2(0)).resolves.toBe(undefined);
+    await expect(forEachAwait2("")).resolves.toBe(undefined);
 
-    await expect(mapAsync2(null)).resolves.toBe(null);
-    await expect(mapAsync2(undefined)).resolves.toBe(undefined);
-    await expect(mapAsync2(false)).resolves.toBe(undefined);
-    await expect(mapAsync2(0)).resolves.toEqual([]);
-    await expect(mapAsync2("")).resolves.toEqual([]);
+    await expect(mapAwait2(null)).resolves.toBe(null);
+    await expect(mapAwait2(undefined)).resolves.toBe(undefined);
+    await expect(mapAwait2(false)).resolves.toBe(undefined);
+    await expect(mapAwait2(0)).resolves.toEqual([]);
+    await expect(mapAwait2("")).resolves.toEqual([]);
   });
 });

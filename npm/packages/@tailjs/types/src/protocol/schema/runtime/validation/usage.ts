@@ -1,16 +1,15 @@
 import { fromEntries, Nullish } from "@tailjs/util";
 import {
+  handleValidationErrors,
   pushInnerErrors,
   SchemaCensorFunction,
   SchemaValueValidator,
-  handleValidationErrors,
 } from ".";
 import {
-  DataAccess,
   dataClassification,
-  DataUsage,
   dataVisibility,
   SchemaDataUsage,
+  SchemaPropertyType,
   validateConsent,
 } from "../../../..";
 
@@ -74,16 +73,17 @@ export const createCensorAction =
 export const createAccessValidator =
   (
     name: string,
-    type: { validate: SchemaValueValidator },
+    type: SchemaPropertyType,
     usage: SchemaDataUsage | Nullish,
     targetType = "property"
   ): SchemaValueValidator =>
-  (value, current, context, errors) =>
+  (value: any, current, context, errors) =>
     handleValidationErrors((errors) => {
       if (usage) {
         if (usage.readonly && current != null && value !== current) {
           errors.push({
             path: name,
+            type,
             source: value,
             message: `The ${targetType} is read-only (cannot be changed once set).`,
             forbidden: true,
@@ -96,11 +96,13 @@ export const createAccessValidator =
         ) {
           errors.push({
             path: name,
+            type,
             source: value,
             message: `The ${targetType} cannot be set from untrusted context.`,
             forbidden: true,
           });
         }
       }
+
       return pushInnerErrors(name, value, current, context, errors, type);
     }, errors);

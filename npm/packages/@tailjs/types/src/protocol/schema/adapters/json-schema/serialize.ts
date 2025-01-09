@@ -6,12 +6,18 @@ import {
   SchemaPrimitiveTypeDefinition,
   SchemaPropertyType,
 } from "../../..";
+import { serializeAnnotations } from ".";
 
-const requiresSyntheticType = (type: SchemaObjectType) =>
-  type.abstract === false && type.extendedBy?.length;
+const requiresSyntheticType = (
+  type: SchemaObjectType,
+  restrictProperties: boolean
+) => restrictProperties && type.abstract === false && type.extendedBy?.length;
 
-const getSyntheticBaseTypeName = (type: SchemaObjectType) => {
-  if (!requiresSyntheticType(type)) return type.name;
+const getSyntheticBaseTypeName = (
+  type: SchemaObjectType,
+  restrictProperties: boolean
+) => {
+  if (!requiresSyntheticType(type, restrictProperties)) return type.name;
 
   for (let i = 0; ; i++) {
     const name = type.name + "Base" + (i ? i + 1 : 0);
@@ -21,19 +27,29 @@ const getSyntheticBaseTypeName = (type: SchemaObjectType) => {
   }
 };
 
-const getJsonRef = (entity: SchemaEntity | SchemaObjectType, force = false) => {
+const getJsonRef = (
+  entity: SchemaEntity | SchemaObjectType,
+  force = false,
+  restrictProperties: boolean
+) => {
   if (
     !force &&
     "abstract" in entity &&
     !entity.abstract &&
     entity.extendedBy.length
   ) {
-    return `${entity.schema.namespace}#${getSyntheticBaseTypeName(entity)}`;
+    return `${entity.schema.namespace}#${getSyntheticBaseTypeName(
+      entity,
+      restrictProperties
+    )}`;
   }
   return `${entity.schema.namespace}#${entity.name}`;
 };
 
-const serializeProperty = (type: SchemaPropertyType) => {
+const serializeProperty = (
+  type: SchemaPropertyType,
+  restrictProperties: boolean
+) => {
   let jsonProperty: any;
   if ("primitive" in type) {
     const source = type.source as SchemaPrimitiveTypeDefinition;
@@ -87,59 +103,80 @@ const serializeProperty = (type: SchemaPropertyType) => {
     }
   } else if ("properties" in type) {
     if (type.embedded) {
-      jsonProperty = serializeType(type);
+      jsonProperty = serializeType(type, restrictProperties);
     } else {
       jsonProperty = {
-        $ref: getJsonRef(type),
+        $ref: getJsonRef(type, false, restrictProperties),
       };
     }
   } else if ("key" in type) {
     jsonProperty = {
       type: "object",
-      additionalProperties: serializeProperty(type.value),
+      additionalProperties: serializeProperty(type.value, restrictProperties),
     };
   } else if ("item" in type) {
     jsonProperty = {
       type: "array",
-      items: serializeProperty(type.item),
+      items: serializeProperty(type.item, restrictProperties),
     };
+  }
+
+  if ("usageOverrides" in type) {
+    Object.assign(jsonProperty, serializeAnnotations(type) ?? {});
   }
   return jsonProperty;
 };
 
-const serializeType = (type: SchemaObjectType) => {
+const serializeType = (type: SchemaObjectType, restrictProperties: boolean) => {
   let jsonType = {
     type: "object",
     description: type.description,
-
+    ...serializeAnnotations(type),
     properties: {},
   } as any;
 
   forEach2(type.ownProperties, ([name, property]) => {
-    jsonType.properties[name] = serializeProperty(property.type);
+    jsonType.properties[name] = serializeProperty(
+      property.type,
+      restrictProperties
+    );
     if (property.required) {
       (jsonType.required ??= []).push(name);
     }
   });
 
+  if (!type.extends) {
+    var b = 4;
+  }
   if (type.extends.length) {
     jsonType = {
       allOf: [
-        ...type.extends.map((type) => ({ $ref: getJsonRef(type) })),
+        ...type.extends.map((type) => ({
+          $ref: getJsonRef(type, false, restrictProperties),
+        })),
         jsonType,
       ],
     };
   }
 
-  if (!type.abstract && !requiresSyntheticType(type)) {
+  if (
+    !type.abstract &&
+    !requiresSyntheticType(type, restrictProperties) &&
+    restrictProperties
+  ) {
     jsonType.additionalProperties = false;
   }
-  return { $anchor: getSyntheticBaseTypeName(type), ...jsonType };
+
+  return {
+    $anchor: getSyntheticBaseTypeName(type, restrictProperties),
+    ...jsonType,
+  };
 };
 
 export const serializeSchema = (
   schema: Pick<Schema, "namespace" | "description" | "types">,
-  subSchemas: readonly Schema[]
+  subSchemas: readonly Schema[],
+  restrictProperties: boolean
 ) => {
   {
     const jsonSchema = {
@@ -152,24 +189,31 @@ export const serializeSchema = (
     const defs = (jsonSchema.$defs = {});
 
     for (const [name, type] of schema.types) {
-      if (requiresSyntheticType(type)) {
-        const syntheticTypeName = getSyntheticBaseTypeName(type);
-        defs[syntheticTypeName] = serializeType(type);
+      if (requiresSyntheticType(type, restrictProperties)) {
+        const syntheticTypeName = getSyntheticBaseTypeName(
+          type,
+          restrictProperties
+        );
+        defs[syntheticTypeName] = serializeType(type, restrictProperties);
         defs[type.name] = {
           type: "object",
-          $ref: getJsonRef(type),
+          $ref: getJsonRef(type, false, restrictProperties),
           additionalProperties: false,
         };
       } else {
         defs[name] = {
-          $anchor: getJsonRef(type, true),
-          ...serializeType(type),
+          $anchor: getJsonRef(type, true, restrictProperties),
+          ...serializeType(type, restrictProperties),
         };
       }
     }
 
     for (const subSchema of subSchemas) {
-      defs[subSchema.namespace] = serializeSchema(subSchema, []);
+      defs[subSchema.namespace] = serializeSchema(
+        subSchema,
+        [],
+        restrictProperties
+      );
     }
 
     return JSON.stringify(jsonSchema, null, 2);

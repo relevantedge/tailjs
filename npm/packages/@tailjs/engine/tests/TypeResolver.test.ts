@@ -1,9 +1,11 @@
 import {
   handleValidationErrors,
+  JsonSchemaAdapter,
   SCHEMA_TYPE_PROPERTY,
   SchemaSystemTypeDefinition,
   TypeResolver,
 } from "@tailjs/types";
+import * as fs from "fs";
 
 describe("TypeResolver", () => {
   it("Parses schemas and validates", () => {
@@ -25,12 +27,34 @@ describe("TypeResolver", () => {
               },
             } as SchemaSystemTypeDefinition,
 
+            UnionTest: {
+              properties: {
+                test: {
+                  union: [
+                    { primitive: "string" },
+                    { primitive: "number" },
+                    { item: { primitive: "string" } },
+                    {
+                      properties: {
+                        requiredTest: {
+                          primitive: "string",
+                          required: true,
+                        },
+                        test2: { primitive: "boolean" },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+
             Test: {
               event: true,
               properties: {
                 type: {
                   enum: ["test_event"],
                 },
+
                 nested: {
                   properties: {
                     hej: {
@@ -180,6 +204,83 @@ describe("TypeResolver", () => {
         )
       )
     ).toThrow(/geiss:.*not defined/);
+
+    const unionType = resolver.getType("urn:test#UnionTest", true);
+    unionType.validate(
+      {
+        test: null,
+      },
+      null,
+      { trusted: true }
+    );
+
+    unionType.validate(
+      {
+        test: 80,
+      },
+      null,
+      { trusted: true }
+    );
+
+    expect(() =>
+      unionType.validate(
+        {
+          test: ["a", 3],
+        },
+        null,
+        { trusted: true }
+      )
+    ).toThrow("3 is not a string."); // Specific error from array type.
+
+    unionType.validate(
+      {
+        test: {
+          requiredTest: "ok",
+        },
+      },
+      null,
+      { trusted: true }
+    );
+
+    expect(() =>
+      unionType.validate(
+        {
+          test: {
+            test2: 90,
+          },
+        },
+        null,
+        { trusted: true }
+      )
+    ).toThrow(/requiredTest.*required.*90.*Boolean/gs);
+
+    // unionType.validate(
+    //   {
+    //     test: {
+    //       test: "ok",
+    //     },
+    //   },
+    //   null,
+    //   { trusted: true }
+    // );
+
+    expect(() =>
+      unionType.validate(
+        {
+          test: false,
+        },
+        null,
+        { trusted: true }
+      )
+    ).toThrow("any of the allowed");
+
+    // expect(()=> testType.validate(
+    //   {
+    //     intersection: false,
+    //   },
+    //   null,
+    //   { trusted: true }
+    // ))
   });
 
   it("Censors", () => {
@@ -281,6 +382,7 @@ describe("TypeResolver", () => {
     ]);
 
     const censorType = resolver.getType("urn:test#Censored");
+
     expect(
       censorType.censor(
         {
@@ -309,6 +411,7 @@ describe("TypeResolver", () => {
       ok: "1",
       nested: {
         ok: "",
+        req: false,
       },
     });
 
@@ -401,6 +504,7 @@ describe("TypeResolver", () => {
       pers: "2",
       nested: {
         ok: "",
+        req: false,
       },
     });
 
@@ -472,11 +576,72 @@ describe("TypeResolver", () => {
       secret: 1337,
       nested: {
         ok: "",
+        req: false,
       },
       nestedReq: {
         ok: "ok",
         req: true,
       },
     });
+  });
+
+  it("Supports JSON schema", () => {
+    const tailJsSchema = fs.readFileSync("c:/temp/tailjs-schema.json", "utf-8");
+    const adapter = new JsonSchemaAdapter();
+    const parsed = adapter.parse(tailJsSchema);
+    const systemEvent = parsed.find(
+      (definition) => definition.namespace === "urn:tailjs:core"
+    )?.types?.TrackedEvent;
+    if (!systemEvent) {
+      fail("The system event type is missing (urn:tailjs:core#TrackedEvent).");
+    }
+    (systemEvent as SchemaSystemTypeDefinition).system = "event";
+
+    fs.writeFileSync(
+      "c:/temp/tailjs-schema-parsed.json",
+      JSON.stringify(parsed, null, 2),
+      "utf-8"
+    );
+
+    const resolver = new TypeResolver(
+      parsed.map((definition) => ({
+        definition,
+      }))
+    );
+
+    const testEvent = {
+      type: "component_view",
+      components: [{ id: "ok" }],
+      session: {
+        sessionId: "97f32a42-8e40-4fa0-9404-06d19aeac587",
+        clientIp: "123",
+      },
+    };
+
+    const componentEvent = resolver.getEventType(testEvent);
+    let validated = componentEvent.validate({ ...testEvent }, null, {
+      trusted: true,
+    });
+    let censored = componentEvent.censor(validated, { trusted: true });
+    expect(censored?.session.clientIp).toBe("123");
+
+    censored = componentEvent.censor(validated, {
+      consent: { classification: "anonymous", purposes: {} },
+      trusted: true,
+    });
+    expect(censored?.session.clientIp).toBeUndefined();
+
+    const sessionReference = resolver.getVariable(
+      "session",
+      "@session_reference"
+    );
+
+    expect(sessionReference.validate("1234", undefined, {})).toBe("1234");
+
+    fs.writeFileSync(
+      "c:/temp/tailjs-schema-re-serialized.json",
+      JSON.stringify(JSON.parse(adapter.serialize(resolver.schemas)), null, 2),
+      "utf-8"
+    );
   });
 });

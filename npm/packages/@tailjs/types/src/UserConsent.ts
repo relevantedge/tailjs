@@ -1,9 +1,9 @@
 import { AllRequired } from "@tailjs/util";
 import { DataUsage } from ".";
 
-export interface UserConsent extends Required<DataUsage> {}
+export interface UserConsent extends DataUsage {}
 
-export const NECESSARY_CONSENT: AllRequired<UserConsent> = Object.freeze({
+export const NECESSARY_CONSENT: UserConsent = Object.freeze({
   classification: "anonymous",
   purposes: {
     necessary: true,
@@ -15,7 +15,7 @@ export const NECESSARY_CONSENT: AllRequired<UserConsent> = Object.freeze({
   },
 });
 
-export const FULL_CONSENT: AllRequired<UserConsent> = Object.freeze({
+export const FULL_CONSENT: UserConsent = Object.freeze({
   classification: "sensitive",
   purposes: {
     necessary: true,

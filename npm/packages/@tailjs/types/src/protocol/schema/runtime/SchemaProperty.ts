@@ -3,8 +3,8 @@ import {
   SchemaObjectType,
   SchemaPropertyDefinition,
   SchemaPropertyType,
+  ValidatableSchemaEntity,
 } from "../../..";
-import { ValidatableSchemaEntity } from "./validation";
 
 export interface SchemaProperty extends SchemaEntity, ValidatableSchemaEntity {
   name: string;

@@ -11,19 +11,7 @@ import {
   VariableSetResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import {
-  assign2,
-  flatMap2,
-  forEach,
-  get2,
-  group2,
-  jsonClone,
-  map2,
-  MAX_SAFE_INTEGER,
-  set2,
-  skip2,
-  toggle2,
-} from "@tailjs/util";
+import { distinct2, get2, group2, jsonClone, map2 } from "@tailjs/util";
 import { VariableStorage, VariableStorageQuery } from "..";
 
 const internalIdSymbol = Symbol();
@@ -125,7 +113,6 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         results.push({
           status: VariableResultStatus.NotFound,
           ...key,
-          value: null,
         });
         continue;
       }
@@ -138,7 +125,6 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         results.push({
           status: VariableResultStatus.NotModified,
           ...key,
-          value: undefined,
         });
         continue;
       }
@@ -161,20 +147,18 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     for (const setter of values) {
       const key = extractKey(setter);
       let variable = this._getVariable(setter, now);
-      if (!setter.force && variable?.version !== setter.version) {
+      if (!variable && (setter.value == null || setter.version != null)) {
         results.push({
-          status: VariableResultStatus.Conflict,
+          status: VariableResultStatus.NotFound,
           ...key,
-          current: null,
         });
         continue;
       }
 
-      if (!variable && setter.value == null) {
+      if (!setter.force && variable && variable.version !== setter.version) {
         results.push({
-          status: VariableResultStatus.NotModified,
-          ...key,
-          value: null,
+          status: VariableResultStatus.Conflict,
+          ...variable,
         });
         continue;
       }
@@ -185,12 +169,11 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         () => [now, this._nextInternalId++, new Map()]
       );
 
-      if (setter.value === null) {
+      if (setter.value == null) {
         variables.delete(setter.key);
         results.push({
           status: VariableResultStatus.Success,
           ...key,
-          value: null,
         });
         if (!variables.size) {
           this._entities[key.scope].delete(key.entityId);
@@ -255,7 +238,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     let scopeIndex = 0;
     const scopes = group2(queries, (query) => [
       this._entities[query.scope],
-      [query, query.entityIds && set2(query.entityIds)],
+      [query, query.entityIds && distinct2(query.entityIds)],
     ]);
     for (const [entities, scopeQueries] of scopes) {
       if (scopeIndex++ < cursorScopeIndex) {

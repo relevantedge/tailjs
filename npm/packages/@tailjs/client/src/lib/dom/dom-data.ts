@@ -9,13 +9,14 @@ import {
   T,
   concat,
   flatMap,
+  flatMap2,
   forEach,
   isFunction,
   isIterable,
   isPlainObject,
   isRegEx,
   isString,
-  join,
+  join2,
   matches,
   nil,
   parseBoolean,
@@ -23,7 +24,6 @@ import {
   replace,
   stop,
   testRegex,
-  values,
   type Nullish,
 } from "@tailjs/util";
 
@@ -126,7 +126,10 @@ const parseTagAttributes = (el: Element, tags: TagCollection) => {
     cache: CacheMatchRules = [
       {},
       // Start by checking whether we have any of the good ol', documented, "tail.js official" tag attributes.
-      [[/^(?:track\-)?tags?(?:$|\-)(.*)/], ...parse(values(cachedMappings))],
+      [
+        [/^(?:track\-)?tags?(?:$|\-)(.*)/],
+        ...parse(flatMap2(cachedMappings, ([, value]) => value, 1)),
+      ],
     ];
 
   (cachedTagMapper = (el: Element, tags: TagCollection) =>
@@ -134,7 +137,7 @@ const parseTagAttributes = (el: Element, tags: TagCollection) => {
 };
 
 const cssPropertyWithBase = (el: Element, name: string) =>
-  join(
+  join2(
     concat(
       cssProperty(el, trackerPropertyName(name, T)),
       cssProperty(el, trackerPropertyName("base-" + name, T))
@@ -184,7 +187,7 @@ export const trackerProperty = (
         (el, r) => r(trackerProperty(el, name, F)),
         isFunction(inherit) ? inherit : undefined
       )
-    : join(
+    : join2(
         concat(
           attr(el, trackerPropertyName(name)),
           cssProperty(el, trackerPropertyName(name, T))

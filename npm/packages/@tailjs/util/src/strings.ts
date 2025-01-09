@@ -6,7 +6,6 @@ import {
   MaybeUndefined,
   Nullish,
   array,
-  filter,
   forEach,
   isArray,
   isBoolean,
@@ -54,43 +53,6 @@ export const changeIdentifierCaseStyle = (
           false
         ))
   );
-
-export type EnumerationSeparators = string | [last: string, other?: string];
-
-/**
- * Creates a string enumerating a list of value given a separator, optionally using a different separator between the last two items.
- *
- * @param values - The list of items to enumerator.
- * @param separator - The separator to use (defaults to ", "). If given a tuple, the first item is the last separator without spaces.
- * The second item may optionally specify another separator than the default (", ").
- *
- *
- * Useful for enumerations like "item1, item2 and item 3" (`separate(["item1", "item2", "item3"], ["and"])`).
- */
-export const enumerate = <T extends Iterable<any> | Nullish>(
-  values: T,
-  separator: EnumerationSeparators = ["and", ", "],
-  format?: (enumerated: string, n: number) => string
-): MaybeUndefined<T, string> => {
-  if (!values) return undefined as any;
-
-  const filtered = array(values).filter(IDENTITY);
-  return (
-    filtered.length === 0
-      ? ""
-      : filtered.length === 1
-      ? filtered[0] + ""
-      : isArray(separator)
-      ? [
-          filtered.slice(0, -1).join(separator[1] ?? ", "),
-          " ",
-          separator[0],
-          " ",
-          filtered[filtered.length - 1],
-        ].join("")
-      : filtered.join(separator ?? ", ")
-  ) as any;
-};
 
 /**
  * Pluralizes a noun using standard English rules.
@@ -274,42 +236,6 @@ export const ellipsis = <T extends string | Nullish>(
   maxLength: number
 ): T =>
   text && ((text.length > maxLength ? text.slice(0, -1) + "…" : text) as any);
-
-export const join: {
-  /**
-   *  Joins the specified items with a separator (default is "").
-   *  If the source is a string it will be returned as is.
-   *
-   *  The value `false` will be omitted to help syntax like `[condition && "yes"]`.   .
-   */
-  <S extends IteratorSource | string>(
-    source: S,
-    separator?: string | readonly [string, string]
-  ): MaybeUndefined<S, string>;
-
-  /**
-   * Joins the projection of the specified items with a separator (default is "").
-   * If the source is a string it will be considered an array with the string as its single element.
-   */
-  <S extends IteratorSource | string>(
-    source: S,
-    projection: IteratorAction<S extends string ? [string] : S>,
-    separator?: EnumerationSeparators
-  ): MaybeUndefined<S, string>;
-} = (source: any, projection: any, sep?: any) =>
-  source == null
-    ? undefined
-    : isFunction(projection)
-    ? enumerate(
-        map(isString(source) ? [source] : source, projection),
-        sep ?? ""
-      )
-    : isString(source)
-    ? source
-    : enumerate(
-        map(source, (item) => (item === false ? undefined : item)),
-        projection ?? ""
-      );
 
 /** Word statistics for a text. */
 export type TextStats = {

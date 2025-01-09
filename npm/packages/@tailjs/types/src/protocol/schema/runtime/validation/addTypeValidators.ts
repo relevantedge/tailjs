@@ -1,4 +1,6 @@
+import { isArray } from "@tailjs/util";
 import {
+  formatErrorSource,
   getMinimumUsage,
   handleValidationErrors,
   SchemaCensorFunction,
@@ -59,8 +61,23 @@ export const addTypeValidators = (type: SchemaObjectType) => {
     return censored;
   };
 
-  const validate: SchemaValueValidator = (target, current, context, errors) =>
+  const validate: SchemaValueValidator = (
+    target: any,
+    current,
+    context,
+    errors
+  ) =>
     handleValidationErrors((errors) => {
+      if (typeof target !== "object" || isArray(target) || target == null) {
+        errors.push({
+          path: "",
+          type,
+          source: target,
+          message: `${formatErrorSource(target)} is not an object.`,
+        });
+        return VALIDATION_ERROR_SYMBOL;
+      }
+
       // Here we could leverage the type's `usage` that is the minimum usage defined
       // by any property. Let's do that when we have tested the rest of this code...
       const currentErrors = errors.length;
@@ -97,6 +114,7 @@ export const addTypeValidators = (type: SchemaObjectType) => {
         if (!prop) {
           errors.push({
             path: key,
+            type,
             source: target,
             message: `The property is not defined for the type '${type.id}'.`,
           });
@@ -106,16 +124,18 @@ export const addTypeValidators = (type: SchemaObjectType) => {
           validateProperty(prop);
         }
       }
+      if (currentErrors < errors.length) {
+        return VALIDATION_ERROR_SYMBOL;
+      }
 
       validated[SCHEMA_TYPE_PROPERTY] = type.version
         ? [type.id, type.version]
         : [type.id];
-      return currentErrors < errors.length
-        ? VALIDATION_ERROR_SYMBOL
-        : validated;
+
+      return validated;
     }, errors);
 
-  if (type.extendedBy.length) {
+  if (type.extendedBy.length && type.abstract) {
     const { censor: polymorphicCensor, validate: polymorphicValidate } =
       createSchemaTypeMapper([type]);
 

@@ -14,7 +14,7 @@ import {
   Nullish,
   PrettifyIntersection,
   Primitives,
-  RecordType,
+  SimpleObject,
   UnionToIntersection,
   count,
   forEach,
@@ -52,7 +52,7 @@ type SetLike<K = any> = ReadonlySetLike<K> & {
 };
 
 type ReadonlyPropertyContainer<K extends any = any, V extends any = any> =
-  | RecordType
+  | SimpleObject
   | readonly any[]
   | ReadonlyMapLike<K, V>
   | ReadonlySetLike<K>;
@@ -92,7 +92,9 @@ export type ValueType<
     ? V | If<Extends<Context, "get" | "set">, undefined>
     : T extends ReadonlySetLike<K>
     ? boolean
-    : T[K] | If<And<Extends<T, RecordType>, Extends<Context, "set">>, undefined>
+    :
+        | T[K]
+        | If<And<Extends<T, SimpleObject>, Extends<Context, "set">>, undefined>
   : never;
 
 const set = (target: any, key: any, value: any) => {
@@ -276,7 +278,7 @@ type MergeResult_<Updates> = Updates extends Iterable<
   ? KeyValuePairsToObject<Item>
   : Updates;
 
-type MergeResult<T, Updates> = T extends RecordType
+type MergeResult<T, Updates> = T extends SimpleObject
   ? PrettifyIntersection<
       T &
         UnionToIntersection<
@@ -303,7 +305,7 @@ type SettableKeyType<T extends PropertyContainer> = T extends readonly any[]
   ? // `KeyType<T>` won't do.
     // If this `keyof` constraint is not set TypeScript will only constrain values for readonly tuple items to T[number] and not T[K].
     keyof T
-  : T extends RecordType
+  : T extends SimpleObject
   ? keyof any
   : KeyType<T>;
 
@@ -312,7 +314,7 @@ type SettableValueType<T extends PropertyContainer, K> = K extends KeyType<T>
       | ValueType<T, K>
       // `undefined` removes elements from maps and sets so also allowed.
       | (T extends MapLike | SetLike ? undefined : never)
-  : T extends RecordType
+  : T extends SimpleObject
   ? any
   : never;
 
@@ -351,7 +353,7 @@ type KeyValueTupleToRecord<Item> = Item extends readonly [infer K, infer V]
     }
   : Item extends readonly (infer KV)[]
   ? { [P in KV & keyof any]: KV }
-  : Item extends RecordType
+  : Item extends SimpleObject
   ? Item
   : never;
 
@@ -538,7 +540,7 @@ type RemoveDeepValue<
     : never
   : never;
 
-type KeysArg<T extends PropertyContainer | Nullish> = T extends RecordType
+type KeysArg<T extends PropertyContainer | Nullish> = T extends SimpleObject
   ? readonly (keyof T | undefined)[]
   : readonly (KeyType<T> | undefined)[];
 
@@ -562,7 +564,7 @@ export const del: {
   <T extends PropertyContainer | undefined, K extends KeysArg<T>>(
     target: T,
     ...keys: K
-  ): T extends RecordType ? { [P in Exclude<keyof T, K[number]>]: T[P] } : T;
+  ): T extends SimpleObject ? { [P in Exclude<keyof T, K[number]>]: T[P] } : T;
 } = (target: any, ...keys: any) =>
   target &&
   (assign(target, map(keys, (key) => [key, undefined]) as any) as any);
@@ -696,7 +698,7 @@ type PropertyList =
   | undefined
   | readonly [defaults: Partial<PropertyDescriptor>, ...items: PropertyList[]]
   | readonly (readonly [key: keyof any, value: any])[]
-  | RecordType;
+  | SimpleObject;
 
 export const define: {
   <T, P extends readonly PropertyList[]>(

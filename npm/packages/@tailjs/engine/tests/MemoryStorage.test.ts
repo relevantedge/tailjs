@@ -39,6 +39,15 @@ describe("MemoryStorage", () => {
       )[0]
     ).toMatchObject({ status: VariableResultStatus.NotFound });
 
+    expect(
+      (
+        await storage.set([
+          { scope: "test2", key: "test", entityId: "test", value: null },
+        ])
+      )[0]
+      // Cannot delete something that does not exist.
+    ).toMatchObject({ status: VariableResultStatus.NotFound });
+
     const { variables: results } = await storage.query([
       { scope: "test", entityIds: ["test"] },
     ]);

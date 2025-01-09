@@ -1,4 +1,4 @@
-import { forEach2, isObject } from "@tailjs/util";
+import { forEach2, isObject, some2 } from "@tailjs/util";
 import {
   contextError,
   navigateContext,
@@ -11,11 +11,21 @@ import {
 } from ".";
 import { SchemaTypeDefinition } from "../../../..";
 
+export const isIgnoredObject = (node: any) =>
+  some2(
+    node["properties"],
+    ([key]: [string, string]) =>
+      // This is a TypeScript function that has sneaked into the schema. Remove.
+      key.startsWith("NamedParameters") || key.startsWith("namedArgs")
+  );
+
 export const isJsonObjectType = (node: any) => {
   let allOf: any;
   return (
-    (node["type"] === "object" && !isObject(node.additionalProperties)) ||
-    ((allOf = node["allOf"]) && allOf[allOf.length - 1]?.["type"] === "object")
+    (node["type"] === "object" &&
+      !isObject(node.additionalProperties) &&
+      !isIgnoredObject(node)) ||
+    ((allOf = node["allOf"]) && isJsonObjectType(allOf[allOf.length - 1]))
   );
 };
 
@@ -30,7 +40,7 @@ export const parseJsonType = (context: ParseContext, root: boolean) => {
 
   const sourceNode = node;
   const allOf = node.allOf;
-  if (isJsonObjectType(node) && node.type !== "object") {
+  if (node.type !== "object") {
     node = (context = navigateContext(
       navigateContext(context, "allOf"),
       allOf.length - 1
@@ -39,12 +49,10 @@ export const parseJsonType = (context: ParseContext, root: boolean) => {
 
   const description = sourceNode.description || node.description;
 
-  const type = parseAnnotations<
+  let type = parseAnnotations<
     SchemaTypeDefinition & ParsedJsonSchemaTypeDefinition
   >(context, {
-    abstract:
-      sourceNode["additionalProperties"] !== false ||
-      description?.match(/@abstract\b/g),
+    abstract: description?.match(/@abstract\b/g) ? true : undefined,
     properties: {},
     [sourceJsonSchemaSymbol]: {
       schema: schema!,
@@ -53,6 +61,8 @@ export const parseJsonType = (context: ParseContext, root: boolean) => {
       },
     },
   });
+  delete (type as any).properties;
+  type.properties = {};
 
   if (node.$ref) {
     context.refs.resolve(node.$ref, (id) => {
@@ -72,7 +82,10 @@ export const parseJsonType = (context: ParseContext, root: boolean) => {
   if (root) {
     let id = schema!.namespace + "#" + key!;
     schema!.types![key!] = type;
-    forEach2(context.refPaths, (ref) => context.refs.add(ref, id, type));
+
+    forEach2(context.refPaths, (refPath) =>
+      context.refs.add(refPath.replace(/\/allOf\/\d+$/g, ""), id, type)
+    );
     context.types.set(id, type);
   }
 

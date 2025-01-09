@@ -1,7 +1,10 @@
-import { SchemaObjectType, SchemaUnionTypeDefinition } from "../../..";
-import { ValidatableSchemaEntity } from "./validation";
+import {
+  SchemaPropertyType,
+  SchemaUnionTypeDefinition,
+  ValidatableSchemaEntity,
+} from "../../..";
 
 export interface SchemaUnionType extends ValidatableSchemaEntity {
-  union: SchemaObjectType[];
+  union: SchemaPropertyType[];
   source: SchemaUnionTypeDefinition;
 }

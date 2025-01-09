@@ -19,3 +19,4 @@ __pycache__/
 tsconfig*.swc.json
 
 vite.config.ts.*.mjs
+.codegpt

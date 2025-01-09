@@ -247,7 +247,7 @@ export type DenyExtraProperties<T, Template> = unknown extends Template
   ? Template
   : Template extends infer Template
   ? Template & {
-      [P in Exclude<keyof T, keyof Template>]?: undefined;
+      [P in keyof T]?: P extends keyof Template ? unknown : undefined;
     }
   : never;
 

@@ -51,7 +51,8 @@ export const parseType = (
     | string
     | [name: string, definition: SchemaTypeDefinition],
   context: TypeParseContext,
-  referencingProperty: SchemaProperty | null
+  referencingProperty: SchemaProperty | null,
+  typeNamePostfix?: string
 ): SchemaObjectType => {
   let id: string;
 
@@ -105,6 +106,9 @@ export const parseType = (
     const namePath: string[] = [];
     while (referencingProperty) {
       namePath.unshift(referencingProperty.name, "type");
+      if (typeNamePostfix) {
+        namePath.unshift(typeNamePostfix);
+      }
 
       if (referencingProperty.declaringType.embedded) {
         if (

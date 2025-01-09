@@ -171,7 +171,6 @@ export const context: TrackerExtensionFactory = {
         return poll();
       },
     });
-
     let viewIndex =
       tryGetVariable({ scope: "tab", key: "viewIndex" })?.value ?? 0;
     let tabIndex = tryGetVariable({ scope: "tab", key: "tabIndex" })?.value;

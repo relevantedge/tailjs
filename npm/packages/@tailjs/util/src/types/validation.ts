@@ -346,26 +346,17 @@ export const tryCatchAsync = async <
   expression: Wrapped<MaybePromiseLike<T>>,
   errorHandler: E = true as any,
   always?: () => MaybePromiseLike<any>
-): Promise<T1 | C> => {
+): Promise<T1 | (E extends true ? never : C)> => {
   try {
-    const result = (await unwrap(expression)) as any;
-    return isArray(errorHandler) ? errorHandler[0]?.(result) : result;
+    return (await unwrap(expression)) as any;
   } catch (e) {
     if (!isBoolean(errorHandler)) {
-      if (isArray(errorHandler)) {
-        if (!errorHandler[1]) throw e;
-        return errorHandler[1](e) as any;
-      }
-
-      const error = (await (errorHandler as any)?.(e)) as any;
-      if (error instanceof Error) throw error;
-      return error;
+      return (await errorHandler(e)) as any;
     } else if (errorHandler) {
       throw e;
-    } else {
-      // `false` means "ignore".
-      console.error(e);
     }
+    // `false` means "ignore".
+    console.error(e);
   } finally {
     await always?.();
   }

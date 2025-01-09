@@ -1,12 +1,17 @@
-import { enumerate, forEach, throwError } from "@tailjs/util";
+import {
+  forEach,
+  itemize2,
+  Nullish,
+  OmitUnion,
+  throwError,
+} from "@tailjs/util";
 import { getEntityIdProperties, parsePropertyType, TypeParseContext } from ".";
 import {
   DEFAULT_CENSOR_VALIDATE,
+  handleValidationErrors,
   SchemaObjectType,
   SchemaProperty,
   SchemaPropertyDefinition,
-  handleValidationErrors,
-  validateConsent,
 } from "../../../..";
 import {
   createAccessValidator,
@@ -14,52 +19,52 @@ import {
   overrideUsage,
 } from "../validation";
 
-export const parseProperty = (
-  declaringType: SchemaObjectType,
+type MatchPropertyType<DeclaringType> = DeclaringType extends Nullish
+  ? OmitUnion<
+      SchemaProperty,
+      "id" | "version" | "qualifiedName" | "declaringType"
+    >
+  : SchemaProperty;
+
+export const parseProperty = <DeclaringType extends SchemaObjectType | null>(
+  declaringType: DeclaringType,
   name: string,
-  property: SchemaPropertyDefinition,
+  definition: SchemaPropertyDefinition,
   context: TypeParseContext,
   baseProperty?: SchemaProperty
-): SchemaProperty => {
+): MatchPropertyType<DeclaringType> => {
   const usageOverrides = overrideUsage(
     // Properties inherit usage from base properties, not from the type that overrides them.
-    baseProperty ? baseProperty.usageOverrides : declaringType.usageOverrides,
-    property
+    baseProperty
+      ? baseProperty.usageOverrides
+      : declaringType
+      ? declaringType.usageOverrides
+      : context.schema.usageOverrides,
+    definition
   );
 
   const { defaultUsage } = context;
 
-  const parsedProperty: SchemaProperty = {
-    ...getEntityIdProperties(
-      declaringType.id + "." + name,
-      declaringType.version
-    ),
-    schema: declaringType.schema,
-    declaringType,
+  const parsedProperty: MatchPropertyType<DeclaringType> = {
+    ...(declaringType &&
+      getEntityIdProperties(
+        declaringType!.id + "." + name,
+        declaringType!.version
+      )),
+    schema: declaringType?.schema ?? context.schema,
+    ...(declaringType && { declaringType }),
     name,
-    description: property.description,
+    description: definition.description,
     usage: overrideUsage(defaultUsage, usageOverrides),
     usageOverrides,
     type: null as any,
-    required: !!property.required,
-    source: property,
+    required: !!definition.required,
+    source: definition,
     ...DEFAULT_CENSOR_VALIDATE,
   };
-  parsedProperty.type =
-    property["type"] === "base"
-      ? baseProperty?.type ??
-        throwError(
-          "The property type 'base' is only valid for overriding properties"
-        )
-      : parsePropertyType(parsedProperty, property, {
-          ...context,
-          usageOverrides,
-        });
-
-  const { type, usage } = parsedProperty;
 
   if (baseProperty?.required) {
-    if (property.required === false) {
+    if (definition.required === false) {
       throw new Error(
         "A property cannot explicitly be defined as optional if its base property is required."
       );
@@ -67,12 +72,33 @@ export const parseProperty = (
     parsedProperty.required = true;
   }
 
+  parsedProperty.type =
+    definition["reference"] === "base"
+      ? baseProperty?.type ??
+        throwError(
+          "The property type 'base' is only valid for overriding properties"
+        )
+      : parsePropertyType(
+          declaringType ? (parsedProperty as SchemaProperty) : null,
+          definition,
+          {
+            ...context,
+            usageOverrides,
+          }
+        );
+
+  const { type, usage } = parsedProperty;
+
+  const logId = `'${
+    declaringType ? (parsedProperty as SchemaProperty).id : parsedProperty.name
+  }'`;
+
   if ((parsedProperty.baseProperty = baseProperty)) {
     const overrideError = (
       message = `The types ${baseProperty.type} and ${parsedProperty.type} are not compatible.`
     ) =>
       throwError(
-        `The property '${parsedProperty.id}' cannot override '${baseProperty.id}': ${message}.`
+        `The property ${logId} cannot override '${baseProperty.id}': ${message}.`
       );
 
     let baseType = baseProperty.type;
@@ -91,12 +117,18 @@ export const parseProperty = (
 
     const baseTypes =
       "union" in baseType
-        ? baseType.union
+        ? baseType.union.filter((type) => "properties" in type)
         : "extendedBy" in baseType
         ? [baseType]
         : null;
+
     const types =
-      "union" in type ? type.union : "extendedBy" in type ? [type] : null;
+      "union" in type
+        ? type.union.filter((type) => "properties" in type)
+        : "extendedBy" in type
+        ? [type]
+        : null;
+
     if (baseTypes && types) {
       forEach(
         types,
@@ -105,9 +137,9 @@ export const parseProperty = (
             (baseType) => type !== baseType && !baseType.extendedByAll.has(type)
           ) &&
           overrideError(
-            `The type ${type} is not the same or an extension of the base property's ${enumerate(
+            `The type ${type} is not the same or an extension of the base property's ${itemize2(
               baseTypes,
-              ["or"]
+              "or"
             )}`
           )
       );
@@ -141,17 +173,17 @@ export const parseProperty = (
     "property"
   );
 
-  if (property.default != null) {
-    property.default = handleValidationErrors(
+  if (definition.default != null) {
+    definition.default = handleValidationErrors(
       (errors) =>
         parsedProperty.type.validate(
-          property.default,
+          definition.default,
           undefined,
           { trusted: true },
           errors
         ),
       null,
-      `The default value does not match the property type for ${parsedProperty.id}`
+      `The default value does not match the property type for ${logId}.`
     );
   }
 

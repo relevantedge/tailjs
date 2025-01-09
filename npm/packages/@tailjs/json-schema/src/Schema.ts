@@ -1,7 +1,7 @@
 import {
   ConsentEvaluationContext,
   TrackedEvent,
-  VariableScope,
+  ServerVariableScope,
 } from "@tailjs/types";
 import { ExpandTypes } from "@tailjs/util";
 import { SchemaDataUsage } from "./usage";
@@ -27,7 +27,7 @@ export interface SchemaEntity {
 export interface Schema extends SchemaEntity {
   parent?: Schema;
   events?: ReadonlyMap<string, SchemaObjectType>;
-  variables?: Map<VariableScope, Map<string, SchemaVariable>>;
+  variables?: Map<ServerVariableScope, Map<string, SchemaVariable>>;
 
   types: ReadonlyMap<string, SchemaType>;
 
@@ -96,5 +96,5 @@ export interface SchemaProperty<T = any> extends ValidatableSchemaEntity {
 }
 
 export interface SchemaVariable<T = any> extends SchemaProperty<T> {
-  scope: VariableScope;
+  scope: ServerVariableScope;
 }

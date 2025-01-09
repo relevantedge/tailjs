@@ -1,11 +1,12 @@
 import {
+  AnySchemaTypeDefinition,
   SchemaDataUsage,
   SchemaDefinitionEntity,
   SchemaObjectTypeDefinition,
   SchemaTypeDefinition,
   SchemaTypeDefinitionReference,
   SchemaTypeSystemRole,
-  VariableScope,
+  ServerVariableScope,
   VersionedSchemaEntity,
 } from "../..";
 
@@ -31,7 +32,7 @@ export interface SchemaDefinition
   types?: { [TypeName in string]: SchemaTypeDefinition };
 
   variables?: {
-    [Scope in VariableScope | (string & {})]?: {
+    [Scope in ServerVariableScope | (string & {})]?: {
       [Key in string]?:
         | string
         | SchemaObjectTypeDefinition
@@ -42,6 +43,7 @@ export interface SchemaDefinition
               | { type: SchemaObjectTypeDefinition }
               | SchemaTypeDefinitionReference
             ));
+      //| AnySchemaTypeDefinition;
     };
   };
 

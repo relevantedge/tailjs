@@ -1,141 +1,323 @@
 import {
   ArrayOrSelf,
   deferredPromise,
-  DenyExtraProperties,
   Falsish,
-  FalsishToUndefined,
+  IfNever,
   isArray,
-  ItemOrSelf,
-  MaybeArray,
-  TupleParameter,
+  MaybePromiseLike,
+  throwError,
 } from "@tailjs/util";
 import {
-  formatKey,
+  formatVariableKey,
   isSuccessResult,
-  MapVariableResult,
-  MatchKey,
-  ScopedKey,
+  KnownVariableMap,
+  MatchScopes,
+  RemoveScopeRestrictions,
+  RestrictScopes,
   VariableGetResult,
   VariableGetter,
-  VariableGetterCallback,
+  VariableInitializer,
+  VariableInitializerCallback,
   VariableKey,
+  VariablePatch,
   VariablePatchFunction,
   VariableResult,
   VariableResultStatus,
-  VariableScope,
   VariableSetResult,
   VariableSetter,
-  VariableSetterCallback,
+  VariableSuccessStatus,
+  VariableValueErrorResult,
+  VariableValueSetter,
 } from "../..";
 
-export type ScopedVariableGetters<
-  Scopes extends string,
-  ExplicitScopes extends string = Scopes
-> = TupleParameter<ScopedKey<VariableGetter, Scopes, ExplicitScopes>>;
+type NotString<S> = string extends S ? never : S;
+type Lookup<T, Source, Key> = unknown extends Key
+  ? never
+  : T[keyof T & NotString<Source[Key & keyof Source]>];
 
-export type ScopedVariableSetters<
-  Scopes extends string,
-  ExplicitScopes extends string = Scopes
-> = TupleParameter<ScopedKey<VariableSetter, Scopes, ExplicitScopes>>;
+export type KnownTypeFor<
+  Operation,
+  KnownTypes extends KnownVariableMap,
+  Default = unknown
+> = IfNever<
+  Lookup<Lookup<KnownTypes, Operation, "scope">, Operation, "key">,
+  Default
+> & {};
 
 /**
- * Without this little trick, TypeScript is not smart enough to suggest the properties for the return type in patch functions
- * even if the parameter type is specified, that is, `patch: (current: {x: string})=>(no intellisense here)`
+ * If the callback returns `true` the variable will get polled, that is, the callback will be called again if the variable changes.
+ * If the variable is deleted, the callback will be called with a NotFound get result.
+ *
+ * This currently only works client-side.
  */
-export type WithCallbackIntellisense<Operation> =
-  Operation extends readonly any[]
-    ? {
-        [P in keyof Operation]: WithCallbackIntellisense<Operation[P]>;
-      }
-    : Operation extends {
-        patch: VariablePatchFunction<infer Current, infer Result>;
-      }
-    ? Omit<
-        unknown extends Current
-          ? Operation
-          : Omit<Operation, "patch"> & {
-              patch: VariablePatchFunction<
-                any,
-                DenyExtraProperties<Result, Current>
-              >;
-            },
-        "callback"
-      > & { callback?: VariableSetterCallback<Result> }
-    : Operation extends Falsish
-    ? Operation
-    : Omit<Operation, "callback"> & {
-        callback?: Operation extends { value: infer T }
-          ? VariableSetterCallback<T>
-          : VariableGetterCallback<
-              Operation extends { init: () => infer T } ? T : any
-            >;
-      };
+export type VariableGetterCallback<
+  KeyType = VariableKey,
+  T extends {} = any
+> = (
+  result: MatchScopes<
+    VariableResultPromiseResult<"get", VariableGetResult<T>>,
+    KeyType
+  >
+) => MaybePromiseLike<boolean | undefined | void>;
+
+export type VariableSetterCallback<
+  KeyType = VariableKey,
+  T extends {} = any
+> = (
+  result: MatchScopes<
+    VariableResultPromiseResult<"set", VariableSetResult<T>>,
+    KeyType
+  >
+) => any;
+
+/**
+ * Validate types for callbacks.
+ */
+export type WithCallbacks<
+  OperationType extends string,
+  Operation,
+  KnownVariables extends KnownVariableMap
+> = Operation extends readonly any[]
+  ? {
+      [P in keyof Operation]: WithCallbacks<
+        OperationType,
+        Operation[P],
+        KnownVariables
+      >;
+    }
+  : Operation extends { scope: any }
+  ? {
+      [P in keyof Operation]: P extends "patch"
+        ? Operation[P] extends VariablePatchFunction<
+            infer Current,
+            infer Result
+          >
+          ? VariablePatchFunction<
+              KnownTypeFor<
+                Operation,
+                KnownVariables,
+                unknown extends Current ? Result : Current
+              >
+            >
+          : never
+        : P extends "value"
+        ? KnownTypeFor<Operation, KnownVariables, any> | null | undefined
+        : P extends "init"
+        ?
+            | undefined
+            | VariableInitializerCallback<
+                KnownTypeFor<Operation, KnownVariables, any>
+              >
+        : P extends "callback"
+        ?
+            | undefined
+            | (OperationType extends "set"
+                ? VariableSetterCallback<
+                    Operation,
+                    KnownTypeFor<Operation, KnownVariables, any>
+                  >
+                : VariableGetterCallback<
+                    Operation,
+                    KnownTypeFor<Operation, KnownVariables, any>
+                  >)
+        : Operation[P];
+    }
+  : Operation;
 
 type TupleOrSelf<T> = T | readonly T[] | readonly [T];
 
-export type VariableOperationParameter<
-  T extends VariableKey,
-  Scopes extends string,
-  ExplicitScopes extends string = "global"
-> = TupleOrSelf<Falsish | ScopedKey<T, Scopes, ExplicitScopes>>;
-
-type VariableOperationResultItem<
-  OperationType extends "get" | "set",
-  Scopes extends string,
-  ExplicitScopes extends string
-> = ScopedKey<
-  OperationType extends "get" ? VariableGetResult : VariableSetResult,
-  Scopes,
-  ExplicitScopes
+export type VariableOperationParameter<T> = TupleOrSelf<
+  Falsish | (T & { callback?: any })
 >;
+
+type VariableOperationResultItem<OperationType extends "get" | "set"> =
+  OperationType extends "get" ? VariableGetResult : VariableSetResult;
 
 export type VariableOperationResult<
   OperationType extends "get" | "set",
   Operations,
-  Scopes extends string,
-  ExplicitScopes extends string = "global"
-> = VariableResultPromise<OperationType, Operations, Scopes, ExplicitScopes>;
+  ScopeTemplate extends { scope: string; entityId?: string },
+  KnownTypes extends KnownVariableMap = never
+> = VariableResultPromise<OperationType, Operations, ScopeTemplate, KnownTypes>;
+
+// type GenericVariableValue =
+//   | {
+//       [property: string | number]: GenericVariableValue | null | undefined;
+//     }
+//   | (GenericVariableValue | null)[]
+//   | string
+//   | number
+//   | boolean;
+//type GenericVariableValue = any; // Default value for unknown variable types.
+type GenericVariableValue = unknown;
+
+type ReplaceKey<Target, Source> = Target extends infer Target
+  ? {
+      [P in keyof Target]: P extends keyof VariableKey
+        ? Source[P & keyof Source]
+        : Target[P];
+    } extends infer T
+    ? { [P in keyof T]: T[P] }
+    : never
+  : never;
+
+type MapVariableResult<
+  Operation,
+  Type extends "success" | "all" | "value" = "success",
+  Require extends boolean = false,
+  KnownTypes extends KnownVariableMap = never
+> = Operation extends Falsish
+  ? undefined
+  : Operation extends readonly any[]
+  ? {
+      -readonly [P in keyof Operation]: MapVariableResult<
+        Operation[P],
+        Type,
+        Require,
+        KnownTypes
+      >;
+    }
+  : (
+      Operation extends
+        | Pick<VariableValueSetter<infer Result>, "value">
+        | Pick<VariablePatch<infer Current, infer Result>, "patch">
+        ? [
+            "set",
+            ReplaceKey<
+              VariableSetResult<
+                unknown extends Current
+                  ? unknown extends Result
+                    ? KnownTypeFor<Operation, KnownTypes, GenericVariableValue>
+                    : Result
+                  : Current
+              >,
+              Operation
+            > & {
+              // NotModified is only for underlying VariableStorages behind façades that returns result promises.
+              status: Exclude<
+                VariableResultStatus,
+                Result extends null ? never : VariableResultStatus.NotFound
+              >;
+            }
+          ]
+        : [Operation] extends [never]
+        ? never
+        : [
+            "get",
+            ReplaceKey<
+              VariableGetResult<
+                {} & (Operation extends Pick<
+                  VariableInitializer<infer Result>,
+                  "init"
+                >
+                  ? unknown extends Result
+                    ? KnownTypeFor<Operation, KnownTypes, GenericVariableValue>
+                    : Result
+                  : KnownTypeFor<Operation, KnownTypes, GenericVariableValue>)
+              > & {
+                status: Exclude<
+                  VariableResultStatus,
+                  | ([Operation] extends [
+                      { ifModifiedSince: number } | { ifNoneMatch: string }
+                    ]
+                      ? never
+                      : VariableResultStatus.NotModified)
+                  | ([Operation] extends [{ init: any }]
+                      ? never
+                      :
+                          | VariableResultStatus.Created
+                          | VariableValueErrorResult["status"])
+                >;
+              },
+              Operation
+            >
+          ]
+    ) extends [infer OperationType, infer Result]
+  ? (
+      Type extends "all"
+        ? Result
+        : Result extends { status: VariableResultStatus.NotFound }
+        ? Require extends true
+          ? never
+          : OperationType extends "get"
+          ? undefined
+          : never // Not found is an error result for set operations.
+        : Result extends { status: VariableResultStatus.NotModified }
+        ? Type extends "value"
+          ? undefined
+          : VariableResultPromiseResult<OperationType, Result>
+        : Result extends { status: VariableSuccessStatus; value: any }
+        ? Type extends "value"
+          ? Result["value"]
+          : Result
+        : never
+    ) extends infer Result
+    ? Type extends "value"
+      ? Result
+      : Result extends undefined
+      ? undefined
+      : Result extends { [x: string]: never }
+      ? never
+      : VariableResultPromiseResult<OperationType, Result>
+    : never
+  : never;
 
 export type VariableResultPromise<
   OperationType extends "get" | "set",
   Operations,
-  Scopes extends string = string,
-  ExplicitScopes extends string = any
+  ScopeTemplate extends { scope: string; entityId?: string },
+  KnownTypes extends KnownVariableMap = never
 > = unknown[] extends Operations
   ? VariableResultPromise<
       OperationType,
-      VariableOperationResultItem<OperationType, Scopes, ExplicitScopes>[],
-      Scopes,
-      ExplicitScopes
+      VariableOperationResultItem<OperationType>[],
+      ScopeTemplate
     >
   : unknown extends Operations
   ? VariableResultPromise<
       OperationType,
-      VariableOperationResultItem<OperationType, Scopes, ExplicitScopes>,
-      Scopes,
-      ExplicitScopes
+      VariableOperationResultItem<OperationType>,
+      ScopeTemplate
     >
   : Promise<
-      MapVariableResult<Operations, "success", Scopes, ExplicitScopes>
+      MatchScopes<
+        MapVariableResult<Operations, "success", false, KnownTypes>,
+        ScopeTemplate
+      >
     > & {
       /** Return all variable results with error status codes instead of throwing errors. */
       all(): Promise<
-        MapVariableResult<Operations, "raw", Scopes, ExplicitScopes>
+        MatchScopes<
+          MapVariableResult<Operations, "all", false, KnownTypes>,
+          ScopeTemplate
+        >
+      >;
+      require(): Promise<
+        MatchScopes<
+          MapVariableResult<Operations, "success", true, KnownTypes>,
+          ScopeTemplate
+        >
       >;
     } & (Operations extends readonly any[]
         ? {
-            values(): Promise<
-              MapVariableResult<Operations, "value", Scopes, ExplicitScopes>
+            values<Require extends boolean = false>(
+              require?: Require
+            ): Promise<
+              MapVariableResult<Operations, "value", Require, KnownTypes>
             >;
           }
         : {
-            value(): Promise<
-              MapVariableResult<Operations, "value", Scopes, ExplicitScopes>
+            value<Require extends boolean = false>(
+              require?: Require
+            ): Promise<
+              MapVariableResult<Operations, "value", Require, KnownTypes>
             >;
           });
 
-const formatVariableResult = (result: ScopedKey<VariableResult>) => {
-  const key = formatKey(result);
+const formatVariableResult = (
+  result: RestrictScopes<VariableResult, string, any>
+) => {
+  const key = formatVariableKey(result);
   const error = (result as any).error;
   return result.status < 400
     ? `${key} succeeded with status ${result.status} - ${
@@ -152,7 +334,7 @@ export class VariableStorageError<
   public readonly succeeded: MapVariableResult<Operations, "success">;
 
   public readonly failed: Exclude<
-    MapVariableResult<Operations, "raw">,
+    MapVariableResult<Operations, "all">,
     MapVariableResult<Operations, "success">
   >;
 
@@ -174,28 +356,30 @@ export const toVariableResultPromise = <
   Operations,
   Scope
 >(
-  type: OperationType,
+  operationType: OperationType,
   operations: Operations | ArrayOrSelf<Falsish | { scope: Scope }>,
   handler: (
-    operations: ((OperationType extends "get"
-      ? VariableGetter
-      : VariableSetter) & {
-      scope: Scope;
-    } extends infer T
-      ? { [P in keyof T]: T[P] }
-      : never)[]
-  ) => Promise<ScopedKey<VariableResult>[]>
-): VariableResultPromise<OperationType, Operations> => {
+    operations: RemoveScopeRestrictions<
+      OperationType extends "get" ? VariableGetter : VariableSetter
+    >[]
+  ) => Promise<
+    Map<
+      RemoveScopeRestrictions<VariableKey, true>,
+      RemoveScopeRestrictions<VariableResult, true>
+    >
+  >
+): VariableResultPromise<OperationType, Operations, any> => {
   const mapResults = async (
     type:
       | 0 // any
       | 1 // throw on errors
-      | 2 // values (also throw on errors)
+      | 2, // values (also throw on errors)
+    require: boolean
   ) => {
     const ops = isArray(operations) ? (operations as any) : [operations];
     // The raw results from the map function including error results.
 
-    const resultSource = await handler(ops.filter((op) => op));
+    const mappedResults = await handler(ops.filter((op: any) => op));
     // The results we will return if there are no errors;
     const results: any[] = [];
     const errors: string[] = [];
@@ -207,11 +391,22 @@ export const toVariableResultPromise = <
         results.push(undefined);
         continue;
       }
-      const result = resultSource[i++];
+      const result: VariableResult & { success: boolean } =
+        (mappedResults.get(op) as any) ??
+        throwError(`No result for ${formatVariableKey(op)}.`);
+
+      op.source = result;
       if (op.callback) {
         callbacks.push(op.callback(result));
       }
-      if (!type || isSuccessResult(result, false)) {
+      result.success =
+        !type ||
+        isSuccessResult(
+          result,
+          // Not found is an error result for set operations.
+          require || operationType === "set"
+        );
+      if (result.success) {
         results.push(
           type && result.status === VariableResultStatus.NotFound
             ? undefined
@@ -238,13 +433,38 @@ export const toVariableResultPromise = <
   };
 
   const resultPromise = Object.assign(
-    deferredPromise(() => mapResults(1)),
+    deferredPromise(() => mapResults(1, false)),
     {
-      raw: () => mapResults(0),
-      value: () => mapResults(2),
-      values: () => mapResults(2),
+      all: () => mapResults(0, false),
+      require: () => mapResults(1, true),
+      value: (require = false) => mapResults(2, require),
+      values: (require = false) => mapResults(2, require),
     }
   );
 
   return resultPromise as any;
 };
+
+export type VariableResultPromiseResult<OperationType, Result> = Result &
+  (
+    | {
+        status:
+          | VariableResultStatus.Success
+          | VariableResultStatus.Created
+          | (OperationType extends "get"
+              ? VariableResultStatus.NotFound
+              : never);
+        success: true;
+      }
+    | {
+        status: Exclude<
+          VariableResultStatus,
+          | VariableResultStatus.Success
+          | VariableResultStatus.Created
+          | (OperationType extends "get"
+              ? VariableResultStatus.NotFound
+              : never)
+        >;
+        success: false;
+      }
+  );

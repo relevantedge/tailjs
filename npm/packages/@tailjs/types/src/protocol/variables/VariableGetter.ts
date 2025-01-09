@@ -1,13 +1,11 @@
 import { MaybePromiseLike } from "@tailjs/util";
 import {
   DataPurposeName,
-  ScopedKey,
   VariableErrorResult,
   VariableKey,
   VariableNotFoundResult,
-  VariableScope,
+  VariableNotModifiedResult,
   VariableSuccessResult,
-  VariableUnchangedResult,
   VariableValueErrorResult,
 } from "../..";
 
@@ -21,27 +19,23 @@ export interface ReadOnlyVariableGetter extends VariableKey {
   purpose?: DataPurposeName;
 }
 
-export interface VariableInitializer<T> extends ReadOnlyVariableGetter {
+export type VariableInitializerCallback<T extends {} = any> =
+  () => MaybePromiseLike<T | null | undefined>;
+
+export interface VariableInitializer<T extends {} = any>
+  extends ReadOnlyVariableGetter {
   ttl?: number;
-  init: () => MaybePromiseLike<T | null | undefined>;
+  init: VariableInitializerCallback<T>;
 }
 
-export type VariableGetterCallback<T> = (result: VariableGetResult<T>) => any;
-
-export type VariableGetter<T = any> = (
-  | ReadOnlyVariableGetter
+export type VariableGetter<T extends {} = any> = (
+  | (ReadOnlyVariableGetter & { init?: undefined; ttl?: undefined })
   | VariableInitializer<T>
 ) & { value?: never; patch?: never }; // These two properties to avoid VariableGetter extends VariableSetter.
 
-export type ScopedVariableGetter<T = any> = ScopedKey<
-  VariableGetter<T>,
-  VariableScope,
-  any
->;
-
-export type VariableGetResult<T = any> =
+export type VariableGetResult<T extends {} = any> =
   | VariableErrorResult
   | VariableNotFoundResult
-  | (VariableUnchangedResult & { value: undefined })
+  | VariableNotModifiedResult
   | VariableValueErrorResult
   | VariableSuccessResult<T>;

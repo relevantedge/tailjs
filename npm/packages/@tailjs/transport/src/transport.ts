@@ -156,7 +156,6 @@ const serialize = <Msgpack extends boolean>(
   msgpack: Msgpack,
   { defaultValues = true, prettify = false }
 ): Msgpack extends true ? Uint8Array : string => {
-  // TODO: Clone when required instead of adding "cleaners". Probably adds more overhead.
   let cleaners: (() => void)[] | undefined;
   let refs: Map<any, number> | undefined;
   let refIndex: number | undefined;

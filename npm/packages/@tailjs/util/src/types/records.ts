@@ -4,7 +4,7 @@ import type {
   Nullish,
   Primitives,
   Property,
-  RecordType,
+  SimpleObject,
   UnionToTuple,
   UnknownIsAny,
 } from ".";
@@ -19,7 +19,7 @@ export type ReadonlyRecord<K extends keyof any = keyof any, V = any> = {
 
 export type PartialDefined<T> = Partial<Exclude<T, undefined | void>>;
 
-export type Freeze<T> = T extends RecordType | readonly any[]
+export type Freeze<T> = T extends SimpleObject | readonly any[]
   ? { readonly [P in keyof T]: Freeze<T[P]> }
   : T;
 
@@ -30,7 +30,7 @@ export type AllRequired<T, Nulls = never> = T extends undefined | Nulls
   ? null
   : {
       [P in keyof T]-?: Exclude<
-        T extends RecordType ? AllRequired<T[P], Nulls> : T[P],
+        T extends SimpleObject ? AllRequired<T[P], Nulls> : T[P],
         undefined
       >;
     };
@@ -144,7 +144,7 @@ export type PrettifyIntersection<
 export type KeyValueSource =
   | Nullish
   | readonly (readonly [keyof any, any])[]
-  | RecordType<keyof any, any>
+  | SimpleObject<keyof any, any>
   | Map<keyof any, any>;
 
 type Gather<T, Group extends boolean> = [T] extends [never]

@@ -8,7 +8,7 @@ import {
   isArray,
   isBoolean,
   isString,
-  join,
+  join2,
   map,
   nil,
   undefined,
@@ -99,7 +99,7 @@ export const escapeRegEx = <T extends string | Nullish>(
 
 const REGEX_NEVER = /\z./g;
 const unionOrNever = (parts: (string | Nullish)[], joined?: string) =>
-  (joined = join(distinct(filter(parts, (part) => part?.length)), "|"))
+  (joined = join2(distinct(filter(parts, (part) => part?.length)), "|"))
     ? new RegExp(joined, "gu")
     : REGEX_NEVER;
 
@@ -135,12 +135,12 @@ export const parseRegex = <T>(
                   split(
                     text!,
                     new RegExp(
-                      `(?<!(?<!\\\\)\\\\)[${join(separators, escapeRegEx)}]`
+                      `(?<!(?<!\\\\)\\\\)[${join2(separators, escapeRegEx)}]`
                     )
                   ),
                   (text) =>
                     text &&
-                    `^${join(
+                    `^${join2(
                       // Split on non-escaped asterisk (Characterized by a leading backslash that is not itself an escaped backslash).
                       split(text, /(?<!(?<!\\)\\)\*/),
                       (part) =>

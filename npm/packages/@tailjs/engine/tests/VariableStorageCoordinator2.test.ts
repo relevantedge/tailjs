@@ -1,8 +1,7 @@
 import {
-  ScopedVariableSetter,
+  ServerVariableScope,
   TypeResolver,
   VariableQuery,
-  VariableScope,
   VariableSetResult,
   VariableSuccessResult,
 } from "@tailjs/types";
@@ -204,8 +203,28 @@ describe("VariableStorageCoordinator", () => {
         trusted: true,
       }
     );
+
     expect(sessionVariable2.version).toBeDefined();
     expect(sessionVariable2.status).toBe(201);
+
+    let currentVersion = sessionVariable2.version;
+    sessionVariable2 = await coordinator.set(
+      {
+        scope: "session",
+        key: "test2",
+        entityId: "foo",
+        value: { name: "test 1" },
+        version: currentVersion,
+      },
+      {
+        trusted: true,
+      }
+    );
+    // Unchanged from underlying storage, mapped to success result.
+    expect(sessionVariable2.version).not.toBe(currentVersion);
+    expect(sessionVariable2.status).toBe(200);
+
+    currentVersion = sessionVariable2.version;
 
     // Must still not be possible to set this from untrusted context, now that it has a value.
     await expect(() =>
@@ -236,7 +255,7 @@ describe("VariableStorageCoordinator", () => {
           key: "test2",
           entityId: "foo",
           value: { name: "test 2" },
-          version: sessionVariable2.version,
+          version: currentVersion,
         },
         { trusted: true }
       )).status
@@ -251,7 +270,6 @@ describe("VariableStorageCoordinator", () => {
             key: "test2",
             entityId: "foo",
             patch: (current) => ({ name: current?.name + " - updated" }),
-            version: sessionVariable2.version,
           },
           {
             scope: "user",
@@ -287,6 +305,40 @@ describe("VariableStorageCoordinator", () => {
 
     expect(failed.status).toBe(409);
 
+    // Let's delete
+    expect(
+      (
+        await coordinator.set(
+          {
+            scope: "session",
+            key: "test2",
+            entityId: "foo",
+            version: sessionVariable2.version,
+            value: null,
+          },
+          {
+            trusted: true,
+          }
+        )
+      ).status
+    ).toBe(200);
+
+    // Let's delete something that does not exist.
+    expect(
+      coordinator.set(
+        {
+          scope: "session",
+          key: "test2",
+          entityId: "foo",
+          version: sessionVariable2.version,
+          value: null,
+        },
+        {
+          trusted: true,
+        }
+      )
+    ).rejects.toThrow("404");
+
     let retries = 0;
     // Now, lets simulate a race condition by overriding the memory storage.
     let originalGet = sessionStorage.get;
@@ -307,7 +359,6 @@ describe("VariableStorageCoordinator", () => {
       key: "test1",
       entityId: "foo",
       patch: (current) => ({ name: current?.name + " - updated" }),
-      version: sessionVariable2.version,
     });
 
     expect(retries).toBe(3);
@@ -335,7 +386,7 @@ describe("VariableStorageCoordinator", () => {
         key: "test1",
         entityId: "foo",
       })
-    ).resolves.toBeNull();
+    ).resolves.toBeUndefined();
 
     // Prefixes. The "cdp" prefix does not have the test1 variable from the first schema.
     await expect(() =>
@@ -390,18 +441,18 @@ describe("VariableStorageCoordinator", () => {
           entityId: "foo",
         })
         .value()
-    ).toBe(null);
+    ).toBe(undefined);
 
     expect(
       (
-        await coordinator
+        (await coordinator
           .get({
             scope: "user",
             key: "test2",
             source: "cdp",
             entityId: "foo",
           })
-          .value()
+          .value()) as any
       ).test
     ).toBe("CDP test");
   });
@@ -436,7 +487,7 @@ describe("VariableStorageCoordinator", () => {
             key: "test1",
             entityId,
             value: { name: entityId },
-          } satisfies ScopedVariableSetter)
+          } as const)
       )
     );
 
@@ -477,7 +528,7 @@ describe("VariableStorageCoordinator", () => {
 
     await coordinator.set(
       map2(userIds, (entityId) => ({
-        scope: "user",
+        scope: "user" as const,
         key: "test1",
         entityId: entityId,
         value: { name: entityId },
@@ -653,7 +704,7 @@ describe("VariableStorageCoordinator", () => {
       [[{ classification: { gt: "sensitive" } }], 0], //// Impossible, nothing is more sensitive than sensitive
       [[{}, {}, {}], 120], // Multiple "query all" queries should still only return each variable once.
     ] satisfies [
-      VariableQuery<VariableScope>[],
+      VariableQuery<ServerVariableScope>[],
       number,
       context?: VariableStorageContext
     ][]) {

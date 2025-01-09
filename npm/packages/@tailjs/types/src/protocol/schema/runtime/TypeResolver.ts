@@ -8,21 +8,24 @@ import {
 } from "@tailjs/util";
 import {
   CORE_SCHEMA_NS,
+  DataUsage,
   SCHEMA_DATA_USAGE_ANONYMOUS,
   SchemaTypeDefinition,
   type SchemaDefinition,
   type SchemaTypeDefinitionReference,
-  type VariableScope,
+  type ServerVariableScope,
 } from "../../..";
 
 export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
-  validate: (value, _current, _context, _errors) => value,
+  validate: (value: any, _current, _context, _errors) => value,
   censor: (value, _context) => value,
 };
 
 import {
+  isSchemaObject,
   Schema,
   SchemaObjectType,
+  SchemaPropertyType,
   SchemaVariable,
   SchemaVariableKey,
 } from "../..";
@@ -30,6 +33,8 @@ import {
 import {
   createSchemaTypeMapper,
   parseBaseTypes,
+  parseProperty,
+  parsePropertyType,
   parseType,
   parseTypeProperties,
   SchemaTypeSelector,
@@ -39,8 +44,8 @@ import {
   createAccessValidator,
   createCensorAction,
   getPrimitiveTypeValidator,
-  overrideUsage,
   handleValidationErrors,
+  overrideUsage,
   ValidatableSchemaEntity,
 } from "./validation";
 import { addTypeValidators } from "./validation/addTypeValidators";
@@ -175,37 +180,41 @@ export class TypeResolver {
           if (!definition) {
             return;
           }
-          let variableType: SchemaObjectType;
+          let variableType: SchemaPropertyType | undefined;
 
           if (typeof definition === "string") {
             definition = { reference: definition };
-          }
-          if (!("reference" in definition) && !("type" in definition)) {
-            definition = { type: definition };
           }
 
           if ("reference" in definition) {
             // Get the referenced type.
             variableType = parseType(definition, context, null);
-          } else {
+          } else if ("properties" in definition) {
             // Not a reference, upgrade the anonymous object types to a type definition by giving it a name.
             variableType = parseType(
-              [scope + "_" + key, definition.type],
+              [scope + "_" + key, definition],
               context,
               null
             );
           }
 
+          const dummyProperty = parseProperty(
+            variableType as any,
+            key,
+            definition as any,
+            context
+          );
+
+          variableType ??= dummyProperty.type;
+
           const variable: SchemaVariable = {
             key,
             scope,
             type: variableType,
-            description: definition.description,
-
-            // These gets initialized later.
-            usage: definition as any,
-            validate: null!,
-            censor: null!,
+            description: dummyProperty.description,
+            usage: dummyProperty.usage,
+            validate: dummyProperty.validate,
+            censor: dummyProperty.censor,
           };
 
           tryAdd(
@@ -214,17 +223,22 @@ export class TypeResolver {
             variable,
             (current) => {
               throw new Error(
-                `The type "${variableType.id}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${current.type.id}".`
+                `The type "${variableType.toString()}" cannot be registered for the variable key "${key}" in ${scope} scope, since it is already used by "${
+                  current.type.toString
+                }".`
               );
             }
           );
 
           get2(schema.variables, scope, () => new Map()).set(key, variable);
-          get2(
-            (variableType.variables ??= new Map()),
-            scope,
-            () => new Set()
-          ).add(key);
+
+          if ("properties" in variableType) {
+            get2(
+              (variableType.variables ??= new Map()),
+              scope,
+              () => new Set()
+            ).add(key);
+          }
         });
       });
     }
@@ -234,7 +248,7 @@ export class TypeResolver {
       scope,
       obj2(variables, ([key, variable]) => {
         const usage = (variable.usage = overrideUsage(
-          variable.type.usage,
+          isSchemaObject(variable.type) ? variable.type.usage : undefined,
           variable.usage
         ));
 
@@ -301,7 +315,7 @@ export class TypeResolver {
   };
 
   public readonly variables: {
-    readonly [P in VariableScope | (string & {})]?: {
+    readonly [P in ServerVariableScope | (string & {})]?: {
       readonly [P in string]: Readonly<SchemaVariable>;
     };
   };

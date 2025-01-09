@@ -1,9 +1,10 @@
-import { ParsableDataUsageAttributes, UserConsent } from "@tailjs/types";
+import { DataUsage, UserConsent } from "@tailjs/types";
+import { ClientVariableGetterCallback } from "../interfaces";
 import { commandTest } from "./shared";
 
-export type ExternalConsentPoller = () =>
-  | ParsableDataUsageAttributes
-  | undefined;
+export type ExternalConsentPoller = (
+  current: DataUsage | undefined
+) => DataUsage | undefined;
 
 /** Gets or updates the user's consent. */
 export interface ConsentCommand {
@@ -12,12 +13,8 @@ export interface ConsentCommand {
    * Otherwise it will update the user's consent with the values provided.
    */
   consent: {
-    get?: (
-      value: UserConsent | undefined,
-      previous: UserConsent | undefined,
-      poll: () => void
-    ) => void;
-    set?: ParsableDataUsageAttributes & {
+    get?: ClientVariableGetterCallback<UserConsent>;
+    set?: DataUsage & {
       callback?: (updated: boolean, current: UserConsent | undefined) => void;
     };
     /**

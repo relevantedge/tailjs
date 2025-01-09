@@ -26,7 +26,7 @@ export type NonAsync =
   | Primitives
   | Iterable<any>
   | ((...args: any[]) => any)
-  | RecordType;
+  | SimpleObject;
 
 /**
  * Common function type used for projection of [key,value] entries.
@@ -60,9 +60,16 @@ export type NotFunction =
 /** Shorter than writing all this out, and slightly easier to read. */
 export type Nullish = null | undefined;
 export type CaptureNullish<Parameter, Nulls> = (Parameter | Nullish) & Nulls;
-export type MaybeNullish<Parameter, Nulls> = Nulls extends Nullish
+export type MaybeNullish<ReturnType, Nulls = ReturnType> = Nulls extends Nullish
   ? Nulls
-  : Parameter;
+  : ReturnType;
+
+export type PromiseIfPromiseLike<
+  Value,
+  ParameterValue = Value
+> = ParameterValue extends PromiseLike<any>
+  ? Promise<UnwrapPromiseLike<Value>>
+  : Value;
 
 export const isTruish = <T>(value: T): value is Exclude<T, Falsish> => !!value;
 export const isTrue = (value: any): value is true => value === T;
@@ -72,11 +79,11 @@ export const isNotTrue = <T>(value: T): value is Exclude<T, true> =>
 export type Falsish = void | null | undefined | 0 | "" | false;
 export type CaptureFalsish<Parameter, Nulls> = (Parameter | Falsish) & Nulls;
 export type MaybeFalsish<
-  Parameter,
-  Value = Parameter
-> = Parameter extends Falsish
-  ? Parameter extends Nullish
-    ? Parameter
+  ReturnType,
+  Value = ReturnType
+> = ReturnType extends Falsish
+  ? ReturnType extends Nullish
+    ? ReturnType
     : undefined
   : Value;
 
@@ -88,16 +95,16 @@ export type CaptureNullishOrFalse<Parameter, Nulls> = (
   Nulls;
 
 export type MaybeNullishOrFalse<
-  Parameter,
-  Value = Parameter
+  ReturnType,
+  Parameter = ReturnType
 > = Parameter extends NullishOrFalse
   ? Parameter extends Nullish
     ? Parameter
     : undefined
-  : Value;
+  : ReturnType;
 
 /** A record type that is neither iterable or a function. */
-export type RecordType<K extends keyof any = keyof any, V = any> = object & {
+export type SimpleObject<K extends keyof any = keyof any, V = any> = object & {
   readonly [P in K]?: V;
 } & {
   [Symbol.iterator]?: never;
@@ -170,6 +177,9 @@ export type HasRequiredProperty<T, P> = true extends (
   : false;
 
 export type IfNever<T, Default> = [T] extends [never] ? Default : T;
+export type IfNotNever<Test, Value, Default = never> = [Test] extends [never]
+  ? Default
+  : Value;
 
 export type Filter<T, FilterTypes, Default = never> = IfNever<
   T extends infer T ? (T extends FilterTypes ? T : never) : never,
@@ -417,7 +427,7 @@ export const isArray: <T>(
     ? T
     : T extends any[]
     ? T
-    : never
+    : any[]
   : never = Array.isArray as any;
 
 export const isError = /*#__PURE__*/ (value: any): value is Error =>
@@ -457,12 +467,11 @@ export const array: {
 
 export const isObject = /*#__PURE__*/ (
   value: any
-): value is object & Record<any, any> =>
-  value !== null && typeof value === "object";
+): value is object & Record<any, any> => value && typeof value === "object";
 
 export const isPlainObject = /*#__PURE__*/ (
   value: any
-): value is RecordType<keyof any, any> => value?.constructor === Object;
+): value is SimpleObject<keyof any, any> => value?.constructor === Object;
 
 export const hasProperty = /*#__PURE__*/ <P extends keyof any>(
   value: any,
@@ -507,7 +516,7 @@ export const isIterable = /*#__PURE__*/ (
   value: any,
   acceptStrings = false
 ): value is Iterable<any> =>
-  !!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
+  !!(value?.[symbolIterator] && (typeof value !== "string" || acceptStrings));
 
 export const isAsyncIterable = /*#__PURE__*/ (
   value: any
@@ -577,3 +586,21 @@ const testFirstLast = (s: string, first: string, last: string) =>
 export const isJsonString = (value: any): boolean =>
   isString(value) &&
   (testFirstLast(value, "{", "}") || testFirstLast(value, "[", "]"));
+
+export type Mutable<T> = T extends
+  | Map<any, any>
+  | WeakMap<any, any>
+  | Set<any>
+  | WeakSet<any>
+  ? T
+  : T extends ReadonlyMap<infer K, infer V>
+  ? Map<K, V>
+  : T extends ReadonlySet<infer K>
+  ? Set<K>
+  : T extends Primitives
+  ? T
+  : { -readonly [P in keyof T]: Mutable<T[P]> };
+
+/** For when an object that contains internal state that needs to be changed is exposed as read-only public property. */
+export const mutate2 = /*#__PURE__*/ <T>(target: T): Mutable<T> =>
+  target as any;

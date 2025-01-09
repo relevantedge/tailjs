@@ -1,6 +1,7 @@
 import { forEach2, isObject } from "@tailjs/util";
 import {
   contextError,
+  isIgnoredObject,
   isJsonObjectType,
   navigateContext,
   parseAnnotations,
@@ -46,28 +47,27 @@ export const parseDefinitions = (context: ParseContext) => {
       const defsContext = navigateContext(context, definitionsKey);
       for (const definitionKey in defs) {
         const def = defs[definitionKey];
-        if (def?.properties?.["namedArgs"]) {
-          // This is what TypeScript functions look like in generated JSON schemas.
-          // Ignore those.
-          continue;
-        }
 
         if (isJsonSchema(def)) {
           parseJsonSchema(navigateContext(defsContext, definitionKey));
           continue;
         }
         if (isScopeVariableDefinitionRoot(definitionKey, def)) {
+          const propertiesContext = navigateContext(
+            navigateContext(defsContext, definitionKey),
+            "properties"
+          );
           forEach2(
-            node["properties"],
+            def["properties"],
             ([name, scopeProperties]: [string, any]) => {
               const scope = variableScope(name.toLowerCase())!;
-              const propertiesContext = navigateContext(
-                defsContext,
+              const scopeContext = navigateContext(
+                navigateContext(propertiesContext, name),
                 "properties"
               );
               forEach2(scopeProperties["properties"], ([name]) => {
                 parseJsonProperty(
-                  navigateContext(propertiesContext, name),
+                  navigateContext(scopeContext, name),
                   (property) =>
                     (((context.schema!.variables ??= {})[scope] ??= {})[name] =
                       property as any)
@@ -80,6 +80,15 @@ export const parseDefinitions = (context: ParseContext) => {
 
         if (isJsonObjectType(def)) {
           parseJsonType(navigateContext(defsContext, definitionKey), true);
+        } else if (!isIgnoredObject(def)) {
+          const referencedProp = navigateContext(defsContext, definitionKey);
+
+          parseJsonProperty(referencedProp, (property) => {
+            let id = context.schema!.namespace + "#" + definitionKey;
+            forEach2(referencedProp.refPaths, (ref) =>
+              context.refs.add(ref, id, property)
+            );
+          });
         }
       }
     }

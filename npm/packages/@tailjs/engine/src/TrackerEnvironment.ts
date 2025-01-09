@@ -19,7 +19,7 @@ import {
   type HttpResponse,
   type LogMessage,
 } from "./shared";
-import { Tag } from "@tailjs/types";
+import { DeviceVariables, SessionVariables, Tag } from "@tailjs/types";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
@@ -41,6 +41,11 @@ const getDefaultLogSourceName = (source: any): string | undefined => {
   return constructorName ?? "" + source;
 };
 
+export type KnownTrackerKeys = {
+  session: SessionVariables;
+  device: DeviceVariables;
+};
+
 export class TrackerEnvironment {
   private readonly _crypto: CryptoProvider;
   private readonly _host: EngineHost;
@@ -51,7 +56,7 @@ export class TrackerEnvironment {
 
   public readonly tags?: Tag[];
   public readonly cookieVersion: string;
-  public readonly storage: VariableStorageCoordinator;
+  public readonly storage: VariableStorageCoordinator<KnownTrackerKeys>;
 
   constructor(
     host: EngineHost,

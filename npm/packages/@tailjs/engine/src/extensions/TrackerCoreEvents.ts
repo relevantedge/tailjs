@@ -8,7 +8,7 @@ import {
   SignInEvent,
   SignOutEvent,
   TrackedEvent,
-  cloneUsage,
+  dataUsage,
   isConsentEvent,
   isResetEvent,
   isSignInEvent,
@@ -16,7 +16,7 @@ import {
   isUserAgentEvent,
   isViewEvent,
 } from "@tailjs/types";
-import { clone2, now } from "@tailjs/util";
+import { now } from "@tailjs/util";
 import {
   NextPatchExtension,
   ParseResult,
@@ -62,6 +62,7 @@ export class TrackerCoreEvents implements TrackerExtension {
 
     let currentTime = now();
 
+    const foo = tracker.get([{ scope: "session", key: "tis" }]);
     const pipelineEvents: ParseResult[] = [];
     // Assign IDs and adjust timestamps.
     for (const event of events) {
@@ -108,20 +109,19 @@ export class TrackerCoreEvents implements TrackerExtension {
         {
           scope: "session",
           key: SCOPE_INFO_KEY,
-          patch: (current) => {
+          patch: (current: SessionInfo) => {
             if (!current) return;
-
-            sessionPatches.forEach((patch) => patch(current.value));
+            sessionPatches.forEach((patch) => patch(current));
             return current;
           },
         },
         tracker.device && {
           scope: "device",
           key: SCOPE_INFO_KEY,
-          patch: (current) => {
+          patch: (current: DeviceInfo) => {
             if (!current) return;
 
-            devicePatches.forEach((patch) => patch(current.value));
+            devicePatches.forEach((patch) => patch(current));
             return current;
           },
         },
@@ -162,7 +162,7 @@ export class TrackerCoreEvents implements TrackerExtension {
         deviceSessionId: tracker.deviceSessionId,
         deviceId: tracker.deviceId,
         userId: tracker.authenticatedUserId,
-        consent: cloneUsage(tracker.consent),
+        consent: dataUsage.clone(tracker.consent),
         expiredDeviceSessionId: tracker._expiredDeviceSessionId,
         clientIp: tracker.clientIp ?? undefined,
       };
@@ -180,7 +180,7 @@ export class TrackerCoreEvents implements TrackerExtension {
               return { ...current, isNew: false };
             }
             isNewSession = false;
-            return undefined; // No change.
+            return current; // No change.
           },
         });
 
