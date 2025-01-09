@@ -1,10 +1,11 @@
-import { enumerate, set2 } from "@tailjs/util";
+import { distinct2, itemize2 } from "@tailjs/util";
 import {
   SchemaEnumTypeDefinition,
   SchemaPrimitiveTypeDefinition,
   SchemaValidationError,
   VALIDATION_ERROR_SYMBOL,
 } from "../../../..";
+import { formatErrorSource } from ".";
 
 const REGEX_DATE = /^\d{4}-\d{2}-\d{2}(?:T00:00:00(?:\.000)?)?Z$/;
 const REGEX_DATETIME =
@@ -29,18 +30,26 @@ const addError = (
 ) => (
   errors.push({
     path: "",
+    type: null,
     source: value,
-    message: `${JSON.stringify(value)} ${message}.`,
+    message: `${formatErrorSource(value)} ${message}.`,
   }),
   VALIDATION_ERROR_SYMBOL
 );
 
-const isNumber = (value: any) =>
-  typeof value === "number" ? value : !isNaN(+value) || value === "NaN";
+const isNumber = (value: any, integer: boolean, allowStrings: boolean) =>
+  (typeof value === "number" &&
+    // Only actual numbers. IEEE 754 stuff like NaN is not supported in JSON so also not here.
+    ((!integer && Number.isFinite(value) && !Number.isNaN(value)) ||
+      Number.isInteger(value))) ||
+  (allowStrings &&
+    typeof value === "string" &&
+    isNumber(integer ? parseInt(value) : parseFloat(value), integer, false));
 
 const primitiveValidators: Record<string, SchemaPrimitiveValueValidator> = {};
 export const getPrimitiveTypeValidator = (
-  type: SchemaPrimitiveTypeDefinition | SchemaEnumTypeDefinition
+  type: SchemaPrimitiveTypeDefinition | SchemaEnumTypeDefinition,
+  allowNumericStrings = false
 ): {
   validator: SchemaPrimitiveValueValidator;
   primitive: SchemaPrimitiveTypeDefinition["primitive"];
@@ -50,8 +59,8 @@ export const getPrimitiveTypeValidator = (
     type.primitive ?? (type.primitive = typeof (type.enum?.[0] ?? "") as any);
 
   let validator = (primitiveValidators[
-    type.primitive + "-" + (type["format"] ?? "")
-  ] ??= create(type as SchemaPrimitiveTypeDefinition));
+    type.primitive + "-" + (type["format"] ?? "") + "-" + allowNumericStrings
+  ] ??= create(type as SchemaPrimitiveTypeDefinition, allowNumericStrings));
 
   const maxLength = type["maxLength"];
   if (maxLength != null) {
@@ -106,9 +115,9 @@ export const getPrimitiveTypeValidator = (
 
     const errorMessage =
       "is not the constant value " +
-      enumerate(
+      itemize2(
         (type.enum as any[]).map((value: any) => JSON.stringify(value)),
-        ["or"]
+        "or"
       );
 
     validator = (value, errors) =>
@@ -121,122 +130,129 @@ export const getPrimitiveTypeValidator = (
   return {
     validator,
     primitive,
-    enumValues: set2(enumValues),
+    enumValues: distinct2(enumValues),
   };
+};
 
-  function create(
-    type: SchemaPrimitiveTypeDefinition
-  ): SchemaPrimitiveValueValidator {
-    switch (type.primitive) {
-      case "boolean":
-        return (value, errors) =>
-          typeof value === "boolean"
-            ? value
-            : addError(errors, value, "is not a Boolean");
+function create(
+  type: SchemaPrimitiveTypeDefinition,
+  allowNumericStrings: boolean
+): SchemaPrimitiveValueValidator {
+  switch (type.primitive) {
+    case "boolean":
+      return (value, errors) =>
+        typeof value === "boolean"
+          ? value
+          : addError(errors, value, "is not a Boolean");
 
-      case "date":
-        return (value, errors) =>
-          REGEX_DATE.test(value) && !isNaN(+new Date(value))
-            ? value
-            : addError(
-                errors,
-                value,
-                "is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)"
-              );
-
-      case "timestamp":
-      case "datetime":
-        const iso =
-          "format" in type
-            ? type.format !== "unix"
-            : type.primitive === "datetime";
-        return (value, errors) => {
-          if (isNumber(value)) {
-            if (!Number.isInteger((value = +value)))
-              return addError(errors, value, "is not a valid UNIX timestamp");
-          } else if (!REGEX_DATETIME.test(value) || isNaN(+new Date(value))) {
-            return addError(
+    case "date":
+      return (value, errors) =>
+        value && REGEX_DATE.test(value) && !isNaN(+new Date(value))
+          ? value
+          : addError(
               errors,
               value,
-              "is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)"
+              "is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)"
             );
+
+    case "timestamp":
+    case "datetime":
+      const iso =
+        "format" in type
+          ? type.format !== "unix"
+          : type.primitive === "datetime";
+      return (value, errors) => {
+        if (!value || isNumber(value, false, allowNumericStrings)) {
+          if (!isNumber(value, true, allowNumericStrings)) {
+            return addError(errors, value, "is not a valid UNIX timestamp");
           }
-
-          value = new Date(value);
-          return iso ? new Date(value).toISOString() : +value;
-        };
-
-      case "duration":
-        return (value, errors) =>
-          isNumber(value) && Number.isInteger((value = +value))
-            ? value
-            : addError(
-                errors,
-                value,
-                "is not a valid duration (must be provided as milliseconds)"
-              );
-
-      case "integer":
-        return (value, errors) =>
-          isNumber(value) && Number.isInteger((value = +value))
-            ? value
-            : addError(errors, value, "is not a valid integer");
-
-      case "number":
-        return (value, errors) =>
-          isNumber(value) ? +value : addError(errors, value, "is not a number");
-      case "string":
-        switch (type.format) {
-          case "uri":
-            return (value, errors) =>
-              REGEX_URI.test(value)
-                ? value
-                : addError(errors, value, "is not a valid URI");
-
-          case "url":
-            return (value, errors) => {
-              const match = REGEX_URI.exec(value);
-              if (!match) return addError(errors, value, "is not a valid URL");
-              return match[2]
-                ? value
-                : addError(
-                    errors,
-                    value,
-                    "is not a valid URL (it is a URI, but a URL is required)"
-                  );
-            };
-          case "urn":
-            return (value, errors) => {
-              const match = REGEX_URI.exec(value);
-              if (!match) return addError(errors, value, "is not a valid URN");
-              return match[1] === "urn" && !match[2]
-                ? value
-                : addError(
-                    errors,
-                    value,
-                    "is not a valid URN (it is a URI, but a URN is required)"
-                  );
-            };
-          case "email":
-            return (value, errors) =>
-              REGEX_EMAIL.test(value)
-                ? value.toLowerCase()
-                : addError(errors, value, "is not a valid email address");
+          value = +value;
+        } else if (!REGEX_DATETIME.test(value) || isNaN(+new Date(value))) {
+          return addError(
+            errors,
+            value,
+            "is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)"
+          );
         }
-        return (value, errors) =>
-          typeof value === "string"
-            ? value
-            : addError(errors, value, "is not a string");
 
-      case "uuid":
-        return (value, errors) =>
-          REGEX_UUID.exec(value)?.[1].toLowerCase() ??
-          addError(errors, value, "is not a valid UUID");
+        value = new Date(value);
+        return iso ? new Date(value).toISOString() : +value;
+      };
 
-      default:
-        throw new TypeError(
-          `'${JSON.stringify(type)}' is not a supported primitive type.`
-        );
-    }
+    case "duration":
+      return (value, errors) =>
+        isNumber(value, true, allowNumericStrings)
+          ? +value
+          : addError(
+              errors,
+              value,
+              "is not a valid duration (must be provided as milliseconds)"
+            );
+
+    case "integer":
+      return (value, errors) =>
+        isNumber(value, true, allowNumericStrings)
+          ? +value
+          : addError(errors, value, "is not a valid integer");
+
+    case "number":
+      return (value, errors) =>
+        isNumber(value, false, allowNumericStrings)
+          ? value
+          : addError(errors, value, "is not a number");
+
+    case "string":
+      switch (type.format) {
+        case "uri":
+          return (value, errors) =>
+            typeof value === "string" && REGEX_URI.test(value)
+              ? value
+              : addError(errors, value, "is not a valid URI");
+
+        case "url":
+          return (value, errors) => {
+            const match = typeof value === "string" && REGEX_URI.exec(value);
+            if (!match) return addError(errors, value, "is not a valid URL");
+            return match[2]
+              ? value
+              : addError(
+                  errors,
+                  value,
+                  "is not a valid URL (it is a URI, but a URL is required)"
+                );
+          };
+        case "urn":
+          return (value, errors) => {
+            const match = typeof value === "string" && REGEX_URI.exec(value);
+            if (!match) return addError(errors, value, "is not a valid URN");
+            return match[1] === "urn" && !match[2]
+              ? value
+              : addError(
+                  errors,
+                  value,
+                  "is not a valid URN (it is a URI, but a URN is required)"
+                );
+          };
+        case "email":
+          return (value, errors) =>
+            typeof value === "string" && REGEX_EMAIL.test(value)
+              ? value.toLowerCase()
+              : addError(errors, value, "is not a valid email address");
+      }
+      return (value, errors) =>
+        typeof value === "string"
+          ? value
+          : addError(errors, value, "is not a string");
+
+    case "uuid":
+      return (value, errors) =>
+        (typeof value === "string"
+          ? REGEX_UUID.exec(value)?.[1].toLowerCase()
+          : null) ?? addError(errors, value, "is not a valid UUID");
+
+    default:
+      throw new TypeError(
+        `'${formatErrorSource(type)}' is not a supported primitive type.`
+      );
   }
-};
+}

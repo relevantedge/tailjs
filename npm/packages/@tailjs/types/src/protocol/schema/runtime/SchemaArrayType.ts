@@ -1,5 +1,8 @@
-import { ValidatableSchemaEntity } from "./validation";
-import { SchemaArrayTypeDefinition, SchemaPropertyType } from "../../..";
+import {
+  SchemaArrayTypeDefinition,
+  SchemaPropertyType,
+  ValidatableSchemaEntity,
+} from "../../..";
 
 export interface SchemaArrayType extends ValidatableSchemaEntity {
   item: SchemaPropertyType;

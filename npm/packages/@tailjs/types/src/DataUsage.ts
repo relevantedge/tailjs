@@ -1,11 +1,4 @@
-import {
-  enumerate,
-  Falsish,
-  MaybeFalsish,
-  map2,
-  Nullish,
-  skip2,
-} from "@tailjs/util";
+import { itemize2, MaybeFalsish, Nullish } from "@tailjs/util";
 import {
   dataClassification,
   DataClassification,
@@ -16,10 +9,9 @@ import {
 } from ".";
 
 export const formatDataUsage = (usage?: DataUsage) =>
-  (usage?.classification ?? "anonymous") +
-  " data for " +
-  enumerate(dataPurposes(usage?.purposes, { names: true })) +
-  " purposes.";
+  `${usage?.classification ?? "anonymous"} data for ${itemize2(
+    dataPurposes(usage?.purposes, { names: true })
+  )}  purposes.`;
 
 export const validateConsent = (
   target: DataUsage,
@@ -86,37 +78,50 @@ export interface DataUsage {
   purposes: DataPurposes;
 }
 
-export const cloneUsage = <T extends DataUsage | Nullish>(
-  usage: T
-): MaybeFalsish<T, DataUsage> =>
-  usage &&
-  ({
-    classification: usage.classification,
-    purposes: { ...usage.purposes },
-  } satisfies DataUsage as any);
+export const dataUsage = {
+  clone: <T extends DataUsage | Nullish>(
+    usage: T
+  ): MaybeFalsish<T, DataUsage> =>
+    usage &&
+    ({
+      classification: usage.classification,
+      purposes: { ...usage.purposes },
+    } satisfies DataUsage as any),
 
-export const usageToString = (usage: DataUsage): string | null => {
-  const purposes = dataPurposes(usage.purposes, { names: true });
+  equals: (usage1: DataUsage | Nullish, usage2: DataUsage | Nullish) =>
+    usage1 === usage2 ||
+    (usage1 &&
+      usage2 &&
+      usage1.classification === usage2.classification &&
+      dataPurposes.test(usage1.purposes, usage2.purposes, {
+        intersect: "all",
+        optionalPurposes: true,
+      })),
 
-  return usage.classification === "anonymous" && !purposes.length
-    ? null
-    : `${usage.classification}:${purposes}`;
-};
+  serialize: (usage: DataUsage): string | null => {
+    const purposes = dataPurposes(usage.purposes, { names: true });
 
-export const usageFromString = (
-  usageString: string | Nullish,
-  defaultUsage?: DataUsage
-): DataUsage => {
-  if (!usageString)
-    return defaultUsage
-      ? {
-          classification: defaultUsage.classification,
-          purposes: { ...defaultUsage.purposes },
-        }
-      : { classification: "anonymous", purposes: {} };
-  const [classification, purposes] = usageString.split(":");
-  return {
-    classification: dataClassification.tryParse(classification) ?? "anonymous",
-    purposes: dataPurposes(purposes, { validate: false }),
-  };
+    return usage.classification === "anonymous" && !purposes.length
+      ? null
+      : `${usage.classification}:${purposes}`;
+  },
+
+  deserialize: (
+    usageString: string | Nullish,
+    defaultUsage?: DataUsage
+  ): DataUsage => {
+    if (!usageString)
+      return defaultUsage
+        ? {
+            classification: defaultUsage.classification,
+            purposes: { ...defaultUsage.purposes },
+          }
+        : { classification: "anonymous", purposes: {} };
+    const [classification, purposes] = usageString.split(":");
+    return {
+      classification:
+        dataClassification.tryParse(classification) ?? "anonymous",
+      purposes: dataPurposes(purposes, { validate: false }),
+    };
+  },
 };

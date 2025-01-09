@@ -17,7 +17,7 @@ import {
   forEach,
   get,
   isString,
-  join,
+  join2,
   map,
   max,
   push,
@@ -180,13 +180,13 @@ export const getComponentContext = (
     if (isString(item)) {
       push((areaPath ??= []), item);
     } else {
-      item.area ??= join(areaPath, "/");
+      item.area ??= join2(areaPath, "/");
       unshift((components ??= []), item);
     }
   });
 
   return components || areaPath
-    ? { components: components, area: join(areaPath, "/") }
+    ? { components: components, area: join2(areaPath, "/") }
     : undefined;
 };
 

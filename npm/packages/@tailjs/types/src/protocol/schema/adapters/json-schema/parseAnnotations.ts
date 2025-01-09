@@ -1,4 +1,4 @@
-import { forEach2, map2, skip2 } from "@tailjs/util";
+import { filter2, isArray, map2, skip2 } from "@tailjs/util";
 import { contextError, ParseContext } from ".";
 import {
   dataClassification,
@@ -7,13 +7,18 @@ import {
   dataPurposes,
   dataVisibility,
   DataVisibility,
-  SchemaDataUsage,
   SchemaDefinitionEntity,
+  SchemaEntity,
+  SchemaObjectType,
+  SchemaObjectTypeDefinition,
+  SchemaTypeDefinition,
   VersionedSchemaEntity,
 } from "../../../..";
+import { SchemaType } from "@tailjs/json-schema";
 
 const PRIVACY_ANNOTATIONS = [
   "x-tags",
+  "x-privacy-purpose",
   "x-privacy-purposes",
   "x-privacy-class",
   "x-privacy-visibility",
@@ -28,25 +33,36 @@ export const parseAnnotations = <T extends SchemaDefinitionEntity>(
 ): T => {
   const { node } = context;
 
-  const version = node[TYPE_VERSION];
-  version && ((target as VersionedSchemaEntity).version = version);
+  let version: string | undefined;
+  const keywords: string[] = [];
 
-  const keywords: string[] = map2(
-    PRIVACY_ANNOTATIONS,
-    (key) => node[key] || skip2
-  );
+  const nodes = [context.node];
+  if (context.refPaths.some((refPath) => refPath.match(/\/allOf\/\d+$/g))) {
+    nodes.push(context.parent!.parent!.node);
+  }
 
-  description ??= node.description;
-  if (description) {
-    description = description
-      .replace(/@privacy (.+)/g, (_, body: string) => {
-        keywords.push(body);
-        return "";
-      })
-      .trim();
+  for (const node of nodes) {
+    if (!version && (version = node[TYPE_VERSION])) {
+      version && ((target as VersionedSchemaEntity).version = version);
+    }
 
+    map2(PRIVACY_ANNOTATIONS, (key) => node[key] || skip2, keywords);
+
+    description ??= node.description;
     if (description) {
-      target.description = description;
+      description = description
+        .replace(/@privacy (.+)/g, (_, body: string) => {
+          keywords.push(body);
+          return "";
+        })
+        .trim();
+
+      if (!target.description && description) {
+        target.description = description;
+      }
+    }
+    if (node["x-abstract"]) {
+      (target as any as SchemaTypeDefinition).abstract ??= node["x-abstract"];
     }
   }
 
@@ -58,7 +74,9 @@ export const parseAnnotations = <T extends SchemaDefinitionEntity>(
   let purposeNames: string[] = [];
 
   for (const keywordGroup of keywords) {
-    for (const keyword of keywordGroup.split(/[,\s]+/)) {
+    for (const keyword of isArray(keywordGroup)
+      ? keywordGroup
+      : keywordGroup.split(/[,\s]+/)) {
       if ((matched = dataClassification.tryParse(keyword))) {
         target.classification = target.classification
           ? contextError(
@@ -75,7 +93,8 @@ export const parseAnnotations = <T extends SchemaDefinitionEntity>(
           : matched;
       } else if (keyword === "readonly" || keyword === "writable") {
         target.readonly = keyword === "readonly";
-      } else {
+      } else if (keyword !== "necessary") {
+        // Don't include the default, that just gives an empty purposes object.
         purposeNames.push(keyword);
       }
     }
@@ -95,4 +114,28 @@ export const parseAnnotations = <T extends SchemaDefinitionEntity>(
   }
 
   return target;
+};
+
+export const serializeAnnotations = (entity: SchemaEntity) => {
+  const usage = entity.usageOverrides;
+  if (!usage) return;
+  let annotations: any;
+  if ((entity as SchemaObjectType).abstract) {
+    (annotations ??= {})["x-abstract"] = true;
+  }
+  if (usage.classification) {
+    (annotations ??= {})["x-privacy-class"] = usage.classification;
+  }
+  if (usage.purposes) {
+    (annotations ??= {})["x-purposes"] = dataPurposes(usage.purposes, {
+      names: true,
+    });
+  }
+  if (usage.readonly || usage.visibility) {
+    (annotations ??= {})["x-visibility"] = filter2(
+      [usage.readonly && "readonly", usage.visibility],
+      true
+    );
+  }
+  return annotations;
 };

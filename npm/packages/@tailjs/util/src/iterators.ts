@@ -19,7 +19,7 @@ import {
   Nullish,
   OmitNullish,
   Property,
-  RecordType,
+  SimpleObject,
   StrictUndefined,
   UndefinedIfEmpty,
   UnionToIntersection,
@@ -54,12 +54,12 @@ export const toCharCodes = (s: string) =>
 export const codePoint = (string: string, index: number = 0) =>
   string.codePointAt(index)!;
 
-export type ProperIteratorSource = Iterable<any> | RecordType;
+export type ProperIteratorSource = Iterable<any> | SimpleObject;
 export type IteratorSource =
   | Nullish
   | number
   | Iterable<any>
-  | RecordType
+  | SimpleObject
   | NavigatingIteratorStep;
 
 export type IteratorSourceOf<T> =
@@ -67,7 +67,7 @@ export type IteratorSourceOf<T> =
   | Iterable<T>
   | (T extends readonly [infer K, infer V]
       ? K extends keyof any
-        ? RecordType<K, V>
+        ? SimpleObject<K, V>
         : never
       : never)
   | NavigatingIteratorStep<T>;
@@ -78,7 +78,7 @@ export type IteratorItem<S extends IteratorSource> = unknown extends S
   ? number
   : S extends Iterable<infer T>
   ? T
-  : S extends RecordType<infer K, infer V>
+  : S extends SimpleObject<infer K, infer V>
   ? readonly [K, V]
   : S extends ArrayLike<infer T>
   ? T
@@ -1296,7 +1296,7 @@ export const values: <S extends IteratorSource>(
     end
   );
 
-export const entries: <S extends Iterable<any> | RecordType>(
+export const entries: <S extends Iterable<any> | SimpleObject>(
   target: S
 ) => Entries<S> = (target) =>
   !isArray(target) && isIterable(target)

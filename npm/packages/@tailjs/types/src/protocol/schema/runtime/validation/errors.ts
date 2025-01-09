@@ -1,10 +1,12 @@
-import { Nullish, throwError } from "@tailjs/util";
+import { Nullish } from "@tailjs/util";
 import { SchemaValidationContext, SchemaValueValidator } from ".";
+import { SchemaPropertyType } from "../SchemaPropertyType";
 
 export type ValidationErrorContext = {
   path: string;
   message: string;
   source: any;
+  type: SchemaPropertyType | null;
   forbidden?: boolean;
 };
 
@@ -23,14 +25,13 @@ export const pushInnerErrors = <T>(
 ): T | typeof VALIDATION_ERROR_SYMBOL => {
   const innerErrors: ValidationErrorContext[] = [];
   if (
-    value != null &&
-    ((value = validatable.validate(
+    (value = validatable.validate(
       value,
       current,
       context,
       innerErrors
     ) as any) === VALIDATION_ERROR_SYMBOL ||
-      innerErrors.length)
+    innerErrors.length
   ) {
     errors.push(
       ...innerErrors.map((error) => ({
@@ -47,6 +48,12 @@ export class ValidationError extends Error {
     super((message ? message + ":\n" : "") + formatValidationErrors(errors));
   }
 }
+
+export const formatErrorSource = (value: any) => {
+  if (value === undefined) return "undefined";
+  const rep = JSON.stringify(value);
+  return rep.length > 40 ? rep.substring(0, 37) + "..." : rep;
+};
 
 export const handleValidationErrors = <
   R,
@@ -73,12 +80,13 @@ export const handleValidationErrors = <
 };
 
 export const formatValidationErrors = (
-  errors: readonly ValidationErrorContext[]
-): string | undefined => {
+  errors: readonly ValidationErrorContext[],
+  bullet = ""
+): string => {
   if (!errors.length) return "(unspecified error)";
 
   const formatted = (errors.length > 10 ? errors.slice(0, 10) : errors).map(
-    ({ path, message }) => (path ? `${path}: ${message}` : message)
+    ({ path, message }) => `${bullet}${path ? `${path}: ${message}` : message}`
   );
   if (errors.length > 10) {
     formatted.push("", `(and ${errors.length - 10} more)`);

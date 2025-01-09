@@ -2,8 +2,8 @@ import {
   SchemaEnumTypeDefinition,
   SchemaPrimitiveTypeDefinition,
   SchemaPropertyType,
+  ValidatableSchemaEntity,
 } from "../../..";
-import { ValidatableSchemaEntity } from "./validation";
 
 export interface SchemaPrimitiveType extends ValidatableSchemaEntity {
   primitive: SchemaPrimitiveTypeDefinition["primitive"];

@@ -15,7 +15,6 @@ import {
   T,
   Unbinder,
   array,
-  concat,
   createEventBinders,
   createTimeout,
   forEach,
@@ -346,7 +345,10 @@ export const listen = <K extends keyof AllMaps>(
 };
 
 export const parseDomain = (href: string): Domain => {
-  const { host, scheme, port } = parseUri(href, false, true);
+  const { host, scheme, port } = parseUri(href, {
+    delimiters: false,
+    requireAuthority: true,
+  });
   return { host: host + (port ? ":" + port : ""), scheme };
 };
 

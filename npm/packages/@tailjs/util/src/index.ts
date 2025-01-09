@@ -22,4 +22,4 @@ export * from "./regex";
 
 export * from "./intervals";
 
-export * from "./iterators2";
+export * from "./it2";

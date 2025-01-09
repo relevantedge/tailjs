@@ -3,14 +3,13 @@ import {
   Nullish,
   PickRequired,
   PrettifyIntersection,
-  RecordType,
+  SimpleObject,
   concat2,
   forEach,
   forEach2,
   group2,
   isArray,
   isString,
-  join,
   join2,
   map,
   map2,
@@ -225,6 +224,7 @@ export const parseUri = <
 export type QueryStringParseOptions<
   Delimiters extends QueryStringDelimiterValue = [","]
 > = {
+  /** Setting this to false disables parsing of query string parameters, and instead gives the raw query string in the URI parse result. */
   delimiters?: Delimiters;
   decode?: boolean;
   lowerCase?: boolean;
@@ -297,7 +297,7 @@ export const parseParameters = <
 export const toQueryString = <
   P extends
     | Iterable<readonly [string, any]>
-    | RecordType<string, any>
+    | SimpleObject<string, any>
     | undefined
 >(
   parameters: P,

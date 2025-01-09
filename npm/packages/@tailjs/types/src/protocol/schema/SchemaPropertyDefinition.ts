@@ -3,10 +3,10 @@ import {
   SchemaDefinitionEntity,
   SchemaEnumTypeDefinition,
   SchemaObjectTypeDefinition,
+  SchemaPrimitiveTypeDefinition,
   SchemaRecordTypeDefinition,
   SchemaTypeDefinitionReference,
   SchemaUnionTypeDefinition,
-  SchemaPrimitiveTypeDefinition,
 } from "../..";
 
 export type SchemaPropertyDefinition = SchemaDefinitionEntity &
@@ -15,12 +15,15 @@ export type SchemaPropertyDefinition = SchemaDefinitionEntity &
     default?: any;
   };
 
-export type SchemaPropertyTypeDefinition =
+export type AnySchemaTypeDefinition =
   | SchemaPrimitiveTypeDefinition
   | SchemaEnumTypeDefinition
   | SchemaArrayTypeDefinition
   | SchemaRecordTypeDefinition
   | SchemaTypeDefinitionReference
   | SchemaObjectTypeDefinition
-  | SchemaUnionTypeDefinition
+  | SchemaUnionTypeDefinition;
+
+export type SchemaPropertyTypeDefinition =
+  | AnySchemaTypeDefinition
   | { reference: "base" };

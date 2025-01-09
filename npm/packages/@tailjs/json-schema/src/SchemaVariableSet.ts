@@ -1,8 +1,8 @@
 import {
   UserConsent,
   VariableKey,
-  VariableScope,
-  formatKey,
+  ServerVariableScope,
+  formatVariableKey,
   validateConsent,
   variableScope,
 } from "@tailjs/types";
@@ -21,7 +21,7 @@ import {
 import { Schema, SchemaManager, SchemaVariable } from ".";
 
 export class SchemaVariableSet {
-  private _variables: Map<VariableScope, Map<string, SchemaVariable>>;
+  private _variables: Map<ServerVariableScope, Map<string, SchemaVariable>>;
 
   public readonly schemas: readonly Schema[];
 
@@ -78,7 +78,7 @@ export class SchemaVariableSet {
   public validate<T>(key: VariableKey, value: T): T | undefined {
     return tryCatch(
       () => required(this.get(key), "Variable not found.").validate(value),
-      (err: Error) => new Error(`${formatKey(key)}: ${err}`)
+      (err: Error) => new Error(`${formatVariableKey(key)}: ${err}`)
     );
   }
 

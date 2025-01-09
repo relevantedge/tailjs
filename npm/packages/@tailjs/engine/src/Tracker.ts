@@ -7,7 +7,9 @@ import {
   DeviceInfo,
   PostResponse,
   ScopeInfo,
-  ScopedKey,
+  RestrictScopes,
+  ServerScoped,
+  ServerVariableScope,
   Session,
   SessionInfo,
   Timestamp,
@@ -15,6 +17,7 @@ import {
   UserConsent,
   Variable,
   VariableGetter,
+  VariableKey,
   VariableOperationParameter,
   VariableOperationResult,
   VariablePurgeOptions,
@@ -22,18 +25,15 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultStatus,
-  VariableScope,
   VariableSetResult,
   VariableSetter,
-  WithCallbackIntellisense,
+  WithCallbacks,
   consumeQueryResults,
   dataClassification,
   dataPurposes,
-  isSuccessResult,
   isVariableResult,
   toVariableResultPromise,
-  usageFromString,
-  usageToString,
+  dataUsage,
 } from "@tailjs/types";
 import {
   ArrayOrSelf,
@@ -58,6 +58,7 @@ import {
   CookieMonster,
   HttpRequest,
   HttpResponse,
+  KnownTrackerKeys,
   RequestHandler,
   TrackedEventBatch,
   TrackerEnvironment,
@@ -120,16 +121,6 @@ interface SessionInitializationOptions extends TrackerInitializationOptions {
   refreshState?: boolean;
 }
 
-export type TrackerVariableGetter<T = any> = ScopedKey<VariableGetter<T>> & {
-  /** Censor values that are server-side only. */
-  client?: boolean;
-};
-
-export type TrackerVariableSetter<T = any> = ScopedKey<VariableSetter<T>> & {
-  /** Censor values that are server-side only. */
-  client?: boolean;
-};
-
 export type TrackerVariableStorageContext = Omit<
   VariableStorageContext,
   "scope"
@@ -154,7 +145,7 @@ interface DeviceVariableCache {
   variables?:
     | Record<
         string,
-        ScopedKey<Variable, "device", never> & {
+        RestrictScopes<Variable, "device", never> & {
           _changed?: boolean;
         }
       >
@@ -432,7 +423,9 @@ export class Tracker {
       if (this._clientDeviceCache?.loaded) {
         return;
       }
+
       this._clientDeviceCache!.loaded = true;
+
       await this.set(map2(variables, ([, value]) => value));
     }
   }
@@ -503,7 +496,7 @@ export class Tracker {
     this._requestId = await this.env.nextId("request");
 
     const timestamp = now();
-    this._consent = usageFromString(
+    this._consent = dataUsage.deserialize(
       this.cookies[this._requestHandler._cookieNames.consent]?.value,
       this._defaultConsent
     );
@@ -627,28 +620,24 @@ export class Tracker {
       if (sessionId && this._sessionReferenceId !== sessionId && !passive) {
         // We switched from cookie-less to cookies. Purge reference.
         await this.env.storage.set(
-          {
-            scope: "session",
-            key: SESSION_REFERENCE_KEY,
-            entityId: this._sessionReferenceId,
-            value: null,
-            force: true,
-          },
-
-          { trusted: true }
-        );
-
-        await this.env.storage.set(
-          {
-            scope: "session",
-            key: SCOPE_INFO_KEY,
-            entityId: sessionId,
-            patch: async (current: SessionInfo) =>
-              ({
+          [
+            {
+              scope: "session",
+              key: SESSION_REFERENCE_KEY,
+              entityId: this._sessionReferenceId!,
+              value: null,
+              force: true,
+            },
+            {
+              scope: "session",
+              key: SCOPE_INFO_KEY,
+              entityId: sessionId,
+              patch: async (current: SessionInfo) => ({
                 ...current,
                 deviceId: await getDeviceId(),
-              } as SessionInfo),
-          },
+              }),
+            },
+          ],
 
           { trusted: true }
         );
@@ -772,13 +761,13 @@ export class Tracker {
         this._device = await this.env.storage.set({
           scope: "device",
           key: SCOPE_INFO_KEY,
-          entityId: this.deviceId,
+          entityId: this.deviceId!,
           patch: (device) =>
-            (device && {
+            device && {
               ...device,
               sessions: device.value.sessions + 1,
               lastSeen: this.session!.lastSeen,
-            }) as DeviceInfo,
+            },
         });
       }
 
@@ -804,7 +793,7 @@ export class Tracker {
         maxAge: Number.MAX_SAFE_INTEGER,
         essential: true,
         sameSitePolicy: "None",
-        value: usageToString(this.consent),
+        value: dataUsage.serialize(this.consent),
       };
 
       const splits: PartialRecord<DataPurposeName, ClientDeviceDataBlob> = {};
@@ -880,11 +869,20 @@ export class Tracker {
   }
 
   public get<
-    Getters extends VariableOperationParameter<VariableGetter, VariableScope>
+    Getters extends VariableOperationParameter<
+      ServerScoped<VariableGetter> & { key: Keys; scope: Scopes }
+    >,
+    Keys extends string,
+    Scopes extends string
   >(
-    getters: WithCallbackIntellisense<Getters>,
+    getters: WithCallbacks<"get", Getters, KnownTrackerKeys>,
     context?: TrackerVariableStorageContext
-  ): VariableOperationResult<"get", Getters, VariableScope> {
+  ): VariableOperationResult<
+    "get",
+    Getters,
+    ServerScoped<VariableKey>,
+    KnownTrackerKeys
+  > {
     return toVariableResultPromise(
       "get",
       getters,
@@ -892,55 +890,68 @@ export class Tracker {
         if (getters.some((getter) => getter.scope === "device")) {
           await this._loadCachedDeviceVariables();
         }
-        return this.env.storage
+        const storageResults = await this.env.storage
           .get(getters as any, this._getStorageContext(context))
-          .all() as any;
+          .all();
+
+        return new Map(
+          map2(storageResults, (result, index) => [getters[index], result])
+        );
       }
     ) as any;
   }
 
   public set<
-    Setters extends VariableOperationParameter<VariableSetter, VariableScope>
+    Setters extends VariableOperationParameter<
+      ServerScoped<VariableSetter> & { key: Keys; scope: Scopes }
+    >,
+    Keys extends string,
+    Scopes extends string
   >(
-    setters: WithCallbackIntellisense<Setters>,
+    setters: WithCallbacks<"set", Setters, KnownTrackerKeys>,
     context?: TrackerVariableStorageContext
-  ): VariableOperationResult<"set", Setters, VariableScope> {
+  ): VariableOperationResult<
+    "set",
+    Setters,
+    ServerScoped<VariableKey>,
+    KnownTrackerKeys
+  > {
     return toVariableResultPromise("set", setters, async (setters) => {
       if (setters.some((setter) => setter.scope === "device")) {
         await this._loadCachedDeviceVariables();
       }
-
-      const results = await this.env.storage
+      const storageResults = await this.env.storage
         .set(setters, this._getStorageContext(context))
         .all();
 
-      for (const result of results) {
-        if (
-          isSuccessResult(result) &&
-          result.status !== VariableResultStatus.NotModified
-        ) {
-          if (result.key === SCOPE_INFO_KEY) {
-            if (result.scope === "session") {
-              this._session = isVariableResult(result) ? result : undefined;
+      for (const result of storageResults) {
+        if (result.key === SCOPE_INFO_KEY) {
+          if (result.scope === "session") {
+            this._session = isVariableResult<SessionInfo>(result)
+              ? result
+              : undefined;
+          }
+          if (result.scope === "device") {
+            if (this._clientDeviceCache) {
+              this._clientDeviceCache.touched = true;
             }
-            if (result.scope === "device") {
-              if (this._clientDeviceCache) {
-                this._clientDeviceCache.touched = true;
-              }
-              this._device = isVariableResult(result) ? result : undefined;
-            }
+            this._device = isVariableResult<DeviceInfo>(result)
+              ? result
+              : undefined;
           }
 
           this._changedVariables.push(result);
         }
       }
 
-      return results as any;
+      return new Map(
+        map2(storageResults, (result, index) => [setters[index], result])
+      );
     }) as any;
   }
 
   public async query(
-    filters: ArrayOrSelf<VariableQuery<VariableScope>>,
+    filters: ArrayOrSelf<VariableQuery<ServerVariableScope>>,
     {
       context,
       ...options
@@ -962,7 +973,7 @@ export class Tracker {
   }
 
   public async purge(
-    filters: ArrayOrSelf<VariableQuery<VariableScope>>,
+    filters: ArrayOrSelf<VariableQuery<ServerVariableScope>>,
     {
       context,
       bulk,

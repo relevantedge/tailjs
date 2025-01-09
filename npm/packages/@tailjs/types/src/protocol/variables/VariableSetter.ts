@@ -1,19 +1,18 @@
-import { MaybePromiseLike } from "@tailjs/util";
+import { MaybePromiseLike, Nullish } from "@tailjs/util";
 import {
-  ScopedKey,
   VariableConflictResult,
   VariableErrorResult,
   VariableKey,
+  VariableNotFoundResult,
   VariableResult,
   VariableResultStatus,
-  VariableScope,
   VariableSuccessResult,
   VariableValueErrorResult,
 } from "../..";
 
-export interface VariableValueSetter<T = any> extends VariableKey {
-  /** The value to set. Null means delete.*/
-  value: T | null;
+export interface VariableValueSetter<T extends {} = any> extends VariableKey {
+  /** The value to set. `null` or `undefined` means "delete". */
+  value: T | null | undefined;
 
   /** Expire the variable if not changed or accessed within this number of ms. */
   ttl?: number;
@@ -29,6 +28,8 @@ export interface VariableValueSetter<T = any> extends VariableKey {
    * @default null
    */
   version?: string | null;
+
+  patch?: undefined;
 }
 
 /**
@@ -40,42 +41,41 @@ export interface VariableValueSetter<T = any> extends VariableKey {
  *  since `{x: number, y:string}` does _not_ extend `{x:number, y?:string}` (required string does not extend optional string).
  *
  */
-export type VariablePatchFunction<Current, Patched = Current> = (
-  current?: Current | null
+export type VariablePatchFunction<
+  Current extends {},
+  Patched extends Current = Current
+> = (
+  current: Current | undefined
 ) => MaybePromiseLike<Patched | null | undefined>;
 
-export interface VariablePatch<Current = any, Patched extends Current = Current>
-  extends VariableKey {
+export interface VariablePatch<
+  Current extends {},
+  Patched extends Current = Current
+> extends VariableKey {
   ttl?: number;
   /**
    * Apply a patch to the current value.
-   * `null` means "delete" whereas `undefined` means "do nothing" - so be aware of your "nulls".
+   *
+   * `null` and `undefined` means "delete". Return the current value to do nothing.
    * */
   patch: VariablePatchFunction<Current, Patched>;
 }
 
-export type VariableSetterCallback<T> = (result: VariableSetResult<T>) => any;
-
-export type VariableSetter<T = any, Patched extends T = T> =
+export type VariableSetter<T extends {} = any, Patched extends T = T> =
   | VariableValueSetter<T>
   | VariablePatch<T, Patched>;
 
-export type ScopedVariableSetter<T = any, Patched extends T = T> = ScopedKey<
-  VariableSetter<T, Patched>,
-  VariableScope,
-  any
->;
-
 export interface VariableDeleteResult extends VariableResult {
-  status: VariableResultStatus.Success | VariableResultStatus.NotModified;
-  value: null;
+  status: VariableResultStatus.Success;
+  value?: undefined;
 }
 
-export type VariableSetResult<T = any> =
+export type VariableSetResult<T extends {} = any> =
   | VariableErrorResult
   | VariableConflictResult<T>
+  | VariableNotFoundResult
   | VariableValueErrorResult
   | (
-      | (null extends T ? VariableDeleteResult : never)
+      | (T extends null | undefined ? VariableDeleteResult : never)
       | VariableSuccessResult<T>
     );

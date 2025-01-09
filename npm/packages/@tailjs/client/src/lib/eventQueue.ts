@@ -20,12 +20,12 @@ import {
   diff,
   forEach,
   isString,
+  itemize2,
   map,
   merge,
   now,
   pluralize,
   push,
-  enumerate,
   structuralEquals,
   throwError,
   unshift,
@@ -190,7 +190,7 @@ export const createEventQueue = (
     debug(
       { [childGroups]: map(events, (ev) => [ev, ev.type, F]) },
       "Posting " +
-        enumerate([
+        itemize2([
           pluralize("new event", [
             count(events, (ev) => !isEventPatch(ev)) || undefined,
           ]),

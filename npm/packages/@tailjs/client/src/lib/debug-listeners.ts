@@ -1,36 +1,42 @@
-import { dataPurposes, sortVariables } from "@tailjs/types";
-import { F, T, ansi, concat, count, filter, map } from "@tailjs/util";
-import { addVariablesChangedListener, childGroups, debug } from ".";
 import { __DEBUG__ } from "@constants";
-import { formatAnyVariableScope } from "..";
+import { formatDataUsage, formatVariableKey } from "@tailjs/types";
+import { ansi, concat, count, F, map2, skip2, sort2, T } from "@tailjs/util";
+import { addVariablesChangedListener, childGroups, debug } from ".";
+import { ClientVariable, isLocalScopeKey } from "../interfaces";
+
+const formatVariables = (variables: ClientVariable[]) =>
+  map2(
+    sort2(variables, [
+      (variable) => variable.scope,
+      (variable) => variable.key,
+    ]),
+    (variable) =>
+      variable
+        ? [
+            variable,
+            `${formatVariableKey(variable)}, ${
+              isLocalScopeKey(variable)
+                ? "client-side memory only"
+                : formatDataUsage(variable.schema?.usage)
+            })`,
+            F,
+          ]
+        : skip2
+  );
 
 export const addDebugListeners = __DEBUG__
   ? () => {
       addVariablesChangedListener((changes, all, local) => {
         const variables = concat(
-          sortVariables(map(changes, 1))?.map((variable) => [
-            variable,
-            `${variable.key} (${formatAnyVariableScope(variable.scope)}, ${
-              variable.scope < 0
-                ? "client-side memory only"
-                : dataPurposes.format(variable.purposes)
-            })`,
-            F,
-          ]),
+          formatVariables(
+            map2(changes, ([, current]) => (current ? current : skip2))
+          ),
           [
             [
               {
-                [childGroups]: sortVariables(map(all, 1))?.map((variable) => [
-                  variable,
-                  `${variable.key} (${formatAnyVariableScope(
-                    variable.scope
-                  )}, ${
-                    variable.scope < 0
-                      ? "client-side memory only"
-                      : dataPurposes.format(variable.purposes)
-                  })`,
-                  F,
-                ]),
+                [childGroups]: formatVariables(
+                  map2(all, ([, current]) => (current ? current : skip2))
+                ),
               },
               "All variables",
               T,

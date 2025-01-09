@@ -50,9 +50,7 @@ export const parseBaseTypes = (
   }
 
   for (const parsedBaseType of parsedType.extends) {
-    if ("usage" in parsedBaseType.source) {
-      usageOverrides = overrideUsage(parsedBaseType.source, usageOverrides);
-    }
+    usageOverrides = overrideUsage(parsedBaseType.source, usageOverrides);
   }
 
   // Don't apply context usage before we have merged the extended types' usage.

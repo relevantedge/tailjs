@@ -1,7 +1,6 @@
 import {
   extractKey,
   filterKeys,
-  isTransientError,
   ReadOnlyVariableGetter,
   Variable,
   VariableGetResult,
@@ -25,12 +24,15 @@ import {
   VariableStorageQuery,
 } from "..";
 
-export type WithTrace<T, Trace = undefined> = T & {
-  [traceSymbol]?: Trace;
+export type WithTrace<T, Trace> = T & {
+  [traceSymbol]: Trace & { source: WithTrace<T, Trace> };
 };
-export type AddTrace<T, Trace> = Trace extends undefined
-  ? T & { [traceSymbol]?: Trace }
-  : T & { [traceSymbol]: Trace };
+
+export type CopyTrace<T, Source> = T & {
+  [traceSymbol]: Source extends { [traceSymbol]: infer Trace }
+    ? Trace
+    : undefined;
+};
 
 export type AddSourceTrace<Source, Trace> = Trace extends undefined
   ? Source & { [traceSymbol]?: undefined }
@@ -42,11 +44,11 @@ const unknownSource = (key: { scope: string; source?: string | null }): any =>
     ...extractKey(key as any as VariableKey),
     [traceSymbol]: key[traceSymbol],
     error: `The scope ${key.scope} has no source with the ID '${key.source}'.`,
-  } satisfies AddTrace<VariableValueErrorResult, any>);
+  } satisfies WithTrace<VariableValueErrorResult, any>);
 
 type SplitFields = Pick<VariableKey, "source" | "scope">;
 
-export const traceSymbol = Symbol();
+const traceSymbol = Symbol();
 export const addSourceTrace = <Item, Trace>(
   item: Item,
   trace: Trace
@@ -54,10 +56,22 @@ export const addSourceTrace = <Item, Trace>(
   (item[traceSymbol] = [item, trace]), item as any
 );
 
-export const addTrace = <Item, Trace>(
+export const withTrace = <Item, Trace>(
   item: Item,
   trace: Trace
-): AddTrace<Item, Trace> => ((item[traceSymbol] = trace), item as any);
+): WithTrace<Item, Trace> => (
+  (trace["source"] = item), (item[traceSymbol] = trace), item as any
+);
+
+export const copyTrace = <Item, Trace>(
+  item: Item,
+  trace: { [traceSymbol]: Trace }
+): WithTrace<Item, Trace> => (
+  (item[traceSymbol] = trace[traceSymbol]), item as any
+);
+
+export const getTrace = <Trace>(item: { [traceSymbol]: Trace }): Trace =>
+  item[traceSymbol];
 
 const mergeTrace = <Target extends {}, Trace>(
   target: Target,
@@ -66,7 +80,7 @@ const mergeTrace = <Target extends {}, Trace>(
     scope,
     [traceSymbol]: trace,
   }: { [traceSymbol]?: Trace } & SplitFields
-): AddTrace<Target & SplitFields, Trace> =>
+): WithTrace<Target & SplitFields, Trace> =>
   Object.assign(target, { source, scope, [traceSymbol]: trace }) as any;
 
 export interface VariableSplitStorageSettings {
@@ -171,9 +185,9 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
     return results;
   }
 
-  async get<Trace = undefined>(
-    keys: WithTrace<ReadOnlyVariableGetter, Trace>[]
-  ): Promise<AddTrace<VariableGetResult, Trace>[]> {
+  async get<Getter extends ReadOnlyVariableGetter>(
+    keys: Getter[]
+  ): Promise<CopyTrace<VariableGetResult, Getter>[]> {
     if (!keys.length) return [];
 
     return this._splitApply(
@@ -201,9 +215,9 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
     );
   }
 
-  set<Trace = undefined>(
-    values: WithTrace<VariableValueSetter, Trace>[]
-  ): Promise<AddTrace<VariableSetResult, Trace>[]> {
+  set<Setter extends VariableValueSetter>(
+    values: Setter[]
+  ): Promise<CopyTrace<VariableSetResult, Setter>[]> {
     if (!values.length) return [] as any;
 
     return this._splitApply(

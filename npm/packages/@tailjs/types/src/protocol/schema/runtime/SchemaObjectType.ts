@@ -3,10 +3,11 @@ import {
   SchemaEntity,
   SchemaObjectTypeDefinition,
   SchemaProperty,
+  SchemaPropertyType,
   SchemaTypeDefinition,
+  ValidatableSchemaEntity,
   VariableKey,
 } from "../../..";
-import { ValidatableSchemaEntity } from "./validation";
 
 export type SchemaVariableKey = Pick<VariableKey, "scope" | "key">;
 
@@ -57,3 +58,7 @@ export interface SchemaObjectType
 
   toString(): string;
 }
+
+export const isSchemaObject = (
+  value: SchemaPropertyType
+): value is SchemaObjectType => "properties" in value;

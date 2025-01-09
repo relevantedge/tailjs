@@ -1,4 +1,4 @@
-import { Nullish } from "@tailjs/util";
+import { MaybeNullish, Nullish } from "@tailjs/util";
 import {
   DataPurposeName,
   DataUsage,
@@ -16,7 +16,7 @@ export interface SchemaValidationContext {
 }
 
 export type SchemaValueValidator = <
-  T extends {},
+  T,
   CollectedErrors extends SchemaValidationError[] | Nullish = Nullish
 >(
   target: T,

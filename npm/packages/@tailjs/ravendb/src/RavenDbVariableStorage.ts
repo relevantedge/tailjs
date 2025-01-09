@@ -4,7 +4,7 @@ import {
   VariableStorageContext,
 } from "@tailjs/engine";
 import {
-  VariableScope,
+  ServerVariableScope,
   VariableSetters,
   VariableSetResults,
   VariableFilter,
@@ -26,7 +26,7 @@ export class RavenDbVariableStorage implements VariableStorage {
   }
 
   renew(
-    scope: VariableScope,
+    scope: ServerVariableScope,
     targetIds: string[],
     context?: VariableStorageContext
   ): MaybePromise<void> {

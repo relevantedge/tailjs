@@ -17,11 +17,11 @@ import {
   isPassiveEvent,
   PostRequest,
   PostResponse,
+  SignInEvent,
   TrackedEvent,
   TypeResolver,
   UserConsent,
   ValidationError,
-  SignInEvent,
 } from "@tailjs/types";
 
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
@@ -71,7 +71,7 @@ import {
   isJsonString,
   isPlainObject,
   isString,
-  join,
+  join2,
   map2,
   match,
   merge,
@@ -80,9 +80,9 @@ import {
   parseUri,
   PickRequired,
   rank,
-  RecordType,
   ReplaceProperties,
   required,
+  SimpleObject,
   skip2,
   unwrap,
 } from "@tailjs/util";
@@ -365,7 +365,7 @@ export class RequestHandler {
 
         ev = eventType.validate(ev, undefined, {
           trusted: tracker.trustedContext,
-        });
+        }) as TrackedEvent;
 
         return (
           eventType.censor(ev, {
@@ -500,13 +500,7 @@ export class RequestHandler {
     const headers = Object.fromEntries(
       Object.entries((sourceHeaders ??= {}))
         .filter(([, v]) => !!v)
-        .map(
-          ([k, v]) =>
-            [k.toLowerCase(), Array.isArray(v) ? v.join(",") : v] as [
-              string,
-              string
-            ]
-        )
+        .map(([k, v]) => [k.toLowerCase(), join2(v, ",")] as [string, string])
     );
 
     let trackerInitializationOptions: TrackerInitializationOptions | undefined;
@@ -587,7 +581,7 @@ export class RequestHandler {
       response: Partial<
         ReplaceProperties<
           CallbackResponse,
-          { body: CallbackResponse["body"] | RecordType }
+          { body: CallbackResponse["body"] | SimpleObject }
         >
       > | null,
 
@@ -643,7 +637,7 @@ export class RequestHandler {
 
         switch (method.toUpperCase()) {
           case "GET": {
-            if ((queryValue = join(query?.[INIT_SCRIPT_QUERY])) != null) {
+            if ((queryValue = join2(query?.[INIT_SCRIPT_QUERY])) != null) {
               // This is set by most modern browsers.
               // It prevents external scripts to try to get a hold of the storage key via XHR.
               const secDest = headers["sec-fetch-dest"];
@@ -676,7 +670,7 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join(query?.[CLIENT_SCRIPT_QUERY])) != null) {
+            if ((queryValue = join2(query?.[CLIENT_SCRIPT_QUERY])) != null) {
               return result({
                 status: 200,
                 body: await this._getClientScripts(resolveTracker, false),
@@ -689,7 +683,7 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join(query?.[CONTEXT_NAV_QUERY])) != null) {
+            if ((queryValue = join2(query?.[CONTEXT_NAV_QUERY])) != null) {
               // The user navigated via the context menu in their browser.
               // If the user has an active session we respond with a small script, that will push the request ID
               // that caused the navigation to the other browser tabs.
@@ -699,7 +693,7 @@ export class RequestHandler {
               trackerInitializationOptions = { passive: true };
 
               const [, requestId, targetUri] =
-                match(join(queryValue), /^([0-9]*)(.+)$/) ?? [];
+                match(join2(queryValue), /^([0-9]*)(.+)$/) ?? [];
               if (!targetUri) return result({ status: 400 });
 
               if (
@@ -733,7 +727,7 @@ export class RequestHandler {
               });
             }
 
-            if ((queryValue = join(query?.[SCHEMA_QUERY])) != null) {
+            if ((queryValue = join2(query?.[SCHEMA_QUERY])) != null) {
               return result({
                 status: 200,
                 body: this._schema.definition,
@@ -777,7 +771,7 @@ export class RequestHandler {
           }
 
           case "POST": {
-            if ((queryValue = join(query?.[EVENT_HUB_QUERY])) != null) {
+            if ((queryValue = join2(query?.[EVENT_HUB_QUERY])) != null) {
               body = await unwrap(body);
 
               if (body == null || (!isJsonObject(body) && body.length === 0)) {
@@ -918,7 +912,7 @@ export class RequestHandler {
       trackerScript.push(PLACEHOLDER_SCRIPT(trackerRef, true));
     }
 
-    const inlineScripts: string[] = [trackerScript.join("")];
+    const inlineScripts: string[] = [join2(trackerScript)];
     const otherScripts: ClientScript[] = [];
 
     for (const extension of this._extensions) {
@@ -946,11 +940,12 @@ export class RequestHandler {
         const pendingEvents = tracker.resolved.clientEvents;
         pendingEvents.length &&
           inlineScripts.push(
-            `${trackerRef}(${keyPrefix}${pendingEvents
-              .map((event) =>
-                typeof event === "string" ? event : JSON.stringify(event)
-              )
-              .join(", ")});`
+            `${trackerRef}(${keyPrefix}${join2(
+              pendingEvents,
+              (event) =>
+                typeof event === "string" ? event : JSON.stringify(event),
+              ", "
+            )});`
           );
       }
       if (initialCommands) {
@@ -973,8 +968,9 @@ export class RequestHandler {
       });
     }
 
-    const js = [{ inline: inlineScripts.join("") }, ...otherScripts]
-      .map((script) => {
+    const js = join2(
+      [{ inline: join2(inlineScripts) }, ...otherScripts],
+      (script) => {
         if ("inline" in script) {
           return html
             ? `<script${nonce ? ` nonce="${nonce}"` : ""}>${
@@ -990,8 +986,8 @@ export class RequestHandler {
                 { src: script.src, async: script.defer }
               )}))}catch(e){console.error(e);}`;
         }
-      })
-      .join("");
+      }
+    );
 
     return js;
   }

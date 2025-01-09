@@ -248,7 +248,10 @@ export const userInteraction: TrackerExtensionFactory = {
               host,
               scheme,
               source: href,
-            } = parseUri(link.href, false, true);
+            } = parseUri(link.href, {
+              delimiters: false,
+              requireAuthority: true,
+            });
             if (
               link.host === location.host &&
               link.pathname === location.pathname &&
@@ -288,7 +291,6 @@ export const userInteraction: TrackerExtensionFactory = {
               const originalUrl = link.href;
               const internalUrl = isInternalUrl(originalUrl);
               if (internalUrl) {
-                // Detecting internal navigation is not that hard.
                 // If the page loads in a new tab, it will pick up this value as the referrer,
                 //   and we will know navigation happened.
                 pushNavigationSource(navigationEvent.clientId, () =>

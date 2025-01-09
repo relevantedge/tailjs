@@ -8,6 +8,7 @@ export type SchemaPrimitiveTypeDefinition =
     }
   | {
       primitive: "integer" | "number";
+      format?: "percentage" | "decimal";
       min?: number | null;
       max?: number | null;
     }

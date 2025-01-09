@@ -1,6 +1,7 @@
 import {
   fromEntries,
   isArray,
+  isBoolean,
   isString,
   keys2,
   Nullish,
@@ -88,7 +89,7 @@ const mapOptionalPurposes: {
 export interface PurposeTestOptions {
   intersect?: "some" | "all" | false;
   targetPurpose?: DataPurposeName;
-  optionalPurposes?: OptionalPurposes;
+  optionalPurposes?: OptionalPurposes | boolean;
 }
 
 export const dataPurposes: {
@@ -159,6 +160,12 @@ export const dataPurposes: {
       test: DataPurposes,
       { intersect, optionalPurposes, targetPurpose }: PurposeTestOptions
     ) {
+      if (typeof optionalPurposes === "boolean") {
+        optionalPurposes = {
+          personalization: optionalPurposes,
+          security: optionalPurposes,
+        };
+      }
       if (
         targetPurpose &&
         (targetPurpose = mapOptionalPurpose(

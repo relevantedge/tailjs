@@ -1,8 +1,5 @@
-import {
-  SchemaObjectTypeDefinition,
-  SchemaTypeDefinitionReference,
-} from "../..";
+import { AnySchemaTypeDefinition } from "../..";
 
 export type SchemaUnionTypeDefinition = {
-  union: (SchemaTypeDefinitionReference | SchemaObjectTypeDefinition)[];
+  union: AnySchemaTypeDefinition[];
 };

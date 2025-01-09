@@ -1,4 +1,11 @@
-import { forEach2, get2, hasKeys2, throwTypeError } from "@tailjs/util";
+import {
+  forEach2,
+  get2,
+  hasKeys2,
+  itemize2,
+  throwError,
+  throwTypeError,
+} from "@tailjs/util";
 import {
   createRootContext,
   ParsedJsonSchemaTypeDefinition,
@@ -14,17 +21,30 @@ import {
 } from "../..";
 
 export class JsonSchemaAdapter implements SchemaAdapter {
-  rootNamespace: string | undefined;
+  readonly rootNamespace: string | undefined;
+  readonly restrictProperties: boolean;
 
-  constructor(rootNamespace?: string) {
+  constructor(rootNamespace?: string, restrictProperties = false) {
     this.rootNamespace = rootNamespace;
+    this.restrictProperties = restrictProperties;
   }
 
-  parse(source: string): SchemaDefinition[] {
-    const schemaRoot = JSON.parse(source);
+  parse(source: string | Record<string, any>): SchemaDefinition[] {
+    const schemaRoot = typeof source === "string" ? JSON.parse(source) : source;
 
     const rootContext = createRootContext(schemaRoot);
     parseJsonSchema(rootContext);
+    const pending = rootContext.refs.pending();
+    if (pending.length) {
+      throwError(
+        itemize2(
+          pending,
+          null,
+          (refs, n) =>
+            `The following $ref${n !== 1 ? "s" : ""} was not resolved: ${refs}.`
+        )
+      );
+    }
 
     const syntheticTypes = new Map<
       string,
@@ -87,8 +107,9 @@ export class JsonSchemaAdapter implements SchemaAdapter {
     return this.rootNamespace
       ? serializeSchema(
           { namespace: this.rootNamespace, types: new Map() },
-          schemas
+          schemas,
+          this.restrictProperties
         )
-      : serializeSchema(schemas[0], []);
+      : serializeSchema(schemas[0], [], this.restrictProperties);
   }
 }

@@ -7,13 +7,13 @@ import {
   array,
   define,
   entries,
-  enumerate,
   fromEntries,
   isArray,
   isInteger,
   isNumber,
   isObject,
   isString,
+  itemize2,
   map,
   obj,
   quote,
@@ -83,7 +83,7 @@ export const createEnumParser: <Levels extends string>(
             ? ranks[value]
             : value
           : validate
-          ? throwError(`The ${name} '${quote(value)}' is not defined.`)
+          ? throwError(`The ${name} '${value}' is not defined.`)
           : undefined) as any);
 
   const compare = (lhs: any, rhs: any) =>
@@ -430,9 +430,9 @@ export const createEnumAccessor = <
           (value = lookup(value, true)),
           value === "any"
             ? "any " + enumName
-            : `the ${enumName} ${enumerate(
+            : `the ${enumName} ${itemize2(
                 map(array(value), (value) => quote(value)),
-                [c]
+                c
               )}`
         ),
       } as const,

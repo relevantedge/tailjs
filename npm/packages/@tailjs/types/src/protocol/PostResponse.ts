@@ -1,12 +1,22 @@
 import {
-  ScopedKey,
+  VariableResultPromiseResult,
+  ServerScoped,
   TrackedEvent,
   VariableGetResult,
-  VariableScope,
   VariableSetResult,
 } from "..";
 
-export interface PostResponse<Scoped extends boolean = false> {
+export type VariableGetResponse<Scoped extends boolean = true> = ServerScoped<
+  VariableGetResult,
+  Scoped
+>;
+
+export type VariableSetResponse<Scoped extends boolean = true> = ServerScoped<
+  VariableSetResult,
+  Scoped
+>;
+
+export interface PostResponse<Scoped extends boolean = true> {
   /**
    * Results from variable operations.
    * The server may push variables to the client by including get results that the client has not requested.
@@ -14,20 +24,18 @@ export interface PostResponse<Scoped extends boolean = false> {
   variables?: {
     /** Results from get operations made via a {@link PostRequest} or variables the server wants to push. */
     get?: (
-      | ScopedKey<
-          VariableGetResult,
-          VariableScope,
-          Scoped extends true ? "global" : VariableScope
+      | ServerScoped<
+          VariableResultPromiseResult<"get", VariableGetResult>,
+          Scoped
         >
       | undefined
     )[];
 
     /** Result from set operations made via a {@link PostRequest}. */
     set?: (
-      | ScopedKey<
-          VariableSetResult,
-          VariableScope,
-          Scoped extends true ? "global" : VariableScope
+      | ServerScoped<
+          VariableResultPromiseResult<"set", VariableSetResult>,
+          Scoped
         >
       | undefined
     )[];

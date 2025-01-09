@@ -1,15 +1,15 @@
 import {
-  add2,
   all2,
   collect2,
-  enumerate2,
+  distinct2,
   filter2,
   first2,
   forEach2,
   get2,
+  itemize2,
   join2,
   map2,
-  set2,
+  push2,
   skip2,
   some2,
   sort2,
@@ -19,6 +19,7 @@ import {
 } from "@tailjs/util";
 import { SchemaPrimitiveType, SchemaObjectType as Type } from "../../../..";
 import {
+  formatErrorSource,
   handleValidationErrors,
   SchemaCensorFunction,
   SchemaValueValidator,
@@ -73,8 +74,6 @@ export const createSchemaTypeMapper = (
   validate: SchemaValueValidator;
 } => {
   const discriminators = new Map<string, Map<DiscriminatorValue, Type[]>>();
-  const lasse = subtypesOf(rootTypes, true);
-  const ifsso = filter2(subtypesOf(rootTypes, true), (type) => !type.abstract);
 
   const types = topoSort2(
     filter2(subtypesOf(rootTypes, true), (type) => !type.abstract),
@@ -105,13 +104,13 @@ export const createSchemaTypeMapper = (
     forEach2(discriminators, ([, value]) => {
       // If there are more than 1 one value, it means there is at least one enum value.
       value.size > 1 && value.delete(anyValue);
-      return forEach2(value, ([, types]) => add2(mapped, types));
+      return forEach2(value, ([, types]) => push2(mapped, ...types));
     });
 
     const isOptional = (type: Type, name: string) =>
       type.properties[name] && !type.properties[name].required;
 
-    const maybeOptional = set2(
+    const maybeOptional = distinct2(
       map2(discriminators, ([name]) =>
         some2(mapped, (type) => isOptional(type, name)) ? name : skip2
       )
@@ -140,7 +139,7 @@ export const createSchemaTypeMapper = (
               }`
         );
         return throwError(
-          `The types ${enumerate2(
+          `The types ${itemize2(
             map2(pending, (type) => type.name),
             "and"
           )} can not be disambiguated by${
@@ -200,10 +199,9 @@ export const createSchemaTypeMapper = (
     };
     selector = mapSelector(0, types);
   }
-  const errorMessage = enumerate2(
+  const errorMessage = itemize2(
     types,
     "or",
-    ",",
     (list, n) =>
       ` does not match the ${
         n > 1 ? "any of the types" : "the type"
@@ -218,15 +216,16 @@ export const createSchemaTypeMapper = (
       value != null ? selector(value)?.censor(value, context, false) : value,
     mapped,
     unmapped,
-    validate: (value, current, context, errors) =>
+    validate: (value: any, current, context, errors) =>
       handleValidationErrors((errors) => {
         if (value == null) return value;
         const type = selector(value);
         if (!type) {
           errors.push({
             path: "",
+            type: null,
             source: value,
-            message: JSON.stringify(value) + errorMessage,
+            message: formatErrorSource(value) + errorMessage,
           });
           return VALIDATION_ERROR_SYMBOL;
         }

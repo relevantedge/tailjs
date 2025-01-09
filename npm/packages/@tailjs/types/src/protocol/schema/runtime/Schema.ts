@@ -12,8 +12,5 @@ export interface Schema extends SchemaEntity {
 
   types: Map<string, SchemaObjectType>;
   events: Map<string, SchemaObjectType>;
-  variables: Map<
-    string,
-    Map<string, SchemaVariable & { type: SchemaObjectType }>
-  >;
+  variables: Map<string, Map<string, SchemaVariable>>;
 }

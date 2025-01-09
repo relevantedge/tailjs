@@ -10,6 +10,7 @@
     "datetime",
     "eaches",
     "endregion",
+    "façades",
     "Falsish",
     "gazonk",
     "httponly",
@@ -67,5 +68,6 @@
     "**/node_modules/**": true,
     "**/dist/**": true
   },
-  "testing.openTesting": "neverOpen"
+  "testing.openTesting": "neverOpen",
+  "testing.automaticallyOpenTestResults": "neverOpen"
 }

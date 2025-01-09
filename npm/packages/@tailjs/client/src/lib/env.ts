@@ -4,19 +4,19 @@ import {
   VARIABLES_QUERY,
 } from "@constants";
 
+import { jsonEncode } from "@tailjs/transport";
 import {
   F,
   T,
   ansi,
   isFunction,
   isObject,
-  join,
+  join2,
   parseUri,
   replace,
   split,
   type Nullish,
 } from "@tailjs/util";
-import { jsonEncode } from "@tailjs/transport";
 import { document } from ".";
 
 export const ERR_BUFFER_OVERFLOW = "buffer-overflow";
@@ -32,15 +32,17 @@ const src = split("" + document.currentScript!["src"], "#");
 const args = split("" + (src[1] || ""), ";");
 
 export const SCRIPT_SRC = src[0];
-export const TRACKER_DOMAIN = args[1] || parseUri(SCRIPT_SRC, false)?.host!;
+export const TRACKER_DOMAIN =
+  args[1] || parseUri(SCRIPT_SRC, { delimiters: false })?.host!;
 
 export const isInternalUrl = (url: string | Nullish) =>
   !!(
-    TRACKER_DOMAIN && parseUri(url, false)?.host?.endsWith(TRACKER_DOMAIN) === T
+    TRACKER_DOMAIN &&
+    parseUri(url, { delimiters: false })?.host?.endsWith(TRACKER_DOMAIN) === T
   );
 
 export const mapUrl = (...urlParts: string[]) =>
-  replace(join(urlParts), /(^(?=\?))|(^\.(?=\/))/, SCRIPT_SRC.split("?")[0]);
+  replace(join2(urlParts), /(^(?=\?))|(^\.(?=\/))/, SCRIPT_SRC.split("?")[0]);
 
 export const VAR_URL = mapUrl("?", EVENT_HUB_QUERY);
 export const MNT_URL = mapUrl("?", CONTEXT_NAV_QUERY);

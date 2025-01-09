@@ -1,9 +1,9 @@
 import {
+  SchemaPrimitiveType,
   SchemaPropertyType,
   SchemaRecordTypeDefinition,
-  SchemaPrimitiveType,
+  ValidatableSchemaEntity,
 } from "../../..";
-import { ValidatableSchemaEntity } from "./validation";
 
 export interface SchemaRecordType extends ValidatableSchemaEntity {
   key: SchemaPrimitiveType;
