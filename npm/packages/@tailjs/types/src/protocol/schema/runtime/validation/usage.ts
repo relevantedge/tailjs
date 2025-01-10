@@ -6,8 +6,8 @@ import {
   SchemaValueValidator,
 } from ".";
 import {
-  dataClassification,
-  dataVisibility,
+  DataClassification,
+  DataVisibility,
   SchemaDataUsage,
   SchemaPropertyType,
   validateConsent,
@@ -22,13 +22,13 @@ export const getMinimumUsage = <T extends SchemaDataUsage | Nullish>(
       ? {
           readonly: current.readonly && other.readonly,
           visibility:
-            dataVisibility.ranks[current.visibility] <=
-            dataVisibility.ranks[other.visibility]
+            DataVisibility.ranks[current.visibility] <=
+            DataVisibility.ranks[other.visibility]
               ? current.visibility
               : other.visibility,
           classification:
-            dataClassification.ranks[current.classification] <=
-            dataClassification.ranks[other.classification]
+            DataClassification.ranks[current.classification] <=
+            DataClassification.ranks[other.classification]
               ? current.classification
               : other.classification,
           purposes: fromEntries(current.purposes, ([key, value]) =>

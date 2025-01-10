@@ -1,11 +1,11 @@
 import { filter2, isArray, map2, skip2 } from "@tailjs/util";
 import { contextError, ParseContext } from ".";
 import {
-  dataClassification,
+  DataClassification,
   DataClassification,
   DataPurposeName,
   dataPurposes,
-  dataVisibility,
+  DataVisibility,
   DataVisibility,
   SchemaDefinitionEntity,
   SchemaEntity,
@@ -77,14 +77,14 @@ export const parseAnnotations = <T extends SchemaDefinitionEntity>(
     for (const keyword of isArray(keywordGroup)
       ? keywordGroup
       : keywordGroup.split(/[,\s]+/)) {
-      if ((matched = dataClassification.tryParse(keyword))) {
+      if ((matched = DataClassification.parse(keyword, false))) {
         target.classification = target.classification
           ? contextError(
               context,
               `Data classification can only be specified once. It is already '${target.classification}'`
             )
           : matched;
-      } else if ((matched = dataVisibility.tryParse(keyword))) {
+      } else if ((matched = DataVisibility.parse(keyword, false))) {
         target.visibility = target.visibility
           ? contextError(
               context,

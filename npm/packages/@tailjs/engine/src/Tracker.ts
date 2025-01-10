@@ -2,12 +2,13 @@ import { SCOPE_INFO_KEY, SESSION_REFERENCE_KEY } from "@constants";
 import { Transport, defaultTransport } from "@tailjs/transport";
 import {
   DATA_PURPOSES,
+  DataClassification,
   DataPurposeName,
   DataUsage,
   DeviceInfo,
   PostResponse,
-  ScopeInfo,
   RestrictScopes,
+  ScopeInfo,
   ServerScoped,
   ServerVariableScope,
   Session,
@@ -29,11 +30,9 @@ import {
   VariableSetter,
   WithCallbacks,
   consumeQueryResults,
-  dataClassification,
   dataPurposes,
   isVariableResult,
   toVariableResultPromise,
-  dataUsage,
 } from "@tailjs/types";
 import {
   ArrayOrSelf,
@@ -496,7 +495,7 @@ export class Tracker {
     this._requestId = await this.env.nextId("request");
 
     const timestamp = now();
-    this._consent = dataUsage.deserialize(
+    this._consent = DataUsage.deserialize(
       this.cookies[this._requestHandler._cookieNames.consent]?.value,
       this._defaultConsent
     );
@@ -545,12 +544,12 @@ export class Tracker {
     if (!this._session) return;
 
     purposes = dataPurposes(purposes);
-    classification = dataClassification(classification);
+    classification = DataClassification.parse(classification);
     purposes ??= this.consent.purposes;
     classification ??= this.consent.classification;
 
     if (
-      dataClassification.compare(
+      DataClassification.compare(
         classification ?? this.consent.classification,
         this.consent.classification
       ) < 0 ||
@@ -793,7 +792,7 @@ export class Tracker {
         maxAge: Number.MAX_SAFE_INTEGER,
         essential: true,
         sameSitePolicy: "None",
-        value: dataUsage.serialize(this.consent),
+        value: DataUsage.serialize(this.consent),
       };
 
       const splits: PartialRecord<DataPurposeName, ClientDeviceDataBlob> = {};

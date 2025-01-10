@@ -1,6 +1,5 @@
 import { itemize2, MaybeFalsish, Nullish } from "@tailjs/util";
 import {
-  dataClassification,
   DataClassification,
   dataPurposes,
   DataPurposes,
@@ -26,8 +25,8 @@ export const validateConsent = (
     return true;
   }
   if (
-    dataClassification.ranks[target.classification] >
-    dataClassification.ranks[consent.classification]
+    DataClassification.ranks[target.classification] >
+    DataClassification.ranks[consent.classification]
   ) {
     // Too personal.
     return false;
@@ -78,7 +77,11 @@ export interface DataUsage {
   purposes: DataPurposes;
 }
 
-export const dataUsage = {
+export const DataUsage = {
+  anonymous: {
+    classification: "anonymous",
+    purposes: {},
+  } as DataUsage,
   clone: <T extends DataUsage | Nullish>(
     usage: T
   ): MaybeFalsish<T, DataUsage> =>
@@ -120,7 +123,7 @@ export const dataUsage = {
     const [classification, purposes] = usageString.split(":");
     return {
       classification:
-        dataClassification.tryParse(classification) ?? "anonymous",
+        DataClassification.parse(classification, false) ?? "anonymous",
       purposes: dataPurposes(purposes, { validate: false }),
     };
   },

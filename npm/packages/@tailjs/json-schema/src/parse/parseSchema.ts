@@ -1,4 +1,4 @@
-import { dataClassification, dataPurposes } from "@tailjs/types";
+import { DataClassification, dataPurposes } from "@tailjs/types";
 import { Wrapped, map, unwrap } from "@tailjs/util";
 import Ajv, { ErrorObject } from "ajv";
 import {

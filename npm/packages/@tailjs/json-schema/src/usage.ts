@@ -2,9 +2,9 @@ import {
   DataAccess,
   DataUsage,
   DataUsageLabel,
-  dataClassification,
+  DataClassification,
   dataPurposes,
-  dataUsage,
+  DataUsage,
 } from "@tailjs/types";
 import { createLabelParser, labelSource } from "@tailjs/util";
 import { SchemaAnnotations } from ".";
@@ -25,14 +25,14 @@ export const schemaDataUsage = createLabelParser<
   "data usage (schema)",
   true,
   {
-    ...dataUsage[labelSource].mappings,
+    ...DataUsage[labelSource].mappings,
     system: (value) => (value.system = true),
   },
   (value, useDefault) => [
-    dataUsage.format(value, useDefault),
+    DataUsage.format(value, useDefault),
     value.system && "system",
   ],
-  dataUsage[labelSource].mutex
+  DataUsage[labelSource].mutex
 );
 
 export const getPrivacyAnnotations = (classification: SchemaDataUsage) => {

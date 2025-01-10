@@ -1,12 +1,15 @@
 import { createEnumParser } from "@tailjs/util";
 
-export type DataVisibility =
+const levels = {
   /** Data can be read and written from anywhere. */
-  | "public"
+  public: "public",
   /** Data is only available in trusted context. */
-  | "trusted-only"
+  "trusted-only": "trusted-only",
   /** Data can be read from anywhere but can only be written in trusted context. */
-  | "trusted-write";
+  "trusted-write": "trusted-write",
+} as const;
+
+export type DataVisibility = (typeof levels)[keyof typeof levels];
 
 /**
  * Defines restrictions on where data is available and when it can be modified.
@@ -27,8 +30,4 @@ export type DataAccess = {
   visibility: DataVisibility;
 };
 
-export const dataVisibility = createEnumParser("data restriction", [
-  "public",
-  "trusted-only",
-  "trusted-write",
-]);
+export const DataVisibility = createEnumParser("data restriction", levels);

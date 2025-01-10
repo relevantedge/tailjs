@@ -60,7 +60,7 @@ export const parseDefinitions = (context: ParseContext) => {
           forEach2(
             def["properties"],
             ([name, scopeProperties]: [string, any]) => {
-              const scope = variableScope(name.toLowerCase())!;
+              const scope = variableScope.parse(name.toLowerCase())!;
               const scopeContext = navigateContext(
                 navigateContext(propertiesContext, name),
                 "properties"

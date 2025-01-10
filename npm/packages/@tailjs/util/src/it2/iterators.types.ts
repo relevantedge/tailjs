@@ -80,7 +80,7 @@ export type IteratorItem2<T> = unknown extends T
   : never;
 
 export type IterationSource =
-  | object
+  | (object & Record<any, any>)
   | Iterable<any>
   | number
   | ((current: any) => any)

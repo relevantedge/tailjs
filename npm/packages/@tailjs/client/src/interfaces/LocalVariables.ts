@@ -48,7 +48,7 @@ export type ReservedTrackerVariables = {
   };
 };
 
-export type LocalVariableScope =
+const levels = {
   /**
    * Variables that are only available in memory in the current view, and lost as soon as the user navigates away (without bf_cache) or closes the browser.
    *
@@ -58,14 +58,14 @@ export type LocalVariableScope =
    *
    *
    */
-  | "view"
+  view: "view",
 
   /**
    * Variables that are only available in the current tab, including between views in the same tab as navigation occurs, but lost as soon as the user closes the tab.
    *
    * Data is encrypted at rest, yet only available if the user has consented to data being stored for the variables' purposes.
    */
-  | "tab"
+  tab: "tab",
 
   /**
    * Variables that are shared between open tabs, and lost as soon as the last tab is closed.
@@ -74,20 +74,22 @@ export type LocalVariableScope =
    *
    * Use the server-side scopes `session`, `device` or `user` if the data must be persisted for a longer duration.
    */
-  | "shared";
+  shared: "shared",
+} as const;
+
+export type LocalVariableScope = (typeof levels)[keyof typeof levels];
 
 export type AnyVariableScope = ServerVariableScope | LocalVariableScope;
 
-export const localVariableScope = createEnumParser("local variable scope", [
-  "view",
-  "tab",
-  "shared",
-]);
+export const localVariableScope = createEnumParser(
+  "local variable scope",
+  levels
+);
 
-export const anyVariableScope = createEnumParser("variable scope", [
-  ...localVariableScope.levels,
-  ...variableScope.levels,
-]);
+export const anyVariableScope = createEnumParser("variable scope", {
+  ...localVariableScope,
+  ...variableScope,
+});
 
 export type ClientScoped<
   Target,
@@ -168,7 +170,7 @@ export const isLocalScopeKey = (
   key: any
 ): key is {
   scope: LocalVariableScope;
-} => !!localVariableScope.tryParse(key?.scope);
+} => localVariableScope.ranks[key] !== null;
 
 export const variableKeyToString: <S extends ClientVariableKey | Nullish>(
   key: S
