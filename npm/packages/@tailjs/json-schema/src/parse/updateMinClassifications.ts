@@ -1,11 +1,11 @@
-import { dataAccess, dataClassification, dataPurposes } from "@tailjs/types";
+import { dataAccess, DataClassification, dataPurposes } from "@tailjs/types";
 import { SchemaDataUsage } from "..";
 
 export const updateMinClassifications = (
   typeUsage: SchemaDataUsage,
   apply: SchemaDataUsage
 ) => {
-  typeUsage.classification = dataClassification.min(
+  typeUsage.classification = DataClassification.min(
     typeUsage.classification,
     apply.classification
   );

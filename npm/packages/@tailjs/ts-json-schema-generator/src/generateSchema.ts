@@ -2,11 +2,10 @@
 import { SchemaAnnotations } from "@tailjs/json-schema";
 import {
   DataClassification,
-  DataClassificationValue,
-  DataPurposeFlags,
-  DataPurposeValue,
-  dataClassification,
+  DataClassification,
   dataPurposes,
+  DataUsage,
+  DataUsage,
 } from "@tailjs/types";
 import * as tsj from "ts-json-schema-generator";
 import {
@@ -20,8 +19,7 @@ export interface GenerateSchemaConfig {
   type: string;
   schemaId: string;
   tsconfig?: string;
-  classification?: DataClassificationValue;
-  purposes?: DataPurposeValue;
+  usage?: DataUsage;
   version?: string;
 }
 
@@ -66,10 +64,8 @@ export const generateSchema = (config: GenerateSchemaConfig) => {
   const schema = generator.createSchema(tsjConfig.type);
   fixReferences(schema);
 
-  schema[SchemaAnnotations.Classification] = dataClassification.format(
-    dataClassification.parse(
-      config.classification ?? DataClassification.Anonymous
-    )
+  schema[SchemaAnnotations.Classification] = DataClassification.format(
+    DataClassification.parse(config.usage ?? DataUsage.Anonymous)
   );
 
   schema[SchemaAnnotations.Purpose] = dataPurposes.format(

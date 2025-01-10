@@ -6,11 +6,8 @@ import {
   DataPurposes,
   DataUsage,
   UserConsent,
-  dataClassification,
-  dataPurposes,
-  dataUsage,
 } from "@tailjs/types";
-import { Clock, F, Nullish, T, clock, map, map2, restrict } from "@tailjs/util";
+import { Clock, F, Nullish, T, clock, map2, restrict } from "@tailjs/util";
 import {
   ClientVariableGetterCallback,
   ConsentCommand,
@@ -43,7 +40,7 @@ export const consent: TrackerExtensionFactory = {
       if (!consent) return undefined as any;
 
       let current = await getCurrentConsent();
-      if (!current || dataUsage.equals(current, consent)) {
+      if (!current || DataUsage.equals(current, consent)) {
         return [false, current] as any;
       }
 
@@ -170,7 +167,7 @@ export const consent: TrackerExtensionFactory = {
 
               if (
                 newConsent &&
-                !dataUsage.equals(previousConsent, newConsent)
+                !DataUsage.equals(previousConsent, newConsent)
               ) {
                 const [updated, current] = await updateConsent(newConsent);
                 if (updated) {

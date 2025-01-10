@@ -10,13 +10,13 @@ import { createEnumParser } from "@tailjs/util";
  * for not using the collected data for other purposes than those intended.
  *
  */
-export type DataClassification =
+const levels = {
   /**
    * A "consent" for this data classification means that no data will be stored for any reason.
    *
    * Likewise, if used in a schema all data with this classification will not be stored.
    */
-  | "never"
+  never: "never",
 
   /**
    * The data cannot be linked to a specific individual after they leave the website or app, and their session ends.
@@ -27,14 +27,14 @@ export type DataClassification =
    * in the data.
    *
    * Tail.js will collect this kind of data in a way that does not use cookies or other information persisted in the individual's device. */
-  | "anonymous"
+  anonymous: "anonymous",
 
   /**
    * The data is unlikely to identify an individual by itself, but may link to a specific individual if combined with other data.
    *
    * Examples are IP addresses, detailed location data, and randomly generated device IDs persisted over time to track returning visitors.
    */
-  | "indirect"
+  indirect: "indirect",
 
   /**
    * The data directly identifies a specific individual.
@@ -42,7 +42,7 @@ export type DataClassification =
    * Examples are names, email addresses, user names, customer IDs from a CRM system or order numbers that can be linked
    * to another system where the persons details are available.
    */
-  | "direct"
+  direct: "direct",
 
   /**
    * Not only does the data identify a specific individual but may also reveal sensitive information about the user
@@ -53,9 +53,12 @@ export type DataClassification =
    * Whether the data will then classify as "indirect" or still be "sensitive" depends on context, but it will arguably then be
    * "less sensitive".
    */
-  | "sensitive";
+  sensitive: "sensitive",
+} as const;
 
-export const dataClassification = createEnumParser<DataClassification>(
+export type DataClassification = (typeof levels)[keyof typeof levels];
+
+export const DataClassification = createEnumParser(
   "data classification",
-  ["never", "anonymous", "indirect", "direct", "sensitive"]
+  levels
 );

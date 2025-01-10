@@ -1,5 +1,5 @@
 import {
-  dataClassification,
+  DataClassification,
   DataPurposeName,
   dataPurposes,
   DataUsage,
@@ -14,6 +14,7 @@ import {
   KnownVariableMap,
   OptionalPurposes,
   RemoveScopeRestrictions,
+  SchemaDataUsage,
   SchemaValidationContext,
   SchemaValidationError,
   SchemaVariable,
@@ -231,6 +232,12 @@ export type VariableStorageCoordinatorPurgeOptions = {
   bulk?: boolean;
 };
 
+const DEFAULT_USAGE: SchemaDataUsage = {
+  readonly: false,
+  visibility: "public",
+  ...DataUsage.anonymous,
+};
+
 export class VariableStorageCoordinator<
   KnownVariables extends KnownVariableMap = never
 > {
@@ -307,11 +314,11 @@ export class VariableStorageCoordinator<
     for (const [, result] of results) {
       if (isVariableResult(result)) {
         const variable = this._getVariable(result);
-        if (variable) {
+        if (variable && "properties" in variable.type) {
           result.schema = {
             type: variable.type.id,
             version: variable.type.version,
-            usage: variable.usage,
+            usage: variable.usage ?? DEFAULT_USAGE,
           };
         }
       }
@@ -756,12 +763,12 @@ export class VariableStorageCoordinator<
         const scopeVariables = resolver.variables[query.scope];
         forEach2(scopeVariables, ([key, variable]) => {
           const usage = variable.usage;
-
+          if (!usage) return;
           if (
             !filterRangeValue(
               usage.classification,
               query.classification,
-              (classification) => dataClassification(classification, true)
+              (classification) => DataClassification.ranks[classification]
             )
           ) {
             return;

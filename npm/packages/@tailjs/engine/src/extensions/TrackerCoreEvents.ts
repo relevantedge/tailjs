@@ -8,7 +8,7 @@ import {
   SignInEvent,
   SignOutEvent,
   TrackedEvent,
-  dataUsage,
+  DataUsage,
   isConsentEvent,
   isResetEvent,
   isSignInEvent,
@@ -162,7 +162,7 @@ export class TrackerCoreEvents implements TrackerExtension {
         deviceSessionId: tracker.deviceSessionId,
         deviceId: tracker.deviceId,
         userId: tracker.authenticatedUserId,
-        consent: dataUsage.clone(tracker.consent),
+        consent: DataUsage.clone(tracker.consent),
         expiredDeviceSessionId: tracker._expiredDeviceSessionId,
         clientIp: tracker.clientIp ?? undefined,
       };
