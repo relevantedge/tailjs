@@ -64,7 +64,7 @@ export interface Session {
    *
    * The IP address of the device where the session is active.
    *
-   * @privacy indirect, infrastructure
+   * @privacy indirect, necessary
    */
   clientIp?: string;
 

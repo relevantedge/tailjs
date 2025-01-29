@@ -1,4 +1,4 @@
-import { MaybeNullish, Nullish } from "@tailjs/util";
+import { Nullish } from "@tailjs/util";
 import {
   DataPurposeName,
   DataUsage,
@@ -13,6 +13,8 @@ export interface SchemaValidationContext {
   targetPurpose?: DataPurposeName;
   consent?: DataUsage;
   optionalPurposes?: OptionalPurposes;
+  /** Validate the value for a response related to a getter, (for example, dynamic variables rejects validation on set, but not on get). */
+  forResponse?: boolean;
 }
 
 export type SchemaValueValidator = <

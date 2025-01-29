@@ -1,4 +1,4 @@
-import { assign, forEach, some, sum } from ".";
+import { assign } from ".";
 
 export type Interval<T> = [start: T, end: T];
 export type Intervals<T = number> = ReadonlyArray<[start: T, end: T]> & {

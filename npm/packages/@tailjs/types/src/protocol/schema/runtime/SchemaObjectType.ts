@@ -1,4 +1,5 @@
 import {
+  Schema,
   SchemaDataUsage,
   SchemaEntity,
   SchemaObjectTypeDefinition,
@@ -14,19 +15,22 @@ export type SchemaVariableKey = Pick<VariableKey, "scope" | "key">;
 export interface SchemaObjectType
   extends SchemaEntity,
     ValidatableSchemaEntity {
+  /** The schema that defines the type. */
+  schema: Schema;
+
   /** The type cannot be used directly for data. */
   abstract: boolean;
 
   /** The type is defined in a property. */
   embedded: boolean;
 
-  /** Other types the inherits properties from directly. */
+  /** Base types this type extends directly. */
   extends: SchemaObjectType[];
 
-  /** Other types the inherits properties, both directly and indirectly. */
+  /** All types this type extends directly and indirectly through base types. */
   extendsAll: Set<SchemaObjectType>;
 
-  /** All types extending this type either directly or indirectly. */
+  /** Subtypes extending this type directly. */
   extendedBy: SchemaObjectType[];
 
   /** All types extending this type either directly or indirectly. */
@@ -59,6 +63,6 @@ export interface SchemaObjectType
   toString(): string;
 }
 
-export const isSchemaObject = (
+export const isSchemaObjectType = (
   value: SchemaPropertyType
 ): value is SchemaObjectType => "properties" in value;

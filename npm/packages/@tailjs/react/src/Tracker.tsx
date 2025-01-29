@@ -1,4 +1,4 @@
-import React, { FunctionComponent, PropsWithChildren } from "react";
+import React, { PropsWithChildren } from "react";
 
 import {
   BoundaryData,
@@ -12,12 +12,7 @@ import {
   INIT_SCRIPT_QUERY,
   PLACEHOLDER_SCRIPT,
 } from "@constants";
-import {
-  IncludeExcludeRules,
-  MapState,
-  compileIncludeExcludeRules,
-  concatRules,
-} from ".";
+import { IncludeExcludeRules, MapState, compileIncludeExcludeRules } from ".";
 import {
   ParseOverrideFunction,
   TraverseContext,
@@ -63,11 +58,13 @@ export type TrackerProperties = PropsWithChildren<{
    * (It will probably not help you much in analytics to know that someone clicked a button in the
    * "MainContentRouterLayoutBoundaryManager3", right?).
    *
-   * If stuff gets too complicated you can also specify a custom function that does whatever logic you need.
+   * If stuff gets too complicated you can also specify custom functions that does whatever logic you need.
+   *
+   * Unless you use the `{replace: ...}` construct, the default is preserved.
    *
    * @default [/(Router|Boundary|Handler)$/]
    */
-  exclude?: IncludeExcludeRules;
+  exclude?: IncludeExcludeRules | { replace: IncludeExcludeRules };
 
   /**
    * Same as {@link exclude}, just the other way around. If something
@@ -85,7 +82,7 @@ export type TrackerProperties = PropsWithChildren<{
 
   /**
    * These components will not be parsed, so content, tags etc.
-   * will not be inferred in anything they render. This may be desireable
+   * will not be inferred in anything they render. This may be desirable
    * for components with A LOT of children such as a data visualizations.
    * (Or some twisted edge case this library does not support, hence break rendering 🤞).
    */
@@ -161,7 +158,13 @@ export const Tracker = ({
 
   const mappers = Array.isArray(map) ? map : map ? [map] : [];
 
-  exclude ??= [/(Router|Boundary|Handler)$/];
+  exclude =
+    !exclude || !("replace" in exclude)
+      ? [/(Router|Boundary|Handler)$/]
+      : "replace" in exclude
+      ? exclude.replace
+      : exclude;
+
   const excludeType = compileIncludeExcludeRules(include, exclude);
   let stop = compileIncludeExcludeRules(undefined, stoppers);
 
@@ -309,37 +312,6 @@ export const Tracker = ({
             }
           }
 
-          function scanProperties(props: Record<string, any>) {
-            const orgProps = props;
-            for (const [name, patch] of [
-              ["track-area", (value) => ({ area: value })],
-              [
-                "track-component",
-                (value) => ({
-                  component: typeof value === "string" ? { id: value } : value,
-                }),
-              ],
-              ["track-tags", (value) => ({ tags: value })],
-              ["track-content", (value) => ({ content: value })],
-              ["track-cart", (value) => ({ cart: value })],
-            ] as [string, (value: any) => BoundaryData][]) {
-              if (props && props[name]) {
-                if (html) {
-                  // Attach the HTML element's tracker configuration to itself.
-                  parentState = mergeStates(parentState, patch(props[name]));
-                } else {
-                  // Attach the component's tracker configuration to the first
-                  // suitable HTML elements.
-                  currentState = mergeStates(currentState, patch(props[name]));
-                }
-                props = { ...props };
-
-                delete props[name];
-              }
-            }
-            return props !== orgProps ? props : undefined;
-          }
-
           if (
             html &&
             parentState &&
@@ -381,6 +353,37 @@ export const Tracker = ({
 
           if (props) {
             return { props, state: currentState };
+          }
+
+          function scanProperties(props: Record<string, any>) {
+            const orgProps = props;
+            for (const [name, patch] of [
+              ["track-area", (value) => ({ area: value })],
+              [
+                "track-component",
+                (value) => ({
+                  component: typeof value === "string" ? { id: value } : value,
+                }),
+              ],
+              ["track-tags", (value) => ({ tags: value })],
+              ["track-content", (value) => ({ content: value })],
+              ["track-cart", (value) => ({ cart: value })],
+            ] as [string, (value: any) => BoundaryData][]) {
+              if (props && props[name]) {
+                if (html) {
+                  // Attach the HTML element's tracker configuration to itself.
+                  parentState = mergeStates(parentState, patch(props[name]));
+                } else {
+                  // Attach the component's tracker configuration to the first
+                  // suitable HTML elements.
+                  currentState = mergeStates(currentState, patch(props[name]));
+                }
+                props = { ...props };
+
+                delete props[name];
+              }
+            }
+            return props !== orgProps ? props : undefined;
           }
         }}
       >

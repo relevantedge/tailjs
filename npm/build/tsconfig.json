@@ -2,10 +2,8 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
-
     "preserveConstEnums": false,
     "types": ["node"]
   },
-
-  "exclude": []
+  "include": ["**/src/**/*", "**/tests/**/*", "constants/**/*", "**/*.ts"]
 }

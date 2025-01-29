@@ -1,7 +1,6 @@
-import { itemize2, MaybeFalsish, Nullish } from "@tailjs/util";
+import { itemize2, MaybeNullish, Nullish } from "@tailjs/util";
 import {
   DataClassification,
-  dataPurposes,
   DataPurposes,
   PurposeTestOptions,
   SchemaDataUsage,
@@ -9,7 +8,7 @@ import {
 
 export const formatDataUsage = (usage?: DataUsage) =>
   `${usage?.classification ?? "anonymous"} data for ${itemize2(
-    dataPurposes(usage?.purposes, { names: true })
+    DataPurposes.parse(usage?.purposes, { names: true })
   )}  purposes.`;
 
 export const validateConsent = (
@@ -32,7 +31,7 @@ export const validateConsent = (
     return false;
   }
 
-  return dataPurposes.test(target.purposes, consent.purposes, options);
+  return DataPurposes.test(target.purposes, consent.purposes, options);
 };
 
 /**
@@ -70,7 +69,7 @@ export interface DataUsage {
    * for the data to get stored. However, if some logic tries to read the data for a purpose without consent,
    * it is not returned, since it is only stored for other purposes.
    *
-   * Purposes do not restrict anonymous data.
+   * Purposes do not restrict anonymous data. If no purposes are explicitly specified it implies "necessary".
    *
    * For schema definitions see {@link SchemaDataUsage} for inheritance rules.
    */
@@ -84,7 +83,7 @@ export const DataUsage = {
   } as DataUsage,
   clone: <T extends DataUsage | Nullish>(
     usage: T
-  ): MaybeFalsish<T, DataUsage> =>
+  ): MaybeNullish<T, DataUsage> =>
     usage &&
     ({
       classification: usage.classification,
@@ -96,15 +95,16 @@ export const DataUsage = {
     (usage1 &&
       usage2 &&
       usage1.classification === usage2.classification &&
-      dataPurposes.test(usage1.purposes, usage2.purposes, {
+      DataPurposes.test(usage1.purposes, usage2.purposes, {
         intersect: "all",
         optionalPurposes: true,
       })),
 
   serialize: (usage: DataUsage): string | null => {
-    const purposes = dataPurposes(usage.purposes, { names: true });
+    const purposes = DataPurposes.parse(usage.purposes, { names: true });
 
-    return usage.classification === "anonymous" && !purposes.length
+    return (!usage.classification || usage.classification === "anonymous") &&
+      !purposes?.length
       ? null
       : `${usage.classification}:${purposes}`;
   },
@@ -115,16 +115,13 @@ export const DataUsage = {
   ): DataUsage => {
     if (!usageString)
       return defaultUsage
-        ? {
-            classification: defaultUsage.classification,
-            purposes: { ...defaultUsage.purposes },
-          }
+        ? DataUsage.clone(defaultUsage)
         : { classification: "anonymous", purposes: {} };
     const [classification, purposes] = usageString.split(":");
     return {
       classification:
         DataClassification.parse(classification, false) ?? "anonymous",
-      purposes: dataPurposes(purposes, { validate: false }),
+      purposes: DataPurposes.parse(purposes, { validate: false }) ?? {},
     };
   },
 };

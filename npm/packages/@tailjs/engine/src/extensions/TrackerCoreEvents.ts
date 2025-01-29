@@ -62,7 +62,6 @@ export class TrackerCoreEvents implements TrackerExtension {
 
     let currentTime = now();
 
-    const foo = tracker.get([{ scope: "session", key: "tis" }]);
     const pipelineEvents: ParseResult[] = [];
     // Assign IDs and adjust timestamps.
     for (const event of events) {
@@ -112,6 +111,7 @@ export class TrackerCoreEvents implements TrackerExtension {
           patch: (current: SessionInfo) => {
             if (!current) return;
             sessionPatches.forEach((patch) => patch(current));
+
             return current;
           },
         },

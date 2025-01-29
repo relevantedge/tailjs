@@ -1,5 +1,6 @@
 import type { TrackedEventBatch, Tracker, TrackerExtension } from "../shared";
 
+/** Outputs collected tracker events to either the log or the console. */
 export class EventLogger implements TrackerExtension {
   public readonly id = "event-logger";
 

@@ -1,15 +1,10 @@
 import {
-  IDENTITY,
-  IteratorAction,
-  IteratorSource,
   MINUTE,
   MaybeUndefined,
   Nullish,
-  array,
-  forEach,
+  forEach2,
   isArray,
   isBoolean,
-  isFunction,
   isIterable,
   isNumber,
   isObject,
@@ -138,7 +133,7 @@ const prettyPrint = (
     ansi(value === undefined ? "(undefined)" : "(null)", "37;2", buffer);
   } else if (isIterable(value)) {
     wrap("[", "]", (buffer) =>
-      forEach(
+      forEach2(
         value,
         (value) => (
           indent(buffer, indents),
@@ -148,7 +143,7 @@ const prettyPrint = (
     );
   } else if (isObject(value)) {
     wrap("{", "}", (buffer) =>
-      forEach(
+      forEach2(
         value,
         ([key, value]) => (
           indent(buffer, indents + 1),
@@ -233,9 +228,15 @@ export const quote = <T>(
 
 export const ellipsis = <T extends string | Nullish>(
   text: T,
-  maxLength: number
+  maxLength: number,
+  debug = false
 ): T =>
-  text && ((text.length > maxLength ? text.slice(0, -1) + "…" : text) as any);
+  text &&
+  ((text.length > maxLength
+    ? debug
+      ? `${text.slice(0, maxLength)}... [and ${text.length - maxLength} more]`
+      : text.slice(0, maxLength - 1) + "…"
+    : text) as any);
 
 /** Word statistics for a text. */
 export type TextStats = {

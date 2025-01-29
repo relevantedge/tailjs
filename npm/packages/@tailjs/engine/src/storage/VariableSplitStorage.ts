@@ -9,11 +9,18 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultStatus,
+  VariableServerScope,
   VariableSetResult,
   VariableValueErrorResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { forEach2, forEachAsync, formatError, keys2 } from "@tailjs/util";
+import {
+  forEach2,
+  forEachAsync,
+  forEachAwait2,
+  formatError,
+  keys2,
+} from "@tailjs/util";
 import {
   isTransientErrorObject,
   isWritableStorage,
@@ -70,6 +77,17 @@ export const copyTrace = <Item, Trace>(
   (item[traceSymbol] = trace[traceSymbol]), item as any
 );
 
+export const clearTrace = <Item>(
+  item: Item
+): Item extends { [traceSymbol]: any }
+  ? Omit<Item, typeof traceSymbol>
+  : Item => {
+  if (item?.[traceSymbol]) {
+    delete item[traceSymbol];
+  }
+  return item as any;
+};
+
 export const getTrace = <Trace>(item: { [traceSymbol]: Trace }): Trace =>
   item[traceSymbol];
 
@@ -100,14 +118,20 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
   ) {
     this._mappings = {};
     this._settings = settings;
-    forEach2(mappings, ([scope, defaultConfig]) => {
-      if (!defaultConfig) return;
-      (this._mappings[scope] ??= {})[""] = defaultConfig.storage;
-      forEach2(defaultConfig.prefixes, ([prefix, config]) => {
+    const defaultStorage = mappings.default;
+    for (const scope of VariableServerScope.levels) {
+      const scopeMappings =
+        mappings[scope] ?? (defaultStorage && { storage: defaultStorage });
+      if (!scopeMappings) {
+        continue;
+      }
+
+      (this._mappings[scope] ??= {})[""] = scopeMappings.storage;
+      forEach2(scopeMappings.prefixes, ([prefix, config]) => {
         if (!config) return;
         (this._mappings[scope] ??= {})[prefix] = config.storage;
       });
-    });
+    }
   }
 
   private async _splitApply<
@@ -360,10 +384,10 @@ export class VariableSplitStorage implements VariableStorage, Disposable {
   }
 
   public async initialize(environment: TrackerEnvironment): Promise<void> {
-    await forEachAsync(this._mappings, ([, mappings]) =>
-      forEachAsync(mappings, ([, storage]) =>
-        storage?.initialize?.(environment)
-      )
+    await forEachAwait2(this._mappings, ([, mappings]) =>
+      forEachAwait2(mappings, ([, storage]) => {
+        storage?.initialize?.(environment);
+      })
     );
   }
 

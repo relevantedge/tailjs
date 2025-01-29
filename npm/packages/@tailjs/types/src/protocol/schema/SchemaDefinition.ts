@@ -1,19 +1,16 @@
 import {
-  AnySchemaTypeDefinition,
-  SchemaDataUsage,
   SchemaDefinitionEntity,
-  SchemaObjectTypeDefinition,
   SchemaTypeDefinition,
-  SchemaTypeDefinitionReference,
   SchemaTypeSystemRole,
   ServerVariableScope,
   VersionedSchemaEntity,
+  SchemaVariableDefinition,
 } from "../..";
 
-export const CORE_SCHEMA_NAME = "Tail.js";
 export const CORE_SCHEMA_NS = "urn:tailjs:core";
 export const CORE_EVENT_TYPE = "urn:tailjs:core#TrackedEvent";
 export const CORE_EVENT_DISCRIMINATOR = "type";
+export const EVENT_TYPE_PATCH_POSTFIX = "_patch";
 
 export interface SchemaDefinition
   extends SchemaDefinitionEntity,
@@ -33,17 +30,7 @@ export interface SchemaDefinition
 
   variables?: {
     [Scope in ServerVariableScope | (string & {})]?: {
-      [Key in string]?:
-        | string
-        | SchemaObjectTypeDefinition
-        | ({
-            description?: string;
-          } & Partial<SchemaDataUsage> &
-            (
-              | { type: SchemaObjectTypeDefinition }
-              | SchemaTypeDefinitionReference
-            ));
-      //| AnySchemaTypeDefinition;
+      [Key in string]?: SchemaVariableDefinition;
     };
   };
 
@@ -55,13 +42,4 @@ export interface SchemaDefinition
   localTypeMappings?: {
     [P in SchemaTypeSystemRole]: string;
   };
-
-  /**
-   * Types defined here will implicitly inherit from the tail.js system event type, so it is equivalent to adding them
-   * to the schema's "normal" {@link types} with an explicit reference to the system event type.
-   * This may be convenient if you auto-generate the schema from some source, as it is presumably
-   * more complicated to add logic to merge tail.js system types into the output than just adding types here.
-   *
-   */
-  events?: { [TypeName in string]: SchemaTypeDefinition };
 }

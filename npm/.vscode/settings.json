@@ -4,6 +4,7 @@
     "cacheable",
     "clickables",
     "clientread",
+    "cmpxchg",
     "comparand",
     "consts",
     "Cookiebot",
@@ -15,6 +16,7 @@
     "gazonk",
     "httponly",
     "iife",
+    "Initializable",
     "Jsonable",
     "lfsr",
     "loslessly",
@@ -63,11 +65,9 @@
   "[python]": {
     "editor.defaultFormatter": "ms-python.autopep8"
   },
-  "python.formatting.provider": "none",
   "search.exclude": {
     "**/node_modules/**": true,
     "**/dist/**": true
   },
-  "testing.openTesting": "neverOpen",
   "testing.automaticallyOpenTestResults": "neverOpen"
 }

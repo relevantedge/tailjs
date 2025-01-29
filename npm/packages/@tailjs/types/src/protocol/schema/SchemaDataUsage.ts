@@ -1,4 +1,13 @@
-import { DATA_PURPOSES_ALL, DataAccess, DataUsage } from "../..";
+import { Falsish, isArray, throwError } from "@tailjs/util";
+import {
+  DATA_PURPOSES_ALL,
+  DataAccess,
+  DataClassification,
+  DataPurposeName,
+  DataPurposes,
+  DataUsage,
+  DataVisibility,
+} from "../..";
 
 export const SCHEMA_DATA_USAGE_ANONYMOUS: SchemaDataUsage = Object.freeze({
   readonly: false,
@@ -31,3 +40,59 @@ export const SCHEMA_DATA_USAGE_MAX: SchemaDataUsage = Object.freeze({
  * another schema.
  */
 export interface SchemaDataUsage extends DataUsage, DataAccess {}
+
+export const parseSchemaDataUsageKeywords = <
+  ForVariable extends boolean = false
+>(
+  keywords: string | (string | Falsish)[],
+  forVariable: ForVariable = false as any
+): SchemaDataUsage &
+  (ForVariable extends true ? { dynamic?: boolean } : {}) => {
+  if (!isArray(keywords)) {
+    keywords = [keywords];
+  }
+
+  let matched:
+    | DataVisibility
+    | DataClassification
+    | DataPurposeName
+    | undefined;
+  let purposeNames: string[] = [];
+
+  const usage: Partial<SchemaDataUsage> & { dynamic?: boolean } = {};
+
+  for (const keywordGroup of keywords) {
+    if (!keywordGroup) continue;
+
+    for (const keyword of isArray(keywordGroup)
+      ? keywordGroup
+      : keywordGroup.split(/[,\s]+/)) {
+      if ((matched = DataClassification.parse(keyword, false))) {
+        usage.classification = usage.classification
+          ? throwError(
+              `Data classification can only be specified once. It is already '${usage.classification}'`
+            )
+          : matched;
+      } else if ((matched = DataVisibility.parse(keyword, false))) {
+        usage.visibility = usage.visibility
+          ? throwError(
+              `Data visibility can only be specified once. It is already '${usage.visibility}'`
+            )
+          : matched;
+      } else if (keyword === "readonly") {
+        usage.readonly = keyword === "readonly";
+      } else if (keyword === "dynamic") {
+        if (forVariable) {
+          usage.dynamic = true;
+        } else {
+          throwError("Dynamic access is only valid for variables.");
+        }
+      } else if (keyword !== "necessary") {
+        // Don't include the default, that just gives an empty purposes object.
+        purposeNames.push(keyword);
+      }
+    }
+  }
+  purposeNames.length && (usage.purposes = DataPurposes.parse(purposeNames));
+  return usage as any;
+};

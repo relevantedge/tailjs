@@ -7,16 +7,20 @@ export type KnownVariableMap = {
   [scope: string]: { [key: string]: any };
 };
 
-const levels = {
+const variableScopeNames = {
   global: "global",
   session: "session",
   device: "device",
   user: "user",
 } as const;
 
-export type VariableScope = (typeof levels)[keyof typeof levels];
+export type VariableServerScope =
+  (typeof variableScopeNames)[keyof typeof variableScopeNames];
 
-export const variableScope = createEnumParser("variable scope", levels);
+export const VariableServerScope = createEnumParser(
+  "variable scope",
+  variableScopeNames
+);
 
 /**
  * A variable is a specific piece of information that can be classified and changed independently.

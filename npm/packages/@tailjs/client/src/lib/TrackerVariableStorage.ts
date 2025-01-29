@@ -16,7 +16,6 @@ import {
 import {
   clock,
   concat2,
-  forEach,
   forEach2,
   get2,
   isBoolean,
@@ -155,7 +154,7 @@ export const createVariableStorage = (
   );
 
   addVariablesChangedListener((changes) =>
-    forEach(changes, ([key, current]) =>
+    forEach2(changes, ([key, current]) =>
       invokeCallbacks(
         current
           ? { status: VariableResultStatus.Success, success: true, ...current }
@@ -452,7 +451,7 @@ export const createVariableStorage = (
                   "No result."
                 );
 
-            forEach(response, (result, index) => {
+            forEach2(response, (result, index) => {
               const [, setter] = requestVariables[index];
               if (
                 attempts <= 3 &&
@@ -478,11 +477,10 @@ export const createVariableStorage = (
 
   addResponseHandler(({ variables }: PostResponse) => {
     if (!variables) return;
-    const timestamp = now();
     const changed = concat2(
       map2(variables.get, (result) => (result?.success ? result : skip2)),
       map2(variables.set, (result) =>
-        // "Not found" are bad for setters.
+        // "Not found" are bad for setters (delete something that doesn't exist).
         result?.success ? result : skip2
       )
     );

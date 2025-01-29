@@ -1,3 +1,4 @@
+import { TypeScriptAnnotations } from "@constants";
 import { forEach2, isObject } from "@tailjs/util";
 import {
   contextError,
@@ -9,7 +10,7 @@ import {
   parseJsonProperty,
   parseJsonType,
 } from ".";
-import { SchemaDefinition, variableScope } from "../../../..";
+import { SchemaDefinition, VariableServerScope } from "../../../..";
 
 export const isJsonSchema = (node: any) => node["$schema"];
 
@@ -37,7 +38,9 @@ const isScopeVariableDefinitionRoot = (key: string, node: any) =>
   isObject(node) &&
   (key === "ScopeVariables" ||
     key === "scope_variables" ||
-    node["description"]?.match?.(/@scope_variables\b/g));
+    node["description"]?.match?.(
+      new RegExp(`@${TypeScriptAnnotations.variables}\\b`, "g")
+    ));
 
 export const parseDefinitions = (context: ParseContext) => {
   const { node } = context;
@@ -60,7 +63,7 @@ export const parseDefinitions = (context: ParseContext) => {
           forEach2(
             def["properties"],
             ([name, scopeProperties]: [string, any]) => {
-              const scope = variableScope.parse(name.toLowerCase())!;
+              const scope = VariableServerScope.parse(name.toLowerCase())!;
               const scopeContext = navigateContext(
                 navigateContext(propertiesContext, name),
                 "properties"
@@ -70,7 +73,8 @@ export const parseDefinitions = (context: ParseContext) => {
                   navigateContext(scopeContext, name),
                   (property) =>
                     (((context.schema!.variables ??= {})[scope] ??= {})[name] =
-                      property as any)
+                      property as any),
+                  true
                 );
               });
             }

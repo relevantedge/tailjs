@@ -11,7 +11,7 @@ describe("TypeResolver", () => {
   it("Parses schemas and validates", () => {
     const resolver = new TypeResolver([
       {
-        definition: {
+        schema: {
           name: "test",
           namespace: "urn:test",
 
@@ -48,8 +48,17 @@ describe("TypeResolver", () => {
               },
             },
 
+            TestBase: {
+              abstract: true,
+              properties: {
+                self: {
+                  reference: "TestBase",
+                },
+              },
+            },
+
             Test: {
-              event: true,
+              extends: ["TestBase"],
               properties: {
                 type: {
                   enum: ["test_event"],
@@ -76,9 +85,6 @@ describe("TypeResolver", () => {
                   primitive: "date",
                   default: "2024-01-02T00:00:00Z",
                 },
-                self: {
-                  reference: "Test",
-                },
                 test: {
                   visibility: "public",
                   primitive: "string",
@@ -86,8 +92,7 @@ describe("TypeResolver", () => {
               },
             },
             Test2: {
-              extends: [{ reference: "Test" }],
-              event: true,
+              extends: ["Test"],
               properties: {
                 type: {
                   enum: ["test_event"],
@@ -99,8 +104,7 @@ describe("TypeResolver", () => {
               },
             },
             Test3: {
-              extends: [{ reference: "Test" }],
-              event: true,
+              extends: ["Test"],
               properties: {
                 type: {
                   enum: ["test_event"],
@@ -116,8 +120,7 @@ describe("TypeResolver", () => {
       },
     ]);
 
-    console.log(resolver.getType("urn:test#Test")?.id);
-    const testType = resolver.getType("urn:test#Test");
+    const testType = resolver.getType("urn:test#TestBase");
 
     let validated = handleValidationErrors((errors) =>
       testType.validate(
@@ -160,7 +163,7 @@ describe("TypeResolver", () => {
           { trusted: false },
           errors
         )
-      )[SCHEMA_TYPE_PROPERTY]?.[0]
+      )[SCHEMA_TYPE_PROPERTY]
     ).toBe("urn:test#Test2");
 
     expect(
@@ -174,7 +177,7 @@ describe("TypeResolver", () => {
           { trusted: false },
           errors
         )
-      )[SCHEMA_TYPE_PROPERTY]?.[0]
+      )[SCHEMA_TYPE_PROPERTY]
     ).toBe("urn:test#Test3");
 
     expect(
@@ -187,7 +190,7 @@ describe("TypeResolver", () => {
           { trusted: false },
           errors
         )
-      )[SCHEMA_TYPE_PROPERTY]?.[0]
+      )[SCHEMA_TYPE_PROPERTY]
     ).toBe("urn:test#Test");
 
     expect(() =>
@@ -286,7 +289,7 @@ describe("TypeResolver", () => {
   it("Censors", () => {
     const resolver = new TypeResolver([
       {
-        definition: {
+        schema: {
           name: "test",
           namespace: "urn:test",
 
@@ -339,7 +342,7 @@ describe("TypeResolver", () => {
               },
             },
             SubCensored: {
-              extends: [{ reference: "Censored" }],
+              extends: ["Censored"],
               properties: {
                 hello: {
                   classification: "anonymous",
@@ -349,7 +352,7 @@ describe("TypeResolver", () => {
               },
             },
             SubCensored2: {
-              extends: [{ reference: "Censored" }],
+              extends: ["Censored"],
               properties: {
                 boom: {
                   primitive: "boolean",
@@ -361,7 +364,7 @@ describe("TypeResolver", () => {
               },
             },
             SubCensored2_1: {
-              extends: [{ reference: "SubCensored2" }],
+              extends: ["SubCensored2"],
               // "anonymous" should take effect on all own properties instead of base types "indirect".
               classification: "anonymous",
               properties: {
@@ -413,6 +416,9 @@ describe("TypeResolver", () => {
         ok: "",
         req: false,
       },
+      "@privacy": {
+        censored: true,
+      },
     });
 
     // Polymorphic censoring. Subtype 1 has anonymous hello.
@@ -432,6 +438,30 @@ describe("TypeResolver", () => {
         }
       )
     ).toBeUndefined();
+
+    expect(
+      censorType.censor(
+        {
+          boom: true,
+          hello: "ok",
+          ok: "Anonymous, but boom is required, so censored.",
+        },
+        {
+          trusted: false,
+          consent: {
+            classification: "anonymous",
+            purposes: {},
+          },
+          forResponse: true,
+        }
+      )
+    ).toEqual({
+      ok: "Anonymous, but boom is required, so censored.",
+      "@privacy": {
+        censored: true,
+        invalid: true,
+      },
+    });
 
     // Polymorphic censoring. Subtype 2 (boom required) has indirect hello
     expect(
@@ -455,6 +485,9 @@ describe("TypeResolver", () => {
       boom: true,
       test21: 10,
       ok: "Anonymous can be here.",
+      "@privacy": {
+        censored: true,
+      },
     });
 
     // Polymorphic censoring. Subtype 2.1 (boom required, but now anonymous) allows the data.
@@ -506,6 +539,9 @@ describe("TypeResolver", () => {
         ok: "",
         req: false,
       },
+      "@privacy": {
+        censored: true,
+      },
     });
 
     expect(
@@ -543,6 +579,9 @@ describe("TypeResolver", () => {
       nestedReq: {
         ok: "ok",
         req: true,
+      },
+      "@privacy": {
+        censored: true,
       },
     });
 
@@ -582,6 +621,9 @@ describe("TypeResolver", () => {
         ok: "ok",
         req: true,
       },
+      "@privacy": {
+        censored: true,
+      },
     });
   });
 
@@ -604,8 +646,8 @@ describe("TypeResolver", () => {
     );
 
     const resolver = new TypeResolver(
-      parsed.map((definition) => ({
-        definition,
+      parsed.map((schema) => ({
+        schema,
       }))
     );
 

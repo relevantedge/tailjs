@@ -1,4 +1,10 @@
-import type { Float, GeoEntity, SessionScoped, TrackedEvent } from "..";
+import type {
+  Float,
+  GeoEntity,
+  Percentage,
+  SessionScoped,
+  TrackedEvent,
+} from "..";
 import { typeTest } from "../util/type-test";
 
 /**
@@ -10,15 +16,22 @@ export interface SessionLocationEvent extends TrackedEvent, SessionScoped {
   type: "session_location";
 
   /**
-   * This number is like the precise definition of what the bars indicating signal strength on mobile phones represents.
-   * Nobody knows. Yet, for this number lower is better.
+   * Like the bars indicating signal strength on mobile phones - higher is better, yet nobody knows the exact definition.
    */
-  accuracy?: Float;
+  accuracy?: Percentage;
 
-  /** @privacy anonymous, infrastructure */
+  /**
+   * The continent is considered safe to store with anonymous tracking.
+   *
+   * @privacy anonymous, performance
+   */
   continent?: GeoEntity;
 
-  /** @privacy anonymous, infrastructure */
+  /**
+   * The country is considered safe to store with anonymous tracking.
+   *
+   * @privacy anonymous, performance
+   */
   country?: GeoEntity;
 
   subdivision?: GeoEntity;

@@ -10,6 +10,8 @@ export * from "./SchemaTypeReferenceDefinition";
 export * from "./SchemaTypeDefinition";
 export * from "./SchemaUnionTypeDefinition";
 export * from "./SchemaPrimitiveTypeDefinition";
+export * from "./SchemaVariableDefinition";
+export * from "./QualifiedSchemaTypeName";
 
 export * from "./adapters";
 export * from "./runtime";

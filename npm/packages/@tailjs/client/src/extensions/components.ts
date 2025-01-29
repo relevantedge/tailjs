@@ -14,14 +14,13 @@ import {
   concat,
   filter,
   flatMap,
-  forEach,
-  get,
+  forEach2,
   isString,
   join2,
   map,
   max,
   push,
-  remove,
+  set2,
   some,
   unshift,
   update,
@@ -48,7 +47,7 @@ export type ActivatedDomComponent = ConfiguredComponent & ActivatedComponent;
 export const componentDomConfiguration = Symbol("DOM configuration");
 
 export const parseActivationTags = (el: Element) =>
-  parseTags(el, undefined, (el) => map(array(get(boundaryData, el)?.tags)));
+  parseTags(el, undefined, (el) => map(array(boundaryData.get(el)?.tags)));
 
 const hasComponentOrContent = (boundary?: BoundaryData<true> | null) =>
   boundary?.component || boundary?.content;
@@ -58,11 +57,11 @@ export const parseBoundaryTags = (el: Element) => {
   return parseTags(
     el,
     (ancestor) =>
-      ancestor !== el && !!hasComponentOrContent(get(boundaryData, ancestor)),
+      ancestor !== el && !!hasComponentOrContent(boundaryData.get(ancestor)),
     (el) => {
-      entry = get(boundaryData, el)!;
+      entry = boundaryData.get(el)!;
       return (
-        (entry = get(boundaryData, el)) &&
+        (entry = boundaryData.get(el)) &&
         flatMap(concat(entry.component, entry.content, entry), "tags")
       );
     }
@@ -103,7 +102,7 @@ export const getComponentContext = (
   let includeState = IncludeState.Secondary;
   let rect: Rectangle | undefined;
   forAncestorsOrSelf(el, (el) => {
-    const entry = get(boundaryData, el);
+    const entry = boundaryData.get(el);
 
     if (!entry) {
       return;
@@ -176,7 +175,7 @@ export const getComponentContext = (
     push(collected, stripRects({ id: "", rect, content: collectedContent }));
   }
 
-  forEach(collected, (item) => {
+  forEach2(collected, (item) => {
     if (isString(item)) {
       push((areaPath ??= []), item);
     } else {
@@ -229,14 +228,14 @@ export const components: TrackerExtensionFactory = {
         )
       );
 
-      impressions(el, get(boundaryData, el));
+      impressions(el, boundaryData.get(el));
     };
 
     return {
       decorate(eventData) {
         // Strip tracking configuration.
-        forEach((eventData as UserInteractionEvent).components, (component) =>
-          remove(component as any, "track")
+        forEach2((eventData as UserInteractionEvent).components, (component) =>
+          set2(component as any, "track", undefined)
         );
       },
       processCommand(cmd) {

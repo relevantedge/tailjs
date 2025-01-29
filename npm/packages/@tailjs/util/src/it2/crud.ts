@@ -65,6 +65,13 @@ let ensureAssignImplementations = <T>(returnValue: T) => {
 
   for (const { prototype } of [Object, Array]) {
     prototype[setSymbol] = function (key: any, value: any) {
+      if (value === undefined) {
+        if (this[key] !== undefined) {
+          delete this[key];
+          return true;
+        }
+        return false;
+      }
       return (this[key] = value) !== value;
     };
     prototype[getSymbol] = function (key: any) {

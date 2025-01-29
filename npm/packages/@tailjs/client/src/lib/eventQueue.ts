@@ -18,7 +18,7 @@ import {
   concat,
   count,
   diff,
-  forEach,
+  forEach2,
   isString,
   itemize2,
   map,
@@ -229,7 +229,7 @@ export const createEventQueue = (
       )
     );
 
-    forEach(newEvents, (event) => debug(event, event.type));
+    forEach2(newEvents, (event) => debug(event, event.type));
 
     if (!async) {
       return postEvents(events, false, variables);

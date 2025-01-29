@@ -1,4 +1,5 @@
 import {
+  Schema,
   SchemaEntity,
   SchemaObjectType,
   SchemaPropertyDefinition,
@@ -10,6 +11,7 @@ export interface SchemaProperty extends SchemaEntity, ValidatableSchemaEntity {
   name: string;
   required?: boolean;
   type: SchemaPropertyType;
+  schema: Schema;
 
   source: SchemaPropertyDefinition;
 

@@ -9,15 +9,15 @@ import {
   KeyValuePairsToObject,
   MaybeUndefined,
   MethodOverloads,
-  Subtract,
   NotFunction,
   Nullish,
   PrettifyIntersection,
   Primitives,
   SimpleObject,
+  Subtract,
   UnionToIntersection,
   count,
-  forEach,
+  forEach2,
   hasMethod,
   isArray,
   isFunction,
@@ -419,8 +419,8 @@ export const merge = <
   target: Target,
   ...values: Values
 ): MaybeUndefined<Target, MergeResult<Target, Values>> => (
-  forEach(values, (values) =>
-    forEach(values, ([key, value]) => {
+  forEach2(values, (values) =>
+    forEach2(values, ([key, value]) => {
       if (value != null) {
         if (isPlainObject(target[key]) && isPlainObject(value)) {
           merge(target[key], value);
@@ -443,10 +443,10 @@ const createSetOrUpdateFunction =
       return setter(target, key, value, error);
     }
 
-    forEach(key, (item) =>
+    forEach2(key, (item) =>
       isArray(item)
         ? setter(target, item[0], item[1])
-        : forEach(item, ([key, value]) => setter(target, key, value))
+        : forEach2(item, ([key, value]) => setter(target, key, value))
     );
 
     return target;
@@ -916,7 +916,7 @@ export const diff = <T>(
   let patched: any;
 
   if (isPlainObject(updated)) {
-    forEach(updated, ([key, value]) => {
+    forEach2(updated, ([key, value]) => {
       if (value === previous[key]) {
         // No changes.
         return;

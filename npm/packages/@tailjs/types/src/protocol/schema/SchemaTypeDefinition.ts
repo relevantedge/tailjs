@@ -12,7 +12,7 @@ export interface SchemaTypeDefinition
   event?: boolean;
 }
 
-export type SchemaTypeSystemRole = "event";
+export type SchemaTypeSystemRole = "event" | "patch";
 
 export interface SchemaSystemTypeDefinition extends SchemaTypeDefinition {
   /**

@@ -10,4 +10,5 @@ export interface SchemaVariable extends ValidatableSchemaEntity {
   usage?: SchemaDataUsage;
   description?: string;
   type: SchemaPropertyType;
+  dynamic: boolean;
 }

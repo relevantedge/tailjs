@@ -16,8 +16,7 @@ import {
   createTimeout,
   ellipsis,
   equalsAny,
-  forEach,
-  get,
+  forEach2,
   isObject,
   map,
   nil,
@@ -53,7 +52,6 @@ import {
   matchExHash,
   nextId,
   normalizedAttribute,
-  overlay,
   tagName,
   trackerConfig,
   trackerFlag,
@@ -143,12 +141,12 @@ export const userInteraction: TrackerExtensionFactory = {
             const boundary = getBoundaryData(el);
             const components = boundary?.component;
             if (!ev.button && components?.length && !clickables) {
-              forEach(
+              forEach2(
                 el.querySelectorAll("a,button"),
                 (clickable) =>
                   isClickable(clickable) &&
                   ((clickables ??= []).length > 3
-                    ? stop() // If there are more than two clickables, there is presumably not any missed click intent.
+                    ? stop() // If there are more than three clickables, there is presumably not any missed click intent.
                     : clickables.push({
                         ...getElementInfo(clickable, true),
                         component: forAncestorsOrSelf(
@@ -224,7 +222,7 @@ export const userInteraction: TrackerExtensionFactory = {
                   tracker.events.registerEventPatchSource(
                     intentEvent,
                     () => ({
-                      clicks: get(activeEventClicks, containerElement!),
+                      clicks: activeEventClicks.get(containerElement!),
                     }),
                     true,
                     containerElement

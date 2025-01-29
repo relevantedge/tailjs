@@ -5,7 +5,6 @@ import {
   PrettifyIntersection,
   SimpleObject,
   concat2,
-  forEach,
   forEach2,
   group2,
   isArray,
@@ -336,7 +335,10 @@ export const mergeQueryString = <Uri extends string | undefined>(
 ): MaybeUndefined<Uri, string> => {
   if (!currentUri) return undefined!;
   const current = parseQueryString(currentUri);
-  forEach(parameters, ([key, value]) => (current[key] = current[key] ?? value));
+  forEach2(
+    parameters,
+    ([key, value]) => (current[key] = current[key] ?? value)
+  );
   return appendQueryString(currentUri, current) as any;
 };
 

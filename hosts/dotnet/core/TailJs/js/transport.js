@@ -100,33 +100,31 @@ const tryCatch = (expression, errorHandler = true, always)=>{
 /** Minify friendly version of `null`. */ const nil = null;
 /** The identity function (x)=>x. */ const IDENTITY = (item)=>item;
 /** A function that filters out values != null. */ const FILTER_NULLISH = (item)=>item != nil;
-/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator = Symbol.iterator;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolIterator$1 = Symbol.iterator;
 const isBoolean = (value)=>typeof value === "boolean";
 const isNumber = (value)=>typeof value === "number";
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
-const isError = (value)=>value instanceof Error;
+const isError = /*#__PURE__*/ (value)=>value instanceof Error;
 /**
  * Returns the value as an array following these rules:
  * - If the value is undefined (this does not include `null`), so is the return value.
  * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
  * - If the value is iterable, an array containing its values is returned
  * - Otherwise, an array with the value as its single item is returned.
- */ const array = (value, clone = false)=>value == null ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
+ */ const array = /*#__PURE__*/ (value, clone = false)=>value == null ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
         ...value
     ] : [
         value
     ];
-const isObject = (value)=>value !== null && typeof value === "object";
-const objectPrototype = Object.prototype;
-const getPrototypeOf = Object.getPrototypeOf;
-const isPlainObject = (value)=>value != null && getPrototypeOf(value) === objectPrototype;
-const isSymbol = (value)=>typeof value === "symbol";
-const isFunction = (value)=>typeof value === "function";
-const isIterable = (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator]) && (typeof value === "object" || acceptStrings));
+const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
+const isPlainObject = /*#__PURE__*/ (value)=>(value === null || value === void 0 ? void 0 : value.constructor) === Object;
+const isSymbol = /*#__PURE__*/ (value)=>typeof value === "symbol";
+const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
+const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
 const testFirstLast = (s, first, last)=>s[0] === first && s[s.length - 1] === last;
 const isJsonString = (value)=>isString(value) && (testFirstLast(value, "{", "}") || testFirstLast(value, "[", "]"));
-let stopInvoked = false;
+let stopInvoked$1 = false;
 const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
 function* createFilteringIterator(source, projection) {
     if (source == null) return;
@@ -137,8 +135,8 @@ function* createFilteringIterator(source, projection) {
             if ((item = projection(item, i++)) != null) {
                 yield item;
             }
-            if (stopInvoked) {
-                stopInvoked = false;
+            if (stopInvoked$1) {
+                stopInvoked$1 = false;
                 break;
             }
         }
@@ -160,8 +158,8 @@ function* createObjectIterator(source, action) {
         if (value != null) {
             yield value;
         }
-        if (stopInvoked) {
-            stopInvoked = false;
+        if (stopInvoked$1) {
+            stopInvoked$1 = false;
             break;
         }
     }
@@ -183,7 +181,7 @@ function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_
 }
 const sliceAction = (action, start, end)=>(start !== null && start !== void 0 ? start : end) !== undefined$1 ? (action = wrapProjection(action), start !== null && start !== void 0 ? start : start = 0, end !== null && end !== void 0 ? end : end = MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
 /** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array === null || array === void 0 ? void 0 : array.filter(FILTER_NULLISH);
-const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
+const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator$1] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
 const project = (source, projection, start, end)=>createIterator(source, projection, start, end);
 const map = (source, projection, start, end)=>{
     projection = wrapProjection(projection);
@@ -192,13 +190,13 @@ const map = (source, projection, start, end)=>{
         const mapped = [];
         start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
         end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
-        for(; start < end && !stopInvoked; start++){
+        for(; start < end && !stopInvoked$1; start++){
             let value = source[start];
             if ((projection ? value = projection(value, i++) : value) != null) {
                 mapped.push(value);
             }
         }
-        stopInvoked = false;
+        stopInvoked$1 = false;
         return mapped;
     }
     return source != null ? array(project(source, projection, start, end)) : undefined$1;
@@ -875,7 +873,6 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
 /**
  * Converts an in-memory object to a format that can be serialized over a wire including cyclic references.
  */ const serialize = (value, msgpack, { defaultValues = true, prettify = false })=>{
-    // TODO: Clone when required instead of adding "cleaners". Probably adds more overhead.
     let cleaners;
     let refs;
     let refIndex;

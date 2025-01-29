@@ -311,7 +311,7 @@ export const deferredPromise = <T>(
   expression: Wrapped<MaybePromiseLike<T>>
 ): DeferredPromise<T> => new DeferredPromise(async () => unwrap(expression));
 
-export const formatError = (error: any, includeStackTrace?: boolean) =>
+export const formatError = (error: any, includeStackTrace?: boolean): string =>
   !error
     ? "(unspecified error)"
     : includeStackTrace && error.stack
@@ -319,23 +319,6 @@ export const formatError = (error: any, includeStackTrace?: boolean) =>
     : error.message
     ? `${error.name}: ${error.message}`
     : "" + error;
-
-// export const thenMethod = <T>(
-//   expression: Wrapped<MaybePromiseLike<T>>
-// ): (<TResult1 = T, TResult2 = never>(
-//   onfulfilled?:
-//     | ((value: T) => TResult1 | PromiseLike<TResult1>)
-//     | undefined
-//     | null,
-//   onrejected?:
-//     | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-//     | undefined
-//     | null
-// ) => PromiseLike<TResult1 | TResult2>) => {
-//   let result = deferred(expression);
-//   return (onfullfilled?, onrejected?) =>
-//     tryCatchAsync(result, [onfullfilled, onrejected] as any);
-// };
 
 export const tryCatchAsync = async <
   T,

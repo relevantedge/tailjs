@@ -7,12 +7,12 @@ import {
 
 import type { TrackerClientConfiguration } from "@tailjs/client";
 import { Tag } from "@tailjs/types";
-import { JsonObject, map } from "@tailjs/util";
+import { map } from "@tailjs/util";
 
 export interface BootstrapSettings
   extends Pick<
     RequestHandlerConfiguration,
-    "cookies" | "defaultConsent" | "json"
+    "cookies" | "defaultConsent" | "json" | "storage" | "schemas"
   > {
   /** The host implementation to use.  */
   host: EngineHost;
@@ -23,9 +23,6 @@ export interface BootstrapSettings
    * @default /_t.js
    */
   endpoint?: string;
-
-  /** A list of schemas. If a string is provided it is interpreted as a path and will get loaded from resources. */
-  schemas?: (string | JsonObject)[];
 
   /** {@link TrackerExtension}s that are loaded into the request handler.  */
   extensions?: Iterable<

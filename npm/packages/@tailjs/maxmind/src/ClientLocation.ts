@@ -1,5 +1,6 @@
 import {
   NextPatchExtension,
+  SchemaBuilder,
   type Tracker,
   type TrackerEnvironment,
   type TrackerExtension,
@@ -24,6 +25,23 @@ export class ClientLocation implements TrackerExtension {
   }: { language?: string; mmdb?: string } = {}) {
     this._language = language;
     this._mmdb = mmdb;
+  }
+
+  registerTypes(schema: SchemaBuilder): void {
+    schema.registerSchema({
+      namespace: "urn:tailjs:maxmind",
+      variables: {
+        session: {
+          mx: {
+            visibility: "trusted-only",
+            primitive: "string",
+          },
+          country: {
+            primitive: "string",
+          },
+        },
+      },
+    });
   }
 
   public async patch(
@@ -110,16 +128,12 @@ export class ClientLocation implements TrackerExtension {
           {
             scope: "session",
             key: "mx",
-            classification: "anonymous",
-            purposes: "necessary",
             value: clientHash,
             force: true,
           },
           {
             scope: "session",
             key: "country",
-            classification: "anonymous",
-            purposes: "necessary",
             value: country,
             force: true,
           },

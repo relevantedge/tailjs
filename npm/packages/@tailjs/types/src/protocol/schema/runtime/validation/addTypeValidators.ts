@@ -8,11 +8,16 @@ import {
   VALIDATION_ERROR_SYMBOL,
 } from ".";
 import {
+  SCHEMA_PRIVACY_PROPERTY,
   SCHEMA_TYPE_PROPERTY,
   SchemaObjectType,
   SchemaProperty,
+  SchemaTypedDataPrivacyInfo,
 } from "../../../..";
-import { createSchemaTypeMapper } from "../parsing";
+import {
+  createAbstractTypeValidator,
+  createSchemaTypeMapper,
+} from "../parsing";
 
 export const addTypeValidators = (type: SchemaObjectType) => {
   const props = type.properties;
@@ -26,37 +31,48 @@ export const addTypeValidators = (type: SchemaObjectType) => {
   }
 
   const censor: SchemaCensorFunction = (target, context) => {
-    if (target == null) {
+    if (target == null || target === VALIDATION_ERROR_SYMBOL) {
       return target;
     }
     let censored = target;
+    let privacy: SchemaTypedDataPrivacyInfo | undefined;
 
     for (const key in target) {
-      if (key === SCHEMA_TYPE_PROPERTY) continue;
+      if (key === SCHEMA_TYPE_PROPERTY || key === SCHEMA_PRIVACY_PROPERTY) {
+        continue;
+      }
 
       const prop = props[key];
-      const targetValue = target[prop.name];
+      const targetValue = target[key];
       const censoredValue = !prop
         ? // Remove keys we do not know.
           undefined
         : prop.censor(targetValue, context);
 
       if (censoredValue != targetValue) {
+        (privacy ??= {}).censored = true;
         if (censoredValue === undefined && prop.required) {
-          // When a required property gets completely censored away
-          // the entire object becomes censored (since it would be invalid if missing a required property).
-          return undefined;
+          if (!context.forResponse) {
+            // When a required property gets completely censored away during write,
+            // the entire object becomes censored (since it would be invalid if missing a required property).
+            return undefined;
+          }
+          privacy.invalid = true;
         }
         if (target === censored) {
           // Make a shallow clone if we are changing values.
           censored = { ...target };
         }
-        if (!censoredValue) {
+        if (censoredValue === undefined) {
           delete censored[key];
         } else {
-          censored[key] = censoredValue;
+          censored[key] = censoredValue as any;
         }
       }
+    }
+
+    if (privacy) {
+      censored[SCHEMA_PRIVACY_PROPERTY] = privacy;
     }
     return censored;
   };
@@ -108,7 +124,8 @@ export const addTypeValidators = (type: SchemaObjectType) => {
         validateProperty(required);
       }
       for (const key in target) {
-        if (key === SCHEMA_TYPE_PROPERTY) continue;
+        if (key === SCHEMA_TYPE_PROPERTY || key === SCHEMA_PRIVACY_PROPERTY)
+          continue;
 
         const prop = props[key];
         if (!prop) {
@@ -128,27 +145,31 @@ export const addTypeValidators = (type: SchemaObjectType) => {
         return VALIDATION_ERROR_SYMBOL;
       }
 
-      validated[SCHEMA_TYPE_PROPERTY] = type.version
-        ? [type.id, type.version]
-        : [type.id];
+      validated[SCHEMA_TYPE_PROPERTY] = type.qualifiedName;
 
       return validated;
     }, errors);
 
-  if (type.extendedBy.length && type.abstract) {
-    const { censor: polymorphicCensor, validate: polymorphicValidate } =
-      createSchemaTypeMapper([type]);
+  if (type.abstract) {
+    if (type.referencedBy.size) {
+      // Polymorphic validation only applies to abstract types that are referenced by properties.
+      const { censor: polymorphicCensor, validate: polymorphicValidate } =
+        createSchemaTypeMapper([type]);
 
-    type.censor = (target, context, polymorphic = true) =>
-      (polymorphic ? polymorphicCensor : censor)(target, context);
+      type.censor = (target, context, polymorphic = true) =>
+        (polymorphic ? polymorphicCensor : censor)(target, context);
 
-    type.validate = (target, current, context, errors, polymorphic = true) =>
-      (polymorphic ? polymorphicValidate : validate)(
-        target,
-        current,
-        context,
-        errors
-      );
+      type.validate = (target, current, context, errors, polymorphic = true) =>
+        (polymorphic ? polymorphicValidate : validate)(
+          target,
+          current,
+          context,
+          errors
+        );
+    } else {
+      ({ censor: type.censor, validate: type.validate } =
+        createAbstractTypeValidator(type));
+    }
   } else {
     type.censor = censor;
     type.validate = validate;

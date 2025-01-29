@@ -129,11 +129,14 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         continue;
       }
 
-      results.push({
+      const result = {
         status: VariableResultStatus.Success,
         ...variable,
         value: jsonClone(variable.value),
-      });
+      } as VariableGetResult;
+      delete result[internalIdSymbol];
+
+      results.push(result);
     }
     return Promise.resolve(results);
   }
@@ -198,13 +201,16 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         })
       );
 
-      results.push({
+      const result = {
         ...variable,
         value: jsonClone(variable.value),
         status: created
           ? VariableResultStatus.Created
           : VariableResultStatus.Success,
-      });
+      } as VariableSetResult;
+      delete result[internalIdSymbol];
+
+      results.push(result);
     }
 
     return Promise.resolve(results);

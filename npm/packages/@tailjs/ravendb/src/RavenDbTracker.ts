@@ -1,25 +1,31 @@
 import {
-  HttpRequest,
+  SchemaBuilder,
   TrackedEventBatch,
   Tracker,
-  TrackerEnvironment,
   TrackerExtension,
 } from "@tailjs/engine";
 import { Lock, createLock } from "@tailjs/util";
 import { RavenDbSettings } from ".";
+import { RavenDbTarget } from "./RavenDbTarget";
+
+interface RavenDbSessionIds {
+  sessionId?: string;
+  deviceSessionId?: string;
+  internalSessionId?: string;
+  internalDeviceSessionId?: string;
+}
 
 /**
  * This extension stores events in RavenDB.
  * It maps and assign IDs (and references to them) to events and sessions with incrementing base 36 numbers to reduce space.
  */
-export class RavenDbTracker implements TrackerExtension {
+export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
   public readonly id = "ravendb";
-  private readonly _settings: RavenDbSettings;
   private _lock: Lock;
-  private _env: TrackerEnvironment;
-  private _cert?: HttpRequest["x509"];
+
   constructor(settings: RavenDbSettings) {
-    this._settings = settings;
+    super(settings);
+
     this._lock = createLock();
   }
 
@@ -28,38 +34,32 @@ export class RavenDbTracker implements TrackerExtension {
   private _idRangeMax = 0;
   private _idBatchSize = 1000;
 
-  async initialize(env: TrackerEnvironment): Promise<void> {
-    try {
-      this._env = env;
-      if (this._settings.x509) {
-        const cert =
-          "cert" in this._settings.x509
-            ? this._settings.x509.cert
-            : await this._env.read(this._settings.x509.certPath);
-
-        const key =
-          "keyPath" in this._settings.x509
-            ? (await this._env.readText(this._settings.x509.keyPath)) ??
-              undefined
-            : this._settings.x509.key;
-
-        if (!cert) {
-          throw new Error("Certificate not found.");
-        }
-        this._cert = {
-          id: this.id,
-          cert,
-          key,
-        };
-      }
-    } catch (e) {
-      env.log(this, {
-        group: this.id,
-        level: "error",
-        source: `${this.id}:initialize`,
-        message: "" + e,
-      });
-    }
+  registerTypes(schema: SchemaBuilder): void {
+    schema.registerSchema({
+      namespace: "urn:tailjs:ravendb",
+      variables: {
+        session: {
+          rdb: {
+            classification: "anonymous",
+            purposes: {},
+            properties: {
+              sessionId: {
+                primitive: "string",
+              },
+              deviceSessionId: {
+                primitive: "string",
+              },
+              internalSessionId: {
+                primitive: "string",
+              },
+              internalDeviceSessionId: {
+                primitive: "string",
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
   async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
@@ -72,57 +72,47 @@ export class RavenDbTracker implements TrackerExtension {
 
       // We add a convenient integer keys to the session, device session and event entities to get efficient primary keys
       // when doing ETL on the data.
-      const ids = await tracker.get([
-        {
+      let ids: RavenDbSessionIds | undefined = await tracker
+        .get({
           scope: "session",
           key: "rdb",
-          init: async () => ({
-            classification: "anonymous",
-            purposes: "necessary",
-            value: {
-              source: [tracker.sessionId, tracker.deviceSessionId],
-
-              mapped: [await this._getNextId(), await this._getNextId()],
-            },
-          }),
-        },
-      ]).value;
+        })
+        .value();
 
       var hasChanges = false;
-      if (ids.source[0] !== tracker.sessionId) {
-        ids.mapped[0] = await this._getNextId();
+      if (tracker.sessionId && ids?.sessionId !== tracker.sessionId) {
+        (ids ??= {}).internalSessionId = await this._getNextId();
         hasChanges = true;
       }
-      if (ids.source[1] !== tracker.deviceSessionId) {
-        ids.mapped[1] = await this._getNextId();
+      if (
+        tracker.deviceSessionId &&
+        ids?.deviceSessionId !== tracker.deviceSessionId
+      ) {
+        (ids ??= {}).internalDeviceSessionId = await this._getNextId();
+        hasChanges = true;
+      }
+      if (!tracker.sessionId && !tracker.deviceSessionId) {
+        ids = undefined;
         hasChanges = true;
       }
 
       if (hasChanges) {
         // Session and/or device session ID changed.
-        await tracker.set([
-          {
-            scope: "session",
-            key: "rdb",
-            patch: (current) => {
-              if (!current) return;
-              return { ...current, value: ids };
-            },
-          },
-        ]);
+        await tracker.set({
+          scope: "session",
+          key: "rdb",
+          patch: () => ids,
+        });
       }
 
       for (let ev of events) {
-        const session = ev.session;
-        if (!session) {
-          continue;
-        }
+        ev = { ...ev };
 
         // Integer primary key for the event entity.
         const internalEventId = await this._getNextId();
 
-        ev["rdb:sessionId"] = ids.mapped[0];
-        ev["rdb:deviceSessionId"] = ids.mapped[1];
+        ev["rdb:sessionId"] = ids?.internalSessionId;
+        ev["rdb:deviceSessionId"] = ids?.internalDeviceSessionId;
 
         commands.push({
           Type: "PUT",
@@ -136,15 +126,7 @@ export class RavenDbTracker implements TrackerExtension {
         });
       }
 
-      await this._env.request({
-        method: "POST",
-        url: `${this._settings.url}/databases/${encodeURIComponent(
-          this._settings.database
-        )}/bulk_docs`,
-        headers: { ["content-type"]: "application/json" },
-        x509: this._cert,
-        body: JSON.stringify({ Commands: commands }),
-      });
+      await this._request("bulk_docs", "POST", { Commands: commands });
     } catch (e) {
       tracker.env.error(this, e);
     }
@@ -161,15 +143,11 @@ export class RavenDbTracker implements TrackerExtension {
           let idMax = this._idRangeMax + this._idBatchSize;
           for (let i = 0; i <= 100; i++) {
             const response = (
-              await this._env.request({
-                method: "PUT",
-                url: `${this._settings.url}/databases/${encodeURIComponent(
-                  this._settings.database
-                )}/cmpxchg?key=NextEventId&index=${this._idIndex}`,
-                headers: { ["content-type"]: "application/json" },
-                body: JSON.stringify({ Object: idMax }),
-                x509: this._cert,
-              })
+              await this._request(
+                `cmpxchg?key=NextEventId&index=${this._idIndex}`,
+                "PUT",
+                { Object: idMax }
+              )
             ).body;
 
             const result = JSON.parse(response);

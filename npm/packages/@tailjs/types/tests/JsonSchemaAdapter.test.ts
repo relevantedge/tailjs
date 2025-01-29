@@ -1,10 +1,10 @@
-import { JsonSchemaAdapter, SchemaDefinition, TypeResolver } from "../src";
+import { JsonSchemaAdapter, TypeResolver } from "../src";
 
 describe("JsonSchemaAdapter", () => {
   it("parses", () => {
     const resolver = new TypeResolver([
       {
-        definition: {
+        schema: {
           namespace: "urn:test",
           types: {
             BaseType1: {
@@ -40,7 +40,7 @@ describe("JsonSchemaAdapter", () => {
     console.log(JSON.stringify(adapter.parse(serialized), null, 2));
 
     const resolver2 = new TypeResolver(
-      adapter.parse(serialized).map((definition) => ({ definition }))
+      adapter.parse(serialized).map((schema) => ({ schema }))
     );
     console.log(resolver2.types);
   });

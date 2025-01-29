@@ -3,9 +3,9 @@ import { join } from "path";
 
 import { generateSchema } from "@tailjs/ts-json-schema-generator";
 
-import { SchemaManager } from "@tailjs/json-schema";
 import { build, env } from "./lib";
 import { getDistBundles } from "./rollup-dist";
+import { CORE_SCHEMA_NS, JsonSchemaAdapter, TypeResolver } from "@tailjs/types";
 
 const pkg = await env();
 
@@ -15,7 +15,7 @@ let runtimeSchema: any;
 await build(
   await getDistBundles({
     variables: {
-      '"{JSON Schema}"': () => JSON.stringify(sourceSchema),
+      '"{JSON Schema}"': () => JSON.stringify(runtimeSchema),
     },
   }),
   {
@@ -24,15 +24,18 @@ await build(
       sourceSchema = generateSchema({
         path: "{src/ConfiguredComponent.ts,src/ScopeVariables.ts,src/events/**/*.ts}",
         type: "*",
-        schemaId: `urn:tailjs:core`,
+        schemaId: CORE_SCHEMA_NS,
         tsconfig: "./tsconfig.json",
-        classification: "anonymous",
-        purposes: "necessary",
         version: "0.94.3",
       });
 
-      const manager = SchemaManager.create([sourceSchema as any]);
-      runtimeSchema = manager.schema.definition;
+      const parser = new JsonSchemaAdapter();
+      const parsed = parser.parse(sourceSchema);
+
+      const resolver = new TypeResolver(
+        parsed.map((definition) => ({ schema: definition }))
+      );
+      runtimeSchema = resolver.definitions[0];
     },
     async buildEnd() {
       try {
@@ -42,16 +45,18 @@ await build(
         ]) {
           await fs.writeFile(
             join(target, "tailjs-schema.json"),
-            JSON.stringify(sourceSchema, null, 2)
+            JSON.stringify(sourceSchema, null, 2),
+            "utf-8"
           );
 
           await fs.writeFile(
             join(target, "tailjs-runtime-schema.json"),
-            JSON.stringify(runtimeSchema, null, 2)
+            JSON.stringify(runtimeSchema, null, 2),
+            "utf-8"
           );
         }
       } catch (e) {
-        console.error(e.message);
+        console.error(`${e.message}: ${e.stack}`);
       }
     },
   }

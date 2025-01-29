@@ -8,7 +8,7 @@ import {
   VariableValueSetter,
 } from "@tailjs/types";
 import { Pretty } from "@tailjs/util";
-import { TrackerEnvironment } from "..";
+import { TrackerEnvironment, TrackerEnvironmentInitializable } from "..";
 
 export type VariableStorageQuery = Pretty<
   Omit<VariableQuery, "classification" | "purposes" | "scopes" | "sources"> & {
@@ -16,7 +16,8 @@ export type VariableStorageQuery = Pretty<
     scope: string;
   }
 >;
-export interface ReadOnlyVariableStorage {
+export interface ReadOnlyVariableStorage
+  extends TrackerEnvironmentInitializable {
   /** Gets or initializes the variables with the specified keys. */
   get(keys: ReadOnlyVariableGetter[]): Promise<VariableGetResult[]>;
 
@@ -25,8 +26,6 @@ export interface ReadOnlyVariableStorage {
     queries: VariableStorageQuery[],
     options?: VariableQueryOptions
   ): Promise<VariableQueryResult>;
-
-  initialize?(environment: TrackerEnvironment): Promise<void>;
 }
 
 export interface VariableStorage extends ReadOnlyVariableStorage {

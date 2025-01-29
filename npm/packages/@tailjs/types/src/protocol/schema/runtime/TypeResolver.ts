@@ -1,4 +1,6 @@
 import {
+  array2,
+  ellipsis,
   forEach2,
   get2,
   Nullish,
@@ -8,11 +10,9 @@ import {
 } from "@tailjs/util";
 import {
   CORE_SCHEMA_NS,
-  DataUsage,
   SCHEMA_DATA_USAGE_ANONYMOUS,
   SchemaTypeDefinition,
   type SchemaDefinition,
-  type SchemaTypeDefinitionReference,
   type ServerVariableScope,
 } from "../../..";
 
@@ -22,22 +22,26 @@ export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
 };
 
 import {
-  isSchemaObject,
+  CORE_EVENT_DISCRIMINATOR,
+  hasEnumValues,
+  isSchemaObjectType,
   Schema,
+  SchemaDataUsage,
   SchemaObjectType,
   SchemaPropertyType,
+  SchemaSystemTypeDefinition,
   SchemaVariable,
-  SchemaVariableKey,
 } from "../..";
 
 import {
+  createEventPatchDefinition,
   createSchemaTypeMapper,
   parseBaseTypes,
   parseProperty,
-  parsePropertyType,
   parseType,
   parseTypeProperties,
   SchemaTypeSelector,
+  serializeAsDefinitions,
   TypeParseContext,
 } from "./parsing";
 import {
@@ -47,18 +51,24 @@ import {
   handleValidationErrors,
   overrideUsage,
   ValidatableSchemaEntity,
+  VALIDATION_ERROR_SYMBOL,
+  addTypeValidators,
 } from "./validation";
-import { addTypeValidators } from "./validation/addTypeValidators";
+import { PATCH_EVENT_POSTFIX } from "@constants";
 
 export type SchemaDefinitionSource = {
-  definition: SchemaDefinition;
+  schema: SchemaDefinition;
   /**
    * Do not add events and variables from this schema to avoid name clashes.
-   * Use this if the types from the schema are referenced by other schemas that provide events and variables.
+   * Use this if the types from the schema are only referenced by other schemas that provide events and variables.
    */
   typesOnly?: boolean;
 };
 
+const uriValidator = getPrimitiveTypeValidator({
+  primitive: "string",
+  format: "uri",
+});
 export class TypeResolver {
   private readonly _schemas = new Map<string, Schema>();
   private readonly _types = new Map<string, SchemaObjectType>();
@@ -67,28 +77,31 @@ export class TypeResolver {
 
   private readonly _variables = new Map<string, Map<string, SchemaVariable>>();
 
-  private readonly _source: readonly SchemaDefinitionSource[];
+  public readonly schemas: readonly Schema[];
 
-  public schemas: readonly Schema[];
+  private readonly _sourceDefinitions: readonly SchemaDefinitionSource[];
+  public readonly definitions: readonly SchemaDefinition[];
+  private readonly _defaultUsage: SchemaDataUsage;
 
   constructor(
-    schemas: readonly SchemaDefinitionSource[],
+    definitions: readonly SchemaDefinitionSource[],
     defaultUsage = SCHEMA_DATA_USAGE_ANONYMOUS
   ) {
-    this._source = schemas;
-    const typeStubs: [
-      context: TypeParseContext,
-      variable: SchemaVariableKey | undefined,
-      type: SchemaObjectType | SchemaTypeDefinitionReference
-    ][] = [];
-
+    this._sourceDefinitions = definitions;
+    this._defaultUsage = defaultUsage;
     const schemaContexts: [schema: Schema, context: TypeParseContext][] =
-      schemas.map(({ definition, typesOnly }) => {
+      definitions.map(({ schema, typesOnly }) => {
+        if (!schema.namespace) {
+          throw new Error(
+            `${ellipsis(
+              JSON.stringify(schema),
+              40,
+              true
+            )} is not a valid schema - namespace is missing.`
+          );
+        }
         const namespace = handleValidationErrors((errors) =>
-          getPrimitiveTypeValidator({
-            primitive: "string",
-            format: "uri",
-          }).validator(definition.namespace, errors)
+          uriValidator.validator(schema.namespace, errors)
         );
         if (this._schemas.has(namespace)) {
           throw new Error(
@@ -98,19 +111,17 @@ export class TypeResolver {
         const parsed: Schema = {
           id: namespace,
           namespace,
-          source: definition,
-          schema: undefined as any,
-          description: definition.description,
-          name: definition.name ?? namespace,
+          source: schema,
+          description: schema.description,
+          name: schema.name ?? namespace,
           qualifiedName: namespace,
           typesOnly: !!typesOnly,
-          version: definition.version,
-          usageOverrides: definition,
+          version: schema.version,
+          usageOverrides: schema,
           types: new Map(),
           events: new Map(),
           variables: new Map(),
         };
-        parsed.schema = parsed;
         this._schemas.set(namespace, parsed);
 
         return [
@@ -119,8 +130,8 @@ export class TypeResolver {
             schema: parsed,
             parsedTypes: this._types,
             systemTypes: this._systemTypes,
-            defaultUsage,
-            usageOverrides: definition,
+            defaultUsage: overrideUsage(defaultUsage, parsed.usageOverrides),
+            usageOverrides: schema,
             typesOnly: !!typesOnly,
             localTypes: parsed.types,
             typeAliases: new Map(),
@@ -133,11 +144,11 @@ export class TypeResolver {
       // This allows circular references to be resolved, and schemas and their types be parsed in any order.
       forEach2(
         schema.source.types,
-        ([name, type]: [string, SchemaTypeDefinition]) => {
-          typeStubs.push([context, , parseType([name, type], context, null)]);
-        }
+        ([name, type]: [string, SchemaTypeDefinition]) =>
+          parseType([name, type], context, null)
       );
     }
+    const eventType = this._systemTypes.event;
 
     for (const [schema, context] of schemaContexts) {
       // Parse base types so "extendedBy" is populated for all types before we parse properties..
@@ -146,6 +157,37 @@ export class TypeResolver {
 
     for (const [schema, context] of schemaContexts) {
       forEach2(schema.types, ([, type]) => parseTypeProperties(type, context));
+    }
+
+    if (eventType) {
+      // Make a copy of the original event types to avoid infinite loop (that is, patch types for patch types for patch types etc...).
+      forEach2(eventType.extendedByAll, (type) => {
+        const context = (schemaContexts.find(
+          (context) => context[0] === type.schema
+        ) ??
+          throwError(
+            `No parse context for the schema '${type.schema.name}'.`
+          ))[1];
+
+        if (!hasEnumValues(type.properties[CORE_EVENT_DISCRIMINATOR]?.type)) {
+          // Event types without a specific const value for `type` are per definition abstract.
+          type.abstract = true;
+        } else if (
+          !type.name.endsWith(PATCH_EVENT_POSTFIX) &&
+          !this._types.has(type.id + PATCH_EVENT_POSTFIX)
+        ) {
+          // Create a corresponding patch type.
+          const patchDefinition = createEventPatchDefinition(eventType, type);
+          (patchDefinition as SchemaSystemTypeDefinition).system = "patch";
+          const patchType = parseType(
+            [type.name + PATCH_EVENT_POSTFIX, patchDefinition],
+            context,
+            null
+          );
+          parseBaseTypes(patchType, context);
+          parseTypeProperties(patchType, context);
+        }
+      });
     }
 
     forEach2(this._types, ([, type]) => {
@@ -164,7 +206,6 @@ export class TypeResolver {
       });
     });
 
-    const eventType = this._systemTypes.event;
     if (eventType) {
       this._eventMapper = createSchemaTypeMapper([eventType]).match;
     }
@@ -182,10 +223,6 @@ export class TypeResolver {
           }
           let variableType: SchemaPropertyType | undefined;
 
-          if (typeof definition === "string") {
-            definition = { reference: definition };
-          }
-
           if ("reference" in definition) {
             // Get the referenced type.
             variableType = parseType(definition, context, null);
@@ -196,6 +233,9 @@ export class TypeResolver {
               context,
               null
             );
+            parseBaseTypes(variableType, context);
+            parseTypeProperties(variableType, context);
+            addTypeValidators(variableType);
           }
 
           const dummyProperty = parseProperty(
@@ -215,6 +255,7 @@ export class TypeResolver {
             usage: dummyProperty.usage,
             validate: dummyProperty.validate,
             censor: dummyProperty.censor,
+            dynamic: !!definition.dynamic,
           };
 
           tryAdd(
@@ -248,16 +289,40 @@ export class TypeResolver {
       scope,
       obj2(variables, ([key, variable]) => {
         const usage = (variable.usage = overrideUsage(
-          isSchemaObject(variable.type) ? variable.type.usage : undefined,
+          isSchemaObjectType(variable.type) ? variable.type.usage : undefined,
           variable.usage
         ));
 
-        variable.validate = createAccessValidator(
+        const innerValidator = createAccessValidator(
           scope + "." + key,
           variable.type,
           usage,
           "variable"
         );
+
+        variable.validate = variable.dynamic
+          ? (value, current, context, errors, polymorphic) =>
+              handleValidationErrors((errors) => {
+                if (context.forResponse) {
+                  return innerValidator(
+                    value,
+                    current,
+                    context,
+                    errors,
+                    polymorphic
+                  );
+                }
+                errors.push({
+                  message:
+                    "The value is dynamically calculated and cannot be set",
+                  path: "",
+                  type: variable.type,
+                  source: value,
+                  forbidden: true,
+                });
+                return VALIDATION_ERROR_SYMBOL as any;
+              }, errors)
+          : innerValidator;
 
         variable.censor = createCensorAction(usage, variable.type);
 
@@ -266,6 +331,8 @@ export class TypeResolver {
     ]);
 
     this.schemas = [...this._schemas.values()];
+
+    this.definitions = serializeAsDefinitions(this.schemas);
   }
 
   public getEventType<T>(
@@ -292,10 +359,6 @@ export class TypeResolver {
     return type as any;
   }
 
-  public get definition() {
-    return JSON.stringify(this._source);
-  }
-
   public getVariable<Required extends boolean = true>(
     scope: string,
     key: string,
@@ -320,15 +383,17 @@ export class TypeResolver {
     };
   };
 
-  public subset(schemas: string | string[]) {
+  public subset(namespaces: string | string[]) {
     const selectedSchemas = new Set<SchemaDefinitionSource>();
-    for (const schemaSelector of Array.isArray(schemas) ? schemas : [schemas]) {
+    for (const schemaSelector of Array.isArray(namespaces)
+      ? namespaces
+      : [namespaces]) {
       let matchedAny = false;
-      for (const source of this._source) {
+      for (const source of this._sourceDefinitions) {
         if (
           schemaSelector === "*" ||
-          schemaSelector === source.definition.namespace ||
-          schemaSelector === source.definition.name
+          schemaSelector === source.schema.namespace ||
+          schemaSelector === source.schema.name
         ) {
           matchedAny = true;
           selectedSchemas.add(source);
@@ -342,10 +407,12 @@ export class TypeResolver {
     }
 
     return new TypeResolver(
-      this._source.map((source) =>
-        selectedSchemas.has(source)
-          ? { ...source, typesOnly: false }
-          : { ...source, typesOnly: true }
+      this._sourceDefinitions.map(
+        (source) =>
+          selectedSchemas.has(source)
+            ? { ...source, typesOnly: false }
+            : { ...source, typesOnly: true },
+        this._defaultUsage
       )
     );
   }

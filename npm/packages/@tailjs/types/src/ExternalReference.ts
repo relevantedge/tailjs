@@ -11,9 +11,6 @@
  * Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources.
  * The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.
  *
- * Again, if you only have some hard-coded value, you can just make an external reference and use its {@link id} property for the value.
- * Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID.
- *
  */
 export interface ExternalReference {
   /**

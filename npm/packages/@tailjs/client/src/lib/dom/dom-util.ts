@@ -17,7 +17,7 @@ import {
   array,
   createEventBinders,
   createTimeout,
-  forEach,
+  forEach2,
   isArray,
   nil,
   parseBoolean,
@@ -336,9 +336,11 @@ export const listen = <K extends keyof AllMaps>(
   return createEventBinders(
     listener,
     (listener) =>
-      forEach(name, (name) => target.addEventListener(name, listener, options)),
+      forEach2(name, (name) =>
+        target.addEventListener(name, listener, options)
+      ),
     (listener) =>
-      forEach(name, (name) =>
+      forEach2(name, (name) =>
         target.removeEventListener(name, listener, options)
       )
   );

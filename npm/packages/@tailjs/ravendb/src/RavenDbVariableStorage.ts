@@ -1,70 +1,94 @@
 import {
   TrackerEnvironment,
   VariableStorage,
-  VariableStorageContext,
+  VariableStorageQuery,
 } from "@tailjs/engine";
 import {
-  ServerVariableScope,
-  VariableSetters,
-  VariableSetResults,
-  VariableFilter,
-  VariableGetters,
-  VariableGetResults,
+  ReadOnlyVariableGetter,
+  VariableGetResult,
   VariableQueryOptions,
   VariableQueryResult,
-  VariableHeader,
-  Variable,
+  VariableSetResult,
+  VariableValueSetter,
 } from "@tailjs/types";
-import { MaybePromise } from "@tailjs/util";
-import { RavenDbSettings } from ".";
+import { RavenDbTarget } from "./RavenDbTarget";
 
-export class RavenDbVariableStorage implements VariableStorage {
-  private readonly _settings: RavenDbSettings;
+export class RavenDbVariableStorage
+  extends RavenDbTarget
+  implements VariableStorage
+{
+  public readonly id = "ravendb-variables";
 
-  constructor(settings: RavenDbSettings) {
-    this._settings = settings;
+  set(values: VariableValueSetter[]): Promise<VariableSetResult[]> {
+    throw new Error("Method not implemented.");
   }
 
-  renew(
-    scope: ServerVariableScope,
-    targetIds: string[],
-    context?: VariableStorageContext
-  ): MaybePromise<void> {
+  purge(queries: VariableStorageQuery[]): Promise<number> {
     throw new Error("Method not implemented.");
   }
-  set<V extends VariableSetters<true>>(
-    variables: VariableSetters<true, V>,
-    context?: VariableStorageContext
-  ): MaybePromise<VariableSetResults<V>> {
+
+  refresh(queries: VariableStorageQuery[]): Promise<number> {
     throw new Error("Method not implemented.");
   }
-  purge(
-    filters: VariableFilter<true>[],
-    context?: VariableStorageContext
-  ): MaybePromise<boolean> {
+
+  get(keys: ReadOnlyVariableGetter[]): Promise<VariableGetResult[]> {
     throw new Error("Method not implemented.");
   }
-  initialize?(environment: TrackerEnvironment): MaybePromise<void> {
-    throw new Error("Method not implemented.");
-  }
-  get<K extends VariableGetters<true>>(
-    keys: VariableGetters<true, K>,
-    context?: VariableStorageContext
-  ): MaybePromise<VariableGetResults<K>> {
-    throw new Error("Method not implemented.");
-  }
-  head(
-    filters: VariableFilter<true>[],
-    options?: VariableQueryOptions<true>,
-    context?: VariableStorageContext
-  ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
-    throw new Error("Method not implemented.");
-  }
+
   query(
-    filters: VariableFilter<true>[],
-    options?: VariableQueryOptions<true>,
-    context?: VariableStorageContext
-  ): MaybePromise<VariableQueryResult<Variable<any, true>>> {
+    queries: VariableStorageQuery[],
+    options?: VariableQueryOptions
+  ): Promise<VariableQueryResult> {
     throw new Error("Method not implemented.");
   }
 }
+// export class RavenDbVariableStorage implements VariableStorage {
+//   private readonly _settings: RavenDbSettings;
+
+//   constructor(settings: RavenDbSettings) {
+//     this._settings = settings;
+//   }
+
+//   renew(
+//     scope: ServerVariableScope,
+//     targetIds: string[],
+//     context?: VariableStorageContext
+//   ): MaybePromise<void> {
+//     throw new Error("Method not implemented.");
+//   }
+//   set<V extends VariableSetters<true>>(
+//     variables: VariableSetters<true, V>,
+//     context?: VariableStorageContext
+//   ): MaybePromise<VariableSetResults<V>> {
+//     throw new Error("Method not implemented.");
+//   }
+//   purge(
+//     filters: VariableFilter<true>[],
+//     context?: VariableStorageContext
+//   ): MaybePromise<boolean> {
+//     throw new Error("Method not implemented.");
+//   }
+//   initialize?(environment: TrackerEnvironment): MaybePromise<void> {
+//     throw new Error("Method not implemented.");
+//   }
+//   get<K extends VariableGetters<true>>(
+//     keys: VariableGetters<true, K>,
+//     context?: VariableStorageContext
+//   ): MaybePromise<VariableGetResults<K>> {
+//     throw new Error("Method not implemented.");
+//   }
+//   head(
+//     filters: VariableFilter<true>[],
+//     options?: VariableQueryOptions<true>,
+//     context?: VariableStorageContext
+//   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
+//     throw new Error("Method not implemented.");
+//   }
+//   query(
+//     filters: VariableFilter<true>[],
+//     options?: VariableQueryOptions<true>,
+//     context?: VariableStorageContext
+//   ): MaybePromise<VariableQueryResult<Variable<any, true>>> {
+//     throw new Error("Method not implemented.");
+//   }
+// }
