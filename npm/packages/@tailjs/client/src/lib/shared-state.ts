@@ -1,16 +1,13 @@
 import { CLIENT_STATE_CHANNEL_ID } from "@constants";
 
-import { Uuid, extractKey } from "@tailjs/types";
+import { UuidV4, extractKey } from "@tailjs/types";
 import {
-  OmitUnion,
   PartialRecord,
-  PickPartial,
   assign2,
   clock,
   concat2,
   createEvent,
   filter2,
-  forEach,
   forEach2,
   isString,
   map2,
@@ -72,7 +69,7 @@ export const nextLocalId = () =>
   (++localId).toString(36);
 
 const randomValues = (arg: any) => crypto.getRandomValues(arg);
-export const uuidv4 = (): Uuid =>
+export const uuidv4 = (): UuidV4 =>
   replace(
     ([1e7] as any) + -1e3 + -4e3 + -8e3 + -1e11,
     /[018]/g,
@@ -232,7 +229,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
 
       tabVariables = new Map(
         concat2(
-          filter2(tabVariables, ([, variable]) => variable.scope === "view"),
+          filter2(tabVariables, ([, variable]) => variable?.scope === "view"),
           map2(localState?.[1], (variable) => [
             variableKeyToString(variable),
             variable,
@@ -245,7 +242,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
         httpEncrypt([
           TAB_ID,
           map2(tabVariables, ([, variable]) =>
-            variable.scope !== "view" ? variable : skip2
+            variable && variable.scope !== "view" ? variable : skip2
           ),
         ])
       );
@@ -315,7 +312,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
   const heartbeat = clock({
     callback: () => {
       const timeout = now() - HEARTBEAT_FREQUENCY * 2;
-      forEach(
+      forEach2(
         state.knownTabs,
         // Remove tabs that no longer responds (presumably closed but may also have been frozen).
         ([tabId, tabState]) =>

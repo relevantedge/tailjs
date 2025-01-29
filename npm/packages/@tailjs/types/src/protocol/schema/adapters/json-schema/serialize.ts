@@ -1,55 +1,16 @@
 import { forEach2, throwTypeError } from "@tailjs/util";
+import { serializeAnnotations } from ".";
 import {
   Schema,
-  SchemaEntity,
   SchemaObjectType,
   SchemaPrimitiveTypeDefinition,
   SchemaPropertyType,
 } from "../../..";
-import { serializeAnnotations } from ".";
 
-const requiresSyntheticType = (
-  type: SchemaObjectType,
-  restrictProperties: boolean
-) => restrictProperties && type.abstract === false && type.extendedBy?.length;
+const getJsonRef = (entity: SchemaObjectType) =>
+  `${entity.schema.namespace}#${entity.name}`;
 
-const getSyntheticBaseTypeName = (
-  type: SchemaObjectType,
-  restrictProperties: boolean
-) => {
-  if (!requiresSyntheticType(type, restrictProperties)) return type.name;
-
-  for (let i = 0; ; i++) {
-    const name = type.name + "Base" + (i ? i + 1 : 0);
-    if (!type.schema.types.has(name)) {
-      return name;
-    }
-  }
-};
-
-const getJsonRef = (
-  entity: SchemaEntity | SchemaObjectType,
-  force = false,
-  restrictProperties: boolean
-) => {
-  if (
-    !force &&
-    "abstract" in entity &&
-    !entity.abstract &&
-    entity.extendedBy.length
-  ) {
-    return `${entity.schema.namespace}#${getSyntheticBaseTypeName(
-      entity,
-      restrictProperties
-    )}`;
-  }
-  return `${entity.schema.namespace}#${entity.name}`;
-};
-
-const serializeProperty = (
-  type: SchemaPropertyType,
-  restrictProperties: boolean
-) => {
+const serializeProperty = (type: SchemaPropertyType) => {
   let jsonProperty: any;
   if ("primitive" in type) {
     const source = type.source as SchemaPrimitiveTypeDefinition;
@@ -103,21 +64,21 @@ const serializeProperty = (
     }
   } else if ("properties" in type) {
     if (type.embedded) {
-      jsonProperty = serializeType(type, restrictProperties);
+      jsonProperty = serializeType(type);
     } else {
       jsonProperty = {
-        $ref: getJsonRef(type, false, restrictProperties),
+        $ref: getJsonRef(type),
       };
     }
   } else if ("key" in type) {
     jsonProperty = {
       type: "object",
-      additionalProperties: serializeProperty(type.value, restrictProperties),
+      additionalProperties: serializeProperty(type.value),
     };
   } else if ("item" in type) {
     jsonProperty = {
       type: "array",
-      items: serializeProperty(type.item, restrictProperties),
+      items: serializeProperty(type.item),
     };
   }
 
@@ -127,7 +88,7 @@ const serializeProperty = (
   return jsonProperty;
 };
 
-const serializeType = (type: SchemaObjectType, restrictProperties: boolean) => {
+const serializeType = (type: SchemaObjectType) => {
   let jsonType = {
     type: "object",
     description: type.description,
@@ -136,39 +97,25 @@ const serializeType = (type: SchemaObjectType, restrictProperties: boolean) => {
   } as any;
 
   forEach2(type.ownProperties, ([name, property]) => {
-    jsonType.properties[name] = serializeProperty(
-      property.type,
-      restrictProperties
-    );
+    jsonType.properties[name] = serializeProperty(property.type);
     if (property.required) {
       (jsonType.required ??= []).push(name);
     }
   });
 
-  if (!type.extends) {
-    var b = 4;
-  }
   if (type.extends.length) {
     jsonType = {
       allOf: [
         ...type.extends.map((type) => ({
-          $ref: getJsonRef(type, false, restrictProperties),
+          $ref: getJsonRef(type),
         })),
         jsonType,
       ],
     };
   }
 
-  if (
-    !type.abstract &&
-    !requiresSyntheticType(type, restrictProperties) &&
-    restrictProperties
-  ) {
-    jsonType.additionalProperties = false;
-  }
-
   return {
-    $anchor: getSyntheticBaseTypeName(type, restrictProperties),
+    $anchor: type.name,
     ...jsonType,
   };
 };
@@ -189,23 +136,10 @@ export const serializeSchema = (
     const defs = (jsonSchema.$defs = {});
 
     for (const [name, type] of schema.types) {
-      if (requiresSyntheticType(type, restrictProperties)) {
-        const syntheticTypeName = getSyntheticBaseTypeName(
-          type,
-          restrictProperties
-        );
-        defs[syntheticTypeName] = serializeType(type, restrictProperties);
-        defs[type.name] = {
-          type: "object",
-          $ref: getJsonRef(type, false, restrictProperties),
-          additionalProperties: false,
-        };
-      } else {
-        defs[name] = {
-          $anchor: getJsonRef(type, true, restrictProperties),
-          ...serializeType(type, restrictProperties),
-        };
-      }
+      defs[name] = {
+        $anchor: getJsonRef(type),
+        ...serializeType(type),
+      };
     }
 
     for (const subSchema of subSchemas) {

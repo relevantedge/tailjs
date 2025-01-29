@@ -4,9 +4,11 @@ import {
   AsyncIterationSource,
   AsyncIterationSourceOf,
   AsyncItProjection,
+  ExtendsAny,
   Falsish,
   get2,
   isArray,
+  isIterable,
   isPromiseLike,
   itemize2,
   IterationFilterCallback2,
@@ -328,14 +330,16 @@ export let map2: {
 export let filter2: {
   <Source extends IterationSource, Strict extends boolean = true>(
     target: Source,
-    /** Whether to filter out all false'ish values (`null`, `undefined`, `false`, `""` and `0`). */
-    falsish?: Strict
+    /**
+     * Whether to filter out all false'ish values (`null`, `undefined`, `false`, `""` and `0`).
+     *
+     * @default true
+     */
+    strict?: Strict
   ): MaybeNullishOrFalse<
     Exclude<
       IteratorItem2<Source>,
-      | typeof skip2
-      | typeof stop2
-      | (Strict extends true ? Nullish | boolean : Falsish)
+      typeof skip2 | typeof stop2 | (Strict extends true ? Nullish : Falsish)
     >[],
     Source
   >;
@@ -803,40 +807,39 @@ export const all2: {
       : item
   ) !== false;
 
+type ConcatResult<T extends readonly any[]> = [Nullish | T[number]] extends [
+  Nullish
+]
+  ? undefined
+  : {
+      [P in keyof T]: T[P] extends infer T
+        ? unknown extends T
+          ? any
+          : T extends Iterable<infer T>
+          ? T
+          : T extends Nullish
+          ? never
+          : T
+        : never;
+    }[number][];
 export const concat2: {
-  <T extends readonly any[]>(args: T): T extends readonly (infer T)[]
-    ? (unknown extends T
-        ? any
-        : T extends Iterable<infer T>
-        ? T
-        : T extends Nullish
-        ? never
-        : T)[]
-    : never;
-
-  <T extends readonly any[]>(...args: T): {
-    [P in keyof T]: T[P] extends infer T
-      ? unknown extends T
-        ? any
-        : T extends Iterable<infer T>
-        ? T
-        : T extends Nullish
-        ? never
-        : T
-      : never;
-  }[number][];
+  <T extends readonly any[]>(args: T): ConcatResult<T>;
+  <T extends readonly any[]>(...args: T): ConcatResult<T>;
 } = (arg0: any, ...other: any[]) => {
-  if (other.length) return concat2([arg0, ...other]);
-
-  const result: any[] = [];
-  for (const arg of arg0) {
-    if (arg?.[symbolIterator] && typeof arg !== "string") {
-      result.push(...arg);
-    } else if (arg != null) {
-      result.push(arg);
-    }
+  if (other.length || !isIterable(arg0)) {
+    arg0 = [arg0, ...other];
   }
-  return result;
+
+  let result: any[] | undefined;
+  for (const arg of arg0) {
+    if (arg == null) continue;
+    if (isIterable(arg)) {
+      (result ??= []).push(...arg);
+      continue;
+    }
+    (result ??= []).push(arg);
+  }
+  return result as any;
 };
 
 const sortCompare = (x: Sortable, y: Sortable, descending: boolean) =>

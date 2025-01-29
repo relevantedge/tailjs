@@ -165,7 +165,8 @@ type MapVariableResult<
   Operation,
   Type extends "success" | "all" | "value" = "success",
   Require extends boolean = false,
-  KnownTypes extends KnownVariableMap = never
+  KnownTypes extends KnownVariableMap = never,
+  DefaultType extends {} = {}
 > = Operation extends Falsish
   ? undefined
   : Operation extends readonly any[]
@@ -206,14 +207,19 @@ type MapVariableResult<
             "get",
             ReplaceKey<
               VariableGetResult<
-                {} & (Operation extends Pick<
-                  VariableInitializer<infer Result>,
-                  "init"
-                >
-                  ? unknown extends Result
-                    ? KnownTypeFor<Operation, KnownTypes, GenericVariableValue>
-                    : Result
-                  : KnownTypeFor<Operation, KnownTypes, GenericVariableValue>)
+                DefaultType &
+                  (Operation extends Pick<
+                    VariableInitializer<infer Result>,
+                    "init"
+                  >
+                    ? unknown extends Result
+                      ? KnownTypeFor<
+                          Operation,
+                          KnownTypes,
+                          GenericVariableValue
+                        >
+                      : Result
+                    : KnownTypeFor<Operation, KnownTypes, GenericVariableValue>)
               > & {
                 status: Exclude<
                   VariableResultStatus,
@@ -286,35 +292,51 @@ export type VariableResultPromise<
       >
     > & {
       /** Return all variable results with error status codes instead of throwing errors. */
-      all(): Promise<
+      all<T extends {} = {}>(): Promise<
         MatchScopes<
-          MapVariableResult<Operations, "all", false, KnownTypes>,
+          MapVariableResult<Operations, "all", false, KnownTypes, T>,
           ScopeTemplate
         >
       >;
-      require(): Promise<
+      require<T extends {} = {}>(): Promise<
         MatchScopes<
-          MapVariableResult<Operations, "success", true, KnownTypes>,
+          MapVariableResult<Operations, "success", true, KnownTypes, T>,
+          ScopeTemplate
+        >
+      >;
+      as<T extends {}>(): Promise<
+        MatchScopes<
+          MapVariableResult<Operations, "success", false, KnownTypes, T>,
           ScopeTemplate
         >
       >;
     } & (Operations extends readonly any[]
         ? {
-            values<Require extends boolean = false>(
-              require?: Require
+            values<T extends {} = {}>(
+              require: true
             ): Promise<
-              MapVariableResult<Operations, "value", Require, KnownTypes>
+              MapVariableResult<Operations, "value", true, KnownTypes, T>
+            >;
+            values<T extends {} = {}>(
+              require?: boolean
+            ): Promise<
+              MapVariableResult<Operations, "value", false, KnownTypes, T>
             >;
           }
         : {
-            value<Require extends boolean = false>(
-              require?: Require
+            value<T extends {} = {}>(
+              require: true
             ): Promise<
-              MapVariableResult<Operations, "value", Require, KnownTypes>
+              MapVariableResult<Operations, "value", true, KnownTypes, T>
+            >;
+            value<T extends {} = {}>(
+              require?: boolean
+            ): Promise<
+              MapVariableResult<Operations, "value", false, KnownTypes, T>
             >;
           });
 
-const formatVariableResult = (
+export const formatVariableResult = (
   result: RestrictScopes<VariableResult, string, any>
 ) => {
   const key = formatVariableKey(result);
@@ -399,14 +421,12 @@ export const toVariableResultPromise = <
       if (op.callback) {
         callbacks.push(op.callback(result));
       }
-      result.success =
-        !type ||
-        isSuccessResult(
-          result,
-          // Not found is an error result for set operations.
-          require || operationType === "set"
-        );
-      if (result.success) {
+      result.success = isSuccessResult(
+        result,
+        // Not found is an error result for set operations.
+        require || operationType === "set"
+      );
+      if (!type || result.success) {
         results.push(
           type && result.status === VariableResultStatus.NotFound
             ? undefined
@@ -422,7 +442,7 @@ export const toVariableResultPromise = <
       if (errors.length > 10) {
         errors.push(`\n(and ${errors.splice(10).length} more...)`);
       }
-      throw new VariableStorageError(ops, errors.join("\n"));
+      throw new VariableStorageError(results, errors.join("\n"));
     }
 
     for (const callback of callbacks) {
@@ -435,6 +455,7 @@ export const toVariableResultPromise = <
   const resultPromise = Object.assign(
     deferredPromise(() => mapResults(1, false)),
     {
+      as: () => mapResults(1, false),
       all: () => mapResults(0, false),
       require: () => mapResults(1, true),
       value: (require = false) => mapResults(2, require),

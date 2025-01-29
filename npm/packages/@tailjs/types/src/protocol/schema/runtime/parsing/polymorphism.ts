@@ -17,7 +17,11 @@ import {
   toJSON2,
   topoSort2,
 } from "@tailjs/util";
-import { SchemaPrimitiveType, SchemaObjectType as Type } from "../../../..";
+import {
+  SchemaObjectType,
+  SchemaPrimitiveType,
+  SchemaObjectType as Type,
+} from "../../../..";
 import {
   formatErrorSource,
   handleValidationErrors,
@@ -64,6 +68,26 @@ export type SchemaTypeSelector = (value: {} & object) => Type | undefined;
 type DiscriminatorValue = string | number | symbol;
 
 const anyValue = Symbol();
+
+export const createAbstractTypeValidator = (
+  type: SchemaObjectType
+): {
+  censor: SchemaCensorFunction;
+  validate: SchemaValueValidator;
+} => ({
+  censor: () => undefined,
+  validate: (value: any, _current, _context, errors) =>
+    handleValidationErrors((errors) => {
+      errors.push({
+        path: "",
+        type: null,
+        source: value,
+        message: `The abstract type ${type.id} cannot be instantiated.`,
+      });
+      return VALIDATION_ERROR_SYMBOL as any;
+    }, errors),
+});
+
 export const createSchemaTypeMapper = (
   rootTypes: Iterable<Type>
 ): {
@@ -79,6 +103,16 @@ export const createSchemaTypeMapper = (
     filter2(subtypesOf(rootTypes, true), (type) => !type.abstract),
     (type) => type.extends
   );
+
+  if (!types.length) {
+    return {
+      match: () => undefined,
+      mapped: new Set(),
+      unmapped: [],
+      // Remember only the first abstract root type is mentioned in the error, even if there are more.
+      ...createAbstractTypeValidator(rootTypes[0]),
+    };
+  }
 
   let selector: SchemaTypeSelector;
   const mapped = new Set<Type>();
@@ -146,7 +180,9 @@ export const createSchemaTypeMapper = (
             valuePath ? " additional" : ""
           } values of required properties${
             valuePath ? ` when ${valuePath}` : ""
-          } - did you forget to mark a base type abstract?.`
+          } (root type(s): ${itemize2(
+            rootTypes
+          )}) - did you forget to mark a base type abstract?.`
         );
       }
 

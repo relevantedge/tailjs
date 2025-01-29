@@ -11,7 +11,6 @@ import {
   SchemaArrayTypeDefinition,
   SchemaEnumTypeDefinition,
   SchemaPropertyDefinition,
-  SchemaPropertyTypeDefinition,
   SchemaRecordTypeDefinition,
   SchemaTypeDefinitionReference,
   SchemaUnionTypeDefinition,
@@ -19,7 +18,8 @@ import {
 
 export const parseJsonProperty = (
   context: ParseContext,
-  assign: (property: SchemaPropertyDefinition) => void
+  assign: (property: SchemaPropertyDefinition) => void,
+  forVariable = false
 ) => {
   let property: SchemaPropertyDefinition | undefined;
   const { node } = context;
@@ -44,7 +44,7 @@ export const parseJsonProperty = (
 
   if (!property) {
     if (isJsonObjectType(node)) {
-      property = parseJsonType(context, false);
+      property = parseJsonType(context, false, forVariable);
     } else {
       const propertyTypeName = (node.type ?? node["$ref"])
         ?.split("/")
@@ -99,7 +99,7 @@ export const parseJsonProperty = (
           property = { primitive: "datetime", format: "iso" };
           break;
         case "uuid":
-          property = { primitive: "uuid" };
+          property = { primitive: "string" };
           break;
         case "duration":
           property = { primitive: "duration" };
@@ -128,12 +128,21 @@ export const parseJsonProperty = (
             if (context.parent!.parent!.node.required?.includes(context.key)) {
               property!.required = true;
             }
+
             context.refs.resolve(node.$ref, (typeId, type) => {
               if ("properties" in type) {
                 (property as SchemaTypeDefinitionReference).reference = typeId;
-                assign(property!);
+                assign(parseAnnotations(context, property!, forVariable));
               } else {
-                assign({ ...type });
+                assign(
+                  parseAnnotations(
+                    context,
+                    {
+                      ...type,
+                    } as SchemaPropertyDefinition,
+                    forVariable
+                  )
+                );
               }
             });
             return;
@@ -153,5 +162,5 @@ export const parseJsonProperty = (
     property!.required = true;
   }
 
-  assign(parseAnnotations(context, property as any));
+  assign(parseAnnotations(context, property as any, forVariable));
 };

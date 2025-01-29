@@ -1,7 +1,7 @@
 import {
   MaybeUndefined,
   Nullish,
-  forEach,
+  forEach2,
   isIterable,
   isString,
   map,
@@ -50,7 +50,7 @@ export const collectTags = <Input extends ParsableTags>(
 ): MaybeUndefined<Input, TagCollection> => {
   if (!tagString) return undefined as any;
   if (isIterable(tagString)) {
-    forEach(tagString, (input) => collectTags(input, prefix, collected));
+    forEach2(tagString, (input) => collectTags(input, prefix, collected));
     return collected as any;
   }
 

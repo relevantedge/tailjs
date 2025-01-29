@@ -1,13 +1,14 @@
 import {
   DataClassification,
   DataPurposeName,
-  dataPurposes,
+  DataPurposes,
   DataUsage,
   extractKey,
   filterKeys,
   filterRangeValue,
   formatValidationErrors,
   formatVariableKey,
+  formatVariableResult,
   isSuccessResult,
   isTransientError,
   isVariableResult,
@@ -23,6 +24,7 @@ import {
   toVariableResultPromise,
   TypeResolver,
   ValidatableSchemaEntity,
+  VALIDATION_ERROR_SYMBOL,
   Variable,
   VariableGetResult,
   VariableGetter,
@@ -34,6 +36,7 @@ import {
   VariableQueryResult,
   VariableResult,
   VariableResultStatus,
+  VariableServerScope,
   VariableSetResult,
   VariableSetter,
   VariableValueSetter,
@@ -49,14 +52,17 @@ import {
   keyCount2,
   map2,
   merge2,
+  now,
   Nullish,
   skip2,
   some2,
   throwError,
 } from "@tailjs/util";
 import {
+  clearTrace,
   copyTrace,
   getTrace,
+  LogMessage,
   ReadOnlyVariableStorage,
   TrackerEnvironment,
   VariableSplitStorage,
@@ -86,7 +92,7 @@ export interface RetrySettings {
   jitter: number;
 }
 
-export type VariableStorageMappings = {
+export type VariableStorageMappings = { default?: VariableStorage } & {
   [P in ServerVariableScope]?: {
     storage: VariableStorage;
     schemas?: string[];
@@ -98,6 +104,8 @@ export type VariableStorageMappings = {
     };
   };
 };
+
+type ErrorLogger = (message: LogMessage) => void;
 
 export interface VariableStorageCoordinatorSettings {
   retries?: {
@@ -119,11 +127,13 @@ export interface VariableStorageCoordinatorSettings {
   /** Include stack traces in errors. */
   includeStackTraces?: boolean;
 
-  scopes: VariableStorageMappings;
+  storage: VariableStorageMappings;
+
+  errorLogger?: ErrorLogger | null;
 }
 
 const DEFAULT_SETTINGS: AllRequired<
-  Omit<VariableStorageCoordinatorSettings, "scopes">
+  Omit<VariableStorageCoordinatorSettings, "storage">
 > = {
   retries: {
     patch: {
@@ -138,7 +148,9 @@ const DEFAULT_SETTINGS: AllRequired<
     },
   },
 
-  includeStackTraces: true,
+  includeStackTraces: false,
+
+  errorLogger: null,
 };
 
 export const isTransientErrorObject = (error: any) =>
@@ -158,14 +170,25 @@ export type VariableStorageContext = {
    * @default false
    */
   trusted?: boolean;
+
+  /** Value resolvers for dynamic variables. */
+  dynamicVariables?: {
+    [P in ServerVariableScope]?: { [P in string]?: (key: VariableKey) => any };
+  };
 };
 
 const mapValidationContext = (
   context: VariableStorageContext,
-  targetPurpose: DataPurposeName | undefined
+  targetPurpose: DataPurposeName | undefined,
+  forResponse = false
 ): SchemaValidationContext =>
-  context.scope?.consent || targetPurpose
-    ? { ...context, targetPurpose, consent: context.scope?.consent }
+  context.scope?.consent || targetPurpose || forResponse
+    ? {
+        ...context,
+        targetPurpose,
+        consent: context.scope?.consent,
+        forResponse,
+      }
     : context;
 
 const censorResult = <Result extends VariableGetResult | VariableSetResult>(
@@ -182,6 +205,7 @@ const censorResult = <Result extends VariableGetResult | VariableSetResult>(
           // Document somewhere that a conflict may turn into a forbidden error.
           status: VariableResultStatus.Forbidden,
           ...extractKey(result),
+          error: "No data available for the current level of consent.",
         },
         result as any
       ) as any;
@@ -248,28 +272,36 @@ export class VariableStorageCoordinator<
   private readonly _patchRetries: Required<RetrySettings>;
   private readonly _errorRetries: Required<RetrySettings>;
   private readonly _settings: AllRequired<
-    Omit<VariableStorageCoordinatorSettings, "scopes">
+    Omit<VariableStorageCoordinatorSettings, "storage">
   >;
+  private readonly _errorLogger: ErrorLogger | null = null;
 
   constructor(
-    { scopes: storage, ...settings }: VariableStorageCoordinatorSettings,
+    { storage, ...settings }: VariableStorageCoordinatorSettings,
     types: TypeResolver,
     defaultContext: VariableStorageContext = { trusted: false }
   ) {
+    if (!types) {
+      throw new Error("A type resolver is required.");
+    }
     this._storage = new VariableSplitStorage(storage);
     this._defaultContext = defaultContext;
     this._types = types;
 
-    forEach2(storage, ([scope, defaultConfig]) => {
-      if (!defaultConfig) return;
-
+    const defaultStorage = storage.default;
+    for (const scope of VariableServerScope.levels) {
+      const scopeMappings =
+        storage[scope] ?? (defaultStorage && { storage: defaultStorage });
+      if (!scopeMappings) {
+        continue;
+      }
       this._storageTypeResolvers.set(
         getScopeSourceKey(scope),
-        defaultConfig.schemas
-          ? this._types.subset(defaultConfig.schemas)
+        scopeMappings.schemas
+          ? this._types.subset(scopeMappings.schemas)
           : this._types
       );
-      forEach2(defaultConfig.prefixes, ([prefix, config]) => {
+      forEach2(scopeMappings.prefixes, ([prefix, config]) => {
         if (!config) return;
 
         this._storageTypeResolvers.set(
@@ -277,10 +309,11 @@ export class VariableStorageCoordinator<
           config.schemas ? this._types.subset(config.schemas) : this._types
         );
       });
-    });
+    }
 
     ({
       retries: { patch: this._patchRetries, error: this._errorRetries },
+      errorLogger: this._errorLogger,
     } = this._settings = merge2(settings, [defaultContext, DEFAULT_SETTINGS], {
       overwrite: false,
     }));
@@ -312,6 +345,7 @@ export class VariableStorageCoordinator<
     T extends Iterable<[any, RemoveScopeRestrictions<VariableResult>]>
   >(results: T): T {
     for (const [, result] of results) {
+      clearTrace(result);
       if (isVariableResult(result)) {
         const variable = this._getVariable(result);
         if (variable && "properties" in variable.type) {
@@ -324,6 +358,19 @@ export class VariableStorageCoordinator<
       }
     }
     return results;
+  }
+
+  private _captureVariableError<T extends VariableResult>(
+    result: T,
+    error?: any
+  ) {
+    this._errorLogger?.({
+      level: "error",
+      message: formatVariableResult(result),
+      details: { scope: result.scope, source: result.source, key: result.key },
+      error,
+    });
+    return result;
   }
 
   public get<
@@ -362,18 +409,76 @@ export class VariableStorageCoordinator<
           try {
             validateEntityId(getter, context);
           } catch (error) {
-            results.set(getter, {
-              status: VariableResultStatus.BadRequest,
-              ...extractKey(getter),
-              error: formatError(error, this._settings.includeStackTraces),
-            });
+            results.set(
+              getter,
+              this._captureVariableError(
+                {
+                  status: VariableResultStatus.BadRequest,
+                  ...extractKey(getter),
+                  error: formatError(error, this._settings.includeStackTraces),
+                },
+                error
+              )
+            );
             continue;
           }
 
           const type = this._getVariable(getter);
           if (type) {
             const targetPurpose = getter.purpose;
+            if (type.dynamic) {
+              let value =
+                context.dynamicVariables?.[getter.scope]?.[getter.key]?.(
+                  getter
+                );
+              if (value) {
+                const errors: SchemaValidationError[] = [];
+                const validationContext = mapValidationContext(
+                  context,
+                  getter.purpose,
+                  true
+                );
+                value = type.censor(
+                  type.validate(value, undefined, validationContext, errors),
+                  validationContext
+                );
+                if (value === VALIDATION_ERROR_SYMBOL) {
+                  results.set(getter, {
+                    status: VariableResultStatus.Error,
+                    ...extractKey(getter),
+                    error: `Validation of the dynamically generated variable value failed: ${formatValidationErrors(
+                      errors
+                    )}.`,
+                  });
+                  continue;
+                }
+              }
+              const timestamp = now();
+              results.set(
+                getter,
+                value == null
+                  ? getter.init
+                    ? {
+                        status: VariableResultStatus.BadRequest,
+                        ...extractKey(getter),
+                        error: "Dynamic variables cannot be set.",
+                      }
+                    : {
+                        status: VariableResultStatus.NotFound,
+                        ...extractKey(getter),
+                      }
+                  : {
+                      status: VariableResultStatus.Success,
+                      ...extractKey(getter),
+                      created: timestamp,
+                      modified: timestamp,
+                      value: value,
+                      version: now().toString(),
+                    }
+              );
 
+              continue;
+            }
             pendingGetters.push(
               withTrace(getter, {
                 getter,
@@ -409,9 +514,11 @@ export class VariableStorageCoordinator<
 
             const validationContext = mapValidationContext(
               context,
-              getter.purpose
+              getter.purpose,
+              true
             );
             result = censorResult(result, type, validationContext);
+
             results.set(getter, result);
             if ("value" in result) {
               continue;
@@ -421,24 +528,41 @@ export class VariableStorageCoordinator<
               result.status === VariableResultStatus.NotFound &&
               getter.init
             ) {
+              const initValidationContext = mapValidationContext(
+                context,
+                getter.purpose
+              );
               try {
                 let initValue = await getter.init();
                 if (initValue == null) {
                   continue;
                 }
                 let errors: SchemaValidationError[] = [];
-                initValue = type.validate(
+                const validated = type.validate(
                   initValue,
                   undefined,
-                  validationContext,
+                  initValidationContext,
                   errors
                 );
-                if (errors.length) {
+                if (validated === VALIDATION_ERROR_SYMBOL) {
                   results.set(getter, {
                     status: VariableResultStatus.BadRequest,
                     ...extractKey(getter),
                     error: formatValidationErrors(errors),
                   });
+                  continue;
+                }
+
+                initValue = type.censor(validated, initValidationContext);
+
+                if (initValue == null) {
+                  results.set(getter, {
+                    status: VariableResultStatus.Forbidden,
+                    ...extractKey(getter),
+                    error:
+                      "The current consent prevents one or more required properties.",
+                  });
+                  continue;
                 }
                 pendingSetters.push(
                   withTrace(
@@ -452,11 +576,20 @@ export class VariableStorageCoordinator<
                   )
                 );
               } catch (error) {
-                results.set(getter, {
-                  status: VariableResultStatus.Error,
-                  ...extractKey(getter),
-                  error: formatError(error, this._settings.includeStackTraces),
-                });
+                results.set(
+                  getter,
+                  this._captureVariableError(
+                    {
+                      status: VariableResultStatus.Error,
+                      ...extractKey(getter),
+                      error: formatError(
+                        error,
+                        this._settings.includeStackTraces
+                      ),
+                    },
+                    error
+                  )
+                );
               }
             }
           }
@@ -548,11 +681,17 @@ export class VariableStorageCoordinator<
           validateEntityId(setter, context);
           type = this._getVariable(setter);
         } catch (error) {
-          results.set(setter, {
-            status: VariableResultStatus.BadRequest,
-            ...extractKey(setter),
-            error: formatError(error, this._settings.includeStackTraces),
-          });
+          results.set(
+            setter,
+            this._captureVariableError(
+              {
+                status: VariableResultStatus.BadRequest,
+                ...extractKey(setter),
+                error: formatError(error, this._settings.includeStackTraces),
+              },
+              error
+            )
+          );
           continue;
         }
 
@@ -619,18 +758,22 @@ export class VariableStorageCoordinator<
 
           try {
             const errors: SchemaValidationError[] = [];
+
+            const currentValue = currentVariable?.value;
+            const snapshot = JSON.stringify(currentValue);
             let value = setter.patch
               ? setter.patch(
                   // The patch function runs on uncensored data so external logic do not have to deal with missing properties.
-                  currentVariable?.value
+                  currentValue
                 )
               : setter.value;
 
             if (
               (setter.patch || currentVariable) &&
-              (value ?? undefined) === currentVariable?.value
+              JSON.stringify(value) === snapshot
             ) {
-              // No change from patch, or same value as current if any. Trying to delete a non-existing variable is an error.
+              // No change from patch, or same value as current if any.
+              // This branch excludes trying to explicitly delete a variable that does not exist, since that is an error (NotFound).
               results.set(setter, {
                 ...(currentVariable ?? extractKey(setter)),
                 status: VariableResultStatus.Success,
@@ -638,15 +781,17 @@ export class VariableStorageCoordinator<
               continue;
             }
 
-            value = type.censor(
-              type.validate(
-                value,
-                currentVariable?.value,
-                validationContext,
-                errors
-              ),
-              validationContext
-            );
+            if (value != null) {
+              value = type.censor(
+                type.validate(
+                  value,
+                  currentVariable?.value,
+                  validationContext,
+                  errors
+                ),
+                validationContext
+              );
+            }
 
             if (errors.length) {
               results.set(setter, {
@@ -694,11 +839,17 @@ export class VariableStorageCoordinator<
               )
             );
           } catch (e) {
-            results.set(setter, {
-              status: VariableResultStatus.Error,
-              ...extractKey(setter),
-              error: formatError(e, this._settings.includeStackTraces),
-            });
+            results.set(
+              setter,
+              this._captureVariableError(
+                {
+                  status: VariableResultStatus.Error,
+                  ...extractKey(setter),
+                  error: formatError(e, this._settings.includeStackTraces),
+                },
+                e
+              )
+            );
           }
         }
 
@@ -776,7 +927,7 @@ export class VariableStorageCoordinator<
 
           if (
             query.purposes &&
-            !dataPurposes.test(usage.purposes, query.purposes, {
+            !DataPurposes.test(usage.purposes, query.purposes, {
               intersect: purgeFilter ? "all" : "some",
             })
           ) {

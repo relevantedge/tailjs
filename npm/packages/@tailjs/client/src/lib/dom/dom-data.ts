@@ -10,7 +10,7 @@ import {
   concat,
   flatMap,
   flatMap2,
-  forEach,
+  forEach2,
   isFunction,
   isIterable,
   isPlainObject,
@@ -78,7 +78,7 @@ const matchAttributeNames = (
   eligible?: boolean
 ) =>
   cached?.[1] &&
-  forEach(
+  forEach2(
     attributeNames(el),
     (name) =>
       (cached[0][name] ??=
@@ -86,7 +86,7 @@ const matchAttributeNames = (
         isString(
           (prefix =
             // No cache. Let's loop through them then.
-            forEach(
+            forEach2(
               cached[1],
               ([match, selector, prefix], _) =>
                 testRegex(name, match) &&

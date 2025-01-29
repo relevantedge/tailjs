@@ -1,3 +1,4 @@
+import { Nullish } from "@tailjs/util";
 import {
   SchemaEnumTypeDefinition,
   SchemaPrimitiveTypeDefinition,
@@ -12,6 +13,6 @@ export interface SchemaPrimitiveType extends ValidatableSchemaEntity {
 }
 
 export const hasEnumValues = (
-  type: SchemaPropertyType
+  type: SchemaPropertyType | Nullish
 ): type is SchemaPrimitiveType & { enumValues: (string | number)[] } =>
-  !!(type as SchemaPrimitiveType).enumValues;
+  !!(type as SchemaPrimitiveType)?.enumValues;

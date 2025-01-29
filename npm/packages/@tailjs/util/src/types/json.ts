@@ -29,7 +29,8 @@ export type ToJsonable<T> = { toJSON(): T };
 /**
  * Clones a value by its JSON representation.
  */
-export const jsonClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+export const jsonClone = <T>(value: T): T =>
+  value == null ? null : JSON.parse(JSON.stringify(value));
 
 /**
  * Checks if the JSON representation of two objects are equal.

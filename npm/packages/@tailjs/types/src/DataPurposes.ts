@@ -1,14 +1,15 @@
 import {
   fromEntries,
   isArray,
-  isBoolean,
   isString,
   keys2,
+  map2,
   Nullish,
   obj2,
+  skip2,
   throwError,
 } from "@tailjs/util";
-import { DataUsage } from "./DataUsage";
+import { type DataUsage } from ".";
 
 export type DataPurposeName = keyof DataPurposes | "necessary";
 export const DATA_PURPOSES: DataPurposeName[] = [
@@ -92,8 +93,8 @@ export interface PurposeTestOptions {
   optionalPurposes?: OptionalPurposes | boolean;
 }
 
-export const dataPurposes: {
-  <
+export const DataPurposes: {
+  parse<
     T extends string | string[] | DataPurposes | DataUsage | Nullish,
     Names extends boolean = false
   >(
@@ -104,6 +105,10 @@ export const dataPurposes: {
     : Names extends true
     ? DataPurposeName[]
     : DataPurposes;
+
+  getNames<T>(
+    purposes: T & (DataPurposes | Nullish)
+  ): T extends Nullish ? T : DataPurposeName[];
 
   /**
    * Compares whether a consent is sufficient for a set of target purposes, or whether
@@ -123,8 +128,9 @@ export const dataPurposes: {
   ): boolean;
 
   names: DataPurposeName[];
-} = Object.assign(
-  (value: any, { names = false, validate = true } = {}) => {
+} = {
+  names: DATA_PURPOSES,
+  parse: (value: any, { names = false, validate = true } = {}) => {
     if (value == null) return value;
     if (value.purposes) {
       // From DataUsage
@@ -153,68 +159,66 @@ export const dataPurposes: {
     }
     return value;
   },
-  {
-    names: DATA_PURPOSES,
-    test(
-      target: DataPurposes,
-      test: DataPurposes,
-      { intersect, optionalPurposes, targetPurpose }: PurposeTestOptions
+  getNames: (purposes: any) =>
+    map2(purposes, ([key, value]) => (value ? key : skip2)),
+
+  test(
+    target: DataPurposes,
+    test: DataPurposes,
+    { intersect, optionalPurposes, targetPurpose }: PurposeTestOptions
+  ) {
+    if (typeof optionalPurposes === "boolean") {
+      optionalPurposes = {
+        personalization: optionalPurposes,
+        security: optionalPurposes,
+      };
+    }
+    if (
+      targetPurpose &&
+      (targetPurpose = mapOptionalPurpose(targetPurpose, optionalPurposes)) !==
+        "necessary" &&
+      !test[mapOptionalPurpose(targetPurpose, optionalPurposes)]
     ) {
-      if (typeof optionalPurposes === "boolean") {
-        optionalPurposes = {
-          personalization: optionalPurposes,
-          security: optionalPurposes,
-        };
-      }
-      if (
-        targetPurpose &&
-        (targetPurpose = mapOptionalPurpose(
-          targetPurpose,
-          optionalPurposes
-        )) !== "necessary" &&
-        !test[mapOptionalPurpose(targetPurpose, optionalPurposes)]
-      ) {
-        return false;
+      return false;
+    }
+
+    target = mapOptionalPurposes(target, optionalPurposes);
+    test = mapOptionalPurposes(test, optionalPurposes);
+
+    if (intersect) {
+      for (let purpose in test) {
+        if (test[purpose] && !target[purpose]) {
+          // At least one purpose in the consent is not present in the target.
+          return false;
+        }
       }
 
-      target = mapOptionalPurposes(target, optionalPurposes);
-      test = mapOptionalPurposes(test, optionalPurposes);
-
-      if (intersect) {
-        for (let purpose in test) {
-          if (test[purpose] && !target[purpose]) {
-            // At least one purpose in the consent is not present in the target.
+      if (intersect === "all") {
+        for (let purpose in target) {
+          if (target[purpose] && !test[purpose]) {
+            // The target has a purpose that is not included in the consent.
             return false;
           }
         }
-
-        if (intersect === "all") {
-          for (let purpose in target) {
-            if (target[purpose] && !test[purpose]) {
-              // The target has a purpose that is not included in the consent.
-              return false;
-            }
-          }
-        }
-
-        return true;
       }
 
-      let hasAny = false;
-      for (let purpose in target) {
-        if (target[purpose]) {
-          if (test[purpose]) {
-            // Just one of the purposes is good enough.
-            return true;
-          }
-          hasAny = true;
+      return true;
+    }
+
+    let hasAny = false;
+    for (let purpose in target) {
+      if (target[purpose]) {
+        if (test[purpose]) {
+          // Just one of the purposes is good enough.
+          return true;
         }
+        hasAny = true;
       }
-      // The target has at least one required purpose, and the consent does not include any.
-      return !hasAny;
-    },
-  }
-);
+    }
+    // The target has at least one required purpose, and the consent does not include any.
+    return !hasAny;
+  },
+};
 
 //
 /**

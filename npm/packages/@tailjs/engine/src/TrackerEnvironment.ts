@@ -10,6 +10,7 @@ import {
 import ShortUniqueId from "short-unique-id";
 import {
   LogLevel,
+  serializeLogMessage,
   VariableStorageCoordinator,
   type ChangeHandler,
   type Cookie,
@@ -19,7 +20,7 @@ import {
   type HttpResponse,
   type LogMessage,
 } from "./shared";
-import { DeviceVariables, SessionVariables, Tag } from "@tailjs/types";
+import { ScopeVariables, Tag } from "@tailjs/types";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
@@ -29,21 +30,19 @@ const getDefaultLogSourceName = (source: any): string | undefined => {
   if (!source) return undefined;
   if (!isObject(source)) return "" + source;
 
-  let constructorName = source.constructor?.name;
+  let constructorName =
+    source.constructor === Object ? undefined : source.constructor?.name;
+
   let name = source.logId ?? source.id;
   if (name) {
-    return (
-      (constructorName && constructorName !== "Object"
-        ? constructorName + ":"
-        : "") + name
-    );
+    return (constructorName ? constructorName + ":" : "") + name;
   }
   return constructorName ?? "" + source;
 };
 
 export type KnownTrackerKeys = {
-  session: SessionVariables;
-  device: DeviceVariables;
+  session: ScopeVariables["session"];
+  device: ScopeVariables["device"];
 };
 
 export class TrackerEnvironment {
@@ -74,7 +73,7 @@ export class TrackerEnvironment {
 
   /** @internal */
   public _setLogInfo(
-    ...sources: { source: any; group: string; name: string }[]
+    ...sources: { source: any; group: string; name?: string }[]
   ) {
     sources.forEach((source) =>
       this._logGroups.set(source, {
@@ -139,12 +138,16 @@ export class TrackerEnvironment {
     // This is what you get if you try to log nothing (null or undefined); Nothing.
     if (!arg) return;
 
+    if (!error && arg instanceof Error) {
+      error = arg;
+    }
     const message: Partial<LogMessage> =
       !isObject(arg) || arg instanceof Error
         ? {
-            message: arg instanceof Error ? "An error occurred" : arg,
+            message:
+              arg instanceof Error ? `An error occurred: ${arg.message}` : arg,
             level: level ?? (error ? "error" : "info"),
-            error,
+            error: error ?? (arg instanceof Error ? arg : undefined),
           }
         : arg;
 
@@ -154,7 +157,7 @@ export class TrackerEnvironment {
     message.group ??= group;
     message.source ??= name;
 
-    this._host.log(message as LogMessage);
+    this._host.log(serializeLogMessage(message as LogMessage));
   }
 
   public async nextId(scope?: string) {

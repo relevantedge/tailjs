@@ -3,10 +3,10 @@ import { createEnumParser } from "@tailjs/util";
 const levels = {
   /** Data can be read and written from anywhere. */
   public: "public",
-  /** Data is only available in trusted context. */
-  "trusted-only": "trusted-only",
   /** Data can be read from anywhere but can only be written in trusted context. */
   "trusted-write": "trusted-write",
+  /** Data is only available in trusted context. */
+  "trusted-only": "trusted-only",
 } as const;
 
 export type DataVisibility = (typeof levels)[keyof typeof levels];

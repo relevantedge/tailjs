@@ -1,22 +1,26 @@
 import {
   ServerVariableScope,
   TypeResolver,
+  VariableKey,
   VariableQuery,
+  VariableResultStatus,
   VariableSetResult,
   VariableSuccessResult,
 } from "@tailjs/types";
 import { filter2, flatMap2, map2 } from "@tailjs/util";
 import {
   InMemoryStorage,
+  VariableStorage,
   VariableStorageContext,
   VariableStorageCoordinator,
 } from "../src";
+import { SessionInfoSchema } from "./test-schemas";
 
 describe("VariableStorageCoordinator", () => {
   const createTypeResolver = () => {
     return new TypeResolver([
       {
-        definition: {
+        schema: {
           namespace: "urn:test",
           types: {
             VariableType1: {
@@ -41,7 +45,7 @@ describe("VariableStorageCoordinator", () => {
           },
           variables: {
             user: {
-              test1: "VariableType1",
+              test1: { reference: "VariableType1" },
             },
             session: {
               test1: {
@@ -54,12 +58,29 @@ describe("VariableStorageCoordinator", () => {
                 },
                 reference: "VariableType1",
               },
+              test5: {
+                // Inline session variable type.
+                properties: {
+                  noWrite: {
+                    primitive: "boolean",
+                  },
+                },
+              },
+              test6: {
+                // Readonly session variable.
+                dynamic: true,
+                properties: {
+                  noWrite: {
+                    primitive: "boolean",
+                  },
+                },
+              },
             },
           },
         },
       },
       {
-        definition: {
+        schema: {
           namespace: "urn:test2",
           types: {
             VariableType3: {
@@ -80,7 +101,7 @@ describe("VariableStorageCoordinator", () => {
                 },
                 reference: "urn:test#VariableType2",
               },
-              test3: "VariableType3",
+              test3: { reference: "VariableType3" },
               test4: {
                 classification: "sensitive",
                 purposes: {
@@ -96,19 +117,25 @@ describe("VariableStorageCoordinator", () => {
     ]);
   };
 
-  it("Stores", async () => {
-    let sessionStorage = new InMemoryStorage();
-    const coordinator = new VariableStorageCoordinator(
+  const createCoordinator = ({
+    sessionStorage = new InMemoryStorage(),
+    typeResolver = createTypeResolver(),
+  }: { sessionStorage?: VariableStorage; typeResolver?: TypeResolver } = {}) =>
+    new VariableStorageCoordinator(
       {
-        scopes: {
+        storage: {
           user: {
             storage: new InMemoryStorage(),
           },
           session: { storage: sessionStorage },
         },
       },
-      createTypeResolver()
+      typeResolver
     );
+
+  it("Stores", async () => {
+    let sessionStorage = new InMemoryStorage();
+    const coordinator = createCoordinator({ sessionStorage });
 
     let sessionVariable1 = await coordinator.set({
       scope: "session",
@@ -191,6 +218,16 @@ describe("VariableStorageCoordinator", () => {
         value: { name: "test 1" },
       })
     ).rejects.toThrow("403");
+
+    //await expect(() =>
+    await expect(
+      coordinator.set({
+        scope: "session",
+        key: "test5",
+        entityId: "foo",
+        value: { noWrite: 90 },
+      })
+    ).rejects.toThrow("Boolean");
 
     let sessionVariable2 = await coordinator.set(
       {
@@ -362,12 +399,120 @@ describe("VariableStorageCoordinator", () => {
     });
 
     expect(retries).toBe(3);
+
+    // Init value is validated.
+    await expect(
+      coordinator.get(
+        {
+          scope: "session",
+          key: "test1",
+          entityId: "newone",
+          init: () => ({ laks: 90 }),
+        },
+        { trusted: true }
+      )
+    ).rejects.toThrow("laks");
+  });
+
+  it("Supports default variable storage.", async () => {
+    const typeResolver = createTypeResolver();
+    const coordinator = new VariableStorageCoordinator(
+      {
+        storage: { default: new InMemoryStorage() },
+      },
+      typeResolver
+    );
+
+    expect(
+      (
+        await coordinator.set({
+          scope: "session",
+          key: "test1",
+          entityId: "test",
+          value: { name: "test" },
+        })
+      ).status
+    ).toBe(VariableResultStatus.Created);
+
+    expect(
+      (
+        await coordinator.set({
+          scope: "user",
+          key: "test2",
+          entityId: "test",
+          value: { test: "test" },
+        })
+      ).status
+    ).toBe(VariableResultStatus.Created);
+  });
+
+  it("Supports dynamic variables", async () => {
+    const coordinator = createCoordinator();
+
+    await expect(
+      coordinator.set({
+        scope: "session",
+        key: "test6",
+        entityId: "foo",
+        value: { noWrite: true },
+      })
+    ).rejects.toThrow("dynamic");
+
+    expect(
+      (
+        await coordinator
+          .get({
+            scope: "session",
+            key: "test6",
+            entityId: "foo",
+          })
+          .all()
+      )?.status
+    ).toBe(VariableResultStatus.NotFound);
+
+    expect(
+      (
+        (await coordinator
+          .get(
+            {
+              scope: "session",
+              key: "test6",
+              entityId: "foo",
+            },
+            {
+              dynamicVariables: {
+                session: {
+                  test6: () => ({ noWrite: true }),
+                },
+              },
+            }
+          )
+          .value()) as any
+      )?.noWrite
+    ).toBe(true);
+
+    await expect(
+      coordinator.get(
+        {
+          scope: "session",
+          key: "test6",
+          entityId: "foo",
+        },
+        {
+          dynamicVariables: {
+            session: {
+              test6: () => ({ invalid: 90 }),
+            },
+          },
+        }
+      )
+    ).rejects.toThrow("failed:");
   });
 
   it("Stores in different sources (prefixes)", async () => {
     const coordinator = new VariableStorageCoordinator(
       {
-        scopes: {
+        storage: {
           user: {
             storage: new InMemoryStorage(),
             prefixes: {
@@ -463,7 +608,7 @@ describe("VariableStorageCoordinator", () => {
     let sessionStorage = new InMemoryStorage();
     const coordinator = new VariableStorageCoordinator(
       {
-        scopes: {
+        storage: {
           user: {
             storage: userStorage,
             prefixes: { cdp: { storage: prefixedUserStorage } },
@@ -747,5 +892,43 @@ describe("VariableStorageCoordinator", () => {
     ).toBe(10);
 
     expect(await coordinator.purge({}, { bulk: true })).toBe(90); // All remaining variables
+  });
+
+  it("Ad-hocs", async () => {
+    // Situations to investigate from integration tests between client and server.
+    const storage = createCoordinator({
+      typeResolver: new TypeResolver([{ schema: SessionInfoSchema }]),
+    });
+
+    const key = {
+      scope: "session",
+      key: "@info",
+      entityId: "test",
+    } as const satisfies VariableKey;
+
+    await storage.set(
+      {
+        ...key,
+        value: {
+          id: "123",
+
+          firstSeen: 0,
+          lastSeen: 0,
+          views: 0,
+        },
+      },
+      { trusted: true }
+    );
+
+    const clientValue = await storage
+      .get({
+        ...key,
+      })
+      .as<{ id: string; firstSeen: number }>();
+
+    expect(clientValue?.value.id).toBeUndefined();
+    expect(clientValue).toMatchObject({
+      value: { firstSeen: 0, "@privacy": { censored: true, invalid: true } },
+    });
   });
 });

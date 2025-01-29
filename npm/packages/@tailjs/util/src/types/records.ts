@@ -28,6 +28,8 @@ export type AllRequired<T, Nulls = never> = T extends undefined | Nulls
   ? never
   : T extends null
   ? null
+  : T extends (...args: any) => any
+  ? T
   : {
       [P in keyof T]-?: Exclude<
         T extends SimpleObject ? AllRequired<T[P], Nulls> : T[P],

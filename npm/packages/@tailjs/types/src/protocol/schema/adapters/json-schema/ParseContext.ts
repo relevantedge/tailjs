@@ -98,6 +98,9 @@ export const navigateContext = (
   }
 
   const ownRefPaths = parent ? [key] : [];
+  if (node["$id"]) {
+    ownRefPaths.push(node["$id"]);
+  }
 
   const childContext: ParseContext = {
     ...parent,

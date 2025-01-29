@@ -3,8 +3,8 @@ import {
   T,
   createTimeout,
   ellipsis,
-  forEach,
-  get,
+  forEach2,
+  get2,
   map,
   nil,
   now,
@@ -133,7 +133,7 @@ export const forms: TrackerExtensionFactory = {
       const isFormVisible = () =>
         formElement.isConnected && getRect(formElement).width;
 
-      const state = get(formEvents, formElement, () => {
+      const state = get2(formEvents, formElement, () => {
         const fieldMap = new Map<Element, FormFieldState>();
         const ev: FormEvent = {
           type: "form",
@@ -202,7 +202,7 @@ export const forms: TrackerExtensionFactory = {
           1,
         ]);
       });
-      if (!get(state[1], el)) {
+      if (!state[1].get(el)) {
         // This will also be the case if a new field was added to the DOM.
         parseElements();
       }
@@ -234,7 +234,7 @@ export const forms: TrackerExtensionFactory = {
         field.filled = T;
 
         state[3] = FormFillState.Pending;
-        forEach(
+        forEach2(
           form.fields!,
           ([name, value]) => (value.lastField = name === field.name)
         );

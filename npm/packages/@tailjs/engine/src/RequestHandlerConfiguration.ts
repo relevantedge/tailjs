@@ -2,13 +2,25 @@
 // import { CLIENT_CONFIG } from "@tailjs/client/external";
 
 import {
+  JsonSchemaAdapter,
+  SchemaDefinition,
+  ServerVariableScope,
   Tag,
   UserConsent,
   type DataPurposes,
   type ViewEvent,
   type ViewTimingData,
 } from "@tailjs/types";
-import { AllRequired, JsonObject } from "@tailjs/util";
+import {
+  add2,
+  AllRequired,
+  ellipsis,
+  forEach2,
+  get2,
+  JsonObject,
+  required,
+  throwError,
+} from "@tailjs/util";
 import { ClientIdGenerator } from ".";
 import {
   CryptoProvider,
@@ -44,11 +56,12 @@ export type RequestHandlerConfiguration = {
   host: EngineHost;
 
   /**
-   * The JSON schemas defining the available events and variables.
-   * The tracker will not work without the core schema, but it is perfectly fine
-   * to change the data classifications of the fields.
+   * The schemas defining the available events and variables.
+   * If the tail.js core schema is not included here, it will automatically be added.
+   *
+   * Reasons for explicitly including it includes overriding the classifications and purposes of the properties.
    */
-  schemas?: (string | JsonObject)[];
+  schemas?: SchemaDefinition[];
 
   /**
    * Extensions that may enable events to be stored in a database,
@@ -223,3 +236,118 @@ export const DEFAULT:
     purposes: {}, // Necessary only.
   },
 };
+
+export type SchemaPatchFunction = (
+  schema: SchemaDefinition | undefined
+) => void;
+
+export type SchemaFormat = "native" | "json-schema";
+export class SchemaBuilder {
+  private readonly _collected: {
+    source: string | JsonObject | SchemaDefinition;
+    type: SchemaFormat;
+  }[] = [];
+
+  private readonly _patches = new Map<string, SchemaPatchFunction[]>();
+  private readonly _coreSchema: SchemaDefinition | undefined;
+
+  public constructor(
+    initialSchemas?: SchemaDefinition[],
+    coreSchema?: SchemaDefinition
+  ) {
+    this._coreSchema = coreSchema;
+    if (initialSchemas?.length) {
+      this._collected.push(
+        ...initialSchemas.map(
+          (schema) => ({ source: schema, type: "native" } as const)
+        )
+      );
+    }
+  }
+
+  public registerSchema(path: string, type?: SchemaFormat): this;
+  public registerSchema(definition: SchemaDefinition): this;
+  public registerSchema(
+    definition: Record<string, any>,
+    type: SchemaFormat
+  ): this;
+  public registerSchema(source: any, type: SchemaFormat = "native") {
+    this._collected.push({ source, type });
+    return this;
+  }
+
+  /**
+   * Can be used to patch another schema, e.g. to change privacy settings.
+   *
+   * If the intended target schema is not present, `undefined` is passed which gives an opportunity to do nothing or throw an error.
+   */
+  public patchSchema(namespace: string, patch: SchemaPatchFunction) {
+    get2(this._patches, namespace, () => []).push(patch);
+  }
+
+  private _applyPatches(schemas: SchemaDefinition[]) {
+    const usedPatches = new Set<SchemaPatchFunction>();
+    for (const schema of schemas) {
+      forEach2(this._patches.get(schema.namespace), (patch) => {
+        usedPatches.add(patch);
+        patch(schema);
+      });
+    }
+    forEach2(this._patches, ([, patches]) =>
+      forEach2(patches, (patch) => !usedPatches.has(patch) && patch(undefined))
+    );
+  }
+
+  public async build(host: EngineHost): Promise<SchemaDefinition[]> {
+    let schemas: SchemaDefinition[] = [];
+    for (let { source, type } of this._collected) {
+      if (typeof source === "string") {
+        source = JSON.parse(
+          required(
+            await host.readText(source),
+            `The schema definition file "${source}" does not exist.`
+          )
+        ) as JsonObject;
+      }
+      if (type === "json-schema") {
+        schemas.push(...JsonSchemaAdapter.parse(source));
+        continue;
+      }
+      if (!("namespace" in source)) {
+        throwError(
+          `The definition ${ellipsis(
+            JSON.stringify(source),
+            40,
+            true
+          )} is not a tail.js schema definition. The namespace property is not present.`
+        );
+      }
+      schemas.push(source as SchemaDefinition);
+    }
+    const usedNamespaces = new Set<string>();
+    for (const schema of schemas) {
+      if (!add2(usedNamespaces, schema.namespace)) {
+        throwError(
+          `A schema with the namespace '${schema.namespace}' has been registered more than once.`
+        );
+      }
+    }
+
+    if (this._coreSchema) {
+      const coreSchema =
+        schemas.find(
+          (schema) => schema.namespace === this._coreSchema?.namespace
+        ) ?? this._coreSchema;
+
+      if (schemas[0] !== coreSchema) {
+        schemas = [
+          coreSchema,
+          ...schemas.filter((schema) => schema !== coreSchema),
+        ];
+      }
+    }
+
+    this._applyPatches(schemas);
+    return schemas;
+  }
+}

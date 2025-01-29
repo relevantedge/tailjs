@@ -1,5 +1,5 @@
 import {
-  forEach,
+  forEach2,
   itemize2,
   Nullish,
   OmitUnion,
@@ -46,11 +46,7 @@ export const parseProperty = <DeclaringType extends SchemaObjectType | null>(
   const { defaultUsage } = context;
 
   const parsedProperty: MatchPropertyType<DeclaringType> = {
-    ...(declaringType &&
-      getEntityIdProperties(
-        declaringType!.id + "." + name,
-        declaringType!.version
-      )),
+    ...(declaringType && getEntityIdProperties(declaringType, "." + name)),
     schema: declaringType?.schema ?? context.schema,
     ...(declaringType && { declaringType }),
     name,
@@ -130,7 +126,7 @@ export const parseProperty = <DeclaringType extends SchemaObjectType | null>(
         : null;
 
     if (baseTypes && types) {
-      forEach(
+      forEach2(
         types,
         (type) =>
           !baseTypes.some(

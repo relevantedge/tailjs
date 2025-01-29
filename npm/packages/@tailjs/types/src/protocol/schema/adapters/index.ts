@@ -1,2 +1,2 @@
+export * from "./json-schema";
 export * from "./SchemaAdapter";
-export { JsonSchemaAdapter } from "./json-schema";

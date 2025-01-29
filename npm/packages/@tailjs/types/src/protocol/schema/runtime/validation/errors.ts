@@ -1,4 +1,4 @@
-import { Nullish } from "@tailjs/util";
+import { ellipsis, Nullish } from "@tailjs/util";
 import { SchemaValidationContext, SchemaValueValidator } from ".";
 import { SchemaPropertyType } from "../SchemaPropertyType";
 
@@ -49,11 +49,8 @@ export class ValidationError extends Error {
   }
 }
 
-export const formatErrorSource = (value: any) => {
-  if (value === undefined) return "undefined";
-  const rep = JSON.stringify(value);
-  return rep.length > 40 ? rep.substring(0, 37) + "..." : rep;
-};
+export const formatErrorSource = (value: any) =>
+  value === undefined ? "undefined" : ellipsis(JSON.stringify(value), 40, true);
 
 export const handleValidationErrors = <
   R,

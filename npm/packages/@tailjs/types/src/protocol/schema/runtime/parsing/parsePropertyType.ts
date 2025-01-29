@@ -75,6 +75,7 @@ export const parsePropertyType = (
         item: itemType,
 
         censor: (value: any, context) => {
+          if (!isArray(value)) return value;
           let censored: any[] = value;
           let index = 0;
           for (let item of value) {
@@ -157,6 +158,8 @@ export const parsePropertyType = (
         value: valueType,
 
         censor: (value, context) => {
+          if (!value || typeof value !== "object") return value;
+
           let censored: Record<any, any> = {};
           for (const key in value) {
             const propertyValue = value[key];
@@ -238,7 +241,7 @@ export const parsePropertyType = (
     if ("properties" in definition || "reference" in definition) {
       if (!property) {
         throwError(
-          "Object-typed properties can only be parsed in the context of a name property (none was provided)."
+          "Object-typed properties can only be parsed in the context of a named property (none was provided)."
         );
       }
       return parseType(definition, parseContext, property, typeNamePostfix);
@@ -335,11 +338,12 @@ export const parsePropertyType = (
     return parsedType;
   })();
 
-  if (property && (definition.required || property.required)) {
-    const inner = propertyType.validate;
-    propertyType.validate = (value, current, context, errors) =>
-      handleValidationErrors((errors) => {
-        if (value == null) {
+  const required = property && (definition.required || property.required);
+  const inner = propertyType.validate;
+  propertyType.validate = (value, current, context, errors) =>
+    handleValidationErrors((errors) => {
+      if (value == null) {
+        if (required) {
           errors.push({
             path: "",
             type: propertyType,
@@ -348,9 +352,10 @@ export const parsePropertyType = (
           });
           return VALIDATION_ERROR_SYMBOL;
         }
-        return inner(value, current, context, errors);
-      }, errors);
-  }
+        return value!;
+      }
+      return inner(value, current, context, errors);
+    }, errors);
 
   return propertyType;
 };

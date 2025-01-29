@@ -1,9 +1,14 @@
-import { SCOPE_INFO_KEY, SESSION_REFERENCE_KEY } from "@constants";
+import {
+  CONSENT_INFO_KEY,
+  SCOPE_INFO_KEY,
+  SESSION_REFERENCE_KEY,
+} from "@constants";
 import { Transport, defaultTransport } from "@tailjs/transport";
 import {
   DATA_PURPOSES,
   DataClassification,
   DataPurposeName,
+  DataPurposes,
   DataUsage,
   DeviceInfo,
   PostResponse,
@@ -30,7 +35,6 @@ import {
   VariableSetter,
   WithCallbacks,
   consumeQueryResults,
-  dataPurposes,
   isVariableResult,
   toVariableResultPromise,
 } from "@tailjs/types";
@@ -49,7 +53,6 @@ import {
   now,
   obj,
   some2,
-  truish,
   update2,
 } from "@tailjs/util";
 import {
@@ -543,7 +546,7 @@ export class Tracker {
   }: Partial<DataUsage>): Promise<void> {
     if (!this._session) return;
 
-    purposes = dataPurposes(purposes);
+    purposes = DataPurposes.parse(purposes);
     classification = DataClassification.parse(classification);
     purposes ??= this.consent.purposes;
     classification ??= this.consent.classification;
@@ -591,7 +594,10 @@ export class Tracker {
       // Purge old data. No point in storing this since it will no longer be used.
       await this.purge(
         {
-          scopes: filter2([resetSession && "session", resetDevice && "device"]),
+          scopes: filter2(
+            [resetSession && "session", resetDevice && "device"],
+            false
+          ),
         },
         { bulk: true }
       );
@@ -662,14 +668,15 @@ export class Tracker {
     } else if (this._sessionReferenceId) {
       if (sessionId && this._sessionReferenceId === sessionId && !passive) {
         // We switched from cookies to cookie-less. Remove deviceId and device info.
+
         await this.env.storage.set(
-          truish([
+          [
             {
               scope: "session",
               key: SCOPE_INFO_KEY,
               entityId: sessionId,
-              patch: (current) => ({
-                ...current?.value,
+              patch: (current: SessionInfo) => ({
+                ...current,
                 deviceId: undefined,
               }),
             },
@@ -680,20 +687,24 @@ export class Tracker {
               force: true,
               value: undefined,
             },
-          ])
+          ],
+          { trusted: true }
         );
         this._device = undefined;
       }
       this._sessionReferenceId = this._sessionReferenceId;
 
       sessionId = await this.env.storage
-        .get({
-          scope: "session",
-          key: SESSION_REFERENCE_KEY,
-          entityId: this._sessionReferenceId,
-          init: async () =>
-            passive ? undefined : sessionId ?? (await this.env.nextId()),
-        })
+        .get(
+          {
+            scope: "session",
+            key: SESSION_REFERENCE_KEY,
+            entityId: this._sessionReferenceId,
+            init: async () =>
+              passive ? undefined : sessionId ?? (await this.env.nextId()),
+          },
+          { trusted: true }
+        )
         .value();
     } else {
       // We do not have any information available for assigning a session ID.
@@ -710,43 +721,49 @@ export class Tracker {
       // The session ID we currently have is provisional,
       // and will not become the tracker's actual session ID before the info variable has been set.
 
-      await this.env.storage.get({
-        scope: "session",
-        key: SCOPE_INFO_KEY,
-        entityId: sessionId,
-        init: async () => {
-          if (passive) return undefined;
+      await this.env.storage.get(
+        {
+          scope: "session",
+          key: SCOPE_INFO_KEY,
+          entityId: sessionId,
+          init: async () => {
+            if (passive) return undefined;
 
-          return createInitialScopeData<SessionInfo>(
-            sessionId!, //INV: !passive => sessionId != null
-            timestamp,
-            {
-              deviceId: await getDeviceId(),
-              deviceSessionId:
-                deviceSessionId ?? (await this.env.nextId("device-session")),
-              previousSession: cachedDeviceData?.lastSeen,
-              hasUserAgent: false,
-            }
-          );
+            return createInitialScopeData<SessionInfo>(
+              sessionId!, //INV: !passive => sessionId != null
+              timestamp,
+              {
+                deviceId: await getDeviceId(),
+                deviceSessionId:
+                  deviceSessionId ?? (await this.env.nextId("device-session")),
+                previousSession: cachedDeviceData?.lastSeen,
+                hasUserAgent: false,
+              }
+            );
+          },
         },
-      });
+        { trusted: true }
+      );
 
     if (this._session?.value) {
       let device =
         this._consent.classification === "anonymous" && this.deviceId
-          ? await this.env.storage.get({
-              scope: "device",
-              key: SCOPE_INFO_KEY,
-              entityId: this.deviceId,
-              init: async () =>
-                createInitialScopeData<DeviceInfo>(
-                  this._session!.value.deviceId!,
-                  timestamp,
-                  {
-                    sessions: 1,
-                  }
-                ),
-            })
+          ? await this.env.storage.get(
+              {
+                scope: "device",
+                key: SCOPE_INFO_KEY,
+                entityId: this.deviceId,
+                init: async () =>
+                  createInitialScopeData<DeviceInfo>(
+                    this._session!.value.deviceId!,
+                    timestamp,
+                    {
+                      sessions: 1,
+                    }
+                  ),
+              },
+              { trusted: true }
+            )
           : undefined;
 
       this._device = device as any;
@@ -761,10 +778,10 @@ export class Tracker {
           scope: "device",
           key: SCOPE_INFO_KEY,
           entityId: this.deviceId!,
-          patch: (device) =>
+          patch: (device: DeviceInfo) =>
             device && {
               ...device,
-              sessions: device.value.sessions + 1,
+              sessions: device.sessions + 1,
               lastSeen: this.session!.lastSeen,
             },
         });
@@ -806,7 +823,9 @@ export class Tracker {
           (variables) => {
             forEach2(variables, (variable) => {
               forEach2(
-                dataPurposes(variable.schema?.usage.purposes, { names: true }),
+                DataPurposes.parse(variable.schema?.usage.purposes, {
+                  names: true,
+                }),
                 ([purpose]) =>
                   (splits[purpose] ??= []).push([
                     variable.key,
@@ -829,7 +848,9 @@ export class Tracker {
       }
 
       if (isAnonymous || this._clientDeviceCache?.touched) {
-        for (const purpose of dataPurposes(this.consent, { names: true })) {
+        for (const purpose of DataPurposes.parse(this.consent, {
+          names: true,
+        })) {
           const remove = isAnonymous || !splits[purpose];
 
           const cookieName =
@@ -857,7 +878,14 @@ export class Tracker {
   private _getStorageContext(
     source?: TrackerVariableStorageContext
   ): VariableStorageContext {
-    return { ...source, scope: this };
+    return {
+      ...source,
+      scope: this,
+      trusted: source?.trusted ?? true,
+      dynamicVariables: {
+        session: { [CONSENT_INFO_KEY]: () => DataUsage.clone(this.consent) },
+      },
+    };
   }
 
   async renew(): Promise<void> {
@@ -889,6 +917,7 @@ export class Tracker {
         if (getters.some((getter) => getter.scope === "device")) {
           await this._loadCachedDeviceVariables();
         }
+
         const storageResults = await this.env.storage
           .get(getters as any, this._getStorageContext(context))
           .all();

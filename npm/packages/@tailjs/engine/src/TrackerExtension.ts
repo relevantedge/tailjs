@@ -1,6 +1,11 @@
-import type { TrackedEvent, SignInEvent } from "@tailjs/types";
+import type { SignInEvent, TrackedEvent } from "@tailjs/types";
 import { DeferredAsync, MaybePromiseLike } from "@tailjs/util";
-import type { ParseResult, Tracker, TrackerEnvironment } from "./shared";
+import type {
+  ParseResult,
+  SchemaBuilder,
+  Tracker,
+  TrackerEnvironment,
+} from "./shared";
 
 export type NextPatchExtension = (
   events: ParseResult[]
@@ -11,6 +16,10 @@ export type TrackedEventBatch = (TrackedEvent & Record<string, any>)[];
 export type TrackerExtensionContext = {
   passive: boolean;
 };
+
+export interface TrackerEnvironmentInitializable {
+  initialize?(environment: TrackerEnvironment): MaybePromiseLike<void>;
+}
 
 /**
  * Tracker extensions enable the engine to interface with external systems, typically to store the collected events somewhere.
@@ -31,10 +40,11 @@ export type TrackerExtensionContext = {
  *
  * An extension
  */
-export interface TrackerExtension {
+export interface TrackerExtension extends TrackerEnvironmentInitializable {
   readonly id: string;
 
-  initialize?(environment: TrackerEnvironment): MaybePromiseLike<void>;
+  /** This method is called before the extension is initialized allowing it to export is variable types and similar. */
+  registerTypes?(schema: SchemaBuilder): void;
 
   apply?(
     tracker: Tracker,

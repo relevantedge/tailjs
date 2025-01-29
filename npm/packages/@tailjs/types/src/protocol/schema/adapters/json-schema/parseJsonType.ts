@@ -9,7 +9,8 @@ import {
   parseJsonProperty,
   sourceJsonSchemaSymbol,
 } from ".";
-import { SchemaTypeDefinition } from "../../../..";
+import { SchemaSystemTypeDefinition, SchemaTypeDefinition } from "../../../..";
+import { JsonSchemaAnnotations, TypeScriptAnnotations } from "@constants";
 
 export const isIgnoredObject = (node: any) =>
   some2(
@@ -29,7 +30,11 @@ export const isJsonObjectType = (node: any) => {
   );
 };
 
-export const parseJsonType = (context: ParseContext, root: boolean) => {
+export const parseJsonType = (
+  context: ParseContext,
+  root: boolean,
+  forVariable = false
+) => {
   let { schema, node, key } = context;
   if (!schema) {
     contextError(context, "No schema for type definition.");
@@ -51,18 +56,30 @@ export const parseJsonType = (context: ParseContext, root: boolean) => {
 
   let type = parseAnnotations<
     SchemaTypeDefinition & ParsedJsonSchemaTypeDefinition
-  >(context, {
-    abstract: description?.match(/@abstract\b/g) ? true : undefined,
-    properties: {},
-    [sourceJsonSchemaSymbol]: {
-      schema: schema!,
-      remove: () => {
-        delete schema!.types![key!];
+  >(
+    context,
+    {
+      abstract:
+        (sourceNode["not"] &&
+          typeof sourceNode["not"] === "object" &&
+          !Object.keys(sourceNode["not"]).length) ||
+        sourceNode[JsonSchemaAnnotations.Abstract] ||
+        description?.match(
+          new RegExp(`${TypeScriptAnnotations.abstract}\\b`, "g")
+        )
+          ? true
+          : undefined,
+      extends: undefined,
+      properties: {},
+      [sourceJsonSchemaSymbol]: {
+        schema: schema!,
+        remove: () => {
+          delete schema!.types![key!];
+        },
       },
     },
-  });
-  delete (type as any).properties;
-  type.properties = {};
+    forVariable
+  );
 
   if (node.$ref) {
     context.refs.resolve(node.$ref, (id) => {
@@ -75,7 +92,9 @@ export const parseJsonType = (context: ParseContext, root: boolean) => {
     for (const propertyName in propertiesContext.node) {
       parseJsonProperty(
         navigateContext(propertiesContext, propertyName),
-        (property) => (type.properties[propertyName] = property)
+        (property) => {
+          type.properties[propertyName] = property;
+        }
       );
     }
   }
@@ -87,6 +106,25 @@ export const parseJsonType = (context: ParseContext, root: boolean) => {
       context.refs.add(refPath.replace(/\/allOf\/\d+$/g, ""), id, type)
     );
     context.types.set(id, type);
+  }
+
+  for (const typeDef of [sourceNode, node]) {
+    if (
+      typeDef[JsonSchemaAnnotations.Event] ||
+      typeDef.description?.match?.(
+        new RegExp(`@${TypeScriptAnnotations.event}\\b`, "g")
+      )
+    ) {
+      if (!root) {
+        contextError(context, "Inline object types cannot be used as events.");
+      }
+      type.event = true;
+    }
+
+    if (typeDef[JsonSchemaAnnotations.SystemType]) {
+      (type as SchemaSystemTypeDefinition).system =
+        typeDef[JsonSchemaAnnotations.SystemType];
+    }
   }
 
   forEach2(allOf, (ref) => {

@@ -15,12 +15,12 @@ import {
   KeyValueSourcesToObject,
   MAX_SAFE_INTEGER,
   MaybeUndefined,
-  Subtract,
   Nullish,
   OmitNullish,
   Property,
   SimpleObject,
   StrictUndefined,
+  Subtract,
   UndefinedIfEmpty,
   UnionToIntersection,
   add,
@@ -40,7 +40,6 @@ import {
   isString,
   isTruish,
   symbolIterator,
-  throwError,
   undefined,
 } from ".";
 
@@ -867,7 +866,7 @@ const forEachInternal: <S extends IteratorSource, R>(
   return returnValue;
 };
 
-export const forEach = forEachInternal as {
+const forEach = forEachInternal as {
   <S extends IteratorSource, R>(
     source: S,
     action: FunctionalIteratorAction<S, R>,

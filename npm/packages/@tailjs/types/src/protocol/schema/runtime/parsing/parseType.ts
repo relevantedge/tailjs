@@ -1,9 +1,11 @@
-import { first, throwTypeError } from "@tailjs/util";
+import { first, throwError, throwTypeError } from "@tailjs/util";
 import { parseBaseTypes, parseTypeProperties, TypeParseContext } from ".";
 import {
   CORE_EVENT_DISCRIMINATOR,
   DEFAULT_CENSOR_VALIDATE,
-  SCHEMA_DATA_USAGE_MAX,
+  formatQualifiedTypeName,
+  parseQualifiedTypeName,
+  QualifiedSchemaTypeName,
   SchemaObjectType,
   SchemaObjectTypeDefinition,
   SchemaPrimitiveTypeDefinition,
@@ -17,10 +19,26 @@ import { overrideUsage } from "../validation";
 export const getTypeId = (namespace: string, name: string) =>
   namespace + "#" + name;
 
-export const getEntityIdProperties = (id: string, version?: string) => ({
-  id,
+export const getEntityIdProperties = (
+  {
+    namespace = throwError("Namespace expected."),
+    name,
+    version,
+  }: QualifiedSchemaTypeName,
+  postfix = ""
+) => ({
+  id:
+    (namespace ?? throwError(`Namespace expected for ${name}`)) +
+    "#" +
+    name +
+    postfix,
+  namespace,
   version,
-  qualifiedName: version ? id + "," + version : id,
+  qualifiedName: formatQualifiedTypeName({
+    namespace,
+    name: name + postfix,
+    version,
+  }),
 });
 
 const resolveLocalTypeMapping = (
@@ -67,17 +85,10 @@ export const parseType = (
     source = { reference: source };
   }
   if ("reference" in source) {
-    let { namespace, reference } = source;
-    if (!namespace) {
-      // Allow the reference to include the namespace.
-      const nameParts = reference.split("#");
-      if (nameParts.length > 1) {
-        [namespace, reference] = nameParts;
-      }
-    }
+    let { namespace, name } = parseQualifiedTypeName(source.reference);
 
     // Type reference.
-    id = getTypeId(namespace ?? schema.namespace, reference);
+    id = getTypeId(namespace ?? schema.namespace, name);
     id = typeAliases.get(id) ?? id;
 
     const parsed = resolveLocalTypeMapping(id, context) ?? parsedTypes.get(id);
@@ -86,6 +97,7 @@ export const parseType = (
         `The referenced type "${id}" is not defined in any schema.`
       );
     }
+
     referencingProperty && parsed.referencedBy.add(referencingProperty);
     return parsed;
   }
@@ -121,7 +133,7 @@ export const parseType = (
           );
         }
       } else {
-        namePath.unshift(referencingProperty.declaringType.id);
+        namePath.unshift(referencingProperty.declaringType.name);
         break;
       }
     }
@@ -157,11 +169,11 @@ export const parseType = (
   const version = (source as SchemaTypeDefinition).version ?? schema.version;
   const stringName = "'" + id + "'";
   const parsed: SchemaObjectType = {
-    ...getEntityIdProperties(id, version),
+    ...getEntityIdProperties({ namespace: schema.namespace, name, version }),
     schema,
     name,
 
-    usage: SCHEMA_DATA_USAGE_MAX,
+    usage: null!,
     usageOverrides: overrideUsage(schema.usageOverrides, source) ?? {},
     embedded: embedded,
     description: (source as SchemaTypeDefinition).description,

@@ -18,7 +18,8 @@ import type {
  * - If the event indicates something that happened, like "session started", "view ended" etc. the name should end with a verb in the past tense.
  *
  * @id urn:tailjs:core:event
- * @privacy system
+ * @system_type event
+ * @abstract
  */
 export interface TrackedEvent extends Tagged {
   /**

@@ -4,6 +4,8 @@
  */
 export type Uuid = string;
 
+export type UuidV4 = string;
+
 /**
  * An identifier that is locally unique to some scope.
  */

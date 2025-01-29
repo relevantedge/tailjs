@@ -6,6 +6,7 @@ import type {
   Tracker,
 } from "@tailjs/engine";
 import * as http from "http";
+import { NativeHostSettings } from "./NativeHost";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -38,7 +39,8 @@ export type TailJsMiddleware = <T = void>(
 export type TailJsRouteHandler = (request: Request) => Promise<Response>;
 
 export interface TailJsMiddlewareConfiguration
-  extends Omit<BootstrapSettings, "host" | "endpoint"> {
+  extends Omit<BootstrapSettings, "host" | "endpoint">,
+    Pick<NativeHostSettings, "logger"> {
   /**
    * The endpoint for the tracker script / API.
    *

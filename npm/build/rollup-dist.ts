@@ -1,6 +1,6 @@
 import fg from "fast-glob";
 import * as fs from "fs";
-import { join, basename } from "path";
+import { join } from "path";
 
 import alias from "@rollup/plugin-alias";
 import { dts } from "rollup-plugin-dts";
@@ -102,8 +102,10 @@ export const getDistBundles = async ({
                   (file) => this.addWatchFile(file)
                 );
 
-                watchFiles?.(
-                  typeof input === "string" ? input : input[0]
+                (
+                  watchFiles?.(
+                    typeof input === "string" ? input : input[0]
+                  ) as string[]
                 )?.forEach((file) => {
                   this.addWatchFile(file);
                 });

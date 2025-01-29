@@ -16,7 +16,7 @@ import {
   clock,
   createEvent,
   createTimer,
-  forEach,
+  forEach2,
   map,
   nil,
   now,
@@ -107,10 +107,7 @@ export const onFrame: typeof addFrameListenerInternal = (
   listener,
   triggerCurrent
 ) => {
-  triggerCurrent &&
-    forEach(frames as any as Iterable<HTMLIFrameElement>, (frame) =>
-      listener(frame, () => false)
-    );
+  triggerCurrent && forEach2(frames, (frame) => listener(frame, () => false));
   return addFrameListenerInternal(listener);
 };
 //export { addFrameListener as onFrame };
@@ -123,8 +120,8 @@ export const context: TrackerExtensionFactory = {
   setup(tracker) {
     clock(
       () =>
-        forEach(
-          frames as any as Iterable<HTMLIFrameElement>,
+        forEach2(
+          frames,
           (frame) => add(knownFrames, frame) && callOnFrame(frame)
         ),
       1000

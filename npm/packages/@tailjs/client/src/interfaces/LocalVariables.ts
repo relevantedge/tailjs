@@ -1,4 +1,4 @@
-import { Variable, VariableKey, variableScope } from "@tailjs/types";
+import { Variable, VariableKey, VariableServerScope } from "@tailjs/types";
 import { MaybeNullish, Nullish, createEnumParser } from "@tailjs/util";
 
 import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
@@ -88,7 +88,7 @@ export const localVariableScope = createEnumParser(
 
 export const anyVariableScope = createEnumParser("variable scope", {
   ...localVariableScope,
-  ...variableScope,
+  ...VariableServerScope,
 });
 
 export type ClientScoped<
@@ -167,10 +167,10 @@ export const maskEntityId = <T extends { scope: string; entityId?: string }>(
 );
 
 export const isLocalScopeKey = (
-  key: any
+  key: { scope: string } | Nullish
 ): key is {
   scope: LocalVariableScope;
-} => localVariableScope.ranks[key] !== null;
+} => (key?.scope ? localVariableScope.ranks[key.scope] != null : false);
 
 export const variableKeyToString: <S extends ClientVariableKey | Nullish>(
   key: S

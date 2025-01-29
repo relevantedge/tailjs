@@ -1,12 +1,5 @@
-//import { SchemaAnnotations } from "@tailjs/json-schema";
-import { SchemaAnnotations } from "@tailjs/json-schema";
-import {
-  DataClassification,
-  DataClassification,
-  dataPurposes,
-  DataUsage,
-  DataUsage,
-} from "@tailjs/types";
+import { JsonSchemaAnnotations, TypeScriptAnnotations } from "@constants";
+import { DataClassification, DataPurposes, DataUsage } from "@tailjs/types";
 import * as tsj from "ts-json-schema-generator";
 import {
   AllOfBaseTypeFormatter,
@@ -19,7 +12,7 @@ export interface GenerateSchemaConfig {
   type: string;
   schemaId: string;
   tsconfig?: string;
-  usage?: DataUsage;
+  usage?: Partial<DataUsage>;
   version?: string;
 }
 
@@ -30,7 +23,7 @@ export const generateSchema = (config: GenerateSchemaConfig) => {
     skipTypeCheck: true,
     topRef: true,
     additionalProperties: true,
-    extraTags: ["privacy", "anchor"],
+    extraTags: Object.values(TypeScriptAnnotations),
   };
 
   const formatter = tsj.createFormatter(tsjConfig, (fmt) => {
@@ -64,12 +57,12 @@ export const generateSchema = (config: GenerateSchemaConfig) => {
   const schema = generator.createSchema(tsjConfig.type);
   fixReferences(schema);
 
-  schema[SchemaAnnotations.Classification] = DataClassification.format(
-    DataClassification.parse(config.usage ?? DataUsage.Anonymous)
+  schema[JsonSchemaAnnotations.Classification] = DataClassification.parse(
+    config.usage?.classification ?? DataClassification.anonymous
   );
 
-  schema[SchemaAnnotations.Purpose] = dataPurposes.format(
-    dataPurposes.parse(config.purposes) ?? DataPurposeFlags.Necessary
+  schema[JsonSchemaAnnotations.Purposes] = DataPurposes.getNames(
+    config.usage?.purposes ?? {}
   );
 
   return schema;

@@ -16,9 +16,12 @@ export enum VariableResultStatus {
   Error = 500,
 }
 
-export type VariableSuccessStatus =
+export type VariableSuccessStatusWithValue =
   | VariableResultStatus.Success
-  | VariableResultStatus.Created
+  | VariableResultStatus.Created;
+
+export type VariableSuccessStatus =
+  | VariableSuccessStatusWithValue
   | VariableResultStatus.NotModified;
 
 export type VariableErrorStatus =
@@ -50,10 +53,21 @@ export interface VariableErrorResult extends VariableResult {
   transient?: boolean;
 }
 
-/** The variable operation succeeded, and the result represents a variable. */
-export const isVariableResult = <T extends {} = any>(
-  value: any
-): value is Variable<T> => (value as Variable)?.value != null;
+/** The variable operation succeeded, and the result represents a variable, or undefined if not found. */
+export const isVariableResult: {
+  <T extends {} = any>(value: any, requireFound?: true): value is Variable<T>;
+  <T extends {} = any>(value: any, requireFound: boolean): value is
+    | Variable<T>
+    | undefined
+    | {
+        status: VariableResultStatus.NotFound;
+        value?: undefined;
+      };
+} = (value: any, requireFound = true): value is any =>
+  (value as Variable)?.value != null ||
+  (!requireFound &&
+    (!value ||
+      (value as VariableGetResult).status === VariableResultStatus.NotFound));
 
 /**
  * The variable existed so the result has a value,

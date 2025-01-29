@@ -33,12 +33,23 @@ export const createEnumParser: <Values>(
       ? throwError(`The ${name} "${value}" is not defined.`)
       : undefined;
 
+  const propertySettings = {
+    writable: false,
+    enumerable: false,
+    configurable: false,
+  };
   Object.defineProperties(parser, {
     parse: {
       value: parse,
-      writable: false,
-      enumerable: false,
-      configurable: false,
+      ...propertySettings,
+    },
+    ranks: {
+      value: ranks,
+      ...propertySettings,
+    },
+    levels: {
+      value: levels,
+      ...propertySettings,
     },
     compare: {
       value: (lhs: any, rhs: any) => {
@@ -46,9 +57,7 @@ export const createEnumParser: <Values>(
           rank2 = ranks[parse(rhs)];
         return rank1 < rank2 ? -1 : rank1 > rank2 ? 1 : 0;
       },
-      writable: false,
-      enumerable: false,
-      configurable: false,
+      ...propertySettings,
     },
   });
 

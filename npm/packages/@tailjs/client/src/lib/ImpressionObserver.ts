@@ -17,11 +17,10 @@ import {
   createIntervals,
   createTimer,
   filter,
-  forEach,
+  forEach2,
   getTextStats,
   map,
   nil,
-  push,
   restrict,
 } from "@tailjs/util";
 import {
@@ -60,14 +59,14 @@ const TEXT_REGION_BOTTOM = 0.75;
 
 export const createImpressionObserver = (tracker: Tracker) => {
   const observer = new IntersectionObserver(
-    (els) => forEach(els, (args) => args.target[intersectionHandler]?.(args))
+    (els) => forEach2(els, (args) => args.target[intersectionHandler]?.(args))
     // Low thresholds used to be able to handle components larger than view ports.
   );
 
   const currentIntersections = new Set<() => void>();
 
   const monitor = clock({
-    callback: () => forEach(currentIntersections, (handler) => handler()),
+    callback: () => forEach2(currentIntersections, (handler) => handler()),
     frequency: INTERSECTION_POLL_INTERVAL,
     raf: true,
   });
@@ -328,7 +327,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
         }
 
         if (regions) {
-          forEach(regions, (region) => {
+          forEach2(regions, (region) => {
             const intersectionTop = constrain(
               rect.top < 0 ? -rect.top : 0,
               region[5],
@@ -363,7 +362,7 @@ export const createImpressionObserver = (tracker: Tracker) => {
       }: IntersectionObserverEntry) => {
         assign(currentIntersections, poll, isIntersecting);
         !isIntersecting &&
-          (forEach(unbindPassiveEventSources, (unbind) => unbind()), poll());
+          (forEach2(unbindPassiveEventSources, (unbind) => unbind()), poll());
       };
       observer.observe(el);
     }

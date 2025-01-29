@@ -23,8 +23,7 @@
   },
   "dependencies": {
     "@tailjs/util": "workspace:*",
-    "@tailjs/types": "workspace:*",
-    "@tailjs/json-schema": "workspace:*"
+    "@tailjs/types": "workspace:*"
   },
   "exports": {
     ".": {

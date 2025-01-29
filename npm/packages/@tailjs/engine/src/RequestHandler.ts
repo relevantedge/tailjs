@@ -12,9 +12,11 @@ import defaultSchema from "@tailjs/types/schema";
 
 import clientScripts from "@tailjs/client/script";
 import {
+  CORE_SCHEMA_NS,
   DataPurposeName,
-  dataPurposes,
+  DataPurposes,
   isPassiveEvent,
+  JsonSchemaAdapter,
   PostRequest,
   PostResponse,
   SignInEvent,
@@ -39,6 +41,8 @@ import {
   ParseResult,
   PostError,
   RequestHandlerConfiguration,
+  SchemaBuilder,
+  serializeLogMessage,
   TrackedEventBatch,
   Tracker,
   TrackerEnvironment,
@@ -75,6 +79,7 @@ import {
   map2,
   match,
   merge,
+  Mutable,
   obj2,
   parseQueryString,
   parseUri,
@@ -128,7 +133,7 @@ export class RequestHandler {
     | TrackerExtension
     | Promise<TrackerExtension>)[];
   private readonly _lock = createLock();
-  private readonly _schema: TypeResolver;
+  private _schema: TypeResolver = null!;
   private readonly _trackerName: string;
 
   private _extensions: TrackerExtension[];
@@ -165,7 +170,6 @@ export class RequestHandler {
       client,
       clientIdGenerator,
       defaultConsent,
-      schemas,
     } = (config = merge({}, DEFAULT, config));
 
     this._config = Object.freeze(config);
@@ -185,7 +189,7 @@ export class RequestHandler {
       consent: cookies.namePrefix + ".consent",
       session: cookies.namePrefix + ".session",
       device: cookies.namePrefix + ".device",
-      deviceByPurpose: obj2(dataPurposes.names, (purpose) => [
+      deviceByPurpose: obj2(DataPurposes.names, (purpose) => [
         purpose,
         cookies.namePrefix + (purpose === "necessary" ? "" : "," + purpose),
       ]),
@@ -196,9 +200,6 @@ export class RequestHandler {
       src: this.endpoint,
       json: this._config.json,
     });
-
-    // TODO: Will fail. JSON schema to internal schema is probably the easiest option.
-    this._schema = new TypeResolver(schemas as any);
   }
 
   public async applyExtensions(
@@ -262,93 +263,110 @@ export class RequestHandler {
 
       let { host, crypto, environmentTags, encryptionKeys, schemas, storage } =
         this._config;
-
-      schemas ??= [];
-
-      if (
-        !schemas.find(
-          (schema) => isPlainObject(schema) && schema.$id === "urn:tailjs:core"
-        )
-      ) {
-        schemas.unshift(defaultSchema);
-      }
-
-      for (const [schema, i] of rank(schemas)) {
-        if (isString(schema)) {
-          schemas[i] = JSON.parse(
-            required(
-              await host.readText(schema),
-              () => `The schema path '${schema}' does not exists`
-            )
-          );
+      try {
+        if (!storage) {
+          storage = {
+            session: { storage: new InMemoryStorage(30 * 1000 * 60) },
+          };
         }
-      }
 
-      if (!storage) {
-        storage = {
-          session: { storage: new InMemoryStorage(30 * 1000 * 60) },
-        };
-      }
-
-      (this as any).environment = new TrackerEnvironment(
-        host,
-        crypto ?? new DefaultCryptoProvider(encryptionKeys),
-        new VariableStorageCoordinator({ scopes: storage }, this._schema),
-        environmentTags
-      );
-
-      (this as any).instanceId = this.environment.nextId("request-handler-id");
-
-      if (this._config.debugScript) {
-        if (typeof this._config.debugScript === "string") {
-          this._script =
-            (await this.environment.readText(
-              this._config.debugScript,
-              async (_, newText) => {
-                const updated = await newText();
-                if (updated) {
-                  this._script = updated;
+        // Initialize extensions. Defaults + factories.
+        this._extensions = [
+          Timestamps,
+          new TrackerCoreEvents(),
+          new CommerceExtension(),
+          ...filter2(
+            await Promise.all(
+              this._extensionFactories.map(async (factory) => {
+                let extension: TrackerExtension | null = null;
+                try {
+                  return await factory();
+                } catch (e) {
+                  this._logExtensionError(extension, "factory", e);
+                  return null;
                 }
-                return true;
-              }
-            )) ?? undefined;
-        } else {
-          this._script =
-            (await this.environment.readText("js/tail.debug.map.js")) ??
-            scripts.debug;
+              })
+            )
+          ),
+        ];
+
+        // Initialize type resolver from core and extension schemas.
+        const schemaBuilder = new SchemaBuilder(schemas, defaultSchema);
+        for (const extension of this._extensions) {
+          extension.registerTypes?.(schemaBuilder);
         }
-      }
+        this._schema = new TypeResolver(
+          (await schemaBuilder.build(host)).map((schema) => ({ schema }))
+        );
 
-      await this.environment.storage.initialize?.(this.environment);
+        // Initialize environment.
+        (this as any).environment = new TrackerEnvironment(
+          host,
+          crypto ?? new DefaultCryptoProvider(encryptionKeys),
+          new VariableStorageCoordinator(
+            {
+              storage: storage,
+              errorLogger: (message) =>
+                this.environment.log(this.environment.storage, message),
+            },
+            this._schema
+          ),
+          environmentTags
+        );
 
-      this._extensions = [
-        Timestamps,
-        new TrackerCoreEvents(),
-        new CommerceExtension(),
-        ...(await Promise.all(
-          this._extensionFactories.map(async (factory) => {
-            let extension: TrackerExtension | null = null;
+        this.environment._setLogInfo(
+          ...this._extensions.map((source) => ({ source, group: "extensions" }))
+        );
+
+        (this as any).instanceId =
+          this.environment.nextId("request-handler-id");
+
+        if (this._config.debugScript) {
+          if (typeof this._config.debugScript === "string") {
+            this._script =
+              (await this.environment.readText(
+                this._config.debugScript,
+                async (_, newText) => {
+                  const updated = await newText();
+                  if (updated) {
+                    this._script = updated;
+                  }
+                  return true;
+                }
+              )) ?? undefined;
+          } else {
+            this._script =
+              (await this.environment.readText("js/tail.debug.map.js")) ??
+              scripts.debug;
+          }
+        }
+
+        // Initialize storage and extensions with the tracker environment.
+
+        await this.environment.storage.initialize?.(this.environment);
+
+        await Promise.all(
+          this._extensions.map(async (extension) => {
             try {
-              extension = await factory();
-              if (extension?.initialize) {
-                await extension.initialize?.(this.environment);
-                this.environment.log(
-                  extension,
-                  `The extension ${extension.id} was initialized.`
-                );
-              }
-              return extension;
+              await extension.initialize?.(this.environment);
             } catch (e) {
-              this._logExtensionError(
-                extension,
-                extension ? "update" : "factory",
-                e
-              );
-              return null;
+              this.environment.log(extension, "initialize", e);
             }
+
+            return extension;
           })
-        )),
-      ].filter((item) => item != null) as TrackerExtension[];
+        );
+
+        this.environment.log(this, "Request handler initialized.", "info");
+      } catch (error) {
+        host.log(
+          serializeLogMessage({
+            level: "error",
+            message:
+              "An error occurred while initializing the request handler.",
+          })
+        );
+      }
 
       this._initialized = true;
     });
@@ -728,9 +746,17 @@ export class RequestHandler {
             }
 
             if ((queryValue = join2(query?.[SCHEMA_QUERY])) != null) {
+              let serialized: string;
+              if (queryValue === "native") {
+                serialized = JSON.stringify(this._schema.definitions, null, 2);
+              } else {
+                serialized = new JsonSchemaAdapter(
+                  CORE_SCHEMA_NS + ":runtime"
+                ).serialize(this._schema.schemas);
+              }
               return result({
                 status: 200,
-                body: this._schema.definition,
+                body: serialized,
                 headers: {
                   "content-type": "application/json",
                 },
@@ -785,6 +811,7 @@ export class RequestHandler {
                 let postRequest: PostRequest<true>;
                 let json = false;
                 if (
+                  this._config.json ||
                   headers["content-type"] === "application/json" ||
                   isJsonString(body) ||
                   isJsonObject(body)
@@ -837,12 +864,12 @@ export class RequestHandler {
                 if (postRequest.variables) {
                   if (postRequest.variables.get) {
                     (response.variables ??= {}).get = await resolvedTracker
-                      .get(postRequest.variables.get)
+                      .get(postRequest.variables.get, { trusted: false })
                       .all();
                   }
                   if (postRequest.variables.set) {
                     (response.variables ??= {}).set = await resolvedTracker
-                      .set(postRequest.variables.set)
+                      .set(postRequest.variables.set, { trusted: false })
                       .all();
                   }
                 }
@@ -1001,7 +1028,7 @@ export class RequestHandler {
       level: "error",
       message: `An error occurred when invoking the method '${method}' on an extension.`,
       group: "extensions",
-      error,
+      error: error,
     });
   }
 }
