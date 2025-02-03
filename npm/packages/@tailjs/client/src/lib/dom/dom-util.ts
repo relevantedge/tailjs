@@ -14,7 +14,7 @@ import {
   Nullable,
   T,
   Unbinder,
-  array,
+  array2,
   createEventBinders,
   createTimeout,
   forEach2,
@@ -332,7 +332,7 @@ export const listen = <K extends keyof AllMaps>(
   ) => any,
   options: AddEventListenerOptions = { capture: true, passive: true }
 ): Binders => {
-  name = array(name) as any;
+  name = array2(name) as any;
   return createEventBinders(
     listener,
     (listener) =>

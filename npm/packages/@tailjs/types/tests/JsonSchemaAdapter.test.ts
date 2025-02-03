@@ -1,7 +1,9 @@
-import { JsonSchemaAdapter, TypeResolver } from "../src";
+import { DataPurposes, JsonSchemaAdapter, TypeResolver } from "../src";
 
 describe("JsonSchemaAdapter", () => {
   it("parses", () => {
+    expect(DataPurposes.parse({}, { names: true })).toEqual(["necessary"]);
+
     const resolver = new TypeResolver([
       {
         schema: {

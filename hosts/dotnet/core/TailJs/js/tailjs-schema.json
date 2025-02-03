@@ -52,10 +52,14 @@
                 "trusted-only"
               ]
             },
-            "deviceSessionId": {
-              "type": "string"
-            },
             "deviceId": {
+              "type": "string",
+              "description": "Used to handle race conditions. When multiple session are created from concurrent requests, the winning session contains the device ID.",
+              "x-privacy-access": [
+                "trusted-only"
+              ]
+            },
+            "deviceSessionId": {
               "type": "string"
             },
             "userId": {
@@ -66,6 +70,17 @@
             },
             "hasUserAgent": {
               "type": "boolean"
+            },
+            "anonymous": {
+              "type": "boolean",
+              "description": "The session id anonymous."
+            },
+            "anonymousSessionId": {
+              "type": "string",
+              "description": "If the user upgraded their consent, this will be the original anonymous session ID.",
+              "x-privacy-access": [
+                "trusted-only"
+              ]
             },
             "tabs": {
               "type": "number",
@@ -337,7 +352,7 @@
     "Session": {
       "type": "object",
       "properties": {
-        "originalSessionId": {
+        "anonymousSessionId": {
           "$ref": "urn:tailjs:core#/definitions/Uuid",
           "description": "If a non-anonymous session started as an anonymous session, this is the anonymous session ID. Since an anonymous session is not necessarily unique to a device, processing logic may decide whether and how to stitch the anonymous and non-anonymous session together."
         },
@@ -351,7 +366,12 @@
         },
         "deviceSessionId": {
           "$ref": "urn:tailjs:core#/definitions/Uuid",
-          "description": "The unique ID of the user's device session ID. A device session starts when the user enters the site like a normal server session, but unlike server sessions, device sessions stay active as long as the user has tabs related to the site open. This means that device sessions survives when the user puts their computer to sleep, or leaves tabs open in the background on their phone.\n\nAfter the user has completely left the site, device sessions time out in the same way as server sessions."
+          "description": "The unique ID of the user's device session ID. A device session starts when the user enters the site like a normal server session, but unlike server sessions, device sessions stay active as long as the user has tabs related to the site open. This means that device sessions survives when the user puts their computer to sleep, or leaves tabs open in the background on their phone.\n\nAfter the user has completely left the site, device sessions time out in the same way as server sessions.",
+          "x-privacy-class": "indirect",
+          "x-privacy-purposes": [
+            "performance",
+            "functionality"
+          ]
         },
         "userId": {
           "type": "string",
@@ -367,9 +387,22 @@
           "description": "The IP address of the device where the session is active.",
           "x-privacy-class": "indirect"
         },
+        "collision": {
+          "type": "boolean",
+          "description": "Indicates that multiple clients are active in the same anonymous session."
+        },
+        "anonymous": {
+          "type": "boolean",
+          "description": "Whether the session is using anonymous tracking."
+        },
         "expiredDeviceSessionId": {
           "type": "string",
-          "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session)."
+          "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This may happen when background tabs are suspended.\n\nPost-processing can decide how to tie them together when the same tab participates in two sessions (which goes against the definition of a device session).",
+          "x-privacy-class": "indirect",
+          "x-privacy-purposes": [
+            "performance",
+            "functionality"
+          ]
         }
       },
       "required": [
@@ -2466,6 +2499,7 @@
       }
     }
   },
+  "x-version": "0.94.3",
   "x-privacy-class": "anonymous",
   "x-privacy-purposes": []
 }

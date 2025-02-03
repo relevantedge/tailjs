@@ -36,6 +36,7 @@ import {
   ClientScript,
   CookieMonster,
   DEFAULT,
+  getDefaultLogSourceName,
   InMemoryStorage,
   isValidationError,
   ParseResult,
@@ -78,15 +79,12 @@ import {
   join2,
   map2,
   match,
-  merge,
-  Mutable,
+  merge2,
   obj2,
   parseQueryString,
   parseUri,
   PickRequired,
-  rank,
   ReplaceProperties,
-  required,
   SimpleObject,
   skip2,
   unwrap,
@@ -170,7 +168,7 @@ export class RequestHandler {
       client,
       clientIdGenerator,
       defaultConsent,
-    } = (config = merge({}, DEFAULT, config));
+    } = (config = merge2({}, [config, DEFAULT], { overwrite: false }));
 
     this._config = Object.freeze(config);
 
@@ -178,7 +176,6 @@ export class RequestHandler {
     this.endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
 
     this._defaultConsent = defaultConsent;
-
     this._extensionFactories = filter2(extensions);
 
     this._cookies = new CookieMonster(cookies);
@@ -267,6 +264,7 @@ export class RequestHandler {
         if (!storage) {
           storage = {
             session: { storage: new InMemoryStorage(30 * 1000 * 60) },
+            device: { storage: new InMemoryStorage(30 * 1000 * 60) },
           };
         }
 
@@ -350,7 +348,8 @@ export class RequestHandler {
             try {
               await extension.initialize?.(this.environment);
             } catch (e) {
-              this.environment.log(extension, "initialize", e);
+              this._logExtensionError(extension, "initialize", e);
+              throw e;
             }
 
             return extension;
@@ -364,8 +363,10 @@ export class RequestHandler {
             level: "error",
             message:
               "An error occurred while initializing the request handler.",
+            error,
           })
         );
+        throw error;
       }
 
       this._initialized = true;
@@ -531,16 +532,15 @@ export class RequestHandler {
 
       let clientEncryptionKey: string | undefined;
       if (this._config.clientEncryptionKeySeed) {
-        !this._config.json &&
-          (clientEncryptionKey = this.environment.hash(
-            (this._config.clientEncryptionKeySeed || "") +
-              (await this._clientIdGenerator.generateClientId(
-                this.environment,
-                request,
-                true
-              )),
-            64
-          ));
+        clientEncryptionKey = this.environment.hash(
+          (this._config.clientEncryptionKeySeed || "") +
+            (await this._clientIdGenerator.generateClientId(
+              this.environment,
+              request,
+              true
+            )),
+          64
+        );
       }
 
       return {
@@ -559,7 +559,7 @@ export class RequestHandler {
           ])
         ),
         clientIp,
-        sessionReferenceId: this.environment.hash(
+        anonymousSessionReferenceId: this.environment.hash(
           await this._clientIdGenerator.generateClientId(
             this.environment,
             request,
@@ -571,10 +571,13 @@ export class RequestHandler {
         requestHandler: this,
         defaultConsent: this._defaultConsent,
         cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
-        clientEncryptionKey,
+        clientEncryptionKey: this._config.json
+          ? undefined
+          : clientEncryptionKey,
         transport: this._config.json
           ? defaultJsonTransport
           : createTransport(clientEncryptionKey),
+        cookieTransport: createTransport(clientEncryptionKey), // Cookies are always encrypted.
       } as PickRequired<TrackerServerConfiguration, "transport"> & {
         clientEncryptionKey?: string;
       };
@@ -829,7 +832,9 @@ export class RequestHandler {
                   json = true;
                   postRequest = isJsonObject(body)
                     ? body
-                    : JSON.parse(decodeUtf8(body));
+                    : JSON.parse(
+                        typeof body === "string" ? body : decodeUtf8(body)
+                      );
                 } else {
                   const { transport: cipher } = await trackerSettings();
                   postRequest = cipher[1](body)!;
@@ -843,7 +848,7 @@ export class RequestHandler {
 
                 trackerInitializationOptions = {
                   deviceId: postRequest.deviceId,
-                  deviceSessionId: postRequest.deviceId,
+                  deviceSessionId: postRequest.deviceSessionId,
                 };
 
                 const resolvedTracker = await resolveTracker();
@@ -1006,7 +1011,10 @@ export class RequestHandler {
             : script.inline;
         } else {
           return html
-            ? `<script src='${script.src}?${INIT_SCRIPT_QUERY}${
+            ? `<script${map2(
+                this._config.client?.scriptBlockerAttributes,
+                ([key, value]) => ` ${key}="${value.replaceAll('"', "&quot;")}"`
+              )?.join("")} src='${script.src}?${INIT_SCRIPT_QUERY}${
                 BUILD_REVISION_QUERY ? "&" + BUILD_REVISION_QUERY : ""
               }'${script.defer !== false ? " defer" : ""}></script>`
             : `try{document.body.appendChild(Object.assign(document.createElement("script"),${JSON.stringify(
@@ -1026,7 +1034,9 @@ export class RequestHandler {
   ) {
     this.environment.log(extension, {
       level: "error",
-      message: `An error occurred when invoking the method '${method}' on an extension.`,
+      message: `An error occurred when invoking the method '${method}' on the extension ${getDefaultLogSourceName(
+        extension
+      )}.`,
       group: "extensions",
       error: error,
     });

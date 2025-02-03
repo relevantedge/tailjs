@@ -419,16 +419,12 @@ export const toString = createTypeConverter(isString, (value) =>
 );
 
 export const isArray: <T>(
-  value: T
-) => value is any[] extends T
-  ? unknown extends T
-    ? any[]
-    : T extends readonly any[]
-    ? T
-    : T extends any[]
-    ? T
-    : any[]
-  : never = Array.isArray as any;
+  value: readonly any[] | T
+) => value is T extends any[]
+  ? any[]
+  : unknown extends T
+  ? any[]
+  : readonly any[] = Array.isArray as any;
 
 export const isError = /*#__PURE__*/ (value: any): value is Error =>
   value instanceof Error;

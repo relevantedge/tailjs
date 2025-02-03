@@ -37,7 +37,7 @@ export const join2: {
     : !isIterable(source)
     ? isEmptyString(source)
       ? ""
-      : source?.toString()
+      : source.toString()
     : filter2(
         typeof arg1 === "function"
           ? map2(source, arg1)

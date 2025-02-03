@@ -40,6 +40,11 @@ public static class Pools
 
       return bytes;
     }
+    catch
+    {
+      bytes.Dispose();
+      throw;
+    }
     finally
     {
       BufferPool<byte>.Return(buffer);
@@ -115,7 +120,7 @@ public static class Pools
       {
         ClientCertificateOptions = ClientCertificateOption.Manual,
         ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
-        AutomaticDecompression = ~DecompressionMethods.None
+        AutomaticDecompression = ~DecompressionMethods.None,
       };
       configure?.Invoke(handler);
       Client = new(handler);

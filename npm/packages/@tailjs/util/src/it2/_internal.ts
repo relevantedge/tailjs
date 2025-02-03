@@ -186,31 +186,39 @@ type OptionalKeys<T, K extends keyof T = keyof T> = K extends keyof T
 
 type RequiredKeys<T> = Exclude<keyof T, OptionalKeys<T>>;
 
-type _DispatchMergeRecords<T1, T2, MergeRecords, Overwrite> = T1 extends Falsish
-  ? T1
-  : T2 extends Falsish
-  ? T2
-  : _MergeRecords2<T1, T2, MergeRecords, Overwrite>;
+type _DispatchMergeRecords<T1, T2, MergeRecords, Overwrite, OverwriteNulls> =
+  T1 extends Falsish
+    ? T1
+    : T2 extends Falsish
+    ? T2
+    : _MergeRecords2<T1, T2, MergeRecords, Overwrite, OverwriteNulls>;
 
 type _MergeRecordsIfRecords<
   T1P,
   T2P,
   Deep,
   Overwrite,
-  Default = never
+  OverwriteNulls,
+  Default
 > = Deep extends true
   ? T1P extends SimpleObject
     ? T2P extends SimpleObject
-      ? _DispatchMergeRecords<T1P, T2P, true, Overwrite>
+      ? _DispatchMergeRecords<T1P, T2P, true, Overwrite, OverwriteNulls>
       : Default
     : Default
   : Default;
 
+type _OverwriteNull<V1, V2, Toggle> = Toggle extends true
+  ? V1 extends null
+    ? V2
+    : V1
+  : V1;
 type _MergeRecords2<
   T1,
   T2,
   Deep,
   Overwrite,
+  OverwriteNulls,
   O1 extends keyof T1 = OptionalKeys<T1>,
   O2 extends keyof T2 = OptionalKeys<T2>,
   R1 extends keyof T1 = RequiredKeys<T1>,
@@ -219,9 +227,16 @@ type _MergeRecords2<
   Pick<T2, Exclude<keyof T2, SpecificKeys<keyof T1>>> & {
     // Resulting property may be optional only if both optional in T1 and T2
     [P in O1 & O2]?:
-      | T1[P]
+      | _OverwriteNull<T1[P], T2[P], OverwriteNulls>
       | T2[P]
-      | _MergeRecordsIfRecords<T1[P], T2[P], Deep, Overwrite>;
+      | _MergeRecordsIfRecords<
+          T1[P],
+          T2[P],
+          Deep,
+          Overwrite,
+          OverwriteNulls,
+          never
+        >;
   } & {
     // Can only be T1 if overwrite=false
     [P in O1 & R2]:
@@ -231,19 +246,24 @@ type _MergeRecords2<
           T2[P],
           Deep,
           Overwrite,
+          OverwriteNulls,
           Overwrite extends false
-            ? Exclude<T1[P], SimpleObject | undefined>
+            ? Exclude<
+                _OverwriteNull<T1[P], T2[P], OverwriteNulls>,
+                SimpleObject | undefined
+              >
             : never
         >;
   } & {
     // Will never be T2 if overwrite=false
     [P in R1 & O2]:
-      | T1[P]
+      | _OverwriteNull<T1[P], T2[P], OverwriteNulls>
       | _MergeRecordsIfRecords<
           T1[P],
           T2[P],
           Deep,
           Overwrite,
+          OverwriteNulls,
           Overwrite extends false ? never : Exclude<T2[P], SimpleObject>
         >;
   } & {
@@ -253,10 +273,19 @@ type _MergeRecords2<
       T2[P],
       Deep,
       Overwrite,
+      OverwriteNulls,
       Exclude<
         Overwrite extends false
-          ? T1[P] | T2[GenericKeys<R1> & keyof T2]
-          : T1[GenericKeys<R2> & keyof T1] | T2[P],
+          ?
+              | _OverwriteNull<T1[P], T2[P], OverwriteNulls>
+              | T2[GenericKeys<R1> & keyof T2]
+          :
+              | _OverwriteNull<
+                  T1[GenericKeys<R2> & keyof T1],
+                  T2[P],
+                  OverwriteNulls
+                >
+              | T2[P],
         SimpleObject
       >
     >;
@@ -264,7 +293,13 @@ type _MergeRecords2<
   ? { [P in keyof T]: T[P] }
   : never;
 
-export type MergeObjectSources<Target, Sources, Deep, Overwrite> = (
+export type MergeObjectSources<
+  Target,
+  Sources,
+  Deep,
+  Overwrite,
+  OverwriteNulls
+> = (
   Sources extends readonly [infer T, ...infer Rest]
     ? T extends infer T
       ? MergeObjectSources<
@@ -272,11 +307,13 @@ export type MergeObjectSources<Target, Sources, Deep, Overwrite> = (
             Target,
             ObjectSourceToObject<T>,
             Deep,
-            Overwrite
+            Overwrite,
+            OverwriteNulls
           >,
           Rest,
           Deep,
-          Overwrite
+          Overwrite,
+          OverwriteNulls
         >
       : never
     : Sources extends Falsish | readonly []
@@ -285,7 +322,8 @@ export type MergeObjectSources<Target, Sources, Deep, Overwrite> = (
         Target,
         ObjectSourceToObject<Sources>,
         Deep,
-        Overwrite
+        Overwrite,
+        OverwriteNulls
       >
 ) extends infer T
   ? { [P in keyof T]: T[P] }

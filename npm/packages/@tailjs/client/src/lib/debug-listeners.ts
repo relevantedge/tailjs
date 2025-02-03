@@ -4,8 +4,8 @@ import { ansi, concat, count, F, map2, skip2, sort2, T } from "@tailjs/util";
 import { addVariablesChangedListener, childGroups, debug } from ".";
 import { ClientVariable, isLocalScopeKey } from "../interfaces";
 
-const formatVariables = (variables: ClientVariable[]) =>
-  map2(
+const formatVariables = (variables: ClientVariable[]) => {
+  return map2(
     sort2(variables, [
       (variable) => variable.scope,
       (variable) => variable.key,
@@ -23,6 +23,7 @@ const formatVariables = (variables: ClientVariable[]) =>
           ]
         : skip2
   );
+};
 
 export const addDebugListeners = __DEBUG__
   ? () => {

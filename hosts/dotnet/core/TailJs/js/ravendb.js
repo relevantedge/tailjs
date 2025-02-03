@@ -1,4 +1,4 @@
-function _define_property$2(obj, key, value) {
+function _define_property$4(obj, key, value) {
     if (key in obj) {
         Object.defineProperty(obj, key, {
             value: value,
@@ -13,28 +13,19 @@ function _define_property$2(obj, key, value) {
 }
 class RavenDbConfiguration {
     async initialize(env) {
-        try {
-            this._env = env;
-            if (this._settings.x509) {
-                const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
-                var _ref;
-                const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
-                if (!cert) {
-                    throw new Error("Certificate not found.");
-                }
-                this._cert = {
-                    id: this.id,
-                    cert,
-                    key
-                };
+        this._env = env;
+        if (this._settings.x509) {
+            const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
+            var _ref;
+            const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
+            if (!cert) {
+                throw new Error("Certificate not found.");
             }
-        } catch (e) {
-            env.log(this, {
-                group: this.id,
-                level: "error",
-                source: `${this.id}:initialize`,
-                message: "" + e
-            });
+            this._cert = {
+                id: this.id,
+                cert,
+                key
+            };
         }
     }
     async request(method, operation, payload) {
@@ -53,10 +44,10 @@ class RavenDbConfiguration {
         return JSON.parse(response);
     }
     constructor(id, settings){
-        _define_property$2(this, "_env", void 0);
-        _define_property$2(this, "_cert", void 0);
-        _define_property$2(this, "_settings", void 0);
-        _define_property$2(this, "id", void 0);
+        _define_property$4(this, "_env", void 0);
+        _define_property$4(this, "_cert", void 0);
+        _define_property$4(this, "_settings", void 0);
+        _define_property$4(this, "id", void 0);
         this.id = id;
         this._settings = settings;
     }
@@ -67,24 +58,15 @@ const throwError = (error, transform = (message)=>new Error(message))=>{
 };
 const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     try {
-        var _errorHandler_;
-        const result = await unwrap(expression);
-        return isArray(errorHandler) ? (_errorHandler_ = errorHandler[0]) === null || _errorHandler_ === void 0 ? void 0 : _errorHandler_.call(errorHandler, result) : result;
+        return await unwrap(expression);
     } catch (e) {
         if (!isBoolean(errorHandler)) {
-            if (isArray(errorHandler)) {
-                if (!errorHandler[1]) throw e;
-                return errorHandler[1](e);
-            }
-            const error = await (errorHandler === null || errorHandler === void 0 ? void 0 : errorHandler(e));
-            if (error instanceof Error) throw error;
-            return error;
+            return await errorHandler(e);
         } else if (errorHandler) {
             throw e;
-        } else {
-            // `false` means "ignore".
-            console.error(e);
         }
+        // `false` means "ignore".
+        console.error(e);
     } finally{
         await (always === null || always === void 0 ? void 0 : always());
     }
@@ -95,11 +77,10 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 /** Minify friendly version of `true`. */ const T = true;
 const isBoolean = (value)=>typeof value === "boolean";
 const isString = (value)=>typeof value === "string";
-const isArray = Array.isArray;
-const isFunction = (value)=>typeof value === "function";
+const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
 const unwrap = (value)=>isFunction(value) ? value() : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
-function _define_property$1$1(obj, key, value) {
+function _define_property$3(obj, key, value) {
     if (key in obj) {
         Object.defineProperty(obj, key, {
             value: value,
@@ -143,7 +124,7 @@ class ResettablePromise {
         return this._promise.then(onfulfilled, onrejected);
     }
     constructor(){
-        _define_property$1$1(this, "_promise", void 0);
+        _define_property$3(this, "_promise", void 0);
         this.reset();
     }
 }
@@ -152,12 +133,12 @@ class OpenPromise {
         return this._promise.then(onfulfilled, onrejected);
     }
     constructor(){
-        _define_property$1$1(this, "_promise", void 0);
-        _define_property$1$1(this, "resolve", void 0);
-        _define_property$1$1(this, "reject", void 0);
-        _define_property$1$1(this, "value", void 0);
-        _define_property$1$1(this, "error", void 0);
-        _define_property$1$1(this, "pending", true);
+        _define_property$3(this, "_promise", void 0);
+        _define_property$3(this, "resolve", void 0);
+        _define_property$3(this, "reject", void 0);
+        _define_property$3(this, "value", void 0);
+        _define_property$3(this, "error", void 0);
+        _define_property$3(this, "pending", true);
         let captured;
         this._promise = new Promise((...args)=>{
             captured = args.map((inner, i)=>(value, ifPending)=>{
@@ -213,6 +194,55 @@ const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap(
 const promise = (resettable)=>resettable ? new ResettablePromise() : new OpenPromise();
 const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : arg));
 
+function _define_property$2(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
+class RavenDbTarget {
+    async initialize(env) {
+        this._env = env;
+        if (this._settings.x509) {
+            const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
+            var _ref;
+            const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
+            if (!cert) {
+                throw new Error("Certificate not found.");
+            }
+            this._cert = {
+                id: this.id,
+                cert,
+                key
+            };
+        }
+    }
+    _request(method, relativeUrl, body) {
+        return this._env.request({
+            method,
+            url: `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${relativeUrl}`,
+            headers: {
+                ["content-type"]: "application/json"
+            },
+            x509: this._cert,
+            body: typeof body === "string" ? body : JSON.stringify(body)
+        });
+    }
+    constructor(settings){
+        _define_property$2(this, "_settings", void 0);
+        _define_property$2(this, "_env", void 0);
+        _define_property$2(this, "_cert", void 0);
+        this._settings = settings;
+    }
+}
+
 function _define_property$1(obj, key, value) {
     if (key in obj) {
         Object.defineProperty(obj, key, {
@@ -229,31 +259,34 @@ function _define_property$1(obj, key, value) {
 /**
  * This extension stores events in RavenDB.
  * It maps and assign IDs (and references to them) to events and sessions with incrementing base 36 numbers to reduce space.
- */ class RavenDbTracker {
-    async initialize(env) {
-        try {
-            this._env = env;
-            if (this._settings.x509) {
-                const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
-                var _ref;
-                const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
-                if (!cert) {
-                    throw new Error("Certificate not found.");
+ */ class RavenDbTracker extends RavenDbTarget {
+    registerTypes(schema) {
+        schema.registerSchema({
+            namespace: "urn:tailjs:ravendb",
+            variables: {
+                session: {
+                    rdb: {
+                        classification: "anonymous",
+                        purposes: {},
+                        visibility: "trusted-only",
+                        properties: {
+                            sessionId: {
+                                primitive: "string"
+                            },
+                            deviceSessionId: {
+                                primitive: "string"
+                            },
+                            internalSessionId: {
+                                primitive: "string"
+                            },
+                            internalDeviceSessionId: {
+                                primitive: "string"
+                            }
+                        }
+                    }
                 }
-                this._cert = {
-                    id: this.id,
-                    cert,
-                    key
-                };
             }
-        } catch (e) {
-            env.log(this, {
-                group: this.id,
-                level: "error",
-                source: `${this.id}:initialize`,
-                message: "" + e
-            });
-        }
+        });
     }
     async post(events, tracker) {
         if (!tracker.session) {
@@ -263,60 +296,41 @@ function _define_property$1(obj, key, value) {
             const commands = [];
             // We add a convenient integer keys to the session, device session and event entities to get efficient primary keys
             // when doing ETL on the data.
-            const ids = await tracker.get([
-                {
-                    scope: "session",
-                    key: "rdb",
-                    init: async ()=>({
-                            classification: "anonymous",
-                            purposes: "necessary",
-                            value: {
-                                source: [
-                                    tracker.sessionId,
-                                    tracker.deviceSessionId
-                                ],
-                                mapped: [
-                                    await this._getNextId(),
-                                    await this._getNextId()
-                                ]
-                            }
-                        })
-                }
-            ]).value;
+            let ids = await tracker.get({
+                scope: "session",
+                key: "rdb"
+            }).value();
             var hasChanges = false;
-            if (ids.source[0] !== tracker.sessionId) {
-                ids.mapped[0] = await this._getNextId();
+            if (tracker.sessionId && (ids === null || ids === void 0 ? void 0 : ids.sessionId) !== tracker.sessionId) {
+                (ids !== null && ids !== void 0 ? ids : ids = {}).internalSessionId = await this._getNextId();
+                ids.sessionId = tracker.sessionId;
                 hasChanges = true;
             }
-            if (ids.source[1] !== tracker.deviceSessionId) {
-                ids.mapped[1] = await this._getNextId();
+            if (tracker.deviceSessionId && (ids === null || ids === void 0 ? void 0 : ids.deviceSessionId) !== tracker.deviceSessionId) {
+                (ids !== null && ids !== void 0 ? ids : ids = {}).internalDeviceSessionId = await this._getNextId();
+                ids.deviceSessionId = tracker.deviceSessionId;
+                hasChanges = true;
+            }
+            if (!tracker.sessionId && !tracker.deviceSessionId) {
+                ids = undefined;
                 hasChanges = true;
             }
             if (hasChanges) {
                 // Session and/or device session ID changed.
-                await tracker.set([
-                    {
-                        scope: "session",
-                        key: "rdb",
-                        patch: (current)=>{
-                            if (!current) return;
-                            return {
-                                ...current,
-                                value: ids
-                            };
-                        }
-                    }
-                ]);
+                await tracker.set({
+                    scope: "session",
+                    key: "rdb",
+                    patch: ()=>ids
+                });
             }
             for (let ev of events){
-                const session = ev.session;
-                if (!session) {
-                    continue;
-                }
+                ev = {
+                    ...ev
+                };
                 // Integer primary key for the event entity.
                 const internalEventId = await this._getNextId();
-                ev["rdb:sessionId"] = ids.mapped[0];
-                ev["rdb:deviceSessionId"] = ids.mapped[1];
+                ev["rdb:sessionId"] = ids === null || ids === void 0 ? void 0 : ids.internalSessionId;
+                ev["rdb:deviceSessionId"] = ids === null || ids === void 0 ? void 0 : ids.internalDeviceSessionId;
                 commands.push({
                     Type: "PUT",
                     Id: `events/${internalEventId}`,
@@ -328,16 +342,8 @@ function _define_property$1(obj, key, value) {
                     }
                 });
             }
-            await this._env.request({
-                method: "POST",
-                url: `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/bulk_docs`,
-                headers: {
-                    ["content-type"]: "application/json"
-                },
-                x509: this._cert,
-                body: JSON.stringify({
-                    Commands: commands
-                })
+            await this._request("POST", "bulk_docs", {
+                Commands: commands
             });
         } catch (e) {
             tracker.env.error(this, e);
@@ -352,16 +358,8 @@ function _define_property$1(obj, key, value) {
                 if (id >= this._idRangeMax) {
                     let idMax = this._idRangeMax + this._idBatchSize;
                     for(let i = 0; i <= 100; i++){
-                        const response = (await this._env.request({
-                            method: "PUT",
-                            url: `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/cmpxchg?key=NextEventId&index=${this._idIndex}`,
-                            headers: {
-                                ["content-type"]: "application/json"
-                            },
-                            body: JSON.stringify({
-                                Object: idMax
-                            }),
-                            x509: this._cert
+                        const response = (await this._request("PUT", `cmpxchg?key=NextEventId&index=${this._idIndex}`, {
+                            Object: idMax
                         })).body;
                         const result = JSON.parse(response);
                         const success = result.Successful;
@@ -384,13 +382,14 @@ function _define_property$1(obj, key, value) {
                     }
                     id = ++this._nextId;
                 }
-            } catch (e) {
+            } catch (error) {
                 this._env.log(this, {
                     group: this.id,
                     level: "error",
-                    source: this.id,
-                    message: "" + e
+                    message: "Generating the next sequence of IDs failed.",
+                    error
                 });
+                throw error;
             } finally{
                 lockHandle();
             }
@@ -398,16 +397,13 @@ function _define_property$1(obj, key, value) {
         return id.toString(36);
     }
     constructor(settings){
+        super(settings);
         _define_property$1(this, "id", "ravendb");
-        _define_property$1(this, "_settings", void 0);
         _define_property$1(this, "_lock", void 0);
-        _define_property$1(this, "_env", void 0);
-        _define_property$1(this, "_cert", void 0);
         _define_property$1(this, "_nextId", 0);
         _define_property$1(this, "_idIndex", 1);
         _define_property$1(this, "_idRangeMax", 0);
         _define_property$1(this, "_idBatchSize", 1000);
-        this._settings = settings;
         this._lock = createLock();
     }
 }
@@ -425,32 +421,101 @@ function _define_property(obj, key, value) {
     }
     return obj;
 }
-class RavenDbVariableStorage {
-    renew(scope, targetIds, context) {
+class RavenDbVariableStorage extends RavenDbTarget {
+    async set(setters) {
+        throw new Error("Method not implemented.");
+    // const responses = JSON.parse(
+    //   (
+    //     await this._request("POST", "bulk_docs", {
+    //       Commands: setters.map((setter) =>
+    //         setter.value != null
+    //           ? {
+    //               Type: "PUT",
+    //               Id: mapDocumentId(setter),
+    //               ChangeVector: setter.version,
+    //               Document: {
+    //                 ...setter.value,
+    //                 "@metadata": {
+    //                   "@collection": "variables",
+    //                 },
+    //               },
+    //             }
+    //           : {
+    //               Type: "DELETE",
+    //               ChangeVector: setter.version,
+    //               Id: mapDocumentId(setter),
+    //             }
+    //       ),
+    //     })
+    //   ).body
+    // ).Results as any[];
+    // const pendingGetters: VariableValueSetter[] = [];
+    // for (const response of responses) {
+    // }
+    }
+    purge(queries) {
         throw new Error("Method not implemented.");
     }
-    set(variables, context) {
+    refresh(queries) {
         throw new Error("Method not implemented.");
     }
-    purge(filters, context) {
+    get(keys) {
         throw new Error("Method not implemented.");
     }
-    initialize(environment) {
+    query(queries, options) {
         throw new Error("Method not implemented.");
     }
-    get(keys, context) {
-        throw new Error("Method not implemented.");
+    constructor(...args){
+        super(...args);
+        _define_property(this, "id", "ravendb-variables");
     }
-    head(filters, options, context) {
-        throw new Error("Method not implemented.");
-    }
-    query(filters, options, context) {
-        throw new Error("Method not implemented.");
-    }
-    constructor(settings){
-        _define_property(this, "_settings", void 0);
-        this._settings = settings;
-    }
-}
+} // export class RavenDbVariableStorage implements VariableStorage {
+ //   private readonly _settings: RavenDbSettings;
+ //   constructor(settings: RavenDbSettings) {
+ //     this._settings = settings;
+ //   }
+ //   renew(
+ //     scope: ServerVariableScope,
+ //     targetIds: string[],
+ //     context?: VariableStorageContext
+ //   ): MaybePromise<void> {
+ //     throw new Error("Method not implemented.");
+ //   }
+ //   set<V extends VariableSetters<true>>(
+ //     variables: VariableSetters<true, V>,
+ //     context?: VariableStorageContext
+ //   ): MaybePromise<VariableSetResults<V>> {
+ //     throw new Error("Method not implemented.");
+ //   }
+ //   purge(
+ //     filters: VariableFilter<true>[],
+ //     context?: VariableStorageContext
+ //   ): MaybePromise<boolean> {
+ //     throw new Error("Method not implemented.");
+ //   }
+ //   initialize?(environment: TrackerEnvironment): MaybePromise<void> {
+ //     throw new Error("Method not implemented.");
+ //   }
+ //   get<K extends VariableGetters<true>>(
+ //     keys: VariableGetters<true, K>,
+ //     context?: VariableStorageContext
+ //   ): MaybePromise<VariableGetResults<K>> {
+ //     throw new Error("Method not implemented.");
+ //   }
+ //   head(
+ //     filters: VariableFilter<true>[],
+ //     options?: VariableQueryOptions<true>,
+ //     context?: VariableStorageContext
+ //   ): MaybePromise<VariableQueryResult<VariableHeader<true>>> {
+ //     throw new Error("Method not implemented.");
+ //   }
+ //   query(
+ //     filters: VariableFilter<true>[],
+ //     options?: VariableQueryOptions<true>,
+ //     context?: VariableStorageContext
+ //   ): MaybePromise<VariableQueryResult<Variable<any, true>>> {
+ //     throw new Error("Method not implemented.");
+ //   }
+ // }
 
 export { RavenDbConfiguration, RavenDbTracker, RavenDbVariableStorage };

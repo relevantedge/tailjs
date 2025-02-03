@@ -12,7 +12,7 @@ import {
 import { type DataUsage } from ".";
 
 export type DataPurposeName = keyof DataPurposes | "necessary";
-export const DATA_PURPOSES: DataPurposeName[] = [
+const DATA_PURPOSES: DataPurposeName[] = [
   "necessary",
   "performance",
   "functionality",
@@ -187,6 +187,7 @@ export const DataPurposes: {
 
     if (intersect) {
       for (let purpose in test) {
+        if (!VALID_PURPOSE_NAMES[purpose]) continue;
         if (test[purpose] && !target[purpose]) {
           // At least one purpose in the consent is not present in the target.
           return false;
@@ -195,6 +196,7 @@ export const DataPurposes: {
 
       if (intersect === "all") {
         for (let purpose in target) {
+          if (!VALID_PURPOSE_NAMES[purpose]) continue;
           if (target[purpose] && !test[purpose]) {
             // The target has a purpose that is not included in the consent.
             return false;
@@ -207,6 +209,7 @@ export const DataPurposes: {
 
     let hasAny = false;
     for (let purpose in target) {
+      if (!VALID_PURPOSE_NAMES[purpose]) continue;
       if (target[purpose]) {
         if (test[purpose]) {
           // Just one of the purposes is good enough.

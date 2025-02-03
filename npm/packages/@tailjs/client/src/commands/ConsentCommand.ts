@@ -1,4 +1,4 @@
-import { DataUsage, UserConsent } from "@tailjs/types";
+import { DataUsage, UserConsent, VariablePollCallback } from "@tailjs/types";
 import { ClientVariableGetterCallback } from "../interfaces";
 import { commandTest } from "./shared";
 
@@ -8,12 +8,8 @@ export type ExternalConsentPoller = (
 
 /** Gets or updates the user's consent. */
 export interface ConsentCommand {
-  /**
-   * If a function, it will be invoked as a callback with the users current consent preferences.
-   * Otherwise it will update the user's consent with the values provided.
-   */
   consent: {
-    get?: ClientVariableGetterCallback<UserConsent>;
+    get?: VariablePollCallback<UserConsent>;
     set?: DataUsage & {
       callback?: (updated: boolean, current: UserConsent | undefined) => void;
     };

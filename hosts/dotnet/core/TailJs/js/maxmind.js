@@ -19640,6 +19640,22 @@ function _define_property(obj, key, value) {
     return obj;
 }
 class ClientLocation {
+    registerTypes(schema) {
+        schema.registerSchema({
+            namespace: "urn:tailjs:maxmind",
+            variables: {
+                session: {
+                    mx: {
+                        visibility: "trusted-only",
+                        primitive: "string"
+                    },
+                    country: {
+                        primitive: "string"
+                    }
+                }
+            }
+        });
+    }
     async patch(events, next, tracker) {
         if (!tracker.session) return next(events);
         if (!this._initialized) throw new Error("Not initialized");
@@ -19651,12 +19667,10 @@ class ClientLocation {
             // Send a new location event whenever the consent changes.
             // The new consent may influence how much data gets tracked.
             const clientHash = env.hash(ip + JSON.stringify(tracker.consent));
-            if (await tracker.get([
-                {
-                    scope: "session",
-                    key: "mx"
-                }
-            ]).value !== clientHash) {
+            if (await tracker.get({
+                scope: "session",
+                key: "mx"
+            }).value() !== clientHash) {
                 var _this__reader, _location_country;
                 const location = this.filterNames((_this__reader = this._reader) === null || _this__reader === void 0 ? void 0 : _this__reader.get(ip));
                 tracker.requestItems.set(ClientLocation.name, this.filterNames(location, this._language));
@@ -19707,16 +19721,12 @@ class ClientLocation {
                     {
                         scope: "session",
                         key: "mx",
-                        classification: "anonymous",
-                        purposes: "necessary",
                         value: clientHash,
                         force: true
                     },
                     {
                         scope: "session",
                         key: "country",
-                        classification: "anonymous",
-                        purposes: "necessary",
                         value: country,
                         force: true
                     }
@@ -19760,6 +19770,7 @@ class ClientLocation {
     constructor({ language = "en", mmdb = "maxmind/GeoLite2-City.mmdb" } = {}){
         _define_property(this, "_language", void 0);
         _define_property(this, "_mmdb", void 0);
+        _define_property(this, "_i", 0);
         _define_property(this, "_initialized", false);
         _define_property(this, "_reader", void 0);
         _define_property(this, "id", "ClientLocation");

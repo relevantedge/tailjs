@@ -1,4 +1,4 @@
-import { isConsentEvent, isResetEvent, DataUsage, isUserAgentEvent, isViewEvent, isSignInEvent, isSignOutEvent, isTrackedEvent, isOrderEvent, isCartEvent, TypeResolver, isPassiveEvent, JsonSchemaAdapter, CORE_SCHEMA_NS, DataPurposes, ValidationError, DATA_PURPOSES, DataClassification, VariableResultStatus, consumeQueryResults, toVariableResultPromise, isVariableResult, extractKey, filterKeys, VariableServerScope, formatVariableResult, VALIDATION_ERROR_SYMBOL, formatValidationErrors, formatVariableKey, isTransientError, isSuccessResult, filterRangeValue } from '@tailjs/types';
+import { isConsentEvent, isResetEvent, isUserAgentEvent, isViewEvent, isSignInEvent, isSignOutEvent, DataUsage, isTrackedEvent, isOrderEvent, isCartEvent, TypeResolver, ValidationError, isPassiveEvent, JsonSchemaAdapter, CORE_SCHEMA_NS, DataPurposes, DataClassification, consumeQueryResults, toVariableResultPromise, VariableResultStatus, isVariableResult, extractKey, filterKeys, VariableServerScope, formatVariableResult, VALIDATION_ERROR_SYMBOL, formatValidationErrors, formatVariableKey, isTransientError, isSuccessResult, filterRangeValue } from '@tailjs/types';
 import { defaultTransport, hash, createTransport, httpEncode, from64u, decodeUtf8, defaultJsonTransport, httpDecode } from '@tailjs/transport';
 
 const INITIALIZE_TRACKER_FUNCTION = ".tail.js.init";
@@ -7,7 +7,7 @@ const CLIENT_SCRIPT_QUERY = "opt";
 const EVENT_HUB_QUERY = "var";
 const CONTEXT_NAV_QUERY = "mnt";
 const SCHEMA_QUERY = "$types";
-const BUILD_REVISION_QUERY = "rev=" + "m6eqfst8" ;
+const BUILD_REVISION_QUERY = "rev=" + "m6ocby49" ;
 const SCOPE_INFO_KEY = "@info";
 const CONSENT_INFO_KEY = "@consent";
 const SESSION_REFERENCE_KEY = "@session_reference";
@@ -78,17 +78,6 @@ const ifDefined = (value, resultOrProperty)=>isFunction(resultOrProperty) ? valu
 const isBoolean = (value)=>typeof value === "boolean";
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
-/**
- * Returns the value as an array following these rules:
- * - If the value is undefined (this does not include `null`), so is the return value.
- * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
- * - If the value is iterable, an array containing its values is returned
- * - Otherwise, an array with the value as its single item is returned.
- */ const array = /*#__PURE__*/ (value, clone = false)=>value == null ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
-        ...value
-    ] : [
-        value
-    ];
 const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
 const isPlainObject = /*#__PURE__*/ (value)=>(value === null || value === void 0 ? void 0 : value.constructor) === Object;
 const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
@@ -175,7 +164,7 @@ const map = (source, projection, start, end)=>{
         stopInvoked$1 = false;
         return mapped;
     }
-    return source != null ? array(project(source, projection, start, end)) : undefined$1;
+    return source != null ? array2(project(source, projection, start, end)) : undefined$1;
 };
 const mapAsync = async (source, projection, start, end)=>{
     projection = wrapProjection(projection);
@@ -185,7 +174,7 @@ const mapAsync = async (source, projection, start, end)=>{
 };
 const concat = (...items)=>{
     let merged;
-    forEach(items.length === 1 ? items[0] : items, (item)=>item != null && (merged !== null && merged !== void 0 ? merged : merged = []).push(...array(item)));
+    forEach(items.length === 1 ? items[0] : items, (item)=>item != null && (merged !== null && merged !== void 0 ? merged : merged = []).push(...array2(item)));
     return merged;
 };
 const forEachArray = (source, action, start, end)=>{
@@ -290,15 +279,6 @@ const forEachAsync = async (source, action, start, end)=>{
     }
     return fromEntries(map(source, selector ? (item, index)=>ifDefined(selector(item, index), 1) : (item)=>ifDefined(item, 1)));
 };
-const merge = (target, ...values)=>(forEach(values, (values)=>forEach(values, ([key, value])=>{
-            if (value != null) {
-                if (isPlainObject(target[key]) && isPlainObject(value)) {
-                    merge(target[key], value);
-                } else {
-                    target[key] = value;
-                }
-            }
-        })), target);
 const unwrap = (value)=>isFunction(value) ? value() : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
 function _define_property$e(obj, key, value) {
@@ -653,6 +633,7 @@ function* iterateEntries(source) {
 }
 let forEach2 = (source, projection, seed, context)=>(forEach2 = ensureForEachImplementations((source, projection, seed, context = source)=>source ? source[forEachSymbol](source, projection, undefined, seed, context) : source == null ? source : undefined))(source, projection, seed, context);
 let map2 = (source, projection, target = [], seed, context = source)=>(map2 = ensureForEachImplementations((source, projection, target = [], seed, context = source)=>!source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context)))(source, projection, target, context, seed);
+/** Creates an array with the parameters that are not false'ish */ const truish2 = (...values)=>filter2(values.length === 1 ? values[0] : values, false);
 let filter2 = (items, filter = true, invert = false)=>map2(items, filter === true ? (item)=>item !== null && item !== void 0 ? item : skip2 : !filter ? (item)=>item || skip2 : filter.has ? (item)=>item == null || filter.has(item) === invert ? skip2 : item : (item, index, prev)=>!filter(item, index, prev) === invert ? item : skip2);
 const group2 = (source, projection, map)=>{
     var _groups, _kv_;
@@ -712,6 +693,11 @@ const distinct2 = (source)=>source instanceof Set ? source : source == null ? so
 const iterable2 = (source)=>source === void 0 ? [] : (source === null || source === void 0 ? void 0 : source[symbolIterator]) && typeof source !== "string" ? source : [
         source
     ];
+const array2 = (source)=>source == null ? source : isArray(source) ? source : source[symbolIterator] && typeof source !== "string" ? [
+        ...source
+    ] : [
+        source
+    ];
 const some2 = (source, predicate)=>forEach2(source, (item, index, prev)=>(predicate ? predicate(item, index, prev, source) : item) ? stopInvoked = true : item) === true;
 const concat2 = (arg0, ...other)=>{
     if (other.length || !isIterable(arg0)) {
@@ -761,8 +747,8 @@ let ensureAssignImplementations = (returnValue)=>{
         Set,
         WeakSet
     ]){
-        prototype[setSymbol] = function(key, value) {
-            value || value === void 0 ? this.has(key) ? false : !!this.add(key) : this.delete(key);
+        prototype[setSymbol] = function(key, value, add = false) {
+            return value || add && value === void 0 ? this.has(key) ? false : !!this.add(key) : this.delete(key);
         };
         prototype[getSymbol] = prototype.has;
         prototype[pushSymbol] = function(keys) {
@@ -803,28 +789,23 @@ let get2 = (source, key, initialize)=>(get2 = ensureAssignImplementations((sourc
         }
         return value;
     }))(source, key, initialize);
-let add2 = (target, key, value)=>(add2 = ensureAssignImplementations((target, key, value)=>(target === null || target === void 0 ? void 0 : target[setSymbol](key, value)) === true))(target, key, value);
-let set2 = (target, key, value)=>(set2 = ensureAssignImplementations((target, key, value)=>{
-        target[setSymbol](key, value);
-        return value;
-    }))(target, key, value);
-const update2 = (target, key, update)=>{
-    let updated = update(get2(target, key));
-    return typeof (updated === null || updated === void 0 ? void 0 : updated.then) === "function" ? updated.then((value)=>set2(target, key, value)) : set2(target, key, updated);
-};
+let add2 = (target, key, value)=>(add2 = ensureAssignImplementations((target, key, value)=>(target === null || target === void 0 ? void 0 : target[setSymbol](key, value, true)) === true))(target, key, value);
 const obj2 = (source, projection)=>{
     const target = {};
     forEach2(source, projection ? (item, index, seed)=>(item = projection(item, index, seed)) && (typeof item !== "symbol" || item !== skip2 && item !== stop2) ? target[item[0]] = item[1] : item : (item)=>item && (typeof item !== "symbol" || item !== skip2 && item !== stop2) ? target[item[0]] = item[1] : item);
     return target;
 };
 const merge2 = (target, sources, options = {})=>{
-    const { deep = true, overwrite = true } = options;
+    if (target == null) {
+        return target;
+    }
+    const { deep = true, overwrite = true, nulls = false } = options;
     for (const source of iterable2(sources)){
         forEach2(source, (kv)=>{
             if (!kv) return;
             const [key, value] = kv;
             const current = target[key];
-            if (current === void 0) {
+            if (nulls ? current == null : current === void 0) {
                 target[key] = value;
                 return;
             }
@@ -838,7 +819,7 @@ const merge2 = (target, sources, options = {})=>{
     return target;
 };
 const isEmptyString = (s)=>s == null || typeof s === "boolean" || s.toString() === "";
-const join2 = (source, arg1, arg2)=>source == null ? source : !isIterable(source) ? isEmptyString(source) ? "" : source === null || source === void 0 ? void 0 : source.toString() : filter2(typeof arg1 === "function" ? map2(source, arg1) : (arg2 = arg1, source), isEmptyString, true).join(arg2 !== null && arg2 !== void 0 ? arg2 : "");
+const join2 = (source, arg1, arg2)=>source == null ? source : !isIterable(source) ? isEmptyString(source) ? "" : source.toString() : filter2(typeof arg1 === "function" ? map2(source, arg1) : (arg2 = arg1, source), isEmptyString, true).join(arg2 !== null && arg2 !== void 0 ? arg2 : "");
 const indent2 = (text, indent = "  ")=>{
     if (text == null) return text;
     let i = 0;
@@ -867,6 +848,21 @@ function _define_property$d(obj, key, value) {
     }
     return obj;
 }
+const mapEventSession = (tracker)=>{
+    var _tracker_clientIp;
+    return tracker.session && {
+        sessionId: tracker.session.id,
+        deviceSessionId: tracker.deviceSessionId,
+        deviceId: tracker.deviceId,
+        userId: tracker.authenticatedUserId,
+        consent: DataUsage.clone(tracker.consent),
+        expiredDeviceSessionId: tracker._expiredDeviceSessionId,
+        clientIp: (_tracker_clientIp = tracker.clientIp) !== null && _tracker_clientIp !== void 0 ? _tracker_clientIp : undefined,
+        anonymousSessionId: tracker.session.anonymousSessionId,
+        collision: tracker._expiredDeviceSessionId ? true : undefined,
+        anonymous: tracker.session.anonymous
+    };
+};
 class TrackerCoreEvents {
     async patch(events, next, tracker) {
         if (!tracker.session || !tracker.sessionId) {
@@ -924,6 +920,9 @@ class TrackerCoreEvents {
         };
         const updatedEvents = [];
         for (let event of events){
+            // Capture the session from the tracker before it potentially is modified by consent changes etc. below.
+            // We want to attribute the event to the session it happened in, and not the session afterwards.
+            let session = mapEventSession(tracker);
             if (isConsentEvent(event)) {
                 await tracker.updateConsent(event.consent);
             } else if (isResetEvent(event)) {
@@ -934,7 +933,8 @@ class TrackerCoreEvents {
                     event = {
                         type: "sign_out",
                         userId: tracker.authenticatedUserId,
-                        timestamp: event.timestamp
+                        timestamp: event.timestamp,
+                        session
                     };
                 }
                 // Start new session
@@ -946,16 +946,6 @@ class TrackerCoreEvents {
                     referenceTimestamp: resetEvent.timestamp
                 });
             }
-            var _tracker_clientIp;
-            const session = {
-                sessionId: tracker.sessionId,
-                deviceSessionId: tracker.deviceSessionId,
-                deviceId: tracker.deviceId,
-                userId: tracker.authenticatedUserId,
-                consent: DataUsage.clone(tracker.consent),
-                expiredDeviceSessionId: tracker._expiredDeviceSessionId,
-                clientIp: (_tracker_clientIp = tracker.clientIp) !== null && _tracker_clientIp !== void 0 ? _tracker_clientIp : undefined
-            };
             updatedEvents.push(event);
             if (tracker.session.isNew) {
                 let isNewSession = true;
@@ -982,7 +972,7 @@ class TrackerCoreEvents {
                         url: tracker.url,
                         sessionNumber: (_tracker_device_sessions = (_tracker_device = tracker.device) === null || _tracker_device === void 0 ? void 0 : _tracker_device.sessions) !== null && _tracker_device_sessions !== void 0 ? _tracker_device_sessions : 1,
                         timeSinceLastSession: tracker.session.previousSession ? tracker.session.firstSeen - tracker.session.previousSession : undefined,
-                        session,
+                        session: mapEventSession(tracker),
                         tags: tracker.env.tags,
                         timestamp: currentTime
                     });
@@ -1014,8 +1004,6 @@ class TrackerCoreEvents {
                 }
             } else if (isSignOutEvent(event)) {
                 sessionPatches.push((data)=>data.userId = undefined);
-            } else if (isConsentEvent(event)) {
-                await tracker.updateConsent(event.consent);
             }
         }
         await flushUpdates();
@@ -1173,13 +1161,13 @@ class CommerceExtension {
 }
 
 function bootstrap({ host, endpoint = "./_t.js", schemas, cookies, extensions, json, encryptionKeys, debugScript, environmentTags, defaultConsent }) {
-    var _map;
+    var _map2;
     return new RequestHandler({
         host,
         schemas,
         endpoint,
         cookies,
-        extensions: (_map = map(extensions, (extension)=>typeof extension === "function" ? extension : async ()=>extension)) !== null && _map !== void 0 ? _map : [],
+        extensions: (_map2 = map2(extensions, (extension)=>typeof extension === "function" ? extension : async ()=>extension)) !== null && _map2 !== void 0 ? _map2 : [],
         json,
         encryptionKeys,
         debugScript,
@@ -1200,8 +1188,10 @@ var index = {
     "classification": "anonymous",
     "purposes": {},
     "name": "urn:tailjs:core",
+    "version": "0.94.3",
     "types": {
         "ScopeInfo": {
+            "version": "0.94.3",
             "abstract": true,
             "readonly": false,
             "visibility": "trusted-write",
@@ -1252,13 +1242,14 @@ var index = {
             }
         },
         "SessionInfo": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "trusted-write",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ScopeInfo"
+                "urn:tailjs:core#ScopeInfo@0.94.3"
             ],
             "properties": {
                 "id": {
@@ -1269,15 +1260,16 @@ var index = {
                     "classification": "anonymous",
                     "purposes": {}
                 },
-                "deviceSessionId": {
+                "deviceId": {
                     "primitive": "string",
+                    "description": "Used to handle race conditions. When multiple session are created from concurrent requests, the winning session contains the device ID.",
+                    "visibility": "trusted-only",
                     "readonly": false,
-                    "visibility": "trusted-write",
                     "classification": "anonymous",
                     "purposes": {},
                     "required": false
                 },
-                "deviceId": {
+                "deviceSessionId": {
                     "primitive": "string",
                     "readonly": false,
                     "visibility": "trusted-write",
@@ -1309,6 +1301,24 @@ var index = {
                     "purposes": {},
                     "required": false
                 },
+                "anonymous": {
+                    "primitive": "boolean",
+                    "description": "The session id anonymous.",
+                    "readonly": false,
+                    "visibility": "trusted-write",
+                    "classification": "anonymous",
+                    "purposes": {},
+                    "required": false
+                },
+                "anonymousSessionId": {
+                    "primitive": "string",
+                    "description": "If the user upgraded their consent, this will be the original anonymous session ID.",
+                    "visibility": "trusted-only",
+                    "readonly": false,
+                    "classification": "anonymous",
+                    "purposes": {},
+                    "required": false
+                },
                 "tabs": {
                     "primitive": "number",
                     "description": "The total number of tabs opened during the session.",
@@ -1321,13 +1331,14 @@ var index = {
             }
         },
         "DeviceInfo": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "trusted-write",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ScopeInfo"
+                "urn:tailjs:core#ScopeInfo@0.94.3"
             ],
             "properties": {
                 "id": {
@@ -1349,17 +1360,19 @@ var index = {
             }
         },
         "UserConsent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#DataUsage"
+                "urn:tailjs:core#DataUsage@0.94.3"
             ],
             "properties": {}
         },
         "DataUsage": {
+            "version": "0.94.3",
             "description": "The combination of the classification and purposes it can be used for determines whether data can be stored or used when compared to an individual's consent.",
             "abstract": false,
             "readonly": false,
@@ -1385,7 +1398,7 @@ var index = {
                     "required": false
                 },
                 "purposes": {
-                    "reference": "urn:tailjs:core#DataPurposes",
+                    "reference": "urn:tailjs:core#DataPurposes@0.94.3",
                     "description": "The purposes the data may be used for.\n\nIf a data point has multiple purposes, consent is only need for one of them for the data to get stored. However, if some logic tries to read the data for a purpose without consent, it is not returned, since it is only stored for other purposes.\n\nPurposes do not restrict anonymous data. If no purposes are explicitly specified it implies \"necessary\".\n\nFor schema definitions see  {@link  SchemaDataUsage }  for inheritance rules.",
                     "readonly": false,
                     "visibility": "public",
@@ -1396,6 +1409,7 @@ var index = {
             }
         },
         "DataPurposes": {
+            "version": "0.94.3",
             "description": "The purposes data can be used for. Non-necessary data requires an individual's consent to be collected and used.\n\nData categorized as \"anonymous\" will be stored regardless of consent since a consent only relates to \"personal data\", and anonymous data is just \"data\".\n\nWhether the two purposes \"personalization\" and \"security\" are considered separate purposes is configurable. The default is to consider \"personalization\" the same as \"functionality\", and \"security\" the same as \"necessary\".",
             "abstract": false,
             "readonly": false,
@@ -1452,13 +1466,14 @@ var index = {
             }
         },
         "TrackedEvent": {
+            "version": "0.94.3",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged"
+                "urn:tailjs:core#Tagged@0.94.3"
             ],
             "system": "event",
             "properties": {
@@ -1535,7 +1550,7 @@ var index = {
                     "required": false
                 },
                 "metadata": {
-                    "reference": "urn:tailjs:core#EventMetadata",
+                    "reference": "urn:tailjs:core#EventMetadata@0.94.3",
                     "description": "These properties are used to track the state of the event as it gets collected, and is not persisted.",
                     "readonly": false,
                     "visibility": "public",
@@ -1544,7 +1559,7 @@ var index = {
                     "required": false
                 },
                 "session": {
-                    "reference": "urn:tailjs:core#Session",
+                    "reference": "urn:tailjs:core#Session@0.94.3",
                     "description": "The session associated with the event.",
                     "readonly": false,
                     "visibility": "public",
@@ -1555,6 +1570,7 @@ var index = {
             }
         },
         "Tagged": {
+            "version": "0.94.3",
             "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details.",
             "abstract": false,
             "readonly": false,
@@ -1565,7 +1581,7 @@ var index = {
             "properties": {
                 "tags": {
                     "item": {
-                        "reference": "urn:tailjs:core#Tag"
+                        "reference": "urn:tailjs:core#Tag@0.94.3"
                     },
                     "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources.",
                     "readonly": false,
@@ -1577,6 +1593,7 @@ var index = {
             }
         },
         "Tag": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -1614,6 +1631,7 @@ var index = {
             }
         },
         "EventMetadata": {
+            "version": "0.94.3",
             "description": "These properties are used to track the state of events as they get collected, and not stored.",
             "abstract": false,
             "readonly": false,
@@ -1652,6 +1670,7 @@ var index = {
             }
         },
         "Session": {
+            "version": "0.94.3",
             "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
             "abstract": false,
             "readonly": false,
@@ -1660,7 +1679,7 @@ var index = {
             "purposes": {},
             "extends": [],
             "properties": {
-                "originalSessionId": {
+                "anonymousSessionId": {
                     "primitive": "string",
                     "description": "If a non-anonymous session started as an anonymous session, this is the anonymous session ID. Since an anonymous session is not necessarily unique to a device, processing logic may decide whether and how to stitch the anonymous and non-anonymous session together.",
                     "readonly": false,
@@ -1690,10 +1709,13 @@ var index = {
                 "deviceSessionId": {
                     "primitive": "string",
                     "description": "The unique ID of the user's device session ID. A device session starts when the user enters the site like a normal server session, but unlike server sessions, device sessions stay active as long as the user has tabs related to the site open. This means that device sessions survives when the user puts their computer to sleep, or leaves tabs open in the background on their phone.\n\nAfter the user has completely left the site, device sessions time out in the same way as server sessions.",
+                    "classification": "indirect",
+                    "purposes": {
+                        "performance": true,
+                        "functionality": true
+                    },
                     "readonly": false,
                     "visibility": "public",
-                    "classification": "anonymous",
-                    "purposes": {},
                     "required": false
                 },
                 "userId": {
@@ -1706,7 +1728,7 @@ var index = {
                     "required": false
                 },
                 "consent": {
-                    "reference": "urn:tailjs:core#UserConsent",
+                    "reference": "urn:tailjs:core#UserConsent@0.94.3",
                     "description": "The user's consent choices.  {@link  DataClassification.Anonymous  }  means the session is cookie-less.",
                     "readonly": false,
                     "visibility": "public",
@@ -1723,30 +1745,52 @@ var index = {
                     "purposes": {},
                     "required": false
                 },
-                "expiredDeviceSessionId": {
-                    "primitive": "string",
-                    "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session).",
+                "collision": {
+                    "primitive": "boolean",
+                    "description": "Indicates that multiple clients are active in the same anonymous session.",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
                     "purposes": {},
                     "required": false
+                },
+                "anonymous": {
+                    "primitive": "boolean",
+                    "description": "Whether the session is using anonymous tracking.",
+                    "readonly": false,
+                    "visibility": "public",
+                    "classification": "anonymous",
+                    "purposes": {},
+                    "required": false
+                },
+                "expiredDeviceSessionId": {
+                    "primitive": "string",
+                    "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This may happen when background tabs are suspended.\n\nPost-processing can decide how to tie them together when the same tab participates in two sessions (which goes against the definition of a device session).",
+                    "classification": "indirect",
+                    "purposes": {
+                        "performance": true,
+                        "functionality": true
+                    },
+                    "readonly": false,
+                    "visibility": "public",
+                    "required": false
                 }
             }
         },
         "UserInteractionEvent": {
+            "version": "0.94.3",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -1765,7 +1809,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -1774,7 +1818,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -1783,7 +1827,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -1792,7 +1836,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -1803,18 +1847,19 @@ var index = {
             }
         },
         "ActivatedComponent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Component"
+                "urn:tailjs:core#Component@0.94.3"
             ],
             "properties": {
                 "content": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedContent"
+                        "reference": "urn:tailjs:core#ActivatedContent@0.94.3"
                     },
                     "description": "The activated content in the component.",
                     "readonly": false,
@@ -1833,7 +1878,7 @@ var index = {
                     "required": false
                 },
                 "rect": {
-                    "reference": "urn:tailjs:core#Rectangle",
+                    "reference": "urn:tailjs:core#Rectangle@0.94.3",
                     "description": "The size and position of the component when it was activated relative to the document top (not viewport).",
                     "readonly": false,
                     "visibility": "public",
@@ -1844,15 +1889,16 @@ var index = {
             }
         },
         "Component": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged",
-                "urn:tailjs:core#ExternalReference",
-                "urn:tailjs:core#Personalizable"
+                "urn:tailjs:core#Tagged@0.94.3",
+                "urn:tailjs:core#ExternalReference@0.94.3",
+                "urn:tailjs:core#Personalizable@0.94.3"
             ],
             "properties": {
                 "typeName": {
@@ -1892,7 +1938,7 @@ var index = {
                     "required": false
                 },
                 "dataSource": {
-                    "reference": "urn:tailjs:core#ExternalReference",
+                    "reference": "urn:tailjs:core#ExternalReference@0.94.3",
                     "description": "Optional references to the content that was used to render the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -1903,6 +1949,7 @@ var index = {
             }
         },
         "ExternalReference": {
+            "version": "0.94.3",
             "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenet is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.",
             "abstract": false,
             "readonly": false,
@@ -1995,6 +2042,7 @@ var index = {
             }
         },
         "Personalizable": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2004,7 +2052,7 @@ var index = {
             "properties": {
                 "personalization": {
                     "item": {
-                        "reference": "urn:tailjs:core#Personalization"
+                        "reference": "urn:tailjs:core#Personalization@0.94.3"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -2015,17 +2063,18 @@ var index = {
             }
         },
         "Personalization": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged"
+                "urn:tailjs:core#Tagged@0.94.3"
             ],
             "properties": {
                 "source": {
-                    "reference": "urn:tailjs:core#ExternalReference",
+                    "reference": "urn:tailjs:core#ExternalReference@0.94.3",
                     "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s.",
                     "readonly": false,
                     "visibility": "public",
@@ -2035,7 +2084,7 @@ var index = {
                 },
                 "variables": {
                     "item": {
-                        "reference": "urn:tailjs:core#PersonalizationVariable"
+                        "reference": "urn:tailjs:core#PersonalizationVariable@0.94.3"
                     },
                     "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms.",
                     "readonly": false,
@@ -2046,7 +2095,7 @@ var index = {
                 },
                 "variants": {
                     "item": {
-                        "reference": "urn:tailjs:core#PersonalizationVariant"
+                        "reference": "urn:tailjs:core#PersonalizationVariant@0.94.3"
                     },
                     "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources.",
                     "readonly": false,
@@ -2058,13 +2107,14 @@ var index = {
             }
         },
         "PersonalizationVariable": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference"
+                "urn:tailjs:core#ExternalReference@0.94.3"
             ],
             "properties": {
                 "value": {
@@ -2078,18 +2128,19 @@ var index = {
             }
         },
         "PersonalizationVariant": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference"
+                "urn:tailjs:core#ExternalReference@0.94.3"
             ],
             "properties": {
                 "sources": {
                     "item": {
-                        "reference": "urn:tailjs:core#PersonalizationSource"
+                        "reference": "urn:tailjs:core#PersonalizationSource@0.94.3"
                     },
                     "description": "The aspects of the component or page the variant changed. There can multiple sources, e.g. a variant may both change the size of a component and change the content at the same time.",
                     "readonly": false,
@@ -2128,13 +2179,14 @@ var index = {
             }
         },
         "PersonalizationSource": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference"
+                "urn:tailjs:core#ExternalReference@0.94.3"
             ],
             "properties": {
                 "relatedVariable": {
@@ -2158,17 +2210,18 @@ var index = {
             }
         },
         "ActivatedContent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Content"
+                "urn:tailjs:core#Content@0.94.3"
             ],
             "properties": {
                 "rect": {
-                    "reference": "urn:tailjs:core#Rectangle",
+                    "reference": "urn:tailjs:core#Rectangle@0.94.3",
                     "description": "The current size and position of the element representing the content relative to the document top (not viewport).",
                     "readonly": false,
                     "visibility": "public",
@@ -2179,18 +2232,19 @@ var index = {
             }
         },
         "Content": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference",
-                "urn:tailjs:core#Tagged"
+                "urn:tailjs:core#ExternalReference@0.94.3",
+                "urn:tailjs:core#Tagged@0.94.3"
             ],
             "properties": {
                 "commerce": {
-                    "reference": "urn:tailjs:core#CommerceData",
+                    "reference": "urn:tailjs:core#CommerceData@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -2200,6 +2254,7 @@ var index = {
             }
         },
         "CommerceData": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2236,7 +2291,7 @@ var index = {
                     "required": false
                 },
                 "variation": {
-                    "reference": "urn:tailjs:core#ExternalReference",
+                    "reference": "urn:tailjs:core#ExternalReference@0.94.3",
                     "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple).",
                     "readonly": false,
                     "visibility": "public",
@@ -2256,18 +2311,20 @@ var index = {
             }
         },
         "Rectangle": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Position",
-                "urn:tailjs:core#Size"
+                "urn:tailjs:core#Position@0.94.3",
+                "urn:tailjs:core#Size@0.94.3"
             ],
             "properties": {}
         },
         "Position": {
+            "version": "0.94.3",
             "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio].",
             "abstract": false,
             "readonly": false,
@@ -2295,6 +2352,7 @@ var index = {
             }
         },
         "Size": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2321,6 +2379,7 @@ var index = {
             }
         },
         "ViewTimingData": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2367,6 +2426,7 @@ var index = {
             }
         },
         "ScreenPosition": {
+            "version": "0.94.3",
             "description": "Represents a position where the units are percentages relative to an element or page.",
             "abstract": false,
             "readonly": false,
@@ -2421,13 +2481,14 @@ var index = {
             }
         },
         "Viewport": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Rectangle"
+                "urn:tailjs:core#Rectangle@0.94.3"
             ],
             "properties": {
                 "totalWidth": {
@@ -2449,6 +2510,7 @@ var index = {
             }
         },
         "ElementInfo": {
+            "version": "0.94.3",
             "description": "Basic information about an HTML element.",
             "abstract": false,
             "readonly": false,
@@ -2485,7 +2547,7 @@ var index = {
                     "required": false
                 },
                 "rect": {
-                    "reference": "urn:tailjs:core#Rectangle",
+                    "reference": "urn:tailjs:core#Rectangle@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -2495,13 +2557,14 @@ var index = {
             }
         },
         "FormEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -2558,7 +2621,7 @@ var index = {
                         "required": true
                     },
                     "value": {
-                        "reference": "urn:tailjs:core#FormField"
+                        "reference": "urn:tailjs:core#FormField@0.94.3"
                     },
                     "description": "All fields in the form (as detected).",
                     "readonly": false,
@@ -2579,6 +2642,7 @@ var index = {
             }
         },
         "FormField": {
+            "version": "0.94.3",
             "description": "A form field value in a  {@link  FormEvent } .",
             "abstract": false,
             "readonly": false,
@@ -2688,13 +2752,14 @@ var index = {
             }
         },
         "ComponentClickEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -2712,13 +2777,14 @@ var index = {
             }
         },
         "ComponentClickIntentEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -2735,7 +2801,7 @@ var index = {
                 },
                 "clicks": {
                     "item": {
-                        "reference": "urn:tailjs:core#Position"
+                        "reference": "urn:tailjs:core#Position@0.94.3"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -2745,7 +2811,7 @@ var index = {
                 },
                 "clickables": {
                     "item": {
-                        "reference": "urn:tailjs:core#ComponentElementInfo"
+                        "reference": "urn:tailjs:core#ComponentElementInfo@0.94.3"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -2756,17 +2822,18 @@ var index = {
             }
         },
         "ComponentElementInfo": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ElementInfo"
+                "urn:tailjs:core#ElementInfo@0.94.3"
             ],
             "properties": {
                 "component": {
-                    "reference": "urn:tailjs:core#Component",
+                    "reference": "urn:tailjs:core#Component@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -2776,13 +2843,14 @@ var index = {
             }
         },
         "ComponentViewEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -2800,13 +2868,14 @@ var index = {
             }
         },
         "NavigationEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -2876,7 +2945,7 @@ var index = {
                     "purposes": {}
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain",
+                    "reference": "urn:tailjs:core#Domain@0.94.3",
                     "description": "The domain of the destination",
                     "readonly": false,
                     "visibility": "public",
@@ -2887,6 +2956,7 @@ var index = {
             }
         },
         "Domain": {
+            "version": "0.94.3",
             "description": "Represents a domain name, e.g. https://www.foo.co.uk",
             "abstract": false,
             "readonly": false,
@@ -2914,13 +2984,14 @@ var index = {
             }
         },
         "ScrollEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -2936,7 +3007,7 @@ var index = {
                     "purposes": {}
                 },
                 "offset": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The offset relative to the page size (100 % is bottom, 0 % is top)",
                     "readonly": false,
                     "visibility": "public",
@@ -2964,13 +3035,14 @@ var index = {
             }
         },
         "SearchEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -2996,7 +3068,7 @@ var index = {
                 },
                 "filters": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchFilter"
+                        "reference": "urn:tailjs:core#SearchFilter@0.94.3"
                     },
                     "description": "Any filters that were applied to the search in addition to the query. Filters are assumed combined using \"and\" semantics unless they are for the same field in which case it means that the field must match at least one of the values.\n\nFor example \"age>=10 AND age<=20 AND (type=horse OR type=cat)\"",
                     "readonly": false,
@@ -3016,7 +3088,7 @@ var index = {
                 },
                 "topHits": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchResult"
+                        "reference": "urn:tailjs:core#SearchResult@0.94.3"
                     },
                     "description": "If some or all of the results are relevant for analytics or AI, they can be included here.",
                     "readonly": false,
@@ -3028,13 +3100,14 @@ var index = {
             }
         },
         "SearchFilter": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference"
+                "urn:tailjs:core#ExternalReference@0.94.3"
             ],
             "properties": {
                 "group": {
@@ -3066,7 +3139,7 @@ var index = {
                     "required": false
                 },
                 "reference": {
-                    "reference": "urn:tailjs:core#ExternalReference",
+                    "reference": "urn:tailjs:core#ExternalReference@0.94.3",
                     "description": "If the value is a defined entity such as a product category use this instead of  {@link  value } .",
                     "readonly": false,
                     "visibility": "public",
@@ -3094,13 +3167,14 @@ var index = {
             }
         },
         "SearchResult": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference"
+                "urn:tailjs:core#ExternalReference@0.94.3"
             ],
             "properties": {
                 "rank": {
@@ -3114,18 +3188,19 @@ var index = {
             }
         },
         "SearchFieldReferenceFilter": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference"
+                "urn:tailjs:core#ExternalReference@0.94.3"
             ],
             "properties": {
                 "references": {
                     "item": {
-                        "reference": "urn:tailjs:core#ExternalReference"
+                        "reference": "urn:tailjs:core#ExternalReference@0.94.3"
                     },
                     "description": "A list of entities where the field must match at least one of them (or none depending on the comparison).",
                     "readonly": false,
@@ -3149,13 +3224,14 @@ var index = {
             }
         },
         "SessionStartedEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -3199,6 +3275,7 @@ var index = {
             }
         },
         "UserAgentLanguage": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -3254,14 +3331,15 @@ var index = {
             }
         },
         "UserAgentEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent",
-                "urn:tailjs:core#SessionScoped"
+                "urn:tailjs:core#TrackedEvent@0.94.3",
+                "urn:tailjs:core#SessionScoped@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -3310,7 +3388,7 @@ var index = {
                 },
                 "languages": {
                     "item": {
-                        "reference": "urn:tailjs:core#UserAgentLanguage"
+                        "reference": "urn:tailjs:core#UserAgentLanguage@0.94.3"
                     },
                     "description": "The user's language preferences as configured in the user's device.",
                     "readonly": false,
@@ -3320,7 +3398,7 @@ var index = {
                     "required": false
                 },
                 "timezone": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type",
+                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -3328,7 +3406,7 @@ var index = {
                     "required": true
                 },
                 "screen": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type",
+                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.94.3",
                     "description": "Screen",
                     "readonly": false,
                     "visibility": "public",
@@ -3339,6 +3417,7 @@ var index = {
             }
         },
         "SessionScoped": {
+            "version": "0.94.3",
             "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened.",
             "abstract": false,
             "readonly": false,
@@ -3349,6 +3428,7 @@ var index = {
             "properties": {}
         },
         "ClickIds": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -3399,13 +3479,14 @@ var index = {
             }
         },
         "ViewEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -3466,7 +3547,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "For how long the view was active. This is set via patches",
                     "readonly": false,
                     "visibility": "public",
@@ -3484,7 +3565,7 @@ var index = {
                     "required": false
                 },
                 "utm": {
-                    "reference": "urn:tailjs:core#ViewEvent_utm_type",
+                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.94.3",
                     "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
                     "readonly": false,
                     "visibility": "public",
@@ -3510,7 +3591,7 @@ var index = {
                     "required": false
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain",
+                    "reference": "urn:tailjs:core#Domain@0.94.3",
                     "description": "The domain part of the href, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -3592,7 +3673,7 @@ var index = {
                     "required": false
                 },
                 "externalReferrer": {
-                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type",
+                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.94.3",
                     "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
                     "readonly": false,
                     "visibility": "public",
@@ -3601,7 +3682,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened.",
                     "readonly": false,
                     "visibility": "public",
@@ -3619,7 +3700,7 @@ var index = {
                     "required": false
                 },
                 "definition": {
-                    "reference": "urn:tailjs:core#View",
+                    "reference": "urn:tailjs:core#View@0.94.3",
                     "description": "The primary content used to generate the view including the personalization that led to the decision, if any. If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL on the website, the view definition may follow from a separate patch event.",
                     "readonly": false,
                     "visibility": "public",
@@ -3630,14 +3711,15 @@ var index = {
             }
         },
         "View": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Content",
-                "urn:tailjs:core#Personalizable"
+                "urn:tailjs:core#Content@0.94.3",
+                "urn:tailjs:core#Personalizable@0.94.3"
             ],
             "properties": {
                 "preview": {
@@ -3652,14 +3734,15 @@ var index = {
             }
         },
         "SessionLocationEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent",
-                "urn:tailjs:core#SessionScoped"
+                "urn:tailjs:core#TrackedEvent@0.94.3",
+                "urn:tailjs:core#SessionScoped@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -3717,7 +3800,7 @@ var index = {
                     "required": false
                 },
                 "continent": {
-                    "reference": "urn:tailjs:core#GeoEntity",
+                    "reference": "urn:tailjs:core#GeoEntity@0.94.3",
                     "description": "The continent is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -3728,7 +3811,7 @@ var index = {
                     "required": false
                 },
                 "country": {
-                    "reference": "urn:tailjs:core#GeoEntity",
+                    "reference": "urn:tailjs:core#GeoEntity@0.94.3",
                     "description": "The country is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -3739,7 +3822,7 @@ var index = {
                     "required": false
                 },
                 "subdivision": {
-                    "reference": "urn:tailjs:core#GeoEntity",
+                    "reference": "urn:tailjs:core#GeoEntity@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -3749,7 +3832,7 @@ var index = {
                     "required": false
                 },
                 "city": {
-                    "reference": "urn:tailjs:core#GeoEntity",
+                    "reference": "urn:tailjs:core#GeoEntity@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -3761,6 +3844,7 @@ var index = {
             }
         },
         "GeoEntity": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -3803,13 +3887,14 @@ var index = {
             }
         },
         "AnchorNavigationEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -3836,13 +3921,14 @@ var index = {
             }
         },
         "ConsentEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -3858,7 +3944,7 @@ var index = {
                     "purposes": {}
                 },
                 "consent": {
-                    "reference": "urn:tailjs:core#UserConsent",
+                    "reference": "urn:tailjs:core#UserConsent@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -3868,26 +3954,28 @@ var index = {
             }
         },
         "CommerceEvent": {
+            "version": "0.94.3",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {}
         },
         "CartUpdatedEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent",
-                "urn:tailjs:core#CommerceEvent",
-                "urn:tailjs:core#CartEventData"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3",
+                "urn:tailjs:core#CommerceEvent@0.94.3",
+                "urn:tailjs:core#CartEventData@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -3905,14 +3993,15 @@ var index = {
             }
         },
         "CartEventData": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#OrderQuantity",
-                "urn:tailjs:core#ExternalUse"
+                "urn:tailjs:core#OrderQuantity@0.94.3",
+                "urn:tailjs:core#ExternalUse@0.94.3"
             ],
             "properties": {
                 "action": {
@@ -3933,13 +4022,14 @@ var index = {
             }
         },
         "OrderQuantity": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceData"
+                "urn:tailjs:core#CommerceData@0.94.3"
             ],
             "properties": {
                 "units": {
@@ -3952,7 +4042,7 @@ var index = {
                     "required": false
                 },
                 "item": {
-                    "reference": "urn:tailjs:core#ExternalReference",
+                    "reference": "urn:tailjs:core#ExternalReference@0.94.3",
                     "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context.",
                     "readonly": false,
                     "visibility": "public",
@@ -3963,6 +4053,7 @@ var index = {
             }
         },
         "ExternalUse": {
+            "version": "0.94.3",
             "description": "Types and interfaces extending this marker interface directly must have a concrete type that can be instantiated in code-generation scenarios because they are referenced directly outside of the types package.",
             "abstract": false,
             "readonly": false,
@@ -3973,14 +4064,15 @@ var index = {
             "properties": {}
         },
         "OrderEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceEvent",
-                "urn:tailjs:core#Order"
+                "urn:tailjs:core#CommerceEvent@0.94.3",
+                "urn:tailjs:core#Order@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -3998,13 +4090,14 @@ var index = {
             }
         },
         "Order": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged"
+                "urn:tailjs:core#Tagged@0.94.3"
             ],
             "properties": {
                 "internalId": {
@@ -4027,7 +4120,7 @@ var index = {
                 },
                 "items": {
                     "item": {
-                        "reference": "urn:tailjs:core#OrderLine"
+                        "reference": "urn:tailjs:core#OrderLine@0.94.3"
                     },
                     "description": "Optionally, all the items in the order at the time the order was made.",
                     "readonly": false,
@@ -4097,14 +4190,15 @@ var index = {
             }
         },
         "OrderLine": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#OrderQuantity",
-                "urn:tailjs:core#Tagged"
+                "urn:tailjs:core#OrderQuantity@0.94.3",
+                "urn:tailjs:core#Tagged@0.94.3"
             ],
             "properties": {
                 "lineId": {
@@ -4139,14 +4233,15 @@ var index = {
             }
         },
         "CartAbandonedEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceEvent",
-                "urn:tailjs:core#Order"
+                "urn:tailjs:core#CommerceEvent@0.94.3",
+                "urn:tailjs:core#Order@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4173,13 +4268,14 @@ var index = {
             }
         },
         "OrderStatusEvent": {
+            "version": "0.94.3",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {
                 "order": {
@@ -4194,13 +4290,14 @@ var index = {
             }
         },
         "OrderConfirmedEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4218,13 +4315,14 @@ var index = {
             }
         },
         "OrderCancelledEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4251,13 +4349,14 @@ var index = {
             }
         },
         "OrderCompletedEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4275,13 +4374,14 @@ var index = {
             }
         },
         "PaymentEvent": {
+            "version": "0.94.3",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceEvent"
+                "urn:tailjs:core#CommerceEvent@0.94.3"
             ],
             "properties": {
                 "orderReference": {
@@ -4324,13 +4424,14 @@ var index = {
             }
         },
         "PaymentAcceptedEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#PaymentEvent"
+                "urn:tailjs:core#PaymentEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4357,13 +4458,14 @@ var index = {
             }
         },
         "PaymentRejectedEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#PaymentEvent"
+                "urn:tailjs:core#PaymentEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4381,24 +4483,26 @@ var index = {
             }
         },
         "AuthenticationEvent": {
+            "version": "0.94.3",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {}
         },
         "SignInEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#AuthenticationEvent"
+                "urn:tailjs:core#AuthenticationEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4434,13 +4538,14 @@ var index = {
             }
         },
         "SignOutEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#AuthenticationEvent"
+                "urn:tailjs:core#AuthenticationEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4467,17 +4572,19 @@ var index = {
             }
         },
         "SystemEvent": {
+            "version": "0.94.3",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "properties": {}
         },
         "ImpressionTextStats": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -4551,13 +4658,14 @@ var index = {
             }
         },
         "ImpressionEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent"
+                "urn:tailjs:core#UserInteractionEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4582,7 +4690,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "For how long the component was visible. This counter starts after an impression has been detected.",
                     "readonly": false,
                     "visibility": "public",
@@ -4591,7 +4699,7 @@ var index = {
                     "required": false
                 },
                 "regions": {
-                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type",
+                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.94.3",
                     "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
                     "readonly": false,
                     "visibility": "public",
@@ -4600,7 +4708,7 @@ var index = {
                     "required": false
                 },
                 "text": {
-                    "reference": "urn:tailjs:core#ImpressionTextStats",
+                    "reference": "urn:tailjs:core#ImpressionTextStats@0.94.3",
                     "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all.",
                     "readonly": false,
                     "visibility": "public",
@@ -4631,6 +4739,7 @@ var index = {
             }
         },
         "ImpressionRegionStats": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -4676,14 +4785,15 @@ var index = {
             }
         },
         "ResetEvent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent",
-                "urn:tailjs:core#SystemEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3",
+                "urn:tailjs:core#SystemEvent@0.94.3"
             ],
             "properties": {
                 "type": {
@@ -4719,17 +4829,18 @@ var index = {
             }
         },
         "ConfiguredComponent": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Component"
+                "urn:tailjs:core#Component@0.94.3"
             ],
             "properties": {
                 "track": {
-                    "reference": "urn:tailjs:core#TrackingSettings",
+                    "reference": "urn:tailjs:core#TrackingSettings@0.94.3",
                     "description": "Settings for how the component will be tracked.\n\nThese settings are not tracked, that is, this property is stripped from the data sent to the server.",
                     "readonly": false,
                     "visibility": "public",
@@ -4740,6 +4851,7 @@ var index = {
             }
         },
         "TrackingSettings": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -4795,6 +4907,7 @@ var index = {
             }
         },
         "UserAgentEvent_timezone_type": {
+            "version": "0.94.3",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -4822,6 +4935,7 @@ var index = {
             }
         },
         "UserAgentEvent_screen_type": {
+            "version": "0.94.3",
             "description": "Screen",
             "abstract": false,
             "readonly": false,
@@ -4869,6 +4983,7 @@ var index = {
             }
         },
         "ViewEvent_utm_type": {
+            "version": "0.94.3",
             "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
             "abstract": false,
             "readonly": false,
@@ -4920,6 +5035,7 @@ var index = {
             }
         },
         "ViewEvent_externalReferrer_type": {
+            "version": "0.94.3",
             "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
             "abstract": false,
             "readonly": false,
@@ -4937,7 +5053,7 @@ var index = {
                     "required": false
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain",
+                    "reference": "urn:tailjs:core#Domain@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -4947,6 +5063,7 @@ var index = {
             }
         },
         "ImpressionEvent_regions_type": {
+            "version": "0.94.3",
             "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
             "abstract": false,
             "readonly": false,
@@ -4956,7 +5073,7 @@ var index = {
             "extends": [],
             "properties": {
                 "top": {
-                    "reference": "urn:tailjs:core#ImpressionRegionStats",
+                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.94.3",
                     "description": "The top 25 % of the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -4965,7 +5082,7 @@ var index = {
                     "required": false
                 },
                 "middle": {
-                    "reference": "urn:tailjs:core#ImpressionRegionStats",
+                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.94.3",
                     "description": "The middle 25 - 75 % of the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -4974,7 +5091,7 @@ var index = {
                     "required": false
                 },
                 "bottom": {
-                    "reference": "urn:tailjs:core#ImpressionRegionStats",
+                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.94.3",
                     "description": "The bottom 25 % of the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -4985,6 +5102,7 @@ var index = {
             }
         },
         "FormEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#FormEvent.",
             "abstract": false,
             "readonly": false,
@@ -4992,7 +5110,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5009,7 +5127,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5028,7 +5146,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5037,7 +5155,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5046,7 +5164,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5055,7 +5173,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5105,7 +5223,7 @@ var index = {
                         "required": true
                     },
                     "value": {
-                        "reference": "urn:tailjs:core#FormField"
+                        "reference": "urn:tailjs:core#FormField@0.94.3"
                     },
                     "description": "All fields in the form (as detected).",
                     "readonly": false,
@@ -5126,6 +5244,7 @@ var index = {
             }
         },
         "ComponentClickEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#ComponentClickEvent.",
             "abstract": false,
             "readonly": false,
@@ -5133,7 +5252,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5150,7 +5269,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5169,7 +5288,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5178,7 +5297,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5187,7 +5306,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5196,7 +5315,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5207,6 +5326,7 @@ var index = {
             }
         },
         "ComponentClickIntentEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#ComponentClickIntentEvent.",
             "abstract": false,
             "readonly": false,
@@ -5214,7 +5334,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5231,7 +5351,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5250,7 +5370,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5259,7 +5379,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5268,7 +5388,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5277,7 +5397,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5287,7 +5407,7 @@ var index = {
                 },
                 "clicks": {
                     "item": {
-                        "reference": "urn:tailjs:core#Position"
+                        "reference": "urn:tailjs:core#Position@0.94.3"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -5297,7 +5417,7 @@ var index = {
                 },
                 "clickables": {
                     "item": {
-                        "reference": "urn:tailjs:core#ComponentElementInfo"
+                        "reference": "urn:tailjs:core#ComponentElementInfo@0.94.3"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -5308,6 +5428,7 @@ var index = {
             }
         },
         "ComponentViewEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#ComponentViewEvent.",
             "abstract": false,
             "readonly": false,
@@ -5315,7 +5436,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5332,7 +5453,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5351,7 +5472,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5360,7 +5481,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5369,7 +5490,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5378,7 +5499,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5389,6 +5510,7 @@ var index = {
             }
         },
         "NavigationEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#NavigationEvent.",
             "abstract": false,
             "readonly": false,
@@ -5396,7 +5518,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5413,7 +5535,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5432,7 +5554,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5441,7 +5563,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5450,7 +5572,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5459,7 +5581,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5513,7 +5635,7 @@ var index = {
                     "purposes": {}
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain",
+                    "reference": "urn:tailjs:core#Domain@0.94.3",
                     "description": "The domain of the destination",
                     "readonly": false,
                     "visibility": "public",
@@ -5524,6 +5646,7 @@ var index = {
             }
         },
         "ScrollEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#ScrollEvent.",
             "abstract": false,
             "readonly": false,
@@ -5531,7 +5654,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5548,7 +5671,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5567,7 +5690,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5576,7 +5699,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5585,7 +5708,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5594,7 +5717,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5603,7 +5726,7 @@ var index = {
                     "required": false
                 },
                 "offset": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The offset relative to the page size (100 % is bottom, 0 % is top)",
                     "readonly": false,
                     "visibility": "public",
@@ -5631,6 +5754,7 @@ var index = {
             }
         },
         "SearchEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#SearchEvent.",
             "abstract": false,
             "readonly": false,
@@ -5638,7 +5762,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5655,7 +5779,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5674,7 +5798,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5683,7 +5807,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5692,7 +5816,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5701,7 +5825,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5720,7 +5844,7 @@ var index = {
                 },
                 "filters": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchFilter"
+                        "reference": "urn:tailjs:core#SearchFilter@0.94.3"
                     },
                     "description": "Any filters that were applied to the search in addition to the query. Filters are assumed combined using \"and\" semantics unless they are for the same field in which case it means that the field must match at least one of the values.\n\nFor example \"age>=10 AND age<=20 AND (type=horse OR type=cat)\"",
                     "readonly": false,
@@ -5740,7 +5864,7 @@ var index = {
                 },
                 "topHits": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchResult"
+                        "reference": "urn:tailjs:core#SearchResult@0.94.3"
                     },
                     "description": "If some or all of the results are relevant for analytics or AI, they can be included here.",
                     "readonly": false,
@@ -5752,6 +5876,7 @@ var index = {
             }
         },
         "SessionStartedEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#SessionStartedEvent.",
             "abstract": false,
             "readonly": false,
@@ -5759,7 +5884,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5803,6 +5928,7 @@ var index = {
             }
         },
         "UserAgentEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#UserAgentEvent.",
             "abstract": false,
             "readonly": false,
@@ -5810,7 +5936,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5859,7 +5985,7 @@ var index = {
                 },
                 "languages": {
                     "item": {
-                        "reference": "urn:tailjs:core#UserAgentLanguage"
+                        "reference": "urn:tailjs:core#UserAgentLanguage@0.94.3"
                     },
                     "description": "The user's language preferences as configured in the user's device.",
                     "readonly": false,
@@ -5869,7 +5995,7 @@ var index = {
                     "required": false
                 },
                 "timezone": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type",
+                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -5877,7 +6003,7 @@ var index = {
                     "required": false
                 },
                 "screen": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type",
+                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.94.3",
                     "description": "Screen",
                     "readonly": false,
                     "visibility": "public",
@@ -5888,6 +6014,7 @@ var index = {
             }
         },
         "ViewEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#ViewEvent.",
             "abstract": false,
             "readonly": false,
@@ -5895,7 +6022,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -5947,7 +6074,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "For how long the view was active. This is set via patches",
                     "readonly": false,
                     "visibility": "public",
@@ -5965,7 +6092,7 @@ var index = {
                     "required": false
                 },
                 "utm": {
-                    "reference": "urn:tailjs:core#ViewEvent_utm_type",
+                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.94.3",
                     "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
                     "readonly": false,
                     "visibility": "public",
@@ -5991,7 +6118,7 @@ var index = {
                     "required": false
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain",
+                    "reference": "urn:tailjs:core#Domain@0.94.3",
                     "description": "The domain part of the href, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6073,7 +6200,7 @@ var index = {
                     "required": false
                 },
                 "externalReferrer": {
-                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type",
+                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.94.3",
                     "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
                     "readonly": false,
                     "visibility": "public",
@@ -6082,7 +6209,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6100,7 +6227,7 @@ var index = {
                     "required": false
                 },
                 "definition": {
-                    "reference": "urn:tailjs:core#View",
+                    "reference": "urn:tailjs:core#View@0.94.3",
                     "description": "The primary content used to generate the view including the personalization that led to the decision, if any. If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL on the website, the view definition may follow from a separate patch event.",
                     "readonly": false,
                     "visibility": "public",
@@ -6111,6 +6238,7 @@ var index = {
             }
         },
         "SessionLocationEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#SessionLocationEvent.",
             "abstract": false,
             "readonly": false,
@@ -6118,7 +6246,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6176,7 +6304,7 @@ var index = {
                     "required": false
                 },
                 "continent": {
-                    "reference": "urn:tailjs:core#GeoEntity",
+                    "reference": "urn:tailjs:core#GeoEntity@0.94.3",
                     "description": "The continent is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -6187,7 +6315,7 @@ var index = {
                     "required": false
                 },
                 "country": {
-                    "reference": "urn:tailjs:core#GeoEntity",
+                    "reference": "urn:tailjs:core#GeoEntity@0.94.3",
                     "description": "The country is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -6198,7 +6326,7 @@ var index = {
                     "required": false
                 },
                 "subdivision": {
-                    "reference": "urn:tailjs:core#GeoEntity",
+                    "reference": "urn:tailjs:core#GeoEntity@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -6208,7 +6336,7 @@ var index = {
                     "required": false
                 },
                 "city": {
-                    "reference": "urn:tailjs:core#GeoEntity",
+                    "reference": "urn:tailjs:core#GeoEntity@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -6220,6 +6348,7 @@ var index = {
             }
         },
         "AnchorNavigationEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#AnchorNavigationEvent.",
             "abstract": false,
             "readonly": false,
@@ -6227,7 +6356,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6244,7 +6373,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -6263,7 +6392,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -6272,7 +6401,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -6281,7 +6410,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6290,7 +6419,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6310,6 +6439,7 @@ var index = {
             }
         },
         "ConsentEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#ConsentEvent.",
             "abstract": false,
             "readonly": false,
@@ -6317,7 +6447,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6333,7 +6463,7 @@ var index = {
                     "purposes": {}
                 },
                 "consent": {
-                    "reference": "urn:tailjs:core#UserConsent",
+                    "reference": "urn:tailjs:core#UserConsent@0.94.3",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -6343,6 +6473,7 @@ var index = {
             }
         },
         "CartUpdatedEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#CartUpdatedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6350,7 +6481,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6367,7 +6498,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -6386,7 +6517,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -6395,7 +6526,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -6404,7 +6535,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6413,7 +6544,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6450,7 +6581,7 @@ var index = {
                     "required": false
                 },
                 "variation": {
-                    "reference": "urn:tailjs:core#ExternalReference",
+                    "reference": "urn:tailjs:core#ExternalReference@0.94.3",
                     "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple).",
                     "readonly": false,
                     "visibility": "public",
@@ -6477,7 +6608,7 @@ var index = {
                     "required": false
                 },
                 "item": {
-                    "reference": "urn:tailjs:core#ExternalReference",
+                    "reference": "urn:tailjs:core#ExternalReference@0.94.3",
                     "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context.",
                     "readonly": false,
                     "visibility": "public",
@@ -6503,6 +6634,7 @@ var index = {
             }
         },
         "OrderEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#OrderEvent.",
             "abstract": false,
             "readonly": false,
@@ -6510,7 +6642,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6545,7 +6677,7 @@ var index = {
                 },
                 "items": {
                     "item": {
-                        "reference": "urn:tailjs:core#OrderLine"
+                        "reference": "urn:tailjs:core#OrderLine@0.94.3"
                     },
                     "description": "Optionally, all the items in the order at the time the order was made.",
                     "readonly": false,
@@ -6615,6 +6747,7 @@ var index = {
             }
         },
         "CartAbandonedEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#CartAbandonedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6622,7 +6755,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6657,7 +6790,7 @@ var index = {
                 },
                 "items": {
                     "item": {
-                        "reference": "urn:tailjs:core#OrderLine"
+                        "reference": "urn:tailjs:core#OrderLine@0.94.3"
                     },
                     "description": "Optionally, all the items in the order at the time the order was made.",
                     "readonly": false,
@@ -6736,6 +6869,7 @@ var index = {
             }
         },
         "OrderConfirmedEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#OrderConfirmedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6743,7 +6877,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6761,6 +6895,7 @@ var index = {
             }
         },
         "OrderCancelledEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#OrderCancelledEvent.",
             "abstract": false,
             "readonly": false,
@@ -6768,7 +6903,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6795,6 +6930,7 @@ var index = {
             }
         },
         "OrderCompletedEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#OrderCompletedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6802,7 +6938,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6820,6 +6956,7 @@ var index = {
             }
         },
         "PaymentAcceptedEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#PaymentAcceptedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6827,7 +6964,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6891,6 +7028,7 @@ var index = {
             }
         },
         "PaymentRejectedEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#PaymentRejectedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6898,7 +7036,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6953,6 +7091,7 @@ var index = {
             }
         },
         "SignInEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#SignInEvent.",
             "abstract": false,
             "readonly": false,
@@ -6960,7 +7099,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -6996,6 +7135,7 @@ var index = {
             }
         },
         "SignOutEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#SignOutEvent.",
             "abstract": false,
             "readonly": false,
@@ -7003,7 +7143,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -7030,6 +7170,7 @@ var index = {
             }
         },
         "ImpressionEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#ImpressionEvent.",
             "abstract": false,
             "readonly": false,
@@ -7037,7 +7178,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -7054,7 +7195,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.94.3"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -7073,7 +7214,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -7082,7 +7223,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.94.3",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -7091,7 +7232,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport",
+                    "reference": "urn:tailjs:core#Viewport@0.94.3",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -7100,7 +7241,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo",
+                    "reference": "urn:tailjs:core#ElementInfo@0.94.3",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -7118,7 +7259,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.94.3",
                     "description": "For how long the component was visible. This counter starts after an impression has been detected.",
                     "readonly": false,
                     "visibility": "public",
@@ -7127,7 +7268,7 @@ var index = {
                     "required": false
                 },
                 "regions": {
-                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type",
+                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.94.3",
                     "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
                     "readonly": false,
                     "visibility": "public",
@@ -7136,7 +7277,7 @@ var index = {
                     "required": false
                 },
                 "text": {
-                    "reference": "urn:tailjs:core#ImpressionTextStats",
+                    "reference": "urn:tailjs:core#ImpressionTextStats@0.94.3",
                     "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all.",
                     "readonly": false,
                     "visibility": "public",
@@ -7167,6 +7308,7 @@ var index = {
             }
         },
         "ResetEvent_patch": {
+            "version": "0.94.3",
             "description": "Patch type for urn:tailjs:core#ResetEvent.",
             "abstract": false,
             "readonly": false,
@@ -7174,7 +7316,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent"
+                "urn:tailjs:core#TrackedEvent@0.94.3"
             ],
             "system": "patch",
             "properties": {
@@ -7213,7 +7355,7 @@ var index = {
     "variables": {
         "session": {
             "@info": {
-                "reference": "urn:tailjs:core#SessionInfo",
+                "reference": "urn:tailjs:core#SessionInfo@0.94.3",
                 "readonly": false,
                 "visibility": "trusted-write",
                 "classification": "anonymous",
@@ -7229,7 +7371,7 @@ var index = {
                 "dynamic": false
             },
             "@consent": {
-                "reference": "urn:tailjs:core#UserConsent",
+                "reference": "urn:tailjs:core#UserConsent@0.94.3",
                 "description": "User consent is a dynamic variable that is resolved by the Tracker and cannot be set.",
                 "readonly": false,
                 "visibility": "public",
@@ -7240,7 +7382,7 @@ var index = {
         },
         "device": {
             "@info": {
-                "reference": "urn:tailjs:core#DeviceInfo",
+                "reference": "urn:tailjs:core#DeviceInfo@0.94.3",
                 "readonly": false,
                 "visibility": "trusted-write",
                 "classification": "indirect",
@@ -7253,11 +7395,11 @@ var index = {
 
 const scripts$1 = {
     main: {
-        text: "(()=>{var e,t,r,n,i,a,l,o,u,s,d,v,c,f,p,h,g,y,m,w,k,S,T,I;function j(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var C=(e,t=e=>Error(e))=>{throw ea(e=e2(e))?t(e):e},M=(e,t,r=-1)=>{if(e===t||null==(null!=e?e:t))return!0;if(ed(e)&&ed(t)&&e.length===t.length){var i,n=0;for(i in e){if(e[i]!==t[i]&&!M(e[i],t[i],r-1))return!1;++n}return n===Object.keys(t).length}return!1},U=(e,t,...r)=>e===t||0<r.length&&r.some(t=>U(e,t)),F=(e,t)=>null!=e?e:C(null!=t?t:\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),q=(e,t=!0,r)=>{try{return e()}catch(e){return ep(t)?eu(e=t(e))?C(e):e:et(t)?console.error(t?C(e):e):t}finally{null!=r&&r()}};class z extends Promise{get initialized(){return null!=this._result}then(e,t){var r;return(null!=(r=this._result)?r:this._result=this._action()).then(e,t)}catch(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).catch(e)}finally(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).finally(e)}constructor(e){super(()=>{}),j(this,\"_action\",void 0),j(this,\"_result\",void 0),this._action=e}}var R=e=>new z(async()=>e2(e)),P=async(e,t=!0,r)=>{try{return await e2(e)}catch(e){if(!et(t))return await t(e);if(t)throw e;console.error(e)}finally{await(null==r?void 0:r())}},W=e=>e,B=e=>!!e,D=e=>e===V,J=void 0,L=Number.MAX_SAFE_INTEGER,K=!1,V=!0,H=()=>{},G=e=>e,X=e=>null!=e,Z=Symbol.iterator,Y=Symbol.asyncIterator,Q=(e,t)=>(r,n=!0)=>e(r)||t&&n&&null!=r&&null!=(r=t(r))?r:J,ee=(e,t)=>ep(t)?e!==J?t(e):J:(null==e?void 0:e[t])!==J?e:J,et=e=>\"boolean\"==typeof e,er=Q(et,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||J))),en=e=>e!==K,ei=e=>\"number\"==typeof e,ea=e=>\"string\"==typeof e,el=Q(ea,e=>null==e?void 0:e.toString()),eo=Array.isArray,eu=e=>e instanceof Error,es=(e,t=!1)=>null==e?J:!t&&eo(e)?e:eh(e)?[...e]:[e],ed=e=>e&&\"object\"==typeof e,ev=e=>(null==e?void 0:e.constructor)===Object,ec=(e,t)=>\"function\"==typeof(null==e?void 0:e[t]),ef=e=>\"symbol\"==typeof e,ep=e=>\"function\"==typeof e,eh=(e,t=!1)=>!(null==e||!e[Z]||\"string\"==typeof e&&!t),eg=e=>e instanceof Map,ey=e=>e instanceof Set,em=(e,t)=>null==e?J:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,eb=(e,t,r)=>e[0]===t&&e[e.length-1]===r,ew=e=>ea(e)&&(eb(e,\"{\",\"}\")||eb(e,\"[\",\"]\")),ek=!1,eS=e=>(ek=!0,e),eT=e=>null==e?J:ep(e)?e:t=>t[e],eI=(e,t,r)=>(null!=t?t:r)!==J?(e=eT(e),null==t&&(t=0),null==r&&(r=L),(n,i)=>t--?J:r--?e?e(n,i):n:r):e,ex=e=>null==e?void 0:e.filter(X),eA=(e,t,r,n)=>null==e?[]:!t&&eo(e)?ex(e):e[Z]?function*(e,t){if(null!=e)if(t){t=eT(t);var r=0;for(n of e)if(null!=(n=t(n,r++))&&(yield n),ek){ek=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,r===J?t:eI(t,r,n)):ed(e)?function*(e,t){t=eT(t);var n,r=0;for(n in e){var i=[n,e[n]];if(null!=(i=t?t(i,r++):i)&&(yield i),ek){ek=!1;break}}}(e,eI(t,r,n)):eA(ep(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(null==t&&(t=-e-1);e++;)yield t--;else for(null==t&&(t=0);e--;)yield t++}(e,r),t),eN=(e,t,r,n)=>eA(e,t,r,n),eE=(e,t,r=1,n=!1,i,a)=>function*e(t,r,n,i){if(null!=t)if(t[Z]||n&&ed(t))for(var a of i?eA(t):t)1!==r?yield*e(a,r-1,n,!0):yield a;else yield t}(eA(e,t,i,a),r+1,n,!1),eO=(e,t,r,n)=>{if(t=eT(t),eo(e)){var i=0,a=[];for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n&&!ek;r++){var l=e[r];null!=(t?l=t(l,i++):l)&&a.push(l)}return ek=!1,a}return null!=e?es(eN(e,t,r,n)):J},e$=(e,t,r,n)=>null!=e?new Set([...eN(e,t,r,n)]):J,e_=(e,t,r=1,n=!1,i,a)=>es(eE(e,t,r,n,i,a)),ej=(...e)=>{var t;return eq(1===e.length?e[0]:e,e=>null!=e&&(null!=t?t:t=[]).push(...es(e))),t},eC=(e,t,r,n)=>{var i,a,l=0;for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n;r++)if(null!=e[r]&&(i=null!=(a=t(e[r],l++))?a:i,ek)){ek=!1;break}return i},eM=(e,t)=>{var r,n,a,i=0;for(a of e)if(null!=a&&(r=null!=(n=t(a,i++))?n:r,ek)){ek=!1;break}return r},eU=(e,t)=>{var r,n,a,i=0;for(a in e)if(r=null!=(n=t([a,e[a]],i++))?n:r,ek){ek=!1;break}return r},eF=(e,t,r,n)=>{var i;if(null!=e){if(eo(e))return eC(e,t,r,n);if(r===J){if(e[Z])return eM(e,t);if(\"object\"==typeof e)return eU(e,t)}for(var a of eA(e,t,r,n))null!=a&&(i=a);return i}},eq=eF,ez=async(e,t,r,n)=>{var i,a;if(null==e)return J;for(a of eN(e,t,r,n))if(null!=(a=await a)&&(i=a),ek){ek=!1;break}return i},eR=(e,t)=>{if(null==e)return J;var r={};if(t){var n,a,i=0;for(a in e)(n=t([a,e[a]],i++))&&(r[n[0]]=n[1])}else for(var l of e)l&&(r[l[0]]=l[1]);return r},eP=(e,t,r)=>{var n,i,a;return null==e?J:et(t)||r?(a={},eq(e,r?(e,n)=>null!=(e=t(e,n))&&null!=(e[1]=r(a[e[0]],e[1]))&&(a[e[0]]=e[1]):e=>eq(e,t?e=>{var t;return null!=(null==e?void 0:e[1])&&((null!=(t=(n=a)[i=e[0]])?t:n[i]=[]).push(e[1]),a)}:e=>null!=(null==e?void 0:e[1])&&(a[e[0]]=e[1],a))),a):eR(eO(e,t?(e,r)=>ee(t(e,r),1):e=>ee(e,1)))},eW=(e,t,r,n,i)=>{var l=()=>ep(r)?r():r;return null!=(e=eF(e,(e,n)=>r=null!=(e=t(r,e,n))?e:l(),n,i))?e:l()},eB=(e,t,r,n)=>eO(e,(e,r)=>e&&null!=t&&t(e,r)?e:J,r,n),eJ=(e,...t)=>null==e?J:ei(e)?Math.max(e,...t):eW(e,(e,r,n,i=t[1]?t[1](r,n):r)=>null==e||ei(i)&&e<i?i:e,J,t[2],t[3]),eK=(e,t,r,n)=>{var i;return null==e?J:ev(e)&&!t?0<Object.keys(e).length:null!=(i=null!=(i=null==(i=e.some)?void 0:i.call(e,null!=t?t:B))?i:eF(e,t?(e,r)=>!!t(e,r)&&eS(!0):()=>eS(!0),r,n))&&i},eV=(e,t=e=>e)=>{var r;return null!=(r=es(e))&&r.sort((e,r)=>t(e)-t(r)),e},eH=(e,t,r)=>(e.constructor===Object||eo(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eG=(e,t,r)=>{var n;if(e)return void 0===(n=e.get?e.get(t):e.has?e.has(t):e[t])&&null!=r&&null!=(n=ep(r)?r():r)&&eH(e,t,n),n},eX=(e,...t)=>(eq(t,t=>eq(t,([t,r])=>{null!=r&&(ev(e[t])&&ev(r)?eX(e[t],r):e[t]=r)})),e),eZ=(e,t,r,n)=>{if(e)return null!=r?eH(e,t,r,n):(eq(t,t=>eo(t)?eH(e,t[0],t[1]):eq(t,([t,r])=>eH(e,t,r))),e)},eY=(e,t,r)=>{var n;return ec(e,\"set\")?void 0===(n=r(e.get(t)))?e.delete(t):e.set(t,n):ec(e,\"add\")?r(n=e.has(t))?e.add(t):e.delete(t):e&&void 0===(n=e[t]=r(e[t]))&&ev(e)&&delete e[t],e},eQ=(e,t)=>e instanceof Set||e instanceof WeakSet?!e.has(t)&&(e.add(t),!0):!eG(e,t)&&(eH(e,t,!0),!0),e0=(e,t)=>{var r;if(null!=(null!=e?e:t))return r=eG(e,t),ec(e,\"delete\")?e.delete(t):delete e[t],r},e1=(e,t)=>{if(e)return eo(t)?(eo(e)&&1<e.length?t.sort((e,t)=>t-e):t).map(t=>e1(e,t)):eo(e)?t<e.length?e.splice(t,1)[0]:void 0:e0(e,t)},e2=e=>ep(e)?e():e,e6=(e,t)=>null==e?e:ep(e)?(...r)=>t(e,...r):t(()=>e),e4=(e,t=-1)=>eo(e)?t?e.map(e=>e4(e,t-1)):[...e]:ev(e)?t?eP(e,([e,r])=>[e,e4(r,t-1)]):{...e}:ey(e)?new Set(t?eO(e,e=>e4(e,t-1)):e):eg(e)?new Map(t?eO(e,e=>[e[0],e4(e[1],t-1)]):e):e,e5=(e,...t)=>null==e?void 0:e.push(...t),e3=(e,...t)=>null==e?void 0:e.unshift(...t),e8=(e,t)=>{var r,i,a;if(e)return ev(t)?(a={},ev(e)&&(eq(e,([e,l])=>{if(l!==t[e]){if(ev(r=l)){if(!(l=e8(l,t[e])))return;[l,r]=l}else ei(l)&&ei(void 0)&&(l=(r=l)-void 0);a[e]=l,(null!=i?i:i=e4(t))[e]=r}}),i)?[a,i]:void 0):[e,e]},e9=\"undefined\"!=typeof performance?(e=V)=>e?Math.trunc(e9(K)):performance.timeOrigin+performance.now():Date.now,e7=(e=!0,t=()=>e9())=>{var r,n=+e*t(),i=0;return(a=e,l)=>(r=e?i+=-n+(n=t()):i,l&&(i=0),(e=a)&&(n=t()),r)},tt=(e,t=0)=>{var e=ep(e)?{frequency:t,callback:e}:e,{queue:i=!0,paused:a=!1,trigger:l=!1,once:o=!1,callback:u=()=>{},raf:s}=e,d=(t=null!=(e=e.frequency)?e:0,0),v=to(!0).resolve(),c=e7(!a),f=c(),p=async e=>{if(!d||!i&&v.pending&&!0!==e)return!1;if((m.busy=!0)!==e)for(;v.pending;)await v;return e||v.reset(),(!1===await P(()=>u(c(),-f+(f=c())),!1,()=>!e&&v.resolve())||t<=0||o)&&y(!1),!(m.busy=!1)},h=()=>d=setTimeout(()=>s?requestAnimationFrame(g):g(),t<0?-t:t),g=()=>{m.active&&p(),m.active&&h()},y=(e,t=!e)=>(c(e,t),clearTimeout(d),m.active=!!(d=e?h():0),m),m={active:!1,busy:!1,restart:(e,r)=>(t=null!=e?e:t,u=null!=r?r:u,y(!0,!0)),toggle:(e,t)=>e!==m.active?e?t?(y(!0),m.trigger(),m):y(!0):y(!1):m,trigger:async e=>await p(e)&&(y(m.active),!0)};return m.toggle(!a,l)};function tr(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}class tn{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new ti,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}constructor(){tr(this,\"_promise\",void 0),this.reset()}}class ti{then(e,t){return this._promise.then(e,t)}constructor(){var e;tr(this,\"_promise\",void 0),tr(this,\"resolve\",void 0),tr(this,\"reject\",void 0),tr(this,\"value\",void 0),tr(this,\"error\",void 0),tr(this,\"pending\",!0),this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(this.pending)return this.pending=!1,this[t?\"error\":\"value\"]=r===J||r,e(r),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var tl=(e,t)=>null==e||isFinite(e)?!e||e<=0?e2(t):new Promise(r=>setTimeout(async()=>r(await e2(t)),e)):C(`Invalid delay ${e}.`),to=e=>new(e?tn:ti),ts=(e,t,r)=>{var n=!1,i=(...t)=>e(...t,a),a=()=>n!==(n=!1)&&(r(i),!0),l=()=>n!==(n=!0)&&(t(i),!0);return l(),[a,l]},Q=()=>{var e,t=new Set;return[(r,n)=>{var i=ts(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,i[0]),i},(...r)=>(e=r,t.forEach(e=>e(...r)))]},tv=(e,t,r=!1)=>e&&(e.length>t?r?`${e.slice(0,t)}... [and ${e.length-t} more]`:e.slice(0,t-1)+\"…\":e),tf=(e,t)=>{var l,r=[],n={},i={},a=0;for(l in t)l===t[l]&&(Object.defineProperty(i,l,{value:l,writable:!1,enumerable:!0,configurable:!1}),n[l]=a++,r.push(l));var o=(t,r=!0)=>null==t?J:null!=n[t]?t:r?C(`The ${e} \"${t}\" is not defined.`):J,u={writable:!1,enumerable:!1,configurable:!1};return Object.defineProperties(i,{parse:{value:o,...u},ranks:{value:n,...u},levels:{value:r,...u},compare:{value(e,t){e=n[o(e)],t=n[o(t)];return e<t?-1:t<e?1:0},...u}}),i},tp=Symbol(),th=(e,{delimiters:t=[\"|\",\";\",\",\"],decode:r=!0,lowerCase:n}={})=>{var i,l;return e?(null==(l=e.split(\"=\").map(e=>(e=r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim(),n?e.toLowerCase():e)))[1]&&(l[1]=\"\"),l[2]=l[1]&&(ea(t)?t=[t]:eo(t))&&tP(t,e=>1<(i=l[1].split(e)).length?tC(i):J)||(l[1]?[l[1]]:[]),l):J},tg=(e,{delimiters:t=!0,requireAuthority:r,...n}={})=>null==e?J:tk(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,i,a,l,o,u,s,d,v,c,f)=>{e={source:e,scheme:r,urn:r?!i:!i&&J,authority:a,user:l,password:o,host:null!=u?u:s,port:null!=d?parseInt(d):J,path:v,query:!1===t?c:c?ty(c,{...n,delimiters:t}):J,fragment:f};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":J),e}),ty=(e,t)=>tm(e,\"&\",t),tm=(e,t,{delimiters:r=!0,...n}={})=>{e=tW(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(t),e=>{var[e,a,l]=null!=(e=th(e,{...n,delimiters:!1===r?[]:!0===r?J:r}))?e:[];return null!=(e=null==e?void 0:e.replace(/\\[\\]$/,\"\"))?!1!==r?[e,1<l.length?l:a]:[e,a]:tj}),t=t4(tJ(e,!1),([e,t])=>[e,!1!==r?1<t.length?tV(t):t[0]:t.join(\",\")]);return t&&(t[tp]=e),t},tb=(e,t)=>t&&null!=e?t.test(e):J,tw=(e,t,r)=>tk(e,t,r,!0),tk=(e,t,i,a=!1)=>null==(null!=e?e:t)?J:i?(r=J,a?(n=[],tk(e,t,(...e)=>null!=(r=i(...e))&&n.push(r))):e.replace(t,(...e)=>r=i(...e)),r):null!=(a=e.match(t))?a:J,tS=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tT=/\\z./g,tI=(e,t)=>(t=t9(e$(eB(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(t,\"gu\"):tT,tx={},tA=e=>e instanceof RegExp,tN=(r,n=[\",\",\" \"])=>{var i;return tA(r)?r:eo(r)?tI(eO(r,e=>null==(e=tN(e,n))?void 0:e.source)):et(r)?r?/./g:tT:ea(r)?null!=(i=(e=tx)[t=r])?i:e[t]=tk(r||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,r)=>t?RegExp(t,\"gu\"):tI(eO(tE(r,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${t9(n,tS)}]`)),e=>e&&`^${t9(tE(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>tS(tO(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):J},tE=(e,t,r=!0)=>null==e?J:r?tE(e,t,!1).filter(G):e.split(t),tO=(e,t,r)=>null!=(t=null==e?void 0:e.replace(t,r))?t:e,t$=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return eZ(r,{push(n,i){for(var a=[n,i],l=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,o=0;o<r.length;o++){var u,s,d=r[o];if(e(a[1],d[0])<0)return l(r.splice(o,0,a));if(e(a[0],d[1])<=0){if(e(a[0],d[0])<0&&(u=d[0]=a[0]),0<e(a[1],d[1])&&(u=d[1]=a[1]),!((null==(s=r[o+1])?void 0:s[0])<d[1]))return l(null!=u);u=a=r.splice(o--,1)[0]}}return l(a&&(r[r.length]=a))},width:0})},t_=!1,tj=Symbol(),tC=e=>(t_=!0,e),tM=Symbol(),tU=Symbol(),tF=Symbol.iterator,tq=e=>{tq=e=>e;var n,t=()=>(e,t,r,n,i)=>{var a,o,l=0;for(o of e)if((a=t?t(o,l++,n,i):o)!==tj){if(a===tC)break;if(n=a,r&&r.push(a),t_){t_=!1;break}}return r||n},r=(Array.prototype[tM]=(e,t,r,n,i)=>{for(var l,o=0,u=e.length;o<u;o++)if(l=e[o],(l=t?t(l,o,n,i):l)!==tj){if(l===tC)break;if(n=l,r&&r.push(l),t_){t_=!1;break}}return r||n},t());for(n of(Object.prototype[tM]=(e,n,i,a,l)=>{if(e[tF])return(e.constructor===Object?r:Object.getPrototypeOf(e)[tM]=t())(e,n,i,a,l);var u,d,s=0;for(d in e)if(u=[d,e[d]],(u=n?n(u,s++,a,l):u)!==tj){if(u===tC)break;if(a=u,i&&i.push(u),t_){t_=!1;break}}return i||a},Object.prototype[tU]=function(){var t,e;return this[tF]||this[Y]?this.constructor===Object?null!=(e=this[Y]())?e:this[tF]():((e=Object.getPrototypeOf(this))[tU]=null!=(t=e[Y])?t:e[tF],this[tU]()):function*(e){for(var t in e)yield[t,e[t]]}(this)},[Map.prototype,WeakMap.prototype,Set.prototype,WeakSet.prototype,Object.getPrototypeOf(function*(){})]))n[tM]=t(),n[tU]=n[tF];return Number.prototype[tM]=(e,t,n,i,a)=>r(tz(e),t,n,i,a),Number.prototype[tU]=tz,Function.prototype[tM]=(e,t,n,i,a)=>r(tR(e),t,n,i,a),Function.prototype[tU]=tR,e};function*tz(e=this){for(var t=0;t<e;t++)yield t}function*tR(e=this){for(var t=void 0;void 0!==(t=e(t));)yield t}var tP=(e,t,r,n)=>(tP=tq((e,t,r,n=e)=>e?e[tM](e,t,void 0,r,n):null==e?e:void 0))(e,t,r,n),tW=(e,t,r=[],n,i=e)=>(tW=tq((e,t,r=[],n,i=e)=>e||0===e||\"\"===e?e[tM](e,t,r,n,i):null==e?e:void 0))(e,t,r,i,n),tB=(e,t=!0,r=!1)=>tW(e,!0===t?e=>null!=e?e:tj:t?t.has?e=>null==e||t.has(e)===r?tj:e:(e,n,i)=>!t(e,n,i)===r?e:tj:e=>e||tj),tD=(e,t,r=-1,n=[],i,a=e)=>tW(e,(e,i,a)=>null!=(t?e=t(e,i,a):e)&&e[Symbol.iterator]&&\"string\"!=typeof e&&r?(tD(e,void 0,r-1,n,e),tj):e,n,i,a),tJ=(e,t,r)=>{var n,i,a,l;return null!=t&&\"function\"!=typeof t&&([t,r]=[void 0,t]),tP(e,!1!==r?(a=new Map,(e,r,n)=>{void 0!==(l=t?t(e,r,n):e)[0]&&t1(a,l[0],()=>[]).push(l[1])}):(a={},(e,r,o)=>(l=t?t(e,r,o):e)&&void 0!==l[0]&&(null!=(r=(n=a)[i=l[0]])?r:n[i]=[]).push(l[1]))),a},tK=e=>null==e||eo(e)?e:e[tF]&&\"string\"!=typeof e?[...e]:[e],tV=(e,...t)=>{var r,n;for(n of e=!t.length&&eh(e)?e:[e,...t])if(null!=n){if(eh(n)){(null!=r?r:r=[]).push(...n);continue}(null!=r?r:r=[]).push(n)}return r},tH=(e,t,r)=>(r?-1:1)*(e===t?0:\"string\"==typeof e?\"string\"==typeof t?e.localeCompare(t):1:\"string\"==typeof t?-1:null==e?null==t?0:-1:null==t?1:e-t),tG=(e,t,r)=>tK(e).sort(\"function\"==typeof t?(e,n)=>tH(t(e),t(n),r):eo(t)?t.length?(e,n)=>{for(var i=0,a=0;a<t.length&&!i;a++)i=tH(t[a](e),t[a](n),r);return i}:(e,t)=>tH(e,t,r):(e,r)=>tH(e,r,t)),tX=Object.keys,tZ=Symbol(),tY=Symbol(),tQ=Symbol(),t0=e=>{for(var{prototype:t}of(t0=e=>e,[Map,WeakMap]))t[tZ]=function(e,t){return void 0===t?this.delete(e):this.get(e)!==t&&!!this.set(e,t)},t[tY]=t.get;for(var{prototype:t}of[Set,WeakSet])t[tZ]=function(e,t){t||void 0===t?this.has(e)||this.add(e):this.delete(e)},t[tY]=t.has,t[tQ]=function(e){for(var t of e)void 0!==t&&this.add(t);return this};for(var{prototype:t}of(Array.prototype[tQ]=function(e){return this.push(...e),this},[Object,Array]))t[tZ]=function(e,t){return void 0===t?void 0!==this[e]&&(delete this[e],!0):(this[e]=t)!==t},t[tY]=function(e){return this[e]};return e},t1=(e,t,r)=>(t1=t0((e,t,r)=>{if(null==e)return e;var n=e[tY](t);if(void 0===n&&void 0!==(n=\"function\"==typeof r?r():r)){if(null!=n&&n.then)return n.then(r=>void 0===r?r:e[tZ](t,r));e[tZ](t,n)}return n}))(e,t,r),t2=(e,t,r)=>(t2=t0((e,t,r)=>(e[tZ](t,r),r)))(e,t,r),t6=(e,...t)=>(t6=t0((e,...t)=>null==e?e:e[tQ](t)))(e,...t),t4=(e,t)=>{var r={};return tP(e,t?(e,n,i)=>(e=t(e,n,i))&&(\"symbol\"!=typeof e||e!==tj&&e!==tC)?r[e[0]]=e[1]:e:e=>e&&(\"symbol\"!=typeof e||e!==tj&&e!==tC)?r[e[0]]=e[1]:e),r},t5=(e,...t)=>(t5=t0((e,...t)=>((null==e?void 0:e.constructor)===Object?tP(t,t=>tP(t,t=>t&&(e[t[0]]=t[1]))):tP(t,t=>tP(t,t=>t&&e[tZ](t[0],t[1]))),e)))(e,...t),t3=(e,t)=>null==e?e:t4(t,t=>null!=e[t]||t in e?[t,e[t]]:tj),t8=e=>null==e||\"boolean\"==typeof e||\"\"===e.toString(),t9=(e,t,r)=>null==e?e:eh(e)?tB(\"function\"==typeof t?tW(e,t):(r=t,e),t8,!0).join(null!=r?r:\"\"):t8(e)?\"\":null==e?void 0:e.toString(),t7=(e,t,r,n)=>{var i,o;return e||0===e?\"function\"==typeof t?t7(tW(e,t),r,n):(i=[],n=tP(e,(e,t,r)=>t8(e)?tj:(r&&i.push(r),e.toString())),[t,o]=eo(t)?t:[,t],o=(null!=o?o:o=\"and\")[0]===(t=null==t?\",\":t)?o+\" \":\" \"+(o?o+\" \":\"\"),t=i.length?\"\"+i.join(t+\" \")+o+n:null!=n?n:\"\",r?r(t,i.length+ +(null!=n)):t):null==e?e:void 0},re=tf(\"data classification\",{never:\"never\",anonymous:\"anonymous\",indirect:\"indirect\",direct:\"direct\",sensitive:\"sensitive\"}),rt=[\"necessary\",\"performance\",\"functionality\",\"marketing\",\"personalization\",\"security\"],rr=t4(rt,e=>[e,e]),rn=(Object.freeze(eR(rt.map(e=>[e,!0]))),(e,t)=>\"personalization\"===e&&!0!==(null==t?void 0:t.personalization)?\"functionality\":\"security\"===e&&!0!==(null==t?void 0:t.security)?\"necessary\":e),ri=(e,t)=>{var r=e;return!0!==(null==t?void 0:t.personalization)&&null!=r.personalization&&(null!=(r=r===e?{...e}:r).functionality?r.personalization=r.functionality:r.functionality=r.personalization,delete r.personalization),!0!==(null==t?void 0:t.security)&&null!=r.security&&delete(r=r===e?{...e}:r).security,r},ra_parse=function(e,{names:t=!1,validate:r=!0}={}){if(null==e)return e;if(e.purposes&&(e=e.purposes),ea(e)&&(e=e.split(\",\")),eo(e)){var i,n={};for(i of e)rr[i]?\"necessary\"!==i&&(n[i]=!0):r&&C(`The purpose name '${i}' is not defined.`);e=n}return t?(t=tX(e)).length?t:[\"necessary\"]:e},ra_test=function(e,t,{intersect:r,optionalPurposes:n,targetPurpose:i}){if(\"boolean\"==typeof n&&(n={personalization:n,security:n}),i&&\"necessary\"!==(i=rn(i,n))&&!t[rn(i,n)])return!1;if(e=ri(e,n),t=ri(t,n),r){for(var a in t)if(t[a]&&!e[a])return!1;if(\"all\"===r)for(var a in e)if(e[a]&&!t[a])return!1;return!0}var l=!1;for(a in e)if(e[a]){if(t[a])return!0;l=!0}return!l},rl=(tf(\"data restriction\",{public:\"public\",\"trusted-write\":\"trusted-write\",\"trusted-only\":\"trusted-only\"}),e=>{var t;return`${null!=(t=null==e?void 0:e.classification)?t:\"anonymous\"} data for ${t7(ra_parse(null==e?void 0:e.purposes,{names:!0}))}  purposes.`}),ro={anonymous:{classification:\"anonymous\",purposes:{}},clone:e=>e&&{classification:e.classification,purposes:{...e.purposes}},equals:(e,t)=>e===t||e&&t&&e.classification===t.classification&&ra_test(e.purposes,t.purposes,{intersect:\"all\",optionalPurposes:!0}),serialize(e){var t=ra_parse(e.purposes,{names:!0});return e.classification&&\"anonymous\"!==e.classification||null!=t&&t.length?e.classification+\":\"+t:null},deserialize(e,t){var a;return e?([e,a]=e.split(\":\"),{classification:null!=(e=re.parse(e,!1))?e:\"anonymous\",purposes:null!=(e=ra_parse(a,{validate:!1}))?e:{}}):t?ro.clone(t):{classification:\"anonymous\",purposes:{}}}},ru=(e,t)=>(!(i=null==e?void 0:e.metadata)||t&&(delete i.posted,delete i.queued,Object.entries(i).length)||delete e.metadata,e),rd=Symbol(),rv=e=>void 0===e?\"undefined\":tv(JSON.stringify(e),40,!0),rc=/^\\d{4}-\\d{2}-\\d{2}(?:T00:00:00(?:\\.000)?)?Z$/,rf=/^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?)?Z$/,rp=/^\\{?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\}?$/,rh=/^(?:(?:([\\w+.-]+):)(\\/\\/)?)((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))(?::(\\d*))?)(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/,rg=/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:(\\[(([0-9.]+)|([0-9a-f:]+))\\])|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9]))?$/,ry=(e,t,r)=>(e.push({path:\"\",type:null,source:t,message:rv(t)+` ${r}.`}),rd),rm=(e,t,r)=>\"number\"==typeof e&&(!t&&Number.isFinite(e)&&!Number.isNaN(e)||Number.isInteger(e))||r&&\"string\"==typeof e&&rm((t?parseInt:parseFloat)(e),t,!1),rb={},rt=((e=>{null==e.primitive&&(e.primitive=typeof(null!=(r=null==(r=e.enum)?void 0:r[0])?r:\"\"));var r,u,o=null!=(o=rb[r=e.primitive+\"-\"+(null!=(r=e.format)?r:\"\")+\"-\"+!1])?o:rb[r]=(e=>{switch(e.primitive){case\"boolean\":return(e,t)=>\"boolean\"==typeof e?e:ry(t,e,\"is not a Boolean\");case\"date\":return(e,t)=>e&&rc.test(e)&&!isNaN(+new Date(e))?e:ry(t,e,\"is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)\");case\"timestamp\":case\"datetime\":var r=\"format\"in e?\"unix\"!==e.format:\"datetime\"===e.primitive;return(e,n)=>{if(!e||rm(e,!1,!1)){if(!rm(e,!0,!1))return ry(n,e,\"is not a valid UNIX timestamp\");e=+e}else if(!rf.test(e)||isNaN(+new Date(e)))return ry(n,e,\"is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)\");return e=new Date(e),r?new Date(e).toISOString():+e};case\"duration\":return(e,r)=>rm(e,!0,!1)?+e:ry(r,e,\"is not a valid duration (must be provided as milliseconds)\");case\"integer\":return(e,r)=>rm(e,!0,!1)?+e:ry(r,e,\"is not a valid integer\");case\"number\":return(e,r)=>rm(e,!1,!1)?e:ry(r,e,\"is not a number\");case\"string\":switch(e.format){case\"uri\":return(e,t)=>\"string\"==typeof e&&rh.test(e)?e:ry(t,e,\"is not a valid URI\");case\"url\":return(e,t)=>{var r=\"string\"==typeof e&&rh.exec(e);return r?r[2]?e:ry(t,e,\"is not a valid URL (it is a URI, but a URL is required)\"):ry(t,e,\"is not a valid URL\")};case\"urn\":return(e,t)=>{var r=\"string\"==typeof e&&rh.exec(e);return r?\"urn\"!==r[1]||r[2]?ry(t,e,\"is not a valid URN (it is a URI, but a URN is required)\"):e:ry(t,e,\"is not a valid URN\")};case\"email\":return(e,t)=>\"string\"==typeof e&&rg.test(e)?e.toLowerCase():ry(t,e,\"is not a valid email address\")}return(e,t)=>\"string\"==typeof e?e:ry(t,e,\"is not a string\");case\"uuid\":return(e,t)=>{var r;return null!=(r=\"string\"==typeof e?null==(r=rp.exec(e))?void 0:r[1].toLowerCase():null)?r:ry(t,e,\"is not a valid UUID\")};default:throw TypeError(`'${rv(e)}' is not a supported primitive type.`)}})(e),d=e.maxLength,c=(null!=d&&(v=o,o=(e,t)=>(e=v(e,t))!==rd&&e.length>d?ry(t,e,`exceeds the maximum allowed ${d} number of characters`):e),e.min),f=e.max;if(null==c&&null==f||(p=null!=c?null!=f?`between ${c} and `+f:\"at least \"+c:\"at most \"+f,v=o,o=(e,t)=>(e=v(e,t))===rd||(null==c||c<=e)&&(null==f||e<=f)?e:ry(t,e,p)),\"enum\"in e){var v=o;if(!(u=new Set((Array.isArray(e.enum)?e.enum:[e.enum]).map(e=>{var t=[];if((e=v(e,t))===rd)throw TypeError(t[0]);return e}))).size)throw TypeError(\"At least one enum value to test against is required.\");var p=\"is not the constant value \"+t7(e.enum.map(e=>JSON.stringify(e)),\"or\"),o=(e,t)=>(e=v(e,t))===rd||u.has(e)?e:ry(t,e,p)}(e=>e instanceof Set||null==e||new Set(e[tF]&&\"string\"!=typeof e?e:[e]))(u)})({primitive:\"string\",format:\"uri\"}),tf(\"variable scope\",{global:\"global\",session:\"session\",device:\"device\",user:\"user\"})),rk=({key:e,scope:t=\"\",entityId:r=\"\",source:n=\"\"},i=\"\")=>[\"'\"+e+\"'\",n&&\"from '\"+n+\"'\",i,t&&\"in \"+t+\" scope\",r&&\"for '\"+r+\"'\"].filter(e=>e).join(\" \"),rS=e=>null==e?e:{source:e.source,key:e.key,scope:e.scope,entityId:e.entityId},rT=((x=a=a||{})[x.Success=200]=\"Success\",x[x.Created=201]=\"Created\",x[x.NotModified=304]=\"NotModified\",x[x.Forbidden=403]=\"Forbidden\",x[x.NotFound=404]=\"NotFound\",x[x.BadRequest=405]=\"BadRequest\",x[x.Conflict=409]=\"Conflict\",x[x.Error=500]=\"Error\",(e,t=!0)=>e&&(e.status<400||!t&&404===e.status));function rI(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var rx=e=>{var t=rk(e),r=e.error;return e.status<400?`${t} succeeded with status ${e.status} - ${a[e.status]}.`:`${t} failed with status ${e.status} - ${a[e.status]}${r?` (${r})`:\"\"}.`};class rA extends Error{constructor(e,t){super(null!=t?t:\"One or more operations failed.\"),rI(this,\"succeeded\",void 0),rI(this,\"failed\",void 0),this.succeeded=null!=(t=null==e?void 0:e.filter(e=>rT(e,!1)))?t:[],this.failed=null!=(t=null==e?void 0:e.filter(e=>!rT(e,!1)))?t:[]}}var rN=(e,t,r)=>{var n=async(n,i)=>{var v,f,c,h,l=eo(t)?t:[t],o=await r(l.filter(e=>e)),u=[],s=[],d=[];for(v of l)v?(c=null!=(c=o.get(v))?c:C(`No result for ${rk(v)}.`),v.source=c,v.callback&&d.push(v.callback(c)),c.success=rT(c,i||\"set\"===e),!n||c.success?u.push(n&&c.status===a.NotFound?void 0:1<n?null!=(f=c.value)?f:void 0:c):s.push(rx(c))):u.push(void 0);if(s.length)throw 10<s.length&&s.push(`\n(and ${s.splice(10).length} more...)`),new rA(u,s.join(\"\\n\"));for(h of d)await h();return l===t?u:u[0]};return Object.assign(R(()=>n(1,!1)),{as:()=>n(1,!1),all:()=>n(0,!1),require:()=>n(1,!0),value:(e=!1)=>n(2,e),values:(e=!1)=>n(2,e)})},rE=e=>e&&\"string\"==typeof e.type,rO=(e=>t=>(null==t?void 0:t.type)&&e.some(e=>e===(null==t?void 0:t.type)))([\"view\"]),r$=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,r_=(e,t)=>{var r;return t&&(!(o=e.get(l=t.tag+(null!=(r=t.value)?r:\"\")))||(null!=(r=o.score)?r:1)<(null!=(r=t.score)?r:1))&&e.set(l,t)},rj=(e,t=\"\",r=new Map)=>{if(e)return eh(e)?eq(e,e=>rj(e,t,r)):ea(e)?tk(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,i,a,l,o,u)=>{i={tag:(n?r$(n)+\"::\":\"\")+t+r$(i),value:r$(null!=(n=null!=a?a:l)?n:o)};u&&10!==parseFloat(u)&&(i.score=parseFloat(u)/10),r_(r,i)}):r_(r,e),r},rC=tf(\"local variable scope\",{view:\"view\",tab:\"tab\",shared:\"shared\"}),rM=tf(\"variable scope\",{...rC,...rt}),rU=e=>(\"global\"!==e.scope&&e.entityId&&(e.entityId=void 0),e),rF=e=>null!=e&&!!e.scope&&null!=rC.ranks[e.scope],rq=e=>null==e?e:[e.scope,e.key,e.targetId].join(\"\\0\"),rz=e=>{e=e.split(\"\\0\");return{scope:e[0],key:e[1],targetId:e[2]}},rP=()=>()=>C(\"Not initialized.\"),rW=window,rB=document,rD=rB.body,rJ=(e,t)=>!(null==e||!e.matches(t)),rL=L,rK=(e,t,r=(e,t)=>rL<=t)=>{for(var n=0,i=K;1===(null==e?void 0:e.nodeType)&&!r(e,n++)&&t(e,(e,t)=>(null!=e&&(a=e,i=t!==V&&null!=a),V),n-1)!==K&&!i;){var a,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==rB&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return a},rV=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":var r;return null==(r=(\"\"+e).trim())?void 0:r.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||er(e);case\"n\":return parseFloat(e);case\"j\":return q(()=>JSON.parse(e),H);case\"h\":return q(()=>nR(e),H);case\"e\":return q(()=>null==nW?void 0:nW(e),H);default:return eo(t)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:rV(e,t[0])):void 0}},rH=(e,t,r)=>rV(null==e?void 0:e.getAttribute(t),r),rG=(e,t,r)=>rK(e,(e,n)=>n(rH(e,t,r))),rX=(e,t)=>null==(e=rH(e,t))||null==(t=e.trim())?void 0:t.toLowerCase(),rZ=e=>null==e?void 0:e.getAttributeNames(),rY=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,rQ=e=>null!=e?e.tagName:null,r1=e=>({x:em(scrollX,e),y:em(scrollY,e)}),r2=(e,t)=>tO(e,/#.*$/,\"\")===tO(t,/#.*$/,\"\"),r6=(e,t,r=V)=>(s=r4(e,t))&&W({xpx:s.x,ypx:s.y,x:em(s.x/rD.offsetWidth,4),y:em(s.y/rD.offsetHeight,4),pageFolds:r?s.y/window.innerHeight:void 0}),r4=(e,t)=>null!=t&&t.pointerType&&null!=(null==t?void 0:t.pageY)?{x:t.pageX,y:t.pageY}:e?({x:d,y:v}=r5(e),{x:d,y:v}):void 0,r5=e=>e?(c=e.getBoundingClientRect(),u=r1(K),{x:em(c.left+u.x),y:em(c.top+u.y),width:em(c.width),height:em(c.height)}):void 0,r3=(e,t,r,n={capture:!0,passive:!0})=>(t=es(t),ts(r,r=>eq(t,t=>e.addEventListener(t,r,n)),r=>eq(t,t=>e.removeEventListener(t,r,n)))),r9=()=>({...u=r1(V),width:window.innerWidth,height:window.innerHeight,totalWidth:rD.offsetWidth,totalHeight:rD.offsetHeight}),r7=new WeakMap,ne=e=>r7.get(e),nt=(e,t=K)=>(t?\"--track-\":\"track-\")+e,nr=(e,t,r,n,i,a)=>(null==t?void 0:t[1])&&tP(rZ(e),l=>{var o;return null!=(o=(f=t[0])[p=l])?o:f[p]=(a=K,!ea(n=tP(t[1],([t,r,n],i)=>tb(l,t)&&(a=void 0,!r||rJ(e,r))&&eS(null!=n?n:l)))||(i=e.getAttribute(l))&&!er(i)||rj(i,tO(n,/\\-/g,\":\"),r),a)}),nn=()=>{},ni=(e,t)=>{if(h===(h=nv.tags))return nn(e,t);var r=e=>e?tA(e)?[[e]]:eh(e)?e_(e,r):[ev(e)?[tN(e.match),e.selector,e.prefix]:[tN(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(tD(h,([,e])=>e,1))]];(nn=(e,t)=>nr(e,n,t))(e,t)},na=(e,t)=>t9(ej(rY(e,nt(t,V)),rY(e,nt(\"base-\"+t,V))),\" \"),nl={},no=(e,t,r=na(e,\"attributes\"))=>{var n;r&&nr(e,null!=(n=nl[r])?n:nl[r]=[{},tw(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[tN(r||n),,t])],t),rj(na(e,\"tags\"),void 0,t)},nu=(e,t,r=K,n)=>null!=(r=null!=(r=r?rK(e,(e,r)=>r(nu(e,t,K)),ep(r)?r:void 0):t9(ej(rH(e,nt(t)),rY(e,nt(t,V))),\" \"))?r:n&&(g=ne(e))&&n(g))?r:null,ns=(e,t,r=K,n)=>\"\"===(y=nu(e,t,r,n))||(null==y?y:er(y)),nd=(e,t,r,n)=>e&&(null==n&&(n=new Map),no(e,n),rK(e,e=>{ni(e,n),rj(null==r?void 0:r(e),void 0,n)},t),n.size)?{tags:[...n.values()]}:{},nv={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,json:!1,impressionThreshold:1e3,captureContextMenu:!0,tags:{default:[\"data-id\",\"data-name\"]}},nc=[],nf=[],np=(e,t=0)=>e.charCodeAt(t),ng=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>nc[nf[t]=e.charCodeAt(0)]=t),e=>{for(var t,r=0,n=e.length,i=[];r<n;)t=e[r++]<<16|e[r++]<<8|e[r++],i.push(nf[(16515072&t)>>18],nf[(258048&t)>>12],nf[(4032&t)>>6],nf[63&t]);return i.length+=n-r,(e=>String.fromCharCode(...e))(i)}),ny=e=>{for(var t,r=0,n=0,i=e.length,a=new Uint8Array(3*(i/4|0)+(i+3&3)%3);r<i;)a[n++]=nc[np(e,r++)]<<2|(t=nc[np(e,r++)])>>4,r<i&&(a[n++]=(15&t)<<4|(t=nc[np(e,r++)])>>2,r<i)&&(a[n++]=(3&t)<<6|nc[np(e,r++)]);return a},nm={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},nb=(e=256)=>e*Math.random()|0,nk={exports:{}},{deserialize:nS,serialize:nT}=((()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,i=new Uint8Array(128),a=0;if(t&&t.multiple)for(var l=0;l<e.length;l++)o(e[l]);else o(e);return i.subarray(0,a);function o(e,i){var c,l;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var t;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?d([204,e]):-128<=e&&e<=127?d([208,e]):0<e&&e<=65535?d([205,e>>>8,e]):-32768<=e&&e<=32767?d([209,e>>>8,e]):0<e&&e<=4294967295?d([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?d([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?d([211,(t=e/4294967296)>>>24,t>>>16,t>>>8,t,(t=e%4294967296)>>>24,t>>>16,t>>>8,t]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),v(e)):d(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(r=new ArrayBuffer(8))).setFloat64(0,e),s(203),d(new Uint8Array(r)))})(e);break;case\"string\":(c=(l=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(127<e.charCodeAt(n)){t=!1;break}for(var i=0,a=new Uint8Array(e.length*(t?1:4)),l=0;l!==r;l++){var o=e.charCodeAt(l);if(o<128)a[i++]=o;else{if(o<2048)a[i++]=o>>6|192;else{if(55295<o&&o<56320){if(++l>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(l);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+l+\" out of range\");a[i++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,a[i++]=o>>12&63|128}else a[i++]=o>>12|224;a[i++]=o>>6&63|128}a[i++]=63&o|128}}return t?a:a.subarray(0,i)})(e)).length)<=31?s(160+c):d(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),d(l);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var r,t=e.getTime()/1e3;0===e.getMilliseconds()&&0<=t&&t<4294967296?d([214,255,t>>>24,t>>>16,t>>>8,t]):0<=t&&t<17179869184?d([215,255,(r=1e6*e.getMilliseconds())>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t]):(d([199,12,255,(r=1e6*e.getMilliseconds())>>>24,r>>>16,r>>>8,r]),v(t))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((l=(c=e).length)<=255?d([196,l]):d(l<=65535?[197,l>>>8,l]:[198,l>>>24,l>>>16,l>>>8,l]),d(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var r,t=0;for(r in e)void 0!==e[r]&&t++;for(r in t<=15?s(128+t):d(t<=65535?[222,t>>>8,t]:[223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(o(r),o(n))}})(e);break;default:if(i||!t||!t.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof t.invalidTypeReplacement?o(t.invalidTypeReplacement(e),!0):o(t.invalidTypeReplacement,!0)}}function u(e){var t=e.length;t<=15?s(144+t):d(t<=65535?[220,t>>>8,t]:[221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;r<t;r++)o(e[r])}function s(e){if(i.length<a+1){for(var t=2*i.length;t<a+1;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i[a]=e,a++}function d(e){if(i.length<a+e.length){for(var t=2*i.length;t<a+e.length;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i.set(e,a),a+=e.length}function v(e){var t,e=0<=e?(t=e/4294967296,e%4294967296):(t=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));d([t>>>24,t>>>16,t>>>8,t,e>>>24,e>>>16,e>>>8,e])}}function r(e,t){var r,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(i());else r=i();return r;function i(){var t=e[n++];if(0<=t&&t<=127)return t;if(128<=t&&t<=143)return s(t-128);if(144<=t&&t<=159)return d(t-144);if(160<=t&&t<=191)return v(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return u(-1,1);if(197===t)return u(-1,2);if(198===t)return u(-1,4);if(199===t)return c(-1,1);if(200===t)return c(-1,2);if(201===t)return c(-1,4);if(202===t)return o(4);if(203===t)return o(8);if(204===t)return l(1);if(205===t)return l(2);if(206===t)return l(4);if(207===t)return l(8);if(208===t)return a(1);if(209===t)return a(2);if(210===t)return a(4);if(211===t)return a(8);if(212===t)return c(1);if(213===t)return c(2);if(214===t)return c(4);if(215===t)return c(8);if(216===t)return c(16);if(217===t)return v(-1,1);if(218===t)return v(-1,2);if(219===t)return v(-1,4);if(220===t)return d(-1,2);if(221===t)return d(-1,4);if(222===t)return s(-1,2);if(223===t)return s(-1,4);if(224<=t&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function a(t){for(var a,r=0,i=!0;0<t--;)i?(r+=127&(a=e[n++]),128&a&&(r-=128),i=!1):r=(r*=256)+e[n++];return r}function l(t){for(var r=0;0<t--;)r=256*r+e[n++];return r}function o(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return n+=t,4===t?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function u(t,r){t<0&&(t=l(r));r=e.subarray(n,n+t);return n+=t,r}function s(e,t){e<0&&(e=l(t));for(var r={};0<e--;)r[i()]=i();return r}function d(e,t){e<0&&(e=l(t));for(var r=[];0<e--;)r.push(i());return r}function v(t,r){t<0&&(t=l(r));r=n;return n+=t,((e,t,r)=>{var n=t,i=\"\";for(r+=t;n<r;){var a=e[n++];if(127<a)if(191<a&&a<224){if(r<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");a=(31&a)<<6|63&e[n++]}else if(223<a&&a<240){if(r<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");a=(15&a)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<a&&a<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+a.toString(16)+\" at index \"+(n-1));if(r<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");a=(7&a)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(a<=65535)i+=String.fromCharCode(a);else{if(!(a<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+a.toString(16)+\" exceeds UTF-16 reach\");a-=65536,i+=String.fromCharCode(a>>10|55296)+String.fromCharCode(1023&a|56320)}}return i})(e,r,t)}function c(e,t){e<0&&(e=l(t));t=l(1),e=u(e);return 255===t?(e=>{var r,t;if(4===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*t);if(8===e.length)return r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*t+r/1e6);if(12===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,t=a(8),new Date(1e3*t+r/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:t,data:e}}}var n={serialize:t,deserialize:r,encode:t,decode:r};nk.exports=n})(),(x=nk.exports)&&x.__esModule&&Object.prototype.hasOwnProperty.call(x,\"default\")?x.default:x),nI=\"$ref\",nx=(e,t,r)=>ef(e)?J:r?t!==J:null===t||t,nA=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var i,a,l,o=(e,t,n=e[t],i=nx(t,n,r)?s(n):J)=>(n!==i&&(i!==J||eo(e)?e[t]=i:delete e[t],u(()=>e[t]=n)),i),u=e=>(null!=i?i:i=[]).push(e),s=e=>{if(null==e||ep(e)||ef(e))return J;if(ed(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(l=null==a?void 0:a.get(e)))return e[nI]||(e[nI]=l,u(()=>delete e[nI])),{[nI]:l};if(ev(e))for(var t in(null!=a?a:a=new Map).set(e,a.size+1),e)o(e,t);else!eh(e)||e instanceof Uint8Array||(!eo(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?o(e,r):(e[r]=null,u(()=>delete e[r])))}return e};return q(()=>{var r;return t?nT(null!=(r=s(e))?r:null):q(()=>JSON.stringify(e,J,n?2:0),()=>JSON.stringify(s(e),J,n?2:0))},!0,()=>null==i?void 0:i.forEach(e=>e()))},nN=e=>{var t,r,n=e=>ed(e)?e[nI]&&(r=(null!=t?t:t=[])[e[nI]])?r:(e[nI]&&delete(t[e[nI]]=e)[nI],Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(ea(e)?q(()=>JSON.parse(e),()=>console.error(\"Invalid JSON received.\",e)):null!=e?q(()=>nS(e),()=>(console.error(\"Invalid message received.\",e),J)):e)},nE=(e,t={})=>{var r=(e,{json:t=!1,decodeJson:r=!1,...n})=>{var l,o,u,i=(e,r)=>ei(e)&&!0===r?e:u(e=ea(e)?new Uint8Array(eO(e.length,t=>255&e.charCodeAt(t))):t?q(()=>JSON.stringify(e),()=>JSON.stringify(nA(e,!1,n))):nA(e,!0,n),r),a=e=>null==e?J:q(()=>nN(e),J);return t?[e=>nA(e,!1,n),a,(e,t)=>i(e,t)]:([l,o,u]=(e=>{for(var t,r,n,i,a,o,l=0n,u=0n,s=[],d=0,v=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],v=255&(d=f),c=-1}:()=>{},g=e=>(v=255&(d+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),i=16-((t=e.length)+4)%16,a=new Uint8Array(4+t+i),n=0;n<3;a[n++]=g(nb()));for(r=0,a[n++]=g(v^16*nb(16)+i);r<t;a[n++]=g(v^e[r++]));for(;i--;)a[n++]=nb();return a}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((v^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,a=new Uint8Array(t);n<t;a[n++]=v^g(e[r++]));return a}:e=>e,(e,t=64)=>{if(null==e)return null;for(o=et(t)?64:t,h(),[l,u]=nm[o],r=0;r<e.length;l=BigInt.asUintN(o,(l^BigInt(v^g(e[r++])))*u));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+l%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):l.toString(36)}]})(e),[(e,t)=>(t?G:ng)(l(nA(e,!0,n))),e=>null!=e?nN(o(e instanceof Uint8Array?e:(r&&ew(e)?a:ny)(e))):null,(e,t)=>i(e,t)])};if(!e){var n=+(null!=(n=t.json)?n:0);if(n&&!1!==t.prettify)return(null!=m?m:m=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[n]}return r(e,t)},tf=(nE(),nE(null,{json:!0,decodeJson:!0}),nE(null,{json:!0,prettify:!0}),tE(\"\"+rB.currentScript.src,\"#\")),rt=tE(\"\"+(tf[1]||\"\"),\";\"),n_=tf[0],nj=rt[1]||(null==(x=tg(n_,{delimiters:!1}))?void 0:x.host),nC=e=>!(!nj||(null==(e=tg(e,{delimiters:!1}))||null==(e=e.host)?void 0:e.endsWith(nj))!==V),tf=(...e)=>tO(t9(e),/(^(?=\\?))|(^\\.(?=\\/))/,n_.split(\"?\")[0]),nU=tf(\"?\",\"var\"),nF=tf(\"?\",\"mnt\"),nq=(tf(\"?\",\"usr\"),Symbol()),[nz,nR]=nE(),[nP,nW]=[rP,rP],nB=!0,[rt,nJ]=Q(),nV=(...e)=>{var t,i=e.shift();console.error(ea(e[1])?e.shift():null!=(t=null==(t=e[1])?void 0:t.message)?t:\"An error occurred\",null!=(t=i.id)?t:i,...e)},[nH,nG]=Q(),[nX,nZ]=Q(),nY=e=>n0!==(n0=e)&&nG(n0=!1,n6(!0,!0)),nQ=e=>n1!==(n1=!!e&&\"visible\"===document.visibilityState)&&nZ(n1,!e,n2(!0,!0)),n0=(nH(nQ),!0),n1=!1,n2=e7(!1),n6=e7(!1),n4=(r3(window,[\"pagehide\",\"freeze\"],()=>nY(!1)),r3(window,[\"pageshow\",\"resume\"],()=>nY(!0)),r3(document,\"visibilitychange\",()=>(nQ(!0),n1&&nY(!0))),nG(n0,n6(!0,!0)),!1),n5=e7(!1),[,n8]=Q(),n9=tt({callback:()=>n4&&n8(n4=!1,n5(!1)),frequency:2e4,once:!0,paused:!0}),x=()=>!n4&&(n8(n4=!0,n5(!0)),n9.restart()),ie=(r3(window,[\"focus\",\"scroll\"],x),r3(window,\"blur\",()=>n9.trigger()),r3(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],x),x(),()=>n5()),it=0,ir=void 0,ii=()=>(null!=ir?ir:rP())+\"_\"+ia(),ia=()=>(e9(!0)-(parseInt(ir.slice(0,-2),36)||0)).toString(36)+\"_\"+(++it).toString(36),iu=new Map,is={id:ir,heartbeat:e9()},id={knownTabs:new Map([[ir,is]]),variables:new Map},[iv,ic]=Q(),[ip,ih]=Q(),ig=rP,iy=(e,t=e9())=>{e=iu.get(ea(e)?e:rq(e));return null!=e&&e.cache&&e.cache[0]+e.cache[1]<=t?void 0:e},im=(...e)=>{var t=e9();return iw(tW(e,e=>(e.cache=[t],[rS(e),{...e,created:t,modified:t,version:\"0\"}])))},ib=e=>null!=(e=tW(e,e=>{var t,r;return e&&(t=rq(e[0]),(r=iu.get(t))!==e[1])?[t,e[1],r,e[0]]:tj}))?e:[],iw=e=>{var r,n,e=ib(e);null!=e&&e.length&&(r=e9(),tP(e,([,e,t])=>{e&&!e.cache&&(e.cache=null!=(e=null==t?void 0:t.cache)?e:[r,3e3])}),t5(iu,e),(n=tB(e,([,,,e])=>0<rM.compare(e.scope,\"tab\"))).length&&ig({type:\"patch\",payload:t4(n)}),ih(tW(e,([,e,t,r])=>[r,e,t]),iu,!0))},[,iS]=(rt((e,t)=>{nH(r=>{var n;r?(r=t(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),ir=null!=(n=null==r?void 0:r[0])?n:e9(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),iu=new Map(tV(tB(iu,([,e])=>\"view\"===(null==e?void 0:e.scope)),tW(null==r?void 0:r[1],e=>[rq(e),e])))):sessionStorage.setItem(\"_tail:state\",e([ir,tW(iu,([,e])=>e&&\"view\"!==e.scope?e:tj)]))},!0),ig=(t,r)=>{e&&(localStorage.setItem(\"_tail:state\",e([ir,t,r])),localStorage.removeItem(\"_tail:state\"))},r3(window,\"storage\",e=>{var a,l,o;\"_tail:state\"!==e.key||!(e=null==t?void 0:t(e.newValue))||e[2]&&e[2]!==ir||([e,{type:a,payload:l}]=e,\"query\"===a?r.active||ig({type:\"set\",payload:[tW(id.knownTabs),tW(id.variables)]},e):\"set\"===a&&r.active?(id.knownTabs=new Map(l[0]),id.variables=new Map(l[1]),iu=new Map(l[1]),r.trigger()):\"patch\"===a?(o=ib(tW(l,([e,t])=>[rz(e),t])),t5(id.variables,l),t5(iu,l),ih(tW(o,([,e,t,r])=>[r,e,t]),iu,!1)):\"tab\"===a&&(t2(id.knownTabs,e,l),l)&&ic(\"tab\",l,!1))});var r=tt(()=>ic(\"ready\",id,!0),-25),n=tt({callback(){var e=e9()-1e4;eq(id.knownTabs,([t,r])=>r[0]<e&&t2(id.knownTabs,t,void 0)),is.heartbeat=e9(),ig({type:\"tab\",payload:is})},frequency:5e3,paused:!0});nH(e=>(e=>{ig({type:\"tab\",payload:e?is:void 0}),e?(r.restart(),ig({type:\"query\"})):r.toggle(!1),n.toggle(e)})(e),!0)},!0),Q()),[iT,iI]=Q(),ix=(({timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var i=()=>(r?nW:nR)(localStorage.getItem(\"_tail:rq\")),a=0,l=()=>localStorage.setItem(\"_tail:rq\",(r?nP:nz)([ir,e9()+t]));return async(r,o,u=null!=o?1:n)=>{for(;u--;){var d=i();if((!d||d[1]<e9())&&(l(),(null==(d=i())?void 0:d[0])===ir))return 0<t&&(a=setInterval(()=>l(),t/2)),P(r,!0,()=>{clearInterval(a),localStorage.removeItem(\"_tail:rq\")});var v=to(),[d]=r3(window,\"storage\",t=>{\"_tail:rq\"!==t.key||t.newValue||v.resolve()});e=[tl(null!=o?o:t),v],await Promise.race(e.map(e=>ep(e)?e():e)),d()}var e;null==o&&C(\"_tail:rq could not be acquired.\")}})(),iA=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{n=n&&nB;var i,a,l=!1,o=r=>{var o=ep(t)?null==t?void 0:t(i,r):t;return!1!==o&&(iS(e,i=null!=o&&!0!==o?o:i,r,e=>(l=i===J,i=e)),!l)&&(a=n?nP(i,!0):JSON.stringify(i))};if(!r)return ix(()=>ez(1,async t=>{var l;return o(t)?400<=(l=await fetch(e,{method:null!=i?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain; charset=iso-8859-1\"},body:a})).status?0===t?eS(C(\"Invalid response: \"+await l.text())):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tl(200*(1+t))):(null!=(l=null!=(t=n?new Uint8Array(await l.arrayBuffer()):await l.text())&&t.length?null==(l=n?nW:JSON.parse)?void 0:l(t):J)&&iI(l),eS(l)):eS()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=i?[a]:[],{type:\"text/plain; charset=iso-8859-1\"}))&&C(\"Beacon send failed.\")},tf=[\"scope\",\"key\",\"entityId\",\"source\"],iE=[...tf,\"purpose\",\"ifModifiedSince\",\"ifNoneMatch\"],iO=[...tf,\"value\",\"force\",\"ttl\",\"version\"],i$=new Map,i_=(e,t)=>{var r=tt(async()=>{var e=eO(i$,([e,t])=>({...rz(e),result:[...t]}));e.length&&await l.get(e)},3e3),n=(e,t)=>t&&t1(i$,e,()=>new Set).add(t),l=(nH((e,t)=>r.toggle(e,e&&3e3<=t),!0),ip(e=>tP(e,([e,t])=>(e=>{var t,r;e&&(t=rq(e),null!=(r=e1(i$,t)))&&r.size&&tP(r,r=>!0===r(e)&&n(t,r))})(t?{status:a.Success,success:!0,...t}:{status:a.NotFound,success:!0,...e}))),{get:r=>rN(\"get\",r,async r=>{r[0]&&!ea(r[0])||(u=r[0],r=r.slice(1)),null!=t&&t.validateKey(u);var s=new Map,d=[],v=tW(r,e=>{var t=iy(rq(e)),r=e.purpose;if(r&&!0!==(null==t||null==(i=t.schema)?void 0:i.usage.purposes[r]))s.set(e,{...e,status:a.Forbidden,success:!1,error:`No consent for '${r}'.`});else if(!e.refresh&&t)s.set(e,{status:a.Success,success:!0,...t});else{if(!rF(e))return[t3(e,iE),e];var i,r=null==(i=e.init)?void 0:i.call(e);r&&(r={...rS(e),version:\"1\",created:c,modified:c,value:r,cache:[c,null!=(i=e.ttl)?i:null==t?void 0:t.ttl]},t6(d,[rS(r),r]),s.set(e,{status:a.Success,success:!0,...r}))}return tj}),c=e9(),u=v.length&&(null==(u=await iA(e,{variables:{get:tW(v,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId}))||null==(r=u.variables)?void 0:r.get)||[],p=[];return tP(u,(e,t)=>{var n,r;(null==e?void 0:e.status)===a.NotFound?null!=(r=null==(r=(n=v[t][1]).init)?void 0:r.call(n))&&p.push([n,{...rS(n),value:r}]):s.set(v[t][1],rU(e))}),p.length&&tP(await l.set(tW(p,([,e])=>e)).all(),(e,t)=>s.set(p[t][0],rU(e.status===a.Conflict?{...e,status:a.Success,success:!0}:e))),d.length&&iw(d),tP(s,([e])=>{e.callback&&(e.callback=e6(e.callback,(t,r)=>{P(async()=>!0===await t(r)&&n(rq(e),e.callback),!1)}))}),s}),set:r=>rN(\"set\",r,async r=>{r[0]&&!ea(r[0])||(v=r[0],r=r.slice(1)),null!=t&&t.validateKey(v);for(var n=[],i=new Map,o=e9(),u=[],s=tW(r,e=>{var s,r,t=iy(rq(e));return rF(e)?((r=null==(s=e.patch?e.patch(null==t?void 0:t.value):e.value)?void 0:{...rS(e),created:null!=(r=null==t?void 0:t.created)?r:o,modified:o,version:null!=t&&t.version?\"\"+(parseInt(t.version)+1):\"1\",scope:e.scope,key:e.key,value:s,cache:[o,e.ttl]})&&(r.cache=[o,null!=(s=e.ttl)?s:3e3]),i.set(e,r?{status:t?a.Success:a.Created,success:!0,...r}:{status:a.Success,success:!0,...rS(e)}),t6(n,[rS(e),r]),tj):e.patch?(u.push(e),tj):(void 0===(null==e?void 0:e.version)&&(e.version=null==t?void 0:t.version),[t3(e,iO),e])}),d=0;!d++||u.length;){var v,f=await l.get(tW(u,e=>rS(e))).all(),f=(tP(f,(e,t)=>{var r=u[t];rT(e,!1)?t6(s,[{...r,patch:void 0,value:u[t].patch(null==e?void 0:e.value),version:e.version},r]):i.set(r,e)}),u=[],s.length?F(null==(f=(await iA(e,{variables:{set:tW(s,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId})).variables)?void 0:f.set,\"No result.\"):[]);tP(f,(e,t)=>{var[,t]=s[t];d<=3&&t.patch&&((null==e?void 0:e.status)===a.Conflict||(null==e?void 0:e.status)===a.NotFound)?t6(u,t):i.set(t,rU(e))})}return n.length&&iw(n),i})});return iT(({variables:e})=>{e&&null!=(e=tV(tW(e.get,e=>null!=e&&e.success?e:tj),tW(e.set,e=>null!=e&&e.success?e:tj)))&&e.length&&iw(tW(e,e=>[rS(e),e.success?e.value:void 0]))}),l},ij=Symbol(),iM=Symbol(),iU=[.75,.33],iF=[.25,.33],iz=e=>tW(tG(e,[e=>e.scope,e=>e.key]),e=>e?[e,`${rk(e)}, ${rF(e)?\"client-side memory only\":rl(null==(e=e.schema)?void 0:e.usage)})`,K]:tj),iP=()=>{var i,l,a,r=null==rW?void 0:rW.screen;return r?({width:r,height:i,orientation:a}=r,l=r<i,-90!==(a=null!=(a=null!=(a=null==a?void 0:a.angle)?a:rW.orientation)?a:0)&&90!==a||([r,i]=[i,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:rW.devicePixelRatio,width:r,height:i,landscape:l}}):{}},iW=e=>e(W({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==k?void 0:k.clientId,languages:eO(navigator.languages,(e,t,r=e.split(\"-\"))=>W({id:e,language:r[0],region:r[1],primary:0===t,preference:t+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...iP()})),iB=(e,t=\"A\"===rQ(e)&&rH(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),iD=(e,t=rQ(e),r=ns(e,\"button\"))=>r!==K&&(U(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&U(rX(e,\"type\"),\"button\",\"submit\")||r===V),iJ=(e,t=!1)=>{var r;return{tagName:e.tagName,text:tv((null==(r=rH(e,\"title\"))?void 0:r.trim())||(null==(r=rH(e,\"alt\"))?void 0:r.trim())||(null==(r=e.innerText)?void 0:r.trim()),100),href:null==(r=e.href)?void 0:r.toString(),rect:t?r5(e):void 0}},iK=e=>{if(w)return w;ea(e)&&([r,e]=nR(e),e=nE(r,{decodeJson:!0})[1](e)),eZ(nv,e),(e=>{nW===rP&&([nP,nW]=nE(e,{json:!e,prettify:!1}),nB=!!e,nJ(nP,nW))})(e1(nv,\"encryptionKey\"));var r,l,o,u,s,d,v,c,f,p,h,g,y,i=e1(nv,\"key\"),a=null!=(e=null==(r=rW[nv.name])?void 0:r._)?e:[];if(eo(a))return l=[],o=[],u=(e,...t)=>{var r=V;o=eB(o,n=>q(()=>{var i;return null!=(i=n[e])&&i.call(n,...t,{tracker:w,unsubscribe:()=>r=K}),r},(e=>t=>nV(e,t))(n)))},s=[],v=i_(nU,d={applyEventExtensions(e){null==e.clientId&&(e.clientId=ii()),null==e.timestamp&&(e.timestamp=e9()),h=V;var n=K;return eO(l,([,t])=>{var r;!n&&(null==(r=t.decorate)?void 0:r.call(t,e))!==K||(n=V)}),n?void 0:e},validateKey:(e,t=!0)=>!i&&!e||e===i||!!t&&C(`'${e}' is not a valid key.`)}),c=((e,t)=>{var n=[],i=new WeakMap,a=new Map,l=(e,t)=>{var r;return null!=(r=e.metadata)&&r.queued?eX(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):C(\"Source event not queued.\")},o=async(r,n=!0,i)=>{var a;return r[0]&&!ea(r[0])||(a=r[0],r=r.slice(1)),iA(e,{events:r=eO(r,e=>{if(null!=t&&t.validateKey(null!=a?a:e.key),eX(e,{metadata:{posted:!0}}),e[ij]){if(!1===e[ij](e))return;delete e[ij]}return eX(ru(e4(e),!0),{timestamp:e.timestamp-e9()})}),variables:i,deviceSessionId:null==t?void 0:t.deviceSessionId},{beacon:n})},u=async(e,{flush:r=!1,async:i=!0,variables:a}={})=>{var l=[];if(e=eO(es(e),e=>{var r;return null!=(r=e.metadata)&&r.queued||e5(l,e),eX(t.applyEventExtensions(e),{metadata:{queued:!0}})}),eq(l,e=>{}),!i)return o(e,!1,a);r?(n.length&&e3(e,...n.splice(0)),e.length&&await o(e,!0,a)):e.length&&e5(n,...e)};return tt(()=>u([],{flush:!0}),5e3),nX((e,t,r)=>{!e&&(n.length||t||1500<r)&&(e=eO(a,([e,t])=>{var[t,n]=t();return n&&(a.delete(e),i.delete(e)),t}),n.length||e.length)&&u(ej(n.splice(0),e),{flush:!0})}),{post:u,postPatch:(e,t,r)=>u(l(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var o=!1,s=()=>{o=!0};return i.set(e,e4(e)),a.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))s();else{var a=i.get(e),[r,d]=null!=(r=e8(t(a,s),a))?r:[];if(r&&!M(d,a))return i.set(e,e4(d)),[l(e,r),o]}return[void 0,o]}),r&&u(e),s}}})(nU,d),f=null,p=0,g=h=K,y=!1,w=(...e)=>{if(y){if(e.length){1<e.length&&(!e[0]||ea(e[0]))&&(t=e[0],e=e.slice(1)),ea(e[0])&&(r=e[0],e=ew(r)?JSON.parse(r):nR(r));var t,n=K;if((e=eB(e_(e,e=>ea(e)?nR(e):e),e=>{if(!e)return K;if(ac(e))nv.tags=eZ({},nv.tags,e.tagAttributes);else{if(af(e))return nv.disabled=e.disable,K;if(ag(e))return n=V,K;if(aS(e))return e(w),K}return g||am(e)||ah(e)?V:(s.push(e),K)})).length||n){var r=eV(e,e=>ah(e)?-100:am(e)?-50:ak(e)?-10:rE(e)?90:0);if(!f||!f.splice(h?p+1:f.length,0,...r)){for(p=0,f=r;p<f.length;p++){var m=f[p];m&&(d.validateKey(null!=t?t:m.key),q(()=>{var e=f[p];if(u(\"command\",e),h=K,rE(e))c.post(e);else if(ay(e))v.get(tK(e.get));else if(ak(e))v.set(tK(e.set));else if(am(e))e5(o,e.listener);else if(ah(e))(t=q(()=>e.extension.setup(w),t=>nV(e.extension.id,t)))&&(e5(l,[null!=(r=e.priority)?r:100,t,e.extension]),eV(l,([e])=>e));else if(aS(e))e(w);else{var r,n,t,a=K;for([,t]of l)if(a=null!=(n=null==(n=t.processCommand)?void 0:n.call(t,e))?n:K)break;a||nV(\"invalid-command\",e,\"Loaded extensions:\",l.map(e=>e[2].id))}},e=>nV(w,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}}else a.push(...e)},Object.defineProperty(rW,nv.name,{value:Object.freeze(Object.assign(w,{id:\"tracker_\"+ii(),events:c,variables:v,__isTracker:V})),configurable:!1,writable:!1}),ip((e,t,r)=>{ej(iz(tW(e,([,e])=>e||tj)),[[{[nq]:iz(tW(t,([,e])=>e||tj))},\"All variables\",V]])}),iv(async(e,t,r,n)=>{var l;\"ready\"===e&&([e,l]=await v.get([{scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:L}]).values(!0),d.deviceSessionId=e.deviceSessionId,e.hasUserAgent||(iW(w),e.hasUserAgent=!0),g=!0,s.length&&w(s),n(),y=!0,w(...eO(au,e=>({extension:e})),...a),w({set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0),w;C(`The global variable for the tracker \"${nv.name}\" is used for something else than an array of queued commands.`)},iV=()=>null==k?void 0:k.clientId,iH={scope:\"shared\",key:\"referrer\"},iG=(e,t)=>{w.variables.set({...iH,value:[iV(),e]}),t&&w.variables.get({scope:iH.scope,key:iH.key,result(r,n,i){return null!=r&&r.value?i():(null==n||null==(r=n.value)?void 0:r[1])===e&&t()}})},iX=e7(),iZ=e7(),iY=1,[i0,i1]=Q(),i2=e=>{var t=e7(e,iX),r=e7(e,iZ),n=e7(e,ie),i=e7(e,()=>iY);return(e,a)=>({totalTime:t(e,a),visibleTime:r(e,a),activeTime:n(e,a),activations:i(e,a)})},i6=i2(),[i5,i3]=Q(),i8=(e,t)=>(t&&tP(i7,t=>e(t,()=>!1)),i5(e)),i9=new WeakSet,i7=document.getElementsByTagName(\"iframe\");function at(e){if(e){if(null!=e.units&&U(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var an=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),ai=e=>nd(e,t=>t!==e&&!!an(r7.get(t)),e=>(T=r7.get(e),(T=r7.get(e))&&e_(ej(T.component,T.content,T),\"tags\"))),aa=(e,t)=>t?e:{...e,rect:void 0,content:(I=e.content)&&eO(I,e=>({...e,rect:void 0}))},al=(e,t=K,r)=>{var n,i,a,l=[],o=[],u=0;return rK(e,e=>{var s,a,i=r7.get(e);i&&(an(i)&&(a=eB(es(i.component),e=>{var r;return 0===u||!t&&(1===u&&(null==(r=e.track)?void 0:r.secondary)!==V||(null==(r=e.track)?void 0:r.promote))}),n=(null!=r?r:eK(a,e=>null==(e=e.track)?void 0:e.region))&&r5(e)||void 0,s=ai(e),i.content&&e3(l,...eO(i.content,e=>({...e,rect:n,...s}))),null!=a)&&a.length&&(e3(o,...eO(a,e=>{var t;return u=eJ(u,null!=(t=e.track)&&t.secondary?1:2),aa({...e,content:l.length?l:void 0,rect:n,...s},!!n)})),l=[]),a=i.area||nu(e,\"area\"))&&e3(o,...eO(es(a)))}),l.length&&e5(o,aa({id:\"\",rect:n,content:l})),tP(o,e=>{ea(e)?e5(null!=i?i:i=[],e):(null==e.area&&(e.area=t9(i,\"/\")),e3(null!=a?a:a=[],e))}),a||i?{components:a,area:t9(i,\"/\")}:void 0},ao=Symbol(),au=[{id:\"context\",setup(e){tt(()=>tP(i7,e=>eQ(i9,e)&&i3(e)),1e3).trigger(),e.variables.get({scope:\"view\",key:\"view\",result(t,r,i){var a;return null==k||null==t||!t.value||null!=k&&k.definition?(n=null==t?void 0:t.value,null!=t&&null!=(a=t.value)&&a.navigation&&f(!0)):(k.definition=t.value,null!=(a=k.metadata)&&a.posted&&e.events.postPatch(k,{definition:n})),i()}});var n,t,d=null!=(t=null==(t=iy({scope:\"tab\",key:\"viewIndex\"}))?void 0:t.value)?t:0,v=null==(t=iy({scope:\"tab\",key:\"tabIndex\"}))?void 0:t.value,c=(null==v&&im({scope:\"tab\",key:\"tabIndex\",value:v=null!=(t=null!=(t=null==(t=iy({scope:\"shared\",key:\"tabIndex\"}))?void 0:t.value)?t:null==(t=iy({scope:\"session\",key:\"@info\"}))||null==(t=t.value)?void 0:t.tabs)?t:0},{scope:\"shared\",key:\"tabIndex\",value:v+1}),null),f=(t=K)=>{var a,l,o,i,p;r2(\"\"+c,c=location.href)&&!t||({source:t,scheme:i,host:a}=tg(location.href+\"\",{requireAuthority:!0}),k={type:\"view\",timestamp:e9(),clientId:ii(),tab:ir,href:t,path:location.pathname,hash:location.hash||void 0,domain:{scheme:i,host:a},tabNumber:v+1,tabViewNumber:d+1,viewport:r9(),duration:i6(void 0,!0)},0===v&&(k.firstTab=V),0===v&&0===d&&(k.landingPage=V),im({scope:\"tab\",key:\"viewIndex\",value:++d}),l=ty(location.href),eO([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>{var n;return(null!=(n=(o=k).utm)?n:o.utm={})[e]=null==(n=es(l[\"utm_\"+e]))?void 0:n[0]}),!(k.navigationType=S)&&performance&&eO(performance.getEntriesByType(\"navigation\"),e=>{k.redirects=e.redirectCount,k.navigationType=tO(e.type,/\\_/g,\"-\")}),S=void 0,\"navigate\"===(null!=(t=k.navigationType)?t:k.navigationType=\"navigate\")&&(p=null==(i=iy(iH))?void 0:i.value)&&nC(document.referrer)&&(k.view=null==p?void 0:p[0],k.relatedEventId=null==p?void 0:p[1],e.variables.set({...iH,value:void 0})),(p=document.referrer||null)&&!nC(p)&&(k.externalReferrer={href:p,domain:(()=>{var{host:t,scheme:r,port:n}=tg(p,{delimiters:!1,requireAuthority:!0});return{host:t+(n?\":\"+n:\"\"),scheme:r}})()}),k.definition=n,n=void 0,e.events.post(k),e.events.registerEventPatchSource(k,()=>({duration:i6()})),i1(k))};return nX(e=>{e?(iZ(V),++iY):iZ(K)}),r3(window,\"popstate\",()=>(S=\"back-forward\",f())),eO([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),S=\"navigate\",f()}}),f(),{processCommand:t=>av(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),V),decorate(e){!k||rO(e)||(e=>!(null==e||!e.patchTargetId))(e)||(e.view=k.clientId)}}}},{id:\"components\",setup(e){var t=(e=>{var t=new IntersectionObserver(e=>tP(e,e=>{var t,r;return null==(t=(r=e.target)[iM])?void 0:t.call(r,e)})),r=new Set,n=(tt({callback:()=>tP(r,e=>e()),frequency:250,raf:!0}),(e,t,r=0)=>e<r?r:t<e?t:e),i=rB.createRange();return(a,l)=>{var o,u,s,d,v,c,f,p,h,g,y,m,b,w,k,S;l&&(o=eB(null==l?void 0:l.component,e=>{var t;return(null==(t=e.track)?void 0:t.impressions)||(null!=(t=null==(t=e.track)?void 0:t.secondary)?t:e.inferred)!==V}))&&(e=>{var r,n;return null==e?J:null!=(r=null!=(n=e.length)?n:e.size)?r:e[Z]?(r=0,null!=(n=eF(e,()=>++r))?n:0):Object.keys(e).length})(o)&&(p=f=K,g=h=0,y=(e,t,r,n)=>{var i,a=null!=(a=(i=null!=u?u:u=[])[e])?a:i[e]=[{duration:0,impressions:0},e7(!1,ie),!1,!1,0,0,0,t$()];a[4]=t,a[5]=r,a[6]=n},m=[t$(),t$()],b=i2(!1),w=e7(!1,ie),k=-1,S=()=>{var O,t=a.getBoundingClientRect(),r=window.innerWidth,l=window.innerHeight,S=[n(t.top,l),n(t.right,r),n(t.bottom,l),n(t.left,r)],T=S[2]-S[0],S=S[1]-S[3],N=f?iF:iU,r=(N[0]*l<T||N[0]<(T/t.height||0))&&(N[0]*r<S||N[0]<(S/t.width||0));if(p!==r&&w(p=r,!0),f!==(f=p&&w()>=nv.impressionThreshold-250)&&(++h,b(f),s||e(s=eB(eO(o,e=>((null==(e=e.track)?void 0:e.impressions)||ns(a,\"impressions\",V,e=>null==(e=e.track)?void 0:e.impressions))&&W({type:\"impression\",pos:r6(a),viewport:r9(),timeOffset:i6(),impressions:h,...al(a,V)})||null))),null!=s)&&s.length&&(O=b(),d=eO(s,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:O,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:O.activeTime&&c&&n(O.activeTime/c.readTime,g)})))),t.height!==k){k=t.height;N=a.textContent;if({boundaries:v,...c}=(e=>{for(var r,n,i=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),a=0,l=0,o=0,u=0,s=!1;r=i.exec(e);)r[1]?(s&&++u,s=!1):(s=!0,a+=r[0].length,6<r[0].length&&++o,++l);s&&++u;var i=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),d=[0,.25,.75,1].map(e=>e*a|0),v=[],f=0,p=!1;do{if(null!=(r=i.exec(e))&&r[1])p&&++f;else{for(var c=null==r?void 0:r.index,h=!1,g=0;g<d.length;g++)d[g]--||(v[g]={offset:null!=n?n:c,wordsBefore:f,readTime:em(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(r);return{text:e,length:e.length,characters:a,words:l,sentences:u,lix:em(l/u+100*o/l),readTime:em(l/238*6e4),boundaries:v}})(null!=N?N:\"\"),u||t.height>=1.25*l){var _=rB.createTreeWalker(a,NodeFilter.SHOW_TEXT),j=0,C=0;for(null==u&&(u=[]);C<v.length&&(M=_.nextNode());){var M,U,F,P,B,z=null!=(U=null==(U=M.textContent)?void 0:U.length)?U:0;for(j+=z;j>=(null==(F=v[C])?void 0:F.offset);)i[C%2?\"setEnd\":\"setStart\"](M,v[C].offset-j+z),C++%2&&({top:F,bottom:P}=i.getBoundingClientRect(),B=t.top,C<3?y(0,F-B,P-B,v[1].readTime):(y(1,u[0][4],F-B,v[2].readTime),y(2,F-B,P-B,v[3].readTime)))}}}var r=t.left<0?-t.left:0,N=t.top<0?-t.top:0,L=t.width*t.height;f&&(g=m[0].push(N,N+T)*m[1].push(r,r+S)/L),u&&tP(u,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),i=n(t.bottom>l?l:t.bottom,e[5],e[4]),a=f&&0<i-r,o=e[0];o.duration=e[1](a),a&&(e[3]!==(e[3]=a)&&++e[0].impressions,o.seen=e[7].push(r,i)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},a[iM]=({isIntersecting:e})=>{eZ(r,S,e),e||(tP(d,e=>e()),S())},t.observe(a))}})(e),n=({boundary:e,...n})=>{eY(r7,e,e=>{var t;return(e=>null==e?void 0:{...e,component:es(e.component),content:es(e.content),tags:es(e.tags)})(\"add\"in n?{...e,component:ej(null==e?void 0:e.component,n.component),content:ej(null==e?void 0:e.content,n.content),area:null!=(t=null==n?void 0:n.area)?t:null==e?void 0:e.area,tags:ej(null==e?void 0:e.tags,n.tags),cart:null!=(t=n.cart)?t:null==e?void 0:e.cart,track:null!=(t=n.track)?t:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),t(e,r7.get(e))};return{decorate(e){tP(e.components,e=>t2(e,\"track\",void 0))},processCommand:e=>ap(e)?(n(e),V):aw(e)?(eO(((e,t)=>{var r,n;return t?(r=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(i=>{if(!n.has(i))for(var a=[];null!=rH(i,e);){eQ(n,i);var l,o=tE(rH(i,e),\"|\");rH(i,e,null);for(var u=0;u<o.length;u++){var d=o[u];if(\"\"!==d){var s=\"-\"===d?-1:parseInt(null!=(s=el(d))?s:\"\",36);if(s<0)a.length+=s;else{if(0===u&&(a.length=0),isNaN(s)&&/^[\"\\[{]/.test(d))for(var c=\"\";u<o.length;u++)try{d=JSON.parse(c+=o[u]);break}catch(e){}0<=s&&t[s]&&(d=t[s]),e5(a,d)}}}e5(r,...eO(a,e=>({add:V,...e,boundary:i})));var f=i.nextElementSibling;\"WBR\"===i.tagName&&null!=(l=i.parentNode)&&l.removeChild(i),i=f}}),r):[]})(e.scan.attribute,e.scan.components),n),V):K}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{r3(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var i,a,l,o,u,s=K;if(rK(n.target,e=>{iD(e)&&null==l&&(l=e),s=s||\"NAV\"===rQ(e);var t,d=ne(e),d=null==d?void 0:d.component;!n.button&&null!=d&&d.length&&!u&&(tP(e.querySelectorAll(\"a,button\"),t=>iD(t)&&(3<(null!=u?u:u=[]).length?eS():u.push({...iJ(t,!0),component:rK(t,(e,t,r,n=null==(i=ne(e))?void 0:i.component)=>n&&t(n[0]),t=>t===e)}))),u)&&null==o&&(o=e),null==i&&(i=null!=(t=ns(e,\"clicks\",V,e=>null==(e=e.track)?void 0:e.clicks))?t:d&&eK(d,e=>(null==(e=e.track)?void 0:e.clicks)!==K)),null==a&&(a=null!=(t=ns(e,\"region\",V,e=>null==(e=e.track)?void 0:e.region))?t:d&&eK(d,e=>null==(e=e.track)?void 0:e.region))}),null!=o?o:o=l){var d,v=u&&!l&&i,c=al(null!=l?l:o,!1,v),f=nd(null!=l?l:o,void 0,e=>eO(es(null==(e=r7.get(e))?void 0:e.tags))),p=(null==i&&(i=!s),{...(a=null==a?V:a)?{pos:r6(l,n),viewport:r9()}:null,...((e,t)=>{var n;return rK(null!=e?e:t,e=>\"IMG\"===rQ(e)||e===t?(n={element:iJ(e,!1)},K):V),n})(n.target,null!=l?l:o),...c,timeOffset:i6(),...f});if(l)if(iB(l)){var h=l,c=h.hostname!==location.hostname,{host:f,scheme:m,source:b}=tg(h.href,{delimiters:!1,requireAuthority:!0});if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(W({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,T,w=W({clientId:ii(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:m},self:V,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||rH(h,\"target\")!==window.name?(iG(w.clientId),w.self=K,e(w)):r2(location.href,h.href)||(w.exit=w.external,iG(w.clientId))):(k=h.href,(b=nC(k))?iG(w.clientId,()=>e(w)):(T=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||nv.captureContextMenu&&(h.href=nF+\"=\"+T+encodeURIComponent(k),r3(window,\"storage\",(t,r)=>\"_tail:push\"===t.key&&(t.newValue&&(null==(t=JSON.parse(t.newValue))?void 0:t.requestId)===T&&e(w),r())),r3(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),h.href=k}))))}else{rK(n.target,(e,t)=>{var r;return!!(null!=d?d:d=(e=>ea(e=null==e||e!==V&&\"\"!==e?e:\"add\")&&U(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ed(e)?e:void 0)(null!=(r=null==(r=ne(e))?void 0:r.cart)?r:nu(e,\"cart\")))&&!d.item&&(d.item=(e=>null==e?J:eo(e)||ea(e)?e[e.length-1]:eF(e,(e,r)=>e,void 0,void 0))(null==(r=ne(e))?void 0:r.content))&&t(d)});c=at(d);(c||i)&&e(W(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else v&&eY(t,o,r=>{var i=r4(o,n);return r?e5(r,i):(i=W({type:\"component_click_intent\",...p,clicks:r=[i],clickables:u}),e.events.registerEventPatchSource(i,()=>({clicks:t.get(o)}),!0,o)),r})}})};r(document),i8(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=r1(V);i0(()=>{return e=()=>(t={},r=r1(V)),setTimeout(e,250);var e}),r3(window,\"scroll\",()=>{var a,n=r1(),i={x:(u=r1(K)).x/(rD.offsetWidth-window.innerWidth)||0,y:u.y/(rD.offsetHeight-window.innerHeight)||0};n.y>=r.y&&(a=[],!t.fold&&n.y>=r.y+200&&(t.fold=V,e5(a,\"fold\")),!t[\"page-middle\"]&&.5<=i.y&&(t[\"page-middle\"]=V,e5(a,\"page-middle\")),!t[\"page-end\"]&&.99<=i.y&&(t[\"page-end\"]=V,e5(a,\"page-end\")),(n=eO(a,e=>W({type:\"scroll\",scrollType:e,offset:i}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(t){var r;return ad(t)?(\"clear\"===(r=t.cart)?e({type:\"cart_updated\",action:\"clear\"}):(r=at(r))&&e({...r,type:\"cart_updated\"}),V):ab(t)?(e({type:\"order\",...t.order}),V):K}})},{id:\"forms\",setup(e){var t,r=new Map,n=(e,t=!1)=>{var r=!t||rG(e,nt(\"form-value\")),e=(t&&(r=r?er(r):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return t&&(e=e&&tv(e,200)),r?e:void 0},i=t=>{var i,l,s,a=t.form;if(a)return l=rG(a,nt(\"ref\"))||\"track_ref\",(s=t1(r,a,()=>{var t,r=new Map,n={type:\"form\",name:rG(a,nt(\"form-name\"))||rH(a,\"name\")||a.id||void 0,activeTime:0,totalTime:0,fields:{}},s=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:i6()})),((e=0)=>{var t,r,n=(i,a=e)=>{if(void 0===i)return!!r;clearTimeout(t),et(i)?i&&(a<0?en:D)(null==r?void 0:r())?n(r):r=void 0:(r=i,t=setTimeout(()=>n(!0,a),a<0?-a:a))};return n})());return r3(a,\"submit\",()=>{i=al(a),t[3]=3,s(()=>{(a.isConnected&&0<r5(a).width?(t[3]=2,s):()=>{o(),2<=t[3]&&(n.completed=3===t[3]||!(a.isConnected&&r5(a).width)),e.events.postPatch(n,{...i,totalTime:e9(V)-t[4]}),t[3]=1})()},750)}),t=[n,r,a,0,e9(V),1]}))[1].get(t)||eO(a.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,t)=>{var d,v,a;e.name&&\"hidden\"!==e.type?(a=null!=(d=(a=s[0].fields)[v=e.name])?d:a[v]={id:e.id||v,name:v,label:tO(null!=(v=null==(d=e.labels)||null==(a=d[0])?void 0:a.innerText)?v:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(d=e.type)?d:\"unknown\",[ao]:n(e),value:n(e,!0)},s[0].fields[a.name]=a,s[1].set(e,a)):\"hidden\"!==e.type||e.name!==l&&!ns(e,\"ref\")||(e.value||(e.value=tO(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value)}),[t,s]},a=(e,[r,n]=null!=(t=i(e))?t:[],a=null==n?void 0:n[1].get(r))=>a&&[n[0],a,r,n],l=null,o=()=>{var r,i,a,o,d,v,c;l&&([r,i,a,o]=l,d=-(u-(u=iZ())),v=-(s-(s=e9(V))),c=i[ao],(i[ao]=n(a))!==c&&(null==i.fillOrder&&(i.fillOrder=o[5]++),i.filled&&(i.corrections=(null!=(c=i.corrections)?c:0)+1),i.filled=V,o[3]=2,tP(r.fields,([e,t])=>t.lastField=e===i.name)),i.value=n(a,!0),i.activeTime+=d,i.totalTime+=v,r.activeTime+=d,r.totalTime+=v,l=null)},u=0,s=0,d=e=>e&&r3(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>r&&(l=r,\"focusin\"===e.type?(s=e9(V),u=iZ()):o()));d(document),i8(e=>e.contentDocument&&d(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t,n=async t=>e.variables.get({scope:\"session\",key:\"@consent\",callback:t}).value(),i=async t=>{var r;if(t)return!(r=await n())||ro.equals(r,t)?[!1,r]:(await e.events.post(W({type:\"consent\",consent:t}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,t])},r={analytics_storage:\"performance\",functionality_storage:\"functionality\",personalization_storage:\"personalization\",ad_storage:\"marketing\",security_storage:\"security\"},a=(e({consent:{externalSource:{key:\"Google Consent Mode v2\",frequency:250,poll(){var e,n=rW.dataLayer,i=t,a=null==n?void 0:n.length;if(a&&(t!==(t=n[a-1])||!t))for(;a--&&((e=n[a])!==i||!i);){var l={},o=!1;if(\"consent\"===(null==e?void 0:e[0])&&\"update\"===e[1])return tW(r,([t,r])=>\"granted\"===e[2][t]&&(l[r]=o=!0)),{classification:o?\"indirect\":\"anonymous\",purposes:l}}}}}}),{});return{processCommand(e){var r,l,s,t;return aT(e)?((t=e.consent.get)&&n(t),(r=e.consent.set)&&(async()=>{var e;return(null!=(e=r.callback)?e:()=>{})(...await i(r))})(),(l=e.consent.externalSource)&&(t=l.key,(null!=(e=a[t])?e:a[t]=tt({frequency:null!=(e=l.frequency)?e:1e3})).restart(l.frequency,async()=>{var e;rB.hasFocus()&&(e=l.poll(s))&&!ro.equals(s,e)&&(await i(e),s=e)}).trigger()),V):K}}}}],x=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==t?void 0:t[e])),ad=x(\"cart\"),av=x(\"username\"),ac=x(\"tagAttributes\"),af=x(\"disable\"),ap=x(\"boundary\"),ah=x(\"extension\"),ag=x(V,\"flush\"),ay=x(\"get\"),am=x(\"listener\"),ab=x(\"order\"),aw=x(\"scan\"),ak=x(\"set\"),aS=e=>\"function\"==typeof e,aT=x(\"consent\");Object.defineProperty(rW,\".tail.js.init\",{writable:!1,configurable:!1,value(e){e(iK)}})})();\n",
-        gzip: "H4sIAAAAAAACCry96XrbRrYo-v8-BYl2M1VmiSaowRKoMrbtthPbie3EUxIIsSGyKMGGCkyhKEsh0d95mvtg90nut1YNACnKnX32-c7eHYuoeVy15kUI5Q-Wl5nqCKaZYpLlLGMFK9mCVWzKLtmEzdicnbMzds0u2Ff2hb1hb9mz8WwhJzovZeczwap0qTu57Ij41elnMdGDqZjlUrxW5VwofY1llpdZsRCRYkIuLoTKTgsRdYdsUspZfrbw319Vru3vmkYi0SlXNQzxMYdmuOAPnihVKiIoDF6fq_JrR2REcDGCtFgTQSNRs5-4GRrfCaFgPiOCc65XK7koCs4J_OlyEYtIU6qEXijZHY6h2JQI2uuJKdHwZ1AIeabPoa79SXHJcib5cDwrFclx6hS7SPK0y7lO8rTX6_6E3wy-mNoJfTfhuN-XtfnoSM65XbUv4roimtpuale6Zu_MXAaDgaL8gZ3H8FjZkr2eGlTlhSCaP3gHJSllT7EK5Q-aeT62c9axjoKHHSX-XORKTDu4MZ286lzkVZXLs4AJ_uDt9VzYhR4oMS-yiSDBYDAIWABFXeVBQCllf5q96Q6Zwk1R10s7O0FoPcn05JwI6tPmRNNYLIjgGrfsMW5ZJDSkT0pZlYUYCOxc20wa6XqWy6worpdmFqrXU4TW9XhSZFXV-asjrrSQ06rzWpUXeSWWZwLOZK7zrMj_ElPi-7ercJ5Xg49KVItC1_pcSFwv3Fo1NiXtehG1VpjGKmp_28wMLwShdOAba2YOreqNVvVGq_rbrbq23DL8H2q2aa2GlddqMdF4u5bVYi4UQRBRU_aZQE0W2KoBuyzzaWfYyjAdNBntnrio8RL_AvdXiq-dv0hWXcsJtG7uLXvNTcotByn7muW6g2WbZc1npIunhq6VglMFN1lTCx7G64eqWcQlViAGJKjYDD1ShNK6Zh9gsII9gj_drmD_wm_O-Xv2nJui7Ef-cnFxKtTgp4e_fnzz8OmTj89evn3y_ZNf2AveDdl7mMoP3Cwi-940-CsugrmW7Hf-5vritCwGuRYq06Viv7kUXI9nLvlnd6GJYpJ3h7ByRNHVSvd6stfzl6I5s0RROKvPmRCurr16Xc6fG0D5PLKTF27yAHIpFhBQFSFucFqWhchkwLm-noty1hFMKP4zERpgxbDLRa9HQs7FahXMsqISQZdjWqDVQgQcc54DqBASF6HL-Qsmcmxc4gqutZ1hRqUVgKN2RgGdZswuYHvYA12-wfIEein5Q6Wy60Fe4V8mFthtJ5eVzuQEWkPoxkRlYVdImzafR13d64mSCBqLSMBZi5PBYCDSKBEpE1NsrNcLSgTcayO8hLwbizpoXS7qIT4TE7czgXtSfWNbN4aJmVkaPCJrHc8x40YzkHXemmPXtbtadUXye7pa3VznXq-rKRNnN9bsp2zOxPWN5DdwDi7aL45dxRCeqlhEP2X6fKDKhZwScZdojt_z8isJh0z3et0hPJqxjoaU0nuaiVP7eMORTYYptNLricQ9xjshJCkmvuJQMnywiTglggXLgAV1QFcr85kELEgDOBJf4EKKN7g98DFkgjLxlov2iMXc7LnmDzRu9bNmJK3nU5kbAljHWyIoMw3oXo9oPnSfqtcjiv9IGZEsp_yB3tmJn0dqZycWscC0SEaKRoKJK77tRM_yQgtFfqVMPLTDYLK1wEnaPqdX-FAmv6exOwN3zZOWzxyyQxEoLjWMWtMxvnUWiZEd2HjqyxLJNZFM9fsU1vY6F8W0I2EZ6RKXcnyqRPalrkVRiQ60AK3ZVkwTslWvJoIpjmAnEs-ImQmNENfaHG97eJI1AzRYFuJePJFMJDJNx82Ac9gZkuOQo7wZdL5l0DCc9jAeErPxayNh6jbgTpc4InMcfEeajtXOjofAmgt4mcbU5uISMEmjVid8aDdIHA-pa9MdpB2xE9Kx6Pd9Ezs7Y7_c60duLHZ2fLF-H_uiDC7xy_bJgYnaDyaeOAw5hAclBOSf8gd-dIJYmqB1gjSeIIQa0qLI1O19Bnufx-Ih0TTSNOzCi4ojuitIBggwk6w7pJEZZWam0iyOGRoMgqk-lg0pE6_aw4eB2NPB8NS74zBkGU9SPCeKq-Nh7CBFX0X2ZYxVNGSSy3amtJkylpFLHKtj2et1xZcxHCRsv-AiUenY7WtccE0KlsM5K2ivlw3mi-qcFNSh9AbUZPUaviliURHx0s-GRs9rJu5s3msoCAjSG6EJPjlNjZTCg_xx665B209Ii4wDiPeZE2jBEXkOU-yIP-Gt5m7GMYBYgEJ-BL1eC9ZpnqTUTBFaq2DZKdM1E4_X9sYQRRkr7IX9P7ERuAcN_EpU2uuRnNudyIB-SFTKCoBScRblcNPXr7qdcl4z8ZN7oAySzyTLWG4Hm22AvwxhdwsUZrjfNJZAwd7SiaqZePfNThCE5bP1ppOMiSRL0_Uebuvg6c1FH7cgPAITvBpusx_78mPsmfPnllb9PfWFfsJRQ4GbOI0vZGjLeu3CtyAKbZYu5xkd-6WvmfiTi6dM_NXg-Bunxk2Bc9_d89bGtK5NA_AzbtD9jNoeb1s22Pxf_L5s68m8hMvaUA1L8_Lc2LgtuwXHJJHJME25TMKUrj-HhTlVBZYqsFQBpcat_XzdIBi2X1iOFuiwiAmQOauViknGl7CgAOFjIlqAw9DTsEb-DRJJmHJFsgSueMrgE8dsEzgmRIBDQXs6Fpugwh3TTVQ0TKGZhuYkkmc0yTk2C0SnTPK0ARxYgWW0jjyQua3N9tAAjEG1SPxCxCscIT5s_IEQRJs3LjTjF0SwkFJaM_GBN4DQrWqBNJiYE0VjRWikNiYouHhKBLPr6a8nrKhiuKaxiApCsU37u2bi0drj-sq0gONzW6B7PTNQJKfMw_scag0Gg3VkWeSAgSBmfJFduRKR-GBbha65TsI0hn8IohKqaWG1EjkBtEcc53EeCfac6WQE3KddIBtebAEbNw_ZJWLSXR0Pj9s8KeF4UpHHtdZ-cPghkAdF3X7mg0lWFLCg_iV5RCmM7Gl7I7tdszy9nnhDADvAfcKf5r73enB933vun3_ONrdQcfM2GW6Y0sT2AHTuDhLDTNRM_NBC6NfIMk-VrVYGozYTAUIjnopCaNEBEszyJKNWrhiYfP8DMKC1KoNK6Bj_BaSKRmKQTacx1MymgERF7ZqmAzjb4vtN4IAMSge3_BCI5GJwhl2cIaCIxOA8q2L81zVJbzIJJG_dCNiCH7A7SZmsmfi1dUyJ-JNophFQaEYSzVQKg_ItEjg7phdxCW2KX_EbZ4sTojXsAGXi902Uzk_IYQh2HHjEm55L5F1gVjKEg42wa208riJyGuCC_nZjAd1jBq9QUAkdtDaaSA78TrOGcM3bu2J3T9LI1M2m0wCWDtbeLDO9ZT97vbWdwtUwi2VWC-5c67jgMfXsnk1Ce7VaS_kgsi9vhI67bhCwFXYUiG13xffYEqSb1YGrBf-J4Tqu0qKltjDHO4rblpiZvxlxQG879Qxet7D97DaYBG6lwVN6vfDYY6La31yNBDPwfengIpsDa1uEhrcdmeupm2piUM2LfAIUS0gBmXVvytBgLEyMEHQY4p4gyX2wya4Qlvgnls2uzelXNNLIBYWju2fAEIoU7ChigeOD5vcgE_j8kWUW4d5CkdcAwxNhDmkimNgjCoumNFpC2ToSwIP1qL-O8TVZbxXo-zNX6idYFF8KH01oFp9N27LAie5veW08i8Gh9bCru98quJDVeT7TruzhBpprUbhmhy9xhw2ucmn5M3_aVShSeyAKlJWI1OCjl0TxghquLim4OCQFw1x3BMdJwVTKC4NkiZwA9SVyYjnOvR4pOLaxY1PGWSJSXjB7nuFdzLnYg6sKGaquKctpnGQsd2eGRrA9ac3EEQ8W0giypkHXYcNzoWaluoDbB-yf93AQzKOt1QJQ2yPygtKoVWyg8wvxSuVnuey3k2X5ldDoX5nGn0zcB3SjO2TaoCpHhLaoCN4XdzWhiJFafn_GBSuQH8xFnPf5juwjgkpplLMCUeIhZURwxI9NDlO0ZlqbUzz00j9uTv5yBmIdISfXkWbwep9mky8RnE22_HMhFiLKYYDzbFGJaZQB9alVfnYmVFTARyknIirhl6-8cLxvlc2iquaCTQFdbLCuge8TMKQhG1J2yXUJ7_9AiaosLgWhbMLFfdLNKJvxCaFsbuiIjjDHqDtdrbp5r3c5mAs5zeWZ5SiKRuCWzwi5GJwuqmtgnWMeIOljX2VMDTFx6R-I1eoSRiBg2QlyMk2J1wgNFgQGsjPrExwSpawbMsjoArhvhg4M-mM-XK1K2utdE-BpdP1IQlqzc1yhKa-EfptfiHJhoE0V47pU-qHMLzJgyDxV2YUgZzQ6I5Tp42G8oyNN2ZlZ4YsBSFouRa83J5Q1X-eAp15b_i_gTmRigPikEJlyPU6bKrzbJVMu4nNCoyFlF5Rd8KXJirohg4HDXyUqnSkdWSTL7ym-GWzBG2J_wa5JdwgvDmW6PDsrROSeti7nrttYxDom14j3XQzssYKZ0AgTI1y76MKfOH8CzK7MDYy5Jq5BfONqt5sXA9M16WasoHUjwNbq_4oE2wgptUSpJLbTyCONoGxuxJYDzKyhmBFW3VIMM7GYPcC3FbTZtTuRVhCwvXCrkBHg1UrAcvynWq6Mr4TXZmtpDo-Xzk3BKj-TWdGSDWNRPworRHS3EKs0otqtY2kJX1viTLrUyskpbckNQaXto3Y7lS__NztCgDr-Vncuy05zaw6yYG5m4OHYko6nYUu63fwA8b2b22BF5YTYV38puEZspiVqdGxXqGybo-0FsWn4GJznVaJjO5rIjjblyHNarRQDgSWWQlSz3czYSGobrYPAjq2TFUpk0-uOXa3pPbM4qHpQ05qypH1m3GZCkdRJnXWxgeutVnn1FHQD4IzFXaCdj_kwFiNAYdsLo_iDFlz2ImtFvDhaI6VBo8fk0zN5mRX5tDMVRXbdubMU9eATgDwr8yYi1jLSOWW62qRKkJHL3TYI_AGM8AyBu-wi4dANkd1EcoO-F2t5iP5om-egHjAskowVaQ3i45ayD7d4pi2YkDZfgOsKmB78gUY6AvBe-G2RfEF98yACAC0MQGBZngxTyvKaOfyZCK6YHsxK9SQDcb2dF9Bmac30peNjo1RSINli0PkHOlbxpztLMagQqQcZST0YDDpJJqewrk4KqOvORalE-ilqFd0JaT_4__7X_xtEAD5ma3hqwRRPUiYBK83hn8wy-AqA_ZoWIGhMCmAyb38Gcla4Z6BoAfrwm09CWFMmkyLlWb_PlBMWGPlWyQmuwdAfTh0_d8zwRKcga4wfk09vzwWeqE5wZ6lrVMGRpe5Y9HTwCUQDC768bUjhjSG5Pdw2z1xUJGfLeaYqEdnplkAZLACPk18qlyhtYiEuReFTlU2dlBfzTLkWDCgVXCZAN6VwBhMgA1OPcB3reCeM9LGIw2hYm0ZqPFJ6bnUi8BGALV1ORZFfgM5EBQKKYBWwYBwwEPayqZiUUxHBqrKi_CrU46wSkaz5sm44zoXvNracSCA5kI7UJOABdVQdHOPYNPnul2ePy4t5KYXURACScgEqNFY96mFRkKAP-lEB0P8ml8kYNBN-dMMA2pNSmoRwxoAXzIOAsiIZGc4w3IIMKCfNkW8EC0R7Pf2aoKJFeExyLGfHKSj1lPNjktPoOV2tsNk4gX_TKEkpK1DUpM9urhvo2RhFrocLfV6qXF-b3XOL1bAG9Rci2L0_SBzB_5KTr_3BTtqnEY3Jyb2TezSmMcGcP6L_SvuUxNEJfPxXepfS-L9oDAkJSf44SdM-PUlXJBnuHEVpf5X8ca-f9mOKRSJyMoUK2Gryxz_i9K6pGpPkj39gWySO_kEG8OvOvTPDGN2itWges2VVLtRERIJVk3NxAUdzoWSk4m4eAcHwnGV-3hlbVEDIsHlWVV9LNY1Kdl5W2l7GRbyIKjYvlUuYxng_nknAnqPnbJ7p8-iS_bkQ6topPkyiSayvyYQBjS9Ze-1rqDNT2dmFkDqa-fsoBtAQN39WK-DluCHGYrBQMg6CKLgXRM-BnUmZvnYQTl8AV6YXIBZmlDHWthvvQ2tv4bH_0CiD2EsAJNkF6lfdI3H0x-BufBKv_qB2-e8BPdOUBA5cwyIwZ1LjcwG3LBGwL2mLl34OJ3BzKXCtFCozGHbq80jVyGNP0htc-ht8CaebeO8kOUnv3GNBQGncNcLnRLDwuHA3pIgyUN9hWRrpz7ByXO8R_ZwIFDQDX0Jb7oytHh5rf7veo1AbWEt68LnMJQlYQBtBDorhEz1PuUDRqD71u-KYrSLWAy0qo3XF9NcGBcCrBdxORNK-cCcHb-skrXHk4udRHhPFn7MsJhJeNNuEE_d6jnhuUoD1a94deH1bq9ZUacoCx9ZL2Nxh0Chffc70m62aKn4XkpM_7pycDO72Y0KTk3RZr9J7Zyw4ObnTCyjTb_m9k78G986YfubV2TTXR0TcIeIREVsVu6zWLWXBCjb3F3H25GpONAvOFgGN9Fumr-At1w9v6CWZoky_5Kg0l-AD0QnSGyIQ_RDZ4ABwFY31M5A2qWYwcHZfGtFa67gjbIHl1Fg5vje4dxbpt5HI4NsLSKDyFU00VymKP4Ag1F-IWq2CwEDUk3tk0I_pyb14hZDtzr2zBWuOx40Z4_D0E6KYzflE4uMu_HdycnJC8Z_kzlIfEcn0G1qnnyheStHrffoD0zXoCtjKwc3KJyd3A1NFvyEaWIz3Tk7IgMJW3gkhKxjcDWh95xM1egza65K0MBl4NlSsjVpCN6ROn-l72gYW-lVzE7w48dYDhrx90CFiGlQnPJN8R1vpUBKmO8AL9bwz3kAR8TtRbIn3ANVavCAb1InyFDBqYTUrYzX4mk_1OVcDJaaLiXDSJNGH3WZDGtkSrOTDcel1scel0xrB14irpEQlJUEy4MxOYWjHQ-oRdOVY1yUbgrjTlR1C2TClx3xouKMuDev3emTB4TfPEO0eHvv2jRQVckPIBblrlzgUp4Lx9FtQu8L2sFYzJvvi0fGCZ7wZ4M6O4a7XtS-JahKJm3vKMxDA4rJEwxpYjR-RLvzcQt8eowIeZKACnv6plfeu9fvpDcVY_SdUXZo_wqqHGW7pTYFvxkqviVJ65Q5QGYk1KUFjBEtHJTAD9Wdc4wwe7ccUdQeQQuUZAzVzAzozyvRHusQpOT0yJxpZrWTNFCdG6XSuSl0CvzjRP6UbwmivGgDnhi28Es64PF7g2QG2OBdJmTJS4GABs8GhFq2hFjeGWrSGWvynoQIv2Kv9OVrnxrCtPYiT3iT6qVMYuUVyGqvItnUm9GvX3CuQC2Cb0G2r3bG5JlNW2Y2aegWZBU-mTCTTNGVkAWpBZMGqfh-rRYvWQiw2FiLjC5b3erlZiMXtC5GvVlnNbk79Xcodc9ByczQT4xarApZhtcJfv6Ux8hu2rkUL7cGiBHEa1wKhESGCb18uKEQpjqVRJkx-Q8UK3AbLankHjbb1CRuYZriZRiMw0QxenbQ2Ddcs-SmbN3NmIENcT3kj9Eb-esr2YTcDocuappRKt-tMmsnA2N1aWt3KLZdFWqU2RfRfyAS0KexmlXcp13-xp7bj_9DYL2uNbasEzf3CRMMfvgsjwB1sLS0fjvWxGOt-3-t2NuV_2VLeANux-QMMmxu6oVjudVswTvRrrv8kLoULfJZwYphmDRBQRt6IMC0HkDZqntqpwyDng-XYENEfmsbbGWK1Ghpt_QC19lsdGhB2e1859vaoMQUy-KsG_RXE7FG9qIXHfo50rI2eQoszhylEUCQF9OcIpQUGeKKqCP5ErQtoQeCQ9WfK9L8agy-GSDGg0MKNgAh7DrwWp9GWylG9COSIycZ7k_Z6TjO-29KMVzHR_yLCrz-qtcK5-gzSVnu29PNtWl0N08HrBjX6-r4PoCVQn4Entg_Q-9eviSdMSMatBNgqBmEv_nCZZ8MqGwt4sXs9HZKMgQYayqi8XhZqo9U0MoJarFPC8WiaKM3q-NYLbK6xjHKKX4VR_FIbil_YAehw1Uy_4O199tYVABO2LXXb4kK_b8mmnUy0pbfOu9rbwhlzDQGkHlRIG41BaTCpcyIpXZJGQqXWNFwlBXMhncuFqLcXkrSlkKnbCkUKOFghvWtsDeNhdNO2Ir6RBCoERTnJCvHYcMyA1gyjLeV2Qn_9HLNwGPlEHYeR2AGUuqU2pF-A9hZqVWyxDdFOg1D_APp0lGkikQA0Ghqe_rWlPEgzGtfDcXbcrHs3H2eAv3BoK8lSbA7-YouNNqiT_mmnq-NkiJig0HpR_9q2iWT69xZi-Fvr98-t30PEDu0Ilx6oR7ouZ8TkCnz53HuXUqoT_XvrvW9Le7zKjjZvvGd_G3s60BESiIf0et0uJoEAyaib6ET_lnJ8H8fbB5SAyYx9V9Otw9Cr1eYQDGA0uIdlzUfrY2u6Ps8q-P1zu9k2doAYsb_VoKXoGtW0je3Ut0zgJqq70dWajMgpj1sZHkus_RM28rf3oRkuYD8C4JDVN7IJqPBE7AfXuD1uSW4ZWyLShvdWMx22brMOuR6SBpDf1By2VAjodP2WEqNA7QcsW2CTSL7l-imredeysABTPpQtep04I2lU_EFL41AB2Pw9NeTw2P1u4JKs3bNMmR61pzRamxJpmkGlOV_noK37pw9spQ3lIATeP6eoK-dymd5bVw0CrWq33q-d5qd5z53CMqjUgq2gNWprnoDVSiCm3-vh38c0Vi3tYDAZNpKj_35NCtppen9tlvvrsyR_04gvRu48GIy5v8DFTzT2ps37F20pY5feqzIaQWJrIXdvaqgBxxKqO3sIDZSI0VtwSH6EyNDh2lu7xX7TIXgts0mmj9ZZMXaP8T3Vj7a_H4hcaRqBwSmiQYdwCQ2PtHk8A2BbHUI7QRB9w3KT6ftbbErKlk4OYqfx9qHcJ3Y0VnM0N8I-PHbNg4jD0J8jojyZCKq2bftRECqzMuX2FYwSplNWOiZsGZdRyYNMTgNqjBM9x0rHAQuAQ1v2g04QBZ2gT0r3AQxQnrsnNQj6uVkmDdm0X65ZwQQBA-igmavQ7_Q9GgNakTcQ8ZopwfWMBNNMZx1UY8hn-SQz5tpLKS6FigL8E7BMlvL6olxUUeB_BiyX01yJiY4C9ytgLsV9V0JWOWoDBf5nUFOmQAwnxURUVaauA9A98LpuAfMblhW5htyLTH0RGnUToGSFOX_ZwQaVmCxA5BGkTCng0ytttByZSClTkjuexUwJ8Zcg4heitJPYAQd_iPfJ2dZudsDROLlrALPdOHsa9WCjMI03xh41o_tmO64UjVvLgpAn34CQjr3wNwfk9bg3c9p4ucJ7YnVLFR2szSG-UZWr9RLRxvfNzph9em9kgAbCtxekmYBLcvrPWwbuigDAVtlHFLq1MYWlzC4ECjNDhvoXmTayXxRzbX2zgQgYzBdqXlaiAmDNm0_KvDlxIw5myA1vGRyiCoF1_mFMpFSSp-2N7nKew34ANQRYier1rBjf9tSBcXe-u7PM6-9uivPHgnsPIToGGcmva9LeqH3XUvB3orKPIF5aQ6LYMpcgY4MLrFg5N9v52k41kkxnCng4JiHKzXrdfC3wZPHlxkZHkrnNiSQI6nu99QUgOVeS5MaKo6sT-5GuqWUKrnIkL5iGX2h9oFq8eaOZgWanGThVAeOrtQaCrABDeK7oWh1kIwpTR6_VcZetNoZB3XDDOA97WNoeG9cwBZwp-1XUTBWceGgL2pAqt54xlvPFaZFPosD8DRg4Qai0mO6AeoYIoo3vJr-UxXUrGz9rL0_1Vlmf7ixvl5SsA354vVoQvu7gcGel6txZ6vvEXSiyRTHcHBJ3v0CZkdYdd3qrwSeA-SVfNi_Jcr3rtZfFVYuWdc0mRSkd7rZZaXMCrZoAEvy40KhwkRWVVyY1XnFErwe41UYr6L1nPanXszemBQuYbs27uTp4wm5eH1gSVgllHMx4fyzcL-r2VWwk_ZsDai0YaChv5BvBu7Eoawwf1sv0gyjoGw2Fmk1Fa3DOt03W0ntBYXgD5aKAss3t8ExsBRoJOCkQ5QF_Zev2NuXdImSoMGXAMqhCQdVlXdNIx6oc4FEAfsffPTx1zdTCy4673gCtdXQvhM7gmBvfKI5EzAfzEm4V89-o0j51vGwhtULFJwdk6WrlrFl8k4DhqmnDdFDo7cMTZiJumQxE-pI8f_Pq5cDwcfIZGHiwPdSEZmrC7_1xMl3u1Tsn0-XI_kvi6O1wGOH_QC48GA6HoAzz-517TM1uq4E_ota_WPVkugzZ_dpXn0P1ZYx6N9nO7OHO03R5WO-0P_f-O5_hqKYndQxNn_NtikFOL-h_qBbU1gr6W0pBTJ3xe38k2c5fw52j7j_u_LP33d3-PR7_8fHTclX_eyft4_p8qwC9-18w6JOE4HgGaZ-u3MJFaZ_Sk5SuSBzZNtLm50561yXS-GRA-98uYsZ7vWaSiBTJEtWJgoAhwwWOOLO6TJpdwAt7JiIFNjb9T507S1UbcDylTF00jd30rNPrEfAYYuUoLSXYXq_rE19mL5HN5BOeSS1AG1-A9o9qeLXtdtUFIdqrREX442lRZpoaoQvo2KhT4DIrzUHyZWwHAczNFagCobUCaX213eAgSmtl2IqLAeg2ehm2Ahm2ITKtTxO2YKWTnJVcnSaq3U0_2An6TbNigGSKtk1gbhdE5GUENUGMxB8sq685Op1qmqHLSVYJjyxFTjJqSI6bFHcsInUNenwssOhe1nlkS9ExtgVAcqMhWNqJUxwCJituTx_4_2A6hP7TtjRsNJGfvXnVOTwYhp13bx_Dyy86BIyRHLqZFaAeOWUd0KvV56Lz3e_fdQBKzvKrzsWi0p1T0cmmUzHt6LIDJOEE2nhclmqay0yLaeedzC-FqrKiA0rS1E0Eeql0djEPIj8xSAsiQ_EEZskD5FwEC5lfmRfPJEdNeb52QMZ-aZxaOuhuqwt8lPBdwjSTMMQEx6i_JnLLAr17-ezXTjNYQLv7wpiXYUMzt_KgMX5j4f9D4zdW_x4uPvk_tdLuIeetMTEVt74Gunz25pVja0R9UdtztlCGEG7OGsCL1rrFfTxUasu0XOUOcQOfq_Iyh7Fn4EOwKPJKTEo5rfxxyA0A-d_qztW1TVmQtq0lPAHxloZsHduCBV6Rv9H2-pvrvFD55lXeBu3O3cG4_fK9--WZ63Khio1GLeV_S9viCkxsGzcRsUpG6bd6-rFDcg3XOoNuWed0ofHnj21fjTSg32ghoLUbrPyfDRZbAEFlEqarFQ791m5f3jLwl5sD_8bkX_qhi4ssL_7O9p0127ehnX1LL9gy3FAlqipwfPZbu9i2V7aQOxKLfLp1mW94NdjSun8J1dwtf-s1DNONOUFxeN1uW8F3z_4FSzgVs2xRgL_IdVOcT9_dWSqw4W0YFVmnWsxBGVpMOx46d2B8g0-0rvHNn6Ly6NWPiEyzieOeTns9cslLYKdaJF7wS2PYDWdm2rhcfTB15-aTuJoIMa3wkbrIrvKLxYV7vTp3ltPaXnHgxUzOM5VNgHT7BKJrJgYXuQTDURxN42dmYrhQnM9WKzK32MLEau3M4k-nQn8VQnbuLCc1PpCf-rMoyHSnEFmlO0F_gl8XJX7M2C1zAsbEdLVyna5Wk2OO7CXfuTjmsxYYmYN2JeA3QePv7JKXY7SKXjjDHULW_BsShxKZv1Fi_qbeisGSpgnqIm6Mjm5uOMgkmuelppQOqvwvcaNc8NCtRilFBzq0vmR12YH71cnOMtDG3XAYizjanLtjCHuKgpVMWtPITtDX9-2U3ARuUFKUBaUK6DfWfGEFpu21rYnY5lKh0YK3y3u7VgIoFqSUkgWtKVn6w-_F9czhMPCSgJr5jASXmcrB8KZTTcq5CNjyrChPsyIKzF9gqlcVUr32R8Cm4jKfiCgwfwNjnBDAvwH40VBfOFl-Eddo2lCCTJYHARNS5_r62TRS8GUJBsmDAMydggA0P4Lvgr7oB98FDBgOM1VedL4L-hJTcvDFCMcu6INMwg4WEH5gGH0X9BUUS50eLzpjsdrwnYAytaYbLiJvfWFVpRmOFyT6dsxigH-bYcOWm581U285IVc849lqtaxpcjV4s5gAc5GPhsOUB_YrYFfJ1eCxEoAk8dEQLGrsl8l6Weqfymk-y8WU7w73Uh60UkyRp6U6zadTIfnecDflgf_2LTwF15V8z1XHT5P5KJv-Ygy1-d5wP-VBk2CHVspZkU8g-wjGZj9NJt4jvo8TemJsOK36lLeJq3SmF9Xx3nC4WgHttjfcQ6TYpIMapzNlVs_-rznjVuiw0vG7viDiya1RcsPfaoYO5ny67lSwZwIwxa-5Pu-YfLToMz_rzk7nzjJL3HdaDz5Fpuosy4v_Rr07SxV_6hAgjemnKAiAQLaeotVD7yoal3y55vcY-GTG83HLWfYrKTqlQmPDDqwi4r-VHdMAjv4za3DrZ9gY4_o8U3zD7thX4LezdJv7pt5a_htKJY0a6MC0-7fqdzcaMPax6uUNe1Rj6trSp75kMzZh56xohKIoEzWGsIoUa1CBsgXIXiv4Z-o8M17C81zQy5hM3GAnvERNmktK4wnY0L4sO8aPtOVRqy_kkqId7aWFInzCLgfOv0SvNzX8kiaJTChlE7OuVcXVWzJhOTi5FRqpScq6crXyBeKF1enq9Sb29ICnB3_p3SqGx9Jp9M74xFjp03jmPM1MaGTVXNQVjIBGtl3niSSfkcoxFs07Gg6PK688ZSt_-n-IsXGtnNZ9OPT-4PH8DQYD-okyeKfUQ1CKtgD4RAZWpfsclnlq3Vmck8YYGHVoFtECVPg3zD-B9XomyS_oekISQ0uzZVZFrQSWFYX9Hhp-jnnTmzLgvAMBC9hRoPESGQHLFBOrjVSwD1BPnCflG0juABWN1Stkv2jvUrklT4QC6KEffd9b39y3FKOUJMFlLr4GID--Y3u99wf5Z_Jw5ynw4pajepX88c-U3r1z7yxvOC73WgVaGVtNQkEDVH3kW_F5YEV3SWkcdYGC5UBnZy02lHZnyjCyqMUZMa-Eh1JhXkiP23Va6WYpoG3UQVOfjSYuKBI4ddEbfpiMquSfxvBKuWAONEIZaGxsPg379qSK_g1s3YjE3aQTceBdYvK_gUsLHNXqbhLx9KS6S-IoAKZvkPwRpHdXA3oXCwSrO3T1HWR8l_zx3b9bOd9BDmR07ho2cvIH643_AW1TSu9SelIZjm_n7r87d4EZbDncd6m1G01OKqjx77S_ukONWWgrmAVOmy91dhYRGas7RNJ-EEWoktHXfXUHzObti3in8X9s3VnGWVSAV86S1uNFrxeCcLthb5IFep80G7Gefi8E6P-RKJaDji3-MopH6jEqaqDSZ-cGcgjHNDKHlensNAp0dhqw6jxTYhoF5i9qXPzEtyKXYGT_GF1XaSj1Dg1uHKqJbDYsCcfFoVuIabgP7h4oGOxT3nYL2-36ylaE_3iAFuGJTU-Z-nMdC0w8loeYnxgYmfOzaeog1xAe0L8QoWjJ3CHZ3p2lRRdBVQpxSPRxZZuJRDJKQSr02lgCUf7gMQEkrR38Ad_oD_xrLqflV6Ye8Wk5WYDlLVP_4urR4LScXjP13N3cNR_pxgJSoIM3pn7kPzLlnCm68urHY67b-rGSD1nOX4zDBiK13mNZTsVbA7y6gHLIfp8aN5GOlGn88IKXp5zrLufv3ZpnlL2nTO6EQDC_QMVb6myeuBib7owlL2gTS_2kEDDXhuos3VjKQflVCvUvuxpIgT9C3Qdb0Fv7lnyj7MCyC97n4itt2puBlyLXodNgyGqmrAfH4K-gpUqJcwzglw8YgD9AZQ1ea02pZdNZ_lx3aBjKf1lO8roPS9BHD4I-MD6Nbb5niqxzRJAF0w1NU8ryqE8dOyaw8QpQ4mG5ji6v07rhLvOzz_wT308kVa2wlLIfbKnzjVLyl3au2MzF-cgPbgLygy3tmDRtT3q9nlm12E6-0Vpx1LPT9cNV8Yvy3rpSpNSpkNVMtdTZ1fubZ_dM6Idaq_x0gQ7_UHG0pW6uXjReVCVRLXeM6td1dUaQEf9g6HV_yLQfI2293-2dY-r3rQbI7WG9BFE7FP3N9XgmNLzSCy2mb_R1gaxxY7uEJNF79E-h7TiY-pm3DVXgnYYmjRROhQhOl1eRuCDVRJVF8SsAyuvm-zdEbpgaeRtwtKD9x-CusU-Hc_2K6FYKUwcOooBDOTDT3DNL0-t9IMur-VVUDa7YNf69ZqbvwdU99a9BOZtVQn9AS9Q9N4zBdZP1g8jPzjXkzbMz8bQsplWkYihioOEgl1IoU8odA8rU3nr8IFQ6mJeoEwGgq3EhekNbLTsTv9F4eWV__8quXWodiRhWbsquo8uaq3040_7bHUKm9hE9AzIBN_YR4OG5PHtc5ELqX8DVFNAXKiQvsLq4IJNBIWa6vxhc2SWYDHQ57y8G19Sao2Ia_qTs3EwWk8xv2up912ug8uUkm-uFQloY3EKgD7RhbazW8UVg6CtHWb-o4KQSdOifXAqpf8wrLaRQLsrAeiklLspLsbUgFD0yjxm85TjT924e7U0zu25nc3M3mS51VmChaOOkYI7d842TApt_HxFGaybBpID9UPetzQOT1n_gC1yHONjZ0SqbfNlBzSX8QfuCScXX_NFvweCNrbJ-TdTv0G5hUeZygwVeAsmFcCqZ8wIFs7NknoJ7ghesKzKCKr7QmnEEy2Rq4m2cIiqMj6jd3K5ardRzlBoZj8ONwm1hcO6cb8C4ApXXBLhdWq3UZ5Iz_YpIdu9kB6zhQWdGoWdryqR0zg5l3nZ7CrHDyDmXlwBJKi81lIbvb32P44nXDzHSTCLS1Kpdi4842CgxrkQTcENgEBLgbFeiEMC2YCAjFbP8Ko2wBEXPL2AFt6xZkqB2Bm7NyQ6NYRCAM99ZnexQUJq4lyKyCGZt54wkoGILpjIhpWk6JjArCwkQVwGoZM1cZOYh3BERn4n6DQqAk9z3cIbtV3CaVWIn6GMqRfc4TBagCSBLB_Vkhh513aJXAW057O31TM8eLy8ScKUgI_yBc9RfiTKUysmbPj2JHMFwQkwCqG_8cVIxo7wBJEr35M3dk8jSCk7fHBYPDKQpA5u7FDXJPxMzOFi2gDqzP5z-wg3_RdsLu3cerkD1_UXjExxYSljhBWiTGsfL3uuoXcEf7Aq21q-1bmhf1-uRMy6FcXUtyZlJhbdJVusDwlefXHPbLQIXL4q4jq8jocg1pUxO19yYezTRqH062pHJ0uhp4pxQgcMqbsIabUbQEn6pJFglUSaNDCEGMqxCB7nSULwVoWkdwXG45KgmBwRPDkxxNYmCex_14HMFaugVEDlT8GUFgnOEnBUC5rLST73j0pHYZdZzpnXbFu2LXSbkRF2jAt8LcW1W64v7kc1zn_i5KiV0kV_MlWHFvz1Xojovi2kUil1mH4THpdTiSv8k5AKGgFNaOtQsQZ3QnXwaMPMLJhUAjSInaJEww3_njRdWMQCp1eNyKh6iTwx5xjH4R_Dw0eN_PXn6_Q_Pnr_48aeXr17__Mubt-_ef_j1t9-z08lUzM7O889figtZzv9UlV5cfr26_msYjnb39g_uHx7tfARmvfW_5i7xJJEzYOSu9TmkYC7FWgZ0HThGEKfDSeNYjp40juWYgjG66vfT4-PwYOV-HtpfzNpUyFlCwoP9cH94f9TT9MGD8BCmnpDR_uFw79AkjUzS3nDXlDnA74Pdnm4EUN4AgssdBf5sHxiFhgEILx7bOVjfNSRHQHzNt80ESDI_G2NC-y6X-tBI0Hbvkvze3mpI-yTv7_Z26T936Vgd52OaJbLfTzms3Byucr9P0-Pj0QpYre00-uDBHlPHOQYxwCok3O9peny8t63sCMrSVuFdLHuwWi84bmgoecGXu6MoGYUHB-HuwegglCw8uH___kF4JFN2sBclw6vJ6Wx0NBF7h3uj0Wh3tC9ZODw62g_Dg9HhKAxlysLRIRQ8mByMRvdHYnj_9HQY7o0ORqeHo_D-_sHoaH-yfziVbHgVDm_-X7h7KtOaSXBxxEf7B3B-75oAX5mclheEroZMfuFLcQUSYqPyu2wpo0byDWt9vK05MWEGG6esPnAV4p0Xi0Ln8wL4DxtST2p5qVYe6TwwZuoMaVSUSEedJ1dz9BjZyWQHK4KA0o-g45o3wsfKSShNwIWNUxKODilavm6OzSufg9ORwrsmH0NompKIpEipCXhUtnQl8kG1OM2wYXD-0ohyANLmhqifsGLsaGAXkMWqqjSqphUJj0bUeLgYr6ulVUTE4dF-FB7trRVwijSNdHi8pg_otf_eZDPRaADGw2Og08UxD0f3QXg97PV2dkfHXMQga42GxyZ3tL8fT0kyGu4BPhHthKPDVkWTdYhZrsbB_v6urbPPxIMHD0z2zu7o_oGvCx-29lGrkGtjb3S0d3Rwf3RkGzrAMqM9_BMetJsdhXv39w53D_Z82z7FdBAOb63suttyQUzVkAGBcM8P54CalrRpSWNLGgv98z8UgrEOrw43unFjvpkTk4qMwpAyQBhpNIXQYjEOKRwdsmH7_9MoGQ3vs9H-_rf-S8FTieTSCMf_lekMWD7EMJXxVjxazGZCkUNUFBAauSMHewT9-1RkNNylbEo2LhLwBFBPpH0mnWoWmYAXA7IGxI1LCQ-_IfiuPFZjaVzmhKP7x2svGpj468bry7rh-sZYXKN3CZjQ71GKnoPAOb3C-2uokvUXs0CRTnkMACFLcgDgJV7wJSaPhntN-oMHB6vwaOSz9_dHR_vHZa9XHu8f7I6Mg6d-v3jA1To8e_f26c5hR0j0Z9nJJXjURI30aqFUeQYqgvMsVxZgLbaNcGG6WK327-_u7R4vvtWBUdtrNe51aTrDq6C_aEwkwwPaDzoZ8Fin4qoT9It-0CkXaFauMnkmAvC9j7MnJd7sgz4h4XC02yvp8XEIryx-LShiBqvR3pA1yxWOege7q3B0aFQx2xmr0Whv3FpYV9AmHez2SvxujKeyKGuD2dwcO6_lf8x3w7gi4cGwP4HrMjGwKxmF99kkjSYOMCWj8JBN8E5O4OKER_g12sM_4YHPg8NerB1rG1HLWmwipARwHa3poYDKZuyBsQJ3ZkCIAhJL6L1Q7I7RwgDSfmrpWBLa6w2PkT9z3EASA4X28ArrW6CKqxXeD-8fHR4chYd7ppq5-UTxUBzc3dIhgqkRU9DgHv45YOr4ePTgwYPhSreA3q1dkylJwqMjFo7-Tlemj_AA_xxCDA0Gmu9mH6NNjCBeoByuvbTNVd8InoIZj4vsYi6mmB8TgDsTLlrHw75k4dEBBK6IpqTwRyI8us8KHFSRRkl4dIhfoz38Ex74PDgSEwqOLtq9P7tlVM-kDg9uG-72nGdS745uq7I9B6H0N7IO9syKLKL2mbSh_YytnPduYALz6X6_ydXHPNyHgz467ENcGKKbizQa-bMQJaPR7m3nhFn1N2niL_rugC4FR42sBDBft58RR4PlM5KDvgz8N8gNWgh8y1-MH0GUTvwd1BEMNuEXaD859KsffNeZZBJ0105Fg0eiats2w_Rb-o9LclsWMdELottLYHAD73Wqs2iszzzm6Xdgb-_mDgzXdiC8bQec8w8ME6uONcZjLDHoIm16r2wsbkepHWf9sO3-anQ3bwaV9cMx1Xf5yDK-Nt5i8D6CUuwcgp2oOk_ARI1l_X7T3_Rmf95L6O3d-oX57_RunbqAK_a-X9pmJJd-3ZnggJTFG3gfW8PvIqL5vwnSStlpRfp9Qds4ImvlCdquSMdTkmzdo9tw1NbhUK3I9og3taI8OsVGkBa2QUALr4s3sSVQq205pxHrai1_lxTrnF5r0cFXuWOUWUHFqumHApHWohrhdqHBx9_qztzcVhfrjYFGqriY62vb6q3PBRE3kEVwT3SD8kM3o7Ih-6j1xJiDo0VEYsDBbqMk35B6OfE3F_kAMBz3NAOp5KMkjBHNPfRZe7suqyIa6CucSbi350vsH7kSUyixt2dKHDTNH4U-lhyUODCKSuHRCGWvLTa8Sd7F5K0Lj0sNaGRneDUJOzOQ2djFDY_2Ws0Zo-3waL-dNjRpB-1uF2QnZKFt4f6NnJHNObyRY6d5dNTOmTStjYbDGzkjmxPeyNmzOWtLUhKXvLuefGiT2zPuFMR1vL-e7Ho9WE92bd9fT3Ztr804820frSfbtsPherJtOwzXk23b4Wh9_rbtcHc92bW9t57s2t5fT3ZtH2y0fWDT16Z52dqn8PBGjuv56EaO7Xy0Nt9pq84ovJHj6qzNumrX2b2R4-r4azba3_d3dGe0f2BDmYBWaVlAbLzTxRkJLqqzeTb5YqBRFABpvO0GGf3371AB-7s2gUUkBrZA1OpcdH4yNqCvocnTXGbq2lj2EwN_OoF_7voBdWA3l2edzNBnQKgNASiO9vcHnbfnedWYdjRQE0KseEAFcQkatwzIU4VwYOPhMcQlp-CRvA8AC3VWEJRRYDn00EfwDkfOWQ4KgJHiRN1F1mHfwjzvTs_3VrR7A-zDdqOg3l11e8XSBfBVfI1fIQan-Jwx2RcDmOIrFHqyxt2Z7HPN8EjHCkgRiyEbZcfocCMDGRyQYWXmLVzM6GCjl2bNC2B1jIFz4YlQyWR_o1u1hk1hpAysL3iBjkKblVjW4-ExRntXSU5ouvasrOFI32olSX0rrYfqZjOX2ycj1wZPNrWHNZobGGKgzzUyaqyKUuuVA55Nhsybo_A46_Wy49FoDxE7dczlNkaFjezR5oSMdvC4Vkb-g3wHTnbDXoas9IPdnunP23SORru2r72h76sf_s3edrf1Fu5jb-FoRXx_W3o3cQ1Hu0eu_0P6rV4X8ossv0rDnTa9QsA15MRk3-DEIKAwob5hZqO_ObO9bTO7byZ2uD6xb00UPDBbMoPmfb5NUpPRcbMc2TEPw3AvDMNvLgYiFqh-sn3-zj4MaoUHHSWyyTlMYcfwnthtQ3nwIByugB13QPvbCiCPKlsZLl3jOhooTvRU2VyUybb7BhcmBLHaosX0H-3j-7jG64Ht2mvj0u5BgRDeQ5A27QF3hfYxvifI3fznCGRv5kskuynz5r-h2L1rPBIebmlZ-ZZH6y3vrbXc9LObAqEBXnoauuQugY3fTbHA3vow99eHedAe5v3NYfbVvVAYfABRkNtH-_fXYYcfMs0Btbmls614LL6i9hEFE4TM2M3ju4wRx4D-WRo3mAwKR6I2VhSSLxuplm57X0E7GzzI2gcnqsfyy8BKyLisKQSZvOJNGu31rgYfP4rqp3K6ANHXpqdyMG579VU6HTYTbfsKwvIiBySg8ZVT0YyuKJPPeHBHiVnA5FWjridAGdyEaehy_txxKPVqpZl86GPIGEVPo8SPYWTmSmidz64jiErWiqqECtfW7za6JwQJ2hU4dYII6BWREKIINIGse6y8i5HhrC9gEEvnayGEFybyLmSABlUOel_C68eaeK5NkHnKKi7W_HSuVhjZdLXCibrT9BxJvim680JfYLoEnU3jKxL1Zk0CaUz8gSBvxUcurH5s5hQeMqsc5SuIRD5LgX6Ev7ywM_Fzk89SMLCAv1FRj034W0Fp2307aRTQvcNn6hgSqE3RB-AC_BjAYgCodlFraBuX09GzXVzr1WprePcmorILYEwb_QGr4GlMy0qjloScIFyLzQkqUN2vvQ3peE27dcMyIpZvG5sGjOFuNVpo1NKobRl_sudMxiMIT7olFxrwBWgNHgYajdq8CU-_FpgOBsvky8aqzfhc5w_wmMS4YYDH8pZZGJjT0gSz0P8IsaVcNGybxQWFv5t-htpL68KXqy7qMEuC6mnExk2HPY58CAJJjHHGNl1jSHF0h1iHa1Cwo8RE5JfAqcSYhU7F1aocv3FNkFvasI5n1pthzzEydc2kiQHTirKGGoBLVKlB93wG9j2Hb3AOb4JRNbH5IIAXKs4hZMqNv5Oh9fW-gHuZueDXbX7MKy-_A83K0f5-b0OdBtxlxtsP0tYDJB8abxKgihmZj6HxSgcO5dvRbezCvcQT17hNjhMo5VthmdPrz_FvGpEEZ5tuiDidrqQJXSLZAv6xNnRDdsmHbMKHbMaHbA6JEz4cT47JbfGSxrM-nyeTDU2fSb9vveScA7cSVr_icNvnKbsEWrZHpnwGEZd3wjqy-oxnCHRddp_vVMmEk0k_pP90Jmxpn1TYGR5XF1dSxG6C5xi8OjzYIaThUdP-Hv1neHBTIrvX1_2cWiHv7thqyJwReQo31RAWIMl16Zd_hAd35SligzlFTnUrzygm2XrjHKgep9NzSloKNuiSjq2P2TC-d8dnxLcCFvTNHHb2dgi5_KPJ_2d4sFqFBxRD97hLuz69oQ2-sk0YrelYNsNvN7w5ULxtB3vbPVMj0w6D33AIJ0_jg71IM5hRUsDJkxcQYsbMrlFW4Y_ys2cS7AFhRC9JyUjxh0lbmyO9u_DjsbEdjL4IsYWt9shPz15-fPPw6ZOPz16-ffL9k19ov_jnRomHv66V2LmtJo2KBuvfPaB1atxMJD6OWPx9JM8oKUhzZ00QKwfn5EtS3sbqjQU6BAZGAUQ6k9coJDYwcuP60towop1wqt-YjIGuIjhdlJHhpMpeD2M2AN5mMCYXQMdUuYgvogueGGNjCyoxXuh6SgvhAvXzlCYy9SEInM_5GSfyCYRaebJRtwV20WXhjQJrjTP9BMxI1KPBZKHAeujNROVzPajUhAX_AEeoSnNThugZungBC4ZgDGq9H7megZWW_MyVxjwXeeqK6zMiP65FJDTuAC3cuhpAtEXKJAaI6pKu_NzUFlBb3Ky8FrYQ6zdgECy8P-T6nMjP6FrkvQkHa-PdgQXGEZyfe-QPEvOTmNIV-eNkAL_vUXqPyY_OjiZGN8-UyXdobwcuni8zcD0hn_qEC6kh4U_jExRSFhUUcZ4CKUvkX0z-knLco0S-ZvJDyhP1mqnXKZOPAKtOlGbyecp_hl1874dqERJQXqzO85kmGKCi9UDDu4ihGH2BaMMYHOMHtcJ-6YF9y9E_6ENpYo13ygnu-TRgvn4-yKdQKGc4mpol8gcmvzeDTOSvTP5uB_wbvo3G9e8QfZzI7-EXvIEHPgK8NMY1IRYLebcLBmCXeZWfFujtyxnmDTAtB9_Db3SmsbnfiQxZVzA5apobciJ_IPJnExMZWgyZHHFxH8LFM3ngf-1xonaJtQBMAjBIOc-n6JoafUgHJjSK_I2g7fNm2eq8_BpgzO7FRbvs0JT19oRBM-7JOWrCGJRK_kzMAHs9W40yXJ_24uBA992QEyYP7doeca3J0pm4G4PrvV5PHhK5hzPeN6OetfSg91gpJ9Z0ZVGB5jTc7iu0UehCbWKrD7E6ruYRxNEGNhOc2FysL9msnIA3zsBYOQUpu2ovU3BaLJSZrDwCK64zUBhcXx1jZ5kEX8T1tPwKjr6tSdH6F1jGbPRzRQyqJvdxZBqYz8pZdeS5sZaxVKGKcxWp14TSfvAx6OcZoB6ZjRN3BDPdIT52a6586OidEWW7B3S1GlK69tRgM6Tfz_V6OssXPhBPXvFlPo1yxc5FpvSpyHQkjgitWT7lS2Tlvc1Oq8iWJ0mSK5ZXKSizWANen1mzJL9k-cResnzO8nPzOz_j6jXLjcNIDu2bQK75wtCfmXV38-damG5naCkGk2xy3vxIhmnf_QzT48YyR9Qsv9iAP9ibV1z9alztY3xk0wIELGaJQiICXfWyiXHDAh4rrbuVSDPwYYeeboZBjSQiy08bczuCMWkFa5Fh3p0IMqBhZgiMIbipmbRxHGXAGwZBCFOmGAZ7wECvJpIsy7_yhuEmmeD5KdD0rcVxvhjAJ-QRsSGXwB7GBIZdgv6xX0I_7Y3QtC1LOMzH3hXbFbsQaInpfZIvgGoCZOGRaZ8Zi5vhsfppYGNmE2c0jbbf1Gur9Xr5GTHcp2AOVkABm2fXRZlNITSEhB7yc7M1ZuCGrkyUmQTLFwhoapaw_E3KidLOLmApf4AYI87mBsLLamK9Eb3RpcrOUD3rmRYXJPgIBhoReMsQgBBsFDOmbVtKwpVds65vW4ygE08ZmQu6fv1QKUKrhZyQELiOa8rm62UH82z6BgHYiAVgWN5cUQJBfB_B8jsbJ2Njv9VEG1cfJP0fbpi2wPmCKAN4yaAhQBM3lqDatlJMELj0-kN7DOb5E19bhvkY2QzC59X4puVn3PJe4AQSdBrwt_qBvadsrfytWwMOIxpQXpnigb-HyNcbr1XB8X4R16tVd8vhJ2IgxVdkGQKWBuxZiHgySoHxp1Yr8D1tznHmT3BRg6ZPgBG0YVeyWA2yCTjXWq2aYw9-XHyVBBZzOvDgFTcsnw48SKVpDdwT5_0lgxCZps14raI_JAVCl3YTrawwXTtQJkG1Hjt3K3H0pAQYoz-QohVdWpmIhrAzAAta_bDCgYfC3eLy9lscQmcAHMysiB6tzYcJaKWgvV4-IcaBRIGVamdwqDUyLyBbiWx6HbB8iudtZ7QPlHcb4bAqKgLh4k4o9sbiz_XuGhYWsOnBCfvGeFzAQni9q4F_Iw2kbXYXR-p2N6_AR0yD04AhVwuXGcsfCD5AQABvb0HEedUYNYuYqAbBafVqjlxNKToKODsrhMEZ3YcwfH9UusM1-hkx-vwty5_Zh_mKE7LU1uJM87CxOTMccyWQ7RdJHg7rFo_Moi4qlh8i-Qtdv94bAFf9CdA240OIVEz5g2-BAvVnwKDV15H8iyI8gJXu6zYfAX08KeBEcRfZJox8nLfxAhglOMgpCpmB79GdrlYQLfgYcQ8AR4CYWSIDi3kaA0MVc7junik-PNZojQtjBUTvMivwEGL8tnsjStlrohzDdjkpRKZ8uew_gjJYHnu8L7kuAXWapnwbWNP8wbKphPQ5QjLtgdZqdQknpSwuBYFGAb0pWvF_NGWXKTM-ll6r8iKvxEBBgGrhXC6g4CEG95vwjkwJRSGRc89RQjgQP4TOpFwU047VKM0m3lVijYKh_KH1x4XimFORTRwH1R0x6eKdwEOOMcQejb1EBgqW3D3uJRdz4AfdgNg5MPRdiAnkWpQgoXkDpkjufNhgN7ACOcMA6aTgOef8OcYPpaxbGHtrGcvXJEcl1g3uak4t_0S5U5FfGSnPXyRkOM-OdjzhsVes0jTeA7MXUliXYzOB3nvZ8kLo83IaOZFQ8PrVm7dBFHz_5G3AEAWLAlnu4K8AcNIp-LmBwBFBLifFAkjACxDJBZNSVQGg71PgLywDNPKUegdUb8G2XVzpe_Miy-UYDSMqoXlelTuHh_tHO2FQMyBuoqwGIxj0IxbboKdvyOOGh65ENS9lJaJO0DcTKQbQMvA1I894_5opST5ZP4KgpnNnKbwPPNDF0RrUFyGIRz-s7-2CgzTTmi5Av-0uCfvI-F4XWBmOwCYH3Q0ja9nyUBptjK4VdcJe9wKa-hA1Igh_9UH6HT2Hx-cZxKIWb8CKPhJv4CrRcUmGwNmX2WV-BoFWB5WQ00d4qsGeWHztPCrKUy_jSzI0Znfg_T_sAgz0MQlMcx1ouXHTh0yyJLB-koAKDcDVqvF6BAQnOpgLUpY_QZa4nrHAxp4IWJDPnNfIN7mJaZXPXpZS_IQvfsryV74SSouBs1AqLKh1AUwjQ_pA0TsN3bjhLgzeXXPZXZLg4hXJ7zQ4BHqFMHiE8ZWH1tQ6hbVtqBi3fUYuWQMFAs-6M9jHkLD5HSYMWW3cnlIbABLeF_mDIw38myiY6PV2xS44OzKoKUI6Sye50bVpt4Zoo6xxuI8dw_EEbAzkmMYJBDjIMPIeFP1IE92wpkTHS3Ojosw5AWXWfR-wN2DyddQUca77NsqgI1u2PBPwIj9QL0lwBqiksjAH4KPC4LbgUgLJkdWKLDj8Yoo7NgFwWVouUVxokxfimizM2-MRRvR8yC6BolUNRcvza2LoczRns-cL9XU2Qol55maOjt7OxUVGG_HlAth3PsAMyltdCFJDfvv18O5MmwUJGTL8IvC3CDAHFLTRxys4zPwOgkmMvRN8eGpnYAPf6-mmi_-4IS0tH_W0Eb4nehcelCdAOdknykd2AA4nGKC2ZolaDSBPQrIcDz5yGDwbIQw8n2HS8Bkmzp2bfQGSiTt-0IfWBY3z6KanQF2kNdMHZIqMDHBtlFL2d6es6kbgDXwHNjHI7YJfNqwFO9OFfcRykFQsGwYQnk79gVzCfULykNbWFfAbQ2E-m94c90aBNl9c8UWLGGrcYZ0JcHeUpChJbMXnXLA2NJJMjbfQxsbz7LqbzJtROojkl4lOgUZa31VldhWjgs2N6kYimd1b6T3x1Sn41IS1t80w9Q7OUU3Z3C-ofu2fLyipP5B5Q1pTOoCOfBxA09ocWhua1toeP51n3njj-tzc7RpQOsqmDVPmK5kiv6hy-7YULR-lpPng4qD1xRxh_7qB-QgB7VtOFMJBy2nw1ZBRXONKVBiCykO06j9DtMv_BkS7bFRGTUR1D9pKd7bRy-sahKtAM66Bcl6pFIBATJoTUqF_Oj2BKFb496YvKeMRMxLONabNaMCAu_obp6_NhDMlQD-jbOBD6QFIe-YmCSJzNvxhn0z7IUVws-67uvFpbY5t5SBOyYQBKIAQK8cjLR0cqhwcqiLkDTJnaqT8Y6djf_iizLm4vgF0ov8Il94g_QpwTToGLcA1DFhvd4AsvAoVJDcxjG_efrcceKztx81ld6WYhfevkFNWQ1SA4bg77ffBPbuzlXEOhnkbZ9EfyAK9kr5BQay9yTNO9GsyY-s40yLR6di5No71AalYgoeE4fScay-zQ1B47cC1J4fnzB8OP8EaViwyW6SMezdz9B1K_NRB9hknt4D2yoD26n8I2reA8xmMiwXed_IgoFGS0vHmSkEYW17BWk2P-S56dINl6PXIt4G8g4xeHvsfHgPcggVEBTYrpj3k9vGp26BTUpbXtAmMl78lpLVworasz0ZE8B5Z3HBMWNs7qfBOnYWJggyFqm8XMm5zW6Nx8gd7U1rFzemwhylF8FvULP_chIPLf2r9fseTwf19NtjdTVn-lCeDkftAX6f6A9HfE8FAV8i7SIWfX8R1imoLIk4E-4Q-sOGsgDdshKHBBB3h7VT5VHQuxEWprjsmcqQqSEsevoEyCoMy0pp-Yi9MmOjc-Ey1ypsFyzwuprznSfVhUE2UELIJ8EKWxhedcr7nclYqGJIJ3ZfVXLGCq-Oc7RwhQps56nPjx5oCZSbPCtS9UB8GreYgBehFbCkDzrFiecqTHIHY0lwQINEjdbx3OIyDi_I0L8Cf5jEPh6O9OEAX9jqAWArVF13OAYTDhKLldK6gN9PG6_xKFL9An-zG9IpMTqtJNhdRAaELwaNN_gHVA8kHx0SE2AwfszMhdcDOs-ptuZicR8Pjhsy9yK4w8TVIOSuM6PAQikdNEZ_G0AmwWaMvbo2-DMzOP5vCgM4WIJaOxCvS1PfJ1qtZ4053B12qfSAgpBS-emRwAXEG-4aSDQhokanrCHkXoBkyEwoMAiJgNADTOr8Qf0H4zmWeySx6JnUxANVq8FPwFCNfEOo4Z9NX6HGrInQA1X4vpWDG1WBEnEo2dU4OoFFjkgNC08FgkL9GdgHLH1nPsQ8xyuvPSByio7TgHBSaqSFng38E-I539QAZvEb3I_icXWYVarCAq778X6YtbAUOOxjbBKcLrUuJDSnjUpe8I5oFDwMWPHr39u2rlwFdrYJnL1-_e4teaXu9d0T9il7hgDdEfRMQAOD0ItdQHgIZv6csN16FjefzNcXXpXMs6l2MMuBuQNxI0kT4wYnqXBcgpWn5szVuUhsVGVc0A93vbxcUxkvkW3GlbxZk4XBIGaxs1KoA32vedH3EdowOrmN05tm4kc1fOE3sr47N93XsIiuDICPlxgGuAIUYBfd4TUkpCVMkkcXvRF6ivBQdzn2AE_AamrAKNPKJVzHtipYiE-hQgVINaIs8J1jYOIwIob1gzR1cEzbQ6KBWbMou2YTN2JydszN2DbxNUw9YRsCB3xD6wuJ_SOTlADy9pa11-miEz6jfXZLMM8ILQB5K-Ad9CALB3GAz78clF49IySR_0NKXzjfcYuZcAiIBQewNPYXNsCU6ehQq-soWslqcwuE_NT76FX9Ro_9x61JfvjdOZoEUo7XRNL3k-Uci37EpX2bzeXGNfvaeQLyMCq-yoD5uowNGhsCxHzwHGQBzZXxsPSzkv4zqAjvn78eGuHjhxfyvUFxmRe7munRlQzmD03s4KwpgxwZFqUGrGS4wHHb-Hl3BtVQaWpRN1ERZ6eZAH61WEDwAXEZAjJXHGPNKtONdGe7tF3ENAa6AtidrhHJDHTmvqV5lH5hp3wzw1YpYCwwxE5Y2Fr8SbZmeJhZCP_joRf56cv7W-z_3a1_T6DEJ3iAXsyNg43DwpkHkf5bcCX1AYtBE9_BRgW_Si9k2etEgt8L4YFTAoDT0n7eQuEFKNrYMiOFQJn61zHucebQ00Xnh8oOkLsk_mxjcXbDaxc-GhzT2Vgb5Z68HKX4lakHEnpXTsaU_bFHr4O2gTg7sYINg5v99NNxLYSRIKBdePLOcFYvq3MhmMC0CE9lWX1lb9lfYeFzI4UWTAE9E_81TslqJfVIAfITjMrjlxraX2dQzywwL_SdUByVvyrp5Y8eOqusZBUWQBlcXuwZWSRecBKS5mxzn0ujeZsDwb2ruG_AkqLcEsfLnBQHevlk2VFDbRz71ry2b0i56JLVtrVZ6tQr3h8NjhSQoLF3WcJ-RzNFMplw32koAPrKBNcsQQGr735SBw-Omca-Z3ustwCFra6qwyq2B1pThmY0W6IH0NRKaftALUuClX5sa4FmVFgp3CCuYu2pxNTQWsDK6bsgqg5uXINprOQxEJgEecwpWQPhJXDTUVrwBD_nkIK8el1Ki3w1KK2I5s8YcN3denRPFpmnjulYcEk0yVoFvY2CemJMKLOqfyJQ1L1lrRFOQiRdov8FKdy8TS3uXKSwAripwrUCwCa8MUPSojDznQ3bGz_kLdg2T_9pon-Uzcm3ttJyPl_C4pa3VBVWv1QqVYIEsQ5EDxopAIsjDLFfAKHjZ_K_ghbdlRKNoJH9BI2cjwoCXyUTME48IOmMGpN_YofxiXKE4wNf1uvdYJcOojNbpMxe_E_Rwi18YBOPMu5iuGlZ51jZTk5cD5_WWC_eTmcbP2uX4e5v6ppUqyFfKXjjoeLZaZRdo-JWhX-n3Eak8y-cF4Nn-CkhnPi_em-maGjvhcBhhG_HO_jDKvtjESD2BX0dDq_Lena1W3Zm7NufxvB9GM2egYxhS1Fj2z9GYRY3nxy5_PHfe9i44uPgeX0D89i3vCJhfXZh3pIUhCVMJvN6RYFJeXGQQpU0AnvGC4TDpBKPAg0TByTeMS5dLw3N6YbgKtJX9xWRXLrtaz4YFoWKfALuvsI7cW9mwdJRobkYpBsLBZWhnMYc9sohYKyufWukYQeietN6AucpLletrDPkzHIL_n6YisA3eG20jy_9uBoJHA85Ec_lBDVKzjL9AJi-gXBifC0pvqumhacNclcAIeWwWljbwpUG-Yhm9oMYTV7ZayfcksO6rdprtYMGPZQYx4Py4qyhghdebSEYp6JzTuka-zXvylWEAYSWzYkeYIHnAEawt5MDIXbirzUsCz3JdW--B5pxb9fXtMfHUB2axdxcaz5YzuuFkPUzWVwZUdGARbVAxzgllFhuatF77S_bxY169tQj5e6Bm10Psha0Qe0Cy5PPWuyc-k_yvRpkTt3S1Ap4VS5JlIv9MI5OvN_NrFjwsmshCVcDep8h9zS9Jo0li3H1bRQurBMZNFJZEsCK17FhzNRIbhKeJUAmc7-C_cjkrA2YlhPDMsVsKWjFju6xllf9Yp9S5AgfMbbqJbgH0W09haP78znFLwG__B7hL68mA4LMzQMCaQGtfSUWZJBSemSH7isfiFcmQ1UyW_kgC15ECsMoo-0qQd-vmZQIz4aQKPMiBZSwjTmUVxL6OH5NP4ILKhF1qgjyBlBUcuNjD0wnuLO3JqwOgNkC7DQtBUDN9Di5b8BTr80yC_2LjzaqcWay-Y-9VBWQJy9_zxtR1G9so_4H77TFxpMxEkM2jILYoy7_35MrXhteM8A9Y6vkPdrZJ_h4OPTzrutdrF4XjYnvJf2iJSfIfUE5ieNQEbR3pcg3NVYDZYvNxTqzyCkfPs474kxuiIOBZUXNogW8E2Hj-KxhQUJb_bv_-xkOW5EOWh1ZXb9QKXinug3jiVxTG48_fQUvC_ARU0fxETcnfaBN_HuNZLDGMBjCvIuskzhqyYJKyfuNQ2xRTZCvFhJCMckzCYR_wfITq_vss37UjPfTBbTXKOvP7GD0EbjyQrkiK7SMqmB956vON0Cy_31jSnAkXAap6dP3WcJpIkGOkpqDldBpDGpn4cK34TIOFzHUFHC-BmrOlROKeBdl0igYxaK1hLOmNOzis4Eg1V4kPj21OjDUjV7OxEUcFuUx6A_81OcPERdmj26QQ_39j17rctpGl_-9TDLEZbENsQqRk5QKqxYoVO3EUSxlLViaBORqIaEowIYALgLIVklX7Gvt6-yRb3-kLAJJ27EpFRANo3LpPn8t3vjNRUC2PRwklExD7jTipVFGpTifKmK5fUqmUQHYl6oImzQ2EA26g-V_Vl-RX5gL8yjOVIKB-1_UvUO6WwsbkDtM6rz4pYK9EfYuuKy_YKyVuNs8g8RGlurxKg1FH1bJrOI361mA_a6RLlDwCbaF5liFR0WdMscyTBluypPEqt81NfMGFKjTLYEwsmp4XFGdC-Ll2uyii1qh4ogS7to9x89h5kT_klQrgZyaPvhgVgTxjEZeNulCb5wKBAg81AYaOWM0-yEsRJcqi06-XjNSUK6luWzffNtmiJeGBTEk1141qk0Ieslz3EdXIHfOOFkL-zBZ1ipy5Xbg87AsZDYIDjBB9WTMUUhMwTG29ocYN8U4nI583PjX8jIkfFRKa1IJcu4WMHBqh9f3JEm5FikU1re2cLg0txTFXsLdAbvxfobFCyVApQ0cblBoAzZtpRvdA_jv8ENV3LOHOPqDI8rDFUUGn4Vai1SoZLe04K4OI49TAnro2A55HeR0yixYipHueqPIaqIsNJVl6S-0tUCIQWuI_WPIdhzc5OST5N5CHXg3E53L3etRcvNVPvRpBG9KE-1G7ptzMrD6KS_ZRoYPVY89cd6ZUyQQybsR2RcJxQg2wsPEvg27AwNMBnCTPXHdKqXgBa3Ys2t2wSMya3qDIV84zquhIWqhvXRJsRgQuuiMoxh5PaKVUnlde8a3SwYzgG-aVEaDevrFXoJly1s0CbXpFrgJwFHy-hyq6_VQHcKmqkx9dN3n43MlaA3ls3_cnH6Cl6XzmDvAIO8_fofGuW1Xrqg2tBLVdb0t6JQ19eOdtmGfpUsQCnCeEcaDiWnXqDU_4fFgcIOl6wicCQHh8ThWWQcxrtWKm3HrFKfArg4QjIxoux-qOtU7pOg5f6uq93y-qezIplY9qJnQ4U9cfrZ2owPsYRTIgiwfFSZHwiFhRBa_0fWAvgy2yp-6jstGMLSu94_whSjIo1u37RceKBgDvBVtg8NMtcXdAwVGwJAUFbipeqILcQfI1M3W-kKiBtezRddnMnyZFWV1Ft4jH6Vb8iWknYrtJdvdrdCcpXvfw2ZGvv1e3G0Pkiuqp_WY9Li9YaJDE3HmQcbJ4cLgziR7mUXKHECEyXNGi5DFyiZuRhGGLIIBlINCfef6ieqAitPgBF3Iox7VtLkuWhs6ierhxukhIs6Y5Sj17vMNmDRGDWLm4BPZOFlNEbLOJJKWksU06oyKqef6EE5hTd-AovWHmFzJOsLgAy2R-n-aLrOJb10MJRFXRef_dDQqn9ZCrwS9NCq_pXtp0PJrOm_1gSm31XZ8LPWdeo0mTJ5b85DXQpEbiZqd1SrIxfTwaDPjQuoO5OW9OdWf9QqYAYJHz9lW8fRDSAj9nMFkVj7O52Lq8kiaEiz9lc3UzsEbh9XijjxFLmmpzM3Gs52tJE8dO_ILT5Mho4s83WBP4znlvQtKqoy7LRk7gdDNUSLa9UjIKRERzZcp4Zr5ha_FhM69u-KTje6aS45fNKayC_gM28-pgQfZPiv8iae8P1ELsdpPfvSD5g51Rpc06xWeez3USJHV8KRwAJnvTvPgQFbHDp4w4QTBH4RUiA4ZI1Z1xA6J9nyBV6CmUXeEQ-4AzHtq2ce2a1hEXpvfB1XjZGI64GqJZU4ZYQct7FlTiJHqk2q1MsoqAHxCXIy190_wuyRxumoP6iHVQH5IvKhSCvva4CYlCV-rMVqvigtRkJjeLGbdih6jkR0epcV87Csh7xrUuZrS4hjqmXlMN9Sfbk1K1Sknm3sVtKYtHVAzS-QE7Mrrt8qnMBbonL0xeN2kqyLWoEHeermMO8zYTbIsQgVIINJlXkwjhqM-LaKpWNx1poZprx7A9qmM5qgIy9MF4QhjLN6BtsNEjFvHUCOfd6IAHfss_8Bm_HKYoTAA7Sz1aavNhGrbkpjnBWrVvm2ZP5ddV6MpGPfgmqcfWKbVFhufyk4xER0z22Vr5lOss-PaXAKPVZg3Duv4bJWfrGn5FIMM_xiPiYKoPfKkdJd1u4SkKnGAny9zaY7mS1FNxRkGfPn8Smy7JhDfAYsxkoC1Gi2CheNfGQIYlmI9hLT_6jcp9JbQv4tIgV05ngP9U6aPqK-aNh1H4bCwqHoVHY1HwKPx6LLI1fxAhdqtj-C28MkgG_SDqrmaiN-CXNXbuAkSTnyxVW4jtoq2p2FGv9VKEGUPB4zmSd_GzoPZCbdzmVZU_mF0oeMsLb8yvxGV4MO5dYpW6FJfhAL8Px_xcTEfJyyB5izrl52F_vJceX61W-HXMrvYrXfqW6C5cVx1RHF-aIy73K1Uvlw5AUGWOgkjwoM5FQU7OaYcAr3O0eScocLqjbGLv4AjwPdbt3vNbNvV4uVpJwJ-fg7qNjFDGPmP6t-dAVrKIO402h1__he-g2YGqp6zkZ93uIIIbFF8z8uA1VUuovwqURitTa3Ddk3s4ZREH0kSv39ajAALP2uvMLsQtNFVEq0tVAPivlsZKL41ttQMi0Thz7aC_2Lgv5S0pg4XrLqt8HizCPmU8PCRxnAIAPaBNNZ6CRXiAzTUvgYm8Uxi0CUc8ILjwa_el606QjNBs2p_4OAw_-R1ENDwLelx1hJh5y5kw28NzEVEuoU6rxIha3mK-RJQY_YjXOVm3KfFUDb438u7Fxzlzwnfv5stf1vj_-Xrc2vqv__uf_x3vrVjod0bjrudw527hmFzpPs9FH04zXqIiWCESX36UiM-CRHswHrHSdbvdBe32AlYiNBB1CfhiIpdfHze2cHTOu93UG6ozVSbTJ26Uas82G-r7i0XY5wQM_uaID8Y2BrYXrfoef4RHRdH9dQbDOK-9sqzxDHCKwQs-x51MVXjPvL_JFs2GTzzR_B5B9jvRH94dmzSW4V2368Xh3bjXQ5pIeDcWS43WrKskT_iHvIjL53KaFzKYcvP5UUx7un9w-O3e1_KZt0b_fW_I5qJzj5VrKsB9JCbdwXr94T5JEWi3KEiMN8nVTVjMCLe1x-A9oosGKUcECWjUMljwNKHS3-n-ojvo9_fy_dRr3U5qb4c3hxkhD-h5zkfnpN8ukPitBumJGPgHR3up0nBuap3gqpDytyidyYJF_DyP5cskrWThX_508dvN1Yt_Xnn8vejzU10gSb11OE9psRqeHjdywF6LGz-THyt0A9Z1dbHX_C1_yX_lz_mfZt17axb6t-J1c-pY4fbWrs1vA3Xh913x5_D9iXGlsJfiMTytFaqXutS3N_SS8PTvByNkDL3I4I4vZUXEKc6YveY4SR_ae9_90-On3e7fD1yXkTx5aUTHr2uFH9m57D0Xaik7PT4cofDay95z_mvvOX8MB2MrNryAPbEBJwn1bEzHPCIAbPfzJ3bQOPWwsQsh4rVOmqXl8Lg_6qlfQZ-fq8urNtx1n_8i9JK2Z4XSlKopP2BqU5T4nJ93r7y9B9wjNRS86F56-794fEERmEXtMxd6sW5eArzXHFzY0CjrRfskHaWBXcEbB0ViivptSa9ASlXYHw9z38h14jTCmkTO1_BwTOzE4eGY3NXdLg5vrm489yHCBfi1zc0n3j5xcffU5XJ6eyJj9VX2wc2tT6UUDdThez0WbJmUtUaf3Zk8jD9YwS8JcbZaIRcntjr3JUP4ovJzpfvDL61qc0FdN6L-KZA176v8nRXfcLmtEzdYVhs5X3CjazU6AFyuGckw3m3drsNBVJiZmqj0-tpjFHxKsr9lo60e338m6sSznRd7_8lQFJ1gglLwfW8o7w14FnbXvsdGV9ihH2HHhQhJlKkH45OoqBqX8LG9s0_s4KQiNQ_XOtOO42nPOnAWcyBw1JvLfLUF_BNxTlHemo2gGat92TRKYQTWr7DEJ68OCNqOCziWHWbNNwxlAJCISoNlGErXICagTXnBWhjchj1TjaggE8-swWj9LUT1cilTOany4vs0Zf8OgfQd_7umY040nou8leCrsEVPqMiTilv9xBLw3HpL-Q-GQPZQcxiDGlPv5M7K8YZqQ7l2bTYlAniL49ysvAsDe4pFHi4IweSAliRWraVwesSNOOoNApuZWCcSpoDejUrEeg4ViX553PciWze7tPiyvg7pmX1YlpPyPDpn0Ff3_xU678LleN-vZFmh01qPcJzNG66Kp2UsGti5SZfuXpfiW08o_CC95bp_LErXrcISFNqxwA-PyyMWcXI0yCNWNKNtbBnFcXBNTdyKjQTqJb3lqUho_dRB7cvkNk2yu6Hz2_M3eEuJyaawwZZUJLhFmdGS67luqtljTu-TNFa13qZw1BTIm4PI8stJlPmRQehx3VCPXw-8ztdecGb9JA3_6KafpAkLL4iIpThkBQ-RyIWxb-JdDzJbONyJFh_VDgzgFrM-3A8KkFicsUy7TBT-8AfFmaD8DuDlEUSHX65Wzvn31zZzRsMaY5EREta4MWNL2lM_47CT-SqtxbzI2HXrnOcOxhHN6q0p5UTcpNTA1kl-UH6uw2O2YcSbYCiYQQKdgko-058ZVThsSOfiDBaR9hHULl56jCZfgBXS4iQDJiQjPi9gAYBNIBuFL-ybypXDxuQrUEmCRjCJsoPoW3yBnamO8yBFEYk7Uysj--szkLFgUyYiRZ_TvgVl0P31LZgwefsWvuCEtTFbweyTC63_xvwR0qKTum7CJyIyBEhQZnI4Ux4Jvhu3mo0zWJyo6LS9er1AtNcwfJG5UVjVF-iUikOykSZ4HUTeaKnt9BSzr2WprxVRM87ZFU0BTMKwQCNCJsWJ8-r1j3ZaqPSPCgHcpVRiJUh-VvnEa37mBdceR5EOO-caT0wwscmWq8D3_emahDFBKpPn4MBZKuL1lE_EPfEVw6PbEY2Anm7jyhM_Nc73B66je7fk1L-nYNOXefaTKVPXEhvXcd17G6Zr7jNt2F_KqJjcN_eqFg3vcf4Tr_Cewnrmq-IPU02tJ4vAIIIFqBYrjezJKJvc58VNU4qqpkB1hfc5t0vAjF_xD-I3ttwISFJXzT4oYDIZqfcV3HITUgkmNvq48aLhB0mnwfXOyw9bohqlaCmoNTKPdCwGGjhjWlarzJ9URXoGfrFM8TPr31GqfhU_sXugijCwHEgD7RqkeABLfmQfar88_-Dj9sQZB5bXC4qDdvyRqyeFzf3Blx-TSnywYSTe7opABkKPJHYrslOEXEatg8gHpa7ErgTCzxvcmzp6whzf4Y7jocZZqQsz8W89frtaZY_-JJpXi0Keqlf3WmZYOtSFRfay6wine9VVFXLevnl1akQ4Qki72Ns0aYZmT6MwjtAUbliSLIdbDV2qmmpK1WCmrP3mheLaehUDTXiFofkBLOyeIjAuWqTFM_m0mDu7qJ5bDMZ1YBfmsH7eGXnJVEGw5iK-K0Ws09FCKx7FQUyeMcB1RF3cBl591yVdEYKNjBuPsHob-DxuFHisZxLs5aOlAuYFch3oIic6ROmxbTKX9jpbaPsCVVpoiYTfgBDrndhPKqlg-_ghWKtghi4-o0FHoa2hMBgHKnygi3-YVcRYBezTN6KNLKCvWAwWgYmI8GvIJqsVkG8QMhMTV8Od3qhXETs0qZXb0QTVrP5wo3UzLXYUlPzRdeXvrOI5Lyx9Y_EMmZo1zcmI1NnEC1girHTb6PYmUaF_dQNKDQgKESZjtaHQ44v1l4RQE-0n1r0Q3JPlWNE7fZ5j-K4JFzssbMwbwFIaTObt_aB3uG7BthoJiU8qribk3lRvl2totQN27Q2TvopJG0ynIrdsHkJ0NVeKJ5NJjuAASXTZjuOaS7EaBpOhA6jqy48BeLkG7Mzz_I_7rPhBu6ootNLbCraA0Zs_BQv_qXGsCrn0tqMwOHo9zPynE1H4T6SNhWPeqfxpnsaua3Z0D_pUEpGaxbUyZxxsABjXqRRrfE-53J2x6_pHxyKhDjf32bObrc1OZBZTD999t9kF7WmfjyaP-KWNPWVHof1-9Jc4E2xCPplXdfKbJDJpGwPG_FafPSADrW2j24qbllkUTSOmRY3QabtKZki2cypqYaRPWXsBKzCPqRCSVIx3fMd5a-URuKXr2a7zIpYFza7Kp99rY6x5-okAdNkKaOsAM8y0bCtpXwBkVYCxI6sYnd9TNH8EKAY-G1ngI1kgh8yZ3MvJ7Db_SAkVpCMQlQgZSZYXQVXZ2mytowAar-K_z5OMOdzZ2e8I5X3kZCbjkVMVCzBVTqO0lI6ls7FeEZUv6brVI2Zen0oXWKm_5omoGlwgJQdGEc9JqWV15nrxI4voHSjyhdVKuXBuqLgcK0U1YAVKHtWVK5qvVX8h9OtwgjbY_uidZgRK90grigALwuZqFflJbHFjDUh9n9cY_D6fJjKNS6LnKAVr41GyLxGmmRam8FBuavSE3GGSwAONGmEMgWqTqGh5k0wqbadTDGlIG5EH0DXKy48Im33cH8ks-MHbIhkHjy7KgAWmyAHmQ8Ir0ZCelOrBKNeWo6deFERNzAzgOvW6dIjXqdkpdMKoULS6FVzKh7xUoptFzXxROKeLIxZ5ynE-YnTwAS89VRsKLLsHxwKtlKRr6onGgionh4dj8INvdNno0PP4DsyqYoNLGt9WfseuvV4VPqN8E9zDgNBI_JujPnkgRZiB-Iz3OR3KB6DDhBdfgf5XK0jDHa4KIvXgly9-eXF6xRHI-f7Ni-8dr6WPAfARDaWvjCLnnsgUFQE6zcDaYI8BVijhl1dD0QsfhTSsEHEQhY9jKhMh1XBWE-CRp9GtTIPqwiheFkaL1CfaWdZw00gQs3JNnNMk8wjU1fj-v96Ve8zfG3nvyr13e6N35d5XgN19NXC8T88fmpv2UbTcGsWBo4vROjyM8nFAjlgFasso2xvkEfVDh5F6YhHxEl9AVywEYfnmq0PCtTGBAX3T3o6po1FJCmxtfgFF6Az66h_yUfu9Z_jft2bT_HP4ftgffDvev1PwArknBt6_IFOJ9iPHoHhDNowqaklJmhusuAMPVX_cwdHJidx_5rUqzkKLwfNCoTdSdg2uM16O15yyQsICSeh1GR3SWisQ2UZbEQAzTAsw0ESuG8JpBTImno25Yu5FVc3a0a1qxBEOiTBHoW5CoclY9NiixxYi-YOsl0fRY2UPbmLMC2QgigRfkTP6IzLEaTpCTKy5lPjTJE0vsG7CG1NviTw8Gne7SLdAG6Yy5VgUhQJ9lRa5ORGtdm80Cfog0LNnimueK0kC2JYeOHUaf-WnUVm9RKsgYg4aJcAF6pEAWBYx0DbQCF0R88S347krHnmxsbto71bvlhgcgA3oA6BBJRkKMB3oijfA4alfgNtxR9t645piSZlwrhsxC2MD2wp5YQtue6mXbPM1uP5KQU5l7eIv0dDjHRo6TUGL19N5lhu6TSYst_ankiM-lbFpYXbVWidqkh7e5uouoCZUZtmD9kbZoxlxDxW5L_97EaUlQ9XkUQhn1TjQTHntdbphM5nLqx-4Ol8qVg34HtukqeFfPMR6DAd_2OljgMEaWUZZlD5VyaS80Z6FwGkgoB1u8uIiGPj1Ma1mh89lUdLGn-SEafXV3OHwKK53PkTFTCKqis80WRStK5gWR4kStjQvYGk8OUpbCZb0iD_m-V0q_3aqaXxfo1T244GzAYGc5-BPVGnyMKV-85E88kv0JAsofjukkon1QPuDydEhR0oWRr0BiGE6lQoPDaNeDwyCErvGkCRg0UkMrCGF7Qc-Cwpqma-xi1lScTMYP4XQJX2M7gqGUVtkwrkrogzqPx11MA4raB8patGCLgM0z5MUydrTRPnGgnzkJJlCqDtwNubZ00OOalaGQBnEbvjn8WWNht4wc_RcKkg7tulg0ZUiNq1Ukl-pUy4VgzUVKqrbS2rfJPjegPxLUdRUryOpi3B6QB1rakmmeLE9jjCP7bw9OhQPRkopt3XPUVihTlyAv1Tiox4l9pjUt404dCAP1-TpU3UzGnv51nM8h7P0JeQdU1DT1KeBR8i7Ti0FSkrdMkyZunKzt_aadcN0dG09Rs0yU7VPx3EU44ePHGmISUf5HB0hIDryKYpFqWHVoNO2vj5ARz0exeIj054rHj1iw0CsSUVCQ4ulA61TtGomDmzPsW1ClGi4R4PNIkfLnfjIrrlDvATYfsIR5Onl0QN-G9YINNyiQVmvIPTHFgKP2JjRhjrvEsuUlUSNx-bRFT2Vnmbe8JN0B44P76n_viRuZocvG0QEWyQFSuZLbylZckbeJI95w__4f2blAwtADAEA",
-        br: "Wz8MMRIhbBwA2LaiQVEEGwcBAv4RoB6KN8aL9o14yFl6RcthHSqShgx75GfBImvmU3i73_QqGoqEb6o5EYYCZynQemAPpJvpqUZRDg8Le1IV9jF92YF0hMY-ySVq7-OqPkWYwzX0Sbaq5BXCf-AHUbCxiv_fq2pfv8Fky2BtyYAobwdTlCrGVTa3jNsTcEk-c_SG-3BBicHJ-uWr-v9_f74MRNkchCqA05mH4S3VtxaSsjjiysaLAnmglZtWubfiZ1Hm-v50BQ2jyURhsWxN2dH1WbbmNbhZtnr1PDKWwWAsI8kGg_QPt8PA85Wpeboaio3pRzxK8CLV5DdaneWUuu90z86qzCanOMxK_Kxq6TS_Bn13SUhK5ziP0LnYM7mfTuYgQJUAinb7-0vfsmodNUbLeeARBLvfuakvpHZrBzkBM03_fyv1M61qAOQs655NOBkASbOHjhxEDkLWvfe9K7xXVT2oV9V90KvVjQZGDVL86gbIGYKiXlU16eom_pwGyD9uArOAnA2SN5D0In3vJCUefcqr_veyZT4_95qKs2zROLVDZ04ihw7tKLMuGXZuQFvc6xtC6r74zv_TrQVGB3uvcfyPv7IsyQn3JSubfd52257GPIQQggGta2-Aui1vgf68A4TDoBBkFEwYMeCIHhscsMMWJ9zhHnvc-Maf31ttPovxq_XGOR3NwXrXj-NHIiehPj17YcM4QNsdfHu3qbzESIUazrEQ249IAo6-ee3N6KqzqktwidxUE2gAhJTkn_XHHBIBsQpKF4EGap-1eQSvxrPg-RHaF7DrWCmZ19jFwavnIywbKiRSm_f183U9gc50lChaCQgvRolwHqcwNnWT5aLZ15rMK079tDzYncn86Ka8buqNkNSOUB9VuSbOnrHrMAd1pSnUQ1iHaKRv8_ON5-fnLvLS9Jv7roVU9i3HN5HLP3YVfwjm7bDyGlzl-xJaMWFHOsRtwxeb3tYRXBKxQDavQ-_U-Pw8IOw6oKGg4P8e38XK603ms16bDUiddZLdHzcWaueJgCy2uS9qBuU0sbWQGgAE9NDTYF0D_O-c7PaQitSZtV0Nfu0DF-sgO_a9TUuFYrUnMFAcyCL9jxVD1TUcskHFG3vT97zsj_64S3sxbsIDVawNqbmPkHNPMS_H5fgSRMYnUfG_Q9RWjOVsZrCG6RsjIzbR_w0_yylBCB4FimXFZiIlYh1SqdWJuiKr13VYbgOu-VXYMqRAdbfuy-Y6EjEpEdvQv4VaaEuQcsbxWaegpUuoLGK8SVg2IvV3IF_YQuwW_CvDpSbTfwFcO-Pbwa3JML5z286uW3vdvDf8pW0SZufZb__d2eDs4ONOwR7EqpngOjvxTw2RsT9G6vybq2YD_23_V_zeR8s0T8osx39cESfhyaTwVaUeLA5j5bH3NHHdVULKIVUMi25r4kqvG9ciDS-q3_p87K6ZZXIdCFgAsl2NJ8XBkeu-1103y4ZpMgpaN_vwrwMg56uCEuBynSJCQtsiKrVrwzRTdNehAddt6uAFIEaRAhTdlRgkQE1T-qyTidRy_0g1TLiUZIIud2MKpGQy7sxDo8VwHZgkLS0ITNb_E9klKPjXVCDez3QRlYTEmUA7G3w8o7fn5-fwkeBFL8JGSLa5T0OpptMnFwjtClZWrt8CHksnvGtWOcL8wmmIPnqQTNKHo8ZEVDi5-JzPcIr7b6ZSw-6_Y1dcf9ohGVHxhLcHfiYHYDbpK27A8C07NiZfDS12nGBJjvtmZQuLIN0efcg-pF1lSMZPfp8kpgEeBOg2enivuWYcvjckdogawbnrwAc4Omm0PxToChC-A0J9p7s6uc7xHcRrpTS4LCJwcPx9VFyVoY4xLvcuubwWd-EEGrsJ9b2WgOThXimnIpwbIBsn17_C-csHRINqW14bs-YiHNXZsvvvZJhxDQCfpGoS2Vbl3xHsgDINQ_K-9j2tqs86DaUadjpQi-GQUwqOo5UxRjdC7lOqD1yQ-UabK332_6hopBg8qhx-H38apMPenKl41Rs6dZVf_foXhEnjFRET3YsWdigL4GQ96wYncmMIeSsNcxaIVcNNSFow5eMokwHO_KhAO9q1InqbCr29kAJIKVCcncnjx23BGbzRG1REEpzYZdTqjRkX_g4SwqTWPiBdSLIYCSVsCqmHVkO8TExvPuNGoCKqomk3Zu9RniY7T_rljZmJquP9VKo4o57KecfB6y4cdNhq9eMbFKIMYcIyX2BT0RyRcwRZTA4p_5I8Uy3voAb17RQ7t1B1FllECN6uofIEpL5khxFE4CEgdT3y_5aAOM8CACMoREv5kiSGGoXpPa1c4vRW07lFMyqmdXwXW0yj0Tws5A2z2Ux4RNNbFpLh1yYxYRo_mwnnIcv2CrslJUNpzc3-MDdZySrW43dFcWIpfLMQnOXofsR1ioUsSs8gJHVvQGl2rFArw48WnZKD-M8coPsA4oUxFk-SlhavmcO7tC12uVaWzQInYiimQ-J3W2R6TzYxxucqBAqyFnsZoNL4_wYEmc0Zy4EpEF7nZ4LSqR-FFPfIzKk6fTBa2zMuItvrWou5QgnumsPGgk4SFqiFf9vs0JNjQn9q2bjrL_76S3SUjv5dkwBO_Pga7XyTQ8RbjJDkYqoe4lnBXhg8ISNGn9Bc8LP0Gz3lyDV8nLsez0pvc5UC6LuoFK3o9_zyd-Iw-JLzMylHZsOlCFu8Lhy76lhMPxaK_IloqiOhztW5CzjkpkatYTz_NueAgOUVXl6JAan8tjhzzRjNXDtoEuez_snnXC7lYi3Thba8Yg2Wnmzh5JGlUHctFsIZqacL4BZgHjRPHcEgk67eb6C5iAMASifwIV9zrRvgMs5DaZldUFyZ4igc4GzNd-6KRtGTMmr4OGZOPfPAQB1FM73R402DB6wMgg4FLuAcyhiQDOupcDS2zYObvqkFUtzWkgr01siMs0COv12ROjyTO0EcAnA6feHNOG5DnU2WOl4ah-QWdjEkQimv1ZBEBAIWZ6mo8XV_QYdOhsA8hIFA-711l3z6agZuY4bkB0jXjj6gizhR8Fj-h6mUB6I6E7fUJgNcS3cxpFsMxCnryCM0PZWm32LE-q1f6gzKRt5Kj5So0Q8Vapkq3WlBU0BrUvsWoBs7LEwzmTPAHl2SELCscDTW6RmqcPmmB5CbtMxidBzbJ-oRa-alpPKHvgr0KOKKqMWxUJ-eNePzxUo5k8yoJsqQAhhmw0S_ZNH4iDm-8QhIQelgW_GYlnZISfIeOSS9ni12GELYoUUiQN8H4ohBAJNi3sVgDEUj4m0ypS1cu7uksEMy2pvQUTBlrBVYDOo4SaDTk1aLu8fugnchyOXwQEyEe8A41h4wlZQinr4M37lV9EytaeJ3q3ggx9RRSgkCFiRzK3UnC3TyedcMyb_SMMnAWpO7d4p7JMoGzX28XyjSMqDjsuKCx_1QprIEHaPwX5n0ehtFjKjeC6d9IaVCGCGE4QXrnU0ySKrc5ZM5s72_UldY8NnrVKwBpDUTLihxD1V8BJhGGIJP_PcALMsrLErkd5A355yx-eKAoJ4QYCqVFdfnVjLLmoqTZJXNmcImjZal9pboNAaDen-XjLu34_PKRUfYqS7nkH_76-BjKkSLQCvbFX9ZatkSq-UmwIHL9wSw2WURs_EDkq7gHRqjJtgTCuQ7t05qBQGJsQyji9K610-IDqMEU2_b24CYQKge9uRz3hnEfHFqd8biv6FtUTJivgANPPmE7hj7gA0nRI0v8a2R2ZtttDgSRyzaQ8nuec2zmUbaNfmY8IN8UG5Jl7I7lfIKUbnCCTHhZCIKnfUlNXgcgHXUmfW5u0ImfsjwIcnwqmbKcN-yoFXDQObAGjwQQCEZkxlPcHRdrfKKZsugaWgbr1BiHZWJ7-t1ompvBUo3EVFEp_kU27Wqz3CSiG0lWt8CXBMDNdw15hPx9tRtKwivgIvaRhxCxqJduy37kDq--5qbA8BWAciUz-bK7La6JzHMR7woUrdKBcx_SwhkmPC_D8KmKJ7lCEZKTShySFA2GEHRmfYO65qy_KywcSMGU3_5uIbRCrEMUUifBvP6UpV6Mjokqw5V0gMVFyRNZQVY06gq6_TOEYRT__fH86RvxroBAyNFrCridOH7ysYGj2QmA4j_LjcfpbYntlSDumEvtQcadfggpSdVY6UmhXQbH9SmolexAKWbp3xcvItvJ8WMlWc6COrlfwSLm_UMRfnYSNQrvd2PVvXa2JtJvvRLjhD9U4Dpnm0igDUAVsGJ0cRHBv-fi12l1TW77nSmB6kCVh9bgURdusPS9HdU2YJj8otV4nZ3LH1UkaNO_bPBVmMrtWw1fSaG6hbL_sedvnMK0Y3UfjnXzfTUB-xyXNaMPKXdn5Ih2N8_VgYjYa-ljqblrZjzpVNXQeBh2Hj67lKFoDVbhO3GDCbO8A9MOEnlW50Y_9RtCAVpAmTSAw1bsfAN4AjSgtwYjQkw5ITyHdUxFVDJ-Ac-U3mQSLGdC7NE47s4-dNQDciaSuz_-5lfSFFpONJMYlyWTpKUZeKtE6AHdfKKCquRDnjCgyDikV7CS1hTJSkDRglgeyQlXlBvCcb1hGR__MSqkx9CxQYs5sAz2YUcILgxJHQVNZEcbHVtPjzsJa3S7NU3yXWV0jd_pNMJs7T-fAyOiSFT3WszSZ5MWc1_IlLznkggeU-kiLyDIAAdyHzZRSHV5Qliy9-9MSnRsLqR5XSMQEQpG_qUO3B-cGs6WoiCgNiM1u-0vdICiIOC4mYqKr-prbUsD4IAn1h8RmAsHpcQhOYH90kSE93QnbyFXvN8EIfy3gdVmorD0waSAtoN9zzc6prOq6iBnFnnkjez2rp6EZW05tzGMHEln74bmRGhAfXA73B9v2J7Qu_92yqwMjIcOFnMmWBnbsii0OeRLYgqDL7_Mh-76A-7nGJREX48Ty_5BZGc7_my1KYB2aevaPATUNYUnve52DfQJwtxwVJf5yUMdFwK-lVoEqAGqIdUuoa_A-qa4aiUoR9RmA7Gm6zslNwAeYP5swsj5fQKWcM-kxAi_e6fV1vsanLkXWn2aiM1s3_WyqiHW6kJjKRexrndf1V7R_H3uRf7P4eAyr6sekWGM_WaZKp0IJBOvlK-kvoTu44udzSP0BR8nSIXM7Pfe2gW_iEh0Vz2TaJq6goD0nHVCyMeyp5AW7QXHeI1R69vHLZfyKc_npmqfuaVRUZqM5ymZfK_1kut1AO_pIkzWMsHWY65ef2OAe9F8W1CiyyrMndQO9TazIXFhAVD8zK-LLiw8BMXYqePY5orAh1yzCELXR_Sop2FYAs2RJMR6SSrhGO7CGwIoFib85hu_sa_bikMmWxlEZoBAcE7pOtsTGtn5TW5gzVknVJb3eZTr3M5J51YdGM5W7kXAX2dsyNS9m207T9ff7fLgBV2IlulxkRq4LO8lRBdWpbwcbdm2TDPm32FU6Az6A9-UguBmt3FaHnCLk5A7cK-I0DSEDNJm7FF9-0Wk18BaxvK3PPuPapxrbtGHfV2aHhE6jGrmw7mE-4AScKYi1cSRiUoEGb3UH4BXwfwZImm_ucjtt1dNJ_1i4u6o1t0C9ddx9S1Zf11eKV6dztngwdH_9R1R7f96F0_Fvex39H647t4v2i7XFT90jhvnb_HbgyEMZ_rrj9p-kPw1QaMZ3iofYn5V32yuOoczbVcpAbNn__8gTHwVyT853BM-ci4NclUKaQLSN4jwRurrmS8v-qowFRTVMhrJ3swIw5ZcawO1oxTDTUQ3qS1OcLyVBo_PGJteisz6THjdQz4V3U4XgN11WzqZIQ4Mp-DFysFx2CuWY5V_3BrAxOWrLlWUSNnXO7J1zcBQmhBlQYZ6SIvOZcvNfiFW4MQUREcFsbL7_0ETf1h_rzpGl26Iph9cPjGbnvuJhB02aSqSag5oP2x-9MPfxagg_Cl3aBB-7HuhfG6n_3g1PfUZ_ZNWNa0z-rarn-9mIZA6SZM0b7GaLdcS_pbIz7g-kg--FIjyXX8BagCpxI9LKI4N8_wh8sNatA1sE_ejgUEVeagKn7Icewb1KNVdktGdrg2YMW-WqH0p_ghBsTX11ES1Cqv1IVT65hnsvo59AujFoXXEIvM1BuNVPlyr7hSV3z5ue1xvAjmrGCW_w1dQ8vGBNGn0gfY0YZmxJI4Z5-35aTr5s-rBu7U9bfT3j9cIfzdTciqvOqT7jFeXIEnJm2_s0JuwwJ4F5AAlcPViqGySv_P8fkdRHia_LYHr8JPzie5Y5tE3rvgWQ3n6smCRU8eahDDna7wmkE2fF5OIs7FIKb3mGfqNfsb-QugVJcR_By7mC-uDK-4UsJKEjg-4VNPQvf0NFN4FV_FK7UBV_3EdwvMq8ZB0yh382xqMiWR7FwjiKs8WGJq_xOa_5l_V7qp3ceHnyZH2Wbg5eT4yqHVWrRaToMIzmC5gKf4uQ3Wv17iOfc_R9cwd8UZLYTJqyFWnc_XK0cDUzrIkmZcGLfJKdYzadO070dlGCGtPCza3aNUdfALKsZTAC7EaNsYN0RDBGxp88iuKeYpJycZwgPHXBfQtIWV2atMXMObe-GwW88v-0gs8XhzfqRGKTpH954N4esyFDa12GNXmsVyBFukLt0VQ6UaRHpn1QBee_MI6aF3X19a0CiK_1Ljthux4ebOcfRnwoHjqk3ZxGZLw2mFj1LrtpUKYo7aw1SMOLceDxjSgku0eqdonSgEMm7Metirmb61aLdl_rf7Jkq64Mlwk6TszBsWX0Q4vWeE96XSmebv6cXr8cmHxrER34P7t8HgbCJGPaY5St-2oFijlIuBB5iNdKxIOWOIWhTth9Yv12Fh13Fv7AdwLnUHBR6S2P5OorLjbtKxMZCXq73SXOuMhqe8UMbbtPy9GnxsHgC08-1OhGlN9ANd47sIV7xxC7Cnps_Fefm8OL-kvEmpMf0T8zvZoMtlQuCANiMVHl5G0Z42bTHxbVyl0n6s_Lxfa7yQtB23X6tKc8BYWOXBSOajTkwj4AY_jAeazTJhjKqg0zEhY7npO4QTdD69yMlRZ8jJvnOdtbjOcQLN7gpAhdl1rPYf368j4IPlFuFdF7lGxvJXo7iIYKIMPBoFHhHTmhATuR_E4BuVe522KbT4GvVoklVgzREtTzwy8lPS9GNyyLea6hEzXA-7Sekn4zAC6BYw17jbiQEvJR9rGQL4JT6FfWU25fm8YVfLRX4J1HWiwTDiFr-wguTriXDJBQfMfF28COqanUS-StFG71PYVLbQZFTZd1phXuiCGK5fB281RftQ9DvWVo6vFKrFd3kYomnCzOGZIsQAhVBj0pQqRJZIkxjq_fCmRgKl25yJ58-V-mbLr4JhkSizsVHT03or7C4ORDKsutqwoHSPJka2LHv-xdCKrYLdO4eu3oWzA56uBxOZgcaTjOJ0ikUD7FPkReX-Ql9KwRjF6BBQJJFpgS05HRYTdCzzNcm1OS0_k3X84unyYiH7UAaQIjZmGy8aoK9b8pdll9XxwPZBls3-mcnrkE1D3FI6MG-yKdsuTQzUArcR2ayHCYyaDpoYBVrtf-RMskKQXTOMri1ts0q5kYSyFsOtFI0djV8wxCnoHCUvHcXGX_N5uVLKK4y31PK0ZS0s15Gn5aM7tdTFFG_006wXtW3X26xkebiYnyP3U6CCtxr0TZo67VlMuUFLNe5Wrq2sdWHPPZw8TpsaZY7RqEiVXqytlgOY5is-sraoZTvXaXmzzYN0mxgeCtRow291FqogDmMyPGGANgQaYvWio_PXU1DLirzlQ0JaEXavx8ght8RUN7NwKa7SJ7E1tro-1lRp4b5jUlNkGMX4ak78A4fx27IIlRrA8GqvA45n_F0cVOTdcpGz4INwWLwfX_xnZrmAsvzN2LfVrD_1xYc-t36yzbvcw9Xxoc1njU-GgZXPdp67wLEZRzshDVmkG5Ixzs5emJwM0vF-NXrcQxOoDXeTsm29uQflUKkUDGKOJH-I7vkJAR8nD_5hfOxP1HazRFIxfVJGOOJ9VIlnL3UmMsXd7OTseCwDcqHHi00lrBHRjSkLBhklIAVeJGyOhKPWiFA4mMYiIrTkwyc8W_1v3l1cqdEe0eSyR7718BxqRiTjFyNqBrporPOomFkFA7e-s5aygIA66xdlMuQC2iiOHFiSAtZoljis4xZv6lkN1zvkaraWrhZKVPCwwoWbPBc_5jbZ0RIDsOjjIqHJPOgn4XqVM46xHavStumtwrzBfKtcsO3MBC0FSvvdkHj-Pt2LhbAJiAA3PnSksu_xjZwus_ELURbk07aH3iEPRyHhFlN0-WsB4Y_QD9-B5_0CmQtrNs5jrkchl4lQnBsh2wUp6OsQiMZ_tLc5y3CykGcvOtmW29Rip0tt6m3IbhuCAtaV1IiFBFKHioj9pHYDqkLXlfNDaQ_2qEtvHiG3bJUrKDcpoe7BgpNseQjrUT8p_JD0OHMICgiX1VhmFR1PQfJGMAmKby3hG0ya0luYqScWuzOFIRn1AhZQ5F6rD6K1CIbad5Gds_FsLdg5XBKopDar6zaIEqoUvdzJslsSphYCcIgKEagdnVWizBEEhfErU08j-xLW8JLx24GM8y7r0GGwGrhrOMphdD1QR39N2zCcK4Gu8so7yqMcRt9sE71kspu6M23Y3Jz9ht-tVDWsiIJ862Jq8AhwGLZQpzP0vK8-9tLS8RrAo4_Yb_GkTZ7yYwpccOsF8mkqX6dEHcpMBIlf2ImJin6GBzEOcJB2-AsB4ehxSZ_T2lGD3GfSgEsGON8IoNiWO3NqSjbXXleEfemdrvf5mGyDH0D3Ncm45SQYoPnNnvgpqUjhTLCztIHOAZ69AdOue3KpeEtJC3reCSJgohS6HhfUd6GqK7_d9vgQb8YCGHaBTlV1kWJLJewgY6FDNCMQKwChxaRW8ssubFgG3lWcIwLJpOkhqfJFariGqYf44-tjqj9T6bcruJaQ-9NCyDuN75ipb_URwM9dku7L85XEnEZlWopKXHGsb0f-HqqGMawfRjjGteIsp8VA6jqIc2G3jKGAOsZqut4ykLA9JvpIdEmOphHnMD5MM7ugD2YxIjlWYtH756GFE4ueKlmxyiHsJJJOSIbD2rjfNVwJ81giXOH8XDjIYyFwRkBERupV8zXTlXC5fFvrQ0aOm_X7-_FOf25fPwxvBYYyX6OVbmxA1KRwOytsndOEOB-auGTWL_G_k6O2JIP5w8vm8lG-2vzX135HtlSqbHGH64SoY2jQ2CJf7cNkteL7M1mcW5MJc_Kpe2jQa818SvthluW3rM_sTFihkS0wbPU6Xc2TX8xS8ppxHpBDkpBigulZzklItaYoGS5w1K4-SGXZVQjRsu6YlpXM8DpZykTsCJhkgSYbKBtph06x81OttOeI580z_Z2PrAmRlcLx2iEFMAZvRbF9QYW49eWYiRYJd2TXPZ1njFTmR9O5iDmMhYi2YGbNpgrKfSCEYYK2ZHNy-JUBlYC8UfWJ_vgIg1QL0EfEchySOvSWrW6i0pWytNMRaojWHo7wbEG7rSJa0HqvENota0-ZQvUe4OELfGp3zqZhpw10glMRZo5gObsGm5lAvcSG_vvqj3yy7MbvyzyihYvh0tRvluX8AWPDsMCcv1Xd9f8WFlPvm8KNYnygca_abP1LWlEam2ODe_M8X59tds6-9re3eVT6UXs5GN795-OpW-885yEHyfufy3vqfp139JP79K_VDo3H5fd305PJU3q2WC3iV8vL1VFP_5_1SxyNrKnmDp96vN61-O3cV9weeSuGeAMfe3Y0tT2Fsdk69ocdf9Xp3dwt2oSfx2bTEgUtTkQpqoUAtTDmrAD4TAlxDZef6FOhLquziVIXyRd7qr9ZmEddpxYSqIaIsRQLERbqaN5RP_t8DmpiRSHnnPfxvFzgtWm7L5Y3iYIWpc3G1V9_7wbRwooDUNO7kOa-l4yo1kTm5VUHzRJBRTjAzVo529QtgN_IN-Xj2NTRFHRNLmBCodn77Ohd506dqGzDRlb7OIOewhrUocwwebQzpo1vHiZqekV5RO5GeY8bTGGMjh4NKtWk97JsfCYEEJp8TZn7Vqeh2gcFZdY3RK9-RB6iI0WHKHx0HtWOhGI5YSM_8ufLn-fmJ9E371dfUAhWkfCn0CoIO1rLQ4z-9h9-Qs3-4J5TAZIhtGlpW6xRyyNBakCUDl1gWAa9cgQO1GMbvR4_RLsOoBfKitdXneLRKBgz4y2RhO-jh1HTAX_blLeKCf-gOn3MeQmsP2omFklwYo8tD0PTO37EU8zQsrAf-7fY9Z7rwOhHQC_u_yfE2ObKvEh_zepW5ZJ7yb67-Rm00YtHXKc1PaEbmkq4rttxZ3qVsF7IpQWVueh5eRYrMhbHJEiCcpIQhJJvvJPSPFknirX8z7mQd0dzbIsowMLI1SLhie_D_pkPcmF-iRc8J45RM2D97cV3zqLFS4fc-x_F_m_gz3TNR_mvstviLoZr7R_OQGhhJU6zFMta9tn0Gh0d1ZaWJT38YzjC2-4pdu7asav3R3t7MT8t-9NtwtjDv5BG63UfwjNPmRjaI7mEtgsJK44MyO_rKe9JIyeLoydpfGRTNshzgWvDio8PgV0jHtSOcMHvX5r2Eou165P9h7gq3JnTcd7p07OFY5kKFFhRFir4TDUc_Pi4-cplUlgdEEj9e5H0KughqG8eQsItC0pDvs48birSjSfhuSDhd2nnDZ_48zHlsbjOP4Ir0bHfGWv2fRad25X_xhNUxB8HWd34yKI10-hD2riwqRQ3LYa4t5_NjV3R-u_-zrquJN_yqY0J8jnXw7JWMXfZ_XY2CFepVSp1eKvSdasDMbEHjnOr2xQl_YNiaOMUAppntSOL5zcqHDhJfDzSOAylWUSvv8Sksp_JILqnOuEjZvlwkh50HJewqphODSw3LFvvWOBWBI7qOTnjII8J5k5porHUTksOTIpyefTCjl5YZCtYMhDZvam_uhiyPCDe_cOgaTp-j8zCZBV4tERG8YiYCYbNtPTLy0GTcswAYa09sB2DtUktEU4kSckjbWkv6FKM--F1Enj1x4PwiAMvC7kfbr6doKDC32cGCfor4_FD-mAAez-wJkMAjMqBzE6G2hnZaVix-gNrlSHQtjzZ_wQRR0gB6AAE4z12Lq8pOKLB6BhUIuth5XqjrNxLJfC4vBibgWLEO3P7dfzwKpsZGH68oad-hlF94W-D-LX1r4J483M66VeNuKdQKj2eON3Hwivu5MUqty38WQt8aAvhFh26Km50a_2UkWX-K1ysLmFVqa37deZdquyv8HK1YDW2BbnwG15-SCX6bn6eDOTSPXfDUqSn5Ojv0G35l26YlwyfBgq3k0AUKp4XR8S6B1qXq2ztv13ycvUvXbdvSpnO_P-GnxDknvFPFizGXxufAScmc-Fhex-m9N0h9SsZ1IGPCenBf7S5Vr-arcrg3rd83q9q48Q17oZ8nPv2i12doXvc56s6BJ1kQS266jsPjPbxb9rHFfDdJpht84ezmCuQv1Sc_IOTSbccSp6Qa-0nI1lzj_lrbwTr2nkuuVzB4HBk0u-tIbuv_3vS9PDziE4-m5NK011tnOp3OmKDHjvkgVG802TYO11yyXAFTky94wt3IEQSqKIvyfovi7WH62sWbJr-UenrebTxTxmrOoJTr5bXPs6lDY4lyWrsS0ljohHSCDOxlHdIr9if6N7d9Cs9tFJyP09pXQe1ypVqiu3Bkp6FtE5Bm-w6yfgyJnvtZtbjjQ37MzPc7BujZb3XGC2L_NMXCWE36UHkEBYHSNSlrXY9VJOQLGh8-sQ813CPed9sV9JIE14H5_O5-8pZV0W-gxgtCuHm3zlA63Z3jblBD87UTiYEIx7NAx7M5JoxBVQuG6cur2VasS_96ZPOQ2EUe8pweJ9rRL1u6XM8FS5J5AlMPbkQOybtH0NJ6geoWblgJRVv1Kd-DoI5_MrlmCJoQuRNon8v6HOPorUPpbVS0V4Y6AsuX7FY4mn7WeNreNwf4naee7t82nOYLK4GUJfiQpO9M39a6MNrAN6JbXpF-FsXOyLRn57JWJIrUFTAdEWfAG2z9uuyVkbXzbRs-5aQogPsRzw04y9-gcZA6Cij2bSYCF3Sf598FV4YOnQIJDtp3qdnAKSt7c3_vx_799iY9qzue-i7PNMNbHdtv9h-POgRUZC_5yTD1h907g7vA6GauP3ZTueP08_-_1H6I9zUF-a9OGed6R_ef2n_DwIODuO6npdfABAWUG6vo92fWur2ps7F-qITNzV0kWHQPwpnSa5MzLYsIOtizd8DyG9VIjJMidermT4aff_JiB1M1p5N0axTSGF9GzsQp5GJAiUdjIx9z3oIK-kdFKgmsUXIR8Zu30PWQGY92Q1ESKq-SbCvk0nXBBAHXg98P_yB1uXR_rt_YKJ9tJdXqtSpryfdiOYmgdpQ91RITa6ZmaAQtHILPbzvsKRhq8ZYQOp137vNCg_cvnt4_b0lKL98tP58nJLk1skxSi_H1_WvRgWPu9MukX-C7yZjwzWjHQmznaRVHhNdjJEhpw0f3hn9vjTUbAYQVE8Ht9y3NuC7vS4rfd9v2V0gZQxH3M6kky5-4gDfh4r-V3_QCSpKM2-5_PXsiCPr2sMoV7VtkdglrLHTvyrArjZFAIsqRypSdmc40t8XQkDJ-dit_zxD1DVaIzDFboV8G9bznhpE00mazUvcZwQbI6vnGRb_6LIeT8nMB3vhzm4ToGae8XtQ4T9xDpmBP05B7UQ-OcJRRkm8ILV-UyQlX0FJxOFUdouZBsAnoq1Bjd2kAqoTMLr6vI_b4f8LAmJS4iUxBBHr_HwGjGR86GrdfHAu-Nr5hr6CgGfBBucCyKPcX5jL5fw8-0PvfxLr7irqvSBQf3pb7u_7Xi50LHvGMFXsNhDnKjLBgJoUNb14ppgLbAQw5gqDAChYImb4HtyQU6wAGpnnNkr7wZeb9Js68einU3XVUc6dC1NSnX0RJ8l4gN-hNDYiqMWeVu4w8-gtIYy6lh5G9xpKRQPaw3tXPYWUH033zvVmBDUlu0V4sjoD-uUu-J9OVoG6Gqz1jYbSyvYyPxi8CT-lU-4C9aTm3kPhG656gWbRNp7M_zRHfa11HbuYTX0zGpGo3Pky0tej5xkz_V3mh_GnGeMHnF6bE9z3yMZS2T8f1HgN2YNLr3g6azex4YIHsIW64vA39wrjVhuViPYpOMF_Mik4MCavjXggWCJC8SXKo7wmF7h04X768WG7dZfTns4rYGNvZbjefKybb4D6IRNiXd9ookFXAQ8uSuHTGIye5Gz-sIvdl1I70Ves8GCofkmr3egQPzxAcY3Z2OKTTkklddyMVV5h9EnPovqgvIaFmnBm7AX9YcG5Eu84cx1rBS29HMeZUmk2Ty7JaSCtU7BmzP8D7_52hQb1OYY2XIcldeDoyIsQ5RxRDY5hqHGSSS24Vxz3rF-QAPRWo1FMlajB0mOSXLbmPSQaDUF3NVR7EWsbM35nvYY1YeP-ujAsJ036vFY8zVfuS5s_2B3kZvOZwqO49bhhWdU93TAPzq5t3MF2DVyh4gRovmBj3dg66nueG7rbHMaKVBzgJ1Wl0vIL4Ep12EK69XO7-6DEck5l3a8azkUl_67lRRQ8j4Yn3WxxhWCC6qpooo0IHu6zAelT4B_mgcimS9qtKCHUI300ak2p3sgOt5ley36gXhvueLgbiae7m3KmUdJQcea5V7NS0uns0qFLK_WX3RrT8WRqMTTw8HT-nrnuEWg3r_5OGUCcMA99gxGmtg3tENspqOk-BS2MUWMelQbYXumBylSXqiWlnLPdeRG_13RNKcRaUUUFZnX1mY32GAQX1mzIqAqzku8USwAEid2LEO2NQ3Kd2-adoXPfKscNDOc6P8R7K5d0v0fuY91piN9B0bi9v6KBwIHdlJdNr7HY1f0FxjmHCIRJ0h-iPqZnSNVfxIMQdUkAAIeiIJwEQYtb2cBdM96ouK0TXQewEt6cVSDxZaY8KmJx4dh-s-MODAE-5vktLRXSHka2e7B-2m-Fp6jmX42n5HCWGY54_pN9MMjlpGg9UubcVFS2xf3HhpbhamK4EIkjGCje5IWLVhnR5do6VRtHiPoxMpFIrm8_2oidemQkCTMlqhx0elYHQ3_f_NGEpUuJPxeB5zWvVgUHz7H0BKQ6VGHhq7bMxXmRe1iQbls1T2mvb_IZEl_jdJ9iLNxvtGU82AHMNsEZi5Hi6tVXAWddr9eeF6kUhATmIJsVeAODFc7NM5MCh9D11AvcgoCpoJ9i7HFWgu6_KowpsUbneOQKBLNSO8e_rz0xxtJ_DWHn8739gx-Ojk-uT__6fXb-8s_F5dX1-vbu_iG5feyl_afnwcvr8G2Ujd_zYrooJ_vH5-xrWWEeuapvvl57GmwyI3ceXe0Dc9PuviPSaKZKNwaSkoNMpEBhRgXy5fiH1FeK0-j4eXuj3JvBfE_MQLV_qr4DytCQhWH6_Py2bt2xjaPE620eDS-mTz_dj002bBCKJ0H0Q20oWrSE1ACLXQ72wiHo15iSC-NbzhiaGeQcIppGe_5dr-WPUbT_JbgJeclvpAVy5IajN0ZVW7lZf-1qdPzc6qOrYxF4dBzH9sYbTP1Vnp8_8K5mOMDjE4BimOpf0JfeFfWh3e2AaX8Uaj_qP6D6xj8O54U1Uy2Rej21udZK7etnJz8v-Dt1-6v9LL4cgCGup1a6QzVRUL1-llC3_0lMzxOw8Crr6bKsjsTTDF2R6Hg-10tF85vkfz6j2lP1ae0ShByZhscX2Yru3JHrK_9wfkW03-IfhNTjL3apwvpVNmA1aBFmZeZV2PaUbFYPG4arkc9A4aliTFJQYZTM0xGDTgp6XI95zjAMUrIvJBN3OtUq4omNl8yU0iUUzX7N9F95JO7hCaql9RfY02z_JOKKh-mRR9jJuztOLonlM8hxOAc0xtCOfS8hN_vBEjxK3eEUuun2LtSgSgkjAzXtebqIpY4ztWtiZJoCYJincQL5DmK0WViAj-54BAkHaQXCGsD-cBzDvcMRxHYRDTx0_ElyxLdVFhZn8cQ9oQzTd6nYlDMF9u7E-s_n589NbzqsfAcF8VVojWzPz3q0tyhBWzaX5p2_3Pc2rX4zqy8vS7efVcmR21KxgJ3MyyRk_HJlMMqSl-Ik2-ZtzrRpfCn_Bv8ehr9np6S_ea_lia-ELp-B3EWUWEVa-M1bkPf3Mf7v7-LbWFgWc8R755aApkBS_cUuUwnYRwtgmbKUOKVu3VRlRhYwqUFI_vg2_ROyqF1YjFwlM72LKiRF0iWjZ90fEqEQCnIiKyHzFjLgPV9b2jSyOXcT1lGrnajKzSi_ZExez_KPtDhahGn0XU-YkQEghnmYeiYZtaYuwzpRaxUKta9dLsR1y-T6z64ZFn9c_vP5aVNDy4edAx1HC4fWOqeByNMDHI_lZ9MyjRbRFrxZHl_hRVCH9PqBgX8_rKVDUNPJ9aW_OfO3ev89L3M7tjdC3bMdYKbxJ_D39bJNk9xFScv1nIhICmvXFUrwC8dlayTUGDDQcveH5wmABDaabm8ktKiYTVsHr2124SiDv9vHZJtQ6JipnSc3wy-RKzUL5XOMGe3dmkB1RzRS1Po56TGm_7O34PRbF0o5JY1VUvkFuWbb4uQjFU6o6BT8hV0e4zTl2bnE-yHBj5ekTVy1xORXeFCRPRa4KIi2Wf5QINcV7IxiQ_YJMD7Qq13wS9WLv_Esh2ScBzxgNIVWaUIlkfZsvBcrWaTJJ9HS1ZWt5Y-5eDhQ0mtOR7Go-iqwan_5uifW1huP2XVbwTea87_HYJWFupngHFoyr3PqaM9drAiZGK2Ce_RNJHrt7H6L6u_O4V85fh-nq57IQtnTTpQkwrXZAHVy8f_Ckiw83ll4c4rHOEW3ucL74fbWpAT4YPJHn_G-21lJL_NXtrGfxhpGumFJPerzizd91m4mXQpaXXPKJCQEc74Zi446Bq0VKL71RlN0spg7a20G0sNKMHuytBKIAqerI0xCCfumz9NE1SZVyapE9sM62peMMwP_H8faNATYpS0R4_U3H2HSJmwBBpRoggEGFcv6wW1JRG_Lm5w-kh9-SbbJ7liEf8-IuuCjmtlmLGwz0Lj1yUfhp3BfKi9K8ZhKVrEXtGVNb9I6avmg1CHWxffJVoyIau82z-wx2L_tMl4XAze0M-vjrmnVkew_XFYztf7eRd8EEh3dfIFVhnxEp1nbjfMBKnjnii6OXss3pZ36mQ6gIZzV9hvnNt5QgPE_9JfeUbqFHI-i-qfJ_ftEDf-Fqassx2mkdqqdQIrK3R7bTjanx4XpThEWA3bbbqJtMR3TECVQwzFzI7tj3bPLrFxwiw89s-lW3FLaUbN7jpDDcNLH9TtJudd2Jm0hzoJBKR-EzaNVGYeDMApugb0_JDVaqN9BTY2xmWV8biqzPAra3atm5F6EBYCXRPWM3SXmlAA7sSclvr7MrdbF-liadH25-5dFl9Yvcf_ylC9rLe1fkmIa4682KJ52lSw_8jG6QbKYLv5OK1ctKAhWLvZ4nj7GQn0eFyWUa717YrJl8tq7wMvXgl_ShWTj4SxyW-DldcEvQaXhYxlbmJd4pYjjE-ImvyfkTX6Prxvbv6TOxiV9Jh6gclvwy-jCvARfm4SWGt-W-Nm0JM6m5TLIRzqo_n6saO_ytcDLNd9-AkSttwVeVtncEizpS2xJF1kN24jydsEaHMnORIqdgGdqu3P9VjxJFIMl0kOaAFFzEYKhsMEBLQ27k2WgMrfwOHFxQ0FIsW2XQU10NrvfBwmAytdVXiu61qJ3bVCfHMUKVVgwHueIz8vNSBXO03Go6WcjjDSDmTpMtX-FFzx4kw-M31vQqNBqDojF2SqmHnSCVxuhVGRoF1EoQRfBh_6imYvGs_VYcbGqdEpdzN7m1Eep0XcaZlGX-LZK68MiiYNJSymaAlmadKNgSNaR1e6IaCUTwuNBMe_80k2nyjDVHiM8bKTU_HGMRVSpSumI3qvCIqftQASdWwba4YprVmys_vnnc_JWl2UcVUuqnTS6TV--fObKKve5hz1A4zUAEyMGsbYpB9Qh8EQIrBFoSlzTEdwmirrxBa3D4RBbDG_c_ZraChVYcfCaQkMM3yRZubqw3dRIcDoiOL0x2XCTgAmUrYV7X-7yixHR-wu6L6bYJGx4z_MB8TY8d4b9uN0il4XgbtjUoFu3TLSExiwXswuLCjV0Pxr8gt5_ui9TIwcWqDCLrsavSd9HYbSmHbVGCRh4hVT9OXqEwBdKMJUfB3KOGJg0lJJeQjB0wzs_reT-z-e3skFyRyYtmhBOFccKUmeRj05OUKu0MstNU56DTHMqkcIN8G846sg0vAeeRd-e5kqlTxCHI07KISyrtFAufTmly_58vyjO3ToFeItebVpiuNls-1ldBktdugVP6GwcI419k84EN_aipgneq8ucl0zLPm2PdIlek0qGXB_f6LhYa4Q5oXkzioP5bVmsSek0uqqoKurm5CHAnXwSciaFqWDgvEGdWfSFcx8D9xdSlcQBZi2TQVGvrvZ6aUQ-Bq2m1MYHql-tM93HHy-5WMTXgSFRK4cJbq3z_xc8NuK43XpAEI6oR7-Pt__Q5kG1k9qFkvYD7VPAjvW-QFk1NOZjx3yKaOmsC2xHrxzbRkw5wUrmj3jI07Ic9GfGWIWUACFGMUrMjj9nlfYphMG178U0rmnLYiSylLos6QGDmf1N2QjraXAQdw6boqqynKR4utqM5nvqSLagFqlhd-xBt888_1nUHyIKXIuZ4W0SvchWBBVnpKb5Nw3lkRxnOhIK0kMgCFJsaBecnaxd8TppOTQifLijA86_65FrP5WmKRLuBUFCZ6LPoQIlEKNCRQWM0U_FDxas9Xl-DvKIfdpzqrksn8U792El_eUpKA6BQPKk6WX-DjUJoUEYH5mB_Ar3hPmcriuGa_bsiBmbr-Y1gJckVovRMJM9AfR3CNeaPY8GdYAl_O8U0sqLVRvqfYIyp1O17ik7m9nWgcNUSEoRPGgoFkSmcBT6tBtpkARRp-SILX7XGvQjk9aQHb3Mwlxd0mDXaYKiFoB3OrxVA60uXyZo5OIbgyqLu5NRtoFmeZHCNgKgnH4CWFd5ubRmD-UhZIdM_1n1einEIPGBsTmtKVfUM1oNDMeJ8k_9Uis54AGxAWLiVVHyWvEHNE8El_0tMwkY-GyQVPXcwOCDkct3j48zSs1fBARtYspPRLHtUJRQZpoUHE-4fhkSw4jIK51NXZOmVauTbaoouP36-9fdETGFeIIf5mR8SWJfUntxeiHm0a01HtPt3Y067HD6X1ftW5Fn0oPVTRQPrsf2afZRRSmnuyNshoxG5vj-wXtkDL4nBm7UnmchA6dRbwteqeX9o3i2dz1jHwXeTGPr-gWjg5hkxVvLwQby6TupVbZPR0TSnw-xvOQNPY3K7rhcJEo60JssKpbMjq1YV-q-DPRBed_w8Z_wdMjdFqFJCq229xNykjAb_UN7PuIL7LSQbJAs3QT4m4Dfm4u6FZv2aT8clzdeHhGP_-iBQG3tGp5g3yPszwqi33hHWTDywNAFC4JtebZnMcfdxp8_UKcGJXQoLpStqv_6QxChilJOfeftzRUfQhthZYDffr89-ZkTCL7afqYg5n_U0-Fsczj4SfB3IJyRQAxI4Wl-kj88by_bf-vKF69mTw3TM0Ru-TuLOAepiXLiJfYG-03Yk5acied8UXT-X1c-U8C9xjJRYAAWvIf2wdhMC7SczMrChgRG8wAVT-RzDUo8wE8laGrdQuLbUGHcahpXia123dmP5o7Jlai4JJ6haVW70YUo6BcHJ_NsCCTd-Z_XZ7QDtSBt3i568Ys1ZTtAfx1eCEFUdq8tDZ0TuyeP-SPCv6yil9RXB_tkXmo2UA6cr6rWifSuZmgv9HK_SJvvEh_IJ7EOV0IMLU_2UA_nxaauGpOoExOq_GJDCZNxTzMkxH_2F8zyhutl2rEXZQ6VJp4Ez7t_6us5boP6BB_wVXzXOHZ86ObbzmLjYWqduTSORUZbfbuu9JUU5t1BkMuHil_1Nipb74yPr5wUuaQW-GhM9gW7WM0OKDht5_a_q-TteHtpuzXe5CXs12qvSq3dCHCDCIwkh8HEWqatOBF2jKxpQkwIhw3SxVM1RH2uVR40neWFlEsaLWtHR2PtaTQKH-1Kkx3Hjjzq1c7d_IOx-_qRyP_qZTonUT7agnqwvMkF3rcJNnpFa22lhmV-YE9RWrV1k_OsU7WDaxgAK52Hb1hJxYtWr1wu7Jj9GbW6tuKkXhUZwAlV29zasV74mlmAUQqTUmAVprGBjnQcjKaiujdyIH6A3HROIE6Q_OJ03kuvTyE86Jyrofb1Yn94MrmSUYNxlPpAz4Yb3u6lx_Yjfi_brpQyS1aAv3etXyn_YOuh9jd8XtzgQvuXMhmw0AaUw6MHWqCmR4BHyVOMJts33v4PIDVqGm24xNTYMNPJu8YeokqFBcVS3BS2mfinY4jmWvZTeE1nK1BNDNOKMlRgdkyWW40Hqa3XG75TJQA6zGd2nNABY90z_Cxzm3LjbTWL7dgoJVKribYI26GtHsG_tao5--jnPjvHxRO7eqhu0Kq3waMqlfva6oQZz7-mFpy1ZzTHLk3yspsmpcG2OtUeZ3AeLHMiMGbeV1LSHFr4gZN4WcMX1DrT4DGjfY-Ooc879Ynejsp0IOWEWAd10gcNEpI3Y--sunmypeYTGcQb664ZyztCVKzZOW-HWn0rg9BF-SvWD3L70DQUtij22U3yjoSaTQf4icOpEOcsOyF-QnG2wvJdjp7XF2mXiccKu7krJp3VAEJD6LBArkQPOBGPoiKu1hIbNR06idkrcZM9qX4Qkhm9A6hdgdYIYnoMBh7eWEruETxmDqtuOMgcjRx09nz2bDjUgz74rB2L82KRyA06AdRo5K4bX_X4MXrr5r9_KHblxGmc_90GPNhITwKB0mFFwR0PyewUcne4zlyJ9fnwkOeF1CG-B6SuTgqbd0rTY71cLcpbcuJmx3zezQ4LJ4UikVjFKsQ4XAfb4dCRZDA0a8v1Mq1VTm_L-9dS8yhbsAlOyNNkk0mzsqAtYodqIY9phPMM_d37Q9K7AhBvuTAs32VTJYx81e4hkPOcaJ59_jRtPAJKOahN5lnTDn4EmNHAsnsBEQ03HWNrQEjS3FrbH41zSH94cj7xR4t1wC8w3_ci4alQg3DAdbuFx7-KZkY_PPvI4lyctjzOiwjbG2saQz8DCOmoSk0GGBLEln6ADaGlBiDaaKZXAPzbnleKBKTlsqTi4VyPBoS1G6sGYAuKPBdTlSb9mSIt31SK0GovLmJjVZGL1SEdKdQkWlsJ6TFuDXNC0bmEsa1J7S61kyaKRa_wRM6kEPRRqN0M6WbP6I24Gsae8sB2q4JcRIQ5J7_I4gQdfylkd4KrYYoAm4azzpQeRa8xGwxz0qFPWUNACy5gua720tx9z84f0RodUrQJLBsf5BjOlw-8O8lgLMjLgCGf6aeQpI9W0bieLDH0CFOo-HZCi5ps1-BkLrs98x3VjgHhKKPYcgw2FRObN2DhjZy0y5TsLiSEywpC7Uap0IMmeHmUL2uvSl05O1cLJzs-GePMWWczZPtOUHPPvjEfpMX-dpVGgNomn4bbfHu3i8niy2y7_h4wA0XI_5DWv_yotNlpmy8tEyC2pxeBJRCdp7ajiGzSLzaE-Q6BJaUJPdodqNKnRXFb1NhgABsVRVJLantqqJX7GciuWLUsz4DxerNxRq4tzyl-gUXXcukcfFkcaDt-O8s4e5XijIMtkziKEfOQtWnwrWhzyQahNJtnWQquqUrleAGLoYlTHPIA2kH16BUKRopCAkyqWSIgW-Cg7YqD1CkdCH2pwhKEvZESALoqj-QSdQ4OTeuO7GT-LEMrQlE5mTnGKUsbH7Hq7mNUBjRXCiv4uFAQyOxS-xKFaxCwY8Lk0UuhlwBNI8TwBmPB24JNwGdnKrvuWiUUq60e5SGzuU0RWbMgrIkqDCUsKSPWz5Ge9S9plewloH-ZZyaSHVMvp74kMd_MJqXgG2P-0RiSw0LanqF4Fa5BLjbDtkwYZY0tj3zPPO2lo3KQDAsTTvkhtFE95bbHLC8ChZntFWYOArjqxlmgV2HSp16SbzZornJwg1pkktFG6Wl270kNtMQCy_h05tIVHF2ezffGF6HARDm2_aLUEMD3HfdJPpJP52EN5b-gH50KIcWw13ojo5APL-5XLkFGHOK4bR3QLmIrD1pZUIFMKLr0SlHm8xxWEz60OU-wzBTKSi5rGIKz_-cnCzWumSmdyCouZSVwqU6oRRpmMjLowvnVopVh1wTw4Oa3-VN3nO8bWvFBLYbrPBIGchdZqeZsZ1J9BChLUqCVBD1RD0nKR15JJ0uxO9QDsHiPfYQzwLhhGPQpR-LSkFAVVqOEaz0CgwvnLKoLkM5EzWtlOUSi-wPaCwt9xyySYdOkrCmy5u2d04V2hKQMQW0J-rkuQreVj1-rJyMPIY1NquyFzI4mmkIkKzZHwG9B-jRU4bF0hqwI_VwvPhFASC_Oi2dHbZ5iaUd9JfZhqv9mddymVKL76HhEPVy6jGUiIQgkpUFjPlpAPsThcFtSaI-5qmKEEGiM8bVv5Jposw5tTL4v6_k5owact2lpnMvLmfCUloFe7riuncFtx3AiWz-EXTGxpRNUcLwFyaJI9ibnT_dJpvqHG41I_TDy2Ktd5OvUmfTRp3TeU4izk8VOjAGcDSWvzxi_az2jYNIKXYy5Sjak1AXnOGGSptbTBM8QPtBcFCdoH6g9_0z9WQYnxGVCujaeikncDkmcuc6DYmP6TJXDAfj3dFwD6MEIX02NuRxxf3odDcpYqzydmPhLlwxKqK7cwRoW9WFP0k3UAvXU45PcWWV5H5hMLQj7hn3KTQMww_HfFPcYbMd50BuFzPD7Bu7MxCN4QYQ2mCqySHc-LCAQptAObx3zFLw1z5rkgMUC0W9xcvg9S1MKNj7rnDpE0hhiMnpC074fTbR5dO6bUCLd0-DN_jFTn80glZnDqWMwGo-Ovp-UcWTnHTmD-TfoG81kOL4V08O3Xg8i_oVVT9OvQUk8RGpF2lUY6IZ-U-kg4i_i3rGwDhfZWDrMNzbVTybW69ssNOoRV9ms85x90k0fMsCM3NHHh02ntACFWWLzEaJzH74s90UpKOpzI14WUhlqGUVgsc7YUOP_W6XaSyx-tI6FI9qoa1W1eAtK-oY9E8ZS7vgIR0knExgWBFMdqaQ-EifFLbCvJ0vixtTQ1MCG3MlFAWd_ToHZ1ghdJ7QXU8qIcilE7NALZeDOacGIeVdXl0CRk0G_mulai6QbjqVOowCFiqL40vEel8K74VgWmb2BD4ZONyp7hVelfa8YIXOdXfDsPcomGVtRUrbNWQnEtF4ehQAUa33s8uOvfOiYiBIIGStkRz3rDCzzS-fgk6cNbGo1RpXqYb6MJDIcMjvPb9WUrtDTnJs_jQ0j2zZoN702OfpK3ni4y6YRKaFoBFFAAcRRAgPpRHcGC-AEwoFUdaz5cZhec0Az-ctmcfJ1ef-lbBiL9_nxx3LMK9LVxm9VBPrJn2YcNNJ7amwNuMf0bXzfPrS6xUwSFb_0kFDQc-n4i1BphYCHoTWBsVZm6c08qlPFp2Mr2rYGGGavxMhLUIM_rWGC6MYfSCppwVVDJuxMUFStxpcw7gPwvz22IXKLbYRSiEhQehTBx3OtCjgyrb-3_17Xbc__8uj54v1w9_DMRf2LkEzhC3m0kmpZoMAnfBrPbcu2wCc62A5W_SKxHPWtwOnrjf2gdy4qiXvkjA9lTDyz2TiPYU2-mq5GJB3XdiEW0wYEDpsv3z7828tHZzF5CSBOfej056YVF8Th8VI3R6a3FGfvGrWh9EDtjWwkym-Q0dMw6oOrtpWgCn1GtE0J9HjYob4lLcj8OZNAN_0q463Lz9duT3upR6lOsHzTLRn7XhlEOB-nvoHqm3kY5y6SPbg0Qvx5SsoOIsjXroorJdHNdULVxlcRsSvyL0DiF0wK3TlPEV13SbF0wLZptq4usCDBHfTf7DRfEgpLG39qEAKmeDqzj_fx0W-fHF7mhxmcs4N3CcpmFkld3SCrFv25DFSWYQUOvfgKC0-jG-JnjwrhFwVcjQgANtRAMCdcyojPZtZklJif83UYf_c106vzLv1PkYWF9wt6gvh7LBh1H3z8AFPlL4gDLaZpOUZqAbA62la7GqhYGSbscHrVfzqISCxNhVNL4dOlrdt_2brcGDnteYT_UQyn2aKhqqAYZBMkeFU8SeB6fPcvZHWfgLcgwo41_MdY12VX-1OVQfJId_6E3xmHw18NsCY2yGgPZkwh3sm0_hLAOo38Gn4TF2UyowoQjouGU4ktaQosntOJIt-CVOqBu2r_ZSXD8s0HpUhYE2LObcB2XTF2i8YQqNn6ba7tyCHc0BL0tEjJVvQUGzu8B_Ul903uypCLHRARXAWkmMMcM6ISSLmK6IRXPrApoMa3Qbtt7LxtDSHRgAUhkJkWsxMQsWbV8NQMENEItWLneCAJx6wDRxN_P1GaVa8mppWBXz4AndsPm56Sv8U--CjKFAnme1ZUbkCo8mLyJNzGx-e6FmJXgXGJM31GLfFbdzp4Zkp9KrTKYCb2eHmam3tMo2t-AbfuhaukQS7I6scvN4RmryqmkI4gi93agV1n4Lx2AaS1Z11--QqUdyMXSPgpFS5tOpAa9TF_PXyyCqEv9NxxLURDuAqgwfmQGd1Flgkr7uYlTjE-XzwT015ll4DSxYYEb7gmB2ejNdi9m4LhtBJNqY_0Aytldp0q81d_wfdqDDyvCII7tE9n8SfXv-fB84weElNOteQ0-RQymXzZXGubMxXWtCBDa0DAJ_FDaEa2M-yPL8tXNNA5_lWKoueHRa_gD4IAWkow0KAMJpAY8bbERNJjOX3GFxRq4KIzvcI4JabCPD9Kd5LnM1CPqaPizhoZ-tjMHHqhABhOhNMXPtwkfCVWOVn9SEFzSQOcxJ877_hEsK6rqzoTXNEQX6lxR5KWN7_AKoqzJuYyq0knFc22eTOcFM93dMet5rTTGxP9X5LJHgCJBgVLvIGUsqtS3pABlN4O41qbQjWFpQPc1HsUtJn_U1Valj0CcnFCq1vI6zGv8avQfkHJPRuw1xnDu36GwLW5wYwIZeaEDrr3T0nvUUdGavppX3XxbrlSMBNkSD6kUqk0PK7r5joT-kLpgabXuzjCfKNsq-AUZENJptTxU5A1JiDB9vLkQfAi2b1DKLDeQLqtmQmDuj2zyYDX_il5PB0q9J1ZYCnhk-orbwxhoq1vDMb9UT73jrJHnOwoQFJvojihZ1lhBLdk7rdpsRZvwLWn_CK9s7RIbqhrdj4lOQbfSO4f8ANFMKqi9NKQaX9nE2pwz4HKHVTKuuNhqZu-gwQc6-iYhZ6reiYtTV3dpPtIHNi45Y4rTwgI7y3QMG_RSYes9bxMt5vFlqrMvfq7ciIjBtQO8DouCL4lPMH5rJ_8ENe-IM1O17ALLhVEROtEvzUPNlHN7zzI1A5lGB0PKgC2v8dgWsw9zoyC8PNO4sH8myoR8NJan6wFLh-TqWreDkn5tkJs-nBg7ElvwvWexZd_FnKvLkvI79hWOrytKHSfL_a_Io5gn4srErKBSIfrTtwEmUwNz8K6hrxtrryyuVcnfJEfJO9WtPdLqk2lZpN1du7sTRRi44APoJSvs_v1YULLhjcPLT3nSklxL7ojme-HqnchYahLvodWzJ3dStIwiJTvEgnnp7gj1KSFXjV8ywl-SjDGQWRd_H_BnfxTyEJRtcy_nhmXGUtvnfOGUhgKYu72r9Jzo5A-LZ9PayWem0s4TqIxZu9OtDdCplHCF1M9IJffgmx_Tq6rhOHLPeJGBjKl_Dp3Gcu9MqNC9gnhCtCLzS7k0QUmslD1YCPgRaQUK_HhBthi6_VsVvJ47ZRK841AwqrQOCQxwnJcrYv60g7IuBM1dzHwzrfIFNHTukdYbEvQEHZ0FaoRpUfTQjqyXJtg1ZxkUhC0RdC5jZQvXtNv04KX7PEyZAzJYJUV3aMnHYTGNqAZuwPRIir2Nf72Iz5epuJK79uZdQKbvcXBCbPquO47gRfRL4TOikfeqSdgSnOydx96lmUzDVfOgT3TDVwPCOzROhUp3E1uIoJJqUZIUGMBkp07BokRD3OpROh3FP7vfMZoRwmpqtuLmsVQY-qfAJdv_JIDcuDQeps4NLkObFDVToHmRTUD7f573brXXYo2rmxRQWZrV9zJqJrUVY3j4Q6tCAQ3V8ucLAHyqCiwVkWFCL8VYSOMTfqm88pMwGVqVwkksfi-KfEHrblOnkyyFfZEAgKZPkXqm67v1jDKS7XClJxxzrv03Bp1qTEn1woKXZO6etNuGBF01NDjBoV5SdGXPOE0m6kedVkK9_BmLAMBrJ7ocYgHk96oRdXuMKW9tCWXzt3WUAkowJPg1IEsLyHd1EUp5tCJ12ySOloz9oimb1rSHI99Ei5KcAsR8ca78pZafXj9HvcNJl2OruDrFVan-oI2B7270TedhwVz0nlFbMmp--FB74opMysNAGAZQ_XAySz4Oe-IcUqfi43YSBqjv9Hr3c2mVZR_Z2NhjUWtNoXjnUa3OIgYoa_01B1zNuBlebsHetnlJnRrNs0Ii5Wi8xhtE55OpKStN4Z1Y-CZDgWoVx2xaFbYSzKQx4YzCq0x1mpafJPdNWmwyWbbq63pM8F9OKKkcFsyWkOJ4LR3pO6qIxqVbzVlYEXnpSeIrMZ1PnIuaw4j4WHic1rgTHnTmJrYCjgkoDqt_8IbZxW2zah8C-EGcQwUHhixZRlFCCRGfgt82zTx5-hNcKN-7md_ZJvCIiSRIYuVbAnSbMBRuem0z57C8OuMQMOjKzn6eCSU5rEVO1OIhi2vywlH0Z-YzUZot1PQF4O45LK_ea1JrjrrkfWLpT1pBc0UKSDS3Tgl8layeb4RlBqRhqY2UCDccqQMenUyirGjGmeU7LwnM8aVaWqPNaPf0K8uDN2KHtYUe8oST2d42UT8Mk2TYy_PzCSR0rEhLlIJOc3JwZZIlIKR9tQuK5M14XBH2EPrSJ4mZWBHgLCtgoiw_XgehYiOR6V63Ko4jy2VMHCFvQGfXbaV0IlpQ5M2yGpURRGs4Q-IGdz4I5DbFGHJKmKNTgUaRe-cIpUme7w-QZHA-FkTZqKfUbJhsy-QCfpbnOBs34ZyE3qDGFAx6OJxf-h2oDOltY_j7XkxomNPRp2UXYHTpqiRvorwNDxMVKWyBkJ6svSU4rg4-8KHk6_667Aw4jFYSBY8Bib2YuKzlmlVD2kzHW9fRMtDWsU2jO0hQsEg3gqMZtLJXWewxDHZY7bMGBtVwdpSClF5BAbOGK3qLNpmy6R7x4vQe1hCKP_qaxfTeLQFt0b6lFICfAW7422nNwsCB2PZ7yMHgls7bNHIwcizI7_VO56c68Tv1Gc96RbRcvupVzg8MMKGh5jwHO7giuk3g1Acmr468fruNXou_wvwaaEVLFmuhxR411cZdiOpJ1Cnjb19ZAPM0v8inMrsCXeWWYSBpyUT2pjcCh1IzaA01ny8yKcQvOwUqEDLFoZD7V3wm0tw-imEmzj7GSwnUgAQN6ACVPyEqjvIa9Kk3GNSKI2e0U2242QN07T0ZLA_2bEvX80W1-yBl3rQIJaIBiswgz_5yQ8cTT9rj6qx2L0HOZMD8po4l7CJE8MSBCuG067UN5RpripP-l0G2l3Wkq4eZ4yFe72fyjdGtLABYOSZE3z__HUoJLvQPaVjI_Z8Arvnk1hhX8zAePlJ3jCTkF7YMLHVsN2IxGq8BENTEizxg7ZDcx_7utPaBbGNPw0M2W7WeW4kA6SJVZcf39CwmuHNNF7pRJhOyaMsnWUXZtNs-y3z0NYpHDBK_ww6Ez0eLnWn8t60ZNn90Zog4GALS8KDWX3gPSuuDi4AcL3M0ei0e0aniZt59zYe6AUqURA3vrHn4CG5WrfgQp_hnN3CQ-Zh6Jf-vnHmD1xWZbxNOlBOuLmfIuUJy54ewaw1IcomBGozTki5M7F2ahnsOKYroBnZq-JowO94D1aHdjYWA__HVux1wKBudxos_00t9MEaH1XpfkIfrOhIORG9Mc5upiiS5bXfGZAmg8YZUr_gRmryKUCGvJ84I_LFgaYtllA35BDFcGlldVT1ggdPi1GXQPafBNSbJGncVLbw8gBnCNoOQy6_ni7ZwgiRP6DIDJoSGM8KVeiuQq1r6hSPrewgQXIElsOi0F4aMh8qLedN5QPBDI3T44eJQyelfQtYgBA0gnRZLTm7SUZRZaH7Y_8Tp2uJheyJswgVlDkC-bO6uQqlLgP667ie0m9SFQRedBwTRugScNwLxkgUAZ0q-QFnIYYw9CjsySalC8wY4rvWbbktEocbMZ39xHcRRvHn7oI7_C1BLqBHWhyff_u-1cwhYfyeglfOc2KsfhffFyi7TctLgWfzt1jwhL9NoTG7VwZhq8dpVHzosY-GE2SKmAmfswqYTD6GFg84nKAt-Pj5Za1ZSIfJ0hwcAkvWl6ooGZybB6W59ZqyK63rG64GfpwmT_Q_G2FsJiaK4u1PtNe0X_UR5MlCKkOmG-MNWmBIT2NdTZ2MOIL90d-bC3CjirscjYDOU9edPw9Y7R2TFtK35S11dULo1D2tO2XPs-AN_txf3AuQwq72Fk7GrbfK5Nk6cMOUhdxrO8jqpi77fP-i5SrKf7Vturk_YviGN-5iHH-vqVZu6lLrLD7gOTc2Hd71-rEz_qQYOGxbbyrdurDhjyVhf4skL-KZdH1dad24vyMuHHzi6E7_MB87h6LGB8qrbTbzSK_qoB7Vz0xO81gndhrnj-LGs6rqGreyUcdKWUaIhH_eEb3Ngu5_Vj44NRciCOq1wLU1N-ANAss4e9Y-FYziPoDxTaLNS2wCE2Ia1k7pBKZ3IOLOUATYJqIOZ6iCOy7a_7CfeSu1A79iBK-zelxgRtNjqiZAlxP-pBd-A3tha3gK6SjZjdQPkEJoeZIeNddSmvKO0sVV6ZhyNls8tKjHmMCMeRGDMCMisWnGRLm2WMdaYfPa6VYTwLR1zXzs9nr7QLV-8zkltl9MrYRUVZivbJg6RukB65osHr6FFFZ70HXdzfcv9as7n9dD5Zmf_U9jKtq5afrF3YnLLeZLe0-3uNObRlahOlVwIVUDkXd17EOqqoOWNSLCrlci5Bc5ejn9500FTGzf4VG11Woa-9MjeRb5z9r_bD9uDUxe5OCLbx65HeNg9cWhWgxJnHqSf-D1qSGDzBZjOGrM9Ij4x01vhvg4Dif3pDboSj-r3UD7pVs2ddsaBmDd7cB3buuPs6kiXpG0GWPT4pRseiwyk36-_yobJAFgqP2ozdL5-5qvz5eTbnxkT403rK51V2zYoLGPQuYVsyx7sxPTXAx4hPFGCrheZb443DIZS_sc3JsJeXD_eO68dIjCKnO3tFUvnc1jJrVmnURk_bn9qY3bmipNqFf9bO09Hue2lVP42C7o_PHHfA4xrk6LCJ5nQ_qf0xdcTheFmToX12W7-pmNV0yS0BECoGKFNVuvtnlgtWft8pQ9g1VNqZkD8X7PHr-d_uBLv_XXuk-__VDcGPsx-3ABV35bP8d_1o6_8XMUf21-_tmi6RM_tFt31agKfmD3_Sit9ffu6g26LTp7te-C2MBTp9YZ5ZkGhfaf2_h_9KheLdWqz4QyJfyh-Pj1vcymVV_8bavO_v5X26I_SOMPx899-dw8unYUHcMa8SStpZRzqX_Qs_jiuCe5ML54kQD1ZeOsEnFdLLS1bhqfe4HUweewYEdRrZUXCya94ais7rI3jhR_4nOfL39wIBfaxzk8-p2HH3AahSlMcPPDaeIM0L5W0sM-hsqK-7WfP9mtUUhprAk3PNy2tFFQEFNatcRlO9I1Gi6iSkhEuOtT7F7Xmmh-ByOpGm4AJR7T1Gj5LwHoqD7AyfmjLjE4QxOXnKXkz8O41tEoJe3wEy3OWrTqk9HTXAyUo_3pN0JFpWDb0O7eeVNqUv4HRBAKf662xuI-nhk0MrLQuT9iK2gXZ4t5IEZY-Iq9eZkaGCIIN-8jBa3MmUkZtrqalAGot_9-NGfW1r2-jDzdGuZgvjEzKt_YJwT_5gZ8NooWaGH4o20d7sRg5DsGv2JY4E7aJ3npjIrVcu3FnRrNpJQRVMx_4t5GHWHtsBR7cY5VugINulPHKMAoWpile6pjuo_tY6aKwz50XQUER1gwnsNIO8suaG1OjzGBuibkQ6mJc3i42X2aBi0k2-ZOI8NckNxLcMk7H5ZtEX1qsX2nxlckmQPF6UKI5XFRRVZ8uRLAAT-mQPl9Df4wqFbB3hs8oIHWLOBXBQWj1oxKGMRrTa1S-zqTJLbSKW7yD5Tqwh_2dEeGBn1EEAKaZydakwm_aSiDrocAC0L6F8ZWw9f3dhRHHLOgGdaT-6FqJuHmolFFohluw9_t_P5B0Bmw2GpLHBgCT8MCTacH4s-ZPgqBYMdnrdT0Mb-tWzeGJG6U2lhxYxixQQBs8M4xH3EbLrP0ematXEbRsa41xHR9Q61DxcB25_K8HS7i6Npw-7uLoHWdzqjgAZfZTF2S73GdaXvqyInf2z_Xpk50jfQ-KYjHx2QUyyTgQ9FOw3XV0mO4gpXYMNLMWxo13Din5g6tcaRwPvFCx7zgVN-dNySTz50zQ-sQywkKhJTY81MGNiEcxI19UKnGABTh5KepI8dK7dlv17NnMBJx2MdP5TSjz_JAuMcKZ6NZ5SsRLiNzZghp3rMyaQlzdna2aoQEhnWA4RZ_vw_rOmyxxY48i7JZuSQ0EcFNzS9cDu0SetNPUVwDBvNSUOxPNgSoMLtCEjHXDJ90r-w6UFIbp9hyS6mQ0piuMNHnDCE6UNfb1yS9SktSGI3zT2vHT66YwlkLId5wZVmhTt113khvxu36Dd2RKN9wkEukCMcS41qzDSmhpxBBggaNKgAVfUThHe_tIvvBbRqhZh9YlURGPXY_BQ-MRyGu9nQk7amCO_4K0X7sqx-WYe9-EmsGc1kjKowqYUsfDz7cvDv58Shr0BSQ7bQwzihaEqPLA_k46YpYo9XkOzvUWjuvWeAC3GE2dYGMaJWruospaod3zOi5o1kMUN3qfBzUY3Uf0PhwA4AP7yQ607eAfb0bcLpu6D76gtybRLfaIV0P1dn7WR300Fqj7TehGqi4NOpXD70b2pNHFl76omyHDr9p6M0qWuwZlLRA67FOSUrKvrEO4rR8qAZet8cb7_mCrEFJtM62h8Yn497GWcvc4gIIhv1ASmZkR7XXZPDmay-M1-JaTeEBd0MbrGara5FnpOqjKs1xX-bD033aRBrN4hnL8G1bObZDSFwbAVMED-KYwAnokXvY_MvW4MUaV-Lz3oPw1TFIH6GFfre6Pwfxii8p3BNgHSIa-DTzvIi3tD17pWtEOBS5ZuIb-Xqy6G_y8qDhbTrQpWx_RetfH-K20jyNBadIQkrGv0O0wzfLEP2xLFH71nslTCkIZwgKajiUEzQybjMh4WGhLxXZVLE1pbAASG4MiJuB1nVvZgr4li41_hhzwsWwddRkHJB7TlMxtgd3e5TaMOs9pIyYgqUq8txpYo15g_edgx3NwDj9oEAGNwDZZwmAYjbrEkR8vSwcvdBGvDGcKkRDX9gZYruKpdjyqg5yxC7NqmsD72O4BZwDFRMgLMvWGGuZou7jxn5GphmCAQ0hHqXX9EtLgxRv4bkmEZ7CR75nuKOFQjRdMWhSe8rW9hr7SpMWNHFv39G3Qee6jWDGJtBjGHpkAvQ7zTBZ9BA6-dOOIfE9osBJOJ7q6wpMBEps0vZVI2ohlW-16SSPC0-g8vbCOJN6BcIg_5Snehh1QYVNmhXtP1_RxMpbFL0mk6w-7g3IpZigZAxKuZ7uHVKRHRWlmUtEubObuOvzb7qcOo2qy-PSLJ4o-i-lbRoX1RUBAwRYqo9jLJedK0RUGGWWvKFWOT-YKALQ23D_sAT5diY3BlyAqvepnswUn_TTsEv6ScrwvDKrxaefzeNCBXHbVLWYrY1hL6Sdr0Tn6yqgvzHXXRoVFNYC2EKU48PGKc_aNWaaP906tTRzP9tg70lbVOdR72P6b79-8F7-ZmX4bkVjn0qmRI5Yeo10E3hSPnaxrAlwF1lM8-BjHqe_2nTSMvrphwgVk1SJctJR3ARt6i6VG7dmyY6iQBLGvjKJLSnF1UNE0CXPrJ9QAd11k63Htc5jDjOMt8O6wxbwwKXVZ6ZmS1i2g2ET9xURreJyJJcN2uE3SP0hUrGJnFp2rVvOxTXCqv4hAgj5xZLZh2kjIKet7D08EiBJ0vCik_LtTiz_kAX4dsHdQazCOww7UlLIaWDLq2nuc9ZZdBHiZ5WkBxKNwFOEsOL0Mmv2etePSDwQAYZ4VzCO6ig9xTiSKxySe7OiVhwlsNsEojegnRyvHg2f2DJyBJU82xxi7eGO2Wj1fiPOktimNfYjiY5DRkaclJdsCwZQysxWPWLvvDWCDXzCwrjUkLHb-g8qqtX4_tJcbaFDZDGvO37232Sr6Twy37EK9ajn1JQ4lR8wOhVcKqJ5kfm2Stvumg1G8Gb21fB1ba8RChVi0qhP0rqKYOXuwlH27IsyZxQA1Ku-oSTgubEw4FwYjcdgkdqLrdsDTS6-egJdLlp8HrqrsdZ-O0oRb5UowhX1-L4Xtq05irsc6WndYiT1_cvjivJjmAwOQaP2VdtQQPKD7ep5oUTMA1cgYQ8fP8NhIX52u5hsnOwLn4c0EXeMQnsiy8pTLrQ67asDazXC5ik5vqanI0EZYng04o6-UWGhJE2ZwBxxcTebPGcVo9LC9CfUEBYop-CIO_D3uBD08I2LY7is4K9bxPmfGodf7syzcLKCpxHzEOZPDg6FEPwehMtIc41JMh8mch3CJiFc2gGPnXysNuk4rRSj4GAi-mDStewGt0IyEA_Vz_YByjDeQkzCMEjdEh3Di9LL4K0Sfz_hzidt8_bz8XCFYvCDsBhbvtBL0h8odySdt0tibIkTNTOlvdGsnuVdw-Pz83npJVxnYwgzNOqF_2g1gn9IjD4VRiA5bAU_LRXIbTlZRgFkUt3lSlt-HdKikmsKrDHm97tRGFdcGqPgIiHeUZCUf75vGQPPMD2eTX1Qg0eeYWxgZN4YAHvqkTTGl91mIoQzyn2XSelFV8DzBeXxtsrVLO7pWCrnzaQ9LeLUI2P1VWWU7TK9DwS8PNawBNPrXFtKE0DdEonHmsqvrldBQR3u0STOgSmlqYjHCT4nKrQ2RsJaFAeO0_TbRfEI17KMU_wmmvgBlcbF3W-UNeB6A7h4tLWWTUqn_p7o4RWAvrYR0iDbSE4IIbEVh012tS2PSOCRMlFY233SQyv9hUaIDvmP51pmPNsw0tfOmyAx-qxNRrVrsOYYYFuc7bSWkMtCHSTwGaTGpEKPs1hi-1Vxu7q3VdB9RG0ZdTW3WNkLYgM-jbPDAPDKIpz6yaSA1HJkLn1a5aUndc6nWCLoQBcmmGVLpO-sL3MxE1nrIrD0Zu3cDJSeBnsFFLyMAuuXVPWD4qQicySEMzSHWizGzMGk0y7lX2mEE5N42HH1ggYJF4ib0oMLoHxWT8rkh5LyKCVLJtEhwBYgdDto7UqD5qQRBvNhaIgo-oese76GiN0Nz0RJJ0yoDSjsWVwo-QMf11zqkkSfQcIqgsbWR7ZfZ245o4ng7qxQkM71i3HikgodB5IZN0GW_alil7Uxgnz5pawymTFGdGZXZwHYQi6zw_OVV4AYmSKMkLOIivVxNfq-uTGTyHcW2v8M6ORek86MOBWYx4K8pC-0sY_XxuxARgrxlWk_Tru1bO-Io7cXXiObDyulsL4JeV22l7XnxQt4Z9g6JiMsahdgilcaHPzgAhOfHuFDVklgRvhRBom4N09rzuLiEbbNHD5gXYuxHKL6wcKf5st5zRLD5Iie52A7So8P0rv1iNJUolmDYukxTakD9pT6ghoHqJXGcpgSnqVnnkkOT_epvjbQJoC_7qwenlKXS2-ScgTc3C72YFGl9AGDj_A590pm93Z5ug8iudIqs9rtUUkeRCGGoNbjzwV95n2By8fMJlQgFnHpxYOJnk4mZyQT"
+        text: "(()=>{var e,t,r,n,i,a,l,o,u,s,d,v,c,f,p,h,g,y,m,w,k,S,T,I;function j(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var C=(e,t=e=>Error(e))=>{throw ea(e=e2(e))?t(e):e},M=(e,t,r=-1)=>{if(e===t||null==(null!=e?e:t))return!0;if(ed(e)&&ed(t)&&e.length===t.length){var i,n=0;for(i in e){if(e[i]!==t[i]&&!M(e[i],t[i],r-1))return!1;++n}return n===Object.keys(t).length}return!1},U=(e,t,...r)=>e===t||0<r.length&&r.some(t=>U(e,t)),F=(e,t)=>null!=e?e:C(null!=t?t:\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),q=(e,t=!0,r)=>{try{return e()}catch(e){return ep(t)?eu(e=t(e))?C(e):e:et(t)?console.error(t?C(e):e):t}finally{null!=r&&r()}};class z extends Promise{get initialized(){return null!=this._result}then(e,t){var r;return(null!=(r=this._result)?r:this._result=this._action()).then(e,t)}catch(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).catch(e)}finally(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).finally(e)}constructor(e){super(()=>{}),j(this,\"_action\",void 0),j(this,\"_result\",void 0),this._action=e}}var R=e=>new z(async()=>e2(e)),P=async(e,t=!0,r)=>{try{return await e2(e)}catch(e){if(!et(t))return await t(e);if(t)throw e;console.error(e)}finally{await(null==r?void 0:r())}},W=e=>e,B=e=>!!e,D=e=>e===K,J=void 0,L=Number.MAX_SAFE_INTEGER,V=!1,K=!0,H=()=>{},G=e=>e,X=e=>null!=e,Z=Symbol.iterator,Y=Symbol.asyncIterator,Q=(e,t)=>(r,n=!0)=>e(r)||t&&n&&null!=r&&null!=(r=t(r))?r:J,ee=(e,t)=>ep(t)?e!==J?t(e):J:(null==e?void 0:e[t])!==J?e:J,et=e=>\"boolean\"==typeof e,er=Q(et,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||J))),en=e=>e!==V,ei=e=>\"number\"==typeof e,ea=e=>\"string\"==typeof e,el=Q(ea,e=>null==e?void 0:e.toString()),eo=Array.isArray,eu=e=>e instanceof Error,es=(e,t=!1)=>null==e?J:!t&&eo(e)?e:eh(e)?[...e]:[e],ed=e=>e&&\"object\"==typeof e,ev=e=>(null==e?void 0:e.constructor)===Object,ec=(e,t)=>\"function\"==typeof(null==e?void 0:e[t]),ef=e=>\"symbol\"==typeof e,ep=e=>\"function\"==typeof e,eh=(e,t=!1)=>!(null==e||!e[Z]||\"string\"==typeof e&&!t),eg=e=>e instanceof Map,ey=e=>e instanceof Set,em=(e,t)=>null==e?J:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,eb=(e,t,r)=>e[0]===t&&e[e.length-1]===r,ew=e=>ea(e)&&(eb(e,\"{\",\"}\")||eb(e,\"[\",\"]\")),ek=!1,eS=e=>(ek=!0,e),eT=e=>null==e?J:ep(e)?e:t=>t[e],eI=(e,t,r)=>(null!=t?t:r)!==J?(e=eT(e),null==t&&(t=0),null==r&&(r=L),(n,i)=>t--?J:r--?e?e(n,i):n:r):e,ex=e=>null==e?void 0:e.filter(X),eA=(e,t,r,n)=>null==e?[]:!t&&eo(e)?ex(e):e[Z]?function*(e,t){if(null!=e)if(t){t=eT(t);var r=0;for(n of e)if(null!=(n=t(n,r++))&&(yield n),ek){ek=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,r===J?t:eI(t,r,n)):ed(e)?function*(e,t){t=eT(t);var n,r=0;for(n in e){var i=[n,e[n]];if(null!=(i=t?t(i,r++):i)&&(yield i),ek){ek=!1;break}}}(e,eI(t,r,n)):eA(ep(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(null==t&&(t=-e-1);e++;)yield t--;else for(null==t&&(t=0);e--;)yield t++}(e,r),t),eE=(e,t,r,n)=>eA(e,t,r,n),eN=(e,t,r=1,n=!1,i,a)=>function*e(t,r,n,i){if(null!=t)if(t[Z]||n&&ed(t))for(var a of i?eA(t):t)1!==r?yield*e(a,r-1,n,!0):yield a;else yield t}(eA(e,t,i,a),r+1,n,!1),eO=(e,t,r,n)=>{if(t=eT(t),eo(e)){var i=0,a=[];for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n&&!ek;r++){var l=e[r];null!=(t?l=t(l,i++):l)&&a.push(l)}return ek=!1,a}return null!=e?tV(eE(e,t,r,n)):J},e$=(e,t,r,n)=>null!=e?new Set([...eE(e,t,r,n)]):J,e_=(e,t,r=1,n=!1,i,a)=>tV(eN(e,t,r,n,i,a)),ej=(...e)=>{var t;return eq(1===e.length?e[0]:e,e=>null!=e&&(null!=t?t:t=[]).push(...tV(e))),t},eC=(e,t,r,n)=>{var i,a,l=0;for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n;r++)if(null!=e[r]&&(i=null!=(a=t(e[r],l++))?a:i,ek)){ek=!1;break}return i},eM=(e,t)=>{var r,n,a,i=0;for(a of e)if(null!=a&&(r=null!=(n=t(a,i++))?n:r,ek)){ek=!1;break}return r},eU=(e,t)=>{var r,n,a,i=0;for(a in e)if(r=null!=(n=t([a,e[a]],i++))?n:r,ek){ek=!1;break}return r},eF=(e,t,r,n)=>{var i;if(null!=e){if(eo(e))return eC(e,t,r,n);if(r===J){if(e[Z])return eM(e,t);if(\"object\"==typeof e)return eU(e,t)}for(var a of eA(e,t,r,n))null!=a&&(i=a);return i}},eq=eF,ez=async(e,t,r,n)=>{var i,a;if(null==e)return J;for(a of eE(e,t,r,n))if(null!=(a=await a)&&(i=a),ek){ek=!1;break}return i},eR=(e,t)=>{if(null==e)return J;var r={};if(t){var n,a,i=0;for(a in e)(n=t([a,e[a]],i++))&&(r[n[0]]=n[1])}else for(var l of e)l&&(r[l[0]]=l[1]);return r},eP=(e,t,r)=>{var n,i,a;return null==e?J:et(t)||r?(a={},eq(e,r?(e,n)=>null!=(e=t(e,n))&&null!=(e[1]=r(a[e[0]],e[1]))&&(a[e[0]]=e[1]):e=>eq(e,t?e=>{var t;return null!=(null==e?void 0:e[1])&&((null!=(t=(n=a)[i=e[0]])?t:n[i]=[]).push(e[1]),a)}:e=>null!=(null==e?void 0:e[1])&&(a[e[0]]=e[1],a))),a):eR(eO(e,t?(e,r)=>ee(t(e,r),1):e=>ee(e,1)))},eW=(e,t,r,n,i)=>{var l=()=>ep(r)?r():r;return null!=(e=eF(e,(e,n)=>r=null!=(e=t(r,e,n))?e:l(),n,i))?e:l()},eB=(e,t,r,n)=>eO(e,(e,r)=>e&&null!=t&&t(e,r)?e:J,r,n),eJ=(e,...t)=>null==e?J:ei(e)?Math.max(e,...t):eW(e,(e,r,n,i=t[1]?t[1](r,n):r)=>null==e||ei(i)&&e<i?i:e,J,t[2],t[3]),eV=(e,t,r,n)=>{var i;return null==e?J:ev(e)&&!t?0<Object.keys(e).length:null!=(i=null!=(i=null==(i=e.some)?void 0:i.call(e,null!=t?t:B))?i:eF(e,t?(e,r)=>!!t(e,r)&&eS(!0):()=>eS(!0),r,n))&&i},eK=(e,t=e=>e)=>{var r;return null!=(r=es(e))&&r.sort((e,r)=>t(e)-t(r)),e},eH=(e,t,r)=>(e.constructor===Object||eo(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eG=(e,t,r)=>{var n;if(e)return void 0===(n=e.get?e.get(t):e.has?e.has(t):e[t])&&null!=r&&null!=(n=ep(r)?r():r)&&eH(e,t,n),n},eX=(e,...t)=>(eq(t,t=>eq(t,([t,r])=>{null!=r&&(ev(e[t])&&ev(r)?eX(e[t],r):e[t]=r)})),e),eZ=(e,t,r,n)=>{if(e)return null!=r?eH(e,t,r,n):(eq(t,t=>eo(t)?eH(e,t[0],t[1]):eq(t,([t,r])=>eH(e,t,r))),e)},eY=(e,t,r)=>{var n;return ec(e,\"set\")?void 0===(n=r(e.get(t)))?e.delete(t):e.set(t,n):ec(e,\"add\")?r(n=e.has(t))?e.add(t):e.delete(t):e&&void 0===(n=e[t]=r(e[t]))&&ev(e)&&delete e[t],e},eQ=(e,t)=>e instanceof Set||e instanceof WeakSet?!e.has(t)&&(e.add(t),!0):!eG(e,t)&&(eH(e,t,!0),!0),e0=(e,t)=>{var r;if(null!=(null!=e?e:t))return r=eG(e,t),ec(e,\"delete\")?e.delete(t):delete e[t],r},e1=(e,t)=>{if(e)return eo(t)?(eo(e)&&1<e.length?t.sort((e,t)=>t-e):t).map(t=>e1(e,t)):eo(e)?t<e.length?e.splice(t,1)[0]:void 0:e0(e,t)},e2=e=>ep(e)?e():e,e6=(e,t=-1)=>eo(e)?t?e.map(e=>e6(e,t-1)):[...e]:ev(e)?t?eP(e,([e,r])=>[e,e6(r,t-1)]):{...e}:ey(e)?new Set(t?eO(e,e=>e6(e,t-1)):e):eg(e)?new Map(t?eO(e,e=>[e[0],e6(e[1],t-1)]):e):e,e4=(e,...t)=>null==e?void 0:e.push(...t),e5=(e,...t)=>null==e?void 0:e.unshift(...t),e3=(e,t)=>{var r,i,a;if(e)return ev(t)?(a={},ev(e)&&(eq(e,([e,l])=>{if(l!==t[e]){if(ev(r=l)){if(!(l=e3(l,t[e])))return;[l,r]=l}else ei(l)&&ei(void 0)&&(l=(r=l)-void 0);a[e]=l,(null!=i?i:i=e6(t))[e]=r}}),i)?[a,i]:void 0):[e,e]},e8=\"undefined\"!=typeof performance?(e=K)=>e?Math.trunc(e8(V)):performance.timeOrigin+performance.now():Date.now,e9=(e=!0,t=()=>e8())=>{var r,n=+e*t(),i=0;return(a=e,l)=>(r=e?i+=-n+(n=t()):i,l&&(i=0),(e=a)&&(n=t()),r)},te=(e,t=0)=>{var e=ep(e)?{frequency:t,callback:e}:e,{queue:i=!0,paused:a=!1,trigger:l=!1,once:o=!1,callback:u=()=>{},raf:s}=e,d=(t=null!=(e=e.frequency)?e:0,0),v=tl(!0).resolve(),c=e9(!a),f=c(),p=async e=>{if(!d||!i&&v.pending&&!0!==e)return!1;if((m.busy=!0)!==e)for(;v.pending;)await v;return e||v.reset(),(!1===await P(()=>u(c(),-f+(f=c())),!1,()=>!e&&v.resolve())||t<=0||o)&&y(!1),!(m.busy=!1)},h=()=>d=setTimeout(()=>s?requestAnimationFrame(g):g(),t<0?-t:t),g=()=>{m.active&&p(),m.active&&h()},y=(e,t=!e)=>(c(e,t),clearTimeout(d),m.active=!!(d=e?h():0),m),m={active:!1,busy:!1,restart:(e,r)=>(t=null!=e?e:t,u=null!=r?r:u,y(!0,!0)),toggle:(e,t)=>e!==m.active?e?t?(y(!0),m.trigger(),m):y(!0):y(!1):m,trigger:async e=>await p(e)&&(y(m.active),!0)};return m.toggle(!a,l)};function tt(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}class tr{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new tn,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}constructor(){tt(this,\"_promise\",void 0),this.reset()}}class tn{then(e,t){return this._promise.then(e,t)}constructor(){var e;tt(this,\"_promise\",void 0),tt(this,\"resolve\",void 0),tt(this,\"reject\",void 0),tt(this,\"value\",void 0),tt(this,\"error\",void 0),tt(this,\"pending\",!0),this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(this.pending)return this.pending=!1,this[t?\"error\":\"value\"]=r===J||r,e(r),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var ta=(e,t)=>null==e||isFinite(e)?!e||e<=0?e2(t):new Promise(r=>setTimeout(async()=>r(await e2(t)),e)):C(`Invalid delay ${e}.`),tl=e=>new(e?tr:tn),tu=(e,t,r)=>{var n=!1,i=(...t)=>e(...t,a),a=()=>n!==(n=!1)&&(r(i),!0),l=()=>n!==(n=!0)&&(t(i),!0);return l(),[a,l]},Q=()=>{var e,t=new Set;return[(r,n)=>{var i=tu(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,i[0]),i},(...r)=>(e=r,t.forEach(e=>e(...r)))]},td=(e,t,r=!1)=>e&&(e.length>t?r?`${e.slice(0,t)}... [and ${e.length-t} more]`:e.slice(0,t-1)+\"…\":e),tc=(e,t)=>{var l,r=[],n={},i={},a=0;for(l in t)l===t[l]&&(Object.defineProperty(i,l,{value:l,writable:!1,enumerable:!0,configurable:!1}),n[l]=a++,r.push(l));var o=(t,r=!0)=>null==t?J:null!=n[t]?t:r?C(`The ${e} \"${t}\" is not defined.`):J,u={writable:!1,enumerable:!1,configurable:!1};return Object.defineProperties(i,{parse:{value:o,...u},ranks:{value:n,...u},levels:{value:r,...u},compare:{value(e,t){e=n[o(e)],t=n[o(t)];return e<t?-1:t<e?1:0},...u}}),i},tf=Symbol(),tp=(e,{delimiters:t=[\"|\",\";\",\",\"],decode:r=!0,lowerCase:n}={})=>{var i,l;return e?(null==(l=e.split(\"=\").map(e=>(e=r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim(),n?e.toLowerCase():e)))[1]&&(l[1]=\"\"),l[2]=l[1]&&(ea(t)?t=[t]:eo(t))&&tR(t,e=>1<(i=l[1].split(e)).length?tj(i):J)||(l[1]?[l[1]]:[]),l):J},th=(e,{delimiters:t=!0,requireAuthority:r,...n}={})=>null==e?J:tw(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,i,a,l,o,u,s,d,v,c,f)=>{e={source:e,scheme:r,urn:r?!i:!i&&J,authority:a,user:l,password:o,host:null!=u?u:s,port:null!=d?parseInt(d):J,path:v,query:!1===t?c:c?tg(c,{...n,delimiters:t}):J,fragment:f};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":J),e}),tg=(e,t)=>ty(e,\"&\",t),ty=(e,t,{delimiters:r=!0,...n}={})=>{e=tP(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(t),e=>{var[e,a,l]=null!=(e=tp(e,{...n,delimiters:!1===r?[]:!0===r?J:r}))?e:[];return null!=(e=null==e?void 0:e.replace(/\\[\\]$/,\"\"))?!1!==r?[e,1<l.length?l:a]:[e,a]:t_}),t=t4(tD(e,!1),([e,t])=>[e,!1!==r?1<t.length?tK(t):t[0]:t.join(\",\")]);return t&&(t[tf]=e),t},tm=(e,t)=>t&&null!=e?t.test(e):J,tb=(e,t,r)=>tw(e,t,r,!0),tw=(e,t,i,a=!1)=>null==(null!=e?e:t)?J:i?(r=J,a?(n=[],tw(e,t,(...e)=>null!=(r=i(...e))&&n.push(r))):e.replace(t,(...e)=>r=i(...e)),r):null!=(a=e.match(t))?a:J,tk=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tS=/\\z./g,tT=(e,t)=>(t=t7(e$(eB(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(t,\"gu\"):tS,tI={},tx=e=>e instanceof RegExp,tA=(r,n=[\",\",\" \"])=>{var i;return tx(r)?r:eo(r)?tT(eO(r,e=>null==(e=tA(e,n))?void 0:e.source)):et(r)?r?/./g:tS:ea(r)?null!=(i=(e=tI)[t=r])?i:e[t]=tw(r||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,r)=>t?RegExp(t,\"gu\"):tT(eO(tE(r,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${t7(n,tk)}]`)),e=>e&&`^${t7(tE(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>tk(tN(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):J},tE=(e,t,r=!0)=>null==e?J:r?tE(e,t,!1).filter(G):e.split(t),tN=(e,t,r)=>null!=(t=null==e?void 0:e.replace(t,r))?t:e,tO=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return eZ(r,{push(n,i){for(var a=[n,i],l=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,o=0;o<r.length;o++){var u,s,d=r[o];if(e(a[1],d[0])<0)return l(r.splice(o,0,a));if(e(a[0],d[1])<=0){if(e(a[0],d[0])<0&&(u=d[0]=a[0]),0<e(a[1],d[1])&&(u=d[1]=a[1]),!((null==(s=r[o+1])?void 0:s[0])<d[1]))return l(null!=u);u=a=r.splice(o--,1)[0]}}return l(a&&(r[r.length]=a))},width:0})},t$=!1,t_=Symbol(),tj=e=>(t$=!0,e),tC=Symbol(),tM=Symbol(),tU=Symbol.iterator,tF=e=>{tF=e=>e;var n,t=()=>(e,t,r,n,i)=>{var a,o,l=0;for(o of e)if((a=t?t(o,l++,n,i):o)!==t_){if(a===tj)break;if(n=a,r&&r.push(a),t$){t$=!1;break}}return r||n},r=(Array.prototype[tC]=(e,t,r,n,i)=>{for(var l,o=0,u=e.length;o<u;o++)if(l=e[o],(l=t?t(l,o,n,i):l)!==t_){if(l===tj)break;if(n=l,r&&r.push(l),t$){t$=!1;break}}return r||n},t());for(n of(Object.prototype[tC]=(e,n,i,a,l)=>{if(e[tU])return(e.constructor===Object?r:Object.getPrototypeOf(e)[tC]=t())(e,n,i,a,l);var u,d,s=0;for(d in e)if(u=[d,e[d]],(u=n?n(u,s++,a,l):u)!==t_){if(u===tj)break;if(a=u,i&&i.push(u),t$){t$=!1;break}}return i||a},Object.prototype[tM]=function(){var t,e;return this[tU]||this[Y]?this.constructor===Object?null!=(e=this[Y]())?e:this[tU]():((e=Object.getPrototypeOf(this))[tM]=null!=(t=e[Y])?t:e[tU],this[tM]()):function*(e){for(var t in e)yield[t,e[t]]}(this)},[Map.prototype,WeakMap.prototype,Set.prototype,WeakSet.prototype,Object.getPrototypeOf(function*(){})]))n[tC]=t(),n[tM]=n[tU];return Number.prototype[tC]=(e,t,n,i,a)=>r(tq(e),t,n,i,a),Number.prototype[tM]=tq,Function.prototype[tC]=(e,t,n,i,a)=>r(tz(e),t,n,i,a),Function.prototype[tM]=tz,e};function*tq(e=this){for(var t=0;t<e;t++)yield t}function*tz(e=this){for(var t=void 0;void 0!==(t=e(t));)yield t}var tR=(e,t,r,n)=>(tR=tF((e,t,r,n=e)=>e?e[tC](e,t,void 0,r,n):null==e?e:void 0))(e,t,r,n),tP=(e,t,r=[],n,i=e)=>(tP=tF((e,t,r=[],n,i=e)=>e||0===e||\"\"===e?e[tC](e,t,r,n,i):null==e?e:void 0))(e,t,r,i,n),tW=(e,t=!0,r=!1)=>tP(e,!0===t?e=>null!=e?e:t_:t?t.has?e=>null==e||t.has(e)===r?t_:e:(e,n,i)=>!t(e,n,i)===r?e:t_:e=>e||t_),tB=(e,t,r=-1,n=[],i,a=e)=>tP(e,(e,i,a)=>null!=(t?e=t(e,i,a):e)&&e[Symbol.iterator]&&\"string\"!=typeof e&&r?(tB(e,void 0,r-1,n,e),t_):e,n,i,a),tD=(e,t,r)=>{var n,i,a,l;return null!=t&&\"function\"!=typeof t&&([t,r]=[void 0,t]),tR(e,!1!==r?(a=new Map,(e,r,n)=>{void 0!==(l=t?t(e,r,n):e)[0]&&t1(a,l[0],()=>[]).push(l[1])}):(a={},(e,r,o)=>(l=t?t(e,r,o):e)&&void 0!==l[0]&&(null!=(r=(n=a)[i=l[0]])?r:n[i]=[]).push(l[1]))),a},tL=e=>void 0===e?[]:null!=e&&e[tU]&&\"string\"!=typeof e?e:[e],tV=e=>null==e||eo(e)?e:e[tU]&&\"string\"!=typeof e?[...e]:[e],tK=(e,...t)=>{var r,n;for(n of e=!t.length&&eh(e)?e:[e,...t])if(null!=n){if(eh(n)){(null!=r?r:r=[]).push(...n);continue}(null!=r?r:r=[]).push(n)}return r},tH=(e,t,r)=>(r?-1:1)*(e===t?0:\"string\"==typeof e?\"string\"==typeof t?e.localeCompare(t):1:\"string\"==typeof t?-1:null==e?null==t?0:-1:null==t?1:e-t),tG=(e,t,r)=>tV(e).sort(\"function\"==typeof t?(e,n)=>tH(t(e),t(n),r):eo(t)?t.length?(e,n)=>{for(var i=0,a=0;a<t.length&&!i;a++)i=tH(t[a](e),t[a](n),r);return i}:(e,t)=>tH(e,t,r):(e,r)=>tH(e,r,t)),tX=Object.keys,tZ=Symbol(),tY=Symbol(),tQ=Symbol(),t0=e=>{for(var{prototype:t}of(t0=e=>e,[Map,WeakMap]))t[tZ]=function(e,t){return void 0===t?this.delete(e):this.get(e)!==t&&!!this.set(e,t)},t[tY]=t.get;for(var{prototype:t}of[Set,WeakSet])t[tZ]=function(e,t,r=!1){return t||r&&void 0===t?!this.has(e)&&!!this.add(e):this.delete(e)},t[tY]=t.has,t[tQ]=function(e){for(var t of e)void 0!==t&&this.add(t);return this};for(var{prototype:t}of(Array.prototype[tQ]=function(e){return this.push(...e),this},[Object,Array]))t[tZ]=function(e,t){return void 0===t?void 0!==this[e]&&(delete this[e],!0):(this[e]=t)!==t},t[tY]=function(e){return this[e]};return e},t1=(e,t,r)=>(t1=t0((e,t,r)=>{if(null==e)return e;var n=e[tY](t);if(void 0===n&&void 0!==(n=\"function\"==typeof r?r():r)){if(null!=n&&n.then)return n.then(r=>void 0===r?r:e[tZ](t,r));e[tZ](t,n)}return n}))(e,t,r),t2=(e,t,r)=>(t2=t0((e,t,r)=>(e[tZ](t,r),r)))(e,t,r),t6=(e,...t)=>(t6=t0((e,...t)=>null==e?e:e[tQ](t)))(e,...t),t4=(e,t)=>{var r={};return tR(e,t?(e,n,i)=>(e=t(e,n,i))&&(\"symbol\"!=typeof e||e!==t_&&e!==tj)?r[e[0]]=e[1]:e:e=>e&&(\"symbol\"!=typeof e||e!==t_&&e!==tj)?r[e[0]]=e[1]:e),r},t5=(e,...t)=>(t5=t0((e,...t)=>((null==e?void 0:e.constructor)===Object?tR(t,t=>tR(t,t=>t&&(e[t[0]]=t[1]))):tR(t,t=>tR(t,t=>t&&e[tZ](t[0],t[1]))),e)))(e,...t),t3=(e,t,r={})=>{if(null!=e){var l,{deep:n=!0,overwrite:i=!0,nulls:a=!1}=r;for(l of tL(t))tR(l,t=>{var o,u;t&&([t,o]=t,u=e[t],(a?null==u:void 0===u)?e[t]=o:n&&(null==o?void 0:o.constructor)===Object&&(null==u?void 0:u.constructor)===Object?t3(u,o,r):i&&(e[t]=o))})}return e},t8=(e,t)=>null==e?e:t4(t,t=>null!=e[t]||t in e?[t,e[t]]:t_),t9=e=>null==e||\"boolean\"==typeof e||\"\"===e.toString(),t7=(e,t,r)=>null==e?e:eh(e)?tW(\"function\"==typeof t?tP(e,t):(r=t,e),t9,!0).join(null!=r?r:\"\"):t9(e)?\"\":e.toString(),re=(e,t,r,n)=>{var i,o;return e||0===e?\"function\"==typeof t?re(tP(e,t),r,n):(i=[],n=tR(e,(e,t,r)=>t9(e)?t_:(r&&i.push(r),e.toString())),[t,o]=eo(t)?t:[,t],o=(null!=o?o:o=\"and\")[0]===(t=null==t?\",\":t)?o+\" \":\" \"+(o?o+\" \":\"\"),t=i.length?\"\"+i.join(t+\" \")+o+n:null!=n?n:\"\",r?r(t,i.length+ +(null!=n)):t):null==e?e:void 0},rt=tc(\"data classification\",{never:\"never\",anonymous:\"anonymous\",indirect:\"indirect\",direct:\"direct\",sensitive:\"sensitive\"}),rr=[\"necessary\",\"performance\",\"functionality\",\"marketing\",\"personalization\",\"security\"],rn=t4(rr,e=>[e,e]),ri=(Object.freeze(eR(rr.map(e=>[e,!0]))),(e,t)=>\"personalization\"===e&&!0!==(null==t?void 0:t.personalization)?\"functionality\":\"security\"===e&&!0!==(null==t?void 0:t.security)?\"necessary\":e),ra=(e,t)=>{var r=e;return!0!==(null==t?void 0:t.personalization)&&null!=r.personalization&&(null!=(r=r===e?{...e}:r).functionality?r.personalization=r.functionality:r.functionality=r.personalization,delete r.personalization),!0!==(null==t?void 0:t.security)&&null!=r.security&&delete(r=r===e?{...e}:r).security,r},rl_parse=function(e,{names:t=!1,validate:r=!0}={}){if(null==e)return e;if(e.purposes&&(e=e.purposes),ea(e)&&(e=e.split(\",\")),eo(e)){var i,n={};for(i of e)rn[i]?\"necessary\"!==i&&(n[i]=!0):r&&C(`The purpose name '${i}' is not defined.`);e=n}return t?(t=tX(e)).length?t:[\"necessary\"]:e},rl_test=function(e,t,{intersect:r,optionalPurposes:n,targetPurpose:i}){if(\"boolean\"==typeof n&&(n={personalization:n,security:n}),i&&\"necessary\"!==(i=ri(i,n))&&!t[ri(i,n)])return!1;if(e=ra(e,n),t=ra(t,n),r){for(var a in t)if(rn[a]&&t[a]&&!e[a])return!1;if(\"all\"===r)for(var a in e)if(rn[a]&&e[a]&&!t[a])return!1;return!0}var l=!1;for(a in e)if(rn[a]&&e[a]){if(t[a])return!0;l=!0}return!l},ro=(tc(\"data restriction\",{public:\"public\",\"trusted-write\":\"trusted-write\",\"trusted-only\":\"trusted-only\"}),e=>{var t;return`${null!=(t=null==e?void 0:e.classification)?t:\"anonymous\"} data for ${re(rl_parse(null==e?void 0:e.purposes,{names:!0}))}  purposes.`}),ru={anonymous:{classification:\"anonymous\",purposes:{}},clone:e=>e&&{classification:e.classification,purposes:{...e.purposes}},equals:(e,t)=>e===t||e&&t&&e.classification===t.classification&&rl_test(e.purposes,t.purposes,{intersect:\"all\",optionalPurposes:!0}),serialize(e){var t=rl_parse(e.purposes,{names:!0});return e.classification&&\"anonymous\"!==e.classification||null!=t&&t.length?e.classification+\":\"+t:null},deserialize(e,t){var a;return e?([e,a]=e.split(\":\"),{classification:null!=(e=rt.parse(e,!1))?e:\"anonymous\",purposes:null!=(e=rl_parse(a,{validate:!1}))?e:{}}):t?ru.clone(t):{classification:\"anonymous\",purposes:{}}}},rs=(e,t)=>(!(i=null==e?void 0:e.metadata)||t&&(delete i.posted,delete i.queued,Object.entries(i).length)||delete e.metadata,e),rv=Symbol(),rc=e=>void 0===e?\"undefined\":td(JSON.stringify(e),40,!0),rf=/^\\d{4}-\\d{2}-\\d{2}(?:T00:00:00(?:\\.000)?)?Z$/,rp=/^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?)?Z$/,rh=/^\\{?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\}?$/,rg=/^(?:(?:([\\w+.-]+):)(\\/\\/)?)((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))(?::(\\d*))?)(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/,ry=/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:(\\[(([0-9.]+)|([0-9a-f:]+))\\])|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9]))?$/,rm=(e,t,r)=>(e.push({path:\"\",type:null,source:t,message:rc(t)+` ${r}.`}),rv),rb=(e,t,r)=>\"number\"==typeof e&&(!t&&Number.isFinite(e)&&!Number.isNaN(e)||Number.isInteger(e))||r&&\"string\"==typeof e&&rb((t?parseInt:parseFloat)(e),t,!1),rw={},rr=((e=>{null==e.primitive&&(e.primitive=typeof(null!=(r=null==(r=e.enum)?void 0:r[0])?r:\"\"));var r,u,o=null!=(o=rw[r=e.primitive+\"-\"+(null!=(r=e.format)?r:\"\")+\"-\"+!1])?o:rw[r]=(e=>{switch(e.primitive){case\"boolean\":return(e,t)=>\"boolean\"==typeof e?e:rm(t,e,\"is not a Boolean\");case\"date\":return(e,t)=>e&&rf.test(e)&&!isNaN(+new Date(e))?e:rm(t,e,\"is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)\");case\"timestamp\":case\"datetime\":var r=\"format\"in e?\"unix\"!==e.format:\"datetime\"===e.primitive;return(e,n)=>{if(!e||rb(e,!1,!1)){if(!rb(e,!0,!1))return rm(n,e,\"is not a valid UNIX timestamp\");e=+e}else if(!rp.test(e)||isNaN(+new Date(e)))return rm(n,e,\"is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)\");return e=new Date(e),r?new Date(e).toISOString():+e};case\"duration\":return(e,r)=>rb(e,!0,!1)?+e:rm(r,e,\"is not a valid duration (must be provided as milliseconds)\");case\"integer\":return(e,r)=>rb(e,!0,!1)?+e:rm(r,e,\"is not a valid integer\");case\"number\":return(e,r)=>rb(e,!1,!1)?e:rm(r,e,\"is not a number\");case\"string\":switch(e.format){case\"uri\":return(e,t)=>\"string\"==typeof e&&rg.test(e)?e:rm(t,e,\"is not a valid URI\");case\"url\":return(e,t)=>{var r=\"string\"==typeof e&&rg.exec(e);return r?r[2]?e:rm(t,e,\"is not a valid URL (it is a URI, but a URL is required)\"):rm(t,e,\"is not a valid URL\")};case\"urn\":return(e,t)=>{var r=\"string\"==typeof e&&rg.exec(e);return r?\"urn\"!==r[1]||r[2]?rm(t,e,\"is not a valid URN (it is a URI, but a URN is required)\"):e:rm(t,e,\"is not a valid URN\")};case\"email\":return(e,t)=>\"string\"==typeof e&&ry.test(e)?e.toLowerCase():rm(t,e,\"is not a valid email address\")}return(e,t)=>\"string\"==typeof e?e:rm(t,e,\"is not a string\");case\"uuid\":return(e,t)=>{var r;return null!=(r=\"string\"==typeof e?null==(r=rh.exec(e))?void 0:r[1].toLowerCase():null)?r:rm(t,e,\"is not a valid UUID\")};default:throw TypeError(`'${rc(e)}' is not a supported primitive type.`)}})(e),d=e.maxLength,c=(null!=d&&(v=o,o=(e,t)=>(e=v(e,t))!==rv&&e.length>d?rm(t,e,`exceeds the maximum allowed ${d} number of characters`):e),e.min),f=e.max;if(null==c&&null==f||(p=null!=c?null!=f?`between ${c} and `+f:\"at least \"+c:\"at most \"+f,v=o,o=(e,t)=>(e=v(e,t))===rv||(null==c||c<=e)&&(null==f||e<=f)?e:rm(t,e,p)),\"enum\"in e){var v=o;if(!(u=new Set((Array.isArray(e.enum)?e.enum:[e.enum]).map(e=>{var t=[];if((e=v(e,t))===rv)throw TypeError(t[0]);return e}))).size)throw TypeError(\"At least one enum value to test against is required.\");var p=\"is not the constant value \"+re(e.enum.map(e=>JSON.stringify(e)),\"or\"),o=(e,t)=>(e=v(e,t))===rv||u.has(e)?e:rm(t,e,p)}(e=>e instanceof Set||null==e||new Set(e[tU]&&\"string\"!=typeof e?e:[e]))(u)})({primitive:\"string\",format:\"uri\"}),tc(\"variable scope\",{global:\"global\",session:\"session\",device:\"device\",user:\"user\"})),rS=({key:e,scope:t=\"\",entityId:r=\"\",source:n=\"\"},i=\"\")=>[\"'\"+e+\"'\",n&&\"from '\"+n+\"'\",i,t&&\"in \"+t+\" scope\",r&&\"for '\"+r+\"'\"].filter(e=>e).join(\" \"),rT=e=>null==e?e:{source:e.source,key:e.key,scope:e.scope,entityId:e.entityId},rI=((x=a=a||{})[x.Success=200]=\"Success\",x[x.Created=201]=\"Created\",x[x.NotModified=304]=\"NotModified\",x[x.Forbidden=403]=\"Forbidden\",x[x.NotFound=404]=\"NotFound\",x[x.BadRequest=405]=\"BadRequest\",x[x.Conflict=409]=\"Conflict\",x[x.Error=500]=\"Error\",(e,t=!0)=>null!=(null==e?void 0:e.value)||!t&&(!e||404===e.status)),rx=(e,t=!0)=>e&&(e.status<400||!t&&404===e.status);function rA(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var rE=e=>{var t=rS(e),r=e.error;return e.status<400?`${t} succeeded with status ${e.status} - ${a[e.status]}.`:`${t} failed with status ${e.status} - ${a[e.status]}${r?` (${r})`:\"\"}.`};class rN extends Error{constructor(e,t){super(null!=t?t:\"One or more operations failed.\"),rA(this,\"succeeded\",void 0),rA(this,\"failed\",void 0),this.succeeded=null!=(t=null==e?void 0:e.filter(e=>rx(e,!1)))?t:[],this.failed=null!=(t=null==e?void 0:e.filter(e=>!rx(e,!1)))?t:[]}}var rO=e=>!!e.callback,r$=e=>!!e.poll,r_=Symbol(),rj=(e,t,r,{poll:n,logCallbackError:i}={})=>{var l=eo(t)?t:[t],o=[],u=(async()=>{var s,d,u,v,t=await r(l.filter(e=>e)),a=[];for(u of l)u&&null!=(d=t.get(u))&&(d[r_]=u,rO(u)&&a.push([u,e=>!0===u.callback(e)]),r$(u))&&a.push([u,e=>{var t;return!rI(e,!1)||(t=!rI(e,!1)||u.poll(e.value,e[r_]===u,s),s=e.value,t)}]);for([u,v]of a)try{var c=\"get\"===e?async e=>!0===await v(e)&&(null==n?void 0:n(u,c)):v;await c(u)}catch(t){var f=`${e} callback for ${rS(u)} failed: ${t}.`;i?i(f,u,t):o.push(f)}return t})(),s=async(r,n)=>{var v,c,f,i=await u,s=[],d=[];for(v of l)v?null==(f=i.get(v))?d.push(`No result for ${rS(v)}.`):!r||rx(f,n||\"set\"===e)?s.push(r&&f.status===a.NotFound?void 0:1<r?null!=(c=f.value)?c:void 0:f):d.push(rE(f)):s.push(void 0);if(d.push(...o),d.length)throw 10<d.length&&d.push(`\n(and ${d.splice(10).length} more...)`),new rN(s,d.join(\"\\n\"));return l===t?s:s[0]};return Object.assign(R(()=>s(1,!1)),{as:()=>s(1,!1),all:()=>s(0,!1),require:()=>s(1,!0),value:(e=!1)=>s(2,e),values:(e=!1)=>s(2,e)})},rC=e=>e&&\"string\"==typeof e.type,rM=(e=>t=>(null==t?void 0:t.type)&&e.some(e=>e===(null==t?void 0:t.type)))([\"view\"]),rU=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,rF=(e,t)=>{var r;return t&&(!(o=e.get(l=t.tag+(null!=(r=t.value)?r:\"\")))||(null!=(r=o.score)?r:1)<(null!=(r=t.score)?r:1))&&e.set(l,t)},rq=(e,t=\"\",r=new Map)=>{if(e)return eh(e)?tR(e,e=>rq(e,t,r)):ea(e)?tw(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,i,a,l,o,u)=>{i={tag:(n?rU(n)+\"::\":\"\")+t+rU(i),value:rU(null!=(n=null!=a?a:l)?n:o)};u&&10!==parseFloat(u)&&(i.score=parseFloat(u)/10),rF(r,i)}):rF(r,e),r},rz=tc(\"local variable scope\",{view:\"view\",tab:\"tab\",shared:\"shared\"}),rR=tc(\"variable scope\",{...rz,...rr}),rP=e=>(\"global\"!==e.scope&&e.entityId&&(e.entityId=void 0),e),rW=e=>null!=e&&!!e.scope&&null!=rz.ranks[e.scope],rB=e=>null==e?e:[e.scope,e.key,e.targetId].join(\"\\0\"),rD=e=>{e=e.split(\"\\0\");return{scope:e[0],key:e[1],targetId:e[2]}},rL=()=>()=>C(\"Not initialized.\"),rV=window,rK=document,rH=rK.body,rG=(e,t)=>!(null==e||!e.matches(t)),rX=L,rZ=(e,t,r=(e,t)=>rX<=t)=>{for(var n=0,i=V;1===(null==e?void 0:e.nodeType)&&!r(e,n++)&&t(e,(e,t)=>(null!=e&&(a=e,i=t!==K&&null!=a),K),n-1)!==V&&!i;){var a,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==rK&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return a},rY=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":var r;return null==(r=(\"\"+e).trim())?void 0:r.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||er(e);case\"n\":return parseFloat(e);case\"j\":return q(()=>JSON.parse(e),H);case\"h\":return q(()=>nJ(e),H);case\"e\":return q(()=>null==nV?void 0:nV(e),H);default:return eo(t)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:rY(e,t[0])):void 0}},rQ=(e,t,r)=>rY(null==e?void 0:e.getAttribute(t),r),r0=(e,t,r)=>rZ(e,(e,n)=>n(rQ(e,t,r))),r1=(e,t)=>null==(e=rQ(e,t))||null==(t=e.trim())?void 0:t.toLowerCase(),r2=e=>null==e?void 0:e.getAttributeNames(),r6=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,r4=e=>null!=e?e.tagName:null,r3=e=>({x:em(scrollX,e),y:em(scrollY,e)}),r8=(e,t)=>tN(e,/#.*$/,\"\")===tN(t,/#.*$/,\"\"),r9=(e,t,r=K)=>(s=r7(e,t))&&W({xpx:s.x,ypx:s.y,x:em(s.x/rH.offsetWidth,4),y:em(s.y/rH.offsetHeight,4),pageFolds:r?s.y/window.innerHeight:void 0}),r7=(e,t)=>null!=t&&t.pointerType&&null!=(null==t?void 0:t.pageY)?{x:t.pageX,y:t.pageY}:e?({x:d,y:v}=ne(e),{x:d,y:v}):void 0,ne=e=>e?(c=e.getBoundingClientRect(),u=r3(V),{x:em(c.left+u.x),y:em(c.top+u.y),width:em(c.width),height:em(c.height)}):void 0,nt=(e,t,r,n={capture:!0,passive:!0})=>(t=tV(t),tu(r,r=>tR(t,t=>e.addEventListener(t,r,n)),r=>tR(t,t=>e.removeEventListener(t,r,n)))),nn=()=>({...u=r3(K),width:window.innerWidth,height:window.innerHeight,totalWidth:rH.offsetWidth,totalHeight:rH.offsetHeight}),ni=new WeakMap,na=e=>ni.get(e),nl=(e,t=V)=>(t?\"--track-\":\"track-\")+e,no=(e,t,r,n,i,a)=>(null==t?void 0:t[1])&&tR(r2(e),l=>{var o;return null!=(o=(f=t[0])[p=l])?o:f[p]=(a=V,!ea(n=tR(t[1],([t,r,n],i)=>tm(l,t)&&(a=void 0,!r||rG(e,r))&&eS(null!=n?n:l)))||(i=e.getAttribute(l))&&!er(i)||rq(i,tN(n,/\\-/g,\":\"),r),a)}),nu=()=>{},ns=(e,t)=>{if(h===(h=ng.tags))return nu(e,t);var r=e=>e?tx(e)?[[e]]:eh(e)?e_(e,r):[ev(e)?[tA(e.match),e.selector,e.prefix]:[tA(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(tB(h,([,e])=>e,1))]];(nu=(e,t)=>no(e,n,t))(e,t)},nd=(e,t)=>t7(ej(r6(e,nl(t,K)),r6(e,nl(\"base-\"+t,K))),\" \"),nv={},nc=(e,t,r=nd(e,\"attributes\"))=>{var n;r&&no(e,null!=(n=nv[r])?n:nv[r]=[{},tb(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[tA(r||n),,t])],t),rq(nd(e,\"tags\"),void 0,t)},nf=(e,t,r=V,n)=>null!=(r=null!=(r=r?rZ(e,(e,r)=>r(nf(e,t,V)),ep(r)?r:void 0):t7(ej(rQ(e,nl(t)),r6(e,nl(t,K))),\" \"))?r:n&&(g=na(e))&&n(g))?r:null,np=(e,t,r=V,n)=>\"\"===(y=nf(e,t,r,n))||(null==y?y:er(y)),nh=(e,t,r,n)=>e&&(null==n&&(n=new Map),nc(e,n),rZ(e,e=>{ns(e,n),rq(null==r?void 0:r(e),void 0,n)},t),n.size)?{tags:[...n.values()]}:{},ng={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,json:!1,impressionThreshold:1e3,captureContextMenu:!0,tags:{default:[\"data-id\",\"data-name\"]}},ny=[],nm=[],nb=(e,t=0)=>e.charCodeAt(t),nk=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>ny[nm[t]=e.charCodeAt(0)]=t),e=>{for(var t,r=0,n=e.length,i=[];r<n;)t=e[r++]<<16|e[r++]<<8|e[r++],i.push(nm[(16515072&t)>>18],nm[(258048&t)>>12],nm[(4032&t)>>6],nm[63&t]);return i.length+=n-r,(e=>String.fromCharCode(...e))(i)}),nS=e=>{for(var t,r=0,n=0,i=e.length,a=new Uint8Array(3*(i/4|0)+(i+3&3)%3);r<i;)a[n++]=ny[nb(e,r++)]<<2|(t=ny[nb(e,r++)])>>4,r<i&&(a[n++]=(15&t)<<4|(t=ny[nb(e,r++)])>>2,r<i)&&(a[n++]=(3&t)<<6|ny[nb(e,r++)]);return a},nT={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},nI=(e=256)=>e*Math.random()|0,nA={exports:{}},{deserialize:nE,serialize:nN}=((()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,i=new Uint8Array(128),a=0;if(t&&t.multiple)for(var l=0;l<e.length;l++)o(e[l]);else o(e);return i.subarray(0,a);function o(e,i){var c,l;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var t;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?d([204,e]):-128<=e&&e<=127?d([208,e]):0<e&&e<=65535?d([205,e>>>8,e]):-32768<=e&&e<=32767?d([209,e>>>8,e]):0<e&&e<=4294967295?d([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?d([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?d([211,(t=e/4294967296)>>>24,t>>>16,t>>>8,t,(t=e%4294967296)>>>24,t>>>16,t>>>8,t]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),v(e)):d(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(r=new ArrayBuffer(8))).setFloat64(0,e),s(203),d(new Uint8Array(r)))})(e);break;case\"string\":(c=(l=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(127<e.charCodeAt(n)){t=!1;break}for(var i=0,a=new Uint8Array(e.length*(t?1:4)),l=0;l!==r;l++){var o=e.charCodeAt(l);if(o<128)a[i++]=o;else{if(o<2048)a[i++]=o>>6|192;else{if(55295<o&&o<56320){if(++l>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(l);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+l+\" out of range\");a[i++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,a[i++]=o>>12&63|128}else a[i++]=o>>12|224;a[i++]=o>>6&63|128}a[i++]=63&o|128}}return t?a:a.subarray(0,i)})(e)).length)<=31?s(160+c):d(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),d(l);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var r,t=e.getTime()/1e3;0===e.getMilliseconds()&&0<=t&&t<4294967296?d([214,255,t>>>24,t>>>16,t>>>8,t]):0<=t&&t<17179869184?d([215,255,(r=1e6*e.getMilliseconds())>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t]):(d([199,12,255,(r=1e6*e.getMilliseconds())>>>24,r>>>16,r>>>8,r]),v(t))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((l=(c=e).length)<=255?d([196,l]):d(l<=65535?[197,l>>>8,l]:[198,l>>>24,l>>>16,l>>>8,l]),d(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var r,t=0;for(r in e)void 0!==e[r]&&t++;for(r in t<=15?s(128+t):d(t<=65535?[222,t>>>8,t]:[223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(o(r),o(n))}})(e);break;default:if(i||!t||!t.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof t.invalidTypeReplacement?o(t.invalidTypeReplacement(e),!0):o(t.invalidTypeReplacement,!0)}}function u(e){var t=e.length;t<=15?s(144+t):d(t<=65535?[220,t>>>8,t]:[221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;r<t;r++)o(e[r])}function s(e){if(i.length<a+1){for(var t=2*i.length;t<a+1;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i[a]=e,a++}function d(e){if(i.length<a+e.length){for(var t=2*i.length;t<a+e.length;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i.set(e,a),a+=e.length}function v(e){var t,e=0<=e?(t=e/4294967296,e%4294967296):(t=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));d([t>>>24,t>>>16,t>>>8,t,e>>>24,e>>>16,e>>>8,e])}}function r(e,t){var r,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(i());else r=i();return r;function i(){var t=e[n++];if(0<=t&&t<=127)return t;if(128<=t&&t<=143)return s(t-128);if(144<=t&&t<=159)return d(t-144);if(160<=t&&t<=191)return v(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return u(-1,1);if(197===t)return u(-1,2);if(198===t)return u(-1,4);if(199===t)return c(-1,1);if(200===t)return c(-1,2);if(201===t)return c(-1,4);if(202===t)return o(4);if(203===t)return o(8);if(204===t)return l(1);if(205===t)return l(2);if(206===t)return l(4);if(207===t)return l(8);if(208===t)return a(1);if(209===t)return a(2);if(210===t)return a(4);if(211===t)return a(8);if(212===t)return c(1);if(213===t)return c(2);if(214===t)return c(4);if(215===t)return c(8);if(216===t)return c(16);if(217===t)return v(-1,1);if(218===t)return v(-1,2);if(219===t)return v(-1,4);if(220===t)return d(-1,2);if(221===t)return d(-1,4);if(222===t)return s(-1,2);if(223===t)return s(-1,4);if(224<=t&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function a(t){for(var a,r=0,i=!0;0<t--;)i?(r+=127&(a=e[n++]),128&a&&(r-=128),i=!1):r=(r*=256)+e[n++];return r}function l(t){for(var r=0;0<t--;)r=256*r+e[n++];return r}function o(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return n+=t,4===t?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function u(t,r){t<0&&(t=l(r));r=e.subarray(n,n+t);return n+=t,r}function s(e,t){e<0&&(e=l(t));for(var r={};0<e--;)r[i()]=i();return r}function d(e,t){e<0&&(e=l(t));for(var r=[];0<e--;)r.push(i());return r}function v(t,r){t<0&&(t=l(r));r=n;return n+=t,((e,t,r)=>{var n=t,i=\"\";for(r+=t;n<r;){var a=e[n++];if(127<a)if(191<a&&a<224){if(r<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");a=(31&a)<<6|63&e[n++]}else if(223<a&&a<240){if(r<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");a=(15&a)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<a&&a<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+a.toString(16)+\" at index \"+(n-1));if(r<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");a=(7&a)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(a<=65535)i+=String.fromCharCode(a);else{if(!(a<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+a.toString(16)+\" exceeds UTF-16 reach\");a-=65536,i+=String.fromCharCode(a>>10|55296)+String.fromCharCode(1023&a|56320)}}return i})(e,r,t)}function c(e,t){e<0&&(e=l(t));t=l(1),e=u(e);return 255===t?(e=>{var r,t;if(4===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*t);if(8===e.length)return r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*t+r/1e6);if(12===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,t=a(8),new Date(1e3*t+r/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:t,data:e}}}var n={serialize:t,deserialize:r,encode:t,decode:r};nA.exports=n})(),(x=nA.exports)&&x.__esModule&&Object.prototype.hasOwnProperty.call(x,\"default\")?x.default:x),nO=\"$ref\",n$=(e,t,r)=>ef(e)?J:r?t!==J:null===t||t,n_=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var i,a,l,o=(e,t,n=e[t],i=n$(t,n,r)?s(n):J)=>(n!==i&&(i!==J||eo(e)?e[t]=i:delete e[t],u(()=>e[t]=n)),i),u=e=>(null!=i?i:i=[]).push(e),s=e=>{if(null==e||ep(e)||ef(e))return J;if(ed(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(l=null==a?void 0:a.get(e)))return e[nO]||(e[nO]=l,u(()=>delete e[nO])),{[nO]:l};if(ev(e))for(var t in(null!=a?a:a=new Map).set(e,a.size+1),e)o(e,t);else!eh(e)||e instanceof Uint8Array||(!eo(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?o(e,r):(e[r]=null,u(()=>delete e[r])))}return e};return q(()=>{var r;return t?nN(null!=(r=s(e))?r:null):q(()=>JSON.stringify(e,J,n?2:0),()=>JSON.stringify(s(e),J,n?2:0))},!0,()=>null==i?void 0:i.forEach(e=>e()))},nj=e=>{var t,r,n=e=>ed(e)?e[nO]&&(r=(null!=t?t:t=[])[e[nO]])?r:(e[nO]&&delete(t[e[nO]]=e)[nO],Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(ea(e)?q(()=>JSON.parse(e),()=>console.error(\"Invalid JSON received.\",e)):null!=e?q(()=>nE(e),()=>(console.error(\"Invalid message received.\",e),J)):e)},nC=(e,t={})=>{var r=(e,{json:t=!1,decodeJson:r=!1,...n})=>{var l,o,u,i=(e,r)=>ei(e)&&!0===r?e:u(e=ea(e)?new Uint8Array(tP(e.length,t=>255&e.charCodeAt(t))):t?q(()=>JSON.stringify(e),()=>JSON.stringify(n_(e,!1,n))):n_(e,!0,n),r),a=e=>null==e?J:q(()=>nj(e),J);return t?[e=>n_(e,!1,n),a,(e,t)=>i(e,t)]:([l,o,u]=(e=>{for(var t,r,n,i,a,o,l=0n,u=0n,s=[],d=0,v=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],v=255&(d=f),c=-1}:()=>{},g=e=>(v=255&(d+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),i=16-((t=e.length)+4)%16,a=new Uint8Array(4+t+i),n=0;n<3;a[n++]=g(nI()));for(r=0,a[n++]=g(v^16*nI(16)+i);r<t;a[n++]=g(v^e[r++]));for(;i--;)a[n++]=nI();return a}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((v^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,a=new Uint8Array(t);n<t;a[n++]=v^g(e[r++]));return a}:e=>e,(e,t=64)=>{if(null==e)return null;for(o=et(t)?64:t,h(),[l,u]=nT[o],r=0;r<e.length;l=BigInt.asUintN(o,(l^BigInt(v^g(e[r++])))*u));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+l%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):l.toString(36)}]})(e),[(e,t)=>(t?G:nk)(l(n_(e,!0,n))),e=>null!=e?nj(o(e instanceof Uint8Array?e:(r&&ew(e)?a:nS)(e))):null,(e,t)=>i(e,t)])};if(!e){var n=+(null!=(n=t.json)?n:0);if(n&&!1!==t.prettify)return(null!=m?m:m=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[n]}return r(e,t)},tc=(nC(),nC(null,{json:!0,decodeJson:!0}),nC(null,{json:!0,prettify:!0}),tE(\"\"+rK.currentScript.src,\"#\")),rr=tE(\"\"+(tc[1]||\"\"),\";\"),nF=tc[0],nq=rr[1]||(null==(x=th(nF,{delimiters:!1}))?void 0:x.host),nz=e=>!(!nq||(null==(e=th(e,{delimiters:!1}))||null==(e=e.host)?void 0:e.endsWith(nq))!==K),tc=(...e)=>tN(t7(e),/(^(?=\\?))|(^\\.(?=\\/))/,nF.split(\"?\")[0]),nP=tc(\"?\",\"var\"),nW=tc(\"?\",\"mnt\"),nB=(tc(\"?\",\"usr\"),Symbol()),[nD,nJ]=nC(),[nL,nV]=[rL,rL],nK=!0,[rr,nG]=Q(),nY=(...e)=>{var r,a=e.shift();console.error(e[1]instanceof Error?e[1].message:ea(e[1])?e.shift():null!=(r=null==(r=e[1])?void 0:r.message)?r:\"An error occurred\",null!=(r=a.id)?r:a,...e)},[nQ,n0]=Q(),[n1,n2]=Q(),n6=e=>n5!==(n5=e)&&n0(n5=!1,n9(!0,!0)),n4=e=>n3!==(n3=!!e&&\"visible\"===document.visibilityState)&&n2(n3,!e,n8(!0,!0)),n5=(nQ(n4),!0),n3=!1,n8=e9(!1),n9=e9(!1),n7=(nt(window,[\"pagehide\",\"freeze\"],()=>n6(!1)),nt(window,[\"pageshow\",\"resume\"],()=>n6(!0)),nt(document,\"visibilitychange\",()=>(n4(!0),n3&&n6(!0))),n0(n5,n9(!0,!0)),!1),ie=e9(!1),[,ir]=Q(),ii=te({callback:()=>n7&&ir(n7=!1,ie(!1)),frequency:2e4,once:!0,paused:!0}),x=()=>!n7&&(ir(n7=!0,ie(!0)),ii.restart()),il=(nt(window,[\"focus\",\"scroll\"],x),nt(window,\"blur\",()=>ii.trigger()),nt(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],x),x(),()=>ie()),io=0,iu=void 0,is=()=>(null!=iu?iu:rL())+\"_\"+id(),id=()=>(e8(!0)-(parseInt(iu.slice(0,-2),36)||0)).toString(36)+\"_\"+(++io).toString(36),ip=new Map,ih={id:iu,heartbeat:e8()},ig={knownTabs:new Map([[iu,ih]]),variables:new Map},[iy,im]=Q(),[ib,iw]=Q(),ik=rL,iS=(e,t=e8())=>{e=ip.get(ea(e)?e:rB(e));return null!=e&&e.cache&&e.cache[0]+e.cache[1]<=t?void 0:e},iT=(...e)=>{var t=e8();return ix(tP(e,e=>(e.cache=[t],[rT(e),{...e,created:t,modified:t,version:\"0\"}])))},iI=e=>null!=(e=tP(e,e=>{var t,r;return e&&(t=rB(e[0]),(r=ip.get(t))!==e[1])?[t,e[1],r,e[0]]:t_}))?e:[],ix=e=>{var r,n,e=iI(e);null!=e&&e.length&&(r=e8(),tR(e,([,e,t])=>{e&&!e.cache&&(e.cache=null!=(e=null==t?void 0:t.cache)?e:[r,3e3])}),t5(ip,e),(n=tW(e,([,,,e])=>0<rR.compare(e.scope,\"tab\"))).length&&ik({type:\"patch\",payload:t4(n)}),iw(tP(e,([,e,t,r])=>[r,e,t]),ip,!0))},[,iE]=(rr((e,t)=>{nQ(r=>{var n;r?(r=t(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),iu=null!=(n=null==r?void 0:r[0])?n:e8(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),ip=new Map(tK(tW(ip,([,e])=>\"view\"===(null==e?void 0:e.scope)),tP(null==r?void 0:r[1],e=>[rB(e),e])))):sessionStorage.setItem(\"_tail:state\",e([iu,tP(ip,([,e])=>e&&\"view\"!==e.scope?e:t_)]))},!0),ik=(t,r)=>{e&&(localStorage.setItem(\"_tail:state\",e([iu,t,r])),localStorage.removeItem(\"_tail:state\"))},nt(window,\"storage\",e=>{var a,l,o;\"_tail:state\"!==e.key||!(e=null==t?void 0:t(e.newValue))||e[2]&&e[2]!==iu||([e,{type:a,payload:l}]=e,\"query\"===a?r.active||ik({type:\"set\",payload:[tP(ig.knownTabs),tP(ig.variables)]},e):\"set\"===a&&r.active?(ig.knownTabs=new Map(l[0]),ig.variables=new Map(l[1]),ip=new Map(l[1]),r.trigger()):\"patch\"===a?(o=iI(tP(l,([e,t])=>[rD(e),t])),t5(ig.variables,l),t5(ip,l),iw(tP(o,([,e,t,r])=>[r,e,t]),ip,!1)):\"tab\"===a&&(t2(ig.knownTabs,e,l),l)&&im(\"tab\",l,!1))});var r=te(()=>im(\"ready\",ig,!0),-25),n=te({callback(){var e=e8()-1e4;tR(ig.knownTabs,([t,r])=>r[0]<e&&t2(ig.knownTabs,t,void 0)),ih.heartbeat=e8(),ik({type:\"tab\",payload:ih})},frequency:5e3,paused:!0});nQ(e=>(e=>{ik({type:\"tab\",payload:e?ih:void 0}),e?(r.restart(),ik({type:\"query\"})):r.toggle(!1),n.toggle(e)})(e),!0)},!0),Q()),[iN,iO]=Q(),i$=(({timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var i=()=>(r?nV:nJ)(localStorage.getItem(\"_tail:rq\")),a=0,l=()=>localStorage.setItem(\"_tail:rq\",(r?nL:nD)([iu,e8()+t]));return async(r,o,u=null!=o?1:n)=>{for(;u--;){var d=i();if((!d||d[1]<e8())&&(l(),(null==(d=i())?void 0:d[0])===iu))return 0<t&&(a=setInterval(()=>l(),t/2)),P(r,!0,()=>{clearInterval(a),localStorage.removeItem(\"_tail:rq\")});var v=tl(),[d]=nt(window,\"storage\",t=>{\"_tail:rq\"!==t.key||t.newValue||v.resolve()});e=[ta(null!=o?o:t),v],await Promise.race(e.map(e=>ep(e)?e():e)),d()}var e;null==o&&C(\"_tail:rq could not be acquired.\")}})(),i_=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{n=n&&nK;var i,a,l=!1,o=r=>{var o=ep(t)?null==t?void 0:t(i,r):t;return!1!==o&&(iE(e,i=null!=o&&!0!==o?o:i,r,e=>(l=i===J,i=e)),!l)&&(a=n?nL(i,!0):JSON.stringify(i))};if(!r)return i$(()=>ez(1,async t=>{var l;return o(t)?400<=(l=await fetch(e,{method:null!=i?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain; charset=iso-8859-1\"},body:a})).status?0===t?eS(C(\"Invalid response: \"+await l.text())):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await ta(200*(1+t))):(null!=(l=null!=(t=n?new Uint8Array(await l.arrayBuffer()):await l.text())&&t.length?null==(l=n?nV:JSON.parse)?void 0:l(t):J)&&iO(l),eS(l)):eS()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=i?[a]:[],{type:\"text/plain; charset=iso-8859-1\"}))&&C(\"Beacon send failed.\")},tc=[\"scope\",\"key\",\"entityId\",\"source\"],iC=[...tc,\"purpose\",\"ifModifiedSince\",\"ifNoneMatch\"],iM=[...tc,\"value\",\"force\",\"ttl\",\"version\"],iU=new Map,iF=(e,t)=>{var r=te(async()=>{var e=tP(iU,([e,t])=>({...rD(e),result:[...t]}));e.length&&await l.get(e)},3e3),n=(e,t)=>t&&t1(iU,e,()=>new Set).add(t),l=(nQ((e,t)=>r.toggle(e,e&&3e3<=t),!0),ib(e=>tR(e,([e,t])=>(e=>{var t,r;e&&(t=rB(e),null!=(r=e1(iU,t)))&&r.size&&tR(r,r=>!0===r(e)&&n(t,r))})(t?{status:a.Success,...t}:{status:a.NotFound,...e}))),{get:r=>rj(\"get\",r,async r=>{r[0]&&!ea(r[0])||(o=r[0],r=r.slice(1)),null!=t&&t.validateKey(o);var u=new Map,s=[],d=tP(r,e=>{var t=iS(rB(e)),r=e.purpose;if(r&&!0!==(null==t||null==(i=t.schema)?void 0:i.usage.purposes[r]))u.set(e,{...e,status:a.Forbidden,error:`No consent for '${r}'.`});else if(e.refresh&&t)u.set(e,{status:a.Success,...t});else{if(!rW(e))return[t8(e,iC),e];var i,r=null==(i=e.init)?void 0:i.call(e);r?(r={...rT(e),version:\"1\",created:v,modified:v,value:r,cache:[v,null!=(i=e.ttl)?i:null==t?void 0:t.ttl]},t6(s,[rT(r),r]),u.set(e,{status:a.Success,...r})):u.set(e,{status:a.NotFound,...rT(e)})}return t_}),v=e8(),o=d.length&&(null==(o=await i_(e,{variables:{get:tP(d,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId}))||null==(r=o.variables)?void 0:r.get)||[],f=[];return tR(o,(e,t)=>{var n,r;(null==e?void 0:e.status)===a.NotFound?null!=(r=null==(r=(n=d[t][1]).init)?void 0:r.call(n))&&f.push([n,{...rT(n),value:r}]):u.set(d[t][1],rP(e))}),f.length&&tR(await l.set(tP(f,([,e])=>e)).all(),(e,t)=>u.set(f[t][0],rP(e.status===a.Conflict?{...e,status:a.Success}:e))),s.length&&ix(s),u},{poll:(e,t)=>n(rB(e),t),logCallbackError:(e,t,r)=>nY(\"Variables.get\",e,{operation:t,error:r})}),set:r=>rj(\"set\",r,async r=>{r[0]&&!ea(r[0])||(v=r[0],r=r.slice(1)),null!=t&&t.validateKey(v);for(var n=[],i=new Map,o=e8(),u=[],s=tP(r,e=>{var s,r,t=iS(rB(e));return rW(e)?((r=null==(s=e.patch?e.patch(null==t?void 0:t.value):e.value)?void 0:{...rT(e),created:null!=(r=null==t?void 0:t.created)?r:o,modified:o,version:null!=t&&t.version?\"\"+(parseInt(t.version)+1):\"1\",scope:e.scope,key:e.key,value:s,cache:[o,e.ttl]})&&(r.cache=[o,null!=(s=e.ttl)?s:3e3]),i.set(e,r?{status:t?a.Success:a.Created,...r}:{status:a.Success,...rT(e)}),t6(n,[rT(e),r]),t_):e.patch?(u.push(e),t_):(void 0===(null==e?void 0:e.version)&&(e.version=null==t?void 0:t.version),[t8(e,iM),e])}),d=0;!d++||u.length;){var v,f=await l.get(tP(u,e=>rT(e))).all(),f=(tR(f,(e,t)=>{var r=u[t];rx(e,!1)?t6(s,[{...r,patch:void 0,value:u[t].patch(null==e?void 0:e.value),version:e.version},r]):i.set(r,e)}),u=[],s.length?F(null==(f=(await i_(e,{variables:{set:tP(s,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId})).variables)?void 0:f.set,\"No result.\"):[]);tR(f,(e,t)=>{var[,t]=s[t];d<=3&&t.patch&&((null==e?void 0:e.status)===a.Conflict||(null==e?void 0:e.status)===a.NotFound)?t6(u,t):i.set(t,rP(e))})}return n.length&&ix(n),i},{logCallbackError:(e,t,r)=>nY(\"Variables.set\",e,{operation:t,error:r})})});return iN(({variables:e})=>{e&&null!=(e=tK(tP(e.get,e=>rI(e)?e:t_),tP(e.set,e=>rx(e)?e:t_)))&&e.length&&ix(tP(e,e=>[rT(e),rx(e)?e:void 0]))}),l},iq=Symbol(),iR=Symbol(),iP=[.75,.33],iW=[.25,.33],iD=e=>tP(tG(e,[e=>e.scope,e=>e.key]),e=>e?[e,`${rS(e)}, ${rW(e)?\"client-side memory only\":ro(null==(e=e.schema)?void 0:e.usage)})`,V]:t_),iK=(e,t=\"A\"===r4(e)&&rQ(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),iH=(e,t=r4(e),r=np(e,\"button\"))=>r!==V&&(U(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&U(r1(e,\"type\"),\"button\",\"submit\")||r===K),iG=(e,t=!1)=>{var r;return{tagName:e.tagName,text:td((null==(r=rQ(e,\"title\"))?void 0:r.trim())||(null==(r=rQ(e,\"alt\"))?void 0:r.trim())||(null==(r=e.innerText)?void 0:r.trim()),100),href:null==(r=e.href)?void 0:r.toString(),rect:t?ne(e):void 0}},iZ=e=>{if(w)return w;ea(e)&&([r,e]=nJ(e),e=nC(r,{decodeJson:!0})[1](e)),eZ(ng,e),(e=>{nV===rL&&([nL,nV]=nC(e,{json:!e,prettify:!1}),nK=!!e,nG(nL,nV))})(e1(ng,\"encryptionKey\"));var r,l,o,u,s,d,v,c,f,p,h,g,y,i=e1(ng,\"key\"),a=null!=(e=null==(r=rV[ng.name])?void 0:r._)?e:[];if(eo(a))return l=[],o=[],u=(e,...t)=>{var r=K;o=eB(o,n=>q(()=>{var i;return null!=(i=n[e])&&i.call(n,...t,{tracker:w,unsubscribe:()=>r=V}),r},(e=>t=>nY(e,t))(n)))},s=[],v=iF(nP,d={applyEventExtensions(e){return null==e.clientId&&(e.clientId=is()),null==e.timestamp&&(e.timestamp=e8()),h=K,tR(l,([,t])=>{var r;return(null==(r=t.decorate)?void 0:r.call(t,e))===V&&tj(!0)})?void 0:e},validateKey:(e,t=!0)=>!i&&!e||e===i||!!t&&C(`'${e}' is not a valid key.`)}),c=((e,t)=>{var n=[],i=new WeakMap,a=new Map,l=(e,t)=>{var r;return null!=(r=e.metadata)&&r.queued?eX(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):C(\"Source event not queued.\")},o=async(r,n=!0,i)=>{var a;return r[0]&&!ea(r[0])||(a=r[0],r=r.slice(1)),i_(e,{events:r=tP(r,e=>{if(null!=t&&t.validateKey(null!=a?a:e.key),eX(e,{metadata:{posted:!0}}),e[iq]){if(!1===e[iq](e))return;delete e[iq]}return eX(rs(e6(e),!0),{timestamp:e.timestamp-e8()})}),variables:i,deviceSessionId:null==t?void 0:t.deviceSessionId},{beacon:n})},u=async(e,{flush:r=!1,async:i=!0,variables:a}={})=>{var l=[];if(e=tP(tV(e),e=>{var r;return null!=(r=e.metadata)&&r.queued||e4(l,e),null!=(r=t3(t.applyEventExtensions(e),{metadata:{queued:!0}}))?r:t_}),tR(l,e=>{}),!i)return o(e,!1,a);r?(n.length&&e5(e,...n.splice(0)),e.length&&await o(e,!0,a)):e.length&&e4(n,...e)};return te(()=>u([],{flush:!0}),5e3),n1((e,t,r)=>{!e&&(n.length||t||1500<r)&&(e=tP(a,([e,t])=>{var[t,n]=t();return n&&(a.delete(e),i.delete(e)),null!=t?t:t_}),n.length||e.length)&&u(ej(n.splice(0),e),{flush:!0})}),{post:u,postPatch:(e,t,r)=>u(l(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var o=!1,s=()=>{o=!0};return i.set(e,e6(e)),a.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))s();else{var a=i.get(e),[r,d]=null!=(r=e3(t(a,s),a))?r:[];if(r&&!M(d,a))return i.set(e,e6(d)),[l(e,r),o]}return[void 0,o]}),r&&u(e),s}}})(nP,d),f=null,p=0,g=h=V,y=!1,w=(...e)=>{if(y){if(e.length){1<e.length&&(!e[0]||ea(e[0]))&&(t=e[0],e=e.slice(1)),ea(e[0])&&(r=e[0],e=ew(r)?JSON.parse(r):nJ(r));var t,n=V;if((e=eB(tB(e,e=>ea(e)?nJ(e):e),e=>{if(!e)return V;if(ay(e))ng.tags=eZ({},ng.tags,e.tagAttributes);else{if(am(e))return ng.disabled=e.disable,V;if(ak(e))return n=K,V;if(aE(e))return e(w),V}return g||aT(e)||aw(e)?K:(s.push(e),V)})).length||n){var r=eK(e,e=>aw(e)?-100:aT(e)?-50:aA(e)?-10:rC(e)?90:0);if(!f||!f.splice(h?p+1:f.length,0,...r)){for(p=0,f=r;p<f.length;p++){var m=f[p];m&&(d.validateKey(null!=t?t:m.key),q(()=>{var e=f[p];if(u(\"command\",e),h=V,rC(e))c.post(e);else if(aS(e))v.get(tV(e.get));else if(aA(e))v.set(tV(e.set));else if(aT(e))e4(o,e.listener);else if(aw(e))(t=q(()=>e.extension.setup(w),t=>nY(e.extension.id,t)))&&(e4(l,[null!=(r=e.priority)?r:100,t,e.extension]),eK(l,([e])=>e));else if(aE(e))e(w);else{var r,n,t,a=V;for([,t]of l)if(a=null!=(n=null==(n=t.processCommand)?void 0:n.call(t,e))?n:V)break;a||nY(\"invalid-command\",e,\"Loaded extensions:\",tP(l,e=>e[2].id))}},e=>nY(w,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}}else a.push(...e)},Object.defineProperty(rV,ng.name,{value:Object.freeze(Object.assign(w,{id:\"tracker_\"+is(),events:c,variables:v,__isTracker:K})),configurable:!1,writable:!1}),ib((e,t,r)=>{ej(iD(tP(e,([,e])=>e||t_)),[[{[nB]:iD(tP(t,([,e])=>e||t_))},\"All variables\",K]])}),iy(async(e,t,r,n)=>{var l;\"ready\"===e&&([e,l]=await v.get([{scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:L}]).values(!0),d.deviceSessionId=e.deviceSessionId,e.hasUserAgent||((()=>{w(W({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==k?void 0:k.clientId,languages:tP(navigator.languages,(e,t)=>{var[r,n]=e.split(\"-\");return W({id:e,language:r,region:n,primary:0===t,preference:t+1})}),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...(r=null==rV?void 0:rV.screen,r?({width:r,height:i,orientation:a}=r,l=r<i,-90!==(a=null!=(a=null!=(a=null==a?void 0:a.angle)?a:rV.orientation)?a:0)&&90!==a||([r,i]=[i,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:rV.devicePixelRatio,width:r,height:i,landscape:l}}):{})}));var i,l,a,r})(),e.hasUserAgent=!0),g=!0,s.length&&w(s),n(),y=!0,w(...tP(af,e=>({extension:e})),...a),w({set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0),w;C(`The global variable for the tracker \"${ng.name}\" is used for something else than an array of queued commands.`)},iY=()=>null==k?void 0:k.clientId,iQ={scope:\"shared\",key:\"referrer\"},i0=(e,t)=>{w.variables.set({...iQ,value:[iY(),e]}),t&&w.variables.get({scope:iQ.scope,key:iQ.key,poll:(r,n,i)=>!!r||(null==i?void 0:i[1])===e&&t()&&!1})},i1=e9(),i2=e9(),i6=1,[i5,i3]=Q(),i8=e=>{var t=e9(e,i1),r=e9(e,i2),n=e9(e,il),i=e9(e,()=>i6);return(e,a)=>({totalTime:t(e,a),visibleTime:r(e,a),activeTime:n(e,a),activations:i(e,a)})},i9=i8(),[ae,at]=Q(),ar=(e,t)=>(t&&tR(ai,t=>e(t,()=>!1)),ae(e)),an=new WeakSet,ai=document.getElementsByTagName(\"iframe\");function al(e){if(e){if(null!=e.units&&U(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var au=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),as=e=>nh(e,t=>t!==e&&!!au(ni.get(t)),e=>(T=ni.get(e),(T=ni.get(e))&&e_(ej(T.component,T.content,T),\"tags\"))),ad=(e,t)=>t?e:{...e,rect:void 0,content:(I=e.content)&&tP(I,e=>({...e,rect:void 0}))},av=(e,t=V,r)=>{var n,i,a,l=[],o=[],u=0;return rZ(e,e=>{var s,a,i=ni.get(e);i&&(au(i)&&(a=eB(tV(i.component),e=>{var r;return 0===u||!t&&(1===u&&(null==(r=e.track)?void 0:r.secondary)!==K||(null==(r=e.track)?void 0:r.promote))}),n=(null!=r?r:eV(a,e=>null==(e=e.track)?void 0:e.region))&&ne(e)||void 0,s=as(e),i.content&&e5(l,...tP(i.content,e=>({...e,rect:n,...s}))),null!=a)&&a.length&&(e5(o,...tP(a,e=>{var t;return u=eJ(u,null!=(t=e.track)&&t.secondary?1:2),ad({...e,content:l.length?l:void 0,rect:n,...s},!!n)})),l=[]),a=i.area||nf(e,\"area\"))&&e5(o,a)}),l.length&&e4(o,ad({id:\"\",rect:n,content:l})),tR(o,e=>{ea(e)?e4(null!=i?i:i=[],e):(null==e.area&&(e.area=t7(i,\"/\")),e5(null!=a?a:a=[],e))}),a||i?{components:a,area:t7(i,\"/\")}:void 0},ac=Symbol(),af=[{id:\"context\",setup(e){te(()=>tR(ai,e=>eQ(an,e)&&at(e)),500).trigger(),e.variables.get({scope:\"view\",key:\"view\",poll(t){return null==k||!t||null!=k&&k.definition?null!=(n=t)&&t.navigation&&f(!0):(k.definition=t,null!=(t=k.metadata)&&t.posted&&e.events.postPatch(k,{definition:n})),!0}});var n,t,d=null!=(t=null==(t=iS({scope:\"tab\",key:\"viewIndex\"}))?void 0:t.value)?t:0,v=null==(t=iS({scope:\"tab\",key:\"tabIndex\"}))?void 0:t.value,c=(null==v&&iT({scope:\"tab\",key:\"tabIndex\",value:v=null!=(t=null!=(t=null==(t=iS({scope:\"shared\",key:\"tabIndex\"}))?void 0:t.value)?t:null==(t=iS({scope:\"session\",key:\"@info\"}))||null==(t=t.value)?void 0:t.tabs)?t:0},{scope:\"shared\",key:\"tabIndex\",value:v+1}),null),f=(t=V)=>{var a,l,o,i,p;r8(\"\"+c,c=location.href)&&!t||({source:t,scheme:i,host:a}=th(location.href+\"\",{requireAuthority:!0}),k={type:\"view\",timestamp:e8(),clientId:is(),tab:iu,href:t,path:location.pathname,hash:location.hash||void 0,domain:{scheme:i,host:a},tabNumber:v+1,tabViewNumber:d+1,viewport:nn(),duration:i9(void 0,!0)},0===v&&(k.firstTab=K),0===v&&0===d&&(k.landingPage=K),iT({scope:\"tab\",key:\"viewIndex\",value:++d}),l=tg(location.href),tP([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>{var n;return null!=(e=(null!=(n=(o=k).utm)?n:o.utm={})[e]=null==(n=tV(l[\"utm_\"+e]))?void 0:n[0])?e:t_}),!(k.navigationType=S)&&performance&&tR(performance.getEntriesByType(\"navigation\"),e=>{k.redirects=e.redirectCount,k.navigationType=tN(e.type,/\\_/g,\"-\")}),S=void 0,\"navigate\"===(null!=(t=k.navigationType)?t:k.navigationType=\"navigate\")&&(p=null==(i=iS(iQ))?void 0:i.value)&&nz(document.referrer)&&(k.view=null==p?void 0:p[0],k.relatedEventId=null==p?void 0:p[1],e.variables.set({...iQ,value:void 0})),(p=document.referrer||null)&&!nz(p)&&(k.externalReferrer={href:p,domain:(()=>{var{host:t,scheme:r,port:n}=th(p,{delimiters:!1,requireAuthority:!0});return{host:t+(n?\":\"+n:\"\"),scheme:r}})()}),k.definition=n,n=void 0,e.events.post(k),e.events.registerEventPatchSource(k,()=>({duration:i9()})),i3(k))};return n1(e=>{e?(i2(K),++i6):i2(V)}),nt(window,\"popstate\",()=>(S=\"back-forward\",f())),tR([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),S=\"navigate\",f()}}),f(),{processCommand:t=>ag(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),K),decorate(e){!k||rM(e)||(e=>!(null==e||!e.patchTargetId))(e)||(e.view=k.clientId)}}}},{id:\"components\",setup(e){var t=(e=>{var t=new IntersectionObserver(e=>tR(e,e=>{var t,r;return null==(t=(r=e.target)[iR])?void 0:t.call(r,e)})),r=new Set,n=(te({callback:()=>tR(r,e=>e()),frequency:250,raf:!0}),(e,t,r=0)=>e<r?r:t<e?t:e),i=rK.createRange();return(a,l)=>{var o,u,s,d,v,c,f,p,h,g,y,m,b,w,k,S;l&&(o=eB(null==l?void 0:l.component,e=>{var t;return(null==(t=e.track)?void 0:t.impressions)||(null!=(t=null==(t=e.track)?void 0:t.secondary)?t:e.inferred)!==K}))&&(e=>{var r,n;return null==e?J:null!=(r=null!=(n=e.length)?n:e.size)?r:e[Z]?(r=0,null!=(n=eF(e,()=>++r))?n:0):Object.keys(e).length})(o)&&(p=f=V,g=h=0,y=(e,t,r,n)=>{var i,a=null!=(a=(i=null!=u?u:u=[])[e])?a:i[e]=[{duration:0,impressions:0},e9(!1,il),!1,!1,0,0,0,tO()];a[4]=t,a[5]=r,a[6]=n},m=[tO(),tO()],b=i8(!1),w=e9(!1,il),k=-1,S=()=>{var O,t=a.getBoundingClientRect(),r=window.innerWidth,l=window.innerHeight,S=[n(t.top,l),n(t.right,r),n(t.bottom,l),n(t.left,r)],T=S[2]-S[0],S=S[1]-S[3],E=f?iW:iP,r=(E[0]*l<T||E[0]<(T/t.height||0))&&(E[0]*r<S||E[0]<(S/t.width||0));if(p!==r&&w(p=r,!0),f!==(f=p&&w()>=ng.impressionThreshold-250)&&(++h,b(f),s||e(s=tP(o,e=>((null==(e=e.track)?void 0:e.impressions)||np(a,\"impressions\",K,e=>null==(e=e.track)?void 0:e.impressions))&&W({type:\"impression\",pos:r9(a),viewport:nn(),timeOffset:i9(),impressions:h,...av(a,K)})||t_)),null!=s)&&s.length&&(O=b(),d=tP(s,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:O,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:O.activeTime&&c&&n(O.activeTime/c.readTime,g)})))),t.height!==k){k=t.height;E=a.textContent;if({boundaries:v,...c}=(e=>{for(var r,n,i=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),a=0,l=0,o=0,u=0,s=!1;r=i.exec(e);)r[1]?(s&&++u,s=!1):(s=!0,a+=r[0].length,6<r[0].length&&++o,++l);s&&++u;var i=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),d=[0,.25,.75,1].map(e=>e*a|0),v=[],f=0,p=!1;do{if(null!=(r=i.exec(e))&&r[1])p&&++f;else{for(var c=null==r?void 0:r.index,h=!1,g=0;g<d.length;g++)d[g]--||(v[g]={offset:null!=n?n:c,wordsBefore:f,readTime:em(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(r);return{text:e,length:e.length,characters:a,words:l,sentences:u,lix:em(l/u+100*o/l),readTime:em(l/238*6e4),boundaries:v}})(null!=E?E:\"\"),u||t.height>=1.25*l){var _=rK.createTreeWalker(a,NodeFilter.SHOW_TEXT),j=0,C=0;for(null==u&&(u=[]);C<v.length&&(M=_.nextNode());){var M,U,F,P,B,z=null!=(U=null==(U=M.textContent)?void 0:U.length)?U:0;for(j+=z;j>=(null==(F=v[C])?void 0:F.offset);)i[C%2?\"setEnd\":\"setStart\"](M,v[C].offset-j+z),C++%2&&({top:F,bottom:P}=i.getBoundingClientRect(),B=t.top,C<3?y(0,F-B,P-B,v[1].readTime):(y(1,u[0][4],F-B,v[2].readTime),y(2,F-B,P-B,v[3].readTime)))}}}var r=t.left<0?-t.left:0,E=t.top<0?-t.top:0,L=t.width*t.height;f&&(g=m[0].push(E,E+T)*m[1].push(r,r+S)/L),u&&tR(u,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),i=n(t.bottom>l?l:t.bottom,e[5],e[4]),a=f&&0<i-r,o=e[0];o.duration=e[1](a),a&&(e[3]!==(e[3]=a)&&++e[0].impressions,o.seen=e[7].push(r,i)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},a[iR]=({isIntersecting:e})=>{eZ(r,S,e),e||(tR(d,e=>e()),S())},t.observe(a))}})(e),n=({boundary:e,...n})=>{eY(ni,e,e=>{var t;return(e=>null==e?void 0:{...e,component:tV(e.component),content:tV(e.content),tags:tV(e.tags)})(\"add\"in n?{...e,component:ej(null==e?void 0:e.component,n.component),content:ej(null==e?void 0:e.content,n.content),area:null!=(t=null==n?void 0:n.area)?t:null==e?void 0:e.area,tags:ej(null==e?void 0:e.tags,n.tags),cart:null!=(t=n.cart)?t:null==e?void 0:e.cart,track:null!=(t=n.track)?t:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),t(e,ni.get(e))};return{decorate(e){tR(e.components,t=>{t2(t,\"track\",void 0),tR(e.clickables,e=>t2(e,\"track\",void 0))})},processCommand:e=>ab(e)?(n(e),K):ax(e)?(tR(((e,t)=>{var r,n;return t?(r=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(i=>{if(!n.has(i))for(var a=[];null!=rQ(i,e);){eQ(n,i);var l,o=tE(rQ(i,e),\"|\");rQ(i,e,null);for(var u=0;u<o.length;u++){var d=o[u];if(\"\"!==d){var s=\"-\"===d?-1:parseInt(null!=(s=el(d))?s:\"\",36);if(s<0)a.length+=s;else{if(0===u&&(a.length=0),isNaN(s)&&/^[\"\\[{]/.test(d))for(var c=\"\";u<o.length;u++)try{d=JSON.parse(c+=o[u]);break}catch(e){}0<=s&&t[s]&&(d=t[s]),e4(a,d)}}}e4(r,...tP(a,e=>({add:K,...e,boundary:i})));var f=i.nextElementSibling;\"WBR\"===i.tagName&&null!=(l=i.parentNode)&&l.removeChild(i),i=f}}),r):[]})(e.scan.attribute,e.scan.components),n),K):V}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{nt(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var i,a,l,o,u,s=V;if(rZ(n.target,e=>{iH(e)&&null==l&&(l=e),s=s||\"NAV\"===r4(e);var t,d=na(e),d=null==d?void 0:d.component;!n.button&&null!=d&&d.length&&!u&&(tR(e.querySelectorAll(\"a,button\"),t=>iH(t)&&(3<(null!=u?u:u=[]).length?eS():u.push({...iG(t,!0),component:rZ(t,(e,t,r,n=null==(i=na(e))?void 0:i.component)=>n&&t(n[0]),t=>t===e)}))),u)&&null==o&&(o=e),null==i&&(i=null!=(t=np(e,\"clicks\",K,e=>null==(e=e.track)?void 0:e.clicks))?t:d&&eV(d,e=>(null==(e=e.track)?void 0:e.clicks)!==V)),null==a&&(a=null!=(t=np(e,\"region\",K,e=>null==(e=e.track)?void 0:e.region))?t:d&&eV(d,e=>null==(e=e.track)?void 0:e.region))}),null!=o?o:o=l){var d,v=u&&!l&&i,c=av(null!=l?l:o,!1,v),f=nh(null!=l?l:o,void 0,e=>tW(tV(null==(e=ni.get(e))?void 0:e.tags))),p=(null==i&&(i=!s),{...(a=null==a?K:a)?{pos:r9(l,n),viewport:nn()}:null,...((e,t)=>{var n;return rZ(null!=e?e:t,e=>\"IMG\"===r4(e)||e===t?(n={element:iG(e,!1)},V):K),n})(n.target,null!=l?l:o),...c,timeOffset:i9(),...f});if(l)if(iK(l)){var h=l,c=h.hostname!==location.hostname,{host:f,scheme:m,source:b}=th(h.href,{delimiters:!1,requireAuthority:!0});if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(W({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,T,w=W({clientId:is(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:m},self:K,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||rQ(h,\"target\")!==window.name?(i0(w.clientId),w.self=V,e(w)):r8(location.href,h.href)||(w.exit=w.external,i0(w.clientId))):(k=h.href,(b=nz(k))?i0(w.clientId,()=>e(w)):(T=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||ng.captureContextMenu&&(h.href=nW+\"=\"+T+encodeURIComponent(k),nt(window,\"storage\",(t,r)=>\"_tail:push\"===t.key&&(t.newValue&&(null==(t=JSON.parse(t.newValue))?void 0:t.requestId)===T&&e(w),r())),nt(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),h.href=k}))))}else{rZ(n.target,(e,t)=>{var r;return!!(null!=d?d:d=(e=>ea(e=null==e||e!==K&&\"\"!==e?e:\"add\")&&U(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ed(e)?e:void 0)(null!=(r=null==(r=na(e))?void 0:r.cart)?r:nf(e,\"cart\")))&&!d.item&&(d.item=(e=>null==e?J:eo(e)||ea(e)?e[e.length-1]:eF(e,(e,r)=>e,void 0,void 0))(null==(r=na(e))?void 0:r.content))&&t(d)});c=al(d);(c||i)&&e(W(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else v&&eY(t,o,r=>{var i=r7(o,n);return r?e4(r,i):(i=W({type:\"component_click_intent\",...p,clicks:r=[i],clickables:u}),e.events.registerEventPatchSource(i,()=>({clicks:t.get(o)}),!0,o)),r})}})};r(document),ar(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=r3(K);i5(()=>{return e=()=>(t={},r=r3(K)),setTimeout(e,250);var e}),nt(window,\"scroll\",()=>{var a,n=r3(),i={x:(u=r3(V)).x/(rH.offsetWidth-window.innerWidth)||0,y:u.y/(rH.offsetHeight-window.innerHeight)||0};n.y>=r.y&&(a=[],!t.fold&&n.y>=r.y+200&&(t.fold=K,e4(a,\"fold\")),!t[\"page-middle\"]&&.5<=i.y&&(t[\"page-middle\"]=K,e4(a,\"page-middle\")),!t[\"page-end\"]&&.99<=i.y&&(t[\"page-end\"]=K,e4(a,\"page-end\")),(n=tP(a,e=>W({type:\"scroll\",scrollType:e,offset:i}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(t){var r;return ah(t)?(\"clear\"===(r=t.cart)?e({type:\"cart_updated\",action:\"clear\"}):(r=al(r))&&e({...r,type:\"cart_updated\"}),K):aI(t)?(e({type:\"order\",...t.order}),K):V}})},{id:\"forms\",setup(e){var t,r=new Map,n=(e,t=!1)=>{var r=!t||r0(e,nl(\"form-value\")),e=(t&&(r=r?er(r):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return t&&(e=e&&td(e,200)),r?e:void 0},i=t=>{var i,l,s,a=t.form;if(a)return l=r0(a,nl(\"ref\"))||\"track_ref\",(s=t1(r,a,()=>{var t,r=new Map,n={type:\"form\",name:r0(a,nl(\"form-name\"))||rQ(a,\"name\")||a.id||void 0,activeTime:0,totalTime:0,fields:{}},s=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:i9()})),((e=0)=>{var t,r,n=(i,a=e)=>{if(void 0===i)return!!r;clearTimeout(t),et(i)?i&&(a<0?en:D)(null==r?void 0:r())?n(r):r=void 0:(r=i,t=setTimeout(()=>n(!0,a),a<0?-a:a))};return n})());return nt(a,\"submit\",()=>{i=av(a),t[3]=3,s(()=>{(a.isConnected&&0<ne(a).width?(t[3]=2,s):()=>{o(),2<=t[3]&&(n.completed=3===t[3]||!(a.isConnected&&ne(a).width)),e.events.postPatch(n,{...i,totalTime:e8(K)-t[4]}),t[3]=1})()},750)}),t=[n,r,a,0,e8(K),1]}))[1].get(t)||tR(a.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,t)=>{var d,v,a;e.name&&\"hidden\"!==e.type?(a=null!=(d=(a=s[0].fields)[v=e.name])?d:a[v]={id:e.id||v,name:v,label:tN(null!=(v=null==(d=e.labels)||null==(a=d[0])?void 0:a.innerText)?v:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(d=e.type)?d:\"unknown\",[ac]:n(e),value:n(e,!0)},s[0].fields[a.name]=a,s[1].set(e,a)):\"hidden\"!==e.type||e.name!==l&&!np(e,\"ref\")||(e.value||(e.value=tN(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value)}),[t,s]},a=(e,[r,n]=null!=(t=i(e))?t:[],a=null==n?void 0:n[1].get(r))=>a&&[n[0],a,r,n],l=null,o=()=>{var r,i,a,o,d,v,c;l&&([r,i,a,o]=l,d=-(u-(u=i2())),v=-(s-(s=e8(K))),c=i[ac],(i[ac]=n(a))!==c&&(null==i.fillOrder&&(i.fillOrder=o[5]++),i.filled&&(i.corrections=(null!=(c=i.corrections)?c:0)+1),i.filled=K,o[3]=2,tR(r.fields,([e,t])=>t.lastField=e===i.name)),i.value=n(a,!0),i.activeTime+=d,i.totalTime+=v,r.activeTime+=d,r.totalTime+=v,l=null)},u=0,s=0,d=e=>e&&nt(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>r&&(l=r,\"focusin\"===e.type?(s=e8(K),u=i2()):o()));d(document),ar(e=>e.contentDocument&&d(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t,n=async t=>e.variables.get({scope:\"session\",key:\"@consent\",poll:t,refresh:!0}).value(),i=async t=>{var r;if(t)return!(r=await n())||ru.equals(r,t)?[!1,r]:(await e.events.post(W({type:\"consent\",consent:t}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,t])},r={analytics_storage:\"performance\",functionality_storage:\"functionality\",personalization_storage:\"personalization\",ad_storage:\"marketing\",security_storage:\"security\"},a=(e({consent:{externalSource:{key:\"Google Consent Mode v2\",frequency:250,poll(){var e,n=rV.dataLayer,i=t,a=null==n?void 0:n.length;if(a&&(t!==(t=n[a-1])||!t))for(;a--&&((e=n[a])!==i||!i);){var l={},o=!0;if(\"consent\"===(null==e?void 0:e[0])&&\"update\"===e[1])return tP(r,([t,r])=>\"granted\"===e[2][t]&&(l[r]=!0,o=o&&(\"security\"===r||\"necessary\"===r))),{classification:o?\"anonymous\":\"indirect\",purposes:l}}}}}}),{});return{processCommand(e){var r,l,s,t;return aN(e)?((t=e.consent.get)&&n(t),(r=e.consent.set)&&(async()=>{var e;return(null!=(e=r.callback)?e:()=>{})(...await i(r))})(),(l=e.consent.externalSource)&&(t=l.key,(null!=(e=a[t])?e:a[t]=te({frequency:null!=(e=l.frequency)?e:1e3})).restart(l.frequency,async()=>{var e;rK.hasFocus()&&(e=l.poll(s))&&!ru.equals(s,e)&&(await i(e),s=e)}).trigger()),K):V}}}}],x=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==t?void 0:t[e])),ah=x(\"cart\"),ag=x(\"username\"),ay=x(\"tagAttributes\"),am=x(\"disable\"),ab=x(\"boundary\"),aw=x(\"extension\"),ak=x(K,\"flush\"),aS=x(\"get\"),aT=x(\"listener\"),aI=x(\"order\"),ax=x(\"scan\"),aA=x(\"set\"),aE=e=>\"function\"==typeof e,aN=x(\"consent\");Object.defineProperty(rV,\".tail.js.init\",{writable:!1,configurable:!1,value(e){e(iZ)}})})();\n",
+        gzip: "H4sIAAAAAAACCry9-XrbRtI3-v-5ChLjYbrNFk1QiyVQbbyOY2dsx47jLQuE2BDZlBBDDabR1BIS85yrORd2ruQ8Vb0ApChP5vu-57zvxCKA3pfq6qpfVRFC-aPlZaY6gmmmmGQ5y1jBSrZgFZuySzZhMzZn5-yM3bALdsW-sHfsPXs-ni3kROel7PxBMCtd6k4uOyL-8fQPMdGDqZjlUrxR5VwofYNplpdZsRCRYkIuLoTKTgsRdYdsUspZfrbwz1cq1_Z3TSOR6JSrGpr4hEMxXPBHT5UqFREUGq_PVXnVERkRXIzgXayJoJGo2StumsZ3QkiYz4jgnOvVSi6KgnMCf7pcxCLSlCqhF0p2h2NINiWC9npiSjT8GRRCnulzyGt_UhyynEk-HM9KRXLsOsUqkjztcq6TPO31uq_wmcETUzuhryYc9_uyNg8dyTm3o_ZF3FREU1tN7VLX7IPpy2AwUJQ_sv0YHiubstdTg6q8EETzRx8gJaXsGWah_FHTzye2zzrWUfC4o8Sfi1yJaQcnppNXnYu8qnJ5FjDBH72_mQs70AMl5kU2ESQYDAYBCyCpyzwIKKXsTzM33SFTOCnqZml7JwitJ5menBNB_bs50TQWCyK4xil7glMWCQ3vJ6WsykIMBFau7Uca6XqWy6wobpamF6rXU4TW9XhSZFXV-asjrrWQ06rzRpUXeSWWZwLWZK7zrMj_ElPi67ejcJ5Xg09KVItC1_pcSBwvnFo1NinteBG1lpjGKmo_248ZbghC6cAX1vQcStUbpeqNUvXXS3VluWH4P1RsU1oNI6_VYqJxdy2rxVwogiSipuwPAjlZYLMG7LLMp51h64OpoPnQromLGjfxW9i_Ulx1_iJZdSMnULrZt-wNN2_uWEjZVZbrDqZthjWfkS6uGrqWClYV7GRNLXkYry-qZhCXmIEYkqBi0_RIEUrrmv0MjRXsW_jT7Qr2HT5zzl-yF9wkZT_w14uLU6EGrx7_8und42dPPz1__f7p90_fso-8G7KX0JV_cTOI7HtT4C84CGZbst_4u5uL07IY5FqoTJeK_ere4Hg8d69_chuaKCZ5dwgjRxRdrXSvJ3s9vymaNUsUhbX6ggnh8tqt1-X8hSGULyLbeeE6DySXYgIBWZHiBqdlWYhMBpzrm7koZx3BhOI_EaGBVgy7XPR6JORcrFbBLCsqEXQ5vgu0WoiA45cXQCqExEHocv6RiRwLlziCa2Vn-KHSCshR-0MBlWbMDmC72QNdvsP0BGop-WOlsptBXuFfJhZYbSeXlc7kBEpD6sZEZWlXSJsyX0Rd3euJkggai0jAWouTwWAg0igRKRNTLKzXC0ok3GstvIRvtwZ10Npc1FN8JiZuZgJ3pPrCtk4MEzMzNLhE1iqe44dbxcCn81Yfu67c1aorkt_S1er2OPd6XU2ZOLs1Zq-yORM3t16_g3Vw0T5x7CiGcFTFInqV6fOBKhdySsR9ojk-z8srEg6Z7vW6Qzg0Yx0NKaUPNBOn9vCGJZsMUyil1xOJO4x3QnilmLjCpmR4YBNxSgQLlgEL6oCuVuYxCViQBrAkvsCGFO9weuBhyARl4j0X7RaLuZlzzR9pnOrnTUtax6cyOwS4jvdEUGYK0L0e0XzoHlWvRxT_gTIiWU75I72zE7-I1M5OLGKB7yIZKRoJJq75thU9ywstFPmFMvHYNoPJ1gAnaXudXuNBmfyWxm4N3DdHWj5zzA5ForjU0GpNx3jWWSZGdmDiqU9LJNdEMtXvUxjbm1wU046EYaRLHMrxqRLZl7oWRSU6UAKUZksxRchWvpoIpjiSnUg8J6YnNEJea7O97eZJ1jTQcFnIe_FEMpHINB03Dc5hZkiOTY7yptH5lkZDc9rNeEzMxK-1hKm7iDtdYovMcvAVaTpWOzueAmsu4GQaU_sVh4BJGrUq4UM7QeJ4SF2ZbiHtiJ2QjkW_74vY2Rn74V5fcmOxs-OT9ftYF2WwiZ-2Vw501D4w8dpxyCEcKCEw_5Q_8q0TxN4JWitI4wpCqiEti0zd3Gcw93ksHhNNI03DLpyo2KL7gmTAADPJukMamVZmpivN4JimQSOY6mPakDLxY7v50BC7OhiuercchizjSYrrRHF1PIwdpeiryJ6MsYqGTHLZ_ijtRxnLyL0cq2PZ63XFlzEsJCy_4CJR6djNa1xwTQqWwzoraK-XDeaL6pwU1LH0htRk9Rq_KWL9kYinvjc0elEzcW9zX0NCYJDeCU3wyGlypBQO5E9bZw3Kfk1a1zigeH9wAiW4S57jFDviTziruetxDCQWqJBvQa_XonWaJyk1XRwMBlARnOO6ZuLJ2tyYS1HGCrth_09MBM5BQ78SlfZ6JOd2JjK4PyQqZQVQqTiLctjp61vddjmvmXjlDijD5DPJMpbbxmYb5C9D2t0ihRnON40l3GDvqETVTHz4aiVIwvLZetFJxkSSpel6DXdV8Oz2oI9bFB6JCW4NN9lPfPox1sz5C3tX_S31iV5hqyHBbZ7GJzJ3y3ptw7coCm2GLucZHfuhr5n4k4tnTPzV8Pgbq8Z1gXNf3YvWxLS2TUPwM27Y_YzaGu8aNpj8t35ettVkTsJlbW4NS3Py3Jq4LbMFyySRyTBNuUzClK4fh4VZVQWmKjBVAanGrfl80zAYtl4YjhbpsIwJXHNWKxWTjC9hQIHCx0S0CIe5T8MY-TNIJGHKFckS2OIpg0dss33B8UUEPBSUp2OxSSrcMt1kRcMUimnunETyjCY5x2Lh0imTPG0IB2ZgGa0jT2TuKrPdNCBjkC0Sb4n4EVuIBxt_JATR5owLTfsFESyklNZM_MwbQuhGtcA7mJgTRWNFaKQ2Oii4eEYEs-PptyeMqGI4prGICkKxTPu7ZuLbtcP1R1MCts9Nge71TEPxOmUO3heQC2jpGrMscuBAkDO-yK5dikj8bEuFqrlOwjSGfwiyEqopYbUSOQG2RxzncR4J9oLpZATSp124NnzcQjZuL7JL5KS7Oh4et2VSwsmkIs9rrf3g8EOgDIq6-cwHk6woYED9SfItpdCyZ-2J7HbN8PR64h0B7gDnCX-a_d7rwfZ96aV__jjbnELFBbSUGmmY0sTWAPfcHbwMM1Ez8a8WQ792LfO3stXKcNSmI3DRiKeiEFp04ApmZZJR66sYmO_-B3BAa1kGldAx_gtMFY3EIJtOY8iZTYGJito5TQWwtsX3m8QBBZSObvkmEMnF4AyrOENCEYnBeVbF-K8rkt4WEkje2hEwBf_C6iRlsmbil9YyJeJPoplGQqEZSTRTKTTKl0hg7ZhaxCWUKX7BZ-wtdojWMAOUid82WTrfIcch2HbgEm9qLlF2gZ-SISxspF1r7XEZUdIAG_TXWwPoDjM4hYJK6KA10URykHeaMYRt3p4VO3uSRiZvNp0GMHQw9maY6R3z2eutzRSOhhksM1qw51rLBZepF_dsXrRXq7U3P4vsyzuh465rBEyFbQVy213xPZYE783owNaC_8RwnVdp3aW2CMc7ituSmOm_aXFA71r1DE63sH3sNpwETqXhU3q98NhzotrvXI0XZpD70sFFNgfRtgiNbDsy21M32cSgmhf5BG4sIQVm1p0pQ8OxMDFC0mEu9wSv3AeGoqB2wBYYC6wKUh7ARxDZR1bug9MESd4AOU6EWW8JFEQUJk1ptIS0dSRAnOq5eB3jwbBeKlzVz1yqV9A_nwrPPygWT0BbssA27205OLy0wHPolIn9ryVcyOo8n2mXdneDY7XcWDNZlzhZhu24tKKWP-0oFKmd2wLVHiI1rOUlUbygRkBLCi52ScHwq1tN46RgKuWF4ZdETuAiJXJihce9Hik4lrFj34yzRKS8YHZpwhGXc3EAuw4-qLqmLKdxkrHcTT-NYHrSmolDHiyk0UlNg65jbOdCzUp1ARsJJDkvYSGY81erBXCph-QjpVEr2UDnF-JHlZ_lst9-LcsrQqPvMo0_mTgCzqE7ZNpwHYeEti4EvC_ua0KRubSi-4wLVqBol4s47_Md2Udek9IoZwVyt0PKiODI6povTNGaaSPZ5UOvyONmkS9noKERcnITaQYH8Wk2-RLB2mTLPxdiIaIcGjjPFpWYRhlcJLXKz86Eigp4KOVERCX88pkXToytsllU1VywKXB-DQM18HUCszNkQ8ouuS7gKB8oUZXFpSCUTbg4It2MshmfEMrm5krQEWYZdaerVTfv9S4HcyGnuTyzwkHR6M7yGSEXg9NFdQNScPwG_PbYZxlTcy-49LR-tbqEFggYdoJCSZPiDao3FgQasjPrE2wSpawbMvjQBcrdNB1k7cd8uFqVtNe7ISCe6PqWhLRm5zhCU14J_T6_EOVCY_lVjONS6ccyv8hAtvJMZReCnNHojFCmj4fxjo40ZWdmhC8GoDS5FL3enFDWPJ0Dy3ljRbnABpGJoceTQmTK1ThtsvBul0y5iM8JjYaUXVB2wZfmU9QNGTQc_ipR6UzpyPJLfk6R_LMFb-7tC3ZDukM4PCjT5dlZISJ3SnU5d9XGItYxuUEW7mJglxX0hEb4MsKxiy78ivMrwMzK3NCYG-IKxOOqdrN5MTBVk27GClo3umit_39RRht9o1aoYMRyGtWi0XnNjQZygB9rSGb0Tnckw4-YzC7guxLaz7VbkVamvz1xK5HRxdVKwHD8p1wujc-E22Zrag6Hl5YmYZWfyaxoqXkxqW-F1Qe6XYhZGq3r1ra09KgtzSRdau1Ujjblhs7R1lG7mZLL_8WKkKCOv1ad-2S7ufULSlNuf8DFseU9roYt7-3kB8i63Z4Gq_UmxJ76S8E1cjMtraGToEJmWxxtD4h9h4fBeV4lOratiWxrU47io9VKMdA9YirkGtvFjI3StQEQBLZtnaxQIpvedOxoTR-YwUEUQU1rypL2mnGTCUlSp0DW2YaWabXKq2eg5oc1FnfhGnzMh7EYATfaHhjFH7Xostc-K-I1yxovDTR6Qj4_l5dZkU87U1FkN517S1EPPlOmC6u-JiLWKtKSMr3YvGCgTJa7aRD4A2TaGRJ32cU7QDdEyRHJDSderH1D9kfbb47qgewhyViR1qAJbuF2uOUzbcKEtK_4XC9AfsEfabwSwO0Lflt-XVBfPEjzAVABDCzLk2FKWV4zYhEnRHDF9GBWqqcZaN5tv-CaldZMT51IGhWMAm8ghjN_pGMVf763FIMK-XNQd9SDwaCTZHIK4-oUerruXJRKpJ-jVtKdkPaD__f__n-CCMjHZI1PLZjiScokcKU5_JNZWV0BtF_TAnSGSQHy4u3HQM4KdwwULUIffvVICGvKZFKkPOv3mXJyf6OqKjnBMRj6xanjF06unegU1IbxE_L5_bnAFdUJ7i11jWgaWeqOZU8Hn0HKv-DLu5oU3mqSm8Nt_cxFRXK2nGeqEpHtbgk3gwXwcfJL5V5K-7IQl6Lwb5V9Oykv5plyJRhSKrhM4N6UwhpM4EaXeobrWMc7YaSPRRxGw9oUUuOS0jMLb4BDYA5TupyKIr8A-EMFuoZgFbBgHDDQ27KpmJRTEcGosqK8EupJVolI1nxZN8LjwlcbW6EiXDnwSqhJwAPqbnWwjGNT5Ie3z5-UF_NSCqmJACblAtAwFun0uChI0AeoUwBXefOVyRhABj-4ZsA1klKahLDGQKzLg4CyIhkZIS_sggxuTpqjCAgGiPZ6-i1BzER4THJMZ9spKPWX4D9ITqMXdLXCYuME_k2jJKWsQK2RPr89bgCZMZisxwt9Xqpc35jZc4PVSPn0FRHswe8kjuB_yclVf7CT9mlEY3Ly4OQBjWlM8Mvv0f-kfUri6AQe_ie9T2n8PzSGFwlJfj9J0z49SVckGe4cRWl_lfz-oJ_2Y4pJInIyhQxYavL7P-L0vskak-T3f2BZJI7-QQbw696DMyPj3AJANIfZsioXaiIiwarJubiApblQMlJxN4_gwvCCZb7fGVtUcJFh86yqrko1jUp2XlbabsZFvIgqNi-VezGNcX88l8A9Ry_YPNPn0SX7cyHUjcMwTKJJrM_IhMEdX7L22NeQZ6ayswshdTTz-1EMoCBu_qxWIJZxTYzFYKFkHARR8CCIXoBkkjJ95igccqlBL0AuzHD8a9ON-6E1t3DYv2lwHXYTwJXsAqFSD0gc_T64H5_Eq9-pHf4HcJ9pUoIwrRERmDWp8biAXZYImJe0JRafwwrcHAocK4W4BCMZfRGpGsXlSXpL4H5LLuFghg9OkpP03gMWBJTGXaNHTgQLjwu3Q4ooAyQOy9JIf4KR43qP6O-IQJ0xyCW0lc7Y7OGx9rvrJeqnQUqkB3-UuSQBC2ijk0GNeqJnKReo5dQe16Kd3FTEeqBFZQBUTLfAKri1QHCJTNoVdyrtNrxoTbgWv4jymCj-gmUxkXCi2SKc5tYLt3PzBqS45tyB07c1ak2WJi0IX72yzC0GjarSF0x_2Qo68bOQnPx-7-RkcL8fE5qcpMt6lT44Y8HJyb1eQJl-xx-c_DV4cMb0e49M01w_JOIeEd8SsRWjZQG0lAUrmNy34uzp9ZxoFpwtAhrpd0w_h7NcX9-CGJmkTD_miH9L8IDoBOktbYa-Rok2EFxFY_0eFEeqaQys3cdGS9Za7khbYDg1Zo4fDB6cRfpdJDJ49roOyPycJpqrFDUZcCHUV0StVkFgKOrJAzLox_TkQbxCynbvwdmCNcvjVo-xefopUcx--Uzi4y78d3JyckLxn-TeUj8kkukvtE4_U9yUotf7_Du-16AbtZmD25lPTu4HJov-QjRABB6cnJABham8F8KnYHA_oPW9z9RAEvRTz80N144NFWujhu2G1EGTvqdtYqFfNzvBawbvXGAopgc4ENMA8vDy7h1tFT1JmO6ALNTLznhDRcRvRLEl7gNEqHidNCCD8hQ4amFBkrEaXOVTfc7VQInpYiKcYkj0YbbZkEY2BSv5cFx6WPW4dAAQPI24SkrEGwmSgWR2Ck07HlLPoCsnhS7ZEDSXLu0Q0oYpPeZDIx117zB_r0cWHH7zDNnu4bEv3yhE4WsIX0GF2iWOxamgPf0W1a6wPMzVtMmeeHS84BlvGrizYwTlde1TIuIhcX1PeQa6VByWaFiDqPEe3gs_tdi3PxBLBx8QS6eftL69av3-cAvjqp9B1qX5IyzSy0hLb-tuM1Z6UEnpcRqA_og1KQH8gamjEoSB-hOOcQaH9h8UYQB4Q-UZA8S4IZ0ZZfoeXWKXHCTMaTlWK1kzxYnBj85VqUuQFyf6SbqhV_Zaflg3bOHxNOPyeIFrB8TiXCRlykiBjQXOBptatJpa3Gpq0Wpq8Z-aCrJgj-Bzd51bzbamHU4Rk-gPDvtxhxI0VpEt60zoN664H0EvgGVCta1yx2abTFllJ2rqsS4LnkyZSKZpysgCED5kwap-H7NFi9ZALDYGIuMLlvd6uRmIxd0Dka9WWc1ud_1Vyp1w0EpzNBPjlqgChmG1wl-_pjHKG7aORcP2mKQEeRpXAqERIYJvHy5IRCm2pcEFJr8iRgKnwYpaXkGhbWhgQ9OMNNOA-xLN4NRJa1NwzZJX2bzpMwN14Pqbd0JvfF9_s73ZTUPosqYppdLNOpOmM9B2N5YWJrlls0iLT1NE_4lCQPuG3c7yKuX6T_bMVvwfCvtrrbBtmaC4v5ho5MP3oQU4g62h5cOxPhZj3e97mGaT_q8t6Q2xHZs_ILC5BfPEdG_bOm6i33L9jLg3XOCxhB3Dd9aWANXd7rgUTolFG8SmdlghlHywHAsi-k1TePuDWK2GBngfIAC_VaEhYXfXlWNtPzdWPYZ_1aD7RM4ekUItPvZTpGNtIActyRy-IYLiVUB_ilBbYIgnoj7wJwIooASBTdafKNPfNrZbDJliYKGFawERdh14QKYBPuWIFAI9YrJx3qS9ngO5d1sgdxUTDZyqG39EqMK6-gTaVru29HfbAFqN0MHDfBrova8D7hIITeCJrQMg_Pot8RcTknGrAbYYH6zFLy5zbFjcsIATu9fTIckYgMlQR-UhVggsq2lkFLWYp4Tl0RRRmtHxpRdYXGPk5DBchcFwqQ0MF1YAcKya6R_g3PagBkSie-goUrVtAw7XQJEy_ZG3F4m3srgzW8vyQr9sKbadQrWFX-dd7W3ijNkG1IkZ0gY5KA0bdk4kpUvSqLfUGtJVUjAb0rlciHp7IklbwEzdBhYpEH-F9L6xOYyH0W0bi_jWK8AfFOUkK8QTI26Di2oYbUm3E_q96ySNw8i_1HEYiR3gx1vwIcTtGnTFFhsR7ZCE-l-Aq6NME4m3R4PU8Jdnm8rTQ4O8Ho6z42bcu_k4A-aHQ1lJlmJx8BdLbFChTnWoHWbHKSDxhUIrRv1L2zaS6d9aXOWvrd8_tX4PkbW0LVz6EyHSdTkj5qvAY9MdlimlOtG_tZiFtqrIr3JtGAQvOzd2dYAVEsjE9HrdLr4C7ZOBnehE_5pyPFzH2xuUgOmMPZTTLc0wpNerrVYr1QIT6dhUaKisr99I-qP11jaNOc8q-P1Tu6I2s4EMticSgF90hWraZp7qO7p0m3PeqGpN5WQ3m9UP1iyxllFYyN-emaa5wEwJIGsWiWRfIBSK2AeuccLckNzRtkSkjSivZjps7W8dcj0kzblwG1NsLzWA9vo1JQZa7RssW1SYSL5lQyqLyWvZXoCRH6oqPVrOKC5VixIDgRIwYuZ2PXa_G0ola3fKU6ZH7S6N1rpEmmIQTufzHLRRgfrAZtrAGiE5_ylFFJ37yvTeOtII8NZuvN86TKhhDxyUGcC2YEVozd2aQ2G1Enhx6PXw7x80Vi3cMBgTG0XUf5-TAm5N76_1cn-9l-RvmvfFKOwHUzL3F5QCicbatDlOoy1p7NB7kKPRS7YGctfxR0b624b_mwvpcirEPAJdIisvhQJdkkX8QMIKAT81V1ZhBgfADzBX-i3gtOz8lGwxtgxMmXIAgiCqj2T2zFk0ENgFjVEWVkbSMhScl25wyu2D4xMuXMLFXaO4SxashAMiN-OX8pKCwri1OQ83jQ9FBCJh6IyzHdFw1TPAEHeLipDbPFrjR7bYujoOumViyvTDdVmXXfXIc-ift5-xyL1qGoFxLvKZR0CWjBC6YTACkAseQTlBsGbWypTYYnBTtlBOhhnbWjdwE6Z6C6vNjfoUd17DJWC9-lNElL94Aw65bVwLanpYEZY1iBKmU1Y6sXYZl1HJg0xOA2osN70MUMcBC0DmXfaDThAFnaBPSvcAImWeOz4jCPq5GRcNn2m_XDMRCgIGBFIzl6Hf6XveDiCjt642NVOa6wkJppnOOggMyWf5JDO27EspLoWKAvwTsEyW8uaiXFRR4H8GLJfTXImJjgL3K2DujXuuhKxyxFcF_mdQU6YUTwIpJqKqMnUTAJrDowcD5icsK3INXy8y9UVoRHtAygq__GUbG1RisgAlUpAyJUHzoZTBjTKRUqZy7qRAMyXEX4KIt0QppwMFncgQSYozPN6sgKPldtecTXbi7A7Vg43ENN5oe9S07qvluFQ0bg0LEt9s45BwApu_2SAPct_80r7pKNwnFq2r6GCtD_GtrFytp4g2nm9Xxiz3cesDYDq-PiBNB9wrBw7f0nCXBM4sVXxCNWabWVrK7EKgejhkiGjJtNGmo-JwK9sCN6PBfKHmZSUqoLe8eaTM21o3CnaG-oWWNSaCMqxnFGM_BhfJ9kR3OQdSjvdLYMxUr2eBEbamDrS78829ZV5_cxsgMRbcu0_RMWidflnTn0ftvZaCMxhVfAKF3TprvcwlaC1hAytWzs10vrFdjSTTmQKpmHkR5Wa8bh8PuLL4cmOiI8nc5EQSoA-93voAkJyrnOTGxKWrE_uQrgFdBVcZ3rmYhl9omqFa2g6DdQGzPplkIBvAf7tgoLZWTpAV4CyAK7qWVbSyCpNVr2V1W682NlTdcNOOscmLo9POPRwXsNDsU1EzBQgZR4IBdKpy60tkOV-cFvkkCszfgIHbiEqL6Q5yLkG08dx8L2Vx0_qMj7VXW3s7ts_3lncrpNZPAzjSWmS_7mBzZ6Xq3FsqQdwuI1vw92bluE0HmFFad9ySrgaf4SBY8GVzvCzXq147bly2aFnXbFKU0vG0m5k2O9DKCXTCtwvNMBdZUXnMrvEjJHo94Dk3SkF_R-uvej27jVoEgulWv5v9hOvt9p6CIWGVUMYlj_dgw_2gbh_FBlCx2aDWgAEQfOO7wTcYG7zGVGQ9TT-Igr4BgtRsKlqNc96Asha8CDEHDemLAso2p8PrCpQe2E6BxhQkUVunt0nvBiFDXJqh1YA4g6zLuqaRjtVigEsBJEN_d_HUNVOVV9F3vclea-leCJ3BMjfeZNzVOR_MS9hVzD-j5cDUqQyE1ArxZY7y0tXK2f_4IoHPVZeNeEZNNkSHLcuMSE_Ji3c_vh4YiVc-AzsatoeAc6Zm_MHvJ9PlXr1zMl2O7L8kjt4PhxH-D9Tvg-FwCJij3-49YGp-Vw78EbX-xawn02XIHtY--zlkX8YIb8p2Zo93nqXLw3qn_bj33zyGo5qe1DEUfca34a8c_Op_E33VBl_9LewVUzf8we9JtvPXcOeo-497_-x9c7__gMe_f_q8XNX_3kn7OD5fS0Dv_w80-iQh2J5B2qcrN3BR2qf0JKUrEke2jLT5uZPedy9pfDKg_a8nMe29WDPixGvKElFbQcBQEAVLnFnImGYXcOyeiUhNiKb9z0DJa0OOLylTLfzObV9EvR4BHytWXdXCGvd6Xf_ydfaaCLpa-RfPpRZg9CAAZKUaqXa7XHVKiPbIswh_PCvKTFOj2wIok7oCYb5SHBSMxtoSyNxcAeIKjUJI66ntOAj5XAsVUFwMAELqoQIKoALmqmm9wLAFK52CsuTqKlHtavrBTtBvihUDvLtoWwR-7QISoYwgJ2jr-KNldZWjm66mGLqcZJXwHFTkFNDmHnL73h2LSF0AXJIFlgfMOt_aVHSMZQGR3CgIhnbm8Fkgjsbp6YOaBSy00OPcloIN4Pv5ux87hwfDsPPh_RM4-UWHgM2X40GzAlCoU9YB-LI-F51vfvumA1Ryll93LhaV7pyKTjadimlHlx24J06gjCdlqaa5zLSYdj7I_FKoKis6gEWnriNQS6Wzi3kQ-Y7BuyAy16DADHmA8otgIfNrc-KZ11GTnq8tkLEfGof-B4i8OsVDCc8lfGdeDPGFU2lcELllgD68fv5Lp2ks8OJ9Yaz4sKC5G3kA5t8a-P9Q-K3Rf4CDT_5PjbQ7yHmrTUzFraeBLp-_-9HJOqK-qO06WyhzO27WGtCL1rjFfVxUaku3XOYOcQ2fq_Iyh7Zn4HWxKPJKTEo5rfxyyA0B-V-qzuW1RVmStq0kXAHxloJsHluCJV6R39F2-5vtvFD55lbeRu3O3MK4e_N9ePvcVblQxUahVhxwR9niGoySG8casUpG6ddq-qFDcg3bOoNqWed0ofHnD23vljSgXykhoLVrrPzfayyWAPrgJExXK2z6ndW-vqPhrzcb_pXOv_ZNFxdZXvyd6btppm8DBH9HLVgy7FAlqipwwto7q9g2VzaRWxKLfLp1mG_5gdhSuj8J1bkb_tZpGKYbfYLkcLrdNYIfnn8HQzgVs2xRgIfNdYunz9_cWyqoo5FeZJ1qMQfMuZh2PHXuQPsGn2ld45k_RYzu9Q_ITLOJE6lOez1yyUuQsVomXvBLYwoPa-aycVL7aOrWzWdxPRFiWuEhdZFd5xeLC3d6de4tp7Xd4iCgmZxnKpvA1e0zIASYGFzkEuxzsTWNZ56JEU1xPlutyNxyCxMLjprFn0-FvhJCdu4tJzUekJ_7syjIdKcQWaU7QX-CTxclPszYHX0CMcXlauUqXa0mxxxlTr5yccxnLTIyBxAr8DdB4yHukpdjND5fOPsoQtY8QhLHEpm_UWL-pt5YxF5NE4R8brSObk446Gqa46WmlA6q_C9xK13w2I1GKUUHKrTed3XZgf3Vyc4yAD1vuNhFHm3O3TKEOUVVSSatBWon6Cthu-Q6cOsmRVlQqoB-ZcwXVpXcHtuaiG1OKBpjAzu8_wH2QSlZ0JqSpV_8HtjAHA8DJwmg-SckuMxUDvZNnWpSzkXAlmdFeZoVUWD-gqS9qvDWa38EbCou84mIAvM3MDYgAfwbgOcR9Y6T5RdxgxYkJeiqeRAwIXWub55PIwVP9sIgeRCAVVkQAMAm-Cboi37wTcBA4DBT5UXnm6Av8U0O3ith2QV9UFTYxgLDDwKjb4K-gmSpg0uj-xprdNAJKFNr3idF5I1cLCKdYXsB-2DbLAb4t2k2TLn5WTP1nBNyzTOerVbLmibXg3eLCUgc-Wg4THlgnwJ2nVwPnigBTBIfDcFwyT6ZT69L_aqc5rNcTPnucC_lQeuNSfKsVKf5dCok3xvupjzwz76EZ-Dsk--57PhoPn6bTd8ae3i-N9xPedC8sE0r5azIJ_D5CNpmH81H3Ed8Hzv01JjKWpQavdOzlDHEpqsV3OSQAd4b7iGfXOlMLypYHde8KcZcq8y3473h0GTcyNPYnavH_785QVdPeUOa1DtkX7m1IG-kZE3LwfZS150KZl4Av3mV6_OO-Y7ml-Zn3dnp3FtmiXtO68HnyGSdZXnxX-S7t1Tx5w6BCzb9HAUBXLOth2712rvoxolbrvmbBmmb8TjdclL-oxSdUqFlaAdGEbnoyrZpABvosbWO9j1sLKf9N5N8w0jcZ-B3C4abXauurRQPFZ4Gszsw5f6t_N2NAowxs_rRupYeOCcbTN1zr-ZlUTDVgturP5z2dwnfIsmK8uyJzYgjGuVtw8ii0dCigjZJ2YI3hs-YBozsFuySaesQQ5FijVbRxq_mAliFgi6886ipATaRBUI0pon6lPIFUz-SReMTM1mAKB4howvfSbAZpUzdMznXUq4J7bvquRm01Ypo3npa4OAQu6-ZwKo5X7CKsoq715rWqUHGJwt2mZazTkbBoThUMeHBmdAGFuu9T2AzresQ0uI4pJtRQK5PKI0uxybVBI60iTWqwnJn_DOa9rquOr3BO0hp123UgY01-DzO45zM2AIQAaUZhJnHNOiaEuiMma6Wwt_EZMhtOxesgnmdukm6NJN06fjdGc9xji4pjaemjs-vy45x1d407pKCfXvUVauVuiYzJsEptB0fGluUlur1Znafwzh5Iu9GJzxWDig_4TNLc-OJ88U0o5FtgXpKZpRGtljn3yefkamHg5WUTZ1Q2fBQ4fB46iGGriv_FzFm5FNn2BIOffQEpBqDwYB-pgx4FPWaVGxqD98TGTS272iAEVdoQLNpTA0S9jNJ3hpHLsSITNgyq6LWC5YVhX0eGrGdYd2aNOAKByk_WCWF-HYEknF8WW28BWsb9cS5GL91lxkgbF-9Qimb9r7GW7pkSIChKzAohHVaf0cySkkSXObiKoA9-cHW-uB38s_k8c4zELkuR_Uq-f2fKb1_78FZ3gjWHrQStD5sNbAGPLV6xrde2_BMJqXxYAdw5YHOzlrSRu2WkpFXUns1wG8l8EMKv4X0uJ2n9d4MBZSNoExlo1UAiMSBr285KDM4nrfGjFH96bzKRaj_jo0FtZHSn1TRv0F6H5G4m3QiDiJqfP1vEMaD4Ly6n0Q8PanukzgKQLYfJL8H6f3VgN7HBMHqHl19Ax--SX7_5t-tL9_AF_jQuW-0BcnvrDf-B5RNKb1P6UllBPud-__u3AeZv1Vk3KfWCjs5qSDHv9P-6h41RtatKC_Ybb7U2VlEZKw-EEn7QRQhHKev--oDOKGwLMuHxjG49fMaZ1EB7mpLWo8XvV4IwIZGio3HAMnNRKy_fxDC8fyMKJYDYh1_Gdyd-gtBOoiC7ty6A8AyjcxiZTo7jQKdnQasOs-UmEaB-Ytom7d86x0CXFb8hVFUFKR6g-Zr7kaB0lRMCcvFcdXICboH7jgIaOzPvO0vGU5sm9nCN_4aoH-FxL5Pmfp2ndlPPDOPDL4YGLzB82nqiNQQOByMOrFs4S3gtd07S3srAKQgXhXQY5wtJhLJKAXl3w_Gro7yR08I8OLtqCjIRH3kV7mclldMveTTcrIAO3am_sXVy8FpOb1h6nu3c9eCBxh7YoGeD5n6hf_AlHPt6NKrX465bgPGJR-ynH8chw1FajFMspyK94Z4dYEnlP0-Nf5T3Y21cVANPtNyrrucv3RjnlH2kjK5E4Jc5CMi0amzIORibKozdvEAr5f6aSGgr3QbaLG8kkJ9Z0cDBS0vEfdiE3rb-ZJvpB1YqdDHXFzRprwZ-PxyFbpjPquZ-tWSo7-CdSwnAEYWReEjaeAPwCfCsawptdJYK4btDo3e4C-rMFh37grWHUHQB_m28XThZV_rgi-UtHVDU5SyqohTJ3ULbCAPVGxZ4bL71mntcPfxD__xTzw_USJhdeKU_cumOt9IJV-0v4rNr4Yl--h5so82tZPFtV1M9npm1GLb-Qax5IQkDtiJo-IH5VfrYxR4PQMfrJn6qVETql9vr90zoR9rrfLTBXrCRNz0sJXlt8a9sCTqp8ZPqQrXsasABfjJiGX8ItO-jbR1frdnjqnRVnP-drNeA6ICkh64Gs-EhlN6ocX0nb4pUANiLAHxzvoRvb1o2w6m9njb7AvOaSjSKFvVLpLT5XUkLkg1UWVR_AKE8qZ5_hWZG6Y8WNfYo_9jcN94e4B1_Zro1humjhxFAfeMYPT80AxNr_czWV7Pr6NqcM1u8O8NM3UPrh-ofw3K2awS-me0695zzRjcNJ_-JfKzcw3f5tmZeFYW0ypSMSQx1HCQSymUSeWWAWXq4XpgLcSWzEuEvgDpanzr3kIqZmfiVxovr-3vX9iNe1tHIoaRm7Kb6LLmEveHf3aLkEmB7FlMJoZZ-hbY71yePSlyIfVbcNxG2YKrXfIRs4sLMhkUYqb7i8G1HYLJQJfz_mJwQ61xN77Dn5Sdm87iK_ObtmrXHn3Ml5NsrhcKhRXgZAU9Cg5r6wPiIzoDAM9TqsG1o1Pap5dC6h_ySgsplAu_sZ5KiYvyUmxNSCmT0hxmcJZjT1-6frQnzcy67c3t2WS61FmBiaKNlYJf7JxvrBRw_ZQjw2jthpjEMEUyt0ZATBaGlH_EcYiDnR2tssmXHQSo4Q_aF0yWfC1QwxYO3lj-67dEQbwrVjhE_oamo4QLHtKpZM4L1L_PknkKzj4-sq7ICMK7oTTjIZnJ1ASiuUBWGA9RO7l49fselYPGFXcDti4Mz53zDRpXIHBRgBOz1Ur9SXKmXxPJHpzsgG8JgEYpdPkO4XCc61BZtf0BQ1A9cs7lGVCSijZeoE0wAov_hRWvrzEEUyLS1GLsxSdsbJQYx7wJOPUwDAkoMCpRCJArMVCFi1l-nUaYgqIfJbApXdYsSRCEg1NzskNjaATwzPdWJzsUsDEPUmQWwUj0nJEE4NVgOxZSmqZjIheeEpTIVmtjJUNrJqeewj0k4g-iwPGvLIhmL2G526fgNKvETtDHtxSdTTF5CYAPOXFUDwImsSBzg14FtOXJutczNXu-_DIBxyQywh_YR31KlLmpnLzr05PIXRhOiHkBKJ3fTypmMDpwRemevLt_Etm7grM1gMEDdwOUgQVrilYEfxLTOBi2gDojWuz-zDX_Yzs8gfeqr8DO4bfGWb4icoYZPgKS2Hgk9z587Qj-ZEewNX6tcUNr1V6PnHGZGR_wkpyZt3A2yfl6g_DUJzfcVovExWucbuKbSChyA9TmfM2_fyMRQsivuzsyjGgByNzfzH1xKSv74s_boeWEHyoJRnmUSaMqiuEaVqG7aWluvBWhaR3BcjjjiIaEC08Oug81iYIHn_TgjwpMECq45EzBMxzgI5ByVkiYy0o_826AR2KXWT-01glitC92mZATdYM4zZfixozWF_cjm-f-5R9VKaGK_GKujMbl_bkS1XlZTKNQ7DJ7IDwppRbX-pWQC2gCdmnpWLMEob87-TRg5hd0KoA7irxBa5QL_Pe08WksBqCcfFJOxWP0MCO_cIyKEzz-9sl3T599_6_nL17-8Or1j29-evvu_YePP__y62_Z6WQqZmfn-R9figtZzv9UlV5cXl3f_DUMR7t7-wcPD492PoFOxnozdJv4JpEXIGlfq3NIwVqQtSxKO7CMIICNU7qyHP3SHMsxBdcOqt9Pj4_Dg5X7eWh_MWtPIy8SEh7sh_vDh6Oepo8ehYfQ9YSM9g-He4fm1ci82hvumjQH-Hyw29ONntEbv3C5o8A79CODWxmAjuqJ7YP1BEVyJMTv-LaewJXM98YYpH_IpT40itLd-yR_sLca0j7J-7u9XfrPXTpWx_mYZons91MOIwdwEojVkx4fj0Bau_aOPnq0x9RxjtE9MAsJ93uaHh_vbUs7grS0lXgX0x6s1hOOmzuUfM-Xu6MoGYUHB-HuwegglCw8ePjw4UF4JFN2sBclw-vJ6Wx0NBF7h3uj0Wh3tC9ZODw62g_Dg9HhKAxlysLRISQ8mByMRg9HYvjw9HQY7o0ORqeHo_Dh_sHoaH-yfziVbHgdDm__X7h7KtOaSQgZx0f7B7B-75vId5mclheEroZMPuZLcQ1AAIPsXrYwx5F8yloPr2tOTPzNxsWxj-iGfOfFotD5vAD5w4Zym1qxqVU7O3-mmTrDOyoCD6LO0-s5-l_tZLKDGUEP7VvQccUbHXPlFNEmEsnGKglHhxRNwTfb5i0OwIVP4X32jyFmU0lEUqTURAIrW5CYfFAtTjMsGFwpNbo2OO9yc6mfsGLs7sAuUpFFJDWI4oqERyNq_MWM19GHFRFxeLQfhUd7awkcXqoBAYzXYJ8e5Pkum4kG6BkPj9H7wTEPRw8BozDs9XZ2R8dcxKBSj4bH5utofz-ekmQ03AN-ItoJR4etjObTIX5yOQ7293dtnn0mHj16ZD7v7I4eHvi88GBzH7USuTL2Rkd7RwcPR0e2oANMM9rDP-FBu9hRuPdw73D3YM-X7d-YCsLhnZlddVs2iMkaMrjLPvDNOaCmJG1K0liSxkT__A-JoK3D68ONalybb3-JSUVGYUgZMIw0mkLMvRibFI4O2bD9_2mUjIYP2Wh__2v_peD3R3JpMBDfZToDkQ8xQmXcFd8uZjOhyCHiQYRG6cjBHkFvWRUZDXcpm5KNjQQyAYQDtdekQ-CRCfgEIWtE3Dho8fQbolLLYzWWxgFVOHp4vHaigc8L3fhQWvfksNEWV-h9Aj4l9ihFP1wQ6kHh_jW3kvUTs0BVTnkMBCFLciDgJW7wJb4eDfea948eHazCo5H_vL8_Oto_Lnu98nj_YHdk3KX1-8Ujrtbp2Yf3z3YOO0Kid9hOLsE_LRoeVAulyjNAgs6zXFmCtdjWwoWpYrXaf7i7t3u8-FoFBp3ZKtxDpjrD66C_aMxjwwPaDzoZyFin4roT9It-0CkX6FVBZfJMBBDJAntPStzZB31CwuFot1fS4-MQTll8WlDkDFajvSFrhisc9Q52V-Ho0CBu2x9Wo9HeuDWwLqF9dbDbK_G5MZzLoqxNZnOz7LwxxzHfDeOKhAfD_gS2y8TQrmQUPmSTNJo4wpSMwkM2wT05gY0THuHTaA__hAf-Gyz2Ym1Z21Bz1loXKSWQ62gNbgTI3NgTYwXOAeEiCkwsoQ9CsTtGQxJ496oFpSW01xseo3zmuKEkhgrt4RbWd1AVlyt8GD48Ojw4Cg_3TDaz84nioTi4v6VCJFMjpqDAPfxzwNTx8ejRo0fDlW4RvTurJlOShEdHLBz9napMHeEB_jmEiDQMYrWYeYw2OYJ4gXq49tA2W30jqhB-eFJkF3Mxxe8xAboz4aK1POxJFh4dQBiYaEoKvyTCo4eswEYVaZSER4f4NNrDP-GB_wZLAjTqZK3253e06rnU4cFdzd3-5bnUu6O7smz_glT6K58O9syILKL2mrQxL41lpHfuYSJW6n6_-aqPebgPC3102IeASUQ3G2k08mshSkaj3bvWCbMoR2kCk_rq4F4Kbk9ZCWS-bh8j7g6Wz0gOeCb4b5AbthDklm-NV07UTvwd1hGMdeEXgNwc-9UPvulMMgkQxVPR8JGIYNzmlOCO-uOS3PWJmFgg0d0pMFSI9-HWWTRGhp7z9DOwt3d7BoZrMxDeNQPO9w3GT1bHGgOVlhiNlDa1VzZIvbupHWf9sO1MbnQ_bxqV9cMx1ff5yAq-Ns5icL6DWuwcQgepOk_AEpFl_X5T3_R2fd7n7t3V-oH5b2q3Xo4gsEHfD23Tkks_7kxwYMriDb6PrfF3EdH83wTvStlpRfp9Qds8Imt9E7SdkY6nJNk6R3fxqK3FoRojT4V8Uyv8qcOvgrawTQJafF28yS0Benq1amwb1xEsf_cq1jm90aKDp3LHYJYBA9fUQ-GS1ro1wu5Cu56_VZ3Zua0q1gsD4LG4mOsbW-qdxwURt5hF8Nd16-aHTntlc-2j1q9pDm5LkYkBd9WNLURz1cuJ37koB4DmuKMZrko-5sgY2dxD_2lv132qiIb7FfYk3NvzKfaPXIoppNjbMykOmuKPQh9kEVIcGIBSeDRC3WtLDG9e7-LrrQOPQw1sZGd4PQk7M9DZ2MENj_ZaxRlL_fBov_1uaN4dtKtdkJ2QhbaEh7e-jOyXw1tfbDePjtpfJk1po-Hw1peR_RLe-rJnv6wNSUnc693114f2dbvHnYK4ivfXX7taD9Zfu7Ifrr92Za_1OPNlH62_tmWHw_XXtuwwXH9tyw5H6_23ZYe7669d2Xvrr13Z--uvXdkHG2Uf2Pdr3bxszVN4eOuLq_no1hdb-Witv9NWnlF464vLs9brqp1n99YXl8dvs9H-vt-jO6P9AxsYCGC_ZQFBI08XZyS4qM7mgJREahQFcDXetoOMmcM3iLP_pn3BIhLDxCBrdS46r4yp7xso8jSXmboxDhyIoT-dwB93_YA6spvLs05m7mdwURsCURzt7w8678_zqrHgaagmBCzyhAqifDQuOVCmCq62xsNjvbMzpuDfvw8ECzErSMooiBx66HF7h6PkLAcAYKQ4UfdRdNi3NM_7l_S1Fe3agPuw1SjId1_dnbF0IFXF1-QVYnCKxxmTfTGALv6ISk_WePuTfa4ZLulYwVXEcsgG7BgdbnxAAQd8sDrzFi9mQPLo81zzAkQdY5Bc-EuoZLK_Ua1a46Yw7gzmFxyVQS0-bFmPh8cChyLJCU3XjpU1HulrpSSpL6V1UN0u5nJ7Z-Ra48lmbCiNViXmMtDnGgU1FqLUOuVAZpOh8OYoPM56vex4NNpDxk4dc7lNUGHj5LQlIaMdXK6V0f-g3IGT3bCXoSj9YLdn6vOmu6PRrq1rb-jr6od_s7bdbbWF-1hbOFoRX9-W2k2U0NHukav_kH6t1oX8IssraaTTplYIX4iSmOwrkhgkFEijsGejv9mzvW09e2g6drjesa91FPyZ22sGzft8m6Ymo-NmOLJjHobhXhiGXx0MZCwQfrK9_84MEHKFBx0lssk5dGHHyJ7YXU159CgcrkAcd0D72xKgjCpbGSld44gdbpzourXZKJNt-w02TAhqtUVL6D_ax_NxTdYD07XX5qXdgQKx7YegbdoD6QrtY7Rc0Lv5xxHo3syTSHZT5q28Q7F73zjkPNxSsvIlj9ZL3lsrualnN4WLBnhoau4l9wlM_G6KCfbWm7m_3syDdjMfbjazrx6EwvADyILc3dq_Pw47_BAMPsghvaOyrXwsnqL2EAXDgcy4R8BzGeP3wf1nabzAMkgcidqYuUi-bLRauu1kBw2hcCFrH-qrHsvHA6sh4xLNIMg1b97RXu968OmTqF6V0wWovjb9_oMN449X0mHYTBj6a4hXjRKQgMbXDqIZXVMmf-TBPSVmAZP3GrieADC4CXrS5fyFk1Dq1Uoz-clHZDJATwPix6BMcyW0zmc34HszbMUoQ8C19WJv_GjmXN4Dh15M0bgiEgJ-ARLIukbLuxhn0TrHBrV0vhZbe4GKQfwACKoccF_C42NNdGTvp1qgWcyam9rVCuMEr1bYUbeaXuCVb4qu3NAPnC4Bs2lcpSJu1rwgjScHuJC3AocXFh-bOcBDZsFRPoNI5I8p3B_hLy9sT3zf5I8pGFjA36ioxyaYtKC0HQyBNAB07z6dOoEEoin6QFxAHgNcDBDVLqKGtkk53X22i2O9WrX8TRMv7WxCjbtw4LTBD1iAp7H9Kw0sCSVBOBabHVQA3W9cl47X0K0blhGxfN3YNFRos24QLTRqIWpbNr7sBZPxCIL9bvkKBfgEtAZHEg2iNncTlq-HeYTGMvlHY3ZoIhjwR7hMYpww4GN5y24PrKZpgp_QzQyxqVyYePuJCwp_N91JtYcWnefD4HYRwywJwtOMD1iFbnEjH9BDEmOcsQ1rDG_cvUOs0zVI2FFiIvJLkFRiBFAHcbWQ46euCHJHGda_0Hox7AXGea-ZfGIALY1pHuLjlwipQdeMhva9gGfw921CuzWRLiEcHgSfMpQpN25thjZywgL2ZeZCybdFdm-8_g6QlaP9_d4GnAZcpcbbF9LWBSQ_GachAMWMzMPQeCRkWRt8_MKuTvkHrrjGa3icQCpfCsscrj_Hv2lEEuxtuqHidFhJEwhIsgX8Yy3fhuySD9mED9mMD9kcXk74cDw5JndFHxvP-nyeTDaQPpN-3zpDOgdpJYx-xWG3z1N2CXfZHpnyGcQv3wnryOIZz5Dous99vlMlE04m_ZD-s3KRlPqkwspwuboorSJ2HTzHUPDhwQ4hjYya9vfoP8OD2xrZvb7u59QqeXfHFiFzRuRz2KnmYgGaXPf-8vfw4L58jtxgTlFS3fpmgEk23ziHW4_D9DwnLYANeh5k6202gu_d8RnxpYCjhKYPO3s7hFz-3nz_Z3iwWoUHFANhuU273r2hDWW0TRmt6Vg2zW8XvNlQ3G0He9sds6PQDkNJcQGbID7YizSDHiUFrDz5HgI2md41YBX-bX72XII9ILToNSkZKX4379b6SO8vfHtspBSDFyE2sUWPvHr--tO7x8-efnr--v3T75--pf3inxspHv-ylmLnrpw0Khquf_eA1qnxJpL4qHzx95H8QklBmj1rQsI5Oif_IOVdot5YoDNoEBRA3ED5DpXEhkZubF9aG0G0U071G5MxwCqCb00ZGUmq7PUwAgrwbYZjcuGoTJaL-CK64ImxBrekEqPvrr9pMVwAP09pIlMfk8MFYQBHKk8gcNGTjbwtsoueKW8lWCuc6adgRqJeDiYLBdZD7yYqn-tBpSYs-Ac4wVWKmzRET9CTD1gwBGOA9T7jegJWWvJProyXHxfH7ZrrcyKfrcX3NF4fLd26HkDsUsrkX2gaTrryzyY3BCjaiAWLmdeCgGL-hgyCCf7POdT6J3qQeWmCK9vokWCB8RDWzwPyO4n5SUzpivx-MoDfDyh9wOQzZ0cTo4tvyuQbtLcD996XGXgYkT_7FxdSw4tvjetXeLOoIIkza6cskd8x-SLlOEeJ_IHJjylP1A9M_ZAy-RK46kQpJr9P-U8wi7_6ptpLIoS2rM7zmSYYsaV1QMNdqLWo8UYTw8uB8wgIJyeGPvVFRFu857WDoyqXFw1SH8sOVtUpJ7gqpgHz-bNBPoVEGcP21iyRPzE5NN1IZMjkyHbpAE_PfXQMvY_ObuQQfsEpeUS66ACTMmnMb3Yx2S7vdsFE7DKv8tMC3b45070BvsvBM_U7nWksbkTkLusKJg-b4vY5kT8RuWdikEOJIZOHXBwRsGGWR_7XQ06kJtZGMAnAZOU8n6LjcvQwHphQRPKAoHX0ZtrqvLwKWABG5xfttEOT1lscBk27J-eIlTFMl9wjpoG9ns1GGY5Pe3CgoblwTU5YrszY5jnXgiydQT4e3PJhr5crIh9irHZhWj1rIaX3WCkn1rhlUQG2Gvb_NVoxdCE3sdmHmB3qz3OIWw-CKFjTebE-ZLNyAm5ZA2MHFaTsuj1MwWmxUKazeQ52XmcAKVwfHWOJmQRfxM20vAI38NboaP0JbGc26rkmhpnLBbYMYhXmC2f3kVfGnsbeGxdxvojUD4TSfvAp6OdTGMGpjcsIS4fuEB8rOV_4UO07I8p2D-hqNaR07TDCYki_n5fr71k-94Gv8nO-zKdRvmDnIlP6VGQ6EoeE1iw_40sU9r3PTqvIpidJki9Yfp4C3MWa-PqPNUvyG5Zf2E2Wn7L8yi6EL1z9wPJ3hheH8k3g5HxubqiZ9Xv0LRxv64Y2aBE8ySbnzY9kmPbdzzA9bmx3RM3y9-sUytTmoa3XJhADxiM3JUCAcJao92j1BTnZxPjjAdel1u9OpBk4M0SXR8Ogxksky583BnkEY0AL1rqoeY8wKKKGniG5hmDCptPGg5ghbxgTI0yZYhgNBQMrm8jNLL_mjUhOMsHz53Drbw2Oc8wAxPKQ2BBnYDFjAjEvAaHsh9B3eyMUdMtWDr9j7Yrtil0IbMb0PsnncK8CduJnUz4zNjnDY_V2YGPUE2dWjdbh1OPZer38CzHyqWAOdkIBm2c3RZlNIVKIhBryKzM1puHm5pko0wmWz5HQ1EBbnqacKOUsB5byJwjC46xyIJyzJtYt1TtdquwMAVzPtbggwScw4YjAjYYAlmEjmTF-25IStuya_X3bpgS9ucrIbND17YewCa0WckJCkEuuwdHX0w7m2fQdErARC8D0vNmiBIJm_wzD76ygjBX-ViNuHH3AAry5ZfwC6wtiUOAmg4KAkdwYgmrbSDFBYNPrN-02mONPXLVM9zGSIISrrPFMy79wK52BFUjQrcDfqgfmnrK19HdODdzwG1JemeSB34co-RuvZcH2fhE3q1V3y-InYiDFFQoVgY8DAS542B-lIBpcrFbghNys48yv4KIGLFCAEethVrJYDbIJeFlbrZplDy5dfJYEBvNs4MkrTlh-NvAklaY1yFecI5gMQtKaMuO1jH6RFEhd2kW0PoXp2oIyL1TrsHO7EltPSqAx-g0pWtHc1XfoGBlmBmhBqx5WOPJQuF1c3r2LQ6gMiIPpFdGjtf4wAaUUtNfLL4hxMVFgptqZJGqB4g34rEQ2vQlYfobrbWe0D3fzNsNhQSwC6eJOKPbG-u16dY2QCwT54I1_oz0uQCic3ucDf0YaStvMLrbUzW5-Dl5kGp4GTL1avMxY_kTwAIIr8vYSRJyfN2bPIiaqYXBatZolV1OKrgTOzgpheEb3IIxmAGF5OEY_Ic-fv2b5j_ZgvscJWWprk6Z52FilGZm6EigYjCQPh20HV7nhS1QsP0byBV3f3hsEV_0ZoDOrIUQGp_zR10iB-jNgUOoPkfyOIj2Ake7rtqTBumUqmSPLZRxGPjTieAGiFGzkFNXQIBnpTlcriM59jLwHkCNgzOwlA5P5OwaGBuew3b3YfHis0V4X2gqM3mVW4CLEkIcPRpSyN0Q5ke5yUohM-XTZfyRlMDx2eV9yDWUm05RvI2sQHazJhDd4pGTaE63V6hJWSllcCgKFAnuTtaJDacouU2b8V71R5UVeiYGCgPDCOWVA1UQMfljhHJkSimok58CjhGAxvgmdSbkoph2LOc0m3mdmjaqj_JN1oYUKm1ORTZyM1S0x6aLhwEGOQfZejr3OBhKW3B3uJRdzkBjdotg5iPy92zKQa5RwR3gKxkpufdhQSDACOcOATaTgOef8BcbrpaxbGItsGcsfSI4w1w35a06thEW5VZHfM3qgv0jIjB8zF73Nx6dFH3B7YBhDCus1bCbQjTNbXgh9Xk4jpzQK3vz47n0QBd8_fR8wZMGiQJY7-CsAnnQKnnAggkiQy0mxgCvgBSjtgkmpqgDY9ylIIJYBmoFKvQPgXLB-F9f6wbzIcjlG04lKaJ5X5c7h4f7RThjUDC43UVaDmQw6GIttkOF35EkjZVeimpeyElEn6JuOFAMoGSSfkRfNX2VKks_WoSQAedAhm3VjCGgdrQHgCE7Y-mH9YHfwmdrFqDNAwN0nYR9F4-sqLePhb1PG7pqRtax9KI02WtcKP2K3ewFFfYwaJYXf-qAfj17A4fMjxH4X78DOPhLvYCvRcUmGIPuX2WV-BoGNB5WQ029xVYPFsbjqfFuUp14LmGRo7u7I-3-YBWjoExKY4jpQcuNpEcVoSWA9KcEtNACfu8YvElw40V9pkLL8CQrN9YQFNghJwIJ85tyHvstNxLN89rqU4hWe-CnLX_lMqE8GyUKpMKHWBYiVzNUHkn5o7o0bDsXg3F13b4hXovxDw0Og3wjDRxgfeGhvrVMY2-YW46bPaC5ruIHAse5M-jEEc_6BCSPJMP5vqY2QCueL_MldDfyZKJjo9XbFLrhDMqzpKbpvM_ck17r23a25tNFGpCSwYliewI2BptO4iQAXGkYjhMohacJ_1pToeGl2VJQ5b7AYRLKOmvfOkR-KqcB3MVueCTh7H6k_CPpJZMpSF6CECsNGg3sJvHisVhAwAmSbCmKWGTd81LUZAcEums1LcUNKZ5LlZtGqcTQcX41v0_wdMTdxNG2zKwmxOxsh5bygM0enb-fiIqONKnMBgjofUwh1rwurKDYXbT8I3oMtQ3leBG4SgaQAQht9-YJL028gaMjYIabgIJ2BDXyvp5titw93C9qjfm407ok-hDPiCVyG7Knj5Y5gkw1Wp63uIJQBlEhwx8SljDIDLxgIAy85uGwkB5fOhZul6cmlW1BQhdYFjfPotndAXaQ10wekQtEEuDNKKftqNxWwgbdTtNcXNrgJ3QlCBnZpONmSNw4eiXeuZfZiDoqLZSPtwQWq35ApbB68C9LaOoB-Z66Tz6e3u7SRoC0mB1eCzc2nkfWeCfB-lKRshkb-PlptydqkRzI13nIRNo6C151l3pYuE8mniU7hQrQ-38rMNwaIm1kvqZLZaZfeMV-dukG3xTD1BlZYTdnMD6h-688qSKnfkFlzj6Z0ABX5kJCmtBmUNjSltf1-On_M8cYOsguhBqaNsqoRu1yTirJFbd3WOncLZn-DA4xbbmybwKq_kuCjm5UBUiLBlt4TcKTtZlU1xcBinmhV_5loXf4XROuyQYhKIFe5p16lWbsLeFutE7EKgHANIfMYUtj-MWlWQIXu6PQEYpPh39uuo4wDTO_I2n1oKIDb9Rurqy1RMylAH1E2pKH0tKPdc_MKgrA2wl7_mvZDipRm3SN546ncLMvKEZuSCUNLgLtVTuBZOhJUORJURSjoY86ySPmTS8d-cUWZc1xu6E20nQ4ZIgPESzq5KhAv_QnG0Iw1WXhsFLxuYnNv8R5uO46SS_twe4BdKmZp-isUcNUQ1WE47k77ffBb7IxgrCvfGW-zGvoNQSfI2GC_J2ec6LewW9dYnUWi07FzKh0bKo3LgWH3nM8uMxeQeG1p3XKN7peB72ANIxaZyVDGb5tZ5I6TfUa8j2FyB5GuDJGu_jeJ9BbCPIN2scC7Mh4ENEpSOt4cKYhNzCsYq-kx30VXbTAMvR75Orl2NM4rWv8DWccpQE_OZsS0p8E-7nqbHkrK8pot_y7hq75O-JoAiflrQloTIGor-Ww0BC8NLOhMaFxpz43SA8NgI5m376_9e-M9t9V2p2Rw-8omNcOT4rFT1Cz_s3Fcnr9t_X7Dk8HDfTbY3U1Z_jNPBiP3gI5O9RuiwQ0ZAIW8f1T4-UXcpIhZEHEi2Gd0Ww3rCRxYI0UNJugFb6fKp6JzIS5KddMx0UFVSVrK8A0eURgekdb0M_toAoLnL61HzscYMnUPWWp0QBWcA1CUmktA8I8ACWZXD1AsZnTqwR_ZZVYhMgBcoOX_MmVhKcDbzaGY04XWpcSClHFVSj4QzYLHAQu-_fD-_Y-vA7paBc9fv_nwHr199nofiArR2xbcqKkvAjzfn17kGtJDcOCXlOXf21AG4SagcOkcNnrXjQzuhBB2kTQBcrCjOtcFyLZbfkKN-8kGeuCSZoCp_XpCYbzvvRfX-nZCFg6HlMHIRq0M8LzmpbQVBX2iIx2jk8TGPWf-m0O4XjnhyNXYRSsG8W_KjWNRAUADBYiJNfBHEqZ43RC_EXmGWiZ05PURVsAPUIQFJsgnHrrXFS2ACGBTAKwAOvbvCSY2hvghlBesudlqou4ZbB944Td-3efsnJ2xG5AImXxw0Qa55YaqDAb_YyLPBuBBq41N-GRUdoibLUnmxYcF0G4XA0DgnaQ5TF6OSy6-JSWT_FELh5pvuBvMuQQ6DoHhDWOKxbAlOtATKrpiC1ktTmHxnxrf54p_rNGvs3VVLn81zjuBp6W1ufpd8vwZkW_YlC-z-by4Qf9lTyFQBBwAaEG95soWArjCRre-md0DzytiGTh06Ooi1GEi_2T0vuycvwQVJSgXrIKyvU2adQun0aRUgKHYYMo14EQ5bl39B6jdatrSALd4x6gJK9LNgQNdrcAbO9jgQ1CRJxgrSrTjRBlh1xdxA4GhAG9I1q4aDf_p3FB6DDQr-NcDY7UivYL8wIRzjcUvRFsZkXEu3w8-eQ2pnpy_9w6l_WjXNHpCgnco9OkImDFsvCkQxUVlE7oAYRKuUT6a7m2OPNvGkRumQhindqrhsD3k_Baz3oDD8dSgTPxiZZ3Y82hpotrCrgfFRpL_aWJXd8EMEh-b-_nYw7bzPz2wTPxCVEXEgVVrsKVfXlFrqe0ghAFmsDmQ8_-e_fFCawkKnYWXZi9nxaI6N6JsfBeBzWGrrmw9FoilCTCA-qOhg__VKlmtxB4pWFsYpXeJHtyxZ9vjbQow4w33D7z04_aDNtSUdfPGThihwRmKOBqWSewbmiVdnAfQhW3K60qDbcxAXNrk3DNkSlCPtLfauwUByagZRYT37KOUL2zZ7HXR46Mta7XSq1W4PxweK7wJwEhmjewOuU3NZMp1g_UAfxzZwMLeBdxt_G9_1wS8PAxIU48HAfd6C_B92eo1jH-rzTVluJqjBTp7fIOsv2__ghRIDtZ6qcQZeNVVOGWYwexi6x8TcdlW2dENmUEHLUvQkbR8s-EFDTcABYMLfCQuvmjLtXsTOWWQV09KKdHFAaUVsfIwY_noHegmik3Txkuo2CWaZBDVJcOFY9YwSABfkSlrDrdWi6agXCwQKs9Kt2MTexsqUxgAHFXKqho0RHDwwB0LcZ9zPmRn_Jx_ZDfQ-asGxpPPyI01iXHuNMLjFuylC5iZ1QrRhMAEo-wW3fIjy-mpmUtgkDL2-xU4PG3ZKygayRdoT2pkwZJ_tDHoxLfgi9ZwxAby_8J4nXAksethzpjFeGWw_nW5-I2gM1F8wngDZ96bb9UIKLOLlkWQPBs4B6NcuJ_MFP6lnY6_tG-ftt4KckXZR0c3z1ar7D3a2GQIJn4Zkcpfwj-CfsNvAekslcVL012TYyccDiMsI97ZH0bZY_syUk_g19HQoou7s9WqO3Pb5jye98PIycLYEEUE1BhRz9FuQI3nx-77eO4cm11w8KY8voDoRltOGNi5F-aEaTFNwmQCB2MkmJQXFxnEPRPAc3xk2Ew6wbjqIMd1kuQM7jL00kgBPpr7GW19fmw-V-5ztf4Z5QVij4CopbA-s1ufYego0dy0UgyEI9RQzmIOc2R5s9anfGrVDATpftI6HeYqL1WubzC6ynAIrlaajHBJe2lgG1a22DQElwasiWbzA55Ms4x_NIGamE4xgBGk3sQ7IYp8rkqQ8jwxA0sb-tJwZbGMPlLj9ChbreAmbT0F7TTTwYIfygziofl2V1HAEG8CeysZpYDdpXWNKPlfyRXDiLxKZsWOMFHnQERTW8Ihez07qc2ZAud1XVs_bT6wEVxZt4eHUx-Z5eddlDibzmBsyXpAoisGkMnAst4A1QTH_pZNmrTYgEv26VNevbcs-kuIhLgebS5sRZuDS0x-2joBxR8k_64BxeGMrlYgFmBJskzkt2lkvuvN7zULHhdNDJcqYC9TFIflN6TRyLcCWxVjC6bhJt5FIliRunBcuDMSG-6kCfkIQsfgf3I5KwNmdTFwyrE7Elp9TjutlVL-UKfUOV0Glm66yYcB8Vt_w9DQ9EMl1OMzIUFSZIjAFfnZYWMg9uSn7AyrPM-q9-Vich4Njxvt7UV2jS_fAHi3woiVWFjUJPHvGEa_MVvhi1v3XzxHzopMni0AbQ0itya_f70mFgNX8E1EmZ0mNPbPBNaV8KVFCjkG4D8ZRO7M1E2Eunm4-s6EApP4CBTpKG_NL8RfpRTRMs9kFj2XuhiAdTG46nuGMT4JddCQ6Y94G64IRZb5t1IKZrztR8RZJVPn5w8KNV4pABU8GAy8hFv5QCDq46CaKCEkUzFZmpgAysUAyFmpYJyM9CyruWIFV8c52zlCZaInNhs_1gxZM3lWoA2M-jhoFQdvQCuPJWWAz1MsT3mSo8x5aZYNACEidbx3OIyDi_I0LyCuyTEPh6O9OMDdpwMIXVp90eUcZOvQk2g5nSuozZTxJr8WxVuok93qXpHJaTXJ5iIq6ppGyxrhAkajWLCMKUTDrC9ZuJWyM7g1NMqaK9DVSEKBAxqyKyBZwOfOEK-y9NQSRIsUJiKj7IqgoNftOROeCTdcgTQ2sFJow_8bENjV-An5DI6oTPClJtQTqFrBjYslbJ3g3tJSxTqAKzIg2DARhDbT5-C4BSmsPs8keDE2Pq3Kmb2KdizJr-AuzfJf-f_X2NUut21k2f_7FEPsDLYhNiFSshIHVJsVe-TEq9iOLcXeCczxtAhQQggBXACULZOs2tfY19sn2Tr3duODopO4UhHR-AYa3ffj3HOagtd931DyRtVDB6tJ8Y1QVy8gJCuTYe1jf2oC0zQ1I_6evDF3Gyb_wAOHxVm5bntTDGXmLMmbVvYkeUPpE06SUcEjYgYQZhC7JbrIFfIwWYHmEuP2ViYjVD94Mjkyf79RIxkmJzI5NkC7xy3x0Pg7JClGlF-nn0eAOPBPgCj5J8Ecv7GjA_G9oR-QSgY-zMBwwJkqFGoqDC0cQUWpJWu1sIRnkFATXfZ3KkEKLdSx1BVfqa4FpIhL-q3QCYmDYJrBQ4EprdmL0lkdC7mIK6mTpgzmOrYCT-XT-0sOeAonISEmp8UprVNDm8f_N7B2f5UlVYnAa0yw1zwjj006OoqomoVKLbhQntneaAcbOLA7qeGpWTOhPQO7Z1MCTug23dTvd7INMyui5-3LRcwYZ-VJTQX-2Q1Fm55UrBnV6-mVMPIkFVf8iUvV6JW0FxDm_whv87I5pby0J5CXnhV6wDNv5C0gWkxpYIrKGj_L7BSIF6q5RNetfhYveBzZ3YPGBX1n1FNahDksVdeKXQ7r8NGvrVqHUmrExOy9jIlpfiWYRJ68pnciaT3Kh8EPUig1AsFwYFcNBqEg7SU9W7RigMzDqot7qp_rhrp3t10W-W1ecUI-s2XyxaQI4ndCy7gl-7S7LwAmmHtJzyIWDbkgCYNyQME8XoqRpJKH67p192lTKKQkiI9VTIMAa-3GxiciN8fQD-RYQaP8n2IlazScvVwE4OoHMhkFR-gh5rS2K6Q2bZjaTtK-INnroQDDo1eNcHfi6yKG9T6nDEMRa4d6KK6PJGXSdoQnp_PBHnbsYevz4qiE1yAVPS7yebRDkwGYu_226MQUNMYPVX0rEukcAjwcn3R4J2g3XIrebJLJuu5cZaAldg3qXbe2l0s9azJheq5CuuYZS2ZA0hzeWOytTYSKxz34I2-EziQyGSSu5smT4dBroPMy3j-7tKdi_kmyudVOQH3BdLB8bwvXXbBnkmD0mjQFvPSajV2Z5JnrzmEpB6K9uaqa3rFoRxErn4OuJK1ITopfB6zEgphUzCHgNyGsujVwZLiHDzSWBeEq7G0SbL2-yxege3K2baE0g5qoAnAF_P4RKn31tQMgEs8737lucvl7Oxsb4K573V-9gY6t8TtXgFvYu_8ef2jbUY-rdpAj0Fi9KumRtLylvZdh76VPGS5wjxAkgUSumgIXmcjluHiM4ueZnCnAzfE2OY2HHOlmI6y6fSUpBxsHiURlMszx6kZ0duk7jlwbFd3vV9UNxRs4gLlQxrsyOqBN7B1WhDXlAvKHIRKKskLkFiskM26C-jRYIm_7RpetZizVw2yU3-okg2nbvV4cmMvx8VywBCY90xL1R-Srga0oyGBLRyuTtk--E1ZvC-UQmHTuXFcs_HlSlNWlvkL-1rTiT0QrYdsn2fXP-jqm_O7l7_Z88776_QjDpKquu0-WEv2hxetK5zaOktWtI52Zvl3q5BopZdSRooXHUFTsthNQO_mCWDVV_iJXC89fVbckC4sfyEGE8bQVwnkn0tBZVbcfnT4KwOoIDhWxxRwL74lFa6iB76QuPNddxsUcbmQ2Y9hra5mMPSaQeXqPHYTTHMDhCX_hF3GUYIIA6Mj-fpavsko-OB-kCVlp-fDDRwiaDVAhIS9s4aw9fFwXwZlRr3scfGIPjt3sCwNl2QA-kwuRvPFagE_-al03-9IUAltnxKPOgRdvDrC0-y1JD9Yv4hRIKYr0v4geboRivN9zYWrbTIqlenB6Hl0Ijf5FLPli4B8iRvbWbKPW9Okt7YdUh0nX9CHVA0Eh-WOhgWC5w2Yg944DFtLAB-qLbOIETj-DcnF9VCoBwZDRnqIymdl32JmLxMJrGr6aJVlwSfq6_UmT5ZIci4XXJJmyEeEHUCp3BI3Cfj_5xguSI_GOzMCmsGaZL03pIR34QjmAAw3mefFJF5Ej56hugAUTOoghkudBZOfOtAWXvklQoHMfxn3lUM2_Mx3XbdMmj2HydcKsQ1z6otUdcTYkRecCiaVOqDWo1BN9TZqqIhYVxaUwfE7MaJzm10nmSNscNFtsg2aTfFVBoPnckzaxDnunt9hsipdk34p4V2S4k4KGwh5txf2-cd0p1iqNPWUtsZZJxY-pAdiT00gFUmVMftrrqzIu7qDkY1D5e-qo6-mU7Xy6Ji9M3k69duVymhrAnGf0xeGXZko8oCEg4L4h2WrTD5wMZaHnPNuZtBxpoZ3CaahO40mFjE8CeWZGdb4FWUKddRRapnaw3o8uuZVX8pNcyItxCsEAOEh8a2ldhdJyAnf9ANHRpG37K5XfqMOVLZ32ltXzcJfGlcJ9-UlGQ0dEjtWWExBN7Xn3TYBpaldbsNFlo5Joo61XBHH463RC3EjNhs9NhKPfLzympgn2sr9tPZHzSD1X7yhDOJT3ajeAnchW8FDYuq_VZBWsmA9tikhhgu8xbMaPYUtRr4Q1RgwWFIPpjfAfSxJVr4U3Hevw0VRVUocnU1VIHX4zVdlW3qoQq3kbeYVwCkowP6nmUAs1GMkLVWepXoMA8qsSsoV6KKaaqj06qhcqzASEiKnwFj8Lai944SqvqvzWroIQrSy8qbxUF-HRdHCBWepCXYQj_D6eyjM1nyTvg-Rn6IefhcPpQXp6udng16m4PKyMJC2RTLgub1GcXtgtLg4r1rGlDZCBW0KoCDHNpSoo7DjvEV51iTbvCYRH98gZDo5OEM4V_f6NvBJzT5abTSwI3E1epBC_47B3P4BsKbR0Wm2OPP8Dj799ABY55sGzaYcbVwbFd4Libm07E7Ywh8lpWur0rBuK1t4JLc-9rWdyONxFQanZRIDFa3UFm1URcpckef9oUqzMpNg1ODAY2sBq3d1f71wUBzjKYOW66ypfBqtwSEUHt0kUpUAuj2iRe1KwCo-wuJUlouPXjF6cSeSNgtd-E3F03RmKoNpNhzMfm-GnvMbgjFnV9KieUgtvvVB2eXymNNXumTJG9KX1Fb4UTYXId3iWs22XpI5V8d7G12efl8IJP3xYrn_a4v-vttPO0n_83__87_RgI0K_N5n2PUc61yvH1iYPJfhZVgohnt5oXKjEjz_HMwS1PNAnTETpuv3-ilZ7gSgRptd9Qk7ZBPc3p60lbJ3Lfj_1xrwnJwW-cqGkBttuaK4vUuFQElr32xMJBiVTq3ugN0PU8FCNDAj4eqNxlDeBVNG6B-CJELte4krmnAW2z2_2gNbCJ-ZmeQMsxrUajq9PbYHQ-Lrf96LwejoYoJIjvJ6qtUkeNbrFM_kpL6LyaTzPiziYS_v6IW89Pzw6fnzwTfzI2-L4Q28slqp3gzlrrsA1pGb90Xb76SZJgceo8bPob7Hki6hRRrJWA0Psh04apBKZRmTHymAl04TEuNPDVX80HB7kh6nXuZy0vhzZ7mYEUKH7OZuckWW7QqE1d9InauQfnRykbNt8bKyByyKO3-t0ERdCy1d5FD9P0iou_IsfX7__eHn2X5ee_E0N5TMjWcRPHfFOmqbGz07vmrHgpfroZ_HnCocBDzqf7KX8RT6XP8un8oud8X6xU_wv6mX706lHtl_qWfmXgE_8W199Gf_2xAZVxHN1Fz5rTKnnRnzbG3tJ-OxvRxMU9ZxliKCXcUVEJc5UvJTYyWw6-K3_xZPP-v2_HbmuoPHkuR06ft4yzGjvhPdU8ST27PR4Aim054On8ufBU3kHqjD7orxA3IuRpBHq0ZS2uQNQoF4v78VRa9fj1ipACbamSJUmwtPhZMC_gqE849NzG656KH9SZjI7qAelOekb3-LTJjTBmTzrX3oHt7hGaihk0b_wDn_y5Irc41UT5lZmmm6fAkzUEuzUsCWb6fpJOkmDeu5ubaTVHIpqyaBA1VM4nI5z347rxCGECYlCp-HxlPiCw-MpRZj7fWzentpk7mMIV2C8thefeIfEjj3g0-X09FQmmrMcgi3b7Eq1FVDGeztVYp2UjS2fXdvCh19FIS_g48SbDYpootravhDIOFR-zlY_gNKslgVD3Q7190HcMLHG_xBZIuOH1nCL97RVloXItzGgA4LstJIPNjZt2k0Gh6SSqYnE0LeeoHxRkv0lm-weEaDAryaKZLbvZPt34SxB1sojIXK9Y7a3UHxY3UQhW4fCCr6FfSciwFnGNyZnuqhap_CxvPeYWCHJPmpvbgymPdvTmm3grJYAavGTy3xeAkyOOJ6QsGySXtZfX7fdUbh_zSMkG2hdHaE-g87gWDoWyRumyWzBLDRwHY-oeqKzHfXUHW8akLYrKgTM0OvOvUBTIQ26aQfv3XJ6qgmpKcms9irroAyxsFwY0fvv01T8KwSqfPqvhks5MQhBCnGCSqJWLCGFJs5KvREJSGq9dfxGIAE9NgTE4LU0K6WzAVyEFjgeXNdGIj23Os3tJL2yQLpI5eGKMHEOGEMibi2VMyDawslgFNR1hk1ZYAow56REUueYGfDL06Gna9HrskYsDk3Czq7DDJ6Ur_QrAdP28J-h8yFcTw_9Ki4rHLQxORxn94Kr4n4dqRYac9anqzc6etsZpSxib70dnqrSdauwBP91pPDDk_EjoSVFI-JHomjn0sRaR1FwTmBkWY8wCSxRespzldBUa1LWF8lVmmTXY-f907d4Sokt2amruVKV4BLjjGZnz3VTQ-zy7CZJIxZqmyOaU6A2DqObX8505muL-ZSmoenqHkiZz73gXR1MaQVRd4Mp7RKEgjhSMpQKhg59ETZ-_Lm6jbOVIx29-swr0IE7tPiIUTDEtfhVZCauwojWH5nOgIMToMxRxGVfbjbOq-_f1eVZBigbqQwJPmljnVHNp9Pc47iX-Vw7ZR9k5LpN4XkP_Yi-6weflKOlrdvCkJD8yMGw41Ox4-nbVCdIOwJTZkqB1R8EyRO2BvLiVzhPJpDQxIHpNtp1__V4rp5kAH1QtJwy_UAekDsjV_WTyjmqY6thSE-glYGiEjR6F3_CH-XtPAy4yN6940lU_PEeqGurC3I0M9t0L4F9vz--BJsE717Cn9hhaz1ckO7kypjKkbzDaNFLXTeRM6XvzPuD3ZMj4nJHgPCbTrONGKsn1XugCeqzN3NJd7rDG1la25bfQK9kescWtuw80N5kbfz5FF9fx6PfMssy9tmbgsH3YiickVaL1RPnxcsf6s-CS42qicjUOuZhJUh-4JrhrXznBeeehMJG_c217pjQXbMHIQXf9-dbGowJpJucg55mzazpqZypGyIbRti3p1pZQNMmOVw_txH6W2lSglcU-b-hDNWfC_8nc8HnUjvncd2bOrfXXmfbsL6MdTG7aa_lFgPecf4dj_CGcoH2reKP4KbOnWnQf2ACaoaVuEGA6mx2kxcf26MoNwV8KDzPZT0FLOSl_KTei_VOFpMO1T4GZVVmE35ewZW0eZdgVqcsdx40QibpPDjfe_pxZ6iGjixlvib2lk7VyMBibMtmk_mzqkjPQf2VMXWy-a1T_lW8ETfADKFjORgNTPyQkgYiGYpPTfBefvJxeeqdBDrcC4rH3aSl5DuFe_7Jjz8nlfpU55pk91Agbloo05PElcq-IC8z6WxE4So-k7hUyFnv0GKaFItwfEc6jgeBstKoKsnHnrzabLJrf6aX1aqIn_GjexlnmDr4xCp733eU07_ss7zNL29fPLNDOPJM-4jVDFGlITajXI8y7GqYkmp6tQaYVLXNlKpFGtkE1wumwXoRAS54ia75CRTqHnMLFx0-4UV8v1o6-1iYO-TCTTYYnrO53wUF1FjNqz2J7ytH7PXMoBVNoiCiIBpwOapRpkHo33XJVsTARn6QR0i8HfSdtLY-5rMY1OOTNcPugngbGIUSk8f0xEPqle48WxhXpAgYdoQlh2ogepGfVDEXguCHEh21C6McY9BFYS2AMJoGnGMwyh12FrF-gfj6hRh_DNAZEaHCf6Y0DOKxmG02wLVhkJnZ5Buu9CM_isihj5ojlDbzVtsPH41tZoYdrk64c934H6KSuSxqZsXiW5QDN6QlEzJnEy8QiapHt53DfkwYL8AXwGZAUKgwmcrGSQpW2z-TZ01MSNkchcCcIseM3hvKHKk1lFfAf6sT43BeqTPZp_d3s8J1C_GgkYo7yMQ1XNm75u16C6v2WJx74-SEE9cWscm8k-1NiHzmkiksRSyRQaARPe4me-2pRIOdyXAAmOrrz4FYYeGd5_mfD0Xxo4lqUf5l8CAjA7JteR-s_PvWtpyXGTxM1WDr7Tjz75-owr8nayycyl7lz_M0cl27on80JD1Dalbn7M44WAACrlcxofuAo_PO1HX9k1OV0AF319V7t1vbB4mziI7w3Xe7h6A13f3R5DH1s_Gn6l5Yvz_6S0D7upSA3KumnDImnuc6UYzvm197QA5a10ev5TJr0s8bUCkKM9QoUyHOY0Ys9n6KZjAyu2y9ALIAKasYxUxGJ_fst-WIwAs6X33ovIjigr6uyqffW-useeaOgIZ5kPU2WWi4adkDZggFZFYxRFAkFbT_gBn4CC4M9DWoBiZxgapEZ3YTzxZX-Weq0SEbAd9ySU5SXdHBElm7rU3CwIBa_N_yJBOOdPYedwJtnni2iKOJUxUrkEjOdVrGTk1ZU0dFKEMMQBCUPY-GKA0u6lF_KxNV1e5mKkupFXp3cUvFig09QjEUmp4BM3xsNhzE-UjKcMj-jUQBvSKvgQW0Hqt5QziuIwn_UB-PnmlGkHOPrCIN7BAWNxsoRNRgsxZgfigbhP1QzpM4jcpgvQVjguiCVrI_M5hmZjBFMHPXoid4j4gJYdAS-BLIZtvS15obydZp93rFmLq0HfIAqYY2_ISQ16fDSZwFf_ce8H-D4hYaXkFhIDj4HgDtb42eVKEhqJBb4kgDHeg2sAaYnqbAGvXBlgLFlCDDo9OerBB9PpYlD91CtyuQEcfOEPXlGPtE0MZHsvRY2CkXnjw6VWilCnArBhopkj0Oj6eg7t45ZOuAnif34FyZuy1pvdv4sTj3BlX4iMpEcA0jgizJb0-GFKxUYQYaMzmUtKkcgakSAX-G9G82wAjvCVUQc4y8OPvp7NmlRM7n-7dn3ztexx4DKkSPY5-dIueG2A-Zm5y-wMZhj4BoKBHC567ohXcqttQjUaDDuykpOMTcnfkDuJOpvorToKol7GrsLarpaGXZYFS1ItLjptqqzRgT8Nnk4T8_lAfCP5h4H8qDDweTD-XBX4HN--vI8b7-_dC3Wd-KGbcmUeAYJVlHhno2DSgQy8i3jKgEwFDS3HSo-Y6VliXegJEbBJf47qNDCb91gYGPM9GOuWOgS8ySbH8BauiMhvwPFc7DwSP877FdtP8ceRgOR4-nh9cMQ4gP1Mj7J8ZU4pbJ0Snekg_DipRU9rtDWDvyINnjjk6ePIkPH3kduVhYMbhfGPR2lN2Cz0yW063UmDu4cLCO4yRktVbgmNUPkgW2mxagOdKuGyJohVI0mU0lk-pCErMJdLPAG4GVCJgUmiaoREZqIFYDsVLJEXkvd2ogygHCxPguUNSqErxFKeiPypDS6Sk1q92lxJ8nafoa8yaiMc2SysOTab-PYgq04VOmCoqiYGRYWcM7Z6rT7k1mwRB0ePWe6lzmPJIA22U6TsMRUfmpLqvnaFVEAkO9BOBB0xOA3SJy2BZwoa8imfh1f-6rO1nsrC66q_nZElsIYARDGZFeo-tm6LFGjAZgPf4FTJ50jK83tYgzi29zXS1qrBsofSgKW8j6KM2Ubd-GNG8pyEmTLvozFnq0x0KnT7AG9ZnS3R3bJlM17fXXqiC-VgRMhXZVu27YlACTOd5l0y5gLVi5-x6MOKpLzojnqlj58X-vdFoKKB9PQsSspoEhxetO1y3XyVyF-RFU4PJgIheEILtMp-Ef3Mt2ijh_2Buin8EpWetMp_dVMis_mgBD4LTQ0o60xW8afn6zTafZkcu4KGnhC8ViOsdqr3CkjpqVt7pYxMjD4m3NVkXnDLbF4RFFrO0DWNuADhstwZpu8Yc8v07jvzwzTLwvIXd9d-TswCWprsUILcCjeuej7uQnfR8XsP_2DE425QMjEJ5Hj-IpWagHI3AR9SrOEo31YACywBirphhQQNyUWCBEChcQ5CiU27JvYx-JJJN-2HCFMqI71oQFqVEtA-FcFzqDF0BbHU3DCkZICj1Z-L4U3W8eI2K9m42TxfBcNKt_FMThPEvBFTBPOI4W5BNHZ3l2f5uvSgcE7gx_d6RlR0blMP55ct3Aq3dcIvPdFWRJ14Vh-hVTmlZc7lea4ksmoia9oaa9pPZdnu5xR_xPxIpptq4orh8btU0PMGZDNSmY3tqTSAnVB-92IWZhSamqtjmyDisqNMBfUupoulK9TerXjdh0FB9vKSrI8hettfLBfZwjsPocY6Ng7GrqU-8kNF-vGSpKqueyzJlGotnbem35L5OJ204hPWbl-UzOh_lmfJRBY0h1OD7pKIXxJZ9D84n7Xosru44LAovqSX2jPgsT5ZL6GgsWs42GezR0OGLQeotWwwOD5Sss23QmGj6hoS4UR8tCfRbn0iFaDCxfYAuKCkt9id-WswQNL9DAnq4n9WcsIUmJhe9pgfc7w5RWD1et25b6Fd2V-Ra98VfZNhwfkVb_t5JYlx25bvFgPODI4Ikh9taxSH6lyJMnvPG__T9l2If9Qg8BAA",
+        br: "W0EPMRIhbBwAQLSOCCMRwsbJ4BmgcURVr88A9VK8IdJRtUMujaBpItrDW3rDLn7hURrjwXtJCzeGyrCcyd7kSLxsitkQGhq6WQnr2NNG_CVX3DSmaj6TsZVWrzzyyPHFOkJjn-T6UXst73s5iRotfmUKsPaXpDQ1Pc7fM_v7IyzLoqUlKyOHbsWWgRxuh7VeZ37VZp4HD-clSAatdHRuKs_PuftsAmaa-tFb075-rc7V7QNLMyQ3uYidNeTm2ENgU0hPQ5mmerb0JJhoWb_8VP36DTCencc5nw1QSvpeShfdUircEN0yQnQGNculXG4Dz1ul6ek6PUtPPfYj6SzbL31VllNwz4lT3glYgSEFMr2yf7apVdWGT_JFSeBwuf6i9icWVDDDw4yQ3Wwwa6mIBt1EbyUjrdrJ_nSCS6XGKcfzv98w9QU5j72FVfWmJD8YPkwYDNa1719d_dfvMsWqTqO2CFlWzyXPmOAEmKDS8gSWA8E2DqTn-_9bqZ9pdWOh_i79mfG-ZQ6dQeAsW-jIUcS69753P96rqv6oqu4-qN6OegFGDZL46gbIOQBFvXrVpKub-HMaIGbcBPV9QEoBJG8g5UX63rlIRya9St_rGoRORS9bNHbqIHOQOkgc2lHmVqIJQwBj1C2gnQMKYddCvft7tPEPs0Cyz8Io8GyN4bVAFbdaz_P2fqjf61_jRuJAREQU0t_m7n6Y-j23tpMmTbprIcQlQDDMhZQ_ACmne6X_jYOk06gUZhZOHNlzZseBW95wwx3veM9bnnjqmzLo6L1lvxZ3_qODGRy6XkEf6ZyE6fSCwro6cd3ugG1Xq0TSl05heIyF2H9EEEiZpXo0w8N3UB2JJuemBEAFxK0k_9xPM-SAZA3AMAMC3l8TvURjTvwI7QBitrmzeWKMzWsTFicxAYskSfKvN7QBrHQUKUYJyC92iXEepzQlH4Y9tPoaxbyWarZMF3ZWCg_DlC8beikXtSP7s6F75uyZmCkHfaUB4hJMOerhWX1-9d7enou6NFL11ElKem45fg01_acDfJ3N3WHU1T-s9xXmLA7X2iHeNnxx09vaQhMTC2LzdeidWeztBQmnDmgoMPjf99-ikOgNjs-rNuuwVH2Swx83AjFkBsiabe7rJMY0TkgLPIMdPhP0EPQ9wBtqslcDUktVfVz1_14DF9dBdmLYFNGgWG2AA8FAEem96xhq6uFQDWre2Mup53EQ_n4PD43DRALqWOtInABy7QlyRCQKC16kOIDmEg2IpRpmsIfpuyAjMdF_xPf2WJaQPSTVsnwdSYUYl1RpNRPfkdVffVjeBtzobxPLUAL13Zp_ZOhIzKREbcP0BmlhLEHOGSdljYaRrkyIiPEyY5mE1EMmD2IhVof-7nBLVPlPhJMrf9zcXILwp7DtYt55lMnr_pI3CbP96z9uH25wtv9wUrAHeZ4h87g68T-SkLE_A3X-xV2zzv_k_xW_j9Gp7zfx2Mu_Q5EmwU1U8GenHmxOU0jU-yRz7G4B9YA6hsG3iTn4df1IFPlF9-suMF8Iy_JREGBBUOxqEinJjlL3aW_vh8eD33SUPH3YDWJsPzVM5cUzPrtkCQhNY5l7vDbMaOFwHQZwnbGDF4AYAAUsOr-LfgE0NKWfdB5JI_fvq14LLuZW1OVpTIGSoqGdzMNIJ9s1waxo6UEQHXf_RHZlTOTXVAbcv9JFVBaQDAEMifH5jFH29vaQRYtMtAHWA4rDfRpL9RE_uWFodrASS_2m4Kl1grfDKgPMbpy66JAH2SR9mR2ZgEpH53v1DBbYfzZzD5L-Z-5O6-87oGAQXbo99K9hK_iOevlEGLxVx6Tk67kx2wBPcjw3K5tYAhX26O3wCY2RAYV0mfZJFteAsxGPgx6-JWmty28PSFKEeQ7uKPGJjs4H7ecCjwDDECRMb3n3oELl1G3ES6eMcNlEEOCkB0BcRbCOMWr3DjXdmjtXwcYcQj3vJaB5FK6UsYjnOqgUVNCXXQ8-JRoVOd1K4-cX4agmTsL_fYbFjgDxZVxNKtsO_Auxj8o0jcgHyiWvqq8-Da0aDD5Ql_lQUgqJoyEYwzsx96jV-67I_Gr7p3Q4_aNgMjN6OGzo-_hd3x-amUG88J2c2vVXb_oBYdJ5RUCit3zPO1QNdImebowKahMR-lYaZxuKVeOr0LQg5ouoihGpZbMj7WjHmenrVOjr-RRQSqHi7E8evR-JLuAj3LEiluDCriK6l0Yp_JsoMZZ7SgHlQpH5KKis1Eg9JDXgMjO9dZRSRkc4gGmVxk9JnmY7V_qN0hiFw8ODICGOuady3Q9wqwvVtjKtf_wqpYAxLIvNC0wumjOUHH5XkwPavyjPVCf7IIL43SWzOqzal2KiBG-nsUoITD2pDhOI0ENEanqY_j0ZolYFQEZwiJbzJUsMJYrKJa9c4dKk3qVFI9N4dPwIp3FNU0-w0Ne763HEI5aeWEBBXpbMhGX8XJak3mTb7nKLzDKV1wrZq7PJSoZaj78rlCCphW9ZC45r9CDiqMRiFWViUJI6J0IMO0aulel3Fw8tB_AXqxg-gHg2QHElaW3xuhne0TTmWisnZkESMRbTAcm7TapcUk2ACIW9DLjHi8MKUGv8f4PCrPSE7SA5EL8vrQRVa7RFZuGr5tVn1Fh7u-VZVLurXswKJbprTusLOklEoK7y2xSHrhwL-v3rsRf8R3_9VR2kwX9kK0Qq2fw12tMtTghvCELSi6l7iI8KDvPgIwpiTAnDBX8ULzBRhl7DD3PX49XpTamSg3xbqopOfte3v5ucNH70_CzOkdUomMibP2ocs-sYQj8WqfxlQakjka6gc024ZJZGo2G8Ps4cELGsxstqMWCVfyeppbVm9rQRQ-J81t-nnMvFJd_bdKEuX7AHy0SmcvLIKYjd1UG0EvVsgO4A4UFz6pCGmQx1vwOpJikQUAZBCvk9l52AJpjH0om4IFhWdRQu8GTMO_fAVHFRgYbPE5ZqJjwwU1tBlTc63DR6IMog61CgCTUsY0AzrBXgbmxTh0LxlgZQ4qaXVKiv9SxMgRx_P7UUXsmdkJwAaTr9qtfI-To0JM6W4NI-FDd20CERS_lSDUhFIGRxSkWDb_EU5Ok41M9iH7Xj5l3-nKoRuIEMxQ_I0kZjQzd1IudQ_qeZu_ShWEkSdS0Gj2S6kkzXQrRERxaj6Q9t-j3BXKrrUosoqb6V3imalnWogNtU6UkLmgJHk-RHwG7spDGjJTwB7uElDQHbCndjnZ-hC5fOVgB5SLM2o-OArceKWKOPKMVtXxxHMwfCi79KfXpqxk9bo8sQlVGpypABGKZhYl0yH6eIJXrlHdCC0tk2o7GIbkuheJccknbj1G1DDjO3KAT4-1D8ERC4SOnjk9EYgkmiTTHFDbx0bvLgtiTYW7BQMGXqFdgM6m-RwKenzYvb970N7yCpaXsgtqRniDHUHvCBkkL5-I7kNqyiV2oNhd8Lcc-OqQepJQhckM2N0p2hj-jNtJaUXxacZGaN4u5f4o6IckArPD0ohCISg5YVNToehDaVLegY5X9l027W1Uyk3g-PBwIqhShCBMNn7HcmyyCr8pKPdbJ9cPRQOPDZrVRcQKS5Ep5R4x6q5A8wjigEX_j3IVjRV1iVyF4gb8xc0DxpQFhPIEqlqlLwuVVrW1Nzkq6ysVKu2mjJem-RTmkwiNNd_ri8HV9Xn3XknRr2FMhPf_24rQfZ4FIrxhVvRWvZFGuRIcBBQTogtrAjC4EAGjkproDillsvE2s_ZXwk214HxhY852JXPuftSSzPji98syYf0Q0OFsiXgEA3JaysmBccAwE0fovfGnjfamPwkNU1tPR3DbGZOJoGhjL5PmGdE1AFSTdY4UOqHsSwCo9ICSdT--ps-kiQEQBSoKYFH3srZMm6zBSSo65Ztpme5aIzJehjMlWXPhCFYqIsOP4xdLXLKxq5kD1hmNulki0EkR-rvlAxilBZICSa6KysxE6iFTNYlFvTHtZ3gHbMQGNwwvFJUz1zxzlEUrjVbPTDPsayqL02fEKKn77i7oBgN8Aik0fNY3ZHmhQMa5Als6RgiuX7TZEwL-_-q5C4FvLYQ5jMEqHMAUGVYIQqVordpqPkR0WpjBhi9NJ6d0Qr5D0KBf6MuNxVVKVIhtv8DoQqmUyKf1s0lQPg7omq8sYAgmkp-4t5vtPRp7AXqC1VJSoXfu-uWcNZ9jqci__5Np8l2Ul2VRUOurTkVv4ZHljpSdU899ACuo22FlCxQJgT-5mrfFy8i65n4WwhIR507tLX2eJlmhuUZnlfm_vtKbGqJePCJKXSf5g4wh8Nmc6LfQi0BsAqMzJc5IHR_ztid0sO0uEHrPTWqgyrz82M8oZK09_K-gqB5R-cPbZz3bUP1m40j38ebBAbSzKp99Fiwg2Vvbvzt3NGSjeW_OVcNcrdcm5B4tbJ5JShfgp9tr-8hYBe4q4sRV1yZ6z1ua1VJvKwHXlxR1GFzjTbqCFghpPm7gMTd1alASTGf7U2xIIW9WXRA06cOaQGdARrQW0iRARsObl0x3XMBdQy3lbOVHYGFIesoFo0vouKPwtVZUbZo__v5_SZbI4Rx0ZGhGWYF8nuJe4FASZQU1K0PY10wUe8CCYe6VskCSaupHX9UTKYCcke50836uJGcnI6_sCuk51D2QAWc5CYXDwOAV4ZE3oRPZECTMtrNj6cJG2d7KU7p2ZHmZo_0-UE1Vp_KAZDYShU91sukqOpqtkfSNSsD2SQrA_kiKyLYABN6pu9KaTlu4w48nfukGk0bDlklRsBCJByoE-Fg-SHsEZFh5EfGEczl5C2766EOSqoOaZAeUvDq-FE4Af8xJEwgmJxUxIIPQkeUBS2fENvlCyojciHMbc0fdrc2-Sfl7XRAxiBexFJDtIua4ggzqxrks1sga6-mnVZc-IwTBy2qx8HHkHoC_2UDxf409VGvpqw_50CzsbKAcvZJAPXZQM1hb7ubFKgCPj-8wIz0uHqUWyqjY_n-GJaoJR8L5Yt2QpzVv6Zvju-dE2R-EAVp_l92QyuWOrbtCAC9qXOXgWKgBX9JCDF-FGgprVQvUE0Wd4lJaNh2J9fXB91g6nWpVmy_QJVw-WPANr53jc3p-7lnRVnxez1mkRF_0l1DhrairRJbv5w5Vb95SfvqP6-8Bb_MAUgn3TVXZmucqlppko3fFmvK-bdxPditjSvGY8wFPwKZc5nYb__PCz8NXKgpTnLGg53fe2fzFW1ItChlBi0ae5ibTtJmZkOh93X7erX7zxXffsNoYjeo6Zhw_gf0EtdrfS_rUkrWstn2Y6Zdf1NrQ9QvMfPosqqzA6Syev-FoSIBUNPMX5ecOGsJ55JnD4O6mkxYMo9h6x0PSehG3NhApdLHYB0sVWZHReHpyLJkQFc-uKWbPwb7oNSJYxRwjJIkFDbF9tj49UVEvPwyfd_O0ev5nN95PMqc9FlhxUpJ8sTAujxzI5Y2XNgWz98Wzn7vwrng62S8HYauD4cELLnJhEp7tWc-Ni5ow-4NHwGS7tPykhsTlfKJWIPchDDtAwERBpiJWvym-j8rkZNK3BtAUyE9z5DEUfsDjocZWt4RnuJ2XJ0OHu0AyIJvyy-vi9qQUEwc7HxpTzg5wBf3uI7_eszthdP4b1jvXGkgYtyVfLggdi1t_p9c1N18XrBBg_MeMsjsFB99lU9N_5U72jrYSuX21i9LbN6c5ys_VW8aDIh5AvV7itXH7KvOjCu4SX5AHu_avNyv86Z6YRIA5q3_EsGxuA_COHfgXMad-outHHVBvROqXsovI_Ulcy7Sh0Wel2KDnn9yZ3ikdthH1idnUem6nsg3N_qaKYTqfRjeMRl3DnrouNC1zHSX_l8fGXSVR36ZIgTMM82t0YHIjTXnESqv7aLpKEkPUJ4ZFfKoaZaCylpYqT1p5u86Ny-NODn6r4doiM4EH7IT3-J7_RtcXArN95yE8yemdS4As_LBIIvG4RGgaQCxx9zafz4EUAOopdW3wR9tde5CPdL5oe3l4vu1rUJwzH2Wavqon5fSiBmJItLsJfBpuZe0l9iyQKvz5QFH_5Hiht4BKwWeCzSxQLEhbHI39vOEMG0htPrdiJIYLsMWtWHUnbqFEtnib4tbpXNueQqrdD6eTqsxLfPXVLUKp9m1qbRMcv79AcY70IdXEeKg6m9FIy03vICt9JQ_Pa6scfxPJQzshnp13WEwYwZok8wNrjrF41mtJa4YP_GbuerVXHIHNLlor4_7vV5z7BazVNieZn7q5fo5Z688k7790txGxaBA2AB1A7XMoaRmPFzbv-HBhn2MyJ42azY-ii_3IwoeUe4bz5wtTaIiJ6cWTQifq1qJzGG22G8Mh6VHCHk38L-tIHlSb4ASfUUwM9z94vzPuYlV8ylvQMfnlDhC-UZo50UXmOf8LkTSdXvvCixtzmGkRulm2tTM2ERe60RxVUeTxHbv8J3r6u_V1ZD8-fzLx8O3GbkC9f8ktEBLby7jQMAi1gu4GN8Sdn6txewKv0v0An2aM5wvoheDYXqYr2_YwaY4rFNmylI5K44xX4m3ZMOMO9nBEZArxKDd_fJrg5pwVp4BsiawU0xLpmxB8TSxlHSupmnXJJkCPecS19ALxW2S6-qcPXMvAqHy3qenu6wska3zEcah8Jr-NazRqS6SoqSF9fqyrI4geCI1JGmxecogcnqrOrRaz3UUNIDX4m-srCmgPTFutCsHyTcwxlGvyNM2lcZs4F1LcNpRIpiU2gqFdQcNeKUDyW3Hi-Y08BLjHpnoE-qQjIujYvl1arUWgzVsv7b66ygPIZkuA5KLs4N8w8qnH72p4NIvEzz8Hf-Yn_ytZ9ryJPs3n3Tv3p70Ypphv22JSyOJaXiqwEeIG1nVp4wRxIF69D64WVYxGzP7AqAs9QdqvSA1PYPE8jFzZ2L7gLy-Vqfe_e64EPKx1e8T8XDkfixpR945zdykkTJxD-wNL5HkpbMmBF21fS1NC-fly4_prxBS3jxifmOHXV5eAdc0P2jwuvnUQyhDacxvPVNEb9-X_lqvwZcKNqE7fWu0ug5Nlap93f5rJNKT6R9No2Tuus2cQyHrNMxEWO56TeJTtT59qOcHHVqRvWdC9uRNydJlJcrgBTR7nvJv-d4GYEerLeI5LrpNRLKn4yWIkaIZJAwYvARkNYoGSj9AIInqMJF2j3QkGu0okkOfklFjjzxLOBnlO2vX23rrcQkaAk97uTKNJbLCKgbyFyX7o9MeG75WKsQ4C_pKVwl7Zzn8RWXWrb4DiB0otkQcNPe5bqObwTgq344o_V760fge3UAC2xFk7yfoORMUGY4uGoaec73QwLX65u3W9jVE9OONe3cK41q2on3SDI0YeXwiQBihiCGzEAMWTm8Nr_KOq1-uENLAcV6RuTF69xTc8tXtC0KZTE2anlaX3M3R_aQDqtu9k_U7tFbyNRlLz58QmduB-bqHIa6F04HXF0PcYQAjRfbxXiCooH2GfawkQfHbykqxqhGB4JFOYIX2CnTERGh4_CtSemY06xXcnRfulytDjyANoAScTBbf9gE-Ou2PHLSMhYe2NXHcL9fXNwKuSfEWcqBucmGbHpuQGQFbkmEhw4zGA0dFPl3GMCl1kq2SpjTWsaUk5tVMdeLMNZivpWiMcF4hUJcgl5A8oFO7Mc1vyynxbxCf93L83QC5qc3OruPomTLJHrk5AiKO9gKo_CRFqNlNY--mOKZcZuNqqYPe0vBjouLpQfcazPlMu9Br6tiZ_Vg4B5NXOPu7do09IM-9zElnDY4Z47RuUj5EthmgwPQYSqpVG1J2oNrdHLzzX1_2xg-AIhoSlooQPZf3MZiOGLAXC4o6eRL_qDvLnlYZB0nEtCbsHP7i-J10wy6u0WB4kWmJJnI3tcnkktC-3ZoZVGAlOAlqWTvuI2_Dc9QaT4Mbn47ELjoH-EkkLfHR84K7zXL_N3-0sbMSgTL0jAqbFP6lw5S6OvQKQfMq2u4pbxXGCzmIuZ0z5QEXj9XEYT-QhqKTCegEIKdUbieDDLl3UhLuI8lUuvVyZUD861qVA7S7XWn564BYUWFkqRlHGi1f0JgzAhBDtgfaxRmjnKkZNMXVY0BHyAUqP1M1bJqz_biTDjc4XyYBWPbNtcC6Oa0DqOMCpWCaBPeSCJQ614oAqK0RiOyZOMnEhvLee6dX-3jLtGwFe_ZfsVzSExSjNfcqxnpfJfEd4OpU_rul2ccfwEZdTdXymIoZAoujVFIKVCNZthB3zekVc88vNxRP5Br1Xr1Wq6BgncjX7AlhfFzbosDDa0Cmz5uzE3eRj8NN6paaIzDYpVORWg26BWmwfKQt8UFxg6cPHQo9Qtv06P3HY4CGsXNzx1CgT6-WdNlNn8h2iF-2i34O-TtMCDaYokFeycg0hH54bfv00FBzLl1RSqaHFhIhH1MLacnA-yJisf-gz1JeP1AYh0-GpFqNINBQJ23145bUybbqFecykqMU2rGyXuxYZRxJ3dyg01OGPHb8xBbQHgPDgT6URROvHja10TJJ6-bWOgIDQiFnQZFddC5nTQXxtwgKpEHspb30TlEzqR0aJzjuzpJxvGurEWbh5k25HY7pMslveMI8WacRQ12NxHRRaJ0EE24EG0qGSqsDTq7CiaCdLm38-Kgm3zxdCKFLLv8hhZ4F661nppQsfdxbajsrfjwSfTJt-MpTOogVwj14E1x-5yZRbV44sEd4qKwGTTE0Zu8Dvhp5qIEJcYxjDOKn80QJeAKYinVNbqRspY2iknuxHY8TCgJJEKyQmZqZe9l-t1dCE5vdoc-NT4hXP2N5UcnRS7n80OHzSp53jxKYbdL6uCfGjcITxUyVL7wWQQphce3UqGPrQ23A2jacFt8Dhp-8FTVcC0dlFqHWP8F4SDcfJ_21AfWj9jHvqPXERl631aCnjiMvX_xQJOP7aCYMqquxIroNNZCkNuF553opYt2GKMMh_HAPxcYjg5LppzmQRoUwJPygcLH081Aih3drbGp2Y72viI8du90nOox2WU_xDzVJA3LKNAXDcQe-YtiicKV4GDpIJ6BPCeDcavmr2tTZkph0ssZIgGnr4BXcoMWRDQeZqsuLh_gnmqAzM0pqMoeb20Y2R2xHJGJjhn45alCqV4nk2ZjwxUEFBpEqVTOGh6Qc4QoDbsI-60P8MnioP4jkkSrQyxUHkwHirdj6GNxeavNQPrAoJ2lef3xiw6i74PfRnUyI5JCuupqZJ4jDGPVNMs4RGDuOkzLzm6qcQe11TzATEsibIfK-1Ayl0YSU4PxiezagTzvd4Vyqci8j3gQvsvv_tSBDyrR8dVq4j3tVjtsXg-F8qBi86WY96-KXPy8oKNyWXAje3tModRXkjxnNmFy9eL1ocVq2CbxmN7pAgV74fUmGeKYB5jOVa6aFGbnBH2mJsT92EJatrd5d2cYlLIcEeDLrPrDeqMw7eUPj16gpNmbgVxQRMFDvNEm9easL6urg8HMzJZDzITF-9R74KbX6_JYdq_Hrl1r-2uPhLE11hUcttpUMsbyQuebeQk9pA8oBuQSrLcZl1MqSnlEOMdFs0xhnrOXK0yWrmPRs-VhLjYlJewIKcmtHHugzEQ7djG2Ux0dQMdQDKu9i1nUkCGDnJzsiwDG5FteUIwQ78D4dnSiu4THCxo-LSIGo6Z3Z_hdzNsYCdESLvV1Ui1ic8gIwwSdzors8IcHRAZye9Unw_R3qaClAIW0Q1ZHjjLcfVY6t5iWb8QMqQeCZthAcLurQGtf9xXCuuHsGQLoHyCaw_wJfGhSZ7SDbah_R7c97e4MwH2k87-s3rGXt6vm__txRAur4fadnn5m5R2G4GFKPn-uBo9f3z-Ij7bChXy84-ZuttHw83Ci2IuG71CcXuT1i_1-_jTvX8TR6Mdtf7CZgk_TcN7pZuFgyfsfzHvqfoN3DFPh-x-oktK7ldd2eT3_ML24zEr7_HZ9N_xv-n9eb2k0sqWED28DXruo4m_nVOE98VZi4k18qtnxnbqT02Jz0GHFn3TGqmCzJsI89kbIKbiXIuZWEkgOzViyfEEbK5NXvXnQn0Bsd7W556vkjQ_WcXgy-RElK4HPihiyYnxjBLnxirUvz99GdR_vQjO8DgDAdplsdrb6R0Rin2lduPaf35dN5AagWiT6J0C_72OL8bAmCi_P02g2JZgID7itK-lzCw5opHxTji5A3U3BCeYSJxZt-4Ai_6zcq1NZzClz2sM5BxXOoA2VYCOEx3jrKMsAE__BPB4h33kVcivKi7pV1E5Zfe-nDYn9DSQY2oENefOjzYjuHlSUtm9IXt3B0aI9RbsoeHbm2e4K4DghfT_yzWXtn51s48X11SFPZRVZpQqrghWmMaHG8P6jBKbGrn2W7YCMG03u44Yw2VLDwhvw0QOODGvtV4rIgXlM0RXyQrJrgmGoqJBgdbG9kdNtxjOTlJbJ4xhRWTk-6h8PTPgHzel97koOa9ztDZZIcCqUjQBDezx-5in50LFglPq32cd72oMb3gO6vP-fEFObD-b5DNes7kyuON2GN9_V4B29eOZ9XtMzTqupjFtwM-2ikWWs87l0oDKLgZfn_cIynSjBRJWzhGAtffO9lNuTc6Jay_6YW2TdcTt2RVRgQZRqkfHE93E_jttSmF3j-d3MMWoBTM6aFW_J4eUOAiQwivu_Gl9-y8w1_qidpiv51jr_x9Q8VuI16_2sZZ3J4dLhUV1p_qIC_BPY4Q3GhDfTRvsY_NGeP5rqstUjInaHfyFX2xvehYvfVkT4kXxC14VOGt8LUd-Z-4sscra4-6xtHnZeEFk-8NGw4r1dYB4RD2sUL_j99nj0qZhcV44e4jp6W6me-lcX88H9MSAYJZEbwHzWIYyPK664igbY4-l6z0r8VaQDq751DgizCktDvgbNi4p8k_tgVFt5823eedOV_9p634QrIyTkOJ348Nh7gYcGZ-Dn3G0CENFdv2OHEBnceeqXAS1c2s8d2xZDfOk-Gnv3UjpC58Nj5w-S77m628VBo-laCLcm0d3wfpQd41XMyugeb859mxzAnTgAJ31ysK9K-ltgaOPkiEtcMqsEvllhopE6iMgVMkCziF5_VdtSTTCCTrWp9vJhC-FE3umKjSpjwDABJmhmtzsW5DuBp3qmmR2UMSEOK81ml9pp5a2yopxQvnCjF8K-iJaMhL039ScXw3FMpLt3Gk5Op-9dq4ERBY-ZyCS-EdSPt0KbULSlAARq3bcdg0eTpBBOJJnvIzdut9HFK_fC6zJ5vcz98IjJC2nuhZtHdCAq_H0mFeiXwXJbnBV091OVCiQYxDaeb5pwRnYaViz_1ElVIM7pEi4o8yFSAnQAFvsuO9f1lQwo610IJ8oAK7cbDvt7sfdrlGlMTR-EB87soM6BsioxoYsXLWgJ80p0iXBHiL6MfxVEiz9Q6RVDfJBI5j48cnmI1H3caSszZfyzRj6UhTqQjhVGcaNb87cXKhnwmq1tkbCptNZ5_eL3fOxfs32bG5uxK6i3QGT779KIvhs_ftUzmHe9kAxD-pQ6EDhW2ORfumFZiuzTSOFymcRU2x-4SxExdsL72JvDRnDtE1vaysQJHXKI88VOUdeK1ndf75ttbNvOoD3_f8P3GaHP-LFVT5FfNmF9UZFzFWSGHugv76B_o_s7yI8hO_iPFtemN_msSPq2WdfpS92cpPXdlPcLZ9_dyxk62X2-1EBdbcGlu-rVB-688YHndIV8MxmVm3L5DKEWFC5VFCJ_n0KaY8nU08Z62sRGKM5f-zPgsFlyy69fkDwc9PQunSG3b_x70vLwao_6NfbScsp_TfFFY7iiI3lHuXdcjACrZf1ONebh_m8bY6oeUCWOzOVRWrxvtZdOIn4me0BotzJ1n0wx7nTL9VUO3ppqai60Mn5kIOX1yE0RJjSNL9Sn_vAsT_QaJr6YSTsxSognwBG9BsBEX9yabdsB9_VEKwl3eh9BmehTAvko25HA-xXul0c4alWfqEnwwf3VObs3hdv47M1ap3ASaixzoMCgCvYheWt1BH2vAvb6tg7EXLbZ7GxiSC7gxbVBV-S9Mrpy7EBd2hZ5d0XJ59OfvlyqazZwIhElIaoDhrYST4sQ7TJz0J_kMvga1mRy3LdBv6Pm5-CnNm9tkH44czwaf-pXX75Ig-QAOjPQHv9Vqn7u_RcG2twppFEdI_zqeUC7sg5pxRW9TKFmUx1ZvtFpqHcbYxtbaQyIUOz0YwwgnKZfiCNV6lHCnBe_b9eKdlSzsWpaSSk68QdIyYOeuKXRGCwSTflgsXfiS7adssOrRvYH4BOr7hfk9YhGpo9ENFaCajmfohh_MXPxDGxy2kUmathTXg_3uVo03wx7zhXV_psRqhZrGiviPinchorSD3EVM6GH6rQQinM0fVnf3uzjyWAJUaFJMIRgXD-K1T60NqgLDOXSv_Z5V3mLj6of8iew63_BfRV79fbDmsO83PeBa_nSkrkym8j6gyNAP0nXDY_LHRQht56dxYj5HuLoMzvRBwBVjfW6TCKzwDMNHta9ipQc4D4iZvouseKlQBIB286kjHB5vCYpY-X1nbNcEshXEhW1awCLT0L8_-_HfhW_S6onqmcwVrmmHQh_LSyVjwtdIgz4e0EyTPVhLDi8DYRxzvvFSueT6Yv_P4qfwE092d5tF6wtHy8_cP93Aw5MtBl2vnWZAPcXgxluRfOfpL0IW11o3W2cM6H1EsOofxYtzPcazek1DBvpVwGyuxpDMtDMCxYk40Ba-OWprsYZo4sLqk8BLeyyMSQbDwUxdGdY1j3rvDDoJ5yKIpYI9y7yH0QdlGJl7wdAVvU0w75B5vcaQExeKH8v_IFOxN29mT_AtiL8kVdqbFPXSdhEr4Igqmh7KqWW9cxKMPCzvsIAH7gJz-RqkjhA5jX9KXgs-NW6-9T6QYNffnnSyPdwrp6bN82sqJyrmn7U6mOcC1olyo8_9Azqaa3uAtAOSqdcJlxpANA5h3d3hf9q7XFTMgo1pPyWWLp18bNcsJi-_42ezRw0FscltwoQED-Kgx9DoN_mgc7eUW7zntfb_cCQxgv2wVTnvWncVgfpU973Fdi1SW-ghQPzUJW9Vk70j4UIVHGBeffnGRUeo5UyFuPfsdGDREVYF8peEm08iWUS8r1uyYiLKKlKSrlCYItz1gBkmennDyv6J06uNAiOyrGbKEBKeMqH-ktS-l2VVH75VRNxPBUtsTQN-EAcRTg0NwxAZAUotpakcjv-t18BGCvaFTFQ5sHtguFflnfdnZvPziu-dr6mL5-Eeaz7MQBglutzs1LOn-f-2_uvxQSVQLuXAPiP53LfHXg-tbHslZplpdbDa23B8LgUm8l4TVPOdwnAWEsM6aFoiZThu3_HZ7QCKISu5xpDha7Imn9TZ-T9Qwkd-spmuXsWwyeezRu8SkvOJ5Op1MmKyaTBoXXvLcNIZ3M5etBQXSCwHmz56iqkYnW6OQmiIbCV7LfiWRz1GZZ7xDdC-gXHanDWUwvF9e1teYjxBkFjZ_zcgDuzwi9Q-TLCLtGk118VB44Pa8nMLmVD301GZNF4sY3y7eR5xpr-1JaH0bOO0QN3r6Md_XfJ-rL-PVHaeHHl_f2guDpjNcmngwfIS9v1z19ugrqzRjWieW5a8J_MCg7BdgRM_BIhKxSqL1EfZTW5wKdLv9QYHpabP_duTfsOuNRb6a_O7LOXEf6WGbFGK5podYeuwYTqKdXbbq-A9vO-nV1EcpKvO8edobq53nayU_TwAMM1Dh8t3oHAm8xxMWaF6NEHfeY5BKUpBnJZi8Q7AFgIka54Jz4Qmy2E3Kdyjts--SqsTorgSNsUMkuz_7g9tsEBDY7nGNvgOC6pHUd7XsQoY49qEaWHFidpbsG1Yr_bfm1OaP1Go6AdqonlZcLvEwLVtdfqXJ-nRcfFPBcE2MujhoUH8-ZpQxPWkNWKJ-r_fmzyNbf93GxeLDxYX4uD6qrOZas8Br82pFvbIzq38jlQvMHFmrH11MuE0ei35jAeSMUOxu4fsPiNHey4DYRrL7e7D1PVcyrbfj3xY6jkn7B_h5JVxpervNwzaGAdCgqNfegBm_AEfu1GBwxC6871uMrEEO0RcgLl-si-xDD1WmQTzz7yDwHuRIuP1Q3uo1FSZ3FKxrvHXnCax6M6bGnwUtqrqV0ebVtEHNw97dXIIyDQbl79cGQAPyY61w1GIBT9O7thbJ8jI6crGzBnjzarDfSwad0goP2qWruWc7bbz_AtS9e9gjwGTVSQ4ljLY7YmQqhwYh-WVMFTzXeGtQEGVfbzcLOOA_Kd2-btj8qzVjkuYDy7fIT3Vq64-G7DJ-00xBcwjHjvr2ji6WA35VtJrX541v4C0xtAAgLLgefA58yYEvo7AghJVyYgbJQEQScK-twF7prxQsXdMbHgv_bVrOOc-3IlZz6-IhUXGubTTDvY6FoLCBtZDkY5kW3W4PHpoI0CRUf-OnbymioYHnV68bfubYwxdkDr8fg3oEKwxP3HuvaEp4vxQlwdf2J4i3fxciUkV8G6hDZcFI4hMZHltPf8M7_YTrMiS0Rdw4iETs9qe_CPHW81QChfWPR-Qp7wv6TKxJHA2hNwJ9GEtRLb1NX7dd-DwAhxVT-l3XrUn3E16-_nLsWC24WWjNoVIIUWvDEkjK5-__nA6QjsNe_XfVAQqsmD0mIQDIxWsDTPojaIzu22NrkEEVPUT4nsmyJFv73KPfI1Dq_RACVoLJZcR6RX8mJIpX8bwvXB4dHxyZ-_ldOz84tqrd5oXl5dt25u7-7z623jd_vf2v_8fnjojo__7UM8_e_p-fxy9Z7mJeXHdRtexJqjoSzI7e_K3qDtaX8_tMZMg-jGQFZyErP8UEJNgwJr_hrpJkk9HJ49fNPkY9H_4u5LU_O3Zm9VbHIakz1OneHx8XerXLFtlVZb1uf8VN-32Z7-8_3EZ3NnY41MANPnXlK2aAl3BWaB7f8tHoIbVNS0Mr7tZWIzk6gxIqL0i2dPFv88WPq_hHUPXT4_EjZoeNad4YND90TL6avUwuFZ9u_KHl9wE3o4DKpvvMDMX8f5vPCuRkDw-A6gGAb9eX1xyuOh3e2Qab3nvB_1vyX1KleH48qaqZZIPd83WVWpff7t5McVf-JjZ60_xU8HYIjzfSPdoZqYUD3_ljCPK_5MnxNQ-Jb6OKyoI_GxQCsSHZ_j_Kqsf0j-Z5faR82KVWzcrxZHHny_JG9354Fc97WKREbs7vwR7_jkix3ToFutBBmcBptjluqGbU8pf_i473Q9wO0DdCqGniVPUylWHBElpQbUtVD_2RjGojkUUrsBOgcx4hMbL9ac0iFMIge3hq80sMpxBdWS_AW5Tdt_mqQlQxqYS5jZuzPODrnjM8hhvA0s1qmA4zckl_vBEjxK3eEUVvH2btSgzlfGgoH4It3E5Y4jtVtinKkcjEmkUT_5DvrlGcietYE7B4R-8k4oPIXn4_j-4LC_izuaIHC38cvJEXfJVhZnySgPhLkxfRcnb-VMvr050f39eF633nCofAMD8ZVri-zOz3m0t6iMdmwuo8lfHhjT6beyevm0dPfZlDw5kooD7GVWIaHNr1YGkywHKU5ybd7mTJvFH8u_EN7j8GfxSoab1xqBeAW6hWSjcRclmSR4Fywo-wcY__c_4OdYWYo54q39TIGmQHnuSIQqP1fACFimIiXONV2nUFtwQqLCICT_7bb8EllgNxYjkxWm6xQgcCf5Mo2F92CIgiKoyIlJiyxbKJn6Yk20bEyo7iXUflQ7VcF_46Nk4eZgC490OFwCX4mOJ1iQASCGZZh6Jpajpi7DOWFLKoXkqzRX4roVcn1cNcPij6t_P-ZFDSvPGwMdewuoJWMaWKY9xN1d-Z1ap9Hs8vyLeSPmXjTYSE-sGRRbgEmmCN5UmaH0Nm_-XK_TWOa2b0_C0GQPeC4Vp_DnZttIZPdQ0nYzE9PVYu0mLJQQpI_zOSnjKRBBK93PzwMACWw0PLyR0GYSbWgdXF7swkkGf7ePyRZhYt2mVp5eDD8lrrQsjC8w0WhvBvHcHTWWqtbLWY8JOp798O70rhulHCIiWay_oNRsK45ZxMoJDZ0Jf2GVyzhNZXYu8nrI8OMlawtxc0SxCw-qsscC5Qixc0ufFXJNhZ1RbMg-AYYH-rYT3rB5_gKddsiG7jvuMJpcUptQTaS9GO_Haha55ZOotHpm6_THXHwwUNF3bp5iVfVNsGp_-YbMmrxxn7VlFd9o3v9HBslW6maCd-jIvM6poz3uZlXIxGgV3GdsJslrFvfbzH3l8FMJ_0dFshM61D2tKMkifDQboE4u2b-gZAuXdwpvhXLBXEy_5opcjzcYVR-HEEz-GTJed5TVDDJ_2Tf7WaxjpBvW1KN-fmXLZ90pzpeC892cMgcVIbVyxsLBxqC9fqe4642m8GApd85aDOSHlWD2ZXnFJ6ajrp4wQzLsm75IM4XNKohDieyHtbVjGacJ_j-OtGkIsEtTVcwbbz4CwS4sAaKbaIIBohwrwcJtScRizGJMMFIY3pY72OrYRLDViLbgvVrRZsxthIbc-uS98DO4v1p-VIr7VMpQvqSJlb1J66gRgmKHVBffp5MQZjp6t3jLAYP1207DvyXmhrb1eNwxdB3J_i_LMEv9UxqyFEo4-HmeJGM-otds7eaFAA3ctYLJyWuEprhTP9MBNIRtbb9xbuMNBZgu0F_6UHmc2N2dwP40uf6AYOM_Mp5s3U8jtVPNDJJXtQ-w7WSKQF1Y7jRRNWC27Sa6FtNVCMF-om_k5L-J3bHO1eE8nYmOBz2z6aZ-KXTUzJ4jlDCk7blxL6n0mt6kHURiJ1R_Q7g82iHjeBAlwW1g7w8Z9-bqt594mzayDZ8batkeOe3uVTOUXoQFQJDE4Rm7Syx3BFZiT0p8fd0t6bA-liZb33D_enQxfdX9Gylfby3uX02JGuOvJiieVhUtO_ExuUHlng7-xNXLeeQHJ5d6vJDfx8J8Pi1JqNduLA_E5Mp1rQXrCU99iC6-s8gNrBWeMDR4F4aFfCjw_CJu8fsib_H7XLfkPk0Tzn2LtweVG7xQLIQqgtjSjdxEChNV9vnYR7Xb95VfqydYdbrVIE26gaWm7QjUyaiHoubaiPG2Wr6NFA4U9bFwpzB8vHmYdFXtcTXSzziIwFLkBsFQ2OCAlobZyYqgiopxOXHVT0F7t22Htub6zcTBA9WYSjeHvGYYuepd69euo76tCivGkxxxPQ-TVOU8HYUj_WwAY8sR3TtMtX-NJ9yF9g8Mnx00rLQaA0J1tgqGHly3V0ucKtpoD1GoQJfAh95mmavGc9NY8bGq5pX6s-0RN30UG32nYRY1ia4PaX1aKFE0aY5RU6SAoE7GxmwdOu2OiFYyITweFsvKr205HQxT7TFClEe-51_EVEyBq6Qjer9KC702I-F32TPoRkEKZqTG6vHsc_LeNNugQ0uqnTS6S99Yf_PBKvNzH3uExmsEJkb5UNooS9DLjoZswBqBpsRHOoLbhAELL7UOBxQShjfu3lGT9wqsODx5aEjEV1lWTrttLx4ETkcAp9cnG34SMIGKtfDvGy6_FGF-O6_7CsUGYcFbVghIUuiFFfTjqJN8FhrtYVODbp2Y6xQa86MNWFlU8Nj9eGzP6735vswcObLA01x0Nd6RnkIerWkF9CSBDV4jVX-OniDwhap9ZaeBJAWELSNKFUghGroUnJ9Vcv_34ygLJHfXpM0SwqniMIfUGczYy2fYtxqF5ZaxzEGhOZNI0Qb4jziOkWl4D3zmfXuaDyp9A0lxxEk5hGWVNqpA36AssLfctyR1z1J6d-nbNqac4t3iulEB9uiX_bSdjQ9p6puMG7ix1lm68EEVI01y3oa6nL-TagbiMTPENzst1kq8BDRvRvEwuy2LR1I6v7TKdUlMxbG5XAS4k7dwglXc4KLCV1V9wdrHwPW5wqTsBLOWKO6r57vtXzOUyDopxEx8kPm1vNKb6N0Lmcxu7dCUeP8DHWPzq6cOj41E0TcfGLSG6jHeRMv_xfoArWZxrsWOtEXNU7odAIJP6gvMotyIZVLXaA925dg2YsoJwUyfvB37GNvdWU0hk-MIpGvalKSA_8Cq-iJIo2MczRBH5NSMPZpSnyWDbNjmYDb52noaHMSVwx2oUMmZlIRkUwMDJI0xEEwJkbMwcmGhw8owsA5MxCU7iTjE2yR2qU1AhjOWaP5NA8LD4yxPgor04AuCFG-0B6nV6t3xupxLbCh-ZOHXgEstsg9T8SMlECEHJHRmoR4wUAIxKlRWwUR4qX6wYq0l0ovyiH3aC6q5YbbuA4a4cSkSPAccAoHkSfR_3gE1CaFBmB7WSK64mexL8x3D1U4dMeN6la4BgiSxWiKObex0vv-eeKS5bamhDXCE_51BWSVi1QbtPkFFPapke8qeSQ_bdJoJqe-COw315bBqDaIvq5HVjB9tSlHx4neSgncrSykzeVm2v3rNg1e6ujngA-volkCg1eUZgUYmvjGYsh5IlroNLMurd3Y5CAA_e-Fc5fnYmX20h1CqM_1n1aOpkIKkK4lJnqfcUC9oNTAcJ-o_9c6s6IAHxBuQSLyKSnKR12dt4yfpCd3JoMhbwXbVuoHBh6Om36fUodT8UUDQZabsTBTbA-MQZVuTgZMI18-iSo9IvOLz1BF5WhWb7FJFwe3XT687M2Ib4wnZMCfjS5IwoOSHTC8E9dta4hyFrjCo7Qqne1feJVEC2cP1IeSbtMP2aXThwBCpcyNxBTIcVeL728xZKfhU9NrDTmOOwGnUm4pXWvmrhDwe007owowP3ctOvWF8YpYVz2YFF8lPvrGkKucBkQrnB9jO8YHyqOyO_XsLGwZ6y2vHktnxr1kFqS8DfVBeNzz_l3PfKy3CqAFaba4n5CSxbfi19nzEF7hpINkg98EJDDcBvzfWvjGXDmgnHlfn5wPi_J8diNTm4TlDGJZw3xZFrw6OsmhkgaFzFgXTcXtgscQd4YOFOTsYoUdxkdJh_Q-WQsYqbHPuu9SvjpLF0EBYGdBXT5ubjiYQQrX9S4Ux_2eejmeLwylMQloK4Yz42EBqFfTT_Lva2pZ_bWXrHbSv0tYzRG75O-u4JkeRUiuZ703u-7AXbrkQz6W86Pzvqj-jgHsjJwyhAVjwFIwa22U1oJ60FeGIAkbzABUT8hUMajzATyVoas0CkoJSsajVNM6qjO155V7FdypuRNUlSeBNm5qNLkRB35pcLJPLIQUxADOV1w4lQXp7s-rFL8NStgeJPCYlKevZRdehk8X35HG8lfAqMvrY7NXAJ24-SSSWZ_s6ayeh99TS3k3H66Ustwc9yHqwExmfGFsm9lAPJ4ynw9oPefgJVP3dhSIm454W74n_zC8gw4cLybrX3pmFeUc6CQmSf8u3Km4DfIm3-I6ffr5hx9un95ad--vnu3ZCS-M4FFvXt3rsyUgJ3R1EuXRj-M2HQWweBI9XTpNekrY_Gls7ajsd2Q8ZOOdOa2_x8_bzoWlR9tdofSz2Z-RPLWl3wZUdxZpIrvzVhKTsGfaHrFp_KbciOHEFjJBbrDKcuUVw0ENb_FdsT0Sp0fVA1U45G9iSbrRrpG2LkTDMe8rWGm0rUXFzZ3V-LbKtI6jeZA6tNxnehH1lCY6UpV2tCyLbsDq33l5PCGRi4uy-VZPJ94yzHITTfwAnnbVftd6VLNnZvRlYg22UmfLfStagig5Ortru0o7twKagEwzbQLYCE5iNDVzGY5qNSbW1yaH4DioHOiTOLf5SP59k0KckPOh0xaH1brMNgSwvtGmEaZR6h8BWtAh2t32u4_S9WvtmBRZNJvD3ru2F2hi2HetYi5DnB2xpb18HClaSguqA8EEOqOXh4zGXCqmh_UKXBgWTCa_JhrOzjQ20UO419pBUKujiSBGeeuorzZBOIaLG7Lfh9-I8eduygfDIYgL0Mza_6g-WnNdF6NQQRB3MaD9O6cSQ-o6fc-baTP1cYovrmLU2ktq2ppB9WjhCXnJVZ-LaX_jFFq4zdk_ggIROvQ-eDW24rqWOhF_9A2rPVm2rzuSm2PTx3m-iYkcqtWsrwA9mCOLrNq-jbXW2cb2eSObLFl6adL79t4L22_RR9PMafTE9b71sj0u9PLpQG_VS_Zz30fiBaHwWbIXnAIkXulWt7Q1hLgb9zvvAq1e1FPkof8X6JYwBGo_CFWW9-l2tXwFctvb5w7pTIU_3d5n84d7ZDFdXNftmX9YKcxEWbnNnTXqrAaaG2GGVXYkeceIiRlVcUsiFRKdNEq5M0ptPq18mSk19CNQqAHoCMXOGCB5fEnPWiO1zYczqjqXMychR58Db6eXQDobgczvX79eDQm7SkQBGk9348c3nz9H7rHrz58lXklYjhXgLCGC9vQBGpcNknNtu8_PZF29zg_kS6-fuocALLV-0RwQyLVY2quoX53gdPgY50wlrcMqcHQ4uM9ZUYgK4kOJwCXmHw9ry9qDTMnYjbVUSwGX9a6qzJFuwCcrRNepxIbUVQVOlFdXAJtMo6Rb7ndM2by6exXtWDFdXxVRBcLa62QWSEooo8bMJuXEPPDQj6wIbNZJWgQUNHLsfEMlwyzG1EmEF_wDr4ahfA_rD5PskjzDeTAgHlvseSM-FGqwFbtgv3P9V3Gb03XOAqs7FGf_jsojQv7HyZhhmADLdbfRQAIYMkRVPgEVoywEQN1zpFYAHt89GRwvm5ZLk4uHsZwrDtKdVguB81Z9kavSsPxOK-FRtgla7RRUbs4ZcrQ7xLIEt0dlKQI9xtzFnFJ1rGNOZ1OpiM2lkmPcDniiZFIM-ilqlQBaya_RsHwFuVB-YflUkVxFBLsk_yuJkHX8pZneCa3EKBS4NZ6zU3mA3Mm8YFFliZAWIA6zg3K9rajfPPfDFNkFrdEhVQrBufJhjfr-_seklA7qgLAMOvTVMAblXbaH2iuNk0QL3MMWKb6e0N1HtGiT3Mtszv6lbAxDSMoor34brBunzOhy8kZP2mbLdpYJw3Vyo3SgNekCBuUflMvmzpYOzU12o7VhkxIV0aTNUfiO4umu_um99OJhN-wdqm3wf7nprtdMq4stsOv5O0KgIfTvS9pcflS4759FR1QmQ2tObQRska6ZKYdXcP7hcLHQITilOGNBOr2a9XlRvR80NBmx_QJXUtGRfDq1yPwPFg6ss8gw6r9UPpNk1VaHFL3Doei5vgX80B-uO30_Qz36lOuNoyyzuzODuO7Z9llVbgbwh1GbzVrKK60Iz9OYBh6GJk88lRO0gnDOV8JGqx4BQeNbAydTVaQjYWxpKkkw8ThwC-jrsKd25q_LEN1PX8NG0Pqgd5y3q5yKclbOZY5yztAnaq55t4zZguVJ0gI-LdOi019pbSkewLovyZUBDqMj8QPMIiUPCVHC3YBPw2VlNzBeqBFgt2MtD3fVziupqg8GWFVCWQHNGrItjQd0fNORl5jO8LKMW-cCpc-KYOrJSvjMUcQs5oJ8qIzlwpOPJvVfh8v1iM2xTQzfMl1zyqWPf-C62m0PQcLYcoY3qKrdth30g9QDuBV2C7ro6P4H6KpCF6lI1YH85Qch1a5OjUsFheYbqe-KByZjvBA3PXDqEtMsTYV9_Qltkwhy5voUEAZ7fcZ_3Ha5OYRwyZaOfOgyhALRbejPDHOez0_82GTJkjgW32aO5N1d5WEssOLTC2WVQ8kLxc1wiQmiKIGEdRVSvuYyBCi7-STYOB_4TrtRqyBCXMghcSgW9WI2VgvrGcGrCaFLlCcAAbvxYjvcjgb-qSBbUYrjBPRFB6SIn1cx15rZIoLRyCdyUoCfqIskbyU3pPEN2pnoIOO_xScLJk1w3tB0WojirKjSFiVzhNKlgw4ULVo0HeKii5bU4PSDR_QHrueu-o42p2HGygsUhdouqet2OIN4R1JagH4kk9Ftl6Wv0ZOQupNFLVb2Q2dJUwQht1eUQ_C144Aasd5nOkBVhn4-LTwQR0Nn79X5gaJ7WHgHWF3mEMNV_MzpuOYCVtHgeErtL62gnsYoo01kYRmogHxIBuq1odGupqqhwhFUS66qPdczMDz6fDQ-4bIqorun1GbwS6zqfjkd3Fx3dDpJj6fdgdxT1dClQ4GQDZJEiJdpcej93KGRZvCfFUI6yQ5jB39RpGP0ZdBlkiL9jEyvHwM66yi5iGr9pPe1m0gkdxl_9HweLqbPNCcFcbLWcO39glSguXQBw9f62_xj-_5jLOEQeeaE_dCslc3qUJDfRe6b0ZtT9qRV3gHpYIjvyjLlWfX9gHbTRQz8Ts3PxioED1cUV9GDJHMxs3ES9XmtnfpA3q5zeh7b4uAbrhuuSW0bwhOPv3jOMquMVwlZmHqNAm-I7UYMTb27NzhTNsARmsEXlMdQHVw2ID2bSNuv6AgTPxhXFBFpMpP42N020bJZSoPJZ16H3IzdDxEZXeHa5dFC5lFh7oLD6ua_Ry51hZhZsYZiZAWEehGlOmXWKLPt83rcZWGn_u9Ead33FsGcrfia8cOqT9DqAwiFRK9Y8XoFt6CQVB5F-ISfPghQvcrE4zNcm709m0TzuShFnhg-ZAgBH0MvOL4xw8qxrhT_ecxm_iwQrW0O4autOuBroWBu1wOWaFvgssKH7GOfGiuvHGH685tyMJVqwqlqDeSX_qmnNhLEiOznSWZnJDIRVwNRALqiNkpND57vXdpZAggkmM7OWK7kW4JLPOczuDNnCMYlcqR5Kpf4wYy-MQRCrAfDlVR3eMmqbNFdyk1s5Zc1grHDqhahPUOspCfQMSjW0OEbHGNgXSF1U8qNXle6tosK8nOqcW0VdxBUNVGBzVgTpdiDTu4wJP4pWefFXNlBLRB7iwAb2RGabvvV68QJC8km9kldzOLifCGEEO9_KoII5v0FGyBhoLpf9QWCzxKabO5dPKbPOWNobNTVmCc0ois672B-wQTp7LcoCOCtwJNWUal7skMtOoDK6bM2Wv2tvb2cQKur58SdyzKqc1RC2qgR2xt9nETjaS3pqDVTPmeXxbXufHJx1ZEnx9lNClc313C_B6FU77obmRKZaifUwy15P1YmOFfSmVH4_hjFX4wuzVXEnlOGhn8YoQXjmD2Q5zG2FCsFNtesWxnNfBwDGbw5giLIlrVMS6XnoOZW9-s68fFqby3-pesre54l761leuFlcIbPT9q2OrMhW2lNWL_ABH1HNbdMV8Ip1tYNVnwTWql5Uw76bH_vNGdokCaEzPsSAuLWdOI9hLr68ez5Tw1eFQ6N4LTZVbzSrkQmVCueywqMjMBBfxYTtN55nPRpXz4fzelFnVTMIcqmvq48epOE9vnmv7EqfgDMjw_Uvw3_9dR12jz_GGaQAdfs389XNVexVl3AmNiiFD9tEqvH8iv7R-NqKVBgMTBuZfaOSfuGWso3YJKHI4kmkyPMtWFAeurv172nzGp-ecOCDSShm3AZszGDq5nUjMDPtpyWhf_g2Kl0vABadFb3Hcg3uASSV-7LEYgABx1kyF1VANjjOuSCAgFqtiKa1-551BTA-B60VZj13hpATwIEASCJLxcmIsLAaZGgbEDG-WnVzPLDaYsl7o-nbH6m2pc72LMpwGe-Aduuw7jkAXFr77xSuIk2Az0kzq8gBsGvR8cW160VyoNA04aIuqqHvK9TljZVa4xSdirgw0bva93rPaXCRMeC251W_F7pPUH2r2jRY5b1iALt_j5vVTli9e62TJUAeZsZ8L03FHKQERCrsxJ-ZDRJrk_wk7bGUOvxkExr7bXuj3TBlMdPTrvr9nOWiU9Mz0TfMh0iALL6JPQPAnWcU2Gw_5lS0SLi0VujvOncRc1Phr_5aXtQYZEURwCu5Lc7CoTaw01gjt0EtrCgNNVJ-EVnCsUxpr42VVKQraOvqE05EDOYbWVyPkuLL0vdMpTnFt03EYQvTa8EfOQF0lEBGuSK-AFElZMAWJaNVfl6hhgV60wjqrWwq7KM02BlBnNqkbRa3zsjYx7pItoWSP1yIVN_lV5NumGhk9NH9Jeo2ruK_O2_5BNga2qi6ZLG8Zrdijn0T46D8C6xNIAZcX2WecoJob1uG11P47R3NUcUH078JIg9E1AuQiDFbdeHNyykPGl02ZAKk_mhsHaNym0pzcoRuNYZiF2ARxHC4-VTVaIVDMFII5jCaTbFs1luByXq4Xw2E2dH2hTRD4NnYYChYMq5iBK_3o7WXKUkoPvpTSF9-lW4PkKw4JM8Z3eaek1l1rJSagcDv6OsjKtKyNNOscAqih8mUupxDN2JKFMMvGQM3Tp8Mz4j5HQLhdjvm6EQnvsQ5xhoNyeRHy8vprQJnh4G7DT-oJLPCKWUaaydYJgyhlftRSmkoO2lYCBooRmhZFiW79JRWpJNJwPaYHwwmRtSPzET3qtbZZ5nJCjJswhFK5qF8rH12Fao3zwhVoVdt1B0PSqn1qpCAYQ09ZYfh6Ks4-NTg4O8jZavEja70u7sE8O9ReShu4Q6vDJYahua6KFdqV1prd8mxEAH8Fr5OCkmNJizB_Zyf_oRj0CzsdISd8obCJdL0uxy6nhygem2Es4TNGh1_aAcwqjNuRpwZBI_dnSb3lkdNQsFLY460BpBySt7uK7MdksloxWTREw_GXuyWtVuz9Hgn7B6el0l7M_fab3Bh4XNr7CKOHfGtcwqKgciHXZecRZm2Gh6zWZGrxZX3bW7fyV_2w_LHhmF8RbWfe9gXnStu3E2YCzwslnouHURIrbe0A-ta3iZ2LqSSuVl4J47KD93vAkJ_lKHS693dzIaTxobIZKxs4RwZtwXMWhjUiG9kq8dAshdnxUv1U1HAGhoW8mxlfn9xXGYsXrWvG0q9KPhmm7-Kn_VGhbR0PbWWeH4wYT-J9pm5uqztoQaNur_UPgM5A5goYeW0GcmNr64RZ3K3PxXWuePY7o0Zp-wiKfpdWFP4nPcwYwsbzhMs-HYhK8VsgEpcx5gts97o8bkiYYnMvTctuAXl8l0SM0wJ1riwMN0grB-XAOEG8Hc3qRKp07xnmO-LnytpegmAqjwaFtCO5eMKHrPLVbzaTF13jlCKiGt4q9v0UlKcRZMPi1Ci8J5ok35ofgO6ZmEimkr5rimwfea7F23yvd330-MCiXNLs5Nn1cej4Ck8Q48Q4yoZelo9Adt2ae1ghJ1l2SjDxXvgwHTI4wkSu7t-QxH4KJcRaqTuIKRgsoCRzc1-K_KExT4i4DEMb0-pjHY8ho50-9GyGNNJ_ROQyvVfasJ4GZp1E_u22KEmplqITXlez-XR-bU27-2f-DEvnSa1de166-pxMsktresILohYxRX0X3E5XyQcwxp_aJGAQ8UhuM77pdtWeUkmfgNgN8MNXpUGjc06TZUFJ5cH-PCfkLdKcLGuzh8ls7Lxx9IMx-dzvFA1MJgOuxfav3CZaz510bzb6JtBPBQ_fUX_fY3-M_VhbZD95oc0U6dmM_x0bNEPt1n2ZPPIYeJMESFpFMpQ7oq2HrG3LnNnT9xhvkeBywGYVl6xm8eLT2WWJsoXHw8ocoVjLtiJWX-VDPaHcFTvTCfBFEbm0bWkzh3i4GhUFO7sLVkHrgnOdk_2V9vjeXl2KXUw86VojyWwFynCCYP2jE1fl37U-0ju4Nyt8Qe-yx7Ffs67JlzKnTdnX8TySLUh3Pr3RaF7Wsq2ynL7ygaZAzbq9T0xS60gJ8Ed2rpRR-R7cI3ZV3jYGasCIQJ7ZbmDrCq-6bRLEySa-gACESy-L-t8QlMSlOdabYU1UbmBnqyiZpye3k7xlWcyhrWs5ZSQ6dkUjqnjIafSCv3pmnrXpB2xHNW1kaiwRCn6kudjZ6ZUxcnvuI9mMC3iF5S1EeOk1btEh1anw5T14oZ8unAbIyhgAJ80UBa4rmwgnGEiyHRhvJCqysQsUVOpiOGbVyO7krr2-ilbyWx1s3Ud2S63Q8kL1hz0VktfdNYWzHmdV0R1nNoqTQIKErVFUgYUzkhp7kuJgh_zjuii9LHUSIxnpPobg_6rd9N2Vls5vWlop2SsViaNX-q-gJDIGCqk2Yil6IKUBvCQl7-bLPVJYUaYpBedv2uTr3RZXlnnjWG-JHiGTwH4WkMklpWsJd3fY8OZtNZs1qwbPyXwQG7YsFTXarf1YjBEgRglHElmc4cRgvTuyrvbCLv4TJSJE-3nHpBY9dsCCya7XGewPro_luOp05RZYhogqF899Dhzp94qWY66-AwQ9gDpboi4iJ1omkKQWQqb7_OExjcK5tBKVvcmHPatsG4oy4cEFbu6dSb8spRASLP3MNw6I9T46M5tPp6BkTz2nGZaNG5ZABCUUiqEBKtm-UBAIGyskkw4IM-xCmnojry7fTGlLRwdmTYp-3QvWkQ5Ud6eb3T8hR000wswGEThoARUEEmMcJI4s8rmNdYUV2apNXogEADlydWubA-bijslSadF7pgkp6atK2CQYe8aidJ2uaxyCXnN2cFU35WikQ7UHqvQUbC7Q4QKJDL2Lfh-B2BYVpQQGEYtw0wpKI8qfmKbOCCn2e_IA2-aK4LQZ9IGq4x1gShf6DkkBy78V5htU4YyMmKT9wRtCsE5Q-be3HoxjkLh5uc0qJw-ozyNhr0kHQy3OJvfnj2yBnCHUlHdV8BAgwwE-0tPv09-agblyifjCGM_HNMiis6dRKC6d80SFgycZCag69MJW3L9MCzExumErae0n7JDapMpsxwydg1J9E2dGBhPpNMPz0CrddxycYZgnRG2F6RqoJMpZ1kDt0JGdTbm93e8SsImDS3LEP2jt7jm7AoujfQhlTJ42fj2yO3KAdEOKM1hHzkS3N5gh0aORpYb2X2i8ZIgJ36nPmr5fUiWo4dB4fhAOx_3MKEl3KHfIXIZpHJb9h0C6Hsv2Wl-agmvlMkCSLgPqMaxp5oZh-IJmdObvW8WSRadlgmIGd2qhyWzNcPcixrYnFPaJ0ZBobHOxhc9qnbMXoEJtC2hd2augt9c1dKPydzEJczgOJHkQ9qACXDTE6aFXl40qcs2QFIHkJ7qLteRJCKqW36KcHs2br_1_WjajjXwUs8WxBzmYIpw8Cc7-4Gn6c_k2TBXlcfIuqmLg_1Bi7NbNsyRsWI4L1B9Qyx6U3lW-iz4bnZljg1K_90ousZpmj78UWUBxiFmL8jAOK-35DRUz1jHTDI-kJDNE3j4bIXb6gZPyMHKLz9TcTJsGZpm2OBDJjJuwEZTCI54dNBv3EY-UbpWMFnGH18Hu581qxoQA5151Yv3X5VHruCEeFZ64XtCOK750m5hsbW7b2wPjZTSFukTyvWsNupGJffESv2HGFh2SDRnENj5wpHgZlu9lQkrLmcvQPvdyLDoNPtGN4bbZ_c3bhUEqmEQI73-g22A5PTy_G_tRbYWv2BbmBhUqocbVwaxs8DgbdKWo8Gt-SFyonCsHcKcMk9bPQ7ELiMZyJ2Fhymny_2YPh7N4BaGo42UxLcUQZgq1th6OaXrbjHQVLNVjY7_rg665hifDW2rQtecU-Tf9cfhI2EgOZ6cZEQJ8vNT-t51sNSKCdtwtrXKhlN4n58o02LOf0MVQo7fOVmd3TyXjWWIMTsf60NBruYsiT4mVbw8xAXcukOp6avuHEMiI2wKqlDf1ch4GrMCV-XU1tQUj83jKVJJ6pWD69DmGaqu564XbdxDAUHD6WHoMmOT8r7RfUd4K8FFjdaY2ayipCoh1bDjiERSYuaF4rRX-T1mfjYtNR9Sqa2P4TrFF22OYyvBoh3HjBG4AiLQ-LexIkCvin7I1VgQbEtGz3dHPIKUkjy0TuJO9Wp_s8WAKj3D7MQfFA3uqTeFucIeaTaH3vXbZs8BAf-DoldaKFGMDhPfF0j2zU6AmQKGhLh8kNV-RGozszsFcatFOqg-dNO5QrKUPOjPM6atY5UvaMhmQ7JoIV_P08mRIX8kw7J_AuXoboOCPc2tgwNcd6KV2rq21--jhE7KUsfQBCDOQKVwujfxRNPZNKWgTOZKHTJdM92gRYZcLBAOgyr6CLFE_zJYQ5pd0n2lUdJPlUpJP1N2750Ka0j2Nr1W2yHDnLqXc9fdasw8SYT3j-53qSpG9jYugaq3y5KluvckixkjDolvYVH7Os-_aH6V8l-Si939EdPT_OWy0vGXI9XKSV5snPWnvNLetZtV6-3CK8XAYUlOd1-69BBPzyaWFhlNxCvZ-hWanBROEDYKHzgU2N8uMCtcM95KK_NoWMBZVTfmYXoUPpol0rCdb5P58YxnwxWvbYDj3MUQvIvliC122m2F4Mw-gjCYJ-SxMzfhCTHl8QRjHXTlHhzUdwnamgSDJ1A5HprSuUvd9LZ_N_mA8FiM41A2BbaaBhR4G37XP5aocl4eyRs8MC7Q0uiYUgJXOctP-j1g4C4sPW4KaOXwUae0JjygmXS61FxDuck9iqtryrHwnW4wGMOOY0cz-nsEdQxT0ldnzIyT8jKyCovXywYFYK66LmG-xv1WZv3lK9XIfUHKCPkpt1yEMzWn5yGdZ1SHz0DKmA9WF09v_v9Lvbrzt5omz_z4h9Q72r3q82fb5q066II-2X0WSmF6y6iQ3dU0RlKJhcKegTGgYThZWUNE2EmUEHtKDnJPf1ZNYIvtBz4bFvStsWc9UmBRIqxpaIZxs1epibG79XliI3rd2lKdT_YlLpdM-CDoU_0QmJpHPBJWeoT876b3I8GchpM71hZ0Uao_9kYhc6Pkm6Qfpy9sBr5NN9lxpOZwk3KuA0iG7OKo43xI6UdRsDIwC4CI60cNy9t57T94v1_lx2dO6HGrcIXdMShB02WYoy7uZskbnJjnYjAgjGmUk0ur5onHTc2chepg0Im5__x44bx8CrNZf1heEKRzecys1vBFQta-dd-2bpvT3DPqNW8yn9ZSv7Rvcu9aBO3v_96f7o5rfQ_hby-9_y8_DK78jHq4DjTb4XslHootQk8I5omHqhP98GGuD5Jf88XZpQanGkgQL3zcr_dnfO0f_ujfRz199q5sYexh8eHarXR2ZI5_iz2_7n3I78rvf2eVetXrvE0P57v_WgD3o7inp_TwA_YYunlJQ7GAZ_mtPduvbiis__z8v_AdPNyGWesIdUrwuvp4d39UtoNe_GMeyP7yhw_r_a3VfH38yj-eG3PaqOoY5og7a1hLOfv6tZ2lq5PubLX50nUZ-CFHroMhzvuGlrpa81UQwBwX3HB-oQNa6bJi0oOMY_WqeCNGwXe-4qvwVw7kQvM4p4e_cH6AUxc5N4G6j1c3b4AbtZJD9QlUHbIvv_neLbFBymIi2ktV29SSsuAvNXuJ6nbkIzTcBEpAbLFrC_PrJCvKO2ySOrwNSInGwm9a-jwCbcUZXs4fdUnBGevmk1OWP9PmmgeQlLTATyUWnbTny92e-AH1xP_kEwExd7Cpb3HvPGmJkv-tGwQiMaulqbqfOSu4sX4Q3LG-oEWcoXgBQb-5Ea0VbYeNPIZP8zoy0CwumYxhqcNFGzN636fBzJyrR8XzYNGhYh6OuFnUxSeHhKDX3HS3Y_KBFYZEms7hSoxGtmfwKxaL3Gm7vI_eqMgs011cqaWNlNoEDTM_aW19ijDNXUq9uEcmmwDC8BRmDBz4Cqp2T3VJD7C5z7AdNHznGjL4YigThJZxTsDEiWYNmmI5UG619agL0I_EgHvNAI8JIaaBrMo437aOT50OSp5zz5IBM8iJxf9O8D3MYCS8KpjlU_NLfsq-YgkimPMkFEybQM5vcUAblKjqr0ODUdF13K_bMSzQ9B28bqC4qUEfCUN0zSkpB2pnknxQ2od0yh6okoU3r-mMijnrQlBpm2kNDdLAX_OKHt1AsuaCf2lManx1b2V8xFr060E7uR6O4qSAXjhCn5nhElZluTxrKQMOG82OwyIFGrUEmu6FkRl1YQyELD1j_rH9x8_qwVHr0sKYoNfCMGKDECLhrjEfT9vTFmk3emxx5lqmqx5SujaoHW7FsHX7u-v6MJ-p68NP_2z-SuZGtsMUXbNZbaLJJ3ml5YSok7C2x-59oSPay4I5WmvTFQoFeGJoZvcaa_kxOAeomIBU6y1NhqCdT8qwTeFsQ6mokINbcAL7Lho2s-eVM1PrNUsqGEJz7fk9g60QVuv6X4DmaQCvcPInwVHHuccv_9Ei0RLIsl6vAUAgvHNxzvXxrC-rfn3NZWLOzAERn6uQl7Bs24tVM2xIuwXVQvz0FyB23LrG3j6rG9q7lILUFIGr0R8iCs3KfMPvUdcChgVTVMwP3ggwWDoBmUHMcbS_IOzSVJ1Sq3AoFjIaa_Om9EiGRjvqRvukZFdxpQsjeF7rQPpdtq2Ati0gGIW6rFD_7wZvZNdyu_GN7ihUTNlfaqSQc43xlLAE1NipfuxDaPuoAnXRM1L4eG8VuY-1_IkbbKWBcTyxHPIexOBW2AtxOLJ4NPHLduxCMNY-_XGZ9uYVp2XYLnsY5oDfTygFQrjx9ubiT9EgcqMd5mBaf3gcY_1DN_xFynPiGM1T7sxYa_RzbWAFXBENvkJGRN1VPcOUtMM3WtjpiuEwgH6rCY8EsrknIPtggNIHd1q36Wvov74ZpbrRIQAKBfk3yfxqpXQ1vmeuZ3OwQzPoNp_C1GddZ9S7h74aD5R7Fl56MDZjh980XmdULTnBAqVph4-ta1Iy9tQ5SNPS9jDwhlueeq8XWEYyyTnTHRrUjDuXZk295mU9DLrRFmtih94rjXjr4yCM9-paLfEBfwMXrcbrg4waI00fNXqPuml_eD93i8g-WXzG8vrcpg03DJlrnVgYhogDB6egK-4B-In3URAT-10M8fsQvjNw6UlsoYuu7s-svbKXFO8J4pwCLcHTNi8q8Vr9B7dgWESQFfkWxVPleGysMXnS2_CcJp6g-csNv_gA13Pv3ULriXJK2fjfk_WbZ7SY_bpNvPz2t-AZKZhVCuZmON7jJ4e1mZTwMJCT8myqmJZSqAOk9AWkzUAy_7pSxDd1S4RjzHkKw9LdTo_EiTnNYNgcEe7RknHW10A1kuiVOpBnkiTWk4C3nbOb414gaMlJOg2A_1l9n1ji2TYiNp4NAy-wvR8ZToBjnbGi3uF098ba5Om3QDVW27HW9-6Io4h6BCYh8RmG-fzfX0jmcdAg8UJIjyEMo_RMlWnCm-IZXI8kIlBHpAWG-mTg_-cz61H0TvUVPXrs5t5Q0cSde8PQ-uurkYIFm6CUQdiRGdBbN8Nk1UMUCqBE5NV3yELnrnimbis0NTWxSdtXRNRKKtvpaN0CLgJBTYGz1FU0s6P0Pevkx1oXVLhE2sb9YAWFVWIBuqeK6j44Th1YzFAyBaVSTvdPSW1FhWnmEr9sexO3uz7qSubUu24OXrMKqRi-lLVpnF9aCI4iYK0-jgFf9i4X8WeUOQLN9d76EEf9fd6H08MylNOZnI_KAMPtM7mLp2hnn8Zm0p9kDJ-7o1u0-50aVSqIxKaqeZ2tH5qUVr4Wbs0E9De2XZdGBYM1gi3E1D3IT-TXnrnSvU_rQXPUup5dMNekHarJoHmf_nJ78Fr-ZmP4bkZTn0rmRE5Yeo3I9kxOgF0sg6RyS8xQOx_LOP2FPvmkNup9DAg80Z3SAzFQ3fhJJU71xu3FiqOokMRmrxSxWV_hCBAxbcna1iuogK74yc7jGbzEfqWOloOpw-bzAIwY-8i3oena4WLcIZSws2JdUaoG3fByLnyIMhyBxIofpk7GcEQ4o2D1ZMaQMRTuYaoOFJNlX8ODBpLtDM-_KtvtspMfHQLPTSPdj7mlB-FGSoU4DXR41S59js2i634_o7LZog1ypMiiuCLBosEioaMrJB2Iy0e8OyBHrY2UI4Bbq5xSem1JK_YSuB2ROBDoJqerS8MHtowcQSPXQEoEI5yZSPNerYuSWMYTN0AaoxwzCogrP2ZbMABoWlv1iOLz3gglCPkKMOuWsfvcJSoNh_GDWp54pEOUD68H9jXM7vkdB_oTc6sPR89NZZfxQ0ZXI2dNGT0bMbfStXvGGgtyzZanJUxaUwgbFEGGDL26SDD33c0842hrDkShQgZY9qoVSoKzRw4bONsI8RgsllzVgzXQ5OJrgtCxs8afx-4enDWfd2PEdSX-bXndv0_DjmOOlu6rAq0z2lLfz5PB-DEqRqewpvVVm6YA-vubOSEDnnAGuIK4x3j8ySQL-BMJNk6bDDBDulJG1DEK4ulZKy2l0Oi0r_bK1RGMT9nxMl9mCfuR4TmWdM6SdIyyNBWCaOYlCy1RjB3j3wJFHVoIAp4qeFKY-XtcuMZ4sY9jcrHM37CEvaefb_C3npprwZ3JbI1YhrB8cnQohhB2P1wcnets5akOM6UMYZGwNM2Ix5W8r2atOI3UgeBwIvmAjF92g5sBBYhHvCP0JfSHlxDdMAgqs4RDflE89z8y4u8nXPmy1OOq87-oCL8bljjjcz3xl1HHjEFno5OkUiLpr1VVG42J5HxkTufH6_I5RMbGEGdo1Ivw0cQcn8AxK0UAiQcZltNsBq04J8uAgcyqexzk9FVAU6VOFDoTmd_ulSJMPjZmQVhC5CS_NQZJka_3GjE9nq22JoGzRowljCobA2Cnticj48tOdhP5FqXLLpNqlxICz4KVy5sm19oh_VTbsPEW-caKOKHOePiqGlSbTK8DBSdP1Njy1l3bWWoTwO8SmcfgE6Fu1_ZB_XONNkYwmFMajMieEHJiEGsiL6xlPHOYp-njuFu6lWWc0rfMhUpQSTxlAet9CgikAYQ9Wlo7nqJTf0_08HLEcVtPqdoy8qxCSGxF6ZJ52JZ7xHdPRVHk0n3XfSv9fDMkh_zH5LuWzxZNrK8zKCFGJwQmYrsx0g577ApskrPTxvyIWTGDMpw2OTI7rsezQrn-VbhdO0qV6VlEa5ZDNjdcOSRiYUjpcfEY4F42bqffTRufpGYV1k-qEplRutbzh-GvgQwTdNoZ6Tvbs05GwzavBcOubeUGKW0L5gw2eBoMxi9p6lGtUrElEYIFqEMNl0iXaNI5xfIOLcJZdzxmXnugTBJtC2WLAoBqtpbHzU_c5d1UVkGJfgE2BKH3QbO5GuqplLKUxaWRovBrmdR_gojV9YyFeVPQkCFU7gbGRZo68H7NZCRJjD8kyMJPwTuyGTtT56Ig_LenPINsdle6cJKRjkP_FyH86Zl2tHTu04sgw9uAuQlMFzdJgNQ8Rni-AMWsKi8yirW1W7QAbE2X2Dl6pQqI4ikSAkohMaM-CaOvmxutvLpt5zGiBanGsA0eInFTgcos2E16xuL6ZDJmDyzZyGPp_EhZa7jerikzd-E1SuswshPbm7BMZ_iq5v36BhEYpo3JEhd1BlzFa20OYSgAc6geYUlGdRGNDKOMEolpnkaRdvFo3EZNH9C4xbgP8ZxhLU-z9fZm1WAydMxzsB2lZ2-sJ-wSxa7E2wbD4neaTwysKb4JXjBgVnyUQ5rwWfxkYnH4LLzUjg2sMeBv4bIW9oXPxSvJtwRuxUr9OG5Mil8wUAkfc_u07f6OT3hDKFWrsjwejc5xIwwFtLVWvJ9wXj5AzrrUzidDzH3UbQ9nel9VnJNP"
     },
-    debug: "(()=>{var e,t,r,n,i,a,l,o,u,s,d,v,c,f,p,h,g,y,m,w,k,S,T,x;function j(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var C=(e,t=e=>Error(e))=>{throw ea(e=e2(e))?t(e):e},M=(e,t,r=-1)=>{if(e===t||null==(null!=e?e:t))return!0;if(ed(e)&&ed(t)&&e.length===t.length){var i,n=0;for(i in e){if(e[i]!==t[i]&&!M(e[i],t[i],r-1))return!1;++n}return n===Object.keys(t).length}return!1},U=(e,t,...r)=>e===t||0<r.length&&r.some(t=>U(e,t)),F=(e,t)=>null!=e?e:C(null!=t?t:\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),q=(e,t=!0,r)=>{try{return e()}catch(e){return ep(t)?eu(e=t(e))?C(e):e:et(t)?console.error(t?C(e):e):t}finally{null!=r&&r()}};class z extends Promise{get initialized(){return null!=this._result}then(e,t){var r;return(null!=(r=this._result)?r:this._result=this._action()).then(e,t)}catch(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).catch(e)}finally(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).finally(e)}constructor(e){super(()=>{}),j(this,\"_action\",void 0),j(this,\"_result\",void 0),this._action=e}}var R=e=>new z(async()=>e2(e)),P=async(e,t=!0,r)=>{try{return await e2(e)}catch(e){if(!et(t))return await t(e);if(t)throw e;console.error(e)}finally{await(null==r?void 0:r())}},W=e=>e,B=e=>!!e,D=e=>e===K,J=void 0,L=Number.MAX_SAFE_INTEGER,V=!1,K=!0,H=()=>{},G=e=>e,X=e=>null!=e,Z=Symbol.iterator,Y=Symbol.asyncIterator,Q=(e,t)=>(r,n=!0)=>e(r)||t&&n&&null!=r&&null!=(r=t(r))?r:J,ee=(e,t)=>ep(t)?e!==J?t(e):J:(null==e?void 0:e[t])!==J?e:J,et=e=>\"boolean\"==typeof e,er=Q(et,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||J))),en=e=>e!==V,ei=e=>\"number\"==typeof e,ea=e=>\"string\"==typeof e,el=Q(ea,e=>null==e?void 0:e.toString()),eo=Array.isArray,eu=e=>e instanceof Error,es=(e,t=!1)=>null==e?J:!t&&eo(e)?e:eh(e)?[...e]:[e],ed=e=>e&&\"object\"==typeof e,ev=e=>(null==e?void 0:e.constructor)===Object,ec=(e,t)=>\"function\"==typeof(null==e?void 0:e[t]),ef=e=>\"symbol\"==typeof e,ep=e=>\"function\"==typeof e,eh=(e,t=!1)=>!(null==e||!e[Z]||\"string\"==typeof e&&!t),eg=e=>e instanceof Map,ey=e=>e instanceof Set,em=(e,t)=>null==e?J:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,eb=(e,t,r)=>e[0]===t&&e[e.length-1]===r,ew=e=>ea(e)&&(eb(e,\"{\",\"}\")||eb(e,\"[\",\"]\")),ek=!1,eS=e=>(ek=!0,e),eT=e=>null==e?J:ep(e)?e:t=>t[e],ex=(e,t,r)=>(null!=t?t:r)!==J?(e=eT(e),null==t&&(t=0),null==r&&(r=L),(n,i)=>t--?J:r--?e?e(n,i):n:r):e,eI=e=>null==e?void 0:e.filter(X),eA=(e,t,r,n)=>null==e?[]:!t&&eo(e)?eI(e):e[Z]?function*(e,t){if(null!=e)if(t){t=eT(t);var r=0;for(n of e)if(null!=(n=t(n,r++))&&(yield n),ek){ek=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,r===J?t:ex(t,r,n)):ed(e)?function*(e,t){t=eT(t);var n,r=0;for(n in e){var i=[n,e[n]];if(null!=(i=t?t(i,r++):i)&&(yield i),ek){ek=!1;break}}}(e,ex(t,r,n)):eA(ep(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(null==t&&(t=-e-1);e++;)yield t--;else for(null==t&&(t=0);e--;)yield t++}(e,r),t),eE=(e,t,r,n)=>eA(e,t,r,n),eN=(e,t,r=1,n=!1,i,a)=>function*e(t,r,n,i){if(null!=t)if(t[Z]||n&&ed(t))for(var a of i?eA(t):t)1!==r?yield*e(a,r-1,n,!0):yield a;else yield t}(eA(e,t,i,a),r+1,n,!1),eO=(e,t,r,n)=>{if(t=eT(t),eo(e)){var i=0,a=[];for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n&&!ek;r++){var l=e[r];null!=(t?l=t(l,i++):l)&&a.push(l)}return ek=!1,a}return null!=e?es(eE(e,t,r,n)):J},e$=(e,t,r,n)=>null!=e?new Set([...eE(e,t,r,n)]):J,e_=(e,t,r=1,n=!1,i,a)=>es(eN(e,t,r,n,i,a)),ej=(...e)=>{var t;return eq(1===e.length?e[0]:e,e=>null!=e&&(null!=t?t:t=[]).push(...es(e))),t},eC=(e,t,r,n)=>{var i,a,l=0;for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n;r++)if(null!=e[r]&&(i=null!=(a=t(e[r],l++))?a:i,ek)){ek=!1;break}return i},eM=(e,t)=>{var r,n,a,i=0;for(a of e)if(null!=a&&(r=null!=(n=t(a,i++))?n:r,ek)){ek=!1;break}return r},eU=(e,t)=>{var r,n,a,i=0;for(a in e)if(r=null!=(n=t([a,e[a]],i++))?n:r,ek){ek=!1;break}return r},eF=(e,t,r,n)=>{var i;if(null!=e){if(eo(e))return eC(e,t,r,n);if(r===J){if(e[Z])return eM(e,t);if(\"object\"==typeof e)return eU(e,t)}for(var a of eA(e,t,r,n))null!=a&&(i=a);return i}},eq=eF,ez=async(e,t,r,n)=>{var i,a;if(null==e)return J;for(a of eE(e,t,r,n))if(null!=(a=await a)&&(i=a),ek){ek=!1;break}return i},eR=(e,t)=>{if(null==e)return J;var r={};if(t){var n,a,i=0;for(a in e)(n=t([a,e[a]],i++))&&(r[n[0]]=n[1])}else for(var l of e)l&&(r[l[0]]=l[1]);return r},eP=(e,t,r)=>{var n,i,a;return null==e?J:et(t)||r?(a={},eq(e,r?(e,n)=>null!=(e=t(e,n))&&null!=(e[1]=r(a[e[0]],e[1]))&&(a[e[0]]=e[1]):e=>eq(e,t?e=>{var t;return null!=(null==e?void 0:e[1])&&((null!=(t=(n=a)[i=e[0]])?t:n[i]=[]).push(e[1]),a)}:e=>null!=(null==e?void 0:e[1])&&(a[e[0]]=e[1],a))),a):eR(eO(e,t?(e,r)=>ee(t(e,r),1):e=>ee(e,1)))},eW=(e,t,r,n,i)=>{var l=()=>ep(r)?r():r;return null!=(e=eF(e,(e,n)=>r=null!=(e=t(r,e,n))?e:l(),n,i))?e:l()},eB=(e,t,r,n)=>eO(e,(e,r)=>e&&null!=t&&t(e,r)?e:J,r,n),eD=(e,t)=>{var r,n;if(null==e)return J;if(!t){if(null!=(r=null!=(n=e.length)?n:e.size))return r;if(!e[Z])return Object.keys(e).length}return r=0,null!=(n=eF(e,t?(e,n)=>t(e,n)?++r:r:()=>++r))?n:0},eJ=(e,...t)=>null==e?J:ei(e)?Math.max(e,...t):eW(e,(e,r,n,i=t[1]?t[1](r,n):r)=>null==e||ei(i)&&e<i?i:e,J,t[2],t[3]),eV=(e,t,r,n)=>{var i;return null==e?J:ev(e)&&!t?0<Object.keys(e).length:null!=(i=null!=(i=null==(i=e.some)?void 0:i.call(e,null!=t?t:B))?i:eF(e,t?(e,r)=>!!t(e,r)&&eS(!0):()=>eS(!0),r,n))&&i},eK=(e,t=e=>e)=>{var r;return null!=(r=es(e))&&r.sort((e,r)=>t(e)-t(r)),e},eH=(e,t,r)=>(e.constructor===Object||eo(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eG=(e,t,r)=>{var n;if(e)return void 0===(n=e.get?e.get(t):e.has?e.has(t):e[t])&&null!=r&&null!=(n=ep(r)?r():r)&&eH(e,t,n),n},eX=(e,...t)=>(eq(t,t=>eq(t,([t,r])=>{null!=r&&(ev(e[t])&&ev(r)?eX(e[t],r):e[t]=r)})),e),eZ=(e,t,r,n)=>{if(e)return null!=r?eH(e,t,r,n):(eq(t,t=>eo(t)?eH(e,t[0],t[1]):eq(t,([t,r])=>eH(e,t,r))),e)},eY=(e,t,r)=>{var n;return ec(e,\"set\")?void 0===(n=r(e.get(t)))?e.delete(t):e.set(t,n):ec(e,\"add\")?r(n=e.has(t))?e.add(t):e.delete(t):e&&void 0===(n=e[t]=r(e[t]))&&ev(e)&&delete e[t],e},eQ=(e,t)=>e instanceof Set||e instanceof WeakSet?!e.has(t)&&(e.add(t),!0):!eG(e,t)&&(eH(e,t,!0),!0),e0=(e,t)=>{var r;if(null!=(null!=e?e:t))return r=eG(e,t),ec(e,\"delete\")?e.delete(t):delete e[t],r},e1=(e,t)=>{if(e)return eo(t)?(eo(e)&&1<e.length?t.sort((e,t)=>t-e):t).map(t=>e1(e,t)):eo(e)?t<e.length?e.splice(t,1)[0]:void 0:e0(e,t)},e2=e=>ep(e)?e():e,e6=(e,t)=>null==e?e:ep(e)?(...r)=>t(e,...r):t(()=>e),e4=(e,t=-1)=>eo(e)?t?e.map(e=>e4(e,t-1)):[...e]:ev(e)?t?eP(e,([e,r])=>[e,e4(r,t-1)]):{...e}:ey(e)?new Set(t?eO(e,e=>e4(e,t-1)):e):eg(e)?new Map(t?eO(e,e=>[e[0],e4(e[1],t-1)]):e):e,e5=(e,...t)=>null==e?void 0:e.push(...t),e3=(e,...t)=>null==e?void 0:e.unshift(...t),e8=(e,t)=>{var r,i,a;if(e)return ev(t)?(a={},ev(e)&&(eq(e,([e,l])=>{if(l!==t[e]){if(ev(r=l)){if(!(l=e8(l,t[e])))return;[l,r]=l}else ei(l)&&ei(void 0)&&(l=(r=l)-void 0);a[e]=l,(null!=i?i:i=e4(t))[e]=r}}),i)?[a,i]:void 0):[e,e]},e9=\"undefined\"!=typeof performance?(e=K)=>e?Math.trunc(e9(V)):performance.timeOrigin+performance.now():Date.now,e7=(e=!0,t=()=>e9())=>{var r,n=+e*t(),i=0;return(a=e,l)=>(r=e?i+=-n+(n=t()):i,l&&(i=0),(e=a)&&(n=t()),r)},tt=(e,t=0)=>{var e=ep(e)?{frequency:t,callback:e}:e,{queue:i=!0,paused:a=!1,trigger:l=!1,once:o=!1,callback:u=()=>{},raf:s}=e,d=(t=null!=(e=e.frequency)?e:0,0),v=to(!0).resolve(),c=e7(!a),f=c(),p=async e=>{if(!d||!i&&v.pending&&!0!==e)return!1;if((m.busy=!0)!==e)for(;v.pending;)await v;return e||v.reset(),(!1===await P(()=>u(c(),-f+(f=c())),!1,()=>!e&&v.resolve())||t<=0||o)&&y(!1),!(m.busy=!1)},h=()=>d=setTimeout(()=>s?requestAnimationFrame(g):g(),t<0?-t:t),g=()=>{m.active&&p(),m.active&&h()},y=(e,t=!e)=>(c(e,t),clearTimeout(d),m.active=!!(d=e?h():0),m),m={active:!1,busy:!1,restart:(e,r)=>(t=null!=e?e:t,u=null!=r?r:u,y(!0,!0)),toggle:(e,t)=>e!==m.active?e?t?(y(!0),m.trigger(),m):y(!0):y(!1):m,trigger:async e=>await p(e)&&(y(m.active),!0)};return m.toggle(!a,l)};function tr(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}class tn{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new ti,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}constructor(){tr(this,\"_promise\",void 0),this.reset()}}class ti{then(e,t){return this._promise.then(e,t)}constructor(){var e;tr(this,\"_promise\",void 0),tr(this,\"resolve\",void 0),tr(this,\"reject\",void 0),tr(this,\"value\",void 0),tr(this,\"error\",void 0),tr(this,\"pending\",!0),this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(this.pending)return this.pending=!1,this[t?\"error\":\"value\"]=r===J||r,e(r),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var tl=(e,t)=>null==e||isFinite(e)?!e||e<=0?e2(t):new Promise(r=>setTimeout(async()=>r(await e2(t)),e)):C(`Invalid delay ${e}.`),to=e=>new(e?tn:ti),ts=(e,t,r)=>{var n=!1,i=(...t)=>e(...t,a),a=()=>n!==(n=!1)&&(r(i),!0),l=()=>n!==(n=!0)&&(t(i),!0);return l(),[a,l]},Q=()=>{var e,t=new Set;return[(r,n)=>{var i=ts(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,i[0]),i},(...r)=>(e=r,t.forEach(e=>e(...r)))]},tv=(e,t,r)=>null==e?J:eo(t)?null==(t=t[0])?J:t+\" \"+tv(e,t,r):null==t?J:1===t?e:null!=r?r:\"is\"===e?\"are\":e+\"s\",tc=!0,tf=(e,t,r)=>r?(tc&&e5(r,\"\u001b[\",t,\"m\"),eo(e)?e5(r,...e):e5(r,e),tc&&e5(r,\"\u001b[m\"),r):tf(e,t,[]).join(\"\"),tp=(e,t,r=!1)=>e&&(e.length>t?r?`${e.slice(0,t)}... [and ${e.length-t} more]`:e.slice(0,t-1)+\"…\":e),tg=(e,t)=>{var l,r=[],n={},i={},a=0;for(l in t)l===t[l]&&(Object.defineProperty(i,l,{value:l,writable:!1,enumerable:!0,configurable:!1}),n[l]=a++,r.push(l));var o=(t,r=!0)=>null==t?J:null!=n[t]?t:r?C(`The ${e} \"${t}\" is not defined.`):J,u={writable:!1,enumerable:!1,configurable:!1};return Object.defineProperties(i,{parse:{value:o,...u},ranks:{value:n,...u},levels:{value:r,...u},compare:{value(e,t){e=n[o(e)],t=n[o(t)];return e<t?-1:t<e?1:0},...u}}),i},ty=Symbol(),tm=(e,{delimiters:t=[\"|\",\";\",\",\"],decode:r=!0,lowerCase:n}={})=>{var i,l;return e?(null==(l=e.split(\"=\").map(e=>(e=r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim(),n?e.toLowerCase():e)))[1]&&(l[1]=\"\"),l[2]=l[1]&&(ea(t)?t=[t]:eo(t))&&tD(t,e=>1<(i=l[1].split(e)).length?tF(i):J)||(l[1]?[l[1]]:[]),l):J},tb=(e,{delimiters:t=!0,requireAuthority:r,...n}={})=>null==e?J:tx(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,i,a,l,o,u,s,d,v,c,f)=>{e={source:e,scheme:r,urn:r?!i:!i&&J,authority:a,user:l,password:o,host:null!=u?u:s,port:null!=d?parseInt(d):J,path:v,query:!1===t?c:c?tw(c,{...n,delimiters:t}):J,fragment:f};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":J),e}),tw=(e,t)=>tk(e,\"&\",t),tk=(e,t,{delimiters:r=!0,...n}={})=>{e=tJ(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(t),e=>{var[e,a,l]=null!=(e=tm(e,{...n,delimiters:!1===r?[]:!0===r?J:r}))?e:[];return null!=(e=null==e?void 0:e.replace(/\\[\\]$/,\"\"))?!1!==r?[e,1<l.length?l:a]:[e,a]:tU}),t=t8(tK(e,!1),([e,t])=>[e,!1!==r?1<t.length?tX(t):t[0]:t.join(\",\")]);return t&&(t[ty]=e),t},tS=(e,t)=>t&&null!=e?t.test(e):J,tT=(e,t,r)=>tx(e,t,r,!0),tx=(e,t,i,a=!1)=>null==(null!=e?e:t)?J:i?(r=J,a?(n=[],tx(e,t,(...e)=>null!=(r=i(...e))&&n.push(r))):e.replace(t,(...e)=>r=i(...e)),r):null!=(a=e.match(t))?a:J,tI=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tA=/\\z./g,tE=(e,t)=>(t=rt(e$(eB(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(t,\"gu\"):tA,tN={},tO=e=>e instanceof RegExp,t$=(r,n=[\",\",\" \"])=>{var i;return tO(r)?r:eo(r)?tE(eO(r,e=>null==(e=t$(e,n))?void 0:e.source)):et(r)?r?/./g:tA:ea(r)?null!=(i=(e=tN)[t=r])?i:e[t]=tx(r||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,r)=>t?RegExp(t,\"gu\"):tE(eO(t_(r,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${rt(n,tI)}]`)),e=>e&&`^${rt(t_(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>tI(tj(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):J},t_=(e,t,r=!0)=>null==e?J:r?t_(e,t,!1).filter(G):e.split(t),tj=(e,t,r)=>null!=(t=null==e?void 0:e.replace(t,r))?t:e,tC=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return eZ(r,{push(n,i){for(var a=[n,i],l=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,o=0;o<r.length;o++){var u,s,d=r[o];if(e(a[1],d[0])<0)return l(r.splice(o,0,a));if(e(a[0],d[1])<=0){if(e(a[0],d[0])<0&&(u=d[0]=a[0]),0<e(a[1],d[1])&&(u=d[1]=a[1]),!((null==(s=r[o+1])?void 0:s[0])<d[1]))return l(null!=u);u=a=r.splice(o--,1)[0]}}return l(a&&(r[r.length]=a))},width:0})},tM=!1,tU=Symbol(),tF=e=>(tM=!0,e),tq=Symbol(),tz=Symbol(),tR=Symbol.iterator,tP=e=>{tP=e=>e;var n,t=()=>(e,t,r,n,i)=>{var a,o,l=0;for(o of e)if((a=t?t(o,l++,n,i):o)!==tU){if(a===tF)break;if(n=a,r&&r.push(a),tM){tM=!1;break}}return r||n},r=(Array.prototype[tq]=(e,t,r,n,i)=>{for(var l,o=0,u=e.length;o<u;o++)if(l=e[o],(l=t?t(l,o,n,i):l)!==tU){if(l===tF)break;if(n=l,r&&r.push(l),tM){tM=!1;break}}return r||n},t());for(n of(Object.prototype[tq]=(e,n,i,a,l)=>{if(e[tR])return(e.constructor===Object?r:Object.getPrototypeOf(e)[tq]=t())(e,n,i,a,l);var u,d,s=0;for(d in e)if(u=[d,e[d]],(u=n?n(u,s++,a,l):u)!==tU){if(u===tF)break;if(a=u,i&&i.push(u),tM){tM=!1;break}}return i||a},Object.prototype[tz]=function(){var t,e;return this[tR]||this[Y]?this.constructor===Object?null!=(e=this[Y]())?e:this[tR]():((e=Object.getPrototypeOf(this))[tz]=null!=(t=e[Y])?t:e[tR],this[tz]()):function*(e){for(var t in e)yield[t,e[t]]}(this)},[Map.prototype,WeakMap.prototype,Set.prototype,WeakSet.prototype,Object.getPrototypeOf(function*(){})]))n[tq]=t(),n[tz]=n[tR];return Number.prototype[tq]=(e,t,n,i,a)=>r(tW(e),t,n,i,a),Number.prototype[tz]=tW,Function.prototype[tq]=(e,t,n,i,a)=>r(tB(e),t,n,i,a),Function.prototype[tz]=tB,e};function*tW(e=this){for(var t=0;t<e;t++)yield t}function*tB(e=this){for(var t=void 0;void 0!==(t=e(t));)yield t}var tD=(e,t,r,n)=>(tD=tP((e,t,r,n=e)=>e?e[tq](e,t,void 0,r,n):null==e?e:void 0))(e,t,r,n),tJ=(e,t,r=[],n,i=e)=>(tJ=tP((e,t,r=[],n,i=e)=>e||0===e||\"\"===e?e[tq](e,t,r,n,i):null==e?e:void 0))(e,t,r,i,n),tL=(e,t=!0,r=!1)=>tJ(e,!0===t?e=>null!=e?e:tU:t?t.has?e=>null==e||t.has(e)===r?tU:e:(e,n,i)=>!t(e,n,i)===r?e:tU:e=>e||tU),tV=(e,t,r=-1,n=[],i,a=e)=>tJ(e,(e,i,a)=>null!=(t?e=t(e,i,a):e)&&e[Symbol.iterator]&&\"string\"!=typeof e&&r?(tV(e,void 0,r-1,n,e),tU):e,n,i,a),tK=(e,t,r)=>{var n,i,a,l;return null!=t&&\"function\"!=typeof t&&([t,r]=[void 0,t]),tD(e,!1!==r?(a=new Map,(e,r,n)=>{void 0!==(l=t?t(e,r,n):e)[0]&&t4(a,l[0],()=>[]).push(l[1])}):(a={},(e,r,o)=>(l=t?t(e,r,o):e)&&void 0!==l[0]&&(null!=(r=(n=a)[i=l[0]])?r:n[i]=[]).push(l[1]))),a},tG=e=>null==e||eo(e)?e:e[tR]&&\"string\"!=typeof e?[...e]:[e],tX=(e,...t)=>{var r,n;for(n of e=!t.length&&eh(e)?e:[e,...t])if(null!=n){if(eh(n)){(null!=r?r:r=[]).push(...n);continue}(null!=r?r:r=[]).push(n)}return r},tZ=(e,t,r)=>(r?-1:1)*(e===t?0:\"string\"==typeof e?\"string\"==typeof t?e.localeCompare(t):1:\"string\"==typeof t?-1:null==e?null==t?0:-1:null==t?1:e-t),tY=(e,t,r)=>tG(e).sort(\"function\"==typeof t?(e,n)=>tZ(t(e),t(n),r):eo(t)?t.length?(e,n)=>{for(var i=0,a=0;a<t.length&&!i;a++)i=tZ(t[a](e),t[a](n),r);return i}:(e,t)=>tZ(e,t,r):(e,r)=>tZ(e,r,t)),tQ=Object.keys,t0=Symbol(),t1=Symbol(),t2=Symbol(),t6=e=>{for(var{prototype:t}of(t6=e=>e,[Map,WeakMap]))t[t0]=function(e,t){return void 0===t?this.delete(e):this.get(e)!==t&&!!this.set(e,t)},t[t1]=t.get;for(var{prototype:t}of[Set,WeakSet])t[t0]=function(e,t){t||void 0===t?this.has(e)||this.add(e):this.delete(e)},t[t1]=t.has,t[t2]=function(e){for(var t of e)void 0!==t&&this.add(t);return this};for(var{prototype:t}of(Array.prototype[t2]=function(e){return this.push(...e),this},[Object,Array]))t[t0]=function(e,t){return void 0===t?void 0!==this[e]&&(delete this[e],!0):(this[e]=t)!==t},t[t1]=function(e){return this[e]};return e},t4=(e,t,r)=>(t4=t6((e,t,r)=>{if(null==e)return e;var n=e[t1](t);if(void 0===n&&void 0!==(n=\"function\"==typeof r?r():r)){if(null!=n&&n.then)return n.then(r=>void 0===r?r:e[t0](t,r));e[t0](t,n)}return n}))(e,t,r),t5=(e,t,r)=>(t5=t6((e,t,r)=>(e[t0](t,r),r)))(e,t,r),t3=(e,...t)=>(t3=t6((e,...t)=>null==e?e:e[t2](t)))(e,...t),t8=(e,t)=>{var r={};return tD(e,t?(e,n,i)=>(e=t(e,n,i))&&(\"symbol\"!=typeof e||e!==tU&&e!==tF)?r[e[0]]=e[1]:e:e=>e&&(\"symbol\"!=typeof e||e!==tU&&e!==tF)?r[e[0]]=e[1]:e),r},t9=(e,...t)=>(t9=t6((e,...t)=>((null==e?void 0:e.constructor)===Object?tD(t,t=>tD(t,t=>t&&(e[t[0]]=t[1]))):tD(t,t=>tD(t,t=>t&&e[t0](t[0],t[1]))),e)))(e,...t),t7=(e,t)=>null==e?e:t8(t,t=>null!=e[t]||t in e?[t,e[t]]:tU),re=e=>null==e||\"boolean\"==typeof e||\"\"===e.toString(),rt=(e,t,r)=>null==e?e:eh(e)?tL(\"function\"==typeof t?tJ(e,t):(r=t,e),re,!0).join(null!=r?r:\"\"):re(e)?\"\":null==e?void 0:e.toString(),rr=(e,t,r,n)=>{var i,o;return e||0===e?\"function\"==typeof t?rr(tJ(e,t),r,n):(i=[],n=tD(e,(e,t,r)=>re(e)?tU:(r&&i.push(r),e.toString())),[t,o]=eo(t)?t:[,t],o=(null!=o?o:o=\"and\")[0]===(t=null==t?\",\":t)?o+\" \":\" \"+(o?o+\" \":\"\"),t=i.length?\"\"+i.join(t+\" \")+o+n:null!=n?n:\"\",r?r(t,i.length+ +(null!=n)):t):null==e?e:void 0},rn=tg(\"data classification\",{never:\"never\",anonymous:\"anonymous\",indirect:\"indirect\",direct:\"direct\",sensitive:\"sensitive\"}),ri=[\"necessary\",\"performance\",\"functionality\",\"marketing\",\"personalization\",\"security\"],ra=t8(ri,e=>[e,e]),rl=(Object.freeze(eR(ri.map(e=>[e,!0]))),(e,t)=>\"personalization\"===e&&!0!==(null==t?void 0:t.personalization)?\"functionality\":\"security\"===e&&!0!==(null==t?void 0:t.security)?\"necessary\":e),ro=(e,t)=>{var r=e;return!0!==(null==t?void 0:t.personalization)&&null!=r.personalization&&(null!=(r=r===e?{...e}:r).functionality?r.personalization=r.functionality:r.functionality=r.personalization,delete r.personalization),!0!==(null==t?void 0:t.security)&&null!=r.security&&delete(r=r===e?{...e}:r).security,r},ru_parse=function(e,{names:t=!1,validate:r=!0}={}){if(null==e)return e;if(e.purposes&&(e=e.purposes),ea(e)&&(e=e.split(\",\")),eo(e)){var i,n={};for(i of e)ra[i]?\"necessary\"!==i&&(n[i]=!0):r&&C(`The purpose name '${i}' is not defined.`);e=n}return t?(t=tQ(e)).length?t:[\"necessary\"]:e},ru_test=function(e,t,{intersect:r,optionalPurposes:n,targetPurpose:i}){if(\"boolean\"==typeof n&&(n={personalization:n,security:n}),i&&\"necessary\"!==(i=rl(i,n))&&!t[rl(i,n)])return!1;if(e=ro(e,n),t=ro(t,n),r){for(var a in t)if(t[a]&&!e[a])return!1;if(\"all\"===r)for(var a in e)if(e[a]&&!t[a])return!1;return!0}var l=!1;for(a in e)if(e[a]){if(t[a])return!0;l=!0}return!l},rs=(tg(\"data restriction\",{public:\"public\",\"trusted-write\":\"trusted-write\",\"trusted-only\":\"trusted-only\"}),e=>{var t;return`${null!=(t=null==e?void 0:e.classification)?t:\"anonymous\"} data for ${rr(ru_parse(null==e?void 0:e.purposes,{names:!0}))}  purposes.`}),rd={anonymous:{classification:\"anonymous\",purposes:{}},clone:e=>e&&{classification:e.classification,purposes:{...e.purposes}},equals:(e,t)=>e===t||e&&t&&e.classification===t.classification&&ru_test(e.purposes,t.purposes,{intersect:\"all\",optionalPurposes:!0}),serialize(e){var t=ru_parse(e.purposes,{names:!0});return e.classification&&\"anonymous\"!==e.classification||null!=t&&t.length?e.classification+\":\"+t:null},deserialize(e,t){var a;return e?([e,a]=e.split(\":\"),{classification:null!=(e=rn.parse(e,!1))?e:\"anonymous\",purposes:null!=(e=ru_parse(a,{validate:!1}))?e:{}}):t?rd.clone(t):{classification:\"anonymous\",purposes:{}}}},rv=(e,t)=>(!(i=null==e?void 0:e.metadata)||t&&(delete i.posted,delete i.queued,Object.entries(i).length)||delete e.metadata,e),rc=e=>!(null==e||!e.patchTargetId),rf=Symbol(),rp=e=>void 0===e?\"undefined\":tp(JSON.stringify(e),40,!0),rh=/^\\d{4}-\\d{2}-\\d{2}(?:T00:00:00(?:\\.000)?)?Z$/,rg=/^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?)?Z$/,ry=/^\\{?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\}?$/,rm=/^(?:(?:([\\w+.-]+):)(\\/\\/)?)((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))(?::(\\d*))?)(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/,rb=/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:(\\[(([0-9.]+)|([0-9a-f:]+))\\])|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9]))?$/,rw=(e,t,r)=>(e.push({path:\"\",type:null,source:t,message:rp(t)+` ${r}.`}),rf),rk=(e,t,r)=>\"number\"==typeof e&&(!t&&Number.isFinite(e)&&!Number.isNaN(e)||Number.isInteger(e))||r&&\"string\"==typeof e&&rk((t?parseInt:parseFloat)(e),t,!1),rS={},ri=((e=>{null==e.primitive&&(e.primitive=typeof(null!=(r=null==(r=e.enum)?void 0:r[0])?r:\"\"));var r,u,o=null!=(o=rS[r=e.primitive+\"-\"+(null!=(r=e.format)?r:\"\")+\"-\"+!1])?o:rS[r]=(e=>{switch(e.primitive){case\"boolean\":return(e,t)=>\"boolean\"==typeof e?e:rw(t,e,\"is not a Boolean\");case\"date\":return(e,t)=>e&&rh.test(e)&&!isNaN(+new Date(e))?e:rw(t,e,\"is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)\");case\"timestamp\":case\"datetime\":var r=\"format\"in e?\"unix\"!==e.format:\"datetime\"===e.primitive;return(e,n)=>{if(!e||rk(e,!1,!1)){if(!rk(e,!0,!1))return rw(n,e,\"is not a valid UNIX timestamp\");e=+e}else if(!rg.test(e)||isNaN(+new Date(e)))return rw(n,e,\"is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)\");return e=new Date(e),r?new Date(e).toISOString():+e};case\"duration\":return(e,r)=>rk(e,!0,!1)?+e:rw(r,e,\"is not a valid duration (must be provided as milliseconds)\");case\"integer\":return(e,r)=>rk(e,!0,!1)?+e:rw(r,e,\"is not a valid integer\");case\"number\":return(e,r)=>rk(e,!1,!1)?e:rw(r,e,\"is not a number\");case\"string\":switch(e.format){case\"uri\":return(e,t)=>\"string\"==typeof e&&rm.test(e)?e:rw(t,e,\"is not a valid URI\");case\"url\":return(e,t)=>{var r=\"string\"==typeof e&&rm.exec(e);return r?r[2]?e:rw(t,e,\"is not a valid URL (it is a URI, but a URL is required)\"):rw(t,e,\"is not a valid URL\")};case\"urn\":return(e,t)=>{var r=\"string\"==typeof e&&rm.exec(e);return r?\"urn\"!==r[1]||r[2]?rw(t,e,\"is not a valid URN (it is a URI, but a URN is required)\"):e:rw(t,e,\"is not a valid URN\")};case\"email\":return(e,t)=>\"string\"==typeof e&&rb.test(e)?e.toLowerCase():rw(t,e,\"is not a valid email address\")}return(e,t)=>\"string\"==typeof e?e:rw(t,e,\"is not a string\");case\"uuid\":return(e,t)=>{var r;return null!=(r=\"string\"==typeof e?null==(r=ry.exec(e))?void 0:r[1].toLowerCase():null)?r:rw(t,e,\"is not a valid UUID\")};default:throw TypeError(`'${rp(e)}' is not a supported primitive type.`)}})(e),d=e.maxLength,c=(null!=d&&(v=o,o=(e,t)=>(e=v(e,t))!==rf&&e.length>d?rw(t,e,`exceeds the maximum allowed ${d} number of characters`):e),e.min),f=e.max;if(null==c&&null==f||(p=null!=c?null!=f?`between ${c} and `+f:\"at least \"+c:\"at most \"+f,v=o,o=(e,t)=>(e=v(e,t))===rf||(null==c||c<=e)&&(null==f||e<=f)?e:rw(t,e,p)),\"enum\"in e){var v=o;if(!(u=new Set((Array.isArray(e.enum)?e.enum:[e.enum]).map(e=>{var t=[];if((e=v(e,t))===rf)throw TypeError(t[0]);return e}))).size)throw TypeError(\"At least one enum value to test against is required.\");var p=\"is not the constant value \"+rr(e.enum.map(e=>JSON.stringify(e)),\"or\"),o=(e,t)=>(e=v(e,t))===rf||u.has(e)?e:rw(t,e,p)}(e=>e instanceof Set||null==e||new Set(e[tR]&&\"string\"!=typeof e?e:[e]))(u)})({primitive:\"string\",format:\"uri\"}),tg(\"variable scope\",{global:\"global\",session:\"session\",device:\"device\",user:\"user\"})),rx=({key:e,scope:t=\"\",entityId:r=\"\",source:n=\"\"},i=\"\")=>[\"'\"+e+\"'\",n&&\"from '\"+n+\"'\",i,t&&\"in \"+t+\" scope\",r&&\"for '\"+r+\"'\"].filter(e=>e).join(\" \"),rI=e=>null==e?e:{source:e.source,key:e.key,scope:e.scope,entityId:e.entityId},rA=((I=a=a||{})[I.Success=200]=\"Success\",I[I.Created=201]=\"Created\",I[I.NotModified=304]=\"NotModified\",I[I.Forbidden=403]=\"Forbidden\",I[I.NotFound=404]=\"NotFound\",I[I.BadRequest=405]=\"BadRequest\",I[I.Conflict=409]=\"Conflict\",I[I.Error=500]=\"Error\",(e,t=!0)=>e&&(e.status<400||!t&&404===e.status));function rE(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var rN=e=>{var t=rx(e),r=e.error;return e.status<400?`${t} succeeded with status ${e.status} - ${a[e.status]}.`:`${t} failed with status ${e.status} - ${a[e.status]}${r?` (${r})`:\"\"}.`};class rO extends Error{constructor(e,t){super(null!=t?t:\"One or more operations failed.\"),rE(this,\"succeeded\",void 0),rE(this,\"failed\",void 0),this.succeeded=null!=(t=null==e?void 0:e.filter(e=>rA(e,!1)))?t:[],this.failed=null!=(t=null==e?void 0:e.filter(e=>!rA(e,!1)))?t:[]}}var r$=(e,t,r)=>{var n=async(n,i)=>{var v,f,c,h,l=eo(t)?t:[t],o=await r(l.filter(e=>e)),u=[],s=[],d=[];for(v of l)v?(c=null!=(c=o.get(v))?c:C(`No result for ${rx(v)}.`),v.source=c,v.callback&&d.push(v.callback(c)),c.success=rA(c,i||\"set\"===e),!n||c.success?u.push(n&&c.status===a.NotFound?void 0:1<n?null!=(f=c.value)?f:void 0:c):s.push(rN(c))):u.push(void 0);if(s.length)throw 10<s.length&&s.push(`\n(and ${s.splice(10).length} more...)`),new rO(u,s.join(\"\\n\"));for(h of d)await h();return l===t?u:u[0]};return Object.assign(R(()=>n(1,!1)),{as:()=>n(1,!1),all:()=>n(0,!1),require:()=>n(1,!0),value:(e=!1)=>n(2,e),values:(e=!1)=>n(2,e)})},r_=e=>e&&\"string\"==typeof e.type,rj=(e=>t=>(null==t?void 0:t.type)&&e.some(e=>e===(null==t?void 0:t.type)))([\"view\"]),rC=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,rM=(e,t)=>{var r;return t&&(!(o=e.get(l=t.tag+(null!=(r=t.value)?r:\"\")))||(null!=(r=o.score)?r:1)<(null!=(r=t.score)?r:1))&&e.set(l,t)},rU=(e,t=\"\",r=new Map)=>{if(e)return eh(e)?eq(e,e=>rU(e,t,r)):ea(e)?tx(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,i,a,l,o,u)=>{i={tag:(n?rC(n)+\"::\":\"\")+t+rC(i),value:rC(null!=(n=null!=a?a:l)?n:o)};u&&10!==parseFloat(u)&&(i.score=parseFloat(u)/10),rM(r,i)}):rM(r,e),r},rF=tg(\"local variable scope\",{view:\"view\",tab:\"tab\",shared:\"shared\"}),rq=tg(\"variable scope\",{...rF,...ri}),rz=e=>(\"global\"!==e.scope&&e.entityId&&(e.entityId=void 0),e),rR=e=>null!=e&&!!e.scope&&null!=rF.ranks[e.scope],rP=e=>null==e?e:[e.scope,e.key,e.targetId].join(\"\\0\"),rW=e=>{e=e.split(\"\\0\");return{scope:e[0],key:e[1],targetId:e[2]}},rD=()=>()=>C(\"Not initialized.\"),rJ=window,rL=document,rV=rL.body,rK=(e,t)=>!(null==e||!e.matches(t)),rH=((e=>tc=e)(!!rJ.chrome),L),rG=(e,t,r=(e,t)=>rH<=t)=>{for(var n=0,i=V;1===(null==e?void 0:e.nodeType)&&!r(e,n++)&&t(e,(e,t)=>(null!=e&&(a=e,i=t!==K&&null!=a),K),n-1)!==V&&!i;){var a,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==rL&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return a},rX=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":var r;return null==(r=(\"\"+e).trim())?void 0:r.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||er(e);case\"n\":return parseFloat(e);case\"j\":return q(()=>JSON.parse(e),H);case\"h\":return q(()=>nV(e),H);case\"e\":return q(()=>null==nH?void 0:nH(e),H);default:return eo(t)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:rX(e,t[0])):void 0}},rZ=(e,t,r)=>rX(null==e?void 0:e.getAttribute(t),r),rY=(e,t,r)=>rG(e,(e,n)=>n(rZ(e,t,r))),rQ=(e,t)=>null==(e=rZ(e,t))||null==(t=e.trim())?void 0:t.toLowerCase(),r0=e=>null==e?void 0:e.getAttributeNames(),r1=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,r2=e=>null!=e?e.tagName:null,r4=e=>({x:em(scrollX,e),y:em(scrollY,e)}),r5=(e,t)=>tj(e,/#.*$/,\"\")===tj(t,/#.*$/,\"\"),r3=(e,t,r=K)=>(s=r8(e,t))&&W({xpx:s.x,ypx:s.y,x:em(s.x/rV.offsetWidth,4),y:em(s.y/rV.offsetHeight,4),pageFolds:r?s.y/window.innerHeight:void 0}),r8=(e,t)=>null!=t&&t.pointerType&&null!=(null==t?void 0:t.pageY)?{x:t.pageX,y:t.pageY}:e?({x:d,y:v}=r9(e),{x:d,y:v}):void 0,r9=e=>e?(c=e.getBoundingClientRect(),u=r4(V),{x:em(c.left+u.x),y:em(c.top+u.y),width:em(c.width),height:em(c.height)}):void 0,r7=(e,t,r,n={capture:!0,passive:!0})=>(t=es(t),ts(r,r=>eq(t,t=>e.addEventListener(t,r,n)),r=>eq(t,t=>e.removeEventListener(t,r,n)))),nt=()=>({...u=r4(K),width:window.innerWidth,height:window.innerHeight,totalWidth:rV.offsetWidth,totalHeight:rV.offsetHeight}),nr=new WeakMap,nn=e=>nr.get(e),ni=(e,t=V)=>(t?\"--track-\":\"track-\")+e,na=(e,t,r,n,i,a)=>(null==t?void 0:t[1])&&tD(r0(e),l=>{var o;return null!=(o=(f=t[0])[p=l])?o:f[p]=(a=V,!ea(n=tD(t[1],([t,r,n],i)=>tS(l,t)&&(a=void 0,!r||rK(e,r))&&eS(null!=n?n:l)))||(i=e.getAttribute(l))&&!er(i)||rU(i,tj(n,/\\-/g,\":\"),r),a)}),nl=()=>{},no=(e,t)=>{if(h===(h=np.tags))return nl(e,t);var r=e=>e?tO(e)?[[e]]:eh(e)?e_(e,r):[ev(e)?[t$(e.match),e.selector,e.prefix]:[t$(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(tV(h,([,e])=>e,1))]];(nl=(e,t)=>na(e,n,t))(e,t)},nu=(e,t)=>rt(ej(r1(e,ni(t,K)),r1(e,ni(\"base-\"+t,K))),\" \"),ns={},nd=(e,t,r=nu(e,\"attributes\"))=>{var n;r&&na(e,null!=(n=ns[r])?n:ns[r]=[{},tT(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[t$(r||n),,t])],t),rU(nu(e,\"tags\"),void 0,t)},nv=(e,t,r=V,n)=>null!=(r=null!=(r=r?rG(e,(e,r)=>r(nv(e,t,V)),ep(r)?r:void 0):rt(ej(rZ(e,ni(t)),r1(e,ni(t,K))),\" \"))?r:n&&(g=nn(e))&&n(g))?r:null,nc=(e,t,r=V,n)=>\"\"===(y=nv(e,t,r,n))||(null==y?y:er(y)),nf=(e,t,r,n)=>e&&(null==n&&(n=new Map),nd(e,n),rG(e,e=>{no(e,n),rU(null==r?void 0:r(e),void 0,n)},t),n.size)?{tags:[...n.values()]}:{},np={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,json:!1,impressionThreshold:1e3,captureContextMenu:!0,tags:{default:[\"data-id\",\"data-name\"]}},nh=[],ng=[],ny=(e,t=0)=>e.charCodeAt(t),nb=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>nh[ng[t]=e.charCodeAt(0)]=t),e=>{for(var t,r=0,n=e.length,i=[];r<n;)t=e[r++]<<16|e[r++]<<8|e[r++],i.push(ng[(16515072&t)>>18],ng[(258048&t)>>12],ng[(4032&t)>>6],ng[63&t]);return i.length+=n-r,(e=>String.fromCharCode(...e))(i)}),nw=e=>{for(var t,r=0,n=0,i=e.length,a=new Uint8Array(3*(i/4|0)+(i+3&3)%3);r<i;)a[n++]=nh[ny(e,r++)]<<2|(t=nh[ny(e,r++)])>>4,r<i&&(a[n++]=(15&t)<<4|(t=nh[ny(e,r++)])>>2,r<i)&&(a[n++]=(3&t)<<6|nh[ny(e,r++)]);return a},nk={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},nS=(e=256)=>e*Math.random()|0,nx={exports:{}},{deserialize:nI,serialize:nA}=((()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,i=new Uint8Array(128),a=0;if(t&&t.multiple)for(var l=0;l<e.length;l++)o(e[l]);else o(e);return i.subarray(0,a);function o(e,i){var c,l;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var t;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?d([204,e]):-128<=e&&e<=127?d([208,e]):0<e&&e<=65535?d([205,e>>>8,e]):-32768<=e&&e<=32767?d([209,e>>>8,e]):0<e&&e<=4294967295?d([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?d([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?d([211,(t=e/4294967296)>>>24,t>>>16,t>>>8,t,(t=e%4294967296)>>>24,t>>>16,t>>>8,t]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),v(e)):d(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(r=new ArrayBuffer(8))).setFloat64(0,e),s(203),d(new Uint8Array(r)))})(e);break;case\"string\":(c=(l=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(127<e.charCodeAt(n)){t=!1;break}for(var i=0,a=new Uint8Array(e.length*(t?1:4)),l=0;l!==r;l++){var o=e.charCodeAt(l);if(o<128)a[i++]=o;else{if(o<2048)a[i++]=o>>6|192;else{if(55295<o&&o<56320){if(++l>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(l);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+l+\" out of range\");a[i++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,a[i++]=o>>12&63|128}else a[i++]=o>>12|224;a[i++]=o>>6&63|128}a[i++]=63&o|128}}return t?a:a.subarray(0,i)})(e)).length)<=31?s(160+c):d(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),d(l);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var r,t=e.getTime()/1e3;0===e.getMilliseconds()&&0<=t&&t<4294967296?d([214,255,t>>>24,t>>>16,t>>>8,t]):0<=t&&t<17179869184?d([215,255,(r=1e6*e.getMilliseconds())>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t]):(d([199,12,255,(r=1e6*e.getMilliseconds())>>>24,r>>>16,r>>>8,r]),v(t))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((l=(c=e).length)<=255?d([196,l]):d(l<=65535?[197,l>>>8,l]:[198,l>>>24,l>>>16,l>>>8,l]),d(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var r,t=0;for(r in e)void 0!==e[r]&&t++;for(r in t<=15?s(128+t):d(t<=65535?[222,t>>>8,t]:[223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(o(r),o(n))}})(e);break;default:if(i||!t||!t.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof t.invalidTypeReplacement?o(t.invalidTypeReplacement(e),!0):o(t.invalidTypeReplacement,!0)}}function u(e){var t=e.length;t<=15?s(144+t):d(t<=65535?[220,t>>>8,t]:[221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;r<t;r++)o(e[r])}function s(e){if(i.length<a+1){for(var t=2*i.length;t<a+1;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i[a]=e,a++}function d(e){if(i.length<a+e.length){for(var t=2*i.length;t<a+e.length;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i.set(e,a),a+=e.length}function v(e){var t,e=0<=e?(t=e/4294967296,e%4294967296):(t=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));d([t>>>24,t>>>16,t>>>8,t,e>>>24,e>>>16,e>>>8,e])}}function r(e,t){var r,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(i());else r=i();return r;function i(){var t=e[n++];if(0<=t&&t<=127)return t;if(128<=t&&t<=143)return s(t-128);if(144<=t&&t<=159)return d(t-144);if(160<=t&&t<=191)return v(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return u(-1,1);if(197===t)return u(-1,2);if(198===t)return u(-1,4);if(199===t)return c(-1,1);if(200===t)return c(-1,2);if(201===t)return c(-1,4);if(202===t)return o(4);if(203===t)return o(8);if(204===t)return l(1);if(205===t)return l(2);if(206===t)return l(4);if(207===t)return l(8);if(208===t)return a(1);if(209===t)return a(2);if(210===t)return a(4);if(211===t)return a(8);if(212===t)return c(1);if(213===t)return c(2);if(214===t)return c(4);if(215===t)return c(8);if(216===t)return c(16);if(217===t)return v(-1,1);if(218===t)return v(-1,2);if(219===t)return v(-1,4);if(220===t)return d(-1,2);if(221===t)return d(-1,4);if(222===t)return s(-1,2);if(223===t)return s(-1,4);if(224<=t&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function a(t){for(var a,r=0,i=!0;0<t--;)i?(r+=127&(a=e[n++]),128&a&&(r-=128),i=!1):r=(r*=256)+e[n++];return r}function l(t){for(var r=0;0<t--;)r=256*r+e[n++];return r}function o(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return n+=t,4===t?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function u(t,r){t<0&&(t=l(r));r=e.subarray(n,n+t);return n+=t,r}function s(e,t){e<0&&(e=l(t));for(var r={};0<e--;)r[i()]=i();return r}function d(e,t){e<0&&(e=l(t));for(var r=[];0<e--;)r.push(i());return r}function v(t,r){t<0&&(t=l(r));r=n;return n+=t,((e,t,r)=>{var n=t,i=\"\";for(r+=t;n<r;){var a=e[n++];if(127<a)if(191<a&&a<224){if(r<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");a=(31&a)<<6|63&e[n++]}else if(223<a&&a<240){if(r<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");a=(15&a)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<a&&a<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+a.toString(16)+\" at index \"+(n-1));if(r<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");a=(7&a)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(a<=65535)i+=String.fromCharCode(a);else{if(!(a<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+a.toString(16)+\" exceeds UTF-16 reach\");a-=65536,i+=String.fromCharCode(a>>10|55296)+String.fromCharCode(1023&a|56320)}}return i})(e,r,t)}function c(e,t){e<0&&(e=l(t));t=l(1),e=u(e);return 255===t?(e=>{var r,t;if(4===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*t);if(8===e.length)return r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*t+r/1e6);if(12===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,t=a(8),new Date(1e3*t+r/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:t,data:e}}}var n={serialize:t,deserialize:r,encode:t,decode:r};nx.exports=n})(),(I=nx.exports)&&I.__esModule&&Object.prototype.hasOwnProperty.call(I,\"default\")?I.default:I),nE=\"$ref\",nN=(e,t,r)=>ef(e)?J:r?t!==J:null===t||t,nO=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var i,a,l,o=(e,t,n=e[t],i=nN(t,n,r)?s(n):J)=>(n!==i&&(i!==J||eo(e)?e[t]=i:delete e[t],u(()=>e[t]=n)),i),u=e=>(null!=i?i:i=[]).push(e),s=e=>{if(null==e||ep(e)||ef(e))return J;if(ed(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(l=null==a?void 0:a.get(e)))return e[nE]||(e[nE]=l,u(()=>delete e[nE])),{[nE]:l};if(ev(e))for(var t in(null!=a?a:a=new Map).set(e,a.size+1),e)o(e,t);else!eh(e)||e instanceof Uint8Array||(!eo(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?o(e,r):(e[r]=null,u(()=>delete e[r])))}return e};return q(()=>{var r;return t?nA(null!=(r=s(e))?r:null):q(()=>JSON.stringify(e,J,n?2:0),()=>JSON.stringify(s(e),J,n?2:0))},!0,()=>null==i?void 0:i.forEach(e=>e()))},n$=e=>{var t,r,n=e=>ed(e)?e[nE]&&(r=(null!=t?t:t=[])[e[nE]])?r:(e[nE]&&delete(t[e[nE]]=e)[nE],Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(ea(e)?q(()=>JSON.parse(e),()=>console.error(\"Invalid JSON received.\",e)):null!=e?q(()=>nI(e),()=>(console.error(\"Invalid message received.\",e),J)):e)},n_=(e,t={})=>{var r=(e,{json:t=!1,decodeJson:r=!1,...n})=>{var l,o,u,i=(e,r)=>ei(e)&&!0===r?e:u(e=ea(e)?new Uint8Array(eO(e.length,t=>255&e.charCodeAt(t))):t?q(()=>JSON.stringify(e),()=>JSON.stringify(nO(e,!1,n))):nO(e,!0,n),r),a=e=>null==e?J:q(()=>n$(e),J);return t?[e=>nO(e,!1,n),a,(e,t)=>i(e,t)]:([l,o,u]=(e=>{for(var t,r,n,i,a,o,l=0n,u=0n,s=[],d=0,v=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],v=255&(d=f),c=-1}:()=>{},g=e=>(v=255&(d+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),i=16-((t=e.length)+4)%16,a=new Uint8Array(4+t+i),n=0;n<3;a[n++]=g(nS()));for(r=0,a[n++]=g(v^16*nS(16)+i);r<t;a[n++]=g(v^e[r++]));for(;i--;)a[n++]=nS();return a}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((v^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,a=new Uint8Array(t);n<t;a[n++]=v^g(e[r++]));return a}:e=>e,(e,t=64)=>{if(null==e)return null;for(o=et(t)?64:t,h(),[l,u]=nk[o],r=0;r<e.length;l=BigInt.asUintN(o,(l^BigInt(v^g(e[r++])))*u));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+l%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):l.toString(36)}]})(e),[(e,t)=>(t?G:nb)(l(nO(e,!0,n))),e=>null!=e?n$(o(e instanceof Uint8Array?e:(r&&ew(e)?a:nw)(e))):null,(e,t)=>i(e,t)])};if(!e){var n=+(null!=(n=t.json)?n:0);if(n&&!1!==t.prettify)return(null!=m?m:m=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[n]}return r(e,t)},[nj,,]=(n_(),n_(null,{json:!0,decodeJson:!0}),n_(null,{json:!0,prettify:!0})),tg=t_(\"\"+rL.currentScript.src,\"#\"),ri=t_(\"\"+(tg[1]||\"\"),\";\"),nF=tg[0],nq=ri[1]||(null==(I=tb(nF,{delimiters:!1}))?void 0:I.host),nz=e=>!(!nq||(null==(e=tb(e,{delimiters:!1}))||null==(e=e.host)?void 0:e.endsWith(nq))!==K),tg=(...e)=>tj(rt(e),/(^(?=\\?))|(^\\.(?=\\/))/,nF.split(\"?\")[0]),nP=tg(\"?\",\"var\"),nW=tg(\"?\",\"mnt\"),nB=(tg(\"?\",\"usr\"),Symbol()),nD=Symbol(),nJ=(e,t,r=K,n=V)=>{t&&(r?console.groupCollapsed:console.group)((n?\"\":tf(\"tail.js: \",\"90;3\"))+t);r=null==e?void 0:e[nD];null!=(e=r?e[nB]:e)&&console.log(ed(e)?tf(nj(e),\"94\"):ep(e)?\"\"+e:e),r&&r.forEach(([e,t,r])=>nJ(e,t,r,!0)),t&&console.groupEnd()},[nL,nV]=n_(),[nK,nH]=[rD,rD],nG=!0,[ri,nZ]=Q(),n0=(...e)=>{var t,i=e.shift();console.error(ea(e[1])?e.shift():null!=(t=null==(t=e[1])?void 0:t.message)?t:\"An error occurred\",null!=(t=i.id)?t:i,...e)},[n1,n2]=Q(),[n6,n4]=Q(),n5=e=>n8!==(n8=e)&&n2(n8=!1,ie(!0,!0)),n3=e=>n9!==(n9=!!e&&\"visible\"===document.visibilityState)&&n4(n9,!e,n7(!0,!0)),n8=(n1(n3),!0),n9=!1,n7=e7(!1),ie=e7(!1),it=(r7(window,[\"pagehide\",\"freeze\"],()=>n5(!1)),r7(window,[\"pageshow\",\"resume\"],()=>n5(!0)),r7(document,\"visibilitychange\",()=>(n3(!0),n9&&n5(!0))),n2(n8,ie(!0,!0)),!1),ir=e7(!1),[,ia]=Q(),il=tt({callback:()=>it&&ia(it=!1,ir(!1)),frequency:2e4,once:!0,paused:!0}),I=()=>!it&&(ia(it=!0,ir(!0)),il.restart()),iu=(r7(window,[\"focus\",\"scroll\"],I),r7(window,\"blur\",()=>il.trigger()),r7(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],I),I(),()=>ir()),is=0,id=void 0,iv=()=>(null!=id?id:rD())+\"_\"+ic(),ic=()=>(e9(!0)-(parseInt(id.slice(0,-2),36)||0)).toString(36)+\"_\"+(++is).toString(36),ig=new Map,iy={id:id,heartbeat:e9()},im={knownTabs:new Map([[id,iy]]),variables:new Map},[ib,iw]=Q(),[ik,iS]=Q(),iT=rD,ix=(e,t=e9())=>{e=ig.get(ea(e)?e:rP(e));return null!=e&&e.cache&&e.cache[0]+e.cache[1]<=t?void 0:e},iI=(...e)=>{var t=e9();return iE(tJ(e,e=>(e.cache=[t],[rI(e),{...e,created:t,modified:t,version:\"0\"}])))},iA=e=>null!=(e=tJ(e,e=>{var t,r;return e&&(t=rP(e[0]),(r=ig.get(t))!==e[1])?[t,e[1],r,e[0]]:tU}))?e:[],iE=e=>{var r,n,e=iA(e);null!=e&&e.length&&(r=e9(),tD(e,([,e,t])=>{e&&!e.cache&&(e.cache=null!=(e=null==t?void 0:t.cache)?e:[r,3e3])}),t9(ig,e),(n=tL(e,([,,,e])=>0<rq.compare(e.scope,\"tab\"))).length&&iT({type:\"patch\",payload:t8(n)}),iS(tJ(e,([,e,t,r])=>[r,e,t]),ig,!0))},[,iO]=(ri((e,t)=>{n1(r=>{var n;r?(r=t(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),id=null!=(n=null==r?void 0:r[0])?n:e9(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),ig=new Map(tX(tL(ig,([,e])=>\"view\"===(null==e?void 0:e.scope)),tJ(null==r?void 0:r[1],e=>[rP(e),e])))):sessionStorage.setItem(\"_tail:state\",e([id,tJ(ig,([,e])=>e&&\"view\"!==e.scope?e:tU)]))},!0),iT=(t,r)=>{e&&(localStorage.setItem(\"_tail:state\",e([id,t,r])),localStorage.removeItem(\"_tail:state\"))},r7(window,\"storage\",e=>{var a,l,o;\"_tail:state\"!==e.key||!(e=null==t?void 0:t(e.newValue))||e[2]&&e[2]!==id||([e,{type:a,payload:l}]=e,\"query\"===a?r.active||iT({type:\"set\",payload:[tJ(im.knownTabs),tJ(im.variables)]},e):\"set\"===a&&r.active?(im.knownTabs=new Map(l[0]),im.variables=new Map(l[1]),ig=new Map(l[1]),r.trigger()):\"patch\"===a?(o=iA(tJ(l,([e,t])=>[rW(e),t])),t9(im.variables,l),t9(ig,l),iS(tJ(o,([,e,t,r])=>[r,e,t]),ig,!1)):\"tab\"===a&&(t5(im.knownTabs,e,l),l)&&iw(\"tab\",l,!1))});var r=tt(()=>iw(\"ready\",im,!0),-25),n=tt({callback(){var e=e9()-1e4;eq(im.knownTabs,([t,r])=>r[0]<e&&t5(im.knownTabs,t,void 0)),iy.heartbeat=e9(),iT({type:\"tab\",payload:iy})},frequency:5e3,paused:!0});n1(e=>(e=>{iT({type:\"tab\",payload:e?iy:void 0}),e?(r.restart(),iT({type:\"query\"})):r.toggle(!1),n.toggle(e)})(e),!0)},!0),Q()),[i$,i_]=Q(),ij=(({timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var i=()=>(r?nH:nV)(localStorage.getItem(\"_tail:rq\")),a=0,l=()=>localStorage.setItem(\"_tail:rq\",(r?nK:nL)([id,e9()+t]));return async(r,o,u=null!=o?1:n)=>{for(;u--;){var d=i();if((!d||d[1]<e9())&&(l(),(null==(d=i())?void 0:d[0])===id))return 0<t&&(a=setInterval(()=>l(),t/2)),P(r,!0,()=>{clearInterval(a),localStorage.removeItem(\"_tail:rq\")});var v=to(),[d]=r7(window,\"storage\",t=>{\"_tail:rq\"!==t.key||t.newValue||v.resolve()});e=[tl(null!=o?o:t),v],await Promise.race(e.map(e=>ep(e)?e():e)),d()}var e;null==o&&C(\"_tail:rq could not be acquired.\")}})(),iC=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{n=n&&nG;var i,a,l=!1,o=r=>{var o=ep(t)?null==t?void 0:t(i,r):t;return!1!==o&&(iO(e,i=null!=o&&!0!==o?o:i,r,e=>(l=i===J,i=e)),!l)&&(a=n?nK(i,!0):JSON.stringify(i))};if(!r)return ij(()=>ez(1,async t=>{var l;return o(t)?400<=(l=await fetch(e,{method:null!=i?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain; charset=iso-8859-1\"},body:a})).status?0===t?eS(C(\"Invalid response: \"+await l.text())):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tl(200*(1+t))):(null!=(l=null!=(t=n?new Uint8Array(await l.arrayBuffer()):await l.text())&&t.length?null==(l=n?nH:JSON.parse)?void 0:l(t):J)&&i_(l),eS(l)):eS()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=i?[a]:[],{type:\"text/plain; charset=iso-8859-1\"}))&&C(\"Beacon send failed.\")},tg=[\"scope\",\"key\",\"entityId\",\"source\"],iU=[...tg,\"purpose\",\"ifModifiedSince\",\"ifNoneMatch\"],iF=[...tg,\"value\",\"force\",\"ttl\",\"version\"],iq=new Map,iz=(e,t)=>{var r=tt(async()=>{var e=eO(iq,([e,t])=>({...rW(e),result:[...t]}));e.length&&await l.get(e)},3e3),n=(e,t)=>t&&t4(iq,e,()=>new Set).add(t),l=(n1((e,t)=>r.toggle(e,e&&3e3<=t),!0),ik(e=>tD(e,([e,t])=>(e=>{var t,r;e&&(t=rP(e),null!=(r=e1(iq,t)))&&r.size&&tD(r,r=>!0===r(e)&&n(t,r))})(t?{status:a.Success,success:!0,...t}:{status:a.NotFound,success:!0,...e}))),{get:r=>r$(\"get\",r,async r=>{r[0]&&!ea(r[0])||(u=r[0],r=r.slice(1)),null!=t&&t.validateKey(u);var s=new Map,d=[],v=tJ(r,e=>{var t=ix(rP(e)),r=e.purpose;if(r&&!0!==(null==t||null==(i=t.schema)?void 0:i.usage.purposes[r]))s.set(e,{...e,status:a.Forbidden,success:!1,error:`No consent for '${r}'.`});else if(!e.refresh&&t)s.set(e,{status:a.Success,success:!0,...t});else{if(!rR(e))return[t7(e,iU),e];var i,r=null==(i=e.init)?void 0:i.call(e);r&&(r={...rI(e),version:\"1\",created:c,modified:c,value:r,cache:[c,null!=(i=e.ttl)?i:null==t?void 0:t.ttl]},t3(d,[rI(r),r]),s.set(e,{status:a.Success,success:!0,...r}))}return tU}),c=e9(),u=v.length&&(null==(u=await iC(e,{variables:{get:tJ(v,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId}))||null==(r=u.variables)?void 0:r.get)||[],p=[];return tD(u,(e,t)=>{var n,r;(null==e?void 0:e.status)===a.NotFound?null!=(r=null==(r=(n=v[t][1]).init)?void 0:r.call(n))&&p.push([n,{...rI(n),value:r}]):s.set(v[t][1],rz(e))}),p.length&&tD(await l.set(tJ(p,([,e])=>e)).all(),(e,t)=>s.set(p[t][0],rz(e.status===a.Conflict?{...e,status:a.Success,success:!0}:e))),d.length&&iE(d),tD(s,([e])=>{e.callback&&(e.callback=e6(e.callback,(t,r)=>{P(async()=>!0===await t(r)&&n(rP(e),e.callback),!1)}))}),s}),set:r=>r$(\"set\",r,async r=>{r[0]&&!ea(r[0])||(v=r[0],r=r.slice(1)),null!=t&&t.validateKey(v);for(var n=[],i=new Map,o=e9(),u=[],s=tJ(r,e=>{var s,r,t=ix(rP(e));return rR(e)?((r=null==(s=e.patch?e.patch(null==t?void 0:t.value):e.value)?void 0:{...rI(e),created:null!=(r=null==t?void 0:t.created)?r:o,modified:o,version:null!=t&&t.version?\"\"+(parseInt(t.version)+1):\"1\",scope:e.scope,key:e.key,value:s,cache:[o,e.ttl]})&&(r.cache=[o,null!=(s=e.ttl)?s:3e3]),i.set(e,r?{status:t?a.Success:a.Created,success:!0,...r}:{status:a.Success,success:!0,...rI(e)}),t3(n,[rI(e),r]),tU):e.patch?(u.push(e),tU):(void 0===(null==e?void 0:e.version)&&(e.version=null==t?void 0:t.version),[t7(e,iF),e])}),d=0;!d++||u.length;){var v,f=await l.get(tJ(u,e=>rI(e))).all(),f=(tD(f,(e,t)=>{var r=u[t];rA(e,!1)?t3(s,[{...r,patch:void 0,value:u[t].patch(null==e?void 0:e.value),version:e.version},r]):i.set(r,e)}),u=[],s.length?F(null==(f=(await iC(e,{variables:{set:tJ(s,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId})).variables)?void 0:f.set,\"No result.\"):[]);tD(f,(e,t)=>{var[,t]=s[t];d<=3&&t.patch&&((null==e?void 0:e.status)===a.Conflict||(null==e?void 0:e.status)===a.NotFound)?t3(u,t):i.set(t,rz(e))})}return n.length&&iE(n),i})});return i$(({variables:e})=>{e&&null!=(e=tX(tJ(e.get,e=>null!=e&&e.success?e:tU),tJ(e.set,e=>null!=e&&e.success?e:tU)))&&e.length&&iE(tJ(e,e=>[rI(e),e.success?e.value:void 0]))}),l},iR=Symbol(),iW=Symbol(),iB=[.75,.33],iD=[.25,.33],iL=e=>tJ(tY(e,[e=>e.scope,e=>e.key]),e=>e?[e,`${rx(e)}, ${rR(e)?\"client-side memory only\":rs(null==(e=e.schema)?void 0:e.usage)})`,V]:tU),iK=()=>{var i,l,a,r=null==rJ?void 0:rJ.screen;return r?({width:r,height:i,orientation:a}=r,l=r<i,-90!==(a=null!=(a=null!=(a=null==a?void 0:a.angle)?a:rJ.orientation)?a:0)&&90!==a||([r,i]=[i,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:rJ.devicePixelRatio,width:r,height:i,landscape:l}}):{}},iH=e=>e(W({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==k?void 0:k.clientId,languages:eO(navigator.languages,(e,t,r=e.split(\"-\"))=>W({id:e,language:r[0],region:r[1],primary:0===t,preference:t+1})),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...iK()})),iG=(e,t=\"A\"===r2(e)&&rZ(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),iX=(e,t=r2(e),r=nc(e,\"button\"))=>r!==V&&(U(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&U(rQ(e,\"type\"),\"button\",\"submit\")||r===K),iZ=(e,t=!1)=>{var r;return{tagName:e.tagName,text:tp((null==(r=rZ(e,\"title\"))?void 0:r.trim())||(null==(r=rZ(e,\"alt\"))?void 0:r.trim())||(null==(r=e.innerText)?void 0:r.trim()),100),href:null==(r=e.href)?void 0:r.toString(),rect:t?r9(e):void 0}},iQ=e=>{if(w)return w;ea(e)&&([r,e]=nV(e),e=n_(r,{decodeJson:!0})[1](e)),eZ(np,e),(e=>{nH===rD&&([nK,nH]=n_(e,{json:!e,prettify:!1}),nG=!!e,nZ(nK,nH))})(e1(np,\"encryptionKey\"));var r,l,o,u,s,d,v,c,f,p,h,g,y,i=e1(np,\"key\"),a=null!=(e=null==(r=rJ[np.name])?void 0:r._)?e:[];if(eo(a))return l=[],o=[],u=(e,...t)=>{var r=K;o=eB(o,n=>q(()=>{var i;return null!=(i=n[e])&&i.call(n,...t,{tracker:w,unsubscribe:()=>r=V}),r},(e=>t=>n0(e,t))(n)))},s=[],v=iz(nP,d={applyEventExtensions(e){null==e.clientId&&(e.clientId=iv()),null==e.timestamp&&(e.timestamp=e9()),h=K;var n=V;return eO(l,([,t])=>{var r;!n&&(null==(r=t.decorate)?void 0:r.call(t,e))!==V||(n=K)}),n?void 0:e},validateKey:(e,t=!0)=>!i&&!e||e===i||!!t&&C(`'${e}' is not a valid key.`)}),c=((e,t)=>{var n=[],i=new WeakMap,a=new Map,l=(e,t)=>{var r;return null!=(r=e.metadata)&&r.queued?eX(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):C(\"Source event not queued.\")},o=async(r,n=!0,i)=>{var a;return r[0]&&!ea(r[0])||(a=r[0],r=r.slice(1)),r=eO(r,e=>{if(null!=t&&t.validateKey(null!=a?a:e.key),eX(e,{metadata:{posted:!0}}),e[iR]){if(!1===e[iR](e))return;delete e[iR]}return eX(rv(e4(e),!0),{timestamp:e.timestamp-e9()})}),nJ({[nD]:eO(r,e=>[e,e.type,V])},\"Posting \"+rr([tv(\"new event\",[eD(r,e=>!rc(e))||void 0]),tv(\"event patch\",[eD(r,e=>rc(e))||void 0])])+(n?\" asynchronously\":\" synchronously\")+\".\"),iC(e,{events:r,variables:i,deviceSessionId:null==t?void 0:t.deviceSessionId},{beacon:n})},u=async(e,{flush:r=!1,async:i=!0,variables:a}={})=>{var l=[];if(e=eO(es(e),e=>{var r;return null!=(r=e.metadata)&&r.queued||e5(l,e),eX(t.applyEventExtensions(e),{metadata:{queued:!0}})}),eq(l,e=>nJ(e,e.type)),!i)return o(e,!1,a);r?(n.length&&e3(e,...n.splice(0)),e.length&&await o(e,!0,a)):e.length&&e5(n,...e)};return tt(()=>u([],{flush:!0}),5e3),n6((e,t,r)=>{!e&&(n.length||t||1500<r)&&(e=eO(a,([e,t])=>{var[t,n]=t();return n&&(a.delete(e),i.delete(e)),t}),n.length||e.length)&&u(ej(n.splice(0),e),{flush:!0})}),{post:u,postPatch:(e,t,r)=>u(l(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var o=!1,s=()=>{o=!0};return i.set(e,e4(e)),a.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))s();else{var a=i.get(e),[r,d]=null!=(r=e8(t(a,s),a))?r:[];if(r&&!M(d,a))return i.set(e,e4(d)),[l(e,r),o]}return[void 0,o]}),r&&u(e),s}}})(nP,d),f=null,p=0,g=h=V,y=!1,w=(...e)=>{if(y){if(e.length){1<e.length&&(!e[0]||ea(e[0]))&&(t=e[0],e=e.slice(1)),ea(e[0])&&(r=e[0],e=ew(r)?JSON.parse(r):nV(r));var t,n=V;if((e=eB(e_(e,e=>ea(e)?nV(e):e),e=>{if(!e)return V;if(ab(e))np.tags=eZ({},np.tags,e.tagAttributes);else{if(aw(e))return np.disabled=e.disable,V;if(aT(e))return n=K,V;if(aO(e))return e(w),V}return g||aI(e)||aS(e)?K:(s.push(e),V)})).length||n){var r=eK(e,e=>aS(e)?-100:aI(e)?-50:aN(e)?-10:r_(e)?90:0);if(!f||!f.splice(h?p+1:f.length,0,...r)){for(p=0,f=r;p<f.length;p++){var m=f[p];m&&(d.validateKey(null!=t?t:m.key),q(()=>{var e=f[p];if(u(\"command\",e),h=V,r_(e))c.post(e);else if(ax(e))v.get(tG(e.get));else if(aN(e))v.set(tG(e.set));else if(aI(e))e5(o,e.listener);else if(aS(e))(t=q(()=>e.extension.setup(w),t=>n0(e.extension.id,t)))&&(e5(l,[null!=(r=e.priority)?r:100,t,e.extension]),eK(l,([e])=>e));else if(aO(e))e(w);else{var r,n,t,a=V;for([,t]of l)if(a=null!=(n=null==(n=t.processCommand)?void 0:n.call(t,e))?n:V)break;a||n0(\"invalid-command\",e,\"Loaded extensions:\",l.map(e=>e[2].id))}},e=>n0(w,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}}else a.push(...e)},Object.defineProperty(rJ,np.name,{value:Object.freeze(Object.assign(w,{id:\"tracker_\"+iv(),events:c,variables:v,__isTracker:K})),configurable:!1,writable:!1}),ik((e,t,r)=>{var n=ej(iL(tJ(e,([,e])=>e||tU)),[[{[nD]:iL(tJ(t,([,e])=>e||tU))},\"All variables\",K]]);nJ({[nD]:n},tf(`Variables changed${r?\"\":\" - merging changes from another tab\"} (${e.length} changed, ${eD(t)} in total).`,\"2;3\"))}),ib(async(e,t,r,n)=>{var l;\"ready\"===e&&([e,l]=await v.get([{scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:L}]).values(!0),d.deviceSessionId=e.deviceSessionId,e.hasUserAgent||(iH(w),e.hasUserAgent=!0),g=!0,s.length&&w(s),n(),y=!0,w(...eO(ah,e=>({extension:e})),...a),w({set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0),w;C(`The global variable for the tracker \"${np.name}\" is used for something else than an array of queued commands.`)},i0=()=>null==k?void 0:k.clientId,i1={scope:\"shared\",key:\"referrer\"},i2=(e,t)=>{w.variables.set({...i1,value:[i0(),e]}),t&&w.variables.get({scope:i1.scope,key:i1.key,result(r,n,i){return null!=r&&r.value?i():(null==n||null==(r=n.value)?void 0:r[1])===e&&t()}})},i6=e7(),i4=e7(),i5=1,[i8,i9]=Q(),i7=e=>{var t=e7(e,i6),r=e7(e,i4),n=e7(e,iu),i=e7(e,()=>i5);return(e,a)=>({totalTime:t(e,a),visibleTime:r(e,a),activeTime:n(e,a),activations:i(e,a)})},ae=i7(),[ar,an]=Q(),ai=(e,t)=>(t&&tD(al,t=>e(t,()=>!1)),ar(e)),aa=new WeakSet,al=document.getElementsByTagName(\"iframe\");function au(e){if(e){if(null!=e.units&&U(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var ad=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),av=e=>nf(e,t=>t!==e&&!!ad(nr.get(t)),e=>(T=nr.get(e),(T=nr.get(e))&&e_(ej(T.component,T.content,T),\"tags\"))),ac=(e,t)=>t?e:{...e,rect:void 0,content:(x=e.content)&&eO(x,e=>({...e,rect:void 0}))},af=(e,t=V,r)=>{var n,i,a,l=[],o=[],u=0;return rG(e,e=>{var s,a,i=nr.get(e);i&&(ad(i)&&(a=eB(es(i.component),e=>{var r;return 0===u||!t&&(1===u&&(null==(r=e.track)?void 0:r.secondary)!==K||(null==(r=e.track)?void 0:r.promote))}),n=(null!=r?r:eV(a,e=>null==(e=e.track)?void 0:e.region))&&r9(e)||void 0,s=av(e),i.content&&e3(l,...eO(i.content,e=>({...e,rect:n,...s}))),null!=a)&&a.length&&(e3(o,...eO(a,e=>{var t;return u=eJ(u,null!=(t=e.track)&&t.secondary?1:2),ac({...e,content:l.length?l:void 0,rect:n,...s},!!n)})),l=[]),a=i.area||nv(e,\"area\"))&&e3(o,...eO(es(a)))}),l.length&&e5(o,ac({id:\"\",rect:n,content:l})),tD(o,e=>{ea(e)?e5(null!=i?i:i=[],e):(null==e.area&&(e.area=rt(i,\"/\")),e3(null!=a?a:a=[],e))}),a||i?{components:a,area:rt(i,\"/\")}:void 0},ap=Symbol(),ah=[{id:\"context\",setup(e){tt(()=>tD(al,e=>eQ(aa,e)&&an(e)),1e3).trigger(),e.variables.get({scope:\"view\",key:\"view\",result(t,r,i){var a;return null==k||null==t||!t.value||null!=k&&k.definition?(n=null==t?void 0:t.value,null!=t&&null!=(a=t.value)&&a.navigation&&f(!0)):(k.definition=t.value,null!=(a=k.metadata)&&a.posted?e.events.postPatch(k,{definition:n}):nJ(k,k.type+\" (definition updated)\")),i()}});var n,t,d=null!=(t=null==(t=ix({scope:\"tab\",key:\"viewIndex\"}))?void 0:t.value)?t:0,v=null==(t=ix({scope:\"tab\",key:\"tabIndex\"}))?void 0:t.value,c=(null==v&&iI({scope:\"tab\",key:\"tabIndex\",value:v=null!=(t=null!=(t=null==(t=ix({scope:\"shared\",key:\"tabIndex\"}))?void 0:t.value)?t:null==(t=ix({scope:\"session\",key:\"@info\"}))||null==(t=t.value)?void 0:t.tabs)?t:0},{scope:\"shared\",key:\"tabIndex\",value:v+1}),null),f=(t=V)=>{var a,l,o,i,p;r5(\"\"+c,c=location.href)&&!t||({source:t,scheme:i,host:a}=tb(location.href+\"\",{requireAuthority:!0}),k={type:\"view\",timestamp:e9(),clientId:iv(),tab:id,href:t,path:location.pathname,hash:location.hash||void 0,domain:{scheme:i,host:a},tabNumber:v+1,tabViewNumber:d+1,viewport:nt(),duration:ae(void 0,!0)},0===v&&(k.firstTab=K),0===v&&0===d&&(k.landingPage=K),iI({scope:\"tab\",key:\"viewIndex\",value:++d}),l=tw(location.href),eO([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>{var n;return(null!=(n=(o=k).utm)?n:o.utm={})[e]=null==(n=es(l[\"utm_\"+e]))?void 0:n[0]}),!(k.navigationType=S)&&performance&&eO(performance.getEntriesByType(\"navigation\"),e=>{k.redirects=e.redirectCount,k.navigationType=tj(e.type,/\\_/g,\"-\")}),S=void 0,\"navigate\"===(null!=(t=k.navigationType)?t:k.navigationType=\"navigate\")&&(p=null==(i=ix(i1))?void 0:i.value)&&nz(document.referrer)&&(k.view=null==p?void 0:p[0],k.relatedEventId=null==p?void 0:p[1],e.variables.set({...i1,value:void 0})),(p=document.referrer||null)&&!nz(p)&&(k.externalReferrer={href:p,domain:(()=>{var{host:t,scheme:r,port:n}=tb(p,{delimiters:!1,requireAuthority:!0});return{host:t+(n?\":\"+n:\"\"),scheme:r}})()}),k.definition=n,n=void 0,e.events.post(k),e.events.registerEventPatchSource(k,()=>({duration:ae()})),i9(k))};return n6(e=>{e?(i4(K),++i5):i4(V)}),r7(window,\"popstate\",()=>(S=\"back-forward\",f())),eO([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),S=\"navigate\",f()}}),f(),{processCommand:t=>am(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),K),decorate(e){!k||rj(e)||rc(e)||(e.view=k.clientId)}}}},{id:\"components\",setup(e){var t=(e=>{var t=new IntersectionObserver(e=>tD(e,e=>{var t,r;return null==(t=(r=e.target)[iW])?void 0:t.call(r,e)})),r=new Set,n=(tt({callback:()=>tD(r,e=>e()),frequency:250,raf:!0}),(e,t,r=0)=>e<r?r:t<e?t:e),i=rL.createRange();return(a,l)=>{var o,u,s,d,v,c,f,p,h,g,y,m,b,w,k,S;l&&(o=eB(null==l?void 0:l.component,e=>{var t;return(null==(t=e.track)?void 0:t.impressions)||(null!=(t=null==(t=e.track)?void 0:t.secondary)?t:e.inferred)!==K}))&&eD(o)&&(p=f=V,g=h=0,y=(e,t,r,n)=>{var i,a=null!=(a=(i=null!=u?u:u=[])[e])?a:i[e]=[{duration:0,impressions:0},e7(!1,iu),!1,!1,0,0,0,tC()];a[4]=t,a[5]=r,a[6]=n},m=[tC(),tC()],b=i7(!1),w=e7(!1,iu),k=-1,S=()=>{var O,t=a.getBoundingClientRect(),r=window.innerWidth,l=window.innerHeight,S=[n(t.top,l),n(t.right,r),n(t.bottom,l),n(t.left,r)],T=S[2]-S[0],S=S[1]-S[3],E=f?iD:iB,r=(E[0]*l<T||E[0]<(T/t.height||0))&&(E[0]*r<S||E[0]<(S/t.width||0));if(p!==r&&w(p=r,!0),f!==(f=p&&w()>=np.impressionThreshold-250)&&(++h,b(f),s||e(s=eB(eO(o,e=>((null==(e=e.track)?void 0:e.impressions)||nc(a,\"impressions\",K,e=>null==(e=e.track)?void 0:e.impressions))&&W({type:\"impression\",pos:r3(a),viewport:nt(),timeOffset:ae(),impressions:h,...af(a,K)})||null))),null!=s)&&s.length&&(O=b(),d=eO(s,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:O,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:O.activeTime&&c&&n(O.activeTime/c.readTime,g)})))),t.height!==k){k=t.height;E=a.textContent;if({boundaries:v,...c}=(e=>{for(var r,n,i=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),a=0,l=0,o=0,u=0,s=!1;r=i.exec(e);)r[1]?(s&&++u,s=!1):(s=!0,a+=r[0].length,6<r[0].length&&++o,++l);s&&++u;var i=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),d=[0,.25,.75,1].map(e=>e*a|0),v=[],f=0,p=!1;do{if(null!=(r=i.exec(e))&&r[1])p&&++f;else{for(var c=null==r?void 0:r.index,h=!1,g=0;g<d.length;g++)d[g]--||(v[g]={offset:null!=n?n:c,wordsBefore:f,readTime:em(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(r);return{text:e,length:e.length,characters:a,words:l,sentences:u,lix:em(l/u+100*o/l),readTime:em(l/238*6e4),boundaries:v}})(null!=E?E:\"\"),u||t.height>=1.25*l){var _=rL.createTreeWalker(a,NodeFilter.SHOW_TEXT),j=0,C=0;for(null==u&&(u=[]);C<v.length&&(M=_.nextNode());){var M,U,F,P,B,z=null!=(U=null==(U=M.textContent)?void 0:U.length)?U:0;for(j+=z;j>=(null==(F=v[C])?void 0:F.offset);)i[C%2?\"setEnd\":\"setStart\"](M,v[C].offset-j+z),C++%2&&({top:F,bottom:P}=i.getBoundingClientRect(),B=t.top,C<3?y(0,F-B,P-B,v[1].readTime):(y(1,u[0][4],F-B,v[2].readTime),y(2,F-B,P-B,v[3].readTime)))}}}var r=t.left<0?-t.left:0,E=t.top<0?-t.top:0,L=t.width*t.height;f&&(g=m[0].push(E,E+T)*m[1].push(r,r+S)/L),u&&tD(u,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),i=n(t.bottom>l?l:t.bottom,e[5],e[4]),a=f&&0<i-r,o=e[0];o.duration=e[1](a),a&&(e[3]!==(e[3]=a)&&++e[0].impressions,o.seen=e[7].push(r,i)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},a[iW]=({isIntersecting:e})=>{eZ(r,S,e),e||(tD(d,e=>e()),S())},t.observe(a))}})(e),n=({boundary:e,...n})=>{eY(nr,e,e=>{var t;return(e=>null==e?void 0:{...e,component:es(e.component),content:es(e.content),tags:es(e.tags)})(\"add\"in n?{...e,component:ej(null==e?void 0:e.component,n.component),content:ej(null==e?void 0:e.content,n.content),area:null!=(t=null==n?void 0:n.area)?t:null==e?void 0:e.area,tags:ej(null==e?void 0:e.tags,n.tags),cart:null!=(t=n.cart)?t:null==e?void 0:e.cart,track:null!=(t=n.track)?t:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),t(e,nr.get(e))};return{decorate(e){tD(e.components,e=>t5(e,\"track\",void 0))},processCommand:e=>ak(e)?(n(e),K):aE(e)?(eO(((e,t)=>{var r,n;return t?(r=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(i=>{if(!n.has(i))for(var a=[];null!=rZ(i,e);){eQ(n,i);var l,o=t_(rZ(i,e),\"|\");rZ(i,e,null);for(var u=0;u<o.length;u++){var d=o[u];if(\"\"!==d){var s=\"-\"===d?-1:parseInt(null!=(s=el(d))?s:\"\",36);if(s<0)a.length+=s;else{if(0===u&&(a.length=0),isNaN(s)&&/^[\"\\[{]/.test(d))for(var c=\"\";u<o.length;u++)try{d=JSON.parse(c+=o[u]);break}catch(e){}0<=s&&t[s]&&(d=t[s]),e5(a,d)}}}e5(r,...eO(a,e=>({add:K,...e,boundary:i})));var f=i.nextElementSibling;\"WBR\"===i.tagName&&null!=(l=i.parentNode)&&l.removeChild(i),i=f}}),r):[]})(e.scan.attribute,e.scan.components),n),K):V}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{r7(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var i,a,l,o,u,s=V;if(rG(n.target,e=>{iX(e)&&null==l&&(l=e),s=s||\"NAV\"===r2(e);var t,d=nn(e),d=null==d?void 0:d.component;!n.button&&null!=d&&d.length&&!u&&(tD(e.querySelectorAll(\"a,button\"),t=>iX(t)&&(3<(null!=u?u:u=[]).length?eS():u.push({...iZ(t,!0),component:rG(t,(e,t,r,n=null==(i=nn(e))?void 0:i.component)=>n&&t(n[0]),t=>t===e)}))),u)&&null==o&&(o=e),null==i&&(i=null!=(t=nc(e,\"clicks\",K,e=>null==(e=e.track)?void 0:e.clicks))?t:d&&eV(d,e=>(null==(e=e.track)?void 0:e.clicks)!==V)),null==a&&(a=null!=(t=nc(e,\"region\",K,e=>null==(e=e.track)?void 0:e.region))?t:d&&eV(d,e=>null==(e=e.track)?void 0:e.region))}),null!=o?o:o=l){var d,v=u&&!l&&i,c=af(null!=l?l:o,!1,v),f=nf(null!=l?l:o,void 0,e=>eO(es(null==(e=nr.get(e))?void 0:e.tags))),p=(null==i&&(i=!s),{...(a=null==a?K:a)?{pos:r3(l,n),viewport:nt()}:null,...((e,t)=>{var n;return rG(null!=e?e:t,e=>\"IMG\"===r2(e)||e===t?(n={element:iZ(e,!1)},V):K),n})(n.target,null!=l?l:o),...c,timeOffset:ae(),...f});if(l)if(iG(l)){var h=l,c=h.hostname!==location.hostname,{host:f,scheme:m,source:b}=tb(h.href,{delimiters:!1,requireAuthority:!0});if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(W({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,T,w=W({clientId:iv(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:m},self:K,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||rZ(h,\"target\")!==window.name?(i2(w.clientId),w.self=V,e(w)):r5(location.href,h.href)||(w.exit=w.external,i2(w.clientId))):(k=h.href,(b=nz(k))?i2(w.clientId,()=>e(w)):(T=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||np.captureContextMenu&&(h.href=nW+\"=\"+T+encodeURIComponent(k),r7(window,\"storage\",(t,r)=>\"_tail:push\"===t.key&&(t.newValue&&(null==(t=JSON.parse(t.newValue))?void 0:t.requestId)===T&&e(w),r())),r7(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),h.href=k}))))}else{rG(n.target,(e,t)=>{var r;return!!(null!=d?d:d=(e=>ea(e=null==e||e!==K&&\"\"!==e?e:\"add\")&&U(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ed(e)?e:void 0)(null!=(r=null==(r=nn(e))?void 0:r.cart)?r:nv(e,\"cart\")))&&!d.item&&(d.item=(e=>null==e?J:eo(e)||ea(e)?e[e.length-1]:eF(e,(e,r)=>e,void 0,void 0))(null==(r=nn(e))?void 0:r.content))&&t(d)});c=au(d);(c||i)&&e(W(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else v&&eY(t,o,r=>{var i=r8(o,n);return r?e5(r,i):(i=W({type:\"component_click_intent\",...p,clicks:r=[i],clickables:u}),e.events.registerEventPatchSource(i,()=>({clicks:t.get(o)}),!0,o)),r})}})};r(document),ai(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=r4(K);i8(()=>{return e=()=>(t={},r=r4(K)),setTimeout(e,250);var e}),r7(window,\"scroll\",()=>{var a,n=r4(),i={x:(u=r4(V)).x/(rV.offsetWidth-window.innerWidth)||0,y:u.y/(rV.offsetHeight-window.innerHeight)||0};n.y>=r.y&&(a=[],!t.fold&&n.y>=r.y+200&&(t.fold=K,e5(a,\"fold\")),!t[\"page-middle\"]&&.5<=i.y&&(t[\"page-middle\"]=K,e5(a,\"page-middle\")),!t[\"page-end\"]&&.99<=i.y&&(t[\"page-end\"]=K,e5(a,\"page-end\")),(n=eO(a,e=>W({type:\"scroll\",scrollType:e,offset:i}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(t){var r;return ay(t)?(\"clear\"===(r=t.cart)?e({type:\"cart_updated\",action:\"clear\"}):(r=au(r))&&e({...r,type:\"cart_updated\"}),K):aA(t)?(e({type:\"order\",...t.order}),K):V}})},{id:\"forms\",setup(e){var t,r=new Map,n=(e,t=!1)=>{var r=!t||rY(e,ni(\"form-value\")),e=(t&&(r=r?er(r):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return t&&(e=e&&tp(e,200)),r?e:void 0},i=t=>{var i,l,s,a=t.form;if(a)return l=rY(a,ni(\"ref\"))||\"track_ref\",(s=t4(r,a,()=>{var t,r=new Map,n={type:\"form\",name:rY(a,ni(\"form-name\"))||rZ(a,\"name\")||a.id||void 0,activeTime:0,totalTime:0,fields:{}},s=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:ae()})),((e=0)=>{var t,r,n=(i,a=e)=>{if(void 0===i)return!!r;clearTimeout(t),et(i)?i&&(a<0?en:D)(null==r?void 0:r())?n(r):r=void 0:(r=i,t=setTimeout(()=>n(!0,a),a<0?-a:a))};return n})());return r7(a,\"submit\",()=>{i=af(a),t[3]=3,s(()=>{(a.isConnected&&0<r9(a).width?(t[3]=2,s):()=>{o(),2<=t[3]&&(n.completed=3===t[3]||!(a.isConnected&&r9(a).width)),e.events.postPatch(n,{...i,totalTime:e9(K)-t[4]}),t[3]=1})()},750)}),t=[n,r,a,0,e9(K),1]}))[1].get(t)||eO(a.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,t)=>{var d,v,a;e.name&&\"hidden\"!==e.type?(a=null!=(d=(a=s[0].fields)[v=e.name])?d:a[v]={id:e.id||v,name:v,label:tj(null!=(v=null==(d=e.labels)||null==(a=d[0])?void 0:a.innerText)?v:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(d=e.type)?d:\"unknown\",[ap]:n(e),value:n(e,!0)},s[0].fields[a.name]=a,s[1].set(e,a)):\"hidden\"!==e.type||e.name!==l&&!nc(e,\"ref\")||(e.value||(e.value=tj(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value)}),[t,s]},a=(e,[r,n]=null!=(t=i(e))?t:[],a=null==n?void 0:n[1].get(r))=>a&&[n[0],a,r,n],l=null,o=()=>{var r,i,a,o,d,v,c;l&&([r,i,a,o]=l,d=-(u-(u=i4())),v=-(s-(s=e9(K))),c=i[ap],(i[ap]=n(a))!==c&&(null==i.fillOrder&&(i.fillOrder=o[5]++),i.filled&&(i.corrections=(null!=(c=i.corrections)?c:0)+1),i.filled=K,o[3]=2,tD(r.fields,([e,t])=>t.lastField=e===i.name)),i.value=n(a,!0),i.activeTime+=d,i.totalTime+=v,r.activeTime+=d,r.totalTime+=v,l=null)},u=0,s=0,d=e=>e&&r7(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&a(e.target))=>r&&(l=r,\"focusin\"===e.type?(s=e9(K),u=i4()):o()));d(document),ai(e=>e.contentDocument&&d(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t,n=async t=>e.variables.get({scope:\"session\",key:\"@consent\",callback:t}).value(),i=async t=>{var r;if(t)return!(r=await n())||rd.equals(r,t)?[!1,r]:(await e.events.post(W({type:\"consent\",consent:t}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,t])},r={analytics_storage:\"performance\",functionality_storage:\"functionality\",personalization_storage:\"personalization\",ad_storage:\"marketing\",security_storage:\"security\"},a=(e({consent:{externalSource:{key:\"Google Consent Mode v2\",frequency:250,poll(){var e,n=rJ.dataLayer,i=t,a=null==n?void 0:n.length;if(a&&(t!==(t=n[a-1])||!t))for(;a--&&((e=n[a])!==i||!i);){var l={},o=!1;if(\"consent\"===(null==e?void 0:e[0])&&\"update\"===e[1])return tJ(r,([t,r])=>\"granted\"===e[2][t]&&(l[r]=o=!0)),{classification:o?\"indirect\":\"anonymous\",purposes:l}}}}}}),{});return{processCommand(e){var r,l,t,s,d;return a$(e)?((t=e.consent.get)&&n(t),(r=e.consent.set)&&(async()=>{var e;return(null!=(e=r.callback)?e:()=>{})(...await i(r))})(),(l=e.consent.externalSource)&&(d=l.key,(null!=(t=a[d])?t:a[d]=tt({frequency:null!=(e=l.frequency)?e:1e3})).restart(l.frequency,async()=>{var e,t,r;rL.hasFocus()&&(e=l.poll(s))&&!rd.equals(s,e)&&([t,r]=await i(e),t&&nJ(r,\"Consent was updated from \"+d),s=e)}).trigger()),K):V}}}}],I=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==t?void 0:t[e])),ay=I(\"cart\"),am=I(\"username\"),ab=I(\"tagAttributes\"),aw=I(\"disable\"),ak=I(\"boundary\"),aS=I(\"extension\"),aT=I(K,\"flush\"),ax=I(\"get\"),aI=I(\"listener\"),aA=I(\"order\"),aE=I(\"scan\"),aN=I(\"set\"),aO=e=>\"function\"==typeof e,a$=I(\"consent\");Object.defineProperty(rJ,\".tail.js.init\",{writable:!1,configurable:!1,value(e){e(iQ)}})})();\n//# sourceMappingURL=tail.debug.js.map\n"
+    debug: "(()=>{var e,t,r,n,i,l,a,o,u,s,d,v,c,f,p,h,g,y,m,w,k,S,T,x;function j(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var C=(e,t=e=>Error(e))=>{throw el(e=e2(e))?t(e):e},M=(e,t,r=-1)=>{if(e===t||null==(null!=e?e:t))return!0;if(ed(e)&&ed(t)&&e.length===t.length){var i,n=0;for(i in e){if(e[i]!==t[i]&&!M(e[i],t[i],r-1))return!1;++n}return n===Object.keys(t).length}return!1},U=(e,t,...r)=>e===t||0<r.length&&r.some(t=>U(e,t)),F=(e,t)=>null!=e?e:C(null!=t?t:\"A required value is missing\",e=>TypeError(e.replace(\"...\",\" is required.\"))),q=(e,t=!0,r)=>{try{return e()}catch(e){return ep(t)?eu(e=t(e))?C(e):e:et(t)?console.error(t?C(e):e):t}finally{null!=r&&r()}};class z extends Promise{get initialized(){return null!=this._result}then(e,t){var r;return(null!=(r=this._result)?r:this._result=this._action()).then(e,t)}catch(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).catch(e)}finally(e){var t;return(null!=(t=this._result)?t:this._result=this._action()).finally(e)}constructor(e){super(()=>{}),j(this,\"_action\",void 0),j(this,\"_result\",void 0),this._action=e}}var R=e=>new z(async()=>e2(e)),P=async(e,t=!0,r)=>{try{return await e2(e)}catch(e){if(!et(t))return await t(e);if(t)throw e;console.error(e)}finally{await(null==r?void 0:r())}},W=e=>e,B=e=>!!e,D=e=>e===K,J=void 0,L=Number.MAX_SAFE_INTEGER,V=!1,K=!0,H=()=>{},G=e=>e,X=e=>null!=e,Z=Symbol.iterator,Y=Symbol.asyncIterator,Q=(e,t)=>(r,n=!0)=>e(r)||t&&n&&null!=r&&null!=(r=t(r))?r:J,ee=(e,t)=>ep(t)?e!==J?t(e):J:(null==e?void 0:e[t])!==J?e:J,et=e=>\"boolean\"==typeof e,er=Q(et,e=>0!=e&&(1==e||\"false\"!==e&&(\"true\"===e||J))),en=e=>e!==V,ei=e=>\"number\"==typeof e,el=e=>\"string\"==typeof e,ea=Q(el,e=>null==e?void 0:e.toString()),eo=Array.isArray,eu=e=>e instanceof Error,es=(e,t=!1)=>null==e?J:!t&&eo(e)?e:eh(e)?[...e]:[e],ed=e=>e&&\"object\"==typeof e,ev=e=>(null==e?void 0:e.constructor)===Object,ec=(e,t)=>\"function\"==typeof(null==e?void 0:e[t]),ef=e=>\"symbol\"==typeof e,ep=e=>\"function\"==typeof e,eh=(e,t=!1)=>!(null==e||!e[Z]||\"string\"==typeof e&&!t),eg=e=>e instanceof Map,ey=e=>e instanceof Set,em=(e,t)=>null==e?J:!1===t?e:Math.round(e*(t=Math.pow(10,t&&!0!==t?t:0)))/t,eb=(e,t,r)=>e[0]===t&&e[e.length-1]===r,ew=e=>el(e)&&(eb(e,\"{\",\"}\")||eb(e,\"[\",\"]\")),ek=!1,eS=e=>(ek=!0,e),eT=e=>null==e?J:ep(e)?e:t=>t[e],ex=(e,t,r)=>(null!=t?t:r)!==J?(e=eT(e),null==t&&(t=0),null==r&&(r=L),(n,i)=>t--?J:r--?e?e(n,i):n:r):e,eI=e=>null==e?void 0:e.filter(X),eA=(e,t,r,n)=>null==e?[]:!t&&eo(e)?eI(e):e[Z]?function*(e,t){if(null!=e)if(t){t=eT(t);var r=0;for(n of e)if(null!=(n=t(n,r++))&&(yield n),ek){ek=!1;break}}else for(var n of e)null!=n&&(yield n)}(e,r===J?t:ex(t,r,n)):ed(e)?function*(e,t){t=eT(t);var n,r=0;for(n in e){var i=[n,e[n]];if(null!=(i=t?t(i,r++):i)&&(yield i),ek){ek=!1;break}}}(e,ex(t,r,n)):eA(ep(e)?function*(e,t,r=Number.MAX_SAFE_INTEGER){for(null!=t&&(yield t);r--&&null!=(t=e(t));)yield t}(e,r,n):function*(e=0,t){if(e<0)for(null==t&&(t=-e-1);e++;)yield t--;else for(null==t&&(t=0);e--;)yield t++}(e,r),t),eE=(e,t,r,n)=>eA(e,t,r,n),eN=(e,t,r=1,n=!1,i,l)=>function*e(t,r,n,i){if(null!=t)if(t[Z]||n&&ed(t))for(var l of i?eA(t):t)1!==r?yield*e(l,r-1,n,!0):yield l;else yield t}(eA(e,t,i,l),r+1,n,!1),e$=(e,t,r,n)=>{if(t=eT(t),eo(e)){var i=0,l=[];for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n&&!ek;r++){var a=e[r];null!=(t?a=t(a,i++):a)&&l.push(a)}return ek=!1,l}return null!=e?tG(eE(e,t,r,n)):J},eO=(e,t,r,n)=>null!=e?new Set([...eE(e,t,r,n)]):J,e_=(e,t,r=1,n=!1,i,l)=>tG(eN(e,t,r,n,i,l)),ej=(...e)=>{var t;return eq(1===e.length?e[0]:e,e=>null!=e&&(null!=t?t:t=[]).push(...tG(e))),t},eC=(e,t,r,n)=>{var i,l,a=0;for(r=r<0?e.length+r:null!=r?r:0,n=n<0?e.length+n:null!=n?n:e.length;r<n;r++)if(null!=e[r]&&(i=null!=(l=t(e[r],a++))?l:i,ek)){ek=!1;break}return i},eM=(e,t)=>{var r,n,l,i=0;for(l of e)if(null!=l&&(r=null!=(n=t(l,i++))?n:r,ek)){ek=!1;break}return r},eU=(e,t)=>{var r,n,l,i=0;for(l in e)if(r=null!=(n=t([l,e[l]],i++))?n:r,ek){ek=!1;break}return r},eF=(e,t,r,n)=>{var i;if(null!=e){if(eo(e))return eC(e,t,r,n);if(r===J){if(e[Z])return eM(e,t);if(\"object\"==typeof e)return eU(e,t)}for(var l of eA(e,t,r,n))null!=l&&(i=l);return i}},eq=eF,ez=async(e,t,r,n)=>{var i,l;if(null==e)return J;for(l of eE(e,t,r,n))if(null!=(l=await l)&&(i=l),ek){ek=!1;break}return i},eR=(e,t)=>{if(null==e)return J;var r={};if(t){var n,l,i=0;for(l in e)(n=t([l,e[l]],i++))&&(r[n[0]]=n[1])}else for(var a of e)a&&(r[a[0]]=a[1]);return r},eP=(e,t,r)=>{var n,i,l;return null==e?J:et(t)||r?(l={},eq(e,r?(e,n)=>null!=(e=t(e,n))&&null!=(e[1]=r(l[e[0]],e[1]))&&(l[e[0]]=e[1]):e=>eq(e,t?e=>{var t;return null!=(null==e?void 0:e[1])&&((null!=(t=(n=l)[i=e[0]])?t:n[i]=[]).push(e[1]),l)}:e=>null!=(null==e?void 0:e[1])&&(l[e[0]]=e[1],l))),l):eR(e$(e,t?(e,r)=>ee(t(e,r),1):e=>ee(e,1)))},eW=(e,t,r,n,i)=>{var a=()=>ep(r)?r():r;return null!=(e=eF(e,(e,n)=>r=null!=(e=t(r,e,n))?e:a(),n,i))?e:a()},eB=(e,t,r,n)=>e$(e,(e,r)=>e&&null!=t&&t(e,r)?e:J,r,n),eD=(e,t)=>{var r,n;if(null==e)return J;if(!t){if(null!=(r=null!=(n=e.length)?n:e.size))return r;if(!e[Z])return Object.keys(e).length}return r=0,null!=(n=eF(e,t?(e,n)=>t(e,n)?++r:r:()=>++r))?n:0},eJ=(e,...t)=>null==e?J:ei(e)?Math.max(e,...t):eW(e,(e,r,n,i=t[1]?t[1](r,n):r)=>null==e||ei(i)&&e<i?i:e,J,t[2],t[3]),eV=(e,t,r,n)=>{var i;return null==e?J:ev(e)&&!t?0<Object.keys(e).length:null!=(i=null!=(i=null==(i=e.some)?void 0:i.call(e,null!=t?t:B))?i:eF(e,t?(e,r)=>!!t(e,r)&&eS(!0):()=>eS(!0),r,n))&&i},eK=(e,t=e=>e)=>{var r;return null!=(r=es(e))&&r.sort((e,r)=>t(e)-t(r)),e},eH=(e,t,r)=>(e.constructor===Object||eo(e)?void 0===r?delete e[t]:e[t]=r:void 0===r?e.delete?e.delete(t):delete e[t]:e.set?e.set(t,r):e.add?r?e.add(t):e.delete(t):e[t]=r,r),eG=(e,t,r)=>{var n;if(e)return void 0===(n=e.get?e.get(t):e.has?e.has(t):e[t])&&null!=r&&null!=(n=ep(r)?r():r)&&eH(e,t,n),n},eX=(e,...t)=>(eq(t,t=>eq(t,([t,r])=>{null!=r&&(ev(e[t])&&ev(r)?eX(e[t],r):e[t]=r)})),e),eZ=(e,t,r,n)=>{if(e)return null!=r?eH(e,t,r,n):(eq(t,t=>eo(t)?eH(e,t[0],t[1]):eq(t,([t,r])=>eH(e,t,r))),e)},eY=(e,t,r)=>{var n;return ec(e,\"set\")?void 0===(n=r(e.get(t)))?e.delete(t):e.set(t,n):ec(e,\"add\")?r(n=e.has(t))?e.add(t):e.delete(t):e&&void 0===(n=e[t]=r(e[t]))&&ev(e)&&delete e[t],e},eQ=(e,t)=>e instanceof Set||e instanceof WeakSet?!e.has(t)&&(e.add(t),!0):!eG(e,t)&&(eH(e,t,!0),!0),e0=(e,t)=>{var r;if(null!=(null!=e?e:t))return r=eG(e,t),ec(e,\"delete\")?e.delete(t):delete e[t],r},e1=(e,t)=>{if(e)return eo(t)?(eo(e)&&1<e.length?t.sort((e,t)=>t-e):t).map(t=>e1(e,t)):eo(e)?t<e.length?e.splice(t,1)[0]:void 0:e0(e,t)},e2=e=>ep(e)?e():e,e6=(e,t=-1)=>eo(e)?t?e.map(e=>e6(e,t-1)):[...e]:ev(e)?t?eP(e,([e,r])=>[e,e6(r,t-1)]):{...e}:ey(e)?new Set(t?e$(e,e=>e6(e,t-1)):e):eg(e)?new Map(t?e$(e,e=>[e[0],e6(e[1],t-1)]):e):e,e4=(e,...t)=>null==e?void 0:e.push(...t),e5=(e,...t)=>null==e?void 0:e.unshift(...t),e3=(e,t)=>{var r,i,l;if(e)return ev(t)?(l={},ev(e)&&(eq(e,([e,a])=>{if(a!==t[e]){if(ev(r=a)){if(!(a=e3(a,t[e])))return;[a,r]=a}else ei(a)&&ei(void 0)&&(a=(r=a)-void 0);l[e]=a,(null!=i?i:i=e6(t))[e]=r}}),i)?[l,i]:void 0):[e,e]},e8=\"undefined\"!=typeof performance?(e=K)=>e?Math.trunc(e8(V)):performance.timeOrigin+performance.now():Date.now,e9=(e=!0,t=()=>e8())=>{var r,n=+e*t(),i=0;return(l=e,a)=>(r=e?i+=-n+(n=t()):i,a&&(i=0),(e=l)&&(n=t()),r)},te=(e,t=0)=>{var e=ep(e)?{frequency:t,callback:e}:e,{queue:i=!0,paused:l=!1,trigger:a=!1,once:o=!1,callback:u=()=>{},raf:s}=e,d=(t=null!=(e=e.frequency)?e:0,0),v=ta(!0).resolve(),c=e9(!l),f=c(),p=async e=>{if(!d||!i&&v.pending&&!0!==e)return!1;if((m.busy=!0)!==e)for(;v.pending;)await v;return e||v.reset(),(!1===await P(()=>u(c(),-f+(f=c())),!1,()=>!e&&v.resolve())||t<=0||o)&&y(!1),!(m.busy=!1)},h=()=>d=setTimeout(()=>s?requestAnimationFrame(g):g(),t<0?-t:t),g=()=>{m.active&&p(),m.active&&h()},y=(e,t=!e)=>(c(e,t),clearTimeout(d),m.active=!!(d=e?h():0),m),m={active:!1,busy:!1,restart:(e,r)=>(t=null!=e?e:t,u=null!=r?r:u,y(!0,!0)),toggle:(e,t)=>e!==m.active?e?t?(y(!0),m.trigger(),m):y(!0):y(!1):m,trigger:async e=>await p(e)&&(y(m.active),!0)};return m.toggle(!l,a)};function tt(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}class tr{get value(){return this._promise.value}get error(){return this._promise.error}get pending(){return this._promise.pending}resolve(e,t=!1){return this._promise.resolve(e,t),this}reject(e,t=!1){return this._promise.reject(e,t),this}reset(){return this._promise=new tn,this}signal(e){return this.resolve(e),this.reset(),this}then(e,t){return this._promise.then(e,t)}constructor(){tt(this,\"_promise\",void 0),this.reset()}}class tn{then(e,t){return this._promise.then(e,t)}constructor(){var e;tt(this,\"_promise\",void 0),tt(this,\"resolve\",void 0),tt(this,\"reject\",void 0),tt(this,\"value\",void 0),tt(this,\"error\",void 0),tt(this,\"pending\",!0),this._promise=new Promise((...t)=>{e=t.map((e,t)=>(r,n)=>{if(this.pending)return this.pending=!1,this[t?\"error\":\"value\"]=r===J||r,e(r),this;if(n)return this;throw TypeError(\"Promise already resolved/rejected.\")})}),[this.resolve,this.reject]=e}}var tl=(e,t)=>null==e||isFinite(e)?!e||e<=0?e2(t):new Promise(r=>setTimeout(async()=>r(await e2(t)),e)):C(`Invalid delay ${e}.`),ta=e=>new(e?tr:tn),tu=(e,t,r)=>{var n=!1,i=(...t)=>e(...t,l),l=()=>n!==(n=!1)&&(r(i),!0),a=()=>n!==(n=!0)&&(t(i),!0);return a(),[l,a]},Q=()=>{var e,t=new Set;return[(r,n)=>{var i=tu(r,e=>t.add(e),e=>t.delete(e));return n&&e&&r(...e,i[0]),i},(...r)=>(e=r,t.forEach(e=>e(...r)))]},td=(e,t,r)=>null==e?J:eo(t)?null==(t=t[0])?J:t+\" \"+td(e,t,r):null==t?J:1===t?e:null!=r?r:\"is\"===e?\"are\":e+\"s\",tv=!0,tc=(e,t,r)=>r?(tv&&e4(r,\"\u001b[\",t,\"m\"),eo(e)?e4(r,...e):e4(r,e),tv&&e4(r,\"\u001b[m\"),r):tc(e,t,[]).join(\"\"),tf=(e,t,r=!1)=>e&&(e.length>t?r?`${e.slice(0,t)}... [and ${e.length-t} more]`:e.slice(0,t-1)+\"…\":e),th=(e,t)=>{var a,r=[],n={},i={},l=0;for(a in t)a===t[a]&&(Object.defineProperty(i,a,{value:a,writable:!1,enumerable:!0,configurable:!1}),n[a]=l++,r.push(a));var o=(t,r=!0)=>null==t?J:null!=n[t]?t:r?C(`The ${e} \"${t}\" is not defined.`):J,u={writable:!1,enumerable:!1,configurable:!1};return Object.defineProperties(i,{parse:{value:o,...u},ranks:{value:n,...u},levels:{value:r,...u},compare:{value(e,t){e=n[o(e)],t=n[o(t)];return e<t?-1:t<e?1:0},...u}}),i},tg=Symbol(),ty=(e,{delimiters:t=[\"|\",\";\",\",\"],decode:r=!0,lowerCase:n}={})=>{var i,a;return e?(null==(a=e.split(\"=\").map(e=>(e=r?decodeURIComponent(e.trim()).replaceAll(\"+\",\" \"):e.trim(),n?e.toLowerCase():e)))[1]&&(a[1]=\"\"),a[2]=a[1]&&(el(t)?t=[t]:eo(t))&&tB(t,e=>1<(i=a[1].split(e)).length?tU(i):J)||(a[1]?[a[1]]:[]),a):J},tm=(e,{delimiters:t=!0,requireAuthority:r,...n}={})=>null==e?J:tT(e,/^(?:(?:([\\w+.-]+):)?(\\/\\/)?)?((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))?(?::(\\d*))?)?(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/g,(e,r,i,l,a,o,u,s,d,v,c,f)=>{e={source:e,scheme:r,urn:r?!i:!i&&J,authority:l,user:a,password:o,host:null!=u?u:s,port:null!=d?parseInt(d):J,path:v,query:!1===t?c:c?tb(c,{...n,delimiters:t}):J,fragment:f};return e.path=e.path||(e.authority?e.urn?\"\":\"/\":J),e}),tb=(e,t)=>tw(e,\"&\",t),tw=(e,t,{delimiters:r=!0,...n}={})=>{e=tD(null==e||null==(e=e.match(/(?:^.*?\\?|^)([^#]*)/))||null==(e=e[1])?void 0:e.split(t),e=>{var[e,l,a]=null!=(e=ty(e,{...n,delimiters:!1===r?[]:!0===r?J:r}))?e:[];return null!=(e=null==e?void 0:e.replace(/\\[\\]$/,\"\"))?!1!==r?[e,1<a.length?a:l]:[e,l]:tM}),t=t8(tV(e,!1),([e,t])=>[e,!1!==r?1<t.length?tX(t):t[0]:t.join(\",\")]);return t&&(t[tg]=e),t},tk=(e,t)=>t&&null!=e?t.test(e):J,tS=(e,t,r)=>tT(e,t,r,!0),tT=(e,t,i,l=!1)=>null==(null!=e?e:t)?J:i?(r=J,l?(n=[],tT(e,t,(...e)=>null!=(r=i(...e))&&n.push(r))):e.replace(t,(...e)=>r=i(...e)),r):null!=(l=e.match(t))?l:J,tx=e=>null==e?void 0:e.replace(/[\\^$\\\\.*+?()[\\]{}|]/g,\"\\\\$&\"),tI=/\\z./g,tA=(e,t)=>(t=rr(eO(eB(e,e=>null==e?void 0:e.length)),\"|\"))?RegExp(t,\"gu\"):tI,tE={},tN=e=>e instanceof RegExp,t$=(r,n=[\",\",\" \"])=>{var i;return tN(r)?r:eo(r)?tA(e$(r,e=>null==(e=t$(e,n))?void 0:e.source)):et(r)?r?/./g:tI:el(r)?null!=(i=(e=tE)[t=r])?i:e[t]=tT(r||\"\",/^(?:\\/(.+?)\\/?|(.*))$/gu,(e,t,r)=>t?RegExp(t,\"gu\"):tA(e$(tO(r,RegExp(`(?<!(?<!\\\\\\\\)\\\\\\\\)[${rr(n,tx)}]`)),e=>e&&`^${rr(tO(e,RegExp(\"(?<!(?<!\\\\\\\\)\\\\\\\\)\\\\*\")),e=>tx(t_(e,/\\\\(.)/g,\"$1\")),\".*\")}$`))):J},tO=(e,t,r=!0)=>null==e?J:r?tO(e,t,!1).filter(G):e.split(t),t_=(e,t,r)=>null!=(t=null==e?void 0:e.replace(t,r))?t:e,tj=(e=(e,t)=>e-t,t=e=>e[1]-e[0])=>{var r=[];return eZ(r,{push(n,i){for(var l=[n,i],a=(e=!0)=>e?r.width=r.reduce((e,r)=>e+t(r),0):r.width,o=0;o<r.length;o++){var u,s,d=r[o];if(e(l[1],d[0])<0)return a(r.splice(o,0,l));if(e(l[0],d[1])<=0){if(e(l[0],d[0])<0&&(u=d[0]=l[0]),0<e(l[1],d[1])&&(u=d[1]=l[1]),!((null==(s=r[o+1])?void 0:s[0])<d[1]))return a(null!=u);u=l=r.splice(o--,1)[0]}}return a(l&&(r[r.length]=l))},width:0})},tC=!1,tM=Symbol(),tU=e=>(tC=!0,e),tF=Symbol(),tq=Symbol(),tz=Symbol.iterator,tR=e=>{tR=e=>e;var n,t=()=>(e,t,r,n,i)=>{var l,o,a=0;for(o of e)if((l=t?t(o,a++,n,i):o)!==tM){if(l===tU)break;if(n=l,r&&r.push(l),tC){tC=!1;break}}return r||n},r=(Array.prototype[tF]=(e,t,r,n,i)=>{for(var a,o=0,u=e.length;o<u;o++)if(a=e[o],(a=t?t(a,o,n,i):a)!==tM){if(a===tU)break;if(n=a,r&&r.push(a),tC){tC=!1;break}}return r||n},t());for(n of(Object.prototype[tF]=(e,n,i,l,a)=>{if(e[tz])return(e.constructor===Object?r:Object.getPrototypeOf(e)[tF]=t())(e,n,i,l,a);var u,d,s=0;for(d in e)if(u=[d,e[d]],(u=n?n(u,s++,l,a):u)!==tM){if(u===tU)break;if(l=u,i&&i.push(u),tC){tC=!1;break}}return i||l},Object.prototype[tq]=function(){var t,e;return this[tz]||this[Y]?this.constructor===Object?null!=(e=this[Y]())?e:this[tz]():((e=Object.getPrototypeOf(this))[tq]=null!=(t=e[Y])?t:e[tz],this[tq]()):function*(e){for(var t in e)yield[t,e[t]]}(this)},[Map.prototype,WeakMap.prototype,Set.prototype,WeakSet.prototype,Object.getPrototypeOf(function*(){})]))n[tF]=t(),n[tq]=n[tz];return Number.prototype[tF]=(e,t,n,i,l)=>r(tP(e),t,n,i,l),Number.prototype[tq]=tP,Function.prototype[tF]=(e,t,n,i,l)=>r(tW(e),t,n,i,l),Function.prototype[tq]=tW,e};function*tP(e=this){for(var t=0;t<e;t++)yield t}function*tW(e=this){for(var t=void 0;void 0!==(t=e(t));)yield t}var tB=(e,t,r,n)=>(tB=tR((e,t,r,n=e)=>e?e[tF](e,t,void 0,r,n):null==e?e:void 0))(e,t,r,n),tD=(e,t,r=[],n,i=e)=>(tD=tR((e,t,r=[],n,i=e)=>e||0===e||\"\"===e?e[tF](e,t,r,n,i):null==e?e:void 0))(e,t,r,i,n),tJ=(e,t=!0,r=!1)=>tD(e,!0===t?e=>null!=e?e:tM:t?t.has?e=>null==e||t.has(e)===r?tM:e:(e,n,i)=>!t(e,n,i)===r?e:tM:e=>e||tM),tL=(e,t,r=-1,n=[],i,l=e)=>tD(e,(e,i,l)=>null!=(t?e=t(e,i,l):e)&&e[Symbol.iterator]&&\"string\"!=typeof e&&r?(tL(e,void 0,r-1,n,e),tM):e,n,i,l),tV=(e,t,r)=>{var n,i,l,a;return null!=t&&\"function\"!=typeof t&&([t,r]=[void 0,t]),tB(e,!1!==r?(l=new Map,(e,r,n)=>{void 0!==(a=t?t(e,r,n):e)[0]&&t4(l,a[0],()=>[]).push(a[1])}):(l={},(e,r,o)=>(a=t?t(e,r,o):e)&&void 0!==a[0]&&(null!=(r=(n=l)[i=a[0]])?r:n[i]=[]).push(a[1]))),l},tH=e=>void 0===e?[]:null!=e&&e[tz]&&\"string\"!=typeof e?e:[e],tG=e=>null==e||eo(e)?e:e[tz]&&\"string\"!=typeof e?[...e]:[e],tX=(e,...t)=>{var r,n;for(n of e=!t.length&&eh(e)?e:[e,...t])if(null!=n){if(eh(n)){(null!=r?r:r=[]).push(...n);continue}(null!=r?r:r=[]).push(n)}return r},tZ=(e,t,r)=>(r?-1:1)*(e===t?0:\"string\"==typeof e?\"string\"==typeof t?e.localeCompare(t):1:\"string\"==typeof t?-1:null==e?null==t?0:-1:null==t?1:e-t),tY=(e,t,r)=>tG(e).sort(\"function\"==typeof t?(e,n)=>tZ(t(e),t(n),r):eo(t)?t.length?(e,n)=>{for(var i=0,l=0;l<t.length&&!i;l++)i=tZ(t[l](e),t[l](n),r);return i}:(e,t)=>tZ(e,t,r):(e,r)=>tZ(e,r,t)),tQ=Object.keys,t0=Symbol(),t1=Symbol(),t2=Symbol(),t6=e=>{for(var{prototype:t}of(t6=e=>e,[Map,WeakMap]))t[t0]=function(e,t){return void 0===t?this.delete(e):this.get(e)!==t&&!!this.set(e,t)},t[t1]=t.get;for(var{prototype:t}of[Set,WeakSet])t[t0]=function(e,t,r=!1){return t||r&&void 0===t?!this.has(e)&&!!this.add(e):this.delete(e)},t[t1]=t.has,t[t2]=function(e){for(var t of e)void 0!==t&&this.add(t);return this};for(var{prototype:t}of(Array.prototype[t2]=function(e){return this.push(...e),this},[Object,Array]))t[t0]=function(e,t){return void 0===t?void 0!==this[e]&&(delete this[e],!0):(this[e]=t)!==t},t[t1]=function(e){return this[e]};return e},t4=(e,t,r)=>(t4=t6((e,t,r)=>{if(null==e)return e;var n=e[t1](t);if(void 0===n&&void 0!==(n=\"function\"==typeof r?r():r)){if(null!=n&&n.then)return n.then(r=>void 0===r?r:e[t0](t,r));e[t0](t,n)}return n}))(e,t,r),t5=(e,t,r)=>(t5=t6((e,t,r)=>(e[t0](t,r),r)))(e,t,r),t3=(e,...t)=>(t3=t6((e,...t)=>null==e?e:e[t2](t)))(e,...t),t8=(e,t)=>{var r={};return tB(e,t?(e,n,i)=>(e=t(e,n,i))&&(\"symbol\"!=typeof e||e!==tM&&e!==tU)?r[e[0]]=e[1]:e:e=>e&&(\"symbol\"!=typeof e||e!==tM&&e!==tU)?r[e[0]]=e[1]:e),r},t9=(e,...t)=>(t9=t6((e,...t)=>((null==e?void 0:e.constructor)===Object?tB(t,t=>tB(t,t=>t&&(e[t[0]]=t[1]))):tB(t,t=>tB(t,t=>t&&e[t0](t[0],t[1]))),e)))(e,...t),t7=(e,t,r={})=>{if(null!=e){var a,{deep:n=!0,overwrite:i=!0,nulls:l=!1}=r;for(a of tH(t))tB(a,t=>{var o,u;t&&([t,o]=t,u=e[t],(l?null==u:void 0===u)?e[t]=o:n&&(null==o?void 0:o.constructor)===Object&&(null==u?void 0:u.constructor)===Object?t7(u,o,r):i&&(e[t]=o))})}return e},re=(e,t)=>null==e?e:t8(t,t=>null!=e[t]||t in e?[t,e[t]]:tM),rt=e=>null==e||\"boolean\"==typeof e||\"\"===e.toString(),rr=(e,t,r)=>null==e?e:eh(e)?tJ(\"function\"==typeof t?tD(e,t):(r=t,e),rt,!0).join(null!=r?r:\"\"):rt(e)?\"\":e.toString(),rn=(e,t,r,n)=>{var i,o;return e||0===e?\"function\"==typeof t?rn(tD(e,t),r,n):(i=[],n=tB(e,(e,t,r)=>rt(e)?tM:(r&&i.push(r),e.toString())),[t,o]=eo(t)?t:[,t],o=(null!=o?o:o=\"and\")[0]===(t=null==t?\",\":t)?o+\" \":\" \"+(o?o+\" \":\"\"),t=i.length?\"\"+i.join(t+\" \")+o+n:null!=n?n:\"\",r?r(t,i.length+ +(null!=n)):t):null==e?e:void 0},ri=th(\"data classification\",{never:\"never\",anonymous:\"anonymous\",indirect:\"indirect\",direct:\"direct\",sensitive:\"sensitive\"}),rl=[\"necessary\",\"performance\",\"functionality\",\"marketing\",\"personalization\",\"security\"],ra=t8(rl,e=>[e,e]),ro=(Object.freeze(eR(rl.map(e=>[e,!0]))),(e,t)=>\"personalization\"===e&&!0!==(null==t?void 0:t.personalization)?\"functionality\":\"security\"===e&&!0!==(null==t?void 0:t.security)?\"necessary\":e),ru=(e,t)=>{var r=e;return!0!==(null==t?void 0:t.personalization)&&null!=r.personalization&&(null!=(r=r===e?{...e}:r).functionality?r.personalization=r.functionality:r.functionality=r.personalization,delete r.personalization),!0!==(null==t?void 0:t.security)&&null!=r.security&&delete(r=r===e?{...e}:r).security,r},rs_parse=function(e,{names:t=!1,validate:r=!0}={}){if(null==e)return e;if(e.purposes&&(e=e.purposes),el(e)&&(e=e.split(\",\")),eo(e)){var i,n={};for(i of e)ra[i]?\"necessary\"!==i&&(n[i]=!0):r&&C(`The purpose name '${i}' is not defined.`);e=n}return t?(t=tQ(e)).length?t:[\"necessary\"]:e},rs_test=function(e,t,{intersect:r,optionalPurposes:n,targetPurpose:i}){if(\"boolean\"==typeof n&&(n={personalization:n,security:n}),i&&\"necessary\"!==(i=ro(i,n))&&!t[ro(i,n)])return!1;if(e=ru(e,n),t=ru(t,n),r){for(var l in t)if(ra[l]&&t[l]&&!e[l])return!1;if(\"all\"===r)for(var l in e)if(ra[l]&&e[l]&&!t[l])return!1;return!0}var a=!1;for(l in e)if(ra[l]&&e[l]){if(t[l])return!0;a=!0}return!a},rd=(th(\"data restriction\",{public:\"public\",\"trusted-write\":\"trusted-write\",\"trusted-only\":\"trusted-only\"}),e=>{var t;return`${null!=(t=null==e?void 0:e.classification)?t:\"anonymous\"} data for ${rn(rs_parse(null==e?void 0:e.purposes,{names:!0}))}  purposes.`}),rv={anonymous:{classification:\"anonymous\",purposes:{}},clone:e=>e&&{classification:e.classification,purposes:{...e.purposes}},equals:(e,t)=>e===t||e&&t&&e.classification===t.classification&&rs_test(e.purposes,t.purposes,{intersect:\"all\",optionalPurposes:!0}),serialize(e){var t=rs_parse(e.purposes,{names:!0});return e.classification&&\"anonymous\"!==e.classification||null!=t&&t.length?e.classification+\":\"+t:null},deserialize(e,t){var l;return e?([e,l]=e.split(\":\"),{classification:null!=(e=ri.parse(e,!1))?e:\"anonymous\",purposes:null!=(e=rs_parse(l,{validate:!1}))?e:{}}):t?rv.clone(t):{classification:\"anonymous\",purposes:{}}}},rc=(e,t)=>(!(i=null==e?void 0:e.metadata)||t&&(delete i.posted,delete i.queued,Object.entries(i).length)||delete e.metadata,e),rf=e=>!(null==e||!e.patchTargetId),rp=Symbol(),rh=e=>void 0===e?\"undefined\":tf(JSON.stringify(e),40,!0),rg=/^\\d{4}-\\d{2}-\\d{2}(?:T00:00:00(?:\\.000)?)?Z$/,ry=/^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?)?Z$/,rm=/^\\{?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\\}?$/,rb=/^(?:(?:([\\w+.-]+):)(\\/\\/)?)((?:([^:@]+)(?:\\:([^@]*))?@)?(?:\\[([^\\]]+)\\]|([0-9:]+|[^/+]+?))(?::(\\d*))?)(\\/[^#?]*)?(?:\\?([^#]*))?(?:#(.*))?$/,rw=/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:(\\[(([0-9.]+)|([0-9a-f:]+))\\])|(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9]))?$/,rk=(e,t,r)=>(e.push({path:\"\",type:null,source:t,message:rh(t)+` ${r}.`}),rp),rS=(e,t,r)=>\"number\"==typeof e&&(!t&&Number.isFinite(e)&&!Number.isNaN(e)||Number.isInteger(e))||r&&\"string\"==typeof e&&rS((t?parseInt:parseFloat)(e),t,!1),rT={},rl=((e=>{null==e.primitive&&(e.primitive=typeof(null!=(r=null==(r=e.enum)?void 0:r[0])?r:\"\"));var r,u,o=null!=(o=rT[r=e.primitive+\"-\"+(null!=(r=e.format)?r:\"\")+\"-\"+!1])?o:rT[r]=(e=>{switch(e.primitive){case\"boolean\":return(e,t)=>\"boolean\"==typeof e?e:rk(t,e,\"is not a Boolean\");case\"date\":return(e,t)=>e&&rg.test(e)&&!isNaN(+new Date(e))?e:rk(t,e,\"is not a valid ISO 8601 UTC date (time is not allowed, and the 'Z' postfix must be added to indicate Coordinated Universal Time)\");case\"timestamp\":case\"datetime\":var r=\"format\"in e?\"unix\"!==e.format:\"datetime\"===e.primitive;return(e,n)=>{if(!e||rS(e,!1,!1)){if(!rS(e,!0,!1))return rk(n,e,\"is not a valid UNIX timestamp\");e=+e}else if(!ry.test(e)||isNaN(+new Date(e)))return rk(n,e,\"is not a valid ISO 8601 UTC date/time (the 'Z' postfix must be added to indicate Coordinated Universal Time)\");return e=new Date(e),r?new Date(e).toISOString():+e};case\"duration\":return(e,r)=>rS(e,!0,!1)?+e:rk(r,e,\"is not a valid duration (must be provided as milliseconds)\");case\"integer\":return(e,r)=>rS(e,!0,!1)?+e:rk(r,e,\"is not a valid integer\");case\"number\":return(e,r)=>rS(e,!1,!1)?e:rk(r,e,\"is not a number\");case\"string\":switch(e.format){case\"uri\":return(e,t)=>\"string\"==typeof e&&rb.test(e)?e:rk(t,e,\"is not a valid URI\");case\"url\":return(e,t)=>{var r=\"string\"==typeof e&&rb.exec(e);return r?r[2]?e:rk(t,e,\"is not a valid URL (it is a URI, but a URL is required)\"):rk(t,e,\"is not a valid URL\")};case\"urn\":return(e,t)=>{var r=\"string\"==typeof e&&rb.exec(e);return r?\"urn\"!==r[1]||r[2]?rk(t,e,\"is not a valid URN (it is a URI, but a URN is required)\"):e:rk(t,e,\"is not a valid URN\")};case\"email\":return(e,t)=>\"string\"==typeof e&&rw.test(e)?e.toLowerCase():rk(t,e,\"is not a valid email address\")}return(e,t)=>\"string\"==typeof e?e:rk(t,e,\"is not a string\");case\"uuid\":return(e,t)=>{var r;return null!=(r=\"string\"==typeof e?null==(r=rm.exec(e))?void 0:r[1].toLowerCase():null)?r:rk(t,e,\"is not a valid UUID\")};default:throw TypeError(`'${rh(e)}' is not a supported primitive type.`)}})(e),d=e.maxLength,c=(null!=d&&(v=o,o=(e,t)=>(e=v(e,t))!==rp&&e.length>d?rk(t,e,`exceeds the maximum allowed ${d} number of characters`):e),e.min),f=e.max;if(null==c&&null==f||(p=null!=c?null!=f?`between ${c} and `+f:\"at least \"+c:\"at most \"+f,v=o,o=(e,t)=>(e=v(e,t))===rp||(null==c||c<=e)&&(null==f||e<=f)?e:rk(t,e,p)),\"enum\"in e){var v=o;if(!(u=new Set((Array.isArray(e.enum)?e.enum:[e.enum]).map(e=>{var t=[];if((e=v(e,t))===rp)throw TypeError(t[0]);return e}))).size)throw TypeError(\"At least one enum value to test against is required.\");var p=\"is not the constant value \"+rn(e.enum.map(e=>JSON.stringify(e)),\"or\"),o=(e,t)=>(e=v(e,t))===rp||u.has(e)?e:rk(t,e,p)}(e=>e instanceof Set||null==e||new Set(e[tz]&&\"string\"!=typeof e?e:[e]))(u)})({primitive:\"string\",format:\"uri\"}),th(\"variable scope\",{global:\"global\",session:\"session\",device:\"device\",user:\"user\"})),rI=({key:e,scope:t=\"\",entityId:r=\"\",source:n=\"\"},i=\"\")=>[\"'\"+e+\"'\",n&&\"from '\"+n+\"'\",i,t&&\"in \"+t+\" scope\",r&&\"for '\"+r+\"'\"].filter(e=>e).join(\" \"),rA=e=>null==e?e:{source:e.source,key:e.key,scope:e.scope,entityId:e.entityId},rE=((I=l=l||{})[I.Success=200]=\"Success\",I[I.Created=201]=\"Created\",I[I.NotModified=304]=\"NotModified\",I[I.Forbidden=403]=\"Forbidden\",I[I.NotFound=404]=\"NotFound\",I[I.BadRequest=405]=\"BadRequest\",I[I.Conflict=409]=\"Conflict\",I[I.Error=500]=\"Error\",(e,t=!0)=>null!=(null==e?void 0:e.value)||!t&&(!e||404===e.status)),rN=(e,t=!0)=>e&&(e.status<400||!t&&404===e.status);function r$(e,t,r){t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r}var rO=e=>{var t=rI(e),r=e.error;return e.status<400?`${t} succeeded with status ${e.status} - ${l[e.status]}.`:`${t} failed with status ${e.status} - ${l[e.status]}${r?` (${r})`:\"\"}.`};class r_ extends Error{constructor(e,t){super(null!=t?t:\"One or more operations failed.\"),r$(this,\"succeeded\",void 0),r$(this,\"failed\",void 0),this.succeeded=null!=(t=null==e?void 0:e.filter(e=>rN(e,!1)))?t:[],this.failed=null!=(t=null==e?void 0:e.filter(e=>!rN(e,!1)))?t:[]}}var rj=e=>!!e.callback,rC=e=>!!e.poll,rM=Symbol(),rU=(e,t,r,{poll:n,logCallbackError:i}={})=>{var a=eo(t)?t:[t],o=[],u=(async()=>{var s,d,u,v,t=await r(a.filter(e=>e)),l=[];for(u of a)u&&null!=(d=t.get(u))&&(d[rM]=u,rj(u)&&l.push([u,e=>!0===u.callback(e)]),rC(u))&&l.push([u,e=>{var t;return!rE(e,!1)||(t=!rE(e,!1)||u.poll(e.value,e[rM]===u,s),s=e.value,t)}]);for([u,v]of l)try{var c=\"get\"===e?async e=>!0===await v(e)&&(null==n?void 0:n(u,c)):v;await c(u)}catch(t){var f=`${e} callback for ${rI(u)} failed: ${t}.`;i?i(f,u,t):o.push(f)}return t})(),s=async(r,n)=>{var v,c,f,i=await u,s=[],d=[];for(v of a)v?null==(f=i.get(v))?d.push(`No result for ${rI(v)}.`):!r||rN(f,n||\"set\"===e)?s.push(r&&f.status===l.NotFound?void 0:1<r?null!=(c=f.value)?c:void 0:f):d.push(rO(f)):s.push(void 0);if(d.push(...o),d.length)throw 10<d.length&&d.push(`\n(and ${d.splice(10).length} more...)`),new r_(s,d.join(\"\\n\"));return a===t?s:s[0]};return Object.assign(R(()=>s(1,!1)),{as:()=>s(1,!1),all:()=>s(0,!1),require:()=>s(1,!0),value:(e=!1)=>s(2,e),values:(e=!1)=>s(2,e)})},rF=e=>e&&\"string\"==typeof e.type,rq=(e=>t=>(null==t?void 0:t.type)&&e.some(e=>e===(null==t?void 0:t.type)))([\"view\"]),rz=e=>e&&/^(%[A-F0-9]{2}|[^%])*$/gi.test(e)&&/[A-F0-9]{2}/gi.test(e)?decodeURIComponent(e):e,rR=(e,t)=>{var r;return t&&(!(o=e.get(a=t.tag+(null!=(r=t.value)?r:\"\")))||(null!=(r=o.score)?r:1)<(null!=(r=t.score)?r:1))&&e.set(a,t)},rP=(e,t=\"\",r=new Map)=>{if(e)return eh(e)?tB(e,e=>rP(e,t,r)):el(e)?tT(e,/(?:([^\\s:~]+)::(?![ :=]))?([^\\s~]+?)(?:\\s*[:=]\\s*(?:\"((?:\"[^\"]*|.)*?)(?:\"|$)|'((?:'[^'~]*|.)*?)(?:'|$)|((?: *(?:(?:[^,&;#\\s~])))*))\\s*)?(?: *~ *(\\d*(?:\\.\\d*)?))?(?:[\\s,&;#~]+|$)/g,(e,n,i,l,a,o,u)=>{i={tag:(n?rz(n)+\"::\":\"\")+t+rz(i),value:rz(null!=(n=null!=l?l:a)?n:o)};u&&10!==parseFloat(u)&&(i.score=parseFloat(u)/10),rR(r,i)}):rR(r,e),r},rW=th(\"local variable scope\",{view:\"view\",tab:\"tab\",shared:\"shared\"}),rB=th(\"variable scope\",{...rW,...rl}),rD=e=>(\"global\"!==e.scope&&e.entityId&&(e.entityId=void 0),e),rJ=e=>null!=e&&!!e.scope&&null!=rW.ranks[e.scope],rL=e=>null==e?e:[e.scope,e.key,e.targetId].join(\"\\0\"),rV=e=>{e=e.split(\"\\0\");return{scope:e[0],key:e[1],targetId:e[2]}},rH=()=>()=>C(\"Not initialized.\"),rG=window,rX=document,rZ=rX.body,rY=(e,t)=>!(null==e||!e.matches(t)),rQ=((e=>tv=e)(!!rG.chrome),L),r0=(e,t,r=(e,t)=>rQ<=t)=>{for(var n=0,i=V;1===(null==e?void 0:e.nodeType)&&!r(e,n++)&&t(e,(e,t)=>(null!=e&&(l=e,i=t!==K&&null!=l),K),n-1)!==V&&!i;){var l,o=e;null===(e=e.parentElement)&&(null==o?void 0:o.ownerDocument)!==rX&&(e=null==o||null==(o=o.ownerDocument.defaultView)?void 0:o.frameElement)}return l},r1=(e,t=\"z\")=>{if(null!=e&&\"null\"!==e&&(\"\"!==e||\"b\"===t))switch(t){case!0:case\"z\":var r;return null==(r=(\"\"+e).trim())?void 0:r.toLowerCase();case!1:case\"r\":case\"b\":return\"\"===e||er(e);case\"n\":return parseFloat(e);case\"j\":return q(()=>JSON.parse(e),H);case\"h\":return q(()=>nZ(e),H);case\"e\":return q(()=>null==nQ?void 0:nQ(e),H);default:return eo(t)&&\"\"!==e?(\"\"+e).split(\",\").map(e=>\"\"===e.trim()?void 0:r1(e,t[0])):void 0}},r2=(e,t,r)=>r1(null==e?void 0:e.getAttribute(t),r),r6=(e,t,r)=>r0(e,(e,n)=>n(r2(e,t,r))),r4=(e,t)=>null==(e=r2(e,t))||null==(t=e.trim())?void 0:t.toLowerCase(),r5=e=>null==e?void 0:e.getAttributeNames(),r3=(e,t)=>getComputedStyle(e).getPropertyValue(t)||null,r8=e=>null!=e?e.tagName:null,r7=e=>({x:em(scrollX,e),y:em(scrollY,e)}),ne=(e,t)=>t_(e,/#.*$/,\"\")===t_(t,/#.*$/,\"\"),nt=(e,t,r=K)=>(s=nr(e,t))&&W({xpx:s.x,ypx:s.y,x:em(s.x/rZ.offsetWidth,4),y:em(s.y/rZ.offsetHeight,4),pageFolds:r?s.y/window.innerHeight:void 0}),nr=(e,t)=>null!=t&&t.pointerType&&null!=(null==t?void 0:t.pageY)?{x:t.pageX,y:t.pageY}:e?({x:d,y:v}=nn(e),{x:d,y:v}):void 0,nn=e=>e?(c=e.getBoundingClientRect(),u=r7(V),{x:em(c.left+u.x),y:em(c.top+u.y),width:em(c.width),height:em(c.height)}):void 0,ni=(e,t,r,n={capture:!0,passive:!0})=>(t=tG(t),tu(r,r=>tB(t,t=>e.addEventListener(t,r,n)),r=>tB(t,t=>e.removeEventListener(t,r,n)))),na=()=>({...u=r7(K),width:window.innerWidth,height:window.innerHeight,totalWidth:rZ.offsetWidth,totalHeight:rZ.offsetHeight}),no=new WeakMap,nu=e=>no.get(e),ns=(e,t=V)=>(t?\"--track-\":\"track-\")+e,nd=(e,t,r,n,i,l)=>(null==t?void 0:t[1])&&tB(r5(e),a=>{var o;return null!=(o=(f=t[0])[p=a])?o:f[p]=(l=V,!el(n=tB(t[1],([t,r,n],i)=>tk(a,t)&&(l=void 0,!r||rY(e,r))&&eS(null!=n?n:a)))||(i=e.getAttribute(a))&&!er(i)||rP(i,t_(n,/\\-/g,\":\"),r),l)}),nv=()=>{},nc=(e,t)=>{if(h===(h=nb.tags))return nv(e,t);var r=e=>e?tN(e)?[[e]]:eh(e)?e_(e,r):[ev(e)?[t$(e.match),e.selector,e.prefix]:[t$(e)]]:[],n=[{},[[/^(?:track\\-)?tags?(?:$|\\-)(.*)/],...r(tL(h,([,e])=>e,1))]];(nv=(e,t)=>nd(e,n,t))(e,t)},nf=(e,t)=>rr(ej(r3(e,ns(t,K)),r3(e,ns(\"base-\"+t,K))),\" \"),np={},nh=(e,t,r=nf(e,\"attributes\"))=>{var n;r&&nd(e,null!=(n=np[r])?n:np[r]=[{},tS(r,/(?:(\\S+)\\:\\s*)?(?:\\((\\S+)\\)|([^\\s,:]+))\\s*(?!\\S*\\:)/g,(e,t,r,n)=>[t$(r||n),,t])],t),rP(nf(e,\"tags\"),void 0,t)},ng=(e,t,r=V,n)=>null!=(r=null!=(r=r?r0(e,(e,r)=>r(ng(e,t,V)),ep(r)?r:void 0):rr(ej(r2(e,ns(t)),r3(e,ns(t,K))),\" \"))?r:n&&(g=nu(e))&&n(g))?r:null,ny=(e,t,r=V,n)=>\"\"===(y=ng(e,t,r,n))||(null==y?y:er(y)),nm=(e,t,r,n)=>e&&(null==n&&(n=new Map),nh(e,n),r0(e,e=>{nc(e,n),rP(null==r?void 0:r(e),void 0,n)},t),n.size)?{tags:[...n.values()]}:{},nb={name:\"tail\",src:\"/_t.js\",disabled:!1,postEvents:!0,postFrequency:2e3,requestTimeout:5e3,encryptionKey:null,key:null,apiKey:null,json:!1,impressionThreshold:1e3,captureContextMenu:!0,tags:{default:[\"data-id\",\"data-name\"]}},nw=[],nk=[],nS=(e,t=0)=>e.charCodeAt(t),nx=([...\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\"].forEach((e,t)=>nw[nk[t]=e.charCodeAt(0)]=t),e=>{for(var t,r=0,n=e.length,i=[];r<n;)t=e[r++]<<16|e[r++]<<8|e[r++],i.push(nk[(16515072&t)>>18],nk[(258048&t)>>12],nk[(4032&t)>>6],nk[63&t]);return i.length+=n-r,(e=>String.fromCharCode(...e))(i)}),nI=e=>{for(var t,r=0,n=0,i=e.length,l=new Uint8Array(3*(i/4|0)+(i+3&3)%3);r<i;)l[n++]=nw[nS(e,r++)]<<2|(t=nw[nS(e,r++)])>>4,r<i&&(l[n++]=(15&t)<<4|(t=nw[nS(e,r++)])>>2,r<i)&&(l[n++]=(3&t)<<6|nw[nS(e,r++)]);return l},nA={32:[2166136261n,16777619n],64:[0xcbf29ce484222325n,1099511628211n],128:[0x6c62272e07bb014262b821756295c58dn,0x1000000000000000000013bn]},nE=(e=256)=>e*Math.random()|0,n$={exports:{}},{deserialize:nO,serialize:n_}=((()=>{function t(e,t){if(t&&t.multiple&&!Array.isArray(e))throw Error(\"Invalid argument type: Expected an Array to serialize multiple values.\");var r,n,i=new Uint8Array(128),l=0;if(t&&t.multiple)for(var a=0;a<e.length;a++)o(e[a]);else o(e);return i.subarray(0,l);function o(e,i){var c,a;switch(typeof e){case\"undefined\":s(192);break;case\"boolean\":s(e?195:194);break;case\"number\":(e=>{var t;isFinite(e)&&Number.isSafeInteger(e)?0<=e&&e<=127||e<0&&-32<=e?s(e):0<e&&e<=255?d([204,e]):-128<=e&&e<=127?d([208,e]):0<e&&e<=65535?d([205,e>>>8,e]):-32768<=e&&e<=32767?d([209,e>>>8,e]):0<e&&e<=4294967295?d([206,e>>>24,e>>>16,e>>>8,e]):-2147483648<=e&&e<=2147483647?d([210,e>>>24,e>>>16,e>>>8,e]):0<e&&e<=0x10000000000000000?d([211,(t=e/4294967296)>>>24,t>>>16,t>>>8,t,(t=e%4294967296)>>>24,t>>>16,t>>>8,t]):-0x8000000000000000<=e&&e<=0x8000000000000000?(s(211),v(e)):d(e<0?[211,128,0,0,0,0,0,0,0]:[207,255,255,255,255,255,255,255,255]):((n=n||new DataView(r=new ArrayBuffer(8))).setFloat64(0,e),s(203),d(new Uint8Array(r)))})(e);break;case\"string\":(c=(a=(e=>{for(var t=!0,r=e.length,n=0;n<r;n++)if(127<e.charCodeAt(n)){t=!1;break}for(var i=0,l=new Uint8Array(e.length*(t?1:4)),a=0;a!==r;a++){var o=e.charCodeAt(a);if(o<128)l[i++]=o;else{if(o<2048)l[i++]=o>>6|192;else{if(55295<o&&o<56320){if(++a>=r)throw Error(\"UTF-8 encode: incomplete surrogate pair\");var u=e.charCodeAt(a);if(u<56320||57343<u)throw Error(\"UTF-8 encode: second surrogate character 0x\"+u.toString(16)+\" at index \"+a+\" out of range\");l[i++]=(o=65536+((1023&o)<<10)+(1023&u))>>18|240,l[i++]=o>>12&63|128}else l[i++]=o>>12|224;l[i++]=o>>6&63|128}l[i++]=63&o|128}}return t?l:l.subarray(0,i)})(e)).length)<=31?s(160+c):d(c<=255?[217,c]:c<=65535?[218,c>>>8,c]:[219,c>>>24,c>>>16,c>>>8,c]),d(a);break;case\"object\":null===e?s(192):e instanceof Date?(e=>{var r,t=e.getTime()/1e3;0===e.getMilliseconds()&&0<=t&&t<4294967296?d([214,255,t>>>24,t>>>16,t>>>8,t]):0<=t&&t<17179869184?d([215,255,(r=1e6*e.getMilliseconds())>>>22,r>>>14,r>>>6,r<<2>>>0|t/4294967296,t>>>24,t>>>16,t>>>8,t]):(d([199,12,255,(r=1e6*e.getMilliseconds())>>>24,r>>>16,r>>>8,r]),v(t))})(e):Array.isArray(e)?u(e):e instanceof Uint8Array||e instanceof Uint8ClampedArray?((a=(c=e).length)<=255?d([196,a]):d(a<=65535?[197,a>>>8,a]:[198,a>>>24,a>>>16,a>>>8,a]),d(c)):(e instanceof Int8Array||e instanceof Int16Array||e instanceof Uint16Array||e instanceof Int32Array||e instanceof Uint32Array||e instanceof Float32Array||e instanceof Float64Array?u:e=>{var r,t=0;for(r in e)void 0!==e[r]&&t++;for(r in t<=15?s(128+t):d(t<=65535?[222,t>>>8,t]:[223,t>>>24,t>>>16,t>>>8,t]),e){var n=e[r];void 0!==n&&(o(r),o(n))}})(e);break;default:if(i||!t||!t.invalidTypeReplacement)throw Error(\"Invalid argument type: The type '\"+typeof e+\"' cannot be serialized.\");\"function\"==typeof t.invalidTypeReplacement?o(t.invalidTypeReplacement(e),!0):o(t.invalidTypeReplacement,!0)}}function u(e){var t=e.length;t<=15?s(144+t):d(t<=65535?[220,t>>>8,t]:[221,t>>>24,t>>>16,t>>>8,t]);for(var r=0;r<t;r++)o(e[r])}function s(e){if(i.length<l+1){for(var t=2*i.length;t<l+1;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i[l]=e,l++}function d(e){if(i.length<l+e.length){for(var t=2*i.length;t<l+e.length;)t*=2;var r=new Uint8Array(t);r.set(i),i=r}i.set(e,l),l+=e.length}function v(e){var t,e=0<=e?(t=e/4294967296,e%4294967296):(t=~(Math.abs(++e)/4294967296),~(Math.abs(e)%4294967296));d([t>>>24,t>>>16,t>>>8,t,e>>>24,e>>>16,e>>>8,e])}}function r(e,t){var r,n=0;if(\"object\"!=typeof(e=e instanceof ArrayBuffer?new Uint8Array(e):e)||void 0===e.length)throw Error(\"Invalid argument type: Expected a byte array (Array or Uint8Array) to deserialize.\");if(!e.length)throw Error(\"Invalid argument: The byte array to deserialize is empty.\");if(e instanceof Uint8Array||(e=new Uint8Array(e)),t&&t.multiple)for(r=[];n<e.length;)r.push(i());else r=i();return r;function i(){var t=e[n++];if(0<=t&&t<=127)return t;if(128<=t&&t<=143)return s(t-128);if(144<=t&&t<=159)return d(t-144);if(160<=t&&t<=191)return v(t-160);if(192===t)return null;if(193===t)throw Error(\"Invalid byte code 0xc1 found.\");if(194===t)return!1;if(195===t)return!0;if(196===t)return u(-1,1);if(197===t)return u(-1,2);if(198===t)return u(-1,4);if(199===t)return c(-1,1);if(200===t)return c(-1,2);if(201===t)return c(-1,4);if(202===t)return o(4);if(203===t)return o(8);if(204===t)return a(1);if(205===t)return a(2);if(206===t)return a(4);if(207===t)return a(8);if(208===t)return l(1);if(209===t)return l(2);if(210===t)return l(4);if(211===t)return l(8);if(212===t)return c(1);if(213===t)return c(2);if(214===t)return c(4);if(215===t)return c(8);if(216===t)return c(16);if(217===t)return v(-1,1);if(218===t)return v(-1,2);if(219===t)return v(-1,4);if(220===t)return d(-1,2);if(221===t)return d(-1,4);if(222===t)return s(-1,2);if(223===t)return s(-1,4);if(224<=t&&t<=255)return t-256;throw console.debug(\"msgpack array:\",e),Error(\"Invalid byte value '\"+t+\"' at index \"+(n-1)+\" in the MessagePack binary data (length \"+e.length+\"): Expecting a range of 0 to 255. This is not a byte array.\")}function l(t){for(var l,r=0,i=!0;0<t--;)i?(r+=127&(l=e[n++]),128&l&&(r-=128),i=!1):r=(r*=256)+e[n++];return r}function a(t){for(var r=0;0<t--;)r=256*r+e[n++];return r}function o(t){var r=new DataView(e.buffer,n+e.byteOffset,t);return n+=t,4===t?r.getFloat32(0,!1):8===t?r.getFloat64(0,!1):void 0}function u(t,r){t<0&&(t=a(r));r=e.subarray(n,n+t);return n+=t,r}function s(e,t){e<0&&(e=a(t));for(var r={};0<e--;)r[i()]=i();return r}function d(e,t){e<0&&(e=a(t));for(var r=[];0<e--;)r.push(i());return r}function v(t,r){t<0&&(t=a(r));r=n;return n+=t,((e,t,r)=>{var n=t,i=\"\";for(r+=t;n<r;){var l=e[n++];if(127<l)if(191<l&&l<224){if(r<=n)throw Error(\"UTF-8 decode: incomplete 2-byte sequence\");l=(31&l)<<6|63&e[n++]}else if(223<l&&l<240){if(r<=n+1)throw Error(\"UTF-8 decode: incomplete 3-byte sequence\");l=(15&l)<<12|(63&e[n++])<<6|63&e[n++]}else{if(!(239<l&&l<248))throw Error(\"UTF-8 decode: unknown multibyte start 0x\"+l.toString(16)+\" at index \"+(n-1));if(r<=n+2)throw Error(\"UTF-8 decode: incomplete 4-byte sequence\");l=(7&l)<<18|(63&e[n++])<<12|(63&e[n++])<<6|63&e[n++]}if(l<=65535)i+=String.fromCharCode(l);else{if(!(l<=1114111))throw Error(\"UTF-8 decode: code point 0x\"+l.toString(16)+\" exceeds UTF-16 reach\");l-=65536,i+=String.fromCharCode(l>>10|55296)+String.fromCharCode(1023&l|56320)}}return i})(e,r,t)}function c(e,t){e<0&&(e=a(t));t=a(1),e=u(e);return 255===t?(e=>{var r,t;if(4===e.length)return t=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],new Date(1e3*t);if(8===e.length)return r=(e[0]<<22>>>0)+(e[1]<<14>>>0)+(e[2]<<6>>>0)+(e[3]>>>2),t=4294967296*(3&e[3])+(e[4]<<24>>>0)+(e[5]<<16>>>0)+(e[6]<<8>>>0)+e[7],new Date(1e3*t+r/1e6);if(12===e.length)return r=(e[0]<<24>>>0)+(e[1]<<16>>>0)+(e[2]<<8>>>0)+e[3],n-=8,t=l(8),new Date(1e3*t+r/1e6);throw Error(\"Invalid data length for a date value.\")})(e):{type:t,data:e}}}var n={serialize:t,deserialize:r,encode:t,decode:r};n$.exports=n})(),(I=n$.exports)&&I.__esModule&&Object.prototype.hasOwnProperty.call(I,\"default\")?I.default:I),nj=\"$ref\",nC=(e,t,r)=>ef(e)?J:r?t!==J:null===t||t,nM=(e,t,{defaultValues:r=!0,prettify:n=!1})=>{var i,l,a,o=(e,t,n=e[t],i=nC(t,n,r)?s(n):J)=>(n!==i&&(i!==J||eo(e)?e[t]=i:delete e[t],u(()=>e[t]=n)),i),u=e=>(null!=i?i:i=[]).push(e),s=e=>{if(null==e||ep(e)||ef(e))return J;if(ed(e)){if(e.toJSON&&e!==(e=e.toJSON()))return s(e);if(null!=(a=null==l?void 0:l.get(e)))return e[nj]||(e[nj]=a,u(()=>delete e[nj])),{[nj]:a};if(ev(e))for(var t in(null!=l?l:l=new Map).set(e,l.size+1),e)o(e,t);else!eh(e)||e instanceof Uint8Array||(!eo(e)||Object.keys(e).length<e.length?[...e]:e).forEach((t,r)=>r in e?o(e,r):(e[r]=null,u(()=>delete e[r])))}return e};return q(()=>{var r;return t?n_(null!=(r=s(e))?r:null):q(()=>JSON.stringify(e,J,n?2:0),()=>JSON.stringify(s(e),J,n?2:0))},!0,()=>null==i?void 0:i.forEach(e=>e()))},nU=e=>{var t,r,n=e=>ed(e)?e[nj]&&(r=(null!=t?t:t=[])[e[nj]])?r:(e[nj]&&delete(t[e[nj]]=e)[nj],Object.entries(e).forEach(([t,r])=>r!==(r=n(r))&&(e[t]=r)),e):e;return n(el(e)?q(()=>JSON.parse(e),()=>console.error(\"Invalid JSON received.\",e)):null!=e?q(()=>nO(e),()=>(console.error(\"Invalid message received.\",e),J)):e)},nF=(e,t={})=>{var r=(e,{json:t=!1,decodeJson:r=!1,...n})=>{var a,o,u,i=(e,r)=>ei(e)&&!0===r?e:u(e=el(e)?new Uint8Array(tD(e.length,t=>255&e.charCodeAt(t))):t?q(()=>JSON.stringify(e),()=>JSON.stringify(nM(e,!1,n))):nM(e,!0,n),r),l=e=>null==e?J:q(()=>nU(e),J);return t?[e=>nM(e,!1,n),l,(e,t)=>i(e,t)]:([a,o,u]=(e=>{for(var t,r,n,i,l,o,a=0n,u=0n,s=[],d=0,v=0,c=0,f=0,p=[],c=0;c<(null==e?void 0:e.length);f+=p[c]=e.charCodeAt(c++));var h=e?()=>{s=[...p],v=255&(d=f),c=-1}:()=>{},g=e=>(v=255&(d+=-s[c=(c+1)%s.length]+(s[c]=e)),e);return[e?e=>{for(h(),i=16-((t=e.length)+4)%16,l=new Uint8Array(4+t+i),n=0;n<3;l[n++]=g(nE()));for(r=0,l[n++]=g(v^16*nE(16)+i);r<t;l[n++]=g(v^e[r++]));for(;i--;)l[n++]=nE();return l}:e=>e,e?e=>{for(h(),r=0;r<3;g(e[r++]));if((t=e.length-4-((v^g(e[r++]))%16||16))<=0)return new Uint8Array(0);for(n=0,l=new Uint8Array(t);n<t;l[n++]=v^g(e[r++]));return l}:e=>e,(e,t=64)=>{if(null==e)return null;for(o=et(t)?64:t,h(),[a,u]=nA[o],r=0;r<e.length;a=BigInt.asUintN(o,(a^BigInt(v^g(e[r++])))*u));return!0===t?Number(BigInt(Number.MIN_SAFE_INTEGER)+a%BigInt(Number.MAX_SAFE_INTEGER-Number.MIN_SAFE_INTEGER)):a.toString(36)}]})(e),[(e,t)=>(t?G:nx)(a(nM(e,!0,n))),e=>null!=e?nU(o(e instanceof Uint8Array?e:(r&&ew(e)?l:nI)(e))):null,(e,t)=>i(e,t)])};if(!e){var n=+(null!=(n=t.json)?n:0);if(n&&!1!==t.prettify)return(null!=m?m:m=[r(null,{json:!1}),r(null,{json:!0,prettify:!0})])[n]}return r(e,t)},[nq,,]=(nF(),nF(null,{json:!0,decodeJson:!0}),nF(null,{json:!0,prettify:!0})),th=tO(\"\"+rX.currentScript.src,\"#\"),rl=tO(\"\"+(th[1]||\"\"),\";\"),nW=th[0],nB=rl[1]||(null==(I=tm(nW,{delimiters:!1}))?void 0:I.host),nD=e=>!(!nB||(null==(e=tm(e,{delimiters:!1}))||null==(e=e.host)?void 0:e.endsWith(nB))!==K),th=(...e)=>t_(rr(e),/(^(?=\\?))|(^\\.(?=\\/))/,nW.split(\"?\")[0]),nL=th(\"?\",\"var\"),nV=th(\"?\",\"mnt\"),nK=(th(\"?\",\"usr\"),Symbol()),nH=Symbol(),nG=(e,t,r=K,n=V)=>{t&&(r?console.groupCollapsed:console.group)((n?\"\":tc(\"tail.js: \",\"90;3\"))+t);r=null==e?void 0:e[nH];null!=(e=r?e[nK]:e)&&console.log(ed(e)?tc(nq(e),\"94\"):ep(e)?\"\"+e:e),r&&r.forEach(([e,t,r])=>nG(e,t,r,!0)),t&&console.groupEnd()},[nX,nZ]=nF(),[nY,nQ]=[rH,rH],n0=!0,[rl,n2]=Q(),n5=(...e)=>{var r,l=e.shift();console.error(e[1]instanceof Error?e[1].message:el(e[1])?e.shift():null!=(r=null==(r=e[1])?void 0:r.message)?r:\"An error occurred\",null!=(r=l.id)?r:l,...e)},[n3,n8]=Q(),[n9,n7]=Q(),ie=e=>ir!==(ir=e)&&n8(ir=!1,ia(!0,!0)),it=e=>ii!==(ii=!!e&&\"visible\"===document.visibilityState)&&n7(ii,!e,il(!0,!0)),ir=(n3(it),!0),ii=!1,il=e9(!1),ia=e9(!1),io=(ni(window,[\"pagehide\",\"freeze\"],()=>ie(!1)),ni(window,[\"pageshow\",\"resume\"],()=>ie(!0)),ni(document,\"visibilitychange\",()=>(it(!0),ii&&ie(!0))),n8(ir,ia(!0,!0)),!1),iu=e9(!1),[,id]=Q(),iv=te({callback:()=>io&&id(io=!1,iu(!1)),frequency:2e4,once:!0,paused:!0}),I=()=>!io&&(id(io=!0,iu(!0)),iv.restart()),ip=(ni(window,[\"focus\",\"scroll\"],I),ni(window,\"blur\",()=>iv.trigger()),ni(document.body,[\"keydown\",\"pointerdown\",\"pointermove\",\"scroll\"],I),I(),()=>iu()),ih=0,ig=void 0,iy=()=>(null!=ig?ig:rH())+\"_\"+im(),im=()=>(e8(!0)-(parseInt(ig.slice(0,-2),36)||0)).toString(36)+\"_\"+(++ih).toString(36),ik=new Map,iS={id:ig,heartbeat:e8()},iT={knownTabs:new Map([[ig,iS]]),variables:new Map},[ix,iI]=Q(),[iA,iE]=Q(),iN=rH,i$=(e,t=e8())=>{e=ik.get(el(e)?e:rL(e));return null!=e&&e.cache&&e.cache[0]+e.cache[1]<=t?void 0:e},iO=(...e)=>{var t=e8();return ij(tD(e,e=>(e.cache=[t],[rA(e),{...e,created:t,modified:t,version:\"0\"}])))},i_=e=>null!=(e=tD(e,e=>{var t,r;return e&&(t=rL(e[0]),(r=ik.get(t))!==e[1])?[t,e[1],r,e[0]]:tM}))?e:[],ij=e=>{var r,n,e=i_(e);null!=e&&e.length&&(r=e8(),tB(e,([,e,t])=>{e&&!e.cache&&(e.cache=null!=(e=null==t?void 0:t.cache)?e:[r,3e3])}),t9(ik,e),(n=tJ(e,([,,,e])=>0<rB.compare(e.scope,\"tab\"))).length&&iN({type:\"patch\",payload:t8(n)}),iE(tD(e,([,e,t,r])=>[r,e,t]),ik,!0))},[,iM]=(rl((e,t)=>{n3(r=>{var n;r?(r=t(sessionStorage.getItem(\"_tail:state\")),sessionStorage.removeItem(\"_tail:state\"),ig=null!=(n=null==r?void 0:r[0])?n:e8(!0).toString(36)+Math.trunc(1296*Math.random()).toString(36).padStart(2,\"0\"),ik=new Map(tX(tJ(ik,([,e])=>\"view\"===(null==e?void 0:e.scope)),tD(null==r?void 0:r[1],e=>[rL(e),e])))):sessionStorage.setItem(\"_tail:state\",e([ig,tD(ik,([,e])=>e&&\"view\"!==e.scope?e:tM)]))},!0),iN=(t,r)=>{e&&(localStorage.setItem(\"_tail:state\",e([ig,t,r])),localStorage.removeItem(\"_tail:state\"))},ni(window,\"storage\",e=>{var l,a,o;\"_tail:state\"!==e.key||!(e=null==t?void 0:t(e.newValue))||e[2]&&e[2]!==ig||([e,{type:l,payload:a}]=e,\"query\"===l?r.active||iN({type:\"set\",payload:[tD(iT.knownTabs),tD(iT.variables)]},e):\"set\"===l&&r.active?(iT.knownTabs=new Map(a[0]),iT.variables=new Map(a[1]),ik=new Map(a[1]),r.trigger()):\"patch\"===l?(o=i_(tD(a,([e,t])=>[rV(e),t])),t9(iT.variables,a),t9(ik,a),iE(tD(o,([,e,t,r])=>[r,e,t]),ik,!1)):\"tab\"===l&&(t5(iT.knownTabs,e,a),a)&&iI(\"tab\",a,!1))});var r=te(()=>iI(\"ready\",iT,!0),-25),n=te({callback(){var e=e8()-1e4;tB(iT.knownTabs,([t,r])=>r[0]<e&&t5(iT.knownTabs,t,void 0)),iS.heartbeat=e8(),iN({type:\"tab\",payload:iS})},frequency:5e3,paused:!0});n3(e=>(e=>{iN({type:\"tab\",payload:e?iS:void 0}),e?(r.restart(),iN({type:\"query\"})):r.toggle(!1),n.toggle(e)})(e),!0)},!0),Q()),[iU,iF]=Q(),iq=(({timeout:t=1e3,encrypt:r=!0,retries:n=10}={})=>{var i=()=>(r?nQ:nZ)(localStorage.getItem(\"_tail:rq\")),l=0,a=()=>localStorage.setItem(\"_tail:rq\",(r?nY:nX)([ig,e8()+t]));return async(r,o,u=null!=o?1:n)=>{for(;u--;){var d=i();if((!d||d[1]<e8())&&(a(),(null==(d=i())?void 0:d[0])===ig))return 0<t&&(l=setInterval(()=>a(),t/2)),P(r,!0,()=>{clearInterval(l),localStorage.removeItem(\"_tail:rq\")});var v=ta(),[d]=ni(window,\"storage\",t=>{\"_tail:rq\"!==t.key||t.newValue||v.resolve()});e=[tl(null!=o?o:t),v],await Promise.race(e.map(e=>ep(e)?e():e)),d()}var e;null==o&&C(\"_tail:rq could not be acquired.\")}})(),iz=async(e,t,{beacon:r=!1,encrypt:n=!0}={})=>{n=n&&n0;var i,l,a=!1,o=r=>{var o=ep(t)?null==t?void 0:t(i,r):t;return!1!==o&&(iM(e,i=null!=o&&!0!==o?o:i,r,e=>(a=i===J,i=e)),!a)&&(l=n?nY(i,!0):JSON.stringify(i))};if(!r)return iq(()=>ez(1,async t=>{var a;return o(t)?400<=(a=await fetch(e,{method:null!=i?\"POST\":\"GET\",cache:\"no-cache\",credentials:\"include\",mode:\"cors\",headers:{\"Content-Type\":\"text/plain; charset=iso-8859-1\"},body:l})).status?0===t?eS(C(\"Invalid response: \"+await a.text())):(console.warn(`Request to ${e} failed on attempt ${t+1}/3.`),await tl(200*(1+t))):(null!=(a=null!=(t=n?new Uint8Array(await a.arrayBuffer()):await a.text())&&t.length?null==(a=n?nQ:JSON.parse)?void 0:a(t):J)&&iF(a),eS(a)):eS()}));o(0)&&!navigator.sendBeacon(e,new Blob(null!=i?[l]:[],{type:\"text/plain; charset=iso-8859-1\"}))&&C(\"Beacon send failed.\")},th=[\"scope\",\"key\",\"entityId\",\"source\"],iP=[...th,\"purpose\",\"ifModifiedSince\",\"ifNoneMatch\"],iW=[...th,\"value\",\"force\",\"ttl\",\"version\"],iB=new Map,iD=(e,t)=>{var r=te(async()=>{var e=tD(iB,([e,t])=>({...rV(e),result:[...t]}));e.length&&await a.get(e)},3e3),n=(e,t)=>t&&t4(iB,e,()=>new Set).add(t),a=(n3((e,t)=>r.toggle(e,e&&3e3<=t),!0),iA(e=>tB(e,([e,t])=>(e=>{var t,r;e&&(t=rL(e),null!=(r=e1(iB,t)))&&r.size&&tB(r,r=>!0===r(e)&&n(t,r))})(t?{status:l.Success,...t}:{status:l.NotFound,...e}))),{get:r=>rU(\"get\",r,async r=>{r[0]&&!el(r[0])||(o=r[0],r=r.slice(1)),null!=t&&t.validateKey(o);var u=new Map,s=[],d=tD(r,e=>{var t=i$(rL(e)),r=e.purpose;if(r&&!0!==(null==t||null==(i=t.schema)?void 0:i.usage.purposes[r]))u.set(e,{...e,status:l.Forbidden,error:`No consent for '${r}'.`});else if(e.refresh&&t)u.set(e,{status:l.Success,...t});else{if(!rJ(e))return[re(e,iP),e];var i,r=null==(i=e.init)?void 0:i.call(e);r?(r={...rA(e),version:\"1\",created:v,modified:v,value:r,cache:[v,null!=(i=e.ttl)?i:null==t?void 0:t.ttl]},t3(s,[rA(r),r]),u.set(e,{status:l.Success,...r})):u.set(e,{status:l.NotFound,...rA(e)})}return tM}),v=e8(),o=d.length&&(null==(o=await iz(e,{variables:{get:tD(d,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId}))||null==(r=o.variables)?void 0:r.get)||[],f=[];return tB(o,(e,t)=>{var n,r;(null==e?void 0:e.status)===l.NotFound?null!=(r=null==(r=(n=d[t][1]).init)?void 0:r.call(n))&&f.push([n,{...rA(n),value:r}]):u.set(d[t][1],rD(e))}),f.length&&tB(await a.set(tD(f,([,e])=>e)).all(),(e,t)=>u.set(f[t][0],rD(e.status===l.Conflict?{...e,status:l.Success}:e))),s.length&&ij(s),u},{poll:(e,t)=>n(rL(e),t),logCallbackError:(e,t,r)=>n5(\"Variables.get\",e,{operation:t,error:r})}),set:r=>rU(\"set\",r,async r=>{r[0]&&!el(r[0])||(v=r[0],r=r.slice(1)),null!=t&&t.validateKey(v);for(var n=[],i=new Map,o=e8(),u=[],s=tD(r,e=>{var s,r,t=i$(rL(e));return rJ(e)?((r=null==(s=e.patch?e.patch(null==t?void 0:t.value):e.value)?void 0:{...rA(e),created:null!=(r=null==t?void 0:t.created)?r:o,modified:o,version:null!=t&&t.version?\"\"+(parseInt(t.version)+1):\"1\",scope:e.scope,key:e.key,value:s,cache:[o,e.ttl]})&&(r.cache=[o,null!=(s=e.ttl)?s:3e3]),i.set(e,r?{status:t?l.Success:l.Created,...r}:{status:l.Success,...rA(e)}),t3(n,[rA(e),r]),tM):e.patch?(u.push(e),tM):(void 0===(null==e?void 0:e.version)&&(e.version=null==t?void 0:t.version),[re(e,iW),e])}),d=0;!d++||u.length;){var v,f=await a.get(tD(u,e=>rA(e))).all(),f=(tB(f,(e,t)=>{var r=u[t];rN(e,!1)?t3(s,[{...r,patch:void 0,value:u[t].patch(null==e?void 0:e.value),version:e.version},r]):i.set(r,e)}),u=[],s.length?F(null==(f=(await iz(e,{variables:{set:tD(s,([e])=>e)},deviceSessionId:null==t?void 0:t.deviceSessionId})).variables)?void 0:f.set,\"No result.\"):[]);tB(f,(e,t)=>{var[,t]=s[t];d<=3&&t.patch&&((null==e?void 0:e.status)===l.Conflict||(null==e?void 0:e.status)===l.NotFound)?t3(u,t):i.set(t,rD(e))})}return n.length&&ij(n),i},{logCallbackError:(e,t,r)=>n5(\"Variables.set\",e,{operation:t,error:r})})});return iU(({variables:e})=>{e&&null!=(e=tX(tD(e.get,e=>rE(e)?e:tM),tD(e.set,e=>rN(e)?e:tM)))&&e.length&&ij(tD(e,e=>[rA(e),rN(e)?e:void 0]))}),a},iJ=Symbol(),iV=Symbol(),iK=[.75,.33],iH=[.25,.33],iX=e=>tD(tY(e,[e=>e.scope,e=>e.key]),e=>e?[e,`${rI(e)}, ${rJ(e)?\"client-side memory only\":rd(null==(e=e.schema)?void 0:e.usage)})`,V]:tM),i0=(e,t=\"A\"===r8(e)&&r2(e,\"href\"))=>t&&\"#\"!=t&&!t.startsWith(\"javascript:\"),i1=(e,t=r8(e),r=ny(e,\"button\"))=>r!==V&&(U(t,\"A\",\"BUTTON\")||\"INPUT\"===t&&U(r4(e,\"type\"),\"button\",\"submit\")||r===K),i2=(e,t=!1)=>{var r;return{tagName:e.tagName,text:tf((null==(r=r2(e,\"title\"))?void 0:r.trim())||(null==(r=r2(e,\"alt\"))?void 0:r.trim())||(null==(r=e.innerText)?void 0:r.trim()),100),href:null==(r=e.href)?void 0:r.toString(),rect:t?nn(e):void 0}},i4=e=>{if(w)return w;el(e)&&([r,e]=nZ(e),e=nF(r,{decodeJson:!0})[1](e)),eZ(nb,e),(e=>{nQ===rH&&([nY,nQ]=nF(e,{json:!e,prettify:!1}),n0=!!e,n2(nY,nQ))})(e1(nb,\"encryptionKey\"));var r,a,o,u,s,d,v,c,f,p,h,g,y,i=e1(nb,\"key\"),l=null!=(e=null==(r=rG[nb.name])?void 0:r._)?e:[];if(eo(l))return a=[],o=[],u=(e,...t)=>{var r=K;o=eB(o,n=>q(()=>{var i;return null!=(i=n[e])&&i.call(n,...t,{tracker:w,unsubscribe:()=>r=V}),r},(e=>t=>n5(e,t))(n)))},s=[],v=iD(nL,d={applyEventExtensions(e){return null==e.clientId&&(e.clientId=iy()),null==e.timestamp&&(e.timestamp=e8()),h=K,tB(a,([,t])=>{var r;return(null==(r=t.decorate)?void 0:r.call(t,e))===V&&tU(!0)})?void 0:e},validateKey:(e,t=!0)=>!i&&!e||e===i||!!t&&C(`'${e}' is not a valid key.`)}),c=((e,t)=>{var n=[],i=new WeakMap,l=new Map,a=(e,t)=>{var r;return null!=(r=e.metadata)&&r.queued?eX(t,{type:e.type+\"_patch\",patchTargetId:e.clientId}):C(\"Source event not queued.\")},o=async(r,n=!0,i)=>{var l;return r[0]&&!el(r[0])||(l=r[0],r=r.slice(1)),r=tD(r,e=>{if(null!=t&&t.validateKey(null!=l?l:e.key),eX(e,{metadata:{posted:!0}}),e[iJ]){if(!1===e[iJ](e))return;delete e[iJ]}return eX(rc(e6(e),!0),{timestamp:e.timestamp-e8()})}),nG({[nH]:tD(r,e=>[e,e.type,V])},\"Posting \"+rn([td(\"new event\",[eD(r,e=>!rf(e))||void 0]),td(\"event patch\",[eD(r,e=>rf(e))||void 0])])+(n?\" asynchronously\":\" synchronously\")+\".\"),iz(e,{events:r,variables:i,deviceSessionId:null==t?void 0:t.deviceSessionId},{beacon:n})},u=async(e,{flush:r=!1,async:i=!0,variables:l}={})=>{var a=[];if(e=tD(tG(e),e=>{var r;return null!=(r=e.metadata)&&r.queued||e4(a,e),null!=(r=t7(t.applyEventExtensions(e),{metadata:{queued:!0}}))?r:tM}),tB(a,e=>nG(e,e.type)),!i)return o(e,!1,l);r?(n.length&&e5(e,...n.splice(0)),e.length&&await o(e,!0,l)):e.length&&e4(n,...e)};return te(()=>u([],{flush:!0}),5e3),n9((e,t,r)=>{!e&&(n.length||t||1500<r)&&(e=tD(l,([e,t])=>{var[t,n]=t();return n&&(l.delete(e),i.delete(e)),null!=t?t:tM}),n.length||e.length)&&u(ej(n.splice(0),e),{flush:!0})}),{post:u,postPatch:(e,t,r)=>u(a(e,t),{flush:!0}),registerEventPatchSource(e,t,r=!1,n){var o=!1,s=()=>{o=!0};return i.set(e,e6(e)),l.set(e,()=>{if(!1===(null==n?void 0:n.isConnected))s();else{var l=i.get(e),[r,d]=null!=(r=e3(t(l,s),l))?r:[];if(r&&!M(d,l))return i.set(e,e6(d)),[a(e,r),o]}return[void 0,o]}),r&&u(e),s}}})(nL,d),f=null,p=0,g=h=V,y=!1,w=(...e)=>{if(y){if(e.length){1<e.length&&(!e[0]||el(e[0]))&&(t=e[0],e=e.slice(1)),el(e[0])&&(r=e[0],e=ew(r)?JSON.parse(r):nZ(r));var t,n=V;if((e=eB(tL(e,e=>el(e)?nZ(e):e),e=>{if(!e)return V;if(lx(e))nb.tags=eZ({},nb.tags,e.tagAttributes);else{if(lI(e))return nb.disabled=e.disable,V;if(lN(e))return n=K,V;if(lM(e))return e(w),V}return g||lO(e)||lE(e)?K:(s.push(e),V)})).length||n){var r=eK(e,e=>lE(e)?-100:lO(e)?-50:lC(e)?-10:rF(e)?90:0);if(!f||!f.splice(h?p+1:f.length,0,...r)){for(p=0,f=r;p<f.length;p++){var m=f[p];m&&(d.validateKey(null!=t?t:m.key),q(()=>{var e=f[p];if(u(\"command\",e),h=V,rF(e))c.post(e);else if(l$(e))v.get(tG(e.get));else if(lC(e))v.set(tG(e.set));else if(lO(e))e4(o,e.listener);else if(lE(e))(t=q(()=>e.extension.setup(w),t=>n5(e.extension.id,t)))&&(e4(a,[null!=(r=e.priority)?r:100,t,e.extension]),eK(a,([e])=>e));else if(lM(e))e(w);else{var r,n,t,l=V;for([,t]of a)if(l=null!=(n=null==(n=t.processCommand)?void 0:n.call(t,e))?n:V)break;l||n5(\"invalid-command\",e,\"Loaded extensions:\",tD(a,e=>e[2].id))}},e=>n5(w,\"internal-error\",e)))}f=null,n&&c.post([],{flush:n})}}}}else l.push(...e)},Object.defineProperty(rG,nb.name,{value:Object.freeze(Object.assign(w,{id:\"tracker_\"+iy(),events:c,variables:v,__isTracker:K})),configurable:!1,writable:!1}),iA((e,t,r)=>{var n=ej(iX(tD(e,([,e])=>e||tM)),[[{[nH]:iX(tD(t,([,e])=>e||tM))},\"All variables\",K]]);nG({[nH]:n},tc(`Variables changed${r?\"\":\" - merging changes from another tab\"} (${e.length} changed, ${eD(t)} in total).`,\"2;3\"))}),ix(async(e,t,r,n)=>{var a;\"ready\"===e&&([e,a]=await v.get([{scope:\"session\",key:\"@info\",refresh:!0},{scope:\"session\",key:\"@consent\",refresh:!0,cache:L}]).values(!0),d.deviceSessionId=e.deviceSessionId,e.hasUserAgent||((()=>{w(W({type:\"user_agent\",hasTouch:0<navigator.maxTouchPoints,userAgent:navigator.userAgent,view:null==k?void 0:k.clientId,languages:tD(navigator.languages,(e,t)=>{var[r,n]=e.split(\"-\");return W({id:e,language:r,region:n,primary:0===t,preference:t+1})}),timezone:{iana:Intl.DateTimeFormat().resolvedOptions().timeZone,offset:(new Date).getTimezoneOffset()},...(r=null==rG?void 0:rG.screen,r?({width:r,height:i,orientation:l}=r,a=r<i,-90!==(l=null!=(l=null!=(l=null==l?void 0:l.angle)?l:rG.orientation)?l:0)&&90!==l||([r,i]=[i,r]),{deviceType:r<480?\"mobile\":r<=1024?\"tablet\":\"desktop\",screen:{dpr:rG.devicePixelRatio,width:r,height:i,landscape:a}}):{})}));var i,a,l,r})(),e.hasUserAgent=!0),g=!0,s.length&&w(s),n(),y=!0,w(...tD(lw,e=>({extension:e})),...l),w({set:{scope:\"view\",key:\"loaded\",value:!0}}))},!0),w;C(`The global variable for the tracker \"${nb.name}\" is used for something else than an array of queued commands.`)},i5=()=>null==k?void 0:k.clientId,i3={scope:\"shared\",key:\"referrer\"},i8=(e,t)=>{w.variables.set({...i3,value:[i5(),e]}),t&&w.variables.get({scope:i3.scope,key:i3.key,poll:(r,n,i)=>!!r||(null==i?void 0:i[1])===e&&t()&&!1})},i9=e9(),i7=e9(),le=1,[lr,ln]=Q(),li=e=>{var t=e9(e,i9),r=e9(e,i7),n=e9(e,ip),i=e9(e,()=>le);return(e,l)=>({totalTime:t(e,l),visibleTime:r(e,l),activeTime:n(e,l),activations:i(e,l)})},ll=li(),[lo,lu]=Q(),ls=(e,t)=>(t&&tB(lv,t=>e(t,()=>!1)),lo(e)),ld=new WeakSet,lv=document.getElementsByTagName(\"iframe\");function lf(e){if(e){if(null!=e.units&&U(e.action,null,\"add\",\"remove\")){if(0===e.units)return;e.action=0<e.units?\"add\":\"remove\"}return e}}var lh=e=>(null==e?void 0:e.component)||(null==e?void 0:e.content),lg=e=>nm(e,t=>t!==e&&!!lh(no.get(t)),e=>(T=no.get(e),(T=no.get(e))&&e_(ej(T.component,T.content,T),\"tags\"))),ly=(e,t)=>t?e:{...e,rect:void 0,content:(x=e.content)&&tD(x,e=>({...e,rect:void 0}))},lm=(e,t=V,r)=>{var n,i,l,a=[],o=[],u=0;return r0(e,e=>{var s,l,i=no.get(e);i&&(lh(i)&&(l=eB(tG(i.component),e=>{var r;return 0===u||!t&&(1===u&&(null==(r=e.track)?void 0:r.secondary)!==K||(null==(r=e.track)?void 0:r.promote))}),n=(null!=r?r:eV(l,e=>null==(e=e.track)?void 0:e.region))&&nn(e)||void 0,s=lg(e),i.content&&e5(a,...tD(i.content,e=>({...e,rect:n,...s}))),null!=l)&&l.length&&(e5(o,...tD(l,e=>{var t;return u=eJ(u,null!=(t=e.track)&&t.secondary?1:2),ly({...e,content:a.length?a:void 0,rect:n,...s},!!n)})),a=[]),l=i.area||ng(e,\"area\"))&&e5(o,l)}),a.length&&e4(o,ly({id:\"\",rect:n,content:a})),tB(o,e=>{el(e)?e4(null!=i?i:i=[],e):(null==e.area&&(e.area=rr(i,\"/\")),e5(null!=l?l:l=[],e))}),l||i?{components:l,area:rr(i,\"/\")}:void 0},lb=Symbol(),lw=[{id:\"context\",setup(e){te(()=>tB(lv,e=>eQ(ld,e)&&lu(e)),500).trigger(),e.variables.get({scope:\"view\",key:\"view\",poll(t){return null==k||!t||null!=k&&k.definition?null!=(n=t)&&t.navigation&&f(!0):(k.definition=t,null!=(t=k.metadata)&&t.posted?e.events.postPatch(k,{definition:n}):nG(k,k.type+\" (definition updated)\")),!0}});var n,t,d=null!=(t=null==(t=i$({scope:\"tab\",key:\"viewIndex\"}))?void 0:t.value)?t:0,v=null==(t=i$({scope:\"tab\",key:\"tabIndex\"}))?void 0:t.value,c=(null==v&&iO({scope:\"tab\",key:\"tabIndex\",value:v=null!=(t=null!=(t=null==(t=i$({scope:\"shared\",key:\"tabIndex\"}))?void 0:t.value)?t:null==(t=i$({scope:\"session\",key:\"@info\"}))||null==(t=t.value)?void 0:t.tabs)?t:0},{scope:\"shared\",key:\"tabIndex\",value:v+1}),null),f=(t=V)=>{var l,a,o,i,p;ne(\"\"+c,c=location.href)&&!t||({source:t,scheme:i,host:l}=tm(location.href+\"\",{requireAuthority:!0}),k={type:\"view\",timestamp:e8(),clientId:iy(),tab:ig,href:t,path:location.pathname,hash:location.hash||void 0,domain:{scheme:i,host:l},tabNumber:v+1,tabViewNumber:d+1,viewport:na(),duration:ll(void 0,!0)},0===v&&(k.firstTab=K),0===v&&0===d&&(k.landingPage=K),iO({scope:\"tab\",key:\"viewIndex\",value:++d}),a=tb(location.href),tD([\"source\",\"medium\",\"campaign\",\"term\",\"content\"],(e,t)=>{var n;return null!=(e=(null!=(n=(o=k).utm)?n:o.utm={})[e]=null==(n=tG(a[\"utm_\"+e]))?void 0:n[0])?e:tM}),!(k.navigationType=S)&&performance&&tB(performance.getEntriesByType(\"navigation\"),e=>{k.redirects=e.redirectCount,k.navigationType=t_(e.type,/\\_/g,\"-\")}),S=void 0,\"navigate\"===(null!=(t=k.navigationType)?t:k.navigationType=\"navigate\")&&(p=null==(i=i$(i3))?void 0:i.value)&&nD(document.referrer)&&(k.view=null==p?void 0:p[0],k.relatedEventId=null==p?void 0:p[1],e.variables.set({...i3,value:void 0})),(p=document.referrer||null)&&!nD(p)&&(k.externalReferrer={href:p,domain:(()=>{var{host:t,scheme:r,port:n}=tm(p,{delimiters:!1,requireAuthority:!0});return{host:t+(n?\":\"+n:\"\"),scheme:r}})()}),k.definition=n,n=void 0,e.events.post(k),e.events.registerEventPatchSource(k,()=>({duration:ll()})),ln(k))};return n9(e=>{e?(i7(K),++le):i7(V)}),ni(window,\"popstate\",()=>(S=\"back-forward\",f())),tB([\"push\",\"replace\"],e=>{var t=history[e+=\"State\"];history[e]=(...e)=>{t.apply(history,e),S=\"navigate\",f()}}),f(),{processCommand:t=>lT(t)&&(e(t.username?{type:\"login\",username:t.username}:{type:\"logout\"}),K),decorate(e){!k||rq(e)||rf(e)||(e.view=k.clientId)}}}},{id:\"components\",setup(e){var t=(e=>{var t=new IntersectionObserver(e=>tB(e,e=>{var t,r;return null==(t=(r=e.target)[iV])?void 0:t.call(r,e)})),r=new Set,n=(te({callback:()=>tB(r,e=>e()),frequency:250,raf:!0}),(e,t,r=0)=>e<r?r:t<e?t:e),i=rX.createRange();return(l,a)=>{var o,u,s,d,v,c,f,p,h,g,y,m,b,w,k,S;a&&(o=eB(null==a?void 0:a.component,e=>{var t;return(null==(t=e.track)?void 0:t.impressions)||(null!=(t=null==(t=e.track)?void 0:t.secondary)?t:e.inferred)!==K}))&&eD(o)&&(p=f=V,g=h=0,y=(e,t,r,n)=>{var i,l=null!=(l=(i=null!=u?u:u=[])[e])?l:i[e]=[{duration:0,impressions:0},e9(!1,ip),!1,!1,0,0,0,tj()];l[4]=t,l[5]=r,l[6]=n},m=[tj(),tj()],b=li(!1),w=e9(!1,ip),k=-1,S=()=>{var $,t=l.getBoundingClientRect(),r=window.innerWidth,a=window.innerHeight,S=[n(t.top,a),n(t.right,r),n(t.bottom,a),n(t.left,r)],T=S[2]-S[0],S=S[1]-S[3],E=f?iH:iK,r=(E[0]*a<T||E[0]<(T/t.height||0))&&(E[0]*r<S||E[0]<(S/t.width||0));if(p!==r&&w(p=r,!0),f!==(f=p&&w()>=nb.impressionThreshold-250)&&(++h,b(f),s||e(s=tD(o,e=>((null==(e=e.track)?void 0:e.impressions)||ny(l,\"impressions\",K,e=>null==(e=e.track)?void 0:e.impressions))&&W({type:\"impression\",pos:nt(l),viewport:na(),timeOffset:ll(),impressions:h,...lm(l,K)})||tM)),null!=s)&&s.length&&($=b(),d=tD(s,t=>e.events.registerEventPatchSource(t,()=>({relatedEventId:t.clientId,duration:$,impressions:h,regions:u&&{top:u[0][0],middle:u[1][0],bottom:u[2][0]},seen:g,text:c,read:$.activeTime&&c&&n($.activeTime/c.readTime,g)})))),t.height!==k){k=t.height;E=l.textContent;if({boundaries:v,...c}=(e=>{for(var r,n,i=RegExp(\"[\\\\p{L}\\\\p{N}][\\\\p{L}\\\\p{N}'’]*|([.!?]+)\",\"gu\"),l=0,a=0,o=0,u=0,s=!1;r=i.exec(e);)r[1]?(s&&++u,s=!1):(s=!0,l+=r[0].length,6<r[0].length&&++o,++a);s&&++u;var i=RegExp(\"[\\\\p{L}\\\\p{N}]|([^\\\\p{L}\\\\p{N}]+)\",\"gu\"),d=[0,.25,.75,1].map(e=>e*l|0),v=[],f=0,p=!1;do{if(null!=(r=i.exec(e))&&r[1])p&&++f;else{for(var c=null==r?void 0:r.index,h=!1,g=0;g<d.length;g++)d[g]--||(v[g]={offset:null!=n?n:c,wordsBefore:f,readTime:em(f/238*6e4)},h=!0);(p=!h)||(f=0),n=c+1}}while(r);return{text:e,length:e.length,characters:l,words:a,sentences:u,lix:em(a/u+100*o/a),readTime:em(a/238*6e4),boundaries:v}})(null!=E?E:\"\"),u||t.height>=1.25*a){var _=rX.createTreeWalker(l,NodeFilter.SHOW_TEXT),j=0,C=0;for(null==u&&(u=[]);C<v.length&&(M=_.nextNode());){var M,U,F,P,B,z=null!=(U=null==(U=M.textContent)?void 0:U.length)?U:0;for(j+=z;j>=(null==(F=v[C])?void 0:F.offset);)i[C%2?\"setEnd\":\"setStart\"](M,v[C].offset-j+z),C++%2&&({top:F,bottom:P}=i.getBoundingClientRect(),B=t.top,C<3?y(0,F-B,P-B,v[1].readTime):(y(1,u[0][4],F-B,v[2].readTime),y(2,F-B,P-B,v[3].readTime)))}}}var r=t.left<0?-t.left:0,E=t.top<0?-t.top:0,L=t.width*t.height;f&&(g=m[0].push(E,E+T)*m[1].push(r,r+S)/L),u&&tB(u,e=>{var r=n(t.top<0?-t.top:0,e[5],e[4]),i=n(t.bottom>a?a:t.bottom,e[5],e[4]),l=f&&0<i-r,o=e[0];o.duration=e[1](l),l&&(e[3]!==(e[3]=l)&&++e[0].impressions,o.seen=e[7].push(r,i)/(e[5]-e[4]),o.read=n(o.duration/e[6],o.seen))})},l[iV]=({isIntersecting:e})=>{eZ(r,S,e),e||(tB(d,e=>e()),S())},t.observe(l))}})(e),n=({boundary:e,...n})=>{eY(no,e,e=>{var t;return(e=>null==e?void 0:{...e,component:tG(e.component),content:tG(e.content),tags:tG(e.tags)})(\"add\"in n?{...e,component:ej(null==e?void 0:e.component,n.component),content:ej(null==e?void 0:e.content,n.content),area:null!=(t=null==n?void 0:n.area)?t:null==e?void 0:e.area,tags:ej(null==e?void 0:e.tags,n.tags),cart:null!=(t=n.cart)?t:null==e?void 0:e.cart,track:null!=(t=n.track)?t:null==e?void 0:e.track}:\"update\"in n?n.update(e):n)}),t(e,no.get(e))};return{decorate(e){tB(e.components,t=>{t5(t,\"track\",void 0),tB(e.clickables,e=>t5(e,\"track\",void 0))})},processCommand:e=>lA(e)?(n(e),K):lj(e)?(tB(((e,t)=>{var r,n;return t?(r=[],n=new Set,document.querySelectorAll(`[${e}]`).forEach(i=>{if(!n.has(i))for(var l=[];null!=r2(i,e);){eQ(n,i);var a,o=tO(r2(i,e),\"|\");r2(i,e,null);for(var u=0;u<o.length;u++){var d=o[u];if(\"\"!==d){var s=\"-\"===d?-1:parseInt(null!=(s=ea(d))?s:\"\",36);if(s<0)l.length+=s;else{if(0===u&&(l.length=0),isNaN(s)&&/^[\"\\[{]/.test(d))for(var c=\"\";u<o.length;u++)try{d=JSON.parse(c+=o[u]);break}catch(e){}0<=s&&t[s]&&(d=t[s]),e4(l,d)}}}e4(r,...tD(l,e=>({add:K,...e,boundary:i})));var f=i.nextElementSibling;\"WBR\"===i.tagName&&null!=(a=i.parentNode)&&a.removeChild(i),i=f}}),r):[]})(e.scan.attribute,e.scan.components),n),K):V}}},{id:\"navigation\",setup(e){var t=new WeakMap,r=r=>{ni(r,[\"click\",\"contextmenu\",\"auxclick\"],n=>{var i,l,a,o,u,s=V;if(r0(n.target,e=>{i1(e)&&null==a&&(a=e),s=s||\"NAV\"===r8(e);var t,d=nu(e),d=null==d?void 0:d.component;!n.button&&null!=d&&d.length&&!u&&(tB(e.querySelectorAll(\"a,button\"),t=>i1(t)&&(3<(null!=u?u:u=[]).length?eS():u.push({...i2(t,!0),component:r0(t,(e,t,r,n=null==(i=nu(e))?void 0:i.component)=>n&&t(n[0]),t=>t===e)}))),u)&&null==o&&(o=e),null==i&&(i=null!=(t=ny(e,\"clicks\",K,e=>null==(e=e.track)?void 0:e.clicks))?t:d&&eV(d,e=>(null==(e=e.track)?void 0:e.clicks)!==V)),null==l&&(l=null!=(t=ny(e,\"region\",K,e=>null==(e=e.track)?void 0:e.region))?t:d&&eV(d,e=>null==(e=e.track)?void 0:e.region))}),null!=o?o:o=a){var d,v=u&&!a&&i,c=lm(null!=a?a:o,!1,v),f=nm(null!=a?a:o,void 0,e=>tJ(tG(null==(e=no.get(e))?void 0:e.tags))),p=(null==i&&(i=!s),{...(l=null==l?K:l)?{pos:nt(a,n),viewport:na()}:null,...((e,t)=>{var n;return r0(null!=e?e:t,e=>\"IMG\"===r8(e)||e===t?(n={element:i2(e,!1)},V):K),n})(n.target,null!=a?a:o),...c,timeOffset:ll(),...f});if(a)if(i0(a)){var h=a,c=h.hostname!==location.hostname,{host:f,scheme:m,source:b}=tm(h.href,{delimiters:!1,requireAuthority:!0});if(h.host===location.host&&h.pathname===location.pathname&&h.search===location.search)return\"#\"===h.hash?void 0:void(h.hash!==location.hash&&0===n.button&&e(W({type:\"anchor_navigation\",anchor:h.hash,...p})));var k,T,w=W({clientId:iy(),type:\"navigation\",href:c?h.href:b,external:c,domain:{host:f,scheme:m},self:K,anchor:h.hash,...p});\"contextmenu\"!==n.type?n.button<=1&&(1===n.button||n.ctrlKey||n.shiftKey||n.altKey||r2(h,\"target\")!==window.name?(i8(w.clientId),w.self=V,e(w)):ne(location.href,h.href)||(w.exit=w.external,i8(w.clientId))):(k=h.href,(b=nD(k))?i8(w.clientId,()=>e(w)):(T=(\"\"+Math.random()).replace(\".\",\"\").substring(1,8),b||nb.captureContextMenu&&(h.href=nV+\"=\"+T+encodeURIComponent(k),ni(window,\"storage\",(t,r)=>\"_tail:push\"===t.key&&(t.newValue&&(null==(t=JSON.parse(t.newValue))?void 0:t.requestId)===T&&e(w),r())),ni(r,[\"keydown\",\"keyup\",\"visibilitychange\",\"pointermove\"],(e,t)=>{t(),h.href=k}))))}else{r0(n.target,(e,t)=>{var r;return!!(null!=d?d:d=(e=>el(e=null==e||e!==K&&\"\"!==e?e:\"add\")&&U(e,\"add\",\"remove\",\"update\",\"clear\")?{action:e}:ed(e)?e:void 0)(null!=(r=null==(r=nu(e))?void 0:r.cart)?r:ng(e,\"cart\")))&&!d.item&&(d.item=(e=>null==e?J:eo(e)||el(e)?e[e.length-1]:eF(e,(e,r)=>e,void 0,void 0))(null==(r=nu(e))?void 0:r.content))&&t(d)});c=lf(d);(c||i)&&e(W(c?{type:\"cart_updated\",...p,...c}:{type:\"component_click\",...p}))}else v&&eY(t,o,r=>{var i=nr(o,n);return r?e4(r,i):(i=W({type:\"component_click_intent\",...p,clicks:r=[i],clickables:u}),e.events.registerEventPatchSource(i,()=>({clicks:t.get(o)}),!0,o)),r})}})};r(document),ls(e=>e.contentDocument&&r(e.contentDocument))}},{id:\"scroll\",setup(e){var t={},r=r7(K);lr(()=>{return e=()=>(t={},r=r7(K)),setTimeout(e,250);var e}),ni(window,\"scroll\",()=>{var l,n=r7(),i={x:(u=r7(V)).x/(rZ.offsetWidth-window.innerWidth)||0,y:u.y/(rZ.offsetHeight-window.innerHeight)||0};n.y>=r.y&&(l=[],!t.fold&&n.y>=r.y+200&&(t.fold=K,e4(l,\"fold\")),!t[\"page-middle\"]&&.5<=i.y&&(t[\"page-middle\"]=K,e4(l,\"page-middle\")),!t[\"page-end\"]&&.99<=i.y&&(t[\"page-end\"]=K,e4(l,\"page-end\")),(n=tD(l,e=>W({type:\"scroll\",scrollType:e,offset:i}))).length)&&e(n)})}},{id:\"cart\",setup:e=>({processCommand(t){var r;return lS(t)?(\"clear\"===(r=t.cart)?e({type:\"cart_updated\",action:\"clear\"}):(r=lf(r))&&e({...r,type:\"cart_updated\"}),K):l_(t)?(e({type:\"order\",...t.order}),K):V}})},{id:\"forms\",setup(e){var t,r=new Map,n=(e,t=!1)=>{var r=!t||r6(e,ns(\"form-value\")),e=(t&&(r=r?er(r):\"checkbox\"===e.type),e.selectedOptions?[...e.selectedOptions].map(e=>e.value).join(\",\"):\"checkbox\"===e.type?e.checked?\"true\":\"false\":e.value);return t&&(e=e&&tf(e,200)),r?e:void 0},i=t=>{var i,a,s,l=t.form;if(l)return a=r6(l,ns(\"ref\"))||\"track_ref\",(s=t4(r,l,()=>{var t,r=new Map,n={type:\"form\",name:r6(l,ns(\"form-name\"))||r2(l,\"name\")||l.id||void 0,activeTime:0,totalTime:0,fields:{}},s=(e.events.post(n),e.events.registerEventPatchSource(n,()=>({...n,timeOffset:ll()})),((e=0)=>{var t,r,n=(i,l=e)=>{if(void 0===i)return!!r;clearTimeout(t),et(i)?i&&(l<0?en:D)(null==r?void 0:r())?n(r):r=void 0:(r=i,t=setTimeout(()=>n(!0,l),l<0?-l:l))};return n})());return ni(l,\"submit\",()=>{i=lm(l),t[3]=3,s(()=>{(l.isConnected&&0<nn(l).width?(t[3]=2,s):()=>{o(),2<=t[3]&&(n.completed=3===t[3]||!(l.isConnected&&nn(l).width)),e.events.postPatch(n,{...i,totalTime:e8(K)-t[4]}),t[3]=1})()},750)}),t=[n,r,l,0,e8(K),1]}))[1].get(t)||tB(l.querySelectorAll(\"INPUT,SELECT,TEXTAREA\"),(e,t)=>{var d,v,l;e.name&&\"hidden\"!==e.type?(l=null!=(d=(l=s[0].fields)[v=e.name])?d:l[v]={id:e.id||v,name:v,label:t_(null!=(v=null==(d=e.labels)||null==(l=d[0])?void 0:l.innerText)?v:e.name,/^\\s*(.*?)\\s*\\*?\\s*$/g,\"$1\"),activeTime:0,totalTime:0,type:null!=(d=e.type)?d:\"unknown\",[lb]:n(e),value:n(e,!0)},s[0].fields[l.name]=l,s[1].set(e,l)):\"hidden\"!==e.type||e.name!==a&&!ny(e,\"ref\")||(e.value||(e.value=t_(\"10000000-1000-4000-8000-100000000000\",/[018]/g,e=>((e*=1)^(e=>crypto.getRandomValues(e))(new Uint8Array(1))[0]&15>>e/4).toString(16))),s[0].ref=e.value)}),[t,s]},l=(e,[r,n]=null!=(t=i(e))?t:[],l=null==n?void 0:n[1].get(r))=>l&&[n[0],l,r,n],a=null,o=()=>{var r,i,l,o,d,v,c;a&&([r,i,l,o]=a,d=-(u-(u=i7())),v=-(s-(s=e8(K))),c=i[lb],(i[lb]=n(l))!==c&&(null==i.fillOrder&&(i.fillOrder=o[5]++),i.filled&&(i.corrections=(null!=(c=i.corrections)?c:0)+1),i.filled=K,o[3]=2,tB(r.fields,([e,t])=>t.lastField=e===i.name)),i.value=n(l,!0),i.activeTime+=d,i.totalTime+=v,r.activeTime+=d,r.totalTime+=v,a=null)},u=0,s=0,d=e=>e&&ni(e,[\"focusin\",\"focusout\",\"change\"],(e,t,r=e.target&&l(e.target))=>r&&(a=r,\"focusin\"===e.type?(s=e8(K),u=i7()):o()));d(document),ls(e=>e.contentDocument&&d(e.contentDocument),!0)}},{id:\"consent\",setup(e){var t,n=async t=>e.variables.get({scope:\"session\",key:\"@consent\",poll:t,refresh:!0}).value(),i=async t=>{var r;if(t)return!(r=await n())||rv.equals(r,t)?[!1,r]:(await e.events.post(W({type:\"consent\",consent:t}),{async:!1,variables:{get:[{scope:\"session\",key:\"@consent\"}]}}),[!0,t])},r={analytics_storage:\"performance\",functionality_storage:\"functionality\",personalization_storage:\"personalization\",ad_storage:\"marketing\",security_storage:\"security\"},l=(e({consent:{externalSource:{key:\"Google Consent Mode v2\",frequency:250,poll(){var e,n=rG.dataLayer,i=t,l=null==n?void 0:n.length;if(l&&(t!==(t=n[l-1])||!t))for(;l--&&((e=n[l])!==i||!i);){var a={},o=!0;if(\"consent\"===(null==e?void 0:e[0])&&\"update\"===e[1])return tD(r,([t,r])=>\"granted\"===e[2][t]&&(a[r]=!0,o=o&&(\"security\"===r||\"necessary\"===r))),{classification:o?\"anonymous\":\"indirect\",purposes:a}}}}}}),{});return{processCommand(e){var r,a,t,s,d;return lU(e)?((t=e.consent.get)&&n(t),(r=e.consent.set)&&(async()=>{var e;return(null!=(e=r.callback)?e:()=>{})(...await i(r))})(),(a=e.consent.externalSource)&&(d=a.key,(null!=(t=l[d])?t:l[d]=te({frequency:null!=(e=a.frequency)?e:1e3})).restart(a.frequency,async()=>{var e,t,r;rX.hasFocus()&&(e=a.poll(s))&&!rv.equals(s,e)&&([t,r]=await i(e),t&&nG(r,\"Consent was updated from \"+d),s=e)}).trigger()),K):V}}}}],I=(...e)=>t=>t===e[0]||e.some(e=>\"string\"==typeof e&&void 0!==(null==t?void 0:t[e])),lS=I(\"cart\"),lT=I(\"username\"),lx=I(\"tagAttributes\"),lI=I(\"disable\"),lA=I(\"boundary\"),lE=I(\"extension\"),lN=I(K,\"flush\"),l$=I(\"get\"),lO=I(\"listener\"),l_=I(\"order\"),lj=I(\"scan\"),lC=I(\"set\"),lM=e=>\"function\"==typeof e,lU=I(\"consent\");Object.defineProperty(rG,\".tail.js.init\",{writable:!1,configurable:!1,value(e){e(i4)}})})();\n//# sourceMappingURL=tail.debug.js.map\n"
 };
 
 function _define_property$a(obj, key, value) {
@@ -7313,10 +7455,14 @@ const generateClientBootstrapScript = (config, encrypt)=>{
         ...config,
         dataTags: undefined
     };
-    return `((d=document,s=d.createElement("script"))=>{s.addEventListener("load",()=>window[${JSON.stringify(INITIALIZE_TRACKER_FUNCTION)}](init=>init(${JSON.stringify(encrypt ? httpEncode([
+    const f = `window[${JSON.stringify(INITIALIZE_TRACKER_FUNCTION)}]`;
+    const scriptBlockerAttributes = config.scriptBlockerAttributes;
+    // We use polling instead of attaching to the "load" event for the injected script.
+    // The latter seems to get blocked by e.g. Cookiebot.
+    return `((d=document,s=d.createElement("script"))=>{const poll=()=>${f}?${f}(init=>init(${JSON.stringify(encrypt ? httpEncode([
         tempKey,
         createTransport(tempKey)[0](clientConfig, true)
-    ]) : clientConfig)})),true);s.src=${JSON.stringify(config.src + ((config.src.includes("?") ? "&" : "?") + BUILD_REVISION_QUERY ))};d.head.appendChild(s)})();`;
+    ]) : clientConfig)})):setTimeout(poll,10);${scriptBlockerAttributes && `${JSON.stringify(map2(scriptBlockerAttributes))}.forEach(([k,v])=>s.setAttribute(k,v))`};s.src=${JSON.stringify(config.src + ((config.src.includes("?") ? "&" : "?") + BUILD_REVISION_QUERY ))};poll();d.head.appendChild(s)})();`;
 };
 const generateClientExternalNavigationScript = (requestId, url)=>{
     // TODO: Update if we decide to change the client to use BroadcastChannel (that would be, if Chrome fixes the bf_cache issues
@@ -7324,6 +7470,46 @@ const generateClientExternalNavigationScript = (requestId, url)=>{
     return `<html><head><script>try{localStorage.setItem(${JSON.stringify(CLIENT_CALLBACK_CHANNEL_ID)},${JSON.stringify(JSON.stringify({
         requestId
     }))});localStorage.removeItem(${JSON.stringify(CLIENT_CALLBACK_CHANNEL_ID)});}catch(e){console.error(e);}location.replace(${JSON.stringify(url)});</script></head><body>(Redirecting to ${url}...)</body></html>`;
+};
+
+const LegacyClassifications = [
+    "anonymous",
+    "indirect",
+    "direct",
+    "sensitive"
+];
+const LegacyPurposes = {
+    Functionality: 2,
+    Performance: 4,
+    Targeting: 8
+};
+const tryConvertLegacyConsent = (consent)=>{
+    const match = consent === null || consent === void 0 ? void 0 : consent.match(/^(\d*)@(\d*)$/);
+    if (!match) {
+        return undefined;
+    }
+    const classification = LegacyClassifications[+(match[2] || 0)];
+    const purposeFlags = +(match[1] || 0);
+    const purposes = {
+        performance: (purposeFlags & LegacyPurposes.Performance) > 0,
+        functionality: (purposeFlags & LegacyPurposes.Functionality) > 0,
+        marketing: (purposeFlags & LegacyPurposes.Targeting) > 0
+    };
+    purposes.personalization = purposes.performance;
+    purposes.security = true;
+    return {
+        classification,
+        purposes
+    };
+};
+const tryConvertLegacyDeviceVariable = (values)=>{
+    if (values.length > 3) {
+        return [
+            values[0],
+            values[2],
+            values[3]
+        ];
+    }
 };
 
 function _define_property$9(obj, key, value) {
@@ -7399,6 +7585,9 @@ class RequestHandler {
                     storage = {
                         session: {
                             storage: new InMemoryStorage(30 * 1000 * 60)
+                        },
+                        device: {
+                            storage: new InMemoryStorage(30 * 1000 * 60)
                         }
                     };
                 }
@@ -7458,7 +7647,8 @@ class RequestHandler {
                         var _extension_initialize;
                         await ((_extension_initialize = extension.initialize) === null || _extension_initialize === void 0 ? void 0 : _extension_initialize.call(extension, this.environment));
                     } catch (e) {
-                        this.environment.log(extension, "initialize", e);
+                        this._logExtensionError(extension, "initialize", e);
+                        throw e;
                     }
                     return extension;
                 }));
@@ -7466,8 +7656,10 @@ class RequestHandler {
             } catch (error) {
                 host.log(serializeLogMessage({
                     level: "error",
-                    message: "An error occurred while initializing the request handler."
+                    message: "An error occurred while initializing the request handler.",
+                    error
                 }));
+                throw error;
             }
             this._initialized = true;
         });
@@ -7577,7 +7769,7 @@ class RequestHandler {
             clientIp !== null && clientIp !== void 0 ? clientIp : clientIp = (_ref = (_headers_xforwardedfor_ = (_headers_xforwardedfor = headers["x-forwarded-for"]) === null || _headers_xforwardedfor === void 0 ? void 0 : _headers_xforwardedfor[0]) !== null && _headers_xforwardedfor_ !== void 0 ? _headers_xforwardedfor_ : (_obj2 = obj2(parseQueryString(headers["forwarded"]))) === null || _obj2 === void 0 ? void 0 : _obj2["for"]) !== null && _ref !== void 0 ? _ref : undefined;
             let clientEncryptionKey;
             if (this._config.clientEncryptionKeySeed) {
-                !this._config.json && (clientEncryptionKey = this.environment.hash((this._config.clientEncryptionKeySeed || "") + await this._clientIdGenerator.generateClientId(this.environment, request, true), 64));
+                clientEncryptionKey = this.environment.hash((this._config.clientEncryptionKeySeed || "") + await this._clientIdGenerator.generateClientId(this.environment, request, true), 64);
             }
             return {
                 headers,
@@ -7591,13 +7783,14 @@ class RequestHandler {
                         ]
                     ])),
                 clientIp,
-                sessionReferenceId: this.environment.hash(await this._clientIdGenerator.generateClientId(this.environment, request, false), 128),
+                anonymousSessionReferenceId: this.environment.hash(await this._clientIdGenerator.generateClientId(this.environment, request, false), 128),
                 trustedContext,
                 requestHandler: this,
                 defaultConsent: this._defaultConsent,
                 cookies: CookieMonster.parseCookieHeader(headers["cookie"]),
-                clientEncryptionKey,
-                transport: this._config.json ? defaultJsonTransport : createTransport(clientEncryptionKey)
+                clientEncryptionKey: this._config.json ? undefined : clientEncryptionKey,
+                transport: this._config.json ? defaultJsonTransport : createTransport(clientEncryptionKey),
+                cookieTransport: createTransport(clientEncryptionKey)
             };
         });
         /**
@@ -7794,7 +7987,7 @@ class RequestHandler {
                                             });
                                         }
                                         json = true;
-                                        postRequest = isJsonObject(body) ? body : JSON.parse(decodeUtf8(body));
+                                        postRequest = isJsonObject(body) ? body : JSON.parse(typeof body === "string" ? body : decodeUtf8(body));
                                     } else {
                                         const { transport: cipher } = await trackerSettings();
                                         postRequest = cipher[1](body);
@@ -7806,7 +7999,7 @@ class RequestHandler {
                                     }
                                     trackerInitializationOptions = {
                                         deviceId: postRequest.deviceId,
-                                        deviceSessionId: postRequest.deviceId
+                                        deviceSessionId: postRequest.deviceSessionId
                                     };
                                     const resolvedTracker = await resolveTracker();
                                     const response = {};
@@ -7928,7 +8121,8 @@ class RequestHandler {
             if ("inline" in script) {
                 return html ? `<script${nonce ? ` nonce="${nonce}"` : ""}>${script.inline}</script>` : script.inline;
             } else {
-                return html ? `<script src='${script.src}?${INIT_SCRIPT_QUERY}${"&" + BUILD_REVISION_QUERY }'${script.defer !== false ? " defer" : ""}></script>` : `try{document.body.appendChild(Object.assign(document.createElement("script"),${JSON.stringify({
+                var _map2, _this__config_client;
+                return html ? `<script${(_map2 = map2((_this__config_client = this._config.client) === null || _this__config_client === void 0 ? void 0 : _this__config_client.scriptBlockerAttributes, ([key, value])=>` ${key}="${value.replaceAll('"', "&quot;")}"`)) === null || _map2 === void 0 ? void 0 : _map2.join("")} src='${script.src}?${INIT_SCRIPT_QUERY}${"&" + BUILD_REVISION_QUERY }'${script.defer !== false ? " defer" : ""}></script>` : `try{document.body.appendChild(Object.assign(document.createElement("script"),${JSON.stringify({
                     src: script.src,
                     async: script.defer
                 })}))}catch(e){console.error(e);}`;
@@ -7939,7 +8133,7 @@ class RequestHandler {
     _logExtensionError(extension, method, error) {
         this.environment.log(extension, {
             level: "error",
-            message: `An error occurred when invoking the method '${method}' on an extension.`,
+            message: `An error occurred when invoking the method '${method}' on the extension ${getDefaultLogSourceName(extension)}.`,
             group: "extensions",
             error: error
         });
@@ -7961,7 +8155,12 @@ class RequestHandler {
         _define_property$9(this, "endpoint", void 0);
         _define_property$9(this, "environment", void 0);
         /** @internal */ _define_property$9(this, "_clientIdGenerator", void 0);
-        let { trackerName, endpoint, extensions, cookies, client, clientIdGenerator, defaultConsent } = config = merge({}, DEFAULT, config);
+        let { trackerName, endpoint, extensions, cookies, client, clientIdGenerator, defaultConsent } = config = merge2({}, [
+            config,
+            DEFAULT
+        ], {
+            overwrite: false
+        });
         this._config = Object.freeze(config);
         this._trackerName = trackerName;
         this.endpoint = !endpoint.startsWith("/") ? "/" + endpoint : endpoint;
@@ -8037,12 +8236,35 @@ class Tracker {
         return (_this__device = this._device) === null || _this__device === void 0 ? void 0 : _this__device.value;
     }
     get deviceId() {
-        var _this__session_value, _this__session;
-        return (_this__session = this._session) === null || _this__session === void 0 ? void 0 : (_this__session_value = _this__session.value) === null || _this__session_value === void 0 ? void 0 : _this__session_value.deviceId;
+        var _this__device;
+        return (_this__device = this._device) === null || _this__device === void 0 ? void 0 : _this__device.value.id;
     }
     get authenticatedUserId() {
         var _this__session_value, _this__session;
         return (_this__session = this._session) === null || _this__session === void 0 ? void 0 : (_this__session_value = _this__session.value) === null || _this__session_value === void 0 ? void 0 : _this__session_value.userId;
+    }
+    _encryptCookie(value) {
+        return this._cookieCipher[0](value);
+    }
+    _decryptCookie(value, logNameHint) {
+        try {
+            return this._cookieCipher[1](value);
+        } catch  {
+            try {
+                return defaultTransport[1](value);
+            } catch (error) {
+                this.env.log(this, {
+                    level: "error",
+                    message: "Could not decrypt cookie value.",
+                    error,
+                    details: {
+                        name: logNameHint,
+                        value
+                    }
+                });
+                return undefined;
+            }
+        }
     }
     httpClientEncrypt(value) {
         return this._clientCipher[0](value);
@@ -8083,10 +8305,10 @@ class Tracker {
         }
         // Merge the requests cookies, and whatever cookies might have been added to the forwarded request.
         // The latter overwrites cookies with the same name if they were also sent by the client.
-        const cookies = map(new Map(concat(map(this.cookies, ([name, cookie])=>[
+        const cookies = map2(new Map(concat(map2(this.cookies, ([name, cookie])=>[
                 name,
                 cookie.value
-            ]), map((_CookieMonster_parseCookieHeader = CookieMonster.parseCookieHeader(finalRequest.headers["cookies"])) === null || _CookieMonster_parseCookieHeader === void 0 ? void 0 : _CookieMonster_parseCookieHeader[requestCookies], ([name, cookie])=>[
+            ]), map2((_CookieMonster_parseCookieHeader = CookieMonster.parseCookieHeader(finalRequest.headers["cookies"])) === null || _CookieMonster_parseCookieHeader === void 0 ? void 0 : _CookieMonster_parseCookieHeader[requestCookies], ([name, cookie])=>[
                 name,
                 cookie.value
             ]))), ([...args])=>args.map((value)=>encodeURIComponent(value !== null && value !== void 0 ? value : "")).join("=")).join("; ");
@@ -8113,8 +8335,10 @@ class Tracker {
         return result;
     }
     // #region DeviceData
-    async _loadCachedDeviceVariables() {
-        // Loads device variables into cache.
+    /**
+   * Load device variables from the client, and store them as variables with a short TTL to avoid race conditions.
+   *
+   */ async _loadCachedDeviceVariables() {
         const variables = this._getClientDeviceVariables();
         if (variables) {
             var _this__clientDeviceCache;
@@ -8122,27 +8346,32 @@ class Tracker {
                 return;
             }
             this._clientDeviceCache.loaded = true;
-            await this.set(map2(variables, ([, value])=>value));
+            await this.set(map2(variables, ([, value])=>value), {
+                trusted: true
+            }).all(); // Ignore conflicts. That just means there are concurrent requests.
         }
     }
     _getClientDeviceVariables() {
         if (!this._clientDeviceCache) {
             const deviceCache = this._clientDeviceCache = {};
             let timestamp;
-            DATA_PURPOSES.map((name)=>{
-                var _this_cookies_this__requestHandler__cookieNames_deviceByPurpose_name;
-                var _deviceCache;
+            DataPurposes.names.map((purposeName)=>{
+                var _this_cookies_cookieName;
                 // Device variables are stored with a cookie for each purpose.
-                forEach2(this.httpClientDecrypt((_this_cookies_this__requestHandler__cookieNames_deviceByPurpose_name = this.cookies[this._requestHandler._cookieNames.deviceByPurpose[name]]) === null || _this_cookies_this__requestHandler__cookieNames_deviceByPurpose_name === void 0 ? void 0 : _this_cookies_this__requestHandler__cookieNames_deviceByPurpose_name.value), (value)=>{
-                    var _variables;
-                    return update2((_variables = (_deviceCache = deviceCache).variables) !== null && _variables !== void 0 ? _variables : _deviceCache.variables = {}, value[0], (current)=>current !== null && current !== void 0 ? current : {
-                            scope: "device",
-                            key: value[0],
-                            version: value[1],
-                            value: value[2],
-                            created: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now(),
-                            modified: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now()
-                        });
+                const cookieName = this._requestHandler._cookieNames.deviceByPurpose[purposeName];
+                forEach2(this._decryptCookie((_this_cookies_cookieName = this.cookies[cookieName]) === null || _this_cookies_cookieName === void 0 ? void 0 : _this_cookies_cookieName.value, ` ${purposeName} device variables`), (value)=>{
+                    var _deviceCache, _ref, _value_;
+                    var _tryConvertLegacyDeviceVariable;
+                    value = (_tryConvertLegacyDeviceVariable = tryConvertLegacyDeviceVariable(value)) !== null && _tryConvertLegacyDeviceVariable !== void 0 ? _tryConvertLegacyDeviceVariable : value;
+                    var _variables, _;
+                    (_ = (_ref = (_variables = (_deviceCache = deviceCache).variables) !== null && _variables !== void 0 ? _variables : _deviceCache.variables = {})[_value_ = value[0]]) !== null && _ !== void 0 ? _ : _ref[_value_] = {
+                        scope: "device",
+                        key: value[0],
+                        version: value[1],
+                        value: value[2],
+                        created: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now(),
+                        modified: timestamp !== null && timestamp !== void 0 ? timestamp : timestamp = now()
+                    };
                 });
             });
             return this._clientDeviceCache.variables;
@@ -8166,13 +8395,15 @@ class Tracker {
    * (so yes, they can hypothetically be split across the same tab even though that goes against the definition).
    *
    * @internal */ async _ensureInitialized({ deviceId, deviceSessionId, passive } = {}) {
-        var _this_cookies_this__requestHandler__cookieNames_consent;
+        var _this_cookies_this__requestHandler__cookieNames_consent, _this_cookies_this__requestHandler__cookieNames_consent1;
         if (this._initialized === (this._initialized = true)) {
             return this;
         }
         this._requestId = await this.env.nextId("request");
         const timestamp = now();
-        this._consent = DataUsage.deserialize((_this_cookies_this__requestHandler__cookieNames_consent = this.cookies[this._requestHandler._cookieNames.consent]) === null || _this_cookies_this__requestHandler__cookieNames_consent === void 0 ? void 0 : _this_cookies_this__requestHandler__cookieNames_consent.value, this._defaultConsent);
+        // TODO: Remove eventually when we can be sure, no one have old cookies in the browsers anymore.
+        const legacyConsent = tryConvertLegacyConsent((_this_cookies_this__requestHandler__cookieNames_consent = this.cookies[this._requestHandler._cookieNames.consent]) === null || _this_cookies_this__requestHandler__cookieNames_consent === void 0 ? void 0 : _this_cookies_this__requestHandler__cookieNames_consent.value);
+        this._consent = legacyConsent !== null && legacyConsent !== void 0 ? legacyConsent : DataUsage.deserialize((_this_cookies_this__requestHandler__cookieNames_consent1 = this.cookies[this._requestHandler._cookieNames.consent]) === null || _this_cookies_this__requestHandler__cookieNames_consent1 === void 0 ? void 0 : _this_cookies_this__requestHandler__cookieNames_consent1.value, this._defaultConsent);
         await this._ensureSession(timestamp, {
             deviceId,
             deviceSessionId,
@@ -8205,6 +8436,9 @@ class Tracker {
         if (DataClassification.compare(classification !== null && classification !== void 0 ? classification : this.consent.classification, this.consent.classification) < 0 || some2(this.consent.purposes, ([key])=>!(purposes === null || purposes === void 0 ? void 0 : purposes[key]))) {
             // If the user downgraded the level of consent or removed purposes we need to delete existing data that does not match.
             await this.purge({
+                // NOTE: We do not touch user variables automatically.
+                // Consumers can hook into the apply or patch pipelines with an extension to provide their own logic -
+                // they can see the current consent on the tracker in context, and the new consent from the event.
                 scopes: [
                     "session",
                     "device"
@@ -8215,6 +8449,11 @@ class Tracker {
                     ] : undefined),
                 classification: {
                     gt: classification
+                }
+            }, {
+                bulk: true,
+                context: {
+                    trusted: true
                 }
             });
         }
@@ -8231,157 +8470,205 @@ class Tracker {
             });
         }
     }
-    async _ensureSession(timestamp, { deviceId, deviceSessionId = this.deviceSessionId, passive = false, resetSession = false, resetDevice = false, refreshState = false } = {}) {
-        var _this__session, _this__session1;
-        if ((resetSession || resetDevice) && this._sessionReferenceId) {
+    async _ensureSession(timestamp = now(), { deviceId, deviceSessionId = this.deviceSessionId, passive = false, resetSession = false, resetDevice = false, refreshState = false } = {}) {
+        var _this__session, _this_session, _this__decryptCookie, _this_cookies_this__requestHandler__cookieNames_session, _this__getClientDeviceVariables_SCOPE_INFO_KEY_value, _this__getClientDeviceVariables_SCOPE_INFO_KEY, _this__getClientDeviceVariables;
+        const useAnonymousTracking = this._consent.classification === "anonymous";
+        if ((resetSession || resetDevice) && this.sessionId) {
             // Purge old data. No point in storing this since it will no longer be used.
-            await this.purge({
-                scopes: filter2([
-                    resetSession && "session",
-                    resetDevice && "device"
-                ], false)
-            }, {
-                bulk: true
+            await this.env.storage.purge([
+                resetSession && this.sessionId && {
+                    scope: "session",
+                    entityIds: [
+                        this.sessionId
+                    ]
+                },
+                resetSession && this.sessionId && useAnonymousTracking && this._anonymousSessionReferenceId && {
+                    scope: "session",
+                    entityIds: [
+                        this._anonymousSessionReferenceId
+                    ]
+                },
+                resetDevice && this.deviceId && {
+                    scope: "device",
+                    entityIds: [
+                        this.deviceId
+                    ]
+                }
+            ], {
+                bulk: true,
+                context: {
+                    trusted: true
+                }
             });
         } else if (((_this__session = this._session) === null || _this__session === void 0 ? void 0 : _this__session.value) && !refreshState) {
+            // We already have a session value, and no refresh is needed (refresh is needed e.g. when changing consent.)
+            // No refresh needed means this method has been called a second time, just to be sure the session is initialized.
             return;
         }
-        // In case we refresh, we might already have a session ID.
-        let sessionId = this.sessionId;
-        let cachedDeviceData;
-        const getDeviceId = async ()=>{
-            var _ref;
-            return this._consent.classification !== "anonymous" ? (_ref = deviceId !== null && deviceId !== void 0 ? deviceId : resetDevice ? undefined : cachedDeviceData === null || cachedDeviceData === void 0 ? void 0 : cachedDeviceData.id) !== null && _ref !== void 0 ? _ref : await this.env.nextId("device") : undefined;
-        };
-        if (this._consent.classification !== "anonymous") {
-            var _this__getClientDeviceVariables_SCOPE_INFO_KEY, _this__getClientDeviceVariables, _this_httpClientDecrypt, _this_cookies_this__requestHandler__cookieNames_session;
-            cachedDeviceData = resetDevice ? undefined : (_this__getClientDeviceVariables = this._getClientDeviceVariables()) === null || _this__getClientDeviceVariables === void 0 ? void 0 : (_this__getClientDeviceVariables_SCOPE_INFO_KEY = _this__getClientDeviceVariables[SCOPE_INFO_KEY]) === null || _this__getClientDeviceVariables_SCOPE_INFO_KEY === void 0 ? void 0 : _this__getClientDeviceVariables_SCOPE_INFO_KEY.value;
-            if (sessionId && this._sessionReferenceId !== sessionId && !passive) {
-                // We switched from cookie-less to cookies. Purge reference.
-                await this.env.storage.set([
-                    {
-                        scope: "session",
-                        key: SESSION_REFERENCE_KEY,
-                        entityId: this._sessionReferenceId,
-                        value: null,
-                        force: true
-                    },
-                    {
-                        scope: "session",
-                        key: SCOPE_INFO_KEY,
-                        entityId: sessionId,
-                        patch: async (current)=>({
-                                ...current,
-                                deviceId: await getDeviceId()
-                            })
-                    }
-                ], {
-                    trusted: true
-                });
-            }
-            var _ref;
-            // CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
-            // This means clients must make sure the initial request to endpoint completes before more are sent (or at least do a fair effort).
-            // Additionally, empty sessions should be filtered by analytics using the collected events.
-            this._sessionReferenceId = sessionId = (_ref = resetSession ? undefined : (_this_httpClientDecrypt = this.httpClientDecrypt((_this_cookies_this__requestHandler__cookieNames_session = this.cookies[this._requestHandler._cookieNames.session]) === null || _this_cookies_this__requestHandler__cookieNames_session === void 0 ? void 0 : _this_cookies_this__requestHandler__cookieNames_session.value)) === null || _this_httpClientDecrypt === void 0 ? void 0 : _this_httpClientDecrypt.id) !== null && _ref !== void 0 ? _ref : passive ? undefined : sessionId !== null && sessionId !== void 0 ? sessionId : await this.env.nextId("session");
-            this.cookies[this._requestHandler._cookieNames.session] = {
-                httpOnly: true,
-                sameSitePolicy: "None",
-                essential: true,
-                value: this.httpClientEncrypt({
-                    id: this._sessionReferenceId
-                })
-            };
-        } else if (this._sessionReferenceId) {
-            if (sessionId && this._sessionReferenceId === sessionId && !passive) {
-                // We switched from cookies to cookie-less. Remove deviceId and device info.
-                await this.env.storage.set([
-                    {
-                        scope: "session",
-                        key: SCOPE_INFO_KEY,
-                        entityId: sessionId,
-                        patch: (current)=>({
-                                ...current,
-                                deviceId: undefined
-                            })
-                    },
-                    this.deviceId && {
-                        scope: "session",
-                        key: SCOPE_INFO_KEY,
-                        entityId: this.deviceId,
-                        force: true,
-                        value: undefined
-                    }
-                ], {
-                    trusted: true
-                });
-                this._device = undefined;
-            }
-            this._sessionReferenceId = this._sessionReferenceId;
-            sessionId = await this.env.storage.get({
+        var _ref;
+        // In case we refresh (calling this method again, e.g. from consent change), we might already have an identified session ID.
+        let identifiedSessionId = resetSession ? undefined : (_ref = ((_this_session = this.session) === null || _this_session === void 0 ? void 0 : _this_session.anonymous) ? undefined : this.sessionId) !== null && _ref !== void 0 ? _ref : (_this__decryptCookie = this._decryptCookie((_this_cookies_this__requestHandler__cookieNames_session = this.cookies[this._requestHandler._cookieNames.session]) === null || _this_cookies_this__requestHandler__cookieNames_session === void 0 ? void 0 : _this_cookies_this__requestHandler__cookieNames_session.value, "Session ID")) === null || _this__decryptCookie === void 0 ? void 0 : _this__decryptCookie.id;
+        // We might also have an anonymous session ID.
+        let anonymousSessionId;
+        var _this_deviceId;
+        deviceId = deviceId !== null && deviceId !== void 0 ? deviceId : resetDevice ? undefined : (_this_deviceId = this.deviceId) !== null && _this_deviceId !== void 0 ? _this_deviceId : (_this__getClientDeviceVariables = this._getClientDeviceVariables()) === null || _this__getClientDeviceVariables === void 0 ? void 0 : (_this__getClientDeviceVariables_SCOPE_INFO_KEY = _this__getClientDeviceVariables[SCOPE_INFO_KEY]) === null || _this__getClientDeviceVariables_SCOPE_INFO_KEY === void 0 ? void 0 : (_this__getClientDeviceVariables_SCOPE_INFO_KEY_value = _this__getClientDeviceVariables_SCOPE_INFO_KEY.value) === null || _this__getClientDeviceVariables_SCOPE_INFO_KEY_value === void 0 ? void 0 : _this__getClientDeviceVariables_SCOPE_INFO_KEY_value.id;
+        if (!identifiedSessionId || useAnonymousTracking) {
+            var _this_session1;
+            var _ref1;
+            // We need to know the anonymous session ID (if any).
+            // Either because it must be included as a hint in the identified session (for analytical processing)
+            // or because we are using anonymous tracking.
+            anonymousSessionId = (_ref1 = ((_this_session1 = this.session) === null || _this_session1 === void 0 ? void 0 : _this_session1.anonymous) ? this.sessionId : undefined) !== null && _ref1 !== void 0 ? _ref1 : await this.env.storage.get({
                 scope: "session",
                 key: SESSION_REFERENCE_KEY,
-                entityId: this._sessionReferenceId,
-                init: async ()=>passive ? undefined : sessionId !== null && sessionId !== void 0 ? sessionId : await this.env.nextId()
+                entityId: this._anonymousSessionReferenceId,
+                // Only initialize if anonymous tracking.
+                init: ()=>useAnonymousTracking ? this.env.nextId("anonymous-session") : undefined
             }, {
                 trusted: true
             }).value();
-        } else {
-            // We do not have any information available for assigning a session ID.
-            this._session = this._device = undefined;
-            return;
         }
-        if (sessionId == null) {
-            return;
-        }
-        this._session = // We bypass the TrackerVariableStorage here and use the environment directly.
-        // The session ID we currently have is provisional,
-        // and will not become the tracker's actual session ID before the info variable has been set.
-        await this.env.storage.get({
-            scope: "session",
-            key: SCOPE_INFO_KEY,
-            entityId: sessionId,
-            init: async ()=>{
-                if (passive) return undefined;
-                return createInitialScopeData(sessionId, timestamp, {
-                    deviceId: await getDeviceId(),
-                    deviceSessionId: deviceSessionId !== null && deviceSessionId !== void 0 ? deviceSessionId : await this.env.nextId("device-session"),
-                    previousSession: cachedDeviceData === null || cachedDeviceData === void 0 ? void 0 : cachedDeviceData.lastSeen,
-                    hasUserAgent: false
+        if (useAnonymousTracking) {
+            // Anonymous tracking.
+            if (!passive) {
+                // Clear session cookie, if any.
+                this.cookies[this._requestHandler._cookieNames.session] = {
+                    httpOnly: true,
+                    sameSitePolicy: "None",
+                    essential: true,
+                    value: null
+                };
+                if (identifiedSessionId || deviceId) {
+                    // We switched from identified to anonymous tracking. Remove current session and device variables.
+                    await this.env.storage.purge([
+                        identifiedSessionId && {
+                            scope: "session",
+                            entityIds: [
+                                identifiedSessionId
+                            ]
+                        },
+                        deviceId && {
+                            scope: "device",
+                            entityIds: [
+                                deviceId
+                            ]
+                        }
+                    ], {
+                        bulk: true,
+                        context: {
+                            trusted: true
+                        }
+                    });
+                }
+                this._device = undefined;
+                this._session = await this.env.storage.get({
+                    scope: "session",
+                    key: SCOPE_INFO_KEY,
+                    entityId: anonymousSessionId,
+                    init: async ()=>createInitialScopeData(anonymousSessionId, timestamp, {
+                            deviceSessionId: deviceSessionId !== null && deviceSessionId !== void 0 ? deviceSessionId : await this.env.nextId("device-session"),
+                            anonymous: true
+                        })
+                }, {
+                    trusted: true
                 });
             }
-        }, {
-            trusted: true
-        });
-        if ((_this__session1 = this._session) === null || _this__session1 === void 0 ? void 0 : _this__session1.value) {
-            var _this_session;
-            let device = this._consent.classification === "anonymous" && this.deviceId ? await this.env.storage.get({
-                scope: "device",
-                key: SCOPE_INFO_KEY,
-                entityId: this.deviceId,
-                init: async ()=>createInitialScopeData(this._session.value.deviceId, timestamp, {
-                        sessions: 1
-                    })
-            }, {
-                trusted: true
-            }) : undefined;
-            this._device = device;
-            if ((device === null || device === void 0 ? void 0 : device.value) && device.status !== VariableResultStatus.Created && ((_this_session = this.session) === null || _this_session === void 0 ? void 0 : _this_session.isNew)) {
-                // A new session started on an existing device.
-                this._device = await this.env.storage.set({
+        } else {
+            // If passive, identified session may be null at this point, and nothing will happen
+            if (!passive) {
+                var // 2. The session ID from the cookie has expired:
+                _this__session1, _this__session2, _this__session3;
+                // Make sure we have device ID and session IDs (unless passive, where new sessions are not created from context menu navigation links).
+                if (// 1. We do not have an existing session ID from a cookie:
+                !identifiedSessionId || ((_this__session1 = this._session) === null || _this__session1 === void 0 ? void 0 : _this__session1.entityId) !== identifiedSessionId && !(this._session = await this.env.storage.get({
+                    scope: "session",
+                    key: SCOPE_INFO_KEY,
+                    entityId: identifiedSessionId
+                }))) {
+                    identifiedSessionId = await this.env.nextId("session");
+                }
+                // We might already have read the session above in check 2, or _ensureSession has already been called earlier.
+                if (!((_this__session2 = this._session) === null || _this__session2 === void 0 ? void 0 : _this__session2.entityId) !== identifiedSessionId) {
+                    this._session = await this.env.storage.get({
+                        scope: "session",
+                        key: SCOPE_INFO_KEY,
+                        entityId: identifiedSessionId,
+                        init: async ()=>// CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
+                            // This means clients must make sure the initial request to the endpoint completes before more are sent (or at least do a fair effort).
+                            // Additionally, analytics processing should be aware of empty sessions, and decide what to do with them (probably filter them out).
+                            createInitialScopeData(identifiedSessionId, timestamp, {
+                                anonymous: false,
+                                // Initialize device ID here to keep it in the session.
+                                deviceId: deviceId !== null && deviceId !== void 0 ? deviceId : await this.env.nextId("device"),
+                                deviceSessionId: deviceSessionId !== null && deviceSessionId !== void 0 ? deviceSessionId : await this.env.nextId("device-session"),
+                                anonymousSessionId
+                            })
+                    }, {
+                        trusted: true
+                    });
+                }
+                deviceId = this._session.value.deviceId;
+                this._device = await this.env.storage.get({
                     scope: "device",
                     key: SCOPE_INFO_KEY,
-                    entityId: this.deviceId,
-                    patch: (device)=>device && {
-                            ...device,
-                            sessions: device.sessions + 1,
-                            lastSeen: this.session.lastSeen
-                        }
+                    entityId: deviceId,
+                    init: ()=>createInitialScopeData(deviceId, timestamp, {
+                            sessions: 1
+                        })
+                }, {
+                    trusted: true
                 });
+                if (((_this__session3 = this._session) === null || _this__session3 === void 0 ? void 0 : _this__session3.value.isNew) && !this._device.value.isNew) {
+                    // New session, existing device. Update statistics.
+                    await this.env.storage.set({
+                        scope: "device",
+                        key: SCOPE_INFO_KEY,
+                        entityId: deviceId,
+                        patch: (current)=>current && {
+                                ...current,
+                                sessions: current.sessions + 1,
+                                lastSeen: timestamp
+                            }
+                    }, {
+                        trusted: true
+                    });
+                }
+                if (anonymousSessionId) {
+                    // We went from anonymous to identified tracking.
+                    await this.env.storage.set([
+                        {
+                            scope: "session",
+                            key: SCOPE_INFO_KEY,
+                            entityId: anonymousSessionId,
+                            value: null,
+                            force: true
+                        },
+                        this._anonymousSessionReferenceId && {
+                            scope: "session",
+                            key: SESSION_REFERENCE_KEY,
+                            entityId: this._anonymousSessionReferenceId,
+                            value: null,
+                            force: true
+                        }
+                    ], {
+                        trusted: true
+                    }).all();
+                }
+                this.cookies[this._requestHandler._cookieNames.session] = {
+                    httpOnly: true,
+                    sameSitePolicy: "None",
+                    essential: true,
+                    value: this._encryptCookie({
+                        id: identifiedSessionId
+                    })
+                };
             }
-            if (deviceSessionId != null && this.deviceSessionId != null && deviceSessionId !== this.deviceSessionId) {
-                this._expiredDeviceSessionId = deviceSessionId;
-            }
+        }
+        if (this.deviceSessionId != null && deviceSessionId !== this.deviceSessionId) {
+            // The sent device ID does not match the one in the current session.
+            // For identified session this means an old tab woke up after being suspended.
+            // For anonymous sessions this more likely indicates that multiple clients are active in the same session.
+            this._expiredDeviceSessionId = deviceSessionId;
         }
     }
     /**
@@ -8402,26 +8689,21 @@ class Tracker {
             if ((_this__clientDeviceCache = this._clientDeviceCache) === null || _this__clientDeviceCache === void 0 ? void 0 : _this__clientDeviceCache.touched) {
                 // We have updated device data and need to refresh to get whatever other processes may have written (if any).
                 await consumeQueryResults((cursor)=>this.query({
-                        scope: "device",
-                        sources: [
-                            "*"
-                        ]
+                        scope: "device"
                     }, {
                         cursor
                     }), (variables)=>{
                     forEach2(variables, (variable)=>{
                         var _variable_schema;
-                        var _splits, _purpose;
                         forEach2(DataPurposes.parse((_variable_schema = variable.schema) === null || _variable_schema === void 0 ? void 0 : _variable_schema.usage.purposes, {
                             names: true
-                        }), ([purpose])=>{
+                        }), (purpose)=>{
+                            var _splits, _purpose;
                             var _;
                             return ((_ = (_splits = splits)[_purpose = purpose]) !== null && _ !== void 0 ? _ : _splits[_purpose] = []).push([
                                 variable.key,
-                                variable.schema.usage.classification,
                                 variable.version,
-                                variable.value,
-                                variable.schema.usage.purposes
+                                variable.value
                             ]);
                         });
                     });
@@ -8433,10 +8715,9 @@ class Tracker {
                 this.cookies[this._requestHandler._cookieNames.session] = {};
             }
             if (isAnonymous || ((_this__clientDeviceCache1 = this._clientDeviceCache) === null || _this__clientDeviceCache1 === void 0 ? void 0 : _this__clientDeviceCache1.touched)) {
-                for (const purpose of DataPurposes.parse(this.consent, {
-                    names: true
-                })){
-                    const remove = isAnonymous || !splits[purpose];
+                for (const purpose of DataPurposes.names){
+                    var _this__consent;
+                    const remove = isAnonymous || purpose !== "necessary" && (!((_this__consent = this._consent) === null || _this__consent === void 0 ? void 0 : _this__consent.purposes[purpose]) || !splits[purpose]);
                     const cookieName = this._requestHandler._cookieNames.deviceByPurpose[purpose];
                     if (remove) {
                         this.cookies[cookieName] = {};
@@ -8446,7 +8727,7 @@ class Tracker {
                             maxAge: Number.MAX_SAFE_INTEGER,
                             sameSitePolicy: "None",
                             essential: purpose === "necessary",
-                            value: this.httpClientEncrypt(splits[purpose])
+                            value: this._encryptCookie(splits[purpose])
                         };
                     }
                 }
@@ -8483,6 +8764,9 @@ class Tracker {
                 await this._loadCachedDeviceVariables();
             }
             const storageResults = await this.env.storage.get(getters, this._getStorageContext(context)).all();
+            if (storageResults.some((result)=>result.scope === "device" && result.status === VariableResultStatus.Created)) {
+                this._touchClientDeviceData();
+            }
             return new Map(map2(storageResults, (result, index)=>[
                     getters[index],
                     result
@@ -8505,6 +8789,7 @@ class Tracker {
                             this._clientDeviceCache.touched = true;
                         }
                         this._device = isVariableResult(result) ? result : undefined;
+                        this._touchClientDeviceData();
                     }
                     this._changedVariables.push(result);
                 }
@@ -8535,7 +8820,7 @@ class Tracker {
             bulk
         });
     }
-    constructor({ disabled = false, clientIp, headers, host, path, url, queryString, cookies, requestHandler, transport: cipher, sessionReferenceId, defaultConsent, trustedContext }){
+    constructor({ disabled = false, clientIp, headers, host, path, url, queryString, cookies, requestHandler, transport: cipher, cookieTransport, anonymousSessionReferenceId, defaultConsent, trustedContext }){
         /**
    * Used for queueing up events so they do not get posted before all extensions have been applied to the request.
    *
@@ -8566,6 +8851,7 @@ class Tracker {
    */ _define_property$8(this, "trustedContext", void 0);
         /** Variables that have been added or updated during the request (cf. {@link TrackerStorageContext.push}). */ _define_property$8(this, "_changedVariables", []);
         _define_property$8(this, "_clientCipher", void 0);
+        _define_property$8(this, "_cookieCipher", void 0);
         _define_property$8(this, "_defaultConsent", void 0);
         _define_property$8(this, "host", void 0);
         _define_property$8(this, "path", void 0);
@@ -8575,7 +8861,7 @@ class Tracker {
    * In this way the session ID for a pseudonomized cookie-less identifier may be truly anonymized.
    * It also protects against race conditions. If one concurrent request changes the session (e.g. resets it), the other(s) will see it.
    *
-   */ _define_property$8(this, "_sessionReferenceId", void 0);
+   */ _define_property$8(this, "_anonymousSessionReferenceId", void 0);
         /** @internal */ _define_property$8(this, "_session", void 0);
         /** @internal */ _define_property$8(this, "_device", void 0);
         /**
@@ -8608,7 +8894,8 @@ class Tracker {
         this.trustedContext = !!trustedContext;
         // Defaults to unencrypted transport if nothing is specified.
         this._clientCipher = cipher !== null && cipher !== void 0 ? cipher : defaultTransport;
-        this._sessionReferenceId = sessionReferenceId;
+        this._cookieCipher = cookieTransport !== null && cookieTransport !== void 0 ? cookieTransport : this._clientCipher;
+        this._anonymousSessionReferenceId = anonymousSessionReferenceId;
     }
 }
 
@@ -8636,7 +8923,11 @@ const DEFAULT = {
     debugScript: false,
     sessionTimeout: 30,
     deviceSessionTimeout: 10,
-    client: 0,
+    client: {
+        scriptBlockerAttributes: {
+            "data-cookieconsent": "ignore"
+        }
+    },
     clientEncryptionKeySeed: "tailjs",
     cookiePerPurpose: false,
     json: false,
@@ -8763,7 +9054,7 @@ const requestCookies = Symbol("request cookies");
 class CookieMonster {
     mapResponseCookies(cookies) {
         const responseCookies = [];
-        forEach(cookies, ([key, cookie])=>{
+        forEach2(cookies, ([key, cookie])=>{
             var _cookies_requestCookies;
             // These are the chunks
             if (typeof key !== "string") return;
@@ -8930,7 +9221,7 @@ class PostError extends Error {
     constructor(validation, extensions){
         super([
             ...validation.map((item)=>`The event ${JSON.stringify(item.source)} (${item.sourceIndex ? `source index #${item.sourceIndex}` : "no source index"}) is invalid: ${item.error}`),
-            ...map(extensions, (item)=>`'${item[0]}' failed: ${item[1]}`)
+            ...map2(extensions, (item)=>`'${item[0]}' failed: ${item[1]}`)
         ].join("\n"));
         _define_property$5(this, "validation", void 0);
         _define_property$5(this, "extensions", void 0);
@@ -9605,13 +9896,14 @@ function _define_property$3(obj, key, value) {
 }
 class DefaultClientIdGenerator {
     async generateClientId(environment, request, stationary) {
-        return [
+        const data = [
             stationary ? "" : request.clientIp,
-            ...this._headers.map((header)=>request.headers[header] + "")
-        ].join("&");
+            ...map2(this._headers, (header)=>request.headers[header] + "" || skip2)
+        ];
+        console.log(`Generated ${stationary ? "stationary" : "non-stationary"} client ID from the data: ${JSON.stringify(data)}.`);
+        return data.join("&");
     }
     constructor({ headers = [
-        "accept-encoding",
         "accept-language",
         "sec-ch-ua",
         "sec-ch-ua-mobile",
@@ -10489,7 +10781,7 @@ class VariableStorageCoordinator {
                         const errors = [];
                         const currentValue = currentVariable === null || currentVariable === void 0 ? void 0 : currentVariable.value;
                         const snapshot = JSON.stringify(currentValue);
-                        let value = setter.patch ? setter.patch(// The patch function runs on uncensored data so external logic do not have to deal with missing properties.
+                        let value = setter.patch ? await setter.patch(// The patch function runs on uncensored data so external logic do not have to deal with missing properties.
                         currentValue) : setter.value;
                         if ((setter.patch || currentVariable) && JSON.stringify(value) === snapshot) {
                             // No change from patch, or same value as current if any.
@@ -10511,7 +10803,7 @@ class VariableStorageCoordinator {
                             });
                             continue;
                         }
-                        if (!setter.patch && setter.version !== (currentVariable === null || currentVariable === void 0 ? void 0 : currentVariable.version)) {
+                        if (!setter.patch && !setter.force && setter.version !== (currentVariable === null || currentVariable === void 0 ? void 0 : currentVariable.version)) {
                             // Access tests are done before concurrency tests.
                             // It would be weird to be told there was a conflict, then resolve it, and then be told you
                             // were not allowed in the first place.
@@ -10559,7 +10851,7 @@ class VariableStorageCoordinator {
     }
     async _queryOrPurge(filters, action, context, purgeFilter) {
         const mapped = [];
-        for (let query of this._storage.splitSourceQueries(filters)){
+        for (let query of this._storage.splitSourceQueries(truish2(filters))){
             if (!context.trusted) {
                 if (query.scope !== "global") {
                     var _query_entityIds, _query_entityIds1;
@@ -10628,6 +10920,7 @@ class VariableStorageCoordinator {
                 filters
             ];
         }
+        filters = truish2(filters);
         if ((!bulk || !context.trusted) && some2(filters, (filter)=>!filter.entityIds)) {
             return throwError(context.trusted ? "If no entity IDs are specified, the bulk option must be set to true." : "Bulk delete are not allowed from untrusted context.");
         }
@@ -10644,6 +10937,10 @@ class VariableStorageCoordinator {
             const consent = (_context_scope = context.scope) === null || _context_scope === void 0 ? void 0 : _context_scope.consent;
             if (consent) {
                 const validationContext = mapValidationContext(context, undefined);
+                this._assignResultSchemas(result.variables.map((variable)=>[
+                        ,
+                        variable
+                    ]));
                 result.variables = map2(result.variables, (variable)=>{
                     const variableType = this._getVariable(variable);
                     const censored = variableType === null || variableType === void 0 ? void 0 : variableType.censor(variable.value, validationContext);
@@ -10710,4 +11007,4 @@ class VariableStorageCoordinator {
     }
 }
 
-export { CookieMonster, DEFAULT, DefaultClientIdGenerator, EventLogger, InMemoryStorage, MAX_CACHE_HEADERS, PostError, RequestHandler, SCRIPT_CACHE_HEADERS, SchemaBuilder, Tracker, TrackerEnvironment, VariableSplitStorage, VariableStorageCoordinator, addSourceTrace, bootstrap, clearTrace, copyTrace, getErrorMessage, getTrace, isTransientErrorObject, isValidationError, isWritableStorage, requestCookieHeader, requestCookies, serializeLogMessage, withTrace };
+export { CookieMonster, DEFAULT, DefaultClientIdGenerator, EventLogger, InMemoryStorage, MAX_CACHE_HEADERS, PostError, RequestHandler, SCRIPT_CACHE_HEADERS, SchemaBuilder, Tracker, TrackerEnvironment, VariableSplitStorage, VariableStorageCoordinator, addSourceTrace, bootstrap, clearTrace, copyTrace, getDefaultLogSourceName, getErrorMessage, getTrace, isTransientErrorObject, isValidationError, isWritableStorage, requestCookieHeader, requestCookies, serializeLogMessage, withTrace };

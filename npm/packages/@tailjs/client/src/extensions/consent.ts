@@ -6,10 +6,10 @@ import {
   DataPurposes,
   DataUsage,
   UserConsent,
+  VariablePollCallback,
 } from "@tailjs/types";
 import { Clock, F, Nullish, T, clock, map2, restrict } from "@tailjs/util";
 import {
-  ClientVariableGetterCallback,
   ConsentCommand,
   TrackerExtensionFactory,
   isUpdateConsentCommand,
@@ -20,13 +20,14 @@ export const consent: TrackerExtensionFactory = {
   id: "consent",
   setup(tracker) {
     const getCurrentConsent = async (
-      callback?: ClientVariableGetterCallback<UserConsent>
+      callback?: VariablePollCallback<UserConsent>
     ) =>
       (await tracker.variables
         .get({
-          scope: "session" as any, // as any, otherwise the callback parameter doesn't fit because it is not restricted to session.
+          scope: "session",
           key: CONSENT_INFO_KEY,
-          callback,
+          poll: callback,
+          refresh: true,
         })
         .value()) as UserConsent | undefined;
 
@@ -40,6 +41,7 @@ export const consent: TrackerExtensionFactory = {
       if (!consent) return undefined as any;
 
       let current = await getCurrentConsent();
+
       if (!current || DataUsage.equals(current, consent)) {
         return [false, current] as any;
       }
@@ -109,7 +111,7 @@ export const consent: TrackerExtensionFactory = {
                 ((item = layer[n]) !== previousHead || !previousHead) // Check all items if we have not captured the previous head.
               ) {
                 const purposes: DataPurposes = {};
-                let anyPurpose = false;
+                let anonymous = true;
                 // Read from the end of the buffer to see if there is any ["consent", "update", ...] entry
                 // since last time we checked.
                 if (item?.[0] === "consent" && item[1] === "update") {
@@ -117,11 +119,15 @@ export const consent: TrackerExtensionFactory = {
                     GCMv2Mappings,
                     ([key, code]) =>
                       item[2][key] === "granted" &&
-                      (purposes[code] = anyPurpose = true)
+                      ((purposes[code] = true),
+                      (anonymous &&=
+                        // Security is considered "necessary" for some external purpose by tail.js
+                        // and does not deactivate anonymous tracking by itself.
+                        code === "security" || code === "necessary"))
                   );
 
                   return {
-                    classification: anyPurpose ? "indirect" : "anonymous",
+                    classification: anonymous ? "anonymous" : "indirect",
                     purposes,
                   };
                 }

@@ -5,7 +5,6 @@ import {
   ellipsis,
   forEach2,
   get2,
-  map,
   nil,
   now,
   parseBoolean,
@@ -91,7 +90,7 @@ export const forms: TrackerExtensionFactory = {
         scopeAttribute(formElement, trackerPropertyName("ref")) || "track_ref";
 
       const parseElements = () => {
-        map(
+        forEach2(
           formElement.querySelectorAll(
             "INPUT,SELECT,TEXTAREA"
           ) as any as Iterable<FormElement>,

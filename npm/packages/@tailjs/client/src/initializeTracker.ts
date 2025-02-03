@@ -9,16 +9,18 @@ import {
   array2,
   assign,
   filter,
-  flatMap,
+  flatMap2,
+  forEach2,
   isArray,
   isJsonString,
   isString,
-  map,
+  map2,
   nil,
   now,
   push,
   remove,
   sort,
+  stop2,
   throwError,
   tryCatch,
   type Nullish,
@@ -122,12 +124,10 @@ export const initializeTracker = (
       event.timestamp ??= now();
 
       insertArgs = T;
-      let skip = F;
-      map(extensions, ([, extension]) => {
-        if (skip || extension.decorate?.(event) === F) {
-          skip = T;
-        }
-      });
+      const skip = forEach2(
+        extensions,
+        ([, extension]) => extension.decorate?.(event) === F && stop2(true)
+      );
 
       return skip ? undefined : event;
     },
@@ -177,7 +177,7 @@ export const initializeTracker = (
     let flush = F; // // Flush after these commands, optionally without waiting for other requests to finish (because the page is unloading and we have no better option even though it may split sessions.)
 
     commands = filter(
-      flatMap(commands, (command) =>
+      flatMap2(commands, (command) =>
         isString(command) ? httpDecode<TrackerCommand>(command) : command
       ),
       (command) => {
@@ -293,7 +293,7 @@ export const initializeTracker = (
                   ERR_INVALID_COMMAND,
                   command,
                   "Loaded extensions:",
-                  extensions.map((extension) => extension[2].id)
+                  map2(extensions, (extension) => extension[2].id)
                 );
             }
           },
@@ -359,7 +359,7 @@ export const initializeTracker = (
       // Now we accept commands.
       ready = true;
       tracker(
-        ...map(defaultExtensions, (extension) => ({ extension })),
+        ...map2(defaultExtensions, (extension) => ({ extension })),
         ...queuedCommands
       );
       tracker({ set: { scope: "view", key: "loaded", value: true } });

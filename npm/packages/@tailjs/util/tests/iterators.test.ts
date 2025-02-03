@@ -28,6 +28,7 @@ import {
   update2,
   join2,
   concat2,
+  add2,
 } from "@tailjs/util";
 
 type Item = [id: string, deps?: Item[]];
@@ -254,6 +255,21 @@ describe("iterators(2)", () => {
       d: 79,
     });
 
+    expect(
+      merge2(
+        { a: "test", b: null },
+        { a: "test2", b: 20 },
+        { overwrite: false }
+      )
+    ).toEqual({ a: "test", b: null });
+    expect(
+      merge2(
+        { a: "test", b: null },
+        { a: "test2", b: 20 },
+        { overwrite: false, nulls: true }
+      )
+    ).toEqual({ a: "test", b: 20 });
+
     expect(merged["e"]).toBeUndefined();
 
     // No overwrite (merge / no merge)
@@ -444,6 +460,9 @@ describe("iterators(2)", () => {
     expect(o).toEqual({ a: 11 });
     expect(update2(o, "b", (current) => (current ? "fail" : "ok"))).toBe("ok");
     expect(o).toEqual({ a: 11, b: "ok" });
+
+    const addTest = new Set<string>();
+    expect(add2(addTest, "123")).toBe(true);
   });
 
   it("Flat maps", () => {

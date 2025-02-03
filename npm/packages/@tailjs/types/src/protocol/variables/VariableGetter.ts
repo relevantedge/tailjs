@@ -17,6 +17,20 @@ export interface ReadOnlyVariableGetter extends VariableKey {
    * If unspecified, it will default to the purposes defined in the schema.
    */
   purpose?: DataPurposeName;
+
+  /**
+   * The maximum number of milliseconds the value of this variable can be cached.
+   * If omitted or `true` the default value of 3 seconds will be used.
+   * `false` or 0 means the variable will not be cached.
+   *
+   * @default 0
+   */
+  cache?: number | boolean;
+
+  /**
+   * Do not accept a cached version of the variable.
+   */
+  refresh?: boolean;
 }
 
 export type VariableInitializerCallback<T extends {} = any> =

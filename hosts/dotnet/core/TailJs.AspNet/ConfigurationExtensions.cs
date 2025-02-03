@@ -25,7 +25,7 @@ public static class ConfigurationExtensions
     var tailFConfiguration = configuration?.GetSection("TailJs");
     if (!tailFConfiguration.Exists())
     {
-      tailFConfiguration = configuration?.GetSection("TailJs");
+      tailFConfiguration = configuration?.GetSection("Tail.F");
     }
     var disabled = tailFConfiguration?.GetValue<bool?>("Disable") == true;
 

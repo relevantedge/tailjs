@@ -1,5 +1,6 @@
 import {
   ServerVariableScope,
+  toVariableResultPromise,
   TypeResolver,
   VariableKey,
   VariableQuery,

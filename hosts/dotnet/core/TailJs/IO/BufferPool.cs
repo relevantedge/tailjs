@@ -54,8 +54,12 @@ public class ArrayBuffer<T> : IDisposable
       throw new ObjectDisposedException(GetType().Name);
     }
 
-    BufferPool<T>.EnsureCapacity(ref _buffer, _length += buffer.Length, growFactor);
-    Array.Copy(buffer, 0, _buffer, _length - buffer.Length, count < 0 ? buffer.Length : count);
+    if (count < 0)
+    {
+      count = buffer.Length;
+    }
+    BufferPool<T>.EnsureCapacity(ref _buffer, _length += count, growFactor);
+    Array.Copy(buffer, 0, _buffer, _length - count, count);
   }
 
   public void Dispose()

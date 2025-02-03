@@ -57,6 +57,7 @@ export const generateSchema = (config: GenerateSchemaConfig) => {
   const schema = generator.createSchema(tsjConfig.type);
   fixReferences(schema);
 
+  schema[JsonSchemaAnnotations.Version] = config.version;
   schema[JsonSchemaAnnotations.Classification] = DataClassification.parse(
     config.usage?.classification ?? DataClassification.anonymous
   );

@@ -20,36 +20,26 @@ export class RavenDbConfiguration {
   }
 
   public async initialize(env: TrackerEnvironment) {
-    try {
-      this._env = env;
-      if (this._settings.x509) {
-        const cert =
-          "cert" in this._settings.x509
-            ? this._settings.x509.cert
-            : await this._env.read(this._settings.x509.certPath);
+    this._env = env;
+    if (this._settings.x509) {
+      const cert =
+        "cert" in this._settings.x509
+          ? this._settings.x509.cert
+          : await this._env.read(this._settings.x509.certPath);
 
-        const key =
-          "keyPath" in this._settings.x509
-            ? (await this._env.readText(this._settings.x509.keyPath)) ??
-              undefined
-            : this._settings.x509.key;
+      const key =
+        "keyPath" in this._settings.x509
+          ? (await this._env.readText(this._settings.x509.keyPath)) ?? undefined
+          : this._settings.x509.key;
 
-        if (!cert) {
-          throw new Error("Certificate not found.");
-        }
-        this._cert = {
-          id: this.id,
-          cert,
-          key,
-        };
+      if (!cert) {
+        throw new Error("Certificate not found.");
       }
-    } catch (e) {
-      env.log(this, {
-        group: this.id,
-        level: "error",
-        source: `${this.id}:initialize`,
-        message: "" + e,
-      });
+      this._cert = {
+        id: this.id,
+        cert,
+        key,
+      };
     }
   }
 

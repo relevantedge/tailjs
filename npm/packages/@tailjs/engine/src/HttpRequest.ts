@@ -13,6 +13,11 @@ export interface HttpRequest<Binary extends boolean = false> {
 export interface ClientRequestHeaders {
   url: string | null;
   method: string;
+
+  /**
+   * The headers send by the client.
+   * Be aware that all header names are normalized to lowercase (which is the responsibility of the host environments).
+   */
   headers: Record<string, string | readonly string[] | undefined>;
 
   clientIp?: string | null;

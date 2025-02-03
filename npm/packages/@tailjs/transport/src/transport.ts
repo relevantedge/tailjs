@@ -2,21 +2,21 @@ import msgpack from "@ygoe/msgpack";
 const { deserialize: msgDeserialize, serialize: msgSerialize } = msgpack;
 
 import {
+  IDENTITY,
   IsNever,
   Nullish,
   isArray,
   isFunction,
   isIterable,
+  isJsonString,
   isNumber,
   isObject,
   isPlainObject,
   isString,
   isSymbol,
-  map,
+  map2,
   tryCatch,
   undefined,
-  IDENTITY,
-  isJsonString,
 } from "@tailjs/util";
 import { HashFunction, from64u, lfsr, to64u } from ".";
 
@@ -315,7 +315,7 @@ export const createTransport = (
       if (isNumber(value) && bitsOrNumeric === true) return value;
 
       value = isString(value)
-        ? new Uint8Array(map(value.length, (i) => value.charCodeAt(i) & 255))
+        ? new Uint8Array(map2(value.length, (i) => value.charCodeAt(i) & 255))
         : json
         ? tryCatch(
             () => JSON.stringify(value),

@@ -18,7 +18,7 @@ import {
   equalsAny,
   forEach2,
   isObject,
-  map,
+  map2,
   nil,
   parseUri,
   push,
@@ -111,13 +111,13 @@ export const userInteraction: TrackerExtensionFactory = {
     const stripPositions = <T = any>(el: any, hitTest: boolean): T =>
       hitTest
         ? el
-        : (map(el, ([key]) =>
+        : (map2(el, ([key]) =>
             key === "rect" ||
             //key === "pos"  Changed so pos is always included.
             key === "viewport"
               ? remove(el, key)
               : isObject(el[key]) &&
-                map(el[key], (item) => stripPositions(item, hitTest))
+                map2(el[key], (item) => stripPositions(item, hitTest))
           ),
           el);
     const trackDocument = (document: Document) => {

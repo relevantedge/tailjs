@@ -50,17 +50,6 @@ class DeferredPromise extends Promise {
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
-/**
- * Returns the value as an array following these rules:
- * - If the value is undefined (this does not include `null`), so is the return value.
- * - If the value is already an array its original value is returned unless `clone` is true. In that case a copy of the value is returned.
- * - If the value is iterable, an array containing its values is returned
- * - Otherwise, an array with the value as its single item is returned.
- */ const array = /*#__PURE__*/ (value, clone = false)=>value == null ? undefined$1 : !clone && isArray(value) ? value : isIterable(value) ? [
-        ...value
-    ] : [
-        value
-    ];
 const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
 const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
 const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
@@ -123,25 +112,6 @@ function* createNavigatingIterator(step, start, maxIterations = Number.MAX_SAFE_
 const sliceAction = (action, start, end)=>(start !== null && start !== void 0 ? start : end) !== undefined$1 ? (action = wrapProjection(action), start !== null && start !== void 0 ? start : start = 0, end !== null && end !== void 0 ? end : end = MAX_SAFE_INTEGER, (value, index)=>start-- ? undefined$1 : end-- ? action ? action(value, index) : value : end) : action;
 /** Faster way to exclude null'ish elements from an array than using {@link filter} or {@link map} */ const filterArray = (array)=>array === null || array === void 0 ? void 0 : array.filter(FILTER_NULLISH);
 const createIterator = (source, projection, start, end)=>source == null ? [] : !projection && isArray(source) ? filterArray(source) : source[symbolIterator$1] ? createFilteringIterator(source, start === undefined$1 ? projection : sliceAction(projection, start, end)) : isObject(source) ? createObjectIterator(source, sliceAction(projection, start, end)) : createIterator(isFunction(source) ? createNavigatingIterator(source, start, end) : createRangeIterator(source, start), projection);
-const project = (source, projection, start, end)=>createIterator(source, projection, start, end);
-const map = (source, projection, start, end)=>{
-    projection = wrapProjection(projection);
-    if (isArray(source)) {
-        let i = 0;
-        const mapped = [];
-        start = start < 0 ? source.length + start : start !== null && start !== void 0 ? start : 0;
-        end = end < 0 ? source.length + end : end !== null && end !== void 0 ? end : source.length;
-        for(; start < end && !stopInvoked$1; start++){
-            let value = source[start];
-            if ((projection ? value = projection(value, i++) : value) != null) {
-                mapped.push(value);
-            }
-        }
-        stopInvoked$1 = false;
-        return mapped;
-    }
-    return source != null ? array(project(source, projection, start, end)) : undefined$1;
-};
 const forEachArray = (source, action, start, end)=>{
     let returnValue;
     let i = 0;
@@ -196,7 +166,6 @@ const forEachInternal = (source, action, start, end)=>{
     }
     return returnValue;
 };
-const forEach = forEachInternal;
 /** Fast version of `obj`. */ const fromEntries = (source, map)=>{
     if (source == null) return undefined$1;
     const result = {};
@@ -525,8 +494,8 @@ let ensureAssignImplementations = (returnValue)=>{
         Set,
         WeakSet
     ]){
-        prototype[setSymbol] = function(key, value) {
-            value || value === void 0 ? this.has(key) ? false : !!this.add(key) : this.delete(key);
+        prototype[setSymbol] = function(key, value, add = false) {
+            return value || add && value === void 0 ? this.has(key) ? false : !!this.add(key) : this.delete(key);
         };
         prototype[getSymbol] = prototype.has;
         prototype[pushSymbol] = function(keys) {
@@ -567,7 +536,7 @@ let get2 = (source, key, initialize)=>(get2 = ensureAssignImplementations((sourc
         }
         return value;
     }))(source, key, initialize);
-let add2 = (target, key, value)=>(add2 = ensureAssignImplementations((target, key, value)=>(target === null || target === void 0 ? void 0 : target[setSymbol](key, value)) === true))(target, key, value);
+let add2 = (target, key, value)=>(add2 = ensureAssignImplementations((target, key, value)=>(target === null || target === void 0 ? void 0 : target[setSymbol](key, value, true)) === true))(target, key, value);
 let set2 = (target, key, value)=>(set2 = ensureAssignImplementations((target, key, value)=>{
         target[setSymbol](key, value);
         return value;
@@ -583,7 +552,7 @@ const obj2 = (source, projection)=>{
     return target;
 };
 const isEmptyString = (s)=>s == null || typeof s === "boolean" || s.toString() === "";
-const join2 = (source, arg1, arg2)=>source == null ? source : !isIterable(source) ? isEmptyString(source) ? "" : source === null || source === void 0 ? void 0 : source.toString() : filter2(typeof arg1 === "function" ? map2(source, arg1) : (arg2 = arg1, source), isEmptyString, true).join(arg2 !== null && arg2 !== void 0 ? arg2 : "");
+const join2 = (source, arg1, arg2)=>source == null ? source : !isIterable(source) ? isEmptyString(source) ? "" : source.toString() : filter2(typeof arg1 === "function" ? map2(source, arg1) : (arg2 = arg1, source), isEmptyString, true).join(arg2 !== null && arg2 !== void 0 ? arg2 : "");
 const indent2 = (text, indent = "  ")=>{
     if (text == null) return text;
     let i = 0;
@@ -750,6 +719,7 @@ const DataPurposes = {
         test = mapOptionalPurposes(test, optionalPurposes);
         if (intersect) {
             for(let purpose in test){
+                if (!VALID_PURPOSE_NAMES[purpose]) continue;
                 if (test[purpose] && !target[purpose]) {
                     // At least one purpose in the consent is not present in the target.
                     return false;
@@ -757,6 +727,7 @@ const DataPurposes = {
             }
             if (intersect === "all") {
                 for(let purpose in target){
+                    if (!VALID_PURPOSE_NAMES[purpose]) continue;
                     if (target[purpose] && !test[purpose]) {
                         // The target has a purpose that is not included in the consent.
                         return false;
@@ -767,6 +738,7 @@ const DataPurposes = {
         }
         let hasAny = false;
         for(let purpose in target){
+            if (!VALID_PURPOSE_NAMES[purpose]) continue;
             if (target[purpose]) {
                 if (test[purpose]) {
                     // Just one of the purposes is good enough.
@@ -2001,7 +1973,7 @@ const parsePropertyType = (property, definition, parseContext, allowNumericStrin
                 name += " (" + definition.format + ")";
             }
             if (enumValues) {
-                name += " [" + map(enumValues, (value)=>JSON.stringify(value)).join(", ") + "]";
+                name += " [" + map2(enumValues, (value)=>JSON.stringify(value)).join(", ") + "]";
             }
             const parsedType = {
                 source: definition,
@@ -2419,7 +2391,7 @@ const parseProperty = (declaringType, name, definition, context, baseProperty)=>
             type
         ] : null;
         if (baseTypes && types) {
-            forEach(types, (type)=>!baseTypes.some((baseType)=>type !== baseType && !baseType.extendedByAll.has(type)) && overrideError(`The type ${type} is not the same or an extension of the base property's ${itemize2(baseTypes, "or")}`));
+            forEach2(types, (type)=>!baseTypes.some((baseType)=>type !== baseType && !baseType.extendedByAll.has(type)) && overrideError(`The type ${type} is not the same or an extension of the base property's ${itemize2(baseTypes, "or")}`));
         } else if ("enumValues" in type && type.enumValues) {
             if ("enumValues" in baseType && baseType.enumValues) {
                 for (const value of type.enumValues){
@@ -2496,7 +2468,7 @@ const parseTypeProperties = (parsedType, context)=>{
     }
     parsedType.ownProperties = {};
     const source = parsedType.source;
-    forEach(parsedType.extendsAll, (baseType)=>// Make sure we have all the base type's properties.
+    forEach2(parsedType.extendsAll, (baseType)=>// Make sure we have all the base type's properties.
         parseTypeProperties(baseType, context));
     for (const baseType of parsedType.extendsAll){
         for(const key in baseType.properties){
@@ -2978,46 +2950,94 @@ class VariableStorageError extends Error {
         this.failed = (_operations_filter1 = operations === null || operations === void 0 ? void 0 : operations.filter((operation)=>!isSuccessResult(operation, false))) !== null && _operations_filter1 !== void 0 ? _operations_filter1 : [];
     }
 }
-const toVariableResultPromise = (operationType, operations, handler)=>{
+const hasCallback = (op)=>!!op["callback"];
+const hasPollCallback = (op)=>!!op["poll"];
+const sourceOperation = Symbol();
+const toVariableResultPromise = (operationType, operations, handler, { poll, logCallbackError } = {})=>{
+    const ops = isArray(operations) ? operations : [
+        operations
+    ];
+    const callbackErrors = [];
+    const handlerResultPromise = (async ()=>{
+        const results = await handler(ops.filter((op)=>op));
+        const callbacks = [];
+        for (const op of ops){
+            if (!op) {
+                continue;
+            }
+            const result = results.get(op);
+            if (result == null) {
+                continue;
+            }
+            result[sourceOperation] = op;
+            if (hasCallback(op)) {
+                callbacks.push([
+                    op,
+                    (result)=>op.callback(result) === true
+                ]);
+            }
+            if (hasPollCallback(op)) {
+                let previous;
+                // This is only defined for get operations.
+                callbacks.push([
+                    op,
+                    (result)=>{
+                        if (!isVariableResult(result, false)) {
+                            return true;
+                        }
+                        const poll = isVariableResult(result, false) ? op.poll(result.value, result[sourceOperation] === op, previous) : true;
+                        previous = result.value;
+                        return poll;
+                    }
+                ]);
+            }
+        }
+        for (const [op, callback] of callbacks){
+            try {
+                const pollingCallback = operationType === "get" ? async (result)=>await callback(result) === true && (poll === null || poll === void 0 ? void 0 : poll(op, pollingCallback)) : callback;
+                await pollingCallback(op);
+            } catch (error) {
+                const message = `${operationType} callback for ${formatVariableKey(op)} failed: ${error}.`;
+                if (logCallbackError) {
+                    logCallbackError(message, op, error);
+                } else {
+                    callbackErrors.push(message);
+                }
+            }
+        }
+        return results;
+    })();
     const mapResults = async (type, require)=>{
-        const ops = isArray(operations) ? operations : [
-            operations
-        ];
         // The raw results from the map function including error results.
-        const mappedResults = await handler(ops.filter((op)=>op));
+        const handlerResults = await handlerResultPromise;
         // The results we will return if there are no errors;
         const results = [];
         const errors = [];
-        const callbacks = [];
         for (const op of ops){
             if (!op) {
                 // Falsish to undefined.
                 results.push(undefined);
                 continue;
             }
-            var _mappedResults_get;
-            const result = (_mappedResults_get = mappedResults.get(op)) !== null && _mappedResults_get !== void 0 ? _mappedResults_get : throwError(`No result for ${formatVariableKey(op)}.`);
-            op.source = result;
-            if (op.callback) {
-                callbacks.push(op.callback(result));
+            const result = handlerResults.get(op);
+            if (result == null) {
+                errors.push(`No result for ${formatVariableKey(op)}.`);
+                continue;
             }
-            result.success = isSuccessResult(result, // Not found is an error result for set operations.
-            require || operationType === "set");
-            if (!type || result.success) {
+            if (!type || isSuccessResult(result, // 404 is an error result for set operations, but not for get.
+            require || operationType === "set")) {
                 var _result_value;
                 results.push(type && result.status === VariableResultStatus.NotFound ? undefined : type > 1 ? (_result_value = result["value"]) !== null && _result_value !== void 0 ? _result_value : undefined : result);
             } else {
                 errors.push(formatVariableResult(result));
             }
         }
+        errors.push(...callbackErrors);
         if (errors.length) {
             if (errors.length > 10) {
                 errors.push(`\n(and ${errors.splice(10).length} more...)`);
             }
             throw new VariableStorageError(results, errors.join("\n"));
-        }
-        for (const callback of callbacks){
-            await callback();
         }
         return ops === operations ? results : results[0]; // Single value if single value.
     };
@@ -3090,7 +3110,7 @@ const maybeDecode = (s)=>// It qualifies:
     /[A-F0-9]{2}/gi.test(s) ? decodeURIComponent(s) : s;
 const parseTags = (tagString, prefix)=>{
     var _collectTags;
-    return map((_collectTags = collectTags(tagString, prefix)) === null || _collectTags === void 0 ? void 0 : _collectTags.values());
+    return array2((_collectTags = collectTags(tagString, prefix)) === null || _collectTags === void 0 ? void 0 : _collectTags.values());
 };
 const parseTagValue = (value, tagName = "tag")=>{
     var _parseTags;
@@ -3108,7 +3128,7 @@ const collect = (collected, tag)=>{
  */ const collectTags = (tagString, prefix = "", collected = new Map())=>{
     if (!tagString) return undefined;
     if (isIterable(tagString)) {
-        forEach(tagString, (input)=>collectTags(input, prefix, collected));
+        forEach2(tagString, (input)=>collectTags(input, prefix, collected));
         return collected;
     }
     /**
@@ -3155,4 +3175,4 @@ const collect = (collected, tag)=>{
 };
 const encodeTag = (tag)=>tag == null ? tag : tag.tag + (tag.value ? ":" + (/[,&;#~]/.test(tag.value) ? '"' + tag.value + '"' : tag.value) : "") + (tag.score && tag.score !== 1 ? "~" + tag.score * 10 : "");
 
-export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaObjectType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };
+export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaObjectType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };
