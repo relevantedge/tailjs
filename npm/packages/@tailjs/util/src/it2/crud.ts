@@ -45,8 +45,8 @@ let ensureAssignImplementations = <T>(returnValue: T) => {
   }
 
   for (const { prototype } of [Set, WeakSet]) {
-    prototype[setSymbol] = function (key: any, value: any) {
-      value || value === void 0
+    prototype[setSymbol] = function (key: any, value: any, add = false) {
+      return value || (add && value === void 0)
         ? this.has(key)
           ? false
           : !!this.add(key)
@@ -152,7 +152,7 @@ export let add2: {
 } = (target: any, key: any, value?: any) =>
   (add2 = ensureAssignImplementations(
     (target: any, key: any, value?: any) =>
-      target?.[setSymbol](key, value) === true
+      target?.[setSymbol](key, value, true) === true
   ))(target, key, value);
 
 export let set2: {
@@ -295,30 +295,59 @@ export let assign2: {
     return target;
   }))(target, ...sources);
 
+export interface Merge2Settings<
+  Deep extends boolean = boolean,
+  Overwrite extends boolean = boolean,
+  OverwriteNulls extends boolean = boolean
+> {
+  /**
+   * Merge nested objects if both the target and source values are object.
+   *
+   * @default true
+   */
+  deep?: Deep;
+
+  /**
+   * Don't merge the value from the other object(s) if the target already has a value.
+   */
+  overwrite?: Overwrite;
+  /**
+   * Overwrite `null` as if it was `undefined` when merging with `overwrite: false`.
+   * @default false
+   */
+  nulls?: boolean;
+}
 export const merge2: {
   <
     Target,
     Source extends SimpleObject | Falsish | Iterable<ObjectSource>,
     Deep extends boolean = true,
-    Overwrite extends boolean = true
+    Overwrite extends boolean = true,
+    OverwriteNulls extends boolean = false
   >(
     target: Target,
     sources: EncourageTuples<Source>,
-    options?: { deep?: Deep; overwrite?: Overwrite }
-  ): MergeObjectSources<Target, Source, Deep, Overwrite>;
+    options?: Merge2Settings<Deep, Overwrite, OverwriteNulls>
+  ): Target extends Nullish
+    ? Target
+    : MergeObjectSources<Target, Source, Deep, Overwrite, OverwriteNulls>;
 } = (
   target: any,
   sources: any,
-  options: { deep?: boolean; overwrite?: boolean } = {}
+  options: { deep?: boolean; overwrite?: boolean; nulls?: boolean } = {}
 ) => {
-  const { deep = true, overwrite = true } = options;
+  if (target == null) {
+    return target;
+  }
+
+  const { deep = true, overwrite = true, nulls = false } = options;
 
   for (const source of iterable2(sources)) {
     forEach2(source, (kv) => {
       if (!kv) return;
       const [key, value] = kv;
       const current = target[key];
-      if (current === void 0) {
+      if (nulls ? current == null : current === void 0) {
         target[key] = value;
         return;
       }

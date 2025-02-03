@@ -322,8 +322,8 @@ export const formatError = (error: any, includeStackTrace?: boolean): string =>
 
 export const tryCatchAsync = async <
   T,
-  C = void,
-  E extends boolean | ((error: any) => MaybePromiseLike<C>) = true,
+  C,
+  E extends boolean | ((error: any) => MaybePromiseLike<C>),
   T1 = T
 >(
   expression: Wrapped<MaybePromiseLike<T>>,

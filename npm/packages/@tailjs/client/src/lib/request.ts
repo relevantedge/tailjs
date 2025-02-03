@@ -89,7 +89,6 @@ export const request: {
 
   if (beacon) {
     if (!prepareRequestData(0)) return;
-
     !navigator.sendBeacon(
       url,
       new Blob(currentData != null ? [serialized] : [], {

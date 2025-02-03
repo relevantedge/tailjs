@@ -46,6 +46,7 @@ import {
   AllRequired,
   ArrayOrSelf,
   delay,
+  Falsish,
   forEach2,
   formatError,
   isArray,
@@ -57,6 +58,7 @@ import {
   skip2,
   some2,
   throwError,
+  truish2,
 } from "@tailjs/util";
 import {
   clearTrace,
@@ -342,7 +344,9 @@ export class VariableStorageCoordinator<
   }
 
   private _assignResultSchemas<
-    T extends Iterable<[any, RemoveScopeRestrictions<VariableResult>]>
+    T extends Iterable<
+      [any, RemoveScopeRestrictions<VariableResult | Variable>]
+    >
   >(results: T): T {
     for (const [, result] of results) {
       clearTrace(result);
@@ -375,6 +379,7 @@ export class VariableStorageCoordinator<
 
   public get<
     Getters extends VariableOperationParameter<
+      "get",
       ServerScoped<VariableGetter, boolean> & { key: Keys; scope: Scopes }
     >,
     Keys extends string,
@@ -646,6 +651,7 @@ export class VariableStorageCoordinator<
 
   public set<
     Setters extends VariableOperationParameter<
+      "set",
       ServerScoped<VariableSetter, boolean> & { key: Keys; scope: Scopes }
     >,
     Keys extends string,
@@ -762,7 +768,7 @@ export class VariableStorageCoordinator<
             const currentValue = currentVariable?.value;
             const snapshot = JSON.stringify(currentValue);
             let value = setter.patch
-              ? setter.patch(
+              ? await setter.patch(
                   // The patch function runs on uncensored data so external logic do not have to deal with missing properties.
                   currentValue
                 )
@@ -804,7 +810,11 @@ export class VariableStorageCoordinator<
               continue;
             }
 
-            if (!setter.patch && setter.version !== currentVariable?.version) {
+            if (
+              !setter.patch &&
+              !setter.force &&
+              setter.version !== currentVariable?.version
+            ) {
               // Access tests are done before concurrency tests.
               // It would be weird to be told there was a conflict, then resolve it, and then be told you
               // were not allowed in the first place.
@@ -880,13 +890,13 @@ export class VariableStorageCoordinator<
   }
 
   private async _queryOrPurge<R>(
-    filters: readonly VariableQuery<ServerVariableScope>[],
+    filters: readonly (VariableQuery<ServerVariableScope> | Falsish)[],
     action: (filter: VariableStorageQuery[]) => Promise<R>,
     context: VariableStorageContext,
     purgeFilter: boolean
   ): Promise<R> {
     const mapped: VariableStorageQuery[] = [];
-    for (let query of this._storage.splitSourceQueries(filters)) {
+    for (let query of this._storage.splitSourceQueries(truish2(filters))) {
       if (!context.trusted) {
         if (query.scope !== "global") {
           if (query.entityIds?.length! > 1) {
@@ -975,7 +985,7 @@ export class VariableStorageCoordinator<
   }
 
   public async purge(
-    filters: ArrayOrSelf<VariableQuery<ServerVariableScope>>,
+    filters: ArrayOrSelf<VariableQuery<ServerVariableScope> | Falsish>,
     {
       context = this._defaultContext,
       bulk,
@@ -985,9 +995,13 @@ export class VariableStorageCoordinator<
       filters = [filters];
     }
 
+    filters = truish2(filters);
     if (
       (!bulk || !context.trusted) &&
-      some2(filters, (filter) => !filter.entityIds)
+      some2(
+        filters,
+        (filter: VariableQuery<ServerVariableScope>) => !filter.entityIds
+      )
     ) {
       return throwError(
         context.trusted
@@ -1006,7 +1020,7 @@ export class VariableStorageCoordinator<
   }
 
   public async query(
-    filters: ArrayOrSelf<VariableQuery<ServerVariableScope>>,
+    filters: ArrayOrSelf<VariableQuery<ServerVariableScope> | Falsish>,
     {
       context = this._defaultContext,
       ...options
@@ -1019,6 +1033,9 @@ export class VariableStorageCoordinator<
         const consent = context.scope?.consent;
         if (consent) {
           const validationContext = mapValidationContext(context, undefined);
+          this._assignResultSchemas(
+            result.variables.map((variable) => [, variable])
+          );
           result.variables = map2(result.variables, (variable) => {
             const variableType = this._getVariable(variable);
             const censored = variableType?.censor(

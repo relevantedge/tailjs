@@ -1,5 +1,5 @@
 import type { Component, ExternalReference } from "@tailjs/types";
-import { T, add, map, nil, push, split, toString } from "@tailjs/util";
+import { T, add, map2, nil, push, split, toString } from "@tailjs/util";
 import { attr } from ".";
 import type { BoundaryCommand } from "..";
 
@@ -62,7 +62,7 @@ export function scanAttributes(
       }
       push(
         commands,
-        ...map(stack, (data) => ({ add: T, ...data, boundary: el }))
+        ...map2(stack, (data) => ({ add: T, ...data, boundary: el }))
       );
       const next = el.nextElementSibling!; // Ignore TS null error.
       if (el.tagName === "WBR") {

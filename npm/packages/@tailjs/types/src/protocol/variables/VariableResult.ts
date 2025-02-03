@@ -119,6 +119,7 @@ export interface VariableConflictResult<T extends {} = any>
 
 export interface VariableNotModifiedResult extends VariableResult {
   status: VariableResultStatus.NotModified;
+  value?: undefined;
 }
 
 export interface VariableSuccessResult<T extends {} = any>

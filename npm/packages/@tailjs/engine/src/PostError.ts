@@ -1,4 +1,4 @@
-import { map } from "@tailjs/util";
+import { map2 } from "@tailjs/util";
 import { ValidationErrorResult } from "./shared";
 
 export class PostError extends Error {
@@ -18,7 +18,7 @@ export class PostError extends Error {
                 : "no source index"
             }) is invalid: ${item.error}`
         ),
-        ...map(extensions, (item) => `'${item[0]}' failed: ${item[1]}`),
+        ...map2(extensions, (item) => `'${item[0]}' failed: ${item[1]}`),
       ].join("\n")
     );
   }

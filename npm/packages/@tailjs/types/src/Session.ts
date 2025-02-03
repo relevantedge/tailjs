@@ -13,7 +13,7 @@ export interface Session {
    * Since an anonymous session is not necessarily unique to a device, processing logic may decide
    * whether and how to stitch the anonymous and non-anonymous session together.
    */
-  originalSessionId?: Uuid;
+  anonymousSessionId?: Uuid;
 
   /**
    * The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards).
@@ -44,6 +44,7 @@ export interface Session {
    *
    * After the user has completely left the site, device sessions time out in the same way as server sessions.
    *
+   * @privacy indirect, performance, functionality
    */
   deviceSessionId?: Uuid;
 
@@ -69,9 +70,23 @@ export interface Session {
   clientIp?: string;
 
   /**
-   * This value indicates that an old device session "woke up" with an old device session ID and took over a new one.
-   * This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session).
+   * Indicates that multiple clients are active in the same anonymous session.
+   */
+  collision?: boolean;
+
+  /**
+   * Whether the session is using anonymous tracking.
+   */
+  anonymous?: boolean;
+
+  /**
    *
+   * This value indicates that an old device session "woke up" with an old device session ID and took over a new one.
+   * This may happen when background tabs are suspended.
+   *
+   * Post-processing can decide how to tie them together when the same tab participates in two sessions (which goes against the definition of a device session).
+   *
+   * @privacy indirect, performance, functionality
    */
   expiredDeviceSessionId?: string;
 }

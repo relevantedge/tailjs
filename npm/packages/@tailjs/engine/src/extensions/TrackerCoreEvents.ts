@@ -47,6 +47,20 @@ export type SessionConfiguration = {
   includeIp?: boolean;
 };
 
+const mapEventSession = (tracker: Tracker): Session | undefined =>
+  tracker.session && {
+    sessionId: tracker.session.id,
+    deviceSessionId: tracker.deviceSessionId,
+    deviceId: tracker.deviceId,
+    userId: tracker.authenticatedUserId,
+    consent: DataUsage.clone(tracker.consent),
+    expiredDeviceSessionId: tracker._expiredDeviceSessionId,
+    clientIp: tracker.clientIp ?? undefined,
+    anonymousSessionId: tracker.session.anonymousSessionId,
+    collision: tracker._expiredDeviceSessionId ? true : undefined,
+    anonymous: tracker.session.anonymous,
+  };
+
 export class TrackerCoreEvents implements TrackerExtension {
   public readonly id = "core_events";
 
@@ -134,6 +148,10 @@ export class TrackerCoreEvents implements TrackerExtension {
     const updatedEvents: ParseResult[] = [];
 
     for (let event of events) {
+      // Capture the session from the tracker before it potentially is modified by consent changes etc. below.
+      // We want to attribute the event to the session it happened in, and not the session afterwards.
+      let session = mapEventSession(tracker)!;
+
       if (isConsentEvent(event)) {
         await tracker.updateConsent(event.consent);
       } else if (isResetEvent(event)) {
@@ -145,6 +163,7 @@ export class TrackerCoreEvents implements TrackerExtension {
             type: "sign_out",
             userId: tracker.authenticatedUserId,
             timestamp: event.timestamp,
+            session,
           } satisfies SignOutEvent as TrackedEvent;
         }
         // Start new session
@@ -156,16 +175,6 @@ export class TrackerCoreEvents implements TrackerExtension {
           referenceTimestamp: resetEvent.timestamp,
         });
       }
-
-      const session: Session = {
-        sessionId: tracker.sessionId,
-        deviceSessionId: tracker.deviceSessionId,
-        deviceId: tracker.deviceId,
-        userId: tracker.authenticatedUserId,
-        consent: DataUsage.clone(tracker.consent),
-        expiredDeviceSessionId: tracker._expiredDeviceSessionId,
-        clientIp: tracker.clientIp ?? undefined,
-      };
 
       updatedEvents.push(event);
 
@@ -192,7 +201,7 @@ export class TrackerCoreEvents implements TrackerExtension {
             timeSinceLastSession: tracker.session.previousSession
               ? tracker.session.firstSeen - tracker.session.previousSession
               : undefined,
-            session,
+            session: mapEventSession(tracker),
             tags: tracker.env.tags,
             timestamp: currentTime,
           } satisfies SessionStartedEvent as TrackedEvent);
@@ -235,8 +244,6 @@ export class TrackerCoreEvents implements TrackerExtension {
         }
       } else if (isSignOutEvent(event)) {
         sessionPatches.push((data) => (data.userId = undefined));
-      } else if (isConsentEvent(event)) {
-        await tracker.updateConsent(event.consent);
       }
     }
 

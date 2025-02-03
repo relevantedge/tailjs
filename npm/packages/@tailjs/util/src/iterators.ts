@@ -25,6 +25,7 @@ import {
   UnionToIntersection,
   add,
   array,
+  array2,
   get,
   ifDefined,
   isArray,
@@ -442,7 +443,7 @@ export const map: MapFunction = (
     return mapped;
   }
   return source != null
-    ? array(project(source, projection, start, end))
+    ? array2(project(source, projection, start, end))
     : (undefined as any);
 };
 
@@ -567,7 +568,7 @@ export const flatMap: <
   start?: any,
   end?: any
 ) =>
-  array(
+  array2(
     (flatten as any)(source, action, depth, expandObjects, start, end) as any
   ) as any;
 
@@ -668,7 +669,7 @@ export const concat: {
   let merged: any[] | undefined;
   forEach(
     items.length === 1 ? items[0] : items,
-    (item) => item != null && (merged ??= []).push(...(array(item) as any))
+    (item) => item != null && (merged ??= []).push(...(array2(item) as any))
   );
   return merged as any;
 };
@@ -866,7 +867,7 @@ const forEachInternal: <S extends IteratorSource, R>(
   return returnValue;
 };
 
-const forEach = forEachInternal as {
+export const forEach = forEachInternal as {
   <S extends IteratorSource, R>(
     source: S,
     action: FunctionalIteratorAction<S, R>,

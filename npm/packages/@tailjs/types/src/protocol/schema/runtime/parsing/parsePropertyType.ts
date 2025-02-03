@@ -1,4 +1,4 @@
-import { indent2, isArray, map, throwError } from "@tailjs/util";
+import { indent2, isArray, map2, throwError } from "@tailjs/util";
 import { createSchemaTypeMapper, parseType, TypeParseContext } from ".";
 import {
   SchemaObjectType,
@@ -40,7 +40,7 @@ export const parsePropertyType = (
       if (enumValues) {
         name +=
           " [" +
-          map(enumValues, (value) => JSON.stringify(value)).join(", ") +
+          map2(enumValues, (value) => JSON.stringify(value)).join(", ") +
           "]";
       }
 

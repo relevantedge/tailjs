@@ -1,19 +1,21 @@
 import {
+  AllKeys,
   ArrayOrSelf,
   deferredPromise,
   Falsish,
   IfNever,
   isArray,
   MaybePromiseLike,
-  throwError,
 } from "@tailjs/util";
 import {
   formatVariableKey,
   isSuccessResult,
+  isVariableResult,
   KnownVariableMap,
   MatchScopes,
   RemoveScopeRestrictions,
   RestrictScopes,
+  Variable,
   VariableGetResult,
   VariableGetter,
   VariableInitializer,
@@ -44,37 +46,53 @@ export type KnownTypeFor<
   Default
 > & {};
 
+export type VariableCallback<Result = VariableResult, Return = any> = (
+  result: Result
+) => MaybePromiseLike<Return>;
+
 /**
  * If the callback returns `true` the variable will get polled, that is, the callback will be called again if the variable changes.
  * If the variable is deleted, the callback will be called with a NotFound get result.
  *
- * This currently only works client-side.
+ * Polling currently only works client-side.
  */
 export type VariableGetterCallback<
   KeyType = VariableKey,
   T extends {} = any
-> = (
-  result: MatchScopes<
+> = VariableCallback<
+  MatchScopes<
     VariableResultPromiseResult<"get", VariableGetResult<T>>,
     KeyType
-  >
+  >,
+  boolean | undefined | void
+>;
+
+/**
+ * If the callback returns `true` the variable will get polled, that is, the callback will be called again if the variable changes.
+ * If the variable is deleted or not found, it will be called with `undefined`.
+ *
+ * Polling currently only works client-side.
+ */
+export type VariablePollCallback<T extends {} = any> = (
+  result: T | undefined,
+  fromSourceOperation: boolean,
+  previous: T | undefined
 ) => MaybePromiseLike<boolean | undefined | void>;
 
 export type VariableSetterCallback<
   KeyType = VariableKey,
   T extends {} = any
-> = (
-  result: MatchScopes<
-    VariableResultPromiseResult<"set", VariableSetResult<T>>,
-    KeyType
-  >
-) => any;
+> = VariableCallback<
+  MatchScopes<VariableResultPromiseResult<"set", VariableSetResult<T>>, KeyType>
+>;
+
+type ValidOperationKeys = AllKeys<VariableGetter | VariableSetter | Variable>;
 
 /**
  * Validate types for callbacks.
  */
 export type WithCallbacks<
-  OperationType extends string,
+  OperationType extends "get" | "set",
   Operation,
   KnownVariables extends KnownVariableMap
 > = Operation extends readonly any[]
@@ -120,14 +138,30 @@ export type WithCallbacks<
                     Operation,
                     KnownTypeFor<Operation, KnownVariables, any>
                   >)
-        : Operation[P];
+        : [P, OperationType] extends ["poll", "get"]
+        ?
+            | undefined
+            | VariablePollCallback<KnownTypeFor<Operation, KnownVariables, any>>
+        : P extends ValidOperationKeys
+        ? Operation[P]
+        : never;
     }
   : Operation;
 
 type TupleOrSelf<T> = T | readonly T[] | readonly [T];
 
-export type VariableOperationParameter<T> = TupleOrSelf<
-  Falsish | (T & { callback?: any })
+export type VariableOperationParameter<
+  OperationType extends "get" | "set",
+  Operation
+> = TupleOrSelf<
+  | Falsish
+  | (Operation &
+      (OperationType extends "get"
+        ? {
+            callback?: VariableGetterCallback<Operation>;
+            poll?: VariablePollCallback;
+          }
+        : { callback?: VariableSetterCallback<Operation> }))
 >;
 
 type VariableOperationResultItem<OperationType extends "get" | "set"> =
@@ -373,6 +407,14 @@ export class VariableStorageError<
   }
 }
 
+const hasCallback = (op: any): op is { callback: VariableCallback } =>
+  !!op["callback"];
+
+const hasPollCallback = (op: any): op is { poll: VariablePollCallback } =>
+  !!op["poll"];
+
+const sourceOperation = Symbol();
+
 export const toVariableResultPromise = <
   OperationType extends "get" | "set",
   Operations,
@@ -389,8 +431,90 @@ export const toVariableResultPromise = <
       RemoveScopeRestrictions<VariableKey, true>,
       RemoveScopeRestrictions<VariableResult, true>
     >
-  >
+  >,
+  {
+    poll,
+    logCallbackError,
+  }: {
+    poll?: (
+      source: OperationType extends "get" ? VariableGetter : VariableSetter,
+      callback: OperationType extends "get"
+        ? VariableGetterCallback
+        : VariableSetterCallback
+    ) => void;
+    logCallbackError?: (
+      message: string,
+      operation: OperationType extends "get" ? VariableGetter : VariableSetter,
+      error: any
+    ) => void;
+  } = {}
 ): VariableResultPromise<OperationType, Operations, any> => {
+  const ops = isArray(operations) ? (operations as any) : [operations];
+  const callbackErrors: string[] = [];
+
+  const handlerResultPromise = (async () => {
+    const results = await handler(ops.filter((op: any) => op));
+    const callbacks: [op: any, callback: (result: VariableResult) => any][] =
+      [];
+
+    for (const op of ops) {
+      if (!op) {
+        continue;
+      }
+
+      const result: VariableResult = results.get(op) as any;
+
+      if (result == null) {
+        // This error will be caught, if the result promise is awaited.
+        continue;
+      }
+
+      result[sourceOperation] = op;
+
+      if (hasCallback(op)) {
+        callbacks.push([op, (result) => op.callback(result) === true]);
+      }
+      if (hasPollCallback(op)) {
+        let previous: any;
+        // This is only defined for get operations.
+        callbacks.push([
+          op,
+          (result) => {
+            if (!isVariableResult(result, false)) {
+              return true;
+            }
+            const poll = isVariableResult(result, false)
+              ? op.poll(result.value, result[sourceOperation] === op, previous)
+              : true;
+            previous = result.value;
+            return poll;
+          },
+        ]);
+      }
+    }
+    for (const [op, callback] of callbacks) {
+      try {
+        const pollingCallback =
+          operationType === "get"
+            ? async (result: any) =>
+                (await callback(result)) === true && poll?.(op, pollingCallback)
+            : callback;
+        await pollingCallback(op);
+      } catch (error) {
+        const message = `${operationType} callback for ${formatVariableKey(
+          op
+        )} failed: ${error}.`;
+        if (logCallbackError) {
+          logCallbackError(message, op, error);
+        } else {
+          callbackErrors.push(message);
+        }
+      }
+    }
+
+    return results;
+  })();
+
   const mapResults = async (
     type:
       | 0 // any
@@ -398,35 +522,34 @@ export const toVariableResultPromise = <
       | 2, // values (also throw on errors)
     require: boolean
   ) => {
-    const ops = isArray(operations) ? (operations as any) : [operations];
     // The raw results from the map function including error results.
+    const handlerResults = await handlerResultPromise;
 
-    const mappedResults = await handler(ops.filter((op: any) => op));
     // The results we will return if there are no errors;
     const results: any[] = [];
     const errors: string[] = [];
-    const callbacks: (() => any)[] = [];
-    let i = 0;
+
     for (const op of ops) {
       if (!op) {
         // Falsish to undefined.
         results.push(undefined);
         continue;
       }
-      const result: VariableResult & { success: boolean } =
-        (mappedResults.get(op) as any) ??
-        throwError(`No result for ${formatVariableKey(op)}.`);
+      const result: VariableResult = handlerResults.get(op) as any;
 
-      op.source = result;
-      if (op.callback) {
-        callbacks.push(op.callback(result));
+      if (result == null) {
+        errors.push(`No result for ${formatVariableKey(op)}.`);
+        continue;
       }
-      result.success = isSuccessResult(
-        result,
-        // Not found is an error result for set operations.
-        require || operationType === "set"
-      );
-      if (!type || result.success) {
+
+      if (
+        !type ||
+        isSuccessResult(
+          result,
+          // 404 is an error result for set operations, but not for get.
+          require || operationType === "set"
+        )
+      ) {
         results.push(
           type && result.status === VariableResultStatus.NotFound
             ? undefined
@@ -438,15 +561,13 @@ export const toVariableResultPromise = <
         errors.push(formatVariableResult(result));
       }
     }
+
+    errors.push(...callbackErrors);
     if (errors.length) {
       if (errors.length > 10) {
         errors.push(`\n(and ${errors.splice(10).length} more...)`);
       }
       throw new VariableStorageError(results, errors.join("\n"));
-    }
-
-    for (const callback of callbacks) {
-      await callback();
     }
 
     return ops === operations ? results : results[0]; // Single value if single value.
@@ -466,26 +587,4 @@ export const toVariableResultPromise = <
   return resultPromise as any;
 };
 
-export type VariableResultPromiseResult<OperationType, Result> = Result &
-  (
-    | {
-        status:
-          | VariableResultStatus.Success
-          | VariableResultStatus.Created
-          | (OperationType extends "get"
-              ? VariableResultStatus.NotFound
-              : never);
-        success: true;
-      }
-    | {
-        status: Exclude<
-          VariableResultStatus,
-          | VariableResultStatus.Success
-          | VariableResultStatus.Created
-          | (OperationType extends "get"
-              ? VariableResultStatus.NotFound
-              : never)
-        >;
-        success: false;
-      }
-  );
+export type VariableResultPromiseResult<OperationType, Result> = Result;

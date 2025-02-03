@@ -2,10 +2,10 @@
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @using TailJs.AspNet
 @using TailJs.AspNet.Helpers
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @{
   var root = Model.Root();
-
 }
 <!doctype html>
 <html lang="en">
@@ -15,32 +15,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>@root.Name</title>
   <meta name="description" content="">
-  <meta name="author" content=""> 
+  <meta name="author" content="">
 
   <link rel="stylesheet" href="~/static/style.css" asp-append-version="true"/>
 
   @RenderSection("Header", required: false)
-  <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="ca040f64-1fe4-4bb3-910b-b004891dd879"  type="text/javascript"></script>
+  @* <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="ca040f64-1fe4-4bb3-910b-b004891dd879"  type="text/javascript"></script> *@
+  @if (Configuration["CookieBot"] is { } cookieBotId)
+  {
+    <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="@cookieBotId"
+            data-blockingmode="auto" type="text/javascript"></script>
+  }
 </head>
 <body>
-@Html.React("Components.Navigation", new
-{
-  items = root.Children.Where(item => item.IsVisible()).ToComponentProperties(item =>
-    new
-    {
-      label = item.Name,
-      href = item.Url(),
-      selected = item.IsAncestorOrSelf(Model),
-      childSelected = item.IsAncestor(root),
-      children = item.Children.Select(item=>new
+@Html.React("Components.Navigation",
+  new
+  {
+    items = root.Children.Where(item => item.IsVisible()).ToComponentProperties(item =>
+      new
       {
         label = item.Name,
         href = item.Url(),
         selected = item.IsAncestorOrSelf(Model),
+        childSelected = item.IsAncestor(root),
+        children = item.Children.Select(item => new
+        {
+          label = item.Name,
+          href = item.Url(),
+          selected = item.IsAncestorOrSelf(Model),
+        })
       })
-    })
-   
-})
+  })
 
 @* @Html.React("Components.TestForm", new{}) *@
 
@@ -48,7 +53,8 @@
 @RenderBody()
 
 
-@Html.React("Components.Cart", new{})
+@Html.React("Components.Cart",
+  new { })
 
 
 

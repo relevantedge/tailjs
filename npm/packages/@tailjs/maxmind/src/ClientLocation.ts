@@ -13,6 +13,7 @@ import type { CityResponse } from "mmdb-lib";
 export class ClientLocation implements TrackerExtension {
   private readonly _language: string;
   private readonly _mmdb: string;
+  private _i = 0;
 
   private _initialized = false;
   private _reader: Reader<CityResponse> | null;

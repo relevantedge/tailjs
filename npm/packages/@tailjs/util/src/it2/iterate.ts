@@ -27,6 +27,7 @@ import {
   Sortable,
   symbolAsyncIterator,
   throwError,
+  TupleOrArray,
   UnwrapPromiseLike,
 } from "..";
 import {
@@ -327,11 +328,36 @@ export let map2: {
         : source[forEachSymbol](source, projection, target, seed, context)
   ))(source, projection, target, context, seed);
 
+type FilterTruish<T extends readonly any[]> = T extends readonly [
+  infer T,
+  ...infer Rest
+]
+  ? T extends Falsish
+    ? FilterTruish<Rest>
+    : [T, ...FilterTruish<Rest>]
+  : T extends readonly []
+  ? []
+  : T extends readonly (infer T)[]
+  ? Exclude<T, Falsish>[]
+  : never;
+
+/** Creates an array with the parameters that are not false'ish */
+export const truish2: {
+  <Values extends TupleOrArray<{} | Falsish>>(
+    values: Values
+  ): FilterTruish<Values>;
+  <Values extends readonly ({} | Falsish)[]>(
+    ...values: Values
+  ): FilterTruish<Values>;
+} = (...values: any[]) =>
+  filter2(values.length === 1 ? values[0] : values, false) as any;
+
 export let filter2: {
   <Source extends IterationSource, Strict extends boolean = true>(
     target: Source,
     /**
-     * Whether to filter out all false'ish values (`null`, `undefined`, `false`, `""` and `0`).
+     * Whether to filter out only `null` and `undefined` or all false'ish values (`null`, `undefined`, `false`, `""` and `0`).
+     * If the latter behavior is preferred, you can also use {@link truish2}.
      *
      * @default true
      */
@@ -772,8 +798,8 @@ export const array2 = <T>(
   ? T
   : T extends readonly any[]
   ? T
-  : T extends Iterable<infer T>
-  ? T[]
+  : T extends Iterable<infer Item>
+  ? Item[]
   : [T] =>
   source == null
     ? source

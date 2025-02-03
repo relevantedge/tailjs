@@ -16,40 +16,30 @@ export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
   }
 
   async initialize(env: TrackerEnvironment): Promise<void> {
-    try {
-      this._env = env;
-      if (this._settings.x509) {
-        const cert =
-          "cert" in this._settings.x509
-            ? this._settings.x509.cert
-            : await this._env.read(this._settings.x509.certPath);
+    this._env = env;
+    if (this._settings.x509) {
+      const cert =
+        "cert" in this._settings.x509
+          ? this._settings.x509.cert
+          : await this._env.read(this._settings.x509.certPath);
 
-        const key =
-          "keyPath" in this._settings.x509
-            ? (await this._env.readText(this._settings.x509.keyPath)) ??
-              undefined
-            : this._settings.x509.key;
+      const key =
+        "keyPath" in this._settings.x509
+          ? (await this._env.readText(this._settings.x509.keyPath)) ?? undefined
+          : this._settings.x509.key;
 
-        if (!cert) {
-          throw new Error("Certificate not found.");
-        }
-        this._cert = {
-          id: this.id,
-          cert,
-          key,
-        };
+      if (!cert) {
+        throw new Error("Certificate not found.");
       }
-    } catch (e) {
-      env.log(this, {
-        group: "ravendb",
-        level: "error",
-        source: `${this.id}:initialize`,
-        message: "" + e,
-      });
+      this._cert = {
+        id: this.id,
+        cert,
+        key,
+      };
     }
   }
 
-  protected _request(relativeUrl: string, method: string, body?: any) {
+  protected _request(method: string, relativeUrl: string, body?: any) {
     return this._env.request({
       method,
       url: `${this._settings.url}/databases/${encodeURIComponent(

@@ -12,7 +12,7 @@ import {
   F,
   Nullish,
   ToggleArray,
-  array,
+  array2,
   clock,
   clone,
   concat,
@@ -21,11 +21,13 @@ import {
   forEach2,
   isString,
   itemize2,
-  map,
+  map2,
   merge,
+  merge2,
   now,
   pluralize,
   push,
+  skip2,
   structuralEquals,
   throwError,
   unshift,
@@ -169,7 +171,7 @@ export const createEventQueue = (
       key = events[0];
       events = events.slice(1) as any;
     }
-    events = map(events, (ev: any) => {
+    events = map2(events, (ev: any) => {
       context?.validateKey(key ?? ev.key);
       // Update metadata in the source event,
       // and send a clone of the event without client metadata, and its timestamp in relative time
@@ -185,10 +187,10 @@ export const createEventQueue = (
       return merge(clearMetadata(clone(ev), true), {
         timestamp: ev.timestamp! - now(),
       });
-    });
+    }) as ProtectedEvent[];
 
     debug(
-      { [childGroups]: map(events, (ev) => [ev, ev.type, F]) },
+      { [childGroups]: map2(events, (ev: ProtectedEvent) => [ev, ev.type, F]) },
       "Posting " +
         itemize2([
           pluralize("new event", [
@@ -219,15 +221,15 @@ export const createEventQueue = (
   ): Promise<any> => {
     const newEvents: ProtectedEvent[] = [];
 
-    events = map(
-      array(events),
+    events = map2(
+      array2(events),
       (event) => (
         !event.metadata?.queued && push(newEvents, event),
-        merge(context.applyEventExtensions(event), {
+        merge2(context.applyEventExtensions(event), {
           metadata: { queued: true },
-        })
+        }) ?? skip2
       )
-    );
+    ) as ProtectedEvent[];
 
     forEach2(newEvents, (event) => debug(event, event.type));
 
@@ -255,11 +257,11 @@ export const createEventQueue = (
     // More than that the user is probably just switching between tabs moving past this one.
     // NOTE: (This number should preferably be better qualified. We could also look into user activation events).
     if (!visible && (queue.length || unloading || delta > 1500)) {
-      const updatedEvents = map(sources, ([sourceEvent, source]) => {
+      const updatedEvents = map2(sources, ([sourceEvent, source]) => {
         const [event, unbinding] = source();
         unbinding &&
           (sources.delete(sourceEvent), snapshots.delete(sourceEvent));
-        return event;
+        return event ?? skip2;
       });
 
       if (queue.length || updatedEvents.length) {

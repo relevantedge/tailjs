@@ -26,7 +26,7 @@ const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
 const uuid = new ShortUniqueId();
 
-const getDefaultLogSourceName = (source: any): string | undefined => {
+export const getDefaultLogSourceName = (source: any): string | undefined => {
   if (!source) return undefined;
   if (!isObject(source)) return "" + source;
 

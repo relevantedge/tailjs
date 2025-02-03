@@ -22,15 +22,31 @@ export interface SessionInfo extends ScopeInfo {
   /** @access trusted-only */
   id: string;
 
-  deviceSessionId?: string;
-
+  /**
+   * Used to handle race conditions.
+   * When multiple session are created from concurrent requests, the winning session contains the device ID.
+   *
+   * @access trusted-only
+   */
   deviceId?: string;
+
+  deviceSessionId?: string;
 
   userId?: string;
 
   previousSession?: Timestamp;
 
   hasUserAgent?: boolean;
+
+  /** The session id anonymous. */
+  anonymous?: boolean;
+
+  /**
+   * If the user upgraded their consent, this will be the original anonymous session ID.
+   *
+   * @access trusted-only
+   */
+  anonymousSessionId?: string;
 
   /** The total number of tabs opened during the session. */
   tabs?: number;

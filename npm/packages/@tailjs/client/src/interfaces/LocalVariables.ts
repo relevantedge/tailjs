@@ -15,6 +15,7 @@ import type {
   VariableResultPromiseResult,
   VariableSetResult,
   VariableSetter,
+  VariablePollCallback,
   View,
 } from "@tailjs/types";
 
@@ -45,6 +46,7 @@ export type ReservedTrackerVariables = {
   shared: {
     tabIndex: number;
     viewIndex: number;
+    referrer: [viewId: string | undefined, navigationEventId: string];
   };
 };
 
@@ -119,9 +121,11 @@ export type ClientVariableGetter<
   callback?: ClientVariableGetterCallback<T, LocalOnly>;
 
   /**
-   * Do not accept a cached version of the variable.
+   * This will be called with the value of the variable whenever a change is detected in the local cache
+   * until the callback returns something different than `true`.
+   *
    */
-  refresh?: boolean;
+  poll?: VariablePollCallback<T>;
 } & VariableCacheSettings;
 
 export type ClientVariableSetter<

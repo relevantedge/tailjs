@@ -6,12 +6,17 @@ import {
 import {
   ReadOnlyVariableGetter,
   VariableGetResult,
+  VariableKey,
   VariableQueryOptions,
   VariableQueryResult,
   VariableSetResult,
+  VariableSetter,
   VariableValueSetter,
 } from "@tailjs/types";
 import { RavenDbTarget } from "./RavenDbTarget";
+
+const mapDocumentId = (key: VariableKey) =>
+  `variables/${key.scope}-${key.entityId}-${key.key}`;
 
 export class RavenDbVariableStorage
   extends RavenDbTarget
@@ -19,8 +24,40 @@ export class RavenDbVariableStorage
 {
   public readonly id = "ravendb-variables";
 
-  set(values: VariableValueSetter[]): Promise<VariableSetResult[]> {
+  async set(setters: VariableValueSetter[]): Promise<VariableSetResult[]> {
+    const result: VariableSetResult[] = [];
     throw new Error("Method not implemented.");
+    // const responses = JSON.parse(
+    //   (
+    //     await this._request("POST", "bulk_docs", {
+    //       Commands: setters.map((setter) =>
+    //         setter.value != null
+    //           ? {
+    //               Type: "PUT",
+    //               Id: mapDocumentId(setter),
+    //               ChangeVector: setter.version,
+    //               Document: {
+    //                 ...setter.value,
+    //                 "@metadata": {
+    //                   "@collection": "variables",
+    //                 },
+    //               },
+    //             }
+    //           : {
+    //               Type: "DELETE",
+    //               ChangeVector: setter.version,
+    //               Id: mapDocumentId(setter),
+    //             }
+    //       ),
+    //     })
+    //   ).body
+    // ).Results as any[];
+
+    // const pendingGetters: VariableValueSetter[] = [];
+
+    // for (const response of responses) {
+
+    // }
   }
 
   purge(queries: VariableStorageQuery[]): Promise<number> {

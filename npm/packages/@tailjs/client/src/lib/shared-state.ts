@@ -307,6 +307,7 @@ addEncryptionNegotiatedListener((httpEncrypt, httpDecrypt) => {
     }
   });
 
+  // Add a short delay to allow other tabs to share their information (if any).
   const initTimeout = clock(() => dispatchState("ready", state, true), -25);
 
   const heartbeat = clock({

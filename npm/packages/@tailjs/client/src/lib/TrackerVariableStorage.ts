@@ -1,6 +1,7 @@
 import {
   extractKey,
   isSuccessResult,
+  isVariableResult,
   PostRequest,
   PostResponse,
   toVariableResultPromise,
@@ -18,9 +19,7 @@ import {
   concat2,
   forEach2,
   get2,
-  isBoolean,
   isString,
-  map,
   map2,
   now,
   Nullish,
@@ -28,15 +27,13 @@ import {
   push2,
   remove,
   required,
-  set2,
   skip2,
-  tryCatchAsync,
-  wrap,
 } from "@tailjs/util";
 import {
   addPageLoadedListener,
   addResponseHandler,
   addVariablesChangedListener,
+  logError,
   request,
   StateVariable,
   StateVariableEntry,
@@ -78,6 +75,7 @@ const SETTER_REQUEST_PROPS: (keyof VariableValueSetter)[] = [
 export interface TrackerVariableStorage {
   get<
     Getters extends VariableOperationParameter<
+      "get",
       ClientVariableGetter & { key: Keys; scope: Scopes }
     >,
     Keys extends string,
@@ -93,6 +91,7 @@ export interface TrackerVariableStorage {
 
   set<
     Setters extends VariableOperationParameter<
+      "set",
       ClientVariableSetter & { key: Keys; scope: Scopes }
     >,
     Keys extends string,
@@ -113,7 +112,7 @@ export const createVariableStorage = (
   context?: TrackerContext
 ): TrackerVariableStorage => {
   const pollVariables = clock(async () => {
-    const getters: ClientVariableGetter[] = map(
+    const getters: ClientVariableGetter[] = map2(
       activeCallbacks,
       ([key, callbacks]) => ({
         ...stringToVariableKey(key),
@@ -127,8 +126,12 @@ export const createVariableStorage = (
   const registerCallback = (
     mappedKey: string,
     callback: ClientVariableGetterCallback | undefined
-  ) =>
-    callback && get2(activeCallbacks, mappedKey, () => new Set()).add(callback);
+  ) => {
+    return (
+      callback &&
+      get2(activeCallbacks, mappedKey, () => new Set()).add(callback)
+    );
+  };
 
   const invokeCallbacks = (result: ClientVariableGetResult) => {
     if (!result) return;
@@ -157,22 +160,11 @@ export const createVariableStorage = (
     forEach2(changes, ([key, current]) =>
       invokeCallbacks(
         current
-          ? { status: VariableResultStatus.Success, success: true, ...current }
-          : { status: VariableResultStatus.NotFound, success: true, ...key }
+          ? { status: VariableResultStatus.Success, ...current }
+          : { status: VariableResultStatus.NotFound, ...key }
       )
     )
   );
-
-  const cacheDurations = new Map<string, number>();
-  const updateCacheDuration = (
-    key: string,
-    duration: undefined | number | boolean
-  ) =>
-    set2(
-      cacheDurations,
-      key,
-      isBoolean(duration) ? (duration ? undefined : 0) : duration
-    );
 
   const vars: TrackerVariableStorage = {
     get: ((getters: ClientVariableGetter[]) =>
@@ -205,13 +197,11 @@ export const createVariableStorage = (
               results.set(getter, {
                 ...getter,
                 status: VariableResultStatus.Forbidden,
-                success: false,
                 error: `No consent for '${purpose}'.`,
               });
-            } else if (!getter.refresh && current) {
+            } else if (getter.refresh && current) {
               results.set(getter, {
                 status: VariableResultStatus.Success,
-                success: true,
                 ...current,
               });
             } else if (isLocalScopeKey(getter)) {
@@ -230,8 +220,12 @@ export const createVariableStorage = (
                 push2(newLocal, [extractKey(local), local]);
                 results.set(getter, {
                   status: VariableResultStatus.Success,
-                  success: true,
                   ...local,
+                });
+              } else {
+                results.set(getter, {
+                  status: VariableResultStatus.NotFound,
+                  ...extractKey(getter),
                 });
               }
             } else {
@@ -286,7 +280,6 @@ export const createVariableStorage = (
                       ? {
                           ...result,
                           status: VariableResultStatus.Success,
-                          success: true,
                         }
                       : result
                   )
@@ -302,25 +295,16 @@ export const createVariableStorage = (
             updateVariableState(newLocal);
           }
 
-          // Wrap callbacks to activate polling if they return `true`.
-          // The variable result promise logic takes care of invoking the callbacks.
-          forEach2(results, ([source]) => {
-            if (source.callback) {
-              source.callback = wrap(source.callback, (inner, result) => {
-                tryCatchAsync(
-                  async () =>
-                    (await inner(result)) === true &&
-                    registerCallback(
-                      variableKeyToString(source),
-                      source.callback
-                    ),
-                  false // TODO: Global exception handling (maybe already in place... find it then).
-                );
-              });
-            }
-          });
-
           return results;
+        },
+        {
+          poll: (source, callback) =>
+            registerCallback(
+              variableKeyToString(source as any),
+              callback as any
+            ),
+          logCallbackError: (message, operation, error) =>
+            logError("Variables.get", message, { operation, error }),
         }
       )) as any,
 
@@ -384,14 +368,12 @@ export const createVariableStorage = (
                 !local
                   ? {
                       status: VariableResultStatus.Success,
-                      success: true,
                       ...extractKey(setter),
                     }
                   : {
                       status: current
                         ? VariableResultStatus.Success
                         : VariableResultStatus.Created,
-                      success: true,
                       ...local,
                     }
               );
@@ -471,6 +453,10 @@ export const createVariableStorage = (
           }
 
           return results;
+        },
+        {
+          logCallbackError: (message, operation, error) =>
+            logError("Variables.set", message, { operation, error }),
         }
       )) as any,
   };
@@ -478,19 +464,24 @@ export const createVariableStorage = (
   addResponseHandler(({ variables }: PostResponse) => {
     if (!variables) return;
     const changed = concat2(
-      map2(variables.get, (result) => (result?.success ? result : skip2)),
+      map2(variables.get, (result) =>
+        isVariableResult(result) ? result : skip2
+      ),
       map2(variables.set, (result) =>
-        // "Not found" are bad for setters (delete something that doesn't exist).
-        result?.success ? result : skip2
+        isSuccessResult(result) ? result : skip2
       )
     );
 
     changed?.length &&
       updateVariableState(
-        map2(changed, (result) => [
-          extractKey(result),
-          result.success ? result.value : undefined,
-        ])
+        map2(
+          changed,
+          (result) =>
+            [
+              extractKey(result),
+              isSuccessResult(result) ? result : undefined,
+            ] as any
+        )
       );
   });
 

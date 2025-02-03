@@ -125,4 +125,7 @@ export interface TrackerClientConfiguration {
    * This is controlled by the request handler's configuration and cannot be set independently.
    */
   json?: boolean;
+
+  /** These attributes will be added to scripts to avoid CMP/script blockers to prevent them from executing. */
+  scriptBlockerAttributes?: Record<string, string>;
 }

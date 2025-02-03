@@ -26,7 +26,7 @@ await build(
         type: "*",
         schemaId: CORE_SCHEMA_NS,
         tsconfig: "./tsconfig.json",
-        version: "0.94.3",
+        version: pkg.config["version"] || pkg.workspaceConfig["version"],
       });
 
       const parser = new JsonSchemaAdapter();

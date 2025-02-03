@@ -19,9 +19,9 @@ import {
   filter,
   forEach2,
   getTextStats,
-  map,
-  nil,
+  map2,
   restrict,
+  skip2,
 } from "@tailjs/util";
 import {
   document,
@@ -199,34 +199,32 @@ export const createImpressionObserver = (tracker: Tracker) => {
           ++impressions;
           viewDuration(active);
           if (!impressionEvents) {
-            impressionEvents = filter(
-              map(
-                components,
-                (cmp) =>
-                  ((cmp!.track?.impressions ||
-                    trackerFlag(
-                      el,
-                      "impressions",
-                      T,
-                      (data) => data.track?.impressions
-                    )) &&
-                    restrict<ImpressionEvent>({
-                      type: "impression",
-                      pos: getScreenPos(el),
-                      viewport: getViewport(),
-                      timeOffset: getViewTimeOffset(),
-                      impressions,
-                      ...getComponentContext(el, T),
-                    })) ||
-                  nil
-              )
+            impressionEvents = map2(
+              components,
+              (cmp) =>
+                ((cmp!.track?.impressions ||
+                  trackerFlag(
+                    el,
+                    "impressions",
+                    T,
+                    (data) => data.track?.impressions
+                  )) &&
+                  restrict<ImpressionEvent>({
+                    type: "impression",
+                    pos: getScreenPos(el),
+                    viewport: getViewport(),
+                    timeOffset: getViewTimeOffset(),
+                    impressions,
+                    ...getComponentContext(el, T),
+                  })) ||
+                skip2
             );
             tracker(impressionEvents);
           }
 
           if (impressionEvents?.length) {
             const duration = viewDuration();
-            unbindPassiveEventSources = map(impressionEvents, (event) =>
+            unbindPassiveEventSources = map2(impressionEvents, (event) =>
               tracker.events.registerEventPatchSource(event, () => ({
                 relatedEventId: event.clientId!,
                 duration,

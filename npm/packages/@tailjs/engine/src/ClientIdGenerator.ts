@@ -1,16 +1,18 @@
-import { ClientRequestHeaders, Tracker, TrackerEnvironment } from ".";
+import { filter2, join2, map2, skip2 } from "@tailjs/util";
+import { ClientRequestHeaders, TrackerEnvironment } from ".";
 
 /**
  * This is used to generate a probabilistically unique identifier from a client request
  * for anonymous tracking. This identifier is used to reference an anonymous session
  * and will not get stored itself.
- * That means the generated identifier may contain personal data which is by all chance the case
+ * That means the generated identifier may contain pseudonomized personal data which is by all chance the case
  * if any client-specific information is used from the request.
  *
  */
 export interface ClientIdGenerator {
   /**
    * Generates a pseudo-unique identifier based on request information from the client.
+   * Stationary identifiers are used to seed the client encryption key, and non-stationary are used for anonymous tracking.
    *
    * @param environment The tracker environment where the request happened.
    * @param request The client request information to use as the basis for the identifier.
@@ -33,7 +35,6 @@ export class DefaultClientIdGenerator implements ClientIdGenerator {
 
   constructor({
     headers = [
-      "accept-encoding",
       "accept-language",
       "sec-ch-ua",
       "sec-ch-ua-mobile",
@@ -49,9 +50,15 @@ export class DefaultClientIdGenerator implements ClientIdGenerator {
     request: ClientRequestHeaders,
     stationary: boolean
   ): Promise<string> {
-    return [
+    const data = [
       stationary ? "" : request.clientIp,
-      ...this._headers.map((header) => request.headers[header] + ""),
-    ].join("&");
+      ...map2(this._headers, (header) => request.headers[header] + "" || skip2),
+    ];
+    console.log(
+      `Generated ${
+        stationary ? "stationary" : "non-stationary"
+      } client ID from the data: ${JSON.stringify(data)}.`
+    );
+    return data.join("&");
   }
 }

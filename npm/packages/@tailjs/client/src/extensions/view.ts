@@ -12,17 +12,18 @@ import {
   F,
   T,
   add,
-  array,
+  array2,
   clock,
   createEvent,
   createTimer,
   forEach2,
-  map,
+  map2,
   nil,
   now,
   parseQueryString,
   parseUri,
   replace,
+  skip2,
 } from "@tailjs/util";
 import { TrackerExtensionFactory, isChangeUserCommand } from "..";
 import { tracker } from "../initializeTracker";
@@ -66,10 +67,10 @@ export const pushNavigationSource = (
       // Grr! Intellisense won't use the constant scope and key values if `...referrerKey`.
       scope: referrerKey.scope,
       key: referrerKey.key,
-      result: (current: any, previous: any, poll) =>
-        current?.value
-          ? poll()
-          : previous?.value?.[1] === navigationEventId && consumed(),
+      poll: (current, _, previous) =>
+        current
+          ? true
+          : previous?.[1] === navigationEventId && consumed() && false,
     });
 };
 
@@ -124,7 +125,7 @@ export const context: TrackerExtensionFactory = {
           frames,
           (frame) => add(knownFrames, frame) && callOnFrame(frame)
         ),
-      1000
+      500
     ).trigger();
 
     // View definitions may be loaded asynchronously both before and after navigation happens.
@@ -138,20 +139,20 @@ export const context: TrackerExtensionFactory = {
     tracker.variables.get({
       scope: "view",
       key: "view",
-      result: (definition, _, poll) => {
+      poll: (definition) => {
         if (
           currentViewEvent == null ||
-          !definition?.value ||
+          !definition ||
           currentViewEvent?.definition
         ) {
           // Buffer for next navigation.
-          pendingViewDefinition = definition?.value;
-          if (definition?.value?.navigation) {
+          pendingViewDefinition = definition;
+          if (definition?.navigation) {
             // Post view registered. This was custom navigation that we are not normally intercepting.
             postView(true);
           }
         } else {
-          currentViewEvent.definition = definition.value;
+          currentViewEvent.definition = definition;
           if (currentViewEvent.metadata?.posted) {
             // Send the definition as a patch because the view event has already been posted.
             tracker.events.postPatch(currentViewEvent, {
@@ -165,9 +166,10 @@ export const context: TrackerExtensionFactory = {
           }
         }
 
-        return poll();
+        return true;
       },
     });
+
     let viewIndex =
       tryGetVariable({ scope: "tab", key: "viewIndex" })?.value ?? 0;
     let tabIndex = tryGetVariable({ scope: "tab", key: "tabIndex" })?.value;
@@ -230,15 +232,16 @@ export const context: TrackerExtensionFactory = {
       setLocalVariables({ scope: "tab", key: "viewIndex", value: ++viewIndex });
 
       const qs = parseQueryString(location.href);
-      map(
+      map2(
         ["source", "medium", "campaign", "term", "content"],
         (p, _) =>
-          ((currentViewEvent!.utm ??= {})[p] = array(qs[`utm_${p}`])?.[0])
+          ((currentViewEvent!.utm ??= {})[p] = array2(qs[`utm_${p}`])?.[0]) ??
+          skip2
       );
 
       !(currentViewEvent.navigationType = pushPopNavigation) &&
         performance &&
-        map(
+        forEach2(
           performance.getEntriesByType("navigation"),
           (entry: PerformanceNavigationTiming) => {
             currentViewEvent!.redirects = entry.redirectCount;
@@ -301,7 +304,7 @@ export const context: TrackerExtensionFactory = {
       "popstate",
       () => ((pushPopNavigation = "back-forward"), postView())
     );
-    map(["push", "replace"], (name) => {
+    forEach2(["push", "replace"], (name) => {
       const inner = history[(name += "State")];
       history[name] = (...args: any) => {
         inner.apply(history, args);

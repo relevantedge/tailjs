@@ -24,6 +24,7 @@ let loaded = true;
 let visible = false;
 let visibleTimer = createTimer(false);
 let sleepTimer = createTimer(false);
+
 listen(window, ["pagehide", "freeze"], () => maybeDispatchPageLoaded(false));
 listen(window, ["pageshow", "resume"], () => maybeDispatchPageLoaded(true));
 listen(

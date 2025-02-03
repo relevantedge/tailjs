@@ -42,6 +42,7 @@ export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
           rdb: {
             classification: "anonymous",
             purposes: {},
+            visibility: "trusted-only",
             properties: {
               sessionId: {
                 primitive: "string",
@@ -82,6 +83,7 @@ export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
       var hasChanges = false;
       if (tracker.sessionId && ids?.sessionId !== tracker.sessionId) {
         (ids ??= {}).internalSessionId = await this._getNextId();
+        ids.sessionId = tracker.sessionId;
         hasChanges = true;
       }
       if (
@@ -89,6 +91,7 @@ export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
         ids?.deviceSessionId !== tracker.deviceSessionId
       ) {
         (ids ??= {}).internalDeviceSessionId = await this._getNextId();
+        ids.deviceSessionId = tracker.deviceSessionId;
         hasChanges = true;
       }
       if (!tracker.sessionId && !tracker.deviceSessionId) {
@@ -126,7 +129,7 @@ export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
         });
       }
 
-      await this._request("bulk_docs", "POST", { Commands: commands });
+      await this._request("POST", "bulk_docs", { Commands: commands });
     } catch (e) {
       tracker.env.error(this, e);
     }
@@ -144,8 +147,8 @@ export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
           for (let i = 0; i <= 100; i++) {
             const response = (
               await this._request(
-                `cmpxchg?key=NextEventId&index=${this._idIndex}`,
                 "PUT",
+                `cmpxchg?key=NextEventId&index=${this._idIndex}`,
                 { Object: idMax }
               )
             ).body;
@@ -180,13 +183,14 @@ export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
           }
           id = ++this._nextId;
         }
-      } catch (e) {
+      } catch (error) {
         this._env.log(this, {
           group: this.id,
           level: "error",
-          source: this.id,
-          message: "" + e,
+          message: "Generating the next sequence of IDs failed.",
+          error,
         });
+        throw error;
       } finally {
         lockHandle();
       }

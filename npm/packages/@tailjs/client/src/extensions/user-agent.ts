@@ -1,6 +1,6 @@
-import { map, push, restrict } from "@tailjs/util";
-import { Tracker, currentViewEvent, detectDeviceType } from "..";
 import { UserAgentEvent, UserAgentLanguage } from "@tailjs/types";
+import { map2, restrict } from "@tailjs/util";
+import { Tracker, currentViewEvent, detectDeviceType } from "..";
 
 export const postUserAgentEvent = (tracker: Tracker) =>
   tracker(
@@ -9,15 +9,16 @@ export const postUserAgentEvent = (tracker: Tracker) =>
       hasTouch: navigator.maxTouchPoints > 0,
       userAgent: navigator.userAgent,
       view: currentViewEvent?.clientId,
-      languages: map(navigator.languages, (id, i, parts = id.split("-")) =>
-        restrict<UserAgentLanguage>({
+      languages: map2(navigator.languages, (id, i) => {
+        const [language, region] = id.split("-");
+        return restrict<UserAgentLanguage>({
           id,
-          language: parts[0],
-          region: parts[1],
+          language,
+          region,
           primary: i === 0,
           preference: i + 1,
-        })
-      ),
+        });
+      }),
       timezone: {
         iana: Intl.DateTimeFormat().resolvedOptions().timeZone,
         offset: new Date().getTimezoneOffset(),
