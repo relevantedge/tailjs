@@ -2,7 +2,7 @@ import {
   SchemaDefinitionEntity,
   SchemaTypeDefinition,
   SchemaTypeSystemRole,
-  ServerVariableScope,
+  VariableServerScope,
   VersionedSchemaEntity,
   SchemaVariableDefinition,
 } from "../..";
@@ -29,7 +29,7 @@ export interface SchemaDefinition
   types?: { [TypeName in string]: SchemaTypeDefinition };
 
   variables?: {
-    [Scope in ServerVariableScope | (string & {})]?: {
+    [Scope in VariableServerScope | (string & {})]?: {
       [Key in string]?: SchemaVariableDefinition;
     };
   };

@@ -152,6 +152,7 @@ export const parsePropertyType = (
         parseContext
       );
       const name = "record(" + keyType + ", " + valueType + ")";
+
       const parsedType: SchemaPropertyType = {
         source: definition,
         key: keyType,
@@ -160,7 +161,7 @@ export const parsePropertyType = (
         censor: (value, context) => {
           if (!value || typeof value !== "object") return value;
 
-          let censored: Record<any, any> = {};
+          let censored: Record<any, any> = value;
           for (const key in value) {
             const propertyValue = value[key];
             const censoredPropertyValue = valueType.censor(
@@ -343,7 +344,7 @@ export const parsePropertyType = (
   propertyType.validate = (value, current, context, errors) =>
     handleValidationErrors((errors) => {
       if (value == null) {
-        if (required) {
+        if (required && !context.patch) {
           errors.push({
             path: "",
             type: propertyType,

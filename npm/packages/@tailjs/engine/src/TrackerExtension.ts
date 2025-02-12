@@ -5,6 +5,7 @@ import type {
   SchemaBuilder,
   Tracker,
   TrackerEnvironment,
+  VariableStorageMappings,
 } from "./shared";
 
 export type NextPatchExtension = (
@@ -38,13 +39,21 @@ export interface TrackerEnvironmentInitializable {
  *
  * Extensions may do anything from altering, updating and/or adding events before they are processed by other extensions.
  *
- * An extension
+ * Be aware this interface my be split into separate interfaces for the different purposes in the future, but the
+ * methods will keep their signatures to make this non-breaking.
  */
 export interface TrackerExtension extends TrackerEnvironmentInitializable {
   readonly id: string;
 
   /** This method is called before the extension is initialized allowing it to export is variable types and similar. */
   registerTypes?(schema: SchemaBuilder): void;
+
+  /**
+   * Allows the extension to update the RequestHandler's storage mappings as an alternative to configuration.
+   *
+   * This may be convenient if an extension both comes with event and variable logic (e.g. @tailjs/ravendb).
+   */
+  patchStorageMappings?(mappings: VariableStorageMappings): void;
 
   apply?(
     tracker: Tracker,

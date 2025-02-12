@@ -5,7 +5,9 @@ import {
   SchemaObjectTypeDefinition,
   SchemaProperty,
   SchemaPropertyType,
+  SchemaSystemTypeDefinition,
   SchemaTypeDefinition,
+  SchemaTypeSystemRole,
   ValidatableSchemaEntity,
   VariableKey,
 } from "../../..";
@@ -59,6 +61,8 @@ export interface SchemaObjectType
 
   /** The minimum required usage for any data from this type to appear. */
   usage: SchemaDataUsage;
+
+  system?: SchemaTypeSystemRole;
 
   toString(): string;
 }

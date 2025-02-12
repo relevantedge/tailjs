@@ -14,7 +14,7 @@ import {
   some2,
   sort2,
   throwError,
-  toJSON2,
+  stringify2,
   topoSort2,
 } from "@tailjs/util";
 import {
@@ -169,7 +169,7 @@ export const createSchemaTypeMapper = (
           value == null
             ? skip2
             : `${properties[i][0]}=${
-                typeof value === "symbol" ? "*" : toJSON2(value)
+                typeof value === "symbol" ? "*" : stringify2(value)
               }`
         );
         return throwError(

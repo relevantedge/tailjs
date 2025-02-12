@@ -273,6 +273,32 @@ let collected;
     var _s_replace;
     return (_s_replace = s === null || s === void 0 ? void 0 : s.replace(match, replaceValue)) !== null && _s_replace !== void 0 ? _s_replace : s;
 };
+// #endregion
+const getRootPrototype = (value)=>{
+    let proto = value;
+    while(proto){
+        proto = Object.getPrototypeOf(value = proto);
+    }
+    return value;
+};
+const findPrototypeFrame = (frameWindow, matchPrototype)=>{
+    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
+        return frameWindow;
+    }
+    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
+        try {
+            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
+                return frameWindow;
+            }
+        } catch (e) {
+        // Cross domain issue.
+        }
+    }
+};
+/**
+ * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
+ * e.g., `Object` in an iframe is different from `Object` in the top frame.
+ */ const findDeclaringScope = (target)=>target == null ? target : globalThis.window ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
 let stopInvoked = false;
 const skip2 = Symbol();
 const stop2 = (value)=>(stopInvoked = true, value);
@@ -281,8 +307,14 @@ const forEachSymbol = Symbol();
 const asyncIteratorFactorySymbol = Symbol();
 const symbolIterator = Symbol.iterator;
 // Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
-let ensureForEachImplementations = (returnValue)=>{
-    ensureForEachImplementations = (func)=>func; // Already initialized next time this is called;
+const ensureForEachImplementations = (target, error, retry)=>{
+    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
+        throw error;
+    }
+    let scope = findDeclaringScope(target);
+    if (!scope) {
+        throw error;
+    }
     const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
             let projected, i = 0;
             for (const item of target){
@@ -300,7 +332,7 @@ let ensureForEachImplementations = (returnValue)=>{
             }
             return mapped || seed;
         };
-    Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
         let projected, item;
         for(let i = 0, n = target.length; i < n; i++){
             item = target[i];
@@ -321,7 +353,7 @@ let ensureForEachImplementations = (returnValue)=>{
         return mapped || seed;
     };
     const genericForEachIterable = forEachIterable();
-    Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
         if (target[symbolIterator]) {
             if (target.constructor === Object) {
                 return genericForEachIterable(target, projection, mapped, seed, context);
@@ -348,7 +380,7 @@ let ensureForEachImplementations = (returnValue)=>{
         }
         return mapped || seed;
     };
-    Object.prototype[asyncIteratorFactorySymbol] = function() {
+    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
         if (this[symbolIterator] || this[symbolAsyncIterator]) {
             if (this.constructor === Object) {
                 var _this_symbolAsyncIterator;
@@ -362,21 +394,21 @@ let ensureForEachImplementations = (returnValue)=>{
         return iterateEntries(this);
     };
     for (const proto of [
-        Map.prototype,
-        WeakMap.prototype,
-        Set.prototype,
-        WeakSet.prototype,
+        scope.Map.prototype,
+        scope.WeakMap.prototype,
+        scope.Set.prototype,
+        scope.WeakSet.prototype,
         // Generator function
         Object.getPrototypeOf(function*() {})
     ]){
         proto[forEachSymbol] = forEachIterable();
         proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
     }
-    Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
-    Number.prototype[asyncIteratorFactorySymbol] = range2;
-    Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
-    Function.prototype[asyncIteratorFactorySymbol] = traverse2;
-    return returnValue;
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+    return retry();
 };
 // #endregion
 function* range2(length = this) {
@@ -394,8 +426,20 @@ function* iterateEntries(source) {
         ];
     }
 }
-let forEach2 = (source, projection, seed, context)=>(forEach2 = ensureForEachImplementations((source, projection, seed, context = source)=>source ? source[forEachSymbol](source, projection, undefined, seed, context) : source == null ? source : undefined))(source, projection, seed, context);
-let map2 = (source, projection, target = [], seed, context = source)=>(map2 = ensureForEachImplementations((source, projection, target = [], seed, context = source)=>!source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context)))(source, projection, target, context, seed);
+const forEach2 = (source, projection, seed, context)=>{
+    try {
+        return source ? source[forEachSymbol](source, projection, undefined, seed, context) : source == null ? source : undefined;
+    } catch (e) {
+        return ensureForEachImplementations(source, e, ()=>forEach2(source, projection, seed, context));
+    }
+};
+let map2 = (source, projection, target = [], seed, context = source)=>{
+    try {
+        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
+    } catch (e) {
+        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
+    }
+};
 let filter2 = (items, filter = true, invert = false)=>map2(items, filter === true ? (item)=>item !== null && item !== void 0 ? item : skip2 : !filter ? (item)=>item || skip2 : filter.has ? (item)=>item == null || filter.has(item) === invert ? skip2 : item : (item, index, prev)=>!filter(item, index, prev) === invert ? item : skip2);
 const collect2 = (source, generator, includeSelf = true, collected)=>{
     if (source == null) return source;
@@ -479,11 +523,18 @@ const keys2 = Object.keys;
 const setSymbol = Symbol();
 const getSymbol = Symbol();
 const pushSymbol = Symbol();
-let ensureAssignImplementations = (returnValue)=>{
-    ensureAssignImplementations = (returnValue)=>returnValue;
+let ensureAssignImplementations = (target, error, retry)=>{
+    if (target == null || (target === null || target === void 0 ? void 0 : target[getSymbol])) {
+        throw error;
+    }
+    let scope = findDeclaringScope(target);
+    if (!scope) {
+        throw error;
+    }
+    if (scope.Object.prototype[setSymbol]) throw error;
     for (const { prototype } of [
-        Map,
-        WeakMap
+        scope.Map,
+        scope.WeakMap
     ]){
         prototype[setSymbol] = function(key, value) {
             return value === void 0 ? this.delete(key) : this.get(key) !== value && !!this.set(key, value);
@@ -491,8 +542,8 @@ let ensureAssignImplementations = (returnValue)=>{
         prototype[getSymbol] = prototype.get;
     }
     for (const { prototype } of [
-        Set,
-        WeakSet
+        scope.Set,
+        scope.WeakSet
     ]){
         prototype[setSymbol] = function(key, value, add = false) {
             return value || add && value === void 0 ? this.has(key) ? false : !!this.add(key) : this.delete(key);
@@ -503,13 +554,13 @@ let ensureAssignImplementations = (returnValue)=>{
             return this;
         };
     }
-    Array.prototype[pushSymbol] = function(values) {
+    scope.Array.prototype[pushSymbol] = function(values) {
         this.push(...values);
         return this;
     };
     for (const { prototype } of [
-        Object,
-        Array
+        scope.Object,
+        scope.Array
     ]){
         prototype[setSymbol] = function(key, value) {
             if (value === undefined) {
@@ -525,9 +576,10 @@ let ensureAssignImplementations = (returnValue)=>{
             return this[key];
         };
     }
-    return returnValue;
+    return retry();
 };
-let get2 = (source, key, initialize)=>(get2 = ensureAssignImplementations((source, key, initialize)=>{
+let get2 = (source, key, initialize)=>{
+    try {
         if (source == null) return source;
         let value = source[getSymbol](key);
         if (value === void 0 && (value = typeof initialize === "function" ? initialize() : initialize) !== void 0) {
@@ -535,17 +587,36 @@ let get2 = (source, key, initialize)=>(get2 = ensureAssignImplementations((sourc
             source[setSymbol](key, value);
         }
         return value;
-    }))(source, key, initialize);
-let add2 = (target, key, value)=>(add2 = ensureAssignImplementations((target, key, value)=>(target === null || target === void 0 ? void 0 : target[setSymbol](key, value, true)) === true))(target, key, value);
-let set2 = (target, key, value)=>(set2 = ensureAssignImplementations((target, key, value)=>{
+    } catch (e) {
+        return ensureAssignImplementations(source, e, ()=>get2(source, key, initialize));
+    }
+};
+let add2 = (target, key, value)=>{
+    try {
+        return (target === null || target === void 0 ? void 0 : target[setSymbol](key, value, true)) === true;
+    } catch (e) {
+        return ensureAssignImplementations(target, e, ()=>add2(target, key, value));
+    }
+};
+let set2 = (target, key, value)=>{
+    try {
         target[setSymbol](key, value);
         return value;
-    }))(target, key, value);
+    } catch (e) {
+        return ensureAssignImplementations(target, e, ()=>set2(target, key, value));
+    }
+};
 const update2 = (target, key, update)=>{
     let updated = update(get2(target, key));
     return typeof (updated === null || updated === void 0 ? void 0 : updated.then) === "function" ? updated.then((value)=>set2(target, key, value)) : set2(target, key, updated);
 };
-let push2 = (target, ...items)=>(push2 = ensureAssignImplementations((target, ...items)=>target == null ? target : target[pushSymbol](items)))(target, ...items);
+let push2 = (target, ...items)=>{
+    try {
+        return target == null ? target : target[pushSymbol](items);
+    } catch (e) {
+        return ensureAssignImplementations(target, e, ()=>push2(target, ...items));
+    }
+};
 const obj2 = (source, projection)=>{
     const target = {};
     forEach2(source, projection ? (item, index, seed)=>(item = projection(item, index, seed)) && (typeof item !== "symbol" || item !== skip2 && item !== stop2) ? target[item[0]] = item[1] : item : (item)=>item && (typeof item !== "symbol" || item !== skip2 && item !== stop2) ? target[item[0]] = item[1] : item);
@@ -705,6 +776,15 @@ const DataPurposes = {
         return value;
     },
     getNames: (purposes)=>map2(purposes, ([key, value])=>value ? key : skip2),
+    get all () {
+        return {
+            functionality: true,
+            marketing: true,
+            performance: true,
+            personalization: true,
+            security: true
+        };
+    },
     test (target, test, { intersect, optionalPurposes, targetPurpose }) {
         if (typeof optionalPurposes === "boolean") {
             optionalPurposes = {
@@ -1535,9 +1615,13 @@ class JsonSchemaAdapter {
     }
 }
 
+const isSchemaArrayType = (value)=>"item" in value;
+
 const isSchemaObjectType = (value)=>"properties" in value;
 
 const hasEnumValues = (type)=>!!(type === null || type === void 0 ? void 0 : type.enumValues);
+
+const isSchemaRecordType = (value)=>"key" in value && "item" in value;
 
 const getMinimumUsage = (current, other)=>current ? other ? {
         readonly: current.readonly && other.readonly,
@@ -1754,7 +1838,7 @@ const addTypeValidators = (type)=>{
             const censoredValue = !prop ? undefined : prop.censor(targetValue, context);
             if (censoredValue != targetValue) {
                 (privacy !== null && privacy !== void 0 ? privacy : privacy = {}).censored = true;
-                if (censoredValue === undefined && prop.required) {
+                if (censoredValue === undefined && !context.patch && (prop === null || prop === void 0 ? void 0 : prop.required)) {
                     if (!context.forResponse) {
                         // When a required property gets completely censored away during write,
                         // the entire object becomes censored (since it would be invalid if missing a required property).
@@ -1789,6 +1873,12 @@ const addTypeValidators = (type)=>{
                     message: `${formatErrorSource(target)} is not an object.`
                 });
                 return VALIDATION_ERROR_SYMBOL;
+            }
+            if (type.system === "patch") {
+                context = {
+                    ...context,
+                    patch: true
+                };
             }
             // Here we could leverage the type's `usage` that is the minimum usage defined
             // by any property. Let's do that when we have tested the rest of this code...
@@ -2058,7 +2148,7 @@ const parsePropertyType = (property, definition, parseContext, allowNumericStrin
                 value: valueType,
                 censor: (value, context)=>{
                     if (!value || typeof value !== "object") return value;
-                    let censored = {};
+                    let censored = value;
                     for(const key in value){
                         const propertyValue = value[key];
                         const censoredPropertyValue = valueType.censor(propertyValue, context);
@@ -2175,7 +2265,7 @@ const parsePropertyType = (property, definition, parseContext, allowNumericStrin
     const inner = propertyType.validate;
     propertyType.validate = (value, current, context, errors)=>handleValidationErrors((errors)=>{
             if (value == null) {
-                if (required) {
+                if (required && !context.patch) {
                     errors.push({
                         path: "",
                         type: propertyType,
@@ -2307,6 +2397,7 @@ const resolveLocalTypeMapping = (nameOrId, context)=>{
         referencedBy: new Set(referencingProperty ? [
             referencingProperty
         ] : []),
+        system: source.system,
         ...DEFAULT_CENSOR_VALIDATE,
         source: source,
         toString: ()=>stringName
@@ -2356,7 +2447,7 @@ const parseProperty = (declaringType, name, definition, context, baseProperty)=>
     };
     if (baseProperty === null || baseProperty === void 0 ? void 0 : baseProperty.required) {
         if (definition.required === false) {
-            throw new Error("A property cannot explicitly be defined as optional if its base property is required.");
+            throw new Error(`A property cannot explicitly be defined as optional if its base property is required (${formatQualifiedTypeName(parsedProperty)}).`);
         }
         parsedProperty.required = true;
     }
@@ -2499,7 +2590,7 @@ const createEventPatchDefinition = (eventType, type)=>{
                 key,
                 {
                     primitive: "string",
-                    enum: map2((_property_type = property.type) === null || _property_type === void 0 ? void 0 : _property_type.enumValues, (typeName)=>`${typeName}_patch`),
+                    enum: map2((_property_type = property.type) === null || _property_type === void 0 ? void 0 : _property_type.enumValues, (typeName)=>`${typeName}${PATCH_EVENT_POSTFIX}`),
                     required: true
                 }
             ] : eventType.properties[key] ? skip2 : [
@@ -3175,4 +3266,4 @@ const collect = (collected, tag)=>{
 };
 const encodeTag = (tag)=>tag == null ? tag : tag.tag + (tag.value ? ":" + (/[,&;#~]/.test(tag.value) ? '"' + tag.value + '"' : tag.value) : "") + (tag.score && tag.score !== 1 ? "~" + tag.score * 10 : "");
 
-export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaObjectType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };
+export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaArrayType, isSchemaObjectType, isSchemaRecordType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };

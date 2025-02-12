@@ -18,6 +18,7 @@ import {
 } from "..";
 import {
   EncourageTuples,
+  findDeclaringScope,
   InputValueTypeOf,
   KeyTypeOf,
   KeyValueType,
@@ -32,10 +33,22 @@ const setSymbol = Symbol();
 const getSymbol = Symbol();
 const pushSymbol = Symbol();
 
-let ensureAssignImplementations = <T>(returnValue: T) => {
-  ensureAssignImplementations = (returnValue) => returnValue;
+let ensureAssignImplementations = <R>(
+  target: any,
+  error: any,
+  retry: () => R
+): R => {
+  if (target == null || target?.[getSymbol]) {
+    throw error;
+  }
+  let scope = findDeclaringScope(target);
+  if (!scope) {
+    throw error;
+  }
 
-  for (const { prototype } of [Map, WeakMap]) {
+  if (scope.Object.prototype[setSymbol]) throw error;
+
+  for (const { prototype } of [scope.Map, scope.WeakMap]) {
     prototype[setSymbol] = function (key: any, value: any) {
       return value === void 0
         ? this.delete(key)
@@ -44,7 +57,7 @@ let ensureAssignImplementations = <T>(returnValue: T) => {
     prototype[getSymbol] = prototype.get;
   }
 
-  for (const { prototype } of [Set, WeakSet]) {
+  for (const { prototype } of [scope.Set, scope.WeakSet]) {
     prototype[setSymbol] = function (key: any, value: any, add = false) {
       return value || (add && value === void 0)
         ? this.has(key)
@@ -58,12 +71,12 @@ let ensureAssignImplementations = <T>(returnValue: T) => {
       return this;
     };
   }
-  Array.prototype[pushSymbol] = function (values: any[]) {
+  scope.Array.prototype[pushSymbol] = function (values: any[]) {
     this.push(...values);
     return this;
   };
 
-  for (const { prototype } of [Object, Array]) {
+  for (const { prototype } of [scope.Object, scope.Array]) {
     prototype[setSymbol] = function (key: any, value: any) {
       if (value === undefined) {
         if (this[key] !== undefined) {
@@ -79,7 +92,7 @@ let ensureAssignImplementations = <T>(returnValue: T) => {
     };
   }
 
-  return returnValue;
+  return retry();
 };
 
 type GetResult<Source, K, Default> = unknown extends Default
@@ -116,31 +129,33 @@ export let get2: {
     key: K,
     initialize?: InputValueTypeOf<Source, K>
   ): ValueTypeOf<Source, K>;
-} = (source: any, key?: any, initialize?: any) =>
-  (get2 = ensureAssignImplementations(
-    (source: any, key: any, initialize?: any) => {
-      if (source == null) return source;
+} = (source: any, key?: any, initialize?: any) => {
+  try {
+    if (source == null) return source;
 
-      let value = source[getSymbol](key);
-      if (
-        value === void 0 &&
-        (value =
-          typeof initialize === "function" ? initialize() : initialize) !==
-          void 0
-      ) {
-        if (value?.then)
-          return value.then((value: any) =>
-            value === void 0 ? value : source[setSymbol](key, value)
-          );
-        source[setSymbol](key, value);
-      }
-      return value;
+    let value = source[getSymbol](key);
+    if (
+      value === void 0 &&
+      (value = typeof initialize === "function" ? initialize() : initialize) !==
+        void 0
+    ) {
+      if (value?.then)
+        return value.then((value: any) =>
+          value === void 0 ? value : source[setSymbol](key, value)
+        );
+      source[setSymbol](key, value);
     }
-  ))(source, key, initialize);
+    return value;
+  } catch (e) {
+    return ensureAssignImplementations(source, e, () =>
+      get2(source, key, initialize)
+    );
+  }
+};
 
 export let add2: {
   <Target, K extends KeyTypeOf<Target>>(
-    target: Set<K> & Target,
+    target: (Set<K> | WeakSet<K & {}>) & Target,
     key: K,
     value?: InputValueTypeOf<Target>
   ): MaybeNullish<boolean, Target>;
@@ -149,11 +164,15 @@ export let add2: {
     key: K,
     value: InputValueTypeOf<Target, K>
   ): MaybeNullish<boolean, Target>;
-} = (target: any, key: any, value?: any) =>
-  (add2 = ensureAssignImplementations(
-    (target: any, key: any, value?: any) =>
-      target?.[setSymbol](key, value, true) === true
-  ))(target, key, value);
+} = (target: any, key: any, value?: any) => {
+  try {
+    return target?.[setSymbol](key, value, true) === true;
+  } catch (e) {
+    return ensureAssignImplementations(target, e, () =>
+      add2(target, key, value)
+    );
+  }
+};
 
 export let set2: {
   <
@@ -165,11 +184,16 @@ export let set2: {
     key: K,
     value: Value
   ): MaybeNullish<Value, Target>;
-} = (target: any, key: any, value: any) =>
-  (set2 = ensureAssignImplementations((target: any, key: any, value: any) => {
+} = (target: any, key: any, value: any) => {
+  try {
     target[setSymbol](key, value);
     return value;
-  }))(target, key, value);
+  } catch (e) {
+    return ensureAssignImplementations(target, e, () =>
+      set2(target, key, value)
+    );
+  }
+};
 
 export let exchange2: {
   <
@@ -181,14 +205,17 @@ export let exchange2: {
     key: K,
     value: Value
   ): MaybeNullish<Value, Target>;
-} = (target: any, key: any, value: any) =>
-  (exchange2 = ensureAssignImplementations(
-    (target: any, key: any, value: any) => {
-      const previous = target[getSymbol](key);
-      target[setSymbol](key, value);
-      return previous;
-    }
-  ))(target, key, value);
+} = (target: any, key: any, value: any) => {
+  try {
+    const previous = target[getSymbol](key);
+    target[setSymbol](key, value);
+    return previous;
+  } catch (e) {
+    return ensureAssignImplementations(target, e, () =>
+      exchange2(target, key, value)
+    );
+  }
+};
 
 export const update2: {
   <Target, K, Value extends InputValueTypeOf<Target, K>, UpdateResult>(
@@ -235,10 +262,15 @@ export let push2: {
     target: Target & (Set<K> | WeakSet<K & {}>),
     ...values: (K | undefined)[]
   );
-} = (target: any, ...items: any[]) =>
-  (push2 = ensureAssignImplementations((target: any, ...items: any[]): any =>
-    target == null ? target : target[pushSymbol](items)
-  ))(target, ...items);
+} = (target: any, ...items: any[]) => {
+  try {
+    return target == null ? target : target[pushSymbol](items);
+  } catch (e) {
+    return ensureAssignImplementations(target, e, () =>
+      push2(target, ...items)
+    );
+  }
+};
 
 export const obj2: {
   <Source extends ObjectSource<K, V>, K extends keyof any, V>(
@@ -281,8 +313,8 @@ export let assign2: {
     target: Target,
     ...sources: Its
   ): Target;
-} = (target, ...sources) =>
-  (assign2 = ensureAssignImplementations((target, ...sources) => {
+} = (target, ...sources) => {
+  try {
     if (target?.constructor === Object) {
       forEach2(sources, (source) =>
         forEach2(source!, (kv) => kv && (target[kv[0]] = kv[1]))
@@ -293,7 +325,12 @@ export let assign2: {
       );
     }
     return target;
-  }))(target, ...sources);
+  } catch (e) {
+    return ensureAssignImplementations(target, e, () =>
+      assign2(target, ...sources)
+    );
+  }
+};
 
 export interface Merge2Settings<
   Deep extends boolean = boolean,

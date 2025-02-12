@@ -438,6 +438,7 @@ describe("iterators(2)", () => {
     // expect(toggle2(s, "1")).toBe(false);
 
     const m = new Map<string, number>();
+
     expect(get2(m, "1")).toBeUndefined();
     expect(get2(m, "1", () => undefined)).toBeUndefined();
     expect(get2(m, "1", () => 80)).toBe(80);
@@ -445,6 +446,7 @@ describe("iterators(2)", () => {
     expect(m.get("1")).toBe(80);
 
     expect(update2(m, "1", (current) => current! + 1)).toBe(81);
+
     expect(set2(m, "2", 90)).toBe(90);
 
     expect(m.size).toBe(2);

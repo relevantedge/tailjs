@@ -1,5 +1,6 @@
 import { Encodable, hash, httpDecode, httpEncode } from "@tailjs/transport";
 import {
+  MaybePromise,
   MaybeUndefined,
   Nullish,
   isObject,
@@ -9,6 +10,7 @@ import {
 } from "@tailjs/util";
 import ShortUniqueId from "short-unique-id";
 import {
+  ClientCertificate,
   LogLevel,
   serializeLogMessage,
   VariableStorageCoordinator,
@@ -23,8 +25,6 @@ import {
 import { ScopeVariables, Tag } from "@tailjs/types";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
-
-const uuid = new ShortUniqueId();
 
 export const getDefaultLogSourceName = (source: any): string | undefined => {
   if (!source) return undefined;
@@ -45,6 +45,38 @@ export type KnownTrackerKeys = {
   device: ScopeVariables["device"];
 };
 
+export type TrackerEnvironmentSettings = {
+  /**
+   * The length of the ShortUids generated.
+   * @default 12
+   */
+  idLength?: number;
+
+  /**
+   * Common tags that will be added to all collected events. This can be used to differentiate between different
+   * server nodes in a clustered environment, or the purpose of environment (like dev, qa, staging or production).
+   */
+  tags?: Tag[];
+
+  /** A custom ID generator if ShortUid is not desired. */
+  uidGenerator?: () => MaybePromise<string>;
+};
+
+export const detectPfx = (cert: ClientCertificate | undefined) => {
+  const certData = cert?.cert;
+  if (
+    certData &&
+    cert.pfx == null &&
+    typeof certData !== "string" &&
+    certData.length > 2 &&
+    // Magic number 0x30 0x82
+    certData[0] === 0x30 &&
+    certData[1] === 0x82
+  ) {
+    return { ...cert, pfx: true };
+  }
+  return cert;
+};
 export class TrackerEnvironment {
   private readonly _crypto: CryptoProvider;
   private readonly _host: EngineHost;
@@ -52,6 +84,8 @@ export class TrackerEnvironment {
     any,
     { group: string; name?: string }
   >();
+
+  private readonly _uidGenerator: () => MaybePromise<string>;
 
   public readonly tags?: Tag[];
   public readonly cookieVersion: string;
@@ -61,14 +95,18 @@ export class TrackerEnvironment {
     host: EngineHost,
     crypto: CryptoProvider,
     storage: VariableStorageCoordinator,
-    tags?: Tag[],
-    cookieVersion = "C"
+    { idLength = 12, tags, uidGenerator }: TrackerEnvironmentSettings = {}
   ) {
     this._host = host;
     this._crypto = crypto;
     this.tags = tags;
-    this.cookieVersion = cookieVersion;
     this.storage = storage;
+    if (!uidGenerator) {
+      const uid = new ShortUniqueId({ length: idLength });
+      this._uidGenerator = () => uid.rnd();
+    } else {
+      this._uidGenerator = uidGenerator;
+    }
   }
 
   /** @internal */
@@ -161,7 +199,7 @@ export class TrackerEnvironment {
   }
 
   public async nextId(scope?: string) {
-    return uuid.rnd();
+    return this._uidGenerator();
   }
 
   readText(
@@ -191,7 +229,9 @@ export class TrackerEnvironment {
       method: request.method,
       body: request.body,
       headers: request.headers ?? {},
-      x509: request.x509,
+      // Do the PFX test here so the host don't strictly need to,
+      // (assuming requests are mostly made through the TrackerEnvironment, and not the host directly).
+      x509: detectPfx(request.x509),
     });
 
     const responseHeaders = Object.fromEntries(

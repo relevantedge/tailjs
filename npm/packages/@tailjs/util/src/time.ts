@@ -95,7 +95,7 @@ export const createTimeout = (
     clearTimeout(handle);
     if (isBoolean(arg)) {
       arg && (timeout < 0 ? isNotFalse : isTrue)(currentCallback?.())
-        ? stickyTimeout(currentCallback)
+        ? stickyTimeout(currentCallback, timeout)
         : (currentCallback = undefined);
     } else {
       currentCallback = arg;

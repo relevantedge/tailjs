@@ -10,7 +10,7 @@ const [addPageVisibleListener, dispatchPageVisible] =
 
 const maybeDispatchPageLoaded = (newLoaded: boolean) =>
   loaded !== (loaded = newLoaded) &&
-  dispatchPageLoaded((loaded = false), sleepTimer(true, true));
+  dispatchPageLoaded(loaded, sleepTimer(true, true));
 
 const maybeDispatchPageVisible = (loaded: boolean) =>
   visible !==
@@ -25,7 +25,9 @@ let visible = false;
 let visibleTimer = createTimer(false);
 let sleepTimer = createTimer(false);
 
-listen(window, ["pagehide", "freeze"], () => maybeDispatchPageLoaded(false));
+listen(window, ["pagehide", "freeze", "beforeunload"], () =>
+  maybeDispatchPageLoaded(false)
+);
 listen(window, ["pageshow", "resume"], () => maybeDispatchPageLoaded(true));
 listen(
   document,

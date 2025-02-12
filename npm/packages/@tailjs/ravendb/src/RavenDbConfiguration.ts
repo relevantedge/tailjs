@@ -3,7 +3,10 @@ import { HttpRequest, TrackerEnvironment } from "@tailjs/engine";
 export interface RavenDbSettings {
   url: string;
   database: string;
-  x509?: ({ cert: Uint8Array | string } | { certPath: string }) &
+  x509?: (
+    | { cert: Uint8Array | string; certPath?: undefined }
+    | { cert?: undefined; certPath: string }
+  ) &
     ({ key?: string } | { keyPath: string });
 }
 

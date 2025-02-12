@@ -63,7 +63,10 @@
 @Html.ReactInitJavaScript()
 
 <a href="https://www.google.com#test">External link</a>
-
+<form method="get" action="/" style="float: right">
+  <input type="text" name="test-field" style="border: 1px solid black">
+  <input type="submit" value="Submit test form" style="border: 1px solid black; background-color: #ddd">
+</form>
 @* @($"{TrackerMiddleware.Elapsed.TotalMilliseconds/TrackerMiddleware.RequestCount:N2} ms/req ({TrackerMiddleware.RequestCount:N0} requests).") *@
 
 </body>

@@ -19,6 +19,10 @@
         },
         "isNew": {
           "type": "boolean"
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "The user agent of the client (only included when debugging)."
         }
       },
       "required": [
@@ -1001,7 +1005,8 @@
         },
         "value": {
           "type": "string",
-          "description": "The value of the form field. Be careful with this one.\n\nThe default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope."
+          "description": "The value of the form field. Be careful with this one.\n\nThe default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.",
+          "x-privacy-class": "direct"
         },
         "fillOrder": {
           "$ref": "urn:tailjs:core#/definitions/Integer",
@@ -2499,7 +2504,7 @@
       }
     }
   },
-  "x-version": "0.94.3",
+  "x-version": "0.37.0-canary.1",
   "x-privacy-class": "anonymous",
   "x-privacy-purposes": []
 }

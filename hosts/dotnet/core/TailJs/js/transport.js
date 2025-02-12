@@ -112,6 +112,32 @@ const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === n
 const testFirstLast = (s, first, last)=>s[0] === first && s[s.length - 1] === last;
 const isJsonString = (value)=>isString(value) && (testFirstLast(value, "{", "}") || testFirstLast(value, "[", "]"));
 const unwrap = (value)=>isFunction(value) ? value() : value;
+// #endregion
+const getRootPrototype = (value)=>{
+    let proto = value;
+    while(proto){
+        proto = Object.getPrototypeOf(value = proto);
+    }
+    return value;
+};
+const findPrototypeFrame = (frameWindow, matchPrototype)=>{
+    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
+        return frameWindow;
+    }
+    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
+        try {
+            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
+                return frameWindow;
+            }
+        } catch (e) {
+        // Cross domain issue.
+        }
+    }
+};
+/**
+ * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
+ * e.g., `Object` in an iframe is different from `Object` in the top frame.
+ */ const findDeclaringScope = (target)=>target == null ? target : globalThis.window ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
 let stopInvoked = false;
 const skip2 = Symbol();
 const stop2 = (value)=>(stopInvoked = true, value);
@@ -120,8 +146,14 @@ const forEachSymbol = Symbol();
 const asyncIteratorFactorySymbol = Symbol();
 const symbolIterator = Symbol.iterator;
 // Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
-let ensureForEachImplementations = (returnValue)=>{
-    ensureForEachImplementations = (func)=>func; // Already initialized next time this is called;
+const ensureForEachImplementations = (target, error, retry)=>{
+    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
+        throw error;
+    }
+    let scope = findDeclaringScope(target);
+    if (!scope) {
+        throw error;
+    }
     const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
             let projected, i = 0;
             for (const item of target){
@@ -139,7 +171,7 @@ let ensureForEachImplementations = (returnValue)=>{
             }
             return mapped || seed;
         };
-    Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
         let projected, item;
         for(let i = 0, n = target.length; i < n; i++){
             item = target[i];
@@ -160,7 +192,7 @@ let ensureForEachImplementations = (returnValue)=>{
         return mapped || seed;
     };
     const genericForEachIterable = forEachIterable();
-    Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
         if (target[symbolIterator]) {
             if (target.constructor === Object) {
                 return genericForEachIterable(target, projection, mapped, seed, context);
@@ -187,7 +219,7 @@ let ensureForEachImplementations = (returnValue)=>{
         }
         return mapped || seed;
     };
-    Object.prototype[asyncIteratorFactorySymbol] = function() {
+    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
         if (this[symbolIterator] || this[symbolAsyncIterator]) {
             if (this.constructor === Object) {
                 var _this_symbolAsyncIterator;
@@ -201,21 +233,21 @@ let ensureForEachImplementations = (returnValue)=>{
         return iterateEntries(this);
     };
     for (const proto of [
-        Map.prototype,
-        WeakMap.prototype,
-        Set.prototype,
-        WeakSet.prototype,
+        scope.Map.prototype,
+        scope.WeakMap.prototype,
+        scope.Set.prototype,
+        scope.WeakSet.prototype,
         // Generator function
         Object.getPrototypeOf(function*() {})
     ]){
         proto[forEachSymbol] = forEachIterable();
         proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
     }
-    Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
-    Number.prototype[asyncIteratorFactorySymbol] = range2;
-    Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
-    Function.prototype[asyncIteratorFactorySymbol] = traverse2;
-    return returnValue;
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+    return retry();
 };
 // #endregion
 function* range2(length = this) {
@@ -233,7 +265,13 @@ function* iterateEntries(source) {
         ];
     }
 }
-let map2 = (source, projection, target = [], seed, context = source)=>(map2 = ensureForEachImplementations((source, projection, target = [], seed, context = source)=>!source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context)))(source, projection, target, context, seed);
+let map2 = (source, projection, target = [], seed, context = source)=>{
+    try {
+        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
+    } catch (e) {
+        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
+    }
+};
 
 /** The number of leading entropy bytes. */ const ENTROPY = 4;
 /** The padding length. Cipher texts will always be a multiple of this. */ const MAX_PADDING = 16;

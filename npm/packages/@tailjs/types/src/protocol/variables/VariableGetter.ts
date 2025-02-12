@@ -31,6 +31,9 @@ export interface ReadOnlyVariableGetter extends VariableKey {
    * Do not accept a cached version of the variable.
    */
   refresh?: boolean;
+
+  /** Time-to-live after this read. */
+  ttl?: number;
 }
 
 export type VariableInitializerCallback<T extends {} = any> =
@@ -38,12 +41,11 @@ export type VariableInitializerCallback<T extends {} = any> =
 
 export interface VariableInitializer<T extends {} = any>
   extends ReadOnlyVariableGetter {
-  ttl?: number;
   init: VariableInitializerCallback<T>;
 }
 
 export type VariableGetter<T extends {} = any> = (
-  | (ReadOnlyVariableGetter & { init?: undefined; ttl?: undefined })
+  | (ReadOnlyVariableGetter & { init?: undefined })
   | VariableInitializer<T>
 ) & { value?: never; patch?: never }; // These two properties to avoid VariableGetter extends VariableSetter.
 

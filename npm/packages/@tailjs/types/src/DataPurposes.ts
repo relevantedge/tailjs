@@ -110,6 +110,8 @@ export const DataPurposes: {
     purposes: T & (DataPurposes | Nullish)
   ): T extends Nullish ? T : DataPurposeName[];
 
+  readonly all: DataPurposes;
+
   /**
    * Compares whether a consent is sufficient for a set of target purposes, or whether
    * a filter matches all the purposes in a target.
@@ -161,6 +163,16 @@ export const DataPurposes: {
   },
   getNames: (purposes: any) =>
     map2(purposes, ([key, value]) => (value ? key : skip2)),
+
+  get all(): DataPurposes {
+    return {
+      functionality: true,
+      marketing: true,
+      performance: true,
+      personalization: true,
+      security: true,
+    };
+  },
 
   test(
     target: DataPurposes,

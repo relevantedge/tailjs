@@ -54,11 +54,11 @@ export class DefaultClientIdGenerator implements ClientIdGenerator {
       stationary ? "" : request.clientIp,
       ...map2(this._headers, (header) => request.headers[header] + "" || skip2),
     ];
-    console.log(
-      `Generated ${
-        stationary ? "stationary" : "non-stationary"
-      } client ID from the data: ${JSON.stringify(data)}.`
-    );
+    // console.log(
+    //   `Generated ${
+    //     stationary ? "stationary" : "non-stationary"
+    //   } client ID from the data: ${JSON.stringify(data)}.`
+    // );
     return data.join("&");
   }
 }

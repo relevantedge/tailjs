@@ -15,6 +15,9 @@ export interface SchemaValidationContext {
   optionalPurposes?: OptionalPurposes;
   /** Validate the value for a response related to a getter, (for example, dynamic variables rejects validation on set, but not on get). */
   forResponse?: boolean;
+
+  /** Ignore if properties are required since the data is partial. */
+  patch?: boolean;
 }
 
 export type SchemaValueValidator = <

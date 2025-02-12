@@ -15,6 +15,7 @@ import {
   SchemaTypeDefinition,
   SchemaVariableDefinition,
 } from "../../../..";
+import { PATCH_EVENT_POSTFIX } from "@constants";
 
 export const createEventPatchDefinition = (
   eventType: SchemaObjectType,
@@ -33,7 +34,7 @@ export const createEventPatchDefinition = (
               primitive: "string",
               enum: map2(
                 (property.type as SchemaPrimitiveType)?.enumValues,
-                (typeName) => `${typeName}_patch`
+                (typeName) => `${typeName}${PATCH_EVENT_POSTFIX}`
               ),
               required: true,
             } satisfies SchemaPropertyDefinition,

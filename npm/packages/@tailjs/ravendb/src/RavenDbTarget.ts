@@ -1,9 +1,11 @@
 import {
   HttpRequest,
+  HttpResponse,
   TrackerEnvironment,
   TrackerEnvironmentInitializable,
 } from "@tailjs/engine";
 import { RavenDbSettings } from ".";
+import { formatError, json2, stringify2 } from "@tailjs/util";
 
 export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
   protected readonly _settings: RavenDbSettings;
@@ -39,15 +41,41 @@ export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
     }
   }
 
-  protected _request(method: string, relativeUrl: string, body?: any) {
-    return this._env.request({
+  protected async _request(
+    method: string,
+    relativeUrl: string,
+    body?: any,
+    headers?: { [name: string]: string | undefined }
+  ): Promise<HttpResponse & { error?: any }> {
+    const request = {
       method,
       url: `${this._settings.url}/databases/${encodeURIComponent(
         this._settings.database
       )}/${relativeUrl}`,
-      headers: { ["content-type"]: "application/json" },
+      headers: { ["content-type"]: "application/json", ...headers },
       x509: this._cert,
-      body: typeof body === "string" ? body : JSON.stringify(body),
-    });
+      body: body && (typeof body === "string" ? body : JSON.stringify(body)),
+    };
+    try {
+      const response = (await this._env.request(request)) as HttpResponse & {
+        error?: any;
+      };
+      if (response.status === 500) {
+        const body = json2(response.body);
+        response.error = new Error(
+          body?.Type ? `${body.Type}: ${body.Message}` : "(unspecified error)"
+        );
+      }
+      return response;
+    } catch (error) {
+      return {
+        request,
+        status: 500,
+        headers: {},
+        cookies: {},
+        body: stringify2({ Message: formatError(error, true) }),
+        error,
+      };
+    }
   }
 }

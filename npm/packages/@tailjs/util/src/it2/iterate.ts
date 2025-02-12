@@ -4,7 +4,6 @@ import {
   AsyncIterationSource,
   AsyncIterationSourceOf,
   AsyncItProjection,
-  ExtendsAny,
   Falsish,
   get2,
   isArray,
@@ -32,6 +31,7 @@ import {
 } from "..";
 import {
   EncourageTuples,
+  findDeclaringScope,
   IterationResultArray,
   KeyValueType,
   ObjectSourceToObject,
@@ -52,8 +52,18 @@ const asyncIteratorFactorySymbol = Symbol();
 const symbolIterator = Symbol.iterator;
 
 // Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
-let ensureForEachImplementations = <T>(returnValue: T): T => {
-  ensureForEachImplementations = (func) => func; // Already initialized next time this is called;
+const ensureForEachImplementations = <R>(
+  target: any,
+  error: any,
+  retry: () => R
+): R => {
+  if (target == null || target?.[forEachSymbol]) {
+    throw error;
+  }
+  let scope = findDeclaringScope(target);
+  if (!scope) {
+    throw error;
+  }
 
   const forEachIterable: () => ForEachFunction =
     // Factory to generate separate functions for each prototype. JavaScript JIT compilers probably like that.
@@ -80,7 +90,7 @@ let ensureForEachImplementations = <T>(returnValue: T): T => {
       return mapped || seed;
     };
 
-  Array.prototype[forEachSymbol] = ((
+  scope.Array.prototype[forEachSymbol] = ((
     target: any[],
     projection,
     mapped,
@@ -111,7 +121,7 @@ let ensureForEachImplementations = <T>(returnValue: T): T => {
   }) satisfies ForEachFunction;
 
   const genericForEachIterable = forEachIterable();
-  Object.prototype[forEachSymbol] = ((
+  scope.Object.prototype[forEachSymbol] = ((
     target,
     projection,
     mapped,
@@ -160,7 +170,7 @@ let ensureForEachImplementations = <T>(returnValue: T): T => {
     return mapped || seed;
   }) satisfies ForEachFunction;
 
-  Object.prototype[asyncIteratorFactorySymbol] = function () {
+  scope.Object.prototype[asyncIteratorFactorySymbol] = function () {
     if (this[symbolIterator] || this[symbolAsyncIterator]) {
       if (this.constructor === Object) {
         return this[symbolAsyncIterator]() ?? this[symbolIterator]();
@@ -175,10 +185,10 @@ let ensureForEachImplementations = <T>(returnValue: T): T => {
   };
 
   for (const proto of [
-    Map.prototype,
-    WeakMap.prototype,
-    Set.prototype,
-    WeakSet.prototype,
+    scope.Map.prototype,
+    scope.WeakMap.prototype,
+    scope.Set.prototype,
+    scope.WeakSet.prototype,
     // Generator function
     Object.getPrototypeOf(function* () {}),
   ]) {
@@ -186,7 +196,7 @@ let ensureForEachImplementations = <T>(returnValue: T): T => {
     proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
   }
 
-  Number.prototype[forEachSymbol] = ((
+  scope.Number.prototype[forEachSymbol] = ((
     target,
     projection,
     mapped,
@@ -200,9 +210,9 @@ let ensureForEachImplementations = <T>(returnValue: T): T => {
       seed,
       context
     )) satisfies ForEachFunction;
-  Number.prototype[asyncIteratorFactorySymbol] = range2;
+  scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
 
-  Function.prototype[forEachSymbol] = ((
+  scope.Function.prototype[forEachSymbol] = ((
     target,
     projection,
     mapped,
@@ -217,9 +227,9 @@ let ensureForEachImplementations = <T>(returnValue: T): T => {
       context
     )) satisfies ForEachFunction;
 
-  Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+  scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
 
-  return returnValue;
+  return retry();
 };
 
 export type ForEachFunction = (
@@ -249,7 +259,7 @@ function* iterateEntries(source: any) {
   }
 }
 
-export let forEach2: {
+export const forEach2: {
   <Source extends IterationSource>(source: Source): MaybeNullishOrFalse<
     IteratorItem2<Source> | undefined,
     Source
@@ -268,15 +278,19 @@ export let forEach2: {
     seed?: Accumulator,
     context?: Context
   ): MaybeNullishOrFalse<IterationProjection<Projected> | undefined, Source>;
-} = (source: any, projection?: any, seed?: any, context?: any) =>
-  (forEach2 = ensureForEachImplementations(
-    (source: any, projection?: any, seed?: any, context = source) =>
-      source
-        ? source[forEachSymbol](source, projection, undefined, seed, context)
-        : source == null
-        ? source
-        : undefined
-  ))(source, projection, seed, context);
+} = (source: any, projection?: any, seed?: any, context?: any) => {
+  try {
+    return source
+      ? source[forEachSymbol](source, projection, undefined, seed, context)
+      : source == null
+      ? source
+      : undefined;
+  } catch (e) {
+    return ensureForEachImplementations(source, e, () =>
+      forEach2(source, projection, seed, context)
+    );
+  }
+};
 
 export let map2: {
   <
@@ -312,21 +326,40 @@ export let map2: {
   target = [],
   seed?: any,
   context = source
-) =>
-  (map2 = ensureForEachImplementations(
-    (
-      source: any,
-      projection?: any,
-      target = [],
-      seed?: any,
-      context = source
-    ) =>
-      !source && source !== 0 && source !== ""
-        ? source == null
-          ? source
-          : undefined
-        : source[forEachSymbol](source, projection, target, seed, context)
-  ))(source, projection, target, context, seed);
+) => {
+  try {
+    return !source && source !== 0 && source !== ""
+      ? source == null
+        ? source
+        : undefined
+      : source[forEachSymbol](source, projection, target, seed, context);
+  } catch (e) {
+    return ensureForEachImplementations(source, e, () =>
+      map2(source, projection, target, seed, context)
+    );
+  }
+};
+
+export const batch2 = <T, Arg>(
+  source: Arg & Iterable<T>,
+  batchSize: number
+): MaybeNullish<T[][], Arg> => {
+  if (source == null) return source;
+
+  const batches: T[][] = [];
+  let batch: T[] = [];
+  for (const item of source) {
+    batch.push(item);
+    if (batch.length === batchSize) {
+      batches.push(batch);
+      batch = [];
+    }
+  }
+  if (batch.length > 0) {
+    batches.push(batch);
+  }
+  return batches as any;
+};
 
 type FilterTruish<T extends readonly any[]> = T extends readonly [
   infer T,
@@ -632,11 +665,15 @@ export let forEachAwait2: {
     seed?: Accumulated,
     context?: Context
   ): Promise<MaybeNullish<AsyncItProjection<Projected>, Source> | undefined>;
-} = (source: any, projection?: any, seed?: any, context?: any) =>
-  (forEachAwait2 = ensureForEachImplementations(
-    (source: any, projection?: any, seed?: any, context?: any) =>
-      iterateAsync2(source, projection, undefined, seed, context)
-  ))(source, projection, seed, context);
+} = (source: any, projection?: any, seed?: any, context?: any) => {
+  try {
+    return iterateAsync2(source, projection, undefined, seed, context);
+  } catch (e) {
+    return ensureForEachImplementations(source, e, () =>
+      forEachAwait2(source, projection, seed, context)
+    );
+  }
+};
 
 export let mapAwait2: {
   <
@@ -676,11 +713,15 @@ export let mapAwait2: {
       ? IterationResultArray<Iterable<AsyncIterationItem<Source>>>
       : Target
   >;
-} = (source: any, projection: any, target = [], seed: any, context: any) =>
-  (mapAwait2 = ensureForEachImplementations(
-    (source: any, projection: any, target = [], seed: any, context: any) =>
-      iterateAsync2(source, projection, target, seed, context)
-  ))(source, projection, target, seed, context);
+} = (source: any, projection: any, target = [], seed: any, context: any) => {
+  try {
+    return iterateAsync2(source, projection, target, seed, context);
+  } catch (e) {
+    return ensureForEachImplementations(source, e, () =>
+      mapAwait2(source, projection, target, seed, context)
+    );
+  }
+};
 
 const iterateAsync2 = async (
   source: any,
@@ -771,9 +812,9 @@ export const distinct2 = <T>(
   : T extends Iterable<infer T>
   ? Set<T>
   : Set<T> =>
-  source instanceof Set
+  source == null
     ? source
-    : source == null
+    : source instanceof Set
     ? source
     : (new Set(
         source[symbolIterator] && typeof source !== "string"

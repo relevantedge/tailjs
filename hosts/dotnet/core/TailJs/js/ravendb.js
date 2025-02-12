@@ -294,39 +294,46 @@ function _define_property$1(obj, key, value) {
         }
         try {
             const commands = [];
-            // We add a convenient integer keys to the session, device session and event entities to get efficient primary keys
-            // when doing ETL on the data.
-            let ids = await tracker.get({
-                scope: "session",
-                key: "rdb"
-            }).value();
-            var hasChanges = false;
-            if (tracker.sessionId && (ids === null || ids === void 0 ? void 0 : ids.sessionId) !== tracker.sessionId) {
-                (ids !== null && ids !== void 0 ? ids : ids = {}).internalSessionId = await this._getNextId();
-                ids.sessionId = tracker.sessionId;
-                hasChanges = true;
-            }
-            if (tracker.deviceSessionId && (ids === null || ids === void 0 ? void 0 : ids.deviceSessionId) !== tracker.deviceSessionId) {
-                (ids !== null && ids !== void 0 ? ids : ids = {}).internalDeviceSessionId = await this._getNextId();
-                ids.deviceSessionId = tracker.deviceSessionId;
-                hasChanges = true;
-            }
-            if (!tracker.sessionId && !tracker.deviceSessionId) {
-                ids = undefined;
-                hasChanges = true;
-            }
-            if (hasChanges) {
-                // Session and/or device session ID changed.
-                await tracker.set({
-                    scope: "session",
-                    key: "rdb",
-                    patch: ()=>ids
-                });
-            }
+            const knownSessionIds = new Map();
             for (let ev of events){
                 ev = {
                     ...ev
                 };
+                var hasChanges = false;
+                const session = ev.session;
+                let ids;
+                if (session) {
+                    if (!knownSessionIds.get(session.sessionId)) {
+                        var _ev_session;
+                        ids = await tracker.env.storage.get({
+                            scope: "session",
+                            key: "rdb",
+                            entityId: session.sessionId
+                        }, {
+                            trusted: true
+                        }).value();
+                        if ((ids === null || ids === void 0 ? void 0 : ids.sessionId) !== ((_ev_session = ev.session) === null || _ev_session === void 0 ? void 0 : _ev_session.sessionId)) {
+                            (ids !== null && ids !== void 0 ? ids : ids = {}).internalSessionId = await this._getNextId();
+                            ids.sessionId = session.sessionId;
+                            hasChanges = true;
+                        }
+                        if ((session === null || session === void 0 ? void 0 : session.deviceSessionId) && (ids === null || ids === void 0 ? void 0 : ids.deviceSessionId) !== session.deviceSessionId) {
+                            (ids !== null && ids !== void 0 ? ids : ids = {}).internalDeviceSessionId = await this._getNextId();
+                            ids.deviceSessionId = session.deviceSessionId;
+                            hasChanges = true;
+                        }
+                        if (hasChanges) {
+                            ids = await tracker.env.storage.get({
+                                scope: "session",
+                                key: "rdb",
+                                entityId: session.sessionId,
+                                init: ()=>ids
+                            }, {
+                                trusted: true
+                            }).value();
+                        }
+                    }
+                }
                 // Integer primary key for the event entity.
                 const internalEventId = await this._getNextId();
                 ev["rdb:sessionId"] = ids === null || ids === void 0 ? void 0 : ids.internalSessionId;

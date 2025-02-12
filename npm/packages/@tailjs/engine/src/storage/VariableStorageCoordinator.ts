@@ -20,7 +20,6 @@ import {
   SchemaValidationError,
   SchemaVariable,
   ServerScoped,
-  ServerVariableScope,
   toVariableResultPromise,
   TypeResolver,
   ValidatableSchemaEntity,
@@ -44,12 +43,14 @@ import {
 } from "@tailjs/types";
 import {
   AllRequired,
+  array2,
   ArrayOrSelf,
   delay,
   Falsish,
   forEach2,
   formatError,
   isArray,
+  itemize2,
   keyCount2,
   map2,
   merge2,
@@ -94,13 +95,21 @@ export interface RetrySettings {
   jitter: number;
 }
 
-export type VariableStorageMappings = { default?: VariableStorage } & {
-  [P in ServerVariableScope]?: {
-    storage: VariableStorage;
+export type VariableStorageMappings = {
+  default?: VariableStorage;
+  /** Default time to live in milliseconds (variables will be deleted after this.) for the different scopes. */
+  ttl?: { [P in VariableServerScope]?: number | null | undefined };
+} & {
+  [P in VariableServerScope]?: {
+    storage?: VariableStorage;
     schemas?: string[];
+    /** Default time to live in milliseconds (variables will be deleted after this.) */
+    ttl?: number;
     prefixes?: {
       [P in string]: {
         storage: ReadOnlyVariableStorage;
+        /** Default time to live in milliseconds (variables will be deleted after this.) */
+        ttl?: number;
         schemas?: string[];
       };
     };
@@ -175,7 +184,7 @@ export type VariableStorageContext = {
 
   /** Value resolvers for dynamic variables. */
   dynamicVariables?: {
-    [P in ServerVariableScope]?: { [P in string]?: (key: VariableKey) => any };
+    [P in VariableServerScope]?: { [P in string]?: (key: VariableKey) => any };
   };
 };
 
@@ -225,7 +234,7 @@ const validateEntityId = <T extends { scope: string; entityId?: string }>(
 ): T => {
   if (context.scope == null || target.scope === "global") {
     if (target.entityId == undefined) {
-      throw new Error(
+      throwError(
         `An entity ID for ${target.scope} scope is required in this context.`
       );
     }
@@ -233,12 +242,12 @@ const validateEntityId = <T extends { scope: string; entityId?: string }>(
   }
   const expectedId = context.scope[target.scope + "Id"];
   if (expectedId == undefined) {
-    throw new Error(
+    throwError(
       `No ID is available for ${target.scope} scope in the current session.`
     );
   }
   if (target.entityId && expectedId !== target.entityId) {
-    throw new Error(
+    throwError(
       `The specified ID in ${target.scope} scope does not match that in the current session.`
     );
   }
@@ -284,7 +293,7 @@ export class VariableStorageCoordinator<
     defaultContext: VariableStorageContext = { trusted: false }
   ) {
     if (!types) {
-      throw new Error("A type resolver is required.");
+      throwError("A type resolver is required.");
     }
     this._storage = new VariableSplitStorage(storage);
     this._defaultContext = defaultContext;
@@ -890,29 +899,32 @@ export class VariableStorageCoordinator<
   }
 
   private async _queryOrPurge<R>(
-    filters: readonly (VariableQuery<ServerVariableScope> | Falsish)[],
+    filters: readonly (VariableQuery<VariableServerScope> | Falsish)[],
     action: (filter: VariableStorageQuery[]) => Promise<R>,
     context: VariableStorageContext,
     purgeFilter: boolean
   ): Promise<R> {
     const mapped: VariableStorageQuery[] = [];
     for (let query of this._storage.splitSourceQueries(truish2(filters))) {
-      if (!context.trusted) {
-        if (query.scope !== "global") {
-          if (query.entityIds?.length! > 1) {
+      const contextScopes = context.scope;
+      if (contextScopes != null && query.scope !== "global") {
+        const scopeEntityId = contextScopes[query.scope + "Id"];
+        if (scopeEntityId != null) {
+          const invalidEntityIds = query?.entityIds?.filter(
+            (entityId) => entityId !== scopeEntityId
+          );
+
+          if (invalidEntityIds?.length) {
             throwError(
-              `Entity IDs are not allowed in query filters for the ${context.scope} scope from session context.`
+              `The entity IDs ${itemize2(
+                invalidEntityIds
+              )} are not allowed in ${query.scope} scope.`
             );
           }
-          query.entityIds = [
-            validateEntityId(
-              { scope: query.scope, entityId: query.entityIds?.[0]! },
-              context
-            ).entityId,
-          ];
-        } else if (!query.entityIds) {
+          query.entityIds = [scopeEntityId];
+        } else {
           throwError(
-            "Specific Entity IDs are required for queries in the global scope from untrusted context."
+            `No ID is available for ${query.scope} scope in the current session.`
           );
         }
       }
@@ -962,8 +974,14 @@ export class VariableStorageCoordinator<
           };
         }
       }
-
-      mapped.push(query);
+      const { scope, entityIds, keys, ifModifiedSince } = query;
+      const keyArray = array2(keys?.not ?? keys);
+      mapped.push({
+        scope,
+        entityIds,
+        keys: keyArray && { exclude: !!keys?.not, values: keyArray },
+        ifModifiedSince,
+      });
     }
 
     let retry = 0;
@@ -985,12 +1003,12 @@ export class VariableStorageCoordinator<
   }
 
   public async purge(
-    filters: ArrayOrSelf<VariableQuery<ServerVariableScope> | Falsish>,
+    filters: ArrayOrSelf<VariableQuery<VariableServerScope> | Falsish>,
     {
       context = this._defaultContext,
       bulk,
     }: VariableStorageCoordinatorPurgeOptions = {}
-  ): Promise<number> {
+  ): Promise<number | undefined> {
     if (!isArray(filters)) {
       filters = [filters];
     }
@@ -1000,7 +1018,7 @@ export class VariableStorageCoordinator<
       (!bulk || !context.trusted) &&
       some2(
         filters,
-        (filter: VariableQuery<ServerVariableScope>) => !filter.entityIds
+        (filter: VariableQuery<VariableServerScope>) => !filter.entityIds
       )
     ) {
       return throwError(
@@ -1009,10 +1027,17 @@ export class VariableStorageCoordinator<
           : "Bulk delete are not allowed from untrusted context."
       );
     }
-    let purged = 0;
+    let purged: number | undefined = 0;
     await this._queryOrPurge(
       filters,
-      async (filters) => (purged += await this._storage.purge(filters)),
+      async (filters) => {
+        const count = await this._storage.purge(filters);
+        if (count == null) {
+          purged = undefined;
+        } else if (purged != null) {
+          purged += count;
+        }
+      },
       context,
       true
     );
@@ -1020,7 +1045,7 @@ export class VariableStorageCoordinator<
   }
 
   public async query(
-    filters: ArrayOrSelf<VariableQuery<ServerVariableScope> | Falsish>,
+    filters: ArrayOrSelf<VariableQuery<VariableServerScope> | Falsish>,
     {
       context = this._defaultContext,
       ...options
@@ -1058,18 +1083,25 @@ export class VariableStorageCoordinator<
     );
   }
 
-  public async refresh(
-    filters: ArrayOrSelf<VariableQuery<ServerVariableScope>>,
+  public async renew(
+    filters: ArrayOrSelf<VariableQuery<VariableServerScope> | Falsish>,
     context = this._defaultContext
   ) {
     if (!isArray(filters)) {
       filters = [filters];
     }
 
-    let refreshed = 0;
+    let refreshed: number | undefined = 0;
     await this._queryOrPurge(
       filters,
-      async (filters) => (refreshed += await this._storage.refresh(filters)),
+      async (filters) => {
+        const count = await this._storage.renew(filters);
+        if (count == null) {
+          refreshed = undefined;
+        } else if (refreshed != undefined) {
+          refreshed += count;
+        }
+      },
       context,
       true
     );

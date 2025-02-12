@@ -1,7 +1,6 @@
 import { createEnumParser, Nullish } from "@tailjs/util";
-import { Timestamp } from "../..";
+import { Timestamp, VariableKey } from "../..";
 import { SchemaDataUsage } from "../schema/SchemaDataUsage";
-import { VariableKey } from "./VariableKey";
 
 export type KnownVariableMap = {
   [scope: string]: { [key: string]: any };
@@ -57,16 +56,16 @@ export interface Variable<T extends {} = any> extends VariableKey {
   version: string;
 
   /**
-   * This is a hint to variable storages that the variable should be deleted if it has not been
-   * accessed for this amount of time (time to live).
+   * This is a hint to variable storages that the variable should be deleted after this amount of milliseconds
+   * unless updated or refreshed (via VariableStorage in @tailjs/engine set or refresh methods).
    *
    * Variable storages can decide how accurately they want to enforce this in the background,
-   * yet it will be accurate from a client perspective assuming the storage provides accurate access timestamps.
-   *
-   * Tail.js uses "delete on read" based on the time the variable was last accessed if its
-   * storage has not yet cleaned it.
+   * yet it will be accurate from a client perspective, since tail.js filters out expired variables on read.
    */
   ttl?: number;
+
+  /** If the variable has a time-to-live, this is when it should expire. */
+  expires?: number;
 
   /**
    * The value of the variable. It must only be undefined in a set operation in which case it means "delete".

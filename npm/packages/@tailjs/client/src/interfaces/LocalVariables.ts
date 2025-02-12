@@ -6,7 +6,7 @@ import type {
   LocalID,
   RestrictScopes,
   ServerScoped,
-  ServerVariableScope,
+  VariableServerScope,
   SessionInfo,
   UserConsent,
   VariableGetResult,
@@ -81,7 +81,7 @@ const levels = {
 
 export type LocalVariableScope = (typeof levels)[keyof typeof levels];
 
-export type AnyVariableScope = ServerVariableScope | LocalVariableScope;
+export type AnyVariableScope = VariableServerScope | LocalVariableScope;
 
 export const localVariableScope = createEnumParser(
   "local variable scope",
