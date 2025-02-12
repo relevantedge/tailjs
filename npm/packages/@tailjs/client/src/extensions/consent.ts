@@ -127,7 +127,7 @@ export const consent: TrackerExtensionFactory = {
                   );
 
                   return {
-                    classification: anonymous ? "anonymous" : "indirect",
+                    classification: anonymous ? "anonymous" : "direct",
                     purposes,
                   };
                 }

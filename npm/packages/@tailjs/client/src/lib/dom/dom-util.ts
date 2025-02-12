@@ -289,13 +289,30 @@ export const getPos = <Nulls>(
     : (undefined as any);
 };
 
+export const isVisible = (el: Element | Nullish) => {
+  if (!el || !el.isConnected || getRect(el, false).width <= 0) return false;
+  while (el) {
+    const style = (el.ownerDocument.defaultView as Window)?.getComputedStyle(
+      el
+    );
+
+    if (style.visibility === "hidden" || style.opacity === "0") {
+      return false;
+    }
+    el = el.parentElement;
+  }
+
+  return true;
+};
+
 let rect: DOMRect;
 export const getRect = <Nulls>(
-  el: Nullable<Element, Nulls>
+  el: Nullable<Element, Nulls>,
+  includeScroll = true
 ): MaybeUndefined<Nulls, Rectangle> =>
   el
     ? ((rect = el.getBoundingClientRect()),
-      (pos = scrollPos(F)),
+      (pos = includeScroll ? scrollPos(F) : { x: 0, y: 0 }),
       {
         x: round(rect.left + pos.x),
         y: round(rect.top + pos.y),

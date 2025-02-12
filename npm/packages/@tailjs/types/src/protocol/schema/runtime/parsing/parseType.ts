@@ -172,7 +172,6 @@ export const parseType = (
     ...getEntityIdProperties({ namespace: schema.namespace, name, version }),
     schema,
     name,
-
     usage: null!,
     usageOverrides: overrideUsage(schema.usageOverrides, source) ?? {},
     embedded: embedded,
@@ -185,6 +184,7 @@ export const parseType = (
     ownProperties: null as any, // We use this to indicate the properties has not been parsed yet (parseTypeProperties).
     properties: {},
     referencedBy: new Set(referencingProperty ? [referencingProperty] : []),
+    system: (source as SchemaSystemTypeDefinition).system,
     ...DEFAULT_CENSOR_VALIDATE,
 
     source: source,

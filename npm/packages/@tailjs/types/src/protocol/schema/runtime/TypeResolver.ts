@@ -13,7 +13,7 @@ import {
   SCHEMA_DATA_USAGE_ANONYMOUS,
   SchemaTypeDefinition,
   type SchemaDefinition,
-  type ServerVariableScope,
+  type VariableServerScope,
 } from "../../..";
 
 export const DEFAULT_CENSOR_VALIDATE: ValidatableSchemaEntity = {
@@ -378,7 +378,7 @@ export class TypeResolver {
   };
 
   public readonly variables: {
-    readonly [P in ServerVariableScope | (string & {})]?: {
+    readonly [P in VariableServerScope | (string & {})]?: {
       readonly [P in string]: Readonly<SchemaVariable>;
     };
   };

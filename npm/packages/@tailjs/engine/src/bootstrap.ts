@@ -12,7 +12,12 @@ import { map2 } from "@tailjs/util";
 export interface BootstrapSettings
   extends Pick<
     RequestHandlerConfiguration,
-    "cookies" | "defaultConsent" | "json" | "storage" | "schemas"
+    | "cookies"
+    | "defaultConsent"
+    | "json"
+    | "storage"
+    | "schemas"
+    | "environment"
   > {
   /** The host implementation to use.  */
   host: EngineHost;
@@ -70,10 +75,11 @@ export function bootstrap({
   schemas,
   cookies,
   extensions,
+  storage,
   json,
   encryptionKeys,
   debugScript,
-  environmentTags,
+  environment,
   defaultConsent,
 }: BootstrapSettings) {
   return new RequestHandler({
@@ -87,10 +93,11 @@ export function bootstrap({
           ? extension
           : async () => extension as any
       ) ?? [],
+    storage,
     json,
     encryptionKeys,
     debugScript,
-    environmentTags,
+    environment,
     defaultConsent,
   });
 }

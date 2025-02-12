@@ -8,6 +8,7 @@ import {
 import { getEntityIdProperties, parsePropertyType, TypeParseContext } from ".";
 import {
   DEFAULT_CENSOR_VALIDATE,
+  formatQualifiedTypeName,
   handleValidationErrors,
   SchemaObjectType,
   SchemaProperty,
@@ -62,7 +63,9 @@ export const parseProperty = <DeclaringType extends SchemaObjectType | null>(
   if (baseProperty?.required) {
     if (definition.required === false) {
       throw new Error(
-        "A property cannot explicitly be defined as optional if its base property is required."
+        `A property cannot explicitly be defined as optional if its base property is required (${formatQualifiedTypeName(
+          parsedProperty
+        )}).`
       );
     }
     parsedProperty.required = true;

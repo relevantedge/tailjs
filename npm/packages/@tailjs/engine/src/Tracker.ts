@@ -14,7 +14,7 @@ import {
   RestrictScopes,
   ScopeInfo,
   ServerScoped,
-  ServerVariableScope,
+  VariableServerScope,
   Session,
   SessionInfo,
   Timestamp,
@@ -45,12 +45,15 @@ import {
   PartialRecord,
   ReadonlyRecord,
   concat,
+  createEvent,
   forEach2,
+  get2,
   isArray,
   map2,
   now,
   obj,
   some2,
+  truish2,
 } from "@tailjs/util";
 import { tryConvertLegacyConsent, tryConvertLegacyDeviceVariable } from "./lib";
 import {
@@ -120,6 +123,7 @@ interface SessionInitializationOptions extends TrackerInitializationOptions {
   resetSession?: boolean;
   resetDevice?: boolean;
   refreshState?: boolean;
+  previousConsent?: UserConsent;
 }
 
 export type TrackerVariableStorageContext = Omit<
@@ -127,11 +131,11 @@ export type TrackerVariableStorageContext = Omit<
   "scope"
 >;
 
-const createInitialScopeData = <T extends ScopeInfo>(
+const createInitialScopeData = <T extends ScopeInfo, Data>(
   id: string,
   timestamp: Timestamp,
-  additionalData: Omit<T, keyof ScopeInfo>
-): T =>
+  additionalData: Omit<T, keyof ScopeInfo> & Data
+): T & Data =>
   ({
     id,
     firstSeen: timestamp,
@@ -139,7 +143,7 @@ const createInitialScopeData = <T extends ScopeInfo>(
     views: 0,
     isNew: true,
     ...additionalData,
-  } as T);
+  } as any);
 
 interface DeviceVariableCache {
   /** Parsed variables from cookie. */
@@ -157,6 +161,18 @@ interface DeviceVariableCache {
 type ClientDeviceDataBlob = ClientDeviceVariable[];
 
 type ClientDeviceVariable = [key: string, version: string, value: any];
+
+type PreviousSessionState = Pick<Tracker, "trustedContext" | "consent">;
+
+export type TrackerSnapshot = {
+  consent: Freeze<DataUsage>;
+  session: Freeze<SessionInfo>;
+  device?: Freeze<DeviceInfo>;
+};
+export type SessionChangedCallback = (
+  current: TrackerSnapshot,
+  previous?: TrackerSnapshot
+) => void;
 
 export class Tracker {
   /**
@@ -187,7 +203,15 @@ export class Tracker {
   public readonly queryString: ReadonlyRecord<string, string[]>;
 
   public readonly referrer: string | null;
-  public readonly requestItems: Map<any, any>;
+
+  /** Can be used by extensions for book-keeping during a request.  */
+  private readonly _requestItems: Map<any, Map<any, any>>;
+
+  private readonly _sessionChangedEvent =
+    createEvent<Parameters<SessionChangedCallback>>();
+
+  //private readonly _sessionChangedHandlers
+
   /** Transient variables that can be used by extensions whilst processing a request. */
   public readonly transient: Record<string, any>;
 
@@ -241,7 +265,7 @@ export class Tracker {
     this.headers = headers ?? {};
     this.cookies = (cookies as Record<string, any>) ?? {};
     this.transient = {};
-    this.requestItems = new Map<any, any>();
+    this._requestItems = new Map();
 
     this.clientIp = clientIp;
 
@@ -284,6 +308,8 @@ export class Tracker {
    * However, when used they are temporarily stored in memory like session variables to avoid race conditions.
    */
   private _clientDeviceCache?: DeviceVariableCache;
+
+  private _previousSessions: Map<string, PreviousSessionState> | undefined;
 
   private _consent: UserConsent = {
     classification: "anonymous",
@@ -491,8 +517,16 @@ export class Tracker {
           }
         );
       });
-      return this._clientDeviceCache.variables;
     }
+    return this._clientDeviceCache.variables;
+  }
+
+  public getRequestItems(source: any): Map<any, any> {
+    return get2(this._requestItems, source, () => new Map());
+  }
+
+  public registerSessionChangedCallback(callback: SessionChangedCallback) {
+    return this._sessionChangedEvent[0](callback);
   }
 
   /**
@@ -577,6 +611,21 @@ export class Tracker {
     }
   }
 
+  /**
+   * Operations related to purging sessions or session/device data (consent changes etc.).
+   *
+   * These must be executed before the request ends, but _after_ tracker extensions' `post` methods,
+   * since these extensions may rely on data in the "leaving" sessions,
+   * e.g. the RavenDB extension map session IDs to sequential numbers based on a session variable.
+   */
+  private _purgeOperations: (() => Promise<any>)[] = [];
+
+  public async dispose() {
+    for (const purgeOperation of this._purgeOperations) {
+      await purgeOperation();
+    }
+  }
+
   public async updateConsent({
     purposes,
     classification,
@@ -595,32 +644,60 @@ export class Tracker {
       ) < 0 ||
       some2(this.consent.purposes, ([key]) => !purposes?.[key])
     ) {
+      // Capture these variables for lambda.
+      const sessionId = this.sessionId;
+      const deviceId = this.deviceId;
+      const expiredPurposes = obj(this.consent.purposes, ([key]) =>
+        !purposes?.[key] ? [key, true] : undefined
+      );
       // If the user downgraded the level of consent or removed purposes we need to delete existing data that does not match.
-      await this.purge(
-        {
-          // NOTE: We do not touch user variables automatically.
-          // Consumers can hook into the apply or patch pipelines with an extension to provide their own logic -
-          // they can see the current consent on the tracker in context, and the new consent from the event.
-          scopes: ["session", "device"],
-          purposes: obj(this.consent.purposes, ([key]) =>
-            !purposes?.[key] ? [key, true] : undefined
-          ),
-          classification: { gt: classification },
-        },
-        { bulk: true, context: { trusted: true } }
+      this._purgeOperations.push(
+        async () =>
+          await this.env.storage.purge(
+            [
+              sessionId && {
+                // NOTE: We do not touch user variables automatically.
+                // Consumers can hook into the apply or patch pipelines with an extension to provide their own logic -
+                // they can see the current consent on the tracker in context, and the new consent from the event.
+                scopes: ["session"],
+                entityIds: [sessionId],
+                purposes: expiredPurposes,
+                classification: { gt: classification },
+              },
+              deviceId && {
+                scopes: ["device"],
+                entityIds: [deviceId],
+                purposes: expiredPurposes,
+                classification: { gt: classification },
+              },
+            ],
+            { bulk: true, context: { trusted: true } }
+          )
       );
     }
 
     let previousLevel = this._consent.classification;
+    const previousConsent = this._consent;
     this._consent = { classification, purposes };
 
     if ((classification === "anonymous") !== (previousLevel === "anonymous")) {
       // We switched from cookie-less to cookies or vice versa.
       // Refresh scope infos and anonymous session pointer.
-      await this._ensureSession(now(), { refreshState: true });
+      await this._ensureSession(now(), { previousConsent, refreshState: true });
     }
   }
 
+  private _snapshot(
+    previousConsent?: UserConsent
+  ): TrackerSnapshot | undefined {
+    return (
+      this.session && {
+        consent: { ...(previousConsent ?? this.consent) },
+        session: { ...this.session },
+        device: this.device && { ...this.device },
+      }
+    );
+  }
   private async _ensureSession(
     timestamp = now(),
     {
@@ -630,6 +707,7 @@ export class Tracker {
       resetSession = false,
       resetDevice = false,
       refreshState = false,
+      previousConsent,
     }: SessionInitializationOptions = {}
   ) {
     const useAnonymousTracking = this._consent.classification === "anonymous";
@@ -657,6 +735,10 @@ export class Tracker {
       // No refresh needed means this method has been called a second time, just to be sure the session is initialized.
       return;
     }
+
+    const snapshot: TrackerSnapshot | undefined =
+      this._snapshot(previousConsent);
+    let sessionChanged = false;
 
     // In case we refresh (calling this method again, e.g. from consent change), we might already have an identified session ID.
     let identifiedSessionId = resetSession
@@ -717,16 +799,18 @@ export class Tracker {
 
         if (identifiedSessionId || deviceId) {
           // We switched from identified to anonymous tracking. Remove current session and device variables.
-          await this.env.storage.purge(
-            [
-              identifiedSessionId && {
-                scope: "session",
-                entityIds: [identifiedSessionId],
-              },
-              deviceId && { scope: "device", entityIds: [deviceId] },
-            ],
-            { bulk: true, context: { trusted: true } }
-          );
+          this._purgeOperations.push(async () => {
+            await this.env.storage.purge(
+              [
+                identifiedSessionId && {
+                  scope: "session",
+                  entityIds: [identifiedSessionId],
+                },
+                deviceId && { scope: "device", entityIds: [deviceId] },
+              ],
+              { bulk: true, context: { trusted: true } }
+            );
+          });
         }
 
         this._device = undefined;
@@ -765,32 +849,39 @@ export class Tracker {
         }
 
         // We might already have read the session above in check 2, or _ensureSession has already been called earlier.
-        if (!this._session?.entityId !== identifiedSessionId) {
+        if (this.sessionId !== identifiedSessionId) {
           this._session = await this.env.storage.get(
             {
               scope: "session",
               key: SCOPE_INFO_KEY,
               entityId: identifiedSessionId,
-              init: async () =>
+              init: async () => {
                 // CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
                 // This means clients must make sure the initial request to the endpoint completes before more are sent (or at least do a fair effort).
                 // Additionally, analytics processing should be aware of empty sessions, and decide what to do with them (probably filter them out).
 
-                createInitialScopeData(identifiedSessionId, timestamp, {
-                  anonymous: false,
-                  // Initialize device ID here to keep it in the session.
-                  deviceId: deviceId ?? (await this.env.nextId("device")),
-                  deviceSessionId:
-                    deviceSessionId ??
-                    (await this.env.nextId("device-session")),
-                  anonymousSessionId,
-                }),
+                const data = createInitialScopeData(
+                  identifiedSessionId,
+                  timestamp,
+                  {
+                    anonymous: false,
+                    // Initialize device ID here to keep it in the session.
+                    deviceId: deviceId ?? (await this.env.nextId("device")),
+                    deviceSessionId:
+                      deviceSessionId ??
+                      (await this.env.nextId("device-session")),
+                    anonymousSessionId,
+                  }
+                );
+
+                return data;
+              },
             },
             { trusted: true }
           );
         }
 
-        deviceId = this._session!.value.deviceId;
+        deviceId = this._session?.value.deviceId;
         this._device = await this.env.storage.get(
           {
             scope: "device",
@@ -825,27 +916,30 @@ export class Tracker {
 
         if (anonymousSessionId) {
           // We went from anonymous to identified tracking.
-          await this.env.storage
-            .set(
-              [
-                {
-                  scope: "session",
-                  key: SCOPE_INFO_KEY,
-                  entityId: anonymousSessionId,
-                  value: null,
-                  force: true,
-                },
-                this._anonymousSessionReferenceId && {
-                  scope: "session",
-                  key: SESSION_REFERENCE_KEY,
-                  entityId: this._anonymousSessionReferenceId,
-                  value: null,
-                  force: true,
-                },
-              ],
-              { trusted: true }
-            )
-            .all();
+          const anonymousSessionReferenceId = this._anonymousSessionReferenceId;
+          this._purgeOperations.push(async () => {
+            await this.env.storage
+              .set(
+                [
+                  {
+                    scope: "session",
+                    key: SCOPE_INFO_KEY,
+                    entityId: anonymousSessionId,
+                    value: null,
+                    force: true,
+                  },
+                  anonymousSessionReferenceId && {
+                    scope: "session",
+                    key: SESSION_REFERENCE_KEY,
+                    entityId: anonymousSessionReferenceId,
+                    value: null,
+                    force: true,
+                  },
+                ],
+                { trusted: true }
+              )
+              .all();
+          });
         }
 
         this.cookies[this._requestHandler._cookieNames.session] = {
@@ -854,6 +948,15 @@ export class Tracker {
           essential: true,
           value: this._encryptCookie({ id: identifiedSessionId }),
         };
+
+        if (
+          this._session &&
+          (snapshot?.session.id !== this._session?.value.id ||
+            snapshot?.session.deviceId !== this._session?.value.deviceId ||
+            snapshot?.device?.id !== this._device?.value.id)
+        ) {
+          this._sessionChangedEvent[1](this._snapshot()!, snapshot);
+        }
       }
     }
 
@@ -866,6 +969,27 @@ export class Tracker {
       // For anonymous sessions this more likely indicates that multiple clients are active in the same session.
       this._expiredDeviceSessionId = deviceSessionId;
     }
+
+    if (this.sessionId) {
+      (this._previousSessions ??= new Map()).set(this.sessionId, {
+        trustedContext: this.trustedContext,
+        consent: DataUsage.clone(this.consent),
+      });
+    }
+  }
+
+  /** @internal */
+  public _getConsentStateForSession(
+    session: Session | undefined
+  ): PreviousSessionState | undefined {
+    if (!session?.sessionId) return undefined;
+    if (session.sessionId === this.sessionId) {
+      return {
+        trustedContext: this.trustedContext,
+        consent: DataUsage.clone(this.consent),
+      };
+    }
+    return this._previousSessions?.get(session.sessionId);
   }
 
   /**
@@ -938,6 +1062,31 @@ export class Tracker {
           }
         }
       }
+      // Keep session alive in a fire and forget like fashion.
+      if (this.sessionId) {
+        (async () => {
+          try {
+            this.env.storage.renew([
+              {
+                scope: "session",
+                entityIds: truish2([
+                  this.sessionId,
+                  isAnonymous && this._anonymousSessionReferenceId,
+                ]),
+              },
+              this.deviceId && {
+                scope: "device",
+                entityIds: [this.deviceId],
+              },
+            ]);
+          } catch (e) {
+            this.env.error(
+              this,
+              `An error occurred while renewing session ${this.sessionId} (keeping it alive).`
+            );
+          }
+        })();
+      }
     } else {
       (this.cookies as any) = {};
     }
@@ -958,7 +1107,7 @@ export class Tracker {
   }
 
   async renew(): Promise<void> {
-    await this.env.storage.refresh(
+    await this.env.storage.renew(
       { scopes: ["device", "session"] },
       this._getStorageContext()
     );
@@ -1062,7 +1211,7 @@ export class Tracker {
   }
 
   public async query(
-    filters: ArrayOrSelf<VariableQuery<ServerVariableScope> | Falsish>,
+    filters: ArrayOrSelf<VariableQuery<VariableServerScope> | Falsish>,
     {
       context,
       ...options
@@ -1076,7 +1225,7 @@ export class Tracker {
 
     if (
       filters.some(
-        (filter: VariableQuery<ServerVariableScope>) =>
+        (filter: VariableQuery<VariableServerScope>) =>
           filter.scope === "device"
       )
     ) {
@@ -1089,7 +1238,7 @@ export class Tracker {
   }
 
   public async purge(
-    filters: ArrayOrSelf<VariableQuery<ServerVariableScope> | Falsish>,
+    filters: ArrayOrSelf<VariableQuery<VariableServerScope> | Falsish>,
     {
       context,
       bulk,

@@ -1,18 +1,19 @@
 import fs from "fs";
 import http from "http";
-import https from "https";
+import https, { RequestOptions } from "https";
 import { basename, dirname, join, resolve } from "path";
 import { v4 as uuid } from "uuid";
 
-import type {
-  ChangeHandler,
-  EngineHost,
-  HostResponse,
-  HttpRequest,
-  LogMessage,
-  ResourceEntry,
+import {
+  detectPfx,
+  type ChangeHandler,
+  type EngineHost,
+  type HostResponse,
+  type HttpRequest,
+  type LogMessage,
+  type ResourceEntry,
 } from "@tailjs/engine";
-import { MaybePromise, MINUTE, now } from "@tailjs/util";
+import { MaybePromise, MINUTE, now, obj2, skip2 } from "@tailjs/util";
 import { DefaultLogger, DefaultLoggerSettings } from "./DefaultLogger";
 
 export type NativeHostLogger = {
@@ -230,18 +231,32 @@ export class NativeHost implements EngineHost {
       };
       tryCatch(() => {
         if (!request) return;
+
+        const { cert, key, pfx } = {
+          ...detectPfx(request.x509),
+          cert: request.x509?.cert
+            ? typeof request.x509.cert === "string"
+              ? request.x509.cert
+              : Buffer.from(request.x509.cert.buffer)
+            : void 0,
+        };
+
+        const headers =
+          obj2(request.headers, (kv) => (kv[1] != null ? kv : skip2)) ?? {};
+        if (request.body) {
+          headers["content-length"] =
+            "" +
+            (typeof request.body === "string"
+              ? Buffer.byteLength(request.body, "utf8")
+              : request.body.length);
+        }
         const req = (request.url.startsWith("https:") ? https : http).request(
           request.url,
           {
-            headers: request.headers,
             method: request.method,
-            cert: request.x509?.cert
-              ? typeof request.x509.cert === "string"
-                ? request.x509.cert
-                : Buffer.from(request.x509.cert.buffer)
-              : void 0,
-            key: request.x509?.key,
-          },
+            headers,
+            ...(pfx ? { pfx: cert, passphrase: key } : { cert, key }),
+          } satisfies RequestOptions,
           (res) => {
             if (!res?.statusCode) {
               reject(new Error("The server did not reply with a status code."));
@@ -283,17 +298,20 @@ export class NativeHost implements EngineHost {
           }
         );
 
-        req.on("error", (err) => {
-          reject(err);
-        });
+        let rejected = false;
+        req.on("error", (err) => !rejected && reject(err));
 
         req.on("timeout", () => {
           req.destroy();
-          reject(new Error("Request time out"));
+          !rejected && reject(new Error("Request time out"));
         });
 
-        if (request.body) {
+        if (typeof request.body === "string") {
           req.end(request!.body, "utf-8");
+        } else if (request.body) {
+          req.end(request.body);
+        } else {
+          req.end();
         }
       });
     });

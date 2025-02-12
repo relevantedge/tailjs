@@ -24,6 +24,7 @@
     "clean": "rimraf ./packages/@tailjs/*/dist && rimraf ./dist"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@pnpm/find-workspace-dir": "^6.0.3",
     "@rollup/plugin-alias": "^5.1.0",
     "@rollup/plugin-commonjs": "^25.0.8",
@@ -51,6 +52,7 @@
     "buffer": "^6.0.3",
     "buffer-browserify": "^0.2.5",
     "buffer-es6": "^4.9.3",
+    "chokidar": "^4.0.3",
     "component-emitter": "^2.0.0",
     "concurrently": "^8.2.2",
     "console-browserify": "^1.2.0",

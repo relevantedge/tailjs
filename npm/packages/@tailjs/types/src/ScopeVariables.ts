@@ -16,6 +16,9 @@ export interface ScopeInfo {
   lastSeen: Timestamp;
   views: number;
   isNew?: boolean;
+
+  /** The user agent of the client (only included when debugging). */
+  userAgent?: string;
 }
 
 export interface SessionInfo extends ScopeInfo {

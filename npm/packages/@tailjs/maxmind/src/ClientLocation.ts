@@ -69,10 +69,9 @@ export class ClientLocation implements TrackerExtension {
         clientHash
       ) {
         const location = this.filterNames(this._reader?.get(ip));
-        tracker.requestItems.set(
-          ClientLocation.name,
-          this.filterNames(location, this._language)
-        );
+        tracker
+          .getRequestItems(this)
+          .set(ClientLocation.name, this.filterNames(location, this._language));
 
         if (location) {
           events = [

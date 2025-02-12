@@ -5,6 +5,7 @@ import { Duration, FormEvent, Integer } from ".";
  */
 export interface FormField {
   id?: string;
+
   /** The name of the form field. */
   name: string;
 
@@ -41,6 +42,8 @@ export interface FormField {
    *
    * The default is only to track whether checkboxes are selected.
    * Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.
+   *
+   * @privacy direct
    */
   value?: string;
 

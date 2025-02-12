@@ -1,5 +1,5 @@
 import {
-  ServerVariableScope,
+  VariableServerScope,
   toVariableResultPromise,
   TypeResolver,
   VariableKey,
@@ -623,7 +623,6 @@ describe("VariableStorageCoordinator", () => {
 
     const sessionIds = map2(100, (i) => "session" + i);
     const userIds = map2(20, (i) => "user" + i);
-
     await coordinator.set(
       map2(
         sessionIds,
@@ -636,6 +635,32 @@ describe("VariableStorageCoordinator", () => {
           } as const)
       )
     );
+
+    expect(
+      (await coordinator.query({ scope: "session" })).variables.length
+    ).toBe(100);
+    expect(
+      (
+        await coordinator.query(
+          { scope: "session" },
+          { context: { scope: { sessionId: "session2" } } }
+        )
+      ).variables[0]
+    ).toMatchObject({ scope: "session", entityId: "session2" });
+
+    await expect(
+      coordinator.query(
+        { scope: "session", entityIds: ["session2"] },
+        { context: { scope: { sessionId: "session2" } } }
+      )
+    ).resolves.not.toBeUndefined();
+
+    await expect(
+      coordinator.query(
+        { scope: "session", entityIds: ["session3", "session10"] },
+        { context: { scope: { sessionId: "session2" } } }
+      )
+    ).rejects.toThrow("session3 and session10");
 
     let { cursor, variables } = await coordinator.query(
       [{ scopes: ["session"] }],
@@ -680,6 +705,16 @@ describe("VariableStorageCoordinator", () => {
         value: { name: entityId },
       }))
     );
+    expect((await coordinator.query({ scope: "user" })).variables.length).toBe(
+      20
+    );
+
+    await expect(
+      coordinator.query(
+        { scope: "user" },
+        { context: { scope: { sessionId: "session2" } } }
+      )
+    ).rejects.toThrow("No ID is available for user scope");
 
     ({ cursor, variables } = await coordinator.query(
       [{ scopes: ["session"] }],
@@ -850,7 +885,7 @@ describe("VariableStorageCoordinator", () => {
       [[{ classification: { gt: "sensitive" } }], 0], //// Impossible, nothing is more sensitive than sensitive
       [[{}, {}, {}], 120], // Multiple "query all" queries should still only return each variable once.
     ] satisfies [
-      VariableQuery<ServerVariableScope>[],
+      VariableQuery<VariableServerScope>[],
       number,
       context?: VariableStorageContext
     ][]) {

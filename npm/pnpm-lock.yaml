@@ -24,6 +24,9 @@ importers:
         specifier: ^10.9.2
         version: 10.9.2(@swc/core@1.7.14(@swc/helpers@0.5.12))(@types/node@18.19.45)(typescript@5.6.2)
     devDependencies:
+      '@jest/globals':
+        specifier: ^29.7.0
+        version: 29.7.0
       '@pnpm/find-workspace-dir':
         specifier: ^6.0.3
         version: 6.0.3
@@ -105,6 +108,9 @@ importers:
       buffer-es6:
         specifier: ^4.9.3
         version: 4.9.3
+      chokidar:
+        specifier: ^4.0.3
+        version: 4.0.3
       component-emitter:
         specifier: ^2.0.0
         version: 2.0.0
@@ -501,9 +507,6 @@ importers:
       '@tailjs/util':
         specifier: workspace:*
         version: link:../util/dist
-      '@types/winston':
-        specifier: ^2.4.4
-        version: 2.4.4
       on-headers:
         specifier: ^1.0.2
         version: 1.0.2
@@ -551,6 +554,16 @@ importers:
       semaphore-async-await:
         specifier: ^1.5.1
         version: 1.5.1
+    devDependencies:
+      '@tailjs/node':
+        specifier: workspace:^
+        version: link:../node/dist
+      winston:
+        specifier: ^3.17.0
+        version: 3.17.0
+      winston-daily-rotate-file:
+        specifier: ^5.0.0
+        version: 5.0.0(winston@3.17.0)
     publishDirectory: dist
 
   packages/@tailjs/react:
@@ -2702,8 +2715,8 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0-rc.1 || ^18.0.0
 
-  '@rjsf/utils@5.21.1':
-    resolution: {integrity: sha512-KEwEtIswzKE2WTLRxvh5vwMwvNMTHnRSxwaRlz3QKz5/iQr9XGJTWcmArjIN3y0ypfLk+X6qZsboamQBIhTV3w==}
+  '@rjsf/utils@5.24.3':
+    resolution: {integrity: sha512-IFzMyr6RDRgSi9jdfFBomwc8LMul6zLBsRSAgzD9wAB9laDcYHwPNEL2kZhOkAGrc+4iNQSPsawGFOA6CXH87Q==}
     engines: {node: '>=14'}
     peerDependencies:
       react: ^16.14.0 || >=17
@@ -2956,8 +2969,8 @@ packages:
     resolution: {integrity: sha512-KABWW61vhu4eKyotl+CWqwIsIjGWZZNTn8VzQBQmq9XUum+IQJDgo6JEFe6N4PN93XjpUZRQokGiwbGOX/fxfg==}
     engines: {node: '>=18'}
 
-  '@sitecore/byoc@0.2.15':
-    resolution: {integrity: sha512-zOISPVHwzxVSQTzaHi+itTvyQ99z6BRzIrBDJ9JrnK35RS8VpHMwyDDYTflkA9tBU1kx0ULctc+1hFfK/TY7lQ==}
+  '@sitecore/byoc@0.2.16':
+    resolution: {integrity: sha512-uLZP898SzfqpFsl+87tNZZ2K0xj/yM+btIAQKJkAP49sPd1vOTXRjGD79vcvbcXSuA1JEil4BKNOWNAVLyxI9A==}
 
   '@swc-node/core@1.13.3':
     resolution: {integrity: sha512-OGsvXIid2Go21kiNqeTIn79jcaX4l0G93X2rAnas4LFoDyA9wAwVK7xZdm+QsKoMn5Mus2yFLCc4OtX2dD/PWA==}
@@ -3208,10 +3221,6 @@ packages:
 
   '@types/verror@1.10.10':
     resolution: {integrity: sha512-l4MM0Jppn18hb9xmM6wwD1uTdShpf9Pn80aXTStnK1C94gtPvJcV2FrDmbOQUAQfJ1cKZHktkQUDwEqaAKXMMg==}
-
-  '@types/winston@2.4.4':
-    resolution: {integrity: sha512-BVGCztsypW8EYwJ+Hq+QNYiT/MUyCif0ouBH+flrY66O5W+KIXAMML6E/0fJpm7VjIzgangahl5S03bJJQGrZw==}
-    deprecated: This is a stub types definition. winston provides its own type definitions, so you do not need this installed.
 
   '@types/ws@8.5.12':
     resolution: {integrity: sha512-3tPRkv1EtkDpzlgyKyI8pGsGZAGPEaXeu0DOj5DI25Ja91bdAYddYHbADRYVrZMRbfW+1l5YwXVDKohDJNQxkQ==}
@@ -3615,6 +3624,10 @@ packages:
     resolution: {integrity: sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==}
     engines: {node: '>= 8.10.0'}
 
+  chokidar@4.0.3:
+    resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
+    engines: {node: '>= 14.16.0'}
+
   chownr@1.1.4:
     resolution: {integrity: sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg==}
 
@@ -3888,8 +3901,8 @@ packages:
       supports-color:
         optional: true
 
-  debug@4.3.7:
-    resolution: {integrity: sha512-Er2nc/H7RrMXZBFCEim6TCmMk02Z8vLC2Rbi1KEBggpo0fS6l0S1nnapwmIi3yW/+GOJap1Krg4w0Hg80oCqgQ==}
+  debug@4.4.0:
+    resolution: {integrity: sha512-6WTZ/IxCY/T6BALoZHaE4ctp9xm+Z5kY/pzYaCHRFeyVhojxlrm+46y68HA6hr0TcwEssoxNiDEUJQjfPZ/RYA==}
     engines: {node: '>=6.0'}
     peerDependencies:
       supports-color: '*'
@@ -5851,6 +5864,10 @@ packages:
     resolution: {integrity: sha512-hOS089on8RduqdbhvQ5Z37A0ESjsqz6qnRcffsMU3495FuTdqSm+7bhJ29JvIOsBDEEnan5DPu9t3To9VRlMzA==}
     engines: {node: '>=8.10.0'}
 
+  readdirp@4.1.1:
+    resolution: {integrity: sha512-h80JrZu/MHUZCyHu5ciuoI0+WxsCxzxJTILn6Fs8rxSnFPh+UVHYfeIxK1nVGugMqkfC4vJcBOYbkfkwYK0+gw==}
+    engines: {node: '>= 14.18.0'}
+
   readline-sync@1.4.10:
     resolution: {integrity: sha512-gNva8/6UAe8QYepIQH/jQ2qn91Qj0B9sYjMBBs3QOB8F2CXcKgLxQaJRP76sWVRQt+QU+8fAkCbCvjjMFu7Ycw==}
     engines: {node: '>= 0.8.0'}
@@ -7574,7 +7591,7 @@ snapshots:
     dependencies:
       '@jest/fake-timers': 29.7.0
       '@jest/types': 29.6.3
-      '@types/node': 18.19.45
+      '@types/node': 20.16.1
       jest-mock: 29.7.0
 
   '@jest/expect-utils@29.7.0':
@@ -7592,7 +7609,7 @@ snapshots:
     dependencies:
       '@jest/types': 29.6.3
       '@sinonjs/fake-timers': 10.3.0
-      '@types/node': 18.19.45
+      '@types/node': 20.16.1
       jest-message-util: 29.7.0
       jest-mock: 29.7.0
       jest-util: 29.7.0
@@ -7684,7 +7701,7 @@ snapshots:
       '@jest/schemas': 29.6.3
       '@types/istanbul-lib-coverage': 2.0.6
       '@types/istanbul-reports': 3.0.4
-      '@types/node': 18.19.45
+      '@types/node': 20.16.1
       '@types/yargs': 17.0.33
       chalk: 4.1.2
 
@@ -9775,7 +9792,7 @@ snapshots:
       '@react-types/shared': 3.24.1(react@18.3.1)
       react: 18.3.1
 
-  '@rjsf/utils@5.21.1(react@18.3.1)':
+  '@rjsf/utils@5.24.3(react@18.3.1)':
     dependencies:
       json-schema-merge-allof: 0.8.1
       jsonpointer: 5.0.1
@@ -9942,7 +9959,7 @@ snapshots:
   '@sitecore-cloudsdk/core@0.2.4':
     dependencies:
       '@sitecore-cloudsdk/utils': 0.2.4
-      debug: 4.3.7
+      debug: 4.4.0
     transitivePeerDependencies:
       - supports-color
 
@@ -9964,7 +9981,7 @@ snapshots:
 
   '@sitecore-feaas/clientside@0.5.18(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@sitecore/byoc': 0.2.15(react@18.3.1)
+      '@sitecore/byoc': 0.2.16(react@18.3.1)
       react-dom: 18.3.1(react@18.3.1)
     transitivePeerDependencies:
       - react
@@ -10054,9 +10071,9 @@ snapshots:
       - encoding
       - supports-color
 
-  '@sitecore/byoc@0.2.15(react@18.3.1)':
+  '@sitecore/byoc@0.2.16(react@18.3.1)':
     dependencies:
-      '@rjsf/utils': 5.21.1(react@18.3.1)
+      '@rjsf/utils': 5.24.3(react@18.3.1)
       json-schema: 0.4.0
     transitivePeerDependencies:
       - react
@@ -10200,7 +10217,7 @@ snapshots:
 
   '@types/graceful-fs@4.1.9':
     dependencies:
-      '@types/node': 18.19.45
+      '@types/node': 20.16.1
 
   '@types/istanbul-lib-coverage@2.0.6': {}
 
@@ -10312,10 +10329,6 @@ snapshots:
   '@types/uuid@9.0.8': {}
 
   '@types/verror@1.10.10': {}
-
-  '@types/winston@2.4.4':
-    dependencies:
-      winston: 3.17.0
 
   '@types/ws@8.5.12':
     dependencies:
@@ -10825,6 +10838,10 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
+  chokidar@4.0.3:
+    dependencies:
+      readdirp: 4.1.1
+
   chownr@1.1.4: {}
 
   ci-info@3.9.0: {}
@@ -11121,7 +11138,7 @@ snapshots:
     dependencies:
       ms: 2.1.2
 
-  debug@4.3.7:
+  debug@4.4.0:
     dependencies:
       ms: 2.1.3
 
@@ -12088,7 +12105,7 @@ snapshots:
       '@jest/expect': 29.7.0
       '@jest/test-result': 29.7.0
       '@jest/types': 29.6.3
-      '@types/node': 18.19.45
+      '@types/node': 20.16.1
       chalk: 4.1.2
       co: 4.6.0
       dedent: 1.5.3
@@ -12182,7 +12199,7 @@ snapshots:
       '@jest/environment': 29.7.0
       '@jest/fake-timers': 29.7.0
       '@jest/types': 29.6.3
-      '@types/node': 18.19.45
+      '@types/node': 20.16.1
       jest-mock: 29.7.0
       jest-util: 29.7.0
 
@@ -12231,7 +12248,7 @@ snapshots:
   jest-mock@29.7.0:
     dependencies:
       '@jest/types': 29.6.3
-      '@types/node': 18.19.45
+      '@types/node': 20.16.1
       jest-util: 29.7.0
 
   jest-pnp-resolver@1.2.3(jest-resolve@29.7.0):
@@ -12373,7 +12390,7 @@ snapshots:
 
   jest-worker@29.7.0:
     dependencies:
-      '@types/node': 18.19.45
+      '@types/node': 20.16.1
       jest-util: 29.7.0
       merge-stream: 2.0.0
       supports-color: 8.1.1
@@ -13336,6 +13353,8 @@ snapshots:
   readdirp@3.6.0:
     dependencies:
       picomatch: 2.3.1
+
+  readdirp@4.1.1: {}
 
   readline-sync@1.4.10: {}
 

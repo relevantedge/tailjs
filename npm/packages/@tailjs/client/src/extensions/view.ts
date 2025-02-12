@@ -12,6 +12,7 @@ import {
   F,
   T,
   add,
+  add2,
   array2,
   clock,
   createEvent,
@@ -123,7 +124,7 @@ export const context: TrackerExtensionFactory = {
       () =>
         forEach2(
           frames,
-          (frame) => add(knownFrames, frame) && callOnFrame(frame)
+          (frame) => add2(knownFrames, frame) && callOnFrame(frame)
         ),
       500
     ).trigger();

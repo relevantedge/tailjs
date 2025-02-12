@@ -51,7 +51,7 @@ export const addTypeValidators = (type: SchemaObjectType) => {
 
       if (censoredValue != targetValue) {
         (privacy ??= {}).censored = true;
-        if (censoredValue === undefined && prop.required) {
+        if (censoredValue === undefined && !context.patch && prop?.required) {
           if (!context.forResponse) {
             // When a required property gets completely censored away during write,
             // the entire object becomes censored (since it would be invalid if missing a required property).
@@ -92,6 +92,10 @@ export const addTypeValidators = (type: SchemaObjectType) => {
           message: `${formatErrorSource(target)} is not an object.`,
         });
         return VALIDATION_ERROR_SYMBOL;
+      }
+
+      if (type.system === "patch") {
+        context = { ...context, patch: true };
       }
 
       // Here we could leverage the type's `usage` that is the minimum usage defined

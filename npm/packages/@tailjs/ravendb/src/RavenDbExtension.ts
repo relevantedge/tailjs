@@ -3,29 +3,38 @@ import {
   TrackedEventBatch,
   Tracker,
   TrackerExtension,
+  VariableStorageMappings,
 } from "@tailjs/engine";
 import { Lock, createLock } from "@tailjs/util";
-import { RavenDbSettings } from ".";
+import { RavenDbSettings, RavenDbVariableStorage } from ".";
 import { RavenDbTarget } from "./RavenDbTarget";
+import { VariableServerScope } from "@tailjs/types";
 
-interface RavenDbSessionIds {
-  sessionId?: string;
-  deviceSessionId?: string;
-  internalSessionId?: string;
-  internalDeviceSessionId?: string;
+export interface RavenDbExtensionSettings extends RavenDbSettings {
+  // Whether to also use RavenDB for variable storage if other storage is not configured.
+  variables?: boolean | VariableServerScope[];
 }
-
 /**
  * This extension stores events in RavenDB.
  * It maps and assign IDs (and references to them) to events and sessions with incrementing base 36 numbers to reduce space.
  */
-export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
+export class RavenDbExtension
+  extends RavenDbTarget
+  implements TrackerExtension
+{
   public readonly id = "ravendb";
   private _lock: Lock;
+  private _storageScopes?: VariableServerScope[];
 
-  constructor(settings: RavenDbSettings) {
+  constructor({ variables = true, ...settings }: RavenDbExtensionSettings) {
     super(settings);
-
+    if (variables) {
+      this._storageScopes =
+        variables === true ? VariableServerScope.levels : variables;
+      if (!this._storageScopes.length) {
+        this._storageScopes = undefined;
+      }
+    }
     this._lock = createLock();
   }
 
@@ -34,33 +43,13 @@ export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
   private _idRangeMax = 0;
   private _idBatchSize = 1000;
 
-  registerTypes(schema: SchemaBuilder): void {
-    schema.registerSchema({
-      namespace: "urn:tailjs:ravendb",
-      variables: {
-        session: {
-          rdb: {
-            classification: "anonymous",
-            purposes: {},
-            visibility: "trusted-only",
-            properties: {
-              sessionId: {
-                primitive: "string",
-              },
-              deviceSessionId: {
-                primitive: "string",
-              },
-              internalSessionId: {
-                primitive: "string",
-              },
-              internalDeviceSessionId: {
-                primitive: "string",
-              },
-            },
-          },
-        },
-      },
-    });
+  patchStorageMappings(mappings: VariableStorageMappings): void {
+    if (!this._storageScopes) return;
+
+    const variableStorage = new RavenDbVariableStorage(this._settings);
+    for (const scope of this._storageScopes) {
+      (mappings[scope] ??= {}).storage ??= variableStorage;
+    }
   }
 
   async post(events: TrackedEventBatch, tracker: Tracker): Promise<void> {
@@ -71,51 +60,11 @@ export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
     try {
       const commands: any[] = [];
 
-      // We add a convenient integer keys to the session, device session and event entities to get efficient primary keys
-      // when doing ETL on the data.
-      let ids: RavenDbSessionIds | undefined = await tracker
-        .get({
-          scope: "session",
-          key: "rdb",
-        })
-        .value();
-
-      var hasChanges = false;
-      if (tracker.sessionId && ids?.sessionId !== tracker.sessionId) {
-        (ids ??= {}).internalSessionId = await this._getNextId();
-        ids.sessionId = tracker.sessionId;
-        hasChanges = true;
-      }
-      if (
-        tracker.deviceSessionId &&
-        ids?.deviceSessionId !== tracker.deviceSessionId
-      ) {
-        (ids ??= {}).internalDeviceSessionId = await this._getNextId();
-        ids.deviceSessionId = tracker.deviceSessionId;
-        hasChanges = true;
-      }
-      if (!tracker.sessionId && !tracker.deviceSessionId) {
-        ids = undefined;
-        hasChanges = true;
-      }
-
-      if (hasChanges) {
-        // Session and/or device session ID changed.
-        await tracker.set({
-          scope: "session",
-          key: "rdb",
-          patch: () => ids,
-        });
-      }
-
       for (let ev of events) {
         ev = { ...ev };
 
         // Integer primary key for the event entity.
         const internalEventId = await this._getNextId();
-
-        ev["rdb:sessionId"] = ids?.internalSessionId;
-        ev["rdb:deviceSessionId"] = ids?.internalDeviceSessionId;
 
         commands.push({
           Type: "PUT",
@@ -198,3 +147,6 @@ export class RavenDbTracker extends RavenDbTarget implements TrackerExtension {
     return id.toString(36);
   }
 }
+
+/** @obsolete Use the name RavenDbExtension instead. */
+export const RavenDbTracker = RavenDbExtension;

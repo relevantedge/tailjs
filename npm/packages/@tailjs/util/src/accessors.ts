@@ -28,6 +28,7 @@ import {
   isSet,
   map,
   obj,
+  structuralEquals,
   throwError,
 } from ".";
 
@@ -917,7 +918,7 @@ export const diff = <T>(
 
   if (isPlainObject(updated)) {
     forEach(updated, ([key, value]) => {
-      if (value === previous[key]) {
+      if (structuralEquals(value, previous[key], -1)) {
         // No changes.
         return;
       }

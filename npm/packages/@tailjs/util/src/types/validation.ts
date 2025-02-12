@@ -15,7 +15,7 @@ import {
   isBoolean,
   isError,
   isFunction,
-  isObject,
+  isPlainObject,
   isString,
   unwrap,
 } from "..";
@@ -96,7 +96,11 @@ export const structuralEquals = (
   // interpret `null` and `undefined` as the same.
   if ((value1 ?? value2) == null) return true;
 
-  if (isObject(value1) && isObject(value2) && value1.length === value2.length) {
+  if (
+    isPlainObject(value1) &&
+    isPlainObject(value2) &&
+    value1.length === value2.length
+  ) {
     let n = 0;
     for (const key in value1) {
       if (

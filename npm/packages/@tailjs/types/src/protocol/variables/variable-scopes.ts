@@ -1,7 +1,7 @@
 /**
  * The scope for a variable including the entity it relates to and its life time..
  */
-export type ServerVariableScope =
+export type VariableServerScope =
   /**
    * Variables that are not bound to individuals, does not contain personal data, and not subject to censoring.
    * These may be used for purposes such as shared runtime configuration
@@ -38,7 +38,7 @@ export type ServerVariableScope =
    */
   | "user";
 
-export type ServerVariableExplicitScopes = "global";
+export type VariableExplicitServerScopes = "global";
 
 /**
  * Helper "function" to allow all scopes to be shown via intellisense. Otherwise, vscode won't show e.g. "global"
@@ -93,16 +93,16 @@ export type RestrictScopes<
 >;
 
 type _ExplicitServerScopes<Scope extends boolean> =
-  | ServerVariableExplicitScopes
-  | (Scope extends true ? never : ServerVariableScope);
+  | VariableExplicitServerScopes
+  | (Scope extends true ? never : VariableServerScope);
 
 export type ServerScoped<Target, Scope extends boolean = true> = RestrictScopes<
   Target,
-  ServerVariableScope,
+  VariableServerScope,
   _ExplicitServerScopes<Scope>,
   [boolean] extends [Scope]
-    ? Exclude<ServerVariableScope, ServerVariableExplicitScopes>
-    : Exclude<ServerVariableScope, _ExplicitServerScopes<Scope>>
+    ? Exclude<VariableServerScope, VariableExplicitServerScopes>
+    : Exclude<VariableServerScope, _ExplicitServerScopes<Scope>>
 >;
 
 export type RemoveScopeRestrictions<

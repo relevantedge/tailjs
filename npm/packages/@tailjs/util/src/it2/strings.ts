@@ -66,11 +66,17 @@ export const indent2 = <T extends string | Nullish>(
   }) as any;
 };
 
-export const toJSON2 = JSON.stringify;
-export const fromJSON2 = <Value extends string | Nullish>(
-  value: Value
-): Value extends Nullish ? Value : string =>
-  value == null ? value : JSON.parse(value);
+export const stringify2: <T>(value: T) => T extends undefined ? T : string =
+  JSON.stringify;
+
+export const json2 = <Value = any>(
+  value: any
+): Value extends Nullish | "" ? undefined : Value =>
+  value == null || value === ""
+    ? undefined
+    : typeof value === "object"
+    ? value
+    : JSON.parse(value + "");
 
 /**
  * Itemizes an array of items by separating them with commas and a conjunction like "and" or "or".

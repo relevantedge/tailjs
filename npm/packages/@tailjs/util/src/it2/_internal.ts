@@ -330,3 +330,41 @@ export type MergeObjectSources<
   : never;
 
 // #endregion
+
+const getRootPrototype = (value: any) => {
+  let proto = value;
+  while (proto) {
+    proto = Object.getPrototypeOf((value = proto));
+  }
+  return value;
+};
+const findPrototypeFrame = (
+  frameWindow: Window | null,
+  matchPrototype: any
+) => {
+  if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
+    return frameWindow;
+  }
+  for (const frame of frameWindow.document.getElementsByTagName("iframe")) {
+    try {
+      if (
+        (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype))
+      ) {
+        return frameWindow;
+      }
+    } catch (e) {
+      // Cross domain issue.
+    }
+  }
+};
+
+/**
+ * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
+ * e.g., `Object` in an iframe is different from `Object` in the top frame.
+ */
+export const findDeclaringScope = (target: any) =>
+  target == null
+    ? target
+    : globalThis.window
+    ? findPrototypeFrame(window, getRootPrototype(target))
+    : globalThis;

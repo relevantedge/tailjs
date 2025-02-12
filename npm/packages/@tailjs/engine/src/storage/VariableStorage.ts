@@ -1,42 +1,51 @@
 import {
   ReadOnlyVariableGetter,
   VariableGetResult,
-  VariableQuery,
   VariableQueryOptions,
   VariableQueryResult,
   VariableSetResult,
   VariableValueSetter,
 } from "@tailjs/types";
-import { Pretty } from "@tailjs/util";
-import { TrackerEnvironment, TrackerEnvironmentInitializable } from "..";
+import { TrackerEnvironmentInitializable } from "..";
 
-export type VariableStorageQuery = Pretty<
-  Omit<VariableQuery, "classification" | "purposes" | "scopes" | "sources"> & {
-    source?: string | null;
-    scope: string;
-  }
->;
+export type VariableStorageQuery = {
+  scope: string;
+  entityIds?: string[];
+  keys?: {
+    exclude?: boolean;
+    values: string[];
+  };
+  /** Gets variables that have changed since this timestamp. (Not implemented). */
+  ifModifiedSince?: number;
+};
+
+// Pretty<
+//   Omit<VariableQuery, "classification" | "purposes" | "scopes" | "sources"> & {
+//     source?: string | null;
+//     scope: string;
+//   }
+// >;
 export interface ReadOnlyVariableStorage
   extends TrackerEnvironmentInitializable {
   /** Gets or initializes the variables with the specified keys. */
-  get(keys: ReadOnlyVariableGetter[]): Promise<VariableGetResult[]>;
+  get(keys: readonly ReadOnlyVariableGetter[]): Promise<VariableGetResult[]>;
 
   /** Gets the variables for the specified entities. */
   query(
-    queries: VariableStorageQuery[],
+    queries: readonly VariableStorageQuery[],
     options?: VariableQueryOptions
   ): Promise<VariableQueryResult>;
 }
 
 export interface VariableStorage extends ReadOnlyVariableStorage {
   /** Sets the variables with the specified keys and values. */
-  set(values: VariableValueSetter[]): Promise<VariableSetResult[]>;
+  set(values: readonly VariableValueSetter[]): Promise<VariableSetResult[]>;
 
   /** Purges all variables matching the specified queries. Returns the number of deleted variables.  */
-  purge(queries: VariableStorageQuery[]): Promise<number>;
+  purge(queries: readonly VariableStorageQuery[]): Promise<number | undefined>;
 
   /** Extends the time-to-live for the variables matching the specified queries. */
-  refresh(queries: VariableStorageQuery[]): Promise<number>;
+  renew(queries: readonly VariableStorageQuery[]): Promise<number | undefined>;
 }
 
 export const isWritableStorage = (storage: any): storage is VariableStorage =>

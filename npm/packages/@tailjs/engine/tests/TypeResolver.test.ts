@@ -1,4 +1,5 @@
 import {
+  DataPurposes,
   handleValidationErrors,
   JsonSchemaAdapter,
   SCHEMA_TYPE_PROPERTY,
@@ -296,6 +297,7 @@ describe("TypeResolver", () => {
           types: {
             Censored: {
               classification: "indirect",
+              abstract: true,
               properties: {
                 ok: {
                   classification: "anonymous",
@@ -339,11 +341,15 @@ describe("TypeResolver", () => {
                     },
                   },
                 },
+                self: {
+                  reference: "Censored",
+                },
               },
             },
             SubCensored: {
               extends: ["Censored"],
               properties: {
+                ok: { reference: "base" },
                 hello: {
                   classification: "anonymous",
                   primitive: "string",
@@ -379,11 +385,26 @@ describe("TypeResolver", () => {
                 },
               },
             },
+            RecordTest: {
+              properties: {
+                fields: {
+                  key: { primitive: "string" },
+                  value: { primitive: "string" },
+                },
+              },
+            },
           },
         },
       },
     ]);
 
+    const recordType = resolver.getType("urn:test#RecordTest");
+    expect(
+      recordType.censor(
+        { fields: { test: "test" } },
+        { consent: { classification: "direct", purposes: DataPurposes.all } }
+      )
+    ).toEqual({ fields: { test: "test" } });
     const censorType = resolver.getType("urn:test#Censored");
 
     expect(
@@ -685,5 +706,82 @@ describe("TypeResolver", () => {
       JSON.stringify(JSON.parse(adapter.serialize(resolver.schemas)), null, 2),
       "utf-8"
     );
+  });
+
+  it("Supports patches", () => {
+    const resolver = new TypeResolver([
+      {
+        schema: {
+          namespace: "urn:test",
+          types: {
+            Event: {
+              system: "event",
+              abstract: true,
+              properties: {
+                type: {
+                  primitive: "string",
+                  required: true,
+                },
+              },
+            } as SchemaSystemTypeDefinition,
+
+            TestEvent: {
+              event: true,
+              properties: {
+                type: {
+                  primitive: "string",
+                  enum: ["test_event"],
+                },
+                name: {
+                  primitive: "string",
+                  required: true,
+                },
+                nested: {
+                  key: { primitive: "string" },
+                  value: {
+                    reference: "NestedValue",
+                  },
+                },
+              },
+            },
+            NestedValue: {
+              properties: {
+                active: {
+                  primitive: "boolean",
+                  required: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    ]);
+    const testEventType = resolver.getEventType({ type: "test_event" });
+    const testEventPatchType = resolver.getEventType({
+      type: "test_event_patch",
+    });
+    expect(testEventType && testEventPatchType).not.toBeUndefined();
+
+    expect(() =>
+      testEventType.validate({ type: "test_event" }, null, { trusted: true })
+    ).toThrow("required");
+
+    expect(() =>
+      testEventType.validate(
+        { type: "test_event", name: "test", nested: { test: {} } },
+        null,
+        { trusted: true }
+      )
+    ).toThrow("nested.test.active");
+
+    expect(() =>
+      testEventPatchType.validate(
+        { type: "test_event_patch", nested: { test: {} } },
+        null,
+        {
+          trusted: true,
+        }
+      )
+    ).not.toThrow();
   });
 });

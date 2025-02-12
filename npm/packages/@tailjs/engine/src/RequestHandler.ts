@@ -27,7 +27,7 @@ import {
 } from "@tailjs/types";
 
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
-import { DefaultCryptoProvider } from "./lib";
+import { DefaultCryptoProvider } from ".";
 
 import {
   CallbackResponse,
@@ -87,6 +87,7 @@ import {
   ReplaceProperties,
   SimpleObject,
   skip2,
+  throwError,
   unwrap,
 } from "@tailjs/util";
 import { ClientIdGenerator, DefaultClientIdGenerator } from ".";
@@ -258,16 +259,16 @@ export class RequestHandler {
     await this._lock(async () => {
       if (this._initialized) return;
 
-      let { host, crypto, environmentTags, encryptionKeys, schemas, storage } =
-        this._config;
+      let {
+        host,
+        crypto,
+        encryptionKeys,
+        schemas,
+        storage,
+        environment,
+        sessionTimeout,
+      } = this._config;
       try {
-        if (!storage) {
-          storage = {
-            session: { storage: new InMemoryStorage(30 * 1000 * 60) },
-            device: { storage: new InMemoryStorage(30 * 1000 * 60) },
-          };
-        }
-
         // Initialize extensions. Defaults + factories.
         this._extensions = [
           Timestamps,
@@ -298,6 +299,24 @@ export class RequestHandler {
         );
 
         // Initialize environment.
+        if (!sessionTimeout) {
+          return throwError("A session timeout is not configured.");
+        }
+
+        storage ??= {};
+        for (const extension of this._extensions) {
+          extension.patchStorageMappings?.(storage);
+        }
+        storage.session ??= {
+          storage: new InMemoryStorage(),
+        };
+        storage.device ??= {
+          storage: new InMemoryStorage(),
+        };
+
+        (storage.ttl ??= {})["session"] ??= sessionTimeout * 1000;
+        (storage.ttl ??= {})["device"] ??= 10 * 1000; // 10 seconds is enough to sort out race conditions.
+
         (this as any).environment = new TrackerEnvironment(
           host,
           crypto ?? new DefaultCryptoProvider(encryptionKeys),
@@ -309,7 +328,7 @@ export class RequestHandler {
             },
             this._schema
           ),
-          environmentTags
+          environment
         );
 
         this.environment._setLogInfo(
@@ -382,14 +401,17 @@ export class RequestHandler {
       try {
         const eventType = this._schema.getEventType(ev);
 
+        const { trustedContext, consent } =
+          tracker._getConsentStateForSession(ev.session) ?? tracker;
+
         ev = eventType.validate(ev, undefined, {
-          trusted: tracker.trustedContext,
+          trusted: trustedContext,
         }) as TrackedEvent;
 
         return (
           eventType.censor(ev, {
-            trusted: tracker.trustedContext,
-            consent: tracker.consent,
+            trusted: trustedContext,
+            consent: consent,
           }) ?? skip2
         );
       } catch (e) {
@@ -914,12 +936,32 @@ export class RequestHandler {
           body: "Bad request.",
         });
       }
-    } catch (ex) {
-      console.error("Unexpected error while processing request.", ex);
+    } catch (error) {
+      this.environment.log(this, {
+        level: "error",
+        message: "Unexpected error while processing request.",
+        error,
+      });
+      console.error("Unexpected error while processing request.", error);
       return result({
         status: 500,
-        body: ex.toString(),
+        body: error.toString(),
       });
+    } finally {
+      try {
+        await resolveTracker.resolved?.dispose();
+      } catch (error) {
+        this.environment.log(this, {
+          level: "error",
+          message: "Unexpected error while processing request.",
+          error,
+        });
+        console.error("Unexpected error while processing request.", error);
+        return result({
+          status: 500,
+          body: error.toString(),
+        });
+      }
     }
 
     return { tracker: resolveTracker, response: null };

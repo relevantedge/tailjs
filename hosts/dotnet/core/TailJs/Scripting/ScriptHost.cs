@@ -368,7 +368,7 @@ internal class ScriptHost : IScriptEngineExtension
       }
       else
       {
-        var formatted = $"{DateTime.UtcNow:o}{message.Level}: {logMessage}";
+        var formatted = $"{DateTime.UtcNow:O}{message.Level}: {logMessage}";
         if (message.Level < LogLevel.Warning)
         {
           Console.Out.WriteLine(formatted);

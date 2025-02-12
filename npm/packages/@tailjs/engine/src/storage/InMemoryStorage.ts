@@ -1,6 +1,5 @@
 import {
   extractKey,
-  filterKeys,
   Variable,
   VariableGetResult,
   VariableGetter,
@@ -16,9 +15,12 @@ import { VariableStorage, VariableStorageQuery } from "..";
 
 const internalIdSymbol = Symbol();
 type InMemoryVariable = Variable & {
-  accessed: number;
   [internalIdSymbol]: number;
 };
+
+export interface InMemoryStorageSettings {
+  ttl?: number;
+}
 
 export class InMemoryStorage implements VariableStorage, Disposable {
   private _nextVersion: number = 1;
@@ -37,7 +39,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
   } = {};
   private readonly _ttl: number | undefined;
 
-  constructor(ttl?: number) {
+  constructor({ ttl }: InMemoryStorageSettings = {}) {
     this._ttl = ttl;
 
     this._purgeExpired();
@@ -60,7 +62,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
       }
     }
 
-    setTimeout(() => this._purgeExpired, 10000);
+    setTimeout(() => this._purgeExpired, Math.min(this._ttl, 10000));
   }
 
   private _getVariables(scope: string, entityId: string, now: number) {
@@ -78,29 +80,26 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     return variables;
   }
 
-  private _hasExpired(
-    variable: (Variable & { accessed: number }) | undefined,
-    now: number
-  ) {
-    return variable?.ttl != null && variable.accessed + variable.ttl < now;
-  }
-
   private _getVariable(key: VariableKey, now: number) {
     const [, , variables] =
       this._getVariables(key.scope, key.entityId!, now) ?? [];
     if (!variables) return undefined;
 
     let variable = variables.get(key.key);
-    if (this._hasExpired(variable, now)) {
-      // Expired.
-      variables.delete(key.key);
-      variable = undefined;
+    if (variable?.expires != null) {
+      if (variable.expires! < now) {
+        // Expired.
+        variables.delete(key.key);
+        variable = undefined;
+      } else {
+        variable.expires = now + variable.ttl!;
+      }
     }
 
     return variable;
   }
 
-  async get(keys: VariableGetter[]): Promise<VariableGetResult[]> {
+  async get(keys: readonly VariableGetter[]): Promise<VariableGetResult[]> {
     this._checkDisposed();
 
     const results: VariableGetResult[] = [];
@@ -141,7 +140,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     return Promise.resolve(results);
   }
 
-  set(values: VariableValueSetter[]): Promise<VariableSetResult[]> {
+  set(values: readonly VariableValueSetter[]): Promise<VariableSetResult[]> {
     this._checkDisposed();
 
     const results: VariableSetResult[] = [];
@@ -192,10 +191,10 @@ export class InMemoryStorage implements VariableStorage, Disposable {
           [internalIdSymbol]:
             variable?.[internalIdSymbol] ?? this._nextInternalId++,
           ...key,
-          ttl: setter.ttl,
           created: variable?.created ?? now,
           modified: now,
-          accessed: now,
+          ttl: setter.ttl,
+          expires: setter.ttl != null ? now + setter.ttl : undefined,
           version: "" + this._nextVersion++,
           value: jsonClone(setter.value),
         })
@@ -217,16 +216,16 @@ export class InMemoryStorage implements VariableStorage, Disposable {
   }
 
   private _purgeOrQuery(
-    queries: VariableStorageQuery[],
+    queries: readonly VariableStorageQuery[],
     action: "query",
     options?: VariableQueryOptions
   ): VariableQueryResult;
   private _purgeOrQuery(
-    queries: VariableStorageQuery[],
+    queries: readonly VariableStorageQuery[],
     action: "purge" | "refresh"
   ): number;
   private _purgeOrQuery(
-    queries: VariableStorageQuery[],
+    queries: readonly VariableStorageQuery[],
     action: "purge" | "refresh" | "query",
     { page = 100, cursor }: VariableQueryOptions = {}
   ) {
@@ -238,7 +237,7 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     const now = Date.now();
     let affected = 0;
 
-    let [cursorScopeIndex = 0, cursorEntityId = -1, cursorVariableIndex = 0] =
+    let [cursorScopeIndex = 0, cursorEntityId = -1, cursorVariableId = -1] =
       map2(cursor?.split("."), (value) => +value || 0) ?? [];
 
     let scopeIndex = 0;
@@ -285,14 +284,17 @@ export class InMemoryStorage implements VariableStorage, Disposable {
         for (const [query, queryEntityIds] of scopeQueries) {
           if (queryEntityIds?.has(entityId) === false) continue;
 
-          for (const [variableKey, variable] of filterKeys(
-            query.keys,
-            entityVariables,
-            ([key]) => key
-          )) {
+          const keyFilter = distinct2(query.keys?.values);
+          const keyFilterMatch = query.keys && !query.keys.exclude;
+
+          for (const [variableKey, variable] of entityVariables) {
+            if (keyFilter?.has(variableKey) !== keyFilterMatch) {
+              continue;
+            }
+
             if (
               variable &&
-              (action === "purge" || !this._hasExpired(variable, now)) &&
+              (action === "purge" || !(variable.expires! < now)) &&
               (!query.ifModifiedSince ||
                 variable.modified > query.ifModifiedSince)
             ) {
@@ -301,24 +303,30 @@ export class InMemoryStorage implements VariableStorage, Disposable {
                   ++affected;
                 }
               } else if (action === "refresh") {
-                this._getVariable(variable, now);
-                ++affected;
+                if (variable.ttl != null) {
+                  variable.expires = now + variable.ttl;
+                  ++affected;
+                }
               } else {
+                if (
+                  internalEntityId === cursorEntityId &&
+                  variable[internalIdSymbol] < cursorVariableId
+                ) {
+                  continue;
+                }
                 matchedVariables.add(variable);
               }
             }
           }
         }
 
-        let variableIndex = 0;
         for (const variable of matchedVariables) {
-          if (variableIndex++ < cursorVariableIndex) {
-            continue;
-          }
           if (variables.length >= page) {
             return {
               variables,
-              cursor: `${scopeIndex - 1}.${internalEntityId}.${variableIndex}`,
+              cursor: `${scopeIndex - 1}.${internalEntityId}.${
+                variable[internalIdSymbol]
+              }`,
             };
           }
 
@@ -327,7 +335,6 @@ export class InMemoryStorage implements VariableStorage, Disposable {
             value: jsonClone(variable.value),
           });
         }
-        cursorVariableIndex = 0;
       }
       cursorEntityId = -1;
     }
@@ -336,16 +343,16 @@ export class InMemoryStorage implements VariableStorage, Disposable {
     return action === "query" ? { variables } : affected;
   }
 
-  async purge(queries: VariableStorageQuery[]): Promise<number> {
+  async purge(queries: readonly VariableStorageQuery[]): Promise<number> {
     return this._purgeOrQuery(queries, "purge");
   }
 
-  async refresh(queries: VariableStorageQuery[]): Promise<number> {
+  async renew(queries: readonly VariableStorageQuery[]): Promise<number> {
     return this._purgeOrQuery(queries, "refresh");
   }
 
   async query(
-    queries: VariableStorageQuery[],
+    queries: readonly VariableStorageQuery[],
     options?: VariableQueryOptions
   ): Promise<VariableQueryResult> {
     return this._purgeOrQuery(queries, "query", options);

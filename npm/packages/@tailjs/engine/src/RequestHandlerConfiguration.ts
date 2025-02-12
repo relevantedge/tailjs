@@ -5,11 +5,8 @@ import { type TrackerClientConfiguration } from "@tailjs/client/external";
 import {
   JsonSchemaAdapter,
   SchemaDefinition,
-  Tag,
   UserConsent,
   type DataPurposes,
-  type ViewEvent,
-  type ViewTimingData,
 } from "@tailjs/types";
 import {
   add2,
@@ -25,6 +22,7 @@ import { ClientIdGenerator } from ".";
 import {
   CryptoProvider,
   EngineHost,
+  TrackerEnvironmentSettings,
   TrackerExtension,
   VariableStorageMappings,
 } from "./shared";
@@ -106,12 +104,6 @@ export type RequestHandlerConfiguration = {
   json?: boolean;
 
   /**
-   * Common tags that will be added to all collected events. This can be used to differentiate between different
-   * server nodes in a clustered environment, or the purpose of environment (like dev, qa, staging or production).
-   */
-  environmentTags?: Tag[];
-
-  /**
    * This is used to add entropy to temporary keys used for short-term communication and
    * cookie-less, pseudonomized client identifiers. This adds an extra protection against tracing
    * a pseudonomized client hash back to the user even if a temporary hash has escaped the system,
@@ -188,17 +180,8 @@ export type RequestHandlerConfiguration = {
    */
   sessionTimeout?: number;
 
-  /**
-   * The device session timeout in minutes after the user has closed all tabs and browser windows related to the website.
-   * If a user closes all tabs and windows related to your website and then comes back before this timeout it will not trigger a new device session.
-   * In particular, this controls when the {@link ViewEvent.landingPage} is set.
-   *
-   * The difference between the session and device session timeouts is that device sessions are not reset as long as tabs or windows are open even if the user put their computer to sleep for days
-   * (cf. the importance of {@link ViewTimingData.visibleTime} and {@link ViewTimingEvent.interactiveTime}).
-   *
-   * @default 10
-   */
-  deviceSessionTimeout?: number;
+  /** Settings for the tracker environment. */
+  environment?: TrackerEnvironmentSettings;
 };
 
 export const DEFAULT:
@@ -217,8 +200,12 @@ export const DEFAULT:
       | "clientIdGenerator"
       | "additionalPurposes"
       | "defaultConsent"
+      | "environment"
     > &
-      Pick<Required<RequestHandlerConfiguration>, "defaultConsent"> = {
+      Pick<
+        Required<RequestHandlerConfiguration>,
+        "environment" | "defaultConsent"
+      > = {
   trackerName: "tail",
   cookies: {
     namePrefix: ".tail",
@@ -226,7 +213,6 @@ export const DEFAULT:
   },
   debugScript: false,
   sessionTimeout: 30,
-  deviceSessionTimeout: 10,
   client: {
     scriptBlockerAttributes: {
       "data-cookieconsent": "ignore",
@@ -238,6 +224,10 @@ export const DEFAULT:
   defaultConsent: {
     classification: "anonymous",
     purposes: {}, // Necessary only.
+  },
+
+  environment: {
+    idLength: 12,
   },
 };
 

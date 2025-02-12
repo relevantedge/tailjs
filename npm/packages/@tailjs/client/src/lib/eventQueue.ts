@@ -50,11 +50,11 @@ export interface EventQueuePostOptions {
 
 export type ProtectedEvent = TrackedEvent & UnlockApiCommand;
 
-const postCallback = Symbol();
+const postCallbacks = Symbol();
 export const registerPostCallback = <T extends TrackedEvent>(
   ev: T,
   callback: (ev: T) => boolean | void
-) => ((ev[postCallback] = callback), ev);
+) => ((ev[postCallbacks] ??= new Set()).add(callback), ev);
 
 export interface EventQueue {
   /**
@@ -124,6 +124,10 @@ export const createEventQueue = (
           patchTargetId: sourceEvent.clientId,
         }) as any);
 
+  const updateSnapshot = (ev: ProtectedEvent) => {
+    snapshots.set(ev, clone(ev));
+  };
+
   const registerEventPatchSource = <T extends ProtectedEvent>(
     sourceEvent: ProtectedEvent,
     source: EventPatchSource<T>,
@@ -134,16 +138,24 @@ export const createEventQueue = (
     const unbind = (): undefined => {
       unbinding = true;
     };
-    snapshots.set(sourceEvent, clone(sourceEvent));
+    updateSnapshot(sourceEvent);
+    registerPostCallback(sourceEvent, updateSnapshot);
     const factory: Factory = () => {
       if (relatedNode?.isConnected === false) {
         unbind();
       } else {
         const snapshot = snapshots.get(sourceEvent);
-        let [delta, current] = diff(source(snapshot, unbind), snapshot) ?? [];
+        const patched = source(snapshot, unbind);
+        debug(
+          { diff: { snapshot, patched }, stack: new Error().stack },
+          "Patch " + snapshot.type
+        );
+
+        let [delta, current] = diff(patched, snapshot) ?? [];
 
         if (delta && !structuralEquals(current, snapshot)) {
           // The new "current" differs from the previous.
+
           snapshots.set(sourceEvent, clone(current));
           // Add patch target ID and the correct event type to the delta data before we return it.
           return [mapPatchTarget(sourceEvent, delta) as any, unbinding];
@@ -177,11 +189,16 @@ export const createEventQueue = (
       // and send a clone of the event without client metadata, and its timestamp in relative time
       // (the server expects this, and will adjust accordingly to its own time).
       merge(ev, { metadata: { posted: true } });
-      if (ev[postCallback]) {
-        if (ev[postCallback](ev) === false) {
+      if (ev[postCallbacks]) {
+        const abort = forEach2(
+          ev[postCallbacks],
+          (callback, _, abort) => callback(ev) === false || abort,
+          false
+        );
+        if (abort) {
           return undefined;
         }
-        delete ev[postCallback];
+        delete ev[postCallbacks];
       }
 
       return merge(clearMetadata(clone(ev), true), {
