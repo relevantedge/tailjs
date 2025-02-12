@@ -1055,6 +1055,7 @@ export class VariableStorageCoordinator<
       !isArray(filters) ? [filters] : filters,
       async (filters) => {
         const result = await this._storage.query(filters, options);
+
         const consent = context.scope?.consent;
         if (consent) {
           const validationContext = mapValidationContext(context, undefined);

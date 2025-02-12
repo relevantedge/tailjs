@@ -5,12 +5,18 @@ import { generateSchema } from "@tailjs/ts-json-schema-generator";
 
 import { build, env } from "./lib";
 import { getDistBundles } from "./rollup-dist";
-import { CORE_SCHEMA_NS, JsonSchemaAdapter, TypeResolver } from "@tailjs/types";
+import {
+  CORE_SCHEMA_NS,
+  JsonSchemaAdapter,
+  MarkdownSchemaAdapter,
+  TypeResolver,
+} from "@tailjs/types";
 
 const pkg = await env();
 
 let sourceSchema: any;
 let runtimeSchema: any;
+let markdownSchema: string | undefined;
 
 await build(
   await getDistBundles({
@@ -36,6 +42,7 @@ await build(
         parsed.map((definition) => ({ schema: definition }))
       );
       runtimeSchema = resolver.definitions[0];
+      markdownSchema = new MarkdownSchemaAdapter().serialize(resolver.schemas);
     },
     async buildEnd() {
       try {
@@ -54,6 +61,14 @@ await build(
             JSON.stringify(runtimeSchema, null, 2),
             "utf-8"
           );
+
+          if (markdownSchema) {
+            await fs.writeFile(
+              join(target, "tailjs-schema.md"),
+              markdownSchema,
+              "utf-8"
+            );
+          }
         }
       } catch (e) {
         console.error(`${e.message}: ${e.stack}`);

@@ -1,21 +1,19 @@
 import { Variable, VariableKey, VariableServerScope } from "@tailjs/types";
 import { MaybeNullish, Nullish, createEnumParser } from "@tailjs/util";
-
 import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
 import type {
   LocalID,
   RestrictScopes,
   ServerScoped,
-  VariableServerScope,
   SessionInfo,
   UserConsent,
   VariableGetResult,
   VariableGetter,
   VariableGetterCallback,
+  VariablePollCallback,
   VariableResultPromiseResult,
   VariableSetResult,
   VariableSetter,
-  VariablePollCallback,
   View,
 } from "@tailjs/types";
 

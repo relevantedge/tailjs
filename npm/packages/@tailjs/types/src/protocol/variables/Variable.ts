@@ -7,14 +7,47 @@ export type KnownVariableMap = {
 };
 
 const variableScopeNames = {
+  /**
+   * Variables that are not bound to individuals, does not contain personal data, and not subject to censoring.
+   * These may be used for purposes such as shared runtime configuration
+   * or augmenting external entities with real-time data for personalization or testing.
+   */
   global: "global",
+
+  /**
+   * Variables that relates to an individual's current session. These are purged when the session ends.
+   *
+   * Session variables can only be read for the current session from untrusted contexts.
+   */
   session: "session",
+
+  /**
+   * Variables that relates to an individual's device.
+   *
+   * These variables are physically stored in the device where the available space may be very limited.
+   * For example, do not exceed a total of 2 KiB if targeting web browsers.
+   *
+   * To prevent race conditions between concurrent requests, device data may temporarily be loaded into session storage.
+   *
+   * Any data stored here is per definition at least `indirect` since it is linked to a device.
+   */
   device: "device",
+
+  /**
+   * Variables that relates to an individual across devices.
+   *
+   * Associating a user ID with a session can only happen from a trusted context,
+   * but data for the associated user can then be read from untrusted contexts unless a `trusted-only` restriction is put on the data.
+   *
+   * Any data stored here is per definition at least `direct` since it directly linked to an individual.
+   */
   user: "user",
 } as const;
 
 export type VariableServerScope =
   (typeof variableScopeNames)[keyof typeof variableScopeNames];
+
+export type VariableExplicitServerScopes = "global";
 
 export const VariableServerScope = createEnumParser(
   "variable scope",

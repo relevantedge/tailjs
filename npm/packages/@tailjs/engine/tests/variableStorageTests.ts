@@ -180,6 +180,10 @@ export const storageTests = {
         ).variables.length
       ).toBe(3);
       expect(
+        (await storage.query([{ scope: "test1", entityIds: ["test1"] }]))
+          .variables.length
+      ).toBe(2);
+      expect(
         (
           await storage.query([
             { scope: "test1", keys: { exclude: false, values: [] } },

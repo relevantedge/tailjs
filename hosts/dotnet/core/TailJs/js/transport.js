@@ -1001,7 +1001,7 @@ const includeValue = (key, value, includeDefaultValues)=>isSymbol(key) ? undefin
         Object.entries(value).forEach(([k, v])=>v !== (v = inner(v)) && (value[k] = v));
         return value;
     };
-    return inner(isString(value) ? tryCatch(()=>JSON.parse(value), ()=>console.error(`Invalid JSON received.`, value)) : value != null ? tryCatch(()=>msgDeserialize(value), ()=>(console.error(`Invalid message received.`, value), undefined$1)) : value);
+    return inner(isString(value) ? tryCatch(()=>JSON.parse(value), ()=>(console.error(`Invalid JSON received.`, value, new Error().stack), undefined$1)) : value != null ? tryCatch(()=>msgDeserialize(value), ()=>(console.error(`Invalid message received.`, value, new Error().stack), undefined$1)) : value);
 };
 let _defaultTransports;
 /**

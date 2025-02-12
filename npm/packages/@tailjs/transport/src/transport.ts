@@ -259,12 +259,22 @@ const deserialize = (value: string | Uint8Array) => {
     isString(value)
       ? tryCatch(
           () => JSON.parse(value as any),
-          () => console.error(`Invalid JSON received.`, value)
+          () => (
+            console.error(`Invalid JSON received.`, value, new Error().stack),
+            undefined
+          )
         )
       : value != null
       ? tryCatch(
           () => msgDeserialize(value as any),
-          () => (console.error(`Invalid message received.`, value), undefined)
+          () => (
+            console.error(
+              `Invalid message received.`,
+              value,
+              new Error().stack
+            ),
+            undefined
+          )
         )
       : value
   );
