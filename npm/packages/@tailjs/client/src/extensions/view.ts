@@ -11,7 +11,6 @@ import {
 import {
   F,
   T,
-  add,
   add2,
   array2,
   clock,
