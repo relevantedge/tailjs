@@ -19673,7 +19673,7 @@ class ClientLocation {
             }).value() !== clientHash) {
                 var _this__reader, _location_country;
                 const location = this.filterNames((_this__reader = this._reader) === null || _this__reader === void 0 ? void 0 : _this__reader.get(ip));
-                tracker.requestItems.set(ClientLocation.name, this.filterNames(location, this._language));
+                tracker.getRequestItems(this).set(ClientLocation.name, this.filterNames(location, this._language));
                 if (location) {
                     var _location_location, _location_postal, _location_location1, _location_location2, _this__reader_metadata_buildEpoch, _this__reader1;
                     var _this__reader_metadata_buildEpoch_toString;
@@ -19770,7 +19770,6 @@ class ClientLocation {
     constructor({ language = "en", mmdb = "maxmind/GeoLite2-City.mmdb" } = {}){
         _define_property(this, "_language", void 0);
         _define_property(this, "_mmdb", void 0);
-        _define_property(this, "_i", 0);
         _define_property(this, "_initialized", false);
         _define_property(this, "_reader", void 0);
         _define_property(this, "id", "ClientLocation");

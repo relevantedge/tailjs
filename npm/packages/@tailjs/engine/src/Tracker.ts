@@ -3,7 +3,7 @@ import {
   SCOPE_INFO_KEY,
   SESSION_REFERENCE_KEY,
 } from "@constants";
-import { Transport, defaultTransport } from "@tailjs/transport";
+import { Transport, defaultTransport, jsonDecode } from "@tailjs/transport";
 import {
   DataClassification,
   DataPurposeName,
@@ -498,13 +498,18 @@ export class Tracker {
 
         const cookieName =
           this._requestHandler._cookieNames.deviceByPurpose[purposeName];
+        const cookieValue = this.cookies[cookieName]?.value;
 
-        forEach2(
-          this._decryptCookie(
+        if (cookieName && cookieValue) {
+          const decrypted = this._decryptCookie(
             this.cookies[cookieName]?.value,
             ` ${purposeName} device variables`
-          ) as ClientDeviceDataBlob,
-          (value) => {
+          ) as ClientDeviceDataBlob;
+          if (!decrypted) {
+            // Deserialization error. Remove the cookie.
+            this.cookies[cookieName] = {};
+          }
+          forEach2(decrypted, (value) => {
             value = tryConvertLegacyDeviceVariable(value) ?? value;
             (deviceCache.variables ??= {})[value[0]] ??= {
               scope: "device",
@@ -514,8 +519,8 @@ export class Tracker {
               created: (timestamp ??= now()),
               modified: (timestamp ??= now()),
             };
-          }
-        );
+          });
+        }
       });
     }
     return this._clientDeviceCache.variables;
@@ -738,8 +743,6 @@ export class Tracker {
 
     const snapshot: TrackerSnapshot | undefined =
       this._snapshot(previousConsent);
-    let sessionChanged = false;
-
     // In case we refresh (calling this method again, e.g. from consent change), we might already have an identified session ID.
     let identifiedSessionId = resetSession
       ? undefined

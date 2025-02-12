@@ -463,7 +463,7 @@ const collect2 = (source, generator, includeSelf = true, collected)=>{
     }
     return collected;
 };
-const distinct2 = (source)=>source instanceof Set ? source : source == null ? source : new Set(source[symbolIterator] && typeof source !== "string" ? source : [
+const distinct2 = (source)=>source == null ? source : source instanceof Set ? source : new Set(source[symbolIterator] && typeof source !== "string" ? source : [
         source
     ]);
 const array2 = (source)=>source == null ? source : isArray(source) ? source : source[symbolIterator] && typeof source !== "string" ? [
@@ -638,7 +638,7 @@ const indent2 = (text, indent = "  ")=>{
         return `${indent}${lineIndent.length >= baseIndent ? lineIndent.slice(baseIndent) : ""}${text}${br}`;
     });
 };
-const toJSON2 = JSON.stringify;
+const stringify2 = JSON.stringify;
 /**
  * Itemizes an array of items by separating them with commas and a conjunction like "and" or "or".
  */ const itemize2 = (values, separators, result, rest)=>{
@@ -1144,7 +1144,7 @@ const parseAnnotations = (context, target, forVariable = false)=>{
             version && (target.version = version);
         }
         map2(PRIVACY_ANNOTATIONS, (key)=>node[key] || skip2, keywords);
-        let description = context.node["description"];
+        let description = node["description"];
         if (description) {
             var _description_replace;
             description = (_description_replace = description.replace) === null || _description_replace === void 0 ? void 0 : _description_replace.call(description, new RegExp(`@(?:${TypeScriptAnnotations.privacy}|${TypeScriptAnnotations.access}) ([^@]+)`, "g"), (_, body)=>{
@@ -1615,6 +1615,115 @@ class JsonSchemaAdapter {
     }
 }
 
+const formatTypeName = (type)=>{
+    if ("primitive" in type) {
+        if ("format" in type.source) {
+            return type.source.format;
+        }
+        return type.primitive;
+    }
+    if ("item" in type) {
+        return `Array\\<${formatTypeName(type.item)}\\>`;
+    }
+    if ("key" in type) {
+        return `Map\\<${formatTypeName(type.key)}, ${formatTypeName(type.value)}\\>`;
+    }
+    if ("union" in type) {
+        return type.union.map((type)=>formatTypeName(type)).join(" or ");
+    }
+    return typeRef(type, "link");
+};
+const typeRef = (type, format)=>format === "anchor" ? `{#${typeRef(type)}}` : format === "link" ? `[${type.name}](#${typeRef(type)})` : `type--${type.id.replace(/[^a-zA-Z0-9_]/g, "-")}`;
+const md = (md)=>md ? md.replace(/\s*\{@link([^}]*)\}/g, "`$1`").replace(/[<>]/g, "\\$1")//.replace(/([\\`*_{}[\]#\|])/g, "\\$1")
+    .trim().replace(/ +/g, " ") : "";
+class MarkdownSchemaAdapter {
+    parse(source) {
+        throw new Error("Not supported");
+    }
+    serialize(schemas) {
+        const lines = [];
+        for (const schema of schemas){
+            const types = topoSort2(sort2(schema.types.values(), (type)=>type.name), (type)=>type.extends);
+            const eventType = types.find((type)=>type.system === "event");
+            const eventTypes = [];
+            const otherTypes = [];
+            for (const type of types){
+                (type === eventType || eventType && type.extendsAll.has(eventType) ? eventTypes : otherTypes).push(type);
+            }
+            const typeGroups = [
+                {
+                    name: "Events",
+                    types: eventTypes
+                },
+                {
+                    name: "Other types",
+                    types: otherTypes
+                }
+            ];
+            for (const { name, types } of typeGroups){
+                if (!types.length) continue;
+                lines.push("", `# ${name}`);
+                for (const type of types){
+                    if (type.system === "patch") {
+                        continue;
+                    }
+                    lines.push("", `## ${md(type.name)} ${typeRef(type, "anchor")}`);
+                    const topTable = [];
+                    if (type.extends.length) {
+                        topTable.push([
+                            "Extends",
+                            type.extends.map((type)=>typeRef(type, "link")).join(", ")
+                        ]);
+                    }
+                    if (type.usage.classification !== "anonymous") {
+                        topTable.push([
+                            "privacy",
+                            type.usage.classification
+                        ]);
+                    }
+                    const purposes = DataPurposes.getNames(type.usage.purposes);
+                    if (purposes.length) {
+                        topTable.push([
+                            "purposes",
+                            purposes.join(", ")
+                        ]);
+                    }
+                    if (topTable.length) {
+                        //lines.push("<table>");
+                        for (const [label, value] of topTable){
+                            //lines.push(`<tr><td>*${label}*</td><td>${value}</td></tr>`);
+                            lines.push(`*${label}*: ${value}`);
+                        }
+                    //lines.push("</table>");
+                    }
+                    if (type.description) {
+                        lines.push("", md(type.description));
+                    }
+                    const properties = Object.values(type.ownProperties);
+                    if (properties.length) {
+                        lines.push("", "|Name|Type|Privacy|Purposes|Description|", "|-|-|-|-|-|");
+                        for(const property in type.ownProperties){
+                            var _prop_usage, _prop_usage1, _DataPurposes_getNames, _prop_usage2;
+                            const prop = type.ownProperties[property];
+                            var _prop_usage_classification, _DataPurposes_getNames_join;
+                            lines.push([
+                                "",
+                                md(prop.name),
+                                formatTypeName(prop.type),
+                                ((_prop_usage = prop.usage) === null || _prop_usage === void 0 ? void 0 : _prop_usage.classification) !== "anonymous" ? (_prop_usage_classification = (_prop_usage1 = prop.usage) === null || _prop_usage1 === void 0 ? void 0 : _prop_usage1.classification) !== null && _prop_usage_classification !== void 0 ? _prop_usage_classification : "" : "",
+                                (_DataPurposes_getNames_join = (_DataPurposes_getNames = DataPurposes.getNames((_prop_usage2 = prop.usage) === null || _prop_usage2 === void 0 ? void 0 : _prop_usage2.purposes)) === null || _DataPurposes_getNames === void 0 ? void 0 : _DataPurposes_getNames.join(", ")) !== null && _DataPurposes_getNames_join !== void 0 ? _DataPurposes_getNames_join : "",
+                                md(prop.description).replace(/\r?\n/g, "<br>"),
+                                ""
+                            ].join("|"));
+                        }
+                    }
+                }
+            }
+        }
+        return lines.join("\n");
+    }
+}
+
 const isSchemaArrayType = (value)=>"item" in value;
 
 const isSchemaObjectType = (value)=>"properties" in value;
@@ -1994,7 +2103,7 @@ const createSchemaTypeMapper = (rootTypes)=>{
                 return ()=>pending[0];
             }
             if (index >= properties.length) {
-                const valuePath = join2(pathValues, (value, i)=>value == null ? skip2 : `${properties[i][0]}=${typeof value === "symbol" ? "*" : toJSON2(value)}`);
+                const valuePath = join2(pathValues, (value, i)=>value == null ? skip2 : `${properties[i][0]}=${typeof value === "symbol" ? "*" : stringify2(value)}`);
                 return throwError(`The types ${itemize2(map2(pending, (type)=>type.name), "and")} can not be disambiguated by${valuePath ? " additional" : ""} values of required properties${valuePath ? ` when ${valuePath}` : ""} (root type(s): ${itemize2(rootTypes)}) - did you forget to mark a base type abstract?.`);
             }
             const [discriminatorName, discriminatorValues] = properties[index];
@@ -2935,10 +3044,34 @@ class TypeResolver {
 }
 
 const variableScopeNames = {
-    global: "global",
-    session: "session",
-    device: "device",
-    user: "user"
+    /**
+   * Variables that are not bound to individuals, does not contain personal data, and not subject to censoring.
+   * These may be used for purposes such as shared runtime configuration
+   * or augmenting external entities with real-time data for personalization or testing.
+   */ global: "global",
+    /**
+   * Variables that relates to an individual's current session. These are purged when the session ends.
+   *
+   * Session variables can only be read for the current session from untrusted contexts.
+   */ session: "session",
+    /**
+   * Variables that relates to an individual's device.
+   *
+   * These variables are physically stored in the device where the available space may be very limited.
+   * For example, do not exceed a total of 2 KiB if targeting web browsers.
+   *
+   * To prevent race conditions between concurrent requests, device data may temporarily be loaded into session storage.
+   *
+   * Any data stored here is per definition at least `indirect` since it is linked to a device.
+   */ device: "device",
+    /**
+   * Variables that relates to an individual across devices.
+   *
+   * Associating a user ID with a session can only happen from a trusted context,
+   * but data for the associated user can then be read from untrusted contexts unless a `trusted-only` restriction is put on the data.
+   *
+   * Any data stored here is per definition at least `direct` since it directly linked to an individual.
+   */ user: "user"
 };
 const VariableServerScope = createEnumParser("variable scope", variableScopeNames);
 /** Returns a description of a key that can be used for logging and error messages.  */ const formatVariableKey = ({ key, scope = "", entityId = "", source = "" }, error = "")=>[
@@ -3266,4 +3399,4 @@ const collect = (collected, tag)=>{
 };
 const encodeTag = (tag)=>tag == null ? tag : tag.tag + (tag.value ? ":" + (/[,&;#~]/.test(tag.value) ? '"' + tag.value + '"' : tag.value) : "") + (tag.score && tag.score !== 1 ? "~" + tag.score * 10 : "");
 
-export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaArrayType, isSchemaObjectType, isSchemaRecordType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };
+export { CORE_EVENT_DISCRIMINATOR, CORE_EVENT_TYPE, CORE_SCHEMA_NS, DATA_PURPOSES_ALL, DEFAULT_CENSOR_VALIDATE, DataClassification, DataPurposes, DataUsage, DataVisibility, EVENT_TYPE_PATCH_POSTFIX, JsonSchemaAdapter, MarkdownSchemaAdapter, SCHEMA_DATA_USAGE_ANONYMOUS, SCHEMA_DATA_USAGE_MAX, SCHEMA_PRIVACY_PROPERTY, SCHEMA_TYPE_PROPERTY, TypeResolver, VALIDATION_ERROR_SYMBOL, ValidationError, VariableResultStatus, VariableServerScope, VariableStorageError, clearMetadata, collectTags, consumeQueryResults, contextError, createRootContext, encodeTag, extractKey, filterKeys, filterRangeValue, formatDataUsage, formatQualifiedTypeName, formatValidationErrors, formatVariableKey, formatVariableResult, getPath, handleValidationErrors, hasEnumValues, isAnchorEvent, isCartAbandonedEvent, isCartEvent, isClientLocationEvent, isComponentClickEvent, isComponentClickIntentEvent, isComponentViewEvent, isConsentEvent, isEventPatch, isFormEvent, isIgnoredObject, isImpressionEvent, isJsonObjectType, isJsonSchema, isNavigationEvent, isOrderCancelledEvent, isOrderCompletedEvent, isOrderEvent, isPassiveEvent, isPaymentAcceptedEvent, isPaymentRejectedEvent, isPostResponse, isResetEvent, isSchemaArrayType, isSchemaObjectType, isSchemaRecordType, isScrollEvent, isSearchEvent, isSessionStartedEvent, isSignInEvent, isSignOutEvent, isSuccessResult, isTrackedEvent, isTransientError, isUserAgentEvent, isVariableResult, isViewEvent, navigateContext, parseAnnotations, parseDefinitions, parseJsonProperty, parseJsonSchema, parseJsonType, parseQualifiedTypeName, parseSchemaDataUsageKeywords, parseTagValue, parseTags, serializeAnnotations, serializeSchema, sourceJsonSchemaSymbol, toVariableResultPromise, validateConsent };

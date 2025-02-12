@@ -106,7 +106,7 @@ export class RavenDbVariableStorage
 
       let response = deleteOperation
         ? await this._request("DELETE", href, undefined, {
-            "If-Match": version,
+            "If-Match": JSON.stringify(version),
           })
         : await this._request(
             "PATCH",
@@ -128,7 +128,7 @@ export class RavenDbVariableStorage
                 : undefined,
             },
             {
-              "If-Match": version,
+              "If-Match": JSON.stringify(version),
             }
           );
       let body = json2(response.body);
@@ -400,7 +400,12 @@ const queryToRql = (
     if (keys?.exclude != false) {
       // Document ID prefixes unless we have specific keys (because those map to specific document IDs).
       const filters = `${entityIds
-        .map((id) => `startsWith(id(),${stringify2(id)})`)
+        .map(
+          (entityId) =>
+            `startsWith(id(),${stringify2(
+              keyToDocumentId({ scope: query.scope, entityId, key: "" })
+            )})`
+        )
         .join(" or ")}`;
       where.push(entityIds.length > 1 ? `(${filters})` : filters);
     }

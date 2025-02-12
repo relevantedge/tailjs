@@ -39,7 +39,7 @@ export const parseAnnotations = <T extends SchemaDefinitionEntity>(
 
     map2(PRIVACY_ANNOTATIONS, (key) => node[key] || skip2, keywords);
 
-    let description: string = context.node["description"];
+    let description: string = node["description"];
     if (description) {
       description = description
         .replace?.(
