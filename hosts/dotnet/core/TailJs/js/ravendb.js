@@ -81,7 +81,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
 const isBoolean = (value)=>typeof value === "boolean";
 const isString = (value)=>typeof value === "string";
-const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
+const isFunction = /*@__PURE__*/ (value)=>typeof value === "function";
 const unwrap = (value)=>isFunction(value) ? value() : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
 function _define_property$3(obj, key, value) {
@@ -549,14 +549,7 @@ function _define_property$1(obj, key, value) {
         return id.toString(36);
     }
     constructor({ variables = true, ...settings }){
-        super(settings);
-        _define_property$1(this, "id", "ravendb");
-        _define_property$1(this, "_lock", void 0);
-        _define_property$1(this, "_storageScopes", void 0);
-        _define_property$1(this, "_nextId", 0);
-        _define_property$1(this, "_idIndex", 1);
-        _define_property$1(this, "_idRangeMax", 0);
-        _define_property$1(this, "_idBatchSize", 1000);
+        super(settings), _define_property$1(this, "id", "ravendb"), _define_property$1(this, "_lock", void 0), _define_property$1(this, "_storageScopes", void 0), _define_property$1(this, "_nextId", 0), _define_property$1(this, "_idIndex", 1), _define_property$1(this, "_idRangeMax", 0), _define_property$1(this, "_idBatchSize", 1000);
         if (variables) {
             this._storageScopes = variables === true ? VariableServerScope.levels : variables;
             if (!this._storageScopes.length) {
@@ -766,8 +759,7 @@ class RavenDbVariableStorage extends RavenDbTarget {
         };
     }
     constructor(...args){
-        super(...args);
-        _define_property(this, "id", "ravendb-variables");
+        super(...args), _define_property(this, "id", "ravendb-variables");
     }
 }
 const keyToDocumentId = (key)=>`${key.scope}/${key.entityId}/${key.key}`;

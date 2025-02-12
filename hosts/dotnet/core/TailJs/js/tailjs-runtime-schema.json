@@ -293,6 +293,7 @@
     },
     "TrackedEvent": {
       "version": "0.37.0-canary.1",
+      "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like a \"page view\", \"user location\" etc. the name should be that.\n- If the event indicates something that happened, like \"session started\", \"view ended\" etc. the name should end with a verb in the past tense.",
       "abstract": true,
       "readonly": false,
       "visibility": "public",
@@ -674,6 +675,7 @@
     },
     "ActivatedComponent": {
       "version": "0.37.0-canary.1",
+      "description": "The component definition related to a user activation.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -890,6 +892,7 @@
     },
     "Personalization": {
       "version": "0.37.0-canary.1",
+      "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -934,6 +937,7 @@
     },
     "PersonalizationVariable": {
       "version": "0.37.0-canary.1",
+      "description": "A reference to a variable and its value in personalization.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -955,6 +959,7 @@
     },
     "PersonalizationVariant": {
       "version": "0.37.0-canary.1",
+      "description": "A reference to the data/content item related to a variant in personalization.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -1006,6 +1011,7 @@
     },
     "PersonalizationSource": {
       "version": "0.37.0-canary.1",
+      "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } .",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -1037,6 +1043,7 @@
     },
     "ActivatedContent": {
       "version": "0.37.0-canary.1",
+      "description": "The content definition related to a user activation.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -1059,6 +1066,7 @@
     },
     "Content": {
       "version": "0.37.0-canary.1",
+      "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -1579,6 +1587,7 @@
     },
     "ComponentClickEvent": {
       "version": "0.37.0-canary.1",
+      "description": "The event is triggered when a component is clicked.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -1604,6 +1613,7 @@
     },
     "ComponentClickIntentEvent": {
       "version": "0.37.0-canary.1",
+      "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -1649,6 +1659,7 @@
     },
     "ComponentElementInfo": {
       "version": "0.37.0-canary.1",
+      "description": "Basic information about an HTML element that is associated with a component.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -1670,6 +1681,7 @@
     },
     "ComponentViewEvent": {
       "version": "0.37.0-canary.1",
+      "description": "This event is triggered when the user scrolls a component into view if it is configured for this kind of tracking.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -1927,6 +1939,7 @@
     },
     "SearchFilter": {
       "version": "0.37.0-canary.1",
+      "description": "A filter that applies to a field in a search query.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -2015,6 +2028,7 @@
     },
     "SearchFieldReferenceFilter": {
       "version": "0.37.0-canary.1",
+      "description": "A search filter that applies to a single field that must match a defined entity (e.g. \"manufacturer\").",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -2306,6 +2320,7 @@
     },
     "ViewEvent": {
       "version": "0.37.0-canary.1",
+      "description": "This event is sent a user navigates between views. (page, screen or similar).\n\nThis event does not",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -2561,6 +2576,7 @@
     },
     "SessionLocationEvent": {
       "version": "0.37.0-canary.1",
+      "description": "This event is triggered whenever the user's location changes.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -2714,6 +2730,7 @@
     },
     "AnchorNavigationEvent": {
       "version": "0.37.0-canary.1",
+      "description": "The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -2748,6 +2765,7 @@
     },
     "ConsentEvent": {
       "version": "0.37.0-canary.1",
+      "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are expected to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -2793,6 +2811,7 @@
     },
     "CartUpdatedEvent": {
       "version": "0.37.0-canary.1",
+      "description": "Indicates that a shopping cart was updated.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -2849,6 +2868,7 @@
     },
     "OrderQuantity": {
       "version": "0.37.0-canary.1",
+      "description": "Base information for the amount of an item added to an  {@link  Order }  or cart that is shared between  {@link  CartUpdatedEvent }  and  {@link  OrderLine } .",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -2891,6 +2911,7 @@
     },
     "OrderEvent": {
       "version": "0.37.0-canary.1",
+      "description": "An order submitted by a user.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -2917,6 +2938,7 @@
     },
     "Order": {
       "version": "0.37.0-canary.1",
+      "description": "Represents an order for tracking purposes.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3060,6 +3082,7 @@
     },
     "CartAbandonedEvent": {
       "version": "0.37.0-canary.1",
+      "description": "The shopping cart was abandoned. Currently there is no logic in the tracker to trigger this event automatically, hence a custom trigger must be implemented.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3095,6 +3118,7 @@
     },
     "OrderStatusEvent": {
       "version": "0.37.0-canary.1",
+      "description": "Base event for events that related to an order changing status.",
       "abstract": true,
       "readonly": false,
       "visibility": "public",
@@ -3117,6 +3141,7 @@
     },
     "OrderConfirmedEvent": {
       "version": "0.37.0-canary.1",
+      "description": "An order was accepted.\n\nThis may be useful to track if some backend system needs to validate if the order submitted by the user is possible, or just for monitoring whether your site is healthy and actually processes the orders that come in.\n\nThis event should also imply that the user got a confirmation.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3142,6 +3167,7 @@
     },
     "OrderCancelledEvent": {
       "version": "0.37.0-canary.1",
+      "description": "An order was cancelled.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3176,6 +3202,7 @@
     },
     "OrderCompletedEvent": {
       "version": "0.37.0-canary.1",
+      "description": "An order was cancelled.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3201,6 +3228,7 @@
     },
     "PaymentEvent": {
       "version": "0.37.0-canary.1",
+      "description": "Events related to order payments.",
       "abstract": true,
       "readonly": false,
       "visibility": "public",
@@ -3251,6 +3279,7 @@
     },
     "PaymentAcceptedEvent": {
       "version": "0.37.0-canary.1",
+      "description": "The payment for an order was accepted.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3285,6 +3314,7 @@
     },
     "PaymentRejectedEvent": {
       "version": "0.37.0-canary.1",
+      "description": "A payment for the order was rejected.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3310,6 +3340,7 @@
     },
     "AuthenticationEvent": {
       "version": "0.37.0-canary.1",
+      "description": "Events related to users signing in, out etc..",
       "abstract": true,
       "readonly": false,
       "visibility": "public",
@@ -3322,6 +3353,7 @@
     },
     "SignInEvent": {
       "version": "0.37.0-canary.1",
+      "description": "A user signed in.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3365,6 +3397,7 @@
     },
     "SignOutEvent": {
       "version": "0.37.0-canary.1",
+      "description": "A user actively signed out. (Session expiry doesn't count).",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3399,6 +3432,7 @@
     },
     "SystemEvent": {
       "version": "0.37.0-canary.1",
+      "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics.",
       "abstract": true,
       "readonly": false,
       "visibility": "public",
@@ -3485,6 +3519,7 @@
     },
     "ImpressionEvent": {
       "version": "0.37.0-canary.1",
+      "description": "The event is triggered when more than 75 % of the component's has been visible for at least 1 second, or the component has taken up at least 33 % of the viewport width or height for at least 1 second, whichever comes first.\n\n\nThis only gets tracked for components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .",
       "abstract": false,
       "readonly": false,
       "visibility": "public",
@@ -3612,6 +3647,7 @@
     },
     "ResetEvent": {
       "version": "0.37.0-canary.1",
+      "description": "An event that can be used to reset the current session and optionally also device. Intended for debugging and not relayed to backends.",
       "abstract": false,
       "readonly": false,
       "visibility": "public",

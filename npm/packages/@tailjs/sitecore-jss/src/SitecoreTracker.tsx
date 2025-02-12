@@ -234,7 +234,7 @@ export const SitecoreTracker = ({
         return addContent(undefined);
       }}
     >
-      {children as any}
+      {children}
     </Tracker>
   );
 

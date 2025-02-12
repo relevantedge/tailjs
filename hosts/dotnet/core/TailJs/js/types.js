@@ -32,9 +32,7 @@ class DeferredPromise extends Promise {
         return ((_this__result = this._result) !== null && _this__result !== void 0 ? _this__result : this._result = this._action()).finally(onfinally);
     }
     constructor(action){
-        super(()=>{});
-        _define_property$1$1(this, "_action", void 0);
-        _define_property$1$1(this, "_result", void 0);
+        super(()=>{}), _define_property$1$1(this, "_action", void 0), _define_property$1$1(this, "_result", void 0);
         this._action = action;
     }
 }
@@ -50,9 +48,9 @@ class DeferredPromise extends Promise {
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
-const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
-const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
-const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
+const isObject = /*@__PURE__*/ (value)=>value && typeof value === "object";
+const isFunction = /*@__PURE__*/ (value)=>typeof value === "function";
+const isIterable = /*@__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
 let stopInvoked$1 = false;
 const stop = (yieldValue)=>(stopInvoked$1 = true, yieldValue);
 const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
@@ -3127,8 +3125,7 @@ const consumeQueryResults = async (query, callback)=>{
     }while (cursor)
 };
 
-var VariableResultStatus;
-(function(VariableResultStatus) {
+var VariableResultStatus = /*#__PURE__*/ function(VariableResultStatus) {
     VariableResultStatus[VariableResultStatus["Success"] = 200] = "Success";
     VariableResultStatus[VariableResultStatus["Created"] = 201] = "Created";
     VariableResultStatus[VariableResultStatus["NotModified"] = 304] = "NotModified";
@@ -3137,7 +3134,8 @@ var VariableResultStatus;
     VariableResultStatus[VariableResultStatus["BadRequest"] = 405] = "BadRequest";
     VariableResultStatus[VariableResultStatus["Conflict"] = 409] = "Conflict";
     VariableResultStatus[VariableResultStatus["Error"] = 500] = "Error";
-})(VariableResultStatus || (VariableResultStatus = {}));
+    return VariableResultStatus;
+}({});
 /** The variable operation succeeded, and the result represents a variable, or undefined if not found. */ const isVariableResult = (value, requireFound = true)=>(value === null || value === void 0 ? void 0 : value.value) != null || !requireFound && (!value || value.status === 404);
 /**
  * The variable existed so the result has a value,
@@ -3165,9 +3163,7 @@ const formatVariableResult = (result)=>{
 };
 class VariableStorageError extends Error {
     constructor(operations, message){
-        super(message !== null && message !== void 0 ? message : "One or more operations failed.");
-        _define_property(this, "succeeded", void 0);
-        _define_property(this, "failed", void 0);
+        super(message !== null && message !== void 0 ? message : "One or more operations failed."), _define_property(this, "succeeded", void 0), _define_property(this, "failed", void 0);
         var _operations_filter;
         this.succeeded = (_operations_filter = operations === null || operations === void 0 ? void 0 : operations.filter((operation)=>isSuccessResult(operation, false))) !== null && _operations_filter !== void 0 ? _operations_filter : [];
         var _operations_filter1;
