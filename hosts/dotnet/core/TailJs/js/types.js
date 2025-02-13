@@ -48,9 +48,9 @@ class DeferredPromise extends Promise {
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
 const isString = (value)=>typeof value === "string";
 const isArray = Array.isArray;
-const isObject = /*@__PURE__*/ (value)=>value && typeof value === "object";
-const isFunction = /*@__PURE__*/ (value)=>typeof value === "function";
-const isIterable = /*@__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
+const isObject = /*#__PURE__*/ (value)=>value && typeof value === "object";
+const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
+const isIterable = /*#__PURE__*/ (value, acceptStrings = false)=>!!((value === null || value === void 0 ? void 0 : value[symbolIterator$1]) && (typeof value !== "string" || acceptStrings));
 let stopInvoked$1 = false;
 const stop = (yieldValue)=>(stopInvoked$1 = true, yieldValue);
 const wrapProjection = (projection)=>projection == null ? undefined$1 : isFunction(projection) ? projection : (item)=>item[projection];
@@ -517,7 +517,6 @@ const topoSort2 = (items, dependencies, format)=>{
     }))}.`);
 };
 const normalizeSelector = (selector, require = false)=>typeof selector === "function" ? selector : selector != null ? (item)=>(item = item[selector]) === undefined && require ? skip2 : item : (item)=>item;
-const keys2 = Object.keys;
 const setSymbol = Symbol();
 const getSymbol = Symbol();
 const pushSymbol = Symbol();
@@ -744,7 +743,8 @@ const mapOptionalPurposes = (purposes, optionalPurposes)=>{
 };
 const DataPurposes = {
     names: DATA_PURPOSES,
-    parse: (value, { names = false, validate = true } = {})=>{
+    specificNames: DATA_PURPOSES.filter((purpose)=>purpose !== "necessary"),
+    parse: (value, { names = false, includeDefault = true, validate = true } = {})=>{
         if (value == null) return value;
         if (value.purposes) {
             // From DataUsage
@@ -756,6 +756,7 @@ const DataPurposes = {
         if (isArray(value)) {
             const purposes = {};
             for (const name of value){
+                if (name === SCHEMA_TYPE_PROPERTY) continue;
                 if (!VALID_PURPOSE_NAMES[name]) {
                     validate && throwError(`The purpose name '${name}' is not defined.`);
                     continue;
@@ -766,14 +767,13 @@ const DataPurposes = {
             value = purposes;
         }
         if (names) {
-            const result = keys2(value);
-            return result.length ? result : [
+            const result = map2(value, ([key, value])=>VALID_PURPOSE_NAMES[key] && value ? key : skip2);
+            return result.length || !includeDefault ? result : [
                 "necessary"
             ];
         }
         return value;
     },
-    getNames: (purposes)=>map2(purposes, ([key, value])=>value ? key : skip2),
     get all () {
         return {
             functionality: true,
@@ -874,7 +874,8 @@ const DataUsage = {
         }),
     serialize: (usage)=>{
         const purposes = DataPurposes.parse(usage.purposes, {
-            names: true
+            names: true,
+            includeDefault: false
         });
         return (!usage.classification || usage.classification === "anonymous") && !(purposes === null || purposes === void 0 ? void 0 : purposes.length) ? null : `${usage.classification}:${purposes}`;
     },
@@ -1679,13 +1680,12 @@ class MarkdownSchemaAdapter {
                             type.usage.classification
                         ]);
                     }
-                    const purposes = DataPurposes.getNames(type.usage.purposes);
-                    if (purposes.length) {
-                        topTable.push([
-                            "purposes",
-                            purposes.join(", ")
-                        ]);
-                    }
+                    topTable.push([
+                        "purposes",
+                        DataPurposes.parse(type.usage.purposes, {
+                            names: true
+                        }).join(", ")
+                    ]);
                     if (topTable.length) {
                         //lines.push("<table>");
                         for (const [label, value] of topTable){
@@ -1701,15 +1701,18 @@ class MarkdownSchemaAdapter {
                     if (properties.length) {
                         lines.push("", "|Name|Type|Privacy|Purposes|Description|", "|-|-|-|-|-|");
                         for(const property in type.ownProperties){
-                            var _prop_usage, _prop_usage1, _DataPurposes_getNames, _prop_usage2;
+                            var _prop_usage, _prop_usage1, _DataPurposes_parse, _prop_usage2;
                             const prop = type.ownProperties[property];
-                            var _prop_usage_classification, _DataPurposes_getNames_join;
+                            var _prop_usage_classification, _DataPurposes_parse_join;
                             lines.push([
                                 "",
                                 md(prop.name),
                                 formatTypeName(prop.type),
                                 ((_prop_usage = prop.usage) === null || _prop_usage === void 0 ? void 0 : _prop_usage.classification) !== "anonymous" ? (_prop_usage_classification = (_prop_usage1 = prop.usage) === null || _prop_usage1 === void 0 ? void 0 : _prop_usage1.classification) !== null && _prop_usage_classification !== void 0 ? _prop_usage_classification : "" : "",
-                                (_DataPurposes_getNames_join = (_DataPurposes_getNames = DataPurposes.getNames((_prop_usage2 = prop.usage) === null || _prop_usage2 === void 0 ? void 0 : _prop_usage2.purposes)) === null || _DataPurposes_getNames === void 0 ? void 0 : _DataPurposes_getNames.join(", ")) !== null && _DataPurposes_getNames_join !== void 0 ? _DataPurposes_getNames_join : "",
+                                (_DataPurposes_parse_join = (_DataPurposes_parse = DataPurposes.parse((_prop_usage2 = prop.usage) === null || _prop_usage2 === void 0 ? void 0 : _prop_usage2.purposes, {
+                                    names: true,
+                                    includeDefault: false
+                                })) === null || _DataPurposes_parse === void 0 ? void 0 : _DataPurposes_parse.join(", ")) !== null && _DataPurposes_parse_join !== void 0 ? _DataPurposes_parse_join : "",
                                 md(prop.description).replace(/\r?\n/g, "<br>"),
                                 ""
                             ].join("|"));
@@ -3193,6 +3196,7 @@ const toVariableResultPromise = (operationType, operations, handler, { poll, log
             if (hasCallback(op)) {
                 callbacks.push([
                     op,
+                    result,
                     (result)=>op.callback(result) === true
                 ]);
             }
@@ -3201,6 +3205,7 @@ const toVariableResultPromise = (operationType, operations, handler, { poll, log
                 // This is only defined for get operations.
                 callbacks.push([
                     op,
+                    result,
                     (result)=>{
                         if (!isVariableResult(result, false)) {
                             return true;
@@ -3212,10 +3217,10 @@ const toVariableResultPromise = (operationType, operations, handler, { poll, log
                 ]);
             }
         }
-        for (const [op, callback] of callbacks){
+        for (const [op, initialResult, callback] of callbacks){
             try {
                 const pollingCallback = operationType === "get" ? async (result)=>await callback(result) === true && (poll === null || poll === void 0 ? void 0 : poll(op, pollingCallback)) : callback;
-                await pollingCallback(op);
+                await pollingCallback(initialResult);
             } catch (error) {
                 const message = `${operationType} callback for ${formatVariableKey(op)} failed: ${error}.`;
                 if (logCallbackError) {

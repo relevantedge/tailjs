@@ -5,11 +5,7 @@ import {
   GetCommand,
   tail,
 } from "@tailjs/client/external";
-import {
-  formatVariableResult,
-  isVariableResult,
-  VariableResultStatus,
-} from "@tailjs/types";
+import { formatVariableResult, isVariableResult } from "@tailjs/types";
 import { useRef, useState } from "react";
 
 export function useTrackerVariable<T extends {} = any>(
@@ -33,6 +29,7 @@ export function useTrackerVariable<T extends {} = any>(
     tail(<GetCommand>{
       get: {
         ...key,
+        refresh: false,
         callback: (current) => {
           if (!state.current || current !== state.current?.[0]) {
             state.current = [current];
@@ -53,24 +50,25 @@ export function useTrackerVariable<T extends {} = any>(
   }
   return [
     state.current?.[0],
-    (value) => tail({ set: { ...(key as any), value } }),
-    () => {
-      let resolve: any, reject: any;
-      const promise = new Promise<any>(
-        (rs, rj) => ((resolve = rs), (reject = rj))
-      );
-      tail(<GetCommand>{
-        get: {
-          ...key,
-          refresh: true,
-          callback: (current) => {
-            isVariableResult(current, false) // Cannot be status NotModified because refresh and no conditional cache headers.
-              ? resolve(notifyChanged(current.value && current))
-              : reject(formatVariableResult(current));
+    (value) =>
+      new Promise((resolve) =>
+        tail({ set: { ...(key as any), value, callback: () => resolve() } })
+      ),
+    () =>
+      new Promise((resolve, reject) => {
+        tail(<GetCommand>{
+          get: {
+            ...key,
+            refresh: true,
+            callback: (current) => {
+              isVariableResult(current, false) // Cannot be status NotModified because refresh and no conditional cache headers.
+                ? resolve(
+                    (notifyChanged(current.value && current), current as any)
+                  )
+                : reject(Error(formatVariableResult(current)));
+            },
           },
-        },
-      });
-      return promise;
-    },
+        });
+      }),
   ] as const;
 }

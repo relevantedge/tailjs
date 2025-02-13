@@ -82,12 +82,12 @@ export class DefaultLogger implements NativeHostLogger {
   }
 
   log(message: LogMessage): void {
+    message = { timestamp: new Date().toISOString(), ...message } as any;
     if (this._settings.console) {
       if (
-        tailJsLogLevels[message.level] >=
+        tailJsLogLevels[message.level] <=
         tailJsLogLevels[this._settings.console]
       ) {
-        message = { timestamp: new Date().toISOString(), ...message } as any;
         switch (message.level) {
           case "trace":
           case "debug":
@@ -131,7 +131,7 @@ export class DefaultLogger implements NativeHostLogger {
             format: winston.format.json(),
             transports: [
               new winston.transports.DailyRotateFile({
-                datePattern: "YYYY-MM-DD-HH",
+                datePattern: "YYYYMMDD-HH",
                 filename: path.join(directory, "%DATE%.log.json"),
                 maxSize: this._settings.maxSize,
                 maxFiles: this._settings.maxFiles,

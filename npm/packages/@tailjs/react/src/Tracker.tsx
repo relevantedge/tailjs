@@ -2,7 +2,7 @@ import React, { PropsWithChildren } from "react";
 
 import {
   BoundaryData,
-  Tracker as TrackerType,
+  ProvisionalTracker,
   tail,
 } from "@tailjs/client/external";
 import { Content } from "@tailjs/types";
@@ -22,7 +22,10 @@ import {
 export interface BoundaryDataWithView extends BoundaryData {
   view?: Content | null;
 }
-export type JsxMappingContext = TraverseContext<BoundaryData, TrackerType>;
+export type JsxMappingContext = TraverseContext<
+  BoundaryData,
+  ProvisionalTracker
+>;
 
 export type BoundaryDataMapper = (
   element: JSX.Element,

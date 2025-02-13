@@ -277,6 +277,9 @@ importers:
       '@tailjs/node':
         specifier: workspace:*
         version: link:../../packages/@tailjs/node/dist
+      '@tailjs/ravendb':
+        specifier: workspace:*
+        version: link:../../packages/@tailjs/ravendb/dist
       '@tailjs/react':
         specifier: workspace:*
         version: link:../../packages/@tailjs/react/dist
@@ -287,17 +290,17 @@ importers:
         specifier: ^14.2.24
         version: 14.2.24(@babel/core@7.26.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       react:
-        specifier: '>=18.3.0'
+        specifier: ^19.0.0
         version: 19.0.0
       react-dom:
-        specifier: '>=18.3.1'
+        specifier: ^19.0.0
         version: 19.0.0(react@19.0.0)
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
     devDependencies:
       '@types/node':
-        specifier: ^20
+        specifier: ^20.17.17
         version: 20.17.17
       '@types/react':
         specifier: 18.3.0
@@ -306,10 +309,10 @@ importers:
         specifier: 18.3.1
         version: 18.3.1
       postcss:
-        specifier: ^8
+        specifier: ^8.5.2
         version: 8.5.2
       tailwindcss:
-        specifier: ^3.4.6
+        specifier: ^3.4.17
         version: 3.4.17(ts-node@10.9.2(@swc/core@1.10.15(@swc/helpers@0.5.15))(@types/node@20.17.17)(typescript@5.7.3))
       typescript:
         specifier: ^5.7.3

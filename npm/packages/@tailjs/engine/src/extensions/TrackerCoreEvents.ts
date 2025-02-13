@@ -15,6 +15,7 @@ import {
   isSignOutEvent,
   isUserAgentEvent,
   isViewEvent,
+  DataClassification,
 } from "@tailjs/types";
 import { now } from "@tailjs/util";
 import {
@@ -225,22 +226,35 @@ export class TrackerCoreEvents implements TrackerExtension {
 
         if (changed) {
           if (
-            !(await tracker._requestHandler._validateSignInEvent(
-              tracker,
-              event
-            ))
+            DataClassification.compare(
+              tracker.consent.classification,
+              "direct"
+            ) < 0
           ) {
             updatedEvents[updatedEvents.length - 1] = {
               error:
-                "Sign-ins without evidence is only possible in a trusted context. To support sign-ins from the client API, you must register an extension that validates the sign-in event based on its provided evidence.",
+                "Sign-in is only possible when the user has consented to tracking of direct personal data.",
               source: event,
             };
-          }
-          event.session.userId = event.userId;
+          } else {
+            if (
+              !(await tracker._requestHandler._validateSignInEvent(
+                tracker,
+                event
+              ))
+            ) {
+              updatedEvents[updatedEvents.length - 1] = {
+                error:
+                  "Sign-ins without evidence is only possible in a trusted context. To support sign-ins from the client API, you must register an extension that validates the sign-in event based on its provided evidence.",
+                source: event,
+              };
+            }
+            event.session.userId = event.userId;
 
-          sessionPatches.push((data) => {
-            data.userId = (event as SignInEvent).userId;
-          });
+            sessionPatches.push((data) => {
+              data.userId = (event as SignInEvent).userId;
+            });
+          }
         }
       } else if (isSignOutEvent(event)) {
         sessionPatches.push((data) => (data.userId = undefined));

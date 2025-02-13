@@ -2,14 +2,15 @@
   "name": "@tailjs/monorepo",
   "description": "Monorepo for tail.js",
   "license": "LGPL3",
-  "version": "0.37.0-canary.1",
+  "version": "0.37.0",
   "schemaVersion": "0.37.0",
   "private": true,
   "author": "RelevantEdge (https://www.relevant-edge.com)",
   "homepage": "https://github.com/relevantedge/tailjs",
   "scripts": {
     "check": "pnpm -r run --stream check",
-    "build": "pnpm clean && pnpm -r run --stream build",
+    "build": "pnpm clean && pnpm -r --filter=\"@tailjs/*\" run --stream build",
+    "build:all": "pnpm clean && pnpm -r run --stream build",
     "schema": "pnpm --filter @tailjs/types schema",
     "build:watch": "pnpm  -r --if-present --parallel run --stream build:watch",
     "build:engine": "pnpm  -r --if-present --filter=\"@tailjs/engine...\" --filter=\"@tailjs/client...\" --filter=\"@tailjs/maxmind\" --filter=\"@tailjs/ravendb\" run --stream build",
@@ -22,7 +23,9 @@
     "example:preact": "pnpm --filter react-sample dev --preact",
     "example:next": "pnpm -r --if-present --parallel --filter next-sample... build:watch",
     "clean": "rimraf ./packages/@tailjs/*/dist && rimraf ./dist",
-    "reset": "rimraf ./pnpm-lock.yaml & rimraf ./node_modules & rimraf ./packages/@tailjs/*/node_modules & rimraf ./examples/*/node_modules"
+    "reset": "rimraf ./pnpm-lock.yaml & rimraf ./node_modules & rimraf ./packages/@tailjs/*/node_modules & rimraf ./examples/*/node_modules",
+    "dist": "pnpm --filter \"@tailjs/*\" dist",
+    "dist:dry": "pnpm --filter \"@tailjs/*\" dist:dry"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

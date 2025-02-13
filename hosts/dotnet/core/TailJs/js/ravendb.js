@@ -81,7 +81,7 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 /** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
 const isBoolean = (value)=>typeof value === "boolean";
 const isString = (value)=>typeof value === "string";
-const isFunction = /*@__PURE__*/ (value)=>typeof value === "function";
+const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
 const unwrap = (value)=>isFunction(value) ? value() : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
 function _define_property$3(obj, key, value) {
@@ -407,9 +407,10 @@ class RavenDbTarget {
         }
     }
     async _request(method, relativeUrl, body, headers) {
+        const url = `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${relativeUrl}`;
         const request = {
             method,
-            url: `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${relativeUrl}`,
+            url,
             headers: {
                 ["content-type"]: "application/json",
                 ...headers
@@ -536,7 +537,6 @@ function _define_property$1(obj, key, value) {
                 }
             } catch (error) {
                 this._env.log(this, {
-                    group: this.id,
                     level: "error",
                     message: "Generating the next sequence of IDs failed.",
                     error
@@ -779,11 +779,20 @@ const mapDeleteResult = (key)=>({
         status: VariableResultStatus.Success,
         ...extractKey(key)
     });
-const mapVariableResult = (status, { document })=>({
+const mapVariableResult = (status, { document: { scope, entityId, key, created, modified, ttl, expires, value, version } })=>({
         status,
-        ...document
+        scope,
+        entityId,
+        key,
+        created,
+        modified,
+        ttl,
+        expires,
+        value,
+        version
     });
 const mapDocumentResult = (status, document, timestamp, body)=>{
+    var _document_metadata;
     if (status === 204 || status === 404 || status === 409 || status === 500) {
         return {
             status,
@@ -800,7 +809,6 @@ const mapDocumentResult = (status, document, timestamp, body)=>{
             }
         };
     }
-    const metadata = document["@metadata"];
     if (document.expires - timestamp <= 0) {
         // We do not base our TTL calculations of Raven's dates.
         return {
@@ -808,13 +816,21 @@ const mapDocumentResult = (status, document, timestamp, body)=>{
             body
         };
     }
+    const { scope, entityId, key, created, modified, ttl, expires, value } = document;
     var _body_ChangeVector;
     return {
         status: status,
         body,
         document: {
-            ...document,
-            version: (_body_ChangeVector = body === null || body === void 0 ? void 0 : body.ChangeVector) !== null && _body_ChangeVector !== void 0 ? _body_ChangeVector : metadata === null || metadata === void 0 ? void 0 : metadata["@change-vector"]
+            scope,
+            entityId,
+            key,
+            created,
+            modified,
+            ttl,
+            expires,
+            value,
+            version: (_body_ChangeVector = body === null || body === void 0 ? void 0 : body.ChangeVector) !== null && _body_ChangeVector !== void 0 ? _body_ChangeVector : (_document_metadata = document["@metadata"]) === null || _document_metadata === void 0 ? void 0 : _document_metadata["@change-vector"]
         }
     };
 };
@@ -864,7 +880,7 @@ const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
         where = ifEmpty;
     }
     return {
-        Query: `from ${query.scope}${where.length ? ` where ${where.join("and")}` : ""}${append ? ` ${append}` : ""}`,
+        Query: `from ${query.scope}${where.length ? ` where ${where.join(" and ")}` : ""}${append ? ` ${append}` : ""}`,
         QueryParameters: {}
     };
 };

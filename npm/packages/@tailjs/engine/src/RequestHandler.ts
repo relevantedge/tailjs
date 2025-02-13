@@ -24,6 +24,8 @@ import {
   TypeResolver,
   UserConsent,
   ValidationError,
+  VariableGetResponse,
+  VariableResultStatus,
 } from "@tailjs/types";
 
 import { CommerceExtension, Timestamps, TrackerCoreEvents } from "./extensions";
@@ -45,6 +47,7 @@ import {
   SchemaBuilder,
   serializeLogMessage,
   TrackedEventBatch,
+  trackedResponseVariables,
   Tracker,
   TrackerEnvironment,
   TrackerExtension,
@@ -52,11 +55,12 @@ import {
   TrackerInitializationOptions,
   TrackerPostOptions,
   TrackerServerConfiguration,
+  trackerVariableKey,
   ValidationErrorResult,
   VariableStorageCoordinator,
 } from "./shared";
 
-import { TrackerClientConfiguration } from "@tailjs/client";
+import type { TrackerClientConfiguration } from "@tailjs/client";
 import {
   createTransport,
   decodeUtf8,
@@ -65,9 +69,11 @@ import {
   httpEncode,
 } from "@tailjs/transport";
 import {
+  concat2,
   createLock,
   deferred,
   DeferredAsync,
+  distinct2,
   filter2,
   formatError,
   hasKeys2,
@@ -314,7 +320,7 @@ export class RequestHandler {
           storage: new InMemoryStorage(),
         };
 
-        (storage.ttl ??= {})["session"] ??= sessionTimeout * 1000;
+        (storage.ttl ??= {})["session"] ??= sessionTimeout * 60 * 1000;
         (storage.ttl ??= {})["device"] ??= 10 * 1000; // 10 seconds is enough to sort out race conditions.
 
         (this as any).environment = new TrackerEnvironment(
@@ -875,13 +881,13 @@ export class RequestHandler {
 
                 const resolvedTracker = await resolveTracker();
 
-                const response: PostResponse<true> = {};
+                let response: PostResponse<true> = {};
 
                 if (postRequest.events) {
                   // This returns a response that may have changed variables in it.
                   // A mechanism for pushing changes without using cookies is still under development,
                   // so this does nothing for the client atm.
-                  await resolvedTracker.post(postRequest.events, {
+                  response = await resolvedTracker.post(postRequest.events, {
                     passive: postRequest.events.every(isPassiveEvent),
                     deviceSessionId: postRequest.deviceSessionId,
                     deviceId: postRequest.deviceId,
@@ -890,9 +896,16 @@ export class RequestHandler {
 
                 if (postRequest.variables) {
                   if (postRequest.variables.get) {
-                    (response.variables ??= {}).get = await resolvedTracker
-                      .get(postRequest.variables.get, { trusted: false })
-                      .all();
+                    (response.variables ??= {}).get = (
+                      await resolvedTracker
+                        .get(postRequest.variables.get, { trusted: false })
+                        .all()
+                    ).map((result, i) => {
+                      if (result && postRequest.variables!.get![i]?.passive) {
+                        (result as VariableGetResponse).passive = true;
+                      }
+                      return result;
+                    });
                   }
                   if (postRequest.variables.set) {
                     (response.variables ??= {}).set = await resolvedTracker
@@ -900,6 +913,26 @@ export class RequestHandler {
                       .all();
                   }
                 }
+                // It's better that the client explicitly requests the variables it wants to know about if changed.
+                // const responseVariables = distinct2(
+                //   map2(
+                //     concat2(response.variables?.get, response.variables?.set),
+                //     (result) => (result ? trackerVariableKey(result) : skip2)
+                //   )
+                // );
+                // resolvedTracker
+                //   .getChangedVariables()
+                //   .forEach((variable, key) => {
+                //     if (
+                //       !responseVariables?.has(key) &&
+                //       trackedResponseVariables.has(key)
+                //     ) {
+                //       ((response.variables ??= {}).get ??= []).push({
+                //         status: VariableResultStatus.Success,
+                //         ...variable,
+                //       });
+                //     }
+                //   });
 
                 return result(
                   response.variables

@@ -5,7 +5,7 @@ import {
   TrackerEnvironmentInitializable,
 } from "@tailjs/engine";
 import { RavenDbSettings } from ".";
-import { formatError, json2, stringify2 } from "@tailjs/util";
+import { formatError, json2, now, stringify2 } from "@tailjs/util";
 
 export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
   protected readonly _settings: RavenDbSettings;
@@ -47,11 +47,13 @@ export abstract class RavenDbTarget implements TrackerEnvironmentInitializable {
     body?: any,
     headers?: { [name: string]: string | undefined }
   ): Promise<HttpResponse & { error?: any }> {
+    const url = `${this._settings.url}/databases/${encodeURIComponent(
+      this._settings.database
+    )}/${relativeUrl}`;
+
     const request = {
       method,
-      url: `${this._settings.url}/databases/${encodeURIComponent(
-        this._settings.database
-      )}/${relativeUrl}`,
+      url,
       headers: { ["content-type"]: "application/json", ...headers },
       x509: this._cert,
       body: body && (typeof body === "string" ? body : JSON.stringify(body)),

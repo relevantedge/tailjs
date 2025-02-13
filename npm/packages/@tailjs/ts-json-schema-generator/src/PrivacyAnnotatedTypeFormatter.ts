@@ -29,8 +29,9 @@ export class PrivacyAnnotatedTypeFormatter extends AnnotatedTypeFormatter {
         (definition[JsonSchemaAnnotations.Classification] =
           usage.classification);
       usage.purposes &&
-        (definition[JsonSchemaAnnotations.Purposes] = DataPurposes.getNames(
-          usage.purposes
+        (definition[JsonSchemaAnnotations.Purposes] = DataPurposes.parse(
+          usage.purposes,
+          { names: true, includeDefault: false }
         ));
 
       (usage.readonly || usage.visibility || usage.dynamic) &&

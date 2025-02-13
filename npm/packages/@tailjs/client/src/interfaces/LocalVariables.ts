@@ -7,6 +7,8 @@ import type {
   ServerScoped,
   SessionInfo,
   UserConsent,
+  VariableGetRequest,
+  VariableGetResponse,
   VariableGetResult,
   VariableGetter,
   VariableGetterCallback,
@@ -14,6 +16,7 @@ import type {
   VariableResultPromiseResult,
   VariableSetResult,
   VariableSetter,
+  VariableSetterCallback,
   View,
 } from "@tailjs/types";
 
@@ -124,18 +127,22 @@ export type ClientVariableGetter<
    *
    */
   poll?: VariablePollCallback<T>;
-} & VariableCacheSettings;
+} & Pick<VariableGetRequest, "passive"> &
+  VariableCacheSettings;
 
 export type ClientVariableSetter<
   T extends {} = any,
   LocalOnly extends boolean = boolean
-> = ClientScoped<VariableSetter<T>, LocalOnly>;
+> = ClientScoped<VariableSetter<T>, LocalOnly> & {
+  callback?: ClientVariableSetterCallback<T, LocalOnly>;
+};
 
 export type ClientVariableGetResult<
   T extends {} = any,
   LocalOnly extends boolean = boolean
 > = ClientScoped<
-  VariableResultPromiseResult<"get", VariableGetResult<T>>,
+  VariableResultPromiseResult<"get", VariableGetResult<T>> &
+    Pick<VariableGetResponse, "passive">,
   LocalOnly
 >;
 
@@ -151,6 +158,11 @@ export type ClientVariableGetterCallback<
   T extends {} = any,
   LocalOnly extends boolean = boolean
 > = VariableGetterCallback<ClientScoped<VariableKey, LocalOnly>, T>;
+
+export type ClientVariableSetterCallback<
+  T extends {} = any,
+  LocalOnly extends boolean = boolean
+> = VariableSetterCallback<ClientScoped<VariableKey, LocalOnly>, T>;
 
 export type VariableCacheSettings = {
   /**

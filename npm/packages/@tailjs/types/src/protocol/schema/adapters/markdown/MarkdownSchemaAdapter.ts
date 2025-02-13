@@ -95,10 +95,14 @@ export class MarkdownSchemaAdapter implements SchemaAdapter {
           if (type.usage.classification !== "anonymous") {
             topTable.push(["privacy", type.usage.classification]);
           }
-          const purposes = DataPurposes.getNames(type.usage.purposes);
-          if (purposes.length) {
-            topTable.push(["purposes", purposes.join(", ")]);
-          }
+
+          topTable.push([
+            "purposes",
+            DataPurposes.parse(type.usage.purposes, {
+              names: true,
+            }).join(", "),
+          ]);
+
           if (topTable.length) {
             //lines.push("<table>");
             for (const [label, value] of topTable) {
@@ -131,7 +135,10 @@ export class MarkdownSchemaAdapter implements SchemaAdapter {
                   prop.usage?.classification !== "anonymous"
                     ? prop.usage?.classification ?? ""
                     : "",
-                  DataPurposes.getNames(prop.usage?.purposes)?.join(", ") ?? "",
+                  DataPurposes.parse(prop.usage?.purposes, {
+                    names: true,
+                    includeDefault: false,
+                  })?.join(", ") ?? "",
                   md(prop.description).replace(/\r?\n/g, "<br>"),
                   "",
                 ].join("|")

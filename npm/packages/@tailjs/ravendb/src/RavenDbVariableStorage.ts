@@ -331,11 +331,31 @@ const mapVariableResult = (
     | VariableResultStatus.Created
     | VariableResultStatus.Success
     | VariableResultStatus.Conflict,
-  { document }: OperationDocumentResult
+  {
+    document: {
+      scope,
+      entityId,
+      key,
+      created,
+      modified,
+      ttl,
+      expires,
+      value,
+      version,
+    },
+  }: OperationDocumentResult
 ) =>
   ({
     status,
-    ...document,
+    scope,
+    entityId,
+    key,
+    created,
+    modified,
+    ttl,
+    expires,
+    value,
+    version,
   } satisfies VariableSuccessResult | VariableConflictResult);
 
 type OperationDocumentResult = {
@@ -364,19 +384,26 @@ const mapDocumentResult = (
         };
   }
 
-  const metadata = document["@metadata"];
-
   if (document.expires! - timestamp <= 0) {
     // We do not base our TTL calculations of Raven's dates.
     return { status: 404, body };
   }
 
+  const { scope, entityId, key, created, modified, ttl, expires, value } =
+    document;
   return {
     status: status as any,
     body,
     document: {
-      ...document,
-      version: body?.ChangeVector ?? metadata?.["@change-vector"],
+      scope,
+      entityId,
+      key,
+      created,
+      modified,
+      ttl,
+      expires,
+      value,
+      version: body?.ChangeVector ?? document["@metadata"]?.["@change-vector"],
     },
   };
 };
@@ -454,7 +481,7 @@ const queryToRql = (
   }
   return {
     Query: `from ${query.scope}${
-      where.length ? ` where ${where.join("and")}` : ""
+      where.length ? ` where ${where.join(" and ")}` : ""
     }${append ? ` ${append}` : ""}`,
     QueryParameters: {},
   };

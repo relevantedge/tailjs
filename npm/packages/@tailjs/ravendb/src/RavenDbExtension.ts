@@ -134,7 +134,6 @@ export class RavenDbExtension
         }
       } catch (error) {
         this._env.log(this, {
-          group: this.id,
           level: "error",
           message: "Generating the next sequence of IDs failed.",
           error,
