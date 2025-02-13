@@ -1,4 +1,8 @@
-import { VariableStorage, VariableStorageQuery } from "@tailjs/engine";
+import {
+  TrackerEnvironment,
+  VariableStorage,
+  VariableStorageQuery,
+} from "@tailjs/engine";
 import {
   extractKey,
   ReadOnlyVariableGetter,
@@ -17,6 +21,7 @@ import {
   VariableValueSetter,
 } from "@tailjs/types";
 import { batch2, json2, map2, now, stringify2 } from "@tailjs/util";
+import { RavenDbSettings } from ".";
 import { RavenDbTarget } from "./RavenDbTarget";
 
 type VariableDocument = VariableKey & {
@@ -34,11 +39,55 @@ type VariableDocument = VariableKey & {
 
 const UpdateExpiresScript = `this.ttl ? (this["@metadata"]["@expires"]=new Date(Date.now()+this.ttl).toISOString()) : delete this["@metadata"]["@expires"];`;
 
+export interface RavenDbVariableStorageSettings extends RavenDbSettings {
+  /**
+   * Expired variables are deleted at this interval (s).
+   *
+   * Tail.js will configure this in your RavenDB cluster at startup.
+   * If you do not want tail.js to touch the configuration of your cluster, set this value to `false` or a non-positive number.
+   *
+   * [Read about document expiration here](https://ravendb.net/docs/article-page/6.2/nodejs/server/extensions/expiration)
+   *
+   * @default 60
+   */
+  cleanExpiredFrequency?: number | false;
+}
+
 export class RavenDbVariableStorage
   extends RavenDbTarget
   implements VariableStorage
 {
   public readonly id = "ravendb-variables";
+  private readonly _cleanExpiredFrequency: number | undefined;
+
+  constructor({
+    cleanExpiredFrequency = 60,
+    ...settings
+  }: RavenDbVariableStorageSettings) {
+    super(settings);
+    this._cleanExpiredFrequency =
+      cleanExpiredFrequency && cleanExpiredFrequency > 0
+        ? cleanExpiredFrequency
+        : undefined;
+  }
+
+  override async initialize(env: TrackerEnvironment): Promise<void> {
+    await super.initialize(env);
+    if (this._cleanExpiredFrequency) {
+      const response = await this._request("POST", `admin/expiration/config`, {
+        Disabled: false,
+        DeleteFrequencyInSec: this._cleanExpiredFrequency,
+      });
+
+      if (response.error) {
+        env.log(this, {
+          level: "error",
+          message: "Cannot configure document expiration in RavenDB.",
+          error: response.error,
+        });
+      }
+    }
+  }
 
   async get(
     keys: readonly ReadOnlyVariableGetter[]

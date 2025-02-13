@@ -7,7 +7,7 @@ const CLIENT_SCRIPT_QUERY = "opt";
 const EVENT_HUB_QUERY = "var";
 const CONTEXT_NAV_QUERY = "mnt";
 const SCHEMA_QUERY = "$types";
-const BUILD_REVISION_QUERY = "rev=" + "m72whvlb" ;
+const BUILD_REVISION_QUERY = "rev=" + "m73i8k2y" ;
 const SCOPE_INFO_KEY = "@info";
 const CONSENT_INFO_KEY = "@consent";
 const SESSION_REFERENCE_KEY = "@session_reference";
@@ -1416,10 +1416,10 @@ var index = {
     "classification": "anonymous",
     "purposes": {},
     "name": "urn:tailjs:core",
-    "version": "0.37.0",
+    "version": "0.37.2",
     "types": {
         "ScopeInfo": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": true,
             "readonly": false,
             "visibility": "trusted-write",
@@ -1479,14 +1479,14 @@ var index = {
             }
         },
         "SessionInfo": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "trusted-write",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ScopeInfo@0.37.0"
+                "urn:tailjs:core#ScopeInfo@0.37.2"
             ],
             "properties": {
                 "id": {
@@ -1568,14 +1568,14 @@ var index = {
             }
         },
         "DeviceInfo": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "trusted-write",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ScopeInfo@0.37.0"
+                "urn:tailjs:core#ScopeInfo@0.37.2"
             ],
             "properties": {
                 "id": {
@@ -1597,19 +1597,19 @@ var index = {
             }
         },
         "UserConsent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#DataUsage@0.37.0"
+                "urn:tailjs:core#DataUsage@0.37.2"
             ],
             "properties": {}
         },
         "DataUsage": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The combination of the classification and purposes it can be used for determines whether data can be stored or used when compared to an individual's consent.",
             "abstract": false,
             "readonly": false,
@@ -1635,7 +1635,7 @@ var index = {
                     "required": false
                 },
                 "purposes": {
-                    "reference": "urn:tailjs:core#DataPurposes@0.37.0",
+                    "reference": "urn:tailjs:core#DataPurposes@0.37.2",
                     "description": "The purposes the data may be used for.\n\nIf a data point has multiple purposes, consent is only need for one of them for the data to get stored. However, if some logic tries to read the data for a purpose without consent, it is not returned, since it is only stored for other purposes.\n\nPurposes do not restrict anonymous data. If no purposes are explicitly specified it implies \"necessary\".\n\nFor schema definitions see  {@link  SchemaDataUsage }  for inheritance rules.",
                     "readonly": false,
                     "visibility": "public",
@@ -1646,7 +1646,7 @@ var index = {
             }
         },
         "DataPurposes": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The purposes data can be used for. Non-necessary data requires an individual's consent to be collected and used.\n\nData categorized as \"anonymous\" will be stored regardless of consent since a consent only relates to \"personal data\", and anonymous data is just \"data\".\n\nWhether the two purposes \"personalization\" and \"security\" are considered separate purposes is configurable. The default is to consider \"personalization\" the same as \"functionality\", and \"security\" the same as \"necessary\".",
             "abstract": false,
             "readonly": false,
@@ -1703,7 +1703,7 @@ var index = {
             }
         },
         "TrackedEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like a \"page view\", \"user location\" etc. the name should be that.\n- If the event indicates something that happened, like \"session started\", \"view ended\" etc. the name should end with a verb in the past tense.",
             "abstract": true,
             "readonly": false,
@@ -1711,7 +1711,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged@0.37.0"
+                "urn:tailjs:core#Tagged@0.37.2"
             ],
             "system": "event",
             "properties": {
@@ -1788,7 +1788,7 @@ var index = {
                     "required": false
                 },
                 "metadata": {
-                    "reference": "urn:tailjs:core#EventMetadata@0.37.0",
+                    "reference": "urn:tailjs:core#EventMetadata@0.37.2",
                     "description": "These properties are used to track the state of the event as it gets collected, and is not persisted.",
                     "readonly": false,
                     "visibility": "public",
@@ -1797,7 +1797,7 @@ var index = {
                     "required": false
                 },
                 "session": {
-                    "reference": "urn:tailjs:core#Session@0.37.0",
+                    "reference": "urn:tailjs:core#Session@0.37.2",
                     "description": "The session associated with the event.",
                     "readonly": false,
                     "visibility": "public",
@@ -1808,7 +1808,7 @@ var index = {
             }
         },
         "Tagged": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Types extending this interface allow custom values that are not explicitly defined in their schema.\n\nSee  {@link  tags }  for details.",
             "abstract": false,
             "readonly": false,
@@ -1819,7 +1819,7 @@ var index = {
             "properties": {
                 "tags": {
                     "item": {
-                        "reference": "urn:tailjs:core#Tag@0.37.0"
+                        "reference": "urn:tailjs:core#Tag@0.37.2"
                     },
                     "description": "Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.\n\nExamples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`,  `ext1:video:play` and `area=investors+9, area=consumers+2`\n\nAs in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).\n\nIt is possible to specify \"how much\" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the \"investors\" audience will ultimately be higher than the score for \"consumers\".\n\nTags are separated by comma (`,`).\n\nThe following rules apply:\n- There should not be quotes around tag values. If there are they will get interpreted as part of the value.\n- Tag names will get \"cleaned\" while they are tracked, and all letters are converted to lowercase and other characters than numbers,  `.`, `-` and `_` are replaced with `_`.\n- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.\n- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\\,`), however using commas or similar characters   to store a list of values in the same tag is discouraged as each value should rather have its own tag.\n\nBAD: `selected=1\\,2\\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`\n\nBAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`\n\nBAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`\n\nTags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.\n\nTags are associated with HTML elements either via the `track-tags` attribute, or the  `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.\n\nSince stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources.",
                     "readonly": false,
@@ -1831,7 +1831,7 @@ var index = {
             }
         },
         "Tag": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -1869,7 +1869,7 @@ var index = {
             }
         },
         "EventMetadata": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "These properties are used to track the state of events as they get collected, and not stored.",
             "abstract": false,
             "readonly": false,
@@ -1908,7 +1908,7 @@ var index = {
             }
         },
         "Session": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
             "abstract": false,
             "readonly": false,
@@ -1966,7 +1966,7 @@ var index = {
                     "required": false
                 },
                 "consent": {
-                    "reference": "urn:tailjs:core#UserConsent@0.37.0",
+                    "reference": "urn:tailjs:core#UserConsent@0.37.2",
                     "description": "The user's consent choices.  {@link  DataClassification.Anonymous  }  means the session is cookie-less.",
                     "readonly": false,
                     "visibility": "public",
@@ -2016,19 +2016,19 @@ var index = {
             }
         },
         "UserInteractionEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -2047,7 +2047,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -2056,7 +2056,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -2065,7 +2065,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -2074,7 +2074,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -2085,7 +2085,7 @@ var index = {
             }
         },
         "ActivatedComponent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The component definition related to a user activation.",
             "abstract": false,
             "readonly": false,
@@ -2093,12 +2093,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Component@0.37.0"
+                "urn:tailjs:core#Component@0.37.2"
             ],
             "properties": {
                 "content": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedContent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedContent@0.37.2"
                     },
                     "description": "The activated content in the component.",
                     "readonly": false,
@@ -2117,7 +2117,7 @@ var index = {
                     "required": false
                 },
                 "rect": {
-                    "reference": "urn:tailjs:core#Rectangle@0.37.0",
+                    "reference": "urn:tailjs:core#Rectangle@0.37.2",
                     "description": "The size and position of the component when it was activated relative to the document top (not viewport).",
                     "readonly": false,
                     "visibility": "public",
@@ -2128,16 +2128,16 @@ var index = {
             }
         },
         "Component": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged@0.37.0",
-                "urn:tailjs:core#ExternalReference@0.37.0",
-                "urn:tailjs:core#Personalizable@0.37.0"
+                "urn:tailjs:core#Tagged@0.37.2",
+                "urn:tailjs:core#ExternalReference@0.37.2",
+                "urn:tailjs:core#Personalizable@0.37.2"
             ],
             "properties": {
                 "typeName": {
@@ -2177,7 +2177,7 @@ var index = {
                     "required": false
                 },
                 "dataSource": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.37.0",
+                    "reference": "urn:tailjs:core#ExternalReference@0.37.2",
                     "description": "Optional references to the content that was used to render the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -2188,7 +2188,7 @@ var index = {
             }
         },
         "ExternalReference": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenet is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.",
             "abstract": false,
             "readonly": false,
@@ -2281,7 +2281,7 @@ var index = {
             }
         },
         "Personalizable": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2291,7 +2291,7 @@ var index = {
             "properties": {
                 "personalization": {
                     "item": {
-                        "reference": "urn:tailjs:core#Personalization@0.37.0"
+                        "reference": "urn:tailjs:core#Personalization@0.37.2"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -2302,7 +2302,7 @@ var index = {
             }
         },
         "Personalization": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more.",
             "abstract": false,
             "readonly": false,
@@ -2310,11 +2310,11 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged@0.37.0"
+                "urn:tailjs:core#Tagged@0.37.2"
             ],
             "properties": {
                 "source": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.37.0",
+                    "reference": "urn:tailjs:core#ExternalReference@0.37.2",
                     "description": "The source and definition for the personalization. This could be a named rule set, a test definition or a specific configuration of an algorithm.\n\nIf you are using multiple services/system for personalization you can add this to  {@link  ExternalReference.source } .\n\nIf more than one component was changed by the same personalization logic they will share this source, but may have different variables.\n\nFor example, the personalization in each component may correspond to different variables in a multivariate test. In that case the components will share the  {@link  Personalization.source }  corresponding to the test, but have different  {@link  Personalization.variable  } s.",
                     "readonly": false,
                     "visibility": "public",
@@ -2324,7 +2324,7 @@ var index = {
                 },
                 "variables": {
                     "item": {
-                        "reference": "urn:tailjs:core#PersonalizationVariable@0.37.0"
+                        "reference": "urn:tailjs:core#PersonalizationVariable@0.37.2"
                     },
                     "description": "Typically used for the test variables in a A/B/MV test, but can also be used for significant weights/parameters in more complex algorithms.",
                     "readonly": false,
@@ -2335,7 +2335,7 @@ var index = {
                 },
                 "variants": {
                     "item": {
-                        "reference": "urn:tailjs:core#PersonalizationVariant@0.37.0"
+                        "reference": "urn:tailjs:core#PersonalizationVariant@0.37.2"
                     },
                     "description": "The set of choices that were possible at the time given the user. Even though implied, this should include the choice made so the data does not look inconsistent.\n\nTo represent the default valuesvfor the sources that can be personalized, include the default variant and assign the default settings to it as sources.",
                     "readonly": false,
@@ -2347,7 +2347,7 @@ var index = {
             }
         },
         "PersonalizationVariable": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "A reference to a variable and its value in personalization.",
             "abstract": false,
             "readonly": false,
@@ -2355,7 +2355,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.37.0"
+                "urn:tailjs:core#ExternalReference@0.37.2"
             ],
             "properties": {
                 "value": {
@@ -2369,7 +2369,7 @@ var index = {
             }
         },
         "PersonalizationVariant": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "A reference to the data/content item related to a variant in personalization.",
             "abstract": false,
             "readonly": false,
@@ -2377,12 +2377,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.37.0"
+                "urn:tailjs:core#ExternalReference@0.37.2"
             ],
             "properties": {
                 "sources": {
                     "item": {
-                        "reference": "urn:tailjs:core#PersonalizationSource@0.37.0"
+                        "reference": "urn:tailjs:core#PersonalizationSource@0.37.2"
                     },
                     "description": "The aspects of the component or page the variant changed. There can multiple sources, e.g. a variant may both change the size of a component and change the content at the same time.",
                     "readonly": false,
@@ -2421,7 +2421,7 @@ var index = {
             }
         },
         "PersonalizationSource": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "A specific aspect changed for a page or component for personalization as part of a  {@link  PersonalizationVariant } .",
             "abstract": false,
             "readonly": false,
@@ -2429,7 +2429,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.37.0"
+                "urn:tailjs:core#ExternalReference@0.37.2"
             ],
             "properties": {
                 "relatedVariable": {
@@ -2453,7 +2453,7 @@ var index = {
             }
         },
         "ActivatedContent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The content definition related to a user activation.",
             "abstract": false,
             "readonly": false,
@@ -2461,11 +2461,11 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Content@0.37.0"
+                "urn:tailjs:core#Content@0.37.2"
             ],
             "properties": {
                 "rect": {
-                    "reference": "urn:tailjs:core#Rectangle@0.37.0",
+                    "reference": "urn:tailjs:core#Rectangle@0.37.2",
                     "description": "The current size and position of the element representing the content relative to the document top (not viewport).",
                     "readonly": false,
                     "visibility": "public",
@@ -2476,7 +2476,7 @@ var index = {
             }
         },
         "Content": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Represents a content item that can be rendered or modified via a  {@link  Component } \n\nIf the content is personalized please add the criteria",
             "abstract": false,
             "readonly": false,
@@ -2484,12 +2484,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.37.0",
-                "urn:tailjs:core#Tagged@0.37.0"
+                "urn:tailjs:core#ExternalReference@0.37.2",
+                "urn:tailjs:core#Tagged@0.37.2"
             ],
             "properties": {
                 "commerce": {
-                    "reference": "urn:tailjs:core#CommerceData@0.37.0",
+                    "reference": "urn:tailjs:core#CommerceData@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -2499,7 +2499,7 @@ var index = {
             }
         },
         "CommerceData": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2536,7 +2536,7 @@ var index = {
                     "required": false
                 },
                 "variation": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.37.0",
+                    "reference": "urn:tailjs:core#ExternalReference@0.37.2",
                     "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple).",
                     "readonly": false,
                     "visibility": "public",
@@ -2556,20 +2556,20 @@ var index = {
             }
         },
         "Rectangle": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Position@0.37.0",
-                "urn:tailjs:core#Size@0.37.0"
+                "urn:tailjs:core#Position@0.37.2",
+                "urn:tailjs:core#Size@0.37.2"
             ],
             "properties": {}
         },
         "Position": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Represents a position where the units are (CSS pixels)[#DevicePixelRatio].",
             "abstract": false,
             "readonly": false,
@@ -2597,7 +2597,7 @@ var index = {
             }
         },
         "Size": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2624,7 +2624,7 @@ var index = {
             }
         },
         "ViewTimingData": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -2671,7 +2671,7 @@ var index = {
             }
         },
         "ScreenPosition": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Represents a position where the units are percentages relative to an element or page.",
             "abstract": false,
             "readonly": false,
@@ -2726,14 +2726,14 @@ var index = {
             }
         },
         "Viewport": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Rectangle@0.37.0"
+                "urn:tailjs:core#Rectangle@0.37.2"
             ],
             "properties": {
                 "totalWidth": {
@@ -2755,7 +2755,7 @@ var index = {
             }
         },
         "ElementInfo": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Basic information about an HTML element.",
             "abstract": false,
             "readonly": false,
@@ -2792,7 +2792,7 @@ var index = {
                     "required": false
                 },
                 "rect": {
-                    "reference": "urn:tailjs:core#Rectangle@0.37.0",
+                    "reference": "urn:tailjs:core#Rectangle@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -2802,14 +2802,14 @@ var index = {
             }
         },
         "FormEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -2866,7 +2866,7 @@ var index = {
                         "required": true
                     },
                     "value": {
-                        "reference": "urn:tailjs:core#FormField@0.37.0"
+                        "reference": "urn:tailjs:core#FormField@0.37.2"
                     },
                     "description": "All fields in the form (as detected).",
                     "readonly": false,
@@ -2887,7 +2887,7 @@ var index = {
             }
         },
         "FormField": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "A form field value in a  {@link  FormEvent } .",
             "abstract": false,
             "readonly": false,
@@ -2997,7 +2997,7 @@ var index = {
             }
         },
         "ComponentClickEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The event is triggered when a component is clicked.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
             "abstract": false,
             "readonly": false,
@@ -3005,7 +3005,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -3023,7 +3023,7 @@ var index = {
             }
         },
         "ComponentClickIntentEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The event is triggered when a user probably wanted to click a component but nothing happened.\n\nUsed for UX purposes where it may indicate that navigation is not obvious to the users. This event is only triggered for components that contain navigation options (e.g. hyperlinks) and has click tracking enabled.\n\nThis applies only to components that have click tracking configured,  either via  {@link  TrackingSettings.clicked  } , \"track-clicks\" in the containing DOM or \"--track-clicks\" via CSS.",
             "abstract": false,
             "readonly": false,
@@ -3031,7 +3031,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -3048,7 +3048,7 @@ var index = {
                 },
                 "clicks": {
                     "item": {
-                        "reference": "urn:tailjs:core#Position@0.37.0"
+                        "reference": "urn:tailjs:core#Position@0.37.2"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -3058,7 +3058,7 @@ var index = {
                 },
                 "clickables": {
                     "item": {
-                        "reference": "urn:tailjs:core#ComponentElementInfo@0.37.0"
+                        "reference": "urn:tailjs:core#ComponentElementInfo@0.37.2"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -3069,7 +3069,7 @@ var index = {
             }
         },
         "ComponentElementInfo": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Basic information about an HTML element that is associated with a component.",
             "abstract": false,
             "readonly": false,
@@ -3077,11 +3077,11 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ElementInfo@0.37.0"
+                "urn:tailjs:core#ElementInfo@0.37.2"
             ],
             "properties": {
                 "component": {
-                    "reference": "urn:tailjs:core#Component@0.37.0",
+                    "reference": "urn:tailjs:core#Component@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -3091,7 +3091,7 @@ var index = {
             }
         },
         "ComponentViewEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "This event is triggered when the user scrolls a component into view if it is configured for this kind of tracking.",
             "abstract": false,
             "readonly": false,
@@ -3099,7 +3099,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -3117,14 +3117,14 @@ var index = {
             }
         },
         "NavigationEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -3194,7 +3194,7 @@ var index = {
                     "purposes": {}
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.37.0",
+                    "reference": "urn:tailjs:core#Domain@0.37.2",
                     "description": "The domain of the destination",
                     "readonly": false,
                     "visibility": "public",
@@ -3205,7 +3205,7 @@ var index = {
             }
         },
         "Domain": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Represents a domain name, e.g. https://www.foo.co.uk",
             "abstract": false,
             "readonly": false,
@@ -3233,14 +3233,14 @@ var index = {
             }
         },
         "ScrollEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -3256,7 +3256,7 @@ var index = {
                     "purposes": {}
                 },
                 "offset": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The offset relative to the page size (100 % is bottom, 0 % is top)",
                     "readonly": false,
                     "visibility": "public",
@@ -3284,14 +3284,14 @@ var index = {
             }
         },
         "SearchEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -3317,7 +3317,7 @@ var index = {
                 },
                 "filters": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchFilter@0.37.0"
+                        "reference": "urn:tailjs:core#SearchFilter@0.37.2"
                     },
                     "description": "Any filters that were applied to the search in addition to the query. Filters are assumed combined using \"and\" semantics unless they are for the same field in which case it means that the field must match at least one of the values.\n\nFor example \"age>=10 AND age<=20 AND (type=horse OR type=cat)\"",
                     "readonly": false,
@@ -3337,7 +3337,7 @@ var index = {
                 },
                 "topHits": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchResult@0.37.0"
+                        "reference": "urn:tailjs:core#SearchResult@0.37.2"
                     },
                     "description": "If some or all of the results are relevant for analytics or AI, they can be included here.",
                     "readonly": false,
@@ -3349,7 +3349,7 @@ var index = {
             }
         },
         "SearchFilter": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "A filter that applies to a field in a search query.",
             "abstract": false,
             "readonly": false,
@@ -3357,7 +3357,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.37.0"
+                "urn:tailjs:core#ExternalReference@0.37.2"
             ],
             "properties": {
                 "group": {
@@ -3389,7 +3389,7 @@ var index = {
                     "required": false
                 },
                 "reference": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.37.0",
+                    "reference": "urn:tailjs:core#ExternalReference@0.37.2",
                     "description": "If the value is a defined entity such as a product category use this instead of  {@link  value } .",
                     "readonly": false,
                     "visibility": "public",
@@ -3417,14 +3417,14 @@ var index = {
             }
         },
         "SearchResult": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.37.0"
+                "urn:tailjs:core#ExternalReference@0.37.2"
             ],
             "properties": {
                 "rank": {
@@ -3438,7 +3438,7 @@ var index = {
             }
         },
         "SearchFieldReferenceFilter": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "A search filter that applies to a single field that must match a defined entity (e.g. \"manufacturer\").",
             "abstract": false,
             "readonly": false,
@@ -3446,12 +3446,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#ExternalReference@0.37.0"
+                "urn:tailjs:core#ExternalReference@0.37.2"
             ],
             "properties": {
                 "references": {
                     "item": {
-                        "reference": "urn:tailjs:core#ExternalReference@0.37.0"
+                        "reference": "urn:tailjs:core#ExternalReference@0.37.2"
                     },
                     "description": "A list of entities where the field must match at least one of them (or none depending on the comparison).",
                     "readonly": false,
@@ -3475,14 +3475,14 @@ var index = {
             }
         },
         "SessionStartedEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -3526,7 +3526,7 @@ var index = {
             }
         },
         "UserAgentLanguage": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -3582,15 +3582,15 @@ var index = {
             }
         },
         "UserAgentEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0",
-                "urn:tailjs:core#SessionScoped@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2",
+                "urn:tailjs:core#SessionScoped@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -3639,7 +3639,7 @@ var index = {
                 },
                 "languages": {
                     "item": {
-                        "reference": "urn:tailjs:core#UserAgentLanguage@0.37.0"
+                        "reference": "urn:tailjs:core#UserAgentLanguage@0.37.2"
                     },
                     "description": "The user's language preferences as configured in the user's device.",
                     "readonly": false,
@@ -3649,7 +3649,7 @@ var index = {
                     "required": false
                 },
                 "timezone": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.37.0",
+                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -3657,7 +3657,7 @@ var index = {
                     "required": true
                 },
                 "screen": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.37.0",
+                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.37.2",
                     "description": "Screen",
                     "readonly": false,
                     "visibility": "public",
@@ -3668,7 +3668,7 @@ var index = {
             }
         },
         "SessionScoped": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened.",
             "abstract": false,
             "readonly": false,
@@ -3679,7 +3679,7 @@ var index = {
             "properties": {}
         },
         "ClickIds": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -3730,7 +3730,7 @@ var index = {
             }
         },
         "ViewEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "This event is sent a user navigates between views. (page, screen or similar).\n\nThis event does not",
             "abstract": false,
             "readonly": false,
@@ -3738,7 +3738,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -3799,7 +3799,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "For how long the view was active. This is set via patches",
                     "readonly": false,
                     "visibility": "public",
@@ -3817,7 +3817,7 @@ var index = {
                     "required": false
                 },
                 "utm": {
-                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.37.0",
+                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.37.2",
                     "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
                     "readonly": false,
                     "visibility": "public",
@@ -3843,7 +3843,7 @@ var index = {
                     "required": false
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.37.0",
+                    "reference": "urn:tailjs:core#Domain@0.37.2",
                     "description": "The domain part of the href, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -3925,7 +3925,7 @@ var index = {
                     "required": false
                 },
                 "externalReferrer": {
-                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.37.0",
+                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.37.2",
                     "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
                     "readonly": false,
                     "visibility": "public",
@@ -3934,7 +3934,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened.",
                     "readonly": false,
                     "visibility": "public",
@@ -3952,7 +3952,7 @@ var index = {
                     "required": false
                 },
                 "definition": {
-                    "reference": "urn:tailjs:core#View@0.37.0",
+                    "reference": "urn:tailjs:core#View@0.37.2",
                     "description": "The primary content used to generate the view including the personalization that led to the decision, if any. If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL on the website, the view definition may follow from a separate patch event.",
                     "readonly": false,
                     "visibility": "public",
@@ -3963,15 +3963,15 @@ var index = {
             }
         },
         "View": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Content@0.37.0",
-                "urn:tailjs:core#Personalizable@0.37.0"
+                "urn:tailjs:core#Content@0.37.2",
+                "urn:tailjs:core#Personalizable@0.37.2"
             ],
             "properties": {
                 "preview": {
@@ -3986,7 +3986,7 @@ var index = {
             }
         },
         "SessionLocationEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "This event is triggered whenever the user's location changes.",
             "abstract": false,
             "readonly": false,
@@ -3994,8 +3994,8 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0",
-                "urn:tailjs:core#SessionScoped@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2",
+                "urn:tailjs:core#SessionScoped@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4053,7 +4053,7 @@ var index = {
                     "required": false
                 },
                 "continent": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.37.0",
+                    "reference": "urn:tailjs:core#GeoEntity@0.37.2",
                     "description": "The continent is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -4064,7 +4064,7 @@ var index = {
                     "required": false
                 },
                 "country": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.37.0",
+                    "reference": "urn:tailjs:core#GeoEntity@0.37.2",
                     "description": "The country is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -4075,7 +4075,7 @@ var index = {
                     "required": false
                 },
                 "subdivision": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.37.0",
+                    "reference": "urn:tailjs:core#GeoEntity@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -4085,7 +4085,7 @@ var index = {
                     "required": false
                 },
                 "city": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.37.0",
+                    "reference": "urn:tailjs:core#GeoEntity@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -4097,7 +4097,7 @@ var index = {
             }
         },
         "GeoEntity": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -4140,7 +4140,7 @@ var index = {
             }
         },
         "AnchorNavigationEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)",
             "abstract": false,
             "readonly": false,
@@ -4148,7 +4148,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4175,7 +4175,7 @@ var index = {
             }
         },
         "ConsentEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.\n\nThis event has a significant effect throughout the system since the lack of consent to non-essential tracking will prevent all non-essential cookies and identifiers to ever reach the user's device. In the same way, such information is cleared if the user opts out.\n\nBackends are expected to respect this consent, yet IT IS NOT THE RESPONSIBILITY OF tailjs.JS TO ENFORCE IT since it has no way to know the domain context of the data it relays.\n\nThe user's decision is stored in an essential cookie and updated accordingly with this event. Sending the event with  {@link  nonEssentialTracking  }  `false` revokes the consent if already given. The event should ideally be sent from a cookie disclaimer.\n\nGranular consents to email marketing, external advertising and the like must be handled by other mechanisms than tracking events. This event only ensures that non-essential tracking information is not stored at the user unless consent is given.\n\nAlso, \"consent\" and \"event\" rhymes.",
             "abstract": false,
             "readonly": false,
@@ -4183,7 +4183,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4199,7 +4199,7 @@ var index = {
                     "purposes": {}
                 },
                 "consent": {
-                    "reference": "urn:tailjs:core#UserConsent@0.37.0",
+                    "reference": "urn:tailjs:core#UserConsent@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -4209,19 +4209,19 @@ var index = {
             }
         },
         "CommerceEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": true,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {}
         },
         "CartUpdatedEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Indicates that a shopping cart was updated.",
             "abstract": false,
             "readonly": false,
@@ -4229,9 +4229,9 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0",
-                "urn:tailjs:core#CommerceEvent@0.37.0",
-                "urn:tailjs:core#CartEventData@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2",
+                "urn:tailjs:core#CommerceEvent@0.37.2",
+                "urn:tailjs:core#CartEventData@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4249,15 +4249,15 @@ var index = {
             }
         },
         "CartEventData": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#OrderQuantity@0.37.0",
-                "urn:tailjs:core#ExternalUse@0.37.0"
+                "urn:tailjs:core#OrderQuantity@0.37.2",
+                "urn:tailjs:core#ExternalUse@0.37.2"
             ],
             "properties": {
                 "action": {
@@ -4278,7 +4278,7 @@ var index = {
             }
         },
         "OrderQuantity": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Base information for the amount of an item added to an  {@link  Order }  or cart that is shared between  {@link  CartUpdatedEvent }  and  {@link  OrderLine } .",
             "abstract": false,
             "readonly": false,
@@ -4286,7 +4286,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceData@0.37.0"
+                "urn:tailjs:core#CommerceData@0.37.2"
             ],
             "properties": {
                 "units": {
@@ -4299,7 +4299,7 @@ var index = {
                     "required": false
                 },
                 "item": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.37.0",
+                    "reference": "urn:tailjs:core#ExternalReference@0.37.2",
                     "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context.",
                     "readonly": false,
                     "visibility": "public",
@@ -4310,7 +4310,7 @@ var index = {
             }
         },
         "ExternalUse": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Types and interfaces extending this marker interface directly must have a concrete type that can be instantiated in code-generation scenarios because they are referenced directly outside of the types package.",
             "abstract": false,
             "readonly": false,
@@ -4321,7 +4321,7 @@ var index = {
             "properties": {}
         },
         "OrderEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "An order submitted by a user.",
             "abstract": false,
             "readonly": false,
@@ -4329,8 +4329,8 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceEvent@0.37.0",
-                "urn:tailjs:core#Order@0.37.0"
+                "urn:tailjs:core#CommerceEvent@0.37.2",
+                "urn:tailjs:core#Order@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4348,7 +4348,7 @@ var index = {
             }
         },
         "Order": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Represents an order for tracking purposes.",
             "abstract": false,
             "readonly": false,
@@ -4356,7 +4356,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Tagged@0.37.0"
+                "urn:tailjs:core#Tagged@0.37.2"
             ],
             "properties": {
                 "internalId": {
@@ -4379,7 +4379,7 @@ var index = {
                 },
                 "items": {
                     "item": {
-                        "reference": "urn:tailjs:core#OrderLine@0.37.0"
+                        "reference": "urn:tailjs:core#OrderLine@0.37.2"
                     },
                     "description": "Optionally, all the items in the order at the time the order was made.",
                     "readonly": false,
@@ -4449,15 +4449,15 @@ var index = {
             }
         },
         "OrderLine": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#OrderQuantity@0.37.0",
-                "urn:tailjs:core#Tagged@0.37.0"
+                "urn:tailjs:core#OrderQuantity@0.37.2",
+                "urn:tailjs:core#Tagged@0.37.2"
             ],
             "properties": {
                 "lineId": {
@@ -4492,7 +4492,7 @@ var index = {
             }
         },
         "CartAbandonedEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The shopping cart was abandoned. Currently there is no logic in the tracker to trigger this event automatically, hence a custom trigger must be implemented.",
             "abstract": false,
             "readonly": false,
@@ -4500,8 +4500,8 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceEvent@0.37.0",
-                "urn:tailjs:core#Order@0.37.0"
+                "urn:tailjs:core#CommerceEvent@0.37.2",
+                "urn:tailjs:core#Order@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4528,7 +4528,7 @@ var index = {
             }
         },
         "OrderStatusEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Base event for events that related to an order changing status.",
             "abstract": true,
             "readonly": false,
@@ -4536,7 +4536,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {
                 "order": {
@@ -4551,7 +4551,7 @@ var index = {
             }
         },
         "OrderConfirmedEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "An order was accepted.\n\nThis may be useful to track if some backend system needs to validate if the order submitted by the user is possible, or just for monitoring whether your site is healthy and actually processes the orders that come in.\n\nThis event should also imply that the user got a confirmation.",
             "abstract": false,
             "readonly": false,
@@ -4559,7 +4559,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4577,7 +4577,7 @@ var index = {
             }
         },
         "OrderCancelledEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "An order was cancelled.",
             "abstract": false,
             "readonly": false,
@@ -4585,7 +4585,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4612,7 +4612,7 @@ var index = {
             }
         },
         "OrderCompletedEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "An order was cancelled.",
             "abstract": false,
             "readonly": false,
@@ -4620,7 +4620,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4638,7 +4638,7 @@ var index = {
             }
         },
         "PaymentEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Events related to order payments.",
             "abstract": true,
             "readonly": false,
@@ -4646,7 +4646,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#CommerceEvent@0.37.0"
+                "urn:tailjs:core#CommerceEvent@0.37.2"
             ],
             "properties": {
                 "orderReference": {
@@ -4689,7 +4689,7 @@ var index = {
             }
         },
         "PaymentAcceptedEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The payment for an order was accepted.",
             "abstract": false,
             "readonly": false,
@@ -4697,7 +4697,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#PaymentEvent@0.37.0"
+                "urn:tailjs:core#PaymentEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4724,7 +4724,7 @@ var index = {
             }
         },
         "PaymentRejectedEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "A payment for the order was rejected.",
             "abstract": false,
             "readonly": false,
@@ -4732,7 +4732,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#PaymentEvent@0.37.0"
+                "urn:tailjs:core#PaymentEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4750,7 +4750,7 @@ var index = {
             }
         },
         "AuthenticationEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Events related to users signing in, out etc..",
             "abstract": true,
             "readonly": false,
@@ -4758,12 +4758,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {}
         },
         "SignInEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "A user signed in.",
             "abstract": false,
             "readonly": false,
@@ -4771,7 +4771,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#AuthenticationEvent@0.37.0"
+                "urn:tailjs:core#AuthenticationEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4807,7 +4807,7 @@ var index = {
             }
         },
         "SignOutEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "A user actively signed out. (Session expiry doesn't count).",
             "abstract": false,
             "readonly": false,
@@ -4815,7 +4815,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#AuthenticationEvent@0.37.0"
+                "urn:tailjs:core#AuthenticationEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4842,7 +4842,7 @@ var index = {
             }
         },
         "SystemEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics.",
             "abstract": true,
             "readonly": false,
@@ -4850,12 +4850,12 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "properties": {}
         },
         "ImpressionTextStats": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -4929,7 +4929,7 @@ var index = {
             }
         },
         "ImpressionEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "The event is triggered when more than 75 % of the component's has been visible for at least 1 second, or the component has taken up at least 33 % of the viewport width or height for at least 1 second, whichever comes first.\n\n\nThis only gets tracked for components that have impression tracking configured,  either via  {@link  TrackingSettings.impressions } , \"track-impressions\" in the containing DOM or \"--track-impressions\" via CSS.\n\nNote that impression tracking cannot be configured via the DOM/CSS for secondary and inferred components since the number of these can be considerable and it would hurt performance. Impression tracking is still possible for these if explicitly set via  {@link  TrackingSettings.impressions } .",
             "abstract": false,
             "readonly": false,
@@ -4937,7 +4937,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#UserInteractionEvent@0.37.0"
+                "urn:tailjs:core#UserInteractionEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -4962,7 +4962,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "For how long the component was visible. This counter starts after an impression has been detected.",
                     "readonly": false,
                     "visibility": "public",
@@ -4971,7 +4971,7 @@ var index = {
                     "required": false
                 },
                 "regions": {
-                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.37.0",
+                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.37.2",
                     "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
                     "readonly": false,
                     "visibility": "public",
@@ -4980,7 +4980,7 @@ var index = {
                     "required": false
                 },
                 "text": {
-                    "reference": "urn:tailjs:core#ImpressionTextStats@0.37.0",
+                    "reference": "urn:tailjs:core#ImpressionTextStats@0.37.2",
                     "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all.",
                     "readonly": false,
                     "visibility": "public",
@@ -5011,7 +5011,7 @@ var index = {
             }
         },
         "ImpressionRegionStats": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -5057,7 +5057,7 @@ var index = {
             }
         },
         "ResetEvent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "An event that can be used to reset the current session and optionally also device. Intended for debugging and not relayed to backends.",
             "abstract": false,
             "readonly": false,
@@ -5065,8 +5065,8 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0",
-                "urn:tailjs:core#SystemEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2",
+                "urn:tailjs:core#SystemEvent@0.37.2"
             ],
             "properties": {
                 "type": {
@@ -5102,18 +5102,18 @@ var index = {
             }
         },
         "ConfiguredComponent": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#Component@0.37.0"
+                "urn:tailjs:core#Component@0.37.2"
             ],
             "properties": {
                 "track": {
-                    "reference": "urn:tailjs:core#TrackingSettings@0.37.0",
+                    "reference": "urn:tailjs:core#TrackingSettings@0.37.2",
                     "description": "Settings for how the component will be tracked.\n\nThese settings are not tracked, that is, this property is stripped from the data sent to the server.",
                     "readonly": false,
                     "visibility": "public",
@@ -5124,7 +5124,7 @@ var index = {
             }
         },
         "TrackingSettings": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -5180,7 +5180,7 @@ var index = {
             }
         },
         "UserAgentEvent_timezone_type": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "abstract": false,
             "readonly": false,
             "visibility": "public",
@@ -5208,7 +5208,7 @@ var index = {
             }
         },
         "UserAgentEvent_screen_type": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Screen",
             "abstract": false,
             "readonly": false,
@@ -5256,7 +5256,7 @@ var index = {
             }
         },
         "ViewEvent_utm_type": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
             "abstract": false,
             "readonly": false,
@@ -5308,7 +5308,7 @@ var index = {
             }
         },
         "ViewEvent_externalReferrer_type": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
             "abstract": false,
             "readonly": false,
@@ -5326,7 +5326,7 @@ var index = {
                     "required": false
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.37.0",
+                    "reference": "urn:tailjs:core#Domain@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -5336,7 +5336,7 @@ var index = {
             }
         },
         "ImpressionEvent_regions_type": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
             "abstract": false,
             "readonly": false,
@@ -5346,7 +5346,7 @@ var index = {
             "extends": [],
             "properties": {
                 "top": {
-                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.37.0",
+                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.37.2",
                     "description": "The top 25 % of the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -5355,7 +5355,7 @@ var index = {
                     "required": false
                 },
                 "middle": {
-                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.37.0",
+                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.37.2",
                     "description": "The middle 25 - 75 % of the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -5364,7 +5364,7 @@ var index = {
                     "required": false
                 },
                 "bottom": {
-                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.37.0",
+                    "reference": "urn:tailjs:core#ImpressionRegionStats@0.37.2",
                     "description": "The bottom 25 % of the component.",
                     "readonly": false,
                     "visibility": "public",
@@ -5375,7 +5375,7 @@ var index = {
             }
         },
         "FormEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#FormEvent.",
             "abstract": false,
             "readonly": false,
@@ -5383,7 +5383,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -5400,7 +5400,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5419,7 +5419,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5428,7 +5428,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5437,7 +5437,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5446,7 +5446,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5496,7 +5496,7 @@ var index = {
                         "required": true
                     },
                     "value": {
-                        "reference": "urn:tailjs:core#FormField@0.37.0"
+                        "reference": "urn:tailjs:core#FormField@0.37.2"
                     },
                     "description": "All fields in the form (as detected).",
                     "readonly": false,
@@ -5517,7 +5517,7 @@ var index = {
             }
         },
         "ComponentClickEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#ComponentClickEvent.",
             "abstract": false,
             "readonly": false,
@@ -5525,7 +5525,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -5542,7 +5542,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5561,7 +5561,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5570,7 +5570,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5579,7 +5579,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5588,7 +5588,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5599,7 +5599,7 @@ var index = {
             }
         },
         "ComponentClickIntentEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#ComponentClickIntentEvent.",
             "abstract": false,
             "readonly": false,
@@ -5607,7 +5607,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -5624,7 +5624,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5643,7 +5643,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5652,7 +5652,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5661,7 +5661,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5670,7 +5670,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5680,7 +5680,7 @@ var index = {
                 },
                 "clicks": {
                     "item": {
-                        "reference": "urn:tailjs:core#Position@0.37.0"
+                        "reference": "urn:tailjs:core#Position@0.37.2"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -5690,7 +5690,7 @@ var index = {
                 },
                 "clickables": {
                     "item": {
-                        "reference": "urn:tailjs:core#ComponentElementInfo@0.37.0"
+                        "reference": "urn:tailjs:core#ComponentElementInfo@0.37.2"
                     },
                     "readonly": false,
                     "visibility": "public",
@@ -5701,7 +5701,7 @@ var index = {
             }
         },
         "ComponentViewEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#ComponentViewEvent.",
             "abstract": false,
             "readonly": false,
@@ -5709,7 +5709,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -5726,7 +5726,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5745,7 +5745,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5754,7 +5754,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5763,7 +5763,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5772,7 +5772,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5783,7 +5783,7 @@ var index = {
             }
         },
         "NavigationEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#NavigationEvent.",
             "abstract": false,
             "readonly": false,
@@ -5791,7 +5791,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -5808,7 +5808,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5827,7 +5827,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5836,7 +5836,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5845,7 +5845,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5854,7 +5854,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5908,7 +5908,7 @@ var index = {
                     "purposes": {}
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.37.0",
+                    "reference": "urn:tailjs:core#Domain@0.37.2",
                     "description": "The domain of the destination",
                     "readonly": false,
                     "visibility": "public",
@@ -5919,7 +5919,7 @@ var index = {
             }
         },
         "ScrollEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#ScrollEvent.",
             "abstract": false,
             "readonly": false,
@@ -5927,7 +5927,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -5944,7 +5944,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -5963,7 +5963,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -5972,7 +5972,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -5981,7 +5981,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -5990,7 +5990,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -5999,7 +5999,7 @@ var index = {
                     "required": false
                 },
                 "offset": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The offset relative to the page size (100 % is bottom, 0 % is top)",
                     "readonly": false,
                     "visibility": "public",
@@ -6027,7 +6027,7 @@ var index = {
             }
         },
         "SearchEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#SearchEvent.",
             "abstract": false,
             "readonly": false,
@@ -6035,7 +6035,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -6052,7 +6052,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -6071,7 +6071,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -6080,7 +6080,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -6089,7 +6089,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6098,7 +6098,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6117,7 +6117,7 @@ var index = {
                 },
                 "filters": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchFilter@0.37.0"
+                        "reference": "urn:tailjs:core#SearchFilter@0.37.2"
                     },
                     "description": "Any filters that were applied to the search in addition to the query. Filters are assumed combined using \"and\" semantics unless they are for the same field in which case it means that the field must match at least one of the values.\n\nFor example \"age>=10 AND age<=20 AND (type=horse OR type=cat)\"",
                     "readonly": false,
@@ -6137,7 +6137,7 @@ var index = {
                 },
                 "topHits": {
                     "item": {
-                        "reference": "urn:tailjs:core#SearchResult@0.37.0"
+                        "reference": "urn:tailjs:core#SearchResult@0.37.2"
                     },
                     "description": "If some or all of the results are relevant for analytics or AI, they can be included here.",
                     "readonly": false,
@@ -6149,7 +6149,7 @@ var index = {
             }
         },
         "SessionStartedEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#SessionStartedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6157,7 +6157,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -6201,7 +6201,7 @@ var index = {
             }
         },
         "UserAgentEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#UserAgentEvent.",
             "abstract": false,
             "readonly": false,
@@ -6209,7 +6209,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -6258,7 +6258,7 @@ var index = {
                 },
                 "languages": {
                     "item": {
-                        "reference": "urn:tailjs:core#UserAgentLanguage@0.37.0"
+                        "reference": "urn:tailjs:core#UserAgentLanguage@0.37.2"
                     },
                     "description": "The user's language preferences as configured in the user's device.",
                     "readonly": false,
@@ -6268,7 +6268,7 @@ var index = {
                     "required": false
                 },
                 "timezone": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.37.0",
+                    "reference": "urn:tailjs:core#UserAgentEvent_timezone_type@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -6276,7 +6276,7 @@ var index = {
                     "required": false
                 },
                 "screen": {
-                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.37.0",
+                    "reference": "urn:tailjs:core#UserAgentEvent_screen_type@0.37.2",
                     "description": "Screen",
                     "readonly": false,
                     "visibility": "public",
@@ -6287,7 +6287,7 @@ var index = {
             }
         },
         "ViewEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#ViewEvent.",
             "abstract": false,
             "readonly": false,
@@ -6295,7 +6295,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -6347,7 +6347,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "For how long the view was active. This is set via patches",
                     "readonly": false,
                     "visibility": "public",
@@ -6365,7 +6365,7 @@ var index = {
                     "required": false
                 },
                 "utm": {
-                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.37.0",
+                    "reference": "urn:tailjs:core#ViewEvent_utm_type@0.37.2",
                     "description": "Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].",
                     "readonly": false,
                     "visibility": "public",
@@ -6391,7 +6391,7 @@ var index = {
                     "required": false
                 },
                 "domain": {
-                    "reference": "urn:tailjs:core#Domain@0.37.0",
+                    "reference": "urn:tailjs:core#Domain@0.37.2",
                     "description": "The domain part of the href, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6473,7 +6473,7 @@ var index = {
                     "required": false
                 },
                 "externalReferrer": {
-                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.37.0",
+                    "reference": "urn:tailjs:core#ViewEvent_externalReferrer_type@0.37.2",
                     "description": "External referrer. Internal referrers follows from the event's  {@link  TrackedEvent [\"relatedView\"] }  field.",
                     "readonly": false,
                     "visibility": "public",
@@ -6482,7 +6482,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The size of the user's viewport (e.g. browser window) and how much it was scrolled when the page was opened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6500,7 +6500,7 @@ var index = {
                     "required": false
                 },
                 "definition": {
-                    "reference": "urn:tailjs:core#View@0.37.0",
+                    "reference": "urn:tailjs:core#View@0.37.2",
                     "description": "The primary content used to generate the view including the personalization that led to the decision, if any. If views are loaded asynchronously in a way where they are not available immediately after a user navigates to a URL on the website, the view definition may follow from a separate patch event.",
                     "readonly": false,
                     "visibility": "public",
@@ -6511,7 +6511,7 @@ var index = {
             }
         },
         "SessionLocationEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#SessionLocationEvent.",
             "abstract": false,
             "readonly": false,
@@ -6519,7 +6519,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -6577,7 +6577,7 @@ var index = {
                     "required": false
                 },
                 "continent": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.37.0",
+                    "reference": "urn:tailjs:core#GeoEntity@0.37.2",
                     "description": "The continent is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -6588,7 +6588,7 @@ var index = {
                     "required": false
                 },
                 "country": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.37.0",
+                    "reference": "urn:tailjs:core#GeoEntity@0.37.2",
                     "description": "The country is considered safe to store with anonymous tracking.",
                     "readonly": false,
                     "visibility": "public",
@@ -6599,7 +6599,7 @@ var index = {
                     "required": false
                 },
                 "subdivision": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.37.0",
+                    "reference": "urn:tailjs:core#GeoEntity@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -6609,7 +6609,7 @@ var index = {
                     "required": false
                 },
                 "city": {
-                    "reference": "urn:tailjs:core#GeoEntity@0.37.0",
+                    "reference": "urn:tailjs:core#GeoEntity@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "indirect",
@@ -6621,7 +6621,7 @@ var index = {
             }
         },
         "AnchorNavigationEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#AnchorNavigationEvent.",
             "abstract": false,
             "readonly": false,
@@ -6629,7 +6629,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -6646,7 +6646,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -6665,7 +6665,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -6674,7 +6674,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -6683,7 +6683,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6692,7 +6692,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6712,7 +6712,7 @@ var index = {
             }
         },
         "ConsentEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#ConsentEvent.",
             "abstract": false,
             "readonly": false,
@@ -6720,7 +6720,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -6736,7 +6736,7 @@ var index = {
                     "purposes": {}
                 },
                 "consent": {
-                    "reference": "urn:tailjs:core#UserConsent@0.37.0",
+                    "reference": "urn:tailjs:core#UserConsent@0.37.2",
                     "readonly": false,
                     "visibility": "public",
                     "classification": "anonymous",
@@ -6746,7 +6746,7 @@ var index = {
             }
         },
         "CartUpdatedEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#CartUpdatedEvent.",
             "abstract": false,
             "readonly": false,
@@ -6754,7 +6754,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -6771,7 +6771,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -6790,7 +6790,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -6799,7 +6799,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -6808,7 +6808,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -6817,7 +6817,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -6854,7 +6854,7 @@ var index = {
                     "required": false
                 },
                 "variation": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.37.0",
+                    "reference": "urn:tailjs:core#ExternalReference@0.37.2",
                     "description": "The specific variant of the content if the item sold comes in different variations (e.g. red/green/purple).",
                     "readonly": false,
                     "visibility": "public",
@@ -6881,7 +6881,7 @@ var index = {
                     "required": false
                 },
                 "item": {
-                    "reference": "urn:tailjs:core#ExternalReference@0.37.0",
+                    "reference": "urn:tailjs:core#ExternalReference@0.37.2",
                     "description": "The item that relates to this quantity. If not explictly set it will get its value from the closest associated content in a  {@link  UserInteractionEvent }  context.",
                     "readonly": false,
                     "visibility": "public",
@@ -6907,7 +6907,7 @@ var index = {
             }
         },
         "OrderEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#OrderEvent.",
             "abstract": false,
             "readonly": false,
@@ -6915,7 +6915,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -6950,7 +6950,7 @@ var index = {
                 },
                 "items": {
                     "item": {
-                        "reference": "urn:tailjs:core#OrderLine@0.37.0"
+                        "reference": "urn:tailjs:core#OrderLine@0.37.2"
                     },
                     "description": "Optionally, all the items in the order at the time the order was made.",
                     "readonly": false,
@@ -7020,7 +7020,7 @@ var index = {
             }
         },
         "CartAbandonedEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#CartAbandonedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7028,7 +7028,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7063,7 +7063,7 @@ var index = {
                 },
                 "items": {
                     "item": {
-                        "reference": "urn:tailjs:core#OrderLine@0.37.0"
+                        "reference": "urn:tailjs:core#OrderLine@0.37.2"
                     },
                     "description": "Optionally, all the items in the order at the time the order was made.",
                     "readonly": false,
@@ -7142,7 +7142,7 @@ var index = {
             }
         },
         "OrderConfirmedEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#OrderConfirmedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7150,7 +7150,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7168,7 +7168,7 @@ var index = {
             }
         },
         "OrderCancelledEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#OrderCancelledEvent.",
             "abstract": false,
             "readonly": false,
@@ -7176,7 +7176,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7203,7 +7203,7 @@ var index = {
             }
         },
         "OrderCompletedEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#OrderCompletedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7211,7 +7211,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7229,7 +7229,7 @@ var index = {
             }
         },
         "PaymentAcceptedEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#PaymentAcceptedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7237,7 +7237,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7301,7 +7301,7 @@ var index = {
             }
         },
         "PaymentRejectedEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#PaymentRejectedEvent.",
             "abstract": false,
             "readonly": false,
@@ -7309,7 +7309,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7364,7 +7364,7 @@ var index = {
             }
         },
         "SignInEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#SignInEvent.",
             "abstract": false,
             "readonly": false,
@@ -7372,7 +7372,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7408,7 +7408,7 @@ var index = {
             }
         },
         "SignOutEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#SignOutEvent.",
             "abstract": false,
             "readonly": false,
@@ -7416,7 +7416,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7443,7 +7443,7 @@ var index = {
             }
         },
         "ImpressionEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#ImpressionEvent.",
             "abstract": false,
             "readonly": false,
@@ -7451,7 +7451,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7468,7 +7468,7 @@ var index = {
                 },
                 "components": {
                     "item": {
-                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.0"
+                        "reference": "urn:tailjs:core#ActivatedComponent@0.37.2"
                     },
                     "description": "Relevant components and content in the scope of the activated element.",
                     "readonly": false,
@@ -7487,7 +7487,7 @@ var index = {
                     "required": false
                 },
                 "timeOffset": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "The time the event happened relative to the view were it was generated.",
                     "readonly": false,
                     "visibility": "public",
@@ -7496,7 +7496,7 @@ var index = {
                     "required": false
                 },
                 "pos": {
-                    "reference": "urn:tailjs:core#ScreenPosition@0.37.0",
+                    "reference": "urn:tailjs:core#ScreenPosition@0.37.2",
                     "description": "The position where the user clicked / activation occurred relative to the document top as a percentage of the entire document height (not visible viewport if scrolled).",
                     "readonly": false,
                     "visibility": "public",
@@ -7505,7 +7505,7 @@ var index = {
                     "required": false
                 },
                 "viewport": {
-                    "reference": "urn:tailjs:core#Viewport@0.37.0",
+                    "reference": "urn:tailjs:core#Viewport@0.37.2",
                     "description": "The viewport of the user's browser when the event happened.",
                     "readonly": false,
                     "visibility": "public",
@@ -7514,7 +7514,7 @@ var index = {
                     "required": false
                 },
                 "element": {
-                    "reference": "urn:tailjs:core#ElementInfo@0.37.0",
+                    "reference": "urn:tailjs:core#ElementInfo@0.37.2",
                     "description": "Information about the activated element, if any.",
                     "readonly": false,
                     "visibility": "public",
@@ -7532,7 +7532,7 @@ var index = {
                     "required": false
                 },
                 "duration": {
-                    "reference": "urn:tailjs:core#ViewTimingData@0.37.0",
+                    "reference": "urn:tailjs:core#ViewTimingData@0.37.2",
                     "description": "For how long the component was visible. This counter starts after an impression has been detected.",
                     "readonly": false,
                     "visibility": "public",
@@ -7541,7 +7541,7 @@ var index = {
                     "required": false
                 },
                 "regions": {
-                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.37.0",
+                    "reference": "urn:tailjs:core#ImpressionEvent_regions_type@0.37.2",
                     "description": "Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.",
                     "readonly": false,
                     "visibility": "public",
@@ -7550,7 +7550,7 @@ var index = {
                     "required": false
                 },
                 "text": {
-                    "reference": "urn:tailjs:core#ImpressionTextStats@0.37.0",
+                    "reference": "urn:tailjs:core#ImpressionTextStats@0.37.2",
                     "description": "The length and number of words in the component's text. This combined with the active time can give an indication of how much the user read if at all.",
                     "readonly": false,
                     "visibility": "public",
@@ -7581,7 +7581,7 @@ var index = {
             }
         },
         "ResetEvent_patch": {
-            "version": "0.37.0",
+            "version": "0.37.2",
             "description": "Patch type for urn:tailjs:core#ResetEvent.",
             "abstract": false,
             "readonly": false,
@@ -7589,7 +7589,7 @@ var index = {
             "classification": "anonymous",
             "purposes": {},
             "extends": [
-                "urn:tailjs:core#TrackedEvent@0.37.0"
+                "urn:tailjs:core#TrackedEvent@0.37.2"
             ],
             "system": "patch",
             "properties": {
@@ -7628,7 +7628,7 @@ var index = {
     "variables": {
         "session": {
             "@info": {
-                "reference": "urn:tailjs:core#SessionInfo@0.37.0",
+                "reference": "urn:tailjs:core#SessionInfo@0.37.2",
                 "readonly": false,
                 "visibility": "trusted-write",
                 "classification": "anonymous",
@@ -7644,7 +7644,7 @@ var index = {
                 "dynamic": false
             },
             "@consent": {
-                "reference": "urn:tailjs:core#UserConsent@0.37.0",
+                "reference": "urn:tailjs:core#UserConsent@0.37.2",
                 "description": "User consent is a dynamic variable that is resolved by the Tracker and cannot be set.",
                 "readonly": false,
                 "visibility": "public",
@@ -7655,7 +7655,7 @@ var index = {
         },
         "device": {
             "@info": {
-                "reference": "urn:tailjs:core#DeviceInfo@0.37.0",
+                "reference": "urn:tailjs:core#DeviceInfo@0.37.2",
                 "readonly": false,
                 "visibility": "trusted-write",
                 "classification": "indirect",
@@ -7826,7 +7826,16 @@ class RequestHandler {
                     }
                     return extension;
                 }));
-                this.environment.log(this, "Request handler initialized.", "info");
+                this.environment.log(this, {
+                    level: "info",
+                    message: "Request handler initialized.",
+                    details: {
+                        config: {
+                            ...this._config,
+                            extensions: map2(this._extensions, (extension)=>extension.id)
+                        }
+                    }
+                });
             } catch (error) {
                 host.log(serializeLogMessage({
                     level: "error",
@@ -9305,7 +9314,7 @@ const DEFAULT = {
         purposes: {}
     },
     environment: {
-        idLength: 12
+        idLength: 10
     }
 };
 class SchemaBuilder {
@@ -10246,7 +10255,7 @@ class TrackerEnvironment {
         var _this;
         this.log(source, isString(message) ? message : (_this = error = message) === null || _this === void 0 ? void 0 : _this.message, "error", error);
     }
-    constructor(host, crypto, storage, { idLength = 12, tags, uidGenerator } = {}){
+    constructor(host, crypto, storage, { idLength = 10, tags, uidGenerator } = {}){
         _define_property$4(this, "_crypto", void 0);
         _define_property$4(this, "_host", void 0);
         _define_property$4(this, "_logGroups", new Map());

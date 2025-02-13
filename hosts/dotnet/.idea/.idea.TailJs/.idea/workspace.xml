@@ -12,59 +12,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1756235-4424-458f-b8f3-c8bf8d7b92a2" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/../../npm/examples/next/src/app/components/ConsentMonitor.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/useConsent.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.TailJs/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/engine.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/engine.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/ravendb.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/ravendb.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.js.map" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.debug.map.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tail.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tail.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tailjs-runtime-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tailjs-runtime-schema.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/TailJs/js/tailjs-schema.json" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tailjs-schema.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/tailjs-schema.md" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/tailjs-schema.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/transport.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/transport.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/TailJs/js/types.js" beforeDir="false" afterPath="$PROJECT_DIR$/core/TailJs/js/types.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/build/export-schema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/build/export-schema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/constants/constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/constants/constants.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/examples/next/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/next/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/examples/next/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/next/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/examples/next/src/app/components/Login.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/next/src/app/components/Login.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/examples/next/src/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/next/src/app/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/examples/next/tailjs.api.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/examples/next/tailjs.api.config.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../npm/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/commands/ConsentCommand.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/commands/ConsentCommand.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/extensions/consent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/extensions/consent.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/external.pkg/config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/external.pkg/config.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/external.pkg/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/external.pkg/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/interfaces/LocalVariables.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/interfaces/LocalVariables.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/interfaces/Tracker.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/interfaces/Tracker.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/TrackerVariableStorage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/TrackerVariableStorage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/shared-state.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/client/src/lib/shared-state.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/RequestHandler.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/RequestHandler.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/Tracker.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/Tracker.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/bootstrap.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/bootstrap.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/extensions/TrackerCoreEvents.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/engine/src/extensions/TrackerCoreEvents.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/node/src/DefaultLogger.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/node/src/DefaultLogger.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/src/RavenDbExtension.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/src/RavenDbExtension.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/src/RavenDbTarget.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/src/RavenDbTarget.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/src/RavenDbVariableStorage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/src/RavenDbVariableStorage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/tests/RavenDbVariableStorage.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ravendb/tests/RavenDbVariableStorage.test.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/Tracker.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/Tracker.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/useTrackerVariable.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/react/src/useTrackerVariable.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ts-json-schema-generator/src/PrivacyAnnotatedTypeFormatter.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ts-json-schema-generator/src/PrivacyAnnotatedTypeFormatter.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/ts-json-schema-generator/src/generateSchema.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/ts-json-schema-generator/src/generateSchema.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/DataPurposes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/DataPurposes.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/DataUsage.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/DataUsage.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/PostRequest.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/PostRequest.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/PostResponse.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/PostResponse.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/schema/adapters/markdown/MarkdownSchemaAdapter.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/schema/adapters/markdown/MarkdownSchemaAdapter.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/variables/VariableResultPromise.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/types/src/protocol/variables/VariableResultPromise.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/src/types/validation.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/src/types/validation.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/tests/accessors.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/packages/@tailjs/util/tests/accessors.test.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../npm/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../../npm/pnpm-lock.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -146,28 +100,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;.NET Launch Settings Profile.TailJs.Umbraco.Example: Umbraco.Web.UI.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;feature/data-access&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Projects/rlvedge/github/tailjs/hosts/dotnet/TailJs.sln&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.stylelint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.stylelint&quot;: &quot;&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;editor.preferences.fonts.default&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\niels\\AppData\\Local\\JetBrains\\Toolbox\\apps\\Rider\\ch-0\\241.15989.179\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    ".NET Launch Settings Profile.TailJs.Umbraco.Example: Umbraco.Web.UI.executor": "Run",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "develop",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "C:/Projects/rlvedge/github/tailjs/hosts/dotnet/TailJs.sln",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.stylelint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.stylelint": "",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "editor.preferences.fonts.default",
+    "ts.external.directory.path": "C:\\Users\\niels\\AppData\\Local\\JetBrains\\Toolbox\\apps\\Rider\\ch-0\\241.15989.179\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected=".NET Launch Settings Profile.TailJs.Umbraco.Example: Umbraco.Web.UI">
     <configuration name="TailJs.CodeGen" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />
@@ -246,7 +200,7 @@
       <workItem from="1738664288520" duration="601000" />
       <workItem from="1738666358033" duration="15777000" />
       <workItem from="1738815764749" duration="2202000" />
-      <workItem from="1739188854033" duration="14487000" />
+      <workItem from="1739188854033" duration="15978000" />
     </task>
     <task id="LOCAL-00001" summary="Adjusted project for new repo. Consumed latest event schema.">
       <option name="closed" value="true" />
