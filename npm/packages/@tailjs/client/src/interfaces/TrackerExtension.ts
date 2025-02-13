@@ -1,6 +1,5 @@
 import { TrackedEvent } from "@tailjs/types";
-import { TrackerCommand, Tracker } from "..";
-import { MaybePromise } from "@tailjs/util";
+import { Tracker, TrackerCommand } from "..";
 
 export type TrackerExtension = {
   /**

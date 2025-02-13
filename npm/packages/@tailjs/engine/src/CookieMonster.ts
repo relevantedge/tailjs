@@ -1,4 +1,4 @@
-import { forEach } from "@tailjs/util";
+import { forEach2 } from "@tailjs/util";
 import { ClientResponseCookie, Cookie, CookieConfiguration } from "./shared";
 
 const getCookieChunkName = (key: string, chunk?: number) =>
@@ -25,7 +25,7 @@ export class CookieMonster {
   ): ClientResponseCookie[] {
     const responseCookies: ClientResponseCookie[] = [];
 
-    forEach(cookies, ([key, cookie]: [string, Cookie]) => {
+    forEach2(cookies, ([key, cookie]: [string, Cookie]) => {
       // These are the chunks
       if (typeof key !== "string") return;
 

@@ -22,7 +22,7 @@ export interface PersonalizationSource extends ExternalReference {
 export interface PersonalizationVariant extends ExternalReference {
   /**
    * The aspects of the component or page the variant changed.
-   * There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time.
+   * There can multiple sources, e.g. a variant may both change the size of a component and change the content at the same time.
    */
   sources?: PersonalizationSource[];
   /**

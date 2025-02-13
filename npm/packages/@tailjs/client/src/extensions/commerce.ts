@@ -12,7 +12,6 @@ import {
   isString,
   last,
   nil,
-  push,
   type Nullish,
 } from "@tailjs/util";
 import { TrackerExtensionFactory, isCartCommand, isOrderCommand } from "..";

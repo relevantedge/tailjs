@@ -22,10 +22,6 @@ export default createClientConfiguration({
         };
       }
 
-      if (type === "div") {
-        return { component: { id: "OK" } };
-      }
-
       if (type === Link) {
         // Track NextJS links as a special kind of components.
         // (As an example of how you can test on component types)

@@ -1,4 +1,4 @@
-import type { Nullish } from ".";
+import type { IfNever, Nullish, Pretty } from ".";
 
 export type IsNever<T> = [T] extends [never] ? true : false;
 
@@ -203,6 +203,61 @@ export type ValueOrDefault<T, R, D = undefined> = T extends NonNullable<T>
  */
 export type OmitNullish<T, Default = never> = T extends Nullish ? Default : T;
 
+/** All keys of any type in a union */
+export type AllKeys<Ts> = Ts extends infer T
+  ? unknown extends T
+    ? keyof any
+    : keyof T
+  : never;
+
+/**
+ * Makes sure that each type in an intersection cannot have any property from another type unless the value is undefined.
+ *
+ * For example `{x: number}|{y:number}|{x:number,y:string}` becomes `{x:number, y?:undefined} | {y:number, x?:undefined} | {x:number, y:string}`.
+ */
+export type StrictUnion<
+  Options,
+  AllKeys extends keyof any = Options extends infer Option
+    ? keyof Option
+    : never
+> = Pretty<
+  Options extends infer Option
+    ? Option & { [P in Exclude<AllKeys, keyof Option>]?: undefined }
+    : never
+>;
+/**
+ * Version of Omit that restricts the keys to those actually keys of the type for safety during refactoring.
+ */
+export type OmitKeys<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+
+/**
+ * Removes the specified keys from each type in a union.
+ */
+export type OmitUnion<T, K extends AllKeys<T>> = T extends infer T
+  ? Omit<T, K>
+  : never;
+
+/**
+ * Denies any property of T that is not in Template.
+ * Can be used to require the return value of a function to strictly match a template.
+ */
+export type DenyExtraProperties<T, Template> = unknown extends Template
+  ? T
+  : unknown extends T
+  ? Template
+  : Template extends infer Template
+  ? Template & {
+      [P in keyof T]?: P extends keyof Template ? unknown : undefined;
+    }
+  : never;
+
+/**
+ * Picks the specified keys from each type in a union.
+ */
+export type PickUnion<T, K extends keyof any> = T extends infer T
+  ? Pick<T, K & keyof T>
+  : never;
+
 /**
  * The defined part of a type, excluding undefined and void (which is also undefined).
  * `null` is considered defined. Use {@link OmitNullish} if `null` should also not be removed.
@@ -252,3 +307,65 @@ export type ExcludeAny<T> = FunctionComparisonEquals<T, any> extends true
  * Goes with {@link Nulls} to simplify the expression.
  */
 export type ArgNulls<T, Arg> = (T | Nullish) & Arg;
+
+/** Used to identify the properties that contains a value type that should be transferred to another type.  */
+export const valueTypeMarker = Symbol();
+
+type PrimitiveType =
+  | void
+  | null
+  | undefined
+  | string
+  | number
+  | boolean
+  | bigint
+  | Symbol
+  | Date;
+
+/** Extracts the generic type using a template that marks the properties/functions where it is used with the {@link valueTypeMarker} symbol.  */
+export type ExtractGenericType<Source, Template> =
+  Template extends typeof valueTypeMarker
+    ? Source
+    : Source extends PrimitiveType
+    ? never
+    : Source extends (...args: any) => infer SourceReturn
+    ? Template extends (...args: any) => infer TargetReturn
+      ? ExtractGenericType<SourceReturn, TargetReturn>
+      : never
+    : {
+        [P in keyof Source]: P extends keyof Template
+          ? ExtractGenericType<Source[P], Template[P]>
+          : never;
+      }[keyof Source];
+
+/** Merges the generic type into a template using the {@link valueTypeMarker} symbol for the properties where it should be used.  */
+export type MergeGenericType<Template, GenericType> =
+  Template extends typeof valueTypeMarker
+    ? GenericType
+    : Template extends PrimitiveType
+    ? Template
+    : {
+        [P in keyof Template]: MergeGenericType<Template[P], GenericType>;
+      };
+
+/** Looks if the specified type matches a template in set of tuples containing a source and target template to identify and project a generic type value. */
+export type ProjectGenericTypeValue<
+  T,
+  Mappings extends readonly [any, any]
+> = unknown extends T
+  ? unknown
+  : T extends Nullish
+  ? undefined
+  : IfNever<
+      Mappings extends [infer SourceTemplate, infer TargetTemplate]
+        ? SourceTemplate extends infer SourceTemplate
+          ? T extends MergeGenericType<SourceTemplate, any>
+            ? MergeGenericType<
+                TargetTemplate,
+                ExtractGenericType<T, SourceTemplate>
+              >
+            : never
+          : never
+        : never,
+      undefined
+    >;

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { login } from "./actions";
 import { useTrackerVariable } from "@tailjs/react";
 import type { SessionInfo } from "@tailjs/types";
+import { useState } from "react";
+import { login } from "./actions";
 
 export const Login = () => {
   const [user, setUser] = useState("test-user");
@@ -29,9 +29,9 @@ export const Login = () => {
       </div>
       <div>
         <button
-          onClick={async () => {
+          onClick={async (e) => {
             console.log("Login response: ", await login(user));
-            await refresh();
+            e.preventDefault();
           }}
         >
           Login

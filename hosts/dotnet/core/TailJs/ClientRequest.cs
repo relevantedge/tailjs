@@ -28,7 +28,7 @@ public class ClientRequest
     Url = url;
     Headers = (
       headers as IReadOnlyDictionary<string, string>
-      ?? (headers?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new())
+      ?? (headers?.ToDictionary(kv => kv.Key.ToLowerInvariant(), kv => kv.Value) ?? new())
     ).ToPropertyBag();
 
     ClientIp = clientIp;

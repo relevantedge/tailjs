@@ -1,4 +1,5 @@
 import {
+  IDENTITY,
   If,
   MaybeUndefined,
   Nullable,
@@ -7,7 +8,7 @@ import {
   isArray,
   isBoolean,
   isString,
-  join,
+  join2,
   map,
   nil,
   undefined,
@@ -60,7 +61,7 @@ export const match: {
     selector: (...args: (string | undefined)[]) => R | Nullish,
     collect?: Collect
   ): MaybeUndefined<Nulls, If<Collect, ConstToNormal<R>[], R | undefined>>;
-  (s: string | Nullish, match: RegExp | Nullish): RegExpMatchArray | null;
+  (s: string | Nullish, match: RegExp | Nullish): RegExpMatchArray | undefined;
 } = <R>(
   s: string,
   regex: RegExp,
@@ -86,7 +87,7 @@ export const match: {
             (...args) => (matchProjection = selector(...args)) as any
           ),
       matchProjection)
-    : s.match(regex);
+    : s.match(regex) ?? undefined;
 
 /**
  * Replaces reserved characters to get a regular expression that matches the string.
@@ -98,7 +99,7 @@ export const escapeRegEx = <T extends string | Nullish>(
 
 const REGEX_NEVER = /\z./g;
 const unionOrNever = (parts: (string | Nullish)[], joined?: string) =>
-  (joined = join(distinct(filter(parts, (part) => part?.length)), "|"))
+  (joined = join2(distinct(filter(parts, (part) => part?.length)), "|"))
     ? new RegExp(joined, "gu")
     : REGEX_NEVER;
 
@@ -134,12 +135,12 @@ export const parseRegex = <T>(
                   split(
                     text!,
                     new RegExp(
-                      `(?<!(?<!\\\\)\\\\)[${join(separators, escapeRegEx)}]`
+                      `(?<!(?<!\\\\)\\\\)[${join2(separators, escapeRegEx)}]`
                     )
                   ),
                   (text) =>
                     text &&
-                    `^${join(
+                    `^${join2(
                       // Split on non-escaped asterisk (Characterized by a leading backslash that is not itself an escaped backslash).
                       split(text, /(?<!(?<!\\)\\)\*/),
                       (part) =>
@@ -160,8 +161,14 @@ export const parseRegex = <T>(
  */
 export const split = <T extends string | Nullish>(
   s: T,
-  separator: RegExp | string
-): MaybeUndefined<T, string[]> => s?.split(separator) ?? (s as any);
+  separator: RegExp | string,
+  trim = true
+): MaybeUndefined<T, string[]> =>
+  s == null
+    ? undefined
+    : trim
+    ? split(s, separator, false)!.filter(IDENTITY)
+    : (s.split(separator) as any);
 
 /**
  * Better minifyable version of `String`'s `replace` method that allows a null'ish parameter.

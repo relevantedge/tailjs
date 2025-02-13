@@ -1,4 +1,3 @@
-import { Tracker } from "@tailjs/engine";
 import {
   DisposableTracker,
   TailJsMiddlewareConfiguration,
@@ -7,7 +6,7 @@ import {
   addTailJsConfiguration,
   createServerContext,
 } from "@tailjs/node";
-import { headers, cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 // The import is required for d.ts generation to work(?!).
 import { NextApiHandler } from "next";

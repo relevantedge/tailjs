@@ -1,6 +1,6 @@
 {
   "name": "@tailjs/json-schema",
-  "description": "JSON schema support for tail.js",
+  "description": "This package is no longer used.",
   "license": "LGPL3",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

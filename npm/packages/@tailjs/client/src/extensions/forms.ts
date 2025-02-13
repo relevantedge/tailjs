@@ -1,15 +1,17 @@
 import { FormEvent, FormField, Timestamp } from "@tailjs/types";
 import {
   T,
+  ansi,
   createTimeout,
   ellipsis,
-  forEach,
-  get,
-  map,
+  forEach2,
+  get2,
   nil,
   now,
   parseBoolean,
   replace,
+  some2,
+  tryCatch,
   type Nullish,
 } from "@tailjs/util";
 import {
@@ -21,8 +23,11 @@ import {
 } from "..";
 import {
   NodeWithParentElement,
+  addPageLoadedListener,
   attr,
+  debug,
   getRect,
+  isVisible,
   listen,
   scopeAttribute,
   trackerFlag,
@@ -52,6 +57,9 @@ const currentValue = Symbol();
 type FormFieldState = FormField & {
   [currentValue]: string;
 };
+
+/** The time waited after a form submit event to test if it still there, which is assumed to indicate that there are validation errors. */
+const VALIDATION_ERROR_TIMEOUT = 1750;
 
 export const forms: TrackerExtensionFactory = {
   id: "forms",
@@ -91,11 +99,14 @@ export const forms: TrackerExtensionFactory = {
         scopeAttribute(formElement, trackerPropertyName("ref")) || "track_ref";
 
       const parseElements = () => {
-        map(
+        forEach2(
           formElement.querySelectorAll(
-            "INPUT,SELECT,TEXTAREA"
+            "INPUT,SELECT,TEXTAREA,BUTTON"
           ) as any as Iterable<FormElement>,
           (el, i) => {
+            if (el.tagName === "BUTTON" && el.type !== "submit") {
+              return;
+            }
             if (!el.name || el.type === "hidden") {
               if (
                 el.type === "hidden" &&
@@ -133,7 +144,7 @@ export const forms: TrackerExtensionFactory = {
       const isFormVisible = () =>
         formElement.isConnected && getRect(formElement).width;
 
-      const state = get(formEvents, formElement, () => {
+      const state = get2(formEvents, formElement, () => {
         const fieldMap = new Map<Element, FormFieldState>();
         const ev: FormEvent = {
           type: "form",
@@ -156,14 +167,21 @@ export const forms: TrackerExtensionFactory = {
 
         let state: FormState;
         const commitEvent = () => {
+          if (state[3] === FormFillState.Submitted) {
+            // The final form event has already been submitted.
+            return;
+          }
           handleLostFocus(); // focusout or change events may not be called when the user leaves the page while a field has focus.
 
           // If the form has disappeared it is heuristically assumed it was submitted successfully.
-          state[3] >= FormFillState.Pending &&
-            (ev.completed =
-              state[3] === FormFillState.Submitting || !isFormVisible());
+          if (state[3] >= FormFillState.Pending) {
+            ev.completed =
+              state[3] === FormFillState.Submitting || !isFormVisible();
+          }
+
           tracker.events.postPatch(ev, {
             ...capturedContext,
+            completed: ev.completed,
             totalTime: now(T) - state[4],
           });
 
@@ -172,26 +190,119 @@ export const forms: TrackerExtensionFactory = {
 
         const commitTimeout = createTimeout();
 
-        listen(formElement, "submit", () => {
-          capturedContext = getComponentContext(formElement);
-          state[3] = FormFillState.Submitting;
+        const isReCaptchaActive = () => {
+          let probeDoc: Document | undefined = formElement.ownerDocument;
+          while (probeDoc) {
+            if (
+              some2(
+                probeDoc.querySelectorAll("iframe"),
+                (frame) =>
+                  frame.src.match(
+                    // reCAPTCHA challenge URLs are like `https://www.google.com/recaptcha/(something)/bframe?(something)`
+                    // There may be other iframes with `recaptcha` in the URL, but that is typically the "badge" shown in some forms.
+                    /https:\/\/www.google.com\/.*(?<=\/)recaptcha\/.*(?<=\/)bframe/gi
+                  ) && isVisible(frame)
+              )
+            ) {
+              return true;
+            }
 
-          commitTimeout(() => {
-            // If the form disappears within 750 ms but no navigation happens it is assumed that it was "submitted" somehow, e.g. via AJAX.
-            // This heuristic may result in false positives if the user clicks submit, gets validation errors and then leaves the site instantly.
-            //
-            // If the server is aggressively slow to respond to a post and the for goes back into pending state,
-            // it is undefined whether the submit happened or not, if the user leaves the site before the server responds.
-            // In this case it will count as abandonment.
+            // Walk up the frames. The dialog may have been injected into the main window.
+            probeDoc = tryCatch(
+              () => probeDoc!.defaultView?.frameElement?.ownerDocument,
+              () => undefined
+            );
+          }
+          return false;
+        };
 
-            if (formElement.isConnected && getRect(formElement).width > 0) {
-              state[3] = FormFillState.Pending;
-              commitTimeout();
+        listen(
+          formElement.ownerDocument.body,
+          "submit",
+          (submitEvent) => {
+            capturedContext = getComponentContext(formElement);
+            state[3] = FormFillState.Submitting;
+
+            if (submitEvent.defaultPrevented) {
+              // Might be XHR. If so, the default would have been prevented.
+              // However, we must wait and see if the form disappears, otherwise, it could also be validation errors.
+              const [unbindNavigationListener] = addPageLoadedListener(
+                (loaded) => {
+                  if (loaded) return;
+
+                  // If the browser navigates while waiting, this is also considered a submit.
+                  if (recaptcha) {
+                    debug(
+                      `The browser is navigating to another page after submit leaving a reCAPTCHA challenge. ${ansi(
+                        "Form not submitted",
+                        1
+                      )}`
+                    );
+                  } else if (state[3] === FormFillState.Submitting) {
+                    debug(
+                      `The browser is navigating to another page after submit. ${ansi(
+                        "Form submitted",
+                        1
+                      )}`
+                    );
+                    commitEvent();
+                  } else {
+                    debug(
+                      `The browser is navigating to another page after submit, but submit was earlier cancelled because of validation errors. ${ansi(
+                        "Form not submitted.",
+                        1
+                      )}`
+                    );
+                  }
+                  unbindNavigationListener();
+                }
+              );
+              let recaptcha = false;
+              commitTimeout(() => {
+                if (isReCaptchaActive()) {
+                  state[3] = FormFillState.Pending;
+                  debug("reCAPTCHA challenge is active.");
+                  recaptcha = true;
+                  return true;
+                }
+                if (recaptcha) {
+                  recaptcha = false;
+                  debug("reCAPTCHA challenge ended (for better or worse).");
+                  state[3] = FormFillState.Submitting;
+                }
+                if (formElement.isConnected && getRect(formElement).width > 0) {
+                  state[3] = FormFillState.Pending;
+                  debug(
+                    `Form is still visible after ${VALIDATION_ERROR_TIMEOUT} ms, validation errors assumed. ${ansi(
+                      "Form not submitted",
+                      1
+                    )}`
+                  );
+                  unbindNavigationListener();
+                } else {
+                  debug(
+                    `Form is no longer visible ${VALIDATION_ERROR_TIMEOUT} ms after submit. ${ansi(
+                      "Form submitted",
+                      1
+                    )}`
+                  );
+                  commitEvent();
+                  unbindNavigationListener();
+                }
+              }, VALIDATION_ERROR_TIMEOUT);
+              return;
             } else {
+              debug(
+                `Submit event triggered and default not prevented. ${ansi(
+                  "Form submitted",
+                  1
+                )}`
+              );
               commitEvent();
             }
-          }, 750);
-        });
+          },
+          { capture: false }
+        );
 
         return (state = [
           ev,
@@ -202,7 +313,7 @@ export const forms: TrackerExtensionFactory = {
           1,
         ]);
       });
-      if (!get(state[1], el)) {
+      if (!state[1].get(el)) {
         // This will also be the case if a new field was added to the DOM.
         parseElements();
       }
@@ -234,7 +345,7 @@ export const forms: TrackerExtensionFactory = {
         field.filled = T;
 
         state[3] = FormFillState.Pending;
-        forEach(
+        forEach2(
           form.fields!,
           ([name, value]) => (value.lastField = name === field.name)
         );

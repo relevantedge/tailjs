@@ -75,11 +75,11 @@ export interface TraverseOptions<T, Context>
   context?: Context;
 }
 
-export interface TraverseContext<T = any, C = any, N = ReactNode>
+export interface TraverseContext<T = any, C = any>
   extends TraverseFunctions<T, C> {
   state: T | null;
-  node: N;
-  parent: TraverseContext<T, C, TraversableElement> | null;
+  el: TraversableElement;
+  parent: TraverseContext<T, C> | null;
   context: C;
   depth: number;
   debug?: boolean;
@@ -102,7 +102,7 @@ const createInitialContext = <T, C = undefined>(
 ): TraverseContext<T, C> => ({
   ...options,
   state: options.initialState ?? null,
-  node,
+  el: node! as TraversableElement,
   parent: null,
   component: null,
   context: options.context as any,
@@ -130,16 +130,86 @@ function getOrSet<K, V>(
 const isTraversable = (el: any): el is TraversableElement =>
   el && (Array.isArray(el) || isValidElement(el) || isLazy(el));
 
-function mergeProperties(target: any, source: any) {
+function mergeProperties(
+  target: any,
+  source: any,
+  overwrite: Record<string, boolean> = { name: true }
+) {
   for (const [name, value] of Object.entries(
     Object.getOwnPropertyDescriptors(source)
   )) {
-    if (Object.getOwnPropertyDescriptor(target, name)) {
+    const own = Object.getOwnPropertyDescriptor(target, name);
+    if (own && (!own.configurable || !overwrite[name])) {
       continue;
     }
     Object.defineProperty(target, name, { ...value, configurable: true });
   }
   return target;
+}
+
+function createChildContext<T, C>(
+  el: TraversableElement,
+  parentContext: TraverseContext<T, C>
+) {
+  let state = parentContext.mapState(
+    // Make sure there are props, to allow destructuring without weird edge case undefined errors.
+    el.props ? el : { ...el, props: {} },
+    parentContext.state,
+    parentContext
+  );
+
+  const component =
+    typeof el.type === "function" ? el : parentContext.component;
+
+  const childContext: TraverseContext<T, C> = {
+    ...parentContext,
+    state,
+    el,
+    parent: parentContext as any,
+    depth: parentContext.depth + 1,
+    component,
+  };
+
+  const patched = parentContext.patchProperties?.(
+    el,
+    parentContext.state,
+    state,
+    parentContext.context
+  );
+
+  if (patched === false) {
+    // Do not traverse the element further.
+    return undefined;
+  } else if (patched) {
+    if (patched.state) {
+      childContext.state = patched.state;
+    }
+    if (patched.props || patched.ref) {
+      const currentRef = el.ref;
+      const patchedRef = patched.ref;
+      childContext.el = {
+        ...el,
+        props: patched.props ?? el.props,
+        ref: patchedRef
+          ? currentRef // Combine the current and new refs
+            ? typeof currentRef === "function"
+              ? (el) => (patchedRef(el), currentRef(el))
+              : ({
+                  get current() {
+                    return currentRef.current;
+                  },
+                  set current(el) {
+                    patchedRef(el);
+                    currentRef.current = el;
+                  },
+                } as any)
+            : patchedRef
+          : currentRef,
+      };
+    }
+  }
+
+  return childContext;
 }
 
 const mapCache = new WeakMap<any, any>();
@@ -203,63 +273,11 @@ export function traverseNodesInternal<T, C>(
       return traverseLazy(el, true, parentContext);
     }
 
-    let state = parentContext.mapState(
-      // Make sure there are props, to allow destructuring without weird edge case undefined errors.
-      el.props ? el : { ...el, props: {} },
-      parentContext.state,
-      parentContext
-    );
-
-    const component =
-      typeof el.type === "function" ? el : parentContext.component;
-
-    const childContext: TraverseContext<T, C> = {
-      ...parentContext,
-      state,
-      node,
-      parent: parentContext as any,
-      depth: parentContext.depth + 1,
-      component,
-    };
-
-    const patched = parentContext.patchProperties?.(
-      el,
-      parentContext.state,
-      state,
-      parentContext.context
-    );
-
-    if (patched === false) {
-      // Do not traverse the element further.
+    const childContext = createChildContext(el, parentContext);
+    if (!childContext) {
       return el;
-    } else if (patched) {
-      if (patched.state) {
-        childContext.state = patched.state;
-      }
-      if (patched.props || patched.ref) {
-        const currentRef = el.ref;
-        const patchedRef = patched.ref;
-        el = {
-          ...el,
-          props: patched.props ?? el.props,
-          ref: patchedRef
-            ? currentRef // Combine the current and new refs
-              ? typeof currentRef === "function"
-                ? (el) => (patchedRef(el), currentRef(el))
-                : ({
-                    get current() {
-                      return currentRef.current;
-                    },
-                    set current(el) {
-                      patchedRef(el);
-                      currentRef.current = el;
-                    },
-                  } as any)
-              : patchedRef
-            : currentRef,
-        };
-      }
     }
+    el = childContext.el;
 
     const wrapped = wrapType(el.type, parentContext);
 
@@ -289,10 +307,18 @@ const traverseLazy = (
       if (forElement) {
         lazy._payload.value = traverseNodesInternal(value, context);
       } else if (!context.ignoreType?.(value)) {
-        lazy._payload.value =
-          wrapType(value, context) ??
-          (({ [CONTEXT_PROPERTY]: context }: any = {}) =>
-            traverseNodesInternal(value, context));
+        const wrapped = wrapType(value, context);
+        if (!wrapped) {
+          lazy._payload.value = ({ [CONTEXT_PROPERTY]: context }: any = {}) =>
+            traverseNodesInternal(value, context);
+        } else {
+          lazy._payload.value = (props) => {
+            return traverseNodesInternal(
+              React.createElement(value, props),
+              props[CONTEXT_PROPERTY]
+            );
+          };
+        }
       }
     };
     if (lazy._payload.status === "fulfilled") {
@@ -305,9 +331,12 @@ const traverseLazy = (
   });
 };
 
+const ignoreType = (type: any, context: TraverseContext) =>
+  !type || context.ignoreType?.(type);
+
 const IS_WRAPPED = Symbol();
 function wrapType(type: any, context: TraverseContext) {
-  if (!type || context.ignoreType?.(type)) {
+  if (ignoreType(type, context)) {
     return;
   }
 
@@ -364,14 +393,20 @@ function wrapType(type: any, context: TraverseContext) {
 
 function wrapRender(
   type: any,
-  { [CONTEXT_PROPERTY]: context, ...props }: any = {},
+  props: any = {},
   inner: (props: any) => any = type
 ) {
+  let context = props[CONTEXT_PROPERTY] as TraverseContext;
+
   // Get context from the injected properties.
   // Also, remove it before the props are passed to the wrapped component lest it gets confused by an extra, unexpected property.
   if (!context) {
     return inner.call(type, props);
   }
+
+  // if (context.el.type !== type) {
+  //   context = createChildContext({ ...context.el, type }, context.parent!)!;
+  // }
 
   if (context.state != null) {
     context.componentRefreshed?.(type, context.state, props, context.context);
@@ -380,14 +415,10 @@ function wrapRender(
   let innerResult = inner.call(type, props);
 
   const render = (innerResult: any) => {
-    currentContext = context;
-
     try {
       return traverseNodesInternal(innerResult, context);
     } catch (e) {
       console.error("traverseNodesInternal failed: ", e);
-    } finally {
-      currentContext = null;
     }
   };
 

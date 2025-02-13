@@ -1,14 +1,10 @@
 import {
-  IteratorAction,
-  IteratorSource,
   MINUTE,
   MaybeUndefined,
   Nullish,
-  filter,
-  forEach,
+  forEach2,
   isArray,
   isBoolean,
-  isFunction,
   isIterable,
   isNumber,
   isObject,
@@ -17,6 +13,7 @@ import {
   push,
   replace,
   round,
+  symbolIterator,
   undefined,
 } from ".";
 
@@ -52,36 +49,6 @@ export const changeIdentifierCaseStyle = (
         ))
   );
 
-export type EnumerationSeparators = string | [last: string, other?: string];
-
-/**
- * Creates a string enumerating a list of value given a separator, optionally using a different separator between the last two items.
- *
- * @param values - The list of items to enumerator.
- * @param separator - The separator to use (defaults to ", "). If given a tuple, the first item is the last separator without spaces.
- * The second item may optionally specify another separator than the default (", ").
- *
- *
- * Useful for enumerations like "item1, item2 and item 3" (`separate(["item1", "item2", "item3"], ["and"])`).
- */
-export const enumerate = (
-  values: any[] | undefined,
-  separator: EnumerationSeparators = ["and", ", "]
-) =>
-  !values
-    ? undefined
-    : (values = map(values)).length === 1
-    ? values[0]
-    : isArray(separator)
-    ? [
-        values.slice(0, -1).join(separator[1] ?? ", "),
-        " ",
-        separator[0],
-        " ",
-        values[values.length - 1],
-      ].join("")
-    : values.join(separator ?? ", ");
-
 /**
  * Pluralizes a noun using standard English rules.
  * It is not very smart, so if the plural form is not just adding an "s" in the end unless the singular form already ends with "s",
@@ -111,7 +78,7 @@ export const pluralize = <
     ? undefined!
     : n === 1
     ? singular
-    : plural ?? singular + "s";
+    : plural ?? (singular === "is" ? "are" : singular + "s");
 
 let ansiSupported = true;
 
@@ -166,7 +133,7 @@ const prettyPrint = (
     ansi(value === undefined ? "(undefined)" : "(null)", "37;2", buffer);
   } else if (isIterable(value)) {
     wrap("[", "]", (buffer) =>
-      forEach(
+      forEach2(
         value,
         (value) => (
           indent(buffer, indents),
@@ -176,7 +143,7 @@ const prettyPrint = (
     );
   } else if (isObject(value)) {
     wrap("{", "}", (buffer) =>
-      forEach(
+      forEach2(
         value,
         ([key, value]) => (
           indent(buffer, indents + 1),
@@ -249,50 +216,27 @@ export const snakeCase = <S extends string | Nullish>(
     ((prev ? prev + "-" : "") + p).toLowerCase()
   ) as any;
 
-export const quote = <T>(item: T, quoteChar = "'"): MaybeUndefined<T, string> =>
-  item == null ? (undefined as any) : quoteChar + item + quoteChar;
+export const quote = <T>(
+  item: T,
+  quoteChar = "'"
+): MaybeUndefined<T, T extends Iterable<any> ? string[] : string> =>
+  item == null
+    ? (undefined as any)
+    : item[symbolIterator]
+    ? map(item, (item) => quote(item, quoteChar))
+    : quoteChar + item + quoteChar;
 
 export const ellipsis = <T extends string | Nullish>(
   text: T,
-  maxLength: number
+  maxLength: number,
+  debug = false
 ): T =>
-  text && ((text.length > maxLength ? text.slice(0, -1) + "…" : text) as any);
-
-export const join: {
-  /**
-   *  Joins the specified items with a separator (default is "").
-   *  If the source is a string it will be returned as is.
-   *
-   *  The value `false` will be omitted to help syntax like `[condition && "yes"]`.   .
-   */
-  <S extends IteratorSource | string>(
-    source: S,
-    separator?: string | readonly [string, string]
-  ): MaybeUndefined<S, string>;
-
-  /**
-   * Joins the projection of the specified items with a separator (default is "").
-   * If the source is a string it will be considered an array with the string as its single element.
-   */
-  <S extends IteratorSource | string>(
-    source: S,
-    projection: IteratorAction<S extends string ? [string] : S>,
-    separator?: EnumerationSeparators
-  ): MaybeUndefined<S, string>;
-} = (source: any, projection: any, sep?: any) =>
-  source == null
-    ? undefined
-    : isFunction(projection)
-    ? enumerate(
-        map(isString(source) ? [source] : source, projection),
-        sep ?? ""
-      )
-    : isString(source)
-    ? source
-    : enumerate(
-        map(source, (item) => (item === false ? undefined : item)),
-        projection ?? ""
-      );
+  text &&
+  ((text.length > maxLength
+    ? debug
+      ? `${text.slice(0, maxLength)}... [and ${text.length - maxLength} more]`
+      : text.slice(0, maxLength - 1) + "…"
+    : text) as any);
 
 /** Word statistics for a text. */
 export type TextStats = {

@@ -31,7 +31,8 @@ export const PLACEHOLDER_SCRIPT: <Quote extends boolean = false>(
   quote: boolean
 ) => {
   if (quote) {
-    return `(window.${trackerName}??=c=>${trackerName}._?.push(c) ?? ${trackerName}(c))._=[];`;
+    const reference = `window[${JSON.stringify(trackerName)}]`;
+    return `(${reference}??=c=>${reference}._?.push(c) ?? ${reference}(c))._=[];`;
   }
 
   (globalThis[trackerName] ??= (c: any) =>

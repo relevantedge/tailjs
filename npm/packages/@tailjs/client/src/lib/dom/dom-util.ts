@@ -14,11 +14,10 @@ import {
   Nullable,
   T,
   Unbinder,
-  array,
-  concat,
+  array2,
   createEventBinders,
   createTimeout,
-  forEach,
+  forEach2,
   isArray,
   nil,
   parseBoolean,
@@ -290,13 +289,30 @@ export const getPos = <Nulls>(
     : (undefined as any);
 };
 
+export const isVisible = (el: Element | Nullish) => {
+  if (!el || !el.isConnected || getRect(el, false).width <= 0) return false;
+  while (el) {
+    const style = (el.ownerDocument.defaultView as Window)?.getComputedStyle(
+      el
+    );
+
+    if (style.visibility === "hidden" || style.opacity === "0") {
+      return false;
+    }
+    el = el.parentElement;
+  }
+
+  return true;
+};
+
 let rect: DOMRect;
 export const getRect = <Nulls>(
-  el: Nullable<Element, Nulls>
+  el: Nullable<Element, Nulls>,
+  includeScroll = true
 ): MaybeUndefined<Nulls, Rectangle> =>
   el
     ? ((rect = el.getBoundingClientRect()),
-      (pos = scrollPos(F)),
+      (pos = includeScroll ? scrollPos(F) : { x: 0, y: 0 }),
       {
         x: round(rect.left + pos.x),
         y: round(rect.top + pos.y),
@@ -333,20 +349,25 @@ export const listen = <K extends keyof AllMaps>(
   ) => any,
   options: AddEventListenerOptions = { capture: true, passive: true }
 ): Binders => {
-  name = array(name) as any;
+  name = array2(name) as any;
   return createEventBinders(
     listener,
     (listener) =>
-      forEach(name, (name) => target.addEventListener(name, listener, options)),
+      forEach2(name, (name) =>
+        target.addEventListener(name, listener, options)
+      ),
     (listener) =>
-      forEach(name, (name) =>
+      forEach2(name, (name) =>
         target.removeEventListener(name, listener, options)
       )
   );
 };
 
 export const parseDomain = (href: string): Domain => {
-  const { host, scheme, port } = parseUri(href, false, true);
+  const { host, scheme, port } = parseUri(href, {
+    delimiters: false,
+    requireAuthority: true,
+  });
   return { host: host + (port ? ":" + port : ""), scheme };
 };
 

@@ -24,7 +24,7 @@ export * from "./scanComponents";
 
 export * from "./TrackerVariableStorage";
 
-export * from "./EventQueue";
+export * from "./eventQueue";
 
 export * from "./ImpressionObserver";
 

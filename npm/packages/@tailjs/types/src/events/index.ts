@@ -24,7 +24,7 @@ export * from "./OrderEvent";
 export * from "./CartAbandonedEvent";
 export * from "./OrderStatusEvent";
 export * from "./PaymentEvent";
-export * from "./AuthenticationEvent";
+export * from "./SignInEvent";
 export * from "./SystemEvent";
 
 export * from "./ImpressionEvent";

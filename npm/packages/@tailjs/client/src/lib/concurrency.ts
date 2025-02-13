@@ -33,7 +33,7 @@ export const sharedLock = (
       localStorage.getItem(lockId)
     );
 
-  let intervalId = 0;
+  let intervalId: any = 0;
   const renew = () =>
     localStorage.setItem(
       lockId,

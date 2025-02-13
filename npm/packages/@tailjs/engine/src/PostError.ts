@@ -1,9 +1,11 @@
-import { map } from "@tailjs/util";
-import { ValidationError } from "./shared";
+import { map2 } from "@tailjs/util";
+import { ValidationErrorResult } from "./shared";
 
 export class PostError extends Error {
   constructor(
-    public readonly validation: (ValidationError & { sourceIndex?: number })[],
+    public readonly validation: (ValidationErrorResult & {
+      sourceIndex?: number;
+    })[],
     public readonly extensions: Record<string, Error>
   ) {
     super(
@@ -16,7 +18,7 @@ export class PostError extends Error {
                 : "no source index"
             }) is invalid: ${item.error}`
         ),
-        ...map(extensions, (item) => `'${item[0]}' failed: ${item[1]}`),
+        ...map2(extensions, (item) => `'${item[0]}' failed: ${item[1]}`),
       ].join("\n")
     );
   }

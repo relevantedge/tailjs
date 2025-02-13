@@ -6,12 +6,18 @@ import {
 } from "./shared";
 
 import type { TrackerClientConfiguration } from "@tailjs/client";
-import { JsonObject, map } from "@tailjs/util";
+import { Tag } from "@tailjs/types";
+import { Falsish, map2, skip2 } from "@tailjs/util";
 
 export interface BootstrapSettings
   extends Pick<
     RequestHandlerConfiguration,
-    "cookies" | "defaultConsent" | "json"
+    | "cookies"
+    | "defaultConsent"
+    | "json"
+    | "storage"
+    | "schemas"
+    | "environment"
   > {
   /** The host implementation to use.  */
   host: EngineHost;
@@ -23,12 +29,11 @@ export interface BootstrapSettings
    */
   endpoint?: string;
 
-  /** A list of schemas. If a string is provided it is interpreted as a path and will get loaded from resources. */
-  schemas?: (string | JsonObject)[];
-
   /** {@link TrackerExtension}s that are loaded into the request handler.  */
   extensions?: Iterable<
-    TrackerExtension | (() => Promise<TrackerExtension> | TrackerExtension)
+    | Falsish
+    | TrackerExtension
+    | (() => Promise<TrackerExtension> | TrackerExtension)
   >;
 
   /**
@@ -58,7 +63,7 @@ export interface BootstrapSettings
    * If your deployment has multiple servers or environments, this can be used to identify them in the collected data.
    * These tags will only be added to {@link SessionStartedEvent}s.
    */
-  environmentTags?: string[];
+  environmentTags?: Tag[];
 
   /**
    * Configuration for the client script.
@@ -72,11 +77,11 @@ export function bootstrap({
   schemas,
   cookies,
   extensions,
+  storage,
   json,
-  allowUnknownEventTypes,
   encryptionKeys,
   debugScript,
-  environmentTags,
+  environment,
   defaultConsent,
 }: BootstrapSettings) {
   return new RequestHandler({
@@ -84,17 +89,19 @@ export function bootstrap({
     schemas,
     endpoint,
     cookies,
-    allowUnknownEventTypes,
     extensions:
-      map(extensions, (extension) =>
-        typeof extension === "function"
+      map2(extensions, (extension) =>
+        !extension
+          ? skip2
+          : typeof extension === "function"
           ? extension
           : async () => extension as any
       ) ?? [],
+    storage,
     json,
     encryptionKeys,
     debugScript,
-    environmentTags,
+    environment,
     defaultConsent,
   });
 }

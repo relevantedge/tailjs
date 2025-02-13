@@ -72,6 +72,13 @@ export const build = async (
   await Promise.all(
     options.map(async (config, i) => {
       if (!config.output) return;
+      if (watchMode) {
+        config.watch = {
+          ...config.watch,
+          chokidar: {},
+          exclude: "node_modules/**",
+        };
+      }
 
       const isTypes = (config.plugins as any)?.some(
         (plugin: any) => plugin.name === "dts"

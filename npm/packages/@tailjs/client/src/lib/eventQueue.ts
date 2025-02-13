@@ -12,20 +12,22 @@ import {
   F,
   Nullish,
   ToggleArray,
-  array,
+  array2,
   clock,
   clone,
   concat,
   count,
   diff,
-  forEach,
+  forEach2,
   isString,
-  map,
+  itemize2,
+  map2,
   merge,
+  merge2,
   now,
   pluralize,
   push,
-  enumerate,
+  skip2,
   structuralEquals,
   throwError,
   unshift,
@@ -48,11 +50,11 @@ export interface EventQueuePostOptions {
 
 export type ProtectedEvent = TrackedEvent & UnlockApiCommand;
 
-const postCallback = Symbol();
+const postCallbacks = Symbol();
 export const registerPostCallback = <T extends TrackedEvent>(
   ev: T,
   callback: (ev: T) => boolean | void
-) => ((ev[postCallback] = callback), ev);
+) => ((ev[postCallbacks] ??= new Set()).add(callback), ev);
 
 export interface EventQueue {
   /**
@@ -122,6 +124,10 @@ export const createEventQueue = (
           patchTargetId: sourceEvent.clientId,
         }) as any);
 
+  const updateSnapshot = (ev: ProtectedEvent) => {
+    snapshots.set(ev, clone(ev));
+  };
+
   const registerEventPatchSource = <T extends ProtectedEvent>(
     sourceEvent: ProtectedEvent,
     source: EventPatchSource<T>,
@@ -132,16 +138,24 @@ export const createEventQueue = (
     const unbind = (): undefined => {
       unbinding = true;
     };
-    snapshots.set(sourceEvent, clone(sourceEvent));
+    updateSnapshot(sourceEvent);
+    registerPostCallback(sourceEvent, updateSnapshot);
     const factory: Factory = () => {
       if (relatedNode?.isConnected === false) {
         unbind();
       } else {
         const snapshot = snapshots.get(sourceEvent);
-        let [delta, current] = diff(source(snapshot, unbind), snapshot) ?? [];
+        const patched = source(snapshot, unbind);
+        debug(
+          { diff: { snapshot, patched }, stack: new Error().stack },
+          "Patch " + snapshot.type
+        );
+
+        let [delta, current] = diff(patched, snapshot) ?? [];
 
         if (delta && !structuralEquals(current, snapshot)) {
           // The new "current" differs from the previous.
+
           snapshots.set(sourceEvent, clone(current));
           // Add patch target ID and the correct event type to the delta data before we return it.
           return [mapPatchTarget(sourceEvent, delta) as any, unbinding];
@@ -169,28 +183,33 @@ export const createEventQueue = (
       key = events[0];
       events = events.slice(1) as any;
     }
-    events = map(events, (ev: any) => {
+    events = map2(events, (ev: any) => {
       context?.validateKey(key ?? ev.key);
       // Update metadata in the source event,
       // and send a clone of the event without client metadata, and its timestamp in relative time
       // (the server expects this, and will adjust accordingly to its own time).
       merge(ev, { metadata: { posted: true } });
-      if (ev[postCallback]) {
-        if (ev[postCallback](ev) === false) {
+      if (ev[postCallbacks]) {
+        const abort = forEach2(
+          ev[postCallbacks],
+          (callback, _, abort) => callback(ev) === false || abort,
+          false
+        );
+        if (abort) {
           return undefined;
         }
-        delete ev[postCallback];
+        delete ev[postCallbacks];
       }
 
       return merge(clearMetadata(clone(ev), true), {
         timestamp: ev.timestamp! - now(),
       });
-    });
+    }) as ProtectedEvent[];
 
     debug(
-      { [childGroups]: map(events, (ev) => [ev, ev.type, F]) },
+      { [childGroups]: map2(events, (ev: ProtectedEvent) => [ev, ev.type, F]) },
       "Posting " +
-        enumerate([
+        itemize2([
           pluralize("new event", [
             count(events, (ev) => !isEventPatch(ev)) || undefined,
           ]),
@@ -219,17 +238,17 @@ export const createEventQueue = (
   ): Promise<any> => {
     const newEvents: ProtectedEvent[] = [];
 
-    events = map(
-      array(events),
+    events = map2(
+      array2(events),
       (event) => (
         !event.metadata?.queued && push(newEvents, event),
-        merge(context.applyEventExtensions(event), {
+        merge2(context.applyEventExtensions(event), {
           metadata: { queued: true },
-        })
+        }) ?? skip2
       )
-    );
+    ) as ProtectedEvent[];
 
-    forEach(newEvents, (event) => debug(event, event.type));
+    forEach2(newEvents, (event) => debug(event, event.type));
 
     if (!async) {
       return postEvents(events, false, variables);
@@ -255,11 +274,11 @@ export const createEventQueue = (
     // More than that the user is probably just switching between tabs moving past this one.
     // NOTE: (This number should preferably be better qualified. We could also look into user activation events).
     if (!visible && (queue.length || unloading || delta > 1500)) {
-      const updatedEvents = map(sources, ([sourceEvent, source]) => {
+      const updatedEvents = map2(sources, ([sourceEvent, source]) => {
         const [event, unbinding] = source();
         unbinding &&
           (sources.delete(sourceEvent), snapshots.delete(sourceEvent));
-        return event;
+        return event ?? skip2;
       });
 
       if (queue.length || updatedEvents.length) {

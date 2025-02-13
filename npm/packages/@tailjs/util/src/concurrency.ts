@@ -1,12 +1,11 @@
 import {
   If,
-  MaybePromise,
+  MaybePromiseLike,
   MaybeUndefined,
   Nullish,
   TogglePromise,
   Unwrap,
   Wrapped,
-  createTimer,
   isFunction,
   now,
   throwError,
@@ -125,7 +124,7 @@ export interface Lock {
    * If a owner ID is specified the lock will be reentrant for that ID.
    */
   <T, Ms extends number | undefined = undefined>(
-    action: () => MaybePromise<T>,
+    action: () => MaybePromiseLike<T>,
     timeout?: Ms,
     ownerId?: string
   ): Promise<T | If<Ms, undefined>>;
@@ -149,7 +148,7 @@ export const createLock = (timeout?: number): Lock => {
     const ownerId = arg2 as string;
 
     let ms = arg1 as number;
-    let renewInterval = 0;
+    let renewInterval: any = 0;
     while (state && ownerId !== state[0] && (state[1] ?? 0)! < now()) {
       if (
         (await (ms >= 0 ? race(delay(ms), semaphore) : semaphore)) === undefined

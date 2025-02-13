@@ -1,499 +1,370 @@
 import {
-  DataPurposeFlags,
+  extractKey,
   Variable,
-  VariableFilter,
   VariableGetResult,
-  VariableGetResults,
-  VariableGetters,
+  VariableGetter,
   VariableKey,
   VariableQueryOptions,
+  VariableQueryResult,
   VariableResultStatus,
-  VariableScope,
   VariableSetResult,
-  VariableSetResults,
-  VariableSetters,
-  VersionedVariableKey,
-  dataPurposes,
-  extractKey,
-  formatKey,
-  parseKey,
-  variableScope,
+  VariableValueSetter,
 } from "@tailjs/types";
-import { Nullish, forEach, now, rank, some, unwrap } from "@tailjs/util";
-import { applyPatch, copy, variableId } from "../lib";
+import { distinct2, get2, group2, jsonClone, map2 } from "@tailjs/util";
+import { VariableStorage, VariableStorageQuery } from "..";
 
-import { VariableStorage, VariableStorageContext } from "..";
+const internalIdSymbol = Symbol();
+type InMemoryVariable = Variable & {
+  [internalIdSymbol]: number;
+};
 
-export type ScopeVariables = [
-  expires: number | undefined,
-  variables: Map<string, Variable<any, true>>
-];
+export interface InMemoryStorageSettings {
+  ttl?: number;
+}
 
-export const hasChanged = (
-  getter: VersionedVariableKey,
-  current: Variable | undefined
-) => getter.version == null || current?.version !== getter.version;
+export class InMemoryStorage implements VariableStorage, Disposable {
+  private _nextVersion: number = 1;
+  private _disposed = false;
+  private _nextInternalId = 1;
 
-export abstract class InMemoryStorageBase implements VariableStorage {
-  private _ttl: Partial<Record<VariableScope, number>> | undefined;
+  private readonly _entities: {
+    [Scope in string]: Map<
+      string,
+      [
+        lastAccessed: number,
+        internalId: number,
+        variables: Map<string, InMemoryVariable>
+      ]
+    >;
+  } = {};
+  private readonly _ttl: number | undefined;
 
-  /** For testing purposes to have the router apply the patches. @internal */
-  public _testDisablePatch: boolean;
+  constructor({ ttl }: InMemoryStorageSettings = {}) {
+    this._ttl = ttl;
 
-  constructor(
-    scopeDurations?: Partial<Record<VariableScope, number>>,
-    cleanFrequency = 10000
-  ) {
-    this._ttl ??= scopeDurations;
-
-    if (some(this._ttl, ([, ttl]) => ttl! > 0)) {
-      setInterval(() => this.clean(), cleanFrequency);
-    }
+    this._purgeExpired();
   }
 
-  protected abstract _getNextVersion(
-    variable: Variable<any, true> | undefined
-  ): string;
-
-  protected abstract _getScopeVariables(
-    scope: VariableScope,
-    targetId: string | undefined,
-    require: boolean
-  ): ScopeVariables | undefined;
-
-  protected abstract _resetScope(scope: VariableScope): void;
-
-  protected abstract _deleteTarget(
-    scope: VariableScope,
-    targetId: string
-  ): void;
-
-  protected abstract _getTargetsInScope(
-    scope: VariableScope
-  ): Iterable<[string, ScopeVariables]>;
-
-  private _remove(variable: VariableKey<true>, timestamp?: number) {
-    const values = this._getScopeVariables(
-      variable.scope,
-      variable.targetId,
-      false
-    );
-    if (values?.[1].has(variable.key)) {
-      const ttl = this._ttl?.[variable.scope];
-      values[0] = ttl ? (timestamp ?? now()) + ttl : undefined;
-      values[1].delete(variable.key);
-      return true;
+  private _purgeExpired() {
+    if (!this._ttl || this._disposed) {
+      return;
     }
-    return false;
+    const now = Date.now();
+    const expiredEntities: string[] = [];
+
+    for (const key in this._entities) {
+      this._entities[key].forEach(
+        (value, key) => value[0] + this._ttl! < now && expiredEntities.push(key)
+      );
+
+      for (const key of expiredEntities) {
+        this._entities[key].delete(key);
+      }
+    }
+
+    setTimeout(() => this._purgeExpired, Math.min(this._ttl, 10000));
   }
 
-  private _update(variable: Variable<any, true>, timestamp?: number) {
-    let scopeValues = this._getScopeVariables(
-      variable.scope,
-      variable.targetId,
-      true
-    )!;
+  private _getVariables(scope: string, entityId: string, now: number) {
+    let variables = this._entities[scope]?.get(entityId);
+    if (variables) {
+      if (this._ttl && variables[0] + this._ttl < now) {
+        // Expired but not yet cleaned by background thread.
+        this._entities[scope].delete(entityId);
+        variables = undefined;
+      } else {
+        variables[0] = Date.now();
+      }
+    }
 
-    scopeValues[0] = variable.ttl
-      ? (timestamp ?? now()) + variable.ttl
-      : undefined;
-    scopeValues[1].set(variable.key, variable);
+    return variables;
+  }
+
+  private _getVariable(key: VariableKey, now: number) {
+    const [, , variables] =
+      this._getVariables(key.scope, key.entityId!, now) ?? [];
+    if (!variables) return undefined;
+
+    let variable = variables.get(key.key);
+    if (variable?.expires != null) {
+      if (variable.expires! < now) {
+        // Expired.
+        variables.delete(key.key);
+        variable = undefined;
+      } else {
+        variable.expires = now + variable.ttl!;
+      }
+    }
+
     return variable;
   }
 
-  private _validateKey<T extends VariableKey<true> | Nullish>(key: T): T {
-    if (key && key.scope !== VariableScope.Global && !key.targetId) {
-      throw new TypeError(`Target ID is required for non-global scopes.`);
-    }
-    return key;
-  }
-
-  private _query(
-    filters: VariableFilter<true>[],
-    settings?: VariableQueryOptions<true>
-  ): Variable<any, true>[] {
-    const results = new Set<Variable<any, true>>();
-    const timestamp = now();
-
-    const ifNoneMatch = settings?.ifNoneMatch
-      ? new Map(
-          settings.ifNoneMatch.map((variable) => [
-            variableId(variable),
-            variable.version,
-          ])
-        )
-      : null;
-
-    const ifModifiedSince = settings?.ifModifiedSince ?? 0;
-
-    for (const queryFilter of filters) {
-      const match = (
-        variable: Variable<any, true> | undefined
-      ): variable is Variable<any, true> => {
-        const { purposes, classification, tags } = queryFilter;
-        if (
-          !variable ||
-          (variable.purposes && purposes && !(variable.purposes & purposes)) ||
-          (classification &&
-            (variable.classification < classification.min! ||
-              variable.classification > classification.max! ||
-              classification.levels?.some(
-                (level) => variable.classification === level
-              ) === false)) ||
-          (tags &&
-            (!variable.tags ||
-              !tags.some((tags) =>
-                tags.every((tag) => variable.tags!.includes(tag))
-              )))
-        ) {
-          return false;
-        }
-
-        let matchVersion: string | undefined;
-        if (
-          (ifModifiedSince && variable.modified! < ifModifiedSince!) ||
-          ((matchVersion = ifNoneMatch?.get(variableId(variable))) != null &&
-            variable.version === matchVersion)
-        ) {
-          // Skip the variable because it is too old or unchanged based on the settings provided for the query.
-          return false;
-        }
-
-        return true;
-      };
-      for (const scope of queryFilter.scopes ?? variableScope.values) {
-        for (const [, scopeVars] of queryFilter.targetIds?.map(
-          (targetId) =>
-            [targetId, this._getScopeVariables(scope, targetId, false)] as const
-        ) ?? this._getTargetsInScope(scope)) {
-          if (!scopeVars || scopeVars[0]! <= timestamp) continue;
-          const vars = scopeVars[1];
-          let nots: Set<string> | undefined = undefined;
-          const mappedKeys =
-            queryFilter.keys?.map((key) => {
-              // Find keys that starts with `!` to exclude them from the results.
-              const parsed = parseKey(key);
-              if (parsed.not) {
-                (nots ??= new Set()).add(parsed.sourceKey);
-              }
-              return parsed.key;
-            }) ?? vars.keys();
-
-          for (const key of mappedKeys.includes("*")
-            ? vars.keys()
-            : mappedKeys) {
-            if (nots!?.has(key)) continue;
-
-            const value = vars.get(key);
-            if (match(value)) {
-              results.add(value);
-            }
-          }
-        }
-      }
-    }
-
-    return [...results];
-  }
-
-  public clean() {
-    const timestamp = now();
-    forEach(this._ttl, ([scope, ttl]) => {
-      if (ttl == null) return;
-
-      const variables = this._getTargetsInScope(scope);
-      forEach(
-        variables,
-        ([targetId, variables]) =>
-          variables[0]! <= timestamp - ttl &&
-          this._deleteTarget(scope, targetId)
-      );
-    });
-  }
-
-  public renew(
-    scope: VariableScope,
-    targetIds: string[],
-    context?: VariableStorageContext
-  ) {
-    const timestamp = now();
-
-    const ttl = this._ttl?.[scope];
-    if (!ttl) return;
-
-    for (const targetId of targetIds) {
-      const vars = this._getScopeVariables(scope, targetId, false);
-      if (vars) {
-        vars[0] = timestamp;
-      }
-    }
-  }
-
-  public async get<K extends VariableGetters<true>>(
-    getters: VariableGetters<true, K>,
-    context?: VariableStorageContext
-  ): Promise<VariableGetResults<K>> {
-    const variables = getters.map((getter) => ({
-      current:
-        getter &&
-        this._getScopeVariables(getter.scope, getter.targetId, false)?.[1].get(
-          getter.key
-        ),
-      getter,
-    }));
+  async get(keys: readonly VariableGetter[]): Promise<VariableGetResult[]> {
+    this._checkDisposed();
 
     const results: VariableGetResult[] = [];
-    let timestamp: number | undefined;
-    for (const [item, i] of rank(variables)) {
-      if (!item.getter) continue;
-      if (!item.current) {
-        if (item.getter?.init) {
-          const initialValue = await unwrap(item.getter.init);
-          if (initialValue?.value) {
-            // Check if the variable has been created by someone else while the initializer was running.
+    const now = Date.now();
 
-            results[i] = copy(
-              this._update({
-                ...extractKey(item.getter!),
-                ...initialValue,
-                created: (timestamp ??= now()),
-                modified: timestamp,
-                accessed: timestamp,
-                version: this._getNextVersion(undefined),
-              }),
-              {
-                status: VariableResultStatus.Created,
-              } as VariableGetResult
-            );
-            continue;
-          }
-        }
-        results[i] = {
-          ...extractKey(item.getter),
+    for (const getter of keys) {
+      const key = extractKey(getter);
+      const variable = this._getVariable(getter, now);
+      if (!variable) {
+        results.push({
           status: VariableResultStatus.NotFound,
-        };
+          ...key,
+        });
         continue;
       }
 
       if (
-        !(
-          item.current.purposes &
-          ((item.getter.purpose ?? 0) | DataPurposeFlags.Any_Anonymous)
-        )
+        (getter.ifModifiedSince != null &&
+          variable.modified <= getter.ifModifiedSince) ||
+        (getter.ifNoneMatch != null && variable.version === getter.ifNoneMatch)
       ) {
-        results[i] = {
-          ...extractKey(item.getter),
-          status: VariableResultStatus.Denied,
-          error: `${formatKey(
-            item.getter
-          )} is not stored for ${dataPurposes.logFormat(
-            item.getter.purpose ?? DataPurposeFlags.Necessary
-          )}`,
-        };
+        results.push({
+          status: VariableResultStatus.NotModified,
+          ...key,
+        });
         continue;
       }
 
-      results[i] = copy(item.current, {
-        status:
-          item.getter?.version && item.getter?.version === item.current?.version
-            ? VariableResultStatus.Unchanged
-            : VariableResultStatus.Success,
-        accessed: now(),
-      } as VariableGetResult);
+      const result = {
+        status: VariableResultStatus.Success,
+        ...variable,
+        value: jsonClone(variable.value),
+      } as VariableGetResult;
+      delete result[internalIdSymbol];
+
+      results.push(result);
     }
-
-    return results as VariableGetResults<K>;
+    return Promise.resolve(results);
   }
 
-  public head(
-    filters: VariableFilter<true>[],
-    options?: VariableQueryOptions<true> | undefined,
-    context?: VariableStorageContext
-  ) {
-    return this.query(filters, options);
-  }
+  set(values: readonly VariableValueSetter[]): Promise<VariableSetResult[]> {
+    this._checkDisposed();
 
-  public query(
-    filters: VariableFilter<true>[],
-    options?: VariableQueryOptions<true>,
-    context?: VariableStorageContext
-  ) {
-    const results = this._query(filters, options);
-    return {
-      count: options?.count ? results.length : undefined,
-      // This current implementation does not bother with cursors. If one is requested we just return all results. Boom.
-      results: (options?.top && !options?.cursor?.include
-        ? results.slice(0, options.top)
-        : results
-      ).map((variable) => copy(variable)),
-    };
-  }
+    const results: VariableSetResult[] = [];
+    const now = Date.now();
 
-  public async set<Setters extends VariableSetters<true>>(
-    variables: Setters | VariableSetters<true>,
-    context?: VariableStorageContext
-  ): Promise<VariableSetResults<Setters>> {
-    const timestamp = now();
-    const results: (VariableSetResult | undefined)[] = [];
-    for (const source of variables) {
-      this._validateKey(source);
-
-      if (!source) {
-        results.push(undefined);
+    for (const setter of values) {
+      const key = extractKey(setter);
+      let variable = this._getVariable(setter, now);
+      if (!variable && (setter.value == null || setter.version != null)) {
+        results.push({
+          status: VariableResultStatus.NotFound,
+          ...key,
+        });
         continue;
       }
 
-      let {
-        key,
-        targetId,
-        scope,
-        classification,
-        purposes,
-        value,
-        version,
-        tags,
-      } = source as Variable<any, true>;
-
-      let scopeVars = this._getScopeVariables(
-        source.scope,
-        source.targetId,
-        false
-      );
-      if (scopeVars?.[0]! < timestamp) {
-        scopeVars = undefined;
-      }
-      let current = scopeVars?.[1].get(key);
-
-      if (source.patch != null) {
-        if (this._testDisablePatch) {
-          results.push({ status: VariableResultStatus.Unsupported, source });
-          continue;
-        }
-
-        const patched = await applyPatch(current, source);
-
-        if (patched == null) {
-          results.push({
-            status: VariableResultStatus.Unchanged,
-            source,
-            current: copy(current),
-          });
-          continue;
-        }
-        classification = patched.classification ?? classification;
-        purposes = patched.purposes ?? purposes;
-        value = patched.value;
-      } else if (!source.force && current?.version !== version) {
+      if (!setter.force && variable && variable.version !== setter.version) {
         results.push({
           status: VariableResultStatus.Conflict,
-          source,
-          current: copy(current)!,
+          ...variable,
         });
         continue;
       }
 
-      if (value == null) {
+      const [, , variables] = get2(
+        (this._entities[key.scope] ??= new Map()),
+        key.entityId,
+        () => [now, this._nextInternalId++, new Map()]
+      );
+
+      if (setter.value == null) {
+        variables.delete(setter.key);
         results.push({
-          status:
-            current && this._remove(current)
-              ? VariableResultStatus.Success
-              : VariableResultStatus.Unchanged,
-          source,
-          current: undefined,
+          status: VariableResultStatus.Success,
+          ...key,
         });
+        if (!variables.size) {
+          this._entities[key.scope].delete(key.entityId);
+        }
+
         continue;
       }
 
-      const previous = current;
+      const created = !variable;
+      variables.set(
+        setter.key,
+        (variable = {
+          [internalIdSymbol]:
+            variable?.[internalIdSymbol] ?? this._nextInternalId++,
+          ...key,
+          created: variable?.created ?? now,
+          modified: now,
+          ttl: setter.ttl,
+          expires: setter.ttl != null ? now + setter.ttl : undefined,
+          version: "" + this._nextVersion++,
+          value: jsonClone(setter.value),
+        })
+      );
 
-      const nextValue: Variable<any, true> = {
-        key,
-        value,
-        classification,
-        targetId,
-        scope,
-        created: current?.created ?? now(),
-        modified: now(),
-        accessed: now(),
-        version: this._getNextVersion(current),
-        purposes:
-          current?.purposes != null || purposes
-            ? (current?.purposes ?? 0) | (purposes ?? 0)
-            : DataPurposeFlags.Necessary,
-        tags: tags && [...tags],
-      };
+      const result = {
+        ...variable,
+        value: jsonClone(variable.value),
+        status: created
+          ? VariableResultStatus.Created
+          : VariableResultStatus.Success,
+      } as VariableSetResult;
+      delete result[internalIdSymbol];
 
-      current = this._update(nextValue, timestamp);
+      results.push(result);
+    }
 
-      results.push(
-        current
-          ? {
-              status: previous
-                ? VariableResultStatus.Success
-                : VariableResultStatus.Created,
-              source,
-              current,
+    return Promise.resolve(results);
+  }
+
+  private _purgeOrQuery(
+    queries: readonly VariableStorageQuery[],
+    action: "query",
+    options?: VariableQueryOptions
+  ): VariableQueryResult;
+  private _purgeOrQuery(
+    queries: readonly VariableStorageQuery[],
+    action: "purge" | "refresh"
+  ): number;
+  private _purgeOrQuery(
+    queries: readonly VariableStorageQuery[],
+    action: "purge" | "refresh" | "query",
+    { page = 100, cursor }: VariableQueryOptions = {}
+  ) {
+    if (action === "query" && page <= 0) return { variables: [] };
+
+    this._checkDisposed();
+
+    const variables: Variable[] = [];
+    const now = Date.now();
+    let affected = 0;
+
+    let [cursorScopeIndex = 0, cursorEntityId = -1, cursorVariableId = -1] =
+      map2(cursor?.split("."), (value) => +value || 0) ?? [];
+
+    let scopeIndex = 0;
+    const scopes = group2(queries, (query) => [
+      this._entities[query.scope],
+      [query, query.entityIds && distinct2(query.entityIds)],
+    ]);
+    for (const [entities, scopeQueries] of scopes) {
+      if (scopeIndex++ < cursorScopeIndex) {
+        continue;
+      }
+
+      let entityIds: Set<string> | undefined;
+      for (const [query] of scopeQueries) {
+        if (query.entityIds) {
+          if (entityIds) {
+            for (const entityId of entityIds) {
+              entityIds.add(entityId);
             }
-          : { status: VariableResultStatus.Denied, source }
-      );
+          } else {
+            entityIds = new Set(query.entityIds);
+          }
+        } else {
+          entityIds = undefined;
+          break;
+        }
+      }
+
+      for (const entityId of entityIds ?? entities.keys()) {
+        const data = entities.get(entityId);
+        if (!data) {
+          continue;
+        }
+        const [, internalEntityId, entityVariables] = data;
+        if (action === "query" && internalEntityId < cursorEntityId) {
+          continue;
+        }
+
+        if (variables.length >= page) {
+          return { variables, cursor: `${scopeIndex - 1}.${internalEntityId}` };
+        }
+
+        const matchedVariables = new Set<Variable>();
+        for (const [query, queryEntityIds] of scopeQueries) {
+          if (queryEntityIds?.has(entityId) === false) continue;
+
+          const keyFilter = distinct2(query.keys?.values);
+          const keyFilterMatch = query.keys && !query.keys.exclude;
+
+          for (const [variableKey, variable] of entityVariables) {
+            if (keyFilter?.has(variableKey) !== keyFilterMatch) {
+              continue;
+            }
+
+            if (
+              variable &&
+              (action === "purge" || !(variable.expires! < now)) &&
+              (!query.ifModifiedSince ||
+                variable.modified > query.ifModifiedSince)
+            ) {
+              if (action === "purge") {
+                if (entityVariables.delete(variableKey)) {
+                  ++affected;
+                }
+              } else if (action === "refresh") {
+                if (variable.ttl != null) {
+                  variable.expires = now + variable.ttl;
+                  ++affected;
+                }
+              } else {
+                if (
+                  internalEntityId === cursorEntityId &&
+                  variable[internalIdSymbol] < cursorVariableId
+                ) {
+                  continue;
+                }
+                matchedVariables.add(variable);
+              }
+            }
+          }
+        }
+
+        for (const variable of matchedVariables) {
+          if (variables.length >= page) {
+            return {
+              variables,
+              cursor: `${scopeIndex - 1}.${internalEntityId}.${
+                variable[internalIdSymbol]
+              }`,
+            };
+          }
+
+          variables.push({
+            ...variable,
+            value: jsonClone(variable.value),
+          });
+        }
+      }
+      cursorEntityId = -1;
     }
 
-    return results as VariableSetResults<Setters>;
+    // We have enumerated all variables, we are done - no cursor.
+    return action === "query" ? { variables } : affected;
   }
 
-  public purge(
-    filters: VariableFilter<true>[],
-    context?: VariableStorageContext
-  ) {
-    let any = false;
-    for (const variable of this._query(filters)) {
-      any = this._remove(variable) || any;
+  async purge(queries: readonly VariableStorageQuery[]): Promise<number> {
+    return this._purgeOrQuery(queries, "purge");
+  }
+
+  async renew(queries: readonly VariableStorageQuery[]): Promise<number> {
+    return this._purgeOrQuery(queries, "refresh");
+  }
+
+  async query(
+    queries: readonly VariableStorageQuery[],
+    options?: VariableQueryOptions
+  ): Promise<VariableQueryResult> {
+    return this._purgeOrQuery(queries, "query", options);
+  }
+
+  private _checkDisposed() {
+    if (this._disposed) {
+      throw new Error("This storage has been disposed.");
     }
-    return any;
-  }
-}
-
-export class InMemoryStorage extends InMemoryStorageBase {
-  private readonly _variables: Map<string, ScopeVariables>[] =
-    variableScope.values.map(() => new Map());
-
-  constructor(
-    scopeDurations?: Partial<Record<VariableScope, number>>,
-    cleanFrequency = 10000
-  ) {
-    super(scopeDurations, cleanFrequency);
   }
 
-  protected _getNextVersion(key: Variable | undefined) {
-    return key?.version ? "" + (parseInt(key.version) + 1) : "1";
-  }
-
-  protected _getScopeVariables(
-    scope: VariableScope,
-    targetId: string | undefined,
-    require: boolean
-  ) {
-    let values = this._variables[scope]?.get(targetId ?? "");
-    if (!values && require) {
-      (this._variables[scope] ??= new Map()).set(
-        targetId ?? "",
-        (values = [undefined, new Map()])
-      );
-    }
-    return values;
-  }
-
-  protected _resetScope(scope: VariableScope): void {
-    this._variables[scope]?.clear();
-  }
-
-  protected _deleteTarget(scope: VariableScope, targetId: string): void {
-    this._variables[scope]?.delete(targetId);
-  }
-
-  protected _getTargetsInScope(
-    scope: VariableScope
-  ): Iterable<[string, ScopeVariables]> {
-    return this._variables[scope] ?? [];
+  [Symbol.dispose](): void {
+    this._disposed = true;
   }
 }

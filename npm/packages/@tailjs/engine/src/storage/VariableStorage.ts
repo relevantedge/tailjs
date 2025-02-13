@@ -1,97 +1,52 @@
 import {
-  DataClassificationValue,
-  DataPurposeValue,
-  VariableGetResults,
-  VariableGetters,
-  VariableSetResults,
-  VariableSetters,
-  type Variable,
-  type VariableFilter,
-  type VariableHeader,
-  type VariableQueryOptions,
-  type VariableQueryResult,
-  type VariableScope,
+  ReadOnlyVariableGetter,
+  VariableGetResult,
+  VariableQueryOptions,
+  VariableQueryResult,
+  VariableSetResult,
+  VariableValueSetter,
 } from "@tailjs/types";
-import { MaybePromise } from "@tailjs/util";
-import type { Tracker, TrackerEnvironment } from "..";
+import { TrackerEnvironmentInitializable } from "..";
 
-export type VariableContextScopeIds = {
-  sessionId?: string;
-  deviceId?: string;
-  authenticatedUserId?: string;
+export type VariableStorageQuery = {
+  scope: string;
+  entityIds?: string[];
+  keys?: {
+    exclude?: boolean;
+    values: string[];
+  };
+  /** Gets variables that have changed since this timestamp. (Not implemented). */
+  ifModifiedSince?: number;
 };
 
-export interface ParsableUserConsent {
-  /**
-   * The highest level of data classification the user has consented to be stored.
-   */
-  level: DataClassificationValue;
+// Pretty<
+//   Omit<VariableQuery, "classification" | "purposes" | "scopes" | "sources"> & {
+//     source?: string | null;
+//     scope: string;
+//   }
+// >;
+export interface ReadOnlyVariableStorage
+  extends TrackerEnvironmentInitializable {
+  /** Gets or initializes the variables with the specified keys. */
+  get(keys: readonly ReadOnlyVariableGetter[]): Promise<VariableGetResult[]>;
 
-  /**
-   * The purposes the user has consented their data to be used for.
-   *
-   * @privacy anonymous, necessary
-   */
-  purposes: DataPurposeValue;
-}
-
-export type VariableStorageContext = {
-  /** The tracker operations must be validated against. If {@link consent} or {@link scopeIds} are not specified explicitly, these will be read from the tracker.   */
-  tracker?: Tracker;
-
-  /** The data is requested by the client. That removes the ServerOnly purpose so certain fields get censored, e.g. session ID and similar that should not be disclosed there. */
-  client?: boolean;
-
-  /** The current target IDs for session, device and user scope. */
-  scopeIds?: VariableContextScopeIds;
-
-  /** This defaults to the tracker's consent (if any), but can be set independently,
-   *  for example if the tracker needs to update date if its consent changes (or for testing).  */
-  consent?: ParsableUserConsent;
-
-  // Reserved for future use so one endpoint can be shared between multiple projects (e.g. by an API key - TBD).
-  tenant?: string;
-};
-
-export interface ReadonlyVariableStorage {
-  initialize?(environment: TrackerEnvironment): MaybePromise<void>;
-
-  get<K extends VariableGetters<true>>(
-    keys: VariableGetters<true, K>,
-    context?: VariableStorageContext
-  ): MaybePromise<VariableGetResults<K>>;
-
-  head(
-    filters: VariableFilter<true>[],
-    options?: VariableQueryOptions<true>,
-    context?: VariableStorageContext
-  ): MaybePromise<VariableQueryResult<VariableHeader<true>>>;
-
+  /** Gets the variables for the specified entities. */
   query(
-    filters: VariableFilter<true>[],
-    options?: VariableQueryOptions<true>,
-    context?: VariableStorageContext
-  ): MaybePromise<VariableQueryResult<Variable<any, true>>>;
+    queries: readonly VariableStorageQuery[],
+    options?: VariableQueryOptions
+  ): Promise<VariableQueryResult>;
 }
 
-export const isWritable = <T extends ReadonlyVariableStorage>(
-  storage: T
-): storage is T & VariableStorage => !!(storage as any)?.set;
+export interface VariableStorage extends ReadOnlyVariableStorage {
+  /** Sets the variables with the specified keys and values. */
+  set(values: readonly VariableValueSetter[]): Promise<VariableSetResult[]>;
 
-export interface VariableStorage extends ReadonlyVariableStorage {
-  renew(
-    scope: VariableScope,
-    targetIds: string[],
-    context?: VariableStorageContext
-  ): MaybePromise<void>;
+  /** Purges all variables matching the specified queries. Returns the number of deleted variables.  */
+  purge(queries: readonly VariableStorageQuery[]): Promise<number | undefined>;
 
-  set<V extends VariableSetters<true>>(
-    variables: VariableSetters<true, V>,
-    context?: VariableStorageContext
-  ): MaybePromise<VariableSetResults<V>>;
-
-  purge(
-    filters: VariableFilter<true>[],
-    context?: VariableStorageContext
-  ): MaybePromise<boolean>;
+  /** Extends the time-to-live for the variables matching the specified queries. */
+  renew(queries: readonly VariableStorageQuery[]): Promise<number | undefined>;
 }
+
+export const isWritableStorage = (storage: any): storage is VariableStorage =>
+  "set" in storage;

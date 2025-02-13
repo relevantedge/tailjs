@@ -1,11 +1,4 @@
-import {
-  Defined,
-  Extends,
-  IsAny,
-  MaybeUndefined,
-  ToggleReadonly,
-  tryCatch,
-} from "..";
+import { AllKeys, Extends, MaybeUndefined, tryCatch } from "..";
 
 /**
  * The ECMAScript primitive types.
@@ -25,7 +18,7 @@ export type NonAsync =
   | Primitives
   | Iterable<any>
   | ((...args: any[]) => any)
-  | RecordType;
+  | SimpleObject;
 
 /**
  * Common function type used for projection of [key,value] entries.
@@ -58,9 +51,52 @@ export type NotFunction =
 
 /** Shorter than writing all this out, and slightly easier to read. */
 export type Nullish = null | undefined;
+export type CaptureNullish<Parameter, Nulls> = (Parameter | Nullish) & Nulls;
+export type MaybeNullish<ReturnType, Nulls = ReturnType> = Nulls extends Nullish
+  ? Nulls
+  : ReturnType;
+
+export type PromiseIfPromiseLike<
+  Value,
+  ParameterValue = Value
+> = ParameterValue extends PromiseLike<any>
+  ? Promise<UnwrapPromiseLike<Value>>
+  : Value;
+
+export const isTruish = <T>(value: T): value is Exclude<T, Falsish> => !!value;
+export const isTrue = (value: any): value is true => value === T;
+export const isNotTrue = <T>(value: T): value is Exclude<T, true> =>
+  value !== T;
+
+export type Falsish = void | null | undefined | 0 | "" | false;
+export type CaptureFalsish<Parameter, Nulls> = (Parameter | Falsish) & Nulls;
+export type MaybeFalsish<
+  ReturnType,
+  Value = ReturnType
+> = ReturnType extends Falsish
+  ? ReturnType extends Nullish
+    ? ReturnType
+    : undefined
+  : Value;
+
+export type NullishOrFalse = void | null | undefined | false;
+export type CaptureNullishOrFalse<Parameter, Nulls> = (
+  | Parameter
+  | NullishOrFalse
+) &
+  Nulls;
+
+export type MaybeNullishOrFalse<
+  ReturnType,
+  Parameter = ReturnType
+> = Parameter extends NullishOrFalse
+  ? Parameter extends Nullish
+    ? Parameter
+    : undefined
+  : ReturnType;
 
 /** A record type that is neither iterable or a function. */
-export type RecordType<K extends keyof any = keyof any, V = any> = object & {
+export type SimpleObject<K extends keyof any = keyof any, V = any> = object & {
   readonly [P in K]?: V;
 } & {
   [Symbol.iterator]?: never;
@@ -77,7 +113,10 @@ export type UnwrapPromiseLike<T> = T extends PromiseLike<infer T>
   ? UnwrapPromiseLike<T>
   : T;
 
-export type MaybePromise<T> = T | PromiseLike<T>;
+export type MaybePromiseLike<T> = T | PromiseLike<T>;
+
+export type MaybePromise<T> = T | Promise<T>;
+
 /**
  * Shorthand for a value that is optionally awaitable.
  */
@@ -115,13 +154,6 @@ export type Nulls<T, NullLevels = null | undefined> = T extends
     : NullLevels
   : never;
 
-/** All keys of any type in a union */
-export type AllKeys<Ts> = Ts extends infer T
-  ? unknown extends T
-    ? keyof any
-    : keyof T
-  : never;
-
 /** If any type in a union has a value for the given property that cannot be null'ish.*/
 export type HasRequiredProperty<T, P> = true extends (
   T extends infer T
@@ -137,6 +169,9 @@ export type HasRequiredProperty<T, P> = true extends (
   : false;
 
 export type IfNever<T, Default> = [T] extends [never] ? Default : T;
+export type IfNotNever<Test, Value, Default = never> = [Test] extends [never]
+  ? Default
+  : Value;
 
 export type Filter<T, FilterTypes, Default = never> = IfNever<
   T extends infer T ? (T extends FilterTypes ? T : never) : never,
@@ -181,31 +216,16 @@ export type ExpandTypes<
 
 /* JSON */
 
-export type JsonArray = Json[];
-
-export type JsonTuple = {
-  [TupleIndex in number]?: Json;
-};
-
-export type JsonObject = {
-  [props: string | number]: Json;
-} & { [symbols: symbol]: never };
-
-type JsonOnly<T> = T extends Json ? T : never;
+/** Merges properties in a union which makes it look prettier in Intellisense. */
+export type Pretty<T> = T extends infer T ? { [P in keyof T]: T[P] } : never;
 
 /**
- * All possible values that can be represented with JSON.
+ * Use for function parameters where you want an array to be interpreted as as tuple with a finite number of elements.
+ *
+ * By suggesting a parameter may be a one-tuple, TypeScript will treat the argument as a tuple,
+ * also if there are more than one element.
  */
-export type Json<T = unknown> = unknown extends T
-  ? Nullish | string | number | boolean | JsonArray | JsonTuple | JsonObject
-  : Omit<
-      {
-        [P in keyof T]: JsonOnly<T[P]>;
-      },
-      symbol
-    >;
-
-export type ToJsonAble<T> = { toJSON(): T };
+export type TupleParameter<T> = readonly T[] | readonly [T];
 
 /** Minify friendly version of `false`. */
 export const undefined = void 0;
@@ -284,16 +304,18 @@ export const symbolIterator = Symbol.iterator;
 export const symbolAsyncIterator = Symbol.asyncIterator;
 
 export const createTypeConverter =
-  <T>(
-    typeTester: TypeTester<T>,
-    parser?: (value: any) => T | undefined
-  ): TypeConverter<T> =>
-  (value: any, parse = true as any) =>
-    typeTester(value)
-      ? value
-      : parser && parse && value != null && (value = parser(value)) != null
-      ? value
-      : (undefined as any);
+  /*#__PURE__*/
+
+    <T>(
+      typeTester: TypeTester<T>,
+      parser?: (value: any) => T | undefined
+    ): TypeConverter<T> =>
+    (value: any, parse = true as any) =>
+      typeTester(value)
+        ? value
+        : parser && parse && value != null && (value = parser(value)) != null
+        ? value
+        : (undefined as any);
 
 export const ifDefined = <T, P, R>(
   value: T,
@@ -329,24 +351,20 @@ export const parseBoolean = createTypeConverter(isBoolean, (value) =>
     : undefined
 );
 
-export const isTruish = <T>(value: T): value is Exclude<T, Falsish> => !!value;
-
-export const isTrue = (value: any): value is true => value === T;
-export const isNotTrue = <T>(value: T): value is Exclude<T, true> =>
-  value !== T;
-
-export type Falsish = void | null | undefined | 0 | "" | false;
+export type FalsishToUndefined<
+  T,
+  Undefined = undefined
+> = T extends readonly any[]
+  ? { [P in keyof T]: FalsishToUndefined<T[P]> }
+  : T extends Falsish
+  ? Undefined
+  : T;
 
 export const isFalsish = (value: any): value is Falsish => !value;
 
 export const isFalse = (value: any): value is false => value === F;
 export const isNotFalse = <T>(value: T): value is Exclude<T, false> =>
   value !== F;
-
-/** An array where it is easy to conditionally leave elements out like `["item1", condition&&"item2", undefined]`. */
-export type MaybeFalsish<T> = T extends readonly (infer Item)[]
-  ? ToggleReadonly<MaybeFalsish<Item>[], T>
-  : T | Falsish;
 
 export const truish: {
   <T>(items: Iterable<T | Falsish>, keepUndefined?: false): T[];
@@ -391,9 +409,16 @@ export const toString = createTypeConverter(isString, (value) =>
   value?.toString()
 );
 
-export const isArray: (value: any) => value is any[] = Array.isArray;
+export const isArray: <T>(
+  value: readonly any[] | T
+) => value is T extends any[]
+  ? any[]
+  : unknown extends T
+  ? any[]
+  : readonly any[] = Array.isArray as any;
 
-export const isError = (value: any): value is Error => value instanceof Error;
+export const isError = /*#__PURE__*/ (value: any): value is Error =>
+  value instanceof Error;
 
 /**
  * Returns the value as an array following these rules:
@@ -407,41 +432,40 @@ export const array: {
   //   [T][0],
   //   Promise<T[]>
   // >;
-  <T>(value: T, clone?: boolean): T extends Nullish
-    ? undefined
-    : T extends Iterable<infer Item>
-    ? T extends Item[]
-      ? T
-      : Item[]
-    : T[];
-} = (value: any, clone = false as any): any =>
+  <T>(value: T, clone?: boolean): T extends any
+    ? unknown[] extends T
+      ? any[]
+      : T extends Nullish
+      ? undefined
+      : T extends Iterable<infer Item>
+      ? T extends Item[]
+        ? T
+        : Item[]
+      : T[]
+    : never;
+} = /*#__PURE__*/ (value: any, clone = false as any): any =>
   value == null
     ? undefined
     : !clone && isArray(value)
     ? value
     : isIterable(value)
     ? [...value]
-    : // : isAsyncIterable(value)
-      // ? toArrayAsync(value)
-      ([value] as any);
+    : ([value] as any);
 
-export const isObject = (value: any): value is Record<keyof any, any> =>
-  value !== null && typeof value === "object";
-
-const objectPrototype = Object.prototype;
-const getPrototypeOf = Object.getPrototypeOf;
-
-export const isPlainObject = (
+export const isObject = /*#__PURE__*/ (
   value: any
-): value is RecordType<keyof any, any> =>
-  value != null && getPrototypeOf(value) === objectPrototype;
+): value is object & Record<any, any> => value && typeof value === "object";
 
-export const hasProperty = <P extends keyof any>(
+export const isPlainObject = /*#__PURE__*/ (
+  value: any
+): value is SimpleObject<keyof any, any> => value?.constructor === Object;
+
+export const hasProperty = /*#__PURE__*/ <P extends keyof any>(
   value: any,
   property: P
 ): value is { [Prop in P]: any } => isObject(value) && property in value;
 
-export const hasMethods = <Names extends readonly (keyof any)[]>(
+export const hasMethods = /*#__PURE__*/ <Names extends readonly (keyof any)[]>(
   value: any,
   ...names: Names
 ): value is {
@@ -451,42 +475,65 @@ export const hasMethods = <Names extends readonly (keyof any)[]>(
     ? false
     : names.every((name) => typeof value[name] === "function");
 
-export const hasMethod = <Name extends keyof any>(
+export const hasMethod = /*#__PURE__*/ <Name extends keyof any>(
   value: any,
   name: Name
 ): value is {
   [P in Name]: (...args: any) => any;
 } => typeof (value as any)?.[name] === "function";
 
-export const isDate = (value: any): value is Date => value instanceof Date;
+export const isDate = /*#__PURE__*/ (value: any): value is Date =>
+  value instanceof Date;
 export const parseDate = createTypeConverter(isDate, (value) =>
   isNaN((value = Date.parse(value))) ? undefined : value
 );
 
-export const isSymbol = (value: any): value is symbol =>
+export const isSymbol = /*#__PURE__*/ (value: any): value is symbol =>
   typeof value === "symbol";
 
-export const isFunction = (value: any): value is (...args: any) => any =>
-  typeof value === "function";
+export const isFunction = /*#__PURE__*/ (
+  value: any
+): value is (...args: any) => any => typeof value === "function";
 
-export const isIterable = (
+export const isPromiseLike = /*#__PURE__*/ (
+  value: any
+): value is PromiseLike<any> => !!value?.["then"];
+
+export const isIterable = /*#__PURE__*/ (
   value: any,
   acceptStrings = false
 ): value is Iterable<any> =>
-  !!(value?.[symbolIterator] && (typeof value === "object" || acceptStrings));
+  !!(value?.[symbolIterator] && (typeof value !== "string" || acceptStrings));
 
-export const isAsyncIterable = (value: any): value is AsyncIterable<any> =>
-  !!value?.[symbolAsyncIterator];
+export const isAsyncIterable = /*#__PURE__*/ (
+  value: any
+): value is AsyncIterable<any> => !!value?.[symbolAsyncIterator];
 
-export const toIterable = <T>(value: T | Iterable<T>): Iterable<T> =>
-  isIterable(value) ? value : [value];
+export const toIterable = /*#__PURE__*/ <T>(
+  value: T | Iterable<T>
+): Iterable<T> => (isIterable(value) ? value : [value]);
 
-export const isMap = (value: any): value is Map<any, any> =>
+export const asMap: <T extends Iterable<readonly [any, any]> | Nullish>(
+  values: T
+) => T extends Iterable<readonly [infer Key, infer Value]>
+  ? Map<Key, Value>
+  : undefined = /*#__PURE__*/ (values: any): any =>
+  values == null ? undefined : new Set(values);
+
+export const isMap = /*#__PURE__*/ (value: any): value is Map<any, any> =>
   value instanceof Map;
 
-export const isSet = (value: any): value is Set<any> => value instanceof Set;
+export const asSet: <T extends Iterable<any> | Nullish>(
+  values: T
+) => T extends Iterable<infer T> ? Set<T> : undefined = /*#__PURE__*/ (
+  values: any
+): any => (values == null ? undefined : new Set(values));
 
-export const isAwaitable = (value: any): value is Promise<any> => !!value?.then;
+export const isSet = /*#__PURE__*/ (value: any): value is Set<any> =>
+  value instanceof Set;
+
+export const isAwaitable = /*#__PURE__*/ (value: any): value is Promise<any> =>
+  !!value?.then;
 
 /**
  * If the value is a promise, it will be awaited.
@@ -520,12 +567,27 @@ export const round = <T extends number | Nullish>(
     : ((decimals = Math.pow(10, !decimals || decimals === true ? 0 : decimals)),
       Math.round(number * decimals) / decimals);
 
-export const isJsonObject = (value: any): value is JsonObject =>
-  isPlainObject(value);
-
 const testFirstLast = (s: string, first: string, last: string) =>
   s[0] === first && s[s.length - 1] === last;
 
 export const isJsonString = (value: any): boolean =>
   isString(value) &&
   (testFirstLast(value, "{", "}") || testFirstLast(value, "[", "]"));
+
+export type Mutable<T> = T extends
+  | Map<any, any>
+  | WeakMap<any, any>
+  | Set<any>
+  | WeakSet<any>
+  ? T
+  : T extends ReadonlyMap<infer K, infer V>
+  ? Map<K, V>
+  : T extends ReadonlySet<infer K>
+  ? Set<K>
+  : T extends Primitives
+  ? T
+  : { -readonly [P in keyof T]: Mutable<T[P]> };
+
+/** For when an object that contains internal state that needs to be changed is exposed as read-only public property. */
+export const mutate2 = /*#__PURE__*/ <T>(target: T): Mutable<T> =>
+  target as any;

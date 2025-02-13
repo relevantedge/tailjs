@@ -19,6 +19,10 @@
         },
         "isNew": {
           "type": "boolean"
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "The user agent of the client (only included when debugging)."
         }
       },
       "required": [
@@ -28,10 +32,11 @@
         "views"
       ],
       "x-privacy-class": "anonymous",
-      "x-privacy-purposes": [
-        "necessary",
-        "server_write"
-      ]
+      "x-privacy-access": [
+        "trusted-write"
+      ],
+      "not": {},
+      "x-abstract": true
     },
     "Timestamp": {
       "type": "number",
@@ -47,15 +52,18 @@
           "properties": {
             "id": {
               "type": "string",
-              "x-privacy-purposes": [
-                "none",
-                "server"
+              "x-privacy-access": [
+                "trusted-only"
+              ]
+            },
+            "deviceId": {
+              "type": "string",
+              "description": "Used to handle race conditions. When multiple session are created from concurrent requests, the winning session contains the device ID.",
+              "x-privacy-access": [
+                "trusted-only"
               ]
             },
             "deviceSessionId": {
-              "type": "string"
-            },
-            "deviceId": {
               "type": "string"
             },
             "userId": {
@@ -66,6 +74,17 @@
             },
             "hasUserAgent": {
               "type": "boolean"
+            },
+            "anonymous": {
+              "type": "boolean",
+              "description": "The session id anonymous."
+            },
+            "anonymousSessionId": {
+              "type": "string",
+              "description": "If the user upgraded their consent, this will be the original anonymous session ID.",
+              "x-privacy-access": [
+                "trusted-only"
+              ]
             },
             "tabs": {
               "type": "number",
@@ -86,106 +105,129 @@
         {
           "type": "object",
           "properties": {
+            "id": {
+              "type": "string",
+              "x-privacy-access": [
+                "trusted-write"
+              ]
+            },
             "sessions": {
               "type": "number"
             }
           },
           "required": [
+            "id",
             "sessions"
           ]
         }
       ]
     },
-    "SessionVariables": {
+    "ScopeVariables": {
       "type": "object",
       "properties": {
-        "@info": {
-          "$ref": "urn:tailjs:core#/definitions/SessionInfo",
-          "x-privacy-class": "anonymous",
-          "x-privacy-purpose": "necessary"
-        },
-        "@consent": {
-          "$ref": "urn:tailjs:core#/definitions/UserConsent",
-          "x-privacy-class": "anonymous",
-          "x-privacy-purpose": "necessary"
-        },
-        "@session_reference": {
-          "type": "string",
-          "x-privacy-class": "anonymous",
-          "x-privacy-purpose": "necessary"
-        }
-      }
-    },
-    "UserConsent": {
-      "type": "object",
-      "properties": {
-        "level": {
-          "type": "string",
-          "enum": [
-            "anonymous",
-            "indirect",
-            "direct",
-            "sensitive"
-          ],
-          "description": "The highest level of data classification the user has consented to be stored."
-        },
-        "purposes": {
-          "anyOf": [
-            {
-              "type": "string",
-              "enum": [
-                "none",
-                "necessary",
-                "functionality",
-                "performance",
-                "targeting",
-                "security",
-                "infrastructure",
-                "any_anonymous",
-                "any",
-                "server",
-                "server_write"
+        "session": {
+          "type": "object",
+          "properties": {
+            "@info": {
+              "$ref": "urn:tailjs:core#/definitions/SessionInfo",
+              "x-privacy-class": "anonymous"
+            },
+            "@consent": {
+              "$ref": "urn:tailjs:core#/definitions/UserConsent",
+              "description": "User consent is a dynamic variable that is resolved by the Tracker and cannot be set.",
+              "x-privacy-class": "anonymous",
+              "x-privacy-access": [
+                "dynamic"
               ]
             },
-            {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "none",
-                  "necessary",
-                  "functionality",
-                  "performance",
-                  "targeting",
-                  "security",
-                  "infrastructure",
-                  "any_anonymous",
-                  "any",
-                  "server",
-                  "server_write"
-                ]
-              }
+            "@session_reference": {
+              "type": "string",
+              "x-privacy-class": "anonymous",
+              "x-privacy-access": [
+                "trusted-only"
+              ]
             }
-          ],
-          "description": "The purposes the user has consented their data to be used for.",
-          "x-privacy-class": "anonymous"
+          }
+        },
+        "device": {
+          "type": "object",
+          "properties": {
+            "@info": {
+              "$ref": "urn:tailjs:core#/definitions/DeviceInfo",
+              "x-privacy-class": "indirect"
+            }
+          }
         }
       },
       "required": [
-        "level",
-        "purposes"
-      ],
-      "description": "A user's consent choices."
+        "session",
+        "device"
+      ]
     },
-    "DeviceVariables": {
+    "UserConsent": {
+      "allOf": [
+        {
+          "$ref": "urn:tailjs:core#/definitions/DataUsage"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "DataUsage": {
       "type": "object",
       "properties": {
-        "@info": {
-          "$ref": "urn:tailjs:core#/definitions/DeviceInfo",
-          "x-privacy-class": "indirect",
-          "x-privacy-purpose": "necessary"
+        "classification": {
+          "$ref": "urn:tailjs:core#/definitions/DataClassification",
+          "description": "The maximum classification of data a user has consented to be collected and stored.\n\nAny property with a classification higher than this will be cleared (censored) before an object is stored. If all properties gets censored, the object is not stored at all.\n\nAnonymous data does not require active consent, so data is stored regardless of its purposes since it is not \"personal data\" but just \"data\". This means you should not annotate all anonymous data as \"necessary\" in your schema, but rather use the purpose(s) that would require consent had the data not been anonymous.\n\nIn this way you can simply remove the `anonymous` annotation from a field or object if it turns out it is not truly anonymous. After that the data can no longer be read for purposes without user consent. However, tail.js does not currently support redacting/purging the data from storage so this you need to do manually.\n\nFor schema definitions see  {@link  SchemaDataUsage }  for inheritance rules.",
+          "default": "anonymous"
+        },
+        "purposes": {
+          "$ref": "urn:tailjs:core#/definitions/DataPurposes",
+          "description": "The purposes the data may be used for.\n\nIf a data point has multiple purposes, consent is only need for one of them for the data to get stored. However, if some logic tries to read the data for a purpose without consent, it is not returned, since it is only stored for other purposes.\n\nPurposes do not restrict anonymous data. If no purposes are explicitly specified it implies \"necessary\".\n\nFor schema definitions see  {@link  SchemaDataUsage }  for inheritance rules."
         }
-      }
+      },
+      "required": [
+        "classification",
+        "purposes"
+      ],
+      "description": "The combination of the classification and purposes it can be used for determines whether data can be stored or used when compared to an individual's consent."
+    },
+    "DataClassification": {
+      "type": "string",
+      "enum": [
+        "never",
+        "anonymous",
+        "indirect",
+        "direct",
+        "sensitive"
+      ]
+    },
+    "DataPurposes": {
+      "type": "object",
+      "properties": {
+        "performance": {
+          "type": "boolean",
+          "description": "Data stored for this purpose is used to gain insights on how individuals interact with a website or app optionally including demographics and similar traits with the purpose of optimizing the website or app.\n\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope of the website or app. Use  {@link  DataPurposeFlags.Targeting  }  instead.\n\nIt may be okay if the data is only used for different website and apps that relate to the same product or service. This would be the case if an individual is able to use an app and website interchangeably for the same service. Different areas of a brand may also be distributed across multiple domain names."
+        },
+        "functionality": {
+          "type": "boolean",
+          "description": "Data stored for this purpose is used for settings that adjust the appearance of a website or app according to an individual's preferences such as \"dark mode\" or localization of date and number formatting.\n\nDepending on your configuration, a functionality consent may also include personalization. Personalization such as suggested articles and videos is per definition functionality, but a special subcategory may be used to make the distinction between profile settings and behavioral history depending on your requirements.\n\nDO NOT use this category if the data may be shared with third parties or otherwise used for targeted marketing outside the scope of the website or app. Use  {@link  DataPurposeFlags.Marketing  }  instead.\n\nIt may be okay if the data is only used for different website and apps that relate to the same product, brand or service, hence the information is still \"first party\" with respect to the legal entity/brand to whom the consent is made.\n\nThis would be the case if an individual is able to use an app and website interchangeably for the same service. Different areas of a brand may also be distributed across multiple domain names."
+        },
+        "marketing": {
+          "type": "boolean",
+          "description": "Data stored for this purpose may be similar to both functionality and performance data, however it may be shared with third parties or otherwise used to perform marketing outside the scope of the specific website or app.\n\nWhen tagging data points in a schema it is good practice to also specify whether the data is related to performance, functionality or both\n\nIf the data is only used for different websites and apps that relate to the same product or service that belongs to your brand, it might not be necessary to use this category."
+        },
+        "personalization": {
+          "type": "boolean",
+          "description": "Personalization is a special subcategory of functionality data that is for things such as recommending articles and videos. This purpose is per default synonymous with  {@link  DataPurposes.functionality } , but can be configured to be a separate purpose that requires its own consent."
+        },
+        "security": {
+          "type": "boolean",
+          "description": "Data stored for this purpose is related to security such as authentication, fraud prevention, and other user protection.\n\nThis purpose is per default synonymous with  {@link  DataPurposes.essential  }  but can be configured to be a separate purpose that requires its own consent."
+        }
+      },
+      "description": "The purposes data can be used for. Non-necessary data requires an individual's consent to be collected and used.\n\nData categorized as \"anonymous\" will be stored regardless of consent since a consent only relates to \"personal data\", and anonymous data is just \"data\".\n\nWhether the two purposes \"personalization\" and \"security\" are considered separate purposes is configurable. The default is to consider \"personalization\" the same as \"functionality\", and \"security\" the same as \"necessary\"."
     },
     "TrackedEvent": {
       "allOf": [
@@ -197,7 +239,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "schema": {
               "type": "string",
@@ -233,7 +275,7 @@
             },
             "timestamp": {
               "$ref": "urn:tailjs:core#/definitions/Timestamp",
-              "description": "This timestamp will always have a value before it reaches a backend. If specified, it must be a negative number when sent from the client (difference between when the event was generated and when is was posted in milliseconds).",
+              "description": "If specified, it must be a negative number when sent from the client (difference between when the event was generated and when is was posted in milliseconds).\n\nThe timestamp is assigned before it reaches a backend.",
               "default": "now"
             }
           },
@@ -242,11 +284,11 @@
           ]
         }
       ],
-      "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like \"a page view\", \"a user location\" etc. the name should be a (deverbal) noun.\n- If the event only indicates something that happened, like \"session started\", \"view ended\" etc. the name should be a verb in the past tense.",
+      "description": "The base type for all events that are tracked.\n\nThe naming convention is:\n- If the event represents something that can also be considered an entity like a \"page view\", \"user location\" etc. the name should be that.\n- If the event indicates something that happened, like \"session started\", \"view ended\" etc. the name should end with a verb in the past tense.",
       "$id": "urn:tailjs:core:event",
-      "x-privacy-class": "anonymous",
-      "x-privacy-purpose": "necessary",
-      "x-privacy-censor": "ignore"
+      "x-system-type": "event",
+      "not": {},
+      "x-abstract": true
     },
     "Tagged": {
       "type": "object",
@@ -314,6 +356,10 @@
     "Session": {
       "type": "object",
       "properties": {
+        "anonymousSessionId": {
+          "$ref": "urn:tailjs:core#/definitions/Uuid",
+          "description": "If a non-anonymous session started as an anonymous session, this is the anonymous session ID. Since an anonymous session is not necessarily unique to a device, processing logic may decide whether and how to stitch the anonymous and non-anonymous session together."
+        },
         "sessionId": {
           "$ref": "urn:tailjs:core#/definitions/Uuid",
           "description": "The unique ID of the user's session. A new sessions starts after 30 minutes of inactivity (this is configurable, but 30 minutes is the default following GA standards). Sessions are reset when an authenticated user logs out (triggered by the  {@link  SignOutEvent } ).\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
@@ -324,7 +370,12 @@
         },
         "deviceSessionId": {
           "$ref": "urn:tailjs:core#/definitions/Uuid",
-          "description": "The unique ID of the user's device session ID. A device session ends when the user has closed all tabs and windows, and starts whenever the user visits the site again. This means that device sessions can both be significantly shorter and longer that \"normal\" sessions in that it restarts whenever the user navigates completely away from the site and comes back (e.g. while evaluating search results), but it will also survive the user putting their computer to sleep or leaving their browser app in the background for a long time on their phone.\n\nAggressive measures are taken to make it literally impossible for third-party scripts to use it for fingerprinting, and virtually impossible for rogue browser extensions. It is persisted in a way that follows best practices for this kind information (secure HTTP-only cookies), hence it can be expected to be as durable as possible for the user's browser and device.\n\nIt is recommended to configure rolling encryption keys to make it cryptographically impossible to use this for fingerprinting."
+          "description": "The unique ID of the user's device session ID. A device session starts when the user enters the site like a normal server session, but unlike server sessions, device sessions stay active as long as the user has tabs related to the site open. This means that device sessions survives when the user puts their computer to sleep, or leaves tabs open in the background on their phone.\n\nAfter the user has completely left the site, device sessions time out in the same way as server sessions.",
+          "x-privacy-class": "indirect",
+          "x-privacy-purposes": [
+            "performance",
+            "functionality"
+          ]
         },
         "userId": {
           "type": "string",
@@ -333,25 +384,36 @@
         },
         "consent": {
           "$ref": "urn:tailjs:core#/definitions/UserConsent",
-          "description": "The user's consent choices.  {@link  DataClassification.Anonymous }  means the session is cookie-less."
+          "description": "The user's consent choices.  {@link  DataClassification.Anonymous  }  means the session is cookie-less."
         },
         "clientIp": {
           "type": "string",
           "description": "The IP address of the device where the session is active.",
-          "x-privacy-class": "indirect",
-          "x-privacy-purpose": "infrastructure"
+          "x-privacy-class": "indirect"
+        },
+        "collision": {
+          "type": "boolean",
+          "description": "Indicates that multiple clients are active in the same anonymous session."
+        },
+        "anonymous": {
+          "type": "boolean",
+          "description": "Whether the session is using anonymous tracking."
         },
         "expiredDeviceSessionId": {
           "type": "string",
-          "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This allows post-processing to decide what to do when the same tab participates in two sessions (which goes against the definition of a device session)."
+          "description": "This value indicates that an old device session \"woke up\" with an old device session ID and took over a new one. This may happen when background tabs are suspended.\n\nPost-processing can decide how to tie them together when the same tab participates in two sessions (which goes against the definition of a device session).",
+          "x-privacy-class": "indirect",
+          "x-privacy-purposes": [
+            "performance",
+            "functionality"
+          ]
         }
       },
       "required": [
         "sessionId"
       ],
       "description": "Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.",
-      "x-privacy-class": "anonymous",
-      "x-privacy-purpose": "necessary"
+      "x-privacy-class": "anonymous"
     },
     "isTrackedEvent": {
       "$comment": "(ev: any) => ev is TrackedEvent",
@@ -534,7 +596,7 @@
       "required": [
         "id"
       ],
-      "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenent is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it.\n\nAgain, if you only have some hard-coded value, you can just make an external reference and use its  {@link  id }  property for the value. Hopefully, you will find that a little bit annoying every time you do it and make you start thinking about that you might in fact reference some external information that has an immutable ID."
+      "description": "Represent a reference to externally defined data.\n\nHave in mind that the reference does not need to point to an external system or database. It can just as well be a named reference to a React component, the value of a MV test variable or event just some hard-coded value.\n\nThe tailjs model generally prefers using external references rather than simple strings for most properties since that gives you the option to collect structured data that integrates well in, say, BI scenarios.\n\nThe tenet is that if you only use an URL from a web page, or the name of a campaign you will lose the ability to easily track these historically if/when they change. Even when correctly referencing a immutable ID you might still want to include the name to make it possible to add labels in your analytics reporting without integrating additional data sources. The names may then still be wrong after some time, but at least then you have the IDs data does not get lost, and you have a path for correcting it."
     },
     "Personalizable": {
       "type": "object",
@@ -610,7 +672,7 @@
               "items": {
                 "$ref": "urn:tailjs:core#/definitions/PersonalizationSource"
               },
-              "description": "The aspects of the component or page the variant changed. There can mutilple sources, e.g. a variant may both change the size of a component and change the content at the same time."
+              "description": "The aspects of the component or page the variant changed. There can multiple sources, e.g. a variant may both change the size of a component and change the content at the same time."
             },
             "default": {
               "type": "boolean",
@@ -870,7 +932,7 @@
             "type": {
               "type": "string",
               "const": "form",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "name": {
               "type": "string",
@@ -943,7 +1005,8 @@
         },
         "value": {
           "type": "string",
-          "description": "The value of the form field. Be careful with this one.\n\nThe default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope."
+          "description": "The value of the form field. Be careful with this one.\n\nThe default is only to track whether checkboxes are selected. Otherwise, field values are tracked if the boolean tracking variable `--track-form-values` is set in the input field's scope.",
+          "x-privacy-class": "direct"
         },
         "fillOrder": {
           "$ref": "urn:tailjs:core#/definitions/Integer",
@@ -970,7 +1033,7 @@
             "type": {
               "type": "string",
               "const": "component_click",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             }
           },
           "required": [
@@ -991,7 +1054,7 @@
             "type": {
               "type": "string",
               "const": "component_click_intent",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "clicks": {
               "type": "array",
@@ -1040,7 +1103,7 @@
             "type": {
               "type": "string",
               "const": "component_view",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             }
           },
           "required": [
@@ -1061,7 +1124,7 @@
             "type": {
               "type": "string",
               "const": "navigation",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "clientId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
@@ -1128,7 +1191,7 @@
             "type": {
               "type": "string",
               "const": "scroll",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "offset": {
               "$ref": "urn:tailjs:core#/definitions/ScreenPosition",
@@ -1165,7 +1228,7 @@
             "type": {
               "type": "string",
               "const": "search",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "query": {
               "type": "string",
@@ -1294,7 +1357,7 @@
             "type": {
               "type": "string",
               "const": "session_started",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "url": {
               "type": "string"
@@ -1360,7 +1423,7 @@
             "type": {
               "type": "string",
               "const": "user_agent",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "hasTouch": {
               "type": "boolean",
@@ -1440,19 +1503,8 @@
       ]
     },
     "SessionScoped": {
-      "allOf": [
-        {
-          "$ref": "urn:tailjs:core#/definitions/Scoped"
-        },
-        {
-          "type": "object"
-        }
-      ],
-      "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened."
-    },
-    "Scoped": {
       "type": "object",
-      "description": "Base interface for other marker interfaces that specifies that an event is scoped to something else than page views."
+      "description": "Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened."
     },
     "ClickIds": {
       "type": "object",
@@ -1485,7 +1537,7 @@
             "type": {
               "type": "string",
               "const": "view",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "clientId": {
               "$ref": "urn:tailjs:core#/definitions/LocalID",
@@ -1661,21 +1713,27 @@
             "type": {
               "type": "string",
               "const": "session_location",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "accuracy": {
-              "$ref": "urn:tailjs:core#/definitions/Float",
-              "description": "This number is like the precise definition of what the bars indicating signal strength on mobile phones represents. Nobody knows. Yet, for this number lower is better."
+              "$ref": "urn:tailjs:core#/definitions/Percentage",
+              "description": "Like the bars indicating signal strength on mobile phones - higher is better, yet nobody knows the exact definition."
             },
             "continent": {
               "$ref": "urn:tailjs:core#/definitions/GeoEntity",
+              "description": "The continent is considered safe to store with anonymous tracking.",
               "x-privacy-class": "anonymous",
-              "x-privacy-purpose": "infrastructure"
+              "x-privacy-purposes": [
+                "performance"
+              ]
             },
             "country": {
               "$ref": "urn:tailjs:core#/definitions/GeoEntity",
+              "description": "The country is considered safe to store with anonymous tracking.",
               "x-privacy-class": "anonymous",
-              "x-privacy-purpose": "infrastructure"
+              "x-privacy-purposes": [
+                "performance"
+              ]
             },
             "subdivision": {
               "$ref": "urn:tailjs:core#/definitions/GeoEntity"
@@ -1700,7 +1758,9 @@
       ],
       "description": "This event is triggered whenever the user's location changes.",
       "x-privacy-class": "indirect",
-      "x-privacy-purpose": "performance"
+      "x-privacy-purposes": [
+        "performance"
+      ]
     },
     "GeoEntity": {
       "type": "object",
@@ -1733,7 +1793,7 @@
             "type": {
               "type": "string",
               "const": "anchor_navigation",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "anchor": {
               "type": "string",
@@ -1759,7 +1819,7 @@
             "type": {
               "type": "string",
               "const": "consent",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "consent": {
               "$ref": "urn:tailjs:core#/definitions/UserConsent"
@@ -1809,7 +1869,7 @@
             "type": {
               "type": "string",
               "const": "cart_updated",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             }
           },
           "required": [
@@ -1879,7 +1939,7 @@
             "type": {
               "type": "string",
               "const": "order",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             }
           },
           "required": [
@@ -1985,7 +2045,7 @@
             "type": {
               "type": "string",
               "const": "cart_abandoned",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "lastCartEvent": {
               "$ref": "urn:tailjs:core#/definitions/Timestamp",
@@ -2030,7 +2090,7 @@
             "type": {
               "type": "string",
               "const": "order_confirmed",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             }
           },
           "required": [
@@ -2051,7 +2111,7 @@
             "type": {
               "type": "string",
               "const": "order_cancelled",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "cancelledByUser": {
               "type": "boolean",
@@ -2077,7 +2137,7 @@
             "type": {
               "type": "string",
               "const": "order_completed",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             }
           },
           "required": [
@@ -2131,7 +2191,7 @@
             "type": {
               "type": "string",
               "const": "payment_accepted",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "finalPayment": {
               "type": "boolean",
@@ -2157,7 +2217,7 @@
             "type": {
               "type": "string",
               "const": "payment_rejected",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             }
           },
           "required": [
@@ -2189,7 +2249,7 @@
             "type": {
               "type": "string",
               "const": "sign_in",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "userId": {
               "type": "string",
@@ -2219,7 +2279,7 @@
             "type": {
               "type": "string",
               "const": "sign_out",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "userId": {
               "type": "string",
@@ -2297,7 +2357,7 @@
             "type": {
               "type": "string",
               "const": "impression",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "impressions": {
               "$ref": "urn:tailjs:core#/definitions/Integer",
@@ -2377,7 +2437,7 @@
             "type": {
               "type": "string",
               "const": "reset",
-              "description": "The type name of the event.\n\nThis MUST be set to a constant value in extending interfaces and implementing classes for the event to be registered."
+              "description": "The type name of the event.\n\nAll concrete event types must override this property with a constant value, and it is an error to try to store an event without a constant type.\n\nSince this is a system property that is ignored during censoring per default, it automatically becomes anonymous and necessary in custom events without required properties unless the system annotation is explicitly repeated."
             },
             "includeDevice": {
               "type": "boolean",
@@ -2444,6 +2504,9 @@
       }
     }
   },
+  "x-version": "0.37.0",
   "x-privacy-class": "anonymous",
-  "x-privacy-purpose": "necessary"
+  "x-privacy-purposes": [
+    "necessary"
+  ]
 }

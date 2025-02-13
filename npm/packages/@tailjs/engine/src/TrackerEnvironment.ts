@@ -1,16 +1,19 @@
 import { Encodable, hash, httpDecode, httpEncode } from "@tailjs/transport";
 import {
+  MaybePromise,
   MaybeUndefined,
   Nullish,
   isObject,
   isString,
-  parameterList,
+  parameterListSymbol,
   parseHttpHeader,
 } from "@tailjs/util";
 import ShortUniqueId from "short-unique-id";
 import {
+  ClientCertificate,
   LogLevel,
-  ParsingVariableStorage,
+  serializeLogMessage,
+  VariableStorageCoordinator,
   type ChangeHandler,
   type Cookie,
   type CryptoProvider,
@@ -19,27 +22,61 @@ import {
   type HttpResponse,
   type LogMessage,
 } from "./shared";
+import { ScopeVariables, Tag } from "@tailjs/types";
 
 const SAME_SITE = { strict: "Strict", lax: "Lax", none: "None" };
 
-const uuid = new ShortUniqueId();
-
-const getDefaultLogSourceName = (source: any): string | undefined => {
+export const getDefaultLogSourceName = (source: any): string | undefined => {
   if (!source) return undefined;
   if (!isObject(source)) return "" + source;
 
-  let constructorName = source.constructor?.name;
+  let constructorName =
+    source.constructor === Object ? undefined : source.constructor?.name;
+
   let name = source.logId ?? source.id;
   if (name) {
-    return (
-      (constructorName && constructorName !== "Object"
-        ? constructorName + ":"
-        : "") + name
-    );
+    return (constructorName ? constructorName + ":" : "") + name;
   }
   return constructorName ?? "" + source;
 };
 
+export type KnownTrackerKeys = {
+  session: ScopeVariables["session"];
+  device: ScopeVariables["device"];
+};
+
+export type TrackerEnvironmentSettings = {
+  /**
+   * The length of the ShortUids generated.
+   * @default 12
+   */
+  idLength?: number;
+
+  /**
+   * Common tags that will be added to all collected events. This can be used to differentiate between different
+   * server nodes in a clustered environment, or the purpose of environment (like dev, qa, staging or production).
+   */
+  tags?: Tag[];
+
+  /** A custom ID generator if ShortUid is not desired. */
+  uidGenerator?: () => MaybePromise<string>;
+};
+
+export const detectPfx = (cert: ClientCertificate | undefined) => {
+  const certData = cert?.cert;
+  if (
+    certData &&
+    cert.pfx == null &&
+    typeof certData !== "string" &&
+    certData.length > 2 &&
+    // Magic number 0x30 0x82
+    certData[0] === 0x30 &&
+    certData[1] === 0x82
+  ) {
+    return { ...cert, pfx: true };
+  }
+  return cert;
+};
 export class TrackerEnvironment {
   private readonly _crypto: CryptoProvider;
   private readonly _host: EngineHost;
@@ -48,27 +85,33 @@ export class TrackerEnvironment {
     { group: string; name?: string }
   >();
 
-  public readonly tags?: string[];
+  private readonly _uidGenerator: () => MaybePromise<string>;
+
+  public readonly tags?: Tag[];
   public readonly cookieVersion: string;
-  public readonly storage: ParsingVariableStorage;
+  public readonly storage: VariableStorageCoordinator<KnownTrackerKeys>;
 
   constructor(
     host: EngineHost,
     crypto: CryptoProvider,
-    storage: ParsingVariableStorage,
-    tags?: string[],
-    cookieVersion = "C"
+    storage: VariableStorageCoordinator,
+    { idLength = 12, tags, uidGenerator }: TrackerEnvironmentSettings = {}
   ) {
     this._host = host;
     this._crypto = crypto;
     this.tags = tags;
-    this.cookieVersion = cookieVersion;
     this.storage = storage;
+    if (!uidGenerator) {
+      const uid = new ShortUniqueId({ length: idLength });
+      this._uidGenerator = () => uid.rnd();
+    } else {
+      this._uidGenerator = uidGenerator;
+    }
   }
 
   /** @internal */
   public _setLogInfo(
-    ...sources: { source: any; group: string; name: string }[]
+    ...sources: { source: any; group: string; name?: string }[]
   ) {
     sources.forEach((source) =>
       this._logGroups.set(source, {
@@ -133,12 +176,16 @@ export class TrackerEnvironment {
     // This is what you get if you try to log nothing (null or undefined); Nothing.
     if (!arg) return;
 
+    if (!error && arg instanceof Error) {
+      error = arg;
+    }
     const message: Partial<LogMessage> =
       !isObject(arg) || arg instanceof Error
         ? {
-            message: arg instanceof Error ? "An error ocurred" : arg,
+            message:
+              arg instanceof Error ? `An error occurred: ${arg.message}` : arg,
             level: level ?? (error ? "error" : "info"),
-            error,
+            error: error ?? (arg instanceof Error ? arg : undefined),
           }
         : arg;
 
@@ -148,11 +195,11 @@ export class TrackerEnvironment {
     message.group ??= group;
     message.source ??= name;
 
-    this._host.log(message as LogMessage);
+    this._host.log(serializeLogMessage(message as LogMessage));
   }
 
   public async nextId(scope?: string) {
-    return uuid.rnd();
+    return this._uidGenerator();
   }
 
   readText(
@@ -182,7 +229,9 @@ export class TrackerEnvironment {
       method: request.method,
       body: request.body,
       headers: request.headers ?? {},
-      x509: request.x509,
+      // Do the PFX test here so the host don't strictly need to,
+      // (assuming requests are mostly made through the TrackerEnvironment, and not the host directly).
+      x509: detectPfx(request.x509),
     });
 
     const responseHeaders = Object.fromEntries(
@@ -195,9 +244,12 @@ export class TrackerEnvironment {
     const cookies: Record<string, Cookie> = {};
 
     for (const cookie of response.cookies) {
-      const ps = parseHttpHeader(cookie, false);
+      const ps = parseHttpHeader(cookie, {
+        delimiters: false,
+        lowerCase: true,
+      });
 
-      const [name, value] = ps[parameterList][0] ?? [];
+      const [name, value] = ps[parameterListSymbol]?.[0] ?? [];
       if (!name) continue;
 
       cookies[name] = {

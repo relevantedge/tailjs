@@ -1,8 +1,11 @@
+import { OmitUnion } from "@tailjs/util";
 import type { TrackerClientConfiguration } from "..";
 
 export const isTracker = "__isTracker";
 
-export const trackerConfig: Required<TrackerClientConfiguration> = {
+export const trackerConfig: Required<
+  OmitUnion<TrackerClientConfiguration, "scriptBlockerAttributes">
+> = {
   name: "tail",
   src: "/_t.js",
   disabled: false,

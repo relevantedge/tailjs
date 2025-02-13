@@ -3,24 +3,21 @@ import {
   Falsish,
   If,
   IsAny,
-  MaybePromise,
+  MaybePromiseLike,
   NotFunction,
   Nullish,
   OmitNullish,
   TogglePromise,
   UnwrapPromiseLike,
   Wrapped,
-  isObject,
   isArray,
+  isAwaitable,
   isBoolean,
   isError,
   isFunction,
+  isPlainObject,
   isString,
   unwrap,
-  MaybeUndefined,
-  ToggleReadonly,
-  isAwaitable,
-  MaybeOmit,
 } from "..";
 
 export type ErrorGenerator = string | Error | (() => string | Error);
@@ -31,6 +28,8 @@ export const throwError = (
 ): never => {
   throw isString((error = unwrap(error))) ? transform(error) : error;
 };
+export const throwTypeError = (message: string): never =>
+  throwError(new TypeError(message));
 
 type CombineTypeTests<T> = T extends []
   ? {}
@@ -97,7 +96,11 @@ export const structuralEquals = (
   // interpret `null` and `undefined` as the same.
   if ((value1 ?? value2) == null) return true;
 
-  if (isObject(value1) && isObject(value2) && value1.length === value2.length) {
+  if (
+    (isArray(value1) || isPlainObject(value1)) &&
+    (isArray(value2) || isPlainObject(value2)) &&
+    value1.length === value2.length
+  ) {
     let n = 0;
     for (const key in value1) {
       if (
@@ -186,8 +189,10 @@ type ErrorHandlerResult<Handler> = Handler extends true
   ? TogglePromise<UnwrapPromiseLike<R> extends Error ? never : R, R>
   : void;
 
-const maybeAwait = <T, R>(value: MaybePromise<T>, action: (value: T) => R): R =>
-  (value as any)?.then(action) ?? action(value as any);
+const maybeAwait = <T, R>(
+  value: MaybePromiseLike<T>,
+  action: (value: T) => R
+): R => (value as any)?.then(action) ?? action(value as any);
 
 const handleError = <Handler extends ErrorHandler>(
   errorHandler: Handler,
@@ -211,7 +216,7 @@ type NotDeferred = { resolved?: undefined };
 
 export type Deferred<T> = (() => T) & DeferredProperties<T>;
 
-export type DeferredAsync<T> = Deferred<MaybePromise<T>>;
+export type DeferredAsync<T> = Deferred<MaybePromiseLike<T>>;
 
 export type MaybeDeferred<T> = (T & NotDeferred) | Deferred<T>;
 export type MaybeDeferredAsync<T> =
@@ -258,8 +263,44 @@ export const asDeferred = <T extends MaybeDeferred<any>>(
           : deferredOrResolved,
       }) as any);
 
-export interface DeferredPromise<T> extends PromiseLike<T> {
-  initialized: boolean;
+class DeferredPromise<T> extends Promise<T> {
+  private readonly _action: () => Promise<T>;
+  private _result: Promise<T>;
+
+  public get initialized() {
+    return this._result != null;
+  }
+
+  constructor(action: () => Promise<T>) {
+    super(() => {});
+    this._action = action;
+  }
+
+  then<TResult1 = T, TResult2 = never>(
+    onfulfilled?:
+      | ((value: T) => TResult1 | PromiseLike<TResult1>)
+      | null
+      | undefined,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | null
+      | undefined
+  ): Promise<TResult1 | TResult2> {
+    return (this._result ??= this._action()).then(onfulfilled, onrejected);
+  }
+
+  catch<TResult = never>(
+    onrejected?:
+      | ((reason: any) => TResult | PromiseLike<TResult>)
+      | null
+      | undefined
+  ): Promise<T | TResult> {
+    return (this._result ??= this._action()).catch(onrejected);
+  }
+
+  finally(onfinally?: (() => void) | null | undefined): Promise<T> {
+    return (this._result ??= this._action()).finally(onfinally);
+  }
 }
 
 export type MaybeDeferredPromise<T> =
@@ -271,61 +312,38 @@ export type MaybeDeferredPromise<T> =
  * For promises this is more convenient than {@link deferred}, since it just returns a promise instead of a function.
  */
 export const deferredPromise = <T>(
-  expression: Wrapped<MaybePromise<T>>
-): DeferredPromise<T> => {
-  let promise: DeferredPromise<T> = {
-    initialized: true,
-    then: thenMethod(() => ((promise.initialized = true), unwrap(expression))),
-  };
-  return promise;
-};
+  expression: Wrapped<MaybePromiseLike<T>>
+): DeferredPromise<T> => new DeferredPromise(async () => unwrap(expression));
 
-export const thenMethod = <T>(
-  expression: Wrapped<MaybePromise<T>>
-): (<TResult1 = T, TResult2 = never>(
-  onfulfilled?:
-    | ((value: T) => TResult1 | PromiseLike<TResult1>)
-    | undefined
-    | null,
-  onrejected?:
-    | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-    | undefined
-    | null
-) => PromiseLike<TResult1 | TResult2>) => {
-  let result = deferred(expression);
-  return (onfullfilled?, onrejected?) =>
-    tryCatchAsync(result, [onfullfilled, onrejected] as any);
-};
+export const formatError = (error: any, includeStackTrace?: boolean): string =>
+  !error
+    ? "(unspecified error)"
+    : includeStackTrace && error.stack
+    ? `${formatError(error, false)}\n${error.stack}`
+    : error.message
+    ? `${error.name}: ${error.message}`
+    : "" + error;
 
 export const tryCatchAsync = async <
   T,
-  C = void,
-  E extends boolean | ((error: any) => MaybePromise<C>) = true,
+  C,
+  E extends boolean | ((error: any) => MaybePromiseLike<C>),
   T1 = T
 >(
-  expression: Wrapped<MaybePromise<T>>,
+  expression: Wrapped<MaybePromiseLike<T>>,
   errorHandler: E = true as any,
-  always?: () => MaybePromise<any>
-): Promise<T1 | C> => {
+  always?: () => MaybePromiseLike<any>
+): Promise<T1 | (E extends true ? never : C)> => {
   try {
-    const result = (await unwrap(expression)) as any;
-    return isArray(errorHandler) ? errorHandler[0]?.(result) : result;
+    return (await unwrap(expression)) as any;
   } catch (e) {
     if (!isBoolean(errorHandler)) {
-      if (isArray(errorHandler)) {
-        if (!errorHandler[1]) throw e;
-        return errorHandler[1](e) as any;
-      }
-
-      const error = (await (errorHandler as any)?.(e)) as any;
-      if (error instanceof Error) throw error;
-      return error;
+      return (await errorHandler(e)) as any;
     } else if (errorHandler) {
       throw e;
-    } else {
-      // `false` means "ignore".
-      console.error(e);
     }
+    // `false` means "ignore".
+    console.error(e);
   } finally {
     await always?.();
   }

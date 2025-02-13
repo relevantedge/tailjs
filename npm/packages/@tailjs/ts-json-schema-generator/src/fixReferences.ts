@@ -1,4 +1,4 @@
-import { forEach, isArray, isPlainObject } from "@tailjs/util";
+import { forEach2, isArray, isPlainObject } from "@tailjs/util";
 
 /**
  * If a type has an ID (via the @ id annotation), relatively referenced types under it are resolved against the type's node,
@@ -13,7 +13,7 @@ export const fixReferences = (
   schemaId: string = schema.$id ?? ""
 ) => {
   if (isArray(schema)) {
-    forEach(schema, (value) => fixReferences(value, schemaId));
+    forEach2(schema, (value) => fixReferences(value, schemaId));
     return;
   } else if (!isPlainObject(schema)) {
     return;
@@ -22,5 +22,5 @@ export const fixReferences = (
   if (schema.$ref?.startsWith("#")) {
     (schema as any).$ref = schemaId + schema.$ref;
   }
-  forEach(schema, ([, value]) => fixReferences(value, schemaId));
+  forEach2(schema, ([, value]) => fixReferences(value, schemaId));
 };

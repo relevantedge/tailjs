@@ -7,7 +7,7 @@ import { commandTest } from "./shared";
  */
 export interface SetCommand {
   /** An object where the names of the properties correspond to the variables set in the tracker. */
-  set: MaybeArray<ClientVariableSetter<any, string>>;
+  set: MaybeArray<ClientVariableSetter>;
 }
 
 export const isSetCommand = commandTest<SetCommand>("set");

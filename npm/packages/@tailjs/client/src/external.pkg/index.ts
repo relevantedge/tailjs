@@ -5,4 +5,4 @@ export * from "./config";
 export * from "../commands";
 export * from "../interfaces";
 
-export { Tracker, TrackerAttributes };
+export { Tracker as Tracker, TrackerAttributes };

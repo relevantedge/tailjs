@@ -1,3 +1,3 @@
 export * from "./RavenDbConfiguration";
-export * from "./RavenDbTracker";
+export * from "./RavenDbExtension";
 export * from "./RavenDbVariableStorage";

@@ -2,21 +2,21 @@ import msgpack from "@ygoe/msgpack";
 const { deserialize: msgDeserialize, serialize: msgSerialize } = msgpack;
 
 import {
+  IDENTITY,
   IsNever,
   Nullish,
   isArray,
   isFunction,
   isIterable,
+  isJsonString,
   isNumber,
   isObject,
   isPlainObject,
   isString,
   isSymbol,
-  map,
+  map2,
   tryCatch,
   undefined,
-  IDENTITY,
-  isJsonString,
 } from "@tailjs/util";
 import { HashFunction, from64u, lfsr, to64u } from ".";
 
@@ -156,7 +156,6 @@ const serialize = <Msgpack extends boolean>(
   msgpack: Msgpack,
   { defaultValues = true, prettify = false }
 ): Msgpack extends true ? Uint8Array : string => {
-  // TODO: Clone when required instead of adding "cleaners". Probably adds more overhead.
   let cleaners: (() => void)[] | undefined;
   let refs: Map<any, number> | undefined;
   let refIndex: number | undefined;
@@ -260,12 +259,22 @@ const deserialize = (value: string | Uint8Array) => {
     isString(value)
       ? tryCatch(
           () => JSON.parse(value as any),
-          () => console.error(`Invalid JSON received.`, value)
+          () => (
+            console.error(`Invalid JSON received.`, value, new Error().stack),
+            undefined
+          )
         )
       : value != null
       ? tryCatch(
           () => msgDeserialize(value as any),
-          () => (console.error(`Invalid message received.`, value), undefined)
+          () => (
+            console.error(
+              `Invalid message received.`,
+              value,
+              new Error().stack
+            ),
+            undefined
+          )
         )
       : value
   );
@@ -316,7 +325,7 @@ export const createTransport = (
       if (isNumber(value) && bitsOrNumeric === true) return value;
 
       value = isString(value)
-        ? new Uint8Array(map(value.length, (i) => value.charCodeAt(i) & 255))
+        ? new Uint8Array(map2(value.length, (i) => value.charCodeAt(i) & 255))
         : json
         ? tryCatch(
             () => JSON.stringify(value),

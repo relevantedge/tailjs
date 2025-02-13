@@ -1,37 +1,24 @@
-import {
-  DataClassification,
-  DataPurposeFlags,
-  MapVariableGetResult,
-  MapVariableSetResult,
-  RestrictVariableTargets,
-  StripPatchFunctions,
-  Variable,
-  VariableEnumProperties,
+import { Variable, VariableKey, VariableServerScope } from "@tailjs/types";
+import { MaybeNullish, Nullish, createEnumParser } from "@tailjs/util";
+import { CONSENT_INFO_KEY, SCOPE_INFO_KEY } from "@constants";
+import type {
+  LocalID,
+  RestrictScopes,
+  ServerScoped,
+  SessionInfo,
+  UserConsent,
+  VariableGetRequest,
+  VariableGetResponse,
   VariableGetResult,
   VariableGetter,
-  VariableKey,
-  VariableResultStatus,
+  VariableGetterCallback,
+  VariablePollCallback,
+  VariableResultPromiseResult,
   VariableSetResult,
   VariableSetter,
-  variableScope,
+  VariableSetterCallback,
+  View,
 } from "@tailjs/types";
-import {
-  EnumValue,
-  GeneralizeConstants,
-  If,
-  IfNot,
-  IsAny,
-  MaybeUndefined,
-  Nullish,
-  PrettifyIntersection,
-  ToggleArray,
-  UnknownIsAny,
-  createEnumAccessor,
-  createEnumPropertyParser,
-  isString,
-} from "@tailjs/util";
-
-import type { LocalID, VariableScopeValue, View } from "@tailjs/types";
 
 export type ReferringViewData = [
   viewId: LocalID,
@@ -46,137 +33,136 @@ export interface CurrentView extends View {
    */
   navigation?: boolean;
 }
-type ReservedVariableDefinitions = {
-  view: CurrentView;
-  tags: string[];
-  rendered: boolean;
-  loaded: boolean;
-  tabIndex: number;
-  viewIndex: number;
-  scripts: Record<string, "pending" | "loaded" | "failed">;
-  referrer: ReferringViewData;
+
+export type ReservedTrackerVariables = {
+  session: {
+    [SCOPE_INFO_KEY]: SessionInfo;
+    [CONSENT_INFO_KEY]: UserConsent;
+  };
+  view: {
+    view: CurrentView;
+    loaded: boolean;
+    referrer: string;
+  };
+  shared: {
+    tabIndex: number;
+    viewIndex: number;
+    referrer: [viewId: string | undefined, navigationEventId: string];
+  };
 };
 
-export type ReservedVariableType<
-  K,
-  Default = any
-> = K extends ReservedVariableKey
-  ? ReservedVariableDefinitions[K]
-  : UnknownIsAny<Default>;
+const levels = {
+  /**
+   * Variables that are only available in memory in the current view, and lost as soon as the user navigates away (without bf_cache) or closes the browser.
+   *
+   * Data in this scope may be used without user consent (anonymous tracking), however if it is used in logic for event tracking
+   * make sure it does not contain personal information that may identify the user, hence violate the premise for the otherwise anonymously
+   * collected data.
+   *
+   *
+   */
+  view: "view",
 
-export type ReservedVariableKey = keyof ReservedVariableDefinitions;
+  /**
+   * Variables that are only available in the current tab, including between views in the same tab as navigation occurs, but lost as soon as the user closes the tab.
+   *
+   * Data is encrypted at rest, yet only available if the user has consented to data being stored for the variables' purposes.
+   */
+  tab: "tab",
 
-export type LocalVariableKey = ReservedVariableKey | (string & {});
+  /**
+   * Variables that are shared between open tabs, and lost as soon as the last tab is closed.
+   * These variables are kept entirely in memory and shared via messaging which means they are never persisted in the user's
+   * device between browser restarts.
+   *
+   * Use the server-side scopes `session`, `device` or `user` if the data must be persisted for a longer duration.
+   */
+  shared: "shared",
+} as const;
 
-export enum LocalVariableScope {
-  /** Variables are only available in memory in the current view. */
-  View = -3,
+export type LocalVariableScope = (typeof levels)[keyof typeof levels];
 
-  /** Variables are only available in memory in the current tab, including between views in the same tab as navigation occurs. */
-  Tab = -2,
+export type AnyVariableScope = VariableServerScope | LocalVariableScope;
 
-  /** Variables are only available in memory and shared between all tabs. */
-  Shared = -1,
-}
-
-export const localVariableScope = createEnumAccessor(
-  LocalVariableScope as typeof LocalVariableScope,
-  false,
-  "local variable scope"
+export const localVariableScope = createEnumParser(
+  "local variable scope",
+  levels
 );
 
-export const anyVariableScope = (scope: string | number) =>
-  localVariableScope.tryParse(scope) ?? variableScope(scope);
+export const anyVariableScope = createEnumParser("variable scope", {
+  ...localVariableScope,
+  ...VariableServerScope,
+});
 
-export const formatAnyVariableScope = (scope: string | number) =>
-  localVariableScope.format(scope) ?? variableScope.format(scope);
+export type ClientScoped<
+  Target,
+  LocalOnly extends boolean = boolean
+> = LocalOnly extends true
+  ? RestrictScopes<Target, LocalVariableScope, never>
+  : ServerScoped<Target, true>;
 
-export type LocalVariableScopeValue<
-  Numeric extends boolean | undefined = boolean
-> = EnumValue<
-  typeof LocalVariableScope,
-  LocalVariableScope,
-  false,
-  Numeric
-> extends infer T
-  ? T
-  : never;
+export type ClientVariableKey<LocalOnly extends boolean = boolean> =
+  ClientScoped<VariableKey, LocalOnly>;
 
-export type LocalVariableHeader<NumericEnums extends boolean = boolean> = {
-  key: LocalVariableKey;
-  scope: LocalVariableScopeValue<NumericEnums>;
-  targetId?: undefined;
-  classification?: DataClassification.Anonymous;
-  purposes?: DataPurposeFlags.Necessary;
-  version?: string;
+export type ClientVariable<
+  T extends {} = any,
+  LocalOnly extends boolean = boolean
+> = ClientScoped<Variable<T>, LocalOnly>;
+
+export type ClientVariableGetter<
+  T extends {} = any,
+  LocalOnly extends boolean = boolean
+> = ClientScoped<VariableGetter<T>, LocalOnly> & {
+  /**
+   * This will be called with the result.
+   *
+   * Return `true` from the callback to poll for changes, that is, the callback will be invoked again next time the variable changes
+   * until it returns something else than `true`.
+   */
+  callback?: ClientVariableGetterCallback<T, LocalOnly>;
+
+  /**
+   * This will be called with the value of the variable whenever a change is detected in the local cache
+   * until the callback returns something different than `true`.
+   *
+   */
+  poll?: VariablePollCallback<T>;
+} & Pick<VariableGetRequest, "passive"> &
+  VariableCacheSettings;
+
+export type ClientVariableSetter<
+  T extends {} = any,
+  LocalOnly extends boolean = boolean
+> = ClientScoped<VariableSetter<T>, LocalOnly> & {
+  callback?: ClientVariableSetterCallback<T, LocalOnly>;
 };
 
-export type ReservedVariables<
-  K extends ReservedVariableKey = ReservedVariableKey
-> = K extends infer K
-  ? LocalVariable<
-      ReservedVariableDefinitions[K & ReservedVariableKey],
-      K & string
-    >
-  : never;
-
-type LocalVariable<
-  T = unknown,
-  K extends string = LocalVariableKey,
-  NumericEnums extends boolean = true
-> = PrettifyIntersection<
-  {
-    key: K;
-    value: T;
-  } & LocalVariableHeader<NumericEnums>
+export type ClientVariableGetResult<
+  T extends {} = any,
+  LocalOnly extends boolean = boolean
+> = ClientScoped<
+  VariableResultPromiseResult<"get", VariableGetResult<T>> &
+    Pick<VariableGetResponse, "passive">,
+  LocalOnly
 >;
 
-type LocalVariableGetResult<
-  T = any,
-  K = LocalVariableKey,
-  Patched = false
-> = PrettifyIntersection<
-  (
-    | ({
-        status:
-          | VariableResultStatus.Success
-          | VariableResultStatus.Unchanged
-          | VariableResultStatus.Created;
-      } & LocalVariable<T, K & string>)
-    | IfNot<
-        Patched,
-        {
-          status: VariableResultStatus.NotFound;
-          value?: undefined;
-        }
-      >
-  ) &
-    LocalVariableHeader<true> & { key: K }
+export type ClientVariableSetResult<
+  T extends {} = any,
+  LocalOnly extends boolean = boolean
+> = ClientScoped<
+  VariableResultPromiseResult<"set", VariableSetResult<T>>,
+  LocalOnly
 >;
 
-type LocalVariableSetResult<T, Source> = PrettifyIntersection<{
-  source: Source;
-  status:
-    | VariableResultStatus.Success
-    | VariableResultStatus.Unchanged
-    | VariableResultStatus.Created;
-  current: Source extends { value: infer Value }
-    ? Value extends undefined
-      ? undefined
-      : LocalVariable<T, Source extends { key: infer K } ? K & string : string>
-    : never;
-}>;
-export type ClientVariable<
-  T = any,
-  K extends string = string,
-  Local = boolean,
-  NumericEnums extends boolean = true
-> = Local extends true
-  ? LocalVariable<T, K, NumericEnums>
-  : { key: K } & Omit<
-      RestrictVariableTargets<Variable<T, NumericEnums>>,
-      "key"
-    >;
+export type ClientVariableGetterCallback<
+  T extends {} = any,
+  LocalOnly extends boolean = boolean
+> = VariableGetterCallback<ClientScoped<VariableKey, LocalOnly>, T>;
+
+export type ClientVariableSetterCallback<
+  T extends {} = any,
+  LocalOnly extends boolean = boolean
+> = VariableSetterCallback<ClientScoped<VariableKey, LocalOnly>, T>;
 
 export type VariableCacheSettings = {
   /**
@@ -187,209 +173,28 @@ export type VariableCacheSettings = {
   cache?: number | boolean;
 };
 
-export type ClientVariableCallback<
-  T = any,
-  K extends string = string & {},
-  Local = boolean
-> = (
-  value: ClientVariable<T, K, Local> | undefined,
-  previous: ClientVariable<T, K, Local> | undefined,
-  poll: () => void
-) => void;
-
-export type ClientVariableGetter<
-  T = any,
-  K extends string = string & {},
-  Local = boolean
-> = PrettifyIntersection<
-  (Local extends true
-    ? { key: K } & LocalVariableHeader & {
-          init?: { value: GeneralizeConstants<T> | undefined };
-        }
-    : StripPatchFunctions<
-        RestrictVariableTargets<VariableGetter<T, K, false>, true>
-      >) & {
-    /**
-     * A callback to do something with the result.
-     * If the second function is invoked the variable will be polled for changes, and the callback will be invoked
-     * next time the value changes. To keep polling, keep calling the poll function every time the callback is invoked.
-     */
-    result?: ToggleArray<ClientVariableCallback<T, K, Local>>;
-
-    /**
-     * If the get requests fails this callback will be called instead of the entire operation throwing an error.
-     * If it returns `false` an error will still be thrown.
-     */
-    error?: (
-      result: ClientVariableGetResult<T, K, boolean, Local>,
-      error: string
-    ) => void | boolean;
-
-    /**
-     * Do not accept a cached version of the variable.
-     */
-    refresh?: boolean;
-  } & VariableCacheSettings
->;
-
-export type ClientVariableSetter<
-  T = any,
-  K extends string = string,
-  Local extends boolean = boolean,
-  HasResultHandler extends boolean = true
-> = PrettifyIntersection<
-  (Local extends true
-    ? LocalVariable<GeneralizeConstants<T> | undefined, K, boolean> & {
-        patch?: undefined;
-      }
-    : StripPatchFunctions<
-        RestrictVariableTargets<VariableSetter<T, K, false>, true>
-      >) & {
-    /** A callback that will get invoked when the set operation has completed. */
-    result?: HasResultHandler extends true
-      ? (
-          result: ClientVariableSetResult<
-            T,
-            ClientVariableSetter<T, K, Local, false>
-          >
-        ) => void
-      : undefined;
-
-    /**
-     * If the get requests fails this callback will be called instead of the entire operation throwing an error.
-     * If it returns `false` an error will still be thrown.
-     */
-    error?: (
-      result: ClientVariableSetResult<
-        any,
-        Local extends true
-          ? ClientVariableSetter<any, any, true>
-          : ClientVariableSetter<any, any, false>
-      >,
-      error: string
-    ) => void | boolean;
-  } & VariableCacheSettings
->;
-
-export type ClientScopeValue<
-  NumericEnums extends boolean = boolean,
-  Local extends boolean = boolean
-> = Local extends true
-  ? LocalVariableScopeValue<NumericEnums>
-  : VariableScopeValue<NumericEnums>;
-
-export type ClientVariableKey<
-  NumericEnums extends boolean = boolean,
-  Local extends boolean = boolean
-> = Local extends false
-  ? VariableKey<NumericEnums>
-  : { key: string; scope: LocalVariableScopeValue<NumericEnums> };
-
-type MapLocalGetResult<Getter> = Getter extends ClientVariableGetter<
-  infer T,
-  infer K & string,
-  true
->
-  ? LocalVariableGetResult<
-      ReservedVariableType<K, T>,
-      K,
-      Getter extends { init: { value?: infer V } }
-        ? If<IsAny<V>, false, undefined extends V ? false : true>
-        : false
-    >
-  : Getter extends Nullish
-  ? undefined
-  : never;
-
-type MapLocalSetResult<Setter> = Setter extends ClientVariableSetter<
-  infer T,
-  infer K & string,
-  true
->
-  ? LocalVariableSetResult<
-      T extends undefined ? undefined : ReservedVariableType<K, T>,
-      Setter
-    >
-  : Setter extends Nullish
-  ? undefined
-  : never;
-
-type MapClientVariableResult<P, Getter> = P extends {
-  scope: LocalVariableScopeValue;
-}
-  ? If<Getter, MapLocalGetResult<P>, MapLocalSetResult<P>>
-  : RestrictVariableTargets<
-      If<Getter, MapVariableGetResult<P>, MapVariableSetResult<P>>
-    >;
-
-export type ClientVariableGetResult<
-  T = any,
-  K extends string = string,
-  Patched = boolean,
-  Local = boolean
-> = Local extends true
-  ? LocalVariableGetResult<T, K, Patched>
-  : RestrictVariableTargets<VariableGetResult<T, K, Patched>>;
-
-export type ClientVariableSetResult<
-  T = any,
-  Source extends ClientVariableSetter = ClientVariableSetter<
-    any,
-    string,
-    boolean
-  >
-> = Source extends ClientVariableSetter<any, any, true>
-  ? LocalVariableSetResult<T, Source>
-  : Source extends ClientVariableSetter<any, any, false>
-  ? RestrictVariableTargets<VariableSetResult<T, Source>>
-  : any;
-
-export type ClientVariableResults<
-  P extends readonly any[],
-  Getters
-> = P extends readonly []
-  ? []
-  : P extends readonly [infer Result, ...infer Rest]
-  ? readonly [
-      MapClientVariableResult<Result, Getters>,
-      ...ClientVariableResults<Rest, Getters>
-    ]
-  : P extends readonly (infer Result)[]
-  ? readonly MapClientVariableResult<Result, Getters>[]
-  : never;
-
-export const isLocalScopeKey = (
-  key: any
-): key is {
-  scope: LocalVariableScopeValue;
-} => !!localVariableScope.tryParse(key?.scope);
-
-export const toNumericVariableEnums = createEnumPropertyParser(
-  { scope: localVariableScope },
-  VariableEnumProperties
+export const maskEntityId = <T extends { scope: string; entityId?: string }>(
+  key: T
+): T & ClientScoped<VariableKey> => (
+  key["scope"] !== "global" && key["entityId"] && (key["entityId"] = undefined),
+  key as any
 );
 
-export const variableKeyToString: <
-  S extends
-    | ClientVariableKey
-    | { source?: ClientVariableKey }
-    | string
-    | Nullish
->(
+export const isLocalScopeKey = (
+  key: { scope: string } | Nullish
+): key is {
+  scope: LocalVariableScope;
+} => (key?.scope ? localVariableScope.ranks[key.scope] != null : false);
+
+export const variableKeyToString: <S extends ClientVariableKey | Nullish>(
   key: S
-) => MaybeUndefined<S, string> = (key: any): any =>
-  key == null
-    ? undefined
-    : isString(key)
-    ? key
-    : key.source
-    ? variableKeyToString(key.source)!
-    : `${anyVariableScope(key.scope)}\0${key.key}\0${key.targetId ?? ""}`;
+) => MaybeNullish<string, S> = (key: any): any =>
+  key == null ? key : [key.scope, key.key, key.targetId].join("\0");
 
 export const stringToVariableKey = (key: string): ClientVariableKey => {
   const parts = key.split("\0");
   return {
-    scope: +parts[0],
+    scope: parts[0],
     key: parts[1],
     targetId: parts[2],
   } as any;

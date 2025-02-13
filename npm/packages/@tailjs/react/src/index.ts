@@ -6,6 +6,7 @@ export * from "./MapState";
 export * from "./Tracker";
 export * from "./useTracking";
 export * from "./useTrackerVariable";
+export * from "./useConsent";
 
 export declare namespace React {
   interface DOMAttributes<T> extends TrackerAttributes {}

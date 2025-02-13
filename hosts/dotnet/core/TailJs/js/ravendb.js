@@ -1,4 +1,6 @@
-function _define_property$2(obj, key, value) {
+import { VariableServerScope, extractKey, VariableResultStatus } from '@tailjs/types';
+
+function _define_property$4(obj, key, value) {
     if (key in obj) {
         Object.defineProperty(obj, key, {
             value: value,
@@ -13,28 +15,19 @@ function _define_property$2(obj, key, value) {
 }
 class RavenDbConfiguration {
     async initialize(env) {
-        try {
-            this._env = env;
-            if (this._settings.x509) {
-                const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
-                var _ref;
-                const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
-                if (!cert) {
-                    throw new Error("Certificate not found.");
-                }
-                this._cert = {
-                    id: this.id,
-                    cert,
-                    key
-                };
+        this._env = env;
+        if (this._settings.x509) {
+            const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
+            var _ref;
+            const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
+            if (!cert) {
+                throw new Error("Certificate not found.");
             }
-        } catch (e) {
-            env.log(this, {
-                group: this.id,
-                level: "error",
-                source: `${this.id}:initialize`,
-                message: "" + e
-            });
+            this._cert = {
+                id: this.id,
+                cert,
+                key
+            };
         }
     }
     async request(method, operation, payload) {
@@ -53,10 +46,10 @@ class RavenDbConfiguration {
         return JSON.parse(response);
     }
     constructor(id, settings){
-        _define_property$2(this, "_env", void 0);
-        _define_property$2(this, "_cert", void 0);
-        _define_property$2(this, "_settings", void 0);
-        _define_property$2(this, "id", void 0);
+        _define_property$4(this, "_env", void 0);
+        _define_property$4(this, "_cert", void 0);
+        _define_property$4(this, "_settings", void 0);
+        _define_property$4(this, "id", void 0);
         this.id = id;
         this._settings = settings;
     }
@@ -65,26 +58,18 @@ class RavenDbConfiguration {
 const throwError = (error, transform = (message)=>new Error(message))=>{
     throw isString(error = unwrap(error)) ? transform(error) : error;
 };
+const formatError = (error, includeStackTrace)=>!error ? "(unspecified error)" : includeStackTrace && error.stack ? `${formatError(error, false)}\n${error.stack}` : error.message ? `${error.name}: ${error.message}` : "" + error;
 const tryCatchAsync = async (expression, errorHandler = true, always)=>{
     try {
-        var _errorHandler_;
-        const result = await unwrap(expression);
-        return isArray(errorHandler) ? (_errorHandler_ = errorHandler[0]) === null || _errorHandler_ === void 0 ? void 0 : _errorHandler_.call(errorHandler, result) : result;
+        return await unwrap(expression);
     } catch (e) {
         if (!isBoolean(errorHandler)) {
-            if (isArray(errorHandler)) {
-                if (!errorHandler[1]) throw e;
-                return errorHandler[1](e);
-            }
-            const error = await (errorHandler === null || errorHandler === void 0 ? void 0 : errorHandler(e));
-            if (error instanceof Error) throw error;
-            return error;
+            return await errorHandler(e);
         } else if (errorHandler) {
             throw e;
-        } else {
-            // `false` means "ignore".
-            console.error(e);
         }
+        // `false` means "ignore".
+        console.error(e);
     } finally{
         await (always === null || always === void 0 ? void 0 : always());
     }
@@ -93,13 +78,13 @@ const tryCatchAsync = async (expression, errorHandler = true, always)=>{
 /** Minify friendly version of `false`. */ const undefined$1 = void 0;
 /** Minify friendly version of `false`. */ const F = false;
 /** Minify friendly version of `true`. */ const T = true;
+/** Using this cached value speeds up testing if an object is iterable seemingly by an order of magnitude. */ const symbolAsyncIterator = Symbol.asyncIterator;
 const isBoolean = (value)=>typeof value === "boolean";
 const isString = (value)=>typeof value === "string";
-const isArray = Array.isArray;
-const isFunction = (value)=>typeof value === "function";
+const isFunction = /*#__PURE__*/ (value)=>typeof value === "function";
 const unwrap = (value)=>isFunction(value) ? value() : value;
 let now = typeof performance !== "undefined" ? (round = T)=>round ? Math.trunc(now(F)) : performance.timeOrigin + performance.now() : Date.now;
-function _define_property$1$1(obj, key, value) {
+function _define_property$3(obj, key, value) {
     if (key in obj) {
         Object.defineProperty(obj, key, {
             value: value,
@@ -143,7 +128,7 @@ class ResettablePromise {
         return this._promise.then(onfulfilled, onrejected);
     }
     constructor(){
-        _define_property$1$1(this, "_promise", void 0);
+        _define_property$3(this, "_promise", void 0);
         this.reset();
     }
 }
@@ -152,12 +137,12 @@ class OpenPromise {
         return this._promise.then(onfulfilled, onrejected);
     }
     constructor(){
-        _define_property$1$1(this, "_promise", void 0);
-        _define_property$1$1(this, "resolve", void 0);
-        _define_property$1$1(this, "reject", void 0);
-        _define_property$1$1(this, "value", void 0);
-        _define_property$1$1(this, "error", void 0);
-        _define_property$1$1(this, "pending", true);
+        _define_property$3(this, "_promise", void 0);
+        _define_property$3(this, "resolve", void 0);
+        _define_property$3(this, "reject", void 0);
+        _define_property$3(this, "value", void 0);
+        _define_property$3(this, "error", void 0);
+        _define_property$3(this, "pending", true);
         let captured;
         this._promise = new Promise((...args)=>{
             captured = args.map((inner, i)=>(value, ifPending)=>{
@@ -212,6 +197,254 @@ const createLock = (timeout)=>{
 const delay = (ms, value)=>ms == null || isFinite(ms) ? !ms || ms <= 0 ? unwrap(value) : new Promise((resolve)=>setTimeout(async ()=>resolve(await unwrap(value)), ms)) : throwError(`Invalid delay ${ms}.`);
 const promise = (resettable)=>resettable ? new ResettablePromise() : new OpenPromise();
 const race = (...args)=>Promise.race(args.map((arg)=>isFunction(arg) ? arg() : arg));
+// #endregion
+const getRootPrototype = (value)=>{
+    let proto = value;
+    while(proto){
+        proto = Object.getPrototypeOf(value = proto);
+    }
+    return value;
+};
+const findPrototypeFrame = (frameWindow, matchPrototype)=>{
+    if (!frameWindow || getRootPrototype(frameWindow) === matchPrototype) {
+        return frameWindow;
+    }
+    for (const frame of frameWindow.document.getElementsByTagName("iframe")){
+        try {
+            if (frameWindow = findPrototypeFrame(frame.contentWindow, matchPrototype)) {
+                return frameWindow;
+            }
+        } catch (e) {
+        // Cross domain issue.
+        }
+    }
+};
+/**
+ * When in iframes, we need to copy the prototype methods from the global scope's prototypes since,
+ * e.g., `Object` in an iframe is different from `Object` in the top frame.
+ */ const findDeclaringScope = (target)=>target == null ? target : globalThis.window ? findPrototypeFrame(window, getRootPrototype(target)) : globalThis;
+let stopInvoked = false;
+const skip2 = Symbol();
+const stop2 = (value)=>(stopInvoked = true, value);
+// #region region_iterator_implementations
+const forEachSymbol = Symbol();
+const asyncIteratorFactorySymbol = Symbol();
+const symbolIterator = Symbol.iterator;
+// Prototype extensions are assigned on-demand to exclude them when tree-shaking code that are not using any of the iterators.
+const ensureForEachImplementations = (target, error, retry)=>{
+    if (target == null || (target === null || target === void 0 ? void 0 : target[forEachSymbol])) {
+        throw error;
+    }
+    let scope = findDeclaringScope(target);
+    if (!scope) {
+        throw error;
+    }
+    const forEachIterable = ()=>(target, projection, mapped, seed, context)=>{
+            let projected, i = 0;
+            for (const item of target){
+                if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
+                    if (projected === stop2) {
+                        break;
+                    }
+                    seed = projected;
+                    if (mapped) mapped.push(projected);
+                    if (stopInvoked) {
+                        stopInvoked = false;
+                        break;
+                    }
+                }
+            }
+            return mapped || seed;
+        };
+    scope.Array.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        let projected, item;
+        for(let i = 0, n = target.length; i < n; i++){
+            item = target[i];
+            if ((projected = projection ? projection(item, i, seed, context) : item) !== skip2) {
+                if (projected === stop2) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) {
+                    mapped.push(projected);
+                }
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    const genericForEachIterable = forEachIterable();
+    scope.Object.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>{
+        if (target[symbolIterator]) {
+            if (target.constructor === Object) {
+                return genericForEachIterable(target, projection, mapped, seed, context);
+            }
+            return (Object.getPrototypeOf(target)[forEachSymbol] = forEachIterable())(target, projection, mapped, seed, context);
+        }
+        let projected, item, i = 0;
+        for(const key in target){
+            item = [
+                key,
+                target[key]
+            ];
+            if ((projected = projection ? projection(item, i++, seed, context) : item) !== skip2) {
+                if (projected === stop2) {
+                    break;
+                }
+                seed = projected;
+                if (mapped) mapped.push(projected);
+                if (stopInvoked) {
+                    stopInvoked = false;
+                    break;
+                }
+            }
+        }
+        return mapped || seed;
+    };
+    scope.Object.prototype[asyncIteratorFactorySymbol] = function() {
+        if (this[symbolIterator] || this[symbolAsyncIterator]) {
+            if (this.constructor === Object) {
+                var _this_symbolAsyncIterator;
+                return (_this_symbolAsyncIterator = this[symbolAsyncIterator]()) !== null && _this_symbolAsyncIterator !== void 0 ? _this_symbolAsyncIterator : this[symbolIterator]();
+            }
+            const proto = Object.getPrototypeOf(this);
+            var _proto_symbolAsyncIterator;
+            proto[asyncIteratorFactorySymbol] = (_proto_symbolAsyncIterator = proto[symbolAsyncIterator]) !== null && _proto_symbolAsyncIterator !== void 0 ? _proto_symbolAsyncIterator : proto[symbolIterator];
+            return this[asyncIteratorFactorySymbol]();
+        }
+        return iterateEntries(this);
+    };
+    for (const proto of [
+        scope.Map.prototype,
+        scope.WeakMap.prototype,
+        scope.Set.prototype,
+        scope.WeakSet.prototype,
+        // Generator function
+        Object.getPrototypeOf(function*() {})
+    ]){
+        proto[forEachSymbol] = forEachIterable();
+        proto[asyncIteratorFactorySymbol] = proto[symbolIterator];
+    }
+    scope.Number.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(range2(target), projection, mapped, seed, context);
+    scope.Number.prototype[asyncIteratorFactorySymbol] = range2;
+    scope.Function.prototype[forEachSymbol] = (target, projection, mapped, seed, context)=>genericForEachIterable(traverse2(target), projection, mapped, seed, context);
+    scope.Function.prototype[asyncIteratorFactorySymbol] = traverse2;
+    return retry();
+};
+// #endregion
+function* range2(length = this) {
+    for(let i = 0; i < length; i++)yield i;
+}
+function* traverse2(next = this) {
+    let item = undefined;
+    while((item = next(item)) !== undefined)yield item;
+}
+function* iterateEntries(source) {
+    for(const key in source){
+        yield [
+            key,
+            source[key]
+        ];
+    }
+}
+let map2 = (source, projection, target = [], seed, context = source)=>{
+    try {
+        return !source && source !== 0 && source !== "" ? source == null ? source : undefined : source[forEachSymbol](source, projection, target, seed, context);
+    } catch (e) {
+        return ensureForEachImplementations(source, e, ()=>map2(source, projection, target, seed, context));
+    }
+};
+const batch2 = (source, batchSize)=>{
+    if (source == null) return source;
+    const batches = [];
+    let batch = [];
+    for (const item of source){
+        batch.push(item);
+        if (batch.length === batchSize) {
+            batches.push(batch);
+            batch = [];
+        }
+    }
+    if (batch.length > 0) {
+        batches.push(batch);
+    }
+    return batches;
+};
+const stringify2 = JSON.stringify;
+const json2 = (value)=>value == null || value === "" ? undefined : typeof value === "object" ? value : JSON.parse(value + "");
+
+function _define_property$2(obj, key, value) {
+    if (key in obj) {
+        Object.defineProperty(obj, key, {
+            value: value,
+            enumerable: true,
+            configurable: true,
+            writable: true
+        });
+    } else {
+        obj[key] = value;
+    }
+    return obj;
+}
+class RavenDbTarget {
+    async initialize(env) {
+        this._env = env;
+        if (this._settings.x509) {
+            const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
+            var _ref;
+            const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
+            if (!cert) {
+                throw new Error("Certificate not found.");
+            }
+            this._cert = {
+                id: this.id,
+                cert,
+                key
+            };
+        }
+    }
+    async _request(method, relativeUrl, body, headers) {
+        const url = `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/${relativeUrl}`;
+        const request = {
+            method,
+            url,
+            headers: {
+                ["content-type"]: "application/json",
+                ...headers
+            },
+            x509: this._cert,
+            body: body && (typeof body === "string" ? body : JSON.stringify(body))
+        };
+        try {
+            const response = await this._env.request(request);
+            if (response.status === 500) {
+                const body = json2(response.body);
+                response.error = new Error((body === null || body === void 0 ? void 0 : body.Type) ? `${body.Type}: ${body.Message}` : "(unspecified error)");
+            }
+            return response;
+        } catch (error) {
+            return {
+                request,
+                status: 500,
+                headers: {},
+                cookies: {},
+                body: stringify2({
+                    Message: formatError(error, true)
+                }),
+                error
+            };
+        }
+    }
+    constructor(settings){
+        _define_property$2(this, "_settings", void 0);
+        _define_property$2(this, "_env", void 0);
+        _define_property$2(this, "_cert", void 0);
+        this._settings = settings;
+    }
+}
 
 function _define_property$1(obj, key, value) {
     if (key in obj) {
@@ -229,30 +462,14 @@ function _define_property$1(obj, key, value) {
 /**
  * This extension stores events in RavenDB.
  * It maps and assign IDs (and references to them) to events and sessions with incrementing base 36 numbers to reduce space.
- */ class RavenDbTracker {
-    async initialize(env) {
-        try {
-            this._env = env;
-            if (this._settings.x509) {
-                const cert = "cert" in this._settings.x509 ? this._settings.x509.cert : await this._env.read(this._settings.x509.certPath);
-                var _ref;
-                const key = "keyPath" in this._settings.x509 ? (_ref = await this._env.readText(this._settings.x509.keyPath)) !== null && _ref !== void 0 ? _ref : undefined : this._settings.x509.key;
-                if (!cert) {
-                    throw new Error("Certificate not found.");
-                }
-                this._cert = {
-                    id: this.id,
-                    cert,
-                    key
-                };
-            }
-        } catch (e) {
-            env.log(this, {
-                group: this.id,
-                level: "error",
-                source: `${this.id}:initialize`,
-                message: "" + e
-            });
+ */ class RavenDbExtension extends RavenDbTarget {
+    patchStorageMappings(mappings) {
+        if (!this._storageScopes) return;
+        const variableStorage = new RavenDbVariableStorage(this._settings);
+        for (const scope of this._storageScopes){
+            var _mappings, _scope, _ref;
+            var _, _storage;
+            (_storage = (_ref = (_ = (_mappings = mappings)[_scope = scope]) !== null && _ !== void 0 ? _ : _mappings[_scope] = {}).storage) !== null && _storage !== void 0 ? _storage : _ref.storage = variableStorage;
         }
     }
     async post(events, tracker) {
@@ -261,62 +478,12 @@ function _define_property$1(obj, key, value) {
         }
         try {
             const commands = [];
-            // We add a convenient integer keys to the session, device session and event entities to get efficient primary keys
-            // when doing ETL on the data.
-            const ids = await tracker.get([
-                {
-                    scope: "session",
-                    key: "rdb",
-                    init: async ()=>({
-                            classification: "anonymous",
-                            purposes: "necessary",
-                            value: {
-                                source: [
-                                    tracker.sessionId,
-                                    tracker.deviceSessionId
-                                ],
-                                mapped: [
-                                    await this._getNextId(),
-                                    await this._getNextId()
-                                ]
-                            }
-                        })
-                }
-            ]).value;
-            var hasChanges = false;
-            if (ids.source[0] !== tracker.sessionId) {
-                ids.mapped[0] = await this._getNextId();
-                hasChanges = true;
-            }
-            if (ids.source[1] !== tracker.deviceSessionId) {
-                ids.mapped[1] = await this._getNextId();
-                hasChanges = true;
-            }
-            if (hasChanges) {
-                // Session and/or device session ID changed.
-                await tracker.set([
-                    {
-                        scope: "session",
-                        key: "rdb",
-                        patch: (current)=>{
-                            if (!current) return;
-                            return {
-                                ...current,
-                                value: ids
-                            };
-                        }
-                    }
-                ]);
-            }
             for (let ev of events){
-                const session = ev.session;
-                if (!session) {
-                    continue;
-                }
+                ev = {
+                    ...ev
+                };
                 // Integer primary key for the event entity.
                 const internalEventId = await this._getNextId();
-                ev["rdb:sessionId"] = ids.mapped[0];
-                ev["rdb:deviceSessionId"] = ids.mapped[1];
                 commands.push({
                     Type: "PUT",
                     Id: `events/${internalEventId}`,
@@ -328,16 +495,8 @@ function _define_property$1(obj, key, value) {
                     }
                 });
             }
-            await this._env.request({
-                method: "POST",
-                url: `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/bulk_docs`,
-                headers: {
-                    ["content-type"]: "application/json"
-                },
-                x509: this._cert,
-                body: JSON.stringify({
-                    Commands: commands
-                })
+            await this._request("POST", "bulk_docs", {
+                Commands: commands
             });
         } catch (e) {
             tracker.env.error(this, e);
@@ -352,16 +511,8 @@ function _define_property$1(obj, key, value) {
                 if (id >= this._idRangeMax) {
                     let idMax = this._idRangeMax + this._idBatchSize;
                     for(let i = 0; i <= 100; i++){
-                        const response = (await this._env.request({
-                            method: "PUT",
-                            url: `${this._settings.url}/databases/${encodeURIComponent(this._settings.database)}/cmpxchg?key=NextEventId&index=${this._idIndex}`,
-                            headers: {
-                                ["content-type"]: "application/json"
-                            },
-                            body: JSON.stringify({
-                                Object: idMax
-                            }),
-                            x509: this._cert
+                        const response = (await this._request("PUT", `cmpxchg?key=NextEventId&index=${this._idIndex}`, {
+                            Object: idMax
                         })).body;
                         const result = JSON.parse(response);
                         const success = result.Successful;
@@ -384,33 +535,31 @@ function _define_property$1(obj, key, value) {
                     }
                     id = ++this._nextId;
                 }
-            } catch (e) {
+            } catch (error) {
                 this._env.log(this, {
-                    group: this.id,
                     level: "error",
-                    source: this.id,
-                    message: "" + e
+                    message: "Generating the next sequence of IDs failed.",
+                    error
                 });
+                throw error;
             } finally{
                 lockHandle();
             }
         }
         return id.toString(36);
     }
-    constructor(settings){
-        _define_property$1(this, "id", "ravendb");
-        _define_property$1(this, "_settings", void 0);
-        _define_property$1(this, "_lock", void 0);
-        _define_property$1(this, "_env", void 0);
-        _define_property$1(this, "_cert", void 0);
-        _define_property$1(this, "_nextId", 0);
-        _define_property$1(this, "_idIndex", 1);
-        _define_property$1(this, "_idRangeMax", 0);
-        _define_property$1(this, "_idBatchSize", 1000);
-        this._settings = settings;
+    constructor({ variables = true, ...settings }){
+        super(settings), _define_property$1(this, "id", "ravendb"), _define_property$1(this, "_lock", void 0), _define_property$1(this, "_storageScopes", void 0), _define_property$1(this, "_nextId", 0), _define_property$1(this, "_idIndex", 1), _define_property$1(this, "_idRangeMax", 0), _define_property$1(this, "_idBatchSize", 1000);
+        if (variables) {
+            this._storageScopes = variables === true ? VariableServerScope.levels : variables;
+            if (!this._storageScopes.length) {
+                this._storageScopes = undefined;
+            }
+        }
         this._lock = createLock();
     }
 }
+/** @obsolete Use the name RavenDbExtension instead. */ const RavenDbTracker = RavenDbExtension;
 
 function _define_property(obj, key, value) {
     if (key in obj) {
@@ -425,32 +574,315 @@ function _define_property(obj, key, value) {
     }
     return obj;
 }
-class RavenDbVariableStorage {
-    renew(scope, targetIds, context) {
-        throw new Error("Method not implemented.");
+const UpdateExpiresScript = `this.ttl ? (this["@metadata"]["@expires"]=new Date(Date.now()+this.ttl).toISOString()) : delete this["@metadata"]["@expires"];`;
+class RavenDbVariableStorage extends RavenDbTarget {
+    async get(keys) {
+        const results = [];
+        for (const batch of batch2(keys, 100)){
+            const response = await this._request("GET", `docs?${batch.map((key)=>`id=${keyToDocumentId(key)}`).join("&")}`);
+            const timestamp = now();
+            const body = json2(response.body);
+            const batchResults = body === null || body === void 0 ? void 0 : body.Results;
+            let i = 0;
+            for (const _ of batch){
+                const result = mapDocumentResult(response.status, batchResults === null || batchResults === void 0 ? void 0 : batchResults[i++], timestamp);
+                results.push(result.status === 200 ? mapVariableResult(200, result) : result.status === 404 ? mapNotFoundResult(batch[i]) : mapErrorResult(batch[i], result));
+            }
+        }
+        return results;
     }
-    set(variables, context) {
-        throw new Error("Method not implemented.");
+    async set(setters) {
+        const timestamp = now();
+        const requests = setters.map((setter)=>async ()=>{
+                const createOperation = !setter.version;
+                // An operation can be both create and update if the `force` flag is set.
+                const updateOperation = setter.version || setter.force;
+                const deleteOperation = setter.value == null;
+                const version = setter.force || !setter.version && setter.value != null ? undefined : setter.version || "";
+                const ttl = setter.ttl;
+                const href = `docs?id=${encodeURIComponent(keyToDocumentId(setter))}`;
+                const patchOptions = {
+                    Script: `Object.assign(this, $values); (this["@metadata"] || (this["@metadata"]={}))["@collection"]=$collection;${UpdateExpiresScript}`,
+                    Values: {
+                        values: {
+                            modified: timestamp,
+                            ...extractKey(setter),
+                            ttl,
+                            expires: ttl > 0 ? timestamp + ttl : undefined,
+                            value: setter.value
+                        },
+                        collection: setter.scope
+                    }
+                };
+                let response = deleteOperation ? await this._request("DELETE", href, undefined, {
+                    "If-Match": JSON.stringify(version)
+                }) : await this._request("PATCH", href, {
+                    Patch: updateOperation ? patchOptions : {
+                        // Handle the case where an document has expired by local timestamp logic
+                        // but not been deleted by RavenDB's background process. ($values.modified is our local timestamp)
+                        Script: `if(this.expires <= $values.modified){${patchOptions.Script}}`,
+                        Values: {
+                            created: timestamp,
+                            ...patchOptions.Values
+                        }
+                    },
+                    PatchIfMissing: createOperation ? {
+                        ...patchOptions,
+                        Values: {
+                            created: timestamp,
+                            ...patchOptions.Values
+                        }
+                    } : undefined
+                }, {
+                    "If-Match": JSON.stringify(version)
+                });
+                let body = json2(response.body);
+                let result = mapDocumentResult(response.status, body === null || body === void 0 ? void 0 : body.ModifiedDocument, timestamp, body);
+                if (result.status === 404) {
+                    return mapNotFoundResult(setter);
+                } else if (result.status === 500) {
+                    return mapErrorResult(setter, result);
+                } else if (result.status === 204) {
+                    return deleteOperation ? mapDeleteResult(setter) : mapErrorResult(setter, result);
+                }
+                if (// Update and delete: Normal conflict response.
+                result.status === 409 || // Create: These requests cannot have an If-Modified header, but instead an empty Patch script
+                // so if no patch was made it means the document already exists. (that is, conflict).
+                createOperation && result.body.Status === "NotModified") {
+                    var _body_Results;
+                    // Get current version of the variable.
+                    response = await this._request("GET", href);
+                    body = json2(response.body);
+                    result = mapDocumentResult(response.status, body === null || body === void 0 ? void 0 : (_body_Results = body.Results) === null || _body_Results === void 0 ? void 0 : _body_Results[0], timestamp);
+                    if (// RavenDB returns status 404 for get requests when exactly one document is requested,
+                    // so in this case we can count on it. Otherwise it's always 200.
+                    result.status === 404) {
+                        // The variable has disappeared (race condition).
+                        return mapNotFoundResult(setter);
+                    }
+                    // We have the current version of the variable to include in the conflict response.
+                    if (result.status === 200) {
+                        return mapVariableResult(VariableResultStatus.Conflict, result);
+                    }
+                    return mapErrorResult(setter, result);
+                }
+                if (result.status === 200 || result.status === 201) {
+                    return mapVariableResult(createOperation && !updateOperation ? 201 : result.status, result);
+                }
+                return mapErrorResult(setter, result);
+            });
+        const results = [];
+        for (const batch of batch2(requests, 100)){
+            results.push(...await Promise.all(batch.map((request)=>request())));
+        }
+        return results;
     }
-    purge(filters, context) {
-        throw new Error("Method not implemented.");
+    async purge(queries) {
+        const queryParts = queries.map((query)=>queryToRql(query));
+        for (const part of queryParts){
+            const response = await this._request("DELETE", "queries", part);
+            if (response.error) {
+                throw response.error;
+            }
+        }
+        return undefined;
     }
-    initialize(environment) {
-        throw new Error("Method not implemented.");
+    async renew(queries) {
+        const timestamp = now();
+        const queryParts = queries.map((query)=>queryToRql(query, {
+                fixed: [
+                    "ttl != null"
+                ],
+                append: `update { if(this.ttl != null){this.expires = $now + this.ttl;}${UpdateExpiresScript} }`
+            }));
+        for (const query of queryParts){
+            if (!query) continue;
+            const response = await this._request("PATCH", "queries", {
+                Query: {
+                    Query: query.Query,
+                    QueryParameters: {
+                        ...query.QueryParameters,
+                        now: timestamp
+                    }
+                }
+            });
+            if (response.error) {
+                throw response.error;
+            }
+        }
+        return undefined;
     }
-    get(keys, context) {
-        throw new Error("Method not implemented.");
+    async query(queries, { page, cursor } = {}) {
+        if (page <= 0) {
+            return {
+                variables: []
+            };
+        }
+        const timestamp = now();
+        const variables = [];
+        const match = cursor === null || cursor === void 0 ? void 0 : cursor.match(/^(\d+)(?::(.*))?$/);
+        let offset = match ? +match[1] : 0;
+        let skipId = (match === null || match === void 0 ? void 0 : match[2]) || undefined;
+        cursor = undefined;
+        let i = 0;
+        main: for (const query of queries){
+            if (i++ < offset) {
+                continue;
+            }
+            const rql = queryToRql(query, {
+                fixed: i - 1 === offset && skipId ? [
+                    `id() > ${stringify2(skipId)}`
+                ] : undefined,
+                append: page ? `order by id() limit ${page}` : undefined
+            });
+            if (!rql) continue;
+            const response = await this._request("POST", "queries", rql);
+            if (response.error) {
+                throw response.error;
+            }
+            const json = json2(response.body);
+            var _json_Results;
+            for (const result of (_json_Results = json === null || json === void 0 ? void 0 : json.Results) !== null && _json_Results !== void 0 ? _json_Results : []){
+                const variable = mapDocumentResult(200, result, timestamp).document;
+                if (variable) {
+                    variables.push(variable);
+                    if (page && variables.length >= page) {
+                        cursor = `${offset}:${keyToDocumentId(variable)}`;
+                        break main;
+                    }
+                }
+            }
+        }
+        return {
+            variables,
+            cursor
+        };
     }
-    head(filters, options, context) {
-        throw new Error("Method not implemented.");
-    }
-    query(filters, options, context) {
-        throw new Error("Method not implemented.");
-    }
-    constructor(settings){
-        _define_property(this, "_settings", void 0);
-        this._settings = settings;
+    constructor(...args){
+        super(...args), _define_property(this, "id", "ravendb-variables");
     }
 }
+const keyToDocumentId = (key)=>`${key.scope}/${key.entityId}/${key.key}`;
+const mapErrorResult = (key, result)=>{
+    var _result_body;
+    return {
+        ...extractKey(key),
+        status: VariableResultStatus.Error,
+        error: result.status >= 500 ? ((_result_body = result.body) === null || _result_body === void 0 ? void 0 : _result_body.Type) || result.body.Message ? `${result.body.Type ? result.body.Type + ": " : ""}${result.body.Message}` : "(unspecified error)" : `Unexpected response (status ${result.status}): ${result.body}.`
+    };
+};
+const mapNotFoundResult = (key)=>({
+        status: VariableResultStatus.NotFound,
+        ...extractKey(key)
+    });
+const mapDeleteResult = (key)=>({
+        status: VariableResultStatus.Success,
+        ...extractKey(key)
+    });
+const mapVariableResult = (status, { document: { scope, entityId, key, created, modified, ttl, expires, value, version } })=>({
+        status,
+        scope,
+        entityId,
+        key,
+        created,
+        modified,
+        ttl,
+        expires,
+        value,
+        version
+    });
+const mapDocumentResult = (status, document, timestamp, body)=>{
+    var _document_metadata;
+    if (status === 204 || status === 404 || status === 409 || status === 500) {
+        return {
+            status,
+            body
+        };
+    } else if (!document) {
+        return status === 200 || status === 201 ? {
+            status: 404,
+            body
+        } : {
+            status: 500,
+            body: {
+                Message: `Unsupported status code: ${status}`
+            }
+        };
+    }
+    if (document.expires - timestamp <= 0) {
+        // We do not base our TTL calculations of Raven's dates.
+        return {
+            status: 404,
+            body
+        };
+    }
+    const { scope, entityId, key, created, modified, ttl, expires, value } = document;
+    var _body_ChangeVector;
+    return {
+        status: status,
+        body,
+        document: {
+            scope,
+            entityId,
+            key,
+            created,
+            modified,
+            ttl,
+            expires,
+            value,
+            version: (_body_ChangeVector = body === null || body === void 0 ? void 0 : body.ChangeVector) !== null && _body_ChangeVector !== void 0 ? _body_ChangeVector : (_document_metadata = document["@metadata"]) === null || _document_metadata === void 0 ? void 0 : _document_metadata["@change-vector"]
+        }
+    };
+};
+const queryToRql = (query, { fixed, ifEmpty, append } = {})=>{
+    let where = fixed ? [
+        ...fixed
+    ] : [];
+    const { entityIds, keys } = query;
+    if (entityIds) {
+        if (!entityIds.length) {
+            return null;
+        }
+        if ((keys === null || keys === void 0 ? void 0 : keys.exclude) != false) {
+            // Document ID prefixes unless we have specific keys (because those map to specific document IDs).
+            const filters = `${entityIds.map((entityId)=>`startsWith(id(),${stringify2(keyToDocumentId({
+                    scope: query.scope,
+                    entityId,
+                    key: ""
+                }))})`).join(" or ")}`;
+            where.push(entityIds.length > 1 ? `(${filters})` : filters);
+        }
+        if (keys) {
+            // Specific document IDs must match (or not match).
+            const comparer = keys.exclude ? "!=" : "==";
+            const keyFilter = entityIds.flatMap((entityId)=>map2(keys.values, (key)=>`id() ${comparer} ${stringify2(keyToDocumentId({
+                        scope: query.scope,
+                        entityId,
+                        key
+                    }))}`));
+            if (keyFilter.length) {
+                where.push(keyFilter.length === 1 ? keyFilter[0] : `(${keyFilter.join(" or ")})`);
+            } else if (!keys.exclude) {
+                // No keys
+                return null;
+            }
+        }
+    } else if (keys) {
+        const comparer = keys.exclude ? "!=" : "==";
+        const keyFilter = map2(keys.values, (key)=>`key ${comparer} ${stringify2(key)}`).join(" or ");
+        if (keyFilter) {
+            where.push(`exact(${keyFilter})`);
+        } else if (!keys.exclude) {
+            return null;
+        }
+    }
+    if (!where.length && (ifEmpty === null || ifEmpty === void 0 ? void 0 : ifEmpty.length)) {
+        where = ifEmpty;
+    }
+    return {
+        Query: `from ${query.scope}${where.length ? ` where ${where.join(" and ")}` : ""}${append ? ` ${append}` : ""}`,
+        QueryParameters: {}
+    };
+};
 
-export { RavenDbConfiguration, RavenDbTracker, RavenDbVariableStorage };
+export { RavenDbConfiguration, RavenDbExtension, RavenDbTracker, RavenDbVariableStorage };

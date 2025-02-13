@@ -1,27 +1,48 @@
 import fs from "fs";
 import http from "http";
-import https from "https";
-import { resolve, join, basename, dirname } from "path";
+import https, { RequestOptions } from "https";
+import { basename, dirname, join, resolve } from "path";
 import { v4 as uuid } from "uuid";
 
-import type {
-  ChangeHandler,
-  EngineHost,
-  HostResponse,
-  HttpRequest,
-  LogMessage,
-  ResourceEntry,
+import {
+  detectPfx,
+  type ChangeHandler,
+  type EngineHost,
+  type HostResponse,
+  type HttpRequest,
+  type LogMessage,
+  type ResourceEntry,
 } from "@tailjs/engine";
-import { hash } from "@tailjs/transport";
-import { MINUTE, now } from "@tailjs/util";
+import { MaybePromise, MINUTE, now, obj2, skip2 } from "@tailjs/util";
+import { DefaultLogger, DefaultLoggerSettings } from "./DefaultLogger";
+
+export type NativeHostLogger = {
+  initialize?(rootPath: string): MaybePromise<void>;
+  log(message: LogMessage): void;
+};
+
+export interface NativeHostSettings {
+  rootPath: string;
+  /**
+   * How to log messages.
+   *
+   * @default DefaultLoggerSettings (with default settings).
+   */
+  logger?: NativeHostLogger | DefaultLoggerSettings | false;
+}
 
 export class NativeHost implements EngineHost {
   private readonly _rootPath: string;
-  private readonly _console: boolean;
+  private readonly _logger: NativeHostLogger | null;
 
-  constructor(rootPath: string, console = true) {
+  constructor({ rootPath, logger = {} }: NativeHostSettings) {
     this._rootPath = resolve(rootPath);
-    this._console = console;
+
+    this._logger = !logger
+      ? null
+      : "log" in logger
+      ? logger
+      : new DefaultLogger(logger);
   }
 
   async ls(path: string): Promise<ResourceEntry[] | null> {
@@ -53,7 +74,6 @@ export class NativeHost implements EngineHost {
         created: stat.birthtimeMs,
         modified: stat.mtimeMs,
         path: path.substring(this._rootPath.length),
-        // TODO: Check if its actually the case? Probably a good service for consumers.
         readonly: false,
         type,
         name: basename(path),
@@ -67,13 +87,17 @@ export class NativeHost implements EngineHost {
     [lastEvent: number, epochCount: number, totalCount: number]
   >();
 
-  async log(message: LogMessage) {
+  private _initialized: boolean | Promise<void> = false;
+  log(message: LogMessage) {
+    if (!this._initialized) {
+      this._initialized = this._logger?.initialize?.(this._rootPath) ?? true;
+    }
+    if (this._initialized instanceof Promise) {
+      return this._initialized.then(() => this.log(message));
+    }
+
     const throttleKey =
-      message.throttleKey == null
-        ? null
-        : message.throttleKey === ""
-        ? hash(JSON.stringify(message), 64)
-        : message.throttleKey;
+      message.throttleKey == null ? null : message.throttleKey;
     if (throttleKey != null) {
       let throttleStats = this._throttleStats.get(throttleKey);
       if (!throttleStats) {
@@ -98,45 +122,7 @@ export class NativeHost implements EngineHost {
       }
     }
 
-    let msg = {
-      timestamp: new Date().toISOString(),
-      ...message,
-    } as any;
-    const group = message.group ?? "console";
-    if (group === "console" || this._console) {
-      switch (message.level) {
-        case "debug":
-          console.debug(msg);
-          break;
-        case "warn":
-          console.warn(msg);
-          break;
-        case "error":
-          console.error(msg);
-          break;
-        default:
-          console.log(msg);
-      }
-    }
-
-    msg = JSON.stringify(msg);
-
-    if (group !== "console") {
-      let dir = join(this._rootPath, "logs");
-      const parts = group.split("/");
-      if (parts.length > 1) {
-        const newDir = join(dir, ...parts.slice(0, parts.length - 1));
-        if (!newDir.startsWith(dir)) {
-          throw new Error(`Invalid group name '${group}'.`);
-        }
-      }
-      await fs.promises.mkdir(dir, { recursive: true });
-      await fs.promises.appendFile(
-        join(dir, `${parts[parts.length - 1]}.json`),
-        `${msg}\n`,
-        "utf-8"
-      );
-    }
+    this._logger?.log(message);
   }
 
   read(
@@ -245,18 +231,32 @@ export class NativeHost implements EngineHost {
       };
       tryCatch(() => {
         if (!request) return;
+
+        const { cert, key, pfx } = {
+          ...detectPfx(request.x509),
+          cert: request.x509?.cert
+            ? typeof request.x509.cert === "string"
+              ? request.x509.cert
+              : Buffer.from(request.x509.cert.buffer)
+            : void 0,
+        };
+
+        const headers =
+          obj2(request.headers, (kv) => (kv[1] != null ? kv : skip2)) ?? {};
+        if (request.body) {
+          headers["content-length"] =
+            "" +
+            (typeof request.body === "string"
+              ? Buffer.byteLength(request.body, "utf8")
+              : request.body.length);
+        }
         const req = (request.url.startsWith("https:") ? https : http).request(
           request.url,
           {
-            headers: request.headers,
             method: request.method,
-            cert: request.x509?.cert
-              ? typeof request.x509.cert === "string"
-                ? request.x509.cert
-                : Buffer.from(request.x509.cert.buffer)
-              : void 0,
-            key: request.x509?.key,
-          },
+            headers,
+            ...(pfx ? { pfx: cert, passphrase: key } : { cert, key }),
+          } satisfies RequestOptions,
           (res) => {
             if (!res?.statusCode) {
               reject(new Error("The server did not reply with a status code."));
@@ -298,17 +298,20 @@ export class NativeHost implements EngineHost {
           }
         );
 
-        req.on("error", (err) => {
-          reject(err);
-        });
+        let rejected = false;
+        req.on("error", (err) => !rejected && reject(err));
 
         req.on("timeout", () => {
           req.destroy();
-          reject(new Error("Request time out"));
+          !rejected && reject(new Error("Request time out"));
         });
 
-        if (request.body) {
+        if (typeof request.body === "string") {
           req.end(request!.body, "utf-8");
+        } else if (request.body) {
+          req.end(request.body);
+        } else {
+          req.end();
         }
       });
     });
