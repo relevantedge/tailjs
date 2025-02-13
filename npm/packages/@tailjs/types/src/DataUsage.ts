@@ -101,7 +101,10 @@ export const DataUsage = {
       })),
 
   serialize: (usage: DataUsage): string | null => {
-    const purposes = DataPurposes.parse(usage.purposes, { names: true });
+    const purposes = DataPurposes.parse(usage.purposes, {
+      names: true,
+      includeDefault: false,
+    });
 
     return (!usage.classification || usage.classification === "anonymous") &&
       !purposes?.length

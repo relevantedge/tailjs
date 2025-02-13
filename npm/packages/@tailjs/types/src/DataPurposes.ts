@@ -9,7 +9,7 @@ import {
   skip2,
   throwError,
 } from "@tailjs/util";
-import { type DataUsage } from ".";
+import { SCHEMA_TYPE_PROPERTY, type DataUsage } from ".";
 
 export type DataPurposeName = keyof DataPurposes | "necessary";
 const DATA_PURPOSES: DataPurposeName[] = [
@@ -96,19 +96,16 @@ export interface PurposeTestOptions {
 export const DataPurposes: {
   parse<
     T extends string | string[] | DataPurposes | DataUsage | Nullish,
-    Names extends boolean = false
+    Names extends boolean = false,
+    IncludeDefault extends boolean = true
   >(
     value: T,
-    options?: { names?: Names; validate?: boolean }
+    options?: { names?: Names; includeDefault?: boolean; validate?: boolean }
   ): T extends Nullish
     ? T
     : Names extends true
-    ? DataPurposeName[]
+    ? ([IncludeDefault] extends true ? DataPurposeName : keyof DataPurposes)[]
     : DataPurposes;
-
-  getNames<T>(
-    purposes: T & (DataPurposes | Nullish)
-  ): T extends Nullish ? T : DataPurposeName[];
 
   readonly all: DataPurposes;
 
@@ -130,9 +127,14 @@ export const DataPurposes: {
   ): boolean;
 
   names: DataPurposeName[];
+  specificNames: (keyof DataPurposes)[];
 } = {
   names: DATA_PURPOSES,
-  parse: (value: any, { names = false, validate = true } = {}) => {
+  specificNames: DATA_PURPOSES.filter((purpose) => purpose !== "necessary"),
+  parse: (
+    value: any,
+    { names = false, includeDefault = true, validate = true } = {}
+  ) => {
     if (value == null) return value;
     if (value.purposes) {
       // From DataUsage
@@ -145,6 +147,8 @@ export const DataPurposes: {
     if (isArray(value)) {
       const purposes: DataPurposes = {};
       for (const name of value as any) {
+        if (name === SCHEMA_TYPE_PROPERTY) continue;
+
         if (!VALID_PURPOSE_NAMES[name]) {
           validate && throwError(`The purpose name '${name}' is not defined.`);
           continue;
@@ -156,14 +160,13 @@ export const DataPurposes: {
     }
 
     if (names) {
-      const result = keys2(value);
-      return result.length ? result : ["necessary"];
+      const result = map2(value, ([key, value]) =>
+        VALID_PURPOSE_NAMES[key] && value ? key : skip2
+      );
+      return result.length || !includeDefault ? result : ["necessary"];
     }
     return value;
   },
-  getNames: (purposes: any) =>
-    map2(purposes, ([key, value]) => (value ? key : skip2)),
-
   get all(): DataPurposes {
     return {
       functionality: true,

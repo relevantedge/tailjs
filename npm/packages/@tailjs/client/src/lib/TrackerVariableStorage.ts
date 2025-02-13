@@ -28,6 +28,7 @@ import {
   remove,
   required,
   skip2,
+  some2,
 } from "@tailjs/util";
 import {
   addPageLoadedListener,
@@ -58,11 +59,12 @@ import {
 } from "..";
 
 const KEY_PROPS: (keyof VariableKey)[] = ["scope", "key", "entityId", "source"];
-const GETTER_REQUEST_PROPS: (keyof VariableGetter)[] = [
+const GETTER_REQUEST_PROPS: (keyof ClientVariableGetter)[] = [
   ...KEY_PROPS,
   "purpose",
   "ifModifiedSince",
   "ifNoneMatch",
+  "passive",
 ];
 const SETTER_REQUEST_PROPS: (keyof VariableValueSetter)[] = [
   ...KEY_PROPS,
@@ -105,7 +107,11 @@ export interface TrackerVariableStorage {
     ReservedTrackerVariables
   >;
 }
-const activeCallbacks = new Map<string, Set<ClientVariableGetterCallback>>();
+const callbackSourceSymbol = Symbol();
+type RegisteredCallback = ClientVariableGetterCallback & {
+  [callbackSourceSymbol]: ClientVariableGetter;
+};
+const activeCallbacks = new Map<string, Set<RegisteredCallback>>();
 
 export const createVariableStorage = (
   endpoint: string,
@@ -114,18 +120,22 @@ export const createVariableStorage = (
   const pollVariables = clock(async () => {
     const getters: ClientVariableGetter[] = map2(
       activeCallbacks,
-      ([key, callbacks]) => ({
-        ...stringToVariableKey(key),
-        result: [...callbacks],
-      })
-    ) as any;
+      ([key, callbacks]) =>
+        // Only request the variable if one or more callbacks originally requested the variable to be refreshed.
+        some2(callbacks, (callback) => callback[callbackSourceSymbol]?.refresh)
+          ? ({
+              ...stringToVariableKey(key),
+              refresh: true,
+            } satisfies ClientVariableGetter)
+          : skip2
+    );
 
     getters.length && (await vars.get(getters));
   }, VARIABLE_POLL_FREQUENCY);
 
   const registerCallback = (
     mappedKey: string,
-    callback: ClientVariableGetterCallback | undefined
+    callback: RegisteredCallback | undefined
   ) => {
     return (
       callback &&
@@ -157,13 +167,17 @@ export const createVariableStorage = (
   );
 
   addVariablesChangedListener((changes) =>
-    forEach2(changes, ([key, current]) =>
+    forEach2(changes, ([key, current]) => {
+      if (current?.passive) {
+        delete current.passive;
+        return;
+      }
       invokeCallbacks(
         current
           ? { status: VariableResultStatus.Success, ...current }
           : { status: VariableResultStatus.NotFound, ...key }
-      )
-    )
+      );
+    })
   );
 
   const vars: TrackerVariableStorage = {
@@ -199,7 +213,7 @@ export const createVariableStorage = (
                 status: VariableResultStatus.Forbidden,
                 error: `No consent for '${purpose}'.`,
               });
-            } else if (getter.refresh && current) {
+            } else if (!getter.refresh && current) {
               results.set(getter, {
                 status: VariableResultStatus.Success,
                 ...current,
@@ -298,11 +312,13 @@ export const createVariableStorage = (
           return results;
         },
         {
-          poll: (source, callback) =>
-            registerCallback(
+          poll: (source: VariableGetter, callback) => {
+            callback[callbackSourceSymbol] = source;
+            return registerCallback(
               variableKeyToString(source as any),
               callback as any
-            ),
+            );
+          },
           logCallbackError: (message, operation, error) =>
             logError("Variables.get", message, { operation, error }),
         }

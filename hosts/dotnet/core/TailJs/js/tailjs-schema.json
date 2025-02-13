@@ -2504,7 +2504,9 @@
       }
     }
   },
-  "x-version": "0.37.0-canary.1",
+  "x-version": "0.37.0",
   "x-privacy-class": "anonymous",
-  "x-privacy-purposes": []
+  "x-privacy-purposes": [
+    "necessary"
+  ]
 }

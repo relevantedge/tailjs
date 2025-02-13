@@ -3,7 +3,7 @@ import {
   SCOPE_INFO_KEY,
   SESSION_REFERENCE_KEY,
 } from "@constants";
-import { Transport, defaultTransport, jsonDecode } from "@tailjs/transport";
+import { Transport, defaultTransport } from "@tailjs/transport";
 import {
   DataClassification,
   DataPurposeName,
@@ -14,7 +14,6 @@ import {
   RestrictScopes,
   ScopeInfo,
   ServerScoped,
-  VariableServerScope,
   Session,
   SessionInfo,
   Timestamp,
@@ -30,7 +29,7 @@ import {
   VariableQueryOptions,
   VariableQueryResult,
   VariableResultStatus,
-  VariableSetResult,
+  VariableServerScope,
   VariableSetter,
   WithCallbacks,
   consumeQueryResults,
@@ -225,8 +224,19 @@ export class Tracker {
    */
   public readonly trustedContext: boolean;
 
-  /** Variables that have been added or updated during the request (cf. {@link TrackerStorageContext.push}). */
-  private readonly _changedVariables: VariableSetResult<any>[] = [];
+  /** Variables that have been added or updated during the request through this tracker. */
+  private readonly _changedVariables = new Map<
+    string,
+    ServerScoped<Variable<any>>
+  >();
+
+  /** Variables that have been added or updated during the request through this tracker. */
+  public getChangedVariables(): ReadonlyMap<
+    string,
+    ServerScoped<Variable<any>>
+  > {
+    return this._changedVariables;
+  }
 
   private readonly _clientCipher: Transport;
   private readonly _cookieCipher: Transport;
@@ -458,13 +468,7 @@ export class Tracker {
       return {};
     }
 
-    const result = await this._requestHandler.post(this, events, options);
-    if (this._changedVariables.length) {
-      ((result.variables ??= {}).get ??= []).push(
-        ...(this._changedVariables as any)
-      );
-    }
-    return result;
+    return await this._requestHandler.post(this, events, options);
   }
 
   // #region DeviceData
@@ -685,11 +689,27 @@ export class Tracker {
     const previousConsent = this._consent;
     this._consent = { classification, purposes };
 
+    const timestamp = now();
     if ((classification === "anonymous") !== (previousLevel === "anonymous")) {
       // We switched from cookie-less to cookies or vice versa.
       // Refresh scope infos and anonymous session pointer.
-      await this._ensureSession(now(), { previousConsent, refreshState: true });
+      await this._ensureSession(timestamp, {
+        previousConsent,
+        refreshState: true,
+      });
     }
+
+    this._changedVariables.set(
+      trackerVariableKey({ scope: "session", key: CONSENT_INFO_KEY }),
+      {
+        scope: "session",
+        key: CONSENT_INFO_KEY,
+        created: timestamp,
+        modified: timestamp,
+        value: DataUsage.clone(this._consent),
+        version: timestamp.toString(),
+      }
+    );
   }
 
   private _snapshot(
@@ -716,6 +736,7 @@ export class Tracker {
     }: SessionInitializationOptions = {}
   ) {
     const useAnonymousTracking = this._consent.classification === "anonymous";
+    let sessionCreated = false;
 
     if ((resetSession || resetDevice) && this.sessionId) {
       // Purge old data. No point in storing this since it will no longer be used.
@@ -780,7 +801,7 @@ export class Tracker {
               entityId: this._anonymousSessionReferenceId,
               // Only initialize if anonymous tracking.
               init: () =>
-                useAnonymousTracking
+                !passive && useAnonymousTracking
                   ? this.env.nextId("anonymous-session")
                   : undefined,
             },
@@ -815,108 +836,121 @@ export class Tracker {
             );
           });
         }
+      }
 
-        this._device = undefined;
+      this._device = undefined;
+      this._session = anonymousSessionId
+        ? await this.env.storage.get(
+            {
+              scope: "session",
+              key: SCOPE_INFO_KEY,
+              entityId: anonymousSessionId,
+              init: async () => {
+                if (passive) {
+                  return undefined;
+                }
+                sessionCreated = true;
+                return createInitialScopeData(anonymousSessionId!, timestamp, {
+                  deviceSessionId:
+                    deviceSessionId ??
+                    (await this.env.nextId("device-session")),
+                  anonymous: true,
+                });
+              },
+            },
+            { trusted: true }
+          )
+        : undefined;
+    } else {
+      // Make sure we have device ID and session IDs (unless passive, where new sessions are not created from context menu navigation links).
+
+      if (
+        // 1. We do not have an existing session ID from a cookie:
+        !identifiedSessionId ||
+        // 2. The session ID from the cookie has expired:
+        (this._session?.entityId !== identifiedSessionId &&
+          !(this._session = await this.env.storage.get({
+            scope: "session",
+            key: SCOPE_INFO_KEY,
+            entityId: identifiedSessionId,
+          })))
+      ) {
+        identifiedSessionId = await this.env.nextId("session");
+      }
+
+      // We might already have read the session above in check 2, or _ensureSession has already been called earlier.
+      if (this.sessionId !== identifiedSessionId) {
         this._session = await this.env.storage.get(
           {
             scope: "session",
             key: SCOPE_INFO_KEY,
-            entityId: anonymousSessionId,
-            init: async () =>
-              createInitialScopeData(anonymousSessionId!, timestamp, {
-                deviceSessionId:
-                  deviceSessionId ?? (await this.env.nextId("device-session")),
-                anonymous: true,
-              }),
+            entityId: identifiedSessionId,
+            init: async () => {
+              if (passive) return undefined;
+              sessionCreated = true;
+              // CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
+              // This means clients must make sure the initial request to the endpoint completes before more are sent (or at least do a fair effort).
+              // Additionally, analytics processing should be aware of empty sessions, and decide what to do with them (probably filter them out).
+
+              const data = createInitialScopeData(
+                identifiedSessionId,
+                timestamp,
+                {
+                  anonymous: false,
+                  // Initialize device ID here to keep it in the session.
+                  deviceId: deviceId ?? (await this.env.nextId("device")),
+                  deviceSessionId:
+                    deviceSessionId ??
+                    (await this.env.nextId("device-session")),
+                  anonymousSessionId,
+                }
+              );
+
+              return data;
+            },
           },
           { trusted: true }
         );
       }
-    } else {
-      // If passive, identified session may be null at this point, and nothing will happen
-      if (!passive) {
-        // Make sure we have device ID and session IDs (unless passive, where new sessions are not created from context menu navigation links).
 
-        if (
-          // 1. We do not have an existing session ID from a cookie:
-          !identifiedSessionId ||
-          // 2. The session ID from the cookie has expired:
-          (this._session?.entityId !== identifiedSessionId &&
-            !(this._session = await this.env.storage.get({
-              scope: "session",
-              key: SCOPE_INFO_KEY,
-              entityId: identifiedSessionId,
-            })))
-        ) {
-          identifiedSessionId = await this.env.nextId("session");
-        }
-
-        // We might already have read the session above in check 2, or _ensureSession has already been called earlier.
-        if (this.sessionId !== identifiedSessionId) {
-          this._session = await this.env.storage.get(
-            {
-              scope: "session",
-              key: SCOPE_INFO_KEY,
-              entityId: identifiedSessionId,
-              init: async () => {
-                // CAVEAT: There is a minimal chance that multiple sessions may be generated for the same device if requests are made concurrently.
-                // This means clients must make sure the initial request to the endpoint completes before more are sent (or at least do a fair effort).
-                // Additionally, analytics processing should be aware of empty sessions, and decide what to do with them (probably filter them out).
-
-                const data = createInitialScopeData(
-                  identifiedSessionId,
-                  timestamp,
-                  {
-                    anonymous: false,
-                    // Initialize device ID here to keep it in the session.
-                    deviceId: deviceId ?? (await this.env.nextId("device")),
-                    deviceSessionId:
-                      deviceSessionId ??
-                      (await this.env.nextId("device-session")),
-                    anonymousSessionId,
-                  }
-                );
-
-                return data;
-              },
-            },
-            { trusted: true }
-          );
-        }
-
-        deviceId = this._session?.value.deviceId;
-        this._device = await this.env.storage.get(
-          {
-            scope: "device",
-            key: SCOPE_INFO_KEY,
-            entityId: deviceId,
-            init: () =>
-              createInitialScopeData(deviceId!, timestamp, {
-                sessions: 1,
-              }) as DeviceInfo,
-          },
-          { trusted: true }
-        );
-
-        if (this._session?.value.isNew && !this._device!.value.isNew) {
-          // New session, existing device. Update statistics.
-          await this.env.storage.set(
+      deviceId = this._session?.value.deviceId;
+      this._device = deviceId
+        ? await this.env.storage.get(
             {
               scope: "device",
               key: SCOPE_INFO_KEY,
-              entityId: deviceId!,
-              patch: (current: DeviceInfo) =>
-                current &&
-                ({
-                  ...current,
-                  sessions: current.sessions + 1,
-                  lastSeen: timestamp,
-                } as DeviceInfo as DeviceInfo),
+              entityId: deviceId,
+              init: () =>
+                passive
+                  ? undefined
+                  : (createInitialScopeData(deviceId!, timestamp, {
+                      sessions: 1,
+                    }) as DeviceInfo),
             },
             { trusted: true }
-          );
-        }
+          )
+        : undefined;
 
+      if (this._session?.value.isNew && !this._device?.value.isNew) {
+        // New session, existing device. Update statistics.
+        await this.env.storage.set(
+          {
+            scope: "device",
+            key: SCOPE_INFO_KEY,
+            entityId: deviceId!,
+            patch: (current: DeviceInfo) =>
+              current &&
+              ({
+                ...current,
+                sessions: current.sessions + 1,
+                lastSeen: timestamp,
+              } as DeviceInfo as DeviceInfo),
+          },
+          { trusted: true }
+        );
+      }
+
+      if (!passive) {
         if (anonymousSessionId) {
           // We went from anonymous to identified tracking.
           const anonymousSessionReferenceId = this._anonymousSessionReferenceId;
@@ -1203,7 +1237,9 @@ export class Tracker {
             this._touchClientDeviceData();
           }
 
-          this._changedVariables.push(result);
+          if (isVariableResult(result)) {
+            this._changedVariables.set(trackerVariableKey(result), result);
+          }
         }
       }
 
@@ -1257,3 +1293,18 @@ export class Tracker {
 
   // #endregion
 }
+
+export const trackerVariableKey = ({
+  scope,
+  entityId,
+  key,
+}: {
+  scope: string;
+  entityId?: string;
+  key: string;
+}) => `${scope}\0${entityId ?? ""}\0${key}`;
+
+export const trackedResponseVariables = new Set([
+  trackerVariableKey({ scope: "session", key: SCOPE_INFO_KEY }),
+  trackerVariableKey({ scope: "session", key: CONSENT_INFO_KEY }),
+]);

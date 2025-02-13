@@ -51,7 +51,8 @@ describe("Accessors accesses what they access", () => {
       g: 90,
     });
 
-    expect(update(o, "a", (current) => current! + 5)).toEqual(15);
+    update(o, "a", (current) => current! + 5);
+    expect(o.a).toEqual(15);
 
     expect(assign(m, "c", 80)).toBe(80);
     expect(m.get("c")).toBe(80);

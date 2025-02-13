@@ -7,7 +7,7 @@ import {
 
 import type { TrackerClientConfiguration } from "@tailjs/client";
 import { Tag } from "@tailjs/types";
-import { map2 } from "@tailjs/util";
+import { Falsish, map2, skip2 } from "@tailjs/util";
 
 export interface BootstrapSettings
   extends Pick<
@@ -31,7 +31,9 @@ export interface BootstrapSettings
 
   /** {@link TrackerExtension}s that are loaded into the request handler.  */
   extensions?: Iterable<
-    TrackerExtension | (() => Promise<TrackerExtension> | TrackerExtension)
+    | Falsish
+    | TrackerExtension
+    | (() => Promise<TrackerExtension> | TrackerExtension)
   >;
 
   /**
@@ -89,7 +91,9 @@ export function bootstrap({
     cookies,
     extensions:
       map2(extensions, (extension) =>
-        typeof extension === "function"
+        !extension
+          ? skip2
+          : typeof extension === "function"
           ? extension
           : async () => extension as any
       ) ?? [],

@@ -86,7 +86,10 @@ export type VariableSetterCallback<
   MatchScopes<VariableResultPromiseResult<"set", VariableSetResult<T>>, KeyType>
 >;
 
-type ValidOperationKeys = AllKeys<VariableGetter | VariableSetter | Variable>;
+type ValidOperationKeys =
+  | AllKeys<VariableGetter | VariableSetter | Variable>
+  // To suspend client-side polling callbacks
+  | "passive";
 
 /**
  * Validate types for callbacks.
@@ -454,8 +457,11 @@ export const toVariableResultPromise = <
 
   const handlerResultPromise = (async () => {
     const results = await handler(ops.filter((op: any) => op));
-    const callbacks: [op: any, callback: (result: VariableResult) => any][] =
-      [];
+    const callbacks: [
+      op: any,
+      initialResult: any,
+      callback: (result: VariableResult) => any
+    ][] = [];
 
     for (const op of ops) {
       if (!op) {
@@ -472,13 +478,14 @@ export const toVariableResultPromise = <
       result[sourceOperation] = op;
 
       if (hasCallback(op)) {
-        callbacks.push([op, (result) => op.callback(result) === true]);
+        callbacks.push([op, result, (result) => op.callback(result) === true]);
       }
       if (hasPollCallback(op)) {
         let previous: any;
         // This is only defined for get operations.
         callbacks.push([
           op,
+          result,
           (result) => {
             if (!isVariableResult(result, false)) {
               return true;
@@ -492,14 +499,14 @@ export const toVariableResultPromise = <
         ]);
       }
     }
-    for (const [op, callback] of callbacks) {
+    for (const [op, initialResult, callback] of callbacks) {
       try {
         const pollingCallback =
           operationType === "get"
             ? async (result: any) =>
                 (await callback(result)) === true && poll?.(op, pollingCallback)
             : callback;
-        await pollingCallback(op);
+        await pollingCallback(initialResult);
       } catch (error) {
         const message = `${operationType} callback for ${formatVariableKey(
           op

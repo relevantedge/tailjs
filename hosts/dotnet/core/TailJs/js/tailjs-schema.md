@@ -3,6 +3,7 @@
 
 ## TrackedEvent {#type--urn-tailjs-core-TrackedEvent}
 *Extends*: [Tagged](#type--urn-tailjs-core-Tagged)
+*purposes*: necessary
 
 The base type for all events that are tracked.
 
@@ -25,14 +26,17 @@ The naming convention is:
 
 ## AuthenticationEvent {#type--urn-tailjs-core-AuthenticationEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 Events related to users signing in, out etc..
 
 ## CommerceEvent {#type--urn-tailjs-core-CommerceEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 ## ConsentEvent {#type--urn-tailjs-core-ConsentEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 The event that indicates whether a user has opted in to non-essential tracking used for purposes beyond non-personal, aggregated statistics or the storage of this consent itself.
 
@@ -53,6 +57,7 @@ Also, "consent" and "event" rhymes.
 
 ## OrderCancelledEvent {#type--urn-tailjs-core-OrderCancelledEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 An order was cancelled.
 
@@ -63,6 +68,7 @@ An order was cancelled.
 
 ## OrderCompletedEvent {#type--urn-tailjs-core-OrderCompletedEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 An order was cancelled.
 
@@ -72,6 +78,7 @@ An order was cancelled.
 
 ## OrderConfirmedEvent {#type--urn-tailjs-core-OrderConfirmedEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 An order was accepted.
 
@@ -85,6 +92,7 @@ This event should also imply that the user got a confirmation.
 
 ## OrderStatusEvent {#type--urn-tailjs-core-OrderStatusEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 Base event for events that related to an order changing status.
 
@@ -94,6 +102,7 @@ Base event for events that related to an order changing status.
 
 ## SessionLocationEvent {#type--urn-tailjs-core-SessionLocationEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent), [SessionScoped](#type--urn-tailjs-core-SessionScoped)
+*purposes*: necessary
 
 This event is triggered whenever the user's location changes.
 
@@ -111,6 +120,7 @@ This event is triggered whenever the user's location changes.
 
 ## SessionStartedEvent {#type--urn-tailjs-core-SessionStartedEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -121,11 +131,13 @@ This event is triggered whenever the user's location changes.
 
 ## SystemEvent {#type--urn-tailjs-core-SystemEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 Events implementing this interface are supporting the infrastructure and should not appear in BI/analytics.
 
 ## UserAgentEvent {#type--urn-tailjs-core-UserAgentEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent), [SessionScoped](#type--urn-tailjs-core-SessionScoped)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -139,6 +151,7 @@ Events implementing this interface are supporting the infrastructure and should 
 
 ## UserInteractionEvent {#type--urn-tailjs-core-UserInteractionEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -151,6 +164,7 @@ Events implementing this interface are supporting the infrastructure and should 
 
 ## ViewEvent {#type--urn-tailjs-core-ViewEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent)
+*purposes*: necessary
 
 This event is sent a user navigates between views. (page, screen or similar).
 
@@ -183,6 +197,7 @@ This event does not
 
 ## SignInEvent {#type--urn-tailjs-core-SignInEvent}
 *Extends*: [AuthenticationEvent](#type--urn-tailjs-core-AuthenticationEvent)
+*purposes*: necessary
 
 A user signed in.
 
@@ -194,6 +209,7 @@ A user signed in.
 
 ## SignOutEvent {#type--urn-tailjs-core-SignOutEvent}
 *Extends*: [AuthenticationEvent](#type--urn-tailjs-core-AuthenticationEvent)
+*purposes*: necessary
 
 A user actively signed out. (Session expiry doesn't count).
 
@@ -204,6 +220,7 @@ A user actively signed out. (Session expiry doesn't count).
 
 ## CartAbandonedEvent {#type--urn-tailjs-core-CartAbandonedEvent}
 *Extends*: [CommerceEvent](#type--urn-tailjs-core-CommerceEvent), [Order](#type--urn-tailjs-core-Order)
+*purposes*: necessary
 
 The shopping cart was abandoned. Currently there is no logic in the tracker to trigger this event automatically, hence a custom trigger must be implemented.
 
@@ -214,6 +231,7 @@ The shopping cart was abandoned. Currently there is no logic in the tracker to t
 
 ## OrderEvent {#type--urn-tailjs-core-OrderEvent}
 *Extends*: [CommerceEvent](#type--urn-tailjs-core-CommerceEvent), [Order](#type--urn-tailjs-core-Order)
+*purposes*: necessary
 
 An order submitted by a user.
 
@@ -223,6 +241,7 @@ An order submitted by a user.
 
 ## PaymentEvent {#type--urn-tailjs-core-PaymentEvent}
 *Extends*: [CommerceEvent](#type--urn-tailjs-core-CommerceEvent)
+*purposes*: necessary
 
 Events related to order payments.
 
@@ -235,6 +254,7 @@ Events related to order payments.
 
 ## ResetEvent {#type--urn-tailjs-core-ResetEvent}
 *Extends*: [TrackedEvent](#type--urn-tailjs-core-TrackedEvent), [SystemEvent](#type--urn-tailjs-core-SystemEvent)
+*purposes*: necessary
 
 An event that can be used to reset the current session and optionally also device. Intended for debugging and not relayed to backends.
 
@@ -246,6 +266,7 @@ An event that can be used to reset the current session and optionally also devic
 
 ## AnchorNavigationEvent {#type--urn-tailjs-core-AnchorNavigationEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent)
+*purposes*: necessary
 
 The event that is triggered when a page scroll to a specific section based on an anchor in the URL (e.g. /page#section-3)
 
@@ -256,6 +277,7 @@ The event that is triggered when a page scroll to a specific section based on an
 
 ## CartUpdatedEvent {#type--urn-tailjs-core-CartUpdatedEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent), [CommerceEvent](#type--urn-tailjs-core-CommerceEvent), [CartEventData](#type--urn-tailjs-core-CartEventData)
+*purposes*: necessary
 
 Indicates that a shopping cart was updated.
 
@@ -265,6 +287,7 @@ Indicates that a shopping cart was updated.
 
 ## ComponentClickEvent {#type--urn-tailjs-core-ComponentClickEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent)
+*purposes*: necessary
 
 The event is triggered when a component is clicked.
 
@@ -276,6 +299,7 @@ This applies only to components that have click tracking configured, either via`
 
 ## ComponentClickIntentEvent {#type--urn-tailjs-core-ComponentClickIntentEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent)
+*purposes*: necessary
 
 The event is triggered when a user probably wanted to click a component but nothing happened.
 
@@ -291,6 +315,7 @@ This applies only to components that have click tracking configured, either via`
 
 ## ComponentViewEvent {#type--urn-tailjs-core-ComponentViewEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent)
+*purposes*: necessary
 
 This event is triggered when the user scrolls a component into view if it is configured for this kind of tracking.
 
@@ -300,6 +325,7 @@ This event is triggered when the user scrolls a component into view if it is con
 
 ## FormEvent {#type--urn-tailjs-core-FormEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -313,6 +339,7 @@ This event is triggered when the user scrolls a component into view if it is con
 
 ## ImpressionEvent {#type--urn-tailjs-core-ImpressionEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent)
+*purposes*: necessary
 
 The event is triggered when more than 75 % of the component's has been visible for at least 1 second, or the component has taken up at least 33 % of the viewport width or height for at least 1 second, whichever comes first.
 
@@ -333,6 +360,7 @@ Note that impression tracking cannot be configured via the DOM/CSS for secondary
 
 ## NavigationEvent {#type--urn-tailjs-core-NavigationEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -347,6 +375,7 @@ Note that impression tracking cannot be configured via the DOM/CSS for secondary
 
 ## ScrollEvent {#type--urn-tailjs-core-ScrollEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -356,6 +385,7 @@ Note that impression tracking cannot be configured via the DOM/CSS for secondary
 
 ## SearchEvent {#type--urn-tailjs-core-SearchEvent}
 *Extends*: [UserInteractionEvent](#type--urn-tailjs-core-UserInteractionEvent)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -367,6 +397,7 @@ Note that impression tracking cannot be configured via the DOM/CSS for secondary
 
 ## PaymentAcceptedEvent {#type--urn-tailjs-core-PaymentAcceptedEvent}
 *Extends*: [PaymentEvent](#type--urn-tailjs-core-PaymentEvent)
+*purposes*: necessary
 
 The payment for an order was accepted.
 
@@ -377,6 +408,7 @@ The payment for an order was accepted.
 
 ## PaymentRejectedEvent {#type--urn-tailjs-core-PaymentRejectedEvent}
 *Extends*: [PaymentEvent](#type--urn-tailjs-core-PaymentEvent)
+*purposes*: necessary
 
 A payment for the order was rejected.
 
@@ -387,6 +419,7 @@ A payment for the order was rejected.
 # Other types
 
 ## ClickIds {#type--urn-tailjs-core-ClickIds}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -397,6 +430,7 @@ A payment for the order was rejected.
 |googleAnalytics|string||||
 
 ## CommerceData {#type--urn-tailjs-core-CommerceData}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -407,6 +441,7 @@ A payment for the order was rejected.
 |stock|number|||The current number of units in stock.<br><br>Use fixed integer values if you do not want to reveal the actual stock, e.g. (0 = none, 10 = few, 100 = many).|
 
 ## DataPurposes {#type--urn-tailjs-core-DataPurposes}
+*purposes*: necessary
 
 The purposes data can be used for. Non-necessary data requires an individual's consent to be collected and used.
 
@@ -423,6 +458,7 @@ Whether the two purposes "personalization" and "security" are considered separat
 |security|boolean|||Data stored for this purpose is related to security such as authentication, fraud prevention, and other user protection.<br><br>This purpose is per default synonymous with` DataPurposes.essential ` but can be configured to be a separate purpose that requires its own consent.|
 
 ## DataUsage {#type--urn-tailjs-core-DataUsage}
+*purposes*: necessary
 
 The combination of the classification and purposes it can be used for determines whether data can be stored or used when compared to an individual's consent.
 
@@ -432,6 +468,7 @@ The combination of the classification and purposes it can be used for determines
 |purposes|[DataPurposes](#type--urn-tailjs-core-DataPurposes)|||The purposes the data may be used for.<br><br>If a data point has multiple purposes, consent is only need for one of them for the data to get stored. However, if some logic tries to read the data for a purpose without consent, it is not returned, since it is only stored for other purposes.<br><br>Purposes do not restrict anonymous data. If no purposes are explicitly specified it implies "necessary".<br><br>For schema definitions see` SchemaDataUsage ` for inheritance rules.|
 
 ## Domain {#type--urn-tailjs-core-Domain}
+*purposes*: necessary
 
 Represents a domain name, e.g. https://www.foo.co.uk
 
@@ -441,6 +478,7 @@ Represents a domain name, e.g. https://www.foo.co.uk
 |host|string||||
 
 ## ElementInfo {#type--urn-tailjs-core-ElementInfo}
+*purposes*: necessary
 
 Basic information about an HTML element.
 
@@ -452,6 +490,7 @@ Basic information about an HTML element.
 |rect|[Rectangle](#type--urn-tailjs-core-Rectangle)||||
 
 ## EventMetadata {#type--urn-tailjs-core-EventMetadata}
+*purposes*: necessary
 
 These properties are used to track the state of events as they get collected, and not stored.
 
@@ -462,6 +501,7 @@ These properties are used to track the state of events as they get collected, an
 |posted|boolean|||Hint to client code, that the event has been posted to the server.|
 
 ## ExternalReference {#type--urn-tailjs-core-ExternalReference}
+*purposes*: necessary
 
 Represent a reference to externally defined data.
 
@@ -484,10 +524,12 @@ The tenet is that if you only use an URL from a web page, or the name of a campa
 |path|string|||Optionally, the path of the item at the time the event was recorded. Ideally, this should be retrieved from the source system when doing reporting to avoid inconsistent data and wasting space.|
 
 ## ExternalUse {#type--urn-tailjs-core-ExternalUse}
+*purposes*: necessary
 
 Types and interfaces extending this marker interface directly must have a concrete type that can be instantiated in code-generation scenarios because they are referenced directly outside of the types package.
 
 ## FormField {#type--urn-tailjs-core-FormField}
+*purposes*: necessary
 
 A form field value in a` FormEvent ` .
 
@@ -506,6 +548,7 @@ A form field value in a` FormEvent ` .
 |lastField|boolean|||The field was the last one to be filled before the form was either submitted or abandoned.|
 
 ## GeoEntity {#type--urn-tailjs-core-GeoEntity}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -515,6 +558,7 @@ A form field value in a` FormEvent ` .
 |confidence|number||||
 
 ## ImpressionEvent_regions_type {#type--urn-tailjs-core-ImpressionEvent_regions_type}
+*purposes*: necessary
 
 Detailed information about the parts of the component that was viewed. This information is only provided if the component spans more than 125 % of the viewport's height.
 
@@ -525,6 +569,7 @@ Detailed information about the parts of the component that was viewed. This info
 |bottom|[ImpressionRegionStats](#type--urn-tailjs-core-ImpressionRegionStats)|||The bottom 25 % of the component.|
 
 ## ImpressionRegionStats {#type--urn-tailjs-core-ImpressionRegionStats}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -534,6 +579,7 @@ Detailed information about the parts of the component that was viewed. This info
 |read|percentage|||The percentage of the component's area that was visible at some point during the` View ` .|
 
 ## ImpressionTextStats {#type--urn-tailjs-core-ImpressionTextStats}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -546,12 +592,14 @@ Detailed information about the parts of the component that was viewed. This info
 |readTime|number|||The estimated time it will take for an average user to read all the text. The duration is in milliseconds since that is the time precision for ECMAScript timestamps.<br><br>The estimate is assuming "Silent reading time" which seems to be 238 words per minute according to [Marc Brysbaert's research] (https://www.sciencedirect.com/science/article/abs/pii/S0749596X19300786?via%3Dihub)|
 
 ## Personalizable {#type--urn-tailjs-core-Personalizable}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
 |personalization|Array\<[Personalization](#type--urn-tailjs-core-Personalization)\>||||
 
 ## Position {#type--urn-tailjs-core-Position}
+*purposes*: necessary
 
 Represents a position where the units are (CSS pixels)[#DevicePixelRatio].
 
@@ -561,6 +609,7 @@ Represents a position where the units are (CSS pixels)[#DevicePixelRatio].
 |y|number||||
 
 ## ScopeInfo {#type--urn-tailjs-core-ScopeInfo}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -572,6 +621,7 @@ Represents a position where the units are (CSS pixels)[#DevicePixelRatio].
 |userAgent|string|||The user agent of the client (only included when debugging).|
 
 ## ScreenPosition {#type--urn-tailjs-core-ScreenPosition}
+*purposes*: necessary
 
 Represents a position where the units are percentages relative to an element or page.
 
@@ -584,6 +634,7 @@ Represents a position where the units are percentages relative to an element or 
 |pageFolds|number|||The vertical position as a multiple of the page fold position (less than 1 means that the element was visible without scrolling).|
 
 ## Session {#type--urn-tailjs-core-Session}
+*purposes*: necessary
 
 Identifiers related to a user's session, login and device. Based on the user's consent some of these fields may be unavailable.
 
@@ -601,10 +652,12 @@ Identifiers related to a user's session, login and device. Based on the user's c
 |expiredDeviceSessionId|string|indirect|performance, functionality|This value indicates that an old device session "woke up" with an old device session ID and took over a new one. This may happen when background tabs are suspended.<br><br>Post-processing can decide how to tie them together when the same tab participates in two sessions (which goes against the definition of a device session).|
 
 ## SessionScoped {#type--urn-tailjs-core-SessionScoped}
+*purposes*: necessary
 
 Events implementing this interface indicate that they contain information that relates to the entire session and not just the page view where they happened.
 
 ## Size {#type--urn-tailjs-core-Size}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -612,6 +665,7 @@ Events implementing this interface indicate that they contain information that r
 |height|number||||
 
 ## Tag {#type--urn-tailjs-core-Tag}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -620,6 +674,7 @@ Events implementing this interface indicate that they contain information that r
 |score|number|||How strongly the tags relates to the target.|
 
 ## Tagged {#type--urn-tailjs-core-Tagged}
+*purposes*: necessary
 
 Types extending this interface allow custom values that are not explicitly defined in their schema.
 
@@ -630,6 +685,7 @@ See` tags ` for details.
 |tags|Array\<[Tag](#type--urn-tailjs-core-Tag)\>|||Tags in tail.js are a flexible form of key/value pairs that can be used to categorize events, track component parameters and add contextual information to content data organized in a taxonomy specific to your business domain.<br><br>Examples of tags are `promotion, color=black`, `rendering:component:theme=dark`, `ad-campaign=43899`, `ext1:video:play` and `area=investors+9, area=consumers+2`<br><br>As in the examples above, tags can optionally have a value indicated by an equals sign (`=`), and the labels can be organized in taxonomies with each rank/taxon separated by a colon (`:`).<br><br>It is possible to specify "how much" a tag applies to something via a _tag score_. A common use case is to get a straight-forward way categorize sessions based on the users interests. For example, if a user mostly clicks on CTAs and reads content with tags like `audience=investors+8,audience=consumers+1` the score for the "investors" audience will ultimately be higher than the score for "consumers".<br><br>Tags are separated by comma (`,`).<br><br>The following rules apply:<br>- There should not be quotes around tag values. If there are they will get interpreted as part of the value.<br>- Tag names will get "cleaned" while they are tracked, and all letters are converted to lowercase and other characters than numbers, `.`, `-` and `_` are replaced with `_`.<br>- Tag values can be mostly anything, but you should keep them short and prefer referencing things by their external ID instead of their names.<br>- If you need the `,` literal as part of a tag value it can be escaped by adding a backslash in front of it (`\,`), however using commas or similar characters to store a list of values in the same tag is discouraged as each value should rather have its own tag.<br><br>BAD: `selected=1\,2\,3`, `selected=1|2|3` GOOD: `selected=1, selected=2, selected=3`<br><br>BAD: `event=My social gathering in July,source=eventbrite` GOOD: `event:eventbrite:id=8487912`<br><br>BAD: `campaign:promo=true, utm_campaign:fb_aug4_2023` GOOD: `campaign:promo, utm:campaign=fb_aug4_2023`<br><br>Tags can either be added directly to content and component definitions when events are tracked, or added to the HTML elements that contain the components and content.<br><br>Tags are associated with HTML elements either via the `track-tags` attribute, or the `--track-tags` CSS variable in a selector that matches them, and these tags will be added to all content and components they contain including nested HTML elements.<br><br>Since stylesheets can easily be injected to a page via an external tag manager, this makes an easy way to manage the (tail.js) tags externally if you do not have access to developer resources.|
 
 ## TrackingSettings {#type--urn-tailjs-core-TrackingSettings}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -640,6 +696,7 @@ See` tags ` for details.
 |impressions|boolean|||Track impressions, that is, when the component becomes visible in the user's browser for the first time. This goes well with` region ` .<br><br>Not inherited by child components.<br><br>HTML attribute: `track-impressions`. CSS: `--track-impressions: 1/yes/true`.|
 
 ## UserAgentEvent_screen_type {#type--urn-tailjs-core-UserAgentEvent_screen_type}
+*purposes*: necessary
 
 Screen
 
@@ -651,6 +708,7 @@ Screen
 |landscape|boolean|||The device was held in landscape mode.|
 
 ## UserAgentEvent_timezone_type {#type--urn-tailjs-core-UserAgentEvent_timezone_type}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -658,6 +716,7 @@ Screen
 |offset|number|||The offset from GMT in hours.|
 
 ## UserAgentLanguage {#type--urn-tailjs-core-UserAgentLanguage}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -668,6 +727,7 @@ Screen
 |preference|integer|||The user's preference of the language (1 is highest).|
 
 ## ViewEvent_externalReferrer_type {#type--urn-tailjs-core-ViewEvent_externalReferrer_type}
+*purposes*: necessary
 
 External referrer. Internal referrers follows from the event's` TrackedEvent ["relatedView"] ` field.
 
@@ -677,6 +737,7 @@ External referrer. Internal referrers follows from the event's` TrackedEvent ["r
 |domain|[Domain](#type--urn-tailjs-core-Domain)||||
 
 ## ViewEvent_utm_type {#type--urn-tailjs-core-ViewEvent_utm_type}
+*purposes*: necessary
 
 Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wikipedia.org/wiki/UTM_parameters].
 
@@ -689,6 +750,7 @@ Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wik
 |content|string||||
 
 ## ViewTimingData {#type--urn-tailjs-core-ViewTimingData}
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -699,6 +761,7 @@ Urchin Tracking Module (UTM) parameters as defined by (Wikipedia)[https://en.wik
 
 ## OrderQuantity {#type--urn-tailjs-core-OrderQuantity}
 *Extends*: [CommerceData](#type--urn-tailjs-core-CommerceData)
+*purposes*: necessary
 
 Base information for the amount of an item added to an` Order ` or cart that is shared between` CartUpdatedEvent ` and` OrderLine ` .
 
@@ -709,9 +772,11 @@ Base information for the amount of an item added to an` Order ` or cart that is 
 
 ## UserConsent {#type--urn-tailjs-core-UserConsent}
 *Extends*: [DataUsage](#type--urn-tailjs-core-DataUsage)
+*purposes*: necessary
 
 ## ComponentElementInfo {#type--urn-tailjs-core-ComponentElementInfo}
 *Extends*: [ElementInfo](#type--urn-tailjs-core-ElementInfo)
+*purposes*: necessary
 
 Basic information about an HTML element that is associated with a component.
 
@@ -721,6 +786,7 @@ Basic information about an HTML element that is associated with a component.
 
 ## PersonalizationSource {#type--urn-tailjs-core-PersonalizationSource}
 *Extends*: [ExternalReference](#type--urn-tailjs-core-ExternalReference)
+*purposes*: necessary
 
 A specific aspect changed for a page or component for personalization as part of a` PersonalizationVariant ` .
 
@@ -731,6 +797,7 @@ A specific aspect changed for a page or component for personalization as part of
 
 ## PersonalizationVariable {#type--urn-tailjs-core-PersonalizationVariable}
 *Extends*: [ExternalReference](#type--urn-tailjs-core-ExternalReference)
+*purposes*: necessary
 
 A reference to a variable and its value in personalization.
 
@@ -740,6 +807,7 @@ A reference to a variable and its value in personalization.
 
 ## PersonalizationVariant {#type--urn-tailjs-core-PersonalizationVariant}
 *Extends*: [ExternalReference](#type--urn-tailjs-core-ExternalReference)
+*purposes*: necessary
 
 A reference to the data/content item related to a variant in personalization.
 
@@ -752,6 +820,7 @@ A reference to the data/content item related to a variant in personalization.
 
 ## SearchFieldReferenceFilter {#type--urn-tailjs-core-SearchFieldReferenceFilter}
 *Extends*: [ExternalReference](#type--urn-tailjs-core-ExternalReference)
+*purposes*: necessary
 
 A search filter that applies to a single field that must match a defined entity (e.g. "manufacturer").
 
@@ -762,6 +831,7 @@ A search filter that applies to a single field that must match a defined entity 
 
 ## SearchFilter {#type--urn-tailjs-core-SearchFilter}
 *Extends*: [ExternalReference](#type--urn-tailjs-core-ExternalReference)
+*purposes*: necessary
 
 A filter that applies to a field in a search query.
 
@@ -774,6 +844,7 @@ A filter that applies to a field in a search query.
 
 ## SearchResult {#type--urn-tailjs-core-SearchResult}
 *Extends*: [ExternalReference](#type--urn-tailjs-core-ExternalReference)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -781,6 +852,7 @@ A filter that applies to a field in a search query.
 
 ## DeviceInfo {#type--urn-tailjs-core-DeviceInfo}
 *Extends*: [ScopeInfo](#type--urn-tailjs-core-ScopeInfo)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -789,6 +861,7 @@ A filter that applies to a field in a search query.
 
 ## SessionInfo {#type--urn-tailjs-core-SessionInfo}
 *Extends*: [ScopeInfo](#type--urn-tailjs-core-ScopeInfo)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -804,9 +877,11 @@ A filter that applies to a field in a search query.
 
 ## Rectangle {#type--urn-tailjs-core-Rectangle}
 *Extends*: [Position](#type--urn-tailjs-core-Position), [Size](#type--urn-tailjs-core-Size)
+*purposes*: necessary
 
 ## Component {#type--urn-tailjs-core-Component}
 *Extends*: [Tagged](#type--urn-tailjs-core-Tagged), [ExternalReference](#type--urn-tailjs-core-ExternalReference), [Personalizable](#type--urn-tailjs-core-Personalizable)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -818,6 +893,7 @@ A filter that applies to a field in a search query.
 
 ## Content {#type--urn-tailjs-core-Content}
 *Extends*: [ExternalReference](#type--urn-tailjs-core-ExternalReference), [Tagged](#type--urn-tailjs-core-Tagged)
+*purposes*: necessary
 
 Represents a content item that can be rendered or modified via a` Component ` 
 
@@ -829,6 +905,7 @@ If the content is personalized please add the criteria
 
 ## Order {#type--urn-tailjs-core-Order}
 *Extends*: [Tagged](#type--urn-tailjs-core-Tagged)
+*purposes*: necessary
 
 Represents an order for tracking purposes.
 
@@ -846,6 +923,7 @@ Represents an order for tracking purposes.
 
 ## Personalization {#type--urn-tailjs-core-Personalization}
 *Extends*: [Tagged](#type--urn-tailjs-core-Tagged)
+*purposes*: necessary
 
 The choices made by some logic to show different content to different users depending on some traits either to help them or to make them buy more.
 
@@ -857,6 +935,7 @@ The choices made by some logic to show different content to different users depe
 
 ## CartEventData {#type--urn-tailjs-core-CartEventData}
 *Extends*: [OrderQuantity](#type--urn-tailjs-core-OrderQuantity), [ExternalUse](#type--urn-tailjs-core-ExternalUse)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -864,6 +943,7 @@ The choices made by some logic to show different content to different users depe
 
 ## OrderLine {#type--urn-tailjs-core-OrderLine}
 *Extends*: [OrderQuantity](#type--urn-tailjs-core-OrderQuantity), [Tagged](#type--urn-tailjs-core-Tagged)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -873,6 +953,7 @@ The choices made by some logic to show different content to different users depe
 
 ## Viewport {#type--urn-tailjs-core-Viewport}
 *Extends*: [Rectangle](#type--urn-tailjs-core-Rectangle)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -881,6 +962,7 @@ The choices made by some logic to show different content to different users depe
 
 ## ActivatedComponent {#type--urn-tailjs-core-ActivatedComponent}
 *Extends*: [Component](#type--urn-tailjs-core-Component)
+*purposes*: necessary
 
 The component definition related to a user activation.
 
@@ -892,6 +974,7 @@ The component definition related to a user activation.
 
 ## ConfiguredComponent {#type--urn-tailjs-core-ConfiguredComponent}
 *Extends*: [Component](#type--urn-tailjs-core-Component)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|
@@ -899,6 +982,7 @@ The component definition related to a user activation.
 
 ## ActivatedContent {#type--urn-tailjs-core-ActivatedContent}
 *Extends*: [Content](#type--urn-tailjs-core-Content)
+*purposes*: necessary
 
 The content definition related to a user activation.
 
@@ -908,6 +992,7 @@ The content definition related to a user activation.
 
 ## View {#type--urn-tailjs-core-View}
 *Extends*: [Content](#type--urn-tailjs-core-Content), [Personalizable](#type--urn-tailjs-core-Personalizable)
+*purposes*: necessary
 
 |Name|Type|Privacy|Purposes|Description|
 |-|-|-|-|-|

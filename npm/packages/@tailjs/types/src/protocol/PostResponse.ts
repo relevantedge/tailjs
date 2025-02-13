@@ -7,7 +7,12 @@ import {
 } from "..";
 
 export type VariableGetResponse<Scoped extends boolean = true> = ServerScoped<
-  VariableGetResult,
+  VariableGetResult & {
+    /**
+     * Callbacks polling for changes to this variable will not get notified when this flag is set.
+     */
+    passive?: boolean;
+  },
   Scoped
 >;
 

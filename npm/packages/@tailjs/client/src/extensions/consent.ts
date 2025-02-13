@@ -27,7 +27,8 @@ export const consent: TrackerExtensionFactory = {
           scope: "session",
           key: CONSENT_INFO_KEY,
           poll: callback,
-          refresh: true,
+          refresh: !callback,
+          passive: !callback,
         })
         .value()) as UserConsent | undefined;
 
@@ -145,15 +146,21 @@ export const consent: TrackerExtensionFactory = {
         if (isUpdateConsentCommand(command)) {
           const getter = command.consent.get;
           if (getter) {
-            getCurrentConsent(getter);
+            getCurrentConsent((current, _, previous) => {
+              return current ? getter(current, previous) : true;
+            });
           }
 
           const setter = command.consent.set;
           setter &&
-            (async () =>
-              (setter.callback ?? (() => {}))(
-                ...(await updateConsent(setter))
-              ))();
+            (async () => {
+              if ("consent" in setter) {
+                const [updated, consent] = await updateConsent(setter.consent);
+                setter.callback?.(updated, consent);
+              } else {
+                updateConsent(setter);
+              }
+            })();
 
           const externalSource = command.consent.externalSource;
 

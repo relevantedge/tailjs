@@ -1,13 +1,14 @@
 import { PLACEHOLDER_SCRIPT } from "@constants";
 
 import { isTracker, trackerConfig } from "../lib/config";
+import { ProvisionalTracker } from "../interfaces";
 
 export const CLIENT_CONFIG = trackerConfig;
 
 // Don't pollute globalThis in server context.
 let ssrTracker: any;
 
-export const setTrackerName = (name: string) => {
+export const setTrackerName = (name: string): ProvisionalTracker => {
   if (typeof window === "undefined") {
     return (ssrTracker ??= () => {});
   }

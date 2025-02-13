@@ -1,6 +1,6 @@
 import { CLIENT_STATE_CHANNEL_ID } from "@constants";
 
-import { UuidV4, extractKey } from "@tailjs/types";
+import { UuidV4, VariableGetRequest, extractKey } from "@tailjs/types";
 import {
   PartialRecord,
   assign2,
@@ -117,7 +117,7 @@ const [addStateListener, dispatchState] = createEvent<
 
 export type StateVariableChange = readonly [
   key: ClientVariableKey,
-  current: ClientVariable | undefined,
+  current: (ClientVariable & Pick<VariableGetRequest, "passive">) | undefined,
   previous: ClientVariable | undefined
 ];
 const [addVariablesChangedListener, dispatchVariablesChanged] =

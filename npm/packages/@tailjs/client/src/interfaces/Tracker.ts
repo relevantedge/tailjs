@@ -2,7 +2,8 @@ import { ArrayOrSelf, Nullish } from "@tailjs/util";
 import type { TrackerCommand, TrackerClientConfiguration } from "..";
 import { EventQueue, TrackerVariableStorage } from "../lib";
 
-export interface Tracker {
+/** The operations on the tail.js tracker that are both valid before and after it has been initialized.  */
+export interface ProvisionalTracker {
   /**
    * Allows commands to be passed as an HTTP encoded string or JSON instead of objects. This may be useful for server-side generated data.
    *
@@ -23,7 +24,10 @@ export interface Tracker {
 
   /** Executes the specified commands. */
   (...args: ArrayOrSelf<TrackerCommand | Nullish>[]): void;
+}
 
+/** The tracker after it has been initialized */
+export interface Tracker extends ProvisionalTracker {
   /**
    * A unique identifier for the tracker instance.
    */

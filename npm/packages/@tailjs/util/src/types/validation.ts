@@ -97,8 +97,8 @@ export const structuralEquals = (
   if ((value1 ?? value2) == null) return true;
 
   if (
-    isPlainObject(value1) &&
-    isPlainObject(value2) &&
+    (isArray(value1) || isPlainObject(value1)) &&
+    (isArray(value2) || isPlainObject(value2)) &&
     value1.length === value2.length
   ) {
     let n = 0;

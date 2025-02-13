@@ -62,9 +62,9 @@ export const generateSchema = (config: GenerateSchemaConfig) => {
     config.usage?.classification ?? DataClassification.anonymous
   );
 
-  schema[JsonSchemaAnnotations.Purposes] = DataPurposes.getNames(
-    config.usage?.purposes ?? {}
+  schema[JsonSchemaAnnotations.Purposes] = DataPurposes.parse(
+    config.usage?.purposes ?? {},
+    { names: true, includeDefault: true }
   );
-
   return schema;
 };
